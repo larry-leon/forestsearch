@@ -97,7 +97,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   id0 <- seq_len(NN)
   foreach::foreach(
     boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE, add = c("get_FSdata","forestsearch")),
+    .options.future = list(seed = TRUE, add = c("get_FSdata","forestsearch","get_dfpred","grf.subg.harm.survival","subgroup.search",
+                                                "subgroup.consistency","lasso_selection")),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {

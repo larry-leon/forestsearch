@@ -94,25 +94,6 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @param plot.sg Logical. Plot subgroups.
 #' @param max_subgroups_search Integer. Maximum number of subgroups to search.
 #' @param vi.grf.min Numeric. Minimum variable importance for GRF screening.
-#'
-#' @return A list with elements:
-#'   \item{grp.consistency}{Subgroup consistency results.}
-#'   \item{find.grps}{Subgroup search results.}
-#'   \item{confounders.candidate}{Candidate confounders.}
-#'   \item{confounders.evaluated}{Evaluated confounders.}
-#'   \item{df.est}{Estimation dataset with subgroup flags.}
-#'   \item{df.predict}{Prediction dataset with subgroup flags.}
-#'   \item{df.test}{Test dataset with subgroup flags.}
-#'   \item{minutes_all}{Total minutes elapsed.}
-#'   \item{grf_res}{GRF results.}
-#'   \item{sg_focus}{Subgroup focus criterion.}
-#'   \item{sg.harm}{Subgroup definition.}
-#'   \item{grf_cuts}{GRF cut expressions.}
-#'   \item{prop_maxk}{Proportion of max subgroup count.}
-#'   \item{max_sg_est}{Maximum subgroup estimate.}
-#'   \item{grf_plot}{GRF plot object.}
-#'   \item{args_call_all}{Arguments used for the call.}
-#'
 #' @importFrom stats subset complete.cases median quantile
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom data.table data.table
@@ -194,7 +175,7 @@ var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,poten
 # in order to use the same for the bootstrap analysis
 #args_call <- as.list(match.call())[-1]
 # Include defaults for call below
-args_names <- names(formals())
+args_names <- base::names(formals())
 args_call_all <- mget(args_names, envir = environment())
 # Check parallel arguments for subgroup consistency
 if(length(parallel_args) > 0){
