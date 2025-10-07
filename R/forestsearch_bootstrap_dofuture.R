@@ -88,7 +88,7 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @param reset_parallel Logical. Reset parallel plan for bootstrap.
 #' @param boot_workers Integer. Number of parallel workers.
 #' @return Data.table with bias-adjusted estimates and search metrics.
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
 #' @importFrom data.table data.table
 #' @export
 
@@ -230,7 +230,7 @@ show_three <- TRUE
 #' @return List with bootstrap results, confidence intervals, summary table, Ystar matrix, and estimates.
 #'
 #' @importFrom future plan
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
 #' @importFrom data.table data.table
 #' @export
 

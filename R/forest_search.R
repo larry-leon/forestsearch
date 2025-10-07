@@ -312,6 +312,9 @@ args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 args_FS_filtered$df <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
+cat("args_FS_filtered","\n")
+print(names(args_FS_filtered))
+
 FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
 
 if(inherits(FSdata,"try-error")) stop("FSdata error")
