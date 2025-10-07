@@ -26,7 +26,7 @@
 #' @importFrom stats median quantile
 #' @export
 
-get_FSdata<-function(df, use_lasso = FALSE,use_grf = FALSE,use_grf_only = FALSE, grf_cuts = NULL ,confounders.name,
+get_FSdata <- function(df, use_lasso = FALSE,use_grf = FALSE,use_grf_only = FALSE, grf_cuts = NULL ,confounders.name,
                      cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
                      replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                      outcome.name = "tte", event.name = "event", details=TRUE){

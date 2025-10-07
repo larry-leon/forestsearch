@@ -24,7 +24,7 @@ get_combinations_info <- function(L, maxk) {
   max_count <- 0
   indices_list <- list()
   for (k in 1:maxk) {
-    indices_k <- t(combn(L, k))
+    indices_k <- base::t(combn(L, k))
     indices_list[[paste0("k", k)]] <- indices_k
     max_count <- max_count + nrow(indices_k)
   }
@@ -257,7 +257,7 @@ hr.threshold = 1.0,max.minutes = 30,minp = 0.05,rmin = 5,details = FALSE,maxk = 
   })
 
   # Filter out NULLs and combine results
-  HR.model.k <- do.call(rbind, Filter(Negate(is.null), results_list))
+  HR.model.k <- base::do.call(rbind, Filter(Negate(is.null), results_list))
 
    t.end<-proc.time()[3]
    t.min<-(t.end-t.start)/60

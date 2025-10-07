@@ -97,8 +97,34 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   id0 <- seq_len(NN)
   foreach::foreach(
     boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE, add = c("get_FSdata","forestsearch","get_dfpred","grf.subg.harm.survival","subgroup.search",
-                                                "subgroup.consistency","lasso_selection")),
+    .options.future = list(seed = TRUE,
+                           add = c(
+                             # Functions from parallel block
+                             "get_FSdata", "dummy","run_bootstrap",
+                             "forestsearch", "forestsearch_bootstrap_dofuture","get_combinations_info",
+                             "get_dfpred",
+                             "grf.subg.harm.survival",
+                             "subgroup.search",
+                             "subgroup.consistency",
+                             "lasso_selection",
+                             "get_Cox_sg",
+                             "get_conf_force",
+                             "filter_by_lassokeep",
+                             "is.continuous",
+                             "process_conf_force_expr",
+                             "is_flag_continuous",
+                             "is_flag_drop", "acm.disjctif",  "acm.util.df2", "acm.util.df", "dummy2","ztrail","one.zero",
+                             "get_dfRes", "get_subgroup_membership",
+                             "SG_tab_estimates",
+                             "prepare_data",
+                             "run_grf",
+                             "evaluate_subgroups",
+                             "summarize_results",
+                              "clean_data", "qlow", "qhigh","FS_labels","thiscut","get_cut_name",
+                             "bootstrap_results", "remove_redundant_subgroups", "sg_consistency_out","get_split_hr","cut_var",
+                             "bootstrap_ystar", "ensure_packages", "fit_cox_models", "build_cox_formula",
+                             "format_CI","setup_parallel_SGcons", "get_covs_in", "extract_idx_flagredundancy"
+                           )),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
