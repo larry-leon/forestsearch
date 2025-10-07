@@ -83,6 +83,7 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @param est.scale Character. Effect scale (e.g., \"hr\").
 #' @param use_lasso Logical. Use LASSO for dimension reduction.
 #' @param use_grf Logical. Use GRF for variable selection.
+#' @param plot.grf Logical.  Flag to return GRF plot
 #' @param grf_res List. Precomputed GRF results (optional).
 #' @param grf_cuts Character vector of GRF cut expressions (optional).
 #' @param max_n_confounders Integer. Maximum number of confounders to evaluate.
@@ -202,7 +203,7 @@ args_names <- names(formals())
 args_call_all <- mget(args_names, envir = environment())
 # Check parallel arguments for subgroup consistency
 if(length(parallel_args) > 0){
-allowed_plans <- c("multisession", "multicore", "callr")
+allowed_plans <- c("multisession", "multicore", "callr","sequential")
 plan_type <- parallel_args$plan
 n_workers <- parallel_args$workers
 max_cores <- parallel::detectCores()
@@ -264,6 +265,9 @@ df.analysis <- dfa[complete_idx, , drop = FALSE]
 
 t.start_all<-proc.time()[3]
 
+# Initialize outputs
+grf_plot <- NULL
+grf_cuts <- NULL
 
 # If using grf and not populated then run grf
 if(use_grf && (is.null(grf_res) || is.null(grf_res$tree.cuts))) {
@@ -278,9 +282,6 @@ event.name = event.name, id.name = id.name, treat.name = treat.name, n.min = n.m
 frac.tau = frac.tau, details = details)
 ,TRUE)
 
-# Initialize outputs
-grf_plot <- NULL
-grf_cuts <- NULL
 # Check if grf_res is valid (not a try-error and not NULL)
 if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
   # If no subgroup found

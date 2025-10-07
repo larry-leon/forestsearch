@@ -334,3 +334,37 @@ digraph flowchart {
   SG_tab_estimates -> format_CI
 }
 ", width = 800, height = 400)
+
+
+
+
+
+fun_list <- c("dfnew_boot","dfnew","calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
+  "cox_summary","df_counting","double_robust_scores", "extract_subgroup","format_results", "get_targetEst","getci_Cox",
+  "getCIs","grf.estimates.out","hrCI_format","km_summary","n_pcnt","plot_subgroup","plot_weighted_km",
+  "prepare_subgroup_data","quiet","rmst_calculation","sg_tables","sort_subgroups","SummaryStat","var_summary",
+  "get_FSdata", "dummy","run_bootstrap",
+  "forestsearch", "forestsearch_bootstrap_dofuture","get_combinations_info",
+  "get_dfpred",
+  "grf.subg.harm.survival",
+  "subgroup.search",
+  "subgroup.consistency",
+  "lasso_selection",
+  "get_Cox_sg",
+  "get_conf_force",
+  "filter_by_lassokeep",
+  "is.continuous",
+  "process_conf_force_expr",
+  "is_flag_continuous",
+  "is_flag_drop", "acm.disjctif",  "acm.util.df2", "acm.util.df", "dummy2","ztrail","one.zero",
+  "get_dfRes", "get_subgroup_membership",
+  "SG_tab_estimates",
+  "prepare_data",
+  "run_grf",
+  "evaluate_subgroups",
+  "summarize_results",
+  "clean_data", "qlow", "qhigh","FS_labels","thiscut","get_cut_name",
+  "bootstrap_results", "remove_redundant_subgroups", "sg_consistency_out","get_split_hr","cut_var",
+  "bootstrap_ystar", "ensure_packages", "fit_cox_models", "build_cox_formula", "cox.formula.boot",
+  "format_CI","setup_parallel_SGcons", "get_covs_in", "extract_idx_flagredundancy"
+)

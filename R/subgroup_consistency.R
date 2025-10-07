@@ -185,7 +185,7 @@ setup_parallel_SGcons <- function(parallel_args = list(plan = "multisession", wo
   show_message <- parallel_args$show_message
   if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
 
-  allowed_plans <- c("multisession", "multicore", "callr")
+  allowed_plans <- c("multisession", "multicore", "callr", "sequential")
 
   if (!plan_type %in% allowed_plans) {
     stop("plan_type must be one of: ", paste(allowed_plans, collapse = ", "))
@@ -209,7 +209,12 @@ setup_parallel_SGcons <- function(parallel_args = list(plan = "multisession", wo
     }
     plan(future.callr::callr, workers = n_workers)
 if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
-  } else {
+  }
+  else if (plan_type == "sequential") {
+  plan(sequential)
+  if(show_message)  message("Sequential plan")
+  }
+  else {
     stop("Unknown parallel plan: ", plan_type)
   }
 }
