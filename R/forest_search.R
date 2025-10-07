@@ -119,7 +119,7 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
 #' @importFrom survival Surv
-#' @importFrom weightedSurv weightedSurvfit
+#' @importFrom weightedSurv df_counting
 #' @export
 
 forestsearch <- function(df.analysis,

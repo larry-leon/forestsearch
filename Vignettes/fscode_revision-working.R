@@ -109,7 +109,7 @@ temp <- get_FSdata(df = dfa, confounders.name = confounders.name, cut_type = "de
 # Not needed before every parallel loop.
 
 
-NB <- 5
+NB <- 3
 t.start <- proc.time()[3]
 # Bootstrap bias-correction
 # fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs,nb_boots = NB, show_three = TRUE, details = TRUE, reset_paralle_fs = FALSE, boot_workers =3)
