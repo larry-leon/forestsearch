@@ -174,17 +174,22 @@ var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,poten
 #args_call <- as.list(match.call())[-1]
 # Include defaults for call below
 args_names <- base::names(formals())
-args_call_all <- mget(args_names, envir = environment())
+args_call_all <- base::mget(args_names, envir = environment())
 # Check parallel arguments for subgroup consistency
 if(length(parallel_args) > 0){
 allowed_plans <- c("multisession", "multicore", "callr")
 plan_type <- parallel_args$plan
 n_workers <- parallel_args$workers
+max_cores <- parallel::detectCores()
 if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
 if (!plan_type %in% allowed_plans) {
 stop("parallel_args$plan must be one of: ", paste(allowed_plans, collapse = ", "))
 }
-if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) parallel_args$workers <- 1
+if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) {
+  parallel_args$workers <- 1
+} else {
+  parallel_args$workers <- min(n_workers, max_cores)
+}
 }
 
 if(!(sg_focus %in% c("hr","hrMaxSG", "hrMinSG", "maxSG", "minSG"))) stop("sg_focus must be either hr, hrMaxSG (maxSG), or hrMinSG (minSG)")
@@ -294,7 +299,7 @@ args_FS_filtered$grf_cuts <- grf_cuts
 
 # Remove
 #cat("args_FS_filtered","\n")
-print(names(args_FS_filtered))
+#print(names(args_FS_filtered))
 
 FSdata <- try(base::do.call(get_FSdata, args_FS_filtered), TRUE)
 

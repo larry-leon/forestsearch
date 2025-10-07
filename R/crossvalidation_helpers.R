@@ -12,7 +12,7 @@
 #' @importFrom stringr str_sub str_length
 #' @export
 
-forestsearch_KfoldOut<-function(res, details = FALSE,outall = FALSE){
+forestsearch_KfoldOut <- function(res, details = FALSE,outall = FALSE){
   if (!requireNamespace("weightedSurv", quietly = TRUE)) {
     stop("Package 'weightedSurv' needed for this function to work. Please install it via install_github('larry-leon/weightedSurv').")
   }

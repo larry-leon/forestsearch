@@ -82,7 +82,7 @@ system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders
                    cut_type = "default", use_grf = TRUE, use_lasso = TRUE,
                    maxk = 2,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="multisession", workers = 6, show_message = TRUE)
+                   parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -111,10 +111,12 @@ temp <- get_FSdata(df = dfa, confounders.name = confounders.name, cut_type = "de
 
 NB <- 3
 t.start <- proc.time()[3]
-# Bootstrap bias-correction
-# fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs,nb_boots = NB, show_three = TRUE, details = TRUE, reset_paralle_fs = FALSE, boot_workers =3)
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = TRUE,
-                                         parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE) )
+# fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = TRUE,
+#                                          parallel_args = list(plan = "multicore", workers = 6, show_message = TRUE) )
+
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = FALSE,
+                                          parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
+
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")

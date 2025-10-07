@@ -217,7 +217,19 @@ setup_parallel_SGcons <- function(parallel_args = list(plan = "multisession", wo
   n_workers <- parallel_args$workers
   show_message <- parallel_args$show_message
   if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
-  if (is.null(n_workers)) n_workers <- 1
+
+  allowed_plans <- c("multisession", "multicore", "callr")
+
+  if (!plan_type %in% allowed_plans) {
+    stop("plan_type must be one of: ", paste(allowed_plans, collapse = ", "))
+  }
+
+  max_cores <- parallel::detectCores()
+  if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) {
+    n_workers <- 1
+  } else {
+    n_workers <- min(n_workers, max_cores)
+  }
   if (plan_type == "multisession") {
     plan(multisession, workers = n_workers)
  if(show_message) message("Parallel plan: multisession with ", n_workers, " workers.")
