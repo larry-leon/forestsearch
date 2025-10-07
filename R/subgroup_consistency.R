@@ -111,6 +111,26 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 
 
 
+
+plot_subgroup_old <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
+  tte.name <- "Y"
+  event.name <- "Event"
+  treat.name <- "Treat"
+  con.lab <- "control"
+  exp.lab <- "treat"
+  dfcount <- df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+  dfcountC <- df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+  par(mfrow = c(1, 2))
+  plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+  plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+  cat("*** Subgroup found:", c(this.1_label), "\n")
+  cat("% consistency criteria met=", c(top_result$Pcons), "\n")
+}
+
+
+
+
+
 #' Output Subgroup Consistency Results
 #'
 #' Returns the top subgroup(s) and recommended treatment flags.
@@ -155,6 +175,7 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z, detai
 #'
 #' @param found.hrs Data.table of found subgroups.
 #' @return Data.table of non-redundant subgroups.
+#' @importFrom data.table rbind
 #' @export
 
 remove_redundant_subgroups <- function(found.hrs) {
@@ -241,7 +262,6 @@ if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
 #' @return A list with results for top subgroups and recommended treatment flags.
 #' @importFrom data.table copy
 #' @importFrom survival coxph Surv
-#' @importFrom future.apply future_lapply
 #' @export
 
 subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.9, m1.threshold = Inf, n.splits = 100,

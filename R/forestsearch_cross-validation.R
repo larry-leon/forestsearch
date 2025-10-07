@@ -1,4 +1,19 @@
 
+# Check that this can be removed after testing
+## Necessary packages
+# Add plyr needed for rbind.fill
+# requiredPackages <- c("doRNG","doFuture")
+# ## Note: cli only needed for code checking and printing when details=TRUE
+# ipak <- function(pkg){
+#   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+#   if (length(new.pkg)>0){
+#     install.packages(new.pkg, dependencies = TRUE, quietly=TRUE, verbose=FALSE, logical.return=FALSE)
+#     sapply(pkg, require, character.only = TRUE, quietly=TRUE)
+#   }
+# }
+# ipak(requiredPackages)
+# sapply(c(requiredPackages), require, character.only = TRUE, quietly=TRUE)
+
 
 #' ForestSearch K-Fold Cross-Validation
 #'
@@ -16,8 +31,7 @@
 #'
 #' @importFrom future plan
 #' @importFrom data.table data.table copy
-#' @importFrom foreach foreach
-#' @importFrom doFuture %dofuture%
+#' @importFrom foreach foreach %dopar%
 #' @export
 
 forestsearch_Kfold <- function(fs.est, Kfolds = nrow(fs.est$df.est), seedit = 8316951, parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
@@ -132,8 +146,7 @@ prop_SG_found=propn_SG, sg_analysis = fs.est$sg.harm, sg0.name = sg0.name,sg1.na
 #'
 #' @importFrom future plan
 #' @importFrom data.table data.table copy
-#' @importFrom foreach foreach
-#' @importFrom doFuture %dofuture%
+#' @importFrom foreach foreach %dopar%
 #' @export
 
 forestsearch_tenfold <- function(fs.est, sims, Kfolds = 10, details = TRUE,

@@ -1,7 +1,7 @@
 
 # List of required packages for ForestSearch analysis
 
-required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply", "DiagrammeR", "future.callr")
+required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply")
 missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
@@ -15,6 +15,7 @@ if(length(missing) > 0) stop("Missing required packages: ", paste(missing, colla
 #' @param version Integer; 1 uses \code{dummy()}, 2 uses \code{dummy2()} for factor encoding.
 #'
 #' @return Data frame with treatment recommendation flag (\code{treat.recommend}).
+#' @importFrom stats subset
 #' @export
 
 get_dfpred <- function(df.predict, sg.harm, version = 1) {
@@ -93,11 +94,32 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @param plot.sg Logical. Plot subgroups.
 #' @param max_subgroups_search Integer. Maximum number of subgroups to search.
 #' @param vi.grf.min Numeric. Minimum variable importance for GRF screening.
-#' @importFrom stats complete.cases median quantile
+#'
+#' @return A list with elements:
+#'   \item{grp.consistency}{Subgroup consistency results.}
+#'   \item{find.grps}{Subgroup search results.}
+#'   \item{confounders.candidate}{Candidate confounders.}
+#'   \item{confounders.evaluated}{Evaluated confounders.}
+#'   \item{df.est}{Estimation dataset with subgroup flags.}
+#'   \item{df.predict}{Prediction dataset with subgroup flags.}
+#'   \item{df.test}{Test dataset with subgroup flags.}
+#'   \item{minutes_all}{Total minutes elapsed.}
+#'   \item{grf_res}{GRF results.}
+#'   \item{sg_focus}{Subgroup focus criterion.}
+#'   \item{sg.harm}{Subgroup definition.}
+#'   \item{grf_cuts}{GRF cut expressions.}
+#'   \item{prop_maxk}{Proportion of max subgroup count.}
+#'   \item{max_sg_est}{Maximum subgroup estimate.}
+#'   \item{grf_plot}{GRF plot object.}
+#'   \item{args_call_all}{Arguments used for the call.}
+#'
+#' @importFrom stats subset complete.cases median quantile
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom data.table data.table
+#' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
 #' @importFrom survival Surv
+#' @importFrom weightedSurv weightedSurvfit
 #' @export
 
 forestsearch <- function(df.analysis,
@@ -284,7 +306,6 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
 if(use_grf && !exists("grf_cuts")) warning("GRF cuts not found")
 
 args_FS <- names(formals(get_FSdata))
-
 # align with args_call_all
 args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 # In get_FSdata the data source is "df"
