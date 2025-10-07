@@ -174,6 +174,27 @@ plot.grf = FALSE,
 max_subgroups_search = 10,
 vi.grf.min = -0.2){
 
+  args_names <- names(formals())
+  args_call_all <- mget(args_names, envir = environment())
+  # Check parallel arguments for subgroup consistency
+  if(length(parallel_args) > 0){
+    allowed_plans <- c("multisession", "multicore", "callr","sequential")
+    plan_type <- parallel_args$plan
+    n_workers <- parallel_args$workers
+    max_cores <- parallel::detectCores()
+    if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
+    if (!plan_type %in% allowed_plans) {
+      stop("parallel_args$plan must be one of: ", paste(allowed_plans, collapse = ", "))
+    }
+    if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) {
+      parallel_args$workers <- 1
+    } else {
+      parallel_args$workers <- min(n_workers, max_cores)
+    }
+  }
+
+
+
 if (!exists("df.analysis") | !is.data.frame(df.analysis)){
     stop("df.analysis does not exists or is not a data.frame")
   } else if (exists("df.analysis") && !is.data.frame(df.analysis)){
@@ -198,28 +219,6 @@ var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,poten
     stop("The following variables are missing in df.analysis: ", paste(missing_vars, collapse = ", "))
   }
 
-# Return the arguments to be passed to bootstrap call
-# in order to use the same for the bootstrap analysis
-#args_call <- as.list(match.call())[-1]
-# Include defaults for call below
-args_names <- names(formals())
-args_call_all <- mget(args_names, envir = environment())
-# Check parallel arguments for subgroup consistency
-if(length(parallel_args) > 0){
-allowed_plans <- c("multisession", "multicore", "callr","sequential")
-plan_type <- parallel_args$plan
-n_workers <- parallel_args$workers
-max_cores <- parallel::detectCores()
-if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
-if (!plan_type %in% allowed_plans) {
-stop("parallel_args$plan must be one of: ", paste(allowed_plans, collapse = ", "))
-}
-if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) {
-  parallel_args$workers <- 1
-} else {
-  parallel_args$workers <- min(n_workers, max_cores)
-}
-}
 
 if(!(sg_focus %in% c("hr","hrMaxSG", "hrMinSG", "maxSG", "minSG"))) stop("sg_focus must be either hr, hrMaxSG (maxSG), or hrMinSG (minSG)")
 

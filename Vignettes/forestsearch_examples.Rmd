@@ -151,7 +151,7 @@ system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders
                    sg_focus = "hrMaxSG",
                    showten_subgroups = FALSE, details=TRUE,
                    conf_force = c("er <= 0"),
-                   cut_type = "default", use_grf = TRUE, use_lasso = TRUE,
+                   cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2,
                    plot.sg = TRUE, by.risk = 12,
                    parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
@@ -182,10 +182,13 @@ res_tabs$tab_estimates
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
 # where workers are set to 12 which is the maximum on my machine;
 # Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
-NB <- 3
+NB <- 300
 t.start <- proc.time()[3]
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = TRUE, 
-                                         parallel_args = list(plan = "callr", workers = 12, show_message = TRUE) )
+# fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, 
+#                                          reset_parallel_fs = FALSE, parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, 
+                                         reset_parallel_fs = FALSE, parallel_args = list(plan = "sequential", show_message = TRUE) )
+
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
