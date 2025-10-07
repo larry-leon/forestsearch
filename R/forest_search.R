@@ -295,12 +295,12 @@ args_FS_filtered$grf_cuts <- grf_cuts
 
 # Remove
 #cat("args_FS_filtered","\n")
-#print(names(args_FS_filtered))
+print(names(args_FS_filtered))
 
 FSdata <- try(base::do.call(get_FSdata, args_FS_filtered), TRUE)
 
 if(inherits(FSdata,"try-error")){
-cat("FSdata issues","\n")
+warning("FSdata failure")
 }
 
 

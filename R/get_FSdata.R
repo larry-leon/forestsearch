@@ -51,8 +51,10 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
   types <- sapply(df[confounders.name], function(x) is.numeric(x) || is.factor(x))
   if (!all(types)) stop("All confounders must be numeric or factor.")
 
-  df <- df[complete.cases(df[, c(confounders.name, outcome.name, event.name)]), ]
+  #toget_complete <- complete.cases(df1[, c(confounders.name, outcome.name, event.name)])
+  #df <- df1[toget_complete,]
 
+  df <- df[complete.cases(df[, c(confounders.name, outcome.name, event.name)]), ]
 
   # Remove
   #print(names(df))

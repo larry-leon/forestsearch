@@ -98,7 +98,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
-                           add = c("calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
+                           add = c("outcome.name","event.name","treat.name","id.name", "confounders.name",
+                                   "calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
                                    "cox_summary","df_counting","double_robust_scores", "extract_subgroup","format_results", "get_targetEst","getci_Cox",
                                    "getCIs","grf.estimates.out","hrCI_format","km_summary","n_pcnt","plot_subgroup","plot_weighted_km",
                                    "prepare_subgroup_data","quiet","rmst_calculation","sg_tables","sort_subgroups","SummaryStat","var_summary",
@@ -183,9 +184,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     #print(args_FS_boot)
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
-    run_bootstrap <- suppressWarnings(try(do.call(forestsearch, args_FS_boot), TRUE))
+    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
-    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
+    if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
+
+      if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
       dfboot_PredBoot <- run_bootstrap$df.est
       max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
