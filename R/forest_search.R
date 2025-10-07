@@ -1,7 +1,7 @@
 
 # List of required packages for ForestSearch analysis
 
-required_packages <- c("grf","policytree","data.table","randomForest","survival","future.apply")
+required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply")
 missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
@@ -113,13 +113,12 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #'   \item{grf_plot}{GRF plot object.}
 #'   \item{args_call_all}{Arguments used for the call.}
 #'
-#' @importFrom stats subset complete.cases median quantile
+#' @importFrom stats complete.cases median quantile
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom data.table data.table
 #' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
 #' @importFrom survival Surv
-#' @importFrom weightedSurv weightedSurvfit
 #' @export
 
 forestsearch <- function(df.analysis,
@@ -173,6 +172,14 @@ if (!exists("df.analysis") | !is.data.frame(df.analysis)){
   } else if (exists("df.analysis") && !is.data.frame(df.analysis)){
     df.analysis <- as.data.frame(df.analysis)
     message("Converting df.analysis to data.frame")
+  }
+
+# Revised
+  if (is.null(id.name)) {
+    df.analysis$id <- seq_len(nrow(df.analysis))
+    id.name <- "id"
+  } else if (!(id.name %in% names(df.analysis))) {
+    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
   }
 
 var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name)

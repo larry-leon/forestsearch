@@ -7,21 +7,18 @@
 plot_subgroup(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result)
 }
 \arguments{
-\item{df.sub}{Data for the subgroup.}
+\item{df.sub}{A data frame containing data for the subgroup of interest.}
 
-\item{df.subC}{Data for the complement subgroup.}
+\item{df.subC}{A data frame containing data for the complement subgroup.}
 
-\item{by.risk}{Risk interval for plotting.}
+\item{by.risk}{Numeric. The risk interval for plotting (passed to \code{weightedSurv::df_counting}).}
 
-\item{confs_labels}{Covariate label mapping.}
+\item{confs_labels}{Named character vector. Covariate label mapping (not used directly in this function, but may be used for labeling).}
 
-\item{this.1_label}{Subgroup label.}
+\item{this.1_label}{Character. Label for the subgroup being plotted.}
 
-\item{top_result}{Top subgroup result row.}
-}
-\value{
-None. Plots to the current device.
+\item{top_result}{Data frame row. The top subgroup result row, expected to contain a \code{Pcons} column for consistency criteria.}
 }
 \description{
-Plots weighted Kaplan-Meier curves for the subgroup and its complement.
+Plots weighted Kaplan-Meier survival curves for a specified subgroup and its complement using the \pkg{weightedSurv} package.
 }

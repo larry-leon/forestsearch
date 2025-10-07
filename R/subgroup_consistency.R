@@ -78,19 +78,41 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels) {
 
 #' Plot Subgroup Survival Curves
 #'
-#' Plots weighted Kaplan-Meier curves for the subgroup and its complement.
+#' Plots weighted Kaplan-Meier survival curves for a specified subgroup and its complement using the \pkg{weightedSurv} package.
 #'
-#' @param df.sub Data for the subgroup.
-#' @param df.subC Data for the complement subgroup.
-#' @param by.risk Risk interval for plotting.
-#' @param confs_labels Covariate label mapping.
-#' @param this.1_label Subgroup label.
-#' @param top_result Top subgroup result row.
-#' @return None. Plots to the current device.
+#' @param df.sub A data frame containing data for the subgroup of interest.
+#' @param df.subC A data frame containing data for the complement subgroup.
+#' @param by.risk Numeric. The risk interval for plotting (passed to \code{weightedSurv::df_counting}).
+#' @param confs_labels Named character vector. Covariate label mapping (not used directly in this function, but may be used for labeling).
+#' @param this.1_label Character. Label for the subgroup being plotted.
+#' @param top_result Data frame row. The top subgroup result row, expected to contain a \code{Pcons} column for consistency criteria.
+#'
+#' @importFrom weightedSurv df_counting plot_weighted_km
 #' @export
 
 plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
-if (requireNamespace("weightedSurv", quietly = TRUE)) {
+  if (requireNamespace("weightedSurv", quietly = TRUE)) {
+    tte.name <- "Y"
+    event.name <- "Event"
+    treat.name <- "Treat"
+    con.lab <- "control"
+    exp.lab <- "treat"
+    dfcount <- weightedSurv::df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+    dfcountC <- weightedSurv::df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+    par(mfrow = c(1, 2))
+    weightedSurv::plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+    weightedSurv::plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+    cat("*** Subgroup found:", c(this.1_label), "\n")
+    cat("% consistency criteria met=", c(top_result$Pcons), "\n")
+  }  else {
+    message("Package 'weightedSurv' not available: skipping weighted KM plots.")
+  }
+}
+
+
+
+
+plot_subgroup_old <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
   tte.name <- "Y"
   event.name <- "Event"
   treat.name <- "Treat"
@@ -103,10 +125,11 @@ if (requireNamespace("weightedSurv", quietly = TRUE)) {
   plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
   cat("*** Subgroup found:", c(this.1_label), "\n")
   cat("% consistency criteria met=", c(top_result$Pcons), "\n")
-}  else {
-    message("Package 'weightedSurv' not available: skipping weighted KM plots.")
-  }
 }
+
+
+
+
 
 #' Output Subgroup Consistency Results
 #'
