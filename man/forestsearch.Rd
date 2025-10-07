@@ -51,6 +51,7 @@ forestsearch(
   maxk = 2,
   by.risk = 12,
   plot.sg = FALSE,
+  plot.grf = FALSE,
   max_subgroups_search = 10,
   vi.grf.min = -0.2
 )

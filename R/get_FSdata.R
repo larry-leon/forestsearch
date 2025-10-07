@@ -8,7 +8,6 @@
 #' @param df Data frame containing the data.
 #' @param use_lasso Logical. Whether to use LASSO for dimension reduction.
 #' @param use_grf Logical. Whether to use GRF cuts.
-#' @param use_grf_only Logical. If TRUE, only GRF cuts are used for selection.
 #' @param grf_cuts Character vector of GRF cut expressions.
 #' @param confounders.name Character vector of confounder variable names.
 #' @param cont.cutoff Integer. Cutoff for continuous variable determination.
@@ -26,7 +25,7 @@
 #' @importFrom stats median quantile
 #' @export
 
-get_FSdata <- function(df, use_lasso = FALSE,use_grf = FALSE,use_grf_only = FALSE, grf_cuts = NULL ,confounders.name,
+get_FSdata <- function(df, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,confounders.name,
                      cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
                      replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                      outcome.name = "tte", event.name = "event", details=TRUE){
@@ -67,10 +66,8 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
   }
 
   # If grf was attempted but NO cuts were found then considering no cuts per grf
-  if(use_grf && is.null(grf_cuts)) use_grf<-FALSE
+  if(use_grf && is.null(grf_cuts)) use_grf <- FALSE
 
-  # Reset use_lasso if ONLY using grf (use_grf_only)
- if(use_grf_only) use_lasso <- FALSE
   if(use_lasso &  (is.null(outcome.name) | is.null(event.name))) stop("Cox variable names needed for lasso (outcome and event)")
 
   flag_continuous <- vapply(
@@ -97,8 +94,7 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
   }
   lassokeep <- NULL
   lassoomit <- NULL
-  # use_grf_only ONLY applies GRF for cut selection
-  if(use_lasso && !use_grf_only){
+  if(use_lasso){
     # Reduce dimension via Cox lasso
     get_lasso <- lasso_selection(
       df = dfa,
@@ -125,8 +121,6 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
 if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
   } # Done Lasso
 
-  # For GRF only reset conf.cont_medians
-  if(use_grf_only) conf.cont_medians <- NULL
   # If forcing any cuts, then done below
   if (use_lasso && cut_type == "default") {
     conf_force_lasso <- NULL

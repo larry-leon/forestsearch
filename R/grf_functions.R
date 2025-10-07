@@ -24,8 +24,8 @@
 #' @importFrom stats aggregate
 #' @export
 
-grf.subg.harm.survival <- function(data,confounders.name,outcome.name,event.name,id.name,treat.name,frac.tau=1.0,n.min = 60,dmin.grf=0.0,
-RCT = TRUE, details=FALSE,sg.criterion="mDiff",maxdepth=2,seedit=8316951){
+grf.subg.harm.survival <- function(data,confounders.name ,outcome.name ,event.name, id.name, treat.name, frac.tau = 1.0,n.min = 60, dmin.grf = 0.0,
+RCT = TRUE, details = FALSE,sg.criterion = "mDiff", maxdepth = 2,seedit = 8316951){
 if(maxdepth>3) stop("Max depth at most 3")
 
 # original data.frame version
@@ -36,7 +36,7 @@ Y <- data[,outcome.name]
 W <- data[,treat.name]
 D <- data[,event.name]
 
-tau.rmst<-frac.tau * min(c(max(Y[W==1 & D==1]),max(Y[W==0 & D==1])))
+tau.rmst <- frac.tau * min(c(max(Y[W==1 & D==1]),max(Y[W==0 & D==1])))
 
 if(RCT) cs.forest <- try(suppressWarnings(grf::causal_survival_forest(X,Y,W,D,W.hat=0.5,horizon=tau.rmst,seed=seedit)),TRUE)
 if(!RCT) cs.forest <- try(suppressWarnings(grf::causal_survival_forest(X,Y,W,D,horizon=tau.rmst,seed=seedit)),TRUE)
@@ -53,7 +53,7 @@ if(!RCT) cs.forest <- try(suppressWarnings(grf::causal_survival_forest(X,Y,W,D,h
 n.max <- length(Y)
 
 # Compute doubly robust scores.
-dr.scores <- policytree::double_robust_scores(cs.forest)
+dr.scores <- double_robust_scores(cs.forest)
 
 # Fit trees of depths 1-3
 tree1 <- policytree::policy_tree(X, dr.scores, depth = 1)
@@ -70,7 +70,6 @@ values1$Nsg <- values1$control[,"size"]
 values1 <- values1[which(values1$control[,"size"] >= n.min),]
 values1$depth <- 1.0
 if(maxdepth==1) values <- values1
-
 tree2 <- NULL
 if(maxdepth >= 2){
 tree2 <- policytree::policy_tree(X, dr.scores, depth = 2)

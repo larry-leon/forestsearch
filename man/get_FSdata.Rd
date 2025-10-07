@@ -8,7 +8,6 @@ get_FSdata(
   df,
   use_lasso = FALSE,
   use_grf = FALSE,
-  use_grf_only = FALSE,
   grf_cuts = NULL,
   confounders.name,
   cont.cutoff = 4,
@@ -30,8 +29,6 @@ get_FSdata(
 \item{use_lasso}{Logical. Whether to use LASSO for dimension reduction.}
 
 \item{use_grf}{Logical. Whether to use GRF cuts.}
-
-\item{use_grf_only}{Logical. If TRUE, only GRF cuts are used for selection.}
 
 \item{grf_cuts}{Character vector of GRF cut expressions.}
 

@@ -179,7 +179,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot$parallel_args$show_message <- FALSE
     }
 
-
     #print(args_FS_boot)
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
@@ -212,7 +211,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
       Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
 
-      rm("run_bootstrap")
 
     }
 
@@ -241,15 +239,15 @@ format_CI <- function(estimates, col_names) {
 
 # Do not export
 # For checking bootstrap to initiate defaults
-# forchecking <- function(fs_res){
-# fs.est <- fs_res
-# nb_boots <- 1
-# details <- TRUE
-# show_three <- TRUE
-#  reset_parallel_fs <- TRUE
-#  boot_workers <- 6
-#  parallel_args <- list(plan = "multisession", workers = 6, show_message = TRUE)
-# }
+forchecking <- function(fs){
+fs.est <- fs
+nb_boots <- 3
+details <- TRUE
+show_three <- TRUE
+ reset_parallel_fs <- TRUE
+ boot_workers <- 6
+ parallel_args <- list(plan = "multisession", workers = 6, show_message = TRUE)
+}
 
 
 #' ForestSearch Bootstrap with doFuture Parallelization

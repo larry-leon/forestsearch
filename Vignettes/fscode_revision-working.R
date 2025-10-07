@@ -98,7 +98,7 @@ res_tabs$sg10_out
 #plan(sequential)
 
 temp <- get_FSdata(df = dfa, confounders.name = confounders.name, cut_type = "default", use_grf = TRUE,
-                   outcome.name = "tte", event.name = "event", use_lasso = FALSE, conf_force=c("age <= 65","meno == 0"))
+                   outcome.name = "tte", event.name = "event", use_lasso = TRUE, conf_force=c("age <= 65","meno == 0"))
 
 
 
@@ -108,13 +108,12 @@ temp <- get_FSdata(df = dfa, confounders.name = confounders.name, cut_type = "de
 # Call once per session/backend setup.
 # Not needed before every parallel loop.
 
-
 NB <- 5
 t.start <- proc.time()[3]
 # Bootstrap bias-correction
 # fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs,nb_boots = NB, show_three = TRUE, details = TRUE, reset_paralle_fs = FALSE, boot_workers =3)
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = TRUE,
-                                         parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE) )
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = FALSE,
+                                         parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")

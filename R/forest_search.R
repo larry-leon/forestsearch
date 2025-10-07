@@ -143,7 +143,7 @@ max.minutes = 3,
 minp = 0.025,
 details = FALSE,
 maxk = 2,
-by.risk = 12, plot.sg = FALSE,
+by.risk = 12, plot.sg = FALSE, plot.grf = FALSE,
 max_subgroups_search = 10,
 vi.grf.min = -0.2){
 
@@ -173,8 +173,8 @@ var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,poten
 # in order to use the same for the bootstrap analysis
 #args_call <- as.list(match.call())[-1]
 # Include defaults for call below
-args_names <- base::names(formals())
-args_call_all <- base::mget(args_names, envir = environment())
+args_names <- names(formals())
+args_call_all <- mget(args_names, envir = environment())
 # Check parallel arguments for subgroup consistency
 if(length(parallel_args) > 0){
 allowed_plans <- c("multisession", "multicore", "callr")
@@ -207,10 +207,6 @@ if(!is.null(defaultcut_names)){
 if(all(defaultcut_names %in% names(df.analysis)) != TRUE) stop("Not all confounders for default cuts found in dataset")
 }
 
-if (is.null(id.name)) {
-  df.analysis$id <- seq_len(nrow(df.analysis))
-  id.name <- "id"
-}
 
 if(is.null(confounders.name)) stop("Confounder names (confounders.name) required")
 if(is.null(outcome.name) || is.null(event.name) || is.null(treat.name)) stop("outcome.name, event.name, and treat.name required (missing at least 1)")
@@ -250,10 +246,12 @@ if(details){
 cat("GRF stage for cut selection with dmin,tau=",c(dmin.grf, frac.tau),"\n")
 }
 grf_res <- NULL
-grf_res <- try(grf.subg.harm.survival(data = df.analysis,confounders.name = confounders.name,
+grf_res <- try(
+grf.subg.harm.survival(data = df.analysis, confounders.name = confounders.name,
 outcome.name = outcome.name, RCT = is.RCT,seedit = seedit,maxdepth = grf_depth,
 event.name = event.name, id.name = id.name, treat.name = treat.name, n.min = n.min, dmin.grf = dmin.grf,
-frac.tau = frac.tau, details = details),TRUE)
+frac.tau = frac.tau, details = details)
+,TRUE)
 
 # Initialize outputs
 grf_plot <- NULL
@@ -269,12 +267,12 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
   } else {
     # If subgroup found
     # Check for DiagrammeR availability
-    if (requireNamespace("DiagrammeR", quietly = TRUE)) {
+    if (requireNamespace("DiagrammeR", quietly = TRUE) && plot.grf) {
       grf_plot <- plot(grf_res$tree, leaf.labels = c("Control", "Treat"))
     } else {
-      warning("Skipping tree plot --> DiagrammeR packaged required to view tree graph")
+      #warning("Skipping tree plot --> DiagrammeR packaged required to view tree graph")
       if (isTRUE(details)) {
-        cat("DiagrammeR or plot.policy_tree not available: skipping tree plot.\n")
+        cat("DiagrammeR or not creating: skipping tree plot.\n")
       }
       grf_plot <- NULL
     }
@@ -289,7 +287,7 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
 
 if(use_grf && !exists("grf_cuts")) warning("GRF cuts not found")
 
-get_argsFS <- base::formals(get_FSdata)
+get_argsFS <- formals(get_FSdata)
 args_FS <- names(get_argsFS)
 # align with args_call_all
 args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
@@ -298,10 +296,13 @@ args_FS_filtered$df <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
 # Remove
-#cat("args_FS_filtered","\n")
-#print(names(args_FS_filtered))
+# cat("args_FS_filtered","\n")
+# print(names(args_FS_filtered))
 
-FSdata <- try(base::do.call(get_FSdata, args_FS_filtered), TRUE)
+# FSdata1 <- do.call(get_FSdata, args_FS_filtered)
+# print(names(FSdata1))
+
+FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
 
 if(inherits(FSdata,"try-error")){
 warning("FSdata failure")
@@ -391,7 +392,7 @@ df.confounders <- dummy(df.confounders)
   if(plot.sg && is.null(by.risk)) by.risk<-round(max(Y)/12,0)
   if(details) cat("# of candidate subgroups (meeting all criteria) = ",c(nrow(find.grps$out.found$hr.subgroups)),"\n")
 
-  args_sgc <- base::names(formals(subgroup.consistency))
+  args_sgc <- names(formals(subgroup.consistency))
   # align with args_call_all
   args_sgc_filtered <- args_call_all[names(args_call_all) %in% args_sgc]
   args_sgc_filtered$df <- df.fs
@@ -401,7 +402,7 @@ df.confounders <- dummy(df.confounders)
   args_sgc_filtered$n.splits <- fs.splits
   args_sgc_filtered$stop_Kgroups <- max_subgroups_search
 
-  grp.consistency <- base::do.call(subgroup.consistency, args_sgc_filtered)
+  grp.consistency <- do.call(subgroup.consistency, args_sgc_filtered)
 
   t.end_all<-proc.time()[3]
   t.min_all<-(t.end_all-t.start_all)/60
