@@ -124,7 +124,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
                              "summarize_results",
                               "clean_data", "qlow", "qhigh","FS_labels","thiscut","get_cut_name",
                              "bootstrap_results", "remove_redundant_subgroups", "sg_consistency_out","get_split_hr","cut_var",
-                             "bootstrap_ystar", "ensure_packages", "fit_cox_models", "build_cox_formula",
+                             "bootstrap_ystar", "ensure_packages", "fit_cox_models", "build_cox_formula", "cox.formula.boot",
                              "format_CI","setup_parallel_SGcons", "get_covs_in", "extract_idx_flagredundancy"
                            )),
     .combine = "rbind",
