@@ -61,7 +61,7 @@ tree1 <- policytree::policy_tree(X, dr.scores, depth = 1)
 # predicted=1 --> treat rec. = control
 # predicted=2 --> treat rec. = treated
 #data$predict.action<-predict(tree, X)
-data$predict1.node <- predict(tree1,X,type="node.id")
+data$predict1.node <- base::predict(tree1,X,type="node.id")
 values1 <- stats::aggregate(dr.scores, by = list(leaf.node = data$predict1.node),
                     FUN = function(x) c(mean = mean(x), size=length(x), se = sd(x) / sqrt(length(x))))
 values1$diff <- values1$control[,"mean"]-values1$treated[,"mean"]
@@ -89,7 +89,7 @@ tree3 <- NULL
 # At most depth=3
 if(maxdepth==3){
 tree3 <- policytree::policy_tree(X, dr.scores, depth = 3)
-data$predict3.node <- predict(tree3,X,type="node.id")
+data$predict3.node <- base::predict(tree3,X,type="node.id")
 values3 <- stats::aggregate(dr.scores, by = list(leaf.node = data$predict3.node),
                      FUN = function(x) c(mean = mean(x), size=length(x), se = sd(x) / sqrt(length(x))))
 values3$diff <- values3$control[,"mean"]-values3$treated[,"mean"]
@@ -109,7 +109,7 @@ max.diff <- NULL
 # Select max.diff based on criterion
 if (identical(sg.criterion, "mDiff")) {
   if (nrow(values) == 0) stop("'values' is empty.")
-  loc.max <- which.max(values$diff)
+  loc.max <- base::which.max(values$diff)
   max.diff <- values[loc.max, , drop = FALSE]
 } else if (identical(sg.criterion, "Nsg")) {
   if (!"Nsg" %in% names(values)) stop("'values' must contain column 'Nsg' for Nsg criterion.")
@@ -160,7 +160,7 @@ tnodes <- tree$nodes
 sg_cov<-NULL
 sg_cut<-NULL
 for(tt in 1:length(tnodes)){
-  temp <- tnodes[[tt]]
+  temp <- policytree::tnodes[[tt]]
   if(!temp$is_leaf){
     if(temp$left_child == sg_node | temp$right_child == sg_node){
       sg_cov <- temp$split_variable
@@ -175,7 +175,7 @@ vmax <- paste0(vmax,sg_cut,sep="")
 Vsg_cuts <- NULL
 Vsg_names <- NULL
 for(tt in 1:length(tnodes)){
-  temp <- tnodes[[tt]]
+  temp <- policytree::tnodes[[tt]]
   if(!temp$is_leaf){
     sg_cov <- temp$split_variable
     sg_cut <- round(temp$split_value,2)
@@ -192,7 +192,7 @@ tnodes <- tree1$nodes
 Vsg1_cuts <- NULL
 Vsg1_names <- NULL
 for(tt in 1:length(tnodes)){
-  temp <- tnodes[[tt]]
+  temp <- policytree::tnodes[[tt]]
   if(!temp$is_leaf){
     sg_cov <- temp$split_variable
     sg_cut <- round(temp$split_value,2)
@@ -210,7 +210,7 @@ tnodes <- tree2$nodes
 Vsg2_cuts <- NULL
 Vsg2_names <- NULL
 for(tt in 1:length(tnodes)){
-  temp <- tnodes[[tt]]
+  temp <- policytree::tnodes[[tt]]
   if(!temp$is_leaf){
     sg_cov <- temp$split_variable
     sg_cut <- round(temp$split_value,2)
@@ -227,7 +227,7 @@ if(maxdepth == 3){
 grf_names <- tree3$columns
 tnodes <- tree3$nodes
 for(tt in 1:length(tnodes)){
-  temp <- tnodes[[tt]]
+  temp <- policytree::tnodes[[tt]]
   if(!temp$is_leaf){
     sg_cov <- temp$split_variable
     sg_cut <- round(temp$split_value,2)
@@ -298,7 +298,7 @@ grf.estimates.out <- function(df,grf.est=NULL,dgm=NULL,cox.formula.sim=NULL,cox.
   Y<-df[,outcome.name]
   W<-df[,treat.name]
   D<-df[,event.name]
-  taumax<-frac.tau*min(c(max(Y[W==1 & D==1]),max(Y[W==0 & D==1])))
+  taumax <- frac.tau * min(c(max(Y[W==1 & D==1]),max(Y[W==0 & D==1])))
 
   if(!is.null(grf.est)) sg.harm.grf<-grf.est$sg.harm.id
   if(is.null(grf.est)) sg.harm.grf<-NULL

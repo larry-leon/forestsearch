@@ -12,20 +12,6 @@ quiet <- function(x) {
   invisible(force(x))
 }
 
-largest_integer_factor <- function(y) {
-  # Find all integer divisors of y less than y
-  divisors <- which(y %% 1:y == 0)
-  divisors <- divisors[divisors < y]
-  if (length(divisors) == 0) {
-    x1 <- 1
-    x2 <- y
-  } else {
-    x1 <- min(divisors)
-    x2 <- y / x1
-  }
-  list(x1 = x1, x2 = x2)
-}
-
 #' Sort Subgroups by Focus
 #'
 #' Sorts a data.table of subgroup results according to the specified focus.
@@ -108,25 +94,6 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
     message("Package 'weightedSurv' not available: skipping weighted KM plots.")
   }
 }
-
-
-
-
-plot_subgroup_old <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
-  tte.name <- "Y"
-  event.name <- "Event"
-  treat.name <- "Treat"
-  con.lab <- "control"
-  exp.lab <- "treat"
-  dfcount <- df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
-  dfcountC <- df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
-  par(mfrow = c(1, 2))
-  plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
-  plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
-  cat("*** Subgroup found:", c(this.1_label), "\n")
-  cat("% consistency criteria met=", c(top_result$Pcons), "\n")
-}
-
 
 
 
