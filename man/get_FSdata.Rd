@@ -59,14 +59,6 @@ get_FSdata(
 
 \item{details}{Logical. If TRUE, prints details during execution.}
 }
-\value{
-A list with elements:
-\item{df}{Processed data frame with subgroup factor columns.}
-\item{confs_names}{Names of subgroup factor columns.}
-\item{confs}{Cut expressions for subgroup factors.}
-\item{lassokeep}{Variables selected by LASSO (if used).}
-\item{lassoomit}{Variables omitted by LASSO (if used).}
-}
 \description{
 Prepares a dataset for ForestSearch, including options for LASSO-based dimension reduction,
 GRF cuts, forced cuts, and flexible cut strategies. Returns a list with the processed data,

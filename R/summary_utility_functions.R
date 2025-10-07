@@ -156,7 +156,7 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
 #' @return List with tau, RMST, RMST for treatment, RMST for control.
-#' @importFrom weightedSurv weightedSurvfit
+#' @importFrom weightedSurv df_counting
 #' @export
 
 rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name = "treat"){

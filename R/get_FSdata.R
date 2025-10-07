@@ -22,14 +22,6 @@
 #' @param outcome.name Character. Name of outcome variable.
 #' @param event.name Character. Name of event indicator variable.
 #' @param details Logical. If TRUE, prints details during execution.
-#'
-#' @return A list with elements:
-#'   \item{df}{Processed data frame with subgroup factor columns.}
-#'   \item{confs_names}{Names of subgroup factor columns.}
-#'   \item{confs}{Cut expressions for subgroup factors.}
-#'   \item{lassokeep}{Variables selected by LASSO (if used).}
-#'   \item{lassoomit}{Variables omitted by LASSO (if used).}
-#'
 #' @importFrom stringr str_length str_sub
 #' @importFrom stats median quantile
 #' @export

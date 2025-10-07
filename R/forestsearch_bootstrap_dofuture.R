@@ -97,7 +97,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   id0 <- seq_len(NN)
   foreach::foreach(
     boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE),
+    .options.future = list(seed = TRUE, add = c("get_FSdata","cox.formula.boot","df_boot_analysis")),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
@@ -127,7 +127,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
     # Extract arguments in forestsearch (observed) data analysis
+
     args_FS_boot <- fs.est$args_call_all
+
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
     args_FS_boot$details <- show3
@@ -147,6 +149,10 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot$parallel_args$workers <- boot_workers
     args_FS_boot$parallel_args$show_message <- FALSE
     }
+
+
+    #print(args_FS_boot)
+    #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
     run_bootstrap <- suppressWarnings(try(do.call(forestsearch, args_FS_boot), TRUE))
 
@@ -204,15 +210,15 @@ format_CI <- function(estimates, col_names) {
 
 # Do not export
 # For checking bootstrap to initiate defaults
-forchecking <- function(fs_res){
-fs.est <- fs_res
-nb_boots <- 1
-details <- TRUE
-show_three <- TRUE
- reset_parallel_fs <- TRUE
- boot_workers <- 6
- parallel_args <- list(plan = "multisession", workers = 6, show_message = TRUE)
-}
+# forchecking <- function(fs_res){
+# fs.est <- fs_res
+# nb_boots <- 1
+# details <- TRUE
+# show_three <- TRUE
+#  reset_parallel_fs <- TRUE
+#  boot_workers <- 6
+#  parallel_args <- list(plan = "multisession", workers = 6, show_message = TRUE)
+# }
 
 
 #' ForestSearch Bootstrap with doFuture Parallelization
