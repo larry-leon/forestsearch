@@ -407,7 +407,7 @@ df.confounders <- dummy(df.confounders)
   if(plot.sg && is.null(by.risk)) by.risk<-round(max(Y)/12,0)
   if(details) cat("# of candidate subgroups (meeting all criteria) = ",c(nrow(find.grps$out.found$hr.subgroups)),"\n")
 
-  args_sgc <- names(formals(subgroup.consistency))
+  args_sgc <- base::names(formals(subgroup.consistency))
   # align with args_call_all
   args_sgc_filtered <- args_call_all[names(args_call_all) %in% args_sgc]
   args_sgc_filtered$df <- df.fs
@@ -417,7 +417,7 @@ df.confounders <- dummy(df.confounders)
   args_sgc_filtered$n.splits <- fs.splits
   args_sgc_filtered$stop_Kgroups <- max_subgroups_search
 
-  grp.consistency <- do.call(subgroup.consistency, args_sgc_filtered)
+  grp.consistency <- base::do.call(subgroup.consistency, args_sgc_filtered)
 
   t.end_all<-proc.time()[3]
   t.min_all<-(t.end_all-t.start_all)/60
