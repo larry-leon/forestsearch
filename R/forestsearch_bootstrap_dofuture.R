@@ -98,9 +98,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
-                           add = c(
-                             # Functions from parallel block
-                             "get_FSdata", "dummy","run_bootstrap",
+                           add = c("confounders.name",  "get_FSdata", "dummy","run_bootstrap",
                              "forestsearch", "forestsearch_bootstrap_dofuture","get_combinations_info",
                              "get_dfpred",
                              "grf.subg.harm.survival",

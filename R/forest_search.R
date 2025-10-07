@@ -102,7 +102,6 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @importFrom survival Surv
 #' @importFrom weightedSurv df_counting
 #' @export
-
 forestsearch <- function(df.analysis,
 outcome.name = "tte",
 event.name = "event",
