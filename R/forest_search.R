@@ -305,7 +305,8 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
 
 if(use_grf && !exists("grf_cuts")) warning("GRF cuts not found")
 
-args_FS <- names(formals(get_FSdata))
+get_argsFS <- base::formals(get_FSdata)
+args_FS <- names(get_argsFS)
 # align with args_call_all
 args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 # In get_FSdata the data source is "df"
@@ -313,10 +314,10 @@ args_FS_filtered$df <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
 # Remove
-cat("args_FS_filtered","\n")
-print(names(args_FS_filtered))
+#cat("args_FS_filtered","\n")
+#print(names(args_FS_filtered))
 
-FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
+FSdata <- try(base::do.call(get_FSdata, args_FS_filtered), TRUE)
 
 if(inherits(FSdata,"try-error")){
 cat("FSdata issues","\n")

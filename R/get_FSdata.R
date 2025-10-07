@@ -53,6 +53,10 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
 
   df <- df[complete.cases(df[, c(confounders.name, outcome.name, event.name)]), ]
 
+
+  # Remove
+  #print(names(df))
+
     # Default cuts forced per defaultcut_names
   if(!is.null(defaultcut_names)){
     conf_force_default <- get_conf_force(df = df,conf.force.names = defaultcut_names,cont.cutoff = 4)

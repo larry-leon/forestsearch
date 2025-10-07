@@ -97,7 +97,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   id0 <- seq_len(NN)
   foreach::foreach(
     boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE, add = c("get_FSdata","cox.formula.boot","df_boot_analysis")),
+    .options.future = list(seed = TRUE, add = c("get_FSdata","args_FS")),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
@@ -249,13 +249,13 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   ensure_packages(c("data.table", "foreach", "doFuture", "doRNG", "survival"))
 
   # 2. Build formula
-  args_build <- names(formals(build_cox_formula))
+  args_build <- base::names(formals(build_cox_formula))
   # align with args_call_all
   args_build_filtered <- args_forestsearch_call[names(args_forestsearch_call) %in% args_build]
 
   #cox.formula.boot <- build_cox_formula(fs.est$outcome.name, fs.est$event.name, fs.est$treat.name)
 
-  cox.formula.boot <- do.call(build_cox_formula, args_build_filtered)
+  cox.formula.boot <- base::do.call(build_cox_formula, args_build_filtered)
 
   # 3. Fit Cox models
   cox_fits <- fit_cox_models(fs.est$df.est, cox.formula.boot)
@@ -286,6 +286,9 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
 
   # Note: reset_parallel_fs re-sets parallel for subgroup consistency in forestsearch
   # That is reset_parallel_fs = TRUE only the outer *bootstrap* loop is parallelized
+
+  # Remove
+  #cat("Running bootstraps now","\n")
 
   results <- bootstrap_results(fs.est, fs.est$df.est, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs, reset_parallel_fs, boot_workers)
 
