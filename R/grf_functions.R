@@ -61,7 +61,7 @@ tree1 <- policytree::policy_tree(X, dr.scores, depth = 1)
 # predicted=1 --> treat rec. = control
 # predicted=2 --> treat rec. = treated
 #data$predict.action<-predict(tree, X)
-data$predict1.node <- base::predict(tree1,X,type="node.id")
+data$predict1.node <- predict(tree1,X,type="node.id")
 values1 <- stats::aggregate(dr.scores, by = list(leaf.node = data$predict1.node),
                     FUN = function(x) c(mean = mean(x), size=length(x), se = sd(x) / sqrt(length(x))))
 values1$diff <- values1$control[,"mean"]-values1$treated[,"mean"]
@@ -89,7 +89,7 @@ tree3 <- NULL
 # At most depth=3
 if(maxdepth==3){
 tree3 <- policytree::policy_tree(X, dr.scores, depth = 3)
-data$predict3.node <- base::predict(tree3,X,type="node.id")
+data$predict3.node <- predict(tree3,X,type="node.id")
 values3 <- stats::aggregate(dr.scores, by = list(leaf.node = data$predict3.node),
                      FUN = function(x) c(mean = mean(x), size=length(x), se = sd(x) / sqrt(length(x))))
 values3$diff <- values3$control[,"mean"]-values3$treated[,"mean"]

@@ -180,8 +180,8 @@ FS_labels <- function(Qsg, confs_labels) {
   # Use regex to extract index and action
   # Pattern: q<index>.<action>, e.g., q1.0, q12.1, q123.0, q1234.1
   pattern <- "^q(\\d+)\\.(\\d+)$"
-  matches <- base::regexec(pattern, Qsg)
-  parts <- base::regmatches(Qsg, matches)
+  matches <- regexec(pattern, Qsg)
+  parts <- regmatches(Qsg, matches)
 
   sg_labels <- character(length(Qsg))
 
@@ -222,8 +222,8 @@ process_conf_force_expr <- function(expr, df) {
   # Match pattern: variable <= function(variable)
   # Examples: "age <= mean(age)", "size <= qlow(size)"
   pattern <- "^\\s*([a-zA-Z0-9_.]+)\\s*<=\\s*([a-zA-Z]+)\\(([^)]+)\\)\\s*$"
-  m <- base::regexec(pattern, expr)
-  matches <- base::regmatches(expr, m)[[1]]
+  m <- regexec(pattern, expr)
+  matches <- regmatches(expr, m)[[1]]
   if (length(matches) == 0) {
     # If not matching, return as is
     return(expr)
