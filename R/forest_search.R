@@ -93,29 +93,9 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @param plot.sg Logical. Plot subgroups.
 #' @param max_subgroups_search Integer. Maximum number of subgroups to search.
 #' @param vi.grf.min Numeric. Minimum variable importance for GRF screening.
-#'
-#' @return A list with elements:
-#'   \item{grp.consistency}{Subgroup consistency results.}
-#'   \item{find.grps}{Subgroup search results.}
-#'   \item{confounders.candidate}{Candidate confounders.}
-#'   \item{confounders.evaluated}{Evaluated confounders.}
-#'   \item{df.est}{Estimation dataset with subgroup flags.}
-#'   \item{df.predict}{Prediction dataset with subgroup flags.}
-#'   \item{df.test}{Test dataset with subgroup flags.}
-#'   \item{minutes_all}{Total minutes elapsed.}
-#'   \item{grf_res}{GRF results.}
-#'   \item{sg_focus}{Subgroup focus criterion.}
-#'   \item{sg.harm}{Subgroup definition.}
-#'   \item{grf_cuts}{GRF cut expressions.}
-#'   \item{prop_maxk}{Proportion of max subgroup count.}
-#'   \item{max_sg_est}{Maximum subgroup estimate.}
-#'   \item{grf_plot}{GRF plot object.}
-#'   \item{args_call_all}{Arguments used for the call.}
-#'
 #' @importFrom stats complete.cases median quantile
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom data.table data.table
-#' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
 #' @importFrom survival Surv
 #' @export
@@ -304,29 +284,14 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
 if(use_grf && !exists("grf_cuts")) warning("GRF cuts not found")
 
 args_FS <- names(formals(get_FSdata))
+
 # align with args_call_all
 args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 # In get_FSdata the data source is "df"
 args_FS_filtered$df <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
-print(names(args_FS_filtered))
-
-
-FSdata1 <- do.call(get_FSdata, args_FS_filtered)
-
-cat("FSdata1 names are","\n")
-
-print(names(FSdata1))
-
-
 FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
-
-
-cat("FSdata names are","\n")
-
-print(names(FSdata))
-
 
 if(inherits(FSdata,"try-error")) stop("FSdata error")
 

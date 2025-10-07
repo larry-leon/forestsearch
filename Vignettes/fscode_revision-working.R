@@ -53,7 +53,7 @@ funcs <- objs[sapply(objs, function(x) is.function(get(x, envir = asNamespace('f
 length(funcs)
 
 
-#library(forestsearch)
+library(forestsearch)
 
 
 library(survival)
@@ -114,7 +114,7 @@ t.start <- proc.time()[3]
 # Bootstrap bias-correction
 # fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs,nb_boots = NB, show_three = TRUE, details = TRUE, reset_paralle_fs = FALSE, boot_workers =3)
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, reset_parallel_fs = TRUE,
-                                         parallel_args = list(plan = "callr", workers = 6, show_message = TRUE) )
+                                         parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE) )
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
