@@ -152,25 +152,6 @@ forestsearch(
 
 \item{vi.grf.min}{Numeric. Minimum variable importance for GRF screening.}
 }
-\value{
-A list with elements:
-\item{grp.consistency}{Subgroup consistency results.}
-\item{find.grps}{Subgroup search results.}
-\item{confounders.candidate}{Candidate confounders.}
-\item{confounders.evaluated}{Evaluated confounders.}
-\item{df.est}{Estimation dataset with subgroup flags.}
-\item{df.predict}{Prediction dataset with subgroup flags.}
-\item{df.test}{Test dataset with subgroup flags.}
-\item{minutes_all}{Total minutes elapsed.}
-\item{grf_res}{GRF results.}
-\item{sg_focus}{Subgroup focus criterion.}
-\item{sg.harm}{Subgroup definition.}
-\item{grf_cuts}{GRF cut expressions.}
-\item{prop_maxk}{Proportion of max subgroup count.}
-\item{max_sg_est}{Maximum subgroup estimate.}
-\item{grf_plot}{GRF plot object.}
-\item{args_call_all}{Arguments used for the call.}
-}
 \description{
 Performs subgroup identification and consistency analysis for treatment effect heterogeneity using ForestSearch.
 Supports LASSO-based dimension reduction, GRF-based variable selection, and flexible cut strategies.
