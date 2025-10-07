@@ -98,7 +98,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
-                           add = c("complete.cases","calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
+                           add = c("plot.grf","complete.cases","calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
                            "cox_summary","df_counting","double_robust_scores", "extract_subgroup","format_results", "get_targetEst","getci_Cox",
                            "getCIs","grf.estimates.out","hrCI_format","km_summary","n_pcnt","plot_subgroup","plot_weighted_km",
                            "prepare_subgroup_data","quiet","rmst_calculation","sg_tables","sort_subgroups","SummaryStat","var_summary",
@@ -179,11 +179,20 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot$parallel_args$show_message <- FALSE
     }
 
-    #print(args_FS_boot)
+    args_FS_boot$plot.grf <- FALSE  # Remove the unused argument
+
+    # Keep only arguments that are in the formal argument list of forestsearch
+    #forestsearch_formals <- names(formals(forestsearch))
+    #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
+
+
+    print(names(args_FS_boot))
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
     #run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
     #if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
+
+    print(args(forestsearch))
 
     run_bootstrap <- tryCatch(
       do.call(forestsearch, args_FS_boot),

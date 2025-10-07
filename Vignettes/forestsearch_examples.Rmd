@@ -151,7 +151,7 @@ system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders
                    sg_focus = "hrMaxSG",
                    showten_subgroups = FALSE, details=TRUE,
                    conf_force = c("er <= 0"),
-                   cut_type = "default", use_grf = FALSE, use_lasso = FALSE,
+                   cut_type = "default", use_grf = TRUE, use_lasso = TRUE,
                    maxk = 2,
                    plot.sg = TRUE, by.risk = 12,
                    parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
@@ -185,7 +185,7 @@ res_tabs$tab_estimates
 NB <- 3
 t.start <- proc.time()[3]
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = TRUE, 
-                                         parallel_args = list(plan = "multisession", workers = 12, show_message = TRUE) )
+                                         parallel_args = list(plan = "callr", workers = 12, show_message = TRUE) )
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")

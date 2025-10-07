@@ -125,6 +125,7 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @importFrom survival Surv
 #' @importFrom weightedSurv df_counting
 #' @export
+
 forestsearch <- function(df.analysis,
 outcome.name = "tte",
 event.name = "event",
@@ -167,7 +168,9 @@ max.minutes = 3,
 minp = 0.025,
 details = FALSE,
 maxk = 2,
-by.risk = 12, plot.sg = FALSE, plot.grf = FALSE,
+by.risk = 12,
+plot.sg = FALSE,
+plot.grf = FALSE,
 max_subgroups_search = 10,
 vi.grf.min = -0.2){
 
@@ -294,7 +297,13 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
     # If subgroup found
     # Check for DiagrammeR availability
     if (requireNamespace("DiagrammeR", quietly = TRUE) && plot.grf) {
-      grf_plot <- plot(grf_res$tree, leaf.labels = c("Control", "Treat"))
+
+      #grf_plot <- plot(grf_res$tree, leaf.labels = c("Control", "Treat"))
+
+      grf_plot <- try(plot(grf_res$tree, leaf.labels = c("Control", "Treat")), silent = TRUE)
+      if (inherits(grf_plot, "try-error")) grf_plot <- NULL
+
+
     } else {
       #warning("Skipping tree plot --> DiagrammeR packaged required to view tree graph")
       if (isTRUE(details)) {

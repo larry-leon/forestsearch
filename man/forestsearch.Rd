@@ -149,6 +149,8 @@ forestsearch(
 
 \item{plot.sg}{Logical. Plot subgroups.}
 
+\item{plot.grf}{Logical.  Flag to return GRF plot}
+
 \item{max_subgroups_search}{Integer. Maximum number of subgroups to search.}
 
 \item{vi.grf.min}{Numeric. Minimum variable importance for GRF screening.}
