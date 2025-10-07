@@ -8,7 +8,7 @@
 #'
 #' @return If \code{outall=FALSE}, a list with \code{sens_metrics_original} and \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.
 #'
-#' @importFrom weightedSurv weightedSurvfit
+#' @importFrom weightedSurv df_counting
 #' @importFrom stringr str_sub str_length
 #' @export
 

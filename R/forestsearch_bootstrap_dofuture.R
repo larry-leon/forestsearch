@@ -54,7 +54,8 @@ fit_cox_models <- function(df, formula) {
 #' @param df Data frame.
 #' @param nb_boots Integer. Number of bootstrap samples.
 #' @return Matrix of bootstrap samples.
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
+#' @importFrom doFuture %dofuture%
 #' @export
 
 bootstrap_ystar <- function(df, nb_boots) {
@@ -88,7 +89,8 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @param reset_parallel Logical. Reset parallel plan for bootstrap.
 #' @param boot_workers Integer. Number of parallel workers.
 #' @return Data.table with bias-adjusted estimates and search metrics.
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
+#' @importFrom doFuture %dofuture%
 #' @importFrom data.table data.table
 #' @export
 
@@ -113,6 +115,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     H_star <- fitH_star$est_obs
     fitHc_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
     Hc_star <- fitHc_star$est_obs
+
+    cat("boot, H*, Hc*",c(boot,H_star,Hc_star),"\n")
+
 
     # Bias corrections
     H_biasadj_1 <- H_biasadj_2 <- NA
@@ -148,7 +153,12 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot$parallel_args$show_message <- FALSE
     }
 
-    run_bootstrap <- suppressWarnings(try(do.call(forestsearch, args_FS_boot), TRUE))
+    #run_bootstrap <- suppressWarnings(try(do.call(forestsearch, args_FS_boot), TRUE))
+
+    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
+
+
+    print(names(run_bootstrap))
 
     if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
@@ -204,9 +214,9 @@ format_CI <- function(estimates, col_names) {
 
 # Do not export
 # For checking bootstrap to initiate defaults
-forchecking <- function(fs_res){
-fs.est <- fs_res
-nb_boots <- 1
+forchecking <- function(fs){
+fs.est <- fs
+nb_boots <- 3
 details <- TRUE
 show_three <- TRUE
  reset_parallel_fs <- TRUE
@@ -230,7 +240,8 @@ show_three <- TRUE
 #' @return List with bootstrap results, confidence intervals, summary table, Ystar matrix, and estimates.
 #'
 #' @importFrom future plan
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
+#' @importFrom doFuture %dofuture%
 #' @importFrom data.table data.table
 #' @export
 
@@ -270,6 +281,19 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   if(nrow(Ystar_mat) != nb_boots || ncol(Ystar_mat) != nrow(fs.est$df.est)){
   stop("Dimension of Ystar_mat must be (n x nb_boots)")
   }
+
+
+  print(reset_parallel_fs)
+
+  print(boot_workers)
+
+  print(cox.formula.boot)
+
+  print(names(fs.est$df.est))
+
+  cat("H, Hc",c(H_obs,Hc_obs),"\n")
+
+
 
   # 5. Bootstrap results
 

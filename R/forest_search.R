@@ -1,7 +1,7 @@
 
 # List of required packages for ForestSearch analysis
 
-required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply")
+required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply", "DiagrammeR", "future.callr")
 missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
@@ -15,7 +15,6 @@ if(length(missing) > 0) stop("Missing required packages: ", paste(missing, colla
 #' @param version Integer; 1 uses \code{dummy()}, 2 uses \code{dummy2()} for factor encoding.
 #'
 #' @return Data frame with treatment recommendation flag (\code{treat.recommend}).
-#' @importFrom stats subset
 #' @export
 
 get_dfpred <- function(df.predict, sg.harm, version = 1) {
@@ -311,7 +310,23 @@ args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 args_FS_filtered$df <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
+print(names(args_FS_filtered))
+
+
+FSdata1 <- do.call(get_FSdata, args_FS_filtered)
+
+cat("FSdata1 names are","\n")
+
+print(names(FSdata1))
+
+
 FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
+
+
+cat("FSdata names are","\n")
+
+print(names(FSdata))
+
 
 if(inherits(FSdata,"try-error")) stop("FSdata error")
 
