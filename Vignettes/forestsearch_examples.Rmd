@@ -89,13 +89,9 @@ Used in clinical trial or observational study analysis to identify patient subgr
 
 
 ```{r}
-
 rm(list=ls())
-
 library(weightedSurv)
-
 library(forestsearch)
-
 ```
 
 # GBSG data analysis example
@@ -110,10 +106,13 @@ df_gbsg$tte <- df_gbsg$rfstime / 30.4375
 df_gbsg$event <- df_gbsg$status
 df_gbsg$treat <- df_gbsg$hormon
 df_gbsg$grade3 <- ifelse(df_gbsg$grade == "3", 1, 0)
+# create id name
+df_gbsg$id <- seq_len(nrow(df_gbsg))
 
 tte.name <- "tte"
 event.name <- "event"
 treat.name <- "treat"
+id.name <- "id"
 arms <- c("treat", "control")
 
 ```
@@ -147,7 +146,7 @@ registerDoRNG()
 dfa <- df_gbsg
 
 system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders.name,
-                   outcome.name = "tte", treat.name = "treat", event.name = "event",
+                   outcome.name = "tte", treat.name = "treat", event.name = "event", id.name = "id",
                    hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                    sg_focus = "hrMaxSG",
                    showten_subgroups = FALSE, details=TRUE,
@@ -155,7 +154,7 @@ system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders
                    cut_type = "default", use_grf = TRUE, use_lasso = TRUE,
                    maxk = 2,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="multisession", workers = 6, show_message = TRUE)
+                   parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -177,14 +176,16 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r}
+```{r, eval = TRUE}
 # Just run a few for illustration 
 # Recommend minimum of NB = 300 re-samples, in practice
-
-NB <- 10
+# NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
+# where workers are set to 12 which is the maximum on my machine;
+# Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
+NB <- 5
 t.start <- proc.time()[3]
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = FALSE, 
-                                         parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = TRUE, 
+                                         parallel_args = list(plan = "multisession", workers = 12, show_message = TRUE) )
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
