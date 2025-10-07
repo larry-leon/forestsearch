@@ -107,7 +107,7 @@ df_gbsg$event <- df_gbsg$status
 df_gbsg$treat <- df_gbsg$hormon
 df_gbsg$grade3 <- ifelse(df_gbsg$grade == "3", 1, 0)
 # create id name
-df_gbsg$id <- seq_len(nrow(df_gbsg))
+#df_gbsg$id <- seq_len(nrow(df_gbsg))
 
 tte.name <- "tte"
 event.name <- "event"
@@ -176,16 +176,16 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 # Just run a few for illustration 
 # Recommend minimum of NB = 300 re-samples, in practice
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
 # where workers are set to 12 which is the maximum on my machine;
 # Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
-NB <- 5
+NB <- 300
 t.start <- proc.time()[3]
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = TRUE, 
-                                         parallel_args = list(plan = "multisession", workers = 12, show_message = TRUE) )
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, reset_parallel_fs = FALSE, 
+                                         parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")

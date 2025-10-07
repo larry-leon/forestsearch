@@ -6,6 +6,29 @@ missing <- required_packages[!sapply(required_packages, requireNamespace, quietl
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
 
+#' Add ID Column to Data Frame
+#'
+#' Ensures that a data frame has a unique ID column. If \code{id.name} is not provided,
+#' a column named "id" is added. If \code{id.name} is provided but does not exist in the data frame,
+#' it is created with unique integer values.
+#'
+#' @param df.analysis Data frame to which the ID column will be added.
+#' @param id.name Character. Name of the ID column to add (default is \code{NULL}, which uses "id").
+#'
+#' @return Data frame with the ID column added if necessary.
+#' @export
+
+add_id_column <- function(df.analysis, id.name = NULL) {
+  if (is.null(id.name)) {
+    df.analysis$id <- seq_len(nrow(df.analysis))
+    id.name <- "id"
+  } else if (!(id.name %in% names(df.analysis))) {
+    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
+  }
+  return(df.analysis)
+}
+
+
 #' Generate Prediction Dataset with Subgroup Treatment Recommendation
 #'
 #' Creates a prediction dataset with a treatment recommendation flag based on subgroup definition.
@@ -155,12 +178,14 @@ if (!exists("df.analysis") | !is.data.frame(df.analysis)){
   }
 
 # Revised
-  if (is.null(id.name)) {
-    df.analysis$id <- seq_len(nrow(df.analysis))
-    id.name <- "id"
-  } else if (!(id.name %in% names(df.analysis))) {
-    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
-  }
+  # if (is.null(id.name)) {
+  #   df.analysis$id <- seq_len(nrow(df.analysis))
+  #   id.name <- "id"
+  # } else if (!(id.name %in% names(df.analysis))) {
+  #   df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
+  # }
+
+df.analysis <-  add_id_column(df.analysis, id.name)
 
 var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name)
   # Ensure all required variables exist in df.analysis

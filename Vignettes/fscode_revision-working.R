@@ -144,5 +144,193 @@ tall.min<-(t.now-t.start)/60
 cat("Minutes (all analyses)",c(tall.min),"\n")
 
 
+library(foreach)
+library(doFuture)
+registerDoFuture()
+plan(multisession)
+
+# Function to add ID column
+add_id_column <- function(df.analysis, id.name = NULL) {
+  if (is.null(id.name)) {
+    df.analysis$id <- seq_len(nrow(df.analysis))
+    id.name <- "id"
+  } else if (!(id.name %in% names(df.analysis))) {
+    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
+  }
+  return(df.analysis)
+}
+
+# List of data frames and id names
+dfs <- list(data.frame(a = 1:3), data.frame(a = 4:6))
+id.names <- list(NULL, "row_id")
+
+# Parallel execution
+results <- foreach(i = 1:2, .options.future = list(add = "add_id_column")) %dofuture% {
+  add_id_column(dfs[[i]], id.names[[i]])
+}
+print(results)
 
 
+library(DiagrammeR)
+graph_code <- 'digraph forestsearch_flow {
+  node [shape=box, style=filled, fillcolor="#e6f2ff", fontname="Arial"]
+  edge [fontname="Arial"]
+
+  forestsearch [label="forestsearch (main entry)", fillcolor="#b3d1ff"]
+  get_FSdata [label="get_FSdata"]
+  grf_subg [label="grf.subg.harm.survival"]
+  subgroup_search [label="subgroup.search"]
+  subgroup_consistency [label="subgroup.consistency"]
+  get_dfpred [label="get_dfpred"]
+  SG_tab_estimates [label="SG_tab_estimates"]
+  forestsearch_bootstrap [label="forestsearch_bootstrap_dofuture"]
+
+  # Main flow
+  forestsearch -> get_FSdata
+  forestsearch -> grf_subg
+  forestsearch -> subgroup_search
+  forestsearch -> subgroup_consistency
+  forestsearch -> get_dfpred
+  forestsearch -> SG_tab_estimates
+  forestsearch -> forestsearch_bootstrap
+
+  # get_FSdata helpers
+  get_FSdata -> lasso_selection
+  get_FSdata -> get_conf_force
+  get_FSdata -> filter_by_lassokeep
+  get_FSdata -> is_continuous
+  get_FSdata -> cut_var
+  get_FSdata -> process_conf_force_expr
+  get_FSdata -> dummy
+  get_FSdata -> dummy2
+
+  # grf_subg helpers
+  grf_subg -> policy_tree
+  grf_subg -> causal_survival_forest
+  grf_subg -> double_robust_scores
+  grf_subg -> aggregate
+
+  # subgroup_search helpers
+  subgroup_search -> get_combinations_info
+  subgroup_search -> get_subgroup_membership
+  subgroup_search -> get_covs_in
+  subgroup_search -> extract_idx_flagredundancy
+
+  # subgroup_consistency helpers
+  subgroup_consistency -> sort_subgroups
+  subgroup_consistency -> extract_subgroup
+  subgroup_consistency -> sg_consistency_out
+  subgroup_consistency -> remove_redundant_subgroups
+  subgroup_consistency -> get_split_hr
+  subgroup_consistency -> setup_parallel_SGcons
+
+  # forestsearch_bootstrap helpers
+  forestsearch_bootstrap -> bootstrap_results
+  forestsearch_bootstrap -> bootstrap_ystar
+  forestsearch_bootstrap -> get_dfRes
+  forestsearch_bootstrap -> get_Cox_sg
+  forestsearch_bootstrap -> ci_est
+  forestsearch_bootstrap -> get_targetEst
+  forestsearch_bootstrap -> fit_cox_models
+  forestsearch_bootstrap -> build_cox_formula
+  forestsearch_bootstrap -> ensure_packages
+  forestsearch_bootstrap -> setup_parallel_SGcons
+
+  # SG_tab_estimates helpers
+  SG_tab_estimates -> analyze_subgroup
+  analyze_subgroup [label="analyze_subgroup"]
+  analyze_subgroup -> cox_summary
+  analyze_subgroup -> km_summary
+  analyze_subgroup -> rmst_calculation
+  analyze_subgroup -> calculate_counts
+  analyze_subgroup -> calculate_potential_hr
+  SG_tab_estimates -> prepare_subgroup_data
+  SG_tab_estimates -> format_results
+  SG_tab_estimates -> format_CI
+}
+'
+DiagrammeR::grViz(graph_code)
+
+
+
+library(DiagrammeR)
+
+flowchart <- grViz("
+digraph flowchart {
+  graph [rankdir = LR]
+  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]
+  edge [fontname=\"Arial\"]
+
+  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]
+  get_FSdata [label=\"get_FSdata\"]
+  grf_subg [label=\"grf.subg.harm.survival\"]
+  subgroup_search [label=\"subgroup.search\"]
+  subgroup_consistency [label=\"subgroup.consistency\"]
+  get_dfpred [label=\"get_dfpred\"]
+  SG_tab_estimates [label=\"SG_tab_estimates\"]
+  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]
+
+  # Main flow
+  forestsearch -> get_FSdata
+  forestsearch -> grf_subg
+  forestsearch -> subgroup_search
+  forestsearch -> subgroup_consistency
+  forestsearch -> get_dfpred
+  forestsearch -> SG_tab_estimates
+  forestsearch -> forestsearch_bootstrap
+
+  # get_FSdata helpers
+  get_FSdata -> lasso_selection
+  get_FSdata -> get_conf_force
+  get_FSdata -> filter_by_lassokeep
+  get_FSdata -> is_continuous
+  get_FSdata -> cut_var
+  get_FSdata -> process_conf_force_expr
+  get_FSdata -> dummy
+  get_FSdata -> dummy2
+
+  # grf_subg helpers
+  grf_subg -> policy_tree
+  grf_subg -> causal_survival_forest
+  grf_subg -> double_robust_scores
+  grf_subg -> aggregate
+
+  # subgroup_search helpers
+  subgroup_search -> get_combinations_info
+  subgroup_search -> get_subgroup_membership
+  subgroup_search -> get_covs_in
+  subgroup_search -> extract_idx_flagredundancy
+
+  # subgroup_consistency helpers
+  subgroup_consistency -> sort_subgroups
+  subgroup_consistency -> extract_subgroup
+  subgroup_consistency -> sg_consistency_out
+  subgroup_consistency -> remove_redundant_subgroups
+  subgroup_consistency -> get_split_hr
+  subgroup_consistency -> setup_parallel_SGcons
+
+  # forestsearch_bootstrap helpers
+  forestsearch_bootstrap -> bootstrap_results
+  forestsearch_bootstrap -> bootstrap_ystar
+  forestsearch_bootstrap -> get_dfRes
+  forestsearch_bootstrap -> get_Cox_sg
+  forestsearch_bootstrap -> ci_est
+  forestsearch_bootstrap -> get_targetEst
+  forestsearch_bootstrap -> fit_cox_models
+  forestsearch_bootstrap -> build_cox_formula
+  forestsearch_bootstrap -> ensure_packages
+  forestsearch_bootstrap -> setup_parallel_SGcons
+
+  # SG_tab_estimates helpers
+  SG_tab_estimates -> analyze_subgroup
+  analyze_subgroup [label=\"analyze_subgroup\"]
+  analyze_subgroup -> cox_summary
+  analyze_subgroup -> km_summary
+  analyze_subgroup -> rmst_calculation
+  analyze_subgroup -> calculate_counts
+  analyze_subgroup -> calculate_potential_hr
+  SG_tab_estimates -> prepare_subgroup_data
+  SG_tab_estimates -> format_results
+  SG_tab_estimates -> format_CI
+}
+", width = 800, height = 400)
