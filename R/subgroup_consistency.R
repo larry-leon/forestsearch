@@ -175,7 +175,6 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z, detai
 #'
 #' @param found.hrs Data.table of found subgroups.
 #' @return Data.table of non-redundant subgroups.
-#' @importFrom data.table rbind
 #' @export
 
 remove_redundant_subgroups <- function(found.hrs) {

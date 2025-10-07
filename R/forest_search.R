@@ -15,7 +15,6 @@ if(length(missing) > 0) stop("Missing required packages: ", paste(missing, colla
 #' @param version Integer; 1 uses \code{dummy()}, 2 uses \code{dummy2()} for factor encoding.
 #'
 #' @return Data frame with treatment recommendation flag (\code{treat.recommend}).
-#' @importFrom stats subset
 #' @export
 
 get_dfpred <- function(df.predict, sg.harm, version = 1) {
@@ -94,7 +93,7 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @param plot.sg Logical. Plot subgroups.
 #' @param max_subgroups_search Integer. Maximum number of subgroups to search.
 #' @param vi.grf.min Numeric. Minimum variable importance for GRF screening.
-#' @importFrom stats subset complete.cases median quantile
+#' @importFrom stats complete.cases median quantile
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom data.table data.table
 #' @importFrom future.apply future_lapply
