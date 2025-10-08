@@ -32,6 +32,7 @@
 #' @importFrom future plan
 #' @importFrom data.table data.table copy
 #' @importFrom foreach foreach
+#' @importFrom doFuture %dofuture%
 #' @export
 
 forestsearch_Kfold <- function(fs.est, Kfolds = nrow(fs.est$df.est), seedit = 8316951, parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),

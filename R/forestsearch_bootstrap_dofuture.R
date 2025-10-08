@@ -90,6 +90,7 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @return Data.table with bias-adjusted estimates and search metrics.
 #' @importFrom foreach foreach
 #' @importFrom data.table data.table
+#' @importFrom doFuture %dofuture%
 #' @export
 
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs, reset_parallel, boot_workers) {
@@ -187,13 +188,13 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
 
 
-    #print(names(args_FS_boot))
+    print(names(args_FS_boot))
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
     #run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
     #if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
 
-    #print(args(forestsearch))
+    print(args(forestsearch))
 
     run_bootstrap <- tryCatch(
       do.call(forestsearch, args_FS_boot),
@@ -284,6 +285,7 @@ show_three <- TRUE
 #'
 #' @importFrom future plan
 #' @importFrom foreach foreach
+#' @importFrom doFuture %dofuture%
 #' @importFrom data.table data.table
 #' @export
 

@@ -182,12 +182,12 @@ res_tabs$tab_estimates
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
 # where workers are set to 12 which is the maximum on my machine;
 # Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
-NB <- 300
+NB <- 3
 t.start <- proc.time()[3]
 # fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, 
 #                                          reset_parallel_fs = FALSE, parallel_args = list(plan = "multisession", workers = 1, show_message = TRUE) )
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, 
-                                         reset_parallel_fs = FALSE, parallel_args = list(plan = "sequential", show_message = TRUE) )
+                                         reset_parallel_fs = TRUE, parallel_args = list(plan = "multisession", workers = 12, show_message = TRUE) )
 
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60

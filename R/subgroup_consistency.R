@@ -245,6 +245,7 @@ if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
 #' @return A list with results for top subgroups and recommended treatment flags.
 #' @importFrom data.table copy
 #' @importFrom survival coxph Surv
+#' @importFrom future.apply future_lapply
 #' @export
 
 subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.9, m1.threshold = Inf, n.splits = 100,
