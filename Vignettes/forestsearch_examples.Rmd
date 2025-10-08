@@ -147,9 +147,8 @@ library(doRNG)
 registerDoFuture()
 registerDoRNG()
 
-dfa <- df_gbsg
 
-system.time({fs <- forestsearch(df.analysis = dfa,  confounders.name=confounders.name,
+system.time({fs <- forestsearch(df.analysis = df_gbsg,  confounders.name=confounders.name,
                    outcome.name = "tte", treat.name = "treat", event.name = "event", id.name = "id",
                    hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                    sg_focus = "hrMaxSG",

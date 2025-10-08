@@ -97,7 +97,7 @@ res_tabs$sg10_out
 
 #plan(sequential)
 
-temp <- get_FSdata(df = dfa, confounders.name = confounders.name, cut_type = "default", use_grf = TRUE,
+temp <- get_FSdata(df.analysis = dfa, confounders.name = confounders.name, cut_type = "default", use_grf = TRUE,
                    outcome.name = "tte", event.name = "event", use_lasso = TRUE, conf_force=c("age <= 65","meno == 0"))
 
 

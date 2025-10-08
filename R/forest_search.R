@@ -254,16 +254,18 @@ if(sg_focus %in% c("hrMaxSG","hrMinSG") && stop.threshold < 1.0) stop.threshold 
 # Sort data by id
 df.analysis <- df.analysis[order(df.analysis[[id.name]]), , drop = FALSE]
 # Select relevant columns
-dfa <- df.analysis[, var_names, drop = FALSE]
+temp <- df.analysis[, var_names, drop = FALSE]
 # Identify complete cases
-complete_idx <- complete.cases(dfa)
+complete_idx <- complete.cases(temp)
 n_excluded <- sum(!complete_idx)
 # Report exclusions
 if(n_excluded > 0) {
   message("Total excluded by omitting missing data = ", n_excluded)
 }
 # Keep only complete cases
-df.analysis <- dfa[complete_idx, , drop = FALSE]
+df.analysis <- temp[complete_idx, , drop = FALSE]
+
+rm("temp")
 
 t.start_all<-proc.time()[3]
 
