@@ -328,7 +328,7 @@ args_FS <- names(get_argsFS)
 # align with args_call_all
 args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
 # In get_FSdata the data source is "df"
-args_FS_filtered$df <- df.analysis
+args_FS_filtered$df.analysis <- df.analysis
 args_FS_filtered$grf_cuts <- grf_cuts
 
 # Remove

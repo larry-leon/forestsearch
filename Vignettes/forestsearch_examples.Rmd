@@ -147,8 +147,9 @@ library(doRNG)
 registerDoFuture()
 registerDoRNG()
 
+#dfa <- df_gbsg
 
-system.time({fs <- forestsearch(df.analysis = df_gbsg,  confounders.name=confounders.name,
+system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    outcome.name = "tte", treat.name = "treat", event.name = "event", id.name = "id",
                    hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                    sg_focus = "hrMaxSG",
@@ -179,7 +180,7 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 # Just run a few for illustration 
 # Recommend minimum of NB = 300 re-samples, in practice
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
