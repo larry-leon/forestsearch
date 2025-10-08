@@ -30,16 +30,9 @@ get_FSdata <- function(df, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,
                      replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                      outcome.name = "tte", event.name = "event", details=TRUE){
 
-  # convert to data.frame and return data.table
-if(!is.data.frame(df))  df <- as.data.frame(df)
+    # convert to data.frame and return data.table
+   if(!is.data.frame(df))  df <- as.data.frame(df)
 
-  # Check that all required columns are present
-  missing_cols <- setdiff(c(confounders.name, outcome.name, event.name), names(df))
-  if(length(missing_cols) > 0) stop("Missing columns in data: ", paste(missing_cols, collapse = ", "))
-
-  # Check for NAs in key columns
-  key_cols <- c(confounders.name, outcome.name, event.name)
-  if(anyNA(df[, key_cols, drop = FALSE])) warning("NAs detected in key columns. Consider handling missing data (default is complete-case).")
 
   # Check that outcome and event columns are numeric
   if(!is.numeric(df[[outcome.name]])) stop("Outcome column must be numeric.")
@@ -53,10 +46,15 @@ if(!is.data.frame(df))  df <- as.data.frame(df)
   #toget_complete <- complete.cases(df1[, c(confounders.name, outcome.name, event.name)])
   #df <- df1[toget_complete,]
 
-  df <- df[complete.cases(df[, c(confounders.name, outcome.name, event.name)]), ]
+  # Identifying and removing missing data is redundant and implement at beginning of forestsearch call
+  # Check that all required columns are present
+  # missing_cols <- setdiff(c(confounders.name, outcome.name, event.name), names(df))
+  # if(length(missing_cols) > 0) stop("Missing columns in data: ", paste(missing_cols, collapse = ", "))
+  # # Check for NAs in key columns
+  # key_cols <- c(confounders.name, outcome.name, event.name)
+  # if(anyNA(df[, key_cols, drop = FALSE])) warning("NAs detected in key columns. Consider handling missing data (default is complete-case).")
+  # df <- df[complete.cases(df[, c(confounders.name, outcome.name, event.name)]), ]
 
-  # Remove
-  #print(names(df))
 
     # Default cuts forced per defaultcut_names
   if(!is.null(defaultcut_names)){

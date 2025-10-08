@@ -336,7 +336,15 @@ args_FS_filtered$grf_cuts <- grf_cuts
 # FSdata1 <- do.call(get_FSdata, args_FS_filtered)
 # print(names(FSdata1))
 
-FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
+#FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
+
+run_bootstrap <- tryCatch(
+  do.call(get_FSdata, args_FS_filtered),
+  error = function(e) {
+    message("Error in forestsearch: ", e$message)
+    return(NULL)
+  }
+)
 
 if(inherits(FSdata,"try-error")){
 warning("FSdata failure")
