@@ -210,9 +210,9 @@ if (!exists("df.analysis") | !is.data.frame(df.analysis)){
   #   df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
   # }
 
-#df.analysis <-  add_id_column(df.analysis, id.name)
+ df.analysis <-  add_id_column(df.analysis, id.name)
 
-var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name)
+ var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name)
   # Ensure all required variables exist in df.analysis
   missing_vars <- setdiff(var_names, names(df.analysis))
   if(length(missing_vars) > 0) {
