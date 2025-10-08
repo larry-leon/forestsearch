@@ -180,8 +180,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot$parallel_args$workers <- boot_workers
     args_FS_boot$parallel_args$show_message <- FALSE
     }
-
-    args_FS_boot$plot.grf <- NULL  # Remove the unused argument
+    args_FS_boot$plot.grf <- FALSE
 
     # Keep only arguments that are in the formal argument list of forestsearch
     #forestsearch_formals <- names(formals(forestsearch))
