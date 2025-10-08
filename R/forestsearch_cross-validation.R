@@ -31,7 +31,7 @@
 #'
 #' @importFrom future plan
 #' @importFrom data.table data.table copy
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
 #' @export
 
 forestsearch_Kfold <- function(fs.est, Kfolds = nrow(fs.est$df.est), seedit = 8316951, parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
@@ -146,7 +146,7 @@ prop_SG_found=propn_SG, sg_analysis = fs.est$sg.harm, sg0.name = sg0.name,sg1.na
 #'
 #' @importFrom future plan
 #' @importFrom data.table data.table copy
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
 #' @export
 
 forestsearch_tenfold <- function(fs.est, sims, Kfolds = 10, details = TRUE,

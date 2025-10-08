@@ -54,7 +54,7 @@ fit_cox_models <- function(df, formula) {
 #' @param df Data frame.
 #' @param nb_boots Integer. Number of bootstrap samples.
 #' @return Matrix of bootstrap samples.
-#' @importFrom foreach foreach %dopar%
+#' @importFrom foreach foreach
 #' @export
 
 bootstrap_ystar <- function(df, nb_boots) {
