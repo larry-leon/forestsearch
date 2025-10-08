@@ -5,7 +5,7 @@
 \title{ForestSearch Data Preparation and Feature Selection}
 \usage{
 get_FSdata(
-  df,
+  df.analysis,
   use_lasso = FALSE,
   use_grf = FALSE,
   grf_cuts = NULL,
@@ -24,7 +24,7 @@ get_FSdata(
 )
 }
 \arguments{
-\item{df}{Data frame containing the data.}
+\item{df.analysis}{Data frame containing the data.}
 
 \item{use_lasso}{Logical. Whether to use LASSO for dimension reduction.}
 

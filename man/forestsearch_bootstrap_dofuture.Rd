@@ -11,7 +11,7 @@ forestsearch_bootstrap_dofuture(
   show_three = FALSE,
   reset_parallel_fs = TRUE,
   boot_workers = 3,
-  parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE)
+  parallel_args = list()
 )
 }
 \arguments{

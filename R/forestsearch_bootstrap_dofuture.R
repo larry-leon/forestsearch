@@ -348,10 +348,17 @@ show_three <- TRUE
 #' @importFrom data.table data.table
 #' @export
 
-forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE, reset_parallel_fs = TRUE, boot_workers = 3,
-                                            parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE)) {
+forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE, reset_parallel_fs = TRUE,
+                                            boot_workers = 3, parallel_args = list()
+                                            ) {
 
   args_forestsearch_call <- fs.est$args_call_all
+
+  # If parallel_args is empty then default to main forestsearch (data analysis) call
+  if(length(parallel_args) == 0){
+  message("Using parallel plan of 'observed' data analysis forestsearch")
+  parallel_args <- as.list(args_forestsearch_call$parallel_args)
+  }
 
   # 1. Ensure packages
   ensure_packages(c("data.table", "foreach", "doFuture", "doRNG", "survival"))
