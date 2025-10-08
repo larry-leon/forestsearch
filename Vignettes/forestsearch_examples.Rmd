@@ -94,8 +94,8 @@ rm(list=ls())
 #library(devtools)
 #install_github("larry-leon/forestsearch", force = TRUE)
 
-library(weightedSurv)
-library(forestsearch)
+suppressMessages(library(weightedSurv))
+suppressMessages(library(forestsearch))
 ```
 
 # GBSG data analysis example
@@ -124,8 +124,6 @@ arms <- c("treat", "control")
 
 GBSG - ITT Analysis
 ```{r, fig.width = 10, fig.height=6}
-
-library(weightedSurv)
 
 dfcount_gbsg <- df_counting(df_gbsg, tte.name, event.name, treat.name, by.risk = 12)
 
@@ -180,7 +178,7 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 # Just run a few for illustration 
 # Recommend minimum of NB = 300 re-samples, in practice
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 

@@ -99,34 +99,92 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
-                           add = c("calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_potential_hr","ci.est","count.id","CV_sgs",
-                           "cox_summary","df_counting","extract_subgroup","format_results", "get_targetEst","getci_Cox",
-                           "getCIs","grf.estimates.out","hrCI_format","km_summary","n_pcnt","plot_subgroup","plot_weighted_km",
-                           "prepare_subgroup_data","quiet","rmst_calculation","sg_tables","sort_subgroups","SummaryStat","var_summary",
-                           "get_FSdata", "dummy","run_bootstrap",
-                             "forestsearch", "forestsearch_bootstrap_dofuture","get_combinations_info",
+                           add = c(
+                             # Bootstrap/statistics helpers
+                             "calc_cov",
+                             "calculate_counts",
+                             "analyze_subgroups",
+                             "calculate_potential_hr",
+                             "ci.est",
+                             "count.id",
+                             "CV_sgs",
+                             "get_targetEst",
+                             "get_dfRes",
+                             "getCIs",
+                             "getci_Cox",
+                             "SummaryStat",
+                             "var_summary",
+                             "format_results",
+                             "format_CI",
+                             "qlow", "qhigh",
+
+                             # Subgroup/consistency helpers
+                             "cox_summary",
+                             "km_summary",
+                             "n_pcnt",
+                             "plot_subgroup",
+                             "plot_weighted_km",
+                             "prepare_subgroup_data",
+                             "quiet",
+                             "rmst_calculation",
+                             "sg_tables",
+                             "sort_subgroups",
+                             "remove_redundant_subgroups",
+                             "sg_consistency_out",
+                             "get_split_hr",
+
+                             # Data preparation
+                             "get_FSdata",
+                             "dummy", "dummy2", "acm.disjctif", "acm.util.df2", "acm.util.df",
+                             "ztrail", "one.zero",
+                             "prepare_data",
+                             "clean_data",
+
+                             # ForestSearch core
+                             "forestsearch",
+                             "forestsearch_bootstrap_dofuture",
+                             "run_bootstrap",
+                             "run_grf",
+                             "evaluate_subgroups",
+                             "summarize_results",
+                             "SG_tab_estimates",
                              "get_dfpred",
+                             "get_combinations_info",
+                             "get_subgroup_membership",
+                             "get_covs_in",
+                             "extract_idx_flagredundancy",
+                             "get_cut_name",
+                             "cut_var",
+                             "thiscut",
+                             "FS_labels",
+
+                             # GRF and policytree
                              "grf.subg.harm.survival",
+                             "grf.estimates.out",
+                             "policy_tree", # if used
+                             "causal_survival_forest", # if used
+
+                             # Subgroup search/consistency
                              "subgroup.search",
                              "subgroup.consistency",
-                             "lasso_selection",
-                             "get_Cox_sg",
-                             "get_conf_force",
+                             "extract_subgroup",
                              "filter_by_lassokeep",
                              "is.continuous",
                              "process_conf_force_expr",
                              "is_flag_continuous",
-                             "is_flag_drop", "acm.disjctif",  "acm.util.df2", "acm.util.df", "dummy2","ztrail","one.zero",
-                             "get_dfRes", "get_subgroup_membership",
-                             "SG_tab_estimates",
-                             "prepare_data",
-                             "run_grf",
-                             "evaluate_subgroups",
-                             "summarize_results",
-                              "clean_data", "qlow", "qhigh","FS_labels","thiscut","get_cut_name",
-                             "bootstrap_results", "remove_redundant_subgroups", "sg_consistency_out","get_split_hr","cut_var",
-                             "bootstrap_ystar", "ensure_packages", "fit_cox_models", "build_cox_formula", "cox.formula.boot",
-                             "format_CI","setup_parallel_SGcons", "get_covs_in", "extract_idx_flagredundancy"
+                             "is_flag_drop",
+                             "lasso_selection",
+                             "get_Cox_sg",
+                             "get_conf_force",
+
+                             # Bootstrap/parallel
+                             "bootstrap_results",
+                             "bootstrap_ystar",
+                             "ensure_packages",
+                             "fit_cox_models",
+                             "build_cox_formula",
+                             "cox.formula.boot",
+                             "setup_parallel_SGcons"
                            )),
     .combine = "rbind",
     .errorhandling = "pass"
@@ -187,21 +245,23 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
 
 
-    print(names(args_FS_boot))
+    #print(names(args_FS_boot))
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
-    #run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
-    #if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
 
-    print(args(forestsearch))
+    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
-    run_bootstrap <- tryCatch(
-      do.call(forestsearch, args_FS_boot),
-      error = function(e) {
-        message("Error in forestsearch: ", e$message)
-        return(NULL)
-      }
-    )
+    if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
+
+    #print(args(forestsearch))
+
+    # run_bootstrap <- tryCatch(
+    #   do.call(forestsearch, args_FS_boot),
+    #   error = function(e) {
+    #     message("Error in forestsearch: ", e$message)
+    #     return(NULL)
+    #   }
+    # )
 
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
@@ -325,18 +385,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   stop("Dimension of Ystar_mat must be (n x nb_boots)")
   }
 
-  # 5. Bootstrap results
-
-  # Remove
-  # Remove after testing
-  # Suppress printing message
-  #if(length(parallel_args) > 0) parallel_args$show_message <- FALSE
-
   # Note: reset_parallel_fs re-sets parallel for subgroup consistency in forestsearch
   # That is reset_parallel_fs = TRUE only the outer *bootstrap* loop is parallelized
-
-  # Remove
-  #cat("Running bootstraps now","\n")
 
   results <- bootstrap_results(fs.est, fs.est$df.est, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs, reset_parallel_fs, boot_workers)
 
