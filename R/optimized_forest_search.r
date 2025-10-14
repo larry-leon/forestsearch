@@ -4,6 +4,31 @@
 # This version includes significant performance improvements while maintaining
 # all functionality and improving readability
 
+
+#' Add ID Column to Data Frame
+#'
+#' Ensures that a data frame has a unique ID column. If \code{id.name} is not provided,
+#' a column named "id" is added. If \code{id.name} is provided but does not exist in the data frame,
+#' it is created with unique integer values.
+#'
+#' @param df.analysis Data frame to which the ID column will be added.
+#' @param id.name Character. Name of the ID column to add (default is \code{NULL}, which uses "id").
+#'
+#' @return Data frame with the ID column added if necessary.
+#' @export
+
+add_id_column <- function(df.analysis, id.name = NULL) {
+  if (is.null(id.name)) {
+    df.analysis$id <- seq_len(nrow(df.analysis))
+    id.name <- "id"
+  } else if (!(id.name %in% names(df.analysis))) {
+    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
+  }
+  return(df.analysis)
+}
+
+
+
 # ============================================================================
 # PACKAGE MANAGEMENT
 # ============================================================================
@@ -16,19 +41,19 @@ check_required_packages <- function() {
     "grf", "policytree", "data.table", "randomForest",
     "survival", "weightedSurv", "future.apply"
   )
-  
+
   missing <- required_packages[!vapply(
     required_packages,
     requireNamespace,
     logical(1),
     quietly = TRUE
   )]
-  
+
   if (length(missing) > 0) {
     stop("Missing required packages: ", paste(missing, collapse = ", "),
          "\nInstall with: install.packages(c('", paste(missing, collapse = "', '"), "'))")
   }
-  
+
   invisible(TRUE)
 }
 
@@ -46,32 +71,32 @@ check_required_packages()
 #' @return Validated parallel_args list
 #' @keywords internal
 validate_parallel_args <- function(parallel_args) {
-  
+
   if (length(parallel_args) == 0) return(parallel_args)
-  
+
   ALLOWED_PLANS <- c("multisession", "multicore", "callr", "sequential")
-  
+
   plan_type <- parallel_args$plan
   n_workers <- parallel_args$workers
   max_cores <- parallel::detectCores()
-  
+
   # Validate plan type
   if (is.null(plan_type)) {
     stop("parallel_args$plan must be specified")
   }
-  
+
   if (!plan_type %in% ALLOWED_PLANS) {
-    stop("parallel_args$plan must be one of: ", 
+    stop("parallel_args$plan must be one of: ",
          paste(ALLOWED_PLANS, collapse = ", "))
   }
-  
+
   # Validate and adjust workers
   if (is.null(n_workers) || !is.numeric(n_workers) || n_workers < 1) {
     parallel_args$workers <- 1
   } else {
     parallel_args$workers <- min(n_workers, max_cores)
   }
-  
+
   parallel_args
 }
 
@@ -84,37 +109,37 @@ validate_parallel_args <- function(parallel_args) {
 #' @param defaultcut_names Character vector or NULL
 #' @param df.analysis Data frame
 #' @keywords internal
-validate_parameters <- function(sg_focus, cut_type, confounders.name, 
+validate_parameters <- function(sg_focus, cut_type, confounders.name,
                                defaultcut_names, df.analysis) {
-  
+
   # Validate sg_focus
   VALID_SG_FOCUS <- c("hr", "hrMaxSG", "hrMinSG", "maxSG", "minSG")
   if (!sg_focus %in% VALID_SG_FOCUS) {
     stop("sg_focus must be one of: ", paste(VALID_SG_FOCUS, collapse = ", "))
   }
-  
+
   # Validate cut_type
   VALID_CUT_TYPES <- c("default", "median")
   if (!cut_type %in% VALID_CUT_TYPES) {
     stop("cut_type must be one of: ", paste(VALID_CUT_TYPES, collapse = ", "))
   }
-  
+
   # Validate confounders exist in data
   missing_confounders <- setdiff(confounders.name, names(df.analysis))
   if (length(missing_confounders) > 0) {
-    stop("Confounders not found in dataset: ", 
+    stop("Confounders not found in dataset: ",
          paste(missing_confounders, collapse = ", "))
   }
-  
+
   # Validate defaultcut_names if provided
   if (!is.null(defaultcut_names)) {
     missing_defaults <- setdiff(defaultcut_names, names(df.analysis))
     if (length(missing_defaults) > 0) {
-      stop("Default cut confounders not found in dataset: ", 
+      stop("Default cut confounders not found in dataset: ",
            paste(missing_defaults, collapse = ", "))
     }
   }
-  
+
   invisible(TRUE)
 }
 
@@ -125,20 +150,20 @@ validate_parameters <- function(sg_focus, cut_type, confounders.name,
 validate_required_args <- function(confounders.name, outcome.name, event.name,
                                   treat.name, hr.threshold, hr.consistency,
                                   pconsistency.threshold) {
-  
+
   if (is.null(confounders.name)) {
     stop("confounders.name is required")
   }
-  
+
   if (is.null(outcome.name) || is.null(event.name) || is.null(treat.name)) {
     stop("outcome.name, event.name, and treat.name are all required")
   }
-  
-  if (is.null(hr.threshold) || is.null(hr.consistency) || 
+
+  if (is.null(hr.threshold) || is.null(hr.consistency) ||
       is.null(pconsistency.threshold)) {
     stop("hr.threshold, hr.consistency, and pconsistency.threshold are all required")
   }
-  
+
   invisible(TRUE)
 }
 
@@ -153,7 +178,7 @@ validate_required_args <- function(confounders.name, outcome.name, event.name,
 #' @return Cleaned data frame
 #' @keywords internal
 prepare_analysis_data <- function(df.analysis, var_names, id.name) {
-  
+
   # Sort by ID (using data.table for speed if available)
   if (requireNamespace("data.table", quietly = TRUE)) {
     dt <- data.table::as.data.table(df.analysis)
@@ -162,16 +187,16 @@ prepare_analysis_data <- function(df.analysis, var_names, id.name) {
   } else {
     df.analysis <- df.analysis[order(df.analysis[[id.name]]), , drop = FALSE]
   }
-  
+
   # Select relevant columns and handle missing data
   temp <- df.analysis[, var_names, drop = FALSE]
   complete_idx <- complete.cases(temp)
   n_excluded <- sum(!complete_idx)
-  
+
   if (n_excluded > 0) {
     message("Excluded ", n_excluded, " observations with missing data")
   }
-  
+
   # Return only complete cases
   temp[complete_idx, , drop = FALSE]
 }
@@ -202,7 +227,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
                              event.name, id.name, treat.name, n.min,
                              dmin.grf, is.RCT, seedit, grf_depth,
                              frac.tau, details) {
-  
+
   if (details) {
     cat("\n")
     cat(rep("=", 70), "\n", sep = "")
@@ -214,7 +239,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
     cat("  - Maximum tree depth:", grf_depth, "\n")
     cat("  - Minimum subgroup size:", n.min, "\n\n")
   }
-  
+
   # Try to run GRF
   grf_res <- try(
     grf.subg.harm.survival(
@@ -234,7 +259,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
     ),
     silent = TRUE
   )
-  
+
   # Handle errors
   if (inherits(grf_res, "try-error")) {
     if (details) {
@@ -244,7 +269,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
     }
     return(NULL)
   }
-  
+
   # Check if subgroup was found
   if (is.null(grf_res$sg.harm.id)) {
     if (details) {
@@ -253,7 +278,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
     }
     return(NULL)
   }
-  
+
   # Subgroup found - report results
   if (details) {
     cat("✓ GRF Subgroup Identified!\n")
@@ -261,14 +286,14 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
     cat("  Effect difference:", round(grf_res$grf.gsub$diff, 4), "\n")
     cat("  Subgroup size:", grf_res$grf.gsub$Nsg, "\n")
     cat("  Tree depth:", grf_res$grf.gsub$depth, "\n\n")
-    
+
     cat("  GRF cuts for ForestSearch:\n")
     for (cut in grf_res$tree.cuts) {
       cat("    -", cut, "\n")
     }
     cat("\n")
   }
-  
+
   grf_res
 }
 
@@ -280,21 +305,21 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
 #' @return Plot object or NULL
 #' @keywords internal
 generate_grf_plot <- function(grf_res, plot.grf) {
-  
+
   if (!plot.grf || is.null(grf_res)) return(NULL)
-  
+
   if (!requireNamespace("DiagrammeR", quietly = TRUE)) {
     message("DiagrammeR package needed for tree visualization")
     return(NULL)
   }
-  
+
   grf_plot <- try(
     plot(grf_res$tree, leaf.labels = c("Control", "Treat")),
     silent = TRUE
   )
-  
+
   if (inherits(grf_plot, "try-error")) return(NULL)
-  
+
   grf_plot
 }
 
@@ -321,12 +346,12 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
                                           outcome.name, event.name, treat.name,
                                           is.RCT, vi.grf.min, max_n_confounders,
                                           details) {
-  
+
   # Skip screening if vi.grf.min is NULL
   if (is.null(vi.grf.min)) {
     return(FSconfounders.name)
   }
-  
+
   if (details) {
     cat(rep("=", 70), "\n", sep = "")
     cat("VARIABLE IMPORTANCE SCREENING\n")
@@ -334,22 +359,22 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
     cat("Using GRF to rank variables\n")
     cat("Minimum VI threshold:", vi.grf.min, "\n\n")
   }
-  
+
   # Extract outcome variables
   Y <- df[[outcome.name]]
   Event <- df[[event.name]]
   Treat <- df[[treat.name]]
-  
+
   # Prepare design matrix (optimized conversion)
   X <- as.matrix(df[, FSconfounders.name, drop = FALSE])
   X <- matrix(as.numeric(X), nrow = nrow(X), ncol = ncol(X))
-  
+
   # Calculate time horizon
   tau.rmst <- min(
     max(Y[Treat == 1 & Event == 1]),
     max(Y[Treat == 0 & Event == 1])
   )
-  
+
   # Fit causal survival forest
   cs.forest <- if (is.RCT) {
     grf::causal_survival_forest(
@@ -365,11 +390,11 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
       seed = 8316951
     )
   }
-  
+
   # Calculate variable importance
   vi.cs <- grf::variable_importance(cs.forest)
   vi.cs <- round(vi.cs, 4)
-  
+
   # Create results data frame (using data.table for speed)
   vi_results <- data.frame(
     confs_labels = confs_labels,
@@ -377,32 +402,32 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
     vi.cs = vi.cs,
     stringsAsFactors = FALSE
   )
-  
+
   # Sort by importance
   vi_results <- vi_results[order(vi_results$vi.cs, decreasing = TRUE), ]
-  
+
   # Calculate relative importance
   vi_ratio <- vi_results$vi.cs / max(vi_results$vi.cs)
-  
+
   # Select variables above threshold
   selected_idx <- which(vi_ratio > vi.grf.min)
   conf.screen <- vi_results$FSconfounders.name[selected_idx]
-  
+
   # Limit to max_n_confounders
   lmax <- min(length(conf.screen), max_n_confounders)
   conf.screen <- conf.screen[seq_len(lmax)]
-  
+
   if (details) {
     cat("Variables selected:", lmax, "of", length(FSconfounders.name), "\n\n")
-    
+
     vi_display <- vi_results[selected_idx[seq_len(min(20, lmax))], ]
     names(vi_display) <- c("Factor", "Label", "VI")
-    
+
     cat("Top variables (showing first 20):\n")
     print(vi_display, row.names = FALSE)
     cat("\n")
   }
-  
+
   conf.screen
 }
 
@@ -413,7 +438,7 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
 
 #' ForestSearch: Subgroup Identification and Consistency Analysis
 #'
-#' Performs subgroup identification and consistency analysis for treatment effect 
+#' Performs subgroup identification and consistency analysis for treatment effect
 #' heterogeneity using ForestSearch. This optimized version includes:
 #' - Faster data preparation using data.table
 #' - Vectorized operations where possible
@@ -506,7 +531,7 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
 #'   use_lasso = TRUE,
 #'   details = TRUE
 #' )
-#' 
+#'
 #' # Check if subgroup was found
 #' if (!is.null(result$sg.harm)) {
 #'   print(result$sg.harm)
@@ -563,18 +588,18 @@ forestsearch <- function(
     max_subgroups_search = 10,
     vi.grf.min = -0.2
 ) {
-  
+
   # ---- Start timer ----
   t.start_all <- proc.time()[3]
-  
+
   # ---- Store all function arguments ----
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
-  
+
   # ============================================================================
   # STEP 1: VALIDATION
   # ============================================================================
-  
+
   if (details) {
     cat("\n")
     cat(rep("=", 70), "\n", sep = "")
@@ -582,86 +607,86 @@ forestsearch <- function(
     cat(rep("=", 70), "\n", sep = "")
     cat("Starting validation...\n\n")
   }
-  
+
   # Validate parallel arguments
   parallel_args <- validate_parallel_args(parallel_args)
-  
+
   # Validate data frame
   if (!exists("df.analysis") || !is.data.frame(df.analysis)) {
     stop("df.analysis must be a data.frame")
   }
-  
+
   # Add ID column if needed
   df.analysis <- add_id_column(df.analysis, id.name)
-  
+
   # Build variable list
   var_names <- c(
     confounders.name, outcome.name, event.name,
     id.name, treat.name, potentialOutcome.name
   )
-  
+
   # Check for missing variables
   missing_vars <- setdiff(var_names, names(df.analysis))
   if (length(missing_vars) > 0) {
-    stop("Missing variables in df.analysis: ", 
+    stop("Missing variables in df.analysis: ",
          paste(missing_vars, collapse = ", "))
   }
-  
+
   # Validate parameters
   validate_parameters(
     sg_focus, cut_type, confounders.name,
     defaultcut_names, df.analysis
   )
-  
+
   # Validate required arguments
   validate_required_args(
     confounders.name, outcome.name, event.name,
     treat.name, hr.threshold, hr.consistency,
     pconsistency.threshold
   )
-  
+
   # Adjust parameters based on sg_focus
   if (plot.sg && is.null(by.risk)) {
     stop("by.risk must be non-null if plot.sg = TRUE")
   }
-  
+
   if (showten_subgroups) {
     stop.threshold <- 1.1
   }
-  
+
   if (sg_focus %in% c("maxSG", "minSG")) {
     if (stop.threshold < pconsistency.threshold) {
       stop.threshold <- pconsistency.threshold
     }
   }
-  
+
   if (sg_focus %in% c("hrMaxSG", "hrMinSG") && stop.threshold < 1.0) {
     stop.threshold <- 1.0
   }
-  
+
   # ============================================================================
   # STEP 2: DATA PREPARATION
   # ============================================================================
-  
+
   if (details) {
     cat("Preparing analysis dataset...\n")
     cat("  Initial sample size:", nrow(df.analysis), "\n")
   }
-  
+
   df.analysis <- prepare_analysis_data(df.analysis, var_names, id.name)
-  
+
   if (details) {
     cat("  Final sample size:", nrow(df.analysis), "\n\n")
   }
-  
+
   # ============================================================================
   # STEP 3: GRF ANALYSIS (if requested)
   # ============================================================================
-  
+
   grf_plot <- NULL
-  
+
   if (use_grf && (is.null(grf_res) || is.null(grf_res$tree.cuts))) {
-    
+
     grf_res <- run_grf_analysis(
       df.analysis = df.analysis,
       confounders.name = confounders.name,
@@ -677,10 +702,10 @@ forestsearch <- function(
       frac.tau = frac.tau,
       details = details
     )
-    
+
     # Generate plot if requested
     grf_plot <- generate_grf_plot(grf_res, plot.grf)
-    
+
     # Extract cuts
     if (!is.null(grf_res)) {
       grf_cuts <- grf_res$tree.cuts
@@ -689,24 +714,24 @@ forestsearch <- function(
       use_grf <- FALSE
     }
   }
-  
+
   # ============================================================================
   # STEP 4: FEATURE ENGINEERING
   # ============================================================================
-  
+
   if (details) {
     cat(rep("=", 70), "\n", sep = "")
     cat("DATA PREPARATION: Feature Engineering\n")
     cat(rep("=", 70), "\n", sep = "")
   }
-  
+
   # Get arguments for get_FSdata
   get_argsFS <- formals(get_FSdata)
   args_FS <- names(get_argsFS)
   args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
   args_FS_filtered$df.analysis <- df.analysis
   args_FS_filtered$grf_cuts <- grf_cuts
-  
+
   # Prepare features
   FSdata <- tryCatch(
     do.call(get_FSdata, args_FS_filtered),
@@ -715,31 +740,31 @@ forestsearch <- function(
       NULL
     }
   )
-  
+
   if (is.null(FSdata) || inherits(FSdata, "try-error")) {
     return(list(
       sg.harm = NULL,
       error = "Data preparation failed"
     ))
   }
-  
+
   # ============================================================================
   # STEP 5: VARIABLE IMPORTANCE SCREENING
   # ============================================================================
-  
+
   lassoomit <- FSdata$lassoomit
   lassokeep <- FSdata$lassokeep
   df <- FSdata$df
-  
+
   Y <- df[[outcome.name]]
   Event <- df[[event.name]]
   Treat <- df[[treat.name]]
-  
+
   FSconfounders.name <- FSdata$confs_names
   confs_labels <- FSdata$confs
-  
+
   if (is.null(df.predict)) df.predict <- df
-  
+
   # Screen variables by importance
   conf.screen <- screen_variables_by_importance(
     df = df,
@@ -753,11 +778,11 @@ forestsearch <- function(
     max_n_confounders = max_n_confounders,
     details = details
   )
-  
+
   # ============================================================================
   # STEP 6: SUBGROUP SEARCH
   # ============================================================================
-  
+
   if (details) {
     cat(rep("=", 70), "\n", sep = "")
     cat("SUBGROUP SEARCH: Exhaustive Combinatorial Search\n")
@@ -768,16 +793,16 @@ forestsearch <- function(
     cat("  HR threshold:", hr.threshold, "\n")
     cat("  Maximum search time:", max.minutes, "minutes\n\n")
   }
-  
+
   # Prepare data for subgroup search
   df.confounders <- df[, conf.screen, drop = FALSE]
   df.confounders <- dummy(df.confounders)
-  
+
   id <- df[[id.name]]
   df.fs <- data.frame(Y, Event, Treat, id, df.confounders, stringsAsFactors = FALSE)
   Z <- as.matrix(df.confounders)
   colnames(Z) <- names(df.confounders)
-  
+
   # Run subgroup search
   find.grps <- subgroup.search(
     Y = Y,
@@ -792,35 +817,35 @@ forestsearch <- function(
     details = details,
     maxk = maxk
   )
-  
+
   # Initialize output variables
   sg.harm <- NULL
   df.est_out <- NULL
   df.predict_out <- NULL
   df.test_out <- NULL
   grp.consistency <- NULL
-  
+
   max_sg_est <- find.grps$max_sg_est
   prop_maxk <- find.grps$prop_max_count
-  
+
   # Calculate elapsed time
   t.end_all <- proc.time()[3]
   t.min_all <- (t.end_all - t.start_all) / 60
-  
+
   # ============================================================================
   # STEP 7: CONSISTENCY EVALUATION
   # ============================================================================
-  
+
   # Check if candidate subgroups were found
   has_candidates <- !is.null(find.grps$out.found) &&
     any(find.grps$out.found$hr.subgroups$HR > hr.consistency)
-  
+
   if (has_candidates) {
-    
+
     if (plot.sg && is.null(by.risk)) {
       by.risk <- round(max(Y) / 12, 0)
     }
-    
+
     if (details) {
       cat("\n")
       cat(rep("=", 70), "\n", sep = "")
@@ -832,7 +857,7 @@ forestsearch <- function(
       cat("  Consistency threshold:", pconsistency.threshold, "\n")
       cat("  HR consistency threshold:", hr.consistency, "\n\n")
     }
-    
+
     # Prepare arguments for consistency evaluation
     args_sgc <- names(formals(subgroup.consistency))
     args_sgc_filtered <- args_call_all[names(args_call_all) %in% args_sgc]
@@ -842,19 +867,19 @@ forestsearch <- function(
     args_sgc_filtered$confs_labels <- confs_labels
     args_sgc_filtered$n.splits <- fs.splits
     args_sgc_filtered$stop_Kgroups <- max_subgroups_search
-    
+
     # Run consistency evaluation
     grp.consistency <- do.call(subgroup.consistency, args_sgc_filtered)
-    
+
     # Update timing
     t.end_all <- proc.time()[3]
     t.min_all <- (t.end_all - t.start_all) / 60
-    
+
     # ---- Extract final subgroup if found ----
     if (!is.null(grp.consistency$sg.harm)) {
-      
+
       sg.harm <- grp.consistency$sg.harm
-      
+
       if (details) {
         cat("\n")
         cat(rep("=", 70), "\n", sep = "")
@@ -863,10 +888,10 @@ forestsearch <- function(
         cat("Definition:", paste(sg.harm, collapse = " & "), "\n")
         cat("Total time:", round(t.min_all, 2), "minutes\n\n")
       }
-      
+
       # Merge treatment recommendations to datasets
       temp <- grp.consistency$df_flag
-      
+
       # Use data.table for fast merging if available
       if (requireNamespace("data.table", quietly = TRUE)) {
         dt_df <- data.table::as.data.table(df)
@@ -877,7 +902,7 @@ forestsearch <- function(
       } else {
         df.est_out <- merge(df, temp, by = "id", all.x = TRUE)
       }
-      
+
       # Prediction dataset
       if (!is.null(df.predict)) {
         if (requireNamespace("data.table", quietly = TRUE)) {
@@ -888,7 +913,7 @@ forestsearch <- function(
           df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE)
         }
       }
-      
+
       # Test dataset
       if (!is.null(df.test)) {
         df.test_out <- get_dfpred(
@@ -897,7 +922,7 @@ forestsearch <- function(
           version = 2
         )
       }
-      
+
     } else {
       if (details) {
         cat("\n✗ No subgroup met consistency criteria\n")
@@ -906,7 +931,7 @@ forestsearch <- function(
         cat("    - HR in splits below threshold (", hr.consistency, ")\n\n")
       }
     }
-    
+
   } else {
     if (details) {
       cat("\n")
@@ -920,17 +945,17 @@ forestsearch <- function(
       cat("  - Search time limit reached (", max.minutes, "minutes)\n\n")
     }
   }
-  
+
   # ============================================================================
   # STEP 8: PREPARE OUTPUT
   # ============================================================================
-  
+
   if (details) {
     cat(rep("=", 70), "\n", sep = "")
     cat("FORESTSEARCH COMPLETE\n")
     cat(rep("=", 70), "\n", sep = "")
     cat("Total computation time:", round(t.min_all, 2), "minutes\n")
-    
+
     if (!is.null(sg.harm)) {
       cat("Status: ✓ Subgroup identified\n")
     } else {
@@ -938,7 +963,7 @@ forestsearch <- function(
     }
     cat("\n")
   }
-  
+
   # Return results
   list(
     grp.consistency = grp.consistency,
@@ -985,29 +1010,29 @@ forestsearch <- function(
 #' )
 #' }
 benchmark_forestsearch <- function(df.analysis, ...) {
-  
+
   cat("Running ForestSearch performance benchmark...\n\n")
-  
+
   # Run with timing
   t_start <- proc.time()
   result <- forestsearch(df.analysis = df.analysis, details = FALSE, ...)
   t_end <- proc.time()
-  
+
   elapsed <- t_end - t_start
-  
+
   cat("Benchmark Results:\n")
   cat("  User time:", round(elapsed["user.self"], 2), "seconds\n")
   cat("  System time:", round(elapsed["sys.self"], 2), "seconds\n")
   cat("  Elapsed time:", round(elapsed["elapsed"], 2), "seconds\n")
   cat("  Total time:", round(result$minutes_all, 2), "minutes\n\n")
-  
+
   if (!is.null(result$sg.harm)) {
     cat("  Subgroup found: YES\n")
     cat("  Definition:", paste(result$sg.harm, collapse = " & "), "\n")
   } else {
     cat("  Subgroup found: NO\n")
   }
-  
+
   invisible(list(
     timing = elapsed,
     result = result
@@ -1026,34 +1051,34 @@ benchmark_forestsearch <- function(df.analysis, ...) {
 #' @return List with memory statistics
 #' @export
 monitor_memory_usage <- function(df.analysis, ...) {
-  
+
   if (!requireNamespace("pryr", quietly = TRUE)) {
     message("Package 'pryr' needed for memory monitoring")
     message("Install with: install.packages('pryr')")
     return(NULL)
   }
-  
+
   cat("Monitoring memory usage...\n\n")
-  
+
   # Record initial memory
   gc()
   mem_start <- pryr::mem_used()
-  
+
   # Run ForestSearch
   result <- forestsearch(df.analysis = df.analysis, ...)
-  
+
   # Record final memory
   gc()
   mem_end <- pryr::mem_used()
-  
+
   # Calculate difference
   mem_diff <- mem_end - mem_start
-  
+
   cat("\nMemory Usage:\n")
   cat("  Initial:", format(mem_start, units = "auto"), "\n")
   cat("  Final:", format(mem_end, units = "auto"), "\n")
   cat("  Difference:", format(mem_diff, units = "auto"), "\n")
-  
+
   invisible(list(
     mem_start = mem_start,
     mem_end = mem_end,
