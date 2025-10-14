@@ -1,0 +1,221 @@
+---
+title: "forestsearch Function Summary"
+output: html_document
+---
+
+## Purpose
+The `forestsearch` function performs subgroup identification and consistency analysis for treatment effect heterogeneity in survival data. It supports LASSO-based dimension reduction, GRF-based variable selection, and flexible cut strategies. The function is designed to find subgroups where treatment effects differ, using a combination of machine learning and statistical methods.
+
+## Key Features
+- **Subgroup Identification:** Finds subgroups with differential treatment effects using combinations of confounders.
+- **Variable Selection:** Supports LASSO (for dimension reduction), and Generalized Random Forests (GRF) for candidate cut selection.
+- **Flexible Cut Strategies:** Allows for forced cuts (e.g., "age <= 65", "biomarker < 1%", "biomarker < 2%", ..., "biomarker < 10%", etc), median cuts, and quantile cut strategies.
+- **Parallelization:** Supports parallel processing for efficiency.
+- **Consistency Analysis:** Evaluates the consistency of identified subgroups across splits or bootstraps.
+- **Handles RCT and Observational Data:** Can be used for both randomized controlled trials and observational studies.
+
+## Main Arguments
+- `df.analysis`: Data frame for analysis.
+- `outcome.name`, `event.name`, `treat.name`, `id.name`: Variable names for outcome, event, treatment, and ID.
+- `confounders.name`: Names of confounder variables.
+- `parallel_args`: List for parallelization (plan, workers).
+- `use_lasso`, `use_grf`: Logical; use LASSO or GRF for variable selection.
+- `grf_res`, `grf_cuts`: Precomputed GRF results or cut expressions.
+- `max_n_confounders`, `grf_depth`, `dmin.grf`, `frac.tau`: GRF and search parameters.
+- `conf_force`, `defaultcut_names`, `cut_type`, `exclude_cuts`: Cut strategy options.
+- `n.min`, `hr.threshold`, `hr.consistency`, `sg_focus`, `fs.splits`, `stop.threshold`, `pconsistency.threshold`: Subgroup search and consistency parameters.
+- `details`: Logical; print details during execution.
+
+
+```{r flowchart1, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flow1", echo = FALSE}
+library(DiagrammeR)
+
+flowchart <- grViz("
+digraph flowchart {
+  node [shape = box, style = filled, fillcolor = lightblue]
+  A [label = 'Input Data: df.analysis']
+  B [label = 'Variable Selection']
+  C [label = 'Feature Engineering']
+  D [label = 'Subgroup Search']
+  E [label = 'Consistency Analysis']
+  F [label = 'Output Results']
+  F1 [label = 'Subgroup Definitions']
+  F2 [label = 'Candidate/Evaluated Confounders']
+  F3 [label = 'Estimation/Prediction/Test Datasets']
+  F4 [label = 'GRF Results & Plots']
+  F5 [label = 'Summary Metrics']
+
+  A -> B
+  B -> C [label = 'LASSO/GRF/Forced Cuts']
+  C -> D
+  D -> E
+  E -> F
+  F -> F1
+  F -> F2
+  F -> F3
+  F -> F4
+  F -> F5
+}
+", width =800, height = 400)
+flowchart
+```
+
+
+
+## Key Steps in the Function
+1. **Input Validation:** Checks for required columns and arguments.
+2. **GRF Variable Selection:** If enabled, runs GRF to identify important variables and cut points.
+3. **Feature Selection:** Optionally applies LASSO for dimension reduction.
+4. **Subgroup Search:** Searches for subgroups using combinations of selected variables.
+5. **Consistency Analysis:** Evaluates the stability and consistency of identified subgroups.
+6. **Prediction Dataset:** Optionally generates a prediction dataset with recommended treatment flags.
+7. **Output:** Returns a list with subgroup definitions, candidate/evaluated confounders, prediction datasets, GRF results, and consistency metrics.
+
+## Output
+A list containing:
+- `grp.consistency`: Subgroup consistency results.
+- `find.grps`: Subgroup search results.
+- `confounders.candidate`: Candidate confounders.
+- `confounders.evaluated`: Evaluated confounders.
+- `df.est`, `df.predict`, `df.test`: Datasets with subgroup flags.
+- `minutes_all`: Total minutes elapsed.
+- `grf_res`: GRF results.
+- `sg_focus`, `sg.harm`, `grf_cuts`, `prop_maxk`, `max_sg_est`, `grf_plot`, `args_call_all`: Various results and metadata.
+
+## Typical Use Case
+Used in clinical trial or observational study analysis to identify patient subgroups with different treatment effects, and to validate the stability of these findings via cross-validation or bootstrapping.
+
+# Required R Packages for ForestSearch Analysis
+
+1. **grf**
+   - Generalized Random Forests for causal inference and subgroup identification.
+
+2. **policytree**
+   - Policy learning and tree-based subgroup identification.
+
+3. **data.table**
+   - Fast and memory-efficient data manipulation.
+
+4. **randomForest**
+   - Random forest algorithms for variable selection and prediction.
+
+5. **survival**
+   - Survival analysis, including Cox proportional hazards models.
+
+6. **weightedSurv**
+   - Weighted survival curves and related methods.
+
+7. **future.apply**
+   - Parallelization of apply functions using the future framework.
+
+8. **foreach**
+   - Looping construct for parallel execution.
+
+9. **doFuture**
+   - Backend for foreach to enable parallelization with future.
+
+10. **doRNG**
+    - Reproducible parallel foreach loops.
+
+11. **DiagrammeR**
+    - Visualization of diagrams and flowcharts (used for schematic diagrams).
+
+## Usage Notes
+- All packages should be installed before running the analysis.
+- Some packages (e.g., `DiagrammeR`) are only needed for visualization and not for the core analysis.
+- The function `ensure_packages()` in your code can be used to check and install missing packages automatically.
+
+
+# Installing Required R Packages for ForestSearch Analysis
+
+To run ForestSearch and its associated bootstrap/validation workflow, you need to install the following R packages:
+
+- grf
+- policytree
+- data.table
+- randomForest
+- survival
+- weightedSurv
+- future.apply
+- foreach
+- doFuture
+- doRNG
+- DiagrammeR
+
+You can install all these packages from CRAN using the following R code:
+
+```r
+# List of required packages
+required_packages <- c(
+  'grf', 'policytree', 'data.table', 'randomForest', 'survival',
+  'future.apply', 'foreach', 'doFuture', 'doRNG', 'DiagrammeR'
+)
+
+# Install any packages that are not already installed
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,'Package'])]
+if(length(new_packages)) install.packages(new_packages)
+
+# Load all packages
+lapply(required_packages, library, character.only = TRUE)
+
+# For weightedSurv, at the time of this note, is only available on github
+
+library(devtools)
+install_github("larry-leon/weightedSurv")
+
+
+```
+
+**Notes:**
+- You only need to run the installation code once per R environment.
+- If you encounter any errors, make sure your R version is up to date and you have internet access.
+- Some packages (e.g., `DiagrammeR`) are only needed for visualization and not for the core analysis.
+
+
+
+
+# Summary of forestsearch_bootstrap_dofuture.R
+
+This file provides functions for bootstrapping analysis in ForestSearch, with parallelization using doFuture.
+
+## Key Functions
+
+### ensure_packages
+Installs and loads required packages if not already available.
+- **Arguments:** pkgs (character vector of package names)
+- **Returns:** None (loads packages)
+
+### build_cox_formula
+Constructs a Cox model formula from variable names.
+- **Arguments:** outcome.name, event.name, treat.name (character)
+- **Returns:** R formula object for Cox regression
+
+### fit_cox_models
+Fits Cox models for two subgroups defined by treatment recommendation.
+- **Arguments:** df (data frame), formula (Cox model formula)
+- **Returns:** List with HR and SE for each subgroup
+
+### bootstrap_ystar
+Generates a bootstrap matrix for Ystar using parallel processing.
+- **Arguments:** df (data frame), nb_boots (integer)
+- **Returns:** Matrix of bootstrap samples
+
+### bootstrap_results
+Runs bootstrap analysis for ForestSearch, fitting Cox models and bias correction.
+- **Arguments:** fs.est (ForestSearch results), df_boot_analysis (data frame), cox.formula.boot (formula), nb_boots (integer), show_three (logical), H_obs, Hc_obs (numeric), reset_parallel (logical), boot_workers (integer)
+- **Returns:** Data.table with bias-adjusted estimates and search metrics
+
+### format_CI
+Formats confidence interval for estimates.
+- **Arguments:** estimates (data frame/data.table), col_names (character vector)
+- **Returns:** Character string formatted as 'estimate (lower, upper)'
+
+### forestsearch_bootstrap_dofuture
+Orchestrates bootstrap analysis for ForestSearch using doFuture parallelization.
+- **Arguments:** fs.est (ForestSearch results), nb_boots (integer), details (logical), show_three (logical), reset_parallel_fs (logical), boot_workers (integer), parallel_args (list)
+- **Returns:** List with bootstrap results, confidence intervals, summary table, Ystar matrix, and estimates
+
+## Usage Notes
+- Ensure all required packages are installed before running bootstrap analysis.
+- The main function for analysis is `forestsearch_bootstrap_dofuture`, which returns a comprehensive list of results for downstream analysis and reporting.
+- Parallelization is handled via doFuture and foreach for efficient computation.
