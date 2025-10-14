@@ -1,4 +1,43 @@
 
+#' Find integer pairs (x, y) such that x * y = z and y >= x
+#'
+#' Given an integer z, this function finds all integer pairs (x, y) such that x * y = z and y >= x.
+#' Optionally, you can return only the pair with the largest value of x or y.
+#'
+#' @param z Integer. The target product.
+#' @param return_largest Character. If \"x\", returns the pair with the largest x. If \"y\", returns the pair with the largest y. If NULL, returns all pairs.
+#'
+#' @return A matrix of integer pairs (x, y) satisfying the conditions, or a single pair if return_largest is specified.
+#' @examples
+#' find_xy_given_z(12)
+#' find_xy_given_z(12, return_largest = \"x\")
+#' find_xy_given_z(12, return_largest = \"y\")
+#' @export
+
+find_xy_given_z <- function(z, return_largest = NULL) {
+  pairs <- list()
+  for (x in 1:z) {
+    if (z %% x == 0) {
+      y <- z / x
+      if (y >= x && y %% 1 == 0) {
+        pairs[[length(pairs) + 1]] <- c(x, y)
+      }
+    }
+  }
+  result <- do.call(rbind, pairs)
+  if (!is.null(return_largest)) {
+    if (return_largest == "x") {
+      idx <- which.max(result[,1])
+      return(result[idx, , drop = FALSE])
+    } else if (return_largest == "y") {
+      idx <- which.max(result[,2])
+      return(result[idx, , drop = FALSE])
+    }
+  }
+  return(result)
+}
+
+
 #' Ensure Required Packages Are Installed and Loaded
 #'
 #' Installs and loads required packages if not already available.
@@ -93,10 +132,11 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @importFrom doFuture %dofuture%
 #' @export
 
-bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs, reset_parallel, boot_workers) {
+bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
+
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
-  foreach::foreach(
+    foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
                            add = c(
@@ -232,12 +272,13 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     # In bootstrap re-set parallel_args per specification in this call
     # For parallel_args we do NOT want to revert back to default
     # because default is not a null list
-    if(reset_parallel){
-    args_FS_boot[["parallel_args"]] <- list()
-    } else {
-    args_FS_boot$parallel_args$workers <- boot_workers
+
+    #args_FS_boot[["parallel_args"]] <- list()
+
+    args_FS_boot$parallel_args$plan <- "sequential"
+    args_FS_boot$parallel_args$workers <- 1
     args_FS_boot$parallel_args$show_message <- FALSE
-    }
+
     args_FS_boot$plot.grf <- FALSE
 
     # Keep only arguments that are in the formal argument list of forestsearch
@@ -290,8 +331,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
 
 
-    }
-
+      }
     dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
                                     Hc_biasadj_1, Hc_biasadj_2,
                                     tmins_search, max_sg_est, prop_maxk, L, max_count)
@@ -348,8 +388,8 @@ show_three <- TRUE
 #' @importFrom data.table data.table
 #' @export
 
-forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE, reset_parallel_fs = TRUE,
-                                            boot_workers = 3, parallel_args = list()
+forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
+                                           parallel_args = list()
                                             ) {
 
   args_forestsearch_call <- fs.est$args_call_all
@@ -358,7 +398,12 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   if(length(parallel_args) == 0){
   message("Using parallel plan of 'observed' data analysis forestsearch")
   parallel_args <- as.list(args_forestsearch_call$parallel_args)
-  }
+  max_cores <- parallel::detectCores()
+  #get_workers <- find_xy_given_z(max_cores, return_largest = "x")
+  #parallel_args$workers <- get_workers[2] # outer
+  #inner_workers <- get_workers[1] # inner
+  message("Note that max cores = ", max_cores)
+   }
 
   # 1. Ensure packages
   ensure_packages(c("data.table", "foreach", "doFuture", "doRNG", "survival"))
@@ -395,7 +440,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   # Note: reset_parallel_fs re-sets parallel for subgroup consistency in forestsearch
   # That is reset_parallel_fs = TRUE only the outer *bootstrap* loop is parallelized
 
-  results <- bootstrap_results(fs.est, fs.est$df.est, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs, reset_parallel_fs, boot_workers)
+  results <-  bootstrap_results(fs.est, fs.est$df.est, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs)
 
   # 6. Post-processing and formatting
   est.scale <- args_forestsearch_call$est.scale

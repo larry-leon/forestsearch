@@ -11,9 +11,7 @@ bootstrap_results(
   nb_boots,
   show_three,
   H_obs,
-  Hc_obs,
-  reset_parallel,
-  boot_workers
+  Hc_obs
 )
 }
 \arguments{

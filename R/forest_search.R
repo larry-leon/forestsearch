@@ -194,7 +194,6 @@ vi.grf.min = -0.2){
   }
 
 
-
 if (!exists("df.analysis") | !is.data.frame(df.analysis)){
     stop("df.analysis does not exists or is not a data.frame")
   } else if (exists("df.analysis") && !is.data.frame(df.analysis)){

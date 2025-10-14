@@ -9,8 +9,6 @@ forestsearch_bootstrap_dofuture(
   nb_boots,
   details = FALSE,
   show_three = FALSE,
-  reset_parallel_fs = TRUE,
-  boot_workers = 3,
   parallel_args = list()
 )
 }
@@ -23,11 +21,11 @@ forestsearch_bootstrap_dofuture(
 
 \item{show_three}{Logical. Show details for first three bootstraps.}
 
+\item{parallel_args}{List. Parallelization arguments (plan, workers, show_message).}
+
 \item{reset_parallel_fs}{Logical. Reset parallel plan for bootstrap.}
 
 \item{boot_workers}{Integer. Number of parallel workers.}
-
-\item{parallel_args}{List. Parallelization arguments (plan, workers, show_message).}
 }
 \value{
 List with bootstrap results, confidence intervals, summary table, Ystar matrix, and estimates.
