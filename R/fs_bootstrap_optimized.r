@@ -415,9 +415,6 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
     # id_boot is critical for covariance
     df_boot$id_boot <- seq_len(nrow(df_boot))
 
-    #df_boot$id <- seq_len(nrow(df_boot))
-
-
     # Calculate bootstrap estimates at observed subgroups
     H_star <- tryCatch({
       fit <- get_Cox_sg(
@@ -443,16 +440,19 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
     tmins_search <- max_sg_est <- prop_maxk <- L <- max_count <- NA_real_
 
     # Prepare data for ForestSearch
-    dfnew_boot <- df_boot[, keep.vars, drop = FALSE]
-    dfnew <- df_boot_analysis[, keep.vars, drop = FALSE]
+    #dfnew_boot <- df_boot[, keep.vars, drop = FALSE]
+    #dfnew <- df_boot_analysis[, keep.vars, drop = FALSE]
+
+    # Drop initial confounders
+    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
 
     # Setup arguments for this bootstrap
     args_FS_boot <- args_FS_clean
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
     args_FS_boot$details <- show_details
-
-    #args_FS_boot$id.name <- "id_boot"
 
     # Run ForestSearch with error handling
     run_bootstrap <- tryCatch(
