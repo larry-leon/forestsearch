@@ -530,7 +530,7 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
     }
 
     # Return results as data.table row
-    data.table::data.table(
+  dfres <-  data.table::data.table(
       H_biasadj_1 = H_biasadj_1,
       H_biasadj_2 = H_biasadj_2,
       Hc_biasadj_1 = Hc_biasadj_1,
@@ -541,6 +541,9 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
       L = L,
       max_count = max_count
     )
+
+  return(dfres)
+
   }
 }
 
