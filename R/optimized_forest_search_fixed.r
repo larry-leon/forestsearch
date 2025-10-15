@@ -957,6 +957,10 @@ forestsearch <- function(
 
         # data containing id and treatment flag
         temp <- grp.consistency$df_flag
+
+        # Check for bootstrap context
+        is_bootstrap <- length(unique(df$id)) < nrow(df)
+
         # Merge to analysis data and add treatment flag (all.x=TRUE)
         df.est_out <- merge(df, temp, by="id", all.x=TRUE)
         # Return df.predict
