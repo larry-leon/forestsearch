@@ -1011,7 +1011,7 @@ forestsearch <- function(
       is_dt1 <- inherits(df, "data.table")
       is_dt2 <- inherits(temp, "data.table")
 
-      if (is_dt1 && is_dt2)) {
+      if (is_dt1 && is_dt2) {
       cat("Both datasets are data.table objects","\n")
       }
 
