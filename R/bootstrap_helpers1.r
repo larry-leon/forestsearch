@@ -8,7 +8,6 @@
 #' @param cov_trim Numeric. Trimming proportion for covariance (default: 0.0).
 #' @return List with target estimate, standard errors, and correction term.
 #' @export
-
 #' Target Estimate and Standard Error for Bootstrap (Fixed)
 #'
 #' Calculates target estimate and standard error for bootstrap samples with proper NA handling.

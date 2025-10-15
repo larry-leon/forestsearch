@@ -108,7 +108,7 @@ Where:
 # Prepare Cox formula
 cox.formula <- build_cox_formula(
   outcome.name = "time",
-  event.name = "event", 
+  event.name = "event",
   treat.name = "treatment"
 )
 
