@@ -412,10 +412,10 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
     # Generate bootstrap sample
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
+    # id_boot is critical for covariance
+    df_boot$id_boot <- seq_len(nrow(df_boot))
 
-    #df_boot$id_boot <- seq_len(nrow(df_boot))
-
-    df_boot$id <- seq_len(nrow(df_boot))
+    #df_boot$id <- seq_len(nrow(df_boot))
 
 
     # Calculate bootstrap estimates at observed subgroups
