@@ -36,6 +36,7 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 devtools::document()
 devtools::load_all()
 
+#devtools::install()
 
 # run this in terminal (next to console [go to tools terminal tab])
 #git pull --no-rebase

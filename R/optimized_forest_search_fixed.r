@@ -1018,7 +1018,7 @@ forestsearch <- function(
 
       # Safe merge for analysis data
       df.est_out <- tryCatch({
-        merge_safe(df, temp)
+        forestsearch:::merge_safe(df, temp)
       }, error = function(e) {
         warning("Merge failed for df.est, using fallback: ", e$message)
         # Fallback: apply subgroup definition directly
@@ -1033,7 +1033,7 @@ forestsearch <- function(
         if (ids_overlap) {
           # Try merge first
           df.predict_out <- tryCatch({
-            merge_safe(df.predict, temp)
+            forestsearch:::merge_safe(df.predict, temp)
           }, error = function(e) {
             if (details) {
               cat("Note: Merge failed for df.predict, applying subgroup definition\n")
