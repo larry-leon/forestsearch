@@ -18,7 +18,6 @@
 #' @param cov_trim Numeric. Trimming proportion for covariance (default: 0.0).
 #' @return List with target estimate, standard errors, and correction term.
 #' @export
-
 get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   # Input validation
   if (!is.numeric(x)) stop("'x' must be numeric")
@@ -138,7 +137,6 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
 #' @param Est Numeric vector of bootstrap estimates (may contain NA).
 #' @return Numeric value of covariance.
 #' @export
-
 calc_cov <- function(x, Est) {
   # CRITICAL FIX: Add input validation
   if (!is.numeric(x)) stop("'x' must be numeric")
@@ -193,7 +191,6 @@ calc_cov <- function(x, Est) {
 #' @return Data.table with confidence intervals and estimates.
 #' @importFrom data.table data.table
 #' @export
-
 get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
                       cov_method = "standard", cov_trim = 0.0,
                       est.scale = "hr", est.loghr = TRUE) {
@@ -321,8 +318,6 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
 #' find_xy_given_z(12)
 #' find_xy_given_z(12, return_largest = \"x\")
 #' find_xy_given_z(12, return_largest = \"y\")
-#' @export
-
 find_xy_given_z <- function(z, return_largest = NULL) {
   pairs <- list()
   for (x in 1:z) {
@@ -354,7 +349,6 @@ find_xy_given_z <- function(z, return_largest = NULL) {
 #' @param pkgs Character vector of package names.
 #' @return None. Packages are loaded into the session.
 #' @export
-
 ensure_packages <- function(pkgs) {
   for (pkg in pkgs) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
