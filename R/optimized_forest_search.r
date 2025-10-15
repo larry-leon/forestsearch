@@ -379,17 +379,19 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
 
   # Fit causal survival forest
   cs.forest <- if (is.RCT) {
-    grf::causal_survival_forest(
+    suppressWarnings(grf::causal_survival_forest(
       X, Y, Treat, Event,
       W.hat = 0.5,
       horizon = 0.9 * tau.rmst,
       seed = 8316951
     )
+    )
   } else {
-    grf::causal_survival_forest(
+    suppressWarnings(grf::causal_survival_forest(
       X, Y, Treat, Event,
       horizon = 0.9 * tau.rmst,
       seed = 8316951
+    )
     )
   }
 

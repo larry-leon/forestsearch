@@ -5,8 +5,28 @@ output:
          code_folding: hide
 ---
 
+# Introduction
+
 ## Purpose
-The `forestsearch` function performs subgroup identification and consistency analysis for treatment effect heterogeneity in survival data. It supports LASSO-based dimension reduction, GRF-based variable selection, and flexible cut strategies. The function is designed to find subgroups where treatment effects differ, using a combination of machine learning and statistical methods.
+
+This document provides a comprehensive test suite for the **optimized ForestSearch**
+pipeline. The test demonstrates:
+
+- Generation of realistic synthetic survival data with known subgroup structure
+- Full ForestSearch analysis with GRF and LASSO
+- Validation of results against ground truth
+- Performance benchmarking
+- Interpretation guidance
+
+## What is ForestSearch?
+
+ForestSearch is an R package for identifying patient subgroups with differential
+treatment effects in survival data. It combines:
+
+- **Machine Learning**: GRF (Generalized Random Forests) for variable selection
+- **Statistical Methods**: Cox regression, LASSO dimension reduction
+- **Validation**: Consistency analysis across random splits
+- **Parallelization**: Efficient computation for large datasets
 
 ## Key Features
 - **Subgroup Identification:** Finds subgroups with differential treatment effects using combinations of confounders.
@@ -14,7 +34,6 @@ The `forestsearch` function performs subgroup identification and consistency ana
 - **Flexible Cut Strategies:** Allows for forced cuts (e.g., "age <= 65", "biomarker < 1%", "biomarker < 2%", ..., "biomarker < 10%", etc), median cuts, and quantile cut strategies.
 - **Parallelization:** Supports parallel processing for efficiency.
 - **Consistency Analysis:** Evaluates the consistency of identified subgroups across splits or bootstraps.
-- **Handles RCT and Observational Data:** Can be used for both randomized controlled trials and observational studies.
 
 ## Main Arguments
 - `df.analysis`: Data frame for analysis.
@@ -28,8 +47,241 @@ The `forestsearch` function performs subgroup identification and consistency ana
 - `n.min`, `hr.threshold`, `hr.consistency`, `sg_focus`, `fs.splits`, `stop.threshold`, `pconsistency.threshold`: Subgroup search and consistency parameters.
 - `details`: Logical; print details during execution.
 
+# ForestSearch Parameter Guide: hr.threshold, hr.consistency, and pconsistency.threshold
 
-```{r flowchart1, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flow1", echo = FALSE}
+## Overview
+These three parameters control the **effect size requirements** and **reproducibility standards** for subgroup identification. They act as filters to ensure identified subgroups show both clinically meaningful and statistically stable treatment effects.
+
+## Parameter Definitions
+
+### `hr.threshold` - Initial Hazard Ratio Threshold
+- **Default**: 1.25
+- **Purpose**: Minimum treatment effect required for initial subgroup consideration
+- **Range**: 1.0 (any effect) to 2.0+ (large effects only)
+- **Interpretation**: HR > 1.25 means treatment is at least 25% worse in this subgroup
+
+### `hr.consistency` - Consistency Hazard Ratio Threshold
+- **Default**: 1.0
+- **Purpose**: Minimum HR required in random split-sample validation
+- **Range**: 0.8-1.0 (lenient) to 1.25+ (strict)
+- **Interpretation**: Ensures treatment effect persists in validation splits
+
+### `pconsistency.threshold` - Proportion Consistency Threshold
+- **Default**: 0.90 (90%)
+- **Purpose**: Minimum proportion of random splits that must meet hr.consistency
+- **Range**: 0.5 (very lenient) to 0.95+ (very strict)
+- **Interpretation**: Out of 1000 splits, at least 900 must show HR > hr.consistency
+
+
+# ForestSearch Parameter Guide: n.min, d0.min, and d1.min
+
+## Overview
+These three parameters are **critical safety thresholds** that ensure identified subgroups have sufficient statistical reliability and prevent spurious findings from small or event-sparse subgroups.
+
+## Parameter Definitions
+
+### `n.min` - Minimum Subgroup Size
+- **Default**: 60 patients
+- **Purpose**: Ensures statistical stability and prevents overfitting
+- **Range**: 30-50 (exploratory) to 100+ (confirmatory)
+- **Rule of thumb**: At least 5-10% of total sample size
+
+### `d0.min` - Minimum Events in Control Group
+- **Default**: 10 events
+- **Purpose**: Ensures reliable baseline risk estimation
+- **Range**: 5 (minimum) to 20+ (recommended)
+- **Critical**: Below 5 events, Cox models become unstable
+
+### `d1.min` - Minimum Events in Treatment Group
+- **Default**: 10 events
+- **Purpose**: Ensures reliable treatment effect estimation
+- **Range**: 5 (minimum) to 20+ (recommended)
+- **Critical**: Below 5 events, hazard ratios become unreliable
+
+## The Complete Validation Flow
+```{r flowchartA, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flowA", echo = FALSE}
+library(DiagrammeR)
+
+# Create the flowchart using grViz
+flow1 <- grViz("
+digraph validation_flow {
+  # Graph settings
+  graph [layout = dot, rankdir = TB, fontsize = 12]
+  
+  # Node settings
+  node [shape = rectangle, style = filled, fillcolor = lightblue, 
+        fontname = Helvetica, fontsize = 10]
+  
+  # Define nodes
+  start [label = 'Candidate Subgroup', shape = ellipse, fillcolor = pink]
+  check_hr [label = 'HR > hr.threshold?', shape = diamond, fillcolor = lightyellow]
+  reject1 [label = 'Rejected\\n(Effect too small)', fillcolor = salmon]
+  splits [label = '1000 Random\\n50/50 Splits', fillcolor = lightcyan]
+  check_splits [label = 'Both splits:\\nHR > hr.consistency?', shape = diamond, fillcolor = lightyellow]
+  count [label = 'Count Consistent\\nSplits', fillcolor = lightcyan]
+  check_prop [label = 'Proportion ≥\\npconsistency.threshold?', shape = diamond, fillcolor = lightyellow]
+  reject2 [label = 'Rejected\\n(Unstable effect)', fillcolor = salmon]
+  accept [label = 'Selected\\n(Stable subgroup)', fillcolor = pink, shape = ellipse]
+  
+  # Define edges
+  start -> check_hr
+  check_hr -> reject1 [label = 'No']
+  check_hr -> splits [label = 'Yes']
+  splits -> check_splits
+  check_splits -> count [label = 'Evaluate\\neach split']
+  count -> check_prop
+  check_prop -> reject2 [label = 'No']
+  check_prop -> accept [label = 'Yes']
+  
+  # Add parameter annotations
+  {rank = same; check_hr; param1 [label = 'Parameter:\\nhr.threshold', 
+                                    shape = note, fillcolor = white]}
+  {rank = same; check_splits; param2 [label = 'Parameter:\\nhr.consistency', 
+                                       shape = note, fillcolor = white]}
+  {rank = same; check_prop; param3 [label = 'Parameter:\\npconsistency.threshold', 
+                                     shape = note, fillcolor = white]}
+  
+  # Connect annotations with dotted lines
+  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]
+  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]
+  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]
+}
+", width =800, height = 400)
+
+flow1
+
+```
+
+
+
+## Alternative Visualization with More Detail
+```{r flowchartB, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flowB", echo = FALSE, eval = FALSE}
+# More detailed flowchart with example values
+flow2 <- grViz("
+digraph detailed_validation {
+  # Graph settings
+  graph [layout = dot, rankdir = TB, fontsize = 14, 
+         label = 'ForestSearch Subgroup Validation Pipeline', 
+         labelloc = t]
+  
+  # Node settings  
+  node [shape = box, style = 'filled,rounded', fillcolor = white, 
+        fontname = Arial, fontsize = 11, penwidth = 2]
+  
+  # Stage 1: Discovery
+  subgraph cluster_0 {
+    label = 'Stage 1: Discovery'
+    style = 'dashed,rounded'
+    color = darkgreen
+    fontsize = 12
+    
+    input [label = 'Subgroup Found\\nHR = 1.45\\nn = 120 patients\\nevents = 35', 
+           fillcolor = '#E8F5E9', color = darkgreen]
+    test1 [label = '1.45 > 1.25?\\n(hr.threshold)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    pass1 [label = 'Proceed to\\nValidation', fillcolor = '#E8F5E9', color = darkgreen]
+  }
+  
+  # Stage 2: Validation
+  subgraph cluster_1 {
+    label = 'Stage 2: Split-Sample Validation'
+    style = 'dashed,rounded'
+    color = darkblue
+    fontsize = 12
+    
+    split [label = 'Random Split #i\\n(i = 1 to 1000)\\n60 patients each half', 
+           fillcolor = '#E3F2FD', color = darkblue]
+    calc [label = 'Calculate:\\nHR₁ = 1.38\\nHR₂ = 1.42', 
+          fillcolor = '#E3F2FD', color = darkblue]
+    test2 [label = '1.38 > 1.0?\\n1.42 > 1.0?\\n(hr.consistency)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    success [label = 'Split i: ✓\\nConsistent', fillcolor = '#E8F5E9', color = darkgreen]
+    fail [label = 'Split i: ✗\\nInconsistent', fillcolor = '#FFEBEE', color = darkred]
+  }
+  
+  # Stage 3: Confirmation
+  subgraph cluster_2 {
+    label = 'Stage 3: Final Selection'
+    style = 'dashed,rounded'
+    color = purple
+    fontsize = 12
+    
+    tally [label = 'Final Tally:\\n920/1000 consistent\\n(92% success rate)', 
+           fillcolor = '#F3E5F5', color = purple]
+    test3 [label = '0.92 ≥ 0.90?\\n(pconsistency.threshold)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    selected [label = 'SELECTED\\nStable Subgroup\\nReport: HR=1.45', 
+              fillcolor = '#C8E6C9', color = darkgreen, penwidth = 3]
+    rejected [label = 'REJECTED\\nUnstable Effect', 
+              fillcolor = '#FFCDD2', color = darkred]
+  }
+  
+  # Edges
+  input -> test1
+  test1 -> pass1 [label = 'Yes', color = darkgreen]
+  test1 -> rejected [label = 'No', color = darkred]
+  pass1 -> split
+  split -> calc
+  calc -> test2
+  test2 -> success [label = 'Both Yes', color = darkgreen]
+  test2 -> fail [label = 'Any No', color = darkred]
+  success -> tally
+  fail -> tally
+  tally -> test3
+  test3 -> selected [label = 'Yes', color = darkgreen, penwidth = 2]
+  test3 -> rejected [label = 'No', color = darkred]
+  
+  # # Add legend
+  # subgraph cluster_legend {
+  #   label = 'Parameter Effects'
+  #   style = filled
+  #   fillcolor = '#FAFAFA'
+  #   fontsize = 10
+  #   
+  #   legend1 [shape = none, fillcolor = none,
+  #            label = 'hr.threshold: Higher = Fewer candidates']
+  #   legend2 [shape = none, fillcolor = none,
+  #            label = 'hr.consistency: Higher = Stricter validation']  
+  #   legend3 [shape = none, fillcolor = none,
+  #            label = 'pconsistency.threshold: Higher = More confidence']
+  # }
+}
+", width =800, height = 400)
+
+flow2
+
+```
+
+
+
+
+
+
+
+
+## Key Steps in the Function
+1. **Input Validation:** Checks for required columns and arguments.
+2. **GRF Variable Selection:** If enabled, runs GRF to identify important variables and cut points.
+3. **Feature Selection:** Optionally applies LASSO for dimension reduction.
+4. **Subgroup Search:** Searches for subgroups using combinations of selected variables.
+5. **Consistency Analysis:** Evaluates the stability and consistency of identified subgroups.
+6. **Prediction Dataset:** Optionally generates a prediction dataset with recommended treatment flags.
+7. **Output:** Returns a list with subgroup definitions, candidate/evaluated confounders, prediction datasets, GRF results, and consistency metrics.
+
+## Output
+A list containing:
+- `grp.consistency`: Subgroup consistency results.
+- `find.grps`: Subgroup search results.
+- `confounders.candidate`: Candidate confounders.
+- `confounders.evaluated`: Evaluated confounders.
+- `df.est`, `df.predict`, `df.test`: Datasets with subgroup flags.
+- `minutes_all`: Total minutes elapsed.
+- `grf_res`: GRF results.
+- `sg_focus`, `sg.harm`, `grf_cuts`, `prop_maxk`, `max_sg_est`, `grf_plot`, `args_call_all`: Various results and metadata.
+
+
+
+```{r flowchart1, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flow1", echo = FALSE, eval = FALSE}
 library(DiagrammeR)
 
 flowchart <- grViz("
@@ -64,30 +316,6 @@ flowchart
 
 
 
-## Key Steps in the Function
-1. **Input Validation:** Checks for required columns and arguments.
-2. **GRF Variable Selection:** If enabled, runs GRF to identify important variables and cut points.
-3. **Feature Selection:** Optionally applies LASSO for dimension reduction.
-4. **Subgroup Search:** Searches for subgroups using combinations of selected variables.
-5. **Consistency Analysis:** Evaluates the stability and consistency of identified subgroups.
-6. **Prediction Dataset:** Optionally generates a prediction dataset with recommended treatment flags.
-7. **Output:** Returns a list with subgroup definitions, candidate/evaluated confounders, prediction datasets, GRF results, and consistency metrics.
-
-## Output
-A list containing:
-- `grp.consistency`: Subgroup consistency results.
-- `find.grps`: Subgroup search results.
-- `confounders.candidate`: Candidate confounders.
-- `confounders.evaluated`: Evaluated confounders.
-- `df.est`, `df.predict`, `df.test`: Datasets with subgroup flags.
-- `minutes_all`: Total minutes elapsed.
-- `grf_res`: GRF results.
-- `sg_focus`, `sg.harm`, `grf_cuts`, `prop_maxk`, `max_sg_est`, `grf_plot`, `args_call_all`: Various results and metadata.
-
-## Typical Use Case
-Used in clinical trial or observational study analysis to identify patient subgroups with different treatment effects, and to validate the stability of these findings via cross-validation or bootstrapping.
-
-
 ```{r}
 rm(list=ls())
 
@@ -112,6 +340,7 @@ df_gbsg$treat <- df_gbsg$hormon
 df_gbsg$grade3 <- ifelse(df_gbsg$grade == "3", 1, 0)
 # create id name
 #df_gbsg$id <- seq_len(nrow(df_gbsg))
+# If missing, then created automatically
 
 tte.name <- "tte"
 event.name <- "event"
@@ -145,16 +374,17 @@ library(doRNG)
 registerDoFuture()
 registerDoRNG()
 
-#dfa <- df_gbsg
+# conf_force 'forces' a specific covariate cut, eg. 'age <= 65'
+
 
 system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    outcome.name = "tte", treat.name = "treat", event.name = "event", id.name = "id",
                    hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                    sg_focus = "hrMaxSG",
                    showten_subgroups = FALSE, details=TRUE,
-                   conf_force = c("er <= 0"),
+                   conf_force = c("age <= 65"),
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
-                   maxk = 2,
+                   maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                    plot.sg = TRUE, by.risk = 12,
                    parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
                    )
@@ -184,7 +414,7 @@ res_tabs$tab_estimates
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
 # where workers are set to 12 which is the maximum on my machine;
 # Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
-NB <- 20
+NB <- 500
 t.start <- proc.time()[3]
 
 # This approach runs the bootstrap loop (outer) as non-parallel and the innter (subgroup consistency) is parallel per the above data analysis
@@ -197,7 +427,7 @@ t.start <- proc.time()[3]
 
 
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
 
 
 t.now<-proc.time()[3]
