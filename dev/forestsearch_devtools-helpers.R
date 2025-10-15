@@ -32,8 +32,8 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 
 # Step 5: Generate documentation
 # Also, run this if revising R files such as @importFrom
-devtools::document()
 devtools::load_all()
+devtools::document()
 
 
 # run this in terminal (next to console [go to tools terminal tab])
@@ -100,4 +100,44 @@ check <- c("calc_cov",  "calculate_counts", "analyze_subgroups", "calculate_pote
 
 duplicated_elements <- check[duplicated(check)]
 duplicated_elements
+
+
+# Per Claude
+
+# In your local forestsearch repo
+git checkout -b fix/must-fix-implementations
+
+# Copy the new files to R/ directory (as shown above)
+
+# Stage changes
+git add R/bootstrap_helpers.R
+git add R/summary_utility_functions.R
+git add R/improved_grf_functions.r
+git add R/input_validation_utils.R
+
+# Commit
+git commit -m "Implement must-fix recommendations
+
+- Add comprehensive input validation to all functions
+- Fix division-by-zero issues throughout
+- Standardize variable naming conventions
+- Add input_validation_utils.R with validation helpers
+- Maintain 100% backward compatibility"
+
+# Push to GitHub
+git push origin fix/must-fix-implementations
+
+# Then create a Pull Request on GitHub
+
+# Load your updated package
+devtools::load_all()
+
+# Generate documentation
+devtools::document()
+
+# Run tests
+devtools::test()
+
+# Check package
+devtools::check()
 
