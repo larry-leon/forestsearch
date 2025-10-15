@@ -14,6 +14,37 @@ bootstrap_results_optimized(
   Hc_obs
 )
 }
+\arguments{
+\item{fs.est}{ForestSearch results object from \code{\link{forestsearch}}.
+Must contain:
+\itemize{
+\item \code{df.est}: Data frame with treatment recommendations
+\item \code{args_call_all}: Original ForestSearch arguments
+\item \code{confounders.candidate}: Candidate confounder names
+\item \code{find.grps}: Subgroup search results
+}}
+
+\item{df_boot_analysis}{Data frame for bootstrap analysis. Typically the same
+as \code{fs.est$df.est} but can be a different dataset for external validation.}
+
+\item{cox.formula.boot}{Formula object for Cox regression in bootstrap.
+Usually created by \code{\link{build_cox_formula}} with outcome, event,
+and treatment variable names.}
+
+\item{nb_boots}{Integer. Number of bootstrap samples to generate. Recommended
+minimum is 100, with 500-1000 for final analyses. Higher values give more
+stable estimates but increase computation time.}
+
+\item{show_three}{Logical. If TRUE, displays detailed output for the first
+three bootstrap iterations to help with debugging and understanding the
+process. Default is FALSE.}
+
+\item{H_obs}{Numeric. Observed hazard ratio (or log hazard ratio if on log scale)
+for subgroup H (treatment not recommended group) from the original analysis.}
+
+\item{Hc_obs}{Numeric. Observed hazard ratio (or log hazard ratio if on log scale)
+for subgroup H^c (treatment recommended group) from the original analysis.}
+}
 \value{
 Data.table with bias-adjusted estimates and search metrics.
 }

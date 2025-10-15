@@ -223,6 +223,7 @@ prepare_analysis_data <- function(df.analysis, var_names, id.name) {
 #' @param details Logical
 #' @return List with GRF results or NULL
 #' @keywords internal
+
 run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
                              event.name, id.name, treat.name, n.min,
                              dmin.grf, is.RCT, seedit, grf_depth,
@@ -304,6 +305,7 @@ run_grf_analysis <- function(df.analysis, confounders.name, outcome.name,
 #' @param plot.grf Logical
 #' @return Plot object or NULL
 #' @keywords internal
+
 generate_grf_plot <- function(grf_res, plot.grf) {
 
   if (!plot.grf || is.null(grf_res)) return(NULL)
@@ -537,6 +539,7 @@ screen_variables_by_importance <- function(df, FSconfounders.name, confs_labels,
 #'   print(result$sg.harm)
 #' }
 #' }
+
 forestsearch <- function(
     df.analysis,
     outcome.name = "tte",
