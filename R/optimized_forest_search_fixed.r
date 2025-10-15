@@ -1,3 +1,96 @@
+#' Generate Prediction Dataset with Subgroup Treatment Recommendation
+#'
+#' Creates a prediction dataset with a treatment recommendation flag based on subgroup definition.
+#'
+#' @param df.predict Data frame for prediction (test or validation set).
+#' @param sg.harm Character vector of subgroup-defining covariate names.
+#' @param version Integer; 1 uses \code{dummy()}, 2 uses \code{dummy2()} for factor encoding.
+#'
+#' @return Data frame with treatment recommendation flag (\code{treat.recommend}).
+#' @export
+
+get_dfpred <- function(df.predict, sg.harm, version = 1) {
+  if (version == 1) df.pred <- dummy(df.predict)
+  if (version == 2) df.pred <- dummy2(df.predict)
+  df.pred$treat.recommend <- NA
+  id.harm <- paste(sg.harm, collapse = "==1 & ")
+  id.harm <- paste(id.harm, "==1")
+  df.pred.0 <- subset(df.pred, eval(parse(text = id.harm)))
+  if (nrow(df.pred.0) > 0) {
+    df.pred.0$treat.recommend <- 0
+  }
+  id.noharm <- paste(sg.harm, collapse = "!=1 | ")
+  id.noharm <- paste(id.noharm, "!=1")
+  df.pred.1 <- subset(df.pred, eval(parse(text = id.noharm)))
+  if (nrow(df.pred.1) > 0) {
+    df.pred.1$treat.recommend <- 1
+  }
+  if (nrow(df.pred.0) > 0 && nrow(df.pred.1) > 0) df.pred.out <- data.frame(rbind(df.pred.0, df.pred.1))
+  if (nrow(df.pred.0) == 0 && nrow(df.pred.1) > 0) df.pred.out <- data.frame(df.pred.1)
+  if (nrow(df.pred.0) > 0 && nrow(df.pred.1) == 0) df.pred.out <- data.frame(df.pred.0)
+  return(df.pred.out)
+}
+
+
+#' Alternative Simple Implementation of get_dfpred
+#'
+#' This is a simplified version that might be more robust for basic use cases.
+#'
+#' @param df.predict Data frame to predict on
+#' @param sg.harm Subgroup harm definition
+#' @param version Version number (ignored in simple version)
+#' @return Data frame with treat.recommend column
+#' @export
+
+get_dfpred_simple <- function(df.predict, sg.harm, version = 2) {
+
+  # If no subgroup identified, recommend treatment for all
+  if (is.null(sg.harm) || length(sg.harm) == 0) {
+    df.predict$treat.recommend <- 1
+    return(df.predict)
+  }
+
+  # Initialize all as recommended for treatment
+  df.predict$treat.recommend <- 1
+
+  # Try to identify the harm subgroup
+  tryCatch({
+    # Build the condition string
+    conditions <- character(length(sg.harm))
+
+    for (i in seq_along(sg.harm)) {
+      # Clean up the condition
+      cond <- sg.harm[i]
+      cond <- gsub("^\\{|\\}$", "", cond)  # Remove outer braces
+      cond <- gsub("^!\\{|\\}$", "", cond)  # Remove negation and braces
+
+      # Check if it's a negation
+      if (grepl("^!", sg.harm[i])) {
+        conditions[i] <- paste0("!(", cond, ")")
+      } else {
+        conditions[i] <- paste0("(", cond, ")")
+      }
+    }
+
+    # Combine all conditions with AND
+    full_condition <- paste(conditions, collapse = " & ")
+
+    # Evaluate the combined condition
+    harm_subgroup <- eval(parse(text = full_condition), envir = df.predict)
+
+    # Set treatment recommendation (0 for harm subgroup, 1 for others)
+    df.predict$treat.recommend[harm_subgroup] <- 0
+
+  }, error = function(e) {
+    warning("Could not apply subgroup definition. Setting all to treat.recommend = 1\n",
+            "Error: ", e$message)
+    df.predict$treat.recommend <- 1
+  })
+
+  return(df.predict)
+}
+
+
 
 # ============================================================================
 # PACKAGE MANAGEMENT
