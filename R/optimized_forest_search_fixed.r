@@ -266,53 +266,6 @@ prepare_analysis_data <- function(df.analysis, var_names, id.name) {
 
 
 # ============================================================================
-# MERGE SAFE FUNCTION - FIXED VERSION
-# ============================================================================
-
-#' Safe merge handling for bootstrap and regular samples
-#'
-#' This function properly handles merging data frames in both regular and bootstrap
-#' scenarios, preserving duplicate IDs when necessary.
-#'
-#' @param df_main Main data frame (may have duplicate IDs in bootstrap)
-#' @param df_flags Flags data frame with treat.recommend (should have unique IDs)
-#' @return Merged data frame
-#' @keywords internal
-merge_safe <- function(df_main, df_flags) {
-  # Validate inputs
-  if (!"id" %in% names(df_main)) stop("df_main missing 'id' column")
-  if (!"id" %in% names(df_flags)) stop("df_flags missing 'id' column")
-
-  # Ensure df_flags has unique IDs (one recommendation per ID)
-  if (any(duplicated(df_flags$id))) {
-    df_flags <- df_flags[!duplicated(df_flags$id), ]
-  }
-
-  # Always use base R merge for reliability
-  # all.x = TRUE keeps all rows from df_main (including duplicates)
-  # sort = FALSE preserves the original order
-  result <- merge(
-    df_main,
-    df_flags,
-    by = "id",
-    all.x = TRUE,
-    sort = FALSE
-  )
-
-  # Check for merge issues
-  if (nrow(result) != nrow(df_main)) {
-    warning(sprintf(
-      "Merge resulted in different number of rows: expected %d, got %d",
-      nrow(df_main),
-      nrow(result)
-    ))
-  }
-
-  return(result)
-}
-
-
-# ============================================================================
 # GRF OPTIMIZATION FUNCTIONS
 # ============================================================================
 
