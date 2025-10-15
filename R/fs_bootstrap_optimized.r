@@ -447,6 +447,7 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
     args_FS_boot$details <- show_details
+    args_FS_boot$id.name <- "id_boot"
 
     # Run ForestSearch with error handling
     run_bootstrap <- tryCatch(
