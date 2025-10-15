@@ -122,6 +122,19 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     if (show_three) cat("Showing details for first 3 iterations\n")
   }
   
+  # Ensure add_id_column is available (define locally if needed)
+  if (!exists("add_id_column", mode = "function")) {
+    add_id_column <- function(df.analysis, id.name = NULL) {
+      if (is.null(id.name)) {
+        df.analysis$id <- seq_len(nrow(df.analysis))
+        id.name <- "id"
+      } else if (!(id.name %in% names(df.analysis))) {
+        df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
+      }
+      return(df.analysis)
+    }
+  }
+  
   results <- bootstrap_results_optimized(
     fs.est = fs.est,
     df_boot_analysis = fs.est$df.est,
