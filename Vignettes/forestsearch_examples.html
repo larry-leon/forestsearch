@@ -3379,8 +3379,8 @@ must show HR &gt; hr.consistency</li>
 <div id="the-complete-validation-flow" class="section level2">
 <h2>The Complete Validation Flow</h2>
 <div class="figure">
-<div id="htmlwidget-36797221383f0f467012" style="width:800px;height:400px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-36797221383f0f467012">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-b28b80ea80eb6f2ccf7b" style="width:800px;height:400px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-b28b80ea80eb6f2ccf7b">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 1: Overview of forestsearch steps
 </p>
@@ -3895,7 +3895,7 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 ## 
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 465 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.006616667 
+## *Subgroup Searching Minutes=* 0.006166667 
 ## Subgroup candidate(s) found (FS) 
 ## 
 ## ======================================================================
@@ -3937,7 +3937,7 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 <pre><code>## *** Subgroup found: {er &lt;= 0} 
 ## % consistency criteria met= 0.952 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.1586667 
+## Subgroup Consistency Minutes= 0.156 
 ## Subgroup found (FS)
 ## 
 ## ======================================================================
@@ -3955,7 +3955,7 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 ## Total computation time: 0.17 minutes
 ## Status: ✓ Subgroup identified</code></pre>
 <pre><code>##    user  system elapsed 
-##   4.304   0.227  10.445</code></pre>
+##   4.303   0.207  10.223</code></pre>
 </div>
 <div id="show-up-to-top-10-subgroups" class="section level2">
 <h2>Show (up to) top 10 subgroups</h2>
@@ -4878,7 +4878,7 @@ height: 0px !important;
 output_dir &lt;- &quot;results/&quot;
 save_results &lt;- dir.exists(output_dir)
 
-NB &lt;- 200
+NB &lt;- 20
 
 t.start &lt;- proc.time()[3]
 
@@ -4890,7 +4890,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 <pre><code>## Generating Ystar matrix...
 ## Ystar matrix complete
 ## 
-## Running bootstrap with  200  iterations...
+## Running bootstrap with  20  iterations...
 ## Showing details for first 3 iterations
 ## Bootstrap iteration 1 
 ## 
@@ -5012,7 +5012,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## 
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 990 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.02733333 
+## *Subgroup Searching Minutes=* 0.02576667 
 ## Subgroup candidate(s) found (FS) 
 ## 
 ## ======================================================================
@@ -5057,14 +5057,14 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## # of splits = 1000 
 ## **** Subgroup, % Consistency Met= {er &lt;= 3} !{nodes &lt;= 4.9} 0.983 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.30695 
+## Subgroup Consistency Minutes= 0.2737833 
 ## Subgroup found (FS)
 ## 
 ## ======================================================================
 ## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
 ## ======================================================================
 ## Definition: {age &lt;= 48} &amp; {pgr &lt;= 29} 
-## Total time: 0.34 minutes
+## Total time: 0.31 minutes
 ## 
 ## Treatment recommendations assigned:
 ##   df.est: 686 of 686 rows
@@ -5072,7 +5072,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## ======================================================================
 ## FORESTSEARCH COMPLETE
 ## ======================================================================
-## Total computation time: 0.34 minutes
+## Total computation time: 0.31 minutes
 ## Status: ✓ Subgroup identified
 ## 
 ##   Subgroup found in bootstrap 1 
@@ -5179,7 +5179,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## 
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 595 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.01026667 
+## *Subgroup Searching Minutes=* 0.00985 
 ## Subgroup candidate(s) found (FS) 
 ## 
 ## ======================================================================
@@ -5214,14 +5214,14 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## *** Not met: Subgroup, % Consistency = !{size &lt;= 27} !{nodes &lt;= 7} 0.857 
 ## *** Not met: Subgroup, % Consistency = !{size &lt;= 29.2} !{age &lt;= 52.6} 0.873 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.30685 
+## Subgroup Consistency Minutes= 0.2546667 
 ## Subgroup found (FS)
 ## 
 ## ======================================================================
 ## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
 ## ======================================================================
 ## Definition: !{size &lt;= 27} &amp; !{age &lt;= 52.6} 
-## Total time: 0.33 minutes
+## Total time: 0.28 minutes
 ## 
 ## Treatment recommendations assigned:
 ##   df.est: 686 of 686 rows
@@ -5229,7 +5229,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## ======================================================================
 ## FORESTSEARCH COMPLETE
 ## ======================================================================
-## Total computation time: 0.33 minutes
+## Total computation time: 0.28 minutes
 ## Status: ✓ Subgroup identified
 ## 
 ##   Subgroup found in bootstrap 2 
@@ -5354,7 +5354,7 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## 
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 1176 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.02443333 
+## *Subgroup Searching Minutes=* 0.03096667 
 ## Subgroup candidate(s) found (FS) 
 ## 
 ## ======================================================================
@@ -5379,14 +5379,14 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{size &lt;= 25} 0.579 
 ## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{meno} 0.491 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.2400167 
+## Subgroup Consistency Minutes= 0.2074833 
 ## Subgroup found (FS)
 ## 
 ## ======================================================================
 ## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
 ## ======================================================================
 ## Definition: {er &lt;= 0} &amp; {pgr &lt;= 45} 
-## Total time: 0.28 minutes
+## Total time: 0.25 minutes
 ## 
 ## Treatment recommendations assigned:
 ##   df.est: 686 of 686 rows
@@ -5394,42 +5394,28 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## ======================================================================
 ## FORESTSEARCH COMPLETE
 ## ======================================================================
-## Total computation time: 0.28 minutes
+## Total computation time: 0.25 minutes
 ## Status: ✓ Subgroup identified
 ## 
 ##   Subgroup found in bootstrap 3 
 ##   H bias adjustments: -1.3803 -1.2009 
-##   Hc bias adjustments: -0.1461 -0.0317</code></pre>
-<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
-<pre><code>## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.
-## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.
-## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.
-## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.
-## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.
-## Warning in coxph.fit(X, Y, istrat, offset, init, control, weights = weights, :
-## Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
-<pre><code>## 
+##   Hc bias adjustments: -0.1461 -0.0317 
+## 
 ## Calculating confidence intervals...
-## Bootstrap iterations with subgroups found:  165  of  200 
+## Bootstrap iterations with subgroups found:  17  of  20 
 ## 
 ## Bootstrap Summary:
-##   Proportion subgroups found:  0.825 
+##   Proportion subgroups found:  0.85 
 ##   H un-adjusted:     1.95 (1.04,3.67) 
-##   H bias-corrected:  0.67 (0.36,1.24) 
+##   H bias-corrected:  0.69 (0.19,2.45) 
 ##   H^c un-adjusted:   0.61 (0.47,0.8) 
-##   H^c bias-corrected: 0.71 (0.44,1.15)</code></pre>
+##   H^c bias-corrected: 0.77 (0.35,1.67)</code></pre>
 <pre class="r"><code>t.now&lt;-proc.time()[3]
 t.min&lt;-(t.now-t.start)/60
 cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&quot;)</code></pre>
-<pre><code>## Minutes (total) for bootstrap (boots,mins) 200 5.192567</code></pre>
+<pre><code>## Minutes (total) for bootstrap (boots,mins) 20 0.7689</code></pre>
 <pre class="r"><code>cat(&quot;Projected minutes for 1000&quot;,c(t.min*(1000/NB)),&quot;\n&quot;)</code></pre>
-<pre><code>## Projected minutes for 1000 25.96283</code></pre>
+<pre><code>## Projected minutes for 1000 38.445</code></pre>
 <pre class="r"><code>if (save_results) {
     filename &lt;- file.path(output_dir, 
                          paste0(&quot;bootstrap_results_B=&quot;, 
@@ -5439,7 +5425,7 @@ cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&
     cat(&quot;\nResults saved to:&quot;, filename, &quot;\n&quot;)
   }</code></pre>
 <pre><code>## 
-## Results saved to: results//bootstrap_results_B=200.RData</code></pre>
+## Results saved to: results//bootstrap_results_B=20.RData</code></pre>
 </div>
 <div id="decision-function" class="section level2">
 <h2>Decision Function</h2>
@@ -5832,8 +5818,8 @@ print(sensitivity_results)</code></pre>
 <h1>Key Insights and Recommendations</h1>
 <div id="philosophy-of-each-approach" class="section level2">
 <h2>Philosophy of Each Approach</h2>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-2776df98ca0e8c49a9cd" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-2776df98ca0e8c49a9cd">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-f058e1001d839fc8432e" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-f058e1001d839fc8432e">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="summary-recommendations" class="section level2">
 <h2>Summary Recommendations</h2>
@@ -6056,8 +6042,8 @@ computation.</li>
 <div id="overview-of-main-functions" class="section level1">
 <h1>Overview of Main functions</h1>
 <div class="figure">
-<div id="htmlwidget-ed135bc4e36e77dafe18" style="width:600px;height:400px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ed135bc4e36e77dafe18">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-651bdc1fc8a8b8092283" style="width:600px;height:400px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-651bdc1fc8a8b8092283">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 2: Main functions
 </p>
@@ -6066,8 +6052,8 @@ Figure 2: Main functions
 <div id="overview-of-helper-functions" class="section level1">
 <h1>Overview of Helper Functions</h1>
 <div class="figure">
-<div id="htmlwidget-1fd98af50f6c0923d371" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-1fd98af50f6c0923d371">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-3bf03459bda1755f668b" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3bf03459bda1755f668b">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 3: Helpers functions
 </p>
@@ -6076,8 +6062,8 @@ Figure 3: Helpers functions
 <div id="overview-of-all-functions" class="section level1">
 <h1>Overview of all functions</h1>
 <div class="figure">
-<div id="htmlwidget-fa01980a186f94a32553" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-fa01980a186f94a32553">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-553efe3cc3926e8ea905" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-553efe3cc3926e8ea905">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 4: Overview of ALL functions
 </p>
