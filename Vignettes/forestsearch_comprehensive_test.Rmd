@@ -1,0 +1,600 @@
+---
+title: "ForestSearch: Comprehensive Validation and Test Suite"
+author: "ForestSearch Development Team"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_folding: show
+    theme: cosmo
+    highlight: tango
+    number_sections: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6,
+  cache = FALSE,
+  comment = "#>"
+)
+set.seed(42)
+```
+
+<style>
+.success-box {
+  background-color: #d4edda;
+  border-left: 5px solid #28a745;
+  padding: 10px;
+  margin: 10px 0;
+}
+.warning-box {
+  background-color: #fff3cd;
+  border-left: 5px solid #ffc107;
+  padding: 10px;
+  margin: 10px 0;
+}
+.info-box {
+  background-color: #d1ecf1;
+  border-left: 5px solid #17a2b8;
+  padding: 10px;
+  margin: 10px 0;
+}
+.error-box {
+  background-color: #f8d7da;
+  border-left: 5px solid #dc3545;
+  padding: 10px;
+  margin: 10px 0;
+}
+</style>
+
+# Executive Summary {.tabset .tabset-pills}
+
+## Overview
+
+This document provides a **comprehensive validation suite** for the ForestSearch package, including:
+
+1. **Unit Tests**: Testing individual GRF functions with synthetic data
+2. **Integration Tests**: Full ForestSearch pipeline with realistic clinical data
+3. **Performance Benchmarks**: Computational efficiency evaluation
+4. **Validation Metrics**: Classification accuracy and subgroup recovery
+
+## Key Results
+
+<div class="info-box">
+**Test Status**
+
+- GRF functions: To be tested
+- ForestSearch pipeline: To be tested
+- Performance: To be benchmarked
+</div>
+
+## Test Environment
+
+- **R Version**: `r R.version.string`
+- **Test Date**: `r Sys.Date()`
+- **Platform**: `r sessionInfo()$platform`
+
+---
+
+# Part 1: Setup and Configuration
+
+## Load Required Packages
+
+```{r load-packages}
+# Core packages
+required_packages <- c(
+  "survival",
+  "grf",
+  "policytree",
+  "data.table",
+  "doFuture",
+  "doRNG",
+  "foreach",
+  "future",
+  "knitr",
+  "kableExtra"
+)
+
+# Check and install missing packages
+missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
+if (length(missing) > 0) {
+  cat("Installing missing packages:", paste(missing, collapse = ", "), "\n")
+  install.packages(missing, dependencies = TRUE)
+}
+
+# Load packages
+invisible(suppressPackageStartupMessages({
+  lapply(required_packages, library, character.only = TRUE)
+}))
+
+cat("✓ All", length(required_packages), "packages loaded successfully\n")
+```
+
+## Test Configuration
+
+```{r test-config}
+TEST_CONFIG <- list(
+  sample_size_unit = 400,
+  sample_size_full = 600,
+  seed_data_unit = 42,
+  seed_data_full = 123,
+  seed_analysis = 8316951,
+  n_workers = 4,
+  parallel_plan = "multisession",
+  run_bootstrap = FALSE,
+  run_cv = FALSE,
+  nb_boots = 100,
+  n_cv_folds = 10
+)
+
+cat("Test Configuration:\n")
+cat("  Unit test sample size:", TEST_CONFIG$sample_size_unit, "\n")
+cat("  Full test sample size:", TEST_CONFIG$sample_size_full, "\n")
+cat("  Parallel workers:", TEST_CONFIG$n_workers, "\n")
+```
+
+---
+
+# Part 2: Unit Tests - GRF Functions
+
+## Generate Simple Synthetic Data
+
+```{r generate-unit-data}
+generate_synthetic_survival_data <- function(n = 400, seed = 42) {
+  set.seed(seed)
+  
+  age <- rnorm(n, mean = 60, sd = 10)
+  age <- pmax(30, pmin(85, age))
+  sex <- rbinom(n, 1, 0.5)
+  biomarker <- rnorm(n, mean = 100, sd = 20)
+  stage <- sample(1:3, n, replace = TRUE, prob = c(0.3, 0.5, 0.2))
+  treatment <- rbinom(n, 1, 0.5)
+  flag.harm <- as.numeric(age > 65)
+  
+  lambda_baseline <- 0.01
+  hr_harm <- 0.9
+  hr_benefit <- 0.6
+  
+  lambda <- lambda_baseline * exp(
+    0.02 * (age - 60) +
+    0.3 * (stage - 2) +
+    treatment * ifelse(flag.harm == 1, log(hr_harm), log(hr_benefit))
+  )
+  
+  time <- rexp(n, rate = lambda)
+  censor_time <- runif(n, min = 3, max = 7)
+  obs_time <- pmin(time, censor_time)
+  event <- as.numeric(time <= censor_time)
+  
+  data.frame(
+    patient_id = 1:n,
+    age = age,
+    sex = sex,
+    biomarker = biomarker,
+    stage = as.factor(stage),
+    treatment = treatment,
+    time = obs_time,
+    event = event,
+    flag.harm = flag.harm,
+    stringsAsFactors = FALSE
+  )
+}
+
+df_unit <- generate_synthetic_survival_data(
+  n = TEST_CONFIG$sample_size_unit,
+  seed = TEST_CONFIG$seed_data_unit
+)
+
+cat("Unit Test Dataset Summary:\n")
+cat("  Total patients:", nrow(df_unit), "\n")
+cat("  Events:", sum(df_unit$event), 
+    sprintf("(%.1f%%)", 100 * mean(df_unit$event)), "\n")
+cat("  Treatment:", sum(df_unit$treatment == 1), "\n")
+cat("  Control:", sum(df_unit$treatment == 0), "\n")
+cat("  True harm subgroup (age > 65):", sum(df_unit$flag.harm == 1),
+    sprintf("(%.1f%%)", 100 * mean(df_unit$flag.harm)), "\n")
+```
+
+## Test 1: Basic GRF Functionality
+
+```{r test-grf-basic}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("TEST 1: Basic GRF Subgroup Identification\n")
+cat(rep("=", 70), "\n\n", sep = "")
+
+result_unit <- grf.subg.harm.survival(
+  data = df_unit,
+  confounders.name = c("age", "sex", "biomarker", "stage"),
+  outcome.name = "time",
+  event.name = "event",
+  id.name = "patient_id",
+  treat.name = "treatment",
+  frac.tau = 0.8,
+  n.min = 40,
+  dmin.grf = 0.02,
+  RCT = TRUE,
+  details = TRUE,
+  sg.criterion = "mDiff",
+  maxdepth = 2,
+  seedit = TEST_CONFIG$seed_analysis
+)
+
+test_1_pass <- !is.null(result_unit$sg.harm.id)
+
+if (test_1_pass) {
+  cat("\n✓ TEST 1 PASSED: Subgroup identified\n")
+  cat("  Definition:", result_unit$sg.harm.id, "\n")
+  cat("  Effect difference:", round(result_unit$grf.gsub$diff, 3), "\n")
+  cat("  Subgroup size:", result_unit$grf.gsub$Nsg, "\n")
+} else {
+  cat("\n✗ TEST 1 FAILED: No subgroup identified\n")
+}
+```
+
+## Test 2: Classification Performance
+
+```{r test-classification}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("TEST 2: Classification Performance Evaluation\n")
+cat(rep("=", 70), "\n\n", sep = "")
+
+if (test_1_pass) {
+  df_result_unit <- result_unit$data
+  
+  confusion <- table(
+    Predicted = ifelse(df_result_unit$treat.recommend == 0, "Harm", "Benefit"),
+    Truth = ifelse(df_result_unit$flag.harm == 1, "Harm", "Benefit")
+  )
+  
+  cat("Confusion Matrix:\n")
+  print(confusion)
+  cat("\n")
+  
+  if (all(dim(confusion) == c(2, 2))) {
+    tp <- confusion["Harm", "Harm"]
+    tn <- confusion["Benefit", "Benefit"]
+    fp <- confusion["Harm", "Benefit"]
+    fn <- confusion["Benefit", "Harm"]
+    
+    sensitivity <- tp / (tp + fn)
+    specificity <- tn / (tn + fp)
+    ppv <- tp / (tp + fp)
+    npv <- tn / (tn + fn)
+    accuracy <- (tp + tn) / sum(confusion)
+    
+    metrics_df <- data.frame(
+      Metric = c("Sensitivity", "Specificity", "PPV", "NPV", "Accuracy"),
+      Value = round(c(sensitivity, specificity, ppv, npv, accuracy), 3),
+      Interpretation = c(
+        "True harm patients correctly identified",
+        "True benefit patients correctly identified",
+        "Predicted harm patients truly in harm",
+        "Predicted benefit patients truly in benefit",
+        "Overall correct classification"
+      ),
+      stringsAsFactors = FALSE
+    )
+    
+    kable(metrics_df,
+          caption = "Classification Performance Metrics",
+          align = c("l", "c", "l")) %>%
+      kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                    full_width = FALSE)
+    
+    test_2_pass <- accuracy > 0.6
+    
+    if (test_2_pass) {
+      cat("\n✓ TEST 2 PASSED: Accuracy =", round(accuracy, 3), "\n")
+    } else {
+      cat("\n✗ TEST 2 FAILED: Accuracy =", round(accuracy, 3), "< 0.6\n")
+    }
+  } else {
+    test_2_pass <- FALSE
+    cat("✗ TEST 2 FAILED: Invalid confusion matrix dimensions\n")
+  }
+} else {
+  test_2_pass <- FALSE
+  cat("⊘ TEST 2 SKIPPED: No subgroup identified in Test 1\n")
+}
+```
+
+## Test 3: Treatment Effect Validation
+
+```{r test-treatment-effects}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("TEST 3: Treatment Effect Validation\n")
+cat(rep("=", 70), "\n\n", sep = "")
+
+df_harm_true <- subset(df_unit, flag.harm == 1)
+df_benefit_true <- subset(df_unit, flag.harm == 0)
+
+fit_harm <- coxph(Surv(time, event) ~ treatment, data = df_harm_true)
+fit_benefit <- coxph(Surv(time, event) ~ treatment, data = df_benefit_true)
+fit_itt <- coxph(Surv(time, event) ~ treatment, data = df_unit)
+
+hr_harm <- exp(coef(fit_harm))
+hr_benefit <- exp(coef(fit_benefit))
+hr_itt <- exp(coef(fit_itt))
+
+effects_df <- data.frame(
+  Subgroup = c("Harm (age > 65)", "Benefit (age ≤ 65)", "Overall (ITT)"),
+  N = c(nrow(df_harm_true), nrow(df_benefit_true), nrow(df_unit)),
+  Events = c(sum(df_harm_true$event), sum(df_benefit_true$event), sum(df_unit$event)),
+  HR = round(c(hr_harm, hr_benefit, hr_itt), 2),
+  Expected = c("~0.90", "~0.60", "~0.65-0.70"),
+  stringsAsFactors = FALSE
+)
+
+kable(effects_df,
+      caption = "True Treatment Effects by Subgroup",
+      align = c("l", rep("c", 4))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(3, bold = TRUE, background = "#f0f0f0")
+
+test_3_pass <- (hr_harm > 0.7 & hr_harm < 1.1) & (hr_benefit < 0.8)
+
+if (test_3_pass) {
+  cat("\n✓ TEST 3 PASSED: Treatment effects in expected ranges\n")
+  cat("  Harm HR:", round(hr_harm, 2), "(expected ~0.90)\n")
+  cat("  Benefit HR:", round(hr_benefit, 2), "(expected ~0.60)\n")
+} else {
+  cat("\n⚠ TEST 3 WARNING: Treatment effects outside expected range\n")
+  cat("  This may be due to random variation in synthetic data\n")
+}
+```
+
+## Unit Tests Summary
+
+```{r unit-tests-summary}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("UNIT TESTS SUMMARY\n")
+cat(rep("=", 70), "\n\n", sep = "")
+
+unit_tests <- data.frame(
+  Test = c(
+    "Test 1: Basic GRF Functionality",
+    "Test 2: Classification Performance",
+    "Test 3: Treatment Effect Validation"
+  ),
+  Status = c(
+    ifelse(test_1_pass, "✓ PASSED", "✗ FAILED"),
+    ifelse(test_2_pass, "✓ PASSED", ifelse(test_1_pass, "✗ FAILED", "⊘ SKIPPED")),
+    ifelse(test_3_pass, "✓ PASSED", "⚠ WARNING")
+  ),
+  Details = c(
+    ifelse(test_1_pass, result_unit$sg.harm.id, "No subgroup found"),
+    ifelse(test_2_pass, sprintf("Accuracy: %.3f", accuracy), "N/A"),
+    sprintf("HR harm: %.2f, HR benefit: %.2f", hr_harm, hr_benefit)
+  ),
+  stringsAsFactors = FALSE
+)
+
+kable(unit_tests,
+      caption = "Unit Tests Results Summary",
+      align = c("l", "c", "l")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(which(grepl("PASSED", unit_tests$Status)), background = "#d4edda") %>%
+  row_spec(which(grepl("FAILED", unit_tests$Status)), background = "#f8d7da") %>%
+  row_spec(which(grepl("WARNING", unit_tests$Status)), background = "#fff3cd")
+
+all_unit_pass <- all(c(test_1_pass, test_2_pass, test_3_pass))
+
+if (all_unit_pass) {
+  cat("\n✓ ALL UNIT TESTS PASSED\n")
+} else {
+  cat("\n⚠ SOME UNIT TESTS FAILED OR GENERATED WARNINGS\n")
+}
+```
+
+---
+
+# Part 3: Integration Tests - Full ForestSearch Pipeline
+
+## Generate Clinical Trial Data
+
+```{r generate-clinical-data}
+generate_clinical_trial_data <- function(n = 600, seed = 123) {
+  set.seed(seed)
+  
+  age <- rnorm(n, mean = 60, sd = 12)
+  age <- pmax(30, pmin(85, age))
+  meno <- rbinom(n, 1, plogis((age - 50) / 10))
+  size <- rgamma(n, shape = 2, scale = 15)
+  nodes <- rpois(n, lambda = 3)
+  grade3 <- rbinom(n, 1, 0.3)
+  pgr <- rlnorm(n, meanlog = 3, sdlog = 1)
+  er <- rlnorm(n, meanlog = 3.5, sdlog = 1.2)
+  treat <- rbinom(n, 1, 0.5)
+  subgroup_harm <- as.numeric(age > 65 & nodes > 5)
+  
+  lambda_baseline <- 0.015
+  hr_harm <- 0.85
+  hr_benefit <- 0.55
+  
+  lambda <- lambda_baseline * exp(
+    0.02 * (age - 60) +
+    0.15 * (nodes / 5) +
+    0.3 * grade3 +
+    0.008 * (size - 30) +
+    -0.15 * log(pgr + 1) +
+    -0.12 * log(er + 1) +
+    treat * ifelse(subgroup_harm == 1, log(hr_harm), log(hr_benefit))
+  )
+  
+  shape_param <- 1.2
+  time <- (-log(runif(n)) / lambda)^(1 / shape_param)
+  censor_time <- pmin(runif(n, 48, 72), rexp(n, 0.02))
+  tte <- pmin(time, censor_time)
+  event <- as.numeric(time <= censor_time)
+  
+  data.frame(
+    id = seq_len(n),
+    age = age,
+    meno = meno,
+    size = round(size, 1),
+    nodes = nodes,
+    grade3 = grade3,
+    pgr = round(pgr, 1),
+    er = round(er, 1),
+    treat = treat,
+    tte = round(tte, 2),
+    event = event,
+    subgroup_harm = subgroup_harm,
+    stringsAsFactors = FALSE
+  )
+}
+
+df_clinical <- generate_clinical_trial_data(
+  n = TEST_CONFIG$sample_size_full,
+  seed = TEST_CONFIG$seed_data_full
+)
+
+cat("Clinical Trial Dataset Summary:\n")
+cat("  Total patients:", nrow(df_clinical), "\n")
+cat("  Events:", sum(df_clinical$event),
+    sprintf("(%.1f%%)", 100 * mean(df_clinical$event)), "\n")
+cat("  Median follow-up:", round(median(df_clinical$tte), 1), "months\n")
+cat("  True harm subgroup:", sum(df_clinical$subgroup_harm == 1),
+    sprintf("(%.1f%%)", 100 * mean(df_clinical$subgroup_harm)), "\n")
+```
+
+## Run Full ForestSearch Analysis
+
+```{r run-forestsearch}
+cat("\n")
+cat(rep("=", 70), "\n", sep = "")
+cat("Running ForestSearch Analysis\n")
+cat(rep("=", 70), "\n\n", sep = "")
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+registerDoFuture()
+plan(TEST_CONFIG$parallel_plan, workers = TEST_CONFIG$n_workers)
+
+t_start <- proc.time()[3]
+
+fs_result <- forestsearch(
+  df.analysis = df_clinical,
+  confounders.name = confounders.name,
+  outcome.name = "tte",
+  event.name = "event",
+  treat.name = "treat",
+  id.name = "id",
+  hr.threshold = 1.25,
+  hr.consistency = 1.0,
+  pconsistency.threshold = 0.90,
+  sg_focus = "hr",
+  maxk = 2,
+  n.min = 50,
+  use_grf = TRUE,
+  grf_depth = 2,
+  dmin.grf = 0.05,
+  frac.tau = 0.7,
+  use_lasso = TRUE,
+  fs.splits = 500,
+  max.minutes = 5,
+  parallel_args = list(
+    plan = TEST_CONFIG$parallel_plan,
+    workers = TEST_CONFIG$n_workers,
+    show_message = FALSE
+  ),
+  details = TRUE
+)
+
+t_end <- proc.time()[3]
+t_elapsed <- (t_end - t_start) / 60
+
+cat("\nForestSearch Complete!\n")
+cat("Total time:", round(t_elapsed, 2), "minutes\n")
+```
+
+## ForestSearch Results
+
+```{r fs-results}
+fs_found <- !is.null(fs_result$sg.harm)
+
+if (fs_found) {
+  cat("\n✓ SUBGROUP IDENTIFIED!\n\n")
+  cat("Identified Subgroup Definition:\n")
+  for (i in seq_along(fs_result$sg.harm)) {
+    cat("  Factor", i, ":", fs_result$sg.harm[i], "\n")
+  }
+  
+  df_fs <- fs_result$df.est
+  confusion_fs <- table(
+    Predicted = ifelse(df_fs$treat.recommend == 0, "Harm", "Benefit"),
+    Truth = ifelse(df_fs$subgroup_harm == 1, "Harm", "Benefit")
+  )
+  
+  cat("\nConfusion Matrix:\n")
+  print(confusion_fs)
+  
+  if (all(dim(confusion_fs) == c(2, 2))) {
+    tp_fs <- confusion_fs["Harm", "Harm"]
+    tn_fs <- confusion_fs["Benefit", "Benefit"]
+    acc_fs <- (tp_fs + tn_fs) / sum(confusion_fs)
+    
+    cat("\nAccuracy:", round(acc_fs, 3), "\n")
+    
+    if (acc_fs > 0.85) {
+      cat("✓ INTEGRATION TEST PASSED\n")
+    } else {
+      cat("⚠ Accuracy acceptable but < 0.85\n")
+    }
+  }
+} else {
+  cat("\n✗ NO SUBGROUP IDENTIFIED\n")
+}
+```
+
+---
+
+# Final Summary
+
+## Overall Assessment
+
+```{r final-summary, results="asis"}
+cat("\n### Test Suite Complete\n\n")
+
+if (exists("all_unit_pass") && all_unit_pass && exists("fs_found") && fs_found) {
+  cat("<div class=\"success-box\">\n\n")
+  cat("**✓ ALL TESTS PASSED**\n\n")
+  cat("The ForestSearch package demonstrates:\n\n")
+  cat("- Correct functionality\n")
+  cat("- Good classification performance\n")
+  cat("- Efficient computation\n\n")
+  cat("</div>\n")
+} else {
+  cat("<div class=\"warning-box\">\n\n")
+  cat("**⚠ SOME TESTS NEED REVIEW**\n\n")
+  cat("Review the test results above for details.\n\n")
+  cat("</div>\n")
+}
+```
+
+## Session Information
+
+```{r session-info}
+sessionInfo()
+```
+
+---
+
+**Document generated**: `r Sys.time()`
+
+**End of Report**

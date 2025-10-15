@@ -9,7 +9,7 @@ hrCI_format <- function(hrest) {
   # Input validation
   if (!is.numeric(hrest)) stop("'hrest' must be numeric")
   if (length(hrest) < 3) stop("'hrest' must have at least 3 elements (HR, lower, upper)")
-  
+
   # hrest: vector with HR, lower, upper
   sprintf("%.2f (%.2f, %.2f)", hrest[1], hrest[2], hrest[3])
 }
@@ -28,14 +28,14 @@ n_pcnt <- function(x, denom) {
   if (!is.numeric(denom) || length(denom) != 1 || denom <= 0) {
     stop("'denom' must be a positive numeric value")
   }
-  
+
   n <- length(x)
-  
+
   # Handle division by zero
   if (denom == 0) {
     return("0 (NA%)")
   }
-  
+
   sprintf("%d (%.1f%%)", n, 100 * n / denom)
 }
 
@@ -61,7 +61,7 @@ prepare_subgroup_data <- function(df, SG_flag, est.scale, treat.name) {
   if (!is.character(treat.name) || !treat.name %in% names(df)) {
     stop("'treat.name' must be a column name in 'df'")
   }
-  
+
   if (est.scale == "1/hr") {
     df$treat2 <- 1 - df[, treat.name]
     treat.name <- "treat2"
@@ -93,7 +93,7 @@ cox_summary <- function(Y, E, Treat, Strata) {
   if (!is.null(Strata) && length(Y) != length(Strata)) {
     stop("'Strata' must have the same length as 'Y'")
   }
-  
+
   fit <- survival::coxph(survival::Surv(Y, E) ~ Treat + strata(Strata), robust = TRUE)
   hr <- summary(fit)$conf.int[c(1, 3, 4)]
   hrCI_format(hr)
@@ -117,7 +117,7 @@ km_summary <- function(Y, E, Treat) {
   if (length(Y) != length(E) || length(Y) != length(Treat)) {
     stop("'Y', 'E', and 'Treat' must have the same length")
   }
-  
+
   fit <- summary(survival::survfit(survival::Surv(Y, E) ~ Treat))
   as.numeric(round(fit$table[, "median"], 1))
 }
@@ -140,7 +140,7 @@ calculate_counts <- function(Y, E, Treat, N) {
   if (!is.numeric(N) || length(N) != 1 || N <= 0) {
     stop("'N' must be a positive numeric value")
   }
-  
+
   n <- n_pcnt(Y, N)
   n_treat <- n_pcnt(Y[Treat == 1], length(Y))
   d <- n_pcnt(Y[E == 1], length(Y))
@@ -164,7 +164,7 @@ calculate_potential_hr <- function(df, potentialOutcome.name) {
   if (!potentialOutcome.name %in% names(df)) {
     stop("'potentialOutcome.name' must be a column name in 'df'")
   }
-  
+
   loghr.po <- df[, potentialOutcome.name]
   round(exp(mean(loghr.po)), 2)
 }
@@ -186,7 +186,7 @@ calculate_potential_hr <- function(df, potentialOutcome.name) {
 #' @param return.medians Logical. Use medians or RMST.
 #' @return Character vector of results.
 #' @export
-format_results <- function(subgroup.name, n, n.treat, d, m1, m0, drmst, hr, 
+format_results <- function(subgroup.name, n, n.treat, d, m1, m0, drmst, hr,
                           hr.a = NA, hr.po = NA, return.medians = TRUE) {
   # Input validation
   if (!is.character(subgroup.name)) stop("'subgroup.name' must be character")
@@ -197,7 +197,7 @@ format_results <- function(subgroup.name, n, n.treat, d, m1, m0, drmst, hr,
   if (!is.numeric(m0)) stop("'m0' must be numeric")
   if (!is.numeric(drmst)) stop("'drmst' must be numeric")
   if (!is.character(hr)) stop("'hr' must be character")
-  
+
   if (is.na(hr.po)) {
     if (is.na(hr.a)) {
       res <- c(subgroup.name, n, n.treat, d, m1, m0, drmst, hr)
@@ -237,12 +237,12 @@ rmst_calculation <- function(df, tte.name = "tte", event.name = "event", treat.n
   if (!is.character(treat.name) || !treat.name %in% names(df)) {
     stop("'treat.name' must be a column name in 'df'")
   }
-  
+
   if (!requireNamespace("weightedSurv", quietly = TRUE)) {
     stop("Package 'weightedSurv' needed for this function to work. Please install it install_github('larry-leon/weightedSurv').")
   }
-  
-  dfcount <- df_counting(df, tte.name = tte.name, event.name = event.name, 
+
+  dfcount <- df_counting(df, tte.name = tte.name, event.name = event.name,
                         treat.name = treat.name, arms = c("treat", "control"), by.risk = 1)
   taumax <- with(dfcount, max(at_points[ybar1 > 0 & ybar0 > 0]))
   at_points <- dfcount$at_points
@@ -267,7 +267,7 @@ rmst_calculation <- function(df, tte.name = "tte", event.name = "event", treat.n
   cumulative_rmst0 <- c(0, cumsum(mid_dhat * dt))
   rmst0 <- cumulative_rmst0[length(surv0)]
 
-  return(list(tau = taumax, rmst = signif(rmst, 2), 
+  return(list(tau = taumax, rmst = signif(rmst, 2),
               rmst1 = signif(rmst1, 2), rmst0 = signif(rmst0, 2)))
 }
 
@@ -287,14 +287,77 @@ rmst_calculation <- function(df, tte.name = "tte", event.name = "event", treat.n
 #' @param N Integer. Total sample size.
 #' @return Character vector of results.
 #' @export
-analyze_subgroup <- function(df.sub, outcome.name, event.name, treat.name, strata.name, 
+
+analyze_subgroup <- function(df.sub, outcome.name, event.name, treat.name, strata.name,
+                                   subgroup.name, hr.a, potentialOutcome.name, return.medians, N) {
+  # Input validation
+  if (!is.data.frame(df.sub)) stop("'df.sub' must be a data.frame")
+  if (!all(c(outcome.name, event.name, treat.name) %in% names(df.sub))) {
+    stop("Required columns not found in 'df.sub'")
+  }
+
+  Y <- df.sub[, outcome.name]
+  E <- df.sub[, event.name]
+  Treat <- df.sub[, treat.name]
+  Strata <- if (is.null(strata.name)) rep("All", length(Y)) else df.sub[, strata.name]
+
+  # Cox summary
+  hr <- cox_summary(Y, E, Treat, Strata)
+
+  # KM medians
+  meds <- km_summary(Y, E, Treat)
+
+  # RMST calculation
+  rmst <- rmst_calculation(df.sub, outcome.name, event.name, treat.name)
+
+  # Calculate counts - ENSURE THESE RETURN CHARACTER STRINGS
+  n <- n_pcnt(Y, N)
+  n_treat <- n_pcnt(Y[Treat == 1], length(Y))
+  d <- n_pcnt(Y[E == 1], length(Y))
+
+  # Ensure all are character
+  n <- as.character(n)
+  n_treat <- as.character(n_treat)
+  d <- as.character(d)
+
+  # Calculate potential outcome HR if provided
+  hr.po <- if (!is.null(potentialOutcome.name)) {
+    calculate_potential_hr(df.sub, potentialOutcome.name)
+  } else NA
+
+  # Choose median or RMST
+  m1 <- if (return.medians) meds[2] else rmst$rmst1
+  m0 <- if (return.medians) meds[1] else rmst$rmst0
+
+  # Format results with explicit character conversion
+  format_results(
+    subgroup.name = as.character(subgroup.name),
+    n = as.character(n),
+    n.treat = as.character(n_treat),
+    d = as.character(d),
+    m1 = m1,
+    m0 = m0,
+    drmst = rmst$rmst,
+    hr = as.character(hr),
+    hr.a = if (!is.na(hr.a)) as.character(hr.a) else NA,
+    hr.po = hr.po,
+    return.medians = return.medians
+  )
+}
+
+
+
+
+
+# Remove
+analyze_subgroup_old <- function(df.sub, outcome.name, event.name, treat.name, strata.name,
                             subgroup.name, hr.a, potentialOutcome.name, return.medians, N) {
   # Input validation
   if (!is.data.frame(df.sub)) stop("'df.sub' must be a data.frame")
   if (!all(c(outcome.name, event.name, treat.name) %in% names(df.sub))) {
     stop("Required columns not found in 'df.sub'")
   }
-  
+
   Y <- df.sub[, outcome.name]
   E <- df.sub[, event.name]
   Treat <- df.sub[, treat.name]
@@ -311,7 +374,7 @@ analyze_subgroup <- function(df.sub, outcome.name, event.name, treat.name, strat
   m1 <- if (return.medians) meds[2] else rmst$rmst1
   m0 <- if (return.medians) meds[1] else rmst$rmst0
 
-  format_results(subgroup.name, counts$n, counts$n.treat, counts$d, m1, m0, 
+  format_results(subgroup.name, counts$n, counts$n.treat, counts$d, m1, m0,
                 rmst$rmst, hr, hr.a, hr.po, return.medians)
 }
 
@@ -336,7 +399,118 @@ analyze_subgroup <- function(df.sub, outcome.name, event.name, treat.name, strat
 #' @param est.scale Character. Effect scale ("hr" or "1/hr").
 #' @return Data frame of subgroup summary estimates.
 #' @export
-SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "event", 
+
+SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "event",
+                                   treat.name = "treat", strata.name = NULL,
+                                   hr_1a = NA, hr_0a = NA, potentialOutcome.name = NULL,
+                                   sg1_name = NULL, sg0_name = NULL, draws = 0,
+                                   details = FALSE, return.medians = TRUE, est.scale = "hr") {
+
+  # Input validation
+  if (!is.data.frame(df)) stop("'df' must be a data.frame")
+  if (!is.character(SG_flag)) stop("'SG_flag' must be character")
+  if (SG_flag != "ITT" && !SG_flag %in% names(df)) {
+    stop("'SG_flag' must be 'ITT' or a column name in 'df'")
+  }
+  if (!all(c(outcome.name, event.name, treat.name) %in% names(df))) {
+    stop("Required columns not found in 'df'")
+  }
+
+  N <- nrow(df)
+
+  if (SG_flag != "ITT") {
+    # Prepare subgroup data
+    subgroups <- prepare_subgroup_data(df, SG_flag, est.scale, treat.name)
+    df_0 <- subgroups$df_0
+    df_1 <- subgroups$df_1
+    treat.name <- subgroups$treat.name
+
+    # Analyze each subgroup
+    res_0 <- analyze_subgroup(
+      df.sub = df_0,
+      outcome.name = outcome.name,
+      event.name = event.name,
+      treat.name = treat.name,
+      strata.name = strata.name,
+      subgroup.name = sg0_name,
+      hr.a = hr_0a,
+      potentialOutcome.name = potentialOutcome.name,
+      return.medians = return.medians,
+      N = N
+    )
+
+    res_1 <- analyze_subgroup(
+      df.sub = df_1,
+      outcome.name = outcome.name,
+      event.name = event.name,
+      treat.name = treat.name,
+      strata.name = strata.name,
+      subgroup.name = sg1_name,
+      hr.a = hr_1a,
+      potentialOutcome.name = potentialOutcome.name,
+      return.medians = return.medians,
+      N = N
+    )
+
+    res <- rbind(res_0, res_1)
+
+    # Set column names based on what's available
+    if (is.na(hr_1a)) {
+      if (is.null(potentialOutcome.name)) {
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", "HR (95% CI)")
+      } else {
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                           "HR (95% CI)", "AHR(po)")
+      }
+    } else {
+      if (is.null(potentialOutcome.name)) {
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                           "HR (95% CI)", "HR*")
+      } else {
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                           "HR (95% CI)", "HR*", "AHR(po)")
+      }
+    }
+    return(as.data.frame(res))
+
+  } else {
+    # ITT analysis
+    res <- analyze_subgroup(
+      df.sub = df,
+      outcome.name = outcome.name,
+      event.name = event.name,
+      treat.name = treat.name,
+      strata.name = strata.name,
+      subgroup.name = "ITT",
+      hr.a = NA,
+      potentialOutcome.name = potentialOutcome.name,
+      return.medians = return.medians,
+      N = N
+    )
+
+    if (is.na(hr_1a)) {
+      if (is.null(potentialOutcome.name)) {
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", "HR (95% CI)")
+      } else {
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                        "HR (95% CI)", "AHR(po)")
+      }
+    } else {
+      if (is.null(potentialOutcome.name)) {
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                        "HR (95% CI)", "HR*")
+      } else {
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
+                        "HR (95% CI)", "HR*", "AHR(po)")
+      }
+    }
+    return(res)
+  }
+}
+
+
+
+SG_tab_estimates_old <- function(df, SG_flag, outcome.name = "tte", event.name = "event",
                              treat.name = "treat", strata.name = NULL,
                              hr_1a = NA, hr_0a = NA, potentialOutcome.name = NULL,
                              sg1_name = NULL, sg0_name = NULL, draws = 0,
@@ -350,7 +524,7 @@ SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "ev
   if (!all(c(outcome.name, event.name, treat.name) %in% names(df))) {
     stop("Required columns not found in 'df'")
   }
-  
+
   N <- nrow(df)
   if (SG_flag != "ITT") {
     subgroups <- prepare_subgroup_data(df, SG_flag, est.scale, treat.name)
@@ -358,9 +532,9 @@ SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "ev
     df_1 <- subgroups$df_1
     treat.name <- subgroups$treat.name
 
-    res_0 <- analyze_subgroup(df_0, outcome.name, event.name, treat.name, strata.name, 
+    res_0 <- analyze_subgroup(df_0, outcome.name, event.name, treat.name, strata.name,
                               sg0_name, hr_0a, potentialOutcome.name, return.medians, N)
-    res_1 <- analyze_subgroup(df_1, outcome.name, event.name, treat.name, strata.name, 
+    res_1 <- analyze_subgroup(df_1, outcome.name, event.name, treat.name, strata.name,
                               sg1_name, hr_1a, potentialOutcome.name, return.medians, N)
     res <- rbind(res_0, res_1)
 
@@ -369,35 +543,35 @@ SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "ev
       if (is.null(potentialOutcome.name)) {
         colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", "HR (95% CI)")
       } else {
-        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                           "HR (95% CI)", "AHR(po)")
       }
     } else {
       if (is.null(potentialOutcome.name)) {
-        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                           "HR (95% CI)", "HR*")
       } else {
-        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        colnames(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                           "HR (95% CI)", "HR*", "AHR(po)")
       }
     }
     return(res)
   } else {
-    res <- analyze_subgroup(df, outcome.name, event.name, treat.name, strata.name, 
+    res <- analyze_subgroup(df, outcome.name, event.name, treat.name, strata.name,
                            "ITT", NA, potentialOutcome.name, return.medians, N)
     if (is.na(hr_1a)) {
       if (is.null(potentialOutcome.name)) {
         names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", "HR (95% CI)")
       } else {
-        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                        "HR (95% CI)", "AHR(po)")
       }
     } else {
       if (is.null(potentialOutcome.name)) {
-        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                        "HR (95% CI)", "HR*")
       } else {
-        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST", 
+        names(res) <- c("Subgroup", "n", "n1", "events", "m1", "m0", "RMST",
                        "HR (95% CI)", "HR*", "AHR(po)")
       }
     }
@@ -421,7 +595,153 @@ SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "ev
 #'
 #' @importFrom gt gt fmt_number tab_header
 #' @export
-sg_tables <- function(fs, which_df = "est", est_caption = "Training data estimates", 
+
+sg_tables <- function(fs, which_df = "est", est_caption = "Training data estimates",
+                            potentialOutcome.name = NULL, hr_1a = NA, hr_0a = NA, ndecimals = 3) {
+
+  # Input validation
+  if (!is.list(fs)) stop("'fs' must be a list (ForestSearch results object)")
+  if (!which_df %in% c("est", "testing")) {
+    stop("'which_df' must be either 'est' or 'testing'")
+  }
+
+  # Check for gt package
+  use_gt <- requireNamespace("gt", quietly = TRUE)
+
+  if (!use_gt) {
+    message("Note: gt package not available. Returning standard data frames instead of gt tables.")
+  }
+
+  # Select data frame
+  if (which_df == "est") {
+    df <- fs$df.est
+  } else if (which_df == "testing") {
+    df <- fs$df.test
+  } else {
+    stop("which_df must be 'est' or 'testing'")
+  }
+
+  # Get arguments from ForestSearch call
+  args_fs <- fs$args_call_all
+
+  # ITT estimates
+  itt_est <- SG_tab_estimates(
+    df = df,
+    SG_flag = "ITT",
+    outcome.name = args_fs$outcome.name,
+    event.name = args_fs$event.name,
+    treat.name = args_fs$treat.name,
+    strata.name = NULL,
+    hr_1a = NA,
+    hr_0a = NA,
+    potentialOutcome.name = potentialOutcome.name,
+    sg1_name = NULL,
+    sg0_name = NULL,
+    est.scale = args_fs$est.scale,
+    return.medians = TRUE
+  )
+
+  # Subgroup estimates
+  sg_est <- SG_tab_estimates(
+    df = df,
+    SG_flag = "treat.recommend",
+    outcome.name = args_fs$outcome.name,
+    event.name = args_fs$event.name,
+    treat.name = args_fs$treat.name,
+    strata.name = NULL,
+    hr_1a = hr_1a,
+    hr_0a = hr_0a,
+    potentialOutcome.name = potentialOutcome.name,
+    sg1_name = "Recommend",
+    sg0_name = "Questionable",
+    est.scale = args_fs$est.scale,
+    return.medians = TRUE
+  )
+
+  # Combine tables
+  tab_est <- as.data.frame(rbind(itt_est, sg_est))
+
+  # Create gt table if package is available
+  if (use_gt) {
+    tab_estimates <- gt::gt(tab_est, caption = est_caption, auto_align = TRUE)
+  } else {
+    tab_estimates <- tab_est
+  }
+
+  # Get top subgroups based on sg_focus
+  if (!is.null(fs$grp.consistency)) {
+    if (fs$sg_focus == "hr") {
+      sg10 <- as.data.frame(fs$grp.consistency$out_hr$result)
+    } else if (fs$sg_focus %in% c("minSG", "hrMinSG")) {
+      sg10 <- as.data.frame(fs$grp.consistency$out_minSG$result)
+    } else if (fs$sg_focus %in% c("maxSG", "hrMaxSG")) {
+      sg10 <- as.data.frame(fs$grp.consistency$out_maxSG$result)
+    } else {
+      sg10 <- as.data.frame(fs$grp.consistency$out_hr$result)  # Default to hr
+    }
+
+    # Format based on maxk
+    maxk <- args_fs$maxk
+    if (is.null(maxk)) maxk <- 2  # Default
+
+    if (maxk == 1 && "M.1" %in% names(sg10)) {
+      sg10_display <- sg10[, c("M.1", "N", "E", "hr", "Pcons"), drop = FALSE]
+
+      if (args_fs$est.scale == "1/hr") {
+        sg10_display$hr <- 1 / sg10_display$hr
+      }
+
+      if (use_gt) {
+        sg10_out <- sg10_display |>
+          gt::gt() |>
+          gt::fmt_number(columns = c(4, 5), decimals = ndecimals) |>
+          gt::fmt_number(columns = c(2, 3), decimals = 0) |>
+          gt::tab_header(title = "Subgroups formed by single-factors",
+                         subtitle = "maxk=1")
+      } else {
+        sg10_out <- sg10_display
+      }
+
+    } else if (maxk == 2 && all(c("M.1", "M.2") %in% names(sg10))) {
+      sg10_display <- sg10[, c("M.1", "M.2", "N", "E", "hr", "Pcons"), drop = FALSE]
+
+      if (args_fs$est.scale == "1/hr") {
+        sg10_display$hr <- 1 / sg10_display$hr
+      }
+
+      if (use_gt) {
+        sg10_out <- sg10_display |>
+          gt::gt() |>
+          gt::fmt_number(columns = c(5, 6), decimals = ndecimals) |>
+          gt::fmt_number(columns = c(3, 4), decimals = 0) |>
+          gt::tab_header(title = "Subgroups formed by two-factors",
+                         subtitle = "maxk=2")
+      } else {
+        sg10_out <- sg10_display
+      }
+
+    } else {
+      # Fallback for other cases
+      sg10_out <- if (use_gt) gt::gt(sg10) else sg10
+    }
+  } else {
+    # No consistency results
+    sg10_out <- if (use_gt) {
+      gt::gt(data.frame(Message = "No subgroup consistency results available"))
+    } else {
+      data.frame(Message = "No subgroup consistency results available")
+    }
+  }
+
+  return(list(
+    tab_estimates = tab_estimates,
+    sg10_out = sg10_out
+  ))
+}
+
+
+
+sg_tables_old <- function(fs, which_df = "est", est_caption = "Training data estimates",
                      potentialOutcome.name = NULL, hr_1a = NA, hr_0a = NA, ndecimals = 3) {
   # Input validation
   if (!is.list(fs)) stop("'fs' must be a list (ForestSearch results object)")

@@ -11,7 +11,7 @@ count.id <- function(x, dfb) {
   if (is.null(x)) stop("'x' cannot be NULL")
   if (!is.data.frame(dfb)) stop("'dfb' must be a data.frame")
   if (!"id" %in% names(dfb)) stop("'dfb' must contain column 'id'")
-  
+
   sum(dfb$id == x)
 }
 
@@ -28,7 +28,7 @@ calc_cov <- function(x, Est) {
   if (!is.numeric(x)) stop("'x' must be numeric")
   if (!is.numeric(Est)) stop("'Est' must be numeric")
   if (length(x) != length(Est)) stop("'x' and 'Est' must have same length")
-  
+
   mean(c((x - mean(x, na.rm = TRUE)) * Est), na.rm = TRUE)
 }
 
@@ -110,8 +110,105 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
 #' @return Data.table with confidence intervals and estimates.
 #' @importFrom data.table data.table
 #' @export
-get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar, 
-                      cov_method = "standard", cov_trim = 0.0, 
+
+get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
+                            cov_method = "standard", cov_trim = 0.0,
+                            est.scale = "hr", est.loghr = TRUE) {
+
+  # Check required package
+  if (!requireNamespace("data.table", quietly = TRUE)) {
+    stop("Package 'data.table' is required.")
+  }
+
+  # Input validation and conversion
+  # Ensure numeric values
+  Hobs <- as.numeric(Hobs)
+  seHobs <- as.numeric(seHobs)
+
+  if (is.na(Hobs) || is.na(seHobs)) {
+    stop("Hobs and seHobs must be valid numeric values")
+  }
+
+  if (!is.numeric(Hobs) || length(Hobs) != 1 || is.infinite(Hobs)) {
+    stop("'Hobs' must be a single, finite numeric value.")
+  }
+  if (!is.numeric(seHobs) || length(seHobs) != 1 || is.infinite(seHobs) || seHobs < 0) {
+    stop("'seHobs' must be a single, non-negative, finite numeric value.")
+  }
+
+  # Check H1_adj - it's a vector from bootstrap
+  if (!is.null(H1_adj)) {
+    H1_adj <- as.numeric(H1_adj)
+    # Remove NA values for calculation
+    H1_adj <- H1_adj[!is.na(H1_adj)]
+    if (length(H1_adj) == 0) {
+      warning("All H1_adj values are NA")
+      return(NULL)
+    }
+  }
+
+  # Check H2_adj if provided
+  if (!is.null(H2_adj)) {
+    H2_adj <- as.numeric(H2_adj)
+    H2_adj <- H2_adj[!is.na(H2_adj)]
+    if (length(H2_adj) == 0) {
+      H2_adj <- NULL
+    }
+  }
+
+  # Check ystar matrix
+  if (!is.matrix(ystar)) {
+    stop("'ystar' must be a matrix")
+  }
+
+  # Un-adjusted CI
+  cest <- ci_est(x = Hobs, sd = seHobs, scale = est.scale, est.loghr = est.loghr)
+  H0_lower <- cest$lower
+  H0_upper <- cest$upper
+  sdH0 <- cest$sd
+  H0 <- cest$est
+
+  # Bias-adjusted CI for H1
+  if (!is.null(H1_adj) && length(H1_adj) > 0) {
+    est <- get_targetEst(x = H1_adj, ystar = ystar, cov_method = cov_method, cov_trim = cov_trim)
+    q <- est$target_est
+    se_new <- est$sehat_new
+
+    cest <- ci_est(x = q, sd = se_new, scale = est.scale, est.loghr = est.loghr)
+    H1_lower <- cest$lower
+    H1_upper <- cest$upper
+    sdH1 <- cest$sd
+    H1 <- cest$est
+  } else {
+    H1 <- H1_lower <- H1_upper <- sdH1 <- NA
+  }
+
+  outres <- data.table::data.table(H0, sdH0, H0_lower, H0_upper, H1, sdH1, H1_lower, H1_upper)
+
+  # Bias-adjusted CI for H2 if provided
+  if (!is.null(H2_adj) && length(H2_adj) > 0) {
+    est <- get_targetEst(x = H2_adj, ystar = ystar, cov_method = cov_method, cov_trim = cov_trim)
+    q <- est$target_est
+    se_new <- est$sehat_new
+
+    cest <- ci_est(x = q, sd = se_new, scale = est.scale, est.loghr = est.loghr)
+    H2_lower <- cest$lower
+    H2_upper <- cest$upper
+    sdH2 <- cest$sd
+    H2 <- cest$est
+
+    outres <- data.table::data.table(H0, sdH0, H0_lower, H0_upper,
+                                     H1, sdH1, H1_lower, H1_upper,
+                                     H2, sdH2, H2_lower, H2_upper)
+  }
+
+  return(outres)
+}
+
+
+
+get_dfRes_old <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
+                      cov_method = "standard", cov_trim = 0.0,
                       est.scale = "hr", est.loghr = TRUE) {
   # Check required package
   if (!requireNamespace("data.table", quietly = TRUE)) {
@@ -121,12 +218,12 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
   if (!exists("get_targetEst")) {
     stop("Function 'get_targetEst' must be defined in the environment.")
   }
-  
+
   # Input validation
   if (!is.numeric(Hobs) || length(Hobs) != 1 || is.na(Hobs) || is.infinite(Hobs)) {
     stop("'Hobs' must be a single, finite numeric value.")
   }
-  if (!is.numeric(seHobs) || length(seHobs) != 1 || is.na(seHobs) || 
+  if (!is.numeric(seHobs) || length(seHobs) != 1 || is.na(seHobs) ||
       is.infinite(seHobs) || seHobs < 0) {
     stop("'seHobs' must be a single, non-negative, finite numeric value.")
   }
@@ -136,7 +233,7 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
   if (!is.character(cov_method) || length(cov_method) != 1) {
     stop("'cov_method' must be a single character string.")
   }
-  if (!is.numeric(cov_trim) || length(cov_trim) != 1 || is.na(cov_trim) || 
+  if (!is.numeric(cov_trim) || length(cov_trim) != 1 || is.na(cov_trim) ||
       cov_trim < 0 || cov_trim > 1) {
     stop("'cov_trim' must be a single numeric value between 0 and 1.")
   }
@@ -200,17 +297,17 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   if (!is.numeric(cov_trim) || cov_trim < 0 || cov_trim > 1) {
     stop("'cov_trim' must be numeric between 0 and 1")
   }
-  
+
   mx <- mean(x, na.rm = TRUE)
   xc <- c(x - mx)
   N <- ncol(ystar)
-  
+
   # Ystar_mat is (B x N) matrix
   # Across columns of Ystar
   if (cov_method == "standard" || cov_method == "nocorrect") {
     cov_i <- apply(ystar, 2, calc_cov, Est = xc)
   }
-  
+
   # Implement correction
   if (cov_method != "nocorrect") {
     varhat <- N * mean(cov_i^2)
@@ -236,7 +333,7 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
     varhat_new <- varhat
     seH_new <- seH
   }
-  out <- (list(target_est = mx, sehat = seH, sehat_new = seH_new, 
+  out <- (list(target_est = mx, sehat = seH, sehat_new = seH_new,
                term_correct = termc, varhat = varhat_new))
   return(out)
 }
@@ -256,14 +353,14 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE) {
   if (!is.data.frame(df_sg)) stop("'df_sg' must be a data.frame")
   if (!inherits(cox.formula, "formula")) stop("'cox.formula' must be a formula")
   if (!is.logical(est.loghr)) stop("'est.loghr' must be logical")
-  
+
   names_tocheck <- all.vars(cox.formula)
   check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
   check2 <- match(names_tocheck, check)
   if (sum(!is.na(check2)) != length(names_tocheck)) {
     stop("df_sg dataset does NOT contain cox.formula variables")
   }
-  
+
   # Fit Cox model with robust standard errors
   fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE))$coefficients
   # log(hr) parameters
@@ -296,7 +393,7 @@ ci_cover <- function(lower, upper, target = 0) {
   if (!is.numeric(lower)) stop("'lower' must be numeric")
   if (!is.numeric(upper)) stop("'upper' must be numeric")
   if (!is.numeric(target)) stop("'target' must be numeric")
-  
+
   if (length(target) == 1) {
     cover <- ifelse(lower <= target & upper >= target, 1, 0)
     LC <- upper - lower
@@ -327,7 +424,7 @@ getCIs <- function(Q1, Q2, ystar) {
   if (!is.numeric(Q1)) stop("'Q1' must be numeric")
   if (!is.numeric(Q2)) stop("'Q2' must be numeric")
   if (!is.matrix(ystar)) stop("'ystar' must be a matrix")
-  
+
   # Target 1
   est <- get_targetEst(x = Q1, ystar = ystar)
   # If est.loghr=TRUE then on log(HR) scale
@@ -372,7 +469,7 @@ get_dfPlot <- function(res, dgm) {
   if (!all(c("hr.H.true", "hr.Hc.true") %in% names(dgm))) {
     stop("'dgm' must contain 'hr.H.true' and 'hr.Hc.true'")
   }
-  
+
   hrH_true <- dgm$hr.H.true
   hrHc_true <- dgm$hr.Hc.true
   if (est.loghr && est.scale == "loghr") {
@@ -464,7 +561,7 @@ get_dfPlot <- function(res, dgm) {
 var_summary <- function(res) {
   # Input validation
   if (!is.data.frame(res)) stop("'res' must be a data.frame")
-  
+
   df_var <- NULL
   # BC1 SD and Avg(est(sd))
   aa <- with(res, sqrt(var(H1.bc, na.rm = TRUE)))
@@ -529,7 +626,7 @@ getci_Cox <- function(df, est, se, target, alpha = 0.025, digits = 3) {
   if (!is.character(se) || !se %in% names(df)) {
     stop("'se' must be a column name in 'df'")
   }
-  
+
   a <- df[est]
   b <- df[se]
   if (!is.numeric(target)) {
@@ -564,7 +661,7 @@ SummaryStat <- function(df, name, sigdig = 2, includeSD = FALSE, showSD = TRUE) 
   if (!is.character(name) || !name %in% names(df)) {
     stop("'name' must be a column name in 'df'")
   }
-  
+
   if (is.data.table(df)) {
     df <- as.data.frame(df)
   }
@@ -618,7 +715,7 @@ DiffRate <- function(df1, df2, name, sigdig = 2) {
   if (!is.character(name)) stop("'name' must be character")
   if (!name %in% names(df1)) stop("'name' not found in 'df1'")
   if (!name %in% names(df2)) stop("'name' not found in 'df2'")
-  
+
   if (is.data.table(df1)) {
     df1 <- as.data.frame(df1)
     df2 <- as.data.frame(df2)
@@ -646,7 +743,7 @@ pow_size <- function(df, minsize = 0, sigdig = 3) {
   if (!all(c("rej12", "size.Hc") %in% names(df))) {
     stop("'df' must contain 'rej12' and 'size.Hc' columns")
   }
-  
+
   rej <- with(df, mean(rej12 & size.Hc >= minsize))
   return(round(rej, sigdig))
 }
