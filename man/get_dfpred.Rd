@@ -2,20 +2,20 @@
 % Please edit documentation in R/optimized_forest_search_fixed.r
 \name{get_dfpred}
 \alias{get_dfpred}
-\title{Generate Prediction Dataset with Subgroup Treatment Recommendation}
+\title{Alternative Simple Implementation of get_dfpred}
 \usage{
-get_dfpred(df.predict, sg.harm, version = 1)
+get_dfpred(df.predict, sg.harm, version = 2)
 }
 \arguments{
-\item{df.predict}{Data frame for prediction (test or validation set).}
+\item{df.predict}{Data frame to predict on}
 
-\item{sg.harm}{Character vector of subgroup-defining covariate names.}
+\item{sg.harm}{Subgroup harm definition}
 
-\item{version}{Integer; 1 uses \code{dummy()}, 2 uses \code{dummy2()} for factor encoding.}
+\item{version}{Version number (ignored in simple version)}
 }
 \value{
-Data frame with treatment recommendation flag (\code{treat.recommend}).
+Data frame with treat.recommend column
 }
 \description{
-Creates a prediction dataset with a treatment recommendation flag based on subgroup definition.
+This is a simplified version that might be more robust for basic use cases.
 }

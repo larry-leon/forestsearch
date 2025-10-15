@@ -1005,13 +1005,24 @@ forestsearch <- function(
       # Merge treatment recommendations to datasets
       # data containing id and treatment flag
       temp <- grp.consistency$df_flag
+
+
+      # Check if object inherits from data.table class
+      is_dt1 <- inherits(df, "data.table")
+      is_dt2 <- inherits(temp, "data.table")
+
+      if (is_dt1 && is_dt2)) {
+      cat("Both datasets are data.table objects","\n")
+      }
+
+
       # Merge to analysis data and add treatment flag (all.x=TRUE)
-      df.est_out <- merge(df, temp, by="id", all.x=TRUE)
+      df.est_out <- merge(df, temp, by = "id", all.x = TRUE, allow.cartesian = TRUE)
       # Return df.predict
       if(!is.null(df.predict)){
         # This does not work if df.predict is test sample in which case
         # cannot match to df_flag by id
-        df.predict_out <- merge(df.predict, temp, by="id", all.x=TRUE)
+        df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE, allow.cartesian = TRUE)
       }
       if(!is.null(df.test)){
         df.test_out <- get_dfpred(df.predict = df.test,sg.harm = grp.consistency$sg.harm,version = 2)
