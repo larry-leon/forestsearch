@@ -35,8 +35,8 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                                 parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
 )
 
-NB <- 5
 
+NB <- 25
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 

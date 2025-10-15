@@ -955,79 +955,26 @@ forestsearch <- function(
         cat("Total time:", round(t.min_all, 2), "minutes\n\n")
       }
 
-      # Merge treatment recommendations to datasets
-      # data containing id and treatment flag
-      temp <- grp.consistency$df_flag
+        # data containing id and treatment flag
+        temp <- grp.consistency$df_flag
+        # Merge to analysis data and add treatment flag (all.x=TRUE)
+        df.est_out <- merge(df, temp, by="id", all.x=TRUE)
+        # Return df.predict
+        if(!is.null(df.predict)){
+          # This does not work if df.predict is test sample in which case
+          # cannot match to df_flag by id
+          df.predict_out <- merge(df.predict, temp, by="id", all.x=TRUE)
+        }
+        if(!is.null(df.test)){
+          df.test_out <- get_dfpred(df.predict = df.test,sg.harm = grp.consistency$sg.harm,version = 2)
+        }
 
-      # Check for bootstrap context
-      is_bootstrap <- length(unique(df$id)) < nrow(df)
 
       if (is_bootstrap && details) {
         cat("Bootstrap context detected:\n")
         cat("  Unique IDs:", length(unique(df$id)), "\n")
         cat("  Total rows:", nrow(df), "\n")
         cat("  Bootstrap duplicates:", sum(duplicated(df$id)), "\n\n")
-      }
-
-      # Safe merge for analysis data
-      df.est_out <- tryCatch({
-        forestsearch:::merge_safe(df, temp)
-      }, error = function(e) {
-        warning("Merge failed for df.est, using fallback: ", e$message)
-        # Fallback: apply subgroup definition directly
-        get_dfpred(df.predict = df, sg.harm = grp.consistency$sg.harm, version = 2)
-      })
-
-      # Handle prediction dataset
-      if (!is.null(df.predict)) {
-        # Determine if IDs overlap
-        ids_overlap <- any(df.predict$id %in% unique(df$id))
-
-        if (ids_overlap) {
-          # Try merge first
-          df.predict_out <- tryCatch({
-            forestsearch:::merge_safe(df.predict, temp)
-          }, error = function(e) {
-            if (details) {
-              cat("Note: Merge failed for df.predict, applying subgroup definition\n")
-            }
-            get_dfpred(df.predict = df.predict,
-                       sg.harm = grp.consistency$sg.harm,
-                       version = 2)
-          })
-        } else {
-          # No ID overlap - apply definition directly
-          if (details) {
-            cat("df.predict has independent IDs, applying subgroup definition\n")
-          }
-          df.predict_out <- get_dfpred(df.predict = df.predict,
-                                       sg.harm = grp.consistency$sg.harm,
-                                       version = 2)
-        }
-      }
-
-      # Handle test dataset (always independent IDs)
-      if (!is.null(df.test)) {
-        df.test_out <- get_dfpred(df.predict = df.test,
-                                  sg.harm = grp.consistency$sg.harm,
-                                  version = 2)
-      }
-
-      # Validate results
-      if (!is.null(df.est_out)) {
-        n_assigned <- sum(!is.na(df.est_out$treat.recommend))
-        if (details) {
-          cat("Treatment recommendations assigned:\n")
-          cat("  df.est:", n_assigned, "of", nrow(df.est_out), "rows\n")
-          if (!is.null(df.predict_out)) {
-            n_pred <- sum(!is.na(df.predict_out$treat.recommend))
-            cat("  df.predict:", n_pred, "of", nrow(df.predict_out), "rows\n")
-          }
-          if (!is.null(df.test_out)) {
-            n_test <- sum(!is.na(df.test_out$treat.recommend))
-            cat("  df.test:", n_test, "of", nrow(df.test_out), "rows\n")
-          }
-        }
       }
     } else {
       if (details) {
