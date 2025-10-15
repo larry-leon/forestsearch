@@ -17,8 +17,6 @@ get_targetEst(x, ystar, cov_method = "standard", cov_trim = 0)
 }
 \value{
 List with target estimate, standard errors, and correction term.
-
-List with target estimate, standard errors, and correction term.
 }
 \description{
 Calculates target estimate and standard error for bootstrap samples with proper NA handling.
