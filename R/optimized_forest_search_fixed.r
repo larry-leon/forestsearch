@@ -1,36 +1,3 @@
-# ============================================================================
-# ForestSearch: Performance-Optimized Version with Fixed Merge
-# ============================================================================
-# This version includes significant performance improvements while maintaining
-# all functionality and improving readability
-
-
-#' Add ID Column to Data Frame
-#'
-#' Ensures that a data frame has a unique ID column. If \code{id.name} is not provided,
-#' a column named "id" is added. If \code{id.name} is provided but does not exist in the data frame,
-#' it is created with unique integer values.
-#'
-#' @param df.analysis Data frame to which the ID column will be added.
-#' @param id.name Character. Name of the ID column to add (default is \code{NULL}, which uses "id").
-#'
-#' @return Data frame with the ID column added if necessary.
-#' @export
-
-add_id_column <- function(df.analysis, id.name = NULL) {
-  if (is.null(id.name)) {
-    # Only add if 'id' column doesn't exist
-    if (!"id" %in% names(df.analysis)) {
-      df.analysis$id <- seq_len(nrow(df.analysis))
-    }
-    id.name <- "id"
-  } else if (!(id.name %in% names(df.analysis))) {
-    df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
-  }
-  # If id.name exists, do nothing (preserve existing IDs)
-  return(df.analysis)
-}
-
 
 # ============================================================================
 # PACKAGE MANAGEMENT
@@ -672,9 +639,6 @@ forestsearch <- function(
     stop("df.analysis must be a data.frame")
   }
 
-  # Add ID column if needed
-  df.analysis <- add_id_column(df.analysis, id.name)
-
   # Build variable list
   var_names <- c(
     confounders.name, outcome.name, event.name,
@@ -946,36 +910,46 @@ forestsearch <- function(
       }
 
       # Merge treatment recommendations to datasets
+      # data containing id and treatment flag
       temp <- grp.consistency$df_flag
-
-      # Apply safe merge (using the fixed function)
-      df.est_out <- tryCatch(
-        merge_safe(df, temp),
-        error = function(e) {
-          warning("Merge failed: ", e$message, "\nUsing base R merge")
-          merge(df, temp, by = "id", all.x = TRUE)
-        }
-      )
-
-      # Prediction dataset
-      if (!is.null(df.predict)) {
-        df.predict_out <- tryCatch(
-          merge_safe(df.predict, temp),
-          error = function(e) {
-            warning("Prediction merge failed: ", e$message)
-            merge(df.predict, temp, by = "id", all.x = TRUE)
-          }
-        )
+      # Merge to analysis data and add treatment flag (all.x=TRUE)
+      df.est_out <- merge(df, temp, by="id", all.x=TRUE)
+      # Return df.predict
+      if(!is.null(df.predict)){
+        # This does not work if df.predict is test sample in which case
+        # cannot match to df_flag by id
+        df.predict_out <- merge(df.predict, temp, by="id", all.x=TRUE)
+      }
+      if(!is.null(df.test)){
+        df.test_out <- get_dfpred(df.predict = df.test,sg.harm = grp.consistency$sg.harm,version = 2)
       }
 
-      # Test dataset
-      if (!is.null(df.test)) {
-        df.test_out <- get_dfpred(
-          df.predict = df.test,
-          sg.harm = grp.consistency$sg.harm,
-          version = 2
-        )
-      }
+      # # Apply safe merge (using the fixed function)
+      # df.est_out <- tryCatch(
+      #   merge_safe(df, temp),
+      #   error = function(e) {
+      #     warning("Merge failed: ", e$message, "\nUsing base R merge")
+      #     merge(df, temp, by = "id", all.x = TRUE)
+      #   }
+      # )
+      # # Prediction dataset
+      # if (!is.null(df.predict)) {
+      #   df.predict_out <- tryCatch(
+      #     merge_safe(df.predict, temp),
+      #     error = function(e) {
+      #       warning("Prediction merge failed: ", e$message)
+      #       merge(df.predict, temp, by = "id", all.x = TRUE)
+      #     }
+      #   )
+      # }
+      # # Test dataset
+      # if (!is.null(df.test)) {
+      #   df.test_out <- get_dfpred(
+      #     df.predict = df.test,
+      #     sg.harm = grp.consistency$sg.harm,
+      #     version = 2
+      #   )
+      # }
 
     } else {
       if (details) {
