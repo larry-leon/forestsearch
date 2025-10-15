@@ -463,7 +463,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
 
   if (details) {
     cat("**** % bootstrap subgroups found =",
-    c(sum(!is.na(results$H_biasadj_1))/nb_boots), "\n")
+    c(sum(!is.na(results$H_biasadj_2))/nb_boots), "\n")
     cat("H un-adjusted estimates-----:   ", H_res1, "\n")
     cat("H bias-corrected estimates--:   ", H_res2, "\n")
     cat("H^c un-adjusted estimates---:   ", Hc_res1, "\n")
