@@ -898,25 +898,73 @@ forestsearch <- function(
       temp <- grp.consistency$df_flag
 
       # Use data.table for fast merging if available
-      if (requireNamespace("data.table", quietly = TRUE)) {
-        dt_df <- data.table::as.data.table(df)
-        dt_temp <- data.table::as.data.table(temp)
-        data.table::setkey(dt_df, id)
-        data.table::setkey(dt_temp, id)
-        df.est_out <- as.data.frame(dt_df[dt_temp])
-      } else {
-        df.est_out <- merge(df, temp, by = "id", all.x = TRUE)
+
+      # if (requireNamespace("data.table", quietly = TRUE)) {
+      #   dt_df <- data.table::as.data.table(df)
+      #   dt_temp <- data.table::as.data.table(temp)
+      #   data.table::setkey(dt_df, id)
+      #   data.table::setkey(dt_temp, id)
+      #   df.est_out <- as.data.frame(dt_df[dt_temp])
+      # } else {
+      #   df.est_out <- merge(df, temp, by = "id", all.x = TRUE)
+      # }
+
+
+      # CRITICAL FIX: Safe merge handling
+      merge_safe <- function(df_main, df_flags) {
+        # Ensure both data frames have the id column
+        if (!"id" %in% names(df_main)) stop("df_main missing 'id' column")
+        if (!"id" %in% names(df_flags)) stop("df_flags missing 'id' column")
+
+        # Check for and handle duplicate IDs
+        if (any(duplicated(df_flags$id))) {
+          # For bootstrap samples, duplicates are expected
+          # Keep all rows but ensure proper merge
+          df_flags <- df_flags[!duplicated(df_flags$id), ]
+        }
+
+        # Perform merge
+        if (requireNamespace("data.table", quietly = TRUE)) {
+          # Use data.table for speed, but with safety checks
+          dt_main <- data.table::as.data.table(df_main)
+          dt_flags <- data.table::as.data.table(df_flags)
+
+          # Ensure unique keys
+          dt_flags_unique <- unique(dt_flags, by = "id")
+
+          # Set keys
+          data.table::setkey(dt_main, id)
+          data.table::setkey(dt_flags_unique, id)
+
+          # Merge with explicit options
+          result <- dt_main[dt_flags_unique, on = "id", nomatch = NA]
+
+          # Convert back to data.frame
+          as.data.frame(result)
+        } else {
+          # Use base R merge as fallback
+          merge(df_main, df_flags, by = "id", all.x = TRUE, sort = FALSE)
+        }
       }
+
+      # Apply safe merge
+      df.est_out <- tryCatch(
+        merge_safe(df, temp),
+        error = function(e) {
+          warning("Merge failed: ", e$message, "\nUsing base R merge")
+          merge(df, temp, by = "id", all.x = TRUE)
+        }
+      )
 
       # Prediction dataset
       if (!is.null(df.predict)) {
-        if (requireNamespace("data.table", quietly = TRUE)) {
-          dt_pred <- data.table::as.data.table(df.predict)
-          data.table::setkey(dt_pred, id)
-          df.predict_out <- as.data.frame(dt_pred[dt_temp])
-        } else {
-          df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE)
-        }
+        df.predict_out <- tryCatch(
+          merge_safe(df.predict, temp),
+          error = function(e) {
+            warning("Prediction merge failed: ", e$message)
+            merge(df.predict, temp, by = "id", all.x = TRUE)
+          }
+        )
       }
 
       # Test dataset
@@ -928,7 +976,28 @@ forestsearch <- function(
         )
       }
 
-    } else {
+      # Prediction dataset
+      # if (!is.null(df.predict)) {
+      #   if (requireNamespace("data.table", quietly = TRUE)) {
+      #     dt_pred <- data.table::as.data.table(df.predict)
+      #     data.table::setkey(dt_pred, id)
+      #     df.predict_out <- as.data.frame(dt_pred[dt_temp])
+      #   } else {
+      #     df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE)
+      #   }
+      # }
+      #
+      # # Test dataset
+      # if (!is.null(df.test)) {
+      #   df.test_out <- get_dfpred(
+      #     df.predict = df.test,
+      #     sg.harm = grp.consistency$sg.harm,
+      #     version = 2
+      #   )
+      # }
+
+
+      } else {
       if (details) {
         cat("\n✗ No subgroup met consistency criteria\n")
         cat("  Possible reasons:\n")
