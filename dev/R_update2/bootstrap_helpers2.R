@@ -43,38 +43,6 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
     stop("'est.loghr' must be a single logical value.")
   }
 
-  # CRITICAL FIX: Handle edge cases
-  # If sd is 0, return degenerate CI
-  if (sd == 0) {
-    if (scale == "hr" && est.loghr) {
-      est <- exp(x)
-      return(list(
-        length = 0,
-        lower = est,
-        upper = est,
-        sd = 0,
-        est = est
-      ))
-    } else if (scale == "1/hr" && est.loghr) {
-      est <- exp(-x)
-      return(list(
-        length = 0,
-        lower = est,
-        upper = est,
-        sd = 0,
-        est = est
-      ))
-    } else {
-      return(list(
-        length = 0,
-        lower = x,
-        upper = x,
-        sd = 0,
-        est = x
-      ))
-    }
-  }
-
   c_alpha <- qnorm(1 - alpha)
   c_low <- x - c_alpha * sd
   c_up <- x + c_alpha * sd
@@ -106,6 +74,7 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
     est = est
   ))
 }
+
 
 #' Fit Cox Model for Subgroup
 #'

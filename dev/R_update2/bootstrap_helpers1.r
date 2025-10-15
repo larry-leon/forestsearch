@@ -9,17 +9,6 @@
 #' @return List with target estimate, standard errors, and correction term.
 #' @export
 
-#' Target Estimate and Standard Error for Bootstrap (Fixed)
-#'
-#' Calculates target estimate and standard error for bootstrap samples with proper NA handling.
-#'
-#' @param x Numeric vector of estimates (may contain NA).
-#' @param ystar Matrix of bootstrap samples.
-#' @param cov_method Character. Covariance method ("standard" or "nocorrect").
-#' @param cov_trim Numeric. Trimming proportion for covariance (default: 0.0).
-#' @return List with target estimate, standard errors, and correction term.
-#' @export
-
 get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   # Input validation
   if (!is.numeric(x)) stop("'x' must be numeric")
@@ -31,35 +20,10 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
     stop("'cov_trim' must be a single numeric value between 0 and 1")
   }
 
-  # CRITICAL FIX: Return NA results for all-NA or insufficient data
+  # Check for sufficient non-NA values
   n_valid <- sum(!is.na(x))
-
-  # Return NA structure if all values are NA
-  if (n_valid == 0) {
-    return(list(
-      target_est = NA_real_,
-      sehat = NA_real_,
-      sehat_new = NA_real_,
-      term_correct = NA_real_,
-      varhat = NA_real_,
-      n_valid = 0,
-      n_total = length(x)
-    ))
-  }
-
-  # Return NA structure if insufficient non-NA values (need at least 2 for variance)
   if (n_valid < 2) {
-    # Can calculate mean with 1 value, but not variance
-    mx <- mean(x, na.rm = TRUE)
-    return(list(
-      target_est = mx,
-      sehat = NA_real_,
-      sehat_new = NA_real_,
-      term_correct = NA_real_,
-      varhat = NA_real_,
-      n_valid = n_valid,
-      n_total = length(x)
-    ))
+    stop("Insufficient non-NA values in bootstrap estimates (need at least 2, have ", n_valid, ")")
   }
 
   # Calculate mean excluding NAs
@@ -130,7 +94,6 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   )
 }
 
-
 #' Calculate Covariance for Bootstrap Estimates (Fixed)
 #'
 #' Calculates the covariance between a vector and bootstrap estimates with NA handling.
@@ -141,13 +104,8 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
 #' @export
 
 calc_cov <- function(x, Est) {
-  # CRITICAL FIX: Add input validation
-  if (!is.numeric(x)) stop("'x' must be numeric")
-  if (!is.numeric(Est)) stop("'Est' must be numeric")
-  if (length(x) != length(Est)) stop("'x' and 'Est' must have the same length")
-
   # Remove NA values from Est and corresponding x values
-  valid_idx <- !is.na(Est) & !is.na(x)
+  valid_idx <- !is.na(Est)
 
   # Need at least 2 valid values
   if (sum(valid_idx) < 2) {
@@ -157,26 +115,9 @@ calc_cov <- function(x, Est) {
   x_valid <- x[valid_idx]
   Est_valid <- Est[valid_idx]
 
-  # CRITICAL FIX: Check for zero variance
-  if (var(x_valid) == 0 || var(Est_valid) == 0) {
-    return(0)
-  }
-
-  # Calculate covariance with additional safety
-  cov_result <- tryCatch(
-    mean((x_valid - mean(x_valid, na.rm = TRUE)) * Est_valid, na.rm = TRUE),
-    error = function(e) 0,
-    warning = function(w) 0
-  )
-
-  # Ensure finite result
-  if (!is.finite(cov_result)) {
-    return(0)
-  }
-
-  return(cov_result)
+  # Calculate covariance
+  mean((x_valid - mean(x_valid, na.rm = TRUE)) * Est_valid, na.rm = TRUE)
 }
-
 
 #' Bootstrap Confidence Interval and Bias Correction Results (Fixed)
 #'
@@ -196,8 +137,8 @@ calc_cov <- function(x, Est) {
 #' @export
 
 get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
-                      cov_method = "standard", cov_trim = 0.0,
-                      est.scale = "hr", est.loghr = TRUE) {
+                     cov_method = "standard", cov_trim = 0.0,
+                     est.scale = "hr", est.loghr = TRUE) {
 
   # Load required package
   if (!requireNamespace("data.table", quietly = TRUE)) {
@@ -227,7 +168,11 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
     stop("'est.loghr' must be a single logical value")
   }
 
-  # CRITICAL FIX: Handle all-NA cases gracefully
+  # Check that H1_adj has some non-NA values
+  if (all(is.na(H1_adj))) {
+    stop("All values in H1_adj are NA - cannot calculate estimates")
+  }
+
   # Un-adjusted estimates (these don't depend on bootstrap)
   cest <- ci_est(x = Hobs, sd = seHobs, scale = est.scale, est.loghr = est.loghr)
   H0_lower <- cest$lower
@@ -235,34 +180,22 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
   sdH0 <- cest$sd
   H0 <- cest$est
 
-  # Initialize H1 results with NA values
-  H1 <- NA_real_
-  sdH1 <- NA_real_
-  H1_lower <- NA_real_
-  H1_upper <- NA_real_
-
-  # Calculate H1 adjusted estimates only if we have valid data
-  if (!all(is.na(H1_adj))) {
-    est <- tryCatch(
-      get_targetEst(x = H1_adj, ystar = ystar, cov_method = cov_method, cov_trim = cov_trim),
-      error = function(e) {
-        warning("Failed to calculate H1 estimates: ", e$message)
-        list(target_est = NA, sehat_new = NA)
-      }
-    )
-
-    # Only calculate CI if we have valid estimates
-    if (!is.na(est$target_est) && !is.na(est$sehat_new)) {
-      q <- est$target_est
-      se_new <- est$sehat_new
-
-      cest <- ci_est(x = q, sd = se_new, scale = est.scale, est.loghr = est.loghr)
-      H1_lower <- cest$lower
-      H1_upper <- cest$upper
-      sdH1 <- cest$sd
-      H1 <- cest$est
+  # Calculate H1 adjusted estimates
+  est <- tryCatch(
+    get_targetEst(x = H1_adj, ystar = ystar, cov_method = cov_method, cov_trim = cov_trim),
+    error = function(e) {
+      stop("Failed to calculate H1 estimates: ", e$message)
     }
-  }
+  )
+
+  q <- est$target_est
+  se_new <- est$sehat_new
+
+  cest <- ci_est(x = q, sd = se_new, scale = est.scale, est.loghr = est.loghr)
+  H1_lower <- cest$lower
+  H1_upper <- cest$upper
+  sdH1 <- cest$sd
+  H1 <- cest$est
 
   # Create basic output
   outres <- data.table::data.table(
@@ -272,13 +205,13 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
 
   # Handle H2_adj if provided
   if (!is.null(H2_adj)) {
-    # Initialize H2 results with NA values
-    H2 <- NA_real_
-    sdH2 <- NA_real_
-    H2_lower <- NA_real_
-    H2_upper <- NA_real_
-
-    if (!all(is.na(H2_adj))) {
+    if (all(is.na(H2_adj))) {
+      # If all H2_adj are NA, add NA columns
+      outres$H2 <- NA_real_
+      outres$sdH2 <- NA_real_
+      outres$H2_lower <- NA_real_
+      outres$H2_upper <- NA_real_
+    } else {
       # Calculate H2 adjusted estimates
       est <- tryCatch(
         get_targetEst(x = H2_adj, ystar = ystar, cov_method = cov_method, cov_trim = cov_trim),
@@ -288,7 +221,7 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
         }
       )
 
-      if (!is.na(est$target_est) && !is.na(est$sehat_new)) {
+      if (!is.na(est$target_est)) {
         q <- est$target_est
         se_new <- est$sehat_new
         cest <- ci_est(x = q, sd = se_new, scale = est.scale, est.loghr = est.loghr)
@@ -296,18 +229,21 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar,
         H2_upper <- cest$upper
         sdH2 <- cest$sd
         H2 <- cest$est
+      } else {
+        H2 <- sdH2 <- H2_lower <- H2_upper <- NA_real_
       }
-    }
 
-    outres <- data.table::data.table(
-      H0, sdH0, H0_lower, H0_upper,
-      H1, sdH1, H1_lower, H1_upper,
-      H2, sdH2, H2_lower, H2_upper
-    )
+      outres <- data.table::data.table(
+        H0, sdH0, H0_lower, H0_upper,
+        H1, sdH1, H1_lower, H1_upper,
+        H2, sdH2, H2_lower, H2_upper
+      )
+    }
   }
 
   return(outres)
 }
+
 
 #' Find integer pairs (x, y) such that x * y = z and y >= x
 #'
