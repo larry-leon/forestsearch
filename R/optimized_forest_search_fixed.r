@@ -19,14 +19,17 @@
 
 add_id_column <- function(df.analysis, id.name = NULL) {
   if (is.null(id.name)) {
-    df.analysis$id <- seq_len(nrow(df.analysis))
+    # Only add if 'id' column doesn't exist
+    if (!"id" %in% names(df.analysis)) {
+      df.analysis$id <- seq_len(nrow(df.analysis))
+    }
     id.name <- "id"
   } else if (!(id.name %in% names(df.analysis))) {
     df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
   }
+  # If id.name exists, do nothing (preserve existing IDs)
   return(df.analysis)
 }
-
 
 
 # ============================================================================
@@ -219,32 +222,32 @@ merge_safe <- function(df_main, df_flags) {
   # Validate inputs
   if (!"id" %in% names(df_main)) stop("df_main missing 'id' column")
   if (!"id" %in% names(df_flags)) stop("df_flags missing 'id' column")
-  
+
   # Ensure df_flags has unique IDs (one recommendation per ID)
   if (any(duplicated(df_flags$id))) {
     df_flags <- df_flags[!duplicated(df_flags$id), ]
   }
-  
+
   # Always use base R merge for reliability
   # all.x = TRUE keeps all rows from df_main (including duplicates)
   # sort = FALSE preserves the original order
   result <- merge(
-    df_main, 
-    df_flags, 
-    by = "id", 
-    all.x = TRUE, 
+    df_main,
+    df_flags,
+    by = "id",
+    all.x = TRUE,
     sort = FALSE
   )
-  
+
   # Check for merge issues
   if (nrow(result) != nrow(df_main)) {
     warning(sprintf(
-      "Merge resulted in different number of rows: expected %d, got %d", 
-      nrow(df_main), 
+      "Merge resulted in different number of rows: expected %d, got %d",
+      nrow(df_main),
       nrow(result)
     ))
   }
-  
+
   return(result)
 }
 
