@@ -137,7 +137,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
 
   results <- bootstrap_results_optimized(
     fs.est = fs.est,
-    df_boot_analysis = fs.est$df.est,
+    df_boot_analysis = as.data.frame(fs.est$df.est),
     cox.formula.boot = cox.formula.boot,
     nb_boots = nb_boots,
     show_three = show_three,
