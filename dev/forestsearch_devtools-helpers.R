@@ -32,8 +32,9 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 
 # Step 5: Generate documentation
 # Also, run this if revising R files such as @importFrom
-devtools::load_all()
+
 devtools::document()
+devtools::load_all()
 
 
 # run this in terminal (next to console [go to tools terminal tab])
