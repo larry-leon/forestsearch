@@ -8,16 +8,7 @@
 #' @param cov_trim Numeric. Trimming proportion for covariance (default: 0.0).
 #' @return List with target estimate, standard errors, and correction term.
 #' @export
-#' Target Estimate and Standard Error for Bootstrap (Fixed)
-#'
-#' Calculates target estimate and standard error for bootstrap samples with proper NA handling.
-#'
-#' @param x Numeric vector of estimates (may contain NA).
-#' @param ystar Matrix of bootstrap samples.
-#' @param cov_method Character. Covariance method ("standard" or "nocorrect").
-#' @param cov_trim Numeric. Trimming proportion for covariance (default: 0.0).
-#' @return List with target estimate, standard errors, and correction term.
-#' @export
+
 get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   # Input validation
   if (!is.numeric(x)) stop("'x' must be numeric")
