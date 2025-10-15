@@ -583,7 +583,7 @@ forestsearch <- function(
     showten_subgroups = FALSE,
     d0.min = 10,
     d1.min = 10,
-    max.minutes = 3,
+    max.minutes = 30,
     minp = 0.025,
     details = FALSE,
     maxk = 2,
