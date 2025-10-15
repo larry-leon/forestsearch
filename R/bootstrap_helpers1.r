@@ -367,7 +367,6 @@ ensure_packages <- function(pkgs) {
 #' @param treat.name Character. Name of treatment variable.
 #' @return An R formula object for Cox regression.
 #' @export
-
 build_cox_formula <- function(outcome.name, event.name, treat.name) {
   sf <- paste0("Surv(", outcome.name, ",", event.name, ") ~ ", treat.name)
   as.formula(sf)
@@ -381,7 +380,6 @@ build_cox_formula <- function(outcome.name, event.name, treat.name) {
 #' @param formula Cox model formula.
 #' @return List with HR and SE for each subgroup.
 #' @export
-
 fit_cox_models <- function(df, formula) {
   fitH <- get_Cox_sg(df_sg = subset(df, treat.recommend == 0), cox.formula = formula)
   fitHc <- get_Cox_sg(df_sg = subset(df, treat.recommend == 1), cox.formula = formula)
@@ -398,7 +396,6 @@ fit_cox_models <- function(df, formula) {
 #' @return Matrix of bootstrap samples.
 #' @importFrom foreach foreach
 #' @export
-
 bootstrap_ystar <- function(df, nb_boots) {
   NN <- nrow(df)
   foreach::foreach(
@@ -424,7 +421,6 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @param col_names Character vector of column names for estimate, lower, upper.
 #' @return Character string formatted as \"estimate (lower, upper)\".
 #' @export
-
 format_CI <- function(estimates, col_names) {
   resH <- estimates[, ..col_names]
   Hstat <- round(unlist(resH[1, ]), 2)
