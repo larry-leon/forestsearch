@@ -333,7 +333,7 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
         # Helper functions
         "dummy", "dummy2", "acm.disjctif", "is.continuous",
         "get_conf_force", "lasso_selection", "FS_labels",
-        "get_dfpred", "extract_subgroup", "sort_subgroups",
+        "get_dfpred", "extract_subgroup", "sort_subgroups", "add_id_column"
 
         # Bootstrap specific
         "count.id", "calc_cov", "ci_est", "get_targetEst"
