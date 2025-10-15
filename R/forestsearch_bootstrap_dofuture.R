@@ -457,9 +457,9 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   }
 
   H_res1 <- format_CI(H_estimates, c("H0", "H0_lower", "H0_upper"))
-  H_res2 <- format_CI(H_estimates, c("H2", "H2_lower", "H2_upper"))
+  H_res2 <- format_CI(H_estimates, c("H1", "H1_lower", "H1_upper"))
   Hc_res1 <- format_CI(Hc_estimates, c("H0", "H0_lower", "H0_upper"))
-  Hc_res2 <- format_CI(Hc_estimates, c("H2", "H2_lower", "H2_upper"))
+  Hc_res2 <- format_CI(Hc_estimates, c("H1", "H1_lower", "H1_upper"))
 
   if (details) {
     cat("**** % bootstrap subgroups found =",
