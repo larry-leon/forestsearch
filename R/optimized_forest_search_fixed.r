@@ -9,7 +9,7 @@
 #' @return Data frame with treatment recommendation flag (\code{treat.recommend}).
 #' @export
 
-get_dfpred <- function(df.predict, sg.harm, version = 1) {
+get_dfpred_legacy <- function(df.predict, sg.harm, version = 1) {
   if (version == 1) df.pred <- dummy(df.predict)
   if (version == 2) df.pred <- dummy2(df.predict)
   df.pred$treat.recommend <- NA
@@ -42,7 +42,7 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
 #' @return Data frame with treat.recommend column
 #' @export
 
-get_dfpred_simple <- function(df.predict, sg.harm, version = 2) {
+get_dfpred <- function(df.predict, sg.harm, version = 2) {
 
   # If no subgroup identified, recommend treatment for all
   if (is.null(sg.harm) || length(sg.harm) == 0) {
