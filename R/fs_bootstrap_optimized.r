@@ -322,23 +322,9 @@ bootstrap_results_optimized <- function(fs.est, df_boot_analysis, cox.formula.bo
   # Run bootstrap iterations
   foreach::foreach(
     boot = seq_len(nb_boots),
-    .options.future = list(
-      seed = TRUE,
-      # Add all necessary functions to worker environment
-      add = c(
-        # Core forestsearch functions
-        "forestsearch", "get_FSdata", "subgroup.search",
-        "subgroup.consistency", "get_Cox_sg",
-
-        # Helper functions
-        "dummy", "dummy2", "acm.disjctif", "is.continuous",
-        "get_conf_force", "lasso_selection", "FS_labels",
-        "get_dfpred", "extract_subgroup", "sort_subgroups", "add_id_column",
-
-        # Bootstrap specific
-        "count.id", "calc_cov", "ci_est", "get_targetEst"
-      )
-    ),
+    .options.future = list(seed = TRUE),
+    .export = NULL,
+    .packages =c("survival", "data.table", "stats"),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
