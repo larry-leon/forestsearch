@@ -382,7 +382,7 @@ configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
 #' @inheritParams bootstrap_results
 #' @export
 
-bootstrap_results_fixed <- function(fs.est, df_boot_analysis, cox.formula.boot,
+bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                                     nb_boots, show_three, H_obs, Hc_obs) {
 
   NN <- nrow(df_boot_analysis)
