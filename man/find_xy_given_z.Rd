@@ -23,3 +23,4 @@ find_xy_given_z(12)
 find_xy_given_z(12, return_largest = \"x\")
 find_xy_given_z(12, return_largest = \"y\")
 }
+\keyword{internal}

@@ -249,7 +249,7 @@ bootstrap_ystar <- function(df, nb_boots) {
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
-    set.seed(BOOTSTRAP_BASE_SEED + boot * BOOTSTRAP_SEED_INCREMENT)
+    set.seed(8316951 + boot * 100)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
