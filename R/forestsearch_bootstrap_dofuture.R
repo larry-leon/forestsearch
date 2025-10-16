@@ -329,10 +329,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       rm(fitHcstar_star)
       Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
       Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-
-
       }
-    dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
+
+      dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
                                     Hc_biasadj_1, Hc_biasadj_2,
                                     tmins_search, max_sg_est, prop_maxk, L, max_count)
     return(dfres)
