@@ -9,7 +9,7 @@ setup_parallel_SGcons(
 )
 }
 \arguments{
-\item{parallel_args}{List with \code{plan} (character), \code{workers} (integer), and \code{show_message} (logical).}
+\item{parallel_args}{List with plan, workers, and show_message.}
 }
 \value{
 None. Sets up parallel backend.
