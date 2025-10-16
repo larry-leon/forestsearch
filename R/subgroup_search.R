@@ -38,7 +38,7 @@ get_combinations_info <- function(L, maxk) {
 }
 
 
-#' Get subgroup membership vector
+#' Get subgroup membership vector (old, legacy version)
 #'
 #' Returns a vector indicating subgroup membership (1 if all selected factors are present, 0 otherwise).
 #'
@@ -47,11 +47,21 @@ get_combinations_info <- function(L, maxk) {
 #' @return Numeric vector of subgroup membership (1/0).
 #' @export
 
-get_subgroup_membership <- function(zz, covs.in) {
+get_subgroup_membership_old <- function(zz, covs.in) {
   x <- zz[, which(covs.in == 1), drop = FALSE]
   if (ncol(x) == 0) return(rep(1, nrow(zz)))
   apply(x, 1, function(row) all(row == 1))
 }
+
+
+# More efficient using rowSums
+get_subgroup_membership <- function(zz, covs.in) {
+  selected_cols <- which(covs.in == 1)
+  if (length(selected_cols) == 0) return(rep(1, nrow(zz)))
+  x <- zz[, selected_cols, drop = FALSE]
+  rowSums(x) == length(selected_cols)
+}
+
 
 #' Get indicator vector for selected subgroup factors
 #'
