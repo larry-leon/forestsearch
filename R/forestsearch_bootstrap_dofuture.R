@@ -245,7 +245,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     # Track bootstrap weights
     df_boot$boot_weight <- as.numeric(table(in_boot)[match(in_boot, names(table(in_boot)))])
 
-
     # Bootstrap data evaluated at H: H_star
     fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
     H_star <- fitH_star$est_obs
@@ -260,6 +259,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     prop_maxk <- NA
     L <- NA
     max_count <- NA
+
     # Drop initial confounders
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
 
@@ -312,7 +312,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     }
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-
       df_PredBoot <- run_bootstrap$df.predict
       dfboot_PredBoot <- run_bootstrap$df.est
       max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
