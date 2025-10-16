@@ -846,6 +846,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     if (inherits(run_bootstrap, "try-error")) {
       warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
     }
+
+
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
       dfboot_PredBoot <- run_bootstrap$df.est
@@ -856,8 +858,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       L <- run_bootstrap$find.grps$L
       fitHstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
       Hstar_obs <- fitHstar_obs$est_obs
-
-
       fitHstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
       Hstar_star <- fitHstar_star$est_obs
       rm(fitHstar_star)
@@ -868,18 +868,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       rm(fitHcstar_obs)
       fitHcstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
       Hcstar_star <- fitHcstar_star$est_obs
-
-
       Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
       Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-
-
       }
     dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
                                     Hc_biasadj_1, Hc_biasadj_2,
                                     tmins_search, max_sg_est, prop_maxk, L, max_count)
     return(dfres)
-  }
+    }
+
 }
 
 #' Format Confidence Interval for Estimates

@@ -49,7 +49,7 @@ NB <- 30
 
 t.start <- proc.time()[3]
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE, parallel_args = list(plan = "sequential", workers = 1, show_message =TRUE))
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 
 
 print(names(fs_bc))
