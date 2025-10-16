@@ -14,6 +14,21 @@ bootstrap_results(
   Hc_obs
 )
 }
+\arguments{
+\item{fs.est}{ForestSearch results object.}
+
+\item{df_boot_analysis}{Data frame for bootstrap analysis.}
+
+\item{cox.formula.boot}{Cox model formula for bootstrap.}
+
+\item{nb_boots}{Integer. Number of bootstrap samples.}
+
+\item{show_three}{Logical. Show details for first three bootstraps.}
+
+\item{H_obs}{Numeric. Observed HR for subgroup H.}
+
+\item{Hc_obs}{Numeric. Observed HR for subgroup Hc.}
+}
 \description{
 Fixed version addressing variable name inconsistency bug in legacy code
 }
