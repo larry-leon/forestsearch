@@ -962,6 +962,10 @@ forestsearch <- function(
         # Add original IDs to the flag dataframe
         temp_df_flag <- merge(temp_df_flag, id_mapping, by = "id", all.x = TRUE)
 
+        if (any(is.na(temp_df_flag$id_original))) {
+          warning("Some IDs could not be mapped in bootstrap context")
+        }
+
         # Now perform the bootstrap-aware merge using id_original
         merge_result <- bootstrap_aware_merge(
           df = df,

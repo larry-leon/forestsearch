@@ -240,8 +240,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     # Preserve original IDs and add bootstrap-specific index
     df_boot$id_original <- df_boot$id  # Keep original
-    df_boot$id_boot <- seq_len(nrow(df_boot))  # Bootstrap index
-    df_boot$boot_weight <- table(in_boot)[as.character(in_boot)]  # Track duplicates
+    df_boot$id <- seq_len(nrow(df_boot))  # Bootstrap index
+
+    # Track bootstrap weights
+    df_boot$boot_weight <- as.numeric(table(in_boot)[match(in_boot, names(table(in_boot)))])
+
 
     # Bootstrap data evaluated at H: H_star
     fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
@@ -259,7 +262,12 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     max_count <- NA
     # Drop initial confounders
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
+
+    #dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    #dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    dfnew$id_original <- dfnew$id  # Add this line for consistency
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
 
     # Extract arguments in forestsearch (observed) data analysis
