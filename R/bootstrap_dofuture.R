@@ -17,6 +17,7 @@ BOOTSTRAP_REQUIRED_PACKAGES <- c(
 #' @param forestsearch_call_args List from original forestsearch call
 #' @return List with plan, workers, show_message
 #' @keywords internal
+
 resolve_bootstrap_parallel_args <- function(parallel_args, forestsearch_call_args) {
   # Use provided args if non-empty, otherwise inherit from forestsearch call
   if (length(parallel_args) == 0) {
@@ -274,7 +275,7 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' each bootstrap sample. This captures the distribution of variable
 #' selection stability across resamples.
 #'
-#' @keywords internal
+#' @export
 
 prepare_bootstrap_dataframes <- function(df_original, df_bootstrap,
                                          confounders_to_drop) {
@@ -323,7 +324,7 @@ prepare_bootstrap_dataframes <- function(df_original, df_bootstrap,
 #'    - parallel_args$workers: 1
 #'    - parallel_args$show_message: FALSE (suppress within-bootstrap messages)
 #'
-#' @keywords internal
+#' @export
 
 configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
                                                   df_predict_boot,
