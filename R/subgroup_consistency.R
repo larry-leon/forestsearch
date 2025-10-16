@@ -30,7 +30,7 @@ eval_cached_expression <- function(cache, expr_text, data, subset_only = FALSE) 
   parsed_expr <- if (is.null(cache)) {
     parse(text = expr_text)
   } else {
-    get_cached_expression(cache, expr_text)
+    forestsearch:::get_cached_expression(cache, expr_text)
   }
 
   result <- eval(parsed_expr, envir = data)
@@ -100,7 +100,7 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels, exp
   m1 <- as.numeric(top_result$m)
   index1 <- as.numeric(unlist(index.Z[m1, ]))
   this.1 <- names.Z[index1 == 1]
-  this.1_label <- unlist(lapply(this.1, FS_labels, confs_labels = confs_labels))
+  this.1_label <- unlist(lapply(this.1, forestsearch:::FS_labels, confs_labels = confs_labels))
 
   # Build expression strings
   id.harm <- paste(paste(this.1, collapse = "==1 & "), "==1")
@@ -108,8 +108,8 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels, exp
 
   # Use cached evaluation if cache is available
   if (!is.null(expr_cache)) {
-    df.sub <- eval_cached_expression(expr_cache, id.harm, df, subset_only = FALSE)
-    df.subC <- eval_cached_expression(expr_cache, id.noharm, df, subset_only = FALSE)
+    df.sub <- forestsearch:::eval_cached_expression(expr_cache, id.harm, df, subset_only = FALSE)
+    df.subC <- forestsearch:::eval_cached_expression(expr_cache, id.noharm, df, subset_only = FALSE)
   } else {
     df.sub <- subset(df, eval(parse(text = id.harm)))
     df.subC <- subset(df, eval(parse(text = id.noharm)))
@@ -179,7 +179,7 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @param expr_cache Expression cache environment (optional).
 #' @return A list with results, subgroup definition, labels, flags, and group id.
 #' @importFrom data.table copy
-#' @export
+#' @keywords internal
 sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
                                details = FALSE, plot.sg = FALSE, by.risk = 12,
                                confs_labels, expr_cache = NULL) {
@@ -194,8 +194,8 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
 
     # Use cache if available
     if (!is.null(expr_cache)) {
-      df.sub <- eval_cached_expression(expr_cache, id.harm, df, subset_only = FALSE)
-      df.subC <- eval_cached_expression(expr_cache, id.noharm, df, subset_only = FALSE)
+      df.sub <- forestsearch:::eval_cached_expression(expr_cache, id.harm, df, subset_only = FALSE)
+      df.subC <- forestsearch:::eval_cached_expression(expr_cache, id.noharm, df, subset_only = FALSE)
     } else {
       df.sub <- subset(df, eval(parse(text = id.harm)))
       df.subC <- subset(df, eval(parse(text = id.noharm)))
@@ -255,14 +255,14 @@ process_subgroup_with_cache <- function(m, df, index.Z, names.Z, confs_labels,
                                         found.hrs, expr_cache, details, maxk) {
   indexm <- as.numeric(unlist(index.Z[m, ]))
   this.m <- names.Z[indexm == 1]
-  this.m_label <- unlist(lapply(this.m, FS_labels, confs_labels = confs_labels))
+  this.m_label <- unlist(lapply(this.m, forestsearch:::FS_labels, confs_labels = confs_labels))
 
   # Build expression string
   id.m <- paste(paste(this.m, collapse = "==1 & "), "==1")
 
   # Use cache for subset operation
   if (!is.null(expr_cache)) {
-    df.sub <- eval_cached_expression(expr_cache, id.m, df, subset_only = FALSE)
+    df.sub <- forestsearch:::eval_cached_expression(expr_cache, id.m, df, subset_only = FALSE)
   } else {
     df.sub <- subset(df, eval(parse(text = id.m)))
   }
@@ -395,7 +395,7 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
                                  checking = FALSE, parallel_args = list(NULL), use_cache = TRUE) {
 
   # Initialize expression cache
-  expr_cache <- if (use_cache) create_expression_cache() else NULL
+  expr_cache <- if (use_cache) forestsearch:::create_expression_cache() else NULL
 
   names.Z <- c(names(hr.subgroups[, -c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)")]))
   if (length(names.Z) != Lsg) stop("HR subgroup results not matching L, check subgroup search function")
@@ -433,9 +433,9 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
   if (length(parallel_args) == 0) {
     # Sequential processing with shared cache
     results_list <- lapply(seq_len(nrow(found.hrs)), function(m) {
-      process_subgroup_with_cache(m, df, index.Z, names.Z, confs_labels,
-                                  n.splits, hr.consistency, pconsistency.threshold,
-                                  found.hrs, expr_cache, details, maxk)
+      forestsearch:::process_subgroup_with_cache(m, df, index.Z, names.Z, confs_labels,
+                                                 n.splits, hr.consistency, pconsistency.threshold,
+                                                 found.hrs, expr_cache, details, maxk)
     })
   } else {
     # Parallel processing - each worker gets its own cache
@@ -446,10 +446,10 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
     results_list <- future.apply::future_lapply(seq_len(nrow(found.hrs)),
                                                 function(m) {
                                                   # Create local cache for this worker
-                                                  local_cache <- if (use_cache) create_expression_cache() else NULL
-                                                  process_subgroup_with_cache(m, df, index.Z, names.Z, confs_labels,
-                                                                              n.splits, hr.consistency, pconsistency.threshold,
-                                                                              found.hrs, local_cache, details, maxk)
+                                                  local_cache <- if (use_cache) forestsearch:::create_expression_cache() else NULL
+                                                  forestsearch:::process_subgroup_with_cache(m, df, index.Z, names.Z, confs_labels,
+                                                                                             n.splits, hr.consistency, pconsistency.threshold,
+                                                                                             found.hrs, local_cache, details, maxk)
                                                 }, future.seed = TRUE)
   }
 
@@ -459,7 +459,7 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
 
   # Print cache statistics if in details mode
   if (details && use_cache && !is.null(expr_cache)) {
-    stats <- cache_stats(expr_cache)
+    stats <- forestsearch:::cache_stats(expr_cache)
     if (!is.null(stats)) {
       cat("\nExpression cache statistics:\n")
       cat("  Hits:", stats$hits, "Misses:", stats$misses, "\n")
@@ -478,22 +478,22 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
 
     # Process results for different focus types
     sgdetails <- ifelse(plot.sg & sg_focus == "hr", TRUE, FALSE)
-    out_hr <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "hr",
-                                 details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
-                                 names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
-                                 expr_cache = expr_cache)
+    out_hr <- forestsearch:::sg_consistency_out(df = df, result_new = result_new, sg_focus = "hr",
+                                                details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
+                                                names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
+                                                expr_cache = expr_cache)
 
     sgdetails <- ifelse(plot.sg & sg_focus %in% c("hrMaxSG", "maxSG"), TRUE, FALSE)
-    out_maxSG <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "maxSG",
-                                    details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
-                                    names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
-                                    expr_cache = expr_cache)
+    out_maxSG <- forestsearch:::sg_consistency_out(df = df, result_new = result_new, sg_focus = "maxSG",
+                                                   details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
+                                                   names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
+                                                   expr_cache = expr_cache)
 
     sgdetails <- ifelse(plot.sg & sg_focus %in% c("hrMinSG", "minSG"), TRUE, FALSE)
-    out_minSG <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "minSG",
-                                    details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
-                                    names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
-                                    expr_cache = expr_cache)
+    out_minSG <- forestsearch:::sg_consistency_out(df = df, result_new = result_new, sg_focus = "minSG",
+                                                   details = sgdetails, plot.sg = sgdetails, index.Z = index.Z,
+                                                   names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels,
+                                                   expr_cache = expr_cache)
 
     # Create mapping from sg_focus to corresponding object
     sg_map <- list(
