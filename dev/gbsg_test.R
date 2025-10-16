@@ -1,3 +1,7 @@
+suppressMessages(library(weightedSurv))
+suppressMessages(library(forestsearch))
+
+
 library(survival)
 df_gbsg <- gbsg
 df_gbsg$tte <- df_gbsg$rfstime / 30.4375
@@ -36,11 +40,33 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 )
 
 
-NB <- 30
+output_dir <- "Vignettes/results/"
+save_results <- dir.exists(output_dir)
+
+NB <- 100
+
+t.start <- proc.time()[3]
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 
+print(names(fs_bc))
+
 print(fs_bc$FSsg_tab)
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
+cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
+
+
+if (save_results) {
+  filename <- file.path(output_dir,
+                        paste0("bootstrap_results_B=",
+                               format(NB),
+                               ".RData"))
+  save(fs_bc, fs, file = filename)
+  cat("\nResults saved to:", filename, "\n")
+}
 
 
 

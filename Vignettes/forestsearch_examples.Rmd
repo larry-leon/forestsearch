@@ -618,13 +618,15 @@ res_tabs$tab_estimates
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 30
+NB <- 100
 
 t.start <- proc.time()[3]
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 
 print(names(fs_bc))
+
+print(fs_bc$FSsg_tab)
 
 
 t.now<-proc.time()[3]

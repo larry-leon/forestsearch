@@ -292,11 +292,20 @@ if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
   # Drop any such factors
   flag_drop2<-NULL
    if(length(conf.cont_cuts)>=1){
-    flag_drop2 <- sapply(conf.cont_cuts, function(thiscut) {
-      qcheck <- as.factor(ifelse(eval(parse(text=thiscut), envir = df.FS), 1, 0))
-      length(unique(qcheck)) <= 1
-    })
-    if(details & any(flag_drop2)){
+
+    # Remove
+    #  flag_drop2 <- sapply(conf.cont_cuts, function(thiscut) {
+    #   qcheck <- as.factor(ifelse(eval(parse(text=thiscut), envir = df.FS), 1, 0))
+    #   length(unique(qcheck)) <= 1
+    # })
+
+     flag_drop2 <- vapply(conf.cont_cuts, function(thiscut) {
+       expr <- parse(text=thiscut)
+       result <- eval(expr, envir = df.FS)
+       length(unique(result)) <= 1
+     }, logical(1))
+
+     if(details & any(flag_drop2)){
       cat("Dropping variables (cut only has 1 level)",c(conf.cont_cuts[flag_drop2]),"\n")
     }
     conf.cont_cuts<-conf.cont_cuts[!flag_drop2]

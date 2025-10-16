@@ -3379,8 +3379,8 @@ must show HR &gt; hr.consistency</li>
 <div id="the-complete-validation-flow" class="section level2">
 <h2>The Complete Validation Flow</h2>
 <div class="figure">
-<div id="htmlwidget-a01db2dd519be2099d9f" style="width:800px;height:400px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-a01db2dd519be2099d9f">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-9bb343d8e80eaa0bebde" style="width:800px;height:400px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-9bb343d8e80eaa0bebde">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 1: Overview of forestsearch steps
 </p>
@@ -3785,27 +3785,8 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    parallel_args = list(plan=&quot;multisession&quot;, workers = 12, show_message = TRUE)
                    )
 })</code></pre>
-<pre><code>## 
-## ======================================================================
-## FORESTSEARCH: Subgroup Identification Pipeline
-## ======================================================================
-## Starting validation...
-## 
-## Preparing analysis dataset...
-##   Initial sample size: 686 
-##   Final sample size: 686 
-## 
-## 
-## ======================================================================
-## GRF STAGE: Identifying Candidate Cut Points
-## ======================================================================
-## Parameters:
-##   - Minimum difference (dmin.grf): 12 
-##   - Time horizon fraction: 0.6 
-##   - Maximum tree depth: 2 
-##   - Minimum subgroup size: 60 
-## 
-## Tau (time horizon), maxdepth: 46.75811 2 
+<pre><code>## GRF stage for cut selection with dmin,tau= 12 0.6 
+## tau, maxdepth= 46.75811 2 
 ##    leaf.node control.mean control.size control.se depth
 ## 1          2         6.49        82.00       3.34     1
 ## 2          3        -4.10       604.00       1.06     1
@@ -3814,23 +3795,11 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 ## 4          7        -5.89       356.00       1.33     2
 ##   leaf.node control.mean control.size control.se depth
 ## 1         2         6.49        82.00       3.34     1
-## GRF subgroup found
-## All splits:
+## GRF subgroup found 
+## All splits 
 ## [1] &quot;er &lt;= 0&quot;
-## Terminating node at max.diff (sg.harm.id):
+## Terminating node at max.diff (sg.harm.id) 
 ## [1] &quot;er &lt;= 0&quot;
-## ✓ GRF Subgroup Identified!
-##   Definition: er &lt;= 0 
-##   Effect difference: 12.9857 
-##   Subgroup size: 82 
-##   Tree depth: 1 
-## 
-##   GRF cuts for ForestSearch:
-##     - er &lt;= 0 
-## 
-## ======================================================================
-## DATA PREPARATION: Feature Engineering
-## ======================================================================
 ## # of continuous/categorical characteristics 5 2 
 ## Continuous characteristics: age size nodes pgr er 
 ## Categorical characteristics: meno grade3 
@@ -3858,55 +3827,29 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 ##  [1] &quot;er &lt;= 0&quot;      &quot;age &lt;= 65&quot;    &quot;size &lt;= 29.3&quot; &quot;size &lt;= 25&quot;   &quot;size &lt;= 20&quot;  
 ##  [6] &quot;size &lt;= 35&quot;   &quot;nodes &lt;= 5&quot;   &quot;nodes &lt;= 3&quot;   &quot;nodes &lt;= 1&quot;   &quot;nodes &lt;= 7&quot;  
 ## [11] &quot;pgr &lt;= 110&quot;   &quot;pgr &lt;= 32.5&quot;  &quot;pgr &lt;= 7&quot;     &quot;pgr &lt;= 131.8&quot; &quot;grade3&quot;      
-## ======================================================================
-## VARIABLE IMPORTANCE SCREENING
-## ======================================================================
-## Using GRF to rank variables
-## Minimum VI threshold: -0.2 
-## 
-## Variables selected: 15 of 15 
-## 
-## Top variables (showing first 20):
-##        Factor Label     VI
-##       er &lt;= 0    q1 0.1805
-##        grade3   q15 0.0871
-##  size &lt;= 29.3    q3 0.0849
-##    size &lt;= 25    q4 0.0726
-##      pgr &lt;= 7   q13 0.0666
-##   pgr &lt;= 32.5   q12 0.0640
-##    nodes &lt;= 1    q9 0.0602
-##    size &lt;= 20    q5 0.0596
-##    nodes &lt;= 3    q8 0.0572
-##    size &lt;= 35    q6 0.0570
-##    nodes &lt;= 7   q10 0.0559
-##    pgr &lt;= 110   q11 0.0530
-##    nodes &lt;= 5    q7 0.0521
-##  pgr &lt;= 131.8   q14 0.0341
-##     age &lt;= 65    q2 0.0151
-## 
-## ======================================================================
-## SUBGROUP SEARCH: Exhaustive Combinatorial Search
-## ======================================================================
-## Parameters:
-##   Maximum factors per subgroup: 2 
-##   Minimum subgroup size: 60 
-##   HR threshold: 1.25 
-##   Maximum search time: 30 minutes
-## 
+## Number of factors evaluated= 15 
+## Confounders per grf screening q1 q15 q3 q4 q13 q12 q9 q5 q8 q6 q10 q11 q7 q14 q2 
+##         Factors Labels VI(grf)
+## 1       er &lt;= 0     q1  0.1805
+## 15       grade3    q15  0.0871
+## 3  size &lt;= 29.3     q3  0.0849
+## 4    size &lt;= 25     q4  0.0726
+## 13     pgr &lt;= 7    q13  0.0666
+## 12  pgr &lt;= 32.5    q12  0.0640
+## 9    nodes &lt;= 1     q9  0.0602
+## 5    size &lt;= 20     q5  0.0596
+## 8    nodes &lt;= 3     q8  0.0572
+## 6    size &lt;= 35     q6  0.0570
+## 10   nodes &lt;= 7    q10  0.0559
+## 11   pgr &lt;= 110    q11  0.0530
+## 7    nodes &lt;= 5     q7  0.0521
+## 14 pgr &lt;= 131.8    q14  0.0341
+## 2     age &lt;= 65     q2  0.0151
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 465 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.00615 
+## *Subgroup Searching Minutes=* 0.007216667 
 ## Subgroup candidate(s) found (FS) 
-## 
-## ======================================================================
-## CONSISTENCY EVALUATION: Validating Subgroup Stability
-## ======================================================================
-## Candidate subgroups: 9 
-## Consistency evaluation:
-##   Number of random splits: 1000 
-##   Consistency threshold: 0.9 
-##   HR consistency threshold: 1 
-## 
+## # of candidate subgroups (meeting all criteria) =  9 
 ## # of initial candidates 9 
 ## # of candidates restricted to &#39;top 10&#39; 9</code></pre>
 <pre><code>## Parallel plan: multisession with 12 workers.</code></pre>
@@ -3937,25 +3880,11 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 <pre><code>## *** Subgroup found: {er &lt;= 0} 
 ## % consistency criteria met= 0.952 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.15455 
+## Subgroup Consistency Minutes= 0.1615833 
 ## Subgroup found (FS)
-## 
-## ======================================================================
-## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
-## ======================================================================
-## Definition: {er &lt;= 0} 
-## Total time: 0.17 minutes
-## 
-## Treatment recommendations assigned:
-##   df.est: 686 of 686 rows
-##   df.predict: 686 of 686 rows
-## ======================================================================
-## FORESTSEARCH COMPLETE
-## ======================================================================
-## Total computation time: 0.17 minutes
-## Status: ✓ Subgroup identified</code></pre>
+## Minutes forestsearch overall= 0.1769333</code></pre>
 <pre><code>##    user  system elapsed 
-##   4.302   0.188  10.121</code></pre>
+##   4.444   0.294  10.622</code></pre>
 </div>
 <div id="show-up-to-top-10-subgroups" class="section level2">
 <h2>Show (up to) top 10 subgroups</h2>
@@ -4878,69 +4807,32 @@ height: 0px !important;
 output_dir &lt;- &quot;results/&quot;
 save_results &lt;- dir.exists(output_dir)
 
-NB &lt;- 20
+NB &lt;- 30
 
 t.start &lt;- proc.time()[3]
 
 fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)</code></pre>
-<pre><code>## Using parallel plan from observed data analysis</code></pre>
-<pre><code>## Available cores: 14</code></pre>
+<pre><code>## Using parallel plan of &#39;observed&#39; data analysis forestsearch</code></pre>
+<pre><code>## Note that max cores = 14</code></pre>
 <pre><code>## Warning: package &#39;data.table&#39; was built under R version 4.3.3</code></pre>
 <pre><code>## Parallel plan: multisession with 12 workers.</code></pre>
-<pre><code>## Generating Ystar matrix...
-## Ystar matrix complete
-## 
-## Running bootstrap with  20  iterations...
-## Showing details for first 3 iterations
-## Bootstrap iteration 1 
-## 
-## ======================================================================
-## FORESTSEARCH: Subgroup Identification Pipeline
-## ======================================================================
-## Starting validation...
-## 
-## Preparing analysis dataset...
-##   Initial sample size: 686 
-##   Final sample size: 686 
-## 
-## 
-## ======================================================================
-## GRF STAGE: Identifying Candidate Cut Points
-## ======================================================================
-## Parameters:
-##   - Minimum difference (dmin.grf): 12 
-##   - Time horizon fraction: 0.6 
-##   - Maximum tree depth: 2 
-##   - Minimum subgroup size: 60 
-## 
-## Tau (time horizon), maxdepth: 46.75811 2 
+<pre><code>## Done with Ystar_mat
+## GRF stage for cut selection with dmin,tau= 12 0.6 
+## tau, maxdepth= 46.75811 2 
 ##    leaf.node control.mean control.size control.se depth
-## 1          2         5.92       124.00       2.47     1
-## 2          3        -4.33       562.00       1.05     1
-## 21         5         6.01       192.00       1.66     2
-## 3          6         7.26        67.00       3.55     2
-## 4          7        -6.41       380.00       1.24     2
+## 1          2         6.15       124.00       2.49     1
+## 2          3        -4.39       562.00       1.05     1
+## 21         5         5.98       192.00       1.65     2
+## 3          6         7.74        67.00       3.59     2
+## 4          7        -6.45       380.00       1.24     2
 ##   leaf.node control.mean control.size control.se depth
-## 3         6         7.26        67.00       3.55     2
-## GRF subgroup found
-## All splits:
+## 3         6         7.74        67.00       3.59     2
+## GRF subgroup found 
+## All splits 
 ## [1] &quot;age &lt;= 48&quot; &quot;age &lt;= 37&quot; &quot;er &lt;= 3&quot;  
-## Terminating node at max.diff (sg.harm.id):
+## Terminating node at max.diff (sg.harm.id) 
 ## [1] &quot;er &lt;= 3&quot;
-## ✓ GRF Subgroup Identified!
-##   Definition: er &lt;= 3 
-##   Effect difference: 14.5176 
-##   Subgroup size: 67 
-##   Tree depth: 2 
-## 
-##   GRF cuts for ForestSearch:
-##     - age &lt;= 48 
-##     - age &lt;= 37 
-##     - er &lt;= 3 
-## 
-## ======================================================================
-## DATA PREPARATION: Feature Engineering
-## ======================================================================
+## DiagrammeR or not creating: skipping tree plot.
 ## # of continuous/categorical characteristics 5 2 
 ## Continuous characteristics: age size nodes pgr er 
 ## Categorical characteristics: meno grade3 
@@ -4948,173 +4840,111 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## #### Lasso selection results 
 ## 7 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                   s0
-## age     .           
-## meno    0.1574146974
-## size    0.0094965608
-## grade3  0.4246132821
-## nodes   0.0700672247
-## pgr    -0.0019163146
-## er     -0.0007870057
-## Cox-LASSO selected: meno size grade3 nodes pgr er 
-## Cox-LASSO not selected: age 
+## age    -0.0109587793
+## meno    0.4054847721
+## size    0.0108808771
+## grade3  0.4769507191
+## nodes   0.0724827132
+## pgr    -0.0023430427
+## er     -0.0009024409
+## Cox-LASSO selected: age meno size grade3 nodes pgr er 
+## Cox-LASSO not selected:  
 ## ### End Lasso selection 
-## ## After lasso: size nodes pgr er 
-## Default cuts included from Lasso: size &lt;= mean(size) size &lt;= median(size) size &lt;= qlow(size) size &lt;= qhigh(size) nodes &lt;= mean(nodes) nodes &lt;= median(nodes) nodes &lt;= qlow(nodes) nodes &lt;= qhigh(nodes) pgr &lt;= mean(pgr) pgr &lt;= median(pgr) pgr &lt;= qlow(pgr) pgr &lt;= qhigh(pgr) er &lt;= mean(er) er &lt;= median(er) er &lt;= qlow(er) er &lt;= qhigh(er) 
+## ## After lasso: age size nodes pgr er 
+## Default cuts included from Lasso: age &lt;= mean(age) age &lt;= median(age) age &lt;= qlow(age) age &lt;= qhigh(age) size &lt;= mean(size) size &lt;= median(size) size &lt;= qlow(size) size &lt;= qhigh(size) nodes &lt;= mean(nodes) nodes &lt;= median(nodes) nodes &lt;= qlow(nodes) nodes &lt;= qhigh(nodes) pgr &lt;= mean(pgr) pgr &lt;= median(pgr) pgr &lt;= qlow(pgr) pgr &lt;= qhigh(pgr) er &lt;= mean(er) er &lt;= median(er) er &lt;= qlow(er) er &lt;= qhigh(er) 
 ## Categorical after Lasso: meno grade3 
 ## Factors per GRF: age &lt;= 48 age &lt;= 37 er &lt;= 3 
 ## Initial GRF cuts included age &lt;= 48 age &lt;= 37 er &lt;= 3 
 ## Factors included per GRF (not in lasso) age &lt;= 48 age &lt;= 37 er &lt;= 3 
-## # of candidate subgroup factors= 22 
-##  [1] &quot;age &lt;= 48&quot;    &quot;age &lt;= 37&quot;    &quot;er &lt;= 3&quot;      &quot;age &lt;= 65&quot;    &quot;size &lt;= 29.2&quot;
-##  [6] &quot;size &lt;= 25&quot;   &quot;size &lt;= 20&quot;   &quot;size &lt;= 35&quot;   &quot;nodes &lt;= 4.9&quot; &quot;nodes &lt;= 3&quot;  
-## [11] &quot;nodes &lt;= 1&quot;   &quot;nodes &lt;= 7&quot;   &quot;pgr &lt;= 110.5&quot; &quot;pgr &lt;= 29&quot;    &quot;pgr &lt;= 7&quot;    
-## [16] &quot;pgr &lt;= 121.5&quot; &quot;er &lt;= 97.8&quot;   &quot;er &lt;= 38&quot;     &quot;er &lt;= 8&quot;      &quot;er &lt;= 123.2&quot; 
-## [21] &quot;meno&quot;         &quot;grade3&quot;      
-## ======================================================================
-## VARIABLE IMPORTANCE SCREENING
-## ======================================================================
-## Using GRF to rank variables
-## Minimum VI threshold: -0.2 
-## 
-## Variables selected: 22 of 22 
-## 
-## Top variables (showing first 20):
-##        Factor Label     VI
-##       er &lt;= 3    q3 0.2252
-##     age &lt;= 48    q1 0.1029
-##   er &lt;= 123.2   q20 0.0754
-##      pgr &lt;= 7   q15 0.0568
-##  pgr &lt;= 110.5   q13 0.0514
-##  nodes &lt;= 4.9    q9 0.0495
-##          meno   q21 0.0423
-##  size &lt;= 29.2    q5 0.0383
-##    size &lt;= 25    q6 0.0354
-##    nodes &lt;= 1   q11 0.0345
-##    size &lt;= 35    q8 0.0329
-##       er &lt;= 8   q19 0.0303
-##        grade3   q22 0.0278
-##     age &lt;= 37    q2 0.0265
-##  pgr &lt;= 121.5   q16 0.0260
-##     pgr &lt;= 29   q14 0.0253
-##    nodes &lt;= 3   q10 0.0232
-##      er &lt;= 38   q18 0.0228
-##    nodes &lt;= 7   q12 0.0206
-##    size &lt;= 20    q7 0.0199
-## 
-## ======================================================================
-## SUBGROUP SEARCH: Exhaustive Combinatorial Search
-## ======================================================================
-## Parameters:
-##   Maximum factors per subgroup: 2 
-##   Minimum subgroup size: 60 
-##   HR threshold: 1.25 
-##   Maximum search time: 30 minutes
-## 
-## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 990 
+## # of candidate subgroup factors= 26 
+##  [1] &quot;age &lt;= 48&quot;    &quot;age &lt;= 37&quot;    &quot;er &lt;= 3&quot;      &quot;age &lt;= 65&quot;    &quot;age &lt;= 53.3&quot; 
+##  [6] &quot;age &lt;= 53&quot;    &quot;age &lt;= 46&quot;    &quot;age &lt;= 62&quot;    &quot;size &lt;= 29.2&quot; &quot;size &lt;= 25&quot;  
+## [11] &quot;size &lt;= 20&quot;   &quot;size &lt;= 35&quot;   &quot;nodes &lt;= 4.9&quot; &quot;nodes &lt;= 3&quot;   &quot;nodes &lt;= 1&quot;  
+## [16] &quot;nodes &lt;= 7&quot;   &quot;pgr &lt;= 110.5&quot; &quot;pgr &lt;= 29&quot;    &quot;pgr &lt;= 7&quot;     &quot;pgr &lt;= 121.5&quot;
+## [21] &quot;er &lt;= 97.8&quot;   &quot;er &lt;= 38&quot;     &quot;er &lt;= 8&quot;      &quot;er &lt;= 123.2&quot;  &quot;meno&quot;        
+## [26] &quot;grade3&quot;      
+## Number of factors evaluated= 26 
+## Confounders per grf screening q3 q1 q19 q24 q13 q17 q9 q25 q10 q12 q15 q26 q23 q20 q2 q14 q16 q8 q11 q18 q22 q21 q5 q4 q6 q7 
+##         Factors Labels VI(grf)
+## 3       er &lt;= 3     q3  0.2116
+## 1     age &lt;= 48     q1  0.0894
+## 19     pgr &lt;= 7    q19  0.0672
+## 24  er &lt;= 123.2    q24  0.0663
+## 13 nodes &lt;= 4.9    q13  0.0446
+## 17 pgr &lt;= 110.5    q17  0.0430
+## 9  size &lt;= 29.2     q9  0.0415
+## 25         meno    q25  0.0413
+## 10   size &lt;= 25    q10  0.0396
+## 12   size &lt;= 35    q12  0.0324
+## 15   nodes &lt;= 1    q15  0.0294
+## 26       grade3    q26  0.0285
+## 23      er &lt;= 8    q23  0.0270
+## 20 pgr &lt;= 121.5    q20  0.0248
+## 2     age &lt;= 37     q2  0.0245
+## 14   nodes &lt;= 3    q14  0.0229
+## 16   nodes &lt;= 7    q16  0.0223
+## 8     age &lt;= 62     q8  0.0208
+## 11   size &lt;= 20    q11  0.0205
+## 18    pgr &lt;= 29    q18  0.0198
+## 22     er &lt;= 38    q22  0.0185
+## 21   er &lt;= 97.8    q21  0.0149
+## 5   age &lt;= 53.3     q5  0.0147
+## 4     age &lt;= 65     q4  0.0120
+## 6     age &lt;= 53     q6  0.0113
+## 7     age &lt;= 46     q7  0.0109
+## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 1378 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.02995 
+## *Subgroup Searching Minutes=* 0.03816667 
 ## Subgroup candidate(s) found (FS) 
-## 
-## ======================================================================
-## CONSISTENCY EVALUATION: Validating Subgroup Stability
-## ======================================================================
-## Candidate subgroups: 94 
-## Consistency evaluation:
-##   Number of random splits: 1000 
-##   Consistency threshold: 0.9 
-##   HR consistency threshold: 1 
-## 
-## # of initial candidates 77 
+## # of candidate subgroups (meeting all criteria) =  121 
+## # of initial candidates 94 
 ## # of candidates restricted to &#39;top 10&#39; 10 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {er &lt;= 3} !{size &lt;= 25} 0.996 
+## **** Subgroup, % Consistency Met= {er &lt;= 3} !{size &lt;= 25} 0.997 
 ## Consistency met!
 ## # of splits = 1000 
 ## **** Subgroup, % Consistency Met= {age &lt;= 48} {er &lt;= 8} 0.998 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {er &lt;= 3} !{age &lt;= 37} 1 
+## **** Subgroup, % Consistency Met= {er &lt;= 3} !{age &lt;= 37} 0.999 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{meno} {er &lt;= 8} 0.995 
+## **** Subgroup, % Consistency Met= !{meno} {er &lt;= 8} 0.996 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {nodes &lt;= 4.9} !{size &lt;= 35} 0.976 
+## **** Subgroup, % Consistency Met= {nodes &lt;= 4.9} !{size &lt;= 35} 0.963 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {er &lt;= 3} !{size &lt;= 20} 0.999 
+## **** Subgroup, % Consistency Met= {er &lt;= 3} !{size &lt;= 20} 0.997 
 ## Consistency met!
 ## # of splits = 1000 
 ## **** Subgroup, % Consistency Met= {age &lt;= 48} {pgr &lt;= 29} 0.995 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{meno} {grade3} 0.982 
+## **** Subgroup, % Consistency Met= !{meno} {grade3} 0.967 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {pgr &lt;= 7} {grade3} 0.984 
+## **** Subgroup, % Consistency Met= {pgr &lt;= 7} {grade3} 0.98 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {er &lt;= 3} !{nodes &lt;= 4.9} 0.983 
+## **** Subgroup, % Consistency Met= {er &lt;= 3} !{age &lt;= 46} 0.982 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.2699167 
+## Subgroup Consistency Minutes= 0.3060833 
 ## Subgroup found (FS)
-## 
-## ======================================================================
-## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
-## ======================================================================
-## Definition: {age &lt;= 48} &amp; {pgr &lt;= 29} 
-## Total time: 0.31 minutes
-## 
-## Treatment recommendations assigned:
-##   df.est: 686 of 686 rows
-##   df.predict: 686 of 686 rows
-## ======================================================================
-## FORESTSEARCH COMPLETE
-## ======================================================================
-## Total computation time: 0.31 minutes
-## Status: ✓ Subgroup identified
-## 
-##   Subgroup found in bootstrap 1 
-##   H bias adjustments: -0.8483 -1.1448 
-##   Hc bias adjustments: -0.3543 -0.412 
-## Bootstrap iteration 2 
-## 
-## ======================================================================
-## FORESTSEARCH: Subgroup Identification Pipeline
-## ======================================================================
-## Starting validation...
-## 
-## Preparing analysis dataset...
-##   Initial sample size: 686 
-##   Final sample size: 686 
-## 
-## 
-## ======================================================================
-## GRF STAGE: Identifying Candidate Cut Points
-## ======================================================================
-## Parameters:
-##   - Minimum difference (dmin.grf): 12 
-##   - Time horizon fraction: 0.6 
-##   - Maximum tree depth: 2 
-##   - Minimum subgroup size: 60 
-## 
-## Tau (time horizon), maxdepth: 40.01643 2 
+## Minutes forestsearch overall= 0.3552167 
+## GRF stage for cut selection with dmin,tau= 12 0.6 
+## tau, maxdepth= 40.01643 2 
 ##   leaf.node control.mean control.size control.se depth
-## 1         2        -2.49       531.00       0.89     1
-## 2         3         2.83       155.00       1.88     1
-## 3         4         5.62        77.00       2.85     2
-## 4         5        -3.92       438.00       1.02     2
-## 5         6         5.43       145.00       1.39     2
+## 1         2        -2.55       531.00       0.88     1
+## 2         3         2.78       155.00       1.87     1
+## 3         4         5.49        77.00       2.85     2
+## 4         5        -3.99       438.00       1.02     2
+## 5         6         5.45       145.00       1.38     2
 ##   leaf.node control.mean control.size control.se depth
-## 3         4         5.62        77.00       2.85     2
-## GRF subgroup NOT found
-## ✗ No GRF subgroup meeting criteria
-##   Continuing without GRF cuts...
-## 
-## ======================================================================
-## DATA PREPARATION: Feature Engineering
-## ======================================================================
+## 3         4         5.49        77.00       2.85     2
+## GRF subgroup NOT found 
+## NO GRF cuts meeting delta(RMST): dmin.grf= 12 
 ## # of continuous/categorical characteristics 5 2 
 ## Continuous characteristics: age size nodes pgr er 
 ## Categorical characteristics: meno grade3 
@@ -5140,149 +4970,74 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ##  [6] &quot;size &lt;= 29.2&quot; &quot;size &lt;= 27&quot;   &quot;size &lt;= 21&quot;   &quot;size &lt;= 35&quot;   &quot;nodes &lt;= 5&quot;  
 ## [11] &quot;nodes &lt;= 3&quot;   &quot;nodes &lt;= 1.2&quot; &quot;nodes &lt;= 7&quot;   &quot;pgr &lt;= 116.4&quot; &quot;pgr &lt;= 33&quot;   
 ## [16] &quot;pgr &lt;= 7&quot;     &quot;pgr &lt;= 138&quot;  
-## ======================================================================
-## VARIABLE IMPORTANCE SCREENING
-## ======================================================================
-## Using GRF to rank variables
-## Minimum VI threshold: -0.2 
-## 
-## Variables selected: 17 of 17 
-## 
-## Top variables (showing first 20):
-##        Factor Label     VI
-##     age &lt;= 65    q1 0.1185
-##    size &lt;= 21    q8 0.0835
-##      pgr &lt;= 7   q16 0.0827
-##     age &lt;= 46    q4 0.0822
-##     age &lt;= 53    q3 0.0636
-##     pgr &lt;= 33   q15 0.0629
-##    nodes &lt;= 3   q11 0.0622
-##    size &lt;= 35    q9 0.0611
-##    size &lt;= 27    q7 0.0604
-##    nodes &lt;= 5   q10 0.0587
-##  nodes &lt;= 1.2   q12 0.0475
-##    nodes &lt;= 7   q13 0.0454
-##     age &lt;= 61    q5 0.0431
-##  size &lt;= 29.2    q6 0.0370
-##    pgr &lt;= 138   q17 0.0309
-##   age &lt;= 52.6    q2 0.0307
-##  pgr &lt;= 116.4   q14 0.0298
-## 
-## ======================================================================
-## SUBGROUP SEARCH: Exhaustive Combinatorial Search
-## ======================================================================
-## Parameters:
-##   Maximum factors per subgroup: 2 
-##   Minimum subgroup size: 60 
-##   HR threshold: 1.25 
-##   Maximum search time: 30 minutes
-## 
+## Number of factors evaluated= 17 
+## Confounders per grf screening q1 q4 q8 q16 q11 q7 q3 q9 q10 q15 q13 q12 q5 q6 q2 q14 q17 
+##         Factors Labels VI(grf)
+## 1     age &lt;= 65     q1  0.1252
+## 4     age &lt;= 46     q4  0.0887
+## 8    size &lt;= 21     q8  0.0839
+## 16     pgr &lt;= 7    q16  0.0816
+## 11   nodes &lt;= 3    q11  0.0625
+## 7    size &lt;= 27     q7  0.0616
+## 3     age &lt;= 53     q3  0.0601
+## 9    size &lt;= 35     q9  0.0551
+## 10   nodes &lt;= 5    q10  0.0539
+## 15    pgr &lt;= 33    q15  0.0532
+## 13   nodes &lt;= 7    q13  0.0482
+## 12 nodes &lt;= 1.2    q12  0.0473
+## 5     age &lt;= 61     q5  0.0466
+## 6  size &lt;= 29.2     q6  0.0377
+## 2   age &lt;= 52.6     q2  0.0338
+## 14 pgr &lt;= 116.4    q14  0.0314
+## 17   pgr &lt;= 138    q17  0.0292
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 595 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.009383333 
+## *Subgroup Searching Minutes=* 0.01346667 
 ## Subgroup candidate(s) found (FS) 
-## 
-## ======================================================================
-## CONSISTENCY EVALUATION: Validating Subgroup Stability
-## ======================================================================
-## Candidate subgroups: 25 
-## Consistency evaluation:
-##   Number of random splits: 1000 
-##   Consistency threshold: 0.9 
-##   HR consistency threshold: 1 
-## 
+## # of candidate subgroups (meeting all criteria) =  25 
 ## # of initial candidates 25 
 ## # of candidates restricted to &#39;top 10&#39; 10 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{age &lt;= 53} !{size &lt;= 35} 0.94 
-## *** Not met: Subgroup, % Consistency = !{size &lt;= 35} !{age &lt;= 52.6} 0.898 
-## *** Not met: Subgroup, % Consistency = {pgr &lt;= 7} {age &lt;= 52.6} 0.893 
+## **** Subgroup, % Consistency Met= !{age &lt;= 53} !{size &lt;= 35} 0.928 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {pgr &lt;= 7} {age &lt;= 53} 0.909 
+## **** Subgroup, % Consistency Met= !{size &lt;= 35} !{age &lt;= 52.6} 0.911 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 7} {age &lt;= 52.6} 0.883 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 7} {age &lt;= 53} 0.897 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{age &lt;= 53} !{size &lt;= 27} 0.952 
-## *** Not met: Subgroup, % Consistency = !{size &lt;= 35} {nodes &lt;= 5} 0.774 
+## **** Subgroup, % Consistency Met= !{size &lt;= 27} !{age &lt;= 53} 0.947 
+## *** Not met: Subgroup, % Consistency = !{size &lt;= 35} {nodes &lt;= 5} 0.8 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{size &lt;= 27} !{age &lt;= 52.6} 0.93 
+## **** Subgroup, % Consistency Met= !{size &lt;= 27} !{age &lt;= 52.6} 0.921 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= !{age &lt;= 53} !{size &lt;= 29.2} 0.911 
-## *** Not met: Subgroup, % Consistency = !{size &lt;= 27} !{nodes &lt;= 7} 0.857 
-## *** Not met: Subgroup, % Consistency = !{size &lt;= 29.2} !{age &lt;= 52.6} 0.873 
+## **** Subgroup, % Consistency Met= !{age &lt;= 53} !{size &lt;= 29.2} 0.914 
+## *** Not met: Subgroup, % Consistency = !{size &lt;= 27} !{nodes &lt;= 7} 0.866 
+## *** Not met: Subgroup, % Consistency = !{size &lt;= 29.2} !{age &lt;= 52.6} 0.872 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.25505 
+## Subgroup Consistency Minutes= 0.2566333 
 ## Subgroup found (FS)
-## 
-## ======================================================================
-## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
-## ======================================================================
-## Definition: !{size &lt;= 27} &amp; !{age &lt;= 52.6} 
-## Total time: 0.28 minutes
-## 
-## Treatment recommendations assigned:
-##   df.est: 686 of 686 rows
-##   df.predict: 686 of 686 rows
-## ======================================================================
-## FORESTSEARCH COMPLETE
-## ======================================================================
-## Total computation time: 0.28 minutes
-## Status: ✓ Subgroup identified
-## 
-##   Subgroup found in bootstrap 2 
-##   H bias adjustments: 0.0988 0.0954 
-##   Hc bias adjustments: -0.3398 -0.3959 
-## Bootstrap iteration 3 
-## 
-## ======================================================================
-## FORESTSEARCH: Subgroup Identification Pipeline
-## ======================================================================
-## Starting validation...
-## 
-## Preparing analysis dataset...
-##   Initial sample size: 686 
-##   Final sample size: 686 
-## 
-## 
-## ======================================================================
-## GRF STAGE: Identifying Candidate Cut Points
-## ======================================================================
-## Parameters:
-##   - Minimum difference (dmin.grf): 12 
-##   - Time horizon fraction: 0.6 
-##   - Maximum tree depth: 2 
-##   - Minimum subgroup size: 60 
-## 
-## Tau (time horizon), maxdepth: 40.01643 2 
+## Minutes forestsearch overall= 0.2797667 
+## GRF stage for cut selection with dmin,tau= 12 0.6 
+## tau, maxdepth= 40.01643 2 
 ##   leaf.node control.mean control.size control.se depth
-## 1         2         6.55        71.00       2.60     1
-## 2         3        -3.30       615.00       0.75     1
-## 3         4         6.55        71.00       2.60     2
-## 4         5        -4.46       427.00       0.95     2
-## 5         6         3.53        82.00       1.90     2
-## 6         7        -3.93       106.00       1.33     2
+## 1         2         6.66        71.00       2.60     1
+## 2         3        -3.23       615.00       0.75     1
+## 3         4         6.66        71.00       2.60     2
+## 4         5        -4.40       427.00       0.95     2
+## 5         6         3.63        82.00       1.90     2
+## 6         7        -3.81       106.00       1.30     2
 ##   leaf.node control.mean control.size control.se depth
-## 1         2         6.55        71.00       2.60     1
-## GRF subgroup found
-## All splits:
+## 1         2         6.66        71.00       2.60     1
+## GRF subgroup found 
+## All splits 
 ## [1] &quot;er &lt;= 0&quot;
-## Terminating node at max.diff (sg.harm.id):
+## Terminating node at max.diff (sg.harm.id) 
 ## [1] &quot;er &lt;= 0&quot;
-## ✓ GRF Subgroup Identified!
-##   Definition: er &lt;= 0 
-##   Effect difference: 13.1011 
-##   Subgroup size: 71 
-##   Tree depth: 1 
-## 
-##   GRF cuts for ForestSearch:
-##     - er &lt;= 0 
-## 
-## ======================================================================
-## DATA PREPARATION: Feature Engineering
-## ======================================================================
+## DiagrammeR or not creating: skipping tree plot.
 ## # of continuous/categorical characteristics 5 2 
 ## Continuous characteristics: age size nodes pgr er 
 ## Categorical characteristics: meno grade3 
@@ -5290,13 +5045,13 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## #### Lasso selection results 
 ## 7 x 1 sparse Matrix of class &quot;dgCMatrix&quot;
 ##                   s0
-## age    -0.0231790577
-## meno    0.3034524904
-## size    0.0119869072
-## grade3  0.0970482796
-## nodes   0.0668614591
-## pgr    -0.0031424202
-## er      0.0002605514
+## age    -0.0257494809
+## meno    0.3468240671
+## size    0.0124673042
+## grade3  0.1007781248
+## nodes   0.0666278728
+## pgr    -0.0032861222
+## er      0.0003567573
 ## Cox-LASSO selected: age meno size grade3 nodes pgr er 
 ## Cox-LASSO not selected:  
 ## ### End Lasso selection 
@@ -5312,113 +5067,75 @@ fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_thr
 ## [11] &quot;nodes &lt;= 4.6&quot; &quot;nodes &lt;= 3&quot;   &quot;nodes &lt;= 1&quot;   &quot;nodes &lt;= 6&quot;   &quot;pgr &lt;= 128.9&quot;
 ## [16] &quot;pgr &lt;= 45&quot;    &quot;pgr &lt;= 8&quot;     &quot;pgr &lt;= 150&quot;   &quot;er &lt;= 100.3&quot;  &quot;er &lt;= 36&quot;    
 ## [21] &quot;er &lt;= 9&quot;      &quot;er &lt;= 119.8&quot;  &quot;meno&quot;         &quot;grade3&quot;      
-## ======================================================================
-## VARIABLE IMPORTANCE SCREENING
-## ======================================================================
-## Using GRF to rank variables
-## Minimum VI threshold: -0.2 
-## 
-## Variables selected: 24 of 24 
-## 
-## Top variables (showing first 20):
-##        Factor Label     VI
-##       er &lt;= 0    q1 0.1459
-##      pgr &lt;= 8   q17 0.0980
-##  size &lt;= 28.5    q7 0.0777
-##     age &lt;= 61    q6 0.0654
-##    size &lt;= 25    q8 0.0628
-##    nodes &lt;= 6   q14 0.0509
-##     age &lt;= 52    q4 0.0433
-##  nodes &lt;= 4.6   q11 0.0366
-##        grade3   q24 0.0366
-##   age &lt;= 52.8    q3 0.0358
-##    nodes &lt;= 3   q12 0.0337
-##      er &lt;= 36   q20 0.0335
-##     age &lt;= 46    q5 0.0334
-##     pgr &lt;= 45   q16 0.0322
-##    nodes &lt;= 1   q13 0.0296
-##    size &lt;= 34   q10 0.0282
-##   er &lt;= 100.3   q19 0.0280
-##    size &lt;= 20    q9 0.0255
-##       er &lt;= 9   q21 0.0255
-##    pgr &lt;= 150   q18 0.0206
-## 
-## ======================================================================
-## SUBGROUP SEARCH: Exhaustive Combinatorial Search
-## ======================================================================
-## Parameters:
-##   Maximum factors per subgroup: 2 
-##   Minimum subgroup size: 60 
-##   HR threshold: 1.25 
-##   Maximum search time: 30 minutes
-## 
+## Number of factors evaluated= 24 
+## Confounders per grf screening q1 q17 q7 q8 q6 q14 q4 q24 q3 q11 q5 q20 q21 q12 q13 q10 q9 q16 q19 q18 q15 q23 q22 q2 
+##         Factors Labels VI(grf)
+## 1       er &lt;= 0     q1  0.1520
+## 17     pgr &lt;= 8    q17  0.1041
+## 7  size &lt;= 28.5     q7  0.0717
+## 8    size &lt;= 25     q8  0.0654
+## 6     age &lt;= 61     q6  0.0547
+## 14   nodes &lt;= 6    q14  0.0526
+## 4     age &lt;= 52     q4  0.0395
+## 24       grade3    q24  0.0378
+## 3   age &lt;= 52.8     q3  0.0374
+## 11 nodes &lt;= 4.6    q11  0.0359
+## 5     age &lt;= 46     q5  0.0315
+## 20     er &lt;= 36    q20  0.0311
+## 21      er &lt;= 9    q21  0.0308
+## 12   nodes &lt;= 3    q12  0.0300
+## 13   nodes &lt;= 1    q13  0.0300
+## 10   size &lt;= 34    q10  0.0299
+## 9    size &lt;= 20     q9  0.0286
+## 16    pgr &lt;= 45    q16  0.0261
+## 19  er &lt;= 100.3    q19  0.0260
+## 18   pgr &lt;= 150    q18  0.0211
+## 15 pgr &lt;= 128.9    q15  0.0207
+## 23         meno    q23  0.0202
+## 22  er &lt;= 119.8    q22  0.0150
+## 2     age &lt;= 65     q2  0.0079
 ## Number of possible configurations (&lt;= maxk): maxk, # &lt;= maxk 2 1176 
 ## Events criteria for control,exp= 10 10 
-## *Subgroup Searching Minutes=* 0.03125 
+## *Subgroup Searching Minutes=* 0.01668333 
 ## Subgroup candidate(s) found (FS) 
-## 
-## ======================================================================
-## CONSISTENCY EVALUATION: Validating Subgroup Stability
-## ======================================================================
-## Candidate subgroups: 8 
-## Consistency evaluation:
-##   Number of random splits: 1000 
-##   Consistency threshold: 0.9 
-##   HR consistency threshold: 1 
-## 
+## # of candidate subgroups (meeting all criteria) =  8 
 ## # of initial candidates 8 
 ## # of candidates restricted to &#39;top 10&#39; 8 
 ## Consistency met!
 ## # of splits = 1000 
-## **** Subgroup, % Consistency Met= {er &lt;= 0} {pgr &lt;= 45} 0.985 
-## *** Not met: Subgroup, % Consistency = {er &lt;= 0} 0.817 
-## *** Not met: Subgroup, % Consistency = {er &lt;= 9} !{meno} 0.727 
-## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{size &lt;= 28.5} 0.718 
-## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} {grade3} 0.625 
-## *** Not met: Subgroup, % Consistency = !{size &lt;= 28.5} {er &lt;= 9} 0.537 
-## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{size &lt;= 25} 0.579 
-## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{meno} 0.491 
+## **** Subgroup, % Consistency Met= {er &lt;= 0} {pgr &lt;= 45} 0.989 
+## *** Not met: Subgroup, % Consistency = {er &lt;= 0} 0.826 
+## *** Not met: Subgroup, % Consistency = {er &lt;= 9} !{meno} 0.732732732732732 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{size &lt;= 28.5} 0.729 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} {grade3} 0.604 
+## *** Not met: Subgroup, % Consistency = !{size &lt;= 28.5} {er &lt;= 9} 0.557 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{size &lt;= 25} 0.591 
+## *** Not met: Subgroup, % Consistency = {pgr &lt;= 8} !{meno} 0.52004008016032 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.2069833 
+## Subgroup Consistency Minutes= 0.17605 
 ## Subgroup found (FS)
-## 
-## ======================================================================
-## ✓ SUBGROUP IDENTIFIED AND VALIDATED!
-## ======================================================================
-## Definition: {er &lt;= 0} &amp; {pgr &lt;= 45} 
-## Total time: 0.25 minutes
-## 
-## Treatment recommendations assigned:
-##   df.est: 686 of 686 rows
-##   df.predict: 686 of 686 rows
-## ======================================================================
-## FORESTSEARCH COMPLETE
-## ======================================================================
-## Total computation time: 0.25 minutes
-## Status: ✓ Subgroup identified
-## 
-##   Subgroup found in bootstrap 3 
-##   H bias adjustments: -1.3803 -1.2009 
-##   Hc bias adjustments: -0.1461 -0.0317 
-## 
-## Calculating confidence intervals...
-## Bootstrap iterations with subgroups found:  17  of  20 
-## 
-## Bootstrap Summary:
-##   Proportion subgroups found:  0.85 
-##   H un-adjusted:     1.95 (1.04,3.67) 
-##   H bias-corrected:  0.69 (0.19,2.45) 
-##   H^c un-adjusted:   0.61 (0.47,0.8) 
-##   H^c bias-corrected: 0.77 (0.35,1.67)</code></pre>
+## Minutes forestsearch overall= 0.2011667 
+## **** % bootstrap subgroups found = 0.8 
+## H un-adjusted estimates-----:    1.95 (1.04,3.67) 
+## H bias-corrected estimates--:    1.42 (0.48,4.19) 
+## H^c un-adjusted estimates---:    0.61 (0.47,0.8) 
+## H^c bias-corrected estimates:    0.63 (0.05,7.33)</code></pre>
 <pre class="r"><code>print(names(fs_bc))</code></pre>
 <pre><code>## [1] &quot;results&quot;      &quot;SG_CIs&quot;       &quot;FSsg_tab&quot;     &quot;Ystar_mat&quot;    &quot;H_estimates&quot; 
 ## [6] &quot;Hc_estimates&quot;</code></pre>
+<pre class="r"><code>print(fs_bc$FSsg_tab)</code></pre>
+<pre><code>##       Subgroup       n             n1            events        m1     m0    
+## res_0 &quot;Questionable&quot; &quot;82 (12.0%)&quot;  &quot;26 (31.7%)&quot;  &quot;45 (54.9%)&quot;  &quot;22.9&quot; &quot;43.7&quot;
+## res_1 &quot;Recommend&quot;    &quot;604 (88.0%)&quot; &quot;220 (36.4%)&quot; &quot;254 (42.1%)&quot; &quot;66.7&quot; &quot;52.6&quot;
+##       RMST  HR (95% CI)         HR*               
+## res_0 &quot;-14&quot; &quot;1.95 (1.04, 3.67)&quot; &quot;1.42 (0.48,4.19)&quot;
+## res_1 &quot;9.3&quot; &quot;0.61 (0.47, 0.80)&quot; &quot;0.63 (0.05,7.33)&quot;</code></pre>
 <pre class="r"><code>t.now&lt;-proc.time()[3]
 t.min&lt;-(t.now-t.start)/60
 cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&quot;)</code></pre>
-<pre><code>## Minutes (total) for bootstrap (boots,mins) 20 0.77045</code></pre>
+<pre><code>## Minutes (total) for bootstrap (boots,mins) 30 1.030467</code></pre>
 <pre class="r"><code>cat(&quot;Projected minutes for 1000&quot;,c(t.min*(1000/NB)),&quot;\n&quot;)</code></pre>
-<pre><code>## Projected minutes for 1000 38.5225</code></pre>
+<pre><code>## Projected minutes for 1000 34.34889</code></pre>
 <pre class="r"><code>if (save_results) {
     filename &lt;- file.path(output_dir, 
                          paste0(&quot;bootstrap_results_B=&quot;, 
@@ -5428,7 +5145,7 @@ cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&
     cat(&quot;\nResults saved to:&quot;, filename, &quot;\n&quot;)
   }</code></pre>
 <pre><code>## 
-## Results saved to: results//bootstrap_results_B=20.RData</code></pre>
+## Results saved to: results//bootstrap_results_B=30.RData</code></pre>
 </div>
 <div id="decision-function" class="section level2">
 <h2>Decision Function</h2>
@@ -5821,8 +5538,8 @@ print(sensitivity_results)</code></pre>
 <h1>Key Insights and Recommendations</h1>
 <div id="philosophy-of-each-approach" class="section level2">
 <h2>Philosophy of Each Approach</h2>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-7d6516ff47d1f948979c" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-7d6516ff47d1f948979c">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-61c9271130c2a7a10dfa" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-61c9271130c2a7a10dfa">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="summary-recommendations" class="section level2">
 <h2>Summary Recommendations</h2>
@@ -6045,8 +5762,8 @@ computation.</li>
 <div id="overview-of-main-functions" class="section level1">
 <h1>Overview of Main functions</h1>
 <div class="figure">
-<div id="htmlwidget-4512da67c1d92c6ebb0d" style="width:600px;height:400px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-4512da67c1d92c6ebb0d">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-f7d9881148d1876763fc" style="width:600px;height:400px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-f7d9881148d1876763fc">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 2: Main functions
 </p>
@@ -6055,8 +5772,8 @@ Figure 2: Main functions
 <div id="overview-of-helper-functions" class="section level1">
 <h1>Overview of Helper Functions</h1>
 <div class="figure">
-<div id="htmlwidget-f5ee4bdde9ea5adf137e" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-f5ee4bdde9ea5adf137e">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-49e101b8ac482d5fcdcf" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-49e101b8ac482d5fcdcf">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 3: Helpers functions
 </p>
@@ -6065,8 +5782,8 @@ Figure 3: Helpers functions
 <div id="overview-of-all-functions" class="section level1">
 <h1>Overview of all functions</h1>
 <div class="figure">
-<div id="htmlwidget-fc1d76ac69b5dcde099c" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-fc1d76ac69b5dcde099c">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-3a951227135ee7baae42" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-3a951227135ee7baae42">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 4: Overview of ALL functions
 </p>
