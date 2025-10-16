@@ -127,7 +127,8 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "fit_cox_models",
     "build_cox_formula",
     "cox.formula.boot",
-    "setup_parallel_SGcons"
+    "setup_parallel_SGcons",
+    "compute_bias_corrections"
   )
 )
 
