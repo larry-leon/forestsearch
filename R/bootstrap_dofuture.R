@@ -385,7 +385,6 @@ configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
 
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                                     nb_boots, show_three, H_obs, Hc_obs) {
-
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
 
@@ -398,7 +397,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
-
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
     set.seed(8316951 + boot * 100)
@@ -428,15 +426,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       est.loghr = TRUE
     )
     hc_star <- fit_hc_star$est_obs  # Use lowercase hc_star consistently
-
-    # Initialize return values as NA
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
 
     # Prepare bootstrap dataframes
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
@@ -470,11 +459,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
     }
 
-    # =================================================================
-    # Compute bias corrections if subgroup found
-    # =================================================================
-    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-
       # Compute bias corrections using helper function
       bias_results <- compute_bias_corrections(
         run_bootstrap = run_bootstrap,
@@ -495,7 +479,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       prop_maxk <- bias_results$prop_maxk
       L <- bias_results$L
       max_count <- bias_results$max_count
-    }
 
     # CRITICAL: Always return data.table with same structure
     # This ensures .combine = "rbind" works correctly
@@ -510,10 +493,10 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       L = L,
       max_count = max_count
     )
-
     return(dfres)
   }
 }
+
 
 
 #' Compute Bias Corrections for Bootstrap Subgroup Estimates
