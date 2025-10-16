@@ -53,8 +53,15 @@ get_subgroup_membership_old <- function(zz, covs.in) {
   apply(x, 1, function(row) all(row == 1))
 }
 
+#' Get subgroup membership vector
+#'
+#' Returns a vector indicating subgroup membership (1 if all selected factors are present, 0 otherwise).
+#'
+#' @param zz Matrix or data frame of subgroup factor indicators.
+#' @param covs.in Numeric vector indicating which factors are selected (1 = included).
+#' @return Numeric vector of subgroup membership (1/0).
+#' @export
 
-# More efficient using rowSums
 get_subgroup_membership <- function(zz, covs.in) {
   selected_cols <- which(covs.in == 1)
   if (length(selected_cols) == 0) return(rep(1, nrow(zz)))
