@@ -26,7 +26,7 @@ registerDoRNG()
 fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                                 outcome.name = "tte", treat.name = "treat", event.name = "event", id.name = "id",
                                 hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.80,
-                                sg_focus = "maxSG",
+                                sg_focus = "hrMaxSG",
                                 showten_subgroups = FALSE, details=TRUE,
                                 conf_force = c("age <= 65"),
                                 cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
@@ -36,7 +36,7 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 )
 
 
-NB <- 25
+NB <- 30
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 

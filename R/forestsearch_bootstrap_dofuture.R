@@ -457,10 +457,10 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   # 6. Post-processing and formatting
   est.scale <- args_forestsearch_call$est.scale
 
-  H_estimates <- try(get_dfRes(Hobs = H_obs, seHobs = seH_obs, H1_adj = results$H_biasadj_2,
+  H_estimates <- try(get_dfRes(Hobs = H_obs, seHobs = seH_obs, H1_adj = results$H_biasadj_1,
                                ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
 
-  Hc_estimates <- try(get_dfRes(Hobs = Hc_obs, seHobs = seHc_obs, H1_adj = results$Hc_biasadj_2,
+  Hc_estimates <- try(get_dfRes(Hobs = Hc_obs, seHobs = seHc_obs, H1_adj = results$Hc_biasadj_1,
                                 ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
 
   if (inherits(H_estimates, "try-error") | inherits(Hc_estimates, "try-error")) {
