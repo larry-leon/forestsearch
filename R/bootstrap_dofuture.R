@@ -382,7 +382,7 @@ configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
 #' @inheritParams bootstrap_results
 #' @export
 
-bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
+bootstrap_results_fixed <- function(fs.est, df_boot_analysis, cox.formula.boot,
                                     nb_boots, show_three, H_obs, Hc_obs) {
 
   NN <- nrow(df_boot_analysis)
@@ -484,27 +484,31 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         cox.formula.boot = cox.formula.boot
       )
 
-      # Return results as data.table
-      dfres <- data.table::data.table(
-        H_biasadj_1 = bias_results$H_biasadj_1,
-        H_biasadj_2 = bias_results$H_biasadj_2,
-        Hc_biasadj_1 = bias_results$Hc_biasadj_1,
-        Hc_biasadj_2 = bias_results$Hc_biasadj_2,
-        tmins_search = bias_results$tmins_search,
-        max_sg_est = bias_results$max_sg_est,
-        prop_maxk = bias_results$prop_maxk,
-        L = bias_results$L,
-        max_count = bias_results$max_count
-      )
-
-    } else {
-      # No subgroup found - return NAs
-      dfres <- data.table::data.table(
-        H_biasadj_1, H_biasadj_2,
-        Hc_biasadj_1, Hc_biasadj_2,
-        tmins_search, max_sg_est, prop_maxk, L, max_count
-      )
+      # Extract results
+      H_biasadj_1 <- bias_results$H_biasadj_1
+      H_biasadj_2 <- bias_results$H_biasadj_2
+      Hc_biasadj_1 <- bias_results$Hc_biasadj_1
+      Hc_biasadj_2 <- bias_results$Hc_biasadj_2
+      tmins_search <- bias_results$tmins_search
+      max_sg_est <- bias_results$max_sg_est
+      prop_maxk <- bias_results$prop_maxk
+      L <- bias_results$L
+      max_count <- bias_results$max_count
     }
+
+    # CRITICAL: Always return data.table with same structure
+    # This ensures .combine = "rbind" works correctly
+    dfres <- data.table::data.table(
+      H_biasadj_1 = H_biasadj_1,
+      H_biasadj_2 = H_biasadj_2,
+      Hc_biasadj_1 = Hc_biasadj_1,
+      Hc_biasadj_2 = Hc_biasadj_2,
+      tmins_search = tmins_search,
+      max_sg_est = max_sg_est,
+      prop_maxk = prop_maxk,
+      L = L,
+      max_count = max_count
+    )
 
     return(dfres)
   }
