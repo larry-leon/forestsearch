@@ -157,7 +157,7 @@ get_bootstrap_exports <- function() {
 #' find_xy_given_z(12)
 #' find_xy_given_z(12, return_largest = \"x\")
 #' find_xy_given_z(12, return_largest = \"y\")
-#' @internal
+#' @keywords internal
 
 find_xy_given_z <- function(z, return_largest = NULL) {
   pairs <- list()
