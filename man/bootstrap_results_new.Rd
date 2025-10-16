@@ -157,8 +157,5 @@ sets up parallelization and calls this function
 \code{\link{configure_forestsearch_bootstrap_args}} for argument configuration
 \code{\link{get_Cox_sg}} for Cox model fitting
 \code{\link{get_dfRes}} for processing bootstrap results into confidence intervals
-
-Other bootstrap functions: 
-\code{\link{compute_bias_corrections}()}
 }
 \concept{bootstrap functions}

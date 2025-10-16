@@ -83,9 +83,4 @@ The function gracefully handles three failure modes:
 
 \seealso{
 \code{\link{bootstrap_results}} for the main bootstrap loop
-
-Other bootstrap functions: 
-\code{\link{bootstrap_results_new}()}
 }
-\concept{bootstrap functions}
-\keyword{internal}

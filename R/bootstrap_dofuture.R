@@ -557,8 +557,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #'   and testability.
 #'
 #' @seealso \code{\link{bootstrap_results}} for the main bootstrap loop
-#' @keywords internal
-#' @family bootstrap functions
+#' @export
+
 compute_bias_corrections <- function(run_bootstrap, H_obs, Hc_obs, h_star,
                                      hc_star, cox.formula.boot) {
 

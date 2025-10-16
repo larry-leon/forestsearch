@@ -45,7 +45,7 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 output_dir <- "Vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 30
+NB <- 3
 
 t.start <- proc.time()[3]
 
