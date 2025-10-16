@@ -45,11 +45,11 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 output_dir <- "Vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 10
+NB <- 30
 
 t.start <- proc.time()[3]
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
 
 
 print(names(fs_bc))
