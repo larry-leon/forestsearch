@@ -33,3 +33,18 @@ List with bootstrap results, confidence intervals, summary table, Ystar matrix, 
 \description{
 Orchestrates bootstrap analysis for ForestSearch using doFuture parallelization.
 }
+\details{
+Bootstrap Bias Correction Naming Convention:
+
+Variable naming: {estimate_source}_{method}
+
+estimate_source:
+- H_: Subgroup H (harm group, treat.recommend == 0)
+- Hc_: Subgroup H^c (complement, treat.recommend == 1)
+
+method suffixes:
+- obs: Observed estimate from original sample
+- boot: Bootstrap replicate estimate
+- bc_1: Bias correction method 1: H_obs - (H_boot_boot - H_boot_obs)
+- bc_2: Bias correction method 2: 2*H_obs - (H_boot + H_boot_boot - H_boot_obs)
+}

@@ -1,4 +1,149 @@
 
+# Random seed management
+#' Base seed for bootstrap reproducibility
+#' Used as: base_seed + iteration_number * BOOTSTRAP_SEED_INCREMENT
+BOOTSTRAP_BASE_SEED <- 8316951L
+BOOTSTRAP_SEED_INCREMENT <- 100L
+
+# Required packages for parallel bootstrap workers
+BOOTSTRAP_REQUIRED_PACKAGES <- c(
+  "data.table",    # Data manipulation in parallel workers
+  "foreach",       # Foreach iteration framework
+  "doFuture",      # Future-based parallel backend
+  "doRNG",         # Reproducible random numbers in parallel
+  "survival"       # Cox model fitting for bias correction
+)
+
+#' Resolve parallel processing arguments for bootstrap
+#'
+#' If parallel_args not provided, falls back to forestsearch call's
+#' parallel configuration. Always reports configuration to user.
+#'
+#' @param parallel_args List or empty list
+#' @param forestsearch_call_args List from original forestsearch call
+#' @return List with plan, workers, show_message
+#' @keywords internal
+resolve_bootstrap_parallel_args <- function(parallel_args, forestsearch_call_args) {
+  # Use provided args if non-empty, otherwise inherit from forestsearch call
+  if (length(parallel_args) == 0) {
+    resolved_args <- as.list(forestsearch_call_args$parallel_args)
+    message("Bootstrap parallel config: Using 'observed' data analysis forestsearch settings")
+  } else {
+    resolved_args <- parallel_args
+    message("Bootstrap parallel config: Using user-provided settings")
+  }
+
+  # Report configuration to user
+  max_cores <- parallel::detectCores()
+  message("System max cores available: ", max_cores)
+  message("Bootstrap will use: ", resolved_args$workers, " workers with '",
+          resolved_args$plan, "' plan")
+
+  resolved_args
+}
+
+
+#' Functions required in parallel bootstrap environment
+#'
+#' Organized by functional category for maintainability
+BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
+  statistics = c(
+    "calc_cov",
+    "calculate_counts",
+    "analyze_subgroups",
+    "calculate_potential_hr",
+    "ci.est",
+    "count.id",
+    "CV_sgs",
+    "get_targetEst",
+    "get_dfRes",
+    "getCIs",
+    "getci_Cox",
+    "SummaryStat",
+    "var_summary",
+    "format_results",
+    "format_CI",
+    "qlow", "qhigh"
+  ),
+  subgroup_analysis = c(
+    "cox_summary",
+    "km_summary",
+    "n_pcnt",
+    "plot_subgroup",
+    "plot_weighted_km",
+    "prepare_subgroup_data",
+    "quiet",
+    "rmst_calculation",
+    "sg_tables",
+    "sort_subgroups",
+    "remove_redundant_subgroups",
+    "sg_consistency_out",
+    "get_split_hr"
+  ),
+  data_prep = c(
+    "get_FSdata",
+    "dummy", "dummy2",
+    "acm.disjctif", "acm.util.df2", "acm.util.df",
+    "ztrail", "one.zero",
+    "prepare_data",
+    "clean_data"
+  ),
+  forestsearch_core = c(
+    "forestsearch",
+    "forestsearch_bootstrap_dofuture",
+    "run_bootstrap",
+    "run_grf",
+    "evaluate_subgroups",
+    "summarize_results",
+    "SG_tab_estimates",
+    "get_dfpred",
+    "get_combinations_info",
+    "get_subgroup_membership",
+    "get_covs_in",
+    "extract_idx_flagredundancy",
+    "get_cut_name",
+    "cut_var",
+    "thiscut",
+    "FS_labels"
+  ),
+  grf_policy = c(
+    "grf.subg.harm.survival",
+    "grf.estimates.out",
+    "policy_tree",
+    "causal_survival_forest"
+  ),
+  search_consistency = c(
+    "subgroup.search",
+    "subgroup.consistency",
+    "extract_subgroup",
+    "filter_by_lassokeep",
+    "is.continuous",
+    "process_conf_force_expr",
+    "is_flag_continuous",
+    "is_flag_drop",
+    "lasso_selection",
+    "get_Cox_sg",
+    "get_conf_force"
+  ),
+  bootstrap_parallel = c(
+    "bootstrap_results",
+    "bootstrap_ystar",
+    "ensure_packages",
+    "fit_cox_models",
+    "build_cox_formula",
+    "cox.formula.boot",
+    "setup_parallel_SGcons"
+  )
+)
+
+#' Flatten required functions list to character vector
+#'
+#' @return Character vector of all function names needed in parallel workers
+#' @keywords internal
+get_bootstrap_exports <- function() {
+  unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
+}
+
 #' Find integer pairs (x, y) such that x * y = z and y >= x
 #'
 #' Given an integer z, this function finds all integer pairs (x, y) such that x * y = z and y >= x.
@@ -12,7 +157,7 @@
 #' find_xy_given_z(12)
 #' find_xy_given_z(12, return_largest = \"x\")
 #' find_xy_given_z(12, return_largest = \"y\")
-#' @export
+#' @internal
 
 find_xy_given_z <- function(z, return_largest = NULL) {
   pairs <- list()
@@ -104,7 +249,7 @@ bootstrap_ystar <- function(df, nb_boots) {
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
-    set.seed(8316951 + boot * 100)
+    set.seed(BOOTSTRAP_BASE_SEED + boot * BOOTSTRAP_SEED_INCREMENT)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -139,99 +284,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE,
-                           add = c(
-                             # Bootstrap/statistics helpers
-                             "calc_cov",
-                             "calculate_counts",
-                             "analyze_subgroups",
-                             "calculate_potential_hr",
-                             "ci.est",
-                             "count.id",
-                             "CV_sgs",
-                             "get_targetEst",
-                             "get_dfRes",
-                             "getCIs",
-                             "getci_Cox",
-                             "SummaryStat",
-                             "var_summary",
-                             "format_results",
-                             "format_CI",
-                             "qlow", "qhigh",
-
-                             # Subgroup/consistency helpers
-                             "cox_summary",
-                             "km_summary",
-                             "n_pcnt",
-                             "plot_subgroup",
-                             "plot_weighted_km",
-                             "prepare_subgroup_data",
-                             "quiet",
-                             "rmst_calculation",
-                             "sg_tables",
-                             "sort_subgroups",
-                             "remove_redundant_subgroups",
-                             "sg_consistency_out",
-                             "get_split_hr",
-
-                             # Data preparation
-                             "get_FSdata",
-                             "dummy", "dummy2", "acm.disjctif", "acm.util.df2", "acm.util.df",
-                             "ztrail", "one.zero",
-                             "prepare_data",
-                             "clean_data",
-
-                             # ForestSearch core
-                             "forestsearch",
-                             "forestsearch_bootstrap_dofuture",
-                             "run_bootstrap",
-                             "run_grf",
-                             "evaluate_subgroups",
-                             "summarize_results",
-                             "SG_tab_estimates",
-                             "get_dfpred",
-                             "get_combinations_info",
-                             "get_subgroup_membership",
-                             "get_covs_in",
-                             "extract_idx_flagredundancy",
-                             "get_cut_name",
-                             "cut_var",
-                             "thiscut",
-                             "FS_labels",
-
-                             # GRF and policytree
-                             "grf.subg.harm.survival",
-                             "grf.estimates.out",
-                             "policy_tree", # if used
-                             "causal_survival_forest", # if used
-
-                             # Subgroup search/consistency
-                             "subgroup.search",
-                             "subgroup.consistency",
-                             "extract_subgroup",
-                             "filter_by_lassokeep",
-                             "is.continuous",
-                             "process_conf_force_expr",
-                             "is_flag_continuous",
-                             "is_flag_drop",
-                             "lasso_selection",
-                             "get_Cox_sg",
-                             "get_conf_force",
-
-                             # Bootstrap/parallel
-                             "bootstrap_results",
-                             "bootstrap_ystar",
-                             "ensure_packages",
-                             "fit_cox_models",
-                             "build_cox_formula",
-                             "cox.formula.boot",
-                             "setup_parallel_SGcons"
-                           )),
+                           add = get_bootstrap_exports()
+                           ),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
+    set.seed(BOOTSTRAP_BASE_SEED + boot * BOOTSTRAP_SEED_INCREMENT)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -250,6 +310,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     prop_maxk <- NA
     L <- NA
     max_count <- NA
+
     # Drop initial confounders
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
@@ -281,29 +342,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     args_FS_boot$plot.grf <- FALSE
 
-    # Keep only arguments that are in the formal argument list of forestsearch
-    #forestsearch_formals <- names(formals(forestsearch))
-    #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
-
-
-    #print(names(args_FS_boot))
-    #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
-
-
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
     if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
-
-    #print(args(forestsearch))
-
-    # run_bootstrap <- tryCatch(
-    #   do.call(forestsearch, args_FS_boot),
-    #   error = function(e) {
-    #     message("Error in forestsearch: ", e$message)
-    #     return(NULL)
-    #   }
-    # )
-
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
@@ -354,24 +395,23 @@ format_CI <- function(estimates, col_names) {
   paste0(Hstat[1], " (", Hstat[2], ",", Hstat[3], ")")
 }
 
-
-# Do not export
-# For checking bootstrap to initiate defaults
-forchecking <- function(fs){
-fs.est <- fs
-nb_boots <- 3
-details <- TRUE
-show_three <- TRUE
- reset_parallel_fs <- TRUE
- boot_workers <- 6
- parallel_args <- list(plan = "multisession", workers = 6, show_message = TRUE)
-}
-
-
 #' ForestSearch Bootstrap with doFuture Parallelization
 #'
 #' Orchestrates bootstrap analysis for ForestSearch using doFuture parallelization.
 #'
+#' Bootstrap Bias Correction Naming Convention:
+#'
+#'   Variable naming: {estimate_source}_{method}
+#'
+#'   estimate_source:
+#'     - H_: Subgroup H (harm group, treat.recommend == 0)
+#'     - Hc_: Subgroup H^c (complement, treat.recommend == 1)
+#'
+#'   method suffixes:
+#'     - obs: Observed estimate from original sample
+#'     - boot: Bootstrap replicate estimate
+#'     - bc_1: Bias correction method 1: H_obs - (H_boot_boot - H_boot_obs)
+#'     - bc_2: Bias correction method 2: 2*H_obs - (H_boot + H_boot_boot - H_boot_obs)
 #' @param fs.est ForestSearch results object.
 #' @param nb_boots Integer. Number of bootstrap samples.
 #' @param details Logical. Print details during execution.
@@ -395,25 +435,21 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   args_forestsearch_call <- fs.est$args_call_all
 
   # If parallel_args is empty then default to main forestsearch (data analysis) call
-  if(length(parallel_args) == 0){
-  message("Using parallel plan of 'observed' data analysis forestsearch")
-  parallel_args <- as.list(args_forestsearch_call$parallel_args)
-  max_cores <- parallel::detectCores()
-  #get_workers <- find_xy_given_z(max_cores, return_largest = "x")
-  #parallel_args$workers <- get_workers[2] # outer
-  #inner_workers <- get_workers[1] # inner
-  message("Note that max cores = ", max_cores)
-   }
+
+  # if(length(parallel_args) == 0){
+  # message("Using parallel plan of 'observed' data analysis forestsearch")
+  # parallel_args <- as.list(args_forestsearch_call$parallel_args)
+  # max_cores <- parallel::detectCores()
+  # message("Note that max cores = ", max_cores)
+  #  }
+
+parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
+
 
   # 1. Ensure packages
-  ensure_packages(c("data.table", "foreach", "doFuture", "doRNG", "survival"))
+  ensure_packages(BOOTSTRAP_REQUIRED_PACKAGES)
 
   # 2. Build formula
-  # args_build <- base::names(formals(build_cox_formula))
-  # # align with args_call_all
-  # args_build_filtered <- args_forestsearch_call[names(args_forestsearch_call) %in% args_build]
-  # cox.formula.boot <- base::do.call(build_cox_formula, args_build_filtered)
-
   cox.formula.boot <- do.call(build_cox_formula,
                               filter_call_args(args_forestsearch_call, build_cox_formula))
 
