@@ -941,6 +941,10 @@ forestsearch <- function(
     t.end_all <- proc.time()[3]
     t.min_all <- (t.end_all - t.start_all) / 60
 
+
+    cat("Subgroup found",c(grp.consistency$sg.harm),"\n")
+
+
     # ---- Extract final subgroup if found ----
     if (!is.null(grp.consistency$sg.harm)) {
 
@@ -976,7 +980,20 @@ forestsearch <- function(
         cat(rep("=", 70), "\n", sep = "")
         cat("Definition:", paste(sg.harm, collapse = " & "), "\n")
         cat("Total time:", round(t.min_all, 2), "minutes\n\n")
-      } else {
+      }
+
+    } else {
+      # This else corresponds to if (!is.null(grp.consistency$sg.harm))
+      if (details) {
+        cat("\n✗ No subgroup met consistency criteria\n")
+        cat("  Possible reasons:\n")
+        cat("    - Consistency rate below threshold (", pconsistency.threshold, ")\n")
+        cat("    - HR in splits below threshold (", hr.consistency, ")\n\n")
+      }
+    }
+
+  } else {
+    # This else corresponds to if (has_candidates)
     if (details) {
       cat("\n")
       cat(rep("=", 70), "\n", sep = "")
@@ -989,11 +1006,10 @@ forestsearch <- function(
       cat("  - Search time limit reached (", max.minutes, "minutes)\n\n")
     }
   }
-}
+
   # ============================================================================
   # STEP 8: PREPARE OUTPUT
   # ============================================================================
-
   if (details) {
     cat(rep("=", 70), "\n", sep = "")
     cat("FORESTSEARCH COMPLETE\n")
