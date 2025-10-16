@@ -26,7 +26,11 @@ for (pkg in pkgs) {
 #desc::desc_set_dep("weightedSurv", type = "Suggests", file = "DESCRIPTION")
 
 desc::desc_set_dep(package = "weightedSurv", type = "Imports")
+
 desc::desc_set_remotes("larry-leon/weightedSurv")
+
+usethis::use_package("progressr", type = "Imports")
+
 
 #usethis::use_package("ggplot2")
 

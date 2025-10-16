@@ -224,13 +224,26 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @family bootstrap functions
 #' @importFrom foreach foreach
 #' @importFrom data.table data.table
+#' @importFrom progressr progressor handlers
 #' @importFrom doFuture %dofuture%
 #' @export
 
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
-                              nb_boots, show_three, H_obs, Hc_obs) {
+                              nb_boots, show_three, H_obs, Hc_obs, show_progress = TRUE) {
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
+
+  # Set up progress bar if requested and package available
+  if (show_progress) {
+    if (!requireNamespace("progressr", quietly = TRUE)) {
+      warning("Package 'progressr' needed for progress bars. Install with: install.packages('progressr')")
+      show_progress <- FALSE
+    } else {
+      progressr::handlers(global = TRUE)
+      progressr::handlers("progress")
+      p <- progressr::progressor(steps = nb_boots)
+    }
+  }
 
   foreach::foreach(
     boot = seq_len(nb_boots),
@@ -400,6 +413,12 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       L = L,
       max_count = max_count
     )
+
+    # Update progress bar (only if available)
+    if (show_progress) {
+      p(message = sprintf("Bootstrap %d/%d complete", boot, nb_boots))
+    }
+
     return(dfres)
   }
 }
