@@ -312,14 +312,18 @@ sg_tables <- function(fs, which_df = "est", est_caption = "Training data estimat
   if(which_df == "testing") df <- fs$df.test
 
   args_fs <- fs$args_call_all
-  args_tab <- names(formals(SG_tab_estimates))
-  # align with args_call_all
-  args_tab_filtered <- args_fs[args_fs %in% names(args_tab)]
-  args_tab_filtered$df <- df
-  args_tab_filtered$sg0_name <- "Questionable"
-  args_tab_filtered$sg1_name <- "Recommend"
-  args_tab_filtered$hr_1a <- hr_1a
-  args_tab_filtered$hr_0a <- hr_0a
+
+  # args_tab <- names(formals(SG_tab_estimates))
+  # args_tab_filtered <- args_fs[args_fs %in% names(args_tab)]
+  # args_tab_filtered$df <- df
+  # args_tab_filtered$sg0_name <- "Questionable"
+  # args_tab_filtered$sg1_name <- "Recommend"
+  # args_tab_filtered$hr_1a <- hr_1a
+  # args_tab_filtered$hr_0a <- hr_0a
+
+  args_tab_filtered <- filter_call_args(args_fs, SG_tab_estimates,
+  list(df = df, sg0_name = "Questionable", sg1_name = "Recommend",
+  hr_1a = hr_1a, hr_0a = hr_0a))
 
   # ITT estimates
   args_tab_filtered$SG_flag <- "ITT"
