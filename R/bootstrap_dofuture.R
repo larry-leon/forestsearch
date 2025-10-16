@@ -575,7 +575,7 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @export
 
 forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
-                                           parallel_args = list()
+                                           parallel_args = list(), show_progress = TRUE
                                             ) {
 
   args_forestsearch_call <- fs.est$args_call_all
@@ -622,7 +622,16 @@ parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearc
   # Note: reset_parallel_fs re-sets parallel for subgroup consistency in forestsearch
   # That is reset_parallel_fs = TRUE only the outer *bootstrap* loop is parallelized
 
-  results <-  bootstrap_results(fs.est, fs.est$df.est, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs)
+  results <- bootstrap_results(
+    fs.est = fs.est,
+    df_boot_analysis = fs.est$df.est,
+    cox.formula.boot = cox.formula.boot,
+    nb_boots = nb_boots,
+    show_three = show_three,
+    H_obs = H_obs,
+    Hc_obs = Hc_obs,
+    show_progress = show_progress
+  )
 
   # 6. Post-processing and formatting
   est.scale <- args_forestsearch_call$est.scale
