@@ -942,23 +942,49 @@ forestsearch <- function(
     t.min_all <- (t.end_all - t.start_all) / 60
 
 
-    print(names(grp.consistency))
-
-    cat("Subgroup found",c(grp.consistency$sg.harm),"\n")
-
-
     # ---- Extract final subgroup if found ----
     if (!is.null(grp.consistency$sg.harm)) {
 
-      merge_result <- bootstrap_aware_merge(
-        df = df,
-        df_flag = grp.consistency$df_flag,
-        df_predict = df.predict,
-        id_col = "id",
-        treat_col = "treat.recommend",
-        default_treat = 1,
-        details = details
-      )
+      # Check if we're in bootstrap context
+      is_bootstrap_context <- "id_original" %in% names(df)
+
+      if (is_bootstrap_context) {
+        # For bootstrap, we need to handle the mapping carefully
+        temp_df_flag <- grp.consistency$df_flag
+
+        # The df has both 'id' (unique bootstrap indices) and 'id_original' (original IDs with duplicates)
+        # The df_flag has 'id' that matches the unique bootstrap indices
+        # We need to map these back to id_original for proper merging
+
+        # Create mapping from bootstrap ID to original ID
+        id_mapping <- unique(df[, c("id", "id_original")])
+
+        # Add original IDs to the flag dataframe
+        temp_df_flag <- merge(temp_df_flag, id_mapping, by = "id", all.x = TRUE)
+
+        # Now perform the bootstrap-aware merge using id_original
+        merge_result <- bootstrap_aware_merge(
+          df = df,
+          df_flag = temp_df_flag,
+          df_predict = df.predict,
+          id_col = "id_original",  # Use original ID for matching
+          treat_col = "treat.recommend",
+          default_treat = 1,
+          details = details
+        )
+
+      } else {
+        # Regular non-bootstrap merge
+        merge_result <- bootstrap_aware_merge(
+          df = df,
+          df_flag = grp.consistency$df_flag,
+          df_predict = df.predict,
+          id_col = "id",
+          treat_col = "treat.recommend",
+          default_treat = 1,
+          details = details
+        )
+      }
 
       df.est_out <- merge_result$df_est
       df.predict_out <- merge_result$df_predict
@@ -982,10 +1008,18 @@ forestsearch <- function(
         cat(rep("=", 70), "\n", sep = "")
         cat("Definition:", paste(sg.harm, collapse = " & "), "\n")
         cat("Total time:", round(t.min_all, 2), "minutes\n\n")
+
+        # Add bootstrap context info if relevant
+        if (is_bootstrap_context) {
+          cat("Bootstrap context detected:\n")
+          cat("  Unique IDs in data:", length(unique(df$id_original)), "\n")
+          cat("  Total rows in data:", nrow(df), "\n")
+          cat("  Rows in df_flag:", nrow(grp.consistency$df_flag), "\n\n")
+        }
       }
 
     } else {
-      # This else corresponds to if (!is.null(grp.consistency$sg.harm))
+      # No subgroup met consistency criteria
       if (details) {
         cat("\n✗ No subgroup met consistency criteria\n")
         cat("  Possible reasons:\n")
@@ -995,7 +1029,7 @@ forestsearch <- function(
     }
 
   } else {
-    # This else corresponds to if (has_candidates)
+    # No candidate subgroups found
     if (details) {
       cat("\n")
       cat(rep("=", 70), "\n", sep = "")
@@ -1025,7 +1059,6 @@ forestsearch <- function(
     }
     cat("\n")
   }
-
   # Return results
   list(
     grp.consistency = grp.consistency,

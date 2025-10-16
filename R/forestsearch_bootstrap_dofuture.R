@@ -218,6 +218,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
                              "get_conf_force",
 
                              # Bootstrap/parallel
+                             "bootstrap_aware_merge",
                              "bootstrap_results",
                              "bootstrap_ystar",
                              "ensure_packages",
@@ -266,8 +267,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     args_FS_boot <- fs.est$args_call_all
 
     args_FS_boot$df.analysis <- dfnew_boot
-    #args_FS_boot$df.predict <- dfnew
-    args_FS_boot$df.predict <- dfnew_boot
+    args_FS_boot$df.predict <- dfnew
 
     args_FS_boot$details <- show3
     args_FS_boot$showten_subgroups <- FALSE
@@ -290,11 +290,18 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     args_FS_boot$plot.grf <- FALSE
 
-    args_FS_boot$id.name <- "id_boot"
-
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
-    if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
+    if (inherits(run_bootstrap, "try-error")) {
+      if (show3 || boot <= 3) {
+        cat("\n=== Bootstrap", boot, "Failed ===\n")
+        cat("Error:", attr(run_bootstrap, "condition")$message, "\n")
+        cat("Data dimensions: nrow =", nrow(df_boot), "\n")
+        cat("Unique original IDs:", length(unique(df_boot$id_original)), "\n")
+        cat("===========================\n")
+      }
+      warning(paste("Bootstrap iteration", boot, "failed"))
+    }
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
 
