@@ -426,42 +426,42 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     max_count <- NA
 
 
-    boot_data <- prepare_bootstrap_dataframes(
-      df_original = df_boot_analysis,
-      df_bootstrap = df_boot,
-      confounders_to_drop = fs.est$confounders.candidate
-    )
+    # boot_data <- prepare_bootstrap_dataframes(
+    #   df_original = df_boot_analysis,
+    #   df_bootstrap = df_boot,
+    #   confounders_to_drop = fs.est$confounders.candidate
+    # )
+    #
+    # args_FS_boot <- configure_forestsearch_bootstrap_args(
+    #   base_args = fs.est$args_call_all,
+    #   df_analysis_boot = boot_data$df_analysis,
+    #   df_predict_boot = boot_data$df_predict,
+    #   show_details = show3  # show3 = (boot <= 3)
+    # )
 
-    args_FS_boot <- configure_forestsearch_bootstrap_args(
-      base_args = fs.est$args_call_all,
-      df_analysis_boot = boot_data$df_analysis,
-      df_predict_boot = boot_data$df_predict,
-      show_details = show3  # show3 = (boot <= 3)
-    )
-
-    # # Drop initial confounders
-    # drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    # dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    # dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-    # # Extract arguments in forestsearch (observed) data analysis
-    # args_FS_boot <- fs.est$args_call_all
-    # args_FS_boot$df.analysis <- dfnew_boot
-    # args_FS_boot$df.predict <- dfnew
-    # # CATEGORY 1: OUTPUT SUPPRESSION (parallelization efficiency)
-    # args_FS_boot$details <- show3                # Only show first 3 for debugging
-    # args_FS_boot$showten_subgroups <- FALSE      # Suppress large output
-    # args_FS_boot$plot.sg <- FALSE                # Can't plot from parallel worker
-    # args_FS_boot$plot.grf <- FALSE               # Can't plot from parallel worker
-    # # CATEGORY 2: VARIABLE RE-SELECTION (bootstrap variability)
-    # # Force fresh GRF run on bootstrap (oracle uses predictions from bootstrap)
-    # args_FS_boot$grf_res <- NULL
-    # args_FS_boot$grf_cuts <- NULL
-    # # CATEGORY 3: SEQUENTIAL EXECUTION (prevent nested parallelization)
-    # # Each bootstrap is already running in a parallel worker
-    # # Nested parallelization causes resource contention and deadlocks
-    # args_FS_boot$parallel_args$plan <- "sequential"
-    # args_FS_boot$parallel_args$workers <- 1L
-    # args_FS_boot$parallel_args$show_message <- FALSE
+    # Drop initial confounders
+    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
+    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+    # Extract arguments in forestsearch (observed) data analysis
+    args_FS_boot <- fs.est$args_call_all
+    args_FS_boot$df.analysis <- dfnew_boot
+    args_FS_boot$df.predict <- dfnew
+    # CATEGORY 1: OUTPUT SUPPRESSION (parallelization efficiency)
+    args_FS_boot$details <- show3                # Only show first 3 for debugging
+    args_FS_boot$showten_subgroups <- FALSE      # Suppress large output
+    args_FS_boot$plot.sg <- FALSE                # Can't plot from parallel worker
+    args_FS_boot$plot.grf <- FALSE               # Can't plot from parallel worker
+    # CATEGORY 2: VARIABLE RE-SELECTION (bootstrap variability)
+    # Force fresh GRF run on bootstrap (oracle uses predictions from bootstrap)
+    args_FS_boot$grf_res <- NULL
+    args_FS_boot$grf_cuts <- NULL
+    # CATEGORY 3: SEQUENTIAL EXECUTION (prevent nested parallelization)
+    # Each bootstrap is already running in a parallel worker
+    # Nested parallelization causes resource contention and deadlocks
+    args_FS_boot$parallel_args$plan <- "sequential"
+    args_FS_boot$parallel_args$workers <- 1L
+    args_FS_boot$parallel_args$show_message <- FALSE
 
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
