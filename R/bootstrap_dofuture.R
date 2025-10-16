@@ -1,200 +1,4 @@
 
-# Required packages for parallel bootstrap workers
-BOOTSTRAP_REQUIRED_PACKAGES <- c(
-  "data.table",    # Data manipulation in parallel workers
-  "foreach",       # Foreach iteration framework
-  "doFuture",      # Future-based parallel backend
-  "doRNG",         # Reproducible random numbers in parallel
-  "survival"       # Cox model fitting for bias correction
-)
-
-#' Resolve parallel processing arguments for bootstrap
-#'
-#' If parallel_args not provided, falls back to forestsearch call's
-#' parallel configuration. Always reports configuration to user.
-#'
-#' @param parallel_args List or empty list
-#' @param forestsearch_call_args List from original forestsearch call
-#' @return List with plan, workers, show_message
-#' @keywords internal
-
-resolve_bootstrap_parallel_args <- function(parallel_args, forestsearch_call_args) {
-  # Use provided args if non-empty, otherwise inherit from forestsearch call
-  if (length(parallel_args) == 0) {
-    resolved_args <- as.list(forestsearch_call_args$parallel_args)
-    message("Bootstrap parallel config: Using 'observed' data analysis forestsearch settings")
-  } else {
-    resolved_args <- parallel_args
-    message("Bootstrap parallel config: Using user-provided settings")
-  }
-
-  # Report configuration to user
-  max_cores <- parallel::detectCores()
-  message("System max cores available: ", max_cores)
-  message("Bootstrap will use: ", resolved_args$workers, " workers with '",
-          resolved_args$plan, "' plan")
-
-  resolved_args
-}
-
-
-#' Functions required in parallel bootstrap environment
-#'
-#' Organized by functional category for maintainability
-BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
-  statistics = c(
-    "calc_cov",
-    "calculate_counts",
-    "analyze_subgroups",
-    "calculate_potential_hr",
-    "ci.est",
-    "count.id",
-    "CV_sgs",
-    "get_targetEst",
-    "get_dfRes",
-    "getCIs",
-    "getci_Cox",
-    "SummaryStat",
-    "var_summary",
-    "format_results",
-    "format_CI",
-    "qlow", "qhigh"
-  ),
-  subgroup_analysis = c(
-    "cox_summary",
-    "km_summary",
-    "n_pcnt",
-    "plot_subgroup",
-    "plot_weighted_km",
-    "prepare_subgroup_data",
-    "quiet",
-    "rmst_calculation",
-    "sg_tables",
-    "sort_subgroups",
-    "remove_redundant_subgroups",
-    "sg_consistency_out",
-    "get_split_hr"
-  ),
-  data_prep = c(
-    "get_FSdata",
-    "dummy", "dummy2",
-    "acm.disjctif", "acm.util.df2", "acm.util.df",
-    "ztrail", "one.zero",
-    "prepare_data",
-    "clean_data"
-  ),
-  forestsearch_core = c(
-    "forestsearch",
-    "forestsearch_bootstrap_dofuture",
-    "run_bootstrap",
-    "run_grf",
-    "evaluate_subgroups",
-    "summarize_results",
-    "SG_tab_estimates",
-    "get_dfpred",
-    "get_combinations_info",
-    "get_subgroup_membership",
-    "get_covs_in",
-    "extract_idx_flagredundancy",
-    "get_cut_name",
-    "cut_var",
-    "thiscut",
-    "FS_labels"
-  ),
-  grf_policy = c(
-    "grf.subg.harm.survival",
-    "grf.estimates.out",
-    "policy_tree",
-    "causal_survival_forest"
-  ),
-  search_consistency = c(
-    "subgroup.search",
-    "subgroup.consistency",
-    "extract_subgroup",
-    "filter_by_lassokeep",
-    "is.continuous",
-    "process_conf_force_expr",
-    "is_flag_continuous",
-    "is_flag_drop",
-    "lasso_selection",
-    "get_Cox_sg",
-    "get_conf_force"
-  ),
-  bootstrap_parallel = c(
-    "bootstrap_results",
-    "bootstrap_ystar",
-    "ensure_packages",
-    "fit_cox_models",
-    "build_cox_formula",
-    "cox.formula.boot",
-    "setup_parallel_SGcons"
-  )
-)
-
-#' Flatten required functions list to character vector
-#'
-#' @return Character vector of all function names needed in parallel workers
-#' @keywords internal
-get_bootstrap_exports <- function() {
-  unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
-}
-
-#' Find integer pairs (x, y) such that x * y = z and y >= x
-#'
-#' Given an integer z, this function finds all integer pairs (x, y) such that x * y = z and y >= x.
-#' Optionally, you can return only the pair with the largest value of x or y.
-#'
-#' @param z Integer. The target product.
-#' @param return_largest Character. If \"x\", returns the pair with the largest x. If \"y\", returns the pair with the largest y. If NULL, returns all pairs.
-#'
-#' @return A matrix of integer pairs (x, y) satisfying the conditions, or a single pair if return_largest is specified.
-#' @examples
-#' find_xy_given_z(12)
-#' find_xy_given_z(12, return_largest = \"x\")
-#' find_xy_given_z(12, return_largest = \"y\")
-#' @keywords internal
-
-find_xy_given_z <- function(z, return_largest = NULL) {
-  pairs <- list()
-  for (x in 1:z) {
-    if (z %% x == 0) {
-      y <- z / x
-      if (y >= x && y %% 1 == 0) {
-        pairs[[length(pairs) + 1]] <- c(x, y)
-      }
-    }
-  }
-  result <- do.call(rbind, pairs)
-  if (!is.null(return_largest)) {
-    if (return_largest == "x") {
-      idx <- which.max(result[,1])
-      return(result[idx, , drop = FALSE])
-    } else if (return_largest == "y") {
-      idx <- which.max(result[,2])
-      return(result[idx, , drop = FALSE])
-    }
-  }
-  return(result)
-}
-
-
-#' Ensure Required Packages Are Installed and Loaded
-#'
-#' Installs and loads required packages if not already available.
-#'
-#' @param pkgs Character vector of package names.
-#' @return None. Packages are loaded into the session.
-#' @export
-
-ensure_packages <- function(pkgs) {
-  for (pkg in pkgs) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      install.packages(pkg)
-    }
-    library(pkg, character.only = TRUE)
-  }
-}
-
 #' Build Cox Model Formula
 #'
 #' Constructs a Cox model formula from variable names.
@@ -245,6 +49,7 @@ bootstrap_ystar <- function(df, nb_boots) {
     .errorhandling = "pass"
   ) %dofuture% {
     set.seed(8316951 + boot * 100)
+    # Do NOT modify the above seed this needs to align with resampling
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -253,133 +58,173 @@ bootstrap_ystar <- function(df, nb_boots) {
   }
 }
 
-#' Prepare data for bootstrap forestsearch re-run
+#' Bootstrap Results for ForestSearch with Bias Correction
 #'
-#' Removes confounders and treatment flag to force fresh variable selection
-#' in each bootstrap iteration. This ensures the full bootstrap distribution
-#' of variable importance and selection is captured.
+#' Runs bootstrap analysis for ForestSearch, fitting Cox models and computing
+#' bias-corrected estimates and valid CIs (see vignette for references)
 #'
-#' @param df_original Full original analysis data frame
-#' @param df_bootstrap Bootstrap resample of analysis data
-#' @param confounders_to_drop Character vector of confounder names
+#' @param fs.est List. ForestSearch results object from \code{\link{forestsearch}}.
+#'   Must contain:
+#'   \itemize{
+#'     \item \code{df.est}: Data frame with analysis data including \code{treat.recommend}
+#'     \item \code{confounders.candidate}: Character vector of confounder names
+#'     \item \code{args_call_all}: List of original forestsearch call arguments
+#'   }
+#' @param df_boot_analysis Data frame. Bootstrap analysis data with same structure
+#'   as \code{fs.est$df.est}. Must contain columns for outcome, event, treatment,
+#'   and the \code{treat.recommend} flag.
+#' @param cox.formula.boot Formula. Cox model formula for bootstrap, typically
+#'   created by \code{\link{build_cox_formula}}. Should be of form
+#'   \code{Surv(outcome, event) ~ treatment}.
+#' @param nb_boots Integer. Number of bootstrap samples to generate (e.g., 500-1000).
+#'   More iterations provide better bias correction but increase computation time.
+#' @param show_three Logical. If \code{TRUE}, prints detailed progress for the
+#'   first three bootstrap iterations for debugging purposes. Default: \code{FALSE}.
+#' @param H_obs Numeric. Observed log hazard ratio for subgroup H (harm/questionable group,
+#'   \code{treat.recommend == 0}) from original sample. Used as reference for
+#'   bias correction.
+#' @param Hc_obs Numeric. Observed log hazard ratio for subgroup H^c (complement/recommend,
+#'   \code{treat.recommend == 1}) from original sample. Used as reference for
+#'   bias correction.
 #'
-#' @return List with:
-#'   - df_analysis: Bootstrap data with confounders removed
-#'   - df_predict: Original data with confounders removed
+#' @return Data.table with one row per bootstrap iteration and columns:
+#'   \describe{
+#'     \item{H_biasadj_1}{Bias-corrected estimate for H using method 1:
+#'       \code{H_obs - (Hstar_star - Hstar_obs)}}
+#'     \item{H_biasadj_2}{Bias-corrected estimate for H using method 2:
+#'       \code{2*H_obs - (H_star + Hstar_star - Hstar_obs)}}
+#'     \item{Hc_biasadj_1}{Bias-corrected estimate for H^c using method 1}
+#'     \item{Hc_biasadj_2}{Bias-corrected estimate for H^c using method 2}
+#'     \item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
+#'     \item{max_sg_est}{Numeric. Maximum subgroup hazard ratio found}
+#'     \item{prop_maxk}{Numeric. Proportion of maximum K factors used}
+#'     \item{L}{Integer. Number of candidate factors evaluated}
+#'     \item{max_count}{Integer. Maximum number of factor combinations}
+#'   }
+#'   Rows where no valid subgroup was found will have \code{NA} for bias corrections.
 #'
-#' @details
-#' By removing confounders from the bootstrap data, we force forestsearch
-#' to re-run its full variable selection pipeline (GRF, LASSO, etc.) on
-#' each bootstrap sample. This captures the distribution of variable
-#' selection stability across resamples.
+#' @section Bias Correction Methods:
+#' The function implements two bias correction approaches:
+#' \enumerate{
+#'   \item \strong{Method 1 (Simple Optimism)}: Corrects for optimism using the difference
+#'     between bootstrap internal validation (\code{Hstar_star}) and
+#'     bootstrap-on-original (\code{Hstar_obs}):
+#'     \deqn{H_{adj1} = H_{obs} - (H*_{star} - H*_{obs})}
+#'   \item \strong{Method 2 (Double Bootstrap)}: Uses both the bootstrap estimate and the
+#'     optimism correction for a more conservative adjustment:
+#'     \deqn{H_{adj2} = 2 \times H_{obs} - (H_{star} + H*_{star} - H*_{obs})}
+#' }
+#' where:
+#' \itemize{
+#'   \item \code{H_obs}: Original subgroup HR on original data
+#'   \item \code{H_star}: Original subgroup HR on bootstrap data
+#'   \item \code{Hstar_obs}: New subgroup (found in bootstrap) HR on original data
+#'   \item \code{Hstar_star}: New subgroup (found in bootstrap) HR on bootstrap data
+#' }
 #'
-#' @export
-
-prepare_bootstrap_dataframes <- function(df_original, df_bootstrap,
-                                         confounders_to_drop) {
-  # Variables to exclude: original confounders + treatment recommendation
-  drop_vars <- c(confounders_to_drop, "treat.recommend")
-
-  # Remove these from both original and bootstrap data
-  df_analysis_clean <- df_original[, !(names(df_original) %in% drop_vars)]
-  df_predict_clean <- df_bootstrap[, !(names(df_bootstrap) %in% drop_vars)]
-
-  list(
-    df_analysis = df_analysis_clean,
-    df_predict = df_predict_clean
-  )
-}
-
-#' Configure forestsearch arguments for bootstrap execution
+#' @section Computational Details:
+#' \itemize{
+#'   \item Uses \code{doFuture} backend for parallel execution (configured externally)
+#'   \item Sets reproducible seeds: \code{8316951 + boot * 100} for each iteration
+#'   \item Each bootstrap iteration runs full ForestSearch pipeline including
+#'     variable selection, subgroup search, and consistency evaluation
+#'   \item Sequential execution within each bootstrap prevents nested parallelization
+#'   \item Failed bootstrap iterations generate warnings but don't stop execution
+#'   \item Confounders are removed from bootstrap data to force fresh variable selection
+#' }
 #'
-#' Modifies original forestsearch arguments to suit bootstrap context:
-#' - Disables output generation (plots, verbose details)
-#' - Forces variable re-selection (drops GRF results, LASSO keeps)
-#' - Prevents nested parallelization
-#' - Applies Bootstrap-specific seeds and data
+#' @section Bootstrap Configuration:
+#' Each bootstrap iteration modifies ForestSearch arguments to:
+#' \itemize{
+#'   \item \strong{Suppress output}: \code{details}, \code{showten_subgroups},
+#'     \code{plot.sg}, \code{plot.grf} all set to \code{FALSE}
+#'   \item \strong{Force re-selection}: \code{grf_res} and \code{grf_cuts} set to \code{NULL}
+#'   \item \strong{Prevent nested parallel}: \code{parallel_args$plan = "sequential"},
+#'     \code{workers = 1}
+#' }
 #'
-#' @param base_args List from original forestsearch call (args_call_all)
-#' @param df_analysis_boot Bootstrap data for analysis
-#' @param df_predict_boot Original data for prediction (for oracle)
-#' @param show_details Logical. Show algorithm details for this iteration
+#' @section Performance Considerations:
+#' \itemize{
+#'   \item Typical runtime: 1-5 seconds per bootstrap iteration
+#'   \item For 1000 bootstraps with 6 workers: ~3-10 minutes total
+#'   \item Memory usage scales with dataset size and number of workers
+#'   \item Consider reducing \code{nb_boots} for initial testing (e.g., 100)
+#' }
 #'
-#' @return Modified args list ready for do.call(forestsearch, .)
+#' @section Error Handling:
+#' The function gracefully handles three failure modes:
+#' \enumerate{
+#'   \item Bootstrap sample creation fails: Returns row with all \code{NA}
+#'   \item ForestSearch fails to run: Warns and returns row with all \code{NA}
+#'   \item ForestSearch runs but finds no subgroup: Returns row with all \code{NA}
+#' }
+#' All three cases ensure the foreach loop can still combine results via \code{rbind}.
 #'
-#' @details
-#' Three categories of modifications:
+#' @note This function is designed to be called within a \code{foreach} loop
+#'   with \code{\%dofuture\%} operator. It requires:
+#'   \itemize{
+#'     \item All functions in \code{\link{get_bootstrap_exports}} to be available
+#'       in the parallel workers
+#'     \item Packages listed in \code{BOOTSTRAP_REQUIRED_PACKAGES} to be installed
+#'     \item Proper parallel backend setup via \code{\link{setup_parallel_SGcons}}
+#'   }
 #'
-#' 1. OUTPUT SUPPRESSION (for parallelization efficiency):
-#'    - details: Set to show_details (usually FALSE)
-#'    - showten_subgroups: Always FALSE in bootstrap
-#'    - plot.sg, plot.grf: Always FALSE (can't plot in parallel)
+#' @seealso
+#' \code{\link{forestsearch_bootstrap_dofuture}} for the wrapper function that
+#'   sets up parallelization and calls this function
+#' \code{\link{build_cox_formula}} for creating the Cox formula
+#' \code{\link{fit_cox_models}} for initial Cox model fitting
+#' \code{\link{get_Cox_sg}} for Cox model fitting on subgroups
+#' \code{\link{get_dfRes}} for processing bootstrap results into confidence intervals
+#' \code{\link{bootstrap_ystar}} for generating the Ystar matrix
 #'
-#' 2. VARIABLE RE-SELECTION (to capture bootstrap variability):
-#'    - grf_res: Set to NULL (force GRF re-run on bootstrap)
-#'    - grf_cuts: Set to NULL (force fresh cuts)
+#' @examples
+#' \dontrun{
+#' # Typically called via forestsearch_bootstrap_dofuture()
+#' # Manual usage for debugging:
 #'
-#' 3. SEQUENTIAL EXECUTION (prevent nested parallelization):
-#'    - parallel_args$plan: "sequential" (single-threaded)
-#'    - parallel_args$workers: 1
-#'    - parallel_args$show_message: FALSE (suppress within-bootstrap messages)
+#' # 1. Fit initial ForestSearch model
+#' fs_result <- forestsearch(
+#'   df.analysis = mydata,
+#'   outcome.name = "time",
+#'   event.name = "status",
+#'   treat.name = "treatment",
+#'   confounders.name = c("age", "sex", "stage")
+#' )
 #'
-#' @export
-
-configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
-                                                  df_predict_boot,
-                                                  show_details = FALSE) {
-
-  args <- base_args  # Start with original configuration
-
-  # ===================================================================
-  # Category 1: OUTPUT SUPPRESSION (parallelization efficiency)
-  # ===================================================================
-  # Why: Plotting/verbose output incompatible with parallel workers
-  # In parallel context, output goes to individual workers, not main thread
-
-  args$details <- show_details                # Show only if debugging first N bootstraps
-  args$showten_subgroups <- FALSE             # Never show in bootstrap (large output)
-  args$plot.sg <- FALSE                       # Can't plot from parallel worker
-  args$plot.grf <- FALSE                      # Can't plot from parallel worker
-
-  # ===================================================================
-  # Category 2: FORCE VARIABLE RE-SELECTION (bootstrap variability)
-  # ===================================================================
-  # Why: Each bootstrap should re-discover which variables are important
-  # If we reuse GRF results from original, bootstrap distribution is biased
-
-  args$grf_res <- NULL       # Force GRF to run fresh on bootstrap sample
-  args$grf_cuts <- NULL      # Force fresh GRF cuts (not oracle)
-
-  # Keep LASSO selection though - it's already data-adaptive
-  # (Note: LASSO settings from original call preserved)
-
-  # ===================================================================
-  # Category 3: SEQUENTIAL EXECUTION (prevent nested parallelization)
-  # ===================================================================
-  # Why: We're already in a parallel worker. Nested parallelization
-  # causes: resource contention, deadlocks, very slow execution
-
-  args$parallel_args$plan <- "sequential"       # No parallelization in bootstrap
-  args$parallel_args$workers <- 1L              # Single thread only
-  args$parallel_args$show_message <- FALSE      # Suppress worker-level messages
-
-  # ===================================================================
-  # DATA: Cleaned data with confounders removed
-  # ===================================================================
-  args$df.analysis <- df_analysis_boot
-  args$df.predict <- df_predict_boot
-
-  args
-}
-
-
-
-
-#' Bootstrap Results for ForestSearch (FIXED VERSION)
+#' # 2. Build Cox formula
+#' cox_formula <- build_cox_formula("time", "status", "treatment")
 #'
-#' Fixed version addressing variable name inconsistency bug in legacy code
+#' # 3. Get observed estimates
+#' cox_fits <- fit_cox_models(fs_result$df.est, cox_formula)
 #'
-#' @inheritParams bootstrap_results
+#' # 4. Set up parallel backend
+#' library(doFuture)
+#' registerDoFuture()
+#' plan(multisession, workers = 6)
+#'
+#' # 5. Run bootstrap (note: this is already parallelized internally)
+#' boot_results <- bootstrap_results(
+#'   fs.est = fs_result,
+#'   df_boot_analysis = fs_result$df.est,
+#'   cox.formula.boot = cox_formula,
+#'   nb_boots = 100,
+#'   show_three = TRUE,
+#'   H_obs = cox_fits$H_obs,
+#'   Hc_obs = cox_fits$Hc_obs
+#' )
+#'
+#' # 6. Check results
+#' summary(boot_results)
+#'
+#' # Proportion of bootstraps that found a subgroup
+#' mean(!is.na(boot_results$H_biasadj_2))
+#' }
+#'
+#' @family bootstrap functions
+#' @importFrom foreach foreach
+#' @importFrom data.table data.table
+#' @importFrom doFuture %dofuture%
 #' @export
 
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
@@ -399,7 +244,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
     set.seed(8316951 + boot * 100)
-
+    # Do NOT modify the above seed this needs to align with ystar calculation
     # Create bootstrap sample
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
@@ -560,382 +405,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 }
 
 
-#' Compute Bias Corrections for Bootstrap Subgroup Estimates
-#'
-#' Helper function that computes bias-corrected estimates for both subgroups
-#' (H and H^c) using two correction methods. Handles cases where ForestSearch
-#' fails to identify a subgroup.
-#'
-#' @param run_bootstrap List. Output from \code{\link{forestsearch}} run on
-#'   bootstrap sample, or a \code{try-error} object if the run failed.
-#' @param H_obs Numeric. Observed log hazard ratio for subgroup H from original
-#'   sample. Used as the reference point for bias correction.
-#' @param Hc_obs Numeric. Observed log hazard ratio for subgroup H^c from
-#'   original sample.
-#' @param h_star Numeric. Log hazard ratio for H estimated on bootstrap sample
-#'   using original subgroup definition.
-#' @param hc_star Numeric. Log hazard ratio for H^c estimated on bootstrap sample
-#'   using original subgroup definition.
-#' @param cox.formula.boot Formula. Cox model formula for estimation.
-#'
-#' @return Named list with components:
-#'   \describe{
-#'     \item{H_biasadj_1}{Numeric or NA. Bias correction method 1 for H}
-#'     \item{H_biasadj_2}{Numeric or NA. Bias correction method 2 for H}
-#'     \item{Hc_biasadj_1}{Numeric or NA. Bias correction method 1 for H^c}
-#'     \item{Hc_biasadj_2}{Numeric or NA. Bias correction method 2 for H^c}
-#'     \item{tmins_search}{Numeric or NA. Search time in minutes}
-#'     \item{max_sg_est}{Numeric or NA. Maximum subgroup HR estimate}
-#'     \item{prop_maxk}{Numeric or NA. Proportion using max K factors}
-#'     \item{L}{Integer or NA. Number of factors evaluated}
-#'     \item{max_count}{Integer or NA. Total factor combinations}
-#'   }
-#'   All values are \code{NA} if \code{run_bootstrap} is an error or found no
-#'   valid subgroup.
-#'
-#' @section Bias Correction Formulas:
-#' When a valid subgroup is found on the bootstrap sample:
-#' \itemize{
-#'   \item \code{H_biasadj_1 = H_obs - (Hstar_star - Hstar_obs)}
-#'     where \code{Hstar_star} is the HR for the \emph{new} subgroup evaluated
-#'     on the bootstrap sample, and \code{Hstar_obs} is the HR for the new
-#'     subgroup evaluated on the original sample (optimism estimate).
-#'   \item \code{H_biasadj_2 = 2*H_obs - (H_star + Hstar_star - Hstar_obs)}
-#'     incorporates both the bootstrap estimate (\code{H_star}) and the
-#'     optimism correction.
-#' }
-#'
-#' @section Error Handling:
-#' The function gracefully handles three failure modes:
-#' \enumerate{
-#'   \item \code{run_bootstrap} is a \code{try-error}: Returns all \code{NA}
-#'   \item \code{run_bootstrap$sg.harm} is \code{NULL}: No subgroup found, returns \code{NA}
-#'   \item Cox model fitting fails: Wrapped in \code{try()} to prevent crashes
-#' }
-#'
-#' @note This is an internal helper function not meant for direct user calls.
-#'   It's extracted from \code{\link{bootstrap_results}} to improve readability
-#'   and testability.
-#'
-#' @seealso \code{\link{bootstrap_results}} for the main bootstrap loop
-#' @export
-
-compute_bias_corrections <- function(run_bootstrap, H_obs, Hc_obs, h_star,
-                                     hc_star, cox.formula.boot) {
-
-  # Initialize all return values as NA
-  result <- list(
-    H_biasadj_1 = NA_real_,
-    H_biasadj_2 = NA_real_,
-    Hc_biasadj_1 = NA_real_,
-    Hc_biasadj_2 = NA_real_,
-    tmins_search = NA_real_,
-    max_sg_est = NA_real_,
-    prop_maxk = NA_real_,
-    L = NA_integer_,
-    max_count = NA_integer_
-  )
-
-  # Check if bootstrap run succeeded and found a subgroup
-  if (inherits(run_bootstrap, "try-error") || is.null(run_bootstrap$sg.harm)) {
-    return(result)
-  }
-
-  # Extract prediction datasets from bootstrap ForestSearch run
-  # df_pred_boot: original data with new subgroup assignments
-  # dfboot_pred_boot: bootstrap data with new subgroup assignments
-  df_pred_boot <- run_bootstrap$df.predict
-  dfboot_pred_boot <- run_bootstrap$df.est
-
-  # Extract search metrics
-  result$max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-  result$tmins_search <- as.numeric(run_bootstrap$find.grps$time_search)
-  result$prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
-  result$max_count <- run_bootstrap$find.grps$max_count
-  result$L <- run_bootstrap$find.grps$L
-
-  # ====================================================================
-  # Compute bias corrections for subgroup H (harm/questionable group)
-  # ====================================================================
-
-  # Hstar_obs: New subgroup (from bootstrap) evaluated on ORIGINAL data
-  hstar_obs <- get_Cox_sg(
-    df_sg = subset(df_pred_boot, treat.recommend == 0),
-    cox.formula = cox.formula.boot,
-    est.loghr = TRUE
-  )$est_obs
-
-  # Hstar_star: New subgroup (from bootstrap) evaluated on BOOTSTRAP data
-  hstar_star <- get_Cox_sg(
-    df_sg = subset(dfboot_pred_boot, treat.recommend == 0),
-    cox.formula = cox.formula.boot,
-    est.loghr = TRUE
-  )$est_obs
-
-  # Bias correction method 1: Simple optimism correction
-  # Removes the optimism (Hstar_star - Hstar_obs) from observed estimate
-  result$H_biasadj_1 <- H_obs - (hstar_star - hstar_obs)
-
-  # Bias correction method 2: Double correction
-  # Uses both bootstrap estimate (H_star) and optimism correction
-  result$H_biasadj_2 <- 2 * H_obs - (h_star + hstar_star - hstar_obs)
-
-  # ====================================================================
-  # Compute bias corrections for subgroup H^c (complement/recommend group)
-  # ====================================================================
-
-  # Hcstar_obs: New subgroup complement evaluated on ORIGINAL data
-  hcstar_obs <- get_Cox_sg(
-    df_sg = subset(df_pred_boot, treat.recommend == 1),
-    cox.formula = cox.formula.boot,
-    est.loghr = TRUE
-  )$est_obs
-
-  # Hcstar_star: New subgroup complement evaluated on BOOTSTRAP data
-  hcstar_star <- get_Cox_sg(
-    df_sg = subset(dfboot_pred_boot, treat.recommend == 1),
-    cox.formula = cox.formula.boot,
-    est.loghr = TRUE
-  )$est_obs
-
-  # Apply same correction methods for H^c
-  result$Hc_biasadj_1 <- Hc_obs - (hcstar_star - hcstar_obs)
-  result$Hc_biasadj_2 <- 2 * Hc_obs - (hc_star + hcstar_star - hcstar_obs)
-
-  return(result)
-}
-
-#' Bootstrap Results for ForestSearch with Bias Correction
-#'
-#' Runs bootstrap analysis for ForestSearch, fitting Cox models and computing
-#' bias-corrected estimates using the .632+ bootstrap method. Each bootstrap
-#' iteration re-runs the full ForestSearch pipeline to capture variability in
-#' subgroup identification.
-#'
-#' @param fs.est List. ForestSearch results object from \code{\link{forestsearch}}.
-#'   Must contain:
-#'   \itemize{
-#'     \item \code{df.est}: Data frame with analysis data including \code{treat.recommend}
-#'     \item \code{confounders.candidate}: Character vector of confounder names
-#'     \item \code{args_call_all}: List of original forestsearch call arguments
-#'   }
-#' @param df_boot_analysis Data frame. Bootstrap analysis data with same structure
-#'   as \code{fs.est$df.est}. Must contain columns for outcome, event, treatment,
-#'   and the \code{treat.recommend} flag.
-#' @param cox.formula.boot Formula. Cox model formula for bootstrap, typically
-#'   created by \code{\link{build_cox_formula}}. Should be of form
-#'   \code{Surv(outcome, event) ~ treatment}.
-#' @param nb_boots Integer. Number of bootstrap samples to generate (e.g., 500-1000).
-#'   More iterations provide better bias correction but increase computation time.
-#' @param show_three Logical. If \code{TRUE}, prints detailed progress for the
-#'   first three bootstrap iterations for debugging purposes. Default: \code{FALSE}.
-#' @param H_obs Numeric. Observed log hazard ratio for subgroup H (harm group,
-#'   \code{treat.recommend == 0}) from original sample. Used as reference for
-#'   bias correction.
-#' @param Hc_obs Numeric. Observed log hazard ratio for subgroup H^c (complement,
-#'   \code{treat.recommend == 1}) from original sample. Used as reference for
-#'   bias correction.
-#'
-#' @return Data.table with one row per bootstrap iteration and columns:
-#'   \describe{
-#'     \item{H_biasadj_1}{Bias-corrected estimate for H using method 1:
-#'       \code{H_obs - (H_boot_boot - H_boot_obs)}}
-#'     \item{H_biasadj_2}{Bias-corrected estimate for H using method 2:
-#'       \code{2*H_obs - (H_boot + H_boot_boot - H_boot_obs)}}
-#'     \item{Hc_biasadj_1}{Bias-corrected estimate for H^c using method 1}
-#'     \item{Hc_biasadj_2}{Bias-corrected estimate for H^c using method 2}
-#'     \item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
-#'     \item{max_sg_est}{Numeric. Maximum subgroup hazard ratio found}
-#'     \item{prop_maxk}{Numeric. Proportion of maximum K factors used}
-#'     \item{L}{Integer. Number of candidate factors evaluated}
-#'     \item{max_count}{Integer. Maximum number of factor combinations}
-#'   }
-#'   Rows where no valid subgroup was found will have \code{NA} for bias corrections.
-#'
-#' @section Bias Correction Methods:
-#' The function implements two bias correction approaches:
-#' \enumerate{
-#'   \item \strong{Method 1 (Simple)}: Corrects for optimism using the difference
-#'     between bootstrap internal validation (\code{H_boot_boot}) and
-#'     bootstrap-on-original (\code{H_boot_obs})
-#'   \item \strong{Method 2 (Double)}: Uses both the bootstrap estimate and the
-#'     optimism correction for a more conservative adjustment
-#' }
-#'
-#' @section Computational Details:
-#' \itemize{
-#'   \item Uses \code{doFuture} backend for parallel execution (configured externally)
-#'   \item Sets reproducible seeds: \code{8316951 + boot * 100} for each iteration
-#'   \item Each bootstrap iteration runs full ForestSearch pipeline including
-#'     variable selection, subgroup search, and consistency evaluation
-#'   \item Sequential execution within each bootstrap prevents nested parallelization
-#'   \item Failed bootstrap iterations generate warnings but don't stop execution
-#' }
-#'
-#' @section Performance Considerations:
-#' \itemize{
-#'   \item Typical runtime: 1-5 seconds per bootstrap iteration
-#'   \item For 1000 bootstraps with 6 workers: ~3-10 minutes total
-#'   \item Memory usage scales with dataset size and number of workers
-#'   \item Consider reducing \code{nb_boots} for initial testing (e.g., 100)
-#' }
-#'
-#' @note This function is designed to be called within a \code{foreach} loop
-#'   with \code{\%dofuture\%} operator. It requires:
-#'   \itemize{
-#'     \item All functions in \code{\link{get_bootstrap_exports}} to be available
-#'       in the parallel workers
-#'     \item Packages listed in \code{BOOTSTRAP_REQUIRED_PACKAGES} to be installed
-#'     \item Proper parallel backend setup via \code{\link{setup_parallel_SGcons}}
-#'   }
-#'
-#' @seealso
-#' \code{\link{forestsearch_bootstrap_dofuture}} for the wrapper function that
-#'   sets up parallelization and calls this function
-#' \code{\link{prepare_bootstrap_dataframes}} for data preparation
-#' \code{\link{configure_forestsearch_bootstrap_args}} for argument configuration
-#' \code{\link{get_Cox_sg}} for Cox model fitting
-#' \code{\link{get_dfRes}} for processing bootstrap results into confidence intervals
-#'
-#' @examples
-#' \dontrun{
-#' # Typically called via forestsearch_bootstrap_dofuture()
-#' # Manual usage for debugging:
-#'
-#' # 1. Fit initial ForestSearch model
-#' fs_result <- forestsearch(
-#'   df.analysis = mydata,
-#'   outcome.name = "time",
-#'   event.name = "status",
-#'   treat.name = "treatment",
-#'   confounders.name = c("age", "sex", "stage")
-#' )
-#'
-#' # 2. Build Cox formula
-#' cox_formula <- build_cox_formula("time", "status", "treatment")
-#'
-#' # 3. Get observed estimates
-#' cox_fits <- fit_cox_models(fs_result$df.est, cox_formula)
-#'
-#' # 4. Run bootstrap (within foreach %dofuture% loop)
-#' boot_results <- bootstrap_results(
-#'   fs.est = fs_result,
-#'   df_boot_analysis = fs_result$df.est,
-#'   cox.formula.boot = cox_formula,
-#'   nb_boots = 100,
-#'   show_three = TRUE,
-#'   H_obs = cox_fits$H_obs,
-#'   Hc_obs = cox_fits$Hc_obs
-#' )
-#' }
-#'
-#' @references
-#' Efron, B., & Tibshirani, R. (1997). Improvements on cross-validation: the
-#' .632+ bootstrap method. \emph{Journal of the American Statistical Association},
-#' 92(438), 548-560.
-#'
-#' @family bootstrap functions
-#' @importFrom foreach foreach
-#' @importFrom data.table data.table
-#' @importFrom doFuture %dofuture%
-#' @export
-
-bootstrap_results_new <- function(fs.est, df_boot_analysis, cox.formula.boot,
-                              nb_boots, show_three, H_obs, Hc_obs) {
-
-  NN <- nrow(df_boot_analysis)
-  id0 <- seq_len(NN)
-
-  foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(
-      seed = TRUE,
-      add = get_bootstrap_exports()
-    ),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-
-    # Show details for first 3 bootstrap iterations
-    show3 <- show_three && (boot <= 3)
-
-    # Set reproducible seed
-    BASE_SEED <- 8316951
-    set.seed(BASE_SEED + boot * 100)
-
-    # Create bootstrap sample
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-
-    # Cache subgroup subsets
-    df_boot_h <- subset(df_boot, treat.recommend == 0)
-    df_boot_hc <- subset(df_boot, treat.recommend == 1)
-
-    # Bootstrap data evaluated at H: H_star
-    fit_h_star <- get_Cox_sg(
-      df_sg = df_boot_h,
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    h_star <- fit_h_star$est_obs
-
-    fit_hc_star <- get_Cox_sg(
-      df_sg = df_boot_hc,
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    hc_star <- fit_hc_star$est_obs
-
-    # Prepare bootstrap dataframes using helper function
-    boot_data <- prepare_bootstrap_dataframes(
-      df_original = df_boot_analysis,
-      df_bootstrap = df_boot,
-      confounders_to_drop = fs.est$confounders.candidate
-    )
-
-    # Configure forestsearch arguments using helper function
-    args_fs_boot <- configure_forestsearch_bootstrap_args(
-      base_args = fs.est$args_call_all,
-      df_analysis_boot = boot_data$df_analysis,
-      df_predict_boot = boot_data$df_predict,
-      show_details = show3
-    )
-
-    # Run forestsearch on bootstrap sample
-    run_bootstrap <- try(do.call(forestsearch, args_fs_boot), silent = TRUE)
-
-    if (inherits(run_bootstrap, "try-error")) {
-      warning("Bootstrap iteration ", boot, " failed: ", as.character(run_bootstrap))
-    }
-
-    # Compute bias corrections
-    bias_results <- compute_bias_corrections(
-      run_bootstrap = run_bootstrap,
-      H_obs = H_obs,
-      Hc_obs = Hc_obs,
-      h_star = h_star,
-      hc_star = hc_star,
-      cox.formula.boot = cox.formula.boot
-    )
-
-    # Return results as data.table
-    dfres <- data.table::data.table(
-      H_biasadj_1 = bias_results$H_biasadj_1,
-      H_biasadj_2 = bias_results$H_biasadj_2,
-      Hc_biasadj_1 = bias_results$Hc_biasadj_1,
-      Hc_biasadj_2 = bias_results$Hc_biasadj_2,
-      tmins_search = bias_results$tmins_search,
-      max_sg_est = bias_results$max_sg_est,
-      prop_maxk = bias_results$prop_maxk,
-      L = bias_results$L,
-      max_count = bias_results$max_count
-    )
-
-    return(dfres)
-  }
-}
-
 
 #' Bootstrap Results for ForestSearch (legacy, in case new one doesn't work out)
 #'
@@ -989,20 +458,6 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
     prop_maxk <- NA
     L <- NA
     max_count <- NA
-
-    # Note: need to add these functions to "add list"
-    # boot_data <- prepare_bootstrap_dataframes(
-    #   df_original = df_boot_analysis,
-    #   df_bootstrap = df_boot,
-    #   confounders_to_drop = fs.est$confounders.candidate
-    # )
-    #
-    # args_FS_boot <- configure_forestsearch_bootstrap_args(
-    #   base_args = fs.est$args_call_all,
-    #   df_analysis_boot = boot_data$df_analysis,
-    #   df_predict_boot = boot_data$df_predict,
-    #   show_details = show3  # show3 = (boot <= 3)
-    # )
 
     # Drop initial confounders
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
@@ -1066,20 +521,6 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
 }
 
-#' Format Confidence Interval for Estimates
-#'
-#' Formats confidence interval for estimates.
-#'
-#' @param estimates Data frame or data.table of estimates.
-#' @param col_names Character vector of column names for estimate, lower, upper.
-#' @return Character string formatted as \"estimate (lower, upper)\".
-#' @export
-
-format_CI <- function(estimates, col_names) {
-  resH <- estimates[, ..col_names]
-  Hstat <- round(unlist(resH[1, ]), 2)
-  paste0(Hstat[1], " (", Hstat[2], ",", Hstat[3], ")")
-}
 
 #' ForestSearch Bootstrap with doFuture Parallelization
 #'
