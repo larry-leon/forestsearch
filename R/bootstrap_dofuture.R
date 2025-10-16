@@ -653,7 +653,7 @@ compute_bias_corrections <- function(run_bootstrap, H_obs, Hc_obs, h_star,
 #' @importFrom doFuture %dofuture%
 #' @export
 
-bootstrap_results_new <- function(fs.est, df_boot_analysis, cox.formula.boot,
+bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs) {
 
   NN <- nrow(df_boot_analysis)
@@ -769,7 +769,7 @@ bootstrap_results_new <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @importFrom doFuture %dofuture%
 #' @export
 
-bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
+bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
 
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
