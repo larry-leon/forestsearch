@@ -234,13 +234,18 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     if (show_three) show3 <- (boot <= 3)
     # Note: do NOT change the seeds as these need to align with ystar
     set.seed(8316951 + boot * 100)
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
 
+    in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
 
     # Preserve original IDs and add bootstrap-specific index
     df_boot$id_original <- df_boot$id  # Keep original
     df_boot$id <- seq_len(nrow(df_boot))  # Bootstrap index
+
+    if ("id" %in% names(df_boot)) df_boot$id <- as.character(df_boot$id)
+    if ("id_original" %in% names(df_boot)) df_boot$id_original <- as.character(df_boot$id_original)
+    if ("id_boot" %in% names(df_boot)) df_boot$id_boot <- as.character(df_boot$id_boot)
+
 
     # Track bootstrap weights
     df_boot$boot_weight <- as.numeric(table(in_boot)[match(in_boot, names(table(in_boot)))])
@@ -269,6 +274,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
     dfnew$id_original <- dfnew$id  # Add this line for consistency
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
+    if ("id" %in% names(dfnew)) dfnew$id <- as.character(dfnew$id)
+    if ("id" %in% names(dfnew_boot)) dfnew_boot$id <- as.character(dfnew_boot$id)
 
     # Extract arguments in forestsearch (observed) data analysis
 
