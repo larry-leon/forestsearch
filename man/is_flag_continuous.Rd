@@ -2,7 +2,7 @@
 % Please edit documentation in R/get_FSdata_helpers.R
 \name{is_flag_continuous}
 \alias{is_flag_continuous}
-\title{Check if cut expression is for a continuous variable}
+\title{Check if cut expression is for a continuous variable (OPTIMIZED)}
 \usage{
 is_flag_continuous(thiscut, confounders.name, df, cont.cutoff)
 }
@@ -20,4 +20,5 @@ Logical; TRUE if continuous, FALSE otherwise.
 }
 \description{
 Determines if a cut expression refers to a continuous variable.
+This optimized version avoids redundant lookups.
 }
