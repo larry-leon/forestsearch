@@ -223,7 +223,7 @@ hr.threshold = 1.0,max.minutes = 30,minp = 0.05,rmin = 5,details = FALSE,maxk = 
   t.start<-proc.time()[3]
   t.sofar<-0
   # Loop through single-factor subgroups first
-  results_list <- lapply(1:tot_counts, function(kk) {
+  results_list <- lapply(seq_len(tot_counts), function(kk) {
     covs.in <- get_covs_in(
       kk, maxk, L,
       counts_1factor, index_1factor,
