@@ -1,5 +1,9 @@
+
+rm(list=ls())
+
 suppressMessages(library(weightedSurv))
 suppressMessages(library(forestsearch))
+
 
 
 library(survival)
@@ -43,7 +47,7 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 output_dir <- "Vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 30
+NB <- 300
 
 t.start <- proc.time()[3]
 
