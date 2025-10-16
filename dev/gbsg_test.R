@@ -40,3 +40,7 @@ NB <- 30
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
 
+print(fs_bc$FSsg_tab)
+
+
+
