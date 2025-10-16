@@ -290,30 +290,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     args_FS_boot$plot.grf <- FALSE
 
-    # Keep only arguments that are in the formal argument list of forestsearch
-    #forestsearch_formals <- names(formals(forestsearch))
-    #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
-
-
-    #print(names(args_FS_boot))
-    #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
-
-    args_FS_boot$id.name <- "id_boot"
+     args_FS_boot$id.name <- "id_boot"
 
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
     if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
-
-    #print(args(forestsearch))
-
-    # run_bootstrap <- tryCatch(
-    #   do.call(forestsearch, args_FS_boot),
-    #   error = function(e) {
-    #     message("Error in forestsearch: ", e$message)
-    #     return(NULL)
-    #   }
-    # )
-
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
