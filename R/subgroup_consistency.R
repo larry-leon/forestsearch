@@ -27,10 +27,10 @@ get_cached_expression <- function(cache, expr_text) {
 #' Evaluate Cached Expression with Data
 #' @keywords internal
 eval_cached_expression <- function(cache, expr_text, data, subset_only = FALSE) {
-  parsed_expr <- if (is.null(cache)) {
-    parse(text = expr_text)
+  if (is.null(cache)) {
+    parsed_expr <- parse(text = expr_text)
   } else {
-    forestsearch:::get_cached_expression(cache, expr_text)
+    parsed_expr <- forestsearch:::get_cached_expression(cache, expr_text)
   }
 
   result <- eval(parsed_expr, envir = data)
@@ -246,6 +246,62 @@ get_split_hr <- function(df) {
   hr[1,1]
 }
 
+#' Evaluate Splits with Caching for Consistency
+#'
+#' @keywords internal
+evaluate_splits_cached <- function(df.x, n.splits, hr.consistency, expr_cache = NULL) {
+  N.x <- nrow(df.x)
+  set.seed(8316951)
+
+  # For split-level caching, we can cache the Cox model results
+  # based on the split pattern
+  flag.consistency <- sapply(seq_len(n.splits), function(bb) {
+    in.split1 <- sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
+
+    # Create unique key for this split configuration
+    if (!is.null(expr_cache)) {
+      # Use a hash of the split pattern as cache key
+      split_key <- paste0("split_", bb, "_", paste(head(which(in.split1), 5), collapse = "_"))
+
+      # Check if we've already evaluated this split pattern
+      hr_key1 <- paste0(split_key, "_hr1")
+      hr_key2 <- paste0(split_key, "_hr2")
+
+      if (exists(hr_key1, envir = expr_cache) && exists(hr_key2, envir = expr_cache)) {
+        expr_cache$.stats$hits <- expr_cache$.stats$hits + 2L
+        hr.split1 <- expr_cache[[hr_key1]]
+        hr.split2 <- expr_cache[[hr_key2]]
+      } else {
+        expr_cache$.stats$misses <- expr_cache$.stats$misses + 2L
+        df.x$insplit1 <- in.split1
+        df.x.split1 <- subset(df.x, insplit1 == 1)
+        df.x.split2 <- subset(df.x, insplit1 == 0)
+        hr.split1 <- suppressWarnings(get_split_hr(df.x.split1))
+        hr.split2 <- suppressWarnings(get_split_hr(df.x.split2))
+
+        # Cache the results
+        expr_cache[[hr_key1]] <- hr.split1
+        expr_cache[[hr_key2]] <- hr.split2
+        expr_cache$.stats$entries <- expr_cache$.stats$entries + 2L
+      }
+    } else {
+      df.x$insplit1 <- in.split1
+      df.x.split1 <- subset(df.x, insplit1 == 1)
+      df.x.split2 <- subset(df.x, insplit1 == 0)
+      hr.split1 <- suppressWarnings(get_split_hr(df.x.split1))
+      hr.split2 <- suppressWarnings(get_split_hr(df.x.split2))
+    }
+
+    if (!is.na(hr.split1) && !is.na(hr.split2)) {
+      as.numeric(hr.split1 > hr.consistency & hr.split2 > hr.consistency)
+    } else {
+      NA_real_
+    }
+  })
+
+  flag.consistency
+}
+
 #' Process Single Subgroup with Caching
 #'
 #' Internal function to process a single subgroup with expression caching.
@@ -268,23 +324,9 @@ process_subgroup_with_cache <- function(m, df, index.Z, names.Z, confs_labels,
   }
 
   df.x <- data.table::data.table(df.sub)
-  set.seed(8316951)
-  N.x <- nrow(df.x)
 
-  # Evaluate consistency across splits
-  flag.consistency <- sapply(seq_len(n.splits), function(bb) {
-    in.split1 <- sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
-    df.x$insplit1 <- in.split1
-    df.x.split1 <- subset(df.x, insplit1 == 1)
-    df.x.split2 <- subset(df.x, insplit1 == 0)
-    hr.split1 <- suppressWarnings(get_split_hr(df.x.split1))
-    hr.split2 <- suppressWarnings(get_split_hr(df.x.split2))
-    if (!is.na(hr.split1) && !is.na(hr.split2)) {
-      as.numeric(hr.split1 > hr.consistency & hr.split2 > hr.consistency)
-    } else {
-      NA_real_
-    }
-  })
+  # Use cached evaluation for splits
+  flag.consistency <- forestsearch:::evaluate_splits_cached(df.x, n.splits, hr.consistency, expr_cache)
 
   p.consistency <- mean(flag.consistency, na.rm = TRUE)
 
@@ -443,6 +485,7 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
     on.exit(future::plan(old_plan), add = TRUE)
     setup_parallel_SGcons(parallel_args)
 
+    # Export the internal functions to workers
     results_list <- future.apply::future_lapply(seq_len(nrow(found.hrs)),
                                                 function(m) {
                                                   # Create local cache for this worker
@@ -450,7 +493,16 @@ subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consis
                                                   forestsearch:::process_subgroup_with_cache(m, df, index.Z, names.Z, confs_labels,
                                                                                              n.splits, hr.consistency, pconsistency.threshold,
                                                                                              found.hrs, local_cache, details, maxk)
-                                                }, future.seed = TRUE)
+                                                }, future.seed = TRUE,
+                                                future.globals = list(
+                                                  forestsearch:::create_expression_cache,
+                                                  forestsearch:::get_cached_expression,
+                                                  forestsearch:::eval_cached_expression,
+                                                  forestsearch:::evaluate_splits_cached,
+                                                  forestsearch:::process_subgroup_with_cache,
+                                                  forestsearch:::FS_labels,
+                                                  get_split_hr
+                                                ))
   }
 
   # Combine results
