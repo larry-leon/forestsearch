@@ -443,7 +443,6 @@ df.confounders <- dummy(df.confounders)
   Lsg = find.grps$L, confs_labels = confs_labels, n.splits = fs.splits,
   stop_Kgroups = max_subgroups_search)))
 
-
   t.end_all<-proc.time()[3]
   t.min_all<-(t.end_all-t.start_all)/60
 
