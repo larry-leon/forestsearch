@@ -218,7 +218,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
                              "get_conf_force",
 
                              # Bootstrap/parallel
-                             "bootstrap_aware_merge",
                              "bootstrap_results",
                              "bootstrap_ystar",
                              "ensure_packages",
@@ -232,23 +231,10 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   ) %dofuture% {
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
-    # Note: do NOT change the seeds as these need to align with ystar
     set.seed(8316951 + boot * 100)
-
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
-
-    # Preserve original IDs and add bootstrap-specific index
-    df_boot$id_original <- df_boot$id  # Keep original
-    df_boot$id <- seq_len(nrow(df_boot))  # Bootstrap index
-
-    if ("id" %in% names(df_boot)) df_boot$id <- as.character(df_boot$id)
-    if ("id_original" %in% names(df_boot)) df_boot$id_original <- as.character(df_boot$id_original)
-    if ("id_boot" %in% names(df_boot)) df_boot$id_boot <- as.character(df_boot$id_boot)
-
-
-    # Track bootstrap weights
-    df_boot$boot_weight <- as.numeric(table(in_boot)[match(in_boot, names(table(in_boot)))])
+    df_boot$id_boot <- seq_len(nrow(df_boot))
 
     # Bootstrap data evaluated at H: H_star
     fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
@@ -264,27 +250,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     prop_maxk <- NA
     L <- NA
     max_count <- NA
-
     # Drop initial confounders
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-
-    #dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    #dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew$id_original <- dfnew$id  # Add this line for consistency
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-
-    if ("id" %in% names(dfnew)) dfnew$id <- as.character(dfnew$id)
-    if ("id" %in% names(dfnew_boot)) dfnew_boot$id <- as.character(dfnew_boot$id)
-
     # Extract arguments in forestsearch (observed) data analysis
 
     args_FS_boot <- fs.est$args_call_all
 
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
-
     args_FS_boot$details <- show3
     args_FS_boot$showten_subgroups <- FALSE
     args_FS_boot$plot.sg <- FALSE
@@ -306,18 +281,29 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     args_FS_boot$plot.grf <- FALSE
 
+    # Keep only arguments that are in the formal argument list of forestsearch
+    #forestsearch_formals <- names(formals(forestsearch))
+    #args_FS_boot <- args_FS_boot[names(args_FS_boot) %in% forestsearch_formals]
+
+
+    #print(names(args_FS_boot))
+    #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
+
+
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
-    if (inherits(run_bootstrap, "try-error")) {
-      if (show3 || boot <= 3) {
-        cat("\n=== Bootstrap", boot, "Failed ===\n")
-        cat("Error:", attr(run_bootstrap, "condition")$message, "\n")
-        cat("Data dimensions: nrow =", nrow(df_boot), "\n")
-        cat("Unique original IDs:", length(unique(df_boot$id_original)), "\n")
-        cat("===========================\n")
-      }
-      warning(paste("Bootstrap iteration", boot, "failed"))
-    }
+    if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
+
+    #print(args(forestsearch))
+
+    # run_bootstrap <- tryCatch(
+    #   do.call(forestsearch, args_FS_boot),
+    #   error = function(e) {
+    #     message("Error in forestsearch: ", e$message)
+    #     return(NULL)
+    #   }
+    # )
+
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
       df_PredBoot <- run_bootstrap$df.predict
@@ -327,7 +313,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
       max_count <- run_bootstrap$find.grps$max_count
       L <- run_bootstrap$find.grps$L
-
       fitHstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
       Hstar_obs <- fitHstar_obs$est_obs
       rm(fitHstar_obs)
@@ -344,9 +329,10 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       rm(fitHcstar_star)
       Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
       Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-      }
 
-      dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
+
+      }
+    dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
                                     Hc_biasadj_1, Hc_biasadj_2,
                                     tmins_search, max_sg_est, prop_maxk, L, max_count)
     return(dfres)
@@ -427,6 +413,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   # align with args_call_all
   args_build_filtered <- args_forestsearch_call[names(args_forestsearch_call) %in% args_build]
 
+  #cox.formula.boot <- build_cox_formula(fs.est$outcome.name, fs.est$event.name, fs.est$treat.name)
+
   cox.formula.boot <- base::do.call(build_cox_formula, args_build_filtered)
 
   # 3. Fit Cox models
@@ -457,10 +445,10 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   # 6. Post-processing and formatting
   est.scale <- args_forestsearch_call$est.scale
 
-  H_estimates <- try(get_dfRes(Hobs = H_obs, seHobs = seH_obs, H1_adj = results$H_biasadj_1,
+  H_estimates <- try(get_dfRes(Hobs = H_obs, seHobs = seH_obs, H1_adj = results$H_biasadj_1, H2_adj = results$H_biasadj_2,
                                ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
 
-  Hc_estimates <- try(get_dfRes(Hobs = Hc_obs, seHobs = seHc_obs, H1_adj = results$Hc_biasadj_1,
+  Hc_estimates <- try(get_dfRes(Hobs = Hc_obs, seHobs = seHc_obs, H1_adj = results$Hc_biasadj_1, H2_adj = results$Hc_biasadj_2,
                                 ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
 
   if (inherits(H_estimates, "try-error") | inherits(Hc_estimates, "try-error")) {
@@ -469,9 +457,9 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   }
 
   H_res1 <- format_CI(H_estimates, c("H0", "H0_lower", "H0_upper"))
-  H_res2 <- format_CI(H_estimates, c("H1", "H1_lower", "H1_upper"))
+  H_res2 <- format_CI(H_estimates, c("H2", "H2_lower", "H2_upper"))
   Hc_res1 <- format_CI(Hc_estimates, c("H0", "H0_lower", "H0_upper"))
-  Hc_res2 <- format_CI(Hc_estimates, c("H1", "H1_lower", "H1_upper"))
+  Hc_res2 <- format_CI(Hc_estimates, c("H2", "H2_lower", "H2_upper"))
 
   if (details) {
     cat("**** % bootstrap subgroups found =",
