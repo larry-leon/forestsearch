@@ -36,12 +36,25 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 devtools::document()
 devtools::load_all()
 
+
+#roxygen2::roxygenise()
+
+
+# Remove and reinstall the package
+remove.packages("forestsearch")
+# Clear package cache
+.libPaths()  # Find your library path
+# Then reinstall from your source
+# Either from GitHub or local source:
+#devtools::install_github("larry-leon/forestsearch")
+# OR
+devtools::load_all()  # if developing locally
+
 #devtools::install()
 
 # run this in terminal (next to console [go to tools terminal tab])
 #git pull --no-rebase
 
-#roxygen2::roxygenise()
 
 # Step 6: Check the package
 devtools::check()
