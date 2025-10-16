@@ -40,14 +40,14 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                                 cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                                 maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                                 plot.sg = TRUE, by.risk = 12,
-                                parallel_args = list(plan="multisession", workers = 12, show_message = TRUE)
+                                parallel_args = list(plan="callr", workers = 100, show_message = TRUE)
 )
 
 
 output_dir <- "Vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 300
+NB <- 30
 
 t.start <- proc.time()[3]
 
