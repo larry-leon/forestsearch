@@ -21,12 +21,27 @@ bootstrap_aware_merge <- function(df,
                                   default_treat = 1,
                                   details = FALSE) {
 
+  # Convert to data.frame to ensure consistent behavior
+  # This handles data.table, tibble, and other data.frame-like objects
+  df <- as.data.frame(df)
+  df_flag <- as.data.frame(df_flag)
+  if (!is.null(df_predict)) {
+    df_predict <- as.data.frame(df_predict)
+  }
+
   # Input validation
-  if (!is.data.frame(df)) stop("'df' must be a data.frame")
-  if (!is.data.frame(df_flag)) stop("'df_flag' must be a data.frame")
+  if (!is.data.frame(df)) stop("'df' could not be converted to a data.frame")
+  if (!is.data.frame(df_flag)) stop("'df_flag' could not be converted to a data.frame")
   if (!id_col %in% names(df)) stop(sprintf("'%s' not found in df", id_col))
   if (!id_col %in% names(df_flag)) stop(sprintf("'%s' not found in df_flag", id_col))
   if (!treat_col %in% names(df_flag)) stop(sprintf("'%s' not found in df_flag", treat_col))
+
+  # Ensure ID columns are character for consistent matching
+  df[[id_col]] <- as.character(df[[id_col]])
+  df_flag[[id_col]] <- as.character(df_flag[[id_col]])
+  if (!is.null(df_predict) && id_col %in% names(df_predict)) {
+    df_predict[[id_col]] <- as.character(df_predict[[id_col]])
+  }
 
   # Detect bootstrap context
   n_unique_ids <- length(unique(df[[id_col]]))
@@ -35,6 +50,8 @@ bootstrap_aware_merge <- function(df,
 
   if (details) {
     cat("Bootstrap-Aware Merge Diagnostics:\n")
+    cat("  Input class (df):", class(df)[1], "\n")
+    cat("  Input class (df_flag):", class(df_flag)[1], "\n")
     cat("  Total rows in df:", n_total_rows, "\n")
     cat("  Unique IDs in df:", n_unique_ids, "\n")
     cat("  Bootstrap context detected:", is_bootstrap, "\n")
@@ -62,6 +79,13 @@ bootstrap_aware_merge <- function(df,
       if (details) {
         cat("  Missing treatment assignments:", n_missing, "\n")
         cat("  Assigning default value:", default_treat, "\n")
+        # Show which IDs are missing
+        missing_ids <- unique(df[[id_col]][is.na(df_est_out[[treat_col]])])
+        if (length(missing_ids) <= 10) {
+          cat("  Missing IDs:", paste(missing_ids, collapse = ", "), "\n")
+        } else {
+          cat("  Missing IDs (first 10):", paste(head(missing_ids, 10), collapse = ", "), "...\n")
+        }
       }
       df_est_out[[treat_col]][is.na(df_est_out[[treat_col]])] <- default_treat
     }
@@ -132,6 +156,12 @@ bootstrap_aware_merge <- function(df,
     }
   }
 
+  # Ensure output is data.frame (not data.table or tibble)
+  df_est_out <- as.data.frame(df_est_out)
+  if (!is.null(df_predict_out)) {
+    df_predict_out <- as.data.frame(df_predict_out)
+  }
+
   # Return results
   return(list(
     df_est = df_est_out,
@@ -141,7 +171,6 @@ bootstrap_aware_merge <- function(df,
     n_total_rows = n_total_rows
   ))
 }
-
 
 #' Test Bootstrap-Aware Merge Function
 #'

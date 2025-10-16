@@ -231,10 +231,16 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   ) %dofuture% {
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
+    # Note: do NOT change the seeds as these need to align with ystar
     set.seed(8316951 + boot * 100)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
+
     df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
+
+    # Preserve original IDs and add bootstrap-specific index
+    df_boot$id_original <- df_boot$id  # Keep original
+    df_boot$id_boot <- seq_len(nrow(df_boot))  # Bootstrap index
+    df_boot$boot_weight <- table(in_boot)[as.character(in_boot)]  # Track duplicates
 
     # Bootstrap data evaluated at H: H_star
     fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
@@ -254,12 +260,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
     # Extract arguments in forestsearch (observed) data analysis
 
     args_FS_boot <- fs.est$args_call_all
 
     args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
+    #args_FS_boot$df.predict <- dfnew
+    args_FS_boot$df.predict <- dfnew_boot
+
     args_FS_boot$details <- show3
     args_FS_boot$showten_subgroups <- FALSE
     args_FS_boot$plot.sg <- FALSE
@@ -289,6 +298,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
     #print(names(args_FS_boot))
     #cat("Length of parallel args",c(length(args_FS_boot$parallel_args)),"\n")
 
+    args_FS_boot$id.name <- "id_boot"
 
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
@@ -412,8 +422,6 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   args_build <- base::names(formals(build_cox_formula))
   # align with args_call_all
   args_build_filtered <- args_forestsearch_call[names(args_forestsearch_call) %in% args_build]
-
-  #cox.formula.boot <- build_cox_formula(fs.est$outcome.name, fs.est$event.name, fs.est$treat.name)
 
   cox.formula.boot <- base::do.call(build_cox_formula, args_build_filtered)
 
