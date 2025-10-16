@@ -373,6 +373,144 @@ configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
 }
 
 
+
+
+#' Bootstrap Results for ForestSearch (FIXED VERSION)
+#'
+#' Fixed version addressing variable name inconsistency bug in legacy code
+#'
+#' @inheritParams bootstrap_results
+#' @export
+
+bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
+                                    nb_boots, show_three, H_obs, Hc_obs) {
+
+  NN <- nrow(df_boot_analysis)
+  id0 <- seq_len(NN)
+
+  foreach::foreach(
+    boot = seq_len(nb_boots),
+    .options.future = list(
+      seed = TRUE,
+      add = get_bootstrap_exports()
+    ),
+    .combine = "rbind",
+    .errorhandling = "pass"
+  ) %dofuture% {
+
+    show3 <- FALSE
+    if (show_three) show3 <- (boot <= 3)
+    set.seed(8316951 + boot * 100)
+
+    # Create bootstrap sample
+    in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    df_boot <- df_boot_analysis[in_boot, ]
+    df_boot$id_boot <- seq_len(nrow(df_boot))
+
+    # =================================================================
+    # BUG FIX: Variable naming consistency
+    # =================================================================
+    # ORIGINAL BUG: Used inconsistent variable names (H_star vs h_star)
+    # which caused compute_bias_corrections() to fail
+
+    # Bootstrap data evaluated at ORIGINAL subgroup H
+    fit_h_star <- get_Cox_sg(
+      df_sg = subset(df_boot, treat.recommend == 0),
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
+    h_star <- fit_h_star$est_obs  # Use lowercase h_star consistently
+
+    fit_hc_star <- get_Cox_sg(
+      df_sg = subset(df_boot, treat.recommend == 1),
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
+    hc_star <- fit_hc_star$est_obs  # Use lowercase hc_star consistently
+
+    # Initialize return values as NA
+    H_biasadj_1 <- H_biasadj_2 <- NA
+    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
+    tmins_search <- NA
+    max_sg_est <- NA
+    prop_maxk <- NA
+    L <- NA
+    max_count <- NA
+
+    # Prepare bootstrap dataframes
+    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
+    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
+    # Configure forestsearch arguments for bootstrap
+    args_FS_boot <- fs.est$args_call_all
+    args_FS_boot$df.analysis <- dfnew_boot
+    args_FS_boot$df.predict <- dfnew
+
+    # CATEGORY 1: OUTPUT SUPPRESSION
+    args_FS_boot$details <- show3
+    args_FS_boot$showten_subgroups <- FALSE
+    args_FS_boot$plot.sg <- FALSE
+    args_FS_boot$plot.grf <- FALSE
+
+    # CATEGORY 2: VARIABLE RE-SELECTION
+    args_FS_boot$grf_res <- NULL
+    args_FS_boot$grf_cuts <- NULL
+
+    # CATEGORY 3: SEQUENTIAL EXECUTION
+    args_FS_boot$parallel_args$plan <- "sequential"
+    args_FS_boot$parallel_args$workers <- 1L
+    args_FS_boot$parallel_args$show_message <- FALSE
+
+    # Run forestsearch on bootstrap sample
+    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
+
+    if (inherits(run_bootstrap, "try-error")) {
+      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
+    }
+
+    # =================================================================
+    # Compute bias corrections if subgroup found
+    # =================================================================
+    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
+
+      # Compute bias corrections using helper function
+      bias_results <- compute_bias_corrections(
+        run_bootstrap = run_bootstrap,
+        H_obs = H_obs,
+        Hc_obs = Hc_obs,
+        h_star = h_star,      # Correct variable name (lowercase)
+        hc_star = hc_star,    # Correct variable name (lowercase)
+        cox.formula.boot = cox.formula.boot
+      )
+
+      # Return results as data.table
+      dfres <- data.table::data.table(
+        H_biasadj_1 = bias_results$H_biasadj_1,
+        H_biasadj_2 = bias_results$H_biasadj_2,
+        Hc_biasadj_1 = bias_results$Hc_biasadj_1,
+        Hc_biasadj_2 = bias_results$Hc_biasadj_2,
+        tmins_search = bias_results$tmins_search,
+        max_sg_est = bias_results$max_sg_est,
+        prop_maxk = bias_results$prop_maxk,
+        L = bias_results$L,
+        max_count = bias_results$max_count
+      )
+
+    } else {
+      # No subgroup found - return NAs
+      dfres <- data.table::data.table(
+        H_biasadj_1, H_biasadj_2,
+        Hc_biasadj_1, Hc_biasadj_2,
+        tmins_search, max_sg_est, prop_maxk, L, max_count
+      )
+    }
+
+    return(dfres)
+  }
+}
+
+
 #' Compute Bias Corrections for Bootstrap Subgroup Estimates
 #'
 #' Helper function that computes bias-corrected estimates for both subgroups
@@ -769,7 +907,7 @@ bootstrap_results_new <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @importFrom doFuture %dofuture%
 #' @export
 
-bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
+bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
 
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)

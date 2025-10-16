@@ -2,7 +2,7 @@
 % Please edit documentation in R/bootstrap_dofuture.R
 \name{bootstrap_results}
 \alias{bootstrap_results}
-\title{Bootstrap Results for ForestSearch (legacy, in case new one doesn't work out)}
+\title{Bootstrap Results for ForestSearch (FIXED VERSION)}
 \usage{
 bootstrap_results(
   fs.est,
@@ -14,28 +14,6 @@ bootstrap_results(
   Hc_obs
 )
 }
-\arguments{
-\item{fs.est}{ForestSearch results object.}
-
-\item{df_boot_analysis}{Data frame for bootstrap analysis.}
-
-\item{cox.formula.boot}{Cox model formula for bootstrap.}
-
-\item{nb_boots}{Integer. Number of bootstrap samples.}
-
-\item{show_three}{Logical. Show details for first three bootstraps.}
-
-\item{H_obs}{Numeric. Observed HR for subgroup H.}
-
-\item{Hc_obs}{Numeric. Observed HR for subgroup Hc.}
-
-\item{reset_parallel}{Logical. Reset parallel plan for bootstrap.}
-
-\item{boot_workers}{Integer. Number of parallel workers.}
-}
-\value{
-Data.table with bias-adjusted estimates and search metrics.
-}
 \description{
-Runs bootstrap analysis for ForestSearch, fitting Cox models and bias correction.
+Fixed version addressing variable name inconsistency bug in legacy code
 }
