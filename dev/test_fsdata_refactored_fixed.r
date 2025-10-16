@@ -7,16 +7,16 @@ rm(list = ls())
 devtools::load_all()
 
 cat("\n")
-cat("=".replicate(70), "\n", sep = "")
+cat(paste0(rep("=", 70), collapse = ""), "\n")
 cat("TESTING REFACTORED get_FSdata.R\n")
-cat("=".replicate(70), "\n\n", sep = "")
+cat(paste0(rep("=", 70), collapse = ""), "\n\n")
 
 # ============================================================================
 # TEST 1: Simple test with continuous variables
 # ============================================================================
 
 cat("TEST 1: Basic functionality with continuous variables\n")
-cat("-".replicate(70), "\n", sep = "")
+cat(paste0(rep("-", 70), collapse = ""), "\n")
 
 set.seed(123)
 df_test1 <- data.frame(
@@ -48,12 +48,12 @@ if (!inherits(result1, "try-error")) {
   cat("\n✓ TEST 1 PASSED\n")
   cat("  Cuts created:", length(result1$confs_names), "\n")
   cat("  Column names:", paste(result1$confs_names, collapse = ", "), "\n")
-  
+
   # Verify all columns are 0/1
   new_cols <- result1$df[, result1$confs_names]
   all_binary <- all(apply(new_cols, 2, function(x) all(x %in% c(0, 1))))
   cat("  All columns are 0/1?", all_binary, "\n")
-  
+
   # Show sample
   cat("\n  Sample of created factors:\n")
   print(head(new_cols, 10))
@@ -69,7 +69,7 @@ cat("\n\n")
 # ============================================================================
 
 cat("TEST 2: Mixed categorical and continuous variables\n")
-cat("-".replicate(70), "\n", sep = "")
+cat(paste0(rep("-", 70), collapse = ""), "\n")
 
 set.seed(456)
 df_test2 <- data.frame(
@@ -102,11 +102,11 @@ if (!inherits(result2, "try-error")) {
   cat("\n✓ TEST 2 PASSED\n")
   cat("  Cuts created:", length(result2$confs_names), "\n")
   cat("  Cut expressions:", length(result2$confs), "\n")
-  
+
   new_cols2 <- result2$df[, result2$confs_names]
   all_binary2 <- all(apply(new_cols2, 2, function(x) all(x %in% c(0, 1))))
   cat("  All columns are 0/1?", all_binary2, "\n")
-  
+
   cat("\n  Sample of created factors:\n")
   print(head(new_cols2, 10))
 } else {
@@ -121,7 +121,7 @@ cat("\n\n")
 # ============================================================================
 
 cat("TEST 3: With forced cut expressions\n")
-cat("-".replicate(70), "\n", sep = "")
+cat(paste0(rep("-", 70), collapse = ""), "\n")
 
 set.seed(789)
 df_test3 <- data.frame(
@@ -154,11 +154,11 @@ result3 <- try(
 if (!inherits(result3, "try-error")) {
   cat("\n✓ TEST 3 PASSED\n")
   cat("  Cuts created:", length(result3$confs_names), "\n")
-  
+
   new_cols3 <- result3$df[, result3$confs_names]
   all_binary3 <- all(apply(new_cols3, 2, function(x) all(x %in% c(0, 1))))
   cat("  All columns are 0/1?", all_binary3, "\n")
-  
+
   # Check if forced cuts were included
   has_age_45 <- any(grepl("age.*45", result3$confs))
   has_size_4 <- any(grepl("size.*4", result3$confs))
@@ -176,7 +176,7 @@ cat("\n\n")
 # ============================================================================
 
 cat("TEST 4: Performance benchmark\n")
-cat("-".replicate(70), "\n", sep = "")
+cat(paste0(rep("-", 70), collapse = ""), "\n")
 
 # Larger dataset similar to GBSG
 set.seed(999)
@@ -224,16 +224,3 @@ cat("  Expected speedup: 3-4x vs original\n")
 
 cat("\n\n")
 
-# ============================================================================
-# SUMMARY
-# ============================================================================
-
-cat("=".replicate(70), "\n", sep = "")
-cat("TEST SUMMARY\n")
-cat("=".replicate(70), "\n")
-cat("✓ Test 1: Basic continuous variables\n")
-cat("✓ Test 2: Mixed categorical/continuous\n")
-cat("✓ Test 3: With forced cuts\n")
-cat("✓ Test 4: Performance benchmark\n")
-cat("\nAll tests passed! Refactored get_FSdata.R is working correctly.\n")
-cat("=".replicate(70), "\n\n")
