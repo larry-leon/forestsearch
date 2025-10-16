@@ -290,13 +290,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
 
     args_FS_boot$plot.grf <- FALSE
 
-     args_FS_boot$id.name <- "id_boot"
+    args_FS_boot$id.name <- "id_boot"
 
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
 
     if (inherits(run_bootstrap, "try-error")) warning("Bootstrap failure")
 
       if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
+
       df_PredBoot <- run_bootstrap$df.predict
       dfboot_PredBoot <- run_bootstrap$df.est
       max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
@@ -304,6 +305,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
       prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
       max_count <- run_bootstrap$find.grps$max_count
       L <- run_bootstrap$find.grps$L
+
       fitHstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
       Hstar_obs <- fitHstar_obs$est_obs
       rm(fitHstar_obs)

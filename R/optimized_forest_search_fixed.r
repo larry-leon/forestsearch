@@ -942,7 +942,7 @@ forestsearch <- function(
     t.min_all <- (t.end_all - t.start_all) / 60
 
 
-    print(names(grp.constency))
+    print(names(grp.consistency))
 
     cat("Subgroup found",c(grp.consistency$sg.harm),"\n")
 
