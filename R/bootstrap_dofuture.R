@@ -1,10 +1,4 @@
 
-# Random seed management
-#' Base seed for bootstrap reproducibility
-#' Used as: base_seed + iteration_number * BOOTSTRAP_SEED_INCREMENT
-BOOTSTRAP_BASE_SEED <- 8316951L
-BOOTSTRAP_SEED_INCREMENT <- 100L
-
 # Required packages for parallel bootstrap workers
 BOOTSTRAP_REQUIRED_PACKAGES <- c(
   "data.table",    # Data manipulation in parallel workers
@@ -291,7 +285,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boo
   ) %dofuture% {
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
-    set.seed(BOOTSTRAP_BASE_SEED + boot * BOOTSTRAP_SEED_INCREMENT)
+    set.seed(8316951 + boot * 100)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
