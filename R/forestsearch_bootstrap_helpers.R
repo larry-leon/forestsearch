@@ -8,7 +8,7 @@
 #' @export
 
 count.id <- function(x,dfb){
-  sum(dfb$id==x)
+  sum(dfb$id == x)
   }
 
 #' Calculate Covariance for Bootstrap Estimates
@@ -21,7 +21,7 @@ count.id <- function(x,dfb){
 #' @export
 
 calc_cov <- function(x,Est){
-  mean(c((x-mean(x,na.rm=TRUE))*Est),na.rm=TRUE)
+  mean(c((x-mean(x,na.rm=TRUE)) * Est),na.rm=TRUE)
 }
 
 #' Confidence Interval for Estimate
