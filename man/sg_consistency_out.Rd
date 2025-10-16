@@ -2,7 +2,7 @@
 % Please edit documentation in R/subgroup_consistency.R
 \name{sg_consistency_out}
 \alias{sg_consistency_out}
-\title{Output Subgroup Consistency Results with Caching}
+\title{Output Subgroup Consistency Results}
 \usage{
 sg_consistency_out(
   df,
@@ -13,8 +13,7 @@ sg_consistency_out(
   details = FALSE,
   plot.sg = FALSE,
   by.risk = 12,
-  confs_labels,
-  expr_cache = NULL
+  confs_labels
 )
 }
 \arguments{
@@ -35,8 +34,6 @@ sg_consistency_out(
 \item{by.risk}{Risk interval for plotting.}
 
 \item{confs_labels}{Covariate label mapping.}
-
-\item{expr_cache}{Expression cache environment (optional).}
 }
 \value{
 A list with results, subgroup definition, labels, flags, and group id.
@@ -44,4 +41,3 @@ A list with results, subgroup definition, labels, flags, and group id.
 \description{
 Returns the top subgroup(s) and recommended treatment flags.
 }
-\keyword{internal}

@@ -2,16 +2,9 @@
 % Please edit documentation in R/subgroup_consistency.R
 \name{extract_subgroup}
 \alias{extract_subgroup}
-\title{Extract Subgroup Definition and Treatment Recommendation with Caching}
+\title{Extract Subgroup Definition and Treatment Recommendation}
 \usage{
-extract_subgroup(
-  df,
-  top_result,
-  index.Z,
-  names.Z,
-  confs_labels,
-  expr_cache = NULL
-)
+extract_subgroup(df, top_result, index.Z, names.Z, confs_labels)
 }
 \arguments{
 \item{df}{The original data.frame.}
@@ -23,8 +16,6 @@ extract_subgroup(
 \item{names.Z}{Names of covariates.}
 
 \item{confs_labels}{Label mapping for covariates.}
-
-\item{expr_cache}{Expression cache environment (optional).}
 }
 \value{
 A list with subgroup definition, labels, recommended treatment, and group id.

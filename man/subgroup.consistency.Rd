@@ -2,7 +2,7 @@
 % Please edit documentation in R/subgroup_consistency.R
 \name{subgroup.consistency}
 \alias{subgroup.consistency}
-\title{Subgroup Consistency Evaluation with Expression Caching}
+\title{Subgroup Consistency Evaluation}
 \usage{
 subgroup.consistency(
   df,
@@ -22,8 +22,7 @@ subgroup.consistency(
   sg_focus = "hr",
   stop_Kgroups = 10,
   checking = FALSE,
-  parallel_args = list(NULL),
-  use_cache = TRUE
+  parallel_args = list(NULL)
 )
 }
 \arguments{
@@ -62,13 +61,10 @@ subgroup.consistency(
 \item{checking}{Logical; for debugging.}
 
 \item{parallel_args}{List for parallel processing.}
-
-\item{use_cache}{Logical; use expression caching (default: TRUE).}
 }
 \value{
 A list with results for top subgroups and recommended treatment flags.
 }
 \description{
-Evaluates consistency of subgroups found in a survival analysis, using random splits
-and hazard ratio criteria. Includes expression caching to improve performance.
+Evaluates consistency of subgroups found in a survival analysis, using random splits and hazard ratio criteria.
 }
