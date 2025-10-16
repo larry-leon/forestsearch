@@ -382,14 +382,6 @@ configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
 #' @inheritParams bootstrap_results
 #' @export
 
-#' Bootstrap Results for ForestSearch (FIXED VERSION)
-#'
-#' Corrected version that properly handles bootstrap failures and computes bias corrections
-#' only when forestsearch successfully identifies a subgroup.
-#'
-#' @inheritParams bootstrap_results_legacy
-#' @export
-
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs) {
   NN <- nrow(df_boot_analysis)
