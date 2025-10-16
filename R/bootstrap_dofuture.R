@@ -273,6 +273,7 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' selection stability across resamples.
 #'
 #' @keywords internal
+
 prepare_bootstrap_dataframes <- function(df_original, df_bootstrap,
                                          confounders_to_drop) {
   # Variables to exclude: original confounders + treatment recommendation
@@ -321,6 +322,7 @@ prepare_bootstrap_dataframes <- function(df_original, df_bootstrap,
 #'    - parallel_args$show_message: FALSE (suppress within-bootstrap messages)
 #'
 #' @keywords internal
+
 configure_forestsearch_bootstrap_args <- function(base_args, df_analysis_boot,
                                                   df_predict_boot,
                                                   show_details = FALSE) {

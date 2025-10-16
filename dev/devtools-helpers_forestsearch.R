@@ -34,6 +34,7 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 # Also, run this if revising R files such as @importFrom
 
 devtools::document()
+
 devtools::load_all()
 
 
