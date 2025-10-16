@@ -25,16 +25,16 @@
 #' @export
 
 get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,confounders.name,
-                     cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
-                     replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
-                     outcome.name = "tte", event.name = "event", details=TRUE){
+                       cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
+                       replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
+                       outcome.name = "tte", event.name = "event", details=TRUE){
 
-    # Initialize to original analysis dataframe and output df.FS containing cutpoints
-   if(!is.data.frame(df.analysis)){
-     df.FS <- as.data.frame(df.analysis)
-   } else {
-     df.FS <- df.analysis
-     }
+  # Initialize to original analysis dataframe and output df.FS containing cutpoints
+  if(!is.data.frame(df.analysis)){
+    df.FS <- as.data.frame(df.analysis)
+  } else {
+    df.FS <- df.analysis
+  }
 
 
   # Check that outcome and event columns are numeric
@@ -65,7 +65,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       c(is.continuous(aa, cutoff = cont.cutoff) ==1)
     },
     logical(1)
-    )
+  )
   if(details){
     cat("# of continuous/categorical characteristics",c(sum(flag_continuous),sum(!flag_continuous)),"\n")
     if(sum(flag_continuous) > 0)  cat("Continuous characteristics:",c(confounders.name[flag_continuous]),"\n")
@@ -93,20 +93,20 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
     lassokeep <- get_lasso$selected
     lassoomit <- get_lasso$omitted
 
-  if(details){
-    cat("## Prior to lasso:", c(conf.cont_medians), "\n")
-    cat("#### Lasso selection results", "\n")
+    if(details){
+      cat("## Prior to lasso:", c(conf.cont_medians), "\n")
+      cat("#### Lasso selection results", "\n")
       print(get_lasso$fit$beta)
       cat("Cox-LASSO selected:",c(lassokeep),"\n")
       cat("Cox-LASSO not selected:",c(lassoomit),"\n")
       cat("### End Lasso selection", "\n")
-  }
-  # If any selected per lasso
+    }
+    # If any selected per lasso
     if (length(lassokeep) > 0) {
       conf.cont_medians <- filter_by_lassokeep(conf.cont_medians, lassokeep)
       conf.categorical  <- filter_by_lassokeep(conf.categorical, lassokeep)
     }
-if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
+    if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
   } # Done Lasso
 
   # If forcing any cuts, then done below
@@ -173,8 +173,8 @@ if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
   }
   if (!use_lasso && cut_type == "median") {
     if (!is.null(defaultcut_names)) {
-       conf.cont_medians <- setdiff(conf.cont_medians, defaultcut_names)
-     }
+      conf.cont_medians <- setdiff(conf.cont_medians, defaultcut_names)
+    }
     if (details) {
       toprint <- min(20, length(conf.cont_medians))
       cat("Median cuts included:", c(conf.cont_medians[1:toprint]), "\n")
@@ -355,12 +355,15 @@ if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
     # Use cached evaluation instead of re-evaluating!
     if (!is.null(evaluations[[idx]]) && is_valid[idx]) {
       result <- evaluations[[idx]]
-      df.FS[[names_new[i + offset]]] <- as.factor(as.numeric(result))
+      # Convert to numeric THEN to factor to ensure 0/1 levels
+      numeric_result <- as.numeric(result)
+      df.FS[[names_new[i + offset]]] <- as.factor(numeric_result)
     } else {
       # Fallback (shouldn't happen if caching works correctly)
       if(details) warning("Cut '", thiscut, "' not found in cache, re-evaluating")
       result <- eval(parse(text = thiscut), envir = df.FS)
-      df.FS[[names_new[i + offset]]] <- as.factor(as.numeric(result))
+      numeric_result <- as.numeric(result)
+      df.FS[[names_new[i + offset]]] <- as.factor(numeric_result)
     }
   }
 
@@ -368,13 +371,23 @@ if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
   # VALIDATION: Verify all factors are 0/1
   # =========================================================================
 
-  check_factors <- apply(df.FS[, names_new], 2, function(x) {
-    unique_vals <- unique(x)
-    all(unique_vals %in% c(0, 1, "0", "1"))
-  })
+  check_factors <- vapply(names_new, function(col_name) {
+    col_data <- df.FS[[col_name]]
+    # Get unique values as numeric to check range
+    unique_vals <- as.numeric(as.character(unique(col_data)))
+    unique_vals <- unique_vals[!is.na(unique_vals)]
+    # Should only contain 0 and/or 1
+    all(unique_vals %in% c(0, 1))
+  }, logical(1))
 
   if (!all(check_factors)) {
-    stop("Error in factor setup: some factors contain values other than 0/1")
+    invalid_cols <- names_new[!check_factors]
+    cat("DEBUG: Invalid column values:\n")
+    for (col in invalid_cols) {
+      cat("  ", col, ": ", paste(unique(df.FS[[col]]), collapse = ", "), "\n", sep = "")
+    }
+    stop("Error in factor setup: some factors contain values other than 0/1. ",
+         "Invalid columns: ", paste(invalid_cols, collapse = ", "))
   }
 
   if(details){
@@ -388,6 +401,6 @@ if(details)  cat("## After lasso:", c(conf.cont_medians), "\n")
     print(c(conf.cont_cuts, conf.categorical))
   }
 
-  return(list(df = df.FS, confs_names = names_new, confs = c(conf.cont_cuts, conf.categorical), 
+  return(list(df = df.FS, confs_names = names_new, confs = c(conf.cont_cuts, conf.categorical),
               lassokeep = lassokeep, lassoomit = lassoomit))
 }

@@ -16,7 +16,7 @@ evaluate_cuts_once(confs, df, details = FALSE)
 \value{
 List with:
 \itemize{
-\item evaluations: List of evaluated boolean vectors for each cut
+\item evaluations: List of evaluated vectors (logical TRUE/FALSE) for each cut
 \item is_valid: Logical vector indicating which cuts produced >1 unique value
 \item has_error: Logical vector indicating which cuts failed to evaluate
 }
