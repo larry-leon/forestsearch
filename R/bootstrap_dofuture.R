@@ -235,14 +235,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
   # Set up progress bar if requested and package available
   if (show_progress) {
-    if (!requireNamespace("progressr", quietly = TRUE)) {
-      warning("Package 'progressr' needed for progress bars. Install with: install.packages('progressr')")
-      show_progress <- FALSE
-    } else {
-      progressr::handlers(global = TRUE)
-      progressr::handlers("progress")
-      p <- progressr::progressor(steps = nb_boots)
-    }
+    p <- progressr::progressor(steps = nb_boots)
   }
 
   foreach::foreach(
@@ -425,120 +418,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
 
 
-#' Bootstrap Results for ForestSearch (legacy, in case new one doesn't work out)
-#'
-#' Runs bootstrap analysis for ForestSearch, fitting Cox models and bias correction.
-#'
-#' @param fs.est ForestSearch results object.
-#' @param df_boot_analysis Data frame for bootstrap analysis.
-#' @param cox.formula.boot Cox model formula for bootstrap.
-#' @param nb_boots Integer. Number of bootstrap samples.
-#' @param show_three Logical. Show details for first three bootstraps.
-#' @param H_obs Numeric. Observed HR for subgroup H.
-#' @param Hc_obs Numeric. Observed HR for subgroup Hc.
-#' @param reset_parallel Logical. Reset parallel plan for bootstrap.
-#' @param boot_workers Integer. Number of parallel workers.
-#' @return Data.table with bias-adjusted estimates and search metrics.
-#' @importFrom foreach foreach
-#' @importFrom data.table data.table
-#' @importFrom doFuture %dofuture%
-#' @export
-
-bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
-
-  NN <- nrow(df_boot_analysis)
-  id0 <- seq_len(NN)
-    foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE,
-                           add = get_bootstrap_exports()
-                           ),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-    show3 <- FALSE
-    if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-
-    # Bootstrap data evaluated at H: H_star
-    fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-    H_star <- fitH_star$est_obs
-    fitHc_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-    Hc_star <- fitHc_star$est_obs
-
-    # Bias corrections
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
-
-    # Drop initial confounders
-    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-    # Extract arguments in forestsearch (observed) data analysis
-    args_FS_boot <- fs.est$args_call_all
-    args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
-    # CATEGORY 1: OUTPUT SUPPRESSION (parallelization efficiency)
-    args_FS_boot$details <- show3                # Only show first 3 for debugging
-    args_FS_boot$showten_subgroups <- FALSE      # Suppress large output
-    args_FS_boot$plot.sg <- FALSE                # Can't plot from parallel worker
-    args_FS_boot$plot.grf <- FALSE               # Can't plot from parallel worker
-    # CATEGORY 2: VARIABLE RE-SELECTION (bootstrap variability)
-    # Force fresh GRF run on bootstrap (oracle uses predictions from bootstrap)
-    args_FS_boot$grf_res <- NULL
-    args_FS_boot$grf_cuts <- NULL
-    # CATEGORY 3: SEQUENTIAL EXECUTION (prevent nested parallelization)
-    # Each bootstrap is already running in a parallel worker
-    # Nested parallelization causes resource contention and deadlocks
-    args_FS_boot$parallel_args$plan <- "sequential"
-    args_FS_boot$parallel_args$workers <- 1L
-    args_FS_boot$parallel_args$show_message <- FALSE
-
-    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
-
-    if (inherits(run_bootstrap, "try-error")) {
-      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
-    }
-
-
-      if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-      df_PredBoot <- run_bootstrap$df.predict
-      dfboot_PredBoot <- run_bootstrap$df.est
-      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-      tmins_search <- as.numeric(run_bootstrap$find.grps$time_search)
-      prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
-      max_count <- run_bootstrap$find.grps$max_count
-      L <- run_bootstrap$find.grps$L
-      fitHstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hstar_obs <- fitHstar_obs$est_obs
-      fitHstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hstar_star <- fitHstar_star$est_obs
-      rm(fitHstar_star)
-      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
-      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
-      fitHcstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hcstar_obs <- fitHcstar_obs$est_obs
-      rm(fitHcstar_obs)
-      fitHcstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hcstar_star <- fitHcstar_star$est_obs
-      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
-      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-      }
-    dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
-                                    Hc_biasadj_1, Hc_biasadj_2,
-                                    tmins_search, max_sg_est, prop_maxk, L, max_count)
-    return(dfres)
-    }
-
-}
 
 
 #' ForestSearch Bootstrap with doFuture Parallelization
@@ -577,6 +456,14 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
 forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
                                            parallel_args = list(), show_progress = TRUE
                                             ) {
+
+  # Handle progress at wrapper level
+  if (show_progress) {
+    if (!requireNamespace("progressr", quietly = TRUE)) {
+      warning("Package 'progressr' needed for progress bars. Install with: install.packages('progressr')")
+      show_progress <- FALSE
+    }
+  }
 
   args_forestsearch_call <- fs.est$args_call_all
 
@@ -619,11 +506,14 @@ parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearc
   stop("Dimension of Ystar_mat must be (n x nb_boots)")
   }
 
-  # Note: reset_parallel_fs re-sets parallel for subgroup consistency in forestsearch
-  # That is reset_parallel_fs = TRUE only the outer *bootstrap* loop is parallelized
 
-  with_progress({
-    results <- bootstrap_results(
+
+  if (show_progress) {
+    progressr::handlers(global = TRUE)
+    progressr::handlers("progress")
+
+    results <- progressr::with_progress({
+    bootstrap_results(
     fs.est = fs.est,
     df_boot_analysis = fs.est$df.est,
     cox.formula.boot = cox.formula.boot,
@@ -634,6 +524,18 @@ parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearc
     show_progress = show_progress
   )
   })
+} else {
+    results <- bootstrap_results(
+      fs.est = fs.est,
+      df_boot_analysis = fs.est$df.est,
+      cox.formula.boot = cox.formula.boot,
+      nb_boots = nb_boots,
+      show_three = show_three,
+      H_obs = H_obs,
+      Hc_obs = Hc_obs,
+      show_progress = FALSE
+    )
+  }
 
   # 6. Post-processing and formatting
   est.scale <- args_forestsearch_call$est.scale
