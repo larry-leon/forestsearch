@@ -121,7 +121,7 @@ digraph validation_flow {
   param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]
   param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]
 }
-", width =800, height = 400)
+", width = 1000, height = 600)
 
 flow1
 
@@ -129,128 +129,6 @@ flow1
 
 
 
-# ForestSearch Parameter Guide: n.min, d0.min, and d1.min
-
-## Overview
-These three parameters are **critical safety thresholds** that ensure identified subgroups have sufficient statistical reliability and prevent spurious findings from small or event-sparse subgroups.
-
-## Parameter Definitions
-
-### `n.min` - Minimum Subgroup Size
-- **Default**: 60 patients
-- **Purpose**: Ensures statistical stability and prevents overfitting
-- **Range**: 30-50 (exploratory) to 100+ (confirmatory)
-- **Rule of thumb**: At least 5-10% of total sample size
-
-### `d0.min` - Minimum Events in Control Group
-- **Default**: 10 events
-- **Purpose**: Ensures reliable baseline risk estimation
-- **Range**: 5 (minimum) to 20+ (recommended)
-- **Critical**: Below 5 events, Cox models become unstable
-
-### `d1.min` - Minimum Events in Treatment Group
-- **Default**: 10 events
-- **Purpose**: Ensures reliable treatment effect estimation
-- **Range**: 5 (minimum) to 20+ (recommended)
-- **Critical**: Below 5 events, hazard ratios become unreliable
-
-
-```{r flowchartB, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flowB", echo = FALSE, eval = FALSE}
-# More detailed flowchart with example values
-flow2 <- grViz("
-digraph detailed_validation {
-  # Graph settings
-  graph [layout = dot, rankdir = TB, fontsize = 14, 
-         label = 'ForestSearch Subgroup Validation Pipeline', 
-         labelloc = t]
-  
-  # Node settings  
-  node [shape = box, style = 'filled,rounded', fillcolor = white, 
-        fontname = Arial, fontsize = 11, penwidth = 2]
-  
-  # Stage 1: Discovery
-  subgraph cluster_0 {
-    label = 'Stage 1: Discovery'
-    style = 'dashed,rounded'
-    color = darkgreen
-    fontsize = 12
-    
-    input [label = 'Subgroup Found\\nHR = 1.45\\nn = 120 patients\\nevents = 35', 
-           fillcolor = '#E8F5E9', color = darkgreen]
-    test1 [label = '1.45 > 1.25?\\n(hr.threshold)', 
-           shape = diamond, fillcolor = '#FFF3E0', color = orange]
-    pass1 [label = 'Proceed to\\nValidation', fillcolor = '#E8F5E9', color = darkgreen]
-  }
-  
-  # Stage 2: Validation
-  subgraph cluster_1 {
-    label = 'Stage 2: Split-Sample Validation'
-    style = 'dashed,rounded'
-    color = darkblue
-    fontsize = 12
-    
-    split [label = 'Random Split #i\\n(i = 1 to 1000)\\n60 patients each half', 
-           fillcolor = '#E3F2FD', color = darkblue]
-    calc [label = 'Calculate:\\nHR₁ = 1.38\\nHR₂ = 1.42', 
-          fillcolor = '#E3F2FD', color = darkblue]
-    test2 [label = '1.38 > 1.0?\\n1.42 > 1.0?\\n(hr.consistency)', 
-           shape = diamond, fillcolor = '#FFF3E0', color = orange]
-    success [label = 'Split i: ✓\\nConsistent', fillcolor = '#E8F5E9', color = darkgreen]
-    fail [label = 'Split i: ✗\\nInconsistent', fillcolor = '#FFEBEE', color = darkred]
-  }
-  
-  # Stage 3: Confirmation
-  subgraph cluster_2 {
-    label = 'Stage 3: Final Selection'
-    style = 'dashed,rounded'
-    color = purple
-    fontsize = 12
-    
-    tally [label = 'Final Tally:\\n920/1000 consistent\\n(92% success rate)', 
-           fillcolor = '#F3E5F5', color = purple]
-    test3 [label = '0.92 ≥ 0.90?\\n(pconsistency.threshold)', 
-           shape = diamond, fillcolor = '#FFF3E0', color = orange]
-    selected [label = 'SELECTED\\nStable Subgroup\\nReport: HR=1.45', 
-              fillcolor = '#C8E6C9', color = darkgreen, penwidth = 3]
-    rejected [label = 'REJECTED\\nUnstable Effect', 
-              fillcolor = '#FFCDD2', color = darkred]
-  }
-  
-  # Edges
-  input -> test1
-  test1 -> pass1 [label = 'Yes', color = darkgreen]
-  test1 -> rejected [label = 'No', color = darkred]
-  pass1 -> split
-  split -> calc
-  calc -> test2
-  test2 -> success [label = 'Both Yes', color = darkgreen]
-  test2 -> fail [label = 'Any No', color = darkred]
-  success -> tally
-  fail -> tally
-  tally -> test3
-  test3 -> selected [label = 'Yes', color = darkgreen, penwidth = 2]
-  test3 -> rejected [label = 'No', color = darkred]
-  
-  # # Add legend
-  # subgraph cluster_legend {
-  #   label = 'Parameter Effects'
-  #   style = filled
-  #   fillcolor = '#FAFAFA'
-  #   fontsize = 10
-  #   
-  #   legend1 [shape = none, fillcolor = none,
-  #            label = 'hr.threshold: Higher = Fewer candidates']
-  #   legend2 [shape = none, fillcolor = none,
-  #            label = 'hr.consistency: Higher = Stricter validation']  
-  #   legend3 [shape = none, fillcolor = none,
-  #            label = 'pconsistency.threshold: Higher = More confidence']
-  # }
-}
-", width =800, height = 400)
-
-flow2
-
-```
 
 
 ```{r setup, include=FALSE}
@@ -258,7 +136,6 @@ flow2
 library(forestsearch)
 library(knitr)
 library(DT)
-library(DiagrammeR)
 ```
 
 # Overview of sg_focus Parameter
@@ -457,6 +334,31 @@ result <- forestsearch(
 # Most specific profile of patients with substantial harm
 ```
 
+# ForestSearch Parameter Guide: n.min, d0.min, and d1.min
+
+## Overview
+These three parameters are **critical safety thresholds** that ensure identified subgroups have sufficient statistical reliability and prevent spurious findings from small or event-sparse subgroups.
+
+## Parameter Definitions
+
+### `n.min` - Minimum Subgroup Size
+- **Default**: 60 patients
+- **Purpose**: Ensures statistical stability and prevents overfitting
+- **Range**: 30-50 (exploratory) to 100+ (confirmatory)
+- **Rule of thumb**: At least 5-10% of total sample size
+
+### `d0.min` - Minimum Events in Control Group
+- **Default**: 10 events
+- **Purpose**: Ensures reliable baseline risk estimation
+- **Range**: 5 (minimum) to 20+ (recommended)
+- **Critical**: Below 5 events, Cox models become unstable
+
+### `d1.min` - Minimum Events in Treatment Group
+- **Default**: 10 events
+- **Purpose**: Ensures reliable treatment effect estimation
+- **Range**: 5 (minimum) to 20+ (recommended)
+- **Critical**: Below 5 events, hazard ratios become unreliable
+
 
 
 ## Key Steps in the Function
@@ -552,10 +454,11 @@ arms <- c("treat", "control")
 
 
 GBSG - ITT Analysis
-```{r, fig.width = 10, fig.height=6}
+```{r, fig.width = 8, fig.height = 5}
 
 dfcount_gbsg <- df_counting(df_gbsg, tte.name, event.name, treat.name, by.risk = 12)
 
+par(mfrow=c(1,1))
 plot_weighted_km(dfcount_gbsg, conf.int = TRUE, show.logrank = TRUE, 
                  put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
 title(main="GBSG trial")
@@ -582,7 +485,7 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                    sg_focus = "hrMaxSG",
                    showten_subgroups = FALSE, details=TRUE,
-                   conf_force = c("age <= 65"),
+                   conf_force = c("age <= 65", "er <= 0", "er <= 1", "er <= 2"," er <= 5"),
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                    plot.sg = TRUE, by.risk = 12,
@@ -608,26 +511,24 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 # Just run a few for illustration 
 # In practice, recommend minimum of NB = 300 to 400 re-samples
 # NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
 # where workers are set to 12 which is the maximum on my machine;
 # Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
 
+# Needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
+library(patchwork)
+
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 100
+NB <- 1000
 
 t.start <- proc.time()[3]
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = TRUE, details = TRUE)
-
-print(names(fs_bc))
-
-print(fs_bc$FSsg_tab)
-
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, show_progress = FALSE)
 
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
@@ -637,7 +538,7 @@ cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
 
 if (save_results) {
     filename <- file.path(output_dir, 
-                         paste0("bootstrap_results_B=", 
+                         paste0("gbsg_results_B=", 
                                 format(NB), 
                                 ".RData"))
     save(fs_bc, fs, file = filename)
@@ -645,6 +546,19 @@ if (save_results) {
   }
 
 ```
+
+```{r}
+load("~/Library/CloudStorage/OneDrive-MerckSharp&DohmeLLC/documents/GitHub/forestsearch/Vignettes/results/gbsg_results_B=1000.RData")
+sg_tab <- fs_bc$summary$table
+sg_tab
+```
+
+```{r, fig.width = 10, fig.height = 8}
+
+fs_bc$summary$plots$combined
+
+```
+
 
 ## Decision Function
 ```{r decision-function}
@@ -1171,6 +1085,105 @@ Orchestrates bootstrap analysis for ForestSearch using doFuture parallelization.
 - Ensure all required packages are installed before running bootstrap analysis.
 - The main function for analysis is `forestsearch_bootstrap_dofuture`, which returns a comprehensive list of results for downstream analysis and reporting.
 - Parallelization is handled via doFuture and foreach for efficient computation.
+
+
+
+```{r flowchartB, fig.cap="Figure 1: Overview of forestsearch steps", label="fig:flowB", echo = FALSE, eval = FALSE}
+# More detailed flowchart with example values
+flow2 <- grViz("
+digraph detailed_validation {
+  # Graph settings
+  graph [layout = dot, rankdir = TB, fontsize = 14, 
+         label = 'ForestSearch Subgroup Validation Pipeline', 
+         labelloc = t]
+  
+  # Node settings  
+  node [shape = box, style = 'filled,rounded', fillcolor = white, 
+        fontname = Arial, fontsize = 11, penwidth = 2]
+  
+  # Stage 1: Discovery
+  subgraph cluster_0 {
+    label = 'Stage 1: Discovery'
+    style = 'dashed,rounded'
+    color = darkgreen
+    fontsize = 12
+    
+    input [label = 'Subgroup Found\\nHR = 1.45\\nn = 120 patients\\nevents = 35', 
+           fillcolor = '#E8F5E9', color = darkgreen]
+    test1 [label = '1.45 > 1.25?\\n(hr.threshold)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    pass1 [label = 'Proceed to\\nValidation', fillcolor = '#E8F5E9', color = darkgreen]
+  }
+  
+  # Stage 2: Validation
+  subgraph cluster_1 {
+    label = 'Stage 2: Split-Sample Validation'
+    style = 'dashed,rounded'
+    color = darkblue
+    fontsize = 12
+    
+    split [label = 'Random Split #i\\n(i = 1 to 1000)\\n60 patients each half', 
+           fillcolor = '#E3F2FD', color = darkblue]
+    calc [label = 'Calculate:\\nHR₁ = 1.38\\nHR₂ = 1.42', 
+          fillcolor = '#E3F2FD', color = darkblue]
+    test2 [label = '1.38 > 1.0?\\n1.42 > 1.0?\\n(hr.consistency)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    success [label = 'Split i: ✓\\nConsistent', fillcolor = '#E8F5E9', color = darkgreen]
+    fail [label = 'Split i: ✗\\nInconsistent', fillcolor = '#FFEBEE', color = darkred]
+  }
+  
+  # Stage 3: Confirmation
+  subgraph cluster_2 {
+    label = 'Stage 3: Final Selection'
+    style = 'dashed,rounded'
+    color = purple
+    fontsize = 12
+    
+    tally [label = 'Final Tally:\\n920/1000 consistent\\n(92% success rate)', 
+           fillcolor = '#F3E5F5', color = purple]
+    test3 [label = '0.92 ≥ 0.90?\\n(pconsistency.threshold)', 
+           shape = diamond, fillcolor = '#FFF3E0', color = orange]
+    selected [label = 'SELECTED\\nStable Subgroup\\nReport: HR=1.45', 
+              fillcolor = '#C8E6C9', color = darkgreen, penwidth = 3]
+    rejected [label = 'REJECTED\\nUnstable Effect', 
+              fillcolor = '#FFCDD2', color = darkred]
+  }
+  
+  # Edges
+  input -> test1
+  test1 -> pass1 [label = 'Yes', color = darkgreen]
+  test1 -> rejected [label = 'No', color = darkred]
+  pass1 -> split
+  split -> calc
+  calc -> test2
+  test2 -> success [label = 'Both Yes', color = darkgreen]
+  test2 -> fail [label = 'Any No', color = darkred]
+  success -> tally
+  fail -> tally
+  tally -> test3
+  test3 -> selected [label = 'Yes', color = darkgreen, penwidth = 2]
+  test3 -> rejected [label = 'No', color = darkred]
+  
+  # # Add legend
+  # subgraph cluster_legend {
+  #   label = 'Parameter Effects'
+  #   style = filled
+  #   fillcolor = '#FAFAFA'
+  #   fontsize = 10
+  #   
+  #   legend1 [shape = none, fillcolor = none,
+  #            label = 'hr.threshold: Higher = Fewer candidates']
+  #   legend2 [shape = none, fillcolor = none,
+  #            label = 'hr.consistency: Higher = Stricter validation']  
+  #   legend3 [shape = none, fillcolor = none,
+  #            label = 'pconsistency.threshold: Higher = More confidence']
+  # }
+}
+", width =800, height = 400)
+
+flow2
+
+```
 
 
 # Overview of Main functions
