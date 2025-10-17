@@ -467,16 +467,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
 
   args_forestsearch_call <- fs.est$args_call_all
 
-  # If parallel_args is empty then default to main forestsearch (data analysis) call
-
-  # if(length(parallel_args) == 0){
-  # message("Using parallel plan of 'observed' data analysis forestsearch")
-  # parallel_args <- as.list(args_forestsearch_call$parallel_args)
-  # max_cores <- parallel::detectCores()
-  # message("Note that max cores = ", max_cores)
-  #  }
-
-parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
+  parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
 
 
   # 1. Ensure packages
@@ -498,6 +489,8 @@ parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearc
   # Note: setup_parallel_SGcons is re-purposed from subgroup_consistency
   setup_parallel_SGcons(parallel_args)
 
+
+
   # 4. Bootstrap Ystar matrix
   Ystar_mat <- bootstrap_ystar(fs.est$df.est, nb_boots)
   if (details) cat("Done with Ystar_mat\n")
@@ -506,7 +499,12 @@ parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearc
   stop("Dimension of Ystar_mat must be (n x nb_boots)")
   }
 
-
+  # Check if using callr plan
+  current_plan <- class(future::plan())[1]
+  if (current_plan == "callr" && show_progress) {
+    message("Progress bars not supported with 'callr' backend. Use 'multisession' for progress reporting.")
+    show_progress <- FALSE
+  }
 
   if (show_progress) {
     progressr::handlers(global = TRUE)
