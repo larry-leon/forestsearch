@@ -589,7 +589,7 @@ summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
         patchwork::plot_annotation(
           title = "Bootstrap Distributions",
           subtitle = sprintf("%d iterations", nrow(boot_result$results)),
-          theme = theme(plot.title = element_text(size = 16, face = "bold")
+          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold")
                         )
         )
     }
