@@ -330,7 +330,7 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' Creates a publication-ready table from ForestSearch bootstrap results,
 #' with bias-corrected confidence intervals and informative formatting.
 #'
-#' @param FSsg_tab Data frame from forestsearch_bootstrap_dofuture()$FSsg_tab
+#' @param FSsg_tab Data frame or matrix from forestsearch_bootstrap_dofuture()$FSsg_tab
 #' @param nb_boots Integer. Number of bootstrap iterations performed
 #' @param est.scale Character. "hr" or "1/hr" for effect scale
 #' @param boot_success_rate Numeric. Proportion of bootstraps that found subgroups
@@ -349,6 +349,16 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
     stop("Package 'gt' is required for table formatting. Install with: install.packages('gt')")
   }
 
+  # CRITICAL FIX: Convert matrix to data frame if needed
+  if (is.matrix(FSsg_tab)) {
+    FSsg_tab <- as.data.frame(FSsg_tab, stringsAsFactors = FALSE)
+  }
+
+  # Ensure it's a data frame
+  if (!is.data.frame(FSsg_tab)) {
+    FSsg_tab <- as.data.frame(FSsg_tab, stringsAsFactors = FALSE)
+  }
+
   # Default title and subtitle
   if (is.null(title)) {
     title <- "Treatment Effect by Subgroup"
@@ -357,6 +367,34 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
   if (is.null(subtitle)) {
     effect_label <- ifelse(est.scale == "hr", "Hazard Ratio", "Inverse Hazard Ratio (1/HR)")
     subtitle <- sprintf("Bootstrap bias-corrected estimates (%d iterations)", nb_boots)
+  }
+
+  # Get column names (handle different possible names)
+  col_names <- colnames(FSsg_tab)
+
+  # Create base labels list
+  labels_list <- list(
+    Subgroup = "Subgroup"
+  )
+
+  # Add labels for columns that exist
+  if ("n" %in% col_names) labels_list$n <- "N"
+  if ("n1" %in% col_names) labels_list$n1 <- gt::md("N<sub>treat</sub>")
+  if ("events" %in% col_names) labels_list$events <- "Events"
+  if ("m1" %in% col_names) labels_list$m1 <- gt::md("Med<sub>treat</sub>")
+  if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>ctrl</sub>")
+  if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>diff</sub>")
+
+  # Handle HR column (might be "HR (95% CI)" or similar)
+  hr_col <- grep("HR.*CI", col_names, value = TRUE)[1]
+  if (!is.na(hr_col) && length(hr_col) > 0) {
+    labels_list[[hr_col]] <- gt::md("HR<br/>(95% CI)<sup>†</sup>")
+  }
+
+  # Handle adjusted HR column (might be "HR*" or similar)
+  hr_adj_col <- grep("HR\\*", col_names, value = TRUE)[1]
+  if (!is.na(hr_adj_col) && length(hr_adj_col) > 0) {
+    labels_list[[hr_adj_col]] <- gt::md("HR<sup>‡</sup><br/>(95% CI)")
   }
 
   # Create the gt table
@@ -370,84 +408,103 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
     ) |>
 
     # Column labels with better formatting
-    gt::cols_label(
-      Subgroup = "Subgroup",
-      n = "N",
-      n1 = gt::md("N<sub>treat</sub>"),
-      events = "Events",
-      m1 = gt::md("Med<sub>treat</sub>"),
-      m0 = gt::md("Med<sub>ctrl</sub>"),
-      RMST = gt::md("RMST<sub>diff</sub>"),
-      `HR (95% CI)` = gt::md("HR<br/>(95% CI)<sup>†</sup>"),
-      `HR*` = gt::md("HR<sup>‡</sup><br/>(95% CI)")
-    ) |>
+    gt::cols_label(.list = labels_list)
 
-    # Add spanners to group related columns
-    gt::tab_spanner(
-      label = "Sample Size",
-      columns = c(n, n1, events)
-    ) |>
+  # Add spanners if columns exist
+  sample_size_cols <- intersect(c("n", "n1", "events"), col_names)
+  if (length(sample_size_cols) > 0) {
+    tbl <- tbl |>
+      gt::tab_spanner(
+        label = "Sample Size",
+        columns = sample_size_cols
+      )
+  }
 
-    gt::tab_spanner(
-      label = "Survival",
-      columns = c(m1, m0, RMST)
-    ) |>
+  survival_cols <- intersect(c("m1", "m0", "RMST"), col_names)
+  if (length(survival_cols) > 0) {
+    tbl <- tbl |>
+      gt::tab_spanner(
+        label = "Survival",
+        columns = survival_cols
+      )
+  }
 
-    gt::tab_spanner(
-      label = "Treatment Effect",
-      columns = gt::starts_with("HR")
-    ) |>
+  hr_cols <- grep("HR", col_names, value = TRUE)
+  if (length(hr_cols) > 0) {
+    tbl <- tbl |>
+      gt::tab_spanner(
+        label = "Treatment Effect",
+        columns = gt::starts_with("HR")
+      )
+  }
 
-    # Footnotes explaining the estimates
-    gt::tab_footnote(
-      footnote = gt::md("**Unadjusted HR**: Standard Cox regression hazard ratio with robust standard errors"),
-      locations = gt::cells_column_labels(columns = `HR (95% CI)`)
-    ) |>
+  # Add footnotes
+  if (!is.na(hr_col) && length(hr_col) > 0) {
+    # Use dplyr::all_of() which comes with gt, or just use the column directly
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md("**Unadjusted HR**: Standard Cox regression hazard ratio with robust standard errors"),
+        locations = gt::cells_column_labels(columns = dplyr::all_of(hr_col))
+      )
+  }
 
-    gt::tab_footnote(
-      footnote = gt::md(sprintf(
-        "**Bias-corrected HR**: Bootstrap-adjusted estimate using .632+ method (%d iterations). Corrects for optimism in subgroup selection.",
-        nb_boots
-      )),
-      locations = gt::cells_column_labels(columns = `HR*`)
-    ) |>
+  if (!is.na(hr_adj_col) && length(hr_adj_col) > 0) {
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md(sprintf(
+          "**Bias-corrected HR**: Bootstrap-adjusted estimate using .632+ method (%d iterations). Corrects for optimism in subgroup selection.",
+          nb_boots
+        )),
+        locations = gt::cells_column_labels(columns = dplyr::all_of(hr_adj_col))
+      )
+  }
 
-    # Source note with technical details
-    gt::tab_source_note(
-      source_note = gt::md(sprintf(
-        "*Note*: Med = Median survival time (months). RMST<sub>diff</sub> = Restricted mean survival time difference. %s",
-        if (!is.null(boot_success_rate)) {
-          sprintf("Subgroup identified in %.1f%% of bootstrap samples.", boot_success_rate * 100)
-        } else {
-          ""
-        }
-      ))
-    ) |>
+  # Source note with technical details
+  source_note_text <- "*Note*: Med = Median survival time (months). RMST<sub>diff</sub> = Restricted mean survival time difference."
+  if (!is.null(boot_success_rate)) {
+    source_note_text <- paste0(
+      source_note_text,
+      sprintf(" Subgroup identified in %.1f%% of bootstrap samples.", boot_success_rate * 100)
+    )
+  }
 
-    # Styling
+  tbl <- tbl |>
+    gt::tab_source_note(source_note = gt::md(source_note_text))
+
+  # Styling
+  tbl <- tbl |>
     gt::tab_style(
       style = list(
         gt::cell_fill(color = "#f0f0f0"),
         gt::cell_text(weight = "bold")
       ),
       locations = gt::cells_column_labels()
-    ) |>
+    )
 
-    gt::tab_style(
-      style = gt::cell_text(align = "center"),
-      locations = gt::cells_body(columns = c(n, n1, events, m1, m0, RMST))
-    ) |>
+  # Center align numeric columns if they exist
+  numeric_cols <- intersect(c("n", "n1", "events", "m1", "m0", "RMST"), col_names)
+  if (length(numeric_cols) > 0) {
+    tbl <- tbl |>
+      gt::tab_style(
+        style = gt::cell_text(align = "center"),
+        locations = gt::cells_body(columns = dplyr::all_of(numeric_cols))
+      )
+  }
 
-    # Highlight the bias-corrected estimates
-    gt::tab_style(
-      style = list(
-        gt::cell_fill(color = "#e8f4f8"),
-        gt::cell_text(weight = "bold")
-      ),
-      locations = gt::cells_body(columns = `HR*`)
-    ) |>
+  # Highlight the bias-corrected estimates if column exists
+  if (!is.na(hr_adj_col) && length(hr_adj_col) > 0) {
+    tbl <- tbl |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#e8f4f8"),
+          gt::cell_text(weight = "bold")
+        ),
+        locations = gt::cells_body(columns = dplyr::all_of(hr_adj_col))
+      )
+  }
 
-    # Add subtle borders
+  # Add subtle borders
+  tbl <- tbl |>
     gt::tab_options(
       table.border.top.style = "solid",
       table.border.top.width = gt::px(3),
@@ -634,23 +691,4 @@ generate_bootstrap_caption <- function(nb_boots, boot_success_rate, est.scale = 
   )
 
   return(caption)
-}
-
-
-#' @export
-print.forestsearch_bootstrap <- function(x, ...) {
-  cat("ForestSearch Bootstrap Results\n")
-  cat("==============================\n\n")
-
-  if (!is.null(x$summary)) {
-    cat("Bootstrap iterations:", x$summary$diagnostics$n_boots, "\n")
-    cat("Success rate:", sprintf("%.1f%%", x$summary$diagnostics$success_rate * 100), "\n")
-    cat("\nFormatted table available at: $summary$table\n")
-    cat("Diagnostic plots available at: $summary$plots\n")
-  } else {
-    cat("Bootstrap iterations:", nrow(x$results), "\n")
-    cat("Success rate:", sprintf("%.1f%%", mean(!is.na(x$results$H_biasadj_2)) * 100), "\n")
-  }
-
-  invisible(x)
 }

@@ -14,7 +14,7 @@ format_bootstrap_table(
 )
 }
 \arguments{
-\item{FSsg_tab}{Data frame from forestsearch_bootstrap_dofuture()$FSsg_tab}
+\item{FSsg_tab}{Data frame or matrix from forestsearch_bootstrap_dofuture()$FSsg_tab}
 
 \item{nb_boots}{Integer. Number of bootstrap iterations performed}
 
