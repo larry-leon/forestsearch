@@ -452,7 +452,7 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
     tbl <- tbl |>
       gt::tab_footnote(
         footnote = gt::md(sprintf(
-          "**Bias-corrected HR**: Bootstrap-adjusted estimate using .632+ method (%d iterations). Corrects for optimism in subgroup selection.",
+          "**Bias-corrected HR**: Bootstrap-adjusted estimate using infinitesimal jacknife method (%d iterations). Corrects for optimism in subgroup selection.",
           nb_boots
         )),
         locations = gt::cells_column_labels(columns = dplyr::all_of(hr_adj_col))
