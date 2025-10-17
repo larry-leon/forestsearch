@@ -31,6 +31,8 @@ desc::desc_set_remotes("larry-leon/weightedSurv")
 
 usethis::use_package("progressr", type = "Imports")
 
+usethis::use_package("patchwork", type = "Suggests")
+
 
 #usethis::use_package("ggplot2")
 

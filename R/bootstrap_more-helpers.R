@@ -582,8 +582,18 @@ summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
   plots <- NULL
   if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
     plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
-  }
 
+    # Add combined plot if patchwork is available
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
+        patchwork::plot_annotation(
+          title = "Bootstrap Distributions",
+          subtitle = sprintf("%d iterations", nrow(boot_result$results)),
+          theme = theme(plot.title = element_text(size = 16, face = "bold")
+                        )
+        )
+    }
+  }
   list(
     table = formatted_table,
     diagnostics = diagnostics,

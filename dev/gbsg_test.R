@@ -61,6 +61,8 @@ cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
 # res_1 "Recommend"    "604 (88.0%)" "220 (36.4%)" "254 (42.1%)" "66.7" "52.6" "9.3" "0.61 (0.47, 0.80)" "0.64 (0.05,7.55)"
 
 
+
+
 if (save_results) {
   filename <- file.path(output_dir,
                         paste0("bootstrap_results_B=",
