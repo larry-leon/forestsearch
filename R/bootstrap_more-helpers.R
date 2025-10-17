@@ -626,7 +626,8 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
     ggplot2::geom_vline(xintercept = c(log(H_estimates$H2),log(H_estimates$H0)), color = c("green","red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
-      title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
+      title = "Bootstrap Distribution of Bias-Corrected
+      log(hazard ratio): Subgroup H",
       subtitle = "Red line shows final bias-corrected estimate",
       x = "Log Hazard Ratio (bias-corrected)",
       y = "Frequency"
@@ -643,7 +644,8 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
     ggplot2::geom_vline(xintercept = c(log(Hc_estimates$H2),log(Hc_estimates$H0)), color = c("green","red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
-      title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
+      title = "Bootstrap Distribution of Bias-Corrected
+      log(hazard ratio): Subgroup Hc",
       subtitle = "Red line shows final bias-corrected estimate",
       x = "Log Hazard Ratio (bias-corrected)",
       y = "Frequency"

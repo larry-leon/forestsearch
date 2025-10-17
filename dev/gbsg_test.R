@@ -56,6 +56,11 @@ cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
 cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
 
 
+fs_bc$summary$plots$combined
+
+
+
+# Legacy results
 # Subgroup       n             n1            events        m1     m0     RMST  HR (95% CI)         HR*
 #   res_0 "Questionable" "82 (12.0%)"  "26 (31.7%)"  "45 (54.9%)"  "22.9" "43.7" "-14" "1.95 (1.04, 3.67)" "1.5 (0.39,5.81)"
 # res_1 "Recommend"    "604 (88.0%)" "220 (36.4%)" "254 (42.1%)" "66.7" "52.6" "9.3" "0.61 (0.47, 0.80)" "0.64 (0.05,7.55)"
