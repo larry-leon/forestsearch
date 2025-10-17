@@ -588,7 +588,7 @@ summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
       plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
         patchwork::plot_annotation(
           title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations", nrow(boot_result$results)),
+          subtitle = sprintf("%d iterations", nrow(boot_result2$results)),
           theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold")
                         )
         )
@@ -623,7 +623,7 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
   # Plot 1: Bootstrap distribution of bias-corrected estimates H
   p1 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_2)) +
     ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
-    ggplot2::geom_vline(xintercept = log(H_estimates$H2), color = "red",
+    ggplot2::geom_vline(xintercept = c(log(H_estimates$H2),log(H_estimates$H0)), color = c("green","red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
       title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
@@ -640,7 +640,7 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
   # Plot 2: Bootstrap distribution of bias-corrected estimates Hc
   p2 <- ggplot2::ggplot(results, ggplot2::aes(x = Hc_biasadj_2)) +
     ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
-    ggplot2::geom_vline(xintercept = log(Hc_estimates$H2), color = "red",
+    ggplot2::geom_vline(xintercept = c(log(Hc_estimates$H2),log(Hc_estimates$H0)), color = c("green","red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
       title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
