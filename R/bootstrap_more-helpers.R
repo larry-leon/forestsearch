@@ -324,3 +324,333 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
   }
 
 }
+
+#' Format Bootstrap Results Table with gt
+#'
+#' Creates a publication-ready table from ForestSearch bootstrap results,
+#' with bias-corrected confidence intervals and informative formatting.
+#'
+#' @param FSsg_tab Data frame from forestsearch_bootstrap_dofuture()$FSsg_tab
+#' @param nb_boots Integer. Number of bootstrap iterations performed
+#' @param est.scale Character. "hr" or "1/hr" for effect scale
+#' @param boot_success_rate Numeric. Proportion of bootstraps that found subgroups
+#' @param title Character. Custom title (optional)
+#' @param subtitle Character. Custom subtitle (optional)
+#'
+#' @return A gt table object
+#' @importFrom gt gt tab_header tab_spanner tab_footnote md cols_label
+#' @export
+
+format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
+                                   boot_success_rate = NULL,
+                                   title = NULL, subtitle = NULL) {
+
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    stop("Package 'gt' is required for table formatting. Install with: install.packages('gt')")
+  }
+
+  # Default title and subtitle
+  if (is.null(title)) {
+    title <- "Treatment Effect by Subgroup"
+  }
+
+  if (is.null(subtitle)) {
+    effect_label <- ifelse(est.scale == "hr", "Hazard Ratio", "Inverse Hazard Ratio (1/HR)")
+    subtitle <- sprintf("Bootstrap bias-corrected estimates (%d iterations)", nb_boots)
+  }
+
+  # Create the gt table
+  tbl <- FSsg_tab |>
+    gt::gt() |>
+
+    # Title and subtitle
+    gt::tab_header(
+      title = gt::md(paste0("**", title, "**")),
+      subtitle = subtitle
+    ) |>
+
+    # Column labels with better formatting
+    gt::cols_label(
+      Subgroup = "Subgroup",
+      n = "N",
+      n1 = gt::md("N<sub>treat</sub>"),
+      events = "Events",
+      m1 = gt::md("Med<sub>treat</sub>"),
+      m0 = gt::md("Med<sub>ctrl</sub>"),
+      RMST = gt::md("RMST<sub>diff</sub>"),
+      `HR (95% CI)` = gt::md("HR<br/>(95% CI)<sup>†</sup>"),
+      `HR*` = gt::md("HR<sup>‡</sup><br/>(95% CI)")
+    ) |>
+
+    # Add spanners to group related columns
+    gt::tab_spanner(
+      label = "Sample Size",
+      columns = c(n, n1, events)
+    ) |>
+
+    gt::tab_spanner(
+      label = "Survival",
+      columns = c(m1, m0, RMST)
+    ) |>
+
+    gt::tab_spanner(
+      label = "Treatment Effect",
+      columns = gt::starts_with("HR")
+    ) |>
+
+    # Footnotes explaining the estimates
+    gt::tab_footnote(
+      footnote = gt::md("**Unadjusted HR**: Standard Cox regression hazard ratio with robust standard errors"),
+      locations = gt::cells_column_labels(columns = `HR (95% CI)`)
+    ) |>
+
+    gt::tab_footnote(
+      footnote = gt::md(sprintf(
+        "**Bias-corrected HR**: Bootstrap-adjusted estimate using .632+ method (%d iterations). Corrects for optimism in subgroup selection.",
+        nb_boots
+      )),
+      locations = gt::cells_column_labels(columns = `HR*`)
+    ) |>
+
+    # Source note with technical details
+    gt::tab_source_note(
+      source_note = gt::md(sprintf(
+        "*Note*: Med = Median survival time (months). RMST<sub>diff</sub> = Restricted mean survival time difference. %s",
+        if (!is.null(boot_success_rate)) {
+          sprintf("Subgroup identified in %.1f%% of bootstrap samples.", boot_success_rate * 100)
+        } else {
+          ""
+        }
+      ))
+    ) |>
+
+    # Styling
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = "#f0f0f0"),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_column_labels()
+    ) |>
+
+    gt::tab_style(
+      style = gt::cell_text(align = "center"),
+      locations = gt::cells_body(columns = c(n, n1, events, m1, m0, RMST))
+    ) |>
+
+    # Highlight the bias-corrected estimates
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = "#e8f4f8"),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(columns = `HR*`)
+    ) |>
+
+    # Add subtle borders
+    gt::tab_options(
+      table.border.top.style = "solid",
+      table.border.top.width = gt::px(3),
+      table.border.top.color = "#333333",
+      heading.border.bottom.style = "solid",
+      heading.border.bottom.width = gt::px(2),
+      heading.border.bottom.color = "#333333",
+      column_labels.border.bottom.style = "solid",
+      column_labels.border.bottom.width = gt::px(2),
+      column_labels.border.bottom.color = "#333333",
+      table.font.size = gt::px(14)
+    )
+
+  return(tbl)
+}
+
+
+#' Enhanced Bootstrap Results Summary
+#'
+#' Creates comprehensive output including formatted table, diagnostic plots,
+#' and bootstrap quality metrics.
+#'
+#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
+#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
+#' @param est.scale Character. "hr" or "1/hr" for effect scale
+#'
+#' @return List with formatted table and diagnostics
+#' @export
+
+summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
+                                        est.scale = "hr") {
+
+  # Extract components
+  FSsg_tab <- boot_results$FSsg_tab
+  results <- boot_results$results
+  H_estimates <- boot_results$H_estimates
+  Hc_estimates <- boot_results$Hc_estimates
+
+  # Calculate bootstrap success rate
+  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
+  nb_boots <- nrow(results)
+
+  # Create formatted table
+  formatted_table <- format_bootstrap_table(
+    FSsg_tab = FSsg_tab,
+    nb_boots = nb_boots,
+    est.scale = est.scale,
+    boot_success_rate = boot_success_rate
+  )
+
+  # Bootstrap diagnostics
+  diagnostics <- list(
+    n_boots = nb_boots,
+    success_rate = boot_success_rate,
+    n_successful = sum(!is.na(results$H_biasadj_2)),
+    n_failed = sum(is.na(results$H_biasadj_2)),
+    median_search_time = median(results$tmins_search, na.rm = TRUE),
+    total_search_time = sum(results$tmins_search, na.rm = TRUE)
+  )
+
+  # Print summary
+  cat("\n=== Bootstrap Analysis Summary ===\n")
+  cat(sprintf("Total bootstrap iterations: %d\n", diagnostics$n_boots))
+  cat(sprintf("Successful subgroup identification: %d (%.1f%%)\n",
+              diagnostics$n_successful, diagnostics$success_rate * 100))
+  cat(sprintf("Failed to find subgroup: %d (%.1f%%)\n",
+              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
+  cat(sprintf("Median search time per bootstrap: %.2f minutes\n",
+              diagnostics$median_search_time))
+  cat(sprintf("Total computation time: %.2f minutes\n",
+              diagnostics$total_search_time))
+  cat("\n")
+
+  # Create diagnostic plots if requested
+  plots <- NULL
+  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
+    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
+  }
+
+  list(
+    table = formatted_table,
+    diagnostics = diagnostics,
+    plots = plots
+  )
+}
+
+
+#' Create Bootstrap Diagnostic Plots
+#'
+#' Generates plots showing bootstrap distribution and bias correction
+#'
+#' @param results Data.table of bootstrap results
+#' @param H_estimates Data.table of H subgroup estimates
+#' @param Hc_estimates Data.table of Hc subgroup estimates
+#'
+#' @return List of ggplot objects
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_vline
+#' @keywords internal
+
+create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates) {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    return(NULL)
+  }
+
+  # Plot 1: Bootstrap distribution of bias-corrected estimates
+  p1 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_2)) +
+    ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
+    ggplot2::geom_vline(xintercept = H_estimates$H2, color = "red",
+                        linetype = "dashed", linewidth = 1) +
+    ggplot2::labs(
+      title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
+      subtitle = "Red line shows final bias-corrected estimate",
+      x = "Log Hazard Ratio (bias-corrected)",
+      y = "Frequency"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 14),
+      plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
+    )
+
+  # Plot 2: Bias correction impact
+  bias_data <- data.frame(
+    iteration = 1:nrow(results),
+    unadjusted = H_estimates$H0,
+    adjusted = results$H_biasadj_2
+  )
+
+  p2 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_1, y = H_biasadj_2)) +
+    ggplot2::geom_point(alpha = 0.5, color = "#4472C4") +
+    ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+    ggplot2::labs(
+      title = "Comparison of Bias Correction Methods",
+      x = "Method 1 (Simple optimism correction)",
+      y = "Method 2 (Double bootstrap correction)"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 14)
+    )
+
+  # Plot 3: Bootstrap search time distribution
+  p3 <- ggplot2::ggplot(results, ggplot2::aes(x = tmins_search)) +
+    ggplot2::geom_histogram(bins = 30, fill = "#70AD47", alpha = 0.7, color = "white") +
+    ggplot2::labs(
+      title = "Bootstrap Search Time Distribution",
+      x = "Search time (minutes)",
+      y = "Frequency"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 14)
+    )
+
+  list(
+    distribution = p1,
+    methods_comparison = p2,
+    search_times = p3
+  )
+}
+
+
+#' Simple Caption Generator for Bootstrap Table
+#'
+#' Generates an informative caption based on bootstrap results
+#'
+#' @param nb_boots Integer. Number of bootstrap iterations
+#' @param boot_success_rate Numeric. Proportion of successful bootstraps
+#' @param est.scale Character. "hr" or "1/hr"
+#'
+#' @return Character string with formatted caption
+#' @export
+
+generate_bootstrap_caption <- function(nb_boots, boot_success_rate, est.scale = "hr") {
+
+  effect_name <- ifelse(est.scale == "hr", "hazard ratio", "inverse hazard ratio (1/HR)")
+
+  caption <- sprintf(
+    "Treatment effect estimates by identified subgroups. The unadjusted %s (HR) is from standard Cox regression with robust standard errors. The bias-corrected estimate (HR*) adjusts for optimism in subgroup selection using bootstrap methods (%d iterations, %.1f%% successful). Values less than 1.0 indicate benefit from treatment; bias correction typically shifts estimates toward the null, reflecting the optimism inherent in data-driven subgroup identification.",
+    effect_name,
+    nb_boots,
+    boot_success_rate * 100
+  )
+
+  return(caption)
+}
+
+
+#' @export
+print.forestsearch_bootstrap <- function(x, ...) {
+  cat("ForestSearch Bootstrap Results\n")
+  cat("==============================\n\n")
+
+  if (!is.null(x$summary)) {
+    cat("Bootstrap iterations:", x$summary$diagnostics$n_boots, "\n")
+    cat("Success rate:", sprintf("%.1f%%", x$summary$diagnostics$success_rate * 100), "\n")
+    cat("\nFormatted table available at: $summary$table\n")
+    cat("Diagnostic plots available at: $summary$plots\n")
+  } else {
+    cat("Bootstrap iterations:", nrow(x$results), "\n")
+    cat("Success rate:", sprintf("%.1f%%", mean(!is.na(x$results$H_biasadj_2)) * 100), "\n")
+  }
+
+  invisible(x)
+}

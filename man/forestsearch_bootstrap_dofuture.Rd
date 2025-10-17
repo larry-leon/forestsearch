@@ -10,7 +10,9 @@ forestsearch_bootstrap_dofuture(
   details = FALSE,
   show_three = FALSE,
   parallel_args = list(),
-  show_progress = TRUE
+  show_progress = TRUE,
+  create_summary = TRUE,
+  create_plots = TRUE
 )
 }
 \arguments{

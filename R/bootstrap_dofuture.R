@@ -454,7 +454,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @export
 
 forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
-                                           parallel_args = list(), show_progress = TRUE
+                                           parallel_args = list(), show_progress = TRUE,
+                                           create_summary = TRUE, create_plots = TRUE
                                             ) {
 
   # Handle progress at wrapper level
@@ -590,6 +591,19 @@ if (est.scale == "1/hr") {
                                  )
   }
   out <- list(results = results, SG_CIs = SG_CIs, FSsg_tab = FSsg_tab, Ystar_mat = Ystar_mat, H_estimates = H_estimates, Hc_estimates = Hc_estimates)
+
+  # Add enhanced summary if requested
+  if (create_summary) {
+    summary_output <- summarize_bootstrap_results(
+      boot_results = out,
+      create_plots = create_plots,
+      est.scale = est.scale
+    )
+
+    out$summary <- summary_output
+  }
+
+
   return(out)
 }
 
