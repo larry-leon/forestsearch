@@ -45,17 +45,11 @@ fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
 output_dir <- "Vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 300
-
+NB <- 500
 t.start <- proc.time()[3]
-
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
-
-
 print(names(fs_bc))
-
 print(fs_bc$FSsg_tab)
-
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")

@@ -610,10 +610,10 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
     return(NULL)
   }
 
-  # Plot 1: Bootstrap distribution of bias-corrected estimates
+  # Plot 1: Bootstrap distribution of bias-corrected estimates H
   p1 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_2)) +
     ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
-    ggplot2::geom_vline(xintercept = H_estimates$H2, color = "red",
+    ggplot2::geom_vline(xintercept = log(H_estimates$H2), color = "red",
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
       title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
@@ -627,18 +627,37 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
       plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
     )
 
-  # Plot 2: Bias correction impact
+  # Plot 2: Bootstrap distribution of bias-corrected estimates Hc
+  p2 <- ggplot2::ggplot(results, ggplot2::aes(x = Hc_biasadj_2)) +
+    ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
+    ggplot2::geom_vline(xintercept = log(Hc_estimates$H2), color = "red",
+                        linetype = "dashed", linewidth = 1) +
+    ggplot2::labs(
+      title = "Bootstrap Distribution of Bias-Corrected HR (Subgroup H)",
+      subtitle = "Red line shows final bias-corrected estimate",
+      x = "Log Hazard Ratio (bias-corrected)",
+      y = "Frequency"
+    ) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 14),
+      plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
+    )
+
+
+
+  # Plot 3: Bias correction impact
   bias_data <- data.frame(
     iteration = 1:nrow(results),
     unadjusted = H_estimates$H0,
     adjusted = results$H_biasadj_2
   )
 
-  p2 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_1, y = H_biasadj_2)) +
+  p3 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_1, y = H_biasadj_2)) +
     ggplot2::geom_point(alpha = 0.5, color = "#4472C4") +
     ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
     ggplot2::labs(
-      title = "Comparison of Bias Correction Methods",
+      title = "Comparison of H Bias Correction Methods",
       x = "Method 1 (Simple optimism correction)",
       y = "Method 2 (Double bootstrap correction)"
     ) +
@@ -647,23 +666,26 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
       plot.title = ggplot2::element_text(face = "bold", size = 14)
     )
 
-  # Plot 3: Bootstrap search time distribution
-  p3 <- ggplot2::ggplot(results, ggplot2::aes(x = tmins_search)) +
-    ggplot2::geom_histogram(bins = 30, fill = "#70AD47", alpha = 0.7, color = "white") +
+  p4 <- ggplot2::ggplot(results, ggplot2::aes(x = Hc_biasadj_1, y = Hc_biasadj_2)) +
+    ggplot2::geom_point(alpha = 0.5, color = "#4472C4") +
+    ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
     ggplot2::labs(
-      title = "Bootstrap Search Time Distribution",
-      x = "Search time (minutes)",
-      y = "Frequency"
+      title = "Comparison of Hc Bias Correction Methods",
+      x = "Method 1 (Simple optimism correction)",
+      y = "Method 2 (Double bootstrap correction)"
     ) +
     ggplot2::theme_minimal() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold", size = 14)
     )
 
+
+
   list(
-    distribution = p1,
-    methods_comparison = p2,
-    search_times = p3
+    H_distribution = p1,
+    Hc_distribution = p2,
+    H_methods_comparison = p3,
+    Hc_methods_comparison = p4
   )
 }
 
