@@ -312,14 +312,18 @@ sg_tables <- function(fs, which_df = "est", est_caption = "Training data estimat
   if(which_df == "testing") df <- fs$df.test
 
   args_fs <- fs$args_call_all
-  args_tab <- names(formals(SG_tab_estimates))
-  # align with args_call_all
-  args_tab_filtered <- args_fs[args_fs %in% names(args_tab)]
-  args_tab_filtered$df <- df
-  args_tab_filtered$sg0_name <- "Questionable"
-  args_tab_filtered$sg1_name <- "Recommend"
-  args_tab_filtered$hr_1a <- hr_1a
-  args_tab_filtered$hr_0a <- hr_0a
+
+  # args_tab <- names(formals(SG_tab_estimates))
+  # args_tab_filtered <- args_fs[args_fs %in% names(args_tab)]
+  # args_tab_filtered$df <- df
+  # args_tab_filtered$sg0_name <- "Questionable"
+  # args_tab_filtered$sg1_name <- "Recommend"
+  # args_tab_filtered$hr_1a <- hr_1a
+  # args_tab_filtered$hr_0a <- hr_0a
+
+  args_tab_filtered <- filter_call_args(args_fs, SG_tab_estimates,
+  list(df = df, sg0_name = "Questionable", sg1_name = "Recommend",
+  hr_1a = hr_1a, hr_0a = hr_0a))
 
   # ITT estimates
   args_tab_filtered$SG_flag <- "ITT"
@@ -373,3 +377,53 @@ sg_tables <- function(fs, which_df = "est", est_caption = "Training data estimat
 
   return(list(tab_estimates = tab_estimates, sg10_out = sg10_out))
 }
+
+
+#' Filter and merge arguments for function calls
+#'
+#' Simplifies the common pattern of filtering arguments from a source list
+#' to match a target function's formal parameters, then adding/overriding specific arguments.
+#'
+#' @param source_args List of all arguments (typically from `mget()` or a stored args list).
+#' @param target_func Function whose formals define the filter criteria.
+#' @param override_args List of arguments to add or override (optional).
+#'
+#' @return List of filtered arguments ready for `do.call()`.
+#'
+#' @details
+#' This function:
+#' 1. Extracts formal parameter names from `target_func`
+#' 2. Keeps only arguments from `source_args` that match those names
+#' 3. Adds or overrides with any `override_args` provided
+#'
+#' Reduces boilerplate and improves readability across the codebase.
+#'
+#' @examples
+#' \dontrun{
+#' # Instead of:
+#' args_FS <- names(formals(get_FSdata))
+#' args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
+#' args_FS_filtered$df.analysis <- df.analysis
+#' args_FS_filtered$grf_cuts <- grf_cuts
+#' FSdata <- do.call(get_FSdata, args_FS_filtered)
+#'
+#' # You now write:
+#' FSdata <- do.call(get_FSdata,
+#'   filter_call_args(args_call_all, get_FSdata,
+#'                    list(df.analysis = df.analysis, grf_cuts = grf_cuts)))
+#' }
+#'
+#' @export
+
+filter_call_args <- function(source_args, target_func, override_args = NULL) {
+  target_params <- names(formals(target_func))
+  filtered <- source_args[names(source_args) %in% target_params]
+
+  if (!is.null(override_args)) {
+    filtered[names(override_args)] <- override_args
+  }
+
+  filtered
+}
+
+

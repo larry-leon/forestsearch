@@ -265,23 +265,32 @@ get_cut_name <- function(thiscut, confounders.name) {
   confounders.name[cov_index]
 }
 
-
-#' Check if cut expression is for a continuous variable
+#' Check if cut expression is for a continuous variable (OPTIMIZED)
 #'
 #' Determines if a cut expression refers to a continuous variable.
+#' This optimized version avoids redundant lookups by using word boundary
+#' matching instead of partial string matching.
 #'
 #' @param thiscut Character string of the cut expression.
 #' @param confounders.name Character vector of confounder names.
 #' @param df Data frame.
 #' @param cont.cutoff Integer. Cutoff for continuous.
+#'
 #' @return Logical; TRUE if continuous, FALSE otherwise.
 #' @export
 
 is_flag_continuous <- function(thiscut, confounders.name, df, cont.cutoff) {
-  cut_name <- get_cut_name(thiscut, confounders.name)
-  aa <- df[, cut_name, drop = FALSE]
-  # If multiple columns, check all; if any is continuous, return TRUE
-  any(vapply(aa, function(col) is.continuous(col, cutoff = cont.cutoff) == 1, logical(1)))
+  # Use word boundaries to avoid partial matches
+  # e.g., "z1" won't accidentally match "z11"
+  for (conf in confounders.name) {
+    # Pattern: word boundary + variable name + word boundary
+    pattern <- paste0("\\b", conf, "\\b")
+    if (grepl(pattern, thiscut)) {
+      # Found the confounder, now check if it's continuous
+      return(is.continuous(df[[conf]], cutoff = cont.cutoff) == 1)
+    }
+  }
+  FALSE
 }
 
 
@@ -429,3 +438,76 @@ one.zero <- function(x){
     x <- 1}
   return(x)
 }
+
+
+
+
+
+#' Cache and validate cut expressions efficiently
+#'
+#' Evaluates all cut expressions once and caches results to avoid
+#' redundant evaluation. Much faster than evaluating repeatedly.
+#'
+#' @param confs Character vector of cut expressions.
+#' @param df Data frame to evaluate expressions against.
+#' @param details Logical. Print details during execution.
+#'
+#' @return List with:
+#'   - evaluations: List of evaluated vectors (logical TRUE/FALSE) for each cut
+#'   - is_valid: Logical vector indicating which cuts produced >1 unique value
+#'   - has_error: Logical vector indicating which cuts failed to evaluate
+#'
+#' @details
+#' This replaces multiple eval(parse()) calls scattered throughout get_FSdata.
+#' By caching results, we avoid:
+#' 1. Repeated parsing of expressions
+#' 2. Repeated evaluation on dataframe
+#' 3. Redundant uniqueness checks
+#'
+#' @export
+
+evaluate_cuts_once <- function(confs, df, details = FALSE) {
+  n_confs <- length(confs)
+  evaluations <- vector("list", n_confs)
+  is_valid <- logical(n_confs)
+  has_error <- logical(n_confs)
+
+  for (i in seq_along(confs)) {
+    thiscut <- confs[i]
+
+    tryCatch({
+      # Evaluate expression once - should return logical (TRUE/FALSE)
+      result <- eval(parse(text = thiscut), envir = df)
+
+      # Store the result (as logical)
+      evaluations[[i]] <- as.logical(result)
+
+      # Check validity: must produce more than 1 unique value
+      is_valid[i] <- length(unique(result)) > 1
+
+    }, error = function(e) {
+      has_error[i] <<- TRUE
+      is_valid[i] <<- FALSE
+      if (details) {
+        cat("Error evaluating cut '", thiscut, "': ", e$message, "\n", sep = "")
+      }
+    })
+  }
+
+  if (details) {
+    cat("Cut evaluation summary:\n")
+    cat("  Total cuts: ", n_confs, "\n")
+    cat("  Valid cuts: ", sum(is_valid), "\n")
+    cat("  Errors: ", sum(has_error), "\n")
+  }
+
+  list(
+    evaluations = evaluations,
+    is_valid = is_valid,
+    has_error = has_error
+  )
+}
+
+
+
+

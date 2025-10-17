@@ -201,13 +201,6 @@ if (!exists("df.analysis") | !is.data.frame(df.analysis)){
     message("Converting df.analysis to data.frame")
   }
 
-# Revised
-  # if (is.null(id.name)) {
-  #   df.analysis$id <- seq_len(nrow(df.analysis))
-  #   id.name <- "id"
-  # } else if (!(id.name %in% names(df.analysis))) {
-  #   df.analysis[[id.name]] <- seq_len(nrow(df.analysis))
-  # }
 
  df.analysis <-  add_id_column(df.analysis, id.name)
 
@@ -322,30 +315,29 @@ if (!inherits(grf_res, "try-error") && !is.null(grf_res)) {
 
 if(use_grf && !exists("grf_cuts")) warning("GRF cuts not found")
 
-get_argsFS <- formals(get_FSdata)
-args_FS <- names(get_argsFS)
-# align with args_call_all
-args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
-# In get_FSdata the data source is "df"
-args_FS_filtered$df.analysis <- df.analysis
-args_FS_filtered$grf_cuts <- grf_cuts
-
-# Remove
-# cat("args_FS_filtered","\n")
-# print(names(args_FS_filtered))
-
-# FSdata1 <- do.call(get_FSdata, args_FS_filtered)
-# print(names(FSdata1))
-
-#FSdata <- try(do.call(get_FSdata, args_FS_filtered), TRUE)
+# get_argsFS <- formals(get_FSdata)
+# args_FS <- names(get_argsFS)
+# # align with args_call_all
+# args_FS_filtered <- args_call_all[names(args_call_all) %in% args_FS]
+# # In get_FSdata the data source is "df"
+# args_FS_filtered$df.analysis <- df.analysis
+# args_FS_filtered$grf_cuts <- grf_cuts
+#
+# FSdata <- tryCatch(
+#   do.call(get_FSdata, args_FS_filtered),
+#   error = function(e) {
+#     message("Error in forestsearch: ", e$message)
+#     return(NULL)
+#   }
+# )
 
 FSdata <- tryCatch(
-  do.call(get_FSdata, args_FS_filtered),
-  error = function(e) {
-    message("Error in forestsearch: ", e$message)
-    return(NULL)
-  }
+  do.call(get_FSdata, filter_call_args(args_call_all, get_FSdata,
+                                       list(df.analysis = df.analysis, grf_cuts = grf_cuts))),
+  error = function(e) { message("Error in forestsearch: ", e$message); return(NULL) }
 )
+
+
 
 if(inherits(FSdata,"try-error")){
 warning("FSdata failure")
@@ -435,17 +427,21 @@ df.confounders <- dummy(df.confounders)
   if(plot.sg && is.null(by.risk)) by.risk<-round(max(Y)/12,0)
   if(details) cat("# of candidate subgroups (meeting all criteria) = ",c(nrow(find.grps$out.found$hr.subgroups)),"\n")
 
-  args_sgc <- names(formals(subgroup.consistency))
-  # align with args_call_all
-  args_sgc_filtered <- args_call_all[names(args_call_all) %in% args_sgc]
-  args_sgc_filtered$df <- df.fs
-  args_sgc_filtered$hr.subgroups <- find.grps$out.found$hr.subgroups
-  args_sgc_filtered$Lsg <- find.grps$L
-  args_sgc_filtered$confs_labels <- confs_labels
-  args_sgc_filtered$n.splits <- fs.splits
-  args_sgc_filtered$stop_Kgroups <- max_subgroups_search
+  # args_sgc <- names(formals(subgroup.consistency))
+  # args_sgc_filtered <- args_call_all[names(args_call_all) %in% args_sgc]
+  # args_sgc_filtered$df <- df.fs
+  # args_sgc_filtered$hr.subgroups <- find.grps$out.found$hr.subgroups
+  # args_sgc_filtered$Lsg <- find.grps$L
+  # args_sgc_filtered$confs_labels <- confs_labels
+  # args_sgc_filtered$n.splits <- fs.splits
+  # args_sgc_filtered$stop_Kgroups <- max_subgroups_search
+  # grp.consistency <- do.call(subgroup.consistency, args_sgc_filtered)
 
-  grp.consistency <- do.call(subgroup.consistency, args_sgc_filtered)
+  grp.consistency <- do.call(subgroup.consistency,
+  filter_call_args(args_call_all, subgroup.consistency,
+  list(df = df.fs, hr.subgroups = find.grps$out.found$hr.subgroups,
+  Lsg = find.grps$L, confs_labels = confs_labels, n.splits = fs.splits,
+  stop_Kgroups = max_subgroups_search)))
 
   t.end_all<-proc.time()[3]
   t.min_all<-(t.end_all-t.start_all)/60
