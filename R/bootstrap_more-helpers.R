@@ -588,7 +588,7 @@ summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
       plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
         patchwork::plot_annotation(
           title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations", nrow(boot_result2$results)),
+          subtitle = sprintf("%d iterations", nrow(boot_results$results)),
           theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold")
                         )
         )
