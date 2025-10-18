@@ -9,7 +9,7 @@
 #' @importFrom survival coxph
 #' @export
 
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE) {
+get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA) {
   names_tocheck <- all.vars(cox.formula)
   check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
   check2 <- match(names_tocheck, check)
