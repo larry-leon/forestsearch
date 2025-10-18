@@ -26,16 +26,42 @@ for (pkg in pkgs) {
 #desc::desc_set_dep("weightedSurv", type = "Suggests", file = "DESCRIPTION")
 
 desc::desc_set_dep(package = "weightedSurv", type = "Imports")
+
 desc::desc_set_remotes("larry-leon/weightedSurv")
+
+usethis::use_package("progressr", type = "Imports")
+
+usethis::use_package("patchwork", type = "Suggests")
+
 
 #usethis::use_package("ggplot2")
 
 # Step 5: Generate documentation
 # Also, run this if revising R files such as @importFrom
 
+# clean up old documentation
+unlink("man/*.Rd")
+
 devtools::document()
 
 devtools::load_all()
+
+devtools::check()
+
+
+devtools::clean_dll()
+
+# Notes
+# Incorporate in AI prompts when documenting
+Every \item in a \describe{} block must have both a label and a description.
+Do not leave a lone \item{...} without {...} after it.
+Do not next \item inside another \item
+Use plain text, dashes, or a single paragraph for subpoints.
+
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM.
+Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure.
+Statistics in Medicine. 2024; 43(20): 3921-3942. doi: 10.1002/sim.10163
 
 
 #roxygen2::roxygenise()
@@ -57,8 +83,6 @@ devtools::load_all()  # if developing locally
 #git pull --no-rebase
 
 
-# Step 6: Check the package
-devtools::check()
 
 gitcreds::gitcreds_set()
 
