@@ -43,6 +43,8 @@ devtools::document()
 
 devtools::load_all()
 
+devtools::check()
+
 
 #roxygen2::roxygenise()
 
@@ -63,8 +65,6 @@ devtools::load_all()  # if developing locally
 #git pull --no-rebase
 
 
-# Step 6: Check the package
-devtools::check()
 
 gitcreds::gitcreds_set()
 
