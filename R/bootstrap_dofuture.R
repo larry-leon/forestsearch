@@ -227,6 +227,253 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @importFrom doFuture %dofuture%
 #' @export
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
+                              nb_boots, show_three, H_obs, Hc_obs,
+                              show_progress = FALSE) {
+  NN <- nrow(df_boot_analysis)
+  id0 <- seq_len(NN)
+
+  foreach::foreach(
+    boot = seq_len(nb_boots),
+    .options.future = list(
+      seed = TRUE,
+      add = get_bootstrap_exports()
+    ),
+    .combine = "rbind",
+    .errorhandling = "pass"
+  ) %dofuture% {
+
+    # Simple console feedback (only for first few and milestones)
+    if (boot %in% c(1, 10, 50, 100, 250, 500, 750, 1000) || boot == nb_boots) {
+      message(sprintf("Bootstrap iteration %d/%d", boot, nb_boots))
+    }
+
+    show3 <- FALSE
+    if (show_three) show3 <- (boot <= 3)
+    set.seed(8316951 + boot * 100)
+
+    # Create bootstrap sample
+    in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    df_boot <- df_boot_analysis[in_boot, ]
+    df_boot$id_boot <- seq_len(nrow(df_boot))
+
+    # =================================================================
+    # Extract variable names from formula
+    # =================================================================
+    outcome_var <- all.vars(cox.formula.boot[[2]])[1]
+    event_var <- all.vars(cox.formula.boot[[2]])[2]
+    treat_var <- all.vars(cox.formula.boot[[3]])[1]
+
+    # =================================================================
+    # Bootstrap data evaluated at ORIGINAL subgroup H
+    # =================================================================
+
+    # Check events in subgroup H (treat.recommend == 0)
+    df_H <- subset(df_boot, treat.recommend == 0)
+    events_H_0 <- sum(df_H[df_H[[treat_var]] == 0, event_var], na.rm = TRUE)
+    events_H_1 <- sum(df_H[df_H[[treat_var]] == 1, event_var], na.rm = TRUE)
+
+    if (events_H_0 < 5 || events_H_1 < 5) {
+      message(sprintf("  Bootstrap %d: Low events in subgroup H (Control=%d, Treat=%d)",
+                      boot, events_H_0, events_H_1))
+    }
+
+    fitH_star <- get_Cox_sg(
+      df_sg = df_H,
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
+    H_star <- fitH_star$est_obs
+
+    # Check events in subgroup Hc (treat.recommend == 1)
+    df_Hc <- subset(df_boot, treat.recommend == 1)
+    events_Hc_0 <- sum(df_Hc[df_Hc[[treat_var]] == 0, event_var], na.rm = TRUE)
+    events_Hc_1 <- sum(df_Hc[df_Hc[[treat_var]] == 1, event_var], na.rm = TRUE)
+
+    if (events_Hc_0 < 5 || events_Hc_1 < 5) {
+      message(sprintf("  Bootstrap %d: Low events in subgroup Hc (Control=%d, Treat=%d)",
+                      boot, events_Hc_0, events_Hc_1))
+    }
+
+    fitHc_star <- get_Cox_sg(
+      df_sg = df_Hc,
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
+    Hc_star <- fitHc_star$est_obs
+
+    # =================================================================
+    # Initialize bias corrections and other metrics as NA
+    # =================================================================
+    H_biasadj_1 <- H_biasadj_2 <- NA
+    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
+    max_sg_est <- NA
+    L <- NA
+    max_count <- NA
+
+    # Initialize event counts for NEW subgroups (found in bootstrap)
+    events_Hstar_0 <- NA
+    events_Hstar_1 <- NA
+    events_Hcstar_0 <- NA
+    events_Hcstar_1 <- NA
+
+    # =================================================================
+    # Prepare bootstrap dataframes - drop confounders and treat.recommend
+    # =================================================================
+    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
+    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
+    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
+    # =================================================================
+    # Configure forestsearch arguments for bootstrap
+    # =================================================================
+    args_FS_boot <- fs.est$args_call_all
+    args_FS_boot$df.analysis <- dfnew_boot
+    args_FS_boot$df.predict <- dfnew
+
+    # CATEGORY 1: OUTPUT SUPPRESSION
+    args_FS_boot$details <- show3
+    args_FS_boot$showten_subgroups <- FALSE
+    args_FS_boot$plot.sg <- FALSE
+    args_FS_boot$plot.grf <- FALSE
+
+    # CATEGORY 2: VARIABLE RE-SELECTION
+    args_FS_boot$grf_res <- NULL
+    args_FS_boot$grf_cuts <- NULL
+
+    # CATEGORY 3: SEQUENTIAL EXECUTION
+    args_FS_boot$parallel_args$plan <- "sequential"
+    args_FS_boot$parallel_args$workers <- 1L
+    args_FS_boot$parallel_args$show_message <- FALSE
+
+    # =================================================================
+    # Run forestsearch on bootstrap sample
+    # =================================================================
+    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
+
+    if (inherits(run_bootstrap, "try-error")) {
+      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
+    }
+
+    # =================================================================
+    # Compute bias corrections if bootstrap succeeded AND found subgroup
+    # =================================================================
+    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
+
+      # Extract prediction datasets from bootstrap ForestSearch run
+      df_PredBoot <- run_bootstrap$df.predict
+      dfboot_PredBoot <- run_bootstrap$df.est
+
+      # Extract search metrics
+      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
+      max_count <- run_bootstrap$find.grps$max_count
+      L <- run_bootstrap$find.grps$L
+
+      # ==============================================================
+      # Check events in NEW subgroups found by bootstrap
+      # ==============================================================
+
+      # NEW subgroup H* on ORIGINAL data
+      df_Hstar <- subset(df_PredBoot, treat.recommend == 0)
+      events_Hstar_0 <- sum(df_Hstar[df_Hstar[[treat_var]] == 0, event_var], na.rm = TRUE)
+      events_Hstar_1 <- sum(df_Hstar[df_Hstar[[treat_var]] == 1, event_var], na.rm = TRUE)
+
+      if (events_Hstar_0 < 5 || events_Hstar_1 < 5) {
+        message(sprintf("  Bootstrap %d: Low events in NEW subgroup H* (Control=%d, Treat=%d)",
+                        boot, events_Hstar_0, events_Hstar_1))
+      }
+
+      # NEW subgroup Hc* on ORIGINAL data
+      df_Hcstar <- subset(df_PredBoot, treat.recommend == 1)
+      events_Hcstar_0 <- sum(df_Hcstar[df_Hcstar[[treat_var]] == 0, event_var], na.rm = TRUE)
+      events_Hcstar_1 <- sum(df_Hcstar[df_Hcstar[[treat_var]] == 1, event_var], na.rm = TRUE)
+
+      if (events_Hcstar_0 < 5 || events_Hcstar_1 < 5) {
+        message(sprintf("  Bootstrap %d: Low events in NEW subgroup Hc* (Control=%d, Treat=%d)",
+                        boot, events_Hcstar_0, events_Hcstar_1))
+      }
+
+      # ==============================================================
+      # Compute bias corrections for subgroup H (harm/questionable)
+      # ==============================================================
+
+      # Hstar_obs: New subgroup (from bootstrap) evaluated on ORIGINAL data
+      fitHstar_obs <- get_Cox_sg(
+        df_sg = df_Hstar,
+        cox.formula = cox.formula.boot,
+        est.loghr = TRUE
+      )
+      Hstar_obs <- fitHstar_obs$est_obs
+
+      # Hstar_star: New subgroup (from bootstrap) evaluated on BOOTSTRAP data
+      fitHstar_star <- get_Cox_sg(
+        df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
+        cox.formula = cox.formula.boot,
+        est.loghr = TRUE
+      )
+      Hstar_star <- fitHstar_star$est_obs
+
+      # Bias correction method 1: Simple optimism correction
+      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
+
+      # Bias correction method 2: Double correction
+      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+
+      # ==============================================================
+      # Compute bias corrections for subgroup H^c (complement/recommend)
+      # ==============================================================
+
+      # Hcstar_obs: New subgroup complement evaluated on ORIGINAL data
+      fitHcstar_obs <- get_Cox_sg(
+        df_sg = df_Hcstar,
+        cox.formula = cox.formula.boot,
+        est.loghr = TRUE
+      )
+      Hcstar_obs <- fitHcstar_obs$est_obs
+
+      # Hcstar_star: New subgroup complement evaluated on BOOTSTRAP data
+      fitHcstar_star <- get_Cox_sg(
+        df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
+        cox.formula = cox.formula.boot,
+        est.loghr = TRUE
+      )
+      Hcstar_star <- fitHcstar_star$est_obs
+
+      # Apply same correction methods for H^c
+      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
+      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
+    }
+
+    # =================================================================
+    # UPDATED: Return data.table with event counts, without tmins_search and prop_maxk
+    # =================================================================
+    dfres <- data.table::data.table(
+      H_biasadj_1 = H_biasadj_1,
+      H_biasadj_2 = H_biasadj_2,
+      Hc_biasadj_1 = Hc_biasadj_1,
+      Hc_biasadj_2 = Hc_biasadj_2,
+      max_sg_est = max_sg_est,
+      L = L,
+      max_count = max_count,
+      # Event counts for ORIGINAL subgroup evaluated on BOOTSTRAP sample
+      events_H_0 = events_H_0,
+      events_H_1 = events_H_1,
+      events_Hc_0 = events_Hc_0,
+      events_Hc_1 = events_Hc_1,
+      # Event counts for NEW subgroup (found in bootstrap) evaluated on ORIGINAL data
+      events_Hstar_0 = events_Hstar_0,
+      events_Hstar_1 = events_Hstar_1,
+      events_Hcstar_0 = events_Hcstar_0,
+      events_Hcstar_1 = events_Hcstar_1
+    )
+
+    return(dfres)
+  }
+}
+
+
+
+
+bootstrap_results_legacy2 <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs
                               ) {  # Keep parameter but don't use it
   NN <- nrow(df_boot_analysis)
@@ -256,6 +503,19 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
 
+
+    # =================================================================
+    # Initialize bias corrections as NA (will remain NA if bootstrap fails)
+    # =================================================================
+    H_biasadj_1 <- H_biasadj_2 <- NA
+    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
+    tmins_search <- NA
+    max_sg_est <- NA
+    prop_maxk <- NA
+    L <- NA
+    max_count <- NA
+
+
     # =================================================================
     # Bootstrap data evaluated at ORIGINAL subgroup H
     # =================================================================
@@ -274,16 +534,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     )
     Hc_star <- fitHc_star$est_obs  # Use uppercase Hc_star
 
-    # =================================================================
-    # Initialize bias corrections as NA (will remain NA if bootstrap fails)
-    # =================================================================
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
 
     # =================================================================
     # Prepare bootstrap dataframes - drop confounders and treat.recommend

@@ -726,3 +726,113 @@ generate_bootstrap_caption <- function(nb_boots, boot_success_rate, est.scale = 
 
   return(caption)
 }
+
+
+#' Summarize Bootstrap Event Counts
+#'
+#' Provides summary statistics for event counts across bootstrap iterations
+#'
+#' @param boot_results Data.table from bootstrap_results()
+#' @param threshold Integer. Minimum event threshold (default: 5)
+#' @return List with summary statistics
+#' @export
+
+summarize_bootstrap_events <- function(boot_results, threshold = 5) {
+
+  results <- boot_results$results
+  nb_boots <- nrow(results)
+
+  # Check low events for ORIGINAL subgroup on BOOTSTRAP samples
+  low_H_0 <- sum(results$events_H_0 < threshold, na.rm = TRUE)
+  low_H_1 <- sum(results$events_H_1 < threshold, na.rm = TRUE)
+  low_H_either <- sum(results$events_H_0 < threshold | results$events_H_1 < threshold, na.rm = TRUE)
+
+  low_Hc_0 <- sum(results$events_Hc_0 < threshold, na.rm = TRUE)
+  low_Hc_1 <- sum(results$events_Hc_1 < threshold, na.rm = TRUE)
+  low_Hc_either <- sum(results$events_Hc_0 < threshold | results$events_Hc_1 < threshold, na.rm = TRUE)
+
+  # Check low events for NEW subgroup on ORIGINAL data
+  low_Hstar_0 <- sum(results$events_Hstar_0 < threshold, na.rm = TRUE)
+  low_Hstar_1 <- sum(results$events_Hstar_1 < threshold, na.rm = TRUE)
+  low_Hstar_either <- sum(results$events_Hstar_0 < threshold | results$events_Hstar_1 < threshold, na.rm = TRUE)
+
+  low_Hcstar_0 <- sum(results$events_Hcstar_0 < threshold, na.rm = TRUE)
+  low_Hcstar_1 <- sum(results$events_Hcstar_1 < threshold, na.rm = TRUE)
+  low_Hcstar_either <- sum(results$events_Hcstar_0 < threshold | results$events_Hcstar_1 < threshold, na.rm = TRUE)
+
+  # Summary statistics
+  cat("\n=== Bootstrap Event Count Summary ===\n")
+  cat(sprintf("Total bootstrap iterations: %d\n", nb_boots))
+  cat(sprintf("Event threshold: <%d events\n\n", threshold))
+
+  cat("ORIGINAL Subgroup H on BOOTSTRAP samples:\n")
+  cat(sprintf("  Control arm <%d events: %d (%.1f%%)\n",
+              threshold, low_H_0, 100*low_H_0/nb_boots))
+  cat(sprintf("  Treatment arm <%d events: %d (%.1f%%)\n",
+              threshold, low_H_1, 100*low_H_1/nb_boots))
+  cat(sprintf("  Either arm <%d events: %d (%.1f%%)\n\n",
+              threshold, low_H_either, 100*low_H_either/nb_boots))
+
+  cat("ORIGINAL Subgroup Hc on BOOTSTRAP samples:\n")
+  cat(sprintf("  Control arm <%d events: %d (%.1f%%)\n",
+              threshold, low_Hc_0, 100*low_Hc_0/nb_boots))
+  cat(sprintf("  Treatment arm <%d events: %d (%.1f%%)\n",
+              threshold, low_Hc_1, 100*low_Hc_1/nb_boots))
+  cat(sprintf("  Either arm <%d events: %d (%.1f%%)\n\n",
+              threshold, low_Hc_either, 100*low_Hc_either/nb_boots))
+
+  # Count successful bootstraps (found new subgroup)
+  n_successful <- sum(!is.na(results$events_Hstar_0))
+
+  if (n_successful > 0) {
+    cat(sprintf("NEW Subgroups found: %d (%.1f%%)\n\n",
+                n_successful, 100*n_successful/nb_boots))
+
+    cat("NEW Subgroup H* on ORIGINAL data:\n")
+    cat(sprintf("  Control arm <%d events: %d (%.1f%% of successful)\n",
+                threshold, low_Hstar_0, 100*low_Hstar_0/n_successful))
+    cat(sprintf("  Treatment arm <%d events: %d (%.1f%% of successful)\n",
+                threshold, low_Hstar_1, 100*low_Hstar_1/n_successful))
+    cat(sprintf("  Either arm <%d events: %d (%.1f%% of successful)\n\n",
+                threshold, low_Hstar_either, 100*low_Hstar_either/n_successful))
+
+    cat("NEW Subgroup Hc* on ORIGINAL data:\n")
+    cat(sprintf("  Control arm <%d events: %d (%.1f%% of successful)\n",
+                threshold, low_Hcstar_0, 100*low_Hcstar_0/n_successful))
+    cat(sprintf("  Treatment arm <%d events: %d (%.1f%% of successful)\n",
+                threshold, low_Hcstar_1, 100*low_Hcstar_1/n_successful))
+    cat(sprintf("  Either arm <%d events: %d (%.1f%% of successful)\n",
+                threshold, low_Hcstar_either, 100*low_Hcstar_either/n_successful))
+  } else {
+    cat("No new subgroups found in bootstrap samples\n")
+  }
+
+  cat("\n")
+
+  # Return invisible list with all counts
+  invisible(list(
+    threshold = threshold,
+    nb_boots = nb_boots,
+    n_successful = n_successful,
+    original_H = list(
+      low_control = low_H_0,
+      low_treat = low_H_1,
+      low_either = low_H_either
+    ),
+    original_Hc = list(
+      low_control = low_Hc_0,
+      low_treat = low_Hc_1,
+      low_either = low_Hc_either
+    ),
+    new_Hstar = list(
+      low_control = low_Hstar_0,
+      low_treat = low_Hstar_1,
+      low_either = low_Hstar_either
+    ),
+    new_Hcstar = list(
+      low_control = low_Hcstar_0,
+      low_treat = low_Hcstar_1,
+      low_either = low_Hcstar_either
+    )
+  ))
+}
