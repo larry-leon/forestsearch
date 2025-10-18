@@ -2,22 +2,20 @@
 % Please edit documentation in R/bootstrap_helpers.R
 \name{get_Cox_sg}
 \alias{get_Cox_sg}
-\title{Fit Cox model with warning capture}
+\title{Fit Cox Model for Subgroup}
 \usage{
-get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA)
+get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE)
 }
 \arguments{
-\item{df_sg}{Data frame for subgroup}
+\item{df_sg}{Data frame for subgroup.}
 
-\item{cox.formula}{Cox model formula}
+\item{cox.formula}{Cox model formula.}
 
-\item{est.loghr}{Logical. Estimate on log(HR) scale?}
-
-\item{boot_id}{Integer. Bootstrap iteration ID}
+\item{est.loghr}{Logical. Is estimate on log(HR) scale?}
 }
 \value{
-List with estimate, SE, and any warnings
+List with estimate and standard error.
 }
 \description{
-Fit Cox model with warning capture
+Fits a Cox model for a subgroup and returns estimate and standard error.
 }

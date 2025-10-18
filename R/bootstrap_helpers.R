@@ -9,7 +9,7 @@
 #' @importFrom survival coxph
 #' @export
 
-get_Cox_sg_legacy <- function(df_sg, cox.formula, est.loghr = TRUE) {
+get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE) {
   names_tocheck <- all.vars(cox.formula)
   check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
   check2 <- match(names_tocheck, check)
@@ -40,8 +40,7 @@ get_Cox_sg_legacy <- function(df_sg, cox.formula, est.loghr = TRUE) {
 #' @param boot_id Integer. Bootstrap iteration ID
 #' @return List with estimate, SE, and any warnings
 #' @export
-
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA) {
+get_Cox_sg_new <- function(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA) {
 
   # Capture warnings
   warnings_caught <- character()
