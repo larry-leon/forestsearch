@@ -1,3 +1,93 @@
+#' Fit Cox Model for Subgroup
+#'
+#' Fits a Cox model for a subgroup and returns estimate and standard error.
+#'
+#' @param df_sg Data frame for subgroup.
+#' @param cox.formula Cox model formula.
+#' @param est.loghr Logical. Is estimate on log(HR) scale?
+#' @return List with estimate and standard error.
+#' @importFrom survival coxph
+#' @export
+
+get_Cox_sg_legacy <- function(df_sg, cox.formula, est.loghr = TRUE) {
+  names_tocheck <- all.vars(cox.formula)
+  check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
+  check2 <- match(names_tocheck, check)
+  if (sum(!is.na(check2)) != length(names_tocheck)) stop("df_sg dataset NOT contain cox.formula variables")
+  # Fit Cox model with robust standard errors
+  fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE))$coefficients
+  # log(hr) parameters
+  if (est.loghr) {
+    bhat <- c(fit[, "coef"])
+    est_obs <- bhat
+    se_obs <- c(fit[, "robust se"])
+  }
+  # Otherwise, hr
+  if (!est.loghr) {
+    bhat <- c(fit[, "coef"])
+    est_obs <- exp(bhat)
+    sebhat <- c(fit[, "robust se"])
+    se_obs <- est_obs * sebhat
+  }
+  return(list(est_obs = est_obs, se_obs = se_obs))
+}
+
+#' Fit Cox model with warning capture
+#'
+#' @param df_sg Data frame for subgroup
+#' @param cox.formula Cox model formula
+#' @param est.loghr Logical. Estimate on log(HR) scale?
+#' @param boot_id Integer. Bootstrap iteration ID
+#' @return List with estimate, SE, and any warnings
+#' @export
+
+get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA) {
+
+  # Capture warnings
+  warnings_caught <- character()
+
+  fit <- withCallingHandlers(
+    {
+      try(
+        suppressWarnings(
+          summary(coxph(cox.formula, data = df_sg, robust = TRUE))$coefficients
+        ),
+        silent = TRUE
+      )
+    },
+    warning = function(w) {
+      # Store warning with boot_id
+      warning_msg <- conditionMessage(w)
+      if (grepl("Loglik converged", warning_msg)) {
+        message(sprintf("Bootstrap %d: %s", boot_id, warning_msg))
+        warnings_caught <<- c(warnings_caught, warning_msg)
+      }
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  # If fit fails, return NA
+  if (inherits(fit, "try-error")) {
+    return(list(est_obs = NA_real_, se_obs = NA_real_, warnings = warnings_caught))
+  }
+
+  # Extract estimates
+  if (est.loghr) {
+    bhat <- c(fit[, "coef"])
+    est_obs <- bhat
+    se_obs <- c(fit[, "robust se"])
+  } else {
+    bhat <- c(fit[, "coef"])
+    est_obs <- exp(bhat)
+    sebhat <- c(fit[, "robust se"])
+    se_obs <- est_obs * sebhat
+  }
+
+  return(list(est_obs = est_obs, se_obs = se_obs, warnings = warnings_caught))
+}
+
+
+
 #' Count ID Occurrences in Bootstrap Sample
 #'
 #' Counts the number of times an ID appears in a bootstrap sample.
@@ -220,39 +310,7 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   return(out)
 }
 
-#' Fit Cox Model for Subgroup
-#'
-#' Fits a Cox model for a subgroup and returns estimate and standard error.
-#'
-#' @param df_sg Data frame for subgroup.
-#' @param cox.formula Cox model formula.
-#' @param est.loghr Logical. Is estimate on log(HR) scale?
-#' @return List with estimate and standard error.
-#' @importFrom survival coxph
-#' @export
 
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE) {
-  names_tocheck <- all.vars(cox.formula)
-  check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
-  check2 <- match(names_tocheck, check)
-  if (sum(!is.na(check2)) != length(names_tocheck)) stop("df_sg dataset NOT contain cox.formula variables")
-  # Fit Cox model with robust standard errors
-  fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE))$coefficients
-  # log(hr) parameters
-  if (est.loghr) {
-    bhat <- c(fit[, "coef"])
-    est_obs <- bhat
-    se_obs <- c(fit[, "robust se"])
-  }
-  # Otherwise, hr
-  if (!est.loghr) {
-    bhat <- c(fit[, "coef"])
-    est_obs <- exp(bhat)
-    sebhat <- c(fit[, "robust se"])
-    se_obs <- est_obs * sebhat
-  }
-  return(list(est_obs = est_obs, se_obs = se_obs))
-}
 
 
 #' Coverage Indicator for Confidence Interval

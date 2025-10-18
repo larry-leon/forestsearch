@@ -280,7 +280,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     fitH_star <- get_Cox_sg(
       df_sg = df_H,
       cox.formula = cox.formula.boot,
-      est.loghr = TRUE
+      est.loghr = TRUE,
+      boot_id = boot
     )
     H_star <- fitH_star$est_obs
 
@@ -297,7 +298,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     fitHc_star <- get_Cox_sg(
       df_sg = df_Hc,
       cox.formula = cox.formula.boot,
-      est.loghr = TRUE
+      est.loghr = TRUE,
+      boot_id = boot
     )
     Hc_star <- fitHc_star$est_obs
 
@@ -400,7 +402,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHstar_obs <- get_Cox_sg(
         df_sg = df_Hstar,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        boot_id = boot
       )
       Hstar_obs <- fitHstar_obs$est_obs
 
@@ -408,7 +411,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHstar_star <- get_Cox_sg(
         df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        boot_id = boot
       )
       Hstar_star <- fitHstar_star$est_obs
 
@@ -426,7 +430,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHcstar_obs <- get_Cox_sg(
         df_sg = df_Hcstar,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        boot_id = boot
       )
       Hcstar_obs <- fitHcstar_obs$est_obs
 
@@ -434,7 +439,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHcstar_star <- get_Cox_sg(
         df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        boot_id = boot
       )
       Hcstar_star <- fitHcstar_star$est_obs
 
@@ -447,6 +453,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # UPDATED: Return data.table with event counts, without tmins_search and prop_maxk
     # =================================================================
     dfres <- data.table::data.table(
+      boot_id = boot,
       H_biasadj_1 = H_biasadj_1,
       H_biasadj_2 = H_biasadj_2,
       Hc_biasadj_1 = Hc_biasadj_1,
