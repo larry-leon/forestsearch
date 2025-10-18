@@ -11,8 +11,7 @@ bootstrap_results(
   nb_boots,
   show_three,
   H_obs,
-  Hc_obs,
-  show_progress = FALSE
+  Hc_obs
 )
 }
 \arguments{

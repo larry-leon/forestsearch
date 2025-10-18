@@ -9,7 +9,7 @@
 #' @importFrom survival coxph
 #' @export
 
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA) {
+get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE) {
   names_tocheck <- all.vars(cox.formula)
   check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
   check2 <- match(names_tocheck, check)
@@ -642,4 +642,8 @@ pow_size<-function(df,minsize=0,sigdig=3){
   rej<-with(df,mean(rej12 & size.Hc>=minsize))
   return(round(rej,sigdig))
 }
+
+
+
+
 

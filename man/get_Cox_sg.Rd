@@ -4,7 +4,7 @@
 \alias{get_Cox_sg}
 \title{Fit Cox Model for Subgroup}
 \usage{
-get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE, boot_id = NA)
+get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE)
 }
 \arguments{
 \item{df_sg}{Data frame for subgroup.}

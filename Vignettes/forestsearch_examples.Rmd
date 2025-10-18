@@ -552,7 +552,26 @@ if (save_results) {
                                 ".RData"))
     save(fs_bc, fs, file = filename)
     cat("\nResults saved to:", filename, "\n")
-  }
+}
+
+
+check_boot <- subset(fs_bc$results, is.na(H_biasadj_1))
+
+check4 <- subset(check_boot, boot_id == 4)
+
+check4
+
+args_forestsearch_call <- fs$args_call_all
+parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
+cox.formula.boot <- do.call(build_cox_formula,filter_call_args(args_forestsearch_call, build_cox_formula))
+
+
+
+getbadboot <- bootstrap_reproduce_aboot(this_boot = 15, fs.est = fs, cox.formula.boot = cox.formula.boot) 
+
+
+getbadboot[c("events_H_0","events_H_1")]
+
 
 ```
 

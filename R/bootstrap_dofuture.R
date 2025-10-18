@@ -42,14 +42,16 @@ fit_cox_models <- function(df, formula) {
 
 bootstrap_ystar <- function(df, nb_boots) {
   NN <- nrow(df)
+  # do not modify seed below it need to align with main bootstrap
+  # using manual seeding to allow reproducibility when qc-ing
+  set.seed(8316951)
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(seed = TRUE),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
-    set.seed(8316951 + boot * 100)
-    # Do NOT modify the above seed this needs to align with resampling
+    #set.seed(8316951 + 100 * boot)
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -227,11 +229,13 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @importFrom doFuture %dofuture%
 #' @export
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
-                              nb_boots, show_three, H_obs, Hc_obs,
-                              show_progress = FALSE) {
+                              nb_boots, show_three, H_obs, Hc_obs) {
+  set.seed(8316951)
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
 
+  # Do not modify seed it needs to align with ystar
+  # Setting seed = FALSE to allow for manual control of seeds
   foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(
@@ -249,9 +253,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
-
     # Create bootstrap sample
+
+    # Remove
+    #set.seed(8316951 + 100 * boot)
+
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -277,12 +283,39 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                       boot, events_H_0, events_H_1))
     }
 
+
+    # Note that any identified subgroups are of size at least n.min with minimum
+    # number of events in the control and experimental arms of d0.min and d1.min
+    # In addition, for any bootstrap forestsearch analysis the idenfitied subgroups
+    # satisfy the same criteria;
+    # However, for the bootstrap sample, the observed df_H and df_Hc analyses
+    # do not have any constraints
+
     fitH_star <- get_Cox_sg(
       df_sg = df_H,
       cox.formula = cox.formula.boot,
-      est.loghr = TRUE,
-      boot_id = boot
+      est.loghr = TRUE
     )
+
+    # fitH_star <- withCallingHandlers(
+    #   {
+    #     get_Cox_sg(
+    #       df_sg = df_H,
+    #       cox.formula = cox.formula.boot,
+    #       est.loghr = TRUE
+    #     )
+    #   },
+    #   warning = function(w) {
+    #     if (grepl("Loglik converged", conditionMessage(w))) {
+    #       convergence_warnings <<- convergence_warnings + 1
+    #       message(sprintf("Bootstrap %d (H): Cox convergence warning - %s",
+    #                       boot, conditionMessage(w)))
+    #     }
+    #     invokeRestart("muffleWarning")
+    #   }
+    # )
+
+
     H_star <- fitH_star$est_obs
 
     # Check events in subgroup Hc (treat.recommend == 1)
@@ -298,9 +331,28 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     fitHc_star <- get_Cox_sg(
       df_sg = df_Hc,
       cox.formula = cox.formula.boot,
-      est.loghr = TRUE,
-      boot_id = boot
+      est.loghr = TRUE
     )
+
+
+    # fitHc_star <- withCallingHandlers(
+    #   {
+    #     get_Cox_sg(
+    #       df_sg = df_Hc,
+    #       cox.formula = cox.formula.boot,
+    #       est.loghr = TRUE
+    #     )
+    #   },
+    #   warning = function(w) {
+    #     if (grepl("Loglik converged", conditionMessage(w))) {
+    #       convergence_warnings <<- convergence_warnings + 1
+    #       message(sprintf("Bootstrap %d (Hc): Cox convergence warning - %s",
+    #                       boot, conditionMessage(w)))
+    #     }
+    #     invokeRestart("muffleWarning")
+    #   }
+    # )
+
     Hc_star <- fitHc_star$est_obs
 
     # =================================================================
@@ -402,8 +454,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHstar_obs <- get_Cox_sg(
         df_sg = df_Hstar,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE,
-        boot_id = boot
+        est.loghr = TRUE
       )
       Hstar_obs <- fitHstar_obs$est_obs
 
@@ -411,8 +462,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHstar_star <- get_Cox_sg(
         df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE,
-        boot_id = boot
+        est.loghr = TRUE
       )
       Hstar_star <- fitHstar_star$est_obs
 
@@ -430,8 +480,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHcstar_obs <- get_Cox_sg(
         df_sg = df_Hcstar,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE,
-        boot_id = boot
+        est.loghr = TRUE
       )
       Hcstar_obs <- fitHcstar_obs$est_obs
 
@@ -439,8 +488,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHcstar_star <- get_Cox_sg(
         df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE,
-        boot_id = boot
+        est.loghr = TRUE
       )
       Hcstar_star <- fitHcstar_star$est_obs
 
@@ -913,6 +961,9 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
                               filter_call_args(args_forestsearch_call, build_cox_formula))
 
   # 3. Fit Cox models
+  # Note that any identified subgroups are of size at least n.min with minimum
+  # number of events in the control and experimental arms of d0.min and d1.min
+  # These are contained in the above args
   cox_fits <- fit_cox_models(fs.est$df.est, cox.formula.boot)
   H_obs <- cox_fits$H_obs
   seH_obs <- cox_fits$seH_obs
@@ -927,7 +978,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
   old_plan <- future::plan()
   on.exit({
     future::plan(old_plan)
-    gc()  # Force garbage collection to clean up connections
+    #gc()  # Force garbage collection to clean up connections
   }, add = TRUE)
 
   setup_parallel_SGcons(parallel_args)
