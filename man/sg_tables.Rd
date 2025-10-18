@@ -34,10 +34,6 @@ sg_tables(
 }
 \value{
 List with gt tables for estimates, subgroups, and optionally search info.
-
-List with gt tables for estimates, subgroups, and optionally search info.
-
-List with gt tables for estimates, subgroups, and optionally search info.
 }
 \description{
 Returns formatted summary tables for subgroups using the gt package,

@@ -445,43 +445,6 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #'
 #' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note md
 #' @export
-
-#' Enhanced Subgroup Summary Tables (gt output)
-#'
-#' Returns formatted summary tables for subgroups using the gt package,
-#' with search metadata and customizable decimal precision.
-#'
-#' @param fs ForestSearch results object.
-#' @param which_df Character. Which data frame to use ("est" or "testing").
-#' @param est_caption Character. Caption for estimates table.
-#' @param potentialOutcome.name Character. Name of potential outcome variable (optional).
-#' @param hr_1a Character. Adjusted HR for subgroup 1 (optional).
-#' @param hr_0a Character. Adjusted HR for subgroup 0 (optional).
-#' @param ndecimals Integer. Number of decimals for formatted numbers (default: 3).
-#' @param include_search_info Logical. Include search metadata table (default: TRUE).
-#'
-#' @return List with gt tables for estimates, subgroups, and optionally search info.
-#'
-#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note md
-#' @export
-#' Enhanced Subgroup Summary Tables (gt output)
-#'
-#' Returns formatted summary tables for subgroups using the gt package,
-#' with search metadata and customizable decimal precision.
-#'
-#' @param fs ForestSearch results object.
-#' @param which_df Character. Which data frame to use ("est" or "testing").
-#' @param est_caption Character. Caption for estimates table.
-#' @param potentialOutcome.name Character. Name of potential outcome variable (optional).
-#' @param hr_1a Character. Adjusted HR for subgroup 1 (optional).
-#' @param hr_0a Character. Adjusted HR for subgroup 0 (optional).
-#' @param ndecimals Integer. Number of decimals for formatted numbers (default: 3).
-#' @param include_search_info Logical. Include search metadata table (default: TRUE).
-#'
-#' @return List with gt tables for estimates, subgroups, and optionally search info.
-#'
-#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note md
-#' @export
 sg_tables <- function(fs,
                       which_df = "est",
                       est_caption = "Training data estimates",
