@@ -533,11 +533,11 @@ library(patchwork)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 1000
+NB <- 200
 
 t.start <- proc.time()[3]
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, show_progress = FALSE)
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
 
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
@@ -557,7 +557,7 @@ if (save_results) {
 ```
 
 ```{r}
-load("~/Library/CloudStorage/OneDrive-MerckSharp&DohmeLLC/documents/GitHub/forestsearch/Vignettes/results/gbsg_results_B=1000.RData")
+#load("~/Library/CloudStorage/OneDrive-MerckSharp&DohmeLLC/documents/GitHub/forestsearch/Vignettes/results/gbsg_results_B=1000.RData")
 sg_tab <- fs_bc$summary$table
 sg_tab
 ```

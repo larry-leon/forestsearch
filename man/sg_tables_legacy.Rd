@@ -11,7 +11,8 @@ sg_tables_legacy(
   potentialOutcome.name = NULL,
   hr_1a = NA,
   hr_0a = NA,
-  ndecimals = 3
+  ndecimals = 3,
+  include_search_info = TRUE
 )
 }
 \arguments{
