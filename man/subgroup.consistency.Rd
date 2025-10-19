@@ -21,6 +21,7 @@ subgroup.consistency(
   confs_labels,
   sg_focus = "hr",
   stop_Kgroups = 10,
+  pconsistency.digits = 2,
   checking = FALSE,
   parallel_args = list(NULL)
 )
@@ -57,6 +58,8 @@ subgroup.consistency(
 \item{sg_focus}{Sorting focus.}
 
 \item{stop_Kgroups}{Maximum number of subgroups to identify.}
+
+\item{pconsistency.digits}{Significant digits for pconsistency.threshold}
 
 \item{checking}{Logical; for debugging.}
 

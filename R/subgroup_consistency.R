@@ -401,6 +401,7 @@ if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
 #' @param hr.threshold Minimum hazard ratio for subgroup inclusion.
 #' @param hr.consistency Minimum hazard ratio for consistency in splits.
 #' @param pconsistency.threshold Minimum proportion of splits meeting consistency.
+#' @param pconsistency.digits Significant digits for pconsistency.threshold
 #' @param m1.threshold Maximum median survival for treatment arm.
 #' @param n.splits Number of random splits for consistency evaluation.
 #' @param details Logical; print details.
@@ -422,12 +423,15 @@ if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
 
 subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.9, m1.threshold = Inf, n.splits = 100,
 details = FALSE, stop.threshold = 1.1, by.risk = 12, plot.sg = FALSE, maxk = 7, Lsg, confs_labels, sg_focus = "hr", stop_Kgroups = 10,
+pconsistency.digits = 2,
 checking = FALSE, parallel_args = list(NULL)) {
+
 
   get_split_hr <- function(df, cox_initial = NULL) {
     if (nrow(df) < 2 || sum(df$Event) < 2) {
       return(NA_real_)
     }
+
     hr <- try({
       fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
                              data = df,
@@ -435,6 +439,7 @@ checking = FALSE, parallel_args = list(NULL)) {
                              robust = FALSE)
       summary(fit)$conf.int[1, 1]
     }, silent = TRUE)
+
 
     if (inherits(hr, "try-error")) return(NA_real_)
     return(hr)
@@ -467,14 +472,16 @@ checking = FALSE, parallel_args = list(NULL)) {
   index.Z <- found.hrs[, -c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)")]
   if (dim(index.Z)[2] != Lsg) stop("HR subgroup results not matching L, check subgroup search function")
 
-if(details) cat("# of initial candidates",c(nrow(found.hrs)),"\n")
+if(details) cat("# of unique initial candidates : ",c(nrow(found.hrs)),"\n")
 
   maxsgs <- min(c(nrow(found.hrs),stop_Kgroups))
   # Restrict to top "stop_Kgroups"
   found.hrs <- found.hrs[c(1:maxsgs)]
 
-if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n")
-
+if(details) {
+cat("# Restricting to top stop_Kgroups =", c(stop_Kgroups), "\n")
+cat("# of candidates restricted to 'top K' : ", c(nrow(found.hrs)),"\n")
+}
   res <- NULL
   any.found <- 0
   resultk <- NULL
@@ -508,12 +515,11 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
         }
       })
 
-        p.consistency <- mean(flag.consistency, na.rm = TRUE)
+        p.consistency <- round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
 
-      if (p.consistency < pconsistency.threshold && details){
-        cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
-      }
-      if (p.consistency >= pconsistency.threshold) {
+      if (p.consistency < pconsistency.threshold){
+      if(details)  cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
+      } else {
         k <- length(this.m)
         covsm <- rep(m, maxk)
         mindex <- c(1:maxk)
@@ -564,13 +570,11 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
         }
       })
 
-      p.consistency <- mean(flag.consistency, na.rm = TRUE)
+      p.consistency <- round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
 
-      if (p.consistency < pconsistency.threshold && details){
-        cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
-      }
-
-      if (p.consistency >= pconsistency.threshold) {
+      if (p.consistency < pconsistency.threshold){
+      if(details) cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
+      } else {
         k <- length(this.m)
         covsm <- rep("M", maxk)
         mindex <- c(1:maxk)
@@ -593,7 +597,7 @@ future.seed = TRUE,
     future.packages = c("survival", "data.table"),  # Ensure packages are loaded
     future.globals = structure(
       TRUE,
-      add = c("get_split_hr", "FS_labels", "hr.consistency", "pconsistency.threshold","get_split_hr")
+      add = c("get_split_hr", "FS_labels", "hr.consistency", "pconsistency.threshold")
     )
 )
     }

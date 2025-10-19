@@ -464,10 +464,10 @@ df.est_out <- merge(df, temp, by="id", all.x=TRUE)
 if(!is.null(df.predict)){
 # This does not work if df.predict is test sample in which case
 # cannot match to df_flag by id
-df.predict_out <- merge(df.predict, temp, by="id", all.x=TRUE)
+df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE)
 }
 if(!is.null(df.test)){
-  df.test_out <- get_dfpred(df.predict = df.test,sg.harm = grp.consistency$sg.harm,version = 2)
+  df.test_out <- get_dfpred(df.predict = df.test, sg.harm = grp.consistency$sg.harm, version = 2)
    }
 }
  } # Found something
