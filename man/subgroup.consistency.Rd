@@ -2,7 +2,7 @@
 % Please edit documentation in R/subgroup_consistency.R
 \name{subgroup.consistency}
 \alias{subgroup.consistency}
-\title{Subgroup Consistency Evaluation}
+\title{Subgroup Consistency Evaluation (WITH COMPREHENSIVE ERROR CHECKS)}
 \usage{
 subgroup.consistency(
   df,
