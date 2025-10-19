@@ -11,7 +11,7 @@ forestsearch_bootstrap_dofuture(
   show_three = FALSE,
   parallel_args = list(),
   create_summary = TRUE,
-  create_plots = TRUE
+  create_plots = FALSE
 )
 }
 \arguments{
