@@ -2,7 +2,7 @@
 % Please edit documentation in R/subgroup_search.R
 \name{subgroup.search}
 \alias{subgroup.search}
-\title{Subgroup search for treatment effect heterogeneity}
+\title{Subgroup Search for Treatment Effect Heterogeneity (Improved)}
 \usage{
 subgroup.search(
   Y,
@@ -54,6 +54,7 @@ subgroup.search(
 List with found subgroups, maximum HR, search time, and configuration info.
 }
 \description{
-Searches for subgroups with treatment effect heterogeneity using combinations of candidate factors.
-Evaluates subgroups for minimum prevalence, event counts, and hazard ratio threshold.
+Searches for subgroups with treatment effect heterogeneity using combinations
+of candidate factors. Evaluates subgroups for minimum prevalence, event counts,
+and hazard ratio threshold.
 }

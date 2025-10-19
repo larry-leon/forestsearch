@@ -1,13 +1,13 @@
 check_boot <- subset(fs_bc$results, is.na(H_biasadj_1))
 
-check15 <- subset(check_boot, boot_id == 15)
+check <- subset(check_boot, boot_id == 515)
 
-check15
+#check15
 
 
 # Return boot = 515 dataset
 
-df_badboot <- bootstrap_reproduce_aboot(this_boot = 1962, fs.est = fs, cox.formula.boot = cox.formula.boot)
+df_badboot <- bootstrap_reproduce_aboot(this_boot = 515, fs.est = fs, cox.formula.boot = cox.formula.boot)
 
 
 # WithOUT parallel processing
