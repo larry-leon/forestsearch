@@ -838,6 +838,7 @@ summarize_bootstrap_events <- function(boot_results, threshold = 5) {
 }
 
 
+
 bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
 
   df_boot_analysis <- fs.est$df.est
@@ -891,18 +892,26 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
     # However, for the bootstrap sample, the observed df_H and df_Hc analyses
     # do not have any constraints
 
-    # system.time({fitH_star <- get_Cox_sg(
+    system.time({fitH_star <- get_Cox_sg(
+      df_sg = df_H,
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
+    })
+
+    # system.time({fitH_star2 <- get_Cox_sg_fast(
     #   df_sg = df_H,
     #   cox.formula = cox.formula.boot,
     #   est.loghr = TRUE
     # )
     # })
 
+
     # Does using my code remove the message
-   system.time({
-    dfcount <- weightedSurv::df_counting(df = df_H)
-    get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
-   })
+   # system.time({
+   #  dfcount <- weightedSurv::df_counting(df = df_H)
+   #  get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
+   # })
 
     # res1 <- c(unlist(fitH_star))
     # res2 <- c(unlist(get_rg$fit$bhat), unlist(get_rg$fit$sig_bhat_star))
@@ -918,17 +927,17 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
 
     cat("Hc_0 and Hc_1 events",c(events_Hc_0,events_Hc_1),"\n")
 
-    # fitHc_star <- get_Cox_sg(
-    #   df_sg = df_Hc,
-    #   cox.formula = cox.formula.boot,
-    #   est.loghr = TRUE
-    # )
+    fitHc_star <- get_Cox_sg(
+      df_sg = df_Hc,
+      cox.formula = cox.formula.boot,
+      est.loghr = TRUE
+    )
 
 
-    system.time({
-      dfcount <- weightedSurv::df_counting(df = df_Hc)
-      get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
-    })
+    # system.time({
+    #   dfcount <- weightedSurv::df_counting(df = df_Hc)
+    #   get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
+    # })
 
 
     # =================================================================
@@ -937,6 +946,8 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
     drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
     dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
     dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+
+    return(dfnew_boot)
 
     # =================================================================
     # Configure forestsearch arguments for bootstrap
@@ -992,6 +1003,5 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
   out <- data.table::data.table(events_Hcstar_0, events_Hstar_0,fitH_star$est_obs)
 
   }
-  return(out)
   }
   }

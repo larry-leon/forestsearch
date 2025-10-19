@@ -409,6 +409,10 @@ df.confounders <- dummy(df.confounders)
   find.grps <- subgroup.search(Y = Y, Event = Event, Treat = Treat, Z = Z, d0.min = d0.min, d1.min = d1.min, n.min = n.min,
                                hr.threshold = hr.threshold, max.minutes = max.minutes, details = details, maxk = maxk)
 
+# find.grps <- subgroup_search_fast(Y = Y, Event = Event, Treat = Treat, Z = Z, d0.min = d0.min, d1.min = d1.min, n.min = n.min,
+#                                  hr.threshold = hr.threshold, max.minutes = max.minutes, details = details, maxk = maxk)
+
+
   sg.harm <- NULL
   df.est_out <- NULL
   df.predict_out <- NULL

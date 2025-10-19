@@ -301,3 +301,223 @@ hr.threshold = 1.0,max.minutes = 30,minp = 0.05,rmin = 5,details = FALSE,maxk = 
   return(list(out.found = out.found, max_sg_est = max_sg_est, time_search = t.sofar,L = L,max_count = max_count, prop_max_count = 1))
   }
 }
+
+
+# Remove at the end
+#' Optimized Subgroup Search for Treatment Effect Heterogeneity
+#'
+#' Faster version of subgroup.search() that pre-computes common operations
+#' and uses vectorized operations where possible.
+#'
+#' @param Y Numeric vector of outcome (e.g., time-to-event).
+#' @param Event Numeric vector of event indicators (0/1).
+#' @param Treat Numeric vector of treatment group indicators (0/1).
+#' @param ID Optional vector of subject IDs.
+#' @param Z Matrix or data frame of candidate subgroup factors (binary indicators).
+#' @param n.min Integer. Minimum subgroup size.
+#' @param d0.min Integer. Minimum number of events in control.
+#' @param d1.min Integer. Minimum number of events in treatment.
+#' @param hr.threshold Numeric. Hazard ratio threshold for subgroup selection.
+#' @param max.minutes Numeric. Maximum minutes for search.
+#' @param minp Numeric. Minimum prevalence rate for each factor.
+#' @param rmin Integer. Minimum required reduction in sample size when adding a factor.
+#' @param details Logical. Print details during execution.
+#' @param maxk Integer. Maximum number of factors in a subgroup.
+#'
+#' @return List with found subgroups, maximum HR, search time, and configuration info.
+#'
+#' @importFrom data.table data.table setorder
+#' @importFrom survival coxph Surv survfit
+#' @importFrom utils combn
+#' @export
+subgroup_search_fast_legacy <- function(Y, Event, Treat, ID = NULL, Z,
+                                 n.min = 30, d0.min = 15, d1.min = 15,
+                                 hr.threshold = 1.0, max.minutes = 30,
+                                 minp = 0.05, rmin = 5,
+                                 details = FALSE, maxk = 2) {
+
+  # =========================================================================
+  # SECTION 1: DATA PREPARATION AND VALIDATION
+  # =========================================================================
+
+  temp <- cbind(Y, Event, Treat, Z)
+  temp <- na.exclude(temp)
+  yy <- temp[, 1]
+  dd <- temp[, 2]
+  tt <- temp[, 3]
+  zz <- temp[, -c(1, 2, 3)]
+
+  n <- length(yy)
+  L <- ncol(zz)
+
+  # Pre-compute products for faster event counting
+  dd_tt <- dd * tt
+  dd_1minustt <- dd * (1 - tt)
+
+  # =========================================================================
+  # SECTION 2: GENERATE COMBINATION INDICES
+  # =========================================================================
+
+  if (maxk == 1) {
+    max_count <- L
+    index_1factor <- t(combn(L, 1))
+    counts_1factor <- nrow(index_1factor)
+    tot_counts <- counts_1factor
+    index_2factor <- NULL
+    counts_2factor <- 0
+    index_3factor <- NULL
+    counts_3factor <- 0
+  } else if (maxk == 2) {
+    max_count <- (L * (L - 1) / 2) + L
+    index_2factor <- t(combn(L, 2))
+    counts_2factor <- nrow(index_2factor)
+    index_1factor <- t(combn(L, 1))
+    counts_1factor <- nrow(index_1factor)
+    tot_counts <- counts_2factor + counts_1factor
+    index_3factor <- NULL
+    counts_3factor <- 0
+  } else if (maxk == 3) {
+    max_count <- ((L * (L - 2) * (L - 1)) / 6) + (L * (L - 1) / 2) + L
+    index_3factor <- t(combn(L, 3))
+    counts_3factor <- nrow(index_3factor)
+    index_2factor <- t(combn(L, 2))
+    counts_2factor <- nrow(index_2factor)
+    index_1factor <- t(combn(L, 1))
+    counts_1factor <- nrow(index_1factor)
+    tot_counts <- counts_3factor + counts_2factor + counts_1factor
+  }
+
+  if (tot_counts != max_count) {
+    stop("Error with maximum combinations for maxk = ", maxk)
+  }
+
+  if (details) {
+    cat("Number of possible configurations (<= maxk): maxk, # <= maxk",
+        c(maxk, max_count), "\n")
+  }
+
+  # =========================================================================
+  # SECTION 3: OPTIMIZED SUBGROUP SEARCH LOOP
+  # =========================================================================
+
+  t.start <- proc.time()[3]
+
+  # Pre-allocate result storage for better performance
+  results_list <- vector("list", tot_counts)
+  n_results <- 0
+
+  for (kk in seq_len(tot_counts)) {
+
+    # Check time limit
+    t.now <- proc.time()[3]
+    t.sofar <- (t.now - t.start) / 60
+    if (t.sofar > max.minutes) break
+
+    # Get covariate selection for this combination
+    covs.in <- get_covs_in(
+      kk, maxk, L,
+      counts_1factor, index_1factor,
+      counts_2factor, index_2factor,
+      counts_3factor, index_3factor
+    )
+
+    k.in <- sum(covs.in)
+    if (k.in > maxk) next
+
+    # Extract selected columns
+    selected_cols <- which(covs.in == 1)
+    x <- zz[, selected_cols, drop = FALSE]
+
+    # Quick prevalence check
+    xpx <- t(x) %*% x
+    if (!all(xpx > 0)) next
+
+    # Check redundancy
+    get_idx_rflag <- extract_idx_flagredundancy(x, rmin)
+    id.x <- get_idx_rflag$id.x
+    flag.redundant <- get_idx_rflag$flag.redundant
+
+    # Fast event counting using pre-computed products
+    d1 <- sum(dd_tt[id.x == 1])
+    d0 <- sum(dd_1minustt[id.x == 1])
+    nx <- sum(id.x)
+
+    # Check prevalence threshold
+    crit3 <- all(colMeans(x) >= minp)
+
+    # Apply all criteria
+    if (!flag.redundant && d1 >= d1.min && d0 >= d0.min &&
+        nx > n.min && crit3) {
+
+      # Extract subgroup data
+      idx_keep <- which(id.x == 1)
+      Y_sub <- yy[idx_keep]
+      Event_sub <- dd[idx_keep]
+      Treat_sub <- tt[idx_keep]
+
+      # Fit Cox model using fast implementation
+      cox_result <- fast_cox_subgroup(Y_sub, Event_sub, Treat_sub, robust = FALSE)
+
+      # Check if HR meets threshold
+      if (!is.na(cox_result$hr) && cox_result$hr > hr.threshold) {
+        n_results <- n_results + 1
+
+        # Store result
+        results_list[[n_results]] <- c(
+          kk,                    # group id
+          sum(covs.in),         # K (number of factors)
+          nx,                   # n (subgroup size)
+          d0 + d1,              # E (total events)
+          d1,                   # d1 (events in treatment)
+          cox_result$med1,      # m1 (median survival treatment)
+          cox_result$med0,      # m0 (median survival control)
+          cox_result$hr,        # HR
+          cox_result$lower,     # Lower CI
+          cox_result$upper,     # Upper CI
+          covs.in               # Factor indicators
+        )
+      }
+    }
+  }
+
+  # =========================================================================
+  # SECTION 4: COMPILE RESULTS
+  # =========================================================================
+
+  t.end <- proc.time()[3]
+  t.min <- (t.end - t.start) / 60
+
+  if (details) {
+    cat("Events criteria for control, exp =", c(d0.min, d1.min), "\n")
+    cat("*Subgroup Searching Minutes =*", c(t.min), "\n")
+  }
+
+  # Combine results
+  if (n_results == 0) {
+    if (details) cat("NO subgroup candidate found (FS)\n")
+    return(NULL)
+  }
+
+  HR.model.k <- do.call(rbind, results_list[1:n_results])
+
+  hr.out <- data.table::data.table(HR.model.k)
+  names(hr.out) <- c("grp", "K", "n", "E", "d1", "m1", "m0",
+                     "HR", "L(HR)", "U(HR)", colnames(Z))
+  rownames(hr.out) <- NULL
+  hr.out <- data.table::setorder(hr.out, -HR, K)
+
+  out.found <- list(hr.subgroups = hr.out)
+  max_sg_est <- max(hr.out[["HR"]])
+
+  if (details) cat("Subgroup candidate(s) found (FS)\n")
+
+  return(list(
+    out.found = out.found,
+    max_sg_est = max_sg_est,
+    time_search = t.sofar,
+    L = L,
+    max_count = max_count,
+    prop_max_count = 1
+  ))
+}
+

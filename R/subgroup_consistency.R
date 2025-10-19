@@ -154,6 +154,178 @@ remove_redundant_subgroups <- function(found.hrs) {
   na.omit(data.table::data.table(rbind(f1.hrs, fkeep.hrs)))
 }
 
+
+#' Identify Duplicate Rows Based on Near-Identical Numeric Columns
+#'
+#' Finds rows that are duplicates based on columns 2-10 being nearly identical.
+#' Useful for removing redundant subgroups with same HR, sample size, events, etc.
+#'
+#' @param dt Data.table or data.frame to check for duplicates
+#' @param cols_to_check Integer vector. Column indices to check (default: 2:10)
+#' @param tolerance Numeric. Tolerance for numeric comparison (default: 1e-6)
+#' @param keep Character. Which duplicates to keep: "first", "last", "none", or "all" (default: "first")
+#' @param return_indices Logical. Return row indices instead of filtered data (default: FALSE)
+#'
+#' @return Data.table with duplicates removed (or indices if return_indices=TRUE)
+#' @importFrom data.table data.table copy
+#' @export
+identify_near_duplicates <- function(dt,
+                                     cols_to_check = 2:10,
+                                     tolerance = 1e-6,
+                                     keep = "first",
+                                     return_indices = FALSE) {
+
+  if (!requireNamespace("data.table", quietly = TRUE)) {
+    stop("Package 'data.table' required")
+  }
+
+  # Ensure it's a data.table
+  if (!is.data.table(dt)) {
+    dt <- data.table::as.data.table(dt)
+  } else {
+    dt <- data.table::copy(dt)
+  }
+
+  # Validate inputs
+  if (max(cols_to_check) > ncol(dt)) {
+    stop("Column indices exceed number of columns in data")
+  }
+
+  # Get the columns to compare
+  compare_cols <- names(dt)[cols_to_check]
+
+  # Round numeric columns to handle near-identical values
+  dt_rounded <- data.table::copy(dt)
+  for (col in compare_cols) {
+    if (is.numeric(dt_rounded[[col]])) {
+      # Round to eliminate floating point differences
+      dt_rounded[[col]] <- round(dt_rounded[[col]] / tolerance) * tolerance
+    }
+  }
+
+  # Create a composite key for comparison
+  dt_rounded[, dup_key := do.call(paste, c(.SD, sep = "_")), .SDcols = compare_cols]
+
+  # Identify duplicates
+  dt_rounded[, dup_group := .GRP, by = dup_key]
+  dt_rounded[, dup_count := .N, by = dup_key]
+  dt_rounded[, dup_rank := seq_len(.N), by = dup_key]
+
+  # Determine which rows to keep
+  if (keep == "first") {
+    keep_rows <- dt_rounded$dup_rank == 1
+  } else if (keep == "last") {
+    keep_rows <- dt_rounded$dup_rank == dt_rounded$dup_count
+  } else if (keep == "none") {
+    keep_rows <- dt_rounded$dup_count == 1
+  } else if (keep == "all") {
+    keep_rows <- rep(TRUE, nrow(dt_rounded))
+  } else {
+    stop("keep must be one of: 'first', 'last', 'none', 'all'")
+  }
+
+  if (return_indices) {
+    # Return information about duplicates
+    return(list(
+      keep_indices = which(keep_rows),
+      duplicate_groups = dt_rounded[, .(grp, dup_group, dup_count, dup_rank)],
+      n_duplicates = sum(!keep_rows)
+    ))
+  } else {
+    # Return filtered data
+    return(dt[keep_rows])
+  }
+}
+
+#' Remove Near-Duplicate Subgroups (Warning-Free Version)
+#'
+#' Simplified version that avoids data.table modification warnings
+#'
+#' @param hr_subgroups Data.table of subgroup results
+#' @param tolerance Numeric. Tolerance for numeric comparison (default: 0.001)
+#' @param details Logical. Print details about removed duplicates
+#'
+#' @return Data.table with near-duplicate rows removed
+#' @export
+remove_near_duplicate_subgroups <- function(hr_subgroups,
+                                            tolerance = 0.001,
+                                            details = FALSE) {
+
+  # Convert to regular data.frame to avoid data.table copy warnings
+  df <- as.data.frame(hr_subgroups)
+
+  # Columns to check: K, n, E, d1, m1, m0, HR, L(HR), U(HR)
+  cols_to_check <- 2:10
+
+  # Round numeric columns
+  df_rounded <- df
+  for (i in cols_to_check) {
+    if (is.numeric(df_rounded[, i])) {
+      df_rounded[, i] <- round(df_rounded[, i] / tolerance) * tolerance
+    }
+  }
+
+  # Create composite key
+  key_cols <- df_rounded[, cols_to_check, drop = FALSE]
+  dup_key <- apply(key_cols, 1, function(x) paste(x, collapse = "_"))
+
+  # Find duplicates (keep first occurrence)
+  keep_rows <- !duplicated(dup_key)
+
+  n_removed <- sum(!keep_rows)
+
+  if (details && n_removed > 0) {
+    cat("Removed", n_removed, "near-duplicate subgroups\n")
+    cat("Original rows:", nrow(hr_subgroups), "\n")
+    cat("After removal:", sum(keep_rows), "\n")
+  }
+
+  # Return as data.table
+  return(data.table::as.data.table(hr_subgroups[keep_rows, ]))
+}
+
+
+
+#' Show Duplicate Subgroups (Diagnostic Function)
+#'
+#' Display which subgroups are near-duplicates of each other
+#'
+#' @param hr_subgroups Data.table of subgroup results
+#' @param tolerance Numeric. Tolerance for numeric comparison (default: 0.001)
+#'
+#' @return Data.table showing duplicate groups
+#' @export
+show_duplicate_subgroups <- function(hr_subgroups, tolerance = 0.001) {
+
+  result <- identify_near_duplicates(
+    dt = hr_subgroups,
+    cols_to_check = 2:10,
+    tolerance = tolerance,
+    keep = "all",
+    return_indices = TRUE
+  )
+
+  dup_info <- result$duplicate_groups
+  dup_info <- dup_info[dup_count > 1][order(dup_group, dup_rank)]
+
+  if (nrow(dup_info) == 0) {
+    cat("No near-duplicate subgroups found\n")
+    return(NULL)
+  }
+
+  cat("Found", length(unique(dup_info$dup_group)), "groups of duplicates\n")
+  cat("Total duplicate rows:", nrow(dup_info), "\n\n")
+
+  # Show the actual duplicates with their key columns
+  hr_with_dup <- cbind(hr_subgroups[dup_info$grp],
+                       dup_info[, .(dup_group, dup_rank)])
+
+  return(hr_with_dup[order(dup_group, dup_rank)])
+}
+
+
+
+
 #' Get Hazard Ratio from Split Data
 #'
 #' Calculates the hazard ratio from a split data set using Cox regression.
@@ -161,10 +333,10 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' @param df Data frame with survival data.
 #' @return Numeric hazard ratio or NA if error.
 #' @importFrom survival coxph Surv
-#' @export
-
-get_split_hr <- function(df) {
-  hr <- try((summary(coxph(Surv(Y, Event) ~ Treat, data = df, robust = FALSE))$conf.int), TRUE)
+# Note that get_split_hr is defined "in-line" within subgroup consistency function
+# This was done in order to accomodate initial values in Coxph with future.lapply
+get_split_hr_legacy <- function(df, cox_initial = log(1)) {
+  hr <- try((summary(coxph(Surv(Y, Event) ~ Treat, data = df, robust = FALSE, init = cox_initial))$conf.int), TRUE)
   if (inherits(hr, "try-error")) return(NA_real_)
   hr[1,1]
 }
@@ -251,7 +423,26 @@ if(show_message) message("Parallel plan: callr with ", n_workers, " workers.")
 subgroup.consistency <- function(df, hr.subgroups, hr.threshold = 1.0, hr.consistency = 1.0, pconsistency.threshold = 0.9, m1.threshold = Inf, n.splits = 100,
 details = FALSE, stop.threshold = 1.1, by.risk = 12, plot.sg = FALSE, maxk = 7, Lsg, confs_labels, sg_focus = "hr", stop_Kgroups = 10,
 checking = FALSE, parallel_args = list(NULL)) {
+
+  get_split_hr <- function(df, cox_initial = NULL) {
+    if (nrow(df) < 2 || sum(df$Event) < 2) {
+      return(NA_real_)
+    }
+    hr <- try({
+      fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
+                             data = df,
+                             init = cox_initial,
+                             robust = FALSE)
+      summary(fit)$conf.int[1, 1]
+    }, silent = TRUE)
+
+    if (inherits(hr, "try-error")) return(NA_real_)
+    return(hr)
+  }
+
+
   names.Z <- c(names(hr.subgroups[, -c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)")]))
+
   if (length(names.Z) != Lsg) stop("HR subgroup results not matching L, check subgroup search function")
   if (m1.threshold == Inf) {
     found.hrs <- hr.subgroups[hr.subgroups$HR >= hr.threshold, ]
@@ -259,11 +450,20 @@ checking = FALSE, parallel_args = list(NULL)) {
     hr.subgroups <- hr.subgroups[which(!is.na(hr.subgroups$m1)), ]
     found.hrs <- hr.subgroups[hr.subgroups$HR >= hr.threshold & hr.subgroups$m1 <= m1.threshold, ]
   }
+
+
   if (nrow(found.hrs) > 1) {
-    found.hrs <- remove_redundant_subgroups(found.hrs)
+
+    # Remove this function after further testing
+    #found.hrs <- remove_redundant_subgroups(found.hrs)
+
+    found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = TRUE)
+
   }
+
   if (sg_focus == "maxSG") found.hrs <- found.hrs[order(found.hrs$n, decreasing = TRUE), ]
   if (sg_focus == "minSG") found.hrs <- found.hrs[order(found.hrs$n, decreasing = FALSE), ]
+
   index.Z <- found.hrs[, -c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)")]
   if (dim(index.Z)[2] != Lsg) stop("HR subgroup results not matching L, check subgroup search function")
 
@@ -289,22 +489,27 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
       id.m <- paste(paste(this.m, collapse = "==1 & "), "==1")
       df.sub <- subset(df, eval(parse(text = id.m)))
       df.x <- data.table::data.table(df.sub)
-      set.seed(8316951)
+
+      cox_init <- log(found.hrs$HR[m])
+
       N.x <- nrow(df.x)
       flag.consistency <- sapply(seq_len(n.splits), function(bb) {
         in.split1 <- sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
         df.x$insplit1 <- in.split1
         df.x.split1 <- subset(df.x, insplit1 == 1)
         df.x.split2 <- subset(df.x, insplit1 == 0)
-        hr.split1 <- suppressWarnings(get_split_hr(df.x.split1))
-        hr.split2 <- suppressWarnings(get_split_hr(df.x.split2))
+
+        hr.split1 <- suppressWarnings(get_split_hr(df = df.x.split1, cox_initial = cox_init))
+        hr.split2 <- suppressWarnings(get_split_hr(df = df.x.split2, cox_initial = cox_init))
         if (!is.na(hr.split1) && !is.na(hr.split2)) {
-          as.numeric(hr.split1 > hr.consistency & hr.split2 > hr.consistency)
+          as.numeric(hr.split1 > hr.consistency && hr.split2 > hr.consistency)
         } else {
           NA_real_
         }
       })
-      p.consistency <- mean(flag.consistency, na.rm = TRUE)
+
+        p.consistency <- mean(flag.consistency, na.rm = TRUE)
+
       if (p.consistency < pconsistency.threshold && details){
         cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
       }
@@ -331,6 +536,8 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
     old_plan <- future::plan()
     on.exit(future::plan(old_plan), add = TRUE)  # Restore plan on exit
     setup_parallel_SGcons(parallel_args)
+
+
     results_list <- future.apply::future_lapply(seq_len(nrow(found.hrs)), function(m) {
       # --- Begin: code for each subgroup ---
       indexm <- as.numeric(unlist(index.Z[m, ]))
@@ -339,25 +546,30 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
       id.m <- paste(paste(this.m, collapse = "==1 & "), "==1")
       df.sub <- subset(df, eval(parse(text = id.m)))
       df.x <- data.table::data.table(df.sub)
-      set.seed(8316951)
-      N.x <- nrow(df.x)
-      flag.consistency <- sapply(seq_len(n.splits), function(bb) {
+
+      cox_init <- log(found.hrs$HR[m])
+
+       N.x <- nrow(df.x)
+       flag.consistency <- sapply(seq_len(n.splits), function(bb) {
         in.split1 <- sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
         df.x$insplit1 <- in.split1
         df.x.split1 <- subset(df.x, insplit1 == 1)
         df.x.split2 <- subset(df.x, insplit1 == 0)
-        hr.split1 <- suppressWarnings(get_split_hr(df.x.split1))
-        hr.split2 <- suppressWarnings(get_split_hr(df.x.split2))
+        hr.split1 <- suppressWarnings(get_split_hr(df = df.x.split1, cox_initial = cox_init))
+        hr.split2 <- suppressWarnings(get_split_hr(df = df.x.split2, cox_initial = cox_init))
         if (!is.na(hr.split1) && !is.na(hr.split2)) {
-          as.numeric(hr.split1 > hr.consistency & hr.split2 > hr.consistency)
+          as.numeric(hr.split1 > hr.consistency && hr.split2 > hr.consistency)
         } else {
           NA_real_
         }
       })
+
       p.consistency <- mean(flag.consistency, na.rm = TRUE)
-      if (p.consistency < pconsistency.threshold & details){
+
+      if (p.consistency < pconsistency.threshold && details){
         cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
       }
+
       if (p.consistency >= pconsistency.threshold) {
         k <- length(this.m)
         covsm <- rep("M", maxk)
@@ -375,9 +587,17 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
         return(resultk)
       }
       # --- End: code for each subgroup ---
-      return(NULL)
-    }, future.seed = TRUE)
-  }
+   return(NULL)
+},
+future.seed = TRUE,
+    future.packages = c("survival", "data.table"),  # Ensure packages are loaded
+    future.globals = structure(
+      TRUE,
+      add = c("get_split_hr", "FS_labels", "hr.consistency", "pconsistency.threshold","get_split_hr")
+    )
+)
+    }
+
   res <- data.table::as.data.table(do.call(rbind, results_list))
   any.found <- nrow(res)
   out_hr <- out_maxSG <- out_minSG <- NULL
@@ -387,13 +607,13 @@ if(details) cat("# of candidates restricted to 'top 10'", c(nrow(found.hrs)),"\n
     res[, (cols_to_numeric) := lapply(.SD, as.numeric), .SDcols = cols_to_numeric]
     result_new <- data.table::copy(res)
 
-    sgdetails <- ifelse(plot.sg & sg_focus == "hr", TRUE, FALSE)
+    sgdetails <- ifelse(plot.sg && sg_focus == "hr", TRUE, FALSE)
     out_hr <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "hr", details = sgdetails,
                                  plot.sg = sgdetails, index.Z = index.Z, names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels)
-    sgdetails <- ifelse(plot.sg & sg_focus %in% c("hrMaxSG", "maxSG"), TRUE, FALSE)
+    sgdetails <- ifelse(plot.sg && sg_focus %in% c("hrMaxSG", "maxSG"), TRUE, FALSE)
     out_maxSG <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "maxSG", details = sgdetails,
                                     plot.sg = sgdetails, index.Z = index.Z, names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels)
-    sgdetails <- ifelse(plot.sg & sg_focus %in% c("hrMinSG", "minSG"), TRUE, FALSE)
+    sgdetails <- ifelse(plot.sg && sg_focus %in% c("hrMinSG", "minSG"), TRUE, FALSE)
     out_minSG <- sg_consistency_out(df = df, result_new = result_new, sg_focus = "minSG", details = sgdetails,
                                     plot.sg = sgdetails, index.Z = index.Z, names.Z = names.Z, by.risk = by.risk, confs_labels = confs_labels)
 
