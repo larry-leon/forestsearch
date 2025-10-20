@@ -273,8 +273,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     if (show_three) show3 <- (boot <= 3)
     # Create bootstrap sample
 
-    # Remove
-    #set.seed(8316951 + 100 * boot)
+
+    if(boot == 515){
 
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
@@ -349,8 +349,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     events_Hcstar_0 <- NA
     events_Hcstar_1 <- NA
 
+    events_H_0 <- NA
+    events_H_1 <- NA
+    events_Hc_0 <- NA
+    events_Hc_1 <- NA
+
     # Initialize timing for forestsearch within this iteration
     tmins_search <- NA
+    tmins_iteration <- NA
 
     # =================================================================
     # Prepare bootstrap dataframes - drop confounders and treat.recommend
@@ -365,6 +371,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot <- fs.est$args_call_all
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
+
+
+    show3 <- TRUE
 
     # CATEGORY 1: OUTPUT SUPPRESSION
     args_FS_boot$details <- show3
@@ -519,6 +528,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
     return(dfres)
   }
+  } # boot 515
+
 
   # =========================================================================
   # SECTION: CALCULATE TOTAL BOOTSTRAP TIMING
@@ -534,6 +545,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     avg_minutes_per_boot = tmins_total_bootstrap / nb_boots,
     avg_seconds_per_boot = (tmins_total_bootstrap * 60) / nb_boots
   )
+
 
   return(foreach_results)
 }
