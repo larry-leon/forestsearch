@@ -324,24 +324,6 @@ show_duplicate_subgroups <- function(hr_subgroups, tolerance = 0.001) {
 }
 
 
-
-
-#' Get Hazard Ratio from Split Data
-#'
-#' Calculates the hazard ratio from a split data set using Cox regression.
-#'
-#' @param df Data frame with survival data.
-#' @return Numeric hazard ratio or NA if error.
-#' @importFrom survival coxph Surv
-# Note that get_split_hr is defined "in-line" within subgroup consistency function
-# This was done in order to accomodate initial values in Coxph with future.lapply
-get_split_hr_legacy <- function(df, cox_initial = log(1)) {
-  hr <- try((summary(coxph(Surv(Y, Event) ~ Treat, data = df, robust = FALSE, init = cox_initial))$conf.int), TRUE)
-  if (inherits(hr, "try-error")) return(NA_real_)
-  hr[1,1]
-}
-
-
 #' Set up parallel processing for subgroup consistency
 #'
 #' Sets up parallel processing using the specified approach and number of workers.
@@ -445,9 +427,6 @@ checking = FALSE, parallel_args = list(NULL)) {
     return(hr)
   }
 
-
-  print(hr.subgroups)
-
   names.Z <- c(names(hr.subgroups[, -c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)")]))
 
   if (length(names.Z) != Lsg) stop("HR subgroup results not matching L, check subgroup search function")
@@ -465,10 +444,6 @@ checking = FALSE, parallel_args = list(NULL)) {
     #found.hrs <- remove_redundant_subgroups(found.hrs)
 
     found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = TRUE)
-
-
-    print(found.hrs)
-
   }
 
   if (sg_focus == "maxSG") found.hrs <- found.hrs[order(found.hrs$n, decreasing = TRUE), ]

@@ -274,8 +274,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # Create bootstrap sample
 
 
-    if(boot == 515){
-
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
@@ -371,9 +369,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot <- fs.est$args_call_all
     args_FS_boot$df.analysis <- dfnew_boot
     args_FS_boot$df.predict <- dfnew
-
-
-    show3 <- TRUE
 
     # CATEGORY 1: OUTPUT SUPPRESSION
     args_FS_boot$details <- show3
@@ -528,8 +523,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
     return(dfres)
   }
-  } # boot 515
-
 
   # =========================================================================
   # SECTION: CALCULATE TOTAL BOOTSTRAP TIMING
@@ -585,8 +578,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
                                             parallel_args = list(),
                                             create_summary = TRUE, create_plots = FALSE) {
-
-  # Removed all progressr validation code
 
   args_forestsearch_call <- fs.est$args_call_all
   parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
