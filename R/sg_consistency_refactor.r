@@ -548,10 +548,27 @@ subgroup.consistency.refactored <- function(df, hr.subgroups,
       future.packages = c("survival", "data.table"),
       future.globals = structure(
         TRUE,
-        add = c("get_split_hr", "FS_labels", "evaluate_subgroup_consistency")
+        add = c(
+          # Functions
+          "evaluate_subgroup_consistency",
+          "get_split_hr",
+          "FS_labels",
+
+          # Data objects
+          "index.Z",
+          "names.Z",
+          "df",
+          "found.hrs",
+          "n.splits",
+          "hr.consistency",
+          "pconsistency.threshold",
+          "pconsistency.digits",
+          "maxk",
+          "confs_labels"
+          # Note: 'details' deliberately excluded - doesn't affect computation
+        )
       )
-    )
-  }
+    )  }
 
   # =========================================================================
   # SECTION 9: COMPILE RESULTS (UNCHANGED FROM ORIGINAL)
