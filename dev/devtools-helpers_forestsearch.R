@@ -43,7 +43,6 @@ rm(list=ls())
 
 .rs.restartR()
 
-
 # clean up old documentation
 unlink("man/*.Rd")
 
