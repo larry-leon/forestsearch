@@ -62,6 +62,16 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
   return(df.pred.out)
 }
 
+#' Get parameter with default fallback
+#' @keywords internal
+get_param <- function(args_list, param_name, default_value) {
+  if (hasName(args_list, param_name) && !is.null(args_list[[param_name]])) {
+    return(args_list[[param_name]])
+  }
+  return(default_value)
+}
+
+
 #' ForestSearch: Subgroup Identification and Consistency Analysis
 #'
 #' Performs subgroup identification and consistency analysis for treatment effect heterogeneity using ForestSearch.

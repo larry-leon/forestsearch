@@ -246,8 +246,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     boot = seq_len(nb_boots),
     .options.future = list(
       seed = TRUE,
-      add = get_bootstrap_exports()
-    ),
+      globals = structure(TRUE, add = c(
+      # Functions
+      get_bootstrap_exports(),
+      # Variables
+      "fs.est", "df_boot_analysis", "cox.formula.boot","confounders_candidate",
+      "H_obs", "Hc_obs", "nb_boots", "show_three", "args_foresearch_call"
+      ))
+  ),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {

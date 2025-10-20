@@ -851,20 +851,6 @@ subgroup.consistency <- function(df, hr.subgroups,
       df.x <- data.table::data.table(df.sub)
       N.x <- nrow(df.x)
 
-      # Check minimum sample size
-      # min_required_n <- max(20, 2 * n.splits)  # Need enough for splits
-      # if (N.x < min_required_n) {
-      #   warning("Subgroup ", m, ": sample size (", N.x, ") too small for ",
-      #           n.splits, " splits. Skipping.")
-      #   return(NULL)
-      # }
-
-      # Check events
-      # if (sum(df.x$Event) < 10) {
-      #   warning("Subgroup ", m, ": insufficient events (", sum(df.x$Event), "). Skipping.")
-      #   return(NULL)
-      # }
-
       # Get cox_init safely
       cox_init <- log(found.hrs$HR[m])
       if (is.na(cox_init) || is.infinite(cox_init)) {
@@ -916,16 +902,16 @@ subgroup.consistency <- function(df, hr.subgroups,
       # Check if we got any valid splits
       n_valid_splits <- sum(!is.na(flag.consistency))
 
-      # if (n_valid_splits < 10) {  # Arbitrary minimum
-      #   warning("Subgroup ", m, ": only ", n_valid_splits, " valid splits out of ",
-      #           n.splits, ". Results may be unreliable.")
-      # }
-
       if (n_valid_splits == 0) {
-        warning("Subgroup ", m, ": no valid splits. Skipping.")
-        return(NULL)
-      }
+        # NO valid splits - skip this subgroup entirely
+        if (details) {
+          cat("Bootstrap", boot, ": No valid consistency splits for subgroup\n")
+        }
+        # Don't calculate p.consistency, just skip
+        p.consistency <- NA
 
+      } else {
+      # At least some valid splits
       # Calculate consistency with error handling
       p.consistency <- tryCatch({
         round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
@@ -933,13 +919,12 @@ subgroup.consistency <- function(df, hr.subgroups,
         warning("Subgroup ", m, ": error calculating consistency: ", e$message)
         return(NA_real_)
       })
-
       if (is.na(p.consistency)) {
         warning("Subgroup ", m, ": consistency calculation failed. Skipping.")
         return(NULL)
       }
 
-      if (p.consistency < pconsistency.threshold){
+      if (isTRUE(p.consistency < pconsistency.threshold)) {
         if(details) cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
       } else {
         k <- length(this.m)
@@ -956,6 +941,7 @@ subgroup.consistency <- function(df, hr.subgroups,
           cat("**** Subgroup, % Consistency Met=", c(this.m_label, p.consistency), "\n")
         }
         return(resultk)
+      }
       }
       # --- End: code for each subgroup ---
       return(NULL)
@@ -994,11 +980,6 @@ subgroup.consistency <- function(df, hr.subgroups,
         return(NULL)
       }
 
-      # if (length(this.m) > maxk) {
-      #   warning("Subgroup ", m, ": ", length(this.m), " factors exceeds maxk=", maxk, ". Skipping.")
-      #   return(NULL)
-      # }
-
       # Validate label conversion
       this.m_label <- tryCatch({
         unlist(lapply(this.m, FS_labels, confs_labels = confs_labels))
@@ -1034,20 +1015,6 @@ subgroup.consistency <- function(df, hr.subgroups,
 
       df.x <- data.table::data.table(df.sub)
       N.x <- nrow(df.x)
-
-      # Check minimum sample size
-      # min_required_n <- max(20, 2 * n.splits)
-      # if (N.x < min_required_n) {
-      #   warning("Subgroup ", m, ": sample size (", N.x, ") too small for ",
-      #           n.splits, " splits. Skipping.")
-      #   return(NULL)
-      # }
-
-      # Check events
-      # if (sum(df.x$Event) < 10) {
-      #   warning("Subgroup ", m, ": insufficient events (", sum(df.x$Event), "). Skipping.")
-      #   return(NULL)
-      # }
 
       # Get cox_init safely
       cox_init <- log(found.hrs$HR[m])
@@ -1100,25 +1067,30 @@ subgroup.consistency <- function(df, hr.subgroups,
       }
 
       if (n_valid_splits == 0) {
-        warning("Subgroup ", m, ": no valid splits. Skipping.")
-        return(NULL)
-      }
+        # NO valid splits - skip this subgroup entirely
+        if (details) {
+          cat("Bootstrap", boot, ": No valid consistency splits for subgroup\n")
+        }
+        # Don't calculate p.consistency, just skip
+        p.consistency <- NA
 
-      p.consistency <- tryCatch({
-        round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
-      }, error = function(e) {
-        warning("Subgroup ", m, ": error calculating consistency: ", e$message)
-        return(NA_real_)
-      })
-
-      if (is.na(p.consistency)) {
-        warning("Subgroup ", m, ": consistency calculation failed. Skipping.")
-        return(NULL)
-      }
-
-      if (p.consistency < pconsistency.threshold){
-        if(details) cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
       } else {
+        # At least some valid splits
+        # Calculate consistency with error handling
+        p.consistency <- tryCatch({
+          round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
+        }, error = function(e) {
+          warning("Subgroup ", m, ": error calculating consistency: ", e$message)
+          return(NA_real_)
+        })
+        if (is.na(p.consistency)) {
+          warning("Subgroup ", m, ": consistency calculation failed. Skipping.")
+          return(NULL)
+        }
+
+        if (isTRUE(p.consistency < pconsistency.threshold)) {
+          if(details) cat("*** Not met: Subgroup, % Consistency =", c(this.m_label, p.consistency), "\n")
+        } else {
         k <- length(this.m)
         covsm <- rep("M", maxk)
         mindex <- c(1:maxk)
@@ -1133,6 +1105,7 @@ subgroup.consistency <- function(df, hr.subgroups,
           cat("**** Subgroup, % Consistency Met=", c(this.m_label, p.consistency), "\n")
         }
         return(resultk)
+        }
       }
       # --- End: code for each subgroup ---
       return(NULL)
