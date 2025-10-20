@@ -1,7 +1,7 @@
 
 # List of required packages for ForestSearch analysis
 
-required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedSurv","future.apply")
+required_packages <- c("grf","policytree","data.table","randomForest","survival","weightedsurv","future.apply")
 missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
@@ -132,7 +132,7 @@ get_param <- function(args_list, param_name, default_value) {
 #' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
 #' @importFrom survival Surv
-#' @importFrom weightedSurv df_counting
+#' @importFrom weightedsurv df_counting
 #' @export
 forestsearch <- function(df.analysis,
                                 outcome.name = "tte",
@@ -375,11 +375,7 @@ forestsearch <- function(df.analysis,
     Z <- as.matrix(df.confounders)
     colnames(Z) <- names(df.confounders)
 
-    # find.grps <- subgroup.search(Y = Y, Event = Event, Treat = Treat, Z = Z, d0.min = d0.min, d1.min = d1.min, n.min = n.min,
-    #                              hr.threshold = hr.threshold, max.minutes = max.minutes, details = details, maxk = maxk)
-
-
-    find.grps <- try(
+      find.grps <- try(
       subgroup.search(
         Y = Y, Event = Event, Treat = Treat, Z = Z,
         d0.min = d0.min, d1.min = d1.min, n.min = n.min,

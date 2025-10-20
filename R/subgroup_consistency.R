@@ -77,17 +77,17 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels) {
 #' @export
 
 plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
-  if (requireNamespace("weightedSurv", quietly = TRUE)) {
+  if (requireNamespace("weightedsurv", quietly = TRUE)) {
     tte.name <- "Y"
     event.name <- "Event"
     treat.name <- "Treat"
     con.lab <- "control"
     exp.lab <- "treat"
-    dfcount <- weightedSurv::df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
-    dfcountC <- weightedSurv::df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+    dfcount <- weightedsurv::df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+    dfcountC <- weightedsurv::df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
     par(mfrow = c(1, 2))
-    weightedSurv::plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
-    weightedSurv::plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+    weightedsurv::plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
+    weightedsurv::plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
     cat("*** Subgroup found:", c(this.1_label), "\n")
     cat("% consistency criteria met=", c(top_result$Pcons), "\n")
   }  else {

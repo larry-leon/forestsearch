@@ -1256,26 +1256,6 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
     )
     })
 
-    # system.time({fitH_star2 <- get_Cox_sg_fast(
-    #   df_sg = df_H,
-    #   cox.formula = cox.formula.boot,
-    #   est.loghr = TRUE
-    # )
-    # })
-
-
-    # Does using my code remove the message
-   # system.time({
-   #  dfcount <- weightedSurv::df_counting(df = df_H)
-   #  get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
-   # })
-
-    # res1 <- c(unlist(fitH_star))
-    # res2 <- c(unlist(get_rg$fit$bhat), unlist(get_rg$fit$sig_bhat_star))
-    # cat("Coxph",c(res1),"\n")
-    # cat("Mine",c(res2),"\n")
-    #
-
 
     # Check events in subgroup Hc (treat.recommend == 1)
     df_Hc <- subset(df_boot, treat.recommend == 1)
@@ -1289,13 +1269,6 @@ bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
       cox.formula = cox.formula.boot,
       est.loghr = TRUE
     )
-
-
-    # system.time({
-    #   dfcount <- weightedSurv::df_counting(df = df_Hc)
-    #   get_rg <- weightedSurv::cox_rhogamma(dfcount = dfcount, scheme = "fh", scheme_params = list(rho = 0, gamma = 0), draws = 1000, verbose = FALSE)
-    # })
-
 
     # =================================================================
     # Prepare bootstrap dataframes - drop confounders and treat.recommend

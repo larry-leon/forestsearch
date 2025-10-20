@@ -575,7 +575,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @importFrom doFuture %dofuture%
 #' @importFrom data.table data.table
 #' @export
-forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
+forestsearch_bootstrap_dofuture_legacy <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
                                             parallel_args = list(),
                                             create_summary = TRUE, create_plots = FALSE) {
 

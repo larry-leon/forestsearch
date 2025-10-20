@@ -25,9 +25,9 @@ for (pkg in pkgs) {
 
 #desc::desc_set_dep("weightedSurv", type = "Suggests", file = "DESCRIPTION")
 
-desc::desc_set_dep(package = "weightedSurv", type = "Imports")
+desc::desc_set_dep(package = "weightedsurv", type = "Imports")
 
-desc::desc_set_remotes("larry-leon/weightedSurv")
+desc::desc_set_remotes("larry-leon/weightedsurv")
 
 usethis::use_package("patchwork", type = "Suggests")
 
@@ -55,15 +55,15 @@ devtools::clean_dll()
 
 # Notes
 # Incorporate in AI prompts when documenting
-Every \item in a \describe{} block must have both a label and a description.
-Do not leave a lone \item{...} without {...} after it.
-Do not next \item inside another \item
-Use plain text, dashes, or a single paragraph for subpoints.
-
-
-León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM.
-Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure.
-Statistics in Medicine. 2024; 43(20): 3921-3942. doi: 10.1002/sim.10163
+# Every \item in a \describe{} block must have both a label and a description.
+# Do not leave a lone \item{...} without {...} after it.
+# Do not next \item inside another \item
+# Use plain text, dashes, or a single paragraph for subpoints.
+#
+#
+# León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM.
+# Exploratory subgroup identification in the heterogeneous Cox model: A relatively simple procedure.
+# Statistics in Medicine. 2024; 43(20): 3921-3942. doi: 10.1002/sim.10163
 
 
 #roxygen2::roxygenise()
@@ -147,27 +147,27 @@ duplicated_elements
 # Per Claude
 
 # In your local forestsearch repo
-git checkout -b fix/must-fix-implementations
-
-# Copy the new files to R/ directory (as shown above)
-
-# Stage changes
-git add R/bootstrap_helpers.R
-git add R/summary_utility_functions.R
-git add R/improved_grf_functions.r
-git add R/input_validation_utils.R
+# git checkout -b fix/must-fix-implementations
+#
+# # Copy the new files to R/ directory (as shown above)
+#
+# # Stage changes
+# git add R/bootstrap_helpers.R
+# git add R/summary_utility_functions.R
+# git add R/improved_grf_functions.r
+# git add R/input_validation_utils.R
 
 # Commit
-git commit -m "Implement must-fix recommendations
-
-- Add comprehensive input validation to all functions
-- Fix division-by-zero issues throughout
-- Standardize variable naming conventions
-- Add input_validation_utils.R with validation helpers
-- Maintain 100% backward compatibility"
-
-# Push to GitHub
-git push origin fix/must-fix-implementations
+# git commit -m "Implement must-fix recommendations
+#
+# - Add comprehensive input validation to all functions
+# - Fix division-by-zero issues throughout
+# - Standardize variable naming conventions
+# - Add input_validation_utils.R with validation helpers
+# - Maintain 100% backward compatibility"
+#
+# # Push to GitHub
+# git push origin fix/must-fix-implementations
 
 # Then create a Pull Request on GitHub
 
