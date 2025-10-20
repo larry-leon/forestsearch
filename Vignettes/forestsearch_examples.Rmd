@@ -535,11 +535,13 @@ library(patchwork)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 10
+NB <- 10000
 
 t.start <- proc.time()[3]
 
 fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = FALSE, create_summary = TRUE, create_plots = TRUE)
+
+plan("sequential")
 
 t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
