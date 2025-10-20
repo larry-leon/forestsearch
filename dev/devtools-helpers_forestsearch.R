@@ -39,6 +39,11 @@ usethis::use_package("patchwork", type = "Suggests")
 # Step 5: Generate documentation
 # Also, run this if revising R files such as @importFrom
 
+rm(list=ls())
+
+.rs.restartR()
+
+
 # clean up old documentation
 unlink("man/*.Rd")
 

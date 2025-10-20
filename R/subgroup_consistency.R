@@ -443,7 +443,7 @@ checking = FALSE, parallel_args = list(NULL)) {
     # Remove this function after further testing
     #found.hrs <- remove_redundant_subgroups(found.hrs)
 
-    found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = TRUE)
+    found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = details)
   }
 
   if (sg_focus == "maxSG") found.hrs <- found.hrs[order(found.hrs$n, decreasing = TRUE), ]
@@ -574,7 +574,7 @@ cat("# of candidates restricted to 'top K' : ", c(nrow(found.hrs)),"\n")
    return(NULL)
 },
 future.seed = TRUE,
-    future.packages = c("survival", "data.table"),  # Ensure packages are loaded
+    #future.packages = c("survival", "data.table"),  # Ensure packages are loaded
     future.globals = structure(
       TRUE,
       add = c("get_split_hr", "FS_labels", "hr.consistency", "pconsistency.threshold")
