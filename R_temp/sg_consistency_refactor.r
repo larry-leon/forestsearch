@@ -23,10 +23,32 @@
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
 #' @export
+
 evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
                                          n.splits, hr.consistency,
                                          pconsistency.threshold, pconsistency.digits,
                                          maxk, confs_labels, details = FALSE) {
+
+  # =========================================================================
+  # SECTION 2: DEFINE get_split_hr HELPER FUNCTION
+  # =========================================================================
+
+  get_split_hr <- function(df, cox_initial = NULL) {
+    if (nrow(df) < 2 || sum(df$Event) < 2) {
+      return(NA_real_)
+    }
+
+    hr <- try({
+      fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
+                             data = df,
+                             init = cox_initial,
+                             robust = FALSE)
+      summary(fit)$conf.int[1, 1]
+    }, silent = TRUE)
+
+    if (inherits(hr, "try-error")) return(NA_real_)
+    return(hr)
+  }
 
   # =========================================================================
   # SECTION 1: VALIDATE SUBGROUP EXTRACTION
@@ -263,7 +285,7 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
 #' @importFrom future.apply future_lapply
 #' @export
 
-subgroup.consistency <- function(df, hr.subgroups,
+subgroup.consistency.refactored <- function(df, hr.subgroups,
                                  hr.threshold = 1.0,
                                  hr.consistency = 1.0,
                                  pconsistency.threshold = 0.9,
@@ -285,7 +307,6 @@ subgroup.consistency <- function(df, hr.subgroups,
   # =========================================================================
   # SECTION 1: INPUT VALIDATION (UNCHANGED)
   # =========================================================================
-
 
   # Check required inputs exist
   if (missing(df) || !is.data.frame(df)) {
@@ -334,26 +355,6 @@ subgroup.consistency <- function(df, hr.subgroups,
 
   # [Additional validation checks omitted for brevity - include all from original]
 
-  # =========================================================================
-  # SECTION 2: DEFINE get_split_hr HELPER FUNCTION
-  # =========================================================================
-
-  get_split_hr <- function(df, cox_initial = NULL) {
-    if (nrow(df) < 2 || sum(df$Event) < 2) {
-      return(NA_real_)
-    }
-
-    hr <- try({
-      fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
-                             data = df,
-                             init = cox_initial,
-                             robust = FALSE)
-      summary(fit)$conf.int[1, 1]
-    }, silent = TRUE)
-
-    if (inherits(hr, "try-error")) return(NA_real_)
-    return(hr)
-  }
 
   # =========================================================================
   # SECTION 3: EXTRACT AND VALIDATE COVARIATE NAMES
@@ -421,11 +422,11 @@ subgroup.consistency <- function(df, hr.subgroups,
   if (nrow(found.hrs) > 1) {
     n_before <- nrow(found.hrs)
 
-    # tryCatch({
-    #   found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = details)
-    # }, error = function(e) {
-    #   warning("Error removing duplicates: ", e$message, ". Proceeding with original subgroups.")
-    # })
+    tryCatch({
+      found.hrs <- remove_near_duplicate_subgroups(found.hrs, details = details)
+    }, error = function(e) {
+      warning("Error removing duplicates: ", e$message, ". Proceeding with original subgroups.")
+    })
 
     if (nrow(found.hrs) == 0) {
       stop("All subgroups removed during duplicate removal. This should not happen.")
@@ -547,10 +548,27 @@ subgroup.consistency <- function(df, hr.subgroups,
       future.packages = c("survival", "data.table"),
       future.globals = structure(
         TRUE,
-        add = c("get_split_hr", "FS_labels", "evaluate_subgroup_consistency")
+        add = c(
+          # Functions
+          "evaluate_subgroup_consistency",
+          "get_split_hr",
+          "FS_labels",
+
+          # Data objects
+          "index.Z",
+          "names.Z",
+          "df",
+          "found.hrs",
+          "n.splits",
+          "hr.consistency",
+          "pconsistency.threshold",
+          "pconsistency.digits",
+          "maxk",
+          "confs_labels"
+          # Note: 'details' deliberately excluded - doesn't affect computation
+        )
       )
-    )
-  }
+    )  }
 
   # =========================================================================
   # SECTION 9: COMPILE RESULTS (UNCHANGED FROM ORIGINAL)

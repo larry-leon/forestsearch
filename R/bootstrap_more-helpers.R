@@ -117,7 +117,9 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "is_flag_drop",
     "lasso_selection",
     "get_Cox_sg",
-    "get_conf_force"
+    "get_conf_force",
+    "subgroup.consistency.refactored",
+    "evaluate_subgroup_consistency"
   ),
   bootstrap_parallel = c(
     "bootstrap_results",

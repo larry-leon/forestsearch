@@ -13,7 +13,6 @@ subgroup.consistency.refactored(
   m1.threshold = Inf,
   n.splits = 100,
   details = FALSE,
-  stop.threshold = 1.1,
   by.risk = 12,
   plot.sg = FALSE,
   maxk = 7,
@@ -42,8 +41,6 @@ subgroup.consistency.refactored(
 \item{n.splits}{Number of random splits for consistency evaluation.}
 
 \item{details}{Logical; print details.}
-
-\item{stop.threshold}{Consistency threshold for early stopping.}
 
 \item{by.risk}{Risk interval for plotting.}
 

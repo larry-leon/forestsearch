@@ -117,7 +117,9 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "is_flag_drop",
     "lasso_selection",
     "get_Cox_sg",
-    "get_conf_force"
+    "get_conf_force",
+    "subgroup.consistency.refactored",
+    "evaluate_subgroup_consistency"
   ),
   bootstrap_parallel = c(
     "bootstrap_results",
@@ -126,7 +128,8 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "fit_cox_models",
     "build_cox_formula",
     "cox.formula.boot",
-    "setup_parallel_SGcons"
+    "setup_parallel_SGcons",
+    "filter_call_args"
   )
 )
 
@@ -138,43 +141,6 @@ get_bootstrap_exports <- function() {
   unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
 }
 
-#' Find integer pairs (x, y) such that x * y = z and y >= x
-#'
-#' Given an integer z, this function finds all integer pairs (x, y) such that x * y = z and y >= x.
-#' Optionally, you can return only the pair with the largest value of x or y.
-#'
-#' @param z Integer. The target product.
-#' @param return_largest Character. If \"x\", returns the pair with the largest x. If \"y\", returns the pair with the largest y. If NULL, returns all pairs.
-#'
-#' @return A matrix of integer pairs (x, y) satisfying the conditions, or a single pair if return_largest is specified.
-#' @examples
-#' find_xy_given_z(12)
-#' find_xy_given_z(12, return_largest = \"x\")
-#' find_xy_given_z(12, return_largest = \"y\")
-#' @keywords internal
-
-find_xy_given_z <- function(z, return_largest = NULL) {
-  pairs <- list()
-  for (x in 1:z) {
-    if (z %% x == 0) {
-      y <- z / x
-      if (y >= x && y %% 1 == 0) {
-        pairs[[length(pairs) + 1]] <- c(x, y)
-      }
-    }
-  }
-  result <- do.call(rbind, pairs)
-  if (!is.null(return_largest)) {
-    if (return_largest == "x") {
-      idx <- which.max(result[,1])
-      return(result[idx, , drop = FALSE])
-    } else if (return_largest == "y") {
-      idx <- which.max(result[,2])
-      return(result[idx, , drop = FALSE])
-    }
-  }
-  return(result)
-}
 
 
 #' Ensure Required Packages Are Installed and Loaded
@@ -210,120 +176,6 @@ format_CI <- function(estimates, col_names) {
 }
 
 
-#' Bootstrap Results for ForestSearch (legacy, in case new one doesn't work out)
-#'
-#' Runs bootstrap analysis for ForestSearch, fitting Cox models and bias correction.
-#'
-#' @param fs.est ForestSearch results object.
-#' @param df_boot_analysis Data frame for bootstrap analysis.
-#' @param cox.formula.boot Cox model formula for bootstrap.
-#' @param nb_boots Integer. Number of bootstrap samples.
-#' @param show_three Logical. Show details for first three bootstraps.
-#' @param H_obs Numeric. Observed HR for subgroup H.
-#' @param Hc_obs Numeric. Observed HR for subgroup Hc.
-#' @param reset_parallel Logical. Reset parallel plan for bootstrap.
-#' @param boot_workers Integer. Number of parallel workers.
-#' @return Data.table with bias-adjusted estimates and search metrics.
-#' @importFrom foreach foreach
-#' @importFrom data.table data.table
-#' @importFrom doFuture %dofuture%
-#' @export
-
-bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot, nb_boots, show_three, H_obs, Hc_obs) {
-
-  NN <- nrow(df_boot_analysis)
-  id0 <- seq_len(NN)
-  foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE,
-                           add = get_bootstrap_exports()
-    ),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-    show3 <- FALSE
-    if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-
-    # Bootstrap data evaluated at H: H_star
-    fitH_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-    H_star <- fitH_star$est_obs
-    fitHc_star <- get_Cox_sg(df_sg = subset(df_boot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-    Hc_star <- fitHc_star$est_obs
-
-    # Bias corrections
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
-
-    # Drop initial confounders
-    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-    # Extract arguments in forestsearch (observed) data analysis
-    args_FS_boot <- fs.est$args_call_all
-    args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
-    # CATEGORY 1: OUTPUT SUPPRESSION (parallelization efficiency)
-    args_FS_boot$details <- show3                # Only show first 3 for debugging
-    args_FS_boot$showten_subgroups <- FALSE      # Suppress large output
-    args_FS_boot$plot.sg <- FALSE                # Can't plot from parallel worker
-    args_FS_boot$plot.grf <- FALSE               # Can't plot from parallel worker
-    # CATEGORY 2: VARIABLE RE-SELECTION (bootstrap variability)
-    # Force fresh GRF run on bootstrap (oracle uses predictions from bootstrap)
-    args_FS_boot$grf_res <- NULL
-    args_FS_boot$grf_cuts <- NULL
-    # CATEGORY 3: SEQUENTIAL EXECUTION (prevent nested parallelization)
-    # Each bootstrap is already running in a parallel worker
-    # Nested parallelization causes resource contention and deadlocks
-    args_FS_boot$parallel_args$plan <- "sequential"
-    args_FS_boot$parallel_args$workers <- 1L
-    args_FS_boot$parallel_args$show_message <- FALSE
-
-    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
-
-    if (inherits(run_bootstrap, "try-error")) {
-      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
-    }
-
-
-    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-      df_PredBoot <- run_bootstrap$df.predict
-      dfboot_PredBoot <- run_bootstrap$df.est
-      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-      tmins_search <- as.numeric(run_bootstrap$find.grps$time_search)
-      prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
-      max_count <- run_bootstrap$find.grps$max_count
-      L <- run_bootstrap$find.grps$L
-      fitHstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hstar_obs <- fitHstar_obs$est_obs
-      fitHstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 0), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hstar_star <- fitHstar_star$est_obs
-      rm(fitHstar_star)
-      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
-      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
-      fitHcstar_obs <- get_Cox_sg(df_sg = subset(df_PredBoot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hcstar_obs <- fitHcstar_obs$est_obs
-      rm(fitHcstar_obs)
-      fitHcstar_star <- get_Cox_sg(df_sg = subset(dfboot_PredBoot, treat.recommend == 1), cox.formula = cox.formula.boot, est.loghr = TRUE)
-      Hcstar_star <- fitHcstar_star$est_obs
-      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
-      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-    }
-    dfres <- data.table::data.table(H_biasadj_1, H_biasadj_2,
-                                    Hc_biasadj_1, Hc_biasadj_2,
-                                    tmins_search, max_sg_est, prop_maxk, L, max_count)
-    return(dfres)
-  }
-
-}
 
 #' Format Bootstrap Results Table with gt
 #'
@@ -522,97 +374,6 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
 }
 
 
-#' Enhanced Bootstrap Results Summary
-#'
-#' Creates comprehensive output including formatted table, diagnostic plots,
-#' and bootstrap quality metrics.
-#'
-#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
-#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
-#' @param est.scale Character. "hr" or "1/hr" for effect scale
-#'
-#' @return List with formatted table and diagnostics
-#' @export
-
-summarize_bootstrap_results <- function(boot_results, create_plots = TRUE,
-                                        est.scale = "hr") {
-
-  # Extract components
-  FSsg_tab <- boot_results$FSsg_tab
-  results <- boot_results$results
-  H_estimates <- boot_results$H_estimates
-  Hc_estimates <- boot_results$Hc_estimates
-
-  # Calculate bootstrap success rate
-  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
-  nb_boots <- nrow(results)
-
-  # Create formatted table
-  formatted_table <- format_bootstrap_table(
-    FSsg_tab = FSsg_tab,
-    nb_boots = nb_boots,
-    est.scale = est.scale,
-    boot_success_rate = boot_success_rate
-  )
-
-  # Bootstrap diagnostics
-  diagnostics <- list(
-    n_boots = nb_boots,
-    success_rate = boot_success_rate,
-    n_successful = sum(!is.na(results$H_biasadj_2)),
-    n_failed = sum(is.na(results$H_biasadj_2)),
-    median_search_time = median(results$tmins_search, na.rm = TRUE),
-    total_search_time = sum(results$tmins_search, na.rm = TRUE)
-  )
-
-  # Print summary
-  cat("\n=== Bootstrap Analysis Summary ===\n")
-  cat(sprintf("Total bootstrap iterations: %d\n", diagnostics$n_boots))
-  cat(sprintf("Successful subgroup identification: %d (%.1f%%)\n",
-              diagnostics$n_successful, diagnostics$success_rate * 100))
-  cat(sprintf("Failed to find subgroup: %d (%.1f%%)\n",
-              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
-  cat(sprintf("Median search time per bootstrap: %.2f minutes\n",
-              diagnostics$median_search_time))
-  cat(sprintf("Total computation time: %.2f minutes\n",
-              diagnostics$total_search_time))
-  cat("\n")
-
-  # Create diagnostic plots if requested
-  plots <- NULL
-  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
-    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
-
-    # Add combined plot if patchwork is available
-    if (requireNamespace("patchwork", quietly = TRUE)) {
-      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
-        patchwork::plot_annotation(
-          title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations", nrow(boot_results$results)),
-          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold")
-                        )
-        )
-    }
-  }
-  list(
-    table = formatted_table,
-    diagnostics = diagnostics,
-    plots = plots
-  )
-}
-
-
-#' Create Bootstrap Diagnostic Plots
-#'
-#' Generates plots showing bootstrap distribution and bias correction
-#'
-#' @param results Data.table of bootstrap results
-#' @param H_estimates Data.table of H subgroup estimates
-#' @param Hc_estimates Data.table of Hc subgroup estimates
-#'
-#' @return List of ggplot objects
-#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_vline
-#' @keywords internal
 
 create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates) {
 
@@ -837,7 +598,596 @@ summarize_bootstrap_events <- function(boot_results, threshold = 5) {
   ))
 }
 
+#' Summarize Bootstrap Timing
+#'
+#' Creates a comprehensive timing summary for bootstrap results
+#'
+#' @param boot_results Data.table from bootstrap_results()
+#' @return List with timing summaries
+#' @export
+summarize_bootstrap_timing <- function(boot_results) {
 
+  # Overall timing from attributes
+  overall <- attr(boot_results, "timing")
+
+  # Per-iteration statistics
+  iteration_stats <- list(
+    mean = mean(boot_results$tmins_iteration, na.rm = TRUE),
+    median = median(boot_results$tmins_iteration, na.rm = TRUE),
+    sd = sd(boot_results$tmins_iteration, na.rm = TRUE),
+    min = min(boot_results$tmins_iteration, na.rm = TRUE),
+    max = max(boot_results$tmins_iteration, na.rm = TRUE),
+    q25 = quantile(boot_results$tmins_iteration, 0.25, na.rm = TRUE),
+    q75 = quantile(boot_results$tmins_iteration, 0.75, na.rm = TRUE)
+  )
+
+  # ForestSearch timing (subset where forestsearch ran)
+  fs_times <- boot_results$tmins_search[!is.na(boot_results$tmins_search)]
+  if (length(fs_times) > 0) {
+    fs_stats <- list(
+      n_runs = length(fs_times),
+      mean = mean(fs_times),
+      median = median(fs_times),
+      sd = sd(fs_times),
+      min = min(fs_times),
+      max = max(fs_times)
+    )
+  } else {
+    fs_stats <- NULL
+  }
+
+  # Success rate
+  n_success <- sum(!is.na(boot_results$H_biasadj_2))
+  success_rate <- n_success / nrow(boot_results)
+
+  # Print summary
+  cat("\n=== BOOTSTRAP TIMING SUMMARY ===\n\n")
+  cat("Overall:\n")
+  cat(sprintf("  Total time: %.2f minutes (%.2f hours)\n",
+              overall$total_minutes, overall$total_hours))
+  cat(sprintf("  Iterations: %d\n", overall$n_boots))
+  cat(sprintf("  Success rate: %.1f%% (%d/%d)\n",
+              success_rate * 100, n_success, overall$n_boots))
+
+  cat("\nPer-iteration timing:\n")
+  cat(sprintf("  Mean: %.2f minutes (%.1f seconds)\n",
+              iteration_stats$mean, iteration_stats$mean * 60))
+  cat(sprintf("  Median: %.2f minutes (%.1f seconds)\n",
+              iteration_stats$median, iteration_stats$median * 60))
+  cat(sprintf("  Range: [%.2f, %.2f] minutes\n",
+              iteration_stats$min, iteration_stats$max))
+  cat(sprintf("  IQR: [%.2f, %.2f] minutes\n",
+              iteration_stats$q25, iteration_stats$q75))
+
+  if (!is.null(fs_stats)) {
+    cat("\nForestSearch timing (successful iterations only):\n")
+    cat(sprintf("  Runs: %d (%.1f%%)\n",
+                fs_stats$n_runs, fs_stats$n_runs / overall$n_boots * 100))
+    cat(sprintf("  Mean: %.2f minutes (%.1f seconds)\n",
+                fs_stats$mean, fs_stats$mean * 60))
+    cat(sprintf("  Median: %.2f minutes (%.1f seconds)\n",
+                fs_stats$median, fs_stats$median * 60))
+  }
+
+  cat("\n")
+
+  # Return invisible
+  invisible(list(
+    overall = overall,
+    iteration_stats = iteration_stats,
+    fs_stats = fs_stats,
+    success_rate = success_rate
+  ))
+}
+
+
+#' Enhanced Bootstrap Results Summary (WITH TIMING)
+#'
+#' Creates comprehensive output including formatted table, diagnostic plots,
+#' bootstrap quality metrics, and detailed timing analysis.
+#'
+#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
+#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
+#' @param est.scale Character. "hr" or "1/hr" for effect scale
+#'
+#' @return List with formatted table, diagnostics, timing analysis, and plots
+#' @export
+summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
+                                        est.scale = "hr") {
+
+  # =========================================================================
+  # SECTION 1: EXTRACT COMPONENTS
+  # =========================================================================
+
+  # Extract components
+  FSsg_tab <- boot_results$FSsg_tab
+  results <- boot_results$results
+  H_estimates <- boot_results$H_estimates
+  Hc_estimates <- boot_results$Hc_estimates
+
+  # =========================================================================
+  # SECTION 2: CALCULATE BOOTSTRAP SUCCESS METRICS
+  # =========================================================================
+
+  # Calculate bootstrap success rate
+  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
+  nb_boots <- nrow(results)
+
+  # Create formatted table
+  formatted_table <- format_bootstrap_table(
+    FSsg_tab = FSsg_tab,
+    nb_boots = nb_boots,
+    est.scale = est.scale,
+    boot_success_rate = boot_success_rate
+  )
+
+  # =========================================================================
+  # SECTION 3: EXTRACT AND ANALYZE TIMING INFORMATION
+  # =========================================================================
+
+  # Check if timing information is available
+  has_timing <- !is.null(attr(results, "timing"))
+
+  if (has_timing) {
+    # Overall timing from attributes
+    overall_timing <- attr(results, "timing")
+
+    # Per-iteration statistics (if columns exist)
+    has_iteration_timing <- "tmins_iteration" %in% names(results)
+    has_search_timing <- "tmins_search" %in% names(results)
+
+    if (has_iteration_timing) {
+      iteration_stats <- list(
+        mean = mean(results$tmins_iteration, na.rm = TRUE),
+        median = median(results$tmins_iteration, na.rm = TRUE),
+        sd = sd(results$tmins_iteration, na.rm = TRUE),
+        min = min(results$tmins_iteration, na.rm = TRUE),
+        max = max(results$tmins_iteration, na.rm = TRUE),
+        q25 = quantile(results$tmins_iteration, 0.25, na.rm = TRUE),
+        q75 = quantile(results$tmins_iteration, 0.75, na.rm = TRUE)
+      )
+    } else {
+      iteration_stats <- NULL
+    }
+
+    # ForestSearch timing (subset where forestsearch ran)
+    if (has_search_timing) {
+      fs_times <- results$tmins_search[!is.na(results$tmins_search)]
+      if (length(fs_times) > 0) {
+        fs_stats <- list(
+          n_runs = length(fs_times),
+          pct_runs = length(fs_times) / nb_boots * 100,
+          mean = mean(fs_times),
+          median = median(fs_times),
+          sd = sd(fs_times),
+          min = min(fs_times),
+          max = max(fs_times),
+          total = sum(fs_times)
+        )
+      } else {
+        fs_stats <- NULL
+      }
+    } else {
+      fs_stats <- NULL
+    }
+
+    # Overhead timing (time not in forestsearch)
+    if (has_iteration_timing && has_search_timing) {
+      overhead_times <- results$tmins_iteration - results$tmins_search
+      overhead_times <- overhead_times[!is.na(overhead_times)]
+
+      if (length(overhead_times) > 0) {
+        overhead_stats <- list(
+          mean = mean(overhead_times),
+          median = median(overhead_times),
+          total = sum(overhead_times),
+          pct_of_total = sum(overhead_times) / overall_timing$total_minutes * 100
+        )
+      } else {
+        overhead_stats <- NULL
+      }
+    } else {
+      overhead_stats <- NULL
+    }
+
+  } else {
+    # No timing information available
+    overall_timing <- NULL
+    iteration_stats <- NULL
+    fs_stats <- NULL
+    overhead_stats <- NULL
+  }
+
+  # =========================================================================
+  # SECTION 4: BOOTSTRAP DIAGNOSTICS
+  # =========================================================================
+
+  diagnostics <- list(
+    n_boots = nb_boots,
+    success_rate = boot_success_rate,
+    n_successful = sum(!is.na(results$H_biasadj_2)),
+    n_failed = sum(is.na(results$H_biasadj_2))
+  )
+
+  # Add timing to diagnostics if available
+  if (has_timing && has_search_timing) {
+    diagnostics$median_search_time = median(results$tmins_search, na.rm = TRUE)
+    diagnostics$total_search_time = sum(results$tmins_search, na.rm = TRUE)
+  }
+
+  # =========================================================================
+  # SECTION 5: PRINT COMPREHENSIVE SUMMARY (WITH FIXED sprintf)
+  # =========================================================================
+
+  cat("\n")
+  cat("═══════════════════════════════════════════════════════════════\n")
+  cat("           BOOTSTRAP ANALYSIS SUMMARY                          \n")
+  cat("═══════════════════════════════════════════════════════════════\n\n")
+
+  # Success metrics
+  cat("BOOTSTRAP SUCCESS METRICS:\n")
+  cat("─────────────────────────────────────────────────────────────\n")
+  cat(sprintf("  Total iterations:              %d\n", diagnostics$n_boots))
+  cat(sprintf("  Successful subgroup ID:        %d (%.1f%%)\n",
+              diagnostics$n_successful, diagnostics$success_rate * 100))
+  cat(sprintf("  Failed to find subgroup:       %d (%.1f%%)\n",
+              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
+  cat("\n")
+
+  # Timing summary
+  if (has_timing) {
+    cat("TIMING ANALYSIS:\n")
+    cat("─────────────────────────────────────────────────────────────\n")
+
+    # Overall timing
+    cat("Overall:\n")
+    cat(sprintf("  Total bootstrap time:          %.2f minutes (%.2f hours)\n",
+                overall_timing$total_minutes, overall_timing$total_hours))
+    cat(sprintf("  Average per iteration:         %.2f min (%.1f sec)\n",
+                overall_timing$avg_minutes_per_boot,
+                overall_timing$avg_seconds_per_boot))
+
+    # Projected times
+    if (nb_boots < 1000) {
+      projected_1000 <- overall_timing$avg_minutes_per_boot * 1000
+      cat(sprintf("  Projected for 1000 boots:      %.2f minutes (%.2f hours)\n",
+                  projected_1000, projected_1000 / 60))
+    }
+    cat("\n")
+
+    # Per-iteration timing
+    if (!is.null(iteration_stats)) {
+      cat("Per-iteration timing:\n")
+      cat(sprintf("  Mean:                          %.2f min (%.1f sec)\n",
+                  iteration_stats$mean, iteration_stats$mean * 60))
+      cat(sprintf("  Median:                        %.2f min (%.1f sec)\n",
+                  iteration_stats$median, iteration_stats$median * 60))
+      cat(sprintf("  Std Dev:                       %.2f minutes\n",
+                  iteration_stats$sd))
+      cat(sprintf("  Range:                         [%.2f, %.2f] minutes\n",
+                  iteration_stats$min, iteration_stats$max))
+      cat(sprintf("  IQR:                           [%.2f, %.2f] minutes\n",
+                  iteration_stats$q25, iteration_stats$q75))
+      cat("\n")
+    }
+
+    # ForestSearch timing (FIXED sprintf statements)
+    if (!is.null(fs_stats)) {
+      cat("ForestSearch timing (successful iterations only):\n")
+      cat(sprintf("  Iterations with FS:            %d (%.1f%%)\n",
+                  fs_stats$n_runs, fs_stats$pct_runs))
+      cat(sprintf("  Mean FS time:                  %.2f min (%.1f sec)\n",
+                  fs_stats$mean, fs_stats$mean * 60))
+      cat(sprintf("  Median FS time:                %.2f min (%.1f sec)\n",
+                  fs_stats$median, fs_stats$median * 60))
+      cat(sprintf("  Total FS time:                 %.2f minutes\n",
+                  fs_stats$total))
+      # FIXED: Changed from %.1f%% to %.1f and added separate %
+      cat(sprintf("  FS time %s of total:            %.1f%s\n",
+                  "%", fs_stats$total / overall_timing$total_minutes * 100, "%"))
+      cat("\n")
+    }
+
+    # Overhead timing (FIXED sprintf statement)
+    if (!is.null(overhead_stats)) {
+      cat("Overhead timing (Cox models, bias correction, etc.):\n")
+      cat(sprintf("  Mean overhead:                 %.2f min (%.1f sec)\n",
+                  overhead_stats$mean, overhead_stats$mean * 60))
+      cat(sprintf("  Median overhead:               %.2f min (%.1f sec)\n",
+                  overhead_stats$median, overhead_stats$median * 60))
+      cat(sprintf("  Total overhead:                %.2f minutes\n",
+                  overhead_stats$total))
+      # FIXED: Changed from %.1f%% to %.1f and added separate %
+      cat(sprintf("  Overhead %s of total:           %.1f%s\n",
+                  "%", overhead_stats$pct_of_total, "%"))
+      cat("\n")
+    }
+
+    # Performance assessment
+    cat("PERFORMANCE ASSESSMENT:\n")
+    cat("─────────────────────────────────────────────────────────────\n")
+
+    if (!is.null(iteration_stats)) {
+      avg_sec <- overall_timing$avg_seconds_per_boot
+
+      if (avg_sec < 5) {
+        performance <- "Excellent"
+        emoji <- "✓✓✓"
+      } else if (avg_sec < 15) {
+        performance <- "Good"
+        emoji <- "✓✓"
+      } else if (avg_sec < 30) {
+        performance <- "Acceptable"
+        emoji <- "✓"
+      } else if (avg_sec < 60) {
+        performance <- "Slow"
+        emoji <- "⚠"
+      } else {
+        performance <- "Very Slow"
+        emoji <- "⚠⚠"
+      }
+
+      cat(sprintf("  Performance rating:            %s %s\n", emoji, performance))
+      cat(sprintf("  Average iteration speed:       %.1f seconds\n", avg_sec))
+
+      # Recommendations based on performance
+      if (avg_sec > 30) {
+        cat("\n  Recommendations for improvement:\n")
+        if (!is.null(fs_stats) && fs_stats$mean > 0.5) {
+          cat("    • Consider reducing max.minutes in forestsearch\n")
+          cat("    • Consider reducing maxk if currently > 2\n")
+        }
+        if (nb_boots > 500) {
+          cat("    • Consider reducing nb_boots for initial testing\n")
+        }
+        cat("    • Ensure sufficient parallel workers are allocated\n")
+      }
+    }
+    cat("\n")
+  }
+
+  cat("═══════════════════════════════════════════════════════════════\n\n")
+
+  # =========================================================================
+  # SECTION 6: CREATE DIAGNOSTIC PLOTS (INCLUDING TIMING PLOTS)
+  # =========================================================================
+
+  plots <- NULL
+  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
+    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
+
+    # Add timing plots if data available
+    if (has_timing && has_iteration_timing) {
+      plots$timing <- create_bootstrap_timing_plots(results)
+    }
+
+    # Add combined plot if patchwork is available
+    if (requireNamespace("patchwork", quietly = TRUE)) {
+      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
+        patchwork::plot_annotation(
+          title = "Bootstrap Distributions",
+          subtitle = sprintf("%d iterations, %.1f%s successful",
+                             nrow(results), boot_success_rate * 100, "%"),
+          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
+        )
+
+      # Add timing plots to combined if available
+      if (!is.null(plots$timing)) {
+        plots$combined_with_timing <- (plots$H_distribution | plots$Hc_distribution) /
+          (plots$timing$iteration_time | plots$timing$search_time) +
+          patchwork::plot_annotation(
+            title = "Bootstrap Analysis: Distributions and Timing",
+            subtitle = sprintf("%d iterations, %.1f%s successful, %.1f min total",
+                               nrow(results), boot_success_rate * 100, "%",
+                               overall_timing$total_minutes),
+            theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
+          )
+      }
+    }
+  }
+
+  # =========================================================================
+  # SECTION 7: COMPILE AND RETURN OUTPUT
+  # =========================================================================
+
+  output <- list(
+    table = formatted_table,
+    diagnostics = diagnostics,
+    plots = plots
+  )
+
+  # Add timing information if available
+  if (has_timing) {
+    output$timing <- list(
+      overall = overall_timing,
+      iteration_stats = iteration_stats,
+      fs_stats = fs_stats,
+      overhead_stats = overhead_stats
+    )
+  }
+
+  invisible(output)
+}
+
+#' Create Bootstrap Timing Plots
+#'
+#' Generates timing visualization plots for bootstrap analysis
+#'
+#' @param results Data.table of bootstrap results with timing columns
+#' @return List of ggplot objects
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_point
+#' @keywords internal
+
+create_bootstrap_timing_plots <- function(results) {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    return(NULL)
+  }
+
+  plots <- list()
+
+  # Check which timing columns are available
+  has_iteration_timing <- "tmins_iteration" %in% names(results)
+  has_search_timing <- "tmins_search" %in% names(results)
+
+  # Plot 1: Iteration timing distribution
+  if (has_iteration_timing) {
+    p1 <- ggplot2::ggplot(results, ggplot2::aes(x = tmins_iteration)) +
+      ggplot2::geom_histogram(bins = 30, fill = "#2E86AB", alpha = 0.7, color = "white") +
+      ggplot2::geom_vline(xintercept = median(results$tmins_iteration, na.rm = TRUE),
+                          color = "red", linetype = "dashed", linewidth = 1) +
+      ggplot2::labs(
+        title = "Bootstrap Iteration Timing Distribution",
+        subtitle = sprintf("Median: %.2f min, Mean: %.2f min",
+                           median(results$tmins_iteration, na.rm = TRUE),
+                           mean(results$tmins_iteration, na.rm = TRUE)),
+        x = "Minutes per iteration",
+        y = "Frequency"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(
+        plot.title = ggplot2::element_text(face = "bold", size = 14),
+        plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
+      )
+
+    plots$iteration_time <- p1
+  }
+
+  # Plot 2: ForestSearch timing (for successful iterations)
+  if (has_search_timing) {
+    fs_data <- results[!is.na(results$tmins_search), ]
+
+    if (nrow(fs_data) > 0) {
+      p2 <- ggplot2::ggplot(fs_data, ggplot2::aes(x = tmins_search)) +
+        ggplot2::geom_histogram(bins = 30, fill = "#A23B72", alpha = 0.7, color = "white") +
+        ggplot2::geom_vline(xintercept = median(fs_data$tmins_search, na.rm = TRUE),
+                            color = "red", linetype = "dashed", linewidth = 1) +
+        ggplot2::labs(
+          title = "ForestSearch Timing Distribution",
+          subtitle = sprintf("Successful iterations only (n=%d, %.1f%%)",
+                             nrow(fs_data),
+                             nrow(fs_data) / nrow(results) * 100),
+          x = "Minutes for ForestSearch",
+          y = "Frequency"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(face = "bold", size = 14),
+          plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
+        )
+
+      plots$search_time <- p2
+    }
+  }
+
+  # Plot 3: Timing over iterations (to detect trends)
+  if (has_iteration_timing) {
+    p3 <- ggplot2::ggplot(results, ggplot2::aes(x = boot_id, y = tmins_iteration)) +
+      ggplot2::geom_point(alpha = 0.5, color = "#2E86AB") +
+      ggplot2::geom_smooth(method = "loess", color = "red", se = TRUE) +
+      ggplot2::labs(
+        title = "Bootstrap Timing Trend",
+        subtitle = "Timing across iterations (with LOESS smoother)",
+        x = "Bootstrap Iteration",
+        y = "Minutes per iteration"
+      ) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(
+        plot.title = ggplot2::element_text(face = "bold", size = 14),
+        plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
+      )
+
+    plots$timing_trend <- p3
+  }
+
+  # Plot 4: Timing breakdown (if both iteration and search available)
+  if (has_iteration_timing && has_search_timing) {
+    # Calculate overhead
+    timing_data <- data.frame(
+      boot_id = results$boot_id,
+      forestsearch = results$tmins_search,
+      overhead = results$tmins_iteration - results$tmins_search
+    )
+
+    # Remove rows with NA
+    timing_data <- timing_data[complete.cases(timing_data), ]
+
+    if (nrow(timing_data) > 0) {
+      # Reshape for stacked bar chart
+      timing_long <- data.frame(
+        boot_id = rep(timing_data$boot_id, 2),
+        component = rep(c("ForestSearch", "Overhead"), each = nrow(timing_data)),
+        minutes = c(timing_data$forestsearch, timing_data$overhead)
+      )
+
+      p4 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = boot_id, y = minutes, fill = component)) +
+        ggplot2::geom_col(position = "stack", alpha = 0.7) +
+        ggplot2::scale_fill_manual(values = c("ForestSearch" = "#A23B72", "Overhead" = "#2E86AB")) +
+        ggplot2::labs(
+          title = "Bootstrap Timing Breakdown",
+          subtitle = "ForestSearch vs Overhead (Cox models, bias correction)",
+          x = "Bootstrap Iteration (successful only)",
+          y = "Minutes",
+          fill = "Component"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(face = "bold", size = 14),
+          plot.subtitle = ggplot2::element_text(size = 11, color = "gray40"),
+          legend.position = "bottom"
+        )
+
+      plots$timing_breakdown <- p4
+    }
+  }
+
+  # Plot 5: Box plot comparison
+  if (has_iteration_timing && has_search_timing) {
+    timing_data <- data.frame(
+      boot_id = results$boot_id,
+      Total = results$tmins_iteration,
+      ForestSearch = results$tmins_search,
+      Overhead = results$tmins_iteration - results$tmins_search
+    )
+
+    # Reshape for box plot
+    timing_long <- tidyr::pivot_longer(
+      timing_data,
+      cols = c(Total, ForestSearch, Overhead),
+      names_to = "Component",
+      values_to = "Minutes"
+    )
+
+    # Remove NA
+    timing_long <- timing_long[!is.na(timing_long$Minutes), ]
+
+    if (nrow(timing_long) > 0) {
+      p5 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = Component, y = Minutes, fill = Component)) +
+        ggplot2::geom_boxplot(alpha = 0.7) +
+        ggplot2::scale_fill_manual(values = c(
+          "Total" = "#2E86AB",
+          "ForestSearch" = "#A23B72",
+          "Overhead" = "#F18F01"
+        )) +
+        ggplot2::labs(
+          title = "Bootstrap Timing Components",
+          subtitle = "Distribution comparison",
+          x = NULL,
+          y = "Minutes"
+        ) +
+        ggplot2::theme_minimal() +
+        ggplot2::theme(
+          plot.title = ggplot2::element_text(face = "bold", size = 14),
+          plot.subtitle = ggplot2::element_text(size = 11, color = "gray40"),
+          legend.position = "none"
+        )
+
+      plots$timing_boxplot <- p5
+    }
+  }
+
+  return(plots)
+}
 
 bootstrap_reproduce_aboot <- function(this_boot, fs.est, cox.formula.boot) {
 

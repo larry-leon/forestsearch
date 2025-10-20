@@ -269,7 +269,6 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
 #' @param m1.threshold Maximum median survival for treatment arm.
 #' @param n.splits Number of random splits for consistency evaluation.
 #' @param details Logical; print details.
-#' @param stop.threshold Consistency threshold for early stopping.
 #' @param by.risk Risk interval for plotting.
 #' @param plot.sg Logical; plot subgroup curves.
 #' @param maxk Maximum number of covariates in a subgroup.
@@ -292,7 +291,6 @@ subgroup.consistency.refactored <- function(df, hr.subgroups,
                                  m1.threshold = Inf,
                                  n.splits = 100,
                                  details = FALSE,
-                                 stop.threshold = 1.1,
                                  by.risk = 12,
                                  plot.sg = FALSE,
                                  maxk = 7,

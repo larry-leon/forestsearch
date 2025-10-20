@@ -114,7 +114,6 @@ get_param <- function(args_list, param_name, default_value) {
 #' @param sg_focus Character. Subgroup focus criterion (\"hr\", \"hrMaxSG\", \"hrMinSG\", \"maxSG\", \"minSG\").
 #' @param fs.splits Integer. Number of splits for consistency analysis.
 #' @param m1.threshold Numeric. Threshold for m1 (default: Inf).
-#' @param stop.threshold Numeric. Stopping threshold for subgroup search.
 #' @param pconsistency.threshold Numeric. Consistency threshold for subgroup search.
 #' @param showten_subgroups Logical. Show top ten subgroups.
 #' @param d0.min Integer. Minimum number of events in control.
@@ -169,7 +168,6 @@ forestsearch <- function(df.analysis,
                                 sg_focus = "hr",
                                 fs.splits = 1000,
                                 m1.threshold = Inf,
-                                stop.threshold = 0.90,
                                 pconsistency.threshold = 0.90,
                                 showten_subgroups = FALSE,
                                 d0.min = 10, d1.min = 10,
@@ -201,15 +199,12 @@ forestsearch <- function(df.analysis,
       parallel_args$workers <- min(n_workers, max_cores)
     }
   }
-
-
   if (!exists("df.analysis") | !is.data.frame(df.analysis)){
     stop("df.analysis does not exists or is not a data.frame")
   } else if (exists("df.analysis") && !is.data.frame(df.analysis)){
     df.analysis <- as.data.frame(df.analysis)
     message("Converting df.analysis to data.frame")
   }
-
 
   df.analysis <-  add_id_column(df.analysis, id.name)
 
@@ -220,13 +215,9 @@ forestsearch <- function(df.analysis,
     stop("The following variables are missing in df.analysis: ", paste(missing_vars, collapse = ", "))
   }
 
-
   if(!(sg_focus %in% c("hr","hrMaxSG", "hrMinSG", "maxSG", "minSG"))) stop("sg_focus must be either hr, hrMaxSG (maxSG), or hrMinSG (minSG)")
 
   if(plot.sg && is.null(by.risk)) stop("by.risk must be non-null if plot.sg = TRUE")
-
-  # reset stop.threshold (>1) to override stopping
-  if(showten_subgroups)  stop.threshold <- 1.1
 
   if(!(cut_type %in% c("default","median"))) stop("only default and median cuts")
 
@@ -236,21 +227,9 @@ forestsearch <- function(df.analysis,
     if(all(defaultcut_names %in% names(df.analysis)) != TRUE) stop("Not all confounders for default cuts found in dataset")
   }
 
-
   if(is.null(confounders.name)) stop("Confounder names (confounders.name) required")
   if(is.null(outcome.name) || is.null(event.name) || is.null(treat.name)) stop("outcome.name, event.name, and treat.name required (missing at least 1)")
   if(is.null(hr.threshold) || is.null(hr.consistency) || is.null(pconsistency.threshold)) stop("hr.threshold, hr.consistency, pconsistency.threshold required (missing at least 1)")
-
-  if(sg_focus %in% c("maxSG","minSG")){
-    if(stop.threshold < pconsistency.threshold) stop.threshold <- pconsistency.threshold
-    # Stop searching once pconsistency.threshold is met
-    # Select max/min subgroup size
-  }
-
-  # Re-set stop.threshold
-  # Continue searching
-  # Select max/min subgroup size (pconsistency threshold is minimum)
-  if(sg_focus %in% c("hrMaxSG","hrMinSG") && stop.threshold < 1.0) stop.threshold <- 1.0
 
   # Sort data by id
   df.analysis <- df.analysis[order(df.analysis[[id.name]]), , drop = FALSE]
@@ -265,8 +244,6 @@ forestsearch <- function(df.analysis,
   }
   # Keep only complete cases
   df.analysis <- temp[complete_idx, , drop = FALSE]
-
-  rm("temp")
 
   t.start_all<-proc.time()[3]
 

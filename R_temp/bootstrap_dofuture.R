@@ -230,21 +230,39 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @export
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs) {
+
+  # =========================================================================
+  # SECTION: INITIALIZE TIMING
+  # =========================================================================
+  t_start_bootstrap <- proc.time()[3]
+
   set.seed(8316951)
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
 
   # Do not modify seed it needs to align with ystar
   # Setting seed = FALSE to allow for manual control of seeds
-  foreach::foreach(
+  foreach_results <- foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(
       seed = TRUE,
-      add = get_bootstrap_exports()
-    ),
+      globals = structure(TRUE, add = c(
+      # Functions
+      get_bootstrap_exports(),
+      # Variables
+      "fs.est", "df_boot_analysis", "cox.formula.boot","confounders_candidate",
+      "H_obs", "Hc_obs", "nb_boots", "show_three", "args_foresearch_call","pconsistency.threshold",
+      "pconsistency.digits","hr.consistency"
+      ))
+  ),
     .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
+
+    # =========================================================================
+    # SECTION: BOOTSTRAP ITERATION TIMING (PER ITERATION)
+    # =========================================================================
+    t_iter_start <- proc.time()[3]
 
     # Simple console feedback (only for first few and milestones)
     if (boot %in% c(1, 10, 50, 100, 250, 500, 750, 1000) || boot == nb_boots) {
@@ -255,8 +273,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     if (show_three) show3 <- (boot <= 3)
     # Create bootstrap sample
 
-    # Remove
-    #set.seed(8316951 + 100 * boot)
 
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df_boot_analysis[in_boot, ]
@@ -283,7 +299,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                       boot, events_H_0, events_H_1))
     }
 
-
     # Note that any identified subgroups are of size at least n.min with minimum
     # number of events in the control and experimental arms of d0.min and d1.min
     # In addition, for any bootstrap forestsearch analysis the idenfitied subgroups
@@ -296,25 +311,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       cox.formula = cox.formula.boot,
       est.loghr = TRUE
     )
-
-    # fitH_star <- withCallingHandlers(
-    #   {
-    #     get_Cox_sg(
-    #       df_sg = df_H,
-    #       cox.formula = cox.formula.boot,
-    #       est.loghr = TRUE
-    #     )
-    #   },
-    #   warning = function(w) {
-    #     if (grepl("Loglik converged", conditionMessage(w))) {
-    #       convergence_warnings <<- convergence_warnings + 1
-    #       message(sprintf("Bootstrap %d (H): Cox convergence warning - %s",
-    #                       boot, conditionMessage(w)))
-    #     }
-    #     invokeRestart("muffleWarning")
-    #   }
-    # )
-
 
     H_star <- fitH_star$est_obs
 
@@ -334,25 +330,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       est.loghr = TRUE
     )
 
-
-    # fitHc_star <- withCallingHandlers(
-    #   {
-    #     get_Cox_sg(
-    #       df_sg = df_Hc,
-    #       cox.formula = cox.formula.boot,
-    #       est.loghr = TRUE
-    #     )
-    #   },
-    #   warning = function(w) {
-    #     if (grepl("Loglik converged", conditionMessage(w))) {
-    #       convergence_warnings <<- convergence_warnings + 1
-    #       message(sprintf("Bootstrap %d (Hc): Cox convergence warning - %s",
-    #                       boot, conditionMessage(w)))
-    #     }
-    #     invokeRestart("muffleWarning")
-    #   }
-    # )
-
     Hc_star <- fitHc_star$est_obs
 
     # =================================================================
@@ -369,6 +346,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     events_Hstar_1 <- NA
     events_Hcstar_0 <- NA
     events_Hcstar_1 <- NA
+
+    events_H_0 <- NA
+    events_H_1 <- NA
+    events_Hc_0 <- NA
+    events_Hc_1 <- NA
+
+    # Initialize timing for forestsearch within this iteration
+    tmins_search <- NA
+    tmins_iteration <- NA
 
     # =================================================================
     # Prepare bootstrap dataframes - drop confounders and treat.recommend
@@ -400,9 +386,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot$parallel_args$show_message <- FALSE
 
     # =================================================================
-    # Run forestsearch on bootstrap sample
+    # Run forestsearch on bootstrap sample (WITH TIMING)
     # =================================================================
+    t_fs_start <- proc.time()[3]
+
     run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
+
+    t_fs_end <- proc.time()[3]
+    tmins_search <- (t_fs_end - t_fs_start) / 60
 
     if (inherits(run_bootstrap, "try-error")) {
       warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
@@ -498,7 +489,13 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     }
 
     # =================================================================
-    # UPDATED: Return data.table with event counts, without tmins_search and prop_maxk
+    # CALCULATE ITERATION TIMING
+    # =================================================================
+    t_iter_end <- proc.time()[3]
+    tmins_iteration <- (t_iter_end - t_iter_start) / 60
+
+    # =================================================================
+    # RETURN: data.table with event counts AND TIMING
     # =================================================================
     dfres <- data.table::data.table(
       boot_id = boot,
@@ -518,399 +515,33 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       events_Hstar_0 = events_Hstar_0,
       events_Hstar_1 = events_Hstar_1,
       events_Hcstar_0 = events_Hcstar_0,
-      events_Hcstar_1 = events_Hcstar_1
+      events_Hcstar_1 = events_Hcstar_1,
+      # TIMING COLUMNS
+      tmins_search = tmins_search,           # Time for forestsearch only
+      tmins_iteration = tmins_iteration      # Total time for this iteration
     )
 
     return(dfres)
   }
+
+  # =========================================================================
+  # SECTION: CALCULATE TOTAL BOOTSTRAP TIMING
+  # =========================================================================
+  t_end_bootstrap <- proc.time()[3]
+  tmins_total_bootstrap <- (t_end_bootstrap - t_start_bootstrap) / 60
+
+  # Add timing summary as attributes
+  attr(foreach_results, "timing") <- list(
+    total_minutes = tmins_total_bootstrap,
+    total_hours = tmins_total_bootstrap / 60,
+    n_boots = nb_boots,
+    avg_minutes_per_boot = tmins_total_bootstrap / nb_boots,
+    avg_seconds_per_boot = (tmins_total_bootstrap * 60) / nb_boots
+  )
+
+
+  return(foreach_results)
 }
-
-
-
-
-bootstrap_results_legacy2 <- function(fs.est, df_boot_analysis, cox.formula.boot,
-                              nb_boots, show_three, H_obs, Hc_obs
-                              ) {  # Keep parameter but don't use it
-  NN <- nrow(df_boot_analysis)
-  id0 <- seq_len(NN)
-
-  # REMOVED: All progressr code
-
-  foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(
-      seed = TRUE,
-      add = get_bootstrap_exports()
-    ),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-    # Simple console feedback (only for first few and milestones)
-    if (boot %in% c(1, 10, 50, 100, 250, 500, 750, 1000) || boot == nb_boots) {
-      message(sprintf("Bootstrap iteration %d/%d", boot, nb_boots))
-    }
-    show3 <- FALSE
-    if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
-    # Do NOT modify the above seed this needs to align with ystar calculation
-    # Create bootstrap sample
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-
-
-    # =================================================================
-    # Initialize bias corrections as NA (will remain NA if bootstrap fails)
-    # =================================================================
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
-
-
-    # =================================================================
-    # Bootstrap data evaluated at ORIGINAL subgroup H
-    # =================================================================
-    # IMPORTANT: Use uppercase variable names to match legacy version
-    fitH_star <- get_Cox_sg(
-      df_sg = subset(df_boot, treat.recommend == 0),
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    H_star <- fitH_star$est_obs  # Use uppercase H_star
-
-    fitHc_star <- get_Cox_sg(
-      df_sg = subset(df_boot, treat.recommend == 1),
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    Hc_star <- fitHc_star$est_obs  # Use uppercase Hc_star
-
-
-    # =================================================================
-    # Prepare bootstrap dataframes - drop confounders and treat.recommend
-    # =================================================================
-    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-
-    # =================================================================
-    # Configure forestsearch arguments for bootstrap
-    # =================================================================
-    args_FS_boot <- fs.est$args_call_all
-    args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
-
-    # CATEGORY 1: OUTPUT SUPPRESSION
-    args_FS_boot$details <- show3
-    args_FS_boot$showten_subgroups <- FALSE
-    args_FS_boot$plot.sg <- FALSE
-    args_FS_boot$plot.grf <- FALSE
-
-    # CATEGORY 2: VARIABLE RE-SELECTION
-    args_FS_boot$grf_res <- NULL
-    args_FS_boot$grf_cuts <- NULL
-
-    # CATEGORY 3: SEQUENTIAL EXECUTION
-    args_FS_boot$parallel_args$plan <- "sequential"
-    args_FS_boot$parallel_args$workers <- 1L
-    args_FS_boot$parallel_args$show_message <- FALSE
-
-    # =================================================================
-    # Run forestsearch on bootstrap sample
-    # =================================================================
-    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
-
-    if (inherits(run_bootstrap, "try-error")) {
-      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
-    }
-
-    # =================================================================
-    # CRITICAL FIX: Only compute bias corrections if bootstrap succeeded
-    # AND found a valid subgroup
-    # =================================================================
-    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-
-      # Extract prediction datasets from bootstrap ForestSearch run
-      df_PredBoot <- run_bootstrap$df.predict
-      dfboot_PredBoot <- run_bootstrap$df.est
-
-      # Extract search metrics
-      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-      tmins_search <- as.numeric(run_bootstrap$find.grps$time_search)
-      prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
-      max_count <- run_bootstrap$find.grps$max_count
-      L <- run_bootstrap$find.grps$L
-
-      # ==============================================================
-      # Compute bias corrections for subgroup H (harm/questionable)
-      # ==============================================================
-
-      # Hstar_obs: New subgroup (from bootstrap) evaluated on ORIGINAL data
-      fitHstar_obs <- get_Cox_sg(
-        df_sg = subset(df_PredBoot, treat.recommend == 0),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hstar_obs <- fitHstar_obs$est_obs
-
-      # Hstar_star: New subgroup (from bootstrap) evaluated on BOOTSTRAP data
-      fitHstar_star <- get_Cox_sg(
-        df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hstar_star <- fitHstar_star$est_obs
-
-      # Bias correction method 1: Simple optimism correction
-      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
-
-      # Bias correction method 2: Double correction
-      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
-
-      # ==============================================================
-      # Compute bias corrections for subgroup H^c (complement/recommend)
-      # ==============================================================
-
-      # Hcstar_obs: New subgroup complement evaluated on ORIGINAL data
-      fitHcstar_obs <- get_Cox_sg(
-        df_sg = subset(df_PredBoot, treat.recommend == 1),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hcstar_obs <- fitHcstar_obs$est_obs
-
-      # Hcstar_star: New subgroup complement evaluated on BOOTSTRAP data
-      fitHcstar_star <- get_Cox_sg(
-        df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hcstar_star <- fitHcstar_star$est_obs
-
-      # Apply same correction methods for H^c
-      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
-      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-    }
-
-    # =================================================================
-    # CRITICAL: Always return data.table with same structure
-    # This ensures .combine = "rbind" works correctly
-    # =================================================================
-    dfres <- data.table::data.table(
-      H_biasadj_1 = H_biasadj_1,
-      H_biasadj_2 = H_biasadj_2,
-      Hc_biasadj_1 = Hc_biasadj_1,
-      Hc_biasadj_2 = Hc_biasadj_2,
-      tmins_search = tmins_search,
-      max_sg_est = max_sg_est,
-      prop_maxk = prop_maxk,
-      L = L,
-      max_count = max_count
-    )
-
-    # REMOVED: All progress update code
-
-    return(dfres)
-  }
-}
-
-
-
-bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
-                              nb_boots, show_three, H_obs, Hc_obs, show_progress = TRUE) {
-  NN <- nrow(df_boot_analysis)
-  id0 <- seq_len(NN)
-
-  # Set up progress bar if requested and package available
-  if (show_progress) {
-    p <- progressr::progressor(steps = nb_boots)
-  }
-
-  foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(
-      seed = TRUE,
-      add = get_bootstrap_exports()
-    ),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-    show3 <- FALSE
-    if (show_three) show3 <- (boot <= 3)
-    set.seed(8316951 + boot * 100)
-    # Do NOT modify the above seed this needs to align with ystar calculation
-    # Create bootstrap sample
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df_boot_analysis[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-
-    # =================================================================
-    # Bootstrap data evaluated at ORIGINAL subgroup H
-    # =================================================================
-    # IMPORTANT: Use uppercase variable names to match legacy version
-    fitH_star <- get_Cox_sg(
-      df_sg = subset(df_boot, treat.recommend == 0),
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    H_star <- fitH_star$est_obs  # Use uppercase H_star
-
-    fitHc_star <- get_Cox_sg(
-      df_sg = subset(df_boot, treat.recommend == 1),
-      cox.formula = cox.formula.boot,
-      est.loghr = TRUE
-    )
-    Hc_star <- fitHc_star$est_obs  # Use uppercase Hc_star
-
-    # =================================================================
-    # Initialize bias corrections as NA (will remain NA if bootstrap fails)
-    # =================================================================
-    H_biasadj_1 <- H_biasadj_2 <- NA
-    Hc_biasadj_1 <- Hc_biasadj_2 <- NA
-    tmins_search <- NA
-    max_sg_est <- NA
-    prop_maxk <- NA
-    L <- NA
-    max_count <- NA
-
-    # =================================================================
-    # Prepare bootstrap dataframes - drop confounders and treat.recommend
-    # =================================================================
-    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
-
-    # =================================================================
-    # Configure forestsearch arguments for bootstrap
-    # =================================================================
-    args_FS_boot <- fs.est$args_call_all
-    args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
-
-    # CATEGORY 1: OUTPUT SUPPRESSION
-    args_FS_boot$details <- show3
-    args_FS_boot$showten_subgroups <- FALSE
-    args_FS_boot$plot.sg <- FALSE
-    args_FS_boot$plot.grf <- FALSE
-
-    # CATEGORY 2: VARIABLE RE-SELECTION
-    args_FS_boot$grf_res <- NULL
-    args_FS_boot$grf_cuts <- NULL
-
-    # CATEGORY 3: SEQUENTIAL EXECUTION
-    args_FS_boot$parallel_args$plan <- "sequential"
-    args_FS_boot$parallel_args$workers <- 1L
-    args_FS_boot$parallel_args$show_message <- FALSE
-
-    # =================================================================
-    # Run forestsearch on bootstrap sample
-    # =================================================================
-    run_bootstrap <- try(do.call(forestsearch, args_FS_boot), TRUE)
-
-    if (inherits(run_bootstrap, "try-error")) {
-      warning("Bootstrap ", boot, " failed: ", as.character(run_bootstrap))
-    }
-
-    # =================================================================
-    # CRITICAL FIX: Only compute bias corrections if bootstrap succeeded
-    # AND found a valid subgroup
-    # =================================================================
-    if (!inherits(run_bootstrap, "try-error") && !is.null(run_bootstrap$sg.harm)) {
-
-      # Extract prediction datasets from bootstrap ForestSearch run
-      df_PredBoot <- run_bootstrap$df.predict
-      dfboot_PredBoot <- run_bootstrap$df.est
-
-      # Extract search metrics
-      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-      tmins_search <- as.numeric(run_bootstrap$find.grps$time_search)
-      prop_maxk <- as.numeric(run_bootstrap$prop_maxk)
-      max_count <- run_bootstrap$find.grps$max_count
-      L <- run_bootstrap$find.grps$L
-
-      # ==============================================================
-      # Compute bias corrections for subgroup H (harm/questionable)
-      # ==============================================================
-
-      # Hstar_obs: New subgroup (from bootstrap) evaluated on ORIGINAL data
-      fitHstar_obs <- get_Cox_sg(
-        df_sg = subset(df_PredBoot, treat.recommend == 0),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hstar_obs <- fitHstar_obs$est_obs
-
-      # Hstar_star: New subgroup (from bootstrap) evaluated on BOOTSTRAP data
-      fitHstar_star <- get_Cox_sg(
-        df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hstar_star <- fitHstar_star$est_obs
-
-      # Bias correction method 1: Simple optimism correction
-      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
-
-      # Bias correction method 2: Double correction
-      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
-
-      # ==============================================================
-      # Compute bias corrections for subgroup H^c (complement/recommend)
-      # ==============================================================
-
-      # Hcstar_obs: New subgroup complement evaluated on ORIGINAL data
-      fitHcstar_obs <- get_Cox_sg(
-        df_sg = subset(df_PredBoot, treat.recommend == 1),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hcstar_obs <- fitHcstar_obs$est_obs
-
-      # Hcstar_star: New subgroup complement evaluated on BOOTSTRAP data
-      fitHcstar_star <- get_Cox_sg(
-        df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
-        cox.formula = cox.formula.boot,
-        est.loghr = TRUE
-      )
-      Hcstar_star <- fitHcstar_star$est_obs
-
-      # Apply same correction methods for H^c
-      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
-      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
-    }
-
-    # =================================================================
-    # CRITICAL: Always return data.table with same structure
-    # This ensures .combine = "rbind" works correctly
-    # =================================================================
-    dfres <- data.table::data.table(
-      H_biasadj_1 = H_biasadj_1,
-      H_biasadj_2 = H_biasadj_2,
-      Hc_biasadj_1 = Hc_biasadj_1,
-      Hc_biasadj_2 = Hc_biasadj_2,
-      tmins_search = tmins_search,
-      max_sg_est = max_sg_est,
-      prop_maxk = prop_maxk,
-      L = L,
-      max_count = max_count
-    )
-
-    # Update progress bar (only if available)
-    if (show_progress) {
-      p(message = sprintf("Bootstrap %d/%d complete", boot, nb_boots))
-    }
-
-    return(dfres)
-  }
-}
-
-
-
-
 
 #' ForestSearch Bootstrap with doFuture Parallelization
 #'
@@ -946,9 +577,7 @@ bootstrap_results_legacy <- function(fs.est, df_boot_analysis, cox.formula.boot,
 #' @export
 forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
                                             parallel_args = list(),
-                                            create_summary = TRUE, create_plots = TRUE) {
-
-  # Removed all progressr validation code
+                                            create_summary = TRUE, create_plots = FALSE) {
 
   args_forestsearch_call <- fs.est$args_call_all
   parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
@@ -1090,158 +719,4 @@ forestsearch_bootstrap_dofuture <- function(fs.est, nb_boots, details=FALSE, sho
 
 
 
-
-forestsearch_bootstrap_dofuture_legacy <- function(fs.est, nb_boots, details=FALSE, show_three=FALSE,
-                                           parallel_args = list(), show_progress = TRUE,
-                                           create_summary = TRUE, create_plots = TRUE
-                                            ) {
-
-  # Handle progress at wrapper level
-  if (show_progress) {
-    if (!requireNamespace("progressr", quietly = TRUE)) {
-      warning("Package 'progressr' needed for progress bars. Install with: install.packages('progressr')")
-      show_progress <- FALSE
-    }
-  }
-
-  args_forestsearch_call <- fs.est$args_call_all
-
-  parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
-
-
-  # 1. Ensure packages
-  ensure_packages(BOOTSTRAP_REQUIRED_PACKAGES)
-
-  # 2. Build formula
-  cox.formula.boot <- do.call(build_cox_formula,
-                              filter_call_args(args_forestsearch_call, build_cox_formula))
-
-  # 3. Fit Cox models
-  cox_fits <- fit_cox_models(fs.est$df.est, cox.formula.boot)
-  H_obs <- cox_fits$H_obs
-  seH_obs <- cox_fits$seH_obs
-  Hc_obs <- cox_fits$Hc_obs
-  seHc_obs <- cox_fits$seHc_obs
-
-  old_plan <- future::plan()
-  on.exit(future::plan(old_plan), add = TRUE)  # Restore plan on exit
-  # Note: setup_parallel_SGcons is re-purposed from subgroup_consistency
-  setup_parallel_SGcons(parallel_args)
-
-
-
-  # 4. Bootstrap Ystar matrix
-  Ystar_mat <- bootstrap_ystar(fs.est$df.est, nb_boots)
-  if (details) cat("Done with Ystar_mat\n")
-
-  if(nrow(Ystar_mat) != nb_boots || ncol(Ystar_mat) != nrow(fs.est$df.est)){
-  stop("Dimension of Ystar_mat must be (n x nb_boots)")
-  }
-
-  # Check if using callr plan
-  current_plan <- class(future::plan())[1]
-  if (current_plan == "callr" && show_progress) {
-    message("Progress bars not supported with 'callr' backend. Use 'multisession' for progress reporting.")
-    show_progress <- FALSE
-  }
-
-  if (show_progress) {
-    progressr::handlers(global = TRUE)
-    progressr::handlers("progress")
-
-    results <- progressr::with_progress({
-    bootstrap_results(
-    fs.est = fs.est,
-    df_boot_analysis = fs.est$df.est,
-    cox.formula.boot = cox.formula.boot,
-    nb_boots = nb_boots,
-    show_three = show_three,
-    H_obs = H_obs,
-    Hc_obs = Hc_obs,
-    show_progress = show_progress
-  )
-  })
-} else {
-    results <- bootstrap_results(
-      fs.est = fs.est,
-      df_boot_analysis = fs.est$df.est,
-      cox.formula.boot = cox.formula.boot,
-      nb_boots = nb_boots,
-      show_three = show_three,
-      H_obs = H_obs,
-      Hc_obs = Hc_obs,
-      show_progress = FALSE
-    )
-  }
-
-  # 6. Post-processing and formatting
-  est.scale <- args_forestsearch_call$est.scale
-
-  H_estimates <- try(get_dfRes(Hobs = H_obs, seHobs = seH_obs, H1_adj = results$H_biasadj_1, H2_adj = results$H_biasadj_2,
-                               ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
-
-  Hc_estimates <- try(get_dfRes(Hobs = Hc_obs, seHobs = seHc_obs, H1_adj = results$Hc_biasadj_1, H2_adj = results$Hc_biasadj_2,
-                                ystar = Ystar_mat, cov_method = "standard", cov_trim = 0.0, est.scale = est.scale, est.loghr = TRUE), TRUE)
-
-  if (inherits(H_estimates, "try-error") | inherits(Hc_estimates, "try-error")) {
-    out <- list(results = results, SG_CIs = NULL, FSsg_tab = NULL, Ystar_mat = Ystar_mat, H_estimates = NULL, Hc_estimates = NULL)
-    return(out)
-  }
-
-  H_res1 <- format_CI(H_estimates, c("H0", "H0_lower", "H0_upper"))
-  H_res2 <- format_CI(H_estimates, c("H2", "H2_lower", "H2_upper"))
-  Hc_res1 <- format_CI(Hc_estimates, c("H0", "H0_lower", "H0_upper"))
-  Hc_res2 <- format_CI(Hc_estimates, c("H2", "H2_lower", "H2_upper"))
-
-  if (details) {
-    cat("**** % bootstrap subgroups found =",
-    c(sum(!is.na(results$H_biasadj_2))/nb_boots), "\n")
-    cat("H un-adjusted estimates-----:   ", H_res1, "\n")
-    cat("H bias-corrected estimates--:   ", H_res2, "\n")
-    cat("H^c un-adjusted estimates---:   ", Hc_res1, "\n")
-    cat("H^c bias-corrected estimates:   ", Hc_res2, "\n")
-  }
-
-    SG_CIs <- list(H_raw = H_res1, H_bc = H_res2, Hc_raw = Hc_res1, Hc_bc = Hc_res2)
-
-# Adjusted CIs and summary table
-if (est.scale == "1/hr") {
-    hr_1a <- SG_CIs$H_bc
-    hr_0a <- SG_CIs$Hc_bc
-    FSsg_tab <- SG_tab_estimates(df = fs.est$df.est, SG_flag = "treat.recommend", draws = 0, details = FALSE,
-                                 outcome.name = args_forestsearch_call$outcome.name,
-                                 event.name = args_forestsearch_call$event.name,
-                                 treat.name = args_forestsearch_call$treat.name,
-                                 strata.name = NULL,
-                                 potentialOutcome.name = args_forestsearch_call$potentialOutcome.name,
-                                 hr_1a = hr_1a, hr_0a = hr_0a, est.scale = "1/hr", sg0_name = "Questionable", sg1_name = "Recommend"
-                                 )
-    } else {
-    hr_1a <- SG_CIs$Hc_bc
-    hr_0a <- SG_CIs$H_bc
-    FSsg_tab <- SG_tab_estimates(df = fs.est$df.est, SG_flag = "treat.recommend", draws = 0, details = FALSE,
-                                 outcome.name = args_forestsearch_call$outcome.name,
-                                 event.name = args_forestsearch_call$event.name,
-                                 treat.name = args_forestsearch_call$treat.name,
-                                 strata.name = NULL,
-                                 potentialOutcome.name = args_forestsearch_call$potentialOutcome.name,
-                                 hr_1a = hr_1a, hr_0a = hr_0a, est.scale = "hr", sg0_name = "Questionable", sg1_name = "Recommend"
-                                 )
-  }
-  out <- list(results = results, SG_CIs = SG_CIs, FSsg_tab = FSsg_tab, Ystar_mat = Ystar_mat, H_estimates = H_estimates, Hc_estimates = Hc_estimates)
-
-  # Add enhanced summary if requested
-  if (create_summary) {
-    summary_output <- summarize_bootstrap_results(
-      boot_results = out,
-      create_plots = create_plots,
-      est.scale = est.scale
-    )
-
-    out$summary <- summary_output
-  }
-
-
-  return(out)
-}
 

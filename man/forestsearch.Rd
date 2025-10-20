@@ -40,7 +40,6 @@ forestsearch(
   sg_focus = "hr",
   fs.splits = 1000,
   m1.threshold = Inf,
-  stop.threshold = 0.9,
   pconsistency.threshold = 0.9,
   showten_subgroups = FALSE,
   d0.min = 10,
@@ -126,8 +125,6 @@ forestsearch(
 \item{fs.splits}{Integer. Number of splits for consistency analysis.}
 
 \item{m1.threshold}{Numeric. Threshold for m1 (default: Inf).}
-
-\item{stop.threshold}{Numeric. Stopping threshold for subgroup search.}
 
 \item{pconsistency.threshold}{Numeric. Consistency threshold for subgroup search.}
 
