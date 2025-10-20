@@ -127,7 +127,6 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "build_cox_formula",
     "cox.formula.boot",
     "setup_parallel_SGcons",
-    "get_Cox_sg",
     "filter_call_args"
   )
 )
@@ -140,43 +139,6 @@ get_bootstrap_exports <- function() {
   unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
 }
 
-#' Find integer pairs (x, y) such that x * y = z and y >= x
-#'
-#' Given an integer z, this function finds all integer pairs (x, y) such that x * y = z and y >= x.
-#' Optionally, you can return only the pair with the largest value of x or y.
-#'
-#' @param z Integer. The target product.
-#' @param return_largest Character. If \"x\", returns the pair with the largest x. If \"y\", returns the pair with the largest y. If NULL, returns all pairs.
-#'
-#' @return A matrix of integer pairs (x, y) satisfying the conditions, or a single pair if return_largest is specified.
-#' @examples
-#' find_xy_given_z(12)
-#' find_xy_given_z(12, return_largest = \"x\")
-#' find_xy_given_z(12, return_largest = \"y\")
-#' @keywords internal
-
-find_xy_given_z <- function(z, return_largest = NULL) {
-  pairs <- list()
-  for (x in 1:z) {
-    if (z %% x == 0) {
-      y <- z / x
-      if (y >= x && y %% 1 == 0) {
-        pairs[[length(pairs) + 1]] <- c(x, y)
-      }
-    }
-  }
-  result <- do.call(rbind, pairs)
-  if (!is.null(return_largest)) {
-    if (return_largest == "x") {
-      idx <- which.max(result[,1])
-      return(result[idx, , drop = FALSE])
-    } else if (return_largest == "y") {
-      idx <- which.max(result[,2])
-      return(result[idx, , drop = FALSE])
-    }
-  }
-  return(result)
-}
 
 
 #' Ensure Required Packages Are Installed and Loaded
@@ -410,97 +372,6 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
 }
 
 
-#' Enhanced Bootstrap Results Summary
-#'
-#' Creates comprehensive output including formatted table, diagnostic plots,
-#' and bootstrap quality metrics.
-#'
-#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
-#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
-#' @param est.scale Character. "hr" or "1/hr" for effect scale
-#'
-#' @return List with formatted table and diagnostics
-#' @export
-
-summarize_bootstrap_results_legacy <- function(boot_results, create_plots = TRUE,
-                                        est.scale = "hr") {
-
-  # Extract components
-  FSsg_tab <- boot_results$FSsg_tab
-  results <- boot_results$results
-  H_estimates <- boot_results$H_estimates
-  Hc_estimates <- boot_results$Hc_estimates
-
-  # Calculate bootstrap success rate
-  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
-  nb_boots <- nrow(results)
-
-  # Create formatted table
-  formatted_table <- format_bootstrap_table(
-    FSsg_tab = FSsg_tab,
-    nb_boots = nb_boots,
-    est.scale = est.scale,
-    boot_success_rate = boot_success_rate
-  )
-
-  # Bootstrap diagnostics
-  diagnostics <- list(
-    n_boots = nb_boots,
-    success_rate = boot_success_rate,
-    n_successful = sum(!is.na(results$H_biasadj_2)),
-    n_failed = sum(is.na(results$H_biasadj_2)),
-    median_search_time = median(results$tmins_search, na.rm = TRUE),
-    total_search_time = sum(results$tmins_search, na.rm = TRUE)
-  )
-
-  # Print summary
-  cat("\n=== Bootstrap Analysis Summary ===\n")
-  cat(sprintf("Total bootstrap iterations: %d\n", diagnostics$n_boots))
-  cat(sprintf("Successful subgroup identification: %d (%.1f%%)\n",
-              diagnostics$n_successful, diagnostics$success_rate * 100))
-  cat(sprintf("Failed to find subgroup: %d (%.1f%%)\n",
-              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
-  cat(sprintf("Median search time per bootstrap: %.2f minutes\n",
-              diagnostics$median_search_time))
-  cat(sprintf("Total computation time: %.2f minutes\n",
-              diagnostics$total_search_time))
-  cat("\n")
-
-  # Create diagnostic plots if requested
-  plots <- NULL
-  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
-    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
-
-    # Add combined plot if patchwork is available
-    if (requireNamespace("patchwork", quietly = TRUE)) {
-      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
-        patchwork::plot_annotation(
-          title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations", nrow(boot_results$results)),
-          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold")
-                        )
-        )
-    }
-  }
-  list(
-    table = formatted_table,
-    diagnostics = diagnostics,
-    plots = plots
-  )
-}
-
-
-#' Create Bootstrap Diagnostic Plots
-#'
-#' Generates plots showing bootstrap distribution and bias correction
-#'
-#' @param results Data.table of bootstrap results
-#' @param H_estimates Data.table of H subgroup estimates
-#' @param Hc_estimates Data.table of Hc subgroup estimates
-#'
-#' @return List of ggplot objects
-#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_vline
-#' @keywords internal
 
 create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates) {
 

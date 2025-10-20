@@ -20,9 +20,9 @@
 #' @return Named numeric vector with consistency results, or NULL if criteria not met.
 #'   Vector contains: Pcons, hr, N, E, g, m, K, and factor labels (M.1, M.2, etc.)
 #'
-#' @keywords internal
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
+#' @export
 evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
                                          n.splits, hr.consistency,
                                          pconsistency.threshold, pconsistency.digits,
