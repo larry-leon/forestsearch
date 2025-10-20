@@ -251,7 +251,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       get_bootstrap_exports(),
       # Variables
       "fs.est", "df_boot_analysis", "cox.formula.boot","confounders_candidate",
-      "H_obs", "Hc_obs", "nb_boots", "show_three", "args_foresearch_call"
+      "H_obs", "Hc_obs", "nb_boots", "show_three", "args_foresearch_call","pconsistency.threshold",
+      "pconsistency.digits","hr.consistency"
       ))
   ),
     .combine = "rbind",
