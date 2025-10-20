@@ -8,13 +8,13 @@
 #'
 #' @return If \code{outall=FALSE}, a list with \code{sens_metrics_original} and \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.
 #'
-#' @importFrom weightedSurv df_counting
+#' @importFrom weightedsurv df_counting
 #' @importFrom stringr str_sub str_length
 #' @export
 
 forestsearch_KfoldOut <- function(res, details = FALSE,outall = FALSE){
-  if (!requireNamespace("weightedSurv", quietly = TRUE)) {
-    stop("Package 'weightedSurv' needed for this function to work. Please install it via install_github('larry-leon/weightedSurv').")
+  if (!requireNamespace("weightedsurv", quietly = TRUE)) {
+    stop("Package 'weightedsurv' needed for this function to work. Please install it via install_github('larry-leon/weightedsurv').")
   }
   if (!requireNamespace("stringr", quietly = TRUE)) {
   stop("Package 'stringr' required: If issues loading consider substituting

@@ -156,14 +156,14 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
 #' @return List with tau, RMST, RMST for treatment, RMST for control.
-#' @importFrom weightedSurv df_counting
+#' @importFrom weightedsurv df_counting
 #' @export
 
 rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name = "treat"){
-  if (!requireNamespace("weightedSurv", quietly = TRUE)) {
-    stop("Package 'weightedSurv' needed for this function to work. Please install it install_github('larry-leon/weightedSurv').")
+  if (!requireNamespace("weightedsurv", quietly = TRUE)) {
+    stop("Package 'weightedsurv' needed for this function to work. Please install it install_github('larry-leon/weightedSurv').")
   }
-  dfcount <- df_counting(df, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c("treat","control"), by.risk = 1)
+  dfcount <- weightedsurv::df_counting(df, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c("treat","control"), by.risk = 1)
   taumax <- with(dfcount, max(at_points[ybar1 > 0 & ybar0 >0]))
   at_points <- dfcount$at_points
   tau_horizon <- which(at_points <= taumax)

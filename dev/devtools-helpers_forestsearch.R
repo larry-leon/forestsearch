@@ -53,6 +53,14 @@ devtools::check()
 
 devtools::clean_dll()
 
+# Issue with trying to remove weightedSurv and replace with weightedsurv
+# Remove from search path and unload
+library(forestsearch)  # load it first if not loaded
+detach("package:forestsearch", unload = TRUE, force = TRUE)
+# Clear workspace and restart
+rm(list = ls())
+.rs.restartR()
+
 # Notes
 # Incorporate in AI prompts when documenting
 # Every \item in a \describe{} block must have both a label and a description.

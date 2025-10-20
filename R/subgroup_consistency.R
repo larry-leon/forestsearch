@@ -73,7 +73,7 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels) {
 #' @param this.1_label Character. Label for the subgroup being plotted.
 #' @param top_result Data frame row. The top subgroup result row, expected to contain a \code{Pcons} column for consistency criteria.
 #'
-#' @importFrom weightedSurv df_counting plot_weighted_km
+#' @importFrom weightedsurv df_counting plot_weighted_km
 #' @export
 
 plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, top_result) {
@@ -91,7 +91,7 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
     cat("*** Subgroup found:", c(this.1_label), "\n")
     cat("% consistency criteria met=", c(top_result$Pcons), "\n")
   }  else {
-    message("Package 'weightedSurv' not available: skipping weighted KM plots.")
+    message("Package 'weightedsurv' not available: skipping weighted KM plots.")
   }
 }
 
