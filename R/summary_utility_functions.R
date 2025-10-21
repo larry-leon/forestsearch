@@ -470,13 +470,22 @@ sg_tables <- function(fs,
   # =========================================================================
 
   # Select appropriate result based on sg_focus
-  if (fs$sg_focus == "hr") {
-    sg10 <- as.data.frame(fs$grp.consistency$out_hr$result)
-  } else if (fs$sg_focus %in% c("minSG", "hrMinSG")) {
-    sg10 <- as.data.frame(fs$grp.consistency$out_minSG$result)
-  } else if (fs$sg_focus %in% c("maxSG", "hrMaxSG")) {
-    sg10 <- as.data.frame(fs$grp.consistency$out_maxSG$result)
+  # if (fs$sg_focus == "hr") {
+  #   sg10 <- as.data.frame(fs$grp.consistency$out_hr$result)
+  # } else if (fs$sg_focus %in% c("minSG", "hrMinSG")) {
+  #   sg10 <- as.data.frame(fs$grp.consistency$out_minSG$result)
+  # } else if (fs$sg_focus %in% c("maxSG", "hrMaxSG")) {
+  #   sg10 <- as.data.frame(fs$grp.consistency$out_maxSG$result)
+  # }
+
+  # Extract from single out_sg object based on sg_focus
+  if (!is.null(fs$grp.consistency) && !is.null(fs$grp.consistency$out_sg)) {
+    sg10 <- as.data.frame(fs$grp.consistency$out_sg$result)
+  } else {
+    warning("No subgroup results found in fs$grp.consistency$out_sg")
+    return(list(tab_estimates = tab_estimates, sg10_out = NULL))
   }
+
 
   # NEW: Calculate experimental arm events (d1) for each subgroup
   outcome.name <- args_fs$outcome.name

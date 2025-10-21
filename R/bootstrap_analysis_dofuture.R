@@ -353,6 +353,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       max_count <- run_bootstrap$find.grps$max_count
       L <- run_bootstrap$find.grps$L
 
+      # Extract the identified subgroup
+
       # ==============================================================
       # Check events in NEW subgroups found by bootstrap
       # ==============================================================
@@ -437,6 +439,76 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # =================================================================
     # RETURN: data.table with event counts AND TIMING
     # =================================================================
+    # dfres <- data.table::data.table(
+    #   boot_id = boot,
+    #   H_biasadj_1 = H_biasadj_1,
+    #   H_biasadj_2 = H_biasadj_2,
+    #   Hc_biasadj_1 = Hc_biasadj_1,
+    #   Hc_biasadj_2 = Hc_biasadj_2,
+    #   max_sg_est = max_sg_est,
+    #   L = L,
+    #   max_count = max_count,
+    #   # Event counts for ORIGINAL subgroup evaluated on BOOTSTRAP sample
+    #   events_H_0 = events_H_0,
+    #   events_H_1 = events_H_1,
+    #   events_Hc_0 = events_Hc_0,
+    #   events_Hc_1 = events_Hc_1,
+    #   # Event counts for NEW subgroup (found in bootstrap) evaluated on ORIGINAL data
+    #   events_Hstar_0 = events_Hstar_0,
+    #   events_Hstar_1 = events_Hstar_1,
+    #   events_Hcstar_0 = events_Hcstar_0,
+    #   events_Hcstar_1 = events_Hcstar_1,
+    #   # TIMING COLUMNS
+    #   tmins_search = tmins_search,           # Time for forestsearch only
+    #   tmins_iteration = tmins_iteration      # Total time for this iteration
+    # )
+
+
+    # =================================================================
+    # RETURN: data.table with event counts, TIMING, AND CONSISTENCY RESULTS
+    # =================================================================
+
+    # Initialize consistency result columns as NA (FAST: pre-allocation)
+    Pcons <- hr_sg <- N_sg <- E_sg <- K_sg <- g_sg <- m_sg <- NA_real_
+    M.1 <- M.2 <- M.3 <- M.4 <- M.5 <- M.6 <- M.7 <- NA_character_
+
+    # Extract consistency results if available
+    if (!inherits(run_bootstrap, "try-error") &&
+        !is.null(run_bootstrap$grp.consistency) &&
+        !is.null(run_bootstrap$grp.consistency$out_sg) &&
+        !is.null(run_bootstrap$grp.consistency$out_sg$result)) {
+
+      sg_result <- run_bootstrap$grp.consistency$out_sg$result
+
+      if (nrow(sg_result) > 0) {
+        # Extract first row (FAST: single row access)
+        first_row <- sg_result[1, ]
+
+        # Extract values directly (FAST: direct column access)
+        # Use data.table's [[ operator which is faster than $
+        Pcons <- first_row[["Pcons"]]
+        hr_sg <- first_row[["hr"]]
+        N_sg <- first_row[["N"]]
+        E_sg <- first_row[["E"]]
+        K_sg <- first_row[["K"]]
+        g_sg <- first_row[["g"]]
+        m_sg <- first_row[["m"]]
+
+        # Extract factor labels only up to maxk (FAST: direct access, no loops)
+        # Get maxk from args or use K_sg as indicator
+        actual_k <- if (!is.na(K_sg)) K_sg else 0
+
+        if (actual_k >= 1) M.1 <- first_row[["M.1"]]
+        if (actual_k >= 2) M.2 <- first_row[["M.2"]]
+        if (actual_k >= 3) M.3 <- first_row[["M.3"]]
+        if (actual_k >= 4) M.4 <- first_row[["M.4"]]
+        if (actual_k >= 5) M.5 <- first_row[["M.5"]]
+        if (actual_k >= 6) M.6 <- first_row[["M.6"]]
+        if (actual_k >= 7) M.7 <- first_row[["M.7"]]
+      }
+    }
+
+    # Single data.table creation (FAST: no cbind, no copies)
     dfres <- data.table::data.table(
       boot_id = boot,
       H_biasadj_1 = H_biasadj_1,
@@ -446,19 +518,38 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       max_sg_est = max_sg_est,
       L = L,
       max_count = max_count,
+
       # Event counts for ORIGINAL subgroup evaluated on BOOTSTRAP sample
       events_H_0 = events_H_0,
       events_H_1 = events_H_1,
       events_Hc_0 = events_Hc_0,
       events_Hc_1 = events_Hc_1,
+
       # Event counts for NEW subgroup (found in bootstrap) evaluated on ORIGINAL data
       events_Hstar_0 = events_Hstar_0,
       events_Hstar_1 = events_Hstar_1,
       events_Hcstar_0 = events_Hcstar_0,
       events_Hcstar_1 = events_Hcstar_1,
+
       # TIMING COLUMNS
-      tmins_search = tmins_search,           # Time for forestsearch only
-      tmins_iteration = tmins_iteration      # Total time for this iteration
+      tmins_search = tmins_search,
+      tmins_iteration = tmins_iteration,
+
+      # CONSISTENCY RESULTS FROM TOP SUBGROUP
+      Pcons = Pcons,
+      hr_sg = hr_sg,
+      N_sg = N_sg,
+      E_sg = E_sg,
+      K_sg = K_sg,
+      g_sg = g_sg,              # Subgroup group ID
+      m_sg = m_sg,              # Subgroup index
+      M.1 = M.1,
+      M.2 = M.2,
+      M.3 = M.3,
+      M.4 = M.4,
+      M.5 = M.5,
+      M.6 = M.6,
+      M.7 = M.7
     )
 
     return(dfres)

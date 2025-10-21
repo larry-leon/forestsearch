@@ -397,6 +397,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
 
   if (create_summary) {
     summary_output <- summarize_bootstrap_results(
+      sgharm = fs.est$sg.harm,
       boot_results = out,
       create_plots = create_plots,
       est.scale = est.scale

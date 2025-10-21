@@ -1398,796 +1398,474 @@ calculate_skewness <- function(x) {
 
 
 
-#' Enhanced Bootstrap Results Summary (WITH TIMING)
+#' Create Subgroup Characteristics Summary Table
 #'
-#' Creates comprehensive output including formatted table, diagnostic plots,
-#' bootstrap quality metrics, and detailed timing analysis.
+#' Analyzes the characteristics of identified subgroups across bootstrap iterations.
+#' Includes agreement rates, consistency metrics, and factor frequencies.
 #'
-#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
-#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
-#' @param est.scale Character. "hr" or "1/hr" for effect scale
+#' @param results Data.table. Bootstrap results with subgroup characteristics
+#' @param nb_boots Integer. Total number of bootstrap iterations
+#' @param original_sg Character vector. Original subgroup definition (M.1, M.2 from fs.est)
+#' @param maxk Integer. Maximum number of factors allowed
 #'
-#' @return List with formatted table, diagnostics, timing analysis, and plots
+#' @return List with multiple summary components
+#' @importFrom data.table data.table .N
 #' @export
-summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
-                                        est.scale = "hr") {
+
+summarize_bootstrap_subgroups <- function(results, nb_boots,
+                                          original_sg = NULL,
+                                          maxk = 2) {
 
   # =========================================================================
-  # SECTION 1: EXTRACT COMPONENTS
+  # SECTION 1: BASIC STATISTICS
   # =========================================================================
 
-  # Extract components
-  FSsg_tab <- boot_results$FSsg_tab
-  results <- boot_results$results
-  H_estimates <- boot_results$H_estimates
-  Hc_estimates <- boot_results$Hc_estimates
+  # Filter to successful iterations (where subgroup was found)
+  sg_found <- results[!is.na(Pcons)]
+  n_found <- nrow(sg_found)
+  pct_found <- 100 * n_found / nb_boots
+
+  if (n_found == 0) {
+    warning("No subgroups identified in any bootstrap iteration")
+    return(list(
+      basic_stats = NULL,
+      consistency_dist = NULL,
+      size_dist = NULL,
+      factor_freq = NULL,
+      agreement = NULL
+    ))
+  }
 
   # =========================================================================
-  # SECTION 2: CALCULATE BOOTSTRAP SUCCESS METRICS
+  # SECTION 2: BASIC STATISTICS TABLE
   # =========================================================================
 
-  # Calculate bootstrap success rate
-  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
-  nb_boots <- nrow(results)
-
-  # Create formatted table
-  formatted_table <- format_bootstrap_table(
-    FSsg_tab = FSsg_tab,
-    nb_boots = nb_boots,
-    est.scale = est.scale,
-    boot_success_rate = boot_success_rate
+  basic_stats <- data.table::data.table(
+    Metric = c(
+      "Total bootstrap iterations",
+      "Subgroups identified",
+      "Success rate (%)",
+      "",
+      "Consistency (Pcons)",
+      "  Mean",
+      "  Median",
+      "  SD",
+      "  Min",
+      "  Max",
+      "  Q25",
+      "  Q75",
+      "",
+      "Hazard Ratio (hr_sg)",
+      "  Mean",
+      "  Median",
+      "  SD",
+      "  Min",
+      "  Max",
+      "  Q25",
+      "  Q75",
+      "",
+      "Subgroup Size (N_sg)",
+      "  Mean",
+      "  Median",
+      "  SD",
+      "  Min",
+      "  Max",
+      "  Q25",
+      "  Q75",
+      "",
+      "Number of Factors (K_sg)",
+      "  Mean",
+      "  Median",
+      "  Mode"
+    ),
+    Value = c(
+      as.character(nb_boots),
+      as.character(n_found),
+      sprintf("%.1f%%", pct_found),
+      "",
+      "",
+      sprintf("%.3f", mean(sg_found$Pcons, na.rm = TRUE)),
+      sprintf("%.3f", median(sg_found$Pcons, na.rm = TRUE)),
+      sprintf("%.3f", sd(sg_found$Pcons, na.rm = TRUE)),
+      sprintf("%.3f", min(sg_found$Pcons, na.rm = TRUE)),
+      sprintf("%.3f", max(sg_found$Pcons, na.rm = TRUE)),
+      sprintf("%.3f", quantile(sg_found$Pcons, 0.25, na.rm = TRUE)),
+      sprintf("%.3f", quantile(sg_found$Pcons, 0.75, na.rm = TRUE)),
+      "",
+      "",
+      sprintf("%.2f", mean(sg_found$hr_sg, na.rm = TRUE)),
+      sprintf("%.2f", median(sg_found$hr_sg, na.rm = TRUE)),
+      sprintf("%.2f", sd(sg_found$hr_sg, na.rm = TRUE)),
+      sprintf("%.2f", min(sg_found$hr_sg, na.rm = TRUE)),
+      sprintf("%.2f", max(sg_found$hr_sg, na.rm = TRUE)),
+      sprintf("%.2f", quantile(sg_found$hr_sg, 0.25, na.rm = TRUE)),
+      sprintf("%.2f", quantile(sg_found$hr_sg, 0.75, na.rm = TRUE)),
+      "",
+      "",
+      sprintf("%.0f", mean(sg_found$N_sg, na.rm = TRUE)),
+      sprintf("%.0f", median(sg_found$N_sg, na.rm = TRUE)),
+      sprintf("%.0f", sd(sg_found$N_sg, na.rm = TRUE)),
+      sprintf("%.0f", min(sg_found$N_sg, na.rm = TRUE)),
+      sprintf("%.0f", max(sg_found$N_sg, na.rm = TRUE)),
+      sprintf("%.0f", quantile(sg_found$N_sg, 0.25, na.rm = TRUE)),
+      sprintf("%.0f", quantile(sg_found$N_sg, 0.75, na.rm = TRUE)),
+      "",
+      "",
+      sprintf("%.1f", mean(sg_found$K_sg, na.rm = TRUE)),
+      sprintf("%.0f", median(sg_found$K_sg, na.rm = TRUE)),
+      sprintf("%.0f", as.numeric(names(sort(table(sg_found$K_sg), decreasing = TRUE)[1])))
+    )
   )
 
   # =========================================================================
-  # SECTION 3: EXTRACT AND ANALYZE TIMING INFORMATION
+  # SECTION 3: FACTOR FREQUENCY TABLE
   # =========================================================================
 
-  # Check if timing information is available
-  has_timing <- !is.null(attr(results, "timing"))
+  # Count frequency of each factor appearing
+  factor_cols <- paste0("M.", 1:maxk)
+  factor_freq_list <- list()
 
-  if (has_timing) {
-    # Overall timing from attributes
-    overall_timing <- attr(results, "timing")
+  for (i in 1:maxk) {
+    col <- paste0("M.", i)
+    if (col %in% names(sg_found)) {
+      freq <- sg_found[!is.na(get(col)) & get(col) != "", .N, by = col]
+      setnames(freq, col, "Factor")
+      freq[, Position := paste0("M.", i)]
+      freq[, Percent := 100 * N / n_found]
+      freq <- freq[order(-N)]
+      factor_freq_list[[i]] <- freq
+    }
+  }
 
-    # Per-iteration statistics (if columns exist)
-    has_iteration_timing <- "tmins_iteration" %in% names(results)
-    has_search_timing <- "tmins_search" %in% names(results)
+  factor_freq <- rbindlist(factor_freq_list, fill = TRUE)
+  setcolorder(factor_freq, c("Position", "Factor", "N", "Percent"))
 
-    if (has_iteration_timing) {
-      iteration_stats <- list(
-        mean = mean(results$tmins_iteration, na.rm = TRUE),
-        median = median(results$tmins_iteration, na.rm = TRUE),
-        sd = sd(results$tmins_iteration, na.rm = TRUE),
-        min = min(results$tmins_iteration, na.rm = TRUE),
-        max = max(results$tmins_iteration, na.rm = TRUE),
-        q25 = quantile(results$tmins_iteration, 0.25, na.rm = TRUE),
-        q75 = quantile(results$tmins_iteration, 0.75, na.rm = TRUE)
-      )
+  # =========================================================================
+  # SECTION 4: SUBGROUP DEFINITION AGREEMENT
+  # =========================================================================
+
+  # For maxk=1: just M.1
+  # For maxk=2: M.1 & M.2 combination
+  # For maxk=3: M.1 & M.2 & M.3 combination
+
+  if (maxk == 1) {
+    agreement <- sg_found[!is.na(M.1) & M.1 != "", .N, by = .(M.1)]
+    setnames(agreement, "M.1", "Subgroup")
+  } else if (maxk == 2) {
+    # Count unique combinations
+    agreement <- sg_found[!is.na(M.1) & M.1 != "", .N,
+                          by = .(M.1, M.2, K_sg)]
+    # Create readable label
+    agreement[, Subgroup := ifelse(
+      is.na(M.2) | M.2 == "",
+      M.1,
+      paste(M.1, "&", M.2)
+    )]
+    agreement <- agreement[, .(Subgroup, K_sg, N)]
+  } else if (maxk == 3) {
+    agreement <- sg_found[!is.na(M.1) & M.1 != "", .N,
+                          by = .(M.1, M.2, M.3, K_sg)]
+    agreement[, Subgroup := paste(
+      ifelse(!is.na(M.1) & M.1 != "", M.1, ""),
+      ifelse(!is.na(M.2) & M.2 != "", paste("&", M.2), ""),
+      ifelse(!is.na(M.3) & M.3 != "", paste("&", M.3), "")
+    )]
+    agreement <- agreement[, .(Subgroup, K_sg, N)]
+  }
+
+  # Add percentage and sort
+  agreement[, Percent := 100 * N / n_found]
+  agreement[, Percent_of_successful := 100 * N / n_found]
+  agreement <- agreement[order(-N)]
+
+  # Add rank
+  agreement[, Rank := .I]
+
+  # =========================================================================
+  # SECTION 5: AGREEMENT WITH ORIGINAL SUBGROUP
+  # =========================================================================
+
+  original_agreement <- NULL
+  if (!is.null(original_sg) && length(original_sg) > 0) {
+
+    # Create original subgroup string for comparison
+    if (maxk == 1) {
+      original_string <- original_sg[1]
+      match_col <- "M.1"
+    } else if (maxk == 2 && length(original_sg) >= 2) {
+      original_string <- paste(original_sg[1], "&", original_sg[2])
+      sg_found[, match_string := ifelse(
+        is.na(M.2) | M.2 == "",
+        M.1,
+        paste(M.1, "&", M.2)
+      )]
+      match_col <- "match_string"
+    } else if (maxk == 3 && length(original_sg) >= 3) {
+      original_string <- paste(original_sg[1], "&", original_sg[2], "&", original_sg[3])
+      sg_found[, match_string := paste(
+        ifelse(!is.na(M.1) & M.1 != "", M.1, ""),
+        ifelse(!is.na(M.2) & M.2 != "", paste("&", M.2), ""),
+        ifelse(!is.na(M.3) & M.3 != "", paste("&", M.3), "")
+      )]
+      match_col <- "match_string"
     } else {
-      iteration_stats <- NULL
+      original_string <- original_sg[1]
+      match_col <- "M.1"
     }
 
-    # ForestSearch timing (subset where forestsearch ran)
-    if (has_search_timing) {
-      fs_times <- results$tmins_search[!is.na(results$tmins_search)]
-      if (length(fs_times) > 0) {
-        fs_stats <- list(
-          n_runs = length(fs_times),
-          pct_runs = length(fs_times) / nb_boots * 100,
-          mean = mean(fs_times),
-          median = median(fs_times),
-          sd = sd(fs_times),
-          min = min(fs_times),
-          max = max(fs_times),
-          total = sum(fs_times)
-        )
-      } else {
-        fs_stats <- NULL
-      }
-    } else {
-      fs_stats <- NULL
-    }
+    # Calculate exact match rate
+    n_exact_match <- sum(sg_found[[match_col]] == original_string, na.rm = TRUE)
+    pct_exact_match <- 100 * n_exact_match / n_found
 
-    # Overhead timing (time not in forestsearch)
-    if (has_iteration_timing && has_search_timing) {
-      overhead_times <- results$tmins_iteration - results$tmins_search
-      overhead_times <- overhead_times[!is.na(overhead_times)]
-
-      if (length(overhead_times) > 0) {
-        overhead_stats <- list(
-          mean = mean(overhead_times),
-          median = median(overhead_times),
-          total = sum(overhead_times),
-          pct_of_total = sum(overhead_times) / overall_timing$total_minutes * 100
-        )
-      } else {
-        overhead_stats <- NULL
-      }
-    } else {
-      overhead_stats <- NULL
-    }
-
-  } else {
-    # No timing information available
-    overall_timing <- NULL
-    iteration_stats <- NULL
-    fs_stats <- NULL
-    overhead_stats <- NULL
-  }
-
-  # =========================================================================
-  # CREATE TIMING SUMMARY TABLE
-  # =========================================================================
-
-  timing_summary_table <- NULL
-
-  if (has_timing) {
-    timing_rows <- list()
-
-    # Overall timing
-    if (!is.null(overall_timing)) {
-      timing_rows$overall <- data.frame(
-        Category = "Overall",
-        Metric = c("Total time (min)", "Total time (hours)", "Avg per boot (min)", "Avg per boot (sec)"),
-        Value = c(
-          sprintf("%.2f", overall_timing$total_minutes),
-          sprintf("%.2f", overall_timing$total_hours),
-          sprintf("%.2f", overall_timing$avg_minutes_per_boot),
-          sprintf("%.1f", overall_timing$avg_seconds_per_boot)
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    # Per-iteration statistics
-    if (!is.null(iteration_stats)) {
-      timing_rows$iteration <- data.frame(
-        Category = "Per-Iteration",
-        Metric = c("Mean (min)", "Median (min)", "SD (min)", "Min (min)", "Max (min)", "Q25 (min)", "Q75 (min)"),
-        Value = c(
-          sprintf("%.2f", iteration_stats$mean),
-          sprintf("%.2f", iteration_stats$median),
-          sprintf("%.2f", iteration_stats$sd),
-          sprintf("%.2f", iteration_stats$min),
-          sprintf("%.2f", iteration_stats$max),
-          sprintf("%.2f", iteration_stats$q25),
-          sprintf("%.2f", iteration_stats$q75)
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    # ForestSearch timing
-    if (!is.null(fs_stats)) {
-      timing_rows$forestsearch <- data.frame(
-        Category = "ForestSearch",
-        Metric = c("Runs", "% of iterations", "Mean (min)", "Median (min)", "Total (min)", "% of total time"),
-        Value = c(
-          sprintf("%d", fs_stats$n_runs),
-          sprintf("%.1f%%", fs_stats$pct_runs),
-          sprintf("%.2f", fs_stats$mean),
-          sprintf("%.2f", fs_stats$median),
-          sprintf("%.2f", fs_stats$total),
-          sprintf("%.1f%%", fs_stats$total / overall_timing$total_minutes * 100)
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    # Overhead timing
-    if (!is.null(overhead_stats)) {
-      timing_rows$overhead <- data.frame(
-        Category = "Overhead",
-        Metric = c("Mean (min)", "Median (min)", "Total (min)", "% of total time"),
-        Value = c(
-          sprintf("%.2f", overhead_stats$mean),
-          sprintf("%.2f", overhead_stats$median),
-          sprintf("%.2f", overhead_stats$total),
-          sprintf("%.1f%%", overhead_stats$pct_of_total)
-        ),
-        stringsAsFactors = FALSE
-      )
-    }
-
-    # Combine all timing rows
-    if (length(timing_rows) > 0) {
-      timing_summary_table <- do.call(rbind, timing_rows)
-      rownames(timing_summary_table) <- NULL
-    }
-  }
-
-  # =========================================================================
-  # CREATE FORMATTED GT TIMING TABLE
-  # =========================================================================
-
-  timing_table_gt <- NULL
-  if (requireNamespace("gt", quietly = TRUE)) {
-    timing_table_gt <- tryCatch({
-      format_bootstrap_timing_table(
-        timing_list = list(
-          overall = overall_timing,
-          iteration_stats = iteration_stats,
-          fs_stats = fs_stats,
-          overhead_stats = overhead_stats
-        ),
-        nb_boots = nb_boots,
-        boot_success_rate = boot_success_rate
-      )
-    }, error = function(e) {
-      warning("Could not create gt timing table: ", e$message)
-      NULL
-    })
-  }
-
-  # =========================================================================
-  # SECTION 4: BOOTSTRAP DIAGNOSTICS
-  # =========================================================================
-
-  diagnostics <- list(
-    n_boots = nb_boots,
-    success_rate = boot_success_rate,
-    n_successful = sum(!is.na(results$H_biasadj_2)),
-    n_failed = sum(is.na(results$H_biasadj_2))
-  )
-
-  # Add timing to diagnostics if available
-  if (has_timing && has_search_timing) {
-    diagnostics$median_search_time = median(results$tmins_search, na.rm = TRUE)
-    diagnostics$total_search_time = sum(results$tmins_search, na.rm = TRUE)
-  }
-
-  # =========================================================================
-  # CREATE FORMATTED GT DIAGNOSTICS TABLE
-  # =========================================================================
-
-  diagnostics_table_gt <- NULL
-  if (requireNamespace("gt", quietly = TRUE)) {
-    diagnostics_table_gt <- tryCatch({
-      format_bootstrap_diagnostics_table(
-        diagnostics = diagnostics,
-        nb_boots = nb_boots,
-        results = results,
-        H_estimates = H_estimates,
-        Hc_estimates = Hc_estimates
-      )
-    }, error = function(e) {
-      warning("Could not create gt diagnostics table: ", e$message)
-      NULL
-    })
-  }
-
-
-  # =========================================================================
-  # SECTION 5: PRINT COMPREHENSIVE SUMMARY (WITH FIXED sprintf)
-  # =========================================================================
-
-  cat("\n")
-  cat("═══════════════════════════════════════════════════════════════\n")
-  cat("           BOOTSTRAP ANALYSIS SUMMARY                          \n")
-  cat("═══════════════════════════════════════════════════════════════\n\n")
-
-  # Success metrics
-  cat("BOOTSTRAP SUCCESS METRICS:\n")
-  cat("─────────────────────────────────────────────────────────────\n")
-  cat(sprintf("  Total iterations:              %d\n", diagnostics$n_boots))
-  cat(sprintf("  Successful subgroup ID:        %d (%.1f%%)\n",
-              diagnostics$n_successful, diagnostics$success_rate * 100))
-  cat(sprintf("  Failed to find subgroup:       %d (%.1f%%)\n",
-              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
-  cat("\n")
-
-  # Timing summary
-  if (has_timing) {
-    cat("TIMING ANALYSIS:\n")
-    cat("─────────────────────────────────────────────────────────────\n")
-
-    # Overall timing
-    cat("Overall:\n")
-    cat(sprintf("  Total bootstrap time:          %.2f minutes (%.2f hours)\n",
-                overall_timing$total_minutes, overall_timing$total_hours))
-    cat(sprintf("  Average per iteration:         %.2f min (%.1f sec)\n",
-                overall_timing$avg_minutes_per_boot,
-                overall_timing$avg_seconds_per_boot))
-
-    # Projected times
-    if (nb_boots < 1000) {
-      projected_1000 <- overall_timing$avg_minutes_per_boot * 1000
-      cat(sprintf("  Projected for 1000 boots:      %.2f minutes (%.2f hours)\n",
-                  projected_1000, projected_1000 / 60))
-    }
-    cat("\n")
-
-    # Per-iteration timing
-    if (!is.null(iteration_stats)) {
-      cat("Per-iteration timing:\n")
-      cat(sprintf("  Mean:                          %.2f min (%.1f sec)\n",
-                  iteration_stats$mean, iteration_stats$mean * 60))
-      cat(sprintf("  Median:                        %.2f min (%.1f sec)\n",
-                  iteration_stats$median, iteration_stats$median * 60))
-      cat(sprintf("  Std Dev:                       %.2f minutes\n",
-                  iteration_stats$sd))
-      cat(sprintf("  Range:                         [%.2f, %.2f] minutes\n",
-                  iteration_stats$min, iteration_stats$max))
-      cat(sprintf("  IQR:                           [%.2f, %.2f] minutes\n",
-                  iteration_stats$q25, iteration_stats$q75))
-      cat("\n")
-    }
-
-    # ForestSearch timing (FIXED sprintf statements)
-    if (!is.null(fs_stats)) {
-      cat("ForestSearch timing (successful iterations only):\n")
-      cat(sprintf("  Iterations with FS:            %d (%.1f%%)\n",
-                  fs_stats$n_runs, fs_stats$pct_runs))
-      cat(sprintf("  Mean FS time:                  %.2f min (%.1f sec)\n",
-                  fs_stats$mean, fs_stats$mean * 60))
-      cat(sprintf("  Median FS time:                %.2f min (%.1f sec)\n",
-                  fs_stats$median, fs_stats$median * 60))
-      cat(sprintf("  Total FS time:                 %.2f minutes\n",
-                  fs_stats$total))
-      # FIXED: Changed from %.1f%% to %.1f and added separate %
-      cat(sprintf("  FS time %s of total:            %.1f%s\n",
-                  "%", fs_stats$total / overall_timing$total_minutes * 100, "%"))
-      cat("\n")
-    }
-
-    # Overhead timing (FIXED sprintf statement)
-    if (!is.null(overhead_stats)) {
-      cat("Overhead timing (Cox models, bias correction, etc.):\n")
-      cat(sprintf("  Mean overhead:                 %.2f min (%.1f sec)\n",
-                  overhead_stats$mean, overhead_stats$mean * 60))
-      cat(sprintf("  Median overhead:               %.2f min (%.1f sec)\n",
-                  overhead_stats$median, overhead_stats$median * 60))
-      cat(sprintf("  Total overhead:                %.2f minutes\n",
-                  overhead_stats$total))
-      # FIXED: Changed from %.1f%% to %.1f and added separate %
-      cat(sprintf("  Overhead %s of total:           %.1f%s\n",
-                  "%", overhead_stats$pct_of_total, "%"))
-      cat("\n")
-    }
-
-    # Performance assessment
-    cat("PERFORMANCE ASSESSMENT:\n")
-    cat("─────────────────────────────────────────────────────────────\n")
-
-    if (!is.null(iteration_stats)) {
-      avg_sec <- overall_timing$avg_seconds_per_boot
-
-      if (avg_sec < 5) {
-        performance <- "Excellent"
-        emoji <- "✓✓✓"
-      } else if (avg_sec < 15) {
-        performance <- "Good"
-        emoji <- "✓✓"
-      } else if (avg_sec < 30) {
-        performance <- "Acceptable"
-        emoji <- "✓"
-      } else if (avg_sec < 60) {
-        performance <- "Slow"
-        emoji <- "⚠"
-      } else {
-        performance <- "Very Slow"
-        emoji <- "⚠⚠"
-      }
-
-      cat(sprintf("  Performance rating:            %s %s\n", emoji, performance))
-      cat(sprintf("  Average iteration speed:       %.1f seconds\n", avg_sec))
-
-      # Recommendations based on performance
-      if (avg_sec > 30) {
-        cat("\n  Recommendations for improvement:\n")
-        if (!is.null(fs_stats) && fs_stats$mean > 0.5) {
-          cat("    • Consider reducing max.minutes in forestsearch\n")
-          cat("    • Consider reducing maxk if currently > 2\n")
-        }
-        if (nb_boots > 500) {
-          cat("    • Consider reducing nb_boots for initial testing\n")
-        }
-        cat("    • Ensure sufficient parallel workers are allocated\n")
+    # Calculate any-factor match rate (at least one factor matches)
+    any_match <- 0
+    for (i in 1:min(length(original_sg), maxk)) {
+      col <- paste0("M.", i)
+      if (col %in% names(sg_found)) {
+        any_match <- any_match + sum(sg_found[[col]] == original_sg[i], na.rm = TRUE)
       }
     }
-    cat("\n")
-  }
+    pct_any_match <- 100 * (any_match > 0) / n_found
 
-  cat("═══════════════════════════════════════════════════════════════\n\n")
-
-  # =========================================================================
-  # SECTION 6: CREATE DIAGNOSTIC PLOTS (INCLUDING TIMING PLOTS)
-  # =========================================================================
-
-  plots <- NULL
-  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
-    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
-
-    # Add timing plots if data available
-    if (has_timing && has_iteration_timing) {
-      plots$timing <- create_bootstrap_timing_plots(results)
-    }
-
-    # Add combined plot if patchwork is available
-    if (requireNamespace("patchwork", quietly = TRUE)) {
-      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
-        patchwork::plot_annotation(
-          title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations, %.1f%s successful",
-                             nrow(results), boot_success_rate * 100, "%"),
-          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
-        )
-
-      # Add timing plots to combined if available
-      if (!is.null(plots$timing)) {
-        plots$combined_with_timing <- (plots$H_distribution | plots$Hc_distribution) /
-          (plots$timing$iteration_time | plots$timing$search_time) +
-          patchwork::plot_annotation(
-            title = "Bootstrap Analysis: Distributions and Timing",
-            subtitle = sprintf("%d iterations, %.1f%s successful, %.1f min total",
-                               nrow(results), boot_success_rate * 100, "%",
-                               overall_timing$total_minutes),
-            theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
-          )
-      }
-    }
-  }
-
-  # =========================================================================
-  # SECTION 7: COMPILE AND RETURN OUTPUT
-  # =========================================================================
-
-  output <- list(
-    table = formatted_table,
-    diagnostics = diagnostics,
-    diagnostics_table_gt = diagnostics_table_gt,
-    plots = plots
-  )
-
-  # Add timing information if available
-  if (has_timing) {
-    output$timing <- list(
-      overall = overall_timing,
-      iteration_stats = iteration_stats,
-      fs_stats = fs_stats,
-      overhead_stats = overhead_stats,
-      time_table = timing_summary_table,
-      time_table_gt = timing_table_gt
+    original_agreement <- data.table::data.table(
+      Metric = c(
+        "Original subgroup",
+        "Exact match count",
+        "Exact match rate",
+        "Any factor match rate"
+      ),
+      Value = c(
+        original_string,
+        as.character(n_exact_match),
+        sprintf("%.1f%%", pct_exact_match),
+        sprintf("%.1f%%", pct_any_match)
+      )
     )
   }
 
-  invisible(output)
+  # =========================================================================
+  # SECTION 6: CONSISTENCY DISTRIBUTION
+  # =========================================================================
+
+  # Categorize Pcons into bins
+  sg_found[, Pcons_bin := cut(
+    Pcons,
+    breaks = c(0, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0),
+    labels = c("<0.5", "0.5-0.7", "0.7-0.8", "0.8-0.9", "0.9-0.95", "≥0.95"),
+    include.lowest = TRUE
+  )]
+
+  consistency_dist <- sg_found[, .N, by = Pcons_bin]
+  consistency_dist[, Percent := 100 * N / n_found]
+  consistency_dist <- consistency_dist[order(Pcons_bin)]
+  setnames(consistency_dist, c("Consistency Range", "Count", "Percent"))
+
+  # =========================================================================
+  # SECTION 7: SUBGROUP SIZE DISTRIBUTION
+  # =========================================================================
+
+  # Categorize N_sg into meaningful bins
+  size_breaks <- c(0, 50, 100, 150, 200, 300, Inf)
+  size_labels <- c("<50", "50-99", "100-149", "150-199", "200-299", "≥300")
+
+  sg_found[, N_sg_bin := cut(
+    N_sg,
+    breaks = size_breaks,
+    labels = size_labels,
+    include.lowest = TRUE
+  )]
+
+  size_dist <- sg_found[, .N, by = N_sg_bin]
+  size_dist[, Percent := 100 * N / n_found]
+  size_dist <- size_dist[order(N_sg_bin)]
+  setnames(size_dist, c("Size Range", "Count", "Percent"))
+
+  # =========================================================================
+  # RETURN COMPILED RESULTS
+  # =========================================================================
+
+  list(
+    basic_stats = basic_stats,
+    consistency_dist = consistency_dist,
+    size_dist = size_dist,
+    factor_freq = factor_freq,
+    agreement = agreement,
+    original_agreement = original_agreement,
+    n_found = n_found,
+    pct_found = pct_found
+  )
 }
 
-
-
-
-
-
-
-# THIS IS LEGACY VERSION to-be-removed
-# Remove
-#' Enhanced Bootstrap Results Summary (WITH TIMING)
+#' Format Subgroup Summary Tables with gt
 #'
-#' Creates comprehensive output including formatted table, diagnostic plots,
-#' bootstrap quality metrics, and detailed timing analysis.
+#' Creates publication-ready gt tables for bootstrap subgroup analysis
 #'
-#' @param boot_results List. Output from forestsearch_bootstrap_dofuture()
-#' @param create_plots Logical. Generate diagnostic plots (default: TRUE)
-#' @param est.scale Character. "hr" or "1/hr" for effect scale
+#' @param subgroup_summary List from summarize_bootstrap_subgroups()
+#' @param nb_boots Integer. Number of bootstrap iterations
 #'
-#' @return List with formatted table, diagnostics, timing analysis, and plots
+#' @return List of gt table objects
+#' @importFrom gt gt tab_header tab_spanner tab_footnote md
 #' @export
-summarize_bootstrap_results_legacy <- function(boot_results, create_plots = FALSE,
-                                        est.scale = "hr") {
 
-  # =========================================================================
-  # SECTION 1: EXTRACT COMPONENTS
-  # =========================================================================
+format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 
-  # Extract components
-  FSsg_tab <- boot_results$FSsg_tab
-  results <- boot_results$results
-  H_estimates <- boot_results$H_estimates
-  Hc_estimates <- boot_results$Hc_estimates
-
-  # =========================================================================
-  # SECTION 2: CALCULATE BOOTSTRAP SUCCESS METRICS
-  # =========================================================================
-
-  # Calculate bootstrap success rate
-  boot_success_rate <- mean(!is.na(results$H_biasadj_2))
-  nb_boots <- nrow(results)
-
-  # Create formatted table
-  formatted_table <- format_bootstrap_table(
-    FSsg_tab = FSsg_tab,
-    nb_boots = nb_boots,
-    est.scale = est.scale,
-    boot_success_rate = boot_success_rate
-  )
-
-  # =========================================================================
-  # SECTION 3: EXTRACT AND ANALYZE TIMING INFORMATION
-  # =========================================================================
-
-  # Check if timing information is available
-  has_timing <- !is.null(attr(results, "timing"))
-
-  if (has_timing) {
-    # Overall timing from attributes
-    overall_timing <- attr(results, "timing")
-
-    # Per-iteration statistics (if columns exist)
-    has_iteration_timing <- "tmins_iteration" %in% names(results)
-    has_search_timing <- "tmins_search" %in% names(results)
-
-    if (has_iteration_timing) {
-      iteration_stats <- list(
-        mean = mean(results$tmins_iteration, na.rm = TRUE),
-        median = median(results$tmins_iteration, na.rm = TRUE),
-        sd = sd(results$tmins_iteration, na.rm = TRUE),
-        min = min(results$tmins_iteration, na.rm = TRUE),
-        max = max(results$tmins_iteration, na.rm = TRUE),
-        q25 = quantile(results$tmins_iteration, 0.25, na.rm = TRUE),
-        q75 = quantile(results$tmins_iteration, 0.75, na.rm = TRUE)
-      )
-    } else {
-      iteration_stats <- NULL
-    }
-
-    # ForestSearch timing (subset where forestsearch ran)
-    if (has_search_timing) {
-      fs_times <- results$tmins_search[!is.na(results$tmins_search)]
-      if (length(fs_times) > 0) {
-        fs_stats <- list(
-          n_runs = length(fs_times),
-          pct_runs = length(fs_times) / nb_boots * 100,
-          mean = mean(fs_times),
-          median = median(fs_times),
-          sd = sd(fs_times),
-          min = min(fs_times),
-          max = max(fs_times),
-          total = sum(fs_times)
-        )
-      } else {
-        fs_stats <- NULL
-      }
-    } else {
-      fs_stats <- NULL
-    }
-
-    # Overhead timing (time not in forestsearch)
-    if (has_iteration_timing && has_search_timing) {
-      overhead_times <- results$tmins_iteration - results$tmins_search
-      overhead_times <- overhead_times[!is.na(overhead_times)]
-
-      if (length(overhead_times) > 0) {
-        overhead_stats <- list(
-          mean = mean(overhead_times),
-          median = median(overhead_times),
-          total = sum(overhead_times),
-          pct_of_total = sum(overhead_times) / overall_timing$total_minutes * 100
-        )
-      } else {
-        overhead_stats <- NULL
-      }
-    } else {
-      overhead_stats <- NULL
-    }
-
-  } else {
-    # No timing information available
-    overall_timing <- NULL
-    iteration_stats <- NULL
-    fs_stats <- NULL
-    overhead_stats <- NULL
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    stop("Package 'gt' required")
   }
 
-  # =========================================================================
-  # SECTION 4: BOOTSTRAP DIAGNOSTICS
-  # =========================================================================
-
-  diagnostics <- list(
-    n_boots = nb_boots,
-    success_rate = boot_success_rate,
-    n_successful = sum(!is.na(results$H_biasadj_2)),
-    n_failed = sum(is.na(results$H_biasadj_2))
-  )
-
-  # Add timing to diagnostics if available
-  if (has_timing && has_search_timing) {
-    diagnostics$median_search_time = median(results$tmins_search, na.rm = TRUE)
-    diagnostics$total_search_time = sum(results$tmins_search, na.rm = TRUE)
+  if (is.null(subgroup_summary)) {
+    return(NULL)
   }
 
-  # =========================================================================
-  # SECTION 5: PRINT COMPREHENSIVE SUMMARY (WITH FIXED sprintf)
-  # =========================================================================
-
-  cat("\n")
-  cat("═══════════════════════════════════════════════════════════════\n")
-  cat("           BOOTSTRAP ANALYSIS SUMMARY                          \n")
-  cat("═══════════════════════════════════════════════════════════════\n\n")
-
-  # Success metrics
-  cat("BOOTSTRAP SUCCESS METRICS:\n")
-  cat("─────────────────────────────────────────────────────────────\n")
-  cat(sprintf("  Total iterations:              %d\n", diagnostics$n_boots))
-  cat(sprintf("  Successful subgroup ID:        %d (%.1f%%)\n",
-              diagnostics$n_successful, diagnostics$success_rate * 100))
-  cat(sprintf("  Failed to find subgroup:       %d (%.1f%%)\n",
-              diagnostics$n_failed, (1 - diagnostics$success_rate) * 100))
-  cat("\n")
-
-  # Timing summary
-  if (has_timing) {
-    cat("TIMING ANALYSIS:\n")
-    cat("─────────────────────────────────────────────────────────────\n")
-
-    # Overall timing
-    cat("Overall:\n")
-    cat(sprintf("  Total bootstrap time:          %.2f minutes (%.2f hours)\n",
-                overall_timing$total_minutes, overall_timing$total_hours))
-    cat(sprintf("  Average per iteration:         %.2f min (%.1f sec)\n",
-                overall_timing$avg_minutes_per_boot,
-                overall_timing$avg_seconds_per_boot))
-
-    # Projected times
-    if (nb_boots < 1000) {
-      projected_1000 <- overall_timing$avg_minutes_per_boot * 1000
-      cat(sprintf("  Projected for 1000 boots:      %.2f minutes (%.2f hours)\n",
-                  projected_1000, projected_1000 / 60))
-    }
-    cat("\n")
-
-    # Per-iteration timing
-    if (!is.null(iteration_stats)) {
-      cat("Per-iteration timing:\n")
-      cat(sprintf("  Mean:                          %.2f min (%.1f sec)\n",
-                  iteration_stats$mean, iteration_stats$mean * 60))
-      cat(sprintf("  Median:                        %.2f min (%.1f sec)\n",
-                  iteration_stats$median, iteration_stats$median * 60))
-      cat(sprintf("  Std Dev:                       %.2f minutes\n",
-                  iteration_stats$sd))
-      cat(sprintf("  Range:                         [%.2f, %.2f] minutes\n",
-                  iteration_stats$min, iteration_stats$max))
-      cat(sprintf("  IQR:                           [%.2f, %.2f] minutes\n",
-                  iteration_stats$q25, iteration_stats$q75))
-      cat("\n")
-    }
-
-    # ForestSearch timing (FIXED sprintf statements)
-    if (!is.null(fs_stats)) {
-      cat("ForestSearch timing (successful iterations only):\n")
-      cat(sprintf("  Iterations with FS:            %d (%.1f%%)\n",
-                  fs_stats$n_runs, fs_stats$pct_runs))
-      cat(sprintf("  Mean FS time:                  %.2f min (%.1f sec)\n",
-                  fs_stats$mean, fs_stats$mean * 60))
-      cat(sprintf("  Median FS time:                %.2f min (%.1f sec)\n",
-                  fs_stats$median, fs_stats$median * 60))
-      cat(sprintf("  Total FS time:                 %.2f minutes\n",
-                  fs_stats$total))
-      # FIXED: Changed from %.1f%% to %.1f and added separate %
-      cat(sprintf("  FS time %s of total:            %.1f%s\n",
-                  "%", fs_stats$total / overall_timing$total_minutes * 100, "%"))
-      cat("\n")
-    }
-
-    # Overhead timing (FIXED sprintf statement)
-    if (!is.null(overhead_stats)) {
-      cat("Overhead timing (Cox models, bias correction, etc.):\n")
-      cat(sprintf("  Mean overhead:                 %.2f min (%.1f sec)\n",
-                  overhead_stats$mean, overhead_stats$mean * 60))
-      cat(sprintf("  Median overhead:               %.2f min (%.1f sec)\n",
-                  overhead_stats$median, overhead_stats$median * 60))
-      cat(sprintf("  Total overhead:                %.2f minutes\n",
-                  overhead_stats$total))
-      # FIXED: Changed from %.1f%% to %.1f and added separate %
-      cat(sprintf("  Overhead %s of total:           %.1f%s\n",
-                  "%", overhead_stats$pct_of_total, "%"))
-      cat("\n")
-    }
-
-    # Performance assessment
-    cat("PERFORMANCE ASSESSMENT:\n")
-    cat("─────────────────────────────────────────────────────────────\n")
-
-    if (!is.null(iteration_stats)) {
-      avg_sec <- overall_timing$avg_seconds_per_boot
-
-      if (avg_sec < 5) {
-        performance <- "Excellent"
-        emoji <- "✓✓✓"
-      } else if (avg_sec < 15) {
-        performance <- "Good"
-        emoji <- "✓✓"
-      } else if (avg_sec < 30) {
-        performance <- "Acceptable"
-        emoji <- "✓"
-      } else if (avg_sec < 60) {
-        performance <- "Slow"
-        emoji <- "⚠"
-      } else {
-        performance <- "Very Slow"
-        emoji <- "⚠⚠"
-      }
-
-      cat(sprintf("  Performance rating:            %s %s\n", emoji, performance))
-      cat(sprintf("  Average iteration speed:       %.1f seconds\n", avg_sec))
-
-      # Recommendations based on performance
-      if (avg_sec > 30) {
-        cat("\n  Recommendations for improvement:\n")
-        if (!is.null(fs_stats) && fs_stats$mean > 0.5) {
-          cat("    • Consider reducing max.minutes in forestsearch\n")
-          cat("    • Consider reducing maxk if currently > 2\n")
-        }
-        if (nb_boots > 500) {
-          cat("    • Consider reducing nb_boots for initial testing\n")
-        }
-        cat("    • Ensure sufficient parallel workers are allocated\n")
-      }
-    }
-    cat("\n")
-  }
-
-  cat("═══════════════════════════════════════════════════════════════\n\n")
+  tables <- list()
 
   # =========================================================================
-  # SECTION 6: CREATE DIAGNOSTIC PLOTS (INCLUDING TIMING PLOTS)
+  # TABLE 1: BASIC STATISTICS
   # =========================================================================
 
-  plots <- NULL
-  if (create_plots && requireNamespace("ggplot2", quietly = TRUE)) {
-    plots <- create_bootstrap_diagnostic_plots(results, H_estimates, Hc_estimates)
-
-    # Add timing plots if data available
-    if (has_timing && has_iteration_timing) {
-      plots$timing <- create_bootstrap_timing_plots(results)
-    }
-
-    # Add combined plot if patchwork is available
-    if (requireNamespace("patchwork", quietly = TRUE)) {
-      plots$combined <- (plots$H_distribution | plots$Hc_distribution) +
-        patchwork::plot_annotation(
-          title = "Bootstrap Distributions",
-          subtitle = sprintf("%d iterations, %.1f%s successful",
-                             nrow(results), boot_success_rate * 100, "%"),
-          theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
-        )
-
-      # Add timing plots to combined if available
-      if (!is.null(plots$timing)) {
-        plots$combined_with_timing <- (plots$H_distribution | plots$Hc_distribution) /
-          (plots$timing$iteration_time | plots$timing$search_time) +
-          patchwork::plot_annotation(
-            title = "Bootstrap Analysis: Distributions and Timing",
-            subtitle = sprintf("%d iterations, %.1f%s successful, %.1f min total",
-                               nrow(results), boot_success_rate * 100, "%",
-                               overall_timing$total_minutes),
-            theme = ggplot2::theme(plot.title = ggplot2::element_text(size = 16, face = "bold"))
+  if (!is.null(subgroup_summary$basic_stats)) {
+    tables$basic_stats <- subgroup_summary$basic_stats |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Bootstrap Subgroup Characteristics**"),
+        subtitle = sprintf("Summary statistics across %d bootstrap iterations", nb_boots)
+      ) |>
+      gt::cols_label(
+        Metric = "",
+        Value = "Value"
+      ) |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#f0f0f0"),
+          gt::cell_text(weight = "bold")
+        ),
+        locations = gt::cells_body(
+          rows = Metric %in% c(
+            "Consistency (Pcons)",
+            "Hazard Ratio (hr_sg)",
+            "Subgroup Size (N_sg)",
+            "Number of Factors (K_sg)"
           )
-      }
-    }
+        )
+      ) |>
+      gt::tab_options(
+        table.font.size = gt::px(13)
+      )
   }
 
   # =========================================================================
-  # SECTION 7: COMPILE AND RETURN OUTPUT
+  # TABLE 2: SUBGROUP DEFINITION AGREEMENT
   # =========================================================================
 
-  output <- list(
-    table = formatted_table,
-    diagnostics = diagnostics,
-    plots = plots
-  )
-
-  # Add timing information if available
-  if (has_timing) {
-    output$timing <- list(
-      overall = overall_timing,
-      iteration_stats = iteration_stats,
-      fs_stats = fs_stats,
-      overhead_stats = overhead_stats
-    )
+  if (!is.null(subgroup_summary$agreement)) {
+    tables$agreement <- subgroup_summary$agreement |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Subgroup Definition Agreement**"),
+        subtitle = sprintf("Top subgroup definitions across %d successful iterations",
+                           subgroup_summary$n_found)
+      ) |>
+      gt::cols_label(
+        Rank = "Rank",
+        Subgroup = "Subgroup Definition",
+        K_sg = "K",
+        N = "Count",
+        Percent = "% of Successful"
+      ) |>
+      gt::fmt_number(
+        columns = Percent,
+        decimals = 1
+      ) |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#e8f4f8"),
+          gt::cell_text(weight = "bold")
+        ),
+        locations = gt::cells_body(rows = Rank == 1)
+      ) |>
+      gt::tab_footnote(
+        footnote = gt::md("**K** = number of factors in subgroup definition"),
+        locations = gt::cells_column_labels(columns = K_sg)
+      )
   }
 
-  invisible(output)
+  # =========================================================================
+  # TABLE 3: FACTOR FREQUENCY
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$factor_freq)) {
+    tables$factor_freq <- subgroup_summary$factor_freq |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Individual Factor Frequencies**"),
+        subtitle = "How often each factor appears in identified subgroups"
+      ) |>
+      gt::cols_label(
+        Position = "Position",
+        Factor = "Factor",
+        N = "Count",
+        Percent = "% of Successful"
+      ) |>
+      gt::fmt_number(
+        columns = Percent,
+        decimals = 1
+      ) |>
+      gt::tab_style(
+        style = gt::cell_fill(color = "#f0f0f0"),
+        locations = gt::cells_body(
+          rows = Position == "M.1"
+        )
+      )
+  }
+
+  # =========================================================================
+  # TABLE 4: CONSISTENCY DISTRIBUTION
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$consistency_dist)) {
+    tables$consistency_dist <- subgroup_summary$consistency_dist |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Consistency (P<sub>cons</sub>) Distribution**"),
+        subtitle = "Distribution of consistency scores across successful iterations"
+      ) |>
+      gt::fmt_number(
+        columns = Percent,
+        decimals = 1
+      ) |>
+      gt::cols_label(
+        `Consistency Range` = gt::md("P<sub>cons</sub> Range"),
+        Count = "Count",
+        Percent = "%"
+      )
+  }
+
+  # =========================================================================
+  # TABLE 5: ORIGINAL AGREEMENT (if available)
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$original_agreement)) {
+    tables$original_agreement <- subgroup_summary$original_agreement |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Agreement with Original Subgroup**"),
+        subtitle = "How often bootstrap identifies the same subgroup as original analysis"
+      ) |>
+      gt::cols_label(
+        Metric = "",
+        Value = "Value"
+      ) |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#e8f4f8"),
+          gt::cell_text(weight = "bold")
+        ),
+        locations = gt::cells_body(rows = 2:4)
+      )
+  }
+
+  return(tables)
 }
+
 
 

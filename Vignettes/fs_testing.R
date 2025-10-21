@@ -44,7 +44,7 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 12, d1.min = 12,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
+                   parallel_args = list(plan="sequential", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -78,7 +78,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 20
+NB <- 5
 
 t.start <- proc.time()[3]
 
@@ -107,6 +107,28 @@ fs_bc$summary$table
 fs_bc$summary$diagnostics_table_gt
 #View the formatted timing table
 fs_bc$summary$timing$time_table_gt
+
+
+sg_summary <- fs_bc$summary$subgroup_summary
+
+# Format as gt tables
+Bsg_tables <- format_subgroup_summary_tables(sg_summary, nb_boots = NB)
+
+# View tables
+Bsg_tables$basic_stats
+
+Bsg_tables$agreement
+
+Bsg_tables$factor_freq
+
+Bsg_tables$consistency_dist
+
+Bsg_tables$original_agreement
+
+# Print text summary
+cat("Subgroups identified in", sg_summary$pct_found, "% of bootstraps\n")
+cat("Most common subgroup:", sg_summary$agreement$Subgroup[1], "\n")
+cat("  Appeared in", sg_summary$agreement$Percent[1], "% of successful iterations\n")
 
 
 
