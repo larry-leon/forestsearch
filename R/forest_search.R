@@ -5,7 +5,6 @@ required_packages <- c("grf","policytree","data.table","randomForest","survival"
 missing <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
 if(length(missing) > 0) stop("Missing required packages: ", paste(missing, collapse = ", "))
 
-
 #' Add ID Column to Data Frame
 #'
 #' Ensures that a data frame has a unique ID column. If \code{id.name} is not provided,
