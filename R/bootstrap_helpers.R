@@ -15,7 +15,8 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1
   check2 <- match(names_tocheck, check)
   if (sum(!is.na(check2)) != length(names_tocheck)) stop("df_sg dataset NOT contain cox.formula variables")
   # Fit Cox model with robust standard errors
-  fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE, init = cox_initial))$coefficients
+  fit <- suppressWarnings(suppressMessages(coxph(cox.formula, data = df_sg, robust = TRUE, init = cox_initial)))
+  fit <- summary(fit)$coefficients
   # log(hr) parameters
   if (est.loghr) {
     bhat <- c(fit[, "coef"])

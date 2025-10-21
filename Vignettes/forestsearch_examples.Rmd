@@ -498,7 +498,7 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="sequential", workers = 12, show_message = TRUE)
+                   parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -535,10 +535,12 @@ res_tabs$tab_estimates
 # Needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
 library(patchwork)
 
+options(warn = -1)
+
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 10
+NB <- 2500
 
 t.start <- proc.time()[3]
 
