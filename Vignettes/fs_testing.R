@@ -1,7 +1,7 @@
 
 library(weightedsurv)
 
-# library(forestsearch) 
+# library(forestsearch)
 
 library(survival)
 df_gbsg <- gbsg
@@ -36,7 +36,7 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
+                   parallel_args = list(plan="sequential", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -50,7 +50,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 10
+NB <- 5
 
 t.start <- proc.time()[3]
 
@@ -62,5 +62,19 @@ t.now<-proc.time()[3]
 t.min<-(t.now-t.start)/60
 cat("Minutes (total) for bootstrap (boots,mins)",c(NB,t.min),"\n")
 cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
+
+
+# Access the new tables
+diagnostics_df <- fs_bc$summary$diagnostics_table
+timing_df <- fs_bc$summary$timing_table
+
+# View as data frames
+#print(diagnostics_df)
+#print(timing_df)
+
+# Or convert to gt tables for nice formatting
+library(gt)
+gt::gt(diagnostics_df)
+gt::gt(timing_df)
 
 

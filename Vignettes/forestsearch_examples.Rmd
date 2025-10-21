@@ -426,7 +426,7 @@ flowchart
 
 
 
-```{r}
+```{r, message = FALSE}
 rm(list=ls())
 
 #library(devtools)
@@ -435,6 +435,7 @@ rm(list=ls())
 suppressMessages(library(weightedsurv))
 
 suppressMessages(library(forestsearch))
+
 ```
 
 # GBSG data analysis example
@@ -523,24 +524,17 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = FALSE}
+```{r, eval = FALSE, warning = FALSE}
 # Just run a few for illustration 
 # In practice, recommend minimum of NB = 300 to 400 re-samples
-# NOTE: workers = 1 and reset_parallel_fs = FALSE will use parallel process per the above forestsearch (fs) data analysis call 
-# where workers are set to 12 which is the maximum on my machine;
-# Also, note that if workers is set to a higher value than the max cores, this will be re-set to the maximum (max cores)
 
-
-#options(warn = -1)
-# Needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
+# patchhwork needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
 library(patchwork)
-
-options(warn = -1)
 
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 10
+NB <- 15000
 
 t.start <- proc.time()[3]
 
@@ -562,14 +556,6 @@ if (save_results) {
     save(fs_bc, fs, file = filename)
     cat("\nResults saved to:", filename, "\n")
 }
-
-# check_boot <- subset(fs_bc$results, is.na(H_biasadj_1))
-# check4 <- subset(check_boot, boot_id == 4)
-# args_forestsearch_call <- fs$args_call_all
-# parallel_args <- resolve_bootstrap_parallel_args(parallel_args, args_forestsearch_call)
-# cox.formula.boot <- do.call(build_cox_formula,filter_call_args(args_forestsearch_call, build_cox_formula))
-# getbadboot <- bootstrap_reproduce_aboot(this_boot = 15, fs.est = fs, cox.formula.boot = cox.formula.boot) 
-
 
 ```
 
