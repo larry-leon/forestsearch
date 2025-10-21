@@ -1,3 +1,22 @@
+# get_split_hr <- function(df, cox_initial = NULL) {
+#   if (nrow(df) < 2 || sum(df$Event) < 2) {
+#     return(NA_real_)
+#   }
+#
+#   hr <- try({
+#     fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
+#                            data = df,
+#                            init = cox_initial,
+#                            robust = FALSE)
+#     summary(fit)$conf.int[1, 1]
+#   }, silent = TRUE)
+#
+#   if (inherits(hr, "try-error")) return(NA_real_)
+#   return(hr)
+# }
+
+
+
 #' Evaluate Single Subgroup for Consistency
 #'
 #' Helper function that evaluates a single subgroup (indexed by m) for consistency
@@ -29,27 +48,32 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
                                          pconsistency.threshold, pconsistency.digits,
                                          maxk, confs_labels, details = FALSE) {
 
-  # =========================================================================
-  # SECTION 2: DEFINE get_split_hr HELPER FUNCTION
-  # =========================================================================
-
   get_split_hr <- function(df, cox_initial = NULL) {
+    # Quick validation
     if (nrow(df) < 2 || sum(df$Event) < 2) {
       return(NA_real_)
     }
 
-    hr <- try({
-      fit <- suppressWarnings(suppressMessages(survival::coxph(survival::Surv(Y, Event) ~ Treat,
-                             data = df,
-                             init = cox_initial,
-                             robust = FALSE)))
-      summary(fit)$conf.int[1, 1]
-    }, silent = TRUE)
+    # Fit model with minimal overhead, suppress all output
+    fit <- tryCatch(
+      suppressWarnings(
+          survival::coxph(
+            survival::Surv(Y, Event) ~ Treat,
+            data = df,
+            init = cox_initial,
+            robust = FALSE,
+            model = FALSE,  # Don't store model frame (saves memory)
+            x = FALSE,      # Don't store design matrix
+            y = FALSE       # Don't store response
+          )
+        ),
+      error = function(e) NULL
+    )
 
-    if (inherits(hr, "try-error")) return(NA_real_)
-    return(hr)
+    # Return HR or NA
+    if (is.null(fit)) return(NA_real_)
+    return(exp(fit$coefficients[1]))
   }
-
   # =========================================================================
   # SECTION 1: VALIDATE SUBGROUP EXTRACTION
   # =========================================================================
@@ -162,7 +186,7 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
       return(NA_real_)
     }
 
-    # Fit models with error suppression
+    # Fit models with error suppression (implicit within get_split_hr)
     hr.split1 <- get_split_hr(df = df.x.split1, cox_initial = cox_init)
     hr.split2 <- get_split_hr(df = df.x.split2, cox_initial = cox_init)
 
@@ -284,7 +308,7 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
 #' @importFrom future.apply future_lapply
 #' @export
 
-subgroup.consistency <- function(df, hr.subgroups,
+subgroup.consistency.refactored <- function(df, hr.subgroups,
                                  hr.threshold = 1.0,
                                  hr.consistency = 1.0,
                                  pconsistency.threshold = 0.9,

@@ -8,15 +8,54 @@
 #' @return List with estimate and standard error.
 #' @importFrom survival coxph
 #' @export
-
 get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
+
+  # Validate inputs (keep your existing validation)
+  names_tocheck <- all.vars(cox.formula)
+  check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
+  check2 <- match(names_tocheck, check)
+  if (sum(!is.na(check2)) != length(names_tocheck)) {
+    stop("df_sg dataset NOT contain cox.formula variables")
+  }
+
+  # Fit model
+  fit <- suppressWarnings(
+    coxph(cox.formula, data = df_sg, model = FALSE, x = FALSE, y = FALSE, robust = TRUE, init = cox_initial)
+  )
+
+  # OPTIMIZATION: Call summary() once, cache result
+  fit_sum <- summary(fit)
+  coef_matrix <- fit_sum$coefficients
+
+  # Extract coefficients
+  bhat <- coef_matrix[, "coef"]
+
+  # Extract appropriate SE
+  if (est.loghr) {
+    est_obs <- bhat
+    se_obs <- coef_matrix[, "robust se"]
+  } else {
+    est_obs <- exp(bhat)
+    se_obs <- exp(bhat) * coef_matrix[, "robust se"]
+  }
+
+  return(list(est_obs = est_obs, se_obs = se_obs))
+}
+
+
+
+
+get_Cox_sg_legacy <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
   names_tocheck <- all.vars(cox.formula)
   check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
   check2 <- match(names_tocheck, check)
   if (sum(!is.na(check2)) != length(names_tocheck)) stop("df_sg dataset NOT contain cox.formula variables")
   # Fit Cox model with robust standard errors
-  fit <- suppressWarnings(suppressMessages(coxph(cox.formula, data = df_sg, robust = TRUE, init = cox_initial)))
+
+  fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE, init = cox_initial))$coefficients
+
   fit <- summary(fit)$coefficients
+
   # log(hr) parameters
   if (est.loghr) {
     bhat <- c(fit[, "coef"])
@@ -257,64 +296,5 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   return(out)
 }
 
-#' Build Cox Model Formula
-#'
-#' Constructs a Cox model formula from variable names.
-#'
-#' @param outcome.name Character. Name of outcome variable.
-#' @param event.name Character. Name of event indicator variable.
-#' @param treat.name Character. Name of treatment variable.
-#' @return An R formula object for Cox regression.
-#' @export
-
-build_cox_formula <- function(outcome.name, event.name, treat.name) {
-  sf <- paste0("Surv(", outcome.name, ",", event.name, ") ~ ", treat.name)
-  as.formula(sf)
-}
-
-#' Fit Cox Models for Subgroups
-#'
-#' Fits Cox models for two subgroups defined by treatment recommendation.
-#'
-#' @param df Data frame.
-#' @param formula Cox model formula.
-#' @return List with HR and SE for each subgroup.
-#' @export
-
-fit_cox_models <- function(df, formula) {
-  fitH <- get_Cox_sg(df_sg = subset(df, treat.recommend == 0), cox.formula = formula)
-  fitHc <- get_Cox_sg(df_sg = subset(df, treat.recommend == 1), cox.formula = formula)
-  list(H_obs = fitH$est_obs, seH_obs = fitH$se_obs, Hc_obs = fitHc$est_obs, seHc_obs = fitHc$se_obs)
-}
-
-
-#' Bootstrap Ystar Matrix
-#'
-#' Generates a bootstrap matrix for Ystar using parallel processing.
-#'
-#' @param df Data frame.
-#' @param nb_boots Integer. Number of bootstrap samples.
-#' @return Matrix of bootstrap samples.
-#' @importFrom foreach foreach
-#' @export
-
-bootstrap_ystar <- function(df, nb_boots) {
-  NN <- nrow(df)
-  # do not modify seed below it need to align with main bootstrap
-  # using manual seeding to allow reproducibility when qc-ing
-  set.seed(8316951)
-  foreach::foreach(
-    boot = seq_len(nb_boots),
-    .options.future = list(seed = TRUE),
-    .combine = "rbind",
-    .errorhandling = "pass"
-  ) %dofuture% {
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
-    df_boot <- df[in_boot, ]
-    df_boot$id_boot <- seq_len(nrow(df_boot))
-    ystar <- unlist(lapply(df$id, count.id, dfb = df_boot))
-    return(ystar)
-  }
-}
 
 
