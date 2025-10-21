@@ -48,10 +48,18 @@ devtools::document()
 
 devtools::load_all()
 
+
+devtools::install(force = TRUE)
+
+
 devtools::check()
 
 
+# Trying to fix corrupt package
 devtools::clean_dll()
+remove.packages("forestsearch")
+
+
 
 # Issue with trying to remove weightedSurv and replace with weightedsurv
 # Remove from search path and unload
