@@ -257,5 +257,64 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   return(out)
 }
 
+#' Build Cox Model Formula
+#'
+#' Constructs a Cox model formula from variable names.
+#'
+#' @param outcome.name Character. Name of outcome variable.
+#' @param event.name Character. Name of event indicator variable.
+#' @param treat.name Character. Name of treatment variable.
+#' @return An R formula object for Cox regression.
+#' @export
+
+build_cox_formula <- function(outcome.name, event.name, treat.name) {
+  sf <- paste0("Surv(", outcome.name, ",", event.name, ") ~ ", treat.name)
+  as.formula(sf)
+}
+
+#' Fit Cox Models for Subgroups
+#'
+#' Fits Cox models for two subgroups defined by treatment recommendation.
+#'
+#' @param df Data frame.
+#' @param formula Cox model formula.
+#' @return List with HR and SE for each subgroup.
+#' @export
+
+fit_cox_models <- function(df, formula) {
+  fitH <- get_Cox_sg(df_sg = subset(df, treat.recommend == 0), cox.formula = formula)
+  fitHc <- get_Cox_sg(df_sg = subset(df, treat.recommend == 1), cox.formula = formula)
+  list(H_obs = fitH$est_obs, seH_obs = fitH$se_obs, Hc_obs = fitHc$est_obs, seHc_obs = fitHc$se_obs)
+}
+
+
+#' Bootstrap Ystar Matrix
+#'
+#' Generates a bootstrap matrix for Ystar using parallel processing.
+#'
+#' @param df Data frame.
+#' @param nb_boots Integer. Number of bootstrap samples.
+#' @return Matrix of bootstrap samples.
+#' @importFrom foreach foreach
+#' @export
+
+bootstrap_ystar <- function(df, nb_boots) {
+  NN <- nrow(df)
+  # do not modify seed below it need to align with main bootstrap
+  # using manual seeding to allow reproducibility when qc-ing
+  set.seed(8316951)
+  foreach::foreach(
+    boot = seq_len(nb_boots),
+    .options.future = list(seed = TRUE),
+    .combine = "rbind",
+    .errorhandling = "pass"
+  ) %dofuture% {
+    in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    df_boot <- df[in_boot, ]
+    df_boot$id_boot <- seq_len(nrow(df_boot))
+    ystar <- unlist(lapply(df$id, count.id, dfb = df_boot))
+    return(ystar)
+  }
+}
 
 

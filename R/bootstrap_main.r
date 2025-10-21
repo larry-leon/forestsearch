@@ -7,12 +7,12 @@
 #' Two bias correction approaches are implemented:
 #' \enumerate{
 #'   \item \strong{Method 1 (Simple Optimism)}:
-#'     \deqn{H_{adj1} = H_{obs} - (H*_{*} - H*_{obs})}
-#'     where H*_{*} is the new subgroup HR on bootstrap data and
-#'     H*_{obs} is the new subgroup HR on original data.
+#'     \deqn{H_{adj1} = H_{obs} - (H^{*}_{*} - H^{*}_{obs})}
+#'     where H^{*}_{*} is the new subgroup HR on bootstrap data and
+#'     H^{*}_{obs} is the new subgroup HR on original data.
 #'
 #'   \item \strong{Method 2 (Double Bootstrap)}:
-#'     \deqn{H_{adj2} = 2 \times H_{obs} - (H_{*} + H*_{*} - H*_{obs})}
+#'     \deqn{H_{adj2} = 2 \times H_{obs} - (H_{*} + H^{*}_{*} - H^{*}_{obs})}
 #'     where H_{*} is the original subgroup HR on bootstrap data.
 #' }
 #'
