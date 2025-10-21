@@ -385,6 +385,10 @@ forestsearch <- function(df.analysis,
       silent = !details
     )
 
+  print(find.grps)
+
+
+
     # Check for errors and handle gracefully
     if (inherits(find.grps, "try-error")) {
       error_msg <- attr(find.grps, "condition")$message

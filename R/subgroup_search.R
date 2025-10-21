@@ -464,7 +464,7 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
 
   # Fit Cox model
   hr.cox <- try(
-    fit <- suppressWarnings(suppressMessages(survival::coxph(Surv(Y, E) ~ Treat, data = df.x, robust = FALSE))),
+    fit <- survival::coxph(Surv(Y, E) ~ Treat, data = df.x, robust = FALSE),
     fit <- summary(fit)$conf.int,
     silent = TRUE
   )
