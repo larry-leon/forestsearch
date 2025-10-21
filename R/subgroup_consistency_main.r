@@ -39,10 +39,10 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
     }
 
     hr <- try({
-      fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
+      fit <- suppressWarnings(suppressMessages(survival::coxph(survival::Surv(Y, Event) ~ Treat,
                              data = df,
                              init = cox_initial,
-                             robust = FALSE)
+                             robust = FALSE)))
       summary(fit)$conf.int[1, 1]
     }, silent = TRUE)
 
@@ -163,8 +163,8 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
     }
 
     # Fit models with error suppression
-    hr.split1 <- suppressWarnings(get_split_hr(df = df.x.split1, cox_initial = cox_init))
-    hr.split2 <- suppressWarnings(get_split_hr(df = df.x.split2, cox_initial = cox_init))
+    hr.split1 <- get_split_hr(df = df.x.split1, cox_initial = cox_init)
+    hr.split2 <- get_split_hr(df = df.x.split2, cox_initial = cox_init)
 
     # Return consistency flag
     if (!is.na(hr.split1) && !is.na(hr.split2)) {
