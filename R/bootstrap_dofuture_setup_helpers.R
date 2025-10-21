@@ -141,8 +141,6 @@ get_bootstrap_exports <- function() {
   unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
 }
 
-
-
 #' Ensure Required Packages Are Installed and Loaded
 #'
 #' Installs and loads required packages if not already available.
@@ -158,21 +156,6 @@ ensure_packages <- function(pkgs) {
     }
     library(pkg, character.only = TRUE)
   }
-}
-
-#' Format Confidence Interval for Estimates
-#'
-#' Formats confidence interval for estimates.
-#'
-#' @param estimates Data frame or data.table of estimates.
-#' @param col_names Character vector of column names for estimate, lower, upper.
-#' @return Character string formatted as \"estimate (lower, upper)\".
-#' @export
-
-format_CI <- function(estimates, col_names) {
-  resH <- estimates[, ..col_names]
-  Hstat <- round(unlist(resH[1, ]), 2)
-  paste0(Hstat[1], " (", Hstat[2], ",", Hstat[3], ")")
 }
 
 

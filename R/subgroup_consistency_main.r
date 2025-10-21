@@ -1,21 +1,3 @@
-# get_split_hr <- function(df, cox_initial = NULL) {
-#   if (nrow(df) < 2 || sum(df$Event) < 2) {
-#     return(NA_real_)
-#   }
-#
-#   hr <- try({
-#     fit <- survival::coxph(survival::Surv(Y, Event) ~ Treat,
-#                            data = df,
-#                            init = cox_initial,
-#                            robust = FALSE)
-#     summary(fit)$conf.int[1, 1]
-#   }, silent = TRUE)
-#
-#   if (inherits(hr, "try-error")) return(NA_real_)
-#   return(hr)
-# }
-
-
 
 #' Evaluate Single Subgroup for Consistency
 #'
@@ -278,7 +260,7 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
 }
 
 
-#' Subgroup Consistency Evaluation (REFACTORED WITH HELPER)
+#' Subgroup Consistency Evaluation
 #'
 #' Evaluates consistency of subgroups found in a survival analysis, using random
 #' splits and hazard ratio criteria. This refactored version uses a helper function
@@ -308,7 +290,7 @@ evaluate_subgroup_consistency <- function(m, index.Z, names.Z, df, found.hrs,
 #' @importFrom future.apply future_lapply
 #' @export
 
-subgroup.consistency.refactored <- function(df, hr.subgroups,
+subgroup.consistency <- function(df, hr.subgroups,
                                  hr.threshold = 1.0,
                                  hr.consistency = 1.0,
                                  pconsistency.threshold = 0.9,

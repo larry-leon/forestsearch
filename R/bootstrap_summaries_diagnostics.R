@@ -684,6 +684,720 @@ create_bootstrap_timing_plots <- function(results) {
 }
 
 
+#' Format Bootstrap Timing Table with gt
+#'
+#' Creates a publication-ready timing summary table from bootstrap results.
+#'
+#' @param timing_list List. Timing information from summarize_bootstrap_results()$timing
+#' @param nb_boots Integer. Number of bootstrap iterations
+#' @param boot_success_rate Numeric. Proportion of successful bootstraps
+#'
+#' @return A gt table object
+#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md cols_label tab_style cell_fill cell_text
+#' @export
+
+format_bootstrap_timing_table <- function(timing_list, nb_boots, boot_success_rate) {
+
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    stop("Package 'gt' is required for table formatting. Install with: install.packages('gt')")
+  }
+
+  if (is.null(timing_list)) {
+    stop("timing_list cannot be NULL")
+  }
+
+  # Extract components
+  overall <- timing_list$overall
+  iteration_stats <- timing_list$iteration_stats
+  fs_stats <- timing_list$fs_stats
+  overhead_stats <- timing_list$overhead_stats
+
+  # Build the data frame for the table
+  timing_rows <- list()
+
+  # =========================================================================
+  # SECTION 1: OVERALL TIMING
+  # =========================================================================
+  if (!is.null(overall)) {
+    timing_rows$overall <- data.frame(
+      Category = c("Overall", "", "", ""),
+      Metric = c(
+        "Total time",
+        "Average per boot",
+        "Successful boots",
+        "Projected for 1000 boots"
+      ),
+      Value = c(
+        sprintf("%.2f min (%.2f hrs)", overall$total_minutes, overall$total_hours),
+        sprintf("%.2f min (%.1f sec)", overall$avg_minutes_per_boot, overall$avg_seconds_per_boot),
+        sprintf("%d (%.1f%%)",
+                round(boot_success_rate * nb_boots),
+                boot_success_rate * 100),
+        if (nb_boots < 1000) {
+          projected_min <- overall$avg_minutes_per_boot * 1000
+          sprintf("%.2f min (%.2f hrs)", projected_min, projected_min / 60)
+        } else {
+          "—"
+        }
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 2: PER-ITERATION STATISTICS
+  # =========================================================================
+  if (!is.null(iteration_stats)) {
+    timing_rows$iteration <- data.frame(
+      Category = c("Per-Iteration", "", "", "", "", "", ""),
+      Metric = c(
+        "Mean",
+        "Median",
+        "Std Dev",
+        "Minimum",
+        "Maximum",
+        "25th percentile",
+        "75th percentile"
+      ),
+      Value = c(
+        sprintf("%.2f min (%.1f sec)",
+                iteration_stats$mean, iteration_stats$mean * 60),
+        sprintf("%.2f min (%.1f sec)",
+                iteration_stats$median, iteration_stats$median * 60),
+        sprintf("%.2f min", iteration_stats$sd),
+        sprintf("%.2f min", iteration_stats$min),
+        sprintf("%.2f min", iteration_stats$max),
+        sprintf("%.2f min", iteration_stats$q25),
+        sprintf("%.2f min", iteration_stats$q75)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 3: FORESTSEARCH TIMING
+  # =========================================================================
+  if (!is.null(fs_stats)) {
+    timing_rows$forestsearch <- data.frame(
+      Category = c("ForestSearch", "", "", "", ""),
+      Metric = c(
+        "Iterations with FS",
+        "Mean FS time",
+        "Median FS time",
+        "Total FS time",
+        "% of total time"
+      ),
+      Value = c(
+        sprintf("%d (%.1f%%)", fs_stats$n_runs, fs_stats$pct_runs),
+        sprintf("%.2f min (%.1f sec)", fs_stats$mean, fs_stats$mean * 60),
+        sprintf("%.2f min (%.1f sec)", fs_stats$median, fs_stats$median * 60),
+        sprintf("%.2f min", fs_stats$total),
+        sprintf("%.1f%%", fs_stats$total / overall$total_minutes * 100)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 4: OVERHEAD TIMING
+  # =========================================================================
+  if (!is.null(overhead_stats)) {
+    timing_rows$overhead <- data.frame(
+      Category = c("Overhead", "", "", ""),
+      Metric = c(
+        "Mean overhead",
+        "Median overhead",
+        "Total overhead",
+        "% of total time"
+      ),
+      Value = c(
+        sprintf("%.2f min (%.1f sec)",
+                overhead_stats$mean, overhead_stats$mean * 60),
+        sprintf("%.2f min (%.1f sec)",
+                overhead_stats$median, overhead_stats$median * 60),
+        sprintf("%.2f min", overhead_stats$total),
+        sprintf("%.1f%%", overhead_stats$pct_of_total)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 5: PERFORMANCE ASSESSMENT
+  # =========================================================================
+  if (!is.null(iteration_stats)) {
+    avg_sec <- overall$avg_seconds_per_boot
+
+    if (avg_sec < 5) {
+      performance <- "Excellent ✓✓✓"
+      perf_color <- "#d4edda"
+    } else if (avg_sec < 15) {
+      performance <- "Good ✓✓"
+      perf_color <- "#d1ecf1"
+    } else if (avg_sec < 30) {
+      performance <- "Acceptable ✓"
+      perf_color <- "#fff3cd"
+    } else if (avg_sec < 60) {
+      performance <- "Slow ⚠"
+      perf_color <- "#f8d7da"
+    } else {
+      performance <- "Very Slow ⚠⚠"
+      perf_color <- "#f8d7da"
+    }
+
+    timing_rows$performance <- data.frame(
+      Category = c("Performance", ""),
+      Metric = c(
+        "Rating",
+        "Speed"
+      ),
+      Value = c(
+        performance,
+        sprintf("%.1f sec/iteration", avg_sec)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 6: COMBINE ALL ROWS AND CREATE GT TABLE
+  # =========================================================================
+
+  timing_df <- do.call(rbind, timing_rows)
+  rownames(timing_df) <- NULL
+
+  # Create the gt table
+  tbl <- timing_df |>
+    gt::gt() |>
+
+    # Title and subtitle
+    gt::tab_header(
+      title = gt::md("**Bootstrap Timing Analysis**"),
+      subtitle = sprintf("%d iterations (%.1f%% successful)",
+                         nb_boots, boot_success_rate * 100)
+    ) |>
+
+    # Column labels
+    gt::cols_label(
+      Category = "Category",
+      Metric = "Metric",
+      Value = "Value"
+    ) |>
+
+    # Style the category column (bold and slight background)
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = "#f8f9fa"),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(
+        columns = Category,
+        rows = Category %in% c("Overall", "Per-Iteration", "ForestSearch",
+                               "Overhead", "Performance")
+      )
+    ) |>
+
+    # Highlight performance row if it exists
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = if (!is.null(iteration_stats)) perf_color else "#ffffff"),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(
+        columns = c(Metric, Value),
+        rows = Category == "Performance"
+      )
+    )
+
+  # =========================================================================
+  # SECTION 7: ADD EXPLANATORY FOOTNOTES
+  # =========================================================================
+
+  tbl <- tbl |>
+    gt::tab_footnote(
+      footnote = gt::md("**Overall**: Total time includes all bootstrap iterations plus Ystar matrix generation"),
+      locations = gt::cells_body(columns = Category, rows = Category == "Overall")
+    )
+
+  if (!is.null(fs_stats)) {
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md("**ForestSearch**: Time spent running subgroup search (successful iterations only)"),
+        locations = gt::cells_body(columns = Category, rows = Category == "ForestSearch")
+      )
+  }
+
+  if (!is.null(overhead_stats)) {
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md("**Overhead**: Time for Cox models, bias correction, and data management"),
+        locations = gt::cells_body(columns = Category, rows = Category == "Overhead")
+      )
+  }
+
+  # =========================================================================
+  # SECTION 8: ADD RECOMMENDATIONS IF PERFORMANCE IS SLOW
+  # =========================================================================
+
+  if (!is.null(iteration_stats) && overall$avg_seconds_per_boot > 30) {
+    recommendations <- "**Recommendations for improvement:**\n"
+
+    if (!is.null(fs_stats) && fs_stats$mean > 0.5) {
+      recommendations <- paste0(recommendations,
+                                "• Consider reducing `max.minutes` in forestsearch\n",
+                                "• Consider reducing `maxk` if currently > 2\n"
+      )
+    }
+
+    if (nb_boots > 500) {
+      recommendations <- paste0(recommendations,
+                                "• Consider reducing `nb_boots` for initial testing\n"
+      )
+    }
+
+    recommendations <- paste0(recommendations,
+                              "• Ensure sufficient parallel workers are allocated"
+    )
+
+    tbl <- tbl |>
+      gt::tab_source_note(
+        source_note = gt::md(recommendations)
+      )
+  }
+
+  # =========================================================================
+  # SECTION 9: FINAL STYLING
+  # =========================================================================
+
+  tbl <- tbl |>
+    gt::tab_options(
+      table.border.top.style = "solid",
+      table.border.top.width = gt::px(3),
+      table.border.top.color = "#333333",
+      heading.border.bottom.style = "solid",
+      heading.border.bottom.width = gt::px(2),
+      heading.border.bottom.color = "#333333",
+      column_labels.border.bottom.style = "solid",
+      column_labels.border.bottom.width = gt::px(2),
+      column_labels.border.bottom.color = "#333333",
+      table.font.size = gt::px(13),
+      heading.align = "left"
+    )
+
+  return(tbl)
+}
+
+
+#' Format Bootstrap Diagnostics Table with gt
+#'
+#' Creates a publication-ready diagnostics table from bootstrap results,
+#' showing success rates and quality metrics.
+#'
+#' @param diagnostics List. Diagnostics information from summarize_bootstrap_results()
+#' @param nb_boots Integer. Number of bootstrap iterations
+#' @param results Data.table. Bootstrap results with bias-corrected estimates
+#' @param H_estimates List. H subgroup estimates
+#' @param Hc_estimates List. Hc subgroup estimates
+#'
+#' @return A gt table object
+#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md cols_label tab_style cell_fill cell_text cells_body cells_column_labels
+#' @export
+
+format_bootstrap_diagnostics_table <- function(diagnostics, nb_boots, results,
+                                               H_estimates = NULL, Hc_estimates = NULL) {
+
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    stop("Package 'gt' is required for table formatting. Install with: install.packages('gt')")
+  }
+
+  if (is.null(diagnostics)) {
+    stop("diagnostics cannot be NULL")
+  }
+
+  # =========================================================================
+  # SECTION 1: BOOTSTRAP SUCCESS METRICS
+  # =========================================================================
+
+  success_rate <- diagnostics$success_rate
+  n_successful <- diagnostics$n_successful
+  n_failed <- diagnostics$n_failed
+
+  # Determine success rate color coding
+  if (success_rate >= 0.90) {
+    success_color <- "#d4edda"  # Green
+    success_rating <- "Excellent ✓✓✓"
+  } else if (success_rate >= 0.75) {
+    success_color <- "#d1ecf1"  # Blue
+    success_rating <- "Good ✓✓"
+  } else if (success_rate >= 0.50) {
+    success_color <- "#fff3cd"  # Yellow
+    success_rating <- "Acceptable ✓"
+  } else if (success_rate >= 0.25) {
+    success_color <- "#f8d7da"  # Light red
+    success_rating <- "Poor ⚠"
+  } else {
+    success_color <- "#f8d7da"  # Red
+    success_rating <- "Very Poor ⚠⚠"
+  }
+
+  diagnostics_rows <- list()
+
+  # Success metrics
+  diagnostics_rows$success <- data.frame(
+    Category = c("Success Rate", "", "", ""),
+    Metric = c(
+      "Total iterations",
+      "Successful subgroup ID",
+      "Failed to find subgroup",
+      "Success rating"
+    ),
+    Value = c(
+      sprintf("%d", nb_boots),
+      sprintf("%d (%.1f%%)", n_successful, success_rate * 100),
+      sprintf("%d (%.1f%%)", n_failed, (1 - success_rate) * 100),
+      success_rating
+    ),
+    stringsAsFactors = FALSE
+  )
+
+  # =========================================================================
+  # SECTION 2: BIAS-CORRECTED ESTIMATES QUALITY
+  # =========================================================================
+
+  if (!is.null(H_estimates) && !is.null(Hc_estimates)) {
+
+    # Calculate bias correction impact
+    H_bias_impact <- abs(H_estimates$H2 - H_estimates$H0) / H_estimates$H0 * 100
+    Hc_bias_impact <- abs(Hc_estimates$H2 - Hc_estimates$H0) / Hc_estimates$H0 * 100
+
+    # Calculate CI widths
+    H_ci_width_raw <- H_estimates$H0_upper - H_estimates$H0_lower
+    H_ci_width_bc <- H_estimates$H2_upper - H_estimates$H2_lower
+    Hc_ci_width_raw <- Hc_estimates$H0_upper - Hc_estimates$H0_lower
+    Hc_ci_width_bc <- Hc_estimates$H2_upper - Hc_estimates$H2_lower
+
+    diagnostics_rows$estimates_H <- data.frame(
+      Category = c("Subgroup H (Questionable)", "", "", ""),
+      Metric = c(
+        "Unadjusted estimate",
+        "Bias-corrected estimate",
+        "Bias correction impact",
+        "CI width change"
+      ),
+      Value = c(
+        sprintf("%.2f (%.2f, %.2f)",
+                H_estimates$H0, H_estimates$H0_lower, H_estimates$H0_upper),
+        sprintf("%.2f (%.2f, %.2f)",
+                H_estimates$H2, H_estimates$H2_lower, H_estimates$H2_upper),
+        sprintf("%.1f%%", H_bias_impact),
+        sprintf("%.2f → %.2f", H_ci_width_raw, H_ci_width_bc)
+      ),
+      stringsAsFactors = FALSE
+    )
+
+    diagnostics_rows$estimates_Hc <- data.frame(
+      Category = c("Subgroup Hc (Recommend)", "", "", ""),
+      Metric = c(
+        "Unadjusted estimate",
+        "Bias-corrected estimate",
+        "Bias correction impact",
+        "CI width change"
+      ),
+      Value = c(
+        sprintf("%.2f (%.2f, %.2f)",
+                Hc_estimates$H0, Hc_estimates$H0_lower, Hc_estimates$H0_upper),
+        sprintf("%.2f (%.2f, %.2f)",
+                Hc_estimates$H2, Hc_estimates$H2_lower, Hc_estimates$H2_upper),
+        sprintf("%.1f%%", Hc_bias_impact),
+        sprintf("%.2f → %.2f", Hc_ci_width_raw, Hc_ci_width_bc)
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # =========================================================================
+  # SECTION 3: BOOTSTRAP DISTRIBUTION QUALITY METRICS
+  # =========================================================================
+
+  # Calculate quality metrics from bootstrap distribution
+  if (!is.null(results)) {
+
+    # For H subgroup
+    H_valid <- results$H_biasadj_2[!is.na(results$H_biasadj_2)]
+    if (length(H_valid) > 0) {
+      H_mean <- mean(H_valid)
+      H_sd <- sd(H_valid)
+      H_cv <- (H_sd / abs(H_mean)) * 100
+      H_skew <- calculate_skewness(H_valid)
+
+      diagnostics_rows$quality_H <- data.frame(
+        Category = c("Bootstrap Quality: H", "", "", ""),
+        Metric = c(
+          "Valid iterations",
+          "Mean (SD)",
+          "Coefficient of variation",
+          "Skewness"
+        ),
+        Value = c(
+          sprintf("%d", length(H_valid)),
+          sprintf("%.2f (%.2f)", H_mean, H_sd),
+          sprintf("%.1f%%", H_cv),
+          sprintf("%.2f", H_skew)
+        ),
+        stringsAsFactors = FALSE
+      )
+    }
+
+    # For Hc subgroup
+    Hc_valid <- results$Hc_biasadj_2[!is.na(results$Hc_biasadj_2)]
+    if (length(Hc_valid) > 0) {
+      Hc_mean <- mean(Hc_valid)
+      Hc_sd <- sd(Hc_valid)
+      Hc_cv <- (Hc_sd / abs(Hc_mean)) * 100
+      Hc_skew <- calculate_skewness(Hc_valid)
+
+      diagnostics_rows$quality_Hc <- data.frame(
+        Category = c("Bootstrap Quality: Hc", "", "", ""),
+        Metric = c(
+          "Valid iterations",
+          "Mean (SD)",
+          "Coefficient of variation",
+          "Skewness"
+        ),
+        Value = c(
+          sprintf("%d", length(Hc_valid)),
+          sprintf("%.2f (%.2f)", Hc_mean, Hc_sd),
+          sprintf("%.1f%%", Hc_cv),
+          sprintf("%.2f", Hc_skew)
+        ),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  # =========================================================================
+  # SECTION 4: SEARCH PERFORMANCE METRICS (if available)
+  # =========================================================================
+
+  if (!is.null(results) && "max_sg_est" %in% names(results)) {
+
+    max_sg_valid <- results$max_sg_est[!is.na(results$max_sg_est)]
+    L_valid <- results$L[!is.na(results$L)]
+    max_count_valid <- results$max_count[!is.na(results$max_count)]
+
+    if (length(max_sg_valid) > 0) {
+      diagnostics_rows$search <- data.frame(
+        Category = c("Search Performance", "", "", ""),
+        Metric = c(
+          "Mean max HR found",
+          "Mean factors evaluated",
+          "Mean combinations tried",
+          "Proportion at maxk"
+        ),
+        Value = c(
+          sprintf("%.2f (%.2f)", mean(max_sg_valid), sd(max_sg_valid)),
+          sprintf("%.1f", mean(L_valid)),
+          sprintf("%.0f", mean(max_count_valid)),
+          if ("prop_maxk" %in% names(results)) {
+            sprintf("%.1f%%", mean(results$prop_maxk, na.rm = TRUE) * 100)
+          } else {
+            "—"
+          }
+        ),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  # =========================================================================
+  # SECTION 5: COMBINE AND CREATE GT TABLE
+  # =========================================================================
+
+  diagnostics_df <- do.call(rbind, diagnostics_rows)
+  rownames(diagnostics_df) <- NULL
+
+  # Create the gt table
+  tbl <- diagnostics_df |>
+    gt::gt() |>
+
+    # Title and subtitle
+    gt::tab_header(
+      title = gt::md("**Bootstrap Diagnostics Summary**"),
+      subtitle = sprintf("Analysis of %d bootstrap iterations", nb_boots)
+    ) |>
+
+    # Column labels
+    gt::cols_label(
+      Category = "Category",
+      Metric = "Metric",
+      Value = "Value"
+    ) |>
+
+    # Style category rows (bold and background)
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = "#f8f9fa"),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(
+        columns = Category,
+        rows = Category %in% c(
+          "Success Rate",
+          "Subgroup H (Questionable)",
+          "Subgroup Hc (Recommend)",
+          "Bootstrap Quality: H",
+          "Bootstrap Quality: Hc",
+          "Search Performance"
+        )
+      )
+    ) |>
+
+    # Highlight success rating row
+    gt::tab_style(
+      style = list(
+        gt::cell_fill(color = success_color),
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(
+        columns = c(Metric, Value),
+        rows = Metric == "Success rating"
+      )
+    )
+
+  # =========================================================================
+  # SECTION 6: ADD EXPLANATORY FOOTNOTES
+  # =========================================================================
+
+  tbl <- tbl |>
+    gt::tab_footnote(
+      footnote = gt::md("**Success Rate**: Proportion of bootstrap samples where ForestSearch identified a valid subgroup"),
+      locations = gt::cells_body(columns = Category, rows = Category == "Success Rate")
+    )
+
+  if (!is.null(H_estimates)) {
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md("**Bias Correction Impact**: Percentage change from unadjusted to bias-corrected estimate"),
+        locations = gt::cells_body(columns = Metric, rows = Metric == "Bias correction impact")
+      ) |>
+      gt::tab_footnote(
+        footnote = gt::md("**CI Width Change**: Confidence interval width before → after bias correction"),
+        locations = gt::cells_body(columns = Metric, rows = Metric == "CI width change")
+      )
+  }
+
+  if (!is.null(results) && length(H_valid) > 0) {
+    tbl <- tbl |>
+      gt::tab_footnote(
+        footnote = gt::md("**Coefficient of Variation**: Standard deviation as % of mean (lower is better)"),
+        locations = gt::cells_body(columns = Metric, rows = Metric == "Coefficient of variation")
+      ) |>
+      gt::tab_footnote(
+        footnote = gt::md("**Skewness**: Measure of asymmetry (0 = symmetric, |skew| < 1 is generally good)"),
+        locations = gt::cells_body(columns = Metric, rows = Metric == "Skewness")
+      )
+  }
+
+  # =========================================================================
+  # SECTION 7: ADD INTERPRETATION GUIDANCE
+  # =========================================================================
+
+  interpretation <- "**Interpretation Guide:**\n\n"
+
+  if (success_rate >= 0.90) {
+    interpretation <- paste0(interpretation,
+                             "✓ **Excellent stability**: Subgroup is consistently identified across bootstrap samples.\n"
+    )
+  } else if (success_rate >= 0.75) {
+    interpretation <- paste0(interpretation,
+                             "✓ **Good stability**: Subgroup is reliably identified in most bootstrap samples.\n"
+    )
+  } else if (success_rate >= 0.50) {
+    interpretation <- paste0(interpretation,
+                             "⚠ **Moderate stability**: Subgroup identification is somewhat unstable. Consider:\n",
+                             "  • Increasing sample size\n",
+                             "  • Adjusting consistency threshold\n",
+                             "  • Examining failed iterations for patterns\n"
+    )
+  } else {
+    interpretation <- paste0(interpretation,
+                             "⚠ **Poor stability**: Subgroup is rarely identified. Consider:\n",
+                             "  • Reviewing subgroup criteria (n.min, hr.threshold)\n",
+                             "  • Increasing sample size significantly\n",
+                             "  • Simplifying search (reduce maxk)\n",
+                             "  • Examining if subgroup is real or spurious\n"
+    )
+  }
+
+  # Add CV interpretation
+  if (!is.null(results) && length(H_valid) > 0) {
+    if (H_cv < 10) {
+      interpretation <- paste0(interpretation,
+                               "\n✓ **Low variability**: Bootstrap estimates are precise (CV < 10%).\n"
+      )
+    } else if (H_cv < 25) {
+      interpretation <- paste0(interpretation,
+                               "\n✓ **Moderate variability**: Bootstrap estimates show acceptable precision.\n"
+      )
+    } else {
+      interpretation <- paste0(interpretation,
+                               "\n⚠ **High variability**: Bootstrap estimates are imprecise (CV ≥ 25%). ",
+                               "Consider increasing nb_boots or sample size.\n"
+      )
+    }
+  }
+
+  tbl <- tbl |>
+    gt::tab_source_note(
+      source_note = gt::md(interpretation)
+    )
+
+  # =========================================================================
+  # SECTION 8: FINAL STYLING
+  # =========================================================================
+
+  tbl <- tbl |>
+    gt::tab_options(
+      table.border.top.style = "solid",
+      table.border.top.width = gt::px(3),
+      table.border.top.color = "#333333",
+      heading.border.bottom.style = "solid",
+      heading.border.bottom.width = gt::px(2),
+      heading.border.bottom.color = "#333333",
+      column_labels.border.bottom.style = "solid",
+      column_labels.border.bottom.width = gt::px(2),
+      column_labels.border.bottom.color = "#333333",
+      table.font.size = gt::px(13),
+      heading.align = "left"
+    )
+
+  return(tbl)
+}
+
+#' Calculate Skewness
+#'
+#' Helper function to calculate sample skewness
+#'
+#' @param x Numeric vector
+#' @return Numeric skewness value
+#' @keywords internal
+
+calculate_skewness <- function(x) {
+  x <- x[!is.na(x)]
+  n <- length(x)
+  if (n < 3) return(NA)
+
+  x_bar <- mean(x)
+  s <- sd(x)
+
+  if (s == 0) return(0)
+
+  skew <- (n / ((n - 1) * (n - 2))) * sum(((x - x_bar) / s)^3)
+  return(skew)
+}
+
+
+
 #' Enhanced Bootstrap Results Summary (WITH TIMING)
 #'
 #' Creates comprehensive output including formatted table, diagnostic plots,
@@ -881,6 +1595,30 @@ summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
       rownames(timing_summary_table) <- NULL
     }
   }
+
+  # =========================================================================
+  # CREATE FORMATTED GT TIMING TABLE
+  # =========================================================================
+
+  timing_table_gt <- NULL
+  if (requireNamespace("gt", quietly = TRUE)) {
+    timing_table_gt <- tryCatch({
+      format_bootstrap_timing_table(
+        timing_list = list(
+          overall = overall_timing,
+          iteration_stats = iteration_stats,
+          fs_stats = fs_stats,
+          overhead_stats = overhead_stats
+        ),
+        nb_boots = nb_boots,
+        boot_success_rate = boot_success_rate
+      )
+    }, error = function(e) {
+      warning("Could not create gt timing table: ", e$message)
+      NULL
+    })
+  }
+
   # =========================================================================
   # SECTION 4: BOOTSTRAP DIAGNOSTICS
   # =========================================================================
@@ -897,6 +1635,27 @@ summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
     diagnostics$median_search_time = median(results$tmins_search, na.rm = TRUE)
     diagnostics$total_search_time = sum(results$tmins_search, na.rm = TRUE)
   }
+
+  # =========================================================================
+  # CREATE FORMATTED GT DIAGNOSTICS TABLE
+  # =========================================================================
+
+  diagnostics_table_gt <- NULL
+  if (requireNamespace("gt", quietly = TRUE)) {
+    diagnostics_table_gt <- tryCatch({
+      format_bootstrap_diagnostics_table(
+        diagnostics = diagnostics,
+        nb_boots = nb_boots,
+        results = results,
+        H_estimates = H_estimates,
+        Hc_estimates = Hc_estimates
+      )
+    }, error = function(e) {
+      warning("Could not create gt diagnostics table: ", e$message)
+      NULL
+    })
+  }
+
 
   # =========================================================================
   # SECTION 5: PRINT COMPREHENSIVE SUMMARY (WITH FIXED sprintf)
@@ -1076,6 +1835,7 @@ summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
   output <- list(
     table = formatted_table,
     diagnostics = diagnostics,
+    diagnostics_table_gt = diagnostics_table_gt,
     plots = plots
   )
 
@@ -1086,7 +1846,8 @@ summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
       iteration_stats = iteration_stats,
       fs_stats = fs_stats,
       overhead_stats = overhead_stats,
-      time_table = timing_summary_table
+      time_table = timing_summary_table,
+      time_table_gt = timing_table_gt
     )
   }
 
@@ -1096,6 +1857,11 @@ summarize_bootstrap_results <- function(boot_results, create_plots = FALSE,
 
 
 
+
+
+
+# THIS IS LEGACY VERSION to-be-removed
+# Remove
 #' Enhanced Bootstrap Results Summary (WITH TIMING)
 #'
 #' Creates comprehensive output including formatted table, diagnostic plots,

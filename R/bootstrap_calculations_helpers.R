@@ -1,78 +1,31 @@
-#' Fit Cox Model for Subgroup
+#' Bootstrap Ystar Matrix
 #'
-#' Fits a Cox model for a subgroup and returns estimate and standard error.
+#' Generates a bootstrap matrix for Ystar using parallel processing.
 #'
-#' @param df_sg Data frame for subgroup.
-#' @param cox.formula Cox model formula.
-#' @param est.loghr Logical. Is estimate on log(HR) scale?
-#' @return List with estimate and standard error.
-#' @importFrom survival coxph
+#' @param df Data frame.
+#' @param nb_boots Integer. Number of bootstrap samples.
+#' @return Matrix of bootstrap samples.
+#' @importFrom foreach foreach
 #' @export
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
 
-  # Validate inputs (keep your existing validation)
-  names_tocheck <- all.vars(cox.formula)
-  check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
-  check2 <- match(names_tocheck, check)
-  if (sum(!is.na(check2)) != length(names_tocheck)) {
-    stop("df_sg dataset NOT contain cox.formula variables")
+bootstrap_ystar <- function(df, nb_boots) {
+  NN <- nrow(df)
+  # do not modify seed below it need to align with main bootstrap
+  # using manual seeding to allow reproducibility when qc-ing
+  set.seed(8316951)
+  foreach::foreach(
+    boot = seq_len(nb_boots),
+    .options.future = list(seed = TRUE),
+    .combine = "rbind",
+    .errorhandling = "pass"
+  ) %dofuture% {
+    in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    df_boot <- df[in_boot, ]
+    df_boot$id_boot <- seq_len(nrow(df_boot))
+    ystar <- unlist(lapply(df$id, count.id, dfb = df_boot))
+    return(ystar)
   }
-
-  # Fit model
-  fit <- suppressWarnings(
-    coxph(cox.formula, data = df_sg, model = FALSE, x = FALSE, y = FALSE, robust = TRUE, init = cox_initial)
-  )
-
-  # OPTIMIZATION: Call summary() once, cache result
-  fit_sum <- summary(fit)
-  coef_matrix <- fit_sum$coefficients
-
-  # Extract coefficients
-  bhat <- coef_matrix[, "coef"]
-
-  # Extract appropriate SE
-  if (est.loghr) {
-    est_obs <- bhat
-    se_obs <- coef_matrix[, "robust se"]
-  } else {
-    est_obs <- exp(bhat)
-    se_obs <- exp(bhat) * coef_matrix[, "robust se"]
-  }
-
-  return(list(est_obs = est_obs, se_obs = se_obs))
 }
-
-
-
-
-get_Cox_sg_legacy <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
-  names_tocheck <- all.vars(cox.formula)
-  check <- unlist(lapply(names_tocheck, grep, names(df_sg), value = TRUE))
-  check2 <- match(names_tocheck, check)
-  if (sum(!is.na(check2)) != length(names_tocheck)) stop("df_sg dataset NOT contain cox.formula variables")
-  # Fit Cox model with robust standard errors
-
-  fit <- summary(coxph(cox.formula, data = df_sg, robust = TRUE, init = cox_initial))$coefficients
-
-  fit <- summary(fit)$coefficients
-
-  # log(hr) parameters
-  if (est.loghr) {
-    bhat <- c(fit[, "coef"])
-    est_obs <- bhat
-    se_obs <- c(fit[, "robust se"])
-  }
-  # Otherwise, hr
-  if (!est.loghr) {
-    bhat <- c(fit[, "coef"])
-    est_obs <- exp(bhat)
-    sebhat <- c(fit[, "robust se"])
-    se_obs <- est_obs * sebhat
-  }
-  return(list(est_obs = est_obs, se_obs = se_obs))
-}
-
-
 
 #' Count ID Occurrences in Bootstrap Sample
 #'
@@ -162,6 +115,23 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
     est = est
   ))
 }
+
+
+#' Format Confidence Interval for Estimates
+#'
+#' Formats confidence interval for estimates.
+#'
+#' @param estimates Data frame or data.table of estimates.
+#' @param col_names Character vector of column names for estimate, lower, upper.
+#' @return Character string formatted as \"estimate (lower, upper)\".
+#' @export
+
+format_CI <- function(estimates, col_names) {
+  resH <- estimates[, ..col_names]
+  Hstat <- round(unlist(resH[1, ]), 2)
+  paste0(Hstat[1], " (", Hstat[2], ",", Hstat[3], ")")
+}
+
 
 #' Bootstrap Confidence Interval and Bias Correction Results
 #'

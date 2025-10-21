@@ -449,7 +449,7 @@ forestsearch <- function(df.analysis,
       # Run subgroup consistency analysis with error handling
       grp.consistency <- try(
         do.call(
-          subgroup.consistency.refactored,
+          subgroup.consistency,
           filter_call_args(
             args_call_all,
             subgroup.consistency,

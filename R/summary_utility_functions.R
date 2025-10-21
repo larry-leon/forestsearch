@@ -46,23 +46,6 @@ prepare_subgroup_data <- function(df, SG_flag, est.scale, treat.name) {
   list(df_0 = df_0, df_1 = df_1, treat.name = treat.name)
 }
 
-#' Cox model summary for subgroup
-#'
-#' Calculates hazard ratio and confidence interval for a subgroup using Cox regression.
-#'
-#' @param Y Numeric vector of outcome.
-#' @param E Numeric vector of event indicators.
-#' @param Treat Numeric vector of treatment indicators.
-#' @param Strata Vector of strata (optional).
-#' @return Character string with formatted HR and CI.
-#' @importFrom survival coxph Surv
-#' @export
-
-cox_summary <- function(Y, E, Treat, Strata) {
-  fit <- survival::coxph(survival::Surv(Y, E) ~ Treat + strata(Strata), robust = TRUE)
-  hr <- summary(fit)$conf.int[c(1, 3, 4)]
-  hrCI_format(hr)
-}
 
 #' KM median summary for subgroup
 #'
@@ -190,8 +173,85 @@ rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name
   return(list(tau=taumax, rmst = signif(rmst,2), rmst1 = signif(rmst1,2), rmst0 = signif(rmst0,2)))
 }
 
+#' Analyze subgroup for summary table (OPTIMIZED)
+#'
+#' Analyzes a subgroup and returns formatted results for summary table.
+#' Uses optimized cox_summary() and reduces redundant calculations.
+#'
+#' @param df_sub Data frame for subgroup.
+#' @param outcome.name Character. Name of outcome variable.
+#' @param event.name Character. Name of event indicator variable.
+#' @param treat.name Character. Name of treatment variable.
+#' @param strata.name Character. Name of strata variable (optional).
+#' @param subgroup_name Character. Subgroup name.
+#' @param hr_a Character. Adjusted hazard ratio (optional).
+#' @param potentialOutcome.name Character. Name of potential outcome variable (optional).
+#' @param return_medians Logical. Use medians or RMST.
+#' @param N Integer. Total sample size.
+#' @return Character vector of results.
+#' @export
 
-#' Analyze subgroup for summary table
+analyze_subgroup <- function(df_sub, outcome.name, event.name, treat.name,
+                             strata.name, subgroup_name, hr_a,
+                             potentialOutcome.name, return_medians, N) {
+
+  # =========================================================================
+  # OPTIMIZATION 1: Extract vectors once (avoid repeated $ operations)
+  # =========================================================================
+
+  Y <- df_sub[[outcome.name]]
+  E <- df_sub[[event.name]]
+  Treat <- df_sub[[treat.name]]
+  Strata <- if (is.null(strata.name)) {
+    rep("All", length(Y))
+  } else {
+    df_sub[[strata.name]]
+  }
+
+  # =========================================================================
+  # OPTIMIZATION 2: Use optimized cox_summary()
+  # =========================================================================
+
+  hr <- cox_summary(Y, E, Treat, Strata,
+                    use_strata = !is.null(strata.name),
+                    return_format = "formatted")
+
+  # =========================================================================
+  # OPTIMIZATION 3: Parallel independent calculations
+  # =========================================================================
+
+  # KM medians (unchanged, already efficient)
+  meds <- km_summary(Y, E, Treat)
+
+  # RMST calculation (unchanged)
+  rmst <- rmst_calculation(df_sub, outcome.name, event.name, treat.name)
+
+  # Counts (unchanged)
+  counts <- calculate_counts(Y, E, Treat, N)
+
+  # Potential outcome HR (only if needed)
+  hr_po <- if (!is.null(potentialOutcome.name)) {
+    calculate_potential_hr(df_sub, potentialOutcome.name)
+  } else {
+    NA
+  }
+
+  # =========================================================================
+  # OPTIMIZATION 4: Efficient assignment based on return_medians
+  # =========================================================================
+
+  m1 <- if (return_medians) meds[2] else rmst$rmst1
+  m0 <- if (return_medians) meds[1] else rmst$rmst0
+
+  # Return formatted results
+  format_results(subgroup_name, counts$n, counts$n_treat, counts$d,
+                 m1, m0, rmst$rmst, hr, hr_a, hr_po, return_medians)
+}
+
+
+
+
+#' Analyze subgroup for summary table (Legacy, to-be-removed)
 #'
 #' Analyzes a subgroup and returns formatted results for summary table.
 #'
@@ -208,7 +268,7 @@ rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name
 #' @return Character vector of results.
 #' @export
 
-analyze_subgroup <- function(df_sub, outcome.name, event.name, treat.name, strata.name, subgroup_name, hr_a, potentialOutcome.name, return_medians, N) {
+analyze_subgroup_legacy <- function(df_sub, outcome.name, event.name, treat.name, strata.name, subgroup_name, hr_a, potentialOutcome.name, return_medians, N) {
   Y <- df_sub[, outcome.name]
   E <- df_sub[, event.name]
   Treat <- df_sub[, treat.name]

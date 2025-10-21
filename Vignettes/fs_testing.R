@@ -36,12 +36,14 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 10, d1.min = 10,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="sequential", workers = 12, show_message = TRUE)
+                   parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
                    )
 })
 
 # reset workeres
 plan("sequential")
+
+
 
 library(patchwork)
 
@@ -50,7 +52,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 5
+NB <- 100
 
 t.start <- proc.time()[3]
 
@@ -65,8 +67,24 @@ cat("Projected minutes for 1000",c(t.min*(1000/NB)),"\n")
 
 
 # Access the new tables
-diagnostics_df <- fs_bc$summary$diagnostics_table
-timing_df <- fs_bc$summary$timing_table
+#diagnostics_df <- fs_bc$summary$diagnostics_table
+
+
+fs_bc$summary$table
+
+# View the diagnostics table
+fs_bc$summary$diagnostics_table_gt
+
+
+#View the formatted timing table
+fs_bc$summary$timing$time_table_gt
+
+
+
+
+# Or access it directly
+print(fs_bc$summary$timing$time_table_gt)
+
 
 # View as data frames
 #print(diagnostics_df)
@@ -74,7 +92,7 @@ timing_df <- fs_bc$summary$timing_table
 
 # Or convert to gt tables for nice formatting
 library(gt)
-gt::gt(diagnostics_df)
+#gt::gt(diagnostics_df)
 gt::gt(timing_df)
 
 
