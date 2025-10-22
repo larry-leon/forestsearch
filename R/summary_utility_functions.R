@@ -144,7 +144,7 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 
 rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name = "treat"){
   if (!requireNamespace("weightedsurv", quietly = TRUE)) {
-    stop("Package 'weightedsurv' needed for this function to work. Please install it install_github('larry-leon/weightedSurv').")
+    stop("Package 'weightedsurv' needed for this function to work. Please install it install_github('larry-leon/weightedsurv').")
   }
   dfcount <- weightedsurv::df_counting(df, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c("treat","control"), by.risk = 1)
   taumax <- with(dfcount, max(at_points[ybar1 > 0 & ybar0 >0]))

@@ -64,11 +64,11 @@ extract_subgroup <- function(df, top_result, index.Z, names.Z, confs_labels) {
 
 #' Plot Subgroup Survival Curves
 #'
-#' Plots weighted Kaplan-Meier survival curves for a specified subgroup and its complement using the \pkg{weightedSurv} package.
+#' Plots weighted Kaplan-Meier survival curves for a specified subgroup and its complement using the \pkg{weightedsurv} package.
 #'
 #' @param df.sub A data frame containing data for the subgroup of interest.
 #' @param df.subC A data frame containing data for the complement subgroup.
-#' @param by.risk Numeric. The risk interval for plotting (passed to \code{weightedSurv::df_counting}).
+#' @param by.risk Numeric. The risk interval for plotting (passed to \code{weightedsurv::df_counting}).
 #' @param confs_labels Named character vector. Covariate label mapping (not used directly in this function, but may be used for labeling).
 #' @param this.1_label Character. Label for the subgroup being plotted.
 #' @param top_result Data frame row. The top subgroup result row, expected to contain a \code{Pcons} column for consistency criteria.
