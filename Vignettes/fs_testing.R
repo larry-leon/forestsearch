@@ -75,10 +75,10 @@ library(patchwork)
 
 options(warn = -1)
 
-output_dir <- "results/"
+output_dir <- "vignettes/results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 20000
+NB <- 15000
 
 t.start <- proc.time()[3]
 
@@ -103,8 +103,10 @@ if (save_results) {
 
 # SG estimates
 fs_bc$summary$table
+
 # View the diagnostics table
 fs_bc$summary$diagnostics_table_gt
+
 #View the formatted timing table
 fs_bc$summary$timing$time_table_gt
 
