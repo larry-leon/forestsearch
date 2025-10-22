@@ -17,19 +17,22 @@ usethis::use_mit_license("Larry Leon")
 # desc::desc_set_dep("grf", file = "DESCRIPTION")
 # desc::desc_set_dep("policytree", file = "DESCRIPTION")
 
-pkgs <- c("data.table", "foreach", "future", "doFuture", "future.apply", "glmnet", "gt", "randomForest", "stringr", "survival", "grf", "ggplot2", "policytree", "DiagrammeR",
-          "future.callr")
+pkgs <- c("data.table", "foreach", "future", "doFuture", "future.apply", "glmnet", "gt", "randomForest", "stringr", "survival", "grf",
+          "ggplot2", "policytree", "future.callr")
 for (pkg in pkgs) {
   desc::desc_set_dep(pkg, file = "DESCRIPTION")
 }
 
 #desc::desc_set_dep("weightedSurv", type = "Suggests", file = "DESCRIPTION")
 
-desc::desc_set_dep(package = "weightedsurv", type = "Imports")
+#desc::desc_set_dep(package = "weightedsurv", type = "Imports")
 
 desc::desc_set_remotes("larry-leon/weightedsurv")
 
 usethis::use_package("patchwork", type = "Suggests")
+
+# DiagrammeR for grf graph
+usethis::use_package("DiagrammeR", type = "Suggests")
 
 usethis::use_package("rlang")
 

@@ -276,15 +276,11 @@ forestsearch <- function(df.analysis,
         # If subgroup found
         # Check for DiagrammeR availability
         if (requireNamespace("DiagrammeR", quietly = TRUE) && plot.grf) {
-
-          #grf_plot <- plot(grf_res$tree, leaf.labels = c("Control", "Treat"))
-
           grf_plot <- try(plot(grf_res$tree, leaf.labels = c("Control", "Treat")), silent = TRUE)
           if (inherits(grf_plot, "try-error")) grf_plot <- NULL
 
 
         } else {
-          #warning("Skipping tree plot --> DiagrammeR packaged required to view tree graph")
           if (isTRUE(details)) {
             cat("DiagrammeR or not creating: skipping tree plot.\n")
           }
