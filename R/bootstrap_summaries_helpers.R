@@ -196,6 +196,15 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
 
 
 
+#' Create Bootstrap Diagnostic Plots
+#'
+#' @param results Data frame with bootstrap results
+#' @param H_estimates List with H subgroup estimates
+#' @param Hc_estimates List with Hc subgroup estimates
+#' @return List of ggplot2 objects
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_vline geom_point geom_abline labs theme_minimal theme element_text
+#' @importFrom rlang .data
+#' @keywords internal
 create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates) {
 
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -203,13 +212,13 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
   }
 
   # Plot 1: Bootstrap distribution of bias-corrected estimates H
-  p1 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_2)) +
+  p1 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$H_biasadj_2)) +
     ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
-    ggplot2::geom_vline(xintercept = c(log(H_estimates$H2),log(H_estimates$H0)), color = c("green","red"),
+    ggplot2::geom_vline(xintercept = c(log(H_estimates$H2), log(H_estimates$H0)),
+                        color = c("green", "red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
-      title = "Bootstrap Distribution of Bias-Corrected
-      log(hazard ratio): Subgroup H",
+      title = "Bootstrap Distribution of Bias-Corrected\nlog(hazard ratio): Subgroup H",
       subtitle = "Red line shows final bias-corrected estimate",
       x = "Log Hazard Ratio (bias-corrected)",
       y = "Frequency"
@@ -221,13 +230,13 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
     )
 
   # Plot 2: Bootstrap distribution of bias-corrected estimates Hc
-  p2 <- ggplot2::ggplot(results, ggplot2::aes(x = Hc_biasadj_2)) +
+  p2 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$Hc_biasadj_2)) +
     ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
-    ggplot2::geom_vline(xintercept = c(log(Hc_estimates$H2),log(Hc_estimates$H0)), color = c("green","red"),
+    ggplot2::geom_vline(xintercept = c(log(Hc_estimates$H2), log(Hc_estimates$H0)),
+                        color = c("green", "red"),
                         linetype = "dashed", linewidth = 1) +
     ggplot2::labs(
-      title = "Bootstrap Distribution of Bias-Corrected
-      log(hazard ratio): Subgroup Hc",
+      title = "Bootstrap Distribution of Bias-Corrected\nlog(hazard ratio): Subgroup Hc",
       subtitle = "Red line shows final bias-corrected estimate",
       x = "Log Hazard Ratio (bias-corrected)",
       y = "Frequency"
@@ -238,16 +247,8 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
       plot.subtitle = ggplot2::element_text(size = 11, color = "gray40")
     )
 
-
-
   # Plot 3: Bias correction impact
-  bias_data <- data.frame(
-    iteration = 1:nrow(results),
-    unadjusted = H_estimates$H0,
-    adjusted = results$H_biasadj_2
-  )
-
-  p3 <- ggplot2::ggplot(results, ggplot2::aes(x = H_biasadj_1, y = H_biasadj_2)) +
+  p3 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$H_biasadj_1, y = .data$H_biasadj_2)) +
     ggplot2::geom_point(alpha = 0.5, color = "#4472C4") +
     ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
     ggplot2::labs(
@@ -260,7 +261,7 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
       plot.title = ggplot2::element_text(face = "bold", size = 14)
     )
 
-  p4 <- ggplot2::ggplot(results, ggplot2::aes(x = Hc_biasadj_1, y = Hc_biasadj_2)) +
+  p4 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$Hc_biasadj_1, y = .data$Hc_biasadj_2)) +
     ggplot2::geom_point(alpha = 0.5, color = "#4472C4") +
     ggplot2::geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
     ggplot2::labs(
@@ -272,8 +273,6 @@ create_bootstrap_diagnostic_plots <- function(results, H_estimates, Hc_estimates
     ggplot2::theme(
       plot.title = ggplot2::element_text(face = "bold", size = 14)
     )
-
-
 
   list(
     H_distribution = p1,
@@ -505,13 +504,12 @@ summarize_bootstrap_timing <- function(boot_results) {
 
 #' Create Bootstrap Timing Plots
 #'
-#' Generates timing visualization plots for bootstrap analysis
-#'
 #' @param results Data.table of bootstrap results with timing columns
 #' @return List of ggplot objects
-#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_point
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_point geom_smooth geom_col scale_fill_manual geom_boxplot
+#' @importFrom rlang .data
+#' @importFrom stats median mean loess complete.cases
 #' @keywords internal
-
 create_bootstrap_timing_plots <- function(results) {
 
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
@@ -526,7 +524,7 @@ create_bootstrap_timing_plots <- function(results) {
 
   # Plot 1: Iteration timing distribution
   if (has_iteration_timing) {
-    p1 <- ggplot2::ggplot(results, ggplot2::aes(x = tmins_iteration)) +
+    p1 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$tmins_iteration)) +
       ggplot2::geom_histogram(bins = 30, fill = "#2E86AB", alpha = 0.7, color = "white") +
       ggplot2::geom_vline(xintercept = median(results$tmins_iteration, na.rm = TRUE),
                           color = "red", linetype = "dashed", linewidth = 1) +
@@ -552,7 +550,7 @@ create_bootstrap_timing_plots <- function(results) {
     fs_data <- results[!is.na(results$tmins_search), ]
 
     if (nrow(fs_data) > 0) {
-      p2 <- ggplot2::ggplot(fs_data, ggplot2::aes(x = tmins_search)) +
+      p2 <- ggplot2::ggplot(fs_data, ggplot2::aes(x = .data$tmins_search)) +
         ggplot2::geom_histogram(bins = 30, fill = "#A23B72", alpha = 0.7, color = "white") +
         ggplot2::geom_vline(xintercept = median(fs_data$tmins_search, na.rm = TRUE),
                             color = "red", linetype = "dashed", linewidth = 1) +
@@ -576,7 +574,7 @@ create_bootstrap_timing_plots <- function(results) {
 
   # Plot 3: Timing over iterations (to detect trends)
   if (has_iteration_timing) {
-    p3 <- ggplot2::ggplot(results, ggplot2::aes(x = boot_id, y = tmins_iteration)) +
+    p3 <- ggplot2::ggplot(results, ggplot2::aes(x = .data$boot_id, y = .data$tmins_iteration)) +
       ggplot2::geom_point(alpha = 0.5, color = "#2E86AB") +
       ggplot2::geom_smooth(method = "loess", color = "red", se = TRUE) +
       ggplot2::labs(
@@ -614,7 +612,7 @@ create_bootstrap_timing_plots <- function(results) {
         minutes = c(timing_data$forestsearch, timing_data$overhead)
       )
 
-      p4 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = boot_id, y = minutes, fill = component)) +
+      p4 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = .data$boot_id, y = .data$minutes, fill = .data$component)) +
         ggplot2::geom_col(position = "stack", alpha = 0.7) +
         ggplot2::scale_fill_manual(values = c("ForestSearch" = "#A23B72", "Overhead" = "#2E86AB")) +
         ggplot2::labs(
@@ -636,7 +634,7 @@ create_bootstrap_timing_plots <- function(results) {
   }
 
   # Plot 5: Box plot comparison
-  if (has_iteration_timing && has_search_timing) {
+  if (has_iteration_timing && has_search_timing && requireNamespace("tidyr", quietly = TRUE)) {
     timing_data <- data.frame(
       boot_id = results$boot_id,
       Total = results$tmins_iteration,
@@ -647,7 +645,7 @@ create_bootstrap_timing_plots <- function(results) {
     # Reshape for box plot
     timing_long <- tidyr::pivot_longer(
       timing_data,
-      cols = c(Total, ForestSearch, Overhead),
+      cols = c(.data$Total, .data$ForestSearch, .data$Overhead),
       names_to = "Component",
       values_to = "Minutes"
     )
@@ -656,7 +654,7 @@ create_bootstrap_timing_plots <- function(results) {
     timing_long <- timing_long[!is.na(timing_long$Minutes), ]
 
     if (nrow(timing_long) > 0) {
-      p5 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = Component, y = Minutes, fill = Component)) +
+      p5 <- ggplot2::ggplot(timing_long, ggplot2::aes(x = .data$Component, y = .data$Minutes, fill = .data$Component)) +
         ggplot2::geom_boxplot(alpha = 0.7) +
         ggplot2::scale_fill_manual(values = c(
           "Total" = "#2E86AB",
@@ -1380,6 +1378,7 @@ format_bootstrap_diagnostics_table <- function(diagnostics, nb_boots, results,
 #'
 #' @param x Numeric vector
 #' @return Numeric skewness value
+#' @importFrom stats sd
 #' @keywords internal
 
 calculate_skewness <- function(x) {
