@@ -31,6 +31,7 @@ desc::desc_set_remotes("larry-leon/weightedsurv")
 
 usethis::use_package("patchwork", type = "Suggests")
 
+usethis::use_package("rlang")
 
 #usethis::use_package("ggplot2")
 
