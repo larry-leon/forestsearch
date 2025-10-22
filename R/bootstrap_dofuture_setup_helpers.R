@@ -141,22 +141,20 @@ get_bootstrap_exports <- function() {
   unlist(BOOTSTRAP_REQUIRED_FUNCTIONS, use.names = FALSE)
 }
 
-#' Ensure Required Packages Are Installed and Loaded
-#'
-#' Installs and loads required packages if not already available.
-#'
-#' @param pkgs Character vector of package names.
-#' @return None. Packages are loaded into the session.
-#' @export
-
 ensure_packages <- function(pkgs) {
-  for (pkg in pkgs) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      install.packages(pkg)
-    }
-    library(pkg, character.only = TRUE)
-  }
-}
+  missing <- pkgs[!sapply(pkgs, requireNamespace, quietly = TRUE)]
 
+  if (length(missing) > 0) {
+    stop(
+      "Required package(s) not installed: ",
+      paste(missing, collapse = ", "),
+      "\nPlease install with: install.packages(c('",
+      paste(missing, collapse = "', '"), "'))",
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
 
 
