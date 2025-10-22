@@ -118,7 +118,6 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "lasso_selection",
     "get_Cox_sg",
     "get_conf_force",
-    "subgroup.consistency.refactored",
     "evaluate_subgroup_consistency"
   ),
   bootstrap_parallel = c(
@@ -129,7 +128,8 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "build_cox_formula",
     "cox.formula.boot",
     "setup_parallel_SGcons",
-    "filter_call_args"
+    "filter_call_args",
+    "summarize_bootstrap_results"
   )
 )
 
