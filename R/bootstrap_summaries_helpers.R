@@ -504,11 +504,13 @@ summarize_bootstrap_timing <- function(boot_results) {
 
 #' Create Bootstrap Timing Plots
 #'
+#' Generates timing visualization plots for bootstrap analysis
+#'
 #' @param results Data.table of bootstrap results with timing columns
 #' @return List of ggplot objects
-#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_point geom_smooth geom_col scale_fill_manual geom_boxplot
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_density geom_point geom_smooth geom_col scale_fill_manual geom_boxplot labs theme_minimal theme element_text
 #' @importFrom rlang .data
-#' @importFrom stats median mean loess complete.cases
+#' @importFrom stats sd median quantile complete.cases
 #' @keywords internal
 create_bootstrap_timing_plots <- function(results) {
 

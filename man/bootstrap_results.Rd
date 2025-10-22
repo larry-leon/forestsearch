@@ -48,19 +48,43 @@ bias correction.}
 \value{
 Data.table with one row per bootstrap iteration and columns:
 \describe{
+\item{boot_id}{Integer. Bootstrap iteration number (1 to \code{nb_boots})}
 \item{H_biasadj_1}{Bias-corrected estimate for H using method 1:
 \code{H_obs - (Hstar_star - Hstar_obs)}}
 \item{H_biasadj_2}{Bias-corrected estimate for H using method 2:
 \code{2*H_obs - (H_star + Hstar_star - Hstar_obs)}}
 \item{Hc_biasadj_1}{Bias-corrected estimate for H^c using method 1}
 \item{Hc_biasadj_2}{Bias-corrected estimate for H^c using method 2}
-\item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
 \item{max_sg_est}{Numeric. Maximum subgroup hazard ratio found}
-\item{prop_maxk}{Numeric. Proportion of maximum K factors used}
 \item{L}{Integer. Number of candidate factors evaluated}
 \item{max_count}{Integer. Maximum number of factor combinations}
+\item{events_H_0}{Integer. Number of events in control arm of original subgroup H on bootstrap sample}
+\item{events_H_1}{Integer. Number of events in treatment arm of original subgroup H on bootstrap sample}
+\item{events_Hc_0}{Integer. Number of events in control arm of original subgroup H^c on bootstrap sample}
+\item{events_Hc_1}{Integer. Number of events in treatment arm of original subgroup H^c on bootstrap sample}
+\item{events_Hstar_0}{Integer. Number of events in control arm of new subgroup H* on original data}
+\item{events_Hstar_1}{Integer. Number of events in treatment arm of new subgroup H* on original data}
+\item{events_Hcstar_0}{Integer. Number of events in control arm of new subgroup H^c* on original data}
+\item{events_Hcstar_1}{Integer. Number of events in treatment arm of new subgroup H^c* on original data}
+\item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
+\item{tmins_iteration}{Numeric. Total minutes for this bootstrap iteration}
+\item{Pcons}{Numeric. Consistency p-value for top subgroup}
+\item{hr_sg}{Numeric. Hazard ratio for top subgroup}
+\item{N_sg}{Integer. Sample size of top subgroup}
+\item{E_sg}{Integer. Number of events in top subgroup}
+\item{K_sg}{Integer. Number of factors defining top subgroup}
+\item{g_sg}{Numeric. Subgroup group ID}
+\item{m_sg}{Numeric. Subgroup index}
+\item{M.1}{Character. First factor label}
+\item{M.2}{Character. Second factor label}
+\item{M.3}{Character. Third factor label}
+\item{M.4}{Character. Fourth factor label}
+\item{M.5}{Character. Fifth factor label}
+\item{M.6}{Character. Sixth factor label}
+\item{M.7}{Character. Seventh factor label}
 }
 Rows where no valid subgroup was found will have \code{NA} for bias corrections.
+The returned object has a "timing" attribute with summary statistics.
 }
 \description{
 Runs bootstrap analysis for ForestSearch, fitting Cox models and computing
