@@ -1573,13 +1573,25 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     agreement <- agreement[, .(Subgroup, K_sg, N)]
   }
 
+  # # Add percentage and sort
+  # agreement[, Percent := 100 * N / n_found]
+  # agreement[, Percent_of_successful := 100 * N / n_found]
+  # agreement <- agreement[order(-N)]
+  # # Add rank
+  # agreement[, Rank := .I]
+
   # Add percentage and sort
-  agreement[, Percent := 100 * N / n_found]
   agreement[, Percent_of_successful := 100 * N / n_found]
   agreement <- agreement[order(-N)]
-
   # Add rank
   agreement[, Rank := .I]
+
+
+  # FILTER: Keep only subgroups that appear >= 20% of the time
+  agreement_common <- agreement[Percent_of_successful >= 20]
+
+  # ALSO: Create individual factor summary (ignoring position)
+  factor_presence <- summarize_factor_presence(sg_found, maxk = maxk)
 
   # =========================================================================
   # SECTION 5: AGREEMENT WITH ORIGINAL SUBGROUP
@@ -1690,6 +1702,7 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     size_dist = size_dist,
     factor_freq = factor_freq,
     agreement = agreement,
+    factor_presence = factor_presence,
     original_agreement = original_agreement,
     n_found = n_found,
     pct_found = pct_found
@@ -1789,6 +1802,46 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
       )
   }
 
+
+
+
+
+  # =========================================================================
+  # TABLE 2C: INDIVIDUAL FACTOR PRESENCE
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$factor_presence)) {
+    tables$factor_presence <- subgroup_summary$factor_presence |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Individual Factor Presence**"),
+        subtitle = "How often each factor appears (any position, any combination)"
+      ) |>
+      gt::cols_label(
+        Rank = "Rank",
+        Factor = "Factor",
+        Count = "Count",
+        Percent = "% of Successful"
+      ) |>
+      gt::fmt_number(
+        columns = Percent,
+        decimals = 1
+      ) |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#fff3cd")
+        ),
+        locations = gt::cells_body(
+          rows = Percent >= 20
+        )
+      ) |>
+      gt::tab_footnote(
+        footnote = gt::md("**Highlighted rows** appear in ≥20% of successful iterations"),
+        locations = gt::cells_column_labels(columns = Percent)
+      )
+  }
+
+
   # =========================================================================
   # TABLE 3: FACTOR FREQUENCY
   # =========================================================================
@@ -1868,4 +1921,49 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 }
 
 
+#' Summarize Factor Presence Across Bootstrap Subgroups
+#'
+#' Analyzes how often each individual factor appears in identified subgroups
+#'
+#' @param results Data.table. Bootstrap results with subgroup characteristics
+#' @param maxk Integer. Maximum number of factors allowed
+#' @return Data.table with factor frequencies
+#' @keywords internal
 
+summarize_factor_presence <- function(results, maxk = 2) {
+
+  # Filter to successful iterations
+  sg_found <- results[!is.na(Pcons)]
+  n_found <- nrow(sg_found)
+
+  if (n_found == 0) return(NULL)
+
+  # Extract all unique factors across all positions
+  all_factors <- character()
+  for (i in 1:maxk) {
+    col <- paste0("M.", i)
+    if (col %in% names(sg_found)) {
+      factors <- sg_found[[col]][!is.na(sg_found[[col]]) & sg_found[[col]] != ""]
+      all_factors <- c(all_factors, factors)
+    }
+  }
+
+  # Count each unique factor (ignoring position)
+  factor_counts <- table(all_factors)
+
+  # Create summary table
+  factor_summary <- data.table::data.table(
+    Factor = names(factor_counts),
+    Count = as.integer(factor_counts),
+    Percent = 100 * as.integer(factor_counts) / n_found
+  )
+
+  # Sort by frequency
+  factor_summary <- factor_summary[order(-Count)]
+  factor_summary[, Rank := .I]
+
+  # Reorder columns
+  data.table::setcolorder(factor_summary, c("Rank", "Factor", "Count", "Percent"))
+
+  return(factor_summary)
+}

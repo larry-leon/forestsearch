@@ -44,7 +44,7 @@ system.time({fs <- forestsearch(df_gbsg,  confounders.name=confounders.name,
                    cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
                    maxk = 2, n.min = 60, d0.min = 12, d1.min = 12,
                    plot.sg = TRUE, by.risk = 12,
-                   parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
+                   parallel_args = list(plan="sequential", workers = 12, show_message = TRUE)
                    )
 })
 
@@ -78,7 +78,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 100
+NB <- 5
 
 t.start <- proc.time()[3]
 
