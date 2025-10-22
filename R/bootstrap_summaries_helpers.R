@@ -1591,7 +1591,10 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
   agreement_common <- agreement[Percent_of_successful >= 20]
 
   # ALSO: Create individual factor summary (ignoring position)
-  factor_presence <- summarize_factor_presence(sg_found, maxk = maxk)
+  #factor_presence <- summarize_factor_presence(sg_found, maxk = maxk)
+
+  factor_presence_results <- summarize_factor_presence(sg_found, maxk = maxk, threshold = 20)
+
 
   # =========================================================================
   # SECTION 5: AGREEMENT WITH ORIGINAL SUBGROUP
@@ -1702,7 +1705,8 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     size_dist = size_dist,
     factor_freq = factor_freq,
     agreement = agreement,
-    factor_presence = factor_presence,
+    factor_presence = factor_presence_results$base_factors,  # Base factors
+    factor_presence_specific = factor_presence_results$specific_factors,  # Specific definitions >= 20%
     original_agreement = original_agreement,
     n_found = n_found,
     pct_found = pct_found
@@ -1805,15 +1809,15 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 
 
   # =========================================================================
-  # TABLE 2C: INDIVIDUAL FACTOR PRESENCE
+  # TABLE 2C: INDIVIDUAL FACTOR PRESENCE (BASE)
   # =========================================================================
 
   if (!is.null(subgroup_summary$factor_presence)) {
     tables$factor_presence <- subgroup_summary$factor_presence |>
       gt::gt() |>
       gt::tab_header(
-        title = gt::md("**Individual Factor Presence**"),
-        subtitle = "How often each factor appears (any position, any combination)"
+        title = gt::md("**Individual Factor Presence (Base)**"),
+        subtitle = "How often each base factor appears (any threshold, any position)"
       ) |>
       gt::cols_label(
         Rank = "Rank",
@@ -1836,6 +1840,43 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
       gt::tab_footnote(
         footnote = gt::md("**Highlighted rows** appear in ≥20% of successful iterations"),
         locations = gt::cells_column_labels(columns = Percent)
+      )
+  }
+
+  # =========================================================================
+  # TABLE 2D: COMMON SPECIFIC FACTOR DEFINITIONS (>= 20%)
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$factor_presence_specific) &&
+      nrow(subgroup_summary$factor_presence_specific) > 0) {
+    tables$factor_presence_specific <- subgroup_summary$factor_presence_specific |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**Common Specific Factor Definitions**"),
+        subtitle = "Specific factor definitions appearing in ≥20% of successful iterations"
+      ) |>
+      gt::cols_label(
+        Rank = "Rank",
+        Base_Factor = "Base Factor",
+        Factor_Definition = "Specific Definition",
+        Count = "Count",
+        Percent = "% of Successful"
+      ) |>
+      gt::fmt_number(
+        columns = Percent,
+        decimals = 1
+      ) |>
+      gt::tab_style(
+        style = list(
+          gt::cell_fill(color = "#e8f4f8")
+        ),
+        locations = gt::cells_body(
+          columns = Base_Factor
+        )
+      ) |>
+      gt::tab_footnote(
+        footnote = gt::md("**Base Factor**: Variable name extracted from full definition"),
+        locations = gt::cells_column_labels(columns = Base_Factor)
       )
   }
 
@@ -1921,14 +1962,17 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 
 #' Summarize Factor Presence Across Bootstrap Subgroups
 #'
-#' Analyzes how often each individual factor appears in identified subgroups
+#' Analyzes how often each individual factor appears in identified subgroups,
+#' extracting base factor names from full definitions and identifying common
+#' specific definitions.
 #'
 #' @param results Data.table. Bootstrap results with subgroup characteristics
 #' @param maxk Integer. Maximum number of factors allowed
-#' @return Data.table with factor frequencies
+#' @param threshold Numeric. Percentage threshold for including specific definitions (default: 20)
+#' @return List with base_factors and specific_factors data.tables
 #' @keywords internal
 
-summarize_factor_presence <- function(results, maxk = 2) {
+summarize_factor_presence <- function(results, maxk = 2, threshold = 20) {
 
   # Filter to successful iterations
   sg_found <- results[!is.na(Pcons)]
@@ -1946,22 +1990,82 @@ summarize_factor_presence <- function(results, maxk = 2) {
     }
   }
 
-  # Count each unique factor (ignoring position)
-  factor_counts <- table(all_factors)
+  # =========================================================================
+  # PART 1: BASE FACTOR NAMES
+  # =========================================================================
 
-  # Create summary table
-  factor_summary <- data.table::data.table(
-    Factor = names(factor_counts),
-    Count = as.integer(factor_counts),
-    Percent = 100 * as.integer(factor_counts) / n_found
+  # Function to extract base factor name
+  extract_base_factor <- function(factor_string) {
+    # Remove leading/trailing whitespace
+    factor_string <- trimws(factor_string)
+
+    # Remove negation operator !{...}
+    factor_string <- gsub("^!\\{", "{", factor_string)
+
+    # Remove curly braces
+    factor_string <- gsub("[{}]", "", factor_string)
+
+    # Extract the variable name (everything before <=, >=, <, >, ==, !=, or space)
+    base_name <- sub("^([a-zA-Z_][a-zA-Z0-9_.]*).*", "\\1", factor_string)
+
+    return(base_name)
+  }
+
+  # Apply extraction to all factors
+  base_factors <- sapply(all_factors, extract_base_factor, USE.NAMES = FALSE)
+
+  # Count each unique base factor
+  base_factor_counts <- table(base_factors)
+
+  # Create base factor summary table
+  base_factor_summary <- data.table::data.table(
+    Factor = names(base_factor_counts),
+    Count = as.integer(base_factor_counts),
+    Percent = 100 * as.integer(base_factor_counts) / n_found
   )
 
   # Sort by frequency
-  factor_summary <- factor_summary[order(-Count)]
-  factor_summary[, Rank := .I]
+  base_factor_summary <- base_factor_summary[order(-Count)]
+  base_factor_summary[, Rank := .I]
 
   # Reorder columns
-  data.table::setcolorder(factor_summary, c("Rank", "Factor", "Count", "Percent"))
+  data.table::setcolorder(base_factor_summary, c("Rank", "Factor", "Count", "Percent"))
 
-  return(factor_summary)
+  # =========================================================================
+  # PART 2: SPECIFIC FACTOR DEFINITIONS (>= threshold%)
+  # =========================================================================
+
+  # Count each specific factor definition
+  specific_factor_counts <- table(all_factors)
+
+  # Create specific factor summary table
+  specific_factor_summary <- data.table::data.table(
+    Factor_Definition = names(specific_factor_counts),
+    Count = as.integer(specific_factor_counts),
+    Percent = 100 * as.integer(specific_factor_counts) / n_found
+  )
+
+  # Filter to only those appearing >= threshold%
+  specific_factor_summary <- specific_factor_summary[Percent >= threshold]
+
+  # Add base factor name for reference
+  specific_factor_summary[, Base_Factor := sapply(Factor_Definition, extract_base_factor)]
+
+  # Sort by base factor, then by frequency
+  specific_factor_summary <- specific_factor_summary[order(Base_Factor, -Count)]
+  specific_factor_summary[, Rank := .I]
+
+  # Reorder columns
+  data.table::setcolorder(specific_factor_summary,
+                          c("Rank", "Base_Factor", "Factor_Definition", "Count", "Percent"))
+
+  # =========================================================================
+  # RETURN BOTH SUMMARIES
+  # =========================================================================
+
+  return(list(
+    base_factors = base_factor_summary,
+    specific_factors = specific_factor_summary,
+    threshold = threshold
+  ))
 }

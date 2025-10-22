@@ -4,17 +4,21 @@
 \alias{summarize_factor_presence}
 \title{Summarize Factor Presence Across Bootstrap Subgroups}
 \usage{
-summarize_factor_presence(results, maxk = 2)
+summarize_factor_presence(results, maxk = 2, threshold = 20)
 }
 \arguments{
 \item{results}{Data.table. Bootstrap results with subgroup characteristics}
 
 \item{maxk}{Integer. Maximum number of factors allowed}
+
+\item{threshold}{Numeric. Percentage threshold for including specific definitions (default: 20)}
 }
 \value{
-Data.table with factor frequencies
+List with base_factors and specific_factors data.tables
 }
 \description{
-Analyzes how often each individual factor appears in identified subgroups
+Analyzes how often each individual factor appears in identified subgroups,
+extracting base factor names from full definitions and identifying common
+specific definitions.
 }
 \keyword{internal}

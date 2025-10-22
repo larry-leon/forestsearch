@@ -78,7 +78,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 100
+NB <- 1000
 
 t.start <- proc.time()[3]
 
@@ -117,8 +117,10 @@ Bsg_tables <- format_subgroup_summary_tables(sg_summary, nb_boots = NB)
 # View tables
 Bsg_tables$basic_stats
 
+# too many
 Bsg_tables$agreement
 
+# Also a lot
 Bsg_tables$factor_freq
 
 Bsg_tables$consistency_dist
