@@ -125,6 +125,9 @@ Bsg_tables$consistency_dist
 
 Bsg_tables$original_agreement
 
+Bsg_tables$factor_presence
+
+
 # Print text summary
 cat("Subgroups identified in", sg_summary$pct_found, "% of bootstraps\n")
 cat("Most common subgroup:", sg_summary$agreement$Subgroup[1], "\n")

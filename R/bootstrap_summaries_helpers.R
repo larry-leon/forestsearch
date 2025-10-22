@@ -1783,10 +1783,10 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
         Subgroup = "Subgroup Definition",
         K_sg = "K",
         N = "Count",
-        Percent = "% of Successful"
+        Percent_of_successful = "% of Successful"  # CHANGED: was Percent
       ) |>
       gt::fmt_number(
-        columns = Percent,
+        columns = Percent_of_successful,  # CHANGED: was Percent
         decimals = 1
       ) |>
       gt::tab_style(
@@ -1801,8 +1801,6 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
         locations = gt::cells_column_labels(columns = K_sg)
       )
   }
-
-
 
 
 
