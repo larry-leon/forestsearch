@@ -78,7 +78,7 @@ options(warn = -1)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 1000
+NB <- 20000
 
 t.start <- proc.time()[3]
 
