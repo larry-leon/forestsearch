@@ -51,7 +51,6 @@ devtools::load_all()
 
 devtools::check()
 
-
 devtools::clean_dll()
 
 # Issue with trying to remove weightedSurv and replace with weightedsurv
