@@ -1,0 +1,1226 @@
+---
+title: "Subgroup Simulations"
+subtitle: "Evaluation of potential for extreme effects"
+author: "Larry Leon"
+toc: true
+number-sections: true
+toc-depth: 3
+format: 
+  html:
+    self-contained: true
+    code-fold: true
+    bibliography: subgroups_ref3.bib
+    fig_caption: yes
+    keep_tex: yes
+    latex_engine: xelatex
+    citation_package: natbib
+    fig_width: 10
+    fig_height: 8
+    fontsize: 10pt
+    extra_dependencies: "subfig"
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, tidy=TRUE)
+
+options(warn = -1)
+
+rm(list=ls())
+
+library(tinytex)
+library(survival)
+library(splines)
+
+library(knitr)
+library(ggplot2)
+library(data.table)
+library(table1)
+
+library(dplyr)
+library(gt)
+
+
+library(randomizr)
+
+library(grid)
+library(forestploter)
+
+
+source("KMplotting_functions_v0.R")
+source("sim_functions_v4.R")
+
+
+# Find bx to induce bias for standard primary Cox analysis
+# Bias towards the null
+#beta.target <- 0.0
+
+biasCox <- function(bval,analysis="stratified",xname="ecogbl"){
+# Draw large sample
+dfbig <- draw_sim(bx=bval,dgm=dgm,ss=1,Ndraw=10000,xname=xname)
+# Standard Cox model analysis
+if(analysis=="non-stratified") fitx <- coxph(Surv(y.sim,event.sim)~treat.sim,data=dfbig)
+if(analysis=="stratified") fitx <- coxph(Surv(y.sim,event.sim)~treat.sim+strata(strata.sim),data=dfbig)
+betax <- c(coefficients(fitx))
+#print(betax)
+return(c(exp(betax)))
+}
+
+
+
+```
+
+
+```{r loadData}
+load("../../d0_analysis/df0_ITT.Rdata")
+df.analysis <- df_itt
+```
+
+
+
+```{r BaselineTable, echo=FALSE}
+
+table1(~ age + factor(brafsta) + factor(sex) + factor(livermets) + strataNew_name 
+       + factor(prior_line1) + factor(prior_line12) + factor(hbevafl) + factor(ecogbl) | treat_name, data=df.analysis)
+
+#with(df.analysis,hist(age_norm))
+
+```
+
+```{r OSkm, echo=FALSE}
+
+tte.name<-c("os_time")
+event.name<-c("os_event")
+treat.name<-c("treat")
+
+byrisk <- 3
+
+# "risk_offset" sets space for risk-set by offsetting ymin to ymin-risk_offset
+# Eg, if ymin=0 and risk_offset=0.075 then a space of 0.075 is allowed for risk-set
+# The ymin-risk_offset sets risk-set y-coordinate for the treatment arm ("experimental")
+# risk_delta is distance between treatment and control arm risk-sets
+# Eg, if risk_delta=0.025 then space of risk_offset+risk_delta is provided
+# with distance between y-corrdinates of 0.025
+
+kmH.fit<-KM.plot.2sample.weighted(df=df.analysis, 
+tte.name=tte.name, event.name=event.name, treat.name=treat.name,
+strata.name=c("strataNew"),
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("Treat","Control"),arm.cex=0.80)
+
+```
+
+
+```{r PFSkm, echo=FALSE}
+
+tte.name<-c("pfs_time")
+event.name<-c("pfs_event")
+treat.name<-c("treat")
+
+byrisk <- 6
+
+kmH.fit<-KM.plot.2sample.weighted(df=df.analysis, 
+tte.name=tte.name, event.name=event.name, treat.name=treat.name,
+strata.name=c("strataNew"),
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Progression-Free Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("Treat","Control"),arm.cex=0.80)
+
+```
+
+
+## Fit simple weibull with single knot at cps=k 
+
+$$\log(hr)  = \beta_{0}\hbox{Treat} + \beta_{1}\hbox{Z} + \beta_{2}(\hbox{Z}-k)I(\hbox{Z}>k) + 
+\gamma_{1}\hbox{Z}\hbox{Treat} + \gamma_{2}(\hbox{Z}-k)I(\hbox{Z}>k)\hbox{Treat}$$
+
+
+```{r Splinesims, echo=TRUE, eval=FALSE}
+
+sims <- 10000
+
+dfa<-within(df.analysis,{
+  z <- age
+  tte <- os_time
+  event <- os_event
+  })
+
+set.seed(8316951)
+# Include subgroups with specific sample sizes via randomly sampling
+sg_ran <- rbinom(nrow(dfa),size=1,prob=0.2)
+# Take 1st 15
+temp <- cumsum(sg_ran)
+sg_ran15 <- sg_ran
+sg_ran15[which(temp>15)] <- 0
+cat("# of subjects in sg_ran15",c(sum(sg_ran15)),"\n")
+dfa[,"random15"] <- sg_ran15
+
+
+sg_ran20 <- sg_ran
+# Take 1st 20
+sg_ran20[which(temp>20)] <- 0
+cat("# of subjects in sg_ran20",c(sum(sg_ran20)),"\n")
+dfa[,"random20"] <- sg_ran20
+
+sg_ran40 <- sg_ran
+# Take 1st 40
+sg_ran40[which(temp>40)] <- 0
+cat("# of subjects in sg_ran40",c(sum(sg_ran40)),"\n")
+dfa[,"random40"] <- sg_ran40
+
+sg_ran60 <- sg_ran
+# Take 1st 60
+sg_ran60[which(temp>60)] <- 0
+cat("# of subjects in sg_ran60",c(sum(sg_ran60)),"\n")
+dfa[,"random60"] <- sg_ran60
+
+rm("temp")
+
+# Uniform benefit hr=0.70 example
+
+# uniform hr=0.70
+dgm <- get_dgm_stratified(df=dfa,knot=40,kappa=50,hrs=c(0.70,0.70,0.70),strata_tte=c("strataNew"))
+bm_type <- "uniform"
+
+# bm1
+#dgm <- get_dgm_stratified(df=dfa,kappa=40,knot=50,hrs=c(1.25,0.8,0.65),strata_tte=c("strataNew"))
+#bm_type <- "bm1"
+
+# bm2
+#dgm <- get_dgm(df=dfa,kappa=30,knot=48,hrs=c(1.6,1.0,0.625),strata_tte=c("strataNew"))
+#bm_type <- "bm2"
+#dgm <- get_dgm(df=dfa,kappa=40,knot=50,hrs=c(2,0.9,0.60))
+
+N <- nrow(dfa)
+
+# Potential outcome hazard ratios
+# Since covariates are fixed, the avg HR (= E_{Z}hr(z)) is fixed across simulations
+# Generate single realization to get empirical version
+
+df_sim <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=N,details=FALSE)
+
+# Draw very large to check stratification parameter replication
+#df_sim <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100*N,details=FALSE,checking=TRUE)
+
+dfs <- df_sim[order(df_sim$z,decreasing=FALSE),]
+
+ahr_empirical <- with(dfs,exp(mean(loghr.po)))
+
+ahr_opt_empirical <- with(subset(dfs,z>50),exp(mean(loghr.po)))
+ 
+cut.opt <- with(dfs,min(z[which(loghr.po<0)]))
+
+ahr_opt_empirical <- with(subset(dfs,z>cut.opt),exp(mean(loghr.po)))
+
+par(mfrow=c(1,1))
+
+with(dfs,plot(z,loghr.po,type="s",lty=1))
+with(dfs,rug(z))
+abline(v=c(40,50),h=c(log(1),log(0.65),log(ahr_empirical)))
+abline(v=c(cut.opt),lwd=3,col="blue",lty=2)
+
+cat("Optimal cutpoint (cut.opt)=",c(cut.opt),"\n")
+cat("Empirical AHR ('true causal' avg across z's): ITT, Optimal(z>cut.opt)",c(ahr_empirical,ahr_opt_empirical),"\n")
+
+# KM by stratification factors within treatment arms
+par(mfrow=c(1,2))
+
+km_check <- survfit(Surv(y.sim,event.sim)~treat.sim+strata(strata.simO),data=subset(df_sim,treat.sim==0),conf.int=FALSE)
+# Differences across strata within control arm
+survdiff(Surv(y.sim,event.sim)~ strata.simO,data=subset(df_sim,treat.sim==0))
+plot(km_check)
+
+km_check <- survfit(Surv(y.sim,event.sim)~treat.sim+strata(strata.simO),data=subset(df_sim,treat.sim==1),conf.int=FALSE)
+# Differences across strata within experimental arm
+survdiff(Surv(y.sim,event.sim)~ strata.simO,data=subset(df_sim,treat.sim==1))
+plot(km_check)
+
+
+byrisk <- 3
+par(mfrow=c(1,1))
+
+# 1st and last strata
+strtm <- unique(df_sim$strata.simO)
+strt1 <- min(strtm)
+strt2 <- max(strtm)
+
+dfx <- subset(df_sim,treat.sim==0 & (strata.simO==strt1 | strata.simO==strt2))
+
+# Need to define 0/1 treatment
+dfx$strataPlot <- ifelse(dfx$strata.simO==strt1,1,0)
+
+kmH.fit<-KM.plot.2sample.weighted(df=dfx, 
+tte.name="y.sim", event.name="event.sim", treat.name="strataPlot",
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+check.KM=FALSE,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("S1","S3"),arm.cex=0.80)
+
+
+dfx <- subset(df_sim,treat.sim==1 & (strata.simO==strt1 | strata.simO==strt2))
+
+# Need to define 0/1 treatment
+dfx$strataPlot <- ifelse(dfx$strata.simO==strt1,1,0)
+
+kmH.fit<-KM.plot.2sample.weighted(df=dfx, 
+tte.name="y.sim", event.name="event.sim", treat.name="strataPlot",
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+check.KM=FALSE,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("S1","S3"),arm.cex=0.80)
+
+
+xname <- c("ecogbl")
+bx <- log(4.0)
+
+# optcut is ONLY for bm2
+
+if(bm_type=="bm2"){
+subgroups_id <- c('itt=="Y"','livermets==0','brafsta=="Mutant V600E"','age<=65','cntrynam=="Spain"','cntrynam=="Germany"','cntrynam=="United Kingdom"','region2=="Asia Pacific"','strataNew_name=="LM,<18m"','strataNew_name=="LM,>=18m"','ecogbl=="0"','ecogbl=="1"','cut_opt=="1"','cut_opt=="0"','random15==1','random20==1','random40==1','random60==1')
+  
+subgroups_name <- c('All Patients','No LM','mV600E','Age<=65','Spain','Germany','UK','AP','LM,<18m','LM,>=18m','Ecog=0','Ecog=1','BM>=optcut','BM<optcut','random15','random20','random40','random60')
+}
+
+if(bm_type!="bm2"){ 
+subgroups_id <- c('itt=="Y"','livermets==0','brafsta=="Mutant V600E"','age<=65','cntrynam=="Spain"','cntrynam=="Germany"','cntrynam=="United Kingdom"','region2=="Asia Pacific"','strataNew_name=="LM,<18m"','strataNew_name=="LM,>=18m"','ecogbl=="0"','ecogbl=="1"','random15==1','random20==1','random40==1','random60==1')
+  
+subgroups_name <- c('All Patients','No LM','mV600E','Age<=65','Spain','Germany','UK','AP','LM,<18m','LM,>=18m','Ecog=0','Ecog=1','random15','random20','random40','random60')
+}
+
+# Template for storing estimates
+# Include analysis name
+temp <- matrix(nrow=sims,ncol=length(subgroups_id))
+colnames(temp) <- c(subgroups_name)
+
+# Stratified (1) and non-stratified (2)
+# HR point estimates
+subgroup_hrs1 <- subgroup_hrs2 <- subgroup_hrs3 <- subgroup_hrs4 <- subgroup_hrs5 <- subgroup_hrs6 <- temp
+subgroup_ubs1 <- subgroup_ubs2 <- subgroup_ubs3 <- subgroup_ubs4 <- subgroup_ubs5 <- subgroup_ubs6 <-temp
+subgroup_ns <- temp
+
+rm("temp")
+
+for(ss in 1:sims){
+  
+df_sim <- draw_sim_stratified(dgm=dgm,ss=ss,Ndraw=N,xname=xname,bx=bx,strata_rand="strataNew")
+# ITT flag
+df_sim$itt <- c("Y")
+
+df_sim$cut_opt <- with(df_sim, ifelse(z<cut.opt,0,1))
+
+if(ss==1) cat("Optimal biomarker cut=",c(cut.opt),"\n")
+
+for(gg in 1:length(subgroups_id)){
+  
+df_sg <- subset(df_sim,eval(parse(text=c(subgroups_id[gg]))))
+
+subgroup_ns[ss,gg] <- c(nrow(df_sg))
+
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim+strata(strata.simR),data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs1[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs1[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim,data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs2[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs2[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim + strata(x), data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs3[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs3[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+
+n_opt <- with(df_sg,sum(cut_opt))
+m_opt <- nrow(df_sg)-n_opt
+if(n_opt >= 5 & m_opt>=5){
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim + strata(cut_opt), data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs4[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs4[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+}
+
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim+strata(x)+strata(strata.simR),data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs5[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs5[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+
+fit <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim+x+age+male+strata(strata.simR),data=df_sg)),TRUE)
+if(!inherits(fit,"try-error")){
+subgroup_hrs6[ss,gg] <- c(fit$conf.int[1,1])
+subgroup_ubs6[ss,gg] <- c(fit$conf.int[1,4])
+rm("fit")
+}
+
+  }
+
+
+if(ss <= 10){
+kmH.fit<-KM.plot.2sample.weighted(df=df_sim, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+strata.name="strata.simO",
+stop.onerror=FALSE,
+risk.set=TRUE,by.risk=3,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("Treat","Control"),arm.cex=0.80)
+}
+
+}
+
+save(dgm,bm_type,N,ahr_empirical,cut.opt,subgroup_ns,subgroups_name,
+subgroup_hrs1,subgroup_hrs2,subgroup_ubs1,subgroup_ubs2,
+subgroup_hrs3,subgroup_hrs4,subgroup_ubs3,subgroup_ubs4,
+subgroup_hrs5,subgroup_hrs6,subgroup_ubs5,subgroup_ubs6,
+file="results/uniform_bx=log4_v8.Rdata")
+
+
+```
+
+
+```{r summary, echo=TRUE}
+options(scipen = 1, digits = 2)  
+
+load("results/uniform_bx=log4_v8.Rdata")
+
+df_sim <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=N,details=TRUE)
+
+dfs <- df_sim[order(df_sim$z,decreasing=FALSE),]
+
+ahr_empirical <- with(dfs,exp(mean(loghr.po)))
+
+cut.opt <- with(dfs,min(z[which(loghr.po<0)]))
+
+cat("% of individuals > cut.opt=",c(with(dfs,mean(z>=cut.opt))),"\n")
+
+ahr_opt_empirical <- with(subset(dfs,z>=cut.opt),exp(mean(loghr.po)))
+
+par(mfrow=c(1,1))
+
+with(dfs,plot(z,loghr.po,type="s",lty=1))
+with(dfs,rug(z))
+abline(v=c(40,50),h=c(log(1),log(ahr_empirical)))
+abline(v=c(cut.opt),lwd=3,col="blue",lty=2)
+
+cat("Optimal cutpoint (cut.opt)=",c(cut.opt),"\n")
+cat("Empirical AHR ('true causal' avg across z's): ITT, Optimal(z>cut.opt)",c(ahr_empirical,ahr_opt_empirical),"\n")
+
+
+kmH.fit<-KM.plot.2sample.weighted(df=df_sim, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+strata.name="strata.simO",
+stop.onerror=FALSE,
+risk.set=TRUE,by.risk=3,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("Treat","Control"),arm.cex=0.80)
+
+
+
+temp <- cox_cs_fit2(df=dfs,tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("z"), show_plot=TRUE,truebeta.name="loghr.po",ypadzero=-0.15,ydel=0.5,cex_count=0.5)
+
+
+byrisk <- 3
+par(mfrow=c(1,1))
+
+# 1st and last strata
+strtm <- unique(df_sim$strata.simO)
+strt1 <- min(strtm)
+strt2 <- max(strtm)
+
+dfx <- subset(df_sim,treat.sim==0 & (strata.simO==strt1 | strata.simO==strt2))
+
+# Need to define 0/1 treatment
+dfx$strataPlot <- ifelse(dfx$strata.simO==strt1,1,0)
+
+kmH.fit<-KM.plot.2sample.weighted(df=dfx, 
+tte.name="y.sim", event.name="event.sim", treat.name="strataPlot",
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+check.KM=FALSE,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("S1","S3"),arm.cex=0.80)
+
+
+dfx <- subset(df_sim,treat.sim==1 & (strata.simO==strt1 | strata.simO==strt2))
+
+# Need to define 0/1 treatment
+dfx$strataPlot <- ifelse(dfx$strata.simO==strt1,1,0)
+
+kmH.fit<-KM.plot.2sample.weighted(df=dfx, 
+tte.name="y.sim", event.name="event.sim", treat.name="strataPlot",
+risk.set=TRUE,by.risk=byrisk,risk.cex=0.80,
+risk_offset=0.15, risk_delta=0.075,
+Xlab="Months",Ylab="Overall Survival",details=FALSE,
+show.ticks=TRUE,
+prob.points=seq(0,1,by=0.1),
+col.1="black", col.2="blue",
+ltys=c(1,1),lwds=c(2,2),
+cox.cex=0.80,
+check.KM=FALSE,
+show.logrank=TRUE, lr.digits=3, lr.eps=0.0001, put.legend.lr="top",
+show.med=TRUE, med.cex=0.80, ymed.offset=0.30,
+show.cox=TRUE, cox.digits=3, cox.eps=0.0001, show_arm_legend=TRUE,arms=c("S1","S3"),arm.cex=0.80)
+
+sims <- nrow(subgroup_hrs1)
+
+cat("# Simulations=",c(sims),"\n")
+
+cat("Empirical AHR (avg across z's): ITT",c(ahr_empirical),"\n")
+
+
+apply(subgroup_hrs1,2,mean,na.rm=TRUE)
+apply(subgroup_hrs1,2,quantile,na.rm=TRUE)
+
+apply(subgroup_ubs1,2,mean,na.rm=TRUE)
+apply(subgroup_ubs1,2,quantile,na.rm=TRUE)
+
+apply(subgroup_ns,2,mean,na.rm=TRUE)
+
+itt_rej1 <- ifelse(subgroup_ubs1[,1] < 1.0,1,0)
+cat("Power UB(ITT)<1.0 Stratified",mean(itt_rej1),"\n")
+
+
+itt_rej2 <- ifelse(subgroup_ubs2[,1] < 1.0,1,0)
+cat("Power UB(ITT)<1.0 Un-stratified",mean(itt_rej2),"\n")
+
+
+apply(subgroup_hrs1[itt_rej1==1,],2,quantile,na.rm=TRUE)
+
+
+apply(subgroup_ubs1[itt_rej1==1,],2,quantile,na.rm=TRUE)
+```
+
+
+
+
+```{r, echo=FALSE}
+
+sg_UB <- function(x,z,analysis){
+rej <- 100*round(mean(x<=1, na.rm=TRUE),3)
+rej <- paste0(rej,"%")
+medx <- median(x,na.rm=TRUE)
+xlow <- quantile(x,c(0.025),na.rm=TRUE)
+xup <- quantile(x,c(0.975),na.rm=TRUE)
+# IQR
+xiqr <- c(quantile(x,c(0.75),na.rm=TRUE) - quantile(x,c(0.25),na.rm=TRUE))
+bb <- c(z,NA,medx,xlow,xup,xiqr)
+names(bb) <- c("N","UB<1","est","low","hi","se")
+bb <- as.data.frame(t(bb))
+bb$Subgroup <- c(analysis)  
+bb[,c("UB<1")] <- c(rej)
+bb<- bb[,c("Subgroup","N","UB<1","est","low","hi","se")]
+return(bb)
+}
+
+
+getSG_dfUB <- function(x,y,z){
+sg_tabs <- NULL
+sg_labels <- colnames(x)
+for(gg in 1:length(sg_labels)){
+## bb is stratified analysis (1)
+# % HR<1 
+bb <- sg_UB(x[,gg],z[gg],"Stratified")
+cc <- sg_UB(y[,gg],z[gg],"Un-Stratified")
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[gg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N","UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+sg_hr <- function(x,z,ub,analysis,alpha=0.01,est.threshold=0.80){
+rej <- 100*round(mean(ub<=1, na.rm=TRUE),3)
+rej <- paste0(rej,"%")
+
+est1 <- 100*round(mean(x<=est.threshold, na.rm=TRUE),2)
+est1 <- paste0(est1,"%")
+label_threshold <- paste("HR<",est.threshold)
+
+medx <- median(x,na.rm=TRUE)
+if(alpha==0.025){
+xlow <- quantile(x,c(0.025),na.rm=TRUE)
+xup <- quantile(x,c(0.975),na.rm=TRUE)
+}
+if(alpha==0.01){
+xlow <- quantile(x,c(0.01),na.rm=TRUE)
+xup <- quantile(x,c(0.99),na.rm=TRUE)
+}
+
+# IQR
+xiqr <- c(quantile(x,c(0.75),na.rm=TRUE) - quantile(x,c(0.25),na.rm=TRUE))
+#se_emp <- sqrt(var(x,na.rm=TRUE))
+bb <- c(z,NA,medx,xlow,xup,xiqr)
+names(bb) <- c("N","UB<1","est","low","hi","se")
+bb <- as.data.frame(t(bb))
+bb$Subgroup <- c(analysis)  
+bb[,c("UB<1")] <- c(rej)
+bb[,c(label_threshold)] <- c(est1)
+bb<- bb[,c("Subgroup","N",label_threshold,"UB<1","est","low","hi","se")]
+return(bb)
+}
+
+
+sg_ub2 <- function(x,z,ub,analysis,alpha=0.01,est.threshold=0.80){
+rej <- 100*round(mean(ub<=1, na.rm=TRUE),3)
+rej <- paste0(rej,"%")
+
+est1 <- 100*round(mean(x<=est.threshold, na.rm=TRUE),2)
+est1 <- paste0(est1,"%")
+label_threshold <- paste("HR<",est.threshold)
+
+# x=ub
+medx <- median(ub,na.rm=TRUE)
+if(alpha==0.025){
+xlow <- quantile(ub,c(0.025),na.rm=TRUE)
+xup <- quantile(ub,c(0.975),na.rm=TRUE)
+}
+if(alpha==0.01){
+xlow <- quantile(ub,c(0.01),na.rm=TRUE)
+xup <- quantile(ub,c(0.99),na.rm=TRUE)
+}
+
+# IQR
+xiqr <- c(quantile(ub,c(0.75),na.rm=TRUE) - quantile(ub,c(0.25),na.rm=TRUE))
+#se_emp <- sqrt(var(ub,na.rm=TRUE))
+bb <- c(z,NA,medx,xlow,xup,xiqr)
+names(bb) <- c("N","UB<1","est","low","hi","se")
+bb <- as.data.frame(t(bb))
+bb$Subgroup <- c(analysis)  
+bb[,c("UB<1")] <- c(rej)
+bb[,c(label_threshold)] <- c(est1)
+bb<- bb[,c("Subgroup","N",label_threshold,"UB<1","est","low","hi","se")]
+return(bb)
+}
+
+
+
+
+getSG_dfhrTWO <- function(x,y,z,ubx,uby,analysisx="x",analysisy="y"){
+sg_tabs <- NULL
+sg_labels <- colnames(x)
+for(gg in 1:length(sg_labels)){
+## bb is stratified analysis (1)
+# % HR<1 
+bb <- sg_hr(x[,gg],z[gg],ubx[,gg],analysisx)
+cc <- sg_hr(y[,gg],z[gg],uby[,gg],analysisy)
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[gg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N","HR<1","UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+getSG_dfhrSIX <- function(z,x1,ubx1,x2,ubx2,x3,ubx3,
+x4,ubx4,x5,ubx5,x6,ubx6,analysisx1="x1",analysisx2="x2",
+analysisx3="x3",analysisx4="x4",
+analysisx5="x5",analysisx6="x6",which_sgs = c("All Patients"),alpha=0.01,est.threshold=0.80){
+sg_tabs <- NULL
+
+label_threshold <- paste("HR<",est.threshold)
+
+sg_labels <- colnames(x1)
+
+for(sgALL in 1:length(which_sgs)){
+## bb is stratified analysis (1)
+# % HR<1 
+sg <- sg_labels %in% which_sgs[sgALL]  
+
+bb <- sg_hr(x1[,sg],z[sg],ubx1[,sg],analysisx1,alpha=alpha,est.threshold=est.threshold)
+cc <- sg_hr(x2[,sg],z[sg],ubx2[,sg],analysisx2,alpha=alpha,est.threshold=est.threshold)
+dd <- sg_hr(x3[,sg],z[sg],ubx3[,sg],analysisx3,alpha=alpha,est.threshold=est.threshold)
+ee <- sg_hr(x4[,sg],z[sg],ubx4[,sg],analysisx4,alpha=alpha,est.threshold=est.threshold)
+ff <- sg_hr(x5[,sg],z[sg],ubx5[,sg],analysisx5,alpha=alpha,est.threshold=est.threshold)
+gg <- sg_hr(x6[,sg],z[sg],ubx6[,sg],analysisx6,alpha=alpha,est.threshold=est.threshold)
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[sg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N",label_threshold,"UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc,dd,ee,ff,gg)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+getSG_dfubSIX <- function(z,x1,ubx1,x2,ubx2,x3,ubx3,
+x4,ubx4,x5,ubx5,x6,ubx6,analysisx1="x1",analysisx2="x2",
+analysisx3="x3",analysisx4="x4",
+analysisx5="x5",analysisx6="x6",which_sgs = c("All Patients"),alpha=0.01,est.threshold=0.80){
+sg_tabs <- NULL
+
+label_threshold <- paste("HR<",est.threshold)
+
+sg_labels <- colnames(x1)
+
+for(sgALL in 1:length(which_sgs)){
+## bb is stratified analysis (1)
+# % HR<1 
+sg <- sg_labels %in% which_sgs[sgALL]  
+
+bb <- sg_ub2(x1[,sg],z[sg],ubx1[,sg],analysisx1,alpha=alpha,est.threshold=est.threshold)
+cc <- sg_ub2(x2[,sg],z[sg],ubx2[,sg],analysisx2,alpha=alpha,est.threshold=est.threshold)
+dd <- sg_ub2(x3[,sg],z[sg],ubx3[,sg],analysisx3,alpha=alpha,est.threshold=est.threshold)
+ee <- sg_ub2(x4[,sg],z[sg],ubx4[,sg],analysisx4,alpha=alpha,est.threshold=est.threshold)
+ff <- sg_ub2(x5[,sg],z[sg],ubx5[,sg],analysisx5,alpha=alpha,est.threshold=est.threshold)
+gg <- sg_ub2(x6[,sg],z[sg],ubx6[,sg],analysisx6,alpha=alpha,est.threshold=est.threshold)
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[sg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N",label_threshold,"UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc,dd,ee,ff,gg)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+
+getSG_dfhrTHREE <- function(z,x1,ubx1,x2,ubx2,x3,ubx3,
+x4,ubx4,x5,ubx5,x6,ubx6,analysisx1="x1",analysisx2="x2",
+analysisx3="x3",which_sgs = c("All Patients"),alpha=0.01,est.threshold=0.80){
+sg_tabs <- NULL
+
+label_threshold <- paste("HR<",est.threshold)
+
+sg_labels <- colnames(x1)
+
+for(sgALL in 1:length(which_sgs)){
+## bb is stratified analysis (1)
+# % HR<1 
+sg <- sg_labels %in% which_sgs[sgALL]  
+
+bb <- sg_hr(x1[,sg],z[sg],ubx1[,sg],analysisx1,alpha=alpha,est.threshold=est.threshold)
+cc <- sg_hr(x2[,sg],z[sg],ubx2[,sg],analysisx2,alpha=alpha,est.threshold=est.threshold)
+dd <- sg_hr(x3[,sg],z[sg],ubx3[,sg],analysisx3,alpha=alpha,est.threshold=est.threshold)
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[sg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N",label_threshold,"UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc,dd)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+getSG_dfubTHREE <- function(z,x1,ubx1,x2,ubx2,x3,ubx3,
+x4,ubx4,x5,ubx5,x6,ubx6,analysisx1="x1",analysisx2="x2",
+analysisx3="x3", which_sgs = c("All Patients"),alpha=0.01,est.threshold=0.80){
+sg_tabs <- NULL
+
+label_threshold <- paste("HR<",est.threshold)
+
+sg_labels <- colnames(x1)
+
+for(sgALL in 1:length(which_sgs)){
+## bb is stratified analysis (1)
+# % HR<1 
+sg <- sg_labels %in% which_sgs[sgALL]  
+
+bb <- sg_ub2(x1[,sg],z[sg],ubx1[,sg],analysisx1,alpha=alpha,est.threshold=est.threshold)
+cc <- sg_ub2(x2[,sg],z[sg],ubx2[,sg],analysisx2,alpha=alpha,est.threshold=est.threshold)
+dd <- sg_ub2(x3[,sg],z[sg],ubx3[,sg],analysisx3,alpha=alpha,est.threshold=est.threshold)
+# Add header 
+aa <- bb 
+# Change "Analysis" to subgroup name
+aa$Subgroup <- sg_labels[sg]
+aa[,c("est","low","hi","se")] <- NA
+aa[,c("N",label_threshold,"UB<1")] <- ""
+sg_tab <- rbind(aa,bb,cc,dd)
+sg_tabs <- rbind(sg_tabs,sg_tab)
+}
+return(sg_tabs)
+}
+
+
+
+
+
+
+
+```
+
+
+```{r}
+options(scipen = 1, digits = 2)  
+
+
+apply(subgroup_hrs1,2,function(x){sum(!is.na(x))})
+apply(subgroup_hrs2,2,function(x){sum(!is.na(x))})
+
+itt_rej1 <- ifelse(subgroup_ubs1[,1] < 1.0,1,0)
+itt_rej2 <- ifelse(subgroup_ubs2[,1] < 1.0,1,0)
+
+```
+
+
+```{r SGittHR, fig.width=8, fig.height=8, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+if(bm_type=="bm2"){ 
+SG_table <- getSG_dfhrSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients","BM>=optcut","BM<optcut"), alpha=0.01)
+}
+
+if(bm_type!="bm2"){ 
+SG_table <- getSG_dfhrSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients"), alpha=0.01)
+}
+
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`HR (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+# Adding HR<1
+# Change ci_column from 4 to 5?
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se,
+            ci_column = 5,
+            ref_line = 0.8,
+            arrow_lab = c("HR < 0.8", ">= 0.8"),
+            xlim = c(0.25, 1.1),
+            ticks_at = c(0.6, 0.80, 1.0),
+            footnote = "HR estimates",
+            theme = tm)
+plot(p)
+
+```
+
+
+
+```{r SGittUB, fig.width=8, fig.height=8, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+if(bm_type=="bm2"){ 
+SG_table <- getSG_dfubSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients","BM>=optcut","BM<optcut"), alpha=0.01)
+}
+
+if(bm_type!="bm2"){ 
+SG_table <- getSG_dfubSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients"), alpha=0.01)
+}
+
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`UB(HR) (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se,
+            ci_column = 5,
+            ref_line = 1,
+            arrow_lab = c("Upper Bound < 1", ">= 1"),
+            xlim = c(0.5, 4),
+            ticks_at = c(1.0, 1.5, 2, 3, 4),
+            footnote = "UB(HR) estimates",
+            theme = tm)
+
+# Print plot
+plot(p)
+```
+
+
+
+
+
+
+
+
+```{r SGsHR, fig.width=8, fig.height=8, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+SG_table <- getSG_dfhrSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients","Germany","mV600E","Spain"), alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`HR (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+# Adding HR<1
+# Change ci_column from 4 to 5?
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 0.8,
+            arrow_lab = c("HR < 0.8", ">= 0.8"),
+            xlim = c(0.25, 1.1),
+            ticks_at = c(0.6, 0.80, 1.0),
+            footnote = "HR estimates",
+            theme = tm)
+plot(p)
+
+```
+
+
+
+
+```{r SGsUB, fig.width=8, fig.height=8, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+SG_table <- getSG_dfubSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients","Germany","mV600E","Spain"), alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+
+# log(se)
+
+dt$`UB(HR) (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 1,
+            arrow_lab = c("Upper Bound < 1", ">= 1"),
+            xlim = c(0.5, 6),
+            ticks_at = c(1.0, 2, 3, 4, 5, 6),
+            footnote = "UB(HR) estimates",
+            theme = tm)
+
+# Print plot
+plot(p)
+```
+
+
+
+
+
+```{r SGsHRTHREE, fig.width=8, fig.height=10, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+SG_table <- getSG_dfhrTHREE(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX",
+which_sgs=c("All Patients","No LM","Germany","mV600E","Spain","random40","random60"), alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`HR (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+# Adding HR<1
+# Change ci_column from 4 to 5?
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 0.8,
+            arrow_lab = c("HR < 0.8", ">= 0.8"),
+            xlim = c(0.25, 1.1),
+            ticks_at = c(0.6, 0.80, 1.0),
+            title="Cox hazard-ratio estimates",
+            footnote = "HR estimates",
+            theme = tm)
+plot(p)
+
+```
+
+
+
+
+```{r SGsUBTHREE, fig.width=8, fig.height=10, echo=FALSE}
+options(scipen = 1, digits = 2)  
+
+# remove random60
+
+SG_table <- getSG_dfubTHREE(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, analysisx1="sR", analysisx2="none", analysisx3="sX", 
+which_sgs=c("All Patients","No LM","Germany","mV600E","Spain","random40"), alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+
+# log(se)
+
+dt$`UB(HR) (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 1,
+            arrow_lab = c("Upper Bound < 1", ">= 1"),
+            xlim = c(0.5, 6),
+            ticks_at = c(1.0, 2, 3, 4, 5, 6),
+            title="Upper-bound estimates (re: hr point estimates)",
+            footnote = "UB(HR) estimates",
+            theme = tm)
+
+```
+
+```{r, fig.width=8, fig.height=10, echo=FALSE}
+plot(p)
+```
+
+```{r,eval=TRUE}
+png("upperbounds_uniform_log4.png", width=2560, height=1440)
+plot(p)
+dev.off()
+
+```
+
+
+```{r,eval=TRUE}
+png("upperbounds_uniform_log4_v2.png", width=1920, height=1080)
+plot(p)
+dev.off()
+```
+
+
+```{r,eval=TRUE}
+png("upperbounds_uniform_log4_v3.png")
+plot(p)
+dev.off()
+```
+
+

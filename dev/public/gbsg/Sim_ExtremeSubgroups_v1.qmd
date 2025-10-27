@@ -1,0 +1,903 @@
+---
+title: "Subgroup Simulations"
+subtitle: "Evaluation of potential for extreme effects"
+author: "Larry Leon"
+toc: true
+number-sections: true
+toc-depth: 3
+format: 
+  html:
+    self-contained: true
+    code-fold: true
+    bibliography: subgroups_ref3.bib
+    fig_caption: yes
+    keep_tex: yes
+    latex_engine: xelatex
+    citation_package: natbib
+    fig_width: 10
+    fig_height: 8
+    fontsize: 10pt
+    extra_dependencies: "subfig"
+---
+
+
+```{r Setup, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
+options(warn = -1)
+
+rm(list=ls())
+
+library(tinytex)
+library(ggplot2)
+library(table1)
+
+library(gt)
+
+library(splines)
+
+library(survival)
+
+library(grid)
+library(data.table)
+library(forestploter)
+library(randomizr)
+
+# Source function files
+source("KMplotting_functions_v0.R")
+source("sim_weibspline_functions_v1.R")
+source("sim_subgroup_analyses_v1.R")
+source("sim_subgroup_summarytables_v1.R")
+
+```
+
+
+# Summary
+
+We evaluate the potential for extreme subgroup analysis results when conducting many subgroup analyses in survival analysis settings.  
+
+Simulations are based on the actual dataset in order to generate scenarios that mimic the trial conditions.
+
+We assume Cox model analyses are the primary analysis where only the treatment arm is included as a covariate (with or without stratification by randomization factors). 
+
+In this note we provide a brief review of the Weibull model in Section 2 where we describe a (2-phase) spline model that we utilize for inducing differential treatment effects by way of a ''biomarker''.  Section 3 provides examples of how to generate ''biomarker profiles'' of interest where one can define subgroups based on biomarker cutpoints which correspond to underlying causal hazard ratio effects (e.g., causal hazard-ratio effect for biomarker $\geq 2$ is approximately $0.5$, say).  Section 4 describes the simulation setup (data generating model/process) and generates an example dataset.  
+
+
+Here we use the German Breast Cancer Study Group (gbsg) dataset which is publicly available in the R survival package. 
+
+# Weibull AFT/Cox model with biomarker effects
+
+## Brief Review
+For the Weibull distribution with shape parameter $\nu$ and scale parameter $\theta$ the
+density, cdf, survival, hazard and cumulative hazard functions are:
+\begin{eqnarray*}
+f(t) &=& \nu \theta^{-\nu}t^{\nu-1}\exp(-(t/\theta)^{\nu}), \cr F(t)
+&=& \int_{0}^{t}\nu \theta^{-\nu}s^{\nu-1}\exp(-(s/\theta)^{\nu})ds
+\cr &=& \int_{0}^{(t/\theta)^{\nu}}e^{-w}dw \cr & &
+(w=(s/\theta)^{\nu},dw=\nu s^{\nu-1}\theta^{-\nu}ds) \cr
+&=&1-\exp(-(t/\theta)^{\nu}), \cr S(t) &=& \exp(-(t/\theta)^{\nu}),
+\cr \lambda(t)&=&\nu \theta^{-\nu}t^{\nu-1}, \cr \Lambda(t) &=&
+-\log(S(t))=(t/\theta)^{\nu}.
+\end{eqnarray*}
+Note that here we define the density to correspond with R's definition.
+For shape parameter $\nu \in (0,1)$ the hazard is strictly decreasing in $t \geq 0$,
+whereas for $\nu >1$ the hazard is strictly increasing in $t \geq 0$.  
+
+*Note*: $\Lambda(T) \sim E(1)$
+
+The cumulative hazard function $\Lambda(\cdot)$ evaluated at $T$, $\Lambda(T)$, as a random variable has cdf
+$$\eqalign{ \Pr(\Lambda(T) \leq t) &=\Pr(-\log(1-F(T)) \leq t) =\Pr(1-F(T) \geq e^{-t}) \cr
+&=\Pr(T \leq F^{-1}(1-e^{-t})) =F(F^{-1}(1-e^{-t}))  = 1-e^{-t}, \cr}$$
+\noindent
+which is the CDF of the exponential distribution, $E(1)$ (say). 
+
+
+In the following we use 
+
+\begin{equation}
+\tag{1}
+\Lambda(T) \sim E(1)
+\end{equation}
+\noindent
+to represent the Weibull regression model as an AFT model which is also a Cox model. 
+
+Now, $\Lambda(T)=(T/\theta)^{\nu}$ and write
+$Q=-\log(S(T))=\Lambda(T)=(T/\theta)^{\nu}$, where from (1), $Q \sim E(1)$.  That is
+$\log(Q)=\nu(\log(T)-\log(\theta))$ can be expressed as
+
+\begin{equation}
+\tag{2}
+\log(T)=\log(\theta)+ \tau \log(Q) := \log(\theta) + \tau \epsilon,
+\end{equation}
+\noindent
+where $\tau=1/\nu$ and it is easy to show that $\epsilon=\log(Q)$ has the ``extreme
+value'' distribution with density $f_{\epsilon}(x)=\exp(x-e^{x})$ for $x \in {\cal R}$.
+Here the range of $\log(T) \in {\cal R}$ is un-restricted.  The *survReg* routine uses the parameterization $(2)$ and therefore estimates
+$\log(\theta)$ and $\tau=1/\nu$.
+
+To incorporate covariates $L$ (say) we specify
+$$\lambda(t;L)=\big(\nu \theta^{-\nu}t^{\nu-1} \big) \exp(L'\beta)
+:= \lambda_{0}(t)\exp(L'\beta),$$
+\noindent
+where $\lambda_{0}(t)$ is the hazard, say, for $T_{0} \sim \hbox{Weibull}(\nu,\theta)$.
+This is a special case of the proportional hazards model. The chf (conditional chf with covariate vector
+$L$) is $\Lambda(t;Z)=(t/\theta)^{\nu}\exp(L'\beta)$ so that
+analogous to above this leads to the representation
+
+\begin{equation}
+\tag{3}
+\log(T) =\log(\theta)+\tau[-L'\beta+\epsilon] =\log(\theta)+L'\gamma + \tau \epsilon,
+\end{equation}
+\noindent
+where $\gamma=-\tau\beta$, with $\tau$ and $\epsilon$ defined in (2).  R *survReg* uses this AFT parameterization so that the estimated components of
+$\gamma$, $\gamma_{p}$ say, are that of $-\tau\beta_{p}$ for $p=1,\ldots,m$ ($m$ is dimension of $\beta$).
+
+When fitting the AFT model (3) via suvreg we therefore transform parameters $\hat\gamma$ to the Weibull hazard-ratio parameterization (2) via
+
+\begin{equation}
+\tag{4}
+\hat\beta = -\hat\gamma / \hat{\tau}.
+\end{equation}
+
+
+As an illustration we compare the *survReg* model fits for the case-study dataset.  The following table below compares the Weibull *survReg* model fits with covariates Treat (hormon) and menopausal status (meno = 1 vs 0) where components of $\hat\gamma$ from model (3) are calculated according to *survReg* and $\hat\beta$ are formed via (4).  In the table below Weibull estimates of $\hat\beta$ are compared to Cox model versions.
+  
+```{r Case-study}
+# case-study example
+df.case <- gbsg
+names(df.case)
+```
+
+
+```{r Weibull-vs-Cox}
+# Comparing Weibull vs Cox with case-study 
+# This is just for illustration to show conversion of Weibull parameters from 
+# AFT regression to Weibull hazard 
+fit.weib_ex <- survreg(Surv(rfstime,status) ~ hormon + meno, dist='weibull', data=df.case)
+tauhat <- fit.weib_ex$scale
+# convert (treat,ecog1) regression parms to Weibull hazard-ratio
+bhat.weib <- -(1)*coef(fit.weib_ex)[c(2,3)]/tauhat
+# Compare to Cox 
+fit.cox_ex <- coxph(Surv(rfstime,status) ~ hormon + meno, data=df.case)
+res <- cbind(bhat.weib,coef(fit.cox_ex))
+res <- as.data.frame(res)
+colnames(res)<-c("Weibull","Cox")
+res |> gt() |>
+fmt_number(columns=1:2,decimals=6) |>
+tab_header(title="Comparing Weibull to Cox hazard ratio estimates",
+subtitle="Case-study dataset")
+
+```
+
+
+We will use estrogen receptors (er) as a biomarker where we will induce true biomarker treatment effects as described below.   First let's see whether er appears influential by looking at a spline model which will be the basis for generating biomarker effects.
+
+```{r}
+# Convert rfstime to months
+# Suppose stratum is grade
+# Biomarker is log(er+1)
+df.case <- within(df.case,{
+  treat <- hormon
+  event <- status
+  tte <- rfstime/30.4375
+  z <- log(er+1)
+  stratum <- grade
+  # consider z <= log(2) as "biomarker low"
+  bm_low <- ifelse(z <= log(2), 1,0)
+  })
+```
+
+
+```{r}
+table1(~ age + factor(bm_low) + factor(meno) + size + factor(grade) + nodes + pgr + er | hormon, data=df.case)
+```
+
+
+
+```{r,fig.width=8, fig.height=6}
+# non-stratified
+kmH.fit<-KM.plot.2sample.weighted(df=df.case, 
+tte.name="tte", event.name="event", treat.name="treat",
+risk.set=TRUE, by.risk=6,
+details=TRUE,
+Xlab="Months",Ylab="Recurrence-free survival",
+arms=c("Experimental","Control"))
+title(main="ITT Population")
+
+```
+
+
+```{r}
+# ydel (default=0.25) is how much room to provide in space for counts
+# Note that byz=0.25 plots fits by units of 0.25 for biomarker
+# zwindow=0.25 creates counts of subjects with biomarker within 0.25 units of z
+# That is, for z=0.5 there were 16 subjects within (0.25,0.75)
+temp <- cox_cs_fit2(df=df.case,tte.name="tte",event.name="event",treat.name="treat",
+strata.name="stratum", z.name=c("z"), details=FALSE ,boots=0, maxz=8, xlab=c("Biomarker"), byz=0.25, zwindow=0.25, ydel=0.5, show_plot=TRUE,truebeta.name=NULL)
+title("ITT")
+```
+
+There is some indication that lower biomarker values may have reduced efficacy.  
+
+In the following we will describe a two-phase spline model that can generate such profiles.  
+
+
+```{r,fig.width=8, fig.height=6}
+# z <= 1.0
+# non-stratified
+kmH.fit<-KM.plot.2sample.weighted(df=subset(df.case,z<=1), 
+tte.name="tte", event.name="event", treat.name="treat",
+risk.set=TRUE, by.risk=6,
+details=TRUE,
+Xlab="Months",Ylab="Recurrence-free survival",
+arms=c("Experimental","Control"))
+title(main="Biomarker <= 1 Population")
+
+```
+
+
+## Biomarker effects with spline model  
+
+We now outline how potential outcomes are simulated according to parameters fit to the case-study dataset but with parameters specified to induce biomarker effects.  That is, causal treatment effects (on log(hazard-ratio) scale) that follow 
+a spline model according to patterns where biomarker effects increase with biomarker levels;  Including various degrees of limited treatment effects for low biomarker levels.
+
+We first consider a Weibull model with treatment and a single biomarker covariate $Z$ where we write the linear predictor of the Cox model $L'\beta$ (say) as 
+
+\begin{equation}
+\tag{5}
+L'\beta  := \beta_{1}\hbox{Treat} + \beta_{2}\hbox{Z} + \beta_{3}\hbox{Z}\hbox{Treat} + \beta_{4}(\hbox{Z}-k)I(\hbox{Z}>k) + \beta_{5}(\hbox{Z}-k)I(\hbox{Z}>k)\hbox{Treat}.
+\end{equation}
+
+Following the potential-outcome approach let $l_{x,z}$ denote subject's hazard-function "had they followed treatment regimen $Treat=x$ while having biomarker level $Z=z$".   That is, for subject with biomarker level $Z=z$ we can simulate 
+their survival outcomes under both treatment ($x=1$) and control ($x=0$) conditions.   Let $\beta^{0} = (\beta_{1}^{0},\ldots,\beta_{5}^{0})'$ denote the true coefficients and denote the hazard function as 
+
+$$\lambda_{x,z}(t) = \lambda_{0}(t)\exp(l_{x,z}), \quad \hbox{say}.$$  
+
+Writing 
+
+\begin{equation}
+l_{x,z} = \beta^{0}_{1}x + \beta^{0}_{2}z + \beta^{0}_{3}zx + \beta^{0}_{4}(z-k)I(z>k) + 
+ \beta^{0}_{5}(z-k)I(z>k)x,
+\end{equation}
+\noindent
+the log of the hazard ratio for biomarker level $z$ under treatment ($x=1$) relative to control ($x=0$) is given by 
+
+\begin{equation}
+\tag{6}
+\psi^{0}(z) := \log(\lambda_{1,z}(t)/\lambda_{0,z}(t)) = \beta^{0}_{1} + \beta^{0}_{3}z + \beta^{0}_{5}(z-k)I(z>k).
+\end{equation}
+
+
+## Causal log-hazard-ratio
+
+The log(hazard-ratio) for biomarker level $z$ is a linear function of $z$ with a change-point (in slope) at $z=k$ given by 
+
+\begin{eqnarray*}
+\psi^{0}(z) &=& \beta^{0}_{1} + \beta^{0}_{3}z, \quad \hbox{for} \ z \leq k, \cr
+            &=& \beta^{0}_{1} + \beta^{0}_{3}z + \beta^{0}_{5}(z-k), \quad \hbox{for} \ z > k.
+\end{eqnarray*}
+
+Log hazard-ratio parameters $(\beta^{0}_{1},\beta^{0}_{3},\beta^{0}_{5})$ can be chosen to generate "treatment effect patterns" by specifying $\psi^{0}(z)$ values at 
+$z=0$, $z=k$, and $z=\zeta$ for $\zeta > k$.  For specified $\psi^{0}(0)$, $\psi^{0}(k)$, and $\psi^{0}(\zeta)$ we have 
+
+\begin{eqnarray}
+\beta^{0}_{1} &=& \psi^{0}(0), \cr
+\beta^{0}_{3} &=& {(\psi^{0}(k) - \beta^{0}_{1}) \over k}, \cr
+\beta^{0}_{5} &=& {(\psi^{0}(\zeta) - \beta^{0}_{1} - \beta^{0}_{3}\zeta) \over (\zeta -k)}.
+\end{eqnarray}
+
+
+The function *get_dgm_stratified* generates $\psi^{0}(z)$ according to desired "biomarker treatment effect patterns" as follows.
+
+- Let $X$ and $Z$ denote the treatment and biomarker variables in the case-study dataset and for specified $k$, form the covariates $L:=(X,Z,ZX,(Z-k)I(Z>k),(Z-k)I(Z>k)X))$;
+- Fit the Weibull model (recall on AFT scale) to get $\log(\hat\theta)$, $\hat\tau=1/\hat{\nu}$, and $\hat\gamma$ corresponding to $L$;
+- $\hat\gamma$ is in terms of the AFT parameterization given by model (3)
+- Next transform to the Weibull (Cox) log hazard-ratio parameterization (4): $\hat\beta = -\hat\gamma/\hat\tau$
+- Set "true" parameters $\theta^{0}=\hat\theta$, and $\tau^{0}=\hat\tau$
+- Initialize the "true" parameter $\beta^{0} = \hat\beta$ and re-define parameters 1, 3, and 5 in order to satisfy specified $\psi^{0}(0)$, $\psi^{0}(k)$, and $\psi^{0}(\zeta)$:
+$\beta^{0}[1] = \psi^{0}(0)$, $\beta^{0}[3] = (\psi^{0}(k) - \beta^{0}[1])/k$, and $\beta^{0}[5] = (\psi^{0}(\zeta) - \beta^{0}[1] - \beta^{0}[3]\zeta)/(\zeta -k)$;
+- Form corresponding $\gamma^{0}= -\beta^{0}\tau^{0}$
+- For simulations we use the AFT parameterization (3) to generate $\log(T)$ outcomes according to $\log(T) = \log(\theta^{0}) + L'\gamma^{0} + \tau^{0}\epsilon$ where recall $\epsilon$ has the ``extreme value'' distribution.
+
+
+The inputs of the *get_dgm_stratified* function are: 
+
+- The case-study dataset ("df")
+- "knot"=$k$, "zeta"=$\zeta$, and "log.hrs"= ($\psi^{0}(0),\psi^{0}(k),\psi^{0}(\zeta))$
+- Note that *get_dgm_stratified* allows for outcomes to follow a stratified Weibull (Cox) models in which case the log(hazard-ratio) effects will depend on the strata, "strata_tte", where the default is non-stratified ("strata_tte=NULL")
+- If stratified the $\tau$ parameters and hence $\gamma^{0}$ depend on the strata
+- If stratified, then to simplify, the $\gamma^{0}$ effects are calculated based on the median of the $\tau^{0}$'s ($\tau^{0}=\tau_{med}$, say).  
+
+
+
+To-do --> explain outputs and how used in *draw_sim_stratified* ...
+
+
+## Example where treatment effects increase with increasing biomarker 
+
+We assume that $z=0$ indicates biomarker negative values with $z>1$ indicating positive levels.  As an example, suppose the log(hazard ratio) at
+$z=0$ is $\psi^{0}(0)=\log(3)$ and decreases linearly for $z \leq 5$ (with slope $\beta_{3}^{0}$) such that at $z=5$, $\psi^{0}(5)=\log(1.25)$ and 
+for $z>5$ decreases linearly (with a change in slope and intercept) such that at $z=10$, $\psi^{0}(10) = \log(0.5)$.  In the following we will describe summary measures of the treatment effects as a function of increasing [or decreasing] values of the biomarker.  In this example treatment is detrimental 
+for lower values of the biomarker with treatment effects increasing fairly quickly as the biomarker increases with an overall ``average hazard ratio'' (AHR) of $\approx 0.74$ (see Working Example below).  
+
+
+## Including prognostic factors $W$
+
+We extend the model to include a baseline prognostic factor $W$ within $L$ (effect parameter $\beta^{0}_{w}$) where
+
+\begin{equation}
+l_{x,z,w} = \beta^{0}_{1}x + \beta^{0}_{2}z + \beta^{0}_{3}zx + \beta^{0}_{4}(z-k)I(z>k) + 
+ \beta^{0}_{5}(z-k)I(z>k)x + \beta^{0}_{w}w.
+\end{equation}
+
+
+Note that defining $m(1,z,w)$ [$m(0,z,w)$)] as the conditional expected value of $\log(T)$ with treatment set to experimental [control] given biomarker level $Z=z$ and $W=w$ 
+
+$$\psi^{0}(z,w) = \{m(0,z,w)-m(1,z,w)\}/\tau$$
+\noindent
+which corresponds to the difference in the (true) means of the potential outcomes under experimental and control conditions ($\log(T[0,z,w]$ versus $\log(T[1,z,w]$, say) 
+
+
+# Specifying biomarker treatment effects
+
+## Average hazard ratios (AHRs)
+
+We define the *biomarker average hazard ratio (AHR)* as the expected value of $\psi^{0}(\cdot)$ across "increasing biomarker" sub-populations.  For example, $\hbox{AHR}(2^{+})$ represents the AHR for subjects with biomarker values $\geq 2$ via  
+
+
+\begin{equation}
+\tag{6}
+\hbox{AHR}(z^{+}):= \exp\left\{E_{Z \geq z} \psi^{0}(Z) \right\};
+\end{equation}
+
+With the opposite direction -- across "decreasing biomarker" sub-populations
+
+\begin{equation}
+\tag{7}
+\hbox{AHR}(z^{-}):= \exp\left\{E_{Z \leq z} \psi^{0}(Z) \right\}.
+\end{equation}
+
+Here the expectations are over the distribution of $Z$, however if there is a prognostic factor $W$ then the expectations are over $(Z,W)$.  In our calculations we calculate empirical averages.
+
+
+## Controlled direct-effect (CDE) versions (@ACR_2015)
+
+Averaging across hazard ratios:  Define the hazard (omitting baseline hazard) $\theta^{x}(z,w) = \exp(l(x,z,w))$ setting treatment to $X=x$ given $Z=z$ and $W=w$.  Aalen et al. (@ACR_2015) define the controlled direct-effect (CDE) as the ratio of the expected hazards.  Here we consider the above cumulative versions (omitting possible dependence on $W$).   Let $\bar\theta^{x}(z+) = E_{Z \geq z}\theta^{x}(Z)$ for $x=0,1$, and define
+
+$$\hbox{CDE}(z^{+}):= \bar\theta^{1}(z+)/\bar\theta^{0}(z+), \quad \hbox{and} \quad \hbox{CDE}(z^{-}):= \bar\theta^{1}(z-)/\bar\theta^{0}(z-)$$
+
+## Compare 'AHR' versions under various biomarker specifications 
+
+### Under PH (uniform effects, hr=0.7), with strong prognostic effect $\beta_{w}= -\log(5)$
+
+
+```{r}
+# Outcome model is NON-stratified (strata_tte=NULL)
+# PH 
+
+log.hrs <- log(c(0.6,0.6,0.6))
+
+dgm <- get_dgm_stratified(df=df.case,zeta=10,knot=5,log.hrs=log.hrs,strata_tte=NULL,details=FALSE)
+
+# Simulate with randomization factors "stratum" 
+# wname="meno" specifies prognostic effect factor
+# bw=log(5) denotes log(hazard ratio) relative effect with respect to wname factor
+
+# Draw very large-sample to get approximation to bias
+# Note: return_df will NOT return the large simulated dataset but the "large-sample" estimates as a list
+# checking=TRUE will compare the estimated tau (stratified) parameters based on the case-study dataset to 
+# the versions based on the simulated dataset
+# details=TRUE will output the approximations to Cox model estimators from several models ("population summaries")
+# return_df =FALSE will return the "population summaries" as a list as well as the biomarker AHR functional (see below)
+
+pop_summary1 <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,wname="meno",bw=-log(5),strata_rand="stratum",checking=TRUE,details=TRUE,return_df=FALSE)
+
+```
+
+```{r,  fig.width=12, fig.height=10}
+plot_AHRs(popsummary=pop_summary1,dfcase=df.case)
+```
+
+
+
+
+### Under ''moderate'' biomarker effects 
+
+
+```{r}
+# Moderate biomarker
+log.hrs <- log(c(0.9,0.8,0.65))
+dgm <- get_dgm_stratified(df=df.case,zeta=10,knot=5,log.hrs=log.hrs,strata_tte=NULL,details=FALSE)
+# Strong prognostic factor 
+pop_summary5 <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,wname="meno",bw=-log(5),strata_rand="stratum",checking=TRUE,details=TRUE,return_df=FALSE)
+
+```
+
+
+```{r,  fig.width=12, fig.height=10}
+
+plot_AHRs(popsummary=pop_summary5,dfcase=df.case)
+
+```
+
+
+## Calculating causal 'AHR' effects for subgroups
+To evaluate the estimation properties of our procedures we calculate the empirical average within subgroup $\cal G$ (say) which can represent 
+the estimated subgroup or can be the ITT population (or any underlying subgroup).  That is, for each subject with characteristics 
+${\bf L}=(Z,W)$ say, we have their individual log hazard-ratio contrast $\psi^{0}({\bf L})$; We estimate 
+$\hbox{AHR}({\cal G}):= \exp\left\{E_{\cal G} \psi^{0}\right\}$ by calculating the empirical average 
+
+\begin{equation}
+\tag{8}
+\hbox{AHR}({\cal G}):= \exp(\bar\beta({\cal G})), \quad \hbox{where} \quad \bar\beta({\cal G}) =(1/n({\cal G}))\sum_{g \in {\cal G}} \psi^{0}({\bf L}_{g}), 
+\end{equation}
+with $n({\cal G})$ denoting the size of ${\cal G}$.
+
+
+Note that for now we will not incorporate this ... since we will first consider the scenario of a uniform treatment effect
+
+But can be of interest when we want to calculate bias when subgroup effects are induced either directly or via indirectly via correlation with biomarker (when biomarker effect exists)
+
+
+
+```{r}
+# Outcome model is NON-stratified (strata_tte=NULL)
+# PH 
+log.hrs <- log(c(0.6,0.6,0.6))
+dgm <- get_dgm_stratified(df=df.case,zeta=10,knot=5,log.hrs=log.hrs,strata_tte=NULL,details=FALSE)
+```
+
+
+Lets check if there is any imbalance (asymptotically) by biomarker by drawing a large sample (N=10,000) and viewing summary tables: 
+```{r}
+# This time return large dataset (corresponding to that used in the above asymptotic approximations)
+dflarge <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,wname="meno",bw=-log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+# create factor versions of treatment and AP region
+dflarge$trtsim <- ifelse(dflarge$treat.sim==1,"Experimental","Control")
+dflarge$menopausal <- ifelse(dflarge$meno==1,"post-meno","pre-meno")
+dflarge$bm_log2 <- ifelse(dflarge$z<=log(2),"biomarker<=log(2)","biomarker>log(2)")
+table1( ~ z + bm_log2 | trtsim, data=dflarge, caption=c("ITT by treatment arm"))
+table1( ~ z + bm_log2 | menopausal, data=dflarge, caption=c("ITT by menopausal status"))
+table1( ~ z + bm_log2 | trtsim, data=subset(dflarge,meno==1), caption=c("Post-menopausal  by treatment arm"))
+rm("dflarge")
+```
+
+Next, a simulated example with same sample size as the case-study but randomized 1:1 (note, can retain original randomization with keep_rand=TRUE ... shown next)   
+
+
+```{r,fig.width=8, fig.height=6}
+df_example <- draw_sim_stratified(dgm=dgm,ss=1,wname="meno",bw=-log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+# non-stratified
+kmH.fit<-KM.plot.2sample.weighted(df=df_example, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+risk.set=TRUE, by.risk=6,
+details=TRUE,
+Xlab="Months",Ylab="Recurrence-free survival",
+arms=c("Experimental","Control"))
+title(main="ITT Population")
+```
+
+Retain original randomization
+
+```{r,fig.width=8, fig.height=6}
+df_example <- draw_sim_stratified(dgm=dgm,ss=1,wname="meno",bw=-log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE,keep_rand=TRUE)
+# non-stratified
+kmH.fit<-KM.plot.2sample.weighted(df=df_example, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+risk.set=TRUE, by.risk=6,
+details=TRUE,
+Xlab="Months",Ylab="Recurrence-free survival",
+arms=c("Experimental","Control"))
+title(main="ITT Population")
+```
+
+
+
+## Looking at 9 simulated AP trials when AP region is a strong factor ($\beta_{w} = -\log(5)$) and prognostic null ($\beta_{w}=0$)
+
+### Nine simulated AP realizations under $\beta_{w}= -\log(5)$
+
+```{r, fig.width=12, fig.height=12}
+
+par(mfrow=c(3,3))
+
+for(ss in 1:9){
+df_ex <- draw_sim_stratified(dgm=dgm,ss=ss,wname="meno",bw=-log(5),strata_rand="stratum")
+kmH.fit<-KM.plot.2sample.weighted(df=subset(df_ex,meno==1), 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",strata.name="strata.simR",
+risk.set=TRUE, by.risk=12, details=FALSE, show.med=FALSE, cox.cex= 1.25,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Survival",
+arms=c("Experimental","Control"))
+title(main="Post-menopausal subgroup")
+}
+
+
+```
+
+
+### Nine simulated AP realizations under $\beta_{w} = 0$
+
+
+```{r, fig.width=12, fig.height=12}
+
+par(mfrow=c(3,3))
+
+for(ss in 1:9){
+df_ex <- draw_sim_stratified(dgm=dgm,ss=ss,wname="meno",bw=-log(1),strata_rand="stratum")
+kmH.fit<-KM.plot.2sample.weighted(df=subset(df_ex,meno==1), 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",strata.name="strata.simR",
+risk.set=TRUE, by.risk=12, details=FALSE,show.med=FALSE, cox.cex= 1.25,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Survival",
+arms=c("Experimental","Control"))
+title(main="AP Population")
+}
+
+
+```
+
+## Compare non-parametric (cubic-spline) fit with true $\psi^{0}$ 
+
+For ITT dataset
+
+Note that under uniform effect this should fluctuate around truth (0.6 here)
+
+```{r}
+# ydel (default=0.25) is how much room to provide in space for counts
+temp <- cox_cs_fit2(df=df_example,tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 8, ydel=0.5, byz=0.25, zwindow=0.25, show_plot=TRUE,truebeta.name="loghr.po")
+title("ITT")
+
+```
+
+
+Within meno subgroups 
+
+
+```{r,fig.width=12, fig.height=6}
+
+par(mfrow=c(1,2))
+
+temp <- cox_cs_fit2(df=subset(df_example,meno==0),tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 8, ydel=0.5, byz=0.25, zwindow=0.25, show_plot=TRUE,truebeta.name="loghr.po")
+title("Pre-meno")
+
+
+temp <- cox_cs_fit2(df=subset(df_example,meno==1),tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 8, ydel=0.5, byz=0.25, zwindow=0.25, show_plot=TRUE,truebeta.name="loghr.po")
+title("Post-meno")
+
+```
+
+## Many subgroup analyses under uniform treatment effects (hr=0.7, and NO subgroup effects)
+
+What can happen?
+
+
+Setup subgroups and artificially generate small subgroups
+
+
+```{r}
+set.seed(8316951)
+# Include subgroups with specific sample sizes via randomly sampling
+sg_ran <- rbinom(nrow(df.case),size=1,prob=0.2)
+# Take 1st 15
+temp <- cumsum(sg_ran)
+sg_ran15 <- sg_ran
+sg_ran15[which(temp>15)] <- 0
+cat("# of subjects in sg_ran15",c(sum(sg_ran15)),"\n")
+df.case[,"random15"] <- sg_ran15
+
+sg_ran20 <- sg_ran
+# Take 1st 20
+sg_ran20[which(temp>20)] <- 0
+cat("# of subjects in sg_ran20",c(sum(sg_ran20)),"\n")
+df.case[,"random20"] <- sg_ran20
+
+sg_ran40 <- sg_ran
+# Take 1st 40
+sg_ran40[which(temp>40)] <- 0
+cat("# of subjects in sg_ran40",c(sum(sg_ran40)),"\n")
+df.case[,"random40"] <- sg_ran40
+
+sg_ran60 <- sg_ran
+# Take 1st 60
+sg_ran60[which(temp>60)] <- 0
+cat("# of subjects in sg_ran60",c(sum(sg_ran60)),"\n")
+df.case[,"random60"] <- sg_ran60
+rm("temp")
+```
+
+Create an artificial country name
+
+```{r}
+set.seed(8316951)
+# Include subgroups with specific sample sizes via randomly sampling
+country_ran <- rbinom(nrow(df.case),size=1,prob=0.1)
+df.case[,"country"] <- ifelse(country_ran==1,"Somewhere","Elsewhere")
+```
+
+
+
+
+In the simulations the baseline characteristics will be as-is in the dataset
+
+```{r}
+table1(~ age + factor(bm_low) + factor(meno) + size + factor(grade) + nodes + pgr + er + factor(sg_ran15) + factor(sg_ran20) + factor(sg_ran40) + factor(sg_ran60) + factor(country) | hormon, data=df.case)
+```
+
+
+## Underlying uniform treatment benefit of hr=0.6
+
+Note: allows for turning off evaluation since run first and then compiling document (loading results below)
+
+```{r sims, eval=FALSE}
+
+# Note dgm needs to be generated to include df.case updates
+# PH 
+log.hrs <- log(c(0.6,0.6,0.6))
+dgm <- get_dgm_stratified(df=df.case,zeta=10,knot=5,log.hrs=log.hrs,strata_tte=NULL,details=FALSE)
+
+wname <- c("meno")
+bw <- -log(5)
+
+# Create subgroup definitions (ID's) and corresponding names
+
+subgroups_id <- c("itt==\"Y\"", "bm_low==0", "bm_low==1", "meno==0", "meno==1", 
+"country==\"Somewhere\"","country==\"Elsewhere\"","age<=65","age>65",
+"size <=  median(size)","pgr <= median(pgr)", "er <= median(er)",
+"grade==1","grade==2","grade==3",
+"random15==1", "random20==1", "random40==1","random60==1")
+
+subgroups_name <- c("All Patients", "BM low", "BM non-low", "Pre-meno", "Post-meno",
+"Somewhere","Elsewhere", "Age<=65", "Age>65",
+"med(size)","med(pgr)","med(er)","grade1","grade2","grade3",
+"random15", "random20","random40", "random60")
+
+# Check 1 simulation
+#res <- get_SGanalyses(dgm, subgroups_name,subgroups_id, sims=1, wname, bw, Ndraw = nrow(dgm$df_super), bmcut=log(2),outfile=NULL)
+
+# Run sims=k (eg, k=1000) simulations and output (per outfile)
+
+res <- get_SGanalyses(dgm, subgroups_name,subgroups_id, sims=5000, wname, bw, Ndraw = nrow(dgm$df_super), bmcut=log(2),
+outfile=c("results/bm1_bw=log5_v1.Rdata"))
+
+```
+
+Let's look at operating characteristics 
+
+```{r, echo=TRUE}
+options(scipen = 1, digits = 2)  
+load("results/bm1_bw=log5_v1.Rdata")
+```
+
+Look at how many Cox model estimates are missing across analyses (here there are 5000 simulations)
+
+```{r}
+options(scipen = 1, digits = 2)  
+
+apply(subgroup_hrs1,2,function(x){sum(!is.na(x))})
+apply(subgroup_hrs2,2,function(x){sum(!is.na(x))})
+apply(subgroup_hrs3,2,function(x){sum(!is.na(x))})
+apply(subgroup_hrs5,2,function(x){sum(!is.na(x))})
+apply(subgroup_hrs6,2,function(x){sum(!is.na(x))})
+
+# Note that analysis 4 "hrs4" stratifies by biomarker low and thus "BM low" is redundant
+apply(subgroup_hrs4,2,function(x){sum(!is.na(x))})
+
+```
+
+
+
+### ITT analyses:  Look at performance for all six analyses getSG_dfhrSIX()  
+
+```{r}
+options(scipen = 1, digits = 2)  
+
+# Note that use of alpha=0.01 means we want to examine broad range of distribution of HR estimates
+# Here alpha=0.01 does NOT represent CI for analysis --- simulated analyses are done at traditional 0.025
+
+SG_table <- getSG_dfhrSIX(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3, x4=subgroup_hrs4, x5=subgroup_hrs5, x6=subgroup_hrs6,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", analysisx2="none", analysisx3="sX", analysisx4="sBM*", analysisx5="sX+sR", analysisx6="X+O+sR",
+which_sgs=c("All Patients"), alpha=0.01)
+
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`HR (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+# Adding HR<1
+# Change ci_column from 4 to 5?
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se,
+            ci_column = 5,
+            ref_line = 0.8,
+            arrow_lab = c("HR < 0.8", ">= 0.8"),
+            xlim = c(0.25, 1.1),
+            ticks_at = c(0.6, 0.80, 1.0),
+            footnote = "HR estimates",
+            theme = tm)
+
+```
+
+```{r, fig.width=8, fig.height=8, echo=FALSE}
+
+plot(p)
+
+```
+
+
+
+## Subgroup analyses: Distribution of HR estimates across subgroups for standard analysis stratified by randomization factors (analysis="sR")
+
+Note that which_sgs allows for choosing which subgroups to display
+
+Look at all subgroups_name but for only 1 analysis "x1 = sR"
+
+```{r}
+options(scipen = 1, digits = 2)  
+
+# Note that use of alpha=0.01 means we want to examine broad range of distribution of the upper bounds of HR estimates
+# Here alpha=0.01 does NOT represent CI for analysis --- the upper bounds are 95% at analysis level
+
+SG_table <- getSG_dfhrONE(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", 
+which_sgs=subgroups_name, alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+# Create confidence interval column to display
+dt$`HR (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+# Adding HR<1
+# Change ci_column from 4 to 5?
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 0.8,
+            arrow_lab = c("HR < 0.8", ">= 0.8"),
+            xlim = c(0.25, 1.1),
+            ticks_at = c(0.6, 0.80, 1.0),
+            title="Cox hazard-ratio estimates",
+            footnote = "HR estimates",
+            theme = tm)
+```
+
+
+```{r, fig.width=12, fig.height=12, echo=FALSE}
+
+plot(p)
+
+```
+
+
+
+
+## Subgroup analyses: Distribution of upper bound (ub(HR)) of HR estimates across subgroups for standard analysis stratified by randomization factors (analysis="sR")
+
+Note that which_sgs allows for choosing which subgroups to display
+
+Look at all subgroups_name but for only 1 analysis "x1 = sR"
+
+```{r}
+options(scipen = 1, digits = 2)  
+
+# Note that use of alpha=0.01 means we want to examine broad range of distribution of the upper bounds of HR estimates
+# Here alpha=0.01 does NOT represent CI for analysis --- the upper bounds are 95% at analysis level
+
+SG_table <- getSG_dfubONE(z=apply(subgroup_ns,2,mean), x1=subgroup_hrs1, x2=subgroup_hrs2, x3=subgroup_hrs3,
+ubx1=subgroup_ubs1, ubx2=subgroup_ubs2, ubx3=subgroup_ubs3, ubx4=subgroup_ubs4,
+ubx5=subgroup_ubs5, ubx6=subgroup_ubs6, analysisx1="sR", 
+which_sgs=subgroups_name, alpha=0.01)
+
+dt <- SG_table
+
+dthi <- dt[,c("hi")]
+
+which_inf <- which(!is.na(dthi) & dthi>1000) 
+dt[which_inf,c("hi")] <- Inf
+
+# indent the subgroup if there is a number in the est column
+dt$Subgroup <- ifelse(is.na(dt$est),
+dt$Subgroup, paste0("   ", dt$Subgroup))
+
+names(dt)[names(dt) == "Subgroup"] <- "Subpopln"
+
+# Add blank column for the forest plot to display CI.
+# Adjust the column width with space.
+dt$` ` <- paste(rep(" ", 20), collapse = " ")
+
+
+dt$`UB(HR) (99% ECI)` <- ifelse(is.na(dt$se), "",
+                             sprintf("%.2f (%.2f to %.2f)",
+                                     dt$est, dt$low, dt$hi))
+
+
+tm <- forest_theme(base_size = 10,
+                   refline_gp = gpar(col = "red"),
+                   footnote_gp = gpar(col = "#636363", fontface = "italic"))
+
+
+p <- forest(dt[,c(1:4, 9:10)],
+            est = dt$est,
+            lower = dt$low,
+            upper = dt$hi,
+            sizes = dt$se/2,
+            ci_column = 5,
+            ref_line = 1,
+            arrow_lab = c("Upper Bound < 1", ">= 1"),
+            xlim = c(0.5, 6),
+            ticks_at = c(1.0, 2, 3, 4, 5, 6),
+            title="Upper-bound estimates (re: hr point estimates)",
+            footnote = "UB(HR) estimates",
+            theme = tm)
+
+
+```
+
+
+```{r, fig.width=12, fig.height=12, echo=FALSE}
+
+plot(p)
+
+```
+
+
+
+
+
+
