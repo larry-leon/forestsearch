@@ -1,0 +1,1577 @@
+---
+title: "Subgroup Identification Analysis"
+format: 
+  html:
+    self-contained: true
+    code-fold: true
+    bibliography: subgroups_ref3.bib
+    fig_caption: yes
+    keep_tex: yes
+    latex_engine: xelatex
+    citation_package: natbib
+    fig_width: 10
+    fig_height: 8
+    fontsize: 10pt
+    extra_dependencies: "subfig"
+---
+
+
+```{r Setup, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning=FALSE)
+
+options(warn = -1)
+
+rm(list=ls())
+
+library(tinytex)
+library(ggplot2)
+library(table1)
+
+library(gt)
+
+# test these packages
+# library(tidyverse)
+# library(plyr)
+# library(dplyr)
+# library(glmnet)
+
+library(survival)
+library(data.table)
+library(randomForest)
+library(grf)
+library(policytree)
+library(DiagrammeR)
+
+library(grid)
+library(forestploter)
+library(randomizr)
+
+codepath <- c("Rcode/forestsearch/R/")
+source(paste0(codepath,"source_forestsearch_v0.R"))
+source_fs_functions(file_loc=codepath)
+
+source("Rcode/kmplotting/R/KMplotting_functions_v0.R")
+
+# Save output flag
+output <- TRUE
+# Loading results
+loadit <- FALSE
+
+# Record time of all analyses
+tALL.start<-proc.time()[3]
+ 
+#library(doParallel)
+#cat("Number of cores=",c(detectCores()),"\n")
+
+# Note: leave workers unspecified
+# on my linux machine workers(=100) needs to be set
+plan(multisession)
+#plan(multisession, workers=120)
+
+```
+
+
+# Weibull AFT/Cox model with biomarker effects
+
+## Brief Review
+For the Weibull distribution with shape parameter $\nu$ and scale parameter $\theta$ the
+density, cdf, survival, hazard and cumulative hazard functions are:
+\begin{eqnarray*}
+f(t) &=& \nu \theta^{-\nu}t^{\nu-1}\exp(-(t/\theta)^{\nu}), \cr F(t)
+&=& \int_{0}^{t}\nu \theta^{-\nu}s^{\nu-1}\exp(-(s/\theta)^{\nu})ds
+\cr &=& \int_{0}^{(t/\theta)^{\nu}}e^{-w}dw \cr & &
+(w=(s/\theta)^{\nu},dw=\nu s^{\nu-1}\theta^{-\nu}ds) \cr
+&=&1-\exp(-(t/\theta)^{\nu}), \cr S(t) &=& \exp(-(t/\theta)^{\nu}),
+\cr \lambda(t)&=&\nu \theta^{-\nu}t^{\nu-1}, \cr \Lambda(t) &=&
+-\log(S(t))=(t/\theta)^{\nu}.
+\end{eqnarray*}
+Note that here we define the density to correspond with R's definition.
+For shape parameter $\nu \in (0,1)$ the hazard is strictly decreasing in $t \geq 0$,
+whereas for $\nu >1$ the hazard is strictly increasing in $t \geq 0$.  
+
+### Note: $\Lambda(T) \sim E(1)$
+
+The cumulative hazard function $\Lambda(\cdot)$ evaluated at $T$, $\Lambda(T)$ as a random variable, has cdf
+$$\eqalign{ \Pr(\Lambda(T) \leq t) &=\Pr(-\log(1-F(T)) \leq t) =\Pr(1-F(T) \geq e^{-t}) \cr
+&=\Pr(T \leq F^{-1}(1-e^{-t})) =F(F^{-1}(1-e^{-t}))  = 1-e^{-t}, \cr}$$
+\noindent
+which is the CDF of the exponential distribution, $E(1)$ (say). 
+
+
+In the following we use 
+
+\begin{equation}
+\tag{1}
+\Lambda(T) \sim E(1)
+\end{equation}
+\noindent
+to represent the Weibull regression model as an AFT model which is also a Cox model. 
+
+Now, $\Lambda(T)=(T/\theta)^{\nu}$ and write
+$W=-\log(S(T))=\Lambda(T)=(T/\theta)^{\nu}$, where from (1), $W \sim E(1)$.  That is
+$\log(W)=\nu(\log(T)-\log(\theta))$ can be expressed as
+
+\begin{equation}
+\tag{2}
+\log(T)=\log(\theta)+ \tau \log(W) := \log(\theta) + \tau \epsilon,
+\end{equation}
+\noindent
+where $\tau=1/\nu$ and it is easy to show that $\epsilon=\log(W)$ has the ``extreme
+value'' distribution with density $f_{\epsilon}(x)=\exp(x-e^{x})$ for $x \in {\cal R}$.
+Here the range of $\log(T) \in {\cal R}$ is un-restricted.  The *survReg* routine uses the parameterization $(2)$ and therefore estimates
+$\log(\theta)$ and $\tau=1/\nu$.
+
+To incorporate covariates $L$ (say) we specify
+$$\lambda(t;L)=\big(\nu \theta^{-\nu}t^{\nu-1} \big) \exp(L'\beta)
+:= \lambda_{0}(t)\exp(L'\beta),$$
+\noindent
+where $\lambda_{0}(t)$ is the hazard, say, for $T_{0} \sim \hbox{Weibull}(\nu,\theta)$.
+This is a special case of the proportional hazards model. The chf (conditional chf with covariate vector
+$L$) is $\Lambda(t;Z)=(t/\theta)^{\nu}\exp(L'\beta)$ so that
+analogous to above this leads to the representation
+
+\begin{equation}
+\tag{3}
+\log(T) =\log(\theta)+\tau[-L'\beta+\epsilon] =\log(\theta)+L'\gamma + \tau \epsilon,
+\end{equation}
+\noindent
+where $\gamma=-\tau {\times} \beta$, with $\tau$ and $\epsilon$ defined in (2).  R *survReg* uses this AFT parameterization so that the estimated components of
+$\gamma$, $\gamma_{p}$ say, are that of $-\tau{\times}\beta_{p}$ for $p=1,\ldots,k$ ($k$ is dimension of $\beta$).
+
+When fitting the AFT model (3) via suvreg we therefore transform parameters $\hat\gamma$ to the Weibull hazard-ratio parameterization (2) via
+
+\begin{equation}
+\tag{4}
+\hat\beta = -\hat\gamma / \hat{\tau}.
+\end{equation}
+
+
+As an illustration we compare the *survReg* model fits for the case-study dataset.  The following table below compares the Weibull *survReg* model fits with covariates Treat and Ecog1 (Ecog = 1 vs 0) where components of $\hat\gamma$ from model (3) are calculated according to *survReg* and $\hat\beta$ are formed via (4).  In the table below Weibull estimates of $\hat\beta$ are compared to Cox model versions.
+  
+```{r Case-study}
+# case-study example
+df.case <- read.table("simdatasource/dfexplore.csv", header=TRUE, sep=",")
+#names(df.case)
+```
+
+
+```{r Weibull-vs-Cox}
+# Comparing Weibull vs Cox with case-study where outcomes are artifical
+# This is just for illustration to show conversion of Weibull parameters from 
+# AFT regression to Weibull hazard 
+fit.weib_ex <- survreg(Surv(tte,pmax(event,1)) ~ treat + ecog1, dist='weibull', data=df.case)
+tauhat <- fit.weib_ex$scale
+# convert (treat,ecog1) regression parms to Weibull hazard-ratio
+bhat.weib <- -(1)*coef(fit.weib_ex)[c(2,3)]/tauhat
+# Compare to Cox 
+fit.cox_ex <- coxph(Surv(tte,pmax(event,1)) ~ treat + ecog1, data=df.case)
+res <- cbind(bhat.weib,coef(fit.cox_ex))
+res <- as.data.frame(res)
+colnames(res)<-c("Weibull","Cox")
+res |> gt() |>
+fmt_number(columns=1:2,decimals=6) |>
+tab_header(title="Comparing Weibull to Cox hazard ratio estimates",
+subtitle="Case-study dataset with artificial outcomes")
+
+```
+
+
+
+## Biomarker effects with spline model  
+
+We now outline how potential outcomes are simulated according to parameters fit to the case-study dataset but with parameters specified to induce biomarker effects.  That is, causal treatment effects (on log(hazard-ratio) scale) that follow 
+a spline model according to patterns where biomarker effects increase with biomarker levels;  Including various degrees of limited treatment effects for low biomarker levels.
+
+We first consider a Weibull model with treatment and a single biomarker covariate $Z$ where we write the linear predictor of the Cox model $L'\beta$ (say) as 
+
+\begin{equation}
+\tag{5}
+L'\beta  := \beta_{1}\hbox{Treat} + \beta_{2}\hbox{Z} + \beta_{3}\hbox{Z}\hbox{Treat} + \beta_{4}(\hbox{Z}-k)I(\hbox{Z}>k) + \beta_{5}(\hbox{Z}-k)I(\hbox{Z}>k)\hbox{Treat}.
+\end{equation}
+
+Following the potential-outcome approach let $l_{x,z}$ denote subject's hazard-function "had they followed treatment regimen $Treat=x$ while having biomarker level $Z=z$".   That is, for subject with biomarker level $Z=z$ we can simulate 
+their survival outcomes under both treatment ($x=1$) and control ($x=0$) conditions.   Let $\beta^{0} = (\beta_{1}^{0},\ldots,\beta_{5}^{0})'$ denote the true coefficients and denote the hazard function as 
+
+$$\lambda_{x,z}(t) = \lambda_{0}(t)\exp(l_{x,z}), \quad \hbox{say}.$$  
+
+Writing 
+
+\begin{equation}
+l_{x,z} = \beta^{0}_{1}x + \beta^{0}_{2}z + \beta^{0}_{3}zx + \beta^{0}_{4}(z-k)I(z>k) + 
+ \beta^{0}_{5}(z-k)I(z>k)x,
+\end{equation}
+\noindent
+the log of the hazard ratio for biomarker level $z$ under treatment ($x=1$) relative to control ($x=0$) is given by 
+
+\begin{equation}
+\tag{6}
+\psi^{0}(z) := \log(\lambda_{1,z}(t)/\lambda_{0,z}(t)) = \beta^{0}_{1} + \beta^{0}_{3}z + \beta^{0}_{5}(z-k)I(z>k).
+\end{equation}
+
+The log(hazard-ratio) for biomarker levels $z$ is a linear function of $z$ with a change-point (in slope) at $z=k$ given by 
+
+\begin{eqnarray*}
+\psi^{0}(z) &=& \beta^{0}_{1} + \beta^{0}_{3}z, \quad \hbox{for} \ z \leq k, \cr
+            &=& \beta^{0}_{1} + \beta^{0}_{3}z + \beta^{0}_{5}(z-k), \quad \hbox{for} \ z > k.
+\end{eqnarray*}
+
+Log hazard-ratio parameters $(\beta^{0}_{1},\beta^{0}_{3},\beta^{0}_{5})$ can be chosen to generate "treatment effect patterns" by specifying $\psi^{0}(z)$ values at 
+$z=0$, $z=k$, and $z=\kappa$ for $\kappa > k$.  For specified $\psi^{0}(0)$, $\psi^{0}(k)$, and $\psi^{0}(\kappa)$ we have 
+
+\begin{eqnarray}
+\beta^{0}_{1} &=& \psi^{0}(0), \cr
+\beta^{0}_{3} &=& {(\psi^{0}(k) - \beta^{0}_{1}) \over k}, \cr
+\beta^{0}_{5} &=& {(\psi^{0}(\kappa) - \beta^{0}_{1} - \beta^{0}_{3}\kappa) \over (\kappa -k)}.
+\end{eqnarray}
+
+
+The function *get_dgm_stratified* generates $\psi^{0}(z)$ according to desired "biomarker treatment effect patterns" as follows.
+
+- Let $X$ and $Z$ denote the treatment and biomarker variables in the case-study dataset and for specified $k$, form the covariates $L:=(X,Z,ZX,(Z-k)I(Z>k),(Z-k)I(Z>k)X))$;
+- Fit the Weibull model (recall on AFT scale) to get $\log(\hat\theta)$, $\hat\tau=1/\hat{\nu}$, and $\hat\gamma$ corresponding to $L$;
+- $\hat\gamma$ is in terms of the AFT parameterization given by model (3)
+- Next transform to the Weibull (Cox) log hazard-ratio parameterization (4): $\hat\beta = -\hat\gamma/\hat\tau$
+- Set "true" parameters $\theta^{0}=\hat\theta$, and $\tau^{0}=\hat\tau$
+- Initialize the "true" parameter $\beta^{0} = \hat\beta$ and re-define parameters 1, 3, and 5 in order to satisfy specified $\psi^{0}(0)$, $\psi^{0}(k)$, and $\psi^{0}(\kappa)$:
+$\beta^{0}[1] = \psi^{0}(0)$, $\beta^{0}[3] = (\psi^{0}(k) - \beta^{0}[1])/k$, and $\beta^{0}[5] = (\psi^{0}(\kappa) - \beta^{0}[1] - \beta^{0}[3]\kappa)/(\kappa -k)$;
+- Form corresponding $\gamma^{0}= -\beta^{0}\tau^{0}$
+- For simulations we use the AFT parameterization (3) to generate $\log(T)$ outcomes according to $\log(T) = \log(\theta^{0}) + L'\gamma^{0} + \tau^{0}\epsilon$ where recall $\epsilon$ has the ``extreme value'' distribution.
+
+
+The inputs of the *get_dgm_stratified* function are: 
+
+- The case-study dataset ("df")
+- "knot"=$k$, "kappa"=$\kappa$, and "log.hrs"= ($\psi^{0}(0),\psi^{0}(k),\psi^{0}(\kappa))$
+- Note that *get_dgm_stratified* allows for outcomes to follow stratified Weibull (Cox) models in which case the log(hazard-ratio) effects will depend on the strata, "strata_tte", where the default is non-stratified ("strata_tte=NULL")
+- If stratified the $\tau$ parameters and hence $\gamma^{0}$ depend on the strata
+- If stratified, then to simplify, the $\gamma^{0}$ effects are calculated based on the median of the $\tau^{0}$'s ($\tau^{0}=\tau_{med}$, say).  
+
+
+
+To-do --> explain outputs and how used in *draw_sim_stratified* ...
+
+
+## Example where treatment effects increase with increasing biomarker 
+
+-  Here we set $\psi^{0}(10)=\log(0.5)$ so that treatment effects are increasing (hazard-ratio $< 0.5$) with higher values;
+-  But below $\psi^{0}(5)=\log(1.25)$ for levels $z \leq 5$; 
+-  Such that $\psi^{0}(0)=\log(3)$
+
+
+```{r}
+df.case <- within(df.case,{
+  z <- pmin(biomarker,20)  # eg, PDL-1 expression truncated at 20
+  CTregimen <- ifelse(mAD_CTregimen1==0,"socA","socB") # Outcome stratification (Weibull/Cox model)
+  })
+
+# Strong biomarker stratified
+
+log.hrs <- log(c(3,1.25,0.50))
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=FALSE)
+
+# An illustrative simulated example dataset
+df_example <- draw_sim_stratified(dgm=dgm,ss=123,xname="AP_region",bx=log(5),strata_rand="stratum")
+# Subgroups identified with nonAP population
+df_nonAP <- subset(df_example,AP_region==0)
+# Applied to AP
+df_AP <- subset(df_example,AP_region==1)
+df_ITT <- df_example
+
+# These are confounders (fixed) that were characteristics from observed data
+confounders.name <- c("age","biomarker","male","EU_region","AP_region","histology","surgery","ecog1","mAD_CTregimen1")
+
+# Simulate with randomization factors "stratum" 
+# Note that strata_tte="CTregimen" is a simplification (collapsing over region and metastatic) of "stratum"
+# xname="AP_region" specifies prognostic effect factor
+# bx=log(5) denotes log(hazard ratio) relative effect with respect to xname factor
+
+# Draw very large-sample to get approximation to bias
+# Note: return_df will NOT return the large simulated dataset but the "large-sample" estimates as a list
+# checking=TRUE will compare the estimated tau (stratified) parameters based on the case-study dataset to 
+# the versions based on the simulated dataset
+# details=TRUE will output the approximations to Cox model estimators from several models ("population summaries")
+# return_df =FALSE will return the "population summaries" as a list as well as the biomarker AHR functional (see below)
+pop_summary <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",bx=log(5),strata_rand="stratum",checking=TRUE,details=TRUE,return_df=FALSE)
+
+# True causal AHR
+ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+ahr_sR = c(round(pop_summary$ITT_sR,4))
+# sR including adjustment by x
+ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+
+# Relative biases 
+bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+
+# The bias within X=1 population
+ahr_x1 = c(round(pop_summary$X_1,4))
+bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+```
+
+We define the *biomarker average hazard ratio (AHR)* as the expected value of $\psi^{0}(\cdot)$ across "biomarker positive" sub-populations.  For example, $\hbox{AHR}(2^{+})$ represents the AHR for subjects with biomarker values $\geq 2$.  
+
+$$\hbox{AHR}(z^{+}):= \exp\left\{E_{Z \geq z} \psi^{0}(Z) \right\}.$$
+
+
+
+```{r AHRz,  fig.width=12, fig.height=8}
+# non-stratified
+
+plot(pop_summary$zpoints,pop_summary$HR.zpoints,xlab="z",ylab="Average hazard ratio (AHR)",type="s",lty=1,col="black",lwd=2)
+rug(jitter(df.case$z))
+title(main="AHR(z+)")
+
+
+```
+
+
+- Overall Population (large-sample) --
+  - The overall true (causal) average hazard-ratio (AHR) = `r ahr_true`
+  - The $\approx$ asymptotic limit of un-adjusted Cox (only treatment) = `r ahr_unadj` 
+  - The $\approx$ asymptotic limit of stratified Cox (treatment and stratified by *stratum*) = `r ahr_sR`
+  - The $\approx$ asymptotic limit of stratified Cox with adjustment by $x$ = `r ahr_sRx`
+  
+The relative over-estimation biases for the Cox model estimates when un-adjusted, stratified (by randomization factors), and stratified + adjusted by the strong prognostic factor $X$ are: `r bias_unadj`\%, `r bias_sR`\%, and 
+`r bias_sRx`\%, respectively.  
+
+Moreover, within the *AP_region* ($X=1$) the $\approx$ limit of the Cox model estimator based on the (*AP_region*) regional local data is `r ahr_x1` with corresponding bias of `r bias_x1`\%.   
+
+**We would therefore expect challenges with establishing consistency based on evaluating the local regional data.**
+
+
+Lets check if there is any imbalance (asymptotically) by biomarker by drawing a large sample (N=100,000) and viewing summary tables: 
+```{r}
+# This time return large dataset (corresponding to that used in the above asymptotic approximations)
+dflarge <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+# create factor versions of treatment and AP region
+dflarge$trtsim <- ifelse(dflarge$treat.sim==1,"Experimental","Control")
+dflarge$apregion <- ifelse(dflarge$AP_region==1,"AP","non-AP")
+dflarge$bm_lt2 <- ifelse(dflarge$biomarker<2,"biomarker<2","biomarker>=2")
+table1( ~ biomarker + bm_lt2 | trtsim, data=dflarge, caption=c("ITT by treatment arm"))
+table1( ~ biomarker + bm_lt2 | apregion, data=dflarge, caption=c("ITT by AP region"))
+table1( ~ biomarker + bm_lt2 | trtsim, data=subset(dflarge,AP_region==1), caption=c("AP region by treatment arm"))
+rm("dflarge")
+```
+
+Next, a simulated example with same sample size as the case-study   
+
+-  Here we simulated a study according to the biomarker effects described above
+-  Summarize the non-AP and AP populations  
+-  Apply subgroup identification procedures to the non-AP data and apply to AP  
+
+
+
+```{r KMitt,fig.width=8, fig.height=6}
+# non-stratified
+kmH.fit<-KM.plot.2sample.weighted(df=df_example, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+risk.set=TRUE, by.risk=6,
+details=TRUE,
+Xlab="Months",Ylab="Overall survival",
+arms=c("Experimental","Control"))
+title(main="ITT Population")
+
+```
+
+
+
+## Now evaluate non-AP and AP ---> AP is "diluted"
+
+
+```{r KMregions,fig.width=12, fig.height=6}
+# non-stratified
+par(mfrow=c(1,2))
+kmH.fit<-KM.plot.2sample.weighted(df=df_nonAP, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+risk.set=TRUE, by.risk=6, details=FALSE,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Overall survival",
+arms=c("Experimental","Control"))
+title(main="Non-AP Population")
+
+kmH.fit<-KM.plot.2sample.weighted(df=df_AP, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",
+risk.set=TRUE, by.risk=6, details=FALSE,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Overall survival",
+arms=c("Experimental","Control"))
+title(main="AP Population")
+```
+
+## Note that results stratified by randomization (or true outcome strata) are similar
+
+```{r KMregions2,fig.width=12, fig.height=6}
+# stratified
+par(mfrow=c(1,2))
+kmH.fit<-KM.plot.2sample.weighted(df=df_nonAP, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",strata.name="strata.simR",
+risk.set=TRUE, by.risk=6, details=FALSE,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Overall survival",
+arms=c("Experimental","Control"))
+title(main="Non-AP Population")
+
+kmH.fit<-KM.plot.2sample.weighted(df=df_AP, 
+tte.name="y.sim", event.name="event.sim", treat.name="treat.sim",strata.name="strata.simR",
+risk.set=TRUE, by.risk=6, details=FALSE,
+show.logrank=FALSE, put.legend.arms="top",
+Xlab="Months",Ylab="Overall survival",
+arms=c("Experimental","Control"))
+title(main="AP Population")
+```
+
+
+### Compare non-parametric (cubic-spline) fit with true $\psi^{0}$ for ITT dataset
+
+## Biomarker effects?
+
+```{r}
+# ydel (default=0.25) is how much room to provide in space for counts
+temp <- cox_cs_fit2(df=df_example,tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, show_plot=TRUE,truebeta.name="loghr.po")
+title("ITT")
+```
+
+### Cubic-spline fit to non-AP and AP regions
+
+## Spline model suggests benefit in AP region
+
+```{r,fig.width=12, fig.height=6}
+
+par(mfrow=c(1,2))
+
+temp <- cox_cs_fit(df=df_nonAP,tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, show_plot=TRUE,truebeta.name="loghr.po")
+title("Non-AP")
+
+
+temp <- cox_cs_fit(df=df_AP,tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, show_plot=TRUE,truebeta.name="loghr.po")
+title("AP")
+
+```
+
+
+
+Examine Non-AP data used for subgroup identification ("training data"): Forestplot of individual factors and baseline demographics
+
+```{r Forestplot, echo=TRUE, message=FALSE, warning=TRUE,fig.width=8, fig.height=12}
+
+fp <- forestplot_baseline(df=df_nonAP,confounders.name=confounders.name,
+arrow_text=c("favors Treatment","Control"),E.name=c("Treatment"),C.name=c("Control"),outcome.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+xlim = c(0.25, 2.0), ticks_at = c(0.65, 1.0, 1.3))
+
+plot(fp$p)
+
+aa <- paste(confounders.name, collapse=" + ")
+aa <- paste0("~ " ,aa)
+aa <- paste0(aa," | treat_name")
+aa <- as.formula(aa)
+
+table1( aa , data=df_nonAP, caption=c("Simulated dataset: non-AP (training data)"))
+
+```
+
+
+### Finding Non-AP subgroup with highest consistency rate (in favor of control)  
+
+In the following we evaluate subgroups based on single-factors (e.g., "biomarker < J" say, or "Age <= 65", etc) and 
+select the subgroup with the highest consistency rate with Cox hazard-ratio estimate meeting selection criteria;  The selected subgroup with highest 
+consistency rate meeting hazard ratio estimate criterion (log hazard-ratio estimate $\log(\hat\beta) \geq log(0.90)$, say) where the "consistency rate" is at least $90$\%.
+
+To do --->  Refer criterion (hazard ratio thresholds) to equations in paper @Leon_2024
+
+
+```{r ForestSearch_k1_10_hr, echo=TRUE, message=FALSE, warning=TRUE, fig.width=8, fig.height=6, eval=TRUE}
+
+# Show the first (up to) 10 subgroups ("showten_subgroups=TRUE") meeting identification criteria 
+# Subgroups based on only single-factors ("maxk=1")
+
+# Note that sg_focus= "hr" sorts the subgroups by consistency rate and largest hazard-ratio estimates  
+# Selects the subgroup with the largest consistency rate;  If there are ties among consistency rates, then 
+# the subgroup with largest HR estimate is selected estimate satisfying the (minimum) consisency criteria 
+# (pconsistency.threshold)
+
+# Note: we exclude cuts for biomarker which are "<=" in order to only consider "<" 
+fs_k1_10_hr <- forestsearch(df.analysis=df_nonAP, df.test=df_AP, confounders.name=confounders.name,
+outcome.name="y.sim",treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+sg_focus = "hr",
+showten_subgroups=TRUE, details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts = c("biomarker <="),
+maxk=1, plot.sg=FALSE)
+
+if(output) save(fs_k1_10_hr,file="output/sim1_k1tenhr.Rdata")
+
+```
+
+Display the first 10 subgroups and Kaplan-Meier plots within the estimated subgroups --
+
+Notice that the first 10 subgroups are sorted by decreasing HR estimates and the **selected subgroup ** corresponds to the highest hazard ratio estimate.
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+if(loadit) load(file="output/sim1_k1tenhr.Rdata")
+fs <- fs_k1_10_hr
+# Consistency for subgroups contained in "grp.consistency"
+sg_tables(fs=fs,which_df="est",est_caption="Non-AP (training) estimates")$sg10_out
+# Show detailed estimates for the next analysis
+id_harm <- paste(fs$sg.harm,collapse=" & ")
+
+```
+
+
+The **selected subgroup** is `r id_harm`
+
+Next plot the K-M curves within the estimated non-AP (training) subgroups.
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.est, title_itt=c("Non-AP ITT"))
+
+```
+
+
+
+### Finding Non-AP subgroup with smallest sample size meeting selection criteria  
+
+We now select the **smallest subgroup** meeting:  log hazard-ratio estimate $\log(\hat\beta) \geq log(0.90)$ with "consistency rate" at least $90$\%.
+
+```{r ForestSearch_k1_10_minSG, echo=TRUE, message=FALSE, warning=TRUE, fig.width=8, fig.height=6, eval=TRUE}
+
+# sg_focus="MinSG" selects smallest subgroup meeting selection criteria
+
+fs_k1_10_minSG <- forestsearch(df.analysis=df_nonAP, df.test=df_AP, confounders.name=confounders.name,
+outcome.name="y.sim",treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+sg_focus = "minSG",
+showten_subgroups=TRUE, details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="),
+maxk=1, plot.sg=TRUE)
+
+if(output) save(fs_k1_10_minSG,file="output/sim1_k1tenmin.Rdata")
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+if(loadit) load(file="output/sim1_k1tenmin.Rdata")
+fs <- fs_k1_10_minSG
+# Training summaries
+SG_est <- sg_tables(fs=fs,which_df="est",est_caption="Non-AP (training) estimates",potentialOutcome.name="loghr.po")
+
+id_harm <- paste(fs$sg.harm,collapse=" & ")
+```
+
+Top 10 (up to 10) subgroups meeting criteria:
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+# Top 10 (up to 10) SG's
+SG_est$sg10_out
+```
+
+Estimates within training (un-adjusted)
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+SG_est$tab_estimates
+```
+
+The **selected subgroup** is `r id_harm`
+
+Next plot the K-M curves within the estimated non-AP subgroups.
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.est, title_itt=c("Non-AP ITT"))
+```
+
+Next, display the estimates within the AP population (testing data)
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+# Training summaries
+SG_test <- sg_tables(fs=fs,which_df="testing",est_caption="AP (testing) estimates",potentialOutcome.name="loghr.po")
+```
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+SG_test$tab_estimates
+```
+
+K-M curves applied to AP subgroups.
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.test, title_itt=c("AP ITT"))
+```
+
+
+
+Now, if we are only concerned with finding the selected subgroup then the above calculations can be much faster by removing the option to output the first 10 subgroups meeting the selection criteria ("showten_subgroups=FALSE" is the default).  This is the default and strongly 
+recommended if running simulations or if there is interest in calculating adjusted hazard-ratio estimates for the selected subgroup.   However it is crucial to note that in our applications we are using the non-AP data for subgroup identification and interested in the estimates 
+based on the AP local data.  Therefore the non-AP data represents the *training dataset* and the AP data represents the *testing dataset* where such adjustment is not necessary (that is, the AP data is not utilized for the subgroup selection).
+
+Here we turn-off showing the first ten subgroups (default in forestsearch) and apply the estimated subgroups to the AP data.  Note that we now use the sg_focus="minSG" criterion to select the smallest subgroup.   
+
+
+```{r, k1minSG}
+# df.test = df_AP indicates that the selected subgroup identification flags 
+# (based on df_nonAP analysis) will be appended to df_AP
+
+# Speed is increased by first sorting by subgroup size and once a subgroup 
+# meets the consistency criterion the overall criteria is met and the algorithm stops
+
+fs_k1_minSG <- forestsearch(df.analysis=df_nonAP, df.test=df_AP, 
+confounders.name=confounders.name,
+outcome.name="y.sim", treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+sg_focus="minSG", details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="), maxk=1)
+
+if(output) save(fs_k1_minSG,file="output/sim1_k1min.Rdata")
+
+```
+
+
+Apply estimated subgroup to the AP data ---
+
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+if(loadit) load(file="output/sim1_k1min.Rdata")
+fs <- fs_k1_minSG
+# Testing summaries
+SG_test <- sg_tables(fs=fs,which_df="testing",est_caption="AP (testing) estimates",potentialOutcome.name="loghr.po")
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+SG_test$tab_estimates
+```
+
+K-M curves applied to AP subgroups (repeat of above).
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.test, title_itt=c("AP ITT"))
+```
+
+
+## Next, consider finding the largest subgroup with *strong benefit* 
+
+Here we are *directly* targeting the largest subgroup with a strong benefit.  This is done by simply reversing the role of treatment so that we seek the largest subgroup for which the hazard ratio is below a clinical threshold (e.g., $\leq 0.6$).
+
+```{r ForestSearch_k1_10_maxSG, echo=TRUE, message=FALSE, warning=TRUE, fig.width=8, fig.height=6, eval=TRUE}
+# sg_focus="MaxSG" selects smallest subgroup meeting selection criteria
+# Reverse role of treatment so that we find "worst control" subgroup
+dfnew <- copy(df_nonAP)
+dfnew$control.sim <- 1-dfnew$treat.sim
+
+dftest <- copy(df_AP)
+dftest$control.sim <- 1-dftest$treat.sim
+
+fs_k1_10_maxSG <- forestsearch(df.analysis=dfnew, df.test=dftest, confounders.name=confounders.name,
+outcome.name="y.sim",treat.name="control.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+est.scale="1/hr", hr.threshold = 1/0.6, hr.consistency = 1/0.7, pconsistency.threshold = 0.90,
+sg_focus = "maxSG",
+showten_subgroups=TRUE, details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="),
+maxk=1, plot.sg=TRUE)
+
+if(output) save(fs_k1_10_maxSG,file="output/sim1_k1tenmax.Rdata")
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+if(loadit) load(file="output/sim1_k1tenmax.Rdata")
+fs <- fs_k1_10_maxSG
+# Testing summaries
+SG_est <- sg_tables(fs=fs,which_df="est",est_caption="Non-AP (training) estimates",potentialOutcome.name="loghr.po")
+```
+
+Top 10 (up to 10) subgroups meeting criteria:
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+# Top 10 (up to 10) SG's
+SG_est$sg10_out
+```
+
+Estimates within training (un-adjusted)
+
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+SG_est$tab_estimates
+```
+
+The **selected subgroup** is `r id_harm`
+
+Next plot the K-M curves within the estimated non-AP subgroups.
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.est, title_itt=c("Non-AP ITT"))
+
+```
+
+Next, display the estimates within the AP population (testing data)
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+# Training summaries
+SG_test <- sg_tables(fs=fs,which_df="testing",est_caption="AP (testing) estimates",potentialOutcome.name="loghr.po")
+```
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+SG_test$tab_estimates
+```
+
+K-M curves applied to AP subgroups.
+
+```{r, fig.width=12, fig.height=10}
+plot_found.subgroups(fs=fs, df=fs$df.test, title_itt=c("AP ITT"))
+```
+
+
+
+## What happens under the ("null") where treatment is uniform?
+
+```{r Simnull1}
+# Null uniform benefit hr=0.7
+log.hrs <- log(c(0.7,0.7,0.7))
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=TRUE)
+df_null <- draw_sim_stratified(dgm=dgm,ss=1,xname="AP_region",bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+
+fs <- forestsearch(df.analysis=subset(df_null,AP_region==0),  
+confounders.name=confounders.name,
+outcome.name="y.sim", treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+sg_focus="minSG", details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="), maxk=1)
+
+if(output) save(fs, file="output/sim1_k1min_null.Rdata")
+
+```
+
+```{r}
+if(loadit) load("output/sim1_k1min_null.Rdata")
+if(is.null(fs$sg.harm)) cat("Subgroup NOT found","\n")
+
+```
+
+
+Next, let's look at selecting smallest subgroup among 2-factor combinations (maxk=2)
+
+
+```{r ForestSearch_k2_10_minSG, echo=TRUE, message=FALSE, warning=TRUE, fig.width=8, fig.height=6, eval=TRUE}
+
+# sg_focus="MinSG" selects smallest subgroup meeting selection criteria
+
+fs_k2_10_minSG <- forestsearch(df.analysis=df_nonAP, confounders.name=confounders.name,
+outcome.name="y.sim",treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.80, pconsistency.threshold = 0.90,
+sg_focus = "minSG",
+showten_subgroups=TRUE, details=TRUE,
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="),
+maxk=2, plot.sg=TRUE)
+
+if(output) save(fs_k2_10_minSG,file="output/sim1_k2tenmin.Rdata")
+
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+if(loadit) load(file="output/sim1_k2tenmin.Rdata")
+fs <- fs_k2_10_minSG
+# Testing summaries
+SG_est <- sg_tables(fs=fs,which_df="est",est_caption="Non-AP (training) estimates",potentialOutcome.name="loghr.po")
+```
+
+Top 10 (up to 10) subgroups meeting criteria:
+
+```{r, echo=TRUE, message=FALSE, warning=TRUE}
+# Top 10 (up to 10) SG's
+SG_est$sg10_out
+```
+
+
+## Simulations
+
+Next we setup simulations to evaluate ability to identify subgroups based on non-AP data and 
+the accuracy to estimate treatment effects in the AP data.
+
+
+The simulation function *mrct_APregion_sims* simulates (**n_sims** times) from specified data-generating-model (**dgm**):
+
+-  ITT sample is drawn with subgroups identified (as above)
+-  Cox estimates based on the AP local data;   
+-  Subgroups identified based on non-AP and applied to AP
+-  For identified subgroups the Cox model estimates are created (**hr_sg**) 
+   -  Note that if a subgroup is NOT found then "subgroups" are taken as the entire AP population  
+   -  That is, if a subgroup is NOT identified then we interpret the **hr_sg** as the reported AP estimates which would be the overall AP (since no subgroup is found)
+   -  In tables below we also summarize **hr_sg_null** where we define **hr_sg** to be missing if no subgroup is found 
+       -  This represents the AP subgroup estimates conditional on a subgroup being identified
+
+```{r Simsetup}
+# Simulation function to automate
+mrct_APregion_sims <- function(dgm,n_sims,xname="AP_region",bx=log(5),sg_focus="minSG",maxk=1, 
+hr.threshold=0.90, hr.consistency=0.80, pconsistency.threshold=0.9,details=FALSE){
+t.start<-proc.time()[3]
+  # message for backends
+  # borrowed from simtrials (sim_fixed_n)
+  if (!is(plan(), "sequential")) {
+    # future backend
+    message("Using ", nbrOfWorkers(), " cores with backend ", attr(plan("list")[[1]], "class")[2])
+  } else if (foreach::getDoParWorkers() > 1) {
+    message("Using ", foreach::getDoParWorkers(), " cores with backend ", foreach::getDoParName())
+    message("Warning: ")
+    message("doFuture may exhibit suboptimal performance when using a doParallel backend.")
+  } else {
+    message("Backend uses sequential processing.")
+  }
+results <- foreach(
+    sim = seq_len(n_sims),
+    .options.future=list(seed=TRUE),
+    .combine="rbind", 
+    .errorhandling="pass"
+  ) %dofuture% {
+# simulate data
+dfs <- draw_sim_stratified(dgm=dgm,ss=sim,xname=xname,bx=bx,strata_rand="stratum")
+# Subgroups identified with nonAP population
+df_nonAP <- subset(dfs,AP_region==0)
+# Applied to AP
+df_AP <- subset(dfs,AP_region==1)
+# For subgroup identified estimates     
+# Return NA if not estimable
+# First, AP results (does not require subgroup identification)
+# Initialize to missing
+n_test <- c(nrow(df_AP))
+n_train <- c(nrow(df_nonAP))
+n_itt <- c(nrow(dfs))
+
+fit <- summary(coxph(Surv(y.sim,event.sim) ~ treat.sim, data=df_nonAP))$conf.int
+hr_train <- c(fit[1])
+rm("fit")
+
+# Overall (ITT) standard stratified (by randomization strata)
+fit <- summary(coxph(Surv(y.sim,event.sim) ~ treat.sim + strata(strata.simR), data=dfs))$conf.int
+hr_itt <- c(fit[1])
+rm("fit")
+
+# Overall (ITT) standard stratified (by X)
+fit <- summary(coxph(Surv(y.sim,event.sim) ~ treat.sim + strata(AP_region), data=dfs))$conf.int
+hr_ittX <- c(fit[1])
+rm("fit")
+
+
+hr_test<- NA
+any_found <- 0.0
+sg_found <- "none"
+n_sg <- n_test
+hr_sg <- NA
+prev_sg <- 1.0
+
+# Restrict to AP estimable
+fitAP <- try(summary(coxph(Surv(y.sim,event.sim) ~ treat.sim, data=df_AP))$conf.int,TRUE)
+if(!inherits(fitAP,"try-error")){
+hr_test <- c(fitAP[1])
+rm("fitAP")
+# For identified subgroups?
+# initialize to testing
+any_found <- 0.0 
+sg_found <- "none" 
+n_sg <- n_test 
+prev_sg <- 1.0 # Prevalence of AP: n_sg/n_all
+hr_sg <- NA
+# Potential outcome
+POhr_sg <- exp(mean(df_AP$loghr.po))
+# Note: if not found then n_sg=n_all, hr_sg=hr_all 
+fs_temp <- try(forestsearch(df.analysis=df_nonAP, df.test=df_AP, 
+confounders.name=confounders.name,
+outcome.name="y.sim", treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = hr.threshold, hr.consistency = hr.consistency, 
+pconsistency.threshold = pconsistency.threshold,
+sg_focus=sg_focus, 
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts =c("biomarker <="), maxk=maxk),TRUE)
+# FS with error output NA's (set above)
+# FS without error
+if(!inherits(fs_temp,"try-error")){
+# FS done (w/o error) but NO sg found (replace NAs above with what is calculated)
+if(is.null(fs_temp$sg.harm)){
+# consider "sg = AP"  
+any_found <- 0.0
+sg_found <- "none"
+n_sg <- n_test
+hr_sg <- hr_test
+POhr_sg <- exp(mean(df_AP$loghr.po))
+prev_sg <- 1.0
+}
+# If sg found
+if(!is.null(fs_temp$sg.harm)){
+any_found <- 1.0  
+df_test <- fs_temp$df.test 
+sg_found <- c(paste(fs_temp$sg.harm,collapse=" & "))
+if(details & sim <= 10) cat("Simulation subgroup found:",c(sim,sg_found),"\n")  
+df_sg <- subset(df_test,treat.recommend==1)
+n_sg <- c(nrow(df_sg))
+prev_sg <- c(n_sg/n_test)
+# Subgroup analysis
+fitSG <- try(summary(coxph(Surv(y.sim,event.sim)~treat.sim,data=df_sg))$conf.int,TRUE)
+if(!inherits(fitSG,"try_error") & is.numeric(fitSG[1])) hr_sg <- c(fitSG[1])
+if(inherits(fitSG,"try_error") | !is.numeric(fitSG[1])) hr_sg <- NA
+loghr.po <- df_sg$loghr.po
+POhr_sg <- exp(mean(loghr.po))
+rm("fitSG")
+}
+ }  # FS without error done
+rm("fs_temp")
+} # AP estimable in first place
+# Results
+dfres <- data.table::data.table(n_itt,hr_itt,hr_ittX,n_train,hr_train,n_test,hr_test,any_found,sg_found,n_sg,hr_sg,POhr_sg,prev_sg)
+return(dfres)
+  }
+  t.now<-proc.time()[3]
+  t.min<-(t.now-t.start)/60
+  if(details){
+    cat("Minutes for simulations",c(n_sims,t.min),"\n")
+    cat("Projection per 1000",c(t.min*(1000/n_sims)),"\n")
+    cat("Propn subgroups found =",c(sum(!is.na(results$any_found))/n_sims),"\n")
+  }
+# Define hr_sg_null as missing if any_found = 0
+results$hr_sg_null <- results$hr_sg
+results$hr_sg_null[results$any_found==0] <- NA
+return(results)  
+}
+
+summaryout_mrct <- function(pop_summary,mrct_sims, 
+out_sgs = c("sg_found","sg_biomarker","sg_age"),
+out_sgs2 = c("sg_biomarker","sg_age","sg_male","sg_ecog1","sg_histology","sg_CTregimen","sg_EU","sg_surgery"),
+out_est = c("+ APflag + sg_le85 + APflag2 + APflag3 + hr_sg_null"),
+sg_type=1,
+tab_caption = c("Identified subgroups and estimation summaries under biomarker effects: 1-factor combinations"), showtable=TRUE){
+
+outwhat1 <- c("~ hr_itt + hr_ittX + hr_test + found + prev_sg + hr_sg + POhr_sg +")
+if(sg_type==1) outwhat2 <- paste(out_sgs, collapse="+")
+if(sg_type==2) outwhat2 <- paste(out_sgs2, collapse="+")
+out_what <- as.formula(paste(outwhat1,outwhat2,out_est))
+
+res <- list()
+# True causal AHR
+res$ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+res$ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+res$ahr_sR = c(round(pop_summary$ITT_sR,4))
+# adjustment by x
+res$ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+# Relative biases 
+res$bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+res$bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+res$bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+# The bias within X=1 population
+res$ahr_x1 = c(round(pop_summary$X_1,4))
+res$bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+
+mrct_sims$APflag <- ifelse(mrct_sims$hr_test > 0.9,"AP > 0.9","AP <=0.9")
+mrct_sims$sg_le85 <- ifelse(mrct_sims$hr_sg <=0.85,"AP(sg)<=0.85","AP(sg)>0.85")
+
+mrct_sims$APflag2 <- ifelse(mrct_sims$hr_test > 0.9 & mrct_sims$hr_sg <= 0.85,"AP > 0.9 & AP(sg) <= 0.85","Not")
+mrct_sims$APflag3 <- ifelse(mrct_sims$hr_test > 0.9 & mrct_sims$hr_sg <= 0.80,"AP > 0.9 & AP(sg) <= 0.80","Not")
+
+mrct_sims$found <- as.factor(mrct_sims$any_found)
+
+# Classify by specific factors identified
+mrct_sims$sg_biomarker <- ifelse(grepl("biomarker",mrct_sims$sg_found),
+"biomarker",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_age <- ifelse(grepl("age",mrct_sims$sg_found),
+"age",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_ecog1 <- ifelse(grepl("ecog1",mrct_sims$sg_found),
+"ecog1",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_histology <- ifelse(grepl("histology",mrct_sims$sg_found),
+"histology",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_CTregimen <- ifelse(grepl("mAD_CTregimen1",mrct_sims$sg_found),
+"mAD_CT",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_male <- ifelse(grepl("male",mrct_sims$sg_found),
+"male",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_surgery <- ifelse(grepl("surgery",mrct_sims$sg_found),
+"surgery",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+mrct_sims$sg_EU <- ifelse(grepl("EU_region",mrct_sims$sg_found),
+"EU region",ifelse(mrct_sims$sg_found!="none","other","none"))
+
+out_table <- table1(out_what, data=mrct_sims, caption=tab_caption)
+
+if(showtable) print(out_table)
+
+return(list(res=res,out_table=out_table))
+}
+
+SGplot_estimates <- function(df,label_training="Training",label_testing="Testing", label_itt="ITT (sR)", label_sg="Testing(subgroup)"){
+df_itt <- data.table(est=df$hr_itt, analysis=label_itt)
+df_training <- data.table(est=df$hr_train, analysis=label_training)
+df_testing <- data.table(est=df$hr_test, analysis=label_testing)
+df_sg <- data.table(est=df$hr_sg, analysis=label_sg)
+
+hr_estimates <- rbind(df_itt, df_training, df_testing, df_sg)  
+est_order <- c(label_itt,label_training,label_testing,label_sg)
+hr_estimates <- within(hr_estimates, {analysis <- factor(analysis,levels=est_order)})
+p <- ggplot(hr_estimates, aes(x=analysis, y=est, fill=analysis)) + 
+  geom_violin(trim=FALSE)
+plot_estimates <- p + geom_boxplot(width=0.1)
+return(list(dfPlot_estimates=hr_estimates, plot_estimates=plot_estimates))
+} 
+
+```  
+
+
+## Strong biomarker effect (prognostic effect bx=log5)
+
+Simulations under strong biomarker effect 
+
+```{r sims_alt, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+# Run sims and store results
+t.start<-proc.time()[3]
+# DGM 
+#log.hrs <- log(c(2.5,1.25,0.50))
+# example 2
+log.hrs <- log(c(3,1.25,0.50))
+
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=TRUE)
+
+pop_summary <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",
+                                   bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=FALSE)
+
+# True causal AHR
+ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+ahr_sR = c(round(pop_summary$ITT_sR,4))
+# sR including adjustment by x
+ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+# Relative biases 
+bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+# The bias within X=1 population
+ahr_x1 = c(round(pop_summary$X_1,4))
+bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+
+cat("AHR true (causal) and within AP:",c(ahr_true,ahr_x1),"\n")
+
+n_sims <- 1000
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+mrct_sims <- mrct_APregion_sims(dgm=dgm,n_sims=n_sims,xname="AP_region",
+                                bx=log(5),sg_focus="minSG",details=TRUE)
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) simulations",c(t.min),"\n")
+
+cat("How often was a subgroup identified=",c(mean(mrct_sims$any_found)),"\n")
+
+if(output) save(n_sims,pop_summary,dgm,mrct_sims,file="output/mrct_sims2_v0.Rdata")
+
+```
+
+```{r}
+if(loadit) load(file="output/mrct_sims2_v0.Rdata")
+
+# Look at large-sample spline in non-AP
+dflarge <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,xname="AP_region",bx=log(5),
+                               strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+
+temp <- cox_cs_fit(df=subset(dflarge,AP_region==0),tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, cex_legend=0.5, show_plot=TRUE,truebeta.name="loghr.po",
+main_title=c("Non-AP large sample ~ training estimation properties"))
+
+true_pos <- round(100*c(mean(mrct_sims$any_found)),4)
+
+temp <- summaryout_mrct(pop_summary=pop_summary, mrct_sims=mrct_sims,showtable=FALSE)
+
+ahr_true <- c(temp$res$ahr_true)
+ahr_unadj <- c(temp$res$ahr_unadj)
+ahr_sR <- c(temp$res$ahr_sR)
+ahr_sRx <- c(temp$res$ahr_sRx)
+ahr_x1 <- c(temp$res$ahr_x1)
+
+```
+
+- The underlying true ITT causal hazard ratio is `r ahr_true` 
+  - The large-sample (single draw) approximation to ITT un-adjusted is `r ahr_unadj`
+  - The large-sample ~ to ITT stratified is `r ahr_sR`
+  - The large-sample ~ to ITT stratified + x-adjustment is `r ahr_sRx`
+  - The large-sample ~ to AP region analysis is `r ahr_x1`
+
+
+The true-positive rate (identifying a subgroup under HTE (heterogeneous treatment effects)) 
+
+  - Across `r format(n_sims,nsmall=0,big.mark=",")` simulations (a subgroup was identified) = `r true_pos`\% 
+  
+Summary of subgroups identified and estimation properties are:
+
+
+```{r}
+# Show the table
+temp$out_table
+```
+
+
+```{r, fig.width=10, fig.height=8}
+temp <- SGplot_estimates(df=mrct_sims, label_training="Non-AP, ITT", label_itt="Overall, ITT", label_testing="AP, ITT", label_sg="AP, identified subgroup")
+plot(temp$plot_estimates)
+```
+
+
+
+
+## Null model where benefit is uniform (prognostic effect bx=log5)
+
+Simulations under the **null** where treatment benefit is uniform;  Treatment does not depend on any baseline factors (hazard-ratio is 0.70)
+
+```{r sims_null, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+# Increase simulations to 5,000 under "null"
+t.start<-proc.time()[3]
+
+# Null uniform benefit hr=0.7
+log.hrs <- log(c(0.7,0.7,0.7))
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=TRUE)
+
+pop_summary <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",
+                                   bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=FALSE)
+
+# True causal AHR
+ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+ahr_sR = c(round(pop_summary$ITT_sR,4))
+# sR including adjustment by x
+ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+# Relative biases 
+bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+# The bias within X=1 population
+ahr_x1 = c(round(pop_summary$X_1,4))
+bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+
+cat("AHR true (causal) and within AP:",c(ahr_true,ahr_x1),"\n")
+
+n_sims <- 1000
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+
+mrct_sims <- mrct_APregion_sims(dgm=dgm,n_sims=n_sims,xname="AP_region",
+                                bx=log(5),sg_focus="minSG",details=TRUE)
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) simulations",c(t.min),"\n")
+
+
+cat("How often was a subgroup identified=",c(mean(mrct_sims$any_found)),"\n")
+
+if(output) save(n_sims,pop_summary,dgm,mrct_sims,file="output/mrct_sims02_v0.Rdata")
+
+```
+
+
+```{r}
+if(loadit) load(file="output/mrct_sims02_v0.Rdata")
+false_pos <- round(100*c(mean(mrct_sims$any_found)),4)
+
+# Look at large-sample spline in non-AP
+dflarge <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,xname="AP_region",bx=log(5),
+                               strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+
+temp <- cox_cs_fit(df=subset(dflarge,AP_region==0),tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, cex_legend=0.5, show_plot=TRUE,truebeta.name="loghr.po",
+main_title=c("Non-AP large sample ~ training estimation properties"))
+
+# Note, here too many individual subgroup cuts, set sg_type=2
+temp <- summaryout_mrct(pop_summary=pop_summary, mrct_sims=mrct_sims,showtable=FALSE, 
+                        sg_type=2, tab_caption=c("Identified subgroups and estimation summaries under uniform treatment effects: 1-factor combinations"))
+
+ahr_true <- c(temp$res$ahr_true)
+ahr_unadj <- c(temp$res$ahr_unadj)
+ahr_sR <- c(temp$res$ahr_sR)
+ahr_sRx <- c(temp$res$ahr_sRx)
+ahr_x1 <- c(temp$res$ahr_x1)
+```
+
+
+- The underlying true ITT causal hazard ratio is `r ahr_true` 
+  - The large-sample (single draw) approximation to ITT un-adjusted is `r ahr_unadj`
+  - The large-sample ~ to ITT stratified is `r ahr_sR`
+  - The large-sample ~ to ITT stratified + x-adjustment is `r ahr_sRx`
+  - The large-sample ~ to AP region analysis is `r ahr_x1`
+
+
+The false-positive rate (identifying a subgroup under uniform benefit) 
+
+  - Across `r format(n_sims,nsmall=0,big.mark=",")` simulations (a subgroup was falsely identified) = `r false_pos`\% 
+  
+Summary of subgroups identified and estimation properties are:
+
+
+```{r}
+# Show the table
+temp$out_table
+```
+
+
+```{r, fig.width=10, fig.height=8}
+temp <- SGplot_estimates(df=mrct_sims, label_training="Non-AP, ITT", label_itt="Overall, ITT", label_testing="AP, ITT", label_sg="AP, identified subgroup")
+plot(temp$plot_estimates)
+```
+
+
+
+## Null model where benefit is uniform (prognostic effect bx=log5): maxk=2 
+
+Simulations under the **null** where treatment benefit is uniform (maxk=2);  Treatment does not depend on any baseline factors (hazard-ratio is 0.7)
+
+Note: Allowing for 2-factor combinations may require more stringent hazard-ratio thresholds;  Here we increase to 1.25 (1.0) as in paper
+
+
+```{r sims_k2_null, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+t.start<-proc.time()[3]
+
+# Null uniform benefit hr=0.7
+log.hrs <- log(c(0.7,0.7,0.7))
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=TRUE)
+
+pop_summary <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",
+                                   bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=FALSE)
+
+# True causal AHR
+ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+ahr_sR = c(round(pop_summary$ITT_sR,4))
+# sR including adjustment by x
+ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+# Relative biases 
+bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+# The bias within X=1 population
+ahr_x1 = c(round(pop_summary$X_1,4))
+bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+
+cat("AHR true (causal) and within AP:",c(ahr_true,ahr_x1),"\n")
+
+n_sims <- 1000
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+mrct_sims <- mrct_APregion_sims(dgm=dgm,n_sims=n_sims,xname="AP_region",bx=log(5),
+sg_focus="hr", maxk=2, hr.threshold=1.25, hr.consistency=1.0, details=TRUE)
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) simulations",c(t.min),"\n")
+
+
+cat("How often was a subgroup identified=",c(mean(mrct_sims$any_found)),"\n")
+
+if(output) save(n_sims,pop_summary,dgm,mrct_sims,file="output/mrct_sims02_k2_v0.Rdata")
+
+```
+
+
+```{r}
+if(loadit) load(file="output/mrct_sims02_k2_v0.Rdata")
+false_pos <- round(100*c(mean(mrct_sims$any_found)),4)
+
+cat("What do a few non-null look like","\n")
+head(mrct_sims$sg_found[which(mrct_sims$any_found==1)])
+
+# Look at large-sample spline in non-AP
+# This is same as above so do not repeat
+# dflarge <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=10000,xname="AP_region",bx=log(5),strata_rand="stratum",checking=FALSE,details=FALSE,return_df=TRUE)
+# temp <- cox_cs_fit(df=subset(dflarge,AP_region==0),tte.name="y.sim",event.name="event.sim",treat.name="treat.sim",
+# strata.name="strata.simO",z.name=c("z"), details=FALSE ,boots=0, xlab=c("Biomarker"),maxz = 25, ydel=0.5, cex_legend=0.5, show_plot=TRUE,truebeta.name="loghr.po",
+# main_title=c("Non-AP large sample ~ training estimation properties"))
+
+# Note, here too many individual subgroup cuts, set sg_type=2
+temp <- summaryout_mrct(pop_summary=pop_summary, mrct_sims=mrct_sims,showtable=FALSE, 
+                        sg_type=2, tab_caption=c("Identified subgroups and estimation summaries under uniform treatment effects: 2-factor combinations"))
+
+ahr_true <- c(temp$res$ahr_true)
+ahr_unadj <- c(temp$res$ahr_unadj)
+ahr_sR <- c(temp$res$ahr_sR)
+ahr_sRx <- c(temp$res$ahr_sRx)
+ahr_x1 <- c(temp$res$ahr_x1)
+```
+
+
+- The underlying true ITT causal hazard ratio is `r ahr_true` 
+  - The large-sample (single draw) approximation to ITT un-adjusted is `r ahr_unadj`
+  - The large-sample ~ to ITT stratified is `r ahr_sR`
+  - The large-sample ~ to ITT stratified + x-adjustment is `r ahr_sRx`
+  - The large-sample ~ to AP region analysis is `r ahr_x1`
+
+
+The false-positive rate (identifying a subgroup under uniform benefit) 
+
+  - Across `r format(n_sims,nsmall=0,big.mark=",")` simulations (a subgroup was falsely identified) = `r false_pos`\% 
+  
+Summary of subgroups identified and estimation properties are:
+
+```{r}
+# Show the table
+temp$out_table
+```
+
+
+```{r, fig.width=10, fig.height=8}
+temp <- SGplot_estimates(df=mrct_sims, label_training="Non-AP, ITT", label_itt="Overall, ITT", label_testing="AP, ITT", label_sg="AP, identified subgroup")
+plot(temp$plot_estimates)
+```
+
+
+## Strong biomarker effect (prognostic effect bx=log5) maxk=2
+
+Simulations under strong biomarker effect and stronger prognostic effect allowing for 2-factor combination (maxk=2)
+
+```{r sims_k2_alt1, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+t.start<-proc.time()[3]
+
+# DGM 
+#log.hrs <- log(c(2,1.0,0.60))
+log.hrs <- log(c(3,1.25,0.50))
+
+dgm <- get_dgm_stratified(df=df.case,kappa=10,knot=5,log.hrs=log.hrs,strata_tte="CTregimen",details=TRUE)
+
+pop_summary <- draw_sim_stratified(dgm=dgm,ss=1,Ndraw=100000,xname="AP_region",bx=log(5),
+                                   strata_rand="stratum",checking=FALSE,details=FALSE,return_df=FALSE)
+
+# True causal AHR
+ahr_true = c(round(pop_summary$AHR,4))
+# AHR Cox un-adjusted (only treatment)
+ahr_unadj = c(round(pop_summary$ITT_unadj,4))
+# Treatment plus randomization stratificaton sR
+ahr_sR = c(round(pop_summary$ITT_sR,4))
+# sR including adjustment by x
+ahr_sRx = c(round(pop_summary$ITT_sRx,4))
+# Relative biases 
+bias_unadj <-round(100*c(pop_summary$ITT_unadj-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sR <-round(100*c(pop_summary$ITT_sR-pop_summary$AHR)/pop_summary$AHR,1)
+bias_sRx <-round(100*c(pop_summary$ITT_sRx-pop_summary$AHR)/pop_summary$AHR,1)
+# The bias within X=1 population
+ahr_x1 = c(round(pop_summary$X_1,4))
+bias_x1 <-round(100*c(pop_summary$X_1-pop_summary$AHR)/pop_summary$AHR,1)
+
+cat("AHR true (causal) and within AP:",c(ahr_true,ahr_x1),"\n")
+
+n_sims <- 1000
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+mrct_sims <- mrct_APregion_sims(dgm=dgm,n_sims=n_sims,xname="AP_region",bx=log(5),
+sg_focus="hr",maxk=2, hr.threshold=1.25, hr.consistency=1.0, details=TRUE)
+
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) simulations",c(t.min),"\n")
+
+cat("How often was a subgroup identified=",c(mean(mrct_sims$any_found)),"\n")
+
+if(output) save(n_sims,pop_summary,dgm,mrct_sims,file="output/mrct_sims2_k2_v0.Rdata")
+
+```
+
+
+```{r}
+if(loadit) load(file="output/mrct_sims2_k2_v0.Rdata")
+true_pos <- round(100*c(mean(mrct_sims$any_found)),4)
+
+cat("What do a few non-null look like","\n")
+head(mrct_sims$sg_found[which(mrct_sims$any_found==1)])
+
+# Note, here too many individual subgroup cuts, set sg_type=2
+temp <- summaryout_mrct(pop_summary=pop_summary, mrct_sims=mrct_sims,showtable=FALSE, sg_type=2, 
+                        tab_caption=c("Identified subgroups and estimation summaries under biomarker effects: 2-factor combinations"))
+
+ahr_true <- c(temp$res$ahr_true)
+ahr_unadj <- c(temp$res$ahr_unadj)
+ahr_sR <- c(temp$res$ahr_sR)
+ahr_sRx <- c(temp$res$ahr_sRx)
+ahr_x1 <- c(temp$res$ahr_x1)
+```
+
+
+- The underlying true ITT causal hazard ratio is `r ahr_true` 
+  - The large-sample (single draw) approximation to ITT un-adjusted is `r ahr_unadj`
+  - The large-sample ~ to ITT stratified is `r ahr_sR`
+  - The large-sample ~ to ITT stratified + x-adjustment is `r ahr_sRx`
+  - The large-sample ~ to AP region analysis is `r ahr_x1`
+
+
+The true-positive rate (identifying a subgroup under strong biomarker effects) 
+
+  - Across `r format(n_sims,nsmall=0,big.mark=",")` simulations (a subgroup was identified) = `r true_pos`\% 
+  
+Summary of subgroups identified and estimation properties are:
+
+```{r}
+# Show the table
+temp$out_table
+```
+
+
+```{r, fig.width=10, fig.height=8}
+temp <- SGplot_estimates(df=mrct_sims, label_training="Non-AP, ITT", label_itt="Overall, ITT", label_testing="AP, ITT", label_sg="AP, identified subgroup")
+plot(temp$plot_estimates)
+```
+
+
+# Appendix
+
+## Brief Overview of Methods
+
+- *forestSearch* (@Leon_2024): 
+  - Subgroups (SGs) with HR estimates indicative of "sub-optimal benefit" (e.g., $hr \geq 1.0$ threshold), are considered candidates with a "splitting consistency criteria" for selection^["splitting consistency criteria" judges the robustness/realness].  
+     - In essence, if a subgroup that appears to derive the least benefit is identified, then the complement may 
+  potentially be considered to derive benefit with a “higher degree of confidence” relative to the ITT population
+   - SGs are formed by single factors (eg, SG1 = males, SG2 = age<65) and two-way combinations (e.g., SG3 = males & age<65)
+   - SGs with a minimum size of $60$ and with a minimum of number of 10 events in each treatment arm will be considered
+   - Reversing the role of treatment allows for identifying subgroups with "enhanced benefit" (e.g., $hr \leq 0.65$ threshold)
+   - Continuous factors are cut at either medians (q2), or quartiles (q1, q2, q3, say)
+   - Cuts are also identified by generalized random forests (GRF) which is an identification approach itself --   
+  
+- *Generalized random forests* (@ATW_2019, @CZ_2023) which is based on restricted mean survival time (RMST) comparisons as implemented in the R package @GRFpackage_2022:  
+  - An RMST benefit of (at least) $3$ months for control is required for selection of a subgroup, where among tree depths of 1 and 2 the subgroup with the largest RMST benefit ($\geq 3$ months in favor of control) is selected
+  - Similar to forestSearch, we are targeting relatively large effects
+  - SGs with sample sizes of at least $60$ participants and a maximum tree depth of 2 is required
+
+
+## Example of bootstrap adjusted estimates and CIs 
+
+Example of bootstrap de-biased estimator and CI estimation.   Note that this is relevant for inference with regard to the training population -- the same population from which subgroups were identified.  However, if the AP data will also be used for identifying the subgroups then would be applicable.
+
+
+```{r FSbootMinSG, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+
+fs_minSG <- forestsearch(df.analysis=df_nonAP, confounders.name=confounders.name,
+outcome.name="y.sim", treat.name="treat.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+hr.threshold = 0.90, hr.consistency = 0.90, pconsistency.threshold = 0.90,
+showten_subgroups=FALSE, details=FALSE, sg_focus="minSG",
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="), maxk=1, plot.sg=FALSE)
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+t.start<-proc.time()[3]
+
+NB <- 1000
+
+# Bootstrap bias-correction 
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est=fs_minSG,nb_boots=NB,show_three=TRUE,details=TRUE)
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) bootstrap",c(t.min),"\n")
+
+
+if(output) save(fs_minSG, fs_bc, NB, file="output/boot2_minSG_k1_v0.Rdata")
+
+```
+
+```{r}
+if(loadit) load(file="output/boot2_minSG_k1_v0.Rdata")
+
+gt(as.data.frame(fs_bc$FSsg_tab), auto_align=FALSE) 
+
+
+```
+
+
+```{r FSbootMaxSG, echo=TRUE, message=FALSE, warning=TRUE, eval=TRUE}
+dfnew <- copy(df_nonAP)
+dfnew$control.sim <- 1-dfnew$treat.sim
+
+fs_maxSG <- forestsearch(df.analysis=dfnew, confounders.name=confounders.name,
+outcome.name="y.sim", treat.name="control.sim", event.name="event.sim",
+potentialOutcome.name="loghr.po",
+est.scale="1/hr", hr.threshold = 1/0.6, hr.consistency = 1/0.7, pconsistency.threshold = 0.90,
+showten_subgroups=FALSE, details=TRUE, sg_focus="maxSG",
+conf_force=c("age <= 65","biomarker < 1","biomarker < 2","biomarker < 3",
+"biomarker < 4","biomarker < 5","biomarker < 6","biomarker < 7","biomarker < 8",
+"biomarker < 9","biomarker < 10"), exclude_cuts=c("biomarker <="), maxk=1, plot.sg=FALSE)
+
+library(doFuture)
+library(doRNG)
+registerDoFuture()
+registerDoRNG()
+
+t.start<-proc.time()[3]
+
+NB <- 1000
+
+# Bootstrap bias-correction 
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est=fs_maxSG,nb_boots=NB,show_three=TRUE,details=TRUE)
+t.now<-proc.time()[3]
+t.min<-(t.now-t.start)/60
+cat("Minutes (doFuture) bootstrap",c(t.min),"\n")
+
+if(output) save(fs_maxSG, fs_bc, NB, file="output/boot2_maxSG_k1_v0.Rdata")
+```
+
+
+
+```{r}
+if(loadit) load(file="output/boot2_maxSG_k1_v0.Rdata")
+
+gt(as.data.frame(fs_bc$FSsg_tab), auto_align=FALSE) 
+
+```
+
+```{r}
+tALL.now<-proc.time()[3]
+t.min<-(tALL.now-tALL.start)/60
+cat("Minutes for ALL Analyses",c(t.min),"\n")
+```
+
+
