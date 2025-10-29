@@ -1,44 +1,177 @@
-
 # Enhanced AFT Data Generating Mechanism with Flexible Subgroup Definitions
 # Supports multiple cutpoint specifications: fixed values, quantiles, functions, etc.
 
 #' Generate Synthetic Survival Data using AFT Model with Flexible Subgroups
 #'
-#' @param data The input dataset (data.frame)
-#' @param continuous_vars Character vector of continuous variable names
-#' @param factor_vars Character vector of factor/categorical variable names
-#' @param outcome_var Name of the outcome/time variable
-#' @param event_var Name of the event/status variable
-#' @param treatment_var Name of the treatment variable (if NULL, will be simulated)
-#' @param subgroup_vars Character vector of variables defining the subgroup (optional)
-#' @param subgroup_cuts Named list of cutpoint specifications (see details)
-#' @param model Character: "alt" (with subgroup effects) or "null" (no subgroup effects)
-#' @param k_treat Numeric: treatment effect modifier (default = 1)
-#' @param k_inter Numeric: interaction effect modifier (default = 1)
-#' @param n_super Integer: size of super population (default = 5000)
-#' @param cens_type Character: "weibull" or "uniform" censoring
-#' @param cens_params List: parameters for censoring distribution
-#' @param seed Integer: random seed for reproducibility
-#' @param verbose Logical: print diagnostic information
+#' Creates a data generating mechanism (DGM) for survival data using an Accelerated
+#' Failure Time (AFT) model with Weibull distribution. Supports flexible subgroup
+#' definitions and treatment-subgroup interactions.
+#'
+#' @param data A data.frame containing the input dataset to base the simulation on
+#' @param continuous_vars Character vector of continuous variable names to be
+#'   standardized and included as covariates
+#' @param factor_vars Character vector of factor/categorical variable names to be
+#'   converted to dummy variables (largest value as reference)
+#' @param outcome_var Character string specifying the name of the outcome/time variable
+#' @param event_var Character string specifying the name of the event/status variable
+#'   (1 = event, 0 = censored)
+#' @param treatment_var Character string specifying the name of the treatment variable.
+#'   If NULL, treatment will be randomly simulated with 50/50 allocation
+#' @param subgroup_vars Character vector of variable names defining the subgroup.
+#'   Default is NULL (no subgroups)
+#' @param subgroup_cuts Named list of cutpoint specifications for subgroup variables.
+#'   See Details section for flexible specification options
+#' @param draw_treatment Logical indicating whether to redraw treatment assignment
+#'   in simulation. Default is FALSE (use original assignments)
+#' @param model Character string: "alt" for alternative model with subgroup effects,
+#'   "null" for null model without subgroup effects. Default is "alt"
+#' @param k_treat Numeric treatment effect modifier. Values >1 increase treatment
+#'   effect, <1 decrease it. Default is 1 (no modification)
+#' @param k_inter Numeric interaction effect modifier for treatment-subgroup interaction.
+#'   Default is 1 (no modification)
+#' @param n_super Integer specifying size of super population to generate.
+#'   Default is 5000
+#' @param cens_type Character string specifying censoring distribution: "weibull"
+#'   or "uniform". Default is "weibull"
+#' @param cens_params List of parameters for censoring distribution. For uniform:
+#'   list(min = value, max = value). For Weibull: fitted from data
+#' @param seed Integer random seed for reproducibility. Default is 8316951
+#' @param verbose Logical indicating whether to print diagnostic information during
+#'   execution. Default is TRUE
+#' @param standardize Logical indicating whether to standardize continuous variables.
+#'   Default is FALSE
 #'
 #' @details
-#' The subgroup_cuts parameter accepts flexible specifications:
-#'   - Numeric value: subgroup_cuts = list(er = 20) means er <= 20
-#'   - Quantile specification: subgroup_cuts = list(er = list(type = "quantile", value = 0.25))
-#'   - Function: subgroup_cuts = list(er = list(type = "function", fun = median))
-#'   - Range: subgroup_cuts = list(er = list(type = "range", min = 10, max = 50))
-#'   - Multiple conditions: subgroup_cuts = list(er = list(type = "multiple", values = c(10, 20, 30)))
-#'   - Custom function: subgroup_cuts = list(er = list(type = "custom", fun = function(x) x <= quantile(x, 0.3)))
+#' ## Subgroup Cutpoint Specifications
 #'
-#' @return List containing:
-#'   - df_super: Super population dataset
-#'   - model_params: Model parameters (coefficients, scale, etc.)
-#'   - subgroup_info: Information about subgroups
-#'   - hazard_ratios: True hazard ratios
+#' The `subgroup_cuts` parameter accepts multiple flexible specifications:
+#'
+#' ### Fixed Value
+#' ```r
+#' subgroup_cuts = list(er = 20)  # er <= 20
+#' ```
+#'
+#' ### Quantile-based
+#' ```r
+#' subgroup_cuts = list(
+#'   er = list(type = "quantile", value = 0.25)  # er <= 25th percentile
+#' )
+#' ```
+#'
+#' ### Function-based
+#' ```r
+#' subgroup_cuts = list(
+#'   er = list(type = "function", fun = median)  # er <= median
+#' )
+#' ```
+#'
+#' ### Range
+#' ```r
+#' subgroup_cuts = list(
+#'   age = list(type = "range", min = 40, max = 60)  # 40 <= age <= 60
+#' )
+#' ```
+#'
+#' ### Greater than
+#' ```r
+#' subgroup_cuts = list(
+#'   nodes = list(type = "greater", quantile = 0.75)  # nodes > 75th percentile
+#' )
+#' ```
+#'
+#' ### Multiple values (for categorical)
+#' ```r
+#' subgroup_cuts = list(
+#'   grade = list(type = "multiple", values = c(2, 3))  # grade in (2, 3)
+#' )
+#' ```
+#'
+#' ### Custom function
+#' ```r
+#' subgroup_cuts = list(
+#'   er = list(
+#'     type = "custom",
+#'     fun = function(x) x <= quantile(x, 0.3) | x >= quantile(x, 0.9)
+#'   )
+#' )
+#' ```
+#'
+#' ## Model Structure
+#'
+#' The AFT model with Weibull distribution is specified as:
+#' \deqn{\log(T) = \mu + \gamma' X + \sigma \epsilon}
+#'
+#' Where:
+#' - T is the survival time
+#' - μ is the intercept
+#' - γ contains the covariate effects
+#' - X includes treatment, covariates, and treatment×subgroup interaction
+#' - σ is the scale parameter
+#' - ε follows an extreme value distribution
+#'
+#' ## Interaction Term
+#'
+#' The model creates a SINGLE interaction term representing the treatment effect
+#' modification when ALL subgroup conditions are simultaneously satisfied. This
+#' is not multiple separate interactions but one combined indicator.
+#'
+#' @return An object of class `c("aft_dgm_flex", "list")` containing:
+#' \describe{
+#'   \item{df_super}{Data frame with the super population including all covariates,
+#'     linear predictors, and potential outcomes}
+#'   \item{model_params}{List containing model parameters:
+#'     \describe{
+#'       \item{mu}{Intercept from AFT model}
+#'       \item{sigma}{Scale parameter}
+#'       \item{gamma}{Vector of regression coefficients}
+#'       \item{b_weibull}{Weibull parameterization coefficients}
+#'       \item{b0_weibull}{Weibull baseline hazard coefficients}
+#'       \item{censoring}{Censoring distribution parameters}
+#'     }}
+#'   \item{subgroup_info}{List with subgroup information:
+#'     \describe{
+#'       \item{vars}{Variables used to define subgroup}
+#'       \item{cuts}{Cutpoint specifications used}
+#'       \item{definitions}{Human-readable subgroup definitions}
+#'       \item{size}{Number of observations in subgroup}
+#'       \item{proportion}{Proportion of observations in subgroup}
+#'     }}
+#'   \item{hazard_ratios}{List of true hazard ratios:
+#'     \describe{
+#'       \item{overall}{Overall treatment HR}
+#'       \item{harm_subgroup}{HR within subgroup (if model="alt")}
+#'       \item{no_harm_subgroup}{HR outside subgroup (if model="alt")}
+#'     }}
+#'   \item{analysis_vars}{List of variable classifications for analysis}
+#'   \item{model_type}{Character: "alt" or "null"}
+#'   \item{n_super}{Size of super population}
+#'   \item{seed}{Random seed used}
+#' }
 #'
 #' @examples
-#' # Example with various cutpoint specifications
-#' dgm <- generate_aft_dgm_flex(
+#' \dontrun{
+#' library(survival)
+#' data(cancer)
+#'
+#' # Example 1: Simple fixed cutpoints
+#' dgm1 <- generate_aft_dgm_flex(
+#'   data = gbsg,
+#'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+#'   factor_vars = c("meno", "grade"),
+#'   outcome_var = "rfstime",
+#'   event_var = "status",
+#'   treatment_var = "hormon",
+#'   subgroup_vars = c("er", "meno"),
+#'   subgroup_cuts = list(
+#'     er = 20,         # Fixed value
+#'     meno = 0         # Factor level
+#'   ),
+#'   model = "alt",
+#'   verbose = TRUE
+#' )
+#'
+#' # Example 2: Quantile-based cutpoints
+#' dgm2 <- generate_aft_dgm_flex(
 #'   data = gbsg,
 #'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
 #'   factor_vars = c("meno", "grade"),
@@ -47,13 +180,32 @@
 #'   treatment_var = "hormon",
 #'   subgroup_vars = c("er", "pgr", "age"),
 #'   subgroup_cuts = list(
-#'     er = list(type = "quantile", value = 0.25),        # er <= 25th percentile
-#'     pgr = list(type = "function", fun = median),       # pgr <= median
-#'     age = list(type = "range", min = 40, max = 60)     # age between 40 and 60
+#'     er = list(type = "quantile", value = 0.25),
+#'     pgr = list(type = "function", fun = median),
+#'     age = list(type = "range", min = 40, max = 60)
 #'   ),
 #'   model = "alt",
+#'   k_inter = 2,  # Double the interaction effect
 #'   verbose = TRUE
 #' )
+#'
+#' # Print summary
+#' print(dgm2)
+#' }
+#'
+#' @seealso
+#' \code{\link{simulate_from_dgm}} for generating simulated data from the DGM
+#' \code{\link{find_quantile_for_proportion}} for finding quantiles that achieve
+#'   target subgroup proportions
+#'
+#' @references
+#' Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
+#'   Failure Time Data (2nd ed.). Wiley.
+#'
+#' @author Your Name
+#' @export
+#' @importFrom survival survreg coxph Surv
+#' @importFrom stats quantile median uniroot rexp runif rnorm rbinom model.matrix coef
 
 generate_aft_dgm_flex <- function(data,
                                  continuous_vars,
@@ -666,19 +818,57 @@ generate_aft_dgm_flex <- function(data,
   return(results)
 }
 
-# ================================================================================
-# Convenience function to find quantile for target subgroup proportion
-# ================================================================================
-
 #' Find Quantile for Target Subgroup Proportion
 #'
-#' @param data Data containing the variable
-#' @param var_name Name of the variable
-#' @param target_prop Target proportion for the subgroup
-#' @param direction "less" for <=, "greater" for >
-#' @param tol Tolerance for root finding
+#' Determines the quantile cutpoint that achieves a target proportion of
+#' observations in a subgroup. Useful for calibrating subgroup sizes.
 #'
-#' @return The quantile value that achieves the target proportion
+#' @param data A data.frame containing the variable of interest
+#' @param var_name Character string specifying the variable name to analyze
+#' @param target_prop Numeric value between 0 and 1 specifying the target
+#'   proportion of observations to be included in the subgroup
+#' @param direction Character string: "less" for values <= cutpoint (default),
+#'   "greater" for values > cutpoint
+#' @param tol Numeric tolerance for root finding algorithm. Default is 0.0001
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{quantile}{The quantile value (between 0 and 1) that achieves the
+#'     target proportion}
+#'   \item{cutpoint}{The actual data value corresponding to this quantile}
+#'   \item{actual_proportion}{The achieved proportion (should equal target_prop
+#'     within tolerance)}
+#' }
+#'
+#' @details
+#' This function uses root finding (\code{uniroot}) to determine the quantile
+#' that results in exactly the target proportion of observations being classified
+#' into the subgroup. This is particularly useful when you want to ensure a
+#' specific subgroup size regardless of the data distribution.
+#'
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' data(cancer)
+#'
+#' # Find ER cutpoint for 12.5% subgroup
+#' result <- find_quantile_for_proportion(
+#'   data = gbsg,
+#'   var_name = "er",
+#'   target_prop = 0.125,
+#'   direction = "less"
+#' )
+#'
+#' print(result)
+#' # Use in subgroup definition
+#' subgroup_cuts = list(
+#'   er = list(type = "quantile", value = result$quantile)
+#' )
+#' }
+#'
+#' @seealso \code{\link{generate_aft_dgm_flex}}
+#' @export
+#' @importFrom stats quantile uniroot
 
 find_quantile_for_proportion <- function(data, var_name, target_prop,
                                         direction = "less", tol = 0.0001) {
@@ -706,9 +896,103 @@ find_quantile_for_proportion <- function(data, var_name, target_prop,
   ))
 }
 
-# ================================================================================
-# The simulation function remains the same as before
-# ================================================================================
+#' Simulate Survival Data from AFT Data Generating Mechanism
+#'
+#' Generates simulated survival data from a previously created AFT data generating
+#' mechanism (DGM). Samples from the super population and generates survival times
+#' with specified censoring.
+#'
+#' @param dgm An object of class "aft_dgm_flex" created by
+#'   \code{\link{generate_aft_dgm_flex}}
+#' @param n Integer specifying the sample size. If NULL (default), uses the
+#'   entire super population
+#' @param rand_ratio Numeric specifying the randomization ratio (treatment:control).
+#'   Default is 1 (1:1 allocation)
+#' @param max_follow Numeric specifying maximum follow-up time for administrative
+#'   censoring. Default is Inf (no administrative censoring)
+#' @param cens_adjust Numeric adjustment to censoring distribution on log scale.
+#'   Positive values increase censoring, negative values decrease it. Default is 0
+#' @param draw_treatment Logical indicating whether to redraw treatment assignment.
+#'   If TRUE (default), reassigns treatment according to rand_ratio. If FALSE,
+#'   keeps original treatment assignments from super population
+#' @param seed Integer random seed for reproducibility. Default is NULL (no seed set)
+#'
+#' @return A data.frame containing simulated survival data with columns:
+#' \describe{
+#'   \item{id}{Subject identifier}
+#'   \item{treat}{Treatment assignment (0 or 1)}
+#'   \item{treat_sim}{Simulated treatment assignment (may differ from treat if
+#'     draw_treatment = TRUE)}
+#'   \item{flag_harm}{Subgroup indicator (1 if all subgroup conditions met, 0 otherwise)}
+#'   \item{z_*}{Standardized covariate values}
+#'   \item{y_sim}{Observed survival time (minimum of true time and censoring time)}
+#'   \item{event_sim}{Event indicator (1 = event observed, 0 = censored)}
+#'   \item{t_true}{True underlying survival time (before censoring)}
+#'   \item{c_time}{Censoring time}
+#' }
+#'
+#' @details
+#' ## Simulation Process
+#'
+#' 1. **Sampling**: Draws n observations with replacement from the super population
+#' 2. **Treatment Assignment**:
+#'    - If `draw_treatment = TRUE`: Reassigns treatment based on `rand_ratio`
+#'    - If `draw_treatment = FALSE`: Keeps original treatment assignments
+#' 3. **Survival Times**: Generates from Weibull AFT model:
+#'    \deqn{\log(T) = \mu + \sigma \epsilon + X'\gamma}
+#'    where ε ~ extreme value distribution
+#' 4. **Censoring**: Applies specified censoring distribution (Weibull or uniform)
+#' 5. **Administrative Censoring**: Applies max_follow cutoff if specified
+#'
+#' ## Censoring Adjustment
+#'
+#' The `cens_adjust` parameter modifies the censoring distribution:
+#' - `cens_adjust = log(2)` doubles expected censoring times
+#' - `cens_adjust = log(0.5)` halves expected censoring times
+#'
+#' @examples
+#' \dontrun{
+#' # Create DGM first
+#' dgm <- generate_aft_dgm_flex(
+#'   data = gbsg,
+#'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+#'   factor_vars = c("meno", "grade"),
+#'   outcome_var = "rfstime",
+#'   event_var = "status",
+#'   treatment_var = "hormon",
+#'   subgroup_vars = c("er", "meno"),
+#'   subgroup_cuts = list(er = 20, meno = 0),
+#'   model = "alt"
+#' )
+#'
+#' # Simulate data with 1:1 randomization
+#' sim_data <- simulate_from_dgm(
+#'   dgm = dgm,
+#'   n = 1000,
+#'   rand_ratio = 1,
+#'   max_follow = 84,
+#'   cens_adjust = log(1.5),
+#'   seed = 123
+#' )
+#'
+#' # Check results
+#' table(sim_data$treat_sim)
+#' mean(sim_data$event_sim)
+#'
+#' # Simulate with 2:1 randomization
+#' sim_data_2to1 <- simulate_from_dgm(
+#'   dgm = dgm,
+#'   n = 900,
+#'   rand_ratio = 2,  # 2:1 treatment:control
+#'   seed = 456
+#' )
+#' }
+#'
+#' @seealso
+#' \code{\link{generate_aft_dgm_flex}} for creating the DGM
+#'
+#' @export
+#' @importFrom stats rexp runif pmin
 
 simulate_from_dgm <- function(dgm,
                              n = NULL,
@@ -793,4 +1077,94 @@ simulate_from_dgm <- function(dgm,
   return(df_sim)
 }
 
+#' Print Method for AFT DGM Objects
+#'
+#' Provides a formatted summary of an AFT data generating mechanism object.
+#'
+#' @param x An object of class "aft_dgm_flex"
+#' @param ... Additional arguments (currently unused)
+#'
+#' @return Invisibly returns the input object
+#'
+#' @examples
+#' \dontrun{
+#' dgm <- generate_aft_dgm_flex(data = gbsg, ...)
+#' print(dgm)
+#' }
+#'
+#' @export
+#' @method print aft_dgm_flex
+
+print.aft_dgm_flex <- function(x, ...) {
+  cat("AFT Data Generating Mechanism\n")
+  cat("=============================\n")
+  cat("Model type:", x$model_type, "\n")
+  cat("Super population size:", x$n_super, "\n")
+  cat("Number of covariates:", length(x$analysis_vars$covariates), "\n")
+
+  if (x$model_type == "alt" && !is.null(x$subgroup_info$vars)) {
+    cat("\nSubgroup Information:\n")
+    cat("  Variables:", paste(x$subgroup_info$vars, collapse = ", "), "\n")
+    cat("  Size:", x$subgroup_info$size, "\n")
+    cat("  Proportion:", round(x$subgroup_info$proportion, 3), "\n")
+
+    if (!is.null(x$subgroup_info$definitions)) {
+      cat("  Definitions:\n")
+      for (def in x$subgroup_info$definitions) {
+        cat("    -", def, "\n")
+      }
+    }
+  }
+
+  cat("\nHazard Ratios:\n")
+  for (name in names(x$hazard_ratios)) {
+    cat("  ", gsub("_", " ", name), ":", round(x$hazard_ratios[[name]], 3), "\n")
+  }
+
+  cat("\nModel Parameters:\n")
+  cat("  Intercept (mu):", round(x$model_params$mu, 3), "\n")
+  cat("  Scale (sigma):", round(x$model_params$sigma, 3), "\n")
+  if ("treat" %in% names(x$model_params$gamma)) {
+    cat("  Treatment effect:", round(x$model_params$gamma["treat"], 3), "\n")
+  }
+  if ("treat_harm" %in% names(x$model_params$gamma)) {
+    cat("  Interaction effect:", round(x$model_params$gamma["treat_harm"], 3), "\n")
+  }
+
+  invisible(x)
+}
+
+#' Summary Method for AFT DGM Objects
+#'
+#' Provides a comprehensive summary of an AFT data generating mechanism object.
+#'
+#' @param object An object of class "aft_dgm_flex"
+#' @param ... Additional arguments (currently unused)
+#'
+#' @return A list of class "summary.aft_dgm_flex" containing summary information
+#'
+#' @examples
+#' \dontrun{
+#' dgm <- generate_aft_dgm_flex(data = gbsg, ...)
+#' summary(dgm)
+#' }
+#'
+#' @export
+#' @method summary aft_dgm_flex
+
+summary.aft_dgm_flex <- function(object, ...) {
+  summary_list <- list(
+    model_type = object$model_type,
+    n_super = object$n_super,
+    n_covariates = length(object$analysis_vars$covariates),
+    continuous_vars = object$analysis_vars$continuous,
+    factor_vars = object$analysis_vars$factor,
+    subgroup_info = object$subgroup_info,
+    hazard_ratios = object$hazard_ratios,
+    model_params = object$model_params
+  )
+
+  class(summary_list) <- "summary.aft_dgm_flex"
+  return(summary_list)
+}
 
