@@ -718,5 +718,55 @@ dgm <- generate_aft_dgm_flex(
 )
 
 
+result <- find_k_inter_for_target_hr(
+  target_hr_harm = 2.0,
+  data = gbsg,
+  outcome_var = "rfstime",
+  event_var = "status",
+  treatment_var = "hormon",
+    continuous_vars = c("age", "er", "pgr"),
+  factor_vars = c("meno", "grade"),
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = 0.2612616),
+    meno = 0
+  ),
+  k_treat = 1.0
+)
+
+# Result: k_inter = 1.00 achieves HR_harm = 2.0
+
+
+
+base_params <- list(
+  data = gbsg,
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars = c("meno", "grade"),
+  outcome_var = "rfstime",
+  event_var = "status",
+  treatment_var = "hormon",
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = 0.2612616),
+    meno = 0
+  ),
+  k_treat = 1.0,
+  n_super = 1000  # Using smaller for faster demonstration
+)
+
+
+sensitivity_results <- do.call(sensitivity_analysis_k_inter, c(
+  list(
+    k_inter_range = c(-3, 3),
+    n_points = 11,
+    model = "alt"
+  ),
+  base_params
+))
+
+cat("\nSensitivity results:\n")
+print(round(sensitivity_results, 3))
+
+
 
 
