@@ -1,0 +1,769 @@
+\documentclass[10pt]{beamer} \mode<presentation>{\usetheme{Warsaw}} 
+\usepackage{graphicx,natbib}
+
+%\usepackage{verbatim}
+%\usepackage[active,tightpage]{preview}
+%\PreviewEnvironment{tikzpicture}
+%\usetikzlibrary{arrows}
+
+\usepackage{verbatim}
+
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\@verbatim}
+  {\verbatim@font}
+  {\verbatim@font\scriptsize}     % set font size here
+  {}{}
+\makeatother
+
+
+\usepackage{color, colortbl}
+
+\usepackage{hyperref}
+
+%\usetikzlibrary{positioning}
+%\usepackage[utf8]{inputenc}
+%\usepackage{pgf}
+
+\usepackage{booktabs}
+\usepackage{ctable}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+
+%\usepackage{fancyvrb}
+
+% Used in F&G CUT
+\def\sumin{\sum_{i=1}^n}
+\def\Ni{{\cal N}_{i}}
+\def\tpast{t^{-}}
+\def\barY{\overline{Y}}
+\def\barN{\overline{N}}
+\def\barM{\overline{M}}
+\def\It{\int_{0}^{t}}
+
+\def\gt{G(t)}
+
+
+\newcommand{\indep}{\perp \!\!\! \perp}
+
+%% preamble 
+\title{Exploratory subgroup identification in the heterogeneous Cox model} 
+\subtitle{A relatively simple approach} 
+\author{Larry F. Le\'on \\
+Merck, Statistical Methodology Research}
+\date{}
+
+
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, echo=FALSE,dev = 'pdf')
+options(warn = -1)
+
+rm(list=ls())
+
+library(Hmisc,quietly=TRUE,verbose=FALSE)
+
+library(arsenal,quietly=TRUE,verbose=FALSE)
+library(ade4,quietly=TRUE,verbose=FALSE)
+library(survival,quietly=TRUE,verbose=FALSE)
+#library(personalized,quietly=TRUE,verbose=FALSE)
+library(glmnet,quietly=TRUE,verbose=FALSE)
+#library(muhaz,quietly=TRUE,verbose=FALSE)
+library(aVirtualTwins,quietly=TRUE,verbose=FALSE)
+library(randomForest,quietly=TRUE,verbose=FALSE)
+library(knitr,quietly=TRUE,verbose=FALSE)
+#library(rpart.plot,quietly=TRUE,verbose=FALSE)
+library(kableExtra,quietly=TRUE,verbose=FALSE)
+
+library(ggplot2,quietly=TRUE,verbose=FALSE)
+library(gridExtra,quietly=TRUE,verbose=FALSE)
+
+library(grf)
+library(policytree)
+library(DiagrammeR)
+
+library(cubature)
+
+library(data.table)
+
+#install.packages("data.table", repos="https://Rdatatable.gitlab.io/data.table") ## defaults to binary version and only works if you are using a recent version of R
+
+#install.packages("data.table", type="source", repos="https://Rdatatable.gitlab.io/data.table") ## installs from source, which requires Rtools; use this for older versions of R
+# or, which install only if newer version (by git commit hash) is available
+#data.table::update.dev.pkg()
+
+library(formatR)
+
+source("../../R/source_forestsearch_v0.R")
+source_fs_functions()
+
+@
+
+
+\begin{document}
+
+%% title frame 
+\begin{frame} 
+\titlepage 
+\end{frame}
+
+
+%\begin{frame}
+%\frametitle{Table of contents}
+%\tableofcontents
+%\end{frame} 
+
+
+\begin{frame}{Introduction}
+\begin{enumerate}[{}]
+\item{Goal of identifying an existing subgroup $H$ consisting of subjects who derive the least benefit from treatment}
+\begin{enumerate}[{}]
+\item{If treatment is detrimental $\rightarrow$ possible action; “Lack of benefit, or mild benefit” may not be reason enough to “recommend NOT-to-treat” or to exclude from inclusion in future program development}
+\end{enumerate}
+\item{In case of detrimental $H$, the complementary subgroup $H^{c}$ may be considered to derive benefit with a “higher degree of confidence” relative to the ITT population}
+\item{Our approach is based on the idea of all-possible subsets regression from the area of model selection:}
+\begin{enumerate}[{}]
+\item{For $K$ factors, $X_1,X_2, \ldots, X_{k}$, one fits all possible model combinations and chooses the model which minimizes a fit/penalty criteria (e.g., AIC/BIC)}
+\end{enumerate}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Overview of Forest Search}
+We extend to all-possible subgroups:
+\begin{enumerate}[{}]
+\item{$X_1$=Sex (M,F), $X_2$=Age ($A \leq 50$, $A>50$), and $X_3$=Age ($A \leq 35$, $A>35$)}
+\item{8 SG combinations from $X_1$ and $X_2$: \{M\}, \{F\}, \{$A \leq 50$\}, \{$A >50$\}, \{M × A$\leq 50$\}, \{M × A$>50$\}, \{F × A$\leq 50$\}, \{F × A$>50$\}}
+\item{Another 6 from $X_1$ and $X_3$} 
+\item{And from Age intervals such as \{$Age>35$ × $Age \leq 50$\}}
+\item{Some are null, $\{A>50\} \times \{A \leq 35 \}=\emptyset$}
+\item{This is not an exhaustive list for this example (For $L$ binary factors: $2^{2L}-1$ possible SG's)}
+\item{The number of combinations grows large; We restrict to a minimum SG size (e.g., 60 subjects) and a minimum number of events per treatment arm (e.g., 10 events)}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Forest Search identification criteria}
+For identifying $H$ we define (screen) candidates as SG's with Cox (HR) estimates $\geq 1.5$ and employ a “splitting consistency criteria”:
+\begin{enumerate}[{}]
+\item{Suppose there are SG's with estimates $\geq 1.5$ and for each SG we randomly split (e.g, 500 times) the SG $50/50$}
+\item{Consider a split “consistent with harm” if {\bf both} estimated HRs are $\geq 1.25$ for the two SG splits}
+\item{We define $H$-candidates as those with consistency rates at least $90\%$ (across the 500 splits);}
+\item{Define the SG with the highest consistency rate as exhibiting “maximal harm”}
+\item{If no SG achieves a consistency rate of at least $90\%$ then consider $H=\emptyset$ (and $H^{c}$ is the ITT population)}
+\item{The consistency criterion heuristically represents -- “no matter how you split the SG $H$, those splits are consistent with harm”}
+\end{enumerate}
+\end{frame}
+
+
+\begin{frame}[shrink=10]{Random splitting: Choice of 1.5 and 1.25 thresholds}
+\begin{itemize}
+\item{Random splitting 50/50 via random strata $\sim Bin(0.5)$}
+\item{Cox score $L(d;strata)=L(d1,strata=1)+L(d2,strata=2)$}
+\item{$\hat\beta_{s}$, $\hat\beta_{s1}$, $\hat\beta_{s2}$ denote the corresponding estimators}
+\item{Un-stratified $\hat\beta \approx \hat\beta_{s}$ since strata are purely random}
+\item{Use approximation (\cite{JT_1984}):  $$\hat\beta \approx 4L(d)/d \approx N(\beta,4/d)$$}
+\item{$\hat\beta_{s1} \indep \hat\beta_{s2} \approx 8 L(d_1,s=1)/d \approx N(\beta,8/d)$}   
+\item{$L(d) \simeq L(d;strata)=L(d1,s=1)+L(d2,s=2)$:
+$$\hat\beta \geq log(1.5) \iff \hat\beta_{s1}+\hat\beta_{s2} \geq 2*log(1.5)$$
+}
+%\item{$\min(\hat\beta_{s1},\hat\beta_{s2}) \approx N_{m}(\beta,8/d) \sim F(\cdot) =1 - (1-[\Phi(\cdot;\beta,8/d)]^2)$}
+\item{Numerical integration: ($\{W_1,W_{2}\} \sim N(\beta,8/d)$, independently) $a(\beta)= P(W_1+W_2 \geq 2*\log(1.5), \min(W_1,W_2) \geq \log(1.25))=$}
+\item{$$\int I(w_{1}+w_{2} \geq a)I(w_{1} \geq b)I(w_{2} \geq b)\varphi(w_{1};\beta,8/d) \varphi(w_{2};\beta,8/d) dw_{1}dw_{2}$$}
+\end{itemize}
+\end{frame}
+
+
+
+<<echo=FALSE,message=FALSE,warning=FALSE,eval=FALSE>>=
+# From paper, NOT run here, comment out functions
+# file located at
+#C:/Users/larry/SynologyDrive/subgroup identification and analysis/paper/draft1/forest_search_draft_3.Rnw
+#source("../../R/source_forestsearch_v0.R")
+#source_fs_functions(file_loc="../../R/")
+#library(cubature)
+#library(kableExtra)
+#library(knitr)
+#library(ggplot2)
+pC <- 0.45
+hrH.plims<-seq(0.5,3.0,length=50)
+pAnyH.approx.100<-pAnyH.approx.80<-pAnyH.approx.60<-rep(NA,length(hrH.plims))
+for(hh in 1:length(hrH.plims)){
+hrH.plim <- hrH.plims[hh]
+pAnyH.approx.60[hh] <- adaptIntegrate(dens_threshold_both,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf),theta=hrH.plim,pC=pC,n.sg=60,k1=log(1.5),k2=log(1.25))$integral
+pAnyH.approx.80[hh] <- adaptIntegrate(dens_threshold_both,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf),theta=hrH.plim,pC=pC,n.sg=80,k1=log(1.5),k2=log(1.25))$integral
+pAnyH.approx.100[hh] <- adaptIntegrate(dens_threshold_both,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf),theta=hrH.plim,pC=pC,n.sg=100,k1=log(1.5),k2=log(1.25))$integral
+}
+#save(hrH.plims,pAnyH.approx.60,pAnyH.approx.80,pAnyH.approx.100,file="output/pAnyH_approx_nsg.Rdata")
+# output is w.r.t. paper/draft_1
+@
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+load("../../paper/draft1/output/pAnyH_approx_nsg.Rdata")
+@
+
+
+\begin{frame}[shrink=5]{Approximate Prob of finding H via Forest Search: Subgroup $H$ of size $n_{H}$ exists with hr from 0.5 to 3.0 ($n_{H}=60, 80, 100$; $pC=45\%$; $d \approx (1-pC)*n$)}
+\begin{figure}
+\begin{center}
+<<out.width = "1.25\\textwidth",out.height="0.80\\textheight">>=
+plot(hrH.plims,pAnyH.approx.60,xlab="Hazard ratio for subgroup H",ylab="Probability of any H found",type="l",lty=1,lwd=2.0,ylim=c(0,1))
+abline(h=0.05,lwd=0.5,col="red")
+lines(hrH.plims,pAnyH.approx.80,type="l",lty=1,lwd=2,col="grey")
+lines(hrH.plims,pAnyH.approx.100,type="l",lty=1,lwd=2,col="blue")
+legend("top",c(expression(n[H]==60),expression(n[H]==80),expression(n[H]==100)),lty=1,lwd=2,col=c("black","grey","blue"),bty="n")
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+% Simulation setup
+% and underlying dgm's
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+gbsg_censoring<-round(1-mean(gbsg$status),2)
+# Moderate signal hrH=2.5
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=500_alt_ktreat=1_hrH=2.5_v0-k4.Rdata")
+dgm.alt2<-dgm
+rm("res")
+# mild hrH=2.0
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=500_alt_ktreat=1_hrH=2_v0-k4.Rdata")
+dgm.alt1<-dgm
+rm("res")
+# Strong hrH=3.0
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=500_alt_ktreat=1_hrH=3_v0-k4.Rdata")
+dgm.alt3<-dgm
+rm("res")
+# Very strong hrH=3.5
+# implemented in bootstrap evaluation
+load("../../simulations/m1-code-results/Bootstrap/results/N=1000/fsb_S=100_B=300_m1_N=1000_alt_ktreat=1_hrH=3.5_v1.Rdata")
+dgm.alt4<-dgm
+rm("res")
+load("../../simulations/m1-code-results/results/oc_s10k_m1_N=500_null_ktreat=1_v0-k4.Rdata")
+dgm.null<-dgm
+rm("res")
+
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=700_alt_ktreat=1_hrH=1_v0-k4.Rdata")
+# Use analysis=FS
+# The size and other popln summaries are identical for each analysis
+df_res<-subset(res,analysis=="FS")
+# Censoring in simulations
+pcens_sims<-round(mean(df_res$p.cens),2)
+# Stable across N=500, 700, 1000
+#print(pcens_sims)
+rm("res","df_res")
+@
+
+
+\begin{frame}{Simulations: GBSG data, \cite{Schumacher_1994}, $\approx \Sexpr{100*gbsg_censoring}\%$ censoring [$\bar{C}=\Sexpr{100*pcens_sims}\%$ in simulations]}
+\begin{itemize}
+\item{Simulations based on German Breast Cancer Study (n=686, 7 baseline factors)}
+\item{$\log(T)=\mu+\beta_{0}\hbox{Treat}+\beta_1 Z_1 + \beta_2 Z_2 + \beta_3 Z_3 + \beta_4 Z_4 + \beta_5 Z_5 + \gamma \hbox{Treat}Z_{1}Z_{4},$}
+\item{$Z_1$=Estrogen, $Z_2$=Age, $Z_3$=Progesterone, $Z_4$=Menopausal, $Z_5$=Positive nodes}
+\item{Size of harm subgroup H= $\{Z_{1}=1 \}\cap \{Z_{4}=1\}$ is $n=84$}
+\item{Size of non-harm subgroup $H^{c}$= $\{Z_{1}=0 \}\cup \{Z_{4}=0\}$ is $n=602$}
+\item{The choice of $\beta_{0}$ and $\gamma$ determining the treatment effects; $\gamma=0$ generates no subgroup ($H=\emptyset$)}
+\item{Analyst has available factors $Z_1$-$Z_5$ plus 2 additional ``noise'' factors $Z_6$=Size and $Z_7$=Grade}
+\end{itemize}
+%\pause
+%\begin{itemize}
+%\item{Virtual Twins (VT):$n_{\hbox{min}}=60$, $k_{\hbox{max}}=3$, and $\delta=0.25$}
+%\item{Forest Search (FS): $n_{\hbox{min}}=60$, $\hat\theta_{L}=1.5$ and $\hat\theta^{split}_{L}=1.25$ (minimum of $90\%$ of 200 splits ``consistent'')}
+%\end{itemize}
+%\pause
+\begin{itemize}
+\item{Null model: $H=\emptyset$, $H^{c}$ is ITT population, hr =$\Sexpr{round(dgm.null$hr.Hc.true,2)}$}
+%\pause
+\item{Alt model: hr($H$) =$\Sexpr{round(dgm.alt2$hr.H.true,2)}$, hr($H^{c}$) =$\Sexpr{round(dgm.alt2$hr.Hc.true,2)}$}
+\end{itemize}
+\end{frame}
+
+
+
+\begin{frame}[shrink=10]{VT (\citealp{FTR_2011}); GRF (\citealp{ATW_2019,AW_2021})}  
+Restrict to SG's with at least $60$ subjects; VT and GRF maximum tree depth of $3$ baseline factors;
+For VT, employ ''censoring unbiased transformation'' of \citealp{FG_2018} 
+\begin{enumerate}[{GRF:}]
+\item{GRF targets RMST and we denote GRF as RMST based on the truncation point $\tau=\min(\tau_{0},\tau_{1})$}
+\item{An RMST benefit of $6$ months for control is required for selection of an $H$}
+\end{enumerate}
+\begin{enumerate}[{GRF.70:}]
+\item{GRF employs a double-robust (IPCW) approach for RMST $\rightarrow$ sensitive to $\tau$. GRF.70: $\tau_{70}:= 0.7\min(\tau_{0},\tau_{1})$}
+\end{enumerate}
+\begin{enumerate}[{VT(24):}]
+\item{VT(24) targeting survival rates at $t=24$ months. A treatment effect of $\delta=0.25$, in favor of control, is required for selection of an $H$}
+\end{enumerate}
+\begin{enumerate}[{$VT^{\#}(24)$:}]
+\item{$VT^{\#}(24)$ survival rates at $t=24$ months based on non-censored (latent) outcomes.  Remove the challenge of censoring and base analyses on the (ideal) latent outcomes}
+\end{enumerate}
+\begin{enumerate}[{VT(36):}]
+\item{VT(36) same as $\hbox{VT(24)}$ but with $t=36$}
+\end{enumerate}
+\begin{enumerate}[{$VT^{\#}(36)$:}]
+\item{$VT^{\#}(36)$ same as $VT^{\#}(24)$ but with $t=36$}
+\end{enumerate}
+\end{frame}
+
+
+
+% Finding H
+<<findH,echo=FALSE,message=FALSE,warning=FALSE>>=
+# R output path
+#C:/Users/larry/SynologyDrive/subgroup identification and analysis/simulations/m1-code-results/Tables
+# down 1 to simulations path
+load("../../simulations/m1-code-results/Tables/output/oc_findH_m1_k4.Rdata")
+options(knitr.kable.NA = '.',format="latex")
+tabsim_H<-kable(oc_findH,longtable=FALSE,align='c',format="latex",booktabs=TRUE,escape=F,digits=3) %>%
+kable_styling(full_width = FALSE) %>%
+group_rows("N=500", 1, 6) %>%
+group_rows("N=700", 7, 12) %>%
+group_rows("N=1000", 13, 18)
+@
+
+
+% Need avgNsg for N=500, 700, 1000
+
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+# Sim results here
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=500_alt_ktreat=1_hrH=1_v0-k4.Rdata")
+# Use analysis=FS
+# The size and other popln summaries are identical for each analysis
+df_res<-subset(res,analysis=="FS")
+nsg<-df_res$sizeH_true
+# Return mean [25%,75%]
+nstat<-round(c(mean(nsg),quantile(nsg,c(0.25,0.75))),0)
+a<-paste0(nstat[1]," [")
+a<-paste0(a,nstat[2])
+a<-paste0(a,",")
+a<-paste0(a,nstat[3])
+a<-paste0(a,"]")
+nsg_500<-c(a)
+
+pcens_500<-mean(df_res$p.cens)
+
+# N=700
+
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=700_alt_ktreat=1_hrH=1_v0-k4.Rdata")
+df_res<-subset(res,analysis=="FS")
+nsg<-df_res$sizeH_true
+nstat<-round(c(mean(nsg),quantile(nsg,c(0.25,0.75))),0)
+a<-paste0(nstat[1]," [")
+a<-paste0(a,nstat[2])
+a<-paste0(a,",")
+a<-paste0(a,nstat[3])
+a<-paste0(a,"]")
+nsg_700<-c(a)
+
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=1000_alt_ktreat=1_hrH=1_v0-k4.Rdata")
+df_res<-subset(res,analysis=="FS")
+nsg<-df_res$sizeH_true
+nstat<-round(c(mean(nsg),quantile(nsg,c(0.25,0.75))),0)
+a<-paste0(nstat[1]," [")
+a<-paste0(a,nstat[2])
+a<-paste0(a,",")
+a<-paste0(a,nstat[3])
+a<-paste0(a,"]")
+nsg_1000<-c(a)
+
+
+load("../../simulations/m1-code-results/results/oc_s2k_m1_N=700_alt_ktreat=1_hrH=1_v0-k4.Rdata")
+df_res<-subset(res,analysis=="FS")
+nsg<-df_res$sizeH_true
+nstat<-round(c(mean(nsg),quantile(nsg,c(0.25,0.75)),min(nsg),max(nsg)),0)
+a<-paste0(nstat[1]," [0.25=")
+a<-paste0(a,nstat[2])
+a<-paste0(a,",0.75=")
+a<-paste0(a,nstat[3])
+a<-paste0(a,",min=")
+a<-paste0(a,nstat[4])
+a<-paste0(a,",max=")
+a<-paste0(a,nstat[5])
+a<-paste0(a,"]")
+nsg2_700<-c(a)
+@
+
+
+\begin{frame}[shrink=10]{$\%$ any H: $\bar{n}_{H}=\Sexpr{nsg_500}$; $\Sexpr{nsg_700}$; $\Sexpr{nsg_1000}$}
+\Sexpr{tabsim_H}
+\end{frame}
+
+
+<<echo=FALSE,message=FALSE,warning=FALSE,eval=FALSE>>=
+# checking N=500
+library(cubature)
+pC <- pcens_500
+pAnyH<-adaptIntegrate(dens_threshold_both,lowerLimit=c(-Inf,-Inf),upperLimit=c(Inf,Inf),theta=3,pC=pC,n.sg=50,k1=log(1.5),k2=log(1.25))$integral
+@
+
+
+
+
+\begin{frame}{Classification metrics: H= $\{Z_{1}=1 \}\cap \{Z_{4}=1\}$, $H^{c}$= $\{Z_{1}=0 \}\cup \{Z_{4}=0\}$}
+\begin{itemize}
+\item{Note that there always exists ${\hat H}^{c}$; $\hat H = \emptyset$ implies ${\hat H}^{c}= \Omega$}
+\item{${ppv}(\hat{H})$: $$\# \{i \in \hat{H} \cap H \} / \# \{i \in H \}$$}
+\item{${ppv}(\hat{H}^{C})$: $$\# \{i \in \hat{H}^{c} \cap H^{c} \} / \# \{i \in H^{c} \}$$}
+\item{${sens}(\hat{H})$: $$\# \{i \in \hat{H} \cap H \} / \# \{i \in \hat{H} \}$$}
+\item{${sens}(\hat{H}^{C})$: $$\# \{i \in \hat{H}^{c} \cap H^{c} \} / \# \{i \in \hat{H}^{c} \}$$}
+\item{${sens}(\hat{H}^{C} \vert \hat{H} \neq \emptyset)$: $$\# \{i \in \hat{H}^{c} \cap H^{c}, \hat{H} \neq \emptyset \} / \# \{i \in \hat{H}^{c}, \hat{H} \neq \emptyset \}$$}
+\end{itemize}
+\end{frame}
+
+
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+load("../../simulations/m1-code-results/Tables/output/missClassify_null_n=700_m1-k4.Rdata")
+missC_null<-format(missC_null,digits=3,drop0trailing = TRUE)
+missC_null[2,]<-NA
+options(knitr.kable.NA = '.',format="latex")
+tabsim_missCnull_700<-kable(missC_null,longtable=FALSE,align='c',format="latex", digits=3, booktabs=TRUE,escape=F) %>%
+kable_styling("striped", full_width = F) %>%
+group_rows("Finding H", 1, 6) %>%
+group_rows("Size of H and Hc", 7, 12)  
+@
+
+\begin{frame}[shrink=30]{Classification rates under the null $N=700$}
+\Sexpr{tabsim_missCnull_700}
+\end{frame}
+
+
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+load("../../simulations/m1-code-results/Tables/output/missClassify_hrH=2.5_n=700_m1-k4.Rdata")
+missC_alt<-format(missC_alt,digits=3,drop0trailing = TRUE)
+## Under alt, these are not defacto NA --- leave as-is under alternative
+##missC_alt[2,]<-NA
+options(knitr.kable.NA = '.',format="latex")
+tabsim_missCalt_700<-kable(missC_alt,longtable=FALSE,align='c',format="latex", digits=3, booktabs=TRUE,escape=F) %>%
+kable_styling("striped", full_width = F) %>%
+group_rows("Finding H", 1, 6) %>%
+group_rows("Size of H and Hc", 7, 12)  
+@
+
+\begin{frame}[shrink=30]{Classification rates under $hr(H)=2.5$ ($N=700$); $\bar{n}_{H}=\Sexpr{nsg2_700}$}
+\Sexpr{tabsim_missCalt_700}
+\end{frame}
+
+
+
+\begin{frame}{Estimation and Bootstrap Bias Corrected Estimates}
+For the observed data, with estimated SG $\hat{H}$, and boostrap data with estimated $\hat{H}^{*}$ we have:
+\begin{enumerate}
+\item{$\hat{H} \rightarrow \hat\theta(\hat{H})$}
+\item{$\hat{H}^{*}_{b} \rightarrow \hat\theta^{*}_{b}(\hat{H}^{*}_{b})$}
+\item{$\hat{H}^{*}_{b} \rightarrow \hat\theta(\hat{H}^{*}_{b})$}
+%\item{$b_{1}^{*}(\hat{H}^{*}_{b})=  \hat\theta^{*}_{b}(\hat{H}^{*}_{b}) - \hat\theta(\hat{H}^{*}_{b}) \approx \hat\theta(\hat{H}^{*}) - \theta^{\dagger}(\hat{H}^{*})$}
+\item{$b_{1}^{*}(\hat{H}^{*}_{b})=  \hat\theta^{*}_{b}(\hat{H}^{*}_{b}) - \hat\theta(\hat{H}^{*}_{b})$}
+\item{$\hat\theta^{*}_{1}(\hat{H})= \hat\theta(\hat{H})-(1/B)\sum_{b=1}^{B} b_{1}^{*}(\hat{H}^{*}_{b})$}
+%\item{$b_{2}^{*}(\hat{H})=  \hat\theta^{*}_{b}(\hat{H}) - \hat\theta(\hat{H})  \approx \hat\theta(\hat{H}) - \theta^{\dagger}(\hat{H})$}
+\item{$b_{2}^{*}(\hat{H})=  \hat\theta^{*}_{b}(\hat{H}) - \hat\theta(\hat{H})$}
+\item{$\hat\theta^{*}_{2}(\hat{H})= \hat\theta(\hat{H})-(1/B)\sum_{b=1}^{B} \left\{b_{1}^{*}(\hat{H}^{*}_{b}) + b_{2}^{*}(\hat{H}) \right\}$}
+\end{enumerate}
+
+The bias corrected estimator $\hat\theta^{*}_{1}(\hat{H})$ is motivated by \cite{Harrell_1996}.
+
+Variance estimates generally require double-bootstrapping and are approximated by the (Infinitesimal) Jacknife (\citealp{Wager_2014, Rosenkranz_2016}).
+\end{frame}
+
+
+
+
+
+% Estimation: Bootstrap bias-correction
+
+% Estimation, bootstrap: n=1000 
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+load("../../simulations/m1-code-results/Tables/output/Bootstrap_n=1000_m1.Rdata")
+options(knitr.kable.NA = '.',format="latex")
+tabH_est_1000<-kable(TdfH_1000,digits=2,format="latex",booktabs=TRUE,escape=F,align="c",longtable=FALSE)%>%
+kable_styling("striped", full_width = F)
+tabHc_est_1000<-kable(TdfHc_1000,digits=2,format="latex",booktabs=TRUE,escape=F,align="c",longtable=FALSE)%>%
+kable_styling("striped", full_width = F)
+pbox_1000<-ggplot(df_bc_1000, aes(x=target, y=bias, fill=est)) + 
+  geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim = quantile(df_bc_1000$bias, c(0.0, 0.98),na.rm=TRUE))
+@
+
+
+% Estimation, bootstrap: n=700 
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+load("../../simulations/m1-code-results/Tables/output/Bootstrap_n=700_m1.Rdata")
+options(knitr.kable.NA = '.',format="latex")
+tabH_est_700<-kable(TdfH_700,digits=2,format="latex",booktabs=TRUE,escape=F,align="c",longtable=FALSE)%>%
+kable_styling("striped", full_width = F)
+tabHc_est_700<-kable(TdfHc_700,digits=2,format="latex",booktabs=TRUE,escape=F,align="c",longtable=FALSE)%>%
+kable_styling("striped", full_width = F)
+pbox_700<-ggplot(df_bc_700, aes(x=target, y=bias, fill=est)) + 
+  geom_boxplot(outlier.shape = NA) +
+  coord_cartesian(ylim = quantile(df_bc_700$bias, c(0.0, 0.98),na.rm=TRUE))
+@
+
+
+\begin{frame}[shrink=30]{Bias-correction $\theta^{\dagger}(H)=\Sexpr{round(dgm.alt4$hr.H.true,2)}$; 
+$\theta^{\dagger}(H^{c})=\Sexpr{round(dgm.alt4$hr.Hc.true,2)}$ ($N=1000$)}
+\Sexpr{tabH_est_1000}
+\Sexpr{tabHc_est_1000}
+\end{frame}
+
+
+\begin{frame}[shrink=5]{Relative bias for boostrap bias-corrected estimators}
+\begin{figure}
+\begin{center}
+<<out.width = "1.0\\textwidth",out.height="1.0\\textheight">>=
+plot(pbox_1000)
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+
+% GBSG Analysis
+
+<<echo=FALSE,message=FALSE,warning=FALSE>>=
+bl.summary<-summary(hormon~age+meno+grade+size+nodes+pgr+er,data=gbsg,method="reverse",test=FALSE)
+w<-latex(bl.summary,file="bl_summary_gbsg.tex",digits=2,title='', where="",
+caption="GBSG Baseline Summary",label="table:gbsgbl")
+
+df.analysis<-gbsg
+df.analysis<-within(df.analysis,{
+id<-as.numeric(c(1:nrow(df.analysis)))  
+# time to months
+time_months<-rfstime/30.4375
+})
+@
+
+
+\begin{frame}[shrink=10]{GBSG Dataset}
+\begin{minipage}[t]{0.43\linewidth}
+\input{"bl_summary_gbsg.tex"}
+    \end{minipage}
+    \hfill
+\begin{minipage}[t]{0.5\linewidth}
+\begin{figure}
+\begin{center}
+<<out.width = "1.0\\textwidth",out.height="1.0\\textheight">>=
+plot_onesample(df=df.analysis,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE)
+@
+\end{center}
+\end{figure}
+  \end{minipage}
+\end{frame}
+
+<<echo=FALSE>>=
+#covs.most
+#fs_gbsg_round2
+load("../../applications/gbsg/output/fs_gbsg_round2_d=10.Rdata")
+fs_est<-fs_gbsg_round2
+grp_est<-fs_est$grp.consistency$result
+tot_fit<-fs_est$find.grps$out.found$ngroups.fit
+hr_grps<-fs_est$find.grps$out.found$hr.subgroups
+tot_grps<-dim(hr_grps)[1]
+# merge tot_grps with grp_est1 to get stats with consistency
+# Use m.index to quickly merge
+temp1<-grp_est[,-c(2,3,4)]
+temp<-hr_grps[as.numeric(grp_est$m.index),]
+temp2<-temp[,c("K","n","E","d1","m1","m0","HR")]
+df_hr<-cbind(temp1,temp2)
+num_confounders<-length(fs_est$confounders.evaluated)
+tab_hr2<-kable(df_hr,digits=3)
+load("../../applications/gbsg/output/grf_analysis.Rdata")
+# er <=0
+df0.grf<-subset(grf.est$data,treat.recommend==0)
+df1.grf<-subset(grf.est$data,treat.recommend==1)
+#check0<-subset(df.analysis,er<=0)
+df0.fs<-subset(fs_est$df.pred,treat.recommend==0)
+df1.fs<-subset(fs_est$df.pred,treat.recommend==1)
+#check0<-subset(df.analysis,pgr<=110 & age>43 & age<=50)
+
+# Point estimates
+
+load("../../applications/gbsg/output/fsBoot_gbsg_round2_d=10.Rdata")
+Hstat2<-c(unlist(H_estimates))[c(9,11,12)]
+Hstat2<-round(Hstat2,2)
+a<-paste0(Hstat2[1]," [")
+a<-paste0(a,Hstat2[2])
+a<-paste0(a,",")
+a<-paste0(a,Hstat2[3])
+a<-paste0(a,"]")
+H_bc2<-c(a)
+
+Hcstat2<-c(unlist(Hc_estimates))[c(9,11,12)]
+Hcstat2<-round(Hcstat2,2)
+a<-paste0(Hcstat2[1]," [")
+a<-paste0(a,Hcstat2[2])
+a<-paste0(a,",")
+a<-paste0(a,Hcstat2[3])
+a<-paste0(a,"]")
+Hc_bc2<-c(a)
+@
+
+
+\begin{frame}[shrink=20]{GBSG Analysis}
+
+\begin{enumerate}
+\item{GRF trees (depths 1,2, and 3) split on: Age at 33, 43, 48, and 50; Progesterone at 8, and 74;
+Estrogen at 0, and 103}
+\item{($V_1$) 3 binary factors for Estrogen based on cuts ($\leq$) at 0, 103, and median; ($V_2$) Progesterone at 8, 74, 110, and 132; 
+($V_3$) Age at 50, 33, and 43; ($V_4$) Menopausal, ($V_5$) Nodes, and ($V_6$) Size at medians; ($V_7$) Grade 1 vs 2/3 and Grade 3 vs 1/2}
+\end{enumerate}
+\bigskip
+\Sexpr{tab_hr2}
+\end{frame}
+
+
+%#z2a<-ifelse(pgr<=8,1,0)
+%#z2b<-ifelse(pgr<=74,1,0)
+%## PGR at mean=110
+%#z2c<-ifelse(pgr<=110,1,0)
+%# PGR and 3rd quart=132
+%#z2d<-ifelse(pgr<=132,1,0)
+
+
+\begin{frame}[shrink=20]{GBSG: $\hat\theta^{*}_{2}(\hat{H}): \Sexpr{H_bc2}$; $\hat\theta^{*}_{2}(\hat{H}^{c}): \Sexpr{Hc_bc2}$}
+\begin{figure}
+\begin{center}
+<<out.width = "1.0\\textwidth",out.height="1.0\\textheight">>=
+#layout(matrix(c(1,2,3,4), 2, 2, byrow = TRUE))
+par(mfrow=c(2,2))
+plot.subgroup(sub1=df0.grf,sub1C=df1.grf,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE,subid="Estrogen=0")
+plot.subgroup(sub1=df0.fs,sub1C=df1.fs,tte.name="time_months",event.name="status",treat.name="hormon",fix.rows=FALSE,byrisk=6,show.med=FALSE,subid="Progesterone <=110 and 43< Age <=50")
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+
+
+%\begin{frame}[shrink=5]{Choice of 1.5 (estimated) hazard ratio threshold?}
+%\begin{minipage}[t]{0.48\linewidth}
+%\begin{figure}
+%\begin{center}
+%<<out.width = "1.00\\textwidth",out.height="0.80\\textheight">>=
+%ng_seq<-seq(60,200,length=1000)
+%pr_1<-hr_threshold_FS(n.sg=ng_seq,theta=0.5,hr.threshold=1.5)
+%pr_2<-hr_threshold_FS(n.sg=ng_seq,theta=0.6,hr.threshold=1.5)
+%pr_3<-hr_threshold_FS(n.sg=ng_seq,theta=0.7,hr.threshold=1.5)
+%pr_4<-hr_threshold_FS(n.sg=ng_seq,theta=0.8,hr.threshold=1.5)
+%plot(ng_seq,pr_1,xlab="n(sub-group)",ylab="Pr(meet threshold)",type="l",lty=1,ylim=c(0,max(c(pr_1,pr_2,pr_3,pr_4))),lwd=3)
+%lines(ng_seq,pr_2,lty=1,lwd=3,col="grey")
+%lines(ng_seq,pr_3,lty=2,lwd=3,col="black")
+%lines(ng_seq,pr_4,lty=2,lwd=3,col="grey")
+%abline(h=0.1, lwd=0.25)
+%legend("topright",legend=c("hr=0.5","hr=0.6","hr=0.7","hr=0.8"),lty=c(1,1,2,2),lwd=3,col=c("black","grey","black","grey"),bty="n")
+%@
+%\end{center}
+%\end{figure}
+%    \end{minipage}
+%    \hfill
+%\begin{minipage}[t]{0.48\linewidth}
+%\begin{enumerate}
+%\item{U.B. for $\theta$ (log hr) is $UB(d)$ $\approx (4/d)L(d)+(2/\sqrt{d})1.96$ with $L(d) \approx N(d \theta /4, d/4)$}
+%\pause
+%\item  Under null, sg estimates will fluctuate around $\theta$ with variability determined by number of events in the sg, $d_{sg}$ (say) ($\approx n_{sg}*0.7$) 
+%\pause
+%\item $1.5$ threshold: $\approx \Pr(L(d) \geq (d/4)[log(1.5)-\theta-(2/\sqrt{d})1.96])$
+%\pause
+%\item $1.5$ and $1.25$: $UB^{s}(d/2)$ (s=1,2, say); $\Pr(\min(UB^{1}(d/2),UB^{2}(d/2)) \geq 1.25)$ conditional on $L(d)=$
+%$L^{1}(d/2)+L^{2}(d/2)$ $\geq (d/4)[log(1.5)$ $-\theta-(2/\sqrt{d})1.96])$
+%\end{enumerate}
+%    \end{minipage}
+%\end{frame}
+
+      
+\begin{frame}[allowframebreaks]
+        \frametitle{References}
+        \bibliographystyle{apalike}
+        \bibliography{subgroups_ref}
+\end{frame}
+
+
+%\begin{frame}{References}
+%\bibliographystyle{apalike}
+%\bibliography{subgroups_ref}
+%\end{frame}
+
+
+% Back-up slides
+
+\begin{frame}{Back-up Slides}
+\end{frame}
+
+
+\begin{frame}[shrink=5]{Approximations of Cox estimates via $N(\beta,4/d)$}
+\begin{figure}
+\begin{center}
+<<out.width = "1.00\\textwidth",out.height="0.80\\textheight">>=
+load("../../simulations/m1/output/simapprox_v1.Rdata")
+bplim<-mean(bhats_a)
+par(mfrow=c(2,2))
+d<-0.55*N/2
+plot(ecdf(b1hats))
+xx<-sort(b1hats)
+approx_normal<-pnorm(xx,mean=bplim,sd=sqrt(4/d))
+lines(xx,approx_normal,type="s",lwd=1,col="blue")
+legend("bottomright",c("b1hat","N(beta,8/d)"),lwd=1,col=c("black","blue"),bty="n")
+
+plot(ecdf(b2hats))
+xx<-sort(b2hats)
+approx_normal<-pnorm(xx,mean=bplim,sd=sqrt(4/d))
+lines(xx,approx_normal,type="s",lwd=1,col="blue")
+legend("bottomright",c("b2hat","N(beta,8/d)"),lwd=1,col=c("black","blue"),bty="n")
+
+plot(ecdf(bhats_min))
+xx<-sort(bhats_min)
+Qb<-pnorm(xx,mean=bplim,sd=sqrt(4/d))
+approx_normal<-1-(1-Qb)^2
+lines(xx,approx_normal,type="s",lwd=1,col="blue")
+legend("bottomright",c("min(b1hat,b2hat)","1-(1-Q(.,beta,8/d)^2)"),lwd=1,col=c("black","blue"),bty="n")
+
+plot(ecdf(b1hats+b2hats))
+lines(ecdf(2*bhats_a),lwd=1,col="blue")
+legend("bottomright",c("b1hat+b2hat","2*bhat"),lwd=1,col=c("black","blue"),bty="n")
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}{Fan and Gijbel's Censoring Unbiased Transformation (CUT)}
+
+Transforming the observed survival times:
+
+$$E(\varphi(Y_{i}) | L_{i}, Z_{i}) = E(T_{i} | L_{i}, Z_{i})$$
+
+$${\varphi(Y_{i}) =  \left\{\begin{array}{ll}
+\varphi_{1}(T_{i}), \quad \hbox{if uncensored,} \\
+\varphi_{2}(C_{i}), \quad \hbox{if censored.}
+ \end{array}
+\right.}  $$
+
+$$
+\varphi_{1}(T_{i})  =
+(1 + \theta)\int_{0}^{T_{i}}
+\frac{dt}{\gt}
+ -\theta \frac{T_{i}}{G(T_{i})} 
+$$
+
+$$
+\varphi_{2}(C_{i})= (1 + \theta)\int_{0}^{C_{i}} \frac{dt}{\gt}
+$$
+
+
+$$\theta=\min_{\left\{i: \delta_{i}=1 \right\}}
+ {{\int_{0}^{Y_{i}} {dt \over {\gt}} - Y_{i}} \over
+{ {Y_{i} \over G(Y_{i})} - \int_{0}^{Y_{i}} {dt \over {\gt}} }}
+$$
+
+
+\end{frame}
+
+
+
+\end{document}
+
+
+
