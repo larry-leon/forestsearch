@@ -1,6 +1,6 @@
 # Based on sim_functions_v4 from "Study F/working"
 
-get_dgm_stratified <- function(df,knot=5,kappa=10,log.hrs=log(c(0.75,0.75,0.75)),details=FALSE,strata_tte=NULL,masked=TRUE){
+get_dgm_stratified <- function(df,knot=5,zeta=10,log.hrs=log(c(0.75,0.75,0.75)),details=FALSE,strata_tte=NULL,masked=TRUE){
 
   if(masked){
     df <- subset(df,mflag==1)  
@@ -70,7 +70,7 @@ get_dgm_stratified <- function(df,knot=5,kappa=10,log.hrs=log(c(0.75,0.75,0.75))
   
   loghr.0 <- log.hrs[1]
   loghr.knot <- log.hrs[2]
-  loghr.kappa <- log.hrs[3]
+  loghr.zeta <- log.hrs[3]
   
   # At the change-point
   # Weibull hazard-ratio parameters
@@ -78,15 +78,13 @@ get_dgm_stratified <- function(df,knot=5,kappa=10,log.hrs=log(c(0.75,0.75,0.75))
   # solve for b1,b3,b5
   b0[1] <- loghr.0
   b0[3] <- (loghr.knot-b0[1])/knot
-  b0[5] <- (loghr.kappa-b0[1]-kappa*b0[3])/(kappa-knot)
+  b0[5] <- (loghr.zeta-b0[1]-zeta*b0[3])/(zeta-knot)
   
   # Re-define gamma on AFT (log(T)) parameterization 
 
   gamma.true <- -b0*tau.approx 
 
   # predictions log(hr)
-  
-  #dfp <- dfa2[order(dfa2$z,decreasing=FALSE),]
   
   dfp <- data.table::setorder(dfa2,z)
   
@@ -97,27 +95,27 @@ get_dgm_stratified <- function(df,knot=5,kappa=10,log.hrs=log(c(0.75,0.75,0.75))
   loghr.zz <- b0[1]+b0[3]*zz+b0[5]*(zz-knot)*ifelse(zz>knot,1,0)
   plot(zz,loghr.zz,type="s",lty=1,xlab="z",ylab="psi(z)")
   abline(h=c(log.hrs))
-  abline(v=c(0,knot,kappa),lwd=0.5,col="blue",lty=2)
+  abline(v=c(0,knot,zeta),lwd=0.5,col="blue",lty=2)
   abline(h=0,lwd=0.25,col="red",lty=1)
       }
   
   return(list(df_super=dfp,gamma.true=gamma.true,mu=mu,tau=tau,muC=muC,tauC=tauC,strata_tte=strata_tte,tau.approx=tau.approx))
 }
 
-# Include single covariate X (Eg; "ecogbl", "prior_line12")
+# Include single covariate W (Eg; "ecogbl", "prior_line12")
 # strata_tte
 # strata_rand
 
 # Add hrz_crit (=log(1.2)) to set biomarker HR threshold that is "acceptable"
 # For example biomarkers for which the true log(hrs) are < 1.2 allowing for at most 20% increase
 
-draw_sim_stratified <- function(dgm,ss=1,details=FALSE,Ndraw=nrow(dgm$df_super),strata_rand=c("strataNew"),xname=c("ecogbl"),bx=0,checking=FALSE,
+draw_sim_stratified <- function(dgm,ss=1,details=FALSE,Ndraw=nrow(dgm$df_super),strata_rand=c("strataNew"),wname=c("ecogbl"),bw=0,checking=FALSE,
                                 hrz_crit=log(1.2), return_df=TRUE){
 
 df_super <- dgm$df_super
 
-var_names <- c(strata_rand,xname)
-if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname variables not in dgm$df_super")   
+var_names <- c(strata_rand,wname)
+if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and wname variables not in dgm$df_super")   
 
   # Outcomes
   # Regression parameters on AFT scale (gamma)
@@ -127,6 +125,9 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
   # Censoring
   muC <- dgm$muC 
   tauC <- dgm$tauC
+  
+  # Define gamma_w such that on hazard scale: -gamma_w/tau = bw
+  gamma_w <- -bw*dgm$tau.approx 
   
   strata_tte <- dgm$strata_tte
   
@@ -147,7 +148,7 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
   
   # "treat" is a placeholder  
   zmat <- as.matrix(df_super[,c("treat","z","z.treat","z.k","z.k.treat")])
-  x <- df_super[,c(xname)]
+  w <- df_super[,c(wname)]
   
   # Initiate as population with covariates 
   # Outcomes and treatment assignment appended below
@@ -182,23 +183,37 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
   z.1 <- zmat.1[,"z"]
   # log(Y) AFT parameterization
   # psi.true are AFT parameters 
-  eta1 <- mu + c(zmat.1%*%gamma.true)+x*bx
+  eta1 <- mu + c(zmat.1%*%gamma.true)+w*gamma_w
   # Weibull log(hazard ratio) setting treat=1
-  # and excluding mu and x*bx (since taking difference below)
-  phi1 <- -c(zmat.1%*%gamma.true)/tau.strataO
+  # and excluding mu and w*bw (since taking difference below)
+  phi1 <- (-1)*c(zmat.1%*%gamma.true)/tau.strataO
   log.Y1 <- eta1 + tau.strataO*epsilon
   
   # Setting treat=0
   z.0 <- zmat.0[,"z"]
-  eta0 <- mu + c(zmat.0%*%gamma.true)+x*bx
+  eta0 <- mu + c(zmat.0%*%gamma.true)+w*gamma_w
   log.Y0 <- eta0 + tau.strataO*epsilon
-  phi0 <- -c(zmat.0%*%gamma.true)/tau.strataO
+  phi0 <- (-1)*c(zmat.0%*%gamma.true)/tau.strataO
+  
+  # PO hazards excluding baseline
+  # Used for calculating empirical version of CDEs (controlled direct effects)
+  # theta0 = exp(L0'beta)
+  theta0 <- -c(zmat.0%*%gamma.true + w*gamma_w)/tau.strataO
+  # theta1 = exp(L1'beta)
+  theta1 <- -c(zmat.1%*%gamma.true + w*gamma_w)/tau.strataO
+  
+  # Set w=1
+  theta0.w1 <- -c(zmat.0%*%gamma.true + 1*gamma_w)/tau.strataO
+  theta1.w1 <- -c(zmat.1%*%gamma.true + 1*gamma_w)/tau.strataO
+  # Set w=0
+  theta0.w0 <- -c(zmat.0%*%gamma.true + 0*gamma_w)/tau.strataO
+  theta1.w0 <- -c(zmat.1%*%gamma.true + 0*gamma_w)/tau.strataO
   
   # Potential outcome log(hr) difference
   loghr.po <- phi1-phi0
   
   # Randomize per strataR
-    blocks <- strataR
+   blocks <- strataR
   
   # Randomize treatment
   Zr <- block_ra(blocks=blocks)
@@ -223,11 +238,19 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
   dfsim$strata.simR <- strataR
   dfsim$strata.simO <- strataO
   
-  dfsim$x <- x
+  dfsim$w <- w
   
   dfsim$loghr.po <- loghr.po
   dfsim$log.Y1 <- log.Y1
   dfsim$log.Y0 <- log.Y0
+  dfsim$theta1.po <- theta1
+  dfsim$theta0.po <- theta0
+  
+  dfsim$theta1_w1.po <- theta1.w1
+  dfsim$theta0_w1.po <- theta0.w1
+  
+  dfsim$theta1_w0.po <- theta1.w0
+  dfsim$theta0_w0.po <- theta0.w0
   
   if(details & ss <= 10) cat("% censored =",mean(1-dfsim$event.sim),"\n")
   
@@ -237,7 +260,7 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
     cat("Stratification parm (taus) df_super",c(tau),"\n")
     # strata 
     aa <- paste("strata(",eval("strata.simO"),")")
-    bb <- c("Surv(y.sim,event.sim) ~ treat.sim + z + z.treat + z.k + z.k.treat +")
+    bb <- c("Surv(y.sim,event.sim) ~ treat.sim + z + z.treat + z.k + z.k.treat + w +")
     weib.formula <- as.formula(paste(bb,aa))
     fitit <- survreg(weib.formula, dist='weibull', data=dfsim)
     fittau <- c(fitit$scale)
@@ -245,47 +268,80 @@ if(all(var_names %in% names(df_super)) != TRUE) stop("strata_rand and xname vari
     # Check loghr.po = (log.Y1-log.Y0)/tau.strata0
     dcheck <- loghr.po - (log.Y0-log.Y1)/tau.strataO
     cat("Max |loghr.po - (log.Y0-log.Y1)/tau| = ",c(max(abs(round(dcheck,12)))),"\n")
-    }
+    bhat.weib <- -(1)*coef(fitit)[c(-1)]/fittau
+    # Compare to Cox 
+    fit.cox <- coxph(weib.formula, data=dfsim)
+    fits <- cbind(bhat.weib,coef(fit.cox))
+    
+    rownames(fits) <- c("treat","z","z.treat","z.k","z.k.treat","w")
+    colnames(fits) <- c("Weibull","Cox")
+    
+    fits <- data.table::data.table(fits,keep.rownames=TRUE)
+
+    #print(fits)
+    
+            }
   
 # Return sorted by biomarker z
 dfs <- data.table::setorder(dfsim,z)
   
 if(!return_df){
 res <- list()
+res$loghr.po <- loghr.po
+res$theta1.po <- theta1
+res$theta0.po <- theta0
 ahr_empirical <- with(dfs,exp(mean(loghr.po)))
 res$AHR <- ahr_empirical
-# AHR by X (X=0, and X=1)  
-dfs_x1 <- subset(dfs,x==1)
-res$AHR_X1 <- with(dfs_x1,exp(mean(loghr.po)))
-dfs_x0 <- subset(dfs,x==0)
-res$AHR_X0 <- with(dfs_x0,exp(mean(loghr.po)))
+# AHR by W (W=0, and W=1)  
+dfs_w1 <- subset(dfs,w==1)
+ahr_w1 <- with(dfs_w1,exp(mean(loghr.po)))
+res$AHR_W1 <- ahr_w1
+dfs_w0 <- subset(dfs,w==0)
+ahr_w0 <- with(dfs_w0,exp(mean(loghr.po)))
+res$AHR_W0 <- ahr_w0
+# CDE versions
 
-if(details) cat("Overall empirical AHR=",c(ahr_empirical),"\n")
-# Three analyses: Standard ITT un-adjusted, Strata by R, Include xname
+aa <- with(dfs,mean(exp(theta1.po)))
+bb <- with(dfs,mean(exp(theta0.po)))
+cde_empirical <- aa/bb
+
+aa <- with(dfs_w1,mean(exp(theta1_w1.po)))
+bb <- with(dfs_w1,mean(exp(theta0_w1.po)))
+cde.w1_empirical <- aa/bb
+aa <- with(dfs_w0,mean(exp(theta1_w0.po)))
+bb <- with(dfs_w0,mean(exp(theta0_w0.po)))
+cde.w0_empirical <- aa/bb
+
+
+if(details){
+cat("Overall empirical AHR, CDE=",c(ahr_empirical,cde_empirical),"\n")
+cat("AHR W=1, W=0",c(ahr_w1,ahr_w0),"\n")
+cat("CDE W=1, W=0",c(cde.w1_empirical,cde.w0_empirical),"\n")
+}
+
+# Three analyses: Standard ITT un-adjusted, Strata by R, Include wname
 aa <- paste("strata(",eval("strata.simR"),")")
 bb <- c("Surv(y.sim,event.sim) ~ treat.sim")
 coxmod1 <- as.formula(bb)
 bb <- c("Surv(y.sim,event.sim) ~ treat.sim +")
 coxmod2 <- as.formula(paste(bb,aa))
-bb <- c("Surv(y.sim,event.sim) ~ treat.sim + x")
+bb <- c("Surv(y.sim,event.sim) ~ treat.sim + w")
 coxmod3 <- as.formula(bb)
-bb <- c("Surv(y.sim,event.sim) ~ treat.sim + x +")
+bb <- c("Surv(y.sim,event.sim) ~ treat.sim + w +")
 coxmod4 <- as.formula(paste(bb,aa))
-fit1 <- summary(coxph(coxmod1, data=dfsim))$conf.int
-fit2 <- summary(coxph(coxmod2, data=dfsim))$conf.int
-fit3 <- summary(coxph(coxmod3, data=dfsim))$conf.int
-if(details) cat("ITT: Un-adjusted, sR, X",c(fit1[1],fit2[1],fit3[1]),"\n")
+fit1 <- summary(coxph(coxmod1, data=dfs))$conf.int
+fit2 <- summary(coxph(coxmod2, data=dfs))$conf.int
+fit3 <- summary(coxph(coxmod3, data=dfs))$conf.int
+if(details) cat("Cox ITT: Un-adjusted, sR, W",c(fit1[1],fit2[1],fit3[1]),"\n")
 res$ITT_unadj <- fit1[1]
 res$ITT_sR <- fit2[1]
-res$ITT_sRx <- fit3[1]
-df_x1 <- subset(dfsim,x==1)
-fit <- summary(coxph(as.formula(coxmod1), data=df_x1))$conf.int
-if(details) cat("X=1 Sub-population",c(fit[1]),"\n")
-res$X_1 <- fit[1]
-df_x0 <- subset(dfsim,x==0)
-fit <- summary(coxph(as.formula(coxmod1), data=df_x0))$conf.int
-if(details) cat("X=0 Sub-population",c(fit[1]),"\n")
-res$X_0 <- fit[1]
+res$ITT_sRw <- fit3[1]
+fit <- summary(coxph(as.formula(coxmod1), data=dfs_w1))$conf.int
+if(details) cat("Cox W=1 Sub-population",c(fit[1]),"\n")
+res$W_1 <- fit[1]
+fit <- summary(coxph(as.formula(coxmod1), data=dfs_w0))$conf.int
+if(details) cat("Cox W=0 Sub-population",c(fit[1]),"\n")
+res$W_0 <- fit[1]
 
 cut.zero <- with(dfs,min(z[which(loghr.po < hrz_crit)]))
 # consider "optimal"
@@ -299,16 +355,37 @@ zpoints <- seq(min(dfs$z),max(dfs$z),by=1)
 HR_zpoints <- rep(NA,length(zpoints))
 HRminus_zpoints <- rep(NA,length(zpoints))
 
+HR2_zpoints <- rep(NA,length(zpoints))
+HRminus2_zpoints <- rep(NA,length(zpoints))
+
+
 for(zindex in 1:length(zpoints)){
   zz <- zpoints[zindex]
   dfz <- subset(dfs,z>=zz)
   HR_zpoints[zindex] <- with(dfz,exp(mean(loghr.po)))
   dfz_minus <- subset(dfs,z<=zz)
   HRminus_zpoints[zindex] <- with(dfz_minus,exp(mean(loghr.po)))
+  
+  aa <- with(dfz,mean(exp(theta1.po)))
+  bb <- with(dfz,mean(exp(theta0.po)))
+  HR2_zpoints[zindex] <- aa/bb
+  
+  aa <- with(dfz_minus,mean(exp(theta1.po)))
+  bb <- with(dfz_minus,mean(exp(theta0.po)))
+  HRminus2_zpoints[zindex] <- aa/bb
+
+
+  
 }
 res$zpoints <- zpoints
+
 res$HR.zpoints <- HR_zpoints
 res$HRminus.zpoints <- HRminus_zpoints
+
+res$HR2.zpoints <- HR2_zpoints
+res$HRminus2.zpoints <- HRminus2_zpoints
+
+
 if(details){
 par(mfrow=c(1,2))
   with(dfs,plot(z,loghr.po,type="s",lty=1,xlab="z",ylab="psi0(z)"))
@@ -565,3 +642,27 @@ cox_cs_fit2 <- function(df,tte.name=c("os_time"),event.name=c("os_event"),treat.
   
   return(list(z_profile=z_profile,dhat=dhat,dhat_lower=dhat_lower,dhat_upper=dhat_upper,counts_profile=counts_profile))
 }
+
+
+
+plot_AHRs <- function(popsummary,dfcase){
+par(mfrow=c(1,2))
+ymin <- with(popsummary,min(c(HR.zpoints,HR2.zpoints)))
+ymax <- with(popsummary,max(c(HR.zpoints,HR2.zpoints)))
+
+plot(popsummary$zpoints,popsummary$HR.zpoints,xlab="z",ylab="Average hazard ratio (AHR)",type="s",lty=1,col="black",lwd=2,ylim=c(ymin,ymax))
+with(popsummary,lines(zpoints,HR2.zpoints,type="s",lty=2,col="blue"))
+rug(jitter(dfcase$z))
+title(main="AHR(z+)")
+legend("topright",c("AHR","CDE"),lty=c(1,2),col=c("black","blue"),lwd=2,bty="n")
+
+ymin <- with(popsummary,min(c(HRminus.zpoints,HRminus2.zpoints)))
+ymax <- with(popsummary,max(c(HRminus.zpoints,HRminus2.zpoints)))
+
+plot(popsummary$zpoints,popsummary$HRminus.zpoints,xlab="z",ylab="Average hazard ratio (AHR)",type="s",lty=1,col="black",lwd=2,ylim=c(ymin,ymax))
+with(popsummary,lines(zpoints,HRminus2.zpoints,type="s",lty=2,col="blue"))
+rug(jitter(dfcase$z))
+title(main="AHR(z-)")
+legend("topright",c("AHR","CDE"),lty=c(1,2),col=c("black","blue"),lwd=2,bty="n")
+}
+
