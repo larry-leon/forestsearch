@@ -542,7 +542,7 @@ generate_aft_dgm_flex <- function(data,
   #   }
   # }
 
-  # Process factor variables with LARGEST value as reference
+  # Process factor variables with LARGEST value as reference (UNLESS already binary, then retain)
   for (var in factor_vars) {
 
     # Get unique values
@@ -593,6 +593,26 @@ generate_aft_dgm_flex <- function(data,
     }
   }
 
+  # Add any baseline variables in original data that are not specified in the DGM outcome process
+  # Identify processed variables
+  processed <- c(continuous_vars, factor_vars, outcome_var, event_var, treatment_var)
+
+  # Find unprocessed variables
+  unprocessed <- setdiff(names(data), processed)
+
+  if (length(unprocessed) > 0) {
+    # Add them to df_work
+    for (var in unprocessed) {
+      if (!var %in% names(df_work)) {  # Avoid duplicates
+        df_work[[var]] <- data[[var]]
+      }
+    }
+
+    if (verbose) {
+      cat("\nAdded", length(unprocessed), "unprocessed variables:",
+          paste(unprocessed, collapse = ", "), "\n")
+    }
+  }
 
   # ============================================================================
   # Define Subgroups with Flexible Cutpoints
@@ -1229,7 +1249,7 @@ print(round(sensitivity_results, 3))
 
 dgm_null <- generate_aft_dgm_flex(
   data = gbsg,
-  n_super = 10000,
+  n_super = 5000,
   continuous_vars = c("age", "er", "pgr"),
   factor_vars = c("meno", "grade"),
   outcome_var = "rfstime",
