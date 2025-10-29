@@ -751,7 +751,7 @@ base_params <- list(
     meno = 0
   ),
   k_treat = 1.0,
-  n_super = 1000  # Using smaller for faster demonstration
+  n_super = 50000  # Using smaller for faster demonstration
 )
 
 
