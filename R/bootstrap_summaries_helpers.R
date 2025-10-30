@@ -52,11 +52,11 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
 
   # Add labels for columns that exist
   if ("n" %in% col_names) labels_list$n <- "N"
-  if ("n1" %in% col_names) labels_list$n1 <- gt::md("N<sub>treat</sub>")
+  if ("n1" %in% col_names) labels_list$n1 <- gt::md("N<sub>T</sub>")
   if ("events" %in% col_names) labels_list$events <- "Events"
-  if ("m1" %in% col_names) labels_list$m1 <- gt::md("Med<sub>treat</sub>")
-  if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>ctrl</sub>")
-  if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>diff</sub>")
+  if ("m1" %in% col_names) labels_list$m1 <- gt::md("Med<sub>T</sub>")
+  if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>C</sub>")
+  if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>d</sub>")
 
   # Handle HR column (might be "HR (95% CI)" or similar)
   hr_col <- grep("HR.*CI", col_names, value = TRUE)[1]
@@ -133,7 +133,7 @@ format_bootstrap_table <- function(FSsg_tab, nb_boots, est.scale = "hr",
   }
 
   # Source note with technical details
-  source_note_text <- "*Note*: Med = Median survival time (months). RMST<sub>diff</sub> = Restricted mean survival time difference."
+  source_note_text <- "*Note*: Med = Median survival time (months). RMST<sub>d</sub> = Restricted mean survival time difference."
   if (!is.null(boot_success_rate)) {
     source_note_text <- paste0(
       source_note_text,
@@ -2404,11 +2404,6 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 #'     (e.g., "age <= 50") that appear >= threshold%.}
 #'   \item{threshold}{Numeric. The threshold value used for filtering.}
 #' }
-#'
-#' @details
-#' Known Issue: This function may fail with the error "The first item passed to
-#' [f]order is a plain list" when using data.table ordering with column names
-#' that might exist as objects in the environment.
 #'
 #' @examples
 #' \dontrun{

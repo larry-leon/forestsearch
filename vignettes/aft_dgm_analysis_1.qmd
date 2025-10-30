@@ -12,7 +12,7 @@ format:
     code-fold: true
     code-summary: "Show code"
     code-tools: true
-    embed-resources: false
+    embed-resources: true
     theme: cosmo
     fig-width: 8
     fig-height: 6
@@ -25,9 +25,6 @@ execute:
 ---
 
 ```{r}
-#| label: setup
-#| include: false
-
 # Set options
 knitr::opts_chunk$set(
   echo = TRUE,
@@ -83,7 +80,6 @@ This document presents a comprehensive simulation study using the German Breast 
 The GBSG dataset contains information from a randomized clinical trial of adjuvant therapy for node-positive breast cancer patients.
 
 ```{r}
-#| label: data-overview
 #| tbl-cap: "GBSG Dataset Overview"
 
 # Load GBSG data
@@ -115,7 +111,6 @@ kable(data_summary, row.names = FALSE) %>%
 ```
 
 ```{r}
-#| label: data-distributions
 #| fig-cap: "Distribution of Key Variables"
 #| fig-height: 8
 
@@ -167,8 +162,6 @@ We define a subgroup based on two characteristics:
 2. **Pre-menopausal status**: meno = 0
 
 ```{r}
-#| label: subgroup-definition
-
 # Calculate ER quantile cutpoint
 er_quantile <- 0.2612616  # Approximately 25th percentile
 er_cutpoint <- quantile(gbsg$er, probs = er_quantile)
@@ -200,9 +193,6 @@ kable(subgroup_summary,
 We calibrate the interaction parameter `k_inter` to achieve specific hazard ratios in the harm subgroup.
 
 ```{r}
-#| label: calibrate-k-inter
-#| cach: false
-
 # Transform time to months
 df_gbsg <- gbsg
 df_gbsg$tte <- with(gbsg, rfstime/30.4375)
@@ -242,9 +232,7 @@ kable(calibration_results,
 We examine how `k_inter` affects the hazard ratios across different subgroups.
 
 ```{r, fig.width = 10, fig.height = 8}
-#| label: sensitivity-analysis
 #| fig-cap: "Sensitivity of Hazard Ratios to Interaction Parameter"
-#| cach: false
 
 # Define base parameters
 base_params <- list(
@@ -308,9 +296,6 @@ ggplot(sens_long, aes(x = k_inter, y = HR, color = Group)) +
 ## Null Scenario (No Interaction)
 
 ```{r}
-#| label: sim-null
-#| cach: false
-
 # Generate DGM with no interaction
 dgm_null <- generate_aft_dgm_flex(
   data = df_gbsg,
@@ -357,8 +342,6 @@ kable(null_summary, digits = 3) %>%
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
-
-#| label: km-null
 #| fig-cap: "Kaplan-Meier Curves: Null Scenario"
 
 # Prepare data for KM plot
@@ -378,9 +361,6 @@ title(main = "Null Scenario: No Treatment-Subgroup Interaction")
 ## Alternative Scenario (With Interaction)
 
 ```{r}
-#| label: sim-alt
-#| cach: false
-
 # Generate DGM with calibrated interaction
 dgm_alt <- generate_aft_dgm_flex(
   data = df_gbsg,
@@ -426,8 +406,6 @@ kable(alt_summary, digits = 3) %>%
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
-
-#| label: km-alt
 #| fig-cap: "Kaplan-Meier Curves: Alternative Scenario"
 
 # Prepare data for KM plot
@@ -458,10 +436,6 @@ Forest search is a systematic approach to identify subgroups with differential t
 ## Forest Search on Alternative Scenario
 
 ```{r}
-#| label: forest-search-null
-#| cach: false
-#| eval: false
-
 # Define confounders for forest search
 confounders.name <- c("z_age", "z_er", "z_pgr", "z_meno", 
                       "z_grade_1", "z_grade_2", "size", "nodes")
@@ -494,10 +468,6 @@ plan("sequential")
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
-#| label: forest-search-alt
-#| cach: false
-#| eval: true
-
 # Define confounders for forest search
 confounders.name <- c("z_age", "z_er", "z_pgr", "z_meno", 
                       "z_grade_1", "z_grade_2", "size", "nodes")
@@ -539,10 +509,7 @@ plan("sequential")
 
 ## Bootstrap Inference
 
-```{r, eval = FALSE}
-#| label: bootstrap-forest-alt
-#| cach: false
-#| eval: false
+```{r, eval = TRUE}
 
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
@@ -551,7 +518,7 @@ save_results <- dir.exists(output_dir)
 library(patchwork)
 
 # Number of bootstrap samples
-NB <- 12
+NB <- 1000
 
 # Run bootstrap
 t.start <- proc.time()[3]
@@ -560,8 +527,7 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs, 
   nb_boots = NB, 
   show_three = FALSE, 
-  details = FALSE,
-  create_summary = FALSE, create_plots = FALSE)
+  details = TRUE)
 
 plan("sequential")
 
@@ -580,15 +546,20 @@ if (save_results) {
 ```
 
 ```{r}
-#load("results//sim_gbsg_example_B=500.RData")
+#load("results//sim_gbsg_example_B=1000.RData")
 
-sg_tab <- fs_bc$summary$table
+summaries <- summarize_bootstrap_results(
+      sgharm = fs$sg.harm,
+      boot_results = fs_bc,
+      create_plots = TRUE,
+      est.scale = "log.hr"
+    )
+
+sg_tab <- summaries$table
 
 sg_tab
 
 event_summary <- summarize_bootstrap_events(fs_bc, threshold = 12)
-
-summaries <- fs_bc$summary
 
 summaries$diagnostics_table_gt
 
@@ -603,7 +574,7 @@ summaries$subgroup_summary$factor_presence_specific
 
 ```
 
-```{r, fig.width = 10, fig.height = 8, eval=FALSE}
+```{r, fig.width = 10, fig.height = 8}
 
 fs_bc$summary$plots$combined
 

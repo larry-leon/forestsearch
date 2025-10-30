@@ -116,9 +116,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
                                             nb_boots,
                                             details = FALSE,
                                             show_three = FALSE,
-                                            parallel_args = list(),
-                                            create_summary = TRUE,
-                                            create_plots = FALSE) {
+                                            parallel_args = list()
+){
 
   # =======================================================================
   # SECTION 1: INPUT VALIDATION
@@ -374,13 +373,13 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   if (est.scale == "1/hr") {
     hr_1a <- SG_CIs$H_bc
     hr_0a <- SG_CIs$Hc_bc
-    sg0_name <- "Questionable"
-    sg1_name <- "Recommend"
+    sg0_name <- "Qstnbl"
+    sg1_name <- "Recmnd"
   } else {
     hr_1a <- SG_CIs$Hc_bc
     hr_0a <- SG_CIs$H_bc
-    sg0_name <- "Questionable"
-    sg1_name <- "Recommend"
+    sg0_name <- "Qstnbl"
+    sg1_name <- "Recmnd"
   }
 
   FSsg_tab <- SG_tab_estimates(
@@ -413,23 +412,6 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     Hc_estimates = Hc_estimates
   )
 
-  # =======================================================================
-  # SECTION 13: ENHANCED SUMMARY (OPTIONAL)
-  # =======================================================================
-
-  if (create_summary) {
-    summary_output <- summarize_bootstrap_results(
-      sgharm = fs.est$sg.harm,
-      boot_results = out,
-      create_plots = create_plots,
-      est.scale = est.scale
-    )
-    out$summary <- summary_output
-  }
-
-  # =======================================================================
-  # SECTION 14: CLEANUP AND RETURN
-  # =======================================================================
 
    return(out)
 }

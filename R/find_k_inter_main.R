@@ -1,16 +1,3 @@
-#' @title Efficient Methods for Calibrating Interaction Effects in AFT Models
-#' @description Functions to find the interaction parameter (k_inter) that achieves
-#'   target hazard ratios in subgroups for AFT data generating mechanisms.
-#' @author Your Name
-#' @keywords survival simulation AFT interaction calibration
-#' @import survival
-#' @importFrom stats uniroot optim quantile
-#' @importFrom utils txtProgressBar setTxtProgressBar
-
-# ================================================================================
-# METHOD 1: Root-Finding with Uniroot (Most Efficient)
-# ================================================================================
-
 #' Find k_inter Value to Achieve Target Harm Subgroup Hazard Ratio
 #'
 #' Uses numerical root-finding to determine the interaction parameter (k_inter)
@@ -94,6 +81,10 @@
 #' cat("Achieved HR:", result$achieved_hr_harm, "\n")
 #' }
 #'
+#' @keywords survival simulation AFT interaction calibration
+#' @import survival
+#' @importFrom stats uniroot optim quantile
+#' @importFrom utils txtProgressBar setTxtProgressBar
 #' @export
 
 find_k_inter_for_target_hr <- function(target_hr_harm,
@@ -110,11 +101,6 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
                                        tol = 0.001,
                                        n_super = 5000,
                                        verbose = TRUE) {
-
-  # Load the generate_aft_dgm_flex function if not already loaded
-  if (!exists("generate_aft_dgm_flex")) {
-    source("generate_aft_dgm_flexible.R")
-  }
 
   # Objective function: returns difference between achieved and target HR
   objective_function <- function(k_inter_val) {
@@ -217,10 +203,6 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
   })
 }
 
-
-# ================================================================================
-# SENSITIVITY ANALYSIS: How k_inter affects HRs
-# ================================================================================
 
 #' Sensitivity Analysis of Hazard Ratios to k_inter
 #'
