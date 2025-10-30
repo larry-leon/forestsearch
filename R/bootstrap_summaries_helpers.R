@@ -1697,7 +1697,7 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
   if (n_found > 0) {
     # Try to summarize factor presence
     tryCatch({
-      factor_presence_results <- summarize_factor_presence_fixed(sg_found, maxk = maxk, threshold = 20)
+      factor_presence_results <- summarize_factor_presence_robust(sg_found, maxk = maxk, threshold = 20)
     }, error = function(e) {
       warning("Could not summarize factor presence: ", e$message)
       NULL
@@ -2380,6 +2380,11 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
   return(tables)
 }
 
+
+
+
+
+
 #' Summarize Factor Presence Across Bootstrap Subgroups (Original)
 #'
 #' @description
@@ -2895,3 +2900,89 @@ summarize_factor_presence_legacy <- function(results, maxk = 2, threshold = 20) 
     threshold = threshold
   ))
 }
+
+
+#' Summarize Factor Presence Across Bootstrap Subgroups
+#'
+#' Analyzes how often each individual factor appears in identified subgroups,
+#' extracting base factor names from full definitions and identifying common
+#' specific definitions.
+#'
+#' @param results Data.table. Bootstrap results with subgroup characteristics
+#' @param maxk Integer. Maximum number of factors allowed
+#' @param threshold Numeric. Percentage threshold for including specific definitions (default: 20)
+#' @return List with base_factors and specific_factors data.tables
+#' @keywords internal
+
+summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20) {
+  if (!is.data.frame(results) && !inherits(results, "data.table")) {
+    stop("Input 'results' must be a data.frame or data.table")
+  }
+  results <- as.data.frame(results, stringsAsFactors = FALSE)
+  if ("Pcons" %in% names(results)) {
+    sg_found <- results[!is.na(results$Pcons), , drop = FALSE]
+  } else {
+    sg_found <- results
+  }
+  n_found <- nrow(sg_found)
+  if (n_found == 0) {
+    base_factor_summary <- data.frame(Rank=integer(), Factor=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    return(list(base_factors=base_factor_summary, specific_factors=specific_factor_summary, threshold=threshold))
+  }
+  all_factors <- character()
+  for (i in 1:maxk) {
+    col <- paste0("M.", i)
+    if (col %in% names(sg_found)) {
+      vals <- sg_found[[col]]
+      if (is.factor(vals)) vals <- as.character(vals)
+      vals <- vals[!is.na(vals) & vals != ""]
+      all_factors <- c(all_factors, vals)
+    }
+  }
+  if (length(all_factors) == 0) {
+    base_factor_summary <- data.frame(Rank=integer(), Factor=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    return(list(base_factors=base_factor_summary, specific_factors=specific_factor_summary, threshold=threshold))
+  }
+  extract_base_factor <- function(factor_string) {
+    factor_string <- trimws(factor_string)
+    factor_string <- gsub("^!\\{", "{", factor_string)
+    factor_string <- gsub("[{}]", "", factor_string)
+    base_name <- sub("^([a-zA-Z0-9_.]+).*", "\\1", factor_string)
+    return(base_name)
+  }
+  base_factors <- sapply(all_factors, extract_base_factor, USE.NAMES = FALSE)
+  base_factor_counts <- table(base_factors)
+  base_factor_summary <- data.frame(
+    Factor = names(base_factor_counts),
+    Count = as.integer(base_factor_counts),
+    Percent = 100 * as.integer(base_factor_counts) / n_found,
+    stringsAsFactors = FALSE
+  )
+  base_factor_summary <- base_factor_summary[order(-base_factor_summary$Count), ]
+  base_factor_summary$Rank <- seq_len(nrow(base_factor_summary))
+  base_factor_summary <- base_factor_summary[, c("Rank", "Factor", "Count", "Percent")]
+  specific_factor_counts <- table(all_factors)
+  specific_factor_summary <- data.frame(
+    Factor_Definition = names(specific_factor_counts),
+    Count = as.integer(specific_factor_counts),
+    Percent = 100 * as.integer(specific_factor_counts) / n_found,
+    stringsAsFactors = FALSE
+  )
+  specific_factor_summary <- specific_factor_summary[specific_factor_summary$Percent >= threshold, ]
+  if (nrow(specific_factor_summary) > 0) {
+    specific_factor_summary$Base_Factor <- sapply(specific_factor_summary$Factor_Definition, extract_base_factor)
+    specific_factor_summary <- specific_factor_summary[order(specific_factor_summary$Base_Factor, -specific_factor_summary$Count), ]
+    specific_factor_summary$Rank <- seq_len(nrow(specific_factor_summary))
+    specific_factor_summary <- specific_factor_summary[, c("Rank", "Base_Factor", "Factor_Definition", "Count", "Percent")]
+  } else {
+    specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+  }
+  return(list(
+    base_factors = base_factor_summary,
+    specific_factors = specific_factor_summary,
+    threshold = threshold
+  ))
+}
+

@@ -2,23 +2,76 @@
 % Please edit documentation in R/bootstrap_summaries_helpers.R
 \name{summarize_factor_presence}
 \alias{summarize_factor_presence}
-\title{Summarize Factor Presence Across Bootstrap Subgroups}
+\title{Summarize Factor Presence - Fixed Wrapper}
 \usage{
-summarize_factor_presence(results, maxk = 2, threshold = 20)
+summarize_factor_presence(results, maxk = 2, threshold = 20, use_safe = TRUE)
 }
 \arguments{
-\item{results}{Data.table. Bootstrap results with subgroup characteristics}
+\item{results}{Data.table or data.frame. Bootstrap results with subgroup
+characteristics.}
 
-\item{maxk}{Integer. Maximum number of factors allowed}
+\item{maxk}{Integer. Maximum number of factors allowed (default: 2).}
 
-\item{threshold}{Numeric. Percentage threshold for including specific definitions (default: 20)}
+\item{threshold}{Numeric. Percentage threshold (default: 20).}
+
+\item{use_safe}{Logical. If TRUE (default), uses the safe base R implementation.
+If FALSE, attempts to use the data.table implementation with fixes.}
 }
 \value{
-List with base_factors and specific_factors data.tables
+Same structure as other variants:
+\describe{
+\item{base_factors}{Data.table with base factor frequencies}
+\item{specific_factors}{Data.table with specific factor definitions}
+\item{threshold}{The threshold value used}
+}
 }
 \description{
-Analyzes how often each individual factor appears in identified subgroups,
-extracting base factor names from full definitions and identifying common
-specific definitions.
+A flexible wrapper that can use either the safe (base R) or optimized
+(data.table) implementation. Provides a migration path and testing capability.
 }
-\keyword{internal}
+\details{
+This wrapper function provides:
+\itemize{
+\item Backward compatibility with existing code
+\item Ability to test both implementations
+\item Gradual migration path from problematic to safe code
+\item Performance comparison capability
+}
+
+When to use each mode:
+\itemize{
+\item \code{use_safe = TRUE}: Production environments, automated pipelines
+\item \code{use_safe = FALSE}: Testing, performance-critical applications
+with controlled environments
+}
+}
+\note{
+The default \code{use_safe = TRUE} is recommended unless you have specific
+performance requirements and a controlled environment.
+}
+\examples{
+# Default: use safe implementation
+result_safe <- summarize_factor_presence_fixed(bootstrap_results)
+
+# Explicitly use safe mode
+result_safe <- summarize_factor_presence_fixed(
+  bootstrap_results,
+  maxk = 2,
+  use_safe = TRUE
+)
+
+# Try data.table mode (may fail)
+result_dt <- tryCatch(
+  summarize_factor_presence_fixed(bootstrap_results, use_safe = FALSE),
+  error = function(e) {
+    message("data.table mode failed, using safe mode")
+    summarize_factor_presence_fixed(bootstrap_results, use_safe = TRUE)
+  }
+)
+
+}
+\seealso{
+\code{\link{summarize_factor_presence}} for the original
+\code{\link{summarize_factor_presence_safe}} for direct safe version
+\code{\link{test_summarize_factor_presence}} for testing the implementations
+}

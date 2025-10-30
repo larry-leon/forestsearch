@@ -2,7 +2,7 @@
 % Please edit documentation in R/find_k_inter_main.R
 \name{find_k_inter_for_target_hr}
 \alias{find_k_inter_for_target_hr}
-\title{Efficient Methods for Calibrating Interaction Effects in AFT Models}
+\title{Find k_inter Value to Achieve Target Harm Subgroup Hazard Ratio}
 \usage{
 find_k_inter_for_target_hr(
   target_hr_harm,
@@ -73,8 +73,9 @@ A list of class "k_inter_result" containing:
 }
 }
 \description{
-Functions to find the interaction parameter (k_inter) that achieves
-target hazard ratios in subgroups for AFT data generating mechanisms.
+Uses numerical root-finding to determine the interaction parameter (k_inter)
+that achieves a specified target hazard ratio in the harm subgroup. This is
+the most efficient method for single target calibration.
 }
 \details{
 This function uses the \code{uniroot} algorithm to solve the equation:
@@ -117,9 +118,6 @@ cat("Achieved HR:", result$achieved_hr_harm, "\n")
 \code{\link{find_k_inter_batch}} for processing multiple targets
 \code{\link{sensitivity_analysis_k_inter}} for sensitivity analysis
 \code{\link{generate_aft_dgm_flex}} for DGM generation
-}
-\author{
-Your Name
 }
 \keyword{AFT}
 \keyword{calibration}
