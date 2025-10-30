@@ -244,17 +244,17 @@ kable(calibration_results,
 
 We examine how `k_inter` affects the hazard ratios across different subgroups.
 
-```{r, fig.width = 10, fig.height = 8}
+```{r, fig.width = 8, fig.height = 5}
 #| label: sensitivity-analysis
 #| fig-cap: "Sensitivity of Hazard Ratios to Interaction Parameter"
 #| cache: true
 
 # Define base parameters
 base_params <- list(
-  data = gbsg,
+  data = df_gbsg,
   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
   factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
+  outcome_var = "tte",
   event_var = "status",
   treatment_var = "hormon",
   subgroup_vars = c("er", "meno"),
@@ -476,8 +476,9 @@ library(doRNG)
 registerDoFuture()
 registerDoRNG()
 
+df_null <- as.data.frame(draw_null)
 
-system.time({fs <- forestsearch(draw_null,  confounders.name=confounders.name,
+system.time({fs <- forestsearch(df_null,  confounders.name=confounders.name,
                                 outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim", id.name = "id",
                                 potentialOutcome.name = "loghr_po", flag_harm.name = "flag_harm",
                                 hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
@@ -498,7 +499,7 @@ plan("sequential")
 ```{r, fig.width = 8, fig.height = 6}
 #| label: forest-search
 #| cache: true
-#| eval: false
+#| eval: true
 
 # Define confounders for forest search
 confounders.name <- c("z_age", "z_er", "z_pgr", "z_meno", 
@@ -511,8 +512,9 @@ library(doRNG)
 registerDoFuture()
 registerDoRNG()
 
+df_alt <- as.data.frame(draw_alt)
 
-system.time({fs <- forestsearch(draw_alt,  confounders.name=confounders.name,
+system.time({fs <- forestsearch(df_alt,  confounders.name=confounders.name,
                                 outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim", id.name = "id",
                                 hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
                                 potentialOutcome.name = "loghr_po", flag_harm.name = "flag_harm",
@@ -526,6 +528,8 @@ system.time({fs <- forestsearch(draw_alt,  confounders.name=confounders.name,
 )
 })
 
+with(fs$df.est, table(flag_harm, treat.recommend))
+
 # Extract results
 res_tabs <- sg_tables(fs, ndecimals = 3)
 
@@ -538,10 +542,13 @@ plan("sequential")
 
 ## Bootstrap Inference
 
-```{r}
+```{r, eval = FALSE}
 #| label: bootstrap-forest
 #| cache: true
-#| eval: false
+#| eval: true
+
+output_dir <- "results/"
+save_results <- dir.exists(output_dir)
 
 # patchhwork needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
 library(patchwork)
@@ -556,20 +563,45 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs, 
   nb_boots = NB, 
   show_three = FALSE, 
-  details = TRUE,
+  details = FALSE,
   create_summary = TRUE, create_plots = TRUE)
 
 plan("sequential")
 
 t.min <- (proc.time()[3] - t.start) / 60
 
+if (save_results) {
+    filename <- file.path(output_dir, 
+                         paste0("sim_gbsg_example_B=", 
+                                format(NB), 
+                                ".RData"))
+    save(fs_bc, fs, file = filename)
+    cat("\nResults saved to:", filename, "\n")
+}
+
+
 ```
 
 ```{r}
+load(filename)
 sg_tab <- fs_bc$summary$table
+
 sg_tab
 
-event_summary <- summarize_bootstrap_events(fs_bc, threshold = 10)
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 12)
+
+summaries <- fs_bc$summary
+
+summaries$diagnostics_table_gt
+
+summaries$subgroup_summary$original_agreement
+
+summaries$subgroup_summary$agreement
+
+summaries$subgroup_summary$factor_presence
+
+summaries$subgroup_summary$factor_presence_specific
+
 
 ```
 

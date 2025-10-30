@@ -47,7 +47,7 @@ BOOTSTRAP_REQUIRED_FUNCTIONS <- list(
     "analyze_subgroups",
     "calculate_potential_hr",
     "ci.est",
-    "count.id",
+    "count_boot_it",
     "CV_sgs",
     "get_targetEst",
     "get_dfRes",

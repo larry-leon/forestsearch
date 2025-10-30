@@ -992,7 +992,7 @@ find_quantile_for_proportion <- function(data, var_name, target_prop,
 #' \code{\link{generate_aft_dgm_flex}} for creating the DGM
 #'
 #' @export
-#' @importFrom stats rexp runif pmin
+#' @importFrom stats rexp runif
 
 simulate_from_dgm <- function(dgm,
                              n = NULL,
@@ -1075,96 +1075,5 @@ simulate_from_dgm <- function(dgm,
   df_sim$c_time <- C_sim
 
   return(df_sim)
-}
-
-#' Print Method for AFT DGM Objects
-#'
-#' Provides a formatted summary of an AFT data generating mechanism object.
-#'
-#' @param x An object of class "aft_dgm_flex"
-#' @param ... Additional arguments (currently unused)
-#'
-#' @return Invisibly returns the input object
-#'
-#' @examples
-#' \dontrun{
-#' dgm <- generate_aft_dgm_flex(data = gbsg, ...)
-#' print(dgm)
-#' }
-#'
-#' @export
-#' @method print aft_dgm_flex
-
-print.aft_dgm_flex <- function(x, ...) {
-  cat("AFT Data Generating Mechanism\n")
-  cat("=============================\n")
-  cat("Model type:", x$model_type, "\n")
-  cat("Super population size:", x$n_super, "\n")
-  cat("Number of covariates:", length(x$analysis_vars$covariates), "\n")
-
-  if (x$model_type == "alt" && !is.null(x$subgroup_info$vars)) {
-    cat("\nSubgroup Information:\n")
-    cat("  Variables:", paste(x$subgroup_info$vars, collapse = ", "), "\n")
-    cat("  Size:", x$subgroup_info$size, "\n")
-    cat("  Proportion:", round(x$subgroup_info$proportion, 3), "\n")
-
-    if (!is.null(x$subgroup_info$definitions)) {
-      cat("  Definitions:\n")
-      for (def in x$subgroup_info$definitions) {
-        cat("    -", def, "\n")
-      }
-    }
-  }
-
-  cat("\nHazard Ratios:\n")
-  for (name in names(x$hazard_ratios)) {
-    cat("  ", gsub("_", " ", name), ":", round(x$hazard_ratios[[name]], 3), "\n")
-  }
-
-  cat("\nModel Parameters:\n")
-  cat("  Intercept (mu):", round(x$model_params$mu, 3), "\n")
-  cat("  Scale (sigma):", round(x$model_params$sigma, 3), "\n")
-  if ("treat" %in% names(x$model_params$gamma)) {
-    cat("  Treatment effect:", round(x$model_params$gamma["treat"], 3), "\n")
-  }
-  if ("treat_harm" %in% names(x$model_params$gamma)) {
-    cat("  Interaction effect:", round(x$model_params$gamma["treat_harm"], 3), "\n")
-  }
-
-  invisible(x)
-}
-
-#' Summary Method for AFT DGM Objects
-#'
-#' Provides a comprehensive summary of an AFT data generating mechanism object.
-#'
-#' @param object An object of class "aft_dgm_flex"
-#' @param ... Additional arguments (currently unused)
-#'
-#' @return A list of class "summary.aft_dgm_flex" containing summary information
-#'
-#' @examples
-#' \dontrun{
-#' dgm <- generate_aft_dgm_flex(data = gbsg, ...)
-#' summary(dgm)
-#' }
-#'
-#' @export
-#' @method summary aft_dgm_flex
-
-summary.aft_dgm_flex <- function(object, ...) {
-  summary_list <- list(
-    model_type = object$model_type,
-    n_super = object$n_super,
-    n_covariates = length(object$analysis_vars$covariates),
-    continuous_vars = object$analysis_vars$continuous,
-    factor_vars = object$analysis_vars$factor,
-    subgroup_info = object$subgroup_info,
-    hazard_ratios = object$hazard_ratios,
-    model_params = object$model_params
-  )
-
-  class(summary_list) <- "summary.aft_dgm_flex"
-  return(summary_list)
 }
 

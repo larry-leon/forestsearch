@@ -22,7 +22,7 @@ bootstrap_ystar <- function(df, nb_boots) {
     in_boot <- sample.int(NN, size = NN, replace = TRUE)
     df_boot <- df[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
-    ystar <- unlist(lapply(df$id, count.id, dfb = df_boot))
+    ystar <- unlist(lapply(df$id, count_boot_id, dfb = df_boot))
     return(ystar)
   }
 }
@@ -36,7 +36,7 @@ bootstrap_ystar <- function(df, nb_boots) {
 #' @return Integer count of occurrences.
 #' @export
 
-count.id <- function(x,dfb){
+count_boot_id <- function(x,dfb){
   sum(dfb$id == x)
   }
 
