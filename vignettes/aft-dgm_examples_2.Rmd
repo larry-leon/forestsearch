@@ -1,0 +1,567 @@
+---
+title: "AFT dgm examples"
+output: 
+  html_document:
+         code_folding: hide
+vignette: >
+  %\VignetteIndexEntry{Weighted Survival Analysis Examples}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r}
+# Set options
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = 'center',
+  fig.retina = 2
+)
+
+# Load required libraries
+library(survival)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(broom)
+library(gridExtra)
+
+library(weightedsurv)
+
+library(forestsearch)
+library(doFuture)
+library(doRNG)
+
+# Set theme for plots
+theme_set(theme_minimal(base_size = 12))
+
+# library(devtools)
+# install_github("larry-leon/forestsearch")
+# install_github("larry-leon/weightedsurv")
+
+library(forestsearch)
+
+
+```
+
+# Introduction {#sec-intro}
+
+## Study Overview
+
+This document presents a comprehensive simulation study using the German Breast Cancer Study Group (GBSG) dataset. We demonstrate:
+
+1. **Flexible subgroup definition** using quantile-based cutpoints
+2. **Calibration of interaction effects** to achieve target hazard ratios
+3. **Sensitivity analysis** of treatment-subgroup interactions
+4. **Forest search methodology** for subgroup identification
+5. **Bootstrap inference** for subgroup stability
+
+## Data Description
+
+The GBSG dataset contains information from a randomized clinical trial of adjuvant therapy for node-positive breast cancer patients.
+
+```{r}
+#| tbl-cap: "GBSG Dataset Overview"
+
+# Load GBSG data
+data(cancer)
+
+# Dataset summary
+data_summary <- data.frame(
+  Variable = names(gbsg),
+  Type = sapply(gbsg, class),
+  Missing = sapply(gbsg, function(x) sum(is.na(x))),
+  Unique = sapply(gbsg, function(x) length(unique(x))),
+  Description = c(
+    "Patient ID",
+    "Hormonal therapy (0=no, 1=yes)",
+    "Age in years",
+    "Menopausal status (0=pre, 1=post)",
+    "Tumor size (mm)",
+    "Tumor grade (1,2,3)",
+    "Number of positive nodes",
+    "Progesterone receptor (fmol/l)",
+    "Estrogen receptor (fmol/l)",
+    "Recurrence-free survival time (days)",
+    "Censoring status (0=censored, 1=event)"
+  )
+)
+
+kable(data_summary, row.names = FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+#| fig-cap: "Distribution of Key Variables"
+#| fig-height: 8
+
+# Create distribution plots
+p1 <- ggplot(gbsg, aes(x = age)) +
+  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
+  labs(title = "Age Distribution", x = "Age (years)", y = "Count")
+
+p2 <- ggplot(gbsg, aes(x = log1p(er))) +
+  geom_histogram(bins = 30, fill = "darkgreen", alpha = 0.7) +
+  labs(title = "Estrogen Receptor (log scale)", x = "log(ER + 1)", y = "Count")
+
+p3 <- ggplot(gbsg, aes(x = log1p(pgr))) +
+  geom_histogram(bins = 30, fill = "darkred", alpha = 0.7) +
+  labs(title = "Progesterone Receptor (log scale)", x = "log(PGR + 1)", y = "Count")
+
+p4 <- ggplot(gbsg, aes(x = factor(meno), fill = factor(hormon))) +
+  geom_bar(position = "dodge", alpha = 0.7) +
+  scale_fill_manual(values = c("0" = "coral", "1" = "steelblue"),
+                    labels = c("No Hormone", "Hormone")) +
+  labs(title = "Treatment by Menopausal Status", 
+       x = "Menopausal Status", y = "Count", fill = "Treatment")
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+# AFT Data Generating Mechanism {#sec-dgm}
+
+## Model Specification
+
+We use an Accelerated Failure Time (AFT) model with Weibull distribution:
+
+$$\log(T) = \mu + \gamma' X + \sigma \epsilon$$
+
+where:
+
+- $T$ is the survival time
+- $\mu$ is the intercept
+- $\gamma$ contains the covariate effects including treatment and interaction
+- $X$ includes covariates and treatment×subgroup interaction
+- $\sigma$ is the scale parameter
+- $\epsilon$ follows an extreme value distribution
+
+## Subgroup Definition
+
+We define a subgroup based on two characteristics:
+
+1. **Low estrogen receptor (ER)**: ER ≤ 25th percentile
+2. **Pre-menopausal status**: meno = 0
+
+```{r}
+# Calculate ER quantile cutpoint
+er_quantile <- 0.2612616  # Approximately 25th percentile
+er_cutpoint <- quantile(gbsg$er, probs = er_quantile)
+
+# Create subgroup indicator
+gbsg$subgroup <- with(gbsg, (er <= er_cutpoint) & (meno == 0))
+
+# Subgroup summary
+subgroup_summary <- data.frame(
+  Criterion = c("ER ≤ 25th percentile", "Pre-menopausal", "Both conditions"),
+  N = c(sum(gbsg$er <= er_cutpoint), 
+        sum(gbsg$meno == 0),
+        sum(gbsg$subgroup)),
+  Proportion = c(mean(gbsg$er <= er_cutpoint),
+                 mean(gbsg$meno == 0),
+                 mean(gbsg$subgroup))
+)
+
+kable(subgroup_summary, 
+      col.names = c("Criterion", "N", "Proportion"),
+      digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+# Calibrating Interaction Effects {#sec-calibration}
+
+## Finding k_inter for Target Hazard Ratio
+
+We calibrate the interaction parameter `k_inter` to achieve specific hazard ratios in the harm subgroup.
+
+```{r}
+# Transform time to months
+df_gbsg <- gbsg
+df_gbsg$tte <- with(gbsg, rfstime/30.4375)
+
+# Find k_inter for HR_harm = 2.0
+result <- forestsearch::find_k_inter_for_target_hr(
+  target_hr_harm = 2.0,
+  data = gbsg,
+  outcome_var = "rfstime",
+  event_var = "status",
+  treatment_var = "hormon",
+  continuous_vars = c("age", "er", "pgr"),
+  factor_vars = c("meno", "grade"),
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = er_quantile),
+    meno = 0
+  ),
+  k_treat = 1.0,
+  verbose = FALSE
+)
+
+calibration_results <- data.frame(
+  Target_HR = 2.0,
+  Optimal_k_inter = round(result$k_inter, 4),
+  Achieved_HR = round(result$achieved_hr_harm, 4),
+  Error = round(result$error, 6)
+)
+
+kable(calibration_results, 
+      col.names = c("Target HR", "Optimal k_inter", "Achieved HR", "Error")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+## Sensitivity Analysis
+
+We examine how `k_inter` affects the hazard ratios across different subgroups.
+
+```{r, fig.width = 10, fig.height = 8}
+#| fig-cap: "Sensitivity of Hazard Ratios to Interaction Parameter"
+
+# Define base parameters
+base_params <- list(
+  data = df_gbsg,
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars = c("meno", "grade"),
+  outcome_var = "tte",
+  event_var = "status",
+  treatment_var = "hormon",
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = er_quantile),
+    meno = 0
+  ),
+  k_treat = 1.0,
+  n_super = 5000
+)
+
+# Run sensitivity analysis
+sensitivity_results <- do.call(sensitivity_analysis_k_inter, c(
+  list(
+    k_inter_range = c(-1.5, 1.5),
+    n_points = 11,
+    model = "alt"
+  ),
+  base_params
+))
+
+# Create long format for plotting
+sens_long <- sensitivity_results %>%
+  select(k_inter, hr_harm, hr_no_harm, hr_overall) %>%
+  pivot_longer(cols = -k_inter, names_to = "Group", values_to = "HR") %>%
+  mutate(Group = case_when(
+    Group == "hr_harm" ~ "Harm Subgroup",
+    Group == "hr_no_harm" ~ "No-Harm Subgroup",
+    Group == "hr_overall" ~ "Overall"
+  ))
+
+# Plot sensitivity
+ggplot(sens_long, aes(x = k_inter, y = HR, color = Group)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 1, linetype = "dashed", alpha = 0.5) +
+  geom_vline(xintercept = result$k_inter, linetype = "dotted", 
+             color = "red", alpha = 0.7) +
+  scale_color_manual(values = c("Harm Subgroup" = "darkred",
+                               "No-Harm Subgroup" = "darkblue",
+                               "Overall" = "darkgreen")) +
+  labs(title = "Sensitivity Analysis: Hazard Ratios vs Interaction Parameter",
+       subtitle = paste("Red line indicates k_inter =", round(result$k_inter, 3), 
+                       "for target HR = 2.0"),
+       x = "Interaction Parameter (k_inter)",
+       y = "Hazard Ratio",
+       color = "Population") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+```
+
+# Simulation Studies {#sec-simulation}
+
+## Null Scenario (No Interaction)
+
+```{r}
+# Generate DGM with no interaction
+dgm_null <- generate_aft_dgm_flex(
+  data = df_gbsg,
+  n_super = 5000,
+  continuous_vars = c("age", "er", "pgr"),
+  factor_vars = c("meno", "grade"),
+  outcome_var = "tte",
+  event_var = "status",
+  treatment_var = "hormon",
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = er_quantile),
+    meno = 0
+  ),
+  model = "alt",
+  k_inter = 0.0,
+  verbose = FALSE
+)
+
+# Simulate data
+set.seed(123)
+draw_null <- simulate_from_dgm(
+  dgm = dgm_null, 
+  n = 700, 
+  rand_ratio = 1, 
+  draw_treatment = TRUE, 
+  max_follow = Inf, 
+  seed = 123
+)
+
+# Summary statistics
+null_summary <- data.frame(
+  Metric = c("Sample Size", "Event Rate", "Treatment Allocation", 
+             "Subgroup Size", "Subgroup Proportion"),
+  Value = c(nrow(draw_null),
+            mean(draw_null$event_sim),
+            mean(draw_null$treat_sim),
+            sum(draw_null$flag_harm),
+            mean(draw_null$flag_harm))
+)
+
+kable(null_summary, digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r, fig.width = 10, fig.height = 8}
+#| fig-cap: "Kaplan-Meier Curves: Null Scenario"
+
+# Prepare data for KM plot
+dfcount_null <- df_counting(
+  df = draw_null, 
+  tte.name = "y_sim", 
+  event.name = "event_sim", 
+  treat.name = "treat_sim"
+)
+
+# Create KM plot
+par(mfrow=c(1,1))
+plot_weighted_km(dfcount_null, conf.int = TRUE, show.logrank = TRUE, ymax = 1.05)
+title(main = "Null Scenario: No Treatment-Subgroup Interaction")
+```
+
+## Alternative Scenario (With Interaction)
+
+```{r}
+# Generate DGM with calibrated interaction
+dgm_alt <- generate_aft_dgm_flex(
+  data = df_gbsg,
+  n_super = 5000,
+  continuous_vars = c("age", "er", "pgr"),
+  factor_vars = c("meno", "grade"),
+  outcome_var = "tte",
+  event_var = "status",
+  treatment_var = "hormon",
+  subgroup_vars = c("er", "meno"),
+  subgroup_cuts = list(
+    er = list(type = "quantile", value = er_quantile),
+    meno = 0
+  ),
+  model = "alt",
+  k_inter = result$k_inter,
+  verbose = FALSE
+)
+
+# Simulate data
+set.seed(123)
+draw_alt <- simulate_from_dgm(
+  dgm = dgm_alt, 
+  n = 700, 
+  rand_ratio = 1,
+  max_follow = Inf, 
+  seed = 123
+)
+
+# Summary statistics
+alt_summary <- data.frame(
+  Metric = c("Sample Size", "Event Rate", "Treatment Allocation", 
+             "Subgroup Size", "Subgroup Proportion"),
+  Value = c(nrow(draw_alt),
+            mean(draw_alt$event_sim),
+            mean(draw_alt$treat_sim),
+            sum(draw_alt$flag_harm),
+            mean(draw_alt$flag_harm))
+)
+
+kable(alt_summary, digits = 3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+```{r, fig.width = 10, fig.height = 8}
+#| fig-cap: "Kaplan-Meier Curves: Alternative Scenario"
+
+# Prepare data for KM plot
+dfcount_alt <- df_counting(
+  df = draw_alt, 
+  tte.name = "y_sim", 
+  event.name = "event_sim", 
+  treat.name = "treat_sim"
+)
+
+# Create KM plot
+par(mfrow=c(1,1))
+plot_weighted_km(dfcount_alt, conf.int = TRUE, show.logrank = TRUE, ymax = 1.05)
+title(main = "Alternative Scenario: With Treatment-Subgroup Interaction")
+```
+
+# Forest Search Analysis {#sec-forest}
+
+## Methodology
+
+Forest search is a systematic approach to identify subgroups with differential treatment effects using:
+
+1. **Recursive partitioning** to explore covariate space
+2. **Hazard ratio thresholds** to identify meaningful effects
+3. **Consistency criteria** to ensure stability
+4. **Bootstrap inference** for uncertainty quantification
+
+## Forest Search on Alternative Scenario
+
+```{r}
+# Define confounders for forest search
+confounders.name <- c("z_age", "z_er", "z_pgr", "z_meno", 
+                      "z_grade_1", "z_grade_2", "size", "nodes")
+
+# Setup parallel processing
+library(doFuture)
+library(doRNG)
+
+registerDoFuture()
+registerDoRNG()
+
+df_null <- as.data.frame(draw_null)
+
+system.time({fs <- forestsearch(df_null,  confounders.name=confounders.name,
+                                outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim", id.name = "id",
+                                potentialOutcome.name = "loghr_po", flag_harm.name = "flag_harm",
+                                hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
+                                sg_focus = "hrMaxSG",
+                                showten_subgroups = FALSE, details=TRUE,
+                                conf_force = c("z_age <= 65", "z_er <= 0", "z_er <= 1", "z_er <= 2","z_er <= 5"),
+                                cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
+                                maxk = 2, n.min = 60, d0.min = 12, d1.min = 12,
+                                plot.sg = TRUE, by.risk = 12,
+                                parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
+)
+})
+
+plan("sequential")
+
+```
+
+```{r, fig.width = 10, fig.height = 8}
+# Define confounders for forest search
+confounders.name <- c("z_age", "z_er", "z_pgr", "z_meno", 
+                      "z_grade_1", "z_grade_2", "size", "nodes")
+
+# Setup parallel processing
+library(doFuture)
+library(doRNG)
+
+registerDoFuture()
+registerDoRNG()
+
+df_alt <- as.data.frame(draw_alt)
+
+system.time({fs <- forestsearch(df_alt,  confounders.name=confounders.name,
+                                outcome.name = "y_sim", treat.name = "treat_sim", event.name = "event_sim", id.name = "id",
+                                hr.threshold = 1.25, hr.consistency = 1.0, pconsistency.threshold = 0.90,
+                                potentialOutcome.name = "loghr_po", flag_harm.name = "flag_harm",
+                                sg_focus = "hrMaxSG",
+                                showten_subgroups = FALSE, details=TRUE,
+                                conf_force = c("z_age <= 65", "z_er <= 0", "z_er <= 1", "z_er <= 2","z_er <= 5"),
+                                cut_type = "default", use_grf = TRUE, plot.grf = TRUE, use_lasso = TRUE,
+                                maxk = 2, n.min = 60, d0.min = 12, d1.min = 12,
+                                plot.sg = TRUE, by.risk = 12,
+                                parallel_args = list(plan="callr", workers = 12, show_message = TRUE)
+)
+})
+
+with(fs$df.est, table(flag_harm, treat.recommend))
+
+# Extract results
+res_tabs <- sg_tables(fs, ndecimals = 3)
+
+res_tabs$sg10_out
+res_tabs$tab_estimates
+
+plan("sequential")
+
+```
+
+## Bootstrap Inference
+
+```{r, eval = TRUE}
+
+output_dir <- "results/"
+save_results <- dir.exists(output_dir)
+
+# patchhwork needed for a combined bootstrap plot (otherwise if not avaialable will not produce)
+library(patchwork)
+
+# Number of bootstrap samples
+NB <- 100
+
+# Run bootstrap
+t.start <- proc.time()[3]
+
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs, 
+  nb_boots = NB, 
+  show_three = FALSE, 
+  details = TRUE)
+
+plan("sequential")
+
+t.min <- (proc.time()[3] - t.start) / 60
+
+if (save_results) {
+    filename <- file.path(output_dir, 
+                         paste0("sim_gbsg_example_B=", 
+                                format(NB), 
+                                ".RData"))
+    save(fs_bc, fs, file = filename)
+    cat("\nResults saved to:", filename, "\n")
+}
+
+
+```
+
+```{r}
+#load("results//sim_gbsg_example_B=1000.RData")
+
+summaries <- summarize_bootstrap_results(
+      sgharm = fs$sg.harm,
+      boot_results = fs_bc,
+      create_plots = TRUE,
+      est.scale = "hr"
+    )
+
+sg_tab <- summaries$table
+
+sg_tab
+
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 12)
+
+summaries$diagnostics_table_gt
+
+#summaries$subgroup_summary$original_agreement
+
+summaries$subgroup_summary$agreement
+
+summaries$subgroup_summary$factor_presence
+
+summaries$subgroup_summary$factor_presence_specific
+
+
+```
+
+```{r, fig.width = 10, fig.height = 8}
+
+summaries$plots$combined
+
+```
