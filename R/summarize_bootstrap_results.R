@@ -469,6 +469,7 @@ summarize_bootstrap_results <- function(sgharm, boot_results, create_plots = FAL
     )
   }
 
+
   # Add to output
   output$subgroup_summary <- subgroup_summary
 
