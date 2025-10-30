@@ -56,6 +56,11 @@ devtools::check()
 
 devtools::clean_dll()
 
+
+# Stop tracking files in GitHub
+
+git rm -r --cached *_files/
+
 # Issue with trying to remove weightedSurv and replace with weightedsurv
 # Remove from search path and unload
 library(forestsearch)  # load it first if not loaded
