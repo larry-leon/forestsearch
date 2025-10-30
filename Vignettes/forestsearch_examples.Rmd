@@ -3,6 +3,11 @@ title: "forestsearch examples"
 output: 
   html_document:
          code_folding: hide
+vignette: >
+  %\VignetteIndexEntry{Forestsearch Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+
 ---
 
 
@@ -524,7 +529,7 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, eval = FALSE, warning = FALSE}
+```{r, warning = FALSE}
 # Just run a few for illustration 
 # In practice, recommend minimum of NB = 300 to 400 re-samples
 
@@ -534,11 +539,11 @@ library(patchwork)
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
 
-NB <- 15000
+NB <- 100
 
 t.start <- proc.time()[3]
 
-fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE, create_summary = TRUE, create_plots = TRUE)
+fs_bc <- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
 
 plan("sequential")
 
@@ -561,16 +566,34 @@ if (save_results) {
 
 ```{r}
 #load("~/Library/CloudStorage/OneDrive-MerckSharp&DohmeLLC/documents/GitHub/forestsearch/Vignettes/results/gbsg_results_B=1000.RData")
-sg_tab <- fs_bc$summary$table
+summaries <- summarize_bootstrap_results(
+      sgharm = fs$sg.harm,
+      boot_results = fs_bc,
+      create_plots = TRUE,
+      est.scale = "hr"
+    )
+
+sg_tab <- summaries$table
+
 sg_tab
 
-event_summary <- summarize_bootstrap_events(fs_bc, threshold = 10)
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 12)
+
+summaries$diagnostics_table_gt
+
+#summaries$subgroup_summary$original_agreement
+
+#summaries$subgroup_summary$agreement
+
+summaries$subgroup_summary$factor_presence
+
+summaries$subgroup_summary$factor_presence_specific
 
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
 
-fs_bc$summary$plots$combined
+summaries$plots$combined
 
 ```
 
