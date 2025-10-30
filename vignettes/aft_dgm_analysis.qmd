@@ -26,7 +26,6 @@ execute:
   message: false
   echo: true
   cache: true
-bibliography: references.bib
 ---
 
 ```{r}
@@ -52,7 +51,9 @@ library(tidyr)
 library(purrr)
 library(broom)
 library(gridExtra)
+
 library(weightedsurv)
+
 library(forestsearch)
 library(doFuture)
 library(doRNG)
@@ -244,7 +245,7 @@ kable(calibration_results,
 
 We examine how `k_inter` affects the hazard ratios across different subgroups.
 
-```{r, fig.width = 8, fig.height = 5}
+```{r, fig.width = 10, fig.height = 8}
 #| label: sensitivity-analysis
 #| fig-cap: "Sensitivity of Hazard Ratios to Interaction Parameter"
 #| cache: true
@@ -359,7 +360,7 @@ kable(null_summary, digits = 3) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-```{r, fig.width = 8, fig.height = 5}
+```{r, fig.width = 10, fig.height = 8}
 
 #| label: km-null
 #| fig-cap: "Kaplan-Meier Curves: Null Scenario"
@@ -428,7 +429,7 @@ kable(alt_summary, digits = 3) %>%
   kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
-```{r, fig.width = 8, fig.height = 5}
+```{r, fig.width = 10, fig.height = 8}
 
 #| label: km-alt
 #| fig-cap: "Kaplan-Meier Curves: Alternative Scenario"
@@ -461,7 +462,7 @@ Forest search is a systematic approach to identify subgroups with differential t
 ## Forest Search on Alternative Scenario
 
 ```{r}
-#| label: forest-search
+#| label: forest-search-null
 #| cache: true
 #| eval: false
 
@@ -496,8 +497,8 @@ plan("sequential")
 
 ```
 
-```{r, fig.width = 8, fig.height = 6}
-#| label: forest-search
+```{r, fig.width = 10, fig.height = 8}
+#| label: forest-search-alt
 #| cache: true
 #| eval: true
 
@@ -543,9 +544,9 @@ plan("sequential")
 ## Bootstrap Inference
 
 ```{r, eval = FALSE}
-#| label: bootstrap-forest
+#| label: bootstrap-forest-alt
 #| cache: true
-#| eval: true
+#| eval: false
 
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
@@ -554,7 +555,7 @@ save_results <- dir.exists(output_dir)
 library(patchwork)
 
 # Number of bootstrap samples
-NB <- 30
+NB <- 1000
 
 # Run bootstrap
 t.start <- proc.time()[3]
@@ -583,7 +584,8 @@ if (save_results) {
 ```
 
 ```{r}
-load(filename)
+load("results//sim_gbsg_example_B=500.RData")
+
 sg_tab <- fs_bc$summary$table
 
 sg_tab
@@ -605,7 +607,7 @@ summaries$subgroup_summary$factor_presence_specific
 
 ```
 
-```{r, fig.width = 10, fig.height = 8}
+```{r, fig.width = 10, fig.height = 8, eval=FALSE}
 
 fs_bc$summary$plots$combined
 

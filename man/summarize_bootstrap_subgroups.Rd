@@ -2,12 +2,12 @@
 % Please edit documentation in R/bootstrap_summaries_helpers.R
 \name{summarize_bootstrap_subgroups}
 \alias{summarize_bootstrap_subgroups}
-\title{Create Subgroup Characteristics Summary Table}
+\title{Fixed Version of summarize_bootstrap_subgroups}
 \usage{
 summarize_bootstrap_subgroups(results, nb_boots, original_sg = NULL, maxk = 2)
 }
 \arguments{
-\item{results}{Data.table. Bootstrap results with subgroup characteristics}
+\item{results}{Data.table or data.frame. Bootstrap results with subgroup characteristics}
 
 \item{nb_boots}{Integer. Total number of bootstrap iterations}
 
@@ -19,6 +19,6 @@ summarize_bootstrap_subgroups(results, nb_boots, original_sg = NULL, maxk = 2)
 List with multiple summary components
 }
 \description{
-Analyzes the characteristics of identified subgroups across bootstrap iterations.
-Includes agreement rates, consistency metrics, and factor frequencies.
+This version fixes the data.table ordering error by ensuring proper
+data structure handling throughout.
 }
