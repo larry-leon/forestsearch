@@ -57,6 +57,15 @@ devtools::check()
 devtools::clean_dll()
 
 
+# gitignore additions
+#.Rproj.user
+#vignettes/results/
+#  dev/private/
+#  *_files/
+# vignettes/working/
+
+
+
 # Stop tracking files in GitHub
 
 #git rm -r --cached *_files/
