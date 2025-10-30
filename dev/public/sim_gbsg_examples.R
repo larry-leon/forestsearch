@@ -201,9 +201,8 @@ system.time({fs <- forestsearch(draw_alt,  confounders.name=confounders.name,
 
 
 res_tabs <- sg_tables(fs, ndecimals = 3)
+
 res_tabs$sg10_out
-
-
 res_tabs$tab_estimates
 
 plan("sequential")

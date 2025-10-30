@@ -139,9 +139,10 @@ forestsearch <- function(df.analysis,
                                 event.name = "event",
                                 treat.name = "treat",
                                 id.name = "id",
-                                potentialOutcome.name=NULL,
+                                potentialOutcome.name = NULL,
+                                flag_harm.name = NULL,
                                 confounders.name = NULL,
-                                parallel_args = list(plan = "multisession", workers = 6),
+                                parallel_args = list(plan = "callr", workers = 6, show_message = TRUE),
                                 df.predict = NULL,
                                 df.test = NULL,
                                 is.RCT = TRUE, seedit = 8316951,
@@ -170,7 +171,7 @@ forestsearch <- function(df.analysis,
                                 m1.threshold = Inf,
                                 pconsistency.threshold = 0.90,
                                 showten_subgroups = FALSE,
-                                d0.min = 10, d1.min = 10,
+                                d0.min = 12, d1.min = 12,
                                 max.minutes = 3,
                                 minp = 0.025,
                                 details = FALSE,
@@ -208,7 +209,7 @@ forestsearch <- function(df.analysis,
 
   df.analysis <-  add_id_column(df.analysis, id.name)
 
-  var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name)
+  var_names <- c(confounders.name,outcome.name,event.name,id.name,treat.name,potentialOutcome.name,flag_harm.name)
   # Ensure all required variables exist in df.analysis
   missing_vars <- setdiff(var_names, names(df.analysis))
   if(length(missing_vars) > 0) {
