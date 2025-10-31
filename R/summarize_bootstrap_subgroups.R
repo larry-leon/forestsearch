@@ -383,4 +383,4 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
 }
 
 
-}
+
