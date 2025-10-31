@@ -303,6 +303,67 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     })
   }
 
+  # list(
+  #   basic_stats = basic_stats,
+  #   consistency_dist = consistency_dist,
+  #   size_dist = size_dist,
+  #   factor_freq = factor_freq,
+  #   agreement = agreement,
+  #   factor_presence = if (!is.null(factor_presence_results)) factor_presence_results$base_factors else NULL,
+  #   factor_presence_specific = if (!is.null(factor_presence_results)) factor_presence_results$specific_factors else NULL,
+  #   original_agreement = NULL,  # Simplified for now
+  #   n_found = n_found,
+  #   pct_found = pct_found
+  # )
+  #
+
+  # =========================================================================
+  # SECTION 8: ORIGINAL AGREEMENT WITH MAIN ANALYSIS SUBGROUP
+  # =========================================================================
+
+  original_agreement <- NULL
+
+  if (!is.null(original_sg) && n_found > 0) {
+    # Try to find the bootstrap subgroup column
+    subgroup_col <- NULL
+
+    # Check for common subgroup column names
+    for (possible_col in c("M.1", "Subgroup", "H_bootstrap", "H", "H_star")) {
+      if (possible_col %in% names(sg_found)) {
+        subgroup_col <- possible_col
+        break
+      }
+    }
+
+    # Calculate agreement if subgroup column found
+    if (!is.null(subgroup_col)) {
+      # Extract original subgroup as character
+      orig_sg_char <- as.character(original_sg)
+
+      # Count exact matches
+      matches <- sum(as.character(sg_found[[subgroup_col]]) == orig_sg_char, na.rm = TRUE)
+
+      # Create agreement summary
+      original_agreement <- data.table::data.table(
+        Metric = c(
+          "Total bootstrap iterations",
+          "Successful iterations",
+          "Failed iterations (no subgroup)",
+          "Exact match with original",
+          "Different from original"
+        ),
+        Value = c(
+          as.character(nb_boots),
+          as.character(n_found),
+          as.character(nb_boots - n_found),
+          sprintf("%d (%.1f%%)", matches, 100 * matches / n_found),
+          sprintf("%d (%.1f%%)", n_found - matches, 100 * (n_found - matches) / n_found)
+        ),
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
   # =========================================================================
   # RETURN COMPILED RESULTS
   # =========================================================================
@@ -315,8 +376,11 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     agreement = agreement,
     factor_presence = if (!is.null(factor_presence_results)) factor_presence_results$base_factors else NULL,
     factor_presence_specific = if (!is.null(factor_presence_results)) factor_presence_results$specific_factors else NULL,
-    original_agreement = NULL,  # Simplified for now
+    original_agreement = original_agreement,  # NOW CALCULATED!
     n_found = n_found,
     pct_found = pct_found
   )
+}
+
+
 }
