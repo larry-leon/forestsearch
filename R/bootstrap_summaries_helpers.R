@@ -1760,7 +1760,7 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 #' @return List with base_factors and specific_factors data.tables
 #' @keywords internal
 
-summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20) {
+summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20, as_gt = TRUE) {
   if (!is.data.frame(results) && !inherits(results, "data.table")) {
     stop("Input 'results' must be a data.frame or data.table")
   }
@@ -1774,6 +1774,10 @@ summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20) 
   if (n_found == 0) {
     base_factor_summary <- data.frame(Rank=integer(), Factor=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
     specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    if (as_gt) {
+      base_factor_summary <- gt::gt(base_factor_summary)
+      specific_factor_summary <- gt::gt(specific_factor_summary)
+    }
     return(list(base_factors=base_factor_summary, specific_factors=specific_factor_summary, threshold=threshold))
   }
   all_factors <- character()
@@ -1789,6 +1793,10 @@ summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20) 
   if (length(all_factors) == 0) {
     base_factor_summary <- data.frame(Rank=integer(), Factor=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
     specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
+    if (as_gt) {
+      base_factor_summary <- gt::gt(base_factor_summary)
+      specific_factor_summary <- gt::gt(specific_factor_summary)
+    }
     return(list(base_factors=base_factor_summary, specific_factors=specific_factor_summary, threshold=threshold))
   }
   extract_base_factor <- function(factor_string) {
@@ -1825,10 +1833,14 @@ summarize_factor_presence_robust <- function(results, maxk = 2, threshold = 20) 
   } else {
     specific_factor_summary <- data.frame(Rank=integer(), Base_Factor=character(), Factor_Definition=character(), Count=integer(), Percent=numeric(), stringsAsFactors=FALSE)
   }
+  # ---- Add gt output if requested ----
+  if (as_gt) {
+    base_factor_summary <- gt::gt(base_factor_summary)
+    specific_factor_summary <- gt::gt(specific_factor_summary)
+  }
   return(list(
     base_factors = base_factor_summary,
     specific_factors = specific_factor_summary,
     threshold = threshold
   ))
 }
-

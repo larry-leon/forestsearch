@@ -4,7 +4,12 @@
 \alias{summarize_factor_presence_robust}
 \title{Summarize Factor Presence Across Bootstrap Subgroups}
 \usage{
-summarize_factor_presence_robust(results, maxk = 2, threshold = 20)
+summarize_factor_presence_robust(
+  results,
+  maxk = 2,
+  threshold = 20,
+  as_gt = TRUE
+)
 }
 \arguments{
 \item{results}{Data.table. Bootstrap results with subgroup characteristics}

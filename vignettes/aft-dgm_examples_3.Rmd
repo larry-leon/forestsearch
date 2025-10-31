@@ -31,6 +31,8 @@ library(purrr)
 library(broom)
 library(gridExtra)
 
+library(gt)
+
 library(weightedsurv)
 
 library(forestsearch)
@@ -487,7 +489,7 @@ plan("sequential")
 
 ## Bootstrap Inference
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
@@ -496,7 +498,7 @@ save_results <- dir.exists(output_dir)
 library(patchwork)
 
 # Number of bootstrap samples
-NB <- 2000
+NB <- 1000
 
 # Run bootstrap
 t.start <- proc.time()[3]
@@ -525,7 +527,7 @@ if (save_results) {
 
 ```{r}
 
-#load("~/Documents/GitHub/forestsearch/vignettes/results/sim_gbsg_example_B=2000.RData")
+load("~/Documents/GitHub/forestsearch/vignettes/results/sim_gbsg_example_B=1000.RData")
 
 summaries <- summarize_bootstrap_results(
       sgharm = fs$sg.harm,
