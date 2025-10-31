@@ -303,20 +303,6 @@ summarize_bootstrap_subgroups <- function(results, nb_boots,
     })
   }
 
-  # list(
-  #   basic_stats = basic_stats,
-  #   consistency_dist = consistency_dist,
-  #   size_dist = size_dist,
-  #   factor_freq = factor_freq,
-  #   agreement = agreement,
-  #   factor_presence = if (!is.null(factor_presence_results)) factor_presence_results$base_factors else NULL,
-  #   factor_presence_specific = if (!is.null(factor_presence_results)) factor_presence_results$specific_factors else NULL,
-  #   original_agreement = NULL,  # Simplified for now
-  #   n_found = n_found,
-  #   pct_found = pct_found
-  # )
-  #
-
   # =========================================================================
   # SECTION 8: ORIGINAL AGREEMENT WITH MAIN ANALYSIS SUBGROUP
   # =========================================================================

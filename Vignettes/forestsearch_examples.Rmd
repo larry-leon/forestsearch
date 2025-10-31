@@ -529,7 +529,7 @@ res_tabs$tab_estimates
 
 ## Bootstrap bias-correction and 95% CI estimation
 
-```{r, warning = FALSE}
+```{r, warning = FALSE, eval = FALSE}
 # Just run a few for illustration 
 # In practice, recommend minimum of NB = 300 to 400 re-samples
 
@@ -565,6 +565,8 @@ if (save_results) {
 ```
 
 ```{r}
+
+load("~/Documents/GitHub/forestsearch/vignettes/results/gbsg_results_B=1000.RData")
 
 summaries <- summarize_bootstrap_results(
       sgharm = fs$sg.harm,

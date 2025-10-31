@@ -66,8 +66,6 @@ This document presents a comprehensive simulation study using the German Breast 
 The GBSG dataset contains information from a randomized clinical trial of adjuvant therapy for node-positive breast cancer patients.
 
 ```{r}
-#| tbl-cap: "GBSG Dataset Overview"
-
 # Load GBSG data
 data(cancer)
 
@@ -97,8 +95,6 @@ kable(data_summary, row.names = FALSE) %>%
 ```
 
 ```{r}
-#| fig-cap: "Distribution of Key Variables"
-#| fig-height: 8
 
 # Create distribution plots
 p1 <- ggplot(gbsg, aes(x = age)) +
@@ -218,7 +214,6 @@ kable(calibration_results,
 We examine how `k_inter` affects the hazard ratios across different subgroups.
 
 ```{r, fig.width = 10, fig.height = 8}
-#| fig-cap: "Sensitivity of Hazard Ratios to Interaction Parameter"
 
 # Define base parameters
 base_params <- list(
@@ -328,8 +323,6 @@ kable(null_summary, digits = 3) %>%
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
-#| fig-cap: "Kaplan-Meier Curves: Null Scenario"
-
 # Prepare data for KM plot
 dfcount_null <- df_counting(
   df = draw_null, 
@@ -392,7 +385,6 @@ kable(alt_summary, digits = 3) %>%
 ```
 
 ```{r, fig.width = 10, fig.height = 8}
-#| fig-cap: "Kaplan-Meier Curves: Alternative Scenario"
 
 # Prepare data for KM plot
 dfcount_alt <- df_counting(
@@ -495,7 +487,7 @@ plan("sequential")
 
 ## Bootstrap Inference
 
-```{r, eval = TRUE}
+```{r, eval = FALSE}
 
 output_dir <- "results/"
 save_results <- dir.exists(output_dir)
@@ -504,7 +496,7 @@ save_results <- dir.exists(output_dir)
 library(patchwork)
 
 # Number of bootstrap samples
-NB <- 100
+NB <- 1000
 
 # Run bootstrap
 t.start <- proc.time()[3]
@@ -532,7 +524,8 @@ if (save_results) {
 ```
 
 ```{r}
-#load("results//sim_gbsg_example_B=1000.RData")
+
+load("~/Documents/GitHub/forestsearch/vignettes/results/sim_gbsg_example_B=1000.RData")
 
 summaries <- summarize_bootstrap_results(
       sgharm = fs$sg.harm,
@@ -549,14 +542,13 @@ event_summary <- summarize_bootstrap_events(fs_bc, threshold = 12)
 
 summaries$diagnostics_table_gt
 
-#summaries$subgroup_summary$original_agreement
+summaries$subgroup_summary$original_agreement
 
-summaries$subgroup_summary$agreement
+#summaries$subgroup_summary$agreement
 
 summaries$subgroup_summary$factor_presence
 
 summaries$subgroup_summary$factor_presence_specific
-
 
 ```
 

@@ -3379,8 +3379,8 @@ must show HR &gt; hr.consistency</li>
 <div id="the-complete-validation-flow" class="section level2">
 <h2>The Complete Validation Flow</h2>
 <div class="figure">
-<div id="htmlwidget-ccd7a46e237e935510ee" style="width:1000px;height:600px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-ccd7a46e237e935510ee">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-b52d6b8ef6851c561c3c" style="width:1000px;height:600px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-b52d6b8ef6851c561c3c">{"x":{"diagram":"\ndigraph validation_flow {\n  # Graph settings\n  graph [layout = dot, rankdir = TB, fontsize = 12]\n  \n  # Node settings\n  node [shape = rectangle, style = filled, fillcolor = lightblue, \n        fontname = Helvetica, fontsize = 10]\n  \n  # Define nodes\n  start [label = \"Candidate Subgroup\", shape = ellipse, fillcolor = pink]\n  check_hr [label = \"HR > hr.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject1 [label = \"Rejected\\n(Effect too small)\", fillcolor = salmon]\n  splits [label = \"1000 Random\\n50/50 Splits\", fillcolor = lightcyan]\n  check_splits [label = \"Both splits:\\nHR > hr.consistency?\", shape = diamond, fillcolor = lightyellow]\n  count [label = \"Count Consistent\\nSplits\", fillcolor = lightcyan]\n  check_prop [label = \"Proportion ≥\\npconsistency.threshold?\", shape = diamond, fillcolor = lightyellow]\n  reject2 [label = \"Rejected\\n(Unstable effect)\", fillcolor = salmon]\n  accept [label = \"Selected\\n(Stable subgroup)\", fillcolor = pink, shape = ellipse]\n  \n  # Define edges\n  start -> check_hr\n  check_hr -> reject1 [label = \"No\"]\n  check_hr -> splits [label = \"Yes\"]\n  splits -> check_splits\n  check_splits -> count [label = \"Evaluate\\neach split\"]\n  count -> check_prop\n  check_prop -> reject2 [label = \"No\"]\n  check_prop -> accept [label = \"Yes\"]\n  \n  # Add parameter annotations\n  {rank = same; check_hr; param1 [label = \"Parameter:\\nhr.threshold\", \n                                    shape = note, fillcolor = white]}\n  {rank = same; check_splits; param2 [label = \"Parameter:\\nhr.consistency\", \n                                       shape = note, fillcolor = white]}\n  {rank = same; check_prop; param3 [label = \"Parameter:\\npconsistency.threshold\", \n                                     shape = note, fillcolor = white]}\n  \n  # Connect annotations with dotted lines\n  param1 -> check_hr [style = dotted, arrowhead = none, color = lightgrey]\n  param2 -> check_splits [style = dotted, arrowhead = none, color = lightgrey]\n  param3 -> check_prop [style = dotted, arrowhead = none, color = lightgrey]\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 1: Overview of forestsearch steps
 </p>
@@ -3915,12 +3915,12 @@ system.time({fs &lt;- forestsearch(df_gbsg,  confounders.name=confounders.name,
 <pre><code>## *** Subgroup found: {er &lt;= 0} 
 ## % consistency criteria met= 0.95 
 ## SG focus= hrMaxSG 
-## Subgroup Consistency Minutes= 0.2151667 
+## Subgroup Consistency Minutes= 0.21665 
 ## Subgroup found (FS) with sg_focus=&#39;hrMaxSG&#39;
 ## Selected subgroup: {er &lt;= 0} 
 ## Minutes forestsearch overall = 0.24</code></pre>
 <pre><code>##    user  system elapsed 
-##  27.712   1.634  14.364</code></pre>
+##  27.171   1.520  14.403</code></pre>
 <pre class="r"><code># reset workeres
 plan(&quot;sequential&quot;)</code></pre>
 </div>
@@ -4877,42 +4877,17 @@ NB &lt;- 1000
 
 t.start &lt;- proc.time()[3]
 
-fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)</code></pre>
-<pre><code>## Bootstrap parallel config: Using &#39;observed&#39; data analysis forestsearch settings</code></pre>
-<pre><code>## System max cores available: 14</code></pre>
-<pre><code>## Bootstrap will use: 12 workers with &#39;callr&#39; plan</code></pre>
-<pre><code>## Parallel plan: callr with 12 workers.</code></pre>
-<pre><code>## Ystar matrix generated should be &#39;boots x N&#39;: 1000 x 686</code></pre>
-<pre><code>## Bootstrap iteration 1/1000</code></pre>
-<pre><code>## Bootstrap iteration 10/1000</code></pre>
-<pre><code>## Bootstrap iteration 50/1000</code></pre>
-<pre><code>## Bootstrap iteration 100/1000</code></pre>
-<pre><code>## Bootstrap iteration 250/1000</code></pre>
-<pre><code>## Bootstrap iteration 500/1000</code></pre>
-<pre><code>## Bootstrap iteration 750/1000</code></pre>
-<pre><code>##   Bootstrap 974: Low events in subgroup H (Control=28, Treat=4)</code></pre>
-<pre><code>## Bootstrap iteration 1000/1000</code></pre>
-<pre><code>## 
-## === Bootstrap Analysis Complete ===
-## Success rate: 94.9% (949/1000)
-## 
-## H (Questionable) Estimates:
-##   Unadjusted:       1.95 (1.04,3.67) 
-##   Bias-corrected:  1.55 (0.81,2.98) 
-## 
-## Hc (Recommend) Estimates:
-##   Unadjusted:       0.61 (0.47,0.8) 
-##   Bias-corrected:  0.64 (0.44,0.93) 
-## ===================================</code></pre>
-<pre class="r"><code>plan(&quot;sequential&quot;)
+fs_bc &lt;- forestsearch_bootstrap_dofuture(fs.est = fs, nb_boots = NB, show_three = FALSE, details = TRUE)
+
+plan(&quot;sequential&quot;)
 
 t.now&lt;-proc.time()[3]
 t.min&lt;-(t.now-t.start)/60
-cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&quot;)</code></pre>
-<pre><code>## Minutes (total) for bootstrap (boots,mins) 1000 30.41013</code></pre>
-<pre class="r"><code>cat(&quot;Projected minutes for 1000&quot;,c(t.min*(1000/NB)),&quot;\n&quot;)</code></pre>
-<pre><code>## Projected minutes for 1000 30.41013</code></pre>
-<pre class="r"><code>if (save_results) {
+cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&quot;)
+cat(&quot;Projected minutes for 1000&quot;,c(t.min*(1000/NB)),&quot;\n&quot;)
+
+
+if (save_results) {
     filename &lt;- file.path(output_dir, 
                          paste0(&quot;gbsg_results_B=&quot;, 
                                 format(NB), 
@@ -4920,9 +4895,8 @@ cat(&quot;Minutes (total) for bootstrap (boots,mins)&quot;,c(NB,t.min),&quot;\n&
     save(fs_bc, fs, file = filename)
     cat(&quot;\nResults saved to:&quot;, filename, &quot;\n&quot;)
 }</code></pre>
-<pre><code>## 
-## Results saved to: results//gbsg_results_B=1000.RData</code></pre>
-<pre class="r"><code>#load(&quot;~/Library/CloudStorage/OneDrive-MerckSharp&amp;DohmeLLC/documents/GitHub/forestsearch/Vignettes/results/gbsg_results_B=1000.RData&quot;)
+<pre class="r"><code>load(&quot;~/Documents/GitHub/forestsearch/vignettes/results/gbsg_results_B=1000.RData&quot;)
+
 summaries &lt;- summarize_bootstrap_results(
       sgharm = fs$sg.harm,
       boot_results = fs_bc,
@@ -4975,20 +4949,20 @@ summaries &lt;- summarize_bootstrap_results(
 <pre class="r"><code>sg_tab &lt;- summaries$table
 
 sg_tab</code></pre>
-<div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#ppjflwfsyz table {
+<div id="zidsagsxlk" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#zidsagsxlk table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#ppjflwfsyz thead, #ppjflwfsyz tbody, #ppjflwfsyz tfoot, #ppjflwfsyz tr, #ppjflwfsyz td, #ppjflwfsyz th {
+#zidsagsxlk thead, #zidsagsxlk tbody, #zidsagsxlk tfoot, #zidsagsxlk tr, #zidsagsxlk td, #zidsagsxlk th {
 border-style: none;
 }
-#ppjflwfsyz p {
+#zidsagsxlk p {
 margin: 0;
 padding: 0;
 }
-#ppjflwfsyz .gt_table {
+#zidsagsxlk .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5013,11 +4987,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_caption {
+#zidsagsxlk .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#ppjflwfsyz .gt_title {
+#zidsagsxlk .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5028,7 +5002,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#ppjflwfsyz .gt_subtitle {
+#zidsagsxlk .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5039,7 +5013,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#ppjflwfsyz .gt_heading {
+#zidsagsxlk .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5050,12 +5024,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_bottom_border {
+#zidsagsxlk .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #333333;
 }
-#ppjflwfsyz .gt_col_headings {
+#zidsagsxlk .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5069,7 +5043,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_col_heading {
+#zidsagsxlk .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5088,7 +5062,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#ppjflwfsyz .gt_column_spanner_outer {
+#zidsagsxlk .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5099,13 +5073,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#ppjflwfsyz .gt_column_spanner_outer:first-child {
+#zidsagsxlk .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#ppjflwfsyz .gt_column_spanner_outer:last-child {
+#zidsagsxlk .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#ppjflwfsyz .gt_column_spanner {
+#zidsagsxlk .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #333333;
@@ -5116,10 +5090,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#ppjflwfsyz .gt_spanner_row {
+#zidsagsxlk .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#ppjflwfsyz .gt_group_heading {
+#zidsagsxlk .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5144,7 +5118,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#ppjflwfsyz .gt_empty_group_heading {
+#zidsagsxlk .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5158,13 +5132,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#ppjflwfsyz .gt_from_md > :first-child {
+#zidsagsxlk .gt_from_md > :first-child {
 margin-top: 0;
 }
-#ppjflwfsyz .gt_from_md > :last-child {
+#zidsagsxlk .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#ppjflwfsyz .gt_row {
+#zidsagsxlk .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5182,7 +5156,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#ppjflwfsyz .gt_stub {
+#zidsagsxlk .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5194,7 +5168,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ppjflwfsyz .gt_stub_row_group {
+#zidsagsxlk .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5207,13 +5181,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#ppjflwfsyz .gt_row_group_first td {
+#zidsagsxlk .gt_row_group_first td {
 border-top-width: 2px;
 }
-#ppjflwfsyz .gt_row_group_first th {
+#zidsagsxlk .gt_row_group_first th {
 border-top-width: 2px;
 }
-#ppjflwfsyz .gt_summary_row {
+#zidsagsxlk .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5222,14 +5196,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ppjflwfsyz .gt_first_summary_row {
+#zidsagsxlk .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_first_summary_row.thick {
+#zidsagsxlk .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#ppjflwfsyz .gt_last_summary_row {
+#zidsagsxlk .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5238,7 +5212,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_grand_summary_row {
+#zidsagsxlk .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5247,7 +5221,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ppjflwfsyz .gt_first_grand_summary_row {
+#zidsagsxlk .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5256,7 +5230,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_last_grand_summary_row_top {
+#zidsagsxlk .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5265,10 +5239,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_striped {
+#zidsagsxlk .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#ppjflwfsyz .gt_table_body {
+#zidsagsxlk .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5276,7 +5250,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_footnotes {
+#zidsagsxlk .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5289,7 +5263,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_footnote {
+#zidsagsxlk .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -5297,7 +5271,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ppjflwfsyz .gt_sourcenotes {
+#zidsagsxlk .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5310,64 +5284,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ppjflwfsyz .gt_sourcenote {
+#zidsagsxlk .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ppjflwfsyz .gt_left {
+#zidsagsxlk .gt_left {
 text-align: left;
 }
-#ppjflwfsyz .gt_center {
+#zidsagsxlk .gt_center {
 text-align: center;
 }
-#ppjflwfsyz .gt_right {
+#zidsagsxlk .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#ppjflwfsyz .gt_font_normal {
+#zidsagsxlk .gt_font_normal {
 font-weight: normal;
 }
-#ppjflwfsyz .gt_font_bold {
+#zidsagsxlk .gt_font_bold {
 font-weight: bold;
 }
-#ppjflwfsyz .gt_font_italic {
+#zidsagsxlk .gt_font_italic {
 font-style: italic;
 }
-#ppjflwfsyz .gt_super {
+#zidsagsxlk .gt_super {
 font-size: 65%;
 }
-#ppjflwfsyz .gt_footnote_marks {
+#zidsagsxlk .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#ppjflwfsyz .gt_asterisk {
+#zidsagsxlk .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#ppjflwfsyz .gt_indent_1 {
+#zidsagsxlk .gt_indent_1 {
 text-indent: 5px;
 }
-#ppjflwfsyz .gt_indent_2 {
+#zidsagsxlk .gt_indent_2 {
 text-indent: 10px;
 }
-#ppjflwfsyz .gt_indent_3 {
+#zidsagsxlk .gt_indent_3 {
 text-indent: 15px;
 }
-#ppjflwfsyz .gt_indent_4 {
+#zidsagsxlk .gt_indent_4 {
 text-indent: 20px;
 }
-#ppjflwfsyz .gt_indent_5 {
+#zidsagsxlk .gt_indent_5 {
 text-indent: 25px;
 }
-#ppjflwfsyz .katex-display {
+#zidsagsxlk .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#ppjflwfsyz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#zidsagsxlk div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5463,20 +5437,20 @@ height: 0px !important;
 ##   Treatment arm &lt;12 events: 0 (0.0% of successful)
 ##   Either arm &lt;12 events: 0 (0.0% of successful)</code></pre>
 <pre class="r"><code>summaries$diagnostics_table_gt</code></pre>
-<div id="drqjcseknz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#drqjcseknz table {
+<div id="idvcuyxuim" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#idvcuyxuim table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#drqjcseknz thead, #drqjcseknz tbody, #drqjcseknz tfoot, #drqjcseknz tr, #drqjcseknz td, #drqjcseknz th {
+#idvcuyxuim thead, #idvcuyxuim tbody, #idvcuyxuim tfoot, #idvcuyxuim tr, #idvcuyxuim td, #idvcuyxuim th {
 border-style: none;
 }
-#drqjcseknz p {
+#idvcuyxuim p {
 margin: 0;
 padding: 0;
 }
-#drqjcseknz .gt_table {
+#idvcuyxuim .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -5501,11 +5475,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#drqjcseknz .gt_caption {
+#idvcuyxuim .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#drqjcseknz .gt_title {
+#idvcuyxuim .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5516,7 +5490,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#drqjcseknz .gt_subtitle {
+#idvcuyxuim .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5527,7 +5501,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#drqjcseknz .gt_heading {
+#idvcuyxuim .gt_heading {
 background-color: #FFFFFF;
 text-align: left;
 border-bottom-color: #FFFFFF;
@@ -5538,12 +5512,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#drqjcseknz .gt_bottom_border {
+#idvcuyxuim .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #333333;
 }
-#drqjcseknz .gt_col_headings {
+#idvcuyxuim .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5557,7 +5531,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#drqjcseknz .gt_col_heading {
+#idvcuyxuim .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5576,7 +5550,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#drqjcseknz .gt_column_spanner_outer {
+#idvcuyxuim .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5587,13 +5561,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#drqjcseknz .gt_column_spanner_outer:first-child {
+#idvcuyxuim .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#drqjcseknz .gt_column_spanner_outer:last-child {
+#idvcuyxuim .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#drqjcseknz .gt_column_spanner {
+#idvcuyxuim .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #333333;
@@ -5604,10 +5578,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#drqjcseknz .gt_spanner_row {
+#idvcuyxuim .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#drqjcseknz .gt_group_heading {
+#idvcuyxuim .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5632,7 +5606,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#drqjcseknz .gt_empty_group_heading {
+#idvcuyxuim .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5646,13 +5620,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#drqjcseknz .gt_from_md > :first-child {
+#idvcuyxuim .gt_from_md > :first-child {
 margin-top: 0;
 }
-#drqjcseknz .gt_from_md > :last-child {
+#idvcuyxuim .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#drqjcseknz .gt_row {
+#idvcuyxuim .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5670,7 +5644,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#drqjcseknz .gt_stub {
+#idvcuyxuim .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5682,7 +5656,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drqjcseknz .gt_stub_row_group {
+#idvcuyxuim .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5695,13 +5669,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#drqjcseknz .gt_row_group_first td {
+#idvcuyxuim .gt_row_group_first td {
 border-top-width: 2px;
 }
-#drqjcseknz .gt_row_group_first th {
+#idvcuyxuim .gt_row_group_first th {
 border-top-width: 2px;
 }
-#drqjcseknz .gt_summary_row {
+#idvcuyxuim .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5710,14 +5684,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drqjcseknz .gt_first_summary_row {
+#idvcuyxuim .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#drqjcseknz .gt_first_summary_row.thick {
+#idvcuyxuim .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#drqjcseknz .gt_last_summary_row {
+#idvcuyxuim .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5726,7 +5700,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#drqjcseknz .gt_grand_summary_row {
+#idvcuyxuim .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5735,7 +5709,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drqjcseknz .gt_first_grand_summary_row {
+#idvcuyxuim .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5744,7 +5718,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#drqjcseknz .gt_last_grand_summary_row_top {
+#idvcuyxuim .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5753,10 +5727,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#drqjcseknz .gt_striped {
+#idvcuyxuim .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#drqjcseknz .gt_table_body {
+#idvcuyxuim .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5764,7 +5738,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#drqjcseknz .gt_footnotes {
+#idvcuyxuim .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5777,7 +5751,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#drqjcseknz .gt_footnote {
+#idvcuyxuim .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -5785,7 +5759,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drqjcseknz .gt_sourcenotes {
+#idvcuyxuim .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5798,64 +5772,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#drqjcseknz .gt_sourcenote {
+#idvcuyxuim .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#drqjcseknz .gt_left {
+#idvcuyxuim .gt_left {
 text-align: left;
 }
-#drqjcseknz .gt_center {
+#idvcuyxuim .gt_center {
 text-align: center;
 }
-#drqjcseknz .gt_right {
+#idvcuyxuim .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#drqjcseknz .gt_font_normal {
+#idvcuyxuim .gt_font_normal {
 font-weight: normal;
 }
-#drqjcseknz .gt_font_bold {
+#idvcuyxuim .gt_font_bold {
 font-weight: bold;
 }
-#drqjcseknz .gt_font_italic {
+#idvcuyxuim .gt_font_italic {
 font-style: italic;
 }
-#drqjcseknz .gt_super {
+#idvcuyxuim .gt_super {
 font-size: 65%;
 }
-#drqjcseknz .gt_footnote_marks {
+#idvcuyxuim .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#drqjcseknz .gt_asterisk {
+#idvcuyxuim .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#drqjcseknz .gt_indent_1 {
+#idvcuyxuim .gt_indent_1 {
 text-indent: 5px;
 }
-#drqjcseknz .gt_indent_2 {
+#idvcuyxuim .gt_indent_2 {
 text-indent: 10px;
 }
-#drqjcseknz .gt_indent_3 {
+#idvcuyxuim .gt_indent_3 {
 text-indent: 15px;
 }
-#drqjcseknz .gt_indent_4 {
+#idvcuyxuim .gt_indent_4 {
 text-indent: 20px;
 }
-#drqjcseknz .gt_indent_5 {
+#idvcuyxuim .gt_indent_5 {
 text-indent: 25px;
 }
-#drqjcseknz .katex-display {
+#idvcuyxuim .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#drqjcseknz div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#idvcuyxuim div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -5971,9 +5945,9 @@ height: 0px !important;
   </tfoot>
 </table>
 </div>
-<pre class="r"><code>#summaries$subgroup_summary$original_agreement
-
-#summaries$subgroup_summary$agreement
+<pre class="r"><code>summaries$subgroup_summary$original_agreement</code></pre>
+<pre><code>## NULL</code></pre>
+<pre class="r"><code>#summaries$subgroup_summary$agreement
 
 summaries$subgroup_summary$factor_presence</code></pre>
 <pre><code>##     Rank   Factor Count   Percent
@@ -6386,8 +6360,8 @@ print(sensitivity_results)</code></pre>
 <h1>Key Insights and Recommendations</h1>
 <div id="philosophy-of-each-approach" class="section level2">
 <h2>Philosophy of Each Approach</h2>
-<div class="datatables html-widget html-fill-item" id="htmlwidget-accadac45446229df77d" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-accadac45446229df77d">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-08a67cf1d698a5ae81b2" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-08a67cf1d698a5ae81b2">{"x":{"filter":"none","vertical":false,"caption":"<caption>Philosophy Behind Each sg_focus Option<\/caption>","data":[["1","2","3","4","5"],["hr","maxSG","minSG","hrMaxSG","hrMinSG"],["What harm are we most sure about?","How many patients could we protect?","Who is at highest risk?","What's the biggest problem we're confident about?","What's the most specific serious risk?"],["Maximize reliability","Maximize coverage","Maximize specificity","Balance impact and confidence","Precision with significance"],["Evidence-based medicine","Population health","Precision medicine","Risk-benefit optimization","Targeted intervention"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th> <\/th>\n      <th>sg_focus<\/th>\n      <th>Core_Question<\/th>\n      <th>Statistical_Philosophy<\/th>\n      <th>Clinical_Philosophy<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":5,"dom":"t","columnDefs":[{"orderable":false,"targets":0},{"name":" ","targets":0},{"name":"sg_focus","targets":1},{"name":"Core_Question","targets":2},{"name":"Statistical_Philosophy","targets":3},{"name":"Clinical_Philosophy","targets":4}],"order":[],"autoWidth":false,"orderClasses":false,"lengthMenu":[5,10,25,50,100]}},"evals":[],"jsHooks":[]}</script>
 </div>
 <div id="summary-recommendations" class="section level2">
 <h2>Summary Recommendations</h2>
@@ -6610,8 +6584,8 @@ computation.</li>
 <div id="overview-of-main-functions" class="section level1">
 <h1>Overview of Main functions</h1>
 <div class="figure">
-<div id="htmlwidget-d23ce101e28a4a8455e3" style="width:600px;height:400px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-d23ce101e28a4a8455e3">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-7fb0c9317626d50ba3b5" style="width:600px;height:400px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-7fb0c9317626d50ba3b5">{"x":{"diagram":"\ndigraph main_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 2: Main functions
 </p>
@@ -6620,8 +6594,8 @@ Figure 2: Main functions
 <div id="overview-of-helper-functions" class="section level1">
 <h1>Overview of Helper Functions</h1>
 <div class="figure">
-<div id="htmlwidget-d4f86cbdfd33e7f8cbd5" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-d4f86cbdfd33e7f8cbd5">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-5d623204ab06faea0370" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-5d623204ab06faea0370">{"x":{"diagram":"\ndigraph helpers_flow {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n  # get_FSdata helpers\n  get_FSdata [label=\"get_FSdata\"]\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n  # grf_subg helpers\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n  # subgroup_search helpers\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n  # subgroup_consistency helpers\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n  # SG_tab_estimates helpers\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 3: Helpers functions
 </p>
@@ -6630,8 +6604,8 @@ Figure 3: Helpers functions
 <div id="overview-of-all-functions" class="section level1">
 <h1>Overview of all functions</h1>
 <div class="figure">
-<div id="htmlwidget-1ce0ff2fc5b8939ffb23" style="width:800px;height:800px;" class="grViz html-widget"></div>
-<script type="application/json" data-for="htmlwidget-1ce0ff2fc5b8939ffb23">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div id="htmlwidget-e57dfd1768e26bdd9932" style="width:800px;height:800px;" class="grViz html-widget"></div>
+<script type="application/json" data-for="htmlwidget-e57dfd1768e26bdd9932">{"x":{"diagram":"\ndigraph flowchart {\n  graph [rankdir = LR]\n  node [shape=box, style=filled, fillcolor=\"#e6f2ff\", fontname=\"Arial\"]\n  edge [fontname=\"Arial\"]\n\n  forestsearch [label=\"forestsearch (main entry)\", fillcolor=\"#b3d1ff\"]\n  get_FSdata [label=\"get_FSdata\"]\n  grf_subg [label=\"grf.subg.harm.survival\"]\n  subgroup_search [label=\"subgroup.search\"]\n  subgroup_consistency [label=\"subgroup.consistency\"]\n  get_dfpred [label=\"get_dfpred\"]\n  SG_tab_estimates [label=\"SG_tab_estimates\"]\n  forestsearch_bootstrap [label=\"forestsearch_bootstrap_dofuture\"]\n\n  # Main flow\n  forestsearch -> get_FSdata\n  forestsearch -> grf_subg\n  forestsearch -> subgroup_search\n  forestsearch -> subgroup_consistency\n  forestsearch -> get_dfpred\n  forestsearch -> SG_tab_estimates\n  forestsearch -> forestsearch_bootstrap\n\n  # get_FSdata helpers\n  get_FSdata -> lasso_selection\n  get_FSdata -> get_conf_force\n  get_FSdata -> filter_by_lassokeep\n  get_FSdata -> is_continuous\n  get_FSdata -> cut_var\n  get_FSdata -> process_conf_force_expr\n  get_FSdata -> dummy\n  get_FSdata -> dummy2\n\n  # grf_subg helpers\n  grf_subg -> policy_tree\n  grf_subg -> causal_survival_forest\n  grf_subg -> double_robust_scores\n  grf_subg -> aggregate\n\n  # subgroup_search helpers\n  subgroup_search -> get_combinations_info\n  subgroup_search -> get_subgroup_membership\n  subgroup_search -> get_covs_in\n  subgroup_search -> extract_idx_flagredundancy\n\n  # subgroup_consistency helpers\n  subgroup_consistency -> sort_subgroups\n  subgroup_consistency -> extract_subgroup\n  subgroup_consistency -> sg_consistency_out\n  subgroup_consistency -> remove_redundant_subgroups\n  subgroup_consistency -> get_split_hr\n  subgroup_consistency -> setup_parallel_SGcons\n\n  # forestsearch_bootstrap helpers\n  forestsearch_bootstrap -> bootstrap_results\n  forestsearch_bootstrap -> bootstrap_ystar\n  forestsearch_bootstrap -> get_dfRes\n  forestsearch_bootstrap -> get_Cox_sg\n  forestsearch_bootstrap -> ci_est\n  forestsearch_bootstrap -> get_targetEst\n  forestsearch_bootstrap -> fit_cox_models\n  forestsearch_bootstrap -> build_cox_formula\n  forestsearch_bootstrap -> ensure_packages\n  forestsearch_bootstrap -> setup_parallel_SGcons\n\n  # SG_tab_estimates helpers\n  SG_tab_estimates -> analyze_subgroup\n  analyze_subgroup [label=\"analyze_subgroup\"]\n  analyze_subgroup -> cox_summary\n  analyze_subgroup -> km_summary\n  analyze_subgroup -> rmst_calculation\n  analyze_subgroup -> calculate_counts\n  analyze_subgroup -> calculate_potential_hr\n  SG_tab_estimates -> prepare_subgroup_data\n  SG_tab_estimates -> format_results\n  SG_tab_estimates -> format_CI\n}\n","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Figure 4: Overview of ALL functions
 </p>
