@@ -471,7 +471,7 @@ fs <- forestsearch(
     *** Subgroup found: {er <= 0} {size <= 35}
     % consistency criteria met= 0.97
     SG focus = hr
-    Seconds and minutes forestsearch overall = 2.472 0.0412
+    Seconds and minutes forestsearch overall = 2.413 0.0402
     Consistency algorithm used: twostage 
 
 Show code
@@ -484,7 +484,7 @@ cat("\nForestSearch completed in",
     round(timings$forestsearch, 1), "seconds\n")
 ```
 
-    ForestSearch completed in 2.5 seconds
+    ForestSearch completed in 2.4 seconds
 
 ### 5.3 ForestSearch Results
 
@@ -625,7 +625,7 @@ summaries <- summarize_bootstrap_results(
     Overall:
       Total bootstrap time:          0.04 minutes (0.00 hours)
       Average per iteration:         0.02 min (1.3 sec)
-      Projected for 1000 boots:      21.46 min (0.36 hrs)
+      Projected for 1000 boots:      22.43 min (0.37 hrs)
 
 Show code
 
@@ -1145,9 +1145,9 @@ gt(timing_df) |>
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
 | GRF                  | 0.2        | 0.0        |
-| ForestSearch         | 2.5        | 0.0        |
-| Bootstrap            | 3.8        | 0.1        |
-| Total                | 10.7       | 0.2        |
+| ForestSearch         | 2.4        | 0.0        |
+| Bootstrap            | 3.9        | 0.1        |
+| Total                | 10.8       | 0.2        |
 
 ## 10 References
 

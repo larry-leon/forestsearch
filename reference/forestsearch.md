@@ -31,7 +31,7 @@ forestsearch(
   grf_depth = 2,
   dmin.grf = 12,
   frac.tau = 0.6,
-  return_selected_cuts_only = FALSE,
+  return_selected_cuts_only = TRUE,
   conf_force = NULL,
   defaultcut_names = NULL,
   cut_type = "default",
@@ -172,10 +172,10 @@ forestsearch(
 
 - return_selected_cuts_only:
 
-  Logical. If TRUE, GRF returns only cuts from the tree depth that
-  identified the selected subgroup meeting `dmin.grf`. If FALSE
-  (default), returns all cuts from all fitted trees (depths 1 through
-  `grf_depth`). See
+  Logical. If TRUE (default), GRF returns only cuts from the tree depth
+  that identified the selected subgroup meeting `dmin.grf`. If FALSE
+  returns all cuts from all fitted trees (depths 1 through `grf_depth`).
+  See
   [`grf.subg.harm.survival`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md)
   for details.
 

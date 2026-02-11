@@ -73,7 +73,6 @@ A data frame with synthetic data
 ``` r
 # Example 1: Using with GBSG dataset
 library(survival)
-#> Warning: package ‘survival’ was built under R version 4.5.2
 data(cancer)
 
 synth_gbsg <- generate_bootstrap_synthetic(
