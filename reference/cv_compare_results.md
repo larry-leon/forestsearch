@@ -20,9 +20,9 @@ cv_compare_results(
 - cv_list:
 
   Named list of cv_result objects from
-  [`forestsearch_tenfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+  [`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
   or
-  [`forestsearch_Kfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md).
+  [`forestsearch_Kfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md).
 
 - metrics:
 

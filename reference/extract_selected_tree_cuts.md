@@ -33,7 +33,7 @@ but with only the selected tree's cuts in the `all` field
 ## Details
 
 This function is used when `return_selected_cuts_only = TRUE` in
-[`grf.subg.harm.survival()`](https://github.com/larry-leon/forestsearch/reference/grf.subg.harm.survival.md).
+[`grf.subg.harm.survival()`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md).
 It returns:
 
 - `tree1`, `tree2`, `tree3`: Individual tree cuts (still populated for

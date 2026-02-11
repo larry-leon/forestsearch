@@ -67,7 +67,7 @@ find_k_inter_for_target_hr(
 - subgroup_cuts:
 
   Named list of cutpoint specifications for subgroup variables. See
-  [`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
   for details on flexible specifications.
 
 - k_treat:
@@ -139,9 +139,9 @@ information.
 
 ## See also
 
-[`sensitivity_analysis_k_inter`](https://github.com/larry-leon/forestsearch/reference/sensitivity_analysis_k_inter.md)
+[`sensitivity_analysis_k_inter`](https://larry-leon.github.io/forestsearch/reference/sensitivity_analysis_k_inter.md)
 for sensitivity analysis
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 for DGM generation
 
 ## Examples

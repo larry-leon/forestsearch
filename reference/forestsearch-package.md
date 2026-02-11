@@ -21,6 +21,8 @@ Useful links:
 
 - <https://github.com/larry-leon/forestsearch>
 
+- <https://larry-leon.github.io/forestsearch/>
+
 - Report bugs at <https://github.com/larry-leon/forestsearch/issues>
 
 ## Author

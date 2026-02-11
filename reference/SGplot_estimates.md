@@ -21,7 +21,7 @@ SGplot_estimates(
 - df:
 
   data.frame or data.table. Simulation results from
-  [`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+  [`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 
 - label_training:
 
@@ -53,7 +53,7 @@ List with components:
 
 ## See also
 
-[`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+[`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 for generating simulation results
 
 ## Examples

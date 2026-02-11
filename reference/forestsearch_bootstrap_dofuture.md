@@ -21,7 +21,7 @@ forestsearch_bootstrap_dofuture(
 - fs.est:
 
   List. ForestSearch results object from
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
   Must contain `df.est` (data frame) and `args_call_all` (list of
   arguments).
 
@@ -127,13 +127,13 @@ scales with dataset size and number of workers.
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for initial subgroup identification
-[`bootstrap_results`](https://github.com/larry-leon/forestsearch/reference/bootstrap_results.md)
+[`bootstrap_results`](https://larry-leon.github.io/forestsearch/reference/bootstrap_results.md)
 for the core bootstrap worker function
-[`build_cox_formula`](https://github.com/larry-leon/forestsearch/reference/build_cox_formula.md)
+[`build_cox_formula`](https://larry-leon.github.io/forestsearch/reference/build_cox_formula.md)
 for Cox formula construction
-[`fit_cox_models`](https://github.com/larry-leon/forestsearch/reference/fit_cox_models.md)
+[`fit_cox_models`](https://larry-leon.github.io/forestsearch/reference/fit_cox_models.md)
 for Cox model fitting
 
 ## Examples

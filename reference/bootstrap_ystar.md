@@ -22,7 +22,7 @@ bootstrap_ystar(df, nb_boots, seed = 8316951L)
 
   Integer. Random seed for reproducibility. Default 8316951L. Must match
   the seed used in
-  [`bootstrap_results`](https://github.com/larry-leon/forestsearch/reference/bootstrap_results.md)
+  [`bootstrap_results`](https://larry-leon.github.io/forestsearch/reference/bootstrap_results.md)
   to ensure bootstrap index alignment with the Ystar matrix.
 
 ## Value

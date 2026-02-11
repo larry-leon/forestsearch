@@ -28,7 +28,7 @@ forestsearch_Kfold(
 - fs.est:
 
   List. ForestSearch results object from
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
   Must contain `df.est` (data frame) and `args_call_all` (list of
   arguments).
 
@@ -129,11 +129,11 @@ The returned `resCV` data frame contains:
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for initial subgroup identification
-[`forestsearch_KfoldOut`](https://github.com/larry-leon/forestsearch/reference/forestsearch_KfoldOut.md)
+[`forestsearch_KfoldOut`](https://larry-leon.github.io/forestsearch/reference/forestsearch_KfoldOut.md)
 for summarizing CV results
-[`forestsearch_tenfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+[`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
 for repeated K-fold simulations
 
 ## Examples

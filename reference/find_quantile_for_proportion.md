@@ -65,7 +65,7 @@ to ensure a specific subgroup size regardless of the data distribution.
 
 ## See also
 
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 
 ## Examples
 

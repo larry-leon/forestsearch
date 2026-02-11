@@ -325,9 +325,9 @@ Failure Time Data (2nd ed.). Wiley.
 
 ## See also
 
-[`simulate_from_dgm`](https://github.com/larry-leon/forestsearch/reference/simulate_from_dgm.md)
+[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 for generating simulated data from the DGM
-[`find_quantile_for_proportion`](https://github.com/larry-leon/forestsearch/reference/find_quantile_for_proportion.md)
+[`find_quantile_for_proportion`](https://larry-leon.github.io/forestsearch/reference/find_quantile_for_proportion.md)
 for finding quantiles that achieve target subgroup proportions
 
 ## Author

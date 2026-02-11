@@ -33,7 +33,7 @@ quick_km_band_plot(df, fs.est, outcome.name, event.name, treat.name, ...)
 - ...:
 
   Additional arguments passed to
-  [`plot_km_band_forestsearch()`](https://github.com/larry-leon/forestsearch/reference/plot_km_band_forestsearch.md),
+  [`plot_km_band_forestsearch()`](https://larry-leon.github.io/forestsearch/reference/plot_km_band_forestsearch.md),
   such as `ref_subgroups`, `tau_add`, `by_risk`, etc.
 
 ## Value

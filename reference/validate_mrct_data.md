@@ -43,7 +43,7 @@ The function also validates variable types and value ranges.
 
 ## See also
 
-[`create_dgm_for_mrct`](https://github.com/larry-leon/forestsearch/reference/create_dgm_for_mrct.md)
+[`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md)
 for creating DGM from validated data
 
 ## Examples

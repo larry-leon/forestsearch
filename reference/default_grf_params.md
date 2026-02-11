@@ -2,7 +2,7 @@
 
 Returns a list of default parameters for GRF analysis in GBSG-based
 simulations. Parameters align with
-[`grf.subg.harm.survival()`](https://github.com/larry-leon/forestsearch/reference/grf.subg.harm.survival.md)
+[`grf.subg.harm.survival()`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md)
 function signature.
 
 ## Usage

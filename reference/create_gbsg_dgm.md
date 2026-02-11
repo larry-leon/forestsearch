@@ -134,9 +134,9 @@ A list of class "gbsg_dgm" containing:
 ## Details
 
 This version is aligned with
-[`generate_aft_dgm_flex()`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 and
-[`calculate_hazard_ratios()`](https://github.com/larry-leon/forestsearch/reference/calculate_hazard_ratios.md)
+[`calculate_hazard_ratios()`](https://larry-leon.github.io/forestsearch/reference/calculate_hazard_ratios.md)
 methodology, computing individual-level potential outcomes and average
 hazard ratios (AHR).
 
@@ -181,9 +181,9 @@ This function now computes:
 
 ## See also
 
-[`simulate_from_gbsg_dgm`](https://github.com/larry-leon/forestsearch/reference/simulate_from_gbsg_dgm.md)
+[`simulate_from_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
 for generating data from the DGM
-[`calibrate_k_inter`](https://github.com/larry-leon/forestsearch/reference/calibrate_k_inter.md)
+[`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
 for finding k_inter to achieve target HR
 
 ## Examples

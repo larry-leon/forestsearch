@@ -25,7 +25,7 @@ simulate_from_dgm(
 - dgm:
 
   An object of class "aft_dgm_flex" created by
-  [`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 
 - n:
 
@@ -141,7 +141,7 @@ The `cens_adjust` parameter modifies the censoring distribution:
 
 ## See also
 
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 for creating the DGM
 
 ## Examples

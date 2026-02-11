@@ -18,4 +18,4 @@ dummy_encode(df)
 
 Data frame with numeric columns unchanged and factor columns expanded
 via
-[`acm.disjctif`](https://github.com/larry-leon/forestsearch/reference/acm.disjctif.md).
+[`acm.disjctif`](https://larry-leon.github.io/forestsearch/reference/acm.disjctif.md).

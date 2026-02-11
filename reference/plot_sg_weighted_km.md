@@ -3,7 +3,7 @@
 Creates weighted Kaplan-Meier survival curves for the identified
 subgroups (H and Hc) using the weightedsurv package, matching the
 pattern used in
-[`sg_consistency_out()`](https://github.com/larry-leon/forestsearch/reference/sg_consistency_out.md).
+[`sg_consistency_out()`](https://larry-leon.github.io/forestsearch/reference/sg_consistency_out.md).
 
 ## Usage
 
@@ -41,7 +41,7 @@ plot_sg_weighted_km(
 - fs_bc:
 
   Optional. Bootstrap results from
-  [`forestsearch_bootstrap_dofuture()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+  [`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
   containing bias-corrected HR estimates. If provided, bias-corrected
   HRs will be annotated on the plots.
 
@@ -129,7 +129,7 @@ Invisibly returns a list with subgroup data frames and counting data
 ## Details
 
 This function uses the exact same calling pattern as
-[`plot_subgroup()`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup.md)
+[`plot_subgroup()`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup.md)
 in the ForestSearch package. Column names are mapped internally to the
 standard names (Y, Event, Treat) expected by weightedsurv.
 

@@ -24,7 +24,7 @@ bootstrap_results(
 - fs.est:
 
   List. ForestSearch results object from
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
   Must contain:
 
   - `df.est`: Data frame with analysis data including `treat.recommend`
@@ -42,7 +42,7 @@ bootstrap_results(
 - cox.formula.boot:
 
   Formula. Cox model formula for bootstrap, typically created by
-  [`build_cox_formula`](https://github.com/larry-leon/forestsearch/reference/build_cox_formula.md).
+  [`build_cox_formula`](https://larry-leon.github.io/forestsearch/reference/build_cox_formula.md).
   Should be of form `Surv(outcome, event) ~ treatment`.
 
 - nb_boots:
@@ -72,7 +72,7 @@ bootstrap_results(
 
   Integer. Random seed for reproducibility. Default 8316951L. Must match
   the seed used in
-  [`bootstrap_ystar`](https://github.com/larry-leon/forestsearch/reference/bootstrap_ystar.md)
+  [`bootstrap_ystar`](https://larry-leon.github.io/forestsearch/reference/bootstrap_ystar.md)
   to ensure bootstrap index alignment.
 
 ## Value
@@ -227,13 +227,13 @@ This function is designed to be called within a `foreach` loop with
 `%dofuture%` operator. It requires:
 
 - All functions in
-  [`get_bootstrap_exports`](https://github.com/larry-leon/forestsearch/reference/get_bootstrap_exports.md)
+  [`get_bootstrap_exports`](https://larry-leon.github.io/forestsearch/reference/get_bootstrap_exports.md)
   to be available in the parallel workers
 
 - Packages listed in `BOOTSTRAP_REQUIRED_PACKAGES` to be installed
 
 - Proper parallel backend setup via
-  [`setup_parallel_SGcons`](https://github.com/larry-leon/forestsearch/reference/setup_parallel_SGcons.md)
+  [`setup_parallel_SGcons`](https://larry-leon.github.io/forestsearch/reference/setup_parallel_SGcons.md)
 
 ## Bias Correction Methods
 
@@ -312,18 +312,18 @@ All three cases ensure the foreach loop can still combine results via
 
 ## See also
 
-[`forestsearch_bootstrap_dofuture`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+[`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
 for the wrapper function that sets up parallelization and calls this
 function
-[`build_cox_formula`](https://github.com/larry-leon/forestsearch/reference/build_cox_formula.md)
+[`build_cox_formula`](https://larry-leon.github.io/forestsearch/reference/build_cox_formula.md)
 for creating the Cox formula
-[`fit_cox_models`](https://github.com/larry-leon/forestsearch/reference/fit_cox_models.md)
+[`fit_cox_models`](https://larry-leon.github.io/forestsearch/reference/fit_cox_models.md)
 for initial Cox model fitting
-[`get_Cox_sg`](https://github.com/larry-leon/forestsearch/reference/get_Cox_sg.md)
+[`get_Cox_sg`](https://larry-leon.github.io/forestsearch/reference/get_Cox_sg.md)
 for Cox model fitting on subgroups
-[`get_dfRes`](https://github.com/larry-leon/forestsearch/reference/get_dfRes.md)
+[`get_dfRes`](https://larry-leon.github.io/forestsearch/reference/get_dfRes.md)
 for processing bootstrap results into confidence intervals
-[`bootstrap_ystar`](https://github.com/larry-leon/forestsearch/reference/bootstrap_ystar.md)
+[`bootstrap_ystar`](https://larry-leon.github.io/forestsearch/reference/bootstrap_ystar.md)
 for generating the Ystar matrix
 
 ## Examples

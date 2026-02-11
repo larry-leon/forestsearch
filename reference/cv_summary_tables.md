@@ -1,7 +1,7 @@
 # Create Summary Tables from forestsearch_KfoldOut Results
 
 Formats the detailed output from
-[`forestsearch_KfoldOut`](https://github.com/larry-leon/forestsearch/reference/forestsearch_KfoldOut.md)`(outall=TRUE)`
+[`forestsearch_KfoldOut`](https://larry-leon.github.io/forestsearch/reference/forestsearch_KfoldOut.md)`(outall=TRUE)`
 into publication-ready gt tables. This includes ITT estimates, original
 subgroup estimates, and K-fold subgroup estimates.
 
@@ -72,9 +72,9 @@ If `use_gt = FALSE`, returns equivalent data.frames.
 
 ## See also
 
-[`cv_metrics_tables`](https://github.com/larry-leon/forestsearch/reference/cv_metrics_tables.md)
+[`cv_metrics_tables`](https://larry-leon.github.io/forestsearch/reference/cv_metrics_tables.md)
 for formatting
-[`forestsearch_tenfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+[`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
 results
 
 ## Examples

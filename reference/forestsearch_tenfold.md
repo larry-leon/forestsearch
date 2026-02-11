@@ -29,7 +29,7 @@ forestsearch_tenfold(
 - fs.est:
 
   List. ForestSearch results object from
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
 
 - sims:
 
@@ -98,9 +98,9 @@ sequentially.
 
 ## See also
 
-[`forestsearch_Kfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md)
+[`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
 for single K-fold CV
-[`forestsearch_KfoldOut`](https://github.com/larry-leon/forestsearch/reference/forestsearch_KfoldOut.md)
+[`forestsearch_KfoldOut`](https://larry-leon.github.io/forestsearch/reference/forestsearch_KfoldOut.md)
 for summarizing CV results
 
 ## Examples

@@ -1243,6 +1243,7 @@ if (typeof exports === 'object' && typeof module !== 'undefined') {
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
   </ul>
 </li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -1251,7 +1252,7 @@ if (typeof exports === 'object' && typeof module !== 'undefined') {
 <li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json">
 </form></li>
-<li class="nav-item"><a class="nav-link" href="https://github.com/larry-leon/forestsearch" aria-label="GitHub"><span class="fa fa-github"></span></a></li>
+<li class="nav-item"><a class="external-link nav-link" href="https://github.com/larry-leon/forestsearch" aria-label="GitHub"><span class="fa fa-github"></span></a></li>
       </ul>
 </div>
 
@@ -1266,7 +1267,7 @@ if (typeof exports === 'object' && typeof module !== 'undefined') {
       <p class="author">Larry F. León</p>
       <p class="date">2026-02-10</p>
 
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/forestsearch.qmd"><code>vignettes/forestsearch.qmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/forestsearch.qmd" class="external-link"><code>vignettes/forestsearch.qmd</code></a></small>
       <div class="d-none name"><code></code></div>
     </div>
 
@@ -1315,7 +1316,7 @@ if (typeof exports === 'object' && typeof module !== 'undefined') {
 </h3>
 <div class="cell" data-layout-align="center">
 <details open class="code-fold"><summary>Show code</summary><div class="sourceCode cell-code" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch">forestsearch</a></span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://ggplot2.tidyverse.org" class="external-link">ggplot2</a></span><span class="op">)</span></span>
@@ -1403,20 +1404,20 @@ if (typeof exports === 'object' && typeof module !== 'undefined') {
 <span>  font_size <span class="op">=</span> <span class="fl">12</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output-display">
-<div id="qdmkszrmau" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#qdmkszrmau table {
+<div id="mabwdlykxh" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#mabwdlykxh table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#qdmkszrmau thead, #qdmkszrmau tbody, #qdmkszrmau tfoot, #qdmkszrmau tr, #qdmkszrmau td, #qdmkszrmau th {
+#mabwdlykxh thead, #mabwdlykxh tbody, #mabwdlykxh tfoot, #mabwdlykxh tr, #mabwdlykxh td, #mabwdlykxh th {
 border-style: none;
 }
-#qdmkszrmau p {
+#mabwdlykxh p {
 margin: 0;
 padding: 0;
 }
-#qdmkszrmau .gt_table {
+#mabwdlykxh .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -1441,11 +1442,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#qdmkszrmau .gt_caption {
+#mabwdlykxh .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#qdmkszrmau .gt_title {
+#mabwdlykxh .gt_title {
 color: #333333;
 font-size: 14px;
 font-weight: initial;
@@ -1456,7 +1457,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#qdmkszrmau .gt_subtitle {
+#mabwdlykxh .gt_subtitle {
 color: #333333;
 font-size: 12px;
 font-weight: initial;
@@ -1467,7 +1468,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#qdmkszrmau .gt_heading {
+#mabwdlykxh .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -1478,12 +1479,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#qdmkszrmau .gt_bottom_border {
+#mabwdlykxh .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#qdmkszrmau .gt_col_headings {
+#mabwdlykxh .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -1497,7 +1498,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#qdmkszrmau .gt_col_heading {
+#mabwdlykxh .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 12px;
@@ -1516,7 +1517,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#qdmkszrmau .gt_column_spanner_outer {
+#mabwdlykxh .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 12px;
@@ -1527,13 +1528,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#qdmkszrmau .gt_column_spanner_outer:first-child {
+#mabwdlykxh .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#qdmkszrmau .gt_column_spanner_outer:last-child {
+#mabwdlykxh .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#qdmkszrmau .gt_column_spanner {
+#mabwdlykxh .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -1544,10 +1545,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#qdmkszrmau .gt_spanner_row {
+#mabwdlykxh .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#qdmkszrmau .gt_group_heading {
+#mabwdlykxh .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -1572,7 +1573,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#qdmkszrmau .gt_empty_group_heading {
+#mabwdlykxh .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -1586,13 +1587,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#qdmkszrmau .gt_from_md > :first-child {
+#mabwdlykxh .gt_from_md > :first-child {
 margin-top: 0;
 }
-#qdmkszrmau .gt_from_md > :last-child {
+#mabwdlykxh .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#qdmkszrmau .gt_row {
+#mabwdlykxh .gt_row {
 padding-top: 5px;
 padding-bottom: 5px;
 padding-left: 5px;
@@ -1610,7 +1611,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#qdmkszrmau .gt_stub {
+#mabwdlykxh .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -1622,7 +1623,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#qdmkszrmau .gt_stub_row_group {
+#mabwdlykxh .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -1635,13 +1636,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#qdmkszrmau .gt_row_group_first td {
+#mabwdlykxh .gt_row_group_first td {
 border-top-width: 2px;
 }
-#qdmkszrmau .gt_row_group_first th {
+#mabwdlykxh .gt_row_group_first th {
 border-top-width: 2px;
 }
-#qdmkszrmau .gt_summary_row {
+#mabwdlykxh .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -1650,14 +1651,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#qdmkszrmau .gt_first_summary_row {
+#mabwdlykxh .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#qdmkszrmau .gt_first_summary_row.thick {
+#mabwdlykxh .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#qdmkszrmau .gt_last_summary_row {
+#mabwdlykxh .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -1666,7 +1667,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#qdmkszrmau .gt_grand_summary_row {
+#mabwdlykxh .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -1675,7 +1676,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#qdmkszrmau .gt_first_grand_summary_row {
+#mabwdlykxh .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -1684,7 +1685,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#qdmkszrmau .gt_last_grand_summary_row_top {
+#mabwdlykxh .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -1693,10 +1694,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#qdmkszrmau .gt_striped {
+#mabwdlykxh .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#qdmkszrmau .gt_table_body {
+#mabwdlykxh .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -1704,7 +1705,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#qdmkszrmau .gt_footnotes {
+#mabwdlykxh .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -1717,7 +1718,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#qdmkszrmau .gt_footnote {
+#mabwdlykxh .gt_footnote {
 margin: 0px;
 font-size: 10px;
 padding-top: 4px;
@@ -1725,7 +1726,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#qdmkszrmau .gt_sourcenotes {
+#mabwdlykxh .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -1738,64 +1739,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#qdmkszrmau .gt_sourcenote {
+#mabwdlykxh .gt_sourcenote {
 font-size: 10px;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#qdmkszrmau .gt_left {
+#mabwdlykxh .gt_left {
 text-align: left;
 }
-#qdmkszrmau .gt_center {
+#mabwdlykxh .gt_center {
 text-align: center;
 }
-#qdmkszrmau .gt_right {
+#mabwdlykxh .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#qdmkszrmau .gt_font_normal {
+#mabwdlykxh .gt_font_normal {
 font-weight: normal;
 }
-#qdmkszrmau .gt_font_bold {
+#mabwdlykxh .gt_font_bold {
 font-weight: bold;
 }
-#qdmkszrmau .gt_font_italic {
+#mabwdlykxh .gt_font_italic {
 font-style: italic;
 }
-#qdmkszrmau .gt_super {
+#mabwdlykxh .gt_super {
 font-size: 65%;
 }
-#qdmkszrmau .gt_footnote_marks {
+#mabwdlykxh .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#qdmkszrmau .gt_asterisk {
+#mabwdlykxh .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#qdmkszrmau .gt_indent_1 {
+#mabwdlykxh .gt_indent_1 {
 text-indent: 5px;
 }
-#qdmkszrmau .gt_indent_2 {
+#mabwdlykxh .gt_indent_2 {
 text-indent: 10px;
 }
-#qdmkszrmau .gt_indent_3 {
+#mabwdlykxh .gt_indent_3 {
 text-indent: 15px;
 }
-#qdmkszrmau .gt_indent_4 {
+#mabwdlykxh .gt_indent_4 {
 text-indent: 20px;
 }
-#qdmkszrmau .gt_indent_5 {
+#mabwdlykxh .gt_indent_5 {
 text-indent: 25px;
 }
-#qdmkszrmau .katex-display {
+#mabwdlykxh .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#qdmkszrmau div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#mabwdlykxh div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -2011,14 +2012,14 @@ All splits (from all trees):
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree1</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 1"</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output-display">
-<div class="grViz html-widget html-fill-item" id="htmlwidget-7bb1418cfe2bdd930532" style="width:960px;height:384px;"></div>
-<script type="application/json" data-for="htmlwidget-7bb1418cfe2bdd930532">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" er <= 0 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div class="grViz html-widget html-fill-item" id="htmlwidget-ad18f735656f7e034ab8" style="width:960px;height:384px;"></div>
+<script type="application/json" data-for="htmlwidget-ad18f735656f7e034ab8">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" er <= 0 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 </div>
 <details open class="code-fold"><summary>Show code</summary><div class="sourceCode cell-code" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree2</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 2"</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output-display">
-<div class="grViz html-widget html-fill-item" id="htmlwidget-aa1b1e426b314f0c1e90" style="width:960px;height:384px;"></div>
-<script type="application/json" data-for="htmlwidget-aa1b1e426b314f0c1e90">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" age <= 50 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1 [label=\" age <= 43 \"] ;\n1 -> 3  ;\n1 -> 4  ;\n3  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n4  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2 [label=\" er <= 0 \"] ;\n2 -> 5  ;\n2 -> 6  ;\n5  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n6  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div class="grViz html-widget html-fill-item" id="htmlwidget-9a9075b85cde592fde12" style="width:960px;height:384px;"></div>
+<script type="application/json" data-for="htmlwidget-9a9075b85cde592fde12">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" age <= 50 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1 [label=\" age <= 43 \"] ;\n1 -> 3  ;\n1 -> 4  ;\n3  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n4  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2 [label=\" er <= 0 \"] ;\n2 -> 5  ;\n2 -> 6  ;\n5  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n6  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 </div>
 <details open class="code-fold"><summary>Show code</summary><div class="sourceCode cell-code" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -2266,7 +2267,7 @@ Evaluated 1 of 3 candidates (early stop)
 <pre><code>*** Subgroup found: {er &lt;= 0} {size &lt;= 35}
 % consistency criteria met= 0.97
 SG focus = hr
-Seconds and minutes forestsearch overall = 2.432 0.0405
+Seconds and minutes forestsearch overall = 2.472 0.0412
 Consistency algorithm used: twostage </code></pre>
 </div>
 <details open class="code-fold"><summary>Show code</summary><div class="sourceCode cell-code" id="cb23"><pre class="downlit sourceCode r">
@@ -2277,7 +2278,7 @@ Consistency algorithm used: twostage </code></pre>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 </details><div class="cell-output cell-output-stdout">
 <pre><code>
-ForestSearch completed in 2.4 seconds</code></pre>
+ForestSearch completed in 2.5 seconds</code></pre>
 </div>
 </div>
 </section><section class="level2" data-number="5.3"><h3 data-number="5.3" id="forestsearch-results">
@@ -3292,7 +3293,7 @@ TIMING ANALYSIS:
 Overall:
   Total bootstrap time:          0.04 minutes (0.00 hours)
   Average per iteration:         0.02 min (1.3 sec)
-  Projected for 1000 boots:      21.79 min (0.36 hrs)</code></pre>
+  Projected for 1000 boots:      21.46 min (0.36 hrs)</code></pre>
 </div>
 <details open class="code-fold"><summary>Show code</summary><div class="sourceCode cell-code" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
@@ -5581,7 +5582,7 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">ForestSearch</td>
-<td class="gt_row gt_right" headers="Seconds">2.4</td>
+<td class="gt_row gt_right" headers="Seconds">2.5</td>
 <td class="gt_row gt_right" headers="Minutes">0.0</td>
 </tr>
 <tr class="odd">
@@ -5591,7 +5592,7 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">Total</td>
-<td class="gt_row gt_right" headers="Seconds">10.6</td>
+<td class="gt_row gt_right" headers="Seconds">10.7</td>
 <td class="gt_row gt_right" headers="Minutes">0.2</td>
 </tr>
 </tbody>

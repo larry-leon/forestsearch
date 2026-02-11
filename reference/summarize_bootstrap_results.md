@@ -72,16 +72,16 @@ List with components:
 
 The `table` output includes a footnote displaying the identified
 subgroup definition, analogous to the `tab_estimates` table from
-[`sg_tables`](https://github.com/larry-leon/forestsearch/reference/sg_tables.md).
+[`sg_tables`](https://larry-leon.github.io/forestsearch/reference/sg_tables.md).
 This is achieved by extracting the subgroup definition from `sgharm` and
 passing it to
-[`format_bootstrap_table`](https://github.com/larry-leon/forestsearch/reference/format_bootstrap_table.md).
+[`format_bootstrap_table`](https://larry-leon.github.io/forestsearch/reference/format_bootstrap_table.md).
 
 ## See also
 
-[`format_bootstrap_table`](https://github.com/larry-leon/forestsearch/reference/format_bootstrap_table.md)
+[`format_bootstrap_table`](https://larry-leon.github.io/forestsearch/reference/format_bootstrap_table.md)
 for table creation
-[`sg_tables`](https://github.com/larry-leon/forestsearch/reference/sg_tables.md)
+[`sg_tables`](https://larry-leon.github.io/forestsearch/reference/sg_tables.md)
 for analogous main analysis tables
-[`summarize_bootstrap_subgroups`](https://github.com/larry-leon/forestsearch/reference/summarize_bootstrap_subgroups.md)
+[`summarize_bootstrap_subgroups`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_subgroups.md)
 for subgroup stability analysis

@@ -27,7 +27,7 @@ summaryout_mrct(
 - mrct_sims:
 
   data.table. Simulation results from
-  [`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+  [`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 
 - sg_type:
 
@@ -74,7 +74,7 @@ List with components:
 
 ## See also
 
-[`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+[`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 for generating simulation results
 
 ## Examples

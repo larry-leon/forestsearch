@@ -16,7 +16,7 @@ print(x, ...)
 - x:
 
   A `forestsearch` object returned by
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
 
 - ...:
 
@@ -28,9 +28,9 @@ Invisibly returns `x`.
 
 ## See also
 
-[`summary.forestsearch`](https://github.com/larry-leon/forestsearch/reference/summary.forestsearch.md)
+[`summary.forestsearch`](https://larry-leon.github.io/forestsearch/reference/summary.forestsearch.md)
 for detailed output,
-[`plot.forestsearch`](https://github.com/larry-leon/forestsearch/reference/plot.forestsearch.md)
+[`plot.forestsearch`](https://larry-leon.github.io/forestsearch/reference/plot.forestsearch.md)
 for visualization.
 
 ## Examples

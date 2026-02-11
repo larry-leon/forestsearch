@@ -178,13 +178,13 @@ You can override any individual parameter by specifying it explicitly.
 
 The theme does NOT set row background colors - those are determined
 automatically by
-[`plot_subgroup_results_forestplot()`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup_results_forestplot.md)
+[`plot_subgroup_results_forestplot()`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md)
 based on row types (ITT, reference, posthoc, etc.).
 
 ## See also
 
-[`plot_subgroup_results_forestplot`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup_results_forestplot.md),
-[`render_forestplot`](https://github.com/larry-leon/forestsearch/reference/render_forestplot.md)
+[`plot_subgroup_results_forestplot`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md),
+[`render_forestplot`](https://larry-leon.github.io/forestsearch/reference/render_forestplot.md)
 
 ## Examples
 

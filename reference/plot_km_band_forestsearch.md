@@ -237,11 +237,11 @@ When `fs.est` is provided, the subgroup definition is extracted from:
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for running the subgroup analysis
-[`plot_sg_weighted_km`](https://github.com/larry-leon/forestsearch/reference/plot_sg_weighted_km.md)
+[`plot_sg_weighted_km`](https://larry-leon.github.io/forestsearch/reference/plot_sg_weighted_km.md)
 for weighted KM plots
-[`plot_sg_results`](https://github.com/larry-leon/forestsearch/reference/plot_sg_results.md)
+[`plot_sg_results`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md)
 for comprehensive subgroup visualization
 
 ## Examples

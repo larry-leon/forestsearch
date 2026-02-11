@@ -46,15 +46,15 @@ plot_subgroup_results_forestplot(
   List. A list containing ForestSearch analysis results with elements:
 
   - `fs.est`: ForestSearch estimation object from
-    [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+    [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 
   - `fs_bc`: Bootstrap bias-corrected results from
-    [`forestsearch_bootstrap_dofuture`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+    [`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
 
   - `fs_kfold`: K-fold cross-validation results from
-    [`forestsearch_Kfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md)
+    [`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
     or
-    [`forestsearch_tenfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+    [`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
     (optional)
 
   - `fs_OOB`: Out-of-bag cross-validation results (optional, alternative
@@ -165,7 +165,7 @@ plot_subgroup_results_forestplot(
 - theme:
 
   An fs_forest_theme object from
-  [`create_forest_theme()`](https://github.com/larry-leon/forestsearch/reference/create_forest_theme.md).
+  [`create_forest_theme()`](https://larry-leon.github.io/forestsearch/reference/create_forest_theme.md).
   Use this to control plot sizing (fonts, row height, CI appearance, CV
   annotation font size). Default: NULL (uses default theme).
 
@@ -221,15 +221,15 @@ For `est.scale = "1/hr"` (searching for benefit):
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for running the subgroup analysis
-[`forestsearch_bootstrap_dofuture`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+[`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
 for bootstrap bias correction
-[`forestsearch_Kfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md)
+[`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
 for cross-validation
-[`create_forest_theme`](https://github.com/larry-leon/forestsearch/reference/create_forest_theme.md)
+[`create_forest_theme`](https://larry-leon.github.io/forestsearch/reference/create_forest_theme.md)
 for customizing plot appearance
-[`render_forestplot`](https://github.com/larry-leon/forestsearch/reference/render_forestplot.md)
+[`render_forestplot`](https://larry-leon.github.io/forestsearch/reference/render_forestplot.md)
 for rendering the plot
 
 ## Examples

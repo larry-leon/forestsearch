@@ -16,7 +16,7 @@ summary(object, ...)
 - object:
 
   A `forestsearch` object returned by
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
 
 - ...:
 

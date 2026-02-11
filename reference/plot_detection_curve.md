@@ -19,7 +19,7 @@ plot_detection_curve(
 - curve_data:
 
   A data.frame from
-  [`generate_detection_curve`](https://github.com/larry-leon/forestsearch/reference/generate_detection_curve.md)
+  [`generate_detection_curve`](https://larry-leon.github.io/forestsearch/reference/generate_detection_curve.md)
   or with columns: theta, probability.
 
 - add_reference_lines:

@@ -2,7 +2,7 @@
 
 Wrapper function to create a data generating mechanism (DGM) for MRCT
 simulation scenarios using
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md).
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md).
 
 ## Usage
 
@@ -55,9 +55,9 @@ create_dgm_for_mrct(
 ## Value
 
 An object of class "aft_dgm_flex" for use with
-[`simulate_from_dgm`](https://github.com/larry-leon/forestsearch/reference/simulate_from_dgm.md)
+[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 and
-[`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+[`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 
 ## Details
 
@@ -86,9 +86,9 @@ but without a forced effect - its coefficient is estimated from data.
 
 ## See also
 
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 for underlying DGM creation
-[`mrct_region_sims`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md)
+[`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 for running simulations with the DGM
 
 ## Examples

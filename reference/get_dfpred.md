@@ -48,9 +48,9 @@ Each element of `sg.harm` is processed as follows:
 
 ## See also
 
-[`evaluate_comparison`](https://github.com/larry-leon/forestsearch/reference/evaluate_comparison.md)
+[`evaluate_comparison`](https://larry-leon.github.io/forestsearch/reference/evaluate_comparison.md)
 for the operator-dispatch logic,
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for the main analysis function.
 
 ## Examples

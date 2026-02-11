@@ -1,9 +1,9 @@
 # Create Metrics Tables for Cross-Validation Results
 
 Formats the `find_summary` and `sens_summary` outputs from
-[`forestsearch_tenfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+[`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
 or
-[`forestsearch_Kfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md)
+[`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
 into publication-ready gt tables.
 
 ## Usage
@@ -26,9 +26,9 @@ cv_metrics_tables(
 - cv_result:
 
   List. Result from
-  [`forestsearch_tenfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md)
+  [`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
   or
-  [`forestsearch_Kfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md).
+  [`forestsearch_Kfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md).
   Must contain `find_summary` and `sens_summary` elements.
 
 - sg_definition:
@@ -87,7 +87,7 @@ matrices in the returned list.
 
 ## See also
 
-[`cv_summary_tables`](https://github.com/larry-leon/forestsearch/reference/cv_summary_tables.md)
+[`cv_summary_tables`](https://larry-leon.github.io/forestsearch/reference/cv_summary_tables.md)
 for formatting `forestsearch_KfoldOut(outall=TRUE)` results
 
 ## Examples

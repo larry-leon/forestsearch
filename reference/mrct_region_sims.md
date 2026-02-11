@@ -33,7 +33,7 @@ mrct_region_sims(
 - dgm:
 
   Data generating mechanism object from
-  [`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 
 - n_sims:
 
@@ -53,7 +53,7 @@ mrct_region_sims(
 - sg_focus:
 
   Character. Subgroup selection criterion passed to
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md):
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md):
   "minSG", "hr", or "maxSG". Default: "minSG"
 
 - maxk:
@@ -182,14 +182,14 @@ A data.table with simulation results containing:
 For each simulation:
 
 1.  Sample from super-population using
-    [`simulate_from_dgm`](https://github.com/larry-leon/forestsearch/reference/simulate_from_dgm.md)
+    [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 
 2.  Split by region_var into training and testing populations
 
 3.  Estimate HRs in ITT, training, and testing populations
 
 4.  Run
-    [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+    [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
     on training population
 
 5.  Apply identified subgroup to testing population
@@ -202,21 +202,21 @@ The region_var parameter is used ONLY for splitting data into
 training/testing populations. It does not imply any prognostic effect.
 To include prognostic confounder effects, specify them when creating the
 DGM using
-[`create_dgm_for_mrct`](https://github.com/larry-leon/forestsearch/reference/create_dgm_for_mrct.md)
+[`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md)
 or
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md).
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md).
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for subgroup identification algorithm
-[`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md)
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 for DGM creation
-[`simulate_from_dgm`](https://github.com/larry-leon/forestsearch/reference/simulate_from_dgm.md)
+[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 for data simulation
-[`create_dgm_for_mrct`](https://github.com/larry-leon/forestsearch/reference/create_dgm_for_mrct.md)
+[`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md)
 for MRCT-specific DGM wrapper
-[`summaryout_mrct`](https://github.com/larry-leon/forestsearch/reference/summaryout_mrct.md)
+[`summaryout_mrct`](https://larry-leon.github.io/forestsearch/reference/summaryout_mrct.md)
 for summarizing simulation results
 
 ## Examples

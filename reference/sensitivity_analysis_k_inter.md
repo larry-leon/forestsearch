@@ -33,7 +33,7 @@ sensitivity_analysis_k_inter(
 - ...:
 
   Additional arguments passed to
-  [`generate_aft_dgm_flex`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md).
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md).
 
 ## Value
 

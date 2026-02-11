@@ -67,7 +67,7 @@ get_dgm_with_output(
 - ...:
 
   Additional arguments passed to
-  [`create_gbsg_dgm`](https://github.com/larry-leon/forestsearch/reference/create_gbsg_dgm.md)
+  [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
 
 ## Value
 

@@ -23,7 +23,7 @@ format_oc_results(
 - results:
 
   data.table or data.frame. Simulation results from
-  [`run_simulation_analysis`](https://github.com/larry-leon/forestsearch/reference/run_simulation_analysis.md)
+  [`run_simulation_analysis`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
   or combined results from multiple simulations.
 
 - analyses:

@@ -38,7 +38,7 @@ run_simulation_analysis(
 - dgm:
 
   A DGM object from
-  [`create_gbsg_dgm`](https://github.com/larry-leon/forestsearch/reference/create_gbsg_dgm.md)
+  [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
   or similar
 
 - n_sample:
@@ -88,7 +88,7 @@ run_simulation_analysis(
 
   List. GRF parameters for standalone GRF analysis (overrides defaults).
   Accepts all parameters for
-  [`grf.subg.harm.survival()`](https://github.com/larry-leon/forestsearch/reference/grf.subg.harm.survival.md):
+  [`grf.subg.harm.survival()`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md):
   n.min, dmin.grf, frac.tau, maxdepth, RCT, sg.criterion, seedit,
   outcome.name, event.name, treat.name, id.name. User-provided values
   take precedence over defaults.
@@ -186,7 +186,7 @@ The function can run up to three analysis types:
 Parameters are merged in the following order (later values override
 earlier):
 
-1.  [`default_fs_params()`](https://github.com/larry-leon/forestsearch/reference/default_fs_params.md) -
+1.  [`default_fs_params()`](https://larry-leon.github.io/forestsearch/reference/default_fs_params.md) -
     package defaults
 
 2.  Analysis-type-specific defaults (use_lasso/use_grf for FS vs FSlg)

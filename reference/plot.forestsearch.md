@@ -1,7 +1,7 @@
 # Plot ForestSearch Results
 
 Dispatches to
-[`plot_sg_results`](https://github.com/larry-leon/forestsearch/reference/plot_sg_results.md)
+[`plot_sg_results`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md)
 for Kaplan-Meier curves, hazard-ratio forest plots, or combined panels.
 
 ## Usage
@@ -23,7 +23,7 @@ plot(
 - x:
 
   A `forestsearch` object returned by
-  [`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md).
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md).
 
 - type:
 
@@ -60,7 +60,7 @@ plot(
 - ...:
 
   Additional arguments passed to
-  [`plot_sg_results`](https://github.com/larry-leon/forestsearch/reference/plot_sg_results.md),
+  [`plot_sg_results`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md),
   such as `by.risk`, `conf.level`, `est.scale`, `sg0_name`, `sg1_name`,
   `treat_labels`, `colors`, `title`, `show_events`, `show_ci`,
   `show_logrank`, `show_hr`.
@@ -68,15 +68,15 @@ plot(
 ## Value
 
 Invisibly returns the plot result from
-[`plot_sg_results`](https://github.com/larry-leon/forestsearch/reference/plot_sg_results.md).
+[`plot_sg_results`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md).
 
 ## See also
 
-[`plot_sg_results`](https://github.com/larry-leon/forestsearch/reference/plot_sg_results.md)
+[`plot_sg_results`](https://larry-leon.github.io/forestsearch/reference/plot_sg_results.md)
 for full control over appearance,
-[`plot_sg_weighted_km`](https://github.com/larry-leon/forestsearch/reference/plot_sg_weighted_km.md)
+[`plot_sg_weighted_km`](https://larry-leon.github.io/forestsearch/reference/plot_sg_weighted_km.md)
 for weighted KM curves,
-[`plot_subgroup_results_forestplot`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup_results_forestplot.md)
+[`plot_subgroup_results_forestplot`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md)
 for publication-ready forest plots.
 
 ## Examples

@@ -4,7 +4,7 @@ Creates comprehensive visualizations of subgroup results from
 ForestSearch, including Kaplan-Meier survival curves, hazard ratio
 comparisons, and summary statistics. This function is designed to work
 with the output from
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md),
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md),
 specifically the `df.est` component.
 
 ## Usage
@@ -195,11 +195,11 @@ complement.
 
 ## See also
 
-[`forestsearch`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md)
+[`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
 for running the subgroup analysis
-[`sg_consistency_out`](https://github.com/larry-leon/forestsearch/reference/sg_consistency_out.md)
+[`sg_consistency_out`](https://larry-leon.github.io/forestsearch/reference/sg_consistency_out.md)
 for consistency evaluation
-[`plot_subgroup_results_forestplot`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup_results_forestplot.md)
+[`plot_subgroup_results_forestplot`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md)
 for publication-ready forest plots
 
 ## Examples

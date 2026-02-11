@@ -1,7 +1,7 @@
 # Subset a data frame using an expression string
 
 Thin wrapper around
-[`safe_eval_expr`](https://github.com/larry-leon/forestsearch/reference/safe_eval_expr.md)
+[`safe_eval_expr`](https://larry-leon.github.io/forestsearch/reference/safe_eval_expr.md)
 that uses the logical result to subset rows.
 
 ## Usage

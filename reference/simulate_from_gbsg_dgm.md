@@ -24,7 +24,7 @@ simulate_from_gbsg_dgm(
 - dgm:
 
   A "gbsg_dgm" object from
-  [`create_gbsg_dgm`](https://github.com/larry-leon/forestsearch/reference/create_gbsg_dgm.md)
+  [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
 
 - n:
 

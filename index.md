@@ -132,52 +132,52 @@ plot_sg_weighted_km(fs, fs_bc = fs_bc)
 
 | Feature | Description |
 |----|----|
-| [`forestsearch()`](https://github.com/larry-leon/forestsearch/reference/forestsearch.md) | Main search engine: LASSO/GRF candidate selection, exhaustive enumeration, consistency evaluation |
-| [`subgroup.consistency()`](https://github.com/larry-leon/forestsearch/reference/subgroup.consistency.md) | Split-sample consistency with optional two-stage sequential early stopping |
-| [`select_best_subgroup()`](https://github.com/larry-leon/forestsearch/reference/select_best_subgroup.md) | Multiple selection criteria: `"hr"`, `"maxSG"`, `"minSG"`, `"hrMaxSG"`, `"hrMinSG"` |
+| [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md) | Main search engine: LASSO/GRF candidate selection, exhaustive enumeration, consistency evaluation |
+| [`subgroup.consistency()`](https://larry-leon.github.io/forestsearch/reference/subgroup.consistency.md) | Split-sample consistency with optional two-stage sequential early stopping |
+| [`select_best_subgroup()`](https://larry-leon.github.io/forestsearch/reference/select_best_subgroup.md) | Multiple selection criteria: `"hr"`, `"maxSG"`, `"minSG"`, `"hrMaxSG"`, `"hrMinSG"` |
 
 ### Bootstrap Inference
 
 | Feature | Description |
 |----|----|
-| [`forestsearch_bootstrap_dofuture()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md) | Parallelised bootstrap with `doFuture`; full algorithm mimicked in each replicate |
+| [`forestsearch_bootstrap_dofuture()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md) | Parallelised bootstrap with `doFuture`; full algorithm mimicked in each replicate |
 | Bias correction | Two-source correction on the log-HR scale (Leon et al., Eq. 6–7) |
 | IJ variance | Infinitesimal jackknife variance estimation for valid confidence intervals |
-| [`summarize_bootstrap_results()`](https://github.com/larry-leon/forestsearch/reference/summarize_bootstrap_results.md) | Publication-ready `gt` tables with diagnostics |
+| [`summarize_bootstrap_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_results.md) | Publication-ready `gt` tables with diagnostics |
 
 ### Cross-Validation
 
 | Feature | Description |
 |----|----|
-| [`forestsearch_Kfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md) | N-fold (leave-one-out) CV for algorithmic stability assessment |
-| [`forestsearch_tenfold()`](https://github.com/larry-leon/forestsearch/reference/forestsearch_tenfold.md) | Repeated K-fold CV (e.g., 200 x 10-fold) |
-| [`cv_metrics_tables()`](https://github.com/larry-leon/forestsearch/reference/cv_metrics_tables.md) | sensCV, ppvCV, and exact-match correspondence metrics |
+| [`forestsearch_Kfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md) | N-fold (leave-one-out) CV for algorithmic stability assessment |
+| [`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md) | Repeated K-fold CV (e.g., 200 x 10-fold) |
+| [`cv_metrics_tables()`](https://larry-leon.github.io/forestsearch/reference/cv_metrics_tables.md) | sensCV, ppvCV, and exact-match correspondence metrics |
 
 ### Visualization
 
 | Feature | Description |
 |----|----|
-| [`plot_subgroup_results_forestplot()`](https://github.com/larry-leon/forestsearch/reference/plot_subgroup_results_forestplot.md) | Forest plot with bias-corrected HRs, reference subgroups, and CV annotations |
-| [`plot_sg_weighted_km()`](https://github.com/larry-leon/forestsearch/reference/plot_sg_weighted_km.md) | Weighted Kaplan-Meier curves for identified subgroups |
-| [`plot_km_band_forestsearch()`](https://github.com/larry-leon/forestsearch/reference/plot_km_band_forestsearch.md) | Multi-subgroup KM comparison bands |
-| [`plot_spline_treatment_effect()`](https://github.com/larry-leon/forestsearch/reference/plot_spline_treatment_effect.md) | Spline-based treatment effect curves |
-| [`plot_detection_curve()`](https://github.com/larry-leon/forestsearch/reference/plot_detection_curve.md) | Power/detection probability across effect sizes |
+| [`plot_subgroup_results_forestplot()`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md) | Forest plot with bias-corrected HRs, reference subgroups, and CV annotations |
+| [`plot_sg_weighted_km()`](https://larry-leon.github.io/forestsearch/reference/plot_sg_weighted_km.md) | Weighted Kaplan-Meier curves for identified subgroups |
+| [`plot_km_band_forestsearch()`](https://larry-leon.github.io/forestsearch/reference/plot_km_band_forestsearch.md) | Multi-subgroup KM comparison bands |
+| [`plot_spline_treatment_effect()`](https://larry-leon.github.io/forestsearch/reference/plot_spline_treatment_effect.md) | Spline-based treatment effect curves |
+| [`plot_detection_curve()`](https://larry-leon.github.io/forestsearch/reference/plot_detection_curve.md) | Power/detection probability across effect sizes |
 
 ### Simulation Framework
 
 | Feature | Description |
 |----|----|
-| [`generate_aft_dgm_flex()`](https://github.com/larry-leon/forestsearch/reference/generate_aft_dgm_flex.md) | Flexible AFT data-generating mechanism with configurable heterogeneity |
-| [`create_gbsg_dgm()`](https://github.com/larry-leon/forestsearch/reference/create_gbsg_dgm.md) | GBSG-based DGM for replicating paper simulations |
-| [`run_simulation_analysis()`](https://github.com/larry-leon/forestsearch/reference/run_simulation_analysis.md) | Full simulation wrapper: FS, FS+GRF, and standalone GRF |
-| [`summarize_simulation_results()`](https://github.com/larry-leon/forestsearch/reference/summarize_simulation_results.md) | Operating characteristics tables (type-1 error, power, sensitivity, PPV) |
+| [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) | Flexible AFT data-generating mechanism with configurable heterogeneity |
+| [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md) | GBSG-based DGM for replicating paper simulations |
+| [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md) | Full simulation wrapper: FS, FS+GRF, and standalone GRF |
+| [`summarize_simulation_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md) | Operating characteristics tables (type-1 error, power, sensitivity, PPV) |
 
 ### Multi-Regional Clinical Trials
 
 | Feature | Description |
 |----|----|
-| [`mrct_region_sims()`](https://github.com/larry-leon/forestsearch/reference/mrct_region_sims.md) | Regional consistency evaluation in MRCTs |
-| [`create_dgm_for_mrct()`](https://github.com/larry-leon/forestsearch/reference/create_dgm_for_mrct.md) | DGM with region-level heterogeneity |
+| [`mrct_region_sims()`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md) | Regional consistency evaluation in MRCTs |
+| [`create_dgm_for_mrct()`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md) | DGM with region-level heterogeneity |
 
 ## Methodology at a Glance
 
@@ -224,7 +224,7 @@ Simulation studies (20,000 replicates) demonstrate:
 ## Documentation
 
 - **Getting Started vignette**:
-  [`vignette("forestsearch")`](https://github.com/larry-leon/forestsearch/articles/forestsearch.md)
+  [`vignette("forestsearch")`](https://larry-leon.github.io/forestsearch/articles/forestsearch.md)
   — end-to-end walkthrough with the GBSG breast cancer trial
 - **Methodology vignette**: `vignette("methodology")` — detailed
   statistical framework, algorithm, simulation results, and applications

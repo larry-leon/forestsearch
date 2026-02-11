@@ -17,7 +17,7 @@ create_factor_summary_tables(factor_freq, n_found, min_percent = 2)
 - factor_freq:
 
   Data.frame or data.table. Factor frequency table from
-  [`summarize_bootstrap_subgroups`](https://github.com/larry-leon/forestsearch/reference/summarize_bootstrap_subgroups.md),
+  [`summarize_bootstrap_subgroups`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_subgroups.md),
   containing columns:
 
   - `Position`: Position identifier (e.g., "M.1", "M.2")
@@ -79,14 +79,14 @@ will be NULL.
 
 ## See also
 
-- [`summarize_bootstrap_subgroups`](https://github.com/larry-leon/forestsearch/reference/summarize_bootstrap_subgroups.md)
+- [`summarize_bootstrap_subgroups`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_subgroups.md)
   for generating the factor_freq input
 
-- [`format_subgroup_summary_tables`](https://github.com/larry-leon/forestsearch/reference/format_subgroup_summary_tables.md)
+- [`format_subgroup_summary_tables`](https://larry-leon.github.io/forestsearch/reference/format_subgroup_summary_tables.md)
   for creating all subgroup summary tables
 
-- [`summarize_bootstrap_results`](https://github.com/larry-leon/forestsearch/reference/summarize_bootstrap_results.md)
+- [`summarize_bootstrap_results`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_results.md)
   for complete bootstrap analysis workflow
 
-- [`forestsearch_bootstrap_dofuture`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+- [`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
   for running bootstrap analysis

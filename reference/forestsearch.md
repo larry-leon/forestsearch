@@ -176,7 +176,7 @@ forestsearch(
   identified the selected subgroup meeting `dmin.grf`. If FALSE
   (default), returns all cuts from all fitted trees (depths 1 through
   `grf_depth`). See
-  [`grf.subg.harm.survival`](https://github.com/larry-leon/forestsearch/reference/grf.subg.harm.survival.md)
+  [`grf.subg.harm.survival`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md)
   for details.
 
 - conf_force:
@@ -460,11 +460,11 @@ preferred for exact reproducibility.
 
 ## See also
 
-[`subgroup.consistency`](https://github.com/larry-leon/forestsearch/reference/subgroup.consistency.md)
+[`subgroup.consistency`](https://larry-leon.github.io/forestsearch/reference/subgroup.consistency.md)
 for consistency evaluation details
-[`forestsearch_bootstrap_dofuture`](https://github.com/larry-leon/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
+[`forestsearch_bootstrap_dofuture`](https://larry-leon.github.io/forestsearch/reference/forestsearch_bootstrap_dofuture.md)
 for bootstrap inference
-[`forestsearch_Kfold`](https://github.com/larry-leon/forestsearch/reference/forestsearch_Kfold.md)
+[`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
 for cross-validation
 
 ## Examples
