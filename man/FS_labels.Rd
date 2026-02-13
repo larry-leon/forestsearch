@@ -7,8 +7,8 @@
 FS_labels(Qsg, confs_labels)
 }
 \arguments{
-\item{Qsg}{Character. Factor code in format "q\if{html}{\out{<index>}}.\if{html}{\out{<action>}}" or
-"q\if{html}{\out{<index>}}". For the full format, action 0 = NOT (complement),
+\item{Qsg}{Character. Factor code in format \code{"q<index>.<action>"} or
+\code{"q<index>"}. For the full format, action 0 = NOT (complement),
 action 1 = IN (member). Short format defaults to action 1.
 Can also be a character vector for vectorized input.}
 
@@ -17,7 +17,7 @@ factor number.}
 }
 \value{
 Character. Human-readable label wrapped in braces, e.g.,
-"\{age <= 50\}" or "!\{age <= 50\}" for complement. Returns the
+\code{"{age <= 50}"} or \code{"!{age <= 50}"} for complement. Returns the
 original code if no match is found.
 }
 \description{
