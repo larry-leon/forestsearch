@@ -221,9 +221,10 @@ ForestSearch supports parallel processing for computationally intensive
 operations (bootstrap, cross-validation).
 
 ```{r parallel-setup}
-# Detect available cores (use fewer for CRAN checks)
-n_cores <- min(parallel::detectCores() - 1, 20)
-cat("Using", n_cores, "cores for parallel processing\n")
+# Detect available cores (limited to 2 cores for CRAN checks)
+n_cores <- 2
+n_cores_total <- parallel::detectCores()
+cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
 # Configure parallel backend
 registerDoFuture()
@@ -357,7 +358,12 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
   nb_boots = NB,
   show_three = FALSE,
-  details = FALSE
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
 )
 
 plan("sequential")
