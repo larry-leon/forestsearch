@@ -240,15 +240,15 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
 #' mapping. Supports both full format ("q1.1", "q3.0") and short format
 #' ("q1", "q3"). Handles vector input via recursion.
 #'
-#' @param Qsg Character. Factor code in format "q<index>.<action>" or
-#'   "q<index>". For the full format, action 0 = NOT (complement),
+#' @param Qsg Character. Factor code in format `"q<index>.<action>"` or
+#'   `"q<index>"`. For the full format, action 0 = NOT (complement),
 #'   action 1 = IN (member). Short format defaults to action 1.
 #'   Can also be a character vector for vectorized input.
 #' @param confs_labels Character vector. Labels for each factor, indexed by
 #'   factor number.
 #'
 #' @return Character. Human-readable label wrapped in braces, e.g.,
-#'   "\{age <= 50\}" or "!\{age <= 50\}" for complement. Returns the
+#'   `"{age <= 50}"` or `"!{age <= 50}"` for complement. Returns the
 #'   original code if no match is found.
 #'
 #' @examples
