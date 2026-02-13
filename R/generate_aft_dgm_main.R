@@ -114,12 +114,12 @@
 #' \deqn{\log(T) = \mu + \gamma' X + \sigma \epsilon}
 #'
 #' Where:
-#' - T is the survival time
-#' - μ is the intercept
-#' - γ contains the covariate effects
-#' - X includes treatment, covariates, and treatment×subgroup interaction
-#' - σ is the scale parameter
-#' - ε follows an extreme value distribution
+#' - \eqn{T} is the survival time
+#' - \eqn{\mu} is the intercept
+#' - \eqn{\gamma} contains the covariate effects
+#' - \eqn{X} includes treatment, covariates, and treatment×subgroup interaction
+#' - \eqn{\sigma} is the scale parameter
+#' - \eqn{\epsilon} follows an extreme value distribution
 #'
 #' ## Interaction Term
 #'

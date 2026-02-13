@@ -75,7 +75,7 @@ with specified censoring.
 }
 \item \strong{Survival Times}: Generates from Weibull AFT model:
 \deqn{\log(T) = \mu + \sigma \epsilon + X'\gamma}
-where ε ~ extreme value distribution
+where \eqn{\epsilon} ~ extreme value distribution
 \item \strong{Censoring}: Applies specified censoring distribution (Weibull or uniform)
 \item \strong{Administrative Censoring}: Applies max_follow cutoff if specified
 }

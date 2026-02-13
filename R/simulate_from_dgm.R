@@ -46,7 +46,7 @@
 #'    - If `draw_treatment = FALSE`: Keeps original treatment assignments
 #' 3. **Survival Times**: Generates from Weibull AFT model:
 #'    \deqn{\log(T) = \mu + \sigma \epsilon + X'\gamma}
-#'    where ε ~ extreme value distribution
+#'    where \eqn{\epsilon} ~ extreme value distribution
 #' 4. **Censoring**: Applies specified censoring distribution (Weibull or uniform)
 #' 5. **Administrative Censoring**: Applies max_follow cutoff if specified
 #'

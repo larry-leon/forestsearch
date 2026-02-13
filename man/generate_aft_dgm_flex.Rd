@@ -207,12 +207,12 @@ The AFT model with Weibull distribution is specified as:
 
 Where:
 \itemize{
-\item T is the survival time
-\item μ is the intercept
-\item γ contains the covariate effects
-\item X includes treatment, covariates, and treatment×subgroup interaction
-\item σ is the scale parameter
-\item ε follows an extreme value distribution
+\item \eqn{T} is the survival time
+\item \eqn{\mu} is the intercept
+\item \eqn{\gamma} contains the covariate effects
+\item \eqn{X} includes treatment, covariates, and treatment×subgroup interaction
+\item \eqn{\sigma} is the scale parameter
+\item \eqn{\epsilon} follows an extreme value distribution
 }
 }
 
