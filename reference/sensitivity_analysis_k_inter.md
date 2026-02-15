@@ -81,7 +81,7 @@ if (FALSE) { # \dontrun{
 sensitivity_results <- sensitivity_analysis_k_inter(
   k_inter_range = c(-2, 2),
   n_points = 11,
-  data = gbsg,
+  data = survival::gbsg,
   continuous_vars = c("age", "er", "pgr"),
   factor_vars = c("meno", "grade"),
   outcome_var = "rfstime",

@@ -148,8 +148,7 @@ for DGM generation
 
 ``` r
 if (FALSE) { # \dontrun{
-library(survival)
-data(cancer)
+gbsg <- survival::gbsg
 
 # Find k_inter for target HR = 2.0 in harm subgroup
 result <- find_k_inter_for_target_hr(

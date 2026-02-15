@@ -9,7 +9,7 @@ different populations (overall, harm subgroup, no-harm subgroup)."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Unreleased version">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,6 +24,7 @@ different populations (overall, harm subgroup, no-harm subgroup)."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -116,7 +117,7 @@ the k_inter range. If plot = TRUE, it creates a 4-panel visualization showing:</
 <span class="r-in"><span><span class="va">sensitivity_results</span> <span class="op">&lt;-</span> <span class="fu">sensitivity_analysis_k_inter</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  k_inter_range <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  n_points <span class="op">=</span> <span class="fl">11</span>,</span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">gbsg</span>,</span></span>
+<span class="r-in"><span>  data <span class="op">=</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span>,</span></span>
 <span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"er"</span>, <span class="st">"pgr"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  factor_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"meno"</span>, <span class="st">"grade"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  outcome_var <span class="op">=</span> <span class="st">"rfstime"</span>,</span></span>

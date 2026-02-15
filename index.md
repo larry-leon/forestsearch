@@ -23,7 +23,7 @@ subgroup identification by:
 1.  **Constructing candidate factors** via LASSO, Generalized Random
     Forests (GRF), and quartile-based binary splits.
 2.  **Enumerating** all one- and two-factor subgroup combinations
-    meeting minimum sample size criteria.
+    meeting minimum sample size and event criteria.
 3.  **Screening** candidates against a hazard ratio threshold (default
     HR \>= 1.25) and evaluating **split-sample consistency** across
     repeated random 50/50 splits (default *R* = 400).

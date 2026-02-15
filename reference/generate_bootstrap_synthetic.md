@@ -71,12 +71,10 @@ A data frame with synthetic data
 ## Examples
 
 ``` r
+# \donttest{
 # Example 1: Using with GBSG dataset
-library(survival)
-data(cancer)
-
 synth_gbsg <- generate_bootstrap_synthetic(
-  data = gbsg,
+  data = survival::gbsg,
   continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
   cat_vars = c("meno", "hormon", "status"),
   ordinal_vars = c("grade"),
@@ -110,4 +108,5 @@ synth_data <- generate_bootstrap_synthetic(
 )
 #> Note: The following variables were not specified as continuous or categorical and will be kept as-is from bootstrap sample:
 #>    education
+# }
 ```

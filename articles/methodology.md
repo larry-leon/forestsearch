@@ -1,6 +1,6 @@
 # Methodology
 
-## 1 Introduction
+## Introduction
 
 ForestSearch is a procedure for identifying subgroups with large
 treatment effects in clinical trials with survival endpoints, with
@@ -17,7 +17,7 @@ in the heterogeneous Cox model: A relatively simple procedure”*,
 published in *Statistics in Medicine*. Source code and replication
 materials are available at <https://github.com/larry-leon/forestSearch>.
 
-### 1.1 Motivation
+### Motivation
 
 In oncology trials, subgroup analyses via forest plots are standard
 presentations in regulatory reviews and clinical publications. The goal
@@ -40,7 +40,7 @@ with the following goals:
   appropriate bias correction
 - **Validate** findings through cross-validation to assess stability
 
-### 1.2 Key Features
+### Key Features
 
 1.  **Split-sample consistency evaluation** to identify subgroups
     “maximally consistent with harm”
@@ -52,9 +52,9 @@ with the following goals:
 5.  **Reversibility**: by switching the treatment indicator, the same
     framework can identify subgroups with substantial *benefit*
 
-## 2 Statistical Framework
+## Statistical Framework
 
-### 2.1 The Cox Model Setting
+### The Cox Model Setting
 
 Consider the two-sample random censorship model with $`N`$ observations
 from a randomized clinical trial. Let $`T`$ denote the survival time,
@@ -71,14 +71,13 @@ subgroups:
 ``` math
 
 \lambda(t; V) = \lambda_0(t) \exp(\beta V),
- \qquad(1)
 ```
 
 where $`\lambda_0(t)`$ is the baseline hazard and $`\beta`$ is the
 log-hazard ratio for treatment. This is the standard model used in
 oncology forest plot summaries—adjusted for treatment only.
 
-### 2.2 Type-1 Error Framework
+### Type-1 Error Framework
 
 Heterogeneous treatment effects are assumed to be induced by the
 existence of a detrimental subgroup $`H`$ with true marginal hazard
@@ -94,7 +93,7 @@ error scenarios for false subgroup identification are defined:
     $`\theta^{\dagger}(\text{ITT}) < 1`$, so no detrimental subgroup
     effects exist.
 
-### 2.3 Marginal vs. Controlled Direct Effects
+### Marginal vs. Controlled Direct Effects
 
 An important distinction in Forest Search is between marginal hazard
 ratios $`\theta^{\dagger}(\cdot)`$ and controlled direct effects (CDEs)
@@ -105,7 +104,6 @@ function:
 
 \lambda_v(t; \boldsymbol{z}) = \lambda_0(t) \exp(\gamma_0 v +
 \gamma_1 v z_1 z_3 + \boldsymbol{\gamma}_2' \boldsymbol{z}_2),
- \qquad(2)
 ```
 
 the CDEs are $`\theta^{\ddagger}(H) = \exp(\gamma_0 + \gamma_1)`$ and
@@ -115,11 +113,11 @@ substantially from the CDEs. Forest Search targets marginal hazard
 ratios via the unadjusted Cox model, which is the standard approach in
 oncology forest plots.
 
-## 3 The ForestSearch Algorithm
+## The ForestSearch Algorithm
 
 The ForestSearch algorithm proceeds through four main steps:
 
-### 3.1 Step 1: Construct Candidate Factors
+### Step 1: Construct Candidate Factors
 
 For candidate baseline factors $`X_k`$, $`k = 1, \ldots, K`$, construct
 dummy indicators for each unique factor level.
@@ -161,7 +159,7 @@ are:
 - $`FS_l`$: LASSO only for candidate selection
 - $`FS_{lg}`$: LASSO + GRF for candidate selection
 
-### 3.2 Step 2: Enumerate Candidate Subgroups
+### Step 2: Enumerate Candidate Subgroups
 
 There are $`2^L - 1`$ all-possible subgroup combinations. We restrict to
 those based on **at most two factors**. The total number of possible
@@ -181,9 +179,9 @@ subgroup combinations with:
 Let $`\{G_s, s = 1, \ldots, S\}`$ denote the collection of subgroups
 meeting the sample size criteria where $`S \leq L(L-1)/2 + L`$.
 
-### 3.3 Step 3: Screening and Consistency Evaluation
+### Step 3: Screening and Consistency Evaluation
 
-#### 3.3.1 3a. Hazard Ratio Screening
+#### 3a. Hazard Ratio Screening
 
 For subgroup $`G_s`$ (of size $`\ge`$ 60 and at least 20 events),
 estimate the Cox model log-hazard ratio $`\hat{\beta}_s`$, and consider
@@ -197,7 +195,7 @@ the subgroup as a candidate if:
 This corresponds to a hazard ratio threshold of 1.25, indicating
 potential harm.
 
-#### 3.3.2 3b. Split-Sample Consistency
+#### 3b. Split-Sample Consistency
 
 To judge the “consistency with harm”:
 
@@ -211,7 +209,7 @@ That is, $`\min(\hat{\beta}_s^1, \hat{\beta}_s^2) \geq \log(1.0)`$ for
 log-hazard ratio estimate pairs $`\{\hat{\beta}_s^1, \hat{\beta}_s^2\}`$
 corresponding to each random split.
 
-#### 3.3.3 3c. Consistency Rate Estimation
+#### 3c. Consistency Rate Estimation
 
 Repeat many times (e.g., $`R = 400`$) to estimate the consistency rate.
 Let $`\{\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}\}`$ denote pairs for the
@@ -221,10 +219,9 @@ $`r`$th random split for $`r = 1, \ldots, R`$. The consistency rate is:
 
 \hat{p}_{\text{consistency}} = \frac{1}{R} \sum_{r=1}^{R}
 I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
- \qquad(3)
 ```
 
-### 3.4 Step 4: Subgroup Selection
+### Step 4: Subgroup Selection
 
 For subgroups with consistency rates at least 90%, choose the subgroup
 with the highest consistency rate as the estimated $`H`$, denoted
@@ -237,7 +234,7 @@ For the complementary group, $`H^c`$ is estimated as the complement of
 $`\widehat{H}`$, denoted $`\widehat{H}^c`$. If $`\widehat{H}`$ is null,
 then $`\widehat{H}^c`$ is the ITT population.
 
-### 3.5 Selection Criteria Variants
+### Selection Criteria Variants
 
 Step 4 can be modified in several ways:
 
@@ -249,16 +246,16 @@ Step 4 can be modified in several ways:
 | `"hrMaxSG"` | Among consistent candidates, select largest with best HR |
 | `"hrMinSG"` | Among consistent candidates, select smallest with best HR |
 
-Table 1: ForestSearch subgroup selection criteria.
+**Table:** ForestSearch subgroup selection criteria.
 
 Additional constraints can include median survival thresholds for the
 experimental arm, control arm, or both.
 
 ForestSearch Algorithm Overview
 
-## 4 Asymptotic Considerations
+## Asymptotic Considerations
 
-### 4.1 Power Approximation
+### Power Approximation
 
 We can approximate the probability of identifying subgroup $`H`$ via
 numerical integration. Let
@@ -272,7 +269,6 @@ The screening criterion $`\hat{\beta}_s \ge \log(1.25)`$ is equivalent
 ``` math
 
 \hat{\beta}_s^1 + \hat{\beta}_s^2 \ge 2\log(1.25),
- \qquad(4)
 ```
 
 since $`\hat{\beta}_s \approx (\hat{\beta}_s^1 + \hat{\beta}_s^2)/2`$ by
@@ -287,7 +283,6 @@ $`P(\text{identify } H) \approx`$
 \int \int I(w_1 + w_2 \geq 2\log(1.25)) \cdot I(w_1 \geq 0) \cdot
 I(w_2 \geq 0) \cdot \varphi(w_1; \beta, 8/d) \cdot
 \varphi(w_2; \beta, 8/d) \, dw_1 \, dw_2,
- \qquad(5)
 ```
 
 where $`\{W_1, W_2\} \sim N(\beta, 8/d)`$ independently, and
@@ -298,7 +293,12 @@ The following is based on Monte Carlo simulations. The package also
 contains a numerical integration implementation that is illustrated in
 the simulation vignette materials.
 
-Code
+![Approximate probability of finding H via
+ForestSearch](methodology_files/figure-html/power-approximation-1.png)
+
+Approximate probability of finding H via ForestSearch
+
+[ Code](#collapse-powerapproximation)
 
 ``` r
 # Power approximation function
@@ -350,11 +350,7 @@ ggplot(power_data, aes(x = hr, y = power, color = n)) +
   annotate("text", x = 0.6, y = 0.82, label = "80% power", size = 3)
 ```
 
-![](methodology_files/figure-html/power-approximation-1.png)
-
-Approximate probability of finding H via ForestSearch
-
-### 4.2 Threshold Selection Rationale
+### Threshold Selection Rationale
 
 The choice of the 1.25 and 1.0 thresholds was based on the desire to
 control the rate for finding a subgroup $`H`$ to be approximately 10%
@@ -378,11 +374,11 @@ approximation yields:
 | $`n = 80`$ | 3.3% | HR $`\approx`$ 1.81 |
 | $`n = 100`$ | 2.2% | HR $`\approx`$ 1.73 |
 
-Table 2: Type-1 error and approximate 80% power thresholds.
+**Table:** Type-1 error and approximate 80% power thresholds.
 
-## 5 Bootstrap Bias Correction
+## Bootstrap Bias Correction
 
-### 5.1 Sources of Bias
+### Sources of Bias
 
 By the nature of the ForestSearch procedure, we expect unadjusted Cox
 model estimates based on $`\widehat{H}`$ to be **upwardly biased** due
@@ -398,7 +394,7 @@ depending on:
   $`\theta^{\dagger}(H^c)`$ (e.g., a mixture of
   $`\theta^{\dagger}(H) = 2.0`$ vs. $`\theta^{\dagger}(H^c) = 0.65`$)
 
-### 5.2 Bias-Corrected Estimator
+### Bias-Corrected Estimator
 
 For bias correction, we proceed on the Cox regression coefficient scale,
 denoted $`\hat{\beta}(\widehat{H})`$, and then exponentiate to obtain
@@ -411,7 +407,7 @@ Cox estimators. The approach is along the lines of Harrell et
 al. (1996), but additionally incorporates the bias term
 $`\hat{\beta}_b^*(\widehat{H}) - \hat{\beta}(\widehat{H})`$.
 
-#### 5.2.1 Notation
+#### Notation
 
 For the observed data with estimated subgroup $`\widehat{H}`$:
 
@@ -427,7 +423,7 @@ $`\widehat{H}^*_b`$:
 - $`\hat{\beta}^*_b(\widehat{H})`$: Cox model parameter for bootstrap
   sample based on observed subgroup
 
-#### 5.2.2 Bias Terms
+#### Bias Terms
 
 Define the bias terms:
 
@@ -443,7 +439,7 @@ Define the bias terms:
 \hat{\beta}(\widehat{H})
 ```
 
-#### 5.2.3 Bias-Corrected Estimators
+#### Bias-Corrected Estimators
 
 The bias-corrected estimators are defined as:
 
@@ -454,7 +450,6 @@ The bias-corrected estimators are defined as:
 \eta^*_b(\widehat{H})\right], \qquad
 \hat{\theta}^*(\widehat{H}) =
 \exp\!\left(\hat{\beta}^*(\widehat{H})\right)
- \qquad(6)
 ```
 
 Similarly for the complement:
@@ -466,7 +461,6 @@ Similarly for the complement:
 \eta^*_b(\widehat{H}^c)\right], \qquad
 \hat{\theta}^*(\widehat{H}^c) =
 \exp\!\left(\hat{\beta}^*(\widehat{H}^c)\right)
- \qquad(7)
 ```
 
 The bootstrap resamples are drawn independently with replacement from
@@ -477,7 +471,7 @@ selection) is mimicked in each bootstrap replicate. In general, the
 variance induced by the (well-defined) candidate selection algorithm is
 incorporated by mimicking the algorithm in the bootstrap process.
 
-### 5.3 Infinitesimal Jackknife Variance Estimation
+### Infinitesimal Jackknife Variance Estimation
 
 To estimate the variance, we apply an **infinitesimal jackknife
 approximation**, viewing the bias-corrected estimators as “bagged
@@ -511,7 +505,6 @@ The bias-corrected variance is:
 ``` math
 
 \hat{V} = \tilde{V} - \frac{N}{B} \tilde{\sigma}^2_B
- \qquad(8)
 ```
 
 where:
@@ -529,12 +522,12 @@ $`\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)`$.
 
 Bootstrap Bias Correction Workflow
 
-## 6 Cross-Validation
+## Cross-Validation
 
 Cross-validation is used for evaluating the quality and stability of the
 selection algorithm. Two forms are implemented.
 
-### 6.1 N-Fold (Leave-One-Out) Cross-Validation
+### N-Fold (Leave-One-Out) Cross-Validation
 
 For N-fold CV, we exclude each subject ($`i = 1, \ldots, N`$) from the
 analysis and predict their $`\widehat{H}`$ (or $`\widehat{H}^c`$)
@@ -567,7 +560,7 @@ they are classified.
   diagnostic value; in contrast, substantial lack of correspondence may
   suggest underlying instability
 
-### 6.2 K-Fold Cross-Validation
+### K-Fold Cross-Validation
 
 In K-fold CV (e.g., 10-fold):
 
@@ -579,7 +572,7 @@ In K-fold CV (e.g., 10-fold):
 Since this process depends on the random partition, repeat 50–200 times
 and summarize correspondence measures across the partitions.
 
-### 6.3 CV Metrics
+### CV Metrics
 
 The sensitivity and positive predictive value metrics are modified by
 replacing $`\widehat{H}`$ with $`\widehat{H}^{-i}`$ and the true $`H`$
@@ -593,7 +586,6 @@ with $`\widehat{H}`$:
 \text{ppvCV}(\widehat{H}) =
 \frac{\#\{i \in \widehat{H}^{-i} \cap \widehat{H}\}}
      {\#\{i \in \widehat{H}^{-i}\}}.
- \qquad(9)
 ```
 
 | Metric | Description | Interpretation |
@@ -606,9 +598,34 @@ with $`\widehat{H}`$:
 
 Cross-Validation Metrics for ForestSearch
 
-## 7 Simulation Study
+[ Code](#collapse-cvmetricstable)
 
-### 7.1 Data-Generating Model
+``` r
+cv_metrics <- data.frame(
+  Metric = c("sensCV(Ĥ)", "sensCV(Ĥᶜ)", "ppvCV(Ĥ)",
+             "ppvCV(Ĥᶜ)", "Exact Match"),
+  Description = c(
+    "Proportion of full-analysis Ĥ subjects also classified as Ĥ in CV",
+    "Proportion of full-analysis Ĥᶜ subjects also classified as Ĥᶜ in CV",
+    "Proportion of CV Ĥ subjects that match full-analysis Ĥ",
+    "Proportion of CV Ĥᶜ subjects that match full-analysis Ĥᶜ",
+    "Proportion of CV folds reproducing exact subgroup definition"
+  ),
+  Interpretation = c(
+    "Higher = more stable Ĥ identification",
+    "Higher = more stable Ĥᶜ identification",
+    "Higher = CV predictions align with full analysis",
+    "Higher = CV predictions align with full analysis",
+    "Higher = algorithm consistently identifies same subgroup"
+  )
+)
+
+knitr::kable(cv_metrics, caption = "Cross-Validation Metrics for ForestSearch")
+```
+
+## Simulation Study
+
+### Data-Generating Model
 
 The simulation setting is based on the German Breast Cancer Study Group
 (GBSG) trial covariate structure. A “super-population” of 5,000 subjects
@@ -620,7 +637,6 @@ Weibull regression model:
 
 \log(T) = \mu + \beta_0 V + \beta_1 V Z_1 Z_3 +
 \boldsymbol{\beta}_2' \boldsymbol{Z}_2 + \tau \epsilon,
- \qquad(10)
 ```
 
 where $`\epsilon`$ follows the standard extreme value distribution,
@@ -634,7 +650,7 @@ generate target marginal hazard ratio effects. A covariate-dependent
 censoring distribution was generated analogously with an overall
 censoring rate of approximately 46%.
 
-### 7.2 Scenarios
+### Scenarios
 
 Three models were evaluated across 20,000 simulations:
 
@@ -649,11 +665,34 @@ Three models were evaluated across 20,000 simulations:
 
 Simulation model specifications.
 
+[ Code](#collapse-simmodelstable)
+
+``` r
+sim_models <- data.frame(
+  Model = c("M1", "M1", "M2", "M2", "M3", "M3"),
+  Condition = c("Null", "Alt", "Null", "Alt", "Null", "Alt"),
+  N = c(700, 700, 500, 500, 300, 300),
+  `p_H` = c("-", "13%", "-", "20%", "-", "30%"),
+  `theta_ITT` = c(0.70, 0.71, 0.69, 0.79, 0.55, 0.74),
+  `theta_H` = c("-", "2.0", "-", "2.0", "-", "2.0"),
+  `theta_Hc` = c("-", "0.65", "-", "0.69", "-", "0.56"),
+  check.names = FALSE
+)
+
+knitr::kable(
+  sim_models,
+  col.names = c("Model", "Condition", "N", "p_H (%)",
+                "θ†(ITT)", "θ†(H)", "θ†(Hc)"),
+  caption = "Simulation model specifications.",
+  align = "ccccccc"
+)
+```
+
 Each model was evaluated with and without additional random noise
 factors ($`N(0,1)`$ variables completely unrelated to the outcome): 3
 noise factors for $`M_1`$, and 5 noise factors for $`M_2`$ and $`M_3`$.
 
-### 7.3 Comparator Methods
+### Comparator Methods
 
 ForestSearch was compared against:
 
@@ -674,10 +713,9 @@ sensitivity and positive predictive value:
 \frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in H\}}, \qquad
 \text{ppv}(\widehat{H}) =
 \frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in \widehat{H}\}}.
- \qquad(11)
 ```
 
-### 7.4 Key Results: Subgroup Identification
+### Key Results: Subgroup Identification
 
 | Method | T1E | Power | sens(Ĥ) | T1E | Power | sens(Ĥ) |
 |:-------|:---:|:-----:|:-------:|:---:|:-----:|:-------:|
@@ -691,6 +729,34 @@ sensitivity and positive predictive value:
 Subgroup identification results with noise factors. T1E = type-1 error
 (any(H) under null); Power = any(H) under alternative; sens(H-hat) =
 sensitivity for H classification under alternative.
+
+[ Code](#collapse-simresultstable)
+
+``` r
+results <- data.frame(
+  Method = c("FS_l", "FS_lg", "GRF", "GRF.60", "VT(24)", "VT(36)"),
+  `T1E_M1` = c("2%", "11%", "61%", "27%", "4%", "6%"),
+  `Pow_M1` = c("71%", "83%", "94%", "71%", "44%", "42%"),
+  `Sens_M1` = c("64%", "74%", "66%", "52%", "37%", "34%"),
+  `T1E_M2` = c("3%", "14%", "60%", "32%", "4%", "6%"),
+  `Pow_M2` = c("89%", "96%", "99%", "86%", "56%", "53%"),
+  `Sens_M2` = c("77%", "81%", "70%", "58%", "44%", "40%"),
+  check.names = FALSE
+)
+
+knitr::kable(
+  results,
+  col.names = c("Method", "T1E", "Power", "sens(Ĥ)",
+                "T1E", "Power", "sens(Ĥ)"),
+  caption = paste(
+    "Subgroup identification results with noise factors.",
+    "T1E = type-1 error (any(H) under null); Power = any(H) under",
+    "alternative; sens(H-hat) = sensitivity for H classification",
+    "under alternative."
+  ),
+  align = "lcccccc"
+)
+```
 
 **Summary of identification results:**
 
@@ -707,10 +773,10 @@ sensitivity for H classification under alternative.
   better-controlled type-1 error since the chance of forming subgroups
   with estimates in favor of control is less likely with a more
   pronounced ITT treatment effect
-- The power approximation from [Equation 5](#eq-power) was reasonably
-  accurate across all models
+- The power approximation from (**eq-power?**) was reasonably accurate
+  across all models
 
-### 7.5 Key Results: Estimation Properties
+### Key Results: Estimation Properties
 
 Estimation properties for $`FS_{lg}`$ with $`B = 300`$ bootstrap
 replicates (based on 1,000 simulations per model with noise factors):
@@ -726,6 +792,37 @@ Estimation properties for FS_lg across models M1-M3. Relative bias
 ranges shown across the three models. Oracle coverage = CI coverage for
 the oracle (true subgroup) estimate.
 
+[ Code](#collapse-estimationtable)
+
+``` r
+est_results <- data.frame(
+  Estimator = c(
+    "θ̂(Ĥ) observed",
+    "θ̂*(Ĥ) bias-corrected",
+    "θ̂(Ĥᶜ) observed",
+    "θ̂*(Ĥᶜ) bias-corrected"
+  ),
+  `Bias_dagger` = c("9% to 24%", "-10% to -2.4%",
+                     "0.5% to 5.1%", "2.3% to 10.9%"),
+  `Bias_ddagger` = c("9% to 14%", "-11.6% to -6.3%",
+                      "-9.7% to 2.8%", "-4.8% to 4.6%"),
+  `Coverage_oracle` = c(">= 98%", ">= 95%", ">= 99%", ">= 100%"),
+  check.names = FALSE
+)
+
+knitr::kable(
+  est_results,
+  col.names = c("Estimator", "Rel. bias (marginal)",
+                "Rel. bias (CDE)", "Oracle coverage"),
+  caption = paste(
+    "Estimation properties for FS_lg across models M1-M3.",
+    "Relative bias ranges shown across the three models.",
+    "Oracle coverage = CI coverage for the oracle (true subgroup) estimate."
+  ),
+  align = "lccc"
+)
+```
+
 The bias-corrected estimators tend to be **conservative**:
 underestimating both $`\theta^{\dagger}(H)`$ and
 $`\theta^{\ddagger}(\widehat{H})`$ (“conservative for harm”) while
@@ -735,9 +832,9 @@ Coverage rates for $`\hat{\theta}^*(\widehat{H}^c)`$ were $`\ge 93\%`$
 for each target, and the oracle coverage rates for both estimators were
 $`\ge 95\%`$.
 
-## 8 Applications
+## Applications
 
-### 8.1 GBSG Breast Cancer Trial
+### GBSG Breast Cancer Trial
 
 The German Breast Cancer Study Group trial ($`N = 686`$) compared
 tamoxifen (hormonal therapy) to chemotherapy for tumor recurrence. The
@@ -771,7 +868,7 @@ Collaborative Group found for ER-negative (ER = 0) subjects, the
 event-rate ratio was 1.11 (SE = 0.13); whereas for ER-positive
 ($`\ge 10\%`$) subjects it was 0.62 (SE = 0.03).
 
-### 8.2 ACTG-175 HIV Trial
+### ACTG-175 HIV Trial
 
 The ACTG-175 study ($`N = 1{,}083`$) compared zidovudine + didanosine
 (experimental) to didanosine monotherapy (control). The survival outcome
@@ -809,9 +906,9 @@ among participants with no previous antiretroviral therapy or higher
 baseline CD4 counts. Of the $`\widehat{Q}`$ subgroup, 46.9% were
 antiretroviral treatment naive.
 
-## 9 Variable Selection Methods
+## Variable Selection Methods
 
-### 9.1 LASSO
+### LASSO
 
 LASSO (Least Absolute Shrinkage and Selection Operator) is used for Cox
 model covariate (prognostic) selection via `glmnet`. In simulations,
@@ -828,7 +925,7 @@ result <- forestsearch(
 )
 ```
 
-### 9.2 Generalized Random Forests (GRF)
+### Generalized Random Forests (GRF)
 
 GRF targets RMST (Restricted Mean Survival Time) via causal survival
 forests and can be used as a complementary variable selection method. In
@@ -845,7 +942,7 @@ result <- forestsearch(
 )
 ```
 
-### 9.3 Recommendations
+### Recommendations
 
 | Scenario | Recommendation |
 |----|----|
@@ -854,7 +951,7 @@ result <- forestsearch(
 | When noise factors may be present | Always include LASSO |
 | Large datasets with complex interactions | Consider GRF for variable importance |
 
-Table 3: Variable selection recommendations.
+**Table:** Variable selection recommendations.
 
 In the ACTG-175 analysis, when 20 random noise factors were artificially
 added without LASSO, ForestSearch identified a nonsensical subgroup
@@ -862,9 +959,9 @@ based on a noise factor. In contrast, when LASSO was included, the same
 subgroup and essentially the same bootstrap bias-corrected estimates
 were obtained.
 
-## 10 Practical Considerations
+## Practical Considerations
 
-### 10.1 Sample Size Requirements
+### Sample Size Requirements
 
 - **Minimum subgroup size:** 60 subjects (default `n.min = 60`)
 - **Minimum events:** 10–12 per treatment arm (default `d0.min = 12`,
@@ -872,7 +969,7 @@ were obtained.
 - **Recommended trial size:** $`N \ge 300`$ for Phase 2; $`N \ge 500`$
   for Phase 3
 
-### 10.2 Computational Considerations
+### Computational Considerations
 
 The computational time depends on the number of candidate factors
 ($`K`$), the number of subgroup combinations meeting size criteria
@@ -889,10 +986,10 @@ The computational time depends on the number of candidate factors
 | N-fold CV                 | $`\sim`$ 4–22 minutes     |
 | 200 $`\times`$ 10-fold CV | $`\sim`$ 59–105 minutes   |
 
-Table 4: Computational timing for ForestSearch. Parallel computing is
+**Table:** Computational timing for ForestSearch. Parallel computing is
 implemented via the `doFuture` package.
 
-### 10.3 Interpretation Guidelines
+### Interpretation Guidelines
 
 1.  **Bias-corrected estimates** should be reported alongside unadjusted
     estimates
@@ -908,46 +1005,47 @@ implemented via the `doFuture` package.
     extrapolated to comparisons of regimens other than the control
     regimens studied
 
-## 11 References
+## References
 
 Athey, Susan, Julie Tibshirani, and Stefan Wager. 2019. “Generalized
 Random Forests.” *The Annals of Statistics* 47 (2): 1148–78.
 
-## 12 Session Information
-
-Code
+## Session Information
 
 ``` r
 sessionInfo()
 ```
 
-    R version 4.5.1 (2025-06-13)
-    Platform: aarch64-apple-darwin20
-    Running under: macOS Tahoe 26.2
-
-    Matrix products: default
-    BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib
-    LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
-
-    locale:
-    [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
-
-    time zone: America/Los_Angeles
-    tzcode source: internal
-
-    attached base packages:
-    [1] stats     graphics  grDevices utils     datasets  methods   base
-
-    other attached packages:
-    [1] ggplot2_4.0.2     DiagrammeR_1.0.11
-
-    loaded via a namespace (and not attached):
-     [1] vctrs_0.7.1        cli_3.6.5          knitr_1.51         rlang_1.1.7
-     [5] xfun_0.56          otel_0.2.0         generics_0.1.4     S7_0.2.1
-     [9] jsonlite_2.0.0     glue_1.8.0         htmltools_0.5.9    scales_1.4.0
-    [13] rmarkdown_2.30     grid_4.5.1         tibble_3.3.1       evaluate_1.0.5
-    [17] visNetwork_2.1.4   fastmap_1.2.0      yaml_2.3.12        lifecycle_1.0.5
-    [21] compiler_4.5.1     dplyr_1.2.0        RColorBrewer_1.1-3 pkgconfig_2.0.3
-    [25] htmlwidgets_1.6.4  rstudioapi_0.18.0  farver_2.1.2       digest_0.6.39
-    [29] R6_2.6.1           tidyselect_1.2.1   pillar_1.11.1      magrittr_2.0.4
-    [33] withr_3.0.2        tools_4.5.1        gtable_0.3.6      
+    ## R version 4.5.1 (2025-06-13)
+    ## Platform: aarch64-apple-darwin20
+    ## Running under: macOS Tahoe 26.3
+    ## 
+    ## Matrix products: default
+    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
+    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+    ## 
+    ## locale:
+    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+    ## 
+    ## time zone: America/Los_Angeles
+    ## tzcode source: internal
+    ## 
+    ## attached base packages:
+    ## [1] stats     graphics  grDevices utils     datasets  methods   base     
+    ## 
+    ## other attached packages:
+    ## [1] ggplot2_4.0.2     DiagrammeR_1.0.11
+    ## 
+    ## loaded via a namespace (and not attached):
+    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.0        compiler_4.5.1    
+    ##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.1  scales_1.4.0      
+    ##  [9] textshaping_1.0.4  yaml_2.3.12        fastmap_1.2.0      R6_2.6.1          
+    ## [13] generics_0.1.4     knitr_1.51         htmlwidgets_1.6.4  visNetwork_2.1.4  
+    ## [17] tibble_3.3.1       desc_1.4.3         bslib_0.10.0       pillar_1.11.1     
+    ## [21] RColorBrewer_1.1-3 rlang_1.1.7        cachem_1.1.0       xfun_0.56         
+    ## [25] fs_1.6.6           sass_0.4.10        S7_0.2.1           otel_0.2.0        
+    ## [29] cli_3.6.5          withr_3.0.2        pkgdown_2.2.0      magrittr_2.0.4    
+    ## [33] digest_0.6.39      grid_4.5.1         rstudioapi_0.18.0  lifecycle_1.0.5   
+    ## [37] vctrs_0.7.1        evaluate_1.0.5     glue_1.8.0         farver_2.1.2      
+    ## [41] ragg_1.5.0         rmarkdown_2.30     tools_4.5.1        pkgconfig_2.0.3   
+    ## [45] htmltools_0.5.9

@@ -14,10 +14,10 @@ FS_labels(Qsg, confs_labels)
 
 - Qsg:
 
-  Character. Factor code in format "q." or "q". For the full format,
-  action 0 = NOT (complement), action 1 = IN (member). Short format
-  defaults to action 1. Can also be a character vector for vectorized
-  input.
+  Character. Factor code in format `"q<index>.<action>"` or
+  `"q<index>"`. For the full format, action 0 = NOT (complement), action
+  1 = IN (member). Short format defaults to action 1. Can also be a
+  character vector for vectorized input.
 
 - confs_labels:
 
@@ -25,9 +25,9 @@ FS_labels(Qsg, confs_labels)
 
 ## Value
 
-Character. Human-readable label wrapped in braces, e.g., "{age \<= 50}"
-or "!{age \<= 50}" for complement. Returns the original code if no match
-is found.
+Character. Human-readable label wrapped in braces, e.g., `"{age <= 50}"`
+or `"!{age <= 50}"` for complement. Returns the original code if no
+match is found.
 
 ## Examples
 

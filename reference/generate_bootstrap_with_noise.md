@@ -109,10 +109,6 @@ Samples n observations with replacement from the original dataset.
 [`sample`](https://rdrr.io/r/base/sample.html) for bootstrap sampling,
 [`rnorm`](https://rdrr.io/r/stats/Normal.html) for noise generation
 
-## Author
-
-Your Name
-
 ## Examples
 
 ``` r

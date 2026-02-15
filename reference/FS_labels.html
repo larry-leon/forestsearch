@@ -11,7 +11,7 @@ mapping. Supports both full format ("q1.1", "q3.0") and short format
 
     <a class="navbar-brand me-2" href="../index.html">forestsearch</a>
 
-    <small class="nav-text text-danger me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Unreleased version">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -26,6 +26,7 @@ mapping. Supports both full format ("q1.1", "q3.0") and short format
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
+    <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
   </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
@@ -61,10 +62,10 @@ mapping. Supports both full format ("q1.1", "q3.0") and short format
 
 
 <dl><dt id="arg-qsg">Qsg<a class="anchor" aria-label="anchor" href="#arg-qsg"></a></dt>
-<dd><p>Character. Factor code in format "q<index>.<action>" or
-"q<index>". For the full format, action 0 = NOT (complement),
+<dd><p>Character. Factor code in format <code>"q&lt;index&gt;.&lt;action&gt;"</code> or
+<code>"q&lt;index&gt;"</code>. For the full format, action 0 = NOT (complement),
 action 1 = IN (member). Short format defaults to action 1.
-Can also be a character vector for vectorized input.</index></action></index></p></dd>
+Can also be a character vector for vectorized input.</p></dd>
 
 
 <dt id="arg-confs-labels">confs_labels<a class="anchor" aria-label="anchor" href="#arg-confs-labels"></a></dt>
@@ -75,7 +76,7 @@ factor number.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Character. Human-readable label wrapped in braces, e.g.,
-"{age &lt;= 50}" or "!{age &lt;= 50}" for complement. Returns the
+<code>"{age &lt;= 50}"</code> or <code>"!{age &lt;= 50}"</code> for complement. Returns the
 original code if no match is found.</p>
     </div>
 

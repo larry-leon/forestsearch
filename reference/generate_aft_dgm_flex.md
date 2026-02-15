@@ -299,17 +299,18 @@ The AFT model with Weibull distribution is specified as: \$\$\log(T) =
 
 Where:
 
-- T is the survival time
+- \\T\\ is the survival time
 
-- μ is the intercept
+- \\\mu\\ is the intercept
 
-- γ contains the covariate effects
+- \\\gamma\\ contains the covariate effects
 
-- X includes treatment, covariates, and treatment×subgroup interaction
+- \\X\\ includes treatment, covariates, and treatment×subgroup
+  interaction
 
-- σ is the scale parameter
+- \\\sigma\\ is the scale parameter
 
-- ε follows an extreme value distribution
+- \\\epsilon\\ follows an extreme value distribution
 
 ### Interaction Term
 

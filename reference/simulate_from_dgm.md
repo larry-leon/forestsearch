@@ -123,8 +123,8 @@ A data.frame containing simulated survival data with columns:
     - If `draw_treatment = FALSE`: Keeps original treatment assignments
 
 3.  **Survival Times**: Generates from Weibull AFT model: \$\$\log(T) =
-    \mu + \sigma \epsilon + X'\gamma\$\$ where ε ~ extreme value
-    distribution
+    \mu + \sigma \epsilon + X'\gamma\$\$ where \\\epsilon\\ ~ extreme
+    value distribution
 
 4.  **Censoring**: Applies specified censoring distribution (Weibull or
     uniform)
