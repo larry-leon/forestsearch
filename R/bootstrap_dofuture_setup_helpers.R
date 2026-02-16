@@ -3,7 +3,6 @@ BOOTSTRAP_REQUIRED_PACKAGES <- c(
   "data.table",    # Data manipulation in parallel workers
   "foreach",       # Foreach iteration framework
   "doFuture",      # Future-based parallel backend
-  "doRNG",         # Reproducible random numbers in parallel
   "survival"       # Cox model fitting for bias correction
 )
 

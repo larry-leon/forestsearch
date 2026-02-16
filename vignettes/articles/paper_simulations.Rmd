@@ -448,7 +448,6 @@ For efficient simulation studies, use parallel processing:
 n_workers <- min(parallel::detectCores() - 1, 120)
 
 plan(multisession, workers = n_workers)
-registerDoFuture()
 
 cat("Using", n_workers, "parallel workers\n")
 ```
@@ -1246,7 +1245,6 @@ TARGET_HR_HARM <- 1.5
 
 # --- Setup parallel processing ---
 plan(multisession, workers = 4)
-registerDoFuture()
 
 # --- Create DGM ---
 # Option 1: Calibrate to Cox-based HR

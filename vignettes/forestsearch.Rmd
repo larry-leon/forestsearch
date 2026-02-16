@@ -98,7 +98,6 @@ library(gt)
 library(grf)
 library(policytree)
 library(doFuture)
-library(doRNG)
 
 # Optional packages for enhanced output
 library(patchwork)
@@ -239,10 +238,6 @@ operations (bootstrap, cross-validation).
 n_cores <- 2
 n_cores_total <- parallel::detectCores()
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
-
-# Configure parallel backend
-registerDoFuture()
-registerDoRNG()
 ```
 
 

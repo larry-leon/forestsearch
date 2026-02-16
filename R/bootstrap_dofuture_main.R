@@ -194,17 +194,12 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     } else {
       future::plan("sequential")
     }
-    if (parallel_args$plan %in% c("multisession", "multicore", "callr")) {
-      foreach::registerDoSEQ()
-    }
     if (exists("Ystar_mat") && object.size(Ystar_mat) > 1e9) {
       gc(verbose = FALSE, reset = TRUE)
     }
   }, add = TRUE)
 
   setup_parallel_SGcons(parallel_args)
-  doFuture::registerDoFuture()
-
 
   # =======================================================================
   # SECTION 7: GENERATE YSTAR MATRIX (BOOTSTRAP INDICATORS)

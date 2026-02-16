@@ -206,7 +206,6 @@
 #' @importFrom glmnet cv.glmnet
 #' @importFrom data.table data.table setorder
 #' @importFrom stats quantile sd median
-#' @importFrom foreach foreach %dopar%
 #' @importFrom stats complete.cases
 #' @importFrom future.apply future_lapply
 #' @importFrom randomForest randomForest
