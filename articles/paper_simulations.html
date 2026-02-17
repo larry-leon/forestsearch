@@ -81,8 +81,11 @@ Package</h4>
 </h2>
 <p>This vignette demonstrates how to conduct simulation studies to
 evaluate the performance of ForestSearch for identifying subgroups with
-differential treatment effects. The simulation framework allows you
-to:</p>
+differential treatment effects.</p>
+<p>We describe a simulation framework with a detailed example that
+reproduces (essentially) simulation results presented in Leon et
+al. (2024).</p>
+<p>The simulation framework allows you to:</p>
 <ul>
 <li>Generate synthetic clinical trial data with known treatment effect
 heterogeneity</li>
@@ -106,10 +109,7 @@ GRF) to each dataset</li>
 <strong>Summarize Results</strong>: Aggregate operating
 characteristics across simulations</li>
 </ol>
-<div class="section level3">
-<h3 id="key-updates-in-this-version">Key Updates in This Version<a class="anchor" aria-label="anchor" href="#key-updates-in-this-version"></a>
-</h3>
-<p>The simulation framework has been aligned with
+<p>The simulation framework is based on the
 <code><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code> methodology:</p>
 <table class="table">
 <colgroup>
@@ -145,7 +145,6 @@ columns</td>
 </tr>
 </tbody>
 </table>
-</div>
 </div>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
@@ -1620,7 +1619,7 @@ search algorithm:</p>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## 1 subgroups passed consistency threshold</span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 6.779 0.113 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 7.01 0.1168 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 48.53742 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -1635,7 +1634,7 @@ search algorithm:</p>
 <span><span class="va">runtime_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 16.5 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 14.8 minutes</span></span></code></pre>
 <div class="sourceCode" id="cb122"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Results: 4000 rows</span></span></code></pre>
@@ -1766,7 +1765,7 @@ search algorithm:</p>
 <span><span class="co">## Batch 2 / 2 : candidates 2 - 2 </span></span>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 7.179 0.1196 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 7.429 0.1238 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.91247 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -1778,7 +1777,7 @@ search algorithm:</p>
 <span><span class="va">runtime_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_null_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_null</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_null</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 63 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 61.7 minutes</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -6084,7 +6083,7 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (Cox)</td>
-<td headers="Seconds" class="gt_row gt_right">2.1</td>
+<td headers="Seconds" class="gt_row gt_right">2.0</td>
 <td headers="Minutes" class="gt_row gt_right">0.03</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td>
 </tr>
@@ -6108,15 +6107,15 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">990.9</td>
-<td headers="Minutes" class="gt_row gt_right">16.52</td>
-<td headers="Pct" class="gt_row gt_right">20.7</td>
+<td headers="Seconds" class="gt_row gt_right">887.8</td>
+<td headers="Minutes" class="gt_row gt_right">14.80</td>
+<td headers="Pct" class="gt_row gt_right">19.3</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">3,780.7</td>
-<td headers="Minutes" class="gt_row gt_right">63.01</td>
-<td headers="Pct" class="gt_row gt_right">78.9</td>
+<td headers="Seconds" class="gt_row gt_right">3,704.4</td>
+<td headers="Minutes" class="gt_row gt_right">61.74</td>
+<td headers="Pct" class="gt_row gt_right">80.3</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H1</td>
@@ -6126,14 +6125,14 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H0</td>
-<td headers="Seconds" class="gt_row gt_right">0.0</td>
+<td headers="Seconds" class="gt_row gt_right">0.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">4,790.0</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">79.83</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">4,610.4</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">76.84</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>
@@ -6250,7 +6249,7 @@ parallel overhead:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H1: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_elapsed</span> <span class="op">/</span> <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   H1: 0.5 sec/sim (wall) across 2000 sims on 13 workers</span></span></code></pre>
+<pre><code><span><span class="co">##   H1: 0.4 sec/sim (wall) across 2000 sims on 13 workers</span></span></code></pre>
 <div class="sourceCode" id="cb211"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H0: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_null_elapsed</span> <span class="op">/</span> <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>,</span>

@@ -4,7 +4,13 @@
 
 This vignette demonstrates how to conduct simulation studies to evaluate
 the performance of ForestSearch for identifying subgroups with
-differential treatment effects. The simulation framework allows you to:
+differential treatment effects.
+
+We describe a simulation framework with a detailed example that
+reproduces (essentially) simulation results presented in Leon et
+al. (2024).
+
+The simulation framework allows you to:
 
 - Generate synthetic clinical trial data with known treatment effect
   heterogeneity
@@ -22,9 +28,7 @@ differential treatment effects. The simulation framework allows you to:
 4.  **Summarize Results**: Aggregate operating characteristics across
     simulations
 
-### Key Updates in This Version
-
-The simulation framework has been aligned with
+The simulation framework is based on the
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 methodology:
 
@@ -1050,7 +1054,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.779 0.113 
+    ## Seconds and minutes forestsearch overall = 7.01 0.1168 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1068,7 +1072,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 16.5 minutes
+    ## Completed in 14.8 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1206,7 +1210,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.179 0.1196 
+    ## Seconds and minutes forestsearch overall = 7.429 0.1238 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1221,7 +1225,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 63 minutes
+    ## Completed in 61.7 minutes
 
 ## Summarizing Results
 
@@ -2030,15 +2034,15 @@ reproducibility information.
 | 2000 H1 + 10000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.1 | 0.03 | 0.0 |
+| Calibrate k_inter (Cox) | 2.0 | 0.03 | 0.0 |
 | Calibrate k_inter (AHR) | 0.9 | 0.01 | 0.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 990.9 | 16.52 | 20.7 |
-| Simulations H0 | 3,780.7 | 63.01 | 78.9 |
+| Simulations H1 | 887.8 | 14.80 | 19.3 |
+| Simulations H0 | 3,704.4 | 61.74 | 80.3 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.0 | 0.00 | 0.0 |
-| Total vignette | 4,790.0 | 79.83 | 100.0 |
+| Summarize H0 | 0.1 | 0.00 | 0.0 |
+| Total vignette | 4,610.4 | 76.84 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2152,7 +2156,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 0.5 sec/sim (wall) across 2000 sims on 13 workers
+    ##   H1: 0.4 sec/sim (wall) across 2000 sims on 13 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
