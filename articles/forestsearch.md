@@ -586,7 +586,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.04 minutes (0.00 hours)
     ##   Average per iteration:         0.02 min (1.1 sec)
-    ##   Projected for 1000 boots:      18.92 min (0.32 hrs)
+    ##   Projected for 1000 boots:      19.04 min (0.32 hrs)
 
 ``` r
 # Display bias-corrected estimates table

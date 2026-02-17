@@ -850,7 +850,7 @@ cat("Using", n_workers, "parallel workers\n")
 ``` r
 # Simulation settings
 sim_config_alt <- list(
-  n_sims = 1000,          # Number of simulations (use 500-1000 for final)
+  n_sims = 2000,          # Number of simulations (use 500-1000 for final)
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -858,7 +858,7 @@ sim_config_alt <- list(
 )
 
 sim_config_null <- list(
-  n_sims = 1000,          # More simulations for Type I error estimation
+  n_sims = 10000,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -926,7 +926,7 @@ cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 1000 simulations under H1...
+    ## Running 2000 simulations under H1...
 
 ``` r
 start_time <- Sys.time()
@@ -1050,7 +1050,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.508 0.1251 
+    ## Seconds and minutes forestsearch overall = 6.779 0.113 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1068,13 +1068,13 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 7.6 minutes
+    ## Completed in 16.5 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 2000 rows
+    ## Results: 4000 rows
 
 ### Running Null Hypothesis Simulations
 
@@ -1082,7 +1082,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 1000 simulations under H0...
+    ## Running 10000 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1206,7 +1206,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 8.509 0.1418 
+    ## Seconds and minutes forestsearch overall = 7.179 0.1196 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1221,7 +1221,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 6.8 minutes
+    ## Completed in 63 minutes
 
 ## Summarizing Results
 
@@ -1259,7 +1259,7 @@ if (length(ahr_cols) > 0) {
 ```
 
     ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.142 
+    ##   Mean AHR(H) estimated: 2.143 
     ##   Mean AHR(Hc) estimated: 0.602 
     ##   True AHR(H): 2.4 
     ##   True AHR(Hc): 0.585
@@ -1275,14 +1275,14 @@ build_estimation_table(
 
 | Estimation Properties |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 880 estimable realizations |  |  |  |  |  |
+| FS: 1728 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
-| H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
-| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
-| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.76 |
+| H: 1728 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
+| θ̂(Ĥ) | 2.32 | 0.62 | 1.32 | 8.16 | 16.18 |
+| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.72 |
 | Hᶜ: avg \|Hᶜ\| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58 |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | -3.04 |
-| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | 3.01 |
+| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.93 | -3.06 |
+| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.76 | 3.03 |
 
 ``` r
 timings$summarize_alt <- proc.time()[3] - t0
@@ -1299,16 +1299,16 @@ interpret_estimation_table(
 ```
 
 Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
-880 of 1000 simulations (88.0%) identified a subgroup using FS. The
+1728 of 2000 simulations (86.4%) identified a subgroup using FS. The
 identified subgroup averaged 86 patients (complement: 614).
 
-The naive Cox HR in the identified subgroup averaged 2.31 (SD = 0.63),
-corresponding to 15.3% relative bias versus the true HR(H) = 2. In the
-complement, the estimate averaged 0.64 (-3.0% bias vs. true HR(Hc) =
+The naive Cox HR in the identified subgroup averaged 2.32 (SD = 0.62),
+corresponding to 16.2% relative bias versus the true HR(H) = 2. In the
+complement, the estimate averaged 0.64 (-3.1% bias vs. true HR(Hc) =
 0.66).
 
 The average hazard ratio (AHR) in the identified subgroup averaged 2.14
-(-10.8% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
+(-10.7% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
 (3.0% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
 relative to the Cox HR, consistent with AHR being a marginal rather than
 conditional estimand.
@@ -1363,13 +1363,13 @@ build_estimation_table(
 
 | Estimation Properties |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 61 estimable realizations |  |  |  |  |  |
+| FS: 606 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
-| H: 61 estimable, avg \|H\| = 99, θ̂(H) = 0.72, âhr(H) = 0.65 |  |  |  |  |  |
-| θ̂(Ĥ) | 1.76 | 0.26 | 1.42 | 2.49 | 144.05 |
+| H: 606 estimable, avg \|H\| = 98, θ̂(H) = 0.72, âhr(H) = 0.65 |  |  |  |  |  |
+| θ̂(Ĥ) | 1.80 | 0.26 | 1.31 | 2.90 | 148.56 |
 | âhr(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
-| Hᶜ: avg \|Hᶜ\| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65 |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.69 | 0.07 | 0.53 | 0.89 | -4.89 |
+| Hᶜ: avg \|Hᶜ\| = 602, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65 |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.68 | 0.08 | 0.46 | 0.93 | -6.24 |
 | âhr(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
 
 ``` r
@@ -1386,16 +1386,16 @@ interpret_estimation_table(
 )
 ```
 
-Under the null hypothesis (true HR = 0.72 uniformly), 61 of 1000
+Under the null hypothesis (true HR = 0.72 uniformly), 606 of 10000
 simulations (6.1%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 61 false detections,
-the identified subgroup averaged 99 patients.
+rate confirms controlled type-I error. Among those 606 false detections,
+the identified subgroup averaged 98 patients.
 
-The naive Cox HR in the identified subgroup averaged 1.76 (SD = 0.26),
-representing 144.1% relative bias above the true value of 0.72. This
+The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
+representing 148.6% relative bias above the true value of 0.72. This
 upward bias reflects selection: the algorithm identified whichever
 patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.69 (-4.9% bias), showing the expected
+complement, the Cox HR averaged 0.68 (-6.2% bias), showing the expected
 mirror effect where removing the worst-looking patients makes the
 remainder appear modestly better.
 
@@ -1446,20 +1446,20 @@ build_classification_table(
 
 | Subgroup Identification and Classification Rates |  |  |
 |----|----|----|
-| Across 1,000 simulations per scenario |  |  |
+| Across 2,000 simulations per scenario |  |  |
 |  | FS | GRF |
 | M Null: N=700, theta(ITT) = 0.72 |  |  |
-| any(H) | 0.06 | 0.07 |
+| any(H) | 0.06 | 0.06 |
 | sens(Hc) | 0.86 | 0.89 |
 | ppv(Hc) | 1.00 | 1.00 |
-| avg\|H\| | 99.00 | 77.00 |
+| avg\|H\| | 98.00 | 78.00 |
 | M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
-| any(H) | 0.88 | 0.75 |
+| any(H) | 0.86 | 0.75 |
 | sens(H) | 0.86 | 0.89 |
 | sens(Hc) | 0.98 | 0.97 |
-| ppv(H) | 0.89 | 0.84 |
+| ppv(H) | 0.89 | 0.83 |
 | ppv(Hc) | 0.98 | 0.98 |
-| avg\|H\| | 86.00 | 98.00 |
+| avg\|H\| | 86.00 | 99.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1491,7 +1491,7 @@ cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.453
+    ## Censoring proportion: 0.452
 
 ``` r
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
@@ -1548,7 +1548,7 @@ cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.88
+    ## Empirical FS: 0.864
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
@@ -1562,7 +1562,7 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.754
+    ## Empirical GRF: 0.751
 
 ``` r
 # Null 
@@ -1598,13 +1598,13 @@ cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.039618
+    ## Theoretical FS at min(SG) (asymptotic): 0.039615
 
 ``` r
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.061
+    ## Empirical FS: 0.0606
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1618,14 +1618,14 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.067
+    ## Empirical GRF: 0.0646
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.463
+    ## Censoring proportion: 0.464
 
 ``` r
 # -----------------------------------------------------------------------------
@@ -1739,8 +1739,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
-    ##   GRF: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
+    ##   FS: Power = 0.808, Sens = 0.873, Spec = 0.977, PPV = 0.865
+    ##   GRF: Power = 0.808, Sens = 0.873, Spec = 0.977, PPV = 0.865
 
 ``` r
 cat("\nNull Hypothesis (H0):\n")
@@ -1758,8 +1758,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0640
-    ##   GRF: Type I Error = 0.0640
+    ##   FS: Type I Error = 0.0626
+    ##   GRF: Type I Error = 0.0626
 
 ## Using `format_oc_results()`
 
@@ -2027,18 +2027,18 @@ reproducibility information.
 
 | Computational Timing Summary |  |  |  |
 |----|----|----|----|
-| 1000 H1 + 1000 H0 simulations, 13 workers |  |  |  |
+| 2000 H1 + 10000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.0 | 0.03 | 0.2 |
-| Calibrate k_inter (AHR) | 0.8 | 0.01 | 0.1 |
+| Calibrate k_inter (Cox) | 2.1 | 0.03 | 0.0 |
+| Calibrate k_inter (AHR) | 0.9 | 0.01 | 0.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
-| DGM creation (H0) | 0.0 | 0.00 | 0.0 |
-| Simulations H1 | 455.4 | 7.59 | 51.7 |
-| Simulations H0 | 405.5 | 6.76 | 46.1 |
+| DGM creation (H0) | 0.1 | 0.00 | 0.0 |
+| Simulations H1 | 990.9 | 16.52 | 20.7 |
+| Simulations H0 | 3,780.7 | 63.01 | 78.9 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.1 | 0.00 | 0.0 |
-| Total vignette | 880.0 | 14.67 | 100.0 |
+| Summarize H0 | 0.0 | 0.00 | 0.0 |
+| Total vignette | 4,790.0 | 79.83 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2152,7 +2152,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 0.5 sec/sim (wall) across 1000 sims on 13 workers
+    ##   H1: 0.5 sec/sim (wall) across 2000 sims on 13 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2160,7 +2160,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 0.4 sec/sim (wall) across 1000 sims on 13 workers
+    ##   H0: 0.4 sec/sim (wall) across 10000 sims on 13 workers
 
 ## Complete Example Script
 
@@ -2364,6 +2364,10 @@ build_classification_table(
 
 #### Table 2: Estimation Properties
 
+Not run (duplicate of above).
+
+Detailed calculations follow.
+
 ``` r
 # ── Build estimation table for the preferred analysis method ──────────────
 # Uses the alternative-hypothesis results where subgroups are identified.
@@ -2382,14 +2386,274 @@ build_estimation_table(
 
 | Estimation Properties for Identified Subgroup |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 880 estimable realizations |  |  |  |  |  |
+| FS: 1728 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
-| H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
-| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
-| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.76 |
+| H: 1728 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
+| θ̂(Ĥ) | 2.32 | 0.62 | 1.32 | 8.16 | 16.18 |
+| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.72 |
 | Hᶜ: avg \|Hᶜ\| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58 |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | -3.04 |
-| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | 3.01 |
+| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.93 | -3.06 |
+| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.76 | 3.03 |
+
+## Detailed Summary: How `build_estimation_table()` Calculates Results
+
+### `R/simulation_tables.R`
+
+------------------------------------------------------------------------
+
+### Purpose
+
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+produces a gt table summarizing how well ForestSearch (or GRF) estimates
+the treatment-effect hazard ratio in the identified subgroup (Ĥ) and its
+complement (Ĥᶜ). It reports average estimate, variability, range, and
+relative bias versus DGM truth for up to six estimators across two
+row-groups.
+
+------------------------------------------------------------------------
+
+### Input Requirements
+
+| Argument | Role |
+|----|----|
+| `results` | `data.table` from [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md), one row per sim × method |
+| `dgm` | DGM object carrying true parameter values |
+| `analysis_method` | Which method to filter on (e.g., `"FS"`, `"FSlg"`, `"GRF"`) |
+| `n_boots` | Optional; if non-NULL, shown in subtitle |
+| `digits` | Rounding precision for all displayed numbers |
+| `font_size` | Pixel size for gt rendering |
+
+------------------------------------------------------------------------
+
+### Step-by-Step Calculation Pipeline
+
+#### 1. Filter to Estimable Realizations
+
+``` r
+res <- as.data.table(results)
+res <- res[analysis == analysis_method]   # keep only the requested method
+res_found <- res[any.H == 1]             # keep only sims that found a subgroup
+n_estimable <- nrow(res_found)
+```
+
+Only simulations where the algorithm **identified a subgroup**
+(`any.H == 1`) contribute to estimation summaries. If
+`n_estimable == 0`, the function returns `NULL` with a message.
+
+#### 2. Extract True Values from the DGM
+
+**Alternative hypothesis DGM** (`model = "alt"`):
+
+| True value | Source | Description |
+|----|----|----|
+| `theta_H_true` | `dgm$hr_H_true` | Cox-based HR in the true harm subgroup |
+| `theta_Hc_true` | `dgm$hr_Hc_true` | Cox-based HR in the true complement |
+| `ahr_H_true` | `get_dgm_hr(dgm, "ahr_H")` | AHR in the true harm subgroup |
+| `ahr_Hc_true` | `get_dgm_hr(dgm, "ahr_Hc")` | AHR in the true complement |
+
+**Null hypothesis DGM** (`model = "null"`):
+
+Under the null, `hr_H_true` is `NA` because no true subgroup exists. The
+function detects this via:
+
+``` r
+is_null <- (dgm$model_type == "null") ||
+           (is.na(theta_H_true) && !is.na(theta_Hc_true))
+```
+
+When `is_null` is `TRUE`, all NA true values are backfilled with the
+**overall (causal) HR**, which is the uniform true value for any subset:
+
+``` r
+hr_overall  <- get_dgm_hr(dgm, "hr_overall")  # tries hazard_ratios$overall
+if (is.na(hr_overall)) hr_overall <- dgm$hr_causal  # fallback to direct field
+
+theta_H_true  <- hr_overall   # e.g., 0.72
+theta_Hc_true <- hr_overall   # same value under the null
+```
+
+The same logic applies for AHR via `get_dgm_hr(dgm, "ahr")` / `dgm$AHR`.
+
+#### 3. Compute Per-Estimator Summary Statistics
+
+The core computation is handled by the `make_est_row()` helper:
+
+``` r
+make_est_row <- function(estimates, true_val, label) {
+  est <- estimates[!is.na(estimates)]   # drop any NA estimates
+  if (length(est) == 0) return(NULL)
+
+  avg_est  <- mean(est)
+  sd_est   <- sd(est)
+  min_est  <- min(est)
+  max_est  <- max(est)
+  rel_bias <- 100 * (avg_est - true_val) / true_val
+
+  data.frame(
+    Estimator    = label,
+    Avg          = round(avg_est, digits),
+    SD           = round(sd_est, digits),
+    Min          = round(min_est, digits),
+    Max          = round(max_est, digits),
+    `Rel Bias (%)` = round(rel_bias, digits)
+  )
+}
+```
+
+**Key formula — Relative Bias**:
+
+    Rel Bias (%) = 100 × (mean(θ̂) − θ_true) / θ_true
+
+This is the **percentage by which the average estimate overshoots or
+undershoots the DGM truth**. Positive values indicate upward bias
+(common for naive Cox HR in data-driven subgroups due to selection
+bias).
+
+#### 4. Assemble Rows by Subgroup
+
+The function builds up to **three rows per subgroup** (H and Hᶜ), each
+conditional on the corresponding column existing in `res_found`:
+
+##### Rows for Ĥ (identified harm subgroup)
+
+| Row label | Source column | True value | When included |
+|----|----|----|----|
+| `theta-hat(H-hat)` | `hr.H.hat` | `theta_H_true` | Always (if column exists) |
+| `theta-hat*(H-hat)` | `hr.H.bc` | `theta_H_true` | Only if bootstrap bias correction ran |
+| `ahr-hat(H-hat)` | `ahr.H.hat` | `ahr_H_true` | Only if AHR columns exist AND `ahr_H_true` is non-NA |
+
+##### Rows for Ĥᶜ (identified complement)
+
+| Row label | Source column | True value | When included |
+|----|----|----|----|
+| `theta-hat(Hc-hat)` | `hr.Hc.hat` | `theta_Hc_true` | Always (if column exists) |
+| `theta-hat*(Hc-hat)` | `hr.Hc.bc` | `theta_Hc_true` | Only if bootstrap bias correction ran |
+| `ahr-hat(Hc-hat)` | `ahr.Hc.hat` | `ahr_Hc_true` | Only if AHR columns exist AND `ahr_Hc_true` is non-NA |
+
+**What each estimator represents**:
+
+- **θ̂(Ĥ)** = Naive Cox HR fitted in the *identified* (data-driven)
+  subgroup. Subject to selection bias because the same data that
+  selected Ĥ is used to estimate the HR in Ĥ.
+
+- **θ̂\*(Ĥ)** = Bootstrap bias-corrected Cox HR. Uses infinitesimal
+  jackknife / bootstrap resampling to estimate and subtract the
+  selection bias, yielding a less optimistic (more accurate) estimate.
+
+- **âhr(Ĥ)** = Average Hazard Ratio computed as `exp(mean(loghr_po))`
+  over patients in Ĥ. This is a marginal (population-averaged) estimand
+  rather than the conditional Cox HR, so it is less sensitive to
+  covariate imbalance within the identified subgroup.
+
+#### 5. Attach Row-Group Headers
+
+Each subgroup block gets a descriptive Unicode header that encodes the
+ground truth and sample characteristics:
+
+**H header**:
+`"H: 18 estimable, avg |H| = 90, θ̂(H) = 2.0, âhr(H) = 1.85"`
+
+Built by
+`build_H_label(n_estimable, avg_size_H, theta_H_true, ahr_H_true)`.
+
+**Hᶜ header**: `"Hᶜ: avg |Hᶜ| = 610, θ̂(Hᶜ) = 0.65, âhr(Hᶜ) = 0.68"`
+
+Built by `build_Hc_label(avg_size_Hc, theta_Hc_true, ahr_Hc_true)`.
+
+The AHR portion is conditionally appended only when `ahr_*_true` is
+non-NA.
+
+#### 6. Apply Unicode Labels
+
+Plain-text estimator keys are replaced with Unicode mathematical
+notation *before* creating the gt object, via a `label_map` lookup:
+
+| Plain-text key       | Unicode label | Rendered as |
+|----------------------|---------------|-------------|
+| `theta-hat(H-hat)`   | `θ̂(Ĥ)`        | θ̂(Ĥ)        |
+| `theta-hat*(H-hat)`  | `θ̂*(Ĥ)`       | θ̂\*(Ĥ)      |
+| `ahr-hat(H-hat)`     | `âhr(Ĥ)`      | âhr(Ĥ)      |
+| `theta-hat(Hc-hat)`  | `θ̂(Ĥᶜ)`       | θ̂(Ĥᶜ)       |
+| `theta-hat*(Hc-hat)` | `θ̂*(Ĥᶜ)`      | θ̂\*(Ĥᶜ)     |
+| `ahr-hat(Hc-hat)`    | `âhr(Ĥᶜ)`     | âhr(Ĥᶜ)     |
+
+This avoids HTML tags (which gt strips) and `fmt_markdown` /
+`text_transform` (which can corrupt row-group rendering).
+
+#### 7. Render gt Table
+
+The final gt table uses:
+
+- `groupname_col = "Subgroup"` — creates the two row-group sections
+- Conditional subtitle with or without bootstrap count
+- Uniform `font_size` across body cells, row-group headers, and
+  table-level font size
+
+------------------------------------------------------------------------
+
+### Example Output Structure
+
+For an alternative-hypothesis simulation with 18/20 detections,
+bootstrap correction, and AHR columns present:
+
+    ┌──────────────────────────────────────────────────────────────────────┐
+    │ Estimation Properties                                                │
+    │ FS: 18 estimable realizations                                        │
+    ├──────────────────────────────────────────────────────────────────────┤
+    │ H: 18 estimable, avg |H| = 90, θ̂(H) = 2.0, âhr(H) = 1.85         │
+    │──────────────────────────────────────────────────────────────────────│
+    │          │  Avg  │  SD   │  Min  │  Max  │ Rel Bias (%)             │
+    │ θ̂(Ĥ)    │ 2.18  │ 0.53  │ 1.40  │ 6.08  │  9.2                    │
+    │ θ̂*(Ĥ)   │ 1.80  │ 0.48  │ 1.07  │ 4.82  │ -10.0                   │
+    │ âhr(Ĥ)   │ 1.92  │ 0.41  │ 1.25  │ 4.10  │  3.8                    │
+    ├──────────────────────────────────────────────────────────────────────┤
+    │ Hᶜ: avg |Hᶜ| = 610, θ̂(Hᶜ) = 0.65, âhr(Hᶜ) = 0.68               │
+    │──────────────────────────────────────────────────────────────────────│
+    │          │  Avg  │  SD   │  Min  │  Max  │ Rel Bias (%)             │
+    │ θ̂(Ĥᶜ)   │ 0.65  │ 0.08  │ 0.44  │ 0.90  │ -0.3                    │
+    │ θ̂*(Ĥᶜ)  │ 0.66  │ 0.08  │ 0.45  │ 0.92  │  1.4                    │
+    │ âhr(Ĥᶜ)  │ 0.69  │ 0.07  │ 0.50  │ 0.88  │  1.5                    │
+    └──────────────────────────────────────────────────────────────────────┘
+
+Under the **null hypothesis** the same structure applies, but: - True
+values for both H and Hᶜ are the overall causal HR (e.g., 0.72) -
+`n_estimable` is typically small (e.g., 2/20 = 10% false detection
+rate) - The naive θ̂(Ĥ) shows large positive bias (selection effect) -
+The complement θ̂(Ĥᶜ) shows the mirror effect (slightly below truth)
+
+------------------------------------------------------------------------
+
+### Column-to-Calculation Mapping
+
+| Output column    | Calculation                                     |
+|------------------|-------------------------------------------------|
+| **Avg**          | `mean(estimates)`                               |
+| **SD**           | `sd(estimates)` (empirical, across sims)        |
+| **Min**          | `min(estimates)`                                |
+| **Max**          | `max(estimates)`                                |
+| **Rel Bias (%)** | `100 * (mean(estimates) - true_val) / true_val` |
+
+All calculations use only non-NA values from `res_found$<column>`.
+
+------------------------------------------------------------------------
+
+### Source Columns in Simulation Results
+
+These columns are produced by
+[`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md):
+
+| Column       | Description                                             |
+|--------------|---------------------------------------------------------|
+| `any.H`      | Binary: 1 = subgroup identified, 0 = not                |
+| `hr.H.hat`   | Naive Cox HR in the identified subgroup Ĥ               |
+| `hr.Hc.hat`  | Naive Cox HR in the complement Ĥᶜ                       |
+| `hr.H.bc`    | Bootstrap bias-corrected HR in Ĥ (when bootstraps ran)  |
+| `hr.Hc.bc`   | Bootstrap bias-corrected HR in Ĥᶜ (when bootstraps ran) |
+| `ahr.H.hat`  | AHR = exp(mean(loghr_po)) in Ĥ                          |
+| `ahr.Hc.hat` | AHR = exp(mean(loghr_po)) in Ĥᶜ                         |
+| `size.H`     | Number of patients in identified subgroup               |
+| `size.Hc`    | Number of patients in complement                        |
+| `analysis`   | Method label: “FS”, “FSlg”, or “GRF”                    |
 
 #### Producing Multi-Scenario Tables (Full Replication)
 

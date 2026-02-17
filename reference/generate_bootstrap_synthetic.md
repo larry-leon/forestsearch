@@ -83,8 +83,8 @@ synth_gbsg <- generate_bootstrap_synthetic(
   seed = 123,
   noise_level = 0.15
 )
-#> Warning: internal error 1 in R_decompress1 with libdeflate
-#> Error: lazy-load database '/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/forestsearch/R/forestsearch.rdb' is corrupt
+#> Note: The following variables were not specified as continuous or categorical and will be kept as-is from bootstrap sample:
+#>    grade
 
 # Example 2: Using with any dataset
 my_data <- data.frame(
@@ -106,8 +106,7 @@ synth_data <- generate_bootstrap_synthetic(
   n = 150,
   seed = 456
 )
-#> Warning: restarting interrupted promise evaluation
-#> Warning: internal error 1 in R_decompress1 with libdeflate
-#> Error: lazy-load database '/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/library/forestsearch/R/forestsearch.rdb' is corrupt
+#> Note: The following variables were not specified as continuous or categorical and will be kept as-is from bootstrap sample:
+#>    education
 # }
 ```
