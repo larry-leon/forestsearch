@@ -47,7 +47,7 @@ knitr::knit_hooks$set(code_fold = function(before, options, envir) {
 # Introduction
 
 This vignette demonstrates how to conduct simulation studies to evaluate the
-performance of ForestSearch for identifying subgroups with differential treatment
+performance of forestsearch for identifying subgroups with differential treatment
 effects. 
 
 We describe a simulation framework with a detailed example that reproduces (essentially) 
@@ -600,7 +600,7 @@ cat("Using", n_workers, "parallel workers\n")
 ```{r define-params}
 # Simulation settings
 sim_config_alt <- list(
-  n_sims = 2000,          # Number of simulations (use 500-1000 for final)
+  n_sims = 100,          # Number of simulations (use 500-1000 for final)
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -608,7 +608,7 @@ sim_config_alt <- list(
 )
 
 sim_config_null <- list(
-  n_sims = 10000,          # More simulations for Type I error estimation
+  n_sims = 100,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
