@@ -53,7 +53,6 @@ library(gt)
 library(grf)
 library(policytree)
 library(doFuture)
-library(doRNG)
 
 # Optional packages for enhanced output
 library(patchwork)
@@ -256,12 +255,6 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
     ## Using 2 of 14 total cores for parallel processing
 
-``` r
-# Configure parallel backend
-registerDoFuture()
-registerDoRNG()
-```
-
 ### Running ForestSearch
 
 ForestSearch performs an exhaustive search over candidate subgroup
@@ -445,7 +438,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 2.016 0.0336 
+    ## Seconds and minutes forestsearch overall = 2.002 0.0334 
     ## Consistency algorithm used: twostage
 
 ``` r
@@ -592,8 +585,8 @@ summaries <- summarize_bootstrap_results(
     ## -------------------------------------------------------------
     ## Overall:
     ##   Total bootstrap time:          0.04 minutes (0.00 hours)
-    ##   Average per iteration:         0.02 min (1.1 sec)
-    ##   Projected for 1000 boots:      18.92 min (0.32 hrs)
+    ##   Average per iteration:         0.02 min (1.2 sec)
+    ##   Projected for 1000 boots:      19.29 min (0.32 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -1102,15 +1095,14 @@ sessionInfo()
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
-    ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doRNG_1.8.6.3      
-    ##  [4] rngtools_1.5.2      doFuture_1.2.0      future_1.69.0      
-    ##  [7] foreach_1.5.2       policytree_1.2.3    grf_2.5.0          
-    ## [10] gt_1.3.0            ggplot2_4.0.2       data.table_1.18.2.1
-    ## [13] survival_3.8-6      forestsearch_0.1.0 
+    ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.0     
+    ##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.3   
+    ##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      
+    ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
-    ##  [4] bslib_0.10.0         visNetwork_2.1.4     htmlwidgets_1.6.4   
+    ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
     ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         
     ## [10] generics_0.1.4       parallel_4.5.1       tibble_3.3.1        
     ## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  
@@ -1124,7 +1116,7 @@ sessionInfo()
     ## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
     ## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      
     ## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          
-    ## [46] cli_3.6.5            DiagrammeR_1.0.11    magrittr_2.0.4      
+    ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.1  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
     ## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    

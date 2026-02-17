@@ -66,7 +66,8 @@ estimator.</p>
 <span>  analysis_method <span class="op">=</span> <span class="st">"FSlg"</span>,</span>
 <span>  n_boots <span class="op">=</span> <span class="fl">300</span>,</span>
 <span>  digits <span class="op">=</span> <span class="fl">2</span>,</span>
-<span>  title <span class="op">=</span> <span class="st">"Estimation Properties"</span></span>
+<span>  title <span class="op">=</span> <span class="st">"Estimation Properties"</span>,</span>
+<span>  font_size <span class="op">=</span> <span class="fl">12</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -82,7 +83,7 @@ bootstrap bias-corrected columns (<code>hr.H.bc</code>, <code>hr.Hc.bc</code>).<
 
 <dt id="arg-dgm">dgm<a class="anchor" aria-label="anchor" href="#arg-dgm"></a></dt>
 <dd><p>DGM object. Used for true parameter values (<code>hr_H_true</code>,
-<code>hr_Hc_true</code>).</p></dd>
+<code>hr_Hc_true</code>, and AHR truth via <code><a href="get_dgm_hr.html">get_dgm_hr</a></code>).</p></dd>
 
 
 <dt id="arg-analysis-method">analysis_method<a class="anchor" aria-label="anchor" href="#arg-analysis-method"></a></dt>
@@ -101,6 +102,11 @@ bootstrap bias-corrected columns (<code>hr.H.bc</code>, <code>hr.Hc.bc</code>).<
 <dt id="arg-title">title<a class="anchor" aria-label="anchor" href="#arg-title"></a></dt>
 <dd><p>Character. Table title.</p></dd>
 
+
+<dt id="arg-font-size">font_size<a class="anchor" aria-label="anchor" href="#arg-font-size"></a></dt>
+<dd><p>Numeric. Font size in pixels for table text. Default: 12.
+Increase to 14 or 16 for larger display.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -109,18 +115,24 @@ realizations exist.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>For each subgroup (H and Hc) the function reports:</p><ul><li><p><strong>Avg</strong>: Mean of the estimates across estimable simulations.</p></li>
+    <p>Includes both Cox-based HR and AHR (Average Hazard Ratio from loghr_po)
+estimators when AHR columns are present in the results.</p>
+<p>For each subgroup (H and Hc) the function reports:</p><ul><li><p><strong>Avg</strong>: Mean of the estimates across estimable simulations.</p></li>
 <li><p><strong>SD</strong>: Empirical standard deviation.</p></li>
 <li><p><strong>Min / Max</strong>: Range.</p></li>
-<li><p><strong>Rel Bias</strong>: Relative bias in percent, <code>100 * (Avg - true) / true</code>.</p></li>
+<li><p><strong>Rel Bias</strong>: Relative bias in percent,
+<code>100 * (Avg - true) / true</code>.</p></li>
 </ul><p>When bootstrap-corrected columns (<code>hr.H.bc</code>, <code>hr.Hc.bc</code>) are
 present in <code>results</code>, an additional bias-corrected row
 (<code>"theta-hat*(H)"</code> or <code>"theta-hat*(Hc)"</code>) is added per subgroup.</p>
+<p>When AHR columns (<code>ahr.H.hat</code>, <code>ahr.Hc.hat</code>) are present, AHR
+estimation rows are appended using the DGM's true AHR values for relative
+bias calculation.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
     <div class="dont-index"><p><code><a href="build_classification_table.html">build_classification_table</a></code>,
-<code><a href="format_oc_results.html">format_oc_results</a></code></p></div>
+<code><a href="format_oc_results.html">format_oc_results</a></code>, <code><a href="get_dgm_hr.html">get_dgm_hr</a></code></p></div>
     </div>
 
     <div class="section level2">

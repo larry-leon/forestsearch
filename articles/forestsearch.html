@@ -68,7 +68,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-02-15</h4>
+            <h4 data-toc-skip class="date">2026-02-16</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
@@ -144,7 +144,6 @@ threshold”).</p>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/grf-labs/grf" class="external-link">grf</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/grf-labs/policytree" class="external-link">policytree</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://doFuture.futureverse.org" class="external-link">doFuture</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/emilioluissaenzguillen/doRNG" class="external-link">doRNG</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Optional packages for enhanced output</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com" class="external-link">patchwork</a></span><span class="op">)</span></span>
@@ -895,10 +894,6 @@ intensive operations (bootstrap, cross-validation).</p>
 <span><span class="va">n_cores_total</span> <span class="op">&lt;-</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="va">n_cores</span>, <span class="st">"of"</span>, <span class="va">n_cores_total</span>, <span class="st">"total cores for parallel processing"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Using 2 of 14 total cores for parallel processing</span></span></code></pre>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Configure parallel backend</span></span>
-<span><span class="fu"><a href="https://doFuture.futureverse.org/reference/registerDoFuture.html" class="external-link">registerDoFuture</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/pkg/doRNG/man/registerDoRNG.html" class="external-link">registerDoRNG</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="running-forestsearch">Running ForestSearch<a class="anchor" aria-label="anchor" href="#running-forestsearch"></a>
@@ -946,7 +941,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch.html">forestsearch</a></span><span class="op">(</span></span>
@@ -1110,9 +1105,9 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
 <span><span class="co">## % consistency criteria met= 0.97 </span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 2.016 0.0336 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 2.002 0.0334 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage</span></span></code></pre>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span> <span class="op">-</span> <span class="va">t0</span><span class="op">)</span><span class="op">[</span><span class="st">"elapsed"</span><span class="op">]</span></span>
 <span></span>
@@ -1127,7 +1122,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="identified-subgroups">Identified Subgroups<a class="anchor" aria-label="anchor" href="#identified-subgroups"></a>
 </h4>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate results tables</span></span>
 <span><span class="va">res_tabs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/sg_tables.html">sg_tables</a></span><span class="op">(</span><span class="va">fs</span>, ndecimals <span class="op">=</span> <span class="fl">3</span>, which_df <span class="op">=</span> <span class="st">"est"</span><span class="op">)</span></span>
 <span></span>
@@ -1626,7 +1621,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="treatment-effect-estimates">Treatment Effect Estimates<a class="anchor" aria-label="anchor" href="#treatment-effect-estimates"></a>
 </h4>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># ITT and subgroup estimates</span></span>
 <span><span class="va">res_tabs</span><span class="op">$</span><span class="va">tab_estimates</span></span></code></pre></div>
 <div id="bsappnmlhn" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -2141,10 +2136,10 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <div class="section level4">
 <h4 id="identified-subgroup-definition">Identified Subgroup Definition<a class="anchor" aria-label="anchor" href="#identified-subgroup-definition"></a>
 </h4>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Identified subgroup (H):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Identified subgroup (H): {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Subgroup size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%% of ITT)\n"</span>, </span>
 <span>            <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
@@ -2176,7 +2171,7 @@ addresses this by:</p>
 <div class="section level3">
 <h3 id="running-bootstrap-analysis">Running Bootstrap Analysis<a class="anchor" aria-label="anchor" href="#running-bootstrap-analysis"></a>
 </h3>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Number of bootstrap iterations</span></span>
 <span><span class="co"># Use 500-2000 for production; reduced here for vignette</span></span>
 <span><span class="va">NB</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
@@ -2206,7 +2201,7 @@ addresses this by:</p>
 <div class="section level3">
 <h3 id="bootstrap-summary-and-diagnostics">Bootstrap Summary and Diagnostics<a class="anchor" aria-label="anchor" href="#bootstrap-summary-and-diagnostics"></a>
 </h3>
-<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Comprehensive summary with diagnostics</span></span>
 <span><span class="va">summaries</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_results.html">summarize_bootstrap_results</a></span><span class="op">(</span></span>
 <span>  sgharm <span class="op">=</span> <span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>,</span>
@@ -2233,9 +2228,9 @@ addresses this by:</p>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
 <span><span class="co">##   Total bootstrap time:          0.04 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.02 min (1.1 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      18.92 min (0.32 hrs)</span></span></code></pre>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<span><span class="co">##   Average per iteration:         0.02 min (1.2 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      19.29 min (0.32 hrs)</span></span></code></pre>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
 <div id="ppjflwfsyz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -2773,7 +2768,7 @@ addresses this by:</p>
 <div class="section level3">
 <h3 id="kaplan-meier-by-identified-subgroups">Kaplan-Meier by Identified Subgroups<a class="anchor" aria-label="anchor" href="#kaplan-meier-by-identified-subgroups"></a>
 </h3>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span> <span class="va">km_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_sg_weighted_km.html">plot_sg_weighted_km</a></span><span class="op">(</span></span>
 <span>   fs.est <span class="op">=</span> <span class="va">fs</span>,</span>
 <span>   outcome.name <span class="op">=</span> <span class="st">"time_months"</span>,</span>
@@ -2801,7 +2796,7 @@ CI] for arms are un-adjusted.</p>
 </h4>
 <p>Low event counts can lead to unstable HR estimates. This summary
 helps identify potential issues:</p>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># note that default required minimum events is 12 for subgroup candidate</span></span>
 <span><span class="co"># Here we evaluate frequency of subgroup candidates in bootstrap samples less than 15</span></span>
 <span><span class="va">event_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/summarize_bootstrap_events.html">summarize_bootstrap_events</a></span><span class="op">(</span><span class="va">fs_bc</span>, threshold <span class="op">=</span> <span class="fl">15</span><span class="op">)</span></span></code></pre></div>
@@ -2835,7 +2830,7 @@ helps identify potential issues:</p>
 <div class="section level4">
 <h4 id="bootstrap-diagnostics">Bootstrap Diagnostics<a class="anchor" aria-label="anchor" href="#bootstrap-diagnostics"></a>
 </h4>
-<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Quality metrics</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">diagnostics_table_gt</span></span></code></pre></div>
 <div id="knzabjqler" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -3370,7 +3365,7 @@ helps identify potential issues:</p>
 <h4 id="subgroup-agreement">Subgroup Agreement<a class="anchor" aria-label="anchor" href="#subgroup-agreement"></a>
 </h4>
 <p>How consistently does bootstrap identify the same subgroup?</p>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Agreement with original analysis</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">original_agreement</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">original_agreement</span></span>
@@ -3385,7 +3380,7 @@ helps identify potential issues:</p>
 <span><span class="co">## 6:       Exact match with original                 0 (0.0%)</span></span>
 <span><span class="co">## 7:         Different from original               2 (100.0%)</span></span>
 <span><span class="co">## 8:   Partial match (shared factor)                 0 (0.0%)</span></span></code></pre>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Factor presence across bootstrap iterations</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">factor_presence</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">subgroup_summary</span><span class="op">$</span><span class="va">factor_presence</span></span>
@@ -3399,7 +3394,7 @@ helps identify potential issues:</p>
 <div class="section level4">
 <h4 id="bootstrap-distributions">Bootstrap Distributions<a class="anchor" aria-label="anchor" href="#bootstrap-distributions"></a>
 </h4>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">$</span><span class="va">H_distribution</span> <span class="op">+</span> <span class="va">summaries</span><span class="op">$</span><span class="va">plots</span><span class="op">$</span><span class="va">Hc_distribution</span></span>
 <span><span class="op">}</span></span></code></pre></div>
@@ -3415,7 +3410,7 @@ ForestSearch algorithm. Two approaches are available:</p>
 <div class="section level3">
 <h3 id="k-fold-cross-validation">K-Fold Cross-Validation<a class="anchor" aria-label="anchor" href="#k-fold-cross-validation"></a>
 </h3>
-<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 10-fold CV with multiple iterations</span></span>
 <span><span class="co"># Use Ksims &gt;= 50 for production</span></span>
 <span><span class="va">Ksims</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
@@ -3979,7 +3974,7 @@ ForestSearch algorithm. Two approaches are available:</p>
 <h3 id="out-of-bag-n-fold-cross-validation">Out-of-Bag (N-Fold) Cross-Validation<a class="anchor" aria-label="anchor" href="#out-of-bag-n-fold-cross-validation"></a>
 </h3>
 <p>N-fold CV (leave-one-out):</p>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">fs_OOB</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forestsearch_Kfold.html">forestsearch_Kfold</a></span><span class="op">(</span></span>
@@ -4019,7 +4014,7 @@ ForestSearch algorithm. Two approaches are available:</p>
 <p>The forest plot summarizes treatment effects across the ITT
 population, reference subgroups, and identified subgroups with
 cross-validation metrics.</p>
-<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Define reference subgroups for comparison</span></span>
 <span><span class="va">subgroups</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  age_gt65 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
@@ -4084,7 +4079,7 @@ Subgroup forest plot including identified subgroups
 <p>The solid black line denotes the ITT Kaplan-Meier treatment
 difference estimates along with 95%95% CIs (the grey shaded region). K-M
 differences corresponding to subgroups are displayed.</p>
-<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Add additional subgroups along with ITT and identified subgroups</span></span>
 <span><span class="va">ref_sgs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>age_young <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>subset_expr <span class="op">=</span> <span class="st">"age &lt; 65"</span>, color <span class="op">=</span> <span class="st">"brown"</span><span class="op">)</span>,</span>
@@ -4101,7 +4096,7 @@ differences corresponding to subgroups are displayed.</p>
 <span> draws_band <span class="op">=</span> <span class="fl">20</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><img src="forestsearch_files/figure-html/KMdiffs-1.png" class="r-plt" alt="" width="768" style="display: block; margin: auto;"></p>
-<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># # Example with more subgroups</span></span>
 <span><span class="co"># ref_sgs &lt;- list(</span></span>
 <span><span class="co"># pgr_positive = list(subset_expr = "pgr &gt; 0", color ="green"),</span></span>
@@ -4118,46 +4113,46 @@ differences corresponding to subgroups are displayed.</p>
 <div class="section level3">
 <h3 id="key-findings">Key Findings<a class="anchor" aria-label="anchor" href="#key-findings"></a>
 </h3>
-<div class="sourceCode" id="cb50"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Extract key results</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"="</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">60</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span>collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ============================================================</span></span></code></pre>
-<div class="sourceCode" id="cb52"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb51"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"FORESTSEARCH ANALYSIS SUMMARY\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## FORESTSEARCH ANALYSIS SUMMARY</span></span></code></pre>
-<div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"="</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">60</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span>collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span>, <span class="st">"\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ============================================================</span></span></code></pre>
-<div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Dataset: GBSG (N ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">)</span>, <span class="st">")\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Dataset: GBSG (N = 686 )</span></span></code></pre>
-<div class="sourceCode" id="cb58"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb57"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Outcome: Recurrence-free survival\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Outcome: Recurrence-free survival</span></span></code></pre>
-<div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb59"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"ITT Analysis:\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## ITT Analysis:</span></span></code></pre>
-<div class="sourceCode" id="cb62"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb61"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  HR (95% CI): 0.69 (0.54, 0.89)\n\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   HR (95% CI): 0.69 (0.54, 0.89)</span></span></code></pre>
-<div class="sourceCode" id="cb64"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb63"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Identified Subgroup (H):\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Identified Subgroup (H):</span></span></code></pre>
-<div class="sourceCode" id="cb66"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb65"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Definition:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">sg.harm</span>, collapse <span class="op">=</span> <span class="st">" &amp; "</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   Definition: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
-<div class="sourceCode" id="cb68"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb67"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%%)\n"</span>, <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   Size: 61 (8.9%)</span></span></code></pre>
-<div class="sourceCode" id="cb70"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb69"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Unadjusted HR:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%.2f"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">grp.consistency</span><span class="op">$</span><span class="va">out_sg</span><span class="op">$</span><span class="va">result</span><span class="op">$</span><span class="va">hr</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   Unadjusted HR: 12.64</span></span></code></pre>
-<div class="sourceCode" id="cb72"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb71"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nComplement Subgroup (Hc):\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## Complement Subgroup (Hc):</span></span></code></pre>
-<div class="sourceCode" id="cb74"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb73"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"  Size:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"(%.1f%%)\n"</span>, <span class="fl">100</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">fs</span><span class="op">$</span><span class="va">df.est</span><span class="op">$</span><span class="va">treat.recommend</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##   Size: 625 (91.1%)</span></span></code></pre>
@@ -4717,7 +4712,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <div class="section level2">
 <h2 id="session-information">Session Information<a class="anchor" aria-label="anchor" href="#session-information"></a>
 </h2>
-<div class="sourceCode" id="cb76"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb75"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## R version 4.5.1 (2025-06-13)</span></span>
 <span><span class="co">## Platform: aarch64-apple-darwin20</span></span>
@@ -4737,15 +4732,14 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## other attached packages:</span></span>
-<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doRNG_1.8.6.3      </span></span>
-<span><span class="co">##  [4] rngtools_1.5.2      doFuture_1.2.0      future_1.69.0      </span></span>
-<span><span class="co">##  [7] foreach_1.5.2       policytree_1.2.3    grf_2.5.0          </span></span>
-<span><span class="co">## [10] gt_1.3.0            ggplot2_4.0.2       data.table_1.18.2.1</span></span>
-<span><span class="co">## [13] survival_3.8-6      forestsearch_0.1.0 </span></span>
+<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.0     </span></span>
+<span><span class="co">##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.3   </span></span>
+<span><span class="co">##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      </span></span>
+<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
 <span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           </span></span>
-<span><span class="co">##  [4] bslib_0.10.0         visNetwork_2.1.4     htmlwidgets_1.6.4   </span></span>
+<span><span class="co">##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    </span></span>
 <span><span class="co">##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         </span></span>
 <span><span class="co">## [10] generics_0.1.4       parallel_4.5.1       tibble_3.3.1        </span></span>
 <span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  </span></span>
@@ -4759,7 +4753,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       </span></span>
 <span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      </span></span>
 <span><span class="co">## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          </span></span>
-<span><span class="co">## [46] cli_3.6.5            DiagrammeR_1.0.11    magrittr_2.0.4      </span></span>
+<span><span class="co">## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   </span></span>
 <span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.1  withr_3.0.2         </span></span>
 <span><span class="co">## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      </span></span>
 <span><span class="co">## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    </span></span>

@@ -350,7 +350,6 @@ cox_fits <- fit_cox_models(fs_result$df.est, cox_formula)
 
 # 4. Set up parallel backend
 library(doFuture)
-registerDoFuture()
 plan(multisession, workers = 6)
 
 # 5. Run bootstrap (note: this is already parallelized internally)

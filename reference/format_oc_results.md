@@ -34,8 +34,8 @@ format_oc_results(
 - metrics:
 
   Character vector. Metrics to display. Options include: "detection",
-  "classification", "hr_estimates", "subgroup_size", "all". Default:
-  "all"
+  "classification", "hr_estimates", "ahr_estimates", "subgroup_size",
+  "all". Default: "all"
 
 - digits:
 
@@ -70,6 +70,9 @@ The function summarizes simulation results across multiple metrics:
 
 - **Classification**: Sen, spec, PPV, NPV
 
-- **HR Estimates**: Mean hazard ratios in H and Hc subgroups
+- **HR Estimates**: Mean Cox hazard ratios in H and Hc subgroups
+
+- **AHR Estimates**: Mean average hazard ratios (from loghr_po) in true
+  and identified subgroups
 
 - **Subgroup Size**: Average, min, max sizes

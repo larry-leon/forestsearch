@@ -15,7 +15,8 @@ build_estimation_table(
   analysis_method = "FSlg",
   n_boots = 300,
   digits = 2,
-  title = "Estimation Properties"
+  title = "Estimation Properties",
+  font_size = 12
 )
 ```
 
@@ -30,8 +31,9 @@ build_estimation_table(
 
 - dgm:
 
-  DGM object. Used for true parameter values (`hr_H_true`,
-  `hr_Hc_true`).
+  DGM object. Used for true parameter values (`hr_H_true`, `hr_Hc_true`,
+  and AHR truth via
+  [`get_dgm_hr`](https://larry-leon.github.io/forestsearch/reference/get_dgm_hr.md)).
 
 - analysis_method:
 
@@ -50,11 +52,19 @@ build_estimation_table(
 
   Character. Table title.
 
+- font_size:
+
+  Numeric. Font size in pixels for table text. Default: 12. Increase to
+  14 or 16 for larger display.
+
 ## Value
 
 A `gt` table object, or `NULL` if no estimable realizations exist.
 
 ## Details
+
+Includes both Cox-based HR and AHR (Average Hazard Ratio from loghr_po)
+estimators when AHR columns are present in the results.
 
 For each subgroup (H and Hc) the function reports:
 
@@ -70,10 +80,15 @@ When bootstrap-corrected columns (`hr.H.bc`, `hr.Hc.bc`) are present in
 `results`, an additional bias-corrected row (`"theta-hat*(H)"` or
 `"theta-hat*(Hc)"`) is added per subgroup.
 
+When AHR columns (`ahr.H.hat`, `ahr.Hc.hat`) are present, AHR estimation
+rows are appended using the DGM's true AHR values for relative bias
+calculation.
+
 ## See also
 
 [`build_classification_table`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md),
-[`format_oc_results`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md)
+[`format_oc_results`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md),
+[`get_dgm_hr`](https://larry-leon.github.io/forestsearch/reference/get_dgm_hr.md)
 
 ## Examples
 

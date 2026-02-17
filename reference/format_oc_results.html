@@ -38,7 +38,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Format Operating Characteristics Results as GT Table</h1>
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/R/oc_analyses_gbsg_refactored.R" class="external-link"><code>R/oc_analyses_gbsg_refactored.R</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/R/oc_analyses_gbsg.R" class="external-link"><code>R/oc_analyses_gbsg.R</code></a></small>
       <div class="d-none name"><code>format_oc_results.Rd</code></div>
     </div>
 
@@ -76,8 +76,8 @@ Default: NULL (all analyses in results)</p></dd>
 
 <dt id="arg-metrics">metrics<a class="anchor" aria-label="anchor" href="#arg-metrics"></a></dt>
 <dd><p>Character vector. Metrics to display. Options include:
-"detection", "classification", "hr_estimates", "subgroup_size", "all".
-Default: "all"</p></dd>
+"detection", "classification", "hr_estimates", "ahr_estimates",
+"subgroup_size", "all". Default: "all"</p></dd>
 
 
 <dt id="arg-digits">digits<a class="anchor" aria-label="anchor" href="#arg-digits"></a></dt>
@@ -108,7 +108,9 @@ Default: "all"</p></dd>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The function summarizes simulation results across multiple metrics:</p><ul><li><p><strong>Detection</strong>: Proportion of simulations finding a subgroup (any.H)</p></li>
 <li><p><strong>Classification</strong>: Sen, spec, PPV, NPV</p></li>
-<li><p><strong>HR Estimates</strong>: Mean hazard ratios in H and Hc subgroups</p></li>
+<li><p><strong>HR Estimates</strong>: Mean Cox hazard ratios in H and Hc subgroups</p></li>
+<li><p><strong>AHR Estimates</strong>: Mean average hazard ratios (from loghr_po)
+in true and identified subgroups</p></li>
 <li><p><strong>Subgroup Size</strong>: Average, min, max sizes</p></li>
 </ul></div>
 

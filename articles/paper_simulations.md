@@ -14,17 +14,6 @@ differential treatment effects. The simulation framework allows you to:
 - Estimate Type I error under null hypothesis
 - Track and summarize computational timings across simulations
 
-### Simulation Framework Overview
-
-The simulation workflow consists of four main steps:
-
-``` mermaid
-flowchart LR
-    A[Create DGM] --> B[Simulate Trials]
-    B --> C[Run Analyses]
-    C --> D[Summarize Results]
-```
-
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets
@@ -63,6 +52,146 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+```
+
+### Simulation Workflow Overview
+
+This section outlines the end-to-end workflow for evaluating
+ForestSearch performance via simulation. Each step is described below
+the workflow diagram, with cross-references to the corresponding
+vignette sections.
+
+Four-stage simulation workflow for evaluating subgroup identification
+performance.
+
+#### Step 1: Create a Data Generating Mechanism (DGM)
+
+The DGM defines the ground truth for the simulation. Building on the
+GBSG breast cancer dataset as a covariate template,
+[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+fits an Accelerated Failure Time (AFT) model with Weibull baseline
+hazard and generates a super-population of potential outcomes.
+
+Key decisions at this stage:
+
+- **Hypothesis**: `model = "alt"` introduces treatment effect
+  heterogeneity (harm subgroup H vs. benefit complement H^(c));
+  `model = "null"` imposes a uniform treatment effect so that no true
+  subgroup exists (for type-I error evaluation).
+- **Effect size**: The `k_inter` parameter scales the
+  treatment-by-covariate interaction. Rather than setting it manually,
+  use
+  [`calibrate_k_inter()`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
+  to find the value that achieves a target HR in the harm subgroup,
+  calibrated either to the Cox HR (`use_ahr = FALSE`) or to the average
+  hazard ratio (`use_ahr = TRUE`).
+- **Subgroup definition**: By default, H = {low estrogen receptor AND
+  premenopausal} (z1 = 1 & z3 = 1), covering roughly 13% of the
+  super-population.
+- **Censoring**: Weibull or uniform censoring, optionally adjusted via
+  `muC_adj` to control the overall event rate.
+
+The resulting DGM object stores the super-population, true hazard ratios
+(both Cox-based and AHR), individual-level potential outcomes
+(`loghr_po`), and all model parameters needed for downstream simulation.
+
+#### Step 2: Simulate Clinical Trials
+
+[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
+draws random samples from the super-population to create synthetic trial
+datasets. Each simulated trial:
+
+- Samples *n* patients (e.g., 700) with 1:1 randomisation.
+- Generates survival times from the AFT model using the DGM parameters.
+- Applies censoring (Weibull or uniform, with optional `muC_adj`
+  adjustment) and administrative censoring at `max_follow`.
+- Carries forward the true subgroup indicator `flag.harm` and individual
+  `loghr_po` for evaluation.
+
+Because ForestSearch uses random-split consistency evaluation, each
+simulated trial is an independent replicate of the full analysis
+pipeline.
+
+#### Step 3: Run Analyses on Each Trial
+
+[`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
+wraps the ForestSearch algorithm (and optionally GRF) and returns a
+one-row-per-method summary for each replicate. A typical call enables
+one or more methods:
+
+| Method | Flag | Description |
+|----|----|----|
+| FS (LASSO only) | `run_fs = TRUE` | ForestSearch with LASSO-selected candidates |
+| FSlg | `run_fs = TRUE, use_grf = TRUE` | LASSO + GRF candidates combined |
+| GRF | `run_grf = TRUE` | Standalone GRF subgroup search |
+
+For each method the function records whether a subgroup was identified
+(`any.H`), its composition (`sens`, `spec`, `ppv`, `npv`), hazard ratio
+estimates (`hr.H.hat`, `hr.Hc.hat`), AHR estimates (`ahr.H.hat`,
+`ahr.Hc.hat`), subgroup size, and timing.
+
+The simulation loop is parallelised via `foreach` / `doFuture` (see
+[Setting Up Parallel Processing](#setup-parallel)):
+
+``` r
+results_alt <- foreach(
+  sim = 1:n_sims,
+  .combine = rbind,
+  .options.future = list(packages = c("forestsearch", "survival", "data.table"),
+                         seed = TRUE)
+) %dofuture% {
+  run_simulation_analysis(sim_id = sim, dgm = dgm_calibrated, ...)
+}
+```
+
+#### Step 4: Summarise Operating Characteristics
+
+Three complementary summary functions distil the raw simulation output
+into interpretable results:
+
+[`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md)
+produces a gt table of operating characteristics (detection rate,
+sensitivity, specificity, PPV, NPV, and mean HR estimates) across all
+analysis methods, with selectable metric groups (`"detection"`,
+`"classification"`, `"hr_estimates"`, `"ahr_estimates"`,
+`"subgroup_size"`, or `"all"`).
+
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+focuses on estimation bias: for each estimator (naive Cox HR,
+bias-corrected HR, AHR) in both H and H^(c), it reports the mean, SD,
+range, and relative bias versus the DGM truth.
+
+[`build_classification_table()`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md)
+assembles detection and classification rates across multiple DGM
+scenarios (e.g., null and alternative) in a single table, facilitating
+comparison with the published benchmarks in Leon et al. (2024).
+
+Additionally,
+[`interpret_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/interpret_estimation_table.md)
+generates a templated narrative paragraph that auto-populates with the
+numerical results, suitable for direct inclusion in reports via
+`results = "asis"`.
+
+#### Putting It Together
+
+The sections that follow implement each step in detail. A compact
+version of the full workflow (excluding diagnostics) is:
+
+``` r
+# Step 1: Create and calibrate DGM
+k_inter <- calibrate_k_inter(target_hr_harm = 2.0, use_ahr = FALSE)
+dgm     <- create_gbsg_dgm(model = "alt", k_inter = k_inter)
+
+# Step 2 + 3: Simulate and analyse in parallel
+results <- foreach(sim = 1:500, .combine = rbind) %dofuture% {
+  run_simulation_analysis(sim_id = sim, dgm = dgm, n_sample = 700,
+                          run_fs = TRUE, run_grf = TRUE, fs_params = fs_params)
+}
+
+# Step 4: Summarise
+format_oc_results(results, metrics = "all")
+build_estimation_table(results, dgm, analysis_method = "FS")
+interpret_estimation_table(results, dgm, scenario = "alt")
 ```
 
 ### Initializing the Timing Framework
@@ -677,7 +806,7 @@ create_summary_table(
   table_title = "Characteristics by Treatment Arm",
   vars_continuous = c("z1", "z2", "size", "z3", "z4", "z5"),
   vars_categorical = c("flag.harm", "grade3"),
-  font_size = 12
+  font_size = 14
 )
 ```
 
@@ -710,7 +839,6 @@ For efficient simulation studies, use parallel processing:
 n_workers <- min(parallel::detectCores() - 1, 120)
 
 plan(multisession, workers = n_workers)
-registerDoFuture()
 
 cat("Using", n_workers, "parallel workers\n")
 ```
@@ -730,7 +858,7 @@ sim_config_alt <- list(
 )
 
 sim_config_null <- list(
-  n_sims = 1000,          # More simulations for Type I error estimation
+  n_sims = 5000,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -922,7 +1050,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.215 0.1202 
+    ## Seconds and minutes forestsearch overall = 7.096 0.1183 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -954,7 +1082,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 1000 simulations under H0...
+    ## Running 5000 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1047,7 +1175,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1078,7 +1206,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 8.34 0.139 
+    ## Seconds and minutes forestsearch overall = 7.852 0.1309 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1093,77 +1221,244 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 6.5 minutes
+    ## Completed in 31 minutes
 
 ## Summarizing Results
 
-### Operating Characteristics Summary
+### Operating Characteristics Summary Under HTEs
 
 ``` r
 t0 <- proc.time()[3]
 
-# Summarize alternative hypothesis results
-summary_alt <- summarize_simulation_results(results_alt)
-print(summary_alt)
+format_oc_results(results_alt, metrics = c("detection","classification","ahr_estimates"), digits = 2, digits_hr = 2)
 ```
 
-    ##                   FS     GRF
-    ## any.H          0.880   0.750
-    ## sens           0.860   0.890
-    ## spec           0.980   0.970
-    ## ppv            0.890   0.840
-    ## npv            0.980   0.980
-    ## Avg(#H)       86.000  98.000
-    ## minH          61.000  60.000
-    ## maxH         226.000 224.000
-    ## Avg(#Hc)     624.000 626.000
-    ## minHc        474.000 476.000
-    ## maxHc        700.000 700.000
-    ## hat(H*)        2.275     NaN
-    ## hat(hat[H])    2.306   2.118
-    ## hat(Hc*)       0.636     NaN
-    ## hat(hat[Hc])   0.641   0.632
-    ## hat(H*)all     2.275     NaN
-    ## hat(Hc*)all    0.636     NaN
-    ## hat(ITT)       0.744   0.744
-    ## hat(ITTadj)    0.761   0.761
+[TABLE]
+
+``` r
+# Check for AHR columns in results
+ahr_cols <- grep("ahr", names(results_alt), value = TRUE)
+cat("AHR columns in results:", paste(ahr_cols, collapse = ", "), "\n\n")
+```
+
+    ## AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat
+
+``` r
+if (length(ahr_cols) > 0) {
+  # Summarize AHR estimates
+  results_found <- results_alt[results_alt$any.H == 1 & results_alt$analysis == "FS", ]
+  
+  if (nrow(results_found) > 0 && "ahr.H.hat" %in% names(results_found)) {
+    cat("AHR estimates (when subgroup found):\n")
+    cat("  Mean AHR(H) estimated:", round(mean(results_found$ahr.H.hat, na.rm = TRUE), 3), "\n")
+    cat("  Mean AHR(Hc) estimated:", round(mean(results_found$ahr.Hc.hat, na.rm = TRUE), 3), "\n")
+    cat("  True AHR(H):", round(dgm_calibrated$AHR_H_true, 3), "\n")
+    cat("  True AHR(Hc):", round(dgm_calibrated$AHR_Hc_true, 3), "\n")
+  }
+}
+```
+
+    ## AHR estimates (when subgroup found):
+    ##   Mean AHR(H) estimated: 2.142 
+    ##   Mean AHR(Hc) estimated: 0.602 
+    ##   True AHR(H): 2.4 
+    ##   True AHR(Hc): 0.585
+
+``` r
+build_estimation_table(
+  results = results_alt,
+  dgm = dgm_calibrated,
+  analysis_method = "FS",
+  font_size = 18
+)
+```
+
+| Estimation Properties |  |  |  |  |  |
+|----|----|----|----|----|----|
+| FS: 880 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
+|  | Avg | SD | Min | Max | Rel Bias (%) |
+| H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
+| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
+| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.76 |
+| Hᶜ: avg \|Hᶜ\| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58 |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | -3.04 |
+| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | 3.01 |
 
 ``` r
 timings$summarize_alt <- proc.time()[3] - t0
 ```
 
+#### Interpretation of estimated treatment effects
+
+``` r
+interpret_estimation_table(
+  results_alt, dgm_calibrated,
+  analysis_method = "FS",
+  scenario = "alt"
+)
+```
+
+Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
+880 of 1000 simulations (88.0%) identified a subgroup using FS. The
+identified subgroup averaged 86 patients (complement: 614).
+
+The naive Cox HR in the identified subgroup averaged 2.31 (SD = 0.63),
+corresponding to 15.3% relative bias versus the true HR(H) = 2. In the
+complement, the estimate averaged 0.64 (-3.0% bias vs. true HR(Hc) =
+0.66).
+
+The average hazard ratio (AHR) in the identified subgroup averaged 2.14
+(-10.8% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
+(3.0% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
+relative to the Cox HR, consistent with AHR being a marginal rather than
+conditional estimand.
+
+### Operating Characteristics Under NULL (no HTEs)
+
 ``` r
 t0 <- proc.time()[3]
 
-# Summarize null hypothesis results
-summary_null <- summarize_simulation_results(results_null)
-print(summary_null)
+format_oc_results(results_null, metrics = c("detection","classification","ahr_estimates"), digits = 2, digits_hr = 2)
 ```
 
-    ##                   FS     GRF
-    ## any.H          0.060   0.070
-    ## sens             NaN     NaN
-    ## spec           0.860   0.890
-    ## ppv            0.000   0.000
-    ## npv            1.000   1.000
-    ## Avg(#H)       99.000  77.000
-    ## minH          61.000  60.000
-    ## maxH         186.000 121.000
-    ## Avg(#Hc)     694.000 695.000
-    ## minHc        514.000 579.000
-    ## maxHc        700.000 700.000
-    ## hat(H*)          NaN     NaN
-    ## hat(hat[H])    1.763   1.507
-    ## hat(Hc*)       0.776     NaN
-    ## hat(hat[Hc])   0.687   0.677
-    ## hat(H*)all       NaN     NaN
-    ## hat(Hc*)all    0.776     NaN
-    ## hat(ITT)       0.700   0.700
-    ## hat(ITTadj)    0.693   0.693
+[TABLE]
+
+``` r
+# Check for AHR columns in results
+ahr_cols <- grep("ahr", names(results_null), value = TRUE)
+cat("AHR columns in results:", paste(ahr_cols, collapse = ", "), "\n\n")
+```
+
+    ## AHR columns in results: ahr.H.true, ahr.Hc.true, ahr.H.hat, ahr.Hc.hat
+
+``` r
+if (length(ahr_cols) > 0) {
+  # Summarize AHR estimates
+  results_found <- results_null[results_null$any.H == 1 & results_null$analysis == "FS", ]
+  
+  if (nrow(results_found) > 0 && "ahr.H.hat" %in% names(results_found)) {
+    cat("AHR estimates (when subgroup found):\n")
+    cat("  Mean AHR(H) estimated:", round(mean(results_found$ahr.H.hat, na.rm = TRUE), 3), "\n")
+    cat("  Mean AHR(Hc) estimated:", round(mean(results_found$ahr.Hc.hat, na.rm = TRUE), 3), "\n")
+    cat("  True AHR(H):", round(dgm_null$AHR_H_true, 3), "\n")
+    cat("  True AHR(Hc):", round(dgm_null$AHR_Hc_true, 3), "\n")
+  }
+}
+```
+
+    ## AHR estimates (when subgroup found):
+    ##   Mean AHR(H) estimated: 0.654 
+    ##   Mean AHR(Hc) estimated: 0.654 
+    ##   True AHR(H): NA 
+    ##   True AHR(Hc): 0.654
+
+``` r
+build_estimation_table(
+  results = results_null,
+  dgm = dgm_null,
+  analysis_method = "FS",
+  font_size = 18
+)
+```
+
+| Estimation Properties |  |  |  |  |  |
+|----|----|----|----|----|----|
+| FS: 296 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
+|  | Avg | SD | Min | Max | Rel Bias (%) |
+| H: 296 estimable, avg \|H\| = 99, θ̂(H) = 0.72, âhr(H) = 0.65 |  |  |  |  |  |
+| θ̂(Ĥ) | 1.80 | 0.26 | 1.35 | 2.89 | 148.72 |
+| âhr(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
+| Hᶜ: avg \|Hᶜ\| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65 |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.68 | 0.07 | 0.46 | 0.93 | -6.47 |
+| âhr(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
 
 ``` r
 timings$summarize_null <- proc.time()[3] - t0
 ```
+
+#### Interpretation of estimated treatment effects
+
+``` r
+interpret_estimation_table(
+  results_null, dgm_null,
+  analysis_method = "FS",
+  scenario = "null"
+)
+```
+
+Under the null hypothesis (true HR = 0.72 uniformly), 296 of 5000
+simulations (5.9%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 296 false detections,
+the identified subgroup averaged 99 patients.
+
+The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
+representing 148.7% relative bias above the true value of 0.72. This
+upward bias reflects selection: the algorithm identified whichever
+patients happened to look most like a harm subgroup by chance. In the
+complement, the Cox HR averaged 0.68 (-6.5% bias), showing the expected
+mirror effect where removing the worst-looking patients makes the
+remainder appear modestly better.
+
+The average hazard ratio (AHR) in the identified subgroup averaged 0.65
+(0.0% relative bias vs. true AHR(H) = 0.65); in the complement, 0.65
+(0.0% bias vs. true AHR(Hc) = 0.65). The AHR shows attenuated bias
+relative to the Cox HR, consistent with AHR being a marginal rather than
+conditional estimand.
+
+These results underscore that under the null, the few false detections
+produce highly biased estimates, reinforcing the need for bootstrap bias
+correction for any subgroup identified by a data-driven search.
+
+#### Classification Rate Details
+
+``` r
+# ── Assemble scenario list from the current vignette results ─────────────
+scenario_list <- list(
+  null = list(
+    results    = results_null,
+    label      = "M",
+    n_sample   = sim_config_null$n_sample,
+    dgm        = dgm_null,
+    hypothesis = "null"
+  ),
+  alt = list(
+    results    = results_alt,
+    label      = "M",
+    n_sample   = sim_config_alt$n_sample,
+    dgm        = dgm_calibrated,
+    hypothesis = "alt"
+  )
+)
+
+# ── Build and display the classification table ───────────────────────────
+build_classification_table(
+  scenario_results = scenario_list,
+  analyses = sort(unique(c(
+    unique(results_null$analysis),
+    unique(results_alt$analysis)
+  ))),
+  digits = 2,
+  title = "Subgroup Identification and Classification Rates",
+  n_sims = sim_config_alt$n_sims
+)
+```
+
+| Subgroup Identification and Classification Rates |  |  |
+|----|----|----|
+| Across 1,000 simulations per scenario |  |  |
+|  | FS | GRF |
+| M Null: N=700, theta(ITT) = 0.72 |  |  |
+| any(H) | 0.06 | 0.06 |
+| sens(Hc) | 0.86 | 0.89 |
+| ppv(Hc) | 1.00 | 1.00 |
+| avg\|H\| | 99.00 | 78.00 |
+| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
+| any(H) | 0.88 | 0.75 |
+| sens(H) | 0.86 | 0.89 |
+| sens(Hc) | 0.98 | 0.97 |
+| ppv(H) | 0.89 | 0.84 |
+| ppv(Hc) | 0.98 | 0.98 |
+| avg\|H\| | 86.00 | 98.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1308,7 +1603,7 @@ cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.061
+    ## Empirical FS: 0.0592
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1322,7 +1617,7 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.067
+    ## Empirical GRF: 0.0648
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
@@ -1401,51 +1696,6 @@ legend(
 
 ![](paper_simulations_files/figure-html/theoretical-detection-rates-1.png)
 
-### AHR Metrics in Results (New)
-
-The aligned analysis functions now compute AHR estimates in addition to
-Cox-based HRs:
-
-``` r
-# Check for AHR columns in results
-ahr_cols <- grep("ahr", names(results_alt), value = TRUE)
-cat("AHR columns in results:", paste(ahr_cols, collapse = ", "), "\n\n")
-```
-
-    ## AHR columns in results:
-
-``` r
-if (length(ahr_cols) > 0) {
-  # Summarize AHR estimates
-  results_found <- results_alt[results_alt$any.H == 1, ]
-  
-  if (nrow(results_found) > 0 && "ahr.H.hat" %in% names(results_found)) {
-    cat("AHR estimates (when subgroup found):\n")
-    cat("  Mean AHR(H) estimated:", round(mean(results_found$ahr.H.hat, na.rm = TRUE), 3), "\n")
-    cat("  Mean AHR(Hc) estimated:", round(mean(results_found$ahr.Hc.hat, na.rm = TRUE), 3), "\n")
-    cat("  True AHR(H):", round(dgm_calibrated$AHR_H_true, 3), "\n")
-    cat("  True AHR(Hc):", round(dgm_calibrated$AHR_Hc_true, 3), "\n")
-  }
-}
-```
-
-### Formatted Tables
-
-``` r
-# Format operating characteristics for H1
-format_oc_results(
-  results = results_alt,
-  title = "Operating Characteristics (Alternative Hypothesis)",
-  subtitle = sprintf("n = %d, %d simulations, HR(H) = %.2f",
-                     sim_config_alt$n_sample,
-                     sim_config_alt$n_sims,
-                     dgm_calibrated$hr_H_true),
-  use_gt = TRUE
-)
-```
-
-[TABLE]
-
 ``` r
 # Format operating characteristics for H0
 format_oc_results(
@@ -1507,8 +1757,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0640
-    ##   GRF: Type I Error = 0.0640
+    ##   FS: Type I Error = 0.0620
+    ##   GRF: Type I Error = 0.0620
 
 ## Using `format_oc_results()`
 
@@ -1776,18 +2026,18 @@ reproducibility information.
 
 | Computational Timing Summary |  |  |  |
 |----|----|----|----|
-| 1000 H1 + 1000 H0 simulations, 13 workers |  |  |  |
+| 1000 H1 + 5000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.0 | 0.03 | 0.2 |
-| Calibrate k_inter (AHR) | 0.9 | 0.01 | 0.1 |
+| Calibrate k_inter (Cox) | 2.2 | 0.04 | 0.1 |
+| Calibrate k_inter (AHR) | 0.9 | 0.02 | 0.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
 | DGM creation (H0) | 0.0 | 0.00 | 0.0 |
-| Simulations H1 | 455.7 | 7.59 | 52.6 |
-| Simulations H0 | 392.3 | 6.54 | 45.3 |
-| Summarize H1 | 0.0 | 0.00 | 0.0 |
+| Simulations H1 | 455.1 | 7.59 | 19.5 |
+| Simulations H0 | 1,857.4 | 30.96 | 79.7 |
+| Summarize H1 | 0.1 | 0.00 | 0.0 |
 | Summarize H0 | 0.0 | 0.00 | 0.0 |
-| Total vignette | 866.3 | 14.44 | 100.0 |
+| Total vignette | 2,330.9 | 38.85 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -1909,7 +2159,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 0.4 sec/sim (wall) across 1000 sims on 13 workers
+    ##   H0: 0.4 sec/sim (wall) across 5000 sims on 13 workers
 
 ## Complete Example Script
 
@@ -1933,7 +2183,6 @@ TARGET_HR_HARM <- 1.5
 
 # --- Setup parallel processing ---
 plan(multisession, workers = 4)
-registerDoFuture()
 
 # --- Create DGM ---
 # Option 1: Calibrate to Cox-based HR
@@ -2078,6 +2327,8 @@ with 20,000 simulations each.
 
 #### Table 1: Classification Rates
 
+This is a repeat from above (do not run)
+
 ``` r
 # ── Assemble scenario list from the current vignette results ─────────────
 scenario_list <- list(
@@ -2110,23 +2361,6 @@ build_classification_table(
 )
 ```
 
-| Subgroup Identification and Classification Rates |  |  |
-|----|----|----|
-| Across 1,000 simulations per scenario |  |  |
-|  | FS | GRF |
-| M Null: N=700, theta(ITT) = 0.72 |  |  |
-| any(H) | 0.06 | 0.07 |
-| sens(Hc) | 0.86 | 0.89 |
-| ppv(Hc) | 1.00 | 1.00 |
-| avg\|H\| | 99.00 | 77.00 |
-| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
-| any(H) | 0.88 | 0.75 |
-| sens(H) | 0.86 | 0.89 |
-| sens(Hc) | 0.98 | 0.97 |
-| ppv(H) | 0.89 | 0.84 |
-| ppv(Hc) | 0.98 | 0.98 |
-| avg\|H\| | 86.00 | 98.00 |
-
 #### Table 2: Estimation Properties
 
 ``` r
@@ -2149,10 +2383,12 @@ build_estimation_table(
 |----|----|----|----|----|----|
 | FS: 880 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
-| H: 880 estimable, avg \|H\| = 86, theta(H) = 2 |  |  |  |  |  |
-| theta-hat(H-hat) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
-| Hc: avg \|Hc\| = 614, theta(Hc) = 0.66 |  |  |  |  |  |
-| theta-hat(Hc-hat) | 0.64 | 0.07 | 0.45 | 0.91 | -3.04 |
+| H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
+| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
+| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | -10.76 |
+| Hᶜ: avg \|Hᶜ\| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58 |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | -3.04 |
+| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | 3.01 |
 
 #### Producing Multi-Scenario Tables (Full Replication)
 
@@ -2747,29 +2983,30 @@ sessionInfo()
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
-    ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    lattice_0.22-9      
-    ##  [7] vctrs_0.7.1          tools_4.5.1          generics_0.1.4      
-    ## [10] curl_7.0.0           parallel_4.5.1       tibble_3.3.1        
-    ## [13] pkgconfig_2.0.3      katex_1.5.0          Matrix_1.7-4        
-    ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
-    ## [19] lifecycle_1.0.5      cubature_2.1.4-1     compiler_4.5.1      
-    ## [22] farver_2.1.2         stringr_1.6.0        textshaping_1.0.4   
-    ## [25] policytree_1.2.3     grf_2.5.0            codetools_0.2-20    
-    ## [28] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
-    ## [31] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       
-    ## [34] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        
-    ## [37] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    
-    ## [40] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
-    ## [43] dplyr_1.2.0          listenv_0.10.0       splines_4.5.1       
-    ## [46] fastmap_1.2.0        grid_4.5.1           cli_3.6.5           
-    ## [49] magrittr_2.0.4       randomForest_4.7-1.2 future.apply_1.20.1 
-    ## [52] withr_3.0.2          scales_1.4.0         rmarkdown_2.30      
-    ## [55] globals_0.19.0       otel_0.2.0           progressr_0.18.0    
-    ## [58] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          
-    ## [61] V8_8.0.1             markdown_2.0         rlang_1.1.7         
-    ## [64] Rcpp_1.1.1           glue_1.8.0           xml2_1.5.2          
-    ## [67] rstudioapi_0.18.0    jsonlite_2.0.0       R6_2.6.1            
-    ## [70] systemfonts_1.3.1    fs_1.6.6
+    ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
+    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         
+    ## [10] generics_0.1.4       curl_7.0.0           parallel_4.5.1      
+    ## [13] tibble_3.3.1         pkgconfig_2.0.3      katex_1.5.0         
+    ## [16] Matrix_1.7-4         RColorBrewer_1.1-3   S7_0.2.1            
+    ## [19] desc_1.4.3           lifecycle_1.0.5      cubature_2.1.4-1    
+    ## [22] compiler_4.5.1       farver_2.1.2         stringr_1.6.0       
+    ## [25] textshaping_1.0.4    policytree_1.2.3     grf_2.5.0           
+    ## [28] codetools_0.2-20     litedown_0.9         htmltools_0.5.9     
+    ## [31] sass_0.4.10          yaml_2.3.12          glmnet_4.1-10       
+    ## [34] pillar_1.11.1        pkgdown_2.2.0        jquerylib_0.1.4     
+    ## [37] cachem_1.1.0         iterators_1.0.14     parallelly_1.46.1   
+    ## [40] commonmark_2.0.0     tidyselect_1.2.1     digest_0.6.39       
+    ## [43] stringi_1.8.7        dplyr_1.2.0          listenv_0.10.0      
+    ## [46] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          
+    ## [49] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
+    ## [52] randomForest_4.7-1.2 future.apply_1.20.1  withr_3.0.2         
+    ## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
+    ## [58] otel_0.2.0           progressr_0.18.0     ragg_1.5.0          
+    ## [61] evaluate_1.0.5       knitr_1.51           V8_8.0.1            
+    ## [64] markdown_2.0         rlang_1.1.7          Rcpp_1.1.1          
+    ## [67] glue_1.8.0           xml2_1.5.2           rstudioapi_0.18.0   
+    ## [70] jsonlite_2.0.0       R6_2.6.1             systemfonts_1.3.1   
+    ## [73] fs_1.6.6
 
 ## References
 
