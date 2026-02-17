@@ -1438,7 +1438,7 @@ simulated trial:</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">sim_config_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>  n_sims <span class="op">=</span> <span class="fl">5000</span>,          <span class="co"># More simulations for Type I error estimation</span></span>
+<span>  n_sims <span class="op">=</span> <span class="fl">1000</span>,          <span class="co"># More simulations for Type I error estimation</span></span>
 <span>  n_sample <span class="op">=</span> <span class="fl">700</span>,         <span class="co"># Sample size per trial</span></span>
 <span>  max_follow <span class="op">=</span> <span class="fl">84</span>,        <span class="co"># Maximum follow-up (months)</span></span>
 <span>  seed_base <span class="op">=</span> <span class="fl">8316951</span>,</span>
@@ -1620,7 +1620,7 @@ search algorithm:</p>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## 1 subgroups passed consistency threshold</span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 7.096 0.1183 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 7.508 0.1251 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 48.53742 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -1645,7 +1645,7 @@ search algorithm:</p>
 </h3>
 <div class="sourceCode" id="cb124"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Running"</span>, <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>, <span class="st">"simulations under H0...\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Running 5000 simulations under H0...</span></span></code></pre>
+<pre><code><span><span class="co">## Running 1000 simulations under H0...</span></span></code></pre>
 <div class="sourceCode" id="cb126"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">start_time</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">t0</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/proc.time.html" class="external-link">proc.time</a></span><span class="op">(</span><span class="op">)</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span></span>
@@ -1766,7 +1766,7 @@ search algorithm:</p>
 <span><span class="co">## Batch 2 / 2 : candidates 2 - 2 </span></span>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 7.852 0.1309 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 8.509 0.1418 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.91247 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -1778,7 +1778,7 @@ search algorithm:</p>
 <span><span class="va">runtime_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_null_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_null</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_null</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 31 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 6.8 minutes</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -2325,7 +2325,7 @@ search algorithm:</p>
 <span>  results <span class="op">=</span> <span class="va">results_alt</span>,</span>
 <span>  dgm <span class="op">=</span> <span class="va">dgm_calibrated</span>,</span>
 <span>  analysis_method <span class="op">=</span> <span class="st">"FS"</span>,</span>
-<span>  font_size <span class="op">=</span> <span class="fl">18</span></span>
+<span>  font_size <span class="op">=</span> <span class="fl">16</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div id="tvdzlfzmct" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>#tvdzlfzmct table {
@@ -2350,7 +2350,7 @@ search algorithm:</p>
   margin-left: auto;
   margin-right: auto;
   color: #333333;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: normal;
   font-style: normal;
   background-color: #FFFFFF;
@@ -2782,7 +2782,7 @@ search algorithm:</p>
 <td colspan="6" class="gt_heading gt_title gt_font_normal" style>Estimation Properties</td>
     </tr>
 <tr class="gt_heading">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 880 estimable realizations (B = 300 bootstraps)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 880 estimable realizations</td>
     </tr>
 <tr class="gt_col_headings">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Estimator"></th>
@@ -2795,42 +2795,42 @@ search algorithm:</p>
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row">
-<th colspan="6" class="gt_group_heading" style="font-size: 18px; font-weight: bold;" scope="colgroup" id="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4">H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4</th>
+<th colspan="6" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4">H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Estimator" class="gt_row gt_left" style="font-size: 18px;">θ̂(Ĥ)</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Avg" class="gt_row gt_right" style="font-size: 18px;">2.31</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  SD" class="gt_row gt_right" style="font-size: 18px;">0.63</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Min" class="gt_row gt_right" style="font-size: 18px;">1.32</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Max" class="gt_row gt_right" style="font-size: 18px;">8.16</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">15.31</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Estimator" class="gt_row gt_left" style="font-size: 16px;">θ̂(Ĥ)</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Avg" class="gt_row gt_right" style="font-size: 16px;">2.31</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  SD" class="gt_row gt_right" style="font-size: 16px;">0.63</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Min" class="gt_row gt_right" style="font-size: 16px;">1.32</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Max" class="gt_row gt_right" style="font-size: 16px;">8.16</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">15.31</td>
 </tr>
 <tr>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Estimator" class="gt_row gt_left" style="font-size: 18px;">âhr(Ĥ)</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Avg" class="gt_row gt_right" style="font-size: 18px;">2.14</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  SD" class="gt_row gt_right" style="font-size: 18px;">0.47</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Min" class="gt_row gt_right" style="font-size: 18px;">0.58</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Max" class="gt_row gt_right" style="font-size: 18px;">2.40</td>
-<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">-10.76</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Estimator" class="gt_row gt_left" style="font-size: 16px;">âhr(Ĥ)</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Avg" class="gt_row gt_right" style="font-size: 16px;">2.14</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  SD" class="gt_row gt_right" style="font-size: 16px;">0.47</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Min" class="gt_row gt_right" style="font-size: 16px;">0.58</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Max" class="gt_row gt_right" style="font-size: 16px;">2.40</td>
+<td headers="H: 880 estimable, avg |H| = 86, θ̂(H) = 2, âhr(H) = 2.4  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">-10.76</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="6" class="gt_group_heading" style="font-size: 18px; font-weight: bold;" scope="colgroup" id="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58">Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58</th>
+<th colspan="6" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58">Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Estimator" class="gt_row gt_left" style="font-size: 18px;">θ̂(Ĥᶜ)</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Avg" class="gt_row gt_right" style="font-size: 18px;">0.64</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  SD" class="gt_row gt_right" style="font-size: 18px;">0.07</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Min" class="gt_row gt_right" style="font-size: 18px;">0.45</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Max" class="gt_row gt_right" style="font-size: 18px;">0.91</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">-3.04</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Estimator" class="gt_row gt_left" style="font-size: 16px;">θ̂(Ĥᶜ)</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Avg" class="gt_row gt_right" style="font-size: 16px;">0.64</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  SD" class="gt_row gt_right" style="font-size: 16px;">0.07</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Min" class="gt_row gt_right" style="font-size: 16px;">0.45</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Max" class="gt_row gt_right" style="font-size: 16px;">0.91</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">-3.04</td>
 </tr>
 <tr>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Estimator" class="gt_row gt_left" style="font-size: 18px;">âhr(Ĥᶜ)</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Avg" class="gt_row gt_right" style="font-size: 18px;">0.60</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  SD" class="gt_row gt_right" style="font-size: 18px;">0.03</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Min" class="gt_row gt_right" style="font-size: 18px;">0.58</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Max" class="gt_row gt_right" style="font-size: 18px;">0.72</td>
-<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">3.01</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Estimator" class="gt_row gt_left" style="font-size: 16px;">âhr(Ĥᶜ)</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Avg" class="gt_row gt_right" style="font-size: 16px;">0.60</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  SD" class="gt_row gt_right" style="font-size: 16px;">0.03</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Min" class="gt_row gt_right" style="font-size: 16px;">0.58</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Max" class="gt_row gt_right" style="font-size: 16px;">0.72</td>
+<td headers="Hᶜ: avg |Hᶜ| = 614, θ̂(Hᶜ) = 0.66, âhr(Hᶜ) = 0.58  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">3.01</td>
 </tr>
 </tbody>
 </table>
@@ -3346,7 +3346,7 @@ conditional estimand.</p>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">FS</td>
-<td headers="N_sims" class="gt_row gt_right">5000</td>
+<td headers="N_sims" class="gt_row gt_right">1000</td>
 <td headers="Detection" class="gt_row gt_right">0.06</td>
 <td headers="Sen" class="gt_row gt_right">-</td>
 <td headers="Spec" class="gt_row gt_right">0.86</td>
@@ -3359,8 +3359,8 @@ conditional estimand.</p>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="N_sims" class="gt_row gt_right">5000</td>
-<td headers="Detection" class="gt_row gt_right">0.06</td>
+<td headers="N_sims" class="gt_row gt_right">1000</td>
+<td headers="Detection" class="gt_row gt_right">0.07</td>
 <td headers="Sen" class="gt_row gt_right">-</td>
 <td headers="Spec" class="gt_row gt_right">0.89</td>
 <td headers="PPV" class="gt_row gt_right">0.00</td>
@@ -3401,7 +3401,7 @@ conditional estimand.</p>
 <span>  results <span class="op">=</span> <span class="va">results_null</span>,</span>
 <span>  dgm <span class="op">=</span> <span class="va">dgm_null</span>,</span>
 <span>  analysis_method <span class="op">=</span> <span class="st">"FS"</span>,</span>
-<span>  font_size <span class="op">=</span> <span class="fl">18</span></span>
+<span>  font_size <span class="op">=</span> <span class="fl">16</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <div id="luqgmarpvy" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>#luqgmarpvy table {
@@ -3426,7 +3426,7 @@ conditional estimand.</p>
   margin-left: auto;
   margin-right: auto;
   color: #333333;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: normal;
   font-style: normal;
   background-color: #FFFFFF;
@@ -3858,7 +3858,7 @@ conditional estimand.</p>
 <td colspan="6" class="gt_heading gt_title gt_font_normal" style>Estimation Properties</td>
     </tr>
 <tr class="gt_heading">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 296 estimable realizations (B = 300 bootstraps)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 61 estimable realizations</td>
     </tr>
 <tr class="gt_col_headings">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Estimator"></th>
@@ -3871,42 +3871,42 @@ conditional estimand.</p>
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row">
-<th colspan="6" class="gt_group_heading" style="font-size: 18px; font-weight: bold;" scope="colgroup" id="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65">H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65</th>
+<th colspan="6" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65">H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 18px;">θ̂(Ĥ)</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Avg" class="gt_row gt_right" style="font-size: 18px;">1.80</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  SD" class="gt_row gt_right" style="font-size: 18px;">0.26</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Min" class="gt_row gt_right" style="font-size: 18px;">1.35</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Max" class="gt_row gt_right" style="font-size: 18px;">2.89</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">148.72</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 16px;">θ̂(Ĥ)</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Avg" class="gt_row gt_right" style="font-size: 16px;">1.76</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  SD" class="gt_row gt_right" style="font-size: 16px;">0.26</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Min" class="gt_row gt_right" style="font-size: 16px;">1.42</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Max" class="gt_row gt_right" style="font-size: 16px;">2.49</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">144.05</td>
 </tr>
 <tr>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 18px;">âhr(Ĥ)</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Avg" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  SD" class="gt_row gt_right" style="font-size: 18px;">0.00</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Min" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Max" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="H: 296 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">0.00</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 16px;">âhr(Ĥ)</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Avg" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  SD" class="gt_row gt_right" style="font-size: 16px;">0.00</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Min" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Max" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="H: 61 estimable, avg |H| = 99, θ̂(H) = 0.72, âhr(H) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">0.00</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="6" class="gt_group_heading" style="font-size: 18px; font-weight: bold;" scope="colgroup" id="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65">Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65</th>
+<th colspan="6" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65">Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 18px;">θ̂(Ĥᶜ)</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Avg" class="gt_row gt_right" style="font-size: 18px;">0.68</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  SD" class="gt_row gt_right" style="font-size: 18px;">0.07</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Min" class="gt_row gt_right" style="font-size: 18px;">0.46</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Max" class="gt_row gt_right" style="font-size: 18px;">0.93</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">-6.47</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 16px;">θ̂(Ĥᶜ)</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Avg" class="gt_row gt_right" style="font-size: 16px;">0.69</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  SD" class="gt_row gt_right" style="font-size: 16px;">0.07</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Min" class="gt_row gt_right" style="font-size: 16px;">0.53</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Max" class="gt_row gt_right" style="font-size: 16px;">0.89</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">-4.89</td>
 </tr>
 <tr>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 18px;">âhr(Ĥᶜ)</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Avg" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  SD" class="gt_row gt_right" style="font-size: 18px;">0.00</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Min" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Max" class="gt_row gt_right" style="font-size: 18px;">0.65</td>
-<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 18px;">0.00</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Estimator" class="gt_row gt_left" style="font-size: 16px;">âhr(Ĥᶜ)</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Avg" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  SD" class="gt_row gt_right" style="font-size: 16px;">0.00</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Min" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Max" class="gt_row gt_right" style="font-size: 16px;">0.65</td>
+<td headers="Hᶜ: avg |Hᶜ| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65  Rel Bias (%)" class="gt_row gt_right" style="font-size: 16px;">0.00</td>
 </tr>
 </tbody>
 </table>
@@ -3922,15 +3922,15 @@ conditional estimand.</p>
 <span>  analysis_method <span class="op">=</span> <span class="st">"FS"</span>,</span>
 <span>  scenario <span class="op">=</span> <span class="st">"null"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Under the null hypothesis (true HR = 0.72 uniformly), 296 of 5000
-simulations (5.9%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 296 false detections,
+<p>Under the null hypothesis (true HR = 0.72 uniformly), 61 of 1000
+simulations (6.1%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 61 false detections,
 the identified subgroup averaged 99 patients.</p>
-<p>The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
-representing 148.7% relative bias above the true value of 0.72. This
-upward bias reflects selection: the algorithm identified whichever
+<p>The naive Cox HR in the identified subgroup averaged 1.76 (SD =
+0.26), representing 144.1% relative bias above the true value of 0.72.
+This upward bias reflects selection: the algorithm identified whichever
 patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.68 (-6.5% bias), showing the expected
+complement, the Cox HR averaged 0.69 (-4.9% bias), showing the expected
 mirror effect where removing the worst-looking patients makes the
 remainder appear modestly better.</p>
 <p>The average hazard ratio (AHR) in the identified subgroup averaged
@@ -3973,6 +3973,7 @@ search.</p>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span></span>
 <span>  <span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  digits <span class="op">=</span> <span class="fl">2</span>,</span>
+<span>  font_size <span class="op">=</span> <span class="fl">16</span>,</span>
 <span>  title <span class="op">=</span> <span class="st">"Subgroup Identification and Classification Rates"</span>,</span>
 <span>  n_sims <span class="op">=</span> <span class="va">sim_config_alt</span><span class="op">$</span><span class="va">n_sims</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -3999,7 +4000,7 @@ search.</p>
   margin-left: auto;
   margin-right: auto;
   color: #333333;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: normal;
   font-style: normal;
   background-color: #FFFFFF;
@@ -4441,60 +4442,60 @@ search.</p>
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row">
-<th colspan="3" class="gt_group_heading" style="font-size: small; font-weight: bold;" scope="colgroup" id="M Null: N=700, theta(ITT) = 0.72">M Null: N=700, theta(ITT) = 0.72</th>
+<th colspan="3" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="M Null: N=700, theta(ITT) = 0.72">M Null: N=700, theta(ITT) = 0.72</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: small;">any(H)</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: small; font-weight: bold;">0.06</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: small; font-weight: bold;">0.06</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">any(H)</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: 16px; font-weight: bold;">0.06</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: 16px; font-weight: bold;">0.07</td>
 </tr>
 <tr>
-<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: small;">sens(Hc)</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: small;">0.86</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: small;">0.89</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">sens(Hc)</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: 16px;">0.86</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">0.89</td>
 </tr>
 <tr>
-<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: small;">ppv(Hc)</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: small;">1.00</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: small;">1.00</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">ppv(Hc)</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: 16px;">1.00</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">1.00</td>
 </tr>
 <tr>
-<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: small;">avg|H|</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: small;">99.00</td>
-<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: small;">78.00</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">avg|H|</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  FS" class="gt_row gt_right" style="font-size: 16px;">99.00</td>
+<td headers="M Null: N=700, theta(ITT) = 0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">77.00</td>
 </tr>
 <tr class="gt_group_heading_row">
-<th colspan="3" class="gt_group_heading" style="font-size: small; font-weight: bold;" scope="colgroup" id="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72">M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72</th>
+<th colspan="3" class="gt_group_heading" style="font-size: 16px; font-weight: bold;" scope="colgroup" id="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72">M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72</th>
     </tr>
 <tr class="gt_row_group_first">
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">any(H)</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small; font-weight: bold;">0.88</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small; font-weight: bold;">0.75</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">any(H)</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px; font-weight: bold;">0.88</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px; font-weight: bold;">0.75</td>
 </tr>
 <tr>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">sens(H)</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small;">0.86</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small;">0.89</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">sens(H)</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px;">0.86</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">0.89</td>
 </tr>
 <tr>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">sens(Hc)</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small;">0.98</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small;">0.97</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">sens(Hc)</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px;">0.98</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">0.97</td>
 </tr>
 <tr>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">ppv(H)</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small;">0.89</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small;">0.84</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">ppv(H)</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px;">0.89</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">0.84</td>
 </tr>
 <tr>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">ppv(Hc)</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small;">0.98</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small;">0.98</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">ppv(Hc)</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px;">0.98</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">0.98</td>
 </tr>
 <tr>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: small;">avg|H|</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: small;">86.00</td>
-<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: small;">98.00</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" class="gt_row gt_left" style="font-size: 16px;">avg|H|</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FS" class="gt_row gt_right" style="font-size: 16px;">86.00</td>
+<td headers="M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" class="gt_row gt_right" style="font-size: 16px;">98.00</td>
 </tr>
 </tbody>
 </table>
@@ -4600,7 +4601,7 @@ analytical approximation based on asymptotic normal theory:</p>
 <pre><code><span><span class="co">## Theoretical FS at min(SG) (asymptotic): 0.039618</span></span></code></pre>
 <div class="sourceCode" id="cb175"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Empirical FS:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">[</span><span class="va">analysis</span> <span class="op">==</span> <span class="st">"FS"</span><span class="op">]</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Empirical FS: 0.0592</span></span></code></pre>
+<pre><code><span><span class="co">## Empirical FS: 0.061</span></span></code></pre>
 <div class="sourceCode" id="cb177"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Empirical FSlg:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">[</span><span class="va">analysis</span> <span class="op">==</span> <span class="st">"FSlg"</span><span class="op">]</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Empirical FSlg: NaN</span></span></code></pre>
@@ -4608,7 +4609,7 @@ analytical approximation based on asymptotic normal theory:</p>
 <code class="sourceCode R"><span><span class="kw">if</span> <span class="op">(</span><span class="st">"GRF"</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">results_null</span><span class="op">$</span><span class="va">analysis</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Empirical GRF:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">[</span><span class="va">analysis</span> <span class="op">==</span> <span class="st">"GRF"</span><span class="op">]</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span>, <span class="fl">6</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<pre><code><span><span class="co">## Empirical GRF: 0.0648</span></span></code></pre>
+<pre><code><span><span class="co">## Empirical GRF: 0.067</span></span></code></pre>
 <div class="sourceCode" id="cb181"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">prop_cens</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">results_null</span><span class="op">$</span><span class="va">p.cens</span><span class="op">)</span>  <span class="co"># Censoring proportion</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Censoring proportion:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">prop_cens</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
@@ -5146,7 +5147,7 @@ analytical approximation based on asymptotic normal theory:</p>
 <td colspan="19" class="gt_heading gt_title gt_font_normal" style>Type I Error (Null Hypothesis)</td>
     </tr>
 <tr class="gt_heading">
-<td colspan="19" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>n = 700, 5000 simulations, HR(overall) = 0.72</td>
+<td colspan="19" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>n = 700, 1000 simulations, HR(overall) = 0.72</td>
     </tr>
 <tr class="gt_col_headings gt_spanner_row">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="2" colspan="1" style="font-weight: bold;" scope="col" id="Analysis">Method</th>
@@ -5184,45 +5185,45 @@ analytical approximation based on asymptotic normal theory:</p>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">FS</td>
-<td headers="N_sims" class="gt_row gt_right">5000</td>
-<td headers="Detection" class="gt_row gt_right">0.059</td>
+<td headers="N_sims" class="gt_row gt_right">1000</td>
+<td headers="Detection" class="gt_row gt_right">0.061</td>
 <td headers="Sen" class="gt_row gt_right">-</td>
-<td headers="Spec" class="gt_row gt_right">0.859</td>
+<td headers="Spec" class="gt_row gt_right">0.858</td>
 <td headers="PPV" class="gt_row gt_right">0.000</td>
 <td headers="NPV" class="gt_row gt_right">1.000</td>
-<td headers="HR_H_hat" class="gt_row gt_right">1.796</td>
-<td headers="HR_Hc_hat" class="gt_row gt_right">0.676</td>
+<td headers="HR_H_hat" class="gt_row gt_right">1.763</td>
+<td headers="HR_Hc_hat" class="gt_row gt_right">0.687</td>
 <td headers="HR_H_true" class="gt_row gt_right">-</td>
-<td headers="HR_Hc_true" class="gt_row gt_right">0.766</td>
-<td headers="HR_ITT" class="gt_row gt_right">0.698</td>
+<td headers="HR_Hc_true" class="gt_row gt_right">0.776</td>
+<td headers="HR_ITT" class="gt_row gt_right">0.700</td>
 <td headers="AHR_H_true" class="gt_row gt_right">-</td>
 <td headers="AHR_Hc_true" class="gt_row gt_right">0.654</td>
 <td headers="AHR_H_hat" class="gt_row gt_right">0.654</td>
 <td headers="AHR_Hc_hat" class="gt_row gt_right">0.654</td>
 <td headers="Size_H_mean" class="gt_row gt_right">99</td>
 <td headers="Size_H_min" class="gt_row gt_right">61</td>
-<td headers="Size_H_max" class="gt_row gt_right">386</td>
+<td headers="Size_H_max" class="gt_row gt_right">186</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="N_sims" class="gt_row gt_right">5000</td>
-<td headers="Detection" class="gt_row gt_right">0.065</td>
+<td headers="N_sims" class="gt_row gt_right">1000</td>
+<td headers="Detection" class="gt_row gt_right">0.067</td>
 <td headers="Sen" class="gt_row gt_right">-</td>
-<td headers="Spec" class="gt_row gt_right">0.888</td>
+<td headers="Spec" class="gt_row gt_right">0.890</td>
 <td headers="PPV" class="gt_row gt_right">0.000</td>
 <td headers="NPV" class="gt_row gt_right">1.000</td>
-<td headers="HR_H_hat" class="gt_row gt_right">1.524</td>
-<td headers="HR_Hc_hat" class="gt_row gt_right">0.666</td>
+<td headers="HR_H_hat" class="gt_row gt_right">1.507</td>
+<td headers="HR_Hc_hat" class="gt_row gt_right">0.677</td>
 <td headers="HR_H_true" class="gt_row gt_right">-</td>
 <td headers="HR_Hc_true" class="gt_row gt_right">-</td>
-<td headers="HR_ITT" class="gt_row gt_right">0.698</td>
+<td headers="HR_ITT" class="gt_row gt_right">0.700</td>
 <td headers="AHR_H_true" class="gt_row gt_right">-</td>
 <td headers="AHR_Hc_true" class="gt_row gt_right">0.654</td>
 <td headers="AHR_H_hat" class="gt_row gt_right">0.654</td>
 <td headers="AHR_Hc_hat" class="gt_row gt_right">0.654</td>
-<td headers="Size_H_mean" class="gt_row gt_right">78</td>
+<td headers="Size_H_mean" class="gt_row gt_right">77</td>
 <td headers="Size_H_min" class="gt_row gt_right">60</td>
-<td headers="Size_H_max" class="gt_row gt_right">177</td>
+<td headers="Size_H_max" class="gt_row gt_right">121</td>
 </tr>
 </tbody>
 </table>
@@ -5260,8 +5261,8 @@ analytical approximation based on asymptotic normal theory:</p>
 <span>              <span class="va">analysis</span>,</span>
 <span>              <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">any.H</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<pre><code><span><span class="co">##   FS: Type I Error = 0.0620</span></span>
-<span><span class="co">##   GRF: Type I Error = 0.0620</span></span></code></pre>
+<pre><code><span><span class="co">##   FS: Type I Error = 0.0640</span></span>
+<span><span class="co">##   GRF: Type I Error = 0.0640</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -6064,7 +6065,7 @@ reproducibility information.</p>
 <td colspan="4" class="gt_heading gt_title gt_font_normal" style>Computational Timing Summary</td>
     </tr>
 <tr class="gt_heading">
-<td colspan="4" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>1000 H1 + 5000 H0 simulations, 13 workers</td>
+<td colspan="4" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>1000 H1 + 1000 H0 simulations, 13 workers</td>
     </tr>
 <tr class="gt_col_headings">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Stage">Stage</th>
@@ -6083,15 +6084,15 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (Cox)</td>
-<td headers="Seconds" class="gt_row gt_right">2.2</td>
-<td headers="Minutes" class="gt_row gt_right">0.04</td>
-<td headers="Pct" class="gt_row gt_right">0.1</td>
+<td headers="Seconds" class="gt_row gt_right">2.0</td>
+<td headers="Minutes" class="gt_row gt_right">0.03</td>
+<td headers="Pct" class="gt_row gt_right">0.2</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (AHR)</td>
-<td headers="Seconds" class="gt_row gt_right">0.9</td>
-<td headers="Minutes" class="gt_row gt_right">0.02</td>
-<td headers="Pct" class="gt_row gt_right">0.0</td>
+<td headers="Seconds" class="gt_row gt_right">0.8</td>
+<td headers="Minutes" class="gt_row gt_right">0.01</td>
+<td headers="Pct" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Validate k_inter</td>
@@ -6107,15 +6108,15 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">455.1</td>
+<td headers="Seconds" class="gt_row gt_right">455.4</td>
 <td headers="Minutes" class="gt_row gt_right">7.59</td>
-<td headers="Pct" class="gt_row gt_right">19.5</td>
+<td headers="Pct" class="gt_row gt_right">51.7</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">1,857.4</td>
-<td headers="Minutes" class="gt_row gt_right">30.96</td>
-<td headers="Pct" class="gt_row gt_right">79.7</td>
+<td headers="Seconds" class="gt_row gt_right">405.5</td>
+<td headers="Minutes" class="gt_row gt_right">6.76</td>
+<td headers="Pct" class="gt_row gt_right">46.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H1</td>
@@ -6125,14 +6126,14 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H0</td>
-<td headers="Seconds" class="gt_row gt_right">0.0</td>
+<td headers="Seconds" class="gt_row gt_right">0.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">2,330.9</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">38.85</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">880.0</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">14.67</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>
@@ -6254,7 +6255,7 @@ parallel overhead:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"  H0: %.1f sec/sim (wall) across %d sims on %d workers\n"</span>,</span>
 <span>            <span class="va">timings</span><span class="op">$</span><span class="va">sims_null_elapsed</span> <span class="op">/</span> <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>,</span>
 <span>            <span class="va">sim_config_null</span><span class="op">$</span><span class="va">n_sims</span>, <span class="va">n_workers</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">##   H0: 0.4 sec/sim (wall) across 5000 sims on 13 workers</span></span></code></pre>
+<pre><code><span><span class="co">##   H0: 0.4 sec/sim (wall) across 1000 sims on 13 workers</span></span></code></pre>
 </div>
 </div>
 <div class="section level2">
@@ -6987,7 +6988,7 @@ with 20,000 simulations each.</p>
 <td colspan="6" class="gt_heading gt_title gt_font_normal" style>Estimation Properties for Identified Subgroup</td>
     </tr>
 <tr class="gt_heading">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 880 estimable realizations (B = 300 bootstraps)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>FS: 880 estimable realizations</td>
     </tr>
 <tr class="gt_col_headings">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="Estimator"></th>

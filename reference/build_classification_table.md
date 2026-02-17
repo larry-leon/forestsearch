@@ -15,7 +15,8 @@ build_classification_table(
   digits = 2,
   title = "Subgroup Identification and Classification Rates",
   n_sims = NULL,
-  bold_threshold = 0.05
+  bold_threshold = 0.05,
+  font_size = 12
 )
 ```
 
@@ -69,6 +70,11 @@ build_classification_table(
 
   Numeric. Type I error threshold above which the `any(H)` value is
   shown in bold. Set `NULL` to disable. Default: 0.05.
+
+- font_size:
+
+  Numeric. Font size in pixels for table text. Default: 12. Increase to
+  14 or 16 for larger display.
 
 ## Value
 

@@ -858,7 +858,7 @@ sim_config_alt <- list(
 )
 
 sim_config_null <- list(
-  n_sims = 5000,          # More simulations for Type I error estimation
+  n_sims = 1000,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -1050,7 +1050,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.096 0.1183 
+    ## Seconds and minutes forestsearch overall = 7.508 0.1251 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1082,7 +1082,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 5000 simulations under H0...
+    ## Running 1000 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1206,7 +1206,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.852 0.1309 
+    ## Seconds and minutes forestsearch overall = 8.509 0.1418 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1221,7 +1221,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 31 minutes
+    ## Completed in 6.8 minutes
 
 ## Summarizing Results
 
@@ -1269,13 +1269,13 @@ build_estimation_table(
   results = results_alt,
   dgm = dgm_calibrated,
   analysis_method = "FS",
-  font_size = 18
+  font_size = 16
 )
 ```
 
 | Estimation Properties |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 880 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
+| FS: 880 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
 | H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
 | θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
@@ -1357,19 +1357,19 @@ build_estimation_table(
   results = results_null,
   dgm = dgm_null,
   analysis_method = "FS",
-  font_size = 18
+  font_size = 16
 )
 ```
 
 | Estimation Properties |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 296 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
+| FS: 61 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
-| H: 296 estimable, avg \|H\| = 99, θ̂(H) = 0.72, âhr(H) = 0.65 |  |  |  |  |  |
-| θ̂(Ĥ) | 1.80 | 0.26 | 1.35 | 2.89 | 148.72 |
+| H: 61 estimable, avg \|H\| = 99, θ̂(H) = 0.72, âhr(H) = 0.65 |  |  |  |  |  |
+| θ̂(Ĥ) | 1.76 | 0.26 | 1.42 | 2.49 | 144.05 |
 | âhr(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
 | Hᶜ: avg \|Hᶜ\| = 601, θ̂(Hᶜ) = 0.72, âhr(Hᶜ) = 0.65 |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.68 | 0.07 | 0.46 | 0.93 | -6.47 |
+| θ̂(Ĥᶜ) | 0.69 | 0.07 | 0.53 | 0.89 | -4.89 |
 | âhr(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | 0.00 |
 
 ``` r
@@ -1386,16 +1386,16 @@ interpret_estimation_table(
 )
 ```
 
-Under the null hypothesis (true HR = 0.72 uniformly), 296 of 5000
-simulations (5.9%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 296 false detections,
+Under the null hypothesis (true HR = 0.72 uniformly), 61 of 1000
+simulations (6.1%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 61 false detections,
 the identified subgroup averaged 99 patients.
 
-The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
-representing 148.7% relative bias above the true value of 0.72. This
+The naive Cox HR in the identified subgroup averaged 1.76 (SD = 0.26),
+representing 144.1% relative bias above the true value of 0.72. This
 upward bias reflects selection: the algorithm identified whichever
 patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.68 (-6.5% bias), showing the expected
+complement, the Cox HR averaged 0.69 (-4.9% bias), showing the expected
 mirror effect where removing the worst-looking patients makes the
 remainder appear modestly better.
 
@@ -1438,6 +1438,7 @@ build_classification_table(
     unique(results_alt$analysis)
   ))),
   digits = 2,
+  font_size = 16,
   title = "Subgroup Identification and Classification Rates",
   n_sims = sim_config_alt$n_sims
 )
@@ -1448,10 +1449,10 @@ build_classification_table(
 | Across 1,000 simulations per scenario |  |  |
 |  | FS | GRF |
 | M Null: N=700, theta(ITT) = 0.72 |  |  |
-| any(H) | 0.06 | 0.06 |
+| any(H) | 0.06 | 0.07 |
 | sens(Hc) | 0.86 | 0.89 |
 | ppv(Hc) | 1.00 | 1.00 |
-| avg\|H\| | 99.00 | 78.00 |
+| avg\|H\| | 99.00 | 77.00 |
 | M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
 | any(H) | 0.88 | 0.75 |
 | sens(H) | 0.86 | 0.89 |
@@ -1603,7 +1604,7 @@ cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.0592
+    ## Empirical FS: 0.061
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1617,7 +1618,7 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.0648
+    ## Empirical GRF: 0.067
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
@@ -1757,8 +1758,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0620
-    ##   GRF: Type I Error = 0.0620
+    ##   FS: Type I Error = 0.0640
+    ##   GRF: Type I Error = 0.0640
 
 ## Using `format_oc_results()`
 
@@ -2026,18 +2027,18 @@ reproducibility information.
 
 | Computational Timing Summary |  |  |  |
 |----|----|----|----|
-| 1000 H1 + 5000 H0 simulations, 13 workers |  |  |  |
+| 1000 H1 + 1000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.2 | 0.04 | 0.1 |
-| Calibrate k_inter (AHR) | 0.9 | 0.02 | 0.0 |
+| Calibrate k_inter (Cox) | 2.0 | 0.03 | 0.2 |
+| Calibrate k_inter (AHR) | 0.8 | 0.01 | 0.1 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
 | DGM creation (H0) | 0.0 | 0.00 | 0.0 |
-| Simulations H1 | 455.1 | 7.59 | 19.5 |
-| Simulations H0 | 1,857.4 | 30.96 | 79.7 |
+| Simulations H1 | 455.4 | 7.59 | 51.7 |
+| Simulations H0 | 405.5 | 6.76 | 46.1 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.0 | 0.00 | 0.0 |
-| Total vignette | 2,330.9 | 38.85 | 100.0 |
+| Summarize H0 | 0.1 | 0.00 | 0.0 |
+| Total vignette | 880.0 | 14.67 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2159,7 +2160,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 0.4 sec/sim (wall) across 5000 sims on 13 workers
+    ##   H0: 0.4 sec/sim (wall) across 1000 sims on 13 workers
 
 ## Complete Example Script
 
@@ -2381,7 +2382,7 @@ build_estimation_table(
 
 | Estimation Properties for Identified Subgroup |  |  |  |  |  |
 |----|----|----|----|----|----|
-| FS: 880 estimable realizations (B = 300 bootstraps) |  |  |  |  |  |
+| FS: 880 estimable realizations |  |  |  |  |  |
 |  | Avg | SD | Min | Max | Rel Bias (%) |
 | H: 880 estimable, avg \|H\| = 86, θ̂(H) = 2, âhr(H) = 2.4 |  |  |  |  |  |
 | θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | 15.31 |
