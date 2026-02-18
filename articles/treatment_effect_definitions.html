@@ -348,21 +348,46 @@ threshold.</p>
 </td>
 </tr>
 <tr class="even">
-<td align="left"><code>AHR</code></td>
-<td align="left">Overall average hazard ratio</td>
+<td align="left">
+<code>AHR</code> / <code>ahr</code>
+</td>
+<td align="left">Overall average hazard ratio (DGM-level)</td>
 </tr>
 <tr class="odd">
 <td align="left">
-<code>AHR_H_true</code> / <code>AHR_harm</code>
+<code>ahr_H</code> / <code>AHR_H_true</code>
 </td>
-<td align="left">AHR in harm subgroup</td>
+<td align="left">AHR in harm subgroup (DGM truth)</td>
 </tr>
 <tr class="even">
 <td align="left">
-<code>AHR_Hc_true</code> /
-<code>AHR_no_harm</code>
+<code>ahr_Hc</code> / <code>AHR_Hc_true</code>
 </td>
-<td align="left">AHR in complement</td>
+<td align="left">AHR in complement (DGM truth)</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>ahr.H.hat</code></td>
+<td align="left">Per-replicate AHR in identified
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
+</td>
+</tr>
+<tr class="even">
+<td align="left"><code>ahr.Hc.hat</code></td>
+<td align="left">Per-replicate AHR in identified
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><annotation encoding="application/x-tex">\hat{H}^c</annotation></semantics></math>
+</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>ahr.H.true</code></td>
+<td align="left">Per-replicate AHR in true
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+</td>
+</tr>
+<tr class="even">
+<td align="left"><code>ahr.Hc.true</code></td>
+<td align="left">Per-replicate AHR in true
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>H</mi><mi>c</mi></msup><annotation encoding="application/x-tex">H^c</annotation></semantics></math>
+</td>
 </tr>
 </tbody>
 </table>
@@ -397,8 +422,9 @@ controls for baseline covariates through the linear predictor.</p>
 <div class="section level4">
 <h4 id="computation-in-forestsearch-2">Computation in ForestSearch<a class="anchor" aria-label="anchor" href="#computation-in-forestsearch-2"></a>
 </h4>
-<p>In <code><a href="../reference/cox_ahr_cde_analysis.html">cox_ahr_cde_analysis()</a></code> and
-<code><a href="../reference/plot_subgroup_effects.html">plot_subgroup_effects()</a></code>, the CDE is computed from the
+<p>In <code><a href="../reference/cox_ahr_cde_analysis.html">cox_ahr_cde_analysis()</a></code>,
+<code><a href="../reference/plot_subgroup_effects.html">plot_subgroup_effects()</a></code>, and
+<code><a href="../reference/compute_dgm_cde.html">compute_dgm_cde()</a></code>, the CDE is computed from the
 <code>theta_1</code> and <code>theta_0</code> columns:</p>
 <ol style="list-style-type: decimal">
 <li>For each subject, retrieve:
@@ -430,6 +456,10 @@ grows.</p>
 <h4 id="package-variables-2">Package Variables<a class="anchor" aria-label="anchor" href="#package-variables-2"></a>
 </h4>
 <table class="table">
+<colgroup>
+<col width="43%">
+<col width="56%">
+</colgroup>
 <thead><tr class="header">
 <th align="left">Variable</th>
 <th align="left">Description</th>
@@ -444,16 +474,46 @@ grows.</p>
 <td align="left">Log-hazard contribution under treatment</td>
 </tr>
 <tr class="odd">
+<td align="left">
+<code>cde_H</code> /
+<code>cde_results[["recommend"]]</code>
+</td>
+<td align="left">DGM-level CDE in harm subgroup (truth)</td>
+</tr>
+<tr class="even">
+<td align="left">
+<code>cde_Hc</code> /
+<code>cde_results[["questionable"]]</code>
+</td>
+<td align="left">DGM-level CDE in complement (truth)</td>
+</tr>
+<tr class="odd">
 <td align="left"><code>cde_results[["overall"]]</code></td>
 <td align="left">Overall CDE</td>
 </tr>
 <tr class="even">
-<td align="left"><code>cde_results[["recommend"]]</code></td>
-<td align="left">CDE in recommended subgroup</td>
+<td align="left"><code>cde.H.hat</code></td>
+<td align="left">Per-replicate CDE in identified
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
+</td>
 </tr>
 <tr class="odd">
-<td align="left"><code>cde_results[["questionable"]]</code></td>
-<td align="left">CDE in questionable subgroup</td>
+<td align="left"><code>cde.Hc.hat</code></td>
+<td align="left">Per-replicate CDE in identified
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><annotation encoding="application/x-tex">\hat{H}^c</annotation></semantics></math>
+</td>
+</tr>
+<tr class="even">
+<td align="left"><code>cde.H.true</code></td>
+<td align="left">Per-replicate CDE in true
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>cde.Hc.true</code></td>
+<td align="left">Per-replicate CDE in true
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>H</mi><mi>c</mi></msup><annotation encoding="application/x-tex">H^c</annotation></semantics></math>
+</td>
 </tr>
 </tbody>
 </table>
@@ -1312,8 +1372,9 @@ Code</a>
 <h3 id="role-in-operating-characteristics">Role in Operating Characteristics<a class="anchor" aria-label="anchor" href="#role-in-operating-characteristics"></a>
 </h3>
 <p>In the simulation results produced by <code>run_oc_gbsg_sims()</code>
-and summarised by <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code>, four HR columns
-work together to quantify estimation performance:</p>
+and summarised by <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code> and
+<code><a href="../reference/format_oc_results.html">format_oc_results()</a></code>, multiple HR columns work together to
+quantify estimation performance:</p>
 <table class="table">
 <colgroup>
 <col width="47%">
@@ -1342,6 +1403,22 @@ using observed data</td>
 </td>
 </tr>
 <tr class="even">
+<td align="left"><code>ahr.H.hat</code></td>
+<td align="left">AHR =
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(\overline{\text{loghr\_po}})</annotation></semantics></math>
+in the <strong>identified</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
+</td>
+</tr>
+<tr class="odd">
+<td align="left"><code>cde.H.hat</code></td>
+<td align="left">CDE =
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>/</mi><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover></mrow><annotation encoding="application/x-tex">\overline{\exp(\theta_1)} / \overline{\exp(\theta_0)}</annotation></semantics></math>
+in the <strong>identified</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
+</td>
+</tr>
+<tr class="even">
 <td align="left"><code>hr.Hc.true</code></td>
 <td align="left">Per-replicate Cox HR in the <strong>true</strong>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>H</mi><mi>c</mi></msup><annotation encoding="application/x-tex">H^c</annotation></semantics></math>,
@@ -1359,14 +1436,46 @@ using observed data</td>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><annotation encoding="application/x-tex">\hat{H}^c</annotation></semantics></math>
 </td>
 </tr>
+<tr class="odd">
+<td align="left"><code>ahr.Hc.hat</code></td>
+<td align="left">AHR in the <strong>identified</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><annotation encoding="application/x-tex">\hat{H}^c</annotation></semantics></math>
+</td>
+</tr>
+<tr class="even">
+<td align="left"><code>cde.Hc.hat</code></td>
+<td align="left">CDE in the <strong>identified</strong>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>H</mi><mo accent="true">̂</mo></mover><mi>c</mi></msup><annotation encoding="application/x-tex">\hat{H}^c</annotation></semantics></math>
+</td>
+</tr>
 </tbody>
 </table>
 <p>Relative bias is computed against the DGM-level constant
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>H</mi><mo>*</mo></msubsup><mo>=</mo><mrow><mi>𝚍</mi><mi>𝚐</mi><mi>𝚖</mi><mi mathvariant="monospace">$</mi><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">_</mi><mi>𝙷</mi><mi mathvariant="monospace">_</mi><mi>𝚝</mi><mi>𝚛</mi><mi>𝚞</mi><mi>𝚎</mi></mrow></mrow><annotation encoding="application/x-tex">\theta_H^* = \mathtt{dgm\$hr\_H\_true}</annotation></semantics></math>:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">Rel. Bias</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>*</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>*</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
-\text{Rel. Bias}(\%) = 100 \times
-\frac{\overline{\mathtt{hr.H.hat}} - \theta_H^*}{\theta_H^*}
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup><mo>=</mo><mrow><mi>𝚍</mi><mi>𝚐</mi><mi>𝚖</mi><mi mathvariant="monospace">$</mi><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">_</mi><mi>𝙷</mi><mi mathvariant="monospace">_</mi><mi>𝚝</mi><mi>𝚛</mi><mi>𝚞</mi><mi>𝚎</mi></mrow></mrow><annotation encoding="application/x-tex">\theta^\dagger_H = \mathtt{dgm\$hr\_H\_true}</annotation></semantics></math>
+(the marginal/causal HR truth, using the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>†</mi><annotation encoding="application/x-tex">\dagger</annotation></semantics></math>
+notation from León et al., 2024):</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
+b^\dagger(\%) = 100 \times
+\frac{\overline{\mathtt{hr.H.hat}} - \theta^\dagger_H}{\theta^\dagger_H}
 </annotation></semantics></math></p>
+<p>When CDE truth values
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>θ</mi><mo>‡</mo></msup><annotation encoding="application/x-tex">\theta^\ddagger</annotation></semantics></math>)
+are available, <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code> reports a second
+bias column measuring distance from the controlled direct effect:</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>‡</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
+b^\ddagger(\%) = 100 \times
+\frac{\overline{\mathtt{hr.H.hat}} - \theta^\ddagger_H}{\theta^\ddagger_H}
+</annotation></semantics></math></p>
+<p>The notation aligns across both summary functions:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+denotes the true (oracle) subgroup,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
+denotes the identified (data-driven) subgroup, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>*</mi><annotation encoding="application/x-tex">*</annotation></semantics></math>
+is reserved exclusively for bootstrap bias-corrected estimates
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><annotation encoding="application/x-tex">\hat{\theta}^*</annotation></semantics></math>)—it
+is never used to denote “true subgroup.”</p>
 <p>This decomposition allows the simulation to separate two sources of
 error: (1) <strong>subgroup misidentification</strong> (the identified
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
@@ -1386,22 +1495,52 @@ and <code>dgm$hr_H_true</code> reflects finite-sample estimation
 noise.</p>
 </div>
 <div class="section level3">
-<h3 id="companion-ahr-metrics">Companion AHR Metrics<a class="anchor" aria-label="anchor" href="#companion-ahr-metrics"></a>
+<h3 id="companion-ahr-and-cde-metrics">Companion AHR and CDE Metrics<a class="anchor" aria-label="anchor" href="#companion-ahr-and-cde-metrics"></a>
 </h3>
-<p>For each context, a parallel <strong>Average Hazard Ratio</strong> is
-available:</p>
+<p>For each context, parallel <strong>Average Hazard Ratio</strong> and
+<strong>Controlled Direct Effect</strong> values are available:</p>
 <p><strong>DGM-level AHR:</strong> Deterministic, computed from
 individual <code>loghr_po</code> values in the super-population.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">AHR_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">AHR_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><strong>DGM-level CDE:</strong> Deterministic, computed from
+individual <code>theta_0</code> and <code>theta_1</code> values in the
+super-population.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">CDE_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">CDE_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>These are computed by <code><a href="../reference/compute_dgm_cde.html">compute_dgm_cde()</a></code> and stored in
+the DGM’s <code>hazard_ratios</code> list.</p>
 <p><strong>Simulation-level AHR:</strong> Can be computed per replicate
 when <code>loghr_po</code> is carried through to the simulated sample
-(available via <code><a href="../reference/simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>).</p>
+(available via <code><a href="../reference/simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>). Stored as
+<code>ahr.H.hat</code> and <code>ahr.Hc.hat</code> in the results
+<code>data.table</code>.</p>
+<p><strong>Simulation-level CDE:</strong> Similarly computed per
+replicate from <code>theta_0</code> and <code>theta_1</code> in the
+simulated sample. Stored as <code>cde.H.hat</code> and
+<code>cde.Hc.hat</code> in the results <code>data.table</code>.</p>
 <p>The DGM-level AHR and Cox-based marginal HR generally agree closely
 but can diverge when within-subgroup treatment effects are highly
-heterogeneous, as discussed in Section
-@ref(theoretical-relationships).</p>
+heterogeneous, as discussed in Section @ref(theoretical-relationships).
+The CDE generally tracks the AHR but diverges due to Jensen’s
+inequality, with the gap increasing as within-subgroup heterogeneity
+grows.</p>
+<p>In <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code>, all four estimator
+types—Cox HR
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>θ</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{\theta}</annotation></semantics></math>),
+bootstrap bias-corrected Cox HR
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><annotation encoding="application/x-tex">\hat{\theta}^*</annotation></semantics></math>),
+AHR
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mi>a</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">hr</mtext></mrow><annotation encoding="application/x-tex">\hat{a}\text{hr}</annotation></semantics></math>),
+and CDE
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>θ</mi><mo>‡</mo></msup><annotation encoding="application/x-tex">\theta^\ddagger</annotation></semantics></math>)—can
+appear as rows, each with appropriate bias columns. AHR and CDE rows
+appear conditionally when their source columns are present in the
+simulation results.</p>
 </div>
 </div>
 <div class="section level2">
@@ -1891,9 +2030,9 @@ comparison of all three treatment effect measures.</p>
 </tr>
 <tr>
 <td headers="**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Notation</td>
-<td headers="**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">HR_marg(S)</td>
+<td headers="**Definition**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">HR_marg(S), theta-dagger</td>
 <td headers="**Definition**  AHR" class="gt_row gt_left" style="font-size: small;">AHR(S)</td>
-<td headers="**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">CDE(S)</td>
+<td headers="**Definition**  CDE" class="gt_row gt_left" style="font-size: small;">CDE(S), theta-ddagger</td>
 </tr>
 <tr>
 <td headers="**Definition**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Formula (subgroup S)</td>
@@ -1945,24 +2084,24 @@ comparison of all three treatment effect measures.</p>
 </tr>
 <tr>
 <td headers="**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Primary ForestSearch use</td>
-<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Validation of DGM causal structure</td>
-<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Primary estimand for subgroup characterization</td>
-<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Complementary biomarker-threshold analysis</td>
+<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">Estimation rows in build_estimation_table(); DGM validation</td>
+<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); primary subgroup characterization</td>
+<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small;">Estimation row in build_estimation_table(); biomarker-threshold analysis</td>
 </tr>
 <tr>
 <td headers="**Computation**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Key package variable(s)</td>
-<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">hr_causal, hr_H_true, hr_Hc_true</td>
-<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">loghr_po, AHR, AHR_H_true, AHR_Hc_true</td>
-<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">theta_0, theta_1, cde_results</td>
+<td headers="**Computation**  Marginal_HR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat</td>
+<td headers="**Computation**  AHR" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc</td>
+<td headers="**Computation**  CDE" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc</td>
 </tr>
 <tr class="gt_group_heading_row">
 <th colspan="4" class="gt_group_heading" style="background-color: #F0F4F8; font-size: small; font-weight: bold;" scope="colgroup" id="&lt;span class='gt_from_md'&gt;&lt;strong&gt;Interpretation &amp;amp; Use&lt;/strong&gt;&lt;/span&gt;"><span class="gt_from_md"><strong>Interpretation &amp; Use</strong></span></th>
     </tr>
 <tr class="gt_row_group_first">
 <td headers="**Interpretation &amp; Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Key package function(s)</td>
-<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), create_gbsg_dgm()</td>
-<td headers="**Interpretation &amp; Use**  AHR" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), plot_subgroup_effects()</td>
-<td headers="**Interpretation &amp; Use**  CDE" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), plot_subgroup_effects()</td>
+<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()</td>
+<td headers="**Interpretation &amp; Use**  AHR" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), build_estimation_table()</td>
+<td headers="**Interpretation &amp; Use**  CDE" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()</td>
 </tr>
 <tr>
 <td headers="**Interpretation &amp; Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Interpretation</td>
@@ -2001,7 +2140,7 @@ Code</a>
 <span>  <span class="op">)</span>,</span>
 <span>  Marginal_HR <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"Marginal (causal) hazard ratio"</span>,</span>
-<span>    <span class="st">"HR_marg(S)"</span>,</span>
+<span>    <span class="st">"HR_marg(S), theta-dagger"</span>,</span>
 <span>    <span class="st">"exp(beta_Cox) from stacked PO Cox model"</span>,</span>
 <span>    <span class="st">"Hazard ratio (Cox partial likelihood)"</span>,</span>
 <span>    <span class="st">"Yes"</span>,</span>
@@ -2009,9 +2148,9 @@ Code</a>
 <span>    <span class="st">"Averaged out (population-level)"</span>,</span>
 <span>    <span class="st">"No (rank-based)"</span>,</span>
 <span>    <span class="st">"Cox PH on stacked potential outcomes"</span>,</span>
-<span>    <span class="st">"Validation of DGM causal structure"</span>,</span>
-<span>    <span class="st">"hr_causal, hr_H_true, hr_Hc_true"</span>,</span>
-<span>    <span class="st">"calculate_hazard_ratios(), create_gbsg_dgm()"</span>,</span>
+<span>    <span class="st">"Estimation rows in build_estimation_table(); DGM validation"</span>,</span>
+<span>    <span class="st">"hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat"</span>,</span>
+<span>    <span class="st">"calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()"</span>,</span>
 <span>    <span class="st">"Population-average HR as estimated by Cox regression on potential outcomes"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  AHR <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -2024,14 +2163,14 @@ Code</a>
 <span>    <span class="st">"Geometric mean preserves individual effects"</span>,</span>
 <span>    <span class="st">"Moderate (log scale dampens extremes)"</span>,</span>
 <span>    <span class="st">"Arithmetic mean of individual log HRs"</span>,</span>
-<span>    <span class="st">"Primary estimand for subgroup characterization"</span>,</span>
-<span>    <span class="st">"loghr_po, AHR, AHR_H_true, AHR_Hc_true"</span>,</span>
-<span>    <span class="st">"cox_ahr_cde_analysis(), plot_subgroup_effects()"</span>,</span>
+<span>    <span class="st">"Estimation row in build_estimation_table(); primary subgroup characterization"</span>,</span>
+<span>    <span class="st">"loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc"</span>,</span>
+<span>    <span class="st">"cox_ahr_cde_analysis(), build_estimation_table()"</span>,</span>
 <span>    <span class="st">"Geometric mean of individual causal hazard ratios across subjects"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  CDE <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"Controlled direct effect (hazard ratio)"</span>,</span>
-<span>    <span class="st">"CDE(S)"</span>,</span>
+<span>    <span class="st">"CDE(S), theta-ddagger"</span>,</span>
 <span>    <span class="st">"mean(exp(theta_1_i)) / mean(exp(theta_0_i))"</span>,</span>
 <span>    <span class="st">"Hazard (natural scale ratio)"</span>,</span>
 <span>    <span class="st">"No"</span>,</span>
@@ -2039,9 +2178,9 @@ Code</a>
 <span>    <span class="st">"Ratio of mean hazards preserves scale"</span>,</span>
 <span>    <span class="st">"Yes (exponential scale amplifies large values)"</span>,</span>
 <span>    <span class="st">"Ratio of average exponentiated log-hazards"</span>,</span>
-<span>    <span class="st">"Complementary biomarker-threshold analysis"</span>,</span>
-<span>    <span class="st">"theta_0, theta_1, cde_results"</span>,</span>
-<span>    <span class="st">"cox_ahr_cde_analysis(), plot_subgroup_effects()"</span>,</span>
+<span>    <span class="st">"Estimation row in build_estimation_table(); biomarker-threshold analysis"</span>,</span>
+<span>    <span class="st">"theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc"</span>,</span>
+<span>    <span class="st">"cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()"</span>,</span>
 <span>    <span class="st">"Ratio of average hazard contributions under treatment vs. control"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
@@ -2667,9 +2806,19 @@ Code</a>
 <td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)</td>
 </tr>
 <tr>
-<td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8. Per-replicate estimate (identified)</td>
+<td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8a. Per-replicate estimate (identified, Cox)</td>
 <td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">hr.H.hat: coxph() on observed data, sg_hat == 1</td>
 <td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)</td>
+</tr>
+<tr>
+<td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8b. Per-replicate AHR (identified)</td>
+<td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1</td>
+<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(mean(df$loghr_po[df$sg_hat == 1]))</td>
+</tr>
+<tr>
+<td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8c. Per-replicate CDE (identified)</td>
+<td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1</td>
+<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">mean(exp(df$theta_1[sg_hat])) / mean(exp(df$theta_0[sg_hat]))</td>
 </tr>
 </tbody>
 </table>
@@ -2691,7 +2840,9 @@ Code</a>
 <span>    <span class="st">"5c. Marginal HR (subgroup S)"</span>,</span>
 <span>    <span class="st">"6. Theoretical HR (harm subgroup)"</span>,</span>
 <span>    <span class="st">"7. Per-replicate truth (sim-level)"</span>,</span>
-<span>    <span class="st">"8. Per-replicate estimate (identified)"</span></span>
+<span>    <span class="st">"8a. Per-replicate estimate (identified, Cox)"</span>,</span>
+<span>    <span class="st">"8b. Per-replicate AHR (identified)"</span>,</span>
+<span>    <span class="st">"8c. Per-replicate CDE (identified)"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  Formula <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"log(T_i) = mu + X_i' gamma + sigma * epsilon_i"</span>,</span>
@@ -2703,7 +2854,9 @@ Code</a>
 <span>    <span class="st">"HR_marg(S): exp(beta) from coxph() on stacked PO data"</span>,</span>
 <span>    <span class="st">"HR(H) = exp( beta_0[treat] + beta_0[zh] )"</span>,</span>
 <span>    <span class="st">"hr.H.true: coxph() on observed data, flag.harm == 1"</span>,</span>
-<span>    <span class="st">"hr.H.hat: coxph() on observed data, sg_hat == 1"</span></span>
+<span>    <span class="st">"hr.H.hat: coxph() on observed data, sg_hat == 1"</span>,</span>
+<span>    <span class="st">"ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1"</span>,</span>
+<span>    <span class="st">"cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  ForestSearch_Code <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="st">"survreg(Surv(y, event) ~ ..., dist = 'weibull')"</span>,</span>
@@ -2715,7 +2868,9 @@ Code</a>
 <span>    <span class="st">"exp(coxph(Surv(time,event)~treat, data=df_stacked)$coef)"</span>,</span>
 <span>    <span class="st">"exp(b0['treat'] + b0['zh'])"</span>,</span>
 <span>    <span class="st">"exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)"</span>,</span>
-<span>    <span class="st">"exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)"</span></span>
+<span>    <span class="st">"exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)"</span>,</span>
+<span>    <span class="st">"exp(mean(df$loghr_po[df$sg_hat == 1]))"</span>,</span>
+<span>    <span class="st">"mean(exp(df$theta_1[sg_hat])) / mean(exp(df$theta_0[sg_hat]))"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  stringsAsFactors <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
@@ -2757,7 +2912,7 @@ Code</a>
 <span>    style <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>      <span class="fu"><a href="https://gt.rstudio.com/reference/cell_fill.html" class="external-link">cell_fill</a></span><span class="op">(</span>color <span class="op">=</span> <span class="st">"#E8F4E8"</span><span class="op">)</span></span>
 <span>    <span class="op">)</span>,</span>
-<span>    locations <span class="op">=</span> <span class="fu"><a href="https://gt.rstudio.com/reference/cells_body.html" class="external-link">cells_body</a></span><span class="op">(</span>rows <span class="op">=</span> <span class="fl">9</span><span class="op">:</span><span class="fl">10</span><span class="op">)</span></span>
+<span>    locations <span class="op">=</span> <span class="fu"><a href="https://gt.rstudio.com/reference/cells_body.html" class="external-link">cells_body</a></span><span class="op">(</span>rows <span class="op">=</span> <span class="fl">9</span><span class="op">:</span><span class="fl">12</span><span class="op">)</span></span>
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="https://gt.rstudio.com/reference/tab_options.html" class="external-link">tab_options</a></span><span class="op">(</span></span>
 <span>    table.font.size <span class="op">=</span> <span class="fu"><a href="https://gt.rstudio.com/reference/px.html" class="external-link">px</a></span><span class="op">(</span><span class="fl">13</span><span class="op">)</span>,</span>
@@ -2778,7 +2933,7 @@ Code</a>
 </h2>
 <p>The following code demonstrates how the three measures are computed
 from a single DGM object, highlighting where they agree and diverge.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Create a GBSG-based DGM with heterogeneous treatment effects</span></span>
@@ -2809,6 +2964,11 @@ from a single DGM object, highlighting where they agree and diverge.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE (overall):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cde_overall</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE (harm):   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cde_harm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE (Hc):     "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cde_noharm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Or equivalently via compute_dgm_cde():</span></span>
+<span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compute_dgm_cde.html">compute_dgm_cde</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nCDE from DGM (harm):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">CDE_harm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE from DGM (Hc):  "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">CDE_no_harm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># --- Marginal HR: DGM-level (stochastic, from stacked Cox model) ---</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n--- DGM-Level Marginal HR (super-population truth) ---\n"</span><span class="op">)</span></span>
@@ -2852,19 +3012,32 @@ objective:</p>
 <p><strong>Use AHR</strong> as the default estimand for ForestSearch
 simulation studies. It is deterministic, directly interpretable, and
 aligns with the geometric-mean interpretation of treatment effect
-heterogeneity. The AHR is the primary target when evaluating operating
+heterogeneity. The AHR is a primary target when evaluating operating
 characteristics (sensitivity, PPV, bias) across simulation
 replications.</p>
 <p><strong>Use marginal HR</strong> for validation purposes. The
 stacked-Cox approach provides a familiar, model-based estimand that
 confirms the DGM’s causal structure produces the intended
 population-level effects. It is also the natural target for analyses of
-observed trial data where potential outcomes are not directly
-available.</p>
-<p><strong>Use CDE</strong> for complementary analysis when exploring
-treatment effect profiles across continuous biomarker thresholds. The
-CDE’s natural-scale averaging can reveal patterns that are attenuated on
-the log scale, particularly when hazard contributions are highly
+observed trial data where potential outcomes are not directly available.
+In <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code>, the naive Cox HR
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>θ</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{\theta}</annotation></semantics></math>)
+and bias-corrected
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><annotation encoding="application/x-tex">\hat{\theta}^*</annotation></semantics></math>)
+rows report bias against the marginal truth
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>θ</mi><mo>†</mo></msup><annotation encoding="application/x-tex">\theta^\dagger</annotation></semantics></math>)
+and, when available, against the CDE truth
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>θ</mi><mo>‡</mo></msup><annotation encoding="application/x-tex">\theta^\ddagger</annotation></semantics></math>).</p>
+<p><strong>Use CDE</strong> as a complementary estimand that provides a
+natural-scale perspective on treatment effect heterogeneity. The CDE
+appears as an estimation row
+(<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>θ</mi><mo>‡</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mover><mi>H</mi><mo accent="true">̂</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\theta^\ddagger(\hat{H})</annotation></semantics></math>)
+in <code><a href="../reference/build_estimation_table.html">build_estimation_table()</a></code> alongside Cox HR and AHR rows,
+enabling direct comparison of estimation properties across all three
+estimand types. When exploring treatment effects across continuous
+biomarker thresholds via <code><a href="../reference/cox_ahr_cde_analysis.html">cox_ahr_cde_analysis()</a></code>, the CDE’s
+natural-scale averaging can reveal patterns that are attenuated on the
+log scale, particularly when hazard contributions are highly
 variable.</p>
 </div>
 <div class="section level2">

@@ -204,12 +204,16 @@ changes with the threshold.
 
 #### Package Variables
 
-| Variable | Description |
-|:---|:---|
-| `loghr_po` | Individual log HR: $`\theta_i(1) - \theta_i(0)`$ |
-| `AHR` | Overall average hazard ratio |
-| `AHR_H_true` / `AHR_harm` | AHR in harm subgroup |
-| `AHR_Hc_true` / `AHR_no_harm` | AHR in complement |
+| Variable                 | Description                                      |
+|:-------------------------|:-------------------------------------------------|
+| `loghr_po`               | Individual log HR: $`\theta_i(1) - \theta_i(0)`$ |
+| `AHR` / `ahr`            | Overall average hazard ratio (DGM-level)         |
+| `ahr_H` / `AHR_H_true`   | AHR in harm subgroup (DGM truth)                 |
+| `ahr_Hc` / `AHR_Hc_true` | AHR in complement (DGM truth)                    |
+| `ahr.H.hat`              | Per-replicate AHR in identified $`\hat{H}`$      |
+| `ahr.Hc.hat`             | Per-replicate AHR in identified $`\hat{H}^c`$    |
+| `ahr.H.true`             | Per-replicate AHR in true $`H`$                  |
+| `ahr.Hc.true`            | Per-replicate AHR in true $`H^c`$                |
 
 ### Controlled Direct Effect (CDE)
 
@@ -238,9 +242,10 @@ covariates through the linear predictor.
 #### Computation in ForestSearch
 
 In
-[`cox_ahr_cde_analysis()`](https://larry-leon.github.io/forestsearch/reference/cox_ahr_cde_analysis.md)
-and
+[`cox_ahr_cde_analysis()`](https://larry-leon.github.io/forestsearch/reference/cox_ahr_cde_analysis.md),
 [`plot_subgroup_effects()`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_effects.md),
+and
+[`compute_dgm_cde()`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md),
 the CDE is computed from the `theta_1` and `theta_0` columns:
 
 1.  For each subject, retrieve:
@@ -261,13 +266,17 @@ discrepancy increasing as within-subgroup heterogeneity grows.
 
 #### Package Variables
 
-| Variable                        | Description                             |
-|:--------------------------------|:----------------------------------------|
-| `theta_0`                       | Log-hazard contribution under control   |
-| `theta_1`                       | Log-hazard contribution under treatment |
-| `cde_results[["overall"]]`      | Overall CDE                             |
-| `cde_results[["recommend"]]`    | CDE in recommended subgroup             |
-| `cde_results[["questionable"]]` | CDE in questionable subgroup            |
+| Variable | Description |
+|:---|:---|
+| `theta_0` | Log-hazard contribution under control |
+| `theta_1` | Log-hazard contribution under treatment |
+| `cde_H` / `cde_results[["recommend"]]` | DGM-level CDE in harm subgroup (truth) |
+| `cde_Hc` / `cde_results[["questionable"]]` | DGM-level CDE in complement (truth) |
+| `cde_results[["overall"]]` | Overall CDE |
+| `cde.H.hat` | Per-replicate CDE in identified $`\hat{H}`$ |
+| `cde.Hc.hat` | Per-replicate CDE in identified $`\hat{H}^c`$ |
+| `cde.H.true` | Per-replicate CDE in true $`H`$ |
+| `cde.Hc.true` | Per-replicate CDE in true $`H^c`$ |
 
 ## Theoretical Relationships
 
@@ -620,26 +629,50 @@ gt(dgm_sim_df) |>
 
 In the simulation results produced by `run_oc_gbsg_sims()` and
 summarised by
-[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md),
-four HR columns work together to quantify estimation performance:
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+and
+[`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md),
+multiple HR columns work together to quantify estimation performance:
 
 | Column | Meaning |
 |:---|:---|
 | `hr.H.true` | Per-replicate Cox HR in the **true** H, using observed data |
 | `hr.H.hat` | Cox HR in the **identified** $`\hat{H}`$, using observed data |
 | `hr.H.bc` | Bootstrap bias-corrected HR in $`\hat{H}`$ |
+| `ahr.H.hat` | AHR = $`\exp(\overline{\text{loghr\_po}})`$ in the **identified** $`\hat{H}`$ |
+| `cde.H.hat` | CDE = $`\overline{\exp(\theta_1)} / \overline{\exp(\theta_0)}`$ in the **identified** $`\hat{H}`$ |
 | `hr.Hc.true` | Per-replicate Cox HR in the **true** $`H^c`$, using observed data |
 | `hr.Hc.hat` | Cox HR in the **identified** $`\hat{H}^c`$, using observed data |
 | `hr.Hc.bc` | Bootstrap bias-corrected HR in $`\hat{H}^c`$ |
+| `ahr.Hc.hat` | AHR in the **identified** $`\hat{H}^c`$ |
+| `cde.Hc.hat` | CDE in the **identified** $`\hat{H}^c`$ |
 
 Relative bias is computed against the DGM-level constant
-$`\theta_H^* = \mathtt{dgm\$hr\_H\_true}`$:
+$`\theta^\dagger_H = \mathtt{dgm\$hr\_H\_true}`$ (the marginal/causal HR
+truth, using the $`\dagger`$ notation from León et al., 2024):
 
 ``` math
 
-\text{Rel. Bias}(\%) = 100 \times
-\frac{\overline{\mathtt{hr.H.hat}} - \theta_H^*}{\theta_H^*}
+b^\dagger(\%) = 100 \times
+\frac{\overline{\mathtt{hr.H.hat}} - \theta^\dagger_H}{\theta^\dagger_H}
 ```
+
+When CDE truth values ($`\theta^\ddagger`$) are available,
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+reports a second bias column measuring distance from the controlled
+direct effect:
+
+``` math
+
+b^\ddagger(\%) = 100 \times
+\frac{\overline{\mathtt{hr.H.hat}} - \theta^\ddagger_H}{\theta^\ddagger_H}
+```
+
+The notation aligns across both summary functions: $`H`$ denotes the
+true (oracle) subgroup, $`\hat{H}`$ denotes the identified (data-driven)
+subgroup, and $`*`$ is reserved exclusively for bootstrap bias-corrected
+estimates ($`\hat{\theta}^*`$)—it is never used to denote “true
+subgroup.”
 
 This decomposition allows the simulation to separate two sources of
 error: (1) **subgroup misidentification** (the identified $`\hat{H}`$
@@ -655,9 +688,10 @@ and `mean(hr.H.true)` is attributable to subgroup misidentification,
 while the gap between `mean(hr.H.true)` and `dgm$hr_H_true` reflects
 finite-sample estimation noise.
 
-### Companion AHR Metrics
+### Companion AHR and CDE Metrics
 
-For each context, a parallel **Average Hazard Ratio** is available:
+For each context, parallel **Average Hazard Ratio** and **Controlled
+Direct Effect** values are available:
 
 **DGM-level AHR:** Deterministic, computed from individual `loghr_po`
 values in the super-population.
@@ -667,13 +701,43 @@ AHR_H_true  <- exp(mean(df_super$loghr_po[df_super$flag.harm == 1]))
 AHR_Hc_true <- exp(mean(df_super$loghr_po[df_super$flag.harm == 0]))
 ```
 
+**DGM-level CDE:** Deterministic, computed from individual `theta_0` and
+`theta_1` values in the super-population.
+
+``` r
+CDE_H_true  <- mean(exp(df_super$theta_1[df_super$flag.harm == 1])) /
+               mean(exp(df_super$theta_0[df_super$flag.harm == 1]))
+CDE_Hc_true <- mean(exp(df_super$theta_1[df_super$flag.harm == 0])) /
+               mean(exp(df_super$theta_0[df_super$flag.harm == 0]))
+```
+
+These are computed by
+[`compute_dgm_cde()`](https://larry-leon.github.io/forestsearch/reference/compute_dgm_cde.md)
+and stored in the DGM’s `hazard_ratios` list.
+
 **Simulation-level AHR:** Can be computed per replicate when `loghr_po`
 is carried through to the simulated sample (available via
 [`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)).
+Stored as `ahr.H.hat` and `ahr.Hc.hat` in the results `data.table`.
+
+**Simulation-level CDE:** Similarly computed per replicate from
+`theta_0` and `theta_1` in the simulated sample. Stored as `cde.H.hat`
+and `cde.Hc.hat` in the results `data.table`.
 
 The DGM-level AHR and Cox-based marginal HR generally agree closely but
 can diverge when within-subgroup treatment effects are highly
 heterogeneous, as discussed in Section @ref(theoretical-relationships).
+The CDE generally tracks the AHR but diverges due to Jensen’s
+inequality, with the gap increasing as within-subgroup heterogeneity
+grows.
+
+In
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md),
+all four estimator types—Cox HR ($`\hat{\theta}`$), bootstrap
+bias-corrected Cox HR ($`\hat{\theta}^*`$), AHR ($`\hat{a}\text{hr}`$),
+and CDE ($`\theta^\ddagger`$)—can appear as rows, each with appropriate
+bias columns. AHR and CDE rows appear conditionally when their source
+columns are present in the simulation results.
 
 ## Summary Comparison Table
 
@@ -686,7 +750,7 @@ treatment effect measures.
 |  | **Marginal HR** | **AHR** | **CDE** |
 | **Definition** |  |  |  |
 | Formal name | Marginal (causal) hazard ratio | Average hazard ratio | Controlled direct effect (hazard ratio) |
-| Notation | HR_marg(S) | AHR(S) | CDE(S) |
+| Notation | HR_marg(S), theta-dagger | AHR(S) | CDE(S), theta-ddagger |
 | Formula (subgroup S) | exp(beta_Cox) from stacked PO Cox model | exp( mean(loghr_po_i) ) for i in S | mean(exp(theta_1_i)) / mean(exp(theta_0_i)) |
 | **Statistical Properties** |  |  |  |
 | Averaging scale | Hazard ratio (Cox partial likelihood) | Log-hazard (then exponentiated) | Hazard (natural scale ratio) |
@@ -696,10 +760,10 @@ treatment effect measures.
 | Sensitive to outlier hazard contributions | No (rank-based) | Moderate (log scale dampens extremes) | Yes (exponential scale amplifies large values) |
 | **Computation** |  |  |  |
 | Standard estimation method | Cox PH on stacked potential outcomes | Arithmetic mean of individual log HRs | Ratio of average exponentiated log-hazards |
-| Primary ForestSearch use | Validation of DGM causal structure | Primary estimand for subgroup characterization | Complementary biomarker-threshold analysis |
-| Key package variable(s) | hr_causal, hr_H_true, hr_Hc_true | loghr_po, AHR, AHR_H_true, AHR_Hc_true | theta_0, theta_1, cde_results |
+| Primary ForestSearch use | Estimation rows in build_estimation_table(); DGM validation | Estimation row in build_estimation_table(); primary subgroup characterization | Estimation row in build_estimation_table(); biomarker-threshold analysis |
+| Key package variable(s) | hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat | loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc | theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc |
 | **Interpretation & Use** |  |  |  |
-| Key package function(s) | calculate_hazard_ratios(), create_gbsg_dgm() | cox_ahr_cde_analysis(), plot_subgroup_effects() | cox_ahr_cde_analysis(), plot_subgroup_effects() |
+| Key package function(s) | calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table() | cox_ahr_cde_analysis(), build_estimation_table() | cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table() |
 | Interpretation | Population-average HR as estimated by Cox regression on potential outcomes | Geometric mean of individual causal hazard ratios across subjects | Ratio of average hazard contributions under treatment vs. control |
 | Based on the potential outcomes framework within the ForestSearch AFT data-generating mechanism. See León et al. (2024), *Statistics in Medicine*. |  |  |  |
 
@@ -725,7 +789,7 @@ comparison_df <- data.frame(
   ),
   Marginal_HR = c(
     "Marginal (causal) hazard ratio",
-    "HR_marg(S)",
+    "HR_marg(S), theta-dagger",
     "exp(beta_Cox) from stacked PO Cox model",
     "Hazard ratio (Cox partial likelihood)",
     "Yes",
@@ -733,9 +797,9 @@ comparison_df <- data.frame(
     "Averaged out (population-level)",
     "No (rank-based)",
     "Cox PH on stacked potential outcomes",
-    "Validation of DGM causal structure",
-    "hr_causal, hr_H_true, hr_Hc_true",
-    "calculate_hazard_ratios(), create_gbsg_dgm()",
+    "Estimation rows in build_estimation_table(); DGM validation",
+    "hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat",
+    "calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()",
     "Population-average HR as estimated by Cox regression on potential outcomes"
   ),
   AHR = c(
@@ -748,14 +812,14 @@ comparison_df <- data.frame(
     "Geometric mean preserves individual effects",
     "Moderate (log scale dampens extremes)",
     "Arithmetic mean of individual log HRs",
-    "Primary estimand for subgroup characterization",
-    "loghr_po, AHR, AHR_H_true, AHR_Hc_true",
-    "cox_ahr_cde_analysis(), plot_subgroup_effects()",
+    "Estimation row in build_estimation_table(); primary subgroup characterization",
+    "loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc",
+    "cox_ahr_cde_analysis(), build_estimation_table()",
     "Geometric mean of individual causal hazard ratios across subjects"
   ),
   CDE = c(
     "Controlled direct effect (hazard ratio)",
-    "CDE(S)",
+    "CDE(S), theta-ddagger",
     "mean(exp(theta_1_i)) / mean(exp(theta_0_i))",
     "Hazard (natural scale ratio)",
     "No",
@@ -763,9 +827,9 @@ comparison_df <- data.frame(
     "Ratio of mean hazards preserves scale",
     "Yes (exponential scale amplifies large values)",
     "Ratio of average exponentiated log-hazards",
-    "Complementary biomarker-threshold analysis",
-    "theta_0, theta_1, cde_results",
-    "cox_ahr_cde_analysis(), plot_subgroup_effects()",
+    "Estimation row in build_estimation_table(); biomarker-threshold analysis",
+    "theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc",
+    "cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()",
     "Ratio of average hazard contributions under treatment vs. control"
   ),
   stringsAsFactors = FALSE
@@ -887,7 +951,9 @@ gt(comparison_df) |>
 | 5c. Marginal HR (subgroup S) | HR_marg(S): exp(beta) from coxph() on stacked PO data | exp(coxph(Surv(time,event)~treat, data=df_stacked)\$coef) |
 | 6\. Theoretical HR (harm subgroup) | HR(H) = exp( beta_0\[treat\] + beta_0\[zh\] ) | exp(b0\['treat'\] + b0\['zh'\]) |
 | 7\. Per-replicate truth (sim-level) | hr.H.true: coxph() on observed data, flag.harm == 1 | exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))\$coef) |
-| 8\. Per-replicate estimate (identified) | hr.H.hat: coxph() on observed data, sg_hat == 1 | exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))\$coef) |
+| 8a. Per-replicate estimate (identified, Cox) | hr.H.hat: coxph() on observed data, sg_hat == 1 | exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))\$coef) |
+| 8b. Per-replicate AHR (identified) | ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1 | exp(mean(df\$loghr_po\[df\$sg_hat == 1\])) |
+| 8c. Per-replicate CDE (identified) | cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1 | mean(exp(df\$theta_1\[sg_hat\])) / mean(exp(df\$theta_0\[sg_hat\])) |
 
 [ Code](#collapse-pipelinetable)
 
@@ -903,7 +969,9 @@ formula_df <- data.frame(
     "5c. Marginal HR (subgroup S)",
     "6. Theoretical HR (harm subgroup)",
     "7. Per-replicate truth (sim-level)",
-    "8. Per-replicate estimate (identified)"
+    "8a. Per-replicate estimate (identified, Cox)",
+    "8b. Per-replicate AHR (identified)",
+    "8c. Per-replicate CDE (identified)"
   ),
   Formula = c(
     "log(T_i) = mu + X_i' gamma + sigma * epsilon_i",
@@ -915,7 +983,9 @@ formula_df <- data.frame(
     "HR_marg(S): exp(beta) from coxph() on stacked PO data",
     "HR(H) = exp( beta_0[treat] + beta_0[zh] )",
     "hr.H.true: coxph() on observed data, flag.harm == 1",
-    "hr.H.hat: coxph() on observed data, sg_hat == 1"
+    "hr.H.hat: coxph() on observed data, sg_hat == 1",
+    "ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1",
+    "cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1"
   ),
   ForestSearch_Code = c(
     "survreg(Surv(y, event) ~ ..., dist = 'weibull')",
@@ -927,7 +997,9 @@ formula_df <- data.frame(
     "exp(coxph(Surv(time,event)~treat, data=df_stacked)$coef)",
     "exp(b0['treat'] + b0['zh'])",
     "exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)",
-    "exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)"
+    "exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)",
+    "exp(mean(df$loghr_po[df$sg_hat == 1]))",
+    "mean(exp(df$theta_1[sg_hat])) / mean(exp(df$theta_0[sg_hat]))"
   ),
   stringsAsFactors = FALSE
 )
@@ -969,7 +1041,7 @@ gt(formula_df) |>
     style = list(
       cell_fill(color = "#E8F4E8")
     ),
-    locations = cells_body(rows = 9:10)
+    locations = cells_body(rows = 9:12)
   ) |>
   tab_options(
     table.font.size = px(13),
@@ -1021,6 +1093,11 @@ cat("CDE (overall):", round(cde_overall, 4), "\n")
 cat("CDE (harm):   ", round(cde_harm, 4), "\n")
 cat("CDE (Hc):     ", round(cde_noharm, 4), "\n")
 
+# Or equivalently via compute_dgm_cde():
+dgm <- compute_dgm_cde(dgm)
+cat("\nCDE from DGM (harm):", round(dgm$hazard_ratios$CDE_harm, 4), "\n")
+cat("CDE from DGM (Hc):  ", round(dgm$hazard_ratios$CDE_no_harm, 4), "\n")
+
 # --- Marginal HR: DGM-level (stochastic, from stacked Cox model) ---
 cat("\n--- DGM-Level Marginal HR (super-population truth) ---\n")
 cat("HR_marg (overall):", round(dgm$hr_causal, 4), "\n")
@@ -1063,19 +1140,31 @@ The choice among these three measures depends on the analytic objective:
 **Use AHR** as the default estimand for ForestSearch simulation studies.
 It is deterministic, directly interpretable, and aligns with the
 geometric-mean interpretation of treatment effect heterogeneity. The AHR
-is the primary target when evaluating operating characteristics
+is a primary target when evaluating operating characteristics
 (sensitivity, PPV, bias) across simulation replications.
 
 **Use marginal HR** for validation purposes. The stacked-Cox approach
 provides a familiar, model-based estimand that confirms the DGM’s causal
 structure produces the intended population-level effects. It is also the
 natural target for analyses of observed trial data where potential
-outcomes are not directly available.
+outcomes are not directly available. In
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md),
+the naive Cox HR ($`\hat{\theta}`$) and bias-corrected
+($`\hat{\theta}^*`$) rows report bias against the marginal truth
+($`\theta^\dagger`$) and, when available, against the CDE truth
+($`\theta^\ddagger`$).
 
-**Use CDE** for complementary analysis when exploring treatment effect
-profiles across continuous biomarker thresholds. The CDE’s natural-scale
-averaging can reveal patterns that are attenuated on the log scale,
-particularly when hazard contributions are highly variable.
+**Use CDE** as a complementary estimand that provides a natural-scale
+perspective on treatment effect heterogeneity. The CDE appears as an
+estimation row ($`\theta^\ddagger(\hat{H})`$) in
+[`build_estimation_table()`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+alongside Cox HR and AHR rows, enabling direct comparison of estimation
+properties across all three estimand types. When exploring treatment
+effects across continuous biomarker thresholds via
+[`cox_ahr_cde_analysis()`](https://larry-leon.github.io/forestsearch/reference/cox_ahr_cde_analysis.md),
+the CDE’s natural-scale averaging can reveal patterns that are
+attenuated on the log scale, particularly when hazard contributions are
+highly variable.
 
 ## References
 

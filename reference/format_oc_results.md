@@ -34,8 +34,8 @@ format_oc_results(
 - metrics:
 
   Character vector. Metrics to display. Options include: "detection",
-  "classification", "hr_estimates", "ahr_estimates", "subgroup_size",
-  "all". Default: "all"
+  "classification", "hr_estimates", "ahr_estimates", "cde_estimates",
+  "subgroup_size", "all". Default: "all"
 
 - digits:
 
@@ -66,13 +66,23 @@ data.frame
 
 The function summarizes simulation results across multiple metrics:
 
-- **Detection**: Proportion of simulations finding a subgroup (any.H)
+- **Found**: Proportion of simulations finding a subgroup (any.H)
 
 - **Classification**: Sen, spec, PPV, NPV
 
-- **HR Estimates**: Mean Cox hazard ratios in H and Hc subgroups
+- **HR Estimates**: Mean Cox hazard ratios in true (H) and identified
+  (H-hat) subgroups and their complements
 
 - **AHR Estimates**: Mean average hazard ratios (from loghr_po) in true
   and identified subgroups
 
+- **CDE Estimates**: Controlled direct effects (from theta_0/theta_1) in
+  true and identified subgroups
+
 - **Subgroup Size**: Average, min, max sizes
+
+Column notation aligns with
+[`build_estimation_table`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md)
+and Leon et al. (2024): `H` = true (oracle) subgroup, `H-hat` =
+identified subgroup. The asterisk (`*`) is reserved for bootstrap
+bias-corrected estimates and is not used in this summary table.
