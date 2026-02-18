@@ -87,7 +87,6 @@ devtools::install(quick = TRUE)
 
 devtools::install(dependencies = FALSE)
 
-
 # Run these before CRAN submission
 devtools::check(cran = TRUE)     # Full CRAN validation
 
@@ -135,7 +134,7 @@ pkgdown::build_site()
 # otherewise will duplicate the compiling of documents
 pkgdown::deploy_to_branch()
 
-#https://larry-leon.github.io/forestsearch
+# https://larry-leon.github.io/forestsearch
 
 # Preview without building everything
 pkgdown::build_reference()

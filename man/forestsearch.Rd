@@ -315,4 +315,8 @@ treatment effects using random forests. JASA.
 \code{\link{subgroup.consistency}} for consistency evaluation details
 \code{\link{forestsearch_bootstrap_dofuture}} for bootstrap inference
 \code{\link{forestsearch_Kfold}} for cross-validation
+
+Package website: \url{https://larry-leon.github.io/forestsearch/}
+
+Source code: \url{https://github.com/larry-leon/forestsearch}
 }

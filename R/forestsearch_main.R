@@ -201,6 +201,10 @@
 #' \code{\link{forestsearch_bootstrap_dofuture}} for bootstrap inference
 #' \code{\link{forestsearch_Kfold}} for cross-validation
 #'
+#' Package website: \url{https://larry-leon.github.io/forestsearch/}
+#'
+#' Source code: \url{https://github.com/larry-leon/forestsearch}
+#'
 #' @importFrom survival coxph Surv
 #' @importFrom grf causal_survival_forest variable_importance
 #' @importFrom glmnet cv.glmnet
