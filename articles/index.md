@@ -25,3 +25,5 @@ Operating characteristics and published benchmarks
 
 - [Simulation Studies for Evaluating ForestSearch
   Performance](https://larry-leon.github.io/forestsearch/articles/paper_simulations.md):
+- [Extreme Subgroup Effects Under a Uniform Treatment
+  Benefit](https://larry-leon.github.io/forestsearch/articles/extreme_subgroups.md):
