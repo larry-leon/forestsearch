@@ -691,11 +691,30 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
   AHR_harm <- with(subset(df_super, flag_harm == 1), exp(mean(loghr_po)))
   AHR_no_harm <- with(subset(df_super, flag_harm == 0), exp(mean(loghr_po)))
 
+  # Calculate controlled direct effects (CDE)
+  # CDE(S) = mean(exp(theta_1[S])) / mean(exp(theta_0[S]))
+  # Differs from AHR due to Jensen's inequality (theta-ddagger in paper)
+  CDE <- mean(exp(df_super$theta_1)) / mean(exp(df_super$theta_0))
+
+  if (sum(df_super$flag_harm) > 0) {
+    in_harm <- df_super$flag_harm == 1
+    CDE_harm <- mean(exp(df_super$theta_1[in_harm])) /
+      mean(exp(df_super$theta_0[in_harm]))
+    CDE_no_harm <- mean(exp(df_super$theta_1[!in_harm])) /
+      mean(exp(df_super$theta_0[!in_harm]))
+  } else {
+    CDE_harm <- NA_real_
+    CDE_no_harm <- CDE
+  }
+
   hr_results <- list(
-    overall = hr_overall,
-    AHR = AHR,
-    AHR_harm = AHR_harm,
-    AHR_no_harm = AHR_no_harm
+    overall     = hr_overall,
+    AHR         = AHR,
+    AHR_harm    = AHR_harm,
+    AHR_no_harm = AHR_no_harm,
+    CDE         = CDE,
+    CDE_harm    = CDE_harm,
+    CDE_no_harm = CDE_no_harm
   )
 
   # Calculate subgroup-specific HRs if applicable

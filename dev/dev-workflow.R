@@ -65,6 +65,10 @@ rm(list=ls())
 
 .rs.restartR()
 
+# Restart R (Cmd+Shift+F10)
+remove.packages("forestsearch")
+
+
 #source("apply_cran_fixes.R")
 # removed from root after applied
 
@@ -80,6 +84,9 @@ devtools::check()
 devtools::clean_dll()
 
 devtools::install(quick = TRUE)
+
+devtools::install(dependencies = FALSE)
+
 
 # Run these before CRAN submission
 devtools::check(cran = TRUE)     # Full CRAN validation
@@ -146,6 +153,8 @@ pkgdown::build_article("articles/treatment_effect_definitions")
 
 pkgdown::build_article("articles/paper_simulations")
 
+# Open it directly
+#browseURL("docs/articles/articles/paper_simulations.html")
 
 pkgdown::build_article(
   "articles/treatment_effect_definitions",

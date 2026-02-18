@@ -114,10 +114,13 @@ default_grf_params <- function() {
 #' Extract HR from DGM (Backward Compatible)
 #'
 #' Extracts hazard ratios from DGM object, supporting both old and new formats.
+#' Also supports CDE (controlled direct effect) extraction for Table 5 of
+#' Leon et al. (2024) alignment (theta-ddagger).
 #'
 #' @param dgm DGM object (gbsg_dgm or aft_dgm_flex)
-#' @param which Character. Which HR to extract: "hr_H", "hr_Hc", "ahr_H", "ahr_Hc",
-#'   "hr_overall", "ahr"
+#' @param which Character. Which HR to extract: \code{"hr_H"}, \code{"hr_Hc"},
+#'   \code{"ahr_H"}, \code{"ahr_Hc"}, \code{"hr_overall"}, \code{"ahr"},
+#'   \code{"cde_H"}, \code{"cde_Hc"}, \code{"cde"}.
 #'
 #' @return Numeric hazard ratio value
 #'
@@ -134,6 +137,9 @@ get_dgm_hr <- function(dgm, which = "hr_H") {
       "ahr_Hc" = hr_list$AHR_no_harm,
       "hr_overall" = hr_list$overall,
       "ahr" = hr_list$AHR,
+      "cde_H" = hr_list$CDE_harm,
+      "cde_Hc" = hr_list$CDE_no_harm,
+      "cde" = hr_list$CDE,
       NA_real_
     )
     if (!is.null(result) && !is.na(result)) return(result)
@@ -148,10 +154,106 @@ get_dgm_hr <- function(dgm, which = "hr_H") {
     "ahr_Hc" = dgm$AHR_Hc_true,
     "hr_overall" = dgm$hr_causal,
     "ahr" = dgm$AHR,
+    "cde_H" = dgm$cde_H,
+    "cde_Hc" = dgm$cde_Hc,
+    "cde" = dgm$CDE,
     NA_real_
   )
 
   if (is.null(result)) NA_real_ else result
+}
+
+
+#' Compute and Attach CDE Values to a DGM Object
+#'
+#' Calculates Controlled Direct Effect (CDE) hazard ratios from the
+#' super-population potential outcomes (\code{theta_0}, \code{theta_1})
+#' and attaches them to the DGM's \code{hazard_ratios} list. This enables
+#' automatic CDE detection by \code{\link{build_estimation_table}}.
+#'
+#' @details
+#' The CDE for subgroup S is defined as:
+#'
+#' \code{CDE(S) = mean(exp(theta_1[S])) / mean(exp(theta_0[S]))}
+#'
+#' which is the ratio of average hazard contributions on the natural scale.
+#' This differs from the AHR (\code{exp(mean(loghr_po))}) due to Jensen's
+#' inequality. In the notation of Leon et al. (2024), CDE corresponds to
+#' theta-ddagger.
+#'
+#' The function detects the subgroup indicator column automatically,
+#' checking for \code{flag.harm}, \code{flag_harm}, and \code{H} in
+#' the super-population data frame.
+#'
+#' @param dgm A DGM object (e.g., from \code{create_gbsg_dgm} or
+#'   \code{generate_aft_dgm_flex}). Must contain \code{df_super_rand}
+#'   with columns \code{theta_0} and \code{theta_1}.
+#' @param harm_col Character. Name of the subgroup indicator column in
+#'   \code{dgm$df_super_rand}. If \code{NULL} (default), auto-detected
+#'   from \code{flag.harm}, \code{flag_harm}, or \code{H}.
+#'
+#' @return The DGM object with CDE values added to
+#'   \code{dgm$hazard_ratios} (\code{CDE}, \code{CDE_harm},
+#'   \code{CDE_no_harm}) and to top-level fields (\code{dgm$CDE},
+#'   \code{dgm$cde_H}, \code{dgm$cde_Hc}).
+#'
+#' @examples
+#' \dontrun{
+#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+#' dgm <- compute_dgm_cde(dgm)
+#' dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
+#' dgm$hazard_ratios$CDE         # theta-ddagger overall
+#' }
+#'
+#' @seealso \code{\link{build_estimation_table}}, \code{\link{get_dgm_hr}}
+#' @export
+compute_dgm_cde <- function(dgm, harm_col = NULL) {
+
+  df <- dgm$df_super_rand
+  if (is.null(df)) {
+    warning("DGM has no df_super_rand; cannot compute CDE.")
+    return(dgm)
+  }
+  if (!all(c("theta_0", "theta_1") %in% names(df))) {
+    warning("df_super_rand lacks theta_0/theta_1; cannot compute CDE.")
+    return(dgm)
+  }
+
+  # Auto-detect subgroup indicator
+  if (is.null(harm_col)) {
+    candidates <- c("flag.harm", "flag_harm", "H")
+    found <- intersect(candidates, names(df))
+    if (length(found) == 0) {
+      warning("No subgroup indicator found (tried: flag.harm, flag_harm, H).")
+      # Compute overall CDE only
+      cde_overall <- mean(exp(df$theta_1)) / mean(exp(df$theta_0))
+      dgm$CDE <- cde_overall
+      if (is.null(dgm$hazard_ratios)) dgm$hazard_ratios <- list()
+      dgm$hazard_ratios$CDE <- cde_overall
+      return(dgm)
+    }
+    harm_col <- found[1]
+  }
+
+  in_H <- df[[harm_col]] == 1
+
+  # CDE(S) = mean(exp(theta_1[S])) / mean(exp(theta_0[S]))
+  cde_H  <- mean(exp(df$theta_1[in_H]))  / mean(exp(df$theta_0[in_H]))
+  cde_Hc <- mean(exp(df$theta_1[!in_H])) / mean(exp(df$theta_0[!in_H]))
+  cde_overall <- mean(exp(df$theta_1))    / mean(exp(df$theta_0))
+
+  # Attach to hazard_ratios list (for get_dgm_hr auto-detection)
+  if (is.null(dgm$hazard_ratios)) dgm$hazard_ratios <- list()
+  dgm$hazard_ratios$CDE         <- cde_overall
+  dgm$hazard_ratios$CDE_harm    <- cde_H
+  dgm$hazard_ratios$CDE_no_harm <- cde_Hc
+
+  # Also attach as top-level fields (for old-format fallback)
+  dgm$CDE    <- cde_overall
+  dgm$cde_H  <- cde_H
+  dgm$cde_Hc <- cde_Hc
+
+  dgm
 }
 
 
@@ -216,6 +318,41 @@ compute_ahr <- function(df, subset_indicator = NULL) {
 }
 
 
+#' Compute CDE from theta_0 and theta_1
+#'
+#' Computes Controlled Direct Effect as the ratio of average hazard
+#' contributions on the natural scale:
+#' \code{CDE(S) = mean(exp(theta_1[S])) / mean(exp(theta_0[S]))}.
+#'
+#' @param df Data frame with \code{theta_0} and \code{theta_1} columns.
+#' @param subset_indicator Optional logical/integer vector for subsetting.
+#'   If provided, only rows where \code{subset_indicator == 1} are used.
+#'
+#' @return Numeric CDE value, or \code{NA_real_} if columns are missing.
+#'
+#' @keywords internal
+compute_cde <- function(df, subset_indicator = NULL) {
+  if (!all(c("theta_0", "theta_1") %in% names(df))) {
+    return(NA_real_)
+  }
+
+  t0 <- df$theta_0
+  t1 <- df$theta_1
+
+  if (!is.null(subset_indicator)) {
+    idx <- subset_indicator == 1
+    t0 <- t0[idx]
+    t1 <- t1[idx]
+  }
+
+  if (length(t0) == 0 || all(is.na(t0))) {
+    return(NA_real_)
+  }
+
+  mean(exp(t1), na.rm = TRUE) / mean(exp(t0), na.rm = TRUE)
+}
+
+
 # =============================================================================
 # Extract ForestSearch Estimates
 # =============================================================================
@@ -265,6 +402,10 @@ extract_fs_estimates <- function(
     ahr.Hc.true = NA_real_,
     ahr.H.hat = NA_real_,
     ahr.Hc.hat = NA_real_,
+    cde.H.true = NA_real_,
+    cde.Hc.true = NA_real_,
+    cde.H.hat = NA_real_,
+    cde.Hc.hat = NA_real_,
     hr.itt = NA_real_,
     hr.adj.itt = NA_real_,
     ppv = NA_real_,
@@ -368,6 +509,12 @@ extract_fs_estimates <- function(
     out$ahr.Hc.hat <- compute_ahr(df, 1L - df$sg_hat)
   }
 
+  # CDE in identified subgroups (from theta_0/theta_1)
+  if (all(c("theta_0", "theta_1") %in% names(df))) {
+    out$cde.H.hat <- compute_cde(df, df$sg_hat)
+    out$cde.Hc.hat <- compute_cde(df, 1L - df$sg_hat)
+  }
+
   if (verbose) {
     message(sprintf("  [%s] HR estimates: H = %.3f, Hc = %.3f",
                     analysis,
@@ -416,6 +563,12 @@ extract_fs_estimates <- function(
     if ("loghr_po" %in% names(df)) {
       out$ahr.H.true <- compute_ahr(df, df$flag.harm)
       out$ahr.Hc.true <- compute_ahr(df, 1L - df$flag.harm)
+    }
+
+    # CDE in true subgroups (from theta_0/theta_1)
+    if (all(c("theta_0", "theta_1") %in% names(df))) {
+      out$cde.H.true <- compute_cde(df, df$flag.harm)
+      out$cde.Hc.true <- compute_cde(df, 1L - df$flag.harm)
     }
   }
 
@@ -618,6 +771,11 @@ extract_grf_estimates <- function(
     ahr.Hc.true = NA_real_,
     ahr.H.hat = NA_real_,
     ahr.Hc.hat = NA_real_,
+    # CDE metrics
+    cde.H.true = NA_real_,
+    cde.Hc.true = NA_real_,
+    cde.H.hat = NA_real_,
+    cde.Hc.hat = NA_real_,
     hr.itt = NA_real_,
     hr.adj.itt = NA_real_,
     # Classification metrics
@@ -792,6 +950,23 @@ extract_grf_estimates <- function(
   }
 
   # -------------------------------------------------------------------------
+  # Compute CDE estimates
+  # -------------------------------------------------------------------------
+  if (all(c("theta_0", "theta_1") %in% names(df))) {
+    if ("id" %in% names(grf_data) && "id" %in% names(df)) {
+      df_merged_cde <- merge(df[, c("id", "theta_0", "theta_1")],
+                             grf_data[, c("id", "sg_hat")],
+                             by = "id", all.y = TRUE)
+      out$cde.H.hat <- compute_cde(df_merged_cde, df_merged_cde$sg_hat)
+      out$cde.Hc.hat <- compute_cde(df_merged_cde, 1L - df_merged_cde$sg_hat)
+    } else if (nrow(df) == nrow(grf_data)) {
+      if (!"sg_hat" %in% names(df)) df$sg_hat <- harm_indicator
+      out$cde.H.hat <- compute_cde(df, df$sg_hat)
+      out$cde.Hc.hat <- compute_cde(df, 1L - df$sg_hat)
+    }
+  }
+
+  # -------------------------------------------------------------------------
   # Classification metrics
   # -------------------------------------------------------------------------
   if ("flag.harm" %in% names(df)) {
@@ -830,6 +1005,12 @@ extract_grf_estimates <- function(
     if ("loghr_po" %in% names(df)) {
       out$ahr.H.true <- compute_ahr(df, df$flag.harm)
       out$ahr.Hc.true <- compute_ahr(df, 1L - df$flag.harm)
+    }
+
+    # CDE in true subgroups (from theta_0/theta_1)
+    if (all(c("theta_0", "theta_1") %in% names(df))) {
+      out$cde.H.true <- compute_cde(df, df$flag.harm)
+      out$cde.Hc.true <- compute_cde(df, 1L - df$flag.harm)
     }
   }
 
@@ -1465,10 +1646,10 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
   row_names <- c(
     names(class_means),
     "Avg(#H)", "minH", "maxH", "Avg(#Hc)", "minHc", "maxHc",
-    "hat(H*)", "hat(hat[H])", "hat(Hc*)", "hat(hat[Hc])",
-    "hat(H*)all", "hat(Hc*)all", "hat(ITT)", "hat(ITTadj)",
-    "ahr(H*)", "ahr(hat[H])", "ahr(Hc*)", "ahr(hat[Hc])",
-    "ahr(H*)all", "ahr(Hc*)all"
+    "theta-dag(H)", "theta-hat(H-hat)", "theta-dag(Hc)", "theta-hat(Hc-hat)",
+    "theta-dag(H)all", "theta-dag(Hc)all", "theta-hat(ITT)", "theta-hat(ITTadj)",
+    "ahr-dag(H)", "ahr-hat(H-hat)", "ahr-dag(Hc)", "ahr-hat(Hc-hat)",
+    "ahr-dag(H)all", "ahr-dag(Hc)all"
   )
 
   out <- data.frame(value = values, stringsAsFactors = FALSE)
@@ -1492,7 +1673,7 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #'   Default: NULL (all analyses in results)
 #' @param metrics Character vector. Metrics to display. Options include:
 #'   "detection", "classification", "hr_estimates", "ahr_estimates",
-#'   "subgroup_size", "all". Default: "all"
+#'   "cde_estimates", "subgroup_size", "all". Default: "all"
 #' @param digits Integer. Decimal places for proportions. Default: 3
 #' @param digits_hr Integer. Decimal places for hazard ratios. Default: 3
 #' @param title Character. Table title. Default: "Operating Characteristics Summary"
@@ -1504,13 +1685,21 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #' @details
 #' The function summarizes simulation results across multiple metrics:
 #' \itemize{
-#'   \item \strong{Detection}: Proportion of simulations finding a subgroup (any.H)
+#'   \item \strong{Found}: Proportion of simulations finding a subgroup (any.H)
 #'   \item \strong{Classification}: Sen, spec, PPV, NPV
-#'   \item \strong{HR Estimates}: Mean Cox hazard ratios in H and Hc subgroups
+#'   \item \strong{HR Estimates}: Mean Cox hazard ratios in true (H) and
+#'     identified (H-hat) subgroups and their complements
 #'   \item \strong{AHR Estimates}: Mean average hazard ratios (from loghr_po)
 #'     in true and identified subgroups
+#'   \item \strong{CDE Estimates}: Controlled direct effects (from
+#'     theta_0/theta_1) in true and identified subgroups
 #'   \item \strong{Subgroup Size}: Average, min, max sizes
 #' }
+#'
+#' Column notation aligns with \code{\link{build_estimation_table}} and
+#' Leon et al. (2024): \code{H} = true (oracle) subgroup, \code{H-hat} =
+#' identified subgroup. The asterisk (\code{*}) is reserved for bootstrap
+#' bias-corrected estimates and is not used in this summary table.
 #'
 #' @importFrom data.table is.data.table as.data.table
 #' @export
@@ -1585,6 +1774,24 @@ format_oc_results <- function(
       ahr_H_true <- ahr_Hc_true <- ahr_H_hat <- ahr_Hc_hat <- NA
     }
 
+    # CDE estimates (conditional on detection)
+    if (nrow(res_found) > 0) {
+      cde_H_true <- if ("cde.H.true" %in% names(res_found)) {
+        mean(res_found$cde.H.true, na.rm = TRUE)
+      } else NA
+      cde_Hc_true <- if ("cde.Hc.true" %in% names(res_found)) {
+        mean(res_found$cde.Hc.true, na.rm = TRUE)
+      } else NA
+      cde_H_hat <- if ("cde.H.hat" %in% names(res_found)) {
+        mean(res_found$cde.H.hat, na.rm = TRUE)
+      } else NA
+      cde_Hc_hat <- if ("cde.Hc.hat" %in% names(res_found)) {
+        mean(res_found$cde.Hc.hat, na.rm = TRUE)
+      } else NA
+    } else {
+      cde_H_true <- cde_Hc_true <- cde_H_hat <- cde_Hc_hat <- NA
+    }
+
     # ITT estimate (all simulations)
     hr_itt <- mean(res$hr.itt, na.rm = TRUE)
 
@@ -1605,6 +1812,10 @@ format_oc_results <- function(
       AHR_Hc_true = ahr_Hc_true,
       AHR_H_hat = ahr_H_hat,
       AHR_Hc_hat = ahr_Hc_hat,
+      CDE_H_true = cde_H_true,
+      CDE_Hc_true = cde_Hc_true,
+      CDE_H_hat = cde_H_hat,
+      CDE_Hc_hat = cde_Hc_hat,
       Size_H_mean = size_H_mean,
       Size_H_min = size_H_min,
       Size_H_max = size_H_max,
@@ -1630,6 +1841,10 @@ format_oc_results <- function(
     if ("ahr_estimates" %in% metrics) {
       cols_to_keep <- c(cols_to_keep, "AHR_H_true", "AHR_Hc_true",
                         "AHR_H_hat", "AHR_Hc_hat")
+    }
+    if ("cde_estimates" %in% metrics) {
+      cols_to_keep <- c(cols_to_keep, "CDE_H_true", "CDE_Hc_true",
+                        "CDE_H_hat", "CDE_Hc_hat")
     }
     if ("subgroup_size" %in% metrics) {
       cols_to_keep <- c(cols_to_keep, "Size_H_mean", "Size_H_min", "Size_H_max")
@@ -1685,6 +1900,18 @@ format_oc_results <- function(
       )
     }
 
+    # CDE columns
+    cde_cols <- intersect(c("CDE_H_true", "CDE_Hc_true",
+                            "CDE_H_hat", "CDE_Hc_hat"),
+                          names(summary_df))
+    if (length(cde_cols) > 0) {
+      gt_table <- gt::fmt_number(
+        gt_table,
+        columns = gt::all_of(cde_cols),
+        decimals = digits_hr
+      )
+    }
+
     # Size columns
     size_cols <- intersect(c("Size_H_mean", "Size_H_min", "Size_H_max"),
                            names(summary_df))
@@ -1697,20 +1924,30 @@ format_oc_results <- function(
     }
 
     # Rename columns for display using math notation (pure Unicode)
-    # Precomposed: \u0124 = Ĥ, \u00e2 = â; Combining: \u03b8\u0302 = θ̂
-    # Modifier letter: \u1D9C = ᶜ (small superscript c for complement)
+    # Aligned with build_estimation_table() notation (Leon et al. 2024):
+    #   H      = true (oracle) subgroup
+    #   H-hat  = identified subgroup (\u0124 = Ĥ)
+    #   *      = bootstrap bias-corrected (NOT used here)
+    #   \u1D9C = superscript-c (complement)
+    #   \u2020 = dagger, \u2021 = double-dagger
+    #   \u03b8 = theta, \u00e2 = â
 
     label_list <- list(
-      Analysis = "Method",
-      N_sims   = "N Sims"
+      Analysis  = "Method",
+      N_sims    = "Sims",
+      Detection = "Found"
     )
 
     # HR column labels (conditional on existence)
+    # Per build_estimation_table() notation:
+    #   theta-hat(H-hat) = estimate in identified subgroup
+    #   theta-hat(H)     = estimate in true subgroup (oracle)
+    #   * is reserved for bootstrap bias-corrected estimates
     hr_label_map <- list(
       HR_H_hat   = "\u03b8\u0302(\u0124)",
       HR_Hc_hat  = "\u03b8\u0302(\u0124\u1D9C)",
-      HR_H_true  = "\u03b8\u0302(H*)",
-      HR_Hc_true = "\u03b8\u0302(H\u1D9C*)",
+      HR_H_true  = "\u03b8\u0302(H)",
+      HR_Hc_true = "\u03b8\u0302(H\u1D9C)",
       HR_ITT     = "\u03b8\u0302(ITT)"
     )
     for (col_nm in names(hr_label_map)) {
@@ -1720,15 +1957,30 @@ format_oc_results <- function(
     }
 
     # AHR column labels (conditional on existence)
+    # âhr(H) = AHR in true subgroup, âhr(Ĥ) = AHR in identified subgroup
     ahr_label_map <- list(
-      AHR_H_true  = "\u00e2hr(H*)",
-      AHR_Hc_true = "\u00e2hr(H\u1D9C*)",
+      AHR_H_true  = "\u00e2hr(H)",
+      AHR_Hc_true = "\u00e2hr(H\u1D9C)",
       AHR_H_hat   = "\u00e2hr(\u0124)",
       AHR_Hc_hat  = "\u00e2hr(\u0124\u1D9C)"
     )
     for (col_nm in names(ahr_label_map)) {
       if (col_nm %in% names(summary_df)) {
         label_list[[col_nm]] <- ahr_label_map[[col_nm]]
+      }
+    }
+
+    # CDE column labels (conditional on existence)
+    # theta-ddagger(H) = CDE in true subgroup, theta-ddagger(Ĥ) = CDE in identified
+    cde_label_map <- list(
+      CDE_H_true  = "\u03b8\u2021(H)",
+      CDE_Hc_true = "\u03b8\u2021(H\u1D9C)",
+      CDE_H_hat   = "\u03b8\u2021(\u0124)",
+      CDE_Hc_hat  = "\u03b8\u2021(\u0124\u1D9C)"
+    )
+    for (col_nm in names(cde_label_map)) {
+      if (col_nm %in% names(summary_df)) {
+        label_list[[col_nm]] <- cde_label_map[[col_nm]]
       }
     }
 
@@ -1768,6 +2020,19 @@ format_oc_results <- function(
           gt_table,
           label = "Average Hazard Ratios",
           columns = gt::all_of(ahr_span_cols)
+        )
+      }
+    }
+
+    if ("all" %in% metrics || "cde_estimates" %in% metrics) {
+      cde_span_cols <- intersect(c("CDE_H_true", "CDE_Hc_true",
+                                   "CDE_H_hat", "CDE_Hc_hat"),
+                                 names(summary_df))
+      if (length(cde_span_cols) > 0) {
+        gt_table <- gt::tab_spanner(
+          gt_table,
+          label = "Controlled Direct Effects",
+          columns = gt::all_of(cde_span_cols)
         )
       }
     }

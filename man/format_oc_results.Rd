@@ -24,7 +24,7 @@ Default: NULL (all analyses in results)}
 
 \item{metrics}{Character vector. Metrics to display. Options include:
 "detection", "classification", "hr_estimates", "ahr_estimates",
-"subgroup_size", "all". Default: "all"}
+"cde_estimates", "subgroup_size", "all". Default: "all"}
 
 \item{digits}{Integer. Decimal places for proportions. Default: 3}
 
@@ -45,11 +45,19 @@ Creates a formatted gt table from simulation operating characteristics results.
 \details{
 The function summarizes simulation results across multiple metrics:
 \itemize{
-\item \strong{Detection}: Proportion of simulations finding a subgroup (any.H)
+\item \strong{Found}: Proportion of simulations finding a subgroup (any.H)
 \item \strong{Classification}: Sen, spec, PPV, NPV
-\item \strong{HR Estimates}: Mean Cox hazard ratios in H and Hc subgroups
+\item \strong{HR Estimates}: Mean Cox hazard ratios in true (H) and
+identified (H-hat) subgroups and their complements
 \item \strong{AHR Estimates}: Mean average hazard ratios (from loghr_po)
 in true and identified subgroups
+\item \strong{CDE Estimates}: Controlled direct effects (from
+theta_0/theta_1) in true and identified subgroups
 \item \strong{Subgroup Size}: Average, min, max sizes
 }
+
+Column notation aligns with \code{\link{build_estimation_table}} and
+Leon et al. (2024): \code{H} = true (oracle) subgroup, \code{H-hat} =
+identified subgroup. The asterisk (\code{*}) is reserved for bootstrap
+bias-corrected estimates and is not used in this summary table.
 }

@@ -9,13 +9,16 @@ get_dgm_hr(dgm, which = "hr_H")
 \arguments{
 \item{dgm}{DGM object (gbsg_dgm or aft_dgm_flex)}
 
-\item{which}{Character. Which HR to extract: "hr_H", "hr_Hc", "ahr_H", "ahr_Hc",
-"hr_overall", "ahr"}
+\item{which}{Character. Which HR to extract: \code{"hr_H"}, \code{"hr_Hc"},
+\code{"ahr_H"}, \code{"ahr_Hc"}, \code{"hr_overall"}, \code{"ahr"},
+\code{"cde_H"}, \code{"cde_Hc"}, \code{"cde"}.}
 }
 \value{
 Numeric hazard ratio value
 }
 \description{
 Extracts hazard ratios from DGM object, supporting both old and new formats.
+Also supports CDE (controlled direct effect) extraction for Table 5 of
+Leon et al. (2024) alignment (theta-ddagger).
 }
 \keyword{internal}

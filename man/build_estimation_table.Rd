@@ -11,7 +11,10 @@ build_estimation_table(
   n_boots = NULL,
   digits = 2,
   title = "Estimation Properties",
-  font_size = 12
+  subtitle = NULL,
+  font_size = 12,
+  cde_H = NULL,
+  cde_Hc = NULL
 )
 }
 \arguments{
@@ -32,8 +35,22 @@ appended to the subtitle as "(B = n_boots bootstraps)". Default: \code{NULL}.}
 
 \item{title}{Character. Table title.}
 
+\item{subtitle}{Character or \code{NULL}. Optional user-supplied subtitle
+text. Auto-populated statistics (method, estimable count, proportion) are
+always shown. When non-NULL, the custom text is displayed first with stats
+appended in parentheses, e.g. "My title (FSlg: 18/20 (90\%) estimable)".}
+
 \item{font_size}{Numeric. Font size in pixels for table text. Default: 12.
 Increase to 14 or 16 for larger display.}
+
+\item{cde_H}{Numeric or \code{NULL}. Controlled direct effect
+(theta-ddagger(H)) for the true harm subgroup.
+When non-NULL, an additional b-ddagger bias
+column is shown. When \code{NULL} (default), auto-detected from
+\code{dgm$cde_H} or \code{dgm$hazard_ratios$CDE_harm}.}
+
+\item{cde_Hc}{Numeric or \code{NULL}. Controlled direct effect
+for the complement. Auto-detected analogously.}
 }
 \value{
 A \code{gt} table object, or \code{NULL} if no estimable
@@ -42,11 +59,18 @@ realizations exist.
 \description{
 Constructs a publication-quality \code{gt} table summarizing estimation
 properties for hazard ratios in the identified subgroup and its complement.
-The layout mirrors the estimation table in Leon et al. (2024), showing
-average estimate, empirical SD, min, max, and relative bias for each
-estimator.
+The layout mirrors Table 5 of Leon et al. (2024), showing average estimate,
+empirical SD, min, max, and relative bias for each estimator.
 }
 \details{
+Uses the paper's notation conventions:
+\itemize{
+\item theta-dagger: Marginal (causal) HR truth
+\item theta-ddagger: Controlled direct effect (CDE) truth
+\item theta-hat(H-hat): Plugin Cox estimate in identified subgroup
+\item theta-hat*(H-hat): Bootstrap bias-corrected estimate
+}
+
 Includes both Cox-based HR and AHR (Average Hazard Ratio from loghr_po)
 estimators when AHR columns are present in the results.
 
@@ -55,24 +79,40 @@ For each subgroup (H and Hc) the function reports:
 \item \strong{Avg}: Mean of the estimates across estimable simulations.
 \item \strong{SD}: Empirical standard deviation.
 \item \strong{Min / Max}: Range.
-\item \strong{Rel Bias}: Relative bias in percent,
-\code{100 * (Avg - true) / true}.
+\item \strong{b-dagger}: Relative bias (percent) vs marginal truth,
+\code{100 * (Avg - theta_dagger) / theta_dagger}.
+\item \strong{b-ddagger} (conditional): Relative bias (percent) vs
+CDE truth, shown when CDE values are available.
 }
 
 When bootstrap-corrected columns (\code{hr.H.bc}, \code{hr.Hc.bc}) are
 present in \code{results}, an additional bias-corrected row
-(\code{"theta-hat*(H)"} or \code{"theta-hat*(Hc)"}) is added per subgroup.
+(theta-hat*(H-hat)) is added per subgroup.
 
 When AHR columns (\code{ahr.H.hat}, \code{ahr.Hc.hat}) are present, AHR
 estimation rows are appended using the DGM's true AHR values for relative
 bias calculation.
+
+When CDE columns (\code{cde.H.hat}, \code{cde.Hc.hat}) are present and
+CDE truth values are available, CDE estimation rows
+(theta-ddagger(H-hat)) are appended.  The b-dagger column for CDE rows
+reports bias relative to the CDE truth rather than the marginal HR.
 }
 \examples{
 \dontrun{
+# Basic usage (marginal truth only)
 build_estimation_table(
   results = results_alt,
   dgm = dgm_calibrated,
   analysis_method = "FSlg"
+)
+
+# With CDE truth (full Table 5 alignment)
+build_estimation_table(
+  results = results_alt,
+  dgm = dgm_calibrated,
+  cde_H = 2.25,
+  cde_Hc = 0.60
 )
 }
 

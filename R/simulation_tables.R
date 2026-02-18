@@ -232,9 +232,16 @@ build_classification_table <- function(
 #'
 #' Constructs a publication-quality \code{gt} table summarizing estimation
 #' properties for hazard ratios in the identified subgroup and its complement.
-#' The layout mirrors the estimation table in Leon et al. (2024), showing
-#' average estimate, empirical SD, min, max, and relative bias for each
-#' estimator.
+#' The layout mirrors Table 5 of Leon et al. (2024), showing average estimate,
+#' empirical SD, min, max, and relative bias for each estimator.
+#'
+#' Uses the paper's notation conventions:
+#' \itemize{
+#'   \item theta-dagger: Marginal (causal) HR truth
+#'   \item theta-ddagger: Controlled direct effect (CDE) truth
+#'   \item theta-hat(H-hat): Plugin Cox estimate in identified subgroup
+#'   \item theta-hat*(H-hat): Bootstrap bias-corrected estimate
+#' }
 #'
 #' Includes both Cox-based HR and AHR (Average Hazard Ratio from loghr_po)
 #' estimators when AHR columns are present in the results.
@@ -250,8 +257,19 @@ build_classification_table <- function(
 #'   appended to the subtitle as "(B = n_boots bootstraps)". Default: \code{NULL}.
 #' @param digits Integer. Decimal places. Default: 2.
 #' @param title Character. Table title.
+#' @param subtitle Character or \code{NULL}. Optional user-supplied subtitle
+#'   text. Auto-populated statistics (method, estimable count, proportion) are
+#'   always shown. When non-NULL, the custom text is displayed first with stats
+#'   appended in parentheses, e.g. "My title (FSlg: 18/20 (90%) estimable)".
 #' @param font_size Numeric. Font size in pixels for table text. Default: 12.
 #'   Increase to 14 or 16 for larger display.
+#' @param cde_H Numeric or \code{NULL}. Controlled direct effect
+#'   (theta-ddagger(H)) for the true harm subgroup.
+#'   When non-NULL, an additional b-ddagger bias
+#'   column is shown. When \code{NULL} (default), auto-detected from
+#'   \code{dgm$cde_H} or \code{dgm$hazard_ratios$CDE_harm}.
+#' @param cde_Hc Numeric or \code{NULL}. Controlled direct effect
+#'   for the complement. Auto-detected analogously.
 #'
 #' @return A \code{gt} table object, or \code{NULL} if no estimable
 #'   realizations exist.
@@ -262,24 +280,40 @@ build_classification_table <- function(
 #'   \item \strong{Avg}: Mean of the estimates across estimable simulations.
 #'   \item \strong{SD}: Empirical standard deviation.
 #'   \item \strong{Min / Max}: Range.
-#'   \item \strong{Rel Bias}: Relative bias in percent,
-#'     \code{100 * (Avg - true) / true}.
+#'   \item \strong{b-dagger}: Relative bias (percent) vs marginal truth,
+#'     \code{100 * (Avg - theta_dagger) / theta_dagger}.
+#'   \item \strong{b-ddagger} (conditional): Relative bias (percent) vs
+#'     CDE truth, shown when CDE values are available.
 #' }
 #'
 #' When bootstrap-corrected columns (\code{hr.H.bc}, \code{hr.Hc.bc}) are
 #' present in \code{results}, an additional bias-corrected row
-#' (\code{"theta-hat*(H)"} or \code{"theta-hat*(Hc)"}) is added per subgroup.
+#' (theta-hat*(H-hat)) is added per subgroup.
 #'
 #' When AHR columns (\code{ahr.H.hat}, \code{ahr.Hc.hat}) are present, AHR
 #' estimation rows are appended using the DGM's true AHR values for relative
 #' bias calculation.
 #'
+#' When CDE columns (\code{cde.H.hat}, \code{cde.Hc.hat}) are present and
+#' CDE truth values are available, CDE estimation rows
+#' (theta-ddagger(H-hat)) are appended.  The b-dagger column for CDE rows
+#' reports bias relative to the CDE truth rather than the marginal HR.
+#'
 #' @examples
 #' \dontrun{
+#' # Basic usage (marginal truth only)
 #' build_estimation_table(
 #'   results = results_alt,
 #'   dgm = dgm_calibrated,
 #'   analysis_method = "FSlg"
+#' )
+#'
+#' # With CDE truth (full Table 5 alignment)
+#' build_estimation_table(
+#'   results = results_alt,
+#'   dgm = dgm_calibrated,
+#'   cde_H = 2.25,
+#'   cde_Hc = 0.60
 #' )
 #' }
 #'
@@ -289,7 +323,7 @@ build_classification_table <- function(
 #' @importFrom data.table as.data.table rbindlist
 #' @importFrom stats sd
 #' @importFrom gt gt tab_header cols_label tab_style cell_text tab_options px
-#'   cells_body cells_row_groups
+#'   cells_body cells_row_groups tab_footnote cells_column_labels
 #' @export
 build_estimation_table <- function(
     results,
@@ -298,7 +332,10 @@ build_estimation_table <- function(
     n_boots = NULL,
     digits = 2,
     title = "Estimation Properties",
-    font_size = 12
+    subtitle = NULL,
+    font_size = 12,
+    cde_H = NULL,
+    cde_Hc = NULL
 ) {
 
   res <- data.table::as.data.table(results)
@@ -316,6 +353,8 @@ build_estimation_table <- function(
   }
 
   # ── True values from DGM ──────────────────────────────────────────────────
+  # Paper notation: theta-dagger = marginal (causal) HR
+  #                 theta-ddagger = controlled direct effect (CDE)
   theta_H_true  <- dgm$hr_H_true
   theta_Hc_true <- dgm$hr_Hc_true
   avg_size_H    <- round(mean(res_found$size.H, na.rm = TRUE), 0)
@@ -323,6 +362,34 @@ build_estimation_table <- function(
   # True AHR values (via backward-compatible helper)
   ahr_H_true  <- get_dgm_hr(dgm, "ahr_H")
   ahr_Hc_true <- get_dgm_hr(dgm, "ahr_Hc")
+
+  # ── CDE truth values (theta-ddagger from paper) ───────────────────────────
+  # Auto-detect from DGM if not explicitly provided.
+  # CDE(H) = mean(exp(theta_1[H])) / mean(exp(theta_0[H]))
+
+  if (is.null(cde_H)) {
+    cde_H <- get_dgm_hr(dgm, "cde_H")
+  }
+  if (is.null(cde_Hc)) {
+    cde_Hc <- get_dgm_hr(dgm, "cde_Hc")
+  }
+  has_cde <- !is.na(cde_H) && !is.na(cde_Hc)
+
+  # Fallback: compute CDE from super-population if available but not stored
+
+  if (!has_cde && !is.null(dgm$df_super_rand)) {
+    df_sp <- dgm$df_super_rand
+    if (all(c("theta_0", "theta_1") %in% names(df_sp))) {
+      dgm <- compute_dgm_cde(dgm)
+      if (is.null(cde_H) || is.na(cde_H)) {
+        cde_H <- get_dgm_hr(dgm, "cde_H")
+      }
+      if (is.null(cde_Hc) || is.na(cde_Hc)) {
+        cde_Hc <- get_dgm_hr(dgm, "cde_Hc")
+      }
+      has_cde <- !is.na(cde_H) && !is.na(cde_Hc)
+    }
+  }
 
   # Under the null DGM, hr_H_true is NA (no true subgroup). Fall back to
   # the overall (causal) HR which is the uniform value for any subset.
@@ -342,50 +409,66 @@ build_estimation_table <- function(
       if (is.na(ahr_H_true))  ahr_H_true  <- ahr_overall
       if (is.na(ahr_Hc_true)) ahr_Hc_true <- ahr_overall
     }
+    # Under null, CDE equals overall CDE (uniform effect)
+    if (!has_cde) {
+      cde_overall <- get_dgm_hr(dgm, "cde")
+      if (!is.na(cde_overall)) {
+        cde_H  <- cde_overall
+        cde_Hc <- cde_overall
+        has_cde <- TRUE
+      }
+    }
   }
 
-  # ── Math notation (pure Unicode) ─────────────────────────────────────────
-  # All labels use Unicode characters only — no HTML tags. This avoids:
-  #   (a) gt stripping <sup>/<sub> tags from cell values
-  #   (b) text_transform on cells_row_groups() corrupting table HTML
-  #   (c) fmt_markdown not rendering inline HTML
+  # ── Math notation (pure Unicode, paper-aligned) ──────────────────────────
+  # Leon et al. (2024) notation:
+  #   theta-dagger   = marginal/causal HR (truth)
+  #   theta-ddagger  = CDE (truth)
+  #   theta-hat(.)   = Cox estimate (plugin or oracle)
+  #   theta-hat*(.)  = bootstrap bias-corrected
   #
-  # Precomposed: \u0124 = Ĥ, \u00e2 = â (well-centered hats)
-  # Combining:   \u03b8\u0302 = θ̂ (best available; alignment depends on font)
-  # Subscript:   \u1D9C = ᶜ (modifier letter small c, for complement)
+  # Unicode: \u0124 = H-hat, \u1D9C = superscript-c, \u2020 = dagger,
+  #          \u2021 = double-dagger, \u0302 = combining circumflex,
+  #          \u03b8 = theta, \u00e2 = a-hat
 
   label_map <- list(
     "theta-hat(H-hat)"   = "\u03b8\u0302(\u0124)",
     "theta-hat*(H-hat)"  = "\u03b8\u0302*(\u0124)",
     "ahr-hat(H-hat)"     = "\u00e2hr(\u0124)",
+    "cde-hat(H-hat)"     = "\u03b8\u2021(\u0124)",
     "theta-hat(Hc-hat)"  = "\u03b8\u0302(\u0124\u1D9C)",
     "theta-hat*(Hc-hat)" = "\u03b8\u0302*(\u0124\u1D9C)",
-    "ahr-hat(Hc-hat)"    = "\u00e2hr(\u0124\u1D9C)"
+    "ahr-hat(Hc-hat)"    = "\u00e2hr(\u0124\u1D9C)",
+    "cde-hat(Hc-hat)"    = "\u03b8\u2021(\u0124\u1D9C)"
   )
 
-  # Row-group header builders (pure Unicode)
-  build_H_label <- function(n_est, avg_sz, theta_true, ahr_true) {
-    ahr_part <- if (!is.na(ahr_true)) {
-      sprintf(", \u00e2hr(H) = %s", round(ahr_true, 2))
+  # Row-group header builders using paper notation:
+  #   theta-dagger (marginal truth) always shown
+  #   theta-ddagger (CDE truth) appended when available
+  build_H_label <- function(n_est, avg_sz, theta_true, cde_val) {
+    # CDE part (theta-ddagger)
+    cde_part <- if (!is.na(cde_val)) {
+      sprintf(", \u03b8\u2021(H) = %s", round(cde_val, 2))
     } else ""
     sprintf(
-      "H: %d estimable, avg |H| = %d, \u03b8\u0302(H) = %s%s",
-      n_est, avg_sz, round(theta_true, 2), ahr_part
+      "\u0124: %d estimable, avg |\u0124| = %d, \u03b8\u2020(H) = %s%s",
+      n_est, avg_sz, round(theta_true, 2), cde_part
     )
   }
 
-  build_Hc_label <- function(avg_sz_Hc, theta_true, ahr_true) {
-    ahr_part <- if (!is.na(ahr_true)) {
-      sprintf(", \u00e2hr(H\u1D9C) = %s", round(ahr_true, 2))
+  build_Hc_label <- function(avg_sz_Hc, theta_true, cde_val) {
+    cde_part <- if (!is.na(cde_val)) {
+      sprintf(", \u03b8\u2021(H\u1D9C) = %s", round(cde_val, 2))
     } else ""
     sprintf(
-      "H\u1D9C: avg |H\u1D9C| = %d, \u03b8\u0302(H\u1D9C) = %s%s",
-      avg_sz_Hc, round(theta_true, 2), ahr_part
+      "\u0124\u1D9C: avg |\u0124\u1D9C| = %d, \u03b8\u2020(H\u1D9C) = %s%s",
+      avg_sz_Hc, round(theta_true, 2), cde_part
     )
   }
 
   # ── Helper: compute one estimation row ────────────────────────────────────
-  make_est_row <- function(estimates, true_val, label) {
+  # When has_cde is TRUE, produces both b-dagger and b-ddagger bias columns.
+  make_est_row <- function(estimates, true_val, label, cde_val = NA_real_) {
     est <- estimates[!is.na(estimates)]
     if (length(est) == 0) return(NULL)
 
@@ -393,18 +476,30 @@ build_estimation_table <- function(
     sd_est   <- stats::sd(est)
     min_est  <- min(est)
     max_est  <- max(est)
-    rel_bias <- 100 * (avg_est - true_val) / true_val
 
-    data.frame(
-      Estimator      = label,
-      Avg            = round(avg_est, digits),
-      SD             = round(sd_est, digits),
-      Min            = round(min_est, digits),
-      Max            = round(max_est, digits),
-      `Rel Bias (%)` = round(rel_bias, digits),
-      check.names    = FALSE,
-      stringsAsFactors = FALSE
+    # b-dagger: bias relative to marginal (causal) truth
+    b_dagger <- 100 * (avg_est - true_val) / true_val
+
+    row <- data.frame(
+      Estimator          = label,
+      Avg                = round(avg_est, digits),
+      SD                 = round(sd_est, digits),
+      Min                = round(min_est, digits),
+      Max                = round(max_est, digits),
+      check.names        = FALSE,
+      stringsAsFactors   = FALSE
     )
+
+    if (has_cde && !is.na(cde_val)) {
+      # b-ddagger: bias relative to CDE truth
+      b_ddagger <- 100 * (avg_est - cde_val) / cde_val
+      row[["b\u2021 (%)"]] <- round(b_ddagger, digits)
+      row[["b\u2020 (%)"]] <- round(b_dagger, digits)
+    } else {
+      row[["b\u2020 (%)"]] <- round(b_dagger, digits)
+    }
+
+    row
   }
 
   # ── Rows for H (harm subgroup) ────────────────────────────────────────────
@@ -413,21 +508,30 @@ build_estimation_table <- function(
   # Cox HR (identified subgroup)
   if ("hr.H.hat" %in% names(res_found)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$hr.H.hat, theta_H_true, "theta-hat(H-hat)"
+      res_found$hr.H.hat, theta_H_true, "theta-hat(H-hat)",
+      cde_val = if (has_cde) cde_H else NA_real_
     )
   }
 
   # Cox HR (bias-corrected)
   if ("hr.H.bc" %in% names(res_found)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$hr.H.bc, theta_H_true, "theta-hat*(H-hat)"
+      res_found$hr.H.bc, theta_H_true, "theta-hat*(H-hat)",
+      cde_val = if (has_cde) cde_H else NA_real_
     )
   }
 
-  # AHR (identified subgroup)
+  # AHR (identified subgroup) — AHR is a different estimand, no CDE comparison
   if ("ahr.H.hat" %in% names(res_found) && !is.na(ahr_H_true)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
       res_found$ahr.H.hat, ahr_H_true, "ahr-hat(H-hat)"
+    )
+  }
+
+  # CDE (identified subgroup) — bias is relative to CDE truth only
+  if ("cde.H.hat" %in% names(res_found) && has_cde) {
+    rows_H[[length(rows_H) + 1]] <- make_est_row(
+      res_found$cde.H.hat, cde_H, "cde-hat(H-hat)"
     )
   }
 
@@ -437,14 +541,16 @@ build_estimation_table <- function(
   # Cox HR (identified complement)
   if ("hr.Hc.hat" %in% names(res_found)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$hr.Hc.hat, theta_Hc_true, "theta-hat(Hc-hat)"
+      res_found$hr.Hc.hat, theta_Hc_true, "theta-hat(Hc-hat)",
+      cde_val = if (has_cde) cde_Hc else NA_real_
     )
   }
 
   # Cox HR (bias-corrected)
   if ("hr.Hc.bc" %in% names(res_found)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$hr.Hc.bc, theta_Hc_true, "theta-hat*(Hc-hat)"
+      res_found$hr.Hc.bc, theta_Hc_true, "theta-hat*(Hc-hat)",
+      cde_val = if (has_cde) cde_Hc else NA_real_
     )
   }
 
@@ -452,6 +558,13 @@ build_estimation_table <- function(
   if ("ahr.Hc.hat" %in% names(res_found) && !is.na(ahr_Hc_true)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
       res_found$ahr.Hc.hat, ahr_Hc_true, "ahr-hat(Hc-hat)"
+    )
+  }
+
+  # CDE (identified complement) — bias is relative to CDE truth only
+  if ("cde.Hc.hat" %in% names(res_found) && has_cde) {
+    rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
+      res_found$cde.Hc.hat, cde_Hc, "cde-hat(Hc-hat)"
     )
   }
 
@@ -464,13 +577,17 @@ build_estimation_table <- function(
   }
 
   if (!is.null(df_H)) {
-    h_label <- build_H_label(n_estimable, avg_size_H, theta_H_true, ahr_H_true)
+    h_label <- build_H_label(
+      n_estimable, avg_size_H, theta_H_true,
+      if (has_cde) cde_H else NA_real_
+    )
     df_H[, Subgroup := h_label]
   }
   if (!is.null(df_Hc)) {
     hc_label <- build_Hc_label(
       round(mean(res_found$size.Hc, na.rm = TRUE), 0),
-      theta_Hc_true, ahr_Hc_true
+      theta_Hc_true,
+      if (has_cde) cde_Hc else NA_real_
     )
     df_Hc[, Subgroup := hc_label]
   }
@@ -490,10 +607,20 @@ build_estimation_table <- function(
     table_df[Estimator == key, Estimator := label_map[[key]]]
   }
 
-  # Build subtitle: include bootstrap count only when n_boots is provided
-  sub_txt <- sprintf("%s: %d estimable realizations", analysis_method, n_estimable)
+  # Build subtitle: auto-populated stats always included
+  n_sims <- nrow(res)
+  pct <- round(100 * n_estimable / n_sims)
+  auto_txt <- sprintf(
+    "%s: %d/%d (%d%%) estimable", analysis_method, n_estimable, n_sims, pct
+  )
   if (!is.null(n_boots)) {
-    sub_txt <- paste0(sub_txt, sprintf(" (B = %d bootstraps)", n_boots))
+    auto_txt <- paste0(auto_txt, sprintf(", B = %d", n_boots))
+  }
+
+  if (!is.null(subtitle)) {
+    sub_txt <- sprintf("%s (%s)", subtitle, auto_txt)
+  } else {
+    sub_txt <- auto_txt
   }
 
   gt_tbl <- gt::gt(table_df, groupname_col = "Subgroup") |>
@@ -510,10 +637,30 @@ build_estimation_table <- function(
       style = gt::cell_text(weight = "bold", size = gt::px(font_size)),
       locations = gt::cells_row_groups()
     ) |>
+    gt::tab_style(
+      style = gt::cell_text(size = gt::px(font_size)),
+      locations = gt::cells_column_labels()
+    ) |>
     gt::tab_options(
       table.font.size = gt::px(font_size),
       row_group.padding = gt::px(4)
     )
+
+  # Notation footnote (paper-aligned)
+  footnote_parts <- paste0(
+    "\u03b8\u0302(\u0124) = plugin Cox HR in identified subgroup; ",
+    "\u03b8\u0302*(\u0124) = bootstrap bias-corrected; ",
+    "\u00e2hr(\u0124) = average hazard ratio in identified subgroup; ",
+    "b\u2020 = bias relative to marginal HR \u03b8\u2020 (causal truth)"
+  )
+  if (has_cde) {
+    footnote_parts <- paste0(
+      footnote_parts,
+      "; \u03b8\u2021(\u0124) = controlled direct effect in identified subgroup",
+      "; b\u2021 = bias relative to CDE \u03b8\u2021"
+    )
+  }
+  gt_tbl <- gt::tab_footnote(gt_tbl, footnote = footnote_parts)
 
   gt_tbl
 }
@@ -789,7 +936,58 @@ interpret_estimation_table <- function(
     )
   }
 
-  # --- Paragraph 4: AHR comparison (if available) ---
+  # --- Paragraph 4: CDE context (if available) ---
+  cde_H  <- get_dgm_hr(dgm, "cde_H")
+  cde_Hc <- get_dgm_hr(dgm, "cde_Hc")
+  has_cde_interp <- !is.na(cde_H) && !is.na(cde_Hc)
+
+  # Fallback: compute from super-population if available
+
+  if (!has_cde_interp && !is.null(dgm$df_super_rand)) {
+    df_sp <- dgm$df_super_rand
+    if (all(c("theta_0", "theta_1") %in% names(df_sp))) {
+      dgm <- compute_dgm_cde(dgm)
+      cde_H  <- get_dgm_hr(dgm, "cde_H")
+      cde_Hc <- get_dgm_hr(dgm, "cde_Hc")
+      has_cde_interp <- !is.na(cde_H) && !is.na(cde_Hc)
+    }
+  }
+
+  if (!has_cde_interp) {
+    # Try overall CDE as null-model fallback
+    cde_overall <- get_dgm_hr(dgm, "cde")
+    if (!is.na(cde_overall)) {
+      cde_H  <- cde_overall
+      cde_Hc <- cde_overall
+      has_cde_interp <- TRUE
+    }
+  }
+
+  if (has_cde_interp && has_hr_H) {
+    b_cde_H <- if (cde_H != 0) {
+      fmt(100 * (mean(hr_H_vals) - cde_H) / cde_H)
+    } else NA
+    cde_para <- sprintf(
+      paste0(
+        "Relative to the controlled direct effect (CDE) truth ",
+        "theta-ddagger(H) = %s, the naive plugin shows %s ",
+        "relative bias."
+      ),
+      fmt_s(cde_H), fmt_pct(b_cde_H)
+    )
+    if (has_hr_bc) {
+      b_cde_bc <- if (cde_H != 0) {
+        fmt(100 * (mean(hr_bc_vals) - cde_H) / cde_H)
+      } else NA
+      cde_para <- paste0(cde_para, sprintf(
+        " After bias correction, CDE-relative bias is %s.",
+        fmt_pct(b_cde_bc)
+      ))
+    }
+    paras[length(paras) + 1] <- cde_para
+  }
+
+  # --- Paragraph 5: AHR comparison (if available) ---
   if (has_ahr_H) {
     ahr_para <- sprintf(
       paste0(
@@ -817,7 +1015,7 @@ interpret_estimation_table <- function(
     paras[length(paras) + 1] <- ahr_para
   }
 
-  # --- Paragraph 5: Concluding remark ---
+  # --- Paragraph 6: Concluding remark ---
   if (scenario == "null") {
     paras[length(paras) + 1] <- paste0(
       "These results underscore that under the null, the few false ",
