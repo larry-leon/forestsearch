@@ -390,17 +390,22 @@ add_unprocessed_vars <- function(df_work, data, outcome_var, event_var,
                                  treatment_var, continuous_vars, factor_vars,
                                  verbose) {
 
-  # Identify processed variables
-  processed <- c(continuous_vars, factor_vars, outcome_var, event_var,
-                 treatment_var)
+  # Retain original columns for ALL covariates (both continuous and factor),
+  # alongside their z_* / dummy counterparts created by the process_* helpers.
+  # This ensures that downstream Cox strata() calls, subgroup subset
+  # expressions such as "age <= 50" or "grade == 3", and any user-defined
+  # binary cuts work correctly on simulated datasets returned by
+  # simulate_from_dgm().  Only the three structural columns (outcome, event,
+  # treatment) are excluded because they are replaced by simulation-specific
+  # counterparts (y_sim, event_sim, treat_sim).
+  processed <- c(outcome_var, event_var, treatment_var)
 
-  # Find unprocessed variables
+  # Find columns in source data not already present in df_work
   unprocessed <- setdiff(names(data), processed)
 
   if (length(unprocessed) > 0) {
-    # Add them to df_work
     for (var in unprocessed) {
-      if (!var %in% names(df_work)) {  # Avoid duplicates
+      if (!var %in% names(df_work)) {   # avoid duplicates
         df_work[[var]] <- data[[var]]
       }
     }

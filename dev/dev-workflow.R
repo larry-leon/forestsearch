@@ -132,6 +132,7 @@ pkgdown::build_site()
 
 # note: deploy_to_branch calls build_site(), so only run here if deploying
 # otherewise will duplicate the compiling of documents
+
 pkgdown::deploy_to_branch()
 
 # https://larry-leon.github.io/forestsearch
@@ -152,6 +153,9 @@ pkgdown::build_article("articles/treatment_effect_definitions")
 
 pkgdown::build_article("articles/paper_simulations")
 
+pkgdown::build_article("articles/extreme_subgroups")
+
+
 # Open it directly
 #browseURL("docs/articles/articles/paper_simulations.html")
 
@@ -159,6 +163,9 @@ pkgdown::build_article(
   "articles/treatment_effect_definitions",
   quiet = FALSE
 )
+
+
+
 
 # =============================================================================
 # pkgdown Deployment Notes for forestsearch

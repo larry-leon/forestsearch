@@ -241,7 +241,17 @@ utils::globalVariables(c(
   "sg_histology", "sg_CTregimen", "sg_region",
   "sg_surgery", "sg_prior_treat",
   "est",
-  "region_var", "z_regA"
+  "region_var", "z_regA",
+
+# ============================================================================
+# gg_forest() — ggplot2 aes() column names
+# ============================================================================
+  "subgroup",   # y aesthetic in label and CI panels
+  "row_col",    # colour/fill aesthetic mapped from data frame column
+  "value",      # label aesthetic in annotation panels
+  "col",        # colour aesthetic in label panel
+  "lo",         # xend of CI segment
+  "hi"          # x of CI upper bound (also used in geom_point)
 ))
 
 

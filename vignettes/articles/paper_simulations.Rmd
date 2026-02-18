@@ -29,6 +29,9 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
+nsims_alt <- 1000L
+nsims_null <- 5000L
+
 # Bootstrap 5 code-folding hook for pkgdown compatibility
 # Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
 knitr::knit_hooks$set(code_fold = function(before, options, envir) {
@@ -634,7 +637,7 @@ cat("Using", n_workers, "parallel workers\n")
 ```{r define-params}
 # Simulation settings
 sim_config_alt <- list(
-  n_sims = 27,          # Number of simulations (use 500-1000 for final)
+  n_sims = nsims_alt,          # Number of simulations (use 500-1000 for final)
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
@@ -642,7 +645,7 @@ sim_config_alt <- list(
 )
 
 sim_config_null <- list(
-  n_sims = 27,          # More simulations for Type I error estimation
+  n_sims = nsims_null,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
   max_follow = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
