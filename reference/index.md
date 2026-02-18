@@ -348,6 +348,18 @@ studies with configurable treatment effect heterogeneity.
 - [`sensitivity_analysis_k_inter()`](https://larry-leon.github.io/forestsearch/reference/sensitivity_analysis_k_inter.md)
   : Sensitivity Analysis of Hazard Ratios to k_inter
 
+## Simulation Diagnostics & Calibration
+
+Tools for diagnosing censoring consistency between the DGM reference
+data and simulated trial data, and for calibrating the censoring
+adjustment parameter.
+
+- [`check_censoring_dgm()`](https://larry-leon.github.io/forestsearch/reference/check_censoring_dgm.md)
+  : Diagnose Censoring Consistency Between DGM Source Data and Simulated
+  Data
+- [`calibrate_cens_adjust()`](https://larry-leon.github.io/forestsearch/reference/calibrate_cens_adjust.md)
+  : Calibrate Censoring Adjustment to Match DGM Reference Distribution
+
 ## Simulation Studies
 
 Running and summarizing simulation studies for operating

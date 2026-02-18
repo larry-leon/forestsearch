@@ -71,7 +71,7 @@ definitions and treatment-subgroup interactions.</p>
 <span>  k_treat <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  k_inter <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  n_super <span class="op">=</span> <span class="fl">5000</span>,</span>
-<span>  select_censoring <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  select_censoring <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  cens_type <span class="op">=</span> <span class="st">"weibull"</span>,</span>
 <span>  cens_params <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="fl">8316951</span>,</span>
@@ -164,18 +164,42 @@ Default is 5000</p></dd>
 
 
 <dt id="arg-select-censoring">select_censoring<a class="anchor" aria-label="anchor" href="#arg-select-censoring"></a></dt>
-<dd><p>Logical indicating whether to fit censoring model from
-data. If FALSE, censoring is not modeled. Default FALSE</p></dd>
+<dd><p>Logical. If <code>TRUE</code> (default), fits the censoring
+distribution to the observed censoring times in <code>data</code> using
+<code>survreg</code> with AIC-based selection among Weibull and log-normal models
+(with and without covariates). If <code>FALSE</code>, no model is fitted; the
+censoring distribution is specified entirely by <code>cens_params</code>. Default
+<code>TRUE</code>.</p></dd>
 
 
 <dt id="arg-cens-type">cens_type<a class="anchor" aria-label="anchor" href="#arg-cens-type"></a></dt>
-<dd><p>Character string specifying censoring distribution: "weibull"
-or "uniform". Default is "weibull"</p></dd>
+<dd><p>Character string specifying censoring distribution type:
+<code>"weibull"</code> or <code>"uniform"</code>. Controls which parametric family is
+considered when <code>select_censoring = TRUE</code>, and determines the required
+structure of <code>cens_params</code> when <code>select_censoring = FALSE</code>.
+Default <code>"weibull"</code>.</p></dd>
 
 
 <dt id="arg-cens-params">cens_params<a class="anchor" aria-label="anchor" href="#arg-cens-params"></a></dt>
-<dd><p>List of parameters for censoring distribution. For uniform:
-list(min = value, max = value). For Weibull: fitted from data</p></dd>
+<dd><p>Named list of censoring distribution parameters.
+Interpretation depends on <code>select_censoring</code> and <code>cens_type</code>:</p><dl><dt><code>select_censoring = TRUE</code></dt>
+<dd><p>Ignored; all parameters are estimated
+from data.</p></dd>
+
+<dt><code>select_censoring = FALSE, cens_type = "uniform"</code></dt>
+<dd><p>Must supply
+<code>min</code> and <code>max</code>. If either is absent, defaults to
+<code>0.5 * min(y)</code> and <code>1.5 * max(y)</code> with a message.</p></dd>
+
+<dt><code>select_censoring = FALSE, cens_type = "weibull"</code></dt>
+<dd><p>Must supply
+<code>mu</code> (log-scale location) and <code>tau</code> (scale). Optionally supply
+<code>type</code> (<code>"weibull"</code> or <code>"lognormal"</code>); defaults to
+<code>"weibull"</code>. Censoring is treated as intercept-only (no covariate
+or treatment dependence): <code>lin_pred_cens_0 = lin_pred_cens_1 = mu</code>.</p></dd>
+
+
+</dl><p>Default <code><a href="https://rdrr.io/r/base/list.html" class="external-link">list()</a></code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
@@ -196,80 +220,6 @@ Default is FALSE</p></dd>
 <dd><p>List specifying spline configuration for treatment effect.
 Must include 'var' (variable name), 'knot', 'zeta', and 'log_hrs' (vector of
 length 3). Default NULL (no spline)</p></dd>
-
-</dl></div>
-    <div class="section level2">
-    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>An object of class <code>c("aft_dgm_flex", "list")</code> containing:</p><dl><dt>df_super</dt>
-<dd><p>Data frame with the super population including all covariates,
-linear predictors, and potential outcomes</p></dd>
-
-<dt>model_params</dt>
-<dd><p>List containing model parameters:</p><dl><dt>mu</dt>
-<dd><p>Intercept from AFT model</p></dd>
-
-<dt>sigma</dt>
-<dd><p>Scale parameter</p></dd>
-
-<dt>gamma</dt>
-<dd><p>Vector of regression coefficients</p></dd>
-
-<dt>b_weibull</dt>
-<dd><p>Weibull parameterization coefficients</p></dd>
-
-<dt>b0_weibull</dt>
-<dd><p>Weibull baseline hazard coefficients</p></dd>
-
-<dt>censoring</dt>
-<dd><p>Censoring distribution parameters</p></dd>
-
-
-</dl></dd>
-
-<dt>subgroup_info</dt>
-<dd><p>List with subgroup information:</p><dl><dt>vars</dt>
-<dd><p>Variables used to define subgroup</p></dd>
-
-<dt>cuts</dt>
-<dd><p>Cutpoint specifications used</p></dd>
-
-<dt>definitions</dt>
-<dd><p>Human-readable subgroup definitions</p></dd>
-
-<dt>size</dt>
-<dd><p>Number of observations in subgroup</p></dd>
-
-<dt>proportion</dt>
-<dd><p>Proportion of observations in subgroup</p></dd>
-
-
-</dl></dd>
-
-<dt>hazard_ratios</dt>
-<dd><p>List of true hazard ratios:</p><dl><dt>overall</dt>
-<dd><p>Overall treatment HR</p></dd>
-
-<dt>harm_subgroup</dt>
-<dd><p>HR within subgroup (if model="alt")</p></dd>
-
-<dt>no_harm_subgroup</dt>
-<dd><p>HR outside subgroup (if model="alt")</p></dd>
-
-
-</dl></dd>
-
-<dt>analysis_vars</dt>
-<dd><p>List of variable classifications for analysis</p></dd>
-
-<dt>model_type</dt>
-<dd><p>Character: "alt" or "null"</p></dd>
-
-<dt>n_super</dt>
-<dd><p>Size of super population</p></dd>
-
-<dt>seed</dt>
-<dd><p>Random seed used</p></dd>
-
 
 </dl></div>
     <div class="section level2">
@@ -355,7 +305,7 @@ $$\log(T) = \mu + \gamma' X + \sigma \epsilon$$</p>
 <p>Where:</p><ul><li><p>\(T\) is the survival time</p></li>
 <li><p>\(\mu\) is the intercept</p></li>
 <li><p>\(\gamma\) contains the covariate effects</p></li>
-<li><p>\(X\) includes treatment, covariates, and treatment×subgroup interaction</p></li>
+<li><p>\(X\) includes treatment, covariates, and treatment x subgroup interaction</p></li>
 <li><p>\(\sigma\) is the scale parameter</p></li>
 <li><p>\(\epsilon\) follows an extreme value distribution</p></li>
 </ul></div>
@@ -372,68 +322,15 @@ is not multiple separate interactions but one combined indicator.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
-    <p>Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
+    <p>Leon, L.F., et al. (2024). Statistics in Medicine.</p>
+<p>Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
 Failure Time Data (2nd ed.). Wiley.</p>
-    </div>
-    <div class="section level2">
-    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
-    <div class="dont-index"><p><code><a href="simulate_from_dgm.html">simulate_from_dgm</a></code> for generating simulated data from the DGM
-<code><a href="find_quantile_for_proportion.html">find_quantile_for_proportion</a></code> for finding quantiles that achieve
-target subgroup proportions</p></div>
     </div>
     <div class="section level2">
     <h2 id="author">Author<a class="anchor" aria-label="anchor" href="#author"></a></h2>
     <p>Your Name</p>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="va">cancer</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 1: Simple fixed cutpoints</span></span></span>
-<span class="r-in"><span><span class="va">dgm1</span> <span class="op">&lt;-</span> <span class="fu">generate_aft_dgm_flex</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">gbsg</span>,</span></span>
-<span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"size"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  factor_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"meno"</span>, <span class="st">"grade"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome_var <span class="op">=</span> <span class="st">"rfstime"</span>,</span></span>
-<span class="r-in"><span>  event_var <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  treatment_var <span class="op">=</span> <span class="st">"hormon"</span>,</span></span>
-<span class="r-in"><span>  subgroup_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"er"</span>, <span class="st">"meno"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  subgroup_cuts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    er <span class="op">=</span> <span class="fl">20</span>,         <span class="co"># Fixed value</span></span></span>
-<span class="r-in"><span>    meno <span class="op">=</span> <span class="fl">0</span>         <span class="co"># Factor level</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span>,</span></span>
-<span class="r-in"><span>  model <span class="op">=</span> <span class="st">"alt"</span>,</span></span>
-<span class="r-in"><span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Quantile-based cutpoints</span></span></span>
-<span class="r-in"><span><span class="va">dgm2</span> <span class="op">&lt;-</span> <span class="fu">generate_aft_dgm_flex</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">gbsg</span>,</span></span>
-<span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"size"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  factor_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"meno"</span>, <span class="st">"grade"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome_var <span class="op">=</span> <span class="st">"rfstime"</span>,</span></span>
-<span class="r-in"><span>  event_var <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  treatment_var <span class="op">=</span> <span class="st">"hormon"</span>,</span></span>
-<span class="r-in"><span>  subgroup_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"er"</span>, <span class="st">"pgr"</span>, <span class="st">"age"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  subgroup_cuts <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    er <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"quantile"</span>, value <span class="op">=</span> <span class="fl">0.25</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>    pgr <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"function"</span>, fun <span class="op">=</span> <span class="va">median</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>    age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>type <span class="op">=</span> <span class="st">"range"</span>, min <span class="op">=</span> <span class="fl">40</span>, max <span class="op">=</span> <span class="fl">60</span><span class="op">)</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span>,</span></span>
-<span class="r-in"><span>  model <span class="op">=</span> <span class="st">"alt"</span>,</span></span>
-<span class="r-in"><span>  k_inter <span class="op">=</span> <span class="fl">2</span>,  <span class="co"># Double the interaction effect</span></span></span>
-<span class="r-in"><span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Print summary</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm2</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

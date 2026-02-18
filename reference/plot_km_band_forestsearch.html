@@ -53,7 +53,7 @@ results."></head><body>
     <div class="ref-description section level2">
     <p>Creates Kaplan-Meier survival difference band plots comparing the identified
 ForestSearch subgroup (sg.harm) and its complement against the ITT population.
-This function wraps <code><a href="https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html" class="external-link">plotKM.band_subgroups()</a></code> from the weightedsurv
+This function wraps <code>plotKM.band_subgroups()</code> from the weightedsurv
 package, automatically extracting subgroup definitions from ForestSearch
 results.</p>
     </div>
@@ -112,7 +112,7 @@ automatically. Default: <code>NULL</code></p></dd>
 <dt id="arg-sg-labels">sg_labels<a class="anchor" aria-label="anchor" href="#arg-sg-labels"></a></dt>
 <dd><p>Character vector. Subsetting expressions for each subgroup,
 corresponding to <code>sg_cols</code>. These are passed to
-<code><a href="https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html" class="external-link">plotKM.band_subgroups()</a></code> which evaluates them as R expressions
+<code>plotKM.band_subgroups()</code> which evaluates them as R expressions
 (e.g., <code>"age &lt; 65"</code>, <code>"er &lt;= 0"</code>, <code>"Qrecommend == 1"</code>).
 Must be same length as <code>sg_cols</code>.
 Default: <code>NULL</code> (auto-generated as <code>"colname == 1"</code>).</p></dd>
@@ -253,7 +253,7 @@ band plots for ForestSearch-identified subgroups. It can work in two modes:</p>
 <p><strong>Mode 1: With ForestSearch result (<code>fs.est</code> provided)</strong></p><ol><li><p>Extracts the subgroup definition from the ForestSearch result</p></li>
 <li><p>Creates binary indicator columns (Qrecommend, Brecommend) in <code>df</code></p></li>
 <li><p>Generates appropriate labels from the subgroup definition</p></li>
-<li><p>Calls <code><a href="https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html" class="external-link">plotKM.band_subgroups()</a></code> with configured parameters</p></li>
+<li><p>Calls <code>plotKM.band_subgroups()</code> with configured parameters</p></li>
 </ol><p><strong>Mode 2: With pre-defined columns (<code>sg_cols</code> provided)</strong></p><ol><li><p>Uses existing indicator columns in <code>df</code></p></li>
 <li><p>Requires <code>sg_labels</code> and <code>sg_colors</code> to match <code>sg_cols</code></p></li>
 </ol><p>The sg.harm subgroup (Qrecommend) represents patients with questionable

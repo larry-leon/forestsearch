@@ -467,6 +467,10 @@ for bootstrap inference
 [`forestsearch_Kfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_Kfold.md)
 for cross-validation
 
+Package website: <https://larry-leon.github.io/forestsearch/>
+
+Source code: <https://github.com/larry-leon/forestsearch>
+
 ## Examples
 
 ``` r

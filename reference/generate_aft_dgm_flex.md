@@ -24,7 +24,7 @@ generate_aft_dgm_flex(
   k_treat = 1,
   k_inter = 1,
   n_super = 5000,
-  select_censoring = FALSE,
+  select_censoring = TRUE,
   cens_type = "weibull",
   cens_params = list(),
   seed = 8316951,
@@ -117,18 +117,42 @@ generate_aft_dgm_flex(
 
 - select_censoring:
 
-  Logical indicating whether to fit censoring model from data. If FALSE,
-  censoring is not modeled. Default FALSE
+  Logical. If `TRUE` (default), fits the censoring distribution to the
+  observed censoring times in `data` using `survreg` with AIC-based
+  selection among Weibull and log-normal models (with and without
+  covariates). If `FALSE`, no model is fitted; the censoring
+  distribution is specified entirely by `cens_params`. Default `TRUE`.
 
 - cens_type:
 
-  Character string specifying censoring distribution: "weibull" or
-  "uniform". Default is "weibull"
+  Character string specifying censoring distribution type: `"weibull"`
+  or `"uniform"`. Controls which parametric family is considered when
+  `select_censoring = TRUE`, and determines the required structure of
+  `cens_params` when `select_censoring = FALSE`. Default `"weibull"`.
 
 - cens_params:
 
-  List of parameters for censoring distribution. For uniform: list(min =
-  value, max = value). For Weibull: fitted from data
+  Named list of censoring distribution parameters. Interpretation
+  depends on `select_censoring` and `cens_type`:
+
+  `select_censoring = TRUE`
+
+  :   Ignored; all parameters are estimated from data.
+
+  `select_censoring = FALSE, cens_type = "uniform"`
+
+  :   Must supply `min` and `max`. If either is absent, defaults to
+      `0.5 * min(y)` and `1.5 * max(y)` with a message.
+
+  `select_censoring = FALSE, cens_type = "weibull"`
+
+  :   Must supply `mu` (log-scale location) and `tau` (scale).
+      Optionally supply `type` (`"weibull"` or `"lognormal"`); defaults
+      to `"weibull"`. Censoring is treated as intercept-only (no
+      covariate or treatment dependence):
+      `lin_pred_cens_0 = lin_pred_cens_1 = mu`.
+
+  Default [`list()`](https://rdrr.io/r/base/list.html).
 
 - seed:
 
@@ -149,99 +173,6 @@ generate_aft_dgm_flex(
   List specifying spline configuration for treatment effect. Must
   include 'var' (variable name), 'knot', 'zeta', and 'log_hrs' (vector
   of length 3). Default NULL (no spline)
-
-## Value
-
-An object of class `c("aft_dgm_flex", "list")` containing:
-
-- df_super:
-
-  Data frame with the super population including all covariates, linear
-  predictors, and potential outcomes
-
-- model_params:
-
-  List containing model parameters:
-
-  mu
-
-  :   Intercept from AFT model
-
-  sigma
-
-  :   Scale parameter
-
-  gamma
-
-  :   Vector of regression coefficients
-
-  b_weibull
-
-  :   Weibull parameterization coefficients
-
-  b0_weibull
-
-  :   Weibull baseline hazard coefficients
-
-  censoring
-
-  :   Censoring distribution parameters
-
-- subgroup_info:
-
-  List with subgroup information:
-
-  vars
-
-  :   Variables used to define subgroup
-
-  cuts
-
-  :   Cutpoint specifications used
-
-  definitions
-
-  :   Human-readable subgroup definitions
-
-  size
-
-  :   Number of observations in subgroup
-
-  proportion
-
-  :   Proportion of observations in subgroup
-
-- hazard_ratios:
-
-  List of true hazard ratios:
-
-  overall
-
-  :   Overall treatment HR
-
-  harm_subgroup
-
-  :   HR within subgroup (if model="alt")
-
-  no_harm_subgroup
-
-  :   HR outside subgroup (if model="alt")
-
-- analysis_vars:
-
-  List of variable classifications for analysis
-
-- model_type:
-
-  Character: "alt" or "null"
-
-- n_super:
-
-  Size of super population
-
-- seed:
-
-  Random seed used
 
 ## Details
 
@@ -305,7 +236,7 @@ Where:
 
 - \\\gamma\\ contains the covariate effects
 
-- \\X\\ includes treatment, covariates, and treatment×subgroup
+- \\X\\ includes treatment, covariates, and treatment x subgroup
   interaction
 
 - \\\sigma\\ is the scale parameter
@@ -321,64 +252,11 @@ indicator.
 
 ## References
 
+Leon, L.F., et al. (2024). Statistics in Medicine.
+
 Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
 Failure Time Data (2nd ed.). Wiley.
-
-## See also
-
-[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
-for generating simulated data from the DGM
-[`find_quantile_for_proportion`](https://larry-leon.github.io/forestsearch/reference/find_quantile_for_proportion.md)
-for finding quantiles that achieve target subgroup proportions
 
 ## Author
 
 Your Name
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-data(cancer)
-
-# Example 1: Simple fixed cutpoints
-dgm1 <- generate_aft_dgm_flex(
-  data = gbsg,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "meno"),
-  subgroup_cuts = list(
-    er = 20,         # Fixed value
-    meno = 0         # Factor level
-  ),
-  model = "alt",
-  verbose = TRUE
-)
-
-# Example 2: Quantile-based cutpoints
-dgm2 <- generate_aft_dgm_flex(
-  data = gbsg,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "pgr", "age"),
-  subgroup_cuts = list(
-    er = list(type = "quantile", value = 0.25),
-    pgr = list(type = "function", fun = median),
-    age = list(type = "range", min = 40, max = 60)
-  ),
-  model = "alt",
-  k_inter = 2,  # Double the interaction effect
-  verbose = TRUE
-)
-
-# Print summary
-print(dgm2)
-} # }
-```
