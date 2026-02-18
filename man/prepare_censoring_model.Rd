@@ -4,9 +4,75 @@
 \alias{prepare_censoring_model}
 \title{Prepare Censoring Model Parameters}
 \usage{
-prepare_censoring_model(df_work, cens_type, cens_params, df_super)
+prepare_censoring_model(
+  df_work,
+  cens_type,
+  cens_params,
+  df_super,
+  select_censoring = TRUE
+)
+}
+\arguments{
+\item{df_work}{Working data frame (output of \code{prepare_working_dataset}).}
+
+\item{cens_type}{Character. \code{"weibull"} or \code{"uniform"}.}
+
+\item{cens_params}{Named list of user-supplied censoring parameters.}
+
+\item{df_super}{Super-population data frame; receives
+\code{lin_pred_cens_0} and \code{lin_pred_cens_1} columns.}
+
+\item{select_censoring}{Logical. If \code{TRUE} (default), fits the
+censoring distribution from observed data using AIC-based \code{survreg}
+model comparison. If \code{FALSE}, uses \code{cens_params} directly with
+no model fitting. See \code{\link{generate_aft_dgm_flex}} for the required
+\code{cens_params} structure under each combination of
+\code{select_censoring} and \code{cens_type}.}
+}
+\value{
+A named list:
+\describe{
+\item{cens_model}{List of censoring distribution parameters stored in
+\code{dgm$model_params$censoring}.}
+\item{df_super}{Updated super-population data frame with
+\code{lin_pred_cens_0} and \code{lin_pred_cens_1} appended.  These
+hold covariate contributions only (\eqn{\gamma_c' X}); the intercept
+is excluded.}
+}
 }
 \description{
-Prepare Censoring Model Parameters
+Constructs the censoring model object and appends per-subject counterfactual
+censoring linear predictors (\code{lin_pred_cens_0}, \code{lin_pred_cens_1})
+to the super-population data frame.
+}
+\details{
+\subsection{Linear predictor convention}{
+
+\code{lin_pred_cens_0} and \code{lin_pred_cens_1} store the
+\strong{covariate contribution only} — i.e. \eqn{\gamma_c' X}, with the
+intercept \eqn{\mu_c} excluded.  This matches the convention used for the
+outcome model (\code{lin_pred_0}, \code{lin_pred_1} = \eqn{\gamma' X},
+no intercept) computed in \code{calculate_linear_predictors()}.
+
+\code{simulate_from_dgm()} reconstructs the full log-censoring time as:
+\deqn{\log C = \mu_c + \delta + \tau_c \epsilon + \gamma_c' X}
+where \eqn{\mu_c} = \code{params$censoring$mu},
+\eqn{\delta} = \code{cens_adjust},
+\eqn{\tau_c} = \code{params$censoring$tau}, and
+\eqn{\gamma_c' X} = \code{lin_pred_cens_{0|1}}.
+
+When \code{select_censoring = TRUE}, \code{predict(survreg, type = "linear")}
+returns the full linear predictor \eqn{\mu_c + \gamma_c' X}.  The stored
+intercept \eqn{\mu_c} is therefore subtracted before writing
+\code{lin_pred_cens_*}, so that \code{simulate_from_dgm()} can add
+\code{params$censoring$mu} exactly once.  Omitting this subtraction causes
+\eqn{\mu_c} to be counted twice, producing astronomically large censoring
+times and universal censoring.
+
+When \code{select_censoring = FALSE} with a Weibull/lognormal
+\code{cens_type}, the intercept-only model has zero covariate contribution,
+so \code{lin_pred_cens_0 = lin_pred_cens_1 = 0}.  Storing \code{mu} instead
+of 0 causes the same double-counting.
+}
 }
 \keyword{internal}

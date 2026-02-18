@@ -32,32 +32,10 @@
 #'   Default is 1 (no modification)
 #' @param n_super Integer specifying size of super population to generate.
 #'   Default is 5000
-#' @param select_censoring Logical. If \code{TRUE} (default), fits the censoring
-#'   distribution to the observed censoring times in \code{data} using
-#'   \code{survreg} with AIC-based selection among Weibull and log-normal models
-#'   (with and without covariates). If \code{FALSE}, no model is fitted; the
-#'   censoring distribution is specified entirely by \code{cens_params}. Default
-#'   \code{TRUE}.
-#' @param cens_type Character string specifying censoring distribution type:
-#'   \code{"weibull"} or \code{"uniform"}. Controls which parametric family is
-#'   considered when \code{select_censoring = TRUE}, and determines the required
-#'   structure of \code{cens_params} when \code{select_censoring = FALSE}.
-#'   Default \code{"weibull"}.
-#' @param cens_params Named list of censoring distribution parameters.
-#'   Interpretation depends on \code{select_censoring} and \code{cens_type}:
-#'   \describe{
-#'     \item{\code{select_censoring = TRUE}}{Ignored; all parameters are estimated
-#'       from data.}
-#'     \item{\code{select_censoring = FALSE, cens_type = "uniform"}}{Must supply
-#'       \code{min} and \code{max}. If either is absent, defaults to
-#'       \code{0.5 * min(y)} and \code{1.5 * max(y)} with a message.}
-#'     \item{\code{select_censoring = FALSE, cens_type = "weibull"}}{Must supply
-#'       \code{mu} (log-scale location) and \code{tau} (scale). Optionally supply
-#'       \code{type} (\code{"weibull"} or \code{"lognormal"}); defaults to
-#'       \code{"weibull"}. Censoring is treated as intercept-only (no covariate
-#'       or treatment dependence): \code{lin_pred_cens_0 = lin_pred_cens_1 = mu}.}
-#'   }
-#'   Default \code{list()}.
+#' @param cens_type Character string specifying censoring distribution: "weibull"
+#'   or "uniform". Default is "weibull"
+#' @param cens_params List of parameters for censoring distribution. For uniform:
+#'   list(min = value, max = value). For Weibull: fitted from data
 #' @param seed Integer random seed for reproducibility. Default is 8316951
 #' @param verbose Logical indicating whether to print diagnostic information during
 #'   execution. Default is TRUE
@@ -69,6 +47,8 @@
 #'   for censoring model. If NULL, uses same as factor_vars. Default NULL
 #' @param set_beta_spec List with elements 'set_var' and 'beta_var' for manually
 #'   setting specific beta coefficients. Default list(set_var = NULL, beta_var = NULL)
+#' @param select_censoring Logical indicating whether to fit censoring model from
+#'   data. If FALSE, censoring is not modeled. Default FALSE
 #' @param spline_spec List specifying spline configuration for treatment effect.
 #'   Must include 'var' (variable name), 'knot', 'zeta', and 'log_hrs' (vector of
 #'   length 3). Default NULL (no spline)
@@ -137,7 +117,7 @@
 #' - \eqn{T} is the survival time
 #' - \eqn{\mu} is the intercept
 #' - \eqn{\gamma} contains the covariate effects
-#' - \eqn{X} includes treatment, covariates, and treatment x subgroup interaction
+#' - \eqn{X} includes treatment, covariates, and treatment×subgroup interaction
 #' - \eqn{\sigma} is the scale parameter
 #' - \eqn{\epsilon} follows an extreme value distribution
 #'
@@ -147,9 +127,90 @@
 #' modification when ALL subgroup conditions are simultaneously satisfied. This
 #' is not multiple separate interactions but one combined indicator.
 #'
-#' @references
-#' Leon, L.F., et al. (2024). Statistics in Medicine.
+#' @return An object of class `c("aft_dgm_flex", "list")` containing:
+#' \describe{
+#'   \item{df_super}{Data frame with the super population including all covariates,
+#'     linear predictors, and potential outcomes}
+#'   \item{model_params}{List containing model parameters:
+#'     \describe{
+#'       \item{mu}{Intercept from AFT model}
+#'       \item{sigma}{Scale parameter}
+#'       \item{gamma}{Vector of regression coefficients}
+#'       \item{b_weibull}{Weibull parameterization coefficients}
+#'       \item{b0_weibull}{Weibull baseline hazard coefficients}
+#'       \item{censoring}{Censoring distribution parameters}
+#'     }}
+#'   \item{subgroup_info}{List with subgroup information:
+#'     \describe{
+#'       \item{vars}{Variables used to define subgroup}
+#'       \item{cuts}{Cutpoint specifications used}
+#'       \item{definitions}{Human-readable subgroup definitions}
+#'       \item{size}{Number of observations in subgroup}
+#'       \item{proportion}{Proportion of observations in subgroup}
+#'     }}
+#'   \item{hazard_ratios}{List of true hazard ratios:
+#'     \describe{
+#'       \item{overall}{Overall treatment HR}
+#'       \item{harm_subgroup}{HR within subgroup (if model="alt")}
+#'       \item{no_harm_subgroup}{HR outside subgroup (if model="alt")}
+#'     }}
+#'   \item{analysis_vars}{List of variable classifications for analysis}
+#'   \item{model_type}{Character: "alt" or "null"}
+#'   \item{n_super}{Size of super population}
+#'   \item{seed}{Random seed used}
+#' }
 #'
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' data(cancer)
+#'
+#' # Example 1: Simple fixed cutpoints
+#' dgm1 <- generate_aft_dgm_flex(
+#'   data = gbsg,
+#'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+#'   factor_vars = c("meno", "grade"),
+#'   outcome_var = "rfstime",
+#'   event_var = "status",
+#'   treatment_var = "hormon",
+#'   subgroup_vars = c("er", "meno"),
+#'   subgroup_cuts = list(
+#'     er = 20,         # Fixed value
+#'     meno = 0         # Factor level
+#'   ),
+#'   model = "alt",
+#'   verbose = TRUE
+#' )
+#'
+#' # Example 2: Quantile-based cutpoints
+#' dgm2 <- generate_aft_dgm_flex(
+#'   data = gbsg,
+#'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+#'   factor_vars = c("meno", "grade"),
+#'   outcome_var = "rfstime",
+#'   event_var = "status",
+#'   treatment_var = "hormon",
+#'   subgroup_vars = c("er", "pgr", "age"),
+#'   subgroup_cuts = list(
+#'     er = list(type = "quantile", value = 0.25),
+#'     pgr = list(type = "function", fun = median),
+#'     age = list(type = "range", min = 40, max = 60)
+#'   ),
+#'   model = "alt",
+#'   k_inter = 2,  # Double the interaction effect
+#'   verbose = TRUE
+#' )
+#'
+#' # Print summary
+#' print(dgm2)
+#' }
+#'
+#' @seealso
+#' \code{\link{simulate_from_dgm}} for generating simulated data from the DGM
+#' \code{\link{find_quantile_for_proportion}} for finding quantiles that achieve
+#'   target subgroup proportions
+#'
+#' @references
 #' Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
 #'   Failure Time Data (2nd ed.). Wiley.
 #'
@@ -174,32 +235,21 @@ generate_aft_dgm_flex <- function(data,
                                   k_treat = 1,
                                   k_inter = 1,
                                   n_super = 5000,
-                                  select_censoring = TRUE,
+                                  select_censoring = FALSE,
                                   cens_type = "weibull",
                                   cens_params = list(),
                                   seed = 8316951,
                                   verbose = TRUE,
                                   standardize = FALSE,
                                   spline_spec = NULL) {
-
-  if (standardize)
-    message("Standardizing continuous covariates, take care interpreting ",
-            "predictive effects (especially spline)")
-
+ if(standardize) message("Standardizing continuous covariates, take care interpreting predictive effects (especially spline)")
   # Set seed for reproducibility
   set.seed(seed)
-
-  # When the censoring model will be fitted from data, ensure censoring
-  # covariate vectors default to the outcome model vectors if not supplied.
-  # Skipped when select_censoring = FALSE: no covariate processing is needed
-  # for a censoring distribution that will be specified analytically.
-  if (select_censoring) {
-    if (is.null(factor_vars_cens) && is.null(continuous_vars_cens))
-      factor_vars_cens <- factor_vars
-    if (is.null(continuous_vars_cens))
-      continuous_vars_cens <- continuous_vars
-  }
-
+  if(cens_type %in% c("weibull","uniform")) select_censoring = TRUE
+  if(select_censoring){
+  if(is.null(factor_vars_cens) & is.null(continuous_vars_cens)) factor_vars_cens = factor_vars
+  if(is.null(continuous_vars_cens)) continuous_vars_cens = continuous_vars
+   }
   # ============================================================================
   # Step 1: Input Validation
   # ============================================================================
@@ -210,9 +260,8 @@ generate_aft_dgm_flex <- function(data,
   # Step 2: Data Preparation
   # ============================================================================
   df_work <- prepare_working_dataset(data, outcome_var, event_var,
-                                     treatment_var, continuous_vars, factor_vars,
-                                     standardize, continuous_vars_cens,
-                                     factor_vars_cens, verbose)
+  treatment_var, continuous_vars, factor_vars, standardize,
+  continuous_vars_cens, factor_vars_cens, verbose)
 
   # ============================================================================
   # Step 3: Define Subgroups with Flexible Cutpoints
@@ -220,22 +269,22 @@ generate_aft_dgm_flex <- function(data,
   subgroup_result <- define_subgroups(df_work, data, subgroup_vars,
                                       subgroup_cuts, continuous_vars,
                                       model, verbose)
-  df_work$flag_harm       <- subgroup_result$flag_harm
-  interaction_term        <- subgroup_result$interaction_term
-  subgroup_definitions    <- subgroup_result$definitions
+  df_work$flag_harm <- subgroup_result$flag_harm
+  interaction_term <- subgroup_result$interaction_term
+  subgroup_definitions <- subgroup_result$definitions
 
   # ============================================================================
   # Step 4: Fit AFT Model (Weibull) - with optional spline
   # ============================================================================
-  set_var  <- set_beta_spec$set_var
+  set_var <- set_beta_spec$set_var
   beta_var <- set_beta_spec$beta_var
 
-  aft_params  <- fit_aft_model(df_work, interaction_term, k_treat,
-                               k_inter, verbose, spline_spec, set_var, beta_var)
-  mu          <- aft_params$mu
-  tau         <- aft_params$tau
-  gamma       <- aft_params$gamma
-  b0          <- aft_params$b0
+  aft_params <- fit_aft_model(df_work, interaction_term, k_treat,
+                              k_inter, verbose, spline_spec, set_var, beta_var)
+  mu <- aft_params$mu
+  tau <- aft_params$tau
+  gamma <- aft_params$gamma
+  b0 <- aft_params$b0
   spline_info <- aft_params$spline_info
 
   # If spline was used, update df_work with spline variables
@@ -248,8 +297,7 @@ generate_aft_dgm_flex <- function(data,
   # ============================================================================
   df_super <- generate_super_population(df_work, n_super, draw_treatment,
                                         gamma, b0, mu, tau, verbose,
-                                        spline_info)
-
+                                        spline_info)  # PASS spline_info
   # ============================================================================
   # Step 6: Calculate Hazard Ratios
   # ============================================================================
@@ -259,42 +307,37 @@ generate_aft_dgm_flex <- function(data,
   # ============================================================================
   # Step 7: Prepare Censoring Parameters
   # ============================================================================
-  # select_censoring = TRUE  : fits censoring distribution from observed data
-  #                            via AIC comparison across Weibull / lognormal
-  #                            models (with and without covariates)
-  # select_censoring = FALSE : uses caller-supplied cens_params directly;
-  #                            no model fitting is performed
-  cens_result <- prepare_censoring_model(
-    df_work          = df_work,
-    cens_type        = cens_type,
-    cens_params      = cens_params,
-    df_super         = df_super,
-    select_censoring = select_censoring
-  )
+  cens_model <- NULL
+
+  if(select_censoring){
+  cens_result <- prepare_censoring_model(df_work, cens_type, cens_params,
+                                         df_super)
   cens_model <- cens_result$cens_model
-  df_super   <- cens_result$df_super
+  df_super <- cens_result$df_super
+  }
 
   # ============================================================================
   # Step 8: Assemble and Return Results
   # ============================================================================
   results <- assemble_results(
-    df_super             = df_super,
-    mu                   = mu,
-    tau                  = tau,
-    gamma                = gamma,
-    b0                   = b0,
-    cens_model           = cens_model,
-    subgroup_vars        = subgroup_vars,
-    subgroup_cuts        = subgroup_cuts,
+    df_super = df_super,
+    mu = mu,
+    tau = tau,
+    gamma = gamma,
+    b0 = b0,
+    cens_model = cens_model,
+    subgroup_vars = subgroup_vars,
+    subgroup_cuts = subgroup_cuts,
     subgroup_definitions = subgroup_definitions,
-    hr_results           = hr_results,
-    continuous_vars      = continuous_vars,
-    factor_vars          = factor_vars,
-    model                = model,
-    n_super              = n_super,
-    seed                 = seed,
-    spline_info          = spline_info
+    hr_results = hr_results,
+    continuous_vars = continuous_vars,
+    factor_vars = factor_vars,
+    model = model,
+    n_super = n_super,
+    seed = seed,
+    spline_info = spline_info  # This is now always passed (can be NULL)
   )
 
   return(results)
 }
+

@@ -21,7 +21,7 @@ generate_aft_dgm_flex(
   k_treat = 1,
   k_inter = 1,
   n_super = 5000,
-  select_censoring = FALSE,
+  select_censoring = TRUE,
   cens_type = "weibull",
   cens_params = list(),
   seed = 8316951,
@@ -77,14 +77,34 @@ Default is 1 (no modification)}
 \item{n_super}{Integer specifying size of super population to generate.
 Default is 5000}
 
-\item{select_censoring}{Logical indicating whether to fit censoring model from
-data. If FALSE, censoring is not modeled. Default FALSE}
+\item{select_censoring}{Logical. If \code{TRUE} (default), fits the censoring
+distribution to the observed censoring times in \code{data} using
+\code{survreg} with AIC-based selection among Weibull and log-normal models
+(with and without covariates). If \code{FALSE}, no model is fitted; the
+censoring distribution is specified entirely by \code{cens_params}. Default
+\code{TRUE}.}
 
-\item{cens_type}{Character string specifying censoring distribution: "weibull"
-or "uniform". Default is "weibull"}
+\item{cens_type}{Character string specifying censoring distribution type:
+\code{"weibull"} or \code{"uniform"}. Controls which parametric family is
+considered when \code{select_censoring = TRUE}, and determines the required
+structure of \code{cens_params} when \code{select_censoring = FALSE}.
+Default \code{"weibull"}.}
 
-\item{cens_params}{List of parameters for censoring distribution. For uniform:
-list(min = value, max = value). For Weibull: fitted from data}
+\item{cens_params}{Named list of censoring distribution parameters.
+Interpretation depends on \code{select_censoring} and \code{cens_type}:
+\describe{
+\item{\code{select_censoring = TRUE}}{Ignored; all parameters are estimated
+from data.}
+\item{\code{select_censoring = FALSE, cens_type = "uniform"}}{Must supply
+\code{min} and \code{max}. If either is absent, defaults to
+\code{0.5 * min(y)} and \code{1.5 * max(y)} with a message.}
+\item{\code{select_censoring = FALSE, cens_type = "weibull"}}{Must supply
+\code{mu} (log-scale location) and \code{tau} (scale). Optionally supply
+\code{type} (\code{"weibull"} or \code{"lognormal"}); defaults to
+\code{"weibull"}. Censoring is treated as intercept-only (no covariate
+or treatment dependence): \code{lin_pred_cens_0 = lin_pred_cens_1 = mu}.}
+}
+Default \code{list()}.}
 
 \item{seed}{Integer random seed for reproducibility. Default is 8316951}
 
@@ -97,40 +117,6 @@ Default is FALSE}
 \item{spline_spec}{List specifying spline configuration for treatment effect.
 Must include 'var' (variable name), 'knot', 'zeta', and 'log_hrs' (vector of
 length 3). Default NULL (no spline)}
-}
-\value{
-An object of class \code{c("aft_dgm_flex", "list")} containing:
-\describe{
-\item{df_super}{Data frame with the super population including all covariates,
-linear predictors, and potential outcomes}
-\item{model_params}{List containing model parameters:
-\describe{
-\item{mu}{Intercept from AFT model}
-\item{sigma}{Scale parameter}
-\item{gamma}{Vector of regression coefficients}
-\item{b_weibull}{Weibull parameterization coefficients}
-\item{b0_weibull}{Weibull baseline hazard coefficients}
-\item{censoring}{Censoring distribution parameters}
-}}
-\item{subgroup_info}{List with subgroup information:
-\describe{
-\item{vars}{Variables used to define subgroup}
-\item{cuts}{Cutpoint specifications used}
-\item{definitions}{Human-readable subgroup definitions}
-\item{size}{Number of observations in subgroup}
-\item{proportion}{Proportion of observations in subgroup}
-}}
-\item{hazard_ratios}{List of true hazard ratios:
-\describe{
-\item{overall}{Overall treatment HR}
-\item{harm_subgroup}{HR within subgroup (if model="alt")}
-\item{no_harm_subgroup}{HR outside subgroup (if model="alt")}
-}}
-\item{analysis_vars}{List of variable classifications for analysis}
-\item{model_type}{Character: "alt" or "null"}
-\item{n_super}{Size of super population}
-\item{seed}{Random seed used}
-}
 }
 \description{
 Creates a data generating mechanism (DGM) for survival data using an Accelerated
@@ -210,7 +196,7 @@ Where:
 \item \eqn{T} is the survival time
 \item \eqn{\mu} is the intercept
 \item \eqn{\gamma} contains the covariate effects
-\item \eqn{X} includes treatment, covariates, and treatment×subgroup interaction
+\item \eqn{X} includes treatment, covariates, and treatment x subgroup interaction
 \item \eqn{\sigma} is the scale parameter
 \item \eqn{\epsilon} follows an extreme value distribution
 }
@@ -223,60 +209,11 @@ modification when ALL subgroup conditions are simultaneously satisfied. This
 is not multiple separate interactions but one combined indicator.
 }
 }
-\examples{
-\dontrun{
-library(survival)
-data(cancer)
-
-# Example 1: Simple fixed cutpoints
-dgm1 <- generate_aft_dgm_flex(
-  data = gbsg,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "meno"),
-  subgroup_cuts = list(
-    er = 20,         # Fixed value
-    meno = 0         # Factor level
-  ),
-  model = "alt",
-  verbose = TRUE
-)
-
-# Example 2: Quantile-based cutpoints
-dgm2 <- generate_aft_dgm_flex(
-  data = gbsg,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "pgr", "age"),
-  subgroup_cuts = list(
-    er = list(type = "quantile", value = 0.25),
-    pgr = list(type = "function", fun = median),
-    age = list(type = "range", min = 40, max = 60)
-  ),
-  model = "alt",
-  k_inter = 2,  # Double the interaction effect
-  verbose = TRUE
-)
-
-# Print summary
-print(dgm2)
-}
-
-}
 \references{
+Leon, L.F., et al. (2024). Statistics in Medicine.
+
 Kalbfleisch, J.D. and Prentice, R.L. (2002). The Statistical Analysis of
 Failure Time Data (2nd ed.). Wiley.
-}
-\seealso{
-\code{\link{simulate_from_dgm}} for generating simulated data from the DGM
-\code{\link{find_quantile_for_proportion}} for finding quantiles that achieve
-target subgroup proportions
 }
 \author{
 Your Name

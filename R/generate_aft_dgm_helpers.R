@@ -1,6 +1,240 @@
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
+#' Prepare Censoring Model Parameters
+#'
+#' Constructs the censoring model object and appends per-subject counterfactual
+#' censoring linear predictors (\code{lin_pred_cens_0}, \code{lin_pred_cens_1})
+#' to the super-population data frame.
+#'
+#' ## Linear predictor convention
+#'
+#' \code{lin_pred_cens_0} and \code{lin_pred_cens_1} store the
+#' \strong{covariate contribution only} — i.e. \eqn{\gamma_c' X}, with the
+#' intercept \eqn{\mu_c} excluded.  This matches the convention used for the
+#' outcome model (\code{lin_pred_0}, \code{lin_pred_1} = \eqn{\gamma' X},
+#' no intercept) computed in \code{calculate_linear_predictors()}.
+#'
+#' \code{simulate_from_dgm()} reconstructs the full log-censoring time as:
+#' \deqn{\log C = \mu_c + \delta + \tau_c \epsilon + \gamma_c' X}
+#' where \eqn{\mu_c} = \code{params$censoring$mu},
+#' \eqn{\delta} = \code{cens_adjust},
+#' \eqn{\tau_c} = \code{params$censoring$tau}, and
+#' \eqn{\gamma_c' X} = \code{lin_pred_cens_{0|1}}.
+#'
+#' When \code{select_censoring = TRUE}, \code{predict(survreg, type = "linear")}
+#' returns the full linear predictor \eqn{\mu_c + \gamma_c' X}.  The stored
+#' intercept \eqn{\mu_c} is therefore subtracted before writing
+#' \code{lin_pred_cens_*}, so that \code{simulate_from_dgm()} can add
+#' \code{params$censoring$mu} exactly once.  Omitting this subtraction causes
+#' \eqn{\mu_c} to be counted twice, producing astronomically large censoring
+#' times and universal censoring.
+#'
+#' When \code{select_censoring = FALSE} with a Weibull/lognormal
+#' \code{cens_type}, the intercept-only model has zero covariate contribution,
+#' so \code{lin_pred_cens_0 = lin_pred_cens_1 = 0}.  Storing \code{mu} instead
+#' of 0 causes the same double-counting.
+#'
+#' @param df_work Working data frame (output of \code{prepare_working_dataset}).
+#' @param cens_type Character. \code{"weibull"} or \code{"uniform"}.
+#' @param cens_params Named list of user-supplied censoring parameters.
+#' @param df_super Super-population data frame; receives
+#'   \code{lin_pred_cens_0} and \code{lin_pred_cens_1} columns.
+#' @param select_censoring Logical. If \code{TRUE} (default), fits the
+#'   censoring distribution from observed data using AIC-based \code{survreg}
+#'   model comparison. If \code{FALSE}, uses \code{cens_params} directly with
+#'   no model fitting. See \code{\link{generate_aft_dgm_flex}} for the required
+#'   \code{cens_params} structure under each combination of
+#'   \code{select_censoring} and \code{cens_type}.
+#'
+#' @return A named list:
+#' \describe{
+#'   \item{cens_model}{List of censoring distribution parameters stored in
+#'     \code{dgm$model_params$censoring}.}
+#'   \item{df_super}{Updated super-population data frame with
+#'     \code{lin_pred_cens_0} and \code{lin_pred_cens_1} appended.  These
+#'     hold covariate contributions only (\eqn{\gamma_c' X}); the intercept
+#'     is excluded.}
+#' }
+#'
+#' @keywords internal
+prepare_censoring_model <- function(df_work,
+                                    cens_type,
+                                    cens_params,
+                                    df_super,
+                                    select_censoring = TRUE) {
+
+  cens_model <- NULL
+
+  # ===========================================================================
+  # PATH A: select_censoring = FALSE
+  # Use caller-supplied cens_params directly; no model fitting.
+  # ===========================================================================
+
+  if (!select_censoring) {
+
+    if (cens_type == "uniform") {
+      # -----------------------------------------------------------------------
+      # Uniform: use supplied min/max, defaulting to data range with a message.
+      # simulate_from_dgm() does not read lin_pred_cens for the uniform branch,
+      # but columns are added for structural consistency.
+      # -----------------------------------------------------------------------
+      if (is.null(cens_params$min)) {
+        cens_params$min <- min(df_work$y, na.rm = TRUE) * 0.5
+        message("select_censoring = FALSE: cens_params$min not supplied; ",
+                "defaulting to 0.5 * min(y) = ", round(cens_params$min, 3))
+      }
+      if (is.null(cens_params$max)) {
+        cens_params$max <- max(df_work$y, na.rm = TRUE) * 1.5
+        message("select_censoring = FALSE: cens_params$max not supplied; ",
+                "defaulting to 1.5 * max(y) = ", round(cens_params$max, 3))
+      }
+
+      cens_model <- list(
+        min  = cens_params$min,
+        max  = cens_params$max,
+        type = "uniform"
+      )
+
+      df_super$lin_pred_cens_0 <- 0
+      df_super$lin_pred_cens_1 <- 0
+
+    } else {
+      # -----------------------------------------------------------------------
+      # Weibull / lognormal: require mu + tau from cens_params.
+      # Intercept-only model => covariate contribution gamma'X = 0.
+      # simulate_from_dgm() will compute:
+      #   logC = mu_cens + cens_adjust + tau*epsilon + 0    (CORRECT)
+      # Storing mu here instead of 0 would double-count mu_cens.
+      # -----------------------------------------------------------------------
+      if (is.null(cens_params$mu) || is.null(cens_params$tau)) {
+        stop(
+          "When select_censoring = FALSE and cens_type = '", cens_type, "', ",
+          "cens_params must supply both 'mu' (log-scale location) and ",
+          "'tau' (scale). Elements received: ",
+          paste(names(cens_params), collapse = ", ")
+        )
+      }
+
+      cens_dist <- if (!is.null(cens_params$type)) cens_params$type else "weibull"
+
+      cens_model <- list(
+        mu    = cens_params$mu,
+        tau   = cens_params$tau,
+        gamma = numeric(0),   # intercept-only: no covariate effects
+        type  = cens_dist
+      )
+
+      # Intercept-only => covariate contribution is zero for all subjects.
+      # DO NOT store mu here: simulate_from_dgm() adds params$censoring$mu
+      # separately, so lin_pred_cens must hold gamma'X only.
+      df_super$lin_pred_cens_0 <- 0
+      df_super$lin_pred_cens_1 <- 0
+    }
+
+    return(list(cens_model = cens_model, df_super = df_super))
+  }
+
+  # ===========================================================================
+  # PATH B: select_censoring = TRUE
+  # Fit censoring distribution from observed data via AIC comparison.
+  # ===========================================================================
+
+  if (cens_type != "uniform") {
+
+    covariate_cols <- grep("^zcens_", names(df_work), value = TRUE)
+
+    if (length(covariate_cols) >= 1) {
+      X_cens <- as.matrix(df_work[, c("treat", covariate_cols)])
+    } else {
+      X_cens <- as.matrix(df_work[, c("treat")])
+    }
+
+    fit_cens1 <- survreg(Surv(y, 1 - event) ~ X_cens,
+                         data = df_work, dist = "weibull")
+    fit_cens2 <- survreg(Surv(y, 1 - event) ~ X_cens,
+                         data = df_work, dist = "lognormal")
+    fit_cens3 <- survreg(Surv(y, 1 - event) ~ 1,
+                         data = df_work, dist = "weibull")
+    fit_cens4 <- survreg(Surv(y, 1 - event) ~ 1,
+                         data = df_work, dist = "lognormal")
+
+    # Compare all 4 models; select best by AIC
+    comparison <- compare_multiple_survreg(
+      fit_cens1, fit_cens2, fit_cens3, fit_cens4,
+      model_names = c("Weibull", "LogNormal", "Weibull0", "LogNormal0"),
+      verbose = TRUE
+    )
+
+    fit_cens   <- get_best_survreg(comparison)
+    mu_cens    <- coef(fit_cens)[1]    # intercept on log-time scale
+    tau_cens   <- fit_cens$scale
+    gamma_cens <- coef(fit_cens)[-1]   # covariate coefficients (no intercept)
+
+    cens_model <- list(
+      mu    = mu_cens,
+      tau   = tau_cens,
+      gamma = gamma_cens,
+      type  = c(fit_cens$dist)
+    )
+
+    # -------------------------------------------------------------------------
+    # KEY FIX: store COVARIATE-ONLY contribution (gamma'X), intercept excluded.
+    #
+    # predict(survreg, type = "linear") returns the FULL linear predictor:
+    #   mu_cens + gamma_cens' X
+    #
+    # Subtracting mu_cens leaves gamma_cens' X only, matching the contract
+    # expected by simulate_from_dgm():
+    #   logC = params$censoring$mu   <- added by simulate_from_dgm()
+    #        + cens_adjust
+    #        + params$censoring$tau * epsilon_cens
+    #        + lin_pred_cens          <- gamma'X only (stored here)
+    #
+    # Without the subtraction, mu_cens appears twice and censoring times
+    # become exp(2 * mu_cens + ...), which are astronomically large and
+    # collapse all subjects to administrative censoring.
+    # -------------------------------------------------------------------------
+
+    # Counterfactual: control arm (treat := 0)
+    newdata       <- df_super
+    newdata$treat <- 0
+    if (!all(newdata$treat == 0))
+      stop("Error in creating counterfactual: could not set treat := 0")
+    df_super$lin_pred_cens_0 <- predict(fit_cens, newdata = newdata,
+                                        type = "linear") - mu_cens
+
+    # Counterfactual: treatment arm (treat := 1)
+    newdata       <- df_super
+    newdata$treat <- 1
+    if (!all(newdata$treat == 1))
+      stop("Error in creating counterfactual: could not set treat := 1")
+    df_super$lin_pred_cens_1 <- predict(fit_cens, newdata = newdata,
+                                        type = "linear") - mu_cens
+
+  } else {
+    # -------------------------------------------------------------------------
+    # Uniform censoring (select_censoring = TRUE)
+    # Use supplied cens_params or default to observed data range.
+    # -------------------------------------------------------------------------
+    if (is.null(cens_params$min) || is.null(cens_params$max)) {
+      cens_params$min <- min(df_work$y, na.rm = TRUE) * 0.5
+      cens_params$max <- max(df_work$y, na.rm = TRUE) * 1.5
+    }
+
+    cens_model <- list(
+      min  = cens_params$min,
+      max  = cens_params$max,
+      type = "uniform"
+    )
+
+    # Placeholder columns for structural consistency across censoring types
+    df_super$lin_pred_cens_0 <- 0
+    df_super$lin_pred_cens_1 <- 0
+  }
+
+  return(list(cens_model = cens_model, df_super = df_super))
+}
+
+
+
 
 #' Validate Input Parameters
 #' @keywords internal
@@ -748,7 +982,7 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
 
 #' Prepare Censoring Model Parameters
 #' @keywords internal
-prepare_censoring_model <- function(df_work, cens_type, cens_params,
+prepare_censoring_model_legacy <- function(df_work, cens_type, cens_params,
                                     df_super) {
 
   cens_model <- NULL
