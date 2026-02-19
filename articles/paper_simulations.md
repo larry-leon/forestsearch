@@ -1133,7 +1133,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.595 0.1266 
+    ## Seconds and minutes forestsearch overall = 7.693 0.1282 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1151,7 +1151,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 7.6 minutes
+    ## Completed in 7.8 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1289,7 +1289,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.896 0.1316 
+    ## Seconds and minutes forestsearch overall = 8.418 0.1403 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1304,7 +1304,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 30.6 minutes
+    ## Completed in 32.4 minutes
 
 ## Summarizing Results
 
@@ -2147,12 +2147,12 @@ reproducibility information.
 | Calibrate k_inter (Cox) | 1.9 | 0.03 | 0.1 |
 | Calibrate k_inter (AHR) | 0.8 | 0.01 | 0.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
-| DGM creation (H0) | 0.0 | 0.00 | 0.0 |
-| Simulations H1 | 454.6 | 7.58 | 19.7 |
-| Simulations H0 | 1,838.5 | 30.64 | 79.5 |
+| DGM creation (H0) | 0.1 | 0.00 | 0.0 |
+| Simulations H1 | 469.7 | 7.83 | 19.3 |
+| Simulations H0 | 1,946.1 | 32.43 | 79.9 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.1 | 0.00 | 0.0 |
-| Total vignette | 2,311.5 | 38.52 | 100.0 |
+| Summarize H0 | 0.0 | 0.00 | 0.0 |
+| Total vignette | 2,434.2 | 40.57 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
