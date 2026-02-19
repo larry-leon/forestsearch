@@ -130,8 +130,12 @@ pkgdown::check_pkgdown()
 
 pkgdown::build_site()
 
+# Deploy docs/ to gh-pages branch
+pkgdown::deploy_to_branch(branch = "gh-pages", commit_message = "Update pkgdown site")
+
+
 # note: deploy_to_branch calls build_site(), so only run here if deploying
-# otherewise will duplicate the compiling of documents
+# otherwise will duplicate the compiling of documents
 
 pkgdown::deploy_to_branch()
 
