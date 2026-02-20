@@ -226,47 +226,76 @@ L'\beta \;:=\;
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>X</mi><mo>∈</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">X \in \{0,1\}</annotation></semantics></math>
 denotes the treatment indicator. The five terms have the following
 roles:</p>
-<table class="table">
-<colgroup>
-<col width="47%">
-<col width="26%">
-<col width="26%">
-</colgroup>
-<thead><tr class="header">
-<th align="center">Parameter</th>
-<th align="left">Term</th>
-<th align="left">Role</th>
+<table class="table table">
+<thead><tr>
+<th style="text-align:center;">
+Parameter
+</th>
+<th style="text-align:left;">
+Term
+</th>
+<th style="text-align:left;">
+Role
+</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>1</mn></msub><annotation encoding="application/x-tex">\beta_1</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math></td>
-<td align="left">Main treatment effect (intercept of log-HR)</td>
+<tr>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>1</mn></msub><annotation encoding="application/x-tex">\beta_1</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>X</mi><annotation encoding="application/x-tex">X</annotation></semantics></math>
+</td>
+<td>
+Main treatment effect (intercept of log-HR)
+</td>
 </tr>
-<tr class="even">
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>2</mn></msub><annotation encoding="application/x-tex">\beta_2</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math></td>
-<td align="left">Prognostic biomarker effect (both arms)</td>
+<tr>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>2</mn></msub><annotation encoding="application/x-tex">\beta_2</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+</td>
+<td>
+Prognostic biomarker effect (both arms)
+</td>
 </tr>
-<tr class="odd">
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>3</mn></msub><annotation encoding="application/x-tex">\beta_3</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>X</mi></mrow><annotation encoding="application/x-tex">ZX</annotation></semantics></math></td>
-<td align="left">Biomarker
+<tr>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>3</mn></msub><annotation encoding="application/x-tex">\beta_3</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>X</mi></mrow><annotation encoding="application/x-tex">ZX</annotation></semantics></math>
+</td>
+<td>
+Biomarker
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 treatment interaction (slope of log-HR for
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>≤</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">Z \leq k</annotation></semantics></math>)</td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>≤</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">Z \leq k</annotation></semantics></math>)
+</td>
 </tr>
-<tr class="even">
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>4</mn></msub><annotation encoding="application/x-tex">\beta_4</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">(Z-k)\mathbf{1}(Z&gt;k)</annotation></semantics></math></td>
-<td align="left">Spline term: change in prognostic slope above
+<tr>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>4</mn></msub><annotation encoding="application/x-tex">\beta_4</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">(Z-k)\mathbf{1}(Z&gt;k)</annotation></semantics></math>
+</td>
+<td>
+Spline term: change in prognostic slope above
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
 </td>
 </tr>
-<tr class="odd">
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>5</mn></msub><annotation encoding="application/x-tex">\beta_5</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>X</mi></mrow><annotation encoding="application/x-tex">(Z-k)\mathbf{1}(Z&gt;k)\,X</annotation></semantics></math></td>
-<td align="left">Spline term: change in treatment-effect slope above
+<tr>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>5</mn></msub><annotation encoding="application/x-tex">\beta_5</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>X</mi></mrow><annotation encoding="application/x-tex">(Z-k)\mathbf{1}(Z&gt;k)\,X</annotation></semantics></math>
+</td>
+<td>
+Spline term: change in treatment-effect slope above
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
 </td>
 </tr>
@@ -422,42 +451,75 @@ jointly, and the AHR/CDE definitions below would average over both.</p>
 <h3 id="working-example">Working Example<a class="anchor" aria-label="anchor" href="#working-example"></a>
 </h3>
 <p>A representative configuration for an oncology biomarker setting:</p>
-<table class="table">
-<colgroup>
-<col width="17%">
-<col width="10%">
-<col width="28%">
-<col width="8%">
-<col width="34%">
-</colgroup>
-<thead><tr class="header">
-<th align="center">Anchor</th>
-<th align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math></th>
-<th align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\psi^0(z)</annotation></semantics></math></th>
-<th align="center">HR</th>
-<th align="left">Interpretation</th>
+<table class="table table">
+<thead><tr>
+<th style="text-align:center;">
+Anchor
+</th>
+<th style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+</th>
+<th style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\psi^0(z)</annotation></semantics></math>
+</th>
+<th style="text-align:center;">
+HR
+</th>
+<th style="text-align:left;">
+Interpretation
+</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
-<td align="center">Low</td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>3</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mn>1.10</mn></mrow><annotation encoding="application/x-tex">\log(3) \approx 1.10</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3.00</mn><annotation encoding="application/x-tex">3.00</annotation></semantics></math></td>
-<td align="left">Strongly detrimental</td>
+<tr>
+<td style="text-align:center;">
+Low
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0</mn><annotation encoding="application/x-tex">0</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>3</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mn>1.10</mn></mrow><annotation encoding="application/x-tex">\log(3) \approx 1.10</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>3.00</mn><annotation encoding="application/x-tex">3.00</annotation></semantics></math>
+</td>
+<td style="text-align:left;">
+Strongly detrimental
+</td>
 </tr>
-<tr class="even">
-<td align="center">Knot</td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>5</mn><annotation encoding="application/x-tex">5</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mn>0.22</mn></mrow><annotation encoding="application/x-tex">\log(1.25) \approx 0.22</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1.25</mn><annotation encoding="application/x-tex">1.25</annotation></semantics></math></td>
-<td align="left">Modestly detrimental</td>
+<tr>
+<td style="text-align:center;">
+Knot
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>5</mn><annotation encoding="application/x-tex">5</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>1.25</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mn>0.22</mn></mrow><annotation encoding="application/x-tex">\log(1.25) \approx 0.22</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>1.25</mn><annotation encoding="application/x-tex">1.25</annotation></semantics></math>
+</td>
+<td style="text-align:left;">
+Modestly detrimental
+</td>
 </tr>
-<tr class="odd">
-<td align="center">High</td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>10</mn><annotation encoding="application/x-tex">10</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.5</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mi>−</mi><mn>0.69</mn></mrow><annotation encoding="application/x-tex">\log(0.5) \approx -0.69</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.50</mn><annotation encoding="application/x-tex">0.50</annotation></semantics></math></td>
-<td align="left">Strongly beneficial</td>
+<tr>
+<td style="text-align:center;">
+High
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>10</mn><annotation encoding="application/x-tex">10</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.5</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mi>−</mi><mn>0.69</mn></mrow><annotation encoding="application/x-tex">\log(0.5) \approx -0.69</annotation></semantics></math>
+</td>
+<td style="text-align:center;">
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.50</mn><annotation encoding="application/x-tex">0.50</annotation></semantics></math>
+</td>
+<td style="text-align:left;">
+Strongly beneficial
+</td>
 </tr>
 </tbody>
 </table>
@@ -738,57 +800,99 @@ finite-sample noise provide further safeguards.</li>
 </h2>
 <p>The complete pipeline from model specification to estimand
 computation is summarized below.</p>
-<table class="table">
-<colgroup>
-<col width="23%">
-<col width="42%">
-<col width="34%">
-</colgroup>
-<thead><tr class="header">
-<th align="center">Step</th>
-<th align="left">Operation</th>
-<th align="left">Formula</th>
+<table class="table table">
+<thead><tr>
+<th style="text-align:center;">
+Step
+</th>
+<th style="text-align:left;">
+Operation
+</th>
+<th style="text-align:left;">
+Formula
+</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
-<td align="center">1</td>
-<td align="left">Fit Weibull AFT</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mi>T</mi><mi>i</mi></msub><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mi>′</mi><mi>𝛄</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\log T_i = \mu + \mathbf{X}_i'\boldsymbol{\gamma} + \sigma\varepsilon_i</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+1
+</td>
+<td>
+Fit Weibull AFT
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><msub><mi>T</mi><mi>i</mi></msub><mo>=</mo><mi>μ</mi><mo>+</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mi>′</mi><mi>𝛄</mi><mo>+</mo><mi>σ</mi><msub><mi>ε</mi><mi>i</mi></msub></mrow><annotation encoding="application/x-tex">\log T_i = \mu + \mathbf{X}_i'\boldsymbol{\gamma} + \sigma\varepsilon_i</annotation></semantics></math>
+</td>
 </tr>
-<tr class="even">
-<td align="center">2</td>
-<td align="left">Hazard-scale transform</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+2
+</td>
+<td>
+Hazard-scale transform
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math>
+</td>
 </tr>
-<tr class="odd">
-<td align="center">3</td>
-<td align="left">Individual log-hazards</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>x</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>x</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>′</mi><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+3
+</td>
+<td>
+Individual log-hazards
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>x</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>𝐗</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>x</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>′</mi><msub><mi>𝛃</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0</annotation></semantics></math>
+</td>
 </tr>
-<tr class="even">
-<td align="center">4</td>
-<td align="left">Individual causal log-HR</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">loghr_po</mtext><mi>i</mi></msub><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">{\text{loghr\_po}}_i = \theta_i(1) - \theta_i(0)</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+4
+</td>
+<td>
+Individual causal log-HR
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">loghr_po</mtext><mi>i</mi></msub><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">{\text{loghr\_po}}_i = \theta_i(1) - \theta_i(0)</annotation></semantics></math>
+</td>
 </tr>
-<tr class="odd">
-<td align="center">5a</td>
-<td align="left">AHR (subgroup
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S}) = \exp\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}}\bigr)</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+5a
+</td>
+<td>
+AHR (subgroup
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>exp</mo><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S}) = \exp\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}}\bigr)</annotation></semantics></math>
+</td>
 </tr>
-<tr class="even">
-<td align="center">5b</td>
-<td align="left">CDE (subgroup
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mspace width="0.278em"></mspace><mi>/</mi><mspace width="0.278em"></mspace><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_1)}_\mathcal{S}\;/\;\overline{\exp(\theta_0)}_\mathcal{S}</annotation></semantics></math></td>
+<tr>
+<td style="text-align:center;">
+5b
+</td>
+<td>
+CDE (subgroup
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mspace width="0.278em"></mspace><mi>/</mi><mspace width="0.278em"></mspace><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_1)}_\mathcal{S}\;/\;\overline{\exp(\theta_0)}_\mathcal{S}</annotation></semantics></math>
+</td>
 </tr>
-<tr class="odd">
-<td align="center">5c</td>
-<td align="left">Marginal HR (subgroup
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)</td>
-<td align="left">
+<tr>
+<td style="text-align:center;">
+5c
+</td>
+<td>
+Marginal HR (subgroup
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>𝒮</mi><annotation encoding="application/x-tex">\mathcal{S}</annotation></semantics></math>)
+</td>
+<td>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">Cox</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(\hat\beta_\text{Cox})</annotation></semantics></math>
-from stacked potential outcomes</td>
+from stacked potential outcomes
+</td>
 </tr>
 </tbody>
 </table>
@@ -817,40 +921,63 @@ beneficial), the same transformation
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math>,
 and the same averaging operations for AHR and CDE.</p>
 <p>The correspondences are:</p>
-<table class="table">
-<colgroup>
-<col width="18%">
-<col width="41%">
-<col width="40%">
-</colgroup>
-<thead><tr class="header">
-<th align="left">This vignette</th>
-<th align="left"><code>treatment_effect_definitions</code></th>
-<th align="left"><code>causal_effects_brief_review</code></th>
+<table class="table table">
+<thead><tr>
+<th style="text-align:left;">
+This vignette
+</th>
+<th style="text-align:left;">
+<code>treatment_effect_definitions</code>
+</th>
+<th style="text-align:left;">
+<code>causal_effects_brief_review</code>
+</th>
 </tr></thead>
 <tbody>
-<tr class="odd">
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\psi^0(z)</annotation></semantics></math></td>
-<td align="left">
+<tr>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\psi^0(z)</annotation></semantics></math>
+</td>
+<td>
 <code>loghr_po</code>
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>=</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><msub><mi>θ</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">= \theta_i(1) - \theta_i(0)</annotation></semantics></math>
 </td>
-<td align="left">Individual-level AFT causal quantity</td>
+<td>
+Individual-level AFT causal quantity
+</td>
 </tr>
-<tr class="even">
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S})</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(\overline{\text{loghr\_po}}_{\mathcal{S}})</annotation></semantics></math></td>
-<td align="left">Geometric-mean HR with dual causal status</td>
+<tr>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">AHR</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{AHR}(\mathcal{S})</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mtext mathvariant="normal">loghr_po</mtext><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(\overline{\text{loghr\_po}}_{\mathcal{S}})</annotation></semantics></math>
+</td>
+<td>
+Geometric-mean HR with dual causal status
+</td>
 </tr>
-<tr class="odd">
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S})</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mi>/</mi><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\overline{\exp(\theta_1)}_\mathcal{S}/\overline{\exp(\theta_0)}_\mathcal{S}</annotation></semantics></math></td>
-<td align="left">Natural-scale complement to AHR</td>
+<tr>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mtext mathvariant="normal">CDE</mtext><mrow><mo stretchy="true" form="prefix">(</mo><mi>𝒮</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{CDE}(\mathcal{S})</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>1</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub><mi>/</mi><msub><mover><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mi>θ</mi><mn>0</mn></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><mo accent="true">¯</mo></mover><mi>𝒮</mi></msub></mrow><annotation encoding="application/x-tex">\overline{\exp(\theta_1)}_\mathcal{S}/\overline{\exp(\theta_0)}_\mathcal{S}</annotation></semantics></math>
+</td>
+<td>
+Natural-scale complement to AHR
+</td>
 </tr>
-<tr class="even">
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
-<td align="left">AFT-to-hazard transformation</td>
+<tr>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math>
+</td>
+<td>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math>
+</td>
+<td>
+AFT-to-hazard transformation
+</td>
 </tr>
 </tbody>
 </table>

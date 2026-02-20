@@ -2,9 +2,10 @@
 
 Creates Kaplan-Meier survival difference band plots comparing the
 identified ForestSearch subgroup (sg.harm) and its complement against
-the ITT population. This function wraps `plotKM.band_subgroups()` from
-the weightedsurv package, automatically extracting subgroup definitions
-from ForestSearch results.
+the ITT population. This function wraps
+[`plotKM.band_subgroups()`](https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html)
+from the weightedsurv package, automatically extracting subgroup
+definitions from ForestSearch results.
 
 ## Usage
 
@@ -60,9 +61,10 @@ plot_km_band_forestsearch(
 
   Character vector. Subsetting expressions for each subgroup,
   corresponding to `sg_cols`. These are passed to
-  `plotKM.band_subgroups()` which evaluates them as R expressions (e.g.,
-  `"age < 65"`, `"er <= 0"`, `"Qrecommend == 1"`). Must be same length
-  as `sg_cols`. Default: `NULL` (auto-generated as `"colname == 1"`).
+  [`plotKM.band_subgroups()`](https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html)
+  which evaluates them as R expressions (e.g., `"age < 65"`,
+  `"er <= 0"`, `"Qrecommend == 1"`). Must be same length as `sg_cols`.
+  Default: `NULL` (auto-generated as `"colname == 1"`).
 
 - sg_colors:
 
@@ -207,7 +209,9 @@ modes:
 
 3.  Generates appropriate labels from the subgroup definition
 
-4.  Calls `plotKM.band_subgroups()` with configured parameters
+4.  Calls
+    [`plotKM.band_subgroups()`](https://rdrr.io/pkg/weightedsurv/man/plotKM.band_subgroups.html)
+    with configured parameters
 
 **Mode 2: With pre-defined columns (`sg_cols` provided)**
 

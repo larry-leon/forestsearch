@@ -124,7 +124,7 @@ where $`X \in \{0,1\}`$ denotes the treatment indicator. The five terms
 have the following roles:
 
 | Parameter | Term | Role |
-|:--:|:---|:---|
+|:--:|----|----|
 | $`\beta_1`$ | $`X`$ | Main treatment effect (intercept of log-HR) |
 | $`\beta_2`$ | $`Z`$ | Prognostic biomarker effect (both arms) |
 | $`\beta_3`$ | $`ZX`$ | Biomarker $`\times`$ treatment interaction (slope of log-HR for $`Z \leq k`$) |
@@ -469,7 +469,7 @@ The complete pipeline from model specification to estimand computation
 is summarized below.
 
 | Step | Operation | Formula |
-|:--:|:---|:---|
+|:--:|----|----|
 | 1 | Fit Weibull AFT | $`\log T_i = \mu + \mathbf{X}_i'\boldsymbol{\gamma} + \sigma\varepsilon_i`$ |
 | 2 | Hazard-scale transform | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ |
 | 3 | Individual log-hazards | $`\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0`$ |
@@ -500,7 +500,7 @@ operations for AHR and CDE.
 The correspondences are:
 
 | This vignette | `treatment_effect_definitions` | `causal_effects_brief_review` |
-|:---|:---|:---|
+|----|----|----|
 | $`\psi^0(z)`$ | `loghr_po` $`= \theta_i(1) - \theta_i(0)`$ | Individual-level AFT causal quantity |
 | $`\text{AHR}(\mathcal{S})`$ | $`\exp(\overline{\text{loghr\_po}}_{\mathcal{S}})`$ | Geometric-mean HR with dual causal status |
 | $`\text{CDE}(\mathcal{S})`$ | $`\overline{\exp(\theta_1)}_\mathcal{S}/\overline{\exp(\theta_0)}_\mathcal{S}`$ | Natural-scale complement to AHR |

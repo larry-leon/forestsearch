@@ -1101,7 +1101,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 210 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.01 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 210 
@@ -1133,7 +1133,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 8.428 0.1405 
+    ## Seconds and minutes forestsearch overall = 8.577 0.143 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1258,7 +1258,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1289,7 +1289,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.297 0.1216 
+    ## Seconds and minutes forestsearch overall = 7.589 0.1265 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2148,11 +2148,11 @@ reproducibility information.
 | Calibrate k_inter (AHR) | 0.9 | 0.02 | 2.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.4 |
 | DGM creation (H0) | 0.0 | 0.00 | 0.1 |
-| Simulations H1 | 16.1 | 0.27 | 34.2 |
-| Simulations H0 | 13.7 | 0.23 | 29.1 |
+| Simulations H1 | 15.7 | 0.26 | 33.6 |
+| Simulations H0 | 13.7 | 0.23 | 29.4 |
 | Summarize H1 | 0.0 | 0.00 | 0.1 |
 | Summarize H0 | 0.0 | 0.00 | 0.1 |
-| Total vignette | 47.1 | 0.79 | 100.0 |
+| Total vignette | 46.6 | 0.78 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
