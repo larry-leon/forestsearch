@@ -438,7 +438,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 1.956 0.0326 
+    ## Seconds and minutes forestsearch overall = 2.024 0.0337 
     ## Consistency algorithm used: twostage
 
 ``` r
@@ -586,7 +586,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.04 minutes (0.00 hours)
     ##   Average per iteration:         0.02 min (1.1 sec)
-    ##   Projected for 1000 boots:      19.02 min (0.32 hrs)
+    ##   Projected for 1000 boots:      19.05 min (0.32 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -1036,7 +1036,7 @@ ER-negative patients may not benefit is consistent with:
 | GRF                  | 0.2        | 0.0        |
 | ForestSearch         | 2.0        | 0.0        |
 | Bootstrap            | 3.2        | 0.1        |
-| Total                | 10.0       | 0.2        |
+| Total                | 10.2       | 0.2        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1095,7 +1095,7 @@ sessionInfo()
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
-    ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.0     
+    ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     
     ##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   
     ##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      
     ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
@@ -1117,7 +1117,7 @@ sessionInfo()
     ## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      
     ## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
-    ## [49] randomForest_4.7-1.2 future.apply_1.20.1  withr_3.0.2         
+    ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
     ## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    
     ## [58] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          

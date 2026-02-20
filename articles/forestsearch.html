@@ -38,6 +38,8 @@
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
+    <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
+    <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
   </ul>
@@ -69,7 +71,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-02-18</h4>
+            <h4 data-toc-skip class="date">2026-02-20</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
@@ -1106,7 +1108,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
 <span><span class="co">## % consistency criteria met= 0.97 </span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 1.956 0.0326 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 2.024 0.0337 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage</span></span></code></pre>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="st">"sequential"</span><span class="op">)</span></span>
@@ -2230,7 +2232,7 @@ addresses this by:</p>
 <span><span class="co">## Overall:</span></span>
 <span><span class="co">##   Total bootstrap time:          0.04 minutes (0.00 hours)</span></span>
 <span><span class="co">##   Average per iteration:         0.02 min (1.1 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      19.02 min (0.32 hrs)</span></span></code></pre>
+<span><span class="co">##   Projected for 1000 boots:      19.05 min (0.32 hrs)</span></span></code></pre>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -4665,7 +4667,7 @@ stability</li>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">10.0</td>
+<td headers="Seconds" class="gt_row gt_right">10.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.2</td>
 </tr>
 </tbody>
@@ -4733,7 +4735,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## other attached packages:</span></span>
-<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.0     </span></span>
+<span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     </span></span>
 <span><span class="co">##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   </span></span>
 <span><span class="co">##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      </span></span>
 <span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 </span></span>
@@ -4755,7 +4757,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      </span></span>
 <span><span class="co">## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          </span></span>
 <span><span class="co">## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   </span></span>
-<span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.1  withr_3.0.2         </span></span>
+<span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         </span></span>
 <span><span class="co">## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      </span></span>
 <span><span class="co">## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    </span></span>
 <span><span class="co">## [58] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          </span></span>
