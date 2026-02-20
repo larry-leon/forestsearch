@@ -168,7 +168,16 @@ pkgdown::build_article(
   quiet = FALSE
 )
 
+# Setup for storing diagrams for incorporation in pkgdown
+#Step 1: Create the pkgdown/assets/figures/ Directory
+#The pkgdown/ directory does not exist by default — simply create it.
+#pkgdown automatically detects it and copies the contents of assets/
+#to the site root on every build. Nothing needs to be declared in _pkgdown.yml.
+#From R:
+#dir.create("pkgdown/assets/figures", recursive = TRUE)
 
+#Or from the terminal:
+#mkdir -p pkgdown/assets/figures
 
 
 # =============================================================================
