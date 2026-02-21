@@ -160,6 +160,32 @@ pkgdown::build_article("articles/paper_simulations")
 pkgdown::build_article("articles/extreme_subgroups")
 
 
+pkgdown::build_article("articles/biomarker_effects")
+
+
+pkgdown::build_article(
+  "articles/biomarker_effects",
+  quiet = FALSE
+)
+
+browseURL("docs/articles/biomarker_effects.html")
+
+
+pkgdown::build_article("causal_effects_brief_review")
+
+
+pkgdown::build_article(
+  "articles/causal_effects_brief_review",
+  quiet = FALSE
+)
+
+
+
+# If you ever want a standalone PDF version later, you can render it separately
+# with quarto render biomarker_effects.qmd --to pdf using a copy that has the pdf:
+# block restored — but it should live outside the pkgdown build pipeline.
+
+
 # Open it directly
 #browseURL("docs/articles/articles/paper_simulations.html")
 
