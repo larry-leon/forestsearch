@@ -124,7 +124,7 @@ where $`X \in \{0,1\}`$ denotes the treatment indicator. The five terms
 have the following roles:
 
 | Parameter | Term | Role |
-|:--:|----|----|
+|:--:|:---|:---|
 | $`\beta_1`$ | $`X`$ | Main treatment effect (intercept of log-HR) |
 | $`\beta_2`$ | $`Z`$ | Prognostic biomarker effect (both arms) |
 | $`\beta_3`$ | $`ZX`$ | Biomarker $`\times`$ treatment interaction (slope of log-HR for $`Z \leq k`$) |
@@ -239,8 +239,8 @@ and the AHR/CDE definitions below would average over both.
 
 A representative configuration for an oncology biomarker setting:
 
-| Anchor | $`z`$  |        $`\psi^0(z)`$        |    HR    | Interpretation       |
-|:------:|:------:|:---------------------------:|:--------:|:---------------------|
+| Anchor | $`z`$  |        $`\psi^0(z)`$        |       HR | Interpretation       |
+|:------:|:------:|:---------------------------:|---------:|:---------------------|
 |  Low   | $`0`$  |  $`\log(3) \approx 1.10`$   | $`3.00`$ | Strongly detrimental |
 |  Knot  | $`5`$  | $`\log(1.25) \approx 0.22`$ | $`1.25`$ | Modestly detrimental |
 |  High  | $`10`$ | $`\log(0.5) \approx -0.69`$ | $`0.50`$ | Strongly beneficial  |
@@ -469,14 +469,14 @@ The complete pipeline from model specification to estimand computation
 is summarized below.
 
 | Step | Operation | Formula |
-|:--:|----|----|
+|:--:|:---|:---|
 | 1 | Fit Weibull AFT | $`\log T_i = \mu + \mathbf{X}_i'\boldsymbol{\gamma} + \sigma\varepsilon_i`$ |
 | 2 | Hazard-scale transform | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ |
 | 3 | Individual log-hazards | $`\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0`$ |
 | 4 | Individual causal log-HR | $`{\text{loghr\_po}}_i = \theta_i(1) - \theta_i(0)`$ |
 | 5a | AHR (subgroup $`\mathcal{S}`$) | $`\text{AHR}(\mathcal{S}) = \exp\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}}\bigr)`$ |
-| 5b | CDE (subgroup $`\mathcal{S}`$) | $`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_1)}_\mathcal{S}\;/\;\overline{\exp(\theta_0)}_\mathcal{S}`$ |
-| 5c | Marginal HR (subgroup $`\mathcal{S}`$) | $`\exp(\hat\beta_\text{Cox})`$ from stacked potential outcomes |
+| 5b | CDE (subgroup $`\mathcal{S}`$) | $`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_1)}_{\mathcal{S}}\;/\;\overline{\exp(\theta_0)}_{\mathcal{S}}`$ |
+| 5c | Marginal HR (subgroup $`\mathcal{S}`$) | $`\exp(\hat\beta_{\text{Cox}})`$ from stacked potential outcomes |
 
 In ForestSearch, Steps 1–4 are performed by
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
@@ -500,10 +500,10 @@ operations for AHR and CDE.
 The correspondences are:
 
 | This vignette | `treatment_effect_definitions` | `causal_effects_brief_review` |
-|----|----|----|
+|:---|:---|:---|
 | $`\psi^0(z)`$ | `loghr_po` $`= \theta_i(1) - \theta_i(0)`$ | Individual-level AFT causal quantity |
 | $`\text{AHR}(\mathcal{S})`$ | $`\exp(\overline{\text{loghr\_po}}_{\mathcal{S}})`$ | Geometric-mean HR with dual causal status |
-| $`\text{CDE}(\mathcal{S})`$ | $`\overline{\exp(\theta_1)}_\mathcal{S}/\overline{\exp(\theta_0)}_\mathcal{S}`$ | Natural-scale complement to AHR |
+| $`\text{CDE}(\mathcal{S})`$ | $`\overline{\exp(\theta_1)}_{\mathcal{S}}/\overline{\exp(\theta_0)}_{\mathcal{S}}`$ | Natural-scale complement to AHR |
 | $`\beta = -\gamma/\tau`$ | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ | AFT-to-hazard transformation |
 
 ## References

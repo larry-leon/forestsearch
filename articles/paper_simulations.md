@@ -1133,7 +1133,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 8.577 0.143 
+    ## Seconds and minutes forestsearch overall = 8.459 0.141 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1289,7 +1289,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.589 0.1265 
+    ## Seconds and minutes forestsearch overall = 7.276 0.1213 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2144,15 +2144,15 @@ reproducibility information.
 | 30 H1 + 30 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 2.1 | 0.03 | 4.4 |
-| Calibrate k_inter (AHR) | 0.9 | 0.02 | 2.0 |
+| Calibrate k_inter (Cox) | 2.0 | 0.03 | 4.4 |
+| Calibrate k_inter (AHR) | 0.9 | 0.02 | 1.9 |
 | Validate k_inter | 0.2 | 0.00 | 0.4 |
 | DGM creation (H0) | 0.0 | 0.00 | 0.1 |
 | Simulations H1 | 15.7 | 0.26 | 33.6 |
-| Simulations H0 | 13.7 | 0.23 | 29.4 |
+| Simulations H0 | 13.8 | 0.23 | 29.5 |
 | Summarize H1 | 0.0 | 0.00 | 0.1 |
 | Summarize H0 | 0.0 | 0.00 | 0.1 |
-| Total vignette | 46.6 | 0.78 | 100.0 |
+| Total vignette | 46.9 | 0.78 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
