@@ -69,18 +69,31 @@ or "minSG". Default: "hr"}
 \item{stop_Kgroups}{Integer. Maximum number of candidates to evaluate.
 Default: 10}
 
-\item{stop_threshold}{Numeric or NULL. If specified, evaluation stops once
-any subgroup achieves consistency >= stop_threshold. This enables early
-termination when a sufficiently consistent subgroup is found. Default: NULL
-(evaluate all candidates up to stop_Kgroups).
+\item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
+When a candidate subgroup's consistency probability (\code{Pcons})
+meets or exceeds this threshold, evaluation stops early — remaining
+candidates are skipped. Set to \code{NULL} to disable early stopping
+and evaluate all candidates up to \code{stop_Kgroups}. Default: \code{NULL}.
 
-When combined with HR-based sorting (sg_focus = "hr"), this ensures the
-highest-HR subgroup meeting the threshold is identified efficiently.
+\strong{Note:} Values > 1.0 are not permitted. To disable early
+stopping, use \code{stop_threshold = NULL}, not a value above 1.
 
-Note: For parallel execution, early stopping is checked after each batch
+\strong{Interaction with \code{sg_focus}:}
+\describe{
+\item{\code{"hr"}, \code{"maxSG"}, \code{"minSG"}}{Early stopping
+is valid because candidates are sorted by a single criterion.
+The first candidate passing the threshold is optimal under that
+criterion.}
+\item{\code{"hrMaxSG"}, \code{"hrMinSG"}}{Should generally be
+\code{NULL}, because these compound criteria require comparing
+HR \emph{and} size across all candidates. \code{forestsearch()}
+automatically resets to \code{NULL} with a warning for these.}
+}
+
+For parallel execution, early stopping is checked after each batch
 completes, so some additional candidates beyond the first meeting the
-threshold may be evaluated. Use a smaller batch_size in parallel_args
-for finer-grained early stopping.}
+threshold may be evaluated. Use a smaller \code{batch_size} in
+\code{parallel_args} for finer-grained early stopping.}
 
 \item{showten_subgroups}{Logical. If TRUE, prints up to 10 candidate
 subgroups after sorting by sg_focus, showing their rank, HR, sample size,

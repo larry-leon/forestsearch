@@ -147,12 +147,20 @@ splits when \code{use_twostage = TRUE}). Default 1000.}
 
 \item{pconsistency.threshold}{Numeric. Minimum consistency proportion. Default 0.90.}
 
-\item{stop_threshold}{Numeric. Early stopping threshold for consistency
-evaluation. When a candidate subgroup's estimated consistency probability
-exceeds this threshold, evaluation stops early. Default 0.95.
-\strong{Note:} Automatically reset to NULL when \code{sg_focus} is
-"hrMaxSG" or "hrMinSG", as these criteria prioritize hazard ratio in
-selection and require full evaluation of all candidates.}
+\item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
+Early stopping threshold for consistency evaluation. When a candidate
+subgroup's consistency probability (\code{Pcons}) meets or exceeds this
+threshold, evaluation stops early — remaining candidates are skipped.
+Set to \code{NULL} to disable early stopping and force evaluation of
+all candidates up to \code{max_subgroups_search}. Default \code{0.95}.
+
+\strong{Note:} Values > 1.0 are not permitted. To disable early
+stopping, use \code{stop_threshold = NULL}, not a value above 1.
+
+Automatically reset to \code{NULL} (with a warning) when
+\code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, as these
+compound criteria require comparing HR \emph{and} size across all
+candidates.}
 
 \item{showten_subgroups}{Logical. Show top 10 subgroups. Default FALSE.}
 

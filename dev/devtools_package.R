@@ -87,6 +87,20 @@ devtools::install(quick = TRUE)
 
 devtools::install(dependencies = FALSE)
 
+
+# 1. Remove the corrupted installation
+remove.packages("forestsearch")
+# 2. Restart R (Session > Restart R in RStudio, or quit/reopen)
+# 3. Reinstall from source
+pak::pak("larry-leon/forestsearch")
+
+
+# Nuclear option: manually delete the library folder, then reinstall
+#unlink(find.package("forestsearch"), recursive = TRUE)
+# Restart R again, then:
+#pak::pak("larry-leon/forestsearch")
+
+
 # Run these before CRAN submission
 devtools::check(cran = TRUE)     # Full CRAN validation
 
