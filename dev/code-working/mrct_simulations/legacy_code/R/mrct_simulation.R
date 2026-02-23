@@ -47,23 +47,6 @@
 #'   If NULL, automatically extracted from dgm
 #' @param conf_force Character vector. Forced cuts to consider in ForestSearch.
 #'   Default: c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")
-#' @param fs_args Named list. Additional arguments passed directly to
-#'   \code{\link{forestsearch}} inside each simulation replicate. Use this to
-#'   control parameters not exposed by \code{mrct_region_sims} (e.g.,
-#'   \code{use_grf}, \code{use_lasso}, \code{cut_type}, \code{d0.min},
-#'   \code{d1.min}, \code{n.min}, \code{max_subgroups_search},
-#'   \code{use_twostage}, \code{twostage_args}).
-#'   Parameters already in the \code{mrct_region_sims} signature
-#'   (\code{hr.threshold}, \code{hr.consistency}, \code{pconsistency.threshold},
-#'   \code{sg_focus}, \code{maxk}, \code{confounders.name}, \code{conf_force})
-#'   take precedence over values in \code{fs_args}.
-#'   Default: list() (uses forestsearch defaults)
-#' @param sim_args Named list. Additional arguments passed to
-#'   \code{\link{simulate_from_dgm}} inside each replicate (e.g.,
-#'   \code{rand_ratio}, \code{draw_treatment}).
-#'   Parameters already in the \code{mrct_region_sims} signature
-#'   (\code{analysis_time}, \code{cens_adjust}) take precedence.
-#'   Default: list(rand_ratio = 1, draw_treatment = TRUE)
 #' @param analysis_time Numeric. Time of analysis for administrative censoring.
 #'   Default: 60
 #' @param cens_adjust Numeric. Adjustment factor for censoring rate on log scale.
@@ -75,10 +58,6 @@
 #'     \item show_message: Logical for progress messages
 #'   }
 #' @param details Logical. Print detailed progress information. Default: FALSE
-#' @param verbose_n_sims Integer. When \code{details = TRUE}, print full
-#'   ForestSearch diagnostics (including internal output) for only the first
-#'   \code{verbose_n_sims} simulation replicates. Set to 0 to suppress per-sim
-#'   output, or \code{Inf} to print all. Default: 2
 #' @param seed Integer. Base random seed for reproducibility. Default: NULL
 #'
 #' @return A data.table with simulation results containing:
@@ -169,13 +148,10 @@ mrct_region_sims <- function(
     pconsistency.threshold = 0.90,
     confounders.name = NULL,
     conf_force = NULL,
-    fs_args = list(),
-    sim_args = list(rand_ratio = 1, draw_treatment = TRUE),
     analysis_time = 60,
     cens_adjust = 0,
     parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
     details = FALSE,
-    verbose_n_sims = 2L,
     seed = NULL
 ) {
 
@@ -224,25 +200,6 @@ mrct_region_sims <- function(
     conf_force <- c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")
   }
 
-  # Report fs_args and sim_args if details
-  if (details && length(fs_args) > 0) {
-    message("ForestSearch passthrough arguments (fs_args):")
-    for (nm in names(fs_args)) {
-      val <- fs_args[[nm]]
-      if (is.list(val)) {
-        message(sprintf("  %s = <list of length %d>", nm, length(val)))
-      } else {
-        message(sprintf("  %s = %s", nm, paste(val, collapse = ", ")))
-      }
-    }
-  }
-  if (details && length(setdiff(names(sim_args), c("rand_ratio", "draw_treatment"))) > 0) {
-    message("simulate_from_dgm passthrough arguments (sim_args):")
-    for (nm in names(sim_args)) {
-      message(sprintf("  %s = %s", nm, paste(sim_args[[nm]], collapse = ", ")))
-    }
-  }
-
   # ===========================================================================
   # SECTION 3: SETUP PARALLEL PROCESSING
   # ===========================================================================
@@ -285,18 +242,18 @@ mrct_region_sims <- function(
   # SECTION 4: RUN SIMULATIONS
   # ===========================================================================
 
-  # Setup progress handler (safe for callr and other backends)
+  progressr::handlers(global = TRUE)
   progressr::handlers("progress")
 
-  run_foreach <- function() {
+  results <- progressr::with_progress({
     p <- progressr::progressor(along = seq_len(n_sims))
 
     foreach::foreach(
       sim = seq_len(n_sims),
-      .options.future = list(seed = TRUE,
-                             packages = c("survival", "data.table", "forestsearch")),
+      .options.future = list(seed = TRUE),
       .combine = "rbind",
-      .errorhandling = "pass"
+      .errorhandling = "pass",
+      .packages = c("survival", "data.table", "forestsearch")
     ) %dofuture% {
 
       p(sprintf("Simulation %d/%d", sim, n_sims))
@@ -304,19 +261,16 @@ mrct_region_sims <- function(
       # -----------------------------------------------------------------------
       # Simulate data from DGM
       # -----------------------------------------------------------------------
-
-      # Build simulate_from_dgm arguments: sim_args defaults, overridden by
-      # explicit mrct_region_sims parameters
-      sim_call_args <- modifyList(sim_args, list(
+      dfs <- simulate_from_dgm(
         dgm = dgm,
         n = n_sample,
+        rand_ratio = 1,
+        draw_treatment = TRUE,
         entry_var = if ("entrytime" %in% names(dgm$df_super)) "entrytime" else NULL,
         analysis_time = analysis_time,
         cens_adjust = cens_adjust,
         seed = if (!is.null(seed)) seed + sim else NULL
-      ))
-
-      dfs <- do.call(simulate_from_dgm, sim_call_args)
+      )
 
       dfs <- data.table::as.data.table(dfs)
 
@@ -386,10 +340,6 @@ mrct_region_sims <- function(
         df_regA
       )
 
-      # Determine if we should print verbose diagnostics for this simulation
-      # Only print for the first verbose_n_sims replicates to avoid flooding output
-      verbose_fs <- details && (sim <= verbose_n_sims)
-
       # -----------------------------------------------------------------------
       # Run ForestSearch if testing HR is valid
       # -----------------------------------------------------------------------
@@ -399,69 +349,31 @@ mrct_region_sims <- function(
           POhr_sg <- exp(mean(df_regA$loghr_po, na.rm = TRUE))
         }
 
-        # Build forestsearch arguments: fs_args defaults, overridden by
-        # explicit mrct_region_sims parameters
-        fs_base_args <- list(
-          df.analysis = as.data.frame(df_nonRegA),
-          df.test = as.data.frame(df_regA),
-          confounders.name = confounders.name,
-          outcome.name = "y_sim",
-          treat.name = "treat_sim",
-          event.name = "event_sim",
-          id.name = if ("id" %in% names(df_nonRegA)) "id" else NULL,
-          potentialOutcome.name = if ("loghr_po" %in% names(df_nonRegA)) "loghr_po" else NULL,
-          hr.threshold = hr.threshold,
-          hr.consistency = hr.consistency,
-          pconsistency.threshold = pconsistency.threshold,
-          sg_focus = sg_focus,
-          conf_force = conf_force,
-          maxk = maxk,
-          showten_subgroups = verbose_fs,
-          details = verbose_fs,
-          plot.sg = FALSE,
-          parallel_args = list(plan = "sequential")
-        )
-
-        # fs_args provides defaults for anything NOT in fs_base_args
-        # fs_base_args takes precedence (explicit mrct_region_sims params win)
-        fs_call_args <- modifyList(fs_args, fs_base_args)
-
-        if (verbose_fs) {
-          cat("\n===================================================================\n")
-          cat(sprintf("Simulation %d/%d: ForestSearch on training (n=%d), testing (n=%d)\n",
-                      sim, n_sims, n_train, n_test))
-          cat(sprintf("  HR train = %.4f | HR test = %.4f | HR ITT = %.4f\n",
-                      hr_train, hr_test, hr_itt))
-          cat("  Confounders: ", paste(confounders.name, collapse = ", "), "\n")
-          cat("  ForestSearch args: hr.threshold=", hr.threshold,
-              " hr.consistency=", hr.consistency,
-              " pconsistency=", pconsistency.threshold,
-              " sg_focus=", sg_focus,
-              " maxk=", maxk, "\n")
-          # Report fs_args passthrough values
-          fs_extra <- setdiff(names(fs_call_args), names(fs_base_args))
-          if (length(fs_extra) == 0) {
-            fs_extra <- intersect(names(fs_args), names(fs_call_args))
-          }
-          if (length(fs_extra) > 0) {
-            for (nm in fs_extra) {
-              val <- fs_call_args[[nm]]
-              if (!is.list(val)) {
-                cat(sprintf("  (fs_args) %s = %s\n", nm, paste(val, collapse = ", ")))
-              }
-            }
-          }
-          cat("===================================================================\n")
-        }
-
         fs_result <- tryCatch({
-          do.call(forestsearch, fs_call_args)
-        }, error = function(e) {
-          if (verbose_fs) {
-            cat(sprintf("  *** ForestSearch ERROR in sim %d: %s\n", sim, conditionMessage(e)))
-          }
-          NULL
-        })
+          forestsearch(
+            df.analysis = as.data.frame(df_nonRegA),
+            df.test = as.data.frame(df_regA),
+            confounders.name = confounders.name,
+            outcome.name = "y_sim",
+            treat.name = "treat_sim",
+            event.name = "event_sim",
+            id.name = if ("id" %in% names(df_nonRegA)) "id" else NULL,
+            potentialOutcome.name = if ("loghr_po" %in% names(df_nonRegA)) "loghr_po" else NULL,
+            hr.threshold = hr.threshold,
+            hr.consistency = hr.consistency,
+            pconsistency.threshold = pconsistency.threshold,
+            sg_focus = sg_focus,
+            conf_force = conf_force,
+            maxk = maxk,
+            n.min = 60,
+            d0.min = 10,
+            d1.min = 10,
+            showten_subgroups = FALSE,
+            details = FALSE,
+            plot.sg = FALSE,
+            parallel_args = list(plan = "sequential")
+          )
+        }, error = function(e) NULL)
 
         # ---------------------------------------------------------------------
         # Process ForestSearch results
@@ -473,10 +385,6 @@ mrct_region_sims <- function(
             n_sg <- n_test
             hr_sg <- hr_test
             prev_sg <- 1.0
-
-            if (verbose_fs) {
-              cat(sprintf("  Result: No subgroup identified\n"))
-            }
           } else {
             any_found <- 1
             sg_found <- paste(fs_result$sg.harm, collapse = " & ")
@@ -495,19 +403,7 @@ mrct_region_sims <- function(
                 POhr_sg <- exp(mean(df_sg$loghr_po, na.rm = TRUE))
               }
             }
-
-            if (verbose_fs) {
-              cat(sprintf("  Result: Subgroup FOUND = %s\n", sg_found))
-              cat(sprintf("    n_sg = %d (%.1f%% of test) | HR_sg = %.4f | PO_HR = %.4f\n",
-                          n_sg, 100 * prev_sg, hr_sg, POhr_sg))
-            }
           }
-        } else if (verbose_fs) {
-          cat(sprintf("  ForestSearch returned NULL (see error above)\n"))
-        }
-      } else {
-        if (verbose_fs) {
-          cat(sprintf("  Simulation %d: Skipped ForestSearch (hr_test is NA)\n", sim))
         }
       }
 
@@ -531,9 +427,7 @@ mrct_region_sims <- function(
         prev_sg = prev_sg
       )
     }
-  }
-
-  results <- progressr::with_progress(run_foreach())
+  })
 
   # ===========================================================================
   # SECTION 5: POST-PROCESSING

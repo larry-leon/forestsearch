@@ -419,7 +419,7 @@ mrct_region_sims <- function(
           showten_subgroups = verbose_fs,
           details = verbose_fs,
           plot.sg = FALSE,
-          parallel_args = list(plan = "sequential")
+          parallel_args = list(plan = "sequential", workers = 1)
         )
 
         # fs_args provides defaults for anything NOT in fs_base_args

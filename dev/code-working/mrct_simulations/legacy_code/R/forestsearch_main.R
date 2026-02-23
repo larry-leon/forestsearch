@@ -633,48 +633,17 @@ forestsearch <- function(df.analysis,
     )
 
     # Run subgroup consistency analysis with error handling
-    sc_filtered_args <- filter_call_args(
-      args_call_all,
-      subgroup.consistency,
-      consistency_overrides
-    )
-
-    # Diagnostic: detect zero-length arguments that would cause
-    # "argument is of length zero" errors in if() statements
-    sc_zero_len <- names(sc_filtered_args)[
-      vapply(sc_filtered_args, function(x) length(x) == 0 && !is.null(x), logical(1))
-    ]
-    if (length(sc_zero_len) > 0) {
-      warning("Zero-length arguments passed to subgroup.consistency: ",
-              paste(sc_zero_len, collapse = ", "))
-      if (details) {
-        cat("*** DIAGNOSTIC: Zero-length args for subgroup.consistency:\n")
-        for (zarg in sc_zero_len) {
-          cat("    ", zarg, " = ", deparse(sc_filtered_args[[zarg]]), "\n")
-        }
-      }
-    }
-
     grp.consistency <- tryCatch({
-      do.call(subgroup.consistency, sc_filtered_args)
+      do.call(
+        subgroup.consistency,
+        filter_call_args(
+          args_call_all,
+          subgroup.consistency,
+          consistency_overrides
+        )
+      )
     }, error = function(e) {
       warning("Error in subgroup.consistency: ", e$message)
-      if (details) {
-        cat("*** subgroup.consistency error traceback:\n")
-        cat("    Message: ", e$message, "\n")
-        cat("    Arg names: ", paste(names(sc_filtered_args), collapse = ", "), "\n")
-        # Report lengths of key arguments
-        sc_key_args <- c("df", "hr.subgroups", "Lsg", "confs_labels",
-                         "sg_focus", "stop_Kgroups", "parallel_args")
-        for (ka in intersect(sc_key_args, names(sc_filtered_args))) {
-          val <- sc_filtered_args[[ka]]
-          if (is.data.frame(val)) {
-            cat("    ", ka, ": data.frame [", nrow(val), " x ", ncol(val), "]\n")
-          } else {
-            cat("    ", ka, ": length=", length(val), " class=", class(val)[1], "\n")
-          }
-        }
-      }
       return(NULL)
     })
 

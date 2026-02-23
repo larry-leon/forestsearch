@@ -16,10 +16,13 @@ mrct_region_sims(
   pconsistency.threshold = 0.9,
   confounders.name = NULL,
   conf_force = NULL,
+  fs_args = list(),
+  sim_args = list(rand_ratio = 1, draw_treatment = TRUE),
   analysis_time = 60,
   cens_adjust = 0,
   parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
   details = FALSE,
+  verbose_n_sims = 2L,
   seed = NULL
 )
 }
@@ -56,6 +59,25 @@ If NULL, automatically extracted from dgm}
 \item{conf_force}{Character vector. Forced cuts to consider in ForestSearch.
 Default: c("z_age <= 65", "z_bm <= 0", "z_bm <= 1", "z_bm <= 2", "z_bm <= 5")}
 
+\item{fs_args}{Named list. Additional arguments passed directly to
+\code{\link{forestsearch}} inside each simulation replicate. Use this to
+control parameters not exposed by \code{mrct_region_sims} (e.g.,
+\code{use_grf}, \code{use_lasso}, \code{cut_type}, \code{d0.min},
+\code{d1.min}, \code{n.min}, \code{max_subgroups_search},
+\code{use_twostage}, \code{twostage_args}).
+Parameters already in the \code{mrct_region_sims} signature
+(\code{hr.threshold}, \code{hr.consistency}, \code{pconsistency.threshold},
+\code{sg_focus}, \code{maxk}, \code{confounders.name}, \code{conf_force})
+take precedence over values in \code{fs_args}.
+Default: list() (uses forestsearch defaults)}
+
+\item{sim_args}{Named list. Additional arguments passed to
+\code{\link{simulate_from_dgm}} inside each replicate (e.g.,
+\code{rand_ratio}, \code{draw_treatment}).
+Parameters already in the \code{mrct_region_sims} signature
+(\code{analysis_time}, \code{cens_adjust}) take precedence.
+Default: list(rand_ratio = 1, draw_treatment = TRUE)}
+
 \item{analysis_time}{Numeric. Time of analysis for administrative censoring.
 Default: 60}
 
@@ -70,6 +92,11 @@ Default: 0}
 }}
 
 \item{details}{Logical. Print detailed progress information. Default: FALSE}
+
+\item{verbose_n_sims}{Integer. When \code{details = TRUE}, print full
+ForestSearch diagnostics (including internal output) for only the first
+\code{verbose_n_sims} simulation replicates. Set to 0 to suppress per-sim
+output, or \code{Inf} to print all. Default: 2}
 
 \item{seed}{Integer. Base random seed for reproducibility. Default: NULL}
 }

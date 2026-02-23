@@ -92,6 +92,7 @@ devtools::install(dependencies = FALSE)
 remove.packages("forestsearch")
 # 2. Restart R (Session > Restart R in RStudio, or quit/reopen)
 # 3. Reinstall from source
+library(pak)
 pak::pak("larry-leon/forestsearch")
 
 
