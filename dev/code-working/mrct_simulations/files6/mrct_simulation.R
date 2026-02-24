@@ -94,12 +94,9 @@
 #'   \item{any_found}{Indicator: 1 if subgroup identified, 0 otherwise}
 #'   \item{sg_found}{Character description of identified subgroup}
 #'   \item{n_sg}{Subgroup sample size}
-#'   \item{hr_sg}{Subgroup hazard ratio in testing population}
-#'   \item{POhr_sg}{Potential outcome hazard ratio in subgroup (testing)}
+#'   \item{hr_sg}{Subgroup hazard ratio}
+#'   \item{POhr_sg}{Potential outcome hazard ratio in subgroup}
 #'   \item{prev_sg}{Subgroup prevalence (proportion of testing population)}
-#'   \item{n_sg_train}{Subgroup sample size in training population}
-#'   \item{hr_sg_train}{Subgroup hazard ratio in training population}
-#'   \item{POhr_sg_train}{Potential outcome hazard ratio in subgroup (training)}
 #'   \item{hr_sg_null}{Subgroup HR when found, NA otherwise}
 #' }
 #'
@@ -382,9 +379,6 @@ mrct_region_sims <- function(
       hr_sg <- NA_real_
       prev_sg <- 1.0
       POhr_sg <- NA_real_
-      n_sg_train <- n_train
-      hr_sg_train <- NA_real_
-      POhr_sg_train <- NA_real_
 
       # Testing region HR
       hr_test <- safe_coxph(
@@ -486,9 +480,6 @@ mrct_region_sims <- function(
             n_sg <- n_test
             hr_sg <- hr_test
             prev_sg <- 1.0
-            n_sg_train <- n_train
-            hr_sg_train <- hr_train
-            POhr_sg_train <- NA_real_
 
             if (verbose_fs) {
               cat(sprintf("  Result: No subgroup identified\n"))
@@ -497,7 +488,6 @@ mrct_region_sims <- function(
             any_found <- 1
             sg_found <- paste(fs_result$sg.harm, collapse = " & ")
 
-            # --- Testing sample subgroup metrics ---
             df_test <- fs_result$df.test
             if (!is.null(df_test) && "treat.recommend" %in% names(df_test)) {
               df_sg <- df_test[df_test$treat.recommend == 1, ]
@@ -513,27 +503,10 @@ mrct_region_sims <- function(
               }
             }
 
-            # --- Training sample subgroup metrics ---
-            df_est <- fs_result$df.est
-            if (!is.null(df_est) && "treat.recommend" %in% names(df_est)) {
-              df_sg_train <- df_est[df_est$treat.recommend == 1, ]
-              n_sg_train <- nrow(df_sg_train)
-              hr_sg_train <- safe_coxph(
-                survival::Surv(y_sim, event_sim) ~ treat_sim,
-                df_sg_train
-              )
-
-              if ("loghr_po" %in% names(df_sg_train)) {
-                POhr_sg_train <- exp(mean(df_sg_train$loghr_po, na.rm = TRUE))
-              }
-            }
-
             if (verbose_fs) {
               cat(sprintf("  Result: Subgroup FOUND = %s\n", sg_found))
-              cat(sprintf("    Testing:  n_sg = %d (%.1f%%) | HR_sg = %.4f | PO_HR = %.4f\n",
+              cat(sprintf("    n_sg = %d (%.1f%% of test) | HR_sg = %.4f | PO_HR = %.4f\n",
                           n_sg, 100 * prev_sg, hr_sg, POhr_sg))
-              cat(sprintf("    Training: n_sg = %d | HR_sg = %.4f | PO_HR = %.4f\n",
-                          n_sg_train, hr_sg_train, POhr_sg_train))
             }
           }
         } else if (verbose_fs) {
@@ -562,10 +535,7 @@ mrct_region_sims <- function(
         n_sg = n_sg,
         hr_sg = hr_sg,
         POhr_sg = POhr_sg,
-        prev_sg = prev_sg,
-        n_sg_train = n_sg_train,
-        hr_sg_train = hr_sg_train,
-        POhr_sg_train = POhr_sg_train
+        prev_sg = prev_sg
       )
     }
   }
@@ -1164,9 +1134,6 @@ summaryout_mrct <- function(
   # ---------------------------------------------------------------------------
   n_sims <- nrow(mrct_sims)
 
-  # Check if training subgroup columns exist (added in version _5)
-  has_train_sg <- "hr_sg_train" %in% names(mrct_sims)
-
   summary_rows <- list(
     # HR Estimates
     data.frame(Category = "HR Estimates", Metric = "HR ITT",
@@ -1174,25 +1141,12 @@ summaryout_mrct <- function(
     data.frame(Category = "", Metric = "HR ITT (stratified by region)",
                Value = fmt_mean_sd(mrct_sims$hr_ittX), stringsAsFactors = FALSE),
     data.frame(Category = "", Metric = "HR Training (non-Region A)",
-               Value = fmt_mean_sd(mrct_sims$hr_train), stringsAsFactors = FALSE)
-  )
-
-  # Training subgroup rows (only when results contain these columns)
-  if (has_train_sg) {
-    summary_rows <- c(summary_rows, list(
-      data.frame(Category = "", Metric = "HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$hr_sg_train), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "PO HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$POhr_sg_train), stringsAsFactors = FALSE)
-    ))
-  }
-
-  summary_rows <- c(summary_rows, list(
+               Value = fmt_mean_sd(mrct_sims$hr_train), stringsAsFactors = FALSE),
     data.frame(Category = "", Metric = "HR Testing (Region A)",
                Value = fmt_mean_sd(mrct_sims$hr_test), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "HR Subgroup (Testing)",
+    data.frame(Category = "", Metric = "HR Subgroup",
                Value = fmt_mean_sd(mrct_sims$hr_sg), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "PO HR Subgroup (Testing)",
+    data.frame(Category = "", Metric = "PO HR Subgroup",
                Value = fmt_mean_sd(mrct_sims$POhr_sg), stringsAsFactors = FALSE),
 
     # Subgroup Identification
@@ -1213,7 +1167,7 @@ summaryout_mrct <- function(
     data.frame(Category = "", Metric = "RegA > 0.9 & RegA(sg) <= 0.80",
                Value = fmt_cat(mrct_sims$regAflag3, "RegA > 0.9 & RegA(sg) <= 0.80"),
                stringsAsFactors = FALSE)
-  ))
+  )
 
   # Subgroup classification rows
   sg_class_rows <- list(

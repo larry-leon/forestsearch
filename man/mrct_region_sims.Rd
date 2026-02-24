@@ -114,9 +114,12 @@ A data.table with simulation results containing:
 \item{any_found}{Indicator: 1 if subgroup identified, 0 otherwise}
 \item{sg_found}{Character description of identified subgroup}
 \item{n_sg}{Subgroup sample size}
-\item{hr_sg}{Subgroup hazard ratio}
-\item{POhr_sg}{Potential outcome hazard ratio in subgroup}
+\item{hr_sg}{Subgroup hazard ratio in testing population}
+\item{POhr_sg}{Potential outcome hazard ratio in subgroup (testing)}
 \item{prev_sg}{Subgroup prevalence (proportion of testing population)}
+\item{n_sg_train}{Subgroup sample size in training population}
+\item{hr_sg_train}{Subgroup hazard ratio in training population}
+\item{POhr_sg_train}{Potential outcome hazard ratio in subgroup (training)}
 \item{hr_sg_null}{Subgroup HR when found, NA otherwise}
 }
 }

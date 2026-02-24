@@ -1164,9 +1164,6 @@ summaryout_mrct <- function(
   # ---------------------------------------------------------------------------
   n_sims <- nrow(mrct_sims)
 
-  # Check if training subgroup columns exist (added in version _5)
-  has_train_sg <- "hr_sg_train" %in% names(mrct_sims)
-
   summary_rows <- list(
     # HR Estimates
     data.frame(Category = "HR Estimates", Metric = "HR ITT",
@@ -1174,20 +1171,11 @@ summaryout_mrct <- function(
     data.frame(Category = "", Metric = "HR ITT (stratified by region)",
                Value = fmt_mean_sd(mrct_sims$hr_ittX), stringsAsFactors = FALSE),
     data.frame(Category = "", Metric = "HR Training (non-Region A)",
-               Value = fmt_mean_sd(mrct_sims$hr_train), stringsAsFactors = FALSE)
-  )
-
-  # Training subgroup rows (only when results contain these columns)
-  if (has_train_sg) {
-    summary_rows <- c(summary_rows, list(
-      data.frame(Category = "", Metric = "HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$hr_sg_train), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "PO HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$POhr_sg_train), stringsAsFactors = FALSE)
-    ))
-  }
-
-  summary_rows <- c(summary_rows, list(
+               Value = fmt_mean_sd(mrct_sims$hr_train), stringsAsFactors = FALSE),
+    data.frame(Category = "", Metric = "HR Subgroup (Training)",
+               Value = fmt_mean_sd(mrct_sims$hr_sg_train), stringsAsFactors = FALSE),
+    data.frame(Category = "", Metric = "PO HR Subgroup (Training)",
+               Value = fmt_mean_sd(mrct_sims$POhr_sg_train), stringsAsFactors = FALSE),
     data.frame(Category = "", Metric = "HR Testing (Region A)",
                Value = fmt_mean_sd(mrct_sims$hr_test), stringsAsFactors = FALSE),
     data.frame(Category = "", Metric = "HR Subgroup (Testing)",
@@ -1213,7 +1201,7 @@ summaryout_mrct <- function(
     data.frame(Category = "", Metric = "RegA > 0.9 & RegA(sg) <= 0.80",
                Value = fmt_cat(mrct_sims$regAflag3, "RegA > 0.9 & RegA(sg) <= 0.80"),
                stringsAsFactors = FALSE)
-  ))
+  )
 
   # Subgroup classification rows
   sg_class_rows <- list(

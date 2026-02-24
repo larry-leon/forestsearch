@@ -230,12 +230,11 @@ utils::globalVariables(c(
   "Estimator",
 
 # ============================================================================
-# MRCT simulation variables (from mrct_simulation.R, plot_sg_distribution.R)
+# MRCT simulation variables (from mrct_simulation.R)
 # ============================================================================
   "sim",
   "hr_test",
   "any_found", "sg_found", "hr_sg_null",
-  "hr_sg_train", "POhr_sg_train", "n_sg_train",
   "regAflag", "sg_le85", "regAflag2", "regAflag3",
   "found",
   "sg_biomarker", "sg_age", "sg_male", "sg_ecog",
@@ -243,7 +242,6 @@ utils::globalVariables(c(
   "sg_surgery", "sg_prior_treat",
   "est",
   "region_var", "z_regA",
-  "sg_label", "count", "bar_label",
 
 # ============================================================================
 # gg_forest() — ggplot2 aes() column names
