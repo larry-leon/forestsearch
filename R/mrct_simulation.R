@@ -975,6 +975,116 @@ create_dgm_for_mrct <- function(
 }
 
 
+
+
+# =============================================================================
+# Visualization Function
+# =============================================================================
+
+#' Violin/Boxplot Visualization of HR Estimates
+#'
+#' Creates violin plots with embedded boxplots showing the distribution of
+#' hazard ratio estimates across simulations for different analysis populations.
+#'
+#' @param df data.frame or data.table. Simulation results from
+#'   \code{\link{mrct_region_sims}}
+#' @param label_training Character. Label for training data estimates.
+#'   Default: "Training"
+#' @param label_testing Character. Label for testing data estimates.
+#'   Default: "Testing"
+#' @param label_itt Character. Label for ITT estimates.
+#'   Default: "ITT (stratified)"
+#' @param label_sg Character. Label for subgroup estimates.
+#'   Default: "Testing (subgroup)"
+#'
+#' @return List with components:
+#' \describe{
+#'   \item{dfPlot_estimates}{data.table formatted for plotting}
+#'   \item{plot_estimates}{ggplot2 object}
+#' }
+#'
+#' @examples
+#' \dontrun{
+#' # After running simulations
+#' plot_results <- SGplot_estimates(
+#'   results_alt,
+#'   label_training = "Non-Region A, ITT",
+#'   label_itt = "Overall, ITT",
+#'   label_testing = "Region A, ITT",
+#'   label_sg = "Region A, identified subgroup"
+#' )
+#' print(plot_results$plot_estimates)
+#' }
+#'
+#' @seealso \code{\link{mrct_region_sims}} for generating simulation results
+#'
+#' @importFrom data.table data.table
+#' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline
+#'   scale_fill_brewer labs theme_minimal theme element_text
+#' @export
+
+SGplot_estimates <- function(
+    df,
+    label_training = "Training",
+    label_testing = "Testing",
+    label_itt = "ITT (stratified)",
+    label_sg = "Testing (subgroup)"
+) {
+
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("Package 'ggplot2' required for plotting. Please install it.")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Prepare data for plotting
+  # ---------------------------------------------------------------------------
+  df_itt <- data.table::data.table(est = df$hr_itt, analysis = label_itt)
+  df_training <- data.table::data.table(est = df$hr_train, analysis = label_training)
+  df_testing <- data.table::data.table(est = df$hr_test, analysis = label_testing)
+  df_sg <- data.table::data.table(est = df$hr_sg, analysis = label_sg)
+
+  hr_estimates <- rbind(df_itt, df_training, df_testing, df_sg)
+
+  # Set factor order
+  est_order <- c(label_itt, label_training, label_testing, label_sg)
+  hr_estimates[, analysis := factor(analysis, levels = est_order)]
+
+  # ---------------------------------------------------------------------------
+  # Create plot
+  # ---------------------------------------------------------------------------
+  p <- ggplot2::ggplot(hr_estimates, ggplot2::aes(x = analysis, y = est, fill = analysis)) +
+    ggplot2::geom_violin(trim = FALSE, alpha = 0.7) +
+    ggplot2::geom_boxplot(width = 0.15, fill = "white", alpha = 0.8) +
+    ggplot2::geom_hline(yintercept = 1.0, linetype = "dashed", color = "red", alpha = 0.7) +
+    ggplot2::scale_fill_brewer(palette = "Set2") +
+    ggplot2::labs(
+      x = "Analysis Population",
+      y = "Hazard Ratio Estimate",
+      title = "Distribution of HR Estimates Across Simulations"
+    ) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      legend.position = "none",
+      axis.text.x = ggplot2::element_text(angle = 15, hjust = 1),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+
+  return(list(dfPlot_estimates = hr_estimates, plot_estimates = p))
+}
+
+
+# =============================================================================
+# Helper Function: Null Coalescing Operator
+# =============================================================================
+
+# Null Coalescing Operator (internal helper, no documentation generated)
+# Returns the left-hand side if not NULL, otherwise returns the right-hand side.
+# @noRd
+null_or <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
+
 #' Summary Tables for MRCT Simulation Results
 #'
 #' Creates summary tables from MRCT simulation results using the gt package.
@@ -994,11 +1104,8 @@ create_dgm_for_mrct <- function(
 #'   Default: \code{c("Alternative", "Null")}.
 #' @param pop_summary_null List. Population summary for the null scenario
 #'   (optional). Default: NULL
-#' @param sg_type Integer. Type of subgroup summary:
-#'   \itemize{
-#'     \item 1: Basic summary (found, biomarker, age)
-#'     \item 2: Extended summary (all subgroup types)
-#'   }
+#' @param sg_type Integer. Type of subgroup summary: 1 = basic summary
+#'   (found, biomarker, age); 2 = extended summary (all subgroup types).
 #'   Default: 1
 #' @param tab_caption Character. Caption for the output table.
 #'   Default: "Identified subgroups and estimation summaries"
@@ -1011,19 +1118,22 @@ create_dgm_for_mrct <- function(
 #'   added to the table. Set to \code{NULL} to disable trimming entirely.
 #'   Default: 1000.
 #' @param trim_fraction Numeric between 0 and 0.5. Fraction of observations to
-#'   trim from each tail when trimming is triggered. Default: 0.01 (1\% from
-#'   each tail, i.e., the central 98\% of values).
+#'   trim from each tail when trimming is triggered. Default: 0.01 (1 percent
+#'   from each tail, i.e., the central 98 percent of values).
+#' @param table_width Numeric. Total table width in pixels. Column widths are
+#'   allocated proportionally. Increase for HTML/wide displays (e.g., 750),
+#'   decrease for beamer slides (e.g., 550). Default: 600.
 #' @param showtable Logical. Print the table. Default: TRUE
 #'
 #' @return List with components:
 #' \describe{
-#'   \item{res}{List of summary statistics from population (if provided).
-#'     When dual-scenario, contains \code{res_alt} and \code{res_null}.}
-#'   \item{out_table}{Formatted gt table object (or data.frame if gt
-#'     unavailable)}
-#'   \item{data}{Processed mrct_sims data.table with derived variables (first
-#'     scenario). When dual-scenario, also contains \code{data_null}.}
-#'   \item{summary_df}{Data frame of computed summary statistics}
+#'   \item{res}{List of summary statistics from population. When
+#'     dual-scenario, contains \code{res_alt} and \code{res_null}.}
+#'   \item{out_table}{Formatted gt table object, or data.frame if gt
+#'     is unavailable.}
+#'   \item{data}{Processed mrct_sims data.table with derived variables.
+#'     When dual-scenario, also contains \code{data_null}.}
+#'   \item{summary_df}{Data frame of computed summary statistics.}
 #' }
 #'
 #' @examples
@@ -1070,10 +1180,29 @@ summaryout_mrct <- function(
     digits = 3,
     trim_threshold = 1000,
     trim_fraction = 0.01,
+    table_width = 600,
     showtable = TRUE
 ) {
 
   dual <- !is.null(mrct_sims_null)
+
+  # ---------------------------------------------------------------------------
+  # Column width allocation (proportional to table_width)
+  # Dual:   Category 20% | Metric 33% | Alt 23.5% | Null 23.5%
+
+  # Single: Category 25% | Metric 43% | Value 32%
+  # ---------------------------------------------------------------------------
+  if (dual) {
+    w_cat  <- round(table_width * 0.200)
+    w_met  <- round(table_width * 0.333)
+    w_val  <- round((table_width - w_cat - w_met) / 2)
+    w_val2 <- w_val
+  } else {
+    w_cat  <- round(table_width * 0.255)
+    w_met  <- round(table_width * 0.425)
+    w_val  <- table_width - w_cat - w_met
+    w_val2 <- w_val
+  }
 
   # Track whether any trimming occurred (for footnote)
   trimmed_any <- FALSE
@@ -1383,6 +1512,9 @@ summaryout_mrct <- function(
   # Build gt table
   # ---------------------------------------------------------------------------
 
+  # Pre-compute column widths as named list (applied outside pipe)
+  # Pipe chains capture formula environments where local vars can be invisible
+
   out_table <- gt::gt(summary_df)
 
   if (dual) {
@@ -1404,16 +1536,18 @@ summaryout_mrct <- function(
         Value_Alt  = scenario_labels[1],
         Value_Null = scenario_labels[2]
       ) |>
-      gt::cols_width(
-        Category   ~ gt::px(180),
-        Metric     ~ gt::px(250),
-        Value_Alt  ~ gt::px(180),
-        Value_Null ~ gt::px(180)
-      ) |>
       gt::tab_spanner(
         label   = gt::md("**Scenario**"),
         columns = c("Value_Alt", "Value_Null")
       )
+
+    out_table <- eval(bquote(gt::cols_width(
+      out_table,
+      Category   ~ gt::px(.(w_cat)),
+      Metric     ~ gt::px(.(w_met)),
+      Value_Alt  ~ gt::px(.(w_val)),
+      Value_Null ~ gt::px(.(w_val2))
+    )))
 
   } else {
     # --- Single-scenario table (backward-compatible) ---
@@ -1426,12 +1560,14 @@ summaryout_mrct <- function(
         Category = "Category",
         Metric   = "Metric",
         Value    = "Mean (SD) / N (%)"
-      ) |>
-      gt::cols_width(
-        Category ~ gt::px(180),
-        Metric   ~ gt::px(250),
-        Value    ~ gt::px(180)
       )
+
+    out_table <- eval(bquote(gt::cols_width(
+      out_table,
+      Category ~ gt::px(.(w_cat)),
+      Metric   ~ gt::px(.(w_met)),
+      Value    ~ gt::px(.(w_val))
+    )))
   }
 
   # --- Shared styling ---
@@ -1452,9 +1588,10 @@ summaryout_mrct <- function(
       locations = gt::cells_body()
     ) |>
     gt::tab_options(
-      table.font.size            = gt::px(12),
-      heading.title.font.size    = gt::px(14),
-      heading.subtitle.font.size = gt::px(12),
+      table.font.size            = gt::px(11),
+      table.width                = gt::pct(100),
+      heading.title.font.size    = gt::px(13),
+      heading.subtitle.font.size = gt::px(11),
       column_labels.font.weight  = "bold"
     )
 
@@ -1503,110 +1640,4 @@ summaryout_mrct <- function(
     data       = mrct_alt,
     summary_df = summary_df
   ))
-}
-# =============================================================================
-# Visualization Function
-# =============================================================================
-
-#' Violin/Boxplot Visualization of HR Estimates
-#'
-#' Creates violin plots with embedded boxplots showing the distribution of
-#' hazard ratio estimates across simulations for different analysis populations.
-#'
-#' @param df data.frame or data.table. Simulation results from
-#'   \code{\link{mrct_region_sims}}
-#' @param label_training Character. Label for training data estimates.
-#'   Default: "Training"
-#' @param label_testing Character. Label for testing data estimates.
-#'   Default: "Testing"
-#' @param label_itt Character. Label for ITT estimates.
-#'   Default: "ITT (stratified)"
-#' @param label_sg Character. Label for subgroup estimates.
-#'   Default: "Testing (subgroup)"
-#'
-#' @return List with components:
-#' \describe{
-#'   \item{dfPlot_estimates}{data.table formatted for plotting}
-#'   \item{plot_estimates}{ggplot2 object}
-#' }
-#'
-#' @examples
-#' \dontrun{
-#' # After running simulations
-#' plot_results <- SGplot_estimates(
-#'   results_alt,
-#'   label_training = "Non-Region A, ITT",
-#'   label_itt = "Overall, ITT",
-#'   label_testing = "Region A, ITT",
-#'   label_sg = "Region A, identified subgroup"
-#' )
-#' print(plot_results$plot_estimates)
-#' }
-#'
-#' @seealso \code{\link{mrct_region_sims}} for generating simulation results
-#'
-#' @importFrom data.table data.table
-#' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline
-#'   scale_fill_brewer labs theme_minimal theme element_text
-#' @export
-
-SGplot_estimates <- function(
-    df,
-    label_training = "Training",
-    label_testing = "Testing",
-    label_itt = "ITT (stratified)",
-    label_sg = "Testing (subgroup)"
-) {
-
-  if (!requireNamespace("ggplot2", quietly = TRUE)) {
-    stop("Package 'ggplot2' required for plotting. Please install it.")
-  }
-
-  # ---------------------------------------------------------------------------
-  # Prepare data for plotting
-  # ---------------------------------------------------------------------------
-  df_itt <- data.table::data.table(est = df$hr_itt, analysis = label_itt)
-  df_training <- data.table::data.table(est = df$hr_train, analysis = label_training)
-  df_testing <- data.table::data.table(est = df$hr_test, analysis = label_testing)
-  df_sg <- data.table::data.table(est = df$hr_sg, analysis = label_sg)
-
-  hr_estimates <- rbind(df_itt, df_training, df_testing, df_sg)
-
-  # Set factor order
-  est_order <- c(label_itt, label_training, label_testing, label_sg)
-  hr_estimates[, analysis := factor(analysis, levels = est_order)]
-
-  # ---------------------------------------------------------------------------
-  # Create plot
-  # ---------------------------------------------------------------------------
-  p <- ggplot2::ggplot(hr_estimates, ggplot2::aes(x = analysis, y = est, fill = analysis)) +
-    ggplot2::geom_violin(trim = FALSE, alpha = 0.7) +
-    ggplot2::geom_boxplot(width = 0.15, fill = "white", alpha = 0.8) +
-    ggplot2::geom_hline(yintercept = 1.0, linetype = "dashed", color = "red", alpha = 0.7) +
-    ggplot2::scale_fill_brewer(palette = "Set2") +
-    ggplot2::labs(
-      x = "Analysis Population",
-      y = "Hazard Ratio Estimate",
-      title = "Distribution of HR Estimates Across Simulations"
-    ) +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(
-      legend.position = "none",
-      axis.text.x = ggplot2::element_text(angle = 15, hjust = 1),
-      panel.grid.minor = ggplot2::element_blank()
-    )
-
-  return(list(dfPlot_estimates = hr_estimates, plot_estimates = p))
-}
-
-
-# =============================================================================
-# Helper Function: Null Coalescing Operator
-# =============================================================================
-
-# Null Coalescing Operator (internal helper, no documentation generated)
-# Returns the left-hand side if not NULL, otherwise returns the right-hand side.
-# @noRd
-null_or <- function(x, y) {
-  if (is.null(x)) y else x
 }

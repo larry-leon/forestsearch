@@ -88,6 +88,11 @@ devtools::install(quick = TRUE)
 devtools::install(dependencies = FALSE)
 
 
+# In RStudio, from the forestsearch project directory:
+devtools::clean_dll()
+devtools::document()
+devtools::install(upgrade = "never")
+
 # 1. Remove the corrupted installation
 remove.packages("forestsearch")
 # 2. Restart R (Session > Restart R in RStudio, or quit/reopen)

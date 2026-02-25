@@ -15,6 +15,7 @@ summaryout_mrct(
   digits = 3,
   trim_threshold = 1000,
   trim_fraction = 0.01,
+  table_width = 600,
   showtable = TRUE
 )
 }
@@ -36,11 +37,8 @@ Default: \code{c("Alternative", "Null")}.}
 \item{pop_summary_null}{List. Population summary for the null scenario
 (optional). Default: NULL}
 
-\item{sg_type}{Integer. Type of subgroup summary:
-\itemize{
-\item 1: Basic summary (found, biomarker, age)
-\item 2: Extended summary (all subgroup types)
-}
+\item{sg_type}{Integer. Type of subgroup summary: 1 = basic summary
+(found, biomarker, age); 2 = extended summary (all subgroup types).
 Default: 1}
 
 \item{tab_caption}{Character. Caption for the output table.
@@ -57,21 +55,25 @@ added to the table. Set to \code{NULL} to disable trimming entirely.
 Default: 1000.}
 
 \item{trim_fraction}{Numeric between 0 and 0.5. Fraction of observations to
-trim from each tail when trimming is triggered. Default: 0.01 (1\\% from
-each tail, i.e., the central 98\\% of values).}
+trim from each tail when trimming is triggered. Default: 0.01 (1 percent
+from each tail, i.e., the central 98 percent of values).}
+
+\item{table_width}{Numeric. Total table width in pixels. Column widths are
+allocated proportionally. Increase for HTML/wide displays (e.g., 750),
+decrease for beamer slides (e.g., 550). Default: 600.}
 
 \item{showtable}{Logical. Print the table. Default: TRUE}
 }
 \value{
 List with components:
 \describe{
-\item{res}{List of summary statistics from population (if provided).
-When dual-scenario, contains \code{res_alt} and \code{res_null}.}
-\item{out_table}{Formatted gt table object (or data.frame if gt
-unavailable)}
-\item{data}{Processed mrct_sims data.table with derived variables (first
-scenario). When dual-scenario, also contains \code{data_null}.}
-\item{summary_df}{Data frame of computed summary statistics}
+\item{res}{List of summary statistics from population. When
+dual-scenario, contains \code{res_alt} and \code{res_null}.}
+\item{out_table}{Formatted gt table object, or data.frame if gt
+is unavailable.}
+\item{data}{Processed mrct_sims data.table with derived variables.
+When dual-scenario, also contains \code{data_null}.}
+\item{summary_df}{Data frame of computed summary statistics.}
 }
 }
 \description{
