@@ -241,9 +241,6 @@ subgroup.consistency <- function(df,
 
   if (!is.null(seed)) {
     set.seed(seed)
-    if (details) {
-      cat("Random seed set to:", seed, "\n")
-    }
   }
 
   # ===========================================================================
@@ -276,14 +273,6 @@ subgroup.consistency <- function(df,
     se_screen <- sqrt(pconsistency.threshold * (1 - pconsistency.threshold) /
                         ts_params$n.splits.screen)
     ts_params$screen.threshold <- max(0.5, pconsistency.threshold - 2.5 * se_screen)
-  }
-
-  if (details && use_twostage) {
-    cat("Two-stage parameters:\n")
-    cat("  n.splits.screen:", ts_params$n.splits.screen, "\n")
-    cat("  screen.threshold:", round(ts_params$screen.threshold, 3), "\n")
-    cat("  batch.size:", ts_params$batch.size, "\n")
-    cat("  conf.level:", ts_params$conf.level, "\n")
   }
 
   # ===========================================================================

@@ -327,12 +327,6 @@ forestsearch <- function(df.analysis,
         "To suppress this warning, pass stop_threshold = NULL explicitly.",
         call. = FALSE
       )
-    } else if (details) {
-      cat(
-        "Note: stop_threshold reset to NULL for sg_focus = '", sg_focus,
-        "' (requires full evaluation).\n\n",
-        sep = ""
-      )
     }
 
     stop_threshold <- NULL
@@ -354,16 +348,6 @@ forestsearch <- function(df.analysis,
     }
   }
 
-  if (details && use_twostage) {
-    cat("\n=== Two-Stage Consistency Evaluation Enabled ===\n")
-    cat("Stage 1 screening splits:",
-        ifelse(is.null(twostage_args$n.splits.screen), 30, twostage_args$n.splits.screen), "\n")
-    cat("Maximum total splits:", fs.splits, "\n")
-    cat("Batch size:",
-        ifelse(is.null(twostage_args$batch.size), 20, twostage_args$batch.size), "\n")
-    cat("================================================\n\n")
-  }
-
   # ===========================================================================
   # SECTION 3: INITIALIZE TIMING AND DATA
   # ===========================================================================
@@ -379,12 +363,6 @@ forestsearch <- function(df.analysis,
 
   # If using grf and cuts not already populated, run grf.subg.harm.survival
   if (use_grf && (is.null(grf_res) || is.null(grf_res$tree.cuts))) {
-    if (details) {
-      cat("GRF stage for cut selection with dmin, tau =", c(dmin.grf, frac.tau), "\n")
-      if (return_selected_cuts_only) {
-        cat("  return_selected_cuts_only = TRUE: using cuts from selected tree only\n")
-      }
-    }
 
     grf_res <- tryCatch(
       grf.subg.harm.survival(
@@ -398,7 +376,7 @@ forestsearch <- function(df.analysis,
         n.min = n.min,
         dmin.grf = dmin.grf,
         RCT = is.RCT,
-        details = details,
+        details = FALSE,
         maxdepth = grf_depth,
         seedit = seedit,
         return_selected_cuts_only = return_selected_cuts_only
@@ -414,12 +392,17 @@ forestsearch <- function(df.analysis,
       grf_cuts <- grf_res$tree.cuts
 
       if (details) {
+        # Concise GRF summary: subgroup found + cuts
+        grf_sg <- grf_res$sg.harm.id
+        if (!is.null(grf_sg) && length(grf_sg) > 0 &&
+            !all(is.na(grf_sg)) && !all(grf_sg == "")) {
+          cat("GRF subgroup:", paste(grf_sg, collapse = " & "), "\n")
+        } else {
+          cat("GRF: no subgroup identified\n")
+        }
         cat("GRF cuts identified:", length(grf_cuts), "\n")
         if (length(grf_cuts) > 0) {
           cat("  Cuts:", paste(grf_cuts, collapse = ", "), "\n")
-        }
-        if (!is.null(grf_res$selected_depth)) {
-          cat("  Selected tree depth:", grf_res$selected_depth, "\n")
         }
       }
 
@@ -450,7 +433,8 @@ forestsearch <- function(df.analysis,
       filter_call_args(
         args_call_all,
         get_FSdata,
-        list(df.analysis = df.analysis, grf_cuts = grf_cuts)
+        list(df.analysis = df.analysis, grf_cuts = grf_cuts,
+             details = FALSE)
       )
     ),
     error = function(e) {
@@ -469,12 +453,27 @@ forestsearch <- function(df.analysis,
   lassokeep <- FSdata$lassokeep
   df <- FSdata$df
 
+  # Concise LASSO summary
+  if (details && use_lasso) {
+    n_kept <- length(lassokeep)
+    n_total <- n_kept + length(lassoomit)
+    cat("Cox-LASSO selected:", n_kept, "of", n_total, "candidate factors\n")
+    if (length(lassoomit) > 0) {
+      cat("  Omitted:", paste(lassoomit, collapse = ", "), "\n")
+    }
+  }
+
   Y <- df[, outcome.name]
   Event <- df[, event.name]
   Treat <- df[, treat.name]
 
   FSconfounders.name <- FSdata$confs_names
   confs_labels <- FSdata$confs
+
+  if (details) {
+    cat("Candidate factors:", length(confs_labels), "\n")
+    print(confs_labels)
+  }
 
   if (is.null(df.predict)) df.predict <- df
 
@@ -641,9 +640,11 @@ forestsearch <- function(df.analysis,
 
     # Diagnostic: detect zero-length arguments that would cause
     # "argument is of length zero" errors in if() statements
+    # Exclude twostage_args and parallel_args: empty list() is valid (use defaults)
     sc_zero_len <- names(sc_filtered_args)[
       vapply(sc_filtered_args, function(x) length(x) == 0 && !is.null(x), logical(1))
     ]
+    sc_zero_len <- setdiff(sc_zero_len, c("twostage_args", "parallel_args"))
     if (length(sc_zero_len) > 0) {
       warning("Zero-length arguments passed to subgroup.consistency: ",
               paste(sc_zero_len, collapse = ", "))
@@ -703,6 +704,10 @@ forestsearch <- function(df.analysis,
 
     if (!is.null(grp.consistency) && !is.null(grp.consistency$sg.harm)) {
       sg.harm <- grp.consistency$sg.harm
+
+      if (details) {
+        cat("Subgroup identified:", paste(sg.harm, collapse = " & "), "\n")
+      }
 
       # Extract prediction datasets
       temp <- grp.consistency$df_flag
