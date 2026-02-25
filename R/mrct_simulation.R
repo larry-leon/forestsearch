@@ -1085,6 +1085,8 @@ null_or <- function(x, y) {
 }
 
 
+
+
 #' Summary Tables for MRCT Simulation Results
 #'
 #' Creates summary tables from MRCT simulation results using the gt package.
@@ -1593,7 +1595,7 @@ summaryout_mrct <- function(
     ) |>
     gt::tab_options(
       table.font.size            = gt::px(font_size),
-      table.width                = gt::pct(100),
+      table.align                = "center",
       heading.title.font.size    = gt::px(font_size + 2),
       heading.subtitle.font.size = gt::px(font_size),
       column_labels.font.weight  = "bold"
@@ -1645,3 +1647,4 @@ summaryout_mrct <- function(
     summary_df = summary_df
   ))
 }
+
