@@ -1123,6 +1123,9 @@ null_or <- function(x, y) {
 #' @param table_width Numeric. Total table width in pixels. Column widths are
 #'   allocated proportionally. Increase for HTML/wide displays (e.g., 750),
 #'   decrease for beamer slides (e.g., 550). Default: 600.
+#' @param font_size Numeric. Base font size in pixels. Title is
+#'   \code{font_size + 2}, subtitle matches base. Reduce for beamer
+#'   (e.g., 9 or 10). Default: 11.
 #' @param showtable Logical. Print the table. Default: TRUE
 #'
 #' @return List with components:
@@ -1181,6 +1184,7 @@ summaryout_mrct <- function(
     trim_threshold = 1000,
     trim_fraction = 0.01,
     table_width = 600,
+    font_size = 11,
     showtable = TRUE
 ) {
 
@@ -1588,10 +1592,10 @@ summaryout_mrct <- function(
       locations = gt::cells_body()
     ) |>
     gt::tab_options(
-      table.font.size            = gt::px(11),
+      table.font.size            = gt::px(font_size),
       table.width                = gt::pct(100),
-      heading.title.font.size    = gt::px(13),
-      heading.subtitle.font.size = gt::px(11),
+      heading.title.font.size    = gt::px(font_size + 2),
+      heading.subtitle.font.size = gt::px(font_size),
       column_labels.font.weight  = "bold"
     )
 
