@@ -43,6 +43,9 @@
 #'   no model fitting. See \code{\link{generate_aft_dgm_flex}} for the required
 #'   \code{cens_params} structure under each combination of
 #'   \code{select_censoring} and \code{cens_type}.
+#' @param verbose Logical. If \code{TRUE} (default), prints the censoring
+#'   model comparison table and recommendation. Set to \code{FALSE} to
+#'   suppress all censoring model selection output.
 #'
 #' @return A named list:
 #' \describe{
@@ -59,7 +62,8 @@ prepare_censoring_model <- function(df_work,
                                     cens_type,
                                     cens_params,
                                     df_super,
-                                    select_censoring = TRUE) {
+                                    select_censoring = TRUE,
+                                    verbose = TRUE) {
 
   cens_model <- NULL
 
@@ -160,7 +164,7 @@ prepare_censoring_model <- function(df_work,
     comparison <- compare_multiple_survreg(
       fit_cens1, fit_cens2, fit_cens3, fit_cens4,
       model_names = c("Weibull", "LogNormal", "Weibull0", "LogNormal0"),
-      verbose = TRUE
+      verbose = verbose
     )
 
     fit_cens   <- get_best_survreg(comparison)

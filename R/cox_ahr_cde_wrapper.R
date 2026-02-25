@@ -6,7 +6,8 @@
 # Average Hazard Ratios (AHRs) and Controlled Direct Effects (CDEs).
 #
 # Key features:
-#   - plot_select: "all" (full grid) or "profile_ahr" (compact two-panel)
+#   - plot_select: "all" (full grid), "profile_ahr" (compact two-panel),
+#     or "ahr_only" (single AHR panel)
 #   - hr_threshold = NULL: pure visualization without subgroup cutpoint
 #
 # =============================================================================
@@ -47,7 +48,9 @@
 #'   \code{"all"} (default) shows the full grid layout; \code{"profile_ahr"}
 #'   shows only the treatment effect profile (top-left) and the AHR curve
 #'   for \eqn{z \geq} threshold (top-middle) side by side, with the AHR
-#'   panel's y-axis scaled to the data range.
+#'   panel's y-axis scaled to the data range; \code{"ahr_only"} shows only
+#'   the AHR curve for \eqn{z \geq} threshold as a single panel with
+#'   self-contained y-axis.
 #' @param save_plots Logical whether to save plots to file. Default: FALSE.
 #' @param output_dir Character directory for saving plots. Default:
 #'   \code{"plots"}.
@@ -85,6 +88,13 @@
 #'   hr_threshold = NULL,
 #'   plot_select = "profile_ahr"
 #' )
+#'
+#' # Single AHR panel only
+#' results <- cox_ahr_cde_analysis(
+#'   df = df_large, z_name = "z_bm",
+#'   hr_threshold = 1.25,
+#'   plot_select = "ahr_only"
+#' )
 #' }
 #'
 #' @importFrom survival coxph Surv
@@ -108,7 +118,7 @@ cox_ahr_cde_analysis <- function(
     alpha = 0.20,
     hr_threshold = 0.7,
     plot_style = c("combined", "separate", "grid"),
-    plot_select = c("all", "profile_ahr"),
+    plot_select = c("all", "profile_ahr", "ahr_only"),
     save_plots = FALSE,
     output_dir = "plots",
     verbose = TRUE
@@ -465,6 +475,43 @@ cox_ahr_cde_analysis <- function(
            col = pl$col, lwd = pl$lwd, cex = 0.7, bty = "n")
 
     # --- Panel 2: AHR (z >= threshold) — self-contained y-axis ---
+    ylim_components <- c(ahr_curve_pos, 1)
+    if (has_cde && !is.null(cde_curve_pos)) {
+      ylim_components <- c(ylim_components, cde_curve_pos)
+    }
+    if (has_threshold) {
+      ylim_components <- c(ylim_components, hr_threshold)
+    }
+    ylim_ahr <- range(ylim_components, na.rm = TRUE)
+    ylim_pad <- diff(ylim_ahr) * 0.05
+    ylim_ahr <- ylim_ahr + c(-ylim_pad, ylim_pad)
+
+    plot(z_grid, ahr_curve_pos,
+         type = "l", lwd = 2, col = "darkgreen",
+         xlab = paste(z_name, "threshold"),
+         ylab = "AHR",
+         main = paste("AHR for", z_name, ">= threshold"),
+         ylim = ylim_ahr)
+
+    abline(h = 1, lty = 2, col = "gray")
+    .add_threshold_lines()
+
+    if (has_cde && !is.null(cde_curve_pos)) {
+      lines(z_grid, cde_curve_pos, lwd = 2, col = "purple", lty = 2)
+    }
+
+    al <- .ahr_legend()
+    legend("topright", legend = al$legend, lty = al$lty,
+           col = al$col, lwd = al$lwd, cex = 0.7, bty = "n")
+
+  } else if (plot_select == "ahr_only") {
+    # ===================================================================
+    # plot_select == "ahr_only": single AHR (z>=) panel
+    # ===================================================================
+
+    par(mfrow = c(1, 1), mar = c(4, 4, 3, 2))
+
+    # Self-contained y-axis from data
     ylim_components <- c(ahr_curve_pos, 1)
     if (has_cde && !is.null(cde_curve_pos)) {
       ylim_components <- c(ylim_components, cde_curve_pos)

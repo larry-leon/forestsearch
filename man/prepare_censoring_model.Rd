@@ -9,7 +9,8 @@ prepare_censoring_model(
   cens_type,
   cens_params,
   df_super,
-  select_censoring = TRUE
+  select_censoring = TRUE,
+  verbose = TRUE
 )
 }
 \arguments{
@@ -28,6 +29,10 @@ model comparison. If \code{FALSE}, uses \code{cens_params} directly with
 no model fitting. See \code{\link{generate_aft_dgm_flex}} for the required
 \code{cens_params} structure under each combination of
 \code{select_censoring} and \code{cens_type}.}
+
+\item{verbose}{Logical. If \code{TRUE} (default), prints the censoring
+model comparison table and recommendation. Set to \code{FALSE} to
+suppress all censoring model selection output.}
 }
 \value{
 A named list:

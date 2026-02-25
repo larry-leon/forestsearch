@@ -269,7 +269,8 @@ generate_aft_dgm_flex <- function(data,
     cens_type        = cens_type,
     cens_params      = cens_params,
     df_super         = df_super,
-    select_censoring = select_censoring
+    select_censoring = select_censoring,
+    verbose          = verbose
   )
   cens_model <- cens_result$cens_model
   df_super   <- cens_result$df_super

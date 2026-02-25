@@ -17,7 +17,7 @@ cox_ahr_cde_analysis(
   alpha = 0.2,
   hr_threshold = 0.7,
   plot_style = c("combined", "separate", "grid"),
-  plot_select = c("all", "profile_ahr"),
+  plot_select = c("all", "profile_ahr", "ahr_only"),
   save_plots = FALSE,
   output_dir = "plots",
   verbose = TRUE
@@ -65,7 +65,9 @@ report only the overall population. Default: 0.7.}
 \code{"all"} (default) shows the full grid layout; \code{"profile_ahr"}
 shows only the treatment effect profile (top-left) and the AHR curve
 for \eqn{z \geq} threshold (top-middle) side by side, with the AHR
-panel's y-axis scaled to the data range.}
+panel's y-axis scaled to the data range; \code{"ahr_only"} shows only
+the AHR curve for \eqn{z \geq} threshold as a single panel with
+self-contained y-axis.}
 
 \item{save_plots}{Logical whether to save plots to file. Default: FALSE.}
 
@@ -111,6 +113,13 @@ results <- cox_ahr_cde_analysis(
   df = df_large, z_name = "z_bm",
   hr_threshold = NULL,
   plot_select = "profile_ahr"
+)
+
+# Single AHR panel only
+results <- cox_ahr_cde_analysis(
+  df = df_large, z_name = "z_bm",
+  hr_threshold = 1.25,
+  plot_select = "ahr_only"
 )
 }
 
