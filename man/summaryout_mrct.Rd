@@ -7,9 +7,14 @@
 summaryout_mrct(
   pop_summary = NULL,
   mrct_sims,
+  mrct_sims_null = NULL,
+  scenario_labels = c("Alternative", "Null"),
+  pop_summary_null = NULL,
   sg_type = 1,
   tab_caption = "Identified subgroups and estimation summaries",
   digits = 3,
+  trim_threshold = 1000,
+  trim_fraction = 0.01,
   showtable = TRUE
 )
 }
@@ -17,7 +22,19 @@ summaryout_mrct(
 \item{pop_summary}{List. Population summary from large sample approximation
 (optional). Default: NULL}
 
-\item{mrct_sims}{data.table. Simulation results from \code{\link{mrct_region_sims}}}
+\item{mrct_sims}{data.table. Simulation results from
+\code{\link{mrct_region_sims}} (first / primary scenario).}
+
+\item{mrct_sims_null}{data.table. Optional second set of simulation results
+(e.g., null hypothesis). When supplied, the table displays two value
+columns side by side. Default: NULL (single-scenario table).}
+
+\item{scenario_labels}{Character vector of length 2. Column headers for the
+two scenarios. Only used when \code{mrct_sims_null} is supplied.
+Default: \code{c("Alternative", "Null")}.}
+
+\item{pop_summary_null}{List. Population summary for the null scenario
+(optional). Default: NULL}
 
 \item{sg_type}{Integer. Type of subgroup summary:
 \itemize{
@@ -32,30 +49,59 @@ Default: "Identified subgroups and estimation summaries"}
 \item{digits}{Integer. Number of decimal places for numeric summaries.
 Default: 3}
 
+\item{trim_threshold}{Numeric. When the raw mean of a metric exceeds this
+value in absolute terms, the summary switches to a symmetrically trimmed
+mean and SD (excluding the lower and upper \code{trim_fraction} of
+observations). Trimmed values are marked with \code{*} and a footnote is
+added to the table. Set to \code{NULL} to disable trimming entirely.
+Default: 1000.}
+
+\item{trim_fraction}{Numeric between 0 and 0.5. Fraction of observations to
+trim from each tail when trimming is triggered. Default: 0.01 (1\\% from
+each tail, i.e., the central 98\\% of values).}
+
 \item{showtable}{Logical. Print the table. Default: TRUE}
 }
 \value{
 List with components:
 \describe{
-\item{res}{List of summary statistics from population (if provided)}
-\item{out_table}{Formatted gt table object (or data.frame if gt unavailable)}
-\item{data}{Processed mrct_sims data.table with derived variables}
+\item{res}{List of summary statistics from population (if provided).
+When dual-scenario, contains \code{res_alt} and \code{res_null}.}
+\item{out_table}{Formatted gt table object (or data.frame if gt
+unavailable)}
+\item{data}{Processed mrct_sims data.table with derived variables (first
+scenario). When dual-scenario, also contains \code{data_null}.}
 \item{summary_df}{Data frame of computed summary statistics}
 }
 }
 \description{
 Creates summary tables from MRCT simulation results using the gt package.
 Summarizes hazard ratio estimates, subgroup identification rates, and
-classification of identified subgroups.
+classification of identified subgroups. Optionally displays two scenarios
+(e.g., alternative and null hypotheses) side by side.
 }
 \examples{
 \dontrun{
-# After running simulations
-summary_results <- summaryout_mrct(
-  pop_summary = NULL,
+# Single scenario (backward-compatible)
+summaryout_mrct(
   mrct_sims = results_alt,
-  sg_type = 1,
-  tab_caption = "Subgroups under strong biomarker effect"
+  tab_caption = "H1: Heterogeneous treatment effect"
+)
+
+# Dual scenario: alternative vs null side-by-side
+summaryout_mrct(
+  mrct_sims = results_alt,
+  mrct_sims_null = results_null,
+  scenario_labels = c("Alternative (HTE)", "Null (uniform)"),
+  tab_caption = "Operating characteristics: Alternative vs Null"
+)
+
+# Custom trimming: 2\% from each tail when mean > 500
+summaryout_mrct(
+  mrct_sims = results_alt,
+  mrct_sims_null = results_null,
+  trim_threshold = 500,
+  trim_fraction = 0.02
 )
 }
 

@@ -975,19 +975,25 @@ create_dgm_for_mrct <- function(
 }
 
 
-# =============================================================================
-# Summary Output Function
-# =============================================================================
-
 #' Summary Tables for MRCT Simulation Results
 #'
 #' Creates summary tables from MRCT simulation results using the gt package.
 #' Summarizes hazard ratio estimates, subgroup identification rates, and
-#' classification of identified subgroups.
+#' classification of identified subgroups. Optionally displays two scenarios
+#' (e.g., alternative and null hypotheses) side by side.
 #'
 #' @param pop_summary List. Population summary from large sample approximation
 #'   (optional). Default: NULL
-#' @param mrct_sims data.table. Simulation results from \code{\link{mrct_region_sims}}
+#' @param mrct_sims data.table. Simulation results from
+#'   \code{\link{mrct_region_sims}} (first / primary scenario).
+#' @param mrct_sims_null data.table. Optional second set of simulation results
+#'   (e.g., null hypothesis). When supplied, the table displays two value
+#'   columns side by side. Default: NULL (single-scenario table).
+#' @param scenario_labels Character vector of length 2. Column headers for the
+#'   two scenarios. Only used when \code{mrct_sims_null} is supplied.
+#'   Default: \code{c("Alternative", "Null")}.
+#' @param pop_summary_null List. Population summary for the null scenario
+#'   (optional). Default: NULL
 #' @param sg_type Integer. Type of subgroup summary:
 #'   \itemize{
 #'     \item 1: Basic summary (found, biomarker, age)
@@ -998,24 +1004,50 @@ create_dgm_for_mrct <- function(
 #'   Default: "Identified subgroups and estimation summaries"
 #' @param digits Integer. Number of decimal places for numeric summaries.
 #'   Default: 3
+#' @param trim_threshold Numeric. When the raw mean of a metric exceeds this
+#'   value in absolute terms, the summary switches to a symmetrically trimmed
+#'   mean and SD (excluding the lower and upper \code{trim_fraction} of
+#'   observations). Trimmed values are marked with \code{*} and a footnote is
+#'   added to the table. Set to \code{NULL} to disable trimming entirely.
+#'   Default: 1000.
+#' @param trim_fraction Numeric between 0 and 0.5. Fraction of observations to
+#'   trim from each tail when trimming is triggered. Default: 0.01 (1\% from
+#'   each tail, i.e., the central 98\% of values).
 #' @param showtable Logical. Print the table. Default: TRUE
 #'
 #' @return List with components:
 #' \describe{
-#'   \item{res}{List of summary statistics from population (if provided)}
-#'   \item{out_table}{Formatted gt table object (or data.frame if gt unavailable)}
-#'   \item{data}{Processed mrct_sims data.table with derived variables}
+#'   \item{res}{List of summary statistics from population (if provided).
+#'     When dual-scenario, contains \code{res_alt} and \code{res_null}.}
+#'   \item{out_table}{Formatted gt table object (or data.frame if gt
+#'     unavailable)}
+#'   \item{data}{Processed mrct_sims data.table with derived variables (first
+#'     scenario). When dual-scenario, also contains \code{data_null}.}
 #'   \item{summary_df}{Data frame of computed summary statistics}
 #' }
 #'
 #' @examples
 #' \dontrun{
-#' # After running simulations
-#' summary_results <- summaryout_mrct(
-#'   pop_summary = NULL,
+#' # Single scenario (backward-compatible)
+#' summaryout_mrct(
 #'   mrct_sims = results_alt,
-#'   sg_type = 1,
-#'   tab_caption = "Subgroups under strong biomarker effect"
+#'   tab_caption = "H1: Heterogeneous treatment effect"
+#' )
+#'
+#' # Dual scenario: alternative vs null side-by-side
+#' summaryout_mrct(
+#'   mrct_sims = results_alt,
+#'   mrct_sims_null = results_null,
+#'   scenario_labels = c("Alternative (HTE)", "Null (uniform)"),
+#'   tab_caption = "Operating characteristics: Alternative vs Null"
+#' )
+#'
+#' # Custom trimming: 2% from each tail when mean > 500
+#' summaryout_mrct(
+#'   mrct_sims = results_alt,
+#'   mrct_sims_null = results_null,
+#'   trim_threshold = 500,
+#'   trim_fraction = 0.02
 #' )
 #' }
 #'
@@ -1023,123 +1055,54 @@ create_dgm_for_mrct <- function(
 #'
 #' @importFrom data.table as.data.table copy fifelse `:=`
 #' @importFrom stats median sd quantile
-#' @importFrom gt gt tab_header tab_style cell_text cell_borders cells_body
-#'   tab_source_note cols_label cols_width tab_options px
+#' @importFrom gt gt tab_header tab_spanner tab_style cell_text cell_borders
+#'   cells_body tab_source_note cols_label cols_width tab_options px md
 #' @export
 
 summaryout_mrct <- function(
     pop_summary = NULL,
     mrct_sims,
+    mrct_sims_null = NULL,
+    scenario_labels = c("Alternative", "Null"),
+    pop_summary_null = NULL,
     sg_type = 1,
     tab_caption = "Identified subgroups and estimation summaries",
     digits = 3,
+    trim_threshold = 1000,
+    trim_fraction = 0.01,
     showtable = TRUE
 ) {
 
- # Ensure data.table
-  mrct_sims <- data.table::as.data.table(data.table::copy(mrct_sims))
+  dual <- !is.null(mrct_sims_null)
 
-  res <- list()
+  # Track whether any trimming occurred (for footnote)
+  trimmed_any <- FALSE
 
-  # ---------------------------------------------------------------------------
-  # Process population summary if provided
-  # ---------------------------------------------------------------------------
-  if (!is.null(pop_summary)) {
-    res$ahr_true <- round(null_or(pop_summary$AHR, NA), 4)
-    res$ahr_unadj <- round(null_or(pop_summary$ITT_unadj, NA), 4)
-    res$ahr_sR <- round(null_or(pop_summary$ITT_sR, NA), 4)
-    res$ahr_sRw <- round(null_or(pop_summary$ITT_sRw, NA), 4)
+  # ===========================================================================
+  # Helper formatters (shared across scenarios)
+  # ===========================================================================
 
-    if (!is.na(res$ahr_true) && res$ahr_true != 0) {
-      res$bias_unadj <- round(100 * (res$ahr_unadj - res$ahr_true) / res$ahr_true, 1)
-      res$bias_sR <- round(100 * (res$ahr_sR - res$ahr_true) / res$ahr_true, 1)
-      res$bias_sRw <- round(100 * (res$ahr_sRw - res$ahr_true) / res$ahr_true, 1)
-    }
-
-    res$ahr_w1 <- round(null_or(pop_summary$W_1, NA), 4)
-    if (!is.na(res$ahr_true) && res$ahr_true != 0 && !is.na(res$ahr_w1)) {
-      res$bias_w1 <- round(100 * (res$ahr_w1 - res$ahr_true) / res$ahr_true, 1)
-    }
-  }
-
-  # ---------------------------------------------------------------------------
-  # Create derived variables
-  # ---------------------------------------------------------------------------
-  mrct_sims[, `:=`(
-    regAflag = data.table::fifelse(hr_test > 0.9, "RegA > 0.9", "RegA <= 0.9"),
-    sg_le85 = data.table::fifelse(hr_sg <= 0.85, "RegA(sg) <= 0.85", "RegA(sg) > 0.85"),
-    regAflag2 = data.table::fifelse(
-      hr_test > 0.9 & hr_sg <= 0.85,
-      "RegA > 0.9 & RegA(sg) <= 0.85", "Not"
-    ),
-    regAflag3 = data.table::fifelse(
-      hr_test > 0.9 & hr_sg <= 0.80,
-      "RegA > 0.9 & RegA(sg) <= 0.80", "Not"
-    ),
-    found = as.factor(any_found)
-  )]
-
-  # ---------------------------------------------------------------------------
-  # Classify subgroups by factor type
-  # ---------------------------------------------------------------------------
-  mrct_sims[, `:=`(
-    sg_biomarker = data.table::fifelse(
-      grepl("bm|biomarker", sg_found, ignore.case = TRUE),
-      "biomarker",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_age = data.table::fifelse(
-      grepl("age", sg_found, ignore.case = TRUE),
-      "age",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_male = data.table::fifelse(
-      grepl("male|sex|gender", sg_found, ignore.case = TRUE),
-      "sex",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_ecog = data.table::fifelse(
-      grepl("ecog", sg_found, ignore.case = TRUE),
-      "ecog",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_histology = data.table::fifelse(
-      grepl("histology", sg_found, ignore.case = TRUE),
-      "histology",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_CTregimen = data.table::fifelse(
-      grepl("CTregimen|chemo", sg_found, ignore.case = TRUE),
-      "CT_regimen",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_region = data.table::fifelse(
-      grepl("region|EU", sg_found, ignore.case = TRUE),
-      "region",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_surgery = data.table::fifelse(
-      grepl("surgery", sg_found, ignore.case = TRUE),
-      "surgery",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    ),
-    sg_prior_treat = data.table::fifelse(
-      grepl("prior_treat", sg_found, ignore.case = TRUE),
-      "prior_treat",
-      data.table::fifelse(sg_found != "none", "other", "none")
-    )
-  )]
-
-  # ---------------------------------------------------------------------------
-  # Helper function to format mean (SD)
-  # ---------------------------------------------------------------------------
   fmt_mean_sd <- function(x, d = digits) {
     x <- x[!is.na(x)]
     if (length(x) == 0) return("--")
-    sprintf("%.*f (%.*f)", d, mean(x), d, stats::sd(x))
+
+    raw_mean <- mean(x)
+
+    if (!is.null(trim_threshold) && abs(raw_mean) > trim_threshold) {
+      # Apply symmetric trimming
+      lo <- stats::quantile(x, trim_fraction)
+      hi <- stats::quantile(x, 1 - trim_fraction)
+      x_trim <- x[x >= lo & x <= hi]
+
+      if (length(x_trim) < 3) return("--")
+
+      trimmed_any <<- TRUE
+      sprintf("%.*f (%.*f)*", d, mean(x_trim), d, stats::sd(x_trim))
+    } else {
+      sprintf("%.*f (%.*f)", d, mean(x), d, stats::sd(x))
+    }
   }
 
-  # Helper function to format median [IQR]
   fmt_median_iqr <- function(x, d = digits) {
     x <- x[!is.na(x)]
     if (length(x) == 0) return("--")
@@ -1147,164 +1110,400 @@ summaryout_mrct <- function(
     sprintf("%.*f [%.*f, %.*f]", d, q[2], d, q[1], d, q[3])
   }
 
-  # Helper function for proportion
   fmt_prop <- function(x) {
     sprintf("%.1f%%", 100 * mean(x, na.rm = TRUE))
   }
 
-  # Helper for category counts
   fmt_cat <- function(x, level) {
     n <- sum(x == level, na.rm = TRUE)
     pct <- 100 * n / length(x)
     sprintf("%d (%.1f%%)", n, pct)
   }
 
-  # ---------------------------------------------------------------------------
-  # Build summary data frame
-  # ---------------------------------------------------------------------------
-  n_sims <- nrow(mrct_sims)
+  # ===========================================================================
+  # Process population summary
+  # ===========================================================================
 
-  # Check if training subgroup columns exist (added in version _5)
-  has_train_sg <- "hr_sg_train" %in% names(mrct_sims)
+  process_pop_summary <- function(ps) {
+    res <- list()
+    if (!is.null(ps)) {
+      res$ahr_true  <- round(null_or(ps$AHR, NA), 4)
+      res$ahr_unadj <- round(null_or(ps$ITT_unadj, NA), 4)
+      res$ahr_sR    <- round(null_or(ps$ITT_sR, NA), 4)
+      res$ahr_sRw   <- round(null_or(ps$ITT_sRw, NA), 4)
+      res$ahr_w1    <- round(null_or(ps$W_1, NA), 4)
 
-  summary_rows <- list(
-    # HR Estimates
-    data.frame(Category = "HR Estimates", Metric = "HR ITT",
-               Value = fmt_mean_sd(mrct_sims$hr_itt), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "HR ITT (stratified by region)",
-               Value = fmt_mean_sd(mrct_sims$hr_ittX), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "HR Training (non-Region A)",
-               Value = fmt_mean_sd(mrct_sims$hr_train), stringsAsFactors = FALSE)
-  )
-
-  # Training subgroup rows (only when results contain these columns)
-  if (has_train_sg) {
-    summary_rows <- c(summary_rows, list(
-      data.frame(Category = "", Metric = "HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$hr_sg_train), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "PO HR Subgroup (Training)",
-                 Value = fmt_mean_sd(mrct_sims$POhr_sg_train), stringsAsFactors = FALSE)
-    ))
+      if (!is.na(res$ahr_true) && res$ahr_true != 0) {
+        res$bias_unadj <- round(
+          100 * (res$ahr_unadj - res$ahr_true) / res$ahr_true, 1
+        )
+        res$bias_sR <- round(
+          100 * (res$ahr_sR - res$ahr_true) / res$ahr_true, 1
+        )
+        res$bias_sRw <- round(
+          100 * (res$ahr_sRw - res$ahr_true) / res$ahr_true, 1
+        )
+        if (!is.na(res$ahr_w1)) {
+          res$bias_w1 <- round(
+            100 * (res$ahr_w1 - res$ahr_true) / res$ahr_true, 1
+          )
+        }
+      }
+    }
+    res
   }
 
-  summary_rows <- c(summary_rows, list(
-    data.frame(Category = "", Metric = "HR Testing (Region A)",
-               Value = fmt_mean_sd(mrct_sims$hr_test), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "HR Subgroup (Testing)",
-               Value = fmt_mean_sd(mrct_sims$hr_sg), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "PO HR Subgroup (Testing)",
-               Value = fmt_mean_sd(mrct_sims$POhr_sg), stringsAsFactors = FALSE),
+  # ===========================================================================
+  # Prepare a single scenario's data.table (derived vars + classification)
+  # ===========================================================================
 
-    # Subgroup Identification
-    data.frame(Category = "Subgroup Identification", Metric = "Subgroup Found",
-               Value = fmt_prop(mrct_sims$any_found), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "Prevalence (when found)",
-               Value = fmt_mean_sd(mrct_sims$prev_sg[mrct_sims$any_found == 1]),
-               stringsAsFactors = FALSE),
+  prepare_scenario <- function(dt) {
+    dt <- data.table::as.data.table(data.table::copy(dt))
 
-    # Region A Flags
-    data.frame(Category = "Region A Classification", Metric = "RegA HR > 0.9",
-               Value = fmt_cat(mrct_sims$regAflag, "RegA > 0.9"), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "RegA(sg) HR <= 0.85",
-               Value = fmt_cat(mrct_sims$sg_le85, "RegA(sg) <= 0.85"), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "RegA > 0.9 & RegA(sg) <= 0.85",
-               Value = fmt_cat(mrct_sims$regAflag2, "RegA > 0.9 & RegA(sg) <= 0.85"),
-               stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "RegA > 0.9 & RegA(sg) <= 0.80",
-               Value = fmt_cat(mrct_sims$regAflag3, "RegA > 0.9 & RegA(sg) <= 0.80"),
+    # Derived variables
+    dt[, `:=`(
+      regAflag = data.table::fifelse(
+        hr_test > 0.9, "RegA > 0.9", "RegA <= 0.9"
+      ),
+      sg_le85 = data.table::fifelse(
+        hr_sg <= 0.85, "RegA(sg) <= 0.85", "RegA(sg) > 0.85"
+      ),
+      regAflag2 = data.table::fifelse(
+        hr_test > 0.9 & hr_sg <= 0.85,
+        "RegA > 0.9 & RegA(sg) <= 0.85", "Not"
+      ),
+      regAflag3 = data.table::fifelse(
+        hr_test > 0.9 & hr_sg <= 0.80,
+        "RegA > 0.9 & RegA(sg) <= 0.80", "Not"
+      ),
+      found = as.factor(any_found)
+    )]
+
+    # Classify subgroups by factor type
+    dt[, `:=`(
+      sg_biomarker = data.table::fifelse(
+        grepl("bm|biomarker", sg_found, ignore.case = TRUE),
+        "biomarker",
+        data.table::fifelse(sg_found != "none", "other", "none")
+      ),
+      sg_age = data.table::fifelse(
+        grepl("age", sg_found, ignore.case = TRUE), "age", "not_age"
+      )
+    )]
+
+    # Extended classification for sg_type == 2
+    if (sg_type == 2) {
+      dt[, `:=`(
+        sg_male = data.table::fifelse(
+          grepl("male|sex", sg_found, ignore.case = TRUE), "sex", "not_sex"
+        ),
+        sg_ecog = data.table::fifelse(
+          grepl("ecog", sg_found, ignore.case = TRUE), "ecog", "not_ecog"
+        ),
+        sg_histology = data.table::fifelse(
+          grepl("histol", sg_found, ignore.case = TRUE),
+          "histology", "not_histology"
+        ),
+        sg_CTregimen = data.table::fifelse(
+          grepl("CT|regimen", sg_found, ignore.case = TRUE),
+          "CT_regimen", "not_CT_regimen"
+        ),
+        sg_region = data.table::fifelse(
+          grepl("reg|region", sg_found, ignore.case = TRUE),
+          "region", "not_region"
+        ),
+        sg_surgery = data.table::fifelse(
+          grepl("surg", sg_found, ignore.case = TRUE),
+          "surgery", "not_surgery"
+        ),
+        sg_prior_treat = data.table::fifelse(
+          grepl("prior", sg_found, ignore.case = TRUE),
+          "prior_treat", "not_prior_treat"
+        )
+      )]
+    }
+
+    dt
+  }
+
+  # ===========================================================================
+  # Build summary value vector for one scenario
+  # ===========================================================================
+
+  build_values <- function(dt) {
+    vals <- c(
+      # HR Estimates
+      fmt_mean_sd(dt$hr_itt),
+      fmt_mean_sd(dt$hr_ittX),
+      fmt_mean_sd(dt$hr_train),
+      fmt_mean_sd(dt$hr_test),
+      fmt_mean_sd(dt$hr_sg),
+      fmt_mean_sd(dt$POhr_sg),
+
+      # Subgroup Identification
+      fmt_prop(dt$any_found),
+      fmt_mean_sd(dt$prev_sg[dt$any_found == 1]),
+
+      # Region A Classification
+      fmt_cat(dt$regAflag, "RegA > 0.9"),
+      fmt_cat(dt$sg_le85, "RegA(sg) <= 0.85"),
+      fmt_cat(dt$regAflag2, "RegA > 0.9 & RegA(sg) <= 0.85"),
+      fmt_cat(dt$regAflag3, "RegA > 0.9 & RegA(sg) <= 0.80"),
+
+      # Subgroup Classification (basic)
+      fmt_cat(dt$sg_biomarker, "biomarker"),
+      fmt_cat(dt$sg_age, "age")
+    )
+
+    # Extended classification for sg_type == 2
+    if (sg_type == 2) {
+      vals <- c(vals,
+                fmt_cat(dt$sg_male, "sex"),
+                fmt_cat(dt$sg_ecog, "ecog"),
+                fmt_cat(dt$sg_histology, "histology"),
+                fmt_cat(dt$sg_CTregimen, "CT_regimen"),
+                fmt_cat(dt$sg_region, "region"),
+                fmt_cat(dt$sg_surgery, "surgery"),
+                fmt_cat(dt$sg_prior_treat, "prior_treat")
+      )
+    }
+
+    vals
+  }
+
+  # ===========================================================================
+  # Build the metric labels (shared across scenarios)
+  # ===========================================================================
+
+  build_labels <- function() {
+    categories <- c(
+      "HR Estimates", rep("", 5),
+      "Subgroup Identification", "",
+      "Region A Classification", rep("", 3),
+      "Subgroup Classification", ""
+    )
+
+    metrics <- c(
+      "HR ITT",
+      "HR ITT (stratified by region)",
+      "HR Training (non-Region A)",
+      "HR Testing (Region A)",
+      "HR Subgroup",
+      "PO HR Subgroup",
+      "Subgroup Found",
+      "Prevalence (when found)",
+      "RegA HR > 0.9",
+      "RegA(sg) HR <= 0.85",
+      "RegA > 0.9 & RegA(sg) <= 0.85",
+      "RegA > 0.9 & RegA(sg) <= 0.80",
+      "Biomarker",
+      "Age"
+    )
+
+    if (sg_type == 2) {
+      categories <- c(categories, rep("", 7))
+      metrics <- c(metrics,
+                   "Sex", "ECOG", "Histology", "CT Regimen",
+                   "Region", "Surgery", "Prior Treatment"
+      )
+    }
+
+    data.frame(Category = categories, Metric = metrics,
                stringsAsFactors = FALSE)
-  ))
+  }
 
-  # Subgroup classification rows
-  sg_class_rows <- list(
-    data.frame(Category = "Subgroup Classification", Metric = "Biomarker",
-               Value = fmt_cat(mrct_sims$sg_biomarker, "biomarker"), stringsAsFactors = FALSE),
-    data.frame(Category = "", Metric = "Age",
-               Value = fmt_cat(mrct_sims$sg_age, "age"), stringsAsFactors = FALSE)
-  )
+  # ===========================================================================
+  # MAIN LOGIC
+  # ===========================================================================
 
-  # Extended classification for sg_type == 2
-  if (sg_type == 2) {
-    sg_class_rows <- c(sg_class_rows, list(
-      data.frame(Category = "", Metric = "Sex",
-                 Value = fmt_cat(mrct_sims$sg_male, "sex"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "ECOG",
-                 Value = fmt_cat(mrct_sims$sg_ecog, "ecog"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "Histology",
-                 Value = fmt_cat(mrct_sims$sg_histology, "histology"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "CT Regimen",
-                 Value = fmt_cat(mrct_sims$sg_CTregimen, "CT_regimen"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "Region",
-                 Value = fmt_cat(mrct_sims$sg_region, "region"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "Surgery",
-                 Value = fmt_cat(mrct_sims$sg_surgery, "surgery"), stringsAsFactors = FALSE),
-      data.frame(Category = "", Metric = "Prior Treatment",
-                 Value = fmt_cat(mrct_sims$sg_prior_treat, "prior_treat"), stringsAsFactors = FALSE)
+  # Process population summaries
+  res_alt <- process_pop_summary(pop_summary)
+  res_null <- if (dual) process_pop_summary(pop_summary_null) else list()
+
+  # Prepare scenario data
+  mrct_alt <- prepare_scenario(mrct_sims)
+  mrct_null_dt <- if (dual) prepare_scenario(mrct_sims_null) else NULL
+
+  # Build labels
+  labels_df <- build_labels()
+
+  # Build value columns
+  vals_alt <- build_values(mrct_alt)
+
+  if (dual) {
+    vals_null <- build_values(mrct_null_dt)
+    n_sims_alt  <- nrow(mrct_alt)
+    n_sims_null <- nrow(mrct_null_dt)
+
+    summary_df <- data.frame(
+      Category   = labels_df$Category,
+      Metric     = labels_df$Metric,
+      Value_Alt  = vals_alt,
+      Value_Null = vals_null,
+      stringsAsFactors = FALSE
+    )
+  } else {
+    n_sims <- nrow(mrct_alt)
+
+    summary_df <- data.frame(
+      Category = labels_df$Category,
+      Metric   = labels_df$Metric,
+      Value    = vals_alt,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  # ===========================================================================
+  # Create gt table
+  # ===========================================================================
+
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    warning("Package 'gt' not available. ",
+            "Returning data frame instead of formatted table.")
+    if (showtable) print(summary_df)
+
+    res_out <- if (dual) {
+      list(res_alt = res_alt, res_null = res_null)
+    } else {
+      res_alt
+    }
+    data_out <- if (dual) {
+      list(data_alt = mrct_alt, data_null = mrct_null_dt)
+    } else {
+      mrct_alt
+    }
+
+    return(list(
+      res = res_out, out_table = summary_df,
+      data = data_out, summary_df = summary_df
     ))
   }
 
-  summary_rows <- c(summary_rows, sg_class_rows)
-  summary_df <- do.call(rbind, summary_rows)
+  # ---------------------------------------------------------------------------
+  # Build gt table
+  # ---------------------------------------------------------------------------
 
-  # ---------------------------------------------------------------------------
-  # Create gt table
-  # ---------------------------------------------------------------------------
-  if (!requireNamespace("gt", quietly = TRUE)) {
-    warning("Package 'gt' not available. Returning data frame instead of formatted table.")
-    if (showtable) print(summary_df)
-    return(list(res = res, out_table = summary_df, data = mrct_sims, summary_df = summary_df))
+  out_table <- gt::gt(summary_df)
+
+  if (dual) {
+    # --- Dual-scenario table ---
+    subtitle_text <- sprintf(
+      "%s: %d sims | %s: %d sims",
+      scenario_labels[1], n_sims_alt,
+      scenario_labels[2], n_sims_null
+    )
+
+    out_table <- out_table |>
+      gt::tab_header(
+        title    = tab_caption,
+        subtitle = subtitle_text
+      ) |>
+      gt::cols_label(
+        Category   = "Category",
+        Metric     = "Metric",
+        Value_Alt  = scenario_labels[1],
+        Value_Null = scenario_labels[2]
+      ) |>
+      gt::cols_width(
+        Category   ~ gt::px(180),
+        Metric     ~ gt::px(250),
+        Value_Alt  ~ gt::px(180),
+        Value_Null ~ gt::px(180)
+      ) |>
+      gt::tab_spanner(
+        label   = gt::md("**Scenario**"),
+        columns = c("Value_Alt", "Value_Null")
+      )
+
+  } else {
+    # --- Single-scenario table (backward-compatible) ---
+    out_table <- out_table |>
+      gt::tab_header(
+        title    = tab_caption,
+        subtitle = sprintf("Based on %d simulations", n_sims)
+      ) |>
+      gt::cols_label(
+        Category = "Category",
+        Metric   = "Metric",
+        Value    = "Mean (SD) / N (%)"
+      ) |>
+      gt::cols_width(
+        Category ~ gt::px(180),
+        Metric   ~ gt::px(250),
+        Value    ~ gt::px(180)
+      )
   }
 
-  # Build gt table
-  out_table <- gt::gt(summary_df) |>
-    gt::tab_header(
-      title = tab_caption,
-      subtitle = sprintf("Based on %d simulations", n_sims)
-    ) |>
+  # --- Shared styling ---
+  out_table <- out_table |>
     gt::tab_style(
-      style = gt::cell_text(weight = "bold"),
+      style     = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(
         columns = "Category",
-        rows = Category != ""
+        rows    = Category != ""
       )
     ) |>
     gt::tab_style(
-      style = gt::cell_borders(
-        sides = "bottom",
-        color = "#D3D3D3",
+      style     = gt::cell_borders(
+        sides  = "bottom",
+        color  = "#D3D3D3",
         weight = gt::px(1)
       ),
       locations = gt::cells_body()
     ) |>
-    gt::cols_label(
-      Category = "Category",
-      Metric = "Metric",
-      Value = "Mean (SD) / N (%)"
-    ) |>
-    gt::cols_width(
-      Category ~ gt::px(180),
-      Metric ~ gt::px(250),
-      Value ~ gt::px(180)
-    ) |>
     gt::tab_options(
-      table.font.size = gt::px(12),
-      heading.title.font.size = gt::px(14),
+      table.font.size            = gt::px(12),
+      heading.title.font.size    = gt::px(14),
       heading.subtitle.font.size = gt::px(12),
-      column_labels.font.weight = "bold"
+      column_labels.font.weight  = "bold"
     )
 
-  # Add population summary if available
-  if (!is.null(pop_summary) && length(res) > 0) {
-    pop_note <- sprintf("Population AHR: %.4f", null_or(res$ahr_true, NA))
+  # --- Population summary footnotes ---
+  if (!is.null(pop_summary) && length(res_alt) > 0) {
+    if (dual) {
+      pop_note <- sprintf(
+        "Population AHR -- %s: %.4f | %s: %.4f",
+        scenario_labels[1], null_or(res_alt$ahr_true, NA),
+        scenario_labels[2], null_or(res_null$ahr_true, NA)
+      )
+    } else {
+      pop_note <- sprintf("Population AHR: %.4f", null_or(res_alt$ahr_true, NA))
+    }
     out_table <- gt::tab_source_note(out_table, source_note = pop_note)
+  }
+
+  # --- Trimming footnote ---
+  if (trimmed_any) {
+    pct <- round(trim_fraction * 100)
+    trim_note <- sprintf(
+      "* Trimmed mean/SD: lower and upper %d%% excluded (raw mean exceeded %s)",
+      pct, format(trim_threshold, big.mark = ",")
+    )
+    out_table <- gt::tab_source_note(out_table, source_note = trim_note)
   }
 
   if (showtable) print(out_table)
 
-  return(list(res = res, out_table = out_table, data = mrct_sims, summary_df = summary_df))
+  # ===========================================================================
+  # Return
+  # ===========================================================================
+
+  if (dual) {
+    return(list(
+      res        = list(res_alt = res_alt, res_null = res_null),
+      out_table  = out_table,
+      data       = list(data_alt = mrct_alt, data_null = mrct_null_dt),
+      summary_df = summary_df
+    ))
+  }
+
+  return(list(
+    res        = res_alt,
+    out_table  = out_table,
+    data       = mrct_alt,
+    summary_df = summary_df
+  ))
 }
-
-
 # =============================================================================
 # Visualization Function
 # =============================================================================
