@@ -357,6 +357,10 @@ forestsearch <- function(df.analysis,
   df <- df.analysis
   grf_plot <- NULL
 
+  if (details && !is.null(conf_force)) {
+    cat("Forced confounders:", paste(conf_force, collapse = ", "), "\n")
+  }
+
   # ===========================================================================
   # SECTION 3A: GRF CUT GENERATION (if use_grf = TRUE)
   # ===========================================================================
