@@ -7,12 +7,13 @@
 \method{summary}{cox_ahr_cde}(object, ...)
 }
 \arguments{
-\item{object}{A cox_ahr_cde object from cox_ahr_cde_analysis()}
+\item{object}{A \code{cox_ahr_cde} object from
+\code{\link{cox_ahr_cde_analysis}}.}
 
-\item{...}{Additional arguments (not used)}
+\item{...}{Additional arguments (not used).}
 }
 \value{
-Invisibly returns the input object
+Invisibly returns the input object.
 }
 \description{
 Summary method for cox_ahr_cde objects
