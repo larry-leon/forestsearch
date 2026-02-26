@@ -401,7 +401,7 @@ cox_ahr_cde_analysis <- function(
   }
 
   .ahr_legend <- function() {
-    leg_lab <- "AHR(po)"
+    leg_lab <- "AHR"
     leg_lty <- 1
     leg_col <- "darkgreen"
     leg_lwd <- 2
@@ -488,9 +488,9 @@ cox_ahr_cde_analysis <- function(
 
     plot(z_grid, ahr_curve_pos,
          type = "l", lwd = 2, col = "darkgreen",
-         xlab = paste(z_name, "threshold"),
-         ylab = "AHR",
-         main = paste("AHR for", z_name, ">= threshold"),
+         xlab = paste(z_name),
+         ylab = "Hazard ratio",
+         main = "",
          ylim = ylim_ahr)
 
     abline(h = 1, lty = 2, col = "gray")
@@ -525,9 +525,9 @@ cox_ahr_cde_analysis <- function(
 
     plot(z_grid, ahr_curve_pos,
          type = "l", lwd = 2, col = "darkgreen",
-         xlab = paste(z_name, "threshold"),
-         ylab = "AHR",
-         main = paste("AHR for", z_name, ">= threshold"),
+         xlab = paste(z_name),
+         ylab = "Cumulative Effect",
+         main = "",
          ylim = ylim_ahr)
 
     abline(h = 1, lty = 2, col = "gray")
