@@ -8,7 +8,8 @@ format_fs_details(
   fs_output,
   split_after = "Candidate factors",
   fontsize = "scriptsize",
-  col_widths = c(0.48, 0.52)
+  col_widths = c(0.48, 0.52),
+  max_width = 48
 )
 }
 \arguments{
@@ -25,6 +26,11 @@ One of \code{"tiny"}, \code{"scriptsize"}, \code{"footnotesize"},
 
 \item{col_widths}{Numeric vector of length 2. Column widths as fractions
 of \code{\\textwidth}. Default: \code{c(0.48, 0.52)}.}
+
+\item{max_width}{Integer. Maximum character width per line before wrapping.
+Long lines are wrapped at comma or space boundaries with a 4-space
+continuation indent. Default: 48 (suitable for half-slide columns at
+scriptsize).}
 }
 \value{
 Invisibly returns a list with \code{left} and \code{right}

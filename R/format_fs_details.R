@@ -15,6 +15,10 @@
 #'   \code{"small"}. Default: \code{"scriptsize"}.
 #' @param col_widths Numeric vector of length 2. Column widths as fractions
 #'   of \code{\\textwidth}. Default: \code{c(0.48, 0.52)}.
+#' @param max_width Integer. Maximum character width per line before wrapping.
+#'   Long lines are wrapped at comma or space boundaries with a 4-space
+#'   continuation indent. Default: 48 (suitable for half-slide columns at
+#'   scriptsize).
 #'
 #' @return Invisibly returns a list with \code{left} and \code{right}
 #'   character vectors. Side effect: emits LaTeX via \code{cat()} for use
@@ -49,7 +53,8 @@
 format_fs_details <- function(fs_output,
                               split_after = "Candidate factors",
                               fontsize = "scriptsize",
-                              col_widths = c(0.48, 0.52)) {
+                              col_widths = c(0.48, 0.52),
+                              max_width = 48) {
 
   stopifnot(is.character(fs_output))
 
@@ -110,9 +115,57 @@ format_fs_details <- function(fs_output,
     fontsize <- "scriptsize"
   }
 
+  # --- Wrap long lines at comma or space boundaries ---
+  wrap_line <- function(line, width, indent = 4) {
+    if (nchar(line) <= width) return(line)
+
+    result <- character(0)
+    remaining <- line
+    # Detect leading whitespace of original line for continuation
+    lead <- nchar(sub("\\S.*", "", remaining))
+    cont_prefix <- paste(rep(" ", lead + indent), collapse = "")
+
+    first <- TRUE
+    while (nchar(remaining) > width) {
+      chunk <- substr(remaining, 1, width)
+
+      # Prefer breaking at ", " (comma-space) within the chunk
+      comma_pos <- gregexpr(",\\s?", chunk)[[1]]
+      comma_pos <- comma_pos[comma_pos > 0]
+
+      if (length(comma_pos) > 0) {
+        # Break after the last comma+space within width
+        last_comma <- max(comma_pos)
+        match_len <- attr(gregexpr(",\\s?", chunk)[[1]], "match.length")
+        idx <- which(comma_pos == last_comma)
+        break_at <- last_comma + match_len[idx] - 1
+      } else {
+        # Fall back to last space
+        space_pos <- gregexpr(" ", chunk)[[1]]
+        space_pos <- space_pos[space_pos > 0]
+        if (length(space_pos) > 0) {
+          break_at <- max(space_pos)
+        } else {
+          # No good break point — hard break at width
+          break_at <- width
+        }
+      }
+
+      result <- c(result, substr(remaining, 1, break_at))
+      remaining <- paste0(cont_prefix, trimws(substr(remaining, break_at + 1,
+                                                      nchar(remaining)),
+                                               which = "left"))
+    }
+    if (nchar(remaining) > 0) {
+      result <- c(result, remaining)
+    }
+    result
+  }
+
   # --- Escape LaTeX special characters for \texttt{} ---
+  # Order: braces and specials first, then space → ~ last.
+  # Note: backslashes never appear in R console output, so not escaped.
   escape_latex <- function(x) {
-    x <- gsub("\\", "\\textbackslash ", x, fixed = TRUE)
     x <- gsub("{", "\\{", x, fixed = TRUE)
     x <- gsub("}", "\\}", x, fixed = TRUE)
     x <- gsub("#", "\\#", x, fixed = TRUE)
@@ -120,19 +173,49 @@ format_fs_details <- function(fs_output,
     x <- gsub("%", "\\%", x, fixed = TRUE)
     x <- gsub("&", "\\&", x, fixed = TRUE)
     x <- gsub("_", "\\_", x, fixed = TRUE)
-    x <- gsub("~", "\\textasciitilde ", x, fixed = TRUE)
-    x <- gsub("^", "\\textasciicircum ", x, fixed = TRUE)
-    # Preserve spaces with \phantom{x}-free approach
-    x <- gsub("  ", "~~ ", x, fixed = TRUE)
+    x <- gsub("^", "\\textasciicircum{}", x, fixed = TRUE)
+    x <- gsub("~", "\\textasciitilde{}", x, fixed = TRUE)
+    # Last: replace EVERY space with ~ (non-breaking space).
+    # In \texttt{}, regular spaces collapse; ~ preserves exact
+    # character positions for column-aligned tabular output.
+    x <- gsub(" ", "~", x, fixed = TRUE)
     x
   }
 
   emit_column <- function(lines_vec) {
+    # Detect table blocks: lines between === or --- separators should
+    # NOT be wrapped, as they have precise column alignment.
+    # Also skip wrapping for any line with 3+ consecutive spaces
+    # (indicates columnar alignment, e.g. table headers/data rows).
+    in_table <- FALSE
+
     for (ln in lines_vec) {
       if (ln == "") {
         cat("\\vspace{2pt}\n")
-      } else {
+        next
+      }
+
+      # Detect separator lines (=== or --- patterns)
+      is_separator <- grepl("^[=\\-]{10,}", ln)
+
+      if (is_separator) {
+        in_table <- !in_table
         cat("\\texttt{", escape_latex(ln), "}\\\\[-2pt]\n", sep = "")
+        next
+      }
+
+      # Detect columnar alignment: 3+ consecutive spaces mid-line
+      is_columnar <- grepl("\\S {3,}\\S", ln)
+
+      if (in_table || is_columnar) {
+        # Table block or columnar line: emit as-is, no wrapping
+        cat("\\texttt{", escape_latex(ln), "}\\\\[-2pt]\n", sep = "")
+      } else {
+        # Non-tabular line: wrap if too long
+        wrapped <- wrap_line(ln, max_width)
+        for (wl in wrapped) {
+          cat("\\texttt{", escape_latex(wl), "}\\\\[-2pt]\n", sep = "")
+        }
       }
     }
   }
