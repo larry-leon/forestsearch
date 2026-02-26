@@ -73,19 +73,26 @@ create_summary_table(
 
 \item{indent_size}{Numeric. Indentation for sub-levels in pixels (default: 20)}
 
-\item{highlight_pval}{Numeric. Highlight p-values below this threshold (default: 0.05)}
+\item{highlight_pval}{Numeric. Highlight p-values below this threshold
+(default: 0.05)}
 
-\item{highlight_smd}{Numeric. Highlight SMD values above this threshold (default: 0.2)}
+\item{highlight_smd}{Numeric. Highlight SMD values above this threshold
+(default: 0.2)}
 
-\item{highlight_color}{Character. Color for highlighting (default: "#fff3cd")}
+\item{highlight_color}{Character. Color for highlighting
+(default: "#fff3cd")}
 
-\item{compact_mode}{Logical. Reduce spacing for compact display (default: FALSE)}
+\item{compact_mode}{Logical. Reduce spacing for compact display
+(default: FALSE)}
 
-\item{column_width_var}{Numeric. Width for Variable column in pixels (default: 200)}
+\item{column_width_var}{Numeric. Width for Variable column in pixels
+(default: 200)}
 
-\item{column_width_stats}{Numeric. Width for stat columns in pixels (default: 120)}
+\item{column_width_stats}{Numeric. Width for stat columns in pixels
+(default: 120)}
 
-\item{show_column_borders}{Logical. Show vertical column borders (default: FALSE)}
+\item{show_column_borders}{Logical. Show vertical column borders
+(default: FALSE)}
 
 \item{custom_css}{Character. Additional custom CSS styling (optional)}
 }
@@ -93,7 +100,17 @@ create_summary_table(
 A gt table object (or data frame if gt not available)
 }
 \description{
-Create Enhanced Summary Table for Baseline Characteristics
+Generates a formatted summary table comparing baseline characteristics
+between treatment arms. Supports continuous, categorical, and binary
+variables with p-values, standardized mean differences (SMD), and
+missing data summaries.
+}
+\details{
+Binary variables specified via \code{vars_binary} display a single row
+showing the count and proportion for the "1" level. Categorical variables
+specified via \code{vars_categorical} that happen to be binary-coded (i.e.,
+have exactly two levels: 0 and 1) are automatically detected and displayed
+in the same compact single-row format, showing only the "1" proportion.
 }
 \examples{
 \dontrun{

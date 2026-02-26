@@ -1,5 +1,16 @@
 #' Create Enhanced Summary Table for Baseline Characteristics
 #'
+#' Generates a formatted summary table comparing baseline characteristics
+#' between treatment arms. Supports continuous, categorical, and binary
+#' variables with p-values, standardized mean differences (SMD), and
+#' missing data summaries.
+#'
+#' Binary variables specified via \code{vars_binary} display a single row
+#' showing the count and proportion for the "1" level. Categorical variables
+#' specified via \code{vars_categorical} that happen to be binary-coded (i.e.,
+#' have exactly two levels: 0 and 1) are automatically detected and displayed
+#' in the same compact single-row format, showing only the "1" proportion.
+#'
 #' @param data Data frame containing the analysis data
 #' @param treat_var Character. Name of treatment variable (must have 2 levels)
 #' @param vars_continuous Character vector. Names of continuous variables
@@ -19,13 +30,20 @@
 #' @param use_alternating_rows Logical. Apply zebra striping (default: TRUE)
 #' @param stripe_color Character. Color for alternating rows (default: "#f9f9f9")
 #' @param indent_size Numeric. Indentation for sub-levels in pixels (default: 20)
-#' @param highlight_pval Numeric. Highlight p-values below this threshold (default: 0.05)
-#' @param highlight_smd Numeric. Highlight SMD values above this threshold (default: 0.2)
-#' @param highlight_color Character. Color for highlighting (default: "#fff3cd")
-#' @param compact_mode Logical. Reduce spacing for compact display (default: FALSE)
-#' @param column_width_var Numeric. Width for Variable column in pixels (default: 200)
-#' @param column_width_stats Numeric. Width for stat columns in pixels (default: 120)
-#' @param show_column_borders Logical. Show vertical column borders (default: FALSE)
+#' @param highlight_pval Numeric. Highlight p-values below this threshold
+#'   (default: 0.05)
+#' @param highlight_smd Numeric. Highlight SMD values above this threshold
+#'   (default: 0.2)
+#' @param highlight_color Character. Color for highlighting
+#'   (default: "#fff3cd")
+#' @param compact_mode Logical. Reduce spacing for compact display
+#'   (default: FALSE)
+#' @param column_width_var Numeric. Width for Variable column in pixels
+#'   (default: 200)
+#' @param column_width_stats Numeric. Width for stat columns in pixels
+#'   (default: 120)
+#' @param show_column_borders Logical. Show vertical column borders
+#'   (default: FALSE)
 #' @param custom_css Character. Additional custom CSS styling (optional)
 #'
 #' @return A gt table object (or data frame if gt not available)
@@ -54,7 +72,6 @@
 #'   compact_mode = TRUE
 #' )
 #' }
-
 create_summary_table <- function(data,
                                  treat_var = "treat",
                                  vars_continuous = NULL,
@@ -90,8 +107,9 @@ create_summary_table <- function(data,
   treat_levels <- sort(unique(data[[treat_var]]))
   n_treat <- length(treat_levels)
 
-  if(n_treat != 2) {
-    stop("Currently supports only 2 treatment arms. Found ", n_treat, " levels in ", treat_var)
+  if (n_treat != 2) {
+    stop("Currently supports only 2 treatment arms. Found ",
+         n_treat, " levels in ", treat_var)
   }
 
   # Split data by treatment
@@ -106,19 +124,19 @@ create_summary_table <- function(data,
     Treatment = character(),
     P_value = numeric(),
     SMD = numeric(),
-    is_header = logical(),  # New: to identify header rows
-    indent_level = numeric(), # New: for indentation control
+    is_header = logical(),
+    indent_level = numeric(),
     stringsAsFactors = FALSE
   )
 
-  # =====================================
+  # ===================================================================
   # Process continuous variables
-  # =====================================
-  if(!is.null(vars_continuous)) {
-    for(var in vars_continuous) {
+  # ===================================================================
+  if (!is.null(vars_continuous)) {
+    for (var in vars_continuous) {
 
       # Check if variable exists
-      if(!var %in% names(data)) {
+      if (!var %in% names(data)) {
         warning("Variable '", var, "' not found in data")
         next
       }
@@ -141,11 +159,11 @@ create_summary_table <- function(data,
                        mean_1, sd_1)
 
       # Handle NaN values
-      if(is.na(mean_0) || is.na(sd_0)) val_0 <- "N/A"
-      if(is.na(mean_1) || is.na(sd_1)) val_1 <- "N/A"
+      if (is.na(mean_0) || is.na(sd_0)) val_0 <- "N/A"
+      if (is.na(mean_1) || is.na(sd_1)) val_1 <- "N/A"
 
       # Calculate p-value (t-test)
-      if(show_pvalue && n_0 > 1 && n_1 > 1) {
+      if (show_pvalue && n_0 > 1 && n_1 > 1) {
         p_val <- tryCatch(
           stats::t.test(data_0[[var]], data_1[[var]])$p.value,
           error = function(e) NA
@@ -155,10 +173,10 @@ create_summary_table <- function(data,
       }
 
       # Calculate SMD (Cohen's d)
-      if(show_smd && n_0 > 1 && n_1 > 1 && sd_0 > 0 && sd_1 > 0) {
+      if (show_smd && n_0 > 1 && n_1 > 1 && sd_0 > 0 && sd_1 > 0) {
         pooled_sd <- sqrt(((n_0 - 1) * sd_0^2 + (n_1 - 1) * sd_1^2) /
                             (n_0 + n_1 - 2))
-        if(pooled_sd > 0) {
+        if (pooled_sd > 0) {
           smd <- abs(mean_1 - mean_0) / pooled_sd
         } else {
           smd <- NA
@@ -185,14 +203,16 @@ create_summary_table <- function(data,
       ))
 
       # Add missing data row if needed
-      if(show_missing && (miss_0 > 0 || miss_1 > 0)) {
+      if (show_missing && (miss_0 > 0 || miss_1 > 0)) {
         results <- rbind(results, data.frame(
           Variable = "",
           Level = "Missing",
           Control = paste0(miss_0, " (",
-                           sprintf("%.1f", 100 * miss_0/nrow(data_0)), "%)"),
+                           sprintf("%.1f", 100 * miss_0 / nrow(data_0)),
+                           "%)"),
           Treatment = paste0(miss_1, " (",
-                             sprintf("%.1f", 100 * miss_1/nrow(data_1)), "%)"),
+                             sprintf("%.1f", 100 * miss_1 / nrow(data_1)),
+                             "%)"),
           P_value = NA,
           SMD = NA,
           is_header = FALSE,
@@ -203,14 +223,14 @@ create_summary_table <- function(data,
     }
   }
 
-  # =====================================
+  # ===================================================================
   # Process categorical variables
-  # =====================================
-  if(!is.null(vars_categorical)) {
-    for(var in vars_categorical) {
+  # ===================================================================
+  if (!is.null(vars_categorical)) {
+    for (var in vars_categorical) {
 
       # Check if variable exists
-      if(!var %in% names(data)) {
+      if (!var %in% names(data)) {
         warning("Variable '", var, "' not found in data")
         next
       }
@@ -222,15 +242,124 @@ create_summary_table <- function(data,
       var_label <- ifelse(!is.null(var_labels) && var %in% names(var_labels),
                           var_labels[[var]], var)
 
+      # ------------------------------------------------------------------
+      # Detect binary-coded categoricals (exactly 2 levels: 0 and 1)
+      # Display as single row showing "1" proportion (like vars_binary)
+      # ------------------------------------------------------------------
+      is_binary_coded <- length(levels_var) == 2 &&
+        all(as.character(levels_var) %in% c("0", "1"))
+
+      if (is_binary_coded) {
+        # Treat like vars_binary: single row for "1" proportion
+        n_0_yes <- sum(data_0[[var]] == 1, na.rm = TRUE)
+        n_1_yes <- sum(data_1[[var]] == 1, na.rm = TRUE)
+
+        n_0_total <- sum(!is.na(data_0[[var]]))
+        n_1_total <- sum(!is.na(data_1[[var]]))
+
+        if (n_0_total > 0 && n_1_total > 0) {
+          pct_0 <- 100 * n_0_yes / n_0_total
+          pct_1 <- 100 * n_1_yes / n_1_total
+
+          val_0 <- sprintf("%d (%.1f%%)", n_0_yes, pct_0)
+          val_1 <- sprintf("%d (%.1f%%)", n_1_yes, pct_1)
+
+          # Calculate p-value (Fisher's exact or chi-square)
+          if (show_pvalue) {
+            tab <- table(factor(data[[var]], levels = c(0, 1)),
+                         data[[treat_var]])
+            if (all(dim(tab) == c(2, 2))) {
+              if (min(tab) < 5) {
+                p_val <- tryCatch(
+                  stats::fisher.test(tab)$p.value,
+                  error = function(e) NA
+                )
+              } else {
+                p_val <- tryCatch(
+                  stats::chisq.test(tab)$p.value,
+                  error = function(e) NA
+                )
+              }
+            } else {
+              p_val <- NA
+            }
+          } else {
+            p_val <- NA
+          }
+
+          # Calculate SMD for binary
+          if (show_smd) {
+            p0 <- n_0_yes / n_0_total
+            p1 <- n_1_yes / n_1_total
+            denom <- sqrt((p0 * (1 - p0) + p1 * (1 - p1)) / 2)
+            if (denom > 0) {
+              smd <- abs(p1 - p0) / denom
+            } else {
+              smd <- NA
+            }
+          } else {
+            smd <- NA
+          }
+        } else {
+          val_0 <- "0 (0.0%)"
+          val_1 <- "0 (0.0%)"
+          p_val <- NA
+          smd <- NA
+        }
+
+        # Single flat row (no header, no indent)
+        results <- rbind(results, data.frame(
+          Variable = var_label,
+          Level = "",
+          Control = val_0,
+          Treatment = val_1,
+          P_value = p_val,
+          SMD = smd,
+          is_header = FALSE,
+          indent_level = 0,
+          stringsAsFactors = FALSE
+        ))
+
+        # Add missing row if needed
+        if (show_missing) {
+          miss_0 <- sum(is.na(data_0[[var]]))
+          miss_1 <- sum(is.na(data_1[[var]]))
+
+          if (miss_0 > 0 || miss_1 > 0) {
+            results <- rbind(results, data.frame(
+              Variable = "",
+              Level = "Missing",
+              Control = paste0(miss_0, " (",
+                               sprintf("%.1f", 100 * miss_0 / nrow(data_0)),
+                               "%)"),
+              Treatment = paste0(miss_1, " (",
+                                 sprintf("%.1f", 100 * miss_1 / nrow(data_1)),
+                                 "%)"),
+              P_value = NA,
+              SMD = NA,
+              is_header = FALSE,
+              indent_level = 1,
+              stringsAsFactors = FALSE
+            ))
+          }
+        }
+
+        next
+      }
+
+      # ------------------------------------------------------------------
+      # Multi-level categorical (3+ levels, or 2 non-binary levels)
+      # ------------------------------------------------------------------
+
       # Calculate p-value (chi-square)
-      if(show_pvalue && length(levels_var) > 1) {
+      if (show_pvalue && length(levels_var) > 1) {
         tab <- table(data[[var]], data[[treat_var]])
-        if(all(dim(tab) > 1) && min(tab) >= 5) {
+        if (all(dim(tab) > 1) && min(tab) >= 5) {
           p_val <- tryCatch(
             stats::chisq.test(tab)$p.value,
             error = function(e) NA
           )
-        } else if(all(dim(tab) > 1)) {
+        } else if (all(dim(tab) > 1)) {
           # Use Fisher's exact test for small cell counts
           p_val <- tryCatch(
             stats::fisher.test(tab, simulate.p.value = TRUE)$p.value,
@@ -244,14 +373,14 @@ create_summary_table <- function(data,
       }
 
       # Calculate Cramer's V for effect size
-      if(show_smd && length(levels_var) > 1) {
+      if (show_smd && length(levels_var) > 1) {
         tab <- table(data[[var]], data[[treat_var]])
-        if(all(dim(tab) > 1) && sum(tab) > 0) {
+        if (all(dim(tab) > 1) && sum(tab) > 0) {
           chi2 <- tryCatch(
             stats::chisq.test(tab)$statistic,
             error = function(e) NA
           )
-          if(!is.na(chi2)) {
+          if (!is.na(chi2)) {
             n <- sum(tab)
             k <- min(nrow(tab), ncol(tab))
             cramers_v <- sqrt(chi2 / (n * (k - 1)))
@@ -279,15 +408,15 @@ create_summary_table <- function(data,
       ))
 
       # Add level rows
-      for(lev in levels_var) {
+      for (lev in levels_var) {
         n_0 <- sum(data_0[[var]] == lev, na.rm = TRUE)
         n_1 <- sum(data_1[[var]] == lev, na.rm = TRUE)
 
         total_0 <- sum(!is.na(data_0[[var]]))
         total_1 <- sum(!is.na(data_1[[var]]))
 
-        pct_0 <- if(total_0 > 0) 100 * n_0 / total_0 else 0
-        pct_1 <- if(total_1 > 0) 100 * n_1 / total_1 else 0
+        pct_0 <- if (total_0 > 0) 100 * n_0 / total_0 else 0
+        pct_1 <- if (total_1 > 0) 100 * n_1 / total_1 else 0
 
         val_0 <- sprintf("%d (%.1f%%)", n_0, pct_0)
         val_1 <- sprintf("%d (%.1f%%)", n_1, pct_1)
@@ -309,14 +438,16 @@ create_summary_table <- function(data,
       miss_0 <- sum(is.na(data_0[[var]]))
       miss_1 <- sum(is.na(data_1[[var]]))
 
-      if(show_missing && (miss_0 > 0 || miss_1 > 0)) {
+      if (show_missing && (miss_0 > 0 || miss_1 > 0)) {
         results <- rbind(results, data.frame(
           Variable = "",
           Level = "Missing",
           Control = paste0(miss_0, " (",
-                           sprintf("%.1f", 100 * miss_0/nrow(data_0)), "%)"),
+                           sprintf("%.1f", 100 * miss_0 / nrow(data_0)),
+                           "%)"),
           Treatment = paste0(miss_1, " (",
-                             sprintf("%.1f", 100 * miss_1/nrow(data_1)), "%)"),
+                             sprintf("%.1f", 100 * miss_1 / nrow(data_1)),
+                             "%)"),
           P_value = NA,
           SMD = NA,
           is_header = FALSE,
@@ -327,14 +458,14 @@ create_summary_table <- function(data,
     }
   }
 
-  # =====================================
+  # ===================================================================
   # Process binary variables
-  # =====================================
-  if(!is.null(vars_binary)) {
-    for(var in vars_binary) {
+  # ===================================================================
+  if (!is.null(vars_binary)) {
+    for (var in vars_binary) {
 
       # Check if variable exists
-      if(!var %in% names(data)) {
+      if (!var %in% names(data)) {
         warning("Variable '", var, "' not found in data")
         next
       }
@@ -346,7 +477,7 @@ create_summary_table <- function(data,
       n_0_total <- sum(!is.na(data_0[[var]]))
       n_1_total <- sum(!is.na(data_1[[var]]))
 
-      if(n_0_total > 0 && n_1_total > 0) {
+      if (n_0_total > 0 && n_1_total > 0) {
         pct_0 <- 100 * n_0_yes / n_0_total
         pct_1 <- 100 * n_1_yes / n_1_total
 
@@ -354,11 +485,11 @@ create_summary_table <- function(data,
         val_1 <- sprintf("%d (%.1f%%)", n_1_yes, pct_1)
 
         # Calculate p-value (Fisher's exact or chi-square)
-        if(show_pvalue) {
+        if (show_pvalue) {
           tab <- table(factor(data[[var]], levels = c(0, 1)),
                        data[[treat_var]])
-          if(all(dim(tab) == c(2, 2))) {
-            if(min(tab) < 5) {
+          if (all(dim(tab) == c(2, 2))) {
+            if (min(tab) < 5) {
               p_val <- tryCatch(
                 stats::fisher.test(tab)$p.value,
                 error = function(e) NA
@@ -377,11 +508,11 @@ create_summary_table <- function(data,
         }
 
         # Calculate SMD for binary
-        if(show_smd) {
+        if (show_smd) {
           p0 <- n_0_yes / n_0_total
           p1 <- n_1_yes / n_1_total
           denom <- sqrt((p0 * (1 - p0) + p1 * (1 - p1)) / 2)
-          if(denom > 0) {
+          if (denom > 0) {
             smd <- abs(p1 - p0) / denom
           } else {
             smd <- NA
@@ -413,18 +544,20 @@ create_summary_table <- function(data,
       ))
 
       # Add missing row if needed
-      if(show_missing) {
+      if (show_missing) {
         miss_0 <- sum(is.na(data_0[[var]]))
         miss_1 <- sum(is.na(data_1[[var]]))
 
-        if(miss_0 > 0 || miss_1 > 0) {
+        if (miss_0 > 0 || miss_1 > 0) {
           results <- rbind(results, data.frame(
             Variable = "",
             Level = "Missing",
             Control = paste0(miss_0, " (",
-                             sprintf("%.1f", 100 * miss_0/nrow(data_0)), "%)"),
+                             sprintf("%.1f", 100 * miss_0 / nrow(data_0)),
+                             "%)"),
             Treatment = paste0(miss_1, " (",
-                               sprintf("%.1f", 100 * miss_1/nrow(data_1)), "%)"),
+                               sprintf("%.1f", 100 * miss_1 / nrow(data_1)),
+                               "%)"),
             P_value = NA,
             SMD = NA,
             is_header = FALSE,
@@ -449,10 +582,11 @@ create_summary_table <- function(data,
     sprintf("%.2f", results$SMD)
   )
 
-  # =====================================
+  # ===================================================================
+
   # Create gt table if package is available
-  # =====================================
-  if(use_gt) {
+  # ===================================================================
+  if (use_gt) {
     # Select columns for display
     display_data <- results[, c("Variable", "Level", "Control", "Treatment",
                                 "P_value_formatted", "SMD_formatted")]
@@ -489,7 +623,7 @@ create_summary_table <- function(data,
     )
 
     # ===== Spacing (Compact Mode) =====
-    if(compact_mode) {
+    if (compact_mode) {
       gt_table <- gt::tab_options(
         gt_table,
         data_row.padding = gt::px(2),
@@ -530,7 +664,7 @@ create_summary_table <- function(data,
           width_applied <- TRUE
           result
         }, error = function(e) {
-          gt_table  # Return unchanged if error
+          gt_table
         })
       }
 
@@ -549,12 +683,10 @@ create_summary_table <- function(data,
           width_applied <- TRUE
           result
         }, error = function(e) {
-          gt_table  # Return unchanged if error
+          gt_table
         })
       }
-
     }
-    # If column width parameters are NULL, skip entirely (no message)
 
     # ===== Column Alignment =====
     gt_table <- gt::cols_align(
@@ -566,7 +698,8 @@ create_summary_table <- function(data,
     gt_table <- gt::cols_align(
       gt_table,
       align = "center",
-      columns = c("Control", "Treatment", "P_value_formatted", "SMD_formatted")
+      columns = c("Control", "Treatment",
+                   "P_value_formatted", "SMD_formatted")
     )
 
     # ===== Handle Missing Values =====
@@ -590,13 +723,14 @@ create_summary_table <- function(data,
       style = gt::cell_text(weight = "bold"),
       locations = gt::cells_body(
         columns = "Variable",
-        rows = results$is_header | (results$Variable != "" & results$Level != "Missing")
+        rows = results$is_header |
+          (results$Variable != "" & results$Level != "Missing")
       )
     )
 
     # ===== Style: Indentation =====
-    if(any(results$indent_level > 0)) {
-      for(level in unique(results$indent_level[results$indent_level > 0])) {
+    if (any(results$indent_level > 0)) {
+      for (level in unique(results$indent_level[results$indent_level > 0])) {
         gt_table <- gt::tab_style(
           gt_table,
           style = gt::cell_text(indent = gt::px(indent_size * level)),
@@ -609,9 +743,9 @@ create_summary_table <- function(data,
     }
 
     # ===== Style: Alternating Rows =====
-    if(use_alternating_rows) {
+    if (use_alternating_rows) {
       even_rows <- seq(2, nrow(display_data), by = 2)
-      if(length(even_rows) > 0) {
+      if (length(even_rows) > 0) {
         gt_table <- gt::tab_style(
           gt_table,
           style = gt::cell_fill(color = stripe_color),
@@ -632,7 +766,7 @@ create_summary_table <- function(data,
     )
 
     # ===== Style: Column Borders (Optional) =====
-    if(show_column_borders) {
+    if (show_column_borders) {
       gt_table <- gt::tab_style(
         gt_table,
         style = gt::cell_borders(
@@ -647,9 +781,10 @@ create_summary_table <- function(data,
     }
 
     # ===== Style: Highlight Significant P-values =====
-    if(show_pvalue && !is.null(highlight_pval)) {
-      sig_rows <- which(!is.na(results$P_value) & results$P_value < highlight_pval)
-      if(length(sig_rows) > 0) {
+    if (show_pvalue && !is.null(highlight_pval)) {
+      sig_rows <- which(!is.na(results$P_value) &
+                          results$P_value < highlight_pval)
+      if (length(sig_rows) > 0) {
         gt_table <- gt::tab_style(
           gt_table,
           style = gt::cell_fill(color = highlight_color),
@@ -662,9 +797,10 @@ create_summary_table <- function(data,
     }
 
     # ===== Style: Highlight Large SMD =====
-    if(show_smd && !is.null(highlight_smd)) {
-      large_smd_rows <- which(!is.na(results$SMD) & results$SMD > highlight_smd)
-      if(length(large_smd_rows) > 0) {
+    if (show_smd && !is.null(highlight_smd)) {
+      large_smd_rows <- which(!is.na(results$SMD) &
+                                results$SMD > highlight_smd)
+      if (length(large_smd_rows) > 0) {
         gt_table <- gt::tab_style(
           gt_table,
           style = gt::cell_fill(color = highlight_color),
@@ -677,24 +813,30 @@ create_summary_table <- function(data,
     }
 
     # ===== Footnotes =====
-    if(show_smd) {
+    if (show_smd) {
       gt_table <- gt::tab_footnote(
         gt_table,
-        footnote = "SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)",
+        footnote = paste0(
+          "SMD = Standardized mean difference ",
+          "(Cohen's d for continuous, Cramer's V for categorical)"
+        ),
         locations = gt::cells_column_labels(columns = "SMD_formatted")
       )
     }
 
-    if(show_pvalue) {
+    if (show_pvalue) {
       gt_table <- gt::tab_footnote(
         gt_table,
-        footnote = "P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables",
+        footnote = paste0(
+          "P-values: t-test for continuous, ",
+          "chi-square/Fisher's exact for categorical/binary variables"
+        ),
         locations = gt::cells_column_labels(columns = "P_value_formatted")
       )
     }
 
     # ===== Source Note =====
-    if(!is.null(source_note)) {
+    if (!is.null(source_note)) {
       gt_table <- gt::tab_source_note(
         gt_table,
         source_note = source_note
@@ -702,7 +844,7 @@ create_summary_table <- function(data,
     }
 
     # ===== Custom CSS =====
-    if(!is.null(custom_css)) {
+    if (!is.null(custom_css)) {
       gt_table <- gt::tab_options(
         gt_table,
         table.additional_css = custom_css
@@ -710,11 +852,11 @@ create_summary_table <- function(data,
     }
 
     # ===== Hide Columns if Needed =====
-    if(!show_pvalue) {
+    if (!show_pvalue) {
       gt_table <- gt::cols_hide(gt_table, columns = "P_value_formatted")
     }
 
-    if(!show_smd) {
+    if (!show_smd) {
       gt_table <- gt::cols_hide(gt_table, columns = "SMD_formatted")
     }
 
@@ -722,22 +864,27 @@ create_summary_table <- function(data,
 
   } else {
     # Return data frame if gt not available
-    message("Note: gt package not available. Returning data frame instead of formatted table.")
+    message(
+      "Note: gt package not available. ",
+      "Returning data frame instead of formatted table."
+    )
 
     # Clean up column names
-    names(results)[names(results) == "Control"] <- paste0("Control (n=", nrow(data_0), ")")
-    names(results)[names(results) == "Treatment"] <- paste0("Treatment (n=", nrow(data_1), ")")
+    names(results)[names(results) == "Control"] <-
+      paste0("Control (n=", nrow(data_0), ")")
+    names(results)[names(results) == "Treatment"] <-
+      paste0("Treatment (n=", nrow(data_1), ")")
 
     # Select columns based on options
     cols_to_keep <- c("Variable", "Level",
                       paste0("Control (n=", nrow(data_0), ")"),
                       paste0("Treatment (n=", nrow(data_1), ")"))
 
-    if(show_pvalue) {
+    if (show_pvalue) {
       cols_to_keep <- c(cols_to_keep, "P_value_formatted")
     }
 
-    if(show_smd) {
+    if (show_smd) {
       cols_to_keep <- c(cols_to_keep, "SMD_formatted")
     }
 
@@ -746,15 +893,14 @@ create_summary_table <- function(data,
 }
 
 
-# ============================================================================
+# ===========================================================================
 # Helper Functions - Preset Configurations
-# ============================================================================
+# ===========================================================================
 
 #' Preset: Compact Table
 #'
 #' @param ... Arguments passed to create_summary_table()
 #' @keywords internal
-
 create_summary_table_compact <- function(...) {
   create_summary_table(
     ...,
@@ -763,7 +909,6 @@ create_summary_table_compact <- function(...) {
     footnote_font_size = 9,
     compact_mode = TRUE,
     indent_size = 15
-    # Note: No column_width_* for maximum compatibility
   )
 }
 
@@ -772,7 +917,6 @@ create_summary_table_compact <- function(...) {
 #'
 #' @param ... Arguments passed to create_summary_table()
 #' @keywords internal
-
 create_summary_table_publication <- function(...) {
   create_summary_table(
     ...,
@@ -782,9 +926,8 @@ create_summary_table_publication <- function(...) {
     use_alternating_rows = FALSE,
     show_column_borders = FALSE,
     compact_mode = FALSE,
-    highlight_pval = NULL,  # No highlighting for publications
+    highlight_pval = NULL,
     highlight_smd = NULL
-    # Note: No column_width_* for maximum compatibility
   )
 }
 
@@ -793,7 +936,6 @@ create_summary_table_publication <- function(...) {
 #'
 #' @param ... Arguments passed to create_summary_table()
 #' @keywords internal
-
 create_summary_table_presentation <- function(...) {
   create_summary_table(
     ...,
@@ -802,8 +944,6 @@ create_summary_table_presentation <- function(...) {
     footnote_font_size = 12,
     use_alternating_rows = TRUE,
     compact_mode = FALSE
-    # Note: No column_width_* for maximum compatibility
-    # Users can add manually if needed for their gt version
   )
 }
 
@@ -812,7 +952,6 @@ create_summary_table_presentation <- function(...) {
 #'
 #' @param ... Arguments passed to create_summary_table()
 #' @keywords internal
-
 create_summary_table_minimal <- function(...) {
   create_summary_table(
     ...,
@@ -820,6 +959,5 @@ create_summary_table_minimal <- function(...) {
     highlight_pval = NULL,
     highlight_smd = NULL,
     show_column_borders = FALSE
-    # Note: No column_width_* for maximum compatibility
   )
 }
