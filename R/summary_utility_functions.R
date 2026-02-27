@@ -364,25 +364,45 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' Enhanced Subgroup Summary Tables (gt output)
 #'
 #' Returns formatted summary tables for subgroups using the gt package,
-#' with search metadata and customizable decimal precision.
+#' with search metadata and customizable decimal precision. Produces two
+#' tables: a treatment effect estimates table and an identified subgroups
+#' table, each with fully customizable titles and subtitles.
 #'
 #' @param fs ForestSearch results object.
 #' @param which_df Character. Which data frame to use ("est" or "testing").
-#' @param est_caption Character. Caption for estimates table.
-#' @param potentialOutcome.name Character. Name of potential outcome variable (optional).
+#' @param est_title Character or NULL. Main title for the estimates table
+#'   (default: "Treatment Effect Estimates"). Rendered as bold markdown.
+#'   Set to NULL to suppress the title and display only `est_caption`.
+#' @param est_caption Character. Subtitle for the estimates table
+#'   (default: "Training data estimates").
+#' @param sg_title Character or NULL. Main title for the identified subgroups
+#'   table (default: "Identified Subgroups"). Rendered as bold markdown.
+#'   Set to NULL to suppress the title and display only `sg_subtitle`.
+#' @param sg_subtitle Character or NULL. Subtitle for the identified subgroups
+#'   table. When NULL (default), an informative subtitle is auto-generated
+#'   from `maxk` (e.g., "Two-factor subgroups (maxk=2)").
+#' @param potentialOutcome.name Character. Name of potential outcome variable
+#'   (optional).
 #' @param hr_1a Character. Adjusted HR for subgroup 1 (optional).
 #' @param hr_0a Character. Adjusted HR for subgroup 0 (optional).
-#' @param ndecimals Integer. Number of decimals for formatted numbers (default: 3).
-#' @param include_search_info Logical. Include search metadata table (default: TRUE).
+#' @param ndecimals Integer. Number of decimals for formatted numbers
+#'   (default: 3).
+#' @param include_search_info Logical. Include search metadata table
+#'   (default: TRUE).
 #' @param font_size Numeric. Font size in pixels for table text (default: 12).
 #'
-#' @return List with gt tables for estimates, subgroups, and optionally search info.
+#' @return List with gt tables for estimates, subgroups, and optionally
+#'   search info.
 #'
-#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note tab_options md px
+#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note
+#'   tab_options md px
 #' @export
 sg_tables <- function(fs,
                       which_df = "est",
+                      est_title = "Treatment Effect Estimates",
                       est_caption = "Training data estimates",
+                      sg_title = "Identified Subgroups",
+                      sg_subtitle = NULL,
                       potentialOutcome.name = NULL,
                       hr_1a = NA,
                       hr_0a = NA,
@@ -429,8 +449,12 @@ sg_tables <- function(fs,
 
   tab_estimates <- gt::gt(tab_est, auto_align = TRUE) |>
     gt::tab_header(
-      title = gt::md("**Treatment Effect Estimates**"),
-      subtitle = est_caption
+      title = if (!is.null(est_title)) {
+        gt::md(paste0("**", est_title, "**"))
+      } else {
+        est_caption
+      },
+      subtitle = if (!is.null(est_title)) est_caption
     ) |>
     gt::tab_options(
       table.font.size = gt::px(font_size),
@@ -498,6 +522,17 @@ sg_tables <- function(fs,
   }
 
   # Format based on maxk
+  # Resolve sg_subtitle: use user-supplied value or auto-generate from maxk
+  if (is.null(sg_subtitle)) {
+    sg_subtitle <- switch(
+      as.character(args_fs$maxk),
+      "1" = "Single-factor subgroups (maxk=1)",
+      "2" = "Two-factor subgroups (maxk=2)",
+      "3" = "Three-factor subgroups (maxk=3)",
+      paste0(args_fs$maxk, "-factor subgroups (maxk=", args_fs$maxk, ")")
+    )
+  }
+
   if (args_fs$maxk == 1) {
     sg10 <- sg10[, c("M.1", "N", "E", "d1", "hr", "Pcons")]
 
@@ -510,8 +545,12 @@ sg_tables <- function(fs,
       gt::fmt_number(columns = c("hr", "Pcons"), decimals = ndecimals) |>
       gt::fmt_number(columns = c("N", "E", "d1"), decimals = 0) |>
       gt::tab_header(
-        title = gt::md("**Identified Subgroups**"),
-        subtitle = "Single-factor subgroups (maxk=1)"
+        title = if (!is.null(sg_title)) {
+          gt::md(paste0("**", sg_title, "**"))
+        } else {
+          sg_subtitle
+        },
+        subtitle = if (!is.null(sg_title)) sg_subtitle
       ) |>
       gt::cols_label(
         M.1 = "Factor",
@@ -541,8 +580,12 @@ sg_tables <- function(fs,
       gt::fmt_number(columns = c("hr", "Pcons"), decimals = ndecimals) |>
       gt::fmt_number(columns = c("N", "E", "d1"), decimals = 0) |>
       gt::tab_header(
-        title = gt::md("**Identified Subgroups**"),
-        subtitle = "Two-factor subgroups (maxk=2)"
+        title = if (!is.null(sg_title)) {
+          gt::md(paste0("**", sg_title, "**"))
+        } else {
+          sg_subtitle
+        },
+        subtitle = if (!is.null(sg_title)) sg_subtitle
       ) |>
       gt::cols_label(
         M.1 = "Factor 1",
@@ -573,8 +616,12 @@ sg_tables <- function(fs,
       gt::fmt_number(columns = c("hr", "Pcons"), decimals = ndecimals) |>
       gt::fmt_number(columns = c("N", "E", "d1"), decimals = 0) |>
       gt::tab_header(
-        title = gt::md("**Identified Subgroups**"),
-        subtitle = "Three-factor subgroups (maxk=3)"
+        title = if (!is.null(sg_title)) {
+          gt::md(paste0("**", sg_title, "**"))
+        } else {
+          sg_subtitle
+        },
+        subtitle = if (!is.null(sg_title)) sg_subtitle
       ) |>
       gt::cols_label(
         M.1 = "Factor 1",

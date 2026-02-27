@@ -7,7 +7,10 @@
 sg_tables(
   fs,
   which_df = "est",
+  est_title = "Treatment Effect Estimates",
   est_caption = "Training data estimates",
+  sg_title = "Identified Subgroups",
+  sg_subtitle = NULL,
   potentialOutcome.name = NULL,
   hr_1a = NA,
   hr_0a = NA,
@@ -21,24 +24,43 @@ sg_tables(
 
 \item{which_df}{Character. Which data frame to use ("est" or "testing").}
 
-\item{est_caption}{Character. Caption for estimates table.}
+\item{est_title}{Character or NULL. Main title for the estimates table
+(default: "Treatment Effect Estimates"). Rendered as bold markdown.
+Set to NULL to suppress the title and display only \code{est_caption}.}
 
-\item{potentialOutcome.name}{Character. Name of potential outcome variable (optional).}
+\item{est_caption}{Character. Subtitle for the estimates table
+(default: "Training data estimates").}
+
+\item{sg_title}{Character or NULL. Main title for the identified subgroups
+table (default: "Identified Subgroups"). Rendered as bold markdown.
+Set to NULL to suppress the title and display only \code{sg_subtitle}.}
+
+\item{sg_subtitle}{Character or NULL. Subtitle for the identified subgroups
+table. When NULL (default), an informative subtitle is auto-generated
+from \code{maxk} (e.g., "Two-factor subgroups (maxk=2)").}
+
+\item{potentialOutcome.name}{Character. Name of potential outcome variable
+(optional).}
 
 \item{hr_1a}{Character. Adjusted HR for subgroup 1 (optional).}
 
 \item{hr_0a}{Character. Adjusted HR for subgroup 0 (optional).}
 
-\item{ndecimals}{Integer. Number of decimals for formatted numbers (default: 3).}
+\item{ndecimals}{Integer. Number of decimals for formatted numbers
+(default: 3).}
 
-\item{include_search_info}{Logical. Include search metadata table (default: TRUE).}
+\item{include_search_info}{Logical. Include search metadata table
+(default: TRUE).}
 
 \item{font_size}{Numeric. Font size in pixels for table text (default: 12).}
 }
 \value{
-List with gt tables for estimates, subgroups, and optionally search info.
+List with gt tables for estimates, subgroups, and optionally
+search info.
 }
 \description{
 Returns formatted summary tables for subgroups using the gt package,
-with search metadata and customizable decimal precision.
+with search metadata and customizable decimal precision. Produces two
+tables: a treatment effect estimates table and an identified subgroups
+table, each with fully customizable titles and subtitles.
 }
