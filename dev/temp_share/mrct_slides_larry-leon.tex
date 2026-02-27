@@ -1,0 +1,1294 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\documentclass[
+  ignorenonframetext,
+  aspectratio=169]{beamer}
+\newif\ifbibliography
+\usepackage{pgfpages}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{caption label separator}{: }
+\setbeamercolor{caption name}{fg=normal text.fg}
+\beamertemplatenavigationsymbolsempty
+% remove section numbering
+\setbeamertemplate{part page}{
+  \centering
+  \begin{beamercolorbox}[sep=16pt,center]{part title}
+    \usebeamerfont{part title}\insertpart\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{section page}{
+  \centering
+  \begin{beamercolorbox}[sep=12pt,center]{section title}
+    \usebeamerfont{section title}\insertsection\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{subsection page}{
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center]{subsection title}
+    \usebeamerfont{subsection title}\insertsubsection\par
+  \end{beamercolorbox}
+}
+% Prevent slide breaks in the middle of a paragraph
+\widowpenalties 1 10000
+\raggedbottom
+\AtBeginPart{
+  \frame{\partpage}
+}
+\AtBeginSection{
+  \ifbibliography
+  \else
+    \frame{\sectionpage}
+  \fi
+}
+\AtBeginSubsection{
+  \frame{\subsectionpage}
+}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\usetheme[]{Madrid}
+\usefonttheme[]{structurebold}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+\usepackage{caption}
+% Make caption package work with longtable
+\makeatletter
+\def\fnum@table{\tablename~\thetable}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+% =============================================================================
+% beamer_preamble.tex — ForestSearch MRCT Presentation
+% =============================================================================
+
+% --- Unicode character support for R output ---
+\usepackage{newunicodechar}
+\usepackage{amssymb}
+\newunicodechar{✓}{$\checkmark$}
+\newunicodechar{✗}{$\times$}
+\newunicodechar{–}{--}
+\newunicodechar{—}{---}
+\newunicodechar{≤}{$\leq$}
+\newunicodechar{≥}{$\geq$}
+\newunicodechar{×}{$\times$}
+\newunicodechar{±}{$\pm$}
+\newunicodechar{≈}{$\approx$}
+\newunicodechar{→}{$\rightarrow$}
+\newunicodechar{←}{$\leftarrow$}
+\newunicodechar{≠}{$\neq$}
+\newunicodechar{∈}{$\in$}
+\newunicodechar{⊂}{$\subset$}
+\newunicodechar{∅}{$\emptyset$}
+\newunicodechar{α}{$\alpha$}
+\newunicodechar{β}{$\beta$}
+\newunicodechar{γ}{$\gamma$}
+\newunicodechar{σ}{$\sigma$}
+\newunicodechar{τ}{$\tau$}
+\newunicodechar{ε}{$\varepsilon$}
+\newunicodechar{θ}{$\theta$}
+\newunicodechar{λ}{$\lambda$}
+\newunicodechar{ν}{$\nu$}
+\newunicodechar{ψ}{$\psi$}
+
+% --- Table packages ---
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{multirow}
+
+% --- Custom colors ---
+\definecolor{navydark}{HTML}{21295C}
+\definecolor{oceanblue}{HTML}{065A82}
+\definecolor{tealaccent}{HTML}{00A896}
+\definecolor{softgold}{HTML}{FFC000}
+\definecolor{lightblue}{HTML}{5B9BD5}
+\definecolor{codegray}{HTML}{F5F5F5}
+
+% --- Madrid theme color customisation ---
+\setbeamercolor{palette primary}{bg=navydark, fg=white}
+\setbeamercolor{palette secondary}{bg=oceanblue, fg=white}
+\setbeamercolor{palette tertiary}{bg=tealaccent, fg=white}
+\setbeamercolor{structure}{fg=navydark}
+\setbeamercolor{title}{fg=white, bg=navydark}
+\setbeamercolor{frametitle}{fg=white, bg=navydark}
+\setbeamercolor{block title}{bg=oceanblue, fg=white}
+\setbeamercolor{block body}{bg=oceanblue!10}
+\setbeamercolor{block title alerted}{bg=tealaccent, fg=white}
+\setbeamercolor{block body alerted}{bg=tealaccent!10}
+\setbeamercolor{block title example}{bg=softgold, fg=black}
+\setbeamercolor{block body example}{bg=softgold!10}
+
+% --- Code display ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\tiny,
+  breaklines=true,
+  frame=none,
+  backgroundcolor=\color{codegray},
+  commentstyle=\color{gray},
+  keywordstyle=\color{oceanblue},
+  stringstyle=\color{tealaccent}
+}
+
+% --- Tighter spacing ---
+\setlength{\parskip}{0.3em}
+
+% --- Custom footer ---
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}ForestSearch $|$ MRCT
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
+      \insertframenumber{}\,/\,\inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
+
+% ======================================================================
+% MRCT_beamer_preamble.tex
+% Preamble for MRCT beamer presentations
+% Referenced via:  includes: in_header: MRCT_beamer_preamble.tex
+% ======================================================================
+
+% --- TikZ for workflow diagrams ---
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+
+% --- Math support ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% --- Tables ---
+\usepackage{booktabs}
+
+% --- Graphics ---
+\usepackage{graphicx}
+
+% --- Footnote size for slides ---
+\setbeamerfont{footnote}{size=\tiny}
+
+\usepackage{listings}
+\lstset{
+  language=R, basicstyle=\ttfamily\scriptsize,
+  breaklines=true, columns=flexible,
+  keywordstyle=\color{blue!70}, commentstyle=\color{green!50!black},
+  showstringspaces=false, frame=none
+}
+
+\setbeamertemplate{section page}{}
+\AtBeginSection{}
+
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{anyfontsize}
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={MRCT Consistency Evaluation via Subgroup Identification},
+  pdfauthor={Larry Leon, Masashi Shimura, Xiaojing Cui, Kenichi Takahashi, Shuping Jiang, and William Wang},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{MRCT Consistency Evaluation via Subgroup Identification}
+\subtitle{A ForestSearch Framework with a View Towards Biomarker Causal
+Effects}
+\author{Larry Leon, Masashi Shimura, Xiaojing Cui, Kenichi Takahashi,
+Shuping Jiang, and William Wang}
+\date{2026-02-26}
+
+\begin{document}
+\frame{\titlepage}
+
+\section{Outline}\label{outline}
+
+\begin{frame}{Outline}
+\begin{enumerate}
+\setcounter{enumi}{-1}
+\tightlist
+\item
+  \textbf{Regional Consistency}: The MRCT regional consistency challenge
+\item
+  \textbf{Methodology}: Weibull AFT / Cox model with spline biomarker
+  effects
+\item
+  \textbf{Estimands}: Marginal HR, Average HR, and Controlled Direct
+  Effect
+\item
+  \textbf{ForestSearch Algorithm}: Exploratory subgroup identification
+\item
+  \textbf{Case Study}: Synthetic MRCT with biomarker-driven treatment
+  heterogeneity
+\item
+  \textbf{Simulation Design}: DGM specification and per-replicate
+  workflow
+\item
+  \textbf{Operating Characteristics}: HTE and Null scenarios
+\item
+  \textbf{Summary and Discussion}
+\end{enumerate}
+\end{frame}
+
+\section{The MRCT Consistency
+Challenge}\label{the-mrct-consistency-challenge}
+
+\begin{frame}{Exploratory Subgroup Identification Analyses}
+\phantomsection\label{exploratory-subgroup-identification-analyses}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{The Scenario}
+
+\begin{itemize}
+\item A \textbf{global oncology trial} meets statistical significance for the ITT population
+\item \textbf{Asia-Pacific (AP)} comprises 15--20\% of the trial
+\item \textbf{Consistency criterion}: positive point estimate (Cox model HR $< 1.0$) in AP region
+\item \textbf{Problem}: AP regional HR estimate $\approx 1.0$ --- consistency appears to fail
+\end{itemize}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\begin{block}{Key Question}
+Can a subgroup $\mathcal{G}$ with \textbf{enhanced benefit} be identified in non-AP such that AP$(\mathcal{G})$ meets regional consistency?
+\end{block}
+
+\smallskip
+
+\textbf{Forest Search (León et al., 2024)}
+
+\smallskip
+
+Imagine a forest plot evaluating all-possible combinations of covariates (e.g. ecog = 0, ecog = 1, bm low, bm high, ecog = 0 \& bm low, etc) 
+
+\smallskip
+
+Signals of harm (Cox estimate $> 1.25$ threshold); \textit{Reproducibility}? 
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{Statistical Framework}\label{statistical-framework}
+
+\begin{frame}{Weibull AFT / Cox Dual Representation}
+\phantomsection\label{weibull-aft-cox-dual-representation}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{AFT Model} (\texttt{survreg}):
+$$\log(T) = \log(\theta) + L'\gamma + \tau\varepsilon$$
+where $\tau = 1/\nu$ and $\varepsilon \sim$ extreme value.
+
+\medskip
+
+\textbf{Cox Hazard Model}:
+$$\lambda(t;\, L) = \lambda_{0}(t)\,\exp(L'\beta)$$
+with Weibull baseline $\lambda_{0}(t) = \nu\theta^{-\nu}t^{\nu-1}$.
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\begin{alertblock}{AFT-to-Hazard Transformation}
+$$\beta = -\gamma\,/\,\tau$$
+R's \texttt{survreg} estimates $(\log\hat{\theta}, \hat{\gamma}, \hat{\tau})$ on the AFT scale; hazard-ratio coefficients are obtained by dividing by the scale parameter.
+\end{alertblock}
+
+\medskip
+
+Potential outcomes are \emph{simulated} on the AFT scale while treatment effects are \emph{interpreted} on the hazard-ratio scale.
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[shrink]{Two-Phase Spline Model (Equation 5)}
+\phantomsection\label{two-phase-spline-model-equation-5}
+Cox linear predictor with biomarker \(Z\) and treatment \(X\):
+
+\[L'\beta := \beta_{1} X + \beta_{2} Z + \beta_{3} ZX + \beta_{4}(Z-k)\mathbf{1}(Z>k) + \beta_{5}(Z-k)\mathbf{1}(Z>k)X\]
+
+\small
+
+\begin{longtable}[]{@{}
+  >{\centering\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4783}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.2609}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.2609}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\centering
+Parameter
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Term
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Role
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\(\beta_{1}\) & \(X\) & Main treatment effect (intercept of log-HR) \\
+\(\beta_{2}\) & \(Z\) & Prognostic biomarker effect (both arms) \\
+\(\beta_{3}\) & \(ZX\) & Biomarker \(\times\) treatment interaction
+(\(Z \leq k\)) \\
+\(\beta_{4}\) & \((Z{-}k)\mathbf{1}(Z{>}k)\) & Spline: prognostic slope
+change above \(k\) \\
+\(\beta_{5}\) & \((Z{-}k)\mathbf{1}(Z{>}k)X\) & Spline: treatment-effect
+slope change above \(k\) \\
+\bottomrule\noalign{}
+\end{longtable}
+
+\normalsize
+\end{frame}
+
+\begin{frame}{Causal Log-HR and Spline Parameterization}
+\phantomsection\label{causal-log-hr-and-spline-parameterization}
+\vspace{6pt}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{0.94\textwidth}}
+\hline
+\textbf{Causal log-hazard-ratio} for biomarker level $z$: \\[4pt]
+$\displaystyle \psi^{0}(z) = \begin{cases} \beta_{1}^{0} + \beta_{3}^{0}\, z, & z \leq k \\[4pt] \beta_{1}^{0} + \beta_{3}^{0}\, z + \beta_{5}^{0}(z-k), & z > k \end{cases}$ \\[6pt]
+\hline
+\begin{minipage}[t]{0.48\textwidth}
+\vspace{4pt}
+\textbf{Spline Parameterization:} \\[4pt]
+$\displaystyle \beta_{1}^{0} = \psi^{0}(0)$ \\[6pt]
+$\displaystyle \beta_{3}^{0} = \frac{\psi^{0}(k) - \psi^{0}(0)}{k}$ \\[6pt]
+$\displaystyle \beta_{5}^{0} = \frac{\psi^{0}(\zeta) - \psi^{0}(0) - \beta_{3}^{0}\zeta}{\zeta - k}$
+\vspace{4pt}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.44\textwidth}
+\vspace{4pt}
+\textbf{Working Example:} \\[4pt]
+\centering
+\begin{tabular}{ccc}
+$z$ & $\psi^{0}(z)$ & HR$(z)$ \\
+\hline
+0            & $\log(3.00)$  & 3.00 \\
+5 (knot)     & $\log(1.25)$  & 1.25 \\
+10 ($\zeta$) & $\log(0.50)$  & 0.50 \\
+\end{tabular}
+\\[8pt]
+\raggedright
+Harm at low $z$, crossover near knot, \\
+benefit at high $z$.
+\vspace{4pt}
+\end{minipage} \\
+\hline
+\end{tabular}
+\end{center}
+\end{frame}
+
+\begin{frame}[shrink]{Potential Outcomes and Estimands}
+\phantomsection\label{potential-outcomes-and-estimands}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+
+\textbf{Potential Outcome (PO)} $T[x,z]$, under treatment condition $x$ (set to $x=1[0]$ for treatment[control]) and biomarker level $z$
+
+
+\begin{alertblock}{PO contrast} $\psi^{0}(z) = \{m(0,z) - m(1,z)\}/\tau$: Difference in true means of POs $\log(T[0,z]) - \log(T[1,z])$.
+\end{alertblock}
+
+\textbf{Strong prognostic $W$:} Linear predictor $l_{x,z,w} = \beta_{1}^{0}x + \beta_{2}^{0}z + \beta_{3}^{0}zx + \beta_{4}^{0}(z-k)I(z>k) + \beta_{5}^{0}(z-k)I(z>k)x + \beta_{w}^{0}w$
+
+\begin{alertblock}{PO hazard function (omitting baseline)}
+$\theta^{x}(z,v) = \exp(l(x,z,v))$
+\end{alertblock}
+
+\end{column}
+\begin{column}{0.43\textwidth}
+
+\begin{alertblock}{Average Hazard Ratio (AHR)}
+$$\text{AHR}(z^{+}) = \exp\!\bigl\{E_{Z \geq z}\;\psi^{0}(Z)\bigr\}$$
+Exponentiated average of differences in true means of POs (causal log-hazard ratios across $z$)
+\end{alertblock}
+
+\begin{alertblock}{Controlled Direct Effect (CDE)}
+ Let $\bar{\theta}^{x}(z+) = E_{Z \geq z,V}\theta^{x}(Z,V)$
+
+
+$$\text{CDE}(z^{+}) = \bar{\theta}^{1}(z+)\;/\;\bar{\theta}^{0}(z+)$$
+
+Ratio of average exponentiated hazards
+\end{alertblock}
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile,shrink]{Three Treatment Effect Estimands}
+\phantomsection\label{three-treatment-effect-estimands}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+dgm_spline <- generate_aft_dgm_flex(
+  data = df.case,
+  continuous_vars = c("age", "bm"),
+  factor_vars = c("male", "histology",
+                   "prior_treat", "AP"),
+  set_beta_spec = list(set_var = c("z_AP"),
+                       beta_var = -log(5)),
+  continuous_vars_cens = c("age"),
+  factor_vars_cens = c("prior_treat"),
+  cens_type = "weibull",
+  outcome_var = "tte", event_var = "event",
+  treatment_var = "treat",
+  subgroup_vars = NULL, subgroup_cuts = NULL,
+  k_inter = 0.0, model = "alt",
+  spline_spec = list(
+    var = "z_bm", knot = 5, zeta = 10,
+    log_hrs = log(c(3, 1.25, 0.5))
+  ),
+  verbose = FALSE, standardize = FALSE
+)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.52\textwidth}
+
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/unnamed-chunk-1-1} \end{center}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[shrink]{Subgroup Defined by (general) \(H\)}
+\phantomsection\label{subgroup-defined-by-general-h}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\begin{alertblock}{AFT Model Specification}
+$$\log T_i(x=1) = \mu + \mathbf{L}_i(1)^{\top} \boldsymbol{\gamma} + \tau\,\varepsilon_i$$
+\end{alertblock}
+
+The covariate vector includes treatment, prognostic effects ($V$, say), and an interaction:
+$$\mathbf{L}_i(x=a)^{\top}\boldsymbol{\gamma} = a \cdot \gamma_{\text{treat}} + \mathbf{V}_i^{\top}\boldsymbol{\gamma}_V + a \cdot H_i \cdot \gamma_{\text{int}}$$
+where $H_i \in \{0,1\}$ flags harm-subgroup membership ($\mathcal{S}$).
+
+$$\text{AHR}(\mathcal{S}) = \exp\!\left\{\frac{1}{|\mathcal{S}|}\sum_{i \in \mathcal{S}} \psi_i^{0}\right\}$$
+
+\end{column}
+
+\begin{column}{0.48\textwidth}
+
+The \textbf{marginal hazard ratio} for a subgroup $\mathcal{S}$ is obtained from a Cox model fit to stacked potential outcomes:
+$\text{HR}_{\text{marg}}(\mathcal{S}) = \exp\!\bigl(\hat{\beta}_{\text{Cox}} \;\big|\; \text{data} = \{(T_i(1), 1, 1),\, (T_i(0), 1, 0) : i \in \mathcal{S}\}\bigr)$
+
+\textbf{Computation in ForestSearch}:
+\begin{enumerate}
+\item Generate shared error: $\varepsilon_i = \log(\text{Exp}(1))$
+\item Compute potential survival times:
+\begin{align*}
+\log T_i(1) &= \mu + \sigma\varepsilon_i + \mathbf{L}_i(1)^{\top}\boldsymbol{\gamma} \\
+\log T_i(0) &= \mu + \sigma\varepsilon_i + \mathbf{L}_i(0)^{\top}\boldsymbol{\gamma}
+\end{align*}
+\item Fit: \texttt{coxph(Surv(time, event) \textasciitilde{} treat)}
+\item Extract: $\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})$
+\end{enumerate}
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{ForestSearch Algorithm (León et al., 2024, \emph{SIM})}
+\phantomsection\label{forestsearch-algorithm-leuxf3n-et-al.-2024}
+\begin{enumerate}
+\item \textbf{Candidate Selection} --- From baseline covariates to $L$ candidate subgroup indicators
+  \begin{itemize}
+  \item \textit{LASSO}: Cox regularization for prognostic selection; mitigates false discovery from noise
+  \item \textit{GRF}: Causal survival forest targets RMST to identify treatment effect heterogeneity
+  \item Continuous covariates $\rightarrow$ binary splits (medians, quartiles, GRF cuts)
+  \end{itemize}
+
+\item \textbf{Exhaustive Subgroup Search} --- All combos of $L$ candidates (default max of 2-way)
+  \begin{itemize}
+  \item $L(L-1)/2 + L$ possible combinations from $L$ subgroup indicators (max = 2)
+  \item Filter: $n \geq 60$, events $d_0 \geq 12$, and $d_1 \geq 12$
+  \item Screen: Cox HR $\geq 1.25$ (experimental vs.\ control) ``signal of harm''
+  \end{itemize}
+
+\item \textbf{Splitting Consistency} --- Validate each candidate ($R = 1,000$ splits)
+  \begin{itemize}
+  \item Randomly split subgroup 50/50; require \emph{both halves} HR $\geq 1.0$ ``consistent with harm''
+  \item $\hat{p}_{\text{cons}} = R^{-1}\sum_{r} I(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0) \geq 90\%$
+  \item Select $\widehat{H}$: subgroup ``maximally consistent with harm''
+  \end{itemize}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Three Subgroup Identification Objectives}
+\phantomsection\label{three-subgroup-identification-objectives}
+\small
+
+\begin{longtable}[]{@{}
+  >{\centering\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2895}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.1579}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2895}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2632}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\centering
+Objective
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Goal
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Criterion
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Strategy
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\textbf{A} & Largest detrimental & \(\hat{\beta} \geq \log(0.90)\) &
+Harm SG; complement = benefit \\
+\textbf{B} & \textbf{Smallest} harmful & \(\hat{\beta} \geq \log(0.90)\)
+& Min \(\hat{\mathcal{H}}\);
+\(\hat{\mathcal{H}}^{c} = \hat{\mathcal{G}}\) \\
+\textbf{C} & \textbf{Largest} beneficial &
+\(\hat{\beta} \leq \log(0.60)\) & Directly target strong benefit \\
+\bottomrule\noalign{}
+\end{longtable}
+
+\normalsize
+
+\medskip
+
+\begin{itemize}
+\tightlist
+\item
+  In \textbf{(A)} and \textbf{(B)}: identify harm \(\hat{\mathcal{H}}\),
+  then the complement \(\hat{\mathcal{G}} = \hat{\mathcal{H}}^{c}\) is
+  generally beneficial
+\item
+  In \textbf{(C)}: directly target a clinically compelling beneficial
+  subgroup effect
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Part 1: DGM Specification \& Simulation Engine}
+\phantomsection\label{part-1-dgm-specification-simulation-engine}
+\centering
+\resizebox{!}{0.85\textheight}{%
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.7cm,
+  font=\small,
+  setup/.style={rectangle, rounded corners=4pt, draw=blue!60, fill=blue!8,
+    text width=5.0cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  dgm/.style={rectangle, rounded corners=4pt, draw=orange!80, fill=orange!8,
+    text width=4.6cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  scenario/.style={rectangle, rounded corners=4pt, draw=orange!80, fill=orange!15,
+    text width=3.6cm, align=center, minimum height=0.6cm, inner sep=3pt},
+  simbox/.style={rectangle, rounded corners=4pt, draw=green!60!black, fill=green!8,
+    text width=5.0cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  arrow/.style={-{Stealth[length=5pt]}, thick, draw=gray!70},
+]
+\node[setup] (data) {\textbf{Case-Study Dataset}\\[-1pt]
+  {\scriptsize Synthetic trial ($N \approx 2000$)}\\[-1pt]
+  {\scriptsize Covariates, entry-times, treatment}};
+\node[dgm, below=of data] (dgm) {\textbf{generate\_aft\_dgm\_flex()}\\[-1pt]
+  {\scriptsize Weibull AFT + spline biomarker effects}\\[-1pt]
+  {\scriptsize Censoring model selection (AIC/BIC)}};
+\node[scenario, below left=0.45cm and 0.3cm of dgm] (alt) {\textbf{HTE Scenario}\\[-1pt]
+  {\scriptsize $\log(3,\; 1.25,\; 0.50)$}\\[-1pt]
+  {\scriptsize \textit{Strong biomarker effect}}};
+\node[scenario, below right=0.45cm and 0.3cm of dgm] (null) {\textbf{Null Scenario}\\[-1pt]
+  {\scriptsize $\log(0.7,\; 0.7,\; 0.7)$}\\[-1pt]
+  {\scriptsize \textit{Uniform benefit}}};
+\node[dgm, below=1.35cm of dgm] (dgmobj) {\textbf{DGM Object}\\[-1pt]
+  {\scriptsize Model params ($\beta^{0}, \tau, \theta$), super-population, censoring}};
+\node[simbox, below=of dgmobj] (engine) {\textbf{mrct\_region\_sims()}\\[-1pt]
+  {\scriptsize $N_{\text{sims}} = 1{,}000 - 10{,}000$ replicates}};
+\node[simbox, below=of engine] (simdata) {\textbf{simulate\_from\_dgm()}\\[-1pt]
+  {\scriptsize Draw $n = 500$; Survival times}\\[-1pt]
+  {\scriptsize Censoring + admin (analysis\_time $= 60$)}};
+\draw[arrow] (data) -- (dgm);
+\draw[arrow] (dgm) -- (alt);
+\draw[arrow] (dgm) -- (null);
+\draw[arrow] (alt) -- (dgmobj);
+\draw[arrow] (null) -- (dgmobj);
+\draw[arrow] (dgmobj) -- (engine);
+\draw[arrow] (engine) -- (simdata);
+\end{tikzpicture}%
+}
+\end{frame}
+
+\begin{frame}{Part 2: Per-Replicate Analysis}
+\phantomsection\label{part-2-per-replicate-analysis}
+\centering
+\resizebox{!}{0.85\textheight}{%
+\begin{tikzpicture}[
+  node distance=0.25cm and 0.6cm,
+  font=\scriptsize,
+  simbox/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!8,
+    text width=3.8cm, align=center, minimum height=0.5cm, inner sep=2pt},
+  region/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!12,
+    text width=2.4cm, align=center, minimum height=0.4cm, inner sep=2pt},
+  fsbox/.style={rectangle, rounded corners=3pt, draw=red!60, fill=red!6,
+    text width=2.8cm, align=center, minimum height=0.4cm, inner sep=2pt},
+  fsstep/.style={rectangle, rounded corners=2pt, draw=red!40, fill=red!4,
+    text width=2.6cm, align=center, minimum height=0.35cm, inner sep=2pt},
+  decision/.style={diamond, draw=purple!70, fill=purple!8,
+    text width=1.0cm, align=center, inner sep=1pt, aspect=2.0},
+  record/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!8,
+    text width=4.8cm, align=center, minimum height=0.5cm, inner sep=2pt},
+  arrow/.style={-{Stealth[length=4pt]}, thick, draw=gray!70},
+]
+\node[simbox] (simdata) {\textbf{simulate\_from\_dgm()}\\[-1pt]
+  Simulated trial ($n = 500$)};
+\node[region, below left=0.3cm and 0.3cm of simdata] (nonap) {\textbf{Non-AP} (Training)\\[-1pt]
+  ${\sim}80$--$85\%$};
+\node[region, below right=0.3cm and 0.3cm of simdata] (ap) {\textbf{AP} (Testing)\\[-1pt]
+  ${\sim}15$--$20\%$};
+\node[fsbox, below=0.35cm of nonap] (fs) {\textbf{forestsearch()}\\[-1pt]
+  on Non-AP data};
+\node[fsstep, below=of fs] (grf) {GRF cut selection};
+\node[fsstep, below=of grf] (lasso) {Cox-LASSO selection};
+\node[fsstep, below=of lasso] (enum) {Enumerate all-possible\\[-1pt]
+  subgroup candidates};
+\node[fsstep, below=of enum] (screen) {Screen: HR $\geq 0.90$\\[-1pt]
+  Consistency $\geq 80\%$};
+\node[fsstep, below=of screen] (select) {Select smallest subgroup\\[-1pt]
+  (\texttt{sg\_focus="minSG"})};
+\node[decision, below=0.3cm of select] (found) {$\hat{\mathcal{G}}$\\found?};
+\node[fsbox, right=0.8cm of found] (apply) {Apply $\hat{\mathcal{G}}$ to AP\\[-1pt]
+  HR(AP, $\hat{\mathcal{G}}$)};
+\node[fsstep, left=0.8cm of found] (nofound) {any\_found $= 0$};
+\node[record, below=0.55cm of found] (record) {\textbf{Record per-replicate results}\\[-1pt]
+  any\_found, sg definition,
+  HR(non-AP), HR(AP), HR(ITT), HR(AP,\,$\hat{\mathcal{G}}$)};
+\draw[arrow] (simdata) -- (nonap);
+\draw[arrow] (simdata) -- (ap);
+\draw[arrow] (nonap) -- (fs);
+\draw[arrow] (fs) -- (grf);
+\draw[arrow] (grf) -- (lasso);
+\draw[arrow] (lasso) -- (enum);
+\draw[arrow] (enum) -- (screen);
+\draw[arrow] (screen) -- (select);
+\draw[arrow] (select) -- (found);
+\draw[arrow] (found) -- node[above] {Yes} (apply);
+\draw[arrow] (found) -- node[above] {No} (nofound);
+\draw[arrow] (apply) |- (record);
+\draw[arrow] (nofound) |- (record);
+\draw[arrow, dashed, gray] (ap) |- (apply);
+\end{tikzpicture}%
+}
+\end{frame}
+
+\section{Case Study and Simulations}\label{case-study-and-simulations}
+
+\begin{frame}{Super population}
+\phantomsection\label{super-population}
+\small
+
+\begin{table}[t]
+\caption*{
+{\fontsize{10}{13}\selectfont  Super-population Characteristics by Treatment Arm\fontsize{9}{11}\selectfont }
+} 
+\fontsize{9.0pt}{11.0pt}\selectfont
+\begin{tabular*}{0.8\linewidth}{@{\extracolsep{\fill}}llcccc}
+\toprule
+{Characteristic} & {} & {Control
+(n=2355)} & {Treatment
+(n=2645)} & {P-value}\textsuperscript{\textit{1}} & {SMD}\textsuperscript{\textit{2}} \\ 
+\midrule\addlinespace[2.5pt]
+{\bfseries z\_age} & Mean (SD) & 60.5 (13.1) & 61.0 (11.7) & 0.182 & 0.04 \\ 
+{\bfseries \cellcolor[HTML]{F9F9F9}{z\_bm}} & {\cellcolor[HTML]{F9F9F9}{Mean (SD)}} & {\cellcolor[HTML]{F9F9F9}{7.0 (6.4)}} & {\cellcolor[HTML]{F9F9F9}{8.7 (7.3)}} & {\cellcolor[HTML]{FFF3CD}{<0.001}} & {\cellcolor[HTML]{FFF3CD}{0.25}} \\ 
+{\bfseries entrytime} & Mean (SD) & 11.4 (4.9) & 11.7 (4.7) & {\cellcolor[HTML]{FFF3CD}{0.022}} & 0.07 \\ 
+{\bfseries \cellcolor[HTML]{F9F9F9}{lin\_pred\_1}} & {\cellcolor[HTML]{F9F9F9}{Mean (SD)}} & {\cellcolor[HTML]{F9F9F9}{-0.1 (1.3)}} & {\cellcolor[HTML]{F9F9F9}{0.2 (1.5)}} & {\cellcolor[HTML]{FFF3CD}{<0.001}} & {\cellcolor[HTML]{FFF3CD}{0.23}} \\ 
+{\bfseries lin\_pred\_0} & Mean (SD) & -0.2 (0.7) & -0.2 (0.7) & 0.131 & 0.04 \\ 
+{\bfseries \cellcolor[HTML]{F9F9F9}{z\_male}} & {\cellcolor[HTML]{F9F9F9}{}} & {\cellcolor[HTML]{F9F9F9}{1674 (71.1\%)}} & {\cellcolor[HTML]{F9F9F9}{2003 (75.7\%)}} & {\cellcolor[HTML]{FFF3CD}{<0.001}} & {\cellcolor[HTML]{F9F9F9}{0.11}} \\ 
+{\bfseries z\_histology} &  & 640 (27.2\%) & 899 (34.0\%) & {\cellcolor[HTML]{FFF3CD}{<0.001}} & 0.15 \\ 
+{\bfseries \cellcolor[HTML]{F9F9F9}{z\_prior\_treat}} & {\cellcolor[HTML]{F9F9F9}{}} & {\cellcolor[HTML]{F9F9F9}{1690 (71.8\%)}} & {\cellcolor[HTML]{F9F9F9}{1904 (72.0\%)}} & {\cellcolor[HTML]{F9F9F9}{0.886}} & {\cellcolor[HTML]{F9F9F9}{0.00}} \\ 
+{\bfseries z\_AP} &  & 575 (24.4\%) & 683 (25.8\%) & 0.267 & 0.03 \\ 
+{\bfseries \cellcolor[HTML]{F9F9F9}{ecog}} & {\cellcolor[HTML]{F9F9F9}{}} & {\cellcolor[HTML]{F9F9F9}{1257 (53.4\%)}} & {\cellcolor[HTML]{F9F9F9}{1375 (52.0\%)}} & {\cellcolor[HTML]{F9F9F9}{0.340}} & {\cellcolor[HTML]{F9F9F9}{0.03}} \\ 
+{\bfseries strat} &  & 874 (37.1\%) & 961 (36.3\%) & 0.588 & 0.02 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+\textsuperscript{\textit{1}}P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables\\
+\textsuperscript{\textit{2}}SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)\\
+\end{minipage}
+\end{table}
+
+\normalsize
+\end{frame}
+
+\begin{frame}{Kaplan-Meier: ITT Ideal (No Censoring) and Censoring}
+\phantomsection\label{kaplan-meier-itt-ideal-no-censoring-and-censoring}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/km-itt-ideal-1} \end{center}
+\end{frame}
+
+\begin{frame}{Kaplan-Meier: Non-AP and AP Populations}
+\phantomsection\label{kaplan-meier-non-ap-and-ap-populations}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/km-regional-1} \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Spline Fit to Observed Data}
+\phantomsection\label{spline-fit-to-observed-data}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+cox_cs_fit(
+df = df_example,
+tte_name = "y_sim", event_name = "event_sim",
+treat_name = "treat_sim",
+truebeta_name = "loghr_po",
+z_name = "z_bm", z_by = 1, z_window = 0.5,
+alpha = 0.20,
+verbose = FALSE,
+plot_params = list(
+xlab = "Biomarker Level",
+main_title = "Biomarker Heterogeneity (n=500)")
+)
+\end{lstlisting}
+
+\end{column}
+
+\begin{column}{0.52\textwidth}
+
+
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/spline-fit-1} \end{center}
+
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\section{ForestSearch: Subgroup
+Identification}\label{forestsearch-subgroup-identification}
+
+\begin{frame}{ForestSearch on Non-AP Data}
+\phantomsection\label{forestsearch-on-non-ap-data}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+{\tiny\raggedright
+\texttt{Forced~confounders:~z\_age~<=~65,~z\_bm~<~1,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~2,~z\_bm~<~3,~z\_bm~<~4,~z\_bm~<~5,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~6,~z\_bm~<~7,~z\_bm~<~8,~z\_bm~<~9,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~10}\\[-2pt]
+\texttt{GRF~subgroup:~z\_bm~<=~3}\\[-2pt]
+\texttt{GRF~cuts~identified:~3}\\[-2pt]
+\texttt{~~Cuts:~strat~<=~0,~z\_bm~<=~8,~z\_bm~<=~3}\\[-2pt]
+\texttt{Cox-LASSO~selected:~2~of~7~candidate~factors}\\[-2pt]
+\texttt{~~Omitted:~z\_age,~z\_male,~ecog,~z\_prior\_treat,~}\\[-2pt]
+\texttt{~~~~~~strat}\\[-2pt]
+\texttt{Candidate~factors:~19}\\[-2pt]
+\texttt{~[1]~"z\_bm~<=~8"~~~"z\_bm~<=~3"~~~"z\_age~<=~65"~"z\_bm~<~1"}\\[-2pt]
+\texttt{~[5]~"z\_bm~<~2"~~~~"z\_bm~<~3"~~~~"z\_bm~<~4"~~~~"z\_bm~<~5"}\\[-2pt]
+\texttt{~[9]~"z\_bm~<~6"~~~~"z\_bm~<~7"~~~~"z\_bm~<~8"~~~~"z\_bm~<~9"}\\[-2pt]
+\texttt{[13]~"z\_bm~<~10"~~~"z\_bm~<=~7.7"~"z\_bm~<=~5"~~~"z\_bm~<=~2"}\\[-2pt]
+\texttt{[17]~"z\_bm~<=~10"~~"z\_histology"~"strat~<=~0"}\\[-2pt]
+\texttt{Number~of~possible~configurations~(<=~maxk):~}\\[-2pt]
+\texttt{~~~~maxk~=~1~,~\#~combinations~=~38}\\[-2pt]
+\texttt{Events~criteria:~control~>=~10~,~treatment~>=~10}\\[-2pt]
+\texttt{Sample~size~criteria:~n~>=~60}\\[-2pt]
+\texttt{Subgroup~search~completed~in~0~minutes}\\[-2pt]
+\vspace{2pt}
+\texttt{---~Filtering~Summary~---}\\[-2pt]
+\texttt{~~Combinations~evaluated:~38}\\[-2pt]
+\texttt{~~Passed~variance~check:~38}\\[-2pt]
+\texttt{~~Passed~prevalence~(>=~0.025~):~37}\\[-2pt]
+\texttt{~~Passed~redundancy~check:~36}\\[-2pt]
+\texttt{~~Passed~event~counts~(d0>=~10~,~d1>=~10~):~35}\\[-2pt]
+\texttt{~~Passed~sample~size~(n>=~60~):~35}\\[-2pt]
+\texttt{~~Cox~model~fit~successfully:~35}\\[-2pt]
+\texttt{~~Passed~HR~threshold~(>=~0.9~):~15}\\[-2pt]
+\texttt{-------------------------}\\[-2pt]
+\vspace{2pt}
+\texttt{Found~15~subgroup~candidate(s)}\\[-2pt]
+}
+\end{column}
+\begin{column}{0.45\textwidth}
+{\tiny\raggedright
+\texttt{\#~of~candidate~subgroups~(meeting~all~criteria)~}\\[-2pt]
+\texttt{~~~~=~15}\\[-2pt]
+\texttt{Removed~7~near-duplicate~subgroups}\\[-2pt]
+\texttt{\#~of~unique~initial~candidates:~8}\\[-2pt]
+\texttt{\#~Restricting~to~top~stop\_Kgroups~=~30}\\[-2pt]
+\texttt{\#~of~candidates~to~evaluate:~8}\\[-2pt]
+\vspace{2pt}
+\texttt{================================================================================}\\[-2pt]
+\texttt{TOP~8~CANDIDATE~SUBGROUPS~FOR~CONSISTENCY~EVALUATION}\\[-2pt]
+\texttt{Sorted~by:~minSG}\\[-2pt]
+\texttt{================================================================================}\\[-2pt]
+\vspace{2pt}
+\texttt{Rank~~~HR~~~~~~~~N~~~~~~~Events~~K~~~~Subgroup~Definition}\\[-2pt]
+\texttt{--------------------------------------------------------------------------------}\\[-2pt]
+\texttt{1~~~~~~4.016~~~~~77~~~~~~70~~~~~~1~~~~\{z\_bm~<~2\}}\\[-2pt]
+\texttt{2~~~~~~2.765~~~~~122~~~~~112~~~~~1~~~~\{z\_bm~<=~2\}}\\[-2pt]
+\texttt{3~~~~~~2.682~~~~~138~~~~~128~~~~~1~~~~\{z\_bm~<=~3\}}\\[-2pt]
+\texttt{4~~~~~~2.149~~~~~210~~~~~198~~~~~1~~~~\{z\_bm~<~6\}}\\[-2pt]
+\texttt{5~~~~~~2.095~~~~~226~~~~~214~~~~~1~~~~\{z\_bm~<~7\}}\\[-2pt]
+\texttt{6~~~~~~2.067~~~~~229~~~~~217~~~~~1~~~~\{z\_bm~<~8\}}\\[-2pt]
+\texttt{7~~~~~~2.040~~~~~233~~~~~221~~~~~1~~~~\{z\_bm~<~10\}}\\[-2pt]
+\texttt{8~~~~~~1.540~~~~~277~~~~~260~~~~~1~~~~\{z\_bm~<=~10\}}\\[-2pt]
+\texttt{--------------------------------------------------------------------------------}\\[-2pt]
+\vspace{2pt}
+\texttt{Parallel~config:~workers~=~100~,~batch\_size~=~8}\\[-2pt]
+\texttt{Batch~1~/~1~:~candidates~1~-~8}\\[-2pt]
+\texttt{Evaluated~8~of~8~candidates~(complete)}\\[-2pt]
+\texttt{8~subgroups~passed~consistency~threshold}\\[-2pt]
+\texttt{SG~focus~=~minSG}\\[-2pt]
+\texttt{Seconds~and~minutes~forestsearch~overall~=~}\\[-2pt]
+\texttt{~~~~6.328~0.1055}\\[-2pt]
+\texttt{Consistency~algorithm~used:~twostage}\\[-2pt]
+\texttt{Subgroup~identified:~\{z\_bm~<~2\}}\\[-2pt]
+}
+\end{column}
+\end{columns}
+
+\normalsize
+\end{frame}
+
+\begin{frame}[shrink]{Subgroups Identified: Non-AP Training}
+\phantomsection\label{subgroups-identified-non-ap-training}
+\begin{table}[t]
+\caption*{
+{\fontsize{10}{13}\selectfont  \textbf{Identified Subgroups}\fontsize{9}{11}\selectfont } \\ 
+{\fontsize{9}{11}\selectfont  Single-factor subgroups (maxk=1)\fontsize{9}{11}\selectfont }
+} 
+\fontsize{9.0pt}{11.0pt}\selectfont
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lrrrrr}
+\toprule
+Factor & N & Events & E1 & HR & Pcons \\ 
+\midrule\addlinespace[2.5pt]
+\{z\_bm < 2\} & 77 & 70 & 31 & 4.02 & 1.00 \\ 
+\{z\_bm <= 2\} & 122 & 112 & 58 & 2.77 & 1.00 \\ 
+\{z\_bm <= 3\} & 138 & 128 & 63 & 2.68 & 1.00 \\ 
+\{z\_bm < 6\} & 210 & 198 & 104 & 2.15 & 1.00 \\ 
+\{z\_bm < 7\} & 226 & 214 & 116 & 2.10 & 1.00 \\ 
+\{z\_bm < 8\} & 229 & 217 & 119 & 2.07 & 1.00 \\ 
+\{z\_bm < 10\} & 233 & 221 & 123 & 2.04 & 1.00 \\ 
+\{z\_bm <= 10\} & 277 & 260 & 139 & 1.54 & 1.00 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+\textbf{Search Configuration:} Single-factor candidates (L) = 38; Maximum combinations evaluated = 38; Search depth (maxk) = 1\\
+\textbf{Search Results:} Candidate subgroups found = 15; Maximum HR estimate = 4.02\\
+\textbf{Note:} E1 = events in treatment arm; Pcons = consistency proportion\\
+\end{minipage}
+\end{table}
+\end{frame}
+
+\begin{frame}{Training and Testing Estimates}
+\phantomsection\label{training-and-testing-estimates}
+\begin{table}[t]
+\caption*{
+{\fontsize{10}{13}\selectfont  \textbf{Treatment Effect Estimates}\fontsize{7}{8}\selectfont } \\ 
+{\fontsize{9}{11}\selectfont  Non-AP (training)\fontsize{7}{8}\selectfont }
+} 
+\fontsize{7.0pt}{8.0pt}\selectfont
+\begin{tabular*}{1\linewidth}{@{\extracolsep{\fill}}lrrrrrrrr}
+\toprule
+Subgroup & n & n1 & events & m1 & m0 & RMST & HR (95\% CI) & AHR(po) \\ 
+\midrule\addlinespace[2.5pt]
+ITT & 363 (100.0\%) & 193 (53.2\%) & 303 (83.5\%) & 11.2 & 10.5 & 4.9 & 0.73 (0.58, 0.91) & 0.76 \\ 
+Questionable\textsuperscript{\textit{1}} & 77 (21.2\%) & 31 (40.3\%) & 70 (90.9\%) & 3.6 & 16.5 & -10 & 4.02 (2.43, 6.64) & 2.52 \\ 
+Recommend & 286 (78.8\%) & 162 (56.6\%) & 233 (81.5\%) & 14.7 & 9.2 & 10 & 0.53 (0.41, 0.68) & 0.55 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+\textsuperscript{\textit{1}}\textbf{Identified subgroup} : \{z\_bm \textless{} 2\}\\
+\end{minipage}
+\end{table}
+\begin{table}[t]
+\caption*{
+{\fontsize{10}{13}\selectfont  AP (testing)\fontsize{7}{8}\selectfont }
+} 
+\fontsize{7.0pt}{8.0pt}\selectfont
+\begin{tabular*}{1\linewidth}{@{\extracolsep{\fill}}lrrrrrrrr}
+\toprule
+Subgroup & n & n1 & events & m1 & m0 & RMST & HR (95\% CI) & AHR(po) \\ 
+\midrule\addlinespace[2.5pt]
+ITT & 137 (100.0\%) & 74 (54.0\%) & 63 (46.0\%) & NA & 46.7 & 1.6 & 0.91 (0.56, 1.48) & 0.74 \\ 
+Questionable\textsuperscript{\textit{1}} & 26 (19.0\%) & 21 (80.8\%) & 17 (65.4\%) & 24.8 & NA & -16 & 3.11 (0.89, 10.90) & 2.52 \\ 
+Recommend & 111 (81.0\%) & 53 (47.7\%) & 46 (41.4\%) & NA & 46.7 & 6.6 & 0.62 (0.34, 1.11) & 0.55 \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+\textsuperscript{\textit{1}}\textbf{Identified subgroup} : \{z\_bm \textless{} 2\}\\
+\end{minipage}
+\end{table}
+\end{frame}
+
+\begin{frame}{AP (ITT) vs Biomarker High (per identified \(\geq 2\))}
+\phantomsection\label{ap-itt-vs-biomarker-high-per-identified-geq-2}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/km-ap-bm-1} \end{center}
+\end{frame}
+
+\section{Null Hypothesis Evaluation (Uniform HR =
+0.7)}\label{null-hypothesis-evaluation-uniform-hr-0.7}
+
+\begin{frame}{Null: Regional Kaplan-Meier Plots}
+\phantomsection\label{null-regional-kaplan-meier-plots}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/km-null-1} \end{center}
+\end{frame}
+
+\begin{frame}{ForestSearch Under Null}
+\phantomsection\label{forestsearch-under-null}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+{\tiny\raggedright
+\texttt{Forced~confounders:~z\_age~<=~65,~z\_bm~<~1,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~2,~z\_bm~<~3,~z\_bm~<~4,~z\_bm~<~5,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~6,~z\_bm~<~7,~z\_bm~<~8,~z\_bm~<~9,~}\\[-2pt]
+\texttt{~~~~z\_bm~<~10}\\[-2pt]
+\texttt{GRF:~no~subgroup~identified}\\[-2pt]
+\texttt{GRF~cuts~identified:~0}\\[-2pt]
+\texttt{Cox-LASSO~selected:~1~of~7~candidate~factors}\\[-2pt]
+\texttt{~~Omitted:~z\_age,~z\_bm,~z\_male,~ecog,~}\\[-2pt]
+\texttt{~~~~~~z\_histology,~strat}\\[-2pt]
+\texttt{Candidate~factors:~12}\\[-2pt]
+\texttt{~[1]~"z\_age~<=~65"~~~"z\_bm~<~1"~~~~~~"z\_bm~<~2"~~~~~~"z\_bm~<~3"}\\[-2pt]
+\texttt{~[5]~"z\_bm~<~4"~~~~~~"z\_bm~<~5"~~~~~~"z\_bm~<~6"~~~~~~"z\_bm~<~7"}\\[-2pt]
+\texttt{~[9]~"z\_bm~<~8"~~~~~~"z\_bm~<~9"~~~~~~"z\_bm~<~10"~~~~~"z\_prior\_treat"}\\[-2pt]
+\texttt{Number~of~possible~configurations~(<=~maxk):~}\\[-2pt]
+\texttt{~~~~maxk~=~1~,~\#~combinations~=~24}\\[-2pt]
+\texttt{Events~criteria:~control~>=~10~,~treatment~>=~10}\\[-2pt]
+\texttt{Sample~size~criteria:~n~>=~60}\\[-2pt]
+\texttt{Subgroup~search~completed~in~0~minutes}\\[-2pt]
+}
+\end{column}
+\begin{column}{0.45\textwidth}
+{\tiny\raggedright
+\texttt{---~Filtering~Summary~---}\\[-2pt]
+\texttt{~~Combinations~evaluated:~24}\\[-2pt]
+\texttt{~~Passed~variance~check:~24}\\[-2pt]
+\texttt{~~Passed~prevalence~(>=~0.025~):~23}\\[-2pt]
+\texttt{~~Passed~redundancy~check:~22}\\[-2pt]
+\texttt{~~Passed~event~counts~(d0>=~10~,~d1>=~10~):~22}\\[-2pt]
+\texttt{~~Passed~sample~size~(n>=~60~):~22}\\[-2pt]
+\texttt{~~Cox~model~fit~successfully:~22}\\[-2pt]
+\texttt{~~Passed~HR~threshold~(>=~0.9~):~0}\\[-2pt]
+\texttt{-------------------------}\\[-2pt]
+\vspace{2pt}
+\texttt{NO~subgroup~candidates~found}\\[-2pt]
+}
+\end{column}
+\end{columns}
+
+\normalsize
+\end{frame}
+
+\section{Simulation Studies: Operating
+Characteristics}\label{simulation-studies-operating-characteristics}
+
+\begin{frame}[fragile]{HTE Scenario: Simulation Setup}
+\phantomsection\label{hte-scenario-simulation-setup}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+options(future.globals.onReference = "ignore")
+results_alt <- mrct_region_sims(
+  dgm       = dgm_spline,
+  n_sims    = 5000,
+  verbose_n_sims = 1L,
+  n_sample  = 500,
+  region_var = "z_AP",
+
+  sg_focus  = "minSG", maxk = 1,
+  hr.threshold  = 0.90,
+  hr.consistency = 0.80,
+  pconsistency.threshold = 0.80,
+
+  confounders.name = c("z_age", "z_bm",
+    "z_male", "ecog", "z_histology",
+    "z_prior_treat", "strat"),
+  conf_force = c("z_age <= 65",
+    "z_bm <= 0", "z_bm <= 1",
+    "z_bm <= 2", "z_bm <= 5"),
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+  fs_args = list(
+    use_grf = TRUE, use_lasso = TRUE,
+    cut_type = "default", n.min = 60,
+    stop_threshold = 0.95,
+    d0.min = 12, d1.min = 12,
+    max_subgroups_search = 30,
+    use_twostage = TRUE,
+    twostage_args = list(
+      n.splits.screen = 50,
+      batch.size = 25,
+      conf.level = 0.99)),
+
+  sim_args = list(rand_ratio = 1,
+                  draw_treatment = FALSE),
+  analysis_time = 60, cens_adjust = 0,
+  parallel_args = list(
+    plan = "multisession",
+    workers = 10, show_message = TRUE),
+  details = TRUE, seed = 20240101
+)
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\normalsize
+\end{frame}
+
+\begin{frame}[shrink]{HTE Scenario: Summary Results}
+\phantomsection\label{hte-scenario-summary-results}
+\begin{table}[t]
+\caption*{
+{\fontsize{10}{13}\selectfont  Identified subgroups and estimation summaries\fontsize{7}{8}\selectfont } \\ 
+{\fontsize{9}{11}\selectfont  HTE: 5000 sims | Uniform: 10000 sims\fontsize{7}{8}\selectfont }
+} 
+\fontsize{7.0pt}{8.0pt}\selectfont
+\begin{tabular*}{1\linewidth}{@{\extracolsep{\fill}}>{\raggedright\arraybackslash}p{\dimexpr 90.00pt -2\tabcolsep-1.5\arrayrulewidth}>{\raggedright\arraybackslash}p{\dimexpr 150.00pt -2\tabcolsep-1.5\arrayrulewidth}>{\raggedleft\arraybackslash}p{\dimexpr 105.00pt -2\tabcolsep-1.5\arrayrulewidth}>{\raggedleft\arraybackslash}p{\dimexpr 105.00pt -2\tabcolsep-1.5\arrayrulewidth}}
+\toprule
+ &  & \multicolumn{2}{>{\centering\arraybackslash}m{\dimexpr 210.00pt -2\tabcolsep-1.5\arrayrulewidth}}{\parbox{\linewidth}{\centering {\textbf{Scenario}}}} \\ 
+\cmidrule(lr){3-4}
+Category & Metric & HTE & Uniform \\ 
+\midrule\addlinespace[2.5pt]
+{\bfseries HR Estimates} & {HR ITT} & {0.718 (0.074)} & {0.735 (0.074)} \\ 
+{} & {HR ITT (stratified by region)} & {0.707 (0.072)} & {0.713 (0.072)} \\ 
+{} & {HR Training (non-Region A)} & {0.663 (0.073)} & {0.719 (0.079)} \\ 
+{} & {HR Testing (Region A)} & {1.002 (0.267)} & {0.699 (0.198)} \\ 
+{} & {HR Subgroup} & {0.778 (0.240)} & {0.698 (0.187)*} \\ 
+{} & {PO HR Subgroup} & {0.533 (0.066)} & {0.700 (0.000)} \\ 
+{\bfseries Subgroup Identification} & {Subgroup Found} & {100.0\%} & {10.7\%} \\ 
+{} & {Prevalence (when found)} & {0.816 (0.039)} & {0.701 (0.158)} \\ 
+{\bfseries Region A Classification} & {RegA HR > 0.9} & {3032 (60.6\%)} & {1444 (14.4\%)} \\ 
+{} & {RegA(sg) HR <= 0.85} & {3353 (67.1\%)} & {7956 (79.6\%)} \\ 
+{} & {RegA > 0.9 \& RegA(sg) <= 0.85} & {1416 (28.3\%)} & {25 (0.2\%)} \\ 
+{} & {RegA > 0.9 \& RegA(sg) <= 0.80} & {1116 (22.3\%)} & {16 (0.2\%)} \\ 
+{\bfseries Subgroup Classification} & {Biomarker} & {4813 (96.3\%)} & {452 (4.5\%)} \\ 
+{} & {Age} & {181 (3.6\%)} & {274 (2.7\%)} \\ 
+\bottomrule
+\end{tabular*}
+\begin{minipage}{\linewidth}
+\vspace{.05em}
+* Trimmed mean/SD: lower and upper 1\% excluded (raw mean exceeded 1,000)\\
+\end{minipage}
+\end{table}
+\end{frame}
+
+\begin{frame}{HTE Scenario: HR Distributions}
+\phantomsection\label{hte-scenario-hr-distributions}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/alt-hrplot-1} \end{center}
+\end{frame}
+
+\begin{frame}{HTE Scenario: Subgroup Distribution}
+\phantomsection\label{hte-scenario-subgroup-distribution}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/alt-sgdist-1} \end{center}
+\end{frame}
+
+\begin{frame}{Null Scenario: HR Distributions}
+\phantomsection\label{null-scenario-hr-distributions}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/null-hrplot-1} \end{center}
+\end{frame}
+
+\begin{frame}{Null Scenario: Subgroup Distribution}
+\phantomsection\label{null-scenario-subgroup-distribution}
+\begin{center}\includegraphics[width=0.95\linewidth]{mrct_slides_larry-leon_files/figure-beamer/null-sgdist-1} \end{center}
+\end{frame}
+
+\section{Key Takeaways}\label{key-takeaways}
+
+\begin{frame}{Summary}
+\phantomsection\label{summary}
+\begin{enumerate}
+\item
+  \textbf{ForestSearch} provides a principled approach to subgroup
+  identification that directly addresses MRCT regional consistency
+  challenges
+\item
+  The \textbf{Weibull AFT/Cox dual framework} enables causal
+  interpretation --- simulated on AFT scale, interpreted via hazard
+  ratios
+\item
+  Three complementary estimands (\textbf{AHR}, \textbf{CDE},
+  \textbf{Marginal HR}) robustly characterize treatment effect
+  heterogeneity
+\item
+  The \textbf{train/test paradigm} (non-AP \(\to\) AP) avoids
+  overfitting
+\item
+  \textbf{Data-driven simulation} evaluates full operating
+  characteristics --- false discovery, estimation bias, CI coverage ---
+  grounded in real trial data
+\item
+  \textbf{Simulation results} demonstrate the approach can recover AP
+  consistency under heterogeneous effects while controlling
+  false-discovery under the null
+\end{enumerate}
+\end{frame}
+
+\begin{frame}[plain]{}
+\phantomsection\label{section}
+\begin{center}
+\vspace{1.5cm}
+
+{\Large \textbf{Thank You}}
+
+\vspace{0.8cm}
+
+\textbf{ForestSearch R Package}
+
+\medskip
+
+Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. \& Anderson, K.M. (2024)
+
+\emph{Exploratory subgroup identification in the heterogeneous Cox model.}
+
+Statistics in Medicine. doi:10.1002/sim.10163
+
+\vspace{0.8cm}
+
+\texttt{remotes::install\_github("larry-leon/forestsearch")}
+
+\smallskip
+\url{https://larry-leon.github.io/forestsearch/}
+
+\vspace{0.5cm}
+
+\small
+R code throughout this deck is directly executable with the ForestSearch
+package and the synthetic case-study dataset.
+
+\end{center}
+\end{frame}
+
+\section{Additional Notes}\label{additional-notes}
+
+\begin{frame}[shrink]{Some More Details}
+\phantomsection\label{some-more-details}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{Dual Causal Status}
+
+The Weibull AFT scale-change parameter $\exp(-\beta)$ equals the \textbf{geometric mean ratio} of potential survival times:
+$$\exp\!\bigl(E[\log T_{i}(1) - \log T_{i}(0)]\bigr)$$
+Simultaneously \textbf{individual-level} and \textbf{population-level} causal.
+
+\medskip
+
+\textbf{AHR Inherits This Status}:
+$$\text{AHR}(\mathcal{S}) = \exp\!\left(\frac{1}{|\mathcal{S}|}\sum_{i \in \mathcal{S}} [\theta_{i}(1) - \theta_{i}(0)]\right)$$
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textbf{Cox HR as Operational Tool}
+
+\begin{itemize}
+\item \emph{True} effects: defined through $\psi^{0}(z)$
+\item Subgroup \emph{selection}: Cox HR as efficient screening
+\item Subgroup \emph{evaluation}: AHR and CDE
+\item \emph{Correction}: bootstrap bias correction (\texttt{hr.H.bc})
+\end{itemize}
+
+\medskip
+
+\textbf{De-Biased Estimation}:
+$$\hat{\beta}^{*}(\hat{\mathcal{H}}) = \hat{\beta}(\hat{\mathcal{H}}) - \frac{1}{B}\sum_{b=1}^{B}\bigl[\eta^{*}_{b}(\hat{\mathcal{H}}^{*}_{b}) + \eta^{*}_{b}(\hat{\mathcal{H}})\bigr]$$
+
+Infinitesimal jackknife for valid CIs.
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[shrink]{ForestSearch Implementation Details}
+\phantomsection\label{forestsearch-implementation-details}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{Feature Discovery Pipeline}
+
+\begin{enumerate}
+\item \textbf{GRF} (causal survival forests): treatment effect heterogeneity via RMST
+\item \textbf{LASSO} regularization: variable screening via Cox penalized regression
+\item \textbf{Exhaustive combinatorial search}: across factors and cutpoints
+\item \textbf{Forced cutpoints}: \texttt{conf\_force} for domain-guided biomarker cuts
+\end{enumerate}
+
+\medskip
+
+\textbf{Selection Criteria}
+
+\begin{itemize}
+\item HR threshold: $\hat{\beta} \geq \log(0.90)$ 
+\item Consistency rate $\geq$ 80--90\% 
+\item Minimum sizes: $n \geq 60$, $d \geq 12$ 
+\item \texttt{sg\_focus}: \texttt{"minSG"} $|$ \texttt{"hr"} $|$ \texttt{"maxSG"}
+\end{itemize}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textbf{Cross-Validation}
+\begin{itemize}
+\item \texttt{leave-one-out}
+\item \texttt{10-fold}
+\item \texttt{agreement metrics: cv-testing vs full} sens, ppv, subgroup match (cv-training vs full) metrics
+\end{itemize}
+
+\medskip
+\textbf{Bootstrap Inference}
+\begin{itemize}
+\item parallelised (dofuture) bootstrap
+\item Full algorithm mimicked in each replicate ($B = 300$--$2000$)
+\item IJ variance estimation for valid confidence intervals
+\end{itemize}
+
+\end{column}
+\end{columns}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,128 @@
+% =============================================================================
+% beamer_preamble.tex — ForestSearch MRCT Presentation
+% =============================================================================
+
+% --- Unicode character support for R output ---
+\usepackage{newunicodechar}
+\usepackage{amssymb}
+\newunicodechar{✓}{$\checkmark$}
+\newunicodechar{✗}{$\times$}
+\newunicodechar{–}{--}
+\newunicodechar{—}{---}
+\newunicodechar{≤}{$\leq$}
+\newunicodechar{≥}{$\geq$}
+\newunicodechar{×}{$\times$}
+\newunicodechar{±}{$\pm$}
+\newunicodechar{≈}{$\approx$}
+\newunicodechar{→}{$\rightarrow$}
+\newunicodechar{←}{$\leftarrow$}
+\newunicodechar{≠}{$\neq$}
+\newunicodechar{∈}{$\in$}
+\newunicodechar{⊂}{$\subset$}
+\newunicodechar{∅}{$\emptyset$}
+\newunicodechar{α}{$\alpha$}
+\newunicodechar{β}{$\beta$}
+\newunicodechar{γ}{$\gamma$}
+\newunicodechar{σ}{$\sigma$}
+\newunicodechar{τ}{$\tau$}
+\newunicodechar{ε}{$\varepsilon$}
+\newunicodechar{θ}{$\theta$}
+\newunicodechar{λ}{$\lambda$}
+\newunicodechar{ν}{$\nu$}
+\newunicodechar{ψ}{$\psi$}
+
+% --- Table packages ---
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{multirow}
+
+% --- Custom colors ---
+\definecolor{navydark}{HTML}{21295C}
+\definecolor{oceanblue}{HTML}{065A82}
+\definecolor{tealaccent}{HTML}{00A896}
+\definecolor{softgold}{HTML}{FFC000}
+\definecolor{lightblue}{HTML}{5B9BD5}
+\definecolor{codegray}{HTML}{F5F5F5}
+
+% --- Madrid theme color customisation ---
+\setbeamercolor{palette primary}{bg=navydark, fg=white}
+\setbeamercolor{palette secondary}{bg=oceanblue, fg=white}
+\setbeamercolor{palette tertiary}{bg=tealaccent, fg=white}
+\setbeamercolor{structure}{fg=navydark}
+\setbeamercolor{title}{fg=white, bg=navydark}
+\setbeamercolor{frametitle}{fg=white, bg=navydark}
+\setbeamercolor{block title}{bg=oceanblue, fg=white}
+\setbeamercolor{block body}{bg=oceanblue!10}
+\setbeamercolor{block title alerted}{bg=tealaccent, fg=white}
+\setbeamercolor{block body alerted}{bg=tealaccent!10}
+\setbeamercolor{block title example}{bg=softgold, fg=black}
+\setbeamercolor{block body example}{bg=softgold!10}
+
+% --- Code display ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\tiny,
+  breaklines=true,
+  frame=none,
+  backgroundcolor=\color{codegray},
+  commentstyle=\color{gray},
+  keywordstyle=\color{oceanblue},
+  stringstyle=\color{tealaccent}
+}
+
+% --- Tighter spacing ---
+\setlength{\parskip}{0.3em}
+
+% --- Custom footer ---
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}ForestSearch $|$ MRCT
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.333\paperwidth,ht=2.25ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertshortdate{}\hspace*{2em}
+      \insertframenumber{}\,/\,\inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}%
+  }%
+  \vskip0pt%
+}
+
+% ======================================================================
+% MRCT_beamer_preamble.tex
+% Preamble for MRCT beamer presentations
+% Referenced via:  includes: in_header: MRCT_beamer_preamble.tex
+% ======================================================================
+
+% --- TikZ for workflow diagrams ---
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+
+% --- Math support ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% --- Tables ---
+\usepackage{booktabs}
+
+% --- Graphics ---
+\usepackage{graphicx}
+
+% --- Footnote size for slides ---
+\setbeamerfont{footnote}{size=\tiny}
+
+\usepackage{listings}
+\lstset{
+  language=R, basicstyle=\ttfamily\scriptsize,
+  breaklines=true, columns=flexible,
+  keywordstyle=\color{blue!70}, commentstyle=\color{green!50!black},
+  showstringspaces=false, frame=none
+}
+
+\setbeamertemplate{section page}{}
+\AtBeginSection{}
+
