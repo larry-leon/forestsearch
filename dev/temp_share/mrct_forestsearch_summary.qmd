@@ -1,0 +1,172 @@
+---
+title: "MRCT Regional Consistency via ForestSearch"
+subtitle: "High-Level Summary (De-emphasized Technical Detail)"
+author: "Summary Deck"
+format:
+  revealjs:
+    theme: simple
+    slide-number: true
+    incremental: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## Background and Motivation
+
+- Global MRCT shows overall ITT benefit
+- Asia-Pacific (AP) region is 15–20% of trial
+- AP point estimate ~1.0 → **apparent inconsistency**
+- Regulatory and scientific challenge: *Is there a credible explanation?*
+
+---
+
+## Key Question
+
+> Can we identify a **clinically meaningful subgroup** outside AP such that
+> the **same subgroup within AP** shows consistent benefit?
+
+- Focus on **consistency**, not post-hoc optimization
+- Aim: transparent, reproducible subgroup identification
+
+---
+
+## High-Level Approach
+
+**ForestSearch Framework**
+
+- Exploratory, data-driven subgroup identification
+- Searches across combinations of baseline covariates
+- Designed to control false discovery while allowing discovery
+
+---
+
+## Conceptual Workflow
+
+1. **Train** on non-AP data (majority region)
+2. **Identify subgroups** showing strong or harmful effects
+3. **Validate consistency** via resampling
+4. **Test transferability** to AP region
+
+---
+
+## Why a Train/Test Paradigm?
+
+- Prevents overfitting
+- Mimics real regulatory decision-making
+- Non-AP → hypothesis generation
+- AP → external validation
+
+---
+
+## Subgroup Identification: Intuition
+
+- Consider many possible subgroups (e.g., biomarker cutpoints)
+- Focus on signals that are:
+  - sufficiently large
+  - sufficiently prevalent
+  - reproducible under resampling
+
+---
+
+## ForestSearch: What It Is (and Is Not)
+
+**Is:**
+- Structured exploratory tool
+- Designed for MRCT consistency questions
+
+**Is Not:**
+- A single definitive subgroup test
+- A replacement for prespecified analyses
+
+---
+
+## Targeted Objectives
+
+Three possible goals:
+
+- Identify **largest harmful subgroup** (and study its complement)
+- Identify **smallest harmful subgroup** (maximizing generalizability)
+- Directly identify **strongly beneficial subgroup**
+
+---
+
+## Case Study Setup (Synthetic MRCT)
+
+- Oncology-like survival trial
+- Biomarker-driven treatment heterogeneity
+- Realistic censoring and sample sizes
+- AP region reserved for testing
+
+---
+
+## What Happens in the Case Study?
+
+- Overall ITT benefit observed
+- AP ITT estimate ~1.0 (appears inconsistent)
+- ForestSearch identifies a **low-biomarker subgroup** with harm
+- Complement subgroup shows strong benefit
+
+---
+
+## Applying Subgroup to AP
+
+- Same subgroup definition applied to AP
+- AP patients outside harmful subgroup:
+  - HR < 1
+  - Directionally consistent with global result
+
+---
+
+## Key Simulation Findings
+
+- Under true heterogeneity:
+  - Correct subgroups identified frequently
+  - AP consistency often restored
+
+- Under null (no heterogeneity):
+  - Few subgroups selected
+  - False discovery well controlled
+
+---
+
+## Why This Matters
+
+- Provides **principled explanation** for regional inconsistency
+- Avoids ad hoc subgroup cherry-picking
+- Explicitly evaluates operating characteristics
+
+---
+
+## Strengths of the Approach
+
+- Transparent and reproducible
+- Separates discovery and validation
+- Grounded in causal estimands
+- Evaluated through simulation, not anecdotes
+
+---
+
+## Limitations and Cautions
+
+- Exploratory by design
+- Requires careful interpretation
+- Subgroup findings should inform, not replace, primary evidence
+
+---
+
+## Take-Home Messages
+
+- Regional inconsistency does not imply lack of efficacy
+- Subgroup structure may explain heterogeneity
+- ForestSearch offers a **disciplined exploratory framework**
+- Supports clearer scientific and regulatory conversations
+
+---
+
+## Thank You
+
+ForestSearch R package and methods continue to evolve.
+
+Use results to **inform decisions**, not to overfit conclusions.
