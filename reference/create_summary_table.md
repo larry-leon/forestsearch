@@ -1,6 +1,9 @@
 # Create Enhanced Summary Table for Baseline Characteristics
 
-Create Enhanced Summary Table for Baseline Characteristics
+Generates a formatted summary table comparing baseline characteristics
+between treatment arms. Supports continuous, categorical, and binary
+variables with p-values, standardized mean differences (SMD), and
+missing data summaries.
 
 ## Usage
 
@@ -149,6 +152,15 @@ create_summary_table(
 ## Value
 
 A gt table object (or data frame if gt not available)
+
+## Details
+
+Binary variables specified via `vars_binary` display a single row
+showing the count and proportion for the "1" level. Categorical
+variables specified via `vars_categorical` that happen to be
+binary-coded (i.e., have exactly two levels: 0 and 1) are automatically
+detected and displayed in the same compact single-row format, showing
+only the "1" proportion.
 
 ## Examples
 

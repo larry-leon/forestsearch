@@ -902,12 +902,8 @@ create_summary_table(
 | z3 | Mean (SD) | 0.4 (0.5) | 0.4 (0.5) | 0.249 | 0.09 |
 | z4 | Mean (SD) | 2.6 (1.1) | 2.5 (1.1) | 0.428 | 0.06 |
 | z5 | Mean (SD) | 2.4 (1.1) | 2.4 (1.1) | 0.563 | 0.04 |
-| flag.harm |  |  |  | 0.908 | 0.00 |
-|  | 0 | 306 (87.4%) | 308 (88.0%) |  |  |
-|  | 1 | 44 (12.6%) | 42 (12.0%) |  |  |
-| grade3 |  |  |  | 0.530 | 0.02 |
-|  | 0 | 273 (78.0%) | 265 (75.7%) |  |  |
-|  | 1 | 77 (22.0%) | 85 (24.3%) |  |  |
+| flag.harm |  | 44 (12.6%) | 42 (12.0%) | 0.908 | 0.02 |
+| grade3 |  | 77 (22.0%) | 85 (24.3%) | 0.530 | 0.05 |
 | ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |  |  |  |  |  |
 | ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical) |  |  |  |  |  |
 
@@ -1044,58 +1040,11 @@ results_alt <- foreach(
 }
 ```
 
-    ## 
-    ## === Two-Stage Consistency Evaluation Enabled ===
-    ## Stage 1 screening splits: 30 
-    ## Maximum total splits: 400 
-    ## Batch size: 20 
-    ## ================================================
-    ## 
-    ## GRF stage for cut selection with dmin, tau = 12 0.6 
-    ##   return_selected_cuts_only = TRUE: using cuts from selected tree only
-    ## tau, maxdepth = 48.53742 2 
-    ##    leaf.node control.mean control.size control.se depth
-    ## 1          2        -5.33       520.00       1.11     1
-    ## 2          3         1.02       180.00       2.32     1
-    ## 11         4        -6.71       426.00       1.21     2
-    ## 21         5         3.44       142.00       2.62     2
-    ## 4          7        -7.11        78.00       3.18     2
-    ## GRF subgroup NOT found
+    ## GRF: no subgroup identified
     ## GRF cuts identified: 0 
-    ## # of continuous/categorical characteristics 4 3 
-    ## Continuous characteristics: z2 z4 z5 size 
-    ## Categorical characteristics: z1 z3 grade3 
-    ## ## Prior to lasso: z2 z4 z5 size 
-    ## #### Lasso selection results 
-    ## 7 x 1 sparse Matrix of class "dgCMatrix"
-    ##                 s0
-    ## z1      0.28638272
-    ## z2      .         
-    ## z3      0.04573174
-    ## z4     -0.34834939
-    ## z5      0.45235142
-    ## size    .         
-    ## grade3  0.01493646
-    ## Cox-LASSO selected: z1 z3 z4 z5 grade3 
-    ## Cox-LASSO not selected: z2 size 
-    ## ### End Lasso selection 
-    ## ## After lasso: z4 z5 
-    ## Default cuts included from Lasso: z4 <= mean(z4) z4 <= median(z4) z4 <= qlow(z4) z4 <= qhigh(z4) z5 <= mean(z5) z5 <= median(z5) z5 <= qlow(z5) z5 <= qhigh(z5) 
-    ## Categorical after Lasso: z1 z3 grade3 
-    ## Factors per GRF:  
-    ## Initial GRF cuts included  
-    ## Factors included per GRF (not in lasso)  
-    ## 
-    ## ===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
-    ## Evaluating 10 cut expressions once and caching...
-    ## Cut evaluation summary:
-    ##   Total cuts:  10 
-    ##   Valid cuts:  10 
-    ##   Errors:  0 
-    ## ✓ All 10 factors validated as 0/1
-    ## ===== END CONSOLIDATED CUT EVALUATION =====
-    ## 
-    ## # of candidate subgroup factors= 10 
+    ## Cox-LASSO selected: 5 of 7 candidate factors
+    ##   Omitted: z2, size 
+    ## Candidate factors: 10 
     ##  [1] "z4 <= 2.5" "z4 <= 3"   "z4 <= 2"   "z5 <= 2.4" "z5 <= 2"   "z5 <= 1"  
     ##  [7] "z5 <= 3"   "z1"        "z3"        "grade3"   
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 210 
@@ -1116,12 +1065,6 @@ results_alt <- foreach(
     ## 
     ## Found 3 subgroup candidate(s)
     ## # of candidate subgroups (meeting all criteria) = 3 
-    ## Random seed set to: 8316951 
-    ## Two-stage parameters:
-    ##   n.splits.screen: 30 
-    ##   screen.threshold: 0.763 
-    ##   batch.size: 20 
-    ##   conf.level: 0.95 
     ## Removed 1 near-duplicate subgroups
     ## # of unique initial candidates: 2 
     ## # Restricting to top stop_Kgroups = 10 
@@ -1133,8 +1076,9 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 8.45 0.1408 
+    ## Seconds and minutes forestsearch overall = 7.822 0.1304 
     ## Consistency algorithm used: twostage 
+    ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
     ##    leaf.node control.mean control.size control.se depth
     ## 1          2        -5.33       520.00       1.11     1
@@ -1151,7 +1095,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 7.9 minutes
+    ## Completed in 7.6 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1201,64 +1145,18 @@ results_null <- foreach(
 }
 ```
 
-    ## 
-    ## === Two-Stage Consistency Evaluation Enabled ===
-    ## Stage 1 screening splits: 30 
-    ## Maximum total splits: 400 
-    ## Batch size: 20 
-    ## ================================================
-    ## 
-    ## GRF stage for cut selection with dmin, tau = 12 0.6 
-    ##   return_selected_cuts_only = TRUE: using cuts from selected tree only
-    ## tau, maxdepth = 47.91247 2 
-    ##   leaf.node control.mean control.size control.se depth
-    ## 2         3        -4.78       695.00       1.00     1
-    ## 1         4        -5.09       568.00       1.10     2
-    ## GRF subgroup NOT found
+    ## GRF: no subgroup identified
     ## GRF cuts identified: 0 
-    ## # of continuous/categorical characteristics 4 3 
-    ## Continuous characteristics: z2 z4 z5 size 
-    ## Categorical characteristics: z1 z3 grade3 
-    ## ## Prior to lasso: z2 z4 z5 size 
-    ## #### Lasso selection results 
-    ## 7 x 1 sparse Matrix of class "dgCMatrix"
-    ##                   s0
-    ## z1      0.0078483334
-    ## z2      0.0324623135
-    ## z3      .           
-    ## z4     -0.3338944143
-    ## z5      0.4663620842
-    ## size    0.0002302206
-    ## grade3  .           
-    ## Cox-LASSO selected: z1 z2 z4 z5 size 
-    ## Cox-LASSO not selected: z3 grade3 
-    ## ### End Lasso selection 
-    ## ## After lasso: z2 z4 z5 size 
-    ## Default cuts included from Lasso: z2 <= mean(z2) z2 <= median(z2) z2 <= qlow(z2) z2 <= qhigh(z2) z4 <= mean(z4) z4 <= median(z4) z4 <= qlow(z4) z4 <= qhigh(z4) z5 <= mean(z5) z5 <= median(z5) z5 <= qlow(z5) z5 <= qhigh(z5) size <= mean(size) size <= median(size) size <= qlow(size) size <= qhigh(size) 
-    ## Categorical after Lasso: z1 
-    ## Factors per GRF:  
-    ## Initial GRF cuts included  
-    ## Factors included per GRF (not in lasso)  
-    ## 
-    ## ===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
-    ## Evaluating 15 cut expressions once and caching...
-    ## Cut evaluation summary:
-    ##   Total cuts:  15 
-    ##   Valid cuts:  14 
-    ##   Errors:  0 
-    ## Dropping variables (cut only has 1 level): z2 <= 4 
-    ## Total cuts after dropping invalid: 14
-    ## ✓ All 14 factors validated as 0/1
-    ## ===== END CONSOLIDATED CUT EVALUATION =====
-    ## 
-    ## # of candidate subgroup factors= 14 
+    ## Cox-LASSO selected: 5 of 7 candidate factors
+    ##   Omitted: z3, grade3 
+    ## Candidate factors: 14 
     ##  [1] "z2 <= 2.5"    "z2 <= 2"      "z4 <= 2.5"    "z4 <= 3"      "z4 <= 2"     
     ##  [6] "z5 <= 2.4"    "z5 <= 2"      "z5 <= 1"      "z5 <= 3"      "size <= 29.1"
     ## [11] "size <= 25"   "size <= 20"   "size <= 35"   "z1"          
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
+    ## Subgroup search completed in 0.04 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1273,12 +1171,6 @@ results_null <- foreach(
     ## 
     ## Found 4 subgroup candidate(s)
     ## # of candidate subgroups (meeting all criteria) = 4 
-    ## Random seed set to: 8316951 
-    ## Two-stage parameters:
-    ##   n.splits.screen: 30 
-    ##   screen.threshold: 0.763 
-    ##   batch.size: 20 
-    ##   conf.level: 0.95 
     ## Removed 2 near-duplicate subgroups
     ## # of unique initial candidates: 2 
     ## # Restricting to top stop_Kgroups = 10 
@@ -1289,7 +1181,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 8.245 0.1374 
+    ## Seconds and minutes forestsearch overall = 8.249 0.1375 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1304,7 +1196,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 35.6 minutes
+    ## Completed in 31.4 minutes
 
 ## Summarizing Results
 
@@ -2144,15 +2036,15 @@ reproducibility information.
 | 1000 H1 + 5000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.0 | 0.03 | 0.1 |
-| Calibrate k_inter (AHR) | 0.9 | 0.02 | 0.0 |
+| Calibrate k_inter (Cox) | 2.1 | 0.03 | 0.1 |
+| Calibrate k_inter (AHR) | 0.8 | 0.01 | 0.0 |
 | Validate k_inter | 0.2 | 0.00 | 0.0 |
-| DGM creation (H0) | 0.0 | 0.00 | 0.0 |
-| Simulations H1 | 475.3 | 7.92 | 18.0 |
-| Simulations H0 | 2,138.6 | 35.64 | 81.2 |
+| DGM creation (H0) | 0.1 | 0.00 | 0.0 |
+| Simulations H1 | 457.4 | 7.62 | 19.4 |
+| Simulations H0 | 1,886.3 | 31.44 | 79.8 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.1 | 0.00 | 0.0 |
-| Total vignette | 2,633.7 | 43.89 | 100.0 |
+| Summarize H0 | 0.0 | 0.00 | 0.0 |
+| Total vignette | 2,363.0 | 39.38 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)

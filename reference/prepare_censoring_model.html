@@ -27,8 +27,6 @@ to the super-population data frame."></head><body>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
-    <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
-    <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
   </ul></li>
@@ -62,7 +60,8 @@ to the super-population data frame.</p>
 <span>  <span class="va">cens_type</span>,</span>
 <span>  <span class="va">cens_params</span>,</span>
 <span>  <span class="va">df_super</span>,</span>
-<span>  select_censoring <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  select_censoring <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -94,6 +93,12 @@ model comparison. If <code>FALSE</code>, uses <code>cens_params</code> directly 
 no model fitting. See <code><a href="generate_aft_dgm_flex.html">generate_aft_dgm_flex</a></code> for the required
 <code>cens_params</code> structure under each combination of
 <code>select_censoring</code> and <code>cens_type</code>.</p></dd>
+
+
+<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
+<dd><p>Logical. If <code>TRUE</code> (default), prints the censoring
+model comparison table and recommendation. Set to <code>FALSE</code> to
+suppress all censoring model selection output.</p></dd>
 
 </dl></div>
     <div class="section level2">

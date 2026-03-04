@@ -10,10 +10,6 @@
 Technical details on the statistical methods
 
 - [Methodology](https://larry-leon.github.io/forestsearch/articles/methodology.md):
-- [Biomarker Treatment Effects in the Weibull AFT/Cox
-  Framework](https://larry-leon.github.io/forestsearch/articles/biomarker_effects.md):
-- [Causal Interpretation of Hazard Ratios in Survival
-  Analysis](https://larry-leon.github.io/forestsearch/articles/causal_effects_brief_review.md):
 
 ### Treatment Effect Definitions
 
@@ -22,6 +18,10 @@ and controlled direct effect (CDE) estimands.
 
 - [Treatment Effect Definitions in
   ForestSearch](https://larry-leon.github.io/forestsearch/articles/treatment_effect_definitions.md):
+- [Biomarker Treatment Effects in the Weibull AFT/Cox
+  Framework](https://larry-leon.github.io/forestsearch/articles/biomarker_effects.md):
+- [Causal Interpretation of Hazard Ratios in Survival
+  Analysis](https://larry-leon.github.io/forestsearch/articles/causal_effects_brief_review.md):
 
 ### Simulation Studies
 

@@ -27,8 +27,6 @@ selection, and exhaustive combinatorial search with split-sample validation."></
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
-    <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
-    <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
   </ul></li>
@@ -286,12 +284,18 @@ splits when <code>use_twostage = TRUE</code>). Default 1000.</p></dd>
 
 
 <dt id="arg-stop-threshold">stop_threshold<a class="anchor" aria-label="anchor" href="#arg-stop-threshold"></a></dt>
-<dd><p>Numeric. Early stopping threshold for consistency
-evaluation. When a candidate subgroup's estimated consistency probability
-exceeds this threshold, evaluation stops early. Default 0.95.
-<strong>Note:</strong> Automatically reset to NULL when <code>sg_focus</code> is
-"hrMaxSG" or "hrMinSG", as these criteria prioritize hazard ratio in
-selection and require full evaluation of all candidates.</p></dd>
+<dd><p>Numeric in <code>[0, 1]</code> or <code>NULL</code>.
+Early stopping threshold for consistency evaluation. When a candidate
+subgroup's consistency probability (<code>Pcons</code>) meets or exceeds this
+threshold, evaluation stops early — remaining candidates are skipped.
+Set to <code>NULL</code> to disable early stopping and force evaluation of
+all candidates up to <code>max_subgroups_search</code>. Default <code>0.95</code>.</p>
+<p><strong>Note:</strong> Values &gt; 1.0 are not permitted. To disable early
+stopping, use <code>stop_threshold = NULL</code>, not a value above 1.</p>
+<p>Automatically reset to <code>NULL</code> (with a warning) when
+<code>sg_focus</code> is <code>"hrMaxSG"</code> or <code>"hrMinSG"</code>, as these
+compound criteria require comparing HR <em>and</em> size across all
+candidates.</p></dd>
 
 
 <dt id="arg-showten-subgroups">showten_subgroups<a class="anchor" aria-label="anchor" href="#arg-showten-subgroups"></a></dt>

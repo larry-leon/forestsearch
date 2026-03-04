@@ -140,9 +140,7 @@ create_summary_table(
 |  | 1 | 48 (10.9%) | 33 (13.4%) |  |  |
 |  | 2 | 281 (63.9%) | 163 (66.3%) |  |  |
 |  | 3 | 111 (25.2%) | 50 (20.3%) |  |  |
-| meno |  |  |  | \<0.001 | 0.27 |
-|  | 0 | 231 (52.5%) | 59 (24.0%) |  |  |
-|  | 1 | 209 (47.5%) | 187 (76.0%) |  |  |
+| meno |  | 209 (47.5%) | 187 (76.0%) | \<0.001 | 0.61 |
 | ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |  |  |  |  |  |
 | ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical) |  |  |  |  |  |
 
@@ -313,70 +311,12 @@ fs <- forestsearch(
 )
 ```
 
-    ## 
-    ## === Two-Stage Consistency Evaluation Enabled ===
-    ## Stage 1 screening splits: 30 
-    ## Maximum total splits: 100 
-    ## Batch size: 20 
-    ## ================================================
-    ## 
-    ## GRF stage for cut selection with dmin, tau = 12 0.6 
-    ##   return_selected_cuts_only = TRUE: using cuts from selected tree only
-    ## tau, maxdepth = 46.75811 2 
-    ##    leaf.node control.mean control.size control.se depth
-    ## 1          2         6.49        82.00       3.34     1
-    ## 2          3        -4.10       604.00       1.06     1
-    ## 11         4        -7.90       112.00       2.81     2
-    ## 21         5         3.86       177.00       1.87     2
-    ## 4          7        -5.89       356.00       1.33     2
-    ## 
-    ## Selected subgroup:
-    ##   leaf.node control.mean control.size control.se depth
-    ## 1         2         6.49        82.00       3.34     1
-    ## 
-    ## GRF subgroup found
-    ## Terminating node at max.diff (sg.harm.id):
-    ## [1] "er <= 0"
-    ## 
-    ## Cuts from selected tree (depth = 1 ):
-    ## [1] "er <= 0"
+    ## GRF subgroup: er <= 0 
     ## GRF cuts identified: 1 
     ##   Cuts: er <= 0 
-    ##   Selected tree depth: 1 
-    ## # of continuous/categorical characteristics 5 2 
-    ## Continuous characteristics: age size nodes pgr er 
-    ## Categorical characteristics: meno grade3 
-    ## ## Prior to lasso: age size nodes pgr er 
-    ## #### Lasso selection results 
-    ## 7 x 1 sparse Matrix of class "dgCMatrix"
-    ##                  s0
-    ## age     .          
-    ## meno    .          
-    ## size    0.005433435
-    ## grade3  0.178139021
-    ## nodes   0.049670523
-    ## pgr    -0.001812895
-    ## er      .          
-    ## Cox-LASSO selected: size grade3 nodes pgr 
-    ## Cox-LASSO not selected: age meno er 
-    ## ### End Lasso selection 
-    ## ## After lasso: size nodes pgr 
-    ## Default cuts included from Lasso: size <= mean(size) size <= median(size) size <= qlow(size) size <= qhigh(size) nodes <= mean(nodes) nodes <= median(nodes) nodes <= qlow(nodes) nodes <= qhigh(nodes) pgr <= mean(pgr) pgr <= median(pgr) pgr <= qlow(pgr) pgr <= qhigh(pgr) 
-    ## Categorical after Lasso: grade3 
-    ## Factors per GRF: er <= 0 
-    ## Initial GRF cuts included er <= 0 
-    ## Factors included per GRF (not in lasso) er <= 0 
-    ## 
-    ## ===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
-    ## Evaluating 14 cut expressions once and caching...
-    ## Cut evaluation summary:
-    ##   Total cuts:  14 
-    ##   Valid cuts:  14 
-    ##   Errors:  0 
-    ## ✓ All 14 factors validated as 0/1
-    ## ===== END CONSOLIDATED CUT EVALUATION =====
-    ## 
-    ## # of candidate subgroup factors= 14 
+    ## Cox-LASSO selected: 4 of 7 candidate factors
+    ##   Omitted: age, meno, er 
+    ## Candidate factors: 14 
     ##  [1] "er <= 0"      "size <= 29.3" "size <= 25"   "size <= 20"   "size <= 35"  
     ##  [6] "nodes <= 5"   "nodes <= 3"   "nodes <= 1"   "nodes <= 7"   "pgr <= 110"  
     ## [11] "pgr <= 32.5"  "pgr <= 7"     "pgr <= 131.8" "grade3"      
@@ -398,12 +338,6 @@ fs <- forestsearch(
     ## 
     ## Found 7 subgroup candidate(s)
     ## # of candidate subgroups (meeting all criteria) = 7 
-    ## Random seed set to: 8316951 
-    ## Two-stage parameters:
-    ##   n.splits.screen: 30 
-    ##   screen.threshold: 0.617 
-    ##   batch.size: 20 
-    ##   conf.level: 0.95 
     ## # of unique initial candidates: 7 
     ## # Restricting to top stop_Kgroups = 3 
     ## # of candidates to evaluate: 3 
@@ -438,8 +372,9 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 1.962 0.0327 
-    ## Consistency algorithm used: twostage
+    ## Seconds and minutes forestsearch overall = 1.956 0.0326 
+    ## Consistency algorithm used: twostage 
+    ## Subgroup identified: {er <= 0} & {size <= 35}
 
 ``` r
 plan("sequential")
@@ -586,7 +521,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.04 minutes (0.00 hours)
     ##   Average per iteration:         0.02 min (1.1 sec)
-    ##   Projected for 1000 boots:      18.77 min (0.31 hrs)
+    ##   Projected for 1000 boots:      18.99 min (0.32 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -1036,7 +971,7 @@ ER-negative patients may not benefit is consistent with:
 | GRF                  | 0.2        | 0.0        |
 | ForestSearch         | 2.0        | 0.0        |
 | Bootstrap            | 3.2        | 0.1        |
-| Total                | 10.1       | 0.2        |
+| Total                | 10.0       | 0.2        |
 
 [ Code](#collapse-timingsummary)
 

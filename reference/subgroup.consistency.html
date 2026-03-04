@@ -27,8 +27,6 @@ treatment effect direction is consistent across splits."></head><body>
     <li><hr class="dropdown-divider"></li>
     <li><a class="dropdown-item" href="../articles/methodology.html">Methodology</a></li>
     <li><a class="dropdown-item" href="../articles/treatment_effect_definitions.html">Treatment Effect Definitions</a></li>
-    <li><a class="dropdown-item" href="../articles/biomarker_effects.html">Biomarker Treatment Effects</a></li>
-    <li><a class="dropdown-item" href="../articles/causal_effects_brief_review.html">Causal Interpretation of Hazard Ratios</a></li>
     <li><a class="dropdown-item" href="../articles/paper_simulations.html">Simulation Studies</a></li>
     <li><a class="dropdown-item" href="../articles/extreme_subgroups.html">Extreme Subgroup Effects</a></li>
   </ul></li>
@@ -157,16 +155,30 @@ Default: 10</p></dd>
 
 
 <dt id="arg-stop-threshold">stop_threshold<a class="anchor" aria-label="anchor" href="#arg-stop-threshold"></a></dt>
-<dd><p>Numeric or NULL. If specified, evaluation stops once
-any subgroup achieves consistency &gt;= stop_threshold. This enables early
-termination when a sufficiently consistent subgroup is found. Default: NULL
-(evaluate all candidates up to stop_Kgroups).</p>
-<p>When combined with HR-based sorting (sg_focus = "hr"), this ensures the
-highest-HR subgroup meeting the threshold is identified efficiently.</p>
-<p>Note: For parallel execution, early stopping is checked after each batch
+<dd><p>Numeric in <code>[0, 1]</code> or <code>NULL</code>.
+When a candidate subgroup's consistency probability (<code>Pcons</code>)
+meets or exceeds this threshold, evaluation stops early — remaining
+candidates are skipped. Set to <code>NULL</code> to disable early stopping
+and evaluate all candidates up to <code>stop_Kgroups</code>. Default: <code>NULL</code>.</p>
+<p><strong>Note:</strong> Values &gt; 1.0 are not permitted. To disable early
+stopping, use <code>stop_threshold = NULL</code>, not a value above 1.</p>
+<p><strong>Interaction with <code>sg_focus</code>:</strong></p><dl><dt><code>"hr"</code>, <code>"maxSG"</code>, <code>"minSG"</code></dt>
+<dd><p>Early stopping
+is valid because candidates are sorted by a single criterion.
+The first candidate passing the threshold is optimal under that
+criterion.</p></dd>
+
+<dt><code>"hrMaxSG"</code>, <code>"hrMinSG"</code></dt>
+<dd><p>Should generally be
+<code>NULL</code>, because these compound criteria require comparing
+HR <em>and</em> size across all candidates. <code><a href="forestsearch.html">forestsearch()</a></code>
+automatically resets to <code>NULL</code> with a warning for these.</p></dd>
+
+
+</dl><p>For parallel execution, early stopping is checked after each batch
 completes, so some additional candidates beyond the first meeting the
-threshold may be evaluated. Use a smaller batch_size in parallel_args
-for finer-grained early stopping.</p></dd>
+threshold may be evaluated. Use a smaller <code>batch_size</code> in
+<code>parallel_args</code> for finer-grained early stopping.</p></dd>
 
 
 <dt id="arg-showten-subgroups">showten_subgroups<a class="anchor" aria-label="anchor" href="#arg-showten-subgroups"></a></dt>

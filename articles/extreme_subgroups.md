@@ -345,63 +345,6 @@ dgm <- generate_aft_dgm_flex(
 )
 ```
 
-    ## 
-    ##  ====================================================================== 
-    ##  CENSORING MODEL SELECTION:
-    ##  MULTIPLE SURVIVAL REGRESSION MODEL COMPARISONS
-    ## ====================================================================== 
-    ## 
-    ## CONVERGENCE SUMMARY ( 4 / 4  converged):
-    ## -------------------------------------------------- 
-    ## 
-    ## Weibull (weibull):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  9 
-    ##   Log-likelihood:  -1838.404 
-    ##   Scale parameter:  0.418 
-    ## 
-    ## LogNormal (lognormal):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  4 
-    ##   Log-likelihood:  -2000.309 
-    ##   Scale parameter:  0.8707 
-    ## 
-    ## Weibull0 (weibull):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  7 
-    ##   Log-likelihood:  -1843.717 
-    ##   Scale parameter:  0.4246 
-    ## 
-    ## LogNormal0 (lognormal):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  6 
-    ##   Log-likelihood:  -2004.326 
-    ##   Scale parameter:  0.8768 
-    ## 
-    ## MODEL COMPARISON TABLE:
-    ## -------------------------------------------------- 
-    ##       Model     AIC delta_AIC AIC_weight     BIC delta_BIC
-    ##    Weibull0 3691.43      0.00      0.976 3700.50      0.00
-    ##     Weibull 3698.81      7.37      0.024 3748.65     48.15
-    ##  LogNormal0 4012.65    321.22      0.000 4021.71    321.22
-    ##   LogNormal 4022.62    331.18      0.000 4072.46    371.96
-    ## 
-    ## MODEL RANKINGS:
-    ## -------------------------------------------------- 
-    ## By AIC:  Weibull0 > Weibull > LogNormal0 > LogNormal 
-    ## By BIC:  Weibull0 > Weibull > LogNormal0 > LogNormal 
-    ## 
-    ## EVIDENCE ASSESSMENT:
-    ## -------------------------------------------------- 
-    ##   Strength:  Strong evidence 
-    ##   Details:  Top model has 97.6% of AIC weight 
-    ## 
-    ## FINAL RECOMMENDATION:
-    ## -------------------------------------------------- 
-    ##   Clear winner: Weibull0 (best by both AIC and BIC)
-    ##   Evidence: Strong evidence - Top model has 97.6% of AIC weight 
-    ## ======================================================================
-
 ``` r
 # Key DGM outputs
 cat("=== DGM Summary ===\n")
@@ -915,66 +858,7 @@ dgm_null <- generate_aft_dgm_flex(
   seed            = 99,
   verbose         = FALSE
 )
-```
 
-    ## 
-    ##  ====================================================================== 
-    ##  CENSORING MODEL SELECTION:
-    ##  MULTIPLE SURVIVAL REGRESSION MODEL COMPARISONS
-    ## ====================================================================== 
-    ## 
-    ## CONVERGENCE SUMMARY ( 4 / 4  converged):
-    ## -------------------------------------------------- 
-    ## 
-    ## Weibull (weibull):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  9 
-    ##   Log-likelihood:  -1838.404 
-    ##   Scale parameter:  0.418 
-    ## 
-    ## LogNormal (lognormal):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  4 
-    ##   Log-likelihood:  -2000.309 
-    ##   Scale parameter:  0.8707 
-    ## 
-    ## Weibull0 (weibull):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  7 
-    ##   Log-likelihood:  -1843.717 
-    ##   Scale parameter:  0.4246 
-    ## 
-    ## LogNormal0 (lognormal):
-    ##   Status:  ✓ Converged 
-    ##   Iterations:  6 
-    ##   Log-likelihood:  -2004.326 
-    ##   Scale parameter:  0.8768 
-    ## 
-    ## MODEL COMPARISON TABLE:
-    ## -------------------------------------------------- 
-    ##       Model     AIC delta_AIC AIC_weight     BIC delta_BIC
-    ##    Weibull0 3691.43      0.00      0.976 3700.50      0.00
-    ##     Weibull 3698.81      7.37      0.024 3748.65     48.15
-    ##  LogNormal0 4012.65    321.22      0.000 4021.71    321.22
-    ##   LogNormal 4022.62    331.18      0.000 4072.46    371.96
-    ## 
-    ## MODEL RANKINGS:
-    ## -------------------------------------------------- 
-    ## By AIC:  Weibull0 > Weibull > LogNormal0 > LogNormal 
-    ## By BIC:  Weibull0 > Weibull > LogNormal0 > LogNormal 
-    ## 
-    ## EVIDENCE ASSESSMENT:
-    ## -------------------------------------------------- 
-    ##   Strength:  Strong evidence 
-    ##   Details:  Top model has 97.6% of AIC weight 
-    ## 
-    ## FINAL RECOMMENDATION:
-    ## -------------------------------------------------- 
-    ##   Clear winner: Weibull0 (best by both AIC and BIC)
-    ##   Evidence: Strong evidence - Top model has 97.6% of AIC weight 
-    ## ======================================================================
-
-``` r
 cat("Null DGM  |  true overall HR:",
     round(dgm_null$hazard_ratios$overall, 3),
     " |  implied median event time:",
