@@ -179,7 +179,6 @@ pkgdown::build_article("articles/paper_simulations")
 
 pkgdown::build_article("articles/extreme_subgroups")
 
-
 pkgdown::build_article("articles/biomarker_effects")
 
 

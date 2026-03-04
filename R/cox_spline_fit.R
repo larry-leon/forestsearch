@@ -125,6 +125,9 @@ cox_cs_fit <- function(df,
   # Input Validation
   # ==========================================================================
 
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar), add = TRUE)
+
   required_vars <- c(tte_name, event_name, treat_name, z_name)
   missing_vars <- setdiff(required_vars, names(df))
   if (length(missing_vars) > 0) {
@@ -592,6 +595,9 @@ plot_subgroup_effects <- function(df_super,
                                   zpoints_by = 1,
                                   ...) {
 
+  oldpar <- par(no.readonly = TRUE)
+  on.exit(par(oldpar), add = TRUE)
+
   # Input validation
   if (!is.data.frame(df_super)) {
     stop("df_super must be a data frame")
@@ -754,8 +760,6 @@ plot_subgroup_effects <- function(df_super,
            cex = 0.8, bty = "n")
   }
 
-  # Reset plotting parameters
-  par(mfrow = c(1, 1))
 
   # Return results
   results <- list(
