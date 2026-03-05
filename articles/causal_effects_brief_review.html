@@ -31,7 +31,7 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../articles/forestsearch.html">Getting Started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item dropdown">
+<li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
@@ -70,9 +70,9 @@ ForestSearch Users</h3>
                         <h4 data-toc-skip class="author">ForestSearch
 Package Documentation</h4>
             
-            <h4 data-toc-skip class="date">March 04, 2026</h4>
+            <h4 data-toc-skip class="date">March 05, 2026</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/articles/causal_effects_brief_review.Rmd" class="external-link"><code>vignettes/articles/causal_effects_brief_review.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/causal_effects_brief_review.Rmd" class="external-link"><code>vignettes/articles/causal_effects_brief_review.Rmd</code></a></small>
       <div class="d-none name"><code>causal_effects_brief_review.Rmd</code></div>
     </div>
 
@@ -759,7 +759,7 @@ that influences
 but is independent of
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
 at baseline:
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>⟂</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⟂</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">Z \perp\!\!\!\perp A</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>⊥</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⊥</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">Z \perp\!\!\!\perp A</annotation></semantics></math>
 at
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">t = 0</annotation></semantics></math>.</p>
 <p>The <strong>potential outcomes</strong>
@@ -825,10 +825,10 @@ This violates the identical comparison set requirement (equation</p>
 <h3 id="the-mechanism-collider-activation">The Mechanism: Collider Activation<a class="anchor" aria-label="anchor" href="#the-mechanism-collider-activation"></a>
 </h3>
 <p>Even though
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>⟂</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⟂</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">Z \perp\!\!\!\perp A</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>⊥</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⊥</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">Z \perp\!\!\!\perp A</annotation></semantics></math>
 at baseline, among survivors at time
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">t &gt; 0</annotation></semantics></math></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mover><mrow><mspace width="-0.167em"></mspace><mo>⟂</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⟂</mo></mrow><mo accent="true"≯</mo></mover><mi>A</mi><mo>∣</mo><mi>T</mi><mo>≥</mo><mi>t</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mover><mrow><mspace width="-0.167em"></mspace><mo>⊥</mo><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mspace width="-0.167em"></mspace><mo>⊥</mo></mrow><mo accent="true"≯</mo></mover><mi>A</mi><mo>∣</mo><mi>T</mi><mo>≥</mo><mi>t</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
 Z \not{\!\perp\!\!\!\perp} A \mid T \geq t,
 </annotation></semantics></math></p>
 <p>unless the joint hazard
@@ -848,7 +848,7 @@ and
 that grows throughout follow-up. Risk sets at every event time beyond
 the first are therefore no longer from a randomized comparison.</p>
 <p>The joint distribution among survivors is
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>=</mo><mi>z</mi><mo>,</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo>∣</mo><mi>T</mi><mo>≥</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.278em"></mspace><mo>∝</mo><mspace width="0.278em"></mspace><mo>exp</mo><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><msubsup><mo>∫</mo><mn>0</mn><mi>t</mi></msubsup><mi>h</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>,</mo><mi>a</mi><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>d</mi><mi>s</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>=</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>=</mo><mi>z</mi><mo>,</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo>∣</mo><mi>T</mi><mo>≥</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.278em"></mspace><mo>∝</mo><mspace width="0.278em"></mspace><mo>exp</mo><mspace width="-0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><msubsup><mo>∫</mo><mn>0</mn><mi>t</mi></msubsup><mi>h</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>,</mo><mi>a</mi><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>d</mi><mi>s</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>Z</mi><mo>=</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>P</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>A</mi><mo>=</mo><mi>a</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
 P(Z = z, A = a \mid T \geq t) \;\propto\;
 \exp\!\left(-\int_0^t h(s, a, z)\, ds\right) P(Z = z)\, P(A = a),
 </annotation></semantics></math> which factors only when
@@ -1668,12 +1668,12 @@ Weibull AFT can be written:</p>
 \qquad \varepsilon_i \sim \text{Extreme Value}.
 </annotation></semantics></math></p>
 <p>The scale-change parameter
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta_{\text{treat}})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta_{\text{treat}})</annotation></semantics></math>
 satisfies
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>S</mi><mn>1</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>S</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mspace width="0.167em"></mspace><msup><mi>e</mi><mrow><mi>−</mi><mi>β</mi></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">S_1(t) = S_0(t\, e^{-\beta})</annotation></semantics></math>.
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>S</mi><mn>1</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>S</mi><mn>0</mn></msub><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mspace width="0.167em"></mspace><msup><mi>e</mi><mrow><mo>−</mo><mi>β</mi></mrow></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">S_1(t) = S_0(t\, e^{-\beta})</annotation></semantics></math>.
 Because failure times are positive, the treatment effect can be
 expressed as a ratio as in equation (4) of Fay &amp; Li:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>/</mi><msub><mi>γ</mi><mn>0</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>/</mi><msub><mi>γ</mi><mn>0</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \exp(-\beta) = \gamma_1/\gamma_0,
 </annotation></semantics></math></p>
 <p>where
@@ -1684,7 +1684,7 @@ The geometric mean ratio is simultaneously individual-level (it equals
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>E</mi><mrow><mo stretchy="true" form="prefix">[</mo><mo>log</mo><msub><mi>Y</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mo>log</mo><msub><mi>Y</mi><mi>i</mi></msub><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(E[\log Y_i(1) - \log Y_i(0)])</annotation></semantics></math>)
 and population-level (it is identifiable from marginal distributions),
 making
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
 the <strong>only common survival estimand to achieve both
 simultaneously</strong>.</p>
 <p>This collapsibility — invariance to marginalising over the frailty
@@ -1708,7 +1708,7 @@ it.</p>
 </h3>
 <p>Under the Weibull AFT parameterisation, the hazard-scale coefficients
 are</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma,
 </annotation></semantics></math></p>
 <p>so the individual conditional hazard is
@@ -1729,7 +1729,7 @@ population-level causal validity of the underlying DGM.</p>
 <p>The nonparametric AHR of Kalbfleisch &amp; Prentice (1981),
 prominently featured in Prentice &amp; Aragaki (2022) and discussed in
 Fay &amp; Li (2024), is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mtext mathvariant="normal">AHR</mtext><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">[</mo><mn>1</mn><mo>−</mo><mover><mi>F</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mrow><mi>−</mi><mn>1</mn></mrow></msup><msubsup><mo>∫</mo><mn>0</mn><mi>t</mi></msubsup><mover><mi>F</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>d</mi><mover><mi>Λ</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mtext mathvariant="normal">AHR</mtext><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">[</mo><mn>1</mn><mo>−</mo><mover><mi>F</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">]</mo></mrow><mrow><mo>−</mo><mn>1</mn></mrow></msup><msubsup><mo>∫</mo><mn>0</mn><mi>t</mi></msubsup><mover><mi>F</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>0</mn><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mi>d</mi><mover><mi>Λ</mi><mo accent="true">̂</mo></mover><mrow><mo stretchy="true" form="prefix">(</mo><mi>s</mi><mo>;</mo><mspace width="0.167em"></mspace><mi>z</mi><mo>=</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \widehat{\text{AHR}}(t) =
 \left[1 - \hat{F}(t;\, z=0)\right]^{-1}
 \int_0^t \hat{F}(s;\, z=0)\, d\hat{\Lambda}(s;\, z=1).
@@ -1918,7 +1918,7 @@ causal survival benefit: at
 the rate-based estimate is 0.14 vs. the true causal contrast of 0.22 — a
 57% underestimate.</p>
 <p>The extended Kaplan-Meier curve (Simon &amp; Makuch 1984) estimates
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mtext mathvariant="normal">cumulative rate</mtext><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\text{cumulative rate})</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mtext mathvariant="normal">cumulative rate</mtext><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\text{cumulative rate})</annotation></semantics></math>,
 not an intervention-specific survival probability. Under the Cox rate
 model, the ratio of log-extended-KM curves estimates the rate ratio —
 but the rate ratio has no clear causal interpretation without the Markov
@@ -2529,7 +2529,7 @@ censoring distortion.</p>
 <li><p><strong>Causal estimands fall into individual-level,
 population-level, or both (Fay &amp; Li 2024).</strong> The RMST
 difference, survival difference, and AFT
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
 are both simultaneously. The Cox HR is at best population-level only
 (and only under PH).</p></li>
 <li><p><strong>The instantaneous Cox HR
@@ -2553,7 +2553,7 @@ Schaubel). It directly contrasts identifiable survival functions and
 retains population-level causal validity without a PH
 assumption.</p></li>
 <li><p><strong>The AFT
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta)</annotation></semantics></math>
 is the only common survival ratio estimand that is both individual-level
 and population-level</strong> (Fay &amp; Li). This geometric mean
 property underpins ForestSearch’s choice of AFT as the causal

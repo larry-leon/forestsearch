@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/larry-leon/forestsearch/blob/HEAD/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/larry-leon/forestsearch/blob/master/DESCRIPTION)
 
 Leon L (2026). *forestsearch: Exploratory Subgroup Identification in
 Clinical Trials with Survival Endpoints*. R package version 0.1.0,

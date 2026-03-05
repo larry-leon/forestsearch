@@ -31,7 +31,7 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../articles/forestsearch.html">Getting Started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item dropdown">
+<li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
@@ -70,9 +70,9 @@ Causal Foundations</h3>
                         <h4 data-toc-skip class="author">ForestSearch
 Package Documentation</h4>
             
-            <h4 data-toc-skip class="date">2026-03-04</h4>
+            <h4 data-toc-skip class="date">2026-03-05</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/articles/biomarker_effects.Rmd" class="external-link"><code>vignettes/articles/biomarker_effects.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/biomarker_effects.Rmd" class="external-link"><code>vignettes/articles/biomarker_effects.Rmd</code></a></small>
       <div class="d-none name"><code>biomarker_effects.Rmd</code></div>
     </div>
 
@@ -130,7 +130,7 @@ divergence, and causal standing are developed below.</p>
 and scale parameter
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\theta &gt; 0</annotation></semantics></math>,
 the density, survival, hazard, and cumulative hazard functions are:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right" style="text-align: right"><mi>f</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mi>ν</mi><mspace width="0.167em"></mspace><msup><mi>θ</mi><mrow><mi>−</mi><mi>ν</mi></mrow></msup><mspace width="0.167em"></mspace><msup><mi>t</mi><mrow><mi>ν</mi><mo>−</mo><mn>1</mn></mrow></msup><mspace width="0.167em"></mspace><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><mo>−</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>S</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><mo>−</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mi>ν</mi><mspace width="0.167em"></mspace><msup><mi>θ</mi><mrow><mi>−</mi><mi>ν</mi></mrow></msup><mspace width="0.167em"></mspace><msup><mi>t</mi><mrow><mi>ν</mi><mo>−</mo><mn>1</mn></mrow></msup><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>Λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mi>.</mi></mtd></mtr></mtable><annotation encoding="application/x-tex">
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right" style="text-align: right"><mi>f</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mi>ν</mi><mspace width="0.167em"></mspace><msup><mi>θ</mi><mrow><mo>−</mo><mi>ν</mi></mrow></msup><mspace width="0.167em"></mspace><msup><mi>t</mi><mrow><mi>ν</mi><mo>−</mo><mn>1</mn></mrow></msup><mspace width="0.167em"></mspace><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><mo>−</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>S</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mo>exp</mo><mspace width="-0.167em"></mspace><mo minsize="1.2" maxsize="1.2" stretchy="false" form="prefix">(</mo><mo>−</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mo minsize="1.2" maxsize="1.2" stretchy="false" form="postfix">)</mo><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><mi>ν</mi><mspace width="0.167em"></mspace><msup><mi>θ</mi><mrow><mo>−</mo><mi>ν</mi></mrow></msup><mspace width="0.167em"></mspace><msup><mi>t</mi><mrow><mi>ν</mi><mo>−</mo><mn>1</mn></mrow></msup><mo>,</mo></mtd></mtr><mtr><mtd columnalign="right" style="text-align: right"><mi>Λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow></mtd><mtd columnalign="left" style="text-align: left"><mo>=</mo><msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mi>/</mi><mi>θ</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>ν</mi></msup><mi>.</mi></mtd></mtr></mtable><annotation encoding="application/x-tex">
 \begin{aligned}
 f(t)       &amp;= \nu\,\theta^{-\nu}\,t^{\nu-1}\,
               \exp\!\bigl(-(t/\theta)^\nu\bigr),                     \\[4pt]
@@ -153,7 +153,7 @@ is unit-exponential:</p>
 \Lambda(T) = (T/\theta)^\nu \;\sim\; \mathrm{Exp}(1).
 \tag{1}
 </annotation></semantics></math> This follows because
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>Pr</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>Λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≤</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>Pr</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo>≤</mo><msup><mi>Λ</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Λ</mi><mrow><mi>−</mi><mn>1</mn></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mi>−</mi><mi>t</mi></mrow></msup></mrow><annotation encoding="application/x-tex">\Pr(\Lambda(T) \leq t) = \Pr(T \leq
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>Pr</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>Λ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>≤</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>Pr</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo>≤</mo><msup><mi>Λ</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>F</mi><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>Λ</mi><mrow><mo>−</mo><mn>1</mn></mrow></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>t</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>1</mn><mo>−</mo><msup><mi>e</mi><mrow><mo>−</mo><mi>t</mi></mrow></msup></mrow><annotation encoding="application/x-tex">\Pr(\Lambda(T) \leq t) = \Pr(T \leq
 \Lambda^{-1}(t)) = F(\Lambda^{-1}(t)) = 1 - e^{-t}</annotation></semantics></math>.</p>
 </div>
 </div>
@@ -189,7 +189,7 @@ parameterization</strong> is:
 linked by the <strong>AFT-to-hazard transformation</strong>:</p>
 <div class="theorem-box">
 <p><strong>AFT / Hazard-Scale Transformation.</strong>
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mspace width="0.167em"></mspace><mi>γ</mi><mspace width="0.167em"></mspace><mi>/</mi><mspace width="0.167em"></mspace><mi>τ</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mo>−</mo><mspace width="0.167em"></mspace><mi>γ</mi><mspace width="0.167em"></mspace><mi>/</mi><mspace width="0.167em"></mspace><mi>τ</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">
 \beta = -\,\gamma\,/\,\tau.
 \tag{4}
 </annotation></semantics></math> R’s <code>survreg</code> estimates
@@ -252,7 +252,7 @@ roles:</p>
 <td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mn>3</mn></msub><annotation encoding="application/x-tex">\beta_3</annotation></semantics></math></td>
 <td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>X</mi></mrow><annotation encoding="application/x-tex">ZX</annotation></semantics></math></td>
 <td align="left">Biomarker
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>×</mi><annotation encoding="application/x-tex">\times</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>×</mo><annotation encoding="application/x-tex">\times</annotation></semantics></math>
 treatment interaction (slope of log-HR for
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>≤</mo><mi>k</mi></mrow><annotation encoding="application/x-tex">Z \leq k</annotation></semantics></math>)</td>
 </tr>
@@ -358,7 +358,7 @@ under the AFT model (3). Then:</p>
 terms in
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>T</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\log(T)</annotation></semantics></math>
 contribute
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mi>′</mi><mi>γ</mi><mo>=</mo><mi>−</mi><mi>τ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>L</mi><mi>′</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">L'\gamma = -\tau(L'\beta)</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mi>′</mi><mi>γ</mi><mo>=</mo><mo>−</mo><mi>τ</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>L</mi><mi>′</mi><mi>β</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">L'\gamma = -\tau(L'\beta)</annotation></semantics></math>
 to
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>x</mi><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">m(x,z)</annotation></semantics></math>.
 Hence the difference in conditional means between control
@@ -368,7 +368,7 @@ and treatment
 at biomarker level
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
 is:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mi>m</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mo>+</mo><msub><mi>γ</mi><mn>3</mn></msub><mspace width="0.167em"></mspace><mi>z</mi><mo>+</mo><msub><mi>γ</mi><mn>5</mn></msub><mspace width="0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mi>−</mi><mi>τ</mi><mspace width="0.167em"></mspace><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>m</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>−</mo><mi>m</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>0</mn><mo>,</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mo>+</mo><msub><mi>γ</mi><mn>3</mn></msub><mspace width="0.167em"></mspace><mi>z</mi><mo>+</mo><msub><mi>γ</mi><mn>5</mn></msub><mspace width="0.167em"></mspace><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo>−</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mspace width="0.167em"></mspace><mn>𝟏</mn><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo>&gt;</mo><mi>k</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mo>−</mo><mi>τ</mi><mspace width="0.167em"></mspace><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>,</mo></mrow><annotation encoding="application/x-tex">
 m(1,z) - m(0,z) = \gamma_1 + \gamma_3\,z +
   \gamma_5\,(z - k)\,\mathbf{1}(z &gt; k) = -\tau\,\psi^0(z),
 </annotation></semantics></math></p>
@@ -455,7 +455,7 @@ jointly, and the AHR/CDE definitions below would average over both.</p>
 <tr class="odd">
 <td align="center">High</td>
 <td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>10</mn><annotation encoding="application/x-tex">10</annotation></semantics></math></td>
-<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.5</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mi>−</mi><mn>0.69</mn></mrow><annotation encoding="application/x-tex">\log(0.5) \approx -0.69</annotation></semantics></math></td>
+<td align="center"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>log</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>0.5</mn><mo stretchy="true" form="postfix">)</mo></mrow><mo>≈</mo><mo>−</mo><mn>0.69</mn></mrow><annotation encoding="application/x-tex">\log(0.5) \approx -0.69</annotation></semantics></math></td>
 <td align="right"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mn>0.50</mn><annotation encoding="application/x-tex">0.50</annotation></semantics></math></td>
 <td align="left">Strongly beneficial</td>
 </tr>
@@ -635,9 +635,9 @@ natural-scale perspective.</p>
 <p>Both Aalen, Cook &amp; Roysland (2015) and Fay &amp; Li (2024)
 identify the AFT model as a natural causal foundation for survival
 analysis. The Weibull AFT scale-change parameter
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta_\text{treat})</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\exp(-\beta_\text{treat})</annotation></semantics></math>
 satisfies:
-<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mi>−</mi><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>/</mi><msub><mi>γ</mi><mn>0</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><mo>−</mo><msub><mi>β</mi><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><msub><mi>γ</mi><mn>1</mn></msub><mi>/</mi><msub><mi>γ</mi><mn>0</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">
 \exp(-\beta_\text{treat}) = \gamma_1 / \gamma_0,
 </annotation></semantics></math> where
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>γ</mi><mi>x</mi></msub><annotation encoding="application/x-tex">\gamma_x</annotation></semantics></math>
@@ -758,7 +758,7 @@ computation is summarized below.</p>
 <tr class="even">
 <td align="center">2</td>
 <td align="left">Hazard-scale transform</td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
 </tr>
 <tr class="odd">
 <td align="center">3</td>
@@ -814,7 +814,7 @@ the <code>treatment_effect_definitions</code> vignette, and the
 same sign conventions
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ψ</mi><mn>0</mn></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>z</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>&lt;</mo><mn>0</mn><mo>⇔</mo></mrow><annotation encoding="application/x-tex">\psi^0(z) &lt; 0 \Leftrightarrow</annotation></semantics></math>
 beneficial), the same transformation
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mo>−</mo><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math>,
 and the same averaging operations for AHR and CDE.</p>
 <p>The correspondences are:</p>
 <table class="table">
@@ -848,8 +848,8 @@ and the same averaging operations for AHR and CDE.</p>
 <td align="left">Natural-scale complement to AHR</td>
 </tr>
 <tr class="even">
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>−</mi><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math></td>
-<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mo>−</mo><mi>γ</mi><mi>/</mi><mi>τ</mi></mrow><annotation encoding="application/x-tex">\beta = -\gamma/\tau</annotation></semantics></math></td>
+<td align="left"><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma</annotation></semantics></math></td>
 <td align="left">AFT-to-hazard transformation</td>
 </tr>
 </tbody>

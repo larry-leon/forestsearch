@@ -29,7 +29,7 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto">
-<li class="nav-item"><a class="nav-link" href="../articles/forestsearch.html">Getting Started</a></li>
+<li class="active nav-item"><a class="nav-link" href="../articles/forestsearch.html">Getting Started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
@@ -71,9 +71,9 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-03-04</h4>
+            <h4 data-toc-skip class="date">2026-03-05</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
     </div>
 
@@ -880,7 +880,7 @@ intensive operations (bootstrap, cross-validation).</p>
 <span><span class="va">n_cores</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
 <span><span class="va">n_cores_total</span> <span class="op">&lt;-</span> <span class="fu">parallel</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/parallel/detectCores.html" class="external-link">detectCores</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Using"</span>, <span class="va">n_cores</span>, <span class="st">"of"</span>, <span class="va">n_cores_total</span>, <span class="st">"total cores for parallel processing"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Using 2 of 14 total cores for parallel processing</span></span></code></pre>
+<pre><code><span><span class="co">## Using 2 of 4 total cores for parallel processing</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="running-forestsearch">Running ForestSearch<a class="anchor" aria-label="anchor" href="#running-forestsearch"></a>
@@ -982,7 +982,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Events criteria: control &gt;= 12 , treatment &gt;= 12 </span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.01 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.03 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1028,7 +1028,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
 <span><span class="co">## % consistency criteria met= 0.97 </span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 2.109 0.0352 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 6.091 0.1015 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## Subgroup identified: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
@@ -1038,7 +1038,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nForestSearch completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## ForestSearch completed in 2.1 seconds</span></span></code></pre>
+<span><span class="co">## ForestSearch completed in 6.1 seconds</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="forestsearch-results">ForestSearch Results<a class="anchor" aria-label="anchor" href="#forestsearch-results"></a>
@@ -2120,7 +2120,7 @@ addresses this by:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nBootstrap completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">bootstrap</span> <span class="op">/</span> <span class="fl">60</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## Bootstrap completed in 0.1 minutes</span></span></code></pre>
+<span><span class="co">## Bootstrap completed in 0.2 minutes</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="bootstrap-summary-and-diagnostics">Bootstrap Summary and Diagnostics<a class="anchor" aria-label="anchor" href="#bootstrap-summary-and-diagnostics"></a>
@@ -2151,9 +2151,9 @@ addresses this by:</p>
 <span><span class="co">## TIMING ANALYSIS:</span></span>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
-<span><span class="co">##   Total bootstrap time:          0.04 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.02 min (1.2 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      20.74 min (0.35 hrs)</span></span></code></pre>
+<span><span class="co">##   Total bootstrap time:          0.13 minutes (0.00 hours)</span></span>
+<span><span class="co">##   Average per iteration:         0.07 min (4.0 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      67.46 min (1.12 hrs)</span></span></code></pre>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -4573,23 +4573,23 @@ stability</li>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="Seconds" class="gt_row gt_right">0.2</td>
+<td headers="Seconds" class="gt_row gt_right">0.7</td>
 <td headers="Minutes" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">ForestSearch</td>
-<td headers="Seconds" class="gt_row gt_right">2.1</td>
-<td headers="Minutes" class="gt_row gt_right">0.0</td>
-</tr>
-<tr>
-<td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
-<td headers="Seconds" class="gt_row gt_right">3.5</td>
+<td headers="Seconds" class="gt_row gt_right">6.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
-<td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">10.7</td>
+<td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
+<td headers="Seconds" class="gt_row gt_right">10.5</td>
 <td headers="Minutes" class="gt_row gt_right">0.2</td>
+</tr>
+<tr>
+<td headers="Analysis" class="gt_row gt_left">Total</td>
+<td headers="Seconds" class="gt_row gt_right">30.0</td>
+<td headers="Minutes" class="gt_row gt_right">0.5</td>
 </tr>
 </tbody>
 </table>
@@ -4638,19 +4638,22 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 </h2>
 <div class="sourceCode" id="cb75"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## R version 4.5.1 (2025-06-13)</span></span>
-<span><span class="co">## Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">## Running under: macOS Tahoe 26.3</span></span>
+<pre><code><span><span class="co">## R version 4.5.2 (2025-10-31)</span></span>
+<span><span class="co">## Platform: x86_64-pc-linux-gnu</span></span>
+<span><span class="co">## Running under: Ubuntu 24.04.3 LTS</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Matrix products: default</span></span>
-<span><span class="co">## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib </span></span>
-<span><span class="co">## LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1</span></span>
+<span><span class="co">## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 </span></span>
+<span><span class="co">## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## locale:</span></span>
-<span><span class="co">## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8</span></span>
+<span><span class="co">##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       </span></span>
+<span><span class="co">##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   </span></span>
+<span><span class="co">##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          </span></span>
+<span><span class="co">## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   </span></span>
 <span><span class="co">## </span></span>
-<span><span class="co">## time zone: America/Los_Angeles</span></span>
-<span><span class="co">## tzcode source: internal</span></span>
+<span><span class="co">## time zone: UTC</span></span>
+<span><span class="co">## tzcode source: system (glibc)</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## attached base packages:</span></span>
 <span><span class="co">## [1] stats     graphics  grDevices utils     datasets  methods   base     </span></span>
@@ -4658,17 +4661,17 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## other attached packages:</span></span>
 <span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     </span></span>
 <span><span class="co">##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   </span></span>
-<span><span class="co">##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      </span></span>
-<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 </span></span>
+<span><span class="co">##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      </span></span>
+<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-3      forestsearch_0.1.0 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
 <span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           </span></span>
 <span><span class="co">##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    </span></span>
-<span><span class="co">##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         </span></span>
-<span><span class="co">## [10] generics_0.1.4       parallel_4.5.1       tibble_3.3.1        </span></span>
+<span><span class="co">##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         </span></span>
+<span><span class="co">## [10] generics_0.1.4       parallel_4.5.2       tibble_3.3.1        </span></span>
 <span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  </span></span>
 <span><span class="co">## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          </span></span>
-<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.5.1       farver_2.1.2        </span></span>
+<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.5.2       farver_2.1.2        </span></span>
 <span><span class="co">## [22] stringr_1.6.0        textshaping_1.0.4    codetools_0.2-20    </span></span>
 <span><span class="co">## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         </span></span>
 <span><span class="co">## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       </span></span>
@@ -4676,16 +4679,15 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">## [34] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    </span></span>
 <span><span class="co">## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       </span></span>
 <span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      </span></span>
-<span><span class="co">## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          </span></span>
+<span><span class="co">## [43] splines_4.5.2        fastmap_1.2.0        grid_4.5.2          </span></span>
 <span><span class="co">## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   </span></span>
 <span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         </span></span>
 <span><span class="co">## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      </span></span>
-<span><span class="co">## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    </span></span>
-<span><span class="co">## [58] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          </span></span>
-<span><span class="co">## [61] markdown_2.0         rlang_1.1.7          Rcpp_1.1.1          </span></span>
-<span><span class="co">## [64] glue_1.8.0           xml2_1.5.2           rstudioapi_0.18.0   </span></span>
-<span><span class="co">## [67] jsonlite_2.0.0       R6_2.6.1             systemfonts_1.3.1   </span></span>
-<span><span class="co">## [70] fs_1.6.6</span></span></code></pre>
+<span><span class="co">## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.0          </span></span>
+<span><span class="co">## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        </span></span>
+<span><span class="co">## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          </span></span>
+<span><span class="co">## [64] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      </span></span>
+<span><span class="co">## [67] R6_2.6.1             systemfonts_1.3.2    fs_1.6.6</span></span></code></pre>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

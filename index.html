@@ -99,7 +99,7 @@
 <p>Or using <code>remotes</code>:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
-<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"larry-leon/forestsearch"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"larry-leon/forestsearch"</span><span class="op">)</span></span></code></pre></div>
 <p>The package depends on <a href="https://github.com/larry-leon/weightedsurv" class="external-link">weightedsurv</a>, which is installed automatically from GitHub via the <code>Remotes</code> field in the DESCRIPTION.</p>
 </div>
 <div class="section level2">
@@ -181,20 +181,20 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/forestsearch.html">forestsearch()</a></code></td>
 <td>Main search engine: LASSO/GRF candidate selection, exhaustive enumeration, consistency evaluation</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/subgroup.consistency.html">subgroup.consistency()</a></code></td>
 <td>Split-sample consistency with optional two-stage sequential early stopping</td>
 </tr>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/select_best_subgroup.html">select_best_subgroup()</a></code></td>
 <td>Multiple selection criteria: <code>"hr"</code>, <code>"maxSG"</code>, <code>"minSG"</code>, <code>"hrMaxSG"</code>, <code>"hrMinSG"</code>
 </td>
@@ -210,24 +210,24 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/forestsearch_bootstrap_dofuture.html">forestsearch_bootstrap_dofuture()</a></code></td>
 <td>Parallelised bootstrap with <code>doFuture</code>; full algorithm mimicked in each replicate</td>
 </tr>
-<tr>
+<tr class="even">
 <td>Bias correction</td>
 <td>Two-source correction on the log-HR scale (Leon et al., Eq. 6–7)</td>
 </tr>
-<tr>
+<tr class="odd">
 <td>IJ variance</td>
 <td>Infinitesimal jackknife variance estimation for valid confidence intervals</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/summarize_bootstrap_results.html">summarize_bootstrap_results()</a></code></td>
 <td>Publication-ready <code>gt</code> tables with diagnostics</td>
 </tr>
@@ -242,20 +242,20 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/forestsearch_Kfold.html">forestsearch_Kfold()</a></code></td>
 <td>N-fold (leave-one-out) CV for algorithmic stability assessment</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/forestsearch_tenfold.html">forestsearch_tenfold()</a></code></td>
 <td>Repeated K-fold CV (e.g., 200 x 10-fold)</td>
 </tr>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/cv_metrics_tables.html">cv_metrics_tables()</a></code></td>
 <td>sensCV, ppvCV, and exact-match correspondence metrics</td>
 </tr>
@@ -270,28 +270,28 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot()</a></code></td>
 <td>Forest plot with bias-corrected HRs, reference subgroups, and CV annotations</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/plot_sg_weighted_km.html">plot_sg_weighted_km()</a></code></td>
 <td>Weighted Kaplan-Meier curves for identified subgroups</td>
 </tr>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/plot_km_band_forestsearch.html">plot_km_band_forestsearch()</a></code></td>
 <td>Multi-subgroup KM comparison bands</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/plot_spline_treatment_effect.html">plot_spline_treatment_effect()</a></code></td>
 <td>Spline-based treatment effect curves</td>
 </tr>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/plot_detection_curve.html">plot_detection_curve()</a></code></td>
 <td>Power/detection probability across effect sizes</td>
 </tr>
@@ -306,24 +306,24 @@
 <col width="50%">
 <col width="50%">
 </colgroup>
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex()</a></code></td>
 <td>Flexible AFT data-generating mechanism with configurable heterogeneity</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/create_gbsg_dgm.html">create_gbsg_dgm()</a></code></td>
 <td>GBSG-based DGM for replicating paper simulations</td>
 </tr>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/run_simulation_analysis.html">run_simulation_analysis()</a></code></td>
 <td>Full simulation wrapper: FS, FS+GRF, and standalone GRF</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/summarize_simulation_results.html">summarize_simulation_results()</a></code></td>
 <td>Operating characteristics tables (type-1 error, power, sensitivity, PPV)</td>
 </tr>
@@ -334,16 +334,16 @@
 <h3 id="multi-regional-clinical-trials">Multi-Regional Clinical Trials<a class="anchor" aria-label="anchor" href="#multi-regional-clinical-trials"></a>
 </h3>
 <table class="table">
-<thead><tr>
+<thead><tr class="header">
 <th>Feature</th>
 <th>Description</th>
 </tr></thead>
 <tbody>
-<tr>
+<tr class="odd">
 <td><code><a href="reference/mrct_region_sims.html">mrct_region_sims()</a></code></td>
 <td>Regional consistency evaluation in MRCTs</td>
 </tr>
-<tr>
+<tr class="even">
 <td><code><a href="reference/create_dgm_for_mrct.html">create_dgm_for_mrct()</a></code></td>
 <td>DGM with region-level heterogeneity</td>
 </tr>

@@ -30,227 +30,165 @@ divergence, and causal standing are developed below.
 
 ### Weibull Distribution Essentials
 
-For the Weibull distribution with shape parameter $`\nu > 0`$ and scale
-parameter $`\theta > 0`$, the density, survival, hazard, and cumulative
-hazard functions are:
-``` math
+For the Weibull distribution with shape parameter $\nu > 0$ and scale
+parameter $\theta > 0$, the density, survival, hazard, and cumulative
+hazard functions are: $$\begin{aligned}
+{f(t)} & {= \nu\,\theta^{- \nu}\, t^{\nu - 1}\,\exp\!( - (t/\theta)^{\nu}),} \\
+{S(t)} & {= \exp\!( - (t/\theta)^{\nu}),} \\
+{\lambda(t)} & {= \nu\,\theta^{- \nu}\, t^{\nu - 1},} \\
+{\Lambda(t)} & {= (t/\theta)^{\nu}.}
+\end{aligned}$$
 
-\begin{aligned}
-f(t)       &= \nu\,\theta^{-\nu}\,t^{\nu-1}\,
-              \exp\!\bigl(-(t/\theta)^\nu\bigr),                     \\[4pt]
-S(t)       &= \exp\!\bigl(-(t/\theta)^\nu\bigr),                    \\[4pt]
-\lambda(t) &= \nu\,\theta^{-\nu}\,t^{\nu-1},                       \\[4pt]
-\Lambda(t) &= (t/\theta)^\nu.
-\end{aligned}
-```
-
-For $`\nu \in (0,1)`$ the hazard is strictly decreasing; for $`\nu > 1`$
-it is strictly increasing. A useful distributional identity is that the
-cumulative hazard evaluated at the random variable $`T`$ is
+For $\nu \in (0,1)$ the hazard is strictly decreasing; for $\nu > 1$ it
+is strictly increasing. A useful distributional identity is that the
+cumulative hazard evaluated at the random variable $T$ is
 unit-exponential:
 
 **Probability-Integral Property.**
-``` math
-
-\Lambda(T) = (T/\theta)^\nu \;\sim\; \mathrm{Exp}(1).
-\tag{1}
-```
-This follows because $`\Pr(\Lambda(T) \leq t) = \Pr(T \leq
-\Lambda^{-1}(t)) = F(\Lambda^{-1}(t)) = 1 - e^{-t}`$.
+$$\Lambda(T) = (T/\theta)^{\nu}\; \sim \;{Exp}(1).$$ This follows
+because
+$\Pr\left( \Lambda(T) \leq t \right) = \Pr\left( T \leq \Lambda^{- 1}(t) \right) = F\left( \Lambda^{- 1}(t) \right) = 1 - e^{- t}$.
 
 ### The Dual AFT / Cox Representation
 
-Writing $`Q = \Lambda(T) \sim \mathrm{Exp}(1)`$ gives
-$`\log Q = \nu(\log T - \log\theta)`$, which rearranges to the **AFT
-form**:
+Writing $Q = \Lambda(T) \sim {Exp}(1)$ gives
+$\log Q = \nu\left( \log T - \log\theta \right)$, which rearranges to
+the **AFT form**:
 
-``` math
+$$\log(T) = \log(\theta) + \tau\,\varepsilon,$$
 
-\log(T) = \log(\theta) + \tau\,\varepsilon,
-\tag{2}
-```
+where $\tau = 1/\nu$ is the AFT scale parameter and
+$\varepsilon = \log Q$ has the standard extreme-value distribution with
+density $f_{\varepsilon}(x) = \exp\left( x - e^{x} \right)$.
 
-where $`\tau = 1/\nu`$ is the AFT scale parameter and
-$`\varepsilon = \log Q`$ has the standard extreme-value distribution
-with density $`f_\varepsilon(x) = \exp(x - e^x)`$.
-
-Incorporating a covariate vector $`L`$, the **Cox (hazard)
+Incorporating a covariate vector $L$, the **Cox (hazard)
 parameterization** is:
-``` math
-
-\lambda(t;\,L) = \lambda_0(t)\,\exp(L'\beta),
-```
-and the corresponding **AFT parameterization** is:
-``` math
-
-\log(T) = \log(\theta) + L'\gamma + \tau\,\varepsilon,
-\tag{3}
-```
-where the two coefficient vectors are linked by the **AFT-to-hazard
+$$\lambda(t;\, L) = \lambda_{0}(t)\,\exp(L\prime\beta),$$ and the
+corresponding **AFT parameterization** is:
+$$\log(T) = \log(\theta) + L\prime\gamma + \tau\,\varepsilon,$$ where
+the two coefficient vectors are linked by the **AFT-to-hazard
 transformation**:
 
-**AFT / Hazard-Scale Transformation.**
-``` math
-
-\beta = -\,\gamma\,/\,\tau.
-\tag{4}
-```
-R’s `survreg` estimates $`(\log\hat\theta,\;\hat\gamma,\;\hat\tau)`$ on
-the AFT scale; hazard-ratio coefficients $`\hat\beta`$ are obtained via
-(4).
+**AFT / Hazard-Scale Transformation.** $$\beta = - \,\gamma\,/\,\tau.$$
+R’s `survreg` estimates
+$\left( \log\widehat{\theta},\;\widehat{\gamma},\;\widehat{\tau} \right)$
+on the AFT scale; hazard-ratio coefficients $\widehat{\beta}$ are
+obtained via (4).
 
 This transformation is the linchpin of the framework: potential outcomes
 are *simulated* on the AFT scale (3), while treatment effects are
-*interpreted* on the hazard-ratio scale via $`\beta`$.
+*interpreted* on the hazard-ratio scale via $\beta$.
 
 ## Biomarker-Dependent Treatment Effects
 
 ### The Two-Phase Spline Model
 
-To induce treatment effects that vary with a continuous biomarker $`Z`$,
+To induce treatment effects that vary with a continuous biomarker $Z$,
 the Cox linear predictor is specified as a piecewise-linear spline with
-a single interior knot at $`Z = k`$:
+a single interior knot at $Z = k$:
 
-``` math
+$$L\prime\beta\;:=\;\beta_{1}\, X + \beta_{2}\, Z + \beta_{3}\, Z\! X + \beta_{4}\,(Z - k)\,\mathbf{1}(Z > k) + \beta_{5}\,(Z - k)\,\mathbf{1}(Z > k)\, X,$$
 
-L'\beta \;:=\;
-\beta_1\,X + \beta_2\,Z + \beta_3\,Z\!X
-+ \beta_4\,(Z - k)\,\mathbf{1}(Z > k)
-+ \beta_5\,(Z - k)\,\mathbf{1}(Z > k)\,X,
-\tag{5}
-```
-
-where $`X \in \{0,1\}`$ denotes the treatment indicator. The five terms
+where $X \in \{ 0,1\}$ denotes the treatment indicator. The five terms
 have the following roles:
 
-| Parameter | Term | Role |
-|:--:|:---|:---|
-| $`\beta_1`$ | $`X`$ | Main treatment effect (intercept of log-HR) |
-| $`\beta_2`$ | $`Z`$ | Prognostic biomarker effect (both arms) |
-| $`\beta_3`$ | $`ZX`$ | Biomarker $`\times`$ treatment interaction (slope of log-HR for $`Z \leq k`$) |
-| $`\beta_4`$ | $`(Z-k)\mathbf{1}(Z>k)`$ | Spline term: change in prognostic slope above $`k`$ |
-| $`\beta_5`$ | $`(Z-k)\mathbf{1}(Z>k)\,X`$ | Spline term: change in treatment-effect slope above $`k`$ |
+|  Parameter  | Term                           | Role                                                                      |
+|:-----------:|:-------------------------------|:--------------------------------------------------------------------------|
+| $\beta_{1}$ | $X$                            | Main treatment effect (intercept of log-HR)                               |
+| $\beta_{2}$ | $Z$                            | Prognostic biomarker effect (both arms)                                   |
+| $\beta_{3}$ | $ZX$                           | Biomarker $\times$ treatment interaction (slope of log-HR for $Z \leq k$) |
+| $\beta_{4}$ | $(Z - k)\mathbf{1}(Z > k)$     | Spline term: change in prognostic slope above $k$                         |
+| $\beta_{5}$ | $(Z - k)\mathbf{1}(Z > k)\, X$ | Spline term: change in treatment-effect slope above $k$                   |
 
 ### The Causal Log-Hazard-Ratio Function
 
-Under the potential outcomes framework, let $`\lambda_{x,z}(t)`$ denote
-the hazard function for a subject with biomarker level $`Z = z`$ had
-they followed treatment $`X = x`$. The **causal log-hazard-ratio** at
-biomarker level $`z`$ is:
+Under the potential outcomes framework, let $\lambda_{x,z}(t)$ denote
+the hazard function for a subject with biomarker level $Z = z$ had they
+followed treatment $X = x$. The **causal log-hazard-ratio** at biomarker
+level $z$ is:
 
-``` math
+$$\psi^{0}(z)\;:=\;\log\!(\lambda_{1,z}(t)\,/\,\lambda_{0,z}(t))\; = \;\beta_{1}^{0} + \beta_{3}^{0}\, z + \beta_{5}^{0}\,(z - k)\,\mathbf{1}(z > k).$$
 
-\psi^0(z) \;:=\; \log\!\bigl(\lambda_{1,z}(t)\,/\,\lambda_{0,z}(t)\bigr)
-\;=\; \beta_1^0 + \beta_3^0\,z + \beta_5^0\,(z - k)\,\mathbf{1}(z > k).
-\tag{6}
-```
+Because the baseline hazard $\lambda_{0}(t)$ cancels in the ratio,
+$\psi^{0}(z)$ is free of $t$ — a direct consequence of the proportional
+hazards structure conditional on $Z$. Expanding (6) piecewise:
 
-Because the baseline hazard $`\lambda_0(t)`$ cancels in the ratio,
-$`\psi^0(z)`$ is free of $`t`$ — a direct consequence of the
-proportional hazards structure conditional on $`Z`$. Expanding (6)
-piecewise:
-
-``` math
-
-\psi^0(z) = \begin{cases}
-\beta_1^0 + \beta_3^0\,z, & z \leq k, \\[6pt]
-\beta_1^0 + \beta_3^0\,z + \beta_5^0\,(z - k), & z > k.
-\end{cases}
-```
+$$\psi^{0}(z) = \begin{cases}
+{\beta_{1}^{0} + \beta_{3}^{0}\, z,} & {z \leq k,} \\
+{\beta_{1}^{0} + \beta_{3}^{0}\, z + \beta_{5}^{0}\,(z - k),} & {z > k.}
+\end{cases}$$
 
 ### Anchor-Point Parameterization
 
-Rather than specifying $`(\beta_1^0, \beta_3^0, \beta_5^0)`$ directly,
-the framework specifies the log-HR at three interpretable **anchor
-points** — $`\psi^0(0)`$, $`\psi^0(k)`$, and $`\psi^0(\zeta)`$ for some
-$`\zeta > k`$ — and solves:
+Rather than specifying
+$\left( \beta_{1}^{0},\beta_{3}^{0},\beta_{5}^{0} \right)$ directly, the
+framework specifies the log-HR at three interpretable **anchor points**
+— $\psi^{0}(0)$, $\psi^{0}(k)$, and $\psi^{0}(\zeta)$ for some
+$\zeta > k$ — and solves:
 
-``` math
-
-\beta_1^0 = \psi^0(0), \qquad
-\beta_3^0 = \frac{\psi^0(k) - \psi^0(0)}{k}, \qquad
-\beta_5^0 = \frac{\psi^0(\zeta) - \psi^0(0) -
-  \beta_3^0\,\zeta}{\zeta - k}.
-\tag{7}
-```
+$$\beta_{1}^{0} = \psi^{0}(0),\qquad\beta_{3}^{0} = \frac{\psi^{0}(k) - \psi^{0}(0)}{k},\qquad\beta_{5}^{0} = \frac{\psi^{0}(\zeta) - \psi^{0}(0) - \beta_{3}^{0}\,\zeta}{\zeta - k}.$$
 
 **Verification.** These formulas are verified by substitution. For
-instance, evaluating $`\psi^0(\zeta)`$ from (6) gives
-$`\psi^0(\zeta) = \beta_1^0 + \beta_3^0\,\zeta + \beta_5^0(\zeta - k)`$;
-solving for $`\beta_5^0`$ recovers the third expression in (7) exactly.
-The same check holds at $`z = 0`$ and $`z = k`$, confirming internal
-consistency.
+instance, evaluating $\psi^{0}(\zeta)$ from (6) gives
+$\psi^{0}(\zeta) = \beta_{1}^{0} + \beta_{3}^{0}\,\zeta + \beta_{5}^{0}(\zeta - k)$;
+solving for $\beta_{5}^{0}$ recovers the third expression in (7)
+exactly. The same check holds at $z = 0$ and $z = k$, confirming
+internal consistency.
 
 ### Connection to Potential-Outcome Means
 
-There is an important link between the log-HR $`\psi^0(z)`$ and the
+There is an important link between the log-HR $\psi^{0}(z)$ and the
 conditional means of the potential log-survival times. Define
-$`m(x,z) := E[\log T \mid \text{Treat} = x,\, Z = z]`$ under the AFT
-model (3). Then:
+$m(x,z):=E\left\lbrack \log T \mid \text{Treat} = x,\, Z = z \right\rbrack$
+under the AFT model (3). Then:
 
-``` math
-
-\psi^0(z) = \frac{m(0,z) - m(1,z)}{\tau}.
-```
+$$\psi^{0}(z) = \frac{m(0,z) - m(1,z)}{\tau}.$$
 
 **Derivation.** On the AFT scale the treatment-related terms in
-$`\log(T)`$ contribute $`L'\gamma = -\tau(L'\beta)`$ to $`m(x,z)`$.
-Hence the difference in conditional means between control ($`x=0`$) and
-treatment ($`x=1`$) at biomarker level $`z`$ is:
+$\log(T)$ contribute $L\prime\gamma = - \tau(L\prime\beta)$ to $m(x,z)$.
+Hence the difference in conditional means between control ($x = 0$) and
+treatment ($x = 1$) at biomarker level $z$ is:
 
-``` math
+$$m(1,z) - m(0,z) = \gamma_{1} + \gamma_{3}\, z + \gamma_{5}\,(z - k)\,\mathbf{1}(z > k) = - \tau\,\psi^{0}(z),$$
 
-m(1,z) - m(0,z) = \gamma_1 + \gamma_3\,z +
-  \gamma_5\,(z - k)\,\mathbf{1}(z > k) = -\tau\,\psi^0(z),
-```
+which gives $\psi^{0}(z) = \{ m(0,z) - m(1,z)\}/\tau$ as required. This
+confirms that $\psi^{0}(z)$ measures the *causal difference* in expected
+log-survival between the two treatment arms, scaled by $\tau$.
 
-which gives $`\psi^0(z) = \{m(0,z) - m(1,z)\}/\tau`$ as required. This
-confirms that $`\psi^0(z)`$ measures the *causal difference* in expected
-log-survival between the two treatment arms, scaled by $`\tau`$.
-
-**Sign Convention.** Throughout this vignette, $`\psi^0(z) < 0`$ means
-treatment is **beneficial** (HR $`< 1`$), while $`\psi^0(z) > 0`$ means
-treatment is **detrimental** (HR $`> 1`$). This follows the standard Cox
+**Sign Convention.** Throughout this vignette, $\psi^{0}(z) < 0$ means
+treatment is **beneficial** (HR $< 1$), while $\psi^{0}(z) > 0$ means
+treatment is **detrimental** (HR $> 1$). This follows the standard Cox
 model convention where negative log-HR favors the experimental arm.
 
 ### Extension to Prognostic Factors
 
-When an additional baseline prognostic factor $`W`$ is included, the
+When an additional baseline prognostic factor $W$ is included, the
 linear predictor becomes:
 
-``` math
+$$l_{x,z,w} = \beta_{1}^{0}\, x + \beta_{2}^{0}\, z + \beta_{3}^{0}\, zx + \beta_{4}^{0}\,(z - k)\,\mathbf{1}(z > k) + \beta_{5}^{0}\,(z - k)\,\mathbf{1}(z > k)\, x + \beta_{w}^{0}\, w.$$
 
-l_{x,z,w} = \beta_1^0\,x + \beta_2^0\,z + \beta_3^0\,zx +
-  \beta_4^0\,(z-k)\,\mathbf{1}(z>k) +
-  \beta_5^0\,(z-k)\,\mathbf{1}(z>k)\,x + \beta_w^0\,w.
-```
-
-The prognostic term $`\beta_w^0\,w`$ does not interact with treatment,
-so the causal log-HR remains:
-``` math
-
-\psi^0(z,w) = \frac{m(0,z,w) - m(1,z,w)}{\tau} = \psi^0(z),
-```
-i.e., it depends on $`z`$ but not on $`w`$. When prognostic factors *do*
-interact with treatment, $`\psi^0`$ would depend on $`(z,w)`$ jointly,
-and the AHR/CDE definitions below would average over both.
+The prognostic term $\beta_{w}^{0}\, w$ does not interact with
+treatment, so the causal log-HR remains:
+$$\psi^{0}(z,w) = \frac{m(0,z,w) - m(1,z,w)}{\tau} = \psi^{0}(z),$$
+i.e., it depends on $z$ but not on $w$. When prognostic factors *do*
+interact with treatment, $\psi^{0}$ would depend on $(z,w)$ jointly, and
+the AHR/CDE definitions below would average over both.
 
 ### Working Example
 
 A representative configuration for an oncology biomarker setting:
 
-| Anchor | $`z`$  |        $`\psi^0(z)`$        |       HR | Interpretation       |
-|:------:|:------:|:---------------------------:|---------:|:---------------------|
-|  Low   | $`0`$  |  $`\log(3) \approx 1.10`$   | $`3.00`$ | Strongly detrimental |
-|  Knot  | $`5`$  | $`\log(1.25) \approx 0.22`$ | $`1.25`$ | Modestly detrimental |
-|  High  | $`10`$ | $`\log(0.5) \approx -0.69`$ | $`0.50`$ | Strongly beneficial  |
+| Anchor | $z$  |       $\psi^{0}(z)$        |     HR | Interpretation       |
+|:------:|:----:|:--------------------------:|-------:|:---------------------|
+|  Low   | $0$  |   $\log(3) \approx 1.10$   | $3.00$ | Strongly detrimental |
+|  Knot  | $5$  | $\log(1.25) \approx 0.22$  | $1.25$ | Modestly detrimental |
+|  High  | $10$ | $\log(0.5) \approx - 0.69$ | $0.50$ | Strongly beneficial  |
 
 This profile produces a biomarker-modulated treatment effect that
 transitions from harm at low biomarker levels to substantial benefit at
-high levels, crossing the null (HR $`= 1`$) between $`z = 5`$ and
-$`z = 10`$. The overall average hazard ratio across the full biomarker
-distribution is approximately $`0.74`$, indicating net benefit in the
-population.
+high levels, crossing the null (HR $= 1$) between $z = 5$ and $z = 10$.
+The overall average hazard ratio across the full biomarker distribution
+is approximately $0.74$, indicating net benefit in the population.
 
 ## Treatment Effect Estimands
 
@@ -260,33 +198,28 @@ treatment effect heterogeneity.
 
 ### Average Hazard Ratio (AHR)
 
-The **biomarker AHR** is the exponentiated mean of $`\psi^0(Z)`$ across
+The **biomarker AHR** is the exponentiated mean of $\psi^{0}(Z)$ across
 a biomarker-threshold sub-population:
 
-``` math
-
-\text{AHR}(z^+) := \exp\!\bigl\{E_{Z \geq z}\;\psi^0(Z)\bigr\},
-\qquad
-\text{AHR}(z^-) := \exp\!\bigl\{E_{Z \leq z}\;\psi^0(Z)\bigr\}.
-\tag{8}
-```
+$$\text{AHR}\left( z^{+} \right):=\exp\!\{ E_{Z \geq z}\;\psi^{0}(Z)\},\qquad\text{AHR}\left( z^{-} \right):=\exp\!\{ E_{Z \leq z}\;\psi^{0}(Z)\}.$$
 
 The AHR is the **geometric mean** of the individual causal hazard ratios
-$`\exp(\psi^0(Z_i))`$ across the sub-population. In ForestSearch’s
-super-population data, this is computed from the `loghr_po` column as
-$`\text{AHR}(\mathcal{S}) = \exp\!\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}}\bigr)`$.
+$\exp\left( \psi^{0}\left( Z_{i} \right) \right)$ across the
+sub-population. In ForestSearch’s super-population data, this is
+computed from the `loghr_po` column as
+$\text{AHR}(\mathcal{S}) = \exp\!({\overline{\text{loghr\_po}}}_{\mathcal{S}})$.
 
 **Key properties.**
 
 - *Deterministic*: depends only on the model coefficients and covariate
-  distribution, not on the random error $`\varepsilon_i`$.
+  distribution, not on the random error $\varepsilon_{i}$.
 - *Reproducible*: identical across simulation replications for a fixed
   super-population.
 - *Dual causal status*: as a geometric-mean ratio of potential-outcome
   hazards, the AHR achieves both individual-level and population-level
   causal interpretability under the Fay & Li (2024) taxonomy. This is
-  because $`\log`$ linearizes the ratio, so
-  $`E[\log(\text{HR}_i)] = E[\log\lambda_{1,Z}] - E[\log\lambda_{0,Z}]`$,
+  because $\log$ linearizes the ratio, so
+  $E\left\lbrack \log\left( \text{HR}_{i} \right) \right\rbrack = E\left\lbrack \log\lambda_{1,Z} \right\rbrack - E\left\lbrack \log\lambda_{0,Z} \right\rbrack$,
   and the order of comparison and summarization is irrelevant.
 
 ### Controlled Direct Effect (CDE)
@@ -294,51 +227,42 @@ $`\text{AHR}(\mathcal{S}) = \exp\!\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}
 The **CDE** is the ratio of average exponentiated log-hazards under
 treatment versus control (Aalen, Cook & Roysland, 2015):
 
-``` math
+$$\text{CDE}\left( z^{+} \right):=\frac{{\bar{\theta}}^{1}(z + )}{{\bar{\theta}}^{0}(z + )},\qquad\text{CDE}\left( z^{-} \right):=\frac{{\bar{\theta}}^{1}(z - )}{{\bar{\theta}}^{0}(z - )},$$
 
-\text{CDE}(z^+) :=
-\frac{\bar\theta^1(z+)}{\bar\theta^0(z+)}, \qquad
-\text{CDE}(z^-) :=
-\frac{\bar\theta^1(z-)}{\bar\theta^0(z-)},
-\tag{9}
-```
-
-where $`\bar\theta^x(z+) = E_{Z \geq z}\,\exp(l_{x,Z})`$ and $`l_{x,z}`$
-is the Cox linear predictor at treatment $`x`$ and biomarker $`z`$. In
-ForestSearch, this is computed from the `theta_1` and `theta_0` columns:
-$`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_i(1))}_\mathcal{S}
-\;/\; \overline{\exp(\theta_i(0))}_\mathcal{S}`$.
+where
+${\bar{\theta}}^{x}(z + ) = E_{Z \geq z}\,\exp\left( l_{x,Z} \right)$
+and $l_{x,z}$ is the Cox linear predictor at treatment $x$ and biomarker
+$z$. In ForestSearch, this is computed from the `theta_1` and `theta_0`
+columns:
+$\text{CDE}(\mathcal{S}) = {\overline{\exp\left( \theta_{i}(1) \right)}}_{\mathcal{S}}\;/\;{\overline{\exp\left( \theta_{i}(0) \right)}}_{\mathcal{S}}$.
 
 **Key properties.**
 
-- *Deterministic* (like the AHR): no dependence on $`\varepsilon_i`$.
+- *Deterministic* (like the AHR): no dependence on $\varepsilon_{i}$.
 - *Natural-scale averaging*: by averaging on the hazard (exponential)
   scale rather than the log-hazard scale, the CDE gives more weight to
   subjects with larger absolute hazard contributions.
 - *Differs from AHR under heterogeneity*: Jensen’s inequality implies
-  $`\text{CDE}(\mathcal{S}) \neq \text{AHR}(\mathcal{S})`$ in general,
+  $\text{CDE}(\mathcal{S}) \neq \text{AHR}(\mathcal{S})$ in general,
   with the discrepancy growing as within-subgroup treatment-effect
   variability increases.
 
 ### Marginal (Causal) Hazard Ratio
 
-The **marginal HR** for a subgroup $`\mathcal{S}`$ is obtained by
-fitting a Cox model to *stacked potential outcomes* — a dataset where
-each subject contributes two rows (one under treatment, one under
-control), both with event indicator $`1`$:
+The **marginal HR** for a subgroup $\mathcal{S}$ is obtained by fitting
+a Cox model to *stacked potential outcomes* — a dataset where each
+subject contributes two rows (one under treatment, one under control),
+both with event indicator $1$:
 
-``` math
+$$\text{HR}_{\text{marg}}(\mathcal{S}) = \exp\left( {\widehat{\beta}}_{\text{Cox}} \right),$$
 
-\text{HR}_{\text{marg}}(\mathcal{S}) = \exp(\hat\beta_\text{Cox}),
-```
-
-where $`\hat\beta_\text{Cox}`$ is the coefficient from
+where ${\widehat{\beta}}_{\text{Cox}}$ is the coefficient from
 `coxph(Surv(time, event) ~ treat)` fit to the stacked data within
-$`\mathcal{S}`$.
+$\mathcal{S}$.
 
 **Key properties.**
 
-- *Stochastic*: depends on the realized error terms $`\varepsilon_i`$,
+- *Stochastic*: depends on the realized error terms $\varepsilon_{i}$,
   introducing Monte Carlo variability across simulation replications.
 - *Population-level*: the Cox partial likelihood implicitly weights
   subjects by their risk-set contributions, targeting a
@@ -350,25 +274,21 @@ $`\mathcal{S}`$.
 
 Under a **constant treatment effect** (no heterogeneity), the individual
 log-HR is identical for all subjects, and all three measures coincide:
-``` math
-
-\text{HR}_\text{marg} = \text{AHR} = \text{CDE} = \exp(\beta_\text{treat}).
-```
+$$\text{HR}_{\text{marg}} = \text{AHR} = \text{CDE} = \exp\left( \beta_{\text{treat}} \right).$$
 
 Under **heterogeneous treatment effects**, three sources of divergence
 arise:
 
 1.  **Jensen’s inequality** separates AHR from CDE:
-    $`\exp\!\bigl(\overline{\log\text{HR}_i}\bigr) \neq
-    \overline{\exp(\theta_i(1))}\;/\;\overline{\exp(\theta_i(0))}`$
-    unless all $`\log\text{HR}_i`$ are identical.
+    $\exp\!(\overline{\log\text{HR}_{i}}) \neq \overline{\exp\left( \theta_{i}(1) \right)}\;/\;\overline{\exp\left( \theta_{i}(0) \right)}$
+    unless all $\log\text{HR}_{i}$ are identical.
 
 2.  **Cox partial-likelihood weighting** separates the marginal HR from
     the AHR, because risk-set membership creates implicit non-uniform
     weights.
 
 3.  **Monte Carlo variability** affects the marginal HR (which depends
-    on $`\varepsilon_i`$) but not the AHR or CDE.
+    on $\varepsilon_{i}$) but not the AHR or CDE.
 
 The AHR is the recommended **primary estimand** for simulation studies
 because it is deterministic, directly interpretable as a geometric-mean
@@ -382,43 +302,37 @@ perspective.
 
 Both Aalen, Cook & Roysland (2015) and Fay & Li (2024) identify the AFT
 model as a natural causal foundation for survival analysis. The Weibull
-AFT scale-change parameter $`\exp(-\beta_\text{treat})`$ satisfies:
-``` math
-
-\exp(-\beta_\text{treat}) = \gamma_1 / \gamma_0,
-```
-where $`\gamma_x`$ is the geometric mean of the potential survival time
-$`T_i(x)`$. Crucially, this geometric-mean ratio is simultaneously:
+AFT scale-change parameter $\exp\left( - \beta_{\text{treat}} \right)$
+satisfies:
+$$\exp\left( - \beta_{\text{treat}} \right) = \gamma_{1}/\gamma_{0},$$
+where $\gamma_{x}$ is the geometric mean of the potential survival time
+$T_{i}(x)$. Crucially, this geometric-mean ratio is simultaneously:
 
 - **Individual-level causal**: it equals
-  $`\exp\!\bigl(E[\log T_i(1) - \log T_i(0)]\bigr)`$, with comparison
-  formed *within* individuals before averaging.
+  $\exp\!(E\left\lbrack \log T_{i}(1) - \log T_{i}(0) \right\rbrack)$,
+  with comparison formed *within* individuals before averaging.
 - **Population-level causal**: it is identifiable from marginal
   distributions in a randomized trial.
 
 This dual status — unique among common survival ratio estimands — is why
 the ForestSearch DGM is built on the Weibull AFT. The biomarker log-HR
-$`\psi^0(z) = \{m(0,z) - m(1,z)\}/\tau`$ inherits this property at each
+$\psi^{0}(z) = \{ m(0,z) - m(1,z)\}/\tau$ inherits this property at each
 biomarker level.
 
 ### The AHR as a Causally Valid Functional
 
 The ForestSearch AHR is defined from individual potential-outcome log-HR
 differences:
-``` math
-
-\text{AHR}(\mathcal{S}) = \exp\!\left(\frac{1}{|\mathcal{S}|}
-\sum_{i \in \mathcal{S}} [\theta_i(1) - \theta_i(0)]\right),
-```
-where $`\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0`$. Because
+$$\text{AHR}(\mathcal{S}) = \exp\!\left( \frac{1}{|\mathcal{S}|}\sum\limits_{i \in \mathcal{S}}\left\lbrack \theta_{i}(1) - \theta_{i}(0) \right\rbrack \right),$$
+where $\theta_{i}(x) = \mathbf{X}_{i}(x)\prime{\mathbf{β}}_{0}$. Because
 this is a geometric mean of individual causal log-hazard differences, it
 falls within the class of estimands that achieves both individual-level
 and population-level causal status under the Fay & Li (2024) taxonomy.
 
 This property is not shared by the instantaneous Cox HR
-$`e^{\hat\beta}`$, which suffers from conditioning-set distortion at
+$e^{\widehat{\beta}}$, which suffers from conditioning-set distortion at
 each event time (the “collider” argument of Hernan 2010; Aalen et
-al. 2015; Martinussen 2022): among survivors at time $`t > 0`$, the
+al. 2015; Martinussen 2022): among survivors at time $t > 0$, the
 treatment and frailty are no longer independent even in a randomized
 trial.
 
@@ -444,17 +358,18 @@ exist.
 ### Cox HR as an Operational Tool for Subgroup Selection
 
 In the ForestSearch workflow, per-replicate Cox HR estimates and
-thresholds (e.g., $`\hat\beta \geq \log(0.90)`$) serve as **operational
-selection criteria** for identifying candidate subgroups. This is
-distinct from their role as causal estimands. The recent literature
-(Edelmann 2025; Martinussen 2022; Fay & Li 2024) notes that the
-instantaneous Cox HR at time $`t`$ is a causal effect for the *baseline*
-population but not necessarily for the population at risk at $`t`$.
+thresholds (e.g., $\widehat{\beta} \geq \log(0.90)$) serve as
+**operational selection criteria** for identifying candidate subgroups.
+This is distinct from their role as causal estimands. The recent
+literature (Edelmann 2025; Martinussen 2022; Fay & Li 2024) notes that
+the instantaneous Cox HR at time $t$ is a causal effect for the
+*baseline* population but not necessarily for the population at risk at
+$t$.
 
 Within the ForestSearch framework, this distinction is addressed as
 follows:
 
-- The *true* treatment effects are defined through $`\psi^0(z)`$, a
+- The *true* treatment effects are defined through $\psi^{0}(z)$, a
   baseline causal quantity.
 - Subgroup *selection* uses the Cox HR as an efficient screening tool.
 - Subgroup *evaluation* uses the AHR and CDE, which avoid the
@@ -468,19 +383,19 @@ follows:
 The complete pipeline from model specification to estimand computation
 is summarized below.
 
-| Step | Operation | Formula |
-|:--:|:---|:---|
-| 1 | Fit Weibull AFT | $`\log T_i = \mu + \mathbf{X}_i'\boldsymbol{\gamma} + \sigma\varepsilon_i`$ |
-| 2 | Hazard-scale transform | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ |
-| 3 | Individual log-hazards | $`\theta_i(x) = \mathbf{X}_i(x)'\boldsymbol{\beta}_0`$ |
-| 4 | Individual causal log-HR | $`{\text{loghr\_po}}_i = \theta_i(1) - \theta_i(0)`$ |
-| 5a | AHR (subgroup $`\mathcal{S}`$) | $`\text{AHR}(\mathcal{S}) = \exp\bigl(\overline{\text{loghr\_po}}_{\mathcal{S}}\bigr)`$ |
-| 5b | CDE (subgroup $`\mathcal{S}`$) | $`\text{CDE}(\mathcal{S}) = \overline{\exp(\theta_1)}_{\mathcal{S}}\;/\;\overline{\exp(\theta_0)}_{\mathcal{S}}`$ |
-| 5c | Marginal HR (subgroup $`\mathcal{S}`$) | $`\exp(\hat\beta_{\text{Cox}})`$ from stacked potential outcomes |
+| Step | Operation                            | Formula                                                                                                                                           |
+|:----:|:-------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------|
+|  1   | Fit Weibull AFT                      | $\log T_{i} = \mu + \mathbf{X}_{i}\prime{\mathbf{γ}} + \sigma\varepsilon_{i}$                                                                     |
+|  2   | Hazard-scale transform               | ${\mathbf{β}}_{0} = - {\mathbf{γ}}/\sigma$                                                                                                        |
+|  3   | Individual log-hazards               | $\theta_{i}(x) = \mathbf{X}_{i}(x)\prime{\mathbf{β}}_{0}$                                                                                         |
+|  4   | Individual causal log-HR             | $\text{loghr\_po}_{i} = \theta_{i}(1) - \theta_{i}(0)$                                                                                            |
+|  5a  | AHR (subgroup $\mathcal{S}$)         | $\text{AHR}(\mathcal{S}) = \exp({\overline{\text{loghr\_po}}}_{\mathcal{S}})$                                                                     |
+|  5b  | CDE (subgroup $\mathcal{S}$)         | $\text{CDE}(\mathcal{S}) = {\overline{\exp\left( \theta_{1} \right)}}_{\mathcal{S}}\;/\;{\overline{\exp\left( \theta_{0} \right)}}_{\mathcal{S}}$ |
+|  5c  | Marginal HR (subgroup $\mathcal{S}$) | $\exp\left( {\widehat{\beta}}_{\text{Cox}} \right)$ from stacked potential outcomes                                                               |
 
 In ForestSearch, Steps 1–4 are performed by
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
-which stores $`\boldsymbol{\beta}_0`$ in `dgm$model_params$b0` and the
+which stores ${\mathbf{β}}_{0}$ in `dgm$model_params$b0` and the
 individual-level quantities (`loghr_po`, `lin_pred_0`, `lin_pred_1`) in
 `dgm$df_super`. Steps 5a–5b are computed by
 [`cox_ahr_cde_analysis()`](https://larry-leon.github.io/forestsearch/reference/cox_ahr_cde_analysis.md);
@@ -488,23 +403,23 @@ Step 5c is computed within
 [`calculate_hazard_ratios()`](https://larry-leon.github.io/forestsearch/reference/calculate_hazard_ratios.md).
 
 **Consistency Across the ForestSearch Vignettes.** The mathematical
-pipeline above — AFT model $`\rightarrow`$ hazard-scale transformation
-(4) $`\rightarrow`$ individual log-HR $`\rightarrow`$ AHR/CDE
-aggregation — is consistent across the MRCT analysis document, the
+pipeline above — AFT model $\rightarrow$ hazard-scale transformation (4)
+$\rightarrow$ individual log-HR $\rightarrow$ AHR/CDE aggregation — is
+consistent across the MRCT analysis document, the
 `treatment_effect_definitions` vignette, and the
 `causal_effects_brief_review` vignette. All three use the same sign
-conventions ($`\psi^0(z) < 0 \Leftrightarrow`$ beneficial), the same
-transformation $`\beta = -\gamma/\tau`$, and the same averaging
-operations for AHR and CDE.
+conventions ($\left. \psi^{0}(z) < 0\Leftrightarrow \right.$
+beneficial), the same transformation $\beta = - \gamma/\tau$, and the
+same averaging operations for AHR and CDE.
 
 The correspondences are:
 
-| This vignette | `treatment_effect_definitions` | `causal_effects_brief_review` |
-|:---|:---|:---|
-| $`\psi^0(z)`$ | `loghr_po` $`= \theta_i(1) - \theta_i(0)`$ | Individual-level AFT causal quantity |
-| $`\text{AHR}(\mathcal{S})`$ | $`\exp(\overline{\text{loghr\_po}}_{\mathcal{S}})`$ | Geometric-mean HR with dual causal status |
-| $`\text{CDE}(\mathcal{S})`$ | $`\overline{\exp(\theta_1)}_{\mathcal{S}}/\overline{\exp(\theta_0)}_{\mathcal{S}}`$ | Natural-scale complement to AHR |
-| $`\beta = -\gamma/\tau`$ | $`\boldsymbol{\beta}_0 = -\boldsymbol{\gamma}/\sigma`$ | AFT-to-hazard transformation |
+| This vignette             | `treatment_effect_definitions`                                                                                      | `causal_effects_brief_review`             |
+|:--------------------------|:--------------------------------------------------------------------------------------------------------------------|:------------------------------------------|
+| $\psi^{0}(z)$             | `loghr_po` $= \theta_{i}(1) - \theta_{i}(0)$                                                                        | Individual-level AFT causal quantity      |
+| $\text{AHR}(\mathcal{S})$ | $\exp\left( {\overline{\text{loghr\_po}}}_{\mathcal{S}} \right)$                                                    | Geometric-mean HR with dual causal status |
+| $\text{CDE}(\mathcal{S})$ | ${\overline{\exp\left( \theta_{1} \right)}}_{\mathcal{S}}/{\overline{\exp\left( \theta_{0} \right)}}_{\mathcal{S}}$ | Natural-scale complement to AHR           |
+| $\beta = - \gamma/\tau$   | ${\mathbf{β}}_{0} = - {\mathbf{γ}}/\sigma$                                                                          | AFT-to-hazard transformation              |
 
 ## References
 

@@ -23,8 +23,8 @@ The simulation framework allows you to:
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets
-3.  **Running simulated trials**: drawing 5000 under null (uniform
-    benefit) and 1000 under alternative (HTEs)
+3.  **Running simulated trials**: drawing 13 under null (uniform
+    benefit) and 13 under alternative (HTEs)
 4.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
 5.  **Summarize Results**: Aggregate operating characteristics across
@@ -34,13 +34,13 @@ The simulation framework is based on the
 [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 methodology:
 
-| Feature | Description |
-|----|----|
+| Feature                           | Description                              |
+|-----------------------------------|------------------------------------------|
 | **Individual Potential Outcomes** | `theta_0`, `theta_1`, `loghr_po` columns |
-| **Average Hazard Ratios (AHR)** | Alternative to Cox-based HR estimation |
-| **Stacked PO for Cox HR** | Same epsilon for causal inference |
-| **`use_twostage` Parameter** | Faster exploratory analysis option |
-| **Backward Compatible** | Works with old and new DGM formats |
+| **Average Hazard Ratios (AHR)**   | Alternative to Cox-based HR estimation   |
+| **Stacked PO for Cox HR**         | Same epsilon for causal inference        |
+| **`use_twostage` Parameter**      | Faster exploratory analysis option       |
+| **Backward Compatible**           | Works with old and new DGM formats       |
 
 ## Setup
 
@@ -58,6 +58,8 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+library(katex)
 ```
 
 ### Simulation Workflow Overview
@@ -125,11 +127,11 @@ wraps the ForestSearch algorithm (and optionally GRF) and returns a
 one-row-per-method summary for each replicate. A typical call enables
 one or more methods:
 
-| Method | Flag | Description |
-|----|----|----|
-| FS (LASSO only) | `run_fs = TRUE` | ForestSearch with LASSO-selected candidates |
-| FSlg | `run_fs = TRUE, use_grf = TRUE` | LASSO + GRF candidates combined |
-| GRF | `run_grf = TRUE` | Standalone GRF subgroup search |
+| Method          | Flag                            | Description                                 |
+|-----------------|---------------------------------|---------------------------------------------|
+| FS (LASSO only) | `run_fs = TRUE`                 | ForestSearch with LASSO-selected candidates |
+| FSlg            | `run_fs = TRUE, use_grf = TRUE` | LASSO + GRF candidates combined             |
+| GRF             | `run_grf = TRUE`                | Standalone GRF subgroup search              |
 
 For each method the function records whether a subgroup was identified
 (`any.H`), its composition (`sens`, `spec`, `ppv`, `npv`), hazard ratio
@@ -895,19 +897,19 @@ create_summary_table(
 )
 ```
 
-| Characteristics by Treatment Arm |  |  |  |  |  |
-|----|----|----|----|----|----|
-| Characteristic |  | Control (n=350) | Treatment (n=350) | P-value¹ | SMD² |
-| z1 | Mean (SD) | 0.3 (0.4) | 0.2 (0.4) | 0.729 | 0.03 |
-| z2 | Mean (SD) | 2.4 (1.1) | 2.5 (1.1) | 0.157 | 0.11 |
-| size | Mean (SD) | 29.2 (14.3) | 30.1 (17.0) | 0.461 | 0.06 |
-| z3 | Mean (SD) | 0.4 (0.5) | 0.4 (0.5) | 0.249 | 0.09 |
-| z4 | Mean (SD) | 2.6 (1.1) | 2.5 (1.1) | 0.428 | 0.06 |
-| z5 | Mean (SD) | 2.4 (1.1) | 2.4 (1.1) | 0.563 | 0.04 |
-| flag.harm |  | 44 (12.6%) | 42 (12.0%) | 0.908 | 0.02 |
-| grade3 |  | 77 (22.0%) | 85 (24.3%) | 0.530 | 0.05 |
-| ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |  |  |  |  |  |
-| ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical) |  |  |  |  |  |
+| Characteristics by Treatment Arm                                                              |           |                 |                   |          |      |
+|-----------------------------------------------------------------------------------------------|-----------|-----------------|-------------------|----------|------|
+| Characteristic                                                                                |           | Control (n=350) | Treatment (n=350) | P-value¹ | SMD² |
+| z1                                                                                            | Mean (SD) | 0.3 (0.4)       | 0.2 (0.4)         | 0.729    | 0.03 |
+| z2                                                                                            | Mean (SD) | 2.4 (1.1)       | 2.5 (1.1)         | 0.157    | 0.11 |
+| size                                                                                          | Mean (SD) | 29.2 (14.3)     | 30.1 (17.0)       | 0.461    | 0.06 |
+| z3                                                                                            | Mean (SD) | 0.4 (0.5)       | 0.4 (0.5)         | 0.249    | 0.09 |
+| z4                                                                                            | Mean (SD) | 2.6 (1.1)       | 2.5 (1.1)         | 0.428    | 0.06 |
+| z5                                                                                            | Mean (SD) | 2.4 (1.1)       | 2.4 (1.1)         | 0.563    | 0.04 |
+| flag.harm                                                                                     |           | 44 (12.6%)      | 42 (12.0%)        | 0.908    | 0.02 |
+| grade3                                                                                        |           | 77 (22.0%)      | 85 (24.3%)        | 0.530    | 0.05 |
+| ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |           |                 |                   |          |      |
+| ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)   |           |                 |                   |          |      |
 
 ## Running Simulation Studies
 
@@ -924,7 +926,7 @@ plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 ```
 
-    ## Using 13 parallel workers
+    ## Using 3 parallel workers
 
 ### Define Simulation Parameters
 
@@ -1007,7 +1009,7 @@ cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 1000 simulations under H1...
+    ## Running 13 simulations under H1...
 
 ``` r
 start_time <- Sys.time()
@@ -1052,7 +1054,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 210 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 210 
@@ -1078,7 +1080,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.345 0.1224 
+    ## Seconds and minutes forestsearch overall = 14.842 0.2474 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
@@ -1097,13 +1099,13 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 8.1 minutes
+    ## Completed in 0.9 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 2000 rows
+    ## Results: 26 rows
 
 ### Running Null Hypothesis Simulations
 
@@ -1111,7 +1113,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 5000 simulations under H0...
+    ## Running 13 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1158,7 +1160,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
+    ## Subgroup search completed in 0.06 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1183,7 +1185,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.769 0.1295 
+    ## Seconds and minutes forestsearch overall = 14.126 0.2354 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1198,7 +1200,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 32.4 minutes
+    ## Completed in 0.7 minutes
 
 ## Summarizing Results
 
@@ -1241,8 +1243,8 @@ if (length(ahr_cols) > 0) {
 ```
 
     ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.142 
-    ##   Mean AHR(Hc) estimated: 0.602 
+    ##   Mean AHR(H) estimated: 2.163 
+    ##   Mean AHR(Hc) estimated: 0.594 
     ##   True AHR(H): 2.4 
     ##   True AHR(Hc): 0.585
 
@@ -1259,19 +1261,19 @@ build_estimation_table(
 )
 ```
 
-| Estimation Properties |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|
-| n = 700, 1000 simulations, HR(overall) = 0.72 (FS: 880/1000 (88%) estimable) |  |  |  |  |  |  |
-|  | Avg | SD | Min | Max | b‡ (%) | b† (%) |
-| Ĥ: 880 estimable, avg \|Ĥ\| = 86, θ†(H) = 2, θ‡(H) = 2.4 |  |  |  |  |  |  |
-| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | -3.91 | 15.31 |
-| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | NA | -10.76 |
-| θ‡(Ĥ) | 2.21 | 0.38 | 0.58 | 2.40 | NA | -7.96 |
-| Ĥᶜ: avg \|Ĥᶜ\| = 614, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58 |  |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | 9.63 | -3.04 |
-| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | NA | 3.01 |
-| θ‡(Ĥᶜ) | 0.63 | 0.08 | 0.58 | 0.93 | NA | 8.15 |
-| θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
+| Estimation Properties                                                                                                                                                                                                                                                            |      |      |      |      |        |        |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|------|------|------|--------|--------|
+| n = 700, 13 simulations, HR(overall) = 0.72 (FS: 12/13 (92%) estimable)                                                                                                                                                                                                          |      |      |      |      |        |        |
+|                                                                                                                                                                                                                                                                                  | Avg  | SD   | Min  | Max  | b‡ (%) | b† (%) |
+| Ĥ: 12 estimable, avg \|Ĥ\| = 94, θ†(H) = 2, θ‡(H) = 2.4                                                                                                                                                                                                                          |      |      |      |      |        |        |
+| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 2.27 | 0.48 | 1.37 | 2.89 | -5.37  | 13.56  |
+| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 2.16 | 0.42 | 1.30 | 2.40 | NA     | -9.90  |
+| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 2.23 | 0.31 | 1.52 | 2.40 | NA     | -6.99  |
+| Ĥᶜ: avg \|Ĥᶜ\| = 606, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58                                                                                                                                                                                                                               |      |      |      |      |        |        |
+| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.61 | 0.09 | 0.50 | 0.78 | 3.84   | -8.16  |
+| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.59 | 0.02 | 0.58 | 0.64 | NA     | 1.58   |
+| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.61 | 0.04 | 0.58 | 0.71 | NA     | 3.54   |
+| θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |      |      |      |      |        |        |
 
 ``` r
 timings$summarize_alt <- proc.time()[3] - t0
@@ -1288,20 +1290,20 @@ interpret_estimation_table(
 ```
 
 Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
-880 of 1000 simulations (88.0%) identified a subgroup using FS. The
-identified subgroup averaged 86 patients (complement: 614).
+12 of 13 simulations (92.3%) identified a subgroup using FS. The
+identified subgroup averaged 94 patients (complement: 606).
 
-The naive Cox HR in the identified subgroup averaged 2.31 (SD = 0.63),
-corresponding to 15.3% relative bias versus the true HR(H) = 2. In the
-complement, the estimate averaged 0.64 (-3.0% bias vs. true HR(Hc) =
+The naive Cox HR in the identified subgroup averaged 2.27 (SD = 0.48),
+corresponding to 13.6% relative bias versus the true HR(H) = 2. In the
+complement, the estimate averaged 0.61 (-8.2% bias vs. true HR(Hc) =
 0.66).
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-2.4, the naive plugin shows -3.9% relative bias.
+2.4, the naive plugin shows -5.4% relative bias.
 
-The average hazard ratio (AHR) in the identified subgroup averaged 2.14
-(-10.8% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
-(3.0% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
+The average hazard ratio (AHR) in the identified subgroup averaged 2.16
+(-9.9% relative bias vs. true AHR(H) = 2.4); in the complement, 0.59
+(1.6% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
 relative to the Cox HR, consistent with AHR being a marginal rather than
 conditional estimand.
 
@@ -1342,15 +1344,7 @@ if (length(ahr_cols) > 0) {
     cat("  True AHR(Hc):", round(dgm_null$AHR_Hc_true, 3), "\n")
   }
 }
-```
 
-    ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 0.654 
-    ##   Mean AHR(Hc) estimated: 0.654 
-    ##   True AHR(H): NA 
-    ##   True AHR(Hc): 0.654
-
-``` r
 build_estimation_table(
   results = results_null,
   dgm = dgm_null,
@@ -1363,19 +1357,7 @@ build_estimation_table(
 )
 ```
 
-| Estimation Properties |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|
-| n = 700, 5000 simulations, HR(overall) = 0.72 (FS: 296/5000 (6%) estimable) |  |  |  |  |  |  |
-|  | Avg | SD | Min | Max | b‡ (%) | b† (%) |
-| Ĥ: 296 estimable, avg \|Ĥ\| = 99, θ†(H) = 0.72, θ‡(H) = 0.65 |  |  |  |  |  |  |
-| θ̂(Ĥ) | 1.80 | 0.26 | 1.35 | 2.89 | 174.56 | 148.72 |
-| âhr(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
-| θ‡(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
-| Ĥᶜ: avg \|Ĥᶜ\| = 601, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65 |  |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.68 | 0.07 | 0.46 | 0.93 | 3.24 | -6.47 |
-| âhr(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
-| θ‡(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
-| θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
+    ## NULL
 
 ``` r
 timings$summarize_null <- proc.time()[3] - t0
@@ -1391,31 +1373,8 @@ interpret_estimation_table(
 )
 ```
 
-Under the null hypothesis (true HR = 0.72 uniformly), 296 of 5000
-simulations (5.9%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 296 false detections,
-the identified subgroup averaged 99 patients.
-
-The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
-representing 148.7% relative bias above the true value of 0.72. This
-upward bias reflects selection: the algorithm identified whichever
-patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.68 (-6.5% bias), showing the expected
-mirror effect where removing the worst-looking patients makes the
-remainder appear modestly better.
-
-Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-0.65, the naive plugin shows 174.6% relative bias.
-
-The average hazard ratio (AHR) in the identified subgroup averaged 0.65
-(0.0% relative bias vs. true AHR(H) = 0.65); in the complement, 0.65
-(0.0% bias vs. true AHR(Hc) = 0.65). The AHR shows attenuated bias
-relative to the Cox HR, consistent with AHR being a marginal rather than
-conditional estimand.
-
-These results underscore that under the null, the few false detections
-produce highly biased estimates, reinforcing the need for bootstrap bias
-correction for any subgroup identified by a data-driven search.
+No subgroups were identified in any of the 13 simulations under FS,
+indicating a 0%% detection rate.
 
 #### Classification Rate Details
 
@@ -1452,22 +1411,22 @@ build_classification_table(
 )
 ```
 
-| Subgroup Identification and Classification Rates |  |  |
-|----|----|----|
-| Across 1,000 simulations per scenario |  |  |
-|  | FS | GRF |
-| M Null: N=700, theta(ITT) = 0.72 |  |  |
-| any(H) | 0.06 | 0.06 |
-| sens(Hc) | 0.86 | 0.89 |
-| ppv(Hc) | 1.00 | 1.00 |
-| avg\|H\| | 99.00 | 78.00 |
-| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
-| any(H) | 0.88 | 0.75 |
-| sens(H) | 0.86 | 0.89 |
-| sens(Hc) | 0.98 | 0.97 |
-| ppv(H) | 0.89 | 0.84 |
-| ppv(Hc) | 0.98 | 0.98 |
-| avg\|H\| | 86.00 | 98.00 |
+| Subgroup Identification and Classification Rates                   |       |        |
+|--------------------------------------------------------------------|-------|--------|
+| Across 13 simulations per scenario                                 |       |        |
+|                                                                    | FS    | GRF    |
+| M Null: N=700, theta(ITT) = 0.72                                   |       |        |
+| any(H)                                                             | 0.00  | 0.00   |
+| sens(Hc)                                                           | NaN   | NaN    |
+| ppv(Hc)                                                            | NaN   | NaN    |
+| avg\|H\|                                                           | NA    | NA     |
+| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |       |        |
+| any(H)                                                             | 0.92  | 0.62   |
+| sens(H)                                                            | 0.93  | 0.93   |
+| sens(Hc)                                                           | 0.98  | 0.95   |
+| ppv(H)                                                             | 0.91  | 0.75   |
+| ppv(Hc)                                                            | 0.99  | 0.99   |
+| avg\|H\|                                                           | 94.00 | 115.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1499,7 +1458,7 @@ cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.453
+    ## Censoring proportion: 0.451
 
 ``` r
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
@@ -1550,13 +1509,13 @@ cat("\n=== Detection Probability Comparison ===\n")
 cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 ```
 
-    ## Theoretical FS (asymptotic): 0.899
+    ## Theoretical FS (asymptotic): 0.9
 
 ``` r
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.88
+    ## Empirical FS: 0.923
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
@@ -1570,7 +1529,7 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.754
+    ## Empirical GRF: 0.615
 
 ``` r
 # Null 
@@ -1606,13 +1565,13 @@ cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.039618
+    ## Theoretical FS at min(SG) (asymptotic): 0.039463
 
 ``` r
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.0592
+    ## Empirical FS: 0
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1626,14 +1585,14 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.0648
+    ## Empirical GRF: 0
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.463
+    ## Censoring proportion: 0.465
 
 ``` r
 # -----------------------------------------------------------------------------
@@ -1747,8 +1706,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
-    ##   GRF: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
+    ##   FS: Power = 0.769, Sens = 0.930, Spec = 0.969, PPV = 0.847
+    ##   GRF: Power = 0.769, Sens = 0.930, Spec = 0.969, PPV = 0.847
 
 ``` r
 cat("\nNull Hypothesis (H0):\n")
@@ -1766,8 +1725,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0620
-    ##   GRF: Type I Error = 0.0620
+    ##   FS: Type I Error = 0.0000
+    ##   GRF: Type I Error = 0.0000
 
 ## Using `format_oc_results()`
 
@@ -1796,33 +1755,33 @@ format_oc_results(
 
 ### Key Parameters
 
-| Parameter | Default | Description |
-|----|----|----|
-| `results` | (required) | A `data.table` or `data.frame` with columns `analysis`, `any.H`, `sens`, `spec`, `ppv`, `npv`, `hr.H.hat`, etc., as produced by [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md). |
-| `analyses` | `NULL` | Character vector of analysis labels to include, e.g., `c("FS", "FSlg", "GRF")`. When `NULL`, all unique values of `results$analysis` are included. |
-| `metrics` | `"all"` | Which metric groups to show: `"detection"`, `"classification"`, `"hr_estimates"`, `"subgroup_size"`, or `"all"`. |
-| `digits` | `3` | Decimal places for proportions (detection rate, sens, spec, PPV, NPV). |
-| `digits_hr` | `3` | Decimal places for hazard ratio estimates. |
-| `title` | `"Operating Characteristics Summary"` | Table title shown in the `gt` header. |
-| `subtitle` | `NULL` | Optional subtitle (e.g., sample size and true HR). |
-| `use_gt` | `TRUE` | If `TRUE` and the `gt` package is available, returns a styled `gt` table; otherwise returns a `data.frame`. |
+| Parameter   | Default                               | Description                                                                                                                                                                                                                                    |
+|-------------|---------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `results`   | (required)                            | A `data.table` or `data.frame` with columns `analysis`, `any.H`, `sens`, `spec`, `ppv`, `npv`, `hr.H.hat`, etc., as produced by [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md). |
+| `analyses`  | `NULL`                                | Character vector of analysis labels to include, e.g., `c("FS", "FSlg", "GRF")`. When `NULL`, all unique values of `results$analysis` are included.                                                                                             |
+| `metrics`   | `"all"`                               | Which metric groups to show: `"detection"`, `"classification"`, `"hr_estimates"`, `"subgroup_size"`, or `"all"`.                                                                                                                               |
+| `digits`    | `3`                                   | Decimal places for proportions (detection rate, sens, spec, PPV, NPV).                                                                                                                                                                         |
+| `digits_hr` | `3`                                   | Decimal places for hazard ratio estimates.                                                                                                                                                                                                     |
+| `title`     | `"Operating Characteristics Summary"` | Table title shown in the `gt` header.                                                                                                                                                                                                          |
+| `subtitle`  | `NULL`                                | Optional subtitle (e.g., sample size and true HR).                                                                                                                                                                                             |
+| `use_gt`    | `TRUE`                                | If `TRUE` and the `gt` package is available, returns a styled `gt` table; otherwise returns a `data.frame`.                                                                                                                                    |
 
 ### Output Structure
 
 When `metrics = "all"`, the returned table contains one row per analysis
 method with the following columns:
 
-| Column | Description |
-|----|----|
-| `Detection` | Proportion of simulations that identified any subgroup (`any.H`) |
-| `Sen` | Mean sensitivity across all simulations |
-| `Spec` | Mean specificity |
-| `PPV` | Mean positive predictive value |
-| `NPV` | Mean negative predictive value |
-| `HR_H_hat` | Mean estimated HR in identified subgroup (when found) |
-| `HR_Hc_hat` | Mean estimated HR in complement (when found) |
-| `HR_ITT` | Mean overall (ITT) HR across all simulations |
-| `Size_H_mean` | Mean size of identified subgroup (when found) |
+| Column        | Description                                                      |
+|---------------|------------------------------------------------------------------|
+| `Detection`   | Proportion of simulations that identified any subgroup (`any.H`) |
+| `Sen`         | Mean sensitivity across all simulations                          |
+| `Spec`        | Mean specificity                                                 |
+| `PPV`         | Mean positive predictive value                                   |
+| `NPV`         | Mean negative predictive value                                   |
+| `HR_H_hat`    | Mean estimated HR in identified subgroup (when found)            |
+| `HR_Hc_hat`   | Mean estimated HR in complement (when found)                     |
+| `HR_ITT`      | Mean overall (ITT) HR across all simulations                     |
+| `Size_H_mean` | Mean size of identified subgroup (when found)                    |
 
 ### Usage Patterns
 
@@ -2033,21 +1992,21 @@ Tracking wall-clock time for every stage of a simulation study is
 essential for planning larger experiments and for reporting
 reproducibility information.
 
-| Computational Timing Summary |  |  |  |
-|----|----|----|----|
-| 1000 H1 + 5000 H0 simulations, 13 workers |  |  |  |
-| Stage | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.2 | 0.04 | 0.1 |
-| Calibrate k_inter (AHR) | 0.9 | 0.01 | 0.0 |
-| Validate k_inter | 0.2 | 0.00 | 0.0 |
-| DGM creation (H0) | 0.1 | 0.00 | 0.0 |
-| Simulations H1 | 486.6 | 8.11 | 19.9 |
-| Simulations H0 | 1,943.7 | 32.40 | 79.4 |
-| Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.1 | 0.00 | 0.0 |
-| Total vignette | 2,449.5 | 40.83 | 100.0 |
-| ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
+| Computational Timing Summary                            |             |            |            |
+|---------------------------------------------------------|-------------|------------|------------|
+| 13 H1 + 13 H0 simulations, 3 workers                    |             |            |            |
+| Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
+| DGM creation (H1)                                       | 0.2         | 0.00       | 0.1        |
+| Calibrate k_inter (Cox)                                 | 7.4         | 0.12       | 5.2        |
+| Calibrate k_inter (AHR)                                 | 3.1         | 0.05       | 2.2        |
+| Validate k_inter                                        | 0.8         | 0.01       | 0.6        |
+| DGM creation (H0)                                       | 0.1         | 0.00       | 0.1        |
+| Simulations H1                                          | 52.5        | 0.88       | 37.4       |
+| Simulations H0                                          | 39.0        | 0.65       | 27.8       |
+| Summarize H1                                            | 0.2         | 0.00       | 0.1        |
+| Summarize H0                                            | 0.1         | 0.00       | 0.0        |
+| Total vignette                                          | 140.4       | 2.34       | 100.0      |
+| ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
 
@@ -2160,7 +2119,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 0.5 sec/sim (wall) across 1000 sims on 13 workers
+    ##   H1: 4.0 sec/sim (wall) across 13 sims on 3 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2168,7 +2127,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 0.4 sec/sim (wall) across 5000 sims on 13 workers
+    ##   H0: 3.0 sec/sim (wall) across 13 sims on 3 workers
 
 ## Complete Example Script
 
@@ -2261,15 +2220,15 @@ if (nrow(results_found) > 0 && "ahr.H.hat" %in% names(results_found)) {
 This vignette demonstrated the complete workflow for evaluating
 ForestSearch performance through simulation:
 
-| Step | Function | Purpose |
-|----|----|----|
-| 1\. Create DGM | [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md) | Define data generating mechanism |
-| 2\. Calibrate | [`calibrate_k_inter()`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md) | Achieve target subgroup HR (Cox or AHR) |
-| 3\. Validate | [`validate_k_inter_effect()`](https://larry-leon.github.io/forestsearch/reference/validate_k_inter_effect.md) | Verify heterogeneity control |
-| 4\. Simulate | [`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md) | Generate trial data |
-| 5\. Analyze | [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md) | Run ForestSearch/GRF |
-| 6\. Summarize | [`summarize_simulation_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md) | Aggregate metrics |
-| 7\. Display | [`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md) | Create gt tables |
+| Step           | Function                                                                                                                | Purpose                                 |
+|----------------|-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| 1\. Create DGM | [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)                           | Define data generating mechanism        |
+| 2\. Calibrate  | [`calibrate_k_inter()`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)                       | Achieve target subgroup HR (Cox or AHR) |
+| 3\. Validate   | [`validate_k_inter_effect()`](https://larry-leon.github.io/forestsearch/reference/validate_k_inter_effect.md)           | Verify heterogeneity control            |
+| 4\. Simulate   | [`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)             | Generate trial data                     |
+| 5\. Analyze    | [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)           | Run ForestSearch/GRF                    |
+| 6\. Summarize  | [`summarize_simulation_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md) | Aggregate metrics                       |
+| 7\. Display    | [`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md)                       | Create gt tables                        |
 
 **Key metrics to report:**
 
@@ -2417,16 +2376,16 @@ marginal HR θ†), aligning with Table 5 of Leon et al. (2024).
 
 ### Input Requirements
 
-| Argument | Role |
-|----|----|
-| `results` | `data.table` from [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md), one row per sim × method |
-| `dgm` | DGM object carrying true parameter values |
-| `analysis_method` | Which method to filter on (e.g., `"FS"`, `"FSlg"`, `"GRF"`) |
-| `n_boots` | Optional; if non-NULL, shown in subtitle |
-| `cde_H` | Optional CDE for harm subgroup (θ‡(H)); auto-extracted from DGM if NULL |
-| `cde_Hc` | Optional CDE for complement (θ‡(Hᶜ)); auto-extracted from DGM if NULL |
-| `digits` | Rounding precision for all displayed numbers |
-| `font_size` | Pixel size for gt rendering |
+| Argument          | Role                                                                                                                                                      |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `results`         | `data.table` from [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md), one row per sim × method |
+| `dgm`             | DGM object carrying true parameter values                                                                                                                 |
+| `analysis_method` | Which method to filter on (e.g., `"FS"`, `"FSlg"`, `"GRF"`)                                                                                               |
+| `n_boots`         | Optional; if non-NULL, shown in subtitle                                                                                                                  |
+| `cde_H`           | Optional CDE for harm subgroup (θ‡(H)); auto-extracted from DGM if NULL                                                                                   |
+| `cde_Hc`          | Optional CDE for complement (θ‡(Hᶜ)); auto-extracted from DGM if NULL                                                                                     |
+| `digits`          | Rounding precision for all displayed numbers                                                                                                              |
+| `font_size`       | Pixel size for gt rendering                                                                                                                               |
 
 ------------------------------------------------------------------------
 
@@ -2449,14 +2408,14 @@ Only simulations where the algorithm **identified a subgroup**
 
 **Alternative hypothesis DGM** (`model = "alt"`):
 
-| True value | Source | Description |
-|----|----|----|
-| `theta_H_true` | `dgm$hr_H_true` | Cox-based HR in the true harm subgroup |
-| `theta_Hc_true` | `dgm$hr_Hc_true` | Cox-based HR in the true complement |
-| `ahr_H_true` | `get_dgm_hr(dgm, "ahr_H")` | AHR in the true harm subgroup |
-| `ahr_Hc_true` | `get_dgm_hr(dgm, "ahr_Hc")` | AHR in the true complement |
-| `cde_H` | `get_dgm_hr(dgm, "cde_H")` | CDE in harm subgroup (θ‡(H)) |
-| `cde_Hc` | `get_dgm_hr(dgm, "cde_Hc")` | CDE in complement (θ‡(Hᶜ)) |
+| True value      | Source                      | Description                            |
+|-----------------|-----------------------------|----------------------------------------|
+| `theta_H_true`  | `dgm$hr_H_true`             | Cox-based HR in the true harm subgroup |
+| `theta_Hc_true` | `dgm$hr_Hc_true`            | Cox-based HR in the true complement    |
+| `ahr_H_true`    | `get_dgm_hr(dgm, "ahr_H")`  | AHR in the true harm subgroup          |
+| `ahr_Hc_true`   | `get_dgm_hr(dgm, "ahr_Hc")` | AHR in the true complement             |
+| `cde_H`         | `get_dgm_hr(dgm, "cde_H")`  | CDE in harm subgroup (θ‡(H))           |
+| `cde_Hc`        | `get_dgm_hr(dgm, "cde_Hc")` | CDE in complement (θ‡(Hᶜ))             |
 
 **CDE auto-detection**: When `cde_H` and `cde_Hc` are not supplied by
 the caller, the function attempts to extract them from the DGM via
@@ -2551,21 +2510,21 @@ conditional on the corresponding column existing in `res_found`:
 
 ##### Rows for Ĥ (identified harm subgroup)
 
-| Row label | Source column | True value | CDE value | When included |
-|----|----|----|----|----|
-| `theta-hat(H-hat)` | `hr.H.hat` | `theta_H_true` | `cde_H` | Always (if column exists) |
-| `theta-hat*(H-hat)` | `hr.H.bc` | `theta_H_true` | `cde_H` | Only if bootstrap bias correction ran |
-| `ahr-hat(H-hat)` | `ahr.H.hat` | `ahr_H_true` | — | Only if AHR columns exist AND `ahr_H_true` is non-NA |
-| `cde-hat(H-hat)` | `cde.H.hat` | `cde_H` | — | Only if CDE columns exist AND CDE truth available |
+| Row label           | Source column | True value     | CDE value | When included                                        |
+|---------------------|---------------|----------------|-----------|------------------------------------------------------|
+| `theta-hat(H-hat)`  | `hr.H.hat`    | `theta_H_true` | `cde_H`   | Always (if column exists)                            |
+| `theta-hat*(H-hat)` | `hr.H.bc`     | `theta_H_true` | `cde_H`   | Only if bootstrap bias correction ran                |
+| `ahr-hat(H-hat)`    | `ahr.H.hat`   | `ahr_H_true`   | —         | Only if AHR columns exist AND `ahr_H_true` is non-NA |
+| `cde-hat(H-hat)`    | `cde.H.hat`   | `cde_H`        | —         | Only if CDE columns exist AND CDE truth available    |
 
 ##### Rows for Ĥᶜ (identified complement)
 
-| Row label | Source column | True value | CDE value | When included |
-|----|----|----|----|----|
-| `theta-hat(Hc-hat)` | `hr.Hc.hat` | `theta_Hc_true` | `cde_Hc` | Always (if column exists) |
-| `theta-hat*(Hc-hat)` | `hr.Hc.bc` | `theta_Hc_true` | `cde_Hc` | Only if bootstrap bias correction ran |
-| `ahr-hat(Hc-hat)` | `ahr.Hc.hat` | `ahr_Hc_true` | — | Only if AHR columns exist AND `ahr_Hc_true` is non-NA |
-| `cde-hat(Hc-hat)` | `cde.Hc.hat` | `cde_Hc` | — | Only if CDE columns exist AND CDE truth available |
+| Row label            | Source column | True value      | CDE value | When included                                         |
+|----------------------|---------------|-----------------|-----------|-------------------------------------------------------|
+| `theta-hat(Hc-hat)`  | `hr.Hc.hat`   | `theta_Hc_true` | `cde_Hc`  | Always (if column exists)                             |
+| `theta-hat*(Hc-hat)` | `hr.Hc.bc`    | `theta_Hc_true` | `cde_Hc`  | Only if bootstrap bias correction ran                 |
+| `ahr-hat(Hc-hat)`    | `ahr.Hc.hat`  | `ahr_Hc_true`   | —         | Only if AHR columns exist AND `ahr_Hc_true` is non-NA |
+| `cde-hat(Hc-hat)`    | `cde.Hc.hat`  | `cde_Hc`        | —         | Only if CDE columns exist AND CDE truth available     |
 
 **Bias column behavior by row type**:
 
@@ -2710,14 +2669,14 @@ applies, but:
 
 ### Column-to-Calculation Mapping
 
-| Output column | Calculation |
-|----|----|
-| **Avg** | `mean(estimates)` |
-| **SD** | `sd(estimates)` (empirical, across sims) |
-| **Min** | `min(estimates)` |
-| **Max** | `max(estimates)` |
-| **b‡ (%)** | `100 * (mean(estimates) - cde_val) / cde_val` (CDE truth) |
-| **b† (%)** | `100 * (mean(estimates) - true_val) / true_val` (marginal truth) |
+| Output column | Calculation                                                      |
+|---------------|------------------------------------------------------------------|
+| **Avg**       | `mean(estimates)`                                                |
+| **SD**        | `sd(estimates)` (empirical, across sims)                         |
+| **Min**       | `min(estimates)`                                                 |
+| **Max**       | `max(estimates)`                                                 |
+| **b‡ (%)**    | `100 * (mean(estimates) - cde_val) / cde_val` (CDE truth)        |
+| **b† (%)**    | `100 * (mean(estimates) - true_val) / true_val` (marginal truth) |
 
 The b‡ column only appears when CDE truth values are available. For Cox
 HR rows, both b† and b‡ are shown. For AHR rows, only b† is shown (bias
@@ -2829,13 +2788,13 @@ table_noise
 
 The LaTeX tables in the reference use specific formatting conventions:
 
-| Feature | LaTeX Table | [`build_classification_table()`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md) Equivalent |
-|----|----|----|
-| Bold for inflated Type I error | `\bf{0.25}` | Use [`tab_style()`](https://gt.rstudio.com/reference/tab_style.html) with conditional logic on `any(H) > 0.05` |
-| Superscript footnote markers | `$^{a}$` | Use [`tab_footnote()`](https://gt.rstudio.com/reference/tab_footnote.html) with [`cells_body()`](https://gt.rstudio.com/reference/cells_body.html) locations |
-| Multi-column headers | `\multicolumn{6}{c}{}` | Use [`tab_spanner()`](https://gt.rstudio.com/reference/tab_spanner.html) in gt |
-| Model scenario group rows | `\multicolumn{13}{c}{}` | Use `groupname_col` in gt |
-| Horizontal rules | `\midrule` | Handled by [`tab_style()`](https://gt.rstudio.com/reference/tab_style.html) borders |
+| Feature                        | LaTeX Table             | [`build_classification_table()`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md) Equivalent                               |
+|--------------------------------|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Bold for inflated Type I error | `\bf{0.25}`             | Use [`tab_style()`](https://gt.rstudio.com/reference/tab_style.html) with conditional logic on `any(H) > 0.05`                                               |
+| Superscript footnote markers   | `$^{a}$`                | Use [`tab_footnote()`](https://gt.rstudio.com/reference/tab_footnote.html) with [`cells_body()`](https://gt.rstudio.com/reference/cells_body.html) locations |
+| Multi-column headers           | `\multicolumn{6}{c}{}`  | Use [`tab_spanner()`](https://gt.rstudio.com/reference/tab_spanner.html) in gt                                                                               |
+| Model scenario group rows      | `\multicolumn{13}{c}{}` | Use `groupname_col` in gt                                                                                                                                    |
+| Horizontal rules               | `\midrule`              | Handled by [`tab_style()`](https://gt.rstudio.com/reference/tab_style.html) borders                                                                          |
 
 For the estimation properties table (Table 5), the three-row structure
 per subgroup (oracle estimate, plugin estimate, bias-corrected estimate)
@@ -2843,11 +2802,11 @@ maps directly to the `make_est_row()` helper with different input
 columns from the bootstrap results. The dual bias columns align with the
 paper’s notation:
 
-| Paper column | Package column | Target |
-|----|----|----|
-| $`b^{\dagger}`$ | `b† (%)` | Bias relative to marginal HR (θ†) |
-| $`\hat{b}^{\ddagger}`$ | `b‡ (%)` | Bias relative to CDE (θ‡) |
-| $`\hat{b}^{\text{oracle}}`$ | — (not generated) | Bias relative to oracle estimate |
+| Paper column                    | Package column    | Target                            |
+|---------------------------------|-------------------|-----------------------------------|
+| $b^{\dagger}$                   | `b† (%)`          | Bias relative to marginal HR (θ†) |
+| ${\widehat{b}}^{\ddagger}$      | `b‡ (%)`          | Bias relative to CDE (θ‡)         |
+| ${\widehat{b}}^{\text{oracle}}$ | — (not generated) | Bias relative to oracle estimate  |
 
 The oracle estimator (θ̂(H), fitted in the *true* subgroup) is not
 currently produced by ForestSearch simulations. The package focuses on
@@ -2870,46 +2829,46 @@ a styled `gt` object with the same visual conventions used by
 
 ### Table B1: Classification Rates (Table 4 of Leon et al.)
 
-| Reference: Classification Rates (No Noise Factors) |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|
-| Leon et al. (2024) Table 4, left panel --- 20,000 simulations |  |  |  |  |  |  |
-|  | FSl | FSlg | GRF | GRF60 | VT(24) | VT(36) |
-| M1 Null: N=700, theta(ITT)=0.7 |  |  |  |  |  |  |
-| any(H) | 0.02 | 0.03 | 0.25 | 0.05 | 0.03 | 0.04 |
-| sens(Hc) | 1.00 | 1.00 | 0.97 | 0.99 | 1.00 | 1.00 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 114.00 | 99.00 | 88.00 | 78.00 | 78.00 | 79.00 |
-| M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.65, theta(ITT)=0.71 |  |  |  |  |  |  |
-| any(H) | 0.77 | 0.86 | 0.94 | 0.72 | 0.49 | 0.47 |
-| sens(H) | 0.72 | 0.82 | 0.84 | 0.66 | 0.46 | 0.42 |
-| sens(Hc) | 0.99 | 0.99 | 0.97 | 0.98 | 0.99 | 0.99 |
-| ppv(H) | 0.69 | 0.80 | 0.78 | 0.61 | 0.44 | 0.41 |
-| ppv(Hc) | 0.96 | 0.98 | 0.98 | 0.96 | 0.93 | 0.93 |
-| avg\|H\| | 94.00 | 92.00 | 102.00 | 99.00 | 92.00 | 93.00 |
-| M2 Null: N=500, theta(ITT)=0.69 |  |  |  |  |  |  |
-| any(H) | 0.02 | 0.03 | 0.23 | 0.05 | 0.03 | 0.04 |
-| sens(Hc) | 1.00 | 0.99 | 0.96 | 0.99 | 1.00 | 0.99 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 114.00 | 100.00 | 87.00 | 76.00 | 76.00 | 80.00 |
-| M2 Alt: N=500, p_H=20%, theta(H)=2, theta(Hc)=0.69, theta(ITT)=0.79 |  |  |  |  |  |  |
-| any(H) | 0.92 | 0.96 | 0.98 | 0.83 | 0.66 | 0.64 |
-| sens(H) | 0.84 | 0.88 | 0.87 | 0.73 | 0.59 | 0.56 |
-| sens(Hc) | 0.98 | 0.98 | 0.94 | 0.94 | 0.98 | 0.98 |
-| ppv(H) | 0.84 | 0.88 | 0.79 | 0.66 | 0.59 | 0.56 |
-| ppv(Hc) | 0.96 | 0.97 | 0.97 | 0.94 | 0.91 | 0.91 |
-| avg\|H\| | 102.00 | 101.00 | 116.00 | 115.00 | 102.00 | 103.00 |
-| M3 Null: N=300, theta(ITT)=0.55 |  |  |  |  |  |  |
-| any(H) | 0.00 | 0.00 | 0.05 | 0.01 | 0.01 | 0.02 |
-| sens(Hc) | 1.00 | 1.00 | 0.99 | 1.00 | 1.00 | 1.00 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 76.00 | 75.00 | 74.00 | 70.00 | 70.00 | 71.00 |
-| M3 Alt: N=300, p_H=30%, theta(H)=2, theta(Hc)=0.56, theta(ITT)=0.74 |  |  |  |  |  |  |
-| any(H) | 0.89 | 0.92 | 0.97 | 0.82 | 0.61 | 0.63 |
-| sens(H) | 0.73 | 0.78 | 0.87 | 0.72 | 0.49 | 0.52 |
-| sens(Hc) | 0.97 | 0.97 | 0.93 | 0.93 | 0.97 | 0.97 |
-| ppv(H) | 0.80 | 0.84 | 0.83 | 0.68 | 0.53 | 0.55 |
-| ppv(Hc) | 0.90 | 0.92 | 0.95 | 0.90 | 0.83 | 0.85 |
-| avg\|H\| | 82.00 | 83.00 | 96.00 | 97.00 | 82.00 | 86.00 |
+| Reference: Classification Rates (No Noise Factors)                  |        |        |        |        |        |        |
+|---------------------------------------------------------------------|--------|--------|--------|--------|--------|--------|
+| Leon et al. (2024) Table 4, left panel --- 20,000 simulations       |        |        |        |        |        |        |
+|                                                                     | FSl    | FSlg   | GRF    | GRF60  | VT(24) | VT(36) |
+| M1 Null: N=700, theta(ITT)=0.7                                      |        |        |        |        |        |        |
+| any(H)                                                              | 0.02   | 0.03   | 0.25   | 0.05   | 0.03   | 0.04   |
+| sens(Hc)                                                            | 1.00   | 1.00   | 0.97   | 0.99   | 1.00   | 1.00   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 114.00 | 99.00  | 88.00  | 78.00  | 78.00  | 79.00  |
+| M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.65, theta(ITT)=0.71 |        |        |        |        |        |        |
+| any(H)                                                              | 0.77   | 0.86   | 0.94   | 0.72   | 0.49   | 0.47   |
+| sens(H)                                                             | 0.72   | 0.82   | 0.84   | 0.66   | 0.46   | 0.42   |
+| sens(Hc)                                                            | 0.99   | 0.99   | 0.97   | 0.98   | 0.99   | 0.99   |
+| ppv(H)                                                              | 0.69   | 0.80   | 0.78   | 0.61   | 0.44   | 0.41   |
+| ppv(Hc)                                                             | 0.96   | 0.98   | 0.98   | 0.96   | 0.93   | 0.93   |
+| avg\|H\|                                                            | 94.00  | 92.00  | 102.00 | 99.00  | 92.00  | 93.00  |
+| M2 Null: N=500, theta(ITT)=0.69                                     |        |        |        |        |        |        |
+| any(H)                                                              | 0.02   | 0.03   | 0.23   | 0.05   | 0.03   | 0.04   |
+| sens(Hc)                                                            | 1.00   | 0.99   | 0.96   | 0.99   | 1.00   | 0.99   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 114.00 | 100.00 | 87.00  | 76.00  | 76.00  | 80.00  |
+| M2 Alt: N=500, p_H=20%, theta(H)=2, theta(Hc)=0.69, theta(ITT)=0.79 |        |        |        |        |        |        |
+| any(H)                                                              | 0.92   | 0.96   | 0.98   | 0.83   | 0.66   | 0.64   |
+| sens(H)                                                             | 0.84   | 0.88   | 0.87   | 0.73   | 0.59   | 0.56   |
+| sens(Hc)                                                            | 0.98   | 0.98   | 0.94   | 0.94   | 0.98   | 0.98   |
+| ppv(H)                                                              | 0.84   | 0.88   | 0.79   | 0.66   | 0.59   | 0.56   |
+| ppv(Hc)                                                             | 0.96   | 0.97   | 0.97   | 0.94   | 0.91   | 0.91   |
+| avg\|H\|                                                            | 102.00 | 101.00 | 116.00 | 115.00 | 102.00 | 103.00 |
+| M3 Null: N=300, theta(ITT)=0.55                                     |        |        |        |        |        |        |
+| any(H)                                                              | 0.00   | 0.00   | 0.05   | 0.01   | 0.01   | 0.02   |
+| sens(Hc)                                                            | 1.00   | 1.00   | 0.99   | 1.00   | 1.00   | 1.00   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 76.00  | 75.00  | 74.00  | 70.00  | 70.00  | 71.00  |
+| M3 Alt: N=300, p_H=30%, theta(H)=2, theta(Hc)=0.56, theta(ITT)=0.74 |        |        |        |        |        |        |
+| any(H)                                                              | 0.89   | 0.92   | 0.97   | 0.82   | 0.61   | 0.63   |
+| sens(H)                                                             | 0.73   | 0.78   | 0.87   | 0.72   | 0.49   | 0.52   |
+| sens(Hc)                                                            | 0.97   | 0.97   | 0.93   | 0.93   | 0.97   | 0.97   |
+| ppv(H)                                                              | 0.80   | 0.84   | 0.83   | 0.68   | 0.53   | 0.55   |
+| ppv(Hc)                                                             | 0.90   | 0.92   | 0.95   | 0.90   | 0.83   | 0.85   |
+| avg\|H\|                                                            | 82.00  | 83.00  | 96.00  | 97.00  | 82.00  | 86.00  |
 
 [ Code](#collapse-reftable4nonoise)
 
@@ -3000,46 +2959,46 @@ render_reference_table(
 )
 ```
 
-| Reference: Classification Rates (With Noise Factors) |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|
-| Leon et al. (2024) Table 4, right panel --- 20,000 simulations |  |  |  |  |  |  |
-|  | FSl | FSlg | GRF | GRF60 | VT(24) | VT(36) |
-| M1 Null: N=700, theta(ITT)=0.7 |  |  |  |  |  |  |
-| any(H) | 0.02 | 0.11 | 0.61 | 0.27 | 0.04 | 0.06 |
-| sens(Hc) | 1.00 | 0.99 | 0.92 | 0.97 | 1.00 | 0.99 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 126.00 | 91.00 | 94.00 | 81.00 | 79.00 | 81.00 |
-| M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.65, theta(ITT)=0.71 |  |  |  |  |  |  |
-| any(H) | 0.71 | 0.83 | 0.94 | 0.71 | 0.44 | 0.42 |
-| sens(H) | 0.64 | 0.74 | 0.66 | 0.52 | 0.37 | 0.34 |
-| sens(Hc) | 0.98 | 0.98 | 0.93 | 0.96 | 0.99 | 0.99 |
-| ppv(H) | 0.60 | 0.71 | 0.60 | 0.47 | 0.36 | 0.33 |
-| ppv(Hc) | 0.95 | 0.97 | 0.95 | 0.94 | 0.92 | 0.92 |
-| avg\|H\| | 96.00 | 93.00 | 106.00 | 101.00 | 92.00 | 93.00 |
-| M2 Null: N=500, theta(ITT)=0.69 |  |  |  |  |  |  |
-| any(H) | 0.03 | 0.14 | 0.60 | 0.32 | 0.04 | 0.06 |
-| sens(Hc) | 0.99 | 0.98 | 0.89 | 0.95 | 0.99 | 0.99 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 117.00 | 88.00 | 89.00 | 80.00 | 77.00 | 79.00 |
-| M2 Alt: N=500, p_H=20%, theta(H)=2, theta(Hc)=0.69, theta(ITT)=0.79 |  |  |  |  |  |  |
-| any(H) | 0.89 | 0.96 | 0.99 | 0.86 | 0.56 | 0.53 |
-| sens(H) | 0.77 | 0.81 | 0.70 | 0.58 | 0.44 | 0.40 |
-| sens(Hc) | 0.97 | 0.96 | 0.88 | 0.89 | 0.97 | 0.97 |
-| ppv(H) | 0.77 | 0.81 | 0.62 | 0.51 | 0.43 | 0.40 |
-| ppv(Hc) | 0.95 | 0.95 | 0.92 | 0.90 | 0.88 | 0.87 |
-| avg\|H\| | 103.00 | 101.00 | 118.00 | 119.00 | 101.00 | 102.00 |
-| M3 Null: N=300, theta(ITT)=0.55 |  |  |  |  |  |  |
-| any(H) | 0.00 | 0.02 | 0.13 | 0.07 | 0.01 | 0.02 |
-| sens(Hc) | 1.00 | 1.00 | 0.97 | 0.98 | 1.00 | 1.00 |
-| ppv(Hc) | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
-| avg\|H\| | 76.00 | 74.00 | 74.00 | 71.00 | 70.00 | 72.00 |
-| M3 Alt: N=300, p_H=30%, theta(H)=2, theta(Hc)=0.56, theta(ITT)=0.74 |  |  |  |  |  |  |
-| any(H) | 0.88 | 0.93 | 0.96 | 0.87 | 0.51 | 0.53 |
-| sens(H) | 0.68 | 0.71 | 0.73 | 0.62 | 0.36 | 0.37 |
-| sens(Hc) | 0.96 | 0.95 | 0.88 | 0.87 | 0.95 | 0.95 |
-| ppv(H) | 0.76 | 0.78 | 0.70 | 0.59 | 0.39 | 0.40 |
-| ppv(Hc) | 0.88 | 0.89 | 0.89 | 0.85 | 0.79 | 0.80 |
-| avg\|H\| | 80.00 | 81.00 | 95.00 | 96.00 | 83.00 | 85.00 |
+| Reference: Classification Rates (With Noise Factors)                |        |        |        |        |        |        |
+|---------------------------------------------------------------------|--------|--------|--------|--------|--------|--------|
+| Leon et al. (2024) Table 4, right panel --- 20,000 simulations      |        |        |        |        |        |        |
+|                                                                     | FSl    | FSlg   | GRF    | GRF60  | VT(24) | VT(36) |
+| M1 Null: N=700, theta(ITT)=0.7                                      |        |        |        |        |        |        |
+| any(H)                                                              | 0.02   | 0.11   | 0.61   | 0.27   | 0.04   | 0.06   |
+| sens(Hc)                                                            | 1.00   | 0.99   | 0.92   | 0.97   | 1.00   | 0.99   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 126.00 | 91.00  | 94.00  | 81.00  | 79.00  | 81.00  |
+| M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.65, theta(ITT)=0.71 |        |        |        |        |        |        |
+| any(H)                                                              | 0.71   | 0.83   | 0.94   | 0.71   | 0.44   | 0.42   |
+| sens(H)                                                             | 0.64   | 0.74   | 0.66   | 0.52   | 0.37   | 0.34   |
+| sens(Hc)                                                            | 0.98   | 0.98   | 0.93   | 0.96   | 0.99   | 0.99   |
+| ppv(H)                                                              | 0.60   | 0.71   | 0.60   | 0.47   | 0.36   | 0.33   |
+| ppv(Hc)                                                             | 0.95   | 0.97   | 0.95   | 0.94   | 0.92   | 0.92   |
+| avg\|H\|                                                            | 96.00  | 93.00  | 106.00 | 101.00 | 92.00  | 93.00  |
+| M2 Null: N=500, theta(ITT)=0.69                                     |        |        |        |        |        |        |
+| any(H)                                                              | 0.03   | 0.14   | 0.60   | 0.32   | 0.04   | 0.06   |
+| sens(Hc)                                                            | 0.99   | 0.98   | 0.89   | 0.95   | 0.99   | 0.99   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 117.00 | 88.00  | 89.00  | 80.00  | 77.00  | 79.00  |
+| M2 Alt: N=500, p_H=20%, theta(H)=2, theta(Hc)=0.69, theta(ITT)=0.79 |        |        |        |        |        |        |
+| any(H)                                                              | 0.89   | 0.96   | 0.99   | 0.86   | 0.56   | 0.53   |
+| sens(H)                                                             | 0.77   | 0.81   | 0.70   | 0.58   | 0.44   | 0.40   |
+| sens(Hc)                                                            | 0.97   | 0.96   | 0.88   | 0.89   | 0.97   | 0.97   |
+| ppv(H)                                                              | 0.77   | 0.81   | 0.62   | 0.51   | 0.43   | 0.40   |
+| ppv(Hc)                                                             | 0.95   | 0.95   | 0.92   | 0.90   | 0.88   | 0.87   |
+| avg\|H\|                                                            | 103.00 | 101.00 | 118.00 | 119.00 | 101.00 | 102.00 |
+| M3 Null: N=300, theta(ITT)=0.55                                     |        |        |        |        |        |        |
+| any(H)                                                              | 0.00   | 0.02   | 0.13   | 0.07   | 0.01   | 0.02   |
+| sens(Hc)                                                            | 1.00   | 1.00   | 0.97   | 0.98   | 1.00   | 1.00   |
+| ppv(Hc)                                                             | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   | 1.00   |
+| avg\|H\|                                                            | 76.00  | 74.00  | 74.00  | 71.00  | 70.00  | 72.00  |
+| M3 Alt: N=300, p_H=30%, theta(H)=2, theta(Hc)=0.56, theta(ITT)=0.74 |        |        |        |        |        |        |
+| any(H)                                                              | 0.88   | 0.93   | 0.96   | 0.87   | 0.51   | 0.53   |
+| sens(H)                                                             | 0.68   | 0.71   | 0.73   | 0.62   | 0.36   | 0.37   |
+| sens(Hc)                                                            | 0.96   | 0.95   | 0.88   | 0.87   | 0.95   | 0.95   |
+| ppv(H)                                                              | 0.76   | 0.78   | 0.70   | 0.59   | 0.39   | 0.40   |
+| ppv(Hc)                                                             | 0.88   | 0.89   | 0.89   | 0.85   | 0.79   | 0.80   |
+| avg\|H\|                                                            | 80.00  | 81.00  | 95.00  | 96.00  | 83.00  | 85.00  |
 
 [ Code](#collapse-reftable4noise)
 
@@ -3387,54 +3346,57 @@ published 20,000-simulation results.
 sessionInfo()
 ```
 
-    ## R version 4.5.1 (2025-06-13)
-    ## Platform: aarch64-apple-darwin20
-    ## Running under: macOS Tahoe 26.3
+    ## R version 4.5.2 (2025-10-31)
+    ## Platform: x86_64-pc-linux-gnu
+    ## Running under: Ubuntu 24.04.3 LTS
     ## 
     ## Matrix products: default
-    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
-    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+    ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
     ## 
     ## locale:
-    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+    ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+    ##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+    ##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+    ## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
     ## 
-    ## time zone: America/Los_Angeles
-    ## tzcode source: internal
+    ## time zone: UTC
+    ## tzcode source: system (glibc)
     ## 
     ## attached base packages:
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
-    ## [1] doFuture_1.2.1      future_1.69.0       foreach_1.5.2      
-    ## [4] gt_1.3.0            ggplot2_4.0.2       survival_3.8-6     
-    ## [7] data.table_1.18.2.1 weightedsurv_0.1.0  forestsearch_0.1.0 
+    ##  [1] katex_1.5.0         doFuture_1.2.1      future_1.69.0      
+    ##  [4] foreach_1.5.2       gt_1.3.0            ggplot2_4.0.2      
+    ##  [7] survival_3.8-3      data.table_1.18.2.1 weightedsurv_0.1.0 
+    ## [10] forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
-    ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
-    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         
-    ## [10] generics_0.1.4       curl_7.0.0           parallel_4.5.1      
-    ## [13] tibble_3.3.1         pkgconfig_2.0.3      katex_1.5.0         
-    ## [16] Matrix_1.7-4         RColorBrewer_1.1-3   S7_0.2.1            
-    ## [19] desc_1.4.3           cubature_2.1.4-1     lifecycle_1.0.5     
-    ## [22] compiler_4.5.1       farver_2.1.2         stringr_1.6.0       
-    ## [25] textshaping_1.0.4    policytree_1.2.4     grf_2.5.0           
-    ## [28] codetools_0.2-20     litedown_0.9         htmltools_0.5.9     
-    ## [31] sass_0.4.10          yaml_2.3.12          glmnet_4.1-10       
-    ## [34] pillar_1.11.1        pkgdown_2.2.0        jquerylib_0.1.4     
-    ## [37] cachem_1.1.0         iterators_1.0.14     parallelly_1.46.1   
-    ## [40] commonmark_2.0.0     tidyselect_1.2.1     digest_0.6.39       
-    ## [43] stringi_1.8.7        dplyr_1.2.0          listenv_0.10.0      
-    ## [46] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          
-    ## [49] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
-    ## [52] patchwork_1.3.2      randomForest_4.7-1.2 future.apply_1.20.2 
-    ## [55] withr_3.0.2          scales_1.4.0         rmarkdown_2.30      
-    ## [58] globals_0.19.0       otel_0.2.0           progressr_0.18.0    
-    ## [61] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          
-    ## [64] V8_8.0.1             markdown_2.0         rlang_1.1.7         
-    ## [67] Rcpp_1.1.1           glue_1.8.0           xml2_1.5.2          
-    ## [70] rstudioapi_0.18.0    jsonlite_2.0.0       R6_2.6.1            
-    ## [73] systemfonts_1.3.1    fs_1.6.6
+    ##  [4] bslib_0.10.0         visNetwork_2.1.4     htmlwidgets_1.6.4   
+    ##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         
+    ## [10] generics_0.1.4       curl_7.0.0           parallel_4.5.2      
+    ## [13] tibble_3.3.1         pkgconfig_2.0.3      Matrix_1.7-4        
+    ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
+    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.5.2      
+    ## [22] farver_2.1.2         stringr_1.6.0        textshaping_1.0.4   
+    ## [25] policytree_1.2.4     grf_2.6.1            codetools_0.2-20    
+    ## [28] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
+    ## [31] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       
+    ## [34] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        
+    ## [37] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    
+    ## [40] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
+    ## [43] dplyr_1.2.0          listenv_0.10.0       splines_4.5.2       
+    ## [46] fastmap_1.2.0        grid_4.5.2           cli_3.6.5           
+    ## [49] magrittr_2.0.4       DiagrammeR_1.0.11    patchwork_1.3.2     
+    ## [52] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
+    ## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
+    ## [58] progressr_0.18.0     ragg_1.5.0           evaluate_1.0.5      
+    ## [61] knitr_1.51           V8_8.0.1             markdown_2.0        
+    ## [64] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          
+    ## [67] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      
+    ## [70] R6_2.6.1             systemfonts_1.3.2    fs_1.6.6
 
 ## References
 

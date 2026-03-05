@@ -6,13 +6,13 @@
 > of the causal interpretation of hazard ratios in survival analysis,
 > drawing on five foundational papers:
 >
-> | Paper | Primary Contribution |
-> |----|----|
-> | Aalen, Cook & Røysland (2015) | Foundational critique: Cox HR is not causally interpretable under unmodelled frailty |
-> | Martinussen (2022) | Mathematical elaboration; hazard differences equally affected; causal HR defined |
-> | Knudsen et al. (2025) | Markov property impossibility under time-varying treatment |
-> | Prentice & Aragaki (2022) | Defense of hazard functionals (AHR, RMST) as causally valid in RCTs |
-> | **Fay & Li (2024)** | **Individual- vs. population-level estimand taxonomy; CHR as cleanest non-PH causal estimand** |
+> | Paper                         | Primary Contribution                                                                           |
+> |-------------------------------|------------------------------------------------------------------------------------------------|
+> | Aalen, Cook & Røysland (2015) | Foundational critique: Cox HR is not causally interpretable under unmodelled frailty           |
+> | Martinussen (2022)            | Mathematical elaboration; hazard differences equally affected; causal HR defined               |
+> | Knudsen et al. (2025)         | Markov property impossibility under time-varying treatment                                     |
+> | Prentice & Aragaki (2022)     | Defense of hazard functionals (AHR, RMST) as causally valid in RCTs                            |
+> | **Fay & Li (2024)**           | **Individual- vs. population-level estimand taxonomy; CHR as cleanest non-PH causal estimand** |
 >
 > The first three papers develop the theoretical limitations of the Cox
 > HR as a causal estimand; the fourth clarifies what hazard modeling
@@ -32,34 +32,38 @@ literature.
 ### The Core Distinction
 
 A causal estimand requires comparing two sets of potential outcomes
-$`\{Y_i(0) : i \in \Omega\}`$ and $`\{Y_i(1) : i \in \Omega\}`$ over a
-common comparison set $`\Omega`$ (a superpopulation satisfying trial
-entry criteria). The crucial question is: in what *order* does one apply
-the operations of comparison and summarization?
+$\{ Y_{i}(0):i \in \Omega\}$ and $\{ Y_{i}(1):i \in \Omega\}$ over a
+common comparison set $\Omega$ (a superpopulation satisfying trial entry
+criteria). The crucial question is: in what *order* does one apply the
+operations of comparison and summarization?
 
 - **Individual-level estimand**: Compare first within individuals, then
   summarize across individuals. The average treatment effect
-  $`\Delta_{ATE} = E[Y_i(1) - Y_i(0)]`$ is the canonical example — each
-  individual’s causal difference is formed, then averaged.
+  $\Delta_{ATE} = E\left\lbrack Y_{i}(1) - Y_{i}(0) \right\rbrack$ is
+  the canonical example — each individual’s causal difference is formed,
+  then averaged.
 - **Population-level estimand**: Summarize each arm first, then compare
-  the summaries. The ratio of means $`E[Y_i(1)] / E[Y_i(0)]`$ is a
-  population-level estimand.
+  the summaries. The ratio of means
+  $E\left\lbrack Y_{i}(1) \right\rbrack/E\left\lbrack Y_{i}(0) \right\rbrack$
+  is a population-level estimand.
 
 **When these coincide.** Some estimands are both simultaneously. The ATE
 for uncensored outcomes is equivalent whether one “compares then
 summarizes” or “summarizes then compares,” because expectation is
-linear. Similarly, the survival difference $`S_1(t^*) - S_0(t^*)`$ and
-the RMST difference are both individual-level and population-level
-estimands. This dual status is precisely what makes them the most
+linear. Similarly, the survival difference
+$S_{1}\left( t^{*} \right) - S_{0}\left( t^{*} \right)$ and the RMST
+difference are both individual-level and population-level estimands.
+This dual status is precisely what makes them the most
 *straightforwardly* causal quantities.
 
 **When they diverge.** For ratio estimands the order matters: under
 general potential outcome distributions
-$`E[Y_i(1)/Y_i(0)] \neq E[Y_i(1)]/E[Y_i(0)]`$. The left-hand
-individual-level ratio depends on the unobservable joint distribution of
-$`(Y_i(0), Y_i(1))`$ and is not identifiable from a randomized trial.
-Only the population-level ratio $`\rho = E[Y_i(1)]/E[Y_i(0)]`$ is
-identifiable. Crucially, $`\rho = 2`$ does *not* imply that the
+$E\left\lbrack Y_{i}(1)/Y_{i}(0) \right\rbrack \neq E\left\lbrack Y_{i}(1) \right\rbrack/E\left\lbrack Y_{i}(0) \right\rbrack$.
+The left-hand individual-level ratio depends on the unobservable joint
+distribution of $\left( Y_{i}(0),Y_{i}(1) \right)$ and is not
+identifiable from a randomized trial. Only the population-level ratio
+$\rho = E\left\lbrack Y_{i}(1) \right\rbrack/E\left\lbrack Y_{i}(0) \right\rbrack$
+is identifiable. Crucially, $\rho = 2$ does *not* imply that the
 treatment doubles each individual’s outcome on average — it implies only
 that the average outcome under treatment is double the average under
 control.
@@ -67,14 +71,9 @@ control.
 **The geometric mean exception.** One ratio estimand that *is* both
 individual-level and population-level is the geometric mean ratio for
 positive outcomes:
-``` math
-
-\exp\!\left(E_F\!\left[\log\frac{Y_i(1)}{Y_i(0)}\right]\right)
-= \exp\!\left(E_{F_1}[\log Y_i(1)] - E_{F_0}[\log Y_i(0)]\right)
-= \gamma_1/\gamma_0,
-```
-where $`\gamma_z`$ is the geometric mean of $`Y_i(z)`$. The order of
-comparison and summarization is irrelevant here because $`\log`$
+$$\exp\!\left( E_{F}\!\left\lbrack \log\frac{Y_{i}(1)}{Y_{i}(0)} \right\rbrack \right) = \exp\!\left( E_{F_{1}}\left\lbrack \log Y_{i}(1) \right\rbrack - E_{F_{0}}\left\lbrack \log Y_{i}(0) \right\rbrack \right) = \gamma_{1}/\gamma_{0},$$
+where $\gamma_{z}$ is the geometric mean of $Y_{i}(z)$. The order of
+comparison and summarization is irrelevant here because $\log$
 linearises the ratio, making the geometric mean ratio identifiable *and*
 individually interpretable. This is precisely why the AFT scale-change
 parameter has both individual-level and population-level causal status
@@ -82,19 +81,19 @@ parameter has both individual-level and population-level causal status
 
 ### Classification of Key Survival Estimands
 
-| **Causal Estimand Taxonomy** |  |  |  |  |
-|----|----|----|----|----|
-| Classification of common survival estimands by Fay & Li (2024) framework |  |  |  |  |
-| **Estimand** | **Individual-level?** | **Population-level?** | **Identifiable from RCT?** | **Key Source** |
-| Survival difference: S1(t\*) - S0(t\*) | Yes | Yes | Yes | Fay & Li (2024) |
-| RMST difference: integral S1(t)dt - integral S0(t)dt | Yes | Yes | Yes | Fay & Li (2024); Prentice & Aragaki (2022) |
-| AFT scale-change: exp(-beta) | Yes | Yes | Yes | Fay & Li (2024); Aalen et al. (2015) |
-| Cumulative hazard ratio (CHR): log S1(t) / log S0(t) | No | Yes | Yes | Fay & Li (2024); Wei & Schaubel (2008) |
-| Cox AHR \[theta_CoxAHR\]: limiting partial likelihood value | No | Yes (under PH) | Yes | Fay & Li (2024) |
-| Instantaneous hazard ratio theta(t): lambda1(t)/lambda0(t) | No | Problematic | Yes (but conditioning sets differ) | Aalen (2015); Hernan (2010); Fay & Li (2024) |
-| Constant Cox HR theta under PH: lambda1(t)/lambda0(t) = theta | No | Yes | Yes (under PH) | Fay & Li (2024); Prentice & Aragaki (2022) |
-| Marginal causal HR \[theta_mcHR\]: conditioning on joint survival | Yes | Yes | No -- requires joint (Y0,Y1) | Martinussen et al. (2020); Fay & Li (2024) |
-| Green = both individual- and population-level. Yellow = population-level only. Red = identifiability issues. |  |  |  |  |
+| **Causal Estimand Taxonomy**                                                                                 |                       |                       |                                    |                                              |
+|--------------------------------------------------------------------------------------------------------------|-----------------------|-----------------------|------------------------------------|----------------------------------------------|
+| Classification of common survival estimands by Fay & Li (2024) framework                                     |                       |                       |                                    |                                              |
+| **Estimand**                                                                                                 | **Individual-level?** | **Population-level?** | **Identifiable from RCT?**         | **Key Source**                               |
+| Survival difference: S1(t\*) - S0(t\*)                                                                       | Yes                   | Yes                   | Yes                                | Fay & Li (2024)                              |
+| RMST difference: integral S1(t)dt - integral S0(t)dt                                                         | Yes                   | Yes                   | Yes                                | Fay & Li (2024); Prentice & Aragaki (2022)   |
+| AFT scale-change: exp(-beta)                                                                                 | Yes                   | Yes                   | Yes                                | Fay & Li (2024); Aalen et al. (2015)         |
+| Cumulative hazard ratio (CHR): log S1(t) / log S0(t)                                                         | No                    | Yes                   | Yes                                | Fay & Li (2024); Wei & Schaubel (2008)       |
+| Cox AHR \[theta_CoxAHR\]: limiting partial likelihood value                                                  | No                    | Yes (under PH)        | Yes                                | Fay & Li (2024)                              |
+| Instantaneous hazard ratio theta(t): lambda1(t)/lambda0(t)                                                   | No                    | Problematic           | Yes (but conditioning sets differ) | Aalen (2015); Hernan (2010); Fay & Li (2024) |
+| Constant Cox HR theta under PH: lambda1(t)/lambda0(t) = theta                                                | No                    | Yes                   | Yes (under PH)                     | Fay & Li (2024); Prentice & Aragaki (2022)   |
+| Marginal causal HR \[theta_mcHR\]: conditioning on joint survival                                            | Yes                   | Yes                   | No -- requires joint (Y0,Y1)       | Martinussen et al. (2020); Fay & Li (2024)   |
+| Green = both individual- and population-level. Yellow = population-level only. Red = identifiability issues. |                       |                       |                                    |                                              |
 
 ------------------------------------------------------------------------
 
@@ -102,121 +101,108 @@ parameter has both individual-level and population-level causal status
 
 ### Setup and Notation
 
-Consider a two-arm randomized trial with survival outcome $`T`$,
-treatment indicator $`A \in \{0, 1\}`$, and unmeasured frailty $`Z`$
-that influences $`T`$ but is independent of $`A`$ at baseline:
-$`Z \perp\!\!\!\perp A`$ at $`t = 0`$.
+Consider a two-arm randomized trial with survival outcome $T$, treatment
+indicator $A \in \{ 0,1\}$, and unmeasured frailty $Z$ that influences
+$T$ but is independent of $A$ at baseline: $Z\bot\!\!\!\bot A$ at
+$t = 0$.
 
-The **potential outcomes** $`T^0`$ and $`T^1`$ represent what would be
+The **potential outcomes** $T^{0}$ and $T^{1}$ represent what would be
 observed under control and treatment respectively. A population causal
-effect exists if $`P(T^1 > t)`$ and $`P(T^0 > t)`$ differ. The Cox model
-for the marginal hazard is
+effect exists if $P\left( T^{1} > t \right)$ and
+$P\left( T^{0} > t \right)$ differ. The Cox model for the marginal
+hazard is
 
-``` math
+$$\lambda(t \mid A = a) = \lambda_{0}(t)\, e^{\beta a}.$$
 
-\lambda(t \mid A = a) = \lambda_0(t)\, e^{\beta a}.
-```
-
-Under randomization $`\lambda_{T^a}(t) = \lambda(t \mid A = a)`$, so Cox
-regression yields a **consistent estimator** of $`\beta`$ when the model
+Under randomization $\lambda_{T^{a}}(t) = \lambda(t \mid A = a)$, so Cox
+regression yields a **consistent estimator** of $\beta$ when the model
 is correctly specified. But consistency of estimation does not imply
 causal interpretability of the estimand.
 
 ### Three Sources of Interpretive Difficulty (Fay & Li 2024)
 
-Fay & Li identify three distinct properties of $`\lambda_z(t)`$ that
+Fay & Li identify three distinct properties of $\lambda_{z}(t)$ that
 complicate its causal interpretation, beyond the collider argument:
 
 1.  **It is a derivative** — a mathematical limit, not directly a
     probability. One can work around this with discrete hazards, but it
-    means $`\theta(t)`$ has no simple expectation-based definition.
+    means $\theta(t)$ has no simple expectation-based definition.
 
-2.  **It is a local effect** — conveying information only at time $`t`$,
-    unlike $`S_z(t)`$ which summarises cumulative experience from 0 to
-    $`t`$.
+2.  **It is a local effect** — conveying information only at time $t$,
+    unlike $S_{z}(t)$ which summarises cumulative experience from 0 to
+    $t$.
 
-3.  **Its conditioning sets are not comparable.** The hazard at $`t`$ in
-    arm $`z`$ conditions on the set
-    $`\Omega_z(t) = \{i : Y_i(z) \geq t,\, i \in \Omega\}`$. When the
-    treatment has an effect, $`\Omega_0(t) \neq \Omega_1(t)`$ for any
-    $`t > 0`$. This violates the identical comparison set requirement
+3.  **Its conditioning sets are not comparable.** The hazard at $t$ in
+    arm $z$ conditions on the set
+    $\Omega_{z}(t) = \{ i:Y_{i}(z) \geq t,\, i \in \Omega\}$. When the
+    treatment has an effect, $\Omega_{0}(t) \neq \Omega_{1}(t)$ for any
+    $t > 0$. This violates the identical comparison set requirement
     (equation
 
     1.  of Fay & Li) that defines a causal estimand.
 
 ### The Mechanism: Collider Activation
 
-Even though $`Z \perp\!\!\!\perp A`$ at baseline, among survivors at
-time $`t > 0`$
+Even though $Z\bot\!\!\!\bot A$ at baseline, among survivors at time
+$t > 0$
 
-``` math
+$$Z\overset{\not{}}{\!\bot\!\!\!\bot}A \mid T \geq t,$$
 
-Z \not{\!\perp\!\!\!\perp} A \mid T \geq t,
-```
-
-unless the joint hazard $`h(t, A, Z)`$ is additive in $`A`$ and $`Z`$ —
-a condition the Cox multiplicative model violates. Survival $`S_t`$ is a
-**collider** on the path $`A \to S_t \leftarrow Z \to S_{t+\Delta}`$.
-Conditioning opens a non-causal association between $`A`$ and $`Z`$ that
+unless the joint hazard $h(t,A,Z)$ is additive in $A$ and $Z$ — a
+condition the Cox multiplicative model violates. Survival $S_{t}$ is a
+**collider** on the path
+$\left. A\rightarrow S_{t}\leftarrow Z\rightarrow S_{t + \Delta} \right.$.
+Conditioning opens a non-causal association between $A$ and $Z$ that
 grows throughout follow-up. Risk sets at every event time beyond the
 first are therefore no longer from a randomized comparison.
 
 The joint distribution among survivors is
-``` math
-
-P(Z = z, A = a \mid T \geq t) \;\propto\;
-\exp\!\left(-\int_0^t h(s, a, z)\, ds\right) P(Z = z)\, P(A = a),
-```
-which factors only when $`h`$ is additive. Under the Cox multiplicative
-structure it does not, so $`e^{\hat\beta}`$ converges to a well-defined
-parameter that conflates the true treatment effect with the growing
-frailty imbalance between arms. Hernan (2010) termed this “built-in
-selection bias.”
+$$P(Z = z,A = a \mid T \geq t)\; \propto \;\exp\!\left( - \int_{0}^{t}h(s,a,z)\, ds \right)P(Z = z)\, P(A = a),$$
+which factors only when $h$ is additive. Under the Cox multiplicative
+structure it does not, so $e^{\widehat{\beta}}$ converges to a
+well-defined parameter that conflates the true treatment effect with the
+growing frailty imbalance between arms. Hernan (2010) termed this
+“built-in selection bias.”
 
 ### Mathematical Elaboration (Martinussen 2022)
 
 Martinussen locates the root cause in the act of conditioning on
-survival at any $`t > 0`$, regardless of model structure. For a
-piecewise Cox model with change point $`\nu`$,
+survival at any $t > 0$, regardless of model structure. For a piecewise
+Cox model with change point $\nu$,
 
-``` math
+$$\frac{\lambda(t;\, A = 1)}{\lambda(t;\, A = 0)} = \begin{cases}
+{e^{\beta},} & {t \leq \nu} \\
+{1,} & {t > \nu,}
+\end{cases}$$
 
-\frac{\lambda(t;\, A=1)}{\lambda(t;\, A=0)} =
-\begin{cases} e^{\beta}, & t \leq \nu \\ 1, & t > \nu, \end{cases}
-```
-
-the HR declining to 1 after $`\nu`$ is fully consistent with a
-beneficial treatment effect at *all* times — including $`t > \nu`$ —
-when examined through the frailty-conditional HR $`\text{HR}_Z(t)`$.
-These two conclusions are contradictory despite both models being
-correctly specified and both estimators consistent. The contradiction
-arises purely from selection. Key results:
+the HR declining to 1 after $\nu$ is fully consistent with a beneficial
+treatment effect at *all* times — including $t > \nu$ — when examined
+through the frailty-conditional HR $\text{HR}_{Z}(t)$. These two
+conclusions are contradictory despite both models being correctly
+specified and both estimators consistent. The contradiction arises
+purely from selection. Key results:
 
 - A genuinely causal HR conditions on joint survival under both
   potential outcomes:
-  ``` math
-
-  \text{HR}(t) =
-  \frac{P(t \leq T^1 < t+h \mid T^0 \geq t,\, T^1 \geq t) / h}
-       {P(t \leq T^0 < t+h \mid T^0 \geq t,\, T^1 \geq t) / h}.
-  ```
-  When $`e^{\beta} < 1`$ and the joint distribution follows a frailty
-  copula, $`\text{HR}(t) < e^{\beta} < 1`$ — the true causal effect is
+  $$\text{HR}(t) = \frac{P\left( t \leq T^{1} < t + h \mid T^{0} \geq t,\, T^{1} \geq t \right)/h}{P\left( t \leq T^{0} < t + h \mid T^{0} \geq t,\, T^{1} \geq t \right)/h}.$$
+  When $e^{\beta} < 1$ and the joint distribution follows a frailty
+  copula, $\text{HR}(t) < e^{\beta} < 1$ — the true causal effect is
   *stronger* than the Cox HR implies. This quantity is not identifiable
   without untestable assumptions. In the Fay & Li taxonomy, this is the
-  marginal causal HR ($`\theta_{mcHR}`$): an individual-level and
+  marginal causal HR ($\theta_{mcHR}$): an individual-level and
   population-level estimand, but not identifiable from a randomized
-  trial because it requires the joint distribution $`(T^0, T^1)`$.
+  trial because it requires the joint distribution
+  $\left( T^{0},T^{1} \right)$.
 
 - **Hazard differences are equally affected.** The Aalen additive
-  hazards model produces $`\psi(t) = 0`$ for $`t > \nu`$ for the same
+  hazards model produces $\psi(t) = 0$ for $t > \nu$ for the same
   selection reason — the problem lies in the interpretation of the
   hazard function itself, not in its multiplicative structure.
 
 - The preferred causal quantity is the **survival function contrast**
-  $`\delta(t) = P(T^1 > t) - P(T^0 > t)`$, which does not condition on
-  survival past $`t = 0`$ and admits efficient doubly-robust estimation
-  via the one-step estimator.
+  $\delta(t) = P\left( T^{1} > t \right) - P\left( T^{0} > t \right)$,
+  which does not condition on survival past $t = 0$ and admits efficient
+  doubly-robust estimation via the one-step estimator.
 
 ### The Vaccine Waning Efficacy Problem (Fay & Li 2024)
 
@@ -246,7 +232,7 @@ world we are in.
 **ForestSearch relevance.** This aliasing between population-level
 time-varying effects and individual-level heterogeneity is exactly the
 problem ForestSearch’s subgroup identification machinery is designed to
-address: by conditioning on baseline covariates $`X_i`$, the algorithm
+address: by conditioning on baseline covariates $X_{i}$, the algorithm
 recovers individual-level treatment effect variation that would
 otherwise be absorbed into a time-varying population HR. The Fay & Li
 example formalises why such conditioning is both theoretically necessary
@@ -260,55 +246,52 @@ and practically important.
 
 Fay & Li (2024) identify one setting where the constant Cox HR does
 achieve clean population-level causal status. When
-$`\lambda_1(t)/\lambda_0(t) = \theta`$ for all $`t`$, the PH assumption
-implies $`S_1(t) = S_0(t)^\theta`$, so
+$\lambda_{1}(t)/\lambda_{0}(t) = \theta$ for all $t$, the PH assumption
+implies $S_{1}(t) = S_{0}(t)^{\theta}$, so
 
-``` math
+$$\theta = \frac{\log S_{1}(t)}{\log S_{0}(t)}\quad{\text{for all}\mspace{6mu}}t > 0.$$
 
-\theta = \frac{\log S_1(t)}{\log S_0(t)} \quad \text{for all } t > 0.
-```
-
-This is the **cumulative hazard ratio (CHR)** at any time $`t`$, and it
-is a comparison of two survival functions — both population-level causal
+This is the **cumulative hazard ratio (CHR)** at any time $t$, and it is
+a comparison of two survival functions — both population-level causal
 estimands from the randomized trial. Under PH the three interpretive
-difficulties of $`\theta(t)`$ all vanish: there are no limits, no local
-effects, and the conditioning issue is resolved because $`\theta`$
-equals $`\log S_1(t)/\log S_0(t)`$ at every $`t`$.
+difficulties of $\theta(t)$ all vanish: there are no limits, no local
+effects, and the conditioning issue is resolved because $\theta$ equals
+$\log S_{1}(t)/\log S_{0}(t)$ at every $t$.
 
-**Important caveat.** Even under PH, $`\theta`$ is *not* an
-individual-level causal estimand. A hazard ratio of $`\theta = 0.5`$
-does not imply that the treatment halves each individual’s hazard. It
-implies that the population hazard rate in the treatment arm is half
-that in the control arm at every time $`t`$. The individual-level causal
-HR requires untestable assumptions about the joint distribution
-$`(T^0, T^1)`$.
+**Important caveat.** Even under PH, $\theta$ is *not* an
+individual-level causal estimand. A hazard ratio of $\theta = 0.5$ does
+not imply that the treatment halves each individual’s hazard. It implies
+that the population hazard rate in the treatment arm is half that in the
+control arm at every time $t$. The individual-level causal HR requires
+untestable assumptions about the joint distribution
+$\left( T^{0},T^{1} \right)$.
 
 ### Without Proportional Hazards: The Cumulative Hazard Ratio Is Preferred
 
-When $`\theta(t)`$ is not constant, the various weighted average HRs
+When $\theta(t)$ is not constant, the various weighted average HRs
 (simple AHR, geometric AHR, Cox AHR) all represent different parameters
 with different interpretational properties. Fay & Li’s key
 recommendation — also endorsed by Wei & Schaubel (2008) — is:
 
 > Under non-proportional hazards, the **cumulative hazard ratio**
-> $`\theta_{CHR}(t) = \log S_1(t) / \log S_0(t)`$ is the most
-> straightforward causal estimand among those that reduce to $`\theta`$
+> $\theta_{CHR}(t) = \log S_{1}(t)/\log S_{0}(t)$ is the most
+> straightforward causal estimand among those that reduce to $\theta$
 > under PH.
 
-The CHR achieves population-level causal status at every $`t`$ without
-the proportional hazards assumption, because it is a direct contrast of
+The CHR achieves population-level causal status at every $t$ without the
+proportional hazards assumption, because it is a direct contrast of
 identifiable survival functions. It removes all three interpretive
-difficulties: no limits, no local effects, and both $`S_1(t)`$ and
-$`S_0(t)`$ summarise cumulative experience from 0 to $`t`$ on the same
-superpopulation $`\Omega`$.
+difficulties: no limits, no local effects, and both $S_{1}(t)$ and
+$S_{0}(t)$ summarise cumulative experience from 0 to $t$ on the same
+superpopulation $\Omega$.
 
-By contrast, the **Cox AHR** $`\theta_{CoxAHR}`$ (the limiting value of
+By contrast, the **Cox AHR** $\theta_{CoxAHR}$ (the limiting value of
 the partial likelihood estimator) is interpretionally complex, depends
 on the censoring distribution under non-PH, and lacks the clean causal
 derivation the CHR enjoys.
 
-The **loss ratio** $`\theta_{LR}(t)`$, while attractive as a summary,
-suffers the same conditioning-set problem as $`\theta(t)`$: its
+The **loss ratio** $\theta_{LR}(t)$, while attractive as a summary,
+suffers the same conditioning-set problem as $\theta(t)$: its
 conditioning sets select different proportions from each arm when there
 is a treatment effect.
 
@@ -327,16 +310,12 @@ functions** that inherit causal standing directly from randomization.
 
 Hazard rates are the fundamental identifiable quantities in censored
 failure time data:
-``` math
-
-\lambda(t; z) = \lim_{\Delta\to 0}
-\frac{P(T \in [t,t+\Delta) \mid T \geq t,\, A=z)}{\Delta}.
-```
+$$\lambda(t;z) = \lim\limits_{\Delta\rightarrow 0}\frac{P\left( T \in \lbrack t,t + \Delta \right) \mid T \geq t,\, A = z)}{\Delta}.$$
 Under independent censoring this is consistently estimable via the
 Nelson-Aalen estimator, and so is any smooth functional thereof. The
-survival function $`F(t; z)`$, the RMST, and the nonparametric **average
+survival function $F(t;z)$, the RMST, and the nonparametric **average
 hazard ratio** (AHR) all derive a **causal interpretation directly from
-randomization** — the independence of $`A`$ from all pre-randomization
+randomization** — the independence of $A$ from all pre-randomization
 risk factors ensures that differences in outcome patterns can be
 attributed to the treatment. Prentice & Aragaki explicitly cite
 Martinussen et al. (2020) for the view that “various functional
@@ -355,22 +334,22 @@ The apparent tension between the Aalen/Martinussen/Knudsen critique, the
 Prentice & Aragaki defense, and the Fay & Li taxonomy resolves when the
 object of inference is precisely specified:
 
-| **Reconciling the Five Papers** |  |  |
-|----|----|----|
-| What the Cox model can and cannot deliver causally |  |  |
-| **Claim** | **Source** | **Resolution** |
-| Cox HR e^beta is NOT a causal HR | Aalen (2015); Martinussen (2022); Hernan (2010); Fay & Li (2024) | e^beta consistently estimates a parameter that mixes treatment effect with selection. The conditioning sets Omega0(t) != Omega1(t) violate the common comparison set requirement for causal estimands (Fay & Li). Martinussen shows the true causal HR conditions on joint survival and is stronger than the Cox HR implies. |
-| Under PH, constant theta IS a valid pop-level causal estimand | Fay & Li (2024); Prentice & Aragaki (2022) | When PH holds, theta = log S1(t)/log S0(t) -- a comparison of identifiable survival functions -- resolving all three interpretive difficulties. Still not individual-level. |
-| CHR = log S1(t)/log S0(t) is causally valid under non-PH | Fay & Li (2024); Wei & Schaubel (2008) | The CHR directly contrasts survival functions without conditioning on survival at intermediate times. Recommended over Cox AHR under non-PH. |
-| RMST difference and survival difference are both individual- and population-level | Fay & Li (2024) | Because E\[S1(t) - S0(t)\] = E\[I(Y(1) \> t) - I(Y(0) \> t)\], these estimands compare-then-summarize at the individual level and are also identifiable as population summaries. |
-| AFT exp(-beta) is both individual-level and population-level | Fay & Li (2024); Aalen et al. (2015) | The geometric mean log ratio exp(E\[log Y(1)\] - E\[log Y(0)\]) is both individually and population interpretable -- the log transformation makes it collapsible. |
-| Time-varying HRs -\> 1 do not imply effect waning | Martinussen (2022); Fay & Li (2024) | A correctly specified piecewise HR declining to 1 reflects growing frailty imbalance, not biological effect waning. The Fay & Li vaccine example shows two indistinguishable worlds. Baseline covariate conditioning (GRF/LASSO) is the correct remedy. |
-| Hazard function functionals are causally valid in RCTs | Prentice & Aragaki (2022); Martinussen et al. (2020) | Randomization confers causal validity on hazard function estimates; functionals (AHR, RMST, survival contrasts) inherit this. Cox is a valid estimation engine. |
-| Markov property cannot hold under frailty | Knudsen et al. (2025) | Any non-degenerate frailty violates the Markov property required for causal interpretation of Cox MSMs with time-varying treatment. |
+| **Reconciling the Five Papers**                                                   |                                                                  |                                                                                                                                                                                                                                                                                                                              |
+|-----------------------------------------------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| What the Cox model can and cannot deliver causally                                |                                                                  |                                                                                                                                                                                                                                                                                                                              |
+| **Claim**                                                                         | **Source**                                                       | **Resolution**                                                                                                                                                                                                                                                                                                               |
+| Cox HR e^beta is NOT a causal HR                                                  | Aalen (2015); Martinussen (2022); Hernan (2010); Fay & Li (2024) | e^beta consistently estimates a parameter that mixes treatment effect with selection. The conditioning sets Omega0(t) != Omega1(t) violate the common comparison set requirement for causal estimands (Fay & Li). Martinussen shows the true causal HR conditions on joint survival and is stronger than the Cox HR implies. |
+| Under PH, constant theta IS a valid pop-level causal estimand                     | Fay & Li (2024); Prentice & Aragaki (2022)                       | When PH holds, theta = log S1(t)/log S0(t) -- a comparison of identifiable survival functions -- resolving all three interpretive difficulties. Still not individual-level.                                                                                                                                                  |
+| CHR = log S1(t)/log S0(t) is causally valid under non-PH                          | Fay & Li (2024); Wei & Schaubel (2008)                           | The CHR directly contrasts survival functions without conditioning on survival at intermediate times. Recommended over Cox AHR under non-PH.                                                                                                                                                                                 |
+| RMST difference and survival difference are both individual- and population-level | Fay & Li (2024)                                                  | Because E\[S1(t) - S0(t)\] = E\[I(Y(1) \> t) - I(Y(0) \> t)\], these estimands compare-then-summarize at the individual level and are also identifiable as population summaries.                                                                                                                                             |
+| AFT exp(-beta) is both individual-level and population-level                      | Fay & Li (2024); Aalen et al. (2015)                             | The geometric mean log ratio exp(E\[log Y(1)\] - E\[log Y(0)\]) is both individually and population interpretable -- the log transformation makes it collapsible.                                                                                                                                                            |
+| Time-varying HRs -\> 1 do not imply effect waning                                 | Martinussen (2022); Fay & Li (2024)                              | A correctly specified piecewise HR declining to 1 reflects growing frailty imbalance, not biological effect waning. The Fay & Li vaccine example shows two indistinguishable worlds. Baseline covariate conditioning (GRF/LASSO) is the correct remedy.                                                                      |
+| Hazard function functionals are causally valid in RCTs                            | Prentice & Aragaki (2022); Martinussen et al. (2020)             | Randomization confers causal validity on hazard function estimates; functionals (AHR, RMST, survival contrasts) inherit this. Cox is a valid estimation engine.                                                                                                                                                              |
+| Markov property cannot hold under frailty                                         | Knudsen et al. (2025)                                            | Any non-degenerate frailty violates the Markov property required for causal interpretation of Cox MSMs with time-varying treatment.                                                                                                                                                                                          |
 
 The key distinction is between:
 
-- **The Cox partial likelihood parameter** $`e^{\hat\beta}`$ —
+- **The Cox partial likelihood parameter** $e^{\widehat{\beta}}$ —
   consistently estimated but not interpretable as a causal HR. This is
   what Aalen et al., Martinussen, and Fay & Li critique.
 - **Functionals of the estimated hazard function** (CHR, AHR, RMST,
@@ -389,13 +368,13 @@ defensible:
     model specification.
 
 2.  **Under PH**: the Cox partial likelihood estimator consistently
-    estimates $`\theta`$, a valid population-level causal estimand
-    equalling $`\log S_1(t)/\log S_0(t)`$ at every $`t`$.
+    estimates $\theta$, a valid population-level causal estimand
+    equalling $\log S_{1}(t)/\log S_{0}(t)$ at every $t$.
 
 3.  **CHR estimation**: plugging Kaplan-Meier estimates into
-    $`\log \hat{S}_1(t)/\log \hat{S}_0(t)`$ provides the cleanest
-    population-level causal summary under non-PH (Fay & Li; Wei &
-    Schaubel).
+    $\log{\widehat{S}}_{1}(t)/\log{\widehat{S}}_{0}(t)$ provides the
+    cleanest population-level causal summary under non-PH (Fay & Li; Wei
+    & Schaubel).
 
 4.  **Flexible AHR and RMST estimation**: Cox-based survival function
     estimates feed into the nonparametric AHR and RMST contrasts that
@@ -423,30 +402,24 @@ the natural causal alternative to the Cox model, with Fay & Li providing
 the clearest formal explanation of *why*. The Weibull AFT can be
 written:
 
-``` math
+$$\log T_{i} = \mu + \mathbf{X}_{i}^{\top}{\mathbf{γ}} + \sigma\,\varepsilon_{i},\qquad\varepsilon_{i} \sim \text{Extreme Value}.$$
 
-\log T_i = \mu + \mathbf{X}_i^\top \boldsymbol{\gamma} + \sigma\, \varepsilon_i,
-\qquad \varepsilon_i \sim \text{Extreme Value}.
-```
+The scale-change parameter $\exp\left( - \beta_{\text{treat}} \right)$
+satisfies $S_{1}(t) = S_{0}\left( t\, e^{- \beta} \right)$. Because
+failure times are positive, the treatment effect can be expressed as a
+ratio as in equation (4) of Fay & Li:
 
-The scale-change parameter $`\exp(-\beta_{\text{treat}})`$ satisfies
-$`S_1(t) = S_0(t\, e^{-\beta})`$. Because failure times are positive,
-the treatment effect can be expressed as a ratio as in equation (4) of
-Fay & Li:
+$$\exp( - \beta) = \gamma_{1}/\gamma_{0},$$
 
-``` math
-
-\exp(-\beta) = \gamma_1/\gamma_0,
-```
-
-where $`\gamma_z`$ is the geometric mean of $`Y_i(z)`$. The geometric
+where $\gamma_{z}$ is the geometric mean of $Y_{i}(z)$. The geometric
 mean ratio is simultaneously individual-level (it equals
-$`\exp(E[\log Y_i(1) - \log Y_i(0)])`$) and population-level (it is
-identifiable from marginal distributions), making $`\exp(-\beta)`$ the
-**only common survival estimand to achieve both simultaneously**.
+$\exp\left( E\left\lbrack \log Y_{i}(1) - \log Y_{i}(0) \right\rbrack \right)$)
+and population-level (it is identifiable from marginal distributions),
+making $\exp( - \beta)$ the **only common survival estimand to achieve
+both simultaneously**.
 
 This collapsibility — invariance to marginalising over the frailty
-distribution $`Z`$ — ensures the marginal AFT treatment effect is
+distribution $Z$ — ensures the marginal AFT treatment effect is
 consistent regardless of how heterogeneous the population is.
 Empirically, Aalen et al. (2015) show AFT estimators are unbiased across
 a wide range of censoring rates and frailty variances, while Cox
@@ -465,13 +438,10 @@ This is why ForestSearch builds its DGM on a Weibull AFT.
 Under the Weibull AFT parameterisation, the hazard-scale coefficients
 are
 
-``` math
-
-\boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma,
-```
+$${\mathbf{β}}_{0} = - {\mathbf{γ}}/\sigma,$$
 
 so the individual conditional hazard is
-$`h(t \mid \mathbf{X}_i) = h_0(t)\, \exp(\mathbf{X}_i^\top \boldsymbol{\beta}_0)`$.
+$h\left( t \mid \mathbf{X}_{i} \right) = h_{0}(t)\,\exp\left( \mathbf{X}_{i}^{\top}{\mathbf{β}}_{0} \right)$.
 This links the AFT causal ground truth to the hazard-scale estimands
 (AHR, CDE, CHR, marginal HR), enabling ForestSearch to compute all from
 AFT-fitted parameters while retaining the individual- and
@@ -487,12 +457,7 @@ The nonparametric AHR of Kalbfleisch & Prentice (1981), prominently
 featured in Prentice & Aragaki (2022) and discussed in Fay & Li (2024),
 is:
 
-``` math
-
-\widehat{\text{AHR}}(t) =
-\left[1 - \hat{F}(t;\, z=0)\right]^{-1}
-\int_0^t \hat{F}(s;\, z=0)\, d\hat{\Lambda}(s;\, z=1).
-```
+$$\widehat{\text{AHR}}(t) = \left\lbrack 1 - \widehat{F}(t;\, z = 0) \right\rbrack^{- 1}\int_{0}^{t}\widehat{F}(s;\, z = 0)\, d\widehat{\Lambda}(s;\, z = 1).$$
 
 This weights each instantaneous hazard ratio by the control-group
 failure probability at that moment — a time-averaged summary causally
@@ -507,14 +472,14 @@ clean CHR estimand in practice.
 Fay & Li (2024) and Prentice & Aragaki (2022) together suggest the
 following ordering of causal cleanness for non-PH settings:
 
-| Estimand | Causal Status | PH required? | Sensitive to early effects? |
-|----|----|----|----|
-| RMST difference | Individual & population | No | Lower (rare outcomes) |
-| Survival difference at $`t^*`$ | Individual & population | No | Depends on $`t^*`$ |
-| CHR $`\log S_1(t)/\log S_0(t)`$ | Population | No | Yes |
-| Nonparametric AHR | Population (approximately) | No | Yes |
-| Cox HR under PH | Population | Yes (must verify) | Yes |
-| Instantaneous HR $`\theta(t)`$ | Problematic | N/A | Yes (but misleading) |
+| Estimand                          | Causal Status              | PH required?      | Sensitive to early effects? |
+|-----------------------------------|----------------------------|-------------------|-----------------------------|
+| RMST difference                   | Individual & population    | No                | Lower (rare outcomes)       |
+| Survival difference at $t^{*}$    | Individual & population    | No                | Depends on $t^{*}$          |
+| CHR $\log S_{1}(t)/\log S_{0}(t)$ | Population                 | No                | Yes                         |
+| Nonparametric AHR                 | Population (approximately) | No                | Yes                         |
+| Cox HR under PH                   | Population                 | Yes (must verify) | Yes                         |
+| Instantaneous HR $\theta(t)$      | Problematic                | N/A               | Yes (but misleading)        |
 
 ### AHR vs. RMST: Empirical Evidence from WHI
 
@@ -523,7 +488,7 @@ real-data evidence for the relative sensitivity of these two estimands.
 For **breast cancer**:
 
 - The **AHR** detected a statistically significant elevation by **6
-  years** from randomization (AHR $`\approx`$ 1.20, 95% CI 1.00–1.46).
+  years** from randomization (AHR $\approx$ 1.20, 95% CI 1.00–1.46).
 - The **RMST** contrast did not show a clear reduction until
   approximately **12 years**, because the absolute risk difference
   accumulates slowly for a relatively rare outcome.
@@ -539,13 +504,9 @@ sensitive to early or moderate effects in prevention-trial settings.
 
 ForestSearch defines the AHR at the **individual level** from the DGM:
 
-``` math
+$$\text{AHR}(S) = \exp\!\left( \frac{1}{|S|}\sum\limits_{i \in S}\left( \theta_{i}(1) - \theta_{i}(0) \right) \right),$$
 
-\text{AHR}(S) = \exp\!\left(\frac{1}{|S|} \sum_{i \in S}
-(\theta_i(1) - \theta_i(0))\right),
-```
-
-where $`\theta_i(a) = \mathbf{X}_i(a)^\top \boldsymbol{\beta}_0`$ are
+where $\theta_{i}(a) = \mathbf{X}_{i}(a)^{\top}{\mathbf{β}}_{0}$ are
 individual log-hazards from the AFT DGM. This geometric mean of
 individual causal log-hazard differences is — by the Fay & Li framework
 — precisely the kind of estimand that achieves both individual-level and
@@ -573,50 +534,48 @@ observed survival.
 
 ### The Markov Property and Its Impossibility
 
-When treatment $`A(t)`$ evolves over time, Cox MSMs require the **Markov
+When treatment $A(t)$ evolves over time, Cox MSMs require the **Markov
 property** — that the marginal hazard depends only on current treatment
-$`A(t)`$, not on treatment history $`\overline{A}(t)`$. Knudsen et
+$A(t)$, not on treatment history $\overline{A}(t)$. Knudsen et
 al. (2025) prove this requires a degenerate (point-mass) frailty
 distribution. With complete-data hazard
-$`\lambda(t \mid A(t), Z) = Z\, h(t, A(t))`$,
+$\lambda\left( t \mid A(t),Z \right) = Z\, h\left( t,A(t) \right)$,
 
-``` math
+$$\lambda\left( t \mid \overline{A}(t) \right) = h\left( t,A(t) \right)\, E\!\left( Z \mid \overline{A}(t),T \geq t \right),$$
 
-\lambda(t \mid \overline{A}(t)) =
-h(t, A(t))\, E\!\left(Z \mid \overline{A}(t), T \geq t\right),
-```
-
-and the conditional expectation of $`Z`$ depends on the entire
-cumulative hazard history
-$`H(t, \overline{A}(t)) = \int_0^t h(s, A(s))\, ds`$, not just $`A(t)`$.
-For Markovianity, the Laplace transform of $`Z`$ must be exponential —
-corresponding to a point-mass distribution. Since unmeasured
-heterogeneity (genetic, environmental, behavioural) is universal, the
-Markov property **cannot realistically hold in any real dataset**.
+and the conditional expectation of $Z$ depends on the entire cumulative
+hazard history
+$H\left( t,\overline{A}(t) \right) = \int_{0}^{t}h\left( s,A(s) \right)\, ds$,
+not just $A(t)$. For Markovianity, the Laplace transform of $Z$ must be
+exponential — corresponding to a point-mass distribution. Since
+unmeasured heterogeneity (genetic, environmental, behavioural) is
+universal, the Markov property **cannot realistically hold in any real
+dataset**.
 
 ### Implications for Cox MSMs and Extended Kaplan-Meier
 
-Marginal structural Cox models estimate $`\beta`$ in
-$`\lambda^a(t) = \lambda_0(t)\, e^{\beta a(t)}`$ using IPTW weighting.
-Even with perfect confounding control, causal interpretation of
-$`e^{\hat\beta}`$ as a survival probability ratio requires the Markov
-property. Knudsen et al. (2025) demonstrate with a concrete
+Marginal structural Cox models estimate $\beta$ in
+$\lambda^{a}(t) = \lambda_{0}(t)\, e^{\beta a{(t)}}$ using IPTW
+weighting. Even with perfect confounding control, causal interpretation
+of $e^{\widehat{\beta}}$ as a survival probability ratio requires the
+Markov property. Knudsen et al. (2025) demonstrate with a concrete
 illness-death model that the rate-based survival estimate can
-substantially underestimate the true causal survival benefit: at
-$`t = 3`$ the rate-based estimate is 0.14 vs. the true causal contrast
-of 0.22 — a 57% underestimate.
+substantially underestimate the true causal survival benefit: at $t = 3$
+the rate-based estimate is 0.14 vs. the true causal contrast of 0.22 — a
+57% underestimate.
 
 The extended Kaplan-Meier curve (Simon & Makuch 1984) estimates
-$`\exp(-\text{cumulative rate})`$, not an intervention-specific survival
-probability. Under the Cox rate model, the ratio of log-extended-KM
-curves estimates the rate ratio — but the rate ratio has no clear causal
-interpretation without the Markov property.
+$\exp\left( - \text{cumulative rate} \right)$, not an
+intervention-specific survival probability. Under the Cox rate model,
+the ratio of log-extended-KM curves estimates the rate ratio — but the
+rate ratio has no clear causal interpretation without the Markov
+property.
 
 **Connection to Fay & Li.** The Knudsen et al. finding is the
 time-varying treatment analogue of the Fay & Li conditioning-set
-problem: in both cases, the hazard at $`t`$ conditions on a set of
+problem: in both cases, the hazard at $t$ conditions on a set of
 survivors whose composition has been distorted by differential treatment
-effects up to $`t`$. Fay & Li address this for fixed baseline treatment;
+effects up to $t$. Fay & Li address this for fixed baseline treatment;
 Knudsen et al. extend it to the time-varying case where the distortion
 is actively controlled by the treatment regime being studied.
 
@@ -642,19 +601,19 @@ critical.
 The five papers collectively motivate the specific estimand choices in
 ForestSearch.
 
-| **Theory–Practice Mapping** |  |
-|----|----|
-| From causal inference literature to ForestSearch estimand design |  |
-| **Theoretical Issue** | **ForestSearch Design Response** |
+| **Theory–Practice Mapping**                                                                                                                 |                                                                                                                                                                                                                       |
+|---------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| From causal inference literature to ForestSearch estimand design                                                                            |                                                                                                                                                                                                                       |
+| **Theoretical Issue**                                                                                                                       | **ForestSearch Design Response**                                                                                                                                                                                      |
 | Cox HR e^beta mixes treatment effect and selection bias; conditioning sets are not comparable (Aalen 2015; Martinussen 2022; Fay & Li 2024) | AHR and CDE are computed directly from AFT potential outcomes; no risk-set conditioning involved. Stacked PO marginal HR bypasses partial likelihood risk sets entirely; observed Cox HR treated as biased comparator |
-| Under PH, theta = log S1(t)/log S0(t) achieves valid population-level causal status (Fay & Li 2024) | When Cox models are used for AHR/RMST estimation in applied output, proportionality should be assessed and CHR reported as primary summary |
-| CHR is cleanest estimand under non-PH; recommended over Cox AHR (Fay & Li 2024; Wei & Schaubel 2008) | ForestSearch applied output should report CHR alongside AHR; the nonparametric AHR tracks CHR closely in practice |
-| AFT exp(-beta) is both individual-level and population-level; the only survival ratio estimand with dual status (Fay & Li 2024; Aalen 2015) | Weibull AFT DGM provides ground truth with both individual- and population-level causal validity; beta0 = -gamma/sigma links to all hazard-scale estimands |
-| RMST and survival differences are both individual- and population-level causal estimands (Fay & Li 2024) | RMST difference is a natural complement to AHR in ForestSearch output; less sensitive to early effects but cleanly dual-causal |
-| Declining observed HR cannot distinguish genuine effect waning from frailty aliasing (Martinussen 2022; Fay & Li 2024) | GRF/LASSO subgroup identification conditions on baseline X_i, which Fay & Li show moves estimation toward individual-level effects and resolves the aliasing |
-| Hazard differences share the same causal limitation as HRs (Martinussen 2022) | CDE = mean(exp(theta_i(1))) / mean(exp(theta_i(0))) operates on exponential scale, avoiding log compression; parallels the Prentice & Aragaki AHR weighting structure |
-| Adding baseline covariates moves Cox HR toward individual-level causal estimand (Fay & Li 2024) | GRF baseline covariate conditioning is justified by Fay & Li: adding covariates moves the estimated HR toward individual-level causal truth |
-| Markov property fails under any non-degenerate frailty in time-varying treatment (Knudsen 2025) | Baseline-only treatment keeps ForestSearch in the Aalen et al. / Fay & Li safe zone; no Markov assumption required |
+| Under PH, theta = log S1(t)/log S0(t) achieves valid population-level causal status (Fay & Li 2024)                                         | When Cox models are used for AHR/RMST estimation in applied output, proportionality should be assessed and CHR reported as primary summary                                                                            |
+| CHR is cleanest estimand under non-PH; recommended over Cox AHR (Fay & Li 2024; Wei & Schaubel 2008)                                        | ForestSearch applied output should report CHR alongside AHR; the nonparametric AHR tracks CHR closely in practice                                                                                                     |
+| AFT exp(-beta) is both individual-level and population-level; the only survival ratio estimand with dual status (Fay & Li 2024; Aalen 2015) | Weibull AFT DGM provides ground truth with both individual- and population-level causal validity; beta0 = -gamma/sigma links to all hazard-scale estimands                                                            |
+| RMST and survival differences are both individual- and population-level causal estimands (Fay & Li 2024)                                    | RMST difference is a natural complement to AHR in ForestSearch output; less sensitive to early effects but cleanly dual-causal                                                                                        |
+| Declining observed HR cannot distinguish genuine effect waning from frailty aliasing (Martinussen 2022; Fay & Li 2024)                      | GRF/LASSO subgroup identification conditions on baseline X_i, which Fay & Li show moves estimation toward individual-level effects and resolves the aliasing                                                          |
+| Hazard differences share the same causal limitation as HRs (Martinussen 2022)                                                               | CDE = mean(exp(theta_i(1))) / mean(exp(theta_i(0))) operates on exponential scale, avoiding log compression; parallels the Prentice & Aragaki AHR weighting structure                                                 |
+| Adding baseline covariates moves Cox HR toward individual-level causal estimand (Fay & Li 2024)                                             | GRF baseline covariate conditioning is justified by Fay & Li: adding covariates moves the estimated HR toward individual-level causal truth                                                                           |
+| Markov property fails under any non-degenerate frailty in time-varying treatment (Knudsen 2025)                                             | Baseline-only treatment keeps ForestSearch in the Aalen et al. / Fay & Li safe zone; no Markov assumption required                                                                                                    |
 
 ### Estimand Selection Guide
 
@@ -670,9 +629,9 @@ elevation at 6 years while RMST required 12.
 
 **Applied reporting: CHR alongside AHR.** For applied output — subgroup
 hazard ratio summaries reported to clinical trialists — the cumulative
-hazard ratio $`\log \hat{S}_1(t)/\log \hat{S}_0(t)`$ is the most
-defensible population-level causal estimand under non-PH (Fay & Li; Wei
-& Schaubel). The nonparametric AHR of Prentice & Aragaki tracks this
+hazard ratio $\log{\widehat{S}}_{1}(t)/\log{\widehat{S}}_{0}(t)$ is the
+most defensible population-level causal estimand under non-PH (Fay & Li;
+Wei & Schaubel). The nonparametric AHR of Prentice & Aragaki tracks this
 closely in practice and adds useful time-averaged narrative.
 
 **Complement: RMST difference.** Both individual- and population-level
@@ -682,10 +641,11 @@ intuitive absolute time-to-event framing that is entirely unambiguous
 causally.
 
 **Use the CDE** as a complementary natural-scale perspective. By
-averaging $`\exp(\theta_i(1))`$ and $`\exp(\theta_i(0))`$ separately
-before taking a ratio, the CDE parallels the Prentice & Aragaki AHR
-weighting structure on the hazard scale, and is particularly informative
-when hazard contributions are highly variable across subjects.
+averaging $\exp\left( \theta_{i}(1) \right)$ and
+$\exp\left( \theta_{i}(0) \right)$ separately before taking a ratio, the
+CDE parallels the Prentice & Aragaki AHR weighting structure on the
+hazard scale, and is particularly informative when hazard contributions
+are highly variable across subjects.
 
 **Use the marginal HR (stacked PO)** for validation. It provides the
 closest DGM-level analogue to what a correctly specified
@@ -716,16 +676,16 @@ finite-sample noise, and censoring distortion.
 
 1.  **Causal estimands fall into individual-level, population-level, or
     both (Fay & Li 2024).** The RMST difference, survival difference,
-    and AFT $`\exp(-\beta)`$ are both simultaneously. The Cox HR is at
+    and AFT $\exp( - \beta)$ are both simultaneously. The Cox HR is at
     best population-level only (and only under PH).
 
-2.  **The instantaneous Cox HR $`\theta(t)`$ fails the common comparison
+2.  **The instantaneous Cox HR $\theta(t)$ fails the common comparison
     set requirement** of causal inference: when there is a treatment
-    effect, $`\Omega_0(t) \neq \Omega_1(t)`$ for $`t > 0`$. This is the
+    effect, $\Omega_{0}(t) \neq \Omega_{1}(t)$ for $t > 0$. This is the
     Fay & Li formalisation of the Aalen et al. collider argument.
 
 3.  **Under proportional hazards, the constant Cox HR achieves valid
-    population-level causal status** as $`\log S_1(t)/\log S_0(t)`$.
+    population-level causal status** as $\log S_{1}(t)/\log S_{0}(t)$.
     This is Fay & Li’s most constructive result and reconciles the
     Aalen/Martinussen critique with the Prentice & Aragaki defense.
 
@@ -734,7 +694,7 @@ finite-sample noise, and censoring distortion.
     contrasts identifiable survival functions and retains
     population-level causal validity without a PH assumption.
 
-5.  **The AFT $`\exp(-\beta)`$ is the only common survival ratio
+5.  **The AFT $\exp( - \beta)$ is the only common survival ratio
     estimand that is both individual-level and population-level** (Fay &
     Li). This geometric mean property underpins ForestSearch’s choice of
     AFT as the causal DGM.

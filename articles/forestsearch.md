@@ -128,21 +128,21 @@ create_summary_table(
 )
 ```
 
-| GBSG Baseline Characteristics by Treatment Arm |  |  |  |  |  |
-|----|----|----|----|----|----|
-| Characteristic |  | Control (n=440) | Treatment (n=246) | P-value¹ | SMD² |
-| age | Mean (SD) | 51.1 (10.0) | 56.6 (9.4) | \<0.001 | 0.57 |
-| nodes | Mean (SD) | 4.9 (5.6) | 5.1 (5.3) | 0.665 | 0.03 |
-| size | Mean (SD) | 29.6 (14.4) | 28.8 (14.1) | 0.470 | 0.06 |
-| er | Mean (SD) | 79.7 (124.2) | 125.8 (191.1) | \<0.001 | 0.30 |
-| pgr | Mean (SD) | 102.0 (170.0) | 124.3 (249.7) | 0.213 | 0.11 |
-| grade |  |  |  | 0.273 | 0.06 |
-|  | 1 | 48 (10.9%) | 33 (13.4%) |  |  |
-|  | 2 | 281 (63.9%) | 163 (66.3%) |  |  |
-|  | 3 | 111 (25.2%) | 50 (20.3%) |  |  |
-| meno |  | 209 (47.5%) | 187 (76.0%) | \<0.001 | 0.61 |
-| ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |  |  |  |  |  |
-| ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical) |  |  |  |  |  |
+| GBSG Baseline Characteristics by Treatment Arm                                                |           |                 |                   |          |      |
+|-----------------------------------------------------------------------------------------------|-----------|-----------------|-------------------|----------|------|
+| Characteristic                                                                                |           | Control (n=440) | Treatment (n=246) | P-value¹ | SMD² |
+| age                                                                                           | Mean (SD) | 51.1 (10.0)     | 56.6 (9.4)        | \<0.001  | 0.57 |
+| nodes                                                                                         | Mean (SD) | 4.9 (5.6)       | 5.1 (5.3)         | 0.665    | 0.03 |
+| size                                                                                          | Mean (SD) | 29.6 (14.4)     | 28.8 (14.1)       | 0.470    | 0.06 |
+| er                                                                                            | Mean (SD) | 79.7 (124.2)    | 125.8 (191.1)     | \<0.001  | 0.30 |
+| pgr                                                                                           | Mean (SD) | 102.0 (170.0)   | 124.3 (249.7)     | 0.213    | 0.11 |
+| grade                                                                                         |           |                 |                   | 0.273    | 0.06 |
+|                                                                                               | 1         | 48 (10.9%)      | 33 (13.4%)        |          |      |
+|                                                                                               | 2         | 281 (63.9%)     | 163 (66.3%)       |          |      |
+|                                                                                               | 3         | 111 (25.2%)     | 50 (20.3%)        |          |      |
+| meno                                                                                          |           | 209 (47.5%)     | 187 (76.0%)       | \<0.001  | 0.61 |
+| ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |           |                 |                   |          |      |
+| ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)   |           |                 |                   |          |      |
 
 ### Kaplan-Meier Analysis (ITT Population)
 
@@ -251,7 +251,7 @@ n_cores_total <- parallel::detectCores()
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 ```
 
-    ## Using 2 of 14 total cores for parallel processing
+    ## Using 2 of 4 total cores for parallel processing
 
 ### Running ForestSearch
 
@@ -323,7 +323,7 @@ fs <- forestsearch(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.01 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 2.109 0.0352 
+    ## Seconds and minutes forestsearch overall = 6.091 0.1015 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 2.1 seconds
+    ## ForestSearch completed in 6.1 seconds
 
 ### ForestSearch Results
 
@@ -399,14 +399,14 @@ res_tabs <- sg_tables(fs, ndecimals = 3, which_df = "est")
 res_tabs$sg10_out
 ```
 
-| **Identified Subgroups** |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|
-| Two-factor subgroups (maxk=2) |  |  |  |  |  |  |
-| Factor 1 | Factor 2 | N | Events | E₁ | HR | P_(cons) |
-| {er \<= 0} | {size \<= 35} | 61 | 34 | 15 | 2.537 | 0.970 |
-| **Search Configuration:** Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2 |  |  |  |  |  |  |
-| **Search Results:** Candidate subgroups found = 7; Maximum HR estimate = 2.54 |  |  |  |  |  |  |
-| **Note:** E₁ = events in treatment arm; P_(cons) = consistency proportion |  |  |  |  |  |  |
+| **Identified Subgroups**                                                                                                   |               |     |        |     |       |          |
+|----------------------------------------------------------------------------------------------------------------------------|---------------|-----|--------|-----|-------|----------|
+| Two-factor subgroups (maxk=2)                                                                                              |               |     |        |     |       |          |
+| Factor 1                                                                                                                   | Factor 2      | N   | Events | E₁  | HR    | P_(cons) |
+| {er \<= 0}                                                                                                                 | {size \<= 35} | 61  | 34     | 15  | 2.537 | 0.970    |
+| **Search Configuration:** Single-factor candidates (L) = 28; Maximum combinations evaluated = 406; Search depth (maxk) = 2 |               |     |        |     |       |          |
+| **Search Results:** Candidate subgroups found = 7; Maximum HR estimate = 2.54                                              |               |     |        |     |       |          |
+| **Note:** E₁ = events in treatment arm; P_(cons) = consistency proportion                                                  |               |     |        |     |       |          |
 
 #### Treatment Effect Estimates
 
@@ -415,14 +415,14 @@ res_tabs$sg10_out
 res_tabs$tab_estimates
 ```
 
-| **Treatment Effect Estimates** |  |  |  |  |  |  |  |
-|----|----|----|----|----|----|----|----|
-| Training data estimates |  |  |  |  |  |  |  |
-| Subgroup | n | n1 | events | m1 | m0 | RMST | HR (95% CI) |
-| ITT | 686 (100.0%) | 246 (35.9%) | 299 (43.6%) | 66.3 | 50.2 | 7.8 | 0.69 (0.54, 0.89) |
-| Questionable¹ | 61 (8.9%) | 23 (37.7%) | 34 (55.7%) | 18.5 | 48 | -19 | 2.54 (1.25, 5.17) |
-| Recommend | 625 (91.1%) | 223 (35.7%) | 265 (42.4%) | 66.7 | 52.2 | 9.6 | 0.61 (0.47, 0.79) |
-| ¹ **Identified subgroup** : {er \<= 0} & {size \<= 35} |  |  |  |  |  |  |  |
+| **Treatment Effect Estimates**                         |              |             |             |      |      |      |                   |
+|--------------------------------------------------------|--------------|-------------|-------------|------|------|------|-------------------|
+| Training data estimates                                |              |             |             |      |      |      |                   |
+| Subgroup                                               | n            | n1          | events      | m1   | m0   | RMST | HR (95% CI)       |
+| ITT                                                    | 686 (100.0%) | 246 (35.9%) | 299 (43.6%) | 66.3 | 50.2 | 7.8  | 0.69 (0.54, 0.89) |
+| Questionable¹                                          | 61 (8.9%)    | 23 (37.7%)  | 34 (55.7%)  | 18.5 | 48   | -19  | 2.54 (1.25, 5.17) |
+| Recommend                                              | 625 (91.1%)  | 223 (35.7%) | 265 (42.4%) | 66.7 | 52.2 | 9.6  | 0.61 (0.47, 0.79) |
+| ¹ **Identified subgroup** : {er \<= 0} & {size \<= 35} |              |             |             |      |      |      |                   |
 
 #### Identified Subgroup Definition
 
@@ -487,7 +487,7 @@ cat("\nBootstrap completed in",
 ```
 
     ## 
-    ## Bootstrap completed in 0.1 minutes
+    ## Bootstrap completed in 0.2 minutes
 
 ### Bootstrap Summary and Diagnostics
 
@@ -519,9 +519,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.04 minutes (0.00 hours)
-    ##   Average per iteration:         0.02 min (1.2 sec)
-    ##   Projected for 1000 boots:      20.74 min (0.35 hrs)
+    ##   Total bootstrap time:          0.13 minutes (0.00 hours)
+    ##   Average per iteration:         0.07 min (4.0 sec)
+    ##   Projected for 1000 boots:      67.46 min (1.12 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -695,25 +695,25 @@ metrics_tables <- cv_metrics_tables(fs_kfold)
 metrics_tables
 ```
 
-| **Cross-Validation Metrics** |  |  |
-|----|----|----|
-| Subgroup: Identified Subgroup |  |  |
-| Metric | Description | Value (%) |
-| Agreement |  |  |
-| Sensitivity (H) | Agreement rate for subgroup H | 11.5 |
-| Sensitivity (Hc) | Agreement rate for complement Hc | 89.8 |
-| PPV (H) | Positive predictive value for H | 9.9 |
-| PPV (Hc) | Positive predictive value for Hc | 91.2 |
-| Subgroup Finding |  |  |
-| Any Found | Any subgroup identified | 50.0 |
-| Exact Match | Exact match on all factors | 0.0 |
-| At Least 1 | At least one factor matches | 50.0 |
-| Cov1 Any | First covariate found (any cut) | 0.0 |
-| Cov2 Any | Second covariate found (any cut) | 50.0 |
-| Cov1 & Cov2 | Both covariates found | 0.0 |
-| Cov1 Exact | First covariate exact match | 0.0 |
-| Cov2 Exact | Second covariate exact match | 50.0 |
-| Based on 1 simulation(s) with 2-fold CV. Values are proportions shown as percentages. |  |  |
+| **Cross-Validation Metrics**                                                          |                                  |           |
+|---------------------------------------------------------------------------------------|----------------------------------|-----------|
+| Subgroup: Identified Subgroup                                                         |                                  |           |
+| Metric                                                                                | Description                      | Value (%) |
+| Agreement                                                                             |                                  |           |
+| Sensitivity (H)                                                                       | Agreement rate for subgroup H    | 11.5      |
+| Sensitivity (Hc)                                                                      | Agreement rate for complement Hc | 89.8      |
+| PPV (H)                                                                               | Positive predictive value for H  | 9.9       |
+| PPV (Hc)                                                                              | Positive predictive value for Hc | 91.2      |
+| Subgroup Finding                                                                      |                                  |           |
+| Any Found                                                                             | Any subgroup identified          | 50.0      |
+| Exact Match                                                                           | Exact match on all factors       | 0.0       |
+| At Least 1                                                                            | At least one factor matches      | 50.0      |
+| Cov1 Any                                                                              | First covariate found (any cut)  | 0.0       |
+| Cov2 Any                                                                              | Second covariate found (any cut) | 50.0      |
+| Cov1 & Cov2                                                                           | Both covariates found            | 0.0       |
+| Cov1 Exact                                                                            | First covariate exact match      | 0.0       |
+| Cov2 Exact                                                                            | Second covariate exact match     | 50.0      |
+| Based on 1 simulation(s) with 2-fold CV. Values are proportions shown as percentages. |                                  |           |
 
 ### Out-of-Bag (N-Fold) Cross-Validation
 
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.2        | 0.0        |
-| ForestSearch         | 2.1        | 0.0        |
-| Bootstrap            | 3.5        | 0.1        |
-| Total                | 10.7       | 0.2        |
+| GRF                  | 0.7        | 0.0        |
+| ForestSearch         | 6.1        | 0.1        |
+| Bootstrap            | 10.5       | 0.2        |
+| Total                | 30.0       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1012,19 +1012,22 @@ relatively simple procedure.” *Statistics in Medicine*. DOI:
 sessionInfo()
 ```
 
-    ## R version 4.5.1 (2025-06-13)
-    ## Platform: aarch64-apple-darwin20
-    ## Running under: macOS Tahoe 26.3
+    ## R version 4.5.2 (2025-10-31)
+    ## Platform: x86_64-pc-linux-gnu
+    ## Running under: Ubuntu 24.04.3 LTS
     ## 
     ## Matrix products: default
-    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
-    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+    ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
     ## 
     ## locale:
-    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+    ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+    ##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+    ##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+    ## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
     ## 
-    ## time zone: America/Los_Angeles
-    ## tzcode source: internal
+    ## time zone: UTC
+    ## tzcode source: system (glibc)
     ## 
     ## attached base packages:
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
@@ -1032,17 +1035,17 @@ sessionInfo()
     ## other attached packages:
     ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     
     ##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   
-    ##  [7] grf_2.5.0           gt_1.3.0            ggplot2_4.0.2      
-    ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
+    ##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      
+    ## [10] data.table_1.18.2.1 survival_3.8-3      forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
     ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
-    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.1         
-    ## [10] generics_0.1.4       parallel_4.5.1       tibble_3.3.1        
+    ##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         
+    ## [10] generics_0.1.4       parallel_4.5.2       tibble_3.3.1        
     ## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  
     ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
-    ## [19] lifecycle_1.0.5      compiler_4.5.1       farver_2.1.2        
+    ## [19] lifecycle_1.0.5      compiler_4.5.2       farver_2.1.2        
     ## [22] stringr_1.6.0        textshaping_1.0.4    codetools_0.2-20    
     ## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
     ## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       
@@ -1050,13 +1053,12 @@ sessionInfo()
     ## [34] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    
     ## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
     ## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      
-    ## [43] splines_4.5.1        fastmap_1.2.0        grid_4.5.1          
+    ## [43] splines_4.5.2        fastmap_1.2.0        grid_4.5.2          
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
-    ## [55] otel_0.2.0           gridExtra_2.3        progressr_0.18.0    
-    ## [58] ragg_1.5.0           evaluate_1.0.5       knitr_1.51          
-    ## [61] markdown_2.0         rlang_1.1.7          Rcpp_1.1.1          
-    ## [64] glue_1.8.0           xml2_1.5.2           rstudioapi_0.18.0   
-    ## [67] jsonlite_2.0.0       R6_2.6.1             systemfonts_1.3.1   
-    ## [70] fs_1.6.6
+    ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.0          
+    ## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        
+    ## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          
+    ## [64] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      
+    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_1.6.6

@@ -34,7 +34,7 @@ characteristics that are not anticipated or well understood.
 ForestSearch addresses this need for exploratory subgroup identification
 with the following goals:
 
-- **Identify** an underlying subgroup $`H`$ consisting of subjects who
+- **Identify** an underlying subgroup $H$ consisting of subjects who
   derive the least benefit (or potential harm) from treatment
 - **Estimate** treatment effects within identified subgroups with
   appropriate bias correction
@@ -56,62 +56,57 @@ with the following goals:
 
 ### The Cox Model Setting
 
-Consider the two-sample random censorship model with $`N`$ observations
-from a randomized clinical trial. Let $`T`$ denote the survival time,
-$`C`$ the censoring time, $`V`$ the treatment assignment, and
-$`\boldsymbol{Z} = (Z_1, Z_2, \ldots, Z_p)`$ a $`p`$-dimensional
+Consider the two-sample random censorship model with $N$ observations
+from a randomized clinical trial. Let $T$ denote the survival time, $C$
+the censoring time, $V$ the treatment assignment, and
+$\mathbf{Z} = \left( Z_{1},Z_{2},\ldots,Z_{p} \right)$ a $p$-dimensional
 collection of baseline covariates. We observe the possibly censored
-survival time $`Y = \min(T, C)`$ with $`\Delta = I(T \le C)`$ the event
-indicator. The observations $`(V_i, \boldsymbol{Z}_i, Y_i, \Delta_i)`$
-for $`i = 1, \ldots, N`$ are assumed to be iid replicates.
+survival time $Y = \min(T,C)$ with $\Delta = I(T \leq C)$ the event
+indicator. The observations
+$\left( V_{i},\mathbf{Z}_{i},Y_{i},\Delta_{i} \right)$ for
+$i = 1,\ldots,N$ are assumed to be iid replicates.
 
 ForestSearch is based on the standard Cox model fitted within candidate
 subgroups:
 
-``` math
+$$\lambda(t;V) = \lambda_{0}(t)\exp(\beta V),$$
 
-\lambda(t; V) = \lambda_0(t) \exp(\beta V),
-```
-
-where $`\lambda_0(t)`$ is the baseline hazard and $`\beta`$ is the
+where $\lambda_{0}(t)$ is the baseline hazard and $\beta$ is the
 log-hazard ratio for treatment. This is the standard model used in
 oncology forest plot summaries—adjusted for treatment only.
 
 ### Type-1 Error Framework
 
 Heterogeneous treatment effects are assumed to be induced by the
-existence of a detrimental subgroup $`H`$ with true marginal hazard
-ratio $`\theta^{\dagger}(H) > 1`$, where the size of $`H`$ is at least
-60 subjects with an underlying expected event count $`d`$. Two type-1
-error scenarios for false subgroup identification are defined:
+existence of a detrimental subgroup $H$ with true marginal hazard ratio
+$\theta^{\dagger}(H) > 1$, where the size of $H$ is at least 60 subjects
+with an underlying expected event count $d$. Two type-1 error scenarios
+for false subgroup identification are defined:
 
-1.  **Scenario (i):** A subgroup $`H`$ is identified where in truth
-    $`\theta^{\dagger}(H) \le 1`$ (non-detrimental), even though
-    heterogeneous effects may exist via a mixture of true $`H`$ and
-    $`H^c`$.
+1.  **Scenario (i):** A subgroup $H$ is identified where in truth
+    $\theta^{\dagger}(H) \leq 1$ (non-detrimental), even though
+    heterogeneous effects may exist via a mixture of true $H$ and
+    $H^{c}$.
 2.  **Scenario (ii):** The treatment effect is uniformly beneficial,
-    $`\theta^{\dagger}(\text{ITT}) < 1`$, so no detrimental subgroup
-    effects exist.
+    $\theta^{\dagger}\left( \text{ITT} \right) < 1$, so no detrimental
+    subgroup effects exist.
 
 ### Marginal vs. Controlled Direct Effects
 
 An important distinction in Forest Search is between marginal hazard
-ratios $`\theta^{\dagger}(\cdot)`$ and controlled direct effects (CDEs)
-$`\theta^{\ddagger}(\cdot)`$. For a data-generating model with hazard
+ratios $\theta^{\dagger}( \cdot )$ and controlled direct effects (CDEs)
+$\theta^{\ddagger}( \cdot )$. For a data-generating model with hazard
 function:
 
-``` math
+$$\lambda_{v}(t;\mathbf{z}) = \lambda_{0}(t)\exp\left( \gamma_{0}v + \gamma_{1}vz_{1}z_{3} + {\mathbf{γ}}_{2}\prime\mathbf{z}_{2} \right),$$
 
-\lambda_v(t; \boldsymbol{z}) = \lambda_0(t) \exp(\gamma_0 v +
-\gamma_1 v z_1 z_3 + \boldsymbol{\gamma}_2' \boldsymbol{z}_2),
-```
-
-the CDEs are $`\theta^{\ddagger}(H) = \exp(\gamma_0 + \gamma_1)`$ and
-$`\theta^{\ddagger}(H^c) = \exp(\gamma_0)`$. As Aalen et al. (2015)
-describe, marginal effects for $`H`$ and $`H^c`$ can differ
-substantially from the CDEs. Forest Search targets marginal hazard
-ratios via the unadjusted Cox model, which is the standard approach in
-oncology forest plots.
+the CDEs are
+$\theta^{\ddagger}(H) = \exp\left( \gamma_{0} + \gamma_{1} \right)$ and
+$\theta^{\ddagger}\left( H^{c} \right) = \exp\left( \gamma_{0} \right)$.
+As Aalen et al. (2015) describe, marginal effects for $H$ and $H^{c}$
+can differ substantially from the CDEs. Forest Search targets marginal
+hazard ratios via the unadjusted Cox model, which is the standard
+approach in oncology forest plots.
 
 ## The ForestSearch Algorithm
 
@@ -119,30 +114,30 @@ The ForestSearch algorithm proceeds through four main steps:
 
 ### Step 1: Construct Candidate Factors
 
-For candidate baseline factors $`X_k`$, $`k = 1, \ldots, K`$, construct
+For candidate baseline factors $X_{k}$, $k = 1,\ldots,K$, construct
 dummy indicators for each unique factor level.
 
-Let $`l_k`$ denote the unique number of values with
-$`L = \sum_{k=1}^{K} l_k`$ the number of possible single-factor
+Let $l_{k}$ denote the unique number of values with
+$L = \sum_{k = 1}^{K}l_{k}$ the number of possible single-factor
 subgroups.
 
-**Example:** If $`X_1`$ denotes age cut at 50 years and $`X_2`$ denotes
-gender, then $`L = 4`$:
+**Example:** If $X_{1}$ denotes age cut at 50 years and $X_{2}$ denotes
+gender, then $L = 4$:
 
-- age $`\le`$ 50
-- age $`>`$ 50
+- age $\leq$ 50
+- age $>$ 50
 - gender = male
 - gender = female
 
-Let $`J_1, \ldots, J_L`$ denote the resulting subgroup indicators. For
+Let $J_{1},\ldots,J_{L}$ denote the resulting subgroup indicators. For
 example, for age cut at 50 years:
 
-- $`J_1 = I(\text{age} \leq 50)`$ indicates membership in the “50 and
-  younger” subgroup
-- $`J_2 = I(\text{age} > 50)`$ indicates membership in the “older than
-  50” subgroup
+- $J_{1} = I\left( \text{age} \leq 50 \right)$ indicates membership in
+  the “50 and younger” subgroup
+- $J_{2} = I\left( \text{age} > 50 \right)$ indicates membership in the
+  “older than 50” subgroup
 
-Each $`J_1, \ldots, J_L`$ and non-null combinations between them (e.g.,
+Each $J_{1},\ldots,J_{L}$ and non-null combinations between them (e.g.,
 “males 50 and younger”) represents a potential subgroup.
 
 For continuous covariates, binary splits are generated via:
@@ -151,24 +146,21 @@ For continuous covariates, binary splits are generated via:
   factors
 - **GRF** (causal survival forests): selects candidate factors and
   splits based on RMST heterogeneity
-- **Quartile cuts**: splitting at the mean, median, $`q_1`$, and $`q_3`$
+- **Quartile cuts**: splitting at the mean, median, $q_{1}$, and $q_{3}$
 
 Any combination of the above can be used. Two standard configurations
 are:
 
-- $`FS_l`$: LASSO only for candidate selection
-- $`FS_{lg}`$: LASSO + GRF for candidate selection
+- $FS_{l}$: LASSO only for candidate selection
+- $FS_{lg}$: LASSO + GRF for candidate selection
 
 ### Step 2: Enumerate Candidate Subgroups
 
-There are $`2^L - 1`$ all-possible subgroup combinations. We restrict to
+There are $2^{L} - 1$ all-possible subgroup combinations. We restrict to
 those based on **at most two factors**. The total number of possible
 two-factor combinations is:
 
-``` math
-
-\binom{L}{2} + L = \frac{L(L-1)}{2} + L
-```
+$$\left( \frac{L}{2} \right) + L = \frac{L(L - 1)}{2} + L$$
 
 As a minimal sample size criterion, we further restrict to candidate
 subgroup combinations with:
@@ -176,21 +168,18 @@ subgroup combinations with:
 - Minimum size of 60 subjects
 - Minimum of 10 events in each treatment arm
 
-Let $`\{G_s, s = 1, \ldots, S\}`$ denote the collection of subgroups
-meeting the sample size criteria where $`S \leq L(L-1)/2 + L`$.
+Let $\{ G_{s},s = 1,\ldots,S\}$ denote the collection of subgroups
+meeting the sample size criteria where $S \leq L(L - 1)/2 + L$.
 
 ### Step 3: Screening and Consistency Evaluation
 
 #### 3a. Hazard Ratio Screening
 
-For subgroup $`G_s`$ (of size $`\ge`$ 60 and at least 20 events),
-estimate the Cox model log-hazard ratio $`\hat{\beta}_s`$, and consider
-the subgroup as a candidate if:
+For subgroup $G_{s}$ (of size $\geq$ 60 and at least 20 events),
+estimate the Cox model log-hazard ratio ${\widehat{\beta}}_{s}$, and
+consider the subgroup as a candidate if:
 
-``` math
-
-\hat{\beta}_s \geq \log(1.25).
-```
+$${\widehat{\beta}}_{s} \geq \log(1.25).$$
 
 This corresponds to a hazard ratio threshold of 1.25, indicating
 potential harm.
@@ -199,52 +188,51 @@ potential harm.
 
 To judge the “consistency with harm”:
 
-1.  Randomly split the $`G_s`$ subgroup 50/50
+1.  Randomly split the $G_{s}$ subgroup 50/50
 2.  Estimate the log-hazard ratio in each of these 2 random splits
 3.  Consider this subgroup to be “consistent with harm” if, for each
     random split, **both** splits have estimated log-hazard ratios
-    $`\ge \log(1.0) = 0`$
+    $\geq \log(1.0) = 0$
 
-That is, $`\min(\hat{\beta}_s^1, \hat{\beta}_s^2) \geq \log(1.0)`$ for
-log-hazard ratio estimate pairs $`\{\hat{\beta}_s^1, \hat{\beta}_s^2\}`$
-corresponding to each random split.
+That is,
+$\min\left( {\widehat{\beta}}_{s}^{1},{\widehat{\beta}}_{s}^{2} \right) \geq \log(1.0)$
+for log-hazard ratio estimate pairs
+$\{{\widehat{\beta}}_{s}^{1},{\widehat{\beta}}_{s}^{2}\}$ corresponding
+to each random split.
 
 #### 3c. Consistency Rate Estimation
 
-Repeat many times (e.g., $`R = 400`$) to estimate the consistency rate.
-Let $`\{\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}\}`$ denote pairs for the
-$`r`$th random split for $`r = 1, \ldots, R`$. The consistency rate is:
+Repeat many times (e.g., $R = 400$) to estimate the consistency rate.
+Let $\{{\widehat{\beta}}_{s}^{1r},{\widehat{\beta}}_{s}^{2r}\}$ denote
+pairs for the $r$th random split for $r = 1,\ldots,R$. The consistency
+rate is:
 
-``` math
-
-\hat{p}_{\text{consistency}} = \frac{1}{R} \sum_{r=1}^{R}
-I\!\left(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0\right).
-```
+$${\widehat{p}}_{\text{consistency}} = \frac{1}{R}\sum\limits_{r = 1}^{R}I\!\left( \min\left( {\widehat{\beta}}_{s}^{1r},{\widehat{\beta}}_{s}^{2r} \right) \geq 0 \right).$$
 
 ### Step 4: Subgroup Selection
 
 For subgroups with consistency rates at least 90%, choose the subgroup
-with the highest consistency rate as the estimated $`H`$, denoted
-$`\widehat{H}`$ (“maximally consistent”).
+with the highest consistency rate as the estimated $H$, denoted
+$\widehat{H}$ (“maximally consistent”).
 
-If no subgroup achieves consistency $`\ge`$ 90%, then consider $`H`$ as
-null ($`\widehat{H} = \emptyset`$).
+If no subgroup achieves consistency $\geq$ 90%, then consider $H$ as
+null ($\widehat{H} = \varnothing$).
 
-For the complementary group, $`H^c`$ is estimated as the complement of
-$`\widehat{H}`$, denoted $`\widehat{H}^c`$. If $`\widehat{H}`$ is null,
-then $`\widehat{H}^c`$ is the ITT population.
+For the complementary group, $H^{c}$ is estimated as the complement of
+$\widehat{H}$, denoted ${\widehat{H}}^{c}$. If $\widehat{H}$ is null,
+then ${\widehat{H}}^{c}$ is the ITT population.
 
 ### Selection Criteria Variants
 
 Step 4 can be modified in several ways:
 
-| `sg_focus` | Description |
-|----|----|
-| `"hr"` | Maximize consistency rate (default) |
-| `"maxSG"` | Select largest subgroup among those with consistency $`\ge`$ threshold |
-| `"minSG"` | Select smallest subgroup among those with consistency $`\ge`$ threshold |
-| `"hrMaxSG"` | Among consistent candidates, select largest with best HR |
-| `"hrMinSG"` | Among consistent candidates, select smallest with best HR |
+| `sg_focus`  | Description                                                            |
+|-------------|------------------------------------------------------------------------|
+| `"hr"`      | Maximize consistency rate (default)                                    |
+| `"maxSG"`   | Select largest subgroup among those with consistency $\geq$ threshold  |
+| `"minSG"`   | Select smallest subgroup among those with consistency $\geq$ threshold |
+| `"hrMaxSG"` | Among consistent candidates, select largest with best HR               |
+| `"hrMinSG"` | Among consistent candidates, select smallest with best HR              |
 
 **Table:** ForestSearch subgroup selection criteria.
 
@@ -257,37 +245,29 @@ ForestSearch Algorithm Overview
 
 ### Power Approximation
 
-We can approximate the probability of identifying subgroup $`H`$ via
-numerical integration. Let
-$`W_1, W_2 \stackrel{iid}{\sim} N(\beta, 8/d)`$ where
-$`\beta = \log(\theta^{\dagger}(H))`$ and $`d`$ is the expected number
-of events in the subgroup.
+We can approximate the probability of identifying subgroup $H$ via
+numerical integration. Let $W_{1},W_{2}\overset{iid}{\sim}N(\beta,8/d)$
+where $\beta = \log\left( \theta^{\dagger}(H) \right)$ and $d$ is the
+expected number of events in the subgroup.
 
-The screening criterion $`\hat{\beta}_s \ge \log(1.25)`$ is equivalent
-(approximately) to:
+The screening criterion ${\widehat{\beta}}_{s} \geq \log(1.25)$ is
+equivalent (approximately) to:
 
-``` math
+$${\widehat{\beta}}_{s}^{1} + {\widehat{\beta}}_{s}^{2} \geq 2\log(1.25),$$
 
-\hat{\beta}_s^1 + \hat{\beta}_s^2 \ge 2\log(1.25),
-```
+since
+${\widehat{\beta}}_{s} \approx \left( {\widehat{\beta}}_{s}^{1} + {\widehat{\beta}}_{s}^{2} \right)/2$
+by construction of the random splitting.
 
-since $`\hat{\beta}_s \approx (\hat{\beta}_s^1 + \hat{\beta}_s^2)/2`$ by
-construction of the random splitting.
+For a subgroup $H$ with underlying log-hazard ratio $\beta$, we can
+approximate the probability of identifying $H$ via:
+$P\left( {\text{identify}\mspace{6mu}}H \right) \approx$
 
-For a subgroup $`H`$ with underlying log-hazard ratio $`\beta`$, we can
-approximate the probability of identifying $`H`$ via:
-$`P(\text{identify } H) \approx`$
+$$\int\int I\left( w_{1} + w_{2} \geq 2\log(1.25) \right) \cdot I\left( w_{1} \geq 0 \right) \cdot I\left( w_{2} \geq 0 \right) \cdot \varphi\left( w_{1};\beta,8/d \right) \cdot \varphi\left( w_{2};\beta,8/d \right)\, dw_{1}\, dw_{2},$$
 
-``` math
-
-\int \int I(w_1 + w_2 \geq 2\log(1.25)) \cdot I(w_1 \geq 0) \cdot
-I(w_2 \geq 0) \cdot \varphi(w_1; \beta, 8/d) \cdot
-\varphi(w_2; \beta, 8/d) \, dw_1 \, dw_2,
-```
-
-where $`\{W_1, W_2\} \sim N(\beta, 8/d)`$ independently, and
-$`\varphi(\cdot; \beta, 8/d)`$ denotes the normal density with mean
-$`\beta`$ and variance $`8/d`$.
+where $\{ W_{1},W_{2}\} \sim N(\beta,8/d)$ independently, and
+$\varphi( \cdot ;\beta,8/d)$ denotes the normal density with mean
+$\beta$ and variance $8/d$.
 
 The following is based on Monte Carlo simulations. The package also
 contains a numerical integration implementation that is illustrated in
@@ -353,26 +333,26 @@ ggplot(power_data, aes(x = hr, y = power, color = n)) +
 ### Threshold Selection Rationale
 
 The choice of the 1.25 and 1.0 thresholds was based on the desire to
-control the rate for finding a subgroup $`H`$ to be approximately 10%
-when the underlying hazard ratio for $`H`$ is below 1.0.
+control the rate for finding a subgroup $H$ to be approximately 10% when
+the underlying hazard ratio for $H$ is below 1.0.
 
 If the underlying treatment effect is uniform and beneficial, then for a
-random subgroup $`H`$, Cox model estimates will randomly fluctuate
-around the ITT effect. Because ForestSearch seeks subgroups with
-evidence for harm (via the screening and consistency thresholds), the
-chance of forming subgroups under the null with an estimated benefit
-randomly in favor of control is less likely the stronger the (uniform)
-ITT treatment effect.
+random subgroup $H$, Cox model estimates will randomly fluctuate around
+the ITT effect. Because ForestSearch seeks subgroups with evidence for
+harm (via the screening and consistency thresholds), the chance of
+forming subgroups under the null with an estimated benefit randomly in
+favor of control is less likely the stronger the (uniform) ITT treatment
+effect.
 
 **Example:** For
-$`\theta^{\dagger}(H) \equiv \theta^{\dagger}(\text{ITT}) = 0.75`$, the
-approximation yields:
+$\theta^{\dagger}(H) \equiv \theta^{\dagger}\left( \text{ITT} \right) = 0.75$,
+the approximation yields:
 
-| Subgroup size | Type-1 error ($`\theta^{\dagger}(H) = 0.75`$) | $`\approx`$ 80% power at |
-|:--:|:--:|:--:|
-| $`n = 60`$ | 4.9% | HR $`\approx`$ 1.94 |
-| $`n = 80`$ | 3.3% | HR $`\approx`$ 1.81 |
-| $`n = 100`$ | 2.2% | HR $`\approx`$ 1.73 |
+| Subgroup size | Type-1 error ($\theta^{\dagger}(H) = 0.75$) | $\approx$ 80% power at |
+|:-------------:|:-------------------------------------------:|:----------------------:|
+|   $n = 60$    |                    4.9%                     |   HR $\approx$ 1.94    |
+|   $n = 80$    |                    3.3%                     |   HR $\approx$ 1.81    |
+|   $n = 100$   |                    2.2%                     |   HR $\approx$ 1.73    |
 
 **Table:** Type-1 error and approximate 80% power thresholds.
 
@@ -381,91 +361,73 @@ approximation yields:
 ### Sources of Bias
 
 By the nature of the ForestSearch procedure, we expect unadjusted Cox
-model estimates based on $`\widehat{H}`$ to be **upwardly biased** due
-to the hazard ratio thresholds (since by construction, point estimates
-are $`\ge 1.25`$ for $`\widehat{H}`$).
+model estimates based on $\widehat{H}$ to be **upwardly biased** due to
+the hazard ratio thresholds (since by construction, point estimates are
+$\geq 1.25$ for $\widehat{H}$).
 
 However, the bias can also be pressured in the opposite direction
 depending on:
 
-- The proportion of $`H^c`$ subjects incorrectly included in
-  $`\widehat{H}`$
-- The value of $`\theta^{\dagger}(H)`$ relative to
-  $`\theta^{\dagger}(H^c)`$ (e.g., a mixture of
-  $`\theta^{\dagger}(H) = 2.0`$ vs. $`\theta^{\dagger}(H^c) = 0.65`$)
+- The proportion of $H^{c}$ subjects incorrectly included in
+  $\widehat{H}$
+- The value of $\theta^{\dagger}(H)$ relative to
+  $\theta^{\dagger}\left( H^{c} \right)$ (e.g., a mixture of
+  $\theta^{\dagger}(H) = 2.0$ vs.
+  $\theta^{\dagger}\left( H^{c} \right) = 0.65$)
 
 ### Bias-Corrected Estimator
 
 For bias correction, we proceed on the Cox regression coefficient scale,
-denoted $`\hat{\beta}(\widehat{H})`$, and then exponentiate to obtain
-point estimates and confidence intervals for hazard ratios
-$`\hat{\theta}(\widehat{H}) := \exp(\hat{\beta}(\widehat{H}))`$.
+denoted $\widehat{\beta}\left( \widehat{H} \right)$, and then
+exponentiate to obtain point estimates and confidence intervals for
+hazard ratios
+$\widehat{\theta}\left( \widehat{H} \right):=\exp\left( \widehat{\beta}\left( \widehat{H} \right) \right)$.
 
 Our bias-corrected estimator takes into account **two sources of bias**
 involving the discrepancies between the bootstrapped and observed data
 Cox estimators. The approach is along the lines of Harrell et
 al. (1996), but additionally incorporates the bias term
-$`\hat{\beta}_b^*(\widehat{H}) - \hat{\beta}(\widehat{H})`$.
+${\widehat{\beta}}_{b}^{*}\left( \widehat{H} \right) - \widehat{\beta}\left( \widehat{H} \right)$.
 
 #### Notation
 
-For the observed data with estimated subgroup $`\widehat{H}`$:
+For the observed data with estimated subgroup $\widehat{H}$:
 
-- $`\hat{\beta}(\widehat{H})`$: Estimated Cox model regression parameter
+- $\widehat{\beta}\left( \widehat{H} \right)$: Estimated Cox model
+  regression parameter
 
-For bootstrap samples $`b = 1, \ldots, B`$ with estimated subgroup
-$`\widehat{H}^*_b`$:
+For bootstrap samples $b = 1,\ldots,B$ with estimated subgroup
+${\widehat{H}}_{b}^{*}$:
 
-- $`\hat{\beta}^*_b(\widehat{H}^*_b)`$: Cox model parameter for
-  bootstrap sample based on bootstrap-estimated subgroup
-- $`\hat{\beta}(\widehat{H}^*_b)`$: Cox model parameter for observed
-  data based on bootstrap-estimated subgroup
-- $`\hat{\beta}^*_b(\widehat{H})`$: Cox model parameter for bootstrap
-  sample based on observed subgroup
+- ${\widehat{\beta}}_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right)$: Cox
+  model parameter for bootstrap sample based on bootstrap-estimated
+  subgroup
+- $\widehat{\beta}\left( {\widehat{H}}_{b}^{*} \right)$: Cox model
+  parameter for observed data based on bootstrap-estimated subgroup
+- ${\widehat{\beta}}_{b}^{*}\left( \widehat{H} \right)$: Cox model
+  parameter for bootstrap sample based on observed subgroup
 
 #### Bias Terms
 
 Define the bias terms:
 
-``` math
+$$\eta_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right) = {\widehat{\beta}}_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right) - \widehat{\beta}\left( {\widehat{H}}_{b}^{*} \right)$$
 
-\eta^*_b(\widehat{H}^*_b) = \hat{\beta}^*_b(\widehat{H}^*_b) -
-\hat{\beta}(\widehat{H}^*_b)
-```
-
-``` math
-
-\eta^*_b(\widehat{H}) = \hat{\beta}^*_b(\widehat{H}) -
-\hat{\beta}(\widehat{H})
-```
+$$\eta_{b}^{*}\left( \widehat{H} \right) = {\widehat{\beta}}_{b}^{*}\left( \widehat{H} \right) - \widehat{\beta}\left( \widehat{H} \right)$$
 
 #### Bias-Corrected Estimators
 
 The bias-corrected estimators are defined as:
 
-``` math
-
-\hat{\beta}^*(\widehat{H}) = \hat{\beta}(\widehat{H}) -
-\frac{1}{B}\sum_{b=1}^{B} \left[\eta^*_b(\widehat{H}^*_b) +
-\eta^*_b(\widehat{H})\right], \qquad
-\hat{\theta}^*(\widehat{H}) =
-\exp\!\left(\hat{\beta}^*(\widehat{H})\right)
-```
+$${\widehat{\beta}}^{*}\left( \widehat{H} \right) = \widehat{\beta}\left( \widehat{H} \right) - \frac{1}{B}\sum\limits_{b = 1}^{B}\left\lbrack \eta_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right) + \eta_{b}^{*}\left( \widehat{H} \right) \right\rbrack,\qquad{\widehat{\theta}}^{*}\left( \widehat{H} \right) = \exp\!\left( {\widehat{\beta}}^{*}\left( \widehat{H} \right) \right)$$
 
 Similarly for the complement:
 
-``` math
-
-\hat{\beta}^*(\widehat{H}^c) = \hat{\beta}(\widehat{H}^c) -
-\frac{1}{B}\sum_{b=1}^{B} \left[\eta^*_b(\widehat{H}^{c*}_b) +
-\eta^*_b(\widehat{H}^c)\right], \qquad
-\hat{\theta}^*(\widehat{H}^c) =
-\exp\!\left(\hat{\beta}^*(\widehat{H}^c)\right)
-```
+$${\widehat{\beta}}^{*}\left( {\widehat{H}}^{c} \right) = \widehat{\beta}\left( {\widehat{H}}^{c} \right) - \frac{1}{B}\sum\limits_{b = 1}^{B}\left\lbrack \eta_{b}^{*}\left( {\widehat{H}}_{b}^{c*} \right) + \eta_{b}^{*}\left( {\widehat{H}}^{c} \right) \right\rbrack,\qquad{\widehat{\theta}}^{*}\left( {\widehat{H}}^{c} \right) = \exp\!\left( {\widehat{\beta}}^{*}\left( {\widehat{H}}^{c} \right) \right)$$
 
 The bootstrap resamples are drawn independently with replacement from
 the observed data
-$`\{O_i := (V_i, \boldsymbol{Z}_i, Y_i, \Delta_i),\; i = 1, \ldots, N\}`$.
+$\{ O_{i}:=\left( V_{i},\mathbf{Z}_{i},Y_{i},\Delta_{i} \right),\; i = 1,\ldots,N\}$.
 The full ForestSearch algorithm (including LASSO and/or GRF candidate
 selection) is mimicked in each bootstrap replicate. In general, the
 variance induced by the (well-defined) candidate selection algorithm is
@@ -477,48 +439,31 @@ To estimate the variance, we apply an **infinitesimal jackknife
 approximation**, viewing the bias-corrected estimators as “bagged
 estimators.”
 
-Let $`O^*_b = \{O^*_{b1}, O^*_{b2}, \ldots, O^*_{bN}\}`$ denote
-bootstrap sample $`b`$. Let $`K^*_{bi} = \#\{O^*_{bj} = O_i\}`$ denote
-the number of times observation $`O_i`$ is drawn for the $`b`$th
+Let $O_{b}^{*} = \{ O_{b1}^{*},O_{b2}^{*},\ldots,O_{bN}^{*}\}$ denote
+bootstrap sample $b$. Let $K_{bi}^{*} = \#\{ O_{bj}^{*} = O_{i}\}$
+denote the number of times observation $O_{i}$ is drawn for the $b$th
 bootstrap sample, and let
-$`\bar{K}^*_i = (1/B)\sum_{b=1}^{B} K^*_{bi}`$.
+${\bar{K}}_{i}^{*} = (1/B)\sum_{b = 1}^{B}K_{bi}^{*}$.
 
 The infinitesimal jackknife variance estimate is:
 
-``` math
-
-\tilde{V} = \sum_{i=1}^{N} \widetilde{\text{cov}}_i^2
-```
+$$\widetilde{V} = \sum\limits_{i = 1}^{N}{\widetilde{\text{cov}}}_{i}^{2}$$
 
 where:
 
-``` math
-
-\widetilde{\text{cov}}_i = \frac{1}{B} \sum_{b=1}^{B}
-(K^*_{bi} - \bar{K}^*_i)
-\left[\hat{\beta}(\widehat{H}) - \eta^*_b(\widehat{H}^*_b) -
-\eta^*_b(\widehat{H}) - \hat{\beta}^*(\widehat{H})\right]
-```
+$${\widetilde{\text{cov}}}_{i} = \frac{1}{B}\sum\limits_{b = 1}^{B}\left( K_{bi}^{*} - {\bar{K}}_{i}^{*} \right)\left\lbrack \widehat{\beta}\left( \widehat{H} \right) - \eta_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right) - \eta_{b}^{*}\left( \widehat{H} \right) - {\widehat{\beta}}^{*}\left( \widehat{H} \right) \right\rbrack$$
 
 The bias-corrected variance is:
 
-``` math
-
-\hat{V} = \tilde{V} - \frac{N}{B} \tilde{\sigma}^2_B
-```
+$$\widehat{V} = \widetilde{V} - \frac{N}{B}{\widetilde{\sigma}}_{B}^{2}$$
 
 where:
 
-``` math
-
-\tilde{\sigma}^2_B = \frac{1}{B} \sum_{b=1}^{B}
-\left[\hat{\beta}(\widehat{H}) - \eta^*_b(\widehat{H}^*_b) -
-\eta^*_b(\widehat{H}) - \hat{\beta}^*(\widehat{H})\right]^2
-```
+$${\widetilde{\sigma}}_{B}^{2} = \frac{1}{B}\sum\limits_{b = 1}^{B}\left\lbrack \widehat{\beta}\left( \widehat{H} \right) - \eta_{b}^{*}\left( {\widehat{H}}_{b}^{*} \right) - \eta_{b}^{*}\left( \widehat{H} \right) - {\widehat{\beta}}^{*}\left( \widehat{H} \right) \right\rbrack^{2}$$
 
 Confidence intervals for hazard ratios are based on standard normal
 approximations (exponentiated):
-$`\exp\!\left(\hat{\beta}^* \pm 1.96\sqrt{\hat{V}}\right)`$.
+$\exp\!\left( {\widehat{\beta}}^{*} \pm 1.96\sqrt{\widehat{V}} \right)$.
 
 Bootstrap Bias Correction Workflow
 
@@ -529,43 +474,39 @@ selection algorithm. Two forms are implemented.
 
 ### N-Fold (Leave-One-Out) Cross-Validation
 
-For N-fold CV, we exclude each subject ($`i = 1, \ldots, N`$) from the
-analysis and predict their $`\widehat{H}`$ (or $`\widehat{H}^c`$)
-classification based on the remaining $`N-1`$ subjects.
+For N-fold CV, we exclude each subject ($i = 1,\ldots,N$) from the
+analysis and predict their $\widehat{H}$ (or ${\widehat{H}}^{c}$)
+classification based on the remaining $N - 1$ subjects.
 
-Let $`\hat{\pi}^{-i}(\boldsymbol{Z}_i)`$ denote the $`i`$th subject’s
-predicted classification based on the FS procedure without the subject
-in the analysis. Similarly, $`\hat{\pi}(\boldsymbol{Z}_i)`$ is the FS
-classification based on the full sample analysis. Form:
+Let ${\widehat{\pi}}^{- i}\left( \mathbf{Z}_{i} \right)$ denote the
+$i$th subject’s predicted classification based on the FS procedure
+without the subject in the analysis. Similarly,
+$\widehat{\pi}\left( \mathbf{Z}_{i} \right)$ is the FS classification
+based on the full sample analysis. Form:
 
-``` math
+$${\widehat{O}}_{CV} = \{{\widehat{O}}_{i}:=\left( V_{i},Y_{i},\Delta_{i},\widehat{\pi}\left( \mathbf{Z}_{i} \right),{\widehat{\pi}}^{- i}\left( \mathbf{Z}_{i} \right) \right),\; i = 1,\ldots,N\}.$$
 
-\widehat{O}_{CV} = \{\hat{O}_i := (V_i, Y_i, \Delta_i,
-\hat{\pi}(\boldsymbol{Z}_i), \hat{\pi}^{-i}(\boldsymbol{Z}_i)),\;
-i = 1, \ldots, N\}.
-```
-
-Cox model analyses based on $`\hat{\pi}(\cdot)`$ subgroups correspond to
-estimates that are unadjusted for the selection algorithm, whereas
-$`\hat{\pi}^{-i}(\cdot)`$ represents an out-of-bag (OOB) classification
-where each subject is not included in the selection algorithm from which
-they are classified.
+Cox model analyses based on $\widehat{\pi}( \cdot )$ subgroups
+correspond to estimates that are unadjusted for the selection algorithm,
+whereas ${\widehat{\pi}}^{- i}( \cdot )$ represents an out-of-bag (OOB)
+classification where each subject is not included in the selection
+algorithm from which they are classified.
 
 **Interpretation:**
 
-- Correspondence between $`\hat{\pi}(\cdot)`$ and
-  $`\hat{\pi}^{-i}(\cdot)`$ subgroup analysis results may be
-  anticipated, especially for large $`N`$
-- If $`\hat{\pi}`$ and $`\hat{\pi}^{-i}`$ are identical, there is no
-  diagnostic value; in contrast, substantial lack of correspondence may
-  suggest underlying instability
+- Correspondence between $\widehat{\pi}( \cdot )$ and
+  ${\widehat{\pi}}^{- i}( \cdot )$ subgroup analysis results may be
+  anticipated, especially for large $N$
+- If $\widehat{\pi}$ and ${\widehat{\pi}}^{- i}$ are identical, there is
+  no diagnostic value; in contrast, substantial lack of correspondence
+  may suggest underlying instability
 
 ### K-Fold Cross-Validation
 
 In K-fold CV (e.g., 10-fold):
 
 1.  Randomly partition the data into K folds
-2.  For each fold (leaving these subjects out), select $`\widehat{H}`$
+2.  For each fold (leaving these subjects out), select $\widehat{H}$
     based on the other K-1 folds
 3.  Predict the classification for the left-out fold
 
@@ -575,26 +516,18 @@ and summarize correspondence measures across the partitions.
 ### CV Metrics
 
 The sensitivity and positive predictive value metrics are modified by
-replacing $`\widehat{H}`$ with $`\widehat{H}^{-i}`$ and the true $`H`$
-with $`\widehat{H}`$:
+replacing $\widehat{H}$ with ${\widehat{H}}^{- i}$ and the true $H$ with
+$\widehat{H}$:
 
-``` math
+$$\text{sensCV}\left( \widehat{H} \right) = \frac{\#\{ i \in {\widehat{H}}^{- i} \cap \widehat{H}\}}{\#\{ i \in \widehat{H}\}},\qquad\text{ppvCV}\left( \widehat{H} \right) = \frac{\#\{ i \in {\widehat{H}}^{- i} \cap \widehat{H}\}}{\#\{ i \in {\widehat{H}}^{- i}\}}.$$
 
-\text{sensCV}(\widehat{H}) =
-\frac{\#\{i \in \widehat{H}^{-i} \cap \widehat{H}\}}
-     {\#\{i \in \widehat{H}\}}, \qquad
-\text{ppvCV}(\widehat{H}) =
-\frac{\#\{i \in \widehat{H}^{-i} \cap \widehat{H}\}}
-     {\#\{i \in \widehat{H}^{-i}\}}.
-```
-
-| Metric | Description | Interpretation |
-|:---|:---|:---|
-| sensCV(Ĥ) | Proportion of full-analysis Ĥ subjects also classified as Ĥ in CV | Higher = more stable Ĥ identification |
-| sensCV(Ĥᶜ) | Proportion of full-analysis Ĥᶜ subjects also classified as Ĥᶜ in CV | Higher = more stable Ĥᶜ identification |
-| ppvCV(Ĥ) | Proportion of CV Ĥ subjects that match full-analysis Ĥ | Higher = CV predictions align with full analysis |
-| ppvCV(Ĥᶜ) | Proportion of CV Ĥᶜ subjects that match full-analysis Ĥᶜ | Higher = CV predictions align with full analysis |
-| Exact Match | Proportion of CV folds reproducing exact subgroup definition | Higher = algorithm consistently identifies same subgroup |
+| Metric      | Description                                                         | Interpretation                                           |
+|:------------|:--------------------------------------------------------------------|:---------------------------------------------------------|
+| sensCV(Ĥ)   | Proportion of full-analysis Ĥ subjects also classified as Ĥ in CV   | Higher = more stable Ĥ identification                    |
+| sensCV(Ĥᶜ)  | Proportion of full-analysis Ĥᶜ subjects also classified as Ĥᶜ in CV | Higher = more stable Ĥᶜ identification                   |
+| ppvCV(Ĥ)    | Proportion of CV Ĥ subjects that match full-analysis Ĥ              | Higher = CV predictions align with full analysis         |
+| ppvCV(Ĥᶜ)   | Proportion of CV Ĥᶜ subjects that match full-analysis Ĥᶜ            | Higher = CV predictions align with full analysis         |
+| Exact Match | Proportion of CV folds reproducing exact subgroup definition        | Higher = algorithm consistently identifies same subgroup |
 
 Cross-Validation Metrics for ForestSearch
 
@@ -633,22 +566,18 @@ was constructed by resampling from the observed GBSG data while
 retaining covariate structure. Survival outcomes were generated from a
 Weibull regression model:
 
-``` math
+$$\log(T) = \mu + \beta_{0}V + \beta_{1}VZ_{1}Z_{3} + {\mathbf{β}}_{2}\prime\mathbf{Z}_{2} + \tau\epsilon,$$
 
-\log(T) = \mu + \beta_0 V + \beta_1 V Z_1 Z_3 +
-\boldsymbol{\beta}_2' \boldsymbol{Z}_2 + \tau \epsilon,
-```
-
-where $`\epsilon`$ follows the standard extreme value distribution,
-$`\tau`$ is a dispersion parameter,
-$`\boldsymbol{Z}_2 = (Z_1, Z_2, Z_3, Z_4, Z_5)`$, and the interaction
-$`V Z_1 Z_3`$ defines the true subgroup
-$`H = \{Z_1 = 1\} \cap \{Z_3 = 1\}`$. Parameters $`\mu`$,
-$`\boldsymbol{\beta}_2`$, and $`\tau`$ were based on Weibull model fits
-to the observed GBSG data; $`\beta_0`$ and $`\beta_1`$ were chosen to
-generate target marginal hazard ratio effects. A covariate-dependent
-censoring distribution was generated analogously with an overall
-censoring rate of approximately 46%.
+where $\epsilon$ follows the standard extreme value distribution, $\tau$
+is a dispersion parameter,
+$\mathbf{Z}_{2} = \left( Z_{1},Z_{2},Z_{3},Z_{4},Z_{5} \right)$, and the
+interaction $VZ_{1}Z_{3}$ defines the true subgroup
+$H = \{ Z_{1} = 1\} \cap \{ Z_{3} = 1\}$. Parameters $\mu$,
+${\mathbf{β}}_{2}$, and $\tau$ were based on Weibull model fits to the
+observed GBSG data; $\beta_{0}$ and $\beta_{1}$ were chosen to generate
+target marginal hazard ratio effects. A covariate-dependent censoring
+distribution was generated analogously with an overall censoring rate of
+approximately 46%.
 
 ### Scenarios
 
@@ -689,8 +618,8 @@ knitr::kable(
 ```
 
 Each model was evaluated with and without additional random noise
-factors ($`N(0,1)`$ variables completely unrelated to the outcome): 3
-noise factors for $`M_1`$, and 5 noise factors for $`M_2`$ and $`M_3`$.
+factors ($N(0,1)$ variables completely unrelated to the outcome): 3
+noise factors for $M_{1}$, and 5 noise factors for $M_{2}$ and $M_{3}$.
 
 ### Comparator Methods
 
@@ -698,22 +627,16 @@ ForestSearch was compared against:
 
 - **GRF / GRF.60**: Generalized random forests targeting RMST, with
   GRF.60 using a truncated horizon
-  $`\tau_{60} = 0.6\min(\tau_0, \tau_1)`$ for stability. Requires
-  $`\ge`$ 6-month RMST benefit for control.
+  $\tau_{60} = 0.6\min\left( \tau_{0},\tau_{1} \right)$ for stability.
+  Requires $\geq$ 6-month RMST benefit for control.
 - **VT(24) / VT(36)**: Virtual twins targeting survival rate differences
-  at 24 or 36 months. Requires $`\delta \ge 0.225`$ in favor of control.
+  at 24 or 36 months. Requires $\delta \geq 0.225$ in favor of control.
 
-All methods were restricted to subgroups with $`\ge`$ 60 subjects and
+All methods were restricted to subgroups with $\geq$ 60 subjects and
 maximum tree depth of 2. Classification accuracy is measured by
 sensitivity and positive predictive value:
 
-``` math
-
-\text{sens}(\widehat{H}) =
-\frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in H\}}, \qquad
-\text{ppv}(\widehat{H}) =
-\frac{\#\{i \in \widehat{H} \cap H\}}{\#\{i \in \widehat{H}\}}.
-```
+$$\text{sens}\left( \widehat{H} \right) = \frac{\#\{ i \in \widehat{H} \cap H\}}{\#\{ i \in H\}},\qquad\text{ppv}\left( \widehat{H} \right) = \frac{\#\{ i \in \widehat{H} \cap H\}}{\#\{ i \in \widehat{H}\}}.$$
 
 ### Key Results: Subgroup Identification
 
@@ -760,26 +683,26 @@ knitr::kable(
 
 **Summary of identification results:**
 
-- $`FS_l`$ maintained type-1 error $`\le 3\%`$ across all scenarios,
+- $FS_{l}$ maintained type-1 error $\leq 3\%$ across all scenarios,
   including with noise factors, and was the most stable approach
-- $`FS_{lg}`$ had slightly elevated type-1 error (up to 14% with noise,
+- $FS_{lg}$ had slightly elevated type-1 error (up to 14% with noise,
   inherited from GRF) but achieved the highest classification accuracy
   among approaches with well-controlled type-1 error
 - GRF had substantially inflated type-1 error (up to 61% with noise)
-  under $`M_1`$ and $`M_2`$; intuitively, with the addition of noise
+  under $M_{1}$ and $M_{2}$; intuitively, with the addition of noise
   factors there was more opportunity to randomly form erroneous splits
-- Under $`M_3`$ (strongest ITT effect,
-  $`\theta^{\dagger}(\text{ITT}) = 0.55`$), all approaches had
-  better-controlled type-1 error since the chance of forming subgroups
-  with estimates in favor of control is less likely with a more
-  pronounced ITT treatment effect
+- Under $M_{3}$ (strongest ITT effect,
+  $\theta^{\dagger}\left( \text{ITT} \right) = 0.55$), all approaches
+  had better-controlled type-1 error since the chance of forming
+  subgroups with estimates in favor of control is less likely with a
+  more pronounced ITT treatment effect
 - The power approximation from (**eq-power?**) was reasonably accurate
   across all models
 
 ### Key Results: Estimation Properties
 
-Estimation properties for $`FS_{lg}`$ with $`B = 300`$ bootstrap
-replicates (based on 1,000 simulations per model with noise factors):
+Estimation properties for $FS_{lg}$ with $B = 300$ bootstrap replicates
+(based on 1,000 simulations per model with noise factors):
 
 | Estimator              | Rel. bias (marginal) | Rel. bias (CDE) | Oracle coverage |
 |:-----------------------|:--------------------:|:---------------:|:---------------:|
@@ -824,71 +747,73 @@ knitr::kable(
 ```
 
 The bias-corrected estimators tend to be **conservative**:
-underestimating both $`\theta^{\dagger}(H)`$ and
-$`\theta^{\ddagger}(\widehat{H})`$ (“conservative for harm”) while
-overestimating both $`\theta^{\dagger}(H^c)`$ and
-$`\theta^{\ddagger}(\widehat{H}^c)`$ (“conservative for benefit”).
-Coverage rates for $`\hat{\theta}^*(\widehat{H}^c)`$ were $`\ge 93\%`$
-for each target, and the oracle coverage rates for both estimators were
-$`\ge 95\%`$.
+underestimating both $\theta^{\dagger}(H)$ and
+$\theta^{\ddagger}\left( \widehat{H} \right)$ (“conservative for harm”)
+while overestimating both $\theta^{\dagger}\left( H^{c} \right)$ and
+$\theta^{\ddagger}\left( {\widehat{H}}^{c} \right)$ (“conservative for
+benefit”). Coverage rates for
+${\widehat{\theta}}^{*}\left( {\widehat{H}}^{c} \right)$ were
+$\geq 93\%$ for each target, and the oracle coverage rates for both
+estimators were $\geq 95\%$.
 
 ## Applications
 
 ### GBSG Breast Cancer Trial
 
-The German Breast Cancer Study Group trial ($`N = 686`$) compared
+The German Breast Cancer Study Group trial ($N = 686$) compared
 tamoxifen (hormonal therapy) to chemotherapy for tumor recurrence. The
 observed censoring rate was approximately 56%, and the Cox ITT hazard
 ratio estimate was 0.69 (95% CI: 0.54, 0.89). Seven baseline prognostic
 factors were available.
 
 **ForestSearch results:** Using the selection criterion for the
-*largest* subgroup with consistency $`\ge`$ 90%, with LASSO followed by
-quartile cuts on continuous factors, and GRF ($`GRF_{60}`$) for
-additional candidate selection:
+*largest* subgroup with consistency $\geq$ 90%, with LASSO followed by
+quartile cuts on continuous factors, and GRF ($GRF_{60}$) for additional
+candidate selection:
 
-- $`\widehat{H}`$ = Estrogen = 0 (consistency rate 95.1%)
-- $`\hat{\theta}^*(\widehat{H}) = 1.58`$ (0.86, 2.9) — 82 subjects (12%)
-- $`\hat{\theta}^*(\widehat{H}^c) = 0.64`$ (0.44, 0.93) — 604 subjects
-  (88%)
+- $\widehat{H}$ = Estrogen = 0 (consistency rate 95.1%)
+- ${\widehat{\theta}}^{*}\left( \widehat{H} \right) = 1.58$ (0.86, 2.9)
+  — 82 subjects (12%)
+- ${\widehat{\theta}}^{*}\left( {\widehat{H}}^{c} \right) = 0.64$ (0.44,
+  0.93) — 604 subjects (88%)
 
-The bias-corrected estimate for $`H^c`$ suggests a slightly stronger
+The bias-corrected estimate for $H^{c}$ suggests a slightly stronger
 benefit (0.64 vs 0.69 for ITT) that is statistically significant.
 
 **Cross-validation:** N-fold CV showed perfect stability (all 686
 training sets reproduced Estrogen = 0). Across 200 random 10-fold CV
 analyses, the median number of folds identifying a subgroup was 9/10,
-with $`\text{sensCV}(\widehat{H}) = 73\%`$ and
-$`\text{ppvCV}(\widehat{H}) = 83\%`$.
+with $\text{sensCV}\left( \widehat{H} \right) = 73\%$ and
+$\text{ppvCV}\left( \widehat{H} \right) = 83\%$.
 
 **Biological plausibility:** Tamoxifen is a selective estrogen receptor
 (ER) modulator with limited efficacy in ER-negative tumors. A
 patient-level meta-analysis by the Early Breast Cancer Trialists’
 Collaborative Group found for ER-negative (ER = 0) subjects, the
 event-rate ratio was 1.11 (SE = 0.13); whereas for ER-positive
-($`\ge 10\%`$) subjects it was 0.62 (SE = 0.03).
+($\geq 10\%$) subjects it was 0.62 (SE = 0.03).
 
 ### ACTG-175 HIV Trial
 
-The ACTG-175 study ($`N = 1{,}083`$) compared zidovudine + didanosine
+The ACTG-175 study ($N = 1,083$) compared zidovudine + didanosine
 (experimental) to didanosine monotherapy (control). The survival outcome
-was the first occurrence of CD4 decline $`\ge`$ 50, AIDS progression, or
+was the first occurrence of CD4 decline $\geq$ 50, AIDS progression, or
 death. The Cox ITT hazard ratio estimate was 0.84 (0.65, 1.09), with 15
 baseline covariates available.
 
 **Goal:** Identify a subgroup with *substantial benefit* by reversing
-treatment roles (screening threshold $`\log(1/0.6)`$, consistency
-threshold $`\log(1/0.8)`$), selecting the largest subgroup with
-consistency $`\ge`$ 90%.
+treatment roles (screening threshold $\log(1/0.6)$, consistency
+threshold $\log(1/0.8)$), selecting the largest subgroup with
+consistency $\geq$ 90%.
 
 **ForestSearch results:**
 
-- $`\widehat{Q}`$ = Preanti $`\le`$ 744.5 and Age $`>`$ 34 (consistency
+- $\widehat{Q}$ = Preanti $\leq$ 744.5 and Age $>$ 34 (consistency
   92.8%)
-- $`\hat{\theta}^*(\widehat{Q}) = 0.59`$ (0.37, 0.94) — 382 subjects
-  (35%)
-- $`\hat{\theta}^*(\widehat{Q}^c) = 0.95`$ (0.65, 1.41) — 701 subjects
-  (65%)
+- ${\widehat{\theta}}^{*}\left( \widehat{Q} \right) = 0.59$ (0.37, 0.94)
+  — 382 subjects (35%)
+- ${\widehat{\theta}}^{*}\left( {\widehat{Q}}^{c} \right) = 0.95$ (0.65,
+  1.41) — 701 subjects (65%)
 
 The bias-corrected estimate suggests a relatively strong benefit (0.59
 vs 0.84 for ITT) that is statistically significant.
@@ -898,12 +823,12 @@ definition in all but 7 of 1,083 training sets. The N-fold predicted Cox
 estimate was 0.59 (0.37, 0.94), identical to the bootstrap
 bias-corrected estimate. Across 200 random 10-fold analyses, median 9/10
 folds identified a subgroup with
-$`\text{sensCV}(\widehat{Q}) \approx 69\%`$.
+$\text{sensCV}\left( \widehat{Q} \right) \approx 69\%$.
 
 **Biological plausibility:** The finding aligns with the HIV Trialists’
 Collaborative Group meta-analysis reporting greater treatment effects
 among participants with no previous antiretroviral therapy or higher
-baseline CD4 counts. Of the $`\widehat{Q}`$ subgroup, 46.9% were
+baseline CD4 counts. Of the $\widehat{Q}$ subgroup, 46.9% were
 antiretroviral treatment naive.
 
 ## Variable Selection Methods
@@ -944,11 +869,11 @@ result <- forestsearch(
 
 ### Recommendations
 
-| Scenario | Recommendation |
-|----|----|
-| Standard analysis | `use_lasso = TRUE, use_grf = FALSE` |
-| Exploratory with many candidates | `use_lasso = TRUE, use_grf = TRUE` |
-| When noise factors may be present | Always include LASSO |
+| Scenario                                 | Recommendation                       |
+|------------------------------------------|--------------------------------------|
+| Standard analysis                        | `use_lasso = TRUE, use_grf = FALSE`  |
+| Exploratory with many candidates         | `use_lasso = TRUE, use_grf = TRUE`   |
+| When noise factors may be present        | Always include LASSO                 |
 | Large datasets with complex interactions | Consider GRF for variable importance |
 
 **Table:** Variable selection recommendations.
@@ -966,25 +891,25 @@ were obtained.
 - **Minimum subgroup size:** 60 subjects (default `n.min = 60`)
 - **Minimum events:** 10–12 per treatment arm (default `d0.min = 12`,
   `d1.min = 12`)
-- **Recommended trial size:** $`N \ge 300`$ for Phase 2; $`N \ge 500`$
-  for Phase 3
+- **Recommended trial size:** $N \geq 300$ for Phase 2; $N \geq 500$ for
+  Phase 3
 
 ### Computational Considerations
 
-The computational time depends on the number of candidate factors
-($`K`$), the number of subgroup combinations meeting size criteria
-($`S`$), the number of consistency splits (`fs.splits`, default
-400–1000), the number of bootstrap iterations ($`B`$, typically
-300–2000), and the number of CV repetitions.
+The computational time depends on the number of candidate factors ($K$),
+the number of subgroup combinations meeting size criteria ($S$), the
+number of consistency splits (`fs.splits`, default 400–1000), the number
+of bootstrap iterations ($B$, typically 300–2000), and the number of CV
+repetitions.
 
 **Typical timing** (Apple M1, 20 cores):
 
-| Component                 | Time                      |
-|---------------------------|---------------------------|
-| FS analysis               | $`\sim`$ 0.05–0.2 minutes |
-| 2000 bootstraps           | $`\sim`$ 29–30 minutes    |
-| N-fold CV                 | $`\sim`$ 4–22 minutes     |
-| 200 $`\times`$ 10-fold CV | $`\sim`$ 59–105 minutes   |
+| Component               | Time                    |
+|-------------------------|-------------------------|
+| FS analysis             | $\sim$ 0.05–0.2 minutes |
+| 2000 bootstraps         | $\sim$ 29–30 minutes    |
+| N-fold CV               | $\sim$ 4–22 minutes     |
+| 200 $\times$ 10-fold CV | $\sim$ 59–105 minutes   |
 
 **Table:** Computational timing for ForestSearch. Parallel computing is
 implemented via the `doFuture` package.
@@ -1016,19 +941,22 @@ Random Forests.” *The Annals of Statistics* 47 (2): 1148–78.
 sessionInfo()
 ```
 
-    ## R version 4.5.1 (2025-06-13)
-    ## Platform: aarch64-apple-darwin20
-    ## Running under: macOS Tahoe 26.3
+    ## R version 4.5.2 (2025-10-31)
+    ## Platform: x86_64-pc-linux-gnu
+    ## Running under: Ubuntu 24.04.3 LTS
     ## 
     ## Matrix products: default
-    ## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
-    ## LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+    ## BLAS:   /usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so.3 
+    ## LAPACK: /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblasp-r0.3.26.so;  LAPACK version 3.12.0
     ## 
     ## locale:
-    ## [1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+    ##  [1] LC_CTYPE=C.UTF-8       LC_NUMERIC=C           LC_TIME=C.UTF-8       
+    ##  [4] LC_COLLATE=C.UTF-8     LC_MONETARY=C.UTF-8    LC_MESSAGES=C.UTF-8   
+    ##  [7] LC_PAPER=C.UTF-8       LC_NAME=C              LC_ADDRESS=C          
+    ## [10] LC_TELEPHONE=C         LC_MEASUREMENT=C.UTF-8 LC_IDENTIFICATION=C   
     ## 
-    ## time zone: America/Los_Angeles
-    ## tzcode source: internal
+    ## time zone: UTC
+    ## tzcode source: system (glibc)
     ## 
     ## attached base packages:
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
@@ -1037,15 +965,14 @@ sessionInfo()
     ## [1] ggplot2_4.0.2     DiagrammeR_1.0.11
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.0        compiler_4.5.1    
-    ##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.1  scales_1.4.0      
+    ##  [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.0        compiler_4.5.2    
+    ##  [5] tidyselect_1.2.1   jquerylib_0.1.4    systemfonts_1.3.2  scales_1.4.0      
     ##  [9] textshaping_1.0.4  yaml_2.3.12        fastmap_1.2.0      R6_2.6.1          
     ## [13] generics_0.1.4     knitr_1.51         htmlwidgets_1.6.4  visNetwork_2.1.4  
     ## [17] tibble_3.3.1       desc_1.4.3         bslib_0.10.0       pillar_1.11.1     
     ## [21] RColorBrewer_1.1-3 rlang_1.1.7        cachem_1.1.0       xfun_0.56         
-    ## [25] fs_1.6.6           sass_0.4.10        S7_0.2.1           otel_0.2.0        
-    ## [29] cli_3.6.5          withr_3.0.2        pkgdown_2.2.0      magrittr_2.0.4    
-    ## [33] digest_0.6.39      grid_4.5.1         rstudioapi_0.18.0  lifecycle_1.0.5   
-    ## [37] vctrs_0.7.1        evaluate_1.0.5     glue_1.8.0         farver_2.1.2      
-    ## [41] ragg_1.5.0         rmarkdown_2.30     tools_4.5.1        pkgconfig_2.0.3   
-    ## [45] htmltools_0.5.9
+    ## [25] fs_1.6.6           sass_0.4.10        S7_0.2.1           cli_3.6.5         
+    ## [29] withr_3.0.2        pkgdown_2.2.0      magrittr_2.0.4     digest_0.6.39     
+    ## [33] grid_4.5.2         rstudioapi_0.18.0  lifecycle_1.0.5    vctrs_0.7.1       
+    ## [37] evaluate_1.0.5     glue_1.8.0         farver_2.1.2       ragg_1.5.0        
+    ## [41] rmarkdown_2.30     tools_4.5.2        pkgconfig_2.0.3    htmltools_0.5.9

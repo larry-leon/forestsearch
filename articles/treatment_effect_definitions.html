@@ -31,7 +31,7 @@
       <ul class="navbar-nav me-auto">
 <li class="nav-item"><a class="nav-link" href="../articles/forestsearch.html">Getting Started</a></li>
 <li class="nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
-<li class="nav-item dropdown">
+<li class="active nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="../articles/forestsearch.html">Introduction to forestsearch</a></li>
@@ -71,9 +71,9 @@ Truth</h3>
                         <h4 data-toc-skip class="author">ForestSearch
 Package Documentation</h4>
             
-            <h4 data-toc-skip class="date">2026-03-04</h4>
+            <h4 data-toc-skip class="date">2026-03-05</h4>
       
-      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/articles/treatment_effect_definitions.Rmd" class="external-link"><code>vignettes/articles/treatment_effect_definitions.Rmd</code></a></small>
+      <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/articles/treatment_effect_definitions.Rmd" class="external-link"><code>vignettes/articles/treatment_effect_definitions.Rmd</code></a></small>
       <div class="d-none name"><code>treatment_effect_definitions.Rmd</code></div>
     </div>
 
@@ -166,7 +166,7 @@ are prognostic covariate effects.</p>
 <h3 id="hazard-scale-coefficients">Hazard-Scale Coefficients<a class="anchor" aria-label="anchor" href="#hazard-scale-coefficients"></a>
 </h3>
 <p>The AFT-to-hazard-scale transformation yields:</p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
 \boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma
 </annotation></semantics></math></p>
 <p>Under this parameterisation the conditional hazard function is</p>
@@ -585,7 +585,7 @@ thresholds.</p>
 <p>Given a fitted AFT model with parameters
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="true" form="prefix">(</mo><mi>μ</mi><mo>,</mo><mi>σ</mi><mo>,</mo><mi>𝛄</mi><mo stretchy="true" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(\mu, \sigma, \boldsymbol{\gamma})</annotation></semantics></math>:</p>
 <p><strong>Step 1: Hazard-scale transformation</strong></p>
-<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>𝛃</mi><mn>0</mn></msub><mo>=</mo><mo>−</mo><mi>𝛄</mi><mi>/</mi><mi>σ</mi></mrow><annotation encoding="application/x-tex">
 \boldsymbol{\beta}_0 = -\boldsymbol{\gamma} / \sigma
 </annotation></semantics></math></p>
 <p><strong>Step 2: Build potential-outcome design matrices</strong></p>
@@ -1457,7 +1457,7 @@ using observed data</td>
 <p>Relative bias is computed against the DGM-level constant
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup><mo>=</mo><mrow><mi>𝚍</mi><mi>𝚐</mi><mi>𝚖</mi><mi mathvariant="monospace">$</mi><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">_</mi><mi>𝙷</mi><mi mathvariant="monospace">_</mi><mi>𝚝</mi><mi>𝚛</mi><mi>𝚞</mi><mi>𝚎</mi></mrow></mrow><annotation encoding="application/x-tex">\theta^\dagger_H = \mathtt{dgm\$hr\_H\_true}</annotation></semantics></math>
 (the marginal/causal HR truth, using the
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>†</mi><annotation encoding="application/x-tex">\dagger</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>†</mo><annotation encoding="application/x-tex">\dagger</annotation></semantics></math>
 notation from León et al., 2024):</p>
 <p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>b</mi><mo>†</mo></msup><mrow><mo stretchy="true" form="prefix">(</mo><mi>%</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>=</mo><mn>100</mn><mo>×</mo><mfrac><mrow><mover><mrow><mi>𝚑</mi><mi>𝚛</mi><mi mathvariant="monospace">.</mi><mi>𝙷</mi><mi mathvariant="monospace">.</mi><mi>𝚑</mi><mi>𝚊</mi><mi>𝚝</mi></mrow><mo accent="true">¯</mo></mover><mo>−</mo><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mrow><msubsup><mi>θ</mi><mi>H</mi><mo>†</mo></msubsup></mfrac></mrow><annotation encoding="application/x-tex">
 b^\dagger(\%) = 100 \times
@@ -1476,7 +1476,7 @@ b^\ddagger(\%) = 100 \times
 denotes the true (oracle) subgroup,
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mover><mi>H</mi><mo accent="true">̂</mo></mover><annotation encoding="application/x-tex">\hat{H}</annotation></semantics></math>
 denotes the identified (data-driven) subgroup, and
-<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>*</mi><annotation encoding="application/x-tex">*</annotation></semantics></math>
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mo>*</mo><annotation encoding="application/x-tex">*</annotation></semantics></math>
 is reserved exclusively for bootstrap bias-corrected estimates
 (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mover><mi>θ</mi><mo accent="true">̂</mo></mover><mo>*</mo></msup><annotation encoding="application/x-tex">\hat{\theta}^*</annotation></semantics></math>)—it
 is never used to denote “true subgroup.”</p>
