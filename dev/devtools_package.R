@@ -168,8 +168,8 @@ git add vignettes/articles/extreme_subgroups.Rmd
 
 
 
-
-pkgdown::deploy_to_branch()
+# Don't do this --> use github actions
+#pkgdown::deploy_to_branch()
 
 
 git status          # docs/ files should show as modified
