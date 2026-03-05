@@ -70,7 +70,7 @@ on Observed Trial Data</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-03-04</h4>
+            <h4 data-toc-skip class="date">2026-03-05</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/HEAD/vignettes/articles/extreme_subgroups.Rmd" class="external-link"><code>vignettes/articles/extreme_subgroups.Rmd</code></a></small>
       <div class="d-none name"><code>extreme_subgroups.Rmd</code></div>
@@ -103,7 +103,7 @@ censoring process so that simulated trials reproduce the censoring
 pattern of the source data. This step establishes the null scenario: a
 DGM where the true HR is 0.70 <em>for every patient</em>, with no
 subgroup differential effects.</p></li>
-<li><p><strong>Running simulated trials</strong> — drawing 30 synthetic
+<li><p><strong>Running simulated trials</strong> — drawing 13 synthetic
 trial replicates from the null DGM and fitting a stratified Cox model in
 each pre-defined subgroup.</p></li>
 <li><p><strong>Characterising the distribution of extreme
@@ -243,7 +243,7 @@ cutpoint</td>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="summary-statistics-across-5-000-simulations">Summary Statistics Across 5 000 Simulations<a class="anchor" aria-label="anchor" href="#summary-statistics-across-5-000-simulations"></a>
+<h3 id="summary-statistics-across-simulations">Summary Statistics Across Simulations<a class="anchor" aria-label="anchor" href="#summary-statistics-across-simulations"></a>
 </h3>
 <p>For each subgroup and analysis, two quantities are accumulated across
 all simulated trials:</p>
@@ -310,7 +310,7 @@ installed directly from GitHub using either <code>pak</code>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Using pak (recommended)</span></span>
 <span><span class="co"># install.packages("pak")</span></span>
-<span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"larry-leon/forestsearch"</span><span class="op">)</span></span>
+<span><span class="fu">pak</span><span class="fu">::</span><span class="fu">pak</span><span class="op">(</span><span class="st">"larry-leon/forestsearch"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Using remotes</span></span>
 <span><span class="co"># install.packages("remotes")</span></span>
@@ -455,33 +455,89 @@ IV</strong></p>
 <span>  seed            <span class="op">=</span> <span class="fl">42</span>,</span>
 <span>  verbose         <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<pre><code><span><span class="co">## </span></span>
+<span><span class="co">##  ====================================================================== </span></span>
+<span><span class="co">##  CENSORING MODEL SELECTION:</span></span>
+<span><span class="co">##  MULTIPLE SURVIVAL REGRESSION MODEL COMPARISONS</span></span>
+<span><span class="co">## ====================================================================== </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## CONVERGENCE SUMMARY ( 4 / 4  converged):</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## Weibull (weibull):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  9 </span></span>
+<span><span class="co">##   Log-likelihood:  -1838.404 </span></span>
+<span><span class="co">##   Scale parameter:  0.418 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## LogNormal (lognormal):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  4 </span></span>
+<span><span class="co">##   Log-likelihood:  -2000.309 </span></span>
+<span><span class="co">##   Scale parameter:  0.8707 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## Weibull0 (weibull):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  7 </span></span>
+<span><span class="co">##   Log-likelihood:  -1843.717 </span></span>
+<span><span class="co">##   Scale parameter:  0.4246 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## LogNormal0 (lognormal):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  6 </span></span>
+<span><span class="co">##   Log-likelihood:  -2004.326 </span></span>
+<span><span class="co">##   Scale parameter:  0.8768 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## MODEL COMPARISON TABLE:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##       Model     AIC delta_AIC AIC_weight     BIC delta_BIC</span></span>
+<span><span class="co">##    Weibull0 3691.43      0.00      0.976 3700.50      0.00</span></span>
+<span><span class="co">##     Weibull 3698.81      7.37      0.024 3748.65     48.15</span></span>
+<span><span class="co">##  LogNormal0 4012.65    321.22      0.000 4021.71    321.22</span></span>
+<span><span class="co">##   LogNormal 4022.62    331.18      0.000 4072.46    371.96</span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## MODEL RANKINGS:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">## By AIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span></span>
+<span><span class="co">## By BIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## EVIDENCE ASSESSMENT:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##   Strength:  Strong evidence </span></span>
+<span><span class="co">##   Details:  Top model has 97.6% of AIC weight </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## FINAL RECOMMENDATION:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##   Clear winner: Weibull0 (best by both AIC and BIC)</span></span>
+<span><span class="co">##   Evidence: Strong evidence - Top model has 97.6% of AIC weight </span></span>
+<span><span class="co">## ======================================================================</span></span></code></pre>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Key DGM outputs</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"=== DGM Summary ===\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## === DGM Summary ===</span></span></code></pre>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Time scale          : months\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Time scale          : months</span></span></code></pre>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Implied median T    : exp(mu) ="</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">model_params</span><span class="op">$</span><span class="va">mu</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"months\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Implied median T    : exp(mu) = 57.8 months</span></span></code></pre>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Subgroup proportion :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">subgroup_info</span><span class="op">$</span><span class="va">proportion</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Subgroup proportion : 0.188</span></span></code></pre>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True HR (harm)      :"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">harm_subgroup</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## True HR (harm)      : 1.206</span></span></code></pre>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True HR (no harm)   :"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">no_harm_subgroup</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## True HR (no harm)   : 0.729</span></span></code></pre>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"True HR (overall)   :"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">overall</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## True HR (overall)   : 0.781</span></span></code></pre>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Censoring type      :"</span>,</span>
 <span>    <span class="va">dgm</span><span class="op">$</span><span class="va">model_params</span><span class="op">$</span><span class="va">censoring</span><span class="op">$</span><span class="va">type</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Censoring type      : weibull</span></span></code></pre>
@@ -512,7 +568,7 @@ simulated dataset: overall censoring rate, censoring-time quantiles
 among censored subjects, and the KM-based median censoring time
 (estimated by reversing the event indicator so that censored
 observations become the “event” of interest).</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Generate a pilot simulated trial (no calibration yet)</span></span>
 <span><span class="va">sim_pilot</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_from_dgm.html">simulate_from_dgm</a></span><span class="op">(</span></span>
 <span>  dgm           <span class="op">=</span> <span class="va">dgm</span>,</span>
@@ -526,7 +582,7 @@ observations become the “event” of interest).</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Pilot trial:  N ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sim_pilot</span><span class="op">)</span>,</span>
 <span>    <span class="st">"  Event rate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim_pilot</span><span class="op">$</span><span class="va">event_sim</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Pilot trial:  N = 1500   Event rate: 0.419</span></span></code></pre>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">diag0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/check_censoring_dgm.html">check_censoring_dgm</a></span><span class="op">(</span></span>
 <span>  sim_data   <span class="op">=</span> <span class="va">sim_pilot</span>,</span>
 <span>  dgm        <span class="op">=</span> <span class="va">dgm</span>,</span>
@@ -615,7 +671,7 @@ synthetic subjects.</li>
 <code>seed</code> inside the objective ensures the same candidate is
 always evaluated identically, preventing the root-finder from chasing
 Monte Carlo noise.</p>
-<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calibrate_cens_adjust.html">calibrate_cens_adjust</a></span><span class="op">(</span></span>
 <span>  dgm           <span class="op">=</span> <span class="va">dgm</span>,</span>
 <span>  target        <span class="op">=</span> <span class="st">"rate"</span>,</span>
@@ -688,17 +744,17 @@ Monte Carlo noise.</p>
 <span><span class="co">##   Residual         : 0.0232</span></span>
 <span><span class="co">##   uniroot iters    : 13</span></span>
 <span><span class="co">## -------------------------------------------------------</span></span></code></pre>
-<div class="sourceCode" id="cb40"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nCalibrated cens_adjust :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">cens_adjust</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
 <span><span class="co">## Calibrated cens_adjust : 0.0344</span></span></code></pre>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Reference censoring rate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">ref_value</span>,    <span class="fl">3</span><span class="op">)</span>,  <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Reference censoring rate: 0.575</span></span></code></pre>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Achieved  censoring rate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">sim_value</span>,    <span class="fl">3</span><span class="op">)</span>,  <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Achieved  censoring rate: 0.552</span></span></code></pre>
-<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Residual                :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal</span><span class="op">$</span><span class="va">residual</span>,     <span class="fl">4</span><span class="op">)</span>,  <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Residual                : 0.0232</span></span></code></pre>
 <p><strong>Monotonicity note.</strong> The objective is monotone in
@@ -710,7 +766,7 @@ opposite. If <code>uniroot</code> fails, the target lies outside the
 <div class="section level3">
 <h3 id="verifying-the-calibrated-simulation">Verifying the calibrated simulation<a class="anchor" aria-label="anchor" href="#verifying-the-calibrated-simulation"></a>
 </h3>
-<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb49"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sim_cal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_from_dgm.html">simulate_from_dgm</a></span><span class="op">(</span></span>
 <span>  dgm           <span class="op">=</span> <span class="va">dgm</span>,</span>
 <span>  n             <span class="op">=</span> <span class="fl">1000</span>,</span>
@@ -781,10 +837,10 @@ calibrated censoring model, and truncates at
 <p>The single-trial example below illustrates the output structure. In
 the null DGM every patient has the same true HR of 0.70, so
 <code>flag_harm</code> is always 0 — there is no embedded subgroup. The
-30 replications that drive the extreme-subgroup analysis in Part IV
+13 replications that drive the extreme-subgroup analysis in Part IV
 follow the same pattern, looping over subgroups inside each
 replicate.</p>
-<div class="sourceCode" id="cb50"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb51"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sim_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_from_dgm.html">simulate_from_dgm</a></span><span class="op">(</span></span>
 <span>  dgm           <span class="op">=</span> <span class="va">dgm</span>,</span>
 <span>  n             <span class="op">=</span> <span class="fl">600</span>,</span>
@@ -797,23 +853,23 @@ replicate.</p>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Simulated trial:  N ="</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Simulated trial:  N = 600</span></span></code></pre>
-<div class="sourceCode" id="cb52"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Treatment allocation:"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">$</span><span class="va">treat_sim</span><span class="op">)</span><span class="op">[[</span><span class="st">"0"</span><span class="op">]</span><span class="op">]</span>, <span class="st">"control /"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">$</span><span class="va">treat_sim</span><span class="op">)</span><span class="op">[[</span><span class="st">"1"</span><span class="op">]</span><span class="op">]</span>, <span class="st">"experimental\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Treatment allocation: 300 control / 300 experimental</span></span></code></pre>
-<div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb55"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Overall event rate :"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">$</span><span class="va">event_sim</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Overall event rate : 0.412</span></span></code></pre>
-<div class="sourceCode" id="cb56"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb57"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Event rate (harm subgroup):"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">$</span><span class="va">event_sim</span><span class="op">[</span><span class="va">sim_data</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Event rate (harm subgroup): 0.57</span></span></code></pre>
-<div class="sourceCode" id="cb58"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb59"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Event rate (no-harm)      :"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim_data</span><span class="op">$</span><span class="va">event_sim</span><span class="op">[</span><span class="va">sim_data</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Event rate (no-harm)      : 0.374</span></span></code></pre>
-<div class="sourceCode" id="cb60"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb61"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># KM for overall, harm subgroup, and complementary subgroup</span></span>
@@ -862,7 +918,7 @@ synthetic trials from it. We now use those tools of
 <code>forestsearch</code>: <strong>when many subgroups are examined in a
 trial with a perfectly uniform treatment benefit, how extreme can a
 standard Cox analysis look by chance alone?</strong></p>
-<p>We generate 30 synthetic trials from the null DGM and fit a
+<p>We generate 13 synthetic trials from the null DGM and fit a
 stratified Cox model in each pre-defined subgroup in every trial. Two
 output statistics are accumulated:</p>
 <ul>
@@ -901,7 +957,7 @@ log hazard ratio is <strong>constant across all patients</strong>:</p>
 <p>In the examples below the true overall HR is 0.70 (a moderate
 benefit). Every subgroup — regardless of how it is defined — shares this
 same underlying HR.</p>
-<div class="sourceCode" id="cb62"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb63"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">99</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">dgm_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/generate_aft_dgm_flex.html">generate_aft_dgm_flex</a></span><span class="op">(</span></span>
@@ -916,9 +972,65 @@ same underlying HR.</p>
 <span>  n_super         <span class="op">=</span> <span class="fl">5000</span>,</span>
 <span>  seed            <span class="op">=</span> <span class="fl">99</span>,</span>
 <span>  verbose         <span class="op">=</span> <span class="cn">FALSE</span></span>
-<span><span class="op">)</span></span>
-<span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Null DGM  |  true overall HR:"</span>,</span>
+<span><span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## </span></span>
+<span><span class="co">##  ====================================================================== </span></span>
+<span><span class="co">##  CENSORING MODEL SELECTION:</span></span>
+<span><span class="co">##  MULTIPLE SURVIVAL REGRESSION MODEL COMPARISONS</span></span>
+<span><span class="co">## ====================================================================== </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## CONVERGENCE SUMMARY ( 4 / 4  converged):</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## Weibull (weibull):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  9 </span></span>
+<span><span class="co">##   Log-likelihood:  -1838.404 </span></span>
+<span><span class="co">##   Scale parameter:  0.418 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## LogNormal (lognormal):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  4 </span></span>
+<span><span class="co">##   Log-likelihood:  -2000.309 </span></span>
+<span><span class="co">##   Scale parameter:  0.8707 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## Weibull0 (weibull):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  7 </span></span>
+<span><span class="co">##   Log-likelihood:  -1843.717 </span></span>
+<span><span class="co">##   Scale parameter:  0.4246 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## LogNormal0 (lognormal):</span></span>
+<span><span class="co">##   Status:  ✓ Converged </span></span>
+<span><span class="co">##   Iterations:  6 </span></span>
+<span><span class="co">##   Log-likelihood:  -2004.326 </span></span>
+<span><span class="co">##   Scale parameter:  0.8768 </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## MODEL COMPARISON TABLE:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##       Model     AIC delta_AIC AIC_weight     BIC delta_BIC</span></span>
+<span><span class="co">##    Weibull0 3691.43      0.00      0.976 3700.50      0.00</span></span>
+<span><span class="co">##     Weibull 3698.81      7.37      0.024 3748.65     48.15</span></span>
+<span><span class="co">##  LogNormal0 4012.65    321.22      0.000 4021.71    321.22</span></span>
+<span><span class="co">##   LogNormal 4022.62    331.18      0.000 4072.46    371.96</span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## MODEL RANKINGS:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">## By AIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span></span>
+<span><span class="co">## By BIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## EVIDENCE ASSESSMENT:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##   Strength:  Strong evidence </span></span>
+<span><span class="co">##   Details:  Top model has 97.6% of AIC weight </span></span>
+<span><span class="co">## </span></span>
+<span><span class="co">## FINAL RECOMMENDATION:</span></span>
+<span><span class="co">## -------------------------------------------------- </span></span>
+<span><span class="co">##   Clear winner: Weibull0 (best by both AIC and BIC)</span></span>
+<span><span class="co">##   Evidence: Strong evidence - Top model has 97.6% of AIC weight </span></span>
+<span><span class="co">## ======================================================================</span></span></code></pre>
+<div class="sourceCode" id="cb65"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Null DGM  |  true overall HR:"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">dgm_null</span><span class="op">$</span><span class="va">hazard_ratios</span><span class="op">$</span><span class="va">overall</span>, <span class="fl">3</span><span class="op">)</span>,</span>
 <span>    <span class="st">" |  implied median event time:"</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">dgm_null</span><span class="op">$</span><span class="va">model_params</span><span class="op">$</span><span class="va">mu</span><span class="op">)</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"months\n"</span><span class="op">)</span></span></code></pre></div>
@@ -935,7 +1047,7 @@ artificial ones.</p>
 benchmark. They are constructed by randomly sampling approximately 20%
 of subjects and taking the first 15, 20, 40, and 60 patients from that
 draw:</p>
-<div class="sourceCode" id="cb64"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb67"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">8316951</span><span class="op">)</span></span>
 <span><span class="va">gbsg</span><span class="op">$</span><span class="va">flag_itt</span> <span class="op">&lt;-</span> <span class="fl">1L</span></span>
 <span></span>
@@ -1119,7 +1231,7 @@ draw:</p>
 <span><span class="co">##                 random40              Random (N~40)       40</span></span>
 <span><span class="co">##                 random20              Random (N~20)       20</span></span>
 <span><span class="co">##                 random15              Random (N~15)       15</span></span></code></pre>
-<div class="sourceCode" id="cb66"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb69"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"</span></span>
 <span><span class="st">Total subgroups:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sg_overview</span><span class="op">)</span>, <span class="st">"</span></span>
 <span><span class="st">"</span><span class="op">)</span></span></code></pre></div>
@@ -1134,7 +1246,7 @@ attributable to noise alone.</p>
 <hr>
 </div>
 <div class="section level3">
-<h3 id="summary-statistics-across-30-simulations">Summary Statistics Across 30 Simulations<a class="anchor" aria-label="anchor" href="#summary-statistics-across-30-simulations"></a>
+<h3 id="summary-statistics-across-13-simulations">Summary Statistics Across 13 Simulations<a class="anchor" aria-label="anchor" href="#summary-statistics-across-13-simulations"></a>
 </h3>
 <p>For each subgroup the primary analysis — Cox model stratified by the
 randomisation factor (<code>grade</code>) — is fitted in every simulated
@@ -1164,7 +1276,7 @@ for that subgroup.</li>
 <div class="section level3">
 <h3 id="simulation-loop">Simulation Loop<a class="anchor" aria-label="anchor" href="#simulation-loop"></a>
 </h3>
-<div class="sourceCode" id="cb68"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb71"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cal_null</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/calibrate_cens_adjust.html">calibrate_cens_adjust</a></span><span class="op">(</span></span>
 <span>  dgm           <span class="op">=</span> <span class="va">dgm_null</span>,</span>
 <span>  target        <span class="op">=</span> <span class="st">"rate"</span>,</span>
@@ -1178,7 +1290,7 @@ for that subgroup.</li>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Calibrated cens_adjust:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal_null</span><span class="op">$</span><span class="va">cens_adjust</span>, <span class="fl">4</span><span class="op">)</span>,</span>
 <span>    <span class="st">" | Target censoring rate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cal_null</span><span class="op">$</span><span class="va">ref_value</span>, <span class="fl">3</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Calibrated cens_adjust: 0.1047  | Target censoring rate: 0.576</span></span></code></pre>
-<div class="sourceCode" id="cb70"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb73"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sg_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">subgroups</span>, <span class="va">`[[`</span>, <span class="st">"name"</span><span class="op">)</span></span>
 <span><span class="va">sg_ids</span>   <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">subgroups</span>, <span class="va">`[[`</span>, <span class="st">"id"</span><span class="op">)</span></span>
 <span><span class="va">n_sg</span>     <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">subgroups</span><span class="op">)</span></span>
@@ -1247,7 +1359,7 @@ for that subgroup.</li>
 <span><span class="op">}</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Simulations completed:"</span>, <span class="va">n_sims_null</span>, <span class="st">"\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Simulations completed: 30</span></span></code></pre>
+<pre><code><span><span class="co">## Simulations completed: 13</span></span></code></pre>
 <hr>
 </div>
 <div class="section level3">
@@ -1256,7 +1368,7 @@ for that subgroup.</li>
 <div class="section level4">
 <h4 id="summary-table">Summary table<a class="anchor" aria-label="anchor" href="#summary-table"></a>
 </h4>
-<div class="sourceCode" id="cb72"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb75"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Median HR and 1-99th percentile ECI across simulations</span></span>
 <span><span class="va">hr_q</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">sim_hrs</span>, <span class="fl">2</span>, <span class="va">quantile</span>, probs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.01</span>, <span class="fl">0.50</span>, <span class="fl">0.99</span><span class="op">)</span>,</span>
 <span>                 na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">)</span></span>
@@ -1308,119 +1420,119 @@ for that subgroup.</li>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">results_tbl</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">##                 Subgroup   N #(% converged) Median HR (1st, 99th ECI)</span></span>
-<span><span class="co">##             All Patients 686      30 (100%)         0.69 (0.59, 0.83)</span></span>
-<span><span class="co">##          Post-menopausal 390      30 (100%)         0.74 (0.54, 0.89)</span></span>
-<span><span class="co">##           Pre-menopausal 296      30 (100%)         0.68 (0.49, 1.01)</span></span>
-<span><span class="co">##                  Grade 3 162      30 (100%)         0.68 (0.43, 1.02)</span></span>
-<span><span class="co">##                Grade 1/2 524      30 (100%)         0.71 (0.55, 0.84)</span></span>
-<span><span class="co">##              Age (young) 373      30 (100%)         0.68 (0.51, 0.89)</span></span>
-<span><span class="co">##              Age (older) 313      30 (100%)         0.74 (0.52, 0.97)</span></span>
-<span><span class="co">##                Age &lt;= 50 294      30 (100%)         0.67 (0.54, 0.93)</span></span>
-<span><span class="co">##                 Age &gt; 50 392      30 (100%)         0.74 (0.53, 0.93)</span></span>
-<span><span class="co">##      Tumour size (small) 357      30 (100%)         0.69 (0.45, 0.93)</span></span>
-<span><span class="co">##      Tumour size (large) 329      30 (100%)          0.67 (0.5, 0.94)</span></span>
+<span><span class="co">##             All Patients 686      13 (100%)         0.68 (0.59, 0.84)</span></span>
+<span><span class="co">##          Post-menopausal 389      13 (100%)         0.74 (0.53, 0.89)</span></span>
+<span><span class="co">##           Pre-menopausal 297      13 (100%)            0.69 (0.56, 1)</span></span>
+<span><span class="co">##                  Grade 3 164      13 (100%)         0.71 (0.51, 0.91)</span></span>
+<span><span class="co">##                Grade 1/2 522      13 (100%)         0.71 (0.55, 0.83)</span></span>
+<span><span class="co">##              Age (young) 375      13 (100%)         0.69 (0.62, 0.89)</span></span>
+<span><span class="co">##              Age (older) 311      13 (100%)         0.72 (0.52, 0.93)</span></span>
+<span><span class="co">##                Age &lt;= 50 296      13 (100%)         0.72 (0.55, 0.95)</span></span>
+<span><span class="co">##                 Age &gt; 50 390      13 (100%)         0.72 (0.52, 0.92)</span></span>
+<span><span class="co">##      Tumour size (small) 358      13 (100%)          0.7 (0.43, 0.93)</span></span>
+<span><span class="co">##      Tumour size (large) 328      13 (100%)         0.66 (0.57, 0.95)</span></span>
 <span><span class="co">##            Node-negative   -         0 (0%)                         -</span></span>
-<span><span class="co">##                Nodes 1-3 380      30 (100%)         0.68 (0.49, 0.92)</span></span>
-<span><span class="co">##         High nodes (&gt;Q3) 136      30 (100%)         0.71 (0.48, 0.94)</span></span>
-<span><span class="co">##                  PGR low 339      30 (100%)          0.7 (0.51, 0.89)</span></span>
-<span><span class="co">##                 PGR high 347      30 (100%)          0.7 (0.49, 0.96)</span></span>
-<span><span class="co">##             ER-low (&lt;20) 277      30 (100%)         0.68 (0.52, 0.89)</span></span>
-<span><span class="co">##           ER-high (&gt;=20) 409      30 (100%)         0.67 (0.52, 0.89)</span></span>
-<span><span class="co">##       Pre-meno / Grade 3  78      30 (100%)          0.62 (0.4, 1.17)</span></span>
-<span><span class="co">##      Post-meno / Grade 3  84      30 (100%)         0.72 (0.39, 1.11)</span></span>
-<span><span class="co">##     Pre-meno / Grade 1-2 218      30 (100%)         0.68 (0.44, 1.16)</span></span>
-<span><span class="co">##    Post-meno / Grade 1-2 306      30 (100%)         0.73 (0.49, 0.96)</span></span>
-<span><span class="co">##       Pre-meno / Age&lt;=50 257      30 (100%)            0.64 (0.52, 1)</span></span>
-<span><span class="co">##        Pre-meno / Age&gt;50  39      30 (100%)          0.71 (0.2, 2.06)</span></span>
-<span><span class="co">##  Post-meno / Age (young)  81      30 (100%)         0.75 (0.43, 1.39)</span></span>
-<span><span class="co">##  Post-meno / Age (older) 310      30 (100%)          0.74 (0.5, 0.95)</span></span>
-<span><span class="co">##        Pre-meno / ER-low 141      30 (100%)            0.63 (0.39, 1)</span></span>
-<span><span class="co">##       Pre-meno / ER-high 155      30 (100%)         0.65 (0.43, 1.51)</span></span>
-<span><span class="co">##       Post-meno / ER-low 136      30 (100%)          0.71 (0.46, 1.3)</span></span>
-<span><span class="co">##      Post-meno / ER-high 254      30 (100%)         0.68 (0.46, 0.96)</span></span>
+<span><span class="co">##                Nodes 1-3 382      13 (100%)         0.69 (0.48, 0.85)</span></span>
+<span><span class="co">##         High nodes (&gt;Q3) 135      13 (100%)         0.69 (0.58, 0.94)</span></span>
+<span><span class="co">##                  PGR low 336      13 (100%)         0.71 (0.58, 0.89)</span></span>
+<span><span class="co">##                 PGR high 350      13 (100%)         0.64 (0.49, 0.91)</span></span>
+<span><span class="co">##             ER-low (&lt;20) 278      13 (100%)          0.7 (0.61, 0.89)</span></span>
+<span><span class="co">##           ER-high (&gt;=20) 408      13 (100%)         0.65 (0.51, 0.85)</span></span>
+<span><span class="co">##       Pre-meno / Grade 3  78      13 (100%)         0.62 (0.44, 1.15)</span></span>
+<span><span class="co">##      Post-meno / Grade 3  86      13 (100%)         0.71 (0.41, 1.07)</span></span>
+<span><span class="co">##     Pre-meno / Grade 1-2 218      13 (100%)         0.72 (0.55, 1.23)</span></span>
+<span><span class="co">##    Post-meno / Grade 1-2 304      13 (100%)         0.68 (0.48, 0.95)</span></span>
+<span><span class="co">##       Pre-meno / Age&lt;=50 259      13 (100%)         0.73 (0.56, 1.03)</span></span>
+<span><span class="co">##        Pre-meno / Age&gt;50  37      13 (100%)         0.56 (0.31, 1.48)</span></span>
+<span><span class="co">##  Post-meno / Age (young)  82      13 (100%)         0.76 (0.42, 1.41)</span></span>
+<span><span class="co">##  Post-meno / Age (older) 308      13 (100%)         0.72 (0.51, 0.94)</span></span>
+<span><span class="co">##        Pre-meno / ER-low 142      13 (100%)         0.65 (0.52, 0.93)</span></span>
+<span><span class="co">##       Pre-meno / ER-high 154      13 (100%)         0.66 (0.48, 1.33)</span></span>
+<span><span class="co">##       Post-meno / ER-low 136      13 (100%)         0.75 (0.59, 1.16)</span></span>
+<span><span class="co">##      Post-meno / ER-high 253      13 (100%)         0.65 (0.46, 0.88)</span></span>
 <span><span class="co">##       Grade 3 / Node-neg   -         0 (0%)                         -</span></span>
-<span><span class="co">##       Grade 3 / Node-pos 162      30 (100%)         0.68 (0.43, 1.02)</span></span>
+<span><span class="co">##       Grade 3 / Node-pos 164      13 (100%)         0.71 (0.51, 0.91)</span></span>
 <span><span class="co">##     Grade 1-2 / Node-neg   -         0 (0%)                         -</span></span>
-<span><span class="co">##     Grade 1-2 / Node-pos 524      30 (100%)         0.71 (0.55, 0.84)</span></span>
-<span><span class="co">##     Grade 3 / High nodes  45      30 (100%)         0.67 (0.32, 1.55)</span></span>
-<span><span class="co">##         Grade 3 / ER-low 108      30 (100%)          0.7 (0.35, 0.98)</span></span>
-<span><span class="co">##        Grade 3 / ER-high  53      30 (100%)          0.7 (0.22, 1.56)</span></span>
-<span><span class="co">##       Grade 1-2 / ER-low 168      30 (100%)            0.71 (0.53, 1)</span></span>
-<span><span class="co">##      Grade 1-2 / ER-high 356      30 (100%)         0.68 (0.48, 0.96)</span></span>
-<span><span class="co">##        Grade 3 / PGR low 126      30 (100%)         0.71 (0.39, 0.95)</span></span>
-<span><span class="co">##       Grade 3 / PGR high  36      30 (100%)         0.78 (0.05, 1.76)</span></span>
-<span><span class="co">##      Grade 1-2 / PGR low 213      30 (100%)         0.72 (0.51, 0.97)</span></span>
-<span><span class="co">##     Grade 1-2 / PGR high 311      30 (100%)         0.69 (0.44, 1.01)</span></span>
-<span><span class="co">##      Pre-meno/Yng/ER-low 122      30 (100%)         0.65 (0.36, 1.09)</span></span>
-<span><span class="co">##     Pre-meno/Yng/ER-high 135      30 (100%)         0.68 (0.46, 1.26)</span></span>
-<span><span class="co">##      Post-meno/G3/ER-low  55      30 (100%)          0.7 (0.31, 1.24)</span></span>
-<span><span class="co">##    Post-meno/G3/Node-pos  84      30 (100%)         0.72 (0.39, 1.11)</span></span>
-<span><span class="co">##       G3/Node-pos/ER-low 108      30 (100%)          0.7 (0.35, 0.98)</span></span>
-<span><span class="co">##           Large/Node-pos 329      30 (100%)          0.67 (0.5, 0.94)</span></span>
+<span><span class="co">##     Grade 1-2 / Node-pos 522      13 (100%)         0.71 (0.55, 0.83)</span></span>
+<span><span class="co">##     Grade 3 / High nodes  46      13 (100%)          0.7 (0.37, 1.65)</span></span>
+<span><span class="co">##         Grade 3 / ER-low 111      13 (100%)         0.73 (0.48, 0.98)</span></span>
+<span><span class="co">##        Grade 3 / ER-high  53      13 (100%)         0.66 (0.21, 1.22)</span></span>
+<span><span class="co">##       Grade 1-2 / ER-low 167      13 (100%)         0.75 (0.55, 1.02)</span></span>
+<span><span class="co">##      Grade 1-2 / ER-high 355      13 (100%)         0.66 (0.48, 0.91)</span></span>
+<span><span class="co">##        Grade 3 / PGR low 128      13 (100%)         0.76 (0.45, 0.95)</span></span>
+<span><span class="co">##       Grade 3 / PGR high  36      13 (100%)         0.76 (0.21, 1.06)</span></span>
+<span><span class="co">##      Grade 1-2 / PGR low 209      13 (100%)         0.69 (0.52, 0.98)</span></span>
+<span><span class="co">##     Grade 1-2 / PGR high 313      13 (100%)         0.67 (0.45, 0.92)</span></span>
+<span><span class="co">##      Pre-meno/Yng/ER-low 123      13 (100%)         0.66 (0.48, 0.97)</span></span>
+<span><span class="co">##     Pre-meno/Yng/ER-high 136      13 (100%)         0.69 (0.48, 1.26)</span></span>
+<span><span class="co">##      Post-meno/G3/ER-low  57      13 (100%)          0.79 (0.3, 1.25)</span></span>
+<span><span class="co">##    Post-meno/G3/Node-pos  86      13 (100%)         0.71 (0.41, 1.07)</span></span>
+<span><span class="co">##       G3/Node-pos/ER-low 111      13 (100%)         0.73 (0.48, 0.98)</span></span>
+<span><span class="co">##           Large/Node-pos 328      13 (100%)         0.66 (0.57, 0.95)</span></span>
 <span><span class="co">##           Large/Node-neg   -         0 (0%)                         -</span></span>
-<span><span class="co">##           Small/Node-pos 357      30 (100%)         0.69 (0.45, 0.93)</span></span>
+<span><span class="co">##           Small/Node-pos 358      13 (100%)          0.7 (0.43, 0.93)</span></span>
 <span><span class="co">##           Small/Node-neg   -         0 (0%)                         -</span></span>
-<span><span class="co">##                 random60  60      30 (100%)         0.66 (0.24, 1.48)</span></span>
-<span><span class="co">##                 random40  40      30 (100%)         0.74 (0.21, 1.53)</span></span>
-<span><span class="co">##                 random20  20      30 (100%)            0.54 (0, 2.34)</span></span>
-<span><span class="co">##                 random15  15     29 (96.7%)            0.59 (0, 2.77)</span></span>
+<span><span class="co">##                 random60  60      13 (100%)         0.65 (0.44, 1.16)</span></span>
+<span><span class="co">##                 random40  40      13 (100%)         0.51 (0.28, 1.53)</span></span>
+<span><span class="co">##                 random20  20      13 (100%)          0.4 (0.02, 2.33)</span></span>
+<span><span class="co">##                 random15  15      13 (100%)            0.36 (0, 2.16)</span></span>
 <span><span class="co">##  Pr(HR&lt;0.80) Pr(UB&lt;1.0) Pr(UB&gt;=1.0) Med UB|UB&gt;=1 P99 UB|UB&gt;=1</span></span>
-<span><span class="co">##        86.7%      86.7%       13.3%         1.03         1.04</span></span>
-<span><span class="co">##          80%      53.3%       46.7%         1.07         1.19</span></span>
-<span><span class="co">##          90%        60%         40%         1.09         1.43</span></span>
-<span><span class="co">##          70%      43.3%       56.7%         1.24         1.53</span></span>
-<span><span class="co">##          90%      73.3%       26.7%         1.04         1.12</span></span>
-<span><span class="co">##        86.7%      76.7%       23.3%         1.12         1.21</span></span>
-<span><span class="co">##        73.3%      43.3%       56.7%         1.11         1.34</span></span>
-<span><span class="co">##          90%      53.3%       46.7%         1.07         1.32</span></span>
-<span><span class="co">##          80%      53.3%       46.7%         1.06         1.25</span></span>
-<span><span class="co">##        76.7%      53.3%       46.7%          1.1         1.29</span></span>
-<span><span class="co">##        86.7%        70%         30%         1.07          1.3</span></span>
+<span><span class="co">##        84.6%      84.6%       15.4%         1.03         1.04</span></span>
+<span><span class="co">##        84.6%      53.8%       46.2%         1.06         1.19</span></span>
+<span><span class="co">##        84.6%      61.5%       38.5%         1.12         1.43</span></span>
+<span><span class="co">##        61.5%      38.5%       61.5%         1.24         1.37</span></span>
+<span><span class="co">##        92.3%      69.2%       30.8%         1.02         1.09</span></span>
+<span><span class="co">##        84.6%      76.9%       23.1%         1.12         1.21</span></span>
+<span><span class="co">##        76.9%      46.2%       53.8%         1.07         1.33</span></span>
+<span><span class="co">##        84.6%      38.5%       61.5%         1.08         1.33</span></span>
+<span><span class="co">##        84.6%      61.5%       38.5%         1.04         1.25</span></span>
+<span><span class="co">##        69.2%      53.8%       46.2%         1.12          1.3</span></span>
+<span><span class="co">##        84.6%      84.6%       15.4%         1.23          1.3</span></span>
 <span><span class="co">##            -          -           -            -            -</span></span>
-<span><span class="co">##        76.7%      63.3%       36.7%         1.12         1.29</span></span>
-<span><span class="co">##        73.3%      23.3%       76.7%         1.15         1.45</span></span>
-<span><span class="co">##        86.7%      66.7%       33.3%         1.05          1.2</span></span>
-<span><span class="co">##          80%      46.7%       53.3%         1.09         1.41</span></span>
-<span><span class="co">##        73.3%      66.7%       33.3%         1.16         1.24</span></span>
-<span><span class="co">##        73.3%        60%         40%         1.13         1.24</span></span>
-<span><span class="co">##        73.3%        20%         80%         1.25         2.32</span></span>
-<span><span class="co">##          60%      16.7%       83.3%         1.44         1.94</span></span>
-<span><span class="co">##          80%      36.7%       63.3%         1.17         1.81</span></span>
-<span><span class="co">##        73.3%      43.3%       56.7%         1.12         1.33</span></span>
-<span><span class="co">##        86.7%      56.7%       43.3%         1.15         1.46</span></span>
-<span><span class="co">##        53.3%        10%         90%         2.73         7.63</span></span>
-<span><span class="co">##        63.3%      16.7%       83.3%         1.51         2.74</span></span>
-<span><span class="co">##        76.7%      36.7%       63.3%         1.08         1.35</span></span>
-<span><span class="co">##          80%      33.3%       66.7%          1.1          1.7</span></span>
-<span><span class="co">##        63.3%        30%         70%         1.36          2.6</span></span>
-<span><span class="co">##        73.3%        20%         80%         1.21         2.12</span></span>
-<span><span class="co">##          70%        50%         50%         1.21         1.42</span></span>
+<span><span class="co">##        76.9%      61.5%       38.5%         1.12         1.18</span></span>
+<span><span class="co">##        69.2%      23.1%       76.9%         1.15         1.45</span></span>
+<span><span class="co">##        76.9%      61.5%       38.5%         1.07          1.2</span></span>
+<span><span class="co">##        84.6%      61.5%       38.5%         1.05          1.3</span></span>
+<span><span class="co">##        61.5%      53.8%       46.2%         1.17         1.24</span></span>
+<span><span class="co">##        92.3%      69.2%       30.8%         1.06         1.14</span></span>
+<span><span class="co">##        76.9%      15.4%       84.6%         1.18         2.28</span></span>
+<span><span class="co">##        53.8%      15.4%       84.6%         1.44         1.94</span></span>
+<span><span class="co">##        76.9%      38.5%       61.5%         1.19         1.86</span></span>
+<span><span class="co">##        76.9%      53.8%       46.2%         1.15         1.33</span></span>
+<span><span class="co">##        76.9%      46.2%       53.8%         1.15         1.47</span></span>
+<span><span class="co">##        61.5%       7.7%       92.3%         1.87         6.61</span></span>
+<span><span class="co">##        61.5%      30.8%       69.2%         1.58         2.81</span></span>
+<span><span class="co">##        84.6%      38.5%       61.5%         1.06         1.34</span></span>
+<span><span class="co">##        69.2%      30.8%       69.2%         1.16         1.48</span></span>
+<span><span class="co">##        76.9%      30.8%       69.2%         1.25         2.17</span></span>
+<span><span class="co">##        61.5%      23.1%       76.9%         1.33          1.9</span></span>
+<span><span class="co">##        92.3%      69.2%       30.8%         1.09         1.28</span></span>
 <span><span class="co">##            -          -           -            -            -</span></span>
-<span><span class="co">##          70%      43.3%       56.7%         1.24         1.53</span></span>
+<span><span class="co">##        61.5%      38.5%       61.5%         1.24         1.37</span></span>
 <span><span class="co">##            -          -           -            -            -</span></span>
-<span><span class="co">##          90%      73.3%       26.7%         1.04         1.12</span></span>
-<span><span class="co">##          70%      16.7%       83.3%         1.42          3.2</span></span>
-<span><span class="co">##        76.7%      23.3%       76.7%         1.24         1.61</span></span>
-<span><span class="co">##        56.7%        10%         90%         1.84         3.58</span></span>
-<span><span class="co">##        73.3%        20%         80%         1.15         1.58</span></span>
-<span><span class="co">##          80%      56.7%       43.3%         1.09         1.37</span></span>
-<span><span class="co">##        76.7%        30%         70%         1.25         1.49</span></span>
-<span><span class="co">##          50%       6.7%       93.3%         2.58          Inf</span></span>
-<span><span class="co">##          80%      36.7%       63.3%         1.11         1.41</span></span>
-<span><span class="co">##        73.3%      46.7%       53.3%         1.12          1.5</span></span>
-<span><span class="co">##          80%      36.7%       63.3%         1.17         1.86</span></span>
-<span><span class="co">##          70%      26.7%       73.3%         1.35         2.22</span></span>
-<span><span class="co">##          60%      16.7%       83.3%         1.55          2.5</span></span>
-<span><span class="co">##          60%      16.7%       83.3%         1.44         1.94</span></span>
-<span><span class="co">##        76.7%      23.3%       76.7%         1.24         1.61</span></span>
-<span><span class="co">##        86.7%        70%         30%         1.07          1.3</span></span>
+<span><span class="co">##        92.3%      69.2%       30.8%         1.02         1.09</span></span>
+<span><span class="co">##        69.2%       7.7%       92.3%         1.45         3.29</span></span>
+<span><span class="co">##        69.2%      23.1%       76.9%         1.25         1.61</span></span>
+<span><span class="co">##        61.5%      15.4%       84.6%         1.59         2.55</span></span>
+<span><span class="co">##        61.5%      15.4%       84.6%         1.21         1.58</span></span>
+<span><span class="co">##        84.6%      76.9%       23.1%         1.12         1.28</span></span>
+<span><span class="co">##        69.2%      23.1%       76.9%         1.25          1.5</span></span>
+<span><span class="co">##        53.8%       7.7%       92.3%          2.1         4.38</span></span>
+<span><span class="co">##        69.2%      38.5%       61.5%         1.17         1.41</span></span>
+<span><span class="co">##        84.6%      53.8%       46.2%         1.03         1.36</span></span>
+<span><span class="co">##        69.2%      23.1%       76.9%         1.25         1.69</span></span>
+<span><span class="co">##        69.2%      15.4%       84.6%         1.26         2.15</span></span>
+<span><span class="co">##        53.8%      15.4%       84.6%         1.72         2.45</span></span>
+<span><span class="co">##        53.8%      15.4%       84.6%         1.44         1.94</span></span>
+<span><span class="co">##        69.2%      23.1%       76.9%         1.25         1.61</span></span>
+<span><span class="co">##        84.6%      84.6%       15.4%         1.23          1.3</span></span>
 <span><span class="co">##            -          -           -            -            -</span></span>
-<span><span class="co">##        76.7%      53.3%       46.7%          1.1         1.29</span></span>
+<span><span class="co">##        69.2%      53.8%       46.2%         1.12          1.3</span></span>
 <span><span class="co">##            -          -           -            -            -</span></span>
-<span><span class="co">##        66.7%        10%         90%          1.6         3.19</span></span>
-<span><span class="co">##        53.3%      16.7%       83.3%          2.2         4.64</span></span>
-<span><span class="co">##          60%       3.3%       96.7%         3.15          Inf</span></span>
-<span><span class="co">##        62.1%       3.4%       96.6%         4.94          Inf</span></span></code></pre>
+<span><span class="co">##        69.2%       7.7%       92.3%         1.48         2.76</span></span>
+<span><span class="co">##        53.8%      15.4%       84.6%         2.16         4.66</span></span>
+<span><span class="co">##        61.5%       7.7%       92.3%         2.86          Inf</span></span>
+<span><span class="co">##        69.2%       7.7%       92.3%         6.92          Inf</span></span></code></pre>
 <p><strong>Reading the table.</strong> Every row shares the same true HR
 = 0.70, so the median of the HR ECI should be close to 0.70 throughout —
 confirming the Cox model is unbiased. The <em>spread</em> of the ECI is
@@ -1437,12 +1549,12 @@ exceeds 5.0; for <code>random40</code> it commonly exceeds 3.0.</p>
 <div class="section level4">
 <h4 id="forest-plot-hr-point-estimate-distributions">Forest plot: HR point estimate distributions<a class="anchor" aria-label="anchor" href="#forest-plot-hr-point-estimate-distributions"></a>
 </h4>
-<p>Each row shows one subgroup. The point is the median HR across 30
+<p>Each row shows one subgroup. The point is the median HR across 13
 simulations; the line spans the 1st–99th percentile ECI. The red dashed
 line marks the true HR = 0.70; the grey dotted line marks HR = 1.0.
 <code>random*</code> benchmarks (orange) are shown alongside same-sized
 clinical subgroups (blue) so that the comparison is immediate.</p>
-<div class="sourceCode" id="cb74"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb77"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># =============================================================================</span></span>
 <span><span class="co"># Forest Plot Sizing Parameters — edit here to resize all four panels</span></span>
 <span><span class="co"># =============================================================================</span></span>
@@ -1509,7 +1621,7 @@ clinical subgroups (blue) so that the comparison is immediate.</p>
 <span>  <span class="va">n_single</span>, <span class="va">fh_single</span></span>
 <span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Single panels: 17 rows  -&gt;  recommended fig.height = 9.2 in</span></span></code></pre>
-<div class="sourceCode" id="cb76"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb79"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span></span>
 <span>  <span class="st">"Combo  panels: %d rows  -&gt;  recommended fig.height = %.1f in</span></span>
 <span><span class="st">"</span>,</span>
@@ -1519,7 +1631,7 @@ clinical subgroups (blue) so that the comparison is immediate.</p>
 <p><strong>Panel A — HR distributions, single-variable
 subgroups.</strong> Point = median HR; whiskers = 1st–99th percentile
 ECI. The true HR is 0.70 for every subgroup (red dashed line).</p>
-<div class="sourceCode" id="cb78"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb81"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sg_single</span>   <span class="op">&lt;-</span> <span class="va">sg_names</span><span class="op">[</span><span class="va">ok</span><span class="op">]</span><span class="op">[</span><span class="va">idx_hr_single</span><span class="op">]</span></span>
 <span><span class="va">cat_single</span>  <span class="op">&lt;-</span> <span class="va">cat_ok</span><span class="op">[</span><span class="va">ok</span><span class="op">]</span><span class="op">[</span><span class="va">idx_hr_single</span><span class="op">]</span></span>
 <span></span>
@@ -1563,7 +1675,7 @@ sampling variability alone; all subgroups share the same true HR = 0.70.
 subgroups.</strong> Note how the ECI widens sharply as subgroup N falls
 below ~60; the <code>random*</code> benchmarks (orange) define the noise
 floor for each size class.</p>
-<div class="sourceCode" id="cb79"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb82"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sg_combo</span>   <span class="op">&lt;-</span> <span class="va">sg_names</span><span class="op">[</span><span class="va">ok</span><span class="op">]</span><span class="op">[</span><span class="va">idx_hr_combo</span><span class="op">]</span></span>
 <span><span class="va">cat_combo</span>  <span class="op">&lt;-</span> <span class="va">cat_ok</span><span class="op">[</span><span class="va">ok</span><span class="op">]</span><span class="op">[</span><span class="va">idx_hr_combo</span><span class="op">]</span></span>
 <span></span>
@@ -1619,7 +1731,7 @@ effect. The right-hand column shows the probability of this occurring
 failure to show benefit (<code>Med UB | UB&gt;=1</code>).</p>
 <p><strong>Panel A — UB(HR) distributions, single-variable
 subgroups.</strong></p>
-<div class="sourceCode" id="cb80"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb83"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">lab_cmed_ub</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">cond_ub</span><span class="op">[</span><span class="va">ok_ub</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span>, <span class="st">"-"</span>,</span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/character.html" class="external-link">as.character</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cond_ub</span><span class="op">[</span><span class="va">ok_ub</span>, <span class="fl">1</span><span class="op">]</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
@@ -1670,7 +1782,7 @@ significant benefit.
 random benchmarks.</strong> The <code>Med UB | UB&gt;=1</code> column is
 the key safety quantity — it shows how large the upper bound grows in
 those trials where the CI actually fails to demonstrate benefit.</p>
-<div class="sourceCode" id="cb81"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb84"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sg_ub_c</span>   <span class="op">&lt;-</span> <span class="va">sg_names</span><span class="op">[</span><span class="va">ok_ub</span><span class="op">]</span><span class="op">[</span><span class="va">idx_ub_combo</span><span class="op">]</span></span>
 <span><span class="va">cat_ub_c</span>  <span class="op">&lt;-</span> <span class="va">cat_ok</span><span class="op">[</span><span class="va">ok_ub</span><span class="op">]</span><span class="op">[</span><span class="va">idx_ub_combo</span><span class="op">]</span></span>
 <span></span>
@@ -1806,11 +1918,11 @@ regardless of clinical rationale. —</p>
 <div class="section level2">
 <h2 id="session-information">Session Information<a class="anchor" aria-label="anchor" href="#session-information"></a>
 </h2>
-<div class="sourceCode" id="cb82"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb85"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## R version 4.5.1 (2025-06-13)</span></span>
+<pre><code><span><span class="co">## R version 4.5.0 (2025-04-11)</span></span>
 <span><span class="co">## Platform: aarch64-apple-darwin20</span></span>
-<span><span class="co">## Running under: macOS Tahoe 26.3</span></span>
+<span><span class="co">## Running under: macOS 26.3</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## Matrix products: default</span></span>
 <span><span class="co">## BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib </span></span>
@@ -1832,11 +1944,11 @@ regardless of clinical rationale. —</p>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
 <span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           </span></span>
 <span><span class="co">##  [4] bslib_0.10.0         htmlwidgets_1.6.4    lattice_0.22-9      </span></span>
-<span><span class="co">##  [7] vctrs_0.7.1          tools_4.5.1          generics_0.1.4      </span></span>
-<span><span class="co">## [10] parallel_4.5.1       tibble_3.3.1         pkgconfig_2.0.3     </span></span>
+<span><span class="co">##  [7] vctrs_0.7.1          tools_4.5.0          generics_0.1.4      </span></span>
+<span><span class="co">## [10] parallel_4.5.0       tibble_3.3.1         pkgconfig_2.0.3     </span></span>
 <span><span class="co">## [13] Matrix_1.7-4         data.table_1.18.2.1  RColorBrewer_1.1-3  </span></span>
 <span><span class="co">## [16] S7_0.2.1             desc_1.4.3           gt_1.3.0            </span></span>
-<span><span class="co">## [19] lifecycle_1.0.5      doFuture_1.2.1       compiler_4.5.1      </span></span>
+<span><span class="co">## [19] lifecycle_1.0.5      doFuture_1.2.1       compiler_4.5.0      </span></span>
 <span><span class="co">## [22] farver_2.1.2         stringr_1.6.0        textshaping_1.0.4   </span></span>
 <span><span class="co">## [25] policytree_1.2.4     grf_2.5.0            codetools_0.2-20    </span></span>
 <span><span class="co">## [28] htmltools_0.5.9      sass_0.4.10          yaml_2.3.12         </span></span>
@@ -1845,8 +1957,8 @@ regardless of clinical rationale. —</p>
 <span><span class="co">## [37] iterators_1.0.14     foreach_1.5.2        parallelly_1.46.1   </span></span>
 <span><span class="co">## [40] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       </span></span>
 <span><span class="co">## [43] future_1.69.0        listenv_0.10.0       labeling_0.4.3      </span></span>
-<span><span class="co">## [46] splines_4.5.1        rprojroot_2.1.1      fastmap_1.2.0       </span></span>
-<span><span class="co">## [49] grid_4.5.1           cli_3.6.5            magrittr_2.0.4      </span></span>
+<span><span class="co">## [46] splines_4.5.0        rprojroot_2.1.1      fastmap_1.2.0       </span></span>
+<span><span class="co">## [49] grid_4.5.0           cli_3.6.5            magrittr_2.0.4      </span></span>
 <span><span class="co">## [52] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         </span></span>
 <span><span class="co">## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      </span></span>
 <span><span class="co">## [58] otel_0.2.0           progressr_0.18.0     ragg_1.5.0          </span></span>
