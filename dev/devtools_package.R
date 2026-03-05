@@ -156,6 +156,9 @@ pkgdown::check_pkgdown()
 # note: deploy_to_branch calls build_site(), so only run here if deploying
 # otherwise will duplicate the compiling of documents
 
+# DO THIS!!!
+usethis::use_github_action("pkgdown")
+
 pkgdown::deploy_to_branch()
 
 
