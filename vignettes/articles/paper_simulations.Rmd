@@ -29,9 +29,6 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
-nsims_alt <- 30L
-nsims_null <- 30L
-
 # Bootstrap 5 code-folding hook for pkgdown compatibility
 # Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
 knitr::knit_hooks$set(code_fold = function(before, options, envir) {
@@ -84,6 +81,9 @@ The simulation framework is based on the `generate_aft_dgm_flex()` methodology:
 # Setup
 
 ```{r load-packages}
+nsims_alt <- 30L
+nsims_null <- 30L
+
 # Core packages
 library(forestsearch)
 library(weightedsurv)

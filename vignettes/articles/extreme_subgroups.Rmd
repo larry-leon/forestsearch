@@ -31,9 +31,6 @@ knitr::opts_chunk$set(
   fig.align  = "center",
   fig.retina = 2
 )
-# Number of null-DGM simulated trials — the primary result quantity
-# Set to 5000 for publication-quality results
-n_sims_null <- 50L   # set to 5000 for publication-quality results
 ```
 
 ---
@@ -106,6 +103,9 @@ randomly sampling approximately 20% of subjects and taking the first 15,
 20, 40, and 60 patients:
 
 ```r
+# Number of null-DGM simulated trials — the primary result quantity
+# Set to>= 1000 for publication-quality results
+n_sims_null <- 50L  
 set.seed(8316951)
 sg_ran <- rbinom(nrow(df_analysis), size = 1, prob = 0.2)
 temp   <- cumsum(sg_ran)
@@ -142,7 +142,7 @@ practice:
 
 ---
 
-## Summary Statistics Across 5 000 Simulations
+## Summary Statistics Across Simulations
 
 For each subgroup and analysis, two quantities are accumulated across all
 simulated trials:
