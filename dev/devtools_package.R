@@ -183,17 +183,14 @@ git push
 
 cat .gitignore | grep docs
 
-#If that returns docs or docs/, that's the problem — remove that line from .gitignore, then:
-
-git add docs/
-git commit -m "Add pkgdown site"
-git push
-
 
 
 # Build only articles that haven't been built yet (skips already-built ones)
 # DNW (does not work, rebuilds everything)
-#pkgdown::build_articles(lazy = TRUE)
+
+#
+
+pkgdown::build_articles(lazy = TRUE)
 
 # Rebuild the articles index page and navbar only
 pkgdown::build_articles_index()
@@ -223,6 +220,10 @@ pkgdown::build_home()
 
 # Preview without building everything
 pkgdown::build_reference()
+
+
+pkgdown::build_site()
+
 
 pkgdown::preview_site()
 
