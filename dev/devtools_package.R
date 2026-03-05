@@ -137,6 +137,7 @@ pkgdown::check_pkgdown()
 #usethis::use_pkgdown_github_pages()
 #This does three things: sets the URL to https://larry-leon.github.io/forestsearch, creates .github/workflows/pkgdown.yaml for
 #automatic rebuilds on push, and configures the gh-pages branch.
+
 #After pushing, the site is live at https://larry-leon.github.io/forestsearch.
 
 # usethis::create_github_token()
@@ -158,6 +159,25 @@ pkgdown::deploy_to_branch(branch = "gh-pages", commit_message = "Update pkgdown 
 # otherwise will duplicate the compiling of documents
 
 pkgdown::deploy_to_branch()
+
+
+git status          # docs/ files should show as modified
+git add docs/
+  git commit -m "Rebuild pkgdown site"
+git push
+
+# Trying to find disconnect
+
+#The docs/ directory isn't showing up in git status at all, which means it's either gitignored or was never tracked. Check:
+
+cat .gitignore | grep docs
+
+#If that returns docs or docs/, that's the problem — remove that line from .gitignore, then:
+
+git add docs/
+git commit -m "Add pkgdown site"
+git push
+
 
 
 # Build only articles that haven't been built yet (skips already-built ones)
