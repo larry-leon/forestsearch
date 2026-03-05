@@ -163,7 +163,8 @@ usethis::use_github_action("pkgdown")
 git add .github/workflows/pkgdown.yaml
 git push
 
-git add vignettes/articles/extreme_subgroups.Rmd
+
+#git add vignettes/articles/extreme_subgroups.Rmd
 
 
 
@@ -188,9 +189,9 @@ cat .gitignore | grep docs
 # Build only articles that haven't been built yet (skips already-built ones)
 # DNW (does not work, rebuilds everything)
 
-#
 
 pkgdown::build_articles(lazy = TRUE)
+
 
 # Rebuild the articles index page and navbar only
 pkgdown::build_articles_index()
@@ -224,7 +225,6 @@ pkgdown::build_reference()
 
 pkgdown::build_site()
 
-
 pkgdown::preview_site()
 
 # Build single article for quick preview
@@ -241,6 +241,11 @@ pkgdown::build_article("articles/paper_simulations")
 pkgdown::build_article("articles/extreme_subgroups")
 
 pkgdown::build_article("articles/biomarker_effects")
+
+pkgdown::build_article(
+  "articles/paper_simulations",
+  quiet = FALSE
+)
 
 
 pkgdown::build_article(
