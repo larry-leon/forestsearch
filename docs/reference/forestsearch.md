@@ -244,12 +244,19 @@ forestsearch(
 
 - stop_threshold:
 
-  Numeric. Early stopping threshold for consistency evaluation. When a
-  candidate subgroup's estimated consistency probability exceeds this
-  threshold, evaluation stops early. Default 0.95. **Note:**
-  Automatically reset to NULL when `sg_focus` is "hrMaxSG" or "hrMinSG",
-  as these criteria prioritize hazard ratio in selection and require
-  full evaluation of all candidates.
+  Numeric in `[0, 1]` or `NULL`. Early stopping threshold for
+  consistency evaluation. When a candidate subgroup's consistency
+  probability (`Pcons`) meets or exceeds this threshold, evaluation
+  stops early — remaining candidates are skipped. Set to `NULL` to
+  disable early stopping and force evaluation of all candidates up to
+  `max_subgroups_search`. Default `0.95`.
+
+  **Note:** Values \> 1.0 are not permitted. To disable early stopping,
+  use `stop_threshold = NULL`, not a value above 1.
+
+  Automatically reset to `NULL` (with a warning) when `sg_focus` is
+  `"hrMaxSG"` or `"hrMinSG"`, as these compound criteria require
+  comparing HR *and* size across all candidates.
 
 - showten_subgroups:
 

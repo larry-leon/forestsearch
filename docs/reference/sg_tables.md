@@ -1,7 +1,9 @@
 # Enhanced Subgroup Summary Tables (gt output)
 
 Returns formatted summary tables for subgroups using the gt package,
-with search metadata and customizable decimal precision.
+with search metadata and customizable decimal precision. Produces two
+tables: a treatment effect estimates table and an identified subgroups
+table, each with fully customizable titles and subtitles.
 
 ## Usage
 
@@ -9,7 +11,10 @@ with search metadata and customizable decimal precision.
 sg_tables(
   fs,
   which_df = "est",
+  est_title = "Treatment Effect Estimates",
   est_caption = "Training data estimates",
+  sg_title = "Identified Subgroups",
+  sg_subtitle = NULL,
   potentialOutcome.name = NULL,
   hr_1a = NA,
   hr_0a = NA,
@@ -29,9 +34,28 @@ sg_tables(
 
   Character. Which data frame to use ("est" or "testing").
 
+- est_title:
+
+  Character or NULL. Main title for the estimates table (default:
+  "Treatment Effect Estimates"). Rendered as bold markdown. Set to NULL
+  to suppress the title and display only `est_caption`.
+
 - est_caption:
 
-  Character. Caption for estimates table.
+  Character. Subtitle for the estimates table (default: "Training data
+  estimates").
+
+- sg_title:
+
+  Character or NULL. Main title for the identified subgroups table
+  (default: "Identified Subgroups"). Rendered as bold markdown. Set to
+  NULL to suppress the title and display only `sg_subtitle`.
+
+- sg_subtitle:
+
+  Character or NULL. Subtitle for the identified subgroups table. When
+  NULL (default), an informative subtitle is auto-generated from `maxk`
+  (e.g., "Two-factor subgroups (maxk=2)").
 
 - potentialOutcome.name:
 

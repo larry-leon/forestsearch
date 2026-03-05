@@ -12,7 +12,8 @@ prepare_censoring_model(
   cens_type,
   cens_params,
   df_super,
-  select_censoring = TRUE
+  select_censoring = TRUE,
+  verbose = TRUE
 )
 ```
 
@@ -43,6 +44,12 @@ prepare_censoring_model(
   [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
   for the required `cens_params` structure under each combination of
   `select_censoring` and `cens_type`.
+
+- verbose:
+
+  Logical. If `TRUE` (default), prints the censoring model comparison
+  table and recommendation. Set to `FALSE` to suppress all censoring
+  model selection output.
 
 ## Value
 

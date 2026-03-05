@@ -20,10 +20,13 @@ mrct_region_sims(
   pconsistency.threshold = 0.9,
   confounders.name = NULL,
   conf_force = NULL,
+  fs_args = list(),
+  sim_args = list(rand_ratio = 1, draw_treatment = TRUE),
   analysis_time = 60,
   cens_adjust = 0,
   parallel_args = list(plan = "multisession", workers = NULL, show_message = TRUE),
   details = FALSE,
+  verbose_n_sims = 2L,
   seed = NULL
 )
 ```
@@ -85,6 +88,28 @@ mrct_region_sims(
   c("z_age \<= 65", "z_bm \<= 0", "z_bm \<= 1", "z_bm \<= 2", "z_bm \<=
   5")
 
+- fs_args:
+
+  Named list. Additional arguments passed directly to
+  [`forestsearch`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+  inside each simulation replicate. Use this to control parameters not
+  exposed by `mrct_region_sims` (e.g., `use_grf`, `use_lasso`,
+  `cut_type`, `d0.min`, `d1.min`, `n.min`, `max_subgroups_search`,
+  `use_twostage`, `twostage_args`). Parameters already in the
+  `mrct_region_sims` signature (`hr.threshold`, `hr.consistency`,
+  `pconsistency.threshold`, `sg_focus`, `maxk`, `confounders.name`,
+  `conf_force`) take precedence over values in `fs_args`. Default:
+  list() (uses forestsearch defaults)
+
+- sim_args:
+
+  Named list. Additional arguments passed to
+  [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+  inside each replicate (e.g., `rand_ratio`, `draw_treatment`).
+  Parameters already in the `mrct_region_sims` signature
+  (`analysis_time`, `cens_adjust`) take precedence. Default:
+  list(rand_ratio = 1, draw_treatment = TRUE)
+
 - analysis_time:
 
   Numeric. Time of analysis for administrative censoring. Default: 60
@@ -106,6 +131,13 @@ mrct_region_sims(
 - details:
 
   Logical. Print detailed progress information. Default: FALSE
+
+- verbose_n_sims:
+
+  Integer. When `details = TRUE`, print full ForestSearch diagnostics
+  (including internal output) for only the first `verbose_n_sims`
+  simulation replicates. Set to 0 to suppress per-sim output, or `Inf`
+  to print all. Default: 2
 
 - seed:
 
@@ -161,15 +193,27 @@ A data.table with simulation results containing:
 
 - hr_sg:
 
-  Subgroup hazard ratio
+  Subgroup hazard ratio in testing population
 
 - POhr_sg:
 
-  Potential outcome hazard ratio in subgroup
+  Potential outcome hazard ratio in subgroup (testing)
 
 - prev_sg:
 
   Subgroup prevalence (proportion of testing population)
+
+- n_sg_train:
+
+  Subgroup sample size in training population
+
+- hr_sg_train:
+
+  Subgroup hazard ratio in training population
+
+- POhr_sg_train:
+
+  Potential outcome hazard ratio in subgroup (training)
 
 - hr_sg_null:
 

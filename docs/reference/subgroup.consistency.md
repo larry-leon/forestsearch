@@ -103,19 +103,34 @@ subgroup.consistency(
 
 - stop_threshold:
 
-  Numeric or NULL. If specified, evaluation stops once any subgroup
-  achieves consistency \>= stop_threshold. This enables early
-  termination when a sufficiently consistent subgroup is found. Default:
-  NULL (evaluate all candidates up to stop_Kgroups).
+  Numeric in `[0, 1]` or `NULL`. When a candidate subgroup's consistency
+  probability (`Pcons`) meets or exceeds this threshold, evaluation
+  stops early — remaining candidates are skipped. Set to `NULL` to
+  disable early stopping and evaluate all candidates up to
+  `stop_Kgroups`. Default: `NULL`.
 
-  When combined with HR-based sorting (sg_focus = "hr"), this ensures
-  the highest-HR subgroup meeting the threshold is identified
-  efficiently.
+  **Note:** Values \> 1.0 are not permitted. To disable early stopping,
+  use `stop_threshold = NULL`, not a value above 1.
 
-  Note: For parallel execution, early stopping is checked after each
-  batch completes, so some additional candidates beyond the first
-  meeting the threshold may be evaluated. Use a smaller batch_size in
-  parallel_args for finer-grained early stopping.
+  **Interaction with `sg_focus`:**
+
+  `"hr"`, `"maxSG"`, `"minSG"`
+
+  :   Early stopping is valid because candidates are sorted by a single
+      criterion. The first candidate passing the threshold is optimal
+      under that criterion.
+
+  `"hrMaxSG"`, `"hrMinSG"`
+
+  :   Should generally be `NULL`, because these compound criteria
+      require comparing HR *and* size across all candidates.
+      [`forestsearch()`](https://larry-leon.github.io/forestsearch/reference/forestsearch.md)
+      automatically resets to `NULL` with a warning for these.
+
+  For parallel execution, early stopping is checked after each batch
+  completes, so some additional candidates beyond the first meeting the
+  threshold may be evaluated. Use a smaller `batch_size` in
+  `parallel_args` for finer-grained early stopping.
 
 - showten_subgroups:
 
