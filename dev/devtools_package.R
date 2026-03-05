@@ -162,6 +162,10 @@ usethis::use_github_action("pkgdown")
 git add .github/workflows/pkgdown.yaml
 git push
 
+git add vignettes/articles/extreme_subgroups.Rmd
+
+
+
 pkgdown::deploy_to_branch()
 
 
