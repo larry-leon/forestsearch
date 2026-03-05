@@ -107,7 +107,7 @@ practice:
 
 ------------------------------------------------------------------------
 
-### Summary Statistics Across 5 000 Simulations
+### Summary Statistics Across Simulations
 
 For each subgroup and analysis, two quantities are accumulated across
 all simulated trials:
