@@ -23,8 +23,8 @@ The simulation framework allows you to:
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets
-3.  **Running simulated trials**: drawing 13 under null (uniform
-    benefit) and 13 under alternative (HTEs)
+3.  **Running simulated trials**: drawing 100 under null (uniform
+    benefit) and 100 under alternative (HTEs)
 4.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
 5.  **Summarize Results**: Aggregate operating characteristics across
@@ -1009,7 +1009,7 @@ cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 13 simulations under H1...
+    ## Running 100 simulations under H1...
 
 ``` r
 start_time <- Sys.time()
@@ -1080,7 +1080,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 14.842 0.2474 
+    ## Seconds and minutes forestsearch overall = 15.755 0.2626 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
@@ -1099,13 +1099,13 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 0.9 minutes
+    ## Completed in 7.8 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 26 rows
+    ## Results: 200 rows
 
 ### Running Null Hypothesis Simulations
 
@@ -1113,7 +1113,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 13 simulations under H0...
+    ## Running 100 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1160,7 +1160,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.06 minutes
+    ## Subgroup search completed in 0.04 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1185,7 +1185,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 14.126 0.2354 
+    ## Seconds and minutes forestsearch overall = 13.692 0.2282 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1200,7 +1200,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 0.7 minutes
+    ## Completed in 5.5 minutes
 
 ## Summarizing Results
 
@@ -1243,8 +1243,8 @@ if (length(ahr_cols) > 0) {
 ```
 
     ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.163 
-    ##   Mean AHR(Hc) estimated: 0.594 
+    ##   Mean AHR(H) estimated: 2.083 
+    ##   Mean AHR(Hc) estimated: 0.604 
     ##   True AHR(H): 2.4 
     ##   True AHR(Hc): 0.585
 
@@ -1263,16 +1263,16 @@ build_estimation_table(
 
 | Estimation Properties                                                                                                                                                                                                                                                            |      |      |      |      |        |        |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|------|------|------|--------|--------|
-| n = 700, 13 simulations, HR(overall) = 0.72 (FS: 12/13 (92%) estimable)                                                                                                                                                                                                          |      |      |      |      |        |        |
+| n = 700, 100 simulations, HR(overall) = 0.72 (FS: 89/100 (89%) estimable)                                                                                                                                                                                                        |      |      |      |      |        |        |
 |                                                                                                                                                                                                                                                                                  | Avg  | SD   | Min  | Max  | b‡ (%) | b† (%) |
-| Ĥ: 12 estimable, avg \|Ĥ\| = 94, θ†(H) = 2, θ‡(H) = 2.4                                                                                                                                                                                                                          |      |      |      |      |        |        |
-| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 2.27 | 0.48 | 1.37 | 2.89 | -5.37  | 13.56  |
-| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 2.16 | 0.42 | 1.30 | 2.40 | NA     | -9.90  |
-| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 2.23 | 0.31 | 1.52 | 2.40 | NA     | -6.99  |
-| Ĥᶜ: avg \|Ĥᶜ\| = 606, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58                                                                                                                                                                                                                               |      |      |      |      |        |        |
-| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.61 | 0.09 | 0.50 | 0.78 | 3.84   | -8.16  |
-| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.59 | 0.02 | 0.58 | 0.64 | NA     | 1.58   |
-| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.61 | 0.04 | 0.58 | 0.71 | NA     | 3.54   |
+| Ĥ: 89 estimable, avg \|Ĥ\| = 86, θ†(H) = 2, θ‡(H) = 2.4                                                                                                                                                                                                                          |      |      |      |      |        |        |
+| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 2.37 | 0.92 | 1.37 | 8.16 | -1.21  | 18.55  |
+| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 2.08 | 0.46 | 0.98 | 2.40 | NA     | -13.23 |
+| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 2.17 | 0.37 | 1.19 | 2.40 | NA     | -9.49  |
+| Ĥᶜ: avg \|Ĥᶜ\| = 614, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58                                                                                                                                                                                                                               |      |      |      |      |        |        |
+| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.64 | 0.08 | 0.45 | 0.84 | 9.05   | -3.55  |
+| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.60 | 0.03 | 0.58 | 0.67 | NA     | 3.32   |
+| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.63 | 0.07 | 0.58 | 0.85 | NA     | 8.59   |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |      |      |      |      |        |        |
 
 ``` r
@@ -1290,20 +1290,20 @@ interpret_estimation_table(
 ```
 
 Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
-12 of 13 simulations (92.3%) identified a subgroup using FS. The
-identified subgroup averaged 94 patients (complement: 606).
+89 of 100 simulations (89.0%) identified a subgroup using FS. The
+identified subgroup averaged 86 patients (complement: 614).
 
-The naive Cox HR in the identified subgroup averaged 2.27 (SD = 0.48),
-corresponding to 13.6% relative bias versus the true HR(H) = 2. In the
-complement, the estimate averaged 0.61 (-8.2% bias vs. true HR(Hc) =
+The naive Cox HR in the identified subgroup averaged 2.37 (SD = 0.92),
+corresponding to 18.6% relative bias versus the true HR(H) = 2. In the
+complement, the estimate averaged 0.64 (-3.5% bias vs. true HR(Hc) =
 0.66).
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-2.4, the naive plugin shows -5.4% relative bias.
+2.4, the naive plugin shows -1.2% relative bias.
 
-The average hazard ratio (AHR) in the identified subgroup averaged 2.16
-(-9.9% relative bias vs. true AHR(H) = 2.4); in the complement, 0.59
-(1.6% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
+The average hazard ratio (AHR) in the identified subgroup averaged 2.08
+(-13.2% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
+(3.3% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
 relative to the Cox HR, consistent with AHR being a marginal rather than
 conditional estimand.
 
@@ -1344,7 +1344,15 @@ if (length(ahr_cols) > 0) {
     cat("  True AHR(Hc):", round(dgm_null$AHR_Hc_true, 3), "\n")
   }
 }
+```
 
+    ## AHR estimates (when subgroup found):
+    ##   Mean AHR(H) estimated: 0.654 
+    ##   Mean AHR(Hc) estimated: 0.654 
+    ##   True AHR(H): NA 
+    ##   True AHR(Hc): 0.654
+
+``` r
 build_estimation_table(
   results = results_null,
   dgm = dgm_null,
@@ -1357,7 +1365,19 @@ build_estimation_table(
 )
 ```
 
-    ## NULL
+| Estimation Properties                                                                                                                                                                                                                                                            |      |      |      |      |        |        |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|------|------|------|--------|--------|
+| n = 700, 100 simulations, HR(overall) = 0.72 (FS: 7/100 (7%) estimable)                                                                                                                                                                                                          |      |      |      |      |        |        |
+|                                                                                                                                                                                                                                                                                  | Avg  | SD   | Min  | Max  | b‡ (%) | b† (%) |
+| Ĥ: 7 estimable, avg \|Ĥ\| = 106, θ†(H) = 0.72, θ‡(H) = 0.65                                                                                                                                                                                                                      |      |      |      |      |        |        |
+| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 1.74 | 0.19 | 1.52 | 2.06 | 165.71 | 140.71 |
+| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
+| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
+| Ĥᶜ: avg \|Ĥᶜ\| = 594, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65                                                                                                                                                                                                                               |      |      |      |      |        |        |
+| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.69 | 0.07 | 0.59 | 0.78 | 5.05   | -4.83  |
+| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
+| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
+| θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |      |      |      |      |        |        |
 
 ``` r
 timings$summarize_null <- proc.time()[3] - t0
@@ -1373,8 +1393,31 @@ interpret_estimation_table(
 )
 ```
 
-No subgroups were identified in any of the 13 simulations under FS,
-indicating a 0%% detection rate.
+Under the null hypothesis (true HR = 0.72 uniformly), 7 of 100
+simulations (7.0%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 7 false detections,
+the identified subgroup averaged 106 patients.
+
+The naive Cox HR in the identified subgroup averaged 1.74 (SD = 0.19),
+representing 140.7% relative bias above the true value of 0.72. This
+upward bias reflects selection: the algorithm identified whichever
+patients happened to look most like a harm subgroup by chance. In the
+complement, the Cox HR averaged 0.69 (-4.8% bias), showing the expected
+mirror effect where removing the worst-looking patients makes the
+remainder appear modestly better.
+
+Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
+0.65, the naive plugin shows 165.7% relative bias.
+
+The average hazard ratio (AHR) in the identified subgroup averaged 0.65
+(0.0% relative bias vs. true AHR(H) = 0.65); in the complement, 0.65
+(0.0% bias vs. true AHR(Hc) = 0.65). The AHR shows attenuated bias
+relative to the Cox HR, consistent with AHR being a marginal rather than
+conditional estimand.
+
+These results underscore that under the null, the few false detections
+produce highly biased estimates, reinforcing the need for bootstrap bias
+correction for any subgroup identified by a data-driven search.
 
 #### Classification Rate Details
 
@@ -1411,22 +1454,22 @@ build_classification_table(
 )
 ```
 
-| Subgroup Identification and Classification Rates                   |       |        |
-|--------------------------------------------------------------------|-------|--------|
-| Across 13 simulations per scenario                                 |       |        |
-|                                                                    | FS    | GRF    |
-| M Null: N=700, theta(ITT) = 0.72                                   |       |        |
-| any(H)                                                             | 0.00  | 0.00   |
-| sens(Hc)                                                           | NaN   | NaN    |
-| ppv(Hc)                                                            | NaN   | NaN    |
-| avg\|H\|                                                           | NA    | NA     |
-| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |       |        |
-| any(H)                                                             | 0.92  | 0.62   |
-| sens(H)                                                            | 0.93  | 0.93   |
-| sens(Hc)                                                           | 0.98  | 0.95   |
-| ppv(H)                                                             | 0.91  | 0.75   |
-| ppv(Hc)                                                            | 0.99  | 0.99   |
-| avg\|H\|                                                           | 94.00 | 115.00 |
+| Subgroup Identification and Classification Rates                   |        |       |
+|--------------------------------------------------------------------|--------|-------|
+| Across 100 simulations per scenario                                |        |       |
+|                                                                    | FS     | GRF   |
+| M Null: N=700, theta(ITT) = 0.72                                   |        |       |
+| any(H)                                                             | 0.07   | 0.10  |
+| sens(Hc)                                                           | 0.85   | 0.89  |
+| ppv(Hc)                                                            | 1.00   | 1.00  |
+| avg\|H\|                                                           | 106.00 | 75.00 |
+| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |        |       |
+| any(H)                                                             | 0.89   | 0.77  |
+| sens(H)                                                            | 0.85   | 0.92  |
+| sens(Hc)                                                           | 0.98   | 0.97  |
+| ppv(H)                                                             | 0.88   | 0.85  |
+| ppv(Hc)                                                            | 0.98   | 0.99  |
+| avg\|H\|                                                           | 86.00  | 98.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1458,7 +1501,7 @@ cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.451
+    ## Censoring proportion: 0.454
 
 ``` r
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
@@ -1509,13 +1552,13 @@ cat("\n=== Detection Probability Comparison ===\n")
 cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 ```
 
-    ## Theoretical FS (asymptotic): 0.9
+    ## Theoretical FS (asymptotic): 0.899
 
 ``` r
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.923
+    ## Empirical FS: 0.89
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
@@ -1529,7 +1572,7 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.615
+    ## Empirical GRF: 0.77
 
 ``` r
 # Null 
@@ -1565,13 +1608,13 @@ cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.039463
+    ## Theoretical FS at min(SG) (asymptotic): 0.039765
 
 ``` r
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0
+    ## Empirical FS: 0.07
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1585,14 +1628,14 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0
+    ## Empirical GRF: 0.1
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.465
+    ## Censoring proportion: 0.467
 
 ``` r
 # -----------------------------------------------------------------------------
@@ -1706,8 +1749,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.769, Sens = 0.930, Spec = 0.969, PPV = 0.847
-    ##   GRF: Power = 0.769, Sens = 0.930, Spec = 0.969, PPV = 0.847
+    ##   FS: Power = 0.830, Sens = 0.880, Spec = 0.977, PPV = 0.867
+    ##   GRF: Power = 0.830, Sens = 0.880, Spec = 0.977, PPV = 0.867
 
 ``` r
 cat("\nNull Hypothesis (H0):\n")
@@ -1725,8 +1768,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0000
-    ##   GRF: Type I Error = 0.0000
+    ##   FS: Type I Error = 0.0850
+    ##   GRF: Type I Error = 0.0850
 
 ## Using `format_oc_results()`
 
@@ -1994,18 +2037,18 @@ reproducibility information.
 
 | Computational Timing Summary                            |             |            |            |
 |---------------------------------------------------------|-------------|------------|------------|
-| 13 H1 + 13 H0 simulations, 3 workers                    |             |            |            |
+| 100 H1 + 100 H0 simulations, 3 workers                  |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1)                                       | 0.2         | 0.00       | 0.1        |
-| Calibrate k_inter (Cox)                                 | 7.4         | 0.12       | 5.2        |
-| Calibrate k_inter (AHR)                                 | 3.1         | 0.05       | 2.2        |
-| Validate k_inter                                        | 0.8         | 0.01       | 0.6        |
-| DGM creation (H0)                                       | 0.1         | 0.00       | 0.1        |
-| Simulations H1                                          | 52.5        | 0.88       | 37.4       |
-| Simulations H0                                          | 39.0        | 0.65       | 27.8       |
-| Summarize H1                                            | 0.2         | 0.00       | 0.1        |
-| Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 140.4       | 2.34       | 100.0      |
+| DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
+| Calibrate k_inter (Cox)                                 | 7.5         | 0.13       | 0.9        |
+| Calibrate k_inter (AHR)                                 | 3.1         | 0.05       | 0.4        |
+| Validate k_inter                                        | 0.8         | 0.01       | 0.1        |
+| DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
+| Simulations H1                                          | 469.8       | 7.83       | 55.1       |
+| Simulations H0                                          | 333.0       | 5.55       | 39.0       |
+| Summarize H1                                            | 0.2         | 0.00       | 0.0        |
+| Summarize H0                                            | 0.2         | 0.00       | 0.0        |
+| Total vignette                                          | 853.0       | 14.22      | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -2119,7 +2162,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 4.0 sec/sim (wall) across 13 sims on 3 workers
+    ##   H1: 4.7 sec/sim (wall) across 100 sims on 3 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2127,7 +2170,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 3.0 sec/sim (wall) across 13 sims on 3 workers
+    ##   H0: 3.3 sec/sim (wall) across 100 sims on 3 workers
 
 ## Complete Example Script
 

@@ -28,9 +28,9 @@ The vignette is organised as a complete, self-contained workflow:
     where the true HR is 0.70 *for every patient*, with no subgroup
     differential effects.
 
-2.  **Running simulated trials** — drawing 16 synthetic trial replicates
-    from the null DGM and fitting a stratified Cox model in each
-    pre-defined subgroup.
+2.  **Running simulated trials** — drawing 100 synthetic trial
+    replicates from the null DGM and fitting a stratified Cox model in
+    each pre-defined subgroup.
 
 3.  **Characterising the distribution of extreme results** — for each
     subgroup, summarising how variable the HR point estimate is across
@@ -701,8 +701,8 @@ the calibrated censoring model, and truncates at `analysis_time`.
 
 The single-trial example below illustrates the output structure. In the
 null DGM every patient has the same true HR of 0.70, so `flag_harm` is
-always 0 — there is no embedded subgroup. The 16 replications that drive
-the extreme-subgroup analysis in Part IV follow the same pattern,
+always 0 — there is no embedded subgroup. The 100 replications that
+drive the extreme-subgroup analysis in Part IV follow the same pattern,
 looping over subgroups inside each replicate.
 
 ``` r
@@ -798,7 +798,7 @@ trials from it. We now use those tools of `forestsearch`: **when many
 subgroups are examined in a trial with a perfectly uniform treatment
 benefit, how extreme can a standard Cox analysis look by chance alone?**
 
-We generate 16 synthetic trials from the null DGM and fit a stratified
+We generate 100 synthetic trials from the null DGM and fit a stratified
 Cox model in each pre-defined subgroup in every trial. Two output
 statistics are accumulated:
 
@@ -1076,7 +1076,7 @@ alone.
 
 ------------------------------------------------------------------------
 
-### Summary Statistics Across 16 Simulations
+### Summary Statistics Across 100 Simulations
 
 For each subgroup the primary analysis — Cox model stratified by the
 randomisation factor (`grade`) — is fitted in every simulated trial. Two
@@ -1191,7 +1191,7 @@ for (ss in seq_len(n_sims_null)) {
 cat("Simulations completed:", n_sims_null, "\n")
 ```
 
-    ## Simulations completed: 16
+    ## Simulations completed: 100
 
 ------------------------------------------------------------------------
 
@@ -1253,119 +1253,119 @@ print(results_tbl, row.names = FALSE)
 ```
 
     ##                 Subgroup   N #(% converged) Median HR (1st, 99th ECI)
-    ##             All Patients 686      16 (100%)         0.67 (0.59, 0.84)
-    ##          Post-menopausal 392      16 (100%)         0.69 (0.53, 0.88)
-    ##           Pre-menopausal 294      16 (100%)            0.69 (0.56, 1)
-    ##                  Grade 3 162      16 (100%)          0.66 (0.42, 0.9)
-    ##                Grade 1/2 524      16 (100%)         0.72 (0.55, 0.83)
-    ##              Age (young) 374      16 (100%)         0.68 (0.62, 0.89)
-    ##              Age (older) 312      16 (100%)         0.71 (0.52, 0.93)
-    ##                Age <= 50 295      16 (100%)          0.7 (0.55, 0.94)
-    ##                 Age > 50 391      16 (100%)         0.69 (0.53, 0.92)
-    ##      Tumour size (small) 359      16 (100%)         0.69 (0.43, 0.93)
-    ##      Tumour size (large) 327      16 (100%)         0.65 (0.56, 0.95)
+    ##             All Patients 686     100 (100%)          0.7 (0.55, 0.86)
+    ##          Post-menopausal 390     100 (100%)         0.69 (0.53, 0.97)
+    ##           Pre-menopausal 296     100 (100%)          0.7 (0.46, 0.99)
+    ##                  Grade 3 161     100 (100%)         0.69 (0.47, 1.14)
+    ##                Grade 1/2 525     100 (100%)         0.71 (0.54, 0.93)
+    ##              Age (young) 373     100 (100%)         0.69 (0.49, 0.95)
+    ##              Age (older) 313     100 (100%)         0.72 (0.51, 1.06)
+    ##                Age <= 50 295     100 (100%)         0.68 (0.47, 0.96)
+    ##                 Age > 50 391     100 (100%)         0.71 (0.54, 0.98)
+    ##      Tumour size (small) 357     100 (100%)         0.69 (0.48, 1.04)
+    ##      Tumour size (large) 329     100 (100%)         0.72 (0.49, 1.01)
     ##            Node-negative   -         0 (0%)                         -
-    ##                Nodes 1-3 382      16 (100%)         0.65 (0.48, 0.85)
-    ##         High nodes (>Q3) 135      16 (100%)         0.72 (0.57, 0.94)
-    ##                  PGR low 336      16 (100%)          0.69 (0.5, 0.89)
-    ##                 PGR high 350      16 (100%)          0.7 (0.49, 0.97)
-    ##             ER-low (<20) 278      16 (100%)         0.69 (0.51, 0.89)
-    ##           ER-high (>=20) 408      16 (100%)         0.66 (0.51, 0.89)
-    ##       Pre-meno / Grade 3  77      16 (100%)         0.62 (0.42, 1.15)
-    ##      Post-meno / Grade 3  85      16 (100%)         0.67 (0.38, 1.07)
-    ##     Pre-meno / Grade 1-2 218      16 (100%)         0.71 (0.55, 1.22)
-    ##    Post-meno / Grade 1-2 307      16 (100%)         0.71 (0.49, 0.95)
-    ##       Pre-meno / Age<=50 257      16 (100%)         0.71 (0.56, 1.02)
-    ##        Pre-meno / Age>50  37      16 (100%)         0.56 (0.31, 1.78)
-    ##  Post-meno / Age (young)  83      16 (100%)          0.77 (0.42, 1.4)
-    ##  Post-meno / Age (older) 309      16 (100%)          0.71 (0.5, 0.94)
-    ##        Pre-meno / ER-low 139      16 (100%)         0.64 (0.38, 1.01)
-    ##       Pre-meno / ER-high 155      16 (100%)         0.69 (0.48, 1.32)
-    ##       Post-meno / ER-low 138      16 (100%)         0.71 (0.46, 1.15)
-    ##      Post-meno / ER-high 253      16 (100%)         0.65 (0.46, 0.95)
+    ##                Nodes 1-3 381     100 (100%)         0.69 (0.47, 0.98)
+    ##         High nodes (>Q3) 134     100 (100%)         0.68 (0.47, 1.01)
+    ##                  PGR low 340     100 (100%)            0.7 (0.5, 0.9)
+    ##                 PGR high 346     100 (100%)          0.7 (0.49, 1.13)
+    ##             ER-low (<20) 278     100 (100%)          0.69 (0.5, 0.97)
+    ##           ER-high (>=20) 408     100 (100%)           0.7 (0.5, 0.92)
+    ##       Pre-meno / Grade 3  78     100 (100%)         0.66 (0.35, 1.38)
+    ##      Post-meno / Grade 3  83     100 (100%)         0.69 (0.37, 1.53)
+    ##     Pre-meno / Grade 1-2 218     100 (100%)         0.69 (0.42, 1.09)
+    ##    Post-meno / Grade 1-2 307     100 (100%)          0.7 (0.48, 1.03)
+    ##       Pre-meno / Age<=50 258     100 (100%)          0.7 (0.44, 0.97)
+    ##        Pre-meno / Age>50  38     100 (100%)         0.72 (0.17, 3.11)
+    ##  Post-meno / Age (young)  81     100 (100%)         0.72 (0.31, 1.51)
+    ##  Post-meno / Age (older) 309     100 (100%)          0.72 (0.5, 1.09)
+    ##        Pre-meno / ER-low 139     100 (100%)         0.68 (0.42, 1.04)
+    ##       Pre-meno / ER-high 157     100 (100%)         0.69 (0.31, 1.38)
+    ##       Post-meno / ER-low 138     100 (100%)            0.7 (0.4, 1.2)
+    ##      Post-meno / ER-high 251     100 (100%)          0.72 (0.42, 1.1)
     ##       Grade 3 / Node-neg   -         0 (0%)                         -
-    ##       Grade 3 / Node-pos 162      16 (100%)          0.66 (0.42, 0.9)
+    ##       Grade 3 / Node-pos 161     100 (100%)         0.69 (0.47, 1.14)
     ##     Grade 1-2 / Node-neg   -         0 (0%)                         -
-    ##     Grade 1-2 / Node-pos 524      16 (100%)         0.72 (0.55, 0.83)
-    ##     Grade 3 / High nodes  46      16 (100%)         0.67 (0.32, 1.63)
-    ##         Grade 3 / ER-low 110      16 (100%)         0.69 (0.33, 0.97)
-    ##        Grade 3 / ER-high  52      16 (100%)         0.69 (0.21, 1.22)
-    ##       Grade 1-2 / ER-low 168      16 (100%)         0.74 (0.55, 1.01)
-    ##      Grade 1-2 / ER-high 356      16 (100%)         0.66 (0.48, 0.96)
-    ##        Grade 3 / PGR low 126      16 (100%)         0.67 (0.38, 0.95)
-    ##       Grade 3 / PGR high  36      16 (100%)         0.78 (0.21, 1.16)
-    ##      Grade 1-2 / PGR low 210      16 (100%)         0.68 (0.51, 0.98)
-    ##     Grade 1-2 / PGR high 314      16 (100%)          0.7 (0.45, 0.98)
-    ##      Pre-meno/Yng/ER-low 121      16 (100%)         0.67 (0.35, 0.98)
-    ##     Pre-meno/Yng/ER-high 136      16 (100%)          0.7 (0.48, 1.26)
-    ##      Post-meno/G3/ER-low  57      16 (100%)          0.64 (0.3, 1.24)
-    ##    Post-meno/G3/Node-pos  85      16 (100%)         0.67 (0.38, 1.07)
-    ##       G3/Node-pos/ER-low 110      16 (100%)         0.69 (0.33, 0.97)
-    ##           Large/Node-pos 327      16 (100%)         0.65 (0.56, 0.95)
+    ##     Grade 1-2 / Node-pos 525     100 (100%)         0.71 (0.54, 0.93)
+    ##     Grade 3 / High nodes  44     100 (100%)         0.66 (0.28, 1.74)
+    ##         Grade 3 / ER-low 110     100 (100%)          0.68 (0.31, 1.2)
+    ##        Grade 3 / ER-high  52     100 (100%)         0.72 (0.27, 1.73)
+    ##       Grade 1-2 / ER-low 168     100 (100%)           0.7 (0.49, 1.1)
+    ##      Grade 1-2 / ER-high 357     100 (100%)             0.7 (0.46, 1)
+    ##        Grade 3 / PGR low 127     100 (100%)          0.7 (0.36, 1.14)
+    ##       Grade 3 / PGR high  34     100 (100%)         0.74 (0.17, 2.45)
+    ##      Grade 1-2 / PGR low 213     100 (100%)            0.71 (0.48, 1)
+    ##     Grade 1-2 / PGR high 312     100 (100%)          0.7 (0.46, 1.12)
+    ##      Pre-meno/Yng/ER-low 120     100 (100%)          0.68 (0.43, 1.2)
+    ##     Pre-meno/Yng/ER-high 138     100 (100%)         0.69 (0.31, 1.28)
+    ##      Post-meno/G3/ER-low  56     100 (100%)         0.69 (0.26, 1.34)
+    ##    Post-meno/G3/Node-pos  83     100 (100%)         0.69 (0.37, 1.53)
+    ##       G3/Node-pos/ER-low 110     100 (100%)          0.68 (0.31, 1.2)
+    ##           Large/Node-pos 329     100 (100%)         0.72 (0.49, 1.01)
     ##           Large/Node-neg   -         0 (0%)                         -
-    ##           Small/Node-pos 359      16 (100%)         0.69 (0.43, 0.93)
+    ##           Small/Node-pos 357     100 (100%)         0.69 (0.48, 1.04)
     ##           Small/Node-neg   -         0 (0%)                         -
-    ##                 random60  60      16 (100%)         0.61 (0.24, 1.16)
-    ##                 random40  40      16 (100%)           0.5 (0.2, 1.53)
-    ##                 random20  20      16 (100%)            0.36 (0, 2.33)
-    ##                 random15  15      16 (100%)            0.19 (0, 2.13)
+    ##                 random60  60     100 (100%)          0.7 (0.21, 1.53)
+    ##                 random40  40     100 (100%)         0.79 (0.21, 1.84)
+    ##                 random20  20     100 (100%)     0.81 (0, 21778274.27)
+    ##                 random15  15       99 (99%)   0.79 (0, 3949518434.28)
     ##  Pr(HR<0.80) Pr(UB<1.0) Pr(UB>=1.0) Med UB|UB>=1 P99 UB|UB>=1
-    ##        87.5%      87.5%       12.5%         1.03         1.04
-    ##        87.5%      62.5%       37.5%         1.06         1.19
-    ##        87.5%      56.2%       43.8%          1.1         1.42
-    ##        68.8%      43.8%       56.2%         1.24         1.37
-    ##        93.8%      68.8%       31.2%         1.02         1.09
-    ##        87.5%        75%         25%         1.09         1.21
-    ##        81.2%        50%         50%         1.09         1.33
-    ##        87.5%      43.8%       56.2%         1.07         1.33
-    ##        87.5%      62.5%       37.5%         1.03         1.25
-    ##          75%      56.2%       43.8%         1.12          1.3
-    ##        87.5%      81.2%       18.8%         1.15          1.3
+    ##          87%        86%         14%         1.03         1.09
+    ##          80%        60%         40%         1.08         1.48
+    ##          78%        50%         50%         1.12         1.41
+    ##          76%        37%         63%         1.15         1.77
+    ##          82%        71%         29%         1.07         1.25
+    ##          84%        68%         32%         1.09         1.34
+    ##          77%        49%         51%          1.1         1.63
+    ##          81%        52%         48%          1.1         1.38
+    ##          78%        57%         43%         1.08         1.51
+    ##          83%        63%         37%          1.1          1.5
+    ##          78%        52%         48%         1.08         1.43
     ##            -          -           -            -            -
-    ##        81.2%      68.8%       31.2%         1.12         1.18
-    ##        62.5%        25%         75%         1.26         1.45
-    ##        81.2%      68.8%       31.2%         1.07          1.2
-    ##        81.2%        50%         50%         1.08         1.42
-    ##        68.8%      62.5%       37.5%         1.17         1.24
-    ##        87.5%      68.8%       31.2%         1.07         1.24
-    ##          75%      18.8%       81.2%         1.18         2.33
-    ##        62.5%      31.2%       68.8%         1.44         1.94
-    ##        81.2%      31.2%       68.8%         1.17         1.85
-    ##          75%        50%         50%         1.14         1.33
-    ##        81.2%      43.8%       56.2%         1.15         1.47
-    ##        62.5%       6.2%       93.8%         1.95         7.73
-    ##        56.2%        25%         75%         1.57         2.79
-    ##        87.5%      43.8%       56.2%         1.08         1.34
-    ##        68.8%      31.2%       68.8%         1.16         1.71
-    ##        68.8%      31.2%       68.8%          1.3         2.16
-    ##        68.8%      31.2%       68.8%         1.24          1.9
-    ##        87.5%      68.8%       31.2%         1.09         1.41
+    ##          77%        57%         43%         1.12         1.42
+    ##          77%        34%         66%         1.16         1.58
+    ##          84%        66%         34%         1.06         1.25
+    ##          75%        49%         51%         1.16         1.71
+    ##          77%        59%         41%         1.13         1.42
+    ##          77%        58%         42%         1.13          1.4
+    ##          70%        15%         85%         1.34         2.54
+    ##          61%        22%         78%         1.42         2.79
+    ##          74%        36%         64%         1.19         1.76
+    ##          74%        50%         50%         1.12         1.66
+    ##          79%        44%         56%         1.15         1.44
+    ##          58%         8%         92%         2.54        29.41
+    ##          66%        21%         79%         1.51         3.02
+    ##          77%        48%         52%         1.11         1.66
+    ##          73%        29%         71%         1.23          2.1
+    ##          67%        30%         70%         1.33         2.41
+    ##          71%        32%         68%         1.24         2.01
+    ##          66%        38%         62%          1.2         1.75
     ##            -          -           -            -            -
-    ##        68.8%      43.8%       56.2%         1.24         1.37
+    ##          76%        37%         63%         1.15         1.77
     ##            -          -           -            -            -
-    ##        93.8%      68.8%       31.2%         1.02         1.09
-    ##          75%      18.8%       81.2%         1.42         3.28
-    ##          75%      31.2%       68.8%         1.23         1.61
-    ##        62.5%      12.5%       87.5%         1.73         2.55
-    ##        68.8%      18.8%       81.2%         1.17         1.58
-    ##        81.2%      68.8%       31.2%         1.12         1.37
-    ##          75%      31.2%       68.8%         1.25         1.49
-    ##          50%       6.2%       93.8%          2.1         4.83
-    ##          75%        50%         50%         1.17         1.41
-    ##          75%      43.8%       56.2%         1.05         1.46
-    ##        68.8%        25%         75%         1.35         1.71
-    ##        68.8%      18.8%       81.2%          1.3         2.15
-    ##        62.5%      31.2%       68.8%         1.72         2.45
-    ##        62.5%      31.2%       68.8%         1.44         1.94
-    ##          75%      31.2%       68.8%         1.23         1.61
-    ##        87.5%      81.2%       18.8%         1.15          1.3
+    ##          82%        71%         29%         1.07         1.25
+    ##          70%        18%         82%         1.48         3.73
+    ##          74%        30%         70%         1.23         2.06
+    ##          58%        10%         90%         1.83         4.66
+    ##          71%        33%         67%         1.22         1.76
+    ##          78%        56%         44%         1.11         1.43
+    ##          76%        34%         66%         1.23         1.87
+    ##          55%         4%         96%         2.16          Inf
+    ##          79%        43%         57%         1.12         1.47
+    ##          69%        45%         55%         1.19         1.68
+    ##          72%        30%         70%         1.31         2.19
+    ##          71%        24%         76%         1.35         2.24
+    ##          63%        23%         77%         1.55         2.98
+    ##          61%        22%         78%         1.42         2.79
+    ##          74%        30%         70%         1.23         2.06
+    ##          78%        52%         48%         1.08         1.43
     ##            -          -           -            -            -
-    ##          75%      56.2%       43.8%         1.12          1.3
+    ##          83%        63%         37%          1.1          1.5
     ##            -          -           -            -            -
-    ##        68.8%      12.5%       87.5%         1.48         2.75
-    ##        56.2%      18.8%       81.2%         2.16         4.67
-    ##        68.8%       6.2%       93.8%         2.72          Inf
-    ##          75%       6.2%       93.8%         4.36          Inf
+    ##          62%        11%         89%         1.65          3.8
+    ##          50%         9%         91%          2.2         5.76
+    ##          49%         3%         97%          3.8          Inf
+    ##        50.5%         3%         97%         6.66          Inf
 
 **Reading the table.** Every row shares the same true HR = 0.70, so the
 median of the HR ECI should be close to 0.70 throughout — confirming the
@@ -1382,7 +1382,7 @@ commonly exceeds 3.0.
 
 #### Forest plot: HR point estimate distributions
 
-Each row shows one subgroup. The point is the median HR across 16
+Each row shows one subgroup. The point is the median HR across 100
 simulations; the line spans the 1st–99th percentile ECI. The red dashed
 line marks the true HR = 0.70; the grey dotted line marks HR = 1.0.
 `random*` benchmarks (orange) are shown alongside same-sized clinical
