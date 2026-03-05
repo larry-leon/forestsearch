@@ -159,6 +159,35 @@ pkgdown::deploy_to_branch(branch = "gh-pages", commit_message = "Update pkgdown 
 
 pkgdown::deploy_to_branch()
 
+
+# Build only articles that haven't been built yet (skips already-built ones)
+# DNW (does not work, rebuilds everything)
+#pkgdown::build_articles(lazy = TRUE)
+
+# Rebuild the articles index page and navbar only
+pkgdown::build_articles_index()
+pkgdown::build_home()
+
+
+# The typical workflow when adding a single new vignette is:
+# 1. Build just the new article
+pkgdown::build_article("articles/biomarker_effects")
+# 2. Refresh the index so it appears in the articles listing
+pkgdown::build_articles_index()
+
+
+#. Try this --
+# Render only the new vignette(s)
+pkgdown::build_article("articles/biomarker_effects")
+pkgdown::build_article("articles/causal_effects_brief_review")
+
+# Refresh the index page so they appear in the listing
+pkgdown::build_articles_index()
+
+# Rebuild the navbar (home page picks up the updated menu)
+pkgdown::build_home()
+
+
 # https://larry-leon.github.io/forestsearch
 
 # Preview without building everything
