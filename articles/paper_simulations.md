@@ -23,7 +23,7 @@ The simulation framework allows you to:
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets 3
-    **Running simulated trials** — drawing 30 under null (uniform
+    **Running simulated trials**: drawing 30 under null (uniform
     benefit) and 30 under alternative (HTEs)
 3.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
@@ -1078,7 +1078,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.188 0.1198 
+    ## Seconds and minutes forestsearch overall = 8.024 0.1337 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
@@ -1158,7 +1158,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1183,7 +1183,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 6.815 0.1136 
+    ## Seconds and minutes forestsearch overall = 6.814 0.1136 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2042,11 +2042,11 @@ reproducibility information.
 | Calibrate k_inter (AHR) | 0.8 | 0.01 | 1.8 |
 | Validate k_inter | 0.2 | 0.00 | 0.4 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.2 |
-| Simulations H1 | 15.0 | 0.25 | 33.0 |
-| Simulations H0 | 13.0 | 0.22 | 28.6 |
+| Simulations H1 | 14.8 | 0.25 | 33.1 |
+| Simulations H0 | 12.8 | 0.21 | 28.6 |
 | Summarize H1 | 0.0 | 0.00 | 0.1 |
 | Summarize H0 | 0.0 | 0.00 | 0.1 |
-| Total vignette | 45.4 | 0.76 | 100.0 |
+| Total vignette | 44.7 | 0.75 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
