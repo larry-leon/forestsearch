@@ -156,6 +156,7 @@ pkgdown::check_pkgdown()
 # note: deploy_to_branch calls build_site(), so only run here if deploying
 # otherwise will duplicate the compiling of documents
 
+# 5-March-2026
 # DO THIS!!!
 usethis::use_github_action("pkgdown")
 
@@ -163,6 +164,8 @@ git add .github/workflows/pkgdown.yaml
 git push
 
 git add vignettes/articles/extreme_subgroups.Rmd
+
+
 
 
 
