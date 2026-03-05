@@ -159,6 +159,10 @@ pkgdown::check_pkgdown()
 # DO THIS!!!
 usethis::use_github_action("pkgdown")
 
+git add .github/workflow/pkgdown.yaml
+
+
+
 pkgdown::deploy_to_branch()
 
 
