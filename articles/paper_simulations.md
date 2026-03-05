@@ -23,8 +23,8 @@ The simulation framework allows you to:
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets
-3.  **Running simulated trials**: drawing 130 under null (uniform
-    benefit) and 130 under alternative (HTEs)
+3.  **Running simulated trials**: drawing 5000 under null (uniform
+    benefit) and 1000 under alternative (HTEs)
 4.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
 5.  **Summarize Results**: Aggregate operating characteristics across
@@ -1007,7 +1007,7 @@ cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 130 simulations under H1...
+    ## Running 1000 simulations under H1...
 
 ``` r
 start_time <- Sys.time()
@@ -1078,7 +1078,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 7.619 0.127 
+    ## Seconds and minutes forestsearch overall = 7.345 0.1224 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
@@ -1097,13 +1097,13 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 1.1 minutes
+    ## Completed in 8.1 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 260 rows
+    ## Results: 2000 rows
 
 ### Running Null Hypothesis Simulations
 
@@ -1111,7 +1111,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 130 simulations under H0...
+    ## Running 5000 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1158,7 +1158,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1183,7 +1183,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 7.409 0.1235 
+    ## Seconds and minutes forestsearch overall = 7.769 0.1295 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1198,7 +1198,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 0.8 minutes
+    ## Completed in 32.4 minutes
 
 ## Summarizing Results
 
@@ -1241,8 +1241,8 @@ if (length(ahr_cols) > 0) {
 ```
 
     ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.106 
-    ##   Mean AHR(Hc) estimated: 0.603 
+    ##   Mean AHR(H) estimated: 2.142 
+    ##   Mean AHR(Hc) estimated: 0.602 
     ##   True AHR(H): 2.4 
     ##   True AHR(Hc): 0.585
 
@@ -1261,16 +1261,16 @@ build_estimation_table(
 
 | Estimation Properties |  |  |  |  |  |  |
 |----|----|----|----|----|----|----|
-| n = 700, 130 simulations, HR(overall) = 0.72 (FS: 115/130 (88%) estimable) |  |  |  |  |  |  |
+| n = 700, 1000 simulations, HR(overall) = 0.72 (FS: 880/1000 (88%) estimable) |  |  |  |  |  |  |
 |  | Avg | SD | Min | Max | b‡ (%) | b† (%) |
-| Ĥ: 115 estimable, avg \|Ĥ\| = 87, θ†(H) = 2, θ‡(H) = 2.4 |  |  |  |  |  |  |
-| θ̂(Ĥ) | 2.33 | 0.83 | 1.37 | 8.16 | -2.95 | 16.47 |
-| âhr(Ĥ) | 2.11 | 0.47 | 0.77 | 2.40 | NA | -12.27 |
-| θ‡(Ĥ) | 2.19 | 0.37 | 1.10 | 2.40 | NA | -8.85 |
-| Ĥᶜ: avg \|Ĥᶜ\| = 613, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58 |  |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.64 | 0.08 | 0.45 | 0.84 | 9.70 | -2.98 |
-| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.69 | NA | 3.04 |
-| θ‡(Ĥᶜ) | 0.63 | 0.07 | 0.58 | 0.89 | NA | 7.98 |
+| Ĥ: 880 estimable, avg \|Ĥ\| = 86, θ†(H) = 2, θ‡(H) = 2.4 |  |  |  |  |  |  |
+| θ̂(Ĥ) | 2.31 | 0.63 | 1.32 | 8.16 | -3.91 | 15.31 |
+| âhr(Ĥ) | 2.14 | 0.47 | 0.58 | 2.40 | NA | -10.76 |
+| θ‡(Ĥ) | 2.21 | 0.38 | 0.58 | 2.40 | NA | -7.96 |
+| Ĥᶜ: avg \|Ĥᶜ\| = 614, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58 |  |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.64 | 0.07 | 0.45 | 0.91 | 9.63 | -3.04 |
+| âhr(Ĥᶜ) | 0.60 | 0.03 | 0.58 | 0.72 | NA | 3.01 |
+| θ‡(Ĥᶜ) | 0.63 | 0.08 | 0.58 | 0.93 | NA | 8.15 |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
 
 ``` r
@@ -1288,19 +1288,19 @@ interpret_estimation_table(
 ```
 
 Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
-115 of 130 simulations (88.5%) identified a subgroup using FS. The
-identified subgroup averaged 87 patients (complement: 613).
+880 of 1000 simulations (88.0%) identified a subgroup using FS. The
+identified subgroup averaged 86 patients (complement: 614).
 
-The naive Cox HR in the identified subgroup averaged 2.33 (SD = 0.83),
-corresponding to 16.5% relative bias versus the true HR(H) = 2. In the
+The naive Cox HR in the identified subgroup averaged 2.31 (SD = 0.63),
+corresponding to 15.3% relative bias versus the true HR(H) = 2. In the
 complement, the estimate averaged 0.64 (-3.0% bias vs. true HR(Hc) =
 0.66).
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-2.4, the naive plugin shows -3.0% relative bias.
+2.4, the naive plugin shows -3.9% relative bias.
 
-The average hazard ratio (AHR) in the identified subgroup averaged 2.11
-(-12.3% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
+The average hazard ratio (AHR) in the identified subgroup averaged 2.14
+(-10.8% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
 (3.0% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
 relative to the Cox HR, consistent with AHR being a marginal rather than
 conditional estimand.
@@ -1365,14 +1365,14 @@ build_estimation_table(
 
 | Estimation Properties |  |  |  |  |  |  |
 |----|----|----|----|----|----|----|
-| n = 700, 130 simulations, HR(overall) = 0.72 (FS: 12/130 (9%) estimable) |  |  |  |  |  |  |
+| n = 700, 5000 simulations, HR(overall) = 0.72 (FS: 296/5000 (6%) estimable) |  |  |  |  |  |  |
 |  | Avg | SD | Min | Max | b‡ (%) | b† (%) |
-| Ĥ: 12 estimable, avg \|Ĥ\| = 96, θ†(H) = 0.72, θ‡(H) = 0.65 |  |  |  |  |  |  |
-| θ̂(Ĥ) | 1.81 | 0.20 | 1.52 | 2.15 | 177.01 | 150.94 |
+| Ĥ: 296 estimable, avg \|Ĥ\| = 99, θ†(H) = 0.72, θ‡(H) = 0.65 |  |  |  |  |  |  |
+| θ̂(Ĥ) | 1.80 | 0.26 | 1.35 | 2.89 | 174.56 | 148.72 |
 | âhr(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
 | θ‡(Ĥ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
-| Ĥᶜ: avg \|Ĥᶜ\| = 604, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65 |  |  |  |  |  |  |
-| θ̂(Ĥᶜ) | 0.70 | 0.06 | 0.59 | 0.78 | 6.67 | -3.37 |
+| Ĥᶜ: avg \|Ĥᶜ\| = 601, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65 |  |  |  |  |  |  |
+| θ̂(Ĥᶜ) | 0.68 | 0.07 | 0.46 | 0.93 | 3.24 | -6.47 |
 | âhr(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
 | θ‡(Ĥᶜ) | 0.65 | 0.00 | 0.65 | 0.65 | NA | 0.00 |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |  |  |  |  |  |  |
@@ -1391,21 +1391,21 @@ interpret_estimation_table(
 )
 ```
 
-Under the null hypothesis (true HR = 0.72 uniformly), 12 of 130
-simulations (9.2%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 12 false detections,
-the identified subgroup averaged 96 patients.
+Under the null hypothesis (true HR = 0.72 uniformly), 296 of 5000
+simulations (5.9%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 296 false detections,
+the identified subgroup averaged 99 patients.
 
-The naive Cox HR in the identified subgroup averaged 1.81 (SD = 0.2),
-representing 150.9% relative bias above the true value of 0.72. This
+The naive Cox HR in the identified subgroup averaged 1.8 (SD = 0.26),
+representing 148.7% relative bias above the true value of 0.72. This
 upward bias reflects selection: the algorithm identified whichever
 patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.7 (-3.4% bias), showing the expected
+complement, the Cox HR averaged 0.68 (-6.5% bias), showing the expected
 mirror effect where removing the worst-looking patients makes the
 remainder appear modestly better.
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-0.65, the naive plugin shows 177.0% relative bias.
+0.65, the naive plugin shows 174.6% relative bias.
 
 The average hazard ratio (AHR) in the identified subgroup averaged 0.65
 (0.0% relative bias vs. true AHR(H) = 0.65); in the complement, 0.65
@@ -1454,20 +1454,20 @@ build_classification_table(
 
 | Subgroup Identification and Classification Rates |  |  |
 |----|----|----|
-| Across 130 simulations per scenario |  |  |
+| Across 1,000 simulations per scenario |  |  |
 |  | FS | GRF |
 | M Null: N=700, theta(ITT) = 0.72 |  |  |
-| any(H) | 0.09 | 0.08 |
+| any(H) | 0.06 | 0.06 |
 | sens(Hc) | 0.86 | 0.89 |
 | ppv(Hc) | 1.00 | 1.00 |
-| avg\|H\| | 96.00 | 75.00 |
+| avg\|H\| | 99.00 | 78.00 |
 | M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |  |  |
-| any(H) | 0.88 | 0.74 |
-| sens(H) | 0.86 | 0.93 |
+| any(H) | 0.88 | 0.75 |
+| sens(H) | 0.86 | 0.89 |
 | sens(Hc) | 0.98 | 0.97 |
-| ppv(H) | 0.88 | 0.85 |
-| ppv(Hc) | 0.98 | 0.99 |
-| avg\|H\| | 87.00 | 100.00 |
+| ppv(H) | 0.89 | 0.84 |
+| ppv(Hc) | 0.98 | 0.98 |
+| avg\|H\| | 86.00 | 98.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1499,7 +1499,7 @@ cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.452
+    ## Censoring proportion: 0.453
 
 ``` r
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
@@ -1556,7 +1556,7 @@ cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.885
+    ## Empirical FS: 0.88
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
@@ -1570,7 +1570,7 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.738
+    ## Empirical GRF: 0.754
 
 ``` r
 # Null 
@@ -1606,13 +1606,13 @@ cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.039595
+    ## Theoretical FS at min(SG) (asymptotic): 0.039618
 
 ``` r
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.092308
+    ## Empirical FS: 0.0592
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1626,14 +1626,14 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.076923
+    ## Empirical GRF: 0.0648
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.465
+    ## Censoring proportion: 0.463
 
 ``` r
 # -----------------------------------------------------------------------------
@@ -1747,8 +1747,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.812, Sens = 0.892, Spec = 0.976, PPV = 0.868
-    ##   GRF: Power = 0.812, Sens = 0.892, Spec = 0.976, PPV = 0.868
+    ##   FS: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
+    ##   GRF: Power = 0.817, Sens = 0.875, Spec = 0.978, PPV = 0.870
 
 ``` r
 cat("\nNull Hypothesis (H0):\n")
@@ -1766,8 +1766,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0846
-    ##   GRF: Type I Error = 0.0846
+    ##   FS: Type I Error = 0.0620
+    ##   GRF: Type I Error = 0.0620
 
 ## Using `format_oc_results()`
 
@@ -2035,18 +2035,18 @@ reproducibility information.
 
 | Computational Timing Summary |  |  |  |
 |----|----|----|----|
-| 130 H1 + 130 H0 simulations, 13 workers |  |  |  |
+| 1000 H1 + 5000 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.0 |
-| Calibrate k_inter (Cox) | 2.1 | 0.03 | 1.6 |
-| Calibrate k_inter (AHR) | 0.8 | 0.01 | 0.6 |
-| Validate k_inter | 0.2 | 0.00 | 0.1 |
-| DGM creation (H0) | 0.1 | 0.00 | 0.1 |
-| Simulations H1 | 67.8 | 1.13 | 50.2 |
-| Simulations H0 | 49.5 | 0.82 | 36.6 |
+| Calibrate k_inter (Cox) | 2.2 | 0.04 | 0.1 |
+| Calibrate k_inter (AHR) | 0.9 | 0.01 | 0.0 |
+| Validate k_inter | 0.2 | 0.00 | 0.0 |
+| DGM creation (H0) | 0.1 | 0.00 | 0.0 |
+| Simulations H1 | 486.6 | 8.11 | 19.9 |
+| Simulations H0 | 1,943.7 | 32.40 | 79.4 |
 | Summarize H1 | 0.1 | 0.00 | 0.0 |
-| Summarize H0 | 0.0 | 0.00 | 0.0 |
-| Total vignette | 135.1 | 2.25 | 100.0 |
+| Summarize H0 | 0.1 | 0.00 | 0.0 |
+| Total vignette | 2,449.5 | 40.83 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
@@ -2160,7 +2160,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 0.5 sec/sim (wall) across 130 sims on 13 workers
+    ##   H1: 0.5 sec/sim (wall) across 1000 sims on 13 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2168,7 +2168,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 0.4 sec/sim (wall) across 130 sims on 13 workers
+    ##   H0: 0.4 sec/sim (wall) across 5000 sims on 13 workers
 
 ## Complete Example Script
 
