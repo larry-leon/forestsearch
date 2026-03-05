@@ -104,8 +104,10 @@ heterogeneity</li>
 specified treatment effects</li>
 <li>
 <strong>Simulate Trials</strong>: Generate multiple simulated
-datasets 3 <strong>Running simulated trials</strong>: drawing 30 under
-null (uniform benefit) and 30 under alternative (HTEs)</li>
+datasets</li>
+<li>
+<strong>Running simulated trials</strong>: drawing 30 under null
+(uniform benefit) and 30 under alternative (HTEs)</li>
 <li>
 <strong>Run Analyses</strong>: Apply ForestSearch (and optionally
 GRF) to each dataset</li>
@@ -1590,7 +1592,7 @@ search algorithm:</p>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## 1 subgroups passed consistency threshold</span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 8.024 0.1337 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 8.092 0.1349 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## Subgroup identified: {z1} &amp; !{z5 &lt;= 1} </span></span>
 <span><span class="co">## tau, maxdepth = 48.53742 2 </span></span>
@@ -1606,7 +1608,7 @@ search algorithm:</p>
 <span><span class="va">runtime_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 0.2 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 0.3 minutes</span></span></code></pre>
 <div class="sourceCode" id="cb140"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Results: 60 rows</span></span></code></pre>
@@ -1685,7 +1687,7 @@ search algorithm:</p>
 <span><span class="co">## Batch 2 / 2 : candidates 2 - 2 </span></span>
 <span><span class="co">## Evaluated 2 of 2 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 6.814 0.1136 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 6.778 0.113 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.91247 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -6100,7 +6102,7 @@ reproducibility information.</p>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (Cox)</td>
 <td headers="Seconds" class="gt_row gt_right">2.1</td>
-<td headers="Minutes" class="gt_row gt_right">0.03</td>
+<td headers="Minutes" class="gt_row gt_right">0.04</td>
 <td headers="Pct" class="gt_row gt_right">4.6</td>
 </tr>
 <tr>
@@ -6123,19 +6125,19 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">14.8</td>
+<td headers="Seconds" class="gt_row gt_right">15.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.25</td>
-<td headers="Pct" class="gt_row gt_right">33.1</td>
+<td headers="Pct" class="gt_row gt_right">33.3</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">12.8</td>
-<td headers="Minutes" class="gt_row gt_right">0.21</td>
-<td headers="Pct" class="gt_row gt_right">28.6</td>
+<td headers="Seconds" class="gt_row gt_right">12.9</td>
+<td headers="Minutes" class="gt_row gt_right">0.22</td>
+<td headers="Pct" class="gt_row gt_right">28.4</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Summarize H1</td>
-<td headers="Seconds" class="gt_row gt_right">0.0</td>
+<td headers="Seconds" class="gt_row gt_right">0.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.1</td>
 </tr>
@@ -6147,8 +6149,8 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">44.7</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">0.75</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">45.5</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">0.76</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>

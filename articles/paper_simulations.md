@@ -22,12 +22,12 @@ The simulation framework allows you to:
 
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
-2.  **Simulate Trials**: Generate multiple simulated datasets 3
-    **Running simulated trials**: drawing 30 under null (uniform
+2.  **Simulate Trials**: Generate multiple simulated datasets
+3.  **Running simulated trials**: drawing 30 under null (uniform
     benefit) and 30 under alternative (HTEs)
-3.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
+4.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
-4.  **Summarize Results**: Aggregate operating characteristics across
+5.  **Summarize Results**: Aggregate operating characteristics across
     simulations
 
 The simulation framework is based on the
@@ -1078,7 +1078,7 @@ results_alt <- foreach(
     ## Evaluated 2 of 2 candidates (complete) 
     ## 1 subgroups passed consistency threshold
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 8.024 0.1337 
+    ## Seconds and minutes forestsearch overall = 8.092 0.1349 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {z1} & !{z5 <= 1} 
     ## tau, maxdepth = 48.53742 2 
@@ -1097,7 +1097,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 0.2 minutes
+    ## Completed in 0.3 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1183,7 +1183,7 @@ results_null <- foreach(
     ## Batch 2 / 2 : candidates 2 - 2 
     ## Evaluated 2 of 2 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 6.814 0.1136 
+    ## Seconds and minutes forestsearch overall = 6.778 0.113 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.91247 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2038,15 +2038,15 @@ reproducibility information.
 | 30 H1 + 30 H0 simulations, 13 workers |  |  |  |
 | Stage | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1) | 0.0 | 0.00 | 0.1 |
-| Calibrate k_inter (Cox) | 2.1 | 0.03 | 4.6 |
+| Calibrate k_inter (Cox) | 2.1 | 0.04 | 4.6 |
 | Calibrate k_inter (AHR) | 0.8 | 0.01 | 1.8 |
 | Validate k_inter | 0.2 | 0.00 | 0.4 |
 | DGM creation (H0) | 0.1 | 0.00 | 0.2 |
-| Simulations H1 | 14.8 | 0.25 | 33.1 |
-| Simulations H0 | 12.8 | 0.21 | 28.6 |
-| Summarize H1 | 0.0 | 0.00 | 0.1 |
+| Simulations H1 | 15.2 | 0.25 | 33.3 |
+| Simulations H0 | 12.9 | 0.22 | 28.4 |
+| Summarize H1 | 0.1 | 0.00 | 0.1 |
 | Summarize H0 | 0.0 | 0.00 | 0.1 |
-| Total vignette | 44.7 | 0.75 | 100.0 |
+| Total vignette | 45.5 | 0.76 | 100.0 |
 | ¹ Parallel backend: 13 workers via future::multisession. |  |  |  |
 
 [ Code](#collapse-timingsummary)
