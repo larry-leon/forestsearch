@@ -111,18 +111,20 @@ build_classification_table <- function(
 
     # ── Section header label ────────────────────────────────────────────────
     if (hyp == "null") {
-      hr_itt <- round(dgm$hr_causal, 2)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
       section_label <- sprintf(
         "%s Null: N=%d, theta(ITT) = %s",
         lab, n, hr_itt
       )
     } else {
-      prop_H <- round(
-        100 * mean(dgm$df_super_rand$flag.harm, na.rm = TRUE), 0
-      )
-      hr_H   <- round(dgm$hr_H_true, 2)
-      hr_Hc  <- round(dgm$hr_Hc_true, 2)
-      hr_itt <- round(dgm$hr_causal, 2)
+      df_sp  <- resolve_df_super(dgm)
+      prop_H <- if (!is.null(df_sp)) {
+        flag_col <- if ("flag_harm" %in% names(df_sp)) "flag_harm" else "flag.harm"
+        round(100 * mean(df_sp[[flag_col]], na.rm = TRUE), 0)
+      } else NA_real_
+      hr_H   <- round(get_dgm_hr(dgm, "hr_H"),       2)
+      hr_Hc  <- round(get_dgm_hr(dgm, "hr_Hc"),      2)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"),  2)
       section_label <- sprintf(
         "%s Alt: N=%d, p_H=%d%%, theta(H)=%s, theta(Hc)=%s, theta(ITT)=%s",
         lab, n, prop_H, hr_H, hr_Hc, hr_itt
@@ -355,8 +357,8 @@ build_estimation_table <- function(
   # ── True values from DGM ──────────────────────────────────────────────────
   # Paper notation: theta-dagger = marginal (causal) HR
   #                 theta-ddagger = controlled direct effect (CDE)
-  theta_H_true  <- dgm$hr_H_true
-  theta_Hc_true <- dgm$hr_Hc_true
+  theta_H_true  <- get_dgm_hr(dgm, "hr_H")
+  theta_Hc_true <- get_dgm_hr(dgm, "hr_Hc")
   avg_size_H    <- round(mean(res_found$size.H, na.rm = TRUE), 0)
 
   # True AHR values (via backward-compatible helper)
@@ -398,13 +400,13 @@ build_estimation_table <- function(
 
   if (is_null) {
     hr_overall <- get_dgm_hr(dgm, "hr_overall")
-    if (is.na(hr_overall)) hr_overall <- dgm$hr_causal
+    if (is.na(hr_overall)) hr_overall <- get_dgm_hr(dgm, "hr_overall")
     if (!is.null(hr_overall) && !is.na(hr_overall)) {
       if (is.na(theta_H_true))  theta_H_true  <- hr_overall
       if (is.na(theta_Hc_true)) theta_Hc_true <- hr_overall
     }
     ahr_overall <- get_dgm_hr(dgm, "ahr")
-    if (is.na(ahr_overall)) ahr_overall <- dgm$AHR
+    if (is.na(ahr_overall)) ahr_overall <- get_dgm_hr(dgm, "ahr")
     if (!is.null(ahr_overall) && !is.na(ahr_overall)) {
       if (is.na(ahr_H_true))  ahr_H_true  <- ahr_overall
       if (is.na(ahr_Hc_true)) ahr_Hc_true <- ahr_overall
@@ -754,19 +756,19 @@ interpret_estimation_table <- function(
   # Fall back to the overall (causal) HR — the uniform true value for any
 
   # subset under the null.  Try multiple sources for robustness.
-  theta_H_true  <- dgm$hr_H_true
-  theta_Hc_true <- dgm$hr_Hc_true
+  theta_H_true  <- get_dgm_hr(dgm, "hr_H")
+  theta_Hc_true <- get_dgm_hr(dgm, "hr_Hc")
   ahr_H_true    <- get_dgm_hr(dgm, "ahr_H")
   ahr_Hc_true   <- get_dgm_hr(dgm, "ahr_Hc")
 
   # Overall HR: try several known locations
   hr_overall <- get_dgm_hr(dgm, "hr_overall")
-  if (is.na(hr_overall)) hr_overall <- dgm$hr_causal
+  if (is.na(hr_overall)) hr_overall <- get_dgm_hr(dgm, "hr_overall")
   if (is.null(hr_overall) || is.na(hr_overall)) hr_overall <- NA_real_
 
   # Overall AHR: try several known locations
   ahr_overall <- get_dgm_hr(dgm, "ahr")
-  if (is.na(ahr_overall)) ahr_overall <- dgm$AHR
+  if (is.na(ahr_overall)) ahr_overall <- get_dgm_hr(dgm, "ahr")
   if (is.null(ahr_overall) || is.na(ahr_overall)) ahr_overall <- NA_real_
 
   # Infer scenario if not supplied

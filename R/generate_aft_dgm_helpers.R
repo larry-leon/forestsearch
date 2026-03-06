@@ -1144,6 +1144,84 @@ assemble_results <- function(df_super,
 }
 
 
+#' Print Method for aft_dgm_flex Objects
+#'
+#' Displays a compact, human-readable summary of an AFT data generating
+#' mechanism created by \code{\link{generate_aft_dgm_flex}}.  Suppresses
+#' the super-population data frame and raw model parameters so that
+#' \code{print(dgm)} in a vignette or interactive session shows only the
+#' information needed to characterise the simulation scenario.
+#'
+#' @param x An object of class \code{"aft_dgm_flex"}.
+#' @param ... Ignored (required for S3 generic compatibility).
+#'
+#' @return \code{x}, invisibly.
+#' @export
+print.aft_dgm_flex <- function(x, ...) {
+  cat("AFT Data Generating Mechanism (aft_dgm_flex)\n")
+  cat("=============================================\n\n")
+
+  cat("Model type    :", x$model_type, "\n")
+  cat("Super-pop size:", x$n_super, "\n\n")
+
+  # ── Subgroup ──────────────────────────────────────────────────────────────
+  si <- x$subgroup_info
+  if (!is.null(si) && !is.null(si$subgroup_vars)) {
+    cat("Subgroup vars :", paste(si$subgroup_vars, collapse = ", "), "\n")
+  }
+  if (!is.null(x$df_super)) {
+    flag_col <- if ("flag_harm" %in% names(x$df_super)) "flag_harm" else NULL
+    if (!is.null(flag_col)) {
+      prop_H <- mean(x$df_super[[flag_col]], na.rm = TRUE)
+      cat(sprintf("Subgroup size : %d (%.1f%%)\n",
+                  sum(x$df_super[[flag_col]]), 100 * prop_H))
+    }
+  }
+  cat("\n")
+
+  # ── Effect modifiers ──────────────────────────────────────────────────────
+  mp <- x$model_params
+  if (!is.null(mp)) {
+    cat(sprintf("AFT scale (sigma) : %.4f\n", mp$tau))
+    cat(sprintf("Intercept (mu)    : %.4f  [median event time ~ %.1f]\n",
+                mp$mu, exp(mp$mu)))
+  }
+  cat("\n")
+
+  # ── Hazard ratios ─────────────────────────────────────────────────────────
+  hr <- x$hazard_ratios
+  if (!is.null(hr)) {
+    cat("Hazard Ratios (Cox, stacked PO):\n")
+    cat(sprintf("  Overall (causal) : %.4f\n", hr$overall))
+    if (!is.null(hr$harm_subgroup) && !is.na(hr$harm_subgroup))
+      cat(sprintf("  Harm subgroup H  : %.4f\n", hr$harm_subgroup))
+    if (!is.null(hr$no_harm_subgroup) && !is.na(hr$no_harm_subgroup))
+      cat(sprintf("  Complement Hc    : %.4f\n", hr$no_harm_subgroup))
+    if (!is.null(hr$harm_subgroup) && !is.null(hr$no_harm_subgroup) &&
+        !is.na(hr$harm_subgroup) && !is.na(hr$no_harm_subgroup))
+      cat(sprintf("  Ratio H/Hc       : %.4f\n",
+                  hr$harm_subgroup / hr$no_harm_subgroup))
+
+    cat("\nAverage Hazard Ratios (from loghr_po):\n")
+    cat(sprintf("  AHR overall      : %.4f\n", hr$AHR))
+    if (!is.null(hr$AHR_harm) && !is.na(hr$AHR_harm))
+      cat(sprintf("  AHR harm H       : %.4f\n", hr$AHR_harm))
+    if (!is.null(hr$AHR_no_harm) && !is.na(hr$AHR_no_harm))
+      cat(sprintf("  AHR complement   : %.4f\n", hr$AHR_no_harm))
+
+    if (!is.null(hr$CDE_harm) && !is.na(hr$CDE_harm)) {
+      cat("\nControlled Direct Effects (CDE):\n")
+      cat(sprintf("  CDE overall      : %.4f\n", hr$CDE))
+      cat(sprintf("  CDE harm H       : %.4f\n", hr$CDE_harm))
+      cat(sprintf("  CDE complement   : %.4f\n", hr$CDE_no_harm))
+    }
+  }
+  cat("\n")
+
+  invisible(x)
+}
+
+
 #' Compare Multiple Survival Regression Models
 #'
 #' Performs comprehensive comparison of multiple survreg models including
