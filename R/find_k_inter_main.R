@@ -170,12 +170,12 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
     }
 
     return(list(
-      k_inter          = k_inter_optimal,
+      k_inter = k_inter_optimal,
       achieved_hr_harm = hr_harm_final,
-      target_hr_harm   = target_hr_harm,
-      error            = abs(hr_harm_final - target_hr_harm),
-      dgm              = dgm_final,
-      convergence      = result$iter
+      target_hr_harm = target_hr_harm,
+      error = abs(hr_harm_final - target_hr_harm),
+      dgm = dgm_final,
+      convergence = result$iter
     ))
 
   }, error = function(e) {
@@ -355,113 +355,6 @@ sensitivity_analysis_k_inter <- function(k_inter_range = c(-5, 5),
   class(results) <- c("k_inter_sensitivity", "data.frame")
   return(results)
 }
-
-#' Validate k_inter Effect on Hazard Ratio Heterogeneity
-#'
-#' Sweeps a vector of \code{k_inter} values through
-#' \code{\link{generate_aft_dgm_flex}} and reports the Cox-based and average
-#' hazard ratios in the harm subgroup (H) and its complement (Hc) for each
-#' value.  Primary use is confirming that \code{k_inter = 0} gives a H/Hc
-#' ratio of approximately 1 (no heterogeneity) and that the chosen calibration
-#' value produces the desired effect size.
-#'
-#' @param k_inter_values Numeric vector of \code{k_inter} values to evaluate.
-#'   Default \code{c(-2, -1, 0, 1, 2, 3)}.
-#' @param data A \code{data.frame} passed to \code{generate_aft_dgm_flex}.
-#' @param continuous_vars Character vector of continuous variable names.
-#' @param factor_vars Character vector of factor variable names.
-#' @param outcome_var Character string naming the outcome (time) variable.
-#' @param event_var Character string naming the event indicator variable.
-#' @param treatment_var Character string naming the treatment variable.
-#' @param subgroup_vars Character vector of subgroup-defining variable names.
-#' @param subgroup_cuts Named list of cutpoint specifications.  See
-#'   \code{\link{generate_aft_dgm_flex}} for the full specification language.
-#' @param k_treat Numeric treatment effect modifier. Default \code{1}.
-#' @param n_super Integer super-population size. Default \code{5000}.
-#' @param verbose Logical. If \code{TRUE} (default), prints a formatted table
-#'   and emits a PASS/CHECK verdict for \code{k_inter = 0}.
-#'
-#' @return A \code{data.frame} with columns \code{k_inter}, \code{hr_H},
-#'   \code{hr_Hc}, \code{AHR_H}, \code{AHR_Hc}, \code{ratio_cox},
-#'   \code{ratio_ahr}, one row per element of \code{k_inter_values}.
-#'
-#' @seealso \code{\link{find_k_inter_for_target_hr}},
-#'   \code{\link{generate_aft_dgm_flex}}
-#' @export
-validate_k_inter_effect <- function(k_inter_values = c(-2, -1, 0, 1, 2, 3),
-                                    data,
-                                    continuous_vars,
-                                    factor_vars,
-                                    outcome_var,
-                                    event_var,
-                                    treatment_var,
-                                    subgroup_vars,
-                                    subgroup_cuts,
-                                    k_treat  = 1,
-                                    n_super  = 5000,
-                                    verbose  = TRUE) {
-
-  if (verbose) {
-    cat("Validating k_inter effect on HR heterogeneity...\n\n")
-    cat(sprintf("%-8s %-8s %-8s %-8s %-8s %-10s %-10s\n",
-                "k_inter", "HR(H)", "HR(Hc)", "AHR(H)", "AHR(Hc)",
-                "Ratio(Cox)", "Ratio(AHR)"))
-    cat(paste(rep("-", 70), collapse = ""), "\n")
-  }
-
-  rows <- lapply(k_inter_values, function(k) {
-    dgm_tmp <- generate_aft_dgm_flex(
-      data            = data,
-      continuous_vars = continuous_vars,
-      factor_vars     = factor_vars,
-      outcome_var     = outcome_var,
-      event_var       = event_var,
-      treatment_var   = treatment_var,
-      subgroup_vars   = subgroup_vars,
-      subgroup_cuts   = subgroup_cuts,
-      model           = "alt",
-      k_treat         = k_treat,
-      k_inter         = k,
-      n_super         = n_super,
-      verbose         = FALSE
-    )
-    hr     <- dgm_tmp$hazard_ratios
-    hr_H   <- hr$harm_subgroup
-    hr_Hc  <- hr$no_harm_subgroup
-    ahr_H  <- hr$AHR_harm
-    ahr_Hc <- hr$AHR_no_harm
-    ratio_cox <- if (!is.na(hr_H)  && !is.na(hr_Hc))  hr_H  / hr_Hc  else NA_real_
-    ratio_ahr <- if (!is.na(ahr_H) && !is.na(ahr_Hc)) ahr_H / ahr_Hc else NA_real_
-    if (verbose) {
-      cat(sprintf("%-8.1f %-8.4f %-8.4f %-8.4f %-8.4f %-10.4f %-10.4f\n",
-                  k, hr_H, hr_Hc, ahr_H, ahr_Hc, ratio_cox, ratio_ahr))
-    }
-    data.frame(k_inter = k, hr_H = hr_H, hr_Hc = hr_Hc,
-               AHR_H = ahr_H, AHR_Hc = ahr_Hc,
-               ratio_cox = ratio_cox, ratio_ahr = ratio_ahr,
-               stringsAsFactors = FALSE)
-  })
-
-  results <- do.call(rbind, rows)
-
-  if (verbose) {
-    cat("\n")
-    k0 <- results[results$k_inter == 0, ]
-    if (nrow(k0) > 0) {
-      if (!is.na(k0$ratio_cox) && abs(k0$ratio_cox - 1) < 0.05)
-        cat("PASS: k_inter = 0 Cox ratio ~= 1 (no heterogeneity)\n")
-      else
-        cat(sprintf("CHECK: k_inter = 0 Cox ratio = %.4f (expected ~1)\n", k0$ratio_cox))
-      if (!is.na(k0$ratio_ahr) && abs(k0$ratio_ahr - 1) < 0.05)
-        cat("PASS: k_inter = 0 AHR ratio ~= 1 (no heterogeneity)\n")
-      else
-        cat(sprintf("CHECK: k_inter = 0 AHR ratio = %.4f (expected ~1)\n", k0$ratio_ahr))
-    }
-  }
-
-  invisible(results)
-}
-
 
 #' Find Quantile for Target Subgroup Proportion
 #'

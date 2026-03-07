@@ -1,4 +1,12 @@
 
+In oc_analyses_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
+Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
+If so, please create a new "oc_analyses.R" which comprehensively can replace "oc_analyses_gbsg.R".
+
+Can you revert back to the first Phase 1?   Please note that simulations under the null should have mean(any.H) below 10% or 15%.
+The current version is way off, at more than 70%, suggesting some bug along the way.
+In your evaluation, please conduct a synthetic simulation check before being so confident in presenting revisions.
+
 
 # dev-workflow.R
 # Development workflow helper script for ForestSearch package

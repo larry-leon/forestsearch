@@ -15,7 +15,6 @@ find_k_inter_for_target_hr(
   subgroup_vars,
   subgroup_cuts,
   k_treat = 1,
-  use_ahr = FALSE,
   k_inter_range = c(-10, 10),
   tol = 0.001,
   n_super = 5000,
@@ -48,11 +47,6 @@ See \code{\link{generate_aft_dgm_flex}} for details on flexible specifications.}
 
 \item{k_treat}{Numeric value for treatment effect modifier. Default is 1
 (no modification).}
-
-\item{use_ahr}{Logical. If \code{FALSE} (default), calibrate to the Cox-based
-harm-subgroup hazard ratio (\code{hazard_ratios$harm_subgroup}). If
-\code{TRUE}, calibrate to the average hazard ratio in the harm subgroup
-(\code{hazard_ratios$AHR_harm}).}
 
 \item{k_inter_range}{Numeric vector of length 2 specifying the search range
 for k_inter. Default is c(-10, 10).}

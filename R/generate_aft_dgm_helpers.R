@@ -428,21 +428,12 @@ define_subgroups <- function(df_work, data, subgroup_vars, subgroup_cuts,
   interaction_term <- NULL
   definitions <- list()
 
-  # Compute flag_harm for ALL model types whenever subgroup_vars are supplied.
-  # Under model = "null" the subgroup membership is still defined (same H as
-  # in the alternative), but the interaction term is NOT added to the linear
-  # predictor, so treatment effects are uniform.  This preserves the legacy
-  # behaviour of create_gbsg_dgm(model = "null"), which set flag.harm = TRUE
-  # for subjects in H with k_inter = 0, allowing meaningful classification
-  # metrics (sens, spec, ppv) to be computed in null simulations.
-  if (!is.null(subgroup_vars)) {
+  if (model == "alt" && !is.null(subgroup_vars)) {
     # Create subgroup indicators
     subgroup_indicators <- list()
 
     if (verbose) {
       cat("\n=== Subgroup Definitions ===\n")
-      if (model == "null")
-        cat("(model = 'null': subgroup membership defined but no interaction term)\n")
     }
 
     for (var in subgroup_vars) {
@@ -473,11 +464,11 @@ define_subgroups <- function(df_work, data, subgroup_vars, subgroup_cuts,
                  paste(null_vars, collapse = ", ")))
     }
 
-    # Create harm flag (all subgroup conditions met) — always
+    # Create harm flag (all subgroup conditions met)
     flag_harm <- as.numeric(Reduce("&", subgroup_indicators))
 
-    # Create interaction term ONLY for the alternative model
-    if (model == "alt" && length(subgroup_indicators) > 0) {
+    # Create interaction term
+    if (length(subgroup_indicators) > 0) {
       interaction_term <- df_work$treat * flag_harm
     }
 
@@ -969,18 +960,14 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
     CDE_no_harm = CDE_no_harm
   )
 
-  # Calculate subgroup-specific HRs whenever H is populated.
-  # This includes model = "null": under the null, harm_subgroup HR ==
-  # no_harm_subgroup HR == overall HR (uniform treatment effect), which is the
-  # correct mathematical statement of the null and allows build_classification_table
-  # to display a meaningful section header (theta(H) = theta(Hc) = theta(ITT)).
-  if (sum(df_super$flag_harm) > 0) {
+  # Calculate subgroup-specific HRs if applicable
+  if (model == "alt" && sum(df_super$flag_harm) > 0) {
     hr_harm <- exp(coxph(Surv(time, event) ~ treat,
                          data = subset(df_temp, flag_harm == 1))$coefficients)
     hr_no_harm <- exp(coxph(Surv(time, event) ~ treat,
                             data = subset(df_temp, flag_harm == 0))$coefficients)
 
-    hr_results$harm_subgroup    <- hr_harm
+    hr_results$harm_subgroup <- hr_harm
     hr_results$no_harm_subgroup <- hr_no_harm
 
     if (verbose) {
@@ -991,8 +978,6 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
       cat("Harm subgroup AHR:", round(AHR_harm, 3), "\n")
       cat("No-harm subgroup HR:", round(hr_no_harm, 3), "\n")
       cat("No-harm subgroup AHR:", round(AHR_no_harm, 3), "\n")
-      if (model == "null")
-        cat("(null model: HR(H) = HR(Hc) = HR(overall) as expected)\n")
     }
   } else if (verbose) {
     cat("\n=== Hazard Ratios (super popln) ===\n")
@@ -1156,84 +1141,6 @@ assemble_results <- function(df_super,
   class(results) <- c("aft_dgm_flex", "list")
 
   return(results)
-}
-
-
-#' Print Method for aft_dgm_flex Objects
-#'
-#' Displays a compact, human-readable summary of an AFT data generating
-#' mechanism created by \code{\link{generate_aft_dgm_flex}}.  Suppresses
-#' the super-population data frame and raw model parameters so that
-#' \code{print(dgm)} in a vignette or interactive session shows only the
-#' information needed to characterise the simulation scenario.
-#'
-#' @param x An object of class \code{"aft_dgm_flex"}.
-#' @param ... Ignored (required for S3 generic compatibility).
-#'
-#' @return \code{x}, invisibly.
-#' @export
-print.aft_dgm_flex <- function(x, ...) {
-  cat("AFT Data Generating Mechanism (aft_dgm_flex)\n")
-  cat("=============================================\n\n")
-
-  cat("Model type    :", x$model_type, "\n")
-  cat("Super-pop size:", x$n_super, "\n\n")
-
-  # ── Subgroup ──────────────────────────────────────────────────────────────
-  si <- x$subgroup_info
-  if (!is.null(si) && !is.null(si$subgroup_vars)) {
-    cat("Subgroup vars :", paste(si$subgroup_vars, collapse = ", "), "\n")
-  }
-  if (!is.null(x$df_super)) {
-    flag_col <- if ("flag_harm" %in% names(x$df_super)) "flag_harm" else NULL
-    if (!is.null(flag_col)) {
-      prop_H <- mean(x$df_super[[flag_col]], na.rm = TRUE)
-      cat(sprintf("Subgroup size : %d (%.1f%%)\n",
-                  sum(x$df_super[[flag_col]]), 100 * prop_H))
-    }
-  }
-  cat("\n")
-
-  # ── Effect modifiers ──────────────────────────────────────────────────────
-  mp <- x$model_params
-  if (!is.null(mp)) {
-    cat(sprintf("AFT scale (sigma) : %.4f\n", mp$tau))
-    cat(sprintf("Intercept (mu)    : %.4f  [median event time ~ %.1f]\n",
-                mp$mu, exp(mp$mu)))
-  }
-  cat("\n")
-
-  # ── Hazard ratios ─────────────────────────────────────────────────────────
-  hr <- x$hazard_ratios
-  if (!is.null(hr)) {
-    cat("Hazard Ratios (Cox, stacked PO):\n")
-    cat(sprintf("  Overall (causal) : %.4f\n", hr$overall))
-    if (!is.null(hr$harm_subgroup) && !is.na(hr$harm_subgroup))
-      cat(sprintf("  Harm subgroup H  : %.4f\n", hr$harm_subgroup))
-    if (!is.null(hr$no_harm_subgroup) && !is.na(hr$no_harm_subgroup))
-      cat(sprintf("  Complement Hc    : %.4f\n", hr$no_harm_subgroup))
-    if (!is.null(hr$harm_subgroup) && !is.null(hr$no_harm_subgroup) &&
-        !is.na(hr$harm_subgroup) && !is.na(hr$no_harm_subgroup))
-      cat(sprintf("  Ratio H/Hc       : %.4f\n",
-                  hr$harm_subgroup / hr$no_harm_subgroup))
-
-    cat("\nAverage Hazard Ratios (from loghr_po):\n")
-    cat(sprintf("  AHR overall      : %.4f\n", hr$AHR))
-    if (!is.null(hr$AHR_harm) && !is.na(hr$AHR_harm))
-      cat(sprintf("  AHR harm H       : %.4f\n", hr$AHR_harm))
-    if (!is.null(hr$AHR_no_harm) && !is.na(hr$AHR_no_harm))
-      cat(sprintf("  AHR complement   : %.4f\n", hr$AHR_no_harm))
-
-    if (!is.null(hr$CDE_harm) && !is.na(hr$CDE_harm)) {
-      cat("\nControlled Direct Effects (CDE):\n")
-      cat(sprintf("  CDE overall      : %.4f\n", hr$CDE))
-      cat(sprintf("  CDE harm H       : %.4f\n", hr$CDE_harm))
-      cat(sprintf("  CDE complement   : %.4f\n", hr$CDE_no_harm))
-    }
-  }
-  cat("\n")
-
-  invisible(x)
 }
 
 
