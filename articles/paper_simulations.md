@@ -23,8 +23,8 @@ The simulation framework allows you to:
 1.  **Create DGM**: Define a data generating mechanism with specified
     treatment effects
 2.  **Simulate Trials**: Generate multiple simulated datasets
-3.  **Running simulated trials**: drawing 99 under null (uniform
-    benefit) and 99 under alternative (HTEs)
+3.  **Running simulated trials**: drawing 133 under null (uniform
+    benefit) and 133 under alternative (HTEs)
 4.  **Run Analyses**: Apply ForestSearch (and optionally GRF) to each
     dataset
 5.  **Summarize Results**: Aggregate operating characteristics across
@@ -76,7 +76,7 @@ performance.
 
 The DGM defines the ground truth for the simulation. Building on the
 GBSG breast cancer dataset as a covariate template,
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 fits an Accelerated Failure Time (AFT) model with Weibull baseline
 hazard and generates a super-population of potential outcomes.
 
@@ -97,7 +97,7 @@ Key decisions at this stage:
   premenopausal} (z1 = 1 & z3 = 1), covering roughly 13% of the
   super-population.
 - **Censoring**: Weibull or uniform censoring, optionally adjusted via
-  `muC_adj` to control the overall event rate.
+  `cens_adjust` to control the overall event rate.
 
 The resulting DGM object stores the super-population, true hazard ratios
 (both Cox-based and AHR), individual-level potential outcomes
@@ -105,15 +105,15 @@ The resulting DGM object stores the super-population, true hazard ratios
 
 #### Step 2: Simulate Clinical Trials
 
-[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 draws random samples from the super-population to create synthetic trial
 datasets. Each simulated trial:
 
 - Samples *n* patients (e.g., 700) with 1:1 randomisation.
 - Generates survival times from the AFT model using the DGM parameters.
-- Applies censoring (Weibull or uniform, with optional `muC_adj`
-  adjustment) and administrative censoring at `max_follow`.
-- Carries forward the true subgroup indicator `flag.harm` and individual
+- Applies censoring (Weibull or uniform, with optional `cens_adjust`
+  adjustment) and administrative censoring at `analysis_time`.
+- Carries forward the true subgroup indicator `flag_harm` and individual
   `loghr_po` for evaluation.
 
 Because ForestSearch uses random-split consistency evaluation, each
@@ -190,7 +190,7 @@ version of the full workflow (excluding diagnostics) is:
 ``` r
 # Step 1: Create and calibrate DGM
 k_inter <- calibrate_k_inter(target_hr_harm = 2.0, use_ahr = FALSE)
-dgm     <- create_gbsg_dgm(model = "alt", k_inter = k_inter)
+dgm     <- setup_gbsg_dgm(model = "alt", k_inter = k_inter)
 
 # Step 2 + 3: Simulate and analyse in parallel
 results <- foreach(sim = 1:500, .combine = rbind) %dofuture% {
@@ -229,7 +229,7 @@ censoring patterns.
 ### Understanding the DGM
 
 The
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 function creates a data generating mechanism (DGM) based on an
 Accelerated Failure Time (AFT) model with Weibull distribution. Key
 features:
@@ -275,6 +275,144 @@ The super-population data (`dgm$df_super_rand`) now contains:
 | `theta_1`  | Log-hazard contribution under treatment                |
 | `loghr_po` | Individual causal log hazard ratio (theta_1 - theta_0) |
 
+### What `setup_gbsg_dgm()` does
+
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+is a **GBSG-specific convenience wrapper**. It encodes the particular
+data preparation choices made in León et al. (2024) — the subgroup
+definition (ER ≤ q25, premenopausal), the binary discretisation of
+continuous covariates, the Weibull outcome and censoring models — so
+that a calibrated DGM for the GBSG simulation setting can be created
+with a single call:
+
+``` r
+# One-line creation of the León et al. (2024) simulation DGM
+dgm <- setup_gbsg_dgm(
+  model   = "alt",    # "alt" (heterogeneous effects) or "null"
+  k_inter = 2.5,      # treatment × subgroup interaction strength
+  k_treat = 1.0,      # overall treatment effect modifier
+  seed    = 8316951
+)
+```
+
+The returned object has class `c("aft_dgm_flex", "gbsg_dgm")` and is
+fully compatible with
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+and
+[`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md).
+
+------------------------------------------------------------------------
+
+### Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
+
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+is the general DGM builder. It requires the analyst to supply the
+dataset and make every modelling choice explicitly. The GBSG DGM in
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+is equivalent to the following call — it simply automates this
+preparation:
+
+``` r
+library(forestsearch)
+library(survival)   # for survival::gbsg
+
+# ── Step 1: Prepare the GBSG dataset ──────────────────────────────────────
+
+dfa <- survival::gbsg
+
+# Convert time to months (matching León et al.)
+dfa$y     <- dfa$rfstime / 30.4375
+dfa$treat <- dfa$hormon
+
+# Subgroup-defining binary variables
+# H = {ER ≤ 25th percentile} ∩ {premenopausal}
+er_cut <- quantile(dfa$er, probs = 0.25)
+dfa$z1 <- as.factor(ifelse(dfa$er  <= er_cut, 1L, 0L))  # ER low
+dfa$z2 <- as.factor(ifelse(dfa$age <= median(dfa$age), 1L, 0L))
+dfa$z3 <- as.factor(ifelse(dfa$meno == 0, 1L, 0L))       # premenopausal
+dfa$z4 <- as.factor(ifelse(dfa$pgr  <= median(dfa$pgr), 1L, 0L))
+dfa$z5 <- as.factor(ifelse(dfa$nodes <= median(dfa$nodes), 1L, 0L))
+dfa$v6 <- as.factor(ifelse(dfa$size  <= median(dfa$size), 1L, 0L))
+dfa$v7 <- as.factor(ifelse(dfa$grade == 3, 1L, 0L))
+
+# ── Step 2: Call generate_aft_dgm_flex() ──────────────────────────────────
+
+dgm_flex <- generate_aft_dgm_flex(
+  data            = dfa,
+  outcome_var     = "y",
+  event_var       = "status",
+  treatment_var   = "treat",
+  # Analyst-visible covariates (what FS will search over)
+  continuous_vars = character(0),    # all pre-discretised
+  factor_vars     = c("z1", "z2", "z3", "z4", "z5", "v6", "v7"),
+  # Subgroup definition: H = {z1 = 1} ∩ {z3 = 1}
+  subgroup_vars   = c("z1", "z3"),
+  subgroup_cuts   = list(z1 = 1, z3 = 1),   # both must equal 1
+  # Treatment effect structure
+  model   = "alt",
+  k_inter = 2.5,
+  k_treat = 1.0,
+  n_super = 5000,
+  seed    = 8316951
+)
+```
+
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+is preferred for the GBSG simulation setting because it guarantees exact
+replication of the León et al. (2024) covariate construction and
+subgroup definition without requiring the analyst to reproduce all
+preparation steps by hand.
+
+------------------------------------------------------------------------
+
+### When to use each function
+
+| Scenario                                          | Recommended function                                                                                                                                                                                                |
+|---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Replicating León et al. (2024) simulations        | [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)                                                                                                                         |
+| GBSG-based simulation with custom parameters      | [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)                                                                                                                         |
+| DGM based on a different dataset                  | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)                                                                                                           |
+| Custom subgroup definition or covariate structure | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)                                                                                                           |
+| Multi-regional or MRCT simulation                 | [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md) via [`create_dgm_for_mrct()`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md) |
+
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+is not deprecated in the sense of being removed or discouraged for GBSG
+work — it remains the correct entry point for the simulation studies in
+this package. The general function
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+is the right choice when the simulation is based on a **different
+dataset or subgroup structure**.
+
+------------------------------------------------------------------------
+
+### Simulating from either DGM
+
+Both
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+and
+[`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+return an object of class `"aft_dgm_flex"`, so
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+works identically with either:
+
+``` r
+# Works for dgm from setup_gbsg_dgm() or generate_aft_dgm_flex()
+sim_data <- simulate_from_dgm(
+  dgm           = dgm,
+  n             = 700,
+  analysis_time = Inf,   # no administrative censoring
+  cens_adjust   = 0,
+  seed          = 1
+)
+
+# sim_data columns (underscore notation):
+#   y_sim       — observed time
+#   event_sim   — event indicator
+#   treat_sim   — treatment assignment
+#   flag_harm   — true subgroup membership (H = 1, Hc = 0)
+#   loghr_po    — individual log-HR (for AHR calculation)
+```
+
 ### Alternative Hypothesis (Heterogeneous Treatment Effect)
 
 Under the alternative hypothesis, we create a DGM where the treatment
@@ -287,7 +425,7 @@ t0 <- proc.time()[3]
 # HR in harm subgroup (H) will be > 1 (treatment harmful)
 # HR in complement (H^c) will be < 1 (treatment beneficial)
 
-dgm_alt <- create_gbsg_dgm(
+dgm_alt <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = 2.0,      # Interaction effect multiplier
@@ -575,7 +713,7 @@ k_inter_cox <- calibrate_k_inter(
 )
 
 # Create DGM with calibrated k_inter
-dgm_calibrated_cox <- create_gbsg_dgm(
+dgm_calibrated_cox <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = k_inter_cox,
@@ -626,7 +764,7 @@ k_inter_ahr <- calibrate_k_inter(
 )
 
 # Create DGM with AHR-calibrated k_inter
-dgm_calibrated_ahr <- create_gbsg_dgm(
+dgm_calibrated_ahr <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = k_inter_ahr,
@@ -748,7 +886,7 @@ For Type I error evaluation, create a DGM with uniform treatment effect:
 t0 <- proc.time()[3]
 
 # Create null DGM (no treatment effect heterogeneity)
-dgm_null <- create_gbsg_dgm(
+dgm_null <- setup_gbsg_dgm(
   model = "null",
   k_treat = 1.0,
   verbose = TRUE
@@ -793,7 +931,7 @@ timings$dgm_null <- proc.time()[3] - t0
 ### Single Trial Simulation
 
 Use
-[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
 to generate a single simulated trial:
 
 ``` r
@@ -801,13 +939,13 @@ to generate a single simulated trial:
 dgm_calibrated <- dgm_calibrated_cox
 
 # Simulate a single trial
-sim_data <- simulate_from_gbsg_dgm(
+sim_data <- simulate_from_dgm(
   dgm = dgm_calibrated,
   n = 700,
   rand_ratio = 1,        # 1:1 randomization
-  sim_id = 1,
-  max_follow = 84,       # 84 months administrative censoring
-  muC_adj = log(1.5)     # Censoring adjustment
+  seed = 1,
+  analysis_time = 84,       # 84 months administrative censoring
+  cens_adjust = log(1.5)     # Censoring adjustment
 )
 
 # Examine the data
@@ -823,26 +961,26 @@ cat("  N =", nrow(sim_data), "\n")
     ##   N = 700
 
 ``` r
-cat("  Events =", sum(sim_data$event.sim), 
-    "(", round(100 * mean(sim_data$event.sim), 1), "%)\n")
+cat("  Events =", sum(sim_data$event_sim), 
+    "(", round(100 * mean(sim_data$event_sim), 1), "%)\n")
 ```
 
-    ##   Events = 376 ( 53.7 %)
+    ##   Events = 351 ( 50.1 %)
 
 ``` r
-cat("  Harm subgroup size =", sum(sim_data$flag.harm),
-    "(", round(100 * mean(sim_data$flag.harm), 1), "%)\n")
+cat("  Harm subgroup size =", sum(sim_data$flag_harm),
+    "(", round(100 * mean(sim_data$flag_harm), 1), "%)\n")
 ```
 
-    ##   Harm subgroup size = 86 ( 12.3 %)
+    ##   Harm subgroup size = 90 ( 12.9 %)
 
 ``` r
 # Quick survival analysis
-fit_itt <- coxph(Surv(y.sim, event.sim) ~ treat, data = sim_data)
+fit_itt <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
 cat("  Estimated ITT HR =", round(exp(coef(fit_itt)), 3), "\n")
 ```
 
-    ##   Estimated ITT HR = 0.741
+    ##   Estimated ITT HR = 0.69
 
 #### Examining Individual-Level Effects in Simulated Data
 
@@ -852,8 +990,8 @@ if ("loghr_po" %in% names(sim_data)) {
   cat("\nIndividual treatment effects in simulated trial:\n")
   
   # Compute AHR in simulated data by subgroup
-  ahr_H_sim <- exp(mean(sim_data$loghr_po[sim_data$flag.harm == 1]))
-  ahr_Hc_sim <- exp(mean(sim_data$loghr_po[sim_data$flag.harm == 0]))
+  ahr_H_sim <- exp(mean(sim_data$loghr_po[sim_data$flag_harm == 1]))
+  ahr_Hc_sim <- exp(mean(sim_data$loghr_po[sim_data$flag_harm == 0]))
   ahr_overall_sim <- exp(mean(sim_data$loghr_po))
   
   cat("  AHR(H) in sim:", round(ahr_H_sim, 3), "\n")
@@ -868,7 +1006,7 @@ if ("loghr_po" %in% names(sim_data)) {
     ## Individual treatment effects in simulated trial:
     ##   AHR(H) in sim: 2.4 
     ##   AHR(Hc) in sim: 0.585 
-    ##   AHR(overall) in sim: 0.696
+    ##   AHR(overall) in sim: 0.701
 
 ### Examining Covariate Structure
 
@@ -876,9 +1014,9 @@ if ("loghr_po" %in% names(sim_data)) {
 dfcount <- df_counting(
   df = sim_data,
   by.risk = 6,
-  tte.name = "y.sim", 
-  event.name = "event.sim", 
-  treat.name = "treat"
+  tte.name = "y_sim", 
+  event.name = "event_sim", 
+  treat.name = "treat_sim"
 )
 plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, 
                  ymax = 1.05, xmed.fraction = 0.775, ymed.offset = 0.125)
@@ -889,10 +1027,10 @@ plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE,
 ``` r
 create_summary_table(
   data = sim_data, 
-  treat_var = "treat", 
+  treat_var = "treat_sim", 
   table_title = "Characteristics by Treatment Arm",
   vars_continuous = c("z1", "z2", "size", "z3", "z4", "z5"),
-  vars_categorical = c("flag.harm", "grade3"),
+  vars_categorical = c("flag_harm", "grade3"),
   font_size = 14
 )
 ```
@@ -900,14 +1038,14 @@ create_summary_table(
 | Characteristics by Treatment Arm                                                              |           |                 |                   |          |      |
 |-----------------------------------------------------------------------------------------------|-----------|-----------------|-------------------|----------|------|
 | Characteristic                                                                                |           | Control (n=350) | Treatment (n=350) | P-value¹ | SMD² |
-| z1                                                                                            | Mean (SD) | 0.3 (0.4)       | 0.2 (0.4)         | 0.729    | 0.03 |
-| z2                                                                                            | Mean (SD) | 2.4 (1.1)       | 2.5 (1.1)         | 0.157    | 0.11 |
-| size                                                                                          | Mean (SD) | 29.2 (14.3)     | 30.1 (17.0)       | 0.461    | 0.06 |
-| z3                                                                                            | Mean (SD) | 0.4 (0.5)       | 0.4 (0.5)         | 0.249    | 0.09 |
-| z4                                                                                            | Mean (SD) | 2.6 (1.1)       | 2.5 (1.1)         | 0.428    | 0.06 |
-| z5                                                                                            | Mean (SD) | 2.4 (1.1)       | 2.4 (1.1)         | 0.563    | 0.04 |
-| flag.harm                                                                                     |           | 44 (12.6%)      | 42 (12.0%)        | 0.908    | 0.02 |
-| grade3                                                                                        |           | 77 (22.0%)      | 85 (24.3%)        | 0.530    | 0.05 |
+| z1                                                                                            | Mean (SD) | 0.3 (0.5)       | 0.2 (0.4)         | 0.030    | 0.16 |
+| z2                                                                                            | Mean (SD) | 2.5 (1.1)       | 2.4 (1.2)         | 0.710    | 0.03 |
+| size                                                                                          | Mean (SD) | 29.6 (15.7)     | 29.2 (14.9)       | 0.722    | 0.03 |
+| z3                                                                                            | Mean (SD) | 0.4 (0.5)       | 0.4 (0.5)         | 0.879    | 0.01 |
+| z4                                                                                            | Mean (SD) | 2.4 (1.1)       | 2.5 (1.1)         | 0.176    | 0.10 |
+| z5                                                                                            | Mean (SD) | 2.4 (1.0)       | 2.4 (1.1)         | 0.916    | 0.01 |
+| flag_harm                                                                                     |           | 52 (14.9%)      | 38 (10.9%)        | 0.142    | 0.12 |
+| grade3                                                                                        |           | 101 (28.9%)     | 84 (24.0%)        | 0.170    | 0.11 |
 | ¹ P-values: t-test for continuous, chi-square/Fisher's exact for categorical/binary variables |           |                 |                   |          |      |
 | ² SMD = Standardized mean difference (Cohen's d for continuous, Cramer's V for categorical)   |           |                 |                   |          |      |
 
@@ -935,24 +1073,24 @@ cat("Using", n_workers, "parallel workers\n")
 sim_config_alt <- list(
   n_sims = nsims_alt,          # Number of simulations (use 500-1000 for final)
   n_sample = 700,         # Sample size per trial
-  max_follow = 84,        # Maximum follow-up (months)
+  analysis_time = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
-  muC_adj = log(1.5)
+  cens_adjust = log(1.5)
 )
 
 sim_config_null <- list(
   n_sims = nsims_null,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
-  max_follow = 84,        # Maximum follow-up (months)
+  analysis_time = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
-  muC_adj = log(1.5)
+  cens_adjust = log(1.5)
 )
 
 # ForestSearch parameters (now includes use_twostage)
 fs_params <- list(
-  outcome.name = "y.sim",
-  event.name = "event.sim",
-  treat.name = "treat",
+  outcome.name = "y_sim",
+  event.name = "event_sim",
+  treat.name = "treat_sim",
   id.name = "id",
   use_lasso = TRUE,
   use_grf = TRUE,
@@ -1009,7 +1147,7 @@ cat("Fast search: use_twostage =", fs_params_fast$use_twostage, "\n")
 cat("Running", sim_config_alt$n_sims, "simulations under H1...\n")
 ```
 
-    ## Running 99 simulations under H1...
+    ## Running 133 simulations under H1...
 
 ``` r
 start_time <- Sys.time()
@@ -1028,10 +1166,10 @@ results_alt <- foreach(
     sim_id = sim,
     dgm = dgm_calibrated,
     n_sample = sim_config_alt$n_sample,
-    max_follow = sim_config_alt$max_follow,
-    muC_adj = sim_config_alt$muC_adj,
+    analysis_time = sim_config_alt$analysis_time,
+    cens_adjust = sim_config_alt$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y.sim, event.sim) ~ treat + z1 + z2 + z3,
+    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
     n_add_noise = 0L,
     run_fs = TRUE,
     run_fs_grf = FALSE,
@@ -1046,50 +1184,50 @@ results_alt <- foreach(
 
     ## GRF: no subgroup identified
     ## GRF cuts identified: 0 
-    ## Cox-LASSO selected: 5 of 7 candidate factors
-    ##   Omitted: z2, size 
-    ## Candidate factors: 10 
-    ##  [1] "z4 <= 2.5" "z4 <= 3"   "z4 <= 2"   "z5 <= 2.4" "z5 <= 2"   "z5 <= 1"  
-    ##  [7] "z5 <= 3"   "z1"        "z3"        "grade3"   
-    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 210 
+    ## Cox-LASSO selected: 6 of 7 candidate factors
+    ##   Omitted: z2 
+    ## Candidate factors: 14 
+    ##  [1] "z4 <= 2.5"    "z4 <= 3"      "z4 <= 2"      "z5 <= 2.4"    "z5 <= 2"     
+    ##  [6] "z5 <= 1"      "z5 <= 3"      "size <= 29.1" "size <= 25"   "size <= 20"  
+    ## [11] "size <= 35"   "z1"           "z3"           "grade3"      
+    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.06 minutes
     ## 
     ## --- Filtering Summary ---
-    ##   Combinations evaluated: 210 
-    ##   Passed variance check: 189 
-    ##   Passed prevalence (>= 0.025 ): 189 
-    ##   Passed redundancy check: 178 
-    ##   Passed event counts (d0>= 12 , d1>= 12 ): 160 
-    ##   Passed sample size (n>= 60 ): 158 
-    ##   Cox model fit successfully: 158 
-    ##   Passed HR threshold (>= 1.25 ): 3 
+    ##   Combinations evaluated: 406 
+    ##   Passed variance check: 375 
+    ##   Passed prevalence (>= 0.025 ): 375 
+    ##   Passed redundancy check: 358 
+    ##   Passed event counts (d0>= 12 , d1>= 12 ): 329 
+    ##   Passed sample size (n>= 60 ): 320 
+    ##   Cox model fit successfully: 320 
+    ##   Passed HR threshold (>= 1.25 ): 4 
     ## -------------------------
     ## 
-    ## Found 3 subgroup candidate(s)
-    ## # of candidate subgroups (meeting all criteria) = 3 
+    ## Found 4 subgroup candidate(s)
+    ## # of candidate subgroups (meeting all criteria) = 4 
     ## Removed 1 near-duplicate subgroups
-    ## # of unique initial candidates: 2 
+    ## # of unique initial candidates: 3 
     ## # Restricting to top stop_Kgroups = 10 
-    ## # of candidates to evaluate: 2 
+    ## # of candidates to evaluate: 3 
     ## # Early stop threshold: 0.95 
     ## Parallel config: workers = 6 , batch_size = 1 
-    ## Batch 1 / 2 : candidates 1 - 1 
-    ## Batch 2 / 2 : candidates 2 - 2 
-    ## Evaluated 2 of 2 candidates (complete) 
-    ## 1 subgroups passed consistency threshold
-    ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 13.289 0.2215 
+    ## Batch 1 / 3 : candidates 1 - 1 
+    ## Batch 2 / 3 : candidates 2 - 2 
+    ## Batch 3 / 3 : candidates 3 - 3 
+    ## Evaluated 3 of 3 candidates (complete) 
+    ## No subgroups found meeting consistency threshold
+    ## Seconds and minutes forestsearch overall = 17.747 0.2958 
     ## Consistency algorithm used: twostage 
-    ## Subgroup identified: {z1} & !{z5 <= 1} 
-    ## tau, maxdepth = 48.53742 2 
+    ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
-    ## 1          2        -5.33       520.00       1.11     1
-    ## 2          3         1.02       180.00       2.32     1
-    ## 11         4        -6.71       426.00       1.21     2
-    ## 21         5         3.44       142.00       2.62     2
-    ## 4          7        -7.11        78.00       3.18     2
+    ## 1          2        -2.43       556.00       1.10     1
+    ## 2          3         1.78       144.00       2.55     1
+    ## 11         4        -3.77       383.00       1.36     2
+    ## 3          6        -1.28       205.00       1.68     2
+    ## 4          7         4.22        94.00       3.27     2
     ## GRF subgroup NOT found
 
 ``` r
@@ -1099,13 +1237,13 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 7.3 minutes
+    ## Completed in 9.1 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
-    ## Results: 198 rows
+    ## Results: 266 rows
 
 ### Running Null Hypothesis Simulations
 
@@ -1113,7 +1251,7 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", sim_config_null$n_sims, "simulations under H0...\n")
 ```
 
-    ## Running 99 simulations under H0...
+    ## Running 133 simulations under H0...
 
 ``` r
 start_time <- Sys.time()
@@ -1133,10 +1271,10 @@ results_null <- foreach(
     sim_id = sim,
     dgm = dgm_null,
     n_sample = sim_config_null$n_sample,
-    max_follow = sim_config_null$max_follow,
-    muC_adj = sim_config_null$muC_adj,
+    analysis_time = sim_config_null$analysis_time,
+    cens_adjust = sim_config_null$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y.sim, event.sim) ~ treat + z1 + z2 + z3,
+    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
     n_add_noise = 0L,
     run_fs = TRUE,
     run_fs_grf = FALSE,
@@ -1152,45 +1290,47 @@ results_null <- foreach(
     ## GRF: no subgroup identified
     ## GRF cuts identified: 0 
     ## Cox-LASSO selected: 5 of 7 candidate factors
-    ##   Omitted: z3, grade3 
-    ## Candidate factors: 14 
-    ##  [1] "z2 <= 2.5"    "z2 <= 2"      "z4 <= 2.5"    "z4 <= 3"      "z4 <= 2"     
-    ##  [6] "z5 <= 2.4"    "z5 <= 2"      "z5 <= 1"      "z5 <= 3"      "size <= 29.1"
-    ## [11] "size <= 25"   "size <= 20"   "size <= 35"   "z1"          
-    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
+    ##   Omitted: z1, z2 
+    ## Candidate factors: 13 
+    ##  [1] "z4 <= 2.5"    "z4 <= 3"      "z4 <= 2"      "z5 <= 2.4"    "z5 <= 2"     
+    ##  [6] "z5 <= 1"      "z5 <= 3"      "size <= 29.1" "size <= 25"   "size <= 20"  
+    ## [11] "size <= 35"   "z3"           "grade3"      
+    ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 351 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
     ## Subgroup search completed in 0.04 minutes
     ## 
     ## --- Filtering Summary ---
-    ##   Combinations evaluated: 406 
-    ##   Passed variance check: 373 
-    ##   Passed prevalence (>= 0.025 ): 373 
-    ##   Passed redundancy check: 354 
-    ##   Passed event counts (d0>= 12 , d1>= 12 ): 327 
-    ##   Passed sample size (n>= 60 ): 316 
-    ##   Cox model fit successfully: 316 
-    ##   Passed HR threshold (>= 1.25 ): 4 
+    ##   Combinations evaluated: 351 
+    ##   Passed variance check: 321 
+    ##   Passed prevalence (>= 0.025 ): 321 
+    ##   Passed redundancy check: 304 
+    ##   Passed event counts (d0>= 12 , d1>= 12 ): 281 
+    ##   Passed sample size (n>= 60 ): 275 
+    ##   Cox model fit successfully: 275 
+    ##   Passed HR threshold (>= 1.25 ): 2 
     ## -------------------------
     ## 
-    ## Found 4 subgroup candidate(s)
-    ## # of candidate subgroups (meeting all criteria) = 4 
-    ## Removed 2 near-duplicate subgroups
-    ## # of unique initial candidates: 2 
+    ## Found 2 subgroup candidate(s)
+    ## # of candidate subgroups (meeting all criteria) = 2 
+    ## Removed 1 near-duplicate subgroups
+    ## # of unique initial candidates: 1 
     ## # Restricting to top stop_Kgroups = 10 
-    ## # of candidates to evaluate: 2 
+    ## # of candidates to evaluate: 1 
     ## # Early stop threshold: 0.95 
     ## Parallel config: workers = 6 , batch_size = 1 
-    ## Batch 1 / 2 : candidates 1 - 1 
-    ## Batch 2 / 2 : candidates 2 - 2 
-    ## Evaluated 2 of 2 candidates (complete) 
+    ## Batch 1 / 1 : candidates 1 - 1 
+    ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 13.327 0.2221 
+    ## Seconds and minutes forestsearch overall = 10.013 0.1669 
     ## Consistency algorithm used: twostage 
-    ## tau, maxdepth = 47.91247 2 
+    ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
-    ## 2         3        -4.78       695.00       1.00     1
-    ## 1         4        -5.09       568.00       1.10     2
+    ## 1         2        -2.57       661.00       0.92     1
+    ## 2         4        -4.46       255.00       1.36     2
+    ## 3         5         4.80        65.00       3.13     2
+    ## 4         6        -4.43       206.00       1.75     2
+    ## 5         7         0.85       174.00       1.83     2
     ## GRF subgroup NOT found
 
 ``` r
@@ -1200,7 +1340,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 5.2 minutes
+    ## Completed in 7.5 minutes
 
 ## Summarizing Results
 
@@ -1243,8 +1383,8 @@ if (length(ahr_cols) > 0) {
 ```
 
     ## AHR estimates (when subgroup found):
-    ##   Mean AHR(H) estimated: 2.079 
-    ##   Mean AHR(Hc) estimated: 0.604 
+    ##   Mean AHR(H) estimated: 2.125 
+    ##   Mean AHR(Hc) estimated: 0.599 
     ##   True AHR(H): 2.4 
     ##   True AHR(Hc): 0.585
 
@@ -1263,16 +1403,16 @@ build_estimation_table(
 
 | Estimation Properties                                                                                                                                                                                                                                                            |      |      |      |      |        |        |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|------|------|------|--------|--------|
-| n = 700, 99 simulations, HR(overall) = 0.72 (FS: 88/99 (89%) estimable)                                                                                                                                                                                                          |      |      |      |      |        |        |
+| n = 700, 133 simulations, HR(overall) = 0.72 (FS: 113/133 (85%) estimable)                                                                                                                                                                                                       |      |      |      |      |        |        |
 |                                                                                                                                                                                                                                                                                  | Avg  | SD   | Min  | Max  | b‡ (%) | b† (%) |
-| Ĥ: 88 estimable, avg \|Ĥ\| = 86, θ†(H) = 2, θ‡(H) = 2.4                                                                                                                                                                                                                          |      |      |      |      |        |        |
-| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 2.38 | 0.92 | 1.37 | 8.16 | -0.80  | 19.05  |
-| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 2.08 | 0.47 | 0.98 | 2.40 | NA     | -13.38 |
-| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 2.17 | 0.37 | 1.19 | 2.40 | NA     | -9.60  |
-| Ĥᶜ: avg \|Ĥᶜ\| = 614, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58                                                                                                                                                                                                                               |      |      |      |      |        |        |
-| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.64 | 0.08 | 0.45 | 0.84 | 9.08   | -3.53  |
-| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.60 | 0.03 | 0.58 | 0.67 | NA     | 3.36   |
-| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.64 | 0.07 | 0.58 | 0.85 | NA     | 8.68   |
+| Ĥ: 113 estimable, avg \|Ĥ\| = 87, θ†(H) = 2, θ‡(H) = 2.4                                                                                                                                                                                                                         |      |      |      |      |        |        |
+| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 2.23 | 0.49 | 1.47 | 4.06 | -7.14  | 11.44  |
+| âhr(Ĥ)                                                                                                                                                                                                                                                                           | 2.12 | 0.45 | 0.84 | 2.40 | NA     | -11.47 |
+| θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 2.21 | 0.33 | 1.22 | 2.40 | NA     | -7.84  |
+| Ĥᶜ: avg \|Ĥᶜ\| = 613, θ†(Hᶜ) = 0.66, θ‡(Hᶜ) = 0.58                                                                                                                                                                                                                               |      |      |      |      |        |        |
+| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.63 | 0.08 | 0.44 | 0.81 | 8.55   | -3.99  |
+| âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.60 | 0.02 | 0.58 | 0.67 | NA     | 2.51   |
+| θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.63 | 0.07 | 0.58 | 0.88 | NA     | 7.00   |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |      |      |      |      |        |        |
 
 ``` r
@@ -1290,22 +1430,20 @@ interpret_estimation_table(
 ```
 
 Under the alternative hypothesis (true HR(H) = 2, true HR(Hc) = 0.66),
-88 of 99 simulations (88.9%) identified a subgroup using FS. The
-identified subgroup averaged 86 patients (complement: 614).
+113 of 133 simulations (85.0%) identified a subgroup using FS. The
+identified subgroup averaged 87 patients (complement: 613).
 
-The naive Cox HR in the identified subgroup averaged 2.38 (SD = 0.92),
-corresponding to 19.1% relative bias versus the true HR(H) = 2. In the
-complement, the estimate averaged 0.64 (-3.5% bias vs. true HR(Hc) =
+The naive Cox HR in the identified subgroup averaged 2.23 (SD = 0.49),
+corresponding to 11.4% relative bias versus the true HR(H) = 2. In the
+complement, the estimate averaged 0.63 (-4.0% bias vs. true HR(Hc) =
 0.66).
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-2.4, the naive plugin shows -0.8% relative bias.
+2.4, the naive plugin shows -7.1% relative bias.
 
-The average hazard ratio (AHR) in the identified subgroup averaged 2.08
-(-13.4% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
-(3.4% bias vs. true AHR(Hc) = 0.58). The AHR shows attenuated bias
-relative to the Cox HR, consistent with AHR being a marginal rather than
-conditional estimand.
+The average hazard ratio (AHR) in the identified subgroup averaged 2.12
+(-11.5% relative bias vs. true AHR(H) = 2.4); in the complement, 0.6
+(2.5% bias vs. true AHR(Hc) = 0.58).
 
 ### Operating Characteristics Under NULL (no HTEs)
 
@@ -1367,14 +1505,14 @@ build_estimation_table(
 
 | Estimation Properties                                                                                                                                                                                                                                                            |      |      |      |      |        |        |
 |----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------|------|------|------|--------|--------|
-| n = 700, 99 simulations, HR(overall) = 0.72 (FS: 7/99 (7%) estimable)                                                                                                                                                                                                            |      |      |      |      |        |        |
+| n = 700, 133 simulations, HR(overall) = 0.72 (FS: 5/133 (4%) estimable)                                                                                                                                                                                                          |      |      |      |      |        |        |
 |                                                                                                                                                                                                                                                                                  | Avg  | SD   | Min  | Max  | b‡ (%) | b† (%) |
-| Ĥ: 7 estimable, avg \|Ĥ\| = 106, θ†(H) = 0.72, θ‡(H) = 0.65                                                                                                                                                                                                                      |      |      |      |      |        |        |
-| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 1.74 | 0.19 | 1.52 | 2.06 | 165.71 | 140.71 |
+| Ĥ: 5 estimable, avg \|Ĥ\| = 93, θ†(H) = 0.72, θ‡(H) = 0.65                                                                                                                                                                                                                       |      |      |      |      |        |        |
+| θ̂(Ĥ)                                                                                                                                                                                                                                                                             | 1.87 | 0.15 | 1.71 | 2.03 | 185.88 | 158.97 |
 | âhr(Ĥ)                                                                                                                                                                                                                                                                           | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
 | θ‡(Ĥ)                                                                                                                                                                                                                                                                            | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
-| Ĥᶜ: avg \|Ĥᶜ\| = 594, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65                                                                                                                                                                                                                               |      |      |      |      |        |        |
-| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.69 | 0.07 | 0.59 | 0.78 | 5.05   | -4.83  |
+| Ĥᶜ: avg \|Ĥᶜ\| = 607, θ†(Hᶜ) = 0.72, θ‡(Hᶜ) = 0.65                                                                                                                                                                                                                               |      |      |      |      |        |        |
+| θ̂(Ĥᶜ)                                                                                                                                                                                                                                                                            | 0.68 | 0.04 | 0.64 | 0.73 | 3.83   | -5.95  |
 | âhr(Ĥᶜ)                                                                                                                                                                                                                                                                          | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
 | θ‡(Ĥᶜ)                                                                                                                                                                                                                                                                           | 0.65 | 0.00 | 0.65 | 0.65 | NA     | 0.00   |
 | θ̂(Ĥ) = plugin Cox HR in identified subgroup; θ̂\*(Ĥ) = bootstrap bias-corrected; âhr(Ĥ) = average hazard ratio in identified subgroup; b† = bias relative to marginal HR θ† (causal truth); θ‡(Ĥ) = controlled direct effect in identified subgroup; b‡ = bias relative to CDE θ‡ |      |      |      |      |        |        |
@@ -1393,21 +1531,21 @@ interpret_estimation_table(
 )
 ```
 
-Under the null hypothesis (true HR = 0.72 uniformly), 7 of 99
-simulations (7.1%) identified a subgroup using FS. This low detection
-rate confirms controlled type-I error. Among those 7 false detections,
-the identified subgroup averaged 106 patients.
+Under the null hypothesis (true HR = 0.72 uniformly), 5 of 133
+simulations (3.8%) identified a subgroup using FS. This low detection
+rate confirms controlled type-I error. Among those 5 false detections,
+the identified subgroup averaged 93 patients.
 
-The naive Cox HR in the identified subgroup averaged 1.74 (SD = 0.19),
-representing 140.7% relative bias above the true value of 0.72. This
+The naive Cox HR in the identified subgroup averaged 1.87 (SD = 0.15),
+representing 159.0% relative bias above the true value of 0.72. This
 upward bias reflects selection: the algorithm identified whichever
 patients happened to look most like a harm subgroup by chance. In the
-complement, the Cox HR averaged 0.69 (-4.8% bias), showing the expected
+complement, the Cox HR averaged 0.68 (-6.0% bias), showing the expected
 mirror effect where removing the worst-looking patients makes the
 remainder appear modestly better.
 
 Relative to the controlled direct effect (CDE) truth theta-ddagger(H) =
-0.65, the naive plugin shows 165.7% relative bias.
+0.65, the naive plugin shows 185.9% relative bias.
 
 The average hazard ratio (AHR) in the identified subgroup averaged 0.65
 (0.0% relative bias vs. true AHR(H) = 0.65); in the complement, 0.65
@@ -1454,22 +1592,22 @@ build_classification_table(
 )
 ```
 
-| Subgroup Identification and Classification Rates                   |        |       |
-|--------------------------------------------------------------------|--------|-------|
-| Across 99 simulations per scenario                                 |        |       |
-|                                                                    | FS     | GRF   |
-| M Null: N=700, theta(ITT) = 0.72                                   |        |       |
-| any(H)                                                             | 0.07   | 0.10  |
-| sens(Hc)                                                           | 0.85   | 0.89  |
-| ppv(Hc)                                                            | 1.00   | 1.00  |
-| avg\|H\|                                                           | 106.00 | 75.00 |
-| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |        |       |
-| any(H)                                                             | 0.89   | 0.77  |
-| sens(H)                                                            | 0.85   | 0.92  |
-| sens(Hc)                                                           | 0.98   | 0.97  |
-| ppv(H)                                                             | 0.88   | 0.85  |
-| ppv(Hc)                                                            | 0.98   | 0.99  |
-| avg\|H\|                                                           | 86.00  | 98.00 |
+| Subgroup Identification and Classification Rates                   |       |       |
+|--------------------------------------------------------------------|-------|-------|
+| Across 133 simulations per scenario                                |       |       |
+|                                                                    | FS    | GRF   |
+| M Null: N=700, theta(ITT) = 0.72                                   |       |       |
+| any(H)                                                             | 0.04  | 0.05  |
+| sens(Hc)                                                           | 0.87  | 0.90  |
+| ppv(Hc)                                                            | 1.00  | 1.00  |
+| avg\|H\|                                                           | 93.00 | 68.00 |
+| M Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72 |       |       |
+| any(H)                                                             | 0.85  | 0.71  |
+| sens(H)                                                            | 0.88  | 0.95  |
+| sens(Hc)                                                           | 0.98  | 0.98  |
+| ppv(H)                                                             | 0.89  | 0.90  |
+| ppv(Hc)                                                            | 0.98  | 0.99  |
+| avg\|H\|                                                           | 87.00 | 95.00 |
 
 ## Theoretical Subgroup Detection Rate Approximation
 
@@ -1483,7 +1621,7 @@ provides an analytical approximation based on asymptotic normal theory:
 # =============================================================================
 
 # Calculate expected subgroup characteristics
-n_sg_expected <- sim_config_alt$n_sample * mean(dgm_calibrated$df_super_rand$flag.harm)
+n_sg_expected <- sim_config_alt$n_sample * mean(dgm_calibrated$df_super$flag_harm)
 prop_cens <- mean(results_alt$p.cens)  # Censoring proportion
 
 cat("=== Subgroup Characteristics ===\n")
@@ -1501,7 +1639,7 @@ cat("Expected subgroup size (n_sg):", round(n_sg_expected), "\n")
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.454
+    ## Censoring proportion: 0.482
 
 ``` r
 cat("True HR in H:", round(dgm_calibrated$hr_H_true, 3), "\n")
@@ -1552,13 +1690,13 @@ cat("\n=== Detection Probability Comparison ===\n")
 cat("Theoretical FS (asymptotic):", round(prob_detect, 3), "\n")
 ```
 
-    ## Theoretical FS (asymptotic): 0.899
+    ## Theoretical FS (asymptotic): 0.89
 
 ``` r
 cat("Empirical FS:", round(mean(results_alt[analysis == "FS"]$any.H), 3), "\n")
 ```
 
-    ## Empirical FS: 0.889
+    ## Empirical FS: 0.85
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_alt[analysis == "FSlg"]$any.H), 3), "\n")
@@ -1572,7 +1710,7 @@ if ("GRF" %in% results_alt$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.768
+    ## Empirical GRF: 0.707
 
 ``` r
 # Null 
@@ -1608,13 +1746,13 @@ cat("Under the null calculate at min SG size:", fs_params$n.min,"\n")
 cat("Theoretical FS at min(SG) (asymptotic):", round(prob_detect_null, 6), "\n")
 ```
 
-    ## Theoretical FS at min(SG) (asymptotic): 0.039781
+    ## Theoretical FS at min(SG) (asymptotic): 0.042769
 
 ``` r
 cat("Empirical FS:", round(mean(results_null[analysis == "FS"]$any.H), 6), "\n")
 ```
 
-    ## Empirical FS: 0.070707
+    ## Empirical FS: 0.037594
 
 ``` r
 cat("Empirical FSlg:", round(mean(results_null[analysis == "FSlg"]$any.H), 6), "\n")
@@ -1628,14 +1766,14 @@ if ("GRF" %in% results_null$analysis) {
 }
 ```
 
-    ## Empirical GRF: 0.10101
+    ## Empirical GRF: 0.045113
 
 ``` r
 prop_cens <- mean(results_null$p.cens)  # Censoring proportion
 cat("Censoring proportion:", round(prop_cens, 3), "\n")
 ```
 
-    ## Censoring proportion: 0.467
+    ## Censoring proportion: 0.493
 
 ``` r
 # -----------------------------------------------------------------------------
@@ -1749,8 +1887,8 @@ for (analysis in unique(results_alt$analysis)) {
 }
 ```
 
-    ##   FS: Power = 0.828, Sens = 0.878, Spec = 0.977, PPV = 0.865
-    ##   GRF: Power = 0.828, Sens = 0.878, Spec = 0.977, PPV = 0.865
+    ##   FS: Power = 0.778, Sens = 0.910, Spec = 0.982, PPV = 0.896
+    ##   GRF: Power = 0.778, Sens = 0.910, Spec = 0.982, PPV = 0.896
 
 ``` r
 cat("\nNull Hypothesis (H0):\n")
@@ -1768,8 +1906,8 @@ for (analysis in unique(results_null$analysis)) {
 }
 ```
 
-    ##   FS: Type I Error = 0.0859
-    ##   GRF: Type I Error = 0.0859
+    ##   FS: Type I Error = 0.0414
+    ##   GRF: Type I Error = 0.0414
 
 ## Using `format_oc_results()`
 
@@ -2037,18 +2175,18 @@ reproducibility information.
 
 | Computational Timing Summary                            |             |            |            |
 |---------------------------------------------------------|-------------|------------|------------|
-| 99 H1 + 99 H0 simulations, 3 workers                    |             |            |            |
+| 133 H1 + 133 H0 simulations, 3 workers                  |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
-| Calibrate k_inter (Cox)                                 | 7.1         | 0.12       | 0.9        |
-| Calibrate k_inter (AHR)                                 | 3.0         | 0.05       | 0.4        |
+| Calibrate k_inter (Cox)                                 | 7.4         | 0.12       | 0.7        |
+| Calibrate k_inter (AHR)                                 | 3.0         | 0.05       | 0.3        |
 | Validate k_inter                                        | 0.8         | 0.01       | 0.1        |
 | DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
-| Simulations H1                                          | 435.5       | 7.26       | 54.6       |
-| Simulations H0                                          | 312.2       | 5.20       | 39.2       |
-| Summarize H1                                            | 0.2         | 0.00       | 0.0        |
+| Simulations H1                                          | 543.7       | 9.06       | 52.1       |
+| Simulations H0                                          | 451.5       | 7.52       | 43.3       |
+| Summarize H1                                            | 0.1         | 0.00       | 0.0        |
 | Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 797.4       | 13.29      | 100.0      |
+| Total vignette                                          | 1,043.3     | 17.39      | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -2162,7 +2300,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 4.4 sec/sim (wall) across 99 sims on 3 workers
+    ##   H1: 4.1 sec/sim (wall) across 133 sims on 3 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2170,7 +2308,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 3.2 sec/sim (wall) across 99 sims on 3 workers
+    ##   H0: 3.4 sec/sim (wall) across 133 sims on 3 workers
 
 ## Complete Example Script
 
@@ -2204,7 +2342,7 @@ k_inter <- calibrate_k_inter(target_hr_harm = TARGET_HR_HARM,
 # k_inter <- calibrate_k_inter(target_hr_harm = TARGET_HR_HARM, 
 #                              use_ahr = TRUE, verbose = TRUE)
 
-dgm <- create_gbsg_dgm(model = "alt", k_inter = k_inter, verbose = TRUE)
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = k_inter, verbose = TRUE)
 
 # Verify hazard ratios (new aligned output)
 cat("\nDGM Summary:\n")
@@ -2228,7 +2366,7 @@ results <- foreach(
     sim_id = sim,
     dgm = dgm,
     n_sample = N_SAMPLE,
-    max_follow = 60,
+    analysis_time = 60,
     confounders_base = confounders,
     run_fs = TRUE,
     run_fs_grf = TRUE,
@@ -2265,10 +2403,10 @@ ForestSearch performance through simulation:
 
 | Step           | Function                                                                                                                | Purpose                                 |
 |----------------|-------------------------------------------------------------------------------------------------------------------------|-----------------------------------------|
-| 1\. Create DGM | [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)                           | Define data generating mechanism        |
+| 1\. Create DGM | [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)                             | Define data generating mechanism        |
 | 2\. Calibrate  | [`calibrate_k_inter()`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)                       | Achieve target subgroup HR (Cox or AHR) |
 | 3\. Validate   | [`validate_k_inter_effect()`](https://larry-leon.github.io/forestsearch/reference/validate_k_inter_effect.md)           | Verify heterogeneity control            |
-| 4\. Simulate   | [`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)             | Generate trial data                     |
+| 4\. Simulate   | [`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)                       | Generate trial data                     |
 | 5\. Analyze    | [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)           | Run ForestSearch/GRF                    |
 | 6\. Summarize  | [`summarize_simulation_results()`](https://larry-leon.github.io/forestsearch/reference/summarize_simulation_results.md) | Aggregate metrics                       |
 | 7\. Display    | [`format_oc_results()`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md)                       | Create gt tables                        |

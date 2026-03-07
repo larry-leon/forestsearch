@@ -212,7 +212,7 @@ the super-population).</p>
 <h4 id="computation-in-forestsearch">Computation in ForestSearch<a class="anchor" aria-label="anchor" href="#computation-in-forestsearch"></a>
 </h4>
 <p>In <code><a href="../reference/calculate_hazard_ratios.html">calculate_hazard_ratios()</a></code> and
-<code><a href="../reference/create_gbsg_dgm.html">create_gbsg_dgm()</a></code>, the marginal HR is computed as
+<code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code>, the marginal HR is computed as
 follows:</p>
 <ol style="list-style-type: decimal">
 <li><p>Generate a common set of error terms:
@@ -231,7 +231,7 @@ for
 rows with columns <code>time</code>, <code>event = 1</code>,
 <code>treat</code>, <code>flag_harm</code>.</p></li>
 <li><p>Fit Cox model:
-<code>coxph(Surv(time, event) ~ treat, data = df_stacked)</code>.</p></li>
+<code>coxph(Surv(time, event) ~ treat_sim, data = df_stacked)</code>.</p></li>
 <li><p>Extract:
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mtext mathvariant="normal">HR</mtext><mtext mathvariant="normal">marg</mtext></msub><mo>=</mo><mo>exp</mo><mrow><mo stretchy="true" form="prefix">(</mo><msub><mover><mi>β</mi><mo accent="true">̂</mo></mover><mtext mathvariant="normal">treat</mtext></msub><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})</annotation></semantics></math>.</p></li>
 </ol>
@@ -653,13 +653,13 @@ heterogeneity.</p>
 <p>The variable names <code>hr.H.true</code> and <code>hr.Hc.true</code>
 appear in two distinct contexts within the ForestSearch codebase. Both
 use the same computational core—a Cox model fit within the true subgroup
-defined by <code>flag.harm</code>—but they operate on different data and
+defined by <code>flag_harm</code>—but they operate on different data and
 serve different purposes. Understanding this distinction is essential
 for correctly interpreting simulation operating characteristics.</p>
 <div class="section level3">
 <h3 id="dgm-level-truth-super-population">DGM-Level Truth (Super-Population)<a class="anchor" aria-label="anchor" href="#dgm-level-truth-super-population"></a>
 </h3>
-<p>When <code><a href="../reference/create_gbsg_dgm.html">create_gbsg_dgm()</a></code> or
+<p>When <code><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm()</a></code> or
 <code><a href="../reference/calculate_hazard_ratios.html">calculate_hazard_ratios()</a></code> constructs the data-generating
 mechanism, the marginal HR is computed from the <strong>stacked
 potential outcomes</strong> in a large super-population (typically
@@ -669,22 +669,22 @@ treatment and control, using the same random error
 <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ε</mi><mi>i</mi></msub><annotation encoding="application/x-tex">\varepsilon_i</annotation></semantics></math>
 for both arms:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># In create_gbsg_dgm() — stacked potential outcomes</span></span>
+<code class="sourceCode R"><span><span class="co"># In setup_gbsg_dgm() — stacked potential outcomes</span></span>
 <span><span class="va">df_po</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
 <span>  time      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">T_1</span>, <span class="va">T_0</span><span class="op">)</span>,</span>
 <span>  event     <span class="op">=</span> <span class="fl">1L</span>,</span>
 <span>  treat     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span>, <span class="va">n_super</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">n_super</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  flag.harm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">flag.harm</span>, <span class="fl">2</span><span class="op">)</span></span>
+<span>  flag_harm <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">flag_harm</span>, <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hr_H_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">time</span>, <span class="va">event</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df_po</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">time</span>, <span class="va">event</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df_po</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hr_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">time</span>, <span class="va">event</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df_po</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">time</span>, <span class="va">event</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df_po</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span></code></pre></div>
 <p>These DGM-level values are essentially <strong>fixed
 constants</strong> for a given DGM specification. They define the ground
@@ -716,13 +716,13 @@ sample size, and randomized (not stacked) treatment:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># In run_fs_analysis() — observed data, single treatment arm per subject</span></span>
 <span><span class="va">hr.H.true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y.sim</span>, <span class="va">event.sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y_sim</span>, <span class="va">event_sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hr.Hc.true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y.sim</span>, <span class="va">event.sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y_sim</span>, <span class="va">event_sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">df</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span></code></pre></div>
 <p>These per-replicate values are <strong>random variables</strong> that
 fluctuate across simulation iterations due to sampling variability,
@@ -1194,7 +1194,7 @@ censoring patterns, and the particular treatment randomization.</p>
 <td colspan="3" class="gt_heading gt_title gt_font_normal" style><span class="gt_from_md"><strong>DGM-Level vs. Simulation-Level True Hazard Ratios</strong></span></td>
     </tr>
 <tr class="gt_heading">
-<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style><span class="gt_from_md">Both use <code>coxph(Surv(time, event) ~ treat)</code> within <code>flag.harm</code> subgroups, but on fundamentally different data</span></td>
+<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style><span class="gt_from_md">Both use <code>coxph(Surv(time, event) ~ treat_sim)</code> within <code>flag_harm</code> subgroups, but on fundamentally different data</span></td>
     </tr>
 <tr class="gt_col_headings">
 <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="background-color: #2C3E50; color: #FFFFFF; font-weight: bold;" scope="col" id="Aspect"></th>
@@ -1230,8 +1230,8 @@ censoring patterns, and the particular treatment randomization.</p>
 </tr>
 <tr>
 <td headers="Aspect" class="gt_row gt_left" style="font-size: small; font-weight: bold; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Subgroup membership</td>
-<td headers="DGM_Level" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Known flag.harm (truth)</td>
-<td headers="Sim_Level" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Known flag.harm (truth)</td>
+<td headers="DGM_Level" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Known flag_harm (truth)</td>
+<td headers="Sim_Level" class="gt_row gt_left" style="font-size: small; border-bottom-width: 1px; border-bottom-style: solid; border-bottom-color: #B0BEC5;">Known flag_harm (truth)</td>
 </tr>
 <tr>
 <td headers="Aspect" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Nature of quantity</td>
@@ -1245,7 +1245,7 @@ censoring patterns, and the particular treatment randomization.</p>
 </tr>
 <tr>
 <td headers="Aspect" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Location in code</td>
-<td headers="DGM_Level" class="gt_row gt_left" style="font-size: x-small; font-family: monospace;">create_gbsg_dgm(), calculate_hazard_ratios()</td>
+<td headers="DGM_Level" class="gt_row gt_left" style="font-size: x-small; font-family: monospace;">setup_gbsg_dgm(), calculate_hazard_ratios()</td>
 <td headers="Sim_Level" class="gt_row gt_left" style="font-size: x-small; font-family: monospace;">run_fs_analysis(), run_grf_analysis()</td>
 </tr>
 <tr>
@@ -1281,10 +1281,10 @@ Code</a>
 <span>    <span class="st">"None (event = 1 for all rows)"</span>,</span>
 <span>    <span class="st">"2 x n_super (e.g. 10,000 rows)"</span>,</span>
 <span>    <span class="st">"Both arms per subject (causal framework)"</span>,</span>
-<span>    <span class="st">"Known flag.harm (truth)"</span>,</span>
+<span>    <span class="st">"Known flag_harm (truth)"</span>,</span>
 <span>    <span class="st">"Essentially fixed (large N constant)"</span>,</span>
 <span>    <span class="st">"Define ground truth for bias calculation"</span>,</span>
-<span>    <span class="st">"create_gbsg_dgm(), calculate_hazard_ratios()"</span>,</span>
+<span>    <span class="st">"setup_gbsg_dgm(), calculate_hazard_ratios()"</span>,</span>
 <span>    <span class="st">"dgm$hr_H_true, dgm$hr_Hc_true"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  Sim_Level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -1293,7 +1293,7 @@ Code</a>
 <span>    <span class="st">"Yes (administrative + random censoring)"</span>,</span>
 <span>    <span class="st">"n_sample (e.g. 300 -- 700)"</span>,</span>
 <span>    <span class="st">"Randomized (one arm per subject)"</span>,</span>
-<span>    <span class="st">"Known flag.harm (truth)"</span>,</span>
+<span>    <span class="st">"Known flag_harm (truth)"</span>,</span>
 <span>    <span class="st">"Random (varies across replicates)"</span>,</span>
 <span>    <span class="st">"Per-replicate reference for estimator comparison"</span>,</span>
 <span>    <span class="st">"run_fs_analysis(), run_grf_analysis()"</span>,</span>
@@ -1317,7 +1317,7 @@ Code</a>
 <span>    title <span class="op">=</span> <span class="fu"><a href="https://gt.rstudio.com/reference/md.html" class="external-link">md</a></span><span class="op">(</span><span class="st">"**DGM-Level vs. Simulation-Level True Hazard Ratios**"</span><span class="op">)</span>,</span>
 <span>    subtitle <span class="op">=</span> <span class="fu"><a href="https://gt.rstudio.com/reference/md.html" class="external-link">md</a></span><span class="op">(</span></span>
 <span>      <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span></span>
-<span>        <span class="st">"Both use `coxph(Surv(time, event) ~ treat)` within `flag.harm` "</span>,</span>
+<span>        <span class="st">"Both use `coxph(Surv(time, event) ~ treat_sim)` within `flag_harm` "</span>,</span>
 <span>        <span class="st">"subgroups, but on fundamentally different data"</span></span>
 <span>      <span class="op">)</span></span>
 <span>    <span class="op">)</span></span>
@@ -1506,21 +1506,21 @@ noise.</p>
 <p><strong>DGM-level AHR:</strong> Deterministic, computed from
 individual <code>loghr_po</code> values in the super-population.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">AHR_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">AHR_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">AHR_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">AHR_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p><strong>DGM-level CDE:</strong> Deterministic, computed from
 individual <code>theta_0</code> and <code>theta_1</code> values in the
 super-population.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">CDE_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
-<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">CDE_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
-<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">CDE_H_true</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">CDE_Hc_true</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df_super</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df_super</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>These are computed by <code><a href="../reference/compute_dgm_cde.html">compute_dgm_cde()</a></code> and stored in
 the DGM’s <code>hazard_ratios</code> list.</p>
 <p><strong>Simulation-level AHR:</strong> Can be computed per replicate
 when <code>loghr_po</code> is carried through to the simulated sample
-(available via <code><a href="../reference/simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>). Stored as
+(available via <code><a href="../reference/simulate_from_dgm.html">simulate_from_dgm()</a></code>). Stored as
 <code>ahr.H.hat</code> and <code>ahr.Hc.hat</code> in the results
 <code>data.table</code>.</p>
 <p><strong>Simulation-level CDE:</strong> Similarly computed per
@@ -2103,7 +2103,7 @@ comparison of all three treatment effect measures.</p>
     </tr>
 <tr class="gt_row_group_first">
 <td headers="**Interpretation &amp; Use**  Property" class="gt_row gt_left" style="font-size: small; font-weight: bold;">Key package function(s)</td>
-<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()</td>
+<td headers="**Interpretation &amp; Use**  Marginal_HR" class="gt_row gt_left" style="font-size: small;">calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()</td>
 <td headers="**Interpretation &amp; Use**  AHR" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), build_estimation_table()</td>
 <td headers="**Interpretation &amp; Use**  CDE" class="gt_row gt_left" style="font-size: small;">cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()</td>
 </tr>
@@ -2154,7 +2154,7 @@ Code</a>
 <span>    <span class="st">"Cox PH on stacked potential outcomes"</span>,</span>
 <span>    <span class="st">"Estimation rows in build_estimation_table(); DGM validation"</span>,</span>
 <span>    <span class="st">"hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat"</span>,</span>
-<span>    <span class="st">"calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()"</span>,</span>
+<span>    <span class="st">"calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()"</span>,</span>
 <span>    <span class="st">"Population-average HR as estimated by Cox regression on potential outcomes"</span></span>
 <span>  <span class="op">)</span>,</span>
 <span>  AHR <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
@@ -2797,7 +2797,7 @@ Code</a>
 <tr>
 <td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #FFF8E1;">5c. Marginal HR (subgroup S)</td>
 <td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #FFF8E1;">HR_marg(S): exp(beta) from coxph() on stacked PO data</td>
-<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #FFF8E1;">exp(coxph(Surv(time,event)~treat, data=df_stacked)$coef)</td>
+<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #FFF8E1;">exp(coxph(Surv(time,event)~treat_sim, data=df_stacked)$coef)</td>
 </tr>
 <tr>
 <td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold;">6. Theoretical HR (harm subgroup)</td>
@@ -2806,13 +2806,13 @@ Code</a>
 </tr>
 <tr>
 <td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">7. Per-replicate truth (sim-level)</td>
-<td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">hr.H.true: coxph() on observed data, flag.harm == 1</td>
-<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)</td>
+<td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">hr.H.true: coxph() on observed data, flag_harm == 1</td>
+<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, flag_harm==1))$coef)</td>
 </tr>
 <tr>
 <td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8a. Per-replicate estimate (identified, Cox)</td>
 <td headers="Formula" class="gt_row gt_left" style="font-size: small; background-color: #E8F4E8;">hr.H.hat: coxph() on observed data, sg_hat == 1</td>
-<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)</td>
+<td headers="ForestSearch_Code" class="gt_row gt_left" style="font-family: monospace; font-size: small; background-color: #E8F4E8;">exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, sg_hat==1))$coef)</td>
 </tr>
 <tr>
 <td headers="Step" class="gt_row gt_left" style="font-size: small; font-weight: bold; background-color: #E8F4E8;">8b. Per-replicate AHR (identified)</td>
@@ -2857,7 +2857,7 @@ Code</a>
 <span>    <span class="st">"CDE(S) = mean(exp(theta_1_i)) / mean(exp(theta_0_i))"</span>,</span>
 <span>    <span class="st">"HR_marg(S): exp(beta) from coxph() on stacked PO data"</span>,</span>
 <span>    <span class="st">"HR(H) = exp( beta_0[treat] + beta_0[zh] )"</span>,</span>
-<span>    <span class="st">"hr.H.true: coxph() on observed data, flag.harm == 1"</span>,</span>
+<span>    <span class="st">"hr.H.true: coxph() on observed data, flag_harm == 1"</span>,</span>
 <span>    <span class="st">"hr.H.hat: coxph() on observed data, sg_hat == 1"</span>,</span>
 <span>    <span class="st">"ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1"</span>,</span>
 <span>    <span class="st">"cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1"</span></span>
@@ -2869,10 +2869,10 @@ Code</a>
 <span>    <span class="st">"loghr_po &lt;- theta_1 - theta_0"</span>,</span>
 <span>    <span class="st">"exp(mean(df$loghr_po[idx]))"</span>,</span>
 <span>    <span class="st">"mean(exp(df$theta_1[idx])) / mean(exp(df$theta_0[idx]))"</span>,</span>
-<span>    <span class="st">"exp(coxph(Surv(time,event)~treat, data=df_stacked)$coef)"</span>,</span>
+<span>    <span class="st">"exp(coxph(Surv(time,event)~treat_sim, data=df_stacked)$coef)"</span>,</span>
 <span>    <span class="st">"exp(b0['treat'] + b0['zh'])"</span>,</span>
-<span>    <span class="st">"exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)"</span>,</span>
-<span>    <span class="st">"exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)"</span>,</span>
+<span>    <span class="st">"exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, flag_harm==1))$coef)"</span>,</span>
+<span>    <span class="st">"exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, sg_hat==1))$coef)"</span>,</span>
 <span>    <span class="st">"exp(mean(df$loghr_po[df$sg_hat == 1]))"</span>,</span>
 <span>    <span class="st">"mean(exp(df$theta_1[sg_hat])) / mean(exp(df$theta_0[sg_hat]))"</span></span>
 <span>  <span class="op">)</span>,</span>
@@ -2941,7 +2941,7 @@ from a single DGM object, highlighting where they agree and diverge.</p>
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/larry-leon/forestsearch" class="external-link">forestsearch</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Create a GBSG-based DGM with heterogeneous treatment effects</span></span>
-<span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span></span>
+<span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span></span>
 <span>  model   <span class="op">=</span> <span class="st">"alt"</span>,</span>
 <span>  k_treat <span class="op">=</span> <span class="fl">1.0</span>,</span>
 <span>  k_inter <span class="op">=</span> <span class="fl">2.0</span>,</span>
@@ -2951,8 +2951,8 @@ from a single DGM object, highlighting where they agree and diverge.</p>
 <span><span class="co"># --- AHR (deterministic, from loghr_po) ---</span></span>
 <span><span class="va">df</span> <span class="op">&lt;-</span> <span class="va">dgm</span><span class="op">$</span><span class="va">df_super_rand</span></span>
 <span><span class="va">ahr_overall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">ahr_harm</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">ahr_noharm</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">ahr_harm</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">ahr_noharm</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">loghr_po</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"AHR (overall):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ahr_overall</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"AHR (harm):   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">ahr_harm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -2960,10 +2960,10 @@ from a single DGM object, highlighting where they agree and diverge.</p>
 <span></span>
 <span><span class="co"># --- CDE (deterministic, from theta_0 and theta_1) ---</span></span>
 <span><span class="va">cde_overall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_1</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_0</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">cde_harm</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
-<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">cde_noharm</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
-<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">cde_harm</span>    <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">cde_noharm</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_1</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span></span>
+<span>               <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">theta_0</span><span class="op">[</span><span class="va">df</span><span class="op">$</span><span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE (overall):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cde_overall</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"CDE (harm):   "</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">cde_harm</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -2982,16 +2982,16 @@ from a single DGM object, highlighting where they agree and diverge.</p>
 <span></span>
 <span><span class="co"># --- Simulation-level truth (per-replicate, observed data) ---</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n--- Simulation-Level HR (single replicate) ---\n"</span><span class="op">)</span></span>
-<span><span class="va">sim_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm</a></span><span class="op">(</span><span class="va">dgm</span>, n <span class="op">=</span> <span class="fl">500</span>, sim_id <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">sim_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/simulate_from_dgm.html">simulate_from_dgm</a></span><span class="op">(</span><span class="va">dgm</span>, n <span class="op">=</span> <span class="fl">500</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hr_H_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y.sim</span>, <span class="va">event.sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">sim_data</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y_sim</span>, <span class="va">event_sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">sim_data</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">hr_Hc_sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/coxph.html" class="external-link">coxph</a></span><span class="op">(</span></span>
-<span>  <span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y.sim</span>, <span class="va">event.sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat</span>,</span>
-<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">sim_data</span>, <span class="va">flag.harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="fu">survival</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/survival/man/Surv.html" class="external-link">Surv</a></span><span class="op">(</span><span class="va">y_sim</span>, <span class="va">event_sim</span><span class="op">)</span> <span class="op">~</span> <span class="va">treat_sim</span>,</span>
+<span>  data <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/subset.html" class="external-link">subset</a></span><span class="op">(</span><span class="va">sim_data</span>, <span class="va">flag_harm</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"hr.H.true  (this replicate):"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">hr_H_sim</span>, <span class="fl">4</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>

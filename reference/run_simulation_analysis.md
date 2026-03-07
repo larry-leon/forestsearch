@@ -1,7 +1,13 @@
-# Run Single Simulation Analysis
+# Run One Simulation Replicate
 
-Executes ForestSearch and/or GRF analysis on a single simulated dataset.
-This is the core function called within a simulation loop.
+General replacement for the legacy `run_simulation_analysis()` that was
+coupled to
+[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)
+and GBSG-specific column names. This version calls
+[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)
+and accepts explicit column-name parameters, making it applicable to any
+DGM built with
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md).
 
 ## Usage
 
@@ -10,10 +16,16 @@ run_simulation_analysis(
   sim_id,
   dgm,
   n_sample,
-  max_follow = Inf,
-  muC_adj = 0,
+  analysis_time = Inf,
+  cens_adjust = 0,
+  max_follow = NULL,
+  muC_adj = NULL,
   confounders_base = c("v1", "v2", "v3", "v4", "v5", "v6", "v7"),
   n_add_noise = 0L,
+  outcome_name = "y_sim",
+  event_name = "event_sim",
+  treat_name = "treat_sim",
+  harm_col = "flag_harm",
   run_fs = TRUE,
   run_fs_grf = TRUE,
   run_grf = TRUE,
@@ -33,216 +45,124 @@ run_simulation_analysis(
 
 - sim_id:
 
-  Integer. Simulation index for seed offset and tracking
+  Integer. Simulation replicate index (used as seed offset).
 
 - dgm:
 
-  A DGM object from
-  [`create_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
-  or similar
+  An `"aft_dgm_flex"` object from
+  [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+  or
+  [`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md).
 
 - n_sample:
 
-  Integer. Sample size for simulation
+  Integer. Per-replicate sample size.
+
+- analysis_time:
+
+  Numeric. Calendar time of analysis on the DGM time scale. Use `Inf`
+  (default) for no administrative censoring — equivalent to the legacy
+  `max_follow = Inf`.
+
+- cens_adjust:
+
+  Numeric. Log-scale shift to censoring times passed to
+  `simulate_from_dgm(cens_adjust = ...)`. Replaces legacy `muC_adj`.
+  Default `0`.
 
 - max_follow:
 
-  Numeric. Maximum follow-up time. Default: Inf
+  **Deprecated.** Use `analysis_time` instead. If supplied, its value is
+  forwarded to `analysis_time` with a warning. Retained for backward
+  compatibility with legacy scripts.
 
 - muC_adj:
 
-  Numeric. Censoring adjustment. Default: 0
+  **Deprecated.** Use `cens_adjust` instead. If supplied, its value is
+  forwarded to `cens_adjust` with a warning. Retained for backward
+  compatibility with legacy scripts.
 
 - confounders_base:
 
-  Character vector. Base confounder names
+  Character vector of base confounder names.
 
 - n_add_noise:
 
-  Integer. Number of noise variables to add. Default: 0
+  Integer. Number of independent N(0,1) noise variables to append.
+  Default `0L`.
+
+- outcome_name:
+
+  Name of the observed time column in simulated data. Default `"y_sim"`.
+
+- event_name:
+
+  Name of the event indicator column. Default `"event_sim"`.
+
+- treat_name:
+
+  Name of the treatment column. Default `"treat_sim"`.
+
+- harm_col:
+
+  Name of the true-subgroup indicator column. Default `"flag_harm"`.
 
 - run_fs:
 
-  Logical. Run ForestSearch with LASSO variable selection. Default:
-  TRUE. Analysis label: "FS"
+  Logical. Run ForestSearch (LASSO). Default `TRUE`.
 
 - run_fs_grf:
 
-  Logical. Run ForestSearch with LASSO + GRF variable selection.
-  Default: TRUE. Analysis label: "FSlg"
+  Logical. Run ForestSearch (LASSO + GRF). Default `TRUE`.
 
 - run_grf:
 
-  Logical. Run standalone GRF analysis (grf.subg.harm.survival).
-  Default: TRUE. Analysis label: "GRF"
+  Logical. Run standalone GRF. Default `TRUE`.
 
 - fs_params:
 
-  List. ForestSearch parameters (overrides all defaults including
-  use_lasso/use_grf). User-provided values take precedence over
-  analysis-type defaults. For example,
-  `fs_params = list(hr.threshold = 1.5, use_twostage = TRUE)` will apply
-  to both FS and FSlg analyses.
+  Named list of ForestSearch parameter overrides.
 
 - grf_params:
 
-  List. GRF parameters for standalone GRF analysis (overrides defaults).
-  Accepts all parameters for
-  [`grf.subg.harm.survival()`](https://larry-leon.github.io/forestsearch/reference/grf.subg.harm.survival.md):
-  n.min, dmin.grf, frac.tau, maxdepth, RCT, sg.criterion, seedit,
-  outcome.name, event.name, treat.name, id.name. User-provided values
-  take precedence over defaults.
+  Named list of GRF parameter overrides.
 
 - cox_formula:
 
-  Formula. Cox model formula for estimation
+  Optional Cox formula for unadjusted ITT.
 
 - cox_formula_adj:
 
-  Formula. Adjusted Cox model formula
+  Optional adjusted Cox formula.
 
 - n_sims_total:
 
-  Integer. Total simulations (for progress display)
+  Integer. Total simulations (for progress messages).
 
 - seed_base:
 
-  Integer. Base random seed. Default: 8316951
+  Integer. Base seed; replicate seed = `seed_base + sim_id`. Default
+  `8316951L`.
 
 - verbose:
 
-  Logical. Print progress. Default: FALSE
+  Logical. Print progress messages. Default `FALSE`.
 
 - verbose_n:
 
-  Integer. Only print verbose output for first N simulations. Default:
-  NULL (print for all simulations when verbose = TRUE)
+  Integer. If set, only print for `sim_id <= verbose_n`. Default `NULL`.
 
 - debug:
 
-  Logical. Print detailed debugging information. Default: FALSE
+  Logical. Print detailed debug output. Default `FALSE`.
 
 ## Value
 
-A data.table with analysis results for all requested methods, including
-both HR and AHR metrics. Contains columns:
+A `data.table` with one row per analysis method, containing subgroup
+size, HR, AHR, CDE, and classification metrics.
 
-- sim:
+## See also
 
-  Simulation ID
-
-- sizeH_true, propH_true:
-
-  True harm subgroup size/proportion in sample
-
-- analysis:
-
-  Analysis method: "FS", "FSlg", or "GRF"
-
-- any.H:
-
-  1 if subgroup identified, 0 otherwise
-
-- size.H, size.Hc:
-
-  Size of identified H and complement
-
-- hr.H.true, hr.H.hat:
-
-  True and estimated HR in identified H
-
-- hr.Hc.true, hr.Hc.hat:
-
-  True and estimated HR in identified Hc
-
-- ahr.H.true, ahr.H.hat:
-
-  True and estimated AHR in identified H
-
-- sens, spec, ppv, npv:
-
-  Classification metrics
-
-## Details
-
-Aligned with create_gbsg_dgm() and generate_aft_dgm_flex() output
-structures.
-
-### Analysis Methods
-
-The function can run up to three analysis types:
-
-- **FS**: ForestSearch with LASSO variable selection only (default:
-  use_lasso = TRUE, use_grf = FALSE)
-
-- **FSlg**: ForestSearch with LASSO + GRF variable selection (default:
-  use_lasso = TRUE, use_grf = TRUE)
-
-- **GRF**: Standalone GRF-based subgroup identification using
-  grf.subg.harm.survival()
-
-### Parameter Merging Order
-
-Parameters are merged in the following order (later values override
-earlier):
-
-1.  [`default_fs_params()`](https://larry-leon.github.io/forestsearch/reference/default_fs_params.md) -
-    package defaults
-
-2.  Analysis-type-specific defaults (use_lasso/use_grf for FS vs FSlg)
-
-3.  User's `fs_params` - **final authority**
-
-This means if you pass `fs_params = list(use_grf = TRUE)`, it will
-override the FS analysis default of `use_grf = FALSE`.
-
-### Output Column Naming Convention
-
-The output distinguishes between:
-
-- **True subgroup from DGM**: sizeH_true, propH_true (known from data
-  generation)
-
-- **Identified subgroup**: size.H, hr.H.hat (estimated by analysis)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Create DGM (aligned version)
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2, verbose = TRUE)
-
-# Run single simulation with LASSO only
-result <- run_simulation_analysis(
-  sim_id = 1,
-  dgm = dgm,
-  n_sample = 500,
-  confounders_base = c("v1", "v2", "v3", "v4", "v5", "v6", "v7"),
-  run_fs = TRUE,      # LASSO only
-  run_fs_grf = FALSE, # Skip LASSO+GRF
-  run_grf = FALSE,    # Skip standalone GRF
-  verbose = TRUE
-)
-
-# Run all three analysis types
-result_all <- run_simulation_analysis(
-  sim_id = 1,
-  dgm = dgm,
-  n_sample = 500,
-  run_fs = TRUE,
-  run_fs_grf = TRUE,
-  run_grf = TRUE,
-  verbose = TRUE
-)
-# result_all has 3 rows: one for FS, one for FSlg, one for GRF
-
-# With use_twostage = TRUE for faster analysis
-result_fast <- run_simulation_analysis(
-  sim_id = 1,
-  dgm = dgm,
-  n_sample = 500,
-  fs_params = list(use_twostage = TRUE),
-  verbose = TRUE
-)
-} # }
-```
+[`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md),
+[`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
+[`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)

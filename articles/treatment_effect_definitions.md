@@ -93,7 +93,7 @@ the super-population).
 In
 [`calculate_hazard_ratios()`](https://larry-leon.github.io/forestsearch/reference/calculate_hazard_ratios.md)
 and
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md),
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md),
 the marginal HR is computed as follows:
 
 1.  Generate a common set of error terms:
@@ -109,7 +109,7 @@ the marginal HR is computed as follows:
     `event = 1`, `treat`, `flag_harm`.
 
 4.  Fit Cox model:
-    `coxph(Surv(time, event) ~ treat, data = df_stacked)`.
+    `coxph(Surv(time, event) ~ treat_sim, data = df_stacked)`.
 
 5.  Extract:
     $\text{HR}_{\text{marg}} = \exp\left( {\widehat{\beta}}_{\text{treat}} \right)$.
@@ -330,14 +330,14 @@ heterogeneity.
 The variable names `hr.H.true` and `hr.Hc.true` appear in two distinct
 contexts within the ForestSearch codebase. Both use the same
 computational core—a Cox model fit within the true subgroup defined by
-`flag.harm`—but they operate on different data and serve different
+`flag_harm`—but they operate on different data and serve different
 purposes. Understanding this distinction is essential for correctly
 interpreting simulation operating characteristics.
 
 ### DGM-Level Truth (Super-Population)
 
 When
-[`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
+[`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
 or
 [`calculate_hazard_ratios()`](https://larry-leon.github.io/forestsearch/reference/calculate_hazard_ratios.md)
 constructs the data-generating mechanism, the marginal HR is computed
@@ -347,22 +347,22 @@ uncensored survival times under *both* treatment and control, using the
 same random error $\varepsilon_{i}$ for both arms:
 
 ``` r
-# In create_gbsg_dgm() — stacked potential outcomes
+# In setup_gbsg_dgm() — stacked potential outcomes
 df_po <- data.frame(
   time      = c(T_1, T_0),
   event     = 1L,
   treat     = c(rep(1, n_super), rep(0, n_super)),
-  flag.harm = rep(flag.harm, 2)
+  flag_harm = rep(flag_harm, 2)
 )
 
 hr_H_true <- exp(coxph(
-  Surv(time, event) ~ treat,
-  data = subset(df_po, flag.harm == 1)
+  Surv(time, event) ~ treat_sim,
+  data = subset(df_po, flag_harm == 1)
 )$coefficients)
 
 hr_Hc_true <- exp(coxph(
-  Surv(time, event) ~ treat,
-  data = subset(df_po, flag.harm == 0)
+  Surv(time, event) ~ treat_sim,
+  data = subset(df_po, flag_harm == 0)
 )$coefficients)
 ```
 
@@ -389,13 +389,13 @@ randomized (not stacked) treatment:
 ``` r
 # In run_fs_analysis() — observed data, single treatment arm per subject
 hr.H.true <- exp(coxph(
-  Surv(y.sim, event.sim) ~ treat,
-  data = subset(df, flag.harm == 1)
+  Surv(y_sim, event_sim) ~ treat_sim,
+  data = subset(df, flag_harm == 1)
 )$coefficients)
 
 hr.Hc.true <- exp(coxph(
-  Surv(y.sim, event.sim) ~ treat,
-  data = subset(df, flag.harm == 0)
+  Surv(y_sim, event_sim) ~ treat_sim,
+  data = subset(df, flag_harm == 0)
 )$coefficients)
 ```
 
@@ -408,20 +408,20 @@ results `data.table`, one row per replicate.
 
 ### Side-by-Side Comparison
 
-| **DGM-Level vs. Simulation-Level True Hazard Ratios**                                                         |                                                  |                                                  |
-|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------|--------------------------------------------------|
-| Both use `coxph(Surv(time, event) ~ treat)` within `flag.harm` subgroups, but on fundamentally different data |                                                  |                                                  |
-|                                                                                                               | **DGM-Level (Super-Population)**                 | **Simulation-Level (Per-Replicate)**             |
-| Data source                                                                                                   | Stacked potential outcomes from super-population | Observed simulated trial data                    |
-| Potential outcomes                                                                                            | Both T(1) and T(0) observed per subject          | Only T(A_i) observed per subject                 |
-| Censoring                                                                                                     | None (event = 1 for all rows)                    | Yes (administrative + random censoring)          |
-| Sample size                                                                                                   | 2 x n_super (e.g. 10,000 rows)                   | n_sample (e.g. 300 -- 700)                       |
-| Treatment assignment                                                                                          | Both arms per subject (causal framework)         | Randomized (one arm per subject)                 |
-| Subgroup membership                                                                                           | Known flag.harm (truth)                          | Known flag.harm (truth)                          |
-| Nature of quantity                                                                                            | Essentially fixed (large N constant)             | Random (varies across replicates)                |
-| Primary purpose                                                                                               | Define ground truth for bias calculation         | Per-replicate reference for estimator comparison |
-| Location in code                                                                                              | create_gbsg_dgm(), calculate_hazard_ratios()     | run_fs_analysis(), run_grf_analysis()            |
-| Storage                                                                                                       | dgm\$hr_H_true, dgm\$hr_Hc_true                  | results\$hr.H.true, results\$hr.Hc.true          |
+| **DGM-Level vs. Simulation-Level True Hazard Ratios**                                                             |                                                  |                                                  |
+|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|--------------------------------------------------|
+| Both use `coxph(Surv(time, event) ~ treat_sim)` within `flag_harm` subgroups, but on fundamentally different data |                                                  |                                                  |
+|                                                                                                                   | **DGM-Level (Super-Population)**                 | **Simulation-Level (Per-Replicate)**             |
+| Data source                                                                                                       | Stacked potential outcomes from super-population | Observed simulated trial data                    |
+| Potential outcomes                                                                                                | Both T(1) and T(0) observed per subject          | Only T(A_i) observed per subject                 |
+| Censoring                                                                                                         | None (event = 1 for all rows)                    | Yes (administrative + random censoring)          |
+| Sample size                                                                                                       | 2 x n_super (e.g. 10,000 rows)                   | n_sample (e.g. 300 -- 700)                       |
+| Treatment assignment                                                                                              | Both arms per subject (causal framework)         | Randomized (one arm per subject)                 |
+| Subgroup membership                                                                                               | Known flag_harm (truth)                          | Known flag_harm (truth)                          |
+| Nature of quantity                                                                                                | Essentially fixed (large N constant)             | Random (varies across replicates)                |
+| Primary purpose                                                                                                   | Define ground truth for bias calculation         | Per-replicate reference for estimator comparison |
+| Location in code                                                                                                  | setup_gbsg_dgm(), calculate_hazard_ratios()      | run_fs_analysis(), run_grf_analysis()            |
+| Storage                                                                                                           | dgm\$hr_H_true, dgm\$hr_Hc_true                  | results\$hr.H.true, results\$hr.Hc.true          |
 
 [ Code](#collapse-dgmvssimtable)
 
@@ -445,10 +445,10 @@ dgm_sim_df <- data.frame(
     "None (event = 1 for all rows)",
     "2 x n_super (e.g. 10,000 rows)",
     "Both arms per subject (causal framework)",
-    "Known flag.harm (truth)",
+    "Known flag_harm (truth)",
     "Essentially fixed (large N constant)",
     "Define ground truth for bias calculation",
-    "create_gbsg_dgm(), calculate_hazard_ratios()",
+    "setup_gbsg_dgm(), calculate_hazard_ratios()",
     "dgm$hr_H_true, dgm$hr_Hc_true"
   ),
   Sim_Level = c(
@@ -457,7 +457,7 @@ dgm_sim_df <- data.frame(
     "Yes (administrative + random censoring)",
     "n_sample (e.g. 300 -- 700)",
     "Randomized (one arm per subject)",
-    "Known flag.harm (truth)",
+    "Known flag_harm (truth)",
     "Random (varies across replicates)",
     "Per-replicate reference for estimator comparison",
     "run_fs_analysis(), run_grf_analysis()",
@@ -481,7 +481,7 @@ gt(dgm_sim_df) |>
     title = md("**DGM-Level vs. Simulation-Level True Hazard Ratios**"),
     subtitle = md(
       paste0(
-        "Both use `coxph(Surv(time, event) ~ treat)` within `flag.harm` ",
+        "Both use `coxph(Surv(time, event) ~ treat_sim)` within `flag_harm` ",
         "subgroups, but on fundamentally different data"
       )
     )
@@ -600,18 +600,18 @@ Direct Effect** values are available:
 values in the super-population.
 
 ``` r
-AHR_H_true  <- exp(mean(df_super$loghr_po[df_super$flag.harm == 1]))
-AHR_Hc_true <- exp(mean(df_super$loghr_po[df_super$flag.harm == 0]))
+AHR_H_true  <- exp(mean(df_super$loghr_po[df_super$flag_harm == 1]))
+AHR_Hc_true <- exp(mean(df_super$loghr_po[df_super$flag_harm == 0]))
 ```
 
 **DGM-level CDE:** Deterministic, computed from individual `theta_0` and
 `theta_1` values in the super-population.
 
 ``` r
-CDE_H_true  <- mean(exp(df_super$theta_1[df_super$flag.harm == 1])) /
-               mean(exp(df_super$theta_0[df_super$flag.harm == 1]))
-CDE_Hc_true <- mean(exp(df_super$theta_1[df_super$flag.harm == 0])) /
-               mean(exp(df_super$theta_0[df_super$flag.harm == 0]))
+CDE_H_true  <- mean(exp(df_super$theta_1[df_super$flag_harm == 1])) /
+               mean(exp(df_super$theta_0[df_super$flag_harm == 1]))
+CDE_Hc_true <- mean(exp(df_super$theta_1[df_super$flag_harm == 0])) /
+               mean(exp(df_super$theta_0[df_super$flag_harm == 0]))
 ```
 
 These are computed by
@@ -620,7 +620,7 @@ and stored in the DGM’s `hazard_ratios` list.
 
 **Simulation-level AHR:** Can be computed per replicate when `loghr_po`
 is carried through to the simulated sample (available via
-[`simulate_from_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_gbsg_dgm.md)).
+[`simulate_from_dgm()`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md)).
 Stored as `ahr.H.hat` and `ahr.Hc.hat` in the results `data.table`.
 
 **Simulation-level CDE:** Similarly computed per replicate from
@@ -667,7 +667,7 @@ treatment effect measures.
 | Primary ForestSearch use                                                                                                                           | Estimation rows in build_estimation_table(); DGM validation                | Estimation row in build_estimation_table(); primary subgroup characterization | Estimation row in build_estimation_table(); biomarker-threshold analysis |
 | Key package variable(s)                                                                                                                            | hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat                      | loghr_po, ahr.H.hat, ahr.Hc.hat, ahr_H, ahr_Hc                                | theta_0, theta_1, cde.H.hat, cde.Hc.hat, cde_H, cde_Hc                   |
 | **Interpretation & Use**                                                                                                                           |                                                                            |                                                                               |                                                                          |
-| Key package function(s)                                                                                                                            | calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()     | cox_ahr_cde_analysis(), build_estimation_table()                              | cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()      |
+| Key package function(s)                                                                                                                            | calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()      | cox_ahr_cde_analysis(), build_estimation_table()                              | cox_ahr_cde_analysis(), compute_dgm_cde(), build_estimation_table()      |
 | Interpretation                                                                                                                                     | Population-average HR as estimated by Cox regression on potential outcomes | Geometric mean of individual causal hazard ratios across subjects             | Ratio of average hazard contributions under treatment vs. control        |
 | Based on the potential outcomes framework within the ForestSearch AFT data-generating mechanism. See León et al. (2024), *Statistics in Medicine*. |                                                                            |                                                                               |                                                                          |
 
@@ -703,7 +703,7 @@ comparison_df <- data.frame(
     "Cox PH on stacked potential outcomes",
     "Estimation rows in build_estimation_table(); DGM validation",
     "hr_causal, hr_H_true, hr_Hc_true, hr.H.hat, hr.Hc.hat",
-    "calculate_hazard_ratios(), create_gbsg_dgm(), build_estimation_table()",
+    "calculate_hazard_ratios(), setup_gbsg_dgm(), build_estimation_table()",
     "Population-average HR as estimated by Cox regression on potential outcomes"
   ),
   AHR = c(
@@ -842,22 +842,22 @@ gt(comparison_df) |>
 
 ## Detailed Formulas: Quick-Reference Card
 
-| **Treatment Effect Computation Pipeline**      |                                                                             |                                                                         |
-|------------------------------------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| From AFT model fit to subgroup-level estimands |                                                                             |                                                                         |
-| **Step**                                       | **Mathematical Formula**                                                    | **R Implementation**                                                    |
-| 1\. AFT model                                  | log(T_i) = mu + X_i' gamma + sigma \* epsilon_i                             | survreg(Surv(y, event) ~ ..., dist = 'weibull')                         |
-| 2\. Hazard-scale transform                     | beta_0 = -gamma / sigma                                                     | b0 \<- -gamma / tau                                                     |
-| 3\. Individual log-hazards                     | theta_i(a) = X_i(a)' beta_0                                                 | theta_0 \<- X_control %\*% b0; theta_1 \<- X_treat %\*% b0              |
-| 4\. Individual causal log HR                   | loghr_po_i = theta_i(1) - theta_i(0)                                        | loghr_po \<- theta_1 - theta_0                                          |
-| 5a. AHR (subgroup S)                           | AHR(S) = exp( mean(loghr_po_i, i in S) )                                    | exp(mean(df\$loghr_po\[idx\]))                                          |
-| 5b. CDE (subgroup S)                           | CDE(S) = mean(exp(theta_1_i)) / mean(exp(theta_0_i))                        | mean(exp(df\$theta_1\[idx\])) / mean(exp(df\$theta_0\[idx\]))           |
-| 5c. Marginal HR (subgroup S)                   | HR_marg(S): exp(beta) from coxph() on stacked PO data                       | exp(coxph(Surv(time,event)~treat, data=df_stacked)\$coef)               |
-| 6\. Theoretical HR (harm subgroup)             | HR(H) = exp( beta_0\[treat\] + beta_0\[zh\] )                               | exp(b0\['treat'\] + b0\['zh'\])                                         |
-| 7\. Per-replicate truth (sim-level)            | hr.H.true: coxph() on observed data, flag.harm == 1                         | exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))\$coef) |
-| 8a. Per-replicate estimate (identified, Cox)   | hr.H.hat: coxph() on observed data, sg_hat == 1                             | exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))\$coef)    |
-| 8b. Per-replicate AHR (identified)             | ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1                       | exp(mean(df\$loghr_po\[df\$sg_hat == 1\]))                              |
-| 8c. Per-replicate CDE (identified)             | cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1 | mean(exp(df\$theta_1\[sg_hat\])) / mean(exp(df\$theta_0\[sg_hat\]))     |
+| **Treatment Effect Computation Pipeline**      |                                                                             |                                                                             |
+|------------------------------------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| From AFT model fit to subgroup-level estimands |                                                                             |                                                                             |
+| **Step**                                       | **Mathematical Formula**                                                    | **R Implementation**                                                        |
+| 1\. AFT model                                  | log(T_i) = mu + X_i' gamma + sigma \* epsilon_i                             | survreg(Surv(y, event) ~ ..., dist = 'weibull')                             |
+| 2\. Hazard-scale transform                     | beta_0 = -gamma / sigma                                                     | b0 \<- -gamma / tau                                                         |
+| 3\. Individual log-hazards                     | theta_i(a) = X_i(a)' beta_0                                                 | theta_0 \<- X_control %\*% b0; theta_1 \<- X_treat %\*% b0                  |
+| 4\. Individual causal log HR                   | loghr_po_i = theta_i(1) - theta_i(0)                                        | loghr_po \<- theta_1 - theta_0                                              |
+| 5a. AHR (subgroup S)                           | AHR(S) = exp( mean(loghr_po_i, i in S) )                                    | exp(mean(df\$loghr_po\[idx\]))                                              |
+| 5b. CDE (subgroup S)                           | CDE(S) = mean(exp(theta_1_i)) / mean(exp(theta_0_i))                        | mean(exp(df\$theta_1\[idx\])) / mean(exp(df\$theta_0\[idx\]))               |
+| 5c. Marginal HR (subgroup S)                   | HR_marg(S): exp(beta) from coxph() on stacked PO data                       | exp(coxph(Surv(time,event)~treat_sim, data=df_stacked)\$coef)               |
+| 6\. Theoretical HR (harm subgroup)             | HR(H) = exp( beta_0\[treat\] + beta_0\[zh\] )                               | exp(b0\['treat'\] + b0\['zh'\])                                             |
+| 7\. Per-replicate truth (sim-level)            | hr.H.true: coxph() on observed data, flag_harm == 1                         | exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, flag_harm==1))\$coef) |
+| 8a. Per-replicate estimate (identified, Cox)   | hr.H.hat: coxph() on observed data, sg_hat == 1                             | exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, sg_hat==1))\$coef)    |
+| 8b. Per-replicate AHR (identified)             | ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1                       | exp(mean(df\$loghr_po\[df\$sg_hat == 1\]))                                  |
+| 8c. Per-replicate CDE (identified)             | cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1 | mean(exp(df\$theta_1\[sg_hat\])) / mean(exp(df\$theta_0\[sg_hat\]))         |
 
 [ Code](#collapse-pipelinetable)
 
@@ -886,7 +886,7 @@ formula_df <- data.frame(
     "CDE(S) = mean(exp(theta_1_i)) / mean(exp(theta_0_i))",
     "HR_marg(S): exp(beta) from coxph() on stacked PO data",
     "HR(H) = exp( beta_0[treat] + beta_0[zh] )",
-    "hr.H.true: coxph() on observed data, flag.harm == 1",
+    "hr.H.true: coxph() on observed data, flag_harm == 1",
     "hr.H.hat: coxph() on observed data, sg_hat == 1",
     "ahr.H.hat: exp(mean(loghr_po_i)) for i in sg_hat == 1",
     "cde.H.hat: mean(exp(theta_1_i)) / mean(exp(theta_0_i)) for i in sg_hat == 1"
@@ -898,10 +898,10 @@ formula_df <- data.frame(
     "loghr_po <- theta_1 - theta_0",
     "exp(mean(df$loghr_po[idx]))",
     "mean(exp(df$theta_1[idx])) / mean(exp(df$theta_0[idx]))",
-    "exp(coxph(Surv(time,event)~treat, data=df_stacked)$coef)",
+    "exp(coxph(Surv(time,event)~treat_sim, data=df_stacked)$coef)",
     "exp(b0['treat'] + b0['zh'])",
-    "exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, flag.harm==1))$coef)",
-    "exp(coxph(Surv(y.sim,event.sim)~treat, subset(df, sg_hat==1))$coef)",
+    "exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, flag_harm==1))$coef)",
+    "exp(coxph(Surv(y_sim,event_sim)~treat_sim, subset(df, sg_hat==1))$coef)",
     "exp(mean(df$loghr_po[df$sg_hat == 1]))",
     "mean(exp(df$theta_1[sg_hat])) / mean(exp(df$theta_0[sg_hat]))"
   ),
@@ -969,7 +969,7 @@ a single DGM object, highlighting where they agree and diverge.
 library(forestsearch)
 
 # Create a GBSG-based DGM with heterogeneous treatment effects
-dgm <- create_gbsg_dgm(
+dgm <- setup_gbsg_dgm(
   model   = "alt",
   k_treat = 1.0,
   k_inter = 2.0,
@@ -979,8 +979,8 @@ dgm <- create_gbsg_dgm(
 # --- AHR (deterministic, from loghr_po) ---
 df <- dgm$df_super_rand
 ahr_overall <- exp(mean(df$loghr_po))
-ahr_harm    <- exp(mean(df$loghr_po[df$flag.harm == 1]))
-ahr_noharm  <- exp(mean(df$loghr_po[df$flag.harm == 0]))
+ahr_harm    <- exp(mean(df$loghr_po[df$flag_harm == 1]))
+ahr_noharm  <- exp(mean(df$loghr_po[df$flag_harm == 0]))
 
 cat("AHR (overall):", round(ahr_overall, 4), "\n")
 cat("AHR (harm):   ", round(ahr_harm, 4), "\n")
@@ -988,10 +988,10 @@ cat("AHR (Hc):     ", round(ahr_noharm, 4), "\n")
 
 # --- CDE (deterministic, from theta_0 and theta_1) ---
 cde_overall <- mean(exp(df$theta_1)) / mean(exp(df$theta_0))
-cde_harm    <- mean(exp(df$theta_1[df$flag.harm == 1])) /
-               mean(exp(df$theta_0[df$flag.harm == 1]))
-cde_noharm  <- mean(exp(df$theta_1[df$flag.harm == 0])) /
-               mean(exp(df$theta_0[df$flag.harm == 0]))
+cde_harm    <- mean(exp(df$theta_1[df$flag_harm == 1])) /
+               mean(exp(df$theta_0[df$flag_harm == 1]))
+cde_noharm  <- mean(exp(df$theta_1[df$flag_harm == 0])) /
+               mean(exp(df$theta_0[df$flag_harm == 0]))
 
 cat("CDE (overall):", round(cde_overall, 4), "\n")
 cat("CDE (harm):   ", round(cde_harm, 4), "\n")
@@ -1010,16 +1010,16 @@ cat("HR_marg (Hc):     ", round(dgm$hr_Hc_true, 4), "\n")
 
 # --- Simulation-level truth (per-replicate, observed data) ---
 cat("\n--- Simulation-Level HR (single replicate) ---\n")
-sim_data <- simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1)
+sim_data <- simulate_from_dgm(dgm, n = 500, seed = 1)
 
 hr_H_sim <- exp(survival::coxph(
-  survival::Surv(y.sim, event.sim) ~ treat,
-  data = subset(sim_data, flag.harm == 1)
+  survival::Surv(y_sim, event_sim) ~ treat_sim,
+  data = subset(sim_data, flag_harm == 1)
 )$coefficients)
 
 hr_Hc_sim <- exp(survival::coxph(
-  survival::Surv(y.sim, event.sim) ~ treat,
-  data = subset(sim_data, flag.harm == 0)
+  survival::Surv(y_sim, event_sim) ~ treat_sim,
+  data = subset(sim_data, flag_harm == 0)
 )$coefficients)
 
 cat("hr.H.true  (this replicate):", round(hr_H_sim, 4), "\n")

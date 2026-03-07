@@ -329,6 +329,8 @@ studies with configurable treatment effect heterogeneity.
 - [`generate_aft_dgm_flex()`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
   : Generate Synthetic Survival Data using AFT Model with Flexible
   Subgroups
+- [`setup_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
+  : Set Up a GBSG-Based AFT Data Generating Mechanism
 - [`create_gbsg_dgm()`](https://larry-leon.github.io/forestsearch/reference/create_gbsg_dgm.md)
   : Create GBSG-Based AFT Data Generating Mechanism
 - [`print(`*`<gbsg_dgm>`*`)`](https://larry-leon.github.io/forestsearch/reference/print.gbsg_dgm.md)
@@ -363,7 +365,7 @@ Running and summarizing simulation studies for operating
 characteristics.
 
 - [`run_simulation_analysis()`](https://larry-leon.github.io/forestsearch/reference/run_simulation_analysis.md)
-  : Run Single Simulation Analysis
+  : Run One Simulation Replicate
 - [`default_fs_params()`](https://larry-leon.github.io/forestsearch/reference/default_fs_params.md)
   : Default ForestSearch Parameters for GBSG Simulations
 - [`default_grf_params()`](https://larry-leon.github.io/forestsearch/reference/default_grf_params.md)
