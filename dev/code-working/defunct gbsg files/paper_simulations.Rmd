@@ -29,8 +29,8 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
-nsims_alt <- 100L
-nsims_null <- 100L
+nsims_alt <- 20L
+nsims_null <- 20L
 
 # Bootstrap 5 code-folding hook for pkgdown compatibility
 # Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
@@ -548,9 +548,9 @@ dgm_null <- generate_aft_dgm_flex(
   treatment_var   = "treat",
   continuous_vars = dgm_cont_vars,
   factor_vars     = dgm_factor_vars,
-  subgroup_vars   = dgm_subgroup_vars,
-  subgroup_cuts   = dgm_subgroup_cuts,
-  model           = "null",    # No treatment-subgroup interaction
+  subgroup_vars   = dgm_subgroup_vars,   # H is still DEFINED (z1=1 & z3=1) ...
+  subgroup_cuts   = dgm_subgroup_cuts,   # ... just no differential treatment effect
+  model           = "null",              # interaction term omitted => uniform TE
   k_treat         = 1.0,
   n_super         = 5000,
   seed            = 8316951,
@@ -558,9 +558,13 @@ dgm_null <- generate_aft_dgm_flex(
 )
 dgm_null <- compute_dgm_cde(dgm_null)
 
+# Under null, HR(H) == HR(Hc) == HR(overall): confirms uniform treatment effect.
+# flag_harm is still assigned in simulated data so sens/spec/ppv are meaningful.
 cat("\nNull hypothesis HRs:\n")
-cat("Overall HR:",  round(dgm_null$hazard_ratios$overall,  3), "\n")
-cat("AHR(overall):", round(dgm_null$hazard_ratios$AHR,     3), "\n")
+cat("Overall HR:  ", round(dgm_null$hazard_ratios$overall,          3), "\n")
+cat("HR(H):       ", round(dgm_null$hazard_ratios$harm_subgroup,    3), "\n")
+cat("HR(Hc):      ", round(dgm_null$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("AHR(overall):", round(dgm_null$hazard_ratios$AHR,              3), "\n")
 
 timings$dgm_null <- proc.time()[3] - t0
 ```
@@ -968,7 +972,9 @@ build_classification_table(
   digits = 2,
   font_size = 16,
   title = "Subgroup Identification and Classification Rates",
-  n_sims = sim_config_alt$n_sims
+    # n_sims drives the subtitle; use the common count (alt and null are equal here).
+  # If they differ, pass NULL and add a manual subtitle instead.
+  n_sims = sim_config_null$n_sims
 )
 ```
 
@@ -1751,7 +1757,9 @@ build_classification_table(
   ))),
   digits = 2,
   title = "Subgroup Identification and Classification Rates",
-  n_sims = sim_config_alt$n_sims
+    # n_sims drives the subtitle; use the common count (alt and null are equal here).
+  # If they differ, pass NULL and add a manual subtitle instead.
+  n_sims = sim_config_null$n_sims
 )
 ```
 

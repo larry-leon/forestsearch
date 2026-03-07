@@ -1092,6 +1092,11 @@ run_simulation_analysis <- function(
   fs_defaults  <- default_fs_params()
   grf_defaults <- default_grf_params()
   grf_merged   <- modifyList(grf_defaults, grf_params)
+  # Ensure GRF uses a unique seed per simulation so that forest splits are
+  # independently randomised.  A fixed seedit (the default) would make every
+  # GRF call use identical random partitions, inflating or deflating detection
+  # rates in a non-stochastic way across simulations.
+  grf_merged$seedit <- seed_base + sim_id
 
   # ---------------------------------------------------------------------------
   # Run Analyses
@@ -1109,9 +1114,11 @@ run_simulation_analysis <- function(
 
   # FS: LASSO only
   if (run_fs) {
-    params_fs <- modifyList(
-      modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = FALSE)),
-      fs_params)
+    # Apply user overrides first, then enforce method-level flags last so that
+    # fs_params$use_grf can never accidentally make FS run as FSlg.
+    params_fs             <- modifyList(fs_defaults, fs_params)
+    params_fs$use_lasso   <- TRUE
+    params_fs$use_grf     <- FALSE   # always forced: FS = LASSO only
 
     if (show_verbose)
       message(sprintf("    [FS] use_lasso=%s use_grf=%s use_twostage=%s",
@@ -1132,9 +1139,9 @@ run_simulation_analysis <- function(
 
   # FSlg: LASSO + GRF
   if (run_fs_grf) {
-    params_fslg <- modifyList(
-      modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = TRUE)),
-      fs_params)
+    params_fslg             <- modifyList(fs_defaults, fs_params)
+    params_fslg$use_lasso   <- TRUE
+    params_fslg$use_grf     <- TRUE   # always forced: FSlg = LASSO + GRF
 
     if (show_verbose)
       message(sprintf("    [FSlg] use_lasso=%s use_grf=%s use_twostage=%s",

@@ -428,12 +428,21 @@ define_subgroups <- function(df_work, data, subgroup_vars, subgroup_cuts,
   interaction_term <- NULL
   definitions <- list()
 
-  if (model == "alt" && !is.null(subgroup_vars)) {
+  # Compute flag_harm for ALL model types whenever subgroup_vars are supplied.
+  # Under model = "null" the subgroup membership is still defined (same H as
+  # in the alternative), but the interaction term is NOT added to the linear
+  # predictor, so treatment effects are uniform.  This preserves the legacy
+  # behaviour of create_gbsg_dgm(model = "null"), which set flag.harm = TRUE
+  # for subjects in H with k_inter = 0, allowing meaningful classification
+  # metrics (sens, spec, ppv) to be computed in null simulations.
+  if (!is.null(subgroup_vars)) {
     # Create subgroup indicators
     subgroup_indicators <- list()
 
     if (verbose) {
       cat("\n=== Subgroup Definitions ===\n")
+      if (model == "null")
+        cat("(model = 'null': subgroup membership defined but no interaction term)\n")
     }
 
     for (var in subgroup_vars) {
@@ -464,11 +473,11 @@ define_subgroups <- function(df_work, data, subgroup_vars, subgroup_cuts,
                  paste(null_vars, collapse = ", ")))
     }
 
-    # Create harm flag (all subgroup conditions met)
+    # Create harm flag (all subgroup conditions met) — always
     flag_harm <- as.numeric(Reduce("&", subgroup_indicators))
 
-    # Create interaction term
-    if (length(subgroup_indicators) > 0) {
+    # Create interaction term ONLY for the alternative model
+    if (model == "alt" && length(subgroup_indicators) > 0) {
       interaction_term <- df_work$treat * flag_harm
     }
 
@@ -960,14 +969,18 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
     CDE_no_harm = CDE_no_harm
   )
 
-  # Calculate subgroup-specific HRs if applicable
-  if (model == "alt" && sum(df_super$flag_harm) > 0) {
+  # Calculate subgroup-specific HRs whenever H is populated.
+  # This includes model = "null": under the null, harm_subgroup HR ==
+  # no_harm_subgroup HR == overall HR (uniform treatment effect), which is the
+  # correct mathematical statement of the null and allows build_classification_table
+  # to display a meaningful section header (theta(H) = theta(Hc) = theta(ITT)).
+  if (sum(df_super$flag_harm) > 0) {
     hr_harm <- exp(coxph(Surv(time, event) ~ treat,
                          data = subset(df_temp, flag_harm == 1))$coefficients)
     hr_no_harm <- exp(coxph(Surv(time, event) ~ treat,
                             data = subset(df_temp, flag_harm == 0))$coefficients)
 
-    hr_results$harm_subgroup <- hr_harm
+    hr_results$harm_subgroup    <- hr_harm
     hr_results$no_harm_subgroup <- hr_no_harm
 
     if (verbose) {
@@ -978,6 +991,8 @@ calculate_hazard_ratios <- function(df_super, n_super, mu, tau, model,
       cat("Harm subgroup AHR:", round(AHR_harm, 3), "\n")
       cat("No-harm subgroup HR:", round(hr_no_harm, 3), "\n")
       cat("No-harm subgroup AHR:", round(AHR_no_harm, 3), "\n")
+      if (model == "null")
+        cat("(null model: HR(H) = HR(Hc) = HR(overall) as expected)\n")
     }
   } else if (verbose) {
     cat("\n=== Hazard Ratios (super popln) ===\n")
