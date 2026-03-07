@@ -29,8 +29,8 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
-nsims_alt <- 20L
-nsims_null <- 20L
+nsims_alt <- 10L
+nsims_null <- 10L
 
 # Bootstrap 5 code-folding hook for pkgdown compatibility
 # Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
@@ -460,51 +460,29 @@ cat("Overall HR:",      round(dgm_calibrated_cox$hazard_ratios$overall,         
 timings$calibrate_cox <- proc.time()[3] - t0
 ```
 
-### Calibrate to AHR
+### Cox HR and AHR at Calibrated k_inter
+
+`find_k_inter_for_target_hr()` calibrates to Cox-based HR in the harm subgroup.
+Once the optimal `k_inter` is found, both the Cox HR and the AHR (average hazard
+ratio via `loghr_po`) can be read from the resulting DGM. These two metrics
+diverge slightly due to Jensen's inequality.
 
 ```{r calibrate-k-inter-ahr}
-t0 <- proc.time()[3]
+# The calibrated DGM already contains both Cox HR and AHR.
+# No separate AHR-targeted calibration is needed; just read both metrics
+# from dgm_calibrated_cox.
 
-# Same call, different target metric: AHR instead of Cox HR.
-# Achieve AHR(H) = 2.0 by searching over k_inter with uniroot.
-# (AHR and Cox-HR diverge slightly due to Jensen's inequality.)
-cal_ahr <- find_k_inter_for_target_hr(
-  target_hr_harm  = 2.0,
-  data            = gbsg_data,
-  continuous_vars = dgm_cont_vars,
-  factor_vars     = dgm_factor_vars,
-  outcome_var     = "y",
-  event_var       = "event",
-  treatment_var   = "treat",
-  subgroup_vars   = dgm_subgroup_vars,
-  subgroup_cuts   = dgm_subgroup_cuts,
-  k_treat         = 1.0,
-  verbose         = TRUE
-)
+dgm_calibrated <- dgm_calibrated_cox
 
-dgm_calibrated_ahr <- cal_ahr$dgm
-dgm_calibrated_ahr <- compute_dgm_cde(dgm_calibrated_ahr)
-
-cat("\nVerification (AHR-based):\n")
-cat("Achieved AHR(H):", round(dgm_calibrated_ahr$hazard_ratios$AHR_harm,    3), "\n")
-cat("AHR(Hc):",         round(dgm_calibrated_ahr$hazard_ratios$AHR_no_harm, 3), "\n")
-cat("Overall AHR:",     round(dgm_calibrated_ahr$hazard_ratios$AHR,         3), "\n")
-
-timings$calibrate_ahr <- proc.time()[3] - t0
-```
-
-### Compare Cox HR vs AHR Calibration
-
-```{r compare-calibration}
-cat("Comparison of calibration methods:\n")
-cat(sprintf("%-20s %-12s %-12s\n", "Metric", "Cox-calib", "AHR-calib"))
-cat(sprintf("%-20s %-12.4f %-12.4f\n", "k_inter", cal_cox$k_inter, cal_ahr$k_inter))
-cat(sprintf("%-20s %-12.4f %-12.4f\n", "HR(H)",
-            dgm_calibrated_cox$hazard_ratios$harm_subgroup,
-            dgm_calibrated_ahr$hazard_ratios$harm_subgroup))
-cat(sprintf("%-20s %-12.4f %-12.4f\n", "AHR(H)",
-            dgm_calibrated_cox$hazard_ratios$AHR_harm,
-            dgm_calibrated_ahr$hazard_ratios$AHR_harm))
+cat("Cox HR and AHR metrics at calibrated k_inter:\n")
+cat(sprintf("  k_inter (calibrated):  %.4f\n", cal_cox$k_inter))
+cat(sprintf("  Cox HR(H):             %.4f\n", dgm_calibrated$hazard_ratios$harm_subgroup))
+cat(sprintf("  Cox HR(Hc):            %.4f\n", dgm_calibrated$hazard_ratios$no_harm_subgroup))
+cat(sprintf("  AHR(H):                %.4f\n", dgm_calibrated$hazard_ratios$AHR_harm))
+cat(sprintf("  AHR(Hc):               %.4f\n", dgm_calibrated$hazard_ratios$AHR_no_harm))
+cat(sprintf("  AHR(overall):          %.4f\n", dgm_calibrated$hazard_ratios$AHR))
+cat(sprintf("  Note: Cox HR(H) ~ %.3f (target); AHR(H) differs due to Jensen's inequality\n",
+            cal_cox$target_hr_harm))
 ```
 
 ## Validating k_inter Effect on Heterogeneity
@@ -1680,7 +1658,6 @@ performance through simulation:
 **New aligned features:**
 
 - **AHR metrics**: Alternative to Cox-based HR (from `loghr_po`)
-- **`use_ahr` calibration**: Calibrate to AHR instead of Cox HR
 - **`use_twostage`**: Faster two-stage search algorithm option
 - **Individual effects**: Access `theta_0`, `theta_1`, `loghr_po` per subject
 

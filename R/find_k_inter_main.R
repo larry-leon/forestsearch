@@ -170,12 +170,12 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
     }
 
     return(list(
-      k_inter = k_inter_optimal,
+      k_inter          = k_inter_optimal,
       achieved_hr_harm = hr_harm_final,
-      target_hr_harm = target_hr_harm,
-      error = abs(hr_harm_final - target_hr_harm),
-      dgm = dgm_final,
-      convergence = result$iter
+      target_hr_harm   = target_hr_harm,
+      error            = abs(hr_harm_final - target_hr_harm),
+      dgm              = dgm_final,
+      convergence      = result$iter
     ))
 
   }, error = function(e) {
