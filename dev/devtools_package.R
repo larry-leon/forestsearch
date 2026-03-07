@@ -1,7 +1,12 @@
 
-In oc_analyses_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
+Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
+
+In oc_analyses_gbsg.R and sim_aft_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
 Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
-If so, please create a new "oc_analyses.R" which comprehensively can replace "oc_analyses_gbsg.R".
+If so, please create a new "oc_analyses.R", including any necessary helpers, which comprehensively replaces oc_analyses_gbsg.R and sim_aft_gbsg.R.
+I would like to phase out any specific reference to "gbsg", except when using as an example dataset.   Please create a multiple step strategy so
+that we can verify any revisions at each step are working properly.
+
 
 Can you revert back to the first Phase 1?   Please note that simulations under the null should have mean(any.H) below 10% or 15%.
 The current version is way off, at more than 70%, suggesting some bug along the way.
