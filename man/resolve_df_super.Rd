@@ -2,7 +2,7 @@
 % Please edit documentation in R/oc_analyses.R
 \name{resolve_df_super}
 \alias{resolve_df_super}
-\title{Resolve Super-Population Data Frame from Any DGM}
+\title{Resolve Super-Population Data Frame from a DGM}
 \usage{
 resolve_df_super(dgm)
 }
@@ -13,8 +13,6 @@ resolve_df_super(dgm)
 Data frame or NULL
 }
 \description{
-Returns the super-population data frame from either an \code{aft_dgm_flex}
-object (\code{$df_super}) or a \code{gbsg_dgm} object
-(\code{$df_super_rand}), normalised to canonical underscore column names.
+Returns \code{dgm$df_super} or \code{NULL} if absent.
 }
 \keyword{internal}

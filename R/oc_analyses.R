@@ -1,45 +1,21 @@
 # =============================================================================
-# Operating Characteristics Analysis Functions (General)
+# Operating Characteristics Analysis Functions
 # =============================================================================
 #
-# General replacement for oc_analyses_gbsg.R that works with ANY DGM produced
-# by generate_aft_dgm_flex() or create_gbsg_dgm().
+# Works with DGMs produced by generate_aft_dgm_flex().
 #
-# The two GBSG-specific functions replaced here:
+# Canonical column convention (underscore): y_sim, event_sim, flag_harm,
+# loghr_po, theta_0, theta_1.
 #
-#   create_gbsg_dgm()         -> generate_aft_dgm_flex()
-#   simulate_from_gbsg_dgm()  -> simulate_from_dgm()
-#
-# Key changes from oc_analyses_gbsg.R:
-#
-#   1. dispatch_simulate() routes to simulate_from_dgm() (aft_dgm_flex) or
-#      simulate_from_gbsg_dgm() (gbsg_dgm) and normalises the result to a
-#      single canonical column convention (underscore: y_sim, event_sim,
-#      flag_harm, loghr_po, theta_0, theta_1).
-#
-#   2. All downstream extract_*() and run_*() functions now reference the
-#      canonical underscore naming, making them DGM-agnostic.
-#
-#   3. compute_dgm_cde() now resolves the super-population slot from either
-#      $df_super_rand (gbsg_dgm) or $df_super (aft_dgm_flex).
-#
-#   4. default_fs_params() uses canonical column names (y_sim, event_sim).
-#
-#   5. run_simulation_analysis() accepts a sim_args list that is forwarded
-#      verbatim to simulate_from_dgm() for aft_dgm_flex DGMs; for gbsg_dgm
-#      objects the legacy max_follow / muC_adj parameters are still honoured.
-#
-#   6. confounders_base has no GBSG-specific default; callers must supply it.
-#
-# Key public functions (unchanged API where possible):
-#   - run_simulation_analysis()     Main simulation wrapper
-#   - run_forestsearch_analysis()   ForestSearch analysis helper
-#   - run_grf_analysis()            GRF analysis helper
-#   - extract_fs_estimates()        Extract estimates from FS results
-#   - extract_grf_estimates()       Extract estimates from GRF results
+# Key public functions:
+#   - run_simulation_analysis()      Main simulation wrapper
+#   - run_forestsearch_analysis()    ForestSearch analysis helper
+#   - run_grf_analysis()             GRF analysis helper
+#   - extract_fs_estimates()         Extract estimates from FS results
+#   - extract_grf_estimates()        Extract estimates from GRF results
 #   - summarize_simulation_results() Summary tables
-#   - format_oc_results()           GT-formatted OC table
-#   - compute_dgm_cde()             Attach CDE values to any DGM
+#   - format_oc_results()            GT-formatted OC table
+#   - compute_dgm_cde()              Attach CDE values to a DGM
 #
 # =============================================================================
 
@@ -55,9 +31,7 @@ NULL
 #' Default ForestSearch Parameters
 #'
 #' Returns a list of default parameters for ForestSearch analysis.
-#' Column names use the canonical underscore convention (y_sim, event_sim)
-#' shared by both simulate_from_dgm() and the normalised output of
-#' simulate_from_gbsg_dgm().
+#' Column names use the canonical underscore convention (y_sim, event_sim).
 #'
 #' @return List of default ForestSearch parameters
 #' @keywords internal
@@ -111,75 +85,25 @@ default_grf_params <- function() {
 
 
 # =============================================================================
-# Canonical Column Normalisation
-# =============================================================================
-
-#' Normalise Simulated Data to Canonical Underscore Column Convention
-#'
-#' Converts dot-notation column names produced by simulate_from_gbsg_dgm()
-#' into the underscore convention used by simulate_from_dgm() so that all
-#' downstream OC functions can reference a single set of column names.
-#'
-#' Renaming applied:
-#' \itemize{
-#'   \item y.sim      -> y_sim
-#'   \item event.sim  -> event_sim
-#'   \item flag.harm  -> flag_harm
-#'   \item t.sim      -> t_true  (if present and t_true absent)
-#' }
-#'
-#' If any target column already exists under the underscore name it is left
-#' unchanged; only missing columns are created from their dot-notation
-#' equivalents.
-#'
-#' @param df Data frame from simulate_from_gbsg_dgm() or simulate_from_dgm()
-#' @return Data frame with canonical underscore column names
-#' @keywords internal
-normalise_sim_columns <- function(df) {
-  rename_map <- list(
-    y.sim     = "y_sim",
-    event.sim = "event_sim",
-    flag.harm = "flag_harm",
-    t.sim     = "t_true"
-  )
-  for (old in names(rename_map)) {
-    new <- rename_map[[old]]
-    if (old %in% names(df) && !new %in% names(df)) {
-      df[[new]] <- df[[old]]
-    }
-  }
-  df
-}
-
-
-# =============================================================================
 # DGM Simulation Dispatcher
 # =============================================================================
 
-#' Dispatch Simulation to the Appropriate Simulator
+#' Dispatch Simulation
 #'
-#' Routes to either \code{simulate_from_dgm()} (for \code{"aft_dgm_flex"}
-#' objects) or \code{simulate_from_gbsg_dgm()} (for \code{"gbsg_dgm"} objects)
-#' and returns a data frame normalised to the canonical underscore column
-#' convention via \code{normalise_sim_columns()}.
+#' Calls \code{simulate_from_dgm()} for \code{"aft_dgm_flex"} objects and
+#' returns the resulting data frame.
 #'
-#' @param dgm A DGM object of class \code{"aft_dgm_flex"} or \code{"gbsg_dgm"}
+#' @param dgm A DGM object of class \code{"aft_dgm_flex"}
 #' @param n Integer sample size
 #' @param sim_id Integer simulation index (used for seed offset)
 #' @param seed_base Integer base random seed. Default 8316951L
-#' @param sim_args Named list of additional arguments forwarded to the
-#'   simulator.
-#'   \describe{
-#'     \item{For \code{aft_dgm_flex}:}{Any argument of
-#'       \code{simulate_from_dgm()} — commonly \code{analysis_time},
-#'       \code{max_entry}, \code{cens_adjust}, \code{draw_treatment},
-#'       \code{time_eos}, \code{rand_ratio}.}
-#'     \item{For \code{gbsg_dgm}:}{\code{max_follow}, \code{muC_adj},
-#'       \code{rand_ratio}, \code{draw_treatment} are recognised.}
-#'   }
+#' @param sim_args Named list of additional arguments forwarded to
+#'   \code{simulate_from_dgm()} — commonly \code{analysis_time},
+#'   \code{max_entry}, \code{cens_adjust}, \code{draw_treatment},
+#'   \code{time_eos}, \code{rand_ratio}.
 #' @param verbose Logical. Print dispatch details. Default FALSE
 #'
-#' @return Data frame with canonical underscore column names
+#' @return Data frame from \code{simulate_from_dgm()}
 #' @keywords internal
 dispatch_simulate <- function(dgm,
                               n,
@@ -188,70 +112,28 @@ dispatch_simulate <- function(dgm,
                               sim_args  = list(),
                               verbose   = FALSE) {
 
-  if (inherits(dgm, "aft_dgm_flex")) {
-    # -------------------------------------------------------------------------
-    # Route: simulate_from_dgm()
-    # sim_id is mapped to the 'seed' argument.
-    # -------------------------------------------------------------------------
-    args <- list(
-      dgm  = dgm,
-      n    = n,
-      seed = seed_base + sim_id
-    )
-    # Forward any caller-supplied sim_args, excluding 'seed' if already set
-    for (nm in names(sim_args)) {
-      if (nm != "seed") args[[nm]] <- sim_args[[nm]]
-    }
-
-    if (verbose) {
-      message(sprintf("  [dispatch] aft_dgm_flex -> simulate_from_dgm(n=%d, seed=%d)",
-                      n, args$seed))
-      if ("analysis_time" %in% names(args))
-        message(sprintf("  [dispatch]   analysis_time = %s",
-                        args$analysis_time))
-      if ("cens_adjust" %in% names(args))
-        message(sprintf("  [dispatch]   cens_adjust   = %.4f",
-                        args$cens_adjust))
-    }
-
-    df <- tryCatch(
-      do.call(simulate_from_dgm, args),
-      error = function(e) stop("simulate_from_dgm() failed: ", e$message)
-    )
-
-  } else if (inherits(dgm, "gbsg_dgm")) {
-    # -------------------------------------------------------------------------
-    # Route: simulate_from_gbsg_dgm()  (backward compatibility)
-    # -------------------------------------------------------------------------
-    args <- list(
-      dgm    = dgm,
-      n      = n,
-      sim_id = sim_id
-    )
-    legacy_params <- c("max_follow", "muC_adj", "rand_ratio",
-                       "draw_treatment", "min_cens", "max_cens")
-    for (nm in legacy_params) {
-      if (nm %in% names(sim_args)) args[[nm]] <- sim_args[[nm]]
-    }
-
-    if (verbose) {
-      message(sprintf("  [dispatch] gbsg_dgm -> simulate_from_gbsg_dgm(n=%d, sim_id=%d)",
-                      n, sim_id))
-    }
-
-    df <- tryCatch(
-      do.call(simulate_from_gbsg_dgm, args),
-      error = function(e) stop("simulate_from_gbsg_dgm() failed: ", e$message)
-    )
-
-  } else {
+  if (!inherits(dgm, "aft_dgm_flex"))
     stop("Unsupported DGM class: ", paste(class(dgm), collapse = ", "),
-         "\nExpected 'aft_dgm_flex' (from generate_aft_dgm_flex()) or ",
-         "'gbsg_dgm' (from create_gbsg_dgm()).")
+         "\nExpected 'aft_dgm_flex' from generate_aft_dgm_flex().")
+
+  args <- list(dgm = dgm, n = n, seed = seed_base + sim_id)
+  for (nm in names(sim_args)) {
+    if (nm != "seed") args[[nm]] <- sim_args[[nm]]
   }
 
-  # Normalise to canonical underscore column names
-  normalise_sim_columns(df)
+  if (verbose) {
+    message(sprintf("  [dispatch] simulate_from_dgm(n=%d, seed=%d)",
+                    n, args$seed))
+    if ("analysis_time" %in% names(args))
+      message(sprintf("  [dispatch]   analysis_time = %s", args$analysis_time))
+    if ("cens_adjust" %in% names(args))
+      message(sprintf("  [dispatch]   cens_adjust   = %.4f", args$cens_adjust))
+  }
+
+  tryCatch(
+    do.call(simulate_from_dgm, args),
+    error = function(e) stop("simulate_from_dgm() failed: ", e$message)
+  )
 }
 
 
@@ -259,11 +141,10 @@ dispatch_simulate <- function(dgm,
 # Helper Functions
 # =============================================================================
 
-#' Extract HR from DGM (Backward Compatible)
+#' Extract HR from DGM
 #'
-#' Extracts hazard ratios from any DGM object, supporting both
-#' \code{aft_dgm_flex} (new \code{hazard_ratios} list format) and
-#' \code{gbsg_dgm} (legacy top-level fields).
+#' Extracts hazard ratios from an \code{aft_dgm_flex} object's
+#' \code{hazard_ratios} list.
 #'
 #' @param dgm DGM object
 #' @param which Character. Which HR to extract: \code{"hr_H"},
@@ -273,73 +154,46 @@ dispatch_simulate <- function(dgm,
 #' @return Numeric hazard ratio value
 #' @keywords internal
 get_dgm_hr <- function(dgm, which = "hr_H") {
-
-  # Try new hazard_ratios list first
-  if (!is.null(dgm$hazard_ratios)) {
-    hr_list <- dgm$hazard_ratios
-    result <- switch(which,
-      "hr_H"       = hr_list$harm_subgroup,
-      "hr_Hc"      = hr_list$no_harm_subgroup,
-      "ahr_H"      = hr_list$AHR_harm,
-      "ahr_Hc"     = hr_list$AHR_no_harm,
-      "hr_overall" = hr_list$overall,
-      "ahr"        = hr_list$AHR,
-      "cde_H"      = hr_list$CDE_harm,
-      "cde_Hc"     = hr_list$CDE_no_harm,
-      "cde"        = hr_list$CDE,
-      NA_real_
-    )
-    if (!is.null(result) && !is.na(result)) return(result)
-  }
-
-  # Fall back to old (gbsg_dgm) top-level fields
+  hr_list <- dgm$hazard_ratios
+  if (is.null(hr_list)) return(NA_real_)
   result <- switch(which,
-    "hr_H"       = dgm$hr_H_true,
-    "hr_Hc"      = dgm$hr_Hc_true,
-    "ahr_H"      = dgm$AHR_H_true,
-    "ahr_Hc"     = dgm$AHR_Hc_true,
-    "hr_overall" = dgm$hr_causal,
-    "ahr"        = dgm$AHR,
-    "cde_H"      = dgm$cde_H,
-    "cde_Hc"     = dgm$cde_Hc,
-    "cde"        = dgm$CDE,
+    "hr_H"       = hr_list$harm_subgroup,
+    "hr_Hc"      = hr_list$no_harm_subgroup,
+    "ahr_H"      = hr_list$AHR_harm,
+    "ahr_Hc"     = hr_list$AHR_no_harm,
+    "hr_overall" = hr_list$overall,
+    "ahr"        = hr_list$AHR,
+    "cde_H"      = hr_list$CDE_harm,
+    "cde_Hc"     = hr_list$CDE_no_harm,
+    "cde"        = hr_list$CDE,
     NA_real_
   )
   if (is.null(result)) NA_real_ else result
 }
 
 
-#' Resolve Super-Population Data Frame from Any DGM
+#' Resolve Super-Population Data Frame from a DGM
 #'
-#' Returns the super-population data frame from either an \code{aft_dgm_flex}
-#' object (\code{$df_super}) or a \code{gbsg_dgm} object
-#' (\code{$df_super_rand}), normalised to canonical underscore column names.
+#' Returns \code{dgm$df_super} or \code{NULL} if absent.
 #'
 #' @param dgm A DGM object
 #' @return Data frame or NULL
 #' @keywords internal
 resolve_df_super <- function(dgm) {
-  df <- if (!is.null(dgm$df_super))      dgm$df_super      else
-        if (!is.null(dgm$df_super_rand)) dgm$df_super_rand else
-        NULL
-  if (!is.null(df)) normalise_sim_columns(df) else NULL
+  dgm$df_super
 }
 
 
-#' Compute and Attach CDE Values to Any DGM Object
+#' Compute and Attach CDE Values to a DGM Object
 #'
 #' Calculates Controlled Direct Effect (CDE) hazard ratios from the
 #' super-population potential outcomes (\code{theta_0}, \code{theta_1})
 #' and attaches them to the DGM's \code{hazard_ratios} list.
 #'
-#' Works with both \code{aft_dgm_flex} (\code{$df_super}) and
-#' \code{gbsg_dgm} (\code{$df_super_rand}) objects.
+#' The subgroup indicator column is auto-detected from \code{flag_harm}
+#' or \code{H} (in that order of preference).
 #'
-#' The subgroup indicator column is resolved from \code{flag_harm},
-#' \code{flag.harm}, or \code{H} (in that order of preference).
-#'
-#' @param dgm A DGM object from \code{generate_aft_dgm_flex()} or
-#'   \code{create_gbsg_dgm()}.
+#' @param dgm An \code{aft_dgm_flex} object from \code{\link{generate_aft_dgm_flex}}.
 #' @param harm_col Character. Name of the subgroup indicator column.
 #'   If \code{NULL} (default), auto-detected.
 #' @return The DGM object with CDE values added to \code{dgm$hazard_ratios}
@@ -361,10 +215,10 @@ compute_dgm_cde <- function(dgm, harm_col = NULL) {
 
   # Auto-detect subgroup indicator (canonical name first)
   if (is.null(harm_col)) {
-    candidates <- c("flag_harm", "flag.harm", "H")
+    candidates <- c("flag_harm", "H")
     found <- intersect(candidates, names(df))
     if (length(found) == 0) {
-      warning("No subgroup indicator found (tried: flag_harm, flag.harm, H).")
+      warning("No subgroup indicator found (tried: flag_harm, H).")
       cde_overall <- mean(exp(df$theta_1)) / mean(exp(df$theta_0))
       dgm$CDE <- cde_overall
       if (is.null(dgm$hazard_ratios)) dgm$hazard_ratios <- list()
@@ -1080,16 +934,14 @@ run_grf_analysis <- function(data,
 
 #' Run Single Simulation Analysis
 #'
-#' Executes ForestSearch and/or GRF analysis on a single simulated dataset.
-#' Works with any DGM produced by \code{\link{generate_aft_dgm_flex}} or
-#' \code{\link{create_gbsg_dgm}}.
+#' Executes ForestSearch and/or GRF analysis on a single simulated dataset
+#' from a DGM produced by \code{\link{generate_aft_dgm_flex}}.
 #'
 #' @param sim_id Integer. Simulation index (used for seed offset and progress)
-#' @param dgm A DGM object of class \code{"aft_dgm_flex"} or \code{"gbsg_dgm"}
+#' @param dgm A DGM object of class \code{"aft_dgm_flex"}
 #' @param n_sample Integer. Sample size for simulation
 #' @param confounders_base Character vector. Confounder names presented to the
-#'   analysis algorithms. There is no package-level default; the caller must
-#'   supply this argument explicitly.
+#'   analysis algorithms.
 #' @param n_add_noise Integer. Number of standard-normal noise variables to
 #'   add to \code{confounders_base}. Default 0L
 #' @param run_fs Logical. Run ForestSearch with LASSO selection. Default TRUE
@@ -1101,16 +953,9 @@ run_grf_analysis <- function(data,
 #' @param grf_params List. GRF parameter overrides (merged on top of
 #'   \code{default_grf_params()})
 #' @param sim_args Named list of additional arguments forwarded verbatim to
-#'   the DGM's simulation function:
-#'   \describe{
-#'     \item{For \code{aft_dgm_flex}:}{Any argument of
-#'       \code{\link{simulate_from_dgm}}. Commonly:
-#'       \code{analysis_time}, \code{max_entry}, \code{cens_adjust},
-#'       \code{rand_ratio}, \code{draw_treatment}, \code{time_eos}.}
-#'     \item{For \code{gbsg_dgm}:}{\code{max_follow}, \code{muC_adj},
-#'       \code{rand_ratio}, \code{draw_treatment} are recognised.}
-#'   }
-#'   Default: \code{list()}
+#'   \code{\link{simulate_from_dgm}}. Commonly: \code{analysis_time},
+#'   \code{max_entry}, \code{cens_adjust}, \code{rand_ratio},
+#'   \code{draw_treatment}, \code{time_eos}. Default: \code{list()}
 #' @param cox_formula Optional Cox formula for ITT estimation
 #' @param cox_formula_adj Optional adjusted Cox formula
 #' @param n_sims_total Integer. Total simulations (for progress messages)
@@ -1124,13 +969,6 @@ run_grf_analysis <- function(data,
 #'   simulation ID, true subgroup properties, and all OC metrics.
 #'
 #' @details
-#' ## DGM types
-#'
-#' The function internally calls \code{dispatch_simulate()} which routes to
-#' the correct simulator and normalises column names to the underscore
-#' convention (\code{y_sim}, \code{event_sim}, \code{flag_harm}) regardless
-#' of DGM type.
-#'
 #' ## Analysis methods
 #'
 #' Three methods can be run:
@@ -1146,38 +984,6 @@ run_grf_analysis <- function(data,
 #'
 #' For FS/FSlg: defaults -> analysis-type-specific defaults ->
 #' user's \code{fs_params} (user always wins).
-#'
-#' ## Migration from oc_analyses_gbsg.R
-#'
-#' Old call:
-#' \preformatted{
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2)
-#' run_simulation_analysis(
-#'   sim_id = 1, dgm = dgm, n_sample = 500,
-#'   confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-#'   max_follow = 84, muC_adj = 0.2
-#' )
-#' }
-#'
-#' New call with generate_aft_dgm_flex():
-#' \preformatted{
-#' dgm <- generate_aft_dgm_flex(data = gbsg_data, ...)
-#' run_simulation_analysis(
-#'   sim_id = 1, dgm = dgm, n_sample = 500,
-#'   confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-#'   sim_args = list(analysis_time = 84, cens_adjust = 0.2)
-#' )
-#' }
-#'
-#' Backward-compatible call (gbsg_dgm still works):
-#' \preformatted{
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2)
-#' run_simulation_analysis(
-#'   sim_id = 1, dgm = dgm, n_sample = 500,
-#'   confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-#'   sim_args = list(max_follow = 84, muC_adj = 0.2)
-#' )
-#' }
 #'
 #' @importFrom data.table data.table rbindlist
 #' @importFrom stats rnorm

@@ -2,13 +2,12 @@
 % Please edit documentation in R/oc_analyses.R
 \name{compute_dgm_cde}
 \alias{compute_dgm_cde}
-\title{Compute and Attach CDE Values to Any DGM Object}
+\title{Compute and Attach CDE Values to a DGM Object}
 \usage{
 compute_dgm_cde(dgm, harm_col = NULL)
 }
 \arguments{
-\item{dgm}{A DGM object from \code{generate_aft_dgm_flex()} or
-\code{create_gbsg_dgm()}.}
+\item{dgm}{An \code{aft_dgm_flex} object from \code{\link{generate_aft_dgm_flex}}.}
 
 \item{harm_col}{Character. Name of the subgroup indicator column.
 If \code{NULL} (default), auto-detected.}
@@ -23,11 +22,8 @@ super-population potential outcomes (\code{theta_0}, \code{theta_1})
 and attaches them to the DGM's \code{hazard_ratios} list.
 }
 \details{
-Works with both \code{aft_dgm_flex} (\code{$df_super}) and
-\code{gbsg_dgm} (\code{$df_super_rand}) objects.
-
-The subgroup indicator column is resolved from \code{flag_harm},
-\code{flag.harm}, or \code{H} (in that order of preference).
+The subgroup indicator column is auto-detected from \code{flag_harm}
+or \code{H} (in that order of preference).
 }
 \seealso{
 \code{\link{get_dgm_hr}}

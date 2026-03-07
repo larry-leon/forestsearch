@@ -2052,8 +2052,8 @@ ForestSearch performance via simulation. Each step is described below
 the workflow diagram, with cross-references to the corresponding
 vignette sections.</p>
 <div class="figure">
-<div class="grViz html-widget html-fill-item" id="htmlwidget-71ebd1934734aa84ecbc" style="width:864px;height:192px;"></div>
-<script type="application/json" data-for="htmlwidget-71ebd1934734aa84ecbc">{"x":{"diagram":"\n  digraph workflow {\n    graph [rankdir = LR, bgcolor = transparent, nodesep = 0.8]\n    node  [shape = box, style = \"rounded,filled\", fillcolor = \"#e3f2fd\",\n           fontname = \"Helvetica\", fontsize = 12, penwidth = 1.2,\n           width = 1.8, height = 0.6]\n    edge  [color = \"#555555\", penwidth = 1.5, arrowsize = 0.8]\n\n    A [label = \"1. Create DGM\"]\n    B [label = \"2. Simulate Trials\"]\n    C [label = \"3. Run Analyses\"]\n    D [label = \"4. Summarize OCs\"]\n\n    A -> B -> C -> D\n  }\n  ","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
+<div class="grViz html-widget html-fill-item" id="htmlwidget-eda18e0513ed8b5ee080" style="width:864px;height:192px;"></div>
+<script type="application/json" data-for="htmlwidget-eda18e0513ed8b5ee080">{"x":{"diagram":"\n  digraph workflow {\n    graph [rankdir = LR, bgcolor = transparent, nodesep = 0.8]\n    node  [shape = box, style = \"rounded,filled\", fillcolor = \"#e3f2fd\",\n           fontname = \"Helvetica\", fontsize = 12, penwidth = 1.2,\n           width = 1.8, height = 0.6]\n    edge  [color = \"#555555\", penwidth = 1.5, arrowsize = 0.8]\n\n    A [label = \"1. Create DGM\"]\n    B [label = \"2. Simulate Trials\"]\n    C [label = \"3. Run Analyses\"]\n    D [label = \"4. Summarize OCs\"]\n\n    A -> B -> C -> D\n  }\n  ","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script>
 <p class="caption">
 Four-stage simulation workflow for evaluating subgroup identification
 performance.
@@ -3488,7 +3488,7 @@ Hypothesis Simulations</h2>
 ## Evaluated 1 of 10 candidates (early stop) 
 ## 1 subgroups passed consistency threshold
 ## SG focus = hr 
-## Seconds and minutes forestsearch overall = 12.221 0.2037 
+## Seconds and minutes forestsearch overall = 3.437 0.0573 
 ## Consistency algorithm used: twostage 
 ## Subgroup identified: {grade3} &amp; {z3} 
 ## tau, maxdepth = 44.24071 2 
@@ -3504,7 +3504,7 @@ Hypothesis Simulations</h2>
 <span id="cb145-2"><a href="#cb145-2" tabindex="-1"></a>runtime_alt <span class="ot">&lt;-</span> <span class="fu">difftime</span>(<span class="fu">Sys.time</span>(), start_time, <span class="at">units =</span> <span class="st">&quot;mins&quot;</span>)</span>
 <span id="cb145-3"><a href="#cb145-3" tabindex="-1"></a>timings<span class="sc">$</span>sims_alt_wall <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(runtime_alt) <span class="sc">*</span> <span class="dv">60</span>  <span class="co"># store in seconds</span></span>
 <span id="cb145-4"><a href="#cb145-4" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(runtime_alt, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div>
-<pre><code>## Completed in 0.7 minutes</code></pre>
+<pre><code>## Completed in 0.5 minutes</code></pre>
 <div class="sourceCode" id="cb147"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb147-1"><a href="#cb147-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Results:&quot;</span>, <span class="fu">nrow</span>(results_alt), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div>
 <pre><code>## Results: 20 rows</code></pre>
 </div>
@@ -3583,7 +3583,7 @@ Hypothesis Simulations</h2>
 ## Batch 6 / 6 : candidates 6 - 6 
 ## Evaluated 6 of 6 candidates (complete) 
 ## No subgroups found meeting consistency threshold
-## Seconds and minutes forestsearch overall = 14.886 0.2481 
+## Seconds and minutes forestsearch overall = 19.814 0.3302 
 ## Consistency algorithm used: twostage 
 ## tau, maxdepth = 44.07861 2 
 ##   leaf.node control.mean control.size control.se depth
@@ -3598,7 +3598,7 @@ Hypothesis Simulations</h2>
 <span id="cb153-2"><a href="#cb153-2" tabindex="-1"></a>runtime_null <span class="ot">&lt;-</span> <span class="fu">difftime</span>(<span class="fu">Sys.time</span>(), start_time, <span class="at">units =</span> <span class="st">&quot;mins&quot;</span>)</span>
 <span id="cb153-3"><a href="#cb153-3" tabindex="-1"></a>timings<span class="sc">$</span>sims_null_wall <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(runtime_null) <span class="sc">*</span> <span class="dv">60</span></span>
 <span id="cb153-4"><a href="#cb153-4" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(runtime_null, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div>
-<pre><code>## Completed in 0.7 minutes</code></pre>
+<pre><code>## Completed in 0.8 minutes</code></pre>
 </div>
 </div>
 <div id="summarizing-results" class="section level1" number="6">
@@ -7554,13 +7554,13 @@ height: 0px !important;
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td></tr>
     <tr><td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">39.6</td>
-<td headers="Minutes" class="gt_row gt_right">0.66</td>
-<td headers="Pct" class="gt_row gt_right">42.0</td></tr>
+<td headers="Seconds" class="gt_row gt_right">29.0</td>
+<td headers="Minutes" class="gt_row gt_right">0.48</td>
+<td headers="Pct" class="gt_row gt_right">31.7</td></tr>
     <tr><td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">40.6</td>
-<td headers="Minutes" class="gt_row gt_right">0.68</td>
-<td headers="Pct" class="gt_row gt_right">43.1</td></tr>
+<td headers="Seconds" class="gt_row gt_right">48.7</td>
+<td headers="Minutes" class="gt_row gt_right">0.81</td>
+<td headers="Pct" class="gt_row gt_right">53.1</td></tr>
     <tr><td headers="Stage" class="gt_row gt_left">Summarize H1</td>
 <td headers="Seconds" class="gt_row gt_right">0.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
@@ -7570,8 +7570,8 @@ height: 0px !important;
 <td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td></tr>
     <tr><td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">94.3</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">1.57</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">91.6</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">1.53</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td></tr>
   </tbody>
   <tfoot>
@@ -7685,11 +7685,11 @@ parallel overhead:</p>
 <div class="sourceCode" id="cb234"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb234-1"><a href="#cb234-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  H1: %.1f sec/sim (wall) across %d sims on %d workers</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb234-2"><a href="#cb234-2" tabindex="-1"></a>            timings<span class="sc">$</span>sims_alt_elapsed <span class="sc">/</span> sim_config_alt<span class="sc">$</span>n_sims,</span>
 <span id="cb234-3"><a href="#cb234-3" tabindex="-1"></a>            sim_config_alt<span class="sc">$</span>n_sims, n_workers))</span></code></pre></div>
-<pre><code>##   H1: 4.0 sec/sim (wall) across 10 sims on 13 workers</code></pre>
+<pre><code>##   H1: 2.9 sec/sim (wall) across 10 sims on 13 workers</code></pre>
 <div class="sourceCode" id="cb236"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb236-1"><a href="#cb236-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  H0: %.1f sec/sim (wall) across %d sims on %d workers</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb236-2"><a href="#cb236-2" tabindex="-1"></a>            timings<span class="sc">$</span>sims_null_elapsed <span class="sc">/</span> sim_config_null<span class="sc">$</span>n_sims,</span>
 <span id="cb236-3"><a href="#cb236-3" tabindex="-1"></a>            sim_config_null<span class="sc">$</span>n_sims, n_workers))</span></code></pre></div>
-<pre><code>##   H0: 4.1 sec/sim (wall) across 10 sims on 13 workers</code></pre>
+<pre><code>##   H0: 4.9 sec/sim (wall) across 10 sims on 13 workers</code></pre>
 </div>
 </div>
 <div id="complete-example-script" class="section level1" number="12">

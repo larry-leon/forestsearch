@@ -28,13 +28,12 @@ run_simulation_analysis(
 \arguments{
 \item{sim_id}{Integer. Simulation index (used for seed offset and progress)}
 
-\item{dgm}{A DGM object of class \code{"aft_dgm_flex"} or \code{"gbsg_dgm"}}
+\item{dgm}{A DGM object of class \code{"aft_dgm_flex"}}
 
 \item{n_sample}{Integer. Sample size for simulation}
 
 \item{confounders_base}{Character vector. Confounder names presented to the
-analysis algorithms. There is no package-level default; the caller must
-supply this argument explicitly.}
+analysis algorithms.}
 
 \item{n_add_noise}{Integer. Number of standard-normal noise variables to
 add to \code{confounders_base}. Default 0L}
@@ -53,16 +52,9 @@ Default TRUE}
 \code{default_grf_params()})}
 
 \item{sim_args}{Named list of additional arguments forwarded verbatim to
-the DGM's simulation function:
-\describe{
-\item{For \code{aft_dgm_flex}:}{Any argument of
-\code{\link{simulate_from_dgm}}. Commonly:
-\code{analysis_time}, \code{max_entry}, \code{cens_adjust},
-\code{rand_ratio}, \code{draw_treatment}, \code{time_eos}.}
-\item{For \code{gbsg_dgm}:}{\code{max_follow}, \code{muC_adj},
-\code{rand_ratio}, \code{draw_treatment} are recognised.}
-}
-Default: \code{list()}}
+\code{\link{simulate_from_dgm}}. Commonly: \code{analysis_time},
+\code{max_entry}, \code{cens_adjust}, \code{rand_ratio},
+\code{draw_treatment}, \code{time_eos}. Default: \code{list()}}
 
 \item{cox_formula}{Optional Cox formula for ITT estimation}
 
@@ -84,19 +76,10 @@ A data.table with one row per analysis method run, containing
 simulation ID, true subgroup properties, and all OC metrics.
 }
 \description{
-Executes ForestSearch and/or GRF analysis on a single simulated dataset.
-Works with any DGM produced by \code{\link{generate_aft_dgm_flex}} or
-\code{\link{create_gbsg_dgm}}.
+Executes ForestSearch and/or GRF analysis on a single simulated dataset
+from a DGM produced by \code{\link{generate_aft_dgm_flex}}.
 }
 \details{
-\subsection{DGM types}{
-
-The function internally calls \code{dispatch_simulate()} which routes to
-the correct simulator and normalises column names to the underscore
-convention (\code{y_sim}, \code{event_sim}, \code{flag_harm}) regardless
-of DGM type.
-}
-
 \subsection{Analysis methods}{
 
 Three methods can be run:
@@ -113,38 +96,5 @@ Three methods can be run:
 
 For FS/FSlg: defaults -> analysis-type-specific defaults ->
 user's \code{fs_params} (user always wins).
-}
-
-\subsection{Migration from oc_analyses_gbsg.R}{
-
-Old call:
-\preformatted{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2)
-run_simulation_analysis(
-  sim_id = 1, dgm = dgm, n_sample = 500,
-  confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-  max_follow = 84, muC_adj = 0.2
-)
-}
-
-New call with generate_aft_dgm_flex():
-\preformatted{
-dgm <- generate_aft_dgm_flex(data = gbsg_data, ...)
-run_simulation_analysis(
-  sim_id = 1, dgm = dgm, n_sample = 500,
-  confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-  sim_args = list(analysis_time = 84, cens_adjust = 0.2)
-)
-}
-
-Backward-compatible call (gbsg_dgm still works):
-\preformatted{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2)
-run_simulation_analysis(
-  sim_id = 1, dgm = dgm, n_sample = 500,
-  confounders_base = c("v1","v2","v3","v4","v5","v6","v7"),
-  sim_args = list(max_follow = 84, muC_adj = 0.2)
-)
-}
 }
 }

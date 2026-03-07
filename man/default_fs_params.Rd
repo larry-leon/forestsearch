@@ -11,8 +11,6 @@ List of default ForestSearch parameters
 }
 \description{
 Returns a list of default parameters for ForestSearch analysis.
-Column names use the canonical underscore convention (y_sim, event_sim)
-shared by both simulate_from_dgm() and the normalised output of
-simulate_from_gbsg_dgm().
+Column names use the canonical underscore convention (y_sim, event_sim).
 }
 \keyword{internal}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/oc_analyses.R
 \name{dispatch_simulate}
 \alias{dispatch_simulate}
-\title{Dispatch Simulation to the Appropriate Simulator}
+\title{Dispatch Simulation}
 \usage{
 dispatch_simulate(
   dgm,
@@ -14,7 +14,7 @@ dispatch_simulate(
 )
 }
 \arguments{
-\item{dgm}{A DGM object of class \code{"aft_dgm_flex"} or \code{"gbsg_dgm"}}
+\item{dgm}{A DGM object of class \code{"aft_dgm_flex"}}
 
 \item{n}{Integer sample size}
 
@@ -22,26 +22,18 @@ dispatch_simulate(
 
 \item{seed_base}{Integer base random seed. Default 8316951L}
 
-\item{sim_args}{Named list of additional arguments forwarded to the
-simulator.
-\describe{
-\item{For \code{aft_dgm_flex}:}{Any argument of
+\item{sim_args}{Named list of additional arguments forwarded to
 \code{simulate_from_dgm()} — commonly \code{analysis_time},
 \code{max_entry}, \code{cens_adjust}, \code{draw_treatment},
 \code{time_eos}, \code{rand_ratio}.}
-\item{For \code{gbsg_dgm}:}{\code{max_follow}, \code{muC_adj},
-\code{rand_ratio}, \code{draw_treatment} are recognised.}
-}}
 
 \item{verbose}{Logical. Print dispatch details. Default FALSE}
 }
 \value{
-Data frame with canonical underscore column names
+Data frame from \code{simulate_from_dgm()}
 }
 \description{
-Routes to either \code{simulate_from_dgm()} (for \code{"aft_dgm_flex"}
-objects) or \code{simulate_from_gbsg_dgm()} (for \code{"gbsg_dgm"} objects)
-and returns a data frame normalised to the canonical underscore column
-convention via \code{normalise_sim_columns()}.
+Calls \code{simulate_from_dgm()} for \code{"aft_dgm_flex"} objects and
+returns the resulting data frame.
 }
 \keyword{internal}

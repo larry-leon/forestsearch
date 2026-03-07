@@ -2,7 +2,7 @@
 % Please edit documentation in R/oc_analyses.R
 \name{get_dgm_hr}
 \alias{get_dgm_hr}
-\title{Extract HR from DGM (Backward Compatible)}
+\title{Extract HR from DGM}
 \usage{
 get_dgm_hr(dgm, which = "hr_H")
 }
@@ -18,8 +18,7 @@ get_dgm_hr(dgm, which = "hr_H")
 Numeric hazard ratio value
 }
 \description{
-Extracts hazard ratios from any DGM object, supporting both
-\code{aft_dgm_flex} (new \code{hazard_ratios} list format) and
-\code{gbsg_dgm} (legacy top-level fields).
+Extracts hazard ratios from an \code{aft_dgm_flex} object's
+\code{hazard_ratios} list.
 }
 \keyword{internal}
