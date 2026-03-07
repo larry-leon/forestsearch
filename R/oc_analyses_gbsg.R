@@ -209,9 +209,10 @@ get_dgm_hr <- function(dgm, which = "hr_H") {
 #' @export
 compute_dgm_cde <- function(dgm, harm_col = NULL) {
 
-  df <- dgm$df_super_rand
+  # Support both gbsg_dgm (df_super_rand) and aft_dgm_flex (df_super)
+  df <- dgm$df_super_rand %||% dgm$df_super
   if (is.null(df)) {
-    warning("DGM has no df_super_rand; cannot compute CDE.")
+    warning("DGM has no df_super_rand or df_super; cannot compute CDE.")
     return(dgm)
   }
   if (!all(c("theta_0", "theta_1") %in% names(df))) {
@@ -1277,8 +1278,13 @@ run_grf_analysis <- function(
 #'
 #' @importFrom data.table data.table rbindlist
 #' @importFrom stats rnorm
-#' @export
-run_simulation_analysis <- function(
+# Legacy GBSG-coupled implementation — retained as internal for backwards
+# compatibility. The exported run_simulation_analysis() now lives in
+# R/run_simulation_analysis.R and accepts any aft_dgm_flex DGM.
+# Parameters max_follow / muC_adj are forwarded as deprecated shims in the
+# general version.
+#' @keywords internal
+.run_simulation_analysis_legacy_ <- function(
     sim_id,
     dgm,
     n_sample,

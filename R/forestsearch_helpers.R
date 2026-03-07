@@ -169,6 +169,13 @@ evaluate_comparison <- function(expr, df) {
       }
 
       col <- df[[var_name]]
+      # Coerce factors with all-numeric levels to numeric so that
+      # numeric comparisons (<=, >=, <, >) are meaningful.
+      if (is.factor(col)) {
+        lvls <- levels(col)
+        if (!anyNA(suppressWarnings(as.numeric(lvls))))
+          col <- as.numeric(as.character(col))
+      }
       val <- suppressWarnings(as.numeric(value))
       if (is.na(val)) val <- value # keep as character for string comparisons
 

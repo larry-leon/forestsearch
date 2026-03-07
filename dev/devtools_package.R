@@ -8,9 +8,51 @@ I would like to phase out any specific reference to "gbsg", except when using as
 that we can verify any revisions at each step are working properly.
 
 
-Can you revert back to the first Phase 1?   Please note that simulations under the null should have mean(any.H) below 10% or 15%.
-The current version is way off, at more than 70%, suggesting some bug along the way.
-In your evaluation, please conduct a synthetic simulation check before being so confident in presenting revisions.
+Let's start over, this is going nowhere and in circles.   The original R codebase has now been restored.
+Let's start with create_gbsg_dgm(), and proceed in separate steps so that each change can be verified before
+proceeding to the next step.
+To check the success of migrating create_gbsg_dgm() the following legacy results
+should be created:
+# dgm_alt <- create_gbsg_dgm(
+#   model = "alt",
+#   k_treat = 1.0,
+#   k_inter = 2.0,      # Interaction effect multiplier
+#   k_z3 = 1.0,
+#   z1_quantile = 0.25, # ER threshold at 25th percentile
+#   n_super = 5000,
+#   cens_type = "weibull",
+#   seed = 8316951,
+#   verbose = TRUE
+# )
+# # Enrich DGM with CDE values (computed from super-population theta_0/theta_1)
+# dgm_alt <- compute_dgm_cde(dgm_alt)
+# # Examine the DGM (print method now shows both HR and AHR metrics)
+# print(dgm_alt)
+# GBSG-Based AFT Data Generating Mechanism (Aligned)
+# ===================================================
+#   Model type: alt
+# Super-population size: 5000
+# Effect Modifiers:
+#   k_treat: 1
+# k_inter: 2
+# k_z3: 1
+# Hazard Ratios (Cox-based, stacked PO):
+#   Overall (causal): 0.7331
+# Harm subgroup (H): 2.9651
+# Complement (Hc): 0.6612
+# Ratio HR(H)/HR(Hc): 4.4846
+# Average Hazard Ratios (from loghr_po):
+#   AHR (overall): 0.7431
+# AHR_harm (H): 3.8687
+# AHR_no_harm (Hc): 0.5848
+# Ratio AHR(H)/AHR(Hc): 6.6157
+# Subgroup definition: z1 == 1 & z3 == 1 (low ER & premenopausal)
+# ER threshold: 8 (quantile = 0.25)
+# Subgroup size: 634 (12.7%)
+# Analysis variables: v1, v2, v3, v4, v5, v6, v7
+
+
+
 
 
 # dev-workflow.R
@@ -92,7 +134,7 @@ unlink("man/*.Rd")
 
 devtools::document()
 
-devtools::load_all()
+devtools::load_all(".")
 
 devtools::check()
 

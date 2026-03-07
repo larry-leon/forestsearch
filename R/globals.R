@@ -216,6 +216,7 @@ utils::globalVariables(c(
   "hr.Hc.true", "hr.Hc.hat",
   "hr.itt", "hr.adj.itt",
   "p.cens", "taumax",
+  "sim_id",
   "analysis",
   "trimmed",
   "aa",

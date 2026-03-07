@@ -208,6 +208,43 @@ create_gbsg_dgm <- function(
     seed = SEED_BASE,
     verbose = FALSE
 ) {
+  .Deprecated(
+    new     = "generate_aft_dgm_flex",
+    package = "forestsearch",
+    msg = paste0(
+      "'create_gbsg_dgm' is deprecated.\n",
+      "Use 'generate_aft_dgm_flex()' with the GBSG dataset directly:\n",
+      "  dgm <- generate_aft_dgm_flex(\n",
+      "    data = survival::gbsg, outcome = \"rfstime\", event = \"status\",\n",
+      "    treat = \"hormon\", id = \"pid\",\n",
+      "    confounders = c(\"age\",\"meno\",\"size\",\"grade\",\"nodes\",\"pgr\",\"er\"),\n",
+      "    model = model, k_inter = k_inter, seed = seed\n",
+      "  )\n",
+      "Then wrap with setup_gbsg_dgm() for a compatible aft_dgm_flex object."
+    )
+  )
+  .create_gbsg_dgm_(
+    model = model, k_treat = k_treat, k_inter = k_inter, k_z3 = k_z3,
+    z1_quantile = z1_quantile, n_super = n_super, cens_type = cens_type,
+    use_rand_params = use_rand_params, seed = seed, verbose = verbose
+  )
+}
+
+# Internal implementation used by calibrate_k_inter(), get_dgm_with_output(),
+# scan_k_inter_effect(), and setup_gbsg_dgm(). No deprecation warning.
+#' @keywords internal
+.create_gbsg_dgm_ <- function(
+    model = c("alt", "null"),
+    k_treat = 1,
+    k_inter = 1,
+    k_z3 = 1,
+    z1_quantile = 0.25,
+    n_super = DEFAULT_N_SUPER,
+    cens_type = c("weibull", "uniform"),
+    use_rand_params = FALSE,
+    seed = SEED_BASE,
+    verbose = FALSE
+) {
 
   # -------------------------------------------------------------------------
   # Input Validation
@@ -760,6 +797,40 @@ simulate_from_gbsg_dgm <- function(
     max_cens = NULL,
     draw_treatment = TRUE
 ) {
+  .Deprecated(
+    new     = "simulate_from_dgm",
+    package = "forestsearch",
+    msg = paste0(
+      "'simulate_from_gbsg_dgm' is deprecated.\n",
+      "Use 'simulate_from_dgm()' instead:\n",
+      "  sim <- simulate_from_dgm(dgm, n = n, seed = seed,\n",
+      "                           analysis_time = Inf)\n",
+      "Note: pass analysis_time = Inf to match the legacy max_follow = Inf default.\n",
+      "Column names in the result use underscore notation:\n",
+      "  y_sim / event_sim / treat_sim / flag_harm  (was y.sim / event.sim / treat / flag.harm)"
+    )
+  )
+  .simulate_from_gbsg_dgm_(
+    dgm = dgm, n = n, rand_ratio = rand_ratio, sim_id = sim_id,
+    max_follow = max_follow, muC_adj = muC_adj,
+    min_cens = min_cens, max_cens = max_cens,
+    draw_treatment = draw_treatment
+  )
+}
+
+# Internal implementation. No deprecation warning.
+#' @keywords internal
+.simulate_from_gbsg_dgm_ <- function(
+    dgm,
+    n = NULL,
+    rand_ratio = 1,
+    sim_id = 1,
+    max_follow = Inf,
+    muC_adj = 0,
+    min_cens = NULL,
+    max_cens = NULL,
+    draw_treatment = TRUE
+) {
 
   stopifnot(
     "dgm must be a gbsg_dgm object" = inherits(dgm, "gbsg_dgm"),
@@ -946,7 +1017,7 @@ calibrate_k_inter <- function(
 
   # Objective function
   objective <- function(k_val) {
-    dgm <- create_gbsg_dgm(
+    dgm <- .create_gbsg_dgm_(
       model = model,
       k_treat = k_treat,
       k_inter = k_val,
@@ -968,9 +1039,9 @@ calibrate_k_inter <- function(
     message(sprintf("Search range: [%.1f, %.1f]", k_inter_range[1], k_inter_range[2]))
 
     # Show HR at boundaries
-    dgm_lower <- create_gbsg_dgm(model = model, k_treat = k_treat,
+    dgm_lower <- .create_gbsg_dgm_(model = model, k_treat = k_treat,
                                   k_inter = k_inter_range[1], verbose = FALSE, ...)
-    dgm_upper <- create_gbsg_dgm(model = model, k_treat = k_treat,
+    dgm_upper <- .create_gbsg_dgm_(model = model, k_treat = k_treat,
                                   k_inter = k_inter_range[2], verbose = FALSE, ...)
 
     if (use_ahr) {
@@ -996,7 +1067,7 @@ calibrate_k_inter <- function(
   k_inter <- result$root
 
   if (verbose) {
-    dgm_verify <- create_gbsg_dgm(
+    dgm_verify <- .create_gbsg_dgm_(
       model = model,
       k_treat = k_treat,
       k_inter = k_inter,
@@ -1076,7 +1147,7 @@ get_dgm_with_output <- function(
   }
 
   # Create DGM
-  dgm <- create_gbsg_dgm(
+  dgm <- .create_gbsg_dgm_(
     model = model_harm,
     k_treat = k_treat,
     k_inter = k_inter,
@@ -1215,7 +1286,7 @@ validate_k_inter_effect <- function(
   }
 
   for (k in k_inter_values) {
-    dgm <- create_gbsg_dgm(model = "alt", k_inter = k, verbose = FALSE, ...)
+    dgm <- .create_gbsg_dgm_(model = "alt", k_inter = k, verbose = FALSE, ...)
 
     ratio_cox <- if (!is.na(dgm$hr_H_true) && !is.na(dgm$hr_Hc_true)) {
       dgm$hr_H_true / dgm$hr_Hc_true

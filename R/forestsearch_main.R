@@ -527,7 +527,7 @@ forestsearch <- function(df.analysis,
   # (e.g., q1 -> q1.0, q1.1), so the search explores BOTH directions
   # of each cut (subgroup and complement).
 
-  df.confounders <- df[, conf.screen]
+  df.confounders <- df[, conf.screen, drop = FALSE]
   df.confounders <- dummy(df.confounders)
 
 

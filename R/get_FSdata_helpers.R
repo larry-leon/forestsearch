@@ -112,7 +112,19 @@ if (!requireNamespace("glmnet", quietly = TRUE)) stop("Package 'glmnet' is requi
 if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is required.")
 
   # Prepare the design matrix and response
-  x <- as.matrix(df[, confounders.name, drop = FALSE])
+  # Coerce factor columns with all-numeric levels to integer so that
+  # as.matrix() produces a numeric matrix (not a character one).
+  # as.integer(as.character(f)) preserves the numeric value of each level
+  # (e.g. factor "1" -> 1L), unlike plain as.integer(f) which gives 1-based codes.
+  x_df <- df[, confounders.name, drop = FALSE]
+  for (.nm in names(x_df)) {
+    if (is.factor(x_df[[.nm]])) {
+      .lvls <- levels(x_df[[.nm]])
+      if (!anyNA(suppressWarnings(as.numeric(.lvls))))
+        x_df[[.nm]] <- as.integer(as.character(x_df[[.nm]]))
+    }
+  }
+  x <- as.matrix(x_df)
 
   y <- survival::Surv(df[[outcome.name]], df[[event.name]])
 
@@ -187,15 +199,18 @@ process_conf_force_expr <- function(expr, df) {
   arg <- matches[4]
   # Only proceed if var and arg match
   if (!(var %in% colnames(df)) || !(arg %in% colnames(df))) return(expr)
+  # Coerce factor columns to numeric before computing summary statistics
+  col_vals <- df[[arg]]
+  if (is.factor(col_vals)) col_vals <- as.numeric(as.character(col_vals))
   # Evaluate the function
   if (fun == "mean") {
-    val <- round(mean(df[[arg]], na.rm = TRUE), 1)
+    val <- round(mean(col_vals, na.rm = TRUE), 1)
   } else if (fun == "median") {
-    val <- round(median(df[[arg]], na.rm = TRUE), 1)
+    val <- round(median(col_vals, na.rm = TRUE), 1)
   } else if (fun == "qlow") {
-    val <- round(quantile(df[[arg]], 0.25, na.rm = TRUE), 1)
+    val <- round(quantile(col_vals, 0.25, na.rm = TRUE), 1)
   } else if (fun == "qhigh") {
-    val <- round(quantile(df[[arg]], 0.75, na.rm = TRUE), 1)
+    val <- round(quantile(col_vals, 0.75, na.rm = TRUE), 1)
   } else {
     # Unknown function, return as is
     return(expr)
