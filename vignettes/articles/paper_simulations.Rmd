@@ -29,8 +29,8 @@ knitr::opts_chunk$set(
   fig.height = 6
 )
 
-nsims_alt <- 99L
-nsims_null <- 99L
+nsims_alt <- 133L
+nsims_null <- 133L
 
 # Bootstrap 5 code-folding hook for pkgdown compatibility
 # Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
@@ -134,7 +134,7 @@ if (requireNamespace("DiagrammeR", quietly = TRUE)) {
 ### Step 1: Create a Data Generating Mechanism (DGM)
 
 The DGM defines the ground truth for the simulation. Building on the GBSG
-breast cancer dataset as a covariate template, `create_gbsg_dgm()` fits an
+breast cancer dataset as a covariate template, `setup_gbsg_dgm()` fits an
 Accelerated Failure Time (AFT) model with Weibull baseline hazard and
 generates a super-population of potential outcomes.
 
@@ -153,7 +153,7 @@ Key decisions at this stage:
   premenopausal} (z1 = 1 & z3 = 1), covering roughly 13% of the
   super-population.
 - **Censoring**: Weibull or uniform censoring, optionally adjusted via
-  `muC_adj` to control the overall event rate.
+  `cens_adjust` to control the overall event rate.
 
 The resulting DGM object stores the super-population, true hazard ratios
 (both Cox-based and AHR), individual-level potential outcomes (`loghr_po`),
@@ -161,14 +161,14 @@ and all model parameters needed for downstream simulation.
 
 ### Step 2: Simulate Clinical Trials
 
-`simulate_from_gbsg_dgm()` draws random samples from the super-population to
+`simulate_from_dgm()` draws random samples from the super-population to
 create synthetic trial datasets. Each simulated trial:
 
 - Samples *n* patients (e.g., 700) with 1:1 randomisation.
 - Generates survival times from the AFT model using the DGM parameters.
-- Applies censoring (Weibull or uniform, with optional `muC_adj` adjustment)
-  and administrative censoring at `max_follow`.
-- Carries forward the true subgroup indicator `flag.harm` and individual
+- Applies censoring (Weibull or uniform, with optional `cens_adjust` adjustment)
+  and administrative censoring at `analysis_time`.
+- Carries forward the true subgroup indicator `flag_harm` and individual
   `loghr_po` for evaluation.
 
 Because ForestSearch uses random-split consistency evaluation, each simulated
@@ -239,7 +239,7 @@ of the full workflow (excluding diagnostics) is:
 ```r
 # Step 1: Create and calibrate DGM
 k_inter <- calibrate_k_inter(target_hr_harm = 2.0, use_ahr = FALSE)
-dgm     <- create_gbsg_dgm(model = "alt", k_inter = k_inter)
+dgm     <- setup_gbsg_dgm(model = "alt", k_inter = k_inter)
 
 # Step 2 + 3: Simulate and analyse in parallel
 results <- foreach(sim = 1:500, .combine = rbind) %dofuture% {
@@ -277,7 +277,7 @@ as a template for realistic covariate distributions and censoring patterns.
 
 ## Understanding the DGM
 
-The `create_gbsg_dgm()` function creates a data generating mechanism (DGM) based
+The `setup_gbsg_dgm()` function creates a data generating mechanism (DGM) based
 on an Accelerated Failure Time (AFT) model with Weibull distribution. Key features:
 
 - **Covariates**: Age, estrogen receptor, menopausal status, progesterone receptor, nodes
@@ -322,6 +322,144 @@ The super-population data (`dgm$df_super_rand`) now contains:
 | `theta_1` | Log-hazard contribution under treatment |
 | `loghr_po` | Individual causal log hazard ratio (theta_1 - theta_0) |
 
+
+---
+title: "setup_gbsg_dgm() and generate_aft_dgm_flex(): Relationship and Usage"
+---
+
+## What `setup_gbsg_dgm()` does
+
+`setup_gbsg_dgm()` is a **GBSG-specific convenience wrapper**. It encodes
+the particular data preparation choices made in León et al. (2024) — the
+subgroup definition (ER ≤ q25, premenopausal), the binary discretisation of
+continuous covariates, the Weibull outcome and censoring models — so that a
+calibrated DGM for the GBSG simulation setting can be created with a single
+call:
+
+```{r setup-gbsg-dgm-usage}
+#| eval: false
+
+# One-line creation of the León et al. (2024) simulation DGM
+dgm <- setup_gbsg_dgm(
+  model   = "alt",    # "alt" (heterogeneous effects) or "null"
+  k_inter = 2.5,      # treatment × subgroup interaction strength
+  k_treat = 1.0,      # overall treatment effect modifier
+  seed    = 8316951
+)
+```
+
+The returned object has class `c("aft_dgm_flex", "gbsg_dgm")` and is fully
+compatible with `simulate_from_dgm()` and `run_simulation_analysis()`.
+
+---
+
+## Replicating `setup_gbsg_dgm()` with `generate_aft_dgm_flex()`
+
+`generate_aft_dgm_flex()` is the general DGM builder. It requires the analyst
+to supply the dataset and make every modelling choice explicitly. The GBSG
+DGM in `setup_gbsg_dgm()` is equivalent to the following call — it simply
+automates this preparation:
+
+```{r generate-aft-equivalent}
+#| eval: false
+
+library(forestsearch)
+library(survival)   # for survival::gbsg
+
+# ── Step 1: Prepare the GBSG dataset ──────────────────────────────────────
+
+dfa <- survival::gbsg
+
+# Convert time to months (matching León et al.)
+dfa$y     <- dfa$rfstime / 30.4375
+dfa$treat <- dfa$hormon
+
+# Subgroup-defining binary variables
+# H = {ER ≤ 25th percentile} ∩ {premenopausal}
+er_cut <- quantile(dfa$er, probs = 0.25)
+dfa$z1 <- as.factor(ifelse(dfa$er  <= er_cut, 1L, 0L))  # ER low
+dfa$z2 <- as.factor(ifelse(dfa$age <= median(dfa$age), 1L, 0L))
+dfa$z3 <- as.factor(ifelse(dfa$meno == 0, 1L, 0L))       # premenopausal
+dfa$z4 <- as.factor(ifelse(dfa$pgr  <= median(dfa$pgr), 1L, 0L))
+dfa$z5 <- as.factor(ifelse(dfa$nodes <= median(dfa$nodes), 1L, 0L))
+dfa$v6 <- as.factor(ifelse(dfa$size  <= median(dfa$size), 1L, 0L))
+dfa$v7 <- as.factor(ifelse(dfa$grade == 3, 1L, 0L))
+
+# ── Step 2: Call generate_aft_dgm_flex() ──────────────────────────────────
+
+dgm_flex <- generate_aft_dgm_flex(
+  data            = dfa,
+  outcome_var     = "y",
+  event_var       = "status",
+  treatment_var   = "treat",
+  # Analyst-visible covariates (what FS will search over)
+  continuous_vars = character(0),    # all pre-discretised
+  factor_vars     = c("z1", "z2", "z3", "z4", "z5", "v6", "v7"),
+  # Subgroup definition: H = {z1 = 1} ∩ {z3 = 1}
+  subgroup_vars   = c("z1", "z3"),
+  subgroup_cuts   = list(z1 = 1, z3 = 1),   # both must equal 1
+  # Treatment effect structure
+  model   = "alt",
+  k_inter = 2.5,
+  k_treat = 1.0,
+  n_super = 5000,
+  seed    = 8316951
+)
+```
+
+`setup_gbsg_dgm()` is preferred for the GBSG simulation setting because it
+guarantees exact replication of the León et al. (2024) covariate
+construction and subgroup definition without requiring the analyst to
+reproduce all preparation steps by hand.
+
+---
+
+## When to use each function
+
+| Scenario | Recommended function |
+|---|---|
+| Replicating León et al. (2024) simulations | `setup_gbsg_dgm()` |
+| GBSG-based simulation with custom parameters | `setup_gbsg_dgm()` |
+| DGM based on a different dataset | `generate_aft_dgm_flex()` |
+| Custom subgroup definition or covariate structure | `generate_aft_dgm_flex()` |
+| Multi-regional or MRCT simulation | `generate_aft_dgm_flex()` via `create_dgm_for_mrct()` |
+
+`setup_gbsg_dgm()` is not deprecated in the sense of being removed or
+discouraged for GBSG work — it remains the correct entry point for the
+simulation studies in this package. The general function `generate_aft_dgm_flex()`
+is the right choice when the simulation is based on a **different dataset or
+subgroup structure**.
+
+---
+
+## Simulating from either DGM
+
+Both `setup_gbsg_dgm()` and `generate_aft_dgm_flex()` return an object of
+class `"aft_dgm_flex"`, so `simulate_from_dgm()` works identically with
+either:
+
+```{r simulate-from-either}
+#| eval: false
+
+# Works for dgm from setup_gbsg_dgm() or generate_aft_dgm_flex()
+sim_data <- simulate_from_dgm(
+  dgm           = dgm,
+  n             = 700,
+  analysis_time = Inf,   # no administrative censoring
+  cens_adjust   = 0,
+  seed          = 1
+)
+
+# sim_data columns (underscore notation):
+#   y_sim       — observed time
+#   event_sim   — event indicator
+#   treat_sim   — treatment assignment
+#   flag_harm   — true subgroup membership (H = 1, Hc = 0)
+#   loghr_po    — individual log-HR (for AHR calculation)
+```
+
+
+
 ## Alternative Hypothesis (Heterogeneous Treatment Effect)
 
 Under the alternative hypothesis, we create a DGM where the treatment effect
@@ -334,7 +472,7 @@ t0 <- proc.time()[3]
 # HR in harm subgroup (H) will be > 1 (treatment harmful)
 # HR in complement (H^c) will be < 1 (treatment beneficial)
 
-dgm_alt <- create_gbsg_dgm(
+dgm_alt <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = 2.0,      # Interaction effect multiplier
@@ -441,7 +579,7 @@ k_inter_cox <- calibrate_k_inter(
 )
 
 # Create DGM with calibrated k_inter
-dgm_calibrated_cox <- create_gbsg_dgm(
+dgm_calibrated_cox <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = k_inter_cox,
@@ -472,7 +610,7 @@ k_inter_ahr <- calibrate_k_inter(
 )
 
 # Create DGM with AHR-calibrated k_inter
-dgm_calibrated_ahr <- create_gbsg_dgm(
+dgm_calibrated_ahr <- setup_gbsg_dgm(
   model = "alt",
   k_treat = 1.0,
   k_inter = k_inter_ahr,
@@ -526,7 +664,7 @@ For Type I error evaluation, create a DGM with uniform treatment effect:
 t0 <- proc.time()[3]
 
 # Create null DGM (no treatment effect heterogeneity)
-dgm_null <- create_gbsg_dgm(
+dgm_null <- setup_gbsg_dgm(
   model = "null",
   k_treat = 1.0,
   verbose = TRUE
@@ -545,32 +683,32 @@ timings$dgm_null <- proc.time()[3] - t0
 
 ## Single Trial Simulation
 
-Use `simulate_from_gbsg_dgm()` to generate a single simulated trial:
+Use `simulate_from_dgm()` to generate a single simulated trial:
 
 ```{r simulate-single}
 # Use the Cox-calibrated DGM for simulations
 dgm_calibrated <- dgm_calibrated_cox
 
 # Simulate a single trial
-sim_data <- simulate_from_gbsg_dgm(
+sim_data <- simulate_from_dgm(
   dgm = dgm_calibrated,
   n = 700,
   rand_ratio = 1,        # 1:1 randomization
-  sim_id = 1,
-  max_follow = 84,       # 84 months administrative censoring
-  muC_adj = log(1.5)     # Censoring adjustment
+  seed = 1,
+  analysis_time = 84,       # 84 months administrative censoring
+  cens_adjust = log(1.5)     # Censoring adjustment
 )
 
 # Examine the data
 cat("Simulated trial:\n")
 cat("  N =", nrow(sim_data), "\n")
-cat("  Events =", sum(sim_data$event.sim), 
-    "(", round(100 * mean(sim_data$event.sim), 1), "%)\n")
-cat("  Harm subgroup size =", sum(sim_data$flag.harm),
-    "(", round(100 * mean(sim_data$flag.harm), 1), "%)\n")
+cat("  Events =", sum(sim_data$event_sim), 
+    "(", round(100 * mean(sim_data$event_sim), 1), "%)\n")
+cat("  Harm subgroup size =", sum(sim_data$flag_harm),
+    "(", round(100 * mean(sim_data$flag_harm), 1), "%)\n")
 
 # Quick survival analysis
-fit_itt <- coxph(Surv(y.sim, event.sim) ~ treat, data = sim_data)
+fit_itt <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
 cat("  Estimated ITT HR =", round(exp(coef(fit_itt)), 3), "\n")
 ```
 
@@ -582,8 +720,8 @@ if ("loghr_po" %in% names(sim_data)) {
   cat("\nIndividual treatment effects in simulated trial:\n")
   
   # Compute AHR in simulated data by subgroup
-  ahr_H_sim <- exp(mean(sim_data$loghr_po[sim_data$flag.harm == 1]))
-  ahr_Hc_sim <- exp(mean(sim_data$loghr_po[sim_data$flag.harm == 0]))
+  ahr_H_sim <- exp(mean(sim_data$loghr_po[sim_data$flag_harm == 1]))
+  ahr_Hc_sim <- exp(mean(sim_data$loghr_po[sim_data$flag_harm == 0]))
   ahr_overall_sim <- exp(mean(sim_data$loghr_po))
   
   cat("  AHR(H) in sim:", round(ahr_H_sim, 3), "\n")
@@ -600,9 +738,9 @@ if ("loghr_po" %in% names(sim_data)) {
 dfcount <- df_counting(
   df = sim_data,
   by.risk = 6,
-  tte.name = "y.sim", 
-  event.name = "event.sim", 
-  treat.name = "treat"
+  tte.name = "y_sim", 
+  event.name = "event_sim", 
+  treat.name = "treat_sim"
 )
 plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, 
                  ymax = 1.05, xmed.fraction = 0.775, ymed.offset = 0.125)
@@ -611,10 +749,10 @@ plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE,
 ```{r summary-table}
 create_summary_table(
   data = sim_data, 
-  treat_var = "treat", 
+  treat_var = "treat_sim", 
   table_title = "Characteristics by Treatment Arm",
   vars_continuous = c("z1", "z2", "size", "z3", "z4", "z5"),
-  vars_categorical = c("flag.harm", "grade3"),
+  vars_categorical = c("flag_harm", "grade3"),
   font_size = 14
 )
 ```
@@ -643,24 +781,24 @@ cat("Using", n_workers, "parallel workers\n")
 sim_config_alt <- list(
   n_sims = nsims_alt,          # Number of simulations (use 500-1000 for final)
   n_sample = 700,         # Sample size per trial
-  max_follow = 84,        # Maximum follow-up (months)
+  analysis_time = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
-  muC_adj = log(1.5)
+  cens_adjust = log(1.5)
 )
 
 sim_config_null <- list(
   n_sims = nsims_null,          # More simulations for Type I error estimation
   n_sample = 700,         # Sample size per trial
-  max_follow = 84,        # Maximum follow-up (months)
+  analysis_time = 84,        # Maximum follow-up (months)
   seed_base = 8316951,
-  muC_adj = log(1.5)
+  cens_adjust = log(1.5)
 )
 
 # ForestSearch parameters (now includes use_twostage)
 fs_params <- list(
-  outcome.name = "y.sim",
-  event.name = "event.sim",
-  treat.name = "treat",
+  outcome.name = "y_sim",
+  event.name = "event_sim",
+  treat.name = "treat_sim",
   id.name = "id",
   use_lasso = TRUE,
   use_grf = TRUE,
@@ -726,10 +864,10 @@ results_alt <- foreach(
     sim_id = sim,
     dgm = dgm_calibrated,
     n_sample = sim_config_alt$n_sample,
-    max_follow = sim_config_alt$max_follow,
-    muC_adj = sim_config_alt$muC_adj,
+    analysis_time = sim_config_alt$analysis_time,
+    cens_adjust = sim_config_alt$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y.sim, event.sim) ~ treat + z1 + z2 + z3,
+    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
     n_add_noise = 0L,
     run_fs = TRUE,
     run_fs_grf = FALSE,
@@ -771,10 +909,10 @@ results_null <- foreach(
     sim_id = sim,
     dgm = dgm_null,
     n_sample = sim_config_null$n_sample,
-    max_follow = sim_config_null$max_follow,
-    muC_adj = sim_config_null$muC_adj,
+    analysis_time = sim_config_null$analysis_time,
+    cens_adjust = sim_config_null$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y.sim, event.sim) ~ treat + z1 + z2 + z3,
+    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
     n_add_noise = 0L,
     run_fs = TRUE,
     run_fs_grf = FALSE,
@@ -954,7 +1092,7 @@ based on asymptotic normal theory:
 # =============================================================================
 
 # Calculate expected subgroup characteristics
-n_sg_expected <- sim_config_alt$n_sample * mean(dgm_calibrated$df_super_rand$flag.harm)
+n_sg_expected <- sim_config_alt$n_sample * mean(dgm_calibrated$df_super$flag_harm)
 prop_cens <- mean(results_alt$p.cens)  # Censoring proportion
 
 cat("=== Subgroup Characteristics ===\n")
@@ -1528,7 +1666,7 @@ k_inter <- calibrate_k_inter(target_hr_harm = TARGET_HR_HARM,
 # k_inter <- calibrate_k_inter(target_hr_harm = TARGET_HR_HARM, 
 #                              use_ahr = TRUE, verbose = TRUE)
 
-dgm <- create_gbsg_dgm(model = "alt", k_inter = k_inter, verbose = TRUE)
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = k_inter, verbose = TRUE)
 
 # Verify hazard ratios (new aligned output)
 cat("\nDGM Summary:\n")
@@ -1552,7 +1690,7 @@ results <- foreach(
     sim_id = sim,
     dgm = dgm,
     n_sample = N_SAMPLE,
-    max_follow = 60,
+    analysis_time = 60,
     confounders_base = confounders,
     run_fs = TRUE,
     run_fs_grf = TRUE,
@@ -1589,10 +1727,10 @@ performance through simulation:
 
 | Step | Function | Purpose |
 |------|----------|---------|
-| 1. Create DGM | `create_gbsg_dgm()` | Define data generating mechanism |
+| 1. Create DGM | `setup_gbsg_dgm()` | Define data generating mechanism |
 | 2. Calibrate | `calibrate_k_inter()` | Achieve target subgroup HR (Cox or AHR) |
 | 3. Validate | `validate_k_inter_effect()` | Verify heterogeneity control |
-| 4. Simulate | `simulate_from_gbsg_dgm()` | Generate trial data |
+| 4. Simulate | `simulate_from_dgm()` | Generate trial data |
 | 5. Analyze | `run_simulation_analysis()` | Run ForestSearch/GRF |
 | 6. Summarize | `summarize_simulation_results()` | Aggregate metrics |
 | 7. Display | `format_oc_results()` | Create gt tables |

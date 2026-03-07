@@ -144,7 +144,6 @@ devtools::install(quick = TRUE)
 
 devtools::install(dependencies = FALSE)
 
-
 # In RStudio, from the forestsearch project directory:
 devtools::clean_dll()
 devtools::document()

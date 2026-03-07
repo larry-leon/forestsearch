@@ -64,7 +64,6 @@
 #' sim <- simulate_from_dgm(dgm, n = 400, seed = 1)
 #' }
 #'
-#' @importFrom survival gbsg
 #' @export
 setup_gbsg_dgm <- function(
     model           = c("alt", "null"),
