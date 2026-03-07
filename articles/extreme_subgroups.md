@@ -1773,14 +1773,14 @@ sessionInfo()
     ## [16] iterators_1.0.14     policytree_1.2.4     fastmap_1.2.0       
     ## [19] glmnet_4.1-10        foreach_1.5.2        jsonlite_2.0.0      
     ## [22] Matrix_1.7-4         scales_1.4.0         weightedsurv_0.1.0  
-    ## [25] codetools_0.2-20     textshaping_1.0.4    jquerylib_0.1.4     
+    ## [25] codetools_0.2-20     textshaping_1.0.5    jquerylib_0.1.4     
     ## [28] cli_3.6.5            rlang_1.1.7          parallelly_1.46.1   
     ## [31] future.apply_1.20.2  splines_4.5.2        withr_3.0.2         
     ## [34] cachem_1.1.0         yaml_2.3.12          tools_4.5.2         
     ## [37] parallel_4.5.2       doFuture_1.2.1       globals_0.19.0      
     ## [40] vctrs_0.7.1          R6_2.6.1             lifecycle_1.0.5     
-    ## [43] stringr_1.6.0        randomForest_4.7-1.2 fs_1.6.6            
-    ## [46] htmlwidgets_1.6.4    ragg_1.5.0           pkgconfig_2.0.3     
+    ## [43] stringr_1.6.0        randomForest_4.7-1.2 fs_1.6.7            
+    ## [46] htmlwidgets_1.6.4    ragg_1.5.1           pkgconfig_2.0.3     
     ## [49] desc_1.4.3           progressr_0.18.0     pkgdown_2.2.0       
     ## [52] bslib_0.10.0         pillar_1.11.1        gtable_0.3.6        
     ## [55] Rcpp_1.1.1           data.table_1.18.2.1  glue_1.8.0          

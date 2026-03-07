@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.396 0.1066 
+    ## Seconds and minutes forestsearch overall = 6.777 0.1129 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.4 seconds
+    ## ForestSearch completed in 6.8 seconds
 
 ### ForestSearch Results
 
@@ -521,7 +521,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.14 minutes (0.00 hours)
     ##   Average per iteration:         0.07 min (4.3 sec)
-    ##   Projected for 1000 boots:      71.07 min (1.18 hrs)
+    ##   Projected for 1000 boots:      71.78 min (1.20 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.6        | 0.0        |
-| ForestSearch         | 6.4        | 0.1        |
-| Bootstrap            | 11.2       | 0.2        |
-| Total                | 32.1       | 0.5        |
+| GRF                  | 0.7        | 0.0        |
+| ForestSearch         | 6.8        | 0.1        |
+| Bootstrap            | 11.4       | 0.2        |
+| Total                | 32.8       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1046,7 +1046,7 @@ sessionInfo()
     ## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  
     ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
     ## [19] lifecycle_1.0.5      compiler_4.5.2       farver_2.1.2        
-    ## [22] stringr_1.6.0        textshaping_1.0.4    codetools_0.2-20    
+    ## [22] stringr_1.6.0        textshaping_1.0.5    codetools_0.2-20    
     ## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
     ## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       
     ## [31] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        
@@ -1057,8 +1057,8 @@ sessionInfo()
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
-    ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.0          
+    ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.1          
     ## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        
     ## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          
     ## [64] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      
-    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_1.6.6
+    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_1.6.7
