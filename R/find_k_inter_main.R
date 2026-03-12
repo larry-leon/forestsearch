@@ -79,7 +79,6 @@
 #' }
 #'
 #' @keywords survival simulation AFT interaction calibration
-#' @import survival
 #' @importFrom stats uniroot optim quantile
 #' @export
 

@@ -284,7 +284,7 @@ prepare_working_dataset <- function(data, outcome_var, event_var, treatment_var,
 
   # Create base working dataset
   df_work <- data.frame(
-    id = 1:nrow(data),
+    id = seq_len(nrow(data)),
     y = data[[outcome_var]],
     treat = data[[treatment_var]],
     event = ifelse(data[[event_var]] == 1, 1, 0)
@@ -685,7 +685,7 @@ generate_super_population <- function(df_work, n_super, draw_treatment,
                                       spline_info = NULL) {  # ADD spline_info
 
   # Sample with replacement to create super population
-  idx_sample <- sample(1:nrow(df_work), size = n_super, replace = TRUE)
+  idx_sample <- sample(seq_len(nrow(df_work)), size = n_super, replace = TRUE)
   df_super <- df_work[idx_sample, ]
 
   if (verbose) {
@@ -1352,7 +1352,7 @@ compare_multiple_survreg <- function(...,
 
     # Create rankings
     rankings <- data.frame(
-      Rank = 1:nrow(comparison_df),
+      Rank = seq_len(nrow(comparison_df)),
       By_AIC = comparison_df$Model[order(comparison_df$AIC)],
       AIC_value = sort(comparison_df$AIC),
       By_BIC = comparison_df$Model[order(comparison_df$BIC)],
@@ -1451,7 +1451,7 @@ compare_multiple_survreg <- function(...,
     cat("\nCONVERGENCE SUMMARY (", n_converged, "/", n_models, " converged):\n")
     cat(paste(rep("-", 50), collapse = ""), "\n")
 
-    for(i in 1:nrow(convergence_summary)) {
+    for(i in seq_len(nrow(convergence_summary))) {
       cat("\n", convergence_summary$Model[i],
           " (", models[[i]]$dist, "):\n", sep = "")
       cat("  Status: ", ifelse(convergence_summary$Converged[i],

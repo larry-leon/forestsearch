@@ -817,7 +817,7 @@ plot_sg_summary_panel <- function(
   y_start <- 0.85
   y_step <- 0.12
 
-  for (i in 1:nrow(summary_stats)) {
+  for (i in seq_len(nrow(summary_stats))) {
     y_pos <- y_start - (i - 1) * y_step
 
     # Subgroup name
@@ -840,7 +840,7 @@ plot_sg_summary_panel <- function(
   }
 
   # Add horizontal lines
-  for (i in 1:nrow(summary_stats)) {
+  for (i in seq_len(nrow(summary_stats))) {
     y_pos <- y_start - (i - 0.5) * y_step
     lines(c(0.02, 0.98), c(y_pos, y_pos), col = "gray80")
   }

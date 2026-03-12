@@ -233,6 +233,10 @@ get_param <- function(args_list, param_name, default_value) {
 # ─────────────────────────────────────────────────────────────────────
 # Core helper: evaluates any expression string against a data frame
 # ─────────────────────────────────────────────────────────────────────
+# eval(parse()) is used here intentionally: subset_expr strings are
+# user-supplied arbitrary logical expressions (e.g. "age < 65 & pgr > 0")
+# that cannot be handled by the single-comparison evaluate_comparison().
+# Evaluation is sandboxed via list2env(..., parent = baseenv()).
 
 #' Evaluate an expression string in a data-frame scope
 #'
@@ -240,7 +244,6 @@ get_param <- function(args_list, param_name, default_value) {
 #' containing only the columns of \code{df} (parent: \code{baseenv()}).
 #' This isolates evaluation from the global environment, reducing
 #' scope for unintended side effects.
-#'
 #' @param df Data frame providing column names as variables.
 #' @param expr Character. Expression to evaluate
 #'   (e.g., \code{"BM > 1 & tmrsize > 19"}).

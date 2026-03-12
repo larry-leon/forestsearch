@@ -368,7 +368,7 @@ extract_idx_flagredundancy <- function(x, rmin) {
   id.x <- rep(1, n)
   flag.redundant <- FALSE
   nx.last <- n
-  for (m in 1:ncol(x)) {
+  for (m in seq_len(ncol(x))) {
     if (!flag.redundant) {
       id.x <- id.x * x[, m]
       nx.this <- sum(id.x)

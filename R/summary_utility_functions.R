@@ -507,7 +507,7 @@ sg_tables <- function(fs,
   # Get d1 for each subgroup in sg10
   sg10$d1 <- NA
 
-  for (i in 1:nrow(sg10)) {
+  for (i in seq_len(nrow(sg10))) {
     # Get the subgroup ID
     sg_id <- sg10[i, "g"]
 

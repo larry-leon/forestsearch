@@ -256,7 +256,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   # Excluding cuts
   if(!is.null(exclude_cuts)){
     # Remove the restricted cuts (eg., not allowing a variable to be "<=")
-    for(ee in 1:length(exclude_cuts)){
+    for(ee in seq_along(exclude_cuts)){
       to_exclude <- grepl(exclude_cuts[ee],confs)
       confs <- confs[!to_exclude]
     }
@@ -325,7 +325,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   confs_to_index <- setNames(seq_along(confs), confs)
 
   # Generate new column names
-  names_new <- c(unlist(lapply(c(1:length(c(conf.cont_cuts, conf.categorical))),
+  names_new <- c(unlist(lapply(seq_along(c(conf.cont_cuts, conf.categorical)),
                                function(x){paste0("q",x,sep="")})))
 
   # Process continuous cuts (use cached evaluations)
