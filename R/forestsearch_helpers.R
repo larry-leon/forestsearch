@@ -230,25 +230,33 @@ get_param <- function(args_list, param_name, default_value) {
 }
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Core helper: evaluates any expression string against a data frame
-# ─────────────────────────────────────────────────────────────────────
-# eval(parse()) is used here intentionally: subset_expr strings are
-# user-supplied arbitrary logical expressions (e.g. "age < 65 & pgr > 0")
-# that cannot be handled by the single-comparison evaluate_comparison().
-# Evaluation is sandboxed via list2env(..., parent = baseenv()).
-
 #' Evaluate an expression string in a data-frame scope
 #'
 #' Parses and evaluates \code{expr} in a restricted environment
 #' containing only the columns of \code{df} (parent: \code{baseenv()}).
 #' This isolates evaluation from the global environment, reducing
 #' scope for unintended side effects.
+#'
 #' @param df Data frame providing column names as variables.
 #' @param expr Character. Expression to evaluate
 #'   (e.g., \code{"BM > 1 & tmrsize > 19"}).
 #'
 #' @return Result of evaluating \code{expr}, or \code{NULL} on failure.
+#'
+#' @note
+#'   \code{eval(parse())} is used intentionally here.
+#'   \code{\link{evaluate_comparison}} handles only single comparisons
+#'   (e.g., \code{"er <= 0"}); this function is needed for the compound
+#'   logical expressions produced by the ForestSearch subgroup enumeration
+#'   algorithm (e.g., \code{"er <= 0 & nodes > 3"}).  Evaluation is
+#'   sandboxed: the environment contains only the columns of \code{df}
+#'   with \code{baseenv()} as parent, so neither the global environment
+#'   nor any package namespace is in scope.  No user-supplied strings are
+#'   evaluated; only internally-constructed subgroup definition strings
+#'   reach this function.
+#'
+#' @seealso \code{\link{evaluate_comparison}} for the single-comparison
+#'   operator-dispatch alternative that avoids \code{eval(parse())}.
 #'
 #' @keywords internal
 safe_eval_expr <- function(df, expr) {

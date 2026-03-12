@@ -21,4 +21,20 @@ containing only the columns of \code{df} (parent: \code{baseenv()}).
 This isolates evaluation from the global environment, reducing
 scope for unintended side effects.
 }
+\note{
+\code{eval(parse())} is used intentionally here.
+\code{\link{evaluate_comparison}} handles only single comparisons
+(e.g., \code{"er <= 0"}); this function is needed for the compound
+logical expressions produced by the ForestSearch subgroup enumeration
+algorithm (e.g., \code{"er <= 0 & nodes > 3"}).  Evaluation is
+sandboxed: the environment contains only the columns of \code{df}
+with \code{baseenv()} as parent, so neither the global environment
+nor any package namespace is in scope.  No user-supplied strings are
+evaluated; only internally-constructed subgroup definition strings
+reach this function.
+}
+\seealso{
+\code{\link{evaluate_comparison}} for the single-comparison
+operator-dispatch alternative that avoids \code{eval(parse())}.
+}
 \keyword{internal}

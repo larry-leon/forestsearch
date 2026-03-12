@@ -7,6 +7,7 @@
 forestsearch_bootstrap_dofuture(
   fs.est,
   nb_boots,
+  seed = 8316951L,
   details = FALSE,
   show_three = FALSE,
   parallel_args = list()
@@ -17,6 +18,14 @@ forestsearch_bootstrap_dofuture(
 Must contain \code{df.est} (data frame) and \code{args_call_all} (list of arguments).}
 
 \item{nb_boots}{Integer. Number of bootstrap samples (recommend 500-1000).}
+
+\item{seed}{Integer. Random seed for reproducibility of bootstrap sample
+generation. Default \code{8316951L}. The value is passed to both
+\code{\link{bootstrap_ystar}} (which constructs the \eqn{n \times B}
+bootstrap index matrix) and \code{\link{bootstrap_results}} (which
+re-runs the ForestSearch algorithm on each replicate); both calls must
+use the same seed to ensure bootstrap index alignment. Set to
+\code{NULL} for a non-reproducible run.}
 
 \item{details}{Logical. If \code{TRUE}, prints detailed progress information.
 Default: \code{FALSE}.}

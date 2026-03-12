@@ -413,21 +413,25 @@ evaluate_cuts_once <- function(confs, df, details = FALSE) {
   for (i in seq_along(confs)) {
     thiscut <- confs[i]
 
-    tryCatch({
+    result_i <- tryCatch({
       # Use evaluate_comparison() — no eval(parse()) needed
       # Cut expressions are always single comparisons like "er <= 0"
       result <- evaluate_comparison(thiscut, df)
-
-      evaluations[[i]] <- as.logical(result)
-      is_valid[i] <- length(unique(result)) > 1
-
+      list(
+        evaluation = as.logical(result),
+        is_valid   = length(unique(result)) > 1,
+        has_error  = FALSE
+      )
     }, error = function(e) {
-      has_error[i] <<- TRUE
-      is_valid[i] <<- FALSE
       if (details) {
         cat("Error evaluating cut '", thiscut, "': ", e$message, "\n", sep = "")
       }
+      list(evaluation = NULL, is_valid = FALSE, has_error = TRUE)
     })
+
+    evaluations[[i]] <- result_i$evaluation
+    is_valid[i]      <- result_i$is_valid
+    has_error[i]     <- result_i$has_error
   }
 
   if (details) {

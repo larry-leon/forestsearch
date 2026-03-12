@@ -1407,8 +1407,11 @@ summaryout_mrct <- function(
     w_val2 <- w_val
   }
 
-  # Track whether any trimming occurred (for footnote)
-  trimmed_any <- FALSE
+  # Track whether any trimming occurred (for footnote).
+  # Uses an environment so the fmt_mean_sd closure can update the flag
+  # without <<-, which CRAN flags as a global-assignment concern.
+  trim_env <- new.env(parent = emptyenv())
+  trim_env$trimmed_any <- FALSE
 
   # ===========================================================================
   # Helper formatters (shared across scenarios)
@@ -1428,7 +1431,7 @@ summaryout_mrct <- function(
 
       if (length(x_trim) < 3) return("--")
 
-      trimmed_any <<- TRUE
+      trim_env$trimmed_any <- TRUE
       sprintf("%.*f (%.*f)*", d, mean(x_trim), d, stats::sd(x_trim))
     } else {
       sprintf("%.*f (%.*f)", d, mean(x), d, stats::sd(x))
@@ -1813,7 +1816,7 @@ summaryout_mrct <- function(
   }
 
   # --- Trimming footnote ---
-  if (trimmed_any) {
+  if (trim_env$trimmed_any) {
     pct <- round(trim_fraction * 100)
     trim_note <- sprintf(
       "* Trimmed mean/SD: lower and upper %d%% excluded (raw mean exceeded %s)",
