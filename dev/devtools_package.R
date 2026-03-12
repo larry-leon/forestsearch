@@ -165,11 +165,20 @@ pak::pak("larry-leon/forestsearch")
 # Restart R again, then:
 #pak::pak("larry-leon/forestsearch")
 
-# Build the tarball
-R CMD build forestsearch/
 
+devtools::build()                          # creates the tarball
+
+devtools::check_built(
+  "/Users/larryleon/Documents/GitHub/forestsearch/dev/code-working/CRAN_submission_steps/version_010/forestsearch_0.1.0.tar.gz",
+  args = "--as-cran"
+)
+
+
+
+# Build the tarball
+#R CMD build forestsearch/
 # Run the full CRAN check
-R CMD check --as-cran forestsearch_0.1.0.tar.gz
+#R CMD check --as-cran forestsearch_0.1.0.tar.gz
 
 
 # corrupt .rdb cached.  Force remove it
