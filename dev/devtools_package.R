@@ -138,6 +138,9 @@ devtools::load_all(".")
 
 devtools::check()
 
+# CRAN-level check (stricter; use this before submission)
+devtools::check(cran = TRUE)
+
 devtools::clean_dll()
 
 devtools::install(quick = TRUE)
@@ -162,9 +165,12 @@ pak::pak("larry-leon/forestsearch")
 # Restart R again, then:
 #pak::pak("larry-leon/forestsearch")
 
+# Build the tarball
+R CMD build forestsearch/
 
-# Run these before CRAN submission
-devtools::check(cran = TRUE)     # Full CRAN validation
+# Run the full CRAN check
+R CMD check --as-cran forestsearch_0.1.0.tar.gz
+
 
 # corrupt .rdb cached.  Force remove it
 # from terminal
