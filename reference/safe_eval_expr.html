@@ -80,6 +80,24 @@ scope for unintended side effects.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Result of evaluating <code>expr</code>, or <code>NULL</code> on failure.</p>
     </div>
+    <div class="section level2">
+    <h2 id="note">Note<a class="anchor" aria-label="anchor" href="#note"></a></h2>
+    <p><code>eval(parse())</code> is used intentionally here.
+<code><a href="evaluate_comparison.html">evaluate_comparison</a></code> handles only single comparisons
+(e.g., <code>"er &lt;= 0"</code>); this function is needed for the compound
+logical expressions produced by the ForestSearch subgroup enumeration
+algorithm (e.g., <code>"er &lt;= 0 &amp; nodes &gt; 3"</code>).  Evaluation is
+sandboxed: the environment contains only the columns of <code>df</code>
+with <code><a href="https://rdrr.io/r/base/environment.html" class="external-link">baseenv()</a></code> as parent, so neither the global environment
+nor any package namespace is in scope.  No user-supplied strings are
+evaluated; only internally-constructed subgroup definition strings
+reach this function.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>
+    <div class="dont-index"><p><code><a href="evaluate_comparison.html">evaluate_comparison</a></code> for the single-comparison
+operator-dispatch alternative that avoids <code>eval(parse())</code>.</p></div>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

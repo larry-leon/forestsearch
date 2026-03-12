@@ -1219,7 +1219,7 @@ results_alt <- foreach(
     ## Batch 3 / 3 : candidates 3 - 3 
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 18.708 0.3118 
+    ## Seconds and minutes forestsearch overall = 19.063 0.3177 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1237,7 +1237,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 9.3 minutes
+    ## Completed in 9.2 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1298,7 +1298,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 351 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.05 minutes
+    ## Subgroup search completed in 0.04 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 351 
@@ -1322,7 +1322,7 @@ results_null <- foreach(
     ## Batch 1 / 1 : candidates 1 - 1 
     ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 10.372 0.1729 
+    ## Seconds and minutes forestsearch overall = 9.347 0.1558 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2177,16 +2177,16 @@ reproducibility information.
 |---------------------------------------------------------|-------------|------------|------------|
 | 133 H1 + 133 H0 simulations, 3 workers                  |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1)                                       | 0.3         | 0.01       | 0.0        |
+| DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
 | Calibrate k_inter (Cox)                                 | 7.3         | 0.12       | 0.7        |
-| Calibrate k_inter (AHR)                                 | 3.2         | 0.05       | 0.3        |
+| Calibrate k_inter (AHR)                                 | 3.5         | 0.06       | 0.3        |
 | Validate k_inter                                        | 0.7         | 0.01       | 0.1        |
 | DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
-| Simulations H1                                          | 556.2       | 9.27       | 52.2       |
-| Simulations H0                                          | 461.9       | 7.70       | 43.3       |
+| Simulations H1                                          | 555.0       | 9.25       | 52.1       |
+| Simulations H0                                          | 461.5       | 7.69       | 43.3       |
 | Summarize H1                                            | 0.2         | 0.00       | 0.0        |
 | Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 1,066.4     | 17.77      | 100.0      |
+| Total vignette                                          | 1,065.1     | 17.75      | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)

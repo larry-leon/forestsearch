@@ -1746,7 +1746,7 @@ search algorithm:</p>
 <span><span class="co">## Batch 3 / 3 : candidates 3 - 3 </span></span>
 <span><span class="co">## Evaluated 3 of 3 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 18.708 0.3118 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 19.063 0.3177 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 47.90727 2 </span></span>
 <span><span class="co">##    leaf.node control.mean control.size control.se depth</span></span>
@@ -1761,7 +1761,7 @@ search algorithm:</p>
 <span><span class="va">runtime_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/difftime.html" class="external-link">difftime</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time</a></span><span class="op">(</span><span class="op">)</span>, <span class="va">start_time</span>, units <span class="op">=</span> <span class="st">"mins"</span><span class="op">)</span></span>
 <span><span class="va">timings</span><span class="op">$</span><span class="va">sims_alt_wall</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">runtime_alt</span><span class="op">)</span> <span class="op">*</span> <span class="fl">60</span>  <span class="co"># store in seconds</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Completed in"</span>, <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">runtime_alt</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"minutes\n"</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## Completed in 9.3 minutes</span></span></code></pre>
+<pre><code><span><span class="co">## Completed in 9.2 minutes</span></span></code></pre>
 <div class="sourceCode" id="cb143"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Results:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">results_alt</span><span class="op">)</span>, <span class="st">"rows\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Results: 266 rows</span></span></code></pre>
@@ -1815,7 +1815,7 @@ search algorithm:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 351 </span></span>
 <span><span class="co">## Events criteria: control &gt;= 12 , treatment &gt;= 12 </span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.05 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.04 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 351 </span></span>
@@ -1839,7 +1839,7 @@ search algorithm:</p>
 <span><span class="co">## Batch 1 / 1 : candidates 1 - 1 </span></span>
 <span><span class="co">## Evaluated 1 of 1 candidates (complete) </span></span>
 <span><span class="co">## No subgroups found meeting consistency threshold</span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 10.372 0.1729 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 9.347 0.1558 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## tau, maxdepth = 43.8823 2 </span></span>
 <span><span class="co">##   leaf.node control.mean control.size control.se depth</span></span>
@@ -6248,8 +6248,8 @@ reproducibility information.</p>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Stage" class="gt_row gt_left">DGM creation (H1)</td>
-<td headers="Seconds" class="gt_row gt_right">0.3</td>
-<td headers="Minutes" class="gt_row gt_right">0.01</td>
+<td headers="Seconds" class="gt_row gt_right">0.2</td>
+<td headers="Minutes" class="gt_row gt_right">0.00</td>
 <td headers="Pct" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
@@ -6260,8 +6260,8 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Calibrate k_inter (AHR)</td>
-<td headers="Seconds" class="gt_row gt_right">3.2</td>
-<td headers="Minutes" class="gt_row gt_right">0.05</td>
+<td headers="Seconds" class="gt_row gt_right">3.5</td>
+<td headers="Minutes" class="gt_row gt_right">0.06</td>
 <td headers="Pct" class="gt_row gt_right">0.3</td>
 </tr>
 <tr>
@@ -6278,14 +6278,14 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H1</td>
-<td headers="Seconds" class="gt_row gt_right">556.2</td>
-<td headers="Minutes" class="gt_row gt_right">9.27</td>
-<td headers="Pct" class="gt_row gt_right">52.2</td>
+<td headers="Seconds" class="gt_row gt_right">555.0</td>
+<td headers="Minutes" class="gt_row gt_right">9.25</td>
+<td headers="Pct" class="gt_row gt_right">52.1</td>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left">Simulations H0</td>
-<td headers="Seconds" class="gt_row gt_right">461.9</td>
-<td headers="Minutes" class="gt_row gt_right">7.70</td>
+<td headers="Seconds" class="gt_row gt_right">461.5</td>
+<td headers="Minutes" class="gt_row gt_right">7.69</td>
 <td headers="Pct" class="gt_row gt_right">43.3</td>
 </tr>
 <tr>
@@ -6302,8 +6302,8 @@ reproducibility information.</p>
 </tr>
 <tr>
 <td headers="Stage" class="gt_row gt_left" style="font-weight: bold;">Total vignette</td>
-<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">1,066.4</td>
-<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">17.77</td>
+<td headers="Seconds" class="gt_row gt_right" style="font-weight: bold;">1,065.1</td>
+<td headers="Minutes" class="gt_row gt_right" style="font-weight: bold;">17.75</td>
 <td headers="Pct" class="gt_row gt_right" style="font-weight: bold;">100.0</td>
 </tr>
 </tbody>

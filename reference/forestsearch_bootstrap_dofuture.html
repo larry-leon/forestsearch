@@ -57,6 +57,7 @@ Implements bias correction methods to adjust for optimism in subgroup selection.
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">forestsearch_bootstrap_dofuture</span><span class="op">(</span></span>
 <span>  <span class="va">fs.est</span>,</span>
 <span>  <span class="va">nb_boots</span>,</span>
+<span>  seed <span class="op">=</span> <span class="fl">8316951L</span>,</span>
 <span>  details <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  show_three <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -74,6 +75,16 @@ Must contain <code>df.est</code> (data frame) and <code>args_call_all</code> (li
 
 <dt id="arg-nb-boots">nb_boots<a class="anchor" aria-label="anchor" href="#arg-nb-boots"></a></dt>
 <dd><p>Integer. Number of bootstrap samples (recommend 500-1000).</p></dd>
+
+
+<dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>
+<dd><p>Integer. Random seed for reproducibility of bootstrap sample
+generation. Default <code>8316951L</code>. The value is passed to both
+<code><a href="bootstrap_ystar.html">bootstrap_ystar</a></code> (which constructs the \(n \times B\)
+bootstrap index matrix) and <code><a href="bootstrap_results.html">bootstrap_results</a></code> (which
+re-runs the ForestSearch algorithm on each replicate); both calls must
+use the same seed to ensure bootstrap index alignment. Set to
+<code>NULL</code> for a non-reproducible run.</p></dd>
 
 
 <dt id="arg-details">details<a class="anchor" aria-label="anchor" href="#arg-details"></a></dt>

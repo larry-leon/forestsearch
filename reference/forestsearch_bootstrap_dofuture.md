@@ -10,6 +10,7 @@ optimism in subgroup selection.
 forestsearch_bootstrap_dofuture(
   fs.est,
   nb_boots,
+  seed = 8316951L,
   details = FALSE,
   show_three = FALSE,
   parallel_args = list()
@@ -28,6 +29,17 @@ forestsearch_bootstrap_dofuture(
 - nb_boots:
 
   Integer. Number of bootstrap samples (recommend 500-1000).
+
+- seed:
+
+  Integer. Random seed for reproducibility of bootstrap sample
+  generation. Default `8316951L`. The value is passed to both
+  [`bootstrap_ystar`](https://larry-leon.github.io/forestsearch/reference/bootstrap_ystar.md)
+  (which constructs the \\n \times B\\ bootstrap index matrix) and
+  [`bootstrap_results`](https://larry-leon.github.io/forestsearch/reference/bootstrap_results.md)
+  (which re-runs the ForestSearch algorithm on each replicate); both
+  calls must use the same seed to ensure bootstrap index alignment. Set
+  to `NULL` for a non-reproducible run.
 
 - details:
 
