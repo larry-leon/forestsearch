@@ -10,6 +10,16 @@
 #'   bootstrap index alignment with the Ystar matrix.
 #' @return Matrix of bootstrap samples (nb_boots x nrow(df)).
 #' @importFrom foreach foreach
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(id = 1:50, tte = rexp(50), event = rbinom(50, 1, 0.6),
+#'                  treat = rep(0:1, 25))
+#' future::plan(future::sequential)
+#' ystar <- bootstrap_ystar(df, nb_boots = 10)
+#' dim(ystar)
+#' future::plan(future::sequential)
+#' }
 #' @export
 
 bootstrap_ystar <- function(df, nb_boots, seed = 8316951L) {
@@ -37,6 +47,10 @@ suppressWarnings({foreach::foreach(
 #' @param x ID value.
 #' @param dfb Data frame of bootstrap sample.
 #' @return Integer count of occurrences.
+#' @examples
+#' df_boot <- data.frame(id = c(1, 2, 1, 3, 1), id_boot = 1:5)
+#' count_boot_id(1, df_boot)  # returns 3
+#' count_boot_id(4, df_boot)  # returns 0
 #' @export
 
 count_boot_id <- function(x,dfb){
@@ -127,6 +141,12 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
 #' @param estimates Data frame or data.table of estimates.
 #' @param col_names Character vector of column names for estimate, lower, upper.
 #' @return Character string formatted as \"estimate (lower, upper)\".
+#' @examples
+#' \donttest{
+#' library(data.table)
+#' est <- data.table(hr = 1.58, lower = 0.86, upper = 2.90)
+#' format_CI(est, col_names = c("hr", "lower", "upper"))
+#' }
 #' @export
 
 format_CI <- function(estimates, col_names) {
@@ -151,6 +171,15 @@ format_CI <- function(estimates, col_names) {
 #' @param est.loghr Logical. Is estimate on log(HR) scale?
 #' @return Data.table with confidence intervals and estimates.
 #' @importFrom data.table data.table
+#' @examples
+#' \dontrun{
+#'   # get_dfRes is called internally by forestsearch_bootstrap_dofuture().
+#'   # To use directly, supply bootstrap sample matrix from bootstrap_ystar():
+#'   #   ystar <- bootstrap_ystar(df, nb_boots = 100, seed = 42L)
+#'   #   res <- get_dfRes(Hobs = log(1.5), seHobs = 0.3,
+#'   #                    H1_adj = 0.05, H2_adj = 0.03,
+#'   #                    ystar = ystar)
+#' }
 #' @export
 
 get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar, cov_method = "standard", cov_trim = 0.0, est.scale = "hr", est.loghr = TRUE) {

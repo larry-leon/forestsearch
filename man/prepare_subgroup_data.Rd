@@ -21,3 +21,12 @@ List with subgroup data frames and treatment variable name.
 \description{
 Splits a data frame into two subgroups based on a flag and treatment scale.
 }
+\examples{
+df <- data.frame(
+  treat = c(0, 1, 0, 1, 0),
+  sg_flag = c(1, 1, 0, 0, 1)
+)
+result <- prepare_subgroup_data(df, SG_flag = "sg_flag",
+                                 est.scale = "hr", treat.name = "treat")
+nrow(result$df_1)
+}

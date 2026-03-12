@@ -769,6 +769,16 @@ cox_ahr_cde_analysis <- function(
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' res <- cox_ahr_cde_analysis(df,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"))
+#' print(res)
+#' }
 #' @export
 #' @method print cox_ahr_cde
 print.cox_ahr_cde <- function(x, ...) {
@@ -818,6 +828,16 @@ print.cox_ahr_cde <- function(x, ...) {
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' res <- cox_ahr_cde_analysis(df,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"))
+#' summary(res)
+#' }
 #' @export
 #' @method summary cox_ahr_cde
 summary.cox_ahr_cde <- function(object, ...) {

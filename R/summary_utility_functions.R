@@ -4,6 +4,8 @@
 #'
 #' @param hrest Numeric vector with HR, lower, and upper confidence limits.
 #' @return Character string formatted as \"HR (lower, upper)\".
+#' @examples
+#' hrCI_format(c(1.45, 0.98, 2.14))
 #' @export
 
 hrCI_format <- function(hrest) {
@@ -18,6 +20,8 @@ hrCI_format <- function(hrest) {
 #' @param x Vector of values.
 #' @param denom Denominator for percent calculation.
 #' @return Character string formatted as \"n (percent%)\".
+#' @examples
+#' n_pcnt(1:30, 100)
 #' @export
 
 n_pcnt <- function(x, denom) {
@@ -34,6 +38,14 @@ n_pcnt <- function(x, denom) {
 #' @param est.scale Character. Effect scale ("hr" or "1/hr").
 #' @param treat.name Character. Name of treatment variable.
 #' @return List with subgroup data frames and treatment variable name.
+#' @examples
+#' df <- data.frame(
+#'   treat = c(0, 1, 0, 1, 0),
+#'   sg_flag = c(1, 1, 0, 0, 1)
+#' )
+#' result <- prepare_subgroup_data(df, SG_flag = "sg_flag",
+#'                                  est.scale = "hr", treat.name = "treat")
+#' nrow(result$df_1)
 #' @export
 
 prepare_subgroup_data <- function(df, SG_flag, est.scale, treat.name) {
@@ -139,6 +151,17 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
 #' @return List with tau, RMST, RMST for treatment, RMST for control.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(
+#'   tte   = gbsg$rfstime / 30.4375,
+#'   event = gbsg$status,
+#'   treat = gbsg$hormon
+#' )
+#' rmst_calculation(df, tte.name = "tte", event.name = "event",
+#'                  treat.name = "treat")
+#' }
 #' @export
 
 rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name = "treat"){
@@ -188,6 +211,27 @@ rmst_calculation <- function(df,tte.name = "tte",event.name = "event",treat.name
 #' @param return_medians Logical. Use medians or RMST.
 #' @param N Integer. Total sample size.
 #' @return Character vector of results.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(
+#'   tte   = gbsg$rfstime / 30.4375,
+#'   event = gbsg$status,
+#'   treat = gbsg$hormon
+#' )
+#' analyze_subgroup(
+#'   df_sub        = df,
+#'   outcome.name  = "tte",
+#'   event.name    = "event",
+#'   treat.name    = "treat",
+#'   strata.name   = NULL,
+#'   subgroup_name = "All",
+#'   hr_a          = NA,
+#'   potentialOutcome.name = NULL,
+#'   return_medians = TRUE,
+#'   N             = nrow(df)
+#' )
+#' }
 #' @export
 
 analyze_subgroup <- function(df_sub, outcome.name, event.name, treat.name,
@@ -271,6 +315,20 @@ analyze_subgroup <- function(df_sub, outcome.name, event.name, treat.name,
 #' @param return_medians Logical. Use medians or RMST.
 #' @param est.scale Character. Effect scale ("hr" or "1/hr").
 #' @return Data frame of subgroup summary estimates.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(
+#'   tte          = gbsg$rfstime / 30.4375,
+#'   event        = gbsg$status,
+#'   treat        = gbsg$hormon,
+#'   treat.recommend = as.integer(gbsg$er > 0)
+#' )
+#' SG_tab_estimates(df, SG_flag = "ITT",
+#'                  outcome.name = "tte",
+#'                  event.name   = "event",
+#'                  treat.name   = "treat")
+#' }
 #' @export
 
 SG_tab_estimates <- function(df, SG_flag, outcome.name = "tte", event.name = "event", treat.name = "treat", strata.name = NULL,
@@ -396,6 +454,22 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #'
 #' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note
 #'   tab_options md px
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' fs <- forestsearch(
+#'   gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name     = "rfstime",
+#'   treat.name       = "hormon",
+#'   event.name       = "status",
+#'   fs.splits        = 50,
+#'   use_lasso        = FALSE,
+#'   use_grf          = FALSE
+#' )
+#' tabs <- sg_tables(fs)
+#' tabs$tab_estimates
+#' }
 #' @export
 sg_tables <- function(fs,
                       which_df = "est",

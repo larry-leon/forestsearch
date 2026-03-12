@@ -53,3 +53,12 @@ not met.
 Evaluates a single subgroup for consistency across random splits using
 a fixed number of splits.
 }
+\examples{
+\dontrun{
+# evaluate_subgroup_consistency() is called internally by forestsearch().
+# Use forestsearch() as the standard entry point:
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+}
+}

@@ -16,3 +16,7 @@ expanded via \code{\link{acm.disjctif}}.
 \description{
 Dummy-code a data frame (numeric pass-through, factors expanded)
 }
+\examples{
+df <- data.frame(age = c(40, 55, 70), grade = factor(c("1", "2", "3")))
+dummy_encode(df)
+}

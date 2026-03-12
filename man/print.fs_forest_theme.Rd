@@ -14,3 +14,7 @@
 \description{
 Print Method for ForestSearch Forest Theme
 }
+\examples{
+theme <- create_forest_theme()
+print(theme)
+}

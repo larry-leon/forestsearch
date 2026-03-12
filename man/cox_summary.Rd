@@ -36,3 +36,13 @@ Called in analyze_subgroup() <-- SG_tab_estimates
 Calculates hazard ratio and confidence interval for a subgroup using Cox regression.
 Optimized version with reduced overhead and better error handling.
 }
+\examples{
+\dontrun{
+library(survival)
+cox_summary(
+  Y     = gbsg$rfstime / 30.4375,
+  E     = gbsg$status,
+  Treat = gbsg$hormon
+)
+}
+}

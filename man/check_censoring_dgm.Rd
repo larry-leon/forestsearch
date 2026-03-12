@@ -67,6 +67,13 @@ censoring substantially from the fitted model. (3) Short
 \code{analysis_time} or \code{time_eos} making administrative censoring
 dominate the censoring process.
 }
+\examples{
+\dontrun{
+dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+sim_data <- simulate_from_dgm(dgm, n = 200)
+check_censoring_dgm(sim_data, dgm = dgm)
+}
+}
 \seealso{
 \code{\link{simulate_from_dgm}}, \code{\link{generate_aft_dgm_flex}}
 }

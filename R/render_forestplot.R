@@ -204,6 +204,9 @@ create_forest_theme <- function(
 #'
 #' @param x An fs_forest_theme object
 #' @param ... Additional arguments (ignored)
+#' @examples
+#' theme <- create_forest_theme()
+#' print(theme)
 #' @export
 print.fs_forest_theme <- function(x, ...) {
   cat("ForestSearch Forest Plot Theme\n")
@@ -362,6 +365,15 @@ save_forestplot <- function(
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), gbsg,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
+#' print(fp)
+#' }
 #' @export
 print.fs_forestplot <- function(x, ...) {
   cat("ForestSearch Subgroup Results Forest Plot\n")
@@ -390,6 +402,15 @@ print.fs_forestplot <- function(x, ...) {
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), gbsg,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
+#' plot(fp)
+#' }
 #' @export
 plot.fs_forestplot <- function(x, ...) {
   render_forestplot(x)

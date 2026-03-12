@@ -21,6 +21,12 @@
 #'
 #' @return None. Sets up parallel backend as side effect.
 #'
+#' @examples
+#' \donttest{
+#' setup_parallel_SGcons(list(plan = "sequential", workers = 1,
+#'                             show_message = FALSE))
+#' future::plan(future::sequential)  # reset
+#' }
 #' @importFrom future plan multisession multicore sequential
 #' @export
 setup_parallel_SGcons <- function(parallel_args = list(
@@ -84,6 +90,9 @@ setup_parallel_SGcons <- function(parallel_args = list(
 #'
 #' @return Named numeric vector with elements: estimate, lower, upper.
 #'
+#' @examples
+#' wilson_ci(90, 100)
+#' wilson_ci(5, 20, conf.level = 0.90)
 #' @export
 wilson_ci <- function(x, n, conf.level = 0.95) {
   if (n == 0) {
@@ -117,6 +126,10 @@ wilson_ci <- function(x, n, conf.level = 0.95) {
 #'
 #' @return Character. One of "continue", "pass", or "fail".
 #'
+#' @examples
+#' early_stop_decision(95, 100, threshold = 0.90)
+#' early_stop_decision(60, 100, threshold = 0.90)
+#' early_stop_decision(10, 15, threshold = 0.90)  # below min_samples
 #' @export
 early_stop_decision <- function(n_success, n_total, threshold,
                                 conf.level = 0.95, min_samples = 20) {
@@ -152,6 +165,16 @@ early_stop_decision <- function(n_success, n_total, threshold,
 #'
 #' @return Numeric. Estimated hazard ratio, or NA if model fails.
 #'
+#' @examples
+#' \donttest{
+#' set.seed(42)
+#' df <- data.frame(
+#'   Y     = rexp(80),
+#'   Event = rbinom(80, 1, 0.6),
+#'   Treat = rep(0:1, 40)
+#' )
+#' get_split_hr_fast(df)
+#' }
 #' @importFrom survival coxph Surv
 #' @export
 get_split_hr_fast <- function(df, cox_init = 0) {
@@ -191,6 +214,17 @@ get_split_hr_fast <- function(df, cox_init = 0) {
 #'
 #' @return Numeric. 1 if both splits meet threshold, 0 if not, NA if error.
 #'
+#' @examples
+#' \donttest{
+#' library(data.table)
+#' set.seed(1)
+#' df <- data.table(
+#'   Y     = rexp(100),
+#'   Event = rbinom(100, 1, 0.55),
+#'   Treat = rep(0:1, 50)
+#' )
+#' run_single_consistency_split(df, N.x = 100, hr.consistency = 1.0)
+#' }
 #' @export
 run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0) {
 
@@ -304,6 +338,15 @@ FS_labels <- function(Qsg, confs_labels) {
 #' @param result_new A data.table of subgroup results.
 #' @param sg_focus Sorting focus: "hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG".
 #' @return A sorted data.table.
+#' @examples
+#' \donttest{
+#' library(data.table)
+#' dt <- data.table(Pcons = c(0.92, 0.95, 0.88),
+#'                  hr    = c(1.8, 1.5, 2.1),
+#'                  N     = c(80, 120, 60),
+#'                  K     = c(1, 2, 1))
+#' sort_subgroups(dt, sg_focus = "hr")
+#' }
 #' @importFrom data.table setorder
 #' @export
 sort_subgroups <- function(result_new, sg_focus) {
@@ -428,6 +471,15 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @return List with results, subgroup definition, labels, flags, and group id.
 #'
 #' @importFrom data.table copy
+#' @examples
+#' \dontrun{
+#' # sg_consistency_out is called internally by forestsearch().
+#' # See forestsearch() for the standard entry point.
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' fs$grp.consistency$out_sg
+#' }
 #' @export
 sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
                                details = FALSE, plot.sg = FALSE,
@@ -566,6 +618,14 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' @return Named numeric vector with consistency results, or NULL if criteria
 #'   not met.
 #'
+#' @examples
+#' \dontrun{
+#' # evaluate_subgroup_consistency() is called internally by forestsearch().
+#' # Use forestsearch() as the standard entry point:
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' }
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
 #' @export
@@ -758,6 +818,15 @@ evaluate_subgroup_consistency <- function(
 #'
 #' @return Named numeric vector with consistency results, or NULL if not met.
 #'
+#' @examples
+#' \dontrun{
+#' # evaluate_consistency_twostage() is called internally by forestsearch()
+#' # when use_twostage = TRUE. Use forestsearch() as the entry point:
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status",
+#'   use_twostage = TRUE)
+#' }
 #' @importFrom data.table data.table as.data.table
 #' @importFrom survival coxph Surv
 #' @export

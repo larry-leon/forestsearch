@@ -29,3 +29,13 @@ List with selected, omitted variables, coefficients, lambda, and fits.
 \description{
 Performs LASSO variable selection using Cox regression.
 }
+\examples{
+\donttest{
+library(survival)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+lasso_selection(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status")
+}
+}

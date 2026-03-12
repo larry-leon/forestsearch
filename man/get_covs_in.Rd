@@ -41,3 +41,15 @@ Numeric vector indicating selected factors (1 = included, 0 = not included).
 \description{
 Returns a vector indicating which factors are included in a subgroup combination.
 }
+\examples{
+# Build index matrices directly (L=4, maxk=2)
+L <- 4
+idx1 <- matrix(seq_len(L), ncol = 1)          # single-factor indices
+idx2 <- t(utils::combn(L, 2))                 # two-factor indices
+# Combination 3 falls in the single-factor block (kk=3 -> factor 3)
+get_covs_in(kk = 3, maxk = 2, L = L,
+            counts_1factor = nrow(idx1),
+            index_1factor  = idx1,
+            counts_2factor = nrow(idx2),
+            index_2factor  = idx2)
+}

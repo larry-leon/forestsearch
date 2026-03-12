@@ -1188,6 +1188,11 @@ get_dgm_with_output <- function(
 #' @param x A gbsg_dgm object
 #' @param ... Additional arguments (unused)
 #'
+#' @examples
+#' \dontrun{
+#' dgm <- create_gbsg_dgm()
+#' print(dgm)
+#' }
 #' @export
 print.gbsg_dgm <- function(x, ...) {
   cat("GBSG-Based AFT Data Generating Mechanism (Aligned)\n")

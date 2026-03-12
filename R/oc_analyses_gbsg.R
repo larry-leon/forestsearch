@@ -1528,6 +1528,12 @@ run_grf_analysis <- function(
 #'
 #' @return Data frame with summary statistics
 #'
+#' @examples
+#' \dontrun{
+#' dgm <- create_gbsg_dgm()
+#' sim_res <- run_simulation_analysis(dgm, nsim = 10)
+#' summarize_simulation_results(sim_res)
+#' }
 #' @export
 summarize_simulation_results <- function(
     results,
@@ -1705,6 +1711,11 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #' bias-corrected estimates and is not used in this summary table.
 #'
 #' @importFrom data.table is.data.table as.data.table
+#' @examples
+#' \dontrun{
+#' # format_oc_results() is called by summarize_simulation_results().
+#' # See run_simulation_analysis() for the standard entry point.
+#' }
 #' @export
 format_oc_results <- function(
     results,

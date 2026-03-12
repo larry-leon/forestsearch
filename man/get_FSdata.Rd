@@ -61,3 +61,15 @@ Prepares a dataset for ForestSearch, including options for LASSO-based dimension
 GRF cuts, forced cuts, and flexible cut strategies. Returns a list with the processed data,
 subgroup factor names, cut expressions, and LASSO selection results.
 }
+\examples{
+\donttest{
+library(survival)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+fs_data <- get_FSdata(df.analysis = df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status",
+  use_lasso = FALSE, use_grf = FALSE)
+names(fs_data)
+}
+}

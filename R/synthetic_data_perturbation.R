@@ -351,6 +351,12 @@ detect_variable_types <- function(data, max_unique_for_cat = 10, exclude_vars = 
 #' @param noise_level Noise level for perturbation
 #'
 #' @return Synthetic GBSG dataset
+#' @examples
+#' \dontrun{
+#' df_synth <- generate_gbsg_bootstrap_general(n = 200, seed = 42)
+#' dim(df_synth)
+#' names(df_synth)
+#' }
 #' @export
 
 generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0.1) {

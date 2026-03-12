@@ -300,6 +300,15 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #'
 #' @param dgm_result Result object from generate_aft_dgm_flex with spline
 #' @param add_points Logical; add observed data points. Default TRUE
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' dgm <- generate_aft_dgm_flex(df, outcome.name = "rfstime",
+#'                               event.name = "status", treat.name = "hormon",
+#'                               confounders.name = c("age", "meno", "nodes"))
+#' plot_spline_treatment_effect(dgm)
+#' }
 #' @export
 plot_spline_treatment_effect <- function(dgm_result, add_points = TRUE) {
 

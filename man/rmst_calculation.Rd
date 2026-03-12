@@ -26,3 +26,15 @@ List with tau, RMST, RMST for treatment, RMST for control.
 \description{
 Calculates restricted mean survival time (RMST) for a subgroup.
 }
+\examples{
+\dontrun{
+library(survival)
+df <- data.frame(
+  tte   = gbsg$rfstime / 30.4375,
+  event = gbsg$status,
+  treat = gbsg$hormon
+)
+rmst_calculation(df, tte.name = "tte", event.name = "event",
+                 treat.name = "treat")
+}
+}

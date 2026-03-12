@@ -104,6 +104,13 @@
 #'
 #' @export
 #' @importFrom stats rexp runif rnorm rbinom
+#' @examples
+#' \dontrun{
+#' dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+#' sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
+#' dim(sim_data)
+#' head(sim_data[, c("y_sim", "event_sim", "treat_sim")])
+#' }
 simulate_from_dgm <- function(dgm,
                               n              = NULL,
                               rand_ratio     = 1,
@@ -331,6 +338,12 @@ simulate_from_dgm <- function(dgm,
 #' @export
 #' @importFrom survival survfit Surv
 #' @importFrom stats quantile
+#' @examples
+#' \dontrun{
+#' dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+#' sim_data <- simulate_from_dgm(dgm, n = 200)
+#' check_censoring_dgm(sim_data, dgm = dgm)
+#' }
 check_censoring_dgm <- function(sim_data,
                                 dgm,
                                 treat_var  = "treat_sim",

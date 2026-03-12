@@ -18,6 +18,15 @@
 #' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md
 #'   cols_label tab_style cell_fill cell_text cells_body cells_column_labels
 #' @importFrom dplyr all_of
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 100)
+#' summaries <- summarize_bootstrap_results(fs$sg.harm, fs_bc)
+#' format_bootstrap_table(summaries$table_data)
+#' }
 #' @export
 format_bootstrap_table <- function(FSsg_tab,
                                    nb_boots,

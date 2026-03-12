@@ -21,3 +21,14 @@ Matrix of bootstrap samples (nb_boots x nrow(df)).
 \description{
 Generates a bootstrap matrix for Ystar using parallel processing.
 }
+\examples{
+\dontrun{
+library(survival)
+df <- data.frame(id = 1:50, tte = rexp(50), event = rbinom(50, 1, 0.6),
+                 treat = rep(0:1, 25))
+future::plan(future::sequential)
+ystar <- bootstrap_ystar(df, nb_boots = 10)
+dim(ystar)
+future::plan(future::sequential)
+}
+}

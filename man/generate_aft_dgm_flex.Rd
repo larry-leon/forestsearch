@@ -209,6 +209,22 @@ modification when ALL subgroup conditions are simultaneously satisfied. This
 is not multiple separate interactions but one combined indicator.
 }
 }
+\examples{
+\dontrun{
+df <- survival::gbsg
+dgm <- generate_aft_dgm_flex(
+  data            = df,
+  outcome_var     = "rfstime",
+  event_var       = "status",
+  treatment_var   = "hormon",
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars     = "meno",
+  model           = "null",
+  verbose         = FALSE
+)
+str(dgm)
+}
+}
 \references{
 Leon, L.F., et al. (2024). Statistics in Medicine.
 

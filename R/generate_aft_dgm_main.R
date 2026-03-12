@@ -154,6 +154,21 @@
 #'   Failure Time Data (2nd ed.). Wiley.
 #'
 #' @author Your Name
+#' @examples
+#' \dontrun{
+#' df <- survival::gbsg
+#' dgm <- generate_aft_dgm_flex(
+#'   data            = df,
+#'   outcome_var     = "rfstime",
+#'   event_var       = "status",
+#'   treatment_var   = "hormon",
+#'   continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+#'   factor_vars     = "meno",
+#'   model           = "null",
+#'   verbose         = FALSE
+#' )
+#' str(dgm)
+#' }
 #' @export
 #' @importFrom survival survreg coxph Surv
 #' @importFrom stats quantile median uniroot rexp runif rnorm rbinom model.matrix coef

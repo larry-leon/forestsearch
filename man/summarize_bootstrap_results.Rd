@@ -46,6 +46,19 @@ definition, analogous to the \code{tab_estimates} table from \code{\link{sg_tabl
 This is achieved by extracting the subgroup definition from \code{sgharm} and
 passing it to \code{\link{format_bootstrap_table}}.
 }
+\examples{
+\dontrun{
+library(survival)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+fs <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 100)
+summaries <- summarize_bootstrap_results(fs$sg.harm, fs_bc)
+summaries$table
+}
+}
 \seealso{
 \code{\link{format_bootstrap_table}} for table creation
 \code{\link{sg_tables}} for analogous main analysis tables

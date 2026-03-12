@@ -14,3 +14,9 @@
 \description{
 Print Method for gbsg_dgm Objects
 }
+\examples{
+\dontrun{
+dgm <- create_gbsg_dgm()
+print(dgm)
+}
+}

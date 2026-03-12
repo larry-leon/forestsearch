@@ -15,6 +15,11 @@
 #' @param maxdepth Integer. Maximum tree depth
 #' @param seedit Integer. Random seed
 #' @return List with configuration parameters
+#' @examples
+#' cfg <- create_grf_config(frac.tau = 0.6, n.min = 60, dmin.grf = 6,
+#'                          RCT = TRUE, sg.criterion = "mDiff",
+#'                          maxdepth = 2, seedit = 42L)
+#' str(cfg)
 #' @export
 
 create_grf_config <- function(frac.tau, n.min, dmin.grf, RCT,
@@ -45,6 +50,17 @@ create_grf_config <- function(frac.tau, n.min, dmin.grf, RCT,
 #' @param RCT Logical. Is this RCT data?
 #' @param seedit Integer. Random seed
 #' @return Causal survival forest object
+#' @examples
+#' \donttest{
+#' library(survival)
+#' library(grf)
+#' df <- survival::gbsg
+#' X <- as.matrix(df[, c("age", "meno", "size", "nodes", "pgr", "er")])
+#' tau <- quantile(df$rfstime[df$status == 1], 0.6)
+#' cs <- fit_causal_forest(X = X, Y = df$rfstime, W = df$hormon,
+#'                         D = df$status, tau.rmst = tau,
+#'                         RCT = FALSE, seedit = 42L)
+#' }
 #' @export
 
 fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
@@ -84,6 +100,11 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
 #' @param n.min Integer. Minimum subgroup size
 #' @return Data frame with node metrics
 #' @importFrom stats aggregate
+#' @examples
+#' \dontrun{
+#' # compute_node_metrics() is called internally by grf.subg.harm.survival().
+#' # See grf.subg.harm.survival() for the standard entry point.
+#' }
 #' @export
 
 compute_node_metrics <- function(data, dr.scores, tree, X, n.min) {
@@ -119,6 +140,11 @@ compute_node_metrics <- function(data, dr.scores, tree, X, n.min) {
 #' @param n.min Integer. Minimum subgroup size
 #' @return List with trees and combined values
 #' @importFrom policytree policy_tree
+#' @examples
+#' \dontrun{
+#' # fit_policy_trees() is called internally by grf.subg.harm.survival().
+#' # See grf.subg.harm.survival() for the standard entry point.
+#' }
 #' @export
 
 fit_policy_trees <- function(X, data, dr.scores, maxdepth, n.min) {
@@ -151,6 +177,10 @@ fit_policy_trees <- function(X, data, dr.scores, maxdepth, n.min) {
 #' @param dmin.grf Numeric. Minimum difference threshold
 #' @param n.max Integer. Maximum allowed subgroup size (total sample size)
 #' @return Data frame row with best subgroup or NULL if none found
+#' @examples
+#' vals <- data.frame(diff = c(8.5, 6.2, 3.1), Nsg = c(120, 95, 80))
+#' select_best_subgroup(values = vals, sg.criterion = "mDiff",
+#'                      dmin.grf = 6, n.max = 500)
 #' @export
 
 select_best_subgroup <- function(values, sg.criterion, dmin.grf, n.max) {
@@ -227,6 +257,11 @@ extract_tree_cuts <- function(tree) {
 #' @param tree Policy tree object
 #' @param leaf_node Integer. Leaf node identifier
 #' @return Character string with split expression or NULL
+#' @examples
+#' \dontrun{
+#' # find_leaf_split() is called internally by grf.subg.harm.survival().
+#' # See grf.subg.harm.survival() for the standard entry point.
+#' }
 #' @export
 
 find_leaf_split <- function(tree, leaf_node) {
@@ -514,6 +549,11 @@ create_null_result <- function(data, values, trees, config) {
 #' @param best_subgroup Data frame row. Selected subgroup (or NULL)
 #' @param sg_harm_id Character. Subgroup definition (or NULL)
 #' @param tree_cuts List. Cut information
+#' @examples
+#' \dontrun{
+#' # print_grf_details() is called internally by grf.subg.harm.survival().
+#' # See grf.subg.harm.survival() for the standard entry point.
+#' }
 #' @export
 
 print_grf_details <- function(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL) {
@@ -556,6 +596,10 @@ print_grf_details <- function(config, values, best_subgroup, sg_harm_id, tree_cu
 #' @param D Numeric vector. Event indicator
 #' @param n.min Integer. Minimum subgroup size
 #' @return Logical. TRUE if data is valid, FALSE with warning otherwise
+#' @examples
+#' W <- rep(0:1, each = 50)
+#' D <- rbinom(100, 1, 0.6)
+#' validate_grf_data(W, D, n.min = 60)
 #' @export
 
 validate_grf_data <- function(W, D, n.min) {

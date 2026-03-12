@@ -41,3 +41,13 @@ List with results, subgroup definition, labels, flags, and group id.
 \description{
 Returns the top subgroup(s) and recommended treatment flags.
 }
+\examples{
+\dontrun{
+# sg_consistency_out is called internally by forestsearch().
+# See forestsearch() for the standard entry point.
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+fs$grp.consistency$out_sg
+}
+}

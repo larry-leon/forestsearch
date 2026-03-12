@@ -17,3 +17,9 @@ Character string with split expression or NULL
 \description{
 Identifies the split point that creates a given leaf node
 }
+\examples{
+\dontrun{
+# find_leaf_split() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
+}
+}

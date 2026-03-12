@@ -37,3 +37,9 @@ Evaluates the performance of GRF-identified subgroups, including hazard ratios,
 bias, and predictive values. This function is typically used in simulation studies
 to assess the performance of the GRF subgroup identification method.
 }
+\examples{
+\dontrun{
+# grf.subg.eval() is called internally to evaluate GRF subgroup quality.
+# See grf.subg.harm.survival() for the standard entry point.
+}
+}

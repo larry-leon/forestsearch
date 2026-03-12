@@ -27,3 +27,10 @@ Data frame with summary statistics
 Creates a summary table of operating characteristics across all simulations.
 Includes both HR and AHR metrics.
 }
+\examples{
+\dontrun{
+dgm <- create_gbsg_dgm()
+sim_res <- run_simulation_analysis(dgm, nsim = 10)
+summarize_simulation_results(sim_res)
+}
+}

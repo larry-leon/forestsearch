@@ -28,3 +28,11 @@ A ggplot2 object
 Bar chart of subgroups identified across simulations, filtered to
 those appearing in at least \code{min_pct} of the found simulations.
 }
+\examples{
+\dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+plot_sg_distribution(fs$grp.consistency$result_new)
+}
+}

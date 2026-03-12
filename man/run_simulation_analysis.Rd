@@ -110,6 +110,14 @@ names.  This version calls \code{\link{simulate_from_dgm}} and accepts
 explicit column-name parameters, making it applicable to any DGM built
 with \code{\link{generate_aft_dgm_flex}}.
 }
+\examples{
+\dontrun{
+dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+results <- run_simulation_analysis(dgm, nsim = 5,
+  parallel_args = list(plan = "sequential"))
+summarize_simulation_results(results)
+}
+}
 \seealso{
 \code{\link{simulate_from_dgm}},
 \code{\link{generate_aft_dgm_flex}}, \code{\link{setup_gbsg_dgm}}

@@ -12,6 +12,13 @@
 #' @return A ggplot2 object
 #' @importFrom ggplot2 ggplot aes geom_col geom_text coord_flip
 #'   scale_y_continuous expansion labs theme_minimal theme element_text
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' plot_sg_distribution(fs$grp.consistency$result_new)
+#' }
 #' @export
 
 plot_sg_distribution <- function(results,

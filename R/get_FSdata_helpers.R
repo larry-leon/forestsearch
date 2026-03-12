@@ -64,6 +64,9 @@ cut_var <- function(x){
 #' @param conf.force.names Character vector of variable names.
 #' @param cont.cutoff Integer. Cutoff for continuous.
 #' @return Character vector of cut expressions.
+#' @examples
+#' df <- data.frame(age = c(45, 60, 35), size = c(20, 35, 15), grade = c(1, 2, 3))
+#' get_conf_force(df, conf.force.names = c("age", "size"))
 #' @export
 
 get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
@@ -103,6 +106,15 @@ get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
 #' @return List with selected, omitted variables, coefficients, lambda, and fits.
 #' @importFrom glmnet cv.glmnet glmnet
 #' @importFrom survival Surv
+#' @examples
+#' \donttest{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' lasso_selection(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status")
+#' }
 #' @export
 
 lasso_selection <- function(df, confounders.name, outcome.name, event.name, seedit = 8316951) {
@@ -160,6 +172,9 @@ if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is r
 #' @param x Character vector.
 #' @param lassokeep Character vector of selected variables.
 #' @return Filtered character vector or NULL.
+#' @examples
+#' filter_by_lassokeep(c("age", "size", "nodes"), lassokeep = c("age", "nodes"))
+#' filter_by_lassokeep(c("pgr", "er"), lassokeep = c("age", "nodes"))  # returns NULL
 #' @export
 
 filter_by_lassokeep <- function(x, lassokeep) {
@@ -182,6 +197,10 @@ filter_by_lassokeep <- function(x, lassokeep) {
 #' @param expr Character string of the cut expression.
 #' @param df Data frame.
 #' @return Character string with evaluated value.
+#' @examples
+#' df <- data.frame(age = c(40, 55, 70, 35), size = c(20, 30, 25, 15))
+#' process_conf_force_expr("age <= mean(age)", df)
+#' process_conf_force_expr("size <= median(size)", df)
 #' @export
 
 process_conf_force_expr <- function(expr, df) {
@@ -306,6 +325,9 @@ acm.disjctif <- function(df) {
 #' @param df Data frame with numeric and/or factor columns.
 #' @return Data frame with numeric columns unchanged and factor columns
 #'   expanded via \code{\link{acm.disjctif}}.
+#' @examples
+#' df <- data.frame(age = c(40, 55, 70), grade = factor(c("1", "2", "3")))
+#' dummy_encode(df)
 #' @export
 dummy_encode <- function(df) {
   stopifnot(is.data.frame(df))
@@ -376,6 +398,10 @@ one.zero <- function(x) 1L - x
 #' 2. Repeated evaluation on dataframe
 #' 3. Redundant uniqueness checks
 #'
+#' @examples
+#' df <- data.frame(age = c(40, 55, 70), size = c(20, 30, 25))
+#' confs <- c("age <= 50", "size > 25")
+#' evaluate_cuts_once(confs, df)
 #' @export
 
 evaluate_cuts_once <- function(confs, df, details = FALSE) {

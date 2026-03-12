@@ -652,6 +652,17 @@ forestsearch_tenfold <- function(
 #'   \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.
 #'
 #' @importFrom stringr str_sub str_length
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' oob <- forestsearch_Kfold(fs.est = fs, Kfolds = nrow(df))
+#' result <- forestsearch_KfoldOut(oob, outall = TRUE)
+#' }
 #' @export
 
 forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
@@ -880,6 +891,11 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
 #'   covariate-specific matches.
 #'
 #' @importFrom stringr str_sub str_length
+#' @examples
+#' \dontrun{
+#' # CV_sgs() is called internally by forestsearch_KfoldOut().
+#' # See forestsearch_Kfold() and forestsearch_KfoldOut() for the entry points.
+#' }
 #' @export
 
 CV_sgs <- function(sg1, sg2, confs, sg_analysis) {
@@ -1094,6 +1110,14 @@ resolve_cv_parallel_args <- function(parallel_args, fs_args, details = FALSE) {
 #'
 #' @param x An fs_kfold object
 #' @param ... Additional arguments (ignored)
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' oob <- forestsearch_Kfold(fs.est = fs)
+#' print(oob)
+#' }
 #' @export
 
 print.fs_kfold <- function(x, ...) {
@@ -1113,6 +1137,14 @@ print.fs_kfold <- function(x, ...) {
 #'
 #' @param x An fs_tenfold object
 #' @param ... Additional arguments (ignored)
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(gbsg,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#' kfold <- forestsearch_tenfold(fs.est = fs, sims = 5)
+#' print(kfold)
+#' }
 #' @export
 
 print.fs_tenfold <- function(x, ...) {

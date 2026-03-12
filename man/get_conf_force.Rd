@@ -19,3 +19,7 @@ Character vector of cut expressions.
 \description{
 For each variable in \code{conf.force.names}, returns cut expressions if continuous.
 }
+\examples{
+df <- data.frame(age = c(45, 60, 35), size = c(20, 35, 15), grade = c(1, 2, 3))
+get_conf_force(df, conf.force.names = c("age", "size"))
+}

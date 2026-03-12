@@ -280,6 +280,11 @@ grf.subg.harm.survival <- function(data,
 #'
 #' @return A data frame with evaluation metrics.
 #'
+#' @examples
+#' \dontrun{
+#' # grf.subg.eval() is called internally to evaluate GRF subgroup quality.
+#' # See grf.subg.harm.survival() for the standard entry point.
+#' }
 #' @export
 grf.subg.eval <- function(df,
                           grf.est,

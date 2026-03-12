@@ -30,6 +30,16 @@
 #' @importFrom data.table data.table setorder
 #' @importFrom survival coxph Surv survfit
 #' @importFrom utils combn
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' Z <- df[, c("age", "meno", "size", "grade3", "nodes", "pgr", "er")]
+#' res <- subgroup.search(Y = df$rfstime, Event = df$status,
+#'                        Treat = df$hormon, Z = Z,
+#'                        hr.threshold = 1.25)
+#' }
 #' @export
 
 subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
@@ -271,6 +281,11 @@ calculate_max_combinations <- function(L, maxk) {
 #' @param maxk Integer. Maximum number of factors in a combination.
 #' @return List with \code{max_count} (total combinations) and \code{indices_list} (indices for each k).
 #' @importFrom utils combn
+#' @examples
+#' # L=6 single-factor subgroups, combinations up to 2 factors
+#' info <- get_combinations_info(L = 6, maxk = 2)
+#' info$max_count   # total number of combinations
+#' length(info$indices_list)
 #' @export
 
 get_combinations_info <- function(L, maxk) {
@@ -298,6 +313,11 @@ get_combinations_info <- function(L, maxk) {
 #' @param zz Matrix or data frame of subgroup factor indicators.
 #' @param covs.in Numeric vector indicating which factors are selected (1 = included).
 #' @return Numeric vector of subgroup membership (1/0).
+#' @examples
+#' zz <- matrix(c(1, 0, 1, 1, 0, 1), nrow = 3,
+#'              dimnames = list(NULL, c("er_le0", "grade3")))
+#' get_subgroup_membership(zz, covs.in = c(1, 1))  # both factors required
+#' get_subgroup_membership(zz, covs.in = c(1, 0))  # first factor only
 #' @export
 
 get_subgroup_membership <- function(zz, covs.in) {
@@ -321,6 +341,17 @@ get_subgroup_membership <- function(zz, covs.in) {
 #' @param counts_3factor Integer. Number of three-factor combinations.
 #' @param index_3factor Matrix of indices for three-factor combinations.
 #' @return Numeric vector indicating selected factors (1 = included, 0 = not included).
+#' @examples
+#' # Build index matrices directly (L=4, maxk=2)
+#' L <- 4
+#' idx1 <- matrix(seq_len(L), ncol = 1)          # single-factor indices
+#' idx2 <- t(utils::combn(L, 2))                 # two-factor indices
+#' # Combination 3 falls in the single-factor block (kk=3 -> factor 3)
+#' get_covs_in(kk = 3, maxk = 2, L = L,
+#'             counts_1factor = nrow(idx1),
+#'             index_1factor  = idx1,
+#'             counts_2factor = nrow(idx2),
+#'             index_2factor  = idx2)
 #' @export
 
 get_covs_in <- function(kk, maxk, L,

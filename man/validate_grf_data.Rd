@@ -19,3 +19,8 @@ Logical. TRUE if data is valid, FALSE with warning otherwise
 \description{
 Checks that input data meets requirements for GRF analysis
 }
+\examples{
+W <- rep(0:1, each = 50)
+D <- rbinom(100, 1, 0.6)
+validate_grf_data(W, D, n.min = 60)
+}

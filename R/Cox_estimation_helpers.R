@@ -10,6 +10,18 @@
 #' @param cox.formula Cox model formula.
 #' @param est.loghr Logical. Is estimate on log(HR) scale?
 #' @return List with estimate and standard error.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(
+#'   tte   = gbsg$rfstime / 30.4375,
+#'   event = gbsg$status,
+#'   treat = gbsg$hormon
+#' )
+#' formula <- build_cox_formula("tte", "event", "treat")
+#' result  <- get_Cox_sg(df, cox.formula = formula)
+#' exp(result$est_obs)  # hazard ratio
+#' }
 #' @importFrom survival coxph
 #' @export
 get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
@@ -55,6 +67,8 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
 #' @return An R formula object for Cox regression.
+#' @examples
+#' build_cox_formula("time_months", "event", "treat")
 #' @export
 
 build_cox_formula <- function(outcome.name, event.name, treat.name) {
@@ -69,6 +83,18 @@ build_cox_formula <- function(outcome.name, event.name, treat.name) {
 #' @param df Data frame.
 #' @param formula Cox model formula.
 #' @return List with HR and SE for each subgroup.
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- data.frame(
+#'   tte            = gbsg$rfstime / 30.4375,
+#'   event          = gbsg$status,
+#'   treat          = gbsg$hormon,
+#'   treat.recommend = as.integer(gbsg$er > 0)
+#' )
+#' formula <- build_cox_formula("tte", "event", "treat")
+#' fit_cox_models(df, formula)
+#' }
 #' @export
 
 fit_cox_models <- function(df, formula) {
@@ -113,6 +139,15 @@ cox_summary_legacy <- function(Y, E, Treat, Strata) {
 #' @param use_strata Logical. Whether to use strata in the model (default: TRUE if Strata provided).
 #' @param return_format Character. "formatted" (default) or "numeric" for downstream use.
 #' @return Character string with formatted HR and CI (or numeric vector if return_format="numeric").
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' cox_summary(
+#'   Y     = gbsg$rfstime / 30.4375,
+#'   E     = gbsg$status,
+#'   Treat = gbsg$hormon
+#' )
+#' }
 #' @importFrom survival coxph Surv
 #' @export
 

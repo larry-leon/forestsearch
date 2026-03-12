@@ -22,6 +22,17 @@
 #' @param details Logical. If TRUE, prints details during execution.
 #' @importFrom stringr str_length str_sub
 #' @importFrom stats median quantile
+#' @examples
+#' \donttest{
+#' library(survival)
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs_data <- get_FSdata(df.analysis = df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status",
+#'   use_lasso = FALSE, use_grf = FALSE)
+#' names(fs_data)
+#' }
 #' @export
 
 get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,confounders.name,

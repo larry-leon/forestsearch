@@ -62,3 +62,14 @@ Searches for subgroups with treatment effect heterogeneity using combinations
 of candidate factors. Evaluates subgroups for minimum prevalence, event counts,
 and hazard ratio threshold. Parallelizes the main search loop.
 }
+\examples{
+\dontrun{
+library(survival)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+Z <- df[, c("age", "meno", "size", "grade3", "nodes", "pgr", "er")]
+res <- subgroup.search(Y = df$rfstime, Event = df$status,
+                       Treat = df$hormon, Z = Z,
+                       hr.threshold = 1.25)
+}
+}

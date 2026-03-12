@@ -17,3 +17,10 @@ Character string formatted as \"estimate (lower, upper)\".
 \description{
 Formats confidence interval for estimates.
 }
+\examples{
+\donttest{
+library(data.table)
+est <- data.table(hr = 1.58, lower = 0.86, upper = 2.90)
+format_CI(est, col_names = c("hr", "lower", "upper"))
+}
+}

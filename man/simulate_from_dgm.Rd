@@ -123,6 +123,14 @@ censoring distribution:
 }
 }
 }
+\examples{
+\dontrun{
+dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
+dim(sim_data)
+head(sim_data[, c("y_sim", "event_sim", "treat_sim")])
+}
+}
 \seealso{
 \code{\link{generate_aft_dgm_flex}}, \code{\link{check_censoring_dgm}}
 }

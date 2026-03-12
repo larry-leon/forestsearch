@@ -1571,6 +1571,14 @@ get_best_survreg <- function(comparison_result) {
 #' @param ... Additional arguments (not used)
 #'
 #' @return Invisibly returns the input object
+#' @examples
+#' \dontrun{
+#' library(survival)
+#' df <- survival::gbsg
+#' res <- compare_multiple_survreg(df, outcome.name = "rfstime",
+#'                                  event.name = "status")
+#' print(res)
+#' }
 #' @exportS3Method
 #'
 print.multi_survreg_comparison <- function(x, ...) {

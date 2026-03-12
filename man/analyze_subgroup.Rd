@@ -45,3 +45,25 @@ Character vector of results.
 Analyzes a subgroup and returns formatted results for summary table.
 Uses optimized cox_summary() and reduces redundant calculations.
 }
+\examples{
+\dontrun{
+library(survival)
+df <- data.frame(
+  tte   = gbsg$rfstime / 30.4375,
+  event = gbsg$status,
+  treat = gbsg$hormon
+)
+analyze_subgroup(
+  df_sub        = df,
+  outcome.name  = "tte",
+  event.name    = "event",
+  treat.name    = "treat",
+  strata.name   = NULL,
+  subgroup_name = "All",
+  hr_a          = NA,
+  potentialOutcome.name = NULL,
+  return_medians = TRUE,
+  N             = nrow(df)
+)
+}
+}

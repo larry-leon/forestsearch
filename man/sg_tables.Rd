@@ -64,3 +64,20 @@ with search metadata and customizable decimal precision. Produces two
 tables: a treatment effect estimates table and an identified subgroups
 table, each with fully customizable titles and subtitles.
 }
+\examples{
+\dontrun{
+library(survival)
+fs <- forestsearch(
+  gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name     = "rfstime",
+  treat.name       = "hormon",
+  event.name       = "status",
+  fs.splits        = 50,
+  use_lasso        = FALSE,
+  use_grf          = FALSE
+)
+tabs <- sg_tables(fs)
+tabs$tab_estimates
+}
+}

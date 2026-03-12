@@ -14,3 +14,12 @@
 \description{
 Print Method for fs_sg_plot Objects
 }
+\examples{
+\dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+p <- plot_subgroup(fs)
+print(p)
+}
+}
