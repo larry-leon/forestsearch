@@ -31,5 +31,5 @@ An R formula object for Cox regression.
 ``` r
 build_cox_formula("time_months", "event", "treat")
 #> Surv(time_months, event) ~ treat
-#> <environment: 0x56398aa24ec0>
+#> <environment: 0x5563dda5e478>
 ```
