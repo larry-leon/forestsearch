@@ -1193,7 +1193,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.05 minutes
+    ## Subgroup search completed in 0.06 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1219,7 +1219,7 @@ results_alt <- foreach(
     ## Batch 3 / 3 : candidates 3 - 3 
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 17.03 0.2838 
+    ## Seconds and minutes forestsearch overall = 17.41 0.2902 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1237,7 +1237,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 8.9 minutes
+    ## Completed in 8.8 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1298,7 +1298,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 351 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.04 minutes
+    ## Subgroup search completed in 0.05 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 351 
@@ -1322,7 +1322,7 @@ results_null <- foreach(
     ## Batch 1 / 1 : candidates 1 - 1 
     ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 9.474 0.1579 
+    ## Seconds and minutes forestsearch overall = 9.531 0.1589 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2178,15 +2178,15 @@ reproducibility information.
 | 133 H1 + 133 H0 simulations, 3 workers                  |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
-| Calibrate k_inter (Cox)                                 | 7.5         | 0.13       | 0.7        |
+| Calibrate k_inter (Cox)                                 | 7.0         | 0.12       | 0.7        |
 | Calibrate k_inter (AHR)                                 | 3.0         | 0.05       | 0.3        |
-| Validate k_inter                                        | 0.8         | 0.01       | 0.1        |
+| Validate k_inter                                        | 0.7         | 0.01       | 0.1        |
 | DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
-| Simulations H1                                          | 533.5       | 8.89       | 52.0       |
-| Simulations H0                                          | 445.3       | 7.42       | 43.4       |
-| Summarize H1                                            | 0.2         | 0.00       | 0.0        |
+| Simulations H1                                          | 528.0       | 8.80       | 51.8       |
+| Simulations H0                                          | 443.7       | 7.39       | 43.5       |
+| Summarize H1                                            | 0.1         | 0.00       | 0.0        |
 | Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 1,026.4     | 17.11      | 100.0      |
+| Total vignette                                          | 1,019.0     | 16.98      | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -3527,7 +3527,7 @@ published 20,000-simulation results.
 sessionInfo()
 ```
 
-    ## R version 4.5.2 (2025-10-31)
+    ## R version 4.5.3 (2026-03-11)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.3 LTS
     ## 
@@ -3550,17 +3550,17 @@ sessionInfo()
     ## other attached packages:
     ##  [1] katex_1.5.0         doFuture_1.2.1      future_1.69.0      
     ##  [4] foreach_1.5.2       gt_1.3.0            ggplot2_4.0.2      
-    ##  [7] survival_3.8-3      data.table_1.18.2.1 weightedsurv_0.1.0 
+    ##  [7] survival_3.8-6      data.table_1.18.2.1 weightedsurv_0.1.0 
     ## [10] forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
     ##  [4] bslib_0.10.0         visNetwork_2.1.4     htmlwidgets_1.6.4   
-    ##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         
-    ## [10] generics_0.1.4       curl_7.0.0           parallel_4.5.2      
+    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.3         
+    ## [10] generics_0.1.4       curl_7.0.0           parallel_4.5.3      
     ## [13] tibble_3.3.1         pkgconfig_2.0.3      Matrix_1.7-4        
     ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
-    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.5.2      
+    ## [19] cubature_2.1.4-1     lifecycle_1.0.5      compiler_4.5.3      
     ## [22] farver_2.1.2         stringr_1.6.0        textshaping_1.0.5   
     ## [25] policytree_1.2.4     grf_2.6.1            codetools_0.2-20    
     ## [28] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
@@ -3568,8 +3568,8 @@ sessionInfo()
     ## [34] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        
     ## [37] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    
     ## [40] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
-    ## [43] dplyr_1.2.0          listenv_0.10.0       splines_4.5.2       
-    ## [46] fastmap_1.2.0        grid_4.5.2           cli_3.6.5           
+    ## [43] dplyr_1.2.0          listenv_0.10.1       splines_4.5.3       
+    ## [46] fastmap_1.2.0        grid_4.5.3           cli_3.6.5           
     ## [49] magrittr_2.0.4       DiagrammeR_1.0.11    patchwork_1.3.2     
     ## [52] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      

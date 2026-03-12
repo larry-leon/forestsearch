@@ -1740,7 +1740,7 @@ rationale. —
 sessionInfo()
 ```
 
-    ## R version 4.5.2 (2025-10-31)
+    ## R version 4.5.3 (2026-03-11)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.3 LTS
     ## 
@@ -1761,23 +1761,23 @@ sessionInfo()
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
-    ## [1] patchwork_1.3.2    dplyr_1.2.0        ggplot2_4.0.2      survival_3.8-3    
+    ## [1] patchwork_1.3.2    dplyr_1.2.0        ggplot2_4.0.2      survival_3.8-6    
     ## [5] forestsearch_0.1.0
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gt_1.3.0             sass_0.4.10          future_1.69.0       
     ##  [4] generics_0.1.4       xml2_1.5.2           shape_1.4.6.1       
-    ##  [7] stringi_1.8.7        lattice_0.22-7       grf_2.6.1           
-    ## [10] listenv_0.10.0       digest_0.6.39        magrittr_2.0.4      
-    ## [13] evaluate_1.0.5       grid_4.5.2           RColorBrewer_1.1-3  
+    ##  [7] stringi_1.8.7        lattice_0.22-9       grf_2.6.1           
+    ## [10] listenv_0.10.1       digest_0.6.39        magrittr_2.0.4      
+    ## [13] evaluate_1.0.5       grid_4.5.3           RColorBrewer_1.1-3  
     ## [16] iterators_1.0.14     policytree_1.2.4     fastmap_1.2.0       
     ## [19] glmnet_4.1-10        foreach_1.5.2        jsonlite_2.0.0      
     ## [22] Matrix_1.7-4         scales_1.4.0         weightedsurv_0.1.0  
     ## [25] codetools_0.2-20     textshaping_1.0.5    jquerylib_0.1.4     
     ## [28] cli_3.6.5            rlang_1.1.7          parallelly_1.46.1   
-    ## [31] future.apply_1.20.2  splines_4.5.2        withr_3.0.2         
-    ## [34] cachem_1.1.0         yaml_2.3.12          tools_4.5.2         
-    ## [37] parallel_4.5.2       doFuture_1.2.1       globals_0.19.0      
+    ## [31] future.apply_1.20.2  splines_4.5.3        withr_3.0.2         
+    ## [34] cachem_1.1.0         yaml_2.3.12          tools_4.5.3         
+    ## [37] parallel_4.5.3       doFuture_1.2.1       globals_0.19.0      
     ## [40] vctrs_0.7.1          R6_2.6.1             lifecycle_1.0.5     
     ## [43] stringr_1.6.0        randomForest_4.7-1.2 fs_1.6.7            
     ## [46] htmlwidgets_1.6.4    ragg_1.5.1           pkgconfig_2.0.3     
@@ -1787,4 +1787,4 @@ sessionInfo()
     ## [58] systemfonts_1.3.2    xfun_0.56            tibble_3.3.1        
     ## [61] tidyselect_1.2.1     knitr_1.51           farver_2.1.2        
     ## [64] htmltools_0.5.9      labeling_0.4.3       rmarkdown_2.30      
-    ## [67] compiler_4.5.2       S7_0.2.1
+    ## [67] compiler_4.5.3       S7_0.2.1

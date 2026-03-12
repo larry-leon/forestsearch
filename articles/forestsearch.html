@@ -71,7 +71,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-03-08</h4>
+            <h4 data-toc-skip class="date">2026-03-12</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
@@ -982,7 +982,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="co">## Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 406 </span></span>
 <span><span class="co">## Events criteria: control &gt;= 12 , treatment &gt;= 12 </span></span>
 <span><span class="co">## Sample size criteria: n &gt;= 60 </span></span>
-<span><span class="co">## Subgroup search completed in 0.03 minutes</span></span>
+<span><span class="co">## Subgroup search completed in 0.02 minutes</span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## --- Filtering Summary ---</span></span>
 <span><span class="co">##   Combinations evaluated: 406 </span></span>
@@ -1028,7 +1028,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
 <span><span class="co">## % consistency criteria met= 0.97 </span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 6.199 0.1033 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 5.894 0.0982 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## Subgroup identified: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
@@ -1038,7 +1038,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nForestSearch completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## ForestSearch completed in 6.2 seconds</span></span></code></pre>
+<span><span class="co">## ForestSearch completed in 5.9 seconds</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="forestsearch-results">ForestSearch Results<a class="anchor" aria-label="anchor" href="#forestsearch-results"></a>
@@ -2152,8 +2152,8 @@ addresses this by:</p>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
 <span><span class="co">##   Total bootstrap time:          0.13 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.07 min (4.0 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      66.52 min (1.11 hrs)</span></span></code></pre>
+<span><span class="co">##   Average per iteration:         0.07 min (3.9 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      65.78 min (1.10 hrs)</span></span></code></pre>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -4578,17 +4578,17 @@ stability</li>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">ForestSearch</td>
-<td headers="Seconds" class="gt_row gt_right">6.2</td>
+<td headers="Seconds" class="gt_row gt_right">5.9</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
-<td headers="Seconds" class="gt_row gt_right">10.4</td>
+<td headers="Seconds" class="gt_row gt_right">10.2</td>
 <td headers="Minutes" class="gt_row gt_right">0.2</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">29.9</td>
+<td headers="Seconds" class="gt_row gt_right">29.3</td>
 <td headers="Minutes" class="gt_row gt_right">0.5</td>
 </tr>
 </tbody>
@@ -4638,7 +4638,7 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 </h2>
 <div class="sourceCode" id="cb75"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/sessionInfo.html" class="external-link">sessionInfo</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
-<pre><code><span><span class="co">## R version 4.5.2 (2025-10-31)</span></span>
+<pre><code><span><span class="co">## R version 4.5.3 (2026-03-11)</span></span>
 <span><span class="co">## Platform: x86_64-pc-linux-gnu</span></span>
 <span><span class="co">## Running under: Ubuntu 24.04.3 LTS</span></span>
 <span><span class="co">## </span></span>
@@ -4662,24 +4662,24 @@ relatively simple procedure.” <em>Statistics in Medicine</em>. DOI:
 <span><span class="co">##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     </span></span>
 <span><span class="co">##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   </span></span>
 <span><span class="co">##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      </span></span>
-<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-3      forestsearch_0.1.0 </span></span>
+<span><span class="co">## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 </span></span>
 <span><span class="co">## </span></span>
 <span><span class="co">## loaded via a namespace (and not attached):</span></span>
 <span><span class="co">##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           </span></span>
 <span><span class="co">##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    </span></span>
-<span><span class="co">##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         </span></span>
-<span><span class="co">## [10] generics_0.1.4       parallel_4.5.2       tibble_3.3.1        </span></span>
+<span><span class="co">##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.3         </span></span>
+<span><span class="co">## [10] generics_0.1.4       parallel_4.5.3       tibble_3.3.1        </span></span>
 <span><span class="co">## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  </span></span>
 <span><span class="co">## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          </span></span>
-<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.5.2       farver_2.1.2        </span></span>
+<span><span class="co">## [19] lifecycle_1.0.5      compiler_4.5.3       farver_2.1.2        </span></span>
 <span><span class="co">## [22] stringr_1.6.0        textshaping_1.0.5    codetools_0.2-20    </span></span>
 <span><span class="co">## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         </span></span>
 <span><span class="co">## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       </span></span>
 <span><span class="co">## [31] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        </span></span>
 <span><span class="co">## [34] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    </span></span>
 <span><span class="co">## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       </span></span>
-<span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      </span></span>
-<span><span class="co">## [43] splines_4.5.2        fastmap_1.2.0        grid_4.5.2          </span></span>
+<span><span class="co">## [40] dplyr_1.2.0          listenv_0.10.1       labeling_0.4.3      </span></span>
+<span><span class="co">## [43] splines_4.5.3        fastmap_1.2.0        grid_4.5.3          </span></span>
 <span><span class="co">## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   </span></span>
 <span><span class="co">## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         </span></span>
 <span><span class="co">## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      </span></span>

@@ -323,7 +323,7 @@ fs <- forestsearch(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.03 minutes
+    ## Subgroup search completed in 0.02 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.199 0.1033 
+    ## Seconds and minutes forestsearch overall = 5.894 0.0982 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.2 seconds
+    ## ForestSearch completed in 5.9 seconds
 
 ### ForestSearch Results
 
@@ -520,8 +520,8 @@ summaries <- summarize_bootstrap_results(
     ## -------------------------------------------------------------
     ## Overall:
     ##   Total bootstrap time:          0.13 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (4.0 sec)
-    ##   Projected for 1000 boots:      66.52 min (1.11 hrs)
+    ##   Average per iteration:         0.07 min (3.9 sec)
+    ##   Projected for 1000 boots:      65.78 min (1.10 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -969,9 +969,9 @@ ER-negative patients may not benefit is consistent with:
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
 | GRF                  | 0.6        | 0.0        |
-| ForestSearch         | 6.2        | 0.1        |
-| Bootstrap            | 10.4       | 0.2        |
-| Total                | 29.9       | 0.5        |
+| ForestSearch         | 5.9        | 0.1        |
+| Bootstrap            | 10.2       | 0.2        |
+| Total                | 29.3       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1012,7 +1012,7 @@ relatively simple procedure.” *Statistics in Medicine*. DOI:
 sessionInfo()
 ```
 
-    ## R version 4.5.2 (2025-10-31)
+    ## R version 4.5.3 (2026-03-11)
     ## Platform: x86_64-pc-linux-gnu
     ## Running under: Ubuntu 24.04.3 LTS
     ## 
@@ -1036,24 +1036,24 @@ sessionInfo()
     ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     
     ##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   
     ##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      
-    ## [10] data.table_1.18.2.1 survival_3.8-3      forestsearch_0.1.0 
+    ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
     ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
     ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
-    ##  [7] lattice_0.22-7       vctrs_0.7.1          tools_4.5.2         
-    ## [10] generics_0.1.4       parallel_4.5.2       tibble_3.3.1        
+    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.3         
+    ## [10] generics_0.1.4       parallel_4.5.3       tibble_3.3.1        
     ## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  
     ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
-    ## [19] lifecycle_1.0.5      compiler_4.5.2       farver_2.1.2        
+    ## [19] lifecycle_1.0.5      compiler_4.5.3       farver_2.1.2        
     ## [22] stringr_1.6.0        textshaping_1.0.5    codetools_0.2-20    
     ## [25] litedown_0.9         htmltools_0.5.9      sass_0.4.10         
     ## [28] yaml_2.3.12          glmnet_4.1-10        pillar_1.11.1       
     ## [31] pkgdown_2.2.0        jquerylib_0.1.4      cachem_1.1.0        
     ## [34] iterators_1.0.14     parallelly_1.46.1    commonmark_2.0.0    
     ## [37] tidyselect_1.2.1     digest_0.6.39        stringi_1.8.7       
-    ## [40] dplyr_1.2.0          listenv_0.10.0       labeling_0.4.3      
-    ## [43] splines_4.5.2        fastmap_1.2.0        grid_4.5.2          
+    ## [40] dplyr_1.2.0          listenv_0.10.1       labeling_0.4.3      
+    ## [43] splines_4.5.3        fastmap_1.2.0        grid_4.5.3          
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
