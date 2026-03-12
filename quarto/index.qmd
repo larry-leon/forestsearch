@@ -1,0 +1,69 @@
+---
+title: "forestsearch — Extended Documentation"
+subtitle: "Standalone Quarto reference documents supplementing the pkgdown site"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: false
+    theme: flatly
+    title-block-banner: "#2C3E50"
+    title-block-banner-color: white
+---
+
+These documents supplement the
+[pkgdown site](https://larry-leon.github.io/forestsearch/)
+with material that uses Quarto-specific features (`code-tools`, callout blocks,
+advanced math rendering) that would require conversion to render on pkgdown.
+
+Each HTML file is **fully self-contained**: open in any browser, share by
+email, or host on any static file server without additional assets.
+
+---
+
+## Documents
+
+### [Causal Treatment Effects in the Cox / AFT Framework](cox_causal_review.html)
+
+A unified reference covering:
+
+- Weibull AFT / Cox dual representation and its causal advantages
+- The Fay & Li (2024) estimand taxonomy (individual-level vs. population-level)
+- Three primary estimands: Average Hazard Ratio (AHR), Controlled Direct
+  Effect (CDE), and Marginal Causal HR
+- ForestSearch implementation notes for each estimand
+
+---
+
+### [Continuous Biomarker Evaluation](biomarker_comparison.html)
+
+Comparison of STEPP, MFPI, and Spline Cox (`cox_cs_fit`) on GBSG and
+simulated data:
+
+- Method descriptions and assumptions
+- Side-by-side performance on the GBSG breast cancer dataset
+- Simulation-based coverage and bias evaluation
+
+---
+
+## Rendering
+
+From the repo root:
+
+```bash
+# All documents
+quarto render quarto/
+
+# Single document
+quarto render quarto/cox_causal_review.qmd
+quarto render quarto/biomarker_comparison.qmd
+```
+
+Or from RStudio console:
+
+```r
+source("render_quarto_docs.R")
+```
+
+Output HTMLs are written to `quarto/_output/`.
