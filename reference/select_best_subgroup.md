@@ -29,3 +29,13 @@ select_best_subgroup(values, sg.criterion, dmin.grf, n.max)
 ## Value
 
 Data frame row with best subgroup or NULL if none found
+
+## Examples
+
+``` r
+vals <- data.frame(diff = c(8.5, 6.2, 3.1), Nsg = c(120, 95, 80))
+select_best_subgroup(values = vals, sg.criterion = "mDiff",
+                     dmin.grf = 6, n.max = 500)
+#>   diff Nsg
+#> 1  8.5 120
+```

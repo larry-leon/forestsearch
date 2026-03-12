@@ -60,3 +60,16 @@ get_dfRes(
 ## Value
 
 Data.table with confidence intervals and estimates.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+  # get_dfRes is called internally by forestsearch_bootstrap_dofuture().
+  # To use directly, supply bootstrap sample matrix from bootstrap_ystar():
+  #   ystar <- bootstrap_ystar(df, nb_boots = 100, seed = 42L)
+  #   res <- get_dfRes(Hobs = log(1.5), seHobs = 0.3,
+  #                    H1_adj = 0.05, H2_adj = 0.03,
+  #                    ystar = ystar)
+} # }
+```

@@ -323,7 +323,7 @@ fs <- forestsearch(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.02 minutes
+    ## Subgroup search completed in 0.03 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 5.894 0.0982 
+    ## Seconds and minutes forestsearch overall = 6.349 0.1058 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 5.9 seconds
+    ## ForestSearch completed in 6.4 seconds
 
 ### ForestSearch Results
 
@@ -519,9 +519,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.13 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (3.9 sec)
-    ##   Projected for 1000 boots:      65.78 min (1.10 hrs)
+    ##   Total bootstrap time:          0.14 minutes (0.00 hours)
+    ##   Average per iteration:         0.07 min (4.3 sec)
+    ##   Projected for 1000 boots:      71.11 min (1.19 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -969,9 +969,9 @@ ER-negative patients may not benefit is consistent with:
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
 | GRF                  | 0.6        | 0.0        |
-| ForestSearch         | 5.9        | 0.1        |
-| Bootstrap            | 10.2       | 0.2        |
-| Total                | 29.3       | 0.5        |
+| ForestSearch         | 6.4        | 0.1        |
+| Bootstrap            | 11.2       | 0.2        |
+| Total                | 31.9       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 

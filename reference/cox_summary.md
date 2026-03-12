@@ -52,3 +52,16 @@ return_format="numeric").
 Calculates hazard ratio and confidence interval for a subgroup using Cox
 regression. Optimized version with reduced overhead and better error
 handling.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+library(survival)
+cox_summary(
+  Y     = gbsg$rfstime / 30.4375,
+  E     = gbsg$status,
+  Treat = gbsg$hormon
+)
+} # }
+```

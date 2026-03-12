@@ -89,6 +89,50 @@
     <p>List with selected, omitted variables, coefficients, lambda, and fits.</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
+<span class="r-in"><span><span class="va">df</span><span class="op">$</span><span class="va">grade3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">grade</span> <span class="op">==</span> <span class="st">"3"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu">lasso_selection</span><span class="op">(</span><span class="va">df</span>,</span></span>
+<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"rfstime"</span>, event.name <span class="op">=</span> <span class="st">"status"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $selected</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "size"   "grade3" "nodes"  "pgr"   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $omitted</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "age"  "meno" "er"  </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $coefficients</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>          age         meno         size       grade3        nodes          pgr </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  0.000000000  0.000000000  0.005433058  0.178235777  0.049670354 -0.001813976 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>           er </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  0.000000000 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $lambda_min</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.01843202</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $cvfit</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Call:  glmnet::cv.glmnet(x = x, y = y, family = "cox", alpha = 1) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Measure: Partial Likelihood Deviance </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>      Lambda Index Measure     SE Nonzero</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> min 0.01843    26   5.709 0.2035       4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1se 0.18866     1   5.811 0.2006       0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $fit</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Call:  glmnet::glmnet(x = x, y = y, family = "cox", alpha = 1, lambda = lambda_min) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Df %Dev  Lambda</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1  4 2.44 0.01843</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

@@ -109,6 +109,21 @@
     <p>Numeric vector indicating selected factors (1 = included, 0 = not included).</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Build index matrices directly (L=4, maxk=2)</span></span></span>
+<span class="r-in"><span><span class="va">L</span> <span class="op">&lt;-</span> <span class="fl">4</span></span></span>
+<span class="r-in"><span><span class="va">idx1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">L</span><span class="op">)</span>, ncol <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>          <span class="co"># single-factor indices</span></span></span>
+<span class="r-in"><span><span class="va">idx2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu">utils</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/utils/combn.html" class="external-link">combn</a></span><span class="op">(</span><span class="va">L</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>                 <span class="co"># two-factor indices</span></span></span>
+<span class="r-in"><span><span class="co"># Combination 3 falls in the single-factor block (kk=3 -&gt; factor 3)</span></span></span>
+<span class="r-in"><span><span class="fu">get_covs_in</span><span class="op">(</span>kk <span class="op">=</span> <span class="fl">3</span>, maxk <span class="op">=</span> <span class="fl">2</span>, L <span class="op">=</span> <span class="va">L</span>,</span></span>
+<span class="r-in"><span>            counts_1factor <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">idx1</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>            index_1factor  <span class="op">=</span> <span class="va">idx1</span>,</span></span>
+<span class="r-in"><span>            counts_2factor <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">idx2</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>            index_2factor  <span class="op">=</span> <span class="va">idx2</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0 0 1 0</span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

@@ -29,3 +29,12 @@ print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL)
 - tree_cuts:
 
   List. Cut information
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# print_grf_details() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
+} # }
+```

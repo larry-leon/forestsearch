@@ -185,3 +185,14 @@ distribution:
 
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
 [`check_censoring_dgm`](https://larry-leon.github.io/forestsearch/reference/check_censoring_dgm.md)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
+dim(sim_data)
+head(sim_data[, c("y_sim", "event_sim", "treat_sim")])
+} # }
+```

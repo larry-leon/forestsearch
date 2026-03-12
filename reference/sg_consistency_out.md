@@ -59,3 +59,16 @@ sg_consistency_out(
 ## Value
 
 List with results, subgroup definition, labels, flags, and group id.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# sg_consistency_out is called internally by forestsearch().
+# See forestsearch() for the standard entry point.
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+fs$grp.consistency$out_sg
+} # }
+```

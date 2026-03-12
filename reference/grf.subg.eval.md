@@ -52,3 +52,12 @@ grf.subg.eval(
 ## Value
 
 A data frame with evaluation metrics.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# grf.subg.eval() is called internally to evaluate GRF subgroup quality.
+# See grf.subg.harm.survival() for the standard entry point.
+} # }
+```

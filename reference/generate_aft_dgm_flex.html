@@ -334,6 +334,24 @@ Failure Time Data (2nd ed.). Wiley.</p>
     <p>Your Name</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+<span class="r-in"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
+<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu">generate_aft_dgm_flex</span><span class="op">(</span></span></span>
+<span class="r-in"><span>  data            <span class="op">=</span> <span class="va">df</span>,</span></span>
+<span class="r-in"><span>  outcome_var     <span class="op">=</span> <span class="st">"rfstime"</span>,</span></span>
+<span class="r-in"><span>  event_var       <span class="op">=</span> <span class="st">"status"</span>,</span></span>
+<span class="r-in"><span>  treatment_var   <span class="op">=</span> <span class="st">"hormon"</span>,</span></span>
+<span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"size"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  factor_vars     <span class="op">=</span> <span class="st">"meno"</span>,</span></span>
+<span class="r-in"><span>  model           <span class="op">=</span> <span class="st">"null"</span>,</span></span>
+<span class="r-in"><span>  verbose         <span class="op">=</span> <span class="cn">FALSE</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

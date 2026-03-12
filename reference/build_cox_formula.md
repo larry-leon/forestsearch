@@ -25,3 +25,11 @@ build_cox_formula(outcome.name, event.name, treat.name)
 ## Value
 
 An R formula object for Cox regression.
+
+## Examples
+
+``` r
+build_cox_formula("time_months", "event", "treat")
+#> Surv(time_months, event) ~ treat
+#> <environment: 0x55d3760318f8>
+```

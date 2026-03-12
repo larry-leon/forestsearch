@@ -18,3 +18,15 @@ print(x, ...)
 - ...:
 
   Additional arguments (ignored)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+fs <- forestsearch(gbsg,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+kfold <- forestsearch_tenfold(fs.est = fs, sims = 5)
+print(kfold)
+} # }
+```

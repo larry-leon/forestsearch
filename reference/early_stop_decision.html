@@ -92,6 +92,16 @@ confidence interval for consistency proportion.</p>
     <p>Character. One of "continue", "pass", or "fail".</p>
     </div>
 
+    <div class="section level2">
+    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">early_stop_decision</span><span class="op">(</span><span class="fl">95</span>, <span class="fl">100</span>, threshold <span class="op">=</span> <span class="fl">0.90</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "continue"</span>
+<span class="r-in"><span><span class="fu">early_stop_decision</span><span class="op">(</span><span class="fl">60</span>, <span class="fl">100</span>, threshold <span class="op">=</span> <span class="fl">0.90</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "fail"</span>
+<span class="r-in"><span><span class="fu">early_stop_decision</span><span class="op">(</span><span class="fl">10</span>, <span class="fl">15</span>, threshold <span class="op">=</span> <span class="fl">0.90</span><span class="op">)</span>  <span class="co"># below min_samples</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "continue"</span>
+</code></pre></div>
+    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

@@ -21,3 +21,12 @@ find_leaf_split(tree, leaf_node)
 ## Value
 
 Character string with split expression or NULL
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# find_leaf_split() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
+} # }
+```

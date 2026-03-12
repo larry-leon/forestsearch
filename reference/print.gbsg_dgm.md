@@ -18,3 +18,12 @@ print(x, ...)
 - ...:
 
   Additional arguments (unused)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+dgm <- create_gbsg_dgm()
+print(dgm)
+} # }
+```

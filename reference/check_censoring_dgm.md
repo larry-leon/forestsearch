@@ -85,3 +85,13 @@ process.
 
 [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md),
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
+sim_data <- simulate_from_dgm(dgm, n = 200)
+check_censoring_dgm(sim_data, dgm = dgm)
+} # }
+```

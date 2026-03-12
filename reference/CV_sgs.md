@@ -31,3 +31,12 @@ CV_sgs(sg1, sg2, confs, sg_analysis)
 
 List with indicators for any match, exact match, one match, and
 covariate-specific matches.
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+# CV_sgs() is called internally by forestsearch_KfoldOut().
+# See forestsearch_Kfold() and forestsearch_KfoldOut() for the entry points.
+} # }
+```
