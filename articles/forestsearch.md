@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.399 0.1067 
+    ## Seconds and minutes forestsearch overall = 6.538 0.109 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.4 seconds
+    ## ForestSearch completed in 6.5 seconds
 
 ### ForestSearch Results
 
@@ -521,7 +521,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.14 minutes (0.00 hours)
     ##   Average per iteration:         0.07 min (4.1 sec)
-    ##   Projected for 1000 boots:      68.29 min (1.14 hrs)
+    ##   Projected for 1000 boots:      69.09 min (1.15 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.6        | 0.0        |
-| ForestSearch         | 6.4        | 0.1        |
-| Bootstrap            | 10.8       | 0.2        |
-| Total                | 31.7       | 0.5        |
+| GRF                  | 0.7        | 0.0        |
+| ForestSearch         | 6.5        | 0.1        |
+| Bootstrap            | 11.0       | 0.2        |
+| Total                | 32.0       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
