@@ -1219,7 +1219,7 @@ results_alt <- foreach(
     ## Batch 3 / 3 : candidates 3 - 3 
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 17.97 0.2995 
+    ## Seconds and minutes forestsearch overall = 17.831 0.2972 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1237,7 +1237,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 3.3 minutes
+    ## Completed in 3.4 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1322,7 +1322,7 @@ results_null <- foreach(
     ## Batch 1 / 1 : candidates 1 - 1 
     ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 10.743 0.179 
+    ## Seconds and minutes forestsearch overall = 10.371 0.1728 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1340,7 +1340,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 2.9 minutes
+    ## Completed in 3 minutes
 
 ## Summarizing Results
 
@@ -2180,15 +2180,15 @@ reproducibility information.
 | 44 H1 + 44 H0 simulations, 3 workers                    |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
-| Calibrate k_inter (Cox)                                 | 7.1         | 0.12       | 1.7        |
-| Calibrate k_inter (AHR)                                 | 3.2         | 0.05       | 0.8        |
+| Calibrate k_inter (Cox)                                 | 7.2         | 0.12       | 1.7        |
+| Calibrate k_inter (AHR)                                 | 3.5         | 0.06       | 0.8        |
 | Validate k_inter                                        | 0.7         | 0.01       | 0.2        |
-| DGM creation (H0)                                       | 0.2         | 0.00       | 0.1        |
-| Simulations H1                                          | 199.7       | 3.33       | 47.1       |
-| Simulations H0                                          | 176.1       | 2.93       | 41.5       |
+| DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
+| Simulations H1                                          | 203.6       | 3.39       | 46.9       |
+| Simulations H0                                          | 181.6       | 3.03       | 41.8       |
 | Summarize H1                                            | 0.2         | 0.00       | 0.0        |
 | Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 424.5       | 7.08       | 100.0      |
+| Total vignette                                          | 434.3       | 7.24       | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -2302,7 +2302,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 4.5 sec/sim (wall) across 44 sims on 3 workers
+    ##   H1: 4.6 sec/sim (wall) across 44 sims on 3 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2310,7 +2310,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 4.0 sec/sim (wall) across 44 sims on 3 workers
+    ##   H0: 4.1 sec/sim (wall) across 44 sims on 3 workers
 
 ## Complete Example Script
 
