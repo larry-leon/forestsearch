@@ -51,9 +51,10 @@ should be created:
 # Subgroup size: 634 (12.7%)
 # Analysis variables: v1, v2, v3, v4, v5, v6, v7
 
-
-
-
+# NOTE: on a file lock
+# make sure no other Git processes are active
+#ps aux | grep git
+#rm -f .git/index.lock
 
 # dev-workflow.R
 # Development workflow helper script for ForestSearch package
