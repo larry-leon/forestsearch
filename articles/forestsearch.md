@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.558 0.1093 
+    ## Seconds and minutes forestsearch overall = 6.399 0.1067 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.6 seconds
+    ## ForestSearch completed in 6.4 seconds
 
 ### ForestSearch Results
 
@@ -521,7 +521,7 @@ summaries <- summarize_bootstrap_results(
     ## Overall:
     ##   Total bootstrap time:          0.14 minutes (0.00 hours)
     ##   Average per iteration:         0.07 min (4.1 sec)
-    ##   Projected for 1000 boots:      68.88 min (1.15 hrs)
+    ##   Projected for 1000 boots:      68.29 min (1.14 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.7        | 0.0        |
-| ForestSearch         | 6.6        | 0.1        |
-| Bootstrap            | 11.0       | 0.2        |
-| Total                | 32.1       | 0.5        |
+| GRF                  | 0.6        | 0.0        |
+| ForestSearch         | 6.4        | 0.1        |
+| Bootstrap            | 10.8       | 0.2        |
+| Total                | 31.7       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1034,7 +1034,7 @@ sessionInfo()
     ## 
     ## other attached packages:
     ##  [1] weightedsurv_0.1.0  patchwork_1.3.2     doFuture_1.2.1     
-    ##  [4] future_1.69.0       foreach_1.5.2       policytree_1.2.4   
+    ##  [4] future_1.70.0       foreach_1.5.2       policytree_1.2.4   
     ##  [7] grf_2.6.1           gt_1.3.0            ggplot2_4.0.2      
     ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
     ## 
@@ -1056,7 +1056,7 @@ sessionInfo()
     ## [43] splines_4.5.3        fastmap_1.2.0        grid_4.5.3          
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
-    ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
+    ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.1      
     ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.1          
     ## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        
     ## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          

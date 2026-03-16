@@ -1193,7 +1193,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.05 minutes
+    ## Subgroup search completed in 0.06 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1219,7 +1219,7 @@ results_alt <- foreach(
     ## Batch 3 / 3 : candidates 3 - 3 
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 17.357 0.2893 
+    ## Seconds and minutes forestsearch overall = 19.131 0.3189 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1298,7 +1298,7 @@ results_null <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 351 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.04 minutes
+    ## Subgroup search completed in 0.05 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 351 
@@ -1322,7 +1322,7 @@ results_null <- foreach(
     ## Batch 1 / 1 : candidates 1 - 1 
     ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 9.711 0.1619 
+    ## Seconds and minutes forestsearch overall = 10.057 0.1676 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -2179,16 +2179,16 @@ reproducibility information.
 |---------------------------------------------------------|-------------|------------|------------|
 | 44 H1 + 44 H0 simulations, 3 workers                    |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
-| DGM creation (H1)                                       | 0.2         | 0.00       | 0.1        |
-| Calibrate k_inter (Cox)                                 | 6.9         | 0.12       | 1.7        |
-| Calibrate k_inter (AHR)                                 | 3.1         | 0.05       | 0.8        |
+| DGM creation (H1)                                       | 0.2         | 0.00       | 0.0        |
+| Calibrate k_inter (Cox)                                 | 7.1         | 0.12       | 1.7        |
+| Calibrate k_inter (AHR)                                 | 3.2         | 0.05       | 0.8        |
 | Validate k_inter                                        | 0.7         | 0.01       | 0.2        |
 | DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
-| Simulations H1                                          | 193.0       | 3.22       | 46.5       |
-| Simulations H0                                          | 172.1       | 2.87       | 41.5       |
-| Summarize H1                                            | 0.1         | 0.00       | 0.0        |
-| Summarize H0                                            | 0.2         | 0.00       | 0.0        |
-| Total vignette                                          | 415.0       | 6.92       | 100.0      |
+| Simulations H1                                          | 193.4       | 3.22       | 46.6       |
+| Simulations H0                                          | 173.2       | 2.89       | 41.7       |
+| Summarize H1                                            | 0.2         | 0.00       | 0.0        |
+| Summarize H0                                            | 0.1         | 0.00       | 0.0        |
+| Total vignette                                          | 415.1       | 6.92       | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -3550,7 +3550,7 @@ sessionInfo()
     ## [1] stats     graphics  grDevices utils     datasets  methods   base     
     ## 
     ## other attached packages:
-    ##  [1] katex_1.5.0         doFuture_1.2.1      future_1.69.0      
+    ##  [1] katex_1.5.0         doFuture_1.2.1      future_1.70.0      
     ##  [4] foreach_1.5.2       gt_1.3.0            ggplot2_4.0.2      
     ##  [7] survival_3.8-6      data.table_1.18.2.1 weightedsurv_0.1.0 
     ## [10] forestsearch_0.1.0 
@@ -3574,7 +3574,7 @@ sessionInfo()
     ## [46] fastmap_1.2.0        grid_4.5.3           cli_3.6.5           
     ## [49] magrittr_2.0.4       DiagrammeR_1.0.11    patchwork_1.3.2     
     ## [52] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
-    ## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.0      
+    ## [55] scales_1.4.0         rmarkdown_2.30       globals_0.19.1      
     ## [58] progressr_0.18.0     ragg_1.5.1           evaluate_1.0.5      
     ## [61] knitr_1.51           V8_8.0.1             markdown_2.0        
     ## [64] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          

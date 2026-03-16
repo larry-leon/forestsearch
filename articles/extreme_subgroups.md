@@ -1765,7 +1765,7 @@ sessionInfo()
     ## [5] forestsearch_0.1.0
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] gt_1.3.0             sass_0.4.10          future_1.69.0       
+    ##  [1] gt_1.3.0             sass_0.4.10          future_1.70.0       
     ##  [4] generics_0.1.4       xml2_1.5.2           shape_1.4.6.1       
     ##  [7] stringi_1.8.7        lattice_0.22-9       grf_2.6.1           
     ## [10] listenv_0.10.1       digest_0.6.39        magrittr_2.0.4      
@@ -1777,7 +1777,7 @@ sessionInfo()
     ## [28] cli_3.6.5            rlang_1.1.7          parallelly_1.46.1   
     ## [31] future.apply_1.20.2  splines_4.5.3        withr_3.0.2         
     ## [34] cachem_1.1.0         yaml_2.3.12          tools_4.5.3         
-    ## [37] parallel_4.5.3       doFuture_1.2.1       globals_0.19.0      
+    ## [37] parallel_4.5.3       doFuture_1.2.1       globals_0.19.1      
     ## [40] vctrs_0.7.1          R6_2.6.1             lifecycle_1.0.5     
     ## [43] stringr_1.6.0        randomForest_4.7-1.2 fs_1.6.7            
     ## [46] htmlwidgets_1.6.4    ragg_1.5.1           pkgconfig_2.0.3     
