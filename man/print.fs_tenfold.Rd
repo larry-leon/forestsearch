@@ -11,15 +11,24 @@
 
 \item{...}{Additional arguments (ignored)}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Print Method for Repeated K-Fold CV Results
 }
 \examples{
-\dontrun{
-fs <- forestsearch(gbsg,
+\donttest{
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-kfold <- forestsearch_tenfold(fs.est = fs, sims = 5)
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+kfold <- forestsearch_tenfold(fs.est = fs, sims = 2, Kfolds = 5,
+  parallel_args = list(plan = "sequential", show_message = FALSE))
 print(kfold)
 }
 }

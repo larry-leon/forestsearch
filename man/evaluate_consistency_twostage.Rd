@@ -69,12 +69,16 @@ Stage 1 screens with fewer splits, Stage 2 uses sequential batched
 evaluation with early stopping for efficient evaluation.
 }
 \examples{
-\dontrun{
+\donttest{
 # evaluate_consistency_twostage() is called internally by forestsearch()
 # when use_twostage = TRUE. Use forestsearch() as the entry point:
-fs <- forestsearch(gbsg,
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status",
-  use_twostage = TRUE)
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 }
 }

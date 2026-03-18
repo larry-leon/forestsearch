@@ -84,19 +84,16 @@ favors transitions to adjacent levels over distant levels
 }
 }
 \examples{
-\dontrun{
-# Load example dataset
-data(gbsg, package = "survival")
-
+\donttest{
 # Basic usage with automatic variable detection
 synthetic_data <- generate_bootstrap_with_noise(
-  data = gbsg,
+  data = survival::gbsg,
   seed = 123
 )
 
 # Specify variables explicitly
 synthetic_data <- generate_bootstrap_with_noise(
-  data = gbsg,
+  data = survival::gbsg,
   n = 1000,
   continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
   cat_vars = c("meno", "grade", "hormon", "status"),
@@ -107,7 +104,7 @@ synthetic_data <- generate_bootstrap_with_noise(
 
 # Create multiple synthetic datasets
 synthetic_list <- lapply(1:10, function(i) {
-  generate_bootstrap_with_noise(data = gbsg, seed = i)
+  generate_bootstrap_with_noise(data = survival::gbsg, seed = i)
 })
 }
 

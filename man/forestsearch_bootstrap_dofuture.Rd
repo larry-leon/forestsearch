@@ -103,35 +103,26 @@ and number of workers.
 }
 
 \examples{
-\dontrun{
-# Run ForestSearch
-fs_result <- forestsearch(
-  df.analysis = mydata,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "sex", "stage")
-)
+\donttest{
+# Setup: run ForestSearch on GBSG breast cancer data
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs_result <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 
-# Run bootstrap with bias correction
+# Run bootstrap with bias correction (small B for illustration)
 boot_results <- forestsearch_bootstrap_dofuture(
   fs.est = fs_result,
-  nb_boots = 1000,
-  parallel_args = list(
-    plan = "multisession",
-    workers = 6,
-    show_message = TRUE
-  ),
-  create_summary = TRUE,
-  create_plots = TRUE
+  nb_boots = 10,
+  parallel_args = list(plan = "sequential", show_message = FALSE)
 )
 
 # View results
 print(boot_results$FSsg_tab)
-print(boot_results$summary$table)
-
-# Check success rate
-mean(!is.na(boot_results$results$H_biasadj_2))
 }
 
 }

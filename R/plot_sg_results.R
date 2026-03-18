@@ -90,33 +90,19 @@
 #'
 #' @examples
 #' \donttest{
-#' # Run ForestSearch analysis
-#' fs <- forestsearch(
-#'   df.analysis = my_data,
-#'   outcome.name = "os_time",
-#'   event.name = "os_event",
-#'   treat.name = "treatment",
-#'   confounders.name = c("age_cat", "stage", "biomarker")
-#' )
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 #'
 #' # Create combined visualization
-#' result <- plot_sg_results(
-#'   fs.est = fs,
-#'   outcome.name = "os_time",
-#'   event.name = "os_event",
-#'   treat.name = "treatment"
-#' )
-#'
-#' # View the Kaplan-Meier plots only
-#' plot_sg_results(fs, plot_type = "km")
-#'
-#' # Customize labels
-#' plot_sg_results(
-#'   fs,
-#'   sg0_name = "High Risk",
-#'   sg1_name = "Standard Risk",
-#'   treat_labels = c("0" = "Placebo", "1" = "Active Drug")
-#' )
+#' plot_sg_results(fs.est = fs,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 #' }
 #'
 #' @seealso
@@ -861,10 +847,16 @@ plot_sg_summary_panel <- function(
 #' @return Invisibly returns \code{x}.
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-#' p <- plot_subgroup(fs)
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+#' p <- plot_sg_results(fs.est = fs,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 #' print(p)
 #' }
 #' @export
@@ -905,10 +897,16 @@ print.fs_sg_plot <- function(x, ...) {
 #'
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-#' p <- plot_subgroup(fs)
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+#' p <- plot_sg_results(fs.est = fs,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 #' plot(p)
 #' }
 #' @export

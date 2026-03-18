@@ -120,20 +120,20 @@ This function now computes:
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Alternative hypothesis with default parameters
-dgm_alt <- create_gbsg_dgm(model = "alt", verbose = TRUE)
+dgm_alt <- suppressWarnings(create_gbsg_dgm(model = "alt", verbose = TRUE))
 
 # Null hypothesis
-dgm_null <- create_gbsg_dgm(model = "null", verbose = TRUE)
+dgm_null <- suppressWarnings(create_gbsg_dgm(model = "null", verbose = TRUE))
 
 # Custom subgroup HR via k_inter
-dgm_custom <- create_gbsg_dgm(
+dgm_custom <- suppressWarnings(create_gbsg_dgm(
   model = "alt",
   k_treat = 1.2,
   k_inter = 2.0,
   verbose = TRUE
-)
+))
 
 # Access AHR metrics (aligned with generate_aft_dgm_flex)
 dgm_alt$hazard_ratios$AHR_harm

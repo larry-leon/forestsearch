@@ -34,12 +34,9 @@ This function is used when \code{return_selected_cuts_only = TRUE} in
 }
 }
 \examples{
-\dontrun{
-# When best_subgroup$depth = 2, only tree2 cuts are returned in $all
-tree_cuts <- extract_selected_tree_cuts(trees, selected_depth = 2, maxdepth = 2)
-tree_cuts$all
-# Returns only cuts from depth 2 tree
+\donttest{
+# extract_selected_tree_cuts() is called internally by grf.subg.harm.survival().
+# See grf.subg.harm.survival() for the standard entry point.
 }
 
 }
-\keyword{internal}

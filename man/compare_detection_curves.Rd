@@ -38,7 +38,7 @@ Generates and compares detection probability curves for multiple
 subgroup sample sizes.
 }
 \examples{
-\dontrun{
+\donttest{
 comparison <- compare_detection_curves(
   n_sg_values = c(40, 60, 80, 100),
   prop_cens = 0.2

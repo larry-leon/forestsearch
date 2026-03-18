@@ -361,9 +361,7 @@ detect_variable_types <- function(data, max_unique_for_cat = 10, exclude_vars = 
 
 generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0.1) {
 
-  # Load gbsg data into local environment
-  gbsg <- NULL  # Avoid R CMD check NOTE
-  data("gbsg", package = "survival", envir = environment())
+  gbsg <- survival::gbsg
 
   synthetic_data <- generate_bootstrap_synthetic(
     data = gbsg,
@@ -434,18 +432,15 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #'
 #' @examples
 #' \donttest{
-#' # Load example dataset
-#' data(gbsg, package = "survival")
-#'
 #' # Basic usage with automatic variable detection
 #' synthetic_data <- generate_bootstrap_with_noise(
-#'   data = gbsg,
+#'   data = survival::gbsg,
 #'   seed = 123
 #' )
 #'
 #' # Specify variables explicitly
 #' synthetic_data <- generate_bootstrap_with_noise(
-#'   data = gbsg,
+#'   data = survival::gbsg,
 #'   n = 1000,
 #'   continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
 #'   cat_vars = c("meno", "grade", "hormon", "status"),
@@ -456,7 +451,7 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #'
 #' # Create multiple synthetic datasets
 #' synthetic_list <- lapply(1:10, function(i) {
-#'   generate_bootstrap_with_noise(data = gbsg, seed = i)
+#'   generate_bootstrap_with_noise(data = survival::gbsg, seed = i)
 #' })
 #' }
 #'

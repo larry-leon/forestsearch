@@ -118,6 +118,16 @@ Default is FALSE}
 Must include 'var' (variable name), 'knot', 'zeta', and 'log_hrs' (vector of
 length 3). Default NULL (no spline)}
 }
+\value{
+A named list of class \code{aft_dgm} containing:
+\item{data}{Simulated trial data frame with outcome, event, and treatment columns.}
+\item{model_params}{Model parameters used for data generation (coefficients,
+dispersion, spline info if applicable).}
+\item{subgroup_info}{Subgroup definition and membership indicators, if a
+heterogeneous treatment effect was specified.}
+\item{censoring_info}{Censoring model parameters and observed censoring rate.}
+\item{call_args}{Arguments used in the call, for reproducibility.}
+}
 \description{
 Creates a data generating mechanism (DGM) for survival data using an Accelerated
 Failure Time (AFT) model with Weibull distribution. Supports flexible subgroup
@@ -210,7 +220,7 @@ is not multiple separate interactions but one combined indicator.
 }
 }
 \examples{
-\dontrun{
+\donttest{
 df <- survival::gbsg
 dgm <- generate_aft_dgm_flex(
   data            = df,

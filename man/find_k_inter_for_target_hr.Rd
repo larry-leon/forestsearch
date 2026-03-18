@@ -86,7 +86,7 @@ precision (within the specified tolerance). If the root-finding fails, the
 function evaluates the boundaries and provides diagnostic information.
 }
 \examples{
-\dontrun{
+\donttest{
 gbsg <- survival::gbsg
 
 # Find k_inter for target HR = 2.0 in harm subgroup

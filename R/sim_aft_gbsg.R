@@ -171,18 +171,18 @@ cut_size <- function(x, breaks = c(20, 50)) {
 #' @examples
 #' \donttest{
 #' # Alternative hypothesis with default parameters
-#' dgm_alt <- create_gbsg_dgm(model = "alt", verbose = TRUE)
+#' dgm_alt <- suppressWarnings(create_gbsg_dgm(model = "alt", verbose = TRUE))
 #'
 #' # Null hypothesis
-#' dgm_null <- create_gbsg_dgm(model = "null", verbose = TRUE)
+#' dgm_null <- suppressWarnings(create_gbsg_dgm(model = "null", verbose = TRUE))
 #'
 #' # Custom subgroup HR via k_inter
-#' dgm_custom <- create_gbsg_dgm(
+#' dgm_custom <- suppressWarnings(create_gbsg_dgm(
 #'   model = "alt",
 #'   k_treat = 1.2,
 #'   k_inter = 2.0,
 #'   verbose = TRUE
-#' )
+#' ))
 #'
 #' # Access AHR metrics (aligned with generate_aft_dgm_flex)
 #' dgm_alt$hazard_ratios$AHR_harm
@@ -778,8 +778,8 @@ create_gbsg_dgm <- function(
 #'
 #' @examples
 #' \donttest{
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
-#' sim_data <- simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1)
+#' dgm <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = 2.0))
+#' sim_data <- suppressWarnings(simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1))
 #'
 #' # Check AHR in simulated data
 #' exp(mean(sim_data$loghr_po))
@@ -987,12 +987,12 @@ simulate_from_gbsg_dgm <- function(
 #' k <- calibrate_k_inter(target_hr_harm = 1.5, verbose = TRUE)
 #'
 #' # Verify
-#' dgm <- create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
+#' dgm <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE))
 #' print(dgm$hr_H_true)  # Should be close to 1.5
 #'
 #' # Calibrate to AHR instead
 #' k_ahr <- calibrate_k_inter(target_hr_harm = 1.5, use_ahr = TRUE, verbose = TRUE)
-#' dgm_ahr <- create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
+#' dgm_ahr <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE))
 #' print(dgm_ahr$AHR_H_true)  # Should be close to 1.5
 #' }
 #'
@@ -1191,7 +1191,7 @@ get_dgm_with_output <- function(
 #'
 #' @examples
 #' \donttest{
-#' dgm <- create_gbsg_dgm()
+#' dgm <- suppressWarnings(create_gbsg_dgm())
 #' print(dgm)
 #' }
 #' @export

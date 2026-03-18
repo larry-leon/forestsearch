@@ -25,14 +25,17 @@ Summarizes cross-validation results for ForestSearch, including subgroup
 agreement and performance metrics.
 }
 \examples{
-\dontrun{
+\donttest{
 library(survival)
 df <- survival::gbsg
 df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
 fs <- forestsearch(df,
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-oob <- forestsearch_Kfold(fs.est = fs, Kfolds = nrow(df))
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+oob <- forestsearch_Kfold(fs.est = fs, Kfolds = 5)
 result <- forestsearch_KfoldOut(oob, outall = TRUE)
 }
 }

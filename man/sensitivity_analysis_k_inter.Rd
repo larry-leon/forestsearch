@@ -48,7 +48,7 @@ the k_inter range. If plot = TRUE, it creates a 4-panel visualization showing:
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Analyze sensitivity to k_inter
 sensitivity_results <- sensitivity_analysis_k_inter(
   k_inter_range = c(-2, 2),

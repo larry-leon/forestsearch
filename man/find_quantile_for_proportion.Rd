@@ -46,7 +46,7 @@ into the subgroup. This is particularly useful when you want to ensure a
 specific subgroup size regardless of the data distribution.
 }
 \examples{
-\dontrun{
+\donttest{
 gbsg <- survival::gbsg
 # Find ER cutpoint for 12.5\% subgroup
 result <- find_quantile_for_proportion(
@@ -67,4 +67,3 @@ subgroup_cuts = list(
 \seealso{
 \code{\link{generate_aft_dgm_flex}}
 }
-\keyword{internal}

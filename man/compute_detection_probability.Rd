@@ -67,7 +67,7 @@ The approximation assumes:
 }
 }
 \examples{
-\dontrun{
+\donttest{
 # Single HR value
 prob <- compute_detection_probability(
   theta = 1.5,

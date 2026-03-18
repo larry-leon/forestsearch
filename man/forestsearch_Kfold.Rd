@@ -84,26 +84,24 @@ The returned \code{resCV} data frame contains:
 }
 
 \examples{
-\dontrun{
-# Run initial ForestSearch
-fs_result <- forestsearch(
-  df.analysis = trial_data,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "biomarker")
-)
+\donttest{
+# Setup: run ForestSearch on GBSG breast cancer data
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs_result <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 
-# Run 10-fold cross-validation
+# Run N-fold (leave-one-out) cross-validation
 cv_results <- forestsearch_Kfold(
   fs.est = fs_result,
-  Kfolds = 10,
-  parallel_args = list(plan = "multisession", workers = 4),
-  details = TRUE
+  Kfolds = 5,
+  parallel_args = list(plan = "sequential", show_message = FALSE),
+  details = FALSE
 )
-
-# Summarize results
-cv_summary <- forestsearch_KfoldOut(cv_results, outall = TRUE)
 }
 
 }

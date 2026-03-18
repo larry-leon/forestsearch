@@ -45,7 +45,7 @@ Determines the minimum subgroup sample size needed to achieve a target
 detection probability for a given true hazard ratio.
 }
 \examples{
-\dontrun{
+\donttest{
 # Find sample size for 80\% power to detect HR = 1.5
 result <- find_required_sample_size(
   theta = 1.5,

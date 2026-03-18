@@ -39,7 +39,7 @@ and removed from the returned dataset
 }
 }
 \examples{
-\dontrun{
+\donttest{
 example_data <- data.frame(
   id = 1:100,
   age = rnorm(100, 50, 10),
@@ -56,4 +56,3 @@ names(result$data_subset)  # c("age", "grade", "status", "score")
 }
 
 }
-\keyword{internal}

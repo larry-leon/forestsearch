@@ -26,21 +26,24 @@ Invisibly returns the filename.
 Saves a forest plot to a file (PDF, PNG, etc.) with explicit dimensions.
 }
 \examples{
-\dontrun{
-# Create plot with custom theme
-large_theme <- create_forest_theme(base_size = 14, row_padding = c(6, 4))
+\donttest{
+# Setup: run ForestSearch on GBSG breast cancer data
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 
 result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs, fs_bc = fs_bc),
-  df_analysis = df.analysis,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  theme = large_theme
-)
+  fs_results = list(fs.est = fs),
+  df_analysis = df,
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 
-# Save to file
-save_forestplot(result, "forest_plot.pdf", width = 14, height = 12)
+# Save to temporary file
+save_forestplot(result, file.path(tempdir(), "forest_plot.pdf"))
 }
 
 }

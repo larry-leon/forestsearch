@@ -50,7 +50,7 @@ Computes detection probability across a range of hazard ratios to create
 a power-like curve for subgroup detection.
 }
 \examples{
-\dontrun{
+\donttest{
 # Generate detection curve
 curve_data <- generate_detection_curve(
   n_sg = 60,

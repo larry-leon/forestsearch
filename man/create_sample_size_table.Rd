@@ -31,7 +31,7 @@ Generates a table of required sample sizes for different combinations
 of true hazard ratios and censoring proportions.
 }
 \examples{
-\dontrun{
+\donttest{
 ss_table <- create_sample_size_table(
   theta_values = c(1.5, 1.75, 2.0, 2.5),
   prop_cens_values = c(0.2, 0.3, 0.4),
@@ -41,4 +41,3 @@ print(ss_table)
 }
 
 }
-\keyword{internal}

@@ -26,7 +26,7 @@ mapping. Supports both full format ("q1.1", "q3.0") and short format
 ("q1", "q3"). Handles vector input via recursion.
 }
 \examples{
-\dontrun{
+\donttest{
 labels <- c("age <= 50", "tumor size <= 20", "nodes <= 3")
 FS_labels("q1.1", labels)
 FS_labels("q1.0", labels)

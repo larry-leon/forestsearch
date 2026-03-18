@@ -28,23 +28,21 @@ and pass it to \code{plot_subgroup_results_forestplot()}:
 \code{render_forestplot(result)}
 }
 \examples{
-\dontrun{
-# For larger plot, use theme parameter in plot_subgroup_results_forestplot:
-large_theme <- create_forest_theme(
-  base_size = 14,
-  row_padding = c(6, 4),
-  cv_fontsize = 11
-)
+\donttest{
+# Setup: run ForestSearch on GBSG breast cancer data
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 
 result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs, fs_bc = fs_bc),
-  df_analysis = df.analysis,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  theme = large_theme
-)
-
+  fs_results = list(fs.est = fs),
+  df_analysis = df,
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 render_forestplot(result)
 }
 

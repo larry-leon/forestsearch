@@ -23,7 +23,7 @@ covariate-specific matches.
 Summarizes the match between cross-validation subgroups and analysis subgroups.
 }
 \examples{
-\dontrun{
+\donttest{
 # CV_sgs() is called internally by forestsearch_KfoldOut().
 # See forestsearch_Kfold() and forestsearch_KfoldOut() for the entry points.
 }

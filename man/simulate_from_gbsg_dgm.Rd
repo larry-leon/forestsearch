@@ -60,9 +60,9 @@ Generates simulated clinical trial data from a GBSG-based data generating
 mechanism.
 }
 \examples{
-\dontrun{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
-sim_data <- simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1)
+\donttest{
+dgm <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = 2.0))
+sim_data <- suppressWarnings(simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1))
 
 # Check AHR in simulated data
 exp(mean(sim_data$loghr_po))

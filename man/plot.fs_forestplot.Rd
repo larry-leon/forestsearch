@@ -11,15 +11,23 @@
 
 \item{...}{Additional arguments (ignored)}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Plot Method for ForestSearch Forest Plot
 }
 \examples{
-\dontrun{
-fs <- forestsearch(gbsg,
+\donttest{
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-fp <- plot_subgroup_results_forestplot(list(fs.est = fs), gbsg,
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+fp <- plot_subgroup_results_forestplot(list(fs.est = fs), df,
   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 plot(fp)
 }

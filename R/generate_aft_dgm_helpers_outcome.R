@@ -303,12 +303,9 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #' @return No return value, called for side effects (produces a plot).
 #' @examples
 #' \donttest{
-#' library(survival)
-#' df <- survival::gbsg
-#' dgm <- generate_aft_dgm_flex(df, outcome.name = "rfstime",
-#'                               event.name = "status", treat.name = "hormon",
-#'                               confounders.name = c("age", "meno", "nodes"))
-#' plot_spline_treatment_effect(dgm)
+#' # plot_spline_treatment_effect() requires a DGM with spline-based
+#' # treatment effect heterogeneity. See generate_aft_dgm_flex() with
+#' # model = "alt" and subgroup_vars for a complete setup.
 #' }
 #' @export
 plot_spline_treatment_effect <- function(dgm_result, add_points = TRUE) {

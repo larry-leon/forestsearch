@@ -477,9 +477,14 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' \donttest{
 #' # sg_consistency_out is called internally by forestsearch().
 #' # See forestsearch() for the standard entry point.
-#' fs <- forestsearch(gbsg,
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 #' fs$grp.consistency$out_sg
 #' }
 #' @export
@@ -624,9 +629,14 @@ remove_redundant_subgroups <- function(found.hrs) {
 #' \donttest{
 #' # evaluate_subgroup_consistency() is called internally by forestsearch().
 #' # Use forestsearch() as the standard entry point:
-#' fs <- forestsearch(gbsg,
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 #' }
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
@@ -824,10 +834,14 @@ evaluate_subgroup_consistency <- function(
 #' \donttest{
 #' # evaluate_consistency_twostage() is called internally by forestsearch()
 #' # when use_twostage = TRUE. Use forestsearch() as the entry point:
-#' fs <- forestsearch(gbsg,
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' df$id <- seq_len(nrow(df))
+#' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status",
-#'   use_twostage = TRUE)
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   fs.splits = 100, max_subgroups_search = 5,
+#'   use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
 #' }
 #' @importFrom data.table data.table as.data.table
 #' @importFrom survival coxph Surv

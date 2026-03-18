@@ -61,19 +61,25 @@ running many repetitions. Each simulation runs its K-fold CV sequentially.
 }
 
 \examples{
-\dontrun{
-# Run 100 repetitions of 10-fold CV
+\donttest{
+# Setup: run ForestSearch on GBSG breast cancer data
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs_result <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+
+# Run 5 repetitions of 10-fold CV (small for illustration)
 tenfold_results <- forestsearch_tenfold(
   fs.est = fs_result,
-  sims = 100,
+  sims = 5,
   Kfolds = 10,
-  parallel_args = list(plan = "multisession", workers = 6),
-  details = TRUE
+  parallel_args = list(plan = "sequential", show_message = FALSE),
+  details = FALSE
 )
-
-# View summary
-print(tenfold_results$sens_summary)
-print(tenfold_results$find_summary)
 }
 
 }

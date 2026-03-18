@@ -20,7 +20,7 @@ Synthetic GBSG dataset
 Generate Synthetic GBSG Data using Generalized Bootstrap
 }
 \examples{
-\dontrun{
+\donttest{
 df_synth <- generate_gbsg_bootstrap_general(n = 200, seed = 42)
 dim(df_synth)
 names(df_synth)

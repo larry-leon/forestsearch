@@ -49,17 +49,17 @@ This function uses \code{uniroot} to find the k_inter value such that
 the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.
 }
 \examples{
-\dontrun{
+\donttest{
 # Find k_inter for HR = 1.5 in harm subgroup
 k <- calibrate_k_inter(target_hr_harm = 1.5, verbose = TRUE)
 
 # Verify
-dgm <- create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE)
+dgm <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = k, verbose = TRUE))
 print(dgm$hr_H_true)  # Should be close to 1.5
 
 # Calibrate to AHR instead
 k_ahr <- calibrate_k_inter(target_hr_harm = 1.5, use_ahr = TRUE, verbose = TRUE)
-dgm_ahr <- create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE)
+dgm_ahr <- suppressWarnings(create_gbsg_dgm(model = "alt", k_inter = k_ahr, verbose = TRUE))
 print(dgm_ahr$AHR_H_true)  # Should be close to 1.5
 }
 

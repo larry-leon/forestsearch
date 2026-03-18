@@ -135,6 +135,8 @@ unlink("man/*.Rd")
 
 devtools::document()
 
+devtools::check(args = "--as-cran", vignettes = FALSE)
+
 devtools::load_all(".")
 
 devtools::check()
@@ -173,6 +175,114 @@ devtools::check_built(
   "/Users/larryleon/Documents/GitHub/forestsearch/dev/code-working/CRAN_submission_steps/version_010/forestsearch_0.1.0.tar.gz",
   args = "--as-cran"
 )
+
+
+# CRAN Submission Review_1
+devtools::document()   # regenerates man/ and NAMESPACE
+devtools::load_all()   # load the updated package into the session
+
+
+
+# devtools::check_built(args = "--as-cran")
+# # Get the full traceback from the failed check
+# tryCatch(
+#   devtools::check(args = "--as-cran"),
+#   error = function(e) {
+#     message("Error: ", conditionMessage(e))
+#     traceback()
+#   }
+# )
+
+
+# 1. Remove the empty inst/doc if it exists in your source
+unlink("inst/doc", recursive = TRUE)
+# If inst/ is now empty, remove it too
+if (length(list.files("inst", recursive = TRUE)) == 0) unlink("inst", recursive = TRUE)
+
+# 2. Clean any stale check artifacts
+devtools::clean_vignettes()
+
+# 3. Fresh check
+devtools::check(args = "--as-cran")
+
+
+# 1. Restart R (Session → Restart R in RStudio), then:
+
+
+# 1. Check what's actually inside the tarball
+pkg_path <- devtools::build()
+tarball_contents <- untar(pkg_path, list = TRUE)
+grep("doc|vignett", tarball_contents, value = TRUE)
+
+# 2. Try building the vignette directly
+rmarkdown::render("vignettes/forestsearch.Rmd", output_dir = tempdir())
+# Does this produce HTML? Any errors?
+
+# 3. Check if there are stale pre-built vignettes or extra files
+list.files("vignettes/", recursive = TRUE, all.files = TRUE)
+
+
+# Post-STEP 1 -->
+
+# Remove pre-built vignette outputs that shouldn't be in the source tree
+file.remove("vignettes/forestsearch.html")
+file.remove("vignettes/forestsearch.R")
+
+# Also clean any build/ artifacts
+unlink("build", recursive = TRUE)
+
+# Prevent recurrence — add to .gitignore if not already there
+gitignore <- readLines(".gitignore", warn = FALSE)
+to_add <- c("vignettes/*.html", "vignettes/*.R", "!vignettes/*.Rmd")
+to_add <- to_add[!to_add %in% gitignore]
+if (length(to_add) > 0) {
+  writeLines(c(gitignore, "", "# Vignette build artifacts", to_add), ".gitignore")
+}
+# Now rebuild and check
+devtools::check(args = "--as-cran")
+
+
+
+# What's actually in your source tree?
+list.files("vignettes/", recursive = TRUE, all.files = TRUE)
+list.files("build/", recursive = TRUE)
+file.exists("inst/doc")
+
+# Try building vignettes directly
+tools::buildVignettes(dir = ".")
+list.files("inst/doc/")
+
+
+# 1. Is .Rbuildignore accidentally excluding inst/doc?
+readLines(".Rbuildignore")
+
+# 2. Try building vignettes directly and see where output lands
+tools::buildVignettes(dir = ".")
+list.files("inst/doc/", recursive = TRUE)
+
+# 1. Is the .Rmd actually in the tarball? (it should be but wasn't in our grep)
+grep("Rmd", tarball_contents, value = TRUE)
+
+# 2. Isolate: does check pass if we skip vignettes?
+devtools::check(args = "--as-cran", vignettes = FALSE)
+
+
+readLines("vignettes/.gitignore")
+
+# 1. Check permissions on the .Rmd
+file.info("vignettes/forestsearch.Rmd")$mode
+
+# 2. Try a fully clean build from the command line (run in terminal, not R)
+# This gives more verbose output than devtools
+
+readLines("vignettes/articles/.gitignore")
+
+
+R CMD build .
+tar tzf forestsearch_0.1.0.tar.gz | grep -i "rmd\|doc\|vignett"
+
+
+devtools::check(args = "--as-cran", vignettes = FALSE)
 
 
 
