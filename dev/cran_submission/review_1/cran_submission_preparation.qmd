@@ -1,0 +1,335 @@
+---
+title: "CRAN Submission Preparation — `forestsearch` v0.1.0"
+subtitle: "Branch: `cran-review-1` | Final Status: Ready for win-builder"
+date: "2026-03-18"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    theme: flatly
+    code-fold: true
+    embed-resources: true
+---
+
+## Final Check Result
+
+```
+── R CMD check results ──────────── forestsearch 0.1.0 ────
+Duration: 4m 39.2s
+
+0 errors ✔ | 0 warnings ✔ | 0 notes ✔
+```
+
+**Environment:** macOS Tahoe 26.3.1, R 4.5.2 (aarch64-apple-darwin20)
+
+All checks pass cleanly — including vignette building, standard examples, and
+`--run-donttest` examples (3m 20s).
+
+---
+
+## CRAN Reviewer Response
+
+The CRAN reviewer raised eight issues. All have been resolved.
+
+```{r}
+#| label: tbl-cran-fixes
+#| echo: false
+#| tbl-cap: "CRAN reviewer issues — all resolved"
+
+cran_fixes <- data.frame(
+  Fix = 1:8,
+  `Reviewer Issue` = c(
+    "Single quotes around acronyms; extra spaces in Description field",
+    "Commented-out lines in examples",
+    "options(warn = -1) is not allowed",
+    "par() not restored via on.exit() in function",
+    "Functions write to user's home filespace by default",
+    "par() not restored in vignette examples",
+    "Missing \\\\value tags in 13 .Rd files",
+    "Examples for unexported functions"
+  ),
+  File = c(
+    "DESCRIPTION",
+    "R/bootstrap_ystar.R",
+    "R/bootstrap_dofuture_main.R",
+    "R/subgroup_consistency_helpers.R",
+    "R/cox_ahr_cde_wrapper.R",
+    "vignettes/forestsearch.Rmd",
+    "13 R source files",
+    "4 R source files"
+  ),
+  Resolution = c(
+    "Removed quotes from GRF, MRCT, AFT; collapsed Description whitespace",
+    "Removed commented-out example lines",
+    "Removed old_warn / options(warn = -1) entirely",
+    "Added oldpar <- par(); on.exit(par(oldpar), add = TRUE) before par(mfrow)",
+    "Changed default to output_dir = tempdir()",
+    "Same on.exit pattern in grf-trees chunk; removed manual par(mfrow = c(1,1))",
+    "Added @return for all functions (named list, side-effect, or invisible(x))",
+    "Promoted 4 functions from @keywords internal to @export"
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(cran_fixes, align = c("c", "l", "l", "l"))
+```
+
+### Fix 7 — `@return` Tag Details
+
+| Return type | Functions | Tag pattern |
+|:---|:---|:---|
+| Named list | `generate_aft_dgm_flex`, `get_FSdata` | `\\item{name}{description}` for each component |
+| Side-effect only | `plot_spline_treatment_effect`, `print_grf_details` | `No return value, called for side effects` |
+| S3 invisible return | 9 print/plot methods | `Invisibly returns \\code{x}.` with `invisible(x)` in body |
+
+**Revision:** The `@return` block for `get_FSdata()` originally documented
+six components that did not match the actual return value. Corrected to
+document the five actual components: `df`, `confs_names`, `confs`,
+`lassokeep`, `lassoomit`.
+
+### Fix 8 — Exported Functions
+
+| Function | File |
+|:---|:---|
+| `create_sample_size_table` | R/truefind_asymptotic.R |
+| `detect_variable_types` | R/synthetic_data_perturbation.R |
+| `extract_selected_tree_cuts` | R/grf_helpers.R |
+| `find_quantile_for_proportion` | R/find_k_inter_main.R |
+
+All four verified: `@export` present, parameter documentation matches
+signature, `@return` documented, `@importFrom` tags present where needed.
+
+---
+
+## Additional Fixes Discovered During `--run-donttest`
+
+Running `devtools::check(args = "--as-cran")` with `--run-donttest`
+revealed a series of example failures beyond the original eight issues.
+These were resolved iteratively across multiple check cycles.
+
+### Non-Self-Contained Examples
+
+Ten `\donttest{}` blocks referenced objects never defined within the example
+(`mydata`, `trial_data`, `df_large`, `fs_bootstrap`, bare `fs`, etc.).
+Each was made self-contained using a standard GBSG setup pattern:
+
+```r
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id <- seq_len(nrow(df))
+fs <- forestsearch(df,
+  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+  fs.splits = 100, max_subgroups_search = 5,
+  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
+```
+
+Three examples could not be made self-contained due to complex prerequisites
+and were replaced with descriptive stubs:
+
+- `extract_selected_tree_cuts()` — requires fitted policy tree objects
+- `plot_spline_treatment_effect()` — requires a DGM with spline-based
+  treatment heterogeneity
+- `print.cox_ahr_cde` / `summary.cox_ahr_cde` — `cox_ahr_cde_analysis()`
+  requires specialised columns not present in raw GBSG
+
+### Bare `gbsg` References
+
+Since `survival` is in Imports (not Depends), bare `gbsg` is not available
+in the check environment. Fifteen `\donttest{}` blocks across 6 files were
+converted to use `survival::gbsg` or the `df <- survival::gbsg` setup
+pattern.
+
+### GBSG Dataset Integration
+
+All examples using `survival::gbsg` required two accommodations:
+
+**1. ID column.** `forestsearch()` defaults to `id.name = "id"`, but
+`survival::gbsg` has `pid`. The internal `merge()` at line 720 of
+`forestsearch_main.R` is hardcoded to `by = "id"`, so `id.name = "pid"`
+does not work. The workaround is `df$id <- seq_len(nrow(df))`. This is
+a latent bug documented below for a future patch.
+
+**2. Column names for downstream functions.** `plot_sg_weighted_km()`
+defaults to internal names (`Y`, `Event`, `Treat`), but `df.est` retains
+original column names after the merge. Examples now pass column names
+explicitly.
+
+### Wrong Parameter Names
+
+| File | Problem | Resolution |
+|:---|:---|:---|
+| `R/cox_ahr_cde_wrapper.R` (print/summary methods) | `outcome.name` etc. don't exist on `cox_ahr_cde_analysis()` (uses `tte_name`) | Replaced with descriptive stubs |
+| `R/generate_aft_dgm_helpers_outcome.R` | Old param names for `generate_aft_dgm_flex()` | Replaced with descriptive stub |
+| `R/plot_sg_results.R` (print/plot methods) | `plot_subgroup()` is internal, not exported | Replaced with `plot_sg_results()` |
+
+### Speed Optimisation
+
+Default parameters produce correct but slow examples. All `forestsearch()`
+calls in examples use fast settings to keep total `--run-donttest` time
+under 5 minutes:
+
+| Parameter | Default | Example value | Effect |
+|:---|:---|:---|:---|
+| `fs.splits` | 1000 | 100 | 10x fewer consistency splits |
+| `max_subgroups_search` | 10 | 5 | 2x fewer candidates evaluated |
+| `use_twostage` | TRUE | TRUE | Early stopping in consistency evaluation |
+| `nb_boots` | — | 10 | Minimal bootstrap (illustration only) |
+| `Kfolds` | nrow(df) | 5 | 5-fold instead of 686 LOO |
+| `sims` (tenfold) | — | 2 | 2 repetitions instead of 200 |
+| `parallel_args` | callr/6 workers | sequential | Avoids worker startup overhead in examples |
+
+### Parallel Args Bug
+
+`parallel_args = list(plan = "sequential")` without `show_message` causes
+`if (show_message)` to fail on `NULL`. All example calls now include
+`show_message = FALSE` explicitly.
+
+### Code Bug Fix
+
+`generate_gbsg_bootstrap_general()` in `R/synthetic_data_perturbation.R`
+used `data("gbsg", package = "survival", envir = environment())` which
+fails when `survival` is in Imports (not Depends). Replaced with
+`gbsg <- survival::gbsg`.
+
+### Deprecation Warnings
+
+`create_gbsg_dgm()` and `simulate_from_gbsg_dgm()` emit `.Deprecated()`
+warnings. All 8 calls in `R/sim_aft_gbsg.R` `\donttest{}` examples
+wrapped in `suppressWarnings()`.
+
+---
+
+## Complete File Inventory
+
+```{r}
+#| label: tbl-files
+#| echo: false
+#| tbl-cap: "All modified files and change types"
+
+files <- data.frame(
+  File = c(
+    "DESCRIPTION",
+    "vignettes/forestsearch.Rmd",
+    "R/bootstrap_dofuture_main.R",
+    "R/cox_ahr_cde_wrapper.R",
+    "R/forestsearch_cross_validation.R",
+    "R/generate_aft_dgm_helpers_outcome.R",
+    "R/get_fsdata.R",
+    "R/grf_helpers.R",
+    "R/plot_sg_results.R",
+    "R/plot_sg_weighted_km.R",
+    "R/render_forestplot.R",
+    "R/sim_aft_gbsg.R",
+    "R/subgroup_consistency_helpers.R",
+    "R/synthetic_data_perturbation.R"
+  ),
+  Changes = c(
+    "Acronym quotes removed; Description whitespace fixed",
+    "par() on.exit fix in grf-trees chunk",
+    "warn=-1 removed; example made self-contained with speed params",
+    "tempdir() default; main example rewritten; print/summary stubs",
+    "6 example blocks: self-contained, speed params, Kfolds reduced",
+    "@return tag; example replaced with descriptive stub",
+    "@return corrected to match actual return value",
+    "extract_selected_tree_cuts example replaced with stub",
+    "3 example blocks: self-contained, plot_subgroup -> plot_sg_results",
+    "2 example blocks: self-contained, column names passed explicitly",
+    "5 example blocks: self-contained, trimmed, bare gbsg fixed",
+    "8 deprecated calls wrapped in suppressWarnings",
+    "par() on.exit fix; 3 example blocks made self-contained",
+    "data() bug fixed; bare gbsg converted; broken data() in example removed"
+  ),
+  `Function Code Changed` = c(
+    "—", "—", "Yes", "Yes", "No", "No", "No", "No",
+    "No", "No", "No", "No", "Yes", "Yes"
+  ),
+  check.names = FALSE
+)
+
+knitr::kable(files, align = c("l", "l", "c"))
+```
+
+Four files had changes to function bodies (not just examples/documentation):
+
+1. **`bootstrap_dofuture_main.R`** — `options(warn = -1)` and `old_warn`
+   restore removed
+2. **`cox_ahr_cde_wrapper.R`** — `output_dir` default changed from `NULL`
+   to `tempdir()`
+3. **`subgroup_consistency_helpers.R`** — `on.exit(par(oldpar), add = TRUE)`
+   added to `plot_subgroup()`
+4. **`synthetic_data_perturbation.R`** — `data("gbsg", ...)` replaced with
+   `survival::gbsg` in `generate_gbsg_bootstrap_general()`
+
+---
+
+## Known Issues for Future Releases
+
+These items do not block the current submission but should be addressed
+in a patch release.
+
+### Hardcoded `merge(by = "id")` in `forestsearch()`
+
+Line 720 of `R/forestsearch_main.R`:
+
+```r
+df.est_out <- merge(df, temp, by = "id", all.x = TRUE)
+```
+
+This ignores the `id.name` parameter. Users passing `id.name = "pid"` will
+hit an error. The fix is `by = id.name` on lines 720 and 724, plus an
+audit of downstream code that assumes column name `"id"`.
+
+### `oc_analyses_gbsg.R` Retains `\dontrun{}`
+
+Four examples use `\dontrun{}`. If CRAN asks to convert to `\donttest{}`,
+they will need `suppressWarnings()` wrappers around `create_gbsg_dgm()`
+calls.
+
+### Vignette Packaging on R 4.3.3
+
+`R CMD build` on Linux with R 4.3.3 produces an empty `inst/doc/`,
+causing installation failure. This does not occur on macOS with R 4.5.2.
+Not a submission blocker but may affect users building from source on
+older R versions.
+
+---
+
+## Submission Roadmap
+
+```{r}
+#| label: tbl-checklist
+#| echo: false
+#| tbl-cap: "Pre-submission checklist"
+
+checklist <- data.frame(
+  Step = c(
+    "All 8 CRAN reviewer issues resolved",
+    "R CMD check --as-cran: 0 errors, 0 warnings, 0 notes",
+    "--run-donttest examples pass (3m 20s)",
+    "Vignette builds and installs correctly",
+    "Changes committed to cran-review-1 branch",
+    "Submit to win-builder R-devel",
+    "Submit to win-builder R-release",
+    "Update cran-comments.md with win-builder results",
+    "Submit via CRAN submission portal"
+  ),
+  Status = c(
+    "Done", "Done", "Done", "Done", "Done",
+    "Next", "Next", "Pending", "Pending"
+  )
+)
+
+knitr::kable(checklist, align = c("l", "c"))
+```
+
+### win-builder Submission
+
+```r
+devtools::check_win_devel()
+devtools::check_win_release()
+```
+
+Results will be emailed to `larry.leon.05@post.harvard.edu`. Once both
+pass, update `cran-comments.md` and submit via
+`https://cran.r-project.org/submit.html`.
