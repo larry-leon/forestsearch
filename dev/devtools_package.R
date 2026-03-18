@@ -137,6 +137,11 @@ devtools::document()
 
 devtools::check(args = "--as-cran", vignettes = FALSE)
 
+# With vignettes
+devtools::document()
+devtools::check(args = "--as-cran")
+
+
 devtools::load_all(".")
 
 devtools::check()
