@@ -21,17 +21,16 @@
 #' @param event.name Character. Name of event indicator variable.
 #' @param details Logical. If TRUE, prints details during execution.
 #' @return A named list containing:
-#'   \item{df.FS}{Data frame with binary cut-point indicators appended to the
-#'     original analysis data.}
-#'   \item{confs_labels}{Named character vector mapping internal variable names
-#'     to human-readable labels.}
-#'   \item{index.Z}{Logical matrix of subgroup membership indicators (one column
-#'     per candidate factor level).}
-#'   \item{names.Z}{Character vector of candidate factor names.}
-#'   \item{lasso_keep}{Character vector of factors retained by LASSO (if
+#'   \item{df}{Data frame with binary cut-point indicator columns (named
+#'     \code{q1}, \code{q2}, \ldots) appended to the original analysis data.}
+#'   \item{confs_names}{Character vector of the internal column names
+#'     (\code{q1}, \code{q2}, \ldots) corresponding to each candidate factor.}
+#'   \item{confs}{Character vector of candidate factor specifications
+#'     (continuous cut expressions and categorical variable names).}
+#'   \item{lassokeep}{Character vector of factors retained by LASSO (if
 #'     \code{use_lasso = TRUE}), or \code{NULL}.}
-#'   \item{grf_cuts}{List of GRF-derived cut points (if \code{use_grf = TRUE}),
-#'     or \code{NULL}.}
+#'   \item{lassoomit}{Character vector of factors omitted by LASSO (if
+#'     \code{use_lasso = TRUE}), or \code{NULL}.}
 #' @importFrom stringr str_length str_sub
 #' @importFrom stats median quantile
 #' @examples
