@@ -155,7 +155,7 @@ density_threshold_integrand <- function(x, theta, prop_cens, n_sg, k_avg, k_ind)
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Single HR value
 #' prob <- compute_detection_probability(
 #'   theta = 1.5,
@@ -342,7 +342,7 @@ compute_detection_probability_single <- function(
 #'   \item{hr_threshold}{Detection threshold (repeated)}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Generate detection curve
 #' curve_data <- generate_detection_curve(
 #'   n_sg = 60,
@@ -423,7 +423,7 @@ generate_detection_curve <- function(
 #' @return Invisibly returns the input data.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' curve_data <- generate_detection_curve(n_sg = 60, prop_cens = 0.2)
 #' plot_detection_curve(curve_data)
 #' }
@@ -504,7 +504,7 @@ plot_detection_curve <- function(
 #' @return A data.frame with all curves combined, including n_sg as a factor.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' comparison <- compare_detection_curves(
 #'   n_sg_values = c(40, 60, 80, 100),
 #'   prop_cens = 0.2
@@ -578,7 +578,7 @@ compare_detection_curves <- function(
 #'   \item{target_power}{Input target power}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Find sample size for 80% power to detect HR = 1.5
 #' result <- find_required_sample_size(
 #'   theta = 1.5,
@@ -695,7 +695,7 @@ find_required_sample_size <- function(
 #' @return A data.frame with columns: theta, prop_cens, n_required, achieved_power
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' ss_table <- create_sample_size_table(
 #'   theta_values = c(1.5, 1.75, 2.0, 2.5),
 #'   prop_cens_values = c(0.2, 0.3, 0.4),
@@ -704,7 +704,7 @@ find_required_sample_size <- function(
 #' print(ss_table)
 #' }
 #'
-#' @keywords internal
+#' @export
 create_sample_size_table <- function(
     theta_values,
     prop_cens_values,

@@ -89,7 +89,7 @@
 #' and H^c complement.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Run ForestSearch analysis
 #' fs <- forestsearch(
 #'   df.analysis = my_data,
@@ -858,9 +858,9 @@ plot_sg_summary_panel <- function(
 #'
 #' @param x An fs_sg_plot object
 #' @param ... Additional arguments (unused)
-#'
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
@@ -901,9 +901,10 @@ print.fs_sg_plot <- function(x, ...) {
 #' @param which Character or integer. Which plot to display.
 #'   Default: 1 (first available)
 #' @param ... Additional arguments passed to plot functions
+#' @return Invisibly returns \code{x}.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")

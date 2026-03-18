@@ -53,7 +53,7 @@
 #' \code{\link{generate_aft_dgm_flex}} for DGM generation
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' gbsg <- survival::gbsg
 #'
 #' # Find k_inter for target HR = 2.0 in harm subgroup
@@ -232,7 +232,7 @@ find_k_inter_for_target_hr <- function(target_hr_harm,
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Analyze sensitivity to k_inter
 #' sensitivity_results <- sensitivity_analysis_k_inter(
 #'   k_inter_range = c(-2, 2),
@@ -384,7 +384,7 @@ sensitivity_analysis_k_inter <- function(k_inter_range = c(-5, 5),
 #' specific subgroup size regardless of the data distribution.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' gbsg <- survival::gbsg
 #' # Find ER cutpoint for 12.5% subgroup
 #' result <- find_quantile_for_proportion(
@@ -402,7 +402,7 @@ sensitivity_analysis_k_inter <- function(k_inter_range = c(-5, 5),
 #' }
 #'
 #' @seealso \code{\link{generate_aft_dgm_flex}}
-#' @keywords internal
+#' @export
 #' @importFrom stats quantile uniroot
 
 find_quantile_for_proportion <- function(data, var_name, target_prop,

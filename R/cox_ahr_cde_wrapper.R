@@ -53,7 +53,7 @@
 #'   self-contained y-axis.
 #' @param save_plots Logical whether to save plots to file. Default: FALSE.
 #' @param output_dir Character directory for saving plots. Default:
-#'   \code{"plots"}.
+#'   \code{tempdir()}.
 #' @param verbose Logical for diagnostic output. Default: TRUE.
 #'
 #' @return List of class \code{"cox_ahr_cde"} containing:
@@ -69,7 +69,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # With threshold - full subgroup analysis
 #' results <- cox_ahr_cde_analysis(
 #'   df = df_large, z_name = "z_bm",
@@ -120,7 +120,7 @@ cox_ahr_cde_analysis <- function(
     plot_style = c("combined", "separate", "grid"),
     plot_select = c("all", "profile_ahr", "ahr_only"),
     save_plots = FALSE,
-    output_dir = "plots",
+    output_dir = tempdir(),
     verbose = TRUE
 ) {
 
@@ -770,7 +770,7 @@ cox_ahr_cde_analysis <- function(
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' library(survival)
 #' df <- survival::gbsg
 #' df$grade3 <- as.integer(df$grade == "3")
@@ -829,7 +829,7 @@ print.cox_ahr_cde <- function(x, ...) {
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' library(survival)
 #' df <- survival::gbsg
 #' df$grade3 <- as.integer(df$grade == "3")

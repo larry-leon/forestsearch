@@ -281,7 +281,7 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
 #'   original code if no match is found.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' labels <- c("age <= 50", "tumor size <= 20", "nodes <= 3")
 #' FS_labels("q1.1", labels)
 #' FS_labels("q1.0", labels)
@@ -443,6 +443,8 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
     exp.lab <- "treat"
     dfcount <- weightedsurv::df_counting(df.sub, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
     dfcountC <- weightedsurv::df_counting(df.subC, tte.name = tte.name, event.name = event.name, treat.name = treat.name, arms = c(exp.lab, con.lab), by.risk = by.risk)
+    oldpar <- par(no.readonly = TRUE)
+    on.exit(par(oldpar), add = TRUE)
     par(mfrow = c(1, 2))
     weightedsurv::plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
     weightedsurv::plot_weighted_km(dfcountC, conf.int = TRUE, show.logrank = TRUE, put.legend.lr = "topleft", ymax = 1.05, xmed.fraction = 0.65)
@@ -472,7 +474,7 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #'
 #' @importFrom data.table copy
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # sg_consistency_out is called internally by forestsearch().
 #' # See forestsearch() for the standard entry point.
 #' fs <- forestsearch(gbsg,
@@ -619,7 +621,7 @@ remove_redundant_subgroups <- function(found.hrs) {
 #'   not met.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # evaluate_subgroup_consistency() is called internally by forestsearch().
 #' # Use forestsearch() as the standard entry point:
 #' fs <- forestsearch(gbsg,
@@ -819,7 +821,7 @@ evaluate_subgroup_consistency <- function(
 #' @return Named numeric vector with consistency results, or NULL if not met.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # evaluate_consistency_twostage() is called internally by forestsearch()
 #' # when use_twostage = TRUE. Use forestsearch() as the entry point:
 #' fs <- forestsearch(gbsg,

@@ -71,7 +71,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Run initial ForestSearch
 #' fs_result <- forestsearch(
 #'   df.analysis = trial_data,
@@ -397,7 +397,7 @@ forestsearch_Kfold <- function(
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Run 100 repetitions of 10-fold CV
 #' tenfold_results <- forestsearch_tenfold(
 #'   fs.est = fs_result,
@@ -653,7 +653,7 @@ forestsearch_tenfold <- function(
 #'
 #' @importFrom stringr str_sub str_length
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' library(survival)
 #' df <- survival::gbsg
 #' df$grade3 <- as.integer(df$grade == "3")
@@ -892,7 +892,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
 #'
 #' @importFrom stringr str_sub str_length
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # CV_sgs() is called internally by forestsearch_KfoldOut().
 #' # See forestsearch_Kfold() and forestsearch_KfoldOut() for the entry points.
 #' }
@@ -1110,8 +1110,9 @@ resolve_cv_parallel_args <- function(parallel_args, fs_args, details = FALSE) {
 #'
 #' @param x An fs_kfold object
 #' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
@@ -1137,8 +1138,9 @@ print.fs_kfold <- function(x, ...) {
 #'
 #' @param x An fs_tenfold object
 #' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")

@@ -300,8 +300,9 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #'
 #' @param dgm_result Result object from generate_aft_dgm_flex with spline
 #' @param add_points Logical; add observed data points. Default TRUE
+#' @return No return value, called for side effects (produces a plot).
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' library(survival)
 #' df <- survival::gbsg
 #' dgm <- generate_aft_dgm_flex(df, outcome.name = "rfstime",

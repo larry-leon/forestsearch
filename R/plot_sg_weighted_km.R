@@ -73,7 +73,7 @@
 #' @return Invisibly returns a list with subgroup data frames and counting data
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # After running forestsearch - auto-extracts subgroup definition
 #' plot_sg_weighted_km(fs.est = fs)
 #'
@@ -471,7 +471,7 @@ plot_sg_weighted_km <- function(
 #' @return Character string formatted as a figure note, or NULL if no content
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' km_result <- plot_sg_weighted_km(fs.est = fs)
 #' cat(figure_note(km_result))
 #' }
@@ -519,6 +519,7 @@ figure_note <- function(x,
 #'
 #' @param x An fs_weighted_km object from plot_sg_weighted_km()
 #' @param ... Additional arguments (unused)
+#' @return Invisibly returns \code{x}.
 #'
 #' @export
 print.fs_weighted_km <- function(x, ...) {

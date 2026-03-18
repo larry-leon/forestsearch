@@ -80,7 +80,7 @@
 #' row types (ITT, reference, posthoc, etc.).
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Simple: just increase base_size for larger plot
 #' large_theme <- create_forest_theme(base_size = 14)
 #'
@@ -204,6 +204,7 @@ create_forest_theme <- function(
 #'
 #' @param x An fs_forest_theme object
 #' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.
 #' @examples
 #' theme <- create_forest_theme()
 #' print(theme)
@@ -246,7 +247,7 @@ print.fs_forest_theme <- function(x, ...) {
 #' \code{render_forestplot(result)}
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # For larger plot, use theme parameter in plot_subgroup_results_forestplot:
 #' large_theme <- create_forest_theme(
 #'   base_size = 14,
@@ -295,7 +296,7 @@ render_forestplot <- function(x, newpage = TRUE) {
 #' @return Invisibly returns the filename.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Create plot with custom theme
 #' large_theme <- create_forest_theme(base_size = 14, row_padding = c(6, 4))
 #'
@@ -365,8 +366,9 @@ save_forestplot <- function(
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
@@ -402,8 +404,9 @@ print.fs_forestplot <- function(x, ...) {
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' fs <- forestsearch(gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")

@@ -72,7 +72,7 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Run ForestSearch
 #' fs_result <- forestsearch(
 #'   df.analysis = mydata,
@@ -190,13 +190,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # =======================================================================
 
 
-  # Suppress warnings during entire parallel section
-  old_warn <- getOption("warn")
-  options(warn = -1)
-
   on.exit({
-    options(warn = old_warn)  # Restore first
-
     if (exists(".Last.future.plan")) {
       future::plan(.Last.future.plan)
     } else {
@@ -274,8 +268,6 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     Hc_obs = Hc_obs,
     seed = boot_seed
   )
-
-  options(warn = old_warn)
 
   # =======================================================================
   # SECTION 9: POST-PROCESSING AND CONFIDENCE INTERVALS

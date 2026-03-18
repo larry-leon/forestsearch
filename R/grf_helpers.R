@@ -101,7 +101,7 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
 #' @return Data frame with node metrics
 #' @importFrom stats aggregate
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # compute_node_metrics() is called internally by grf.subg.harm.survival().
 #' # See grf.subg.harm.survival() for the standard entry point.
 #' }
@@ -141,7 +141,7 @@ compute_node_metrics <- function(data, dr.scores, tree, X, n.min) {
 #' @return List with trees and combined values
 #' @importFrom policytree policy_tree
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # fit_policy_trees() is called internally by grf.subg.harm.survival().
 #' # See grf.subg.harm.survival() for the standard entry point.
 #' }
@@ -258,7 +258,7 @@ extract_tree_cuts <- function(tree) {
 #' @param leaf_node Integer. Leaf node identifier
 #' @return Character string with split expression or NULL
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # find_leaf_split() is called internally by grf.subg.harm.survival().
 #' # See grf.subg.harm.survival() for the standard entry point.
 #' }
@@ -344,14 +344,14 @@ extract_all_tree_cuts <- function(trees, maxdepth) {
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # When best_subgroup$depth = 2, only tree2 cuts are returned in $all
 #' tree_cuts <- extract_selected_tree_cuts(trees, selected_depth = 2, maxdepth = 2)
 #' tree_cuts$all
 #' # Returns only cuts from depth 2 tree
 #' }
 #'
-#' @keywords internal
+#' @export
 
 extract_selected_tree_cuts <- function(trees, selected_depth, maxdepth) {
   result <- list()
@@ -549,8 +549,10 @@ create_null_result <- function(data, values, trees, config) {
 #' @param best_subgroup Data frame row. Selected subgroup (or NULL)
 #' @param sg_harm_id Character. Subgroup definition (or NULL)
 #' @param tree_cuts List. Cut information
+#' @return No return value, called for side effects (prints GRF diagnostic
+#'   information to the console).
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # print_grf_details() is called internally by grf.subg.harm.survival().
 #' # See grf.subg.harm.survival() for the standard entry point.
 #' }

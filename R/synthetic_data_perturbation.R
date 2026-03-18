@@ -264,7 +264,7 @@ generate_bootstrap_synthetic <- function(data,
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' example_data <- data.frame(
 #'   id = 1:100,
 #'   age = rnorm(100, 50, 10),
@@ -280,7 +280,7 @@ generate_bootstrap_synthetic <- function(data,
 #' names(result$data_subset)  # c("age", "grade", "status", "score")
 #' }
 #'
-#' @keywords internal
+#' @export
 
 detect_variable_types <- function(data, max_unique_for_cat = 10, exclude_vars = NULL) {
 
@@ -352,7 +352,7 @@ detect_variable_types <- function(data, max_unique_for_cat = 10, exclude_vars = 
 #'
 #' @return Synthetic GBSG dataset
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' df_synth <- generate_gbsg_bootstrap_general(n = 200, seed = 42)
 #' dim(df_synth)
 #' names(df_synth)
@@ -433,7 +433,7 @@ generate_gbsg_bootstrap_general <- function(n = 686, seed = 123, noise_level = 0
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Load example dataset
 #' data(gbsg, package = "survival")
 #'

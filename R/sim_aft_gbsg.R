@@ -169,7 +169,7 @@ cut_size <- function(x, breaks = c(20, 50)) {
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Alternative hypothesis with default parameters
 #' dgm_alt <- create_gbsg_dgm(model = "alt", verbose = TRUE)
 #'
@@ -777,7 +777,7 @@ create_gbsg_dgm <- function(
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
 #' sim_data <- simulate_from_gbsg_dgm(dgm, n = 500, sim_id = 1)
 #'
@@ -982,7 +982,7 @@ simulate_from_gbsg_dgm <- function(
 #' the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Find k_inter for HR = 1.5 in harm subgroup
 #' k <- calibrate_k_inter(target_hr_harm = 1.5, verbose = TRUE)
 #'
@@ -1187,9 +1187,10 @@ get_dgm_with_output <- function(
 #'
 #' @param x A gbsg_dgm object
 #' @param ... Additional arguments (unused)
+#' @return Invisibly returns \code{x}.
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' dgm <- create_gbsg_dgm()
 #' print(dgm)
 #' }
@@ -1258,7 +1259,7 @@ print.gbsg_dgm <- function(x, ...) {
 #' @return Data frame with k_inter, hr_H, hr_Hc, AHR_H, AHR_Hc, and ratio columns
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' # Test k_inter effect
 #' results <- validate_k_inter_effect()
 #'

@@ -154,8 +154,16 @@
 #'   Failure Time Data (2nd ed.). Wiley.
 #'
 #' @author Your Name
+#' @return A named list of class \code{aft_dgm} containing:
+#'   \item{data}{Simulated trial data frame with outcome, event, and treatment columns.}
+#'   \item{model_params}{Model parameters used for data generation (coefficients,
+#'     dispersion, spline info if applicable).}
+#'   \item{subgroup_info}{Subgroup definition and membership indicators, if a
+#'     heterogeneous treatment effect was specified.}
+#'   \item{censoring_info}{Censoring model parameters and observed censoring rate.}
+#'   \item{call_args}{Arguments used in the call, for reproducibility.}
 #' @examples
-#' \dontrun{
+#' \donttest{
 #' df <- survival::gbsg
 #' dgm <- generate_aft_dgm_flex(
 #'   data            = df,
