@@ -1,0 +1,361 @@
+---
+title: "forestsearch CRAN Review 1 — Git Workflow"
+author: "Larry F. León"
+date: today
+date-format: "MMMM D, YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    theme: flatly
+    code-fold: false
+    highlight-style: github
+    embed-resources: true
+---
+
+## Key concept: one folder, multiple branches
+
+A Git branch is **not** a separate folder on disk. Your local repository always
+lives at one path — something like:
+
+```
+~/GitHub/forestsearch/
+```
+
+When you switch branches in GitHub Desktop, Git updates the files inside that
+single folder to reflect the branch you switched to. Everything always happens
+in the same place.
+
+The practical consequence for this review is:
+
+- `dev/cran_submission/review_1/` holds the corrected files **as documentation**
+  — it lives inside the repo and is committed to `master`
+- The actual package source files (`R/*.R`, `DESCRIPTION`,
+  `vignettes/forestsearch.Rmd`) live at the package root level of the same folder
+- The `cran-review-1` branch exists so that the corrections to those package
+  source files are isolated and reviewable before they reach `master`
+
+You copy files from `dev/cran_submission/review_1/` into their proper package
+locations while on the `cran-review-1` branch. GitHub Desktop sees those copies
+as the branch's uncommitted changes.
+
+### Practical flow in plain terms
+
+**Step A — while still on `master`:** copy the entire `review_1/` documentation
+folder into `dev/cran_submission/` and commit it. This gives you a permanent
+record on `master` before any branch work begins.
+
+**Step B — create `cran-review-1` from `master`.** At the moment the branch is
+created, the branch and `master` are byte-for-byte identical. The `review_1/`
+documentation is already present on the branch because it was committed to
+`master` in Step A.
+
+**Step C — while on `cran-review-1`:** copy the corrected source files *upward*
+from `dev/cran_submission/review_1/R/` to `R/`, from
+`dev/cran_submission/review_1/vignettes/` to `vignettes/`, and
+`dev/cran_submission/review_1/DESCRIPTION` to `DESCRIPTION` — all within the
+same `~/GitHub/forestsearch/` folder. GitHub Desktop sees those overwrites as
+the branch's uncommitted changes.
+
+**Why don't the `review_1/` files appear as branch changes in Step C?**
+Because Git already knows about them — they were committed to `master` in Step A,
+before the branch was created. From Git's perspective they are unchanged on the
+branch. Only the package root files that you overwrite in Step C appear as diffs.
+
+---
+
+## Full local directory picture
+
+After all steps are complete, your local `~/GitHub/forestsearch/` looks like
+this (showing only relevant paths):
+
+```
+~/GitHub/forestsearch/          ← single working directory, always
+│
+├── DESCRIPTION                 ← corrected (on cran-review-1 branch)
+├── R/
+│   ├── bootstrap_dofuture_main.R        ← corrected
+│   ├── cox_ahr_cde_wrapper.R            ← corrected
+│   ├── subgroup_consistency_helpers.R   ← corrected
+│   └── ... (12 more corrected files)
+├── vignettes/
+│   └── forestsearch.Rmd        ← corrected
+│
+└── dev/
+    └── cran_submission/
+        └── review_1/           ← documentation only; committed to master
+            ├── cran_review_1_workflow.qmd   ← this document
+            ├── cran_review_fixes.qmd
+            ├── DESCRIPTION                  ← source of the copy above
+            ├── vignettes/
+            │   └── forestsearch.Rmd         ← source of the copy above
+            └── R/
+                ├── bootstrap_dofuture_main.R  ← source of the copy above
+                └── ... (14 more)
+```
+
+The files in `dev/cran_submission/review_1/` are the **source copies** downloaded
+from Claude. The files at the package root are where they must end up for
+`R CMD check` to see them. You copy from one location to the other while on the
+`cran-review-1` branch.
+
+---
+
+## Step-by-step workflow
+
+### Step 1 — Download the corrected files from Claude
+
+Download all files from the artifact panel in this conversation. They will land
+in your `~/Downloads/` folder (or wherever your browser saves files).
+
+Files to download:
+
+```
+DESCRIPTION
+forestsearch.Rmd
+bootstrap_dofuture_main.R
+cox_ahr_cde_wrapper.R
+subgroup_consistency_helpers.R
+forestsearch_cross_validation.R
+generate_aft_dgm_main.R
+generate_aft_dgm_helpers_outcome.R
+get_fsdata.R
+grf_helpers.R
+find_k_inter_main.R
+plot_sg_results.R
+plot_sg_weighted_km.R
+render_forestplot.R
+sim_aft_gbsg.R
+synthetic_data_perturbation.R
+truefind_asymptotic.R
+cran_review_fixes.qmd
+cran_review_1_workflow.qmd    ← this document
+```
+
+### Step 2 — Commit the documentation folder to `master`
+
+This step is done **before** creating the branch, because the `review_1/`
+documentation folder is a permanent record that belongs on `master` regardless
+of any branch activity.
+
+1. Confirm you are on `master` in GitHub Desktop.
+2. In Finder, create this folder structure inside your local repo:
+
+   ```
+   ~/GitHub/forestsearch/dev/cran_submission/review_1/R/
+   ~/GitHub/forestsearch/dev/cran_submission/review_1/vignettes/
+   ```
+
+3. Copy files from `~/Downloads/` into `review_1/` as follows:
+
+   | File in `~/Downloads/` | Destination inside `review_1/` |
+   |---|---|
+   | `cran_review_fixes.qmd` | `cran_review_fixes.qmd` |
+   | `cran_review_1_workflow.qmd` | `cran_review_1_workflow.qmd` |
+   | `DESCRIPTION` | `DESCRIPTION` |
+   | `forestsearch.Rmd` | `vignettes/forestsearch.Rmd` |
+   | `bootstrap_dofuture_main.R` | `R/bootstrap_dofuture_main.R` |
+   | `cox_ahr_cde_wrapper.R` | `R/cox_ahr_cde_wrapper.R` |
+   | `subgroup_consistency_helpers.R` | `R/subgroup_consistency_helpers.R` |
+   | `forestsearch_cross_validation.R` | `R/forestsearch_cross_validation.R` |
+   | `generate_aft_dgm_main.R` | `R/generate_aft_dgm_main.R` |
+   | `generate_aft_dgm_helpers_outcome.R` | `R/generate_aft_dgm_helpers_outcome.R` |
+   | `get_fsdata.R` | `R/get_fsdata.R` |
+   | `grf_helpers.R` | `R/grf_helpers.R` |
+   | `find_k_inter_main.R` | `R/find_k_inter_main.R` |
+   | `plot_sg_results.R` | `R/plot_sg_results.R` |
+   | `plot_sg_weighted_km.R` | `R/plot_sg_weighted_km.R` |
+   | `render_forestplot.R` | `R/render_forestplot.R` |
+   | `sim_aft_gbsg.R` | `R/sim_aft_gbsg.R` |
+   | `synthetic_data_perturbation.R` | `R/synthetic_data_perturbation.R` |
+   | `truefind_asymptotic.R` | `R/truefind_asymptotic.R` |
+
+4. GitHub Desktop will show all these new files as uncommitted changes on
+   `master`. Commit them with a message such as:
+
+   ```
+   Add dev/cran_submission/review_1 documentation (CRAN review 1 record)
+   ```
+
+5. Click **Push origin** to push `master` to GitHub.
+
+At this point `master` has the documentation. The package source files at the
+root (`R/*.R`, `DESCRIPTION`, `vignettes/forestsearch.Rmd`) are still the
+original pre-review versions.
+
+### Step 3 — Create the `cran-review-1` branch
+
+In GitHub Desktop:
+
+1. Click **Current Branch** (shows `master`) → **New Branch**.
+2. Name it `cran-review-1`.
+3. Confirm "Based on: `master`" is shown.
+4. Click **Create Branch**.
+
+GitHub Desktop switches your working directory to `cran-review-1`. The files on
+disk are identical to `master` at this moment — you are now on a clean branch.
+
+### Step 4 — Copy the corrected files to their package locations
+
+Still in Finder, copy from `dev/cran_submission/review_1/` to the package root.
+Both source and destination are inside `~/GitHub/forestsearch/`:
+
+| Copy from (`dev/cran_submission/review_1/`) | Copy to (package root) |
+|---|---|
+| `DESCRIPTION` | `DESCRIPTION` |
+| `vignettes/forestsearch.Rmd` | `vignettes/forestsearch.Rmd` |
+| `R/bootstrap_dofuture_main.R` | `R/bootstrap_dofuture_main.R` |
+| `R/cox_ahr_cde_wrapper.R` | `R/cox_ahr_cde_wrapper.R` |
+| `R/subgroup_consistency_helpers.R` | `R/subgroup_consistency_helpers.R` |
+| `R/forestsearch_cross_validation.R` | `R/forestsearch_cross_validation.R` |
+| `R/generate_aft_dgm_main.R` | `R/generate_aft_dgm_main.R` |
+| `R/generate_aft_dgm_helpers_outcome.R` | `R/generate_aft_dgm_helpers_outcome.R` |
+| `R/get_fsdata.R` | `R/get_fsdata.R` |
+| `R/grf_helpers.R` | `R/grf_helpers.R` |
+| `R/find_k_inter_main.R` | `R/find_k_inter_main.R` |
+| `R/plot_sg_results.R` | `R/plot_sg_results.R` |
+| `R/plot_sg_weighted_km.R` | `R/plot_sg_weighted_km.R` |
+| `R/render_forestplot.R` | `R/render_forestplot.R` |
+| `R/sim_aft_gbsg.R` | `R/sim_aft_gbsg.R` |
+| `R/synthetic_data_perturbation.R` | `R/synthetic_data_perturbation.R` |
+| `R/truefind_asymptotic.R` | `R/truefind_asymptotic.R` |
+
+After copying, GitHub Desktop will show the 17 modified files as uncommitted
+changes on `cran-review-1`. The files inside `dev/cran_submission/review_1/`
+will **not** appear as changes — they were already committed to `master` in
+Step 2, so Git considers them unchanged.
+
+### Step 5 — Regenerate documentation in RStudio
+
+With the corrected files now at the package root, open `forestsearch.Rproj` in
+RStudio and run:
+
+```r
+devtools::document()   # regenerates man/ and NAMESPACE
+devtools::load_all()   # load the updated package into the session
+```
+
+`devtools::document()` will update `man/*.Rd` files and add four new export
+entries to `NAMESPACE` for the functions promoted from `@keywords internal`
+to `@export`:
+
+```
+export(create_sample_size_table)
+export(detect_variable_types)
+export(extract_selected_tree_cuts)
+export(find_quantile_for_proportion)
+```
+
+GitHub Desktop will now also show the updated `man/*.Rd` files and `NAMESPACE`
+as additional uncommitted changes on the branch — this is expected and correct.
+
+### Step 6 — Run `R CMD check --as-cran`
+
+```r
+devtools::check_built(args = "--as-cran")
+```
+
+Expected result: **0 errors | 0 warnings | 1 note**
+
+The one NOTE (`unable to verify current time`) is a local network condition
+unrelated to the package and is documented in `cran-comments.md`.
+
+### Step 7 — Win-builder testing
+
+Build the source tarball:
+
+```r
+devtools::build()
+# produces forestsearch_0.1.0.tar.gz one level above ~/GitHub/forestsearch/
+```
+
+Submit at <https://win-builder.r-project.org/> for both **R-devel** and
+**R-release**. Results arrive by email within ~30 minutes.
+
+### Step 8 — Commit the branch
+
+Once both the local check and win-builder pass:
+
+1. In GitHub Desktop, confirm the active branch is `cran-review-1`.
+2. Review the changed files in the diff pane — you should see the 17 corrected
+   source files plus the regenerated `man/*.Rd` files and `NAMESPACE`.
+3. Write a commit message:
+
+   ```
+   CRAN review 1: fix 8 policy issues (donttest, par, warn, value tags, exports)
+   ```
+
+4. Click **Commit to cran-review-1**.
+5. Click **Push origin**.
+
+### Step 9 — Merge into `master`
+
+In GitHub Desktop:
+
+1. Click **Current Branch** → switch to `master`.
+2. Choose **Branch → Merge into Current Branch**.
+3. Select `cran-review-1` and click **Create a merge commit**.
+4. Click **Push origin** to push the updated `master` to GitHub.
+
+Optionally tag the merge commit to mark the submission state:
+
+- **Repository → Create Tag**, name it `v0.1.0-cran-r1`.
+
+### Step 10 — Submit to CRAN
+
+Upload the `.tar.gz` tarball built in Step 7 at:
+
+```
+https://cran.r-project.org/submit.html
+```
+
+Paste the contents of `cran-comments.md` into the submission form's comments
+field.
+
+---
+
+## `.gitignore` — no changes needed
+
+`dev/cran_submission/` should **not** be added to `.gitignore`. It is
+documentation that belongs in version control for the same reasons the rest of
+`dev/` is tracked.
+
+The `dev/` folder is excluded from the built package via `.Rbuildignore`, so
+none of this appears on CRAN. Confirm this line is present in `.Rbuildignore`
+at the package root:
+
+```
+^dev$
+```
+
+---
+
+## Conventions for future review rounds
+
+If CRAN responds with a second set of comments, follow the same pattern:
+
+```
+dev/cran_submission/
+├── review_1/    ← permanent record, never modified after Step 2
+└── review_2/    ← new folder: updated .qmd files + only files that change
+```
+
+Branch: `cran-review-2`, created from `master` at that point.
+
+---
+
+## Summary
+
+| Step | Action | Tool |
+|---|---|---|
+| 1 | Download corrected files from Claude | Browser |
+| 2 | Copy into `dev/cran_submission/review_1/`; commit to `master` | Finder + GitHub Desktop |
+| 3 | Create branch `cran-review-1` from `master` | GitHub Desktop |
+| 4 | Copy corrected files from `review_1/` to package root | Finder |
+| 5 | Regenerate `man/` and `NAMESPACE` | RStudio: `devtools::document()` |
+| 6 | Run `R CMD check --as-cran` | RStudio: `devtools::check_built()` |
+| 7 | Test on win-builder (R-devel + R-release) | win-builder.r-project.org |
+| 8 | Commit changes to `cran-review-1`; push | GitHub Desktop |
+| 9 | Merge `cran-review-1` → `master`; push | GitHub Desktop |
+| 10 | Submit tarball to CRAN | cran.r-project.org/submit.html |

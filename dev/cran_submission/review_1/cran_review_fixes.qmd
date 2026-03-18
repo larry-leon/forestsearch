@@ -1,0 +1,455 @@
+---
+title: "forestsearch: CRAN Review — Fixes and Rationale"
+author: "Larry F. León"
+date: today
+date-format: "MMMM D, YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-title: "Contents"
+    theme: flatly
+    code-fold: false
+    highlight-style: github
+    embed-resources: true
+---
+
+## Overview
+
+This document records every change made to the **forestsearch** package in response
+to the CRAN pre-submission review. For each issue the reviewer raised, the relevant
+CRAN policy is cited, the location of the problem in the codebase is identified, and
+the specific fix applied is described.
+
+Eight distinct issues were addressed across 17 files.
+
+---
+
+## Fix 1 — `DESCRIPTION`: Quotes around acronyms and excess whitespace {#fix1}
+
+**File:** `DESCRIPTION`
+
+### Issue
+
+The CRAN reviewer flagged two problems:
+
+1. Single quotes (`'GRF'`, `'MRCT'`, `'AFT'`) were used around acronyms in the
+   `Description` field. CRAN's writing guide specifies that single quotes in
+   `Description` are reserved exclusively for *package names* (e.g., `'ggplot2'`).
+   Acronyms and technical abbreviations must appear bare.
+
+2. The multi-line `Description` field had excessive internal whitespace. Each
+   hard-wrapped continuation line is parsed with a leading space, so unnecessary
+   line breaks introduce extraneous spaces in the final parsed description.
+
+### Fix
+
+```diff
+- using machine learning approaches including Generalized Random Forests ('GRF'),
+- LASSO regularization, and exhaustive combinatorial search algorithms. ...
+- particularly for multi-regional clinical trials ('MRCT') requiring regional
+- ... Supports both accelerated failure time ('AFT') and Cox ...
++ using machine learning approaches including Generalized Random Forests (GRF),
++ LASSO regularization, and exhaustive combinatorial search algorithms. ...
++ particularly for multi-regional clinical trials (MRCT) requiring regional
++ ... Supports both accelerated failure time (AFT) and Cox ...
+```
+
+The paragraph was also tightened to reduce line count and avoid extra spaces.
+
+### Reference
+
+[CRAN Repository Policy — Package descriptions](https://cran.r-project.org/doc/manuals/R-exts.html#The-DESCRIPTION-file)
+
+---
+
+## Fix 2 — `options(warn = -1)` in `bootstrap_dofuture_main.R` {#fix2}
+
+**File:** `R/bootstrap_dofuture_main.R`  
+**Function:** `forestsearch_bootstrap_dofuture()`
+
+### Issue
+
+The function globally suppressed all warnings for the duration of its bootstrap
+section using `options(warn = -1)`. CRAN policy prohibits setting `options(warn)`
+inside package functions because doing so silently discards warnings for *all* code
+running during that period — including code the user may have written — without their
+knowledge or consent. The policy states:
+
+> *"You are setting options(warn=-1) in your function. This is not allowed. Please
+> rather use `suppressWarnings()` if really needed."*
+
+A secondary problem was that the same restore line appeared twice: once inside the
+`on.exit()` handler (correct) and once as an explicit call after
+`bootstrap_results()` (redundant and fragile — it would be skipped if an error
+occurred before reaching it).
+
+### Before
+
+```r
+old_warn <- getOption("warn")
+options(warn = -1)                   # globally suppress all warnings
+
+on.exit({
+  options(warn = old_warn)           # restore in on.exit
+  future::plan("sequential")
+  ...
+}, add = TRUE)
+
+results <- bootstrap_results(...)
+
+options(warn = old_warn)             # redundant second restore
+```
+
+### Fix
+
+Both the `options(warn = -1)` call and all associated save/restore lines were
+removed. The `on.exit()` handler was retained for future plan restoration and
+garbage collection only. Any specific calls within the bootstrap machinery that
+genuinely produce expected warnings should use `suppressWarnings()` scoped to
+that call alone.
+
+```r
+on.exit({
+  if (exists(".Last.future.plan")) {
+    future::plan(.Last.future.plan)
+  } else {
+    future::plan("sequential")
+  }
+  if (exists("Ystar_mat") && object.size(Ystar_mat) > 1e9) {
+    gc(verbose = FALSE, reset = TRUE)
+  }
+}, add = TRUE)
+```
+
+### Reference
+
+[CRAN Cookbook — Setting options(warn = -1)](https://contributor.r-project.org/cran-cookbook/code_issues.html#setting-optionswarn--1)
+
+---
+
+## Fix 3 — `par()` not restored in `subgroup_consistency_helpers.R` {#fix3}
+
+**File:** `R/subgroup_consistency_helpers.R`  
+**Function:** `plot_subgroup()`
+
+### Issue
+
+The internal `plot_subgroup()` helper called `par(mfrow = c(1, 2))` to set a
+two-panel layout for weighted Kaplan–Meier plots, but never saved or restored the
+user's previous `par()` settings. CRAN policy requires that package functions
+*immediately* save graphical parameters with `on.exit()` before modifying them, so
+that the user's environment is restored even if the function exits via an error.
+
+> *"Please make sure that you do not change the user's options, par or working
+> directory. If you really have to do so within functions, please ensure with an
+> immediate call of `on.exit()` that the settings are reset when the function
+> is exited."*
+
+### Before
+
+```r
+par(mfrow = c(1, 2))
+weightedsurv::plot_weighted_km(dfcount,  ...)
+weightedsurv::plot_weighted_km(dfcountC, ...)
+```
+
+### Fix
+
+```r
+oldpar <- par(no.readonly = TRUE)
+on.exit(par(oldpar), add = TRUE)
+par(mfrow = c(1, 2))
+weightedsurv::plot_weighted_km(dfcount,  ...)
+weightedsurv::plot_weighted_km(dfcountC, ...)
+```
+
+The `add = TRUE` argument to `on.exit()` is important — it *appends* the restore
+to any existing exit handlers rather than replacing them.
+
+### Reference
+
+[CRAN Cookbook — Change of graphical parameters](https://contributor.r-project.org/cran-cookbook/code_issues.html#change-of-options-graphical-parameters-and-working-directory)
+
+---
+
+## Fix 4 — Writing to user's home filespace in `cox_ahr_cde_wrapper.R` {#fix4}
+
+**File:** `R/cox_ahr_cde_wrapper.R`  
+**Function:** `cox_ahr_cde_analysis()`
+
+### Issue
+
+The `output_dir` parameter defaulted to `"plots"`, a relative path that resolves
+to a `plots/` subdirectory of the user's current working directory. When
+`save_plots = TRUE` is used, the function calls `dir.create(output_dir)`, which
+creates a directory in the user's filespace without their explicit consent. CRAN
+policy prohibits functions from writing to the user's home filespace or working
+directory by default.
+
+> *"Please ensure that your functions do not write by default or in your
+> examples/vignettes/tests in the user's home filespace (including the package
+> directory and getwd()). Please omit any default path in writing functions.
+> In your examples/vignettes/tests you can write to `tempdir()`."*
+
+### Before
+
+```r
+cox_ahr_cde_analysis <- function(
+    ...,
+    save_plots = FALSE,
+    output_dir = "plots",    # resolves to getwd()/plots/
+    ...
+)
+```
+
+### Fix
+
+```r
+cox_ahr_cde_analysis <- function(
+    ...,
+    save_plots = FALSE,
+    output_dir = tempdir(),  # safe temporary location
+    ...
+)
+```
+
+The `@param` documentation was updated to match. Because `save_plots` defaults to
+`FALSE`, no directory is created during a normal call; this fix only affects
+behaviour when the user explicitly requests plot saving.
+
+### Reference
+
+[CRAN Cookbook — Writing files to the home filespace](https://contributor.r-project.org/cran-cookbook/code_issues.html#writing-files-and-directories-to-the-home-filespace)
+
+---
+
+## Fix 5 — `par()` not restored in vignette (`forestsearch.Rmd`) {#fix5}
+
+**File:** `vignettes/forestsearch.Rmd`  
+**Chunk:** `grf-trees`
+
+### Issue
+
+The vignette chunk that plots GRF policy trees called `par(mfrow = c(1, 2))` and
+then manually reset with `par(mfrow = c(1, 1))` at the end of the chunk. CRAN
+requires that vignettes (like functions) restore graphical parameters using
+`on.exit()` so that the reset occurs even if the chunk exits unexpectedly.
+
+> *"Please always make sure to reset to user's options(), working directory or
+> par() after you changed it in examples and vignettes."*
+
+### Before
+
+```r
+par(mfrow = c(1, 2))
+plot(grf_est$tree1, ...)
+plot(grf_est$tree2, ...)
+par(mfrow = c(1, 1))   # manual reset — skipped if an error occurs above
+```
+
+### Fix
+
+```r
+oldpar <- par(no.readonly = TRUE)
+on.exit(par(oldpar), add = TRUE)
+par(mfrow = c(1, 2))
+plot(grf_est$tree1, ...)
+plot(grf_est$tree2, ...)
+# manual reset removed — on.exit handles it
+```
+
+### Reference
+
+[CRAN Cookbook — Change of graphical parameters](https://contributor.r-project.org/cran-cookbook/code_issues.html#change-of-options-graphical-parameters-and-working-directory)
+
+---
+
+## Fix 6 — `\dontrun{}` replaced with `\donttest{}` throughout {#fix6}
+
+**Files:** All 48 R source files  
+**Count:** 105 occurrences converted
+
+### Issue
+
+`\dontrun{}` appeared in the `@examples` block of every exported function in the
+package. This wrapping causes the examples to appear in the documentation as
+`# Not run:` comments — misleading to users and flagged by CRAN reviewers as
+equivalent to "commented-out code":
+
+> *"`\dontrun{}` should only be used if the example really cannot be executed
+> (e.g. because of missing additional software, missing API keys, ...). Please
+> replace `\dontrun{}` with `\donttest{}`."*
+
+The distinction matters:
+
+| Wrapper | When to use | Behaviour |
+|---|---|---|
+| `\donttest{}` | Example is correct but slow (> 5 sec) | Runs in extended checks; skipped on CRAN's servers |
+| `\dontrun{}` | Example genuinely cannot run (missing software, credentials) | Never runs; shown as `# Not run:` in docs |
+
+Every example in `forestsearch` *can* be executed — they are simply slow because
+they invoke the full ForestSearch algorithm. `\donttest{}` is therefore the correct
+wrapper.
+
+### Fix
+
+A global substitution was applied across all R source files:
+
+```bash
+sed -i "s/#' \\dontrun{/#' \\donttest{/g" R/*.R
+```
+
+### Reference
+
+[CRAN Cookbook — Structuring of examples](https://contributor.r-project.org/cran-cookbook/general_issues.html#structuring-of-examples)
+
+---
+
+## Fix 7 — Missing `\value` tags in 13 `.Rd` files {#fix7}
+
+**Files:** 8 R source files  
+**Functions:** 13
+
+### Issue
+
+CRAN requires a `\value` section (generated from `@return` in roxygen2) in every
+`.Rd` file for exported functions, documenting what the function returns. This
+applies even to functions called for side effects, which should state:
+
+```
+\value{No return value, called for side effects}
+```
+
+The reviewer flagged 13 missing `\value` tags. These fell into three categories:
+
+| Category | Functions | Return text |
+|---|---|---|
+| Complex list-returning functions | `generate_aft_dgm_flex`, `get_FSdata` | Named list with itemised components |
+| Side-effect-only (plot/print to console) | `plot_spline_treatment_effect`, `print_grf_details` | No return value, called for side effects |
+| S3 print/plot methods | All others below | Invisibly returns `x` |
+
+The full list of functions fixed:
+
+| File | Function | Fix applied |
+|---|---|---|
+| `generate_aft_dgm_main.R` | `generate_aft_dgm_flex` | Named list description |
+| `get_fsdata.R` | `get_FSdata` | Named list description |
+| `generate_aft_dgm_helpers_outcome.R` | `plot_spline_treatment_effect` | Side effects |
+| `render_forestplot.R` | `print.fs_forest_theme` | Invisibly returns `x` |
+| `render_forestplot.R` | `print.fs_forestplot` | Invisibly returns `x` |
+| `render_forestplot.R` | `plot.fs_forestplot` | Invisibly returns `x` |
+| `plot_sg_results.R` | `print.fs_sg_plot` | Invisibly returns `x` |
+| `plot_sg_results.R` | `plot.fs_sg_plot` | Invisibly returns `x` |
+| `plot_sg_weighted_km.R` | `print.fs_weighted_km` | Invisibly returns `x` |
+| `forestsearch_cross_validation.R` | `print.fs_kfold` | Invisibly returns `x` |
+| `forestsearch_cross_validation.R` | `print.fs_tenfold` | Invisibly returns `x` |
+| `grf_helpers.R` | `print_grf_details` | Side effects |
+| `sim_aft_gbsg.R` | `print.gbsg_dgm` | Invisibly returns `x` |
+
+### Example fix (S3 print method)
+
+```r
+#' @param x An fs_kfold object
+#' @param ... Additional arguments (ignored)
+#' @return Invisibly returns \code{x}.   # <-- added
+#' @examples
+```
+
+### Reference
+
+[CRAN Cookbook — Missing value tags in .Rd files](https://contributor.r-project.org/cran-cookbook/docs_issues.html#missing-value-tags-in-.rd-files)
+
+---
+
+## Fix 8 — Examples for unexported functions {#fix8}
+
+**Files:** 4 R source files  
+**Functions:** 4
+
+### Issue
+
+Four functions had `@examples` blocks in their roxygen documentation but were not
+exported (they carried `@keywords internal`). CRAN does not run examples for
+unexported functions, so the presence of `@examples` is either misleading or an
+error. The reviewer flagged:
+
+> *"You have examples for unexported functions. Please either omit these examples
+> or export these functions."*
+
+The four functions were:
+
+| Function | Source file |
+|---|---|
+| `create_sample_size_table` | `R/truefind_asymptotic.R` |
+| `detect_variable_types` | `R/synthetic_data_perturbation.R` |
+| `extract_selected_tree_cuts` | `R/grf_helpers.R` |
+| `find_quantile_for_proportion` | `R/find_k_inter_main.R` |
+
+All four are already listed in `_pkgdown.yml` as documented reference functions and
+have fully self-contained, informative examples. The appropriate resolution is
+therefore to **export them** rather than remove the examples.
+
+### Fix
+
+For each function, `@keywords internal` was replaced with `@export`:
+
+```r
+# Before
+#' @keywords internal
+create_sample_size_table <- function(...) { ... }
+
+# After
+#' @export
+create_sample_size_table <- function(...) { ... }
+```
+
+After running `devtools::document()`, the NAMESPACE will gain four new `export()`
+entries:
+
+```
+export(create_sample_size_table)
+export(detect_variable_types)
+export(extract_selected_tree_cuts)
+export(find_quantile_for_proportion)
+```
+
+### Reference
+
+[CRAN Cookbook — Examples for unexported functions](https://contributor.r-project.org/cran-cookbook/docs_issues.html)
+
+---
+
+## Post-fix workflow
+
+After copying all corrected files into the package, run the standard sequence:
+
+```r
+devtools::document()          # regenerates man/ and NAMESPACE
+devtools::load_all()          # load updated package
+devtools::check_built(args = "--as-cran")
+```
+
+Then retest on win-builder before resubmitting:
+
+- <https://win-builder.r-project.org/> (R-devel and R-release)
+- Submission portal: <https://cran.r-project.org/submit.html>
+
+The one pre-existing NOTE about the time server (`unable to verify current time`)
+is a local network condition unrelated to the package and should remain documented
+in `cran-comments.md` as before.
+
+---
+
+## Summary table
+
+| # | File(s) | Problem | Policy |
+|---|---|---|---|
+| 1 | `DESCRIPTION` | Quotes around acronyms; excess whitespace | Writing guide |
+| 2 | `bootstrap_dofuture_main.R` | `options(warn = -1)` globally suppressing warnings | [Cookbook](https://contributor.r-project.org/cran-cookbook/code_issues.html#setting-optionswarn--1) |
+| 3 | `subgroup_consistency_helpers.R` | `par()` changed without `on.exit()` restore | [Cookbook](https://contributor.r-project.org/cran-cookbook/code_issues.html#change-of-options-graphical-parameters-and-working-directory) |
+| 4 | `cox_ahr_cde_wrapper.R` | Default `output_dir` writes to working directory | [Cookbook](https://contributor.r-project.org/cran-cookbook/code_issues.html#writing-files-and-directories-to-the-home-filespace) |
+| 5 | `vignettes/forestsearch.Rmd` | `par()` changed without `on.exit()` restore | [Cookbook](https://contributor.r-project.org/cran-cookbook/code_issues.html#change-of-options-graphical-parameters-and-working-directory) |
+| 6 | All 48 R source files | `\dontrun{}` used instead of `\donttest{}` | [Cookbook](https://contributor.r-project.org/cran-cookbook/general_issues.html#structuring-of-examples) |
+| 7 | 8 source files, 13 functions | Missing `\value` (`@return`) tags in `.Rd` files | [Cookbook](https://contributor.r-project.org/cran-cookbook/docs_issues.html#missing-value-tags-in-.rd-files) |
+| 8 | 4 source files, 4 functions | Examples present for unexported functions | [Cookbook](https://contributor.r-project.org/cran-cookbook/docs_issues.html) |
