@@ -115,48 +115,6 @@
     <p>A data frame with synthetic data</p>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="co"># Example 1: Using with GBSG dataset</span></span></span>
-<span class="r-in"><span><span class="va">synth_gbsg</span> <span class="op">&lt;-</span> <span class="fu">generate_bootstrap_synthetic</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span>,</span></span>
-<span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"size"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span>, <span class="st">"rfstime"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  cat_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"meno"</span>, <span class="st">"hormon"</span>, <span class="st">"status"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  ordinal_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grade"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  id_var <span class="op">=</span> <span class="st">"pid"</span>,</span></span>
-<span class="r-in"><span>  n <span class="op">=</span> <span class="fl">1000</span>,</span></span>
-<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">123</span>,</span></span>
-<span class="r-in"><span>  noise_level <span class="op">=</span> <span class="fl">0.15</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Note: The following variables were not specified as continuous or categorical and will be kept as-is from bootstrap sample:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>    grade</span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Using with any dataset</span></span></span>
-<span class="r-in"><span><span class="va">my_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">100</span>,</span></span>
-<span class="r-in"><span>  height <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">170</span>, <span class="fl">10</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  weight <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">70</span>, <span class="fl">15</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">20</span><span class="op">:</span><span class="fl">80</span>, <span class="fl">100</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  gender <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"M"</span>, <span class="st">"F"</span><span class="op">)</span>, <span class="fl">100</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  education <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span>, <span class="fl">100</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  smoker <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fl">0</span><span class="op">:</span><span class="fl">1</span>, <span class="fl">100</span>, replace <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="va">synth_data</span> <span class="op">&lt;-</span> <span class="fu">generate_bootstrap_synthetic</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">my_data</span>,</span></span>
-<span class="r-in"><span>  continuous_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"height"</span>, <span class="st">"weight"</span>, <span class="st">"age"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  cat_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"gender"</span>, <span class="st">"smoker"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  ordinal_vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"education"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  id_var <span class="op">=</span> <span class="st">"id"</span>,</span></span>
-<span class="r-in"><span>  n <span class="op">=</span> <span class="fl">150</span>,</span></span>
-<span class="r-in"><span>  seed <span class="op">=</span> <span class="fl">456</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> Note: The following variables were not specified as continuous or categorical and will be kept as-is from bootstrap sample:</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span>    education</span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

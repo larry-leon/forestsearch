@@ -108,24 +108,3 @@ The function creates up to two plots:
 The "optimal" subgroup is defined as patients with z \>= cut.zero, where
 cut.zero is the minimum z value with favorable treatment effect (loghr
 \< hrz_crit).
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Using z_age as the subgroup score
-results <- plot_subgroup_effects(dgm_spline$df_super, z = "z_age", hrz_crit = 0)
-
-# Using subgroup identifier
-results <- plot_subgroup_effects(dgm_spline$df_super, z = "subgroup", hrz_crit = 0)
-
-# With reference lines
-results <- plot_subgroup_effects(dgm_spline$df_super, z = "z_size",
-                                  hrz_crit = 0,
-                                  log.hrs = c(-0.5, 0, 0.5))
-
-# Only AHR plot
-results <- plot_subgroup_effects(dgm_spline$df_super, z = "z_pgr",
-                                  plot_type = "ahr")
-} # }
-```

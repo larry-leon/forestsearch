@@ -129,10 +129,37 @@ and `print.gbsg_dgm` continue to work.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2, verbose = FALSE)
 dgm <- compute_dgm_cde(dgm)
 print(dgm)
+#> GBSG-Based AFT Data Generating Mechanism (Aligned)
+#> ===================================================
+#> 
+#> Model type: alt 
+#> Super-population size: 5000 
+#> 
+#> Effect Modifiers:
+#>   k_treat: 1 
+#>   k_inter: 2 
+#>   k_z3: 1 
+#> 
+#> Hazard Ratios (Cox-based, stacked PO):
+#>   Overall (causal): 0.7331 
+#>   Harm subgroup (H): 2.9651 
+#>   Complement (Hc): 0.6612 
+#>   Ratio HR(H)/HR(Hc): 4.4846 
+#> 
+#> Average Hazard Ratios (from loghr_po):
+#>   AHR (overall): 0.7431 
+#>   AHR_harm (H): 3.8687 
+#>   AHR_no_harm (Hc): 0.5848 
+#>   Ratio AHR(H)/AHR(Hc): 6.6157 
+#> 
+#> Subgroup definition: z1 == 1 & z3 == 1 (low ER & premenopausal) 
+#> ER threshold: 8 (quantile = 0.25)
+#> Subgroup size: 634 (12.7%)
+#> Analysis variables: v1, v2, v3, v4, v5, v6, v7 
 sim <- simulate_from_dgm(dgm, n = 400, seed = 1)
-} # }
+# }
 ```

@@ -474,50 +474,6 @@ treatment effects using random forests. JASA.</p></li>
 <p>Source code: <a href="https://github.com/larry-leon/forestsearch" class="external-link">https://github.com/larry-leon/forestsearch</a></p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Example 1: Standard analysis (backward compatible)</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  sg_focus <span class="op">=</span> <span class="st">"hr"</span>,</span></span>
-<span class="r-in"><span>  hr.threshold <span class="op">=</span> <span class="fl">1.25</span>,</span></span>
-<span class="r-in"><span>  pconsistency.threshold <span class="op">=</span> <span class="fl">0.90</span>,</span></span>
-<span class="r-in"><span>  fs.splits <span class="op">=</span> <span class="fl">400</span>,</span></span>
-<span class="r-in"><span>  details <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 2: Fast exploratory analysis with two-stage</span></span></span>
-<span class="r-in"><span><span class="va">result_fast</span> <span class="op">&lt;-</span> <span class="fu">forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  sg_focus <span class="op">=</span> <span class="st">"maxSG"</span>,</span></span>
-<span class="r-in"><span>  hr.threshold <span class="op">=</span> <span class="fl">1.15</span>,</span></span>
-<span class="r-in"><span>  pconsistency.threshold <span class="op">=</span> <span class="fl">0.85</span>,</span></span>
-<span class="r-in"><span>  fs.splits <span class="op">=</span> <span class="fl">500</span>,</span></span>
-<span class="r-in"><span>  use_twostage <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
-<span class="r-in"><span>  details <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Example 3: Two-stage with custom parameters</span></span></span>
-<span class="r-in"><span><span class="va">result_custom</span> <span class="op">&lt;-</span> <span class="fu">forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  sg_focus <span class="op">=</span> <span class="st">"hr"</span>,</span></span>
-<span class="r-in"><span>  hr.threshold <span class="op">=</span> <span class="fl">1.3</span>,</span></span>
-<span class="r-in"><span>  pconsistency.threshold <span class="op">=</span> <span class="fl">0.95</span>,</span></span>
-<span class="r-in"><span>  fs.splits <span class="op">=</span> <span class="fl">600</span>,</span></span>
-<span class="r-in"><span>  use_twostage <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
-<span class="r-in"><span>  twostage_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>    n.splits.screen <span class="op">=</span> <span class="fl">50</span>,</span></span>
-<span class="r-in"><span>    batch.size <span class="op">=</span> <span class="fl">25</span>,</span></span>
-<span class="r-in"><span>    conf.level <span class="op">=</span> <span class="fl">0.99</span></span></span>
-<span class="r-in"><span>  <span class="op">)</span>,</span></span>
-<span class="r-in"><span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>, workers <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  details <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

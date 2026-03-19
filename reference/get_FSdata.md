@@ -95,39 +95,31 @@ get_FSdata(
 
   Logical. If TRUE, prints details during execution.
 
-## Examples
+## Value
 
-``` r
-# \donttest{
-library(survival)
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-fs_data <- get_FSdata(df.analysis = df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status",
-  use_lasso = FALSE, use_grf = FALSE)
-#> # of continuous/categorical characteristics 5 2 
-#> Continuous characteristics: age size nodes pgr er 
-#> Categorical characteristics: meno grade3 
-#> Default cuts included (1st 20) age <= mean(age) age <= median(age) age <= qlow(age) age <= qhigh(age) size <= mean(size) size <= median(size) size <= qlow(size) size <= qhigh(size) nodes <= mean(nodes) nodes <= median(nodes) nodes <= qlow(nodes) nodes <= qhigh(nodes) pgr <= mean(pgr) pgr <= median(pgr) pgr <= qlow(pgr) pgr <= qhigh(pgr) er <= mean(er) er <= median(er) er <= qlow(er) er <= qhigh(er) 
-#> Categorical: meno grade3 
-#> 
-#> ===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====
-#> Evaluating 22 cut expressions once and caching...
-#> Cut evaluation summary:
-#>   Total cuts:  22 
-#>   Valid cuts:  22 
-#>   Errors:  0 
-#> ✓ All 22 factors validated as 0/1
-#> ===== END CONSOLIDATED CUT EVALUATION =====
-#> 
-#> # of candidate subgroup factors= 22 
-#>  [1] "age <= 53.1"  "age <= 53"    "age <= 46"    "age <= 61"    "size <= 29.3"
-#>  [6] "size <= 25"   "size <= 20"   "size <= 35"   "nodes <= 5"   "nodes <= 3"  
-#> [11] "nodes <= 1"   "nodes <= 7"   "pgr <= 110"   "pgr <= 32.5"  "pgr <= 7"    
-#> [16] "pgr <= 131.8" "er <= 96.3"   "er <= 36"     "er <= 8"      "er <= 114"   
-#> [21] "meno"         "grade3"      
-names(fs_data)
-#> [1] "df"          "confs_names" "confs"       "lassokeep"   "lassoomit"  
-# }
-```
+A named list containing:
+
+- df:
+
+  Data frame with binary cut-point indicator columns (named `q1`, `q2`,
+  ...) appended to the original analysis data.
+
+- confs_names:
+
+  Character vector of the internal column names (`q1`, `q2`, ...)
+  corresponding to each candidate factor.
+
+- confs:
+
+  Character vector of candidate factor specifications (continuous cut
+  expressions and categorical variable names).
+
+- lassokeep:
+
+  Character vector of factors retained by LASSO (if `use_lasso = TRUE`),
+  or `NULL`.
+
+- lassoomit:
+
+  Character vector of factors omitted by LASSO (if `use_lasso = TRUE`),
+  or `NULL`.

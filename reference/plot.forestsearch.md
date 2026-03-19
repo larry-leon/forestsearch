@@ -78,30 +78,3 @@ for full control over appearance,
 for weighted KM curves,
 [`plot_subgroup_results_forestplot`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md)
 for publication-ready forest plots.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-
-# Combined KM + forest plot (default)
-plot(fs)
-
-# KM curves only
-plot(fs, type = "km")
-
-# Forest plot only
-plot(fs, type = "forest")
-
-# With non-standard column names
-plot(fs, type = "km",
-     outcome.name = "os_months",
-     event.name = "os_event",
-     treat.name = "treatment")
-
-# With custom labels
-plot(fs, sg0_name = "High Risk", sg1_name = "Standard Risk",
-     treat_labels = c("0" = "Placebo", "1" = "Active Drug"))
-} # }
-```

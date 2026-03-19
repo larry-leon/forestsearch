@@ -262,30 +262,3 @@ for data simulation
 for MRCT-specific DGM wrapper
 [`summaryout_mrct`](https://larry-leon.github.io/forestsearch/reference/summaryout_mrct.md)
 for summarizing simulation results
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Create DGM for alternative hypothesis
-dgm_alt <- create_dgm_for_mrct(
-  df_case = df_case,
-  model_type = "alt",
-  log_hrs = log(c(3, 1.25, 0.50)),
-  verbose = TRUE
-)
-
-# Run simulations
-results <- mrct_region_sims(
-  dgm = dgm_alt,
-  n_sims = 100,
-  region_var = "z_regA",
-  sg_focus = "minSG",
-  parallel_args = list(plan = "multisession", workers = 4),
-  details = TRUE
-)
-
-# Summarize results
-cat("Subgroup identification rate:", mean(results$any_found) * 100, "%\n")
-} # }
-```

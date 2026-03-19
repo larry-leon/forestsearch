@@ -67,13 +67,44 @@
 <dd><p>Additional arguments (unused)</p></dd>
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
+    <p>Invisibly returns <code>x</code>.</p>
+    </div>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span><span class="op">)</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> GBSG-Based AFT Data Generating Mechanism (Aligned)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ===================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Model type: alt </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Super-population size: 5000 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Effect Modifiers:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_treat: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_inter: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_z3: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Hazard Ratios (Cox-based, stacked PO):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Overall (causal): 0.7065 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Harm subgroup (H): 1.3873 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Complement (Hc): 0.6612 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio HR(H)/HR(Hc): 2.0982 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Average Hazard Ratios (from loghr_po):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR (overall): 0.6592 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_harm (H): 1.5041 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_no_harm (Hc): 0.5848 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio AHR(H)/AHR(Hc): 2.5721 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup definition: z1 == 1 &amp; z3 == 1 (low ER &amp; premenopausal) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ER threshold: 8 (quantile = 0.25)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup size: 634 (12.7%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Analysis variables: v1, v2, v3, v4, v5, v6, v7 </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -201,37 +201,3 @@ for running the subgroup analysis
 for consistency evaluation
 [`plot_subgroup_results_forestplot`](https://larry-leon.github.io/forestsearch/reference/plot_subgroup_results_forestplot.md)
 for publication-ready forest plots
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Run ForestSearch analysis
-fs <- forestsearch(
-  df.analysis = my_data,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "treatment",
-  confounders.name = c("age_cat", "stage", "biomarker")
-)
-
-# Create combined visualization
-result <- plot_sg_results(
-  fs.est = fs,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "treatment"
-)
-
-# View the Kaplan-Meier plots only
-plot_sg_results(fs, plot_type = "km")
-
-# Customize labels
-plot_sg_results(
-  fs,
-  sg0_name = "High Risk",
-  sg1_name = "Standard Risk",
-  treat_labels = c("0" = "Placebo", "1" = "Active Drug")
-)
-} # }
-```

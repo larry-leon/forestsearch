@@ -34,12 +34,3 @@ compute_node_metrics(data, dr.scores, tree, X, n.min)
 ## Value
 
 Data frame with node metrics
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# compute_node_metrics() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-} # }
-```

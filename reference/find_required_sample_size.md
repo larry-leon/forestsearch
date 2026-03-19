@@ -72,17 +72,3 @@ A list with:
 - target_power:
 
   Input target power
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Find sample size for 80% power to detect HR = 1.5
-result <- find_required_sample_size(
-  theta = 1.5,
-  target_power = 0.80,
-  prop_cens = 0.2
-)
-print(result)
-} # }
-```

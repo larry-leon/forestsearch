@@ -297,51 +297,6 @@ sets up parallelization and calls this function
 <code><a href="bootstrap_ystar.html">bootstrap_ystar</a></code> for generating the Ystar matrix</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Typically called via forestsearch_bootstrap_dofuture()</span></span></span>
-<span class="r-in"><span><span class="co"># Manual usage for debugging:</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 1. Fit initial ForestSearch model</span></span></span>
-<span class="r-in"><span><span class="va">fs_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">mydata</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"time"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"sex"</span>, <span class="st">"stage"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 2. Build Cox formula</span></span></span>
-<span class="r-in"><span><span class="va">cox_formula</span> <span class="op">&lt;-</span> <span class="fu"><a href="build_cox_formula.html">build_cox_formula</a></span><span class="op">(</span><span class="st">"time"</span>, <span class="st">"status"</span>, <span class="st">"treatment"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 3. Get observed estimates</span></span></span>
-<span class="r-in"><span><span class="va">cox_fits</span> <span class="op">&lt;-</span> <span class="fu"><a href="fit_cox_models.html">fit_cox_models</a></span><span class="op">(</span><span class="va">fs_result</span><span class="op">$</span><span class="va">df.est</span>, <span class="va">cox_formula</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 4. Set up parallel backend</span></span></span>
-<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://doFuture.futureverse.org" class="external-link">doFuture</a></span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://future.futureverse.org/reference/plan.html" class="external-link">plan</a></span><span class="op">(</span><span class="va">multisession</span>, workers <span class="op">=</span> <span class="fl">6</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 5. Run bootstrap (note: this is already parallelized internally)</span></span></span>
-<span class="r-in"><span><span class="va">boot_results</span> <span class="op">&lt;-</span> <span class="fu">bootstrap_results</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  fs.est <span class="op">=</span> <span class="va">fs_result</span>,</span></span>
-<span class="r-in"><span>  df_boot_analysis <span class="op">=</span> <span class="va">fs_result</span><span class="op">$</span><span class="va">df.est</span>,</span></span>
-<span class="r-in"><span>  cox.formula.boot <span class="op">=</span> <span class="va">cox_formula</span>,</span></span>
-<span class="r-in"><span>  nb_boots <span class="op">=</span> <span class="fl">100</span>,</span></span>
-<span class="r-in"><span>  show_three <span class="op">=</span> <span class="cn">TRUE</span>,</span></span>
-<span class="r-in"><span>  H_obs <span class="op">=</span> <span class="va">cox_fits</span><span class="op">$</span><span class="va">H_obs</span>,</span></span>
-<span class="r-in"><span>  Hc_obs <span class="op">=</span> <span class="va">cox_fits</span><span class="op">$</span><span class="va">Hc_obs</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># 6. Check results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">boot_results</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Proportion of bootstraps that found a subgroup</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">boot_results</span><span class="op">$</span><span class="va">H_biasadj_2</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

@@ -89,7 +89,7 @@ The approximation assumes:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Single HR value
 prob <- compute_detection_probability(
   theta = 1.5,
@@ -107,9 +107,12 @@ results <- compute_detection_probability(
   hr_threshold = 1.25,
   verbose = TRUE
 )
+#> Computing probability for theta[1] = 1.000
+#> Computing probability for theta[11] = 2.000
 
 # Plot detection probability curve
 plot(results$theta, results$probability, type = "l",
      xlab = "True HR", ylab = "P(detect)")
-} # }
+
+# }
 ```

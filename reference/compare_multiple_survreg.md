@@ -60,13 +60,3 @@ A list of class "multi_survreg_comparison" containing:
 - recommendation:
 
   Text recommendation
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-fit1 <- survreg(Surv(time, status) ~ x, dist = "weibull")
-fit2 <- survreg(Surv(time, status) ~ x, dist = "lognormal")
-comparison <- compare_multiple_survreg(fit1, fit2)
-} # }
-```

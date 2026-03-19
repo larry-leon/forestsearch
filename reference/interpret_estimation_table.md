@@ -77,15 +77,3 @@ Invisibly returns the interpretation as a character string.
 [`build_estimation_table`](https://larry-leon.github.io/forestsearch/reference/build_estimation_table.md),
 [`format_oc_results`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md),
 [`get_dgm_hr`](https://larry-leon.github.io/forestsearch/reference/get_dgm_hr.md)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# In a vignette chunk with results = "asis":
-interpret_estimation_table(results_null, dgm_null, scenario = "null")
-
-# Capture for further processing:
-txt <- interpret_estimation_table(results_alt, dgm_alt, cat = FALSE)
-} # }
-```

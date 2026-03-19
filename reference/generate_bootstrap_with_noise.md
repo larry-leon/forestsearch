@@ -108,34 +108,3 @@ Samples n observations with replacement from the original dataset.
 
 [`sample`](https://rdrr.io/r/base/sample.html) for bootstrap sampling,
 [`rnorm`](https://rdrr.io/r/stats/Normal.html) for noise generation
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Load example dataset
-data(gbsg, package = "survival")
-
-# Basic usage with automatic variable detection
-synthetic_data <- generate_bootstrap_with_noise(
-  data = gbsg,
-  seed = 123
-)
-
-# Specify variables explicitly
-synthetic_data <- generate_bootstrap_with_noise(
-  data = gbsg,
-  n = 1000,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
-  cat_vars = c("meno", "grade", "hormon", "status"),
-  id_var = "pid",
-  seed = 456,
-  noise_level = 0.15
-)
-
-# Create multiple synthetic datasets
-synthetic_list <- lapply(1:10, function(i) {
-  generate_bootstrap_with_noise(data = gbsg, seed = i)
-})
-} # }
-```

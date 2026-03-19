@@ -54,23 +54,3 @@ List with configuration parameters
 ## Details
 
 Creates a configuration object to organize GRF parameters
-
-## Examples
-
-``` r
-cfg <- create_grf_config(frac.tau = 0.6, n.min = 60, dmin.grf = 6,
-                         RCT = TRUE, sg.criterion = "mDiff",
-                         maxdepth = 2, seedit = 42L)
-str(cfg)
-#> List of 10
-#>  $ frac.tau                 : num 0.6
-#>  $ n.min                    : num 60
-#>  $ dmin.grf                 : num 6
-#>  $ RCT                      : logi TRUE
-#>  $ sg.criterion             : chr "mDiff"
-#>  $ maxdepth                 : num 2
-#>  $ seedit                   : int 42
-#>  $ valid_criteria           : chr [1:2] "mDiff" "Nsg"
-#>  $ max_tree_depth           : num 3
-#>  $ return_selected_cuts_only: logi FALSE
-```

@@ -145,43 +145,31 @@ subgroup factor names, cut expressions, and LASSO selection results.</p>
 <dd><p>Logical. If TRUE, prints details during execution.</p></dd>
 
 </dl></div>
-
     <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
-<span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df</span> <span class="op">&lt;-</span> <span class="fu">survival</span><span class="fu">::</span><span class="va"><a href="https://rdrr.io/pkg/survival/man/gbsg.html" class="external-link">gbsg</a></span></span></span>
-<span class="r-in"><span><span class="va">df</span><span class="op">$</span><span class="va">grade3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="va">df</span><span class="op">$</span><span class="va">grade</span> <span class="op">==</span> <span class="st">"3"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">fs_data</span> <span class="op">&lt;-</span> <span class="fu">get_FSdata</span><span class="op">(</span>df.analysis <span class="op">=</span> <span class="va">df</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"meno"</span>, <span class="st">"size"</span>, <span class="st">"grade3"</span>, <span class="st">"nodes"</span>, <span class="st">"pgr"</span>, <span class="st">"er"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"rfstime"</span>, event.name <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  use_lasso <span class="op">=</span> <span class="cn">FALSE</span>, use_grf <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> # of continuous/categorical characteristics 5 2 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Continuous characteristics: age size nodes pgr er </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Categorical characteristics: meno grade3 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Default cuts included (1st 20) age &lt;= mean(age) age &lt;= median(age) age &lt;= qlow(age) age &lt;= qhigh(age) size &lt;= mean(size) size &lt;= median(size) size &lt;= qlow(size) size &lt;= qhigh(size) nodes &lt;= mean(nodes) nodes &lt;= median(nodes) nodes &lt;= qlow(nodes) nodes &lt;= qhigh(nodes) pgr &lt;= mean(pgr) pgr &lt;= median(pgr) pgr &lt;= qlow(pgr) pgr &lt;= qhigh(pgr) er &lt;= mean(er) er &lt;= median(er) er &lt;= qlow(er) er &lt;= qhigh(er) </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Categorical: meno grade3 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ===== CONSOLIDATED CUT EVALUATION (IMPROVED) =====</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Evaluating 22 cut expressions once and caching...</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> Cut evaluation summary:</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Total cuts:  22 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Valid cuts:  22 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   Errors:  0 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ✓ All 22 factors validated as 0/1</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> ===== END CONSOLIDATED CUT EVALUATION =====</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> # of candidate subgroup factors= 22 </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] "age &lt;= 53.1"  "age &lt;= 53"    "age &lt;= 46"    "age &lt;= 61"    "size &lt;= 29.3"</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [6] "size &lt;= 25"   "size &lt;= 20"   "size &lt;= 35"   "nodes &lt;= 5"   "nodes &lt;= 3"  </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [11] "nodes &lt;= 1"   "nodes &lt;= 7"   "pgr &lt;= 110"   "pgr &lt;= 32.5"  "pgr &lt;= 7"    </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [16] "pgr &lt;= 131.8" "er &lt;= 96.3"   "er &lt;= 36"     "er &lt;= 8"      "er &lt;= 114"   </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [21] "meno"         "grade3"      </span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">fs_data</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "df"          "confs_names" "confs"       "lassokeep"   "lassoomit"  </span>
-<span class="r-in"><span><span class="co"># }</span></span></span>
-</code></pre></div>
-    </div>
+    <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
+    <p>A named list containing:</p>
+<dl><dt>df</dt>
+<dd><p>Data frame with binary cut-point indicator columns (named
+<code>q1</code>, <code>q2</code>, ...) appended to the original analysis data.</p></dd>
+
+<dt>confs_names</dt>
+<dd><p>Character vector of the internal column names
+(<code>q1</code>, <code>q2</code>, ...) corresponding to each candidate factor.</p></dd>
+
+<dt>confs</dt>
+<dd><p>Character vector of candidate factor specifications
+(continuous cut expressions and categorical variable names).</p></dd>
+
+<dt>lassokeep</dt>
+<dd><p>Character vector of factors retained by LASSO (if
+<code>use_lasso = TRUE</code>), or <code>NULL</code>.</p></dd>
+
+<dt>lassoomit</dt>
+<dd><p>Character vector of factors omitted by LASSO (if
+<code>use_lasso = TRUE</code>), or <code>NULL</code>.</p></dd>
+
+</dl></div>
+
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

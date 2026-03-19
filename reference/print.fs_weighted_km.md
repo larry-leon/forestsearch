@@ -18,3 +18,7 @@ print(x, ...)
 - ...:
 
   Additional arguments (unused)
+
+## Value
+
+Invisibly returns `x`.

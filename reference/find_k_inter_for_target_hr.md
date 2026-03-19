@@ -143,32 +143,3 @@ information.
 for sensitivity analysis
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
 for DGM generation
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-gbsg <- survival::gbsg
-
-# Find k_inter for target HR = 2.0 in harm subgroup
-result <- find_k_inter_for_target_hr(
-  target_hr_harm = 2.0,
-  data = gbsg,
-  continuous_vars = c("age", "er", "pgr"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "meno"),
-  subgroup_cuts = list(
-    er = list(type = "quantile", value = 0.25),
-    meno = 0
-  ),
-  k_treat = 1.0,
-  verbose = TRUE
-)
-
-cat("Optimal k_inter:", result$k_inter, "\n")
-cat("Achieved HR:", result$achieved_hr_harm, "\n")
-} # }
-```

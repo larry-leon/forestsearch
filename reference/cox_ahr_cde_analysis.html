@@ -72,7 +72,7 @@ Effects (CDEs) as described in the MRCT subgroups analysis documentation.</p>
 <span>  plot_style <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"combined"</span>, <span class="st">"separate"</span>, <span class="st">"grid"</span><span class="op">)</span>,</span>
 <span>  plot_select <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"all"</span>, <span class="st">"profile_ahr"</span>, <span class="st">"ahr_only"</span><span class="op">)</span>,</span>
 <span>  save_plots <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  output_dir <span class="op">=</span> <span class="st">"plots"</span>,</span>
+<span>  output_dir <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -158,7 +158,7 @@ self-contained y-axis.</p></dd>
 
 <dt id="arg-output-dir">output_dir<a class="anchor" aria-label="anchor" href="#arg-output-dir"></a></dt>
 <dd><p>Character directory for saving plots. Default:
-<code>"plots"</code>.</p></dd>
+<code><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir()</a></code>.</p></dd>
 
 
 <dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
@@ -192,34 +192,34 @@ subgroups, or overall-only when <code>hr_threshold</code> is <code>NULL</code>.<
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
+<span class="r-in"><span><span class="co"># Build a small synthetic dataset with required columns</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">200</span></span></span>
+<span class="r-in"><span><span class="va">df_ex</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span>  os_time   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Exponential.html" class="external-link">rexp</a></span><span class="op">(</span><span class="va">n</span>, rate <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  os_event  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Binomial.html" class="external-link">rbinom</a></span><span class="op">(</span><span class="va">n</span>, <span class="fl">1</span>, <span class="fl">0.6</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  treat     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0</span><span class="op">:</span><span class="fl">1</span>, each <span class="op">=</span> <span class="va">n</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  biomarker <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span><span class="op">)</span>,</span></span>
+<span class="r-in"><span>  loghr_po  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/Normal.html" class="external-link">rnorm</a></span><span class="op">(</span><span class="va">n</span>, mean <span class="op">=</span> <span class="op">-</span><span class="fl">0.3</span>, sd <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># With threshold - full subgroup analysis</span></span></span>
 <span class="r-in"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu">cox_ahr_cde_analysis</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_large</span>, z_name <span class="op">=</span> <span class="st">"z_bm"</span>,</span></span>
-<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="fl">1.25</span>, plot_style <span class="op">=</span> <span class="st">"grid"</span></span></span>
+<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_ex</span>, z_name <span class="op">=</span> <span class="st">"biomarker"</span>,</span></span>
+<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="fl">1.25</span>, plot_style <span class="op">=</span> <span class="st">"grid"</span>,</span></span>
+<span class="r-in"><span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Without threshold - pure AHR/CDE curves</span></span></span>
+<span class="r-in"><span><span class="co"># Without threshold - pure AHR curves</span></span></span>
 <span class="r-in"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu">cox_ahr_cde_analysis</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_large</span>, z_name <span class="op">=</span> <span class="st">"z_bm"</span>,</span></span>
-<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="cn">NULL</span>, plot_style <span class="op">=</span> <span class="st">"grid"</span></span></span>
+<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_ex</span>, z_name <span class="op">=</span> <span class="st">"biomarker"</span>,</span></span>
+<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="cn">NULL</span>, plot_select <span class="op">=</span> <span class="st">"ahr_only"</span>,</span></span>
+<span class="r-in"><span>  verbose <span class="op">=</span> <span class="cn">FALSE</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Compact two-panel without threshold</span></span></span>
-<span class="r-in"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu">cox_ahr_cde_analysis</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_large</span>, z_name <span class="op">=</span> <span class="st">"z_bm"</span>,</span></span>
-<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="cn">NULL</span>,</span></span>
-<span class="r-in"><span>  plot_select <span class="op">=</span> <span class="st">"profile_ahr"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Single AHR panel only</span></span></span>
-<span class="r-in"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu">cox_ahr_cde_analysis</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df_large</span>, z_name <span class="op">=</span> <span class="st">"z_bm"</span>,</span></span>
-<span class="r-in"><span>  hr_threshold <span class="op">=</span> <span class="fl">1.25</span>,</span></span>
-<span class="r-in"><span>  plot_select <span class="op">=</span> <span class="st">"ahr_only"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
+<span class="r-plt img"><img src="cox_ahr_cde_analysis-1.png" alt="" width="700" height="1133"></span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

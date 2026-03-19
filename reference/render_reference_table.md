@@ -43,7 +43,7 @@ A `gt` table object.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 ref <- data.frame(
   Scenario = "M1 Null: N=700",
   Metric   = "any(H)",
@@ -52,5 +52,28 @@ ref <- data.frame(
   GRF      = 0.25
 )
 render_reference_table(ref, title = "Reference Results")
-} # }
+
+
+  
+
+
+Reference Results
 ```
+
+FS
+
+FSlg
+
+GRF
+
+M1 Null: N=700
+
+any(H)
+
+0.02
+
+0.03
+
+0.25
+
+\# }

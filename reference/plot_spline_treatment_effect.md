@@ -18,15 +18,6 @@ plot_spline_treatment_effect(dgm_result, add_points = TRUE)
 
   Logical; add observed data points. Default TRUE
 
-## Examples
+## Value
 
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- survival::gbsg
-dgm <- generate_aft_dgm_flex(df, outcome.name = "rfstime",
-                              event.name = "status", treat.name = "hormon",
-                              confounders.name = c("age", "meno", "nodes"))
-plot_spline_treatment_effect(dgm)
-} # }
-```
+No return value, called for side effects (produces a plot).

@@ -46,14 +46,3 @@ It returns:
 - `all_names`: Variable names from the SELECTED tree only
 
 - `selected_depth`: The depth that was selected
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# When best_subgroup$depth = 2, only tree2 cuts are returned in $all
-tree_cuts <- extract_selected_tree_cuts(trees, selected_depth = 2, maxdepth = 2)
-tree_cuts$all
-# Returns only cuts from depth 2 tree
-} # }
-```

@@ -85,19 +85,3 @@ for table creation
 for analogous main analysis tables
 [`summarize_bootstrap_subgroups`](https://larry-leon.github.io/forestsearch/reference/summarize_bootstrap_subgroups.md)
 for subgroup stability analysis
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 100)
-summaries <- summarize_bootstrap_results(fs$sg.harm, fs_bc)
-summaries$table
-} # }
-```

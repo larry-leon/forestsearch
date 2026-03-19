@@ -40,14 +40,3 @@ early_stop_decision(
 ## Value
 
 Character. One of "continue", "pass", or "fail".
-
-## Examples
-
-``` r
-early_stop_decision(95, 100, threshold = 0.90)
-#> [1] "continue"
-early_stop_decision(60, 100, threshold = 0.90)
-#> [1] "fail"
-early_stop_decision(10, 15, threshold = 0.90)  # below min_samples
-#> [1] "continue"
-```

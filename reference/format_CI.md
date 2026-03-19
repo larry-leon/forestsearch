@@ -21,14 +21,3 @@ format_CI(estimates, col_names)
 ## Value
 
 Character string formatted as \\estimate (lower, upper)\\.
-
-## Examples
-
-``` r
-# \donttest{
-library(data.table)
-est <- data.table(hr = 1.58, lower = 0.86, upper = 2.90)
-format_CI(est, col_names = c("hr", "lower", "upper"))
-#> [1] "1.58 (0.86,2.9)"
-# }
-```

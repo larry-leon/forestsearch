@@ -40,16 +40,3 @@ create_sample_size_table(
 ## Value
 
 A data.frame with columns: theta, prop_cens, n_required, achieved_power
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-ss_table <- create_sample_size_table(
-  theta_values = c(1.5, 1.75, 2.0, 2.5),
-  prop_cens_values = c(0.2, 0.3, 0.4),
-  target_power = 0.80
-)
-print(ss_table)
-} # }
-```

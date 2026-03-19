@@ -89,9 +89,57 @@ process.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
 sim_data <- simulate_from_dgm(dgm, n = 200)
 check_censoring_dgm(sim_data, dgm = dgm)
-} # }
+#> 
+#> =========================================================
+#>   Censoring Diagnostic: DGM Reference vs Simulated
+#> =========================================================
+#>   DGM censoring type  : weibull
+#>   DGM mu_cens         : 4.0492  [exp = 57.35 time units]
+#>   DGM tau_cens        : 0.4363
+#>   Reference n (super) : 5000
+#>   Simulated n         : 200
+#> 
+#> --- 1. Censoring Rates ---
+#>    Group Ref_rate Sim_rate     Diff
+#>  Overall    55.3%    71.5% +16.2 pp
+#>    Arm 0    54.5%    69.0% +14.5 pp
+#>    Arm 1    56.2%    74.0% +17.8 pp
+#> 
+#> --- 2. Censoring-Time Quantiles (censored subjects only) ---
+#>     Ref: y[event == 0]  |  Sim: c_time[event_sim == 0]
+#>  Quantile   Ref   Sim Ratio
+#>       25% 28.19 25.97 0.921
+#>       50% 47.05 30.36 0.645
+#>       75% 61.04 37.15 0.609
+#>       90% 71.00 42.13 0.593
+#> 
+#> --- 3. KM Median Censoring Time (reversed event indicator) ---
+#>    Group Ref_median Sim_median Ratio
+#>  Overall   54.04517   31.61996 0.585
+#>    Arm 0   53.94661   31.94067 0.592
+#>    Arm 1   55.03080   31.39309 0.570
+#> 
+#> --- 4. Implied Time-Scale Check ---
+#>   exp(params$mu)          = 86.40  [median outcome time, DGM scale]
+#>   exp(params$censoring$mu)= 57.35  [median censoring time, DGM scale]
+#>   If these values are implausibly large relative to your
+#>   analysis_time, the DGM was likely built on a different time
+#>   scale (e.g. days vs months).
+#> 
+#> [WARNING] Potential discrepancies detected:
+#>   * Censoring rate: ref = 55.3%, sim = 71.5%  [|diff| = 16.2 pp > tol 10.0 pp]
+#>   * KM median censoring: ref = 54.05, sim = 31.62  [ratio = 0.59, tol = 1.25]
+#> 
+#> Common causes:
+#>   1. Time-scale mismatch: verify exp(dgm$model_params$mu) is
+#>      plausible relative to analysis_time.
+#>   2. cens_adjust shifting censoring substantially from fitted model.
+#>   3. Short analysis_time / time_eos making admin censoring dominant.
+#> =========================================================
+#> 
+# }
 ```

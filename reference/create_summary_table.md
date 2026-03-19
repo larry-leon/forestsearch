@@ -161,30 +161,3 @@ variables specified via `vars_categorical` that happen to be
 binary-coded (i.e., have exactly two levels: 0 and 1) are automatically
 detected and displayed in the same compact single-row format, showing
 only the "1" proportion.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Basic usage
-create_summary_table(
-  data = trial_data,
-  treat_var = "treatment",
-  vars_continuous = c("age", "bmi"),
-  vars_categorical = c("sex", "stage")
-)
-
-# Customized appearance
-create_summary_table(
-  data = trial_data,
-  treat_var = "treatment",
-  vars_continuous = c("age", "bmi"),
-  vars_categorical = c("sex", "stage"),
-  font_size = 11,
-  header_font_size = 13,
-  use_alternating_rows = TRUE,
-  highlight_pval = 0.05,
-  compact_mode = TRUE
-)
-} # }
-```

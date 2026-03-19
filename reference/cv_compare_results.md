@@ -44,18 +44,3 @@ cv_compare_results(
 ## Value
 
 A gt table or data.frame comparing CV results across configurations.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Compare CV results from different configurations
-cv_comparison <- cv_compare_results(
-  cv_list = list(
-    "maxk=1" = cv_maxk1,
-    "maxk=2" = cv_maxk2,
-    "maxk=3" = cv_maxk3
-  )
-)
-} # }
-```

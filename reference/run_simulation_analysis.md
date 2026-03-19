@@ -166,14 +166,3 @@ size, HR, AHR, CDE, and classification metrics.
 [`simulate_from_dgm`](https://larry-leon.github.io/forestsearch/reference/simulate_from_dgm.md),
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md),
 [`setup_gbsg_dgm`](https://larry-leon.github.io/forestsearch/reference/setup_gbsg_dgm.md)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
-results <- run_simulation_analysis(dgm, nsim = 5,
-  parallel_args = list(plan = "sequential"))
-summarize_simulation_results(results)
-} # }
-```

@@ -81,19 +81,3 @@ A data.frame with columns:
 - hr_threshold:
 
   Detection threshold (repeated)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Generate detection curve
-curve_data <- generate_detection_curve(
-  n_sg = 60,
-  prop_cens = 0.2,
-  hr_threshold = 1.25
-)
-
-# Plot
-plot_detection_curve(curve_data)
-} # }
-```

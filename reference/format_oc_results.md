@@ -86,12 +86,3 @@ Column notation aligns with
 and Leon et al. (2024): `H` = true (oracle) subgroup, `H-hat` =
 identified subgroup. The asterisk (`*`) is reserved for bootstrap
 bias-corrected estimates and is not used in this summary table.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# format_oc_results() is called by summarize_simulation_results().
-# See run_simulation_analysis() for the standard entry point.
-} # }
-```

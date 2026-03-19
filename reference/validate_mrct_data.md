@@ -45,16 +45,3 @@ The function also validates variable types and value ranges.
 
 [`create_dgm_for_mrct`](https://larry-leon.github.io/forestsearch/reference/create_dgm_for_mrct.md)
 for creating DGM from validated data
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Check if dataset is ready for MRCT simulations
-is_valid <- validate_mrct_data(df.case)
-
-if (!is_valid) {
-  stop("Please fix data issues before running simulations")
-}
-} # }
-```

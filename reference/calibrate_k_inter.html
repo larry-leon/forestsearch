@@ -121,19 +121,109 @@ the empirical HR (or AHR) in the harm subgroup equals target_hr_harm.</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Find k_inter for HR = 1.5 in harm subgroup</span></span></span>
 <span class="r-in"><span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fu">calibrate_k_inter</span><span class="op">(</span>target_hr_harm <span class="op">=</span> <span class="fl">1.5</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Calibrating k_inter to achieve HR(H) = 1.5000</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Search range: [-100.0, 100.0]</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> HR(H) at k_inter = -100.0: 0.0000</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> HR(H) at k_inter = 100.0: 2013671808.8162</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> === Calibration Result ===</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found k_inter = 1.111548</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Achieved HR(H) = 1.5000 (target: 1.5000)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Error: 0.000017</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Iterations: 24</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Verify</span></span></span>
-<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">$</span><span class="va">hr_H_true</span><span class="op">)</span>  <span class="co"># Should be close to 1.5</span></span></span>
+<span class="r-in"><span><span class="va">dgm</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> GBSG-Based AFT Data Generating Mechanism (Aligned)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ===================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Model type: alt </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Super-population size: 5000 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Effect Modifiers:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_treat: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_inter: 1.111548 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_z3: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Hazard Ratios (Cox-based, stacked PO):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Overall (causal): 0.7103 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Harm subgroup (H): 1.5 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Complement (Hc): 0.6612 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio HR(H)/HR(Hc): 2.2686 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Average Hazard Ratios (from loghr_po):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR (overall): 0.6681 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_harm (H): 1.6713 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_no_harm (Hc): 0.5848 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio AHR(H)/AHR(Hc): 2.8579 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup definition: z1 == 1 &amp; z3 == 1 (low ER &amp; premenopausal) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ER threshold: 8 (quantile = 0.25)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup size: 634 (12.7%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Analysis variables: v1, v2, v3, v4, v5, v6, v7 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calibrate to AHR instead</span></span></span>
 <span class="r-in"><span><span class="va">k_ahr</span> <span class="op">&lt;-</span> <span class="fu">calibrate_k_inter</span><span class="op">(</span>target_hr_harm <span class="op">=</span> <span class="fl">1.5</span>, use_ahr <span class="op">=</span> <span class="cn">TRUE</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">dgm_ahr</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_gbsg_dgm.html">create_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k_ahr</span>, verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm_ahr</span><span class="op">$</span><span class="va">AHR_H_true</span><span class="op">)</span>  <span class="co"># Should be close to 1.5</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Calibrating k_inter to achieve AHR(H) = 1.5000</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Search range: [-100.0, 100.0]</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> AHR(H) at k_inter = -100.0: 0.0000</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> AHR(H) at k_inter = 100.0: 62477087940906073029797013052975443083264.0000</span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-wrn co"><span class="r-pr">#&gt;</span> <span class="warning">Warning: </span>Loglik converged before variable  1 ; coefficient may be infinite. </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> === Calibration Result ===</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Found k_inter = 0.997107</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Achieved AHR(H) = 1.5000 (target: 1.5000)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Error: 0.000000</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> Iterations: 20</span>
+<span class="r-in"><span><span class="va">dgm_ahr</span> <span class="op">&lt;-</span> <span class="fu"><a href="setup_gbsg_dgm.html">setup_gbsg_dgm</a></span><span class="op">(</span>model <span class="op">=</span> <span class="st">"alt"</span>, k_inter <span class="op">=</span> <span class="va">k_ahr</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">dgm_ahr</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> GBSG-Based AFT Data Generating Mechanism (Aligned)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ===================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Model type: alt </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Super-population size: 5000 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Effect Modifiers:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_treat: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_inter: 0.997107 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   k_z3: 1 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Hazard Ratios (Cox-based, stacked PO):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Overall (causal): 0.7064 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Harm subgroup (H): 1.3843 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Complement (Hc): 0.6612 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio HR(H)/HR(Hc): 2.0937 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Average Hazard Ratios (from loghr_po):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR (overall): 0.659 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_harm (H): 1.5 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   AHR_no_harm (Hc): 0.5848 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Ratio AHR(H)/AHR(Hc): 2.5651 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup definition: z1 == 1 &amp; z3 == 1 (low ER &amp; premenopausal) </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ER threshold: 8 (quantile = 0.25)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Subgroup size: 634 (12.7%)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Analysis variables: v1, v2, v3, v4, v5, v6, v7 </span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

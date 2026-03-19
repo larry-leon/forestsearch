@@ -71,7 +71,7 @@ Study Group (GBSG) Analysis</h3>
                         <h4 data-toc-skip class="author">Larry F.
 León</h4>
             
-            <h4 data-toc-skip class="date">2026-03-18</h4>
+            <h4 data-toc-skip class="date">2026-03-19</h4>
       
       <small class="dont-index">Source: <a href="https://github.com/larry-leon/forestsearch/blob/master/vignettes/forestsearch.Rmd" class="external-link"><code>vignettes/forestsearch.Rmd</code></a></small>
       <div class="d-none name"><code>forestsearch.Rmd</code></div>
@@ -856,14 +856,14 @@ treatment effect heterogeneity and identify candidate factors.</p>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display policy trees</span></span>
 <span><span class="co"># leaf1 = recommend control, leaf2 = recommend treatment</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">oldpar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree1</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 1"</span><span class="op">)</span></span></code></pre></div>
 <div class="grViz html-widget html-fill-item" id="htmlwidget-ac96cb3ee4656e2e9ec3" style="width:960px;height:384px;"></div>
 <script type="application/json" data-for="htmlwidget-ac96cb3ee4656e2e9ec3">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" er <= 0 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">grf_est</span><span class="op">$</span><span class="va">tree2</span>, leaf.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Control"</span>, <span class="st">"Treat"</span><span class="op">)</span>, main <span class="op">=</span> <span class="st">"Depth 2"</span><span class="op">)</span></span></code></pre></div>
 <div class="grViz html-widget html-fill-item" id="htmlwidget-e5c8c404fe174e4c81bd" style="width:960px;height:384px;"></div>
 <script type="application/json" data-for="htmlwidget-e5c8c404fe174e4c81bd">{"x":{"diagram":"digraph nodes { \n node [shape=box] ;\n0 [label=\" age <= 50 \"] ;\n0 -> 1 [labeldistance=2.5, labelangle=45, headlabel=\"True\"];\n0 -> 2 [labeldistance=2.5, labelangle=-45, headlabel=\"False\"]\n1 [label=\" age <= 43 \"] ;\n1 -> 3  ;\n1 -> 4  ;\n3  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n4  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n2 [label=\" er <= 0 \"] ;\n2 -> 5  ;\n2 -> 6  ;\n5  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Control \"];\n6  [shape=box,style=filled,color=\".7 .3 1.0\" , label=\" Treat \"];\n}","config":{"engine":"dot","options":null}},"evals":[],"jsHooks":[]}</script><div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">oldpar</span><span class="op">)</span></span></code></pre></div>
 <p>GRF identifies estrogen receptor status (ER) as a key factor, with ER
 ≤ 0 suggesting potential harm from hormonal therapy.</p>
 </div>
@@ -1028,7 +1028,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <pre><code><span><span class="co">## *** Subgroup found: {er &lt;= 0} {size &lt;= 35} </span></span>
 <span><span class="co">## % consistency criteria met= 0.97 </span></span>
 <span><span class="co">## SG focus = hr </span></span>
-<span><span class="co">## Seconds and minutes forestsearch overall = 6.317 0.1053 </span></span>
+<span><span class="co">## Seconds and minutes forestsearch overall = 6.534 0.1089 </span></span>
 <span><span class="co">## Consistency algorithm used: twostage </span></span>
 <span><span class="co">## Subgroup identified: {er &lt;= 0} &amp; {size &lt;= 35}</span></span></code></pre>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
@@ -1038,7 +1038,7 @@ combinations with up to <code>maxk</code> factors. Key parameters:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nForestSearch completed in"</span>, </span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="va">timings</span><span class="op">$</span><span class="va">forestsearch</span>, <span class="fl">1</span><span class="op">)</span>, <span class="st">"seconds\n"</span><span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## </span></span>
-<span><span class="co">## ForestSearch completed in 6.3 seconds</span></span></code></pre>
+<span><span class="co">## ForestSearch completed in 6.5 seconds</span></span></code></pre>
 </div>
 <div class="section level3">
 <h3 id="forestsearch-results">ForestSearch Results<a class="anchor" aria-label="anchor" href="#forestsearch-results"></a>
@@ -2152,8 +2152,8 @@ addresses this by:</p>
 <span><span class="co">## -------------------------------------------------------------</span></span>
 <span><span class="co">## Overall:</span></span>
 <span><span class="co">##   Total bootstrap time:          0.14 minutes (0.00 hours)</span></span>
-<span><span class="co">##   Average per iteration:         0.07 min (4.1 sec)</span></span>
-<span><span class="co">##   Projected for 1000 boots:      68.28 min (1.14 hrs)</span></span></code></pre>
+<span><span class="co">##   Average per iteration:         0.07 min (4.2 sec)</span></span>
+<span><span class="co">##   Projected for 1000 boots:      70.31 min (1.17 hrs)</span></span></code></pre>
 <div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Display bias-corrected estimates table</span></span>
 <span><span class="va">summaries</span><span class="op">$</span><span class="va">table</span></span></code></pre></div>
@@ -4573,22 +4573,22 @@ stability</li>
 <tbody class="gt_table_body">
 <tr>
 <td headers="Analysis" class="gt_row gt_left">GRF</td>
-<td headers="Seconds" class="gt_row gt_right">0.6</td>
+<td headers="Seconds" class="gt_row gt_right">0.7</td>
 <td headers="Minutes" class="gt_row gt_right">0.0</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">ForestSearch</td>
-<td headers="Seconds" class="gt_row gt_right">6.3</td>
+<td headers="Seconds" class="gt_row gt_right">6.5</td>
 <td headers="Minutes" class="gt_row gt_right">0.1</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Bootstrap</td>
-<td headers="Seconds" class="gt_row gt_right">10.8</td>
+<td headers="Seconds" class="gt_row gt_right">11.1</td>
 <td headers="Minutes" class="gt_row gt_right">0.2</td>
 </tr>
 <tr>
 <td headers="Analysis" class="gt_row gt_left">Total</td>
-<td headers="Seconds" class="gt_row gt_right">31.4</td>
+<td headers="Seconds" class="gt_row gt_right">32.5</td>
 <td headers="Minutes" class="gt_row gt_right">0.5</td>
 </tr>
 </tbody>

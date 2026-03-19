@@ -283,58 +283,6 @@ installed from GitHub: <code>devtools::install_github("larry-leon/weightedsurv")
 <code><a href="plot_sg_results.html">plot_sg_results</a></code> for comprehensive subgroup visualization</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Mode 1: Using ForestSearch result (auto-creates Qrecommend/Brecommend)</span></span></span>
-<span class="r-in"><span><span class="co"># This will use labels "Qrecommend == 1" and "Brecommend == 1"</span></span></span>
-<span class="r-in"><span><span class="fu">plot_km_band_forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df.analysis</span>,</span></span>
-<span class="r-in"><span>  fs.est <span class="op">=</span> <span class="va">fs_result</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"os_months"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"os_event"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Mode 1 with additional reference subgroups (auto-creates columns)</span></span></span>
-<span class="r-in"><span><span class="va">ref_sgs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  age_young <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>subset_expr <span class="op">=</span> <span class="st">"age &lt; 65"</span>, color <span class="op">=</span> <span class="st">"brown"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  age_old <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>subset_expr <span class="op">=</span> <span class="st">"age &gt;= 65"</span>, color <span class="op">=</span> <span class="st">"grey"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu">plot_km_band_forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df.analysis</span>,</span></span>
-<span class="r-in"><span>  fs.est <span class="op">=</span> <span class="va">fs_result</span>,</span></span>
-<span class="r-in"><span>  ref_subgroups <span class="op">=</span> <span class="va">ref_sgs</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"os_months"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"os_event"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  tau_add <span class="op">=</span> <span class="fl">60</span>,</span></span>
-<span class="r-in"><span>  by_risk <span class="op">=</span> <span class="fl">6</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Mode 2: Using pre-defined subgroup columns with expression labels</span></span></span>
-<span class="r-in"><span><span class="co"># Note: sg_labels must be valid R expressions that evaluate against df</span></span></span>
-<span class="r-in"><span><span class="va">df.analysis</span><span class="op">$</span><span class="va">age_lt65</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">age</span> <span class="op">&lt;</span> <span class="fl">65</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df.analysis</span><span class="op">$</span><span class="va">age_ge65</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">age</span> <span class="op">&gt;=</span> <span class="fl">65</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df.analysis</span><span class="op">$</span><span class="va">Qrecommend</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">er</span> <span class="op">&lt;=</span> <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df.analysis</span><span class="op">$</span><span class="va">Brecommend</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">df.analysis</span><span class="op">$</span><span class="va">er</span> <span class="op">&gt;</span> <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu">plot_km_band_forestsearch</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df <span class="op">=</span> <span class="va">df.analysis</span>,</span></span>
-<span class="r-in"><span>  sg_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_lt65"</span>, <span class="st">"age_ge65"</span>, <span class="st">"Qrecommend"</span>, <span class="st">"Brecommend"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  sg_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age &lt; 65"</span>, <span class="st">"age &gt;= 65"</span>, <span class="st">"er &lt;= 0"</span>, <span class="st">"er &gt; 0"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  sg_colors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"brown"</span>, <span class="st">"grey"</span>, <span class="st">"blue"</span>, <span class="st">"red"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"os_months"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"os_event"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  tau_add <span class="op">=</span> <span class="fl">60</span>,</span></span>
-<span class="r-in"><span>  by_risk <span class="op">=</span> <span class="fl">6</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

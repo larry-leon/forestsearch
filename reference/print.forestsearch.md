@@ -32,14 +32,3 @@ Invisibly returns `x`.
 for detailed output,
 [`plot.forestsearch`](https://larry-leon.github.io/forestsearch/reference/plot.forestsearch.md)
 for visualization.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-print(fs)
-# or simply:
-fs
-} # }
-```

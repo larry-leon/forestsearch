@@ -191,7 +191,7 @@ The `plot_params` argument accepts a list with:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simulate data
 set.seed(123)
 df <- data.frame(
@@ -203,6 +203,20 @@ df <- data.frame(
 
 # Fit model
 result <- cox_cs_fit(df, z_name = "bm", alpha = 0.20)
+#> 
+#> === Z Variable Summary ===
+#> Range: 24.51 83.9 
+#> Quantiles (75%, 80%, 90%): 56.23 57.9 62.96 
+#> Prediction grid: 39 points from 24.51 to 62.51 
+#> 
+#> === Primary Cox Model ===
+#> Treatment log(HR): -0.08 
+#> Treatment HR: 0.923 
+#> 
+#> === Spline Model ===
+#> Number of parameters: 7 
+#> Treatment main effect: -1.5 
+
 
 # Custom plotting
 result <- cox_cs_fit(
@@ -214,5 +228,19 @@ result <- cox_cs_fit(
     cex_legend = 1.2
   )
 )
-} # }
+#> 
+#> === Z Variable Summary ===
+#> Range: 24.51 83.9 
+#> Quantiles (75%, 80%, 90%): 56.23 57.9 62.96 
+#> Prediction grid: 39 points from 24.51 to 62.51 
+#> 
+#> === Primary Cox Model ===
+#> Treatment log(HR): -0.08 
+#> Treatment HR: 0.923 
+#> 
+#> === Spline Model ===
+#> Number of parameters: 7 
+#> Treatment main effect: -1.5 
+
+# }
 ```

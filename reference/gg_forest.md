@@ -166,12 +166,3 @@ A patchwork object. Render with
 [`plot()`](https://rdrr.io/r/graphics/plot.default.html). Control
 dimensions entirely via knitr chunk options `fig.width` / `fig.height`:
 row height = fig.height / n_rows.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Recommended fig.height: n_rows * 0.45 + 1.5 (for title/axis overhead)
-# e.g. 20 rows -> fig.height = 20 * 0.45 + 1.5 = 10.5
-} # }
-```

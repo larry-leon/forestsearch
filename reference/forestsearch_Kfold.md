@@ -135,29 +135,3 @@ for initial subgroup identification
 for summarizing CV results
 [`forestsearch_tenfold`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
 for repeated K-fold simulations
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Run initial ForestSearch
-fs_result <- forestsearch(
-  df.analysis = trial_data,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "biomarker")
-)
-
-# Run 10-fold cross-validation
-cv_results <- forestsearch_Kfold(
-  fs.est = fs_result,
-  Kfolds = 10,
-  parallel_args = list(plan = "multisession", workers = 4),
-  details = TRUE
-)
-
-# Summarize results
-cv_summary <- forestsearch_KfoldOut(cv_results, outall = TRUE)
-} # }
-```

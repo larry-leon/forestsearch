@@ -95,17 +95,3 @@ subgroup.search(
 
 List with found subgroups, maximum HR, search time, configuration info,
 and filtering statistics.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-Z <- df[, c("age", "meno", "size", "grade3", "nodes", "pgr", "er")]
-res <- subgroup.search(Y = df$rfstime, Event = df$status,
-                       Treat = df$hormon, Z = Z,
-                       hr.threshold = 1.25)
-} # }
-```

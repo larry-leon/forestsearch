@@ -42,18 +42,3 @@ fit_causal_forest(X, Y, W, D, tau.rmst, RCT, seedit)
 ## Value
 
 Causal survival forest object
-
-## Examples
-
-``` r
-# \donttest{
-library(survival)
-library(grf)
-df <- survival::gbsg
-X <- as.matrix(df[, c("age", "meno", "size", "nodes", "pgr", "er")])
-tau <- quantile(df$rfstime[df$status == 1], 0.6)
-cs <- fit_causal_forest(X = X, Y = df$rfstime, W = df$hormon,
-                        D = df$status, tau.rmst = tau,
-                        RCT = FALSE, seedit = 42L)
-# }
-```

@@ -90,37 +90,3 @@ but without a forced effect - its coefficient is estimated from data.
 for underlying DGM creation
 [`mrct_region_sims`](https://larry-leon.github.io/forestsearch/reference/mrct_region_sims.md)
 for running simulations with the DGM
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Prepare data
-df_case <- read.csv("data/dfsynthetic.csv")
-df_case$regA <- df_case$region_asia
-
-# Alternative hypothesis (heterogeneous treatment effect)
-dgm_alt <- create_dgm_for_mrct(
-  df_case = df_case,
-  model_type = "alt",
-  log_hrs = log(c(3, 1.25, 0.50)),
-  verbose = TRUE
-)
-
-# Null hypothesis (uniform effect)
-dgm_null <- create_dgm_for_mrct(
-  df_case = df_case,
-  model_type = "null",
-  verbose = TRUE
-)
-
-# With forced confounder effect
-dgm_conf <- create_dgm_for_mrct(
-  df_case = df_case,
-  model_type = "alt",
-  confounder_var = "prior_treat",
-  confounder_effect = log(1.5),
-  verbose = TRUE
-)
-} # }
-```

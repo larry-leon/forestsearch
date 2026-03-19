@@ -174,32 +174,6 @@ roughly equal folds. Good balance of bias-variance tradeoff.</p></li>
 <code><a href="forestsearch_tenfold.html">forestsearch_tenfold</a></code> for repeated K-fold simulations</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Run initial ForestSearch</span></span></span>
-<span class="r-in"><span><span class="va">fs_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"time"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"biomarker"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Run 10-fold cross-validation</span></span></span>
-<span class="r-in"><span><span class="va">cv_results</span> <span class="op">&lt;-</span> <span class="fu">forestsearch_Kfold</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  fs.est <span class="op">=</span> <span class="va">fs_result</span>,</span></span>
-<span class="r-in"><span>  Kfolds <span class="op">=</span> <span class="fl">10</span>,</span></span>
-<span class="r-in"><span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>, workers <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  details <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Summarize results</span></span></span>
-<span class="r-in"><span><span class="va">cv_summary</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch_KfoldOut.html">forestsearch_KfoldOut</a></span><span class="op">(</span><span class="va">cv_results</span>, outall <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

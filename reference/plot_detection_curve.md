@@ -42,12 +42,3 @@ plot_detection_curve(
 ## Value
 
 Invisibly returns the input data.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-curve_data <- generate_detection_curve(n_sg = 60, prop_cens = 0.2)
-plot_detection_curve(curve_data)
-} # }
-```

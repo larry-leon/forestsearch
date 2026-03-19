@@ -101,24 +101,6 @@ membership is <code>df.predict[[name]] == 1</code>.</p></li>
 logic, <code><a href="forestsearch.html">forestsearch</a></code> for the main analysis function.</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># With brace-wrapped label expressions</span></span></span>
-<span class="r-in"><span><span class="va">sg</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"{er &lt;= 0}"</span>, <span class="st">"{size &lt;= 35}"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df_out</span> <span class="op">&lt;-</span> <span class="fu">get_dfpred</span><span class="op">(</span>df.predict <span class="op">=</span> <span class="va">test_data</span>, sg.harm <span class="op">=</span> <span class="va">sg</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># With negation</span></span></span>
-<span class="r-in"><span><span class="va">sg_neg</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"{er &lt;= 0}"</span>, <span class="st">"!{size &lt;= 35}"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df_neg</span> <span class="op">&lt;-</span> <span class="fu">get_dfpred</span><span class="op">(</span>df.predict <span class="op">=</span> <span class="va">test_data</span>, sg.harm <span class="op">=</span> <span class="va">sg_neg</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># With bare column names (binary indicators)</span></span></span>
-<span class="r-in"><span><span class="va">sg_col</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"q1.1"</span>, <span class="st">"q3.1"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">df_col</span> <span class="op">&lt;-</span> <span class="fu">get_dfpred</span><span class="op">(</span>df.predict <span class="op">=</span> <span class="va">encoded_data</span>, sg.harm <span class="op">=</span> <span class="va">sg_col</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

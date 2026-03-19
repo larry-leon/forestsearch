@@ -240,40 +240,6 @@ and H^c complement.</p>
 <code><a href="plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot</a></code> for publication-ready forest plots</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Run ForestSearch analysis</span></span></span>
-<span class="r-in"><span><span class="va">fs</span> <span class="op">&lt;-</span> <span class="fu"><a href="forestsearch.html">forestsearch</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df.analysis <span class="op">=</span> <span class="va">my_data</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"os_time"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"os_event"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age_cat"</span>, <span class="st">"stage"</span>, <span class="st">"biomarker"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Create combined visualization</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu">plot_sg_results</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  fs.est <span class="op">=</span> <span class="va">fs</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"os_time"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"os_event"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># View the Kaplan-Meier plots only</span></span></span>
-<span class="r-in"><span><span class="fu">plot_sg_results</span><span class="op">(</span><span class="va">fs</span>, plot_type <span class="op">=</span> <span class="st">"km"</span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Customize labels</span></span></span>
-<span class="r-in"><span><span class="fu">plot_sg_results</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  <span class="va">fs</span>,</span></span>
-<span class="r-in"><span>  sg0_name <span class="op">=</span> <span class="st">"High Risk"</span>,</span></span>
-<span class="r-in"><span>  sg1_name <span class="op">=</span> <span class="st">"Standard Risk"</span>,</span></span>
-<span class="r-in"><span>  treat_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"0"</span> <span class="op">=</span> <span class="st">"Placebo"</span>, <span class="st">"1"</span> <span class="op">=</span> <span class="st">"Active Drug"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

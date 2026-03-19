@@ -30,19 +30,3 @@ run_single_consistency_split(df.x, N.x, hr.consistency, cox_init = 0)
 ## Value
 
 Numeric. 1 if both splits meet threshold, 0 if not, NA if error.
-
-## Examples
-
-``` r
-# \donttest{
-library(data.table)
-set.seed(1)
-df <- data.table(
-  Y     = rexp(100),
-  Event = rbinom(100, 1, 0.55),
-  Treat = rep(0:1, 50)
-)
-run_single_consistency_split(df, N.x = 100, hr.consistency = 1.0)
-#> [1] 1
-# }
-```

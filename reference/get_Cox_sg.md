@@ -34,19 +34,3 @@ List with estimate and standard error.
 ## Details
 
 Function is utilized throughout codebase
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- data.frame(
-  tte   = gbsg$rfstime / 30.4375,
-  event = gbsg$status,
-  treat = gbsg$hormon
-)
-formula <- build_cox_formula("tte", "event", "treat")
-result  <- get_Cox_sg(df, cox.formula = formula)
-exp(result$est_obs)  # hazard ratio
-} # }
-```

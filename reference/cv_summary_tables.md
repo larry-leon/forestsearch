@@ -76,20 +76,3 @@ If `use_gt = FALSE`, returns equivalent data.frames.
 for formatting
 [`forestsearch_tenfold()`](https://larry-leon.github.io/forestsearch/reference/forestsearch_tenfold.md)
 results
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Run K-fold CV
-cv_results <- forestsearch_Kfold(fs.est = fs_result, Kfolds = 10)
-
-# Get detailed output
-kfold_out <- forestsearch_KfoldOut(cv_results, outall = TRUE)
-
-# Create summary tables
-cv_tables <- cv_summary_tables(kfold_out)
-cv_tables$combined_table
-cv_tables$metrics_table
-} # }
-```

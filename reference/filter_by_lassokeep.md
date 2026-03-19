@@ -21,12 +21,3 @@ filter_by_lassokeep(x, lassokeep)
 ## Value
 
 Filtered character vector or NULL.
-
-## Examples
-
-``` r
-filter_by_lassokeep(c("age", "size", "nodes"), lassokeep = c("age", "nodes"))
-#> [1] "age"   "nodes"
-filter_by_lassokeep(c("pgr", "er"), lassokeep = c("age", "nodes"))  # returns NULL
-#> NULL
-```

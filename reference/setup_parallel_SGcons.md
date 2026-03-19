@@ -21,13 +21,3 @@ setup_parallel_SGcons(
 ## Value
 
 None. Sets up parallel backend as side effect.
-
-## Examples
-
-``` r
-# \donttest{
-setup_parallel_SGcons(list(plan = "sequential", workers = 1,
-                            show_message = FALSE))
-future::plan(future::sequential)  # reset
-# }
-```

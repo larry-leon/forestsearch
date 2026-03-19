@@ -66,12 +66,3 @@ This function summarizes event counts in four scenarios:
 
 Low event counts (below threshold) can lead to unstable HR estimates.
 This summary helps identify potential issues with sparse events.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# After running bootstrap analysis
-summarize_bootstrap_events(fs_bc, threshold = 10)
-} # }
-```

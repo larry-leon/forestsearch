@@ -46,7 +46,7 @@
     <div class="section level2">
       <h2 id="core-algorithm">Core Algorithm<a class="anchor" aria-label="anchor" href="#core-algorithm"></a></h2>
 
-      <div class="section-desc"><p>Main forestsearch function and subgroup search engine.</p></div>
+      <div class="section-desc"><p>Main forestsearch function, subgroup selection, and consistency evaluation.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -76,68 +76,10 @@
 
         <dt>
 
-          <code><a href="subgroup.search.html">subgroup.search()</a></code>
+          <code><a href="plot.forestsearch.html">plot(<i>&lt;forestsearch&gt;</i>)</a></code>
 
         </dt>
-        <dd>Subgroup Search for Treatment Effect Heterogeneity (Improved, Parallelized)</dd>
-
-        <dt>
-
-          <code><a href="get_FSdata.html">get_FSdata()</a></code>
-
-        </dt>
-        <dd>ForestSearch Data Preparation and Feature Selection</dd>
-      </dl></div><div class="section level2">
-      <h2 id="subgroup-evaluation-selection">Subgroup Evaluation &amp; Selection<a class="anchor" aria-label="anchor" href="#subgroup-evaluation-selection"></a></h2>
-
-      <div class="section-desc"><p>Functions for evaluating, sorting, and selecting candidate subgroups.</p></div>
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
-          <code><a href="analyze_subgroup.html">analyze_subgroup()</a></code>
-
-        </dt>
-        <dd>Analyze subgroup for summary table (OPTIMIZED)</dd>
-
-        <dt>
-
-          <code><a href="assign_subgroup_membership.html">assign_subgroup_membership()</a></code>
-
-        </dt>
-        <dd>Assign data to subgroups based on selected node</dd>
-
-        <dt>
-
-          <code><a href="evaluate_subgroup_consistency.html">evaluate_subgroup_consistency()</a></code>
-
-        </dt>
-        <dd>Evaluate Single Subgroup for Consistency (Fixed-Sample)</dd>
-
-        <dt>
-
-          <code><a href="extract_subgroup.html">extract_subgroup()</a></code>
-
-        </dt>
-        <dd>Extract Subgroup Information</dd>
-
-        <dt>
-
-          <code><a href="get_subgroup_membership.html">get_subgroup_membership()</a></code>
-
-        </dt>
-        <dd>Get subgroup membership vector</dd>
-
-        <dt>
-
-          <code><a href="prepare_subgroup_data.html">prepare_subgroup_data()</a></code>
-
-        </dt>
-        <dd>Prepare subgroup data for analysis</dd>
+        <dd>Plot ForestSearch Results</dd>
 
         <dt>
 
@@ -148,89 +90,10 @@
 
         <dt>
 
-          <code><a href="sort_subgroups.html">sort_subgroups()</a></code>
-
-        </dt>
-        <dd>Sort Subgroups by Focus</dd>
-
-        <dt>
-
-          <code><a href="sort_subgroups_preview.html">sort_subgroups_preview()</a></code>
-
-        </dt>
-        <dd>Sort Subgroups by Focus at consistency stage (consistency not available at this point)</dd>
-
-        <dt>
-
-          <code><a href="remove_near_duplicate_subgroups.html">remove_near_duplicate_subgroups()</a></code>
-
-        </dt>
-        <dd>Remove Near-Duplicate Subgroups</dd>
-
-        <dt>
-
-          <code><a href="remove_redundant_subgroups.html">remove_redundant_subgroups()</a></code>
-
-        </dt>
-        <dd>Remove Redundant Subgroups</dd>
-      </dl></div><div class="section level2">
-      <h2 id="consistency-evaluation">Consistency Evaluation<a class="anchor" aria-label="anchor" href="#consistency-evaluation"></a></h2>
-
-      <div class="section-desc"><p>Split-sample consistency evaluation including the two-stage sequential method.</p></div>
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
           <code><a href="subgroup.consistency.html">subgroup.consistency()</a></code>
 
         </dt>
         <dd>Evaluate Subgroup Consistency</dd>
-
-        <dt>
-
-          <code><a href="evaluate_consistency_twostage.html">evaluate_consistency_twostage()</a></code>
-
-        </dt>
-        <dd>Evaluate Consistency (Two-Stage Algorithm)</dd>
-
-        <dt>
-
-          <code><a href="run_single_consistency_split.html">run_single_consistency_split()</a></code>
-
-        </dt>
-        <dd>Run Single Consistency Split</dd>
-
-        <dt>
-
-          <code><a href="setup_parallel_SGcons.html">setup_parallel_SGcons()</a></code>
-
-        </dt>
-        <dd>Set up parallel processing for subgroup consistency</dd>
-
-        <dt>
-
-          <code><a href="sg_consistency_out.html">sg_consistency_out()</a></code>
-
-        </dt>
-        <dd>Output Subgroup Consistency Results</dd>
-
-        <dt>
-
-          <code><a href="wilson_ci.html">wilson_ci()</a></code>
-
-        </dt>
-        <dd>Wilson Score Confidence Interval</dd>
-
-        <dt>
-
-          <code><a href="early_stop_decision.html">early_stop_decision()</a></code>
-
-        </dt>
-        <dd>Early Stopping Decision</dd>
       </dl></div><div class="section level2">
       <h2 id="bootstrap-bias-correction">Bootstrap Bias Correction<a class="anchor" aria-label="anchor" href="#bootstrap-bias-correction"></a></h2>
 
@@ -250,64 +113,6 @@
 
         <dt>
 
-          <code><a href="bootstrap_results.html">bootstrap_results()</a></code>
-
-        </dt>
-        <dd>Bootstrap Results for ForestSearch with Bias Correction</dd>
-
-        <dt>
-
-          <code><a href="bootstrap_ystar.html">bootstrap_ystar()</a></code>
-
-        </dt>
-        <dd>Bootstrap Ystar Matrix</dd>
-
-        <dt>
-
-          <code><a href="count_boot_id.html">count_boot_id()</a></code>
-
-        </dt>
-        <dd>Count ID Occurrences in Bootstrap Sample</dd>
-
-        <dt>
-
-          <code><a href="generate_bootstrap_synthetic.html">generate_bootstrap_synthetic()</a></code>
-
-        </dt>
-        <dd>Generate Synthetic Data using Bootstrap with Perturbation</dd>
-
-        <dt>
-
-          <code><a href="generate_bootstrap_with_noise.html">generate_bootstrap_with_noise()</a></code>
-
-        </dt>
-        <dd>Generate Bootstrap Sample with Added Noise</dd>
-
-        <dt>
-
-          <code><a href="generate_gbsg_bootstrap_general.html">generate_gbsg_bootstrap_general()</a></code>
-
-        </dt>
-        <dd>Generate Synthetic GBSG Data using Generalized Bootstrap</dd>
-
-        <dt>
-
-          <code><a href="get_dfRes.html">get_dfRes()</a></code>
-
-        </dt>
-        <dd>Bootstrap Confidence Interval and Bias Correction Results</dd>
-      </dl></div><div class="section level2">
-      <h2 id="bootstrap-summaries">Bootstrap Summaries<a class="anchor" aria-label="anchor" href="#bootstrap-summaries"></a></h2>
-
-      <div class="section-desc"><p>Summarizing and formatting bootstrap results into publication-ready tables and diagnostics.</p></div>
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
           <code><a href="summarize_bootstrap_results.html">summarize_bootstrap_results()</a></code>
 
         </dt>
@@ -315,59 +120,10 @@
 
         <dt>
 
-          <code><a href="summarize_bootstrap_subgroups.html">summarize_bootstrap_subgroups()</a></code>
-
-        </dt>
-        <dd>Summarize Bootstrap Subgroup Analysis Results</dd>
-
-        <dt>
-
           <code><a href="summarize_bootstrap_events.html">summarize_bootstrap_events()</a></code>
 
         </dt>
         <dd>Summarize Bootstrap Event Counts</dd>
-
-        <dt>
-
-          <code><a href="summarize_factor_presence_robust.html">summarize_factor_presence_robust()</a></code>
-
-        </dt>
-        <dd>Summarize Factor Presence Across Bootstrap Subgroups</dd>
-
-        <dt>
-
-          <code><a href="format_bootstrap_table.html">format_bootstrap_table()</a></code>
-
-        </dt>
-        <dd>Format Bootstrap Results Table with gt</dd>
-
-        <dt>
-
-          <code><a href="format_bootstrap_diagnostics_table.html">format_bootstrap_diagnostics_table()</a></code>
-
-        </dt>
-        <dd>Format Bootstrap Diagnostics Table with gt</dd>
-
-        <dt>
-
-          <code><a href="format_bootstrap_timing_table.html">format_bootstrap_timing_table()</a></code>
-
-        </dt>
-        <dd>Format Bootstrap Timing Table with gt</dd>
-
-        <dt>
-
-          <code><a href="format_subgroup_summary_tables.html">format_subgroup_summary_tables()</a></code>
-
-        </dt>
-        <dd>Format Subgroup Summary Tables with gt</dd>
-
-        <dt>
-
-          <code><a href="create_factor_summary_tables.html">create_factor_summary_tables()</a></code>
-
-        </dt>
-        <dd>Create Factor Summary Tables from Bootstrap Results</dd>
       </dl></div><div class="section level2">
       <h2 id="cross-validation">Cross-Validation<a class="anchor" aria-label="anchor" href="#cross-validation"></a></h2>
 
@@ -401,13 +157,6 @@
 
         <dt>
 
-          <code><a href="CV_sgs.html">CV_sgs()</a></code>
-
-        </dt>
-        <dd>Cross-Validation Subgroup Match Summary</dd>
-
-        <dt>
-
           <code><a href="cv_summary_tables.html">cv_summary_tables()</a></code>
 
         </dt>
@@ -419,20 +168,6 @@
 
         </dt>
         <dd>Create Metrics Tables for Cross-Validation Results</dd>
-
-        <dt>
-
-          <code><a href="cv_summary_text.html">cv_summary_text()</a></code>
-
-        </dt>
-        <dd>Create Compact CV Summary Text</dd>
-
-        <dt>
-
-          <code><a href="cv_compare_results.html">cv_compare_results()</a></code>
-
-        </dt>
-        <dd>Compare Multiple CV Results</dd>
 
         <dt>
 
@@ -463,62 +198,6 @@
 
         </dt>
         <dd>GRF Subgroup Identification for Survival Data</dd>
-
-        <dt>
-
-          <code><a href="grf.subg.eval.html">grf.subg.eval()</a></code>
-
-        </dt>
-        <dd>GRF Subgroup Evaluation and Performance Metrics</dd>
-
-        <dt>
-
-          <code><a href="fit_causal_forest.html">fit_causal_forest()</a></code>
-
-        </dt>
-        <dd>Fit causal survival forest</dd>
-
-        <dt>
-
-          <code><a href="fit_policy_trees.html">fit_policy_trees()</a></code>
-
-        </dt>
-        <dd>Fit policy trees up to specified depth</dd>
-
-        <dt>
-
-          <code><a href="create_grf_config.html">create_grf_config()</a></code>
-
-        </dt>
-        <dd>Helper Functions for GRF Subgroup Analysis</dd>
-
-        <dt>
-
-          <code><a href="validate_grf_data.html">validate_grf_data()</a></code>
-
-        </dt>
-        <dd>Validate input data for GRF analysis</dd>
-
-        <dt>
-
-          <code><a href="print_grf_details.html">print_grf_details()</a></code>
-
-        </dt>
-        <dd>Print detailed output for debugging</dd>
-
-        <dt>
-
-          <code><a href="compute_node_metrics.html">compute_node_metrics()</a></code>
-
-        </dt>
-        <dd>Compute node metrics for a policy tree</dd>
-
-        <dt>
-
-          <code><a href="find_leaf_split.html">find_leaf_split()</a></code>
-
-        </dt>
-        <dd>Find the split that leads to a specific leaf node</dd>
       </dl></div><div class="section level2">
       <h2 id="cox-model-utilities">Cox Model Utilities<a class="anchor" aria-label="anchor" href="#cox-model-utilities"></a></h2>
 
@@ -535,27 +214,6 @@
 
         </dt>
         <dd>Cox model summary for subgroup (OPTIMIZED)</dd>
-
-        <dt>
-
-          <code><a href="cox_summary_batch.html">cox_summary_batch()</a></code>
-
-        </dt>
-        <dd>Batch Cox summaries with caching</dd>
-
-        <dt>
-
-          <code><a href="cox_summary_legacy.html">cox_summary_legacy()</a></code>
-
-        </dt>
-        <dd>Cox model summary for subgroup</dd>
-
-        <dt>
-
-          <code><a href="cox_summary_vectorized.html">cox_summary_vectorized()</a></code>
-
-        </dt>
-        <dd>Cox model summary for subgroup - vectorized version</dd>
 
         <dt>
 
@@ -584,45 +242,10 @@
 
         </dt>
         <dd>Fit Cox Model with Cubic Spline for Treatment Effect Heterogeneity</dd>
-
-        <dt>
-
-          <code><a href="build_cox_formula.html">build_cox_formula()</a></code>
-
-        </dt>
-        <dd>Build Cox Model Formula</dd>
-
-        <dt>
-
-          <code><a href="fit_cox_models.html">fit_cox_models()</a></code>
-
-        </dt>
-        <dd>Fit Cox Models for Subgroups</dd>
-
-        <dt>
-
-          <code><a href="get_Cox_sg.html">get_Cox_sg()</a></code>
-
-        </dt>
-        <dd>Fit Cox Model for Subgroup</dd>
-
-        <dt>
-
-          <code><a href="get_split_hr_fast.html">get_split_hr_fast()</a></code>
-
-        </dt>
-        <dd>Fast Cox Model HR Estimation</dd>
-
-        <dt>
-
-          <code><a href="rmst_calculation.html">rmst_calculation()</a></code>
-
-        </dt>
-        <dd>RMST calculation for subgroup</dd>
       </dl></div><div class="section level2">
       <h2 id="subgroup-tables-estimates">Subgroup Tables &amp; Estimates<a class="anchor" aria-label="anchor" href="#subgroup-tables-estimates"></a></h2>
 
-      <div class="section-desc"><p>Formatted tables of subgroup estimates and labels.</p></div>
+      <div class="section-desc"><p>Formatted tables of subgroup estimates.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -638,70 +261,14 @@
 
         <dt>
 
-          <code><a href="SG_tab_estimates.html">SG_tab_estimates()</a></code>
-
-        </dt>
-        <dd>Subgroup summary table estimates</dd>
-
-        <dt>
-
-          <code><a href="SGplot_estimates.html">SGplot_estimates()</a></code>
-
-        </dt>
-        <dd>Violin/Boxplot Visualization of HR Estimates</dd>
-
-        <dt>
-
-          <code><a href="FS_labels.html">FS_labels()</a></code>
-
-        </dt>
-        <dd>Convert Factor Code to Label</dd>
-
-        <dt>
-
           <code><a href="create_summary_table.html">create_summary_table()</a></code>
 
         </dt>
         <dd>Create Enhanced Summary Table for Baseline Characteristics</dd>
-
-        <dt>
-
-          <code><a href="create_summary_table_compact.html">create_summary_table_compact()</a></code>
-
-        </dt>
-        <dd>Preset: Compact Table</dd>
-
-        <dt>
-
-          <code><a href="create_summary_table_minimal.html">create_summary_table_minimal()</a></code>
-
-        </dt>
-        <dd>Preset: Minimal Table (No Highlighting, No Alternating)</dd>
-
-        <dt>
-
-          <code><a href="create_summary_table_presentation.html">create_summary_table_presentation()</a></code>
-
-        </dt>
-        <dd>Preset: Presentation Table (Large Fonts)</dd>
-
-        <dt>
-
-          <code><a href="create_summary_table_publication.html">create_summary_table_publication()</a></code>
-
-        </dt>
-        <dd>Preset: Publication-Ready Table</dd>
-
-        <dt>
-
-          <code><a href="create_sample_size_table.html">create_sample_size_table()</a></code>
-
-        </dt>
-        <dd>Create Sample Size Table for Multiple Scenarios</dd>
       </dl></div><div class="section level2">
       <h2 id="visualization">Visualization<a class="anchor" aria-label="anchor" href="#visualization"></a></h2>
 
-      <div class="section-desc"><p>Publication-ready plotting functions for forest plots, survival curves, and subgroup characteristics.</p></div>
+      <div class="section-desc"><p>Publication-ready plotting functions for forest plots, survival curves, subgroup characteristics, and detection probability curves.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -731,45 +298,10 @@
 
         <dt>
 
-          <code><a href="save_forestplot.html">save_forestplot()</a></code>
-
-        </dt>
-        <dd>Save ForestSearch Forest Plot to File</dd>
-
-        <dt>
-
           <code><a href="create_forest_theme.html">create_forest_theme()</a></code>
 
         </dt>
         <dd>Create Forest Plot Theme with Size Controls</dd>
-
-        <dt>
-
-          <code><a href="print.fs_forest_theme.html">print(<i>&lt;fs_forest_theme&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print Method for ForestSearch Forest Theme</dd>
-
-        <dt>
-
-          <code><a href="print.fs_forestplot.html">print(<i>&lt;fs_forestplot&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print Method for ForestSearch Forest Plot</dd>
-
-        <dt>
-
-          <code><a href="plot.fs_forestplot.html">plot(<i>&lt;fs_forestplot&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot Method for ForestSearch Forest Plot</dd>
-
-        <dt>
-
-          <code><a href="create_subgroup_summary_df.html">create_subgroup_summary_df()</a></code>
-
-        </dt>
-        <dd>Create Subgroup Summary Data Frame for Forest Plot</dd>
 
         <dt>
 
@@ -780,27 +312,6 @@
 
         <dt>
 
-          <code><a href="quick_km_band_plot.html">quick_km_band_plot()</a></code>
-
-        </dt>
-        <dd>Quick Plot KM Bands from ForestSearch</dd>
-
-        <dt>
-
-          <code><a href="plot_sg_results.html">plot_sg_results()</a></code>
-
-        </dt>
-        <dd>Plot ForestSearch Subgroup Results</dd>
-
-        <dt>
-
-          <code><a href="plot_sg_distribution.html">plot_sg_distribution()</a></code>
-
-        </dt>
-        <dd>Plot Distribution of Identified Subgroups</dd>
-
-        <dt>
-
           <code><a href="plot_sg_weighted_km.html">plot_sg_weighted_km()</a></code>
 
         </dt>
@@ -808,45 +319,10 @@
 
         <dt>
 
-          <code><a href="print.fs_weighted_km.html">print(<i>&lt;fs_weighted_km&gt;</i>)</a></code>
+          <code><a href="figure_note.html">figure_note()</a></code>
 
         </dt>
-        <dd>Print Method for fs_weighted_km Objects</dd>
-
-        <dt>
-
-          <code><a href="plot_subgroup.html">plot_subgroup()</a></code>
-
-        </dt>
-        <dd>Plot Subgroup Survival Curves</dd>
-
-        <dt>
-
-          <code><a href="plot.fs_sg_plot.html">plot(<i>&lt;fs_sg_plot&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot Method for fs_sg_plot Objects</dd>
-
-        <dt>
-
-          <code><a href="print.fs_sg_plot.html">print(<i>&lt;fs_sg_plot&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print Method for fs_sg_plot Objects</dd>
-
-        <dt>
-
-          <code><a href="plot_subgroup_effects.html">plot_subgroup_effects()</a></code>
-
-        </dt>
-        <dd>Plot Subgroup Analysis Results</dd>
-
-        <dt>
-
-          <code><a href="plot.forestsearch.html">plot(<i>&lt;forestsearch&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Plot ForestSearch Results</dd>
+        <dd>Generate Figure Note for Quarto/RMarkdown</dd>
 
         <dt>
 
@@ -861,171 +337,6 @@
 
         </dt>
         <dd>Plot Detection Probability Curve</dd>
-
-        <dt>
-
-          <code><a href="compare_detection_curves.html">compare_detection_curves()</a></code>
-
-        </dt>
-        <dd>Compare Detection Curves Across Sample Sizes</dd>
-
-        <dt>
-
-          <code><a href="sens_text.html">sens_text()</a></code>
-
-        </dt>
-        <dd>Generate Cross-Validation Sensitivity Text</dd>
-
-        <dt>
-
-          <code><a href="figure_note.html">figure_note()</a></code>
-
-        </dt>
-        <dd>Generate Figure Note for Quarto/RMarkdown</dd>
-
-        <dt>
-
-          <code><a href="km_summary.html">km_summary()</a></code>
-
-        </dt>
-        <dd>KM median summary for subgroup</dd>
-      </dl></div><div class="section level2">
-      <h2 id="data-preparation-encoding">Data Preparation &amp; Encoding<a class="anchor" aria-label="anchor" href="#data-preparation-encoding"></a></h2>
-
-      <div class="section-desc"><p>Cut point generation, dummy variable creation, and variable selection.</p></div>
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
-          <code><a href="get_dfpred.html">get_dfpred()</a></code>
-
-        </dt>
-        <dd>Generate Prediction Dataset with Subgroup Treatment Recommendation</dd>
-
-        <dt>
-
-          <code><a href="dummy_encode.html">dummy_encode()</a></code>
-
-        </dt>
-        <dd>Dummy-code a data frame (numeric pass-through, factors expanded)</dd>
-
-        <dt>
-
-          <code><a href="add_id_column.html">add_id_column()</a></code>
-
-        </dt>
-        <dd>Add ID Column to Data Frame</dd>
-
-        <dt>
-
-          <code><a href="evaluate_comparison.html">evaluate_comparison()</a></code>
-
-        </dt>
-        <dd>Evaluate a Comparison Expression Without eval(parse())</dd>
-
-        <dt>
-
-          <code><a href="evaluate_cuts_once.html">evaluate_cuts_once()</a></code>
-
-        </dt>
-        <dd>Cache and validate cut expressions efficiently</dd>
-
-        <dt>
-
-          <code><a href="detect_variable_types.html">detect_variable_types()</a></code>
-
-        </dt>
-        <dd>Automatically Detect Variable Types in a Dataset</dd>
-
-        <dt>
-
-          <code><a href="is_flag_continuous.html">is_flag_continuous()</a></code>
-
-        </dt>
-        <dd>Check if cut expression is for a continuous variable (OPTIMIZED)</dd>
-
-        <dt>
-
-          <code><a href="is_flag_drop.html">is_flag_drop()</a></code>
-
-        </dt>
-        <dd>Check if cut expression should be dropped</dd>
-
-        <dt>
-
-          <code><a href="is.continuous.html">is.continuous()</a></code>
-
-        </dt>
-        <dd>Check if a variable is continuous</dd>
-
-        <dt>
-
-          <code><a href="get_cut_name.html">get_cut_name()</a></code>
-
-        </dt>
-        <dd>Get variable name from cut expression</dd>
-
-        <dt>
-
-          <code><a href="cut_var.html">cut_var()</a></code>
-
-        </dt>
-        <dd>Generate cut expressions for a variable</dd>
-
-        <dt>
-
-          <code><a href="lasso_selection.html">lasso_selection()</a></code>
-
-        </dt>
-        <dd>LASSO selection for Cox model</dd>
-
-        <dt>
-
-          <code><a href="filter_by_lassokeep.html">filter_by_lassokeep()</a></code>
-
-        </dt>
-        <dd>Filter a vector by LASSO-selected variables</dd>
-      </dl></div><div class="section level2">
-      <h2 id="tree-cut-extraction">Tree Cut Extraction<a class="anchor" aria-label="anchor" href="#tree-cut-extraction"></a></h2>
-
-      <div class="section-desc"><p>Extract and process cut points from tree-based models.</p></div>
-
-      <dl></dl></div><div class="section level2">
-
-
-
-
-      <dl><dt>
-
-          <code><a href="extract_all_tree_cuts.html">extract_all_tree_cuts()</a></code>
-
-        </dt>
-        <dd>Extract all cuts from fitted trees</dd>
-
-        <dt>
-
-          <code><a href="extract_selected_tree_cuts.html">extract_selected_tree_cuts()</a></code>
-
-        </dt>
-        <dd>Extract cuts from selected tree only</dd>
-
-        <dt>
-
-          <code><a href="extract_tree_cuts.html">extract_tree_cuts()</a></code>
-
-        </dt>
-        <dd>Extract cut information from a policy tree</dd>
-
-        <dt>
-
-          <code><a href="extract_idx_flagredundancy.html">extract_idx_flagredundancy()</a></code>
-
-        </dt>
-        <dd>Extract redundancy flag for subgroup combinations</dd>
       </dl></div><div class="section level2">
       <h2 id="data-generating-mechanisms">Data Generating Mechanisms<a class="anchor" aria-label="anchor" href="#data-generating-mechanisms"></a></h2>
 
@@ -1052,13 +363,6 @@
 
         <dt>
 
-          <code><a href="create_gbsg_dgm.html">create_gbsg_dgm()</a></code>
-
-        </dt>
-        <dd>Create GBSG-Based AFT Data Generating Mechanism</dd>
-
-        <dt>
-
           <code><a href="print.gbsg_dgm.html">print(<i>&lt;gbsg_dgm&gt;</i>)</a></code>
 
         </dt>
@@ -1073,31 +377,10 @@
 
         <dt>
 
-          <code><a href="create_dgm_for_mrct.html">create_dgm_for_mrct()</a></code>
-
-        </dt>
-        <dd>Create Data Generating Mechanism for MRCT Simulations</dd>
-
-        <dt>
-
           <code><a href="simulate_from_dgm.html">simulate_from_dgm()</a></code>
 
         </dt>
         <dd>Simulate Survival Data from AFT Data Generating Mechanism</dd>
-
-        <dt>
-
-          <code><a href="simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>
-
-        </dt>
-        <dd>Simulate Trial Data from GBSG DGM</dd>
-
-        <dt>
-
-          <code><a href="get_dgm_with_output.html">get_dgm_with_output()</a></code>
-
-        </dt>
-        <dd>Create DGM with Output File Path</dd>
 
         <dt>
 
@@ -1122,24 +405,10 @@
 
         <dt>
 
-          <code><a href="find_k_inter_for_target_hr.html">find_k_inter_for_target_hr()</a></code>
-
-        </dt>
-        <dd>Find k_inter Value to Achieve Target Harm Subgroup Hazard Ratio</dd>
-
-        <dt>
-
           <code><a href="validate_k_inter_effect.html">validate_k_inter_effect()</a></code>
 
         </dt>
         <dd>Validate k_inter Effect on HR Heterogeneity</dd>
-
-        <dt>
-
-          <code><a href="sensitivity_analysis_k_inter.html">sensitivity_analysis_k_inter()</a></code>
-
-        </dt>
-        <dd>Sensitivity Analysis of Hazard Ratios to k_inter</dd>
       </dl></div><div class="section level2">
       <h2 id="simulation-studies">Simulation Studies<a class="anchor" aria-label="anchor" href="#simulation-studies"></a></h2>
 
@@ -1156,20 +425,6 @@
 
         </dt>
         <dd>Run One Simulation Replicate</dd>
-
-        <dt>
-
-          <code><a href="default_fs_params.html">default_fs_params()</a></code>
-
-        </dt>
-        <dd>Default ForestSearch Parameters for GBSG Simulations</dd>
-
-        <dt>
-
-          <code><a href="default_grf_params.html">default_grf_params()</a></code>
-
-        </dt>
-        <dd>Default GRF Parameters for GBSG Simulations</dd>
 
         <dt>
 
@@ -1226,27 +481,6 @@
 
         </dt>
         <dd>Generate Detection Probability Curve</dd>
-
-        <dt>
-
-          <code><a href="find_required_sample_size.html">find_required_sample_size()</a></code>
-
-        </dt>
-        <dd>Find Minimum Sample Size for Target Detection Power</dd>
-
-        <dt>
-
-          <code><a href="create_null_result.html">create_null_result()</a></code>
-
-        </dt>
-        <dd>Create result object when no subgroup is found</dd>
-
-        <dt>
-
-          <code><a href="create_success_result.html">create_success_result()</a></code>
-
-        </dt>
-        <dd>Create result object for successful subgroup identification</dd>
       </dl></div><div class="section level2">
       <h2 id="multi-regional-clinical-trials">Multi-Regional Clinical Trials<a class="anchor" aria-label="anchor" href="#multi-regional-clinical-trials"></a></h2>
 
@@ -1266,21 +500,14 @@
 
         <dt>
 
-          <code><a href="summaryout_mrct.html">summaryout_mrct()</a></code>
+          <code><a href="create_dgm_for_mrct.html">create_dgm_for_mrct()</a></code>
 
         </dt>
-        <dd>Summary Tables for MRCT Simulation Results</dd>
-
-        <dt>
-
-          <code><a href="validate_mrct_data.html">validate_mrct_data()</a></code>
-
-        </dt>
-        <dd>Validate Dataset for MRCT Simulations</dd>
+        <dd>Create Data Generating Mechanism for MRCT Simulations</dd>
       </dl></div><div class="section level2">
-      <h2 id="formatting-estimation-helpers">Formatting &amp; Estimation Helpers<a class="anchor" aria-label="anchor" href="#formatting-estimation-helpers"></a></h2>
+      <h2 id="internal">Internal<a class="anchor" aria-label="anchor" href="#internal"></a></h2>
 
-      <div class="section-desc"><p>Formatting utilities, confidence intervals, and estimation helpers.</p></div>
+      <div class="section-desc"><p>Internal implementation details. These functions are not intended to be called directly by users.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -1289,45 +516,101 @@
 
       <dl><dt>
 
-          <code><a href="format_CI.html">format_CI()</a></code>
+          <code><a href="CV_sgs.html">CV_sgs()</a></code>
 
         </dt>
-        <dd>Format Confidence Interval for Estimates</dd>
+        <dd>Cross-Validation Subgroup Match Summary</dd>
 
         <dt>
 
-          <code><a href="format_results.html">format_results()</a></code>
+          <code><a href="FS_labels.html">FS_labels()</a></code>
 
         </dt>
-        <dd>Format results for subgroup summary</dd>
+        <dd>Convert Factor Code to Label</dd>
 
         <dt>
 
-          <code><a href="format_fs_details.html">format_fs_details()</a></code>
+          <code><a href="SG_tab_estimates.html">SG_tab_estimates()</a></code>
 
         </dt>
-        <dd>Format ForestSearch Details Output for Beamer Two-Column Display</dd>
+        <dd>Subgroup summary table estimates</dd>
 
         <dt>
 
-          <code><a href="hrCI_format.html">hrCI_format()</a></code>
+          <code><a href="SGplot_estimates.html">SGplot_estimates()</a></code>
 
         </dt>
-        <dd>Format Hazard Ratio and Confidence Interval</dd>
+        <dd>Violin/Boxplot Visualization of HR Estimates</dd>
 
         <dt>
 
-          <code><a href="n_pcnt.html">n_pcnt()</a></code>
+          <code><a href="acm.disjctif.html">acm.disjctif()</a></code>
 
         </dt>
-        <dd>Calculate n and percent</dd>
+        <dd>Disjunctive (dummy) coding for factor columns</dd>
 
         <dt>
 
-          <code><a href="ci_est.html">ci_est()</a></code>
+          <code><a href="add_id_column.html">add_id_column()</a></code>
 
         </dt>
-        <dd>Confidence Interval for Estimate</dd>
+        <dd>Add ID Column to Data Frame</dd>
+
+        <dt>
+
+          <code><a href="add_unprocessed_vars.html">add_unprocessed_vars()</a></code>
+
+        </dt>
+        <dd>Add Unprocessed Variables from Original Data</dd>
+
+        <dt>
+
+          <code><a href="analyze_subgroup.html">analyze_subgroup()</a></code>
+
+        </dt>
+        <dd>Analyze subgroup for summary table (OPTIMIZED)</dd>
+
+        <dt>
+
+          <code><a href="apply_spline_constraint.html">apply_spline_constraint()</a></code>
+
+        </dt>
+        <dd>Apply Spline Constraint to Treatment Effect Coefficients</dd>
+
+        <dt>
+
+          <code><a href="assemble_results.html">assemble_results()</a></code>
+
+        </dt>
+        <dd>Assemble Final Results Object</dd>
+
+        <dt>
+
+          <code><a href="assign_subgroup_membership.html">assign_subgroup_membership()</a></code>
+
+        </dt>
+        <dd>Assign data to subgroups based on selected node</dd>
+
+        <dt>
+
+          <code><a href="bootstrap_results.html">bootstrap_results()</a></code>
+
+        </dt>
+        <dd>Bootstrap Results for ForestSearch with Bias Correction</dd>
+
+        <dt>
+
+          <code><a href="bootstrap_ystar.html">bootstrap_ystar()</a></code>
+
+        </dt>
+        <dd>Bootstrap Ystar Matrix</dd>
+
+        <dt>
+
+          <code><a href="build_cox_formula.html">build_cox_formula()</a></code>
+
+        </dt>
+        <dd>Build Cox Model Formula</dd>
 
         <dt>
 
@@ -1338,17 +621,38 @@
 
         <dt>
 
-          <code><a href="get_targetEst.html">get_targetEst()</a></code>
-
-        </dt>
-        <dd>Target Estimate and Standard Error for Bootstrap</dd>
-
-        <dt>
-
           <code><a href="calculate_counts.html">calculate_counts()</a></code>
 
         </dt>
         <dd>Calculate counts for subgroup summary</dd>
+
+        <dt>
+
+          <code><a href="calculate_event_counts.html">calculate_event_counts()</a></code>
+
+        </dt>
+        <dd>Calculate Event Counts by Treatment Arm</dd>
+
+        <dt>
+
+          <code><a href="calculate_hazard_ratios.html">calculate_hazard_ratios()</a></code>
+
+        </dt>
+        <dd>Calculate Hazard Ratios from Potential Outcomes</dd>
+
+        <dt>
+
+          <code><a href="calculate_linear_predictors.html">calculate_linear_predictors()</a></code>
+
+        </dt>
+        <dd>Calculate Linear Predictors for Potential Outcomes</dd>
+
+        <dt>
+
+          <code><a href="calculate_max_combinations.html">calculate_max_combinations()</a></code>
+
+        </dt>
+        <dd>Calculate Maximum Combinations</dd>
 
         <dt>
 
@@ -1359,38 +663,24 @@
 
         <dt>
 
-          <code><a href="density_threshold_both.html">density_threshold_both()</a></code>
+          <code><a href="calculate_skewness.html">calculate_skewness()</a></code>
 
         </dt>
-        <dd>Bivariate Density for Split-Sample HR Threshold Detection</dd>
+        <dd>Calculate Skewness</dd>
 
         <dt>
 
-          <code><a href="find_quantile_for_proportion.html">find_quantile_for_proportion()</a></code>
+          <code><a href="ci_est.html">ci_est()</a></code>
 
         </dt>
-        <dd>Find Quantile for Target Subgroup Proportion</dd>
+        <dd>Confidence Interval for Estimate</dd>
 
         <dt>
 
-          <code><a href="qlow.html">qlow()</a></code>
+          <code><a href="compare_detection_curves.html">compare_detection_curves()</a></code>
 
         </dt>
-        <dd>25th Percentile (Quantile Low)</dd>
-
-        <dt>
-
-          <code><a href="qhigh.html">qhigh()</a></code>
-
-        </dt>
-        <dd>75th Percentile (Quantile High)</dd>
-
-        <dt>
-
-          <code><a href="get_best_survreg.html">get_best_survreg()</a></code>
-
-        </dt>
-        <dd>Get Best Model from Comparison</dd>
+        <dd>Compare Detection Curves Across Sample Sizes</dd>
 
         <dt>
 
@@ -1401,26 +691,647 @@
 
         <dt>
 
-          <code><a href="print.multi_survreg_comparison.html">print(<i>&lt;multi_survreg_comparison&gt;</i>)</a></code>
+          <code><a href="compute_ahr.html">compute_ahr()</a></code>
 
         </dt>
-        <dd>Print method for survreg_comparison objects</dd>
-      </dl></div><div class="section level2">
-      <h2 id="internal-utilities">Internal Utilities<a class="anchor" aria-label="anchor" href="#internal-utilities"></a></h2>
+        <dd>Compute AHR from loghr_po</dd>
 
-      <div class="section-desc"><p>Lower-level helpers. Most users will not call these directly.</p></div>
+        <dt>
 
-      <dl></dl></div><div class="section level2">
+          <code><a href="compute_cde.html">compute_cde()</a></code>
 
+        </dt>
+        <dd>Compute CDE from theta_0 and theta_1</dd>
 
+        <dt>
 
+          <code><a href="compute_detection_probability_single.html">compute_detection_probability_single()</a></code>
 
-      <dl><dt>
+        </dt>
+        <dd>Compute Detection Probability for Single Theta (Internal)</dd>
+
+        <dt>
+
+          <code><a href="compute_node_metrics.html">compute_node_metrics()</a></code>
+
+        </dt>
+        <dd>Compute node metrics for a policy tree</dd>
+
+        <dt>
+
+          <code><a href="compute_sg_hr.html">compute_sg_hr()</a></code>
+
+        </dt>
+        <dd>Compute Hazard Ratio for a Single Subgroup</dd>
+
+        <dt>
+
+          <code><a href="compute_sg_hr_estimates.html">compute_sg_hr_estimates()</a></code>
+
+        </dt>
+        <dd>Compute Hazard Ratio Estimates for Subgroups</dd>
+
+        <dt>
+
+          <code><a href="compute_sg_summary.html">compute_sg_summary()</a></code>
+
+        </dt>
+        <dd>Compute Summary Statistics for Subgroups</dd>
+
+        <dt>
+
+          <code><a href="count_boot_id.html">count_boot_id()</a></code>
+
+        </dt>
+        <dd>Count ID Occurrences in Bootstrap Sample</dd>
+
+        <dt>
+
+          <code><a href="cox_summary_batch.html">cox_summary_batch()</a></code>
+
+        </dt>
+        <dd>Batch Cox summaries with caching</dd>
+
+        <dt>
+
+          <code><a href="cox_summary_vectorized.html">cox_summary_vectorized()</a></code>
+
+        </dt>
+        <dd>Cox model summary for subgroup - vectorized version</dd>
+
+        <dt>
+
+          <code><a href="create_bootstrap_caption.html">create_bootstrap_caption()</a></code>
+
+        </dt>
+        <dd>Calculate Bootstrap Table Caption</dd>
+
+        <dt>
+
+          <code><a href="create_bootstrap_diagnostic_plots.html">create_bootstrap_diagnostic_plots()</a></code>
+
+        </dt>
+        <dd>Create Bootstrap Diagnostic Plots</dd>
+
+        <dt>
+
+          <code><a href="create_factor_summary_tables.html">create_factor_summary_tables()</a></code>
+
+        </dt>
+        <dd>Create Factor Summary Tables from Bootstrap Results</dd>
+
+        <dt>
+
+          <code><a href="create_fs_subgroup_indicators.html">create_fs_subgroup_indicators()</a></code>
+
+        </dt>
+        <dd>Create Subgroup Indicator Columns from ForestSearch</dd>
+
+        <dt>
+
+          <code><a href="create_gbsg_dgm.html">create_gbsg_dgm()</a></code>
+
+        </dt>
+        <dd>Create GBSG-Based AFT Data Generating Mechanism</dd>
+
+        <dt>
+
+          <code><a href="create_grf_config.html">create_grf_config()</a></code>
+
+        </dt>
+        <dd>Helper Functions for GRF Subgroup Analysis</dd>
+
+        <dt>
+
+          <code><a href="create_null_result.html">create_null_result()</a></code>
+
+        </dt>
+        <dd>Create result object when no subgroup is found</dd>
+
+        <dt>
+
+          <code><a href="create_reference_subgroup_columns.html">create_reference_subgroup_columns()</a></code>
+
+        </dt>
+        <dd>Create Reference Subgroup Indicator Columns</dd>
+
+        <dt>
+
+          <code><a href="create_result_row.html">create_result_row()</a></code>
+
+        </dt>
+        <dd>Create Result Row</dd>
+
+        <dt>
+
+          <code><a href="create_sample_size_table.html">create_sample_size_table()</a></code>
+
+        </dt>
+        <dd>Create Sample Size Table for Multiple Scenarios</dd>
+
+        <dt>
+
+          <code><a href="create_spline_variables.html">create_spline_variables()</a></code>
+
+        </dt>
+        <dd>Create Spline Variables</dd>
+
+        <dt>
+
+          <code><a href="create_subgroup_indicator.html">create_subgroup_indicator()</a></code>
+
+        </dt>
+        <dd>Create Subgroup Indicator from Factor Definitions</dd>
+
+        <dt>
+
+          <code><a href="create_subgroup_summary_df.html">create_subgroup_summary_df()</a></code>
+
+        </dt>
+        <dd>Create Subgroup Summary Data Frame for Forest Plot</dd>
+
+        <dt>
+
+          <code><a href="create_success_result.html">create_success_result()</a></code>
+
+        </dt>
+        <dd>Create result object for successful subgroup identification</dd>
+
+        <dt>
+
+          <code><a href="create_summary_table_compact.html">create_summary_table_compact()</a></code>
+
+        </dt>
+        <dd>Preset: Compact Table</dd>
+
+        <dt>
+
+          <code><a href="create_summary_table_minimal.html">create_summary_table_minimal()</a></code>
+
+        </dt>
+        <dd>Preset: Minimal Table (No Highlighting, No Alternating)</dd>
+
+        <dt>
+
+          <code><a href="create_summary_table_presentation.html">create_summary_table_presentation()</a></code>
+
+        </dt>
+        <dd>Preset: Presentation Table (Large Fonts)</dd>
+
+        <dt>
+
+          <code><a href="create_summary_table_publication.html">create_summary_table_publication()</a></code>
+
+        </dt>
+        <dd>Preset: Publication-Ready Table</dd>
+
+        <dt>
+
+          <code><a href="create_timing_summary_table.html">create_timing_summary_table()</a></code>
+
+        </dt>
+        <dd>Create Timing Summary Table</dd>
+
+        <dt>
+
+          <code><a href="cut_numeric.html">cut_numeric()</a></code>
+
+        </dt>
+        <dd>Discretize Continuous Variable into Quantile-Based Categories</dd>
+
+        <dt>
+
+          <code><a href="cut_size.html">cut_size()</a></code>
+
+        </dt>
+        <dd>Discretize Continuous Variable by Size Categories</dd>
+
+        <dt>
+
+          <code><a href="cut_var.html">cut_var()</a></code>
+
+        </dt>
+        <dd>Generate cut expressions for a variable</dd>
+
+        <dt>
+
+          <code><a href="cv_compare_results.html">cv_compare_results()</a></code>
+
+        </dt>
+        <dd>Compare Multiple CV Results</dd>
+
+        <dt>
+
+          <code><a href="cv_summary_text.html">cv_summary_text()</a></code>
+
+        </dt>
+        <dd>Create Compact CV Summary Text</dd>
+
+        <dt>
+
+          <code><a href="default_fs_params.html">default_fs_params()</a></code>
+
+        </dt>
+        <dd>Default ForestSearch Parameters for GBSG Simulations</dd>
+
+        <dt>
+
+          <code><a href="default_grf_params.html">default_grf_params()</a></code>
+
+        </dt>
+        <dd>Default GRF Parameters for GBSG Simulations</dd>
+
+        <dt>
+
+          <code><a href="default_grf_params_gen.html">default_grf_params_gen()</a></code>
+
+        </dt>
+        <dd>Default GRF parameters (general)</dd>
+
+        <dt>
+
+          <code><a href="default_sim_params.html">default_sim_params()</a></code>
+
+        </dt>
+        <dd>Default ForestSearch parameters (general)</dd>
+
+        <dt>
+
+          <code><a href="define_subgroups.html">define_subgroups()</a></code>
+
+        </dt>
+        <dd>Define Subgroups with Flexible Cutpoints</dd>
+
+        <dt>
+
+          <code><a href="density_threshold_both.html">density_threshold_both()</a></code>
+
+        </dt>
+        <dd>Bivariate Density for Split-Sample HR Threshold Detection</dd>
+
+        <dt>
+
+          <code><a href="density_threshold_integrand.html">density_threshold_integrand()</a></code>
+
+        </dt>
+        <dd>Vectorized Density for Integration</dd>
+
+        <dt>
+
+          <code><a href="detect_variable_types.html">detect_variable_types()</a></code>
+
+        </dt>
+        <dd>Automatically Detect Variable Types in a Dataset</dd>
+
+        <dt>
+
+          <code><a href="dummy_encode.html">dummy_encode()</a></code>
+
+        </dt>
+        <dd>Dummy-code a data frame (numeric pass-through, factors expanded)</dd>
+
+        <dt>
+
+          <code><a href="early_stop_decision.html">early_stop_decision()</a></code>
+
+        </dt>
+        <dd>Early Stopping Decision</dd>
+
+        <dt>
+
+          <code><a href="evaluate_combination_with_status.html">evaluate_combination_with_status()</a></code>
+
+        </dt>
+        <dd>Evaluate a Single Factor Combination with Status Tracking</dd>
+
+        <dt>
+
+          <code><a href="evaluate_comparison.html">evaluate_comparison()</a></code>
+
+        </dt>
+        <dd>Evaluate a Comparison Expression Without eval(parse())</dd>
+
+        <dt>
+
+          <code><a href="evaluate_consistency_twostage.html">evaluate_consistency_twostage()</a></code>
+
+        </dt>
+        <dd>Evaluate Consistency (Two-Stage Algorithm)</dd>
+
+        <dt>
+
+          <code><a href="evaluate_cuts_once.html">evaluate_cuts_once()</a></code>
+
+        </dt>
+        <dd>Cache and validate cut expressions efficiently</dd>
+
+        <dt>
+
+          <code><a href="evaluate_subgroup_consistency.html">evaluate_subgroup_consistency()</a></code>
+
+        </dt>
+        <dd>Evaluate Single Subgroup for Consistency (Fixed-Sample)</dd>
+
+        <dt>
+
+          <code><a href="extract_all_tree_cuts.html">extract_all_tree_cuts()</a></code>
+
+        </dt>
+        <dd>Extract all cuts from fitted trees</dd>
+
+        <dt>
+
+          <code><a href="extract_fs_estimates.html">extract_fs_estimates()</a></code>
+
+        </dt>
+        <dd>Extract Estimates from ForestSearch Results</dd>
+
+        <dt>
+
+          <code><a href="extract_fs_subgroup_definition.html">extract_fs_subgroup_definition()</a></code>
+
+        </dt>
+        <dd>Extract Subgroup Definition from ForestSearch Object</dd>
+
+        <dt>
+
+          <code><a href="extract_grf_estimates.html">extract_grf_estimates()</a></code>
+
+        </dt>
+        <dd>Extract Estimates from GRF Results</dd>
+
+        <dt>
+
+          <code><a href="extract_idx_flagredundancy.html">extract_idx_flagredundancy()</a></code>
+
+        </dt>
+        <dd>Extract redundancy flag for subgroup combinations</dd>
+
+        <dt>
+
+          <code><a href="extract_selected_tree_cuts.html">extract_selected_tree_cuts()</a></code>
+
+        </dt>
+        <dd>Extract cuts from selected tree only</dd>
+
+        <dt>
+
+          <code><a href="extract_subgroup.html">extract_subgroup()</a></code>
+
+        </dt>
+        <dd>Extract Subgroup Information</dd>
+
+        <dt>
+
+          <code><a href="extract_tree_cuts.html">extract_tree_cuts()</a></code>
+
+        </dt>
+        <dd>Extract cut information from a policy tree</dd>
+
+        <dt>
+
+          <code><a href="filter_by_lassokeep.html">filter_by_lassokeep()</a></code>
+
+        </dt>
+        <dd>Filter a vector by LASSO-selected variables</dd>
+
+        <dt>
 
           <code><a href="filter_call_args.html">filter_call_args()</a></code>
 
         </dt>
         <dd>Filter and merge arguments for function calls</dd>
+
+        <dt>
+
+          <code><a href="find_covariate_any_match.html">find_covariate_any_match()</a></code>
+
+        </dt>
+        <dd>Find Covariate Any Match</dd>
+
+        <dt>
+
+          <code><a href="find_k_inter_for_target_hr.html">find_k_inter_for_target_hr()</a></code>
+
+        </dt>
+        <dd>Find k_inter Value to Achieve Target Harm Subgroup Hazard Ratio</dd>
+
+        <dt>
+
+          <code><a href="find_leaf_split.html">find_leaf_split()</a></code>
+
+        </dt>
+        <dd>Find the split that leads to a specific leaf node</dd>
+
+        <dt>
+
+          <code><a href="find_quantile_for_proportion.html">find_quantile_for_proportion()</a></code>
+
+        </dt>
+        <dd>Find Quantile for Target Subgroup Proportion</dd>
+
+        <dt>
+
+          <code><a href="find_required_sample_size.html">find_required_sample_size()</a></code>
+
+        </dt>
+        <dd>Find Minimum Sample Size for Target Detection Power</dd>
+
+        <dt>
+
+          <code><a href="fit_aft_model.html">fit_aft_model()</a></code>
+
+        </dt>
+        <dd>Fit AFT Model with Optional Spline Treatment Effect</dd>
+
+        <dt>
+
+          <code><a href="fit_aft_model_spline.html">fit_aft_model_spline()</a></code>
+
+        </dt>
+        <dd>Fit AFT Model with Spline Treatment Effect</dd>
+
+        <dt>
+
+          <code><a href="fit_aft_model_standard.html">fit_aft_model_standard()</a></code>
+
+        </dt>
+        <dd>Fit Standard AFT Model (Non-Spline)</dd>
+
+        <dt>
+
+          <code><a href="fit_causal_forest.html">fit_causal_forest()</a></code>
+
+        </dt>
+        <dd>Fit causal survival forest</dd>
+
+        <dt>
+
+          <code><a href="fit_cox_for_subgroup.html">fit_cox_for_subgroup()</a></code>
+
+        </dt>
+        <dd>Fit Cox Model for Subgroup</dd>
+
+        <dt>
+
+          <code><a href="fit_cox_models.html">fit_cox_models()</a></code>
+
+        </dt>
+        <dd>Fit Cox Models for Subgroups</dd>
+
+        <dt>
+
+          <code><a href="fit_policy_trees.html">fit_policy_trees()</a></code>
+
+        </dt>
+        <dd>Fit policy trees up to specified depth</dd>
+
+        <dt>
+
+          <code><a href="forestsearch-package.html">forestsearch-package</a></code> <code><a href="forestsearch-package.html">forestsearch-imports</a></code>
+
+        </dt>
+        <dd>forestsearch: Exploratory Subgroup Identification in Clinical Trials with Survival Endpoints</dd>
+
+        <dt>
+
+          <code><a href="format_CI.html">format_CI()</a></code>
+
+        </dt>
+        <dd>Format Confidence Interval for Estimates</dd>
+
+        <dt>
+
+          <code><a href="format_bootstrap_diagnostics_table.html">format_bootstrap_diagnostics_table()</a></code>
+
+        </dt>
+        <dd>Format Bootstrap Diagnostics Table with gt</dd>
+
+        <dt>
+
+          <code><a href="format_bootstrap_table.html">format_bootstrap_table()</a></code>
+
+        </dt>
+        <dd>Format Bootstrap Results Table with gt</dd>
+
+        <dt>
+
+          <code><a href="format_bootstrap_timing_table.html">format_bootstrap_timing_table()</a></code>
+
+        </dt>
+        <dd>Format Bootstrap Timing Table with gt</dd>
+
+        <dt>
+
+          <code><a href="format_continuous_definition.html">format_continuous_definition()</a></code>
+
+        </dt>
+        <dd>Format Continuous Variable Definition for Display</dd>
+
+        <dt>
+
+          <code><a href="format_fs_details.html">format_fs_details()</a></code>
+
+        </dt>
+        <dd>Format ForestSearch Details Output for Beamer Two-Column Display</dd>
+
+        <dt>
+
+          <code><a href="format_results.html">format_results()</a></code>
+
+        </dt>
+        <dd>Format results for subgroup summary</dd>
+
+        <dt>
+
+          <code><a href="format_search_results.html">format_search_results()</a></code>
+
+        </dt>
+        <dd>Format Search Results</dd>
+
+        <dt>
+
+          <code><a href="format_subgroup_summary_tables.html">format_subgroup_summary_tables()</a></code>
+
+        </dt>
+        <dd>Format Subgroup Summary Tables with gt</dd>
+
+        <dt>
+
+          <code><a href="generate_bootstrap_synthetic.html">generate_bootstrap_synthetic()</a></code>
+
+        </dt>
+        <dd>Generate Synthetic Data using Bootstrap with Perturbation</dd>
+
+        <dt>
+
+          <code><a href="generate_bootstrap_with_noise.html">generate_bootstrap_with_noise()</a></code>
+
+        </dt>
+        <dd>Generate Bootstrap Sample with Added Noise</dd>
+
+        <dt>
+
+          <code><a href="generate_combination_indices.html">generate_combination_indices()</a></code>
+
+        </dt>
+        <dd>Generate Combination Indices</dd>
+
+        <dt>
+
+          <code><a href="generate_complement_expression.html">generate_complement_expression()</a></code>
+
+        </dt>
+        <dd>Generate Complement Expression</dd>
+
+        <dt>
+
+          <code><a href="generate_gbsg_bootstrap_general.html">generate_gbsg_bootstrap_general()</a></code>
+
+        </dt>
+        <dd>Generate Synthetic GBSG Data using Generalized Bootstrap</dd>
+
+        <dt>
+
+          <code><a href="generate_readable_sg_labels.html">generate_readable_sg_labels()</a></code>
+
+        </dt>
+        <dd>Generate Readable Subgroup Labels from ForestSearch Object</dd>
+
+        <dt>
+
+          <code><a href="generate_super_population.html">generate_super_population()</a></code>
+
+        </dt>
+        <dd>Generate Super Population and Calculate Linear Predictors</dd>
+
+        <dt>
+
+          <code><a href="get_Cox_sg.html">get_Cox_sg()</a></code>
+
+        </dt>
+        <dd>Fit Cox Model for Subgroup</dd>
+
+        <dt>
+
+          <code><a href="get_FSdata.html">get_FSdata()</a></code>
+
+        </dt>
+        <dd>ForestSearch Data Preparation and Feature Selection</dd>
+
+        <dt>
+
+          <code><a href="get_best_survreg.html">get_best_survreg()</a></code>
+
+        </dt>
+        <dd>Get Best Model from Comparison</dd>
+
+        <dt>
+
+          <code><a href="get_bootstrap_exports.html">get_bootstrap_exports()</a></code>
+
+        </dt>
+        <dd>Get all exported functions from ForestSearch namespace</dd>
 
         <dt>
 
@@ -1445,10 +1356,549 @@
 
         <dt>
 
+          <code><a href="get_cut_name.html">get_cut_name()</a></code>
+
+        </dt>
+        <dd>Get variable name from cut expression</dd>
+
+        <dt>
+
+          <code><a href="get_dfRes.html">get_dfRes()</a></code>
+
+        </dt>
+        <dd>Bootstrap Confidence Interval and Bias Correction Results</dd>
+
+        <dt>
+
+          <code><a href="get_dfpred.html">get_dfpred()</a></code>
+
+        </dt>
+        <dd>Generate Prediction Dataset with Subgroup Treatment Recommendation</dd>
+
+        <dt>
+
+          <code><a href="get_dgm_hr.html">get_dgm_hr()</a></code>
+
+        </dt>
+        <dd>Extract HR from DGM (Backward Compatible)</dd>
+
+        <dt>
+
+          <code><a href="get_dgm_with_output.html">get_dgm_with_output()</a></code>
+
+        </dt>
+        <dd>Create DGM with Output File Path</dd>
+
+        <dt>
+
+          <code><a href="get_param.html">get_param()</a></code>
+
+        </dt>
+        <dd>Get Parameter with Default Fallback</dd>
+
+        <dt>
+
+          <code><a href="get_split_hr_fast.html">get_split_hr_fast()</a></code>
+
+        </dt>
+        <dd>Fast Cox Model HR Estimation</dd>
+
+        <dt>
+
+          <code><a href="get_subgroup_membership.html">get_subgroup_membership()</a></code>
+
+        </dt>
+        <dd>Get subgroup membership vector</dd>
+
+        <dt>
+
+          <code><a href="get_targetEst.html">get_targetEst()</a></code>
+
+        </dt>
+        <dd>Target Estimate and Standard Error for Bootstrap</dd>
+
+        <dt>
+
+          <code><a href="grf.subg.eval.html">grf.subg.eval()</a></code>
+
+        </dt>
+        <dd>GRF Subgroup Evaluation and Performance Metrics</dd>
+
+        <dt>
+
+          <code><a href="has_positive_variance.html">has_positive_variance()</a></code>
+
+        </dt>
+        <dd>Check if Matrix Has Positive Variance</dd>
+
+        <dt>
+
+          <code><a href="hrCI_format.html">hrCI_format()</a></code>
+
+        </dt>
+        <dd>Format Hazard Ratio and Confidence Interval</dd>
+
+        <dt>
+
+          <code><a href="is.continuous.html">is.continuous()</a></code>
+
+        </dt>
+        <dd>Check if a variable is continuous</dd>
+
+        <dt>
+
+          <code><a href="is_flag_continuous.html">is_flag_continuous()</a></code>
+
+        </dt>
+        <dd>Check if cut expression is for a continuous variable (OPTIMIZED)</dd>
+
+        <dt>
+
+          <code><a href="is_flag_drop.html">is_flag_drop()</a></code>
+
+        </dt>
+        <dd>Check if cut expression should be dropped</dd>
+
+        <dt>
+
+          <code><a href="km_summary.html">km_summary()</a></code>
+
+        </dt>
+        <dd>KM median summary for subgroup</dd>
+
+        <dt>
+
+          <code><a href="lasso_selection.html">lasso_selection()</a></code>
+
+        </dt>
+        <dd>LASSO selection for Cox model</dd>
+
+        <dt>
+
+          <code><a href="meets_event_criteria.html">meets_event_criteria()</a></code>
+
+        </dt>
+        <dd>Check Event Count Criteria</dd>
+
+        <dt>
+
+          <code><a href="meets_prevalence_threshold.html">meets_prevalence_threshold()</a></code>
+
+        </dt>
+        <dd>Check Prevalence Threshold</dd>
+
+        <dt>
+
+          <code><a href="n_pcnt.html">n_pcnt()</a></code>
+
+        </dt>
+        <dd>Calculate n and percent</dd>
+
+        <dt>
+
+          <code><a href="parse_sg_harm_to_expression.html">parse_sg_harm_to_expression()</a></code>
+
+        </dt>
+        <dd>Parse sg.harm Factor Names to Expression</dd>
+
+        <dt>
+
+          <code><a href="plot.fs_forestplot.html">plot(<i>&lt;fs_forestplot&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot Method for ForestSearch Forest Plot</dd>
+
+        <dt>
+
+          <code><a href="plot.fs_sg_plot.html">plot(<i>&lt;fs_sg_plot&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Plot Method for fs_sg_plot Objects</dd>
+
+        <dt>
+
+          <code><a href="plot_sg_distribution.html">plot_sg_distribution()</a></code>
+
+        </dt>
+        <dd>Plot Distribution of Identified Subgroups</dd>
+
+        <dt>
+
+          <code><a href="plot_sg_forest.html">plot_sg_forest()</a></code>
+
+        </dt>
+        <dd>Plot Forest Plot of Hazard Ratios</dd>
+
+        <dt>
+
+          <code><a href="plot_sg_km.html">plot_sg_km()</a></code>
+
+        </dt>
+        <dd>Plot Kaplan-Meier Survival Curves for Subgroups</dd>
+
+        <dt>
+
+          <code><a href="plot_sg_results.html">plot_sg_results()</a></code>
+
+        </dt>
+        <dd>Plot ForestSearch Subgroup Results</dd>
+
+        <dt>
+
+          <code><a href="plot_sg_summary_panel.html">plot_sg_summary_panel()</a></code>
+
+        </dt>
+        <dd>Plot Summary Statistics Panel</dd>
+
+        <dt>
+
+          <code><a href="plot_subgroup.html">plot_subgroup()</a></code>
+
+        </dt>
+        <dd>Plot Subgroup Survival Curves</dd>
+
+        <dt>
+
+          <code><a href="plot_subgroup_effects.html">plot_subgroup_effects()</a></code>
+
+        </dt>
+        <dd>Plot Subgroup Analysis Results</dd>
+
+        <dt>
+
+          <code><a href="prepare_censoring_model.html">prepare_censoring_model()</a></code>
+
+        </dt>
+        <dd>Prepare Censoring Model Parameters</dd>
+
+        <dt>
+
+          <code><a href="prepare_search_data.html">prepare_search_data()</a></code>
+
+        </dt>
+        <dd>Prepare Data for Subgroup Search</dd>
+
+        <dt>
+
+          <code><a href="prepare_subgroup_data.html">prepare_subgroup_data()</a></code>
+
+        </dt>
+        <dd>Prepare subgroup data for analysis</dd>
+
+        <dt>
+
+          <code><a href="prepare_working_dataset.html">prepare_working_dataset()</a></code>
+
+        </dt>
+        <dd>Prepare Working Dataset with Processed Covariates</dd>
+
+        <dt>
+
+          <code><a href="print.fs_forest_theme.html">print(<i>&lt;fs_forest_theme&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print Method for ForestSearch Forest Theme</dd>
+
+        <dt>
+
+          <code><a href="print.fs_forestplot.html">print(<i>&lt;fs_forestplot&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print Method for ForestSearch Forest Plot</dd>
+
+        <dt>
+
+          <code><a href="print.fs_sg_plot.html">print(<i>&lt;fs_sg_plot&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print Method for fs_sg_plot Objects</dd>
+
+        <dt>
+
+          <code><a href="print.fs_weighted_km.html">print(<i>&lt;fs_weighted_km&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print Method for fs_weighted_km Objects</dd>
+
+        <dt>
+
+          <code><a href="print.multi_survreg_comparison.html">print(<i>&lt;multi_survreg_comparison&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for survreg_comparison objects</dd>
+
+        <dt>
+
+          <code><a href="print_cv_params.html">print_cv_params()</a></code>
+
+        </dt>
+        <dd>Print CV ForestSearch Parameters</dd>
+
+        <dt>
+
+          <code><a href="print_grf_details.html">print_grf_details()</a></code>
+
+        </dt>
+        <dd>Print detailed output for debugging</dd>
+
+        <dt>
+
           <code><a href="process_conf_force_expr.html">process_conf_force_expr()</a></code>
 
         </dt>
         <dd>Process forced cut expression for a variable</dd>
+
+        <dt>
+
+          <code><a href="process_continuous_subgroup.html">process_continuous_subgroup()</a></code>
+
+        </dt>
+        <dd>Process Continuous Variable for Subgroup Definition</dd>
+
+        <dt>
+
+          <code><a href="process_continuous_vars.html">process_continuous_vars()</a></code>
+
+        </dt>
+        <dd>Process Continuous Variables</dd>
+
+        <dt>
+
+          <code><a href="process_cutpoint.html">process_cutpoint()</a></code>
+
+        </dt>
+        <dd>Process Cutpoint Specification for Subgroup Definition</dd>
+
+        <dt>
+
+          <code><a href="process_factor_subgroup.html">process_factor_subgroup()</a></code>
+
+        </dt>
+        <dd>Process Factor Variable for Subgroup Definition</dd>
+
+        <dt>
+
+          <code><a href="process_factor_vars.html">process_factor_vars()</a></code>
+
+        </dt>
+        <dd>Process Factor Variables with Largest Value as Reference</dd>
+
+        <dt>
+
+          <code><a href="qhigh.html">qhigh()</a></code>
+
+        </dt>
+        <dd>75th Percentile (Quantile High)</dd>
+
+        <dt>
+
+          <code><a href="qlow.html">qlow()</a></code>
+
+        </dt>
+        <dd>25th Percentile (Quantile Low)</dd>
+
+        <dt>
+
+          <code><a href="quick_km_band_plot.html">quick_km_band_plot()</a></code>
+
+        </dt>
+        <dd>Quick Plot KM Bands from ForestSearch</dd>
+
+        <dt>
+
+          <code><a href="remove_near_duplicate_subgroups.html">remove_near_duplicate_subgroups()</a></code>
+
+        </dt>
+        <dd>Remove Near-Duplicate Subgroups</dd>
+
+        <dt>
+
+          <code><a href="remove_redundant_subgroups.html">remove_redundant_subgroups()</a></code>
+
+        </dt>
+        <dd>Remove Redundant Subgroups</dd>
+
+        <dt>
+
+          <code><a href="resolve_bootstrap_parallel_args.html">resolve_bootstrap_parallel_args()</a></code>
+
+        </dt>
+        <dd>Resolve parallel processing arguments for bootstrap</dd>
+
+        <dt>
+
+          <code><a href="resolve_cv_parallel_args.html">resolve_cv_parallel_args()</a></code>
+
+        </dt>
+        <dd>Resolve Parallel Arguments for Cross-Validation</dd>
+
+        <dt>
+
+          <code><a href="rmst_calculation.html">rmst_calculation()</a></code>
+
+        </dt>
+        <dd>RMST calculation for subgroup</dd>
+
+        <dt>
+
+          <code><a href="run_forestsearch_analysis.html">run_forestsearch_analysis()</a></code>
+
+        </dt>
+        <dd>Run ForestSearch Analysis</dd>
+
+        <dt>
+
+          <code><a href="run_grf_analysis.html">run_grf_analysis()</a></code>
+
+        </dt>
+        <dd>Run GRF Analysis</dd>
+
+        <dt>
+
+          <code><a href="run_single_consistency_split.html">run_single_consistency_split()</a></code>
+
+        </dt>
+        <dd>Run Single Consistency Split</dd>
+
+        <dt>
+
+          <code><a href="safe_eval_expr.html">safe_eval_expr()</a></code>
+
+        </dt>
+        <dd>Evaluate an expression string in a data-frame scope</dd>
+
+        <dt>
+
+          <code><a href="safe_subset.html">safe_subset()</a></code>
+
+        </dt>
+        <dd>Subset a data frame using an expression string</dd>
+
+        <dt>
+
+          <code><a href="save_forestplot.html">save_forestplot()</a></code>
+
+        </dt>
+        <dd>Save ForestSearch Forest Plot to File</dd>
+
+        <dt>
+
+          <code><a href="sens_text.html">sens_text()</a></code>
+
+        </dt>
+        <dd>Generate Cross-Validation Sensitivity Text</dd>
+
+        <dt>
+
+          <code><a href="sensitivity_analysis_k_inter.html">sensitivity_analysis_k_inter()</a></code>
+
+        </dt>
+        <dd>Sensitivity Analysis of Hazard Ratios to k_inter</dd>
+
+        <dt>
+
+          <code><a href="setup_parallel_SGcons.html">setup_parallel_SGcons()</a></code>
+
+        </dt>
+        <dd>Set up parallel processing for subgroup consistency</dd>
+
+        <dt>
+
+          <code><a href="sg_consistency_out.html">sg_consistency_out()</a></code>
+
+        </dt>
+        <dd>Output Subgroup Consistency Results</dd>
+
+        <dt>
+
+          <code><a href="simulate_from_gbsg_dgm.html">simulate_from_gbsg_dgm()</a></code>
+
+        </dt>
+        <dd>Simulate Trial Data from GBSG DGM</dd>
+
+        <dt>
+
+          <code><a href="sort_subgroups.html">sort_subgroups()</a></code>
+
+        </dt>
+        <dd>Sort Subgroups by Focus</dd>
+
+        <dt>
+
+          <code><a href="sort_subgroups_preview.html">sort_subgroups_preview()</a></code>
+
+        </dt>
+        <dd>Sort Subgroups by Focus at consistency stage (consistency not available at this point)</dd>
+
+        <dt>
+
+          <code><a href="subgroup.search.html">subgroup.search()</a></code>
+
+        </dt>
+        <dd>Subgroup Search for Treatment Effect Heterogeneity (Improved, Parallelized)</dd>
+
+        <dt>
+
+          <code><a href="summarize_bootstrap_subgroups.html">summarize_bootstrap_subgroups()</a></code>
+
+        </dt>
+        <dd>Summarize Bootstrap Subgroup Analysis Results</dd>
+
+        <dt>
+
+          <code><a href="summarize_factor_presence_robust.html">summarize_factor_presence_robust()</a></code>
+
+        </dt>
+        <dd>Summarize Factor Presence Across Bootstrap Subgroups</dd>
+
+        <dt>
+
+          <code><a href="summarize_single_analysis.html">summarize_single_analysis()</a></code>
+
+        </dt>
+        <dd>Summarize Single Analysis Results</dd>
+
+        <dt>
+
+          <code><a href="summaryout_mrct.html">summaryout_mrct()</a></code>
+
+        </dt>
+        <dd>Summary Tables for MRCT Simulation Results</dd>
+
+        <dt>
+
+          <code><a href="validate_grf_data.html">validate_grf_data()</a></code>
+
+        </dt>
+        <dd>Validate input data for GRF analysis</dd>
+
+        <dt>
+
+          <code><a href="validate_inputs.html">validate_inputs()</a></code>
+
+        </dt>
+        <dd>Validate Input Parameters</dd>
+
+        <dt>
+
+          <code><a href="validate_mrct_data.html">validate_mrct_data()</a></code>
+
+        </dt>
+        <dd>Validate Dataset for MRCT Simulations</dd>
+
+        <dt>
+
+          <code><a href="validate_spline_spec.html">validate_spline_spec()</a></code>
+
+        </dt>
+        <dd>Validate Spline Specification</dd>
+
+        <dt>
+
+          <code><a href="wilson_ci.html">wilson_ci()</a></code>
+
+        </dt>
+        <dd>Wilson Score Confidence Interval</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

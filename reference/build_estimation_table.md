@@ -132,24 +132,3 @@ CDE truth rather than the marginal HR.
 [`build_classification_table`](https://larry-leon.github.io/forestsearch/reference/build_classification_table.md),
 [`format_oc_results`](https://larry-leon.github.io/forestsearch/reference/format_oc_results.md),
 [`get_dgm_hr`](https://larry-leon.github.io/forestsearch/reference/get_dgm_hr.md)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Basic usage (marginal truth only)
-build_estimation_table(
-  results = results_alt,
-  dgm = dgm_calibrated,
-  analysis_method = "FSlg"
-)
-
-# With CDE truth (full Table 5 alignment)
-build_estimation_table(
-  results = results_alt,
-  dgm = dgm_calibrated,
-  cde_H = 2.25,
-  cde_Hc = 0.60
-)
-} # }
-```

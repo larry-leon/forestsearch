@@ -222,7 +222,7 @@ timings$grf <- (proc.time() - t0)["elapsed"]
 ``` r
 # Display policy trees
 # leaf1 = recommend control, leaf2 = recommend treatment
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 plot(grf_est$tree1, leaf.labels = c("Control", "Treat"), main = "Depth 1")
 ```
 
@@ -231,7 +231,7 @@ plot(grf_est$tree2, leaf.labels = c("Control", "Treat"), main = "Depth 2")
 ```
 
 ``` r
-par(mfrow = c(1, 1))
+par(oldpar)
 ```
 
 GRF identifies estrogen receptor status (ER) as a key factor, with ER ≤
@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.317 0.1053 
+    ## Seconds and minutes forestsearch overall = 6.534 0.1089 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.3 seconds
+    ## ForestSearch completed in 6.5 seconds
 
 ### ForestSearch Results
 
@@ -520,8 +520,8 @@ summaries <- summarize_bootstrap_results(
     ## -------------------------------------------------------------
     ## Overall:
     ##   Total bootstrap time:          0.14 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (4.1 sec)
-    ##   Projected for 1000 boots:      68.28 min (1.14 hrs)
+    ##   Average per iteration:         0.07 min (4.2 sec)
+    ##   Projected for 1000 boots:      70.31 min (1.17 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.6        | 0.0        |
-| ForestSearch         | 6.3        | 0.1        |
-| Bootstrap            | 10.8       | 0.2        |
-| Total                | 31.4       | 0.5        |
+| GRF                  | 0.7        | 0.0        |
+| ForestSearch         | 6.5        | 0.1        |
+| Bootstrap            | 11.1       | 0.2        |
+| Total                | 32.5       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 

@@ -55,10 +55,12 @@ data frame.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+# \donttest{
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2.0, verbose = FALSE)
 dgm <- compute_dgm_cde(dgm)
 dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
+#> [1] 3.868704
 dgm$hazard_ratios$CDE         # theta-ddagger overall
-} # }
+#> [1] 1.097993
+# }
 ```

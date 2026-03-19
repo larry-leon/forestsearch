@@ -30,11 +30,7 @@ print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL)
 
   List. Cut information
 
-## Examples
+## Value
 
-``` r
-if (FALSE) { # \dontrun{
-# print_grf_details() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-} # }
-```
+No return value, called for side effects (prints GRF diagnostic
+information to the console).

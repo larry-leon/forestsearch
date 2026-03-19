@@ -56,12 +56,13 @@ handling.
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 library(survival)
 cox_summary(
   Y     = gbsg$rfstime / 30.4375,
   E     = gbsg$status,
   Treat = gbsg$hormon
 )
-} # }
+#> [1] "0.69 (0.54, 0.89)"
+# }
 ```

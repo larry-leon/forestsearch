@@ -289,33 +289,6 @@ confounder effects, specify them when creating the DGM using
 <code><a href="summaryout_mrct.html">summaryout_mrct</a></code> for summarizing simulation results</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Create DGM for alternative hypothesis</span></span></span>
-<span class="r-in"><span><span class="va">dgm_alt</span> <span class="op">&lt;-</span> <span class="fu"><a href="create_dgm_for_mrct.html">create_dgm_for_mrct</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  df_case <span class="op">=</span> <span class="va">df_case</span>,</span></span>
-<span class="r-in"><span>  model_type <span class="op">=</span> <span class="st">"alt"</span>,</span></span>
-<span class="r-in"><span>  log_hrs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1.25</span>, <span class="fl">0.50</span><span class="op">)</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  verbose <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Run simulations</span></span></span>
-<span class="r-in"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu">mrct_region_sims</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  dgm <span class="op">=</span> <span class="va">dgm_alt</span>,</span></span>
-<span class="r-in"><span>  n_sims <span class="op">=</span> <span class="fl">100</span>,</span></span>
-<span class="r-in"><span>  region_var <span class="op">=</span> <span class="st">"z_regA"</span>,</span></span>
-<span class="r-in"><span>  sg_focus <span class="op">=</span> <span class="st">"minSG"</span>,</span></span>
-<span class="r-in"><span>  parallel_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>plan <span class="op">=</span> <span class="st">"multisession"</span>, workers <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  details <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Summarize results</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Subgroup identification rate:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">results</span><span class="op">$</span><span class="va">any_found</span><span class="op">)</span> <span class="op">*</span> <span class="fl">100</span>, <span class="st">"%\n"</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

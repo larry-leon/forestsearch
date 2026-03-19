@@ -89,21 +89,3 @@ SG_tab_estimates(
 ## Value
 
 Data frame of subgroup summary estimates.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- data.frame(
-  tte          = gbsg$rfstime / 30.4375,
-  event        = gbsg$status,
-  treat        = gbsg$hormon,
-  treat.recommend = as.integer(gbsg$er > 0)
-)
-SG_tab_estimates(df, SG_flag = "ITT",
-                 outcome.name = "tte",
-                 event.name   = "event",
-                 treat.name   = "treat")
-} # }
-```

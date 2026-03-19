@@ -231,7 +231,7 @@ noise. Setting a fixed <code>seed</code> and a sufficiently large <code>n_eval</
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/therneau/survival" class="external-link">survival</a></span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Build DGM on months scale</span></span></span>
@@ -247,6 +247,90 @@ noise. Setting a fixed <code>seed</code> and a sufficiently large <code>n_eval</
 <span class="r-in"><span>  subgroup_vars   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"er"</span>, <span class="st">"meno"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  subgroup_cuts   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>er <span class="op">=</span> <span class="fl">20</span>, meno <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> === Subgroup Definitions ===</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    er &lt;= 20 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Proportion in subgroup: 0.397 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    meno &lt;= 0 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Proportion in subgroup: 0.423 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Overall subgroup (all conditions met):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Size: 134 out of 686 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Proportion: 0.195 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> === Model Parameters (AFT, log(T)) ===</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Intercept (mu): 4.057 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Scale (tau): 0.721 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Treatment effect: 0.321 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Interaction effect: -0.313 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Overall subgroup in super-population (all conditions met):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Proportion: 0.197 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> === Hazard Ratios (super popln) ===</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Overall HR: 0.768 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Causal AHR: 0.698 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Harm subgroup HR: 0.987 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Harm subgroup AHR: 0.99 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> No-harm subgroup HR: 0.733 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> No-harm subgroup AHR: 0.641 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  ====================================================================== </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  CENSORING MODEL SELECTION:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  MULTIPLE SURVIVAL REGRESSION MODEL COMPARISONS</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ====================================================================== </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> CONVERGENCE SUMMARY ( 4 / 4  converged):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Weibull (weibull):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Status:  ✓ Converged </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:  9 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Log-likelihood:  -1838.404 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Scale parameter:  0.418 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> LogNormal (lognormal):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Status:  ✓ Converged </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:  4 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Log-likelihood:  -2000.309 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Scale parameter:  0.8707 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Weibull0 (weibull):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Status:  ✓ Converged </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:  7 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Log-likelihood:  -1843.717 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Scale parameter:  0.4246 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> LogNormal0 (lognormal):</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Status:  ✓ Converged </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Iterations:  6 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Log-likelihood:  -2004.326 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Scale parameter:  0.8768 </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MODEL COMPARISON TABLE:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       Model     AIC delta_AIC AIC_weight     BIC delta_BIC</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Weibull0 3691.43      0.00      0.976 3700.50      0.00</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Weibull 3698.81      7.37      0.024 3748.65     48.15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  LogNormal0 4012.65    321.22      0.000 4021.71    321.22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   LogNormal 4022.62    331.18      0.000 4072.46    371.96</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MODEL RANKINGS:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> By AIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> By BIC:  Weibull0 &gt; Weibull &gt; LogNormal0 &gt; LogNormal </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> EVIDENCE ASSESSMENT:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Strength:  Strong evidence </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Details:  Top model has 97.6% of AIC weight </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> FINAL RECOMMENDATION:</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------- </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Clear winner: Weibull0 (best by both AIC and BIC)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Evidence: Strong evidence - Top model has 97.6% of AIC weight </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> ====================================================================== </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calibrate so simulated censoring rate matches reference</span></span></span>
 <span class="r-in"><span><span class="va">cal_rate</span> <span class="op">&lt;-</span> <span class="fu">calibrate_cens_adjust</span><span class="op">(</span></span></span>
@@ -256,7 +340,70 @@ noise. Setting a fixed <code>seed</code> and a sufficiently large <code>n_eval</
 <span class="r-in"><span>  analysis_time <span class="op">=</span> <span class="fl">84</span>,</span></span>
 <span class="r-in"><span>  max_entry     <span class="op">=</span> <span class="fl">24</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   calibrate_cens_adjust()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Target metric    : rate</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference value  : 0.5532</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Search interval  : [-3.00, 3.00]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_eval per call  : 2000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Tolerance        : 1.0e-04</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   f(interval[1] = -3.00) = +0.4363</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   f(interval[2] = 3.00) = -0.1597</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Searching...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Censoring Diagnostic: DGM Reference vs Simulated</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM censoring type  : weibull</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM mu_cens         : 4.0312  [exp = 56.33 time units]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM tau_cens        : 0.4246</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference n (super) : 5000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Simulated n         : 1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 1. Censoring Rates ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Group Ref_rate Sim_rate    Diff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Overall    55.3%    55.1% -0.2 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 0    51.7%    49.0% -2.7 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 1    61.8%    61.2% -0.6 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 2. Censoring-Time Quantiles (censored subjects only) ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Ref: y[event == 0]  |  Sim: c_time[event_sim == 0]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Quantile   Ref   Sim Ratio</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       25% 28.19 30.78 1.092</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       50% 47.05 46.19 0.982</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       75% 61.04 61.66 1.010</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       90% 71.00 71.27 1.004</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 3. KM Median Censoring Time (reversed event indicator) ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Group Ref_median Sim_median Ratio</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Overall   54.04517   53.37382 0.988</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 0   51.25257   53.37382 1.041</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 1   57.69199   53.39228 0.925</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 4. Implied Time-Scale Check ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   exp(params$mu)          = 57.83  [median outcome time, DGM scale]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   exp(params$censoring$mu)= 56.33  [median censoring time, DGM scale]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   If these values are implausibly large relative to your</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   analysis_time, the DGM was likely built on a different time</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   scale (e.g. days vs months).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [OK] No substantial discrepancies detected.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   === Calibration Result ===</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   cens_adjust      : 0.097831</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference rate      : 0.5532</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Simulated rate      : 0.5510</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Residual         : 0.0022</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uniroot iters    : 18</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Calibrated cens_adjust (rate):"</span>, <span class="va">cal_rate</span><span class="op">$</span><span class="va">cens_adjust</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Calibrated cens_adjust (rate): 0.09783093 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Calibrate to KM median censoring time instead</span></span></span>
 <span class="r-in"><span><span class="va">cal_km</span> <span class="op">&lt;-</span> <span class="fu">calibrate_cens_adjust</span><span class="op">(</span></span></span>
@@ -266,7 +413,70 @@ noise. Setting a fixed <code>seed</code> and a sufficiently large <code>n_eval</
 <span class="r-in"><span>  analysis_time <span class="op">=</span> <span class="fl">84</span>,</span></span>
 <span class="r-in"><span>  max_entry     <span class="op">=</span> <span class="fl">24</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   calibrate_cens_adjust()</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Target metric    : km_median</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference value  : 54.0452</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Search interval  : [-3.00, 3.00]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   n_eval per call  : 2000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Tolerance        : 1.0e-04</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   f(interval[1] = -3.00) = -51.6931</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   f(interval[2] = 3.00) = +17.6392</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Searching...</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Censoring Diagnostic: DGM Reference vs Simulated</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM censoring type  : weibull</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM mu_cens         : 4.0312  [exp = 56.33 time units]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   DGM tau_cens        : 0.4246</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference n (super) : 5000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Simulated n         : 1000</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 1. Censoring Rates ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Group Ref_rate Sim_rate    Diff</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Overall    55.3%    54.8% -0.5 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 0    51.7%    48.6% -3.1 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 1    61.8%    61.0% -0.8 pp</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 2. Censoring-Time Quantiles (censored subjects only) ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     Ref: y[event == 0]  |  Sim: c_time[event_sim == 0]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Quantile   Ref   Sim Ratio</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       25% 28.19 31.42 1.114</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       50% 47.05 47.20 1.003</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       75% 61.04 62.37 1.022</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>       90% 71.00 71.53 1.008</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 3. KM Median Censoring Time (reversed event indicator) ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Group Ref_median Sim_median Ratio</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  Overall   54.04517   54.42848 1.007</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 0   51.25257   54.46035 1.063</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>    Arm 1   57.69199   54.42848 0.943</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> --- 4. Implied Time-Scale Check ---</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   exp(params$mu)          = 57.83  [median outcome time, DGM scale]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   exp(params$censoring$mu)= 56.33  [median censoring time, DGM scale]</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   If these values are implausibly large relative to your</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   analysis_time, the DGM was likely built on a different time</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   scale (e.g. days vs months).</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [OK] No substantial discrepancies detected.</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> =========================================================</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   === Calibration Result ===</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   cens_adjust      : 0.117984</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Reference km_median : 54.0452</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Simulated km_median : 54.4285</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   Residual         : 0.3833</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   uniroot iters    : 8</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> -------------------------------------------------------</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Calibrated cens_adjust (km_median):"</span>, <span class="va">cal_km</span><span class="op">$</span><span class="va">cens_adjust</span>, <span class="st">"\n"</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Calibrated cens_adjust (km_median): 0.1179835 </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Use calibrated value in simulation</span></span></span>
 <span class="r-in"><span><span class="va">sim</span> <span class="op">&lt;-</span> <span class="fu"><a href="simulate_from_dgm.html">simulate_from_dgm</a></span><span class="op">(</span></span></span>
@@ -278,8 +488,10 @@ noise. Setting a fixed <code>seed</code> and a sufficiently large <code>n_eval</
 <span class="r-in"><span>  seed          <span class="op">=</span> <span class="fl">123</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">event_sim</span><span class="op">)</span>   <span class="co"># event rate</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.458</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="va">sim</span><span class="op">$</span><span class="va">event_sim</span> <span class="op">==</span> <span class="fl">0</span><span class="op">)</span>  <span class="co"># censoring rate — should match ref</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.542</span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

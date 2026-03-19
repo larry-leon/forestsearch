@@ -63,22 +63,3 @@ In a Quarto beamer chunk with `results='asis'` and `echo=FALSE`, first
 capture the forestsearch output with
 [`capture.output()`](https://rdrr.io/r/utils/capture.output.html), then
 call `format_fs_details(fs_output)`.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-fs_output <- capture.output(
-  fs_res <- forestsearch(
-    df = dat, outcome.name = "time", event.name = "status",
-    treat.name = "trt", id.name = "id",
-    confounders.name = confs, details = TRUE
-  )
-)
-# Default: split after candidate factors
-format_fs_details(fs_output, fontsize = "tiny")
-
-# Custom split: after filtering summary
-format_fs_details(fs_output, split_after = "Found.*candidate")
-} # }
-```

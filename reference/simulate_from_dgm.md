@@ -189,10 +189,18 @@ distribution:
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
 sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
 dim(sim_data)
+#> [1] 200  54
 head(sim_data[, c("y_sim", "event_sim", "treat_sim")])
-} # }
+#>          y_sim event_sim treat_sim
+#> 97.3  34.44427         0         1
+#> 3.8    2.95523         1         0
+#> 476.3 16.93996         0         1
+#> 35    27.79183         0         0
+#> 22.2  30.66218         0         0
+#> 322   29.98234         0         1
+# }
 ```

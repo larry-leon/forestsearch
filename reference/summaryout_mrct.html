@@ -179,34 +179,6 @@ When dual-scenario, also contains <code>data_null</code>.</p></dd>
     <div class="dont-index"><p><code><a href="mrct_region_sims.html">mrct_region_sims</a></code> for generating simulation results</p></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Single scenario (backward-compatible)</span></span></span>
-<span class="r-in"><span><span class="fu">summaryout_mrct</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  mrct_sims <span class="op">=</span> <span class="va">results_alt</span>,</span></span>
-<span class="r-in"><span>  tab_caption <span class="op">=</span> <span class="st">"H1: Heterogeneous treatment effect"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Dual scenario: alternative vs null side-by-side</span></span></span>
-<span class="r-in"><span><span class="fu">summaryout_mrct</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  mrct_sims <span class="op">=</span> <span class="va">results_alt</span>,</span></span>
-<span class="r-in"><span>  mrct_sims_null <span class="op">=</span> <span class="va">results_null</span>,</span></span>
-<span class="r-in"><span>  scenario_labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Alternative (HTE)"</span>, <span class="st">"Null (uniform)"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  tab_caption <span class="op">=</span> <span class="st">"Operating characteristics: Alternative vs Null"</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Custom trimming: 2% from each tail when mean &gt; 500</span></span></span>
-<span class="r-in"><span><span class="fu">summaryout_mrct</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  mrct_sims <span class="op">=</span> <span class="va">results_alt</span>,</span></span>
-<span class="r-in"><span>  mrct_sims_null <span class="op">=</span> <span class="va">results_null</span>,</span></span>
-<span class="r-in"><span>  trim_threshold <span class="op">=</span> <span class="fl">500</span>,</span></span>
-<span class="r-in"><span>  trim_fraction <span class="op">=</span> <span class="fl">0.02</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

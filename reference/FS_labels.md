@@ -28,15 +28,3 @@ FS_labels(Qsg, confs_labels)
 Character. Human-readable label wrapped in braces, e.g., `"{age <= 50}"`
 or `"!{age <= 50}"` for complement. Returns the original code if no
 match is found.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-labels <- c("age <= 50", "tumor size <= 20", "nodes <= 3")
-FS_labels("q1.1", labels)
-FS_labels("q1.0", labels)
-FS_labels("q2", labels)
-FS_labels(c("q1", "q3"), labels)
-} # }
-```

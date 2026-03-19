@@ -76,15 +76,3 @@ evaluate_subgroup_consistency(
 
 Named numeric vector with consistency results, or NULL if criteria not
 met.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# evaluate_subgroup_consistency() is called internally by forestsearch().
-# Use forestsearch() as the standard entry point:
-fs <- forestsearch(gbsg,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-} # }
-```

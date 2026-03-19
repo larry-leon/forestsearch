@@ -185,27 +185,3 @@ This function now computes:
 for generating data from the DGM
 [`calibrate_k_inter`](https://larry-leon.github.io/forestsearch/reference/calibrate_k_inter.md)
 for finding k_inter to achieve target HR
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Alternative hypothesis with default parameters
-dgm_alt <- create_gbsg_dgm(model = "alt", verbose = TRUE)
-
-# Null hypothesis
-dgm_null <- create_gbsg_dgm(model = "null", verbose = TRUE)
-
-# Custom subgroup HR via k_inter
-dgm_custom <- create_gbsg_dgm(
-  model = "alt",
-  k_treat = 1.2,
-  k_inter = 2.0,
-  verbose = TRUE
-)
-
-# Access AHR metrics (aligned with generate_aft_dgm_flex)
-dgm_alt$hazard_ratios$AHR_harm
-dgm_alt$hazard_ratios$AHR_no_harm
-} # }
-```

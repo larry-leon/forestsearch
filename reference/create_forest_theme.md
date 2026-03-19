@@ -189,9 +189,87 @@ based on row types (ITT, reference, posthoc, etc.).
 ## Examples
 
 ``` r
-if (FALSE) { # \dontrun{
+# \donttest{
 # Simple: just increase base_size for larger plot
 large_theme <- create_forest_theme(base_size = 14)
+print(large_theme)
+#> $base_size
+#> [1] 14
+#> 
+#> $scale
+#> [1] 1
+#> 
+#> $size_factor
+#> [1] 1.4
+#> 
+#> $row_padding
+#> [1] 5.6 5.6
+#> 
+#> $body_fontsize
+#> [1] 14
+#> 
+#> $header_fontsize
+#> [1] 15
+#> 
+#> $footnote_fontsize
+#> [1] 13
+#> 
+#> $footnote_col
+#> [1] "darkcyan"
+#> 
+#> $title_fontsize
+#> [1] 18
+#> 
+#> $cv_fontsize
+#> [1] 14
+#> 
+#> $cv_col
+#> [1] "gray30"
+#> 
+#> $ci_pch
+#> [1] 15
+#> 
+#> $ci_lwd
+#> [1] 2.1
+#> 
+#> $ci_Theight
+#> [1] 0.28
+#> 
+#> $ci_col
+#> [1] "black"
+#> 
+#> $refline_lwd
+#> [1] 1.4
+#> 
+#> $refline_lty
+#> [1] "dashed"
+#> 
+#> $refline_col
+#> [1] "gray30"
+#> 
+#> $vertline_lwd
+#> [1] 1.4
+#> 
+#> $vertline_lty
+#> [1] "dashed"
+#> 
+#> $vertline_col
+#> [1] "gray20"
+#> 
+#> $arrow_type
+#> [1] "closed"
+#> 
+#> $arrow_col
+#> [1] "black"
+#> 
+#> $summary_fill
+#> [1] "black"
+#> 
+#> $summary_col
+#> [1] "black"
+#> 
+#> attr(,"class")
+#> [1] "fs_forest_theme" "list"           
 
 # Or use scale for quick adjustment
 large_theme <- create_forest_theme(base_size = 10, scale = 1.4)
@@ -199,20 +277,8 @@ large_theme <- create_forest_theme(base_size = 10, scale = 1.4)
 # Fine-tune specific elements
 custom_theme <- create_forest_theme(
   base_size = 14,
-  cv_fontsize = 12,  # Override auto-calculated CV font size
-  ci_lwd = 2.5       # Override auto-calculated CI line width
+  cv_fontsize = 12,
+  ci_lwd = 2.5
 )
-
-# Use with plot_subgroup_results_forestplot
-result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs, fs_bc = fs_bc),
-  df_analysis = df.analysis,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  theme = large_theme
-)
-
-render_forestplot(result)
-} # }
+# }
 ```

@@ -89,28 +89,3 @@ matrices in the returned list.
 
 [`cv_summary_tables`](https://larry-leon.github.io/forestsearch/reference/cv_summary_tables.md)
 for formatting `forestsearch_KfoldOut(outall=TRUE)` results
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# After running forestsearch_tenfold
-tenfold_results <- forestsearch_tenfold(
-  fs.est = fs_result,
-  sims = 100,
-  Kfolds = 10
-)
-
-# Create combined metrics table
-cv_tables <- cv_metrics_tables(tenfold_results)
-cv_tables
-
-# Create separate tables
-cv_tables <- cv_metrics_tables(tenfold_results, table_style = "separate")
-cv_tables$agreement_table
-cv_tables$finding_table
-
-# Minimal one-row summary
-cv_metrics_tables(tenfold_results, table_style = "minimal")
-} # }
-```

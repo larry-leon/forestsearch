@@ -21,13 +21,3 @@ count_boot_id(x, dfb)
 ## Value
 
 Integer count of occurrences.
-
-## Examples
-
-``` r
-df_boot <- data.frame(id = c(1, 2, 1, 3, 1), id_boot = 1:5)
-count_boot_id(1, df_boot)  # returns 3
-#> [1] 3
-count_boot_id(4, df_boot)  # returns 0
-#> [1] 0
-```

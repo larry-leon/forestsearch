@@ -198,41 +198,6 @@ reducing noise from non-selected trees.</p></dd>
 <code>tree.cuts</code> will be empty (character(0)).</p>
     </div>
 
-    <div class="section level2">
-    <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
-<span class="r-in"><span><span class="co"># Return all cuts (default behavior)</span></span></span>
-<span class="r-in"><span><span class="va">result_all</span> <span class="op">&lt;-</span> <span class="fu">grf.subg.harm.survival</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"biomarker"</span>, <span class="st">"region"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"tte"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"event"</span>,</span></span>
-<span class="r-in"><span>  id.name <span class="op">=</span> <span class="st">"id"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treat"</span>,</span></span>
-<span class="r-in"><span>  dmin.grf <span class="op">=</span> <span class="fl">0.1</span>,</span></span>
-<span class="r-in"><span>  maxdepth <span class="op">=</span> <span class="fl">2</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result_all</span><span class="op">$</span><span class="va">tree.cuts</span></span></span>
-<span class="r-in"><span><span class="co"># Returns cuts from both depth 1 and depth 2 trees</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Return only cuts from the selected tree</span></span></span>
-<span class="r-in"><span><span class="va">result_selected</span> <span class="op">&lt;-</span> <span class="fu">grf.subg.harm.survival</span><span class="op">(</span></span></span>
-<span class="r-in"><span>  data <span class="op">=</span> <span class="va">trial_data</span>,</span></span>
-<span class="r-in"><span>  confounders.name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"age"</span>, <span class="st">"biomarker"</span>, <span class="st">"region"</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"tte"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"event"</span>,</span></span>
-<span class="r-in"><span>  id.name <span class="op">=</span> <span class="st">"id"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treat"</span>,</span></span>
-<span class="r-in"><span>  dmin.grf <span class="op">=</span> <span class="fl">0.1</span>,</span></span>
-<span class="r-in"><span>  maxdepth <span class="op">=</span> <span class="fl">2</span>,</span></span>
-<span class="r-in"><span>  return_selected_cuts_only <span class="op">=</span> <span class="cn">TRUE</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="va">result_selected</span><span class="op">$</span><span class="va">tree.cuts</span></span></span>
-<span class="r-in"><span><span class="co"># Returns cuts only from the depth that identified the winning subgroup</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
-<span class="r-in"><span></span></span>
-</code></pre></div>
-    </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>
 

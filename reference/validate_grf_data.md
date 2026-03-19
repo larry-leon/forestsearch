@@ -25,13 +25,3 @@ validate_grf_data(W, D, n.min)
 ## Value
 
 Logical. TRUE if data is valid, FALSE with warning otherwise
-
-## Examples
-
-``` r
-W <- rep(0:1, each = 50)
-D <- rbinom(100, 1, 0.6)
-validate_grf_data(W, D, n.min = 60)
-#> Warning: Insufficient sample size: treatment=50, control=50, required=60 per arm.
-#> [1] FALSE
-```

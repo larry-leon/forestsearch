@@ -22,15 +22,3 @@ print(x, ...)
 ## Value
 
 Invisibly returns the input object
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-library(survival)
-df <- survival::gbsg
-res <- compare_multiple_survreg(df, outcome.name = "rfstime",
-                                 event.name = "status")
-print(res)
-} # }
-```

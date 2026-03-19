@@ -66,24 +66,3 @@ to ensure a specific subgroup size regardless of the data distribution.
 ## See also
 
 [`generate_aft_dgm_flex`](https://larry-leon.github.io/forestsearch/reference/generate_aft_dgm_flex.md)
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-gbsg <- survival::gbsg
-# Find ER cutpoint for 12.5% subgroup
-result <- find_quantile_for_proportion(
-  data = gbsg,
-  var_name = "er",
-  target_prop = 0.125,
-  direction = "less"
-)
-
-print(result)
-# Use in subgroup definition
-subgroup_cuts = list(
-  er = list(type = "quantile", value = result$quantile)
-)
-} # }
-```

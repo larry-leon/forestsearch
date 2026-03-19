@@ -39,20 +39,3 @@ quick_km_band_plot(df, fs.est, outcome.name, event.name, treat.name, ...)
 ## Value
 
 Invisibly returns the plot result.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-# Quick plot with minimal configuration
-quick_km_band_plot(df_analysis, fs_result, "os_months", "os_event", "treat")
-
-# With reference subgroups
-ref_sgs <- list(
-  age_young = list(subset_expr = "age < 65", color = "brown"),
-  age_old = list(subset_expr = "age >= 65", color = "grey")
-)
-quick_km_band_plot(df_analysis, fs_result, "os_months", "os_event", "treat",
-                   ref_subgroups = ref_sgs, tau_add = 60)
-} # }
-```

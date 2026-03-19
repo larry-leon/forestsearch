@@ -25,12 +25,3 @@ summary(object, ...)
 ## Value
 
 Invisibly returns `object`.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-summary(fs)
-} # }
-```

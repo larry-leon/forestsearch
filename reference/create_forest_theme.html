@@ -227,9 +227,87 @@ row types (ITT, reference, posthoc, etc.).</p>
 
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># \donttest{</span></span></span>
 <span class="r-in"><span><span class="co"># Simple: just increase base_size for larger plot</span></span></span>
 <span class="r-in"><span><span class="va">large_theme</span> <span class="op">&lt;-</span> <span class="fu">create_forest_theme</span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">14</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">large_theme</span><span class="op">)</span></span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $base_size</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $scale</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $size_factor</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $row_padding</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 5.6 5.6</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $body_fontsize</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $header_fontsize</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $footnote_fontsize</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 13</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $footnote_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "darkcyan"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $title_fontsize</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 18</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $cv_fontsize</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $cv_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "gray30"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $ci_pch</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 15</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $ci_lwd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 2.1</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $ci_Theight</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 0.28</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $ci_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "black"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $refline_lwd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $refline_lty</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "dashed"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $refline_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "gray30"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $vertline_lwd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $vertline_lty</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "dashed"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $vertline_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "gray20"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $arrow_type</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "closed"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $arrow_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "black"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $summary_fill</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "black"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> $summary_col</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "black"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"class")</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "fs_forest_theme" "list"           </span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Or use scale for quick adjustment</span></span></span>
 <span class="r-in"><span><span class="va">large_theme</span> <span class="op">&lt;-</span> <span class="fu">create_forest_theme</span><span class="op">(</span>base_size <span class="op">=</span> <span class="fl">10</span>, scale <span class="op">=</span> <span class="fl">1.4</span><span class="op">)</span></span></span>
@@ -237,22 +315,10 @@ row types (ITT, reference, posthoc, etc.).</p>
 <span class="r-in"><span><span class="co"># Fine-tune specific elements</span></span></span>
 <span class="r-in"><span><span class="va">custom_theme</span> <span class="op">&lt;-</span> <span class="fu">create_forest_theme</span><span class="op">(</span></span></span>
 <span class="r-in"><span>  base_size <span class="op">=</span> <span class="fl">14</span>,</span></span>
-<span class="r-in"><span>  cv_fontsize <span class="op">=</span> <span class="fl">12</span>,  <span class="co"># Override auto-calculated CV font size</span></span></span>
-<span class="r-in"><span>  ci_lwd <span class="op">=</span> <span class="fl">2.5</span>       <span class="co"># Override auto-calculated CI line width</span></span></span>
+<span class="r-in"><span>  cv_fontsize <span class="op">=</span> <span class="fl">12</span>,</span></span>
+<span class="r-in"><span>  ci_lwd <span class="op">=</span> <span class="fl">2.5</span></span></span>
 <span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="co"># Use with plot_subgroup_results_forestplot</span></span></span>
-<span class="r-in"><span><span class="va">result</span> <span class="op">&lt;-</span> <span class="fu"><a href="plot_subgroup_results_forestplot.html">plot_subgroup_results_forestplot</a></span><span class="op">(</span></span></span>
-<span class="r-in"><span>  fs_results <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>fs.est <span class="op">=</span> <span class="va">fs</span>, fs_bc <span class="op">=</span> <span class="va">fs_bc</span><span class="op">)</span>,</span></span>
-<span class="r-in"><span>  df_analysis <span class="op">=</span> <span class="va">df.analysis</span>,</span></span>
-<span class="r-in"><span>  outcome.name <span class="op">=</span> <span class="st">"time"</span>,</span></span>
-<span class="r-in"><span>  event.name <span class="op">=</span> <span class="st">"status"</span>,</span></span>
-<span class="r-in"><span>  treat.name <span class="op">=</span> <span class="st">"treatment"</span>,</span></span>
-<span class="r-in"><span>  theme <span class="op">=</span> <span class="va">large_theme</span></span></span>
-<span class="r-in"><span><span class="op">)</span></span></span>
-<span class="r-in"><span></span></span>
-<span class="r-in"><span><span class="fu"><a href="render_forestplot.html">render_forestplot</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span></span>
-<span class="r-in"><span><span class="op">}</span> <span class="co"># }</span></span></span>
+<span class="r-in"><span><span class="co"># }</span></span></span>
 <span class="r-in"><span></span></span>
 </code></pre></div>
     </div>

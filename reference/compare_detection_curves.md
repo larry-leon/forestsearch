@@ -50,21 +50,3 @@ compare_detection_curves(
 ## Value
 
 A data.frame with all curves combined, including n_sg as a factor.
-
-## Examples
-
-``` r
-if (FALSE) { # \dontrun{
-comparison <- compare_detection_curves(
-  n_sg_values = c(40, 60, 80, 100),
-  prop_cens = 0.2
-)
-
-# Plot with ggplot2
-library(ggplot2)
-ggplot(comparison, aes(x = theta, y = probability, color = factor(n_sg))) +
-  geom_line(linewidth = 1) +
-  labs(x = "True HR", y = "P(Detect)", color = "n_sg") +
-  theme_minimal()
-} # }
-```
