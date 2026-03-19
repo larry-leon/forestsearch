@@ -768,11 +768,6 @@ cox_ahr_cde_analysis <- function(
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
-#' @examples
-#' \donttest{
-#' # print.cox_ahr_cde() is the print method for cox_ahr_cde_analysis() output.
-#' # See cox_ahr_cde_analysis() for a complete example.
-#' }
 #' @export
 #' @method print cox_ahr_cde
 print.cox_ahr_cde <- function(x, ...) {
@@ -822,11 +817,6 @@ print.cox_ahr_cde <- function(x, ...) {
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
-#' @examples
-#' \donttest{
-#' # summary.cox_ahr_cde() is the summary method for cox_ahr_cde_analysis() output.
-#' # See cox_ahr_cde_analysis() for a complete example.
-#' }
 #' @export
 #' @method summary cox_ahr_cde
 summary.cox_ahr_cde <- function(object, ...) {

@@ -301,12 +301,6 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #' @param dgm_result Result object from generate_aft_dgm_flex with spline
 #' @param add_points Logical; add observed data points. Default TRUE
 #' @return No return value, called for side effects (produces a plot).
-#' @examples
-#' \donttest{
-#' # plot_spline_treatment_effect() requires a DGM with spline-based
-#' # treatment effect heterogeneity. See generate_aft_dgm_flex() with
-#' # model = "alt" and subgroup_vars for a complete setup.
-#' }
 #' @export
 plot_spline_treatment_effect <- function(dgm_result, add_points = TRUE) {
 

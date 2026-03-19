@@ -18,9 +18,3 @@ Invisibly returns the input object.
 \description{
 Summary method for cox_ahr_cde objects
 }
-\examples{
-\donttest{
-# summary.cox_ahr_cde() is the summary method for cox_ahr_cde_analysis() output.
-# See cox_ahr_cde_analysis() for a complete example.
-}
-}

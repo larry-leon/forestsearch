@@ -86,12 +86,6 @@
 #'   Control dimensions entirely via knitr chunk options `fig.width` /
 #'   `fig.height`:  row height = fig.height / n_rows.
 #'
-#' @examples
-#' \donttest{
-#' # Recommended fig.height: n_rows * 0.45 + 1.5 (for title/axis overhead)
-#' # e.g. 20 rows -> fig.height = 20 * 0.45 + 1.5 = 10.5
-#' }
-#'
 #' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text
 #'   geom_vline scale_x_log10 scale_x_continuous scale_y_discrete
 #'   scale_colour_identity scale_fill_identity labs theme theme_minimal

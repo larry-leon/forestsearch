@@ -17,10 +17,3 @@ No return value, called for side effects (produces a plot).
 \description{
 Plot Spline Treatment Effect Function
 }
-\examples{
-\donttest{
-# plot_spline_treatment_effect() requires a DGM with spline-based
-# treatment effect heterogeneity. See generate_aft_dgm_flex() with
-# model = "alt" and subgroup_vars for a complete setup.
-}
-}
