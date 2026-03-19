@@ -231,6 +231,13 @@ devtools::build_vignettes()
 # When ready, merge cran-review-1 → master in GitHub Desktop
 # Push master — GitHub Pages picks up the new docs/
 
+# win-builder
+
+devtools::build()
+
+
+
+
 
 devtools::load_all(".")
 

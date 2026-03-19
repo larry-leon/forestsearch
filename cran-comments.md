@@ -15,3 +15,18 @@
 ## Downstream dependencies
 
 This is a new submission. There are no reverse dependencies.
+
+## Resubmission
+
+This is a resubmission addressing all reviewer feedback from the
+initial submission, including:
+
+* Removed trailing spaces in DESCRIPTION
+* Added @return documentation to all exported functions
+* Removed examples from unexported/internal functions
+* Replaced all \\dontrun{} with \\donttest{} or removed
+* Ensured output_dir defaults to tempdir()
+* Added on.exit(par(oldpar)) for all par() changes in functions
+* Restored par() in vignette code chunks
+* Replaced options(warn = -1) with suppressWarnings()
+* Reduced exported functions from 118 to 53
