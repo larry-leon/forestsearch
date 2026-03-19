@@ -45,39 +45,4 @@ A data frame with synthetic data
 \description{
 Generate Synthetic Data using Bootstrap with Perturbation
 }
-\examples{
-\donttest{
-# Example 1: Using with GBSG dataset
-synth_gbsg <- generate_bootstrap_synthetic(
-  data = survival::gbsg,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
-  cat_vars = c("meno", "hormon", "status"),
-  ordinal_vars = c("grade"),
-  id_var = "pid",
-  n = 1000,
-  seed = 123,
-  noise_level = 0.15
-)
-
-# Example 2: Using with any dataset
-my_data <- data.frame(
-  id = 1:100,
-  height = rnorm(100, 170, 10),
-  weight = rnorm(100, 70, 15),
-  age = sample(20:80, 100, replace = TRUE),
-  gender = sample(c("M", "F"), 100, replace = TRUE),
-  education = sample(1:5, 100, replace = TRUE),
-  smoker = sample(0:1, 100, replace = TRUE)
-)
-
-synth_data <- generate_bootstrap_synthetic(
-  data = my_data,
-  continuous_vars = c("height", "weight", "age"),
-  cat_vars = c("gender", "smoker"),
-  ordinal_vars = c("education"),
-  id_var = "id",
-  n = 150,
-  seed = 456
-)
-}
-}
+\keyword{internal}

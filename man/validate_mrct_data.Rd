@@ -34,17 +34,7 @@ The function checks for the following variables:
 The function also validates variable types and value ranges.
 }
 }
-\examples{
-\dontrun{
-# Check if dataset is ready for MRCT simulations
-is_valid <- validate_mrct_data(df.case)
-
-if (!is_valid) {
-  stop("Please fix data issues before running simulations")
-}
-}
-
-}
 \seealso{
 \code{\link{create_dgm_for_mrct}} for creating DGM from validated data
 }
+\keyword{internal}

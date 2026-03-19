@@ -151,59 +151,6 @@ For \code{est.scale = "1/hr"} (searching for benefit):
 }
 }
 }
-\examples{
-\dontrun{
-# Load ForestSearch results
-load("fs_analysis_results.Rdata")  # Contains fs.est, fs_bc, fs_kfold
-
-# Define subgroups to display
-subgroups <- list(
-  bm_gt1 = list(
-    subset_expr = "BM > 1",
-    name = "BM > 1",
-    type = "reference"
-  ),
-  bm_gt1_size_gt19 = list(
-    subset_expr = "BM > 1 & tmrsize > 19",
-    name = "BM > 1 & Tumor Size > 19",
-    type = "posthoc"
-  )
-)
-
-# Create the forest plot with default theme
-result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs.est, fs_bc = fs_bc, fs_kfold = fs_kfold),
-  df_analysis = df_itt,
-  subgroup_list = subgroups,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "combo",
-  E.name = "Experimental+CT",
-  C.name = "CT"
-)
-
-# Create with custom theme for larger plot
-large_theme <- create_forest_theme(
-  base_size = 14,
-  row_padding = c(6, 4),
-  cv_fontsize = 11
-)
-
-result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs.est, fs_bc = fs_bc, fs_kfold = fs_kfold),
-  df_analysis = df_itt,
-  subgroup_list = subgroups,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "combo",
-  theme = large_theme
-)
-
-# Display the plot
-render_forestplot(result)
-}
-
-}
 \seealso{
 \code{\link{forestsearch}} for running the subgroup analysis
 \code{\link{forestsearch_bootstrap_dofuture}} for bootstrap bias correction

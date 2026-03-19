@@ -83,36 +83,11 @@ are not imputed
 favors transitions to adjacent levels over distant levels
 }
 }
-\examples{
-\donttest{
-# Basic usage with automatic variable detection
-synthetic_data <- generate_bootstrap_with_noise(
-  data = survival::gbsg,
-  seed = 123
-)
-
-# Specify variables explicitly
-synthetic_data <- generate_bootstrap_with_noise(
-  data = survival::gbsg,
-  n = 1000,
-  continuous_vars = c("age", "size", "nodes", "pgr", "er", "rfstime"),
-  cat_vars = c("meno", "grade", "hormon", "status"),
-  id_var = "pid",
-  seed = 456,
-  noise_level = 0.15
-)
-
-# Create multiple synthetic datasets
-synthetic_list <- lapply(1:10, function(i) {
-  generate_bootstrap_with_noise(data = survival::gbsg, seed = i)
-})
-}
-
-}
 \seealso{
 \code{\link[base]{sample}} for bootstrap sampling,
 \code{\link[stats]{rnorm}} for noise generation
 }
 \keyword{bootstrap}
 \keyword{datagen}
+\keyword{internal}
 \keyword{simulation}

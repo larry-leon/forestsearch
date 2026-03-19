@@ -33,10 +33,4 @@ This function is used when \code{return_selected_cuts_only = TRUE} in
 \item \code{selected_depth}: The depth that was selected
 }
 }
-\examples{
-\donttest{
-# extract_selected_tree_cuts() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-}
-
-}
+\keyword{internal}

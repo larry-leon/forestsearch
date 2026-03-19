@@ -19,7 +19,7 @@ Print Method for gbsg_dgm Objects
 }
 \examples{
 \donttest{
-dgm <- suppressWarnings(create_gbsg_dgm())
+dgm <- setup_gbsg_dgm(model = "alt", verbose = FALSE)
 print(dgm)
 }
 }

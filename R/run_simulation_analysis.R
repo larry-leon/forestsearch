@@ -129,13 +129,6 @@ default_grf_params_gen <- function() {
 #' @importFrom data.table data.table rbindlist
 #' @importFrom survival coxph Surv
 #' @importFrom stats rnorm
-#' @examples
-#' \dontrun{
-#' dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
-#' results <- run_simulation_analysis(dgm, nsim = 5,
-#'   parallel_args = list(plan = "sequential"))
-#' summarize_simulation_results(results)
-#' }
 #' @export
 run_simulation_analysis <- function(
     sim_id,

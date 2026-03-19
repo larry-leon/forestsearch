@@ -21,7 +21,4 @@ Computes Wilson score confidence interval for a proportion, which has
 better coverage properties than the normal approximation for small samples
 and proportions near 0 or 1.
 }
-\examples{
-wilson_ci(90, 100)
-wilson_ci(5, 20, conf.level = 0.90)
-}
+\keyword{internal}

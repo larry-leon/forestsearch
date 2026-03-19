@@ -24,9 +24,4 @@ information to the console).
 \description{
 Displays detailed information about the GRF analysis
 }
-\examples{
-\donttest{
-# print_grf_details() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-}
-}
+\keyword{internal}

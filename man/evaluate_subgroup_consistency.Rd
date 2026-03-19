@@ -53,17 +53,4 @@ not met.
 Evaluates a single subgroup for consistency across random splits using
 a fixed number of splits.
 }
-\examples{
-\donttest{
-# evaluate_subgroup_consistency() is called internally by forestsearch().
-# Use forestsearch() as the standard entry point:
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-}
-}
+\keyword{internal}

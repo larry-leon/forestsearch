@@ -33,7 +33,7 @@ is useful for displaying published benchmark results alongside new
 simulation output within vignettes or reports.
 }
 \examples{
-\dontrun{
+\donttest{
 ref <- data.frame(
   Scenario = "M1 Null: N=700",
   Metric   = "any(H)",

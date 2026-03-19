@@ -128,7 +128,7 @@ noise. Setting a fixed \code{seed} and a sufficiently large \code{n_eval}
 }
 }
 \examples{
-\dontrun{
+\donttest{
 library(survival)
 
 # Build DGM on months scale

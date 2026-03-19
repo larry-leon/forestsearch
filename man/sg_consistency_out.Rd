@@ -41,18 +41,4 @@ List with results, subgroup definition, labels, flags, and group id.
 \description{
 Returns the top subgroup(s) and recommended treatment flags.
 }
-\examples{
-\donttest{
-# sg_consistency_out is called internally by forestsearch().
-# See forestsearch() for the standard entry point.
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-fs$grp.consistency$out_sg
-}
-}
+\keyword{internal}

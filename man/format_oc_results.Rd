@@ -62,7 +62,7 @@ identified subgroup. The asterisk (\code{*}) is reserved for bootstrap
 bias-corrected estimates and is not used in this summary table.
 }
 \examples{
-\dontrun{
+\donttest{
 # format_oc_results() is called by summarize_simulation_results().
 # See run_simulation_analysis() for the standard entry point.
 }

@@ -17,6 +17,4 @@ Character string formatted as \"n (percent\%)\".
 \description{
 Returns count and percent for a vector relative to a denominator.
 }
-\examples{
-n_pcnt(1:30, 100)
-}
+\keyword{internal}

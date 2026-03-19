@@ -110,21 +110,3 @@ bias-corrected HR annotation
 \item Both FALSE: Shows neither HR estimate
 }
 }
-\examples{
-\donttest{
-# Setup: run ForestSearch on GBSG breast cancer data
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-
-# Weighted Kaplan-Meier curves for identified subgroups
-plot_sg_weighted_km(fs.est = fs,
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
-}
-
-}

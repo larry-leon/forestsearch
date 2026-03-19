@@ -19,6 +19,4 @@ An R formula object for Cox regression.
 \description{
 Constructs a Cox model formula from variable names.
 }
-\examples{
-build_cox_formula("time_months", "event", "treat")
-}
+\keyword{internal}

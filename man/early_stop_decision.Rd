@@ -30,8 +30,4 @@ Character. One of "continue", "pass", or "fail".
 Evaluates whether enough evidence exists to stop early based on
 confidence interval for consistency proportion.
 }
-\examples{
-early_stop_decision(95, 100, threshold = 0.90)
-early_stop_decision(60, 100, threshold = 0.90)
-early_stop_decision(10, 15, threshold = 0.90)  # below min_samples
-}
+\keyword{internal}

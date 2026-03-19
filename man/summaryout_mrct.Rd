@@ -87,32 +87,7 @@ Summarizes hazard ratio estimates, subgroup identification rates, and
 classification of identified subgroups. Optionally displays two scenarios
 (e.g., alternative and null hypotheses) side by side.
 }
-\examples{
-\dontrun{
-# Single scenario (backward-compatible)
-summaryout_mrct(
-  mrct_sims = results_alt,
-  tab_caption = "H1: Heterogeneous treatment effect"
-)
-
-# Dual scenario: alternative vs null side-by-side
-summaryout_mrct(
-  mrct_sims = results_alt,
-  mrct_sims_null = results_null,
-  scenario_labels = c("Alternative (HTE)", "Null (uniform)"),
-  tab_caption = "Operating characteristics: Alternative vs Null"
-)
-
-# Custom trimming: 2\% from each tail when mean > 500
-summaryout_mrct(
-  mrct_sims = results_alt,
-  mrct_sims_null = results_null,
-  trim_threshold = 500,
-  trim_fraction = 0.02
-)
-}
-
-}
 \seealso{
 \code{\link{mrct_region_sims}} for generating simulation results
 }
+\keyword{internal}

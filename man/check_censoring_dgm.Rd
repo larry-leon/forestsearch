@@ -68,7 +68,7 @@ censoring substantially from the fitted model. (3) Short
 dominate the censoring process.
 }
 \examples{
-\dontrun{
+\donttest{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
 sim_data <- simulate_from_dgm(dgm, n = 200)
 check_censoring_dgm(sim_data, dgm = dgm)

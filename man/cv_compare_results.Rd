@@ -32,16 +32,4 @@ A gt table or data.frame comparing CV results across configurations.
 Creates a comparison table from multiple cross-validation runs with
 different configurations.
 }
-\examples{
-\dontrun{
-# Compare CV results from different configurations
-cv_comparison <- cv_compare_results(
-  cv_list = list(
-    "maxk=1" = cv_maxk1,
-    "maxk=2" = cv_maxk2,
-    "maxk=3" = cv_maxk3
-  )
-)
-}
-
-}
+\keyword{internal}

@@ -17,7 +17,4 @@ Filtered character vector or NULL.
 \description{
 Returns elements of \code{x} that are in \code{lassokeep}.
 }
-\examples{
-filter_by_lassokeep(c("age", "size", "nodes"), lassokeep = c("age", "nodes"))
-filter_by_lassokeep(c("pgr", "er"), lassokeep = c("age", "nodes"))  # returns NULL
-}
+\keyword{internal}

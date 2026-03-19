@@ -268,48 +268,6 @@ The two-stage algorithm is recommended for:
 For final regulatory submissions, \code{use_twostage = FALSE} may be preferred
 for exact reproducibility.
 }
-\examples{
-\dontrun{
-# Example 1: Standard analysis (backward compatible)
-result <- forestsearch(
-  df.analysis = trial_data,
-  sg_focus = "hr",
-  hr.threshold = 1.25,
-  pconsistency.threshold = 0.90,
-  fs.splits = 400,
-  details = TRUE
-)
-
-# Example 2: Fast exploratory analysis with two-stage
-result_fast <- forestsearch(
-  df.analysis = trial_data,
-  sg_focus = "maxSG",
-  hr.threshold = 1.15,
-  pconsistency.threshold = 0.85,
-  fs.splits = 500,
-  use_twostage = TRUE,
-  details = TRUE
-)
-
-# Example 3: Two-stage with custom parameters
-result_custom <- forestsearch(
-  df.analysis = trial_data,
-  sg_focus = "hr",
-  hr.threshold = 1.3,
-  pconsistency.threshold = 0.95,
-  fs.splits = 600,
-  use_twostage = TRUE,
-  twostage_args = list(
-    n.splits.screen = 50,
-    batch.size = 25,
-    conf.level = 0.99
-  ),
-  parallel_args = list(plan = "multisession", workers = 4),
-  details = TRUE
-)
-}
-
-}
 \references{
 \itemize{
 \item FDA Guidance for Industry: Enrichment Strategies for Clinical Trials

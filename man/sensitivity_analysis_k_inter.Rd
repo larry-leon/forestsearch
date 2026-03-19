@@ -47,26 +47,4 @@ the k_inter range. If plot = TRUE, it creates a 4-panel visualization showing:
 \item Table of key values
 }
 }
-\examples{
-\donttest{
-# Analyze sensitivity to k_inter
-sensitivity_results <- sensitivity_analysis_k_inter(
-  k_inter_range = c(-2, 2),
-  n_points = 11,
-  data = survival::gbsg,
-  continuous_vars = c("age", "er", "pgr"),
-  factor_vars = c("meno", "grade"),
-  outcome_var = "rfstime",
-  event_var = "status",
-  treatment_var = "hormon",
-  subgroup_vars = c("er", "meno"),
-  subgroup_cuts = list(er = 20, meno = 0),
-  model = "alt",
-  plot = TRUE
-)
-
-# Results show relationship between k_inter and HRs
-print(sensitivity_results)
-}
-
-}
+\keyword{internal}

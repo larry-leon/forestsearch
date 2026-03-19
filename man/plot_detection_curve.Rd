@@ -32,10 +32,3 @@ Invisibly returns the input data.
 \description{
 Creates a visualization of the detection probability curve.
 }
-\examples{
-\donttest{
-curve_data <- generate_detection_curve(n_sg = 60, prop_cens = 0.2)
-plot_detection_curve(curve_data)
-}
-
-}

@@ -69,24 +69,6 @@ alternative).
 Under the null hypothesis the rows are reduced to \code{any(H)},
 \code{sens(Hc)}, \code{ppv(Hc)}, and \code{avg|H|}.
 }
-\examples{
-\dontrun{
-# Assemble results from H0 and H1 simulations
-scenarios <- list(
-  null = list(
-    results = results_null, label = "M1",
-    n_sample = 700, dgm = dgm_null, hypothesis = "null"
-  ),
-  alt = list(
-    results = results_alt, label = "M1",
-    n_sample = 700, dgm = dgm_calibrated, hypothesis = "alt"
-  )
-)
-
-build_classification_table(scenarios, n_sims = 100)
-}
-
-}
 \seealso{
 \code{\link{format_oc_results}},
 \code{\link{summarize_simulation_results}}

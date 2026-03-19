@@ -75,41 +75,8 @@ hazard ratio estimates across simulations for different analysis populations.
 Supports symmetric trimming to handle extreme values that can distort
 the display when small subgroups produce very large HR estimates.
 }
-\examples{
-\dontrun{
-# Default (no trimming) — backward compatible
-plot_results <- SGplot_estimates(
-  results_alt,
-  label_training = "Non-Region A, ITT",
-  label_itt = "Overall, ITT",
-  label_testing = "Region A, ITT",
-  label_sg = "Region A, identified subgroup"
-)
-print(plot_results$plot_estimates)
-
-# With 1\% symmetric trimming
-plot_results <- SGplot_estimates(
-  results_alt,
-  label_training = "Non-AP, ITT",
-  label_itt = "Overall, ITT",
-  label_testing = "AP, ITT",
-  label_sg = "AP, identified subgroup",
-  trim_fraction = 0.01
-)
-print(plot_results$plot_estimates)
-# Inspect trimming diagnostics
-print(plot_results$trim_info)
-
-# With explicit y-axis limits
-plot_results <- SGplot_estimates(
-  results_alt,
-  trim_fraction = 0.01,
-  ylim = c(0.2, 3.0)
-)
-}
-
-}
 \seealso{
 \code{\link{mrct_region_sims}} for generating simulation results,
 \code{\link{summaryout_mrct}} for tabular summaries with trimming
 }
+\keyword{internal}

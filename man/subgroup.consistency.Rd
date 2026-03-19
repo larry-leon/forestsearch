@@ -157,39 +157,3 @@ Evaluates candidate subgroups using split-sample consistency validation.
 For each candidate, repeatedly splits the data and checks whether the
 treatment effect direction is consistent across splits.
 }
-\examples{
-\dontrun{
-# Standard evaluation
-result <- subgroup.consistency(
-  df = trial_data,
-  hr.subgroups = candidates,
-  sg_focus = "hr",
-  n.splits = 400,
-  parallel_args = list(plan = "multisession", workers = 6)
-)
-
-# Show top 10 candidates before evaluation
-result <- subgroup.consistency(
-  df = trial_data,
-  hr.subgroups = candidates,
-  sg_focus = "hr",
-  showten_subgroups = TRUE,  # Display candidates
-  n.splits = 400
-)
-
-# With early stopping and custom batch size
-result <- subgroup.consistency(
-  df = trial_data,
-  hr.subgroups = candidates,
-  sg_focus = "hr",
-  stop_threshold = 0.95,
-  showten_subgroups = TRUE,
-  parallel_args = list(
-    plan = "multisession",
-    workers = 6,
-    batch_size = 2  # Check early stopping after every 2 candidates
-  )
-)
-}
-
-}

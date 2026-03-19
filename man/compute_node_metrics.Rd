@@ -23,9 +23,4 @@ Data frame with node metrics
 \description{
 Aggregates scores by leaf node and calculates treatment effect differences
 }
-\examples{
-\donttest{
-# compute_node_metrics() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-}
-}
+\keyword{internal}

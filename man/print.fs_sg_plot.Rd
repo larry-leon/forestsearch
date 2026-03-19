@@ -17,18 +17,4 @@ Invisibly returns \code{x}.
 \description{
 Print Method for fs_sg_plot Objects
 }
-\examples{
-\donttest{
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-p <- plot_sg_results(fs.est = fs,
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
-print(p)
-}
-}
+\keyword{internal}

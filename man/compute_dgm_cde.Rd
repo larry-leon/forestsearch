@@ -42,8 +42,8 @@ checking for \code{flag.harm}, \code{flag_harm}, and \code{H} in
 the super-population data frame.
 }
 \examples{
-\dontrun{
-dgm <- create_gbsg_dgm(model = "alt", k_inter = 2.0)
+\donttest{
+dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2.0, verbose = FALSE)
 dgm <- compute_dgm_cde(dgm)
 dgm$hazard_ratios$CDE_harm   # theta-ddagger(H)
 dgm$hazard_ratios$CDE         # theta-ddagger overall

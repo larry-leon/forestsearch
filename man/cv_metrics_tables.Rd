@@ -59,29 +59,6 @@ Formats the \code{find_summary} and \code{sens_summary} outputs from
 \code{\link{forestsearch_tenfold}} or \code{\link{forestsearch_Kfold}}
 into publication-ready gt tables.
 }
-\examples{
-\dontrun{
-# After running forestsearch_tenfold
-tenfold_results <- forestsearch_tenfold(
-  fs.est = fs_result,
-  sims = 100,
-  Kfolds = 10
-)
-
-# Create combined metrics table
-cv_tables <- cv_metrics_tables(tenfold_results)
-cv_tables
-
-# Create separate tables
-cv_tables <- cv_metrics_tables(tenfold_results, table_style = "separate")
-cv_tables$agreement_table
-cv_tables$finding_table
-
-# Minimal one-row summary
-cv_metrics_tables(tenfold_results, table_style = "minimal")
-}
-
-}
 \seealso{
 \code{\link{cv_summary_tables}} for formatting \code{forestsearch_KfoldOut(outall=TRUE)} results
 }

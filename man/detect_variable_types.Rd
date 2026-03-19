@@ -38,21 +38,4 @@ are classified as categorical
 and removed from the returned dataset
 }
 }
-\examples{
-\donttest{
-example_data <- data.frame(
-  id = 1:100,
-  age = rnorm(100, 50, 10),
-  grade = sample(1:3, 100, replace = TRUE),
-  status = sample(c("Active", "Inactive"), 100, replace = TRUE),
-  score = runif(100, 0, 100)
-)
-result <- detect_variable_types(example_data,
-                                 max_unique_for_cat = 10,
-                                 exclude_vars = "id")
-result$continuous_vars  # c("age", "score")
-result$cat_vars         # c("grade", "status")
-names(result$data_subset)  # c("age", "grade", "status", "score")
-}
-
-}
+\keyword{internal}

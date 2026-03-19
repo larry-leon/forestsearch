@@ -25,25 +25,4 @@ Invisibly returns the filename.
 \description{
 Saves a forest plot to a file (PDF, PNG, etc.) with explicit dimensions.
 }
-\examples{
-\donttest{
-# Setup: run ForestSearch on GBSG breast cancer data
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-
-result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs),
-  df_analysis = df,
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
-
-# Save to temporary file
-save_forestplot(result, file.path(tempdir(), "forest_plot.pdf"))
-}
-
-}
+\keyword{internal}

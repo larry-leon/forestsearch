@@ -38,23 +38,8 @@ one of \code{<=}, \code{<}, \code{>=}, \code{>}, \code{==},
 membership is \code{df.predict[[name]] == 1}.
 }
 }
-\examples{
-\dontrun{
-# With brace-wrapped label expressions
-sg <- c("{er <= 0}", "{size <= 35}")
-df_out <- get_dfpred(df.predict = test_data, sg.harm = sg)
-
-# With negation
-sg_neg <- c("{er <= 0}", "!{size <= 35}")
-df_neg <- get_dfpred(df.predict = test_data, sg.harm = sg_neg)
-
-# With bare column names (binary indicators)
-sg_col <- c("q1.1", "q3.1")
-df_col <- get_dfpred(df.predict = encoded_data, sg.harm = sg_col)
-}
-
-}
 \seealso{
 \code{\link{evaluate_comparison}} for the operator-dispatch
 logic, \code{\link{forestsearch}} for the main analysis function.
 }
+\keyword{internal}

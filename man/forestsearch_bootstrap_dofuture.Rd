@@ -102,30 +102,6 @@ and number of workers.
 }
 }
 
-\examples{
-\donttest{
-# Setup: run ForestSearch on GBSG breast cancer data
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-df$id <- seq_len(nrow(df))
-fs_result <- forestsearch(df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  fs.splits = 100, max_subgroups_search = 5,
-  use_twostage = TRUE, details = FALSE, plot.sg = FALSE)
-
-# Run bootstrap with bias correction (small B for illustration)
-boot_results <- forestsearch_bootstrap_dofuture(
-  fs.est = fs_result,
-  nb_boots = 10,
-  parallel_args = list(plan = "sequential", show_message = FALSE)
-)
-
-# View results
-print(boot_results$FSsg_tab)
-}
-
-}
 \seealso{
 \code{\link{forestsearch}} for initial subgroup identification
 \code{\link{bootstrap_results}} for the core bootstrap worker function

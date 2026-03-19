@@ -37,7 +37,7 @@ Calculates hazard ratio and confidence interval for a subgroup using Cox regress
 Optimized version with reduced overhead and better error handling.
 }
 \examples{
-\dontrun{
+\donttest{
 library(survival)
 cox_summary(
   Y     = gbsg$rfstime / 30.4375,

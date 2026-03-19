@@ -341,19 +341,6 @@ compute_detection_probability_single <- function(
 #'   \item{prop_cens}{Censoring proportion (repeated)}
 #'   \item{hr_threshold}{Detection threshold (repeated)}
 #'
-#' @examples
-#' \donttest{
-#' # Generate detection curve
-#' curve_data <- generate_detection_curve(
-#'   n_sg = 60,
-#'   prop_cens = 0.2,
-#'   hr_threshold = 1.25
-#' )
-#'
-#' # Plot
-#' plot_detection_curve(curve_data)
-#' }
-#'
 #' @export
 generate_detection_curve <- function(
     theta_range = c(0.5, 3.0),
@@ -421,12 +408,6 @@ generate_detection_curve <- function(
 #' @param ... Additional arguments passed to plot()
 #'
 #' @return Invisibly returns the input data.
-#'
-#' @examples
-#' \donttest{
-#' curve_data <- generate_detection_curve(n_sg = 60, prop_cens = 0.2)
-#' plot_detection_curve(curve_data)
-#' }
 #'
 #' @export
 plot_detection_curve <- function(
@@ -501,24 +482,9 @@ plot_detection_curve <- function(
 #' @param n_points Integer. Number of points per curve. Default: 40
 #' @param verbose Logical. Print progress. Default: TRUE
 #'
+#' @keywords internal
 #' @return A data.frame with all curves combined, including n_sg as a factor.
 #'
-#' @examples
-#' \donttest{
-#' comparison <- compare_detection_curves(
-#'   n_sg_values = c(40, 60, 80, 100),
-#'   prop_cens = 0.2
-#' )
-#'
-#' # Plot with ggplot2
-#' library(ggplot2)
-#' ggplot(comparison, aes(x = theta, y = probability, color = factor(n_sg))) +
-#'   geom_line(linewidth = 1) +
-#'   labs(x = "True HR", y = "P(Detect)", color = "n_sg") +
-#'   theme_minimal()
-#' }
-#'
-#' @export
 compare_detection_curves <- function(
     n_sg_values,
     prop_cens = 0.3,
@@ -571,24 +537,13 @@ compare_detection_curves <- function(
 #' @param tol Numeric. Tolerance for bisection search. Default: 1
 #' @param verbose Logical. Print progress. Default: TRUE
 #'
+#' @keywords internal
 #' @return A list with:
 #'   \item{n_sg_required}{Minimum sample size (rounded up)}
 #'   \item{achieved_power}{Actual detection probability at n_sg_required}
 #'   \item{theta}{Input hazard ratio}
 #'   \item{target_power}{Input target power}
 #'
-#' @examples
-#' \donttest{
-#' # Find sample size for 80% power to detect HR = 1.5
-#' result <- find_required_sample_size(
-#'   theta = 1.5,
-#'   target_power = 0.80,
-#'   prop_cens = 0.2
-#' )
-#' print(result)
-#' }
-#'
-#' @export
 find_required_sample_size <- function(
     theta,
     target_power = 0.80,
@@ -692,19 +647,9 @@ find_required_sample_size <- function(
 #' @param hr_threshold Numeric. HR threshold. Default: 1.25
 #' @param verbose Logical. Print progress. Default: TRUE
 #'
+#' @keywords internal
 #' @return A data.frame with columns: theta, prop_cens, n_required, achieved_power
 #'
-#' @examples
-#' \donttest{
-#' ss_table <- create_sample_size_table(
-#'   theta_values = c(1.5, 1.75, 2.0, 2.5),
-#'   prop_cens_values = c(0.2, 0.3, 0.4),
-#'   target_power = 0.80
-#' )
-#' print(ss_table)
-#' }
-#'
-#' @export
 create_sample_size_table <- function(
     theta_values,
     prop_cens_values,
@@ -746,7 +691,7 @@ create_sample_size_table <- function(
 # Print Methods
 # =============================================================================
 
-#' @export
+#' @keywords internal
 print.detection_curve <- function(x, ...) {
   cat("Detection Probability Curve\n")
   cat("===========================\n")

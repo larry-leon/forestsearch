@@ -92,36 +92,3 @@ reducing noise from non-selected trees.}
 When \code{return_selected_cuts_only = TRUE} and no subgroup meets the criteria,
 \code{tree.cuts} will be empty (character(0)).
 }
-\examples{
-\dontrun{
-# Return all cuts (default behavior)
-result_all <- grf.subg.harm.survival(
-  data = trial_data,
-  confounders.name = c("age", "biomarker", "region"),
-  outcome.name = "tte",
-  event.name = "event",
-  id.name = "id",
-  treat.name = "treat",
-  dmin.grf = 0.1,
-  maxdepth = 2
-)
-result_all$tree.cuts
-# Returns cuts from both depth 1 and depth 2 trees
-
-# Return only cuts from the selected tree
-result_selected <- grf.subg.harm.survival(
-  data = trial_data,
-  confounders.name = c("age", "biomarker", "region"),
-  outcome.name = "tte",
-  event.name = "event",
-  id.name = "id",
-  treat.name = "treat",
-  dmin.grf = 0.1,
-  maxdepth = 2,
-  return_selected_cuts_only = TRUE
-)
-result_selected$tree.cuts
-# Returns cuts only from the depth that identified the winning subgroup
-}
-
-}
