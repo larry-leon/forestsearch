@@ -210,12 +210,20 @@ unlink("man/*.Rd")
 # Main Sequence
 devtools::document()
 devtools::check(args = "--as-cran", vignettes = FALSE)
-
 # With vignettes
 devtools::document()
 devtools::check(args = "--as-cran")
-
 # End Main
+
+# Pkgdown
+pkgdown::check_pkgdown()
+pkgdown::build_site()
+
+# Clean prior to re-run
+pkgdown::clean_site(force = TRUE)
+pkgdown::build_site()
+
+
 
 devtools::load_all(".")
 
