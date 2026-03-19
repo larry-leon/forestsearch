@@ -27,25 +27,3 @@ and pass it to \code{plot_subgroup_results_forestplot()}:
 
 \code{render_forestplot(result)}
 }
-\examples{
-\dontrun{
-# For larger plot, use theme parameter in plot_subgroup_results_forestplot:
-large_theme <- create_forest_theme(
-  base_size = 14,
-  row_padding = c(6, 4),
-  cv_fontsize = 11
-)
-
-result <- plot_subgroup_results_forestplot(
-  fs_results = list(fs.est = fs, fs_bc = fs_bc),
-  df_analysis = df.analysis,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  theme = large_theme
-)
-
-render_forestplot(result)
-}
-
-}

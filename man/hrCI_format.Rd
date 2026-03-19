@@ -15,6 +15,4 @@ Character string formatted as \"HR (lower, upper)\".
 \description{
 Formats a hazard ratio and confidence interval for display.
 }
-\examples{
-hrCI_format(c(1.45, 0.98, 2.14))
-}
+\keyword{internal}

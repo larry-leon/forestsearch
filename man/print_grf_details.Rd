@@ -17,12 +17,11 @@ print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts = NULL)
 
 \item{tree_cuts}{List. Cut information}
 }
+\value{
+No return value, called for side effects (prints GRF diagnostic
+information to the console).
+}
 \description{
 Displays detailed information about the GRF analysis
 }
-\examples{
-\dontrun{
-# print_grf_details() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-}
-}
+\keyword{internal}

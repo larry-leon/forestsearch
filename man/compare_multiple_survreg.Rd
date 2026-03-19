@@ -35,11 +35,4 @@ A list of class "multi_survreg_comparison" containing:
 Performs comprehensive comparison of multiple survreg models including
 convergence checking, information criteria comparison, and model selection.
 }
-\examples{
-\dontrun{
-fit1 <- survreg(Surv(time, status) ~ x, dist = "weibull")
-fit2 <- survreg(Surv(time, status) ~ x, dist = "lognormal")
-comparison <- compare_multiple_survreg(fit1, fit2)
-}
-
-}
+\keyword{internal}

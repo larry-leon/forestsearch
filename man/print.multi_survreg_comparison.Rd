@@ -17,12 +17,4 @@ Invisibly returns the input object
 \description{
 Print method for survreg_comparison objects
 }
-\examples{
-\dontrun{
-library(survival)
-df <- survival::gbsg
-res <- compare_multiple_survreg(df, outcome.name = "rfstime",
-                                 event.name = "status")
-print(res)
-}
-}
+\keyword{internal}

@@ -110,21 +110,3 @@ bias-corrected HR annotation
 \item Both FALSE: Shows neither HR estimate
 }
 }
-\examples{
-\dontrun{
-# After running forestsearch - auto-extracts subgroup definition
-plot_sg_weighted_km(fs.est = fs)
-
-# With bootstrap bias-corrected estimates
-plot_sg_weighted_km(fs.est = fs, fs_bc = fs_bootstrap)
-
-# With custom column names
-plot_sg_weighted_km(
-  fs.est = fs,
-  outcome.name = "time_months",
-  event.name = "status",
-  treat.name = "hormon"
-)
-}
-
-}

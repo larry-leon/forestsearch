@@ -98,25 +98,6 @@ CDE truth values are available, CDE estimation rows
 (theta-ddagger(H-hat)) are appended.  The b-dagger column for CDE rows
 reports bias relative to the CDE truth rather than the marginal HR.
 }
-\examples{
-\dontrun{
-# Basic usage (marginal truth only)
-build_estimation_table(
-  results = results_alt,
-  dgm = dgm_calibrated,
-  analysis_method = "FSlg"
-)
-
-# With CDE truth (full Table 5 alignment)
-build_estimation_table(
-  results = results_alt,
-  dgm = dgm_calibrated,
-  cde_H = 2.25,
-  cde_Hc = 0.60
-)
-}
-
-}
 \seealso{
 \code{\link{build_classification_table}},
 \code{\link{format_oc_results}}, \code{\link{get_dgm_hr}}

@@ -18,14 +18,3 @@ Invisibly returns the input object.
 \description{
 Summary method for cox_ahr_cde objects
 }
-\examples{
-\dontrun{
-library(survival)
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-res <- cox_ahr_cde_analysis(df,
-  outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"))
-summary(res)
-}
-}

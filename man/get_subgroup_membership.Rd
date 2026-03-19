@@ -17,9 +17,4 @@ Numeric vector of subgroup membership (1/0).
 \description{
 Returns a vector indicating subgroup membership (1 if all selected factors are present, 0 otherwise).
 }
-\examples{
-zz <- matrix(c(1, 0, 1, 1, 0, 1), nrow = 3,
-             dimnames = list(NULL, c("er_le0", "grade3")))
-get_subgroup_membership(zz, covs.in = c(1, 1))  # both factors required
-get_subgroup_membership(zz, covs.in = c(1, 0))  # first factor only
-}
+\keyword{internal}

@@ -300,15 +300,7 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #'
 #' @param dgm_result Result object from generate_aft_dgm_flex with spline
 #' @param add_points Logical; add observed data points. Default TRUE
-#' @examples
-#' \dontrun{
-#' library(survival)
-#' df <- survival::gbsg
-#' dgm <- generate_aft_dgm_flex(df, outcome.name = "rfstime",
-#'                               event.name = "status", treat.name = "hormon",
-#'                               confounders.name = c("age", "meno", "nodes"))
-#' plot_spline_treatment_effect(dgm)
-#' }
+#' @return No return value, called for side effects (produces a plot).
 #' @export
 plot_spline_treatment_effect <- function(dgm_result, add_points = TRUE) {
 
@@ -372,62 +364,4 @@ plot_spline_treatment_effect <- function(dgm_result, add_points = TRUE) {
        labels = "knot", pos = 3, cex = 0.8, col = "blue")
   text(zeta, par("usr")[3] + 0.05 * diff(par("usr")[3:4]),
        labels = "zeta", pos = 3, cex = 0.8, col = "blue")
-}
-
-
-
-#' Fit AFT Model and Apply Effect Modifiers
-#' @keywords internal
-fit_aft_model_legacy <- function(df_work, interaction_term, k_treat, k_inter,
-                          verbose) {
-
-  # Prepare model matrix
-  covariate_cols <- grep("^z_", names(df_work), value = TRUE)
-  X <- as.matrix(df_work[, c("treat", covariate_cols)])
-
-  # Add interaction term if needed
-  if (!is.null(interaction_term)) {
-    X <- cbind(X, treat_harm = interaction_term)
-  }
-
-  # Fit Weibull AFT model
-  formula_str <- paste("Surv(y, event) ~ ",
-                       paste(c("treat", covariate_cols), collapse = " + "))
-  if (!is.null(interaction_term)) {
-    df_work$treat_harm <- interaction_term
-    formula_str <- paste(formula_str, "+ treat_harm")
-  }
-
-  fit_aft <- survreg(as.formula(formula_str),
-                     data = df_work,
-                     dist = "weibull")
-
-  # Extract parameters
-  mu <- coef(fit_aft)[1]  # Intercept
-  tau <- fit_aft$scale
-  gamma <- coef(fit_aft)[-1]  # Coefficients (excluding intercept)
-
-  # Weibull parameterization
-  b0 <- -gamma / tau
-
-  # Apply effect modifiers Weibull log(hazard-ratio) parameterization
-  b0["treat"] <- k_treat * b0["treat"]
-  if ("treat_harm" %in% names(b0)) {
-    b0["treat_harm"] <- k_inter * b0["treat_harm"]
-  }
-
-  # Transform to corresponding revised gamma
-  gamma <- -b0 * tau
-
-  if (verbose) {
-    cat("\n=== Model Parameters (AFT, log(T)) ===\n")
-    cat("Intercept (mu):", round(mu, 3), "\n")
-    cat("Scale (tau):", round(tau, 3), "\n")
-    cat("Treatment effect:", round(gamma["treat"], 3), "\n")
-    if ("treat_harm" %in% names(gamma)) {
-      cat("Interaction effect:", round(gamma["treat_harm"], 3), "\n")
-    }
-  }
-
-  return(list(mu = mu, tau = tau, gamma = gamma, b0 = b0))
 }

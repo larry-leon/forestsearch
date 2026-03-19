@@ -54,16 +54,6 @@ automatically populating numerical results from the simulation output.
 Useful for reproducible vignettes where interpretation paragraphs should
 update when simulations are re-run.
 }
-\examples{
-\dontrun{
-# In a vignette chunk with results = "asis":
-interpret_estimation_table(results_null, dgm_null, scenario = "null")
-
-# Capture for further processing:
-txt <- interpret_estimation_table(results_alt, dgm_alt, cat = FALSE)
-}
-
-}
 \seealso{
 \code{\link{build_estimation_table}},
 \code{\link{format_oc_results}}, \code{\link{get_dgm_hr}}

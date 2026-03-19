@@ -108,10 +108,3 @@ and patchwork to assemble label and annotation columns alongside it.
 Unlike forestploter, \code{fig.height} maps directly to row density —
 \code{row_height = fig.height / n_rows} with no hidden scaling.
 }
-\examples{
-\dontrun{
-# Recommended fig.height: n_rows * 0.45 + 1.5 (for title/axis overhead)
-# e.g. 20 rows -> fig.height = 20 * 0.45 + 1.5 = 10.5
-}
-
-}

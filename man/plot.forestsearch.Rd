@@ -48,31 +48,6 @@ Invisibly returns the plot result from
 Dispatches to \code{\link{plot_sg_results}} for Kaplan-Meier curves,
 hazard-ratio forest plots, or combined panels.
 }
-\examples{
-\dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-
-# Combined KM + forest plot (default)
-plot(fs)
-
-# KM curves only
-plot(fs, type = "km")
-
-# Forest plot only
-plot(fs, type = "forest")
-
-# With non-standard column names
-plot(fs, type = "km",
-     outcome.name = "os_months",
-     event.name = "os_event",
-     treat.name = "treatment")
-
-# With custom labels
-plot(fs, sg0_name = "High Risk", sg1_name = "Standard Risk",
-     treat_labels = c("0" = "Placebo", "1" = "Active Drug"))
-}
-
-}
 \seealso{
 \code{\link{plot_sg_results}} for full control over appearance,
 \code{\link{plot_sg_weighted_km}} for weighted KM curves,

@@ -45,25 +45,6 @@ that results in exactly the target proportion of observations being classified
 into the subgroup. This is particularly useful when you want to ensure a
 specific subgroup size regardless of the data distribution.
 }
-\examples{
-\dontrun{
-gbsg <- survival::gbsg
-# Find ER cutpoint for 12.5\% subgroup
-result <- find_quantile_for_proportion(
-  data = gbsg,
-  var_name = "er",
-  target_prop = 0.125,
-  direction = "less"
-)
-
-print(result)
-# Use in subgroup definition
-subgroup_cuts = list(
-  er = list(type = "quantile", value = result$quantile)
-)
-}
-
-}
 \seealso{
 \code{\link{generate_aft_dgm_flex}}
 }

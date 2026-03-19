@@ -102,39 +102,6 @@ and number of workers.
 }
 }
 
-\examples{
-\dontrun{
-# Run ForestSearch
-fs_result <- forestsearch(
-  df.analysis = mydata,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "sex", "stage")
-)
-
-# Run bootstrap with bias correction
-boot_results <- forestsearch_bootstrap_dofuture(
-  fs.est = fs_result,
-  nb_boots = 1000,
-  parallel_args = list(
-    plan = "multisession",
-    workers = 6,
-    show_message = TRUE
-  ),
-  create_summary = TRUE,
-  create_plots = TRUE
-)
-
-# View results
-print(boot_results$FSsg_tab)
-print(boot_results$summary$table)
-
-# Check success rate
-mean(!is.na(boot_results$results$H_biasadj_2))
-}
-
-}
 \seealso{
 \code{\link{forestsearch}} for initial subgroup identification
 \code{\link{bootstrap_results}} for the core bootstrap worker function

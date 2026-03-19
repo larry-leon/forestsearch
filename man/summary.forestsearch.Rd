@@ -20,10 +20,3 @@ Provides a detailed summary of a ForestSearch analysis including input
 parameters, variable selection results, consistency evaluation, and
 the selected subgroup with key metrics.
 }
-\examples{
-\dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-summary(fs)
-}
-
-}

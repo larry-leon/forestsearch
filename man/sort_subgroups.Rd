@@ -17,13 +17,4 @@ A sorted data.table.
 \description{
 Sorts a data.table of subgroup results according to the specified focus.
 }
-\examples{
-\donttest{
-library(data.table)
-dt <- data.table(Pcons = c(0.92, 0.95, 0.88),
-                 hr    = c(1.8, 1.5, 2.1),
-                 N     = c(80, 120, 60),
-                 K     = c(1, 2, 1))
-sort_subgroups(dt, sg_focus = "hr")
-}
-}
+\keyword{internal}

@@ -72,25 +72,20 @@
 #'
 #' @examples
 #' \donttest{
-#' # Run initial ForestSearch
-#' fs_result <- forestsearch(
-#'   df.analysis = trial_data,
-#'   outcome.name = "time",
-#'   event.name = "status",
-#'   treat.name = "treatment",
-#'   confounders.name = c("age", "biomarker")
-#' )
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs_result <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
 #'
-#' # Run 10-fold cross-validation
+#' # Run N-fold (leave-one-out) cross-validation
 #' cv_results <- forestsearch_Kfold(
 #'   fs.est = fs_result,
-#'   Kfolds = 10,
-#'   parallel_args = list(plan = "multisession", workers = 4),
-#'   details = TRUE
+#'   parallel_args = list(plan = "sequential"),
+#'   details = FALSE
 #' )
-#'
-#' # Summarize results
-#' cv_summary <- forestsearch_KfoldOut(cv_results, outall = TRUE)
 #' }
 #'
 #' @seealso
@@ -398,18 +393,22 @@ forestsearch_Kfold <- function(
 #'
 #' @examples
 #' \donttest{
-#' # Run 100 repetitions of 10-fold CV
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs_result <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
+#'
+#' # Run 5 repetitions of 10-fold CV (small for illustration)
 #' tenfold_results <- forestsearch_tenfold(
 #'   fs.est = fs_result,
-#'   sims = 100,
+#'   sims = 5,
 #'   Kfolds = 10,
-#'   parallel_args = list(plan = "multisession", workers = 6),
-#'   details = TRUE
+#'   parallel_args = list(plan = "sequential"),
+#'   details = FALSE
 #' )
-#'
-#' # View summary
-#' print(tenfold_results$sens_summary)
-#' print(tenfold_results$find_summary)
 #' }
 #'
 #' @seealso
@@ -659,7 +658,7 @@ forestsearch_tenfold <- function(
 #' df$grade3 <- as.integer(df$grade == "3")
 #' fs <- forestsearch(df,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status", id.name = "pid")
 #' oob <- forestsearch_Kfold(fs.est = fs, Kfolds = nrow(df))
 #' result <- forestsearch_KfoldOut(oob, outall = TRUE)
 #' }
@@ -1113,9 +1112,9 @@ resolve_cv_parallel_args <- function(parallel_args, fs_args, details = FALSE) {
 #' @return Invisibly returns \code{x}.
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' fs <- forestsearch(survival::gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status", id.name = "pid")
 #' oob <- forestsearch_Kfold(fs.est = fs)
 #' print(oob)
 #' }
@@ -1141,9 +1140,9 @@ print.fs_kfold <- function(x, ...) {
 #' @return Invisibly returns \code{x}.
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' fs <- forestsearch(survival::gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status", id.name = "pid")
 #' kfold <- forestsearch_tenfold(fs.est = fs, sims = 5)
 #' print(kfold)
 #' }

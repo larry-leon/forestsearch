@@ -11,15 +11,9 @@
 
 \item{...}{Additional arguments (ignored)}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Print Method for K-Fold CV Results
-}
-\examples{
-\dontrun{
-fs <- forestsearch(gbsg,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-oob <- forestsearch_Kfold(fs.est = fs)
-print(oob)
-}
 }

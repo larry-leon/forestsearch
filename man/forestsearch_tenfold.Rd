@@ -60,23 +60,6 @@ function parallelizes across simulations for better efficiency when
 running many repetitions. Each simulation runs its K-fold CV sequentially.
 }
 
-\examples{
-\dontrun{
-# Run 100 repetitions of 10-fold CV
-tenfold_results <- forestsearch_tenfold(
-  fs.est = fs_result,
-  sims = 100,
-  Kfolds = 10,
-  parallel_args = list(plan = "multisession", workers = 6),
-  details = TRUE
-)
-
-# View summary
-print(tenfold_results$sens_summary)
-print(tenfold_results$find_summary)
-}
-
-}
 \seealso{
 \code{\link{forestsearch_Kfold}} for single K-fold CV
 \code{\link{forestsearch_KfoldOut}} for summarizing CV results

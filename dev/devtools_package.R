@@ -1,18 +1,22 @@
-
-Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
-
-In oc_analyses_gbsg.R and sim_aft_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
-Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
-If so, please create a new "oc_analyses.R", including any necessary helpers, which comprehensively replaces oc_analyses_gbsg.R and sim_aft_gbsg.R.
-I would like to phase out any specific reference to "gbsg", except when using as an example dataset.   Please create a multiple step strategy so
-that we can verify any revisions at each step are working properly.
+# dev-workflow.R
+# Development workflow helper script for ForestSearch package
+# Source this file to load helper functions, or run sections interactively
 
 
-Let's start over, this is going nowhere and in circles.   The original R codebase has now been restored.
-Let's start with create_gbsg_dgm(), and proceed in separate steps so that each change can be verified before
-proceeding to the next step.
-To check the success of migrating create_gbsg_dgm() the following legacy results
-should be created:
+# Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
+#
+# In oc_analyses_gbsg.R and sim_aft_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
+# Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
+# If so, please create a new "oc_analyses.R", including any necessary helpers, which comprehensively replaces oc_analyses_gbsg.R and sim_aft_gbsg.R.
+# I would like to phase out any specific reference to "gbsg", except when using as an example dataset.   Please create a multiple step strategy so
+# that we can verify any revisions at each step are working properly.
+#
+#
+# Let's start over, this is going nowhere and in circles.   The original R codebase has now been restored.
+# Let's start with create_gbsg_dgm(), and proceed in separate steps so that each change can be verified before
+# proceeding to the next step.
+# To check the success of migrating create_gbsg_dgm() the following legacy results
+# should be created:
 # dgm_alt <- create_gbsg_dgm(
 #   model = "alt",
 #   k_treat = 1.0,
@@ -51,14 +55,83 @@ should be created:
 # Subgroup size: 634 (12.7%)
 # Analysis variables: v1, v2, v3, v4, v5, v6, v7
 
+# Notes from John B.
+# I agree with many of its decisions and fixes
+# * I am concerned about the descriptive stubs. These are `@examples` sections
+# which are comments-only. I suspect these will be flagged by the CRAN reviewer
+# as insufficient. Do these need to be exported functions? For example,
+# `extract_selected_tree_cuts()` seems like an internal-only function to me
+# * You committed the package tarball `forestsearch_0.1.0.tar.gz`. Please remove
+# this file and add the pattern `*.tar.gz` to your `.gitignore`
+# * It notes that there are 4 example sections that still use `\dontrun{}`. I see
+# many more when I search for it. This cannot be delayed for future releases as
+# Claude suggests. You need to address all of these before resubmitting
+
+# If the example is short and runs quickly, there is no harm in keeping it.
+# But it doesn't make much sense to include complex, long-running examples that
+# have to be wrapped in \dontrun{} if an end user is unlikely to ever run the example code anways
+#
+# In the branch cran-review-1, {forestsearch} currently has 118 exported functions in NAMESPACE and
+# 255 manual pages in man/. However, only 42 out of the 118 are actually used in the vignettes/articles
+# under vignettes/. This suggests that only those 42 functions are required to be used directly
+# by an end user performing an analysis. I recommend focusing your attention on writing thorough
+# documentation for only these 42 important functions.
+# All the other functions can be internal to the package and only receive a bare minimum of documentation
+#
+# library("forestsearch")
+# exported <- ls(name = "package:forestsearch")
+# length(exported)
+# ## [1] 118
+#
+# vignettes <- list.files(
+#   path = "vignettes",
+#   pattern = ".Rmd$",
+#   full.names = TRUE,
+#   recursive = TRUE
+# )
+# length(vignettes)
+# ## [1] 7
+#
+# code <- Reduce(c, Map(readLines, vignettes))
+# length(code)
+# ## [1] 8666
+#
+# exported_used <- vapply(
+#   X = exported,
+#   FUN = function(x) any(grepl(x, code)),
+#   FUN.VALUE = logical(1)
+# )
+# table(exported_used)
+# ## exported_used
+# ## FALSE  TRUE
+# ##    76    42
+# sum(exported_used) / length(exported_used)
+# ## [1] 0.3559322
+#
+# grep -c export NAMESPACE
+# ## 118
+#
+# ls man/ | wc -l
+# ## 255
+
+# And even that estimate of 42 is too high. My quick ad-hoc analysis let a few functions slip through the cracks.
+# For example, `bootstrap_results()` was only included because `summarize_bootstrap_results()` is in the vignettes,
+# and `subgroup.search()` was included only because the `.` was interpreted by `grepl()` as a regular expression.
+#
+# So here is the relevant heuristic I recommend you apply: will my colleagues need to run this
+# function directly when they use my function to analyze their data? If yes, tag it with @export
+# and document it with @return and @examples. If no, remove @export and delete @examples
+
+# Yes, remove all cases of \dontrun{}. If it is an exported function, switch to \donttest{}.
+# If it is an internal function, just delete the examples section
+
+#https://github.com/DavisVaughan/extrachecks
+
 # NOTE: on a file lock
 # make sure no other Git processes are active
 #ps aux | grep git
 #rm -f .git/index.lock
 
-# dev-workflow.R
-# Development workflow helper script for ForestSearch package
-# Source this file to load helper functions, or run sections interactively
 
 # git rm -r --cached dev/private
 # echo "dev/private/" >> .gitignore
@@ -133,7 +206,38 @@ remove.packages("forestsearch")
 # clean up old documentation
 unlink("man/*.Rd")
 
+
+# Main Sequence
 devtools::document()
+devtools::check(args = "--as-cran", vignettes = FALSE)
+# With vignettes
+devtools::document()
+devtools::check(args = "--as-cran")
+# End Main
+
+# Pkgdown
+pkgdown::check_pkgdown()
+pkgdown::build_site()
+
+# Clean prior to re-run
+pkgdown::clean_site(force = TRUE)
+pkgdown::build_site()
+
+devtools::build_vignettes()
+
+# Recommended sequence on cran-review-1:
+# devtools::build_vignettes() — updates doc/
+# Commit everything (R/, doc/, docs/, _pkgdown.yml, NAMESPACE) on cran-review-1
+# When ready, merge cran-review-1 → master in GitHub Desktop
+# Push master — GitHub Pages picks up the new docs/
+
+# win-builder
+
+devtools::build()
+
+
+
+
 
 devtools::load_all(".")
 
@@ -173,6 +277,114 @@ devtools::check_built(
   "/Users/larryleon/Documents/GitHub/forestsearch/dev/code-working/CRAN_submission_steps/version_010/forestsearch_0.1.0.tar.gz",
   args = "--as-cran"
 )
+
+
+# CRAN Submission Review_1
+devtools::document()   # regenerates man/ and NAMESPACE
+devtools::load_all()   # load the updated package into the session
+
+
+
+# devtools::check_built(args = "--as-cran")
+# # Get the full traceback from the failed check
+# tryCatch(
+#   devtools::check(args = "--as-cran"),
+#   error = function(e) {
+#     message("Error: ", conditionMessage(e))
+#     traceback()
+#   }
+# )
+
+
+# 1. Remove the empty inst/doc if it exists in your source
+unlink("inst/doc", recursive = TRUE)
+# If inst/ is now empty, remove it too
+if (length(list.files("inst", recursive = TRUE)) == 0) unlink("inst", recursive = TRUE)
+
+# 2. Clean any stale check artifacts
+devtools::clean_vignettes()
+
+# 3. Fresh check
+devtools::check(args = "--as-cran")
+
+
+# 1. Restart R (Session → Restart R in RStudio), then:
+
+
+# 1. Check what's actually inside the tarball
+pkg_path <- devtools::build()
+tarball_contents <- untar(pkg_path, list = TRUE)
+grep("doc|vignett", tarball_contents, value = TRUE)
+
+# 2. Try building the vignette directly
+rmarkdown::render("vignettes/forestsearch.Rmd", output_dir = tempdir())
+# Does this produce HTML? Any errors?
+
+# 3. Check if there are stale pre-built vignettes or extra files
+list.files("vignettes/", recursive = TRUE, all.files = TRUE)
+
+
+# Post-STEP 1 -->
+
+# Remove pre-built vignette outputs that shouldn't be in the source tree
+file.remove("vignettes/forestsearch.html")
+file.remove("vignettes/forestsearch.R")
+
+# Also clean any build/ artifacts
+unlink("build", recursive = TRUE)
+
+# Prevent recurrence — add to .gitignore if not already there
+gitignore <- readLines(".gitignore", warn = FALSE)
+to_add <- c("vignettes/*.html", "vignettes/*.R", "!vignettes/*.Rmd")
+to_add <- to_add[!to_add %in% gitignore]
+if (length(to_add) > 0) {
+  writeLines(c(gitignore, "", "# Vignette build artifacts", to_add), ".gitignore")
+}
+# Now rebuild and check
+devtools::check(args = "--as-cran")
+
+
+
+# What's actually in your source tree?
+list.files("vignettes/", recursive = TRUE, all.files = TRUE)
+list.files("build/", recursive = TRUE)
+file.exists("inst/doc")
+
+# Try building vignettes directly
+tools::buildVignettes(dir = ".")
+list.files("inst/doc/")
+
+
+# 1. Is .Rbuildignore accidentally excluding inst/doc?
+readLines(".Rbuildignore")
+
+# 2. Try building vignettes directly and see where output lands
+tools::buildVignettes(dir = ".")
+list.files("inst/doc/", recursive = TRUE)
+
+# 1. Is the .Rmd actually in the tarball? (it should be but wasn't in our grep)
+grep("Rmd", tarball_contents, value = TRUE)
+
+# 2. Isolate: does check pass if we skip vignettes?
+devtools::check(args = "--as-cran", vignettes = FALSE)
+
+
+readLines("vignettes/.gitignore")
+
+# 1. Check permissions on the .Rmd
+file.info("vignettes/forestsearch.Rmd")$mode
+
+# 2. Try a fully clean build from the command line (run in terminal, not R)
+# This gives more verbose output than devtools
+
+readLines("vignettes/articles/.gitignore")
+
+
+R CMD build .
+tar tzf forestsearch_0.1.0.tar.gz | grep -i "rmd\|doc\|vignett"
+
+
+devtools::check(args = "--as-cran", vignettes = FALSE)
 
 
 

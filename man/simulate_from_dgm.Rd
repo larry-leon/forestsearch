@@ -124,7 +124,7 @@ censoring distribution:
 }
 }
 \examples{
-\dontrun{
+\donttest{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
 sim_data <- simulate_from_dgm(dgm, n = 200, seed = 42)
 dim(sim_data)

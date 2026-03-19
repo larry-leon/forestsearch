@@ -29,10 +29,4 @@ Character string with formatted CV metrics.
 Generates a compact text string summarizing CV results, suitable for
 annotations in plots or reports.
 }
-\examples{
-\dontrun{
-cv_text <- cv_summary_text(tenfold_results)
-# Returns: "CV found = 95\%, Agree(+,-) = 88\%, 92\%"
-}
-
-}
+\keyword{internal}

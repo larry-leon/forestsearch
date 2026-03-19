@@ -26,7 +26,7 @@ Test function to verify that k_inter properly modulates the difference
 between HR(H) and HR(Hc), and that AHR metrics align with Cox-based HRs.
 }
 \examples{
-\dontrun{
+\donttest{
 # Test k_inter effect
 results <- validate_k_inter_effect()
 

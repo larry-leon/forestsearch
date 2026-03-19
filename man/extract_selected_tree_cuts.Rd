@@ -33,13 +33,4 @@ This function is used when \code{return_selected_cuts_only = TRUE} in
 \item \code{selected_depth}: The depth that was selected
 }
 }
-\examples{
-\dontrun{
-# When best_subgroup$depth = 2, only tree2 cuts are returned in $all
-tree_cuts <- extract_selected_tree_cuts(trees, selected_depth = 2, maxdepth = 2)
-tree_cuts$all
-# Returns only cuts from depth 2 tree
-}
-
-}
 \keyword{internal}

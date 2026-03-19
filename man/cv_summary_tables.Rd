@@ -50,21 +50,6 @@ Formats the detailed output from \code{\link{forestsearch_KfoldOut}(outall=TRUE)
 into publication-ready gt tables. This includes ITT estimates, original subgroup
 estimates, and K-fold subgroup estimates.
 }
-\examples{
-\dontrun{
-# Run K-fold CV
-cv_results <- forestsearch_Kfold(fs.est = fs_result, Kfolds = 10)
-
-# Get detailed output
-kfold_out <- forestsearch_KfoldOut(cv_results, outall = TRUE)
-
-# Create summary tables
-cv_tables <- cv_summary_tables(kfold_out)
-cv_tables$combined_table
-cv_tables$metrics_table
-}
-
-}
 \seealso{
 \code{\link{cv_metrics_tables}} for formatting \code{forestsearch_tenfold()} results
 }

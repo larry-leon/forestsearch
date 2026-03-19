@@ -20,15 +20,6 @@ Displays a concise summary of ForestSearch results including the
 identified subgroup definition, consistency metrics, algorithm details,
 and computation time.
 }
-\examples{
-\dontrun{
-fs <- forestsearch(df.analysis = mydata, ...)
-print(fs)
-# or simply:
-fs
-}
-
-}
 \seealso{
 \code{\link{summary.forestsearch}} for detailed output,
 \code{\link{plot.forestsearch}} for visualization.

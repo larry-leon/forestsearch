@@ -17,8 +17,4 @@ Character string with evaluated value.
 \description{
 Evaluates a cut expression (e.g., "age <= mean(age)") and returns the expression with the value.
 }
-\examples{
-df <- data.frame(age = c(40, 55, 70, 35), size = c(20, 30, 25, 15))
-process_conf_force_expr("age <= mean(age)", df)
-process_conf_force_expr("size <= median(size)", df)
-}
+\keyword{internal}

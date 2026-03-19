@@ -84,7 +84,7 @@ The original \code{df_super_rand} field is kept so that
 \code{compute_dgm_cde()} and \code{print.gbsg_dgm} continue to work.
 }
 \examples{
-\dontrun{
+\donttest{
 dgm <- setup_gbsg_dgm(model = "alt", k_inter = 2, verbose = FALSE)
 dgm <- compute_dgm_cde(dgm)
 print(dgm)

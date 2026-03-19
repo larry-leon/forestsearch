@@ -17,9 +17,4 @@ List with \code{max_count} (total combinations) and \code{indices_list} (indices
 \description{
 Generates all possible combinations of subgroup factors up to a specified maximum size.
 }
-\examples{
-# L=6 single-factor subgroups, combinations up to 2 factors
-info <- get_combinations_info(L = 6, maxk = 2)
-info$max_count   # total number of combinations
-length(info$indices_list)
-}
+\keyword{internal}

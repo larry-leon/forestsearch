@@ -173,49 +173,6 @@ The function gracefully handles three failure modes:
 All three cases ensure the foreach loop can still combine results via \code{rbind}.
 }
 
-\examples{
-\dontrun{
-# Typically called via forestsearch_bootstrap_dofuture()
-# Manual usage for debugging:
-
-# 1. Fit initial ForestSearch model
-fs_result <- forestsearch(
-  df.analysis = mydata,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "sex", "stage")
-)
-
-# 2. Build Cox formula
-cox_formula <- build_cox_formula("time", "status", "treatment")
-
-# 3. Get observed estimates
-cox_fits <- fit_cox_models(fs_result$df.est, cox_formula)
-
-# 4. Set up parallel backend
-library(doFuture)
-plan(multisession, workers = 6)
-
-# 5. Run bootstrap (note: this is already parallelized internally)
-boot_results <- bootstrap_results(
-  fs.est = fs_result,
-  df_boot_analysis = fs_result$df.est,
-  cox.formula.boot = cox_formula,
-  nb_boots = 100,
-  show_three = TRUE,
-  H_obs = cox_fits$H_obs,
-  Hc_obs = cox_fits$Hc_obs
-)
-
-# 6. Check results
-summary(boot_results)
-
-# Proportion of bootstraps that found a subgroup
-mean(!is.na(boot_results$H_biasadj_2))
-}
-
-}
 \seealso{
 \code{\link{forestsearch_bootstrap_dofuture}} for the wrapper function that
 sets up parallelization and calls this function
@@ -226,3 +183,4 @@ sets up parallelization and calls this function
 \code{\link{bootstrap_ystar}} for generating the Ystar matrix
 }
 \concept{bootstrap functions}
+\keyword{internal}

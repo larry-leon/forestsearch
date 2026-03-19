@@ -56,20 +56,22 @@ get_FSdata(
 
 \item{details}{Logical. If TRUE, prints details during execution.}
 }
+\value{
+A named list containing:
+\item{df}{Data frame with binary cut-point indicator columns (named
+\code{q1}, \code{q2}, \ldots) appended to the original analysis data.}
+\item{confs_names}{Character vector of the internal column names
+(\code{q1}, \code{q2}, \ldots) corresponding to each candidate factor.}
+\item{confs}{Character vector of candidate factor specifications
+(continuous cut expressions and categorical variable names).}
+\item{lassokeep}{Character vector of factors retained by LASSO (if
+\code{use_lasso = TRUE}), or \code{NULL}.}
+\item{lassoomit}{Character vector of factors omitted by LASSO (if
+\code{use_lasso = TRUE}), or \code{NULL}.}
+}
 \description{
 Prepares a dataset for ForestSearch, including options for LASSO-based dimension reduction,
 GRF cuts, forced cuts, and flexible cut strategies. Returns a list with the processed data,
 subgroup factor names, cut expressions, and LASSO selection results.
 }
-\examples{
-\donttest{
-library(survival)
-df <- survival::gbsg
-df$grade3 <- as.integer(df$grade == "3")
-fs_data <- get_FSdata(df.analysis = df,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", event.name = "status",
-  use_lasso = FALSE, use_grf = FALSE)
-names(fs_data)
-}
-}
+\keyword{internal}

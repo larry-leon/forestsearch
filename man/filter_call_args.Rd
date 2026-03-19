@@ -30,19 +30,4 @@ This function:
 
 Reduces boilerplate and improves readability across the codebase.
 }
-\examples{
-\dontrun{
-# Instead of:
-args_FS <- names(formals(get_FSdata))
-args_FS_filtered <- args_call_all[names(args_call_all) \%in\% args_FS]
-args_FS_filtered$df.analysis <- df.analysis
-args_FS_filtered$grf_cuts <- grf_cuts
-FSdata <- do.call(get_FSdata, args_FS_filtered)
-
-# You now write:
-FSdata <- do.call(get_FSdata,
-  filter_call_args(args_call_all, get_FSdata,
-                   list(df.analysis = df.analysis, grf_cuts = grf_cuts)))
-}
-
-}
+\keyword{internal}

@@ -83,30 +83,6 @@ The returned \code{resCV} data frame contains:
 }
 }
 
-\examples{
-\dontrun{
-# Run initial ForestSearch
-fs_result <- forestsearch(
-  df.analysis = trial_data,
-  outcome.name = "time",
-  event.name = "status",
-  treat.name = "treatment",
-  confounders.name = c("age", "biomarker")
-)
-
-# Run 10-fold cross-validation
-cv_results <- forestsearch_Kfold(
-  fs.est = fs_result,
-  Kfolds = 10,
-  parallel_args = list(plan = "multisession", workers = 4),
-  details = TRUE
-)
-
-# Summarize results
-cv_summary <- forestsearch_KfoldOut(cv_results, outall = TRUE)
-}
-
-}
 \seealso{
 \code{\link{forestsearch}} for initial subgroup identification
 \code{\link{forestsearch_KfoldOut}} for summarizing CV results

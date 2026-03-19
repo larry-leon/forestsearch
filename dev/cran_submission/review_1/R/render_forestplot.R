@@ -83,6 +83,7 @@
 #' \donttest{
 #' # Simple: just increase base_size for larger plot
 #' large_theme <- create_forest_theme(base_size = 14)
+#' print(large_theme)
 #'
 #' # Or use scale for quick adjustment
 #' large_theme <- create_forest_theme(base_size = 10, scale = 1.4)
@@ -90,21 +91,9 @@
 #' # Fine-tune specific elements
 #' custom_theme <- create_forest_theme(
 #'   base_size = 14,
-#'   cv_fontsize = 12,  # Override auto-calculated CV font size
-#'   ci_lwd = 2.5       # Override auto-calculated CI line width
+#'   cv_fontsize = 12,
+#'   ci_lwd = 2.5
 #' )
-#'
-#' # Use with plot_subgroup_results_forestplot
-#' result <- plot_subgroup_results_forestplot(
-#'   fs_results = list(fs.est = fs, fs_bc = fs_bc),
-#'   df_analysis = df.analysis,
-#'   outcome.name = "time",
-#'   event.name = "status",
-#'   treat.name = "treatment",
-#'   theme = large_theme
-#' )
-#'
-#' render_forestplot(result)
 #' }
 #'
 #' @seealso \code{\link{plot_subgroup_results_forestplot}}, \code{\link{render_forestplot}}
@@ -248,22 +237,19 @@ print.fs_forest_theme <- function(x, ...) {
 #'
 #' @examples
 #' \donttest{
-#' # For larger plot, use theme parameter in plot_subgroup_results_forestplot:
-#' large_theme <- create_forest_theme(
-#'   base_size = 14,
-#'   row_padding = c(6, 4),
-#'   cv_fontsize = 11
-#' )
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
 #'
 #' result <- plot_subgroup_results_forestplot(
-#'   fs_results = list(fs.est = fs, fs_bc = fs_bc),
-#'   df_analysis = df.analysis,
-#'   outcome.name = "time",
-#'   event.name = "status",
-#'   treat.name = "treatment",
-#'   theme = large_theme
+#'   fs_results = list(fs.est = fs),
+#'   df_analysis = df,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon"
 #' )
-#'
 #' render_forestplot(result)
 #' }
 #'
@@ -297,20 +283,22 @@ render_forestplot <- function(x, newpage = TRUE) {
 #'
 #' @examples
 #' \donttest{
-#' # Create plot with custom theme
-#' large_theme <- create_forest_theme(base_size = 14, row_padding = c(6, 4))
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
 #'
 #' result <- plot_subgroup_results_forestplot(
-#'   fs_results = list(fs.est = fs, fs_bc = fs_bc),
-#'   df_analysis = df.analysis,
-#'   outcome.name = "time",
-#'   event.name = "status",
-#'   treat.name = "treatment",
-#'   theme = large_theme
+#'   fs_results = list(fs.est = fs),
+#'   df_analysis = df,
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon"
 #' )
 #'
-#' # Save to file
-#' save_forestplot(result, "forest_plot.pdf", width = 14, height = 12)
+#' # Save to temporary file
+#' save_forestplot(result, file.path(tempdir(), "forest_plot.pdf"))
 #' }
 #'
 #' @importFrom grDevices pdf png svg jpeg dev.off
@@ -369,10 +357,10 @@ save_forestplot <- function(
 #' @return Invisibly returns \code{x}.
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' fs <- forestsearch(survival::gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), gbsg,
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status", id.name = "pid")
+#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), survival::gbsg,
 #'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 #' print(fp)
 #' }
@@ -407,10 +395,10 @@ print.fs_forestplot <- function(x, ...) {
 #' @return Invisibly returns \code{x}.
 #' @examples
 #' \donttest{
-#' fs <- forestsearch(gbsg,
+#' fs <- forestsearch(survival::gbsg,
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
-#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), gbsg,
+#'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status", id.name = "pid")
+#' fp <- plot_subgroup_results_forestplot(list(fs.est = fs), survival::gbsg,
 #'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon")
 #' plot(fp)
 #' }

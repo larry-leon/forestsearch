@@ -74,19 +74,16 @@
 #'
 #' @examples
 #' \donttest{
-#' # After running forestsearch - auto-extracts subgroup definition
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
+#'
+#' # Weighted Kaplan-Meier curves for identified subgroups
 #' plot_sg_weighted_km(fs.est = fs)
-#'
-#' # With bootstrap bias-corrected estimates
-#' plot_sg_weighted_km(fs.est = fs, fs_bc = fs_bootstrap)
-#'
-#' # With custom column names
-#' plot_sg_weighted_km(
-#'   fs.est = fs,
-#'   outcome.name = "time_months",
-#'   event.name = "status",
-#'   treat.name = "hormon"
-#' )
 #' }
 #'
 #' @importFrom graphics par title mtext text
@@ -472,6 +469,14 @@ plot_sg_weighted_km <- function(
 #'
 #' @examples
 #' \donttest{
+#' # Setup: run ForestSearch on GBSG breast cancer data
+#' df <- survival::gbsg
+#' df$grade3 <- as.integer(df$grade == "3")
+#' fs <- forestsearch(df,
+#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
+#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+#'   details = FALSE, plot.sg = FALSE, id.name = "pid")
+#'
 #' km_result <- plot_sg_weighted_km(fs.est = fs)
 #' cat(figure_note(km_result))
 #' }

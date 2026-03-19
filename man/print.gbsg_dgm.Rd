@@ -11,12 +11,15 @@
 
 \item{...}{Additional arguments (unused)}
 }
+\value{
+Invisibly returns \code{x}.
+}
 \description{
 Print Method for gbsg_dgm Objects
 }
 \examples{
-\dontrun{
-dgm <- create_gbsg_dgm()
+\donttest{
+dgm <- setup_gbsg_dgm(model = "alt", verbose = FALSE)
 print(dgm)
 }
 }

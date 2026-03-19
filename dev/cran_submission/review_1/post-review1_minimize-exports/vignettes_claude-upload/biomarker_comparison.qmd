@@ -1,0 +1,2084 @@
+---
+title: "Continuous Biomarker Evaluation"
+subtitle: "Comparing STEPP, MFPI, and Spline Cox (cox_cs_fit) on GBSG and Simulated Data"
+author: "ForestSearch Package Documentation"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    theme: flatly
+    highlight-style: tango
+    fig-width: 9
+    fig-height: 6
+    fig-align: center
+    embed-resources: true
+vignette: >
+  %\VignetteIndexEntry{Continuous Biomarker Evaluation: STEPP, MFPI, and Spline Cox}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(
+  echo      = TRUE,
+  message   = FALSE,
+  warning   = FALSE,
+  fig.align = "center"
+)
+
+# =============================================================================
+# SIMULATION PARAMETERS — edit here to change any aspect of the study design
+# =============================================================================
+
+# ── Trial design ──────────────────────────────────────────────────────────────
+sim_n_trial       <- 700L    # patients per simulated trial
+
+# ── Spline Cox (cox_cs_fit) ───────────────────────────────────────────────────
+sim_spline_df     <- 3L      # natural-spline df for the interaction term
+
+# ── MFPI bootstrap (GBSG illustration only) ───────────────────────────────────
+sim_n_boot_mfpi   <- 200L    # bootstrap resamples for MFPI CI on GBSG data
+
+# ── STEPP sliding windows ────────────────────────────────────────────────────
+sim_patspop       <- 150L    # r2: target patients per window
+sim_minpatspop    <- 50L     # r1: max patients shared between consecutive windows
+                             #     step size = sim_patspop - sim_minpatspop = 100
+sim_time_point    <- 5       # KM landmark time (years) used by STEPP KM tests
+
+# ── STEPP permutation tests ──────────────────────────────────────────────────
+sim_nperm_gbsg    <- 999L    # permutations for GBSG illustrative analysis
+                             #   SE(p-hat) ≈ sqrt(0.05*0.95/999) ≈ 0.007 at p = 0.05
+sim_nperm_perm    <- 999L    # permutations per trial in the power simulation
+                             #   keep equal to sim_nperm_gbsg for consistency
+
+# ── Evaluation grid and nominal level ────────────────────────────────────────
+sim_z_eval        <- c(0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
+sim_alpha         <- 0.05    # nominal CI/test level → 95% coverage target
+
+# ── Simulation counts ─────────────────────────────────────────────────────────
+sim_B_eval        <- 5000L   # replications per scenario: SE / coverage / CI-width
+sim_B_perm        <- 500L    # replications per scenario: STEPP permutation power
+                             #   total STEPP perm fits ≈ sim_B_perm * sim_nperm_perm
+
+# ── Parallel workers ─────────────────────────────────────────────────────────
+sim_n_workers     <- floor(0.80*(max(1L, parallel::detectCores(logical = FALSE) - 1L)))
+                     #   uses 80% (physical cores minus 1); cap manually if needed
+if(sim_n_workers <= 1) stop("Number of workers not sufficient for parallelization")
+# =============================================================================
+```
+
+```{r packages}
+#| code-fold: false
+library(survival)
+library(splines)
+library(mfp)
+library(forestsearch)   # provides cox_cs_fit()
+library(ggplot2)
+library(patchwork)
+library(scales)         # percent_format() for coverage axis
+library(dplyr)
+library(doFuture)       # %dofuture% operator for parallel simulation
+library(foreach)        # foreach() used by run_ccsf_eval() / run_stepp_eval()
+```
+
+::: {.callout-note}
+## Relationship to ForestSearch
+
+`cox_cs_fit()` is the primary continuous-biomarker evaluation tool in
+`forestsearch`. It produces a log-HR profile over the biomarker range and
+directly supports optimal cut-point identification for subgroup definition.
+STEPP and MFPI serve as **complementary external validation tools** making
+different modelling assumptions — convergent findings across all three methods
+strengthen confidence in a predictive biomarker claim.
+:::
+
+## Overview
+
+A continuously-measured biomarker may **modify a treatment effect** — patients
+at different parts of the biomarker range may respond differently to therapy.
+Three methods address this question for survival endpoints:
+
+| Method | Core Idea | Functional Form | R Implementation |
+|--------|-----------|-----------------|------------------|
+| **`cox_cs_fit()`** | `forestsearch` wrapper: natural-spline interaction Cox model; returns profile + CIs directly | Smooth, flexible | `forestsearch` |
+| **Manual Spline Cox** | Same model as above, exposed step-by-step for transparency | Smooth, flexible | `survival` + `splines` |
+| **MFPI** | FP functions fit separately per arm; difference is the treatment-effect curve | Data-driven low-degree polynomial | `mfp` (CRAN) |
+| **STEPP** | Model-free log-HR estimates in overlapping sliding windows | None (nonparametric) | `stepp` (CRAN) |
+
+This vignette applies all three to (1) the **GBSG dataset** examining whether
+progesterone receptor (PGR) predicts hormonal therapy benefit, and (2) four
+**synthetic simulation scenarios** with known ground-truth interaction functions,
+including a formal simulation evaluation of SE calibration, coverage, and CI
+width for both `cox_cs_fit()` and STEPP.
+
+---
+
+## GBSG Dataset Analysis
+
+### Data Preparation
+
+The German Breast Cancer Study Group (GBSG) trial randomised 686 node-positive
+breast cancer patients to adjuvant **hormonal therapy** (`hormon = 1`) versus
+**control** (`hormon = 0`). The endpoint is recurrence-free survival (`rfstime`,
+days; `status` = 1 for recurrence/death).
+
+We examine **progesterone receptor** (`pgr`, fmol) as a candidate predictive
+biomarker. Because `pgr` is strongly right-skewed (range 0–2380 fmol), all
+analyses use the $\log(\text{pgr}+1)$ scale throughout. Time is converted from
+days to years.
+
+```{r gbsg-prep}
+#| code-fold: false
+data("gbsg", package = "survival")
+
+gbsg <- gbsg |>
+  mutate(
+    rfstime_yr = rfstime / 365.25,
+    log_pgr    = log(pgr + 1),
+    treat      = hormon
+  )
+
+cat(sprintf(
+  "N = %d  |  Events = %d (%.1f%%)  |  Hormonal arm n = %d  |  Control n = %d\n",
+  nrow(gbsg), sum(gbsg$status), 100 * mean(gbsg$status),
+  sum(gbsg$treat == 1), sum(gbsg$treat == 0)
+))
+
+fit_itt    <- coxph(Surv(rfstime_yr, status) ~ treat, data = gbsg)
+hr_itt     <- exp(coef(fit_itt)["treat"])
+ci_itt     <- exp(confint(fit_itt)["treat", ])
+loghr_itt  <- coef(fit_itt)["treat"]
+
+cat(sprintf(
+  "Overall HR (hormonal Rx vs control): %.3f  (95%% CI: %.3f – %.3f)\n",
+  hr_itt, ci_itt[1], ci_itt[2]
+))
+```
+
+### Biomarker Distribution
+
+```{r gbsg-eda}
+#| fig-height: 4
+#| fig-cap: "Distribution of log(PGR+1) by treatment arm. Balance across arms supports biomarker evaluation as an effect modifier."
+#| code-fold: true
+
+p_hist <- ggplot(gbsg, aes(x = log_pgr, fill = factor(treat))) +
+  geom_histogram(bins = 35, alpha = 0.65, position = "identity") +
+  scale_fill_manual(values  = c("#E05C5C", "#4472C4"),
+                    labels  = c("Control", "Hormonal therapy")) +
+  labs(x = "log(PGR + 1)", y = "Count", fill = NULL,
+       title = "PGR Distribution by Treatment Arm") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+
+p_box <- ggplot(
+  gbsg,
+  aes(x = log_pgr,
+      y = factor(treat, labels = c("Control", "Hormonal Rx")),
+      fill = factor(treat))
+) +
+  geom_violin(alpha = 0.65, show.legend = FALSE) +
+  geom_boxplot(width = 0.12, outlier.size = 0.7,
+               fill = "white", show.legend = FALSE) +
+  scale_fill_manual(values = c("#E05C5C", "#4472C4")) +
+  labs(x = "log(PGR + 1)", y = NULL, title = "Violin + Boxplot") +
+  theme_minimal(base_size = 12)
+
+p_hist + p_box + plot_layout(ncol = 2)
+```
+
+### Shared Biomarker Grid
+
+```{r z-grid}
+#| code-fold: false
+# All three methods share this prediction grid (5th–95th percentile)
+z_grid <- seq(
+  quantile(gbsg$log_pgr, 0.05),
+  quantile(gbsg$log_pgr, 0.95),
+  length.out = 200L
+)
+nd_grid <- data.frame(log_pgr = z_grid)
+```
+
+---
+
+### Method 1: `cox_cs_fit()` from `forestsearch`
+
+The spline Cox model underlying `cox_cs_fit()` is:
+
+$$h(t \mid Z, A) = h_0(t)\,\exp\!\bigl(\beta_0 A + f(Z) + g(Z) \cdot A\bigr)$$
+
+where $Z = \log(\text{pgr}+1)$, $A$ = treatment, $f(Z)$ is a prognostic
+natural spline and $g(Z)$ a treatment-interaction natural spline.
+The log-HR profile is $\hat\beta(Z) = \hat\beta_0 + \hat g(Z)$ with pointwise
+CIs from the **delta method** using the full model $\Sigma$.
+
+```{r cox-cs-fit-gbsg}
+#| code-fold: false
+
+gbsg_fs <- gbsg |>
+  rename(os_time  = rfstime_yr,
+         os_event = status) |>
+  mutate(bm = log_pgr)
+
+fit_ccsf <- cox_cs_fit(
+  df         = gbsg_fs,
+  tte_name   = "os_time",
+  event_name = "os_event",
+  treat_name = "treat",
+  z_name     = "bm",
+  spline_df  = sim_spline_df,
+  z_by       = 0.05,
+  z_quantile = 0.95,
+  alpha      = sim_alpha,
+  show_plot  = FALSE,
+  verbose    = FALSE
+)
+
+cat(sprintf("cox_cs_fit: %d profile points from %.3f to %.3f\n",
+            length(fit_ccsf$z_profile),
+            min(fit_ccsf$z_profile), max(fit_ccsf$z_profile)))
+cat(sprintf("log-HR range: %.3f to %.3f\n",
+            min(fit_ccsf$loghr_est), max(fit_ccsf$loghr_est)))
+
+df_ccsf <- data.frame(
+  z      = fit_ccsf$z_profile,
+  pgr    = exp(fit_ccsf$z_profile) - 1,
+  loghr  = fit_ccsf$loghr_est,
+  lo     = fit_ccsf$loghr_lower,
+  hi     = fit_ccsf$loghr_upper,
+  method = "cox_cs_fit (forestsearch)"
+)
+```
+
+### Method 1b: Manual Spline Cox (for transparency)
+
+```{r spline-gbsg}
+#| code-fold: false
+spline_df <- sim_spline_df
+
+fit_spline <- coxph(
+  Surv(rfstime_yr, status) ~
+    treat + ns(log_pgr, df = spline_df) + ns(log_pgr, df = spline_df):treat,
+  data = gbsg
+)
+
+fit_main <- coxph(
+  Surv(rfstime_yr, status) ~ treat + ns(log_pgr, df = spline_df),
+  data = gbsg
+)
+lrt <- anova(fit_main, fit_spline)
+cat(sprintf(
+  "LRT for treat x ns(log_pgr): Chi-sq = %.2f, df = %d, p = %.4f\n",
+  lrt[2L, "Chisq"], lrt[2L, "Df"], lrt[2L, "Pr(>|Chi|)"]
+))
+
+nd1 <- data.frame(log_pgr = z_grid, treat = 1)
+nd0 <- data.frame(log_pgr = z_grid, treat = 0)
+
+X1    <- model.matrix(fit_spline, data = nd1)
+X0    <- model.matrix(fit_spline, data = nd0)
+Xdiff <- X1 - X0
+
+loghr_spline <- as.numeric(Xdiff %*% coef(fit_spline))
+se_spline    <- sqrt(diag(Xdiff %*% vcov(fit_spline) %*% t(Xdiff)))
+
+df_spline <- data.frame(
+  z      = z_grid,
+  pgr    = exp(z_grid) - 1,
+  loghr  = loghr_spline,
+  lo     = loghr_spline - 1.96 * se_spline,
+  hi     = loghr_spline + 1.96 * se_spline,
+  method = "Manual Spline Cox"
+)
+
+shared_z <- intersect(round(df_ccsf$z, 3), round(df_spline$z, 3))
+if (length(shared_z) > 0) {
+  idx_c <- match(round(shared_z[1], 3), round(df_ccsf$z, 3))
+  idx_m <- match(round(shared_z[1], 3), round(df_spline$z, 3))
+  cat(sprintf(
+    "Agreement check at Z = %.3f: cox_cs_fit = %.4f, manual = %.4f (diff = %.2e)\n",
+    shared_z[1],
+    df_ccsf$loghr[idx_c],
+    df_spline$loghr[idx_m],
+    abs(df_ccsf$loghr[idx_c] - df_spline$loghr[idx_m])
+  ))
+}
+```
+
+---
+
+### Method 2: MFPI
+
+```{r mfpi-gbsg}
+#| code-fold: false
+
+fit_mfp0 <- mfp(Surv(rfstime_yr, status) ~ fp(log_pgr, df = 4),
+                data   = filter(gbsg, treat == 0),
+                family = cox, verbose = FALSE)
+
+fit_mfp1 <- mfp(Surv(rfstime_yr, status) ~ fp(log_pgr, df = 4),
+                data   = filter(gbsg, treat == 1),
+                family = cox, verbose = FALSE)
+
+cat("FP powers selected — Control:", fit_mfp0$powers[, "power1"],
+    " | Hormonal Rx:", fit_mfp1$powers[, "power1"], "\n")
+
+lp0_mfp <- predict(fit_mfp0, newdata = nd_grid, type = "lp")
+lp1_mfp <- predict(fit_mfp1, newdata = nd_grid, type = "lp")
+
+raw_mfp   <- lp1_mfp - lp0_mfp
+loghr_mfp <- raw_mfp - mean(raw_mfp) + loghr_itt
+
+set.seed(2024L)
+n_boot <- sim_n_boot_mfpi
+boot_mat <- matrix(NA_real_, nrow = n_boot, ncol = length(z_grid))
+
+for (b in seq_len(n_boot)) {
+  idx  <- sample(nrow(gbsg), replace = TRUE)
+  bdat <- gbsg[idx, ]
+
+  f0b <- tryCatch(
+    mfp(Surv(rfstime_yr, status) ~ fp(log_pgr, df = 4),
+        data = filter(bdat, treat == 0), family = cox, verbose = FALSE),
+    error = function(e) NULL
+  )
+  f1b <- tryCatch(
+    mfp(Surv(rfstime_yr, status) ~ fp(log_pgr, df = 4),
+        data = filter(bdat, treat == 1), family = cox, verbose = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(f0b) || is.null(f1b)) next
+
+  lp0b <- tryCatch(predict(f0b, newdata = nd_grid, type = "lp"),
+                   error = function(e) NULL)
+  lp1b <- tryCatch(predict(f1b, newdata = nd_grid, type = "lp"),
+                   error = function(e) NULL)
+  if (is.null(lp0b) || is.null(lp1b)) next
+
+  raw_b         <- lp1b - lp0b
+  boot_mat[b, ] <- raw_b - mean(raw_b) + loghr_itt
+}
+
+n_valid <- sum(complete.cases(boot_mat))
+cat(sprintf("Bootstrap: %d/%d valid resamples\n", n_valid, n_boot))
+
+df_mfpi <- data.frame(
+  z      = z_grid,
+  pgr    = exp(z_grid) - 1,
+  loghr  = loghr_mfp,
+  lo     = apply(boot_mat, 2, quantile, probs = 0.025, na.rm = TRUE),
+  hi     = apply(boot_mat, 2, quantile, probs = 0.975, na.rm = TRUE),
+  method = "MFPI"
+)
+```
+
+---
+
+### Method 3: STEPP
+
+STEPP (Bonetti & Gelber, 2000) partitions the biomarker range into overlapping
+**sliding windows** and estimates the treatment effect within each window. No
+functional form is assumed — the method is a purely graphical diagnostic.
+
+Two window parameters govern resolution:
+
+- **`patspop`** ($r_2$): approximate patients per window (≥ 80–100 recommended)
+- **`minpatspop`** ($r_1$): maximum patients shared between consecutive windows
+
+::: {.callout-note}
+**Install `stepp`:** `install.packages("stepp")`.  The package has compiled
+dependencies (`lme4`, `car`, `Rcpp`); binary installation is fastest on Windows
+and macOS.  The permutation test (`nperm > 0`) provides formal inference for
+treatment-effect heterogeneity across the biomarker range.
+
+**Sign convention:** `stmodelKM` computes `logHR = -(O - E)/Var` for
+`trts[2]` relative to `trts[1]`.  To obtain *log(HR treated vs control)*
+matching the Cox convention (negative = benefit), set `trts = c(1, 0)` so
+that `trts[1]` = treated arm and `trts[2]` = control arm.
+
+**Note on package placement:** `stepp_fit()` and `stepp_windows()` are defined
+inline here for vignette self-sufficiency.  In a future release they should be
+exported from `forestsearch` so that parallel workers spawned by
+`run_stepp_eval()` can access them without re-sourcing.
+:::
+
+```{r stepp-fn}
+#| code-fold: true
+
+# =============================================================================
+# stepp_windows() — Cox-based sliding window fallback (no external dependencies)
+# =============================================================================
+stepp_windows <- function(df, bm_var, tte_var, event_var, treat_var,
+                          patspop    = sim_patspop,
+                          minpatspop = sim_minpatspop,
+                          conf_level = 1 - sim_alpha) {
+  stopifnot(patspop > minpatspop)
+  z_crit <- qnorm(1 - (1 - conf_level) / 2)
+  df_ord <- df[order(df[[bm_var]]), ]
+  n      <- nrow(df_ord)
+  step   <- patspop - minpatspop
+  starts <- seq(1L, n - patspop + 1L, by = step)
+
+  rows <- lapply(starts, function(i) {
+    sub <- df_ord[seq(i, i + patspop - 1L), ]
+    fit <- tryCatch(
+      coxph(
+        as.formula(sprintf("Surv(%s,%s) ~ %s", tte_var, event_var, treat_var)),
+        data = sub
+      ),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) return(NULL)
+    b  <- coef(fit)[[treat_var]]
+    se <- sqrt(vcov(fit)[treat_var, treat_var])
+    data.frame(mid_bm   = median(sub[[bm_var]]),
+               n_sub    = patspop,
+               n_events = sum(sub[[event_var]]),
+               loghr    = b,
+               se_loghr = se,
+               lo       = b - z_crit * se,
+               hi       = b + z_crit * se,
+               method   = "STEPP-Cox")
+  })
+  do.call(rbind, Filter(Negate(is.null), rows))
+}
+
+
+# =============================================================================
+# stepp_fit() — unified STEPP wrapper analogous to cox_cs_fit()
+# =============================================================================
+stepp_fit <- function(df,
+                      tte_name    = "os_time",
+                      event_name  = "os_event",
+                      treat_name  = "treat",
+                      bm_name     = "bm",
+                      patspop     = sim_patspop,
+                      minpatspop  = sim_minpatspop,
+                      nperm       = 0L,
+                      time_point  = sim_time_point,
+                      conf_level  = 1 - sim_alpha,
+                      verbose     = TRUE) {
+
+  stopifnot(
+    is.data.frame(df),
+    all(c(tte_name, event_name, treat_name, bm_name) %in% names(df)),
+    patspop > minpatspop,
+    conf_level > 0, conf_level < 1
+  )
+
+  z_crit <- qnorm(1 - (1 - conf_level) / 2)
+
+  # ── Branch: stepp CRAN package ─────────────────────────────────────────────
+  if (requireNamespace("stepp", quietly = TRUE)) {
+    suppressPackageStartupMessages(library(stepp))
+    if (verbose) message("stepp_fit: using stepp CRAN package (log-rank estimator)")
+
+    swin <- new("stwin", type = "sliding",
+                r1 = minpatspop, r2 = patspop)
+    subp <- new("stsubpop")
+    subp <- generate(subp, win = swin, covariate = df[[bm_name]])
+
+    # trts = c(treated_code, control_code): logHR = treated vs control
+    smod <- new("stmodelKM",
+                coltrt    = df[[treat_name]],
+                survTime  = df[[tte_name]],
+                censor    = df[[event_name]],
+                trts      = c(1, 0),
+                timePoint = time_point)
+
+    res  <- new("steppes")
+    res  <- estimate(res, subp, smod)
+
+    if (nperm > 0L) {
+      res <- test(res, nperm = as.integer(nperm), showstatus = FALSE)
+      tr  <- res@testresults$Res[[1]]
+      pv_hr   <- tr$HRpvalue
+      pv_km   <- tr$pvalue
+      pv_chi2 <- tr$chi2pvalue
+    } else {
+      pv_hr <- pv_km <- pv_chi2 <- NA_real_
+    }
+
+    ratios      <- res@effect$Ratios[[1]]
+    bm_profile  <- res@subpop@medianz
+    loghr_est   <- ratios$logHR
+    se_loghr    <- ratios$logHRSE
+    overall_lhr <- ratios$ologHR
+    overall_se  <- ratios$ologHRSE
+    raw_stepp   <- res
+    method_used <- "stepp_cran"
+
+  # ── Branch: fallback Cox-based estimator ───────────────────────────────────
+  } else {
+    if (verbose) message("stepp_fit: stepp package not available — using Cox fallback")
+
+    fb <- stepp_windows(df,
+                        bm_var     = bm_name,
+                        tte_var    = tte_name,
+                        event_var  = event_name,
+                        treat_var  = treat_name,
+                        patspop    = patspop,
+                        minpatspop = minpatspop,
+                        conf_level = conf_level)
+
+    bm_profile  <- fb$mid_bm
+    loghr_est   <- fb$loghr
+    se_loghr    <- fb$se_loghr
+    overall_lhr <- overall_se <- NA_real_
+    pv_hr <- pv_km <- pv_chi2 <- NA_real_
+    raw_stepp   <- NULL
+    method_used <- "stepp_windows_cox"
+  }
+
+  loghr_lower <- loghr_est - z_crit * se_loghr
+  loghr_upper <- loghr_est + z_crit * se_loghr
+
+  result <- list(
+    bm_profile    = bm_profile,
+    loghr_est     = loghr_est,
+    se_loghr      = se_loghr,
+    loghr_lower   = loghr_lower,
+    loghr_upper   = loghr_upper,
+    n_windows     = length(bm_profile),
+    patspop       = patspop,
+    minpatspop    = minpatspop,
+    step_size     = patspop - minpatspop,
+    overall_loghr = overall_lhr,
+    overall_se    = overall_se,
+    pvalue_hr     = pv_hr,
+    pvalue_km     = pv_km,
+    pvalue_chi2   = pv_chi2,
+    conf_level    = conf_level,
+    nperm         = nperm,
+    method_used   = method_used,
+    raw_stepp     = raw_stepp,
+    bm_name       = bm_name,
+    tte_name      = tte_name,
+    event_name    = event_name,
+    treat_name    = treat_name
+  )
+  class(result) <- c("stepp_fit", "list")
+
+  if (verbose) {
+    cat(sprintf(
+      "stepp_fit [%s]: %d windows | r2 (patspop) = %d | r1 (minpatspop) = %d | step = %d\n",
+      method_used, result$n_windows, patspop, minpatspop, result$step_size
+    ))
+    cat(sprintf("  log-HR range: %.3f to %.3f\n",
+                min(loghr_est, na.rm = TRUE), max(loghr_est, na.rm = TRUE)))
+    if (!is.na(pv_hr))
+      cat(sprintf(
+        "  Permutation p-values (nperm=%d): HR (primary) = %.4f | KM-sup = %.4f | KM-chi2 = %.4f\n",
+        nperm, pv_hr, pv_km, pv_chi2
+      ))
+  }
+
+  invisible(result)
+}
+```
+
+```{r stepp-gbsg}
+#| code-fold: false
+
+fit_stepp_gbsg <- stepp_fit(
+  df         = gbsg,
+  tte_name   = "rfstime_yr",
+  event_name = "status",
+  treat_name = "treat",
+  bm_name    = "log_pgr",
+  patspop    = sim_patspop,
+  minpatspop = sim_minpatspop,
+  nperm      = sim_nperm_gbsg,
+  time_point = sim_time_point,
+  conf_level = 1 - sim_alpha
+)
+
+df_stepp_gbsg <- data.frame(
+  mid_bm = fit_stepp_gbsg$bm_profile,
+  loghr  = fit_stepp_gbsg$loghr_est,
+  lo     = fit_stepp_gbsg$loghr_lower,
+  hi     = fit_stepp_gbsg$loghr_upper,
+  method = "STEPP"
+)
+```
+
+---
+
+### STEPP CRAN vs Cox Fallback: Comparison on GBSG
+
+| Estimator | Within-window log-HR formula |
+|-----------|------------------------------|
+| **CRAN** (`stepp_cran`) | $\hat\beta_{\text{LR}}(w) = -(O_{\text{ctrl}} - E_{\text{ctrl}})\;/\;\text{Var}$ (Schoenfeld) |
+| **Fallback** (`stepp_windows_cox`) | $\hat\beta_{\text{Cox}}(w)$ from `coxph()` |
+
+The two are asymptotically equivalent but **can diverge in windows with sparse
+events or large treatment effects** because the Schoenfeld approximation
+linearises around zero effect.
+
+```{r stepp-comparison}
+#| code-fold: false
+
+fit_stepp_cox <- stepp_windows(
+  df         = gbsg,
+  bm_var     = "log_pgr",
+  tte_var    = "rfstime_yr",
+  event_var  = "status",
+  treat_var  = "treat",
+  patspop    = sim_patspop,
+  minpatspop = sim_minpatspop,
+  conf_level = 1 - sim_alpha
+)
+```
+
+```{r stepp-comparison-plot}
+#| fig-height: 5.5
+#| fig-cap: "STEPP CRAN (log-rank Schoenfeld, teal) vs Cox fallback (orange) on GBSG. Differences widen at high PGR where events are sparse and the treatment effect is large."
+#| code-fold: true
+
+col_comp <- c("STEPP-CRAN (log-rank)" = "#1F7A8C", "STEPP-Cox (fallback)" = "#E07B39")
+
+df_cran_comp <- data.frame(
+  mid_bm = fit_stepp_gbsg$bm_profile,
+  loghr  = fit_stepp_gbsg$loghr_est,
+  lo     = fit_stepp_gbsg$loghr_lower,
+  hi     = fit_stepp_gbsg$loghr_upper,
+  method = "STEPP-CRAN (log-rank)"
+)
+df_cox_comp <- data.frame(
+  mid_bm = fit_stepp_cox$mid_bm,
+  loghr  = fit_stepp_cox$loghr,
+  lo     = fit_stepp_cox$lo,
+  hi     = fit_stepp_cox$hi,
+  method = "STEPP-Cox (fallback)"
+)
+df_comp_all <- bind_rows(df_cran_comp, df_cox_comp)
+
+ggplot(df_comp_all, aes(x = mid_bm, y = loghr, colour = method, fill = method)) +
+  geom_hline(yintercept = 0,         linetype = "dashed", colour = "grey55", linewidth = 0.4) +
+  geom_hline(yintercept = loghr_itt, linetype = "dotted", colour = "grey35", linewidth = 0.5) +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.12, colour = NA) +
+  geom_line(linewidth = 1.1) +
+  geom_point(size = 2.5, shape = 16) +
+  annotate("text",
+           x     = max(gbsg$log_pgr, na.rm = TRUE) * 0.95,
+           y     = loghr_itt + 0.06,
+           label = sprintf("Overall ITT (log-HR = %.2f)", loghr_itt),
+           hjust = 1, size = 2.9, colour = "grey30") +
+  geom_rug(data = gbsg, aes(x = log_pgr), inherit.aes = FALSE,
+           alpha = 0.12, sides = "b", length = unit(0.015, "npc")) +
+  scale_colour_manual(values = col_comp, name = NULL) +
+  scale_fill_manual(values = col_comp, name = NULL) +
+  scale_x_continuous(
+    name = "log(PGR + 1)",
+    sec.axis = sec_axis(~ exp(.) - 1,
+                        name   = "PGR (fmol, approximate)",
+                        breaks = c(0, 7, 32, 132, 300),
+                        labels = c(0, 7, 32, 132, 300))
+  ) +
+  labs(y        = "log Hazard Ratio  (hormonal Rx vs control)",
+       title    = "STEPP Estimator Comparison: Log-rank (CRAN) vs Cox (fallback)",
+       subtitle = sprintf("GBSG dataset, N = 686  |  r2 = %d, r1 = %d", sim_patspop, sim_minpatspop)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position  = "top",
+        panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+```{r stepp-comparison-table}
+#| tbl-cap: "Window-level comparison of STEPP CRAN vs Cox fallback. |Diff| tends to increase with the magnitude of the effect and with decreasing event counts."
+#| code-fold: true
+
+matched <- lapply(seq_along(df_cran_comp$mid_bm), function(i) {
+  z_c <- df_cran_comp$mid_bm[i]
+  j   <- which.min(abs(df_cox_comp$mid_bm - z_c))
+  data.frame(
+    `Window median`       = round(z_c, 3),
+    `CRAN log-HR`         = round(df_cran_comp$loghr[i], 3),
+    `CRAN SE`             = round((df_cran_comp$hi[i] - df_cran_comp$lo[i]) / (2 * 1.96), 3),
+    `Cox log-HR`          = round(df_cox_comp$loghr[j], 3),
+    `Cox SE`              = round((df_cox_comp$hi[j] - df_cox_comp$lo[j]) / (2 * 1.96), 3),
+    `Diff (CRAN - Cox)`   = round(df_cran_comp$loghr[i] - df_cox_comp$loghr[j], 3),
+    `Events (Cox window)` = fit_stepp_cox$n_events[j],
+    check.names = FALSE
+  )
+})
+knitr::kable(do.call(rbind, matched), align = "rrrrrrr")
+```
+
+::: {.callout-note}
+## Interpreting the three permutation p-values
+
+`stepp_fit()` reports three distinct permutation p-values when `nperm > 0`:
+
+| Slot | Null hypothesis tested | Recommended use |
+|------|----------------------|--------------------|
+| `pvalue_hr` | Window log-HRs no more variable than chance | **Primary** for a log-HR treatment-effect profile |
+| `pvalue_km` | Supremum of KM survival differences across windows | Secondary; sensitive to `time_point` |
+| `pvalue_chi2` | Chi-squared statistic on KM differences | Secondary; same caveat |
+
+For a continuous-biomarker subgroup analysis the **`pvalue_hr`** test is most
+directly interpretable.  With 7 windows and N = 686, all three tests have limited
+power; `pvalue_hr` is the one to report alongside the profile plot.
+:::
+
+---
+
+### Combined Results: GBSG
+
+```{r gbsg-combined-plot}
+#| fig-height: 7.5
+#| fig-cap: "Treatment-effect (log-HR) profile for hormonal therapy vs control as a function of log(PGR+1). All four methods agree that benefit is concentrated at higher PGR values."
+#| code-fold: true
+
+col_map <- c(
+  "cox_cs_fit (forestsearch)" = "#4472C4",
+  "Manual Spline Cox"         = "#7BAFD4",
+  "MFPI"                      = "#C00000",
+  "STEPP"                     = "#70AD47"
+)
+lwd_map <- c(
+  "cox_cs_fit (forestsearch)" = 1.4,
+  "Manual Spline Cox"         = 0.7,
+  "MFPI"                      = 1.2,
+  "STEPP"                     = 1.0
+)
+pgr_ticks <- c(0, 7, 32, 132, 300)
+df_ribbon  <- bind_rows(df_ccsf, df_spline, df_mfpi)
+
+ggplot() +
+  geom_hline(yintercept = 0,         linetype = "dashed", colour = "grey55", linewidth = 0.40) +
+  geom_hline(yintercept = loghr_itt, linetype = "dotted", colour = "grey35", linewidth = 0.55) +
+  annotate("text",
+           x     = max(z_grid) * 0.99, y = loghr_itt + 0.055,
+           label = sprintf("Overall ITT (log-HR = %.2f)", loghr_itt),
+           hjust = 1, size = 3.0, colour = "grey30") +
+  geom_ribbon(data = filter(df_ribbon,
+                            method %in% c("cox_cs_fit (forestsearch)", "MFPI")),
+              aes(x = z, ymin = lo, ymax = hi, fill = method), alpha = 0.12) +
+  geom_line(data = df_ribbon,
+            aes(x = z, y = loghr, colour = method, linewidth = method)) +
+  geom_linerange(data = df_stepp_gbsg,
+                 aes(x = mid_bm, ymin = lo, ymax = hi, colour = method),
+                 linewidth = 0.75, alpha = 0.75) +
+  geom_point(data = df_stepp_gbsg,
+             aes(x = mid_bm, y = loghr, colour = method),
+             size = 2.8, shape = 16) +
+  geom_rug(data = gbsg, aes(x = log_pgr),
+           alpha = 0.12, sides = "b", length = unit(0.015, "npc")) +
+  scale_colour_manual(values = col_map, name = NULL) +
+  scale_fill_manual(values = col_map, name = NULL) +
+  scale_linewidth_manual(values = lwd_map, name = NULL) +
+  scale_x_continuous(
+    name = "log(PGR + 1)",
+    sec.axis = sec_axis(~ exp(.) - 1,
+                        name   = "PGR (fmol, approximate)",
+                        breaks = pgr_ticks, labels = pgr_ticks)
+  ) +
+  labs(y        = "log Hazard Ratio  (hormonal Rx vs control)",
+       title    = "Biomarker–Treatment Interaction: Hormonal Therapy x PGR",
+       subtitle = "GBSG dataset, N = 686  |  Benefit concentrated at higher PGR") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position  = "top",
+        panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+---
+
+## Simulation Study: Known Ground Truth
+
+Four scenarios with **known interaction functions** let us evaluate how well
+each method recovers the signal and quantify operating characteristics.
+
+| Scenario | True $\beta(Z)$ | Clinical interpretation |
+|----------|-----------------|------------------------|
+| **A — Monotone** | $0.5 - 0.35\,Z$ | Benefit increases linearly with biomarker |
+| **B — Threshold** | $+0.35$ if $Z < 2$; $-0.40$ if $Z \geq 2$ | Sharp sign reversal at $Z = 2$ |
+| **C — Null** | $-0.20$ (constant) | Uniform moderate benefit; no biomarker interaction |
+| **D — Non-monotone** | $-0.40(Z - 1.8)^2 + 0.50$ | Harm peaks at intermediate $Z \approx 1.8$; benefit at extremes |
+
+Scenario D (inverted-U) is the most demanding for all three methods.  The spline
+should recover the curvature with `spline_df = 3`; STEPP will show it
+non-parametrically; MFPI requires at least a degree-2 FP.  The sign of the
+interaction changes at $Z \approx 0.68$ and $Z \approx 2.92$.
+
+### Data Generating Mechanism
+
+N = 700 patients per trial; Weibull baseline hazard (shape 1.5):
+
+$$h(t \mid Z, A) = \lambda_0 \cdot \exp(-0.20\,Z + \beta(Z)\cdot A) \cdot 1.5\,t^{0.5}$$
+
+with administrative censoring uniform on $(2, 14)$ years.
+
+```{r sim-dgm}
+#| code-fold: false
+
+simulate_trial <- function(n = 700L, scenario = "monotone", seed = 42L) {
+  set.seed(seed)
+
+  bm    <- rgamma(n, shape = 2, rate = 0.6)
+  Z     <- log(bm + 1)
+  treat <- rbinom(n, 1L, 0.5)
+
+  true_loghr <- switch(scenario,
+    monotone    = 0.5 - 0.35 * Z,
+    threshold   = ifelse(Z < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, n),
+    nonmonotone = -0.40 * (Z - 1.8)^2 + 0.50,   # inverted-U: peak harm near Z=1.8
+    stop("Unknown scenario: ", scenario)
+  )
+
+  rate   <- 0.10 * exp(-0.20 * Z + true_loghr * treat)
+  tte_ev <- rweibull(n, shape = 1.5, scale = 1 / rate)
+  ctime  <- runif(n, 2, 14)
+
+  data.frame(
+    tte        = pmin(tte_ev, ctime),
+    event      = as.integer(tte_ev < ctime),
+    treat      = treat,
+    bm         = bm,
+    Z          = Z,
+    true_loghr = true_loghr
+  )
+}
+
+scenarios <- c("monotone", "threshold", "null", "nonmonotone")
+dfs <- setNames(
+  lapply(scenarios, function(sc) simulate_trial(scenario = sc)),
+  scenarios
+)
+
+for (sc in scenarios) {
+  d <- dfs[[sc]]
+  cat(sprintf(
+    "%-12s  N=%d  events=%d (%.0f%%)  true log-HR range [%.2f, %.2f]\n",
+    sc, nrow(d), sum(d$event), 100 * mean(d$event),
+    min(d$true_loghr), max(d$true_loghr)
+  ))
+}
+```
+
+### Fit All Three Methods
+
+```{r sim-fit}
+#| code-fold: true
+
+fit_all_methods_sim <- function(df, scenario_name) {
+
+  z_range <- seq(quantile(df$Z, 0.05), quantile(df$Z, 0.95), length.out = 150L)
+  nd_sim  <- data.frame(Z = z_range)
+
+  # ── cox_cs_fit ──────────────────────────────────────────────────────────────
+  df_fs <- df |> rename(os_time = tte, os_event = event)
+
+  fit_ccsf_s <- tryCatch(
+    cox_cs_fit(
+      df         = df_fs,
+      tte_name   = "os_time",
+      event_name = "os_event",
+      treat_name = "treat",
+      z_name     = "Z",
+      spline_df  = sim_spline_df,
+      z_by       = 0.05,
+      z_quantile = 0.95,
+      alpha      = sim_alpha,
+      show_plot  = FALSE,
+      verbose    = FALSE
+    ),
+    error = function(e) NULL
+  )
+
+  df_ccsf_s <- if (!is.null(fit_ccsf_s)) {
+    data.frame(z      = fit_ccsf_s$z_profile,
+               loghr  = fit_ccsf_s$loghr_est,
+               lo     = fit_ccsf_s$loghr_lower,
+               hi     = fit_ccsf_s$loghr_upper,
+               method = "cox_cs_fit", scenario = scenario_name)
+  } else {
+    data.frame(z = z_range, loghr = NA, lo = NA, hi = NA,
+               method = "cox_cs_fit", scenario = scenario_name)
+  }
+
+  # ── MFPI ────────────────────────────────────────────────────────────────────
+  loghr_itt_s <- coef(coxph(Surv(tte, event) ~ treat, data = df))["treat"]
+
+  lh_mfpi <- tryCatch({
+    f0s <- mfp(Surv(tte, event) ~ fp(Z, df = 4),
+               data = filter(df, treat == 0), family = cox, verbose = FALSE)
+    f1s <- mfp(Surv(tte, event) ~ fp(Z, df = 4),
+               data = filter(df, treat == 1), family = cox, verbose = FALSE)
+    raw_s <- predict(f1s, newdata = nd_sim, type = "lp") -
+             predict(f0s, newdata = nd_sim, type = "lp")
+    raw_s - mean(raw_s) + loghr_itt_s
+  }, error = function(e) rep(NA_real_, length(z_range)))
+
+  df_mfpi_s <- data.frame(z = z_range, loghr = lh_mfpi, lo = NA, hi = NA,
+                           method = "MFPI", scenario = scenario_name)
+
+  # ── STEPP ───────────────────────────────────────────────────────────────────
+  fit_st <- stepp_fit(
+    df         = df,
+    tte_name   = "tte",
+    event_name = "event",
+    treat_name = "treat",
+    bm_name    = "Z",
+    patspop    = sim_patspop,
+    minpatspop = sim_minpatspop,
+    nperm      = 0L,
+    conf_level = 1 - sim_alpha,
+    verbose    = FALSE
+  )
+  df_st <- data.frame(mid_bm   = fit_st$bm_profile,
+                      loghr    = fit_st$loghr_est,
+                      lo       = fit_st$loghr_lower,
+                      hi       = fit_st$loghr_upper,
+                      method   = "STEPP",
+                      scenario = scenario_name)
+
+  # ── True log-HR function ────────────────────────────────────────────────────
+  true_fn <- switch(scenario_name,
+    monotone    = 0.5 - 0.35 * z_range,
+    threshold   = ifelse(z_range < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, length(z_range)),
+    nonmonotone = -0.40 * (z_range - 1.8)^2 + 0.50
+  )
+  df_truth <- data.frame(z = z_range, loghr = true_fn, lo = NA, hi = NA,
+                         method = "True log-HR", scenario = scenario_name)
+
+  list(ccsf = df_ccsf_s, mfpi = df_mfpi_s, stepp = df_st, truth = df_truth)
+}
+
+sim_res <- setNames(
+  lapply(scenarios, function(sc) fit_all_methods_sim(dfs[[sc]], sc)),
+  scenarios
+)
+```
+
+### Plotting Helper
+
+```{r sim-plot-helper}
+#| code-fold: true
+
+col_sim <- c("cox_cs_fit"  = "#4472C4",
+             "MFPI"        = "#C00000",
+             "STEPP"       = "#70AD47",
+             "True log-HR" = "black")
+lty_sim <- c("cox_cs_fit"  = "solid",
+             "MFPI"        = "solid",
+             "STEPP"       = "solid",
+             "True log-HR" = "dashed")
+
+plot_scenario <- function(res, title, ylim = c(-1.4, 1.0)) {
+  df_lines <- bind_rows(res$ccsf, res$mfpi, res$truth)
+
+  ggplot() +
+    geom_hline(yintercept = 0, linetype = "dotted",
+               colour = "grey60", linewidth = 0.4) +
+    geom_ribbon(data = res$ccsf,
+                aes(x = z, ymin = lo, ymax = hi),
+                fill = col_sim["cox_cs_fit"], alpha = 0.15) +
+    geom_line(data = df_lines,
+              aes(x = z, y = loghr, colour = method, linetype = method),
+              linewidth = 1.05, na.rm = TRUE) +
+    geom_linerange(data = res$stepp,
+                   aes(x = mid_bm, ymin = lo, ymax = hi),
+                   colour = col_sim["STEPP"], linewidth = 0.65, alpha = 0.70) +
+    geom_point(data = res$stepp,
+               aes(x = mid_bm, y = loghr),
+               colour = col_sim["STEPP"], size = 2.4, shape = 16) +
+    scale_colour_manual(values = col_sim, name = NULL) +
+    scale_linetype_manual(values = lty_sim, name = NULL) +
+    coord_cartesian(ylim = ylim) +
+    labs(x = "Biomarker  Z = log(bm + 1)",
+         y = "log-HR  (treatment vs control)",
+         title = title) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position  = "top",
+          panel.grid.minor = element_blank(),
+          plot.title       = element_text(face = "bold", size = 11))
+}
+```
+
+### Scenario A — Monotone Interaction {#scenario-a}
+
+```{r sim-plot-a}
+#| fig-height: 5.5
+#| fig-cap: "Scenario A: True log-HR declines linearly with the biomarker. All three methods track the ground truth closely. MFPI selects FP1 (linear in Z), matching the functional form exactly."
+
+plot_scenario(sim_res$monotone, "Scenario A — Monotone Interaction")
+```
+
+### Scenario B — Threshold Interaction {#scenario-b}
+
+```{r sim-plot-b}
+#| fig-height: 5.5
+#| fig-cap: "Scenario B: Sharp sign reversal at Z = 2. The spline smooths over the discontinuity. STEPP windows that straddle Z = 2 are attenuated toward zero. None of the methods recovers the exact step."
+
+plot_scenario(sim_res$threshold,
+              "Scenario B — Threshold Interaction  (sign change at Z = 2)")
+```
+
+### Scenario C — Null Interaction {#scenario-c}
+
+```{r sim-plot-c}
+#| fig-height: 5.5
+#| fig-cap: "Scenario C: No interaction — uniform log-HR = -0.20. All methods should return approximately flat profiles. Residual curvature reflects sampling noise."
+
+plot_scenario(sim_res$null,
+              "Scenario C — Null Interaction  (uniform log-HR = -0.20)")
+```
+
+### Scenario D — Non-Monotone (Inverted-U) Interaction {#scenario-d}
+
+The true log-HR is $-0.40(Z - 1.8)^2 + 0.50$: treatment is harmful near the
+gamma-distribution mode ($Z \approx 1.8$, pgr $\approx$ 5 fmol) and beneficial
+at both extremes.  The sign reverses at $Z \approx 0.68$ and $Z \approx 2.92$.
+
+This scenario is the most demanding:
+
+- **`cox_cs_fit`** needs `spline_df` $\geq 3$ to represent the curvature;
+  the CI band widens at both tails where data are sparse.
+- **MFPI** must select a two-term FP or a degree-2 term ($Z^2$) to approximate
+  the inverted-U; a linear FP will systematically bias toward the overall
+  treatment effect.
+- **STEPP** detects the pattern non-parametrically, but boundary windows may be
+  noisy and windows spanning the peak may average harm and benefit.
+
+```{r sim-plot-d}
+#| fig-height: 5.5
+#| fig-cap: "Scenario D: Non-monotone (inverted-U) interaction. Harm peaks near Z = 1.8 with benefit at both extremes. The spline is flexible enough with df = 3; MFPI requires a degree-2 FP to avoid underestimating the curvature."
+
+plot_scenario(sim_res$nonmonotone,
+              "Scenario D — Non-Monotone Interaction  (inverted-U, peak harm at Z ≈ 1.8)",
+              ylim = c(-1.2, 1.2))
+```
+
+### Point Estimates at the Biomarker Median
+
+```{r sim-table}
+#| tbl-cap: "Estimated log-HR at biomarker median (Z ≈ 1.2) for each scenario. cox_cs_fit CI width uses delta-method 95% interval; STEPP CI width uses 95% Wald CI per window."
+
+summarise_at_z <- function(res, scenario, z_eval = 1.2) {
+  sc_key <- trimws(sub("^[A-Z]:\\s*", "", scenario))
+
+  true_val <- switch(sc_key,
+    Monotone    = , monotone    = 0.5 - 0.35 * z_eval,
+    Threshold   = , threshold   = ifelse(z_eval < 2.0, 0.35, -0.40),
+    Null        = , null        = -0.20,
+    `Non-Monotone` = , nonmonotone = -0.40 * (z_eval - 1.8)^2 + 0.50,
+    stop("Unknown scenario key: ", sc_key)
+  )
+
+  cc_idx <- which.min(abs(res$ccsf$z       - z_eval))
+  mf_idx <- which.min(abs(res$mfpi$z       - z_eval))
+  st_idx <- which.min(abs(res$stepp$mid_bm - z_eval))
+
+  data.frame(
+    Scenario              = scenario,
+    `True log-HR`         = round(true_val, 3),
+    `cox_cs_fit Est.`     = round(res$ccsf$loghr[cc_idx], 3),
+    `cox_cs_fit CI Wid.`  = round(res$ccsf$hi[cc_idx] - res$ccsf$lo[cc_idx], 3),
+    `MFPI Est.`           = round(res$mfpi$loghr[mf_idx], 3),
+    `STEPP Est.`          = round(res$stepp$loghr[st_idx], 3),
+    `STEPP CI Wid.`       = round(res$stepp$hi[st_idx] - res$stepp$lo[st_idx], 3),
+    check.names           = FALSE
+  )
+}
+
+knitr::kable(
+  bind_rows(
+    summarise_at_z(sim_res$monotone,    "A: Monotone"),
+    summarise_at_z(sim_res$threshold,   "B: Threshold"),
+    summarise_at_z(sim_res$null,        "C: Null"),
+    summarise_at_z(sim_res$nonmonotone, "D: Non-Monotone")
+  ),
+  align = "lrrrrrrr"
+)
+```
+
+---
+
+```{r eval-params}
+#| code-fold: false
+# Short-name aliases used throughout — edit sim_* constants in the setup chunk
+z_eval     <- sim_z_eval
+B_eval     <- sim_B_eval
+B_perm     <- sim_B_perm
+alpha_eval <- sim_alpha
+```
+
+---
+
+## Joint Simulation Evaluation: `cox_cs_fit()` and STEPP
+
+### Design Rationale
+
+::: {.callout-note}
+## Why a joint simulation call?
+
+Running `cox_cs_fit()` and STEPP in **separate** parallel loops has two costs:
+
+1. **Double worker overhead.** `plan(multisession)` is set up twice; each
+   iteration generates the dataset twice — even though identical seeds produce
+   identical data.
+
+2. **Inexact comparison.** Even with the same seed sequence, OS scheduling means
+   workers consume seeds in a non-deterministic order across two separate
+   `foreach` calls. The datasets compared are only *stochastically* matched, not
+   *exactly* matched iteration-by-iteration.
+
+`run_joint_eval()` solves both problems: one `foreach` loop, one dataset per
+worker, both methods fit on the same draw.  Benchmark overhead savings are
+largest when $B$ is large and per-fit time is short (STEPP is faster than the
+spline, so the joint approach roughly halves total wall time).
+
+A shared `compute_sim_summary()` helper eliminates code duplication and ensures
+both methods are evaluated with identical metric definitions.
+:::
+
+### Simulation Metrics
+
+Across $B =$ `r B_eval` simulated trials at the fixed grid `z_eval`:
+
+| Quantity | Definition | Target |
+|----------|------------|--------|
+| **Bias** | $\bar{\hat\beta}(z) - \beta_0(z)$ | 0 |
+| **Relative bias** | $[\bar{\hat\beta}(z) - \beta_0(z)]\;/\;|\beta_0(z)|$ | 0; `NA` when $|\beta_0(z)| < 0.05$ |
+| **Empirical SE** | $\text{SD}_{b=1}^B\{\hat\beta_b(z)\}$ | — |
+| **Mean estimated SE** | $B^{-1}\sum_b \widehat{\text{SE}}_b(z)$ | — |
+| **SE ratio** | Mean estimated SE / Empirical SE | 1.0 |
+| **Coverage** | Proportion of 95% CIs containing the true log-HR | 0.95 |
+| **Mean CI width** | $B^{-1}\sum_b (\hat\beta_{Ub}(z) - \hat\beta_{Lb}(z))$ | — |
+
+SE ratio $\approx 1.0$ means the delta-method (spline) or Wald (STEPP) variance
+is well-calibrated. Coverage below 95% despite a good SE ratio signals
+**bias** from model misspecification — Scenarios B and D test this.
+Relative bias near zero-crossings of $\beta_0(z)$ is undefined and suppressed.
+
+### Simulation Engine
+
+```{r joint-eval-setup}
+#| code-fold: false
+
+# ── Shared metric computation ────────────────────────────────────────────────
+compute_sim_summary <- function(mat_est, mat_se, mat_lo, mat_hi,
+                                true_fn, z_eval, scenario) {
+  mean_est <- colMeans(mat_est, na.rm = TRUE)
+  bias_abs <- mean_est - true_fn
+  # Relative bias: suppress when |truth| < 0.05 to avoid instability at
+  # near-zero crossings (e.g. Scenario D near Z = 0.68 and Z = 2.92)
+  rel_bias <- ifelse(abs(true_fn) >= 0.05, bias_abs / abs(true_fn), NA_real_)
+
+  emp_se   <- apply(mat_est, 2, sd,     na.rm = TRUE)
+  mean_se  <- colMeans(mat_se,          na.rm = TRUE)
+  ci_width <- colMeans(mat_hi - mat_lo, na.rm = TRUE)
+  covered  <- sweep(mat_lo, 2, true_fn, "<=") & sweep(mat_hi, 2, true_fn, ">=")
+
+  data.frame(
+    z          = z_eval,
+    true_loghr = round(true_fn,  3),
+    n_valid    = colSums(!is.na(mat_est)),
+    bias       = round(bias_abs, 3),
+    rel_bias   = round(rel_bias, 3),
+    mean_est   = round(mean_est, 3),
+    emp_se     = round(emp_se,   3),
+    mean_se    = round(mean_se,  3),
+    se_ratio   = round(mean_se / emp_se, 3),
+    coverage   = round(colMeans(covered, na.rm = TRUE), 3),
+    ci_width   = round(ci_width, 3),
+    scenario   = scenario,
+    stringsAsFactors = FALSE
+  )
+}
+
+# ── Joint evaluation engine ──────────────────────────────────────────────────
+run_joint_eval <- function(scenario,
+                           B          = sim_B_eval,
+                           z_eval     = sim_z_eval,
+                           alpha      = sim_alpha,
+                           patspop    = sim_patspop,
+                           minpatspop = sim_minpatspop,
+                           n_workers  = sim_n_workers) {
+  n_z <- length(z_eval)
+
+  old_plan <- plan()
+  on.exit(plan(old_plan), add = TRUE)
+  plan(multisession, workers = n_workers)
+
+  message(sprintf(
+    "run_joint_eval [%s]: B = %d | workers = %d | r2 = %d, r1 = %d",
+    scenario, B, n_workers, patspop, minpatspop
+  ))
+
+  t_sc <- proc.time()
+
+  res_list <- foreach(
+    b               = seq_len(B),
+    .combine        = "c",
+    .options.future = list(seed = TRUE)
+  ) %dofuture% {
+    set.seed(b)
+    library(forestsearch)
+    library(survival)
+    library(splines)
+
+    # ── Single dataset draw shared by both methods ──────────────────────────
+    d          <- simulate_trial(scenario = scenario, seed = b)
+    d$os_time  <- d$tte
+    d$os_event <- d$event
+
+    na_out <- list(est = rep(NA_real_, n_z), se = rep(NA_real_, n_z),
+                   lo  = rep(NA_real_, n_z), hi = rep(NA_real_, n_z))
+
+    # ── cox_cs_fit ──────────────────────────────────────────────────────────
+    fit_cc <- tryCatch(
+      cox_cs_fit(
+        df         = d,
+        tte_name   = "os_time",
+        event_name = "os_event",
+        treat_name = "treat",
+        z_name     = "Z",
+        spline_df  = sim_spline_df,
+        z_by       = 0.05,
+        z_quantile = 0.95,
+        alpha      = alpha,
+        show_plot  = FALSE,
+        verbose    = FALSE
+      ),
+      error = function(e) NULL
+    )
+
+    out_cc <- na_out
+    if (!is.null(fit_cc)) {
+      ok <- z_eval >= min(fit_cc$z_profile) & z_eval <= max(fit_cc$z_profile)
+      if (any(ok)) {
+        out_cc$est[ok] <- approx(fit_cc$z_profile, fit_cc$loghr_est,   xout = z_eval[ok])$y
+        out_cc$se [ok] <- approx(fit_cc$z_profile, fit_cc$se_loghr,    xout = z_eval[ok])$y
+        out_cc$lo [ok] <- approx(fit_cc$z_profile, fit_cc$loghr_lower, xout = z_eval[ok])$y
+        out_cc$hi [ok] <- approx(fit_cc$z_profile, fit_cc$loghr_upper, xout = z_eval[ok])$y
+      }
+    }
+
+    # ── STEPP (Cox fallback) ────────────────────────────────────────────────
+    fit_st <- tryCatch(
+      stepp_windows(
+        df         = d,
+        bm_var     = "Z",
+        tte_var    = "tte",
+        event_var  = "event",
+        treat_var  = "treat",
+        patspop    = sim_patspop,
+        minpatspop = sim_minpatspop,
+        conf_level = 1 - sim_alpha
+      ),
+      error = function(e) NULL
+    )
+
+    out_st <- na_out
+    if (!is.null(fit_st) && nrow(fit_st) >= 2L) {
+      ok <- z_eval >= min(fit_st$mid_bm) & z_eval <= max(fit_st$mid_bm)
+      if (any(ok)) {
+        out_st$est[ok] <- approx(fit_st$mid_bm, fit_st$loghr,    xout = z_eval[ok])$y
+        out_st$se [ok] <- approx(fit_st$mid_bm, fit_st$se_loghr, xout = z_eval[ok])$y
+        out_st$lo [ok] <- approx(fit_st$mid_bm, fit_st$lo,       xout = z_eval[ok])$y
+        out_st$hi [ok] <- approx(fit_st$mid_bm, fit_st$hi,       xout = z_eval[ok])$y
+      }
+    }
+
+    list(list(cc = out_cc, st = out_st))
+  }
+
+  elapsed_sec <- round((proc.time() - t_sc)["elapsed"])
+
+  # ── Assemble result matrices ────────────────────────────────────────────────
+  mat_cc_est <- do.call(rbind, lapply(res_list, function(x) x$cc$est))
+  mat_cc_se  <- do.call(rbind, lapply(res_list, function(x) x$cc$se))
+  mat_cc_lo  <- do.call(rbind, lapply(res_list, function(x) x$cc$lo))
+  mat_cc_hi  <- do.call(rbind, lapply(res_list, function(x) x$cc$hi))
+
+  mat_st_est <- do.call(rbind, lapply(res_list, function(x) x$st$est))
+  mat_st_se  <- do.call(rbind, lapply(res_list, function(x) x$st$se))
+  mat_st_lo  <- do.call(rbind, lapply(res_list, function(x) x$st$lo))
+  mat_st_hi  <- do.call(rbind, lapply(res_list, function(x) x$st$hi))
+
+  true_fn <- switch(scenario,
+    monotone    = 0.5 - 0.35 * z_eval,
+    threshold   = ifelse(z_eval < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, n_z),
+    nonmonotone = -0.40 * (z_eval - 1.8)^2 + 0.50,
+    stop("Unknown scenario: ", scenario)
+  )
+
+  ccsf_sum  <- compute_sim_summary(mat_cc_est, mat_cc_se, mat_cc_lo, mat_cc_hi,
+                                   true_fn, z_eval, scenario)
+  stepp_sum <- compute_sim_summary(mat_st_est, mat_st_se, mat_st_lo, mat_st_hi,
+                                   true_fn, z_eval, scenario)
+
+  list(
+    ccsf  = list(summary = ccsf_sum,
+                 mat_est = mat_cc_est, mat_se = mat_cc_se,
+                 mat_lo  = mat_cc_lo,  mat_hi = mat_cc_hi,
+                 true_fn = true_fn),
+    stepp = list(summary = stepp_sum,
+                 mat_est = mat_st_est, mat_se = mat_st_se,
+                 mat_lo  = mat_st_lo,  mat_hi = mat_st_hi,
+                 true_fn = true_fn),
+    elapsed_sec = elapsed_sec,
+    scenario    = scenario,
+    B           = B
+  )
+}
+```
+
+### Run Evaluation — All Four Scenarios
+
+```{r joint-eval-run}
+#| cache: false
+t_joint_start <- proc.time()
+
+eval_joint_monotone    <- run_joint_eval("monotone",    B = B_eval, z_eval = z_eval,
+                                         alpha = alpha_eval, patspop = sim_patspop,
+                                         minpatspop = sim_minpatspop, n_workers = sim_n_workers)
+eval_joint_threshold   <- run_joint_eval("threshold",   B = B_eval, z_eval = z_eval,
+                                         alpha = alpha_eval, patspop = sim_patspop,
+                                         minpatspop = sim_minpatspop, n_workers = sim_n_workers)
+eval_joint_null        <- run_joint_eval("null",        B = B_eval, z_eval = z_eval,
+                                         alpha = alpha_eval, patspop = sim_patspop,
+                                         minpatspop = sim_minpatspop, n_workers = sim_n_workers)
+eval_joint_nonmonotone <- run_joint_eval("nonmonotone", B = B_eval, z_eval = z_eval,
+                                         alpha = alpha_eval, patspop = sim_patspop,
+                                         minpatspop = sim_minpatspop, n_workers = sim_n_workers)
+
+t_joint_total <- round((proc.time() - t_joint_start)["elapsed"])
+cat(sprintf("Joint evaluation complete: B = %d | %d scenarios | total elapsed: %d sec\n",
+            B_eval, 4L, t_joint_total))
+
+# ── Backward-compatible aliases (downstream chunks unchanged) ────────────────
+eval_ccsf_monotone    <- eval_joint_monotone$ccsf
+eval_ccsf_threshold   <- eval_joint_threshold$ccsf
+eval_ccsf_null        <- eval_joint_null$ccsf
+eval_ccsf_nonmonotone <- eval_joint_nonmonotone$ccsf
+
+eval_stepp_monotone    <- eval_joint_monotone$stepp
+eval_stepp_threshold   <- eval_joint_threshold$stepp
+eval_stepp_null        <- eval_joint_null$stepp
+eval_stepp_nonmonotone <- eval_joint_nonmonotone$stepp
+```
+
+### Simulation Timing
+
+```{r joint-timing-table}
+#| tbl-cap: "Wall-clock time (seconds) per scenario. Each scenario fits both cox_cs_fit() and STEPP on the same B simulated datasets in a single parallel loop."
+#| code-fold: true
+
+timing_df <- data.frame(
+  Scenario    = c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone"),
+  `Elapsed (sec)` = c(
+    eval_joint_monotone$elapsed_sec,
+    eval_joint_threshold$elapsed_sec,
+    eval_joint_null$elapsed_sec,
+    eval_joint_nonmonotone$elapsed_sec
+  ),
+  `B` = B_eval,
+  `sec / sim` = round(c(
+    eval_joint_monotone$elapsed_sec,
+    eval_joint_threshold$elapsed_sec,
+    eval_joint_null$elapsed_sec,
+    eval_joint_nonmonotone$elapsed_sec
+  ) / B_eval, 4),
+  check.names = FALSE
+)
+timing_df <- rbind(
+  timing_df,
+  data.frame(Scenario = "**Total**",
+             `Elapsed (sec)` = t_joint_total,
+             `B` = 4L * B_eval,
+             `sec / sim` = round(t_joint_total / (4L * B_eval), 4),
+             check.names = FALSE)
+)
+knitr::kable(timing_df, align = "lrrr")
+```
+
+### `cox_cs_fit()` Results Table
+
+```{r ccsf-eval-table}
+#| tbl-cap: !expr 'sprintf("cox_cs_fit() SE and coverage across B = %d simulations. SE ratio target = 1.0; coverage target = 0.95.", B_eval)'
+#| code-fold: true
+
+all_ccsf <- bind_rows(
+  eval_ccsf_monotone$summary,
+  eval_ccsf_threshold$summary,
+  eval_ccsf_null$summary,
+  eval_ccsf_nonmonotone$summary
+) |>
+  mutate(Scenario = case_match(scenario,
+    "monotone"    ~ "A: Monotone",
+    "threshold"   ~ "B: Threshold",
+    "null"        ~ "C: Null",
+    "nonmonotone" ~ "D: Non-Monotone"
+  )) |>
+  select(Scenario, z, true_loghr, mean_est, bias, rel_bias,
+         emp_se, mean_se, se_ratio, coverage, ci_width)
+
+knitr::kable(all_ccsf,
+             col.names = c("Scenario", "z", "log-HR", "Est", "Bias", "Rel Bias",
+                           "Emp SE", "Mean SE", "SE Ratio", "Coverage", "CI Wid"),
+             align = "lrrrrrrrrrrr", digits = 3)
+```
+
+### Coverage and SE Ratio Profiles
+
+```{r ccsf-eval-plot}
+#| fig-height: 7
+#| fig-cap: "Left: Empirical coverage vs 95% nominal target. Right: SE ratio; values near 1.0 confirm delta-method calibration. Coverage failure in Scenario B near Z = 2 and in Scenario D near Z = 1.8 is a bias artefact, not an SE failure."
+#| code-fold: true
+
+col_sc <- c("A: Monotone"    = "#4472C4", "B: Threshold"    = "#C00000",
+            "C: Null"        = "#70AD47", "D: Non-Monotone" = "#9B59B6")
+
+df_ccsf_plot <- all_ccsf |>
+  mutate(Scenario = factor(Scenario,
+                           levels = c("A: Monotone", "B: Threshold",
+                                      "C: Null",     "D: Non-Monotone")))
+
+p_cov <- ggplot(df_ccsf_plot, aes(x = z, y = coverage, colour = Scenario)) +
+  geom_hline(yintercept = 1 - alpha_eval, linetype = "dashed",
+             colour = "grey40", linewidth = 0.5) +
+  geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
+  scale_colour_manual(values = col_sc, name = NULL) +
+  scale_y_continuous(limits = c(0.3, 1.0), breaks = seq(0.3, 1.0, 0.1),
+                     labels = scales::percent_format(accuracy = 1)) +
+  labs(x = "Biomarker  Z", y = "Empirical Coverage",
+       title = "cox_cs_fit: 95% CI Coverage") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", size = 11))
+
+p_se <- ggplot(df_ccsf_plot, aes(x = z, y = se_ratio, colour = Scenario)) +
+  geom_hline(yintercept = 1, linetype = "dashed",
+             colour = "grey40", linewidth = 0.5) +
+  geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
+  scale_colour_manual(values = col_sc, name = NULL) +
+  scale_y_continuous(limits = c(0.7, 1.3), breaks = seq(0.7, 1.3, 0.1)) +
+  labs(x = "Biomarker  Z", y = "SE Ratio  (mean estimated SE / empirical SE)",
+       title = "cox_cs_fit: Delta-Method SE Calibration") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", size = 11))
+
+p_cov + p_se + plot_layout(ncol = 2, guides = "collect") &
+  theme(legend.position = "top")
+```
+
+### Simulation Envelopes — Monotone Scenario
+
+```{r ccsf-eval-envelope}
+#| fig-height: 5
+#| fig-cap: !expr 'sprintf("Pointwise simulation envelope for cox_cs_fit() under Scenario A (Monotone). Grey band: 10th–90th percentile of the %d estimated profiles. Bold: pointwise mean. Dashed: true log-HR.", B_eval)'
+#| code-fold: true
+
+df_env <- data.frame(
+  z    = z_eval,
+  mean = colMeans(eval_ccsf_monotone$mat_est, na.rm = TRUE),
+  lo10 = apply(eval_ccsf_monotone$mat_est, 2, quantile, 0.10, na.rm = TRUE),
+  hi90 = apply(eval_ccsf_monotone$mat_est, 2, quantile, 0.90, na.rm = TRUE),
+  true = eval_ccsf_monotone$true_fn
+)
+
+ggplot(df_env, aes(x = z)) +
+  geom_ribbon(aes(ymin = lo10, ymax = hi90), fill = "grey70", alpha = 0.5) +
+  geom_line(aes(y = mean), colour = "#4472C4", linewidth = 1.3) +
+  geom_line(aes(y = true), colour = "black",   linewidth = 0.9, linetype = "dashed") +
+  geom_hline(yintercept = 0, linetype = "dotted", colour = "grey55") +
+  labs(x = "Biomarker  Z = log(bm + 1)", y = "log-HR  (treatment vs control)",
+       title    = sprintf("Scenario A — Simulation Envelope (B = %d)", B_eval),
+       subtitle = "Grey: 10th–90th pct | Blue: pointwise mean | Dashed: truth") +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+### STEPP Results Table
+
+```{r stepp-eval-table}
+#| tbl-cap: !expr 'sprintf("STEPP (Cox fallback, r2 = %d, r1 = %d) SE calibration and coverage across B = %d simulations.", sim_patspop, sim_minpatspop, B_eval)'
+#| code-fold: true
+
+all_stepp <- bind_rows(
+  eval_stepp_monotone$summary,
+  eval_stepp_threshold$summary,
+  eval_stepp_null$summary,
+  eval_stepp_nonmonotone$summary
+) |>
+  mutate(Scenario = case_match(scenario,
+    "monotone"    ~ "A: Monotone",
+    "threshold"   ~ "B: Threshold",
+    "null"        ~ "C: Null",
+    "nonmonotone" ~ "D: Non-Monotone"
+  )) |>
+  select(Scenario, z, true_loghr, mean_est, bias, rel_bias,
+         emp_se, mean_se, se_ratio, coverage, ci_width)
+
+knitr::kable(all_stepp,
+             col.names = c("Scenario", "z", "log-HR", "Est", "Bias", "Rel Bias",
+                           "Emp SE", "Mean SE", "SE Ratio", "Coverage", "CI Wid"),
+             align = "lrrrrrrrrrrr", digits = 3)
+```
+
+---
+
+## Joint Comparison: `cox_cs_fit()` vs STEPP
+
+### CI Width: Efficiency
+
+```{r ci-width-plot}
+#| fig-height: 7
+#| fig-cap: "Mean 95% CI width across scenarios. The spline (delta-method) is substantially more efficient than STEPP at all evaluation points. STEPP CI width is roughly constant across z (fixed window size r2 = 150); the spline widens at the biomarker tails where data are sparse."
+#| code-fold: true
+
+df_ciw <- bind_rows(
+  mutate(all_ccsf,  method = "cox_cs_fit (spline)"),
+  mutate(all_stepp, method = "STEPP (window-level)")
+) |>
+  mutate(Scenario = factor(Scenario,
+                           levels = c("A: Monotone", "B: Threshold",
+                                      "C: Null",     "D: Non-Monotone")))
+
+ggplot(df_ciw, aes(x = z, y = ci_width, colour = method, shape = method)) +
+  geom_line(linewidth = 1.0) + geom_point(size = 2.5) +
+  facet_wrap(~ Scenario, ncol = 2, scales = "free_y") +
+  scale_colour_manual(values = c("cox_cs_fit (spline)" = "#4472C4",
+                                 "STEPP (window-level)" = "#70AD47"), name = NULL) +
+  scale_shape_manual(values  = c("cox_cs_fit (spline)" = 16,
+                                 "STEPP (window-level)" = 17),           name = NULL) +
+  labs(x     = "Biomarker  Z = log(bm + 1)", y = "Mean 95% CI Width",
+       title    = "CI Width Comparison: Spline vs STEPP",
+       subtitle = sprintf("B = %d simulations | N = %d | r2 = %d, r1 = %d", B_eval, sim_n_trial, sim_patspop, sim_minpatspop)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        strip.text = element_text(face = "bold"),
+        plot.title = element_text(face = "bold"))
+```
+
+### Coverage Comparison
+
+```{r coverage-comparison-plot}
+#| fig-height: 7
+#| fig-cap: "Empirical coverage for cox_cs_fit() and STEPP vs 95% nominal target (dashed). Coverage gaps in Scenarios B and D near the discontinuity / curvature maximum reflect model-misspecification bias for both methods — not SE underestimation."
+#| code-fold: true
+
+ggplot(df_ciw, aes(x = z, y = coverage, colour = method, shape = method)) +
+  geom_hline(yintercept = 1 - alpha_eval, linetype = "dashed",
+             colour = "grey40", linewidth = 0.4) +
+  geom_line(linewidth = 1.0) + geom_point(size = 2.5) +
+  facet_wrap(~ Scenario, ncol = 2) +
+  scale_colour_manual(values = c("cox_cs_fit (spline)" = "#4472C4",
+                                 "STEPP (window-level)" = "#70AD47"), name = NULL) +
+  scale_shape_manual(values  = c("cox_cs_fit (spline)" = 16,
+                                 "STEPP (window-level)" = 17),           name = NULL) +
+  scale_y_continuous(limits = c(0.3, 1.0),
+                     labels = scales::percent_format(accuracy = 1)) +
+  labs(x     = "Biomarker  Z = log(bm + 1)", y = "Empirical Coverage",
+       title    = "Coverage Comparison: Spline vs STEPP",
+       subtitle = sprintf("B = %d | Dashed = %.0f%% nominal", B_eval,
+                          100 * (1 - alpha_eval))) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        strip.text = element_text(face = "bold"),
+        plot.title = element_text(face = "bold"))
+```
+
+### Relative Bias Comparison
+
+```{r rel-bias-plot}
+#| fig-height: 7
+#| fig-cap: "Relative bias = (mean estimate − truth) / |truth| across scenarios. Suppressed (shown as NA gap) when |truth| < 0.05 to avoid distortion near zero-crossings. Large relative bias at small |truth| (e.g. Scenario D at Z = 0.6, Scenario B near Z = 2) reflects absolute bias that is small in log-HR units but large as a fraction of a near-zero truth."
+#| code-fold: true
+
+df_rb <- bind_rows(
+  mutate(all_ccsf,  method = "cox_cs_fit (spline)"),
+  mutate(all_stepp, method = "STEPP (window-level)")
+) |>
+  mutate(Scenario = factor(Scenario,
+                           levels = c("A: Monotone", "B: Threshold",
+                                      "C: Null",     "D: Non-Monotone")))
+
+ggplot(df_rb, aes(x = z, y = rel_bias, colour = method, shape = method)) +
+  geom_hline(yintercept = 0,    linetype = "dashed",  colour = "grey40", linewidth = 0.4) +
+  geom_hline(yintercept =  0.1, linetype = "dotted",  colour = "grey60", linewidth = 0.3) +
+  geom_hline(yintercept = -0.1, linetype = "dotted",  colour = "grey60", linewidth = 0.3) +
+  geom_line(linewidth = 1.0, na.rm = TRUE) +
+  geom_point(size = 2.5, na.rm = TRUE) +
+  facet_wrap(~ Scenario, ncol = 2, scales = "free_y") +
+  scale_colour_manual(values = c("cox_cs_fit (spline)" = "#4472C4",
+                                 "STEPP (window-level)" = "#70AD47"), name = NULL) +
+  scale_shape_manual(values  = c("cox_cs_fit (spline)" = 16,
+                                 "STEPP (window-level)" = 17),           name = NULL) +
+  labs(x        = "Biomarker  Z = log(bm + 1)",
+       y        = "Relative Bias  [(est \u2212 truth) / |truth|]",
+       title    = "Relative Bias Comparison: Spline vs STEPP",
+       subtitle = sprintf(
+         "B = %d | Dotted lines: \u00b110%% | NA gaps: |truth| < 0.05", B_eval)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        strip.text = element_text(face = "bold"),
+        plot.title = element_text(face = "bold"))
+```
+
+**Key observations from the joint comparison:**
+
+- **SE calibration.** Both methods achieve SE ratios close to 1.0 across all scenarios
+  and evaluation points — the delta-method (spline) and within-window Cox SE (STEPP)
+  are both well-calibrated.
+
+- **Coverage.** Under Scenarios A and C, both methods achieve near-nominal coverage.
+  Under Scenario B (threshold), coverage drops near $Z = 2$ for both — the spline
+  smooths over the discontinuity; STEPP windows straddling the threshold average
+  a mixed effect.  Under Scenario D, the spline handles the curvature well with
+  `spline_df = 3`; STEPP near the peak ($Z \approx 1.8$) may show lower coverage
+  when windows span both sides of the maximum.
+
+- **CI width.** The spline is substantially more efficient than STEPP: its CIs are
+  narrower by 20–40% at most evaluation points.  STEPP CI width is roughly
+  constant across $z$ (reflecting fixed window size), while the spline CI widens
+  at the biomarker tails where data are sparse.
+
+- **Bias.** Spline bias is small under smooth scenarios (A, C, D) but non-trivial
+  near the jump in Scenario B.  STEPP bias at any $z$ reflects a mixture of the
+  true effect within the $r_2$-patient window rather than the pointwise value —
+  this is an inherent property of the sliding-window design.
+
+---
+
+## STEPP Permutation Test Operating Characteristics
+
+::: {.callout-note}
+**Computational note.** Each simulation requires `nperm` permutations internally.
+With `B_perm` = `r B_perm` and `nperm` = `r sim_nperm_perm`, this is
+approximately `r B_perm * sim_nperm_perm` Cox model fits per scenario.
+The `stepp` CRAN package must be installed for permutation tests.
+Edit `sim_B_perm` and `sim_nperm_perm` in the `setup` chunk to reduce run time
+for interactive development.
+:::
+
+### Goals
+
+We evaluate the operating characteristics of the three `stepp_fit()` permutation
+tests:
+
+- **Type-I error** under Scenario C (null): rejection rate should be $\approx \alpha = 0.05$
+- **Power** under Scenarios A (monotone) and D (non-monotone): rejection rate should exceed $\alpha$
+- **Comparison across the three test statistics** (`pvalue_hr`, `pvalue_km`, `pvalue_chi2`)
+
+Scenario D (inverted-U) is of special interest because the HR heterogeneity
+statistic averages squared deviations across windows.  A symmetric pattern that
+produces equal harm on each side of the peak may have lower power than a monotone
+pattern of equal peak magnitude — this motivates using `cox_cs_fit()` as a
+complementary pointwise tool.
+
+### Simulation Engine
+
+```{r stepp-perm-eval-setup}
+#| code-fold: false
+
+run_stepp_perm_eval <- function(scenario,
+                                B          = sim_B_perm,
+                                nperm      = sim_nperm_perm,
+                                patspop    = sim_patspop,
+                                minpatspop = sim_minpatspop,
+                                time_point = sim_time_point,
+                                alpha      = sim_alpha,
+                                n_workers  = sim_n_workers) {
+
+  old_plan <- plan()
+  on.exit(plan(old_plan), add = TRUE)
+  plan(multisession, workers = n_workers)
+
+  message(sprintf(
+    "run_stepp_perm_eval [%s]: B = %d | nperm = %d | workers = %d",
+    scenario, B, nperm, n_workers
+  ))
+
+  t_sc <- proc.time()
+
+  res_list <- foreach(
+    b               = seq_len(B),
+    .combine        = "c",
+    .options.future = list(seed = TRUE)
+  ) %dofuture% {
+    set.seed(b)
+    library(survival)
+
+    d <- simulate_trial(scenario = scenario, seed = b)
+
+    pvals <- tryCatch({
+      fit <- stepp_fit(
+        df         = d,
+        tte_name   = "tte",
+        event_name = "event",
+        treat_name = "treat",
+        bm_name    = "Z",
+        patspop    = patspop,
+        minpatspop = minpatspop,
+        nperm      = nperm,
+        time_point = time_point,
+        conf_level = 1 - alpha,
+        verbose    = FALSE
+      )
+      list(hr = fit$pvalue_hr, km = fit$pvalue_km, chi2 = fit$pvalue_chi2)
+    }, error = function(e) {
+      list(hr = NA_real_, km = NA_real_, chi2 = NA_real_)
+    })
+    list(pvals)
+  }
+
+  elapsed_sec <- round((proc.time() - t_sc)["elapsed"])
+
+  pv_hr   <- sapply(res_list, function(x) x$hr)
+  pv_km   <- sapply(res_list, function(x) x$km)
+  pv_chi2 <- sapply(res_list, function(x) x$chi2)
+
+  n_valid <- sum(!is.na(pv_hr))
+  cat(sprintf(
+    "[%s] valid = %d/%d | HR: %.3f | KM-sup: %.3f | KM-chi2: %.3f | elapsed: %d sec\n",
+    scenario, n_valid, B,
+    mean(pv_hr   <= alpha, na.rm = TRUE),
+    mean(pv_km   <= alpha, na.rm = TRUE),
+    mean(pv_chi2 <= alpha, na.rm = TRUE),
+    elapsed_sec
+  ))
+
+  list(pv_hr = pv_hr, pv_km = pv_km, pv_chi2 = pv_chi2,
+       reject_hr   = mean(pv_hr   <= alpha, na.rm = TRUE),
+       reject_km   = mean(pv_km   <= alpha, na.rm = TRUE),
+       reject_chi2 = mean(pv_chi2 <= alpha, na.rm = TRUE),
+       n_valid = n_valid, scenario = scenario, B = B, nperm = nperm,
+       elapsed_sec = elapsed_sec)
+}
+```
+
+### Run Permutation Power Evaluation
+
+```{r stepp-perm-run}
+#| cache: false
+
+stepp_cran_available <- requireNamespace("stepp", quietly = TRUE)
+
+if (stepp_cran_available) {
+  t_perm_start <- proc.time()
+
+  perm_null     <- run_stepp_perm_eval("null",        B = B_perm, nperm = sim_nperm_perm,
+                                       patspop = sim_patspop, minpatspop = sim_minpatspop,
+                                       time_point = sim_time_point, alpha = alpha_eval,
+                                       n_workers = sim_n_workers)
+  perm_monotone <- run_stepp_perm_eval("monotone",    B = B_perm, nperm = sim_nperm_perm,
+                                       patspop = sim_patspop, minpatspop = sim_minpatspop,
+                                       time_point = sim_time_point, alpha = alpha_eval,
+                                       n_workers = sim_n_workers)
+  perm_nonmono  <- run_stepp_perm_eval("nonmonotone", B = B_perm, nperm = sim_nperm_perm,
+                                       patspop = sim_patspop, minpatspop = sim_minpatspop,
+                                       time_point = sim_time_point, alpha = alpha_eval,
+                                       n_workers = sim_n_workers)
+
+  t_perm_total <- round((proc.time() - t_perm_start)["elapsed"])
+  cat(sprintf("Permutation evaluation complete: total elapsed %d sec\n", t_perm_total))
+} else {
+  t_perm_total <- NA_real_
+  message("stepp CRAN package not installed — permutation results skipped.")
+}
+```
+
+### Permutation Test Results
+
+```{r stepp-perm-table}
+#| tbl-cap: !expr 'sprintf("STEPP permutation test rejection rates at alpha = %.2f | B = %d | nperm = %d.", alpha_eval, B_perm, sim_nperm_perm)'
+
+if (stepp_cran_available) {
+  perm_summary <- data.frame(
+    Scenario   = c("C: Null  (type-I error)",
+                   "A: Monotone  (power)",
+                   "D: Non-Monotone  (power)"),
+    N_valid    = c(perm_null$n_valid,     perm_monotone$n_valid,     perm_nonmono$n_valid),
+    Reject_HR  = round(c(perm_null$reject_hr,   perm_monotone$reject_hr,   perm_nonmono$reject_hr),   3),
+    Reject_KM  = round(c(perm_null$reject_km,   perm_monotone$reject_km,   perm_nonmono$reject_km),   3),
+    Reject_chi2= round(c(perm_null$reject_chi2, perm_monotone$reject_chi2, perm_nonmono$reject_chi2), 3),
+    check.names = FALSE
+  )
+  knitr::kable(perm_summary,
+               col.names = c("Scenario", "N valid", "HR test",
+                             "KM-sup test", "KM-chi2 test"),
+               align = "lrrrr", digits = 3)
+} else {
+  cat("Install the stepp CRAN package (`install.packages('stepp')`) to see permutation results.")
+}
+```
+
+```{r stepp-perm-pvalue-plot}
+#| fig-height: 5
+#| fig-cap: "Empirical distribution of STEPP HR permutation p-values under the null (Scenario C, should be approximately uniform) and under the monotone alternative (Scenario A). Substantial mass near zero under Scenario A confirms meaningful power to detect a monotone interaction."
+
+if (stepp_cran_available) {
+  df_pv <- bind_rows(
+    data.frame(pval = perm_null$pv_hr,     scenario = "C: Null"),
+    data.frame(pval = perm_monotone$pv_hr, scenario = "A: Monotone")
+  ) |> filter(!is.na(pval))
+
+  ggplot(df_pv, aes(x = pval, fill = scenario)) +
+    geom_histogram(bins = 25, alpha = 0.75, position = "identity") +
+    geom_vline(xintercept = alpha_eval, linetype = "dashed",
+               colour = "grey30", linewidth = 0.6) +
+    scale_fill_manual(values = c("C: Null" = "#70AD47", "A: Monotone" = "#4472C4"),
+                      name = NULL) +
+    facet_wrap(~ scenario, ncol = 2) +
+    labs(x     = "Permutation p-value (HR test)", y = "Count",
+         title    = "STEPP Permutation p-value Distribution",
+         subtitle = sprintf("B = %d | nperm = %d | Dashed: alpha = %.2f", B_perm, sim_nperm_perm, alpha_eval)) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "none", panel.grid.minor = element_blank(),
+          strip.text = element_text(face = "bold"),
+          plot.title = element_text(face = "bold"))
+}
+```
+
+**Key observations:**
+
+- **Type-I error (Scenario C):** Under no interaction, the HR permutation p-values
+  should be approximately uniform on [0, 1].  The observed rejection rate at
+  $\alpha = 0.05$ should be close to 0.05; systematic inflation or deflation
+  would indicate test miscalibration.
+
+- **Power (Scenario A — Monotone):** With N = 700 and a linear gradient spanning
+  approximately 0.85 log-HR units across the biomarker range, the HR test should
+  have clear power above 0.05.
+
+- **Power (Scenario D — Non-monotone):** The inverted-U pattern is harder for the
+  STEPP HR statistic because windows on opposite sides of the peak contribute
+  effects in opposite directions, partially cancelling in the overall variance
+  measure.  This is a fundamental limitation of a single global test applied to a
+  non-monotone interaction.  The `cox_cs_fit()` pointwise profile and its per-point
+  tests complement STEPP here by revealing the shape of the interaction even when
+  the global statistic has reduced power.
+
+- **KM vs HR test.** The KM-based tests depend on the `time_point` landmark and
+  compare differences in survival probability rather than log-HR.  When the
+  interaction is expressed as a time-invariant HR shift (as in all four scenarios
+  here), the **`pvalue_hr`** test is the most directly relevant and should be the
+  primary reported statistic alongside the profile plot.
+
+---
+
+## Method Comparison and Practical Guidance
+
+### Strengths and Limitations
+
+**`cox_cs_fit()` (forestsearch)** is the recommended primary tool.  It provides
+a smooth pointwise log-HR profile with well-calibrated delta-method CIs, directly
+supports cut-point identification, and returns a structured list for downstream
+analysis.  SE calibration (SE ratio ≈ 1.0) holds across all four simulation
+scenarios; coverage is near-nominal under smooth interactions and degrades only
+under genuine model misspecification (Scenario B).
+
+**STEPP** is uniquely valuable as a model-free visual diagnostic and provides
+formal permutation tests for treatment-effect heterogeneity.  Its main limitation
+relative to the spline is reduced statistical efficiency (wider CIs for fixed N
+and window size) and reduced power for non-monotone interactions via the global
+HR test.  The Cox fallback (`stepp_windows()`) makes STEPP available without the
+CRAN package for routine simulation studies.
+
+**MFPI** is most useful when the interaction is expected to be monotone or of
+low polynomial degree.  For Scenario D (non-monotone), MFPI must select a
+degree-2 FP to avoid systematic bias; the spline achieves this automatically.
+
+### Recommended Workflow
+
+```
+Step 1  cox_cs_fit()   Primary: smooth profile + delta-method CIs + LRT
+Step 2  STEPP          Model-free check: flag threshold or U-shaped patterns;
+                       permutation test for heterogeneity (stepp CRAN package)
+Step 3  MFPI           Confirmatory: validate functional form of interaction
+```
+
+Convergent findings across all three methods constitute strong evidence for a
+predictive biomarker.  Divergence — e.g. STEPP reveals a pattern inconsistent
+with the spline — should trigger sensitivity analyses on `spline_df` and MFPI
+degree selection.
+
+---
+
+## Simulation Timing Summary
+
+This section consolidates all simulation wall-clock times from the current run.
+Timings reflect the machine, number of physical cores (`sim_n_workers =`
+`r sim_n_workers`), and the parameter values set in the `setup` chunk.  Use
+them to calibrate `sim_B_eval` and `sim_B_perm` when tuning for
+interactive development versus final reporting.
+
+```{r sim-timing-summary}
+#| code-fold: true
+#| tbl-cap: !expr 'sprintf("Comprehensive simulation timing summary. B_eval = %d, B_perm = %d, nperm = %d, workers = %d.", B_eval, B_perm, sim_nperm_perm, sim_n_workers)'
+
+# ── Joint evaluation timings (SE / coverage / CI-width study) ────────────────
+timing_joint <- data.frame(
+  Phase    = "Joint eval (cox_cs_fit + STEPP)",
+  Scenario = c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone", "Subtotal"),
+  B        = c(rep(B_eval, 4L), 4L * B_eval),
+  `Elapsed (sec)` = c(
+    eval_joint_monotone$elapsed_sec,
+    eval_joint_threshold$elapsed_sec,
+    eval_joint_null$elapsed_sec,
+    eval_joint_nonmonotone$elapsed_sec,
+    eval_joint_monotone$elapsed_sec + eval_joint_threshold$elapsed_sec +
+      eval_joint_null$elapsed_sec  + eval_joint_nonmonotone$elapsed_sec
+  ),
+  check.names = FALSE
+) |>
+  mutate(`sec / sim` = round(`Elapsed (sec)` / B, 4))
+
+# ── STEPP permutation timings ─────────────────────────────────────────────────
+if (exists("perm_null") && stepp_cran_available) {
+  timing_perm <- data.frame(
+    Phase    = sprintf("STEPP perm (nperm = %d)", sim_nperm_perm),
+    Scenario = c("C: Null  (type-I error)",
+                 "A: Monotone  (power)",
+                 "D: Non-Monotone  (power)",
+                 "Subtotal"),
+    B        = c(rep(B_perm, 3L), 3L * B_perm),
+    `Elapsed (sec)` = c(
+      perm_null$elapsed_sec,
+      perm_monotone$elapsed_sec,
+      perm_nonmono$elapsed_sec,
+      perm_null$elapsed_sec + perm_monotone$elapsed_sec + perm_nonmono$elapsed_sec
+    ),
+    check.names = FALSE
+  ) |>
+    mutate(`sec / sim` = round(`Elapsed (sec)` / B, 4))
+} else {
+  timing_perm <- data.frame(
+    Phase    = sprintf("STEPP perm (nperm = %d)", sim_nperm_perm),
+    Scenario = "— stepp package not installed —",
+    B        = NA_integer_,
+    `Elapsed (sec)` = NA_real_,
+    `sec / sim`     = NA_real_,
+    check.names = FALSE
+  )
+}
+
+# ── Grand total ────────────────────────────────────────────────────────────────
+total_sec <- sum(
+  eval_joint_monotone$elapsed_sec, eval_joint_threshold$elapsed_sec,
+  eval_joint_null$elapsed_sec,     eval_joint_nonmonotone$elapsed_sec,
+  if (exists("t_perm_total") && !is.na(t_perm_total)) t_perm_total else 0L
+)
+
+timing_grand <- data.frame(
+  Phase           = "**Grand total**",
+  Scenario        = "",
+  B               = 4L * B_eval + if (!is.na(timing_perm$`Elapsed (sec)`[1])) 3L * B_perm else 0L,
+  `Elapsed (sec)` = total_sec,
+  `sec / sim`     = NA_real_,
+  check.names     = FALSE
+)
+
+timing_all <- bind_rows(timing_joint, timing_perm, timing_grand)
+
+knitr::kable(timing_all, align = "llrrr", digits = 4,
+             col.names = c("Phase", "Scenario", "B", "Elapsed (sec)", "sec / sim"))
+```
+
+```{r sim-timing-plot}
+#| fig-height: 4.5
+#| fig-cap: "Wall-clock time per scenario for the joint evaluation (both methods per dataset). The joint approach roughly halves total time vs two separate parallel loops because dataset generation and worker startup are paid once per iteration."
+#| code-fold: true
+
+df_tp <- data.frame(
+  Scenario    = factor(
+    c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone"),
+    levels = c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone")
+  ),
+  elapsed_sec = c(
+    eval_joint_monotone$elapsed_sec,
+    eval_joint_threshold$elapsed_sec,
+    eval_joint_null$elapsed_sec,
+    eval_joint_nonmonotone$elapsed_sec
+  )
+)
+
+col_sc4 <- c("A: Monotone"    = "#4472C4", "B: Threshold"    = "#C00000",
+             "C: Null"        = "#70AD47", "D: Non-Monotone" = "#9B59B6")
+
+ggplot(df_tp, aes(x = Scenario, y = elapsed_sec, fill = Scenario)) +
+  geom_col(width = 0.6, show.legend = FALSE) +
+  geom_text(aes(label = sprintf("%d s", elapsed_sec)),
+            vjust = -0.4, size = 3.8) +
+  scale_fill_manual(values = col_sc4) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(x = NULL, y = "Elapsed (seconds)",
+       title    = "Joint Evaluation Wall-Clock Time per Scenario",
+       subtitle = sprintf("B = %d | %d workers | cox_cs_fit + STEPP per iteration",
+                          B_eval, sim_n_workers)) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.major.x = element_blank(),
+        panel.grid.minor   = element_blank(),
+        plot.title         = element_text(face = "bold"))
+```
+
+::: {.callout-tip}
+## Calibrating simulation run time
+
+All parameters that govern run time are controlled from the `setup` chunk.
+As a practical guide:
+
+| Goal | Suggested settings |
+|------|--------------------|
+| Quick interactive check | `sim_B_eval = 200`, `sim_B_perm = 50`, `sim_nperm_perm = 199` |
+| Moderate pilot run | `sim_B_eval = 1000`, `sim_B_perm = 200`, `sim_nperm_perm = 499` |
+| Final reporting | `sim_B_eval = 5000`, `sim_B_perm = 500`, `sim_nperm_perm = 999` |
+
+SE ratio and coverage estimates stabilise quickly (≥ 500 replications);
+CI-width comparisons require ≥ 1000 for stable 3rd-decimal precision.
+Permutation power estimates require ≥ 200 replications per scenario for
+SE(reject rate) ≤ 0.03 at $p = 0.05$.
+:::
+
+---
+
+## References
+
+Bonetti M, Gelber RD (2000). A graphical method to assess treatment-covariate
+interactions using the Cox model on subsets of the data. *Statistics in Medicine*,
+**19**, 2595–2609.
+
+Lazar AA, Cole BF, Bonetti M, Gelber RD (2010). Evaluation of treatment-effect
+heterogeneity using biomarkers measured on a continuous scale: subpopulation
+treatment effect pattern plot. *Journal of Clinical Oncology*, **28**, 4539–4544.
+
+Royston P, Sauerbrei W (2004). A new approach to modelling interactions between
+treatment and continuous covariates in clinical trials by using fractional
+polynomials. *Statistics in Medicine*, **23**, 2509–2525.
+
+Royston P, Sauerbrei W (2008). Interactions between treatment and continuous
+covariates: a step towards individualizing therapy. *Journal of Clinical
+Oncology*, **26**, 1397–1399.
+
+Royston P, Sauerbrei W (2013, 2014). Interaction of treatment with a continuous
+variable: simulation study of significance/power for several methods.
+*Statistics in Medicine*.
+
+León LF et al. (2024). Exploratory subgroup identification in clinical trials
+with survival endpoints. *Statistics in Medicine*, doi:10.1002/sim.10163.
+
+---
+
+## Session Information
+
+```{r session-info}
+#| code-fold: true
+sessionInfo()
+```

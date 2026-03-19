@@ -32,14 +32,4 @@ the result is \code{df[[expr]] == 1}.
 The value on the right-hand side is coerced to numeric when possible,
 otherwise kept as character for string comparisons.
 }
-\examples{
-\dontrun{
-df <- data.frame(er = c(-1, 0, 1, 2), size = c(10, 20, 30, 40))
-evaluate_comparison("er <= 0", df)
-# [1]  TRUE  TRUE FALSE FALSE
-
-evaluate_comparison("size > 25", df)
-# [1] FALSE FALSE  TRUE  TRUE
-}
-
-}
+\keyword{internal}

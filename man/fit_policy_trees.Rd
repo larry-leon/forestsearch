@@ -23,9 +23,4 @@ List with trees and combined values
 \description{
 Fits policy trees of depths 1 through maxdepth and computes metrics
 }
-\examples{
-\dontrun{
-# fit_policy_trees() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
-}
-}
+\keyword{internal}

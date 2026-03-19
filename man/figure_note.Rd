@@ -30,10 +30,3 @@ Character string formatted as a figure note, or NULL if no content
 Formats the figure note from plot_sg_weighted_km() output for use in
 Quarto or RMarkdown documents.
 }
-\examples{
-\dontrun{
-km_result <- plot_sg_weighted_km(fs.est = fs)
-cat(figure_note(km_result))
-}
-
-}

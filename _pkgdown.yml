@@ -62,7 +62,7 @@ navbar:
       aria-label: GitHub
 
 # =============================================================================
-# REFERENCE - organized by functional area
+# REFERENCE - organized by functional area (53 exported functions)
 # =============================================================================
 
 reference:
@@ -71,48 +71,15 @@ reference:
   # ---------------------------------------------------------------------------
   - title: "Core Algorithm"
     desc: >
-      Main forestsearch function and subgroup search engine.
+      Main forestsearch function, subgroup selection, and consistency
+      evaluation.
     contents:
       - forestsearch
       - print.forestsearch
       - summary.forestsearch
-      - subgroup.search
-      - get_FSdata
-
-  # ---------------------------------------------------------------------------
-  # SUBGROUP EVALUATION & SELECTION
-  # ---------------------------------------------------------------------------
-  - title: "Subgroup Evaluation & Selection"
-    desc: >
-      Functions for evaluating, sorting, and selecting candidate subgroups.
-    contents:
-      - analyze_subgroup
-      - assign_subgroup_membership
-      - evaluate_subgroup_consistency
-      - extract_subgroup
-      - get_subgroup_membership
-      - prepare_subgroup_data
+      - plot.forestsearch
       - select_best_subgroup
-      - sort_subgroups
-      - sort_subgroups_preview
-      - remove_near_duplicate_subgroups
-      - remove_redundant_subgroups
-
-  # ---------------------------------------------------------------------------
-  # CONSISTENCY EVALUATION
-  # ---------------------------------------------------------------------------
-  - title: "Consistency Evaluation"
-    desc: >
-      Split-sample consistency evaluation including the two-stage
-      sequential method.
-    contents:
       - subgroup.consistency
-      - evaluate_consistency_twostage
-      - run_single_consistency_split
-      - setup_parallel_SGcons
-      - sg_consistency_out
-      - wilson_ci
-      - early_stop_decision
 
   # ---------------------------------------------------------------------------
   # BOOTSTRAP INFERENCE
@@ -123,28 +90,8 @@ reference:
       infinitesimal jackknife variance estimation (Leon et al., 2024).
     contents:
       - forestsearch_bootstrap_dofuture
-      - bootstrap_results
-      - bootstrap_ystar
-      - count_boot_id
-      - generate_bootstrap_synthetic
-      - generate_bootstrap_with_noise
-      - generate_gbsg_bootstrap_general
-      - get_dfRes
-
-  - title: "Bootstrap Summaries"
-    desc: >
-      Summarizing and formatting bootstrap results into
-      publication-ready tables and diagnostics.
-    contents:
       - summarize_bootstrap_results
-      - summarize_bootstrap_subgroups
       - summarize_bootstrap_events
-      - summarize_factor_presence_robust
-      - format_bootstrap_table
-      - format_bootstrap_diagnostics_table
-      - format_bootstrap_timing_table
-      - format_subgroup_summary_tables
-      - create_factor_summary_tables
 
   # ---------------------------------------------------------------------------
   # CROSS-VALIDATION
@@ -157,11 +104,8 @@ reference:
       - forestsearch_Kfold
       - forestsearch_tenfold
       - forestsearch_KfoldOut
-      - CV_sgs
       - cv_summary_tables
       - cv_metrics_tables
-      - cv_summary_text
-      - cv_compare_results
       - print.fs_kfold
       - print.fs_tenfold
 
@@ -174,14 +118,6 @@ reference:
       effect estimation and variable importance screening.
     contents:
       - grf.subg.harm.survival
-      - grf.subg.eval
-      - fit_causal_forest
-      - fit_policy_trees
-      - create_grf_config
-      - validate_grf_data
-      - print_grf_details
-      - compute_node_metrics
-      - find_leaf_split
 
   # ---------------------------------------------------------------------------
   # COX MODEL UTILITIES
@@ -192,36 +128,20 @@ reference:
       spline fitting, and average hazard ratio calculations.
     contents:
       - cox_summary
-      - cox_summary_batch
-      - cox_summary_legacy
-      - cox_summary_vectorized
       - cox_ahr_cde_analysis
       - print.cox_ahr_cde
       - summary.cox_ahr_cde
       - cox_cs_fit
-      - build_cox_formula
-      - fit_cox_models
-      - get_Cox_sg
-      - get_split_hr_fast
-      - rmst_calculation
 
   # ---------------------------------------------------------------------------
   # SUBGROUP TABLES & ESTIMATES
   # ---------------------------------------------------------------------------
   - title: "Subgroup Tables & Estimates"
     desc: >
-      Formatted tables of subgroup estimates and labels.
+      Formatted tables of subgroup estimates.
     contents:
       - sg_tables
-      - SG_tab_estimates
-      - SGplot_estimates
-      - FS_labels
       - create_summary_table
-      - create_summary_table_compact
-      - create_summary_table_minimal
-      - create_summary_table_presentation
-      - create_summary_table_publication
-      - create_sample_size_table
 
   # ---------------------------------------------------------------------------
   # VISUALIZATION
@@ -229,70 +149,20 @@ reference:
   - title: "Visualization"
     desc: >
       Publication-ready plotting functions for forest plots, survival curves,
-      and subgroup characteristics.
+      subgroup characteristics, and detection probability curves.
     contents:
       - gg_forest
       - plot_subgroup_results_forestplot
       - render_forestplot
-      - save_forestplot
       - create_forest_theme
-      - print.fs_forest_theme
-      - print.fs_forestplot
-      - plot.fs_forestplot
-      - create_subgroup_summary_df
       - plot_km_band_forestsearch
-      - quick_km_band_plot
-      - plot_sg_results
-      - plot_sg_distribution
       - plot_sg_weighted_km
-      - print.fs_weighted_km
-      - plot_subgroup
-      - plot.fs_sg_plot
-      - print.fs_sg_plot
-      - plot_subgroup_effects
-      - plot.forestsearch
+      - figure_note
       - plot_spline_treatment_effect
       - plot_detection_curve
-      - compare_detection_curves
-      - sens_text
-      - figure_note
-      - km_summary
 
   # ---------------------------------------------------------------------------
-  # DATA PREPARATION & ENCODING
-  # ---------------------------------------------------------------------------
-  - title: "Data Preparation & Encoding"
-    desc: >
-      Cut point generation, dummy variable creation, and variable selection.
-    contents:
-      - get_dfpred
-      - dummy_encode
-      - add_id_column
-      - evaluate_comparison
-      - evaluate_cuts_once
-      - detect_variable_types
-      - is_flag_continuous
-      - is_flag_drop
-      - is.continuous
-      - get_cut_name
-      - cut_var
-      - lasso_selection
-      - filter_by_lassokeep
-
-  # ---------------------------------------------------------------------------
-  # TREE CUT EXTRACTION
-  # ---------------------------------------------------------------------------
-  - title: "Tree Cut Extraction"
-    desc: >
-      Extract and process cut points from tree-based models.
-    contents:
-      - extract_all_tree_cuts
-      - extract_selected_tree_cuts
-      - extract_tree_cuts
-      - extract_idx_flagredundancy
-
-  # ---------------------------------------------------------------------------
-  # SIMULATION FRAMEWORK
+  # DATA GENERATING MECHANISMS
   # ---------------------------------------------------------------------------
   - title: "Data Generating Mechanisms"
     desc: >
@@ -301,27 +171,22 @@ reference:
     contents:
       - generate_aft_dgm_flex
       - setup_gbsg_dgm
-      - create_gbsg_dgm
       - print.gbsg_dgm
       - compute_dgm_cde
-      - create_dgm_for_mrct
       - simulate_from_dgm
-      - simulate_from_gbsg_dgm
-      - get_dgm_with_output
       - calibrate_cens_adjust
       - check_censoring_dgm
       - calibrate_k_inter
-      - find_k_inter_for_target_hr
       - validate_k_inter_effect
-      - sensitivity_analysis_k_inter
 
+  # ---------------------------------------------------------------------------
+  # SIMULATION STUDIES
+  # ---------------------------------------------------------------------------
   - title: "Simulation Studies"
     desc: >
       Running and summarizing simulation studies for operating characteristics.
     contents:
       - run_simulation_analysis
-      - default_fs_params
-      - default_grf_params
       - summarize_simulation_results
       - format_oc_results
       - build_classification_table
@@ -330,12 +195,9 @@ reference:
       - render_reference_table
       - compute_detection_probability
       - generate_detection_curve
-      - find_required_sample_size
-      - create_null_result
-      - create_success_result
 
   # ---------------------------------------------------------------------------
-  # MRCT ANALYSIS
+  # MULTI-REGIONAL CLINICAL TRIALS
   # ---------------------------------------------------------------------------
   - title: "Multi-Regional Clinical Trials"
     desc: >
@@ -343,46 +205,17 @@ reference:
       subgroup analysis with regional consistency evaluation.
     contents:
       - mrct_region_sims
-      - summaryout_mrct
-      - validate_mrct_data
+      - create_dgm_for_mrct
 
   # ---------------------------------------------------------------------------
-  # FORMATTING & ESTIMATION HELPERS
+  # INTERNAL
   # ---------------------------------------------------------------------------
-  - title: "Formatting & Estimation Helpers"
+  - title: "Internal"
     desc: >
-      Formatting utilities, confidence intervals, and estimation helpers.
+      Internal implementation details. These functions are not intended to
+      be called directly by users.
     contents:
-      - format_CI
-      - format_results
-      - format_fs_details
-      - hrCI_format
-      - n_pcnt
-      - ci_est
-      - calc_cov
-      - get_targetEst
-      - calculate_counts
-      - calculate_potential_hr
-      - density_threshold_both
-      - find_quantile_for_proportion
-      - qlow
-      - qhigh
-      - get_best_survreg
-      - compare_multiple_survreg
-      - print.multi_survreg_comparison
-
-  # ---------------------------------------------------------------------------
-  # INTERNAL UTILITIES
-  # ---------------------------------------------------------------------------
-  - title: "Internal Utilities"
-    desc: >
-      Lower-level helpers. Most users will not call these directly.
-    contents:
-      - filter_call_args
-      - get_combinations_info
-      - get_conf_force
-      - get_covs_in
-      - process_conf_force_expr
+      - has_keyword("internal")
 
 # =============================================================================
 # ARTICLES (VIGNETTES)

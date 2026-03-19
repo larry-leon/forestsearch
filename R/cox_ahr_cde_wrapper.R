@@ -53,7 +53,7 @@
 #'   self-contained y-axis.
 #' @param save_plots Logical whether to save plots to file. Default: FALSE.
 #' @param output_dir Character directory for saving plots. Default:
-#'   \code{"plots"}.
+#'   \code{tempdir()}.
 #' @param verbose Logical for diagnostic output. Default: TRUE.
 #'
 #' @return List of class \code{"cox_ahr_cde"} containing:
@@ -69,31 +69,30 @@
 #' }
 #'
 #' @examples
-#' \dontrun{
+#' \donttest{
+#' # Build a small synthetic dataset with required columns
+#' set.seed(42)
+#' n <- 200
+#' df_ex <- data.frame(
+#'   os_time   = rexp(n, rate = 0.01),
+#'   os_event  = rbinom(n, 1, 0.6),
+#'   treat     = rep(0:1, each = n / 2),
+#'   biomarker = rnorm(n),
+#'   loghr_po  = rnorm(n, mean = -0.3, sd = 0.5)
+#' )
+#'
 #' # With threshold - full subgroup analysis
 #' results <- cox_ahr_cde_analysis(
-#'   df = df_large, z_name = "z_bm",
-#'   hr_threshold = 1.25, plot_style = "grid"
+#'   df = df_ex, z_name = "biomarker",
+#'   hr_threshold = 1.25, plot_style = "grid",
+#'   verbose = FALSE
 #' )
 #'
-#' # Without threshold - pure AHR/CDE curves
+#' # Without threshold - pure AHR curves
 #' results <- cox_ahr_cde_analysis(
-#'   df = df_large, z_name = "z_bm",
-#'   hr_threshold = NULL, plot_style = "grid"
-#' )
-#'
-#' # Compact two-panel without threshold
-#' results <- cox_ahr_cde_analysis(
-#'   df = df_large, z_name = "z_bm",
-#'   hr_threshold = NULL,
-#'   plot_select = "profile_ahr"
-#' )
-#'
-#' # Single AHR panel only
-#' results <- cox_ahr_cde_analysis(
-#'   df = df_large, z_name = "z_bm",
-#'   hr_threshold = 1.25,
-#'   plot_select = "ahr_only"
+#'   df = df_ex, z_name = "biomarker",
+#'   hr_threshold = NULL, plot_select = "ahr_only",
+#'   verbose = FALSE
 #' )
 #' }
 #'
@@ -120,7 +119,7 @@ cox_ahr_cde_analysis <- function(
     plot_style = c("combined", "separate", "grid"),
     plot_select = c("all", "profile_ahr", "ahr_only"),
     save_plots = FALSE,
-    output_dir = "plots",
+    output_dir = tempdir(),
     verbose = TRUE
 ) {
 
@@ -769,16 +768,6 @@ cox_ahr_cde_analysis <- function(
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
-#' @examples
-#' \dontrun{
-#' library(survival)
-#' df <- survival::gbsg
-#' df$grade3 <- as.integer(df$grade == "3")
-#' res <- cox_ahr_cde_analysis(df,
-#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"))
-#' print(res)
-#' }
 #' @export
 #' @method print cox_ahr_cde
 print.cox_ahr_cde <- function(x, ...) {
@@ -828,16 +817,6 @@ print.cox_ahr_cde <- function(x, ...) {
 #'   \code{\link{cox_ahr_cde_analysis}}.
 #' @param ... Additional arguments (not used).
 #' @return Invisibly returns the input object.
-#' @examples
-#' \dontrun{
-#' library(survival)
-#' df <- survival::gbsg
-#' df$grade3 <- as.integer(df$grade == "3")
-#' res <- cox_ahr_cde_analysis(df,
-#'   outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
-#'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"))
-#' summary(res)
-#' }
 #' @export
 #' @method summary cox_ahr_cde
 summary.cox_ahr_cde <- function(object, ...) {

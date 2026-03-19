@@ -126,40 +126,9 @@ ratios with confidence intervals for: ITT population, H subgroup,
 and H^c complement.
 }
 
-\examples{
-\dontrun{
-# Run ForestSearch analysis
-fs <- forestsearch(
-  df.analysis = my_data,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "treatment",
-  confounders.name = c("age_cat", "stage", "biomarker")
-)
-
-# Create combined visualization
-result <- plot_sg_results(
-  fs.est = fs,
-  outcome.name = "os_time",
-  event.name = "os_event",
-  treat.name = "treatment"
-)
-
-# View the Kaplan-Meier plots only
-plot_sg_results(fs, plot_type = "km")
-
-# Customize labels
-plot_sg_results(
-  fs,
-  sg0_name = "High Risk",
-  sg1_name = "Standard Risk",
-  treat_labels = c("0" = "Placebo", "1" = "Active Drug")
-)
-}
-
-}
 \seealso{
 \code{\link{forestsearch}} for running the subgroup analysis
 \code{\link{sg_consistency_out}} for consistency evaluation
 \code{\link{plot_subgroup_results_forestplot}} for publication-ready forest plots
 }
+\keyword{internal}

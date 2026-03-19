@@ -196,6 +196,112 @@ In GitHub Desktop:
 GitHub Desktop switches your working directory to `cran-review-1`. The files on
 disk are identical to `master` at this moment — you are now on a clean branch.
 
+### Step 3b — Independent review using Claude Opus 4.6 (recommended)
+
+Before copying the corrected files into the package, it is worth having an
+independent model review the changes. Because Claude Sonnet (this conversation)
+produced the fixes, Claude Opus 4.6 in a fresh conversation provides a genuine
+second opinion with no anchoring to the decisions already made here.
+
+#### What to ask Opus to review
+
+Structure the review request by fix category rather than file by file. This gives
+the reviewer a clear frame for what to look at in each file. The eight categories
+and the files that belong to each are:
+
+**Fix 1 — `DESCRIPTION` (acronym quotes + whitespace)**
+
+Single file: `DESCRIPTION`. Ask Opus to confirm that no package names have lost
+their required single quotes and that the Description field reads naturally with
+no extraneous spaces.
+
+**Fix 2 — `options(warn = -1)` removed**
+
+Single file: `R/bootstrap_dofuture_main.R`. Ask Opus to confirm that the
+`old_warn`/`options(warn = -1)`/restore lines are fully removed, that the
+`on.exit()` handler no longer references `old_warn`, and that no warning
+suppression has been silently relocated elsewhere in the function.
+
+**Fix 3 — `par()` restore in a function**
+
+Single file: `R/subgroup_consistency_helpers.R`. Ask Opus to confirm that
+`oldpar <- par(no.readonly = TRUE)` and `on.exit(par(oldpar), add = TRUE)` appear
+immediately before `par(mfrow = c(1, 2))` in `plot_subgroup()`, and that
+`add = TRUE` is present on the `on.exit()` call.
+
+**Fix 4 — `output_dir` default changed to `tempdir()`**
+
+Single file: `R/cox_ahr_cde_wrapper.R`. Ask Opus to confirm the function
+signature now reads `output_dir = tempdir()` and that the `@param` documentation
+matches.
+
+**Fix 5 — `par()` restore in the vignette**
+
+Single file: `vignettes/forestsearch.Rmd`. Ask Opus to confirm that the
+`grf-trees` chunk saves `oldpar`, calls `on.exit(par(oldpar), add = TRUE)`, and
+that the manual `par(mfrow = c(1, 1))` reset at the end of the chunk has been
+removed.
+
+**Fix 6 — `\dontrun{}` → `\donttest{}` globally**
+
+All 15 corrected R source files. Because this was a global substitution, ask
+Opus to scan for any remaining `\dontrun{` occurrences and confirm the count is
+zero. Also ask it to check that no `\donttest{}` block wraps an example that
+genuinely cannot run (which would require `\dontrun{}` instead).
+
+**Fix 7 — Missing `@return` tags**
+
+Files with `@return` additions, grouped by return type:
+
+- *Named list returns:* `R/generate_aft_dgm_main.R`, `R/get_fsdata.R` —
+  ask Opus to verify the listed components match the function's actual return value.
+- *Side-effect only (no return value):* `R/generate_aft_dgm_helpers_outcome.R`
+  (`plot_spline_treatment_effect`), `R/grf_helpers.R` (`print_grf_details`) —
+  confirm the tag reads `No return value, called for side effects`.
+- *S3 print/plot methods returning invisibly:* `R/render_forestplot.R`
+  (`print.fs_forest_theme`, `print.fs_forestplot`, `plot.fs_forestplot`),
+  `R/plot_sg_results.R` (`print.fs_sg_plot`, `plot.fs_sg_plot`),
+  `R/plot_sg_weighted_km.R` (`print.fs_weighted_km`),
+  `R/forestsearch_cross_validation.R` (`print.fs_kfold`, `print.fs_tenfold`),
+  `R/sim_aft_gbsg.R` (`print.gbsg_dgm`) — confirm each reads
+  `Invisibly returns \code{x}` and that the function body ends with
+  `invisible(x)`.
+
+**Fix 8 — Unexported functions promoted to `@export`**
+
+Four files, one function each:
+
+- `R/truefind_asymptotic.R` — `create_sample_size_table`
+- `R/synthetic_data_perturbation.R` — `detect_variable_types`
+- `R/grf_helpers.R` — `extract_selected_tree_cuts`
+- `R/find_k_inter_main.R` — `find_quantile_for_proportion`
+
+Ask Opus to confirm that `@keywords internal` has been replaced by `@export`
+for each, that the existing `@examples` block is consistent with the function
+signature, and that there are no other issues newly exposed by making the
+function public (e.g. undocumented parameters, missing `@importFrom` tags).
+
+#### How to structure the Opus conversation
+
+Start a new Claude conversation and select the **Opus 4.6** model. Paste in the
+CRAN reviewer's original comments as context, then share files one category at a
+time. A suggested opening prompt:
+
+> *"I am preparing an R package called **forestsearch** for CRAN submission.
+> The CRAN reviewer raised 8 issues. I have made corrections and would like you
+> to independently verify each fix. I will share the corrected files grouped by
+> fix category. For each group, please confirm the fix is correctly applied and
+> flag anything that looks wrong or incomplete."*
+
+Then share files in the order Fix 1 through Fix 8, providing the fix description
+from `cran_review_fixes.qmd` alongside each file.
+
+#### After the Opus review
+
+If Opus identifies any problems, update the relevant files in
+`dev/cran_submission/review_1/` before proceeding to Step 4. Do not copy files
+to the package root until the Opus review is complete and any issues are resolved.
+
 ### Step 4 — Copy the corrected files to their package locations
 
 Still in Finder, copy from `dev/cran_submission/review_1/` to the package root.
@@ -352,6 +458,7 @@ Branch: `cran-review-2`, created from `master` at that point.
 | 1 | Download corrected files from Claude | Browser |
 | 2 | Copy into `dev/cran_submission/review_1/`; commit to `master` | Finder + GitHub Desktop |
 | 3 | Create branch `cran-review-1` from `master` | GitHub Desktop |
+| 3b | Independent review of all 8 fix categories | Claude Opus 4.6 |
 | 4 | Copy corrected files from `review_1/` to package root | Finder |
 | 5 | Regenerate `man/` and `NAMESPACE` | RStudio: `devtools::document()` |
 | 6 | Run `R CMD check --as-cran` | RStudio: `devtools::check_built()` |

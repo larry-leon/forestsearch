@@ -25,12 +25,4 @@ Converts q-indexed codes to human-readable labels using the confs_labels
 mapping. Supports both full format ("q1.1", "q3.0") and short format
 ("q1", "q3"). Handles vector input via recursion.
 }
-\examples{
-\dontrun{
-labels <- c("age <= 50", "tumor size <= 20", "nodes <= 3")
-FS_labels("q1.1", labels)
-FS_labels("q1.0", labels)
-FS_labels("q2", labels)
-FS_labels(c("q1", "q3"), labels)
-}
-}
+\keyword{internal}

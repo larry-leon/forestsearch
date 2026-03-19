@@ -68,13 +68,4 @@ Evaluates a single subgroup for consistency using a two-stage approach:
 Stage 1 screens with fewer splits, Stage 2 uses sequential batched
 evaluation with early stopping for efficient evaluation.
 }
-\examples{
-\dontrun{
-# evaluate_consistency_twostage() is called internally by forestsearch()
-# when use_twostage = TRUE. Use forestsearch() as the entry point:
-fs <- forestsearch(gbsg,
-  confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
-  outcome.name = "rfstime", treat.name = "hormon", event.name = "status",
-  use_twostage = TRUE)
-}
-}
+\keyword{internal}
