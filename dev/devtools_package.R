@@ -237,8 +237,6 @@ devtools::build()
 
 
 
-
-
 devtools::load_all(".")
 
 devtools::check()
