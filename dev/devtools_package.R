@@ -223,6 +223,13 @@ pkgdown::build_site()
 pkgdown::clean_site(force = TRUE)
 pkgdown::build_site()
 
+devtools::build_vignettes()
+
+# Recommended sequence on cran-review-1:
+# devtools::build_vignettes() — updates doc/
+# Commit everything (R/, doc/, docs/, _pkgdown.yml, NAMESPACE) on cran-review-1
+# When ready, merge cran-review-1 → master in GitHub Desktop
+# Push master — GitHub Pages picks up the new docs/
 
 
 devtools::load_all(".")

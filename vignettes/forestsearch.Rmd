@@ -216,11 +216,10 @@ timings$grf <- (proc.time() - t0)["elapsed"]
 ```{r grf-trees, fig.width=10, fig.height=4}
 # Display policy trees
 # leaf1 = recommend control, leaf2 = recommend treatment
-oldpar <- par(no.readonly = TRUE)
-on.exit(par(oldpar), add = TRUE)
-par(mfrow = c(1, 2))
+oldpar <- par(mfrow = c(1, 2))
 plot(grf_est$tree1, leaf.labels = c("Control", "Treat"), main = "Depth 1")
 plot(grf_est$tree2, leaf.labels = c("Control", "Treat"), main = "Depth 2")
+par(oldpar)
 ```
 
 GRF identifies estrogen receptor status (ER) as a key factor, with ER ≤ 0 
