@@ -52,9 +52,9 @@ sim_minpatspop    <- 50L     # r1: max patients shared between consecutive windo
 sim_time_point    <- 5       # KM landmark time (years) used by STEPP KM tests
 
 # ── STEPP permutation tests ──────────────────────────────────────────────────
-sim_nperm_gbsg    <- 99L    # permutations for GBSG illustrative analysis
+sim_nperm_gbsg    <- 999L    # permutations for GBSG illustrative analysis
                              #   SE(p-hat) ≈ sqrt(0.05*0.95/999) ≈ 0.007 at p = 0.05
-sim_nperm_perm    <- 99L    # permutations per trial in the power simulation
+sim_nperm_perm    <- 999L    # permutations per trial in the power simulation
                              #   keep equal to sim_nperm_gbsg for consistency
 
 # ── Evaluation grid and nominal level ────────────────────────────────────────
@@ -62,8 +62,8 @@ sim_z_eval        <- c(0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
 sim_alpha         <- 0.05    # nominal CI/test level → 95% coverage target
 
 # ── Simulation counts ─────────────────────────────────────────────────────────
-sim_B_eval        <- 500L   # replications per scenario: SE / coverage / CI-width
-sim_B_perm        <- 50L    # replications per scenario: STEPP permutation power
+sim_B_eval        <- 5000L   # replications per scenario: SE / coverage / CI-width
+sim_B_perm        <- 500L    # replications per scenario: STEPP permutation power
                              #   total STEPP perm fits ≈ sim_B_perm * sim_nperm_perm
 
 # ── Parallel workers ─────────────────────────────────────────────────────────
