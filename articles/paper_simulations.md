@@ -1193,7 +1193,7 @@ results_alt <- foreach(
     ## Number of possible configurations (<= maxk): maxk = 2 , # combinations = 406 
     ## Events criteria: control >= 12 , treatment >= 12 
     ## Sample size criteria: n >= 60 
-    ## Subgroup search completed in 0.06 minutes
+    ## Subgroup search completed in 0.05 minutes
     ## 
     ## --- Filtering Summary ---
     ##   Combinations evaluated: 406 
@@ -1219,7 +1219,7 @@ results_alt <- foreach(
     ## Batch 3 / 3 : candidates 3 - 3 
     ## Evaluated 3 of 3 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 19.064 0.3177 
+    ## Seconds and minutes forestsearch overall = 17.542 0.2924 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 47.90727 2 
     ##    leaf.node control.mean control.size control.se depth
@@ -1237,7 +1237,7 @@ timings$sims_alt_wall <- as.numeric(runtime_alt) * 60  # store in seconds
 cat("Completed in", round(runtime_alt, 1), "minutes\n")
 ```
 
-    ## Completed in 3.7 minutes
+    ## Completed in 3.9 minutes
 
 ``` r
 cat("Results:", nrow(results_alt), "rows\n")
@@ -1322,7 +1322,7 @@ results_null <- foreach(
     ## Batch 1 / 1 : candidates 1 - 1 
     ## Evaluated 1 of 1 candidates (complete) 
     ## No subgroups found meeting consistency threshold
-    ## Seconds and minutes forestsearch overall = 10.468 0.1745 
+    ## Seconds and minutes forestsearch overall = 11.153 0.1859 
     ## Consistency algorithm used: twostage 
     ## tau, maxdepth = 43.8823 2 
     ##   leaf.node control.mean control.size control.se depth
@@ -1340,7 +1340,7 @@ timings$sims_null_wall <- as.numeric(runtime_null) * 60
 cat("Completed in", round(runtime_null, 1), "minutes\n")
 ```
 
-    ## Completed in 3.1 minutes
+    ## Completed in 3.2 minutes
 
 ## Summarizing Results
 
@@ -2180,15 +2180,15 @@ reproducibility information.
 | 49 H1 + 49 H0 simulations, 3 workers                    |             |            |            |
 | Stage                                                   | Time (sec)¹ | Time (min) | % of Total |
 | DGM creation (H1)                                       | 0.3         | 0.01       | 0.1        |
-| Calibrate k_inter (Cox)                                 | 7.5         | 0.13       | 1.6        |
-| Calibrate k_inter (AHR)                                 | 3.2         | 0.05       | 0.7        |
-| Validate k_inter                                        | 0.6         | 0.01       | 0.1        |
+| Calibrate k_inter (Cox)                                 | 7.6         | 0.13       | 1.6        |
+| Calibrate k_inter (AHR)                                 | 3.3         | 0.05       | 0.7        |
+| Validate k_inter                                        | 0.7         | 0.01       | 0.1        |
 | DGM creation (H0)                                       | 0.1         | 0.00       | 0.0        |
-| Simulations H1                                          | 222.1       | 3.70       | 48.6       |
-| Simulations H0                                          | 186.5       | 3.11       | 40.8       |
+| Simulations H1                                          | 235.3       | 3.92       | 49.2       |
+| Simulations H0                                          | 193.8       | 3.23       | 40.5       |
 | Summarize H1                                            | 0.2         | 0.00       | 0.0        |
 | Summarize H0                                            | 0.1         | 0.00       | 0.0        |
-| Total vignette                                          | 457.0       | 7.62       | 100.0      |
+| Total vignette                                          | 478.0       | 7.97       | 100.0      |
 | ¹ Parallel backend: 3 workers via future::multisession. |             |            |            |
 
 [ Code](#collapse-timingsummary)
@@ -2302,7 +2302,7 @@ cat(sprintf("  H1: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_alt$n_sims, n_workers))
 ```
 
-    ##   H1: 4.5 sec/sim (wall) across 49 sims on 3 workers
+    ##   H1: 4.8 sec/sim (wall) across 49 sims on 3 workers
 
 ``` r
 cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
@@ -2310,7 +2310,7 @@ cat(sprintf("  H0: %.1f sec/sim (wall) across %d sims on %d workers\n",
             sim_config_null$n_sims, n_workers))
 ```
 
-    ##   H0: 3.8 sec/sim (wall) across 49 sims on 3 workers
+    ##   H0: 4.0 sec/sim (wall) across 49 sims on 3 workers
 
 ## Complete Example Script
 
