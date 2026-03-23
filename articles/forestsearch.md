@@ -372,7 +372,7 @@ fs <- forestsearch(
     ## *** Subgroup found: {er <= 0} {size <= 35} 
     ## % consistency criteria met= 0.97 
     ## SG focus = hr 
-    ## Seconds and minutes forestsearch overall = 6.894 0.1149 
+    ## Seconds and minutes forestsearch overall = 6.335 0.1056 
     ## Consistency algorithm used: twostage 
     ## Subgroup identified: {er <= 0} & {size <= 35}
 
@@ -385,7 +385,7 @@ cat("\nForestSearch completed in",
 ```
 
     ## 
-    ## ForestSearch completed in 6.9 seconds
+    ## ForestSearch completed in 6.3 seconds
 
 ### ForestSearch Results
 
@@ -519,9 +519,9 @@ summaries <- summarize_bootstrap_results(
     ## TIMING ANALYSIS:
     ## -------------------------------------------------------------
     ## Overall:
-    ##   Total bootstrap time:          0.15 minutes (0.00 hours)
-    ##   Average per iteration:         0.07 min (4.5 sec)
-    ##   Projected for 1000 boots:      74.31 min (1.24 hrs)
+    ##   Total bootstrap time:          0.14 minutes (0.00 hours)
+    ##   Average per iteration:         0.07 min (4.1 sec)
+    ##   Projected for 1000 boots:      68.98 min (1.15 hrs)
 
 ``` r
 # Display bias-corrected estimates table
@@ -968,10 +968,10 @@ ER-negative patients may not benefit is consistent with:
 | Computational Timing |            |            |
 |----------------------|------------|------------|
 | Component            | Time (sec) | Time (min) |
-| GRF                  | 0.7        | 0.0        |
-| ForestSearch         | 6.9        | 0.1        |
-| Bootstrap            | 11.8       | 0.2        |
-| Total                | 34.1       | 0.6        |
+| GRF                  | 0.6        | 0.0        |
+| ForestSearch         | 6.3        | 0.1        |
+| Bootstrap            | 11.0       | 0.2        |
+| Total                | 31.7       | 0.5        |
 
 [ Code](#collapse-timingsummary)
 
@@ -1039,9 +1039,9 @@ sessionInfo()
     ## [10] data.table_1.18.2.1 survival_3.8-6      forestsearch_0.1.0 
     ## 
     ## loaded via a namespace (and not attached):
-    ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.56           
+    ##  [1] gtable_0.3.6         shape_1.4.6.1        xfun_0.57           
     ##  [4] bslib_0.10.0         htmlwidgets_1.6.4    visNetwork_2.1.4    
-    ##  [7] lattice_0.22-9       vctrs_0.7.1          tools_4.5.3         
+    ##  [7] lattice_0.22-9       vctrs_0.7.2          tools_4.5.3         
     ## [10] generics_0.1.4       parallel_4.5.3       tibble_3.3.1        
     ## [13] pkgconfig_2.0.3      Matrix_1.7-4         forestploter_1.1.3  
     ## [16] RColorBrewer_1.1-3   S7_0.2.1             desc_1.4.3          
@@ -1057,8 +1057,8 @@ sessionInfo()
     ## [46] cli_3.6.5            magrittr_2.0.4       DiagrammeR_1.0.11   
     ## [49] randomForest_4.7-1.2 future.apply_1.20.2  withr_3.0.2         
     ## [52] scales_1.4.0         rmarkdown_2.30       globals_0.19.1      
-    ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.1          
+    ## [55] gridExtra_2.3        progressr_0.18.0     ragg_1.5.2          
     ## [58] evaluate_1.0.5       knitr_1.51           markdown_2.0        
     ## [61] rlang_1.1.7          Rcpp_1.1.1           glue_1.8.0          
     ## [64] xml2_1.5.2           rstudioapi_0.18.0    jsonlite_2.0.0      
-    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_1.6.7
+    ## [67] R6_2.6.1             systemfonts_1.3.2    fs_2.0.0
