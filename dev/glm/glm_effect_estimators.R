@@ -1,22 +1,22 @@
 # =============================================================================
 # glm_effect_estimators.R
 #
-# Internal effect-estimator closures for GLM outcomes (binary, continuous).
-# These are the counterparts to the inline Cox calls in subgroup_consistency.R
-# and subgroup_search.R.  Each factory returns a function of the form:
+# Internal effect-estimator closures for all outcome types.
+# Each factory returns a function of the form:
 #
-#   function(data_slice) -> list(estimate, se, converged, n0, n1)
+#   function(data_slice) -> list(estimate, se, converged, n0, n1,
+#                                measure, method_used)
 #
-# where `estimate` is on the log scale (log-OR, log-RR) or identity scale (RD,
-# MD) consistent with the chosen `effect_measure`.
+# where `estimate` is on the log scale (log-OR, log-RR, log-IRR) or identity
+# scale (RD, IRD, MD) consistent with the chosen `effect_measure`.
 #
-# All functions are internal (@noRd) — not exported.
+# All functions are internal (@noRd) -- not exported.
 # =============================================================================
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # Top-level dispatcher
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 #' Make an effect-estimator closure
 #'
@@ -30,22 +30,35 @@
 #'   `"continuous"`.
 #' @param treat.name  Character. Name of the binary treatment column (0/1).
 #' @param outcome.name Character. Name of the outcome column.
-#' @param event.name  Character or `NULL`. Name of the event indicator (survival
-#'   only).
-#' @param effect_measure Character or `NULL`.  For binary: `"OR"`, `"RR"`,
-#'   `"RD"`.  For continuous: `"MD"`.  `NULL` uses the default for the outcome
-#'   type (`"HR"` for survival, `"OR"` for binary, `"MD"` for continuous).
-#' @param ... Additional arguments passed to the specific estimator factory.
+#' @param event.name  Character or `NULL`. Name of the event indicator
+#'   (survival only).
+#' @param offset.name Character or `NULL`. Name of the follow-up time column
+#'   for rate-based measures (IRR, IRD).  The log of this column is used as
+#'   the Poisson offset.
+#' @param effect_measure Character or `NULL`.
+#'   For binary: `"RD"` (default), `"OR"`, `"RR"`, `"IRR"`, `"IRD"`.
+#'   For continuous: `"MD"` (default).
+#'   For survival: `"HR"` (default, existing pipeline).
+#'   `NULL` uses the default for the outcome type.
+#' @param robust_se Logical. For rate-based measures (IRR, IRD) and modified
+#'   Poisson (RR), use sandwich robust SE when the `sandwich` package is
+#'   available.
+#'   Default `TRUE`.
+#' @param ... Additional arguments (currently unused; reserved for future
+#'   covariate-adjusted estimators).
 #'
-#' @return A closure `function(data_slice)`.
+#' @return A closure `function(data_slice)` returning a list with components
+#'   `estimate`, `se`, `converged`, `n0`, `n1`, `measure`, `method_used`.
 #'
 #' @noRd
 make_effect_estimator <- function(
     outcome_type,
     treat.name,
     outcome.name,
-    event.name    = NULL,
+    event.name     = NULL,
+    offset.name    = NULL,
     effect_measure = NULL,
+    robust_se      = TRUE,
     ...
 ) {
   outcome_type <- match.arg(
@@ -57,12 +70,22 @@ make_effect_estimator <- function(
   if (is.null(effect_measure)) {
     effect_measure <- switch(outcome_type,
       survival   = "HR",
-      binary     = "OR",
+      binary     = "RD",
       continuous = "MD"
     )
   }
 
+  # Validate offset requirement for rate-based measures
+  if (effect_measure %in% c("IRR", "IRD") && is.null(offset.name)) {
+    stop(
+      "effect_measure = '", effect_measure,
+      "' requires `offset.name` (follow-up time column).",
+      call. = FALSE
+    )
+  }
+
   switch(outcome_type,
+
     survival = {
       .make_cox_estimator(
         treat.name   = treat.name,
@@ -71,15 +94,32 @@ make_effect_estimator <- function(
         ...
       )
     },
+
     binary = {
-      effect_measure <- match.arg(effect_measure, choices = c("OR", "RR", "RD"))
-      .make_glm_binary_estimator(
-        treat.name     = treat.name,
-        outcome.name   = outcome.name,
-        effect_measure = effect_measure,
-        ...
+      effect_measure <- match.arg(
+        effect_measure,
+        choices = c("RD", "OR", "RR", "IRR", "IRD")
       )
+      if (effect_measure %in% c("IRR", "IRD")) {
+        .make_poisson_rate_estimator(
+          treat.name     = treat.name,
+          outcome.name   = outcome.name,
+          offset.name    = offset.name,
+          effect_measure = effect_measure,
+          robust_se      = robust_se,
+          ...
+        )
+      } else {
+        .make_glm_binary_estimator(
+          treat.name     = treat.name,
+          outcome.name   = outcome.name,
+          effect_measure = effect_measure,
+          robust_se      = robust_se,
+          ...
+        )
+      }
     },
+
     continuous = {
       .make_lm_estimator(
         treat.name   = treat.name,
@@ -91,9 +131,9 @@ make_effect_estimator <- function(
 }
 
 
-# -----------------------------------------------------------------------------
-# Survival estimator (Cox) — wraps existing inline logic into the closure form
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Survival estimator (Cox) -- wraps existing inline logic into closure form
+# ---------------------------------------------------------------------------
 
 #' @noRd
 .make_cox_estimator <- function(treat.name, outcome.name, event.name, ...) {
@@ -117,43 +157,53 @@ make_effect_estimator <- function(
       fit <- survival::coxph(fmla, data = data_slice)
       coef_val <- stats::coef(fit)[[treat.name]]
       se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
-      list(estimate = coef_val, se = se_val, converged = TRUE, n0 = n0, n1 = n1)
+      list(
+        estimate    = coef_val,
+        se          = se_val,
+        converged   = TRUE,
+        n0          = n0,
+        n1          = n1,
+        measure     = "log-HR",
+        method_used = "coxph"
+      )
     },
     error = function(e) {
-      list(estimate = NA_real_, se = NA_real_, converged = FALSE, n0 = n0, n1 = n1)
+      list(
+        estimate = NA_real_, se = NA_real_, converged = FALSE,
+        n0 = n0, n1 = n1, measure = "log-HR", method_used = "coxph_failed"
+      )
     })
     result
   }
 }
 
 
-# -----------------------------------------------------------------------------
-# Binary GLM estimator
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Binary GLM estimator (RD, OR, RR)
+# ---------------------------------------------------------------------------
 
 #' Make a binary-outcome GLM estimator closure
 #'
-#' Supports three effect measures:
-#'   - `"OR"` : logistic regression; returns log-OR
-#'   - `"RR"` : log-binomial (with modified-Poisson fallback); returns log-RR
-#'   - `"RD"` : identity-link binomial; returns risk difference
+#' Supports three non-rate effect measures:
+#'   - `"RD"` : risk difference (identity-link binomial, with fallbacks)
+#'   - `"OR"` : odds ratio (logistic regression); returns log-OR
+#'   - `"RR"` : risk ratio (log-binomial with modified-Poisson fallback)
 #'
-#' All estimates are returned on the natural (non-exponentiated) scale to match
-#' the consistency-criterion comparisons (i.e., `log(OR) >= log(or.threshold)`).
-#' For `"RD"` no transformation is applied.
+#' For RD the estimate is on the identity scale.  For OR and RR the estimate
+#' is on the log scale, consistent with the consistency-criterion comparisons.
 #'
 #' @noRd
 .make_glm_binary_estimator <- function(
     treat.name,
     outcome.name,
-    effect_measure = "OR",
-    fallback_or    = TRUE,   # fall back to logistic if log-binomial fails
+    effect_measure = "RD",
+    robust_se      = TRUE,
     ...
 ) {
   force(treat.name)
   force(outcome.name)
   force(effect_measure)
-  force(fallback_or)
+  force(robust_se)
 
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
@@ -165,6 +215,12 @@ make_effect_estimator <- function(
 
     result <- switch(effect_measure,
 
+      # ---- Risk Difference (primary) ----------------------------------------
+      RD = {
+        .estimate_rd(data_slice, fmla, treat.name, outcome.name, n0, n1)
+      },
+
+      # ---- Odds Ratio -------------------------------------------------------
       OR = {
         tryCatch({
           fit <- stats::glm(
@@ -175,128 +231,28 @@ make_effect_estimator <- function(
           coef_val <- stats::coef(fit)[[treat.name]]
           se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
           list(
-            estimate  = coef_val,   # log-OR
-            se        = se_val,
-            converged = fit$converged,
-            n0 = n0, n1 = n1,
-            measure   = "log-OR"
+            estimate    = coef_val,
+            se          = se_val,
+            converged   = fit$converged,
+            n0          = n0,
+            n1          = n1,
+            measure     = "log-OR",
+            method_used = "logistic"
           )
         },
         error = function(e) {
           list(
             estimate = NA_real_, se = NA_real_, converged = FALSE,
-            n0 = n0, n1 = n1, measure = "log-OR"
+            n0 = n0, n1 = n1, measure = "log-OR",
+            method_used = "logistic_failed"
           )
         })
       },
 
+      # ---- Risk Ratio -------------------------------------------------------
       RR = {
-        # Attempt log-binomial; fall back to modified Poisson on non-convergence
-        fit_rr <- tryCatch({
-          fit <- stats::glm(
-            fmla,
-            data   = data_slice,
-            family = stats::binomial(link = "log"),
-            # start values often help log-binomial converge
-            start  = c(
-              log(mean(data_slice[[outcome.name]], na.rm = TRUE)),
-              0
-            )
-          )
-          if (!fit$converged) stop("log-binomial did not converge")
-          coef_val <- stats::coef(fit)[[treat.name]]
-          se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
-          list(
-            estimate  = coef_val,
-            se        = se_val,
-            converged = TRUE,
-            link_used = "log-binomial",
-            n0 = n0, n1 = n1, measure = "log-RR"
-          )
-        },
-        error = function(e) NULL)
-
-        if (!is.null(fit_rr)) {
-          fit_rr
-        } else if (fallback_or) {
-          # Modified Poisson (Zou 2004): Poisson with robust sandwich SE
-          tryCatch({
-            fit <- stats::glm(
-              fmla,
-              data   = data_slice,
-              family = stats::poisson(link = "log")
-            )
-            coef_val <- stats::coef(fit)[[treat.name]]
-            # Use sandwich robust SE if available; else model-based
-            se_val <- tryCatch({
-              sqrt(
-                sandwich::sandwich(fit)[treat.name, treat.name]
-              )
-            }, error = function(e2) {
-              sqrt(diag(stats::vcov(fit)))[[treat.name]]
-            })
-            list(
-              estimate  = coef_val,
-              se        = se_val,
-              converged = TRUE,
-              link_used = "modified-poisson",
-              n0 = n0, n1 = n1, measure = "log-RR"
-            )
-          },
-          error = function(e) {
-            list(
-              estimate = NA_real_, se = NA_real_, converged = FALSE,
-              link_used = "failed", n0 = n0, n1 = n1, measure = "log-RR"
-            )
-          })
-        } else {
-          list(
-            estimate = NA_real_, se = NA_real_, converged = FALSE,
-            link_used = "failed", n0 = n0, n1 = n1, measure = "log-RR"
-          )
-        }
-      },
-
-      RD = {
-        tryCatch({
-          # Identity-link binomial; start at group means
-          p0    <- mean(data_slice[[outcome.name]][
-            data_slice[[treat.name]] == 0], na.rm = TRUE)
-          p1    <- mean(data_slice[[outcome.name]][
-            data_slice[[treat.name]] == 1], na.rm = TRUE)
-          start <- c(p0, p1 - p0)
-
-          fit <- stats::glm(
-            fmla,
-            data   = data_slice,
-            family = stats::binomial(link = "identity"),
-            start  = start
-          )
-          coef_val <- stats::coef(fit)[[treat.name]]
-          se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
-          list(
-            estimate  = coef_val,   # risk difference (no log transform)
-            se        = se_val,
-            converged = fit$converged,
-            n0 = n0, n1 = n1, measure = "RD"
-          )
-        },
-        error = function(e) {
-          # Last-resort: raw risk difference from group means
-          p0 <- mean(data_slice[[outcome.name]][
-            data_slice[[treat.name]] == 0], na.rm = TRUE)
-          p1 <- mean(data_slice[[outcome.name]][
-            data_slice[[treat.name]] == 1], na.rm = TRUE)
-          rd   <- p1 - p0
-          # Delta-method SE: sqrt(p1(1-p1)/n1 + p0(1-p0)/n0)
-          se   <- sqrt(p1 * (1 - p1) / max(n1, 1) + p0 * (1 - p0) / max(n0, 1))
-          list(
-            estimate  = rd,
-            se        = se,
-            converged = FALSE,   # flag as fallback
-            n0 = n0, n1 = n1, measure = "RD"
-          )
-        })
+        .estimate_rr(data_slice, fmla, treat.name, outcome.name,
+                     n0, n1, robust_se)
       }
     )
 
@@ -305,9 +261,287 @@ make_effect_estimator <- function(
 }
 
 
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# RD estimation with three-tier fallback
+# ---------------------------------------------------------------------------
+
+#' @noRd
+.estimate_rd <- function(data_slice, fmla, treat.name, outcome.name, n0, n1) {
+  # Arm-level proportions (always available for fallback)
+  y0 <- data_slice[[outcome.name]][data_slice[[treat.name]] == 0]
+  y1 <- data_slice[[outcome.name]][data_slice[[treat.name]] == 1]
+  p0 <- mean(y0, na.rm = TRUE)
+  p1 <- mean(y1, na.rm = TRUE)
+
+  # Tier 1: Identity-link binomial GLM
+  tier1 <- tryCatch({
+    fit <- stats::glm(
+      fmla,
+      data   = data_slice,
+      family = stats::binomial(link = "identity"),
+      start  = c(p0, p1 - p0)
+    )
+    if (!fit$converged) stop("identity-link binomial did not converge")
+    coef_val <- stats::coef(fit)[[treat.name]]
+    se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+    list(
+      estimate    = coef_val,
+      se          = se_val,
+      converged   = TRUE,
+      n0          = n0,
+      n1          = n1,
+      measure     = "RD",
+      method_used = "identity_binomial"
+    )
+  },
+  error   = function(e) NULL,
+  warning = function(w) {
+    # Catch "did not converge" warnings too
+    if (grepl("converge", conditionMessage(w), ignore.case = TRUE)) {
+      return(NULL)
+    }
+    invokeRestart("muffleWarning")
+  })
+
+  if (!is.null(tier1)) return(tier1)
+
+  # Tier 2: Margins from logistic regression (delta method)
+  tier2 <- tryCatch({
+    fit_logit <- stats::glm(
+      fmla,
+      data   = data_slice,
+      family = stats::binomial(link = "logit")
+    )
+    if (!fit_logit$converged) stop("logistic did not converge")
+
+    # Predicted probabilities under each treatment arm
+    nd0 <- nd1 <- data_slice[1, , drop = FALSE]
+    nd0[[treat.name]] <- 0L
+    nd1[[treat.name]] <- 1L
+    pred0 <- stats::predict(fit_logit, newdata = nd0, type = "response")
+    pred1 <- stats::predict(fit_logit, newdata = nd1, type = "response")
+    rd_est <- pred1 - pred0
+
+    # Delta-method SE for g(beta) = expit(b0 + b1) - expit(b0)
+    beta  <- stats::coef(fit_logit)
+    V     <- stats::vcov(fit_logit)
+    dp1   <- pred1 * (1 - pred1)   # d expit / d(b0+b1)
+    dp0   <- pred0 * (1 - pred0)   # d expit / d(b0)
+    grad  <- c(dp1 - dp0, dp1)     # d(RD)/d(b0), d(RD)/d(b1)
+    se_rd <- sqrt(as.numeric(t(grad) %*% V %*% grad))
+
+    list(
+      estimate    = rd_est,
+      se          = se_rd,
+      converged   = TRUE,
+      n0          = n0,
+      n1          = n1,
+      measure     = "RD",
+      method_used = "logistic_margins"
+    )
+  },
+  error = function(e) NULL)
+
+  if (!is.null(tier2)) return(tier2)
+
+  # Tier 3: Raw proportions
+  rd_raw <- p1 - p0
+  se_raw <- sqrt(
+    p1 * (1 - p1) / max(n1, 1L) + p0 * (1 - p0) / max(n0, 1L)
+  )
+  list(
+    estimate    = rd_raw,
+    se          = se_raw,
+    converged   = FALSE,
+    n0          = n0,
+    n1          = n1,
+    measure     = "RD",
+    method_used = "raw_means"
+  )
+}
+
+
+# ---------------------------------------------------------------------------
+# RR estimation: log-binomial -> modified Poisson fallback
+# ---------------------------------------------------------------------------
+
+#' @noRd
+.estimate_rr <- function(data_slice, fmla, treat.name, outcome.name,
+                         n0, n1, robust_se) {
+
+  # Attempt log-binomial first
+  fit_rr <- tryCatch({
+    p_start <- mean(data_slice[[outcome.name]], na.rm = TRUE)
+    fit <- stats::glm(
+      fmla,
+      data   = data_slice,
+      family = stats::binomial(link = "log"),
+      start  = c(log(max(p_start, 0.01)), 0)
+    )
+    if (!fit$converged) stop("log-binomial did not converge")
+    coef_val <- stats::coef(fit)[[treat.name]]
+    se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+    list(
+      estimate    = coef_val,
+      se          = se_val,
+      converged   = TRUE,
+      n0          = n0,
+      n1          = n1,
+      measure     = "log-RR",
+      method_used = "log_binomial"
+    )
+  },
+  error   = function(e) NULL,
+  warning = function(w) {
+    if (grepl("converge", conditionMessage(w), ignore.case = TRUE)) {
+      return(NULL)
+    }
+    invokeRestart("muffleWarning")
+  })
+
+  if (!is.null(fit_rr)) return(fit_rr)
+
+  # Fallback: modified Poisson (Zou 2004)
+  tryCatch({
+    fit <- stats::glm(
+      fmla,
+      data   = data_slice,
+      family = stats::poisson(link = "log")
+    )
+    coef_val <- stats::coef(fit)[[treat.name]]
+    se_val   <- .robust_or_model_se(fit, treat.name, robust_se)
+    list(
+      estimate    = coef_val,
+      se          = se_val,
+      converged   = TRUE,
+      n0          = n0,
+      n1          = n1,
+      measure     = "log-RR",
+      method_used = "modified_poisson"
+    )
+  },
+  error = function(e) {
+    list(
+      estimate = NA_real_, se = NA_real_, converged = FALSE,
+      n0 = n0, n1 = n1, measure = "log-RR",
+      method_used = "rr_failed"
+    )
+  })
+}
+
+
+# ---------------------------------------------------------------------------
+# Poisson rate estimator (IRR and IRD)
+# ---------------------------------------------------------------------------
+
+#' Make a Poisson rate-model estimator closure
+#'
+#' Fits `glm(event ~ treat, family = poisson(link = "log"),
+#'           offset = log(time))` and returns:
+#'
+#'   - For `"IRR"`: the log incidence rate ratio (treatment coefficient)
+#'   - For `"IRD"`: the incidence rate difference computed from predicted rates
+#'
+#' Under constant baseline hazard (exponential survival), `exp(log-IRR)`
+#' equals the Cox hazard ratio, providing a sanity check against the
+#' existing survival pipeline.
+#'
+#' @noRd
+.make_poisson_rate_estimator <- function(
+    treat.name,
+    outcome.name,
+    offset.name,
+    effect_measure = "IRR",
+    robust_se      = TRUE,
+    ...
+) {
+  force(treat.name)
+  force(outcome.name)
+  force(offset.name)
+  force(effect_measure)
+  force(robust_se)
+
+  function(data_slice) {
+    n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
+    n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
+
+    # Validate offset column
+    time_vec <- data_slice[[offset.name]]
+    if (any(time_vec <= 0, na.rm = TRUE)) {
+      # Zero or negative times are invalid for log offset
+      time_vec <- pmax(time_vec, .Machine$double.eps)
+    }
+
+    fmla <- stats::as.formula(
+      paste0(outcome.name, " ~ ", treat.name)
+    )
+
+    result <- tryCatch({
+      fit <- stats::glm(
+        fmla,
+        data   = data_slice,
+        family = stats::poisson(link = "log"),
+        offset = log(time_vec)
+      )
+
+      if (effect_measure == "IRR") {
+        # ---- Incidence Rate Ratio (log scale) ----
+        coef_val <- stats::coef(fit)[[treat.name]]
+        se_val   <- .robust_or_model_se(fit, treat.name, robust_se)
+        list(
+          estimate    = coef_val,
+          se          = se_val,
+          converged   = fit$converged,
+          n0          = n0,
+          n1          = n1,
+          measure     = "log-IRR",
+          method_used = "poisson_offset"
+        )
+      } else {
+        # ---- Incidence Rate Difference (identity scale) ----
+        # Predict rates for each arm at mean offset
+        beta <- stats::coef(fit)
+        V    <- stats::vcov(fit)
+        mean_log_t <- mean(log(time_vec), na.rm = TRUE)
+
+        # Rate in control:   lambda_0 = exp(beta_0 + mean_log_t)
+        # Rate in treatment:  lambda_1 = exp(beta_0 + beta_1 + mean_log_t)
+        lam0 <- exp(beta[[1L]] + mean_log_t)
+        lam1 <- exp(beta[[1L]] + beta[[treat.name]] + mean_log_t)
+        ird  <- lam1 - lam0
+
+        # Delta-method SE: d(lam1 - lam0)/d(beta)
+        grad <- c(lam1 - lam0, lam1)
+        se_ird <- sqrt(as.numeric(t(grad) %*% V %*% grad))
+
+        list(
+          estimate    = ird,
+          se          = se_ird,
+          converged   = fit$converged,
+          n0          = n0,
+          n1          = n1,
+          measure     = "IRD",
+          method_used = "poisson_offset_delta"
+        )
+      }
+    },
+    error = function(e) {
+      measure_label <- if (effect_measure == "IRR") "log-IRR" else "IRD"
+      list(
+        estimate = NA_real_, se = NA_real_, converged = FALSE,
+        n0 = n0, n1 = n1, measure = measure_label,
+        method_used = "poisson_failed"
+      )
+    })
+
+    result
+  }
+}
+
+
+# ---------------------------------------------------------------------------
 # Continuous outcome estimator (linear regression / mean difference)
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 
 #' Make a continuous-outcome estimator closure
 #'
@@ -333,16 +567,20 @@ make_effect_estimator <- function(
       coef_val <- stats::coef(fit)[[treat.name]]
       se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
       list(
-        estimate  = coef_val,   # mean difference (identity scale)
-        se        = se_val,
-        converged = TRUE,
-        n0 = n0, n1 = n1, measure = "MD"
+        estimate    = coef_val,
+        se          = se_val,
+        converged   = TRUE,
+        n0          = n0,
+        n1          = n1,
+        measure     = "MD",
+        method_used = "ols"
       )
     },
     error = function(e) {
       list(
         estimate = NA_real_, se = NA_real_, converged = FALSE,
-        n0 = n0, n1 = n1, measure = "MD"
+        n0 = n0, n1 = n1, measure = "MD",
+        method_used = "ols_failed"
       )
     })
 
@@ -351,25 +589,84 @@ make_effect_estimator <- function(
 }
 
 
-# -----------------------------------------------------------------------------
-# Utility: back-transform for reporting
-# -----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
 
-#' Exponentiate an estimate for a given effect measure
-#'
-#' Applies `exp()` for log-scale measures (HR, OR, RR); returns the estimate
-#' unchanged for identity-scale measures (RD, MD).
+#' Use sandwich robust SE if available; else model-based
+#' @noRd
+.robust_or_model_se <- function(fit, treat.name, robust_se = TRUE) {
+  if (robust_se) {
+    se_val <- tryCatch({
+      if (!requireNamespace("sandwich", quietly = TRUE)) stop("no sandwich")
+      sqrt(sandwich::sandwich(fit)[treat.name, treat.name])
+    },
+    error = function(e) {
+      sqrt(diag(stats::vcov(fit)))[[treat.name]]
+    })
+  } else {
+    se_val <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+  }
+  se_val
+}
+
+
+#' Exponentiate an estimate for log-scale measures; pass through identity-scale
 #'
 #' @param estimate Numeric scalar.
-#' @param measure  Character. One of `"HR"`, `"OR"`, `"RR"`, `"RD"`, `"MD"`.
+#' @param measure  Character. One of `"log-HR"`, `"log-OR"`, `"log-RR"`,
+#'   `"log-IRR"`, `"RD"`, `"IRD"`, `"MD"`.
 #'
-#' @return Numeric scalar on the natural scale.
+#' @return Numeric scalar on the natural (exponentiated or identity) scale.
 #'
 #' @noRd
 back_transform_estimate <- function(estimate, measure) {
-  if (measure %in% c("HR", "OR", "RR")) {
+  if (grepl("^log-", measure)) {
     exp(estimate)
   } else {
     estimate
+  }
+}
+
+
+#' Is this effect measure on the log scale?
+#' @noRd
+is_log_scale <- function(measure) {
+  measure %in% c("log-HR", "log-OR", "log-RR", "log-IRR")
+}
+
+
+#' Map user-facing effect_measure to internal measure label
+#' @noRd
+effect_measure_to_label <- function(effect_measure) {
+  switch(effect_measure,
+    HR  = "log-HR",
+    OR  = "log-OR",
+    RR  = "log-RR",
+    IRR = "log-IRR",
+    RD  = "RD",
+    IRD = "IRD",
+    MD  = "MD",
+    stop("Unknown effect_measure: ", effect_measure, call. = FALSE)
+  )
+}
+
+
+#' Map user-facing effect_measure to consistency comparison direction
+#'
+#' Returns a function `f(estimate, threshold)` that evaluates `TRUE` when
+#' the estimate exceeds the threshold in the direction consistent with harm.
+#'
+#' For log-scale measures: `estimate >= log(threshold)`
+#' For identity-scale measures: `estimate >= threshold`
+#'
+#' @noRd
+make_consistency_comparator <- function(effect_measure) {
+  if (effect_measure %in% c("HR", "OR", "RR", "IRR")) {
+    # Log-scale: compare log(estimate) >= log(threshold)
+    function(estimate, threshold) estimate >= log(threshold)
+  } else {
+    # Identity scale (RD, IRD, MD): compare estimate >= threshold
+    function(estimate, threshold) estimate >= threshold
   }
 }
