@@ -693,11 +693,15 @@ forestsearch <- function(df.analysis,
         minp = minp,
         maxk = maxk,
         parallel_workers = 1,  # Ensure sequential execution if inside parallel context
-        details = details,       # Optionally suppress details
-        estimator_fn = estimator_fn,
-        df_analysis = df,
-        effect_threshold = effect_threshold
+        details = details       # Optionally suppress details
   )
+
+  # Only pass GLM params when active (same rationale as consistency_overrides)
+  if (!is.null(estimator_fn)) {
+    search_overrides$estimator_fn <- estimator_fn
+    search_overrides$df_analysis <- df
+    search_overrides$effect_threshold <- effect_threshold
+  }
 
   # Merge and filter arguments
   search_args <- modifyList(args_call_all, search_overrides)
@@ -785,11 +789,17 @@ forestsearch <- function(df.analysis,
       stop_Kgroups = max_subgroups_search,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
-      twostage_args = twostage_args,
-      # NEW: Pass GLM estimator closure
-      estimator_fn = estimator_fn,
-      consistency_threshold = consistency_threshold
+      twostage_args = twostage_args
     )
+
+    # Only pass GLM closure params when active (non-NULL).
+    # This ensures the survival path never sends unknown args to
+    # subgroup.consistency — critical for compatibility with
+    # the CRAN-installed version.
+    if (!is.null(estimator_fn)) {
+      consistency_overrides$estimator_fn <- estimator_fn
+      consistency_overrides$consistency_threshold <- consistency_threshold
+    }
 
     # Run subgroup consistency analysis with error handling
     sc_filtered_args <- filter_call_args(
