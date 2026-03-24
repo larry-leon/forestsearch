@@ -799,6 +799,10 @@ forestsearch <- function(df.analysis,
     if (!is.null(estimator_fn)) {
       consistency_overrides$estimator_fn <- estimator_fn
       consistency_overrides$consistency_threshold <- consistency_threshold
+      # The HR column in hr.subgroups contains log-scale values for GLM
+      # outcomes; hr.threshold must be on the same scale so the re-filtering
+      # inside subgroup.consistency (line: found.hrs$HR >= hr.threshold) works.
+      consistency_overrides$hr.threshold <- effect_threshold
     }
 
     # Run subgroup consistency analysis with error handling

@@ -1,0 +1,334 @@
+---
+title: "GBSG Analysis: Cox vs. Poisson-Offset Comparison"
+subtitle: "ForestSearch GLM Extension — Sanity Check"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| code-fold: false
+
+knitr::opts_chunk$set(comment = "#>")
+
+# Navigate to package root
+while (!file.exists("DESCRIPTION") && getwd() != dirname(getwd())) {
+  setwd("..")
+}
+stopifnot(
+  "Could not find package root" = file.exists("DESCRIPTION")
+)
+
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+
+# Source dev/glm closures (not yet graduated to R/)
+source("dev/glm/glm_effect_estimators.R")
+source("dev/glm/glm_simulate.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(future)
+})
+
+n_cores <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+cat("Package root:", getwd(), "\n")
+cat("R version:", R.version.string, "\n")
+cat("Workers:", n_cores, "\n")
+```
+
+# Data Preparation
+
+The GBSG breast cancer dataset (`survival::gbsg`, N = 686) is prepared
+identically for both the Cox and Poisson-offset analyses.
+
+```{r data-prep}
+#| code-fold: false
+
+df.analysis <- survival::gbsg
+df.analysis$id <- seq_len(nrow(df.analysis))
+df.analysis$grade3 <- as.integer(df.analysis$grade == "3")
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name     <- "rfstime"
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+cat("GBSG: N =", nrow(df.analysis),
+    ", events =", sum(df.analysis[[event.name]]),
+    sprintf("(%.0f%%)\n", 100 * mean(df.analysis[[event.name]])))
+```
+
+
+# Cox Survival Analysis (Reference) {#sec-cox}
+
+This is the standard ForestSearch analysis from the primary vignette.
+
+```{r forestsearch-cox, fig.width=10, fig.height=7}
+#| code-fold: false
+
+fs_cox <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  treat.name       = treat.name,
+  event.name       = event.name,
+  id.name          = id.name,
+  # Threshold parameters (per León et al. 2024)
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  # Search configuration
+  sg_focus             = "hr",
+  max_subgroups_search = 3,
+  use_twostage         = TRUE,
+  # Factor selection
+  use_grf                    = TRUE,
+  return_selected_cuts_only  = TRUE,
+  use_lasso                  = TRUE,
+  cut_type                   = "default",
+  # Subgroup constraints
+  maxk   = 2,
+  n.min  = 60,
+  d0.min = 12,
+  d1.min = 12,
+  # Consistency evaluation
+  fs.splits = 100,
+  # Sequential for load_all() compatibility
+  parallel_args = list(
+    plan         = "sequential",
+    workers      = n_cores,
+    show_message = TRUE
+  ),
+  # Output options
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = TRUE
+)
+plan("sequential")
+```
+
+## Cox Results
+
+### Identified Subgroups
+
+```{r cox-results}
+res_cox <- sg_tables(fs_cox, ndecimals = 3, which_df = "est")
+res_cox$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r cox-estimates}
+res_cox$tab_estimates
+```
+
+### Identified Subgroup Definition
+
+```{r cox-subgroup}
+cat("Identified subgroup (H):", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_cox$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_cox$df.est$treat.recommend == 0)))
+```
+
+
+# Poisson-Offset GLM Analysis (Sanity Check) {#sec-poisson}
+
+The Poisson regression with `log(rfstime)` as offset approximates the Cox
+model when the baseline hazard is locally constant.  Under this
+approximation, `exp(log-IRR)` should track the Cox hazard ratio, and the
+identified subgroup should be similar or identical.
+
+The key API difference: `outcome.name` is the binary event indicator,
+`offset.name` points to the follow-up time column, and `outcome_type = "binary"`
+with `effect_measure = "IRR"`.
+
+::: {.callout-note}
+## GRF and LASSO not yet wired for GLM outcomes (Phase 1)
+
+The Poisson-offset analysis disables GRF and LASSO candidate selection
+because these components use `causal_survival_forest()` and
+`glmnet(family = "cox")` respectively, which require survival-specific
+inputs.  Wiring `causal_forest()` and `glmnet(family = "poisson")` is
+Phase 3 work.  For now, all confounders are cut at quartiles/median
+(the `cut_type = "default"` path).
+:::
+
+```{r forestsearch-poisson}
+#| code-fold: false
+
+fs_pois <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force = c("er <= 0"),
+  outcome.name     = event.name,        # binary event indicator (0/1)
+  event.name       = event.name,        # same column (binary IS the event)
+  treat.name       = treat.name,
+  id.name          = id.name,
+  # GLM outcome specification
+  outcome_type     = "binary",
+  effect_measure   = "IRR",
+  offset.name      = outcome.name,      # "rfstime" — log(rfstime) used as offset
+  # Threshold parameters — same as Cox for comparability
+  # IRR thresholds map directly to HR thresholds
+  hr.threshold           = 1.25,        # log(1.25) screening on log-IRR scale
+  hr.consistency         = 1.0,         # log(1.0) = 0 consistency threshold
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  # Search configuration
+  sg_focus             = "hr",
+  max_subgroups_search = 20,
+  use_twostage         = TRUE,
+  # Factor selection — GRF/LASSO not yet wired for GLM (Phase 1)
+  use_grf   = FALSE,
+  use_lasso = FALSE,
+  cut_type  = "default",
+  # Subgroup constraints
+  maxk   = 2,
+  n.min  = 60,
+  d0.min = 12,
+  d1.min = 12,
+  # Consistency evaluation
+  fs.splits = 100,
+  # Sequential for load_all() compatibility
+  parallel_args = list(
+    plan         = "sequential",
+    workers      = n_cores,
+    show_message = TRUE
+  ),
+  # Output options
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = FALSE              # KM plots not applicable for GLM
+)
+plan("sequential")
+```
+
+## Poisson-Offset Results
+
+### Identified Subgroup Definition
+
+```{r pois-subgroup}
+if (!is.null(fs_pois$sg.harm)) {
+  cat("Identified subgroup (H):", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+  cat("Subgroup size:", sum(fs_pois$df.est$treat.recommend == 0),
+      sprintf("(%.1f%% of ITT)\n",
+              100 * mean(fs_pois$df.est$treat.recommend == 0)))
+} else {
+  cat("No subgroup identified by Poisson-offset path\n")
+}
+```
+
+### Candidate Subgroups from Search
+
+```{r pois-candidates}
+pois_cands <- fs_pois$find.grps$out.found$hr.subgroups
+if (!is.null(pois_cands) && nrow(pois_cands) > 0) {
+  # HR column contains log-IRR in the GLM path; exponentiate for comparison
+  pois_cands$IRR <- exp(pois_cands$HR)
+
+  factor_cols <- setdiff(
+    names(pois_cands),
+    c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)", "IRR")
+  )
+
+  cat("Top candidates (sorted by IRR):\n\n")
+  top <- head(pois_cands[order(-pois_cands$IRR), ], 10)
+  for (i in seq_len(nrow(top))) {
+    active <- factor_cols[
+      as.numeric(unlist(top[i, factor_cols, with = FALSE])) == 1
+    ]
+    cat(sprintf("  #%d: log-IRR = %6.3f  (IRR = %5.2f)  n = %3d  %s\n",
+                i, top$HR[i], top$IRR[i], top$n[i],
+                paste(active, collapse = " & ")))
+  }
+} else {
+  cat("No candidates found\n")
+}
+```
+
+
+# Side-by-Side Comparison {#sec-comparison}
+
+```{r comparison}
+cat("=" |> rep(70) |> paste(collapse = ""), "\n")
+cat("GBSG Subgroup Identification: Cox vs. Poisson-Offset\n")
+cat("=" |> rep(70) |> paste(collapse = ""), "\n\n")
+
+# Cox results
+cat("Cox (survival) path:\n")
+if (!is.null(fs_cox$sg.harm)) {
+  cat("  Subgroup: ", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+  cat("  N(harm):  ", sum(fs_cox$df.est$treat.recommend == 0), "\n")
+  cat("  N(benefit):", sum(fs_cox$df.est$treat.recommend == 1), "\n")
+} else {
+  cat("  No subgroup identified\n")
+}
+
+cat("\nPoisson-offset (GLM) path:\n")
+if (!is.null(fs_pois$sg.harm)) {
+  cat("  Subgroup: ", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+  cat("  N(harm):  ", sum(fs_pois$df.est$treat.recommend == 0), "\n")
+  cat("  N(benefit):", sum(fs_pois$df.est$treat.recommend == 1), "\n")
+} else {
+  cat("  No subgroup identified\n")
+}
+
+# ITT-level comparison of Cox log-HR vs Poisson log-IRR
+cat("\nITT-level effect estimates:\n")
+cox_itt <- survival::coxph(
+  survival::Surv(rfstime, status) ~ hormon, data = df.analysis
+)
+pois_itt <- glm(
+  status ~ hormon, family = poisson(link = "log"),
+  offset = log(rfstime), data = df.analysis
+)
+cat("  Cox  log-HR: ", round(coef(cox_itt)["hormon"], 4), "\n")
+cat("  Pois log-IRR:", round(coef(pois_itt)["hormon"], 4), "\n")
+cat("  Difference:  ", round(coef(pois_itt)["hormon"] - coef(cox_itt)["hormon"], 4), "\n")
+```
+
+::: {.callout-note}
+## Interpreting the Comparison
+
+The Cox and Poisson-offset paths may identify **different subgroups** for
+two reasons:
+
+1. **Candidate factor sets differ.** The Cox path uses GRF + LASSO for
+   variable selection; the Poisson path uses quartile cuts only (Phase 1).
+   This means the Cox path evaluates a smaller, more targeted set of
+   candidates.
+
+2. **The Poisson approximation is imperfect.** The GBSG data has a Weibull-like
+   hazard (not constant), so the Poisson log-IRR diverges slightly from the
+   Cox log-HR, especially in subgroups with heterogeneous follow-up.
+
+Despite these differences, the ITT-level estimates should agree closely,
+and the identified subgroups should share common factors (particularly
+estrogen receptor status, which is the dominant prognostic/predictive
+variable in this dataset).
+
+When GRF and LASSO are wired for GLM outcomes (Phase 3), the candidate
+sets will align and the comparison will be tighter.
+:::
+
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```
