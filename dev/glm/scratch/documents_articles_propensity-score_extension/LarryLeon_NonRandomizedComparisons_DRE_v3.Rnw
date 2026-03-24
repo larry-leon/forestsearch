@@ -1,0 +1,571 @@
+
+\RequirePackage{fix-cm}
+\RequirePackage{tikz} % Note: had interference problems when loading via usepackage
+
+\documentclass[10pt]{beamer} \mode<presentation>{\usetheme{Warsaw}} 
+\usepackage{graphicx,natbib}
+
+\usetikzlibrary{positioning}
+\usepackage[utf8]{inputenc}
+\usepackage{pgf}
+
+
+%% preamble 
+\title{Some Non-Randomized Comparisons in Oncology} 
+\subtitle{Double-Robust Estimators} 
+\author{Larry F. Le\'on \\ Biostatistics: Methods, Collaboration, and Outreach (MCO)}
+
+<<echo=FALSE,message=FALSE>>=
+opts_chunk$set (warning = FALSE, message = FALSE, echo=FALSE,dev = 'pdf')
+library(Hmisc,quietly=TRUE,verbose=FALSE)
+@
+
+
+\def\sumin{\sum_{i=1}^n}
+\def\Ni{{\cal N}_{i}}
+\def\tpast{t^{-}}
+\def\barY{\overline{Y}}
+\def\barN{\overline{N}}
+\def\barM{\overline{M}}
+\def\It{\int_{0}^{t}}
+
+\def\gt{G(t)}
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+
+%% title frame 
+\begin{frame} 
+\titlepage 
+\end{frame}
+
+
+\begin{frame}
+\tableofcontents
+\section{Recent applications in Oncology} 
+\subsection{Ph1b Decision Making in Hematology (Project Endeavour): Single-arm vs Historical Control} 
+\section{Observational Analyses: Regression, IPW, and Double-Robust Estimators} 
+\subsection{Simulations: Performance of Methods For Response Rate Comparisons} 
+\subsection{Impact of Selection Bias and Model Misspecification}
+\subsection{Additional Challenges With Covariate Measurement Error}
+\subsection{Censored Data Analysis Approaches (Adjusted KM)}
+\subsection{Simulations Comparing 36-Month PFS Rates} 
+\end{frame}
+
+
+\begin{frame}{Non-Randomized Comparisons in Oncology}
+
+\textbf{Project Endeavour: Phase 1b Decision Making:}
+Multiple single-arm trials across hematology program (1L DLBCL, R/R DLBCL, 1L FL, and R/R FL)
+\pause
+
+\textbf{Singe-Arm vs Historical Control:}
+Single-arm (SA) studies will be compared to historical-control data source: 1L DLBCL SA (n=40) vs RCHOP (GOYA trial, $n>650$)
+
+\pause
+
+\textbf{Atezo ``ADA'' Analysis:}
+Impact of (potentially increased) immunogenicity rate for atezolizumab on survival.  Landmark analysis by 
+patients' anti-drug antibodies (ADA) status measured at 4 weeks after initiation of treatment.  How to compare with chemo control arm?
+FDA conducted a propensity-score matching (1:1) analysis of the OAK study and the Atezo Lung Team is considering various alternatives for this evaluation. 
+\end{frame}
+
+
+
+\begin{frame}{Project Endeavour: POLA vs RCHOP (GOYA) Baseline Characteristics}
+
+\input{"//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro/Pola_vs_RCHOP_bl.tex"}
+
+\end{frame}
+
+
+
+
+\begin{frame}{Potential Outcomes: Average Causal Effect (ACE)}
+
+\textbf{Potential outcomes:} $Y_{(1)}$ and $Y_{(0)}$ denote the potential outcomes if the patient received treatment or control
+
+\pause
+
+\textbf{Confounder:} $L$ denote a set of confounders (baseline factors) and $Z$ denote treatment indicator 
+
+\pause
+
+\textbf{No unmeasured confounders assumption:} $\{Y_{(1)},Y_{(0)}\}$ are conditionally independent of $Z$ given $L$.
+
+\pause
+
+\textbf{ACE=$E(Y_{(1)})-E(Y_{(0)})$:}
+$$ E(Y_{(a)})=E_{L}\left\{E(Y_{i} | L_{i}, Z_{i}=a)\right\}, \quad a=0,1$$ 
+
+\end{frame}
+
+
+%% OR Estimator
+
+\begin{frame}{Regression}
+
+\textbf{Outcome Regression (OR) Model:}
+$$E[Y|Z,L]:=\mu(Z,L)=g(\alpha*Z+\beta'L)$$
+
+\pause
+
+\textbf{Logistic Regression Model:}
+$E[Y|Z,L]=\Pr(Y=1|Z,L)=\exp(\alpha*Z+\beta'L)/(1+\exp(\alpha*Z+\beta'L))$
+
+\pause
+
+\textbf{Predicted $E(Y_{(1)})$:}
+Patient with characteristic $L$, their potential outcome under treatment $Z=1$ is predicted as 
+$$\hat\mu(Z=1,L)=g(\hat\alpha+\hat\beta'L)$$
+
+\pause
+
+\textbf{Predicted $E(Y_{(0)})$:} 
+$$\hat\mu(Z=0,L)=g(\hat\beta'L)$$
+
+\end{frame}
+
+
+
+\begin{frame}{OR, IPW, and Double-Robust Estimators}
+
+\newtheorem{orest}{OR Estimator} 
+
+\begin{orest}<1-> $$\hat\Delta_{\hbox{OR}}=n^{-1}\sum_{i=1}^{n}\left\{\hat\mu(Z_{i}=1,L_{i})-\hat\mu(Z_{i}=0,L_{i})\right\}$$
+\end{orest} 
+
+\pause
+
+\textbf{Propensity Score Model:}
+$e(L_{i},\hat\zeta)$ is the estimated probability of receiving treatment for patient $i$ with characteristics $L_i$
+
+\pause
+
+\newtheorem{ipwest}{IPW Estimator} 
+
+\begin{ipwest}<2->
+$$\hat\Delta_{\hbox{ipw}}=n^{-1}\left\{\sum_{i=1}^{n}{Z_{i}Y_{i} \over e(L_{i},\hat\zeta)}
+-\sum_{i=1}^{n}{(1-Z_{i})Y_{i} \over 1-e(L_{i},\hat\zeta)}\right\}$$
+\end{ipwest}
+\end{frame}
+
+
+\begin{frame}{OR, IPW, and Double-Robust Estimators (contd)}
+
+\textbf{OR Estimator:} 
+$$\hat\Delta_{\hbox{OR}}=n^{-1}\sum_{i=1}^{n}\left\{\hat\mu(Z_{i}=1,L_{i})-\hat\mu(Z_{i}=0,L_{i})\right\}$$
+\textbf{IPW Estimator:} $$\hat\Delta_{\hbox{ipw}}=n^{-1}\left\{\sum_{i=1}^{n}{Z_{i}Y_{i} \over e(L_{i},\hat\zeta)}
+-\sum_{i=1}^{n}{(1-Z_{i})Y_{i} \over 1-e(L_{i},\hat\zeta)}\right\}$$
+\pause
+\newtheorem{drest}{DR Estimator: \cite{BR2005}} 
+\begin{drest}<2-> 
+$\tilde\mu_{DR}(Z=1,L)=g(\tilde\alpha+\tilde\beta'L+\tilde\eta*[1/e(L,\hat\zeta)])$; $\tilde\mu_{DR}(Z=0,L)=g(\tilde\beta'L+\tilde\eta*[1/(1-e(L,\hat\zeta))])$;  
+$$\tilde\Delta_{DR}=n^{-1}\sum_{i=1}^{n}\left\{\tilde\mu_{DR}(Z_{i}=1,L_{i})-\tilde\mu_{DR}(Z_{i}=0,L_{i})\right\}$$
+\end{drest} 
+
+
+\end{frame}
+
+
+
+\begin{frame}{AIPW, Matching and Targeted MLE (TMLE)}
+
+\begin{itemize} 
+
+\item
+\cite{FD2011} develop Augmented-IPW (AIPW) double-robust estimators;
+\item
+For propensity score matching we apply the {\it{matching}} R package;
+\item
+DR estimators (TMLE) based on machine learning algorithms are described by \cite{LSRS2018}:
+\item
+tmle(Y, A, W, family = "binomial", Q.SL.library = SL.library, g.SL.library = SL.library);
+\item
+SL.library=c("SL.glm","SL.step","SL.step.interaction", "SL.glm.interaction","SL.gam", "SL.randomForest", "SL.rpart")
+\end{itemize}
+\end{frame}
+
+
+
+
+\begin{frame}{Estimating Response Rate: Simulations Wherein $\Delta=25\%$}
+
+\textbf{Pola vs Rchop Simulation} 
+We mimic the Pola vs RCHOP characteristics in a setting where the true benefit is an increased response rate of $25\%$
+
+\pause
+\textbf{Selection to Pola (PS Model):} 
+We generate treatment group (membership to the experimental) via the logistic regression model 
+$$\Pr(Z=1 | X) = \hbox{expit}(X_0'\gamma)$$
+\noindent $X_0$ are the true factors related to how patients are ``selected'' to the experimental arm
+
+\pause
+
+\textbf{Response Outcomes (OR Model):} 
+$$\Pr(Y=1 | Z,V) = \hbox{expit}(\tau+\alpha*Z+V_0'\beta)$$
+
+\noindent
+$X_{0}=V_{0}=\{ipi.high,age,male,ecog.01,stage4,bulky,ldh.normal \}$; $\tau, \alpha, \beta$ such that $\Delta=E(Y_{(1)})-E(Y_{(0)})=25\%$
+
+\paus
+
+\textbf{Selection Bias} 
+Patients are selected with bias: Experimental pts' have poorer prognostic characteristics
+
+\end{frame}
+
+
+
+
+\begin{frame}{$\Delta=25\%$: True Model where $X=V=\{ipi.high,age,male,ecog.01,stage4,bulky,ldh.normal \}$} 
+
+\begin{figure}
+\begin{center}
+<<out.height="180px",out.width="180px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_BothTrue.Rdata",sep=""))
+load(toget)
+
+out.results2<-out.results[which(out.results$estimator!="ipw"),]
+out.results3<-out.results2[which(out.results2$estimator!="aipw"),]
+est.order<-c("naive", "or", "1:1","1:all","br","tmle")
+est<-factor(out.results3$estimator,levels=est.order)
+pv<-ggplot(out.results3, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+
+
+\begin{frame}{$\Delta=25\%$: PS Weak ($X=\{age,male \}$); OR Strong ($V=\{ipi.high,stage4 \})$} 
+
+\begin{figure}
+\begin{center}
+<<out.height="180px",out.width="180px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_ORsPSw.Rdata",sep=""))
+load(toget)
+
+out.results2<-out.results[which(out.results$estimator!="ipw"),]
+out.results3<-out.results2[which(out.results2$estimator!="aipw"),]
+est.order<-c("naive", "or","1:1","1:all","br","tmle")
+out.results<-out.results3
+
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+
+
+\begin{frame}{$\Delta=25\%$: PS Strong ($X=\{ipi.high,stage4 \})$; OR Weak ($V=\{age,male \}$)} 
+
+\begin{figure}
+\begin{center}
+<<out.height="180px",out.width="180px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_ORwPSs.Rdata",sep=""))
+load(toget)
+
+out.results2<-out.results[which(out.results$estimator!="ipw"),]
+out.results3<-out.results2[which(out.results2$estimator!="aipw"),]
+est.order<-c("naive", "or","1:1","1:all","br","tmle")
+out.results<-out.results3
+
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+
+
+
+\begin{frame}{$\Delta=25\%$: Both Strong ($X=V=\{ipi.high,stage4 \})$ BUT $25\%$ Missclassification (wrt HC) in $X$ and $V$} 
+
+\begin{figure}
+\begin{center}
+<<out.height="180px",out.width="180px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_ORsPSs_Z1dirty25_Z5dirty25.Rdata",sep=""))
+load(toget)
+
+out.results2<-out.results[which(out.results$estimator!="ipw"),]
+out.results3<-out.results2[which(out.results2$estimator!="aipw"),]
+est.order<-c("naive", "or","1:1","1:all","br","tmle")
+out.results<-out.results3
+
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}{$\Delta=25\%$: Both Strong ($X=V=\{ipi.high,stage4 \})$ BUT $50\%$ Missclassification (wrt HC) in $X$ and $V$} 
+
+\begin{figure}
+\begin{center}
+<<out.height="180px",out.width="180px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_ORsPSs_Z1dirty50_Z5dirty50.Rdata",sep=""))
+load(toget)
+
+out.results2<-out.results[which(out.results$estimator!="ipw"),]
+out.results3<-out.results2[which(out.results2$estimator!="aipw"),]
+est.order<-c("naive", "or","1:1","1:all","br","tmle")
+out.results<-out.results3
+
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+
+@
+\end{center}
+\end{figure}
+\end{frame}
+
+
+
+
+\begin{frame}{Censored Data Analysis: Estimating Survival Differences}
+
+Transforming the observed survival times:
+
+$$E(\varphi(Y_{i}) | L_{i}, Z_{i}) = E(T_{i} | L_{i}, Z_{i})$$
+
+$${\varphi(Y_{i}) =  \left\{\begin{array}{ll}
+\varphi_{1}(T_{i}), \quad \hbox{if uncensored,} \\
+\varphi_{2}(C_{i}), \quad \hbox{if censored.}
+ \end{array}
+\right.}  $$
+
+\cite{FG1994} (\cite{SDS2018} a ``DR'' version):
+
+$$
+\varphi_{1}(T_{i})  =
+(1 + \theta)\int_{0}^{T_{i}}
+{dt \over {\gt}}
+ -{\theta}{T_{i} \over G(T_{i})} 
+$$
+
+$$
+\varphi_{2}(C_{i})= (1 + \theta)\int_{0}^{C_{i}} {dt \over {\gt}}
+$$
+
+$$\theta=\min_{\left\{i: \delta_{i}=1 \right\}}
+ {{\int_{0}^{Y_{i}} {dt \over {\gt}} - Y_{i}} \over
+{ {Y_{i} \over G(Y_{i})} - \int_{0}^{Y_{i}} {dt \over {\gt}} }}
+$$
+
+\end{frame}
+
+
+
+
+
+
+%% Adjusted KM
+
+\begin{frame}{Standard Kaplan-Meier}
+
+\newtheorem{chf}{Cumulative Hazard Function (CHF) Estimator} 
+\newtheorem{rmkchf}{Remark}
+
+\begin{chf}<1-> $$\hat{\Lambda}_{n}(t) =
+\int_{0}^{t}{d \barN(s) \over \barY(s)} = \sum_{\tau_{i} \leq t}{d_{i} \over \barY(\tau_i)} $$
+\end{chf} 
+
+\begin{rmkchf}<1->
+This is the Nelson-Aalen estimator of $\Lambda(t)$ where plugging into the relationship $S(t)=\exp(-\Lambda(t))$ yields an estimator for $S(t)$.
+\end{rmkchf}
+
+\begin{rmkchf}<2-> The Kaplan-Meier estimator is given by
+$\hat{S}^{KM}(t)=\prod_{u \leq t}[1-d\hat\Lambda(u)]=\prod_{\tau_{i} \leq t}[1-d_{i}/\barY(\tau_i)].$
+\end{rmkchf}
+
+\end{frame}
+
+\begin{frame}{Adjusted Kaplan-Meier}
+
+\newtheorem{wchf}{Weighted CHF:} 
+\newtheorem{wcounting}{Weighted Counting-Processes:}
+PS weighting of the counting and at-risk processes (\cite*{CH2004}):
+
+\begin{wchf}<1->
+$$\hat\Lambda^{W}(t)=\int_{0}^{t} {d\barN^{W}(u) \over \barY^{W}(u)}$$
+\end{wchf}
+
+\begin{wcounting}<1->
+$\barN^{W}(t)=\sumin W_{i}(t)N_{i}(t)$; $\barY^{W}(t)=\sumin W_{i}(t)Y_{i}(t)$
+\end{wcounting}
+
+\newtheorem{wkm}{Weighted Kaplan-Meier} 
+\begin{wkm}<2-> 
+$$\hat{S}^{KM}_{W}(t)=\prod_{u \leq t}[1-d\hat\Lambda^{W}(u)]$$
+\end{wkm}
+
+\end{frame}
+
+
+\begin{frame}{Estimators for Censored Analysis: Estimating $\Delta=S_{1}(36)-S_{0}(36)=12.5\%$}
+
+We consider the following analyses:
+
+\begin{itemiz}
+\item Naive denotes to the un-adjusted KM difference at 36-months;
+\item KM.adj denotes the IPW adjusted KM difference at 36-months;
+\item The OR, IPW, 1:1, 1:all, AIPW, BR, and TMLE all denote the 
+procedures based on $Y:=I(\varphi(Y) \geq 36)$ by treating 
+$\varphi(Y)$ as non-censored
+\end{itemize}
+
+
+
+\end{frame}
+
+
+\begin{frame}{Non-censored: $\Delta=S_{1}(36)-S_{0}(36)=12.5\%$; Both Strong ($X=V=\{ipi.high,stage4 \})$; BUT $35\%$ Missclassified} 
+\begin{figure}
+\begin{center}
+<<out.height="160px",out.width="160px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_PointSurv_FG-CUT_ORsPSs_Z1dirty35_Z5dirty35_NoCensoring_v2.Rdata",sep=""))
+load(toget)
+est.order<-c("naive", "km.adj","or", "ipw", "1:1","1:all","aipw","br","tmle")
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+\begin{frame}{censored: $\Delta=S_{1}(36)-S_{0}(36)=12.5\%$; Both Strong ($X=V=\{ipi.high,stage4 \})$; BUT $35\%$ Missclassified} 
+\begin{figure}
+\begin{center}
+<<out.height="175px",out.width="175px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_PointSurv_FG-CUT_ORsPSs_Z1dirty35_Z5dirty35_v2.Rdata",sep=""))
+load(toget)
+est.order<-c("naive", "km.adj","or", "ipw", "1:1","1:all","aipw","br","tmle")
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+
+\begin{frame}{censored: $\Delta=S_{1}(36)-S_{0}(36)=12.5\%$; Both Strong ($X=V=\{ipi.high,stage4 \})$} 
+\begin{figure}
+\begin{center}
+<<out.height="175px",out.width="175px">>=
+
+mydir<-'//NAS1817CC/Causal-Inference/CrossTrialComparisons/DoubleRobustEstimation/Presentation/DRE_Intro'
+toget<-c(paste(mydir,"/_data/DRE_Sim1_PointSurv_FG-CUT_ORsPSs.Rdata",sep=""))
+load(toget)
+est.order<-c("naive", "km.adj","or", "ipw", "1:1","1:all","aipw","br","tmle")
+est<-factor(out.results$estimator,levels=est.order)
+pv<-ggplot(out.results, aes(x=est, y=Bias))
+pv2<-pv + geom_violin(aes(fill= est), draw_quantiles=c(0.25,0.5,0.75))
+pv3<-pv2 + coord_flip()
+pv3 + theme(legend.position="none") # Remove legend
+
+
+@
+\end{center}
+\end{figure}
+
+\end{frame}
+
+
+\begin{frame}{ADA Analysis Challenges} 
+\section*{ADA Analysis}
+\begin{figure}
+\begin{center}
+\begin{tikzpicture}[scale=10]
+% nodes %
+\node[text centered] (x) {$X$};
+\node[below = 1.5 of x, text centered] (z) {$Z$};
+\node[right=1.5 of z, text centered] (u) {$U$};
+\node[right = 2.5 of x, text centered] (s1) {$S_{t}$};
+\node[right = 5 of x, text centered] (s2) {$S_{t+\kappa}$};
+
+% edges %
+\draw[->, line width= 1] (x) -- node[above,font=\footnotesize]{$\beta_1$}  (s1);
+
+\draw [->, line width= 1] (x) to  [out=45,in=90, looseness=0.5] node[above,
+font=\footnotesize]{$\beta_1$} (s2);
+
+\draw[->, line width= 1] (u) -- node[above,font=\footnotesize]{$\beta_2$}  (s1);
+\draw [->, line width= 1] (u) -- node[above,font=\footnotesize]{$\beta_2$}  (s2);
+\draw [->, line width= 1] (z) -- node[above,font=\footnotesize]{$\gamma$}  (u);
+\draw[->, line width= 1] (z) -- node[above,font=\footnotesize]{$\alpha$}  (s1);
+\draw [->, line width= 1] (z) to  [out=270,in=270, looseness=0.5] node[below,
+font=\footnotesize]{$\alpha$} (s2);
+
+\draw[->, line width= 1] (s1) -- node[above,font=\footnotesize]{}  (s2);
+\end{tikzpicture}
+\end{center}
+\caption{DAG of X (treatment), Z (baseline confounders), $U$ and $S_{t}$ (denotes 
+survival up to time $t$) and $S_{t+\kapa}$ 
+(denotes survival up to $t+\kappa$).  From \cite{ACR2015}.}
+\label{fig:dag1a}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+%\section*{References}
+\bibliographystyle{apalike}
+\bibliography{CensoredDataAnalysis_References_v5}
+\end{frame}
+
+\end{document}
