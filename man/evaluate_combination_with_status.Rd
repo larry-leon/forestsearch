@@ -16,7 +16,9 @@ evaluate_combination_with_status(
   hr.threshold,
   minp,
   rmin,
-  kk
+  kk,
+  estimator_fn = NULL,
+  df_clean = NULL
 )
 }
 \arguments{

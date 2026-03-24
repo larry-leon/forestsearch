@@ -47,10 +47,7 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
                             hr.threshold = 1.0, max.minutes = 30,
                             minp = 0.05, rmin = 5,
                             details = FALSE, maxk = 2,
-                            parallel_workers = parallel::detectCores(),
-                            estimator_fn = NULL,
-                            df_analysis = NULL,
-                            effect_threshold = NULL) {
+                            parallel_workers = parallel::detectCores()) {
 
   # =========================================================================
   # SECTION 1: DATA PREPARATION AND VALIDATION
@@ -65,25 +62,6 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
 
   n <- length(yy)
   L <- ncol(zz)
-
-  # For GLM path: align df_analysis with the NA-cleaned vectors
-  df_clean <- NULL
-  if (!is.null(estimator_fn) && !is.null(df_analysis)) {
-    complete_rows <- stats::complete.cases(cbind(Y, Event, Treat, Z))
-    df_clean <- df_analysis[complete_rows, , drop = FALSE]
-    if (nrow(df_clean) != n) {
-      warning("df_analysis row count mismatch after NA removal: ",
-              nrow(df_clean), " vs ", n, ". Using vector-based path.")
-      df_clean <- NULL
-    }
-  }
-
-  # Resolve screening threshold for GLM outcomes
-  screen_threshold <- if (!is.null(effect_threshold)) {
-    effect_threshold
-  } else {
-    hr.threshold
-  }
 
   # =========================================================================
   # SECTION 2: GENERATE COMBINATION INDICES
@@ -109,11 +87,9 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     yy = yy, dd = dd, tt = tt, zz = zz,
     combo_info = combo_info,
     n.min = n.min, d0.min = d0.min, d1.min = d1.min,
-    hr.threshold = screen_threshold, minp = minp, rmin = rmin,
+    hr.threshold = hr.threshold, minp = minp, rmin = rmin,
     max.minutes = max.minutes, t.start = t.start,
-    maxk = maxk, L = L,
-    estimator_fn = estimator_fn,
-    df_clean = df_clean
+    maxk = maxk, L = L
   )
 
   # Reset to sequential plan
@@ -170,9 +146,7 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
 search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
                                          n.min, d0.min, d1.min, hr.threshold,
                                          minp, rmin, max.minutes, t.start,
-                                         maxk, L,
-                                         estimator_fn = NULL,
-                                         df_clean = NULL) {
+                                         maxk, L) {
 
   tot_counts <- combo_info$max_count
 
@@ -191,9 +165,7 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
       yy = yy, dd = dd, tt = tt, zz = zz,
       n.min = n.min, d0.min = d0.min, d1.min = d1.min,
       hr.threshold = hr.threshold, minp = minp, rmin = rmin,
-      kk = kk,
-      estimator_fn = estimator_fn,
-      df_clean = df_clean
+      kk = kk
     )
   })
 
@@ -473,9 +445,7 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #' @keywords internal
 evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
                                              n.min, d0.min, d1.min, hr.threshold,
-                                             minp, rmin, kk,
-                                             estimator_fn = NULL,
-                                             df_clean = NULL) {
+                                             minp, rmin, kk) {
 
   # Extract selected factors
   selected_cols <- which(covs.in == 1)
@@ -498,45 +468,6 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
   }
 
   id.x <- redundancy_check$id.x
-
-  # ---------- GLM path ----------
-  if (!is.null(estimator_fn) && !is.null(df_clean)) {
-
-    # Status 3: Check per-arm sample size (replaces event-count check)
-    n0_sg <- sum(tt[id.x == 1] == 0)
-    n1_sg <- sum(tt[id.x == 1] == 1)
-    if (n0_sg < d0.min || n1_sg < d1.min) {
-      return(list(status = 3L, result = NULL))
-    }
-
-    # Status 4: Check total subgroup size
-    nx <- sum(id.x)
-    if (nx <= n.min) {
-      return(list(status = 4L, result = NULL))
-    }
-
-    # Status 5: Fit GLM via estimator closure
-    glm_result <- fit_glm_for_subgroup(df_clean, id.x, estimator_fn)
-    if (is.null(glm_result)) {
-      return(list(status = 5L, result = NULL))
-    }
-
-    # Status 6: Check effect threshold
-    if (glm_result$hr <= hr.threshold) {
-      return(list(status = 6L, result = NULL))
-    }
-
-    # Status 7: Passed
-    event_counts <- list(
-      d0    = n0_sg,
-      d1    = n1_sg,
-      total = n0_sg + n1_sg
-    )
-    result_row <- create_result_row(kk, covs.in, nx, event_counts, glm_result)
-    return(list(status = 7L, result = result_row))
-  }
-
-  # ---------- Survival path (existing, unchanged) ----------
 
   # Status 3: Check event counts
   event_counts <- calculate_event_counts(dd, tt, id.x)
@@ -633,53 +564,6 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
     upper = hr.cox[4],
     med0 = meds[1],
     med1 = meds[2]
-  )
-}
-
-
-#' Fit GLM for Subgroup via Estimator Closure
-#'
-#' Subsets the analysis data frame to the candidate subgroup and calls the
-#' pre-built estimator closure.  Returns a list compatible with
-#' [create_result_row()] so the downstream pipeline is unchanged.
-#'
-#' For binary outcomes with `effect_measure = "RD"`, the `hr` slot contains
-#' the risk difference (not a hazard ratio) — the name is retained for
-#' pipeline compatibility.  Similarly, `lower`/`upper` are Wald-type CI
-#' bounds and `med0`/`med1` are `NA`.
-#'
-#' @param df_clean Data frame.  The analysis data, row-aligned with the
-#'   cleaned vectors.
-#' @param id.x Integer vector.  1 = subject in this subgroup, 0 = not.
-#' @param estimator_fn Closure from `make_effect_estimator()`.
-#'
-#' @return A list with components `hr`, `lower`, `upper`, `med0`, `med1`,
-#'   or `NULL` on failure.
-#'
-#' @keywords internal
-fit_glm_for_subgroup <- function(df_clean, id.x, estimator_fn) {
-  df_sg <- df_clean[id.x == 1, , drop = FALSE]
-
-  if (nrow(df_sg) < 6L) return(NULL)
-
-  res <- tryCatch(
-    estimator_fn(df_sg),
-    error = function(e) NULL
-  )
-
-  if (is.null(res) || is.na(res$estimate)) return(NULL)
-
-  # Wald CI: estimate +/- 1.96 * SE
-  z_crit <- 1.96
-  lower  <- res$estimate - z_crit * res$se
-  upper  <- res$estimate + z_crit * res$se
-
-  list(
-    hr    = res$estimate,    # effect estimate (RD, log-OR, etc.)
-    lower = lower,
-    upper = upper,
-    med0  = NA_real_,        # no median survival for GLM outcomes
-    med1  = NA_real_
   )
 }
 

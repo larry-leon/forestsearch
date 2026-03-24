@@ -16,7 +16,9 @@ evaluate_subgroup_consistency(
   pconsistency.digits = 2,
   maxk,
   confs_labels,
-  details = FALSE
+  details = FALSE,
+  estimator_fn = NULL,
+  consistency_threshold = NULL
 )
 }
 \arguments{

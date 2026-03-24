@@ -27,7 +27,9 @@ subgroup.consistency(
   checking = FALSE,
   use_twostage = FALSE,
   twostage_args = list(),
-  parallel_args = list()
+  parallel_args = list(),
+  estimator_fn = NULL,
+  consistency_threshold = NULL
 )
 }
 \arguments{

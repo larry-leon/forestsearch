@@ -57,7 +57,10 @@ forestsearch(
   max_subgroups_search = 10,
   vi.grf.min = -0.2,
   use_twostage = TRUE,
-  twostage_args = list()
+  twostage_args = list(),
+  outcome_type = c("survival", "binary", "continuous"),
+  effect_measure = NULL,
+  offset.name = NULL
 )
 }
 \arguments{

@@ -181,9 +181,7 @@ subgroup.consistency <- function(df,
                                  checking = FALSE,
                                  use_twostage = FALSE,
                                  twostage_args = list(),
-                                 parallel_args = list(),
-                                 estimator_fn = NULL,
-                                 consistency_threshold = NULL) {
+                                 parallel_args = list()) {
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -193,15 +191,10 @@ subgroup.consistency <- function(df,
     stop("df must be a non-empty data frame")
   }
 
-  # For survival (default), require Y/Event/Treat; for GLM, the estimator
-
-  # closure handles column resolution internally
-  if (is.null(estimator_fn)) {
-    required_cols <- c("Y", "Event", "Treat")
-    missing_cols <- setdiff(required_cols, names(df))
-    if (length(missing_cols) > 0) {
-      stop("df missing required columns: ", paste(missing_cols, collapse = ", "))
-    }
+  required_cols <- c("Y", "Event", "Treat")
+  missing_cols <- setdiff(required_cols, names(df))
+  if (length(missing_cols) > 0) {
+    stop("df missing required columns: ", paste(missing_cols, collapse = ", "))
   }
 
   if (!data.table::is.data.table(hr.subgroups)) {
@@ -495,9 +488,7 @@ subgroup.consistency <- function(df,
           n.splits.max = n.splits,
           batch.size = ts_params$batch.size,
           conf.level = ts_params$conf.level,
-          min.valid.screen = ts_params$min.valid.screen,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          min.valid.screen = ts_params$min.valid.screen
         )
       } else {
         results_list[[m]] <- evaluate_subgroup_consistency(
@@ -512,9 +503,7 @@ subgroup.consistency <- function(df,
           pconsistency.digits = pconsistency.digits,
           maxk = maxk,
           confs_labels = confs_labels,
-          details = details,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          details = details
         )
       }
 
@@ -603,9 +592,7 @@ subgroup.consistency <- function(df,
           n.splits.max = n.splits,
           batch.size = ts_params$batch.size,
           conf.level = ts_params$conf.level,
-          min.valid.screen = ts_params$min.valid.screen,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          min.valid.screen = ts_params$min.valid.screen
         )
       }
     } else {
@@ -622,9 +609,7 @@ subgroup.consistency <- function(df,
           pconsistency.digits = pconsistency.digits,
           maxk = maxk,
           confs_labels = confs_labels,
-          details = FALSE,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          details = FALSE
         )
       }
     }

@@ -651,7 +651,7 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
 #' @param df_clean Data frame.  The analysis data, row-aligned with the
 #'   cleaned vectors.
 #' @param id.x Integer vector.  1 = subject in this subgroup, 0 = not.
-#' @param estimator_fn Closure from `make_effect_estimator()`.
+#' @param estimator_fn Closure from [make_effect_estimator()].
 #'
 #' @return A list with components `hr`, `lower`, `upper`, `med0`, `med1`,
 #'   or `NULL` on failure.

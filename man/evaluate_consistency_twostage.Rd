@@ -21,7 +21,9 @@ evaluate_consistency_twostage(
   n.splits.max = 400,
   batch.size = 20,
   conf.level = 0.95,
-  min.valid.screen = 10
+  min.valid.screen = 10,
+  estimator_fn = NULL,
+  consistency_threshold = NULL
 )
 }
 \arguments{

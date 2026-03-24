@@ -277,11 +277,7 @@ forestsearch <- function(df.analysis,
                          vi.grf.min = -0.2,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,
-                         twostage_args = list(),
-                         # NEW: GLM outcome support
-                         outcome_type = c("survival", "binary", "continuous"),
-                         effect_measure = NULL,
-                         offset.name = NULL) {
+                         twostage_args = list()) {
 
   # ===========================================================================
   # SECTION 1: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
@@ -349,104 +345,6 @@ forestsearch <- function(df.analysis,
     if (length(invalid_args) > 0) {
       warning("Unknown twostage_args parameters ignored: ",
               paste(invalid_args, collapse = ", "))
-    }
-  }
-
-  # ===========================================================================
-  # SECTION 2B: GLM OUTCOME TYPE SETUP
-  # ===========================================================================
-
-  outcome_type <- match.arg(outcome_type)
-
-  # Build effect estimator closure for non-survival outcomes
-  estimator_fn <- NULL
-  consistency_threshold <- NULL
-  effect_threshold <- NULL
-
-
-  if (outcome_type != "survival") {
-
-    # Resolve default effect measure
-    if (is.null(effect_measure)) {
-      effect_measure <- switch(outcome_type,
-        binary     = "RD",
-        continuous = "MD"
-      )
-    }
-
-    # Validate offset requirement for rate-based measures
-    if (effect_measure %in% c("IRR", "IRD") && is.null(offset.name)) {
-      stop(
-        "effect_measure = '", effect_measure,
-        "' requires `offset.name` (follow-up time column).",
-        call. = FALSE
-      )
-    }
-
-    # Build the estimator closure
-    estimator_fn <- make_effect_estimator(
-      outcome_type   = outcome_type,
-      treat.name     = treat.name,
-      outcome.name   = outcome.name,
-      event.name     = if (outcome_type == "survival") event.name else NULL,
-      offset.name    = offset.name,
-      effect_measure = effect_measure
-    )
-
-    # Resolve screening and consistency thresholds from effect_measure
-    # The user can override via hr.threshold and hr.consistency, which
-    # serve as the generic threshold params regardless of outcome type.
-    # Defaults differ by measure:
-    effect_threshold <- hr.threshold
-    consistency_threshold <- hr.consistency
-
-    # For identity-scale measures, consistency_threshold = 0 means
-    # "both halves show any treatment harm" (analogous to HR > 1.0)
-    if (effect_measure %in% c("RD", "IRD", "MD")) {
-      if (missing(hr.consistency) || hr.consistency == 1.0) {
-        consistency_threshold <- 0.0
-      }
-      if (missing(hr.threshold) || hr.threshold == 1.25) {
-        effect_threshold <- switch(effect_measure,
-          RD  = 0.05,
-          IRD = 0.01,
-          MD  = 0.0
-        )
-      }
-    } else {
-      # Log-scale measures (OR, RR, IRR): convert to log scale
-      if (effect_threshold > 0) {
-        effect_threshold <- log(effect_threshold)
-      }
-      if (consistency_threshold > 0) {
-        consistency_threshold <- log(consistency_threshold)
-      }
-    }
-
-    # Phase 1 constraints: GRF and LASSO not yet wired for GLM
-    if (use_grf) {
-      if (details) {
-        message("GRF candidate selection not yet available for outcome_type = '",
-                outcome_type, "'. Setting use_grf = FALSE.")
-      }
-      use_grf <- FALSE
-    }
-    if (use_lasso) {
-      if (details) {
-        message("LASSO candidate selection not yet available for outcome_type = '",
-                outcome_type, "'. Setting use_lasso = FALSE.")
-      }
-      use_lasso <- FALSE
-    }
-
-    # VI screening uses causal_survival_forest — skip for GLM
-    vi.grf.min <- NULL
-
-    if (details) {
-      cat("GLM mode: outcome_type =", outcome_type,
-          ", effect_measure =", effect_measure, "\n")
-      cat("  Screening threshold:", effect_threshold, "\n")
-      cat("  Consistency threshold:", consistency_threshold, "\n")
     }
   }
 
@@ -533,25 +431,6 @@ forestsearch <- function(df.analysis,
   # SECTION 4: DATA PREPARATION (get_FSdata)
   # ===========================================================================
 
-  # For GLM outcomes, get_FSdata validates that event.name is numeric.
-  # Map it to something valid so the factor-construction machinery works.
-  if (outcome_type == "binary") {
-    # Binary outcome IS the event indicator
-    if (!event.name %in% names(df.analysis)) {
-      event.name <- outcome.name
-    }
-  } else if (outcome_type == "continuous") {
-    # Continuous outcomes have no event; create a placeholder column
-    if (!event.name %in% names(df.analysis)) {
-      df.analysis[[".event_placeholder"]] <- 1L
-      event.name <- ".event_placeholder"
-      df <- df.analysis
-    }
-  }
-
-  # Update args_call_all with resolved event.name for downstream calls
-  args_call_all$event.name <- event.name
-
   FSdata <- tryCatch(
     do.call(
       get_FSdata,
@@ -589,13 +468,7 @@ forestsearch <- function(df.analysis,
   }
 
   Y <- df[, outcome.name]
-  if (outcome_type == "survival") {
-    Event <- df[, event.name]
-  } else {
-    # For GLM outcomes, Event is not meaningful but some downstream
-    # code references it.  Use a vector of 1s as placeholder.
-    Event <- rep(1L, nrow(df))
-  }
+  Event <- df[, event.name]
   Treat <- df[, treat.name]
 
   FSconfounders.name <- FSdata$confs_names
@@ -663,22 +536,6 @@ forestsearch <- function(df.analysis,
   Z <- as.matrix(df.confounders)
   colnames(Z) <- names(df.confounders)
 
-  # For GLM outcomes: the estimator closure expects columns with the original
-  # names (e.g., "treat", "response"), not the renamed Y/Event/Treat.
-  # Attach the original columns so the closure can find them.
-  if (!is.null(estimator_fn)) {
-    if (!outcome.name %in% names(df.fs) && outcome.name %in% names(df)) {
-      df.fs[[outcome.name]] <- df[[outcome.name]]
-    }
-    if (!treat.name %in% names(df.fs) && treat.name %in% names(df)) {
-      df.fs[[treat.name]] <- df[[treat.name]]
-    }
-    if (!is.null(offset.name) &&
-        !offset.name %in% names(df.fs) && offset.name %in% names(df)) {
-      df.fs[[offset.name]] <- df[[offset.name]]
-    }
-  }
-
 
   search_overrides <- list(
         Y = Y,
@@ -688,15 +545,12 @@ forestsearch <- function(df.analysis,
         d0.min = d0.min,
         d1.min = d1.min,
         n.min = n.min,
-        hr.threshold = if (!is.null(effect_threshold)) effect_threshold else hr.threshold,
+        hr.threshold = hr.threshold,
         max.minutes = max.minutes,
         minp = minp,
         maxk = maxk,
         parallel_workers = 1,  # Ensure sequential execution if inside parallel context
-        details = details,       # Optionally suppress details
-        estimator_fn = estimator_fn,
-        df_analysis = df,
-        effect_threshold = effect_threshold
+        details = details        # Optionally suppress details
   )
 
   # Merge and filter arguments
@@ -746,14 +600,7 @@ forestsearch <- function(df.analysis,
       !is.null(find.grps$out.found$hr.subgroups)) {
 
     hr_values <- find.grps$out.found$hr.subgroups$HR
-    # For survival, check HR > hr.consistency (natural scale)
-    # For GLM, check effect > consistency_threshold (already on correct scale)
-    check_threshold <- if (!is.null(consistency_threshold)) {
-      consistency_threshold
-    } else {
-      hr.consistency
-    }
-    has_subgroups <- any(hr_values > check_threshold, na.rm = TRUE)
+    has_subgroups <- any(hr_values > hr.consistency, na.rm = TRUE)
   }
 
   # ===========================================================================
@@ -785,10 +632,7 @@ forestsearch <- function(df.analysis,
       stop_Kgroups = max_subgroups_search,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
-      twostage_args = twostage_args,
-      # NEW: Pass GLM estimator closure
-      estimator_fn = estimator_fn,
-      consistency_threshold = consistency_threshold
+      twostage_args = twostage_args
     )
 
     # Run subgroup consistency analysis with error handling
@@ -804,8 +648,7 @@ forestsearch <- function(df.analysis,
     sc_zero_len <- names(sc_filtered_args)[
       vapply(sc_filtered_args, function(x) length(x) == 0 && !is.null(x), logical(1))
     ]
-    sc_zero_len <- setdiff(sc_zero_len, c("twostage_args", "parallel_args",
-                                          "estimator_fn", "consistency_threshold"))
+    sc_zero_len <- setdiff(sc_zero_len, c("twostage_args", "parallel_args"))
     if (length(sc_zero_len) > 0) {
       warning("Zero-length arguments passed to subgroup.consistency: ",
               paste(sc_zero_len, collapse = ", "))
@@ -914,10 +757,7 @@ forestsearch <- function(df.analysis,
     grf_plot = grf_plot,
     args_call_all = args_call_all,
     # NEW: Include algorithm information
-    consistency_algorithm = if (!is.null(grp.consistency)) grp.consistency$algorithm else NA,
-    # NEW: GLM outcome information
-    outcome_type = outcome_type,
-    effect_measure = effect_measure
+    consistency_algorithm = if (!is.null(grp.consistency)) grp.consistency$algorithm else NA
   )
 
   # Return early if FSdata or find.grps failed

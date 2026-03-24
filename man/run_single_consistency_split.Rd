@@ -4,7 +4,14 @@
 \alias{run_single_consistency_split}
 \title{Run Single Consistency Split}
 \usage{
-run_single_consistency_split(df.x, N.x, hr.consistency, cox_init = 0)
+run_single_consistency_split(
+  df.x,
+  N.x,
+  hr.consistency,
+  cox_init = 0,
+  estimator_fn = NULL,
+  consistency_threshold = NULL
+)
 }
 \arguments{
 \item{df.x}{data.table. Subgroup data with columns Y, Event, Treat.}

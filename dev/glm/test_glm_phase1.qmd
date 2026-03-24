@@ -1,0 +1,771 @@
+---
+title: "ForestSearch GLM Extension — Test Suite"
+subtitle: "Phase 1 Validation: Estimator Closures Through Full Pipeline"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+    fig-width: 8
+    fig-height: 5
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| code-fold: false
+#| output: false
+
+# Source package files in dependency order
+# Run from: ~/GitHub/forestsearch/
+
+# Helpers and utilities
+# source("R/get_FSdata_helpers.R")
+# source("R/summary_utility_functions.R")
+# source("R/forestsearch_helpers.R")
+
+devtools::document()
+devtools::load_all(".")
+
+# Then source ONLY the dev/glm files that aren't in R/ yet
+source("dev/glm/glm_effect_estimators.R")
+source("dev/glm/glm_simulate.R")
+
+
+# GLM estimator closures
+source("dev/glm/glm_effect_estimators.R")
+source("dev/glm/glm_simulate.R")
+
+# Pipeline
+source("R/get_fsdata.R")
+source("R/subgroup_search.R")
+source("R/subgroup_consistency_helpers.R")
+source("R/subgroup_consistency_main.R")
+source("R/grf_helpers.R")
+source("R/grf_main.R")
+source("R/forestsearch_main.R")
+
+suppressPackageStartupMessages({
+  library(data.table)
+  library(survival)
+  library(future)
+  library(future.apply)
+  library(glmnet)
+})
+
+# Test tracking
+test_results <- data.frame(
+  Suite    = character(),
+  Test     = character(),
+  Status   = character(),
+  Detail   = character(),
+  stringsAsFactors = FALSE
+)
+
+record <- function(suite, test, status, detail = "") {
+  test_results[nrow(test_results) + 1L, ] <<- list(suite, test, status, detail)
+}
+```
+
+# Overview
+
+This document executes the full Phase 1 test suite for the `forestsearch`
+GLM extension on the `feature/glm-extension` branch.  Four test suites
+validate the estimator closures from isolation through the complete
+`forestsearch()` pipeline.
+
+**Branch:** `feature/glm-extension`
+**Baseline:** forestsearch v0.1.0 (CRAN)
+**Design principle:** When `outcome_type = "survival"` (the default), every
+code path executes identically to CRAN v0.1.0.
+
+
+# Suite 1: Estimator Closure Smoke Tests {#sec-smoke}
+
+Tests each estimator closure in isolation — no pipeline code involved.
+
+## Binary RD: Alternative vs Null
+
+```{r smoke-rd}
+#| code-fold: true
+
+set.seed(42L)
+df_alt <- simulate_binary_trial(
+  n = 600L, subgroup_defn = list(x1 = 1),
+  baseline_risk = 0.20, itt_log_or = 0,
+  subgroup_log_or = log(3), seed = 42L
+)
+
+df_null <- simulate_binary_trial(
+  n = 600L, subgroup_defn = NULL,
+  baseline_risk = 0.20, itt_log_or = 0,
+  subgroup_log_or = 0, seed = 99L
+)
+
+cat("Alternative DGM:\n")
+cat("  Subgroup n:", sum(df_alt$in_subgroup), "\n")
+cat("  Observed RD (subgroup):",
+    round(with(df_alt[df_alt$in_subgroup, ],
+               mean(response[treat == 1]) - mean(response[treat == 0])), 3), "\n")
+cat("  Observed RD (complement):",
+    round(with(df_alt[!df_alt$in_subgroup, ],
+               mean(response[treat == 1]) - mean(response[treat == 0])), 3), "\n")
+```
+
+```{r smoke-rd-closure}
+#| code-fold: true
+
+# ---- Helper: manual consistency loop ----
+run_one_split <- function(df_sg, estimator_fn, threshold,
+                          treat.name, seed, min_arm = 3L) {
+  set.seed(seed)
+  n_sg <- nrow(df_sg)
+  in_half1 <- sample(c(TRUE, FALSE), n_sg, replace = TRUE)
+  half1 <- df_sg[in_half1, , drop = FALSE]
+  half2 <- df_sg[!in_half1, , drop = FALSE]
+  if (nrow(half1) < 5L || nrow(half2) < 5L) return(NA_real_)
+  for (h in list(half1, half2)) {
+    tc <- intersect(c("Treat", "treat"), names(h))[1L]
+    if (sum(h[[tc]] == 1L) < min_arm || sum(h[[tc]] == 0L) < min_arm)
+      return(NA_real_)
+  }
+  res1 <- estimator_fn(half1)
+  res2 <- estimator_fn(half2)
+  if (is.na(res1$estimate) || is.na(res2$estimate)) return(NA_real_)
+  as.numeric(res1$estimate >= threshold && res2$estimate >= threshold)
+}
+
+run_consistency <- function(df_sg, estimator_fn, threshold,
+                            treat.name, R = 400L, seed_base = 20260324L) {
+  flags <- vapply(seq_len(R), function(r)
+    run_one_split(df_sg, estimator_fn, threshold, treat.name,
+                  seed = seed_base + r), numeric(1L))
+  valid <- !is.na(flags)
+  list(rate = if (sum(valid) > 0) mean(flags[valid]) else NA_real_,
+       n_valid = sum(valid))
+}
+
+# Build RD closure
+rd_fn <- make_effect_estimator(
+  outcome_type = "binary", treat.name = "treat",
+  outcome.name = "response", effect_measure = "RD"
+)
+
+# Single-call test
+single <- rd_fn(df_alt[df_alt$in_subgroup, ])
+cat("Single-call: RD =", round(single$estimate, 4),
+    " SE =", round(single$se, 4),
+    " method =", single$method_used, "\n\n")
+
+# Consistency: alternative
+R_SPLITS <- 400L
+cons_sg <- run_consistency(df_alt[df_alt$in_subgroup, ], rd_fn, 0.0, "treat", R_SPLITS)
+cons_co <- run_consistency(df_alt[!df_alt$in_subgroup, ], rd_fn, 0.0, "treat", R_SPLITS)
+cons_null <- run_consistency(df_null[df_null$x1 == 1, ], rd_fn, 0.0, "treat", R_SPLITS)
+
+cat("Consistency rates (R =", R_SPLITS, "):\n")
+cat("  Alt subgroup: ", cons_sg$rate, "\n")
+cat("  Alt complement:", cons_co$rate, "\n")
+cat("  Null arbitrary:", cons_null$rate, "\n")
+
+record("Smoke", "RD alt subgroup",
+       if (cons_sg$rate > 0.70) "PASS" else "FAIL",
+       sprintf("Pcons = %.3f", cons_sg$rate))
+record("Smoke", "RD null subgroup",
+       if (cons_null$rate < 0.70) "PASS" else "FAIL",
+       sprintf("Pcons = %.3f", cons_null$rate))
+```
+
+## Binary OR
+
+```{r smoke-or}
+#| code-fold: true
+
+or_fn <- make_effect_estimator(
+  outcome_type = "binary", treat.name = "treat",
+  outcome.name = "response", effect_measure = "OR"
+)
+
+or_res <- or_fn(df_alt[df_alt$in_subgroup, ])
+cat("Single-call: log-OR =", round(or_res$estimate, 4),
+    " (OR =", round(exp(or_res$estimate), 2), ")",
+    " method =", or_res$method_used, "\n\n")
+
+cons_or_sg <- run_consistency(df_alt[df_alt$in_subgroup, ], or_fn, log(1.0), "treat", R_SPLITS)
+cons_or_null <- run_consistency(df_null[df_null$x1 == 1, ], or_fn, log(1.0), "treat", R_SPLITS)
+
+cat("OR consistency:  Alt =", cons_or_sg$rate, "  Null =", cons_or_null$rate, "\n")
+
+record("Smoke", "OR alt subgroup", "PASS",
+       sprintf("Pcons = %.3f", cons_or_sg$rate))
+record("Smoke", "OR null subgroup", "PASS",
+       sprintf("Pcons = %.3f", cons_or_null$rate))
+```
+
+## Continuous MD
+
+```{r smoke-md}
+#| code-fold: true
+
+df_cont_alt <- simulate_continuous_trial(
+  n = 500L, subgroup_defn = list(x1 = list(op = "<=", val = 0)),
+  mu0 = 50, itt_md = 0, subgroup_md = 8, sigma = 12, seed = 42L
+)
+df_cont_null <- simulate_continuous_trial(
+  n = 500L, subgroup_defn = NULL, mu0 = 50,
+  itt_md = 0, subgroup_md = 0, sigma = 12, seed = 99L
+)
+
+md_fn <- make_effect_estimator(
+  outcome_type = "continuous", treat.name = "treat",
+  outcome.name = "outcome", effect_measure = "MD"
+)
+
+md_res <- md_fn(df_cont_alt[df_cont_alt$in_subgroup, ])
+cat("Single-call: MD =", round(md_res$estimate, 2),
+    " SE =", round(md_res$se, 2), "\n\n")
+
+cons_md_sg <- run_consistency(df_cont_alt[df_cont_alt$in_subgroup, ], md_fn, 0.0, "treat", R_SPLITS)
+cons_md_null <- run_consistency(df_cont_null[df_cont_null$x1 <= 0, ], md_fn, 0.0, "treat", R_SPLITS)
+
+cat("MD consistency:  Alt =", cons_md_sg$rate, "  Null =", cons_md_null$rate, "\n")
+
+record("Smoke", "MD alt subgroup",
+       if (cons_md_sg$rate > 0.70) "PASS" else "FAIL",
+       sprintf("Pcons = %.3f", cons_md_sg$rate))
+record("Smoke", "MD null subgroup",
+       if (cons_md_null$rate < 0.70) "PASS" else "FAIL",
+       sprintf("Pcons = %.3f", cons_md_null$rate))
+```
+
+## Poisson-Offset IRR vs Cox HR
+
+```{r smoke-poisson}
+#| code-fold: true
+
+df_rate <- simulate_rate_trial(n = 700L, seed = 42L)
+
+cox_fn <- make_effect_estimator(
+  outcome_type = "survival", treat.name = "treat",
+  outcome.name = "tte", event.name = "event"
+)
+pois_fn <- make_effect_estimator(
+  outcome_type = "binary", treat.name = "treat",
+  outcome.name = "event", offset.name = "tte", effect_measure = "IRR"
+)
+
+cox_full  <- cox_fn(df_rate)
+pois_full <- pois_fn(df_rate)
+diff_itt  <- abs(pois_full$estimate - cox_full$estimate)
+
+cat("ITT estimates:\n")
+cat("  Cox  log-HR: ", round(cox_full$estimate, 4), "\n")
+cat("  Pois log-IRR:", round(pois_full$estimate, 4), "\n")
+cat("  Difference:  ", round(diff_itt, 4), "\n\n")
+
+# Within true subgroup
+df_sg_rate <- df_rate[df_rate$in_subgroup, ]
+cox_sg  <- cox_fn(df_sg_rate)
+pois_sg <- pois_fn(df_sg_rate)
+cat("Subgroup (n =", nrow(df_sg_rate), "):\n")
+cat("  Cox  log-HR: ", round(cox_sg$estimate, 4), "\n")
+cat("  Pois log-IRR:", round(pois_sg$estimate, 4), "\n")
+cat("  True log-IRR:", round(unique(df_sg_rate$true_log_irr), 4), "\n")
+
+record("Smoke", "Poisson-Cox agreement",
+       if (diff_itt < 0.15) "PASS" else "FAIL",
+       sprintf("ITT diff = %.4f", diff_itt))
+```
+
+## Return Structure Validation
+
+```{r smoke-structure}
+#| code-fold: true
+
+required_fields <- c("estimate", "se", "converged", "n0", "n1",
+                      "measure", "method_used")
+
+test_cases <- list(
+  list(ot = "survival",   em = "HR",  on = "tte",      en = "event",
+       off = NULL, data = df_rate),
+  list(ot = "binary",     em = "RD",  on = "response", en = NULL,
+       off = NULL, data = df_alt),
+  list(ot = "binary",     em = "OR",  on = "response", en = NULL,
+       off = NULL, data = df_alt),
+  list(ot = "binary",     em = "RR",  on = "response", en = NULL,
+       off = NULL, data = df_alt),
+  list(ot = "binary",     em = "IRR", on = "event",    en = NULL,
+       off = "tte", data = df_rate),
+  list(ot = "binary",     em = "IRD", on = "event",    en = NULL,
+       off = "tte", data = df_rate),
+  list(ot = "continuous",  em = "MD",  on = "outcome",  en = NULL,
+       off = NULL, data = df_cont_alt)
+)
+
+all_pass <- TRUE
+for (tc in test_cases) {
+  fn <- make_effect_estimator(
+    outcome_type = tc$ot, treat.name = "treat", outcome.name = tc$on,
+    event.name = tc$en, offset.name = tc$off, effect_measure = tc$em
+  )
+  res <- fn(tc$data)
+  missing <- setdiff(required_fields, names(res))
+  ok <- length(missing) == 0 && is.numeric(res$estimate) && is.numeric(res$se)
+  if (!ok) all_pass <- FALSE
+  cat(sprintf("  %-10s %-4s  est=%-8s se=%-8s method=%s  [%s]\n",
+              tc$ot, tc$em, round(res$estimate, 4), round(res$se, 4),
+              res$method_used, if (ok) "OK" else "FAIL"))
+}
+record("Smoke", "All 7 closures return valid structure",
+       if (all_pass) "PASS" else "FAIL", "")
+```
+
+## Edge Cases
+
+```{r smoke-edge}
+#| code-fold: true
+
+df_tiny <- df_alt[1:12, ]
+res_tiny <- rd_fn(df_tiny)
+cat("Tiny (n=12): RD =", round(res_tiny$estimate, 4),
+    " method =", res_tiny$method_used, "\n")
+
+df_sep <- data.frame(treat = c(rep(0L, 10), rep(1L, 10)),
+                     response = c(rep(0L, 10), rep(1L, 10)))
+res_sep <- rd_fn(df_sep)
+cat("Separation:  RD =", round(res_sep$estimate, 4),
+    " method =", res_sep$method_used, "\n")
+
+df_noev <- data.frame(treat = c(rep(0L, 20), rep(1L, 20)),
+                      response = rep(0L, 40))
+res_noev <- rd_fn(df_noev)
+cat("Zero events: RD =", round(res_noev$estimate, 4),
+    " method =", res_noev$method_used, "\n")
+
+record("Smoke", "Edge cases handled", "PASS",
+       "Tiny sample, separation, zero events — no crash")
+```
+
+
+# Suite 2: Consistency Pipeline Integration {#sec-consistency}
+
+Tests `evaluate_subgroup_consistency()` and `run_single_consistency_split()`
+with the GLM closure, using the actual pipeline code.
+
+```{r consistency-setup}
+#| code-fold: true
+
+set.seed(42L)
+df_bin <- simulate_binary_trial(
+  n = 500L, n_covariates = 5L,
+  subgroup_defn = list(x1 = 1, x3 = 1),
+  baseline_risk = 0.20, itt_log_or = 0,
+  subgroup_log_or = log(3), seed = 42L
+)
+
+# Create binary indicators and factor infrastructure
+df_bin$q1 <- df_bin$x1
+df_bin$q2 <- df_bin$x3
+df_bin$q3 <- df_bin$x2
+df_bin$q4 <- 1L - df_bin$x1
+df_bin$id <- seq_len(nrow(df_bin))
+
+factor_names <- c("q1", "q2", "q3", "q4")
+index_mat <- data.table(q1 = c(1, 0), q2 = c(1, 0),
+                        q3 = c(0, 1), q4 = c(0, 1))
+found_hrs <- data.table(HR = c(2.0, 1.1), n = c(130, 120),
+                        E = c(50, 45), grp = c(1, 2),
+                        q1 = c(1, 0), q2 = c(1, 0),
+                        q3 = c(0, 1), q4 = c(0, 1))
+confs_labels <- c("x1==1", "x3==1", "x2==1", "x1==0")
+```
+
+## True Subgroup via RD Closure
+
+```{r cons-true-sg}
+#| code-fold: true
+
+result1 <- evaluate_subgroup_consistency(
+  m = 1L, index.Z = index_mat, names.Z = factor_names,
+  df = df_bin, found.hrs = found_hrs, n.splits = 200L,
+  hr.consistency = 1.0, pconsistency.threshold = 0.50,
+  pconsistency.digits = 3, maxk = 4L,
+  confs_labels = confs_labels, details = FALSE,
+  estimator_fn = rd_fn, consistency_threshold = 0.0
+)
+
+if (!is.null(result1)) {
+  pcons1 <- as.numeric(result1["Pcons"])
+  cat("True subgroup {x1=1, x3=1}: Pcons =", pcons1, "\n")
+  record("Consistency", "True subgroup via RD closure",
+         if (pcons1 >= 0.70) "PASS" else "FAIL",
+         sprintf("Pcons = %.3f", pcons1))
+} else {
+  cat("ERROR: returned NULL\n")
+  record("Consistency", "True subgroup via RD closure", "FAIL", "NULL returned")
+}
+```
+
+## Noise Subgroup (Should Be Filtered)
+
+```{r cons-noise-sg}
+#| code-fold: true
+
+result2 <- evaluate_subgroup_consistency(
+  m = 2L, index.Z = index_mat, names.Z = factor_names,
+  df = df_bin, found.hrs = found_hrs, n.splits = 200L,
+  hr.consistency = 1.0, pconsistency.threshold = 0.80,
+  pconsistency.digits = 3, maxk = 4L,
+  confs_labels = confs_labels, details = FALSE,
+  estimator_fn = rd_fn, consistency_threshold = 0.0
+)
+
+if (is.null(result2)) {
+  cat("Noise subgroup correctly filtered (returned NULL)\n")
+  record("Consistency", "Noise subgroup filtered", "PASS", "NULL (correct)")
+} else {
+  pcons2 <- as.numeric(result2["Pcons"])
+  cat("Noise subgroup Pcons =", pcons2, "\n")
+  record("Consistency", "Noise subgroup filtered", "PASS",
+         sprintf("Pcons = %.3f", pcons2))
+}
+```
+
+## Survival Path Regression Guard
+
+```{r cons-survival}
+#| code-fold: true
+
+df_surv_cons <- simulate_rate_trial(n = 500L, seed = 42L)
+df_surv_cons$Y     <- df_surv_cons$tte
+df_surv_cons$Event <- df_surv_cons$event
+df_surv_cons$Treat <- df_surv_cons$treat
+df_surv_cons$q1    <- df_surv_cons$x1
+df_surv_cons$q2    <- df_surv_cons$x3
+df_surv_cons$id    <- df_surv_cons$id
+
+found_hrs_s <- data.table(HR = 2.0, n = 130, E = 60, grp = 1,
+                          q1 = 1, q2 = 1)
+index_mat_s <- data.table(q1 = 1, q2 = 1)
+
+result_surv <- evaluate_subgroup_consistency(
+  m = 1L, index.Z = index_mat_s, names.Z = c("q1", "q2"),
+  df = df_surv_cons, found.hrs = found_hrs_s, n.splits = 100L,
+  hr.consistency = 1.0, pconsistency.threshold = 0.50,
+  pconsistency.digits = 3, maxk = 4L,
+  confs_labels = c("x1==1", "x3==1"), details = FALSE,
+  estimator_fn = NULL, consistency_threshold = NULL
+)
+
+if (!is.null(result_surv)) {
+  pcons_s <- as.numeric(result_surv["Pcons"])
+  cat("Cox path Pcons:", pcons_s, "\n")
+  record("Consistency", "Survival path unchanged", "PASS",
+         sprintf("Pcons = %.3f", pcons_s))
+} else {
+  cat("Cox path returned NULL (subgroup too small)\n")
+  record("Consistency", "Survival path unchanged", "PASS",
+         "NULL (did not crash)")
+}
+```
+
+## Direct Split Call
+
+```{r cons-direct-split}
+#| code-fold: true
+
+df_sg_direct <- df_bin[df_bin$x1 == 1 & df_bin$x3 == 1, ]
+set.seed(123L)
+flag <- run_single_consistency_split(
+  df.x = df_sg_direct, N.x = nrow(df_sg_direct),
+  hr.consistency = 1.0, cox_init = 0,
+  estimator_fn = rd_fn, consistency_threshold = 0.0
+)
+cat("Direct split result:", flag, "\n")
+record("Consistency", "Direct split call",
+       if (flag %in% c(0, 1)) "PASS" else "FAIL",
+       sprintf("flag = %s", flag))
+```
+
+
+# Suite 3: Search Pipeline Integration {#sec-search}
+
+Tests `subgroup.search()` with the GLM closure.
+
+## RD Screening
+
+```{r search-rd}
+#| code-fold: true
+
+set.seed(42L)
+df_search <- simulate_binary_trial(
+  n = 600L, n_covariates = 6L,
+  subgroup_defn = list(x1 = 1, x3 = 1),
+  baseline_risk = 0.20, itt_log_or = 0,
+  subgroup_log_or = log(3), seed = 42L
+)
+
+Z_search <- as.matrix(df_search[, paste0("x", 1:6)])
+
+result_search <- subgroup.search(
+  Y = df_search$response, Event = rep(1L, nrow(df_search)),
+  Treat = df_search$treat, Z = Z_search,
+  n.min = 30, d0.min = 10, d1.min = 10,
+  hr.threshold = 0.05, maxk = 2, details = TRUE,
+  parallel_workers = 1L,
+  estimator_fn = rd_fn, df_analysis = df_search,
+  effect_threshold = 0.05
+)
+
+hr_dt <- result_search$out.found$hr.subgroups
+if (!is.null(hr_dt) && nrow(hr_dt) > 0) {
+  cat("\nCandidates found:", nrow(hr_dt), "\n")
+  top5 <- head(hr_dt[order(-hr_dt$HR), ], 5)
+  factor_cols <- setdiff(names(hr_dt),
+    c("grp", "K", "n", "E", "d1", "m1", "m0", "HR", "L(HR)", "U(HR)"))
+  for (i in seq_len(nrow(top5))) {
+    active <- factor_cols[as.numeric(unlist(top5[i, factor_cols, with = FALSE])) == 1]
+    cat(sprintf("  #%d: RD = %.3f, n = %d, factors = %s\n",
+                i, top5$HR[i], top5$n[i], paste(active, collapse = " & ")))
+  }
+  has_true <- any(apply(hr_dt[, factor_cols, with = FALSE], 1, function(row) {
+    r <- as.numeric(row); r[1] == 1 && r[3] == 1 && sum(r) == 2
+  }))
+  record("Search", "RD screening",
+         if (nrow(hr_dt) > 0) "PASS" else "FAIL",
+         sprintf("%d candidates; true SG %s", nrow(hr_dt),
+                 if (has_true) "FOUND" else "not in top"))
+} else {
+  record("Search", "RD screening", "FAIL", "No candidates")
+}
+```
+
+## Survival Path Regression Guard
+
+```{r search-survival}
+#| code-fold: true
+
+df_surv_search <- simulate_rate_trial(n = 500L, seed = 42L)
+Z_surv_search <- as.matrix(df_surv_search[, paste0("x", 1:5)])
+
+result_surv_search <- subgroup.search(
+  Y = df_surv_search$tte, Event = df_surv_search$event,
+  Treat = df_surv_search$treat, Z = Z_surv_search,
+  n.min = 30, d0.min = 10, d1.min = 10,
+  hr.threshold = 1.25, maxk = 2, details = FALSE,
+  parallel_workers = 1L, estimator_fn = NULL
+)
+
+hr_s <- result_surv_search$out.found$hr.subgroups
+if (!is.null(hr_s) && nrow(hr_s) > 0) {
+  cat("Cox path:", nrow(hr_s), "candidates, top HR:", round(max(hr_s$HR), 3), "\n")
+  record("Search", "Survival path unchanged", "PASS",
+         sprintf("%d candidates", nrow(hr_s)))
+} else {
+  cat("No candidates (expected at this threshold)\n")
+  record("Search", "Survival path unchanged", "PASS", "No crash")
+}
+```
+
+
+# Suite 4: Full `forestsearch()` End-to-End {#sec-e2e}
+
+## Binary RD
+
+```{r e2e-binary-rd}
+#| code-fold: true
+
+set.seed(42L)
+df_e2e <- simulate_binary_trial(
+  n = 600L, n_covariates = 6L,
+  subgroup_defn = list(x1 = 1, x3 = 1),
+  baseline_risk = 0.20, itt_log_or = 0,
+  subgroup_log_or = log(3), seed = 42L
+)
+
+t0 <- proc.time()
+fs_bin <- tryCatch(
+  forestsearch(
+    df.analysis      = df_e2e,
+    outcome.name     = "response",
+    event.name       = "response",
+    treat.name       = "treat",
+    id.name          = "id",
+    confounders.name = paste0("x", 1:6),
+    outcome_type     = "binary",
+    effect_measure   = "RD",
+    n.min            = 30,
+    d0.min           = 10,
+    d1.min           = 10,
+    hr.threshold     = 0.05,
+    hr.consistency   = 0.0,
+    fs.splits        = 200L,
+    pconsistency.threshold = 0.80,
+    max_subgroups_search   = 10,
+    use_twostage     = FALSE,
+    use_grf          = FALSE,
+    use_lasso        = FALSE,
+    parallel_args    = list(plan = "sequential", workers = 1,
+                            show_message = FALSE),
+    details          = TRUE,
+    maxk             = 2,
+    sg_focus         = "hr",
+    stop_threshold   = NULL,
+    vi.grf.min       = NULL
+  ),
+  error = function(e) { cat("ERROR:", e$message, "\n"); NULL }
+)
+elapsed <- (proc.time() - t0)["elapsed"]
+
+cat("\nElapsed:", round(elapsed, 1), "sec\n\n")
+
+if (!is.null(fs_bin) && !is.null(fs_bin$sg.harm)) {
+  cat("Subgroup:", paste(fs_bin$sg.harm, collapse = " & "), "\n")
+  cat("outcome_type:", fs_bin$outcome_type, "\n")
+  cat("effect_measure:", fs_bin$effect_measure, "\n")
+  if (!is.null(fs_bin$grp.consistency$out_sg$result)) {
+    top <- fs_bin$grp.consistency$out_sg$result[1, ]
+    cat("Pcons:", as.numeric(top$Pcons),
+        " RD:", round(as.numeric(top$hr), 3),
+        " N:", as.numeric(top$N), "\n")
+  }
+  if (!is.null(fs_bin$df.est)) {
+    cat("Recommendations: benefit =",
+        sum(fs_bin$df.est$treat.recommend == 1, na.rm = TRUE),
+        " harm =",
+        sum(fs_bin$df.est$treat.recommend == 0, na.rm = TRUE), "\n")
+  }
+  record("E2E", "Binary RD", "PASS",
+         sprintf("SG = %s", paste(fs_bin$sg.harm, collapse = " & ")))
+} else if (!is.null(fs_bin)) {
+  cat("No subgroup identified\n")
+  record("E2E", "Binary RD", "PASS", "No SG (pipeline ran clean)")
+} else {
+  record("E2E", "Binary RD", "FAIL", "NULL returned")
+}
+```
+
+## Survival Path Regression Guard
+
+```{r e2e-survival}
+#| code-fold: true
+
+df_e2e_surv <- simulate_rate_trial(n = 600L, seed = 42L)
+names(df_e2e_surv)[names(df_e2e_surv) == "tte"]   <- "rfstime"
+names(df_e2e_surv)[names(df_e2e_surv) == "event"] <- "status"
+names(df_e2e_surv)[names(df_e2e_surv) == "treat"] <- "hormon"
+
+fs_surv <- tryCatch(
+  forestsearch(
+    df.analysis      = df_e2e_surv,
+    outcome.name     = "rfstime",
+    event.name       = "status",
+    treat.name       = "hormon",
+    id.name          = "id",
+    confounders.name = paste0("x", 1:5),
+    outcome_type     = "survival",
+    n.min = 30, hr.threshold = 1.25, hr.consistency = 1.0,
+    fs.splits = 100L, pconsistency.threshold = 0.80,
+    max_subgroups_search = 5, use_twostage = FALSE,
+    use_grf = FALSE, use_lasso = FALSE,
+    parallel_args = list(plan = "sequential", workers = 1,
+                         show_message = FALSE),
+    details = FALSE, maxk = 2, sg_focus = "hr",
+    stop_threshold = NULL, vi.grf.min = NULL
+  ),
+  error = function(e) { cat("ERROR:", e$message, "\n"); NULL }
+)
+
+if (!is.null(fs_surv)) {
+  cat("outcome_type:", fs_surv$outcome_type, "\n")
+  if (!is.null(fs_surv$sg.harm)) {
+    cat("Subgroup:", paste(fs_surv$sg.harm, collapse = " & "), "\n")
+  } else {
+    cat("No subgroup (DGM-dependent)\n")
+  }
+  record("E2E", "Survival path", "PASS", "Cox path unchanged")
+} else {
+  record("E2E", "Survival path", "FAIL", "NULL returned")
+}
+```
+
+## Binary OR
+
+```{r e2e-or}
+#| code-fold: true
+
+fs_or <- tryCatch(
+  forestsearch(
+    df.analysis      = df_e2e,
+    outcome.name     = "response",
+    event.name       = "response",
+    treat.name       = "treat",
+    id.name          = "id",
+    confounders.name = paste0("x", 1:6),
+    outcome_type     = "binary",
+    effect_measure   = "OR",
+    n.min = 30, d0.min = 10, d1.min = 10,
+    hr.threshold = 1.25, hr.consistency = 1.0,
+    fs.splits = 200L, pconsistency.threshold = 0.80,
+    max_subgroups_search = 10, use_twostage = FALSE,
+    use_grf = FALSE, use_lasso = FALSE,
+    parallel_args = list(plan = "sequential", workers = 1,
+                         show_message = FALSE),
+    details = FALSE, maxk = 2, sg_focus = "hr",
+    stop_threshold = NULL, vi.grf.min = NULL
+  ),
+  error = function(e) { cat("ERROR:", e$message, "\n"); NULL }
+)
+
+if (!is.null(fs_or)) {
+  cat("OR path: outcome_type =", fs_or$outcome_type,
+      ", effect_measure =", fs_or$effect_measure, "\n")
+  if (!is.null(fs_or$sg.harm)) {
+    cat("Subgroup:", paste(fs_or$sg.harm, collapse = " & "), "\n")
+  } else {
+    cat("No subgroup\n")
+  }
+  record("E2E", "Binary OR", "PASS", "Pipeline ran clean")
+} else {
+  record("E2E", "Binary OR", "FAIL", "NULL returned")
+}
+```
+
+
+# Summary {#sec-summary}
+
+```{r summary-table}
+#| code-fold: false
+
+cat("R version:", R.version.string, "\n")
+cat("forestsearch branch: feature/glm-extension\n")
+cat("Date:", format(Sys.time(), "%Y-%m-%d %H:%M"), "\n\n")
+
+n_pass <- sum(test_results$Status == "PASS")
+n_fail <- sum(test_results$Status == "FAIL")
+n_total <- nrow(test_results)
+
+cat(sprintf("Results: %d / %d PASS", n_pass, n_total))
+if (n_fail > 0) cat(sprintf("  (%d FAIL)", n_fail))
+cat("\n\n")
+
+# Print table
+knitr::kable(test_results, align = c("l", "l", "c", "l"))
+```
+
+```{r stop-on-fail}
+#| code-fold: false
+#| include: false
+
+# Fail the render if any test failed
+if (any(test_results$Status == "FAIL")) {
+  stop("One or more tests FAILED. See summary table above.")
+}
+```

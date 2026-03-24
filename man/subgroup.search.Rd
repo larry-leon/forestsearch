@@ -19,7 +19,10 @@ subgroup.search(
   rmin = 5,
   details = FALSE,
   maxk = 2,
-  parallel_workers = parallel::detectCores()
+  parallel_workers = parallel::detectCores(),
+  estimator_fn = NULL,
+  df_analysis = NULL,
+  effect_threshold = NULL
 )
 }
 \arguments{

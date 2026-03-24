@@ -226,9 +226,7 @@ get_split_hr_fast <- function(df, cox_init = 0) {
 #' run_single_consistency_split(df, N.x = 100, hr.consistency = 1.0)
 #' }
 #' @export
-run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0,
-                                         estimator_fn = NULL,
-                                         consistency_threshold = NULL) {
+run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0) {
 
   in.split1 <- tryCatch({
     sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
@@ -246,31 +244,6 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
     return(NA_real_)
   }
 
-  # --- GLM path: use estimator closure ---
-  if (!is.null(estimator_fn) && !is.null(consistency_threshold)) {
-    # Minimum per-arm check (replaces event-count check for non-survival)
-    for (half in list(df.x.split1, df.x.split2)) {
-      treat_col <- intersect(c("Treat", "treat"), names(half))
-      if (length(treat_col) > 0L) {
-        tc <- treat_col[1L]
-        if (sum(half[[tc]] == 1L) < 3L || sum(half[[tc]] == 0L) < 3L) {
-          return(NA_real_)
-        }
-      }
-    }
-
-    res1 <- estimator_fn(df.x.split1)
-    res2 <- estimator_fn(df.x.split2)
-
-    if (is.na(res1$estimate) || is.na(res2$estimate)) return(NA_real_)
-
-    return(as.numeric(
-      res1$estimate >= consistency_threshold &&
-        res2$estimate >= consistency_threshold
-    ))
-  }
-
-  # --- Survival path (existing, unchanged) ---
   if (sum(df.x.split1$Event) < 2 || sum(df.x.split2$Event) < 2) {
     return(NA_real_)
   }
@@ -668,9 +641,7 @@ evaluate_subgroup_consistency <- function(
     pconsistency.digits = 2,
     maxk,
     confs_labels,
-    details = FALSE,
-    estimator_fn = NULL,
-    consistency_threshold = NULL
+    details = FALSE
 ) {
 
   # -------------------------------------------------------------------------
@@ -725,25 +696,19 @@ evaluate_subgroup_consistency <- function(
   }
 
   # -------------------------------------------------------------------------
-  # SECTION 4: INITIALIZE EFFECT ESTIMATOR
+  # SECTION 4: INITIALIZE COX MODEL
   # -------------------------------------------------------------------------
 
-  if (!is.null(estimator_fn)) {
-    # GLM path: closure is pre-built; no Cox init needed
-    cox_init <- NULL
-  } else {
-    # Survival path: fit initial Cox model for warm-start
-    cox_init <- tryCatch({
-      fit0 <- survival::coxph(
-        survival::Surv(Y, Event) ~ Treat,
-        data = df.x,
-        model = FALSE,
-        x = FALSE,
-        y = FALSE
-      )
-      fit0$coefficients[1]
-    }, error = function(e) 0)
-  }
+  cox_init <- tryCatch({
+    fit0 <- survival::coxph(
+      survival::Surv(Y, Event) ~ Treat,
+      data = df.x,
+      model = FALSE,
+      x = FALSE,
+      y = FALSE
+    )
+    fit0$coefficients[1]
+  }, error = function(e) 0)
 
   # -------------------------------------------------------------------------
   # SECTION 5: RUN CONSISTENCY SPLITS
@@ -752,11 +717,7 @@ evaluate_subgroup_consistency <- function(
   flag.consistency <- numeric(n.splits)
 
   for (i in seq_len(n.splits)) {
-    flag.consistency[i] <- run_single_consistency_split(
-      df.x, N.x, hr.consistency, cox_init,
-      estimator_fn = estimator_fn,
-      consistency_threshold = consistency_threshold
-    )
+    flag.consistency[i] <- run_single_consistency_split(df.x, N.x, hr.consistency, cox_init)
   }
 
   # -------------------------------------------------------------------------
@@ -886,9 +847,7 @@ evaluate_consistency_twostage <- function(
     n.splits.max = 400,
     batch.size = 20,
     conf.level = 0.95,
-    min.valid.screen = 10,
-    estimator_fn = NULL,
-    consistency_threshold = NULL
+    min.valid.screen = 10
 ) {
 
   # ===========================================================================
@@ -936,8 +895,7 @@ evaluate_consistency_twostage <- function(
     return(exp(fit$coefficients[1]))
   }
 
-  .run_single_consistency_split <- function(df.x, N.x, hr.cons, cox_init,
-                                            est_fn = NULL, cons_thresh = NULL) {
+  .run_single_consistency_split <- function(df.x, N.x, hr.cons, cox_init) {
     in.split1 <- tryCatch({
       sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
     }, error = function(e) NULL)
@@ -948,27 +906,6 @@ evaluate_consistency_twostage <- function(
     df.x.split2 <- df.x[df.x$insplit1 == FALSE, ]
 
     if (nrow(df.x.split1) < 5 || nrow(df.x.split2) < 5) return(NA_real_)
-
-    # GLM path
-    if (!is.null(est_fn) && !is.null(cons_thresh)) {
-      for (half in list(df.x.split1, df.x.split2)) {
-        treat_col <- intersect(c("Treat", "treat"), names(half))
-        if (length(treat_col) > 0L) {
-          tc <- treat_col[1L]
-          if (sum(half[[tc]] == 1L) < 3L || sum(half[[tc]] == 0L) < 3L) {
-            return(NA_real_)
-          }
-        }
-      }
-      res1 <- est_fn(df.x.split1)
-      res2 <- est_fn(df.x.split2)
-      if (is.na(res1$estimate) || is.na(res2$estimate)) return(NA_real_)
-      return(as.numeric(
-        res1$estimate >= cons_thresh && res2$estimate >= cons_thresh
-      ))
-    }
-
-    # Survival path (existing)
     if (sum(df.x.split1$Event) < 2 || sum(df.x.split2$Event) < 2) return(NA_real_)
 
     hr.split1 <- .get_split_hr_fast(df_split = df.x.split1, cox_initial = cox_init)
@@ -1043,23 +980,19 @@ evaluate_consistency_twostage <- function(
   }
 
   # ---------------------------------------------------------------------------
-  # Initialize effect estimator
+  # Initialize Cox model
   # ---------------------------------------------------------------------------
 
-  if (!is.null(estimator_fn)) {
-    cox_init <- NULL
-  } else {
-    cox_init <- tryCatch({
-      fit0 <- survival::coxph(
-        survival::Surv(Y, Event) ~ Treat,
-        data = df.x,
-        model = FALSE,
-        x = FALSE,
-        y = FALSE
-      )
-      fit0$coefficients[1]
-    }, error = function(e) 0)
-  }
+  cox_init <- tryCatch({
+    fit0 <- survival::coxph(
+      survival::Surv(Y, Event) ~ Treat,
+      data = df.x,
+      model = FALSE,
+      x = FALSE,
+      y = FALSE
+    )
+    fit0$coefficients[1]
+  }, error = function(e) 0)
 
   # ---------------------------------------------------------------------------
   # Stage 1: Quick screening
@@ -1067,10 +1000,7 @@ evaluate_consistency_twostage <- function(
 
   stage1_flags <- numeric(n.splits.screen)
   for (i in seq_len(n.splits.screen)) {
-    stage1_flags[i] <- .run_single_consistency_split(
-      df.x, N.x, hr.consistency, cox_init,
-      est_fn = estimator_fn, cons_thresh = consistency_threshold
-    )
+    stage1_flags[i] <- .run_single_consistency_split(df.x, N.x, hr.consistency, cox_init)
   }
 
   n_valid_stage1 <- sum(!is.na(stage1_flags))
@@ -1130,10 +1060,7 @@ evaluate_consistency_twostage <- function(
 
     batch_flags <- numeric(batch.size)
     for (i in seq_len(batch.size)) {
-      batch_flags[i] <- .run_single_consistency_split(
-        df.x, N.x, hr.consistency, cox_init,
-        est_fn = estimator_fn, cons_thresh = consistency_threshold
-      )
+      batch_flags[i] <- .run_single_consistency_split(df.x, N.x, hr.consistency, cox_init)
     }
 
     n_batch_valid <- sum(!is.na(batch_flags))
