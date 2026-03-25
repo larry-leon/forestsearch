@@ -463,6 +463,9 @@ grf.subg.harm.glm <- function(data,
     config = config
   )
 
+  # Attach the fitted causal forest for downstream PS extraction
+  result$forest <- cs.forest
+
   return(result)
 }
 #'

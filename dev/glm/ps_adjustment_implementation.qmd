@@ -1,0 +1,435 @@
+---
+title: "Propensity Score Adjustment for ForestSearch GLM Extension"
+subtitle: "Implementation Design and Simulation Evaluation"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(file.path(pkg_root, "DESCRIPTION")))
+knitr::opts_knit$set(root.dir = pkg_root)
+
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+```{r load}
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+source("dev/glm/glm_effect_estimators.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(data.table)
+  library(grf)
+  library(glmnet)
+  library(gt)
+})
+```
+
+
+# Design Overview
+
+ForestSearch's GLM extension now supports optional propensity score (PS)
+adjustment for subgroup effect estimation.  The PS is included as an
+adjustment covariate in the GLM estimator closure, adding a doubly-robust
+flavour to the treatment effect estimates.
+
+## Architecture
+
+```
+forestsearch()
+  └── Section 2C: estimate_propensity_scores()
+        ├── method = "grf"      →  grf::regression_forest(X, W)
+        ├── method = "lasso"    →  glmnet::cv.glmnet(X, W, family="binomial")
+        ├── method = "logistic" →  glm(W ~ X, family=binomial)
+        └── method = "none"     →  skip (default for RCT)
+      ↓
+  df.analysis$ps_hat added
+      ↓
+  make_effect_estimator(..., adjust_covariates = "ps_hat")
+      ↓
+  closure: glm(Y ~ treat + ps_hat, ...)
+```
+
+## Parameter Defaults
+
+| Setting | `ps_method` default | Rationale |
+|---|---|---|
+| `is.RCT = TRUE` | `"none"` | Randomization ensures balance |
+| `is.RCT = FALSE` | `"grf"` | Non-parametric, cross-fitted |
+| User-supplied PS | Pass `ps_hat` vector | Maximum flexibility |
+
+## PS Estimation Methods
+
+| Method | Implementation | Pros | Cons |
+|---|---|---|---|
+| `"grf"` | `regression_forest(X, W)` | Non-parametric, OOB cross-fitted | Requires `grf` |
+| `"lasso"` | `cv.glmnet(X, W, family="binomial")` | Penalized, handles many covariates | Parametric (log-odds) |
+| `"logistic"` | `glm(W ~ X, family=binomial)` | Simple, interpretable | May misspecify |
+| `"none"` | Skip | No overhead | No confounding adjustment |
+
+All methods include PS trimming at [2.5%, 97.5%] quantiles by default
+to avoid positivity violations.
+
+
+# GBSG Demonstration {#sec-gbsg}
+
+## PS Estimation Comparison
+
+```{r ps-estimation}
+#| code-fold: false
+
+df <- survival::gbsg
+df$id <- seq_len(nrow(df))
+df$grade3 <- as.integer(df$grade == "3")
+confs <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+ps_grf    <- estimate_propensity_scores(df, "hormon", confs, method = "grf")
+ps_lasso  <- estimate_propensity_scores(df, "hormon", confs, method = "lasso")
+ps_logit  <- estimate_propensity_scores(df, "hormon", confs, method = "logistic")
+
+ps_compare <- data.frame(
+  Method     = c("GRF", "LASSO", "Logistic"),
+  Mean       = round(c(mean(ps_grf$ps_hat), mean(ps_lasso$ps_hat),
+                        mean(ps_logit$ps_hat)), 3),
+  SD         = round(c(sd(ps_grf$ps_hat), sd(ps_lasso$ps_hat),
+                        sd(ps_logit$ps_hat)), 3),
+  Min        = round(c(min(ps_grf$ps_hat), min(ps_lasso$ps_hat),
+                        min(ps_logit$ps_hat)), 3),
+  Max        = round(c(max(ps_grf$ps_hat), max(ps_lasso$ps_hat),
+                        max(ps_logit$ps_hat)), 3),
+  Trimmed    = c(ps_grf$trimmed, ps_lasso$trimmed, ps_logit$trimmed),
+  Cor_GRF    = round(c(1, cor(ps_grf$ps_hat, ps_lasso$ps_hat),
+                        cor(ps_grf$ps_hat, ps_logit$ps_hat)), 3)
+)
+
+gt(ps_compare) |>
+  tab_header(title = md("**PS Estimation Methods on GBSG Data**"),
+             subtitle = "P(hormon = 1 | X)") |>
+  cols_label(Cor_GRF = "Cor with GRF")
+```
+
+```{r ps-histograms, fig.width=10, fig.height=4}
+par(mfrow = c(1, 3))
+hist(ps_grf$ps_hat, breaks = 30, col = "steelblue", border = "white",
+     main = "GRF", xlab = "P(treat = 1 | X)", xlim = c(0, 1))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+hist(ps_lasso$ps_hat, breaks = 30, col = "forestgreen", border = "white",
+     main = "LASSO", xlab = "P(treat = 1 | X)", xlim = c(0, 1))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+hist(ps_logit$ps_hat, breaks = 30, col = "darkorange", border = "white",
+     main = "Logistic", xlab = "P(treat = 1 | X)", xlim = c(0, 1))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+par(mfrow = c(1, 1))
+```
+
+## Adjusted vs Unadjusted Estimates
+
+```{r adj-vs-unadj}
+df_ps <- ps_grf$data
+
+fn_unadj <- make_effect_estimator("binary", "hormon", "status",
+  offset.name = "rfstime", effect_measure = "IRR")
+fn_adj <- make_effect_estimator("binary", "hormon", "status",
+  offset.name = "rfstime", effect_measure = "IRR",
+  adjust_covariates = "ps_hat")
+
+# ITT
+res_u <- fn_unadj(df_ps)
+res_a <- fn_adj(df_ps)
+cat("ITT Estimates:\n")
+cat("  Unadjusted IRR:", round(exp(res_u$estimate), 3), "\n")
+cat("  PS-adjusted IRR:", round(exp(res_a$estimate), 3), "\n")
+
+# Subgroup {er <= 0}
+sg <- df_ps[df_ps$er <= 0, ]
+res_u_sg <- fn_unadj(sg)
+res_a_sg <- fn_adj(sg)
+cat("\nSubgroup {er <= 0}:\n")
+cat("  Unadjusted IRR:", round(exp(res_u_sg$estimate), 3), "\n")
+cat("  PS-adjusted IRR:", round(exp(res_a_sg$estimate), 3), "\n")
+
+# Complement {er > 0}
+co <- df_ps[df_ps$er > 0, ]
+res_u_co <- fn_unadj(co)
+res_a_co <- fn_adj(co)
+cat("\nComplement {er > 0}:\n")
+cat("  Unadjusted IRR:", round(exp(res_u_co$estimate), 3), "\n")
+cat("  PS-adjusted IRR:", round(exp(res_a_co$estimate), 3), "\n")
+```
+
+::: {.callout-note}
+In the GBSG RCT, PS adjustment has minimal impact because treatment
+was randomized.  The benefit of PS adjustment is most apparent in
+observational data where confounding is present.
+:::
+
+
+# Simulation: Confounded Treatment Assignment {#sec-simulation}
+
+To demonstrate the value of PS adjustment, we simulate an observational
+study where treatment assignment depends on covariates.
+
+## Data-Generating Mechanism
+
+```{r sim-dgm}
+#| code-fold: false
+
+simulate_confounded_trial <- function(n = 2000, seed = 42L) {
+  set.seed(seed)
+
+  # Covariates
+  x1 <- rbinom(n, 1, 0.5)
+  x2 <- rbinom(n, 1, 0.5)
+  x3 <- rnorm(n)
+  x4 <- rnorm(n)
+
+  # Confounded treatment: P(W=1) depends on x1 and x3
+  ps_true <- plogis(-0.5 + 0.8 * x1 + 0.6 * x3)
+  treat   <- rbinom(n, 1, ps_true)
+
+  # True subgroup: x1 == 1
+  in_sg <- x1 == 1
+
+  # Outcome: binary event with treatment-subgroup interaction
+  # x3 is both a confounder AND a prognostic factor
+  lp <- -1.5 + 0.5 * x3 + 0.3 * x4 +
+        ifelse(in_sg, 0.8, -0.4) * treat
+  event <- rbinom(n, 1, plogis(lp))
+
+  # Follow-up time (for Poisson-offset)
+  tte <- rexp(n, rate = 0.05) + 1
+
+  data.frame(
+    id = seq_len(n),
+    x1 = x1, x2 = x2, x3 = x3, x4 = x4,
+    treat = treat, event = event, tte = tte,
+    in_sg = in_sg, ps_true = ps_true
+  )
+}
+
+df_sim <- simulate_confounded_trial(n = 2000, seed = 42L)
+
+cat("Simulated data:\n")
+cat("  N =", nrow(df_sim), "\n")
+cat("  P(treat=1):", round(mean(df_sim$treat), 3), "\n")
+cat("  Event rate:", round(mean(df_sim$event), 3), "\n")
+cat("  True subgroup {x1=1}: n =", sum(df_sim$in_sg),
+    sprintf("(%.0f%%)\n", 100 * mean(df_sim$in_sg)))
+
+cat("\nTrue PS range:", round(range(df_sim$ps_true), 3), "\n")
+cat("  Mean PS (in_sg=TRUE):", round(mean(df_sim$ps_true[df_sim$in_sg]), 3), "\n")
+cat("  Mean PS (in_sg=FALSE):", round(mean(df_sim$ps_true[!df_sim$in_sg]), 3), "\n")
+```
+
+## PS Estimation Quality
+
+```{r sim-ps-quality, fig.width=10, fig.height=4}
+confs_sim <- c("x1", "x2", "x3", "x4")
+
+ps_sim_grf   <- estimate_propensity_scores(df_sim, "treat", confs_sim, method = "grf")
+ps_sim_lasso <- estimate_propensity_scores(df_sim, "treat", confs_sim, method = "lasso")
+ps_sim_logit <- estimate_propensity_scores(df_sim, "treat", confs_sim, method = "logistic")
+
+cat("PS estimation quality (correlation with true PS):\n")
+cat("  GRF:     ", round(cor(ps_sim_grf$ps_hat, df_sim$ps_true), 3), "\n")
+cat("  LASSO:   ", round(cor(ps_sim_lasso$ps_hat, df_sim$ps_true), 3), "\n")
+cat("  Logistic:", round(cor(ps_sim_logit$ps_hat, df_sim$ps_true), 3), "\n")
+
+par(mfrow = c(1, 3))
+plot(df_sim$ps_true, ps_sim_grf$ps_hat, pch = 16, cex = 0.3, col = "steelblue",
+     xlab = "True PS", ylab = "Estimated PS", main = "GRF")
+abline(0, 1, col = "red", lwd = 2)
+plot(df_sim$ps_true, ps_sim_lasso$ps_hat, pch = 16, cex = 0.3, col = "forestgreen",
+     xlab = "True PS", ylab = "Estimated PS", main = "LASSO")
+abline(0, 1, col = "red", lwd = 2)
+plot(df_sim$ps_true, ps_sim_logit$ps_hat, pch = 16, cex = 0.3, col = "darkorange",
+     xlab = "True PS", ylab = "Estimated PS", main = "Logistic")
+abline(0, 1, col = "red", lwd = 2)
+par(mfrow = c(1, 1))
+```
+
+## Bias Comparison: Unadjusted vs PS-Adjusted
+
+```{r sim-bias}
+# True treatment effects (from the DGM)
+cat("True treatment effects (log-OR scale):\n")
+cat("  Subgroup {x1=1}:   log-OR = 0.8  (OR = 2.23)\n")
+cat("  Complement {x1=0}: log-OR = -0.4  (OR = 0.67)\n\n")
+
+df_ps_sim <- ps_sim_grf$data
+
+# Build estimators
+fn_u <- make_effect_estimator("binary", "treat", "event",
+  effect_measure = "OR")
+fn_a <- make_effect_estimator("binary", "treat", "event",
+  effect_measure = "OR", adjust_covariates = "ps_hat")
+
+# ITT
+cat("ITT estimates:\n")
+cat("  Unadjusted OR: ", round(exp(fn_u(df_ps_sim)$estimate), 3), "\n")
+cat("  PS-adjusted OR:", round(exp(fn_a(df_ps_sim)$estimate), 3), "\n\n")
+
+# Subgroup
+sg_sim <- df_ps_sim[df_ps_sim$x1 == 1, ]
+co_sim <- df_ps_sim[df_ps_sim$x1 == 0, ]
+
+cat("Subgroup {x1=1} (true OR = 2.23):\n")
+cat("  Unadjusted OR: ", round(exp(fn_u(sg_sim)$estimate), 3), "\n")
+cat("  PS-adjusted OR:", round(exp(fn_a(sg_sim)$estimate), 3), "\n\n")
+
+cat("Complement {x1=0} (true OR = 0.67):\n")
+cat("  Unadjusted OR: ", round(exp(fn_u(co_sim)$estimate), 3), "\n")
+cat("  PS-adjusted OR:", round(exp(fn_a(co_sim)$estimate), 3), "\n")
+```
+
+
+## Monte Carlo Evaluation
+
+```{r sim-mc, fig.width=10, fig.height=5}
+n_sims <- 100
+
+results <- data.frame(
+  sim = integer(), method = character(),
+  sg_est = numeric(), co_est = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (s in seq_len(n_sims)) {
+  df_s <- simulate_confounded_trial(n = 2000, seed = s)
+  ps_s <- estimate_propensity_scores(df_s, "treat", confs_sim, method = "grf")
+  df_s <- ps_s$data
+
+  fn_u_s <- make_effect_estimator("binary", "treat", "event",
+    effect_measure = "OR")
+  fn_a_s <- make_effect_estimator("binary", "treat", "event",
+    effect_measure = "OR", adjust_covariates = "ps_hat")
+
+  sg_s <- df_s[df_s$x1 == 1, ]
+  co_s <- df_s[df_s$x1 == 0, ]
+
+  res_u_sg <- fn_u_s(sg_s)
+  res_a_sg <- fn_a_s(sg_s)
+  res_u_co <- fn_u_s(co_s)
+  res_a_co <- fn_a_s(co_s)
+
+  results <- rbind(results, data.frame(
+    sim = s, method = "Unadjusted",
+    sg_est = res_u_sg$estimate, co_est = res_u_co$estimate
+  ))
+  results <- rbind(results, data.frame(
+    sim = s, method = "PS-adjusted",
+    sg_est = res_a_sg$estimate, co_est = res_a_co$estimate
+  ))
+}
+
+# Summary statistics
+cat("=== Monte Carlo Results (", n_sims, "simulations) ===\n\n")
+cat("Subgroup {x1=1} (true log-OR = 0.80):\n")
+unadj_sg <- results$sg_est[results$method == "Unadjusted"]
+adj_sg   <- results$sg_est[results$method == "PS-adjusted"]
+cat(sprintf("  Unadjusted: mean = %.3f, bias = %.3f, RMSE = %.3f\n",
+    mean(unadj_sg, na.rm = TRUE),
+    mean(unadj_sg, na.rm = TRUE) - 0.8,
+    sqrt(mean((unadj_sg - 0.8)^2, na.rm = TRUE))))
+cat(sprintf("  PS-adjusted: mean = %.3f, bias = %.3f, RMSE = %.3f\n",
+    mean(adj_sg, na.rm = TRUE),
+    mean(adj_sg, na.rm = TRUE) - 0.8,
+    sqrt(mean((adj_sg - 0.8)^2, na.rm = TRUE))))
+
+cat("\nComplement {x1=0} (true log-OR = -0.40):\n")
+unadj_co <- results$co_est[results$method == "Unadjusted"]
+adj_co   <- results$co_est[results$method == "PS-adjusted"]
+cat(sprintf("  Unadjusted: mean = %.3f, bias = %.3f, RMSE = %.3f\n",
+    mean(unadj_co, na.rm = TRUE),
+    mean(unadj_co, na.rm = TRUE) - (-0.4),
+    sqrt(mean((unadj_co - (-0.4))^2, na.rm = TRUE))))
+cat(sprintf("  PS-adjusted: mean = %.3f, bias = %.3f, RMSE = %.3f\n",
+    mean(adj_co, na.rm = TRUE),
+    mean(adj_co, na.rm = TRUE) - (-0.4),
+    sqrt(mean((adj_co - (-0.4))^2, na.rm = TRUE))))
+
+# Boxplots
+par(mfrow = c(1, 2))
+boxplot(sg_est ~ method, data = results,
+        main = "Subgroup {x1=1}\n(true log-OR = 0.80)",
+        ylab = "log-OR", col = c("salmon", "lightblue"))
+abline(h = 0.8, col = "red", lwd = 2, lty = 2)
+
+boxplot(co_est ~ method, data = results,
+        main = "Complement {x1=0}\n(true log-OR = -0.40)",
+        ylab = "log-OR", col = c("salmon", "lightblue"))
+abline(h = -0.4, col = "red", lwd = 2, lty = 2)
+par(mfrow = c(1, 1))
+```
+
+
+# Integration with ForestSearch {#sec-integration}
+
+## API Usage
+
+```r
+# RCT (default: no PS adjustment)
+forestsearch(df, outcome_type = "binary", effect_measure = "IRR",
+             dmin.grf = 0.0, ...)
+
+# Observational with GRF-based PS (default when is.RCT = FALSE)
+forestsearch(df, outcome_type = "binary", effect_measure = "IRR",
+             dmin.grf = 0.0, is.RCT = FALSE, ps_method = "grf", ...)
+
+# Observational with LASSO PS
+forestsearch(df, outcome_type = "binary", is.RCT = FALSE,
+             ps_method = "lasso", ...)
+
+# User-supplied PS
+forestsearch(df, outcome_type = "binary", is.RCT = FALSE,
+             ps_hat = my_ps_vector, ...)
+```
+
+## Key Design Decisions
+
+1. **PS as covariate, not weight.**  The PS is included as an adjustment
+   covariate (`Y ~ treat + ps_hat`) rather than as IPTW.  This gives
+   covariate-adjusted estimates within each subgroup slice and avoids
+   extreme weight instability in small subgroups.
+
+2. **GRF PS from the screening step.**  When `use_grf = TRUE`, the
+   causal forest already estimates `W.hat`.  The `grf.subg.harm.glm()`
+   function now returns the fitted forest object, enabling PS extraction
+   without re-estimation.
+
+3. **Trimming.**  PS values are trimmed to [2.5%, 97.5%] to prevent
+   near-zero denominators in subgroup slices where one treatment arm
+   dominates.
+
+4. **Backward compatibility.**  For `is.RCT = TRUE` (default), `ps_method`
+   resolves to `"none"` and the estimator closure is identical to the
+   unadjusted version.  Existing analyses are unaffected.
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

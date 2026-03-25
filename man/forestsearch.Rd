@@ -61,7 +61,9 @@ forestsearch(
   outcome_type = c("survival", "binary", "continuous"),
   effect_measure = NULL,
   offset.name = NULL,
-  adverse_outcome = NULL
+  adverse_outcome = NULL,
+  ps_method = NULL,
+  ps_hat = NULL
 )
 }
 \arguments{

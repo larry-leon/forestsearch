@@ -282,7 +282,10 @@ forestsearch <- function(df.analysis,
                          outcome_type = c("survival", "binary", "continuous"),
                          effect_measure = NULL,
                          offset.name = NULL,
-                         adverse_outcome = NULL) {
+                         adverse_outcome = NULL,
+                         # Propensity score adjustment
+                         ps_method = NULL,
+                         ps_hat = NULL) {
 
   # ===========================================================================
   # SECTION 1: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
@@ -457,6 +460,68 @@ forestsearch <- function(df.analysis,
       cat("  dmin.grf:", dmin.grf, "\n")
     }
   }
+
+  # ===========================================================================
+  # SECTION 2C: PROPENSITY SCORE ESTIMATION (optional)
+  # ===========================================================================
+
+  is_glm <- outcome_type != "survival"
+  #
+  # When ps_method != "none", estimate P(W=1|X) and include ps_hat as
+  # an adjustment covariate in the effect estimator closure.  This adds
+  # a doubly-robust flavour to the GLM-based subgroup effect estimates.
+  #
+  # Defaults:
+  #   RCT = TRUE  -> ps_method = "none"  (randomization ensures balance)
+  #   RCT = FALSE -> ps_method = "grf"   (non-parametric, cross-fitted)
+  # ===========================================================================
+
+  # Resolve ps_method default
+  if (is.null(ps_method)) {
+    ps_method <- if (is.RCT) "none" else "grf"
+  }
+  args_call_all$ps_method <- ps_method
+
+  adjust_covariates <- NULL
+
+  if (ps_method != "none") {
+    if (!is.null(ps_hat)) {
+      # User-supplied propensity scores
+      if (length(ps_hat) != nrow(df.analysis)) {
+        stop("ps_hat must have length equal to nrow(df.analysis)", call. = FALSE)
+      }
+      df.analysis$ps_hat <- ps_hat
+    } else {
+      # Estimate PS using the requested method
+      ps_result <- estimate_propensity_scores(
+        data             = df.analysis,
+        treat.name       = treat.name,
+        confounders.name = confounders.name,
+        method           = ps_method,
+        seed             = if (exists("seedit")) seedit else 8316951L
+      )
+      df.analysis <- ps_result$data
+      if (details) {
+        cat("  PS estimation: method =", ps_result$method,
+            ", trimmed =", ps_result$trimmed, "\n")
+      }
+    }
+    adjust_covariates <- "ps_hat"
+
+    # Rebuild estimator closure with PS adjustment (GLM outcomes only)
+    if (is_glm) {
+      estimator_fn <- make_effect_estimator(
+        outcome_type      = outcome_type,
+        treat.name        = treat.name,
+        outcome.name      = outcome.name,
+        offset.name       = offset.name,
+        effect_measure    = effect_measure,
+        adjust_covariates = adjust_covariates
+      )
+    }
+  }
+
+  args_call_all$adjust_covariates <- adjust_covariates
 
   # ===========================================================================
   # SECTION 3: INITIALIZE TIMING AND DATA
