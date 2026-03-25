@@ -63,6 +63,7 @@ forestsearch(
   offset.name = NULL,
   adverse_outcome = NULL,
   ps_method = NULL,
+  ps_adjust_method = c("iptw", "dr_gcomp"),
   ps_hat = NULL
 )
 }

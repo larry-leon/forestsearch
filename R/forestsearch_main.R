@@ -285,6 +285,7 @@ forestsearch <- function(df.analysis,
                          adverse_outcome = NULL,
                          # Propensity score adjustment
                          ps_method = NULL,
+                         ps_adjust_method = c("iptw", "dr_gcomp"),
                          ps_hat = NULL) {
 
   # ===========================================================================
@@ -467,13 +468,14 @@ forestsearch <- function(df.analysis,
 
   is_glm <- outcome_type != "survival"
   #
-  # When ps_method != "none", estimate P(W=1|X) and include ps_hat as
-  # an adjustment covariate in the effect estimator closure.  This adds
-  # a doubly-robust flavour to the GLM-based subgroup effect estimates.
+  # When ps_method != "none", estimate P(W=1|X) and use either:
+  #   - IPTW: stabilized weights in glm (coefficient IS the effect)
+  #   - DR G-comp: Bang & Robins (2005) IPS covariate + G-computation
   #
   # Defaults:
   #   RCT = TRUE  -> ps_method = "none"  (randomization ensures balance)
   #   RCT = FALSE -> ps_method = "grf"   (non-parametric, cross-fitted)
+  #   ps_adjust_method = "iptw" (default)
   # ===========================================================================
 
   # Resolve ps_method default
@@ -481,6 +483,11 @@ forestsearch <- function(df.analysis,
     ps_method <- if (is.RCT) "none" else "grf"
   }
   args_call_all$ps_method <- ps_method
+
+  # Resolve ps_adjust_method
+  ps_adjust_method <- match.arg(ps_adjust_method)
+  ps_adjust_resolved <- if (ps_method == "none") "none" else ps_adjust_method
+  args_call_all$ps_adjust_method <- ps_adjust_resolved
 
   adjust_covariates <- NULL
 
@@ -491,9 +498,14 @@ forestsearch <- function(df.analysis,
         stop("ps_hat must have length equal to nrow(df.analysis)", call. = FALSE)
       }
       df.analysis$ps_hat <- ps_hat
-      # Bang & Robins (2005) IPS covariate: 1/e(x) for treated, 1/(1-e(x)) for control
       W_vec <- df.analysis[[treat.name]]
-      df.analysis$ips_covar <- ifelse(W_vec == 1, 1 / ps_hat, 1 / (1 - ps_hat))
+      p_treat <- mean(W_vec, na.rm = TRUE)
+      df.analysis$sw <- ifelse(W_vec == 1,
+                               p_treat / ps_hat,
+                               (1 - p_treat) / (1 - ps_hat))
+      df.analysis$ips_covar <- ifelse(W_vec == 1,
+                                      1 / ps_hat,
+                                      1 / (1 - ps_hat))
     } else {
       # Estimate PS using the requested method
       ps_result <- estimate_propensity_scores(
@@ -506,20 +518,20 @@ forestsearch <- function(df.analysis,
       df.analysis <- ps_result$data
       if (details) {
         cat("  PS estimation: method =", ps_result$method,
+            ", adjust =", ps_adjust_resolved,
             ", trimmed =", ps_result$trimmed, "\n")
       }
     }
-    adjust_covariates <- "ips_covar"
 
-    # Rebuild estimator closure with IPS adjustment (GLM outcomes only)
+    # Rebuild estimator closure with PS adjustment (GLM outcomes only)
     if (is_glm) {
       estimator_fn <- make_effect_estimator(
-        outcome_type      = outcome_type,
-        treat.name        = treat.name,
-        outcome.name      = outcome.name,
-        offset.name       = offset.name,
-        effect_measure    = effect_measure,
-        adjust_covariates = adjust_covariates
+        outcome_type     = outcome_type,
+        treat.name       = treat.name,
+        outcome.name     = outcome.name,
+        offset.name      = offset.name,
+        effect_measure   = effect_measure,
+        ps_adjust_method = ps_adjust_resolved
       )
     }
   }

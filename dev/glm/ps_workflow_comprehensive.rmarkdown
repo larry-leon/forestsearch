@@ -1,0 +1,725 @@
+---
+title: "Propensity Score Adjustment in ForestSearch: Complete Workflow"
+subtitle: "IPTW vs. DR G-Computation — Implementation, Theory, and Simulation Evaluation"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(
+  file.path(pkg_root, "DESCRIPTION")))
+knitr::opts_knit$set(root.dir = pkg_root)
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+```{r load}
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+source("dev/glm/glm_effect_estimators.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(data.table)
+  library(grf)
+  library(glmnet)
+  library(gt)
+  library(ggplot2)
+})
+theme_set(theme_minimal(base_size = 12))
+```
+
+
+# Methodology {#sec-methodology}
+
+## Two Approaches to PS Adjustment
+
+ForestSearch offers two PS adjustment methods for GLM effect estimation
+in observational studies.  Both use propensity scores estimated on the
+full sample; they differ in **how** the PS enters the outcome model.
+
+### Option A: Stabilized IPTW (Default)
+
+Inverse probability of treatment weighting creates a pseudo-population
+where treatment is independent of measured confounders.  Stabilized
+weights are:
+
+$$
+\text{sw}_i = \begin{cases}
+  P(W=1) / \hat{e}(X_i) & \text{if } W_i = 1 \\
+  P(W=0) / (1 - \hat{e}(X_i)) & \text{if } W_i = 0
+\end{cases}
+$$
+
+The outcome model is simply `glm(Y ~ treat, weights = sw, ...)`.
+The treatment coefficient **is** the marginal causal effect —
+no post-processing required.
+
+### Option B: Bang & Robins (2005) DR G-Computation
+
+The doubly-robust approach from Section 2.2 of Bang & Robins (2005)
+adds the inverse probability of treatment received as a covariate:
+
+$$
+\frac{1}{f(W_i \mid V; \hat\alpha)} = \begin{cases}
+  1 / \hat{e}(X_i) & \text{if } W_i = 1 \\
+  1 / (1 - \hat{e}(X_i)) & \text{if } W_i = 0
+\end{cases}
+$$
+
+The outcome model is `glm(Y ~ treat + ips_covar, ...)`.
+
+**Critically**, for non-identity links (logit, log), the treatment
+coefficient $\hat\beta_1$ is **not** the DR treatment effect.
+Section 2.2 of Bang & Robins (2005) specifies:
+
+$$
+\hat\mu_{dr} = n^{-1} \sum_i \bigl[e(1, V_i; \hat\beta, \hat\phi) -
+e(0, V_i; \hat\beta, \hat\phi)\bigr]
+$$
+
+This requires **G-computation**: predicting under both counterfactual
+treatment assignments, with the IPS covariate set to its correct value
+under each assignment ($1/\hat{e}(X)$ for $W=1$, $1/(1-\hat{e}(X))$
+for $W=0$), then averaging the contrast.
+
+### Key Theoretical Distinction
+
+The DR property requires that the outcome model `s(W, V; beta)` contain
+**confounders**.  If either the PS model or the outcome model for
+$E(Y \mid W, V)$ is correctly specified, the estimator is consistent.
+
+ForestSearch's estimator closures intentionally use **treatment-only
+outcome models** within subgroup slices (no confounders in the outcome
+model).  This means:
+
+- **IPTW**: Works correctly.  The weights create a pseudo-population;
+  no confounders needed in the outcome model.
+- **DR G-comp**: Loses its doubly-robust property because confounders
+  are omitted from the outcome model.  Reduces to a misspecified
+  regression with the IPS covariate, which has no theoretical guarantee.
+
+This document demonstrates this distinction empirically.
+
+
+## Comparison Summary
+
+| Property | IPTW (Option A) | DR G-comp (Option B) |
+|---|---|---|
+| **Model** | `glm(Y ~ treat, weights = sw)` | `glm(Y ~ treat + ips_covar)` + G-comp |
+| **Coefficient** | IS the effect | Requires G-computation |
+| **Requires confounders in outcome model?** | No | Yes (for DR property) |
+| **Works with ForestSearch's treatment-only models?** | **Yes** | **No** |
+| **Extreme PS sensitivity** | Moderate (stabilized) | Low (covariate) |
+| **Reference** | Hernán & Robins (2020) | Bang & Robins (2005), §2.2 |
+
+
+# Complete Workflow {#sec-workflow}
+
+## Stage 1: GRF Screening (Internal PS)
+
+When `use_grf = TRUE`, GRF fits `causal_forest(X, Y, W)` which
+internally estimates $\hat{e}(X_i) = E[W_i \mid X_i]$ via
+`regression_forest(X, W)`.  These out-of-bag, cross-fitted propensity
+scores are used within GRF for CATE estimation only — they do **not**
+affect downstream effect estimates.
+
+## Stage 2: PS Estimation for Effect Adjustment
+
+**Location:** `forestsearch_main.R`, Section 2C
+
+After outcome type is resolved (Section 2B), ForestSearch optionally
+estimates propensity scores on the **full `df.analysis`**.
+
+```
+forestsearch(..., ps_method = "grf", ps_adjust_method = "iptw")
+     ↓
+  Section 2C: estimate_propensity_scores()
+     ├── Estimate e(X) on full sample
+     ├── Trim PS to [2.5%, 97.5%]
+     ├── Compute stabilized weights: sw = P(W)/e(X) or P(1-W)/(1-e(X))
+     ├── Compute IPS covariate:       1/e(X) or 1/(1-e(X))
+     ├── Add ps_hat, sw, ips_covar columns to df.analysis
+     └── Rebuild estimator closure:
+           make_effect_estimator(..., ps_adjust_method = "iptw")
+```
+
+**Default behavior:**
+
+| Setting | `ps_method` | `ps_adjust_method` | Rationale |
+|---|---|---|---|
+| `is.RCT = TRUE` | `"none"` | N/A | Randomization ensures balance |
+| `is.RCT = FALSE` | `"grf"` | `"iptw"` | Non-parametric PS, stabilized weights |
+| User-supplied | `ps_hat = vec` | `"iptw"` | Maximum flexibility |
+
+## Stage 3: Subgroup Search
+
+The estimator closure is called on each candidate subgroup slice.
+For IPTW, the stabilized weights computed on the full sample are
+carried into each slice.  The weights are **never re-estimated**
+within subgroup slices.
+
+## Stage 4: Bootstrap
+
+Bootstrap re-enters Section 2C on resampled data.  The full estimation
+procedure (PS estimation → weight computation → estimator rebuild)
+is replicated from scratch on each bootstrap sample.
+
+
+# PS Estimation Methods {#sec-methods}
+
+```{r ps-estimation}
+df <- survival::gbsg
+df$id <- seq_len(nrow(df))
+df$grade3 <- as.integer(df$grade == "3")
+confs <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+ps_grf   <- estimate_propensity_scores(df, "hormon", confs, method = "grf")
+ps_lasso <- estimate_propensity_scores(df, "hormon", confs, method = "lasso")
+ps_logit <- estimate_propensity_scores(df, "hormon", confs, method = "logistic")
+
+ps_compare <- data.frame(
+  Method  = c("GRF", "LASSO", "Logistic"),
+  Mean    = round(c(mean(ps_grf$ps_hat), mean(ps_lasso$ps_hat),
+                     mean(ps_logit$ps_hat)), 3),
+  SD      = round(c(sd(ps_grf$ps_hat), sd(ps_lasso$ps_hat),
+                     sd(ps_logit$ps_hat)), 3),
+  Min     = round(c(min(ps_grf$ps_hat), min(ps_lasso$ps_hat),
+                     min(ps_logit$ps_hat)), 3),
+  Max     = round(c(max(ps_grf$ps_hat), max(ps_lasso$ps_hat),
+                     max(ps_logit$ps_hat)), 3),
+  Trimmed = c(ps_grf$trimmed, ps_lasso$trimmed, ps_logit$trimmed),
+  Cor_GRF = round(c(1, cor(ps_grf$ps_hat, ps_lasso$ps_hat),
+                     cor(ps_grf$ps_hat, ps_logit$ps_hat)), 3)
+)
+gt(ps_compare) |>
+  tab_header(title = md("**PS Estimation Methods on GBSG Data**"),
+             subtitle = "P(hormon = 1 | X)") |>
+  cols_label(Cor_GRF = "Cor with GRF")
+```
+
+```{r ps-histograms, fig.width=10, fig.height=4}
+par(mfrow = c(1, 3))
+hist(ps_grf$ps_hat, breaks = 30, col = "steelblue", border = "white",
+     main = "GRF", xlab = "e(X)", xlim = c(0, 0.8))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+hist(ps_lasso$ps_hat, breaks = 30, col = "forestgreen", border = "white",
+     main = "LASSO", xlab = "e(X)", xlim = c(0, 0.8))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+hist(ps_logit$ps_hat, breaks = 30, col = "darkorange", border = "white",
+     main = "Logistic", xlab = "e(X)", xlim = c(0, 0.8))
+abline(v = mean(df$hormon), col = "red", lwd = 2, lty = 2)
+par(mfrow = c(1, 1))
+```
+
+
+# Simulation Study {#sec-simulation}
+
+## Data-Generating Mechanism
+
+```{r sim-dgm}
+#| code-fold: false
+
+simulate_obs_study <- function(
+    n = 2000, seed = 42L,
+    confounding_strength = 1.0,
+    subgroup_effect = 0.8,       # log-OR in subgroup (harm)
+    complement_effect = -0.4,    # log-OR in complement (benefit)
+    prognostic_strength = 0.5,
+    n_noise = 3
+) {
+  set.seed(seed)
+
+  x1 <- rbinom(n, 1, 0.5)       # subgroup definer
+  x2 <- rbinom(n, 1, 0.4)       # noise binary
+  x3 <- rnorm(n)                 # confounder (treatment AND outcome)
+  x4 <- rnorm(n)                 # prognostic only
+  noise <- matrix(rnorm(n * n_noise), n, n_noise)
+  colnames(noise) <- paste0("noise", seq_len(n_noise))
+
+  # Confounded treatment: depends on x1 and x3
+  lp_treat <- -0.5 + confounding_strength *
+    (0.6 * x1 + 0.8 * x3 + 0.2 * x1 * x3)
+  ps_true <- plogis(lp_treat)
+  treat <- rbinom(n, 1, ps_true)
+
+  in_sg <- x1 == 1
+
+  # Outcome: x3 is a prognostic confounder
+  lp_outcome <- -1.0 +
+    prognostic_strength * x3 +
+    0.3 * x4 +
+    ifelse(in_sg, subgroup_effect, complement_effect) * treat
+  event <- rbinom(n, 1, plogis(lp_outcome))
+
+  tte <- rexp(n, rate = 0.05) + 1
+
+  df <- data.frame(
+    id = seq_len(n), x1 = x1, x2 = x2, x3 = x3, x4 = x4,
+    treat = treat, event = event, tte = tte,
+    in_sg = in_sg, ps_true = ps_true
+  )
+  cbind(df, noise)
+}
+```
+
+
+## Scenario Definitions
+
+Seven scenarios spanning moderate to extreme confounding, weak to
+strong signals, sparse to dense covariate spaces, and a small-sample
+stress test.
+
+```{r scenarios}
+#| code-fold: false
+
+scenarios <- list(
+  A = list(
+    name = "Moderate confounding",
+    confounding_strength = 0.8, subgroup_effect = 0.8,
+    complement_effect = -0.4, prognostic_strength = 0.5, n_noise = 3
+  ),
+  B = list(
+    name = "Strong confounding",
+    confounding_strength = 1.5, subgroup_effect = 0.8,
+    complement_effect = -0.4, prognostic_strength = 0.8, n_noise = 3
+  ),
+  C = list(
+    name = "Very strong confounding + weak signal",
+    confounding_strength = 2.0, subgroup_effect = 0.5,
+    complement_effect = -0.2, prognostic_strength = 1.0, n_noise = 3
+  ),
+  D = list(
+    name = "Strong confounding + many noise covariates",
+    confounding_strength = 1.5, subgroup_effect = 0.8,
+    complement_effect = -0.4, prognostic_strength = 0.8, n_noise = 10
+  ),
+  E = list(
+    name = "No confounding (RCT benchmark)",
+    confounding_strength = 0.0, subgroup_effect = 0.8,
+    complement_effect = -0.4, prognostic_strength = 0.5, n_noise = 3
+  ),
+  F_ = list(
+    name = "Extreme confounding + strong signal",
+    confounding_strength = 2.5, subgroup_effect = 1.2,
+    complement_effect = -0.6, prognostic_strength = 1.2, n_noise = 3
+  ),
+  G = list(
+    name = "Moderate confounding + small N",
+    confounding_strength = 1.0, subgroup_effect = 0.8,
+    complement_effect = -0.4, prognostic_strength = 0.5, n_noise = 3
+  )
+)
+```
+
+
+## Monte Carlo Evaluation
+
+Each scenario is evaluated with 200 Monte Carlo replications
+(N = 2000 per simulation, except Scenario G which uses N = 500).
+
+Four estimators are compared:
+
+1. **Unadjusted**: `glm(event ~ treat, family = binomial)`.
+2. **IPTW (GRF PS)**: Stabilized weights from GRF-estimated PS.
+3. **DR G-comp (GRF PS)**: Bang & Robins IPS covariate + G-computation.
+4. **IPTW (Oracle PS)**: Stabilized weights from the true PS (benchmark).
+
+```{r mc-eval}
+n_sims <- 200
+
+confs_sim <- c("x1", "x2", "x3", "x4")
+
+run_mc <- function(scenario, n_sims, n_per_sim = 2000) {
+  results <- data.frame(
+    sim = integer(), method = character(),
+    sg_est = numeric(), co_est = numeric(),
+    stringsAsFactors = FALSE
+  )
+
+  all_confs <- c(confs_sim, paste0("noise", seq_len(scenario$n_noise)))
+
+  fn_none <- make_effect_estimator("binary", "treat", "event",
+    effect_measure = "OR", ps_adjust_method = "none")
+  fn_iptw <- make_effect_estimator("binary", "treat", "event",
+    effect_measure = "OR", ps_adjust_method = "iptw")
+  fn_dr   <- make_effect_estimator("binary", "treat", "event",
+    effect_measure = "OR", ps_adjust_method = "dr_gcomp")
+
+  for (s in seq_len(n_sims)) {
+    df_s <- simulate_obs_study(
+      n = n_per_sim, seed = s,
+      confounding_strength  = scenario$confounding_strength,
+      subgroup_effect       = scenario$subgroup_effect,
+      complement_effect     = scenario$complement_effect,
+      prognostic_strength   = scenario$prognostic_strength,
+      n_noise               = scenario$n_noise
+    )
+
+    ps_s <- estimate_propensity_scores(df_s, "treat", all_confs, method = "grf")
+    df_s <- ps_s$data
+
+    # Oracle IPTW weights
+    p_treat <- mean(df_s$treat)
+    df_s$sw_oracle <- ifelse(
+      df_s$treat == 1,
+      p_treat / df_s$ps_true,
+      (1 - p_treat) / (1 - df_s$ps_true))
+
+    sg <- df_s[df_s$x1 == 1, ]
+    co <- df_s[df_s$x1 == 0, ]
+
+    sg_orac <- sg; sg_orac$sw <- sg_orac$sw_oracle
+    co_orac <- co; co_orac$sw <- co_orac$sw_oracle
+
+    results <- rbind(results,
+      data.frame(sim = s, method = "1. Unadjusted",
+        sg_est = fn_none(sg)$estimate, co_est = fn_none(co)$estimate),
+      data.frame(sim = s, method = "2. IPTW (GRF PS)",
+        sg_est = fn_iptw(sg)$estimate, co_est = fn_iptw(co)$estimate),
+      data.frame(sim = s, method = "3. DR G-comp (GRF PS)",
+        sg_est = fn_dr(sg)$estimate, co_est = fn_dr(co)$estimate),
+      data.frame(sim = s, method = "4. IPTW (Oracle PS)",
+        sg_est = fn_iptw(sg_orac)$estimate, co_est = fn_iptw(co_orac)$estimate)
+    )
+  }
+  results
+}
+
+all_results <- list()
+for (sc_name in names(scenarios)) {
+  sc <- scenarios[[sc_name]]
+  cat("Running scenario", sc_name, ":", sc$name, "...\n")
+  n_per <- if (sc_name == "G") 500 else 2000
+  all_results[[sc_name]] <- run_mc(sc, n_sims, n_per_sim = n_per)
+}
+```
+
+
+## Results Summary
+
+```{r mc-summary}
+summarize_scenario <- function(results, true_sg, true_co, scenario_name) {
+  methods <- unique(results$method)
+  rows <- list()
+  for (m in methods) {
+    sg <- results$sg_est[results$method == m]
+    co <- results$co_est[results$method == m]
+    rows[[length(rows) + 1]] <- data.frame(
+      Scenario = scenario_name,
+      Method = m,
+      SG_Mean  = round(mean(sg, na.rm = TRUE), 3),
+      SG_Bias  = round(mean(sg, na.rm = TRUE) - true_sg, 3),
+      SG_RMSE  = round(sqrt(mean((sg - true_sg)^2, na.rm = TRUE)), 3),
+      CO_Mean  = round(mean(co, na.rm = TRUE), 3),
+      CO_Bias  = round(mean(co, na.rm = TRUE) - true_co, 3),
+      CO_RMSE  = round(sqrt(mean((co - true_co)^2, na.rm = TRUE)), 3),
+      stringsAsFactors = FALSE
+    )
+  }
+  do.call(rbind, rows)
+}
+
+summary_table <- do.call(rbind, lapply(names(scenarios), function(sc) {
+  sc_def <- scenarios[[sc]]
+  summarize_scenario(
+    all_results[[sc]],
+    true_sg = sc_def$subgroup_effect,
+    true_co = sc_def$complement_effect,
+    scenario_name = paste0(sc, ": ", sc_def$name)
+  )
+}))
+
+gt(summary_table) |>
+  tab_header(
+    title = md("**Monte Carlo Results: Unadjusted vs. IPTW vs. DR G-comp**"),
+    subtitle = sprintf("%d simulations per scenario", n_sims)
+  ) |>
+  tab_spanner(label = "Subgroup {x1=1}",
+              columns = c(SG_Mean, SG_Bias, SG_RMSE)) |>
+  tab_spanner(label = "Complement {x1=0}",
+              columns = c(CO_Mean, CO_Bias, CO_RMSE)) |>
+  cols_label(
+    Scenario = "Scenario", Method = "Method",
+    SG_Mean = "Mean", SG_Bias = "Bias", SG_RMSE = "RMSE",
+    CO_Mean = "Mean", CO_Bias = "Bias", CO_RMSE = "RMSE"
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#e8f5e9"),
+    locations = cells_body(rows = grepl("2\\. IPTW", Method))
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#fff3e0"),
+    locations = cells_body(rows = grepl("3\\. DR", Method))
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#e3f2fd"),
+    locations = cells_body(rows = grepl("4\\. IPTW.*Oracle", Method))
+  ) |>
+  tab_source_note(md(paste0(
+    "Green = IPTW with GRF PS (recommended). ",
+    "Orange = DR G-comp (no DR property without confounders). ",
+    "Blue = Oracle IPTW (true PS). ",
+    "N = 2000 except Scenario G (N = 500)."
+  )))
+```
+
+
+## Boxplots: IPTW vs DR G-comp by Scenario
+
+```{r mc-boxplots, fig.width=14, fig.height=16}
+par(mfrow = c(length(scenarios), 2), mar = c(3, 4, 3, 1))
+
+box_cols <- c("salmon", "#81C784", "#FFE0B2", "#90CAF9")
+
+for (sc_name in names(scenarios)) {
+  sc_def <- scenarios[[sc_name]]
+  res <- all_results[[sc_name]]
+
+  boxplot(sg_est ~ method, data = res,
+    main = paste0(sc_name, ": SG {x1=1} (true=",
+                  sc_def$subgroup_effect, ")"),
+    ylab = "log-OR", col = box_cols,
+    cex.main = 0.85, las = 2, cex.axis = 0.65)
+  abline(h = sc_def$subgroup_effect, col = "red", lwd = 2, lty = 2)
+
+  boxplot(co_est ~ method, data = res,
+    main = paste0(sc_name, ": CO {x1=0} (true=",
+                  sc_def$complement_effect, ")"),
+    ylab = "log-OR", col = box_cols,
+    cex.main = 0.85, las = 2, cex.axis = 0.65)
+  abline(h = sc_def$complement_effect, col = "red", lwd = 2, lty = 2)
+}
+```
+
+
+# Why DR G-Computation Fails in ForestSearch {#sec-dr-failure}
+
+## Theoretical Explanation
+
+The Bang & Robins (2005) DR estimator from Section 2.2 fits:
+
+$$
+e(\Delta, V; \beta, \phi) = \Psi\bigl[s(\Delta, V; \beta) +
+\phi \cdot \{f(\Delta \mid V; \hat\alpha)\}^{-1}\bigr]
+$$
+
+The **doubly-robust property** holds because $\hat\mu_{dr}$ is
+consistent if either:
+
+1. The PS model $\pi(V; \alpha)$ is correct, **OR**
+2. The outcome regression $s(\Delta, V; \beta)$ is correct.
+
+In ForestSearch, the outcome model within subgroup slices is
+intentionally `Y ~ treat` (no confounders), so condition (2) is never
+satisfied.  When $s(\Delta, V; \beta) = \beta_0 + \beta_1 \Delta$
+(no confounders), the IPS covariate $\phi \cdot \{f(\Delta \mid V;
+\hat\alpha)\}^{-1}$ alone cannot absorb the confounding because $\phi$
+is a single scalar applied to a single covariate — it cannot adjust
+for the complex relationship between confounders and outcome.
+
+**IPTW**, by contrast, does not require confounders in the outcome
+model.  The weights directly create a pseudo-population where
+$W \perp X$, so even a simple `Y ~ treat` model yields a consistent
+estimate.
+
+## Empirical Demonstration
+
+```{r dr-failure-demo}
+#| code-fold: false
+
+set.seed(42)
+n <- 5000
+x1 <- rbinom(n, 1, 0.5)
+x3 <- rnorm(n)
+ps_true <- plogis(-0.5 + 1.5 * (0.6 * x1 + 0.8 * x3))
+treat <- rbinom(n, 1, ps_true)
+lp <- -1.0 + 0.5 * x3 + ifelse(x1 == 1, 0.8, -0.4) * treat
+event <- rbinom(n, 1, plogis(lp))
+df_demo <- data.frame(x1 = x1, x3 = x3, treat = treat, event = event)
+
+ps_res <- estimate_propensity_scores(df_demo, "treat", c("x1", "x3"),
+                                     method = "grf")
+df_demo <- ps_res$data
+
+fn_none <- make_effect_estimator("binary", "treat", "event",
+  effect_measure = "OR", ps_adjust_method = "none")
+fn_iptw <- make_effect_estimator("binary", "treat", "event",
+  effect_measure = "OR", ps_adjust_method = "iptw")
+fn_dr   <- make_effect_estimator("binary", "treat", "event",
+  effect_measure = "OR", ps_adjust_method = "dr_gcomp")
+
+sg <- df_demo[df_demo$x1 == 1, ]
+co <- df_demo[df_demo$x1 == 0, ]
+
+cat("=== N = 5000, strong confounding ===\n\n")
+cat("Subgroup {x1=1} — true log-OR = 0.80:\n")
+cat(sprintf("  Unadjusted: %.3f (OR = %.2f)\n",
+    fn_none(sg)$estimate, exp(fn_none(sg)$estimate)))
+cat(sprintf("  IPTW:       %.3f (OR = %.2f)\n",
+    fn_iptw(sg)$estimate, exp(fn_iptw(sg)$estimate)))
+cat(sprintf("  DR G-comp:  %.3f (OR = %.2f)\n",
+    fn_dr(sg)$estimate, exp(fn_dr(sg)$estimate)))
+
+cat("\nComplement {x1=0} — true log-OR = -0.40:\n")
+cat(sprintf("  Unadjusted: %.3f (OR = %.2f)\n",
+    fn_none(co)$estimate, exp(fn_none(co)$estimate)))
+cat(sprintf("  IPTW:       %.3f (OR = %.2f)\n",
+    fn_iptw(co)$estimate, exp(fn_iptw(co)$estimate)))
+cat(sprintf("  DR G-comp:  %.3f (OR = %.2f)\n",
+    fn_dr(co)$estimate, exp(fn_dr(co)$estimate)))
+```
+
+::: {.callout-important}
+## Key Finding
+
+DR G-computation with a treatment-only outcome model (`Y ~ treat +
+ips_covar`, no confounders) performs **no better than unadjusted
+estimation** because the doubly-robust property requires confounders
+in the outcome model.  IPTW correctly removes confounding bias
+because it operates through the weights, not the outcome model
+specification.
+:::
+
+
+# PS Quality Diagnostics {#sec-diagnostics}
+
+```{r ps-quality, fig.width=10, fig.height=8}
+par(mfrow = c(2, 3))
+
+for (sc_name in c("A", "B", "C", "D", "E", "F_")) {
+  sc_def <- scenarios[[sc_name]]
+  df_s <- simulate_obs_study(
+    n = 2000, seed = 42L,
+    confounding_strength  = sc_def$confounding_strength,
+    subgroup_effect       = sc_def$subgroup_effect,
+    complement_effect     = sc_def$complement_effect,
+    prognostic_strength   = sc_def$prognostic_strength,
+    n_noise               = sc_def$n_noise
+  )
+  all_confs <- c(confs_sim, paste0("noise", seq_len(sc_def$n_noise)))
+  ps_s <- estimate_propensity_scores(df_s, "treat", all_confs, method = "grf")
+
+  plot(df_s$ps_true, ps_s$ps_hat, pch = 16, cex = 0.3,
+       col = ifelse(df_s$in_sg, "red", "steelblue"),
+       xlab = "True PS", ylab = "GRF PS",
+       main = paste0(sc_name, ": ", sc_def$name),
+       cex.main = 0.7)
+  abline(0, 1, col = "black", lwd = 2)
+  legend("topleft",
+    legend = c(sprintf("cor = %.3f", cor(df_s$ps_true, ps_s$ps_hat)),
+               "Subgroup", "Complement"),
+    col = c(NA, "red", "steelblue"), pch = c(NA, 16, 16),
+    cex = 0.65, bty = "n")
+}
+par(mfrow = c(1, 1))
+```
+
+
+# Weight Diagnostics {#sec-positivity}
+
+```{r positivity, fig.width=10, fig.height=5}
+df_strong <- simulate_obs_study(
+  n = 2000, seed = 42L,
+  confounding_strength = 2.5, prognostic_strength = 1.2,
+  subgroup_effect = 1.2, complement_effect = -0.6, n_noise = 3
+)
+ps_strong <- estimate_propensity_scores(
+  df_strong, "treat", c(confs_sim, paste0("noise", 1:3)), method = "grf")
+
+par(mfrow = c(1, 2))
+hist(ps_strong$sw, breaks = 50, col = "#81C784", border = "white",
+     main = "Stabilized IPTW Weights", xlab = "sw")
+abline(v = 1, col = "red", lwd = 2, lty = 2)
+hist(ps_strong$ips_covar, breaks = 50, col = "#FFE0B2", border = "white",
+     main = "IPS Covariate", xlab = "1/f(W|X)")
+abline(v = median(ps_strong$ips_covar), col = "red", lwd = 2)
+par(mfrow = c(1, 1))
+
+cat("Stabilized weights:  range [", round(range(ps_strong$sw), 2),
+    "], mean =", round(mean(ps_strong$sw), 3), "\n")
+cat("IPS covariate:       range [", round(range(ps_strong$ips_covar), 2),
+    "], median =", round(median(ps_strong$ips_covar), 2), "\n")
+```
+
+
+# Key Principles {#sec-principles}
+
+1. **IPTW is the recommended default** for observational data.  It
+   correctly removes confounding bias without requiring confounders
+   in the outcome model, which aligns with ForestSearch's
+   treatment-only subgroup estimation architecture.
+
+2. **DR G-computation is available but not recommended** in
+   ForestSearch's context.  Without confounders in the outcome model,
+   it loses its doubly-robust property and performs no better than
+   unadjusted estimation.
+
+3. **Full-sample PS, used as-is within subgroups.**  Propensity scores
+   are estimated once on the full `df.analysis`.  The PS is a design
+   quantity; re-estimating within slices would be incorrect.
+
+4. **Bootstrap re-estimates PS from scratch** on each resampled dataset.
+
+5. **PS trimming at [2.5%, 97.5%] before computing weights/IPS**
+   prevents extreme values.
+
+6. **GRF is the default PS estimator** for observational data:
+   non-parametric, cross-fitted via OOB, already computed when
+   `use_grf = TRUE`.
+
+
+# References {#sec-references}
+
+- Bang H, Robins JM (2005). "Doubly Robust Estimation in Missing Data
+  and Causal Inference Models." *Biometrics* 61(4): 962--972.
+
+- Hernán MA, Robins JM (2020). *Causal Inference: What If*. Chapman
+  & Hall/CRC. Chapter 12: IP Weighting and Marginal Structural Models.
+
+- León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+  "Exploratory subgroup identification in the heterogeneous Cox model."
+  *Statistics in Medicine*. DOI: 10.1002/sim.10163.
+
+- Athey S, Tibshirani J, Wager S (2019). "Generalized Random Forests."
+  *Annals of Statistics* 47(2): 1148--1178.
+
+- Robins JM, Rotnitzky A, Zhao LP (1994). "Estimation of Regression
+  Coefficients When Some Regressors Are Not Always Observed." *JASA*
+  89(427): 846--866.
+
+- Lunceford JK, Davidian M (2004). "Stratification and weighting via
+  the propensity score in estimation of causal treatment effects: A
+  comparative study." *Statistics in Medicine* 23: 2937--2960.
+
+- Funk MJ, Westreich D, Wiesen C, Stürmer T, Brookhart MA, Davidian M
+  (2011). "Doubly Robust Estimation of Causal Effects." *Am J
+  Epidemiol* 173(7): 761--767.
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
+

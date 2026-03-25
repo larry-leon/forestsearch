@@ -55,13 +55,15 @@ make_effect_estimator <- function(
     outcome_type,
     treat.name,
     outcome.name,
-    event.name        = NULL,
-    offset.name       = NULL,
-    effect_measure    = NULL,
-    robust_se         = TRUE,
-    adjust_covariates = NULL,
+    event.name         = NULL,
+    offset.name        = NULL,
+    effect_measure     = NULL,
+    robust_se          = TRUE,
+    adjust_covariates  = NULL,
+    ps_adjust_method   = c("none", "iptw", "dr_gcomp"),
     ...
 ) {
+  ps_adjust_method <- match.arg(ps_adjust_method)
   outcome_type <- match.arg(
     outcome_type,
     choices = c("survival", "binary", "continuous")
@@ -93,6 +95,7 @@ make_effect_estimator <- function(
         outcome.name      = outcome.name,
         event.name        = event.name,
         adjust_covariates = adjust_covariates,
+        ps_adjust_method  = ps_adjust_method,
         ...
       )
     },
@@ -110,6 +113,7 @@ make_effect_estimator <- function(
           effect_measure    = effect_measure,
           robust_se         = robust_se,
           adjust_covariates = adjust_covariates,
+          ps_adjust_method  = ps_adjust_method,
           ...
         )
       } else {
@@ -119,6 +123,7 @@ make_effect_estimator <- function(
           effect_measure    = effect_measure,
           robust_se         = robust_se,
           adjust_covariates = adjust_covariates,
+          ps_adjust_method  = ps_adjust_method,
           ...
         )
       }
@@ -129,6 +134,7 @@ make_effect_estimator <- function(
         treat.name        = treat.name,
         outcome.name      = outcome.name,
         adjust_covariates = adjust_covariates,
+        ps_adjust_method  = ps_adjust_method,
         ...
       )
     }
@@ -142,12 +148,14 @@ make_effect_estimator <- function(
 
 #' @noRd
 .make_cox_estimator <- function(treat.name, outcome.name, event.name,
-                                adjust_covariates = NULL, ...) {
+                                adjust_covariates = NULL,
+                                ps_adjust_method = "none", ...) {
 
   force(treat.name)
   force(outcome.name)
   force(event.name)
   force(adjust_covariates)
+  force(ps_adjust_method)
 
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
@@ -159,11 +167,18 @@ make_effect_estimator <- function(
         event = data_slice[[event.name]]
       )
       rhs <- treat.name
-      if (!is.null(adjust_covariates) && length(adjust_covariates) > 0) {
+      if (ps_adjust_method == "none" &&
+          !is.null(adjust_covariates) && length(adjust_covariates) > 0) {
         rhs <- paste(c(treat.name, adjust_covariates), collapse = " + ")
       }
       fmla <- stats::as.formula(paste0("surv_obj ~ ", rhs))
-      fit <- survival::coxph(fmla, data = data_slice)
+
+      if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
+        fit <- survival::coxph(fmla, data = data_slice,
+                               weights = data_slice$sw)
+      } else {
+        fit <- survival::coxph(fmla, data = data_slice)
+      }
       coef_val <- stats::coef(fit)[[treat.name]]
       se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
       list(
@@ -208,6 +223,7 @@ make_effect_estimator <- function(
     effect_measure    = "RD",
     robust_se         = TRUE,
     adjust_covariates = NULL,
+    ps_adjust_method  = "none",
     ...
 ) {
   force(treat.name)
@@ -215,53 +231,33 @@ make_effect_estimator <- function(
   force(effect_measure)
   force(robust_se)
   force(adjust_covariates)
+  force(ps_adjust_method)
 
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
 
-    fmla <- .build_adjusted_formula(outcome.name, treat.name,
-                                    adjust_covariates)
-
     result <- switch(effect_measure,
 
       # ---- Risk Difference (primary) ----------------------------------------
       RD = {
+        fmla <- .build_adjusted_formula(outcome.name, treat.name,
+                  if (ps_adjust_method == "none") adjust_covariates else NULL)
         .estimate_rd(data_slice, fmla, treat.name, outcome.name, n0, n1,
-                     adjust_covariates)
+                     if (ps_adjust_method == "none") adjust_covariates else NULL,
+                     ps_adjust_method)
       },
 
       # ---- Odds Ratio -------------------------------------------------------
       OR = {
-        tryCatch({
-          fit <- stats::glm(
-            fmla,
-            data   = data_slice,
-            family = stats::binomial(link = "logit")
-          )
-          coef_val <- stats::coef(fit)[[treat.name]]
-          se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
-          list(
-            estimate    = coef_val,
-            se          = se_val,
-            converged   = fit$converged,
-            n0          = n0,
-            n1          = n1,
-            measure     = "log-OR",
-            method_used = "logistic"
-          )
-        },
-        error = function(e) {
-          list(
-            estimate = NA_real_, se = NA_real_, converged = FALSE,
-            n0 = n0, n1 = n1, measure = "log-OR",
-            method_used = "logistic_failed"
-          )
-        })
+        .estimate_or(data_slice, treat.name, outcome.name, n0, n1,
+                     adjust_covariates, ps_adjust_method)
       },
 
       # ---- Risk Ratio -------------------------------------------------------
       RR = {
+        fmla <- .build_adjusted_formula(outcome.name, treat.name,
+                  if (ps_adjust_method == "none") adjust_covariates else NULL)
         .estimate_rr(data_slice, fmla, treat.name, outcome.name,
                      n0, n1, robust_se)
       }
@@ -278,12 +274,27 @@ make_effect_estimator <- function(
 
 #' @noRd
 .estimate_rd <- function(data_slice, fmla, treat.name, outcome.name, n0, n1,
-                         adjust_covariates = NULL) {
-  # Arm-level proportions (always available for fallback)
+                         adjust_covariates = NULL, ps_adjust_method = "none") {
   y0 <- data_slice[[outcome.name]][data_slice[[treat.name]] == 0]
   y1 <- data_slice[[outcome.name]][data_slice[[treat.name]] == 1]
   p0 <- mean(y0, na.rm = TRUE)
   p1 <- mean(y1, na.rm = TRUE)
+
+  # IPTW path: weighted means
+  if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
+    sw <- data_slice$sw
+    W  <- data_slice[[treat.name]]
+    rd_est <- stats::weighted.mean(data_slice[[outcome.name]][W == 1], sw[W == 1]) -
+              stats::weighted.mean(data_slice[[outcome.name]][W == 0], sw[W == 0])
+    # SE via weighted proportions
+    wp1 <- stats::weighted.mean(data_slice[[outcome.name]][W == 1], sw[W == 1])
+    wp0 <- stats::weighted.mean(data_slice[[outcome.name]][W == 0], sw[W == 0])
+    se_rd <- sqrt(wp1 * (1 - wp1) / sum(W == 1) + wp0 * (1 - wp0) / sum(W == 0))
+    return(list(
+      estimate = rd_est, se = se_rd, converged = TRUE,
+      n0 = n0, n1 = n1, measure = "RD", method_used = "iptw_rd"
+    ))
+  }
 
   n_adj <- if (!is.null(adjust_covariates)) length(adjust_covariates) else 0L
 
@@ -371,6 +382,77 @@ make_effect_estimator <- function(
     measure     = "RD",
     method_used = "raw_means"
   )
+}
+
+
+# ---------------------------------------------------------------------------
+# OR estimation with IPTW / DR / unadjusted
+# ---------------------------------------------------------------------------
+
+#' @noRd
+.estimate_or <- function(data_slice, treat.name, outcome.name, n0, n1,
+                         adjust_covariates = NULL,
+                         ps_adjust_method = "none") {
+
+  tryCatch({
+    if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
+      # IPTW: weighted logistic, coefficient IS the marginal log-OR
+      fmla <- stats::as.formula(paste0(outcome.name, " ~ ", treat.name))
+      fit <- stats::glm(fmla, data = data_slice,
+                        family = stats::binomial(link = "logit"),
+                        weights = data_slice$sw)
+      coef_val <- stats::coef(fit)[[treat.name]]
+      se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+      list(estimate = coef_val, se = se_val, converged = fit$converged,
+           n0 = n0, n1 = n1, measure = "log-OR",
+           method_used = "logistic_iptw")
+
+    } else if (ps_adjust_method == "dr_gcomp" &&
+               "ips_covar" %in% names(data_slice) &&
+               "ps_hat" %in% names(data_slice)) {
+      # Bang & Robins DR: logistic with IPS covariate + G-computation
+      fmla <- stats::as.formula(
+        paste0(outcome.name, " ~ ", treat.name, " + ips_covar"))
+      fit <- stats::glm(fmla, data = data_slice,
+                        family = stats::binomial(link = "logit"))
+
+      # G-computation (Section 2.2, Bang & Robins 2005)
+      ps <- data_slice$ps_hat
+      nd1 <- nd0 <- data_slice
+      nd1[[treat.name]] <- 1L
+      nd1$ips_covar     <- 1 / ps
+      nd0[[treat.name]] <- 0L
+      nd0$ips_covar     <- 1 / (1 - ps)
+
+      pred1 <- stats::predict(fit, newdata = nd1, type = "response")
+      pred0 <- stats::predict(fit, newdata = nd0, type = "response")
+
+      # log-OR from marginal probabilities
+      p1 <- mean(pred1); p0 <- mean(pred0)
+      log_or <- log((p1 / (1 - p1)) / (p0 / (1 - p0)))
+      se_treat <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+      list(estimate = log_or, se = se_treat, converged = fit$converged,
+           n0 = n0, n1 = n1, measure = "log-OR",
+           method_used = "logistic_dr_gcomp")
+
+    } else {
+      # Unadjusted logistic
+      fmla <- .build_adjusted_formula(outcome.name, treat.name,
+                                      adjust_covariates)
+      fit <- stats::glm(fmla, data = data_slice,
+                        family = stats::binomial(link = "logit"))
+      coef_val <- stats::coef(fit)[[treat.name]]
+      se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+      list(estimate = coef_val, se = se_val, converged = fit$converged,
+           n0 = n0, n1 = n1, measure = "log-OR",
+           method_used = "logistic")
+    }
+  },
+  error = function(e) {
+    list(estimate = NA_real_, se = NA_real_, converged = FALSE,
+         n0 = n0, n1 = n1, measure = "log-OR",
+         method_used = paste0("logistic_failed_", ps_adjust_method))
+  })
 }
 
 
@@ -467,6 +549,7 @@ make_effect_estimator <- function(
     effect_measure    = "IRR",
     robust_se         = TRUE,
     adjust_covariates = NULL,
+    ps_adjust_method  = "none",
     ...
 ) {
   force(treat.name)
@@ -475,6 +558,7 @@ make_effect_estimator <- function(
   force(effect_measure)
   force(robust_se)
   force(adjust_covariates)
+  force(ps_adjust_method)
 
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
@@ -486,59 +570,140 @@ make_effect_estimator <- function(
       time_vec <- pmax(time_vec, .Machine$double.eps)
     }
 
-    fmla <- .build_adjusted_formula(outcome.name, treat.name,
-                                    adjust_covariates)
+    # Add log-offset as column (avoids scoping issues with offset=)
+    data_slice$.log_offset <- log(time_vec)
 
     result <- tryCatch({
-      # Add log-offset as a column so glm can resolve it in model.frame
-      data_slice$.log_offset <- log(time_vec)
-      fmla_off <- stats::update(fmla, . ~ . + offset(.log_offset))
-
-      fit <- stats::glm(
-        fmla_off,
-        data   = data_slice,
-        family = stats::poisson(link = "log")
-      )
-
-      if (effect_measure == "IRR") {
-        # ---- Incidence Rate Ratio (log scale) ----
+      # =================================================================
+      # Option A: IPTW — stabilized weights, coefficient IS the effect
+      # =================================================================
+      if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
+        fmla <- stats::as.formula(
+          paste0(outcome.name, " ~ ", treat.name, " + offset(.log_offset)")
+        )
+        fit <- stats::glm(
+          fmla,
+          data    = data_slice,
+          family  = stats::poisson(link = "log"),
+          weights = data_slice$sw
+        )
         coef_val <- stats::coef(fit)[[treat.name]]
         se_val   <- .robust_or_model_se(fit, treat.name, robust_se)
         list(
           estimate    = coef_val,
           se          = se_val,
           converged   = fit$converged,
-          n0          = n0,
-          n1          = n1,
+          n0 = n0, n1 = n1,
           measure     = "log-IRR",
-          method_used = "poisson_offset"
+          method_used = "poisson_iptw"
         )
+
+      # =================================================================
+      # Option B: Bang & Robins DR — IPS covariate + G-computation
+      # (Section 2.2, Bang & Robins 2005)
+      # =================================================================
+      } else if (ps_adjust_method == "dr_gcomp" &&
+                 "ips_covar" %in% names(data_slice) &&
+                 "ps_hat" %in% names(data_slice)) {
+        fmla <- stats::as.formula(
+          paste0(outcome.name, " ~ ", treat.name,
+                 " + ips_covar + offset(.log_offset)")
+        )
+        fit <- stats::glm(
+          fmla,
+          data   = data_slice,
+          family = stats::poisson(link = "log")
+        )
+
+        # G-computation: predict under both treatment scenarios
+        # Under W=1: ips = 1/e(x);  Under W=0: ips = 1/(1-e(x))
+        ps <- data_slice$ps_hat
+        nd1 <- nd0 <- data_slice
+        nd1[[treat.name]] <- 1L
+        nd1$ips_covar     <- 1 / ps
+        nd0[[treat.name]] <- 0L
+        nd0$ips_covar     <- 1 / (1 - ps)
+
+        pred1 <- stats::predict(fit, newdata = nd1, type = "response")
+        pred0 <- stats::predict(fit, newdata = nd0, type = "response")
+
+        if (effect_measure == "IRR") {
+          est <- log(mean(pred1) / mean(pred0))
+          # Delta-method SE approximation
+          se_treat <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+          list(
+            estimate    = est,
+            se          = se_treat,
+            converged   = fit$converged,
+            n0 = n0, n1 = n1,
+            measure     = "log-IRR",
+            method_used = "poisson_dr_gcomp"
+          )
+        } else {
+          # IRD
+          est <- mean(pred1) - mean(pred0)
+          se_treat <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
+          avg_deriv <- mean(pred1)
+          list(
+            estimate    = est,
+            se          = abs(avg_deriv) * se_treat,
+            converged   = fit$converged,
+            n0 = n0, n1 = n1,
+            measure     = "IRD",
+            method_used = "poisson_dr_gcomp"
+          )
+        }
+
+      # =================================================================
+      # Default: unadjusted (no PS)
+      # =================================================================
       } else {
-        # ---- Incidence Rate Difference (identity scale) ----
-        # Predict rates for each arm at mean offset
-        beta <- stats::coef(fit)
-        V    <- stats::vcov(fit)
-        mean_log_t <- mean(log(time_vec), na.rm = TRUE)
-
-        # Rate in control:   lambda_0 = exp(beta_0 + mean_log_t)
-        # Rate in treatment:  lambda_1 = exp(beta_0 + beta_1 + mean_log_t)
-        lam0 <- exp(beta[[1L]] + mean_log_t)
-        lam1 <- exp(beta[[1L]] + beta[[treat.name]] + mean_log_t)
-        ird  <- lam1 - lam0
-
-        # Delta-method SE: d(lam1 - lam0)/d(beta)
-        grad <- c(lam1 - lam0, lam1)
-        se_ird <- sqrt(as.numeric(t(grad) %*% V %*% grad))
-
-        list(
-          estimate    = ird,
-          se          = se_ird,
-          converged   = fit$converged,
-          n0          = n0,
-          n1          = n1,
-          measure     = "IRD",
-          method_used = "poisson_offset_delta"
+        fmla_off <- stats::as.formula(
+          paste0(outcome.name, " ~ ", treat.name, " + offset(.log_offset)")
         )
+        # If adjust_covariates provided (non-PS), add them
+        if (!is.null(adjust_covariates) && length(adjust_covariates) > 0) {
+          fmla_off <- stats::as.formula(paste0(
+            outcome.name, " ~ ", treat.name, " + ",
+            paste(adjust_covariates, collapse = " + "),
+            " + offset(.log_offset)"))
+        }
+        fit <- stats::glm(
+          fmla_off,
+          data   = data_slice,
+          family = stats::poisson(link = "log")
+        )
+
+        if (effect_measure == "IRR") {
+          coef_val <- stats::coef(fit)[[treat.name]]
+          se_val   <- .robust_or_model_se(fit, treat.name, robust_se)
+          list(
+            estimate    = coef_val,
+            se          = se_val,
+            converged   = fit$converged,
+            n0 = n0, n1 = n1,
+            measure     = "log-IRR",
+            method_used = "poisson_offset"
+          )
+        } else {
+          # IRD via delta method
+          beta <- stats::coef(fit)
+          V    <- stats::vcov(fit)
+          mean_log_t <- mean(log(time_vec), na.rm = TRUE)
+          lam0 <- exp(beta[[1L]] + mean_log_t)
+          lam1 <- exp(beta[[1L]] + beta[[treat.name]] + mean_log_t)
+          ird  <- lam1 - lam0
+          grad <- c(lam1 - lam0, lam1)
+          se_ird <- sqrt(as.numeric(t(grad) %*% V[1:2, 1:2] %*% grad))
+          list(
+            estimate    = ird,
+            se          = se_ird,
+            converged   = fit$converged,
+            n0 = n0, n1 = n1,
+            measure     = "IRD",
+            method_used = "poisson_offset_delta"
+          )
+        }
       }
     },
     error = function(e) {
@@ -546,7 +711,7 @@ make_effect_estimator <- function(
       list(
         estimate = NA_real_, se = NA_real_, converged = FALSE,
         n0 = n0, n1 = n1, measure = measure_label,
-        method_used = "poisson_failed"
+        method_used = paste0("poisson_failed_", ps_adjust_method)
       )
     })
 
@@ -566,21 +731,27 @@ make_effect_estimator <- function(
 #'
 #' @noRd
 .make_lm_estimator <- function(treat.name, outcome.name,
-                               adjust_covariates = NULL, ...) {
+                               adjust_covariates = NULL,
+                               ps_adjust_method = "none", ...) {
 
   force(treat.name)
   force(outcome.name)
   force(adjust_covariates)
+  force(ps_adjust_method)
 
   function(data_slice) {
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
 
     fmla <- .build_adjusted_formula(outcome.name, treat.name,
-                                    adjust_covariates)
+              if (ps_adjust_method == "none") adjust_covariates else NULL)
 
     result <- tryCatch({
-      fit      <- stats::lm(fmla, data = data_slice)
+      if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
+        fit <- stats::lm(fmla, data = data_slice, weights = data_slice$sw)
+      } else {
+        fit <- stats::lm(fmla, data = data_slice)
+      }
       coef_val <- stats::coef(fit)[[treat.name]]
       se_val   <- sqrt(diag(stats::vcov(fit)))[[treat.name]]
       list(
@@ -787,23 +958,38 @@ estimate_propensity_scores <- function(
   }
 
   # -----------------------------------------------------------------------
-  # Bang & Robins (2005) inverse propensity score covariate
+  # Compute both adjustment quantities:
   #
-  # IPS_i = 1/e(X_i)         if W_i = 1 (treated)
-  #       = 1/(1 - e(X_i))   if W_i = 0 (control)
+  # 1. Stabilized IPTW weights (Option A — default)
+  #    sw_i = P(W=1) / e(X_i)       if W_i = 1
+  #         = P(W=0) / (1 - e(X_i)) if W_i = 0
+  #    Used as: glm(Y ~ treat, weights = sw, ...)
+  #    The coefficient IS the marginal causal effect.
   #
-  # Including this as a covariate in the outcome model gives the
-  # doubly-robust property: consistency requires only ONE of the
-  # propensity or outcome model to be correctly specified.
+  # 2. Bang & Robins (2005) IPS covariate (Option B)
+  #    ips_i = 1 / f(W_i | X_i; alpha_hat)
+  #          = 1 / e(X_i)       if W_i = 1
+  #          = 1 / (1 - e(X_i)) if W_i = 0
+  #    Used as: glm(Y ~ treat + ips_covar, ...) + G-computation
+  #    The treatment effect requires G-computation (Section 2.2,
+  #    Bang & Robins 2005).
   # -----------------------------------------------------------------------
+
+  p_treat <- mean(W, na.rm = TRUE)
+  sw <- ifelse(W == 1,
+               p_treat / ps_hat,
+               (1 - p_treat) / (1 - ps_hat))
+
   ips_covar <- ifelse(W == 1, 1 / ps_hat, 1 / (1 - ps_hat))
 
   data$ps_hat    <- ps_hat
+  data$sw        <- sw
   data$ips_covar <- ips_covar
 
   list(
     data      = data,
     ps_hat    = ps_hat,
+    sw        = sw,
     ips_covar = ips_covar,
     method    = method,
     trimmed   = n_trimmed
