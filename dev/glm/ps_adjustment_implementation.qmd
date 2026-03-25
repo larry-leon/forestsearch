@@ -57,6 +57,14 @@ flavour to the treatment effect estimates.
 
 ## Architecture
 
+The doubly-robust approach follows Bang & Robins (2005): the propensity
+score $\hat{e}(X)$ is estimated on the full sample, then the **inverse
+propensity score (IPS) covariate** is constructed as $1/\hat{e}(X_i)$
+for treated subjects and $1/(1 - \hat{e}(X_i))$ for controls.  This IPS
+covariate is included in the outcome GLM, yielding a treatment effect
+estimate that is consistent if either the propensity model or the
+outcome model is correctly specified.
+
 ```
 forestsearch()
   └── Section 2C: estimate_propensity_scores()
@@ -65,11 +73,12 @@ forestsearch()
         ├── method = "logistic" →  glm(W ~ X, family=binomial)
         └── method = "none"     →  skip (default for RCT)
       ↓
-  df.analysis$ps_hat added
+  ps_hat = e(X) estimated on full sample
+  ips_covar = 1/e(X) for treated, 1/(1-e(X)) for control  [Bang & Robins 2005]
       ↓
-  make_effect_estimator(..., adjust_covariates = "ps_hat")
+  make_effect_estimator(..., adjust_covariates = "ips_covar")
       ↓
-  closure: glm(Y ~ treat + ps_hat, ...)
+  closure: glm(Y ~ treat + ips_covar, ...)  →  doubly-robust estimate
 ```
 
 ## Parameter Defaults
@@ -146,6 +155,12 @@ par(mfrow = c(1, 1))
 
 ## Adjusted vs Unadjusted Estimates
 
+The doubly-robust adjustment follows Bang & Robins (2005): the inverse
+propensity score (IPS) covariate is defined as $1/\hat{e}(X_i)$ for
+treated subjects and $1/(1 - \hat{e}(X_i))$ for controls.  Including
+this as a covariate in the outcome GLM yields consistency if **either**
+the propensity or outcome model is correctly specified.
+
 ```{r adj-vs-unadj}
 df_ps <- ps_grf$data
 
@@ -153,14 +168,15 @@ fn_unadj <- make_effect_estimator("binary", "hormon", "status",
   offset.name = "rfstime", effect_measure = "IRR")
 fn_adj <- make_effect_estimator("binary", "hormon", "status",
   offset.name = "rfstime", effect_measure = "IRR",
-  adjust_covariates = "ps_hat")
+  adjust_covariates = "ips_covar")
 
 # ITT
 res_u <- fn_unadj(df_ps)
 res_a <- fn_adj(df_ps)
 cat("ITT Estimates:\n")
 cat("  Unadjusted IRR:", round(exp(res_u$estimate), 3), "\n")
-cat("  PS-adjusted IRR:", round(exp(res_a$estimate), 3), "\n")
+cat("  DR-adjusted IRR:", round(exp(res_a$estimate), 3),
+    " (IPS covariate, Bang & Robins 2005)\n")
 
 # Subgroup {er <= 0}
 sg <- df_ps[df_ps$er <= 0, ]
@@ -168,7 +184,7 @@ res_u_sg <- fn_unadj(sg)
 res_a_sg <- fn_adj(sg)
 cat("\nSubgroup {er <= 0}:\n")
 cat("  Unadjusted IRR:", round(exp(res_u_sg$estimate), 3), "\n")
-cat("  PS-adjusted IRR:", round(exp(res_a_sg$estimate), 3), "\n")
+cat("  DR-adjusted IRR:", round(exp(res_a_sg$estimate), 3), "\n")
 
 # Complement {er > 0}
 co <- df_ps[df_ps$er > 0, ]
@@ -176,7 +192,7 @@ res_u_co <- fn_unadj(co)
 res_a_co <- fn_adj(co)
 cat("\nComplement {er > 0}:\n")
 cat("  Unadjusted IRR:", round(exp(res_u_co$estimate), 3), "\n")
-cat("  PS-adjusted IRR:", round(exp(res_a_co$estimate), 3), "\n")
+cat("  DR-adjusted IRR:", round(exp(res_a_co$estimate), 3), "\n")
 ```
 
 ::: {.callout-note}
@@ -284,7 +300,7 @@ df_ps_sim <- ps_sim_grf$data
 fn_u <- make_effect_estimator("binary", "treat", "event",
   effect_measure = "OR")
 fn_a <- make_effect_estimator("binary", "treat", "event",
-  effect_measure = "OR", adjust_covariates = "ps_hat")
+  effect_measure = "OR", adjust_covariates = "ips_covar")
 
 # ITT
 cat("ITT estimates:\n")
@@ -324,7 +340,7 @@ for (s in seq_len(n_sims)) {
   fn_u_s <- make_effect_estimator("binary", "treat", "event",
     effect_measure = "OR")
   fn_a_s <- make_effect_estimator("binary", "treat", "event",
-    effect_measure = "OR", adjust_covariates = "ps_hat")
+    effect_measure = "OR", adjust_covariates = "ips_covar")
 
   sg_s <- df_s[df_s$x1 == 1, ]
   co_s <- df_s[df_s$x1 == 0, ]
@@ -409,21 +425,30 @@ forestsearch(df, outcome_type = "binary", is.RCT = FALSE,
 
 ## Key Design Decisions
 
-1. **PS as covariate, not weight.**  The PS is included as an adjustment
-   covariate (`Y ~ treat + ps_hat`) rather than as IPTW.  This gives
-   covariate-adjusted estimates within each subgroup slice and avoids
-   extreme weight instability in small subgroups.
+1. **IPS covariate, not weight.**  Following Bang & Robins (2005), the
+   inverse propensity score is included as an adjustment covariate
+   (`Y ~ treat + ips_covar`) rather than as IPTW.  The IPS covariate
+   takes the value $1/\hat{e}(X)$ for treated and $1/(1-\hat{e}(X))$
+   for controls.  This gives doubly-robust estimates within each
+   subgroup slice and avoids extreme weight instability in small
+   subgroups.
 
-2. **GRF PS from the screening step.**  When `use_grf = TRUE`, the
+2. **Full-sample PS used within subgroups.**  Propensity scores are
+   estimated once on the full sample and carried into subgroup slices
+   as-is.  The PS is a design quantity reflecting the treatment
+   assignment mechanism — re-estimating within slices would be
+   methodologically incorrect and statistically unstable.
+
+3. **GRF PS from the screening step.**  When `use_grf = TRUE`, the
    causal forest already estimates `W.hat`.  The `grf.subg.harm.glm()`
    function now returns the fitted forest object, enabling PS extraction
    without re-estimation.
 
-3. **Trimming.**  PS values are trimmed to [2.5%, 97.5%] to prevent
-   near-zero denominators in subgroup slices where one treatment arm
-   dominates.
+4. **Trimming.**  PS values are trimmed to [2.5%, 97.5%] before computing
+   the IPS covariate, preventing extreme values from near-zero
+   denominators in subgroup slices where one treatment arm dominates.
 
-4. **Backward compatibility.**  For `is.RCT = TRUE` (default), `ps_method`
+5. **Backward compatibility.**  For `is.RCT = TRUE` (default), `ps_method`
    resolves to `"none"` and the estimator closure is identical to the
    unadjusted version.  Existing analyses are unaffected.
 

@@ -491,6 +491,9 @@ forestsearch <- function(df.analysis,
         stop("ps_hat must have length equal to nrow(df.analysis)", call. = FALSE)
       }
       df.analysis$ps_hat <- ps_hat
+      # Bang & Robins (2005) IPS covariate: 1/e(x) for treated, 1/(1-e(x)) for control
+      W_vec <- df.analysis[[treat.name]]
+      df.analysis$ips_covar <- ifelse(W_vec == 1, 1 / ps_hat, 1 / (1 - ps_hat))
     } else {
       # Estimate PS using the requested method
       ps_result <- estimate_propensity_scores(
@@ -506,9 +509,9 @@ forestsearch <- function(df.analysis,
             ", trimmed =", ps_result$trimmed, "\n")
       }
     }
-    adjust_covariates <- "ps_hat"
+    adjust_covariates <- "ips_covar"
 
-    # Rebuild estimator closure with PS adjustment (GLM outcomes only)
+    # Rebuild estimator closure with IPS adjustment (GLM outcomes only)
     if (is_glm) {
       estimator_fn <- make_effect_estimator(
         outcome_type      = outcome_type,

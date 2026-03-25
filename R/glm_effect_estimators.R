@@ -711,9 +711,13 @@ make_consistency_comparator <- function(effect_measure) {
 
 #' Estimate Propensity Scores
 #'
-#' Computes P(W = 1 | X) using the requested method.  The estimated scores
-#' are added as a column to the data frame for downstream use as an
-#' adjustment covariate in the effect estimator closure.
+#' Computes P(W = 1 | X) using the requested method, then constructs
+#' the inverse propensity score (IPS) covariate following the doubly-robust
+#' methodology of Bang & Robins (2005).  The IPS covariate takes the value
+#' `1/e(x)` for treated subjects and `1/(1 - e(x))` for controls.
+#' Including this as a covariate in the outcome model yields a
+#' doubly-robust treatment effect estimate: consistent if either the
+#' propensity model or the outcome model is correctly specified.
 #'
 #' @param data Data frame.
 #' @param treat.name Character.  Name of binary treatment column (0/1).
@@ -725,16 +729,20 @@ make_consistency_comparator <- function(effect_measure) {
 #'   If provided and `method = "grf"`, the PS is taken directly from
 #'   the forest rather than re-estimating.
 #' @param seed Integer.  Random seed for GRF.
-#' @param ps_col Character.  Name of the PS column to create in the data.
-#'   Default: `"ps_hat"`.
 #' @param trim Numeric vector of length 2.  Quantile bounds for PS trimming
 #'   (e.g., `c(0.01, 0.99)`).  Default: `c(0.025, 0.975)`.
 #'
 #' @return A list with:
-#'   \item{data}{Data frame with `ps_col` appended.}
+#'   \item{data}{Data frame with `ips_covar` column appended (the Bang &
+#'     Robins inverse PS covariate) and `ps_hat` column (the raw PS).}
 #'   \item{ps_hat}{Numeric vector of estimated propensity scores.}
+#'   \item{ips_covar}{Numeric vector of inverse PS covariates.}
 #'   \item{method}{Character.  Method actually used.}
 #'   \item{trimmed}{Integer.  Number of observations trimmed.}
+#'
+#' @references
+#' Bang H, Robins JM (2005). "Doubly Robust Estimation in Missing Data
+#' and Causal Inference Models." *Biometrics* 61(4): 962--973.
 #'
 #' @noRd
 estimate_propensity_scores <- function(
@@ -744,17 +752,17 @@ estimate_propensity_scores <- function(
     method     = c("grf", "lasso", "logistic", "none"),
     grf_forest = NULL,
     seed       = 8316951L,
-    ps_col     = "ps_hat",
     trim       = c(0.025, 0.975)
 ) {
   method <- match.arg(method)
 
   if (method == "none") {
     return(list(
-      data    = data,
-      ps_hat  = NULL,
-      method  = "none",
-      trimmed = 0L
+      data      = data,
+      ps_hat    = NULL,
+      ips_covar = NULL,
+      method    = "none",
+      trimmed   = 0L
     ))
   }
 
@@ -778,13 +786,27 @@ estimate_propensity_scores <- function(
     ps_hat <- pmax(pmin(ps_hat, hi), lo)
   }
 
-  data[[ps_col]] <- ps_hat
+  # -----------------------------------------------------------------------
+  # Bang & Robins (2005) inverse propensity score covariate
+  #
+  # IPS_i = 1/e(X_i)         if W_i = 1 (treated)
+  #       = 1/(1 - e(X_i))   if W_i = 0 (control)
+  #
+  # Including this as a covariate in the outcome model gives the
+  # doubly-robust property: consistency requires only ONE of the
+  # propensity or outcome model to be correctly specified.
+  # -----------------------------------------------------------------------
+  ips_covar <- ifelse(W == 1, 1 / ps_hat, 1 / (1 - ps_hat))
+
+  data$ps_hat    <- ps_hat
+  data$ips_covar <- ips_covar
 
   list(
-    data    = data,
-    ps_hat  = ps_hat,
-    method  = method,
-    trimmed = n_trimmed
+    data      = data,
+    ps_hat    = ps_hat,
+    ips_covar = ips_covar,
+    method    = method,
+    trimmed   = n_trimmed
   )
 }
 
