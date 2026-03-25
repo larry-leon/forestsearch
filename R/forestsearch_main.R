@@ -438,11 +438,23 @@ forestsearch <- function(df.analysis,
       }
     }
 
+    # Resolve dmin.grf for GLM outcomes.
+    # The survival default (dmin.grf = 12) is on the RMST scale (months)
+    # and would filter out all candidates for binary/continuous outcomes
+    # where DR score differences are on the probability/mean scale (0–1).
+    # Default to 0.0 (any positive harm qualifies) unless the user
+    # explicitly specified a value.
+    if (missing(dmin.grf) || dmin.grf == 12) {
+      dmin.grf <- 0.0
+    }
+    args_call_all$dmin.grf <- dmin.grf
+
     if (details) {
       cat("GLM mode: outcome_type =", outcome_type,
           ", effect_measure =", effect_measure, "\n")
       cat("  Screening threshold:", effect_threshold, "\n")
       cat("  Consistency threshold:", consistency_threshold, "\n")
+      cat("  dmin.grf:", dmin.grf, "\n")
     }
   }
 

@@ -1,0 +1,346 @@
+---
+title: "GRF Literature Review: Effect Measures and Subgroup Thresholds"
+subtitle: "ForestSearch GLM Extension — `dmin.grf` Calibration Context"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+# Overview
+
+This document summarizes a literature review of published articles and
+official GRF documentation on the use of generalized random forests
+(GRF) for heterogeneous treatment effect (HTE) estimation and subgroup
+identification.  The focus is on how estimated effects relate to
+ForestSearch's `dmin.grf` parameter — a minimum DR score difference
+threshold for candidate subgroup selection.
+
+**Key finding:** The published GRF literature does not use a fixed
+minimum effect size threshold at the forest stage.  ForestSearch's
+`dmin.grf` is a novel pre-screening gate that is unique to our
+methodology.  Calibrating it requires understanding the scale of the
+doubly robust scores, which differs between survival (RMST, in time
+units) and binary (risk difference, in probability units) outcomes.
+
+
+# GRF Effect Estimands by Outcome Type {#sec-estimands}
+
+## `causal_forest` (Binary/Continuous Outcomes)
+
+The standard `causal_forest` estimates the conditional average treatment
+effect (CATE):
+
+$$
+\tau(x) = E[Y(1) - Y(0) \mid X = x]
+$$
+
+When $Y$ is binary, $\tau(x)$ is a **risk difference** on the
+probability scale (range $[-1, 1]$).  The GRF documentation explicitly
+notes: with $Y = 1$ ("no stroke") and $Y = 0$ ("stroke"), then
+$E[Y(1) - Y(0)] = P[Y(1) = 1] - P[Y(0) = 1]$ is the risk difference
+of being event-free with versus without treatment (GRF CRAN manual,
+`average_treatment_effect` help page).
+
+When $Y$ is continuous, $\tau(x)$ is a **mean difference** on the
+outcome scale.
+
+## `causal_survival_forest` (Time-to-Event Outcomes)
+
+The causal survival forest targets CATE defined through an outcome
+transformation $y(T)$:
+
+$$
+\tau(x) = E[y(T(1)) - y(T(0)) \mid X = x]
+$$
+
+Two transformations are implemented (Cui et al., JRSS-B 2023):
+
+1. **RMST**: $y(T) = T \wedge h$ — restricted mean survival time up to
+   horizon $h$.  Units: time (e.g., months).
+2. **Survival probability**: $y(T) = \mathbf{1}\{T \geq h\}$ — binary
+   indicator of surviving past $h$.
+
+ForestSearch uses RMST (via `frac.tau` controlling $h$), so the DR scores
+and policy tree node metrics are on the **time scale** (months).
+
+## Sign Convention for Adverse Outcomes
+
+`causal_forest` implicitly treats higher $Y$ as "better."  When $Y = 1$
+is an adverse event, the CATE sign is inverted relative to the
+harm-detection convention.  The GRF documentation recommends coding
+$Y = 1 - Y_{\text{adverse}}$ so that positive CATE = treatment benefit.
+ForestSearch implements this via `adverse_outcome = TRUE` (default for
+binary outcomes), which flips the outcome internally before fitting the
+causal forest.
+
+
+# Doubly Robust Scores and Policy Trees {#sec-dr-scores}
+
+## DR Score Construction
+
+GRF constructs doubly robust (AIPW) scores $\hat\Gamma_i$ that satisfy:
+
+$$
+E[\hat\Gamma_i] = \tau \quad \text{(the ATE)}
+$$
+
+These scores are the individual-level building blocks of all GRF
+inference.  The ATE is an average of $\hat\Gamma_i$'s; the best linear
+projection is a regression of $\hat\Gamma_i$'s on covariates.  The
+scores are accessible via `get_scores()` (for treatment contrasts) or
+`policytree::double_robust_scores()` (for per-action rewards).
+
+## Policy Tree Leaf Metrics
+
+`policytree::double_robust_scores()` returns a two-column matrix
+$[\Gamma^{(0)}, \Gamma^{(1)}]$ (control score, treated score).  The
+`policy_tree` finds an optimal shallow decision tree maximizing empirical
+welfare (Athey & Wager, *Econometrica* 2021).
+
+ForestSearch's `compute_node_metrics()` aggregates these scores per leaf:
+
+$$
+\text{diff}_\ell = \overline{\Gamma}_\ell^{(0)} - \overline{\Gamma}_\ell^{(1)}
+$$
+
+Positive `diff` means the control action has higher reward — treatment
+is **harmful** in that leaf.  The `dmin.grf` gate selects subgroups
+where `diff >= dmin.grf`.
+
+## Relationship Between Node `diff` and True Effect
+
+Our calibration study (see `grf_dmin_calibration.qmd`) found:
+
+| Setting | Node `diff` | True effect | Ratio |
+|---|---|---|---|
+| Survival (RMST, $\tau \approx 28$ months) | 12.9 | 5.3 months | 2.4× |
+| Binary (RD, 24-month landmark) | 0.08 | 0.28 | 0.3× |
+
+The node `diff` is **not** a direct estimate of the true population-level
+treatment effect difference.  It reflects the DR score aggregation within
+the leaf found by the *optimal* policy tree — amplified for survival
+(the tree maximizes the contrast) and attenuated for binary (R-learner
+shrinkage).
+
+
+# Published Applications of GRF for Subgroup Identification {#sec-literature}
+
+## Iterative Causal Forest (iCF)
+
+Xu et al. (*American Journal of Epidemiology*, 2024) developed an
+iterative extension of causal forests for subgroup identification in
+pharmacoepidemiology.  The iCF grows causal forests at different depths,
+performs plurality votes for subgroup decisions, and selects via
+cross-validation.  Key features:
+
+- Uses **risk difference** as the effect measure for binary outcomes
+- No minimum effect size threshold imposed — subgroup selection is
+  driven by cross-validated prediction error
+- Applied to Medicare claims data comparing SGLT2 inhibitors vs.
+  GLP-1 receptor agonists for hospitalized heart failure
+- Acknowledges that "the iCF assesses HTEs by the RD scale; further
+  work is needed to subgroup survival data based on the CF"
+
+## VANISH Trial Reanalysis
+
+Sheridan et al. (*BMC Medical Research Methodology*, 2025) applied
+causal forests to the VANISH RCT (vasopressin vs. norepinephrine for
+septic shock, N = 408).  Novel contribution: extracting the **most
+common root splits** from the ensemble as data-driven subgroup
+definitions.
+
+- Root splits maximize the ATE difference between two halves
+- The mean of the most common split determines a data-driven threshold
+- **No minimum effect size imposed** at the forest stage
+- The causal forest agreed with classical and hierarchical LASSO methods
+  in identifying serum potassium as a treatment effect modifier
+- Highlights that "whilst classical and data-adaptive methods may
+  identify sources of HTE, they do not immediately suggest subgroup
+  splits which are clinically actionable"
+
+## Glycemic Control Trials
+
+Raghavan et al. (*Annals of Epidemiology*, 2022) used causal forests
+to identify HTE subgroups for intensive glycemic control across two
+RCTs (ACCORD and VADT).  Key generalizability finding:
+
+- HTE subgroups from one trial did not replicate in similar subgroups
+  from the other trial
+- However, variable importance was correlated (Kendall's $\tau_b = 0.75$)
+- Pooling individual-level data yielded seven subgroups with consistent
+  effects, ranging from RD = −3.9% to +4.7% for all-cause mortality
+- Demonstrates that machine learning HTE subgroups require external
+  validation
+
+## Relative Risk Causal Forests
+
+Shirvaikar & Ruberg (*arXiv*, 2024) modified GRF to target **relative
+risk** instead of absolute risk difference.  Motivation:
+
+- Standard causal forests split on absolute RD, which can dilute power
+  when baseline risk varies across subgroups
+- Relative risk is more common in clinical trial reporting (used
+  approximately 2× as frequently as RD in 100 NEJM trials)
+- Their approach uses a GLM-based splitting rule with different link
+  functions to target RR
+- Relevant to ForestSearch because our downstream pipeline supports
+  both RD and OR/RR/IRR — the GRF step provides candidates, but the
+  effect measure for screening and consistency is independent
+
+## GRF in Psychiatry
+
+Sverdrup, Petukhova, and Wager (*World Psychiatry*, 2024) provide a
+comprehensive tutorial on causal forests for treatment effect
+heterogeneity, using combat stress data.  Key methodological points:
+
+- Train/test split for valid evaluation: fit CATE on training set,
+  evaluate subgroup ATEs on held-out test set
+- Rank-weighted average treatment effect (RATE) and TOC/Qini curves
+  for assessing whether heterogeneity is real
+- Variable importance screening: keep variables with importance ratio
+  exceeding 0.2 relative to the maximum
+- This screening approach is what ForestSearch uses via `vi.grf.min`
+
+
+# Threshold Practices in the Literature {#sec-thresholds}
+
+## How Published Work Handles Subgroup Selection
+
+| Approach | Threshold type | Used by |
+|---|---|---|
+| No threshold | All subgroups considered | VANISH reanalysis, most GRF applications |
+| Cross-validation | Minimizes prediction error | iCF (Xu et al.) |
+| Statistical testing | GATE significance | Athey & Wager (2019), GRF vignettes |
+| Variable importance ratio | $\text{VI} / \max(\text{VI}) > 0.2$ | GRF documentation, ForestSearch `vi.grf.min` |
+| Minimum effect size | Fixed threshold | **ForestSearch `dmin.grf` only** |
+
+**ForestSearch's `dmin.grf` is unique in the literature.**  No other
+published GRF application imposes a minimum effect size at the policy
+tree stage.  The closest analog is the GRF `test_calibration()` function,
+which tests whether heterogeneity in CATE predictions is statistically
+significant — but this is a global test, not a per-leaf threshold.
+
+## ForestSearch's Rationale for `dmin.grf`
+
+In ForestSearch, GRF serves as a **candidate factor generator**, not the
+final subgroup selector.  The `dmin.grf` threshold addresses a specific
+concern: policy tree leaves with trivially small effect differences may
+add noise to the candidate factor set without improving downstream
+subgroup identification.  The consistency pipeline (`fs.splits`,
+`pconsistency.threshold`) is the real gatekeeper.
+
+This design choice has tradeoffs:
+
+- **`dmin.grf = 0` (permissive):** All leaves with any positive harm
+  contribute factors.  Maximizes sensitivity but may add noise factors.
+- **`dmin.grf > 0` (selective):** Only leaves with clinically meaningful
+  effects contribute.  Reduces noise but may miss real subgroups with
+  moderate effects.
+
+For the GBSG data with `dmin.grf = 12` (RMST scale), the threshold
+effectively requires ~5 months of RMST difference — a clinically
+meaningful bar for breast cancer recurrence-free survival.
+
+
+# Implications for GLM Extension {#sec-implications}
+
+## Scale-Specific Calibration
+
+| Outcome type | DR score scale | `dmin.grf` units | Practical default |
+|---|---|---|---|
+| Survival (RMST) | Time (months) | Months | 12 (existing) |
+| Binary (RD) | Probability | 0 to 1 | 0.0 (conservative) |
+| Continuous (MD) | Outcome units | Varies | 0.0 (conservative) |
+
+The `dmin.grf = 0.0` default for GLM outcomes is consistent with the
+literature's general approach of not imposing a minimum effect size at
+the GRF stage.  As the ForestSearch methodology matures for GLM
+outcomes, clinically meaningful thresholds can be calibrated for
+specific applications (e.g., `dmin.grf = 0.05` for a 5 percentage-point
+RD in a cardiovascular trial).
+
+## The Adverse Outcome Flip
+
+The GRF documentation recommends coding $Y = 1 - Y_{\text{adverse}}$
+for binary adverse outcomes.  ForestSearch automates this via
+`adverse_outcome = TRUE` (default for binary outcomes).  This ensures
+the policy tree correctly identifies the **harmful** subgroup rather
+than the complement.
+
+## RD vs. Relative Measures
+
+`causal_forest` natively targets the risk difference.  ForestSearch's
+downstream pipeline then applies the appropriate GLM estimator (RD, OR,
+IRR, etc.) for screening and consistency evaluation.  This is
+architecturally aligned with Shirvaikar & Ruberg's observation that
+RD-based splitting may miss heterogeneity on relative scales — our
+pipeline catches it through the effect-measure-specific consistency
+criterion, even if GRF doesn't see it.
+
+
+# Key References {#sec-references}
+
+## Foundational GRF Papers
+
+1. Athey, Tibshirani, Wager (2019). "Generalized Random Forests."
+   *Annals of Statistics* 47(2): 1148–1178.
+
+2. Wager, Athey (2018). "Estimation and Inference of Heterogeneous
+   Treatment Effects using Random Forests." *JASA* 113(523): 1228–1242.
+
+3. Cui, Kosorok, Sverdrup, Wager, Zhu (2023). "Estimating Heterogeneous
+   Treatment Effects with Right-Censored Data via Causal Survival
+   Forests." *JRSS-B* 85(2): 179–211.
+
+4. Athey, Wager (2021). "Policy Learning With Observational Data."
+   *Econometrica* 89(1): 133–161.
+
+## Subgroup Identification Applications
+
+5. Xu et al. (2024). "Iterative Causal Forest: A Novel Algorithm for
+   Subgroup Identification." *American Journal of Epidemiology*
+   193(5): 764–776.
+
+6. Sheridan et al. (2025). "Application of causal forests to randomised
+   controlled trial data to identify heterogeneous treatment effects:
+   a case study." *BMC Medical Research Methodology* 25: 50.
+
+7. Raghavan et al. (2022). "Generalizability of heterogeneous treatment
+   effects based on causal forests applied to two randomized clinical
+   trials of intensive glycemic control." *Annals of Epidemiology*
+   65: 101–108.
+
+## Methodological Extensions
+
+8. Shirvaikar, Ruberg (2024). "Targeting relative risk heterogeneity
+   with causal forests." *arXiv*: 2309.15793v2.
+
+9. Sverdrup, Petukhova, Wager (2024). "Estimating Treatment Effect
+   Heterogeneity in Psychiatry: A Review and Tutorial With Causal
+   Forests." *World Psychiatry* (in press).
+
+## ForestSearch
+
+10. León, Jemielita, Guo, Marceau West, Anderson (2024). "Exploratory
+    subgroup identification in the heterogeneous Cox model: A relatively
+    simple procedure." *Statistics in Medicine*.
+    DOI: 10.1002/sim.10163.
+
+## Software
+
+11. GRF R package: <https://grf-labs.github.io/grf/>
+    (Tibshirani et al., CRAN v2.6.1)
+
+12. policytree R package: <https://grf-labs.github.io/policytree/>
+    (Sverdrup et al., JOSS 2020)

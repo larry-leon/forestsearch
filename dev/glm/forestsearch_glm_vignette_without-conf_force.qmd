@@ -1,0 +1,740 @@
+---
+title: "Exploratory Subgroup Identification with ForestSearch: GLM Extension"
+subtitle: "GBSG Analysis — Poisson-Offset (Incidence Rate Ratio)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+# Navigate to package root — find it first, then set as knitr root
+# (setwd alone resets between chunks; root.dir persists)
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(file.path(pkg_root, "DESCRIPTION")))
+knitr::opts_knit$set(root.dir = pkg_root)
+
+knitr::opts_chunk$set(
+  comment = "#>",
+  fig.align = "center",
+  fig.retina = 2,
+  fig.width = 8,
+  fig.height = 6
+)
+
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+# Introduction
+
+This vignette demonstrates the **ForestSearch GLM extension** using the
+Poisson-offset approach as a built-in sanity check against the Cox
+proportional hazards model.  Under the Poisson-offset approximation:
+
+$$
+\log\bigl(E[\text{events}]\bigr) = \log(\text{follow-up time}) + \beta_0 + \beta_1 \cdot \text{Treat}
+$$
+
+the incidence rate ratio (IRR) $\exp(\hat\beta_1)$ approximates the
+Cox hazard ratio when the baseline hazard is locally constant.  This
+allows direct comparison of GLM-based subgroup identification against the
+established survival methodology from León et al. (2024).
+
+## GLM Effect Measure: IRR
+
+| Property | Cox (reference) | Poisson-offset (GLM) |
+|---|---|---|
+| Estimand | Hazard ratio | Incidence rate ratio |
+| Scale | $\exp(\hat\beta)$ | $\exp(\hat\beta)$ |
+| Outcome | Time-to-event + censoring | Binary event indicator |
+| Offset | None | $\log(\text{follow-up time})$ |
+| `outcome_type` | `"survival"` (default) | `"binary"` |
+| `effect_measure` | Not specified | `"IRR"` |
+
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(policytree)
+library(doFuture)
+library(patchwork)
+
+# GLM estimator closures (not yet graduated to R/)
+source("dev/glm/glm_effect_estimators.R")
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+
+# Data: German Breast Cancer Study Group Trial
+
+## Study Background
+
+The GBSG trial evaluated hormonal treatment (tamoxifen) versus chemotherapy
+in node-positive breast cancer patients.  Key characteristics:
+
+- **Sample size**: N = 686
+- **Outcome**: Recurrence-free survival time
+- **Censoring rate**: ~56%
+- **Treatment**: Hormonal therapy (tamoxifen) vs. chemotherapy
+
+## Data Preparation
+
+```{r data-setup}
+#| code-fold: false
+
+df.analysis <- survival::gbsg
+
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+  treat       <- hormon
+})
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id.name          <- "id"
+treat.name       <- "hormon"
+
+# Survival outcome (for Cox reference)
+outcome.name.surv <- "time_months"
+event.name        <- "status"
+
+# GLM Poisson-offset outcome
+outcome.name.glm  <- "status"        # binary event indicator
+offset.name       <- "time_months"   # follow-up time as offset
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
+```
+
+## ITT Effect Comparison
+
+```{r itt-comparison}
+# Cox HR
+cox_itt <- coxph(Surv(time_months, status) ~ hormon, data = df.analysis)
+
+# Poisson IRR
+pois_itt <- glm(status ~ hormon, family = poisson(link = "log"),
+                offset = log(time_months), data = df.analysis)
+
+cat("ITT Treatment Effect:\n")
+cat("  Cox  log-HR: ", round(coef(cox_itt)["hormon"], 4),
+    " (HR =", round(exp(coef(cox_itt)["hormon"]), 3), ")\n")
+cat("  Pois log-IRR:", round(coef(pois_itt)["hormon"], 4),
+    " (IRR =", round(exp(coef(pois_itt)["hormon"]), 3), ")\n")
+cat("  Difference:  ", round(coef(pois_itt)["hormon"] - coef(cox_itt)["hormon"], 4), "\n")
+```
+
+
+# Parallel Processing Configuration
+
+```{r parallel-setup}
+n_cores <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+n_cores_total <- parallel::detectCores()
+cat("Using", n_cores, "of", n_cores_total, "total cores\n")
+
+# Sequential for load_all() compatibility; switch to multisession
+# after devtools::install()
+par_args <- list(
+  plan         = "sequential",
+  workers      = n_cores,
+  show_message = TRUE
+)
+```
+
+
+# Preliminary Analysis: GRF Candidate Selection {#sec-grf}
+
+## GRF Sign Convention for Adverse Outcomes
+
+`causal_forest` estimates `E[Y(1) - Y(0) | X]` where higher Y is
+implicitly better.  Since our binary outcome is adverse (event = bad),
+the `adverse_outcome = TRUE` flag (default for binary outcomes) flips
+the outcome to `1 - Y` internally so that the harm-detection sign
+convention aligns with `causal_survival_forest`.
+
+## GRF with Multiple `dmin.grf` Thresholds
+
+The `dmin.grf` parameter gates on the minimum doubly-robust score
+difference within a policy tree leaf node.  For binary outcomes, this
+is on the probability scale.  We explore how different thresholds affect
+GRF subgroup identification.
+
+### Cox Reference (RMST-based)
+
+```{r grf-cox}
+t0 <- proc.time()
+
+grf_cox <- grf.subg.harm.survival(
+  data = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = outcome.name.surv,
+  event.name = event.name,
+  id.name = id.name,
+  treat.name = treat.name,
+  maxdepth = 2,
+  n.min = 60,
+  dmin.grf = 12,
+  frac.tau = 0.6,
+  details = TRUE,
+  return_selected_cuts_only = FALSE
+)
+
+timings$grf_cox <- (proc.time() - t0)["elapsed"]
+
+cat("\nCox GRF cuts:", paste(grf_cox$tree.cuts, collapse = ", "), "\n")
+if (!is.null(grf_cox$sg.harm.id)) {
+  cat("Cox GRF subgroup:", paste(grf_cox$sg.harm.id, collapse = " & "), "\n")
+}
+```
+
+```{r grf-cox-trees, fig.width=10, fig.height=4}
+par(mfrow = c(1, 2))
+plot(grf_cox$tree1, leaf.labels = c("Control", "Treat"), main = "Cox: Depth 1")
+plot(grf_cox$tree2, leaf.labels = c("Control", "Treat"), main = "Cox: Depth 2")
+par(mfrow = c(1, 1))
+```
+
+
+### GLM (Binary) with `dmin.grf` Sweep
+
+```{r grf-glm-sweep}
+dmin_values <- c(0.00, 0.01, 0.025, 0.05, 0.075, 0.10, 0.15, 0.20)
+
+cat("=== GRF GLM dmin.grf sweep (adverse_outcome = TRUE) ===\n\n")
+cat(sprintf("  %-10s  %-15s  %-8s  %s\n",
+            "dmin.grf", "Subgroup", "N cuts", "Cuts"))
+cat("  ", paste(rep("-", 70), collapse = ""), "\n")
+
+grf_glm_results <- list()
+
+for (d in dmin_values) {
+  res <- tryCatch(
+    grf.subg.harm.glm(
+      data = df.analysis,
+      confounders.name = confounders.name,
+      outcome.name = outcome.name.glm,
+      treat.name = treat.name,
+      id.name = id.name,
+      n.min = 60,
+      dmin.grf = d,
+      RCT = TRUE,
+      maxdepth = 2,
+      seedit = 8316951,
+      return_selected_cuts_only = FALSE,
+      adverse_outcome = TRUE,
+      details = FALSE
+    ),
+    error = function(e) NULL
+  )
+
+  grf_glm_results[[as.character(d)]] <- res
+
+  found <- !is.null(res) && !is.null(res$sg.harm.id) &&
+           length(res$sg.harm.id) > 0 && !all(is.na(res$sg.harm.id))
+
+  if (found) {
+    sg <- paste(res$sg.harm.id, collapse = " & ")
+    nc <- length(res$tree.cuts)
+    cuts <- paste(res$tree.cuts, collapse = ", ")
+    cat(sprintf("  %-10.3f  %-15s  %-8d  %s\n", d, sg, nc, cuts))
+  } else {
+    cat(sprintf("  %-10.3f  %-15s  %-8s  %s\n", d, "(none)", "-", "-"))
+  }
+}
+```
+
+### GRF Comparison Table
+
+```{r grf-comparison-table}
+grf_summary <- data.frame(
+  dmin.grf = dmin_values,
+  Subgroup = vapply(dmin_values, function(d) {
+    res <- grf_glm_results[[as.character(d)]]
+    found <- !is.null(res) && !is.null(res$sg.harm.id) &&
+             length(res$sg.harm.id) > 0 && !all(is.na(res$sg.harm.id))
+    if (found) paste(res$sg.harm.id, collapse = " & ") else "(none)"
+  }, character(1)),
+  N_cuts = vapply(dmin_values, function(d) {
+    res <- grf_glm_results[[as.character(d)]]
+    if (!is.null(res$tree.cuts)) length(res$tree.cuts) else 0L
+  }, integer(1))
+)
+
+gt(grf_summary) |>
+  tab_header(
+    title = md("**GRF Subgroup Selection by `dmin.grf`**"),
+    subtitle = "causal_forest with adverse_outcome = TRUE"
+  ) |>
+  cols_label(
+    dmin.grf = "dmin.grf",
+    Subgroup = "Identified Subgroup",
+    N_cuts   = "N Cuts"
+  )
+```
+
+::: {.callout-note}
+## Interpreting the `dmin.grf` Sweep
+
+- **`dmin.grf = 0`**: Any positive treatment harm qualifies.  Most
+  permissive — GRF may find subgroups driven by noise.
+- **`dmin.grf = 0.05`**: Requires ≥ 5 percentage-point difference in
+  event probability.  A clinically meaningful threshold for many
+  binary outcomes.
+- **Higher values**: Increasingly restrictive; may miss real subgroups
+  with moderate effects.  In the GBSG data, the binary outcome (event
+  at censoring) has weaker signal than the survival RMST, so the
+  threshold at which GRF stops finding subgroups is informative.
+
+The Cox reference uses `dmin.grf = 12` on the RMST scale (months).
+:::
+
+
+# ForestSearch Analysis {#sec-forestsearch}
+
+## Parameter Mapping
+
+| Parameter | Cox | Poisson-offset | Notes |
+|---|---|---|---|
+| `hr.threshold` | 1.25 | 1.25 | Converted to log(1.25) internally |
+| `hr.consistency` | 1.0 | 1.0 | Converted to log(1.0) = 0 internally |
+| `dmin.grf` | 12 (RMST, months) | 0.0 (probability) | Scale-specific; default auto-resolved |
+| `d0.min` / `d1.min` | Min events per arm | Min subjects per arm | Repurposed for GLM |
+| `use_grf` | `TRUE` | `TRUE` | Uses `causal_forest` for GLM |
+| `use_lasso` | `TRUE` | `TRUE` | Uses `family = "poisson"` for GLM |
+
+## Running ForestSearch (Poisson-Offset)
+
+```{r forestsearch-glm, fig.width=10, fig.height=7}
+#| code-fold: false
+
+t0 <- proc.time()
+
+fs_pois <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name.glm,
+  event.name       = outcome.name.glm,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  # GLM specification
+  outcome_type     = "binary",
+  effect_measure   = "IRR",
+  offset.name      = offset.name,
+  # Threshold parameters
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  # Search configuration
+  sg_focus             = "hr",
+  max_subgroups_search = 3,
+  use_twostage         = TRUE,
+  # Factor selection
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  dmin.grf                  = 0.0,    # probability scale for GLM
+  # Subgroup constraints
+  maxk   = 2,
+  n.min  = 60,
+  d0.min = 12,
+  d1.min = 12,
+  # Consistency evaluation
+  fs.splits = 100,
+  # Parallel processing
+  parallel_args = par_args,
+  # Output options
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = FALSE
+)
+
+plan("sequential")
+timings$forestsearch <- (proc.time() - t0)["elapsed"]
+
+cat("\nForestSearch (Poisson-offset) completed in",
+    round(timings$forestsearch, 1), "seconds\n")
+```
+
+
+## ForestSearch Results
+
+### Identified Subgroups
+
+```{r fs-results}
+res_tabs <- sg_tables(fs_pois, ndecimals = 3, which_df = "est")
+res_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r fs-estimates}
+res_tabs$tab_estimates
+```
+
+### Identified Subgroup Definition
+
+```{r fs-subgroup}
+cat("Identified subgroup (H):", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_pois$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_pois$df.est$treat.recommend == 0)))
+```
+
+
+# Bootstrap Bias Correction {#sec-bootstrap}
+
+## Rationale
+
+The GLM effect estimates from identified subgroups are **upwardly biased**
+due to the selection process, just as Cox HRs are.  The same bootstrap
+bias correction framework applies:
+
+$$
+\hat\theta_{\text{adj}} = 2\hat\theta_{\text{obs}} - (\hat\theta_{*} + \hat\theta^*_{*} - \hat\theta^*_{\text{obs}})
+$$
+
+where $\hat\theta$ is the log-IRR (or any GLM effect estimate).
+
+## Running Bootstrap Analysis
+
+```{r bootstrap}
+#| code-fold: false
+
+# Use 500–2000 for production; reduced here for the vignette
+NB <- 100
+
+t0 <- proc.time()
+
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_pois,
+  nb_boots      = NB,
+  show_three    = FALSE,
+  details       = TRUE,
+  parallel_args = par_args
+)
+
+plan("sequential")
+timings$bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings$bootstrap / 60, 1), "minutes\n")
+```
+
+## Bootstrap Summary
+
+```{r bootstrap-results}
+# Publication-quality gt table with bias-corrected estimates
+format_bootstrap_table_gt(
+  fs_bc,
+  fs.est    = fs_pois,
+  title     = "Bootstrap Bias-Corrected IRR Estimates",
+  font_size = 12
+)
+```
+
+## Bootstrap CIs
+
+```{r bootstrap-cis}
+cat("H (Questionable):\n")
+cat("  Raw:            ", fs_bc$SG_CIs$H_raw, "\n")
+cat("  Bias-corrected: ", fs_bc$SG_CIs$H_bc, "\n\n")
+cat("Hc (Recommend):\n")
+cat("  Raw:            ", fs_bc$SG_CIs$Hc_raw, "\n")
+cat("  Bias-corrected: ", fs_bc$SG_CIs$Hc_bc, "\n")
+```
+
+
+## Bootstrap Diagnostics
+
+```{r bootstrap-diagnostics}
+boot_success <- sum(!is.na(fs_bc$results$H_biasadj_2))
+cat("Success rate:", boot_success, "/", NB,
+    sprintf("(%.0f%%)\n", 100 * boot_success / NB))
+
+# Subgroup agreement across bootstrap iterations
+m_cols <- paste0("M.", 1:7)
+m_present <- intersect(m_cols, names(fs_bc$results))
+
+if (length(m_present) > 0) {
+  sg_strings <- apply(
+    fs_bc$results[, m_present, with = FALSE], 1,
+    function(row) paste(row[row != "" & !is.na(row)], collapse = " & ")
+  )
+  sg_tab <- sort(table(sg_strings), decreasing = TRUE)
+  cat("\nSubgroups found across bootstrap iterations:\n")
+  for (i in seq_along(sg_tab)) {
+    cat(sprintf("  %3d/%d  %s\n", sg_tab[i], NB, names(sg_tab)[i]))
+  }
+}
+```
+
+## Bootstrap Distributions
+
+```{r bootstrap-distributions, fig.width=10, fig.height=5}
+h_bc  <- fs_bc$results$H_biasadj_2[!is.na(fs_bc$results$H_biasadj_2)]
+hc_bc <- fs_bc$results$Hc_biasadj_2[!is.na(fs_bc$results$Hc_biasadj_2)]
+
+if (length(h_bc) > 5 && length(hc_bc) > 5) {
+  par(mfrow = c(1, 2))
+
+  hist(h_bc, breaks = 25, col = "salmon", border = "white",
+       main = "H (Questionable)\nBias-Corrected log-IRR",
+       xlab = "log-IRR")
+  abline(v = 0, lty = 2, lwd = 2)
+  abline(v = median(h_bc), col = "red", lwd = 2)
+
+  hist(hc_bc, breaks = 25, col = "lightblue", border = "white",
+       main = "Hc (Recommend)\nBias-Corrected log-IRR",
+       xlab = "log-IRR")
+  abline(v = 0, lty = 2, lwd = 2)
+  abline(v = median(hc_bc), col = "blue", lwd = 2)
+
+  par(mfrow = c(1, 1))
+}
+```
+
+
+# Cox vs. Poisson-Offset Comparison {#sec-comparison}
+
+## Run Cox Reference
+
+```{r cox-reference}
+t0 <- proc.time()
+
+fs_cox <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name.surv,
+  event.name       = event.name,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  sg_focus             = "hr",
+  max_subgroups_search = 3,
+  use_twostage         = TRUE,
+  use_grf              = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso            = TRUE,
+  cut_type             = "default",
+  dmin.grf             = 12,          # RMST scale (months) for survival
+  maxk = 2, n.min = 60, d0.min = 12, d1.min = 12,
+  fs.splits = 100,
+  parallel_args = par_args,
+  details = FALSE, plot.sg = FALSE
+)
+plan("sequential")
+timings$cox <- (proc.time() - t0)["elapsed"]
+```
+
+```{r cox-bootstrap}
+fs_bc_cox <- forestsearch_bootstrap_dofuture(
+  fs.est     = fs_cox,
+  nb_boots   = NB,
+  details    = FALSE,
+  parallel_args = par_args
+)
+plan("sequential")
+```
+
+## Side-by-Side Results
+
+```{r side-by-side}
+cat("=" |> rep(70) |> paste(collapse = ""), "\n")
+cat("GBSG Subgroup Identification: Cox vs. Poisson-Offset\n")
+cat("=" |> rep(70) |> paste(collapse = ""), "\n\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n", "", "Cox (survival)", "Poisson (GLM)"))
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n", "Subgroup",
+    paste(fs_cox$sg.harm, collapse = " & "),
+    paste(fs_pois$sg.harm, collapse = " & ")))
+
+cat(sprintf("%-25s  %-25s  %-25s\n", "N(harm) / N(benefit)",
+    paste(sum(fs_cox$df.est$treat.recommend == 0), "/",
+          sum(fs_cox$df.est$treat.recommend == 1)),
+    paste(sum(fs_pois$df.est$treat.recommend == 0), "/",
+          sum(fs_pois$df.est$treat.recommend == 1))))
+
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n", "H raw",
+    fs_bc_cox$SG_CIs$H_raw, fs_bc$SG_CIs$H_raw))
+cat(sprintf("%-25s  %-25s  %-25s\n", "H bias-corrected",
+    fs_bc_cox$SG_CIs$H_bc, fs_bc$SG_CIs$H_bc))
+cat(sprintf("%-25s  %-25s  %-25s\n", "Hc raw",
+    fs_bc_cox$SG_CIs$Hc_raw, fs_bc$SG_CIs$Hc_raw))
+cat(sprintf("%-25s  %-25s  %-25s\n", "Hc bias-corrected",
+    fs_bc_cox$SG_CIs$Hc_bc, fs_bc$SG_CIs$Hc_bc))
+
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+```
+
+## Comparative Bootstrap Tables
+
+### Cox (Survival)
+
+```{r comparison-cox-boot}
+format_bootstrap_table_gt(
+  fs_bc_cox,
+  fs.est    = fs_cox,
+  title     = "Cox: Bootstrap Bias-Corrected HR Estimates",
+  font_size = 12
+)
+```
+
+### Poisson-Offset (GLM)
+
+```{r comparison-pois-boot}
+format_bootstrap_table_gt(
+  fs_bc,
+  fs.est    = fs_pois,
+  title     = "Poisson: Bootstrap Bias-Corrected IRR Estimates",
+  font_size = 12
+)
+```
+
+## Comparative ForestSearch Tables
+
+```{r comparison-tables}
+cat("=== Cox ===\n")
+res_cox <- sg_tables(fs_cox, ndecimals = 3, which_df = "est")
+res_cox$tab_estimates
+
+cat("\n=== Poisson-Offset (GLM) ===\n")
+res_tabs$tab_estimates
+```
+
+
+# Summary and Interpretation
+
+## Key Findings
+
+```{r summary-findings}
+cat("=" |> rep(60) |> paste(collapse = ""), "\n")
+cat("FORESTSEARCH GLM EXTENSION — ANALYSIS SUMMARY\n")
+cat("=" |> rep(60) |> paste(collapse = ""), "\n\n")
+
+cat("Dataset: GBSG (N =", nrow(df.analysis), ")\n")
+cat("Outcome type: Binary (event indicator)\n")
+cat("Effect measure: Incidence Rate Ratio (IRR)\n")
+cat("Offset: Follow-up time (months)\n\n")
+
+cat("ITT Analysis:\n")
+cat("  Cox HR (95% CI):   ", round(exp(coef(cox_itt)), 3),
+    sprintf("(%.3f, %.3f)\n",
+            exp(confint(cox_itt))[1], exp(confint(cox_itt))[2]))
+cat("  Poisson IRR (95% CI):", round(exp(coef(pois_itt)["hormon"]), 3),
+    sprintf("(%.3f, %.3f)\n",
+            exp(confint(pois_itt)["hormon", 1]),
+            exp(confint(pois_itt)["hormon", 2])))
+
+cat("\nIdentified Subgroup (H):\n")
+cat("  Definition:", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+cat("  Size:", sum(fs_pois$df.est$treat.recommend == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(fs_pois$df.est$treat.recommend == 0)))
+cat("  IRR (unadjusted):", fs_bc$SG_CIs$H_raw, "\n")
+cat("  IRR (bias-corrected):", fs_bc$SG_CIs$H_bc, "\n")
+
+cat("\nComplement Subgroup (Hc):\n")
+cat("  Size:", sum(fs_pois$df.est$treat.recommend == 1),
+    sprintf("(%.1f%%)\n", 100 * mean(fs_pois$df.est$treat.recommend == 1)))
+cat("  IRR (unadjusted):", fs_bc$SG_CIs$Hc_raw, "\n")
+cat("  IRR (bias-corrected):", fs_bc$SG_CIs$Hc_bc, "\n")
+
+cat("\nAgreement:\n")
+cat("  Both paths identify same subgroup:", 
+    identical(sort(fs_cox$sg.harm), sort(fs_pois$sg.harm)), "\n")
+```
+
+## Clinical Interpretation
+
+The Poisson-offset GLM analysis identifies the same subgroup as the
+Cox model: **estrogen receptor-negative patients with tumor size ≤ 35mm**
+show potential harm from hormonal therapy.
+
+The IRR estimates track the Cox HRs closely, with the expected slight
+attenuation due to the non-constant baseline hazard in the GBSG data.
+The bias-corrected IRR provides a conservative estimate that accounts
+for selection-induced optimism.
+
+## Computational Timing
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Analysis = c("GRF (Cox)", "ForestSearch (Poisson)", "Bootstrap (Poisson)",
+               "Cox Reference", "Total"),
+  Seconds = c(
+    timings$grf_cox,
+    timings$forestsearch,
+    timings$bootstrap,
+    timings$cox,
+    timings$total
+  )
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1) |>
+  cols_label(
+    Analysis = "Component",
+    Seconds = "Time (sec)",
+    Minutes = "Time (min)"
+  )
+```
+
+
+# References
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: 10.1002/sim.10163
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

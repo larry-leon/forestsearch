@@ -996,3 +996,205 @@ sg_tables <- function(fs,
 }
 
 
+#' Format Bootstrap Summary Table as gt
+#'
+#' Creates a publication-quality gt table from the `FSsg_tab` matrix
+#' returned by [forestsearch_bootstrap_dofuture()].  Works for both
+#' survival (HR) and GLM (RD, OR, IRR, etc.) outcomes.
+#'
+#' @param fs_bc List. Bootstrap results from
+#'   [forestsearch_bootstrap_dofuture()].
+#' @param fs.est List. Original ForestSearch results (for subgroup
+#'   definition and metadata).
+#' @param title Character. Table title.  Default: "Bootstrap
+#'   Bias-Corrected Estimates".
+#' @param subtitle Character or NULL.  Table subtitle.  If NULL
+#'   (default), auto-generated from outcome type and effect measure.
+#' @param font_size Numeric.  Font size in pixels.  Default: 12.
+#' @param ndecimals Integer.  Not used directly (values are pre-formatted
+#'   strings), but reserved for future numeric formatting.
+#'
+#' @return A gt table object.
+#'
+#' @examples
+#' \dontrun{
+#' # After running forestsearch and bootstrap:
+#' gt_tab <- format_bootstrap_table_gt(fs_bc, fs.est = fs)
+#' gt_tab
+#' }
+#' @importFrom gt gt tab_header tab_footnote tab_options tab_spanner
+#'   cols_label cells_body md px
+#' @export
+format_bootstrap_table_gt <- function(fs_bc,
+                                      fs.est,
+                                      title = "Bootstrap Bias-Corrected Estimates",
+                                      subtitle = NULL,
+                                      font_size = 12,
+                                      ndecimals = 3) {
+
+  if (!requireNamespace("gt", quietly = TRUE)) {
+    stop("Package 'gt' required for formatted tables.")
+  }
+
+  # Extract the FSsg_tab matrix
+  tab <- fs_bc$FSsg_tab
+  if (is.null(tab)) {
+    warning("FSsg_tab is NULL — no bootstrap summary available.")
+    return(NULL)
+  }
+
+  # Convert to data frame if matrix
+  if (is.matrix(tab)) {
+    tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+  }
+
+  # Detect outcome type from the original forestsearch call
+  args_fs <- fs.est$args_call_all
+  outcome_type <- args_fs$outcome_type
+  if (is.null(outcome_type) || length(outcome_type) > 1L) {
+    outcome_type <- "survival"
+  }
+  effect_measure <- args_fs$effect_measure
+
+  # Auto-generate subtitle
+  if (is.null(subtitle)) {
+    if (outcome_type == "survival") {
+      subtitle <- "Hazard Ratio (Cox proportional hazards)"
+    } else {
+      em_label <- if (!is.null(effect_measure)) effect_measure else "GLM"
+      subtitle <- switch(em_label,
+        RD  = "Risk Difference",
+        OR  = "Odds Ratio",
+        RR  = "Relative Risk",
+        IRR = "Incidence Rate Ratio (Poisson-offset)",
+        IRD = "Incidence Rate Difference",
+        MD  = "Mean Difference",
+        paste0("Effect measure: ", em_label)
+      )
+    }
+  }
+
+  # Build column labels based on what's present
+  col_names <- names(tab)
+
+  # Create the gt table
+  gt_tab <- gt::gt(tab) |>
+    gt::tab_header(
+      title    = gt::md(paste0("**", title, "**")),
+      subtitle = subtitle
+    )
+
+  # Rename columns based on outcome type
+  if (outcome_type == "survival") {
+    # Survival column labels
+    label_map <- list(
+      Subgroup      = "Subgroup",
+      n             = "N (%)",
+      n1            = gt::md("N<sub>treat</sub> (%)"),
+      events        = "Events (%)",
+      m1            = "Median (Trt)",
+      m0            = "Median (Ctrl)",
+      RMST          = gt::md("&Delta;RMST"),
+      `HR (95% CI)` = "HR (95% CI)",
+      `HR*`         = gt::md("HR* (BC)")
+    )
+  } else {
+    # GLM column labels
+    em <- if (!is.null(effect_measure)) effect_measure else "Effect"
+    label_map <- list(
+      Subgroup              = "Subgroup",
+      n                     = "N (%)",
+      n1                    = gt::md("N<sub>treat</sub> (%)"),
+      `Rate(C)`             = "Rate (Ctrl)",
+      `Rate(T)`             = "Rate (Trt)"
+    )
+    # Effect estimate column (varies by measure)
+    eff_col <- paste0(em, " (95% CI)")
+    if (eff_col %in% col_names) {
+      label_map[[eff_col]] <- paste0(em, " (95% CI)")
+    }
+    # Bias-corrected column
+    bc_col <- paste0(em, "*")
+    if (bc_col %in% col_names) {
+      label_map[[bc_col]] <- gt::md(paste0(em, "* (BC)"))
+    }
+  }
+
+  # Apply only labels that match existing columns
+  labels_to_apply <- label_map[names(label_map) %in% col_names]
+  if (length(labels_to_apply) > 0) {
+    gt_tab <- gt_tab |>
+      gt::cols_label(.list = labels_to_apply)
+  }
+
+  # Add spanner for effect estimates if bias-corrected column exists
+  bc_col_name <- if (outcome_type == "survival") {
+    "HR*"
+  } else {
+    paste0(effect_measure, "*")
+  }
+  eff_col_name <- if (outcome_type == "survival") {
+    "HR (95% CI)"
+  } else {
+    paste0(effect_measure, " (95% CI)")
+  }
+
+  if (bc_col_name %in% col_names && eff_col_name %in% col_names) {
+    gt_tab <- gt_tab |>
+      gt::tab_spanner(
+        label   = "Treatment Effect",
+        columns = c(eff_col_name, bc_col_name)
+      )
+  }
+
+  # Add subgroup definition footnote
+  sg_definition <- NULL
+  if (!is.null(fs.est$grp.consistency$out_sg$sg.harm_label)) {
+    sg_definition <- paste(fs.est$grp.consistency$out_sg$sg.harm_label,
+                           collapse = " & ")
+  } else if (!is.null(fs.est$sg.harm)) {
+    sg_definition <- paste(fs.est$sg.harm, collapse = " & ")
+  }
+
+  if (!is.null(sg_definition) && nzchar(sg_definition)) {
+    # Find the row with the questionable subgroup
+    sg_rows <- grepl("Qstnbl|Questionable|H$", tab[[1]])
+    if (any(sg_rows)) {
+      gt_tab <- gt_tab |>
+        gt::tab_footnote(
+          footnote = gt::md(paste0("**Identified subgroup (H):** ",
+                                   sg_definition)),
+          locations = gt::cells_body(columns = 1, rows = sg_rows)
+        )
+    }
+  }
+
+  # Add bootstrap metadata footnote
+  nb <- nrow(fs_bc$results)
+  n_success <- sum(!is.na(fs_bc$results$H_biasadj_2))
+  gt_tab <- gt_tab |>
+    gt::tab_source_note(
+      source_note = gt::md(sprintf(
+        "BC = bootstrap bias-corrected. **%d** bootstrap iterations, **%d** successful (%.0f%%).",
+        nb, n_success, 100 * n_success / nb
+      ))
+    )
+
+  # Styling
+  gt_tab <- gt_tab |>
+    gt::tab_options(
+      table.font.size               = gt::px(font_size),
+      heading.title.font.size       = gt::px(font_size + 2),
+      heading.subtitle.font.size    = gt::px(font_size),
+      column_labels.font.size       = gt::px(font_size),
+      source_notes.font.size        = gt::px(font_size - 1),
+      table.border.top.style        = "solid",
+      table.border.bottom.style     = "solid",
+      heading.border.bottom.style   = "solid",
+      column_labels.border.bottom.style = "solid"
+    )
+
+  gt_tab
+}
+
+
