@@ -12,7 +12,8 @@ bootstrap_results(
   show_three,
   H_obs,
   Hc_obs,
-  seed = 8316951L
+  seed = 8316951L,
+  estimator_fn = NULL
 )
 }
 \arguments{

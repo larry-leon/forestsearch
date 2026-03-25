@@ -1,0 +1,404 @@
+---
+title: "Phase 2 Bootstrap Validation: Cox vs. Poisson-Offset"
+subtitle: "ForestSearch GLM Extension — Bias Correction"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| code-fold: false
+
+knitr::opts_chunk$set(comment = "#>")
+
+# Navigate to package root
+while (!file.exists("DESCRIPTION") && getwd() != dirname(getwd())) {
+  setwd("..")
+}
+stopifnot(
+  "Could not find package root" = file.exists("DESCRIPTION")
+)
+
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+
+source("dev/glm/glm_effect_estimators.R")
+source("dev/glm/glm_simulate.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(future)
+})
+
+n_cores <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+cat("Package root:", getwd(), "\n")
+cat("R version:", R.version.string, "\n")
+```
+
+
+# Overview
+
+This document validates Phase 2 of the GLM extension: bootstrap bias
+correction via `forestsearch_bootstrap_dofuture()`.  Both the Cox
+(survival) and Poisson-offset (GLM) paths are run on the GBSG dataset,
+and the bias-corrected estimates are compared side by side.
+
+**Expected result:** Both paths identify the same subgroup, produce
+closely tracking effect estimates, and achieve high bootstrap success
+rates.
+
+
+# Data Preparation
+
+```{r data-prep}
+#| code-fold: false
+
+df.analysis <- survival::gbsg
+df.analysis$id <- seq_len(nrow(df.analysis))
+df.analysis$grade3 <- as.integer(df.analysis$grade == "3")
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id.name          <- "id"
+
+df.analysis$rfstime <- df.analysis$rfstime/30.4375
+
+cat("GBSG: N =", nrow(df.analysis),
+    ", events =", sum(df.analysis$status),
+    sprintf("(%.0f%%)\n", 100 * mean(df.analysis$status)))
+```
+
+```{r bootstrap-config}
+#| code-fold: false
+
+# Bootstrap configuration
+nb_boots <- 100L
+
+# Sequential for load_all() compatibility.
+# For multisession, use devtools::install() first.
+boot_parallel <- list(
+  plan         = "sequential",
+  workers      = 1L,
+  show_message = FALSE
+)
+```
+
+
+# Cox Survival Path {#sec-cox}
+
+## Subgroup Identification
+
+```{r cox-forestsearch}
+#| code-fold: false
+
+fs_cox <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  sg_focus             = "hr",
+  max_subgroups_search = 3,
+  use_twostage         = TRUE,
+  use_grf              = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso            = TRUE,
+  cut_type             = "default",
+  maxk   = 2,
+  n.min  = 60,
+  d0.min = 12,
+  d1.min = 12,
+  fs.splits = 100,
+  parallel_args = boot_parallel,
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = TRUE
+)
+plan("sequential")
+```
+
+```{r cox-subgroup}
+cat("Cox subgroup:", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_cox$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_cox$df.est$treat.recommend == 0)))
+```
+
+## Bootstrap Bias Correction
+
+```{r cox-bootstrap}
+#| code-fold: false
+
+t0_cox <- proc.time()
+boot_cox <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_cox,
+  nb_boots      = nb_boots,
+  parallel_args = boot_parallel,
+  details       = TRUE
+)
+elapsed_cox <- (proc.time() - t0_cox)["elapsed"]
+```
+
+```{r cox-boot-results}
+cat("Elapsed:", round(elapsed_cox / 60, 1), "min\n")
+cat("Success rate:",
+    sum(!is.na(boot_cox$results$H_biasadj_2)), "/", nb_boots, "\n\n")
+cat("H (Questionable):\n")
+cat("  Raw:            ", boot_cox$SG_CIs$H_raw, "\n")
+cat("  Bias-corrected: ", boot_cox$SG_CIs$H_bc, "\n\n")
+cat("Hc (Recommend):\n")
+cat("  Raw:            ", boot_cox$SG_CIs$Hc_raw, "\n")
+cat("  Bias-corrected: ", boot_cox$SG_CIs$Hc_bc, "\n")
+```
+
+## Cox Results Tables
+
+```{r cox-tables}
+res_cox <- sg_tables(fs_cox, ndecimals = 3, which_df = "est")
+res_cox$sg10_out
+```
+
+```{r cox-estimates}
+res_cox$tab_estimates
+```
+
+
+# Poisson-Offset GLM Path {#sec-poisson}
+
+::: {.callout-note}
+## GRF and LASSO not yet wired for GLM (Phase 1)
+The Poisson-offset path disables GRF and LASSO.  All confounders are
+cut at quartiles/median via `cut_type = "default"`.
+:::
+
+## Subgroup Identification
+
+```{r pois-forestsearch}
+#| code-fold: false
+
+fs_pois <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  outcome_type     = "binary",
+  effect_measure   = "IRR",
+  offset.name      = "rfstime",
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.80,
+  stop_threshold         = 0.80,
+  sg_focus             = "hr",
+  max_subgroups_search = 3,
+  use_twostage         = TRUE,
+  use_grf   = FALSE,
+  use_lasso = FALSE,
+  cut_type  = "default",
+  maxk   = 2,
+  n.min  = 60,
+  d0.min = 12,
+  d1.min = 12,
+  fs.splits = 100,
+  parallel_args = boot_parallel,
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = FALSE
+)
+plan("sequential")
+```
+
+```{r pois-subgroup}
+cat("Poisson subgroup:", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+if (!is.null(fs_pois$df.est)) {
+  cat("Subgroup size:", sum(fs_pois$df.est$treat.recommend == 0),
+      sprintf("(%.1f%% of ITT)\n",
+              100 * mean(fs_pois$df.est$treat.recommend == 0)))
+}
+```
+
+## Bootstrap Bias Correction
+
+```{r pois-bootstrap}
+#| code-fold: false
+
+t0_pois <- proc.time()
+boot_pois <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_pois,
+  nb_boots      = nb_boots,
+  parallel_args = boot_parallel,
+  details       = TRUE
+)
+elapsed_pois <- (proc.time() - t0_pois)["elapsed"]
+```
+
+```{r pois-boot-results}
+cat("Elapsed:", round(elapsed_pois / 60, 1), "min\n")
+cat("Success rate:",
+    sum(!is.na(boot_pois$results$H_biasadj_2)), "/", nb_boots, "\n\n")
+cat("H (Questionable):\n")
+cat("  Raw:            ", boot_pois$SG_CIs$H_raw, "\n")
+cat("  Bias-corrected: ", boot_pois$SG_CIs$H_bc, "\n\n")
+cat("Hc (Recommend):\n")
+cat("  Raw:            ", boot_pois$SG_CIs$Hc_raw, "\n")
+cat("  Bias-corrected: ", boot_pois$SG_CIs$Hc_bc, "\n")
+```
+
+
+# Side-by-Side Comparison {#sec-comparison}
+
+```{r comparison}
+cat("=" |> rep(70) |> paste(collapse = ""), "\n")
+cat("GBSG Bootstrap Bias Correction: Cox vs. Poisson-Offset\n")
+cat("=" |> rep(70) |> paste(collapse = ""), "\n\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n", "", "Cox (survival)", "Poisson (GLM)"))
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "Subgroup",
+    paste(fs_cox$sg.harm, collapse = " & "),
+    paste(fs_pois$sg.harm, collapse = " & ")))
+
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "N(harm) / N(benefit)",
+    paste(sum(fs_cox$df.est$treat.recommend == 0), "/",
+          sum(fs_cox$df.est$treat.recommend == 1)),
+    paste(sum(fs_pois$df.est$treat.recommend == 0), "/",
+          sum(fs_pois$df.est$treat.recommend == 1))))
+
+cat(sprintf("%-25s  %-25d  %-25d\n",
+    "Bootstrap N",
+    nb_boots, nb_boots))
+
+cat(sprintf("%-25s  %-25d  %-25d\n",
+    "Success count",
+    sum(!is.na(boot_cox$results$H_biasadj_2)),
+    sum(!is.na(boot_pois$results$H_biasadj_2))))
+
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "H raw", boot_cox$SG_CIs$H_raw, boot_pois$SG_CIs$H_raw))
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "H bias-corrected", boot_cox$SG_CIs$H_bc, boot_pois$SG_CIs$H_bc))
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "Hc raw", boot_cox$SG_CIs$Hc_raw, boot_pois$SG_CIs$Hc_raw))
+cat(sprintf("%-25s  %-25s  %-25s\n",
+    "Hc bias-corrected", boot_cox$SG_CIs$Hc_bc, boot_pois$SG_CIs$Hc_bc))
+
+cat("-" |> rep(70) |> paste(collapse = ""), "\n")
+```
+
+## ITT Agreement
+
+```{r itt-agreement}
+cox_itt <- survival::coxph(
+  survival::Surv(rfstime, status) ~ hormon, data = df.analysis
+)
+pois_itt <- glm(
+  status ~ hormon, family = poisson(link = "log"),
+  offset = log(rfstime), data = df.analysis
+)
+
+cat("Cox  log-HR: ", round(coef(cox_itt)["hormon"], 4), "\n")
+cat("Pois log-IRR:", round(coef(pois_itt)["hormon"], 4), "\n")
+cat("Difference:  ", round(coef(pois_itt)["hormon"] - coef(cox_itt)["hormon"], 4), "\n")
+```
+
+## Bootstrap Distribution Comparison
+
+```{r boot-distributions, fig.width=10, fig.height=5}
+par(mfrow = c(1, 2))
+
+# H subgroup
+h_cox  <- boot_cox$results$H_biasadj_2
+h_pois <- boot_pois$results$H_biasadj_2
+h_cox  <- h_cox[!is.na(h_cox)]
+h_pois <- h_pois[!is.na(h_pois)]
+
+if (length(h_cox) > 0 && length(h_pois) > 0) {
+  xlim_h <- range(c(h_cox, h_pois))
+  hist(h_cox, breaks = 20, col = rgb(0.2, 0.4, 0.8, 0.5),
+       main = "H Subgroup (Bias-Corrected)",
+       xlab = "log-HR / log-IRR", xlim = xlim_h)
+  hist(h_pois, breaks = 20, col = rgb(0.8, 0.3, 0.2, 0.5), add = TRUE)
+  legend("topright", c("Cox", "Poisson"), pch = 15,
+         col = c(rgb(0.2, 0.4, 0.8, 0.5), rgb(0.8, 0.3, 0.2, 0.5)))
+  abline(v = 0, lty = 2)
+}
+
+# Hc complement
+hc_cox  <- boot_cox$results$Hc_biasadj_2
+hc_pois <- boot_pois$results$Hc_biasadj_2
+hc_cox  <- hc_cox[!is.na(hc_cox)]
+hc_pois <- hc_pois[!is.na(hc_pois)]
+
+if (length(hc_cox) > 0 && length(hc_pois) > 0) {
+  xlim_hc <- range(c(hc_cox, hc_pois))
+  hist(hc_cox, breaks = 20, col = rgb(0.2, 0.4, 0.8, 0.5),
+       main = "Hc Complement (Bias-Corrected)",
+       xlab = "log-HR / log-IRR", xlim = xlim_hc)
+  hist(hc_pois, breaks = 20, col = rgb(0.8, 0.3, 0.2, 0.5), add = TRUE)
+  legend("topright", c("Cox", "Poisson"), pch = 15,
+         col = c(rgb(0.2, 0.4, 0.8, 0.5), rgb(0.8, 0.3, 0.2, 0.5)))
+  abline(v = 0, lty = 2)
+}
+
+par(mfrow = c(1, 1))
+```
+
+## Bootstrap Success Rate by Subgroup
+
+```{r boot-subgroups}
+# Which subgroups were found across bootstrap iterations?
+m_cols <- paste0("M.", 1:7)
+m_cols_present <- intersect(m_cols, names(boot_cox$results))
+
+if (length(m_cols_present) > 0) {
+  cat("Cox bootstrap — subgroups found:\n")
+  sg_strings_cox <- apply(
+    boot_cox$results[, m_cols_present, with = FALSE], 1,
+    function(row) paste(row[row != "" & !is.na(row)], collapse = " & ")
+  )
+  sg_tab_cox <- sort(table(sg_strings_cox), decreasing = TRUE)
+  for (i in seq_along(sg_tab_cox)) {
+    cat(sprintf("  %3d/%d  %s\n", sg_tab_cox[i], nb_boots, names(sg_tab_cox)[i]))
+  }
+
+  cat("\nPoisson bootstrap — subgroups found:\n")
+  sg_strings_pois <- apply(
+    boot_pois$results[, m_cols_present, with = FALSE], 1,
+    function(row) paste(row[row != "" & !is.na(row)], collapse = " & ")
+  )
+  sg_tab_pois <- sort(table(sg_strings_pois), decreasing = TRUE)
+  for (i in seq_along(sg_tab_pois)) {
+    cat(sprintf("  %3d/%d  %s\n", sg_tab_pois[i], nb_boots, names(sg_tab_pois)[i]))
+  }
+}
+```
+
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```

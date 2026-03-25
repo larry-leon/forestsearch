@@ -358,6 +358,9 @@ forestsearch <- function(df.analysis,
 
   outcome_type <- match.arg(outcome_type)
 
+  # Store resolved value so bootstrap/CV pick up the scalar, not the default vector
+  args_call_all$outcome_type <- outcome_type
+
   # Build effect estimator closure for non-survival outcomes
   estimator_fn <- NULL
   consistency_threshold <- NULL
@@ -373,6 +376,8 @@ forestsearch <- function(df.analysis,
         continuous = "MD"
       )
     }
+    # Store resolved effect_measure
+    args_call_all$effect_measure <- effect_measure
 
     # Validate offset requirement for rate-based measures
     if (effect_measure %in% c("IRR", "IRD") && is.null(offset.name)) {
