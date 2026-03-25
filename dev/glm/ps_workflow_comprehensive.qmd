@@ -45,6 +45,8 @@ suppressPackageStartupMessages({
   library(glmnet)
   library(gt)
   library(ggplot2)
+  library(doFuture)
+  library(foreach)
 })
 theme_set(theme_minimal(base_size = 12))
 ```
@@ -345,28 +347,56 @@ Four estimators are compared:
 3. **DR G-comp (GRF PS)**: Bang & Robins IPS covariate + G-computation.
 4. **IPTW (Oracle PS)**: Stabilized weights from the true PS (benchmark).
 
-```{r mc-eval}
-n_sims <- 200
+```{r mc-setup}
+#| code-fold: false
 
+n_sims <- 200
 confs_sim <- c("x1", "x2", "x3", "x4")
 
+# Configure parallel backend: 80% of available cores
+# Using multisession (safe on macOS + RStudio).  Workers are fresh R
+# processes that cannot see devtools::load_all() or source()'d files.
+# We pass the path to glm_effect_estimators.R and source() it inside
+# each worker body.  The file is self-contained (all helpers are
+# internal), and sourcing overhead is negligible vs. GRF fitting.
+n_cores <- max(1L, floor(parallel::detectCores() * 0.80))
+plan(multisession, workers = n_cores)
+cat("Parallel backend: multisession with", n_cores, "workers\n")
+
+# Resolve absolute path to the dev source file (workers need this)
+pkg_root_abs <- normalizePath(pkg_root)
+dev_source_path <- file.path(pkg_root_abs, "dev", "glm",
+                             "glm_effect_estimators.R")
+stopifnot(file.exists(dev_source_path))
+cat("Dev source file:", dev_source_path, "\n")
+```
+
+```{r mc-eval}
+# Note: multisession workers are fresh R processes.  They do NOT have
+# access to devtools::load_all() functions or source()'d dev files from
+# the parent session.  We solve this by source()'ing the dev file
+# (glm_effect_estimators.R) inside each worker body.  The function
+# simulate_obs_study() is defined in this Quarto document and is
+# auto-exported by future's globals detection.
+
 run_mc <- function(scenario, n_sims, n_per_sim = 2000) {
-  results <- data.frame(
-    sim = integer(), method = character(),
-    sg_est = numeric(), co_est = numeric(),
-    stringsAsFactors = FALSE
-  )
 
   all_confs <- c(confs_sim, paste0("noise", seq_len(scenario$n_noise)))
 
-  fn_none <- make_effect_estimator("binary", "treat", "event",
-    effect_measure = "OR", ps_adjust_method = "none")
-  fn_iptw <- make_effect_estimator("binary", "treat", "event",
-    effect_measure = "OR", ps_adjust_method = "iptw")
-  fn_dr   <- make_effect_estimator("binary", "treat", "event",
-    effect_measure = "OR", ps_adjust_method = "dr_gcomp")
+  # Each iteration is independent — parallelize across simulations
+  results <- foreach(
+    s = seq_len(n_sims),
+    .combine = "rbind",
+    .options.future = list(seed = TRUE),
+    .errorhandling = "pass"
+  ) %dofuture% {
+    # Source dev file in each worker (multisession workers are fresh
+    # R processes without access to devtools::load_all() functions)
+    source(dev_source_path, local = TRUE)
 
-  for (s in seq_len(n_sims)) {
+    # Deterministic per-iteration seed
+    set.seed(s)
+
     df_s <- simulate_obs_study(
       n = n_per_sim, seed = s,
       confounding_strength  = scenario$confounding_strength,
@@ -376,15 +406,25 @@ run_mc <- function(scenario, n_sims, n_per_sim = 2000) {
       n_noise               = scenario$n_noise
     )
 
+    # GRF propensity scores
     ps_s <- estimate_propensity_scores(df_s, "treat", all_confs, method = "grf")
     df_s <- ps_s$data
 
-    # Oracle IPTW weights
+    # Oracle IPTW weights (true PS)
     p_treat <- mean(df_s$treat)
     df_s$sw_oracle <- ifelse(
       df_s$treat == 1,
       p_treat / df_s$ps_true,
       (1 - p_treat) / (1 - df_s$ps_true))
+
+    # Build estimators inside worker body (safe for both fork and
+    # non-fork plans — closures are lightweight)
+    fn_none <- make_effect_estimator("binary", "treat", "event",
+      effect_measure = "OR", ps_adjust_method = "none")
+    fn_iptw <- make_effect_estimator("binary", "treat", "event",
+      effect_measure = "OR", ps_adjust_method = "iptw")
+    fn_dr   <- make_effect_estimator("binary", "treat", "event",
+      effect_measure = "OR", ps_adjust_method = "dr_gcomp")
 
     sg <- df_s[df_s$x1 == 1, ]
     co <- df_s[df_s$x1 == 0, ]
@@ -392,7 +432,7 @@ run_mc <- function(scenario, n_sims, n_per_sim = 2000) {
     sg_orac <- sg; sg_orac$sw <- sg_orac$sw_oracle
     co_orac <- co; co_orac$sw <- co_orac$sw_oracle
 
-    results <- rbind(results,
+    rbind(
       data.frame(sim = s, method = "1. Unadjusted",
         sg_est = fn_none(sg)$estimate, co_est = fn_none(co)$estimate),
       data.frame(sim = s, method = "2. IPTW (GRF PS)",
@@ -403,8 +443,12 @@ run_mc <- function(scenario, n_sims, n_per_sim = 2000) {
         sg_est = fn_iptw(sg_orac)$estimate, co_est = fn_iptw(co_orac)$estimate)
     )
   }
-  results
+
+  as.data.frame(results)
 }
+
+# Run all scenarios in parallel
+t_start <- proc.time()[3]
 
 all_results <- list()
 for (sc_name in names(scenarios)) {
@@ -413,6 +457,16 @@ for (sc_name in names(scenarios)) {
   n_per <- if (sc_name == "G") 500 else 2000
   all_results[[sc_name]] <- run_mc(sc, n_sims, n_per_sim = n_per)
 }
+
+t_elapsed <- proc.time()[3] - t_start
+cat(sprintf("\nAll scenarios completed in %.1f minutes (%.0f seconds)\n",
+            t_elapsed / 60, t_elapsed))
+cat(sprintf("  %d scenarios × %d sims = %d total iterations\n",
+            length(scenarios), n_sims, length(scenarios) * n_sims))
+cat(sprintf("  Workers: %d cores\n", n_cores))
+
+# Reset to sequential
+plan(sequential)
 ```
 
 
