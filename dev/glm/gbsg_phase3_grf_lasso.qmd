@@ -1,0 +1,370 @@
+---
+title: "Phase 3 Validation: GRF + LASSO for GLM Outcomes"
+subtitle: "ForestSearch GLM Extension — Variable Selection"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| code-fold: false
+
+knitr::opts_chunk$set(comment = "#>")
+
+# Navigate to package root
+while (!file.exists("DESCRIPTION") && getwd() != dirname(getwd())) {
+  setwd("..")
+}
+stopifnot("Could not find package root" = file.exists("DESCRIPTION"))
+
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+
+source("dev/glm/glm_effect_estimators.R")
+source("dev/glm/glm_simulate.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(future)
+})
+
+cat("Package root:", getwd(), "\n")
+cat("R version:", R.version.string, "\n")
+```
+
+
+# Overview
+
+Phase 3 wires GRF and LASSO candidate selection for GLM outcomes:
+
+| Component | Survival (existing) | GLM (new) |
+|---|---|---|
+| **GRF** | `causal_survival_forest(X, Y, W, D, horizon)` | `causal_forest(X, Y, W)` |
+| **LASSO** | `glmnet(family = "cox")` | `family = "binomial"` / `"poisson"` / `"gaussian"` |
+| **VI screening** | `causal_survival_forest` | `causal_forest` |
+
+This document tests all combinations on the GBSG dataset.
+
+
+# Data Preparation
+
+```{r data-prep}
+#| code-fold: false
+
+df.analysis <- survival::gbsg
+df.analysis$id <- seq_len(nrow(df.analysis))
+df.analysis$grade3 <- as.integer(df.analysis$grade == "3")
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id.name          <- "id"
+
+# Common parallel config (sequential for load_all compatibility)
+par_args <- list(plan = "sequential", workers = 1L, show_message = FALSE)
+
+cat("GBSG: N =", nrow(df.analysis), "\n")
+```
+
+
+# LASSO Family Branching {#sec-lasso}
+
+Direct tests of `lasso_selection()` with each family.
+
+```{r lasso-cox}
+cat("=== Cox LASSO (family = 'cox') ===\n")
+lasso_cox <- lasso_selection(
+  df = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = "rfstime", event.name = "status",
+  outcome_type = "survival"
+)
+cat("  Selected:", paste(lasso_cox$selected, collapse = ", "), "\n")
+cat("  Omitted: ", paste(lasso_cox$omitted, collapse = ", "), "\n")
+```
+
+```{r lasso-binomial}
+cat("=== Binomial LASSO (family = 'binomial') ===\n")
+lasso_bin <- lasso_selection(
+  df = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = "status", event.name = "status",
+  outcome_type = "binary"
+)
+cat("  Selected:", paste(lasso_bin$selected, collapse = ", "), "\n")
+cat("  Omitted: ", paste(lasso_bin$omitted, collapse = ", "), "\n")
+```
+
+```{r lasso-poisson}
+cat("=== Poisson LASSO (family = 'poisson', offset = log(rfstime)) ===\n")
+lasso_pois <- lasso_selection(
+  df = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = "status", event.name = "status",
+  outcome_type = "binary",
+  offset.name = "rfstime"
+)
+cat("  Selected:", paste(lasso_pois$selected, collapse = ", "), "\n")
+cat("  Omitted: ", paste(lasso_pois$omitted, collapse = ", "), "\n")
+```
+
+```{r lasso-comparison}
+cat("\n=== LASSO Comparison ===\n")
+all_vars <- confounders.name
+lasso_tbl <- data.frame(
+  Variable  = all_vars,
+  Cox       = ifelse(all_vars %in% lasso_cox$selected, "Y", "-"),
+  Binomial  = ifelse(all_vars %in% lasso_bin$selected, "Y", "-"),
+  Poisson   = ifelse(all_vars %in% lasso_pois$selected, "Y", "-")
+)
+print(lasso_tbl, row.names = FALSE)
+```
+
+
+# GRF: Causal Forest for GLM Outcomes {#sec-grf}
+
+Direct test of `grf.subg.harm.glm()` vs `grf.subg.harm.survival()`.
+
+```{r grf-survival}
+cat("=== GRF: causal_survival_forest ===\n")
+grf_surv <- grf.subg.harm.survival(
+  data = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = "rfstime", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  n.min = 60, dmin.grf = 0.0,
+  RCT = TRUE, maxdepth = 2, seedit = 8316951,
+  return_selected_cuts_only = TRUE, details = TRUE
+)
+cat("  Cuts:", paste(grf_surv$tree.cuts, collapse = ", "), "\n")
+if (!is.null(grf_surv$sg.harm.id)) {
+  cat("  Subgroup:", paste(grf_surv$sg.harm.id, collapse = " & "), "\n")
+}
+```
+
+```{r grf-glm}
+cat("=== GRF: causal_forest (binary outcome) ===\n")
+grf_glm <- grf.subg.harm.glm(
+  data = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name = "status",
+  treat.name = "hormon", id.name = "id",
+  n.min = 60, dmin.grf = 0.0,
+  RCT = TRUE, maxdepth = 2, seedit = 8316951,
+  return_selected_cuts_only = TRUE, details = TRUE
+)
+cat("  Cuts:", paste(grf_glm$tree.cuts, collapse = ", "), "\n")
+if (!is.null(grf_glm$sg.harm.id)) {
+  cat("  Subgroup:", paste(grf_glm$sg.harm.id, collapse = " & "), "\n")
+} else {
+  cat("  No subgroup identified (expected — see note below)\n")
+}
+```
+
+::: {.callout-note}
+## Why `causal_forest` may not identify the same subgroup
+
+`causal_survival_forest` estimates RMST-based treatment effects, which
+capture time-to-event heterogeneity.  `causal_forest` estimates CATE on
+the binary outcome (event yes/no), which is less sensitive to hazard
+timing.  In the GBSG data where the treatment effect manifests through
+delayed recurrence rather than event prevention, the survival GRF
+typically finds stronger heterogeneity.  This is expected behavior, not
+a bug — the two forests answer different questions.
+
+The key point: when `causal_forest` doesn't find a subgroup, LASSO and
+forced confounders carry the candidate set, and the downstream
+search + consistency pipeline operates identically.
+:::
+
+
+# Full Pipeline Comparison {#sec-pipeline}
+
+Four configurations on the same GBSG data.
+
+## Config A: Cox + GRF + LASSO (reference)
+
+```{r config-a}
+#| code-fold: false
+
+fs_a <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE,
+  use_grf = TRUE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = par_args,
+  details = TRUE, maxk = 2, sg_focus = "hr"
+)
+plan("sequential")
+cat("Config A subgroup:", paste(fs_a$sg.harm, collapse = " & "), "\n")
+```
+
+## Config B: Poisson-offset + GRF + LASSO
+
+```{r config-b}
+#| code-fold: false
+
+fs_b <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  outcome_type = "binary", effect_measure = "IRR",
+  offset.name  = "rfstime",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE,
+  use_grf = TRUE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = par_args,
+  details = TRUE, maxk = 2, sg_focus = "hr", vi.grf.min = NULL
+)
+plan("sequential")
+cat("Config B subgroup:", paste(fs_b$sg.harm, collapse = " & "), "\n")
+```
+
+## Config C: Poisson-offset + LASSO only (no GRF)
+
+```{r config-c}
+#| code-fold: false
+
+fs_c <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  outcome_type = "binary", effect_measure = "IRR",
+  offset.name  = "rfstime",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE,
+  use_grf = FALSE, use_lasso = TRUE,
+  parallel_args = par_args,
+  details = TRUE, maxk = 2, sg_focus = "hr", vi.grf.min = NULL
+)
+plan("sequential")
+cat("Config C subgroup:", paste(fs_c$sg.harm, collapse = " & "), "\n")
+```
+
+## Config D: Poisson-offset + default cuts only (no GRF, no LASSO)
+
+```{r config-d}
+#| code-fold: false
+
+fs_d <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = id.name,
+  outcome_type = "binary", effect_measure = "IRR",
+  offset.name  = "rfstime",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 20,
+  use_twostage = TRUE,
+  use_grf = FALSE, use_lasso = FALSE,
+  parallel_args = par_args,
+  details = TRUE, maxk = 2, sg_focus = "hr", vi.grf.min = NULL
+)
+plan("sequential")
+cat("Config D subgroup:", paste(fs_d$sg.harm, collapse = " & "), "\n")
+```
+
+## Side-by-Side Summary
+
+```{r summary-table}
+configs <- list(
+  list(label = "A: Cox + GRF + LASSO",         fs = fs_a),
+  list(label = "B: Poisson + GRF + LASSO",     fs = fs_b),
+  list(label = "C: Poisson + LASSO only",       fs = fs_c),
+  list(label = "D: Poisson + default cuts only", fs = fs_d)
+)
+
+cat("=" |> rep(80) |> paste(collapse = ""), "\n")
+cat("GBSG Phase 3 Comparison\n")
+cat("=" |> rep(80) |> paste(collapse = ""), "\n\n")
+
+cat(sprintf("%-35s  %-30s  %5s  %5s\n",
+            "Config", "Subgroup", "N(H)", "Cand"))
+cat("-" |> rep(80) |> paste(collapse = ""), "\n")
+
+for (cfg in configs) {
+  sg <- if (!is.null(cfg$fs$sg.harm)) {
+    paste(cfg$fs$sg.harm, collapse = " & ")
+  } else {
+    "(none)"
+  }
+  n_harm <- if (!is.null(cfg$fs$df.est)) {
+    sum(cfg$fs$df.est$treat.recommend == 0)
+  } else {
+    NA
+  }
+  n_cand <- if (!is.null(cfg$fs$find.grps$out.found$hr.subgroups)) {
+    nrow(cfg$fs$find.grps$out.found$hr.subgroups)
+  } else {
+    0
+  }
+  cat(sprintf("%-35s  %-30s  %5s  %5d\n",
+              cfg$label, sg,
+              if (!is.na(n_harm)) as.character(n_harm) else "-",
+              n_cand))
+}
+cat("-" |> rep(80) |> paste(collapse = ""), "\n")
+```
+
+::: {.callout-note}
+## Interpreting the results
+
+All four configurations should identify the same (or very similar)
+subgroup, demonstrating that the variable selection method affects the
+candidate set size but not the final answer when the signal is strong.
+
+Key observations:
+
+- **Config A** (Cox, reference): Uses `causal_survival_forest` + Cox LASSO.
+  The gold standard.
+- **Config B** (Poisson + GRF + LASSO): Uses `causal_forest` (binary CATE)
+  + Poisson LASSO.  GRF may find different or no cuts, but LASSO +
+  `conf_force` ensure the candidate set is adequate.
+- **Config C** (Poisson + LASSO only): Skips GRF entirely.  LASSO alone
+  selects the right confounders.
+- **Config D** (default cuts only): No variable selection.  The largest
+  candidate set — all quartile/median cuts of all confounders.  Slower
+  search but same answer.
+:::
+
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```

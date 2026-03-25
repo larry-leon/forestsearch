@@ -60,7 +60,8 @@ forestsearch(
   twostage_args = list(),
   outcome_type = c("survival", "binary", "continuous"),
   effect_measure = NULL,
-  offset.name = NULL
+  offset.name = NULL,
+  adverse_outcome = NULL
 )
 }
 \arguments{

@@ -20,7 +20,9 @@ get_FSdata(
   exclude_cuts = NULL,
   outcome.name = "tte",
   event.name = "event",
-  details = TRUE
+  details = TRUE,
+  outcome_type = "survival",
+  offset.name = NULL
 )
 }
 \arguments{

@@ -281,7 +281,8 @@ forestsearch <- function(df.analysis,
                          # NEW: GLM outcome support
                          outcome_type = c("survival", "binary", "continuous"),
                          effect_measure = NULL,
-                         offset.name = NULL) {
+                         offset.name = NULL,
+                         adverse_outcome = NULL) {
 
   # ===========================================================================
   # SECTION 1: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
@@ -361,6 +362,15 @@ forestsearch <- function(df.analysis,
   # Store resolved value so bootstrap/CV pick up the scalar, not the default vector
   args_call_all$outcome_type <- outcome_type
 
+  # Resolve adverse_outcome default:
+  #   Binary outcomes: TRUE (event = adverse, the clinical trial convention)
+  #   Continuous outcomes: FALSE (user must set TRUE if higher Y = worse)
+  #   Survival: not used (causal_survival_forest handles sign correctly)
+  if (is.null(adverse_outcome)) {
+    adverse_outcome <- (outcome_type == "binary")
+  }
+  args_call_all$adverse_outcome <- adverse_outcome
+
   # Build effect estimator closure for non-survival outcomes
   estimator_fn <- NULL
   consistency_threshold <- NULL
@@ -428,25 +438,6 @@ forestsearch <- function(df.analysis,
       }
     }
 
-    # Phase 1 constraints: GRF and LASSO not yet wired for GLM
-    if (use_grf) {
-      if (details) {
-        message("GRF candidate selection not yet available for outcome_type = '",
-                outcome_type, "'. Setting use_grf = FALSE.")
-      }
-      use_grf <- FALSE
-    }
-    if (use_lasso) {
-      if (details) {
-        message("LASSO candidate selection not yet available for outcome_type = '",
-                outcome_type, "'. Setting use_lasso = FALSE.")
-      }
-      use_lasso <- FALSE
-    }
-
-    # VI screening uses causal_survival_forest — skip for GLM
-    vi.grf.min <- NULL
-
     if (details) {
       cat("GLM mode: outcome_type =", outcome_type,
           ", effect_measure =", effect_measure, "\n")
@@ -472,26 +463,47 @@ forestsearch <- function(df.analysis,
   # SECTION 3A: GRF CUT GENERATION (if use_grf = TRUE)
   # ===========================================================================
 
-  # If using grf and cuts not already populated, run grf.subg.harm.survival
+  # If using grf and cuts not already populated, run GRF subgroup identification
   if (use_grf && (is.null(grf_res) || is.null(grf_res$tree.cuts))) {
 
-    grf_res <- tryCatch(
-      grf.subg.harm.survival(
-        data = df.analysis,
-        confounders.name = confounders.name,
-        outcome.name = outcome.name,
-        event.name = event.name,
-        id.name = id.name,
-        treat.name = treat.name,
-        frac.tau = frac.tau,
-        n.min = n.min,
-        dmin.grf = dmin.grf,
-        RCT = is.RCT,
-        details = FALSE,
-        maxdepth = grf_depth,
-        seedit = seedit,
-        return_selected_cuts_only = return_selected_cuts_only
-      ),
+    grf_res <- tryCatch({
+      if (outcome_type == "survival") {
+        # Survival path: causal_survival_forest (unchanged)
+        grf.subg.harm.survival(
+          data = df.analysis,
+          confounders.name = confounders.name,
+          outcome.name = outcome.name,
+          event.name = event.name,
+          id.name = id.name,
+          treat.name = treat.name,
+          frac.tau = frac.tau,
+          n.min = n.min,
+          dmin.grf = dmin.grf,
+          RCT = is.RCT,
+          details = FALSE,
+          maxdepth = grf_depth,
+          seedit = seedit,
+          return_selected_cuts_only = return_selected_cuts_only
+        )
+      } else {
+        # GLM path: causal_forest (no event/horizon)
+        grf.subg.harm.glm(
+          data = df.analysis,
+          confounders.name = confounders.name,
+          outcome.name = outcome.name,
+          treat.name = treat.name,
+          id.name = id.name,
+          n.min = n.min,
+          dmin.grf = dmin.grf,
+          RCT = is.RCT,
+          details = FALSE,
+          maxdepth = grf_depth,
+          seedit = seedit,
+          return_selected_cuts_only = return_selected_cuts_only,
+          adverse_outcome = adverse_outcome
+        )
+      }
+    },
       error = function(e) {
         warning("GRF analysis failed: ", e$message)
         return(NULL)
@@ -621,17 +633,27 @@ forestsearch <- function(df.analysis,
     X <- as.matrix(df[, FSconfounders.name])
     X <- apply(X, 2, as.numeric)
 
-    tau.rmst <- min(c(max(Y[Treat == 1 & Event == 1]), max(Y[Treat == 0 & Event == 1])))
+    if (outcome_type == "survival") {
+      # Survival path: causal_survival_forest (unchanged)
+      tau.rmst <- min(c(max(Y[Treat == 1 & Event == 1]), max(Y[Treat == 0 & Event == 1])))
 
-    if (!is.RCT) {
-      cs.forest <- try(suppressWarnings(
-        grf::causal_survival_forest(X, Y, Treat, Event,
-                                     horizon = 0.9 * tau.rmst, seed = 8316951)
-      ), TRUE)
+      if (!is.RCT) {
+        cs.forest <- try(suppressWarnings(
+          grf::causal_survival_forest(X, Y, Treat, Event,
+                                       horizon = 0.9 * tau.rmst, seed = 8316951)
+        ), TRUE)
+      } else {
+        cs.forest <- try(suppressWarnings(
+          grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
+                                       horizon = 0.9 * tau.rmst, seed = 8316951)
+        ), TRUE)
+      }
     } else {
+      # GLM path: causal_forest (no event/horizon)
+      # Flip outcome for adverse events (same logic as grf.subg.harm.glm)
+      Y_vi <- if (adverse_outcome) 1L - Y else Y
       cs.forest <- try(suppressWarnings(
-        grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                     horizon = 0.9 * tau.rmst, seed = 8316951)
+        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951)
       ), TRUE)
     }
 

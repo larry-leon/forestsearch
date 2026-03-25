@@ -9,7 +9,9 @@ lasso_selection(
   confounders.name,
   outcome.name,
   event.name,
-  seedit = 8316951
+  seedit = 8316951,
+  outcome_type = "survival",
+  offset.name = NULL
 )
 }
 \arguments{
