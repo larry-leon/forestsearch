@@ -1027,11 +1027,11 @@ forestsearch <- function(df.analysis,
       temp <- grp.consistency$df_flag
 
       # Merge to analysis data
-      df.est_out <- merge(df, temp, by = "id", all.x = TRUE)
+      df.est_out <- merge(df, temp, by.x = id.name, by.y = "id", all.x = TRUE)
 
       # Return df.predict
       if (!is.null(df.predict)) {
-        df.predict_out <- merge(df.predict, temp, by = "id", all.x = TRUE)
+        df.predict_out <- merge(df.predict, temp, by.x = id.name, by.y = "id", all.x = TRUE)
       }
 
       # Return df.test
