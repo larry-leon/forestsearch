@@ -441,16 +441,30 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   FSsg_tab <- NULL
 
   if (is_glm) {
-    # GLM summary table (Phase 4: full gt-based table)
-    # For now, return a simple list with the key estimates
-    FSsg_tab <- list(
-      outcome_type   = outcome_type,
-      effect_measure = args_forestsearch_call$effect_measure,
-      H_raw          = H_res1,
-      H_bc           = H_res2,
-      Hc_raw         = Hc_res1,
-      Hc_bc          = Hc_res2,
-      note           = "Full GLM summary table available in Phase 4"
+    # GLM summary table using SG_tab_estimates_glm
+    FSsg_tab <- tryCatch(
+      SG_tab_estimates_glm(
+        df             = fs.est$df.est,
+        SG_flag        = "treat.recommend",
+        outcome.name   = args_forestsearch_call$outcome.name,
+        treat.name     = args_forestsearch_call$treat.name,
+        estimator_fn   = estimator_fn_boot,
+        effect_measure = args_forestsearch_call$effect_measure,
+        effect_a_1     = SG_CIs$Hc_bc,
+        effect_a_0     = SG_CIs$H_bc,
+        sg1_name       = "Recmnd",
+        sg0_name       = "Qstnbl",
+        est.scale      = est.scale
+      ),
+      error = function(e) {
+        warning("GLM SG_tab_estimates failed: ", e$message)
+        list(
+          outcome_type   = outcome_type,
+          effect_measure = args_forestsearch_call$effect_measure,
+          H_raw  = H_res1, H_bc  = H_res2,
+          Hc_raw = Hc_res1, Hc_bc = Hc_res2
+        )
+      }
     )
   } else {
     # Survival path: existing SG_tab_estimates (unchanged)

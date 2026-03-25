@@ -1,0 +1,208 @@
+---
+title: "Phase 4 Validation: GLM Summary Tables"
+subtitle: "ForestSearch GLM Extension — Visualization"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: flatly
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| code-fold: false
+
+knitr::opts_chunk$set(comment = "#>")
+
+while (!file.exists("DESCRIPTION") && getwd() != dirname(getwd())) {
+  setwd("..")
+}
+stopifnot("Could not find package root" = file.exists("DESCRIPTION"))
+
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+
+source("dev/glm/glm_effect_estimators.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(future)
+})
+
+cat("Package root:", getwd(), "\n")
+cat("R version:", R.version.string, "\n")
+```
+
+
+# Overview
+
+Phase 4 adds GLM-aware summary tables via `SG_tab_estimates_glm()`,
+`analyze_subgroup_glm()`, and branching in `sg_tables()`.  The tables
+show per-arm outcome rates and the GLM effect estimate (RD, OR, IRR,
+etc.) instead of the survival-specific columns (medians, RMST, HR).
+
+The bootstrap `FSsg_tab` now returns a proper summary matrix with
+a bias-corrected effect column (`IRR*`, `RD*`, etc.) instead of the
+Phase 2 placeholder list.
+
+
+# Data Preparation
+
+```{r data-prep}
+#| code-fold: false
+
+df.analysis <- survival::gbsg
+df.analysis$id <- seq_len(nrow(df.analysis))
+df.analysis$grade3 <- as.integer(df.analysis$grade == "3")
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+par_args <- list(plan = "sequential", workers = 1L, show_message = FALSE)
+```
+
+
+# Cox Survival Tables (Regression Guard) {#sec-cox}
+
+```{r cox-run}
+fs_cox <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = "id",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE,
+  use_grf = TRUE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = par_args,
+  details = FALSE, maxk = 2, sg_focus = "hr"
+)
+plan("sequential")
+cat("Cox subgroup:", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+```
+
+## Treatment Effect Estimates
+
+```{r cox-estimates}
+res_cox <- sg_tables(fs_cox, ndecimals = 3, which_df = "est")
+res_cox$tab_estimates
+```
+
+## Identified Subgroups
+
+```{r cox-subgroups}
+res_cox$sg10_out
+```
+
+
+# Poisson-Offset GLM Tables {#sec-poisson}
+
+```{r pois-run}
+fs_pois <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  conf_force       = c("er <= 0"),
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "IRR",
+  offset.name      = "rfstime",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE,
+  use_grf = FALSE, use_lasso = TRUE,
+  parallel_args = par_args,
+  details = FALSE, maxk = 2, sg_focus = "hr", vi.grf.min = NULL
+)
+plan("sequential")
+cat("Poisson subgroup:", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+```
+
+## Treatment Effect Estimates
+
+```{r pois-estimates}
+res_pois <- sg_tables(fs_pois, ndecimals = 3, which_df = "est")
+res_pois$tab_estimates
+```
+
+## Identified Subgroups
+
+```{r pois-subgroups}
+res_pois$sg10_out
+```
+
+
+# Bootstrap with GLM Summary Table {#sec-bootstrap}
+
+```{r boot-pois}
+boot_pois <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_pois,
+  nb_boots      = 100L,
+  parallel_args = par_args,
+  details       = TRUE
+)
+```
+
+## Bootstrap Summary Table (FSsg_tab)
+
+```{r boot-table}
+if (is.data.frame(boot_pois$FSsg_tab) || is.matrix(boot_pois$FSsg_tab)) {
+  cat("FSsg_tab:\n")
+  print(boot_pois$FSsg_tab)
+} else {
+  str(boot_pois$FSsg_tab)
+}
+```
+
+## Bootstrap CIs
+
+```{r boot-cis}
+cat("H (Questionable):\n")
+cat("  Raw:            ", boot_pois$SG_CIs$H_raw, "\n")
+cat("  Bias-corrected: ", boot_pois$SG_CIs$H_bc, "\n\n")
+cat("Hc (Recommend):\n")
+cat("  Raw:            ", boot_pois$SG_CIs$Hc_raw, "\n")
+cat("  Bias-corrected: ", boot_pois$SG_CIs$Hc_bc, "\n")
+```
+
+
+# Side-by-Side Comparison {#sec-comparison}
+
+```{r comparison}
+cat("=" |> rep(70) |> paste(collapse = ""), "\n")
+cat("GBSG Summary Tables: Cox vs. Poisson-Offset\n")
+cat("=" |> rep(70) |> paste(collapse = ""), "\n\n")
+
+cat("Cox (survival) table columns:\n")
+cat("  Subgroup | n | n1 | events | m1 | m0 | RMST | HR (95% CI)\n\n")
+
+cat("GLM (Poisson-offset) table columns:\n")
+cat("  Subgroup | n | n1 | Rate(C) | Rate(T) | IRR (95% CI)\n\n")
+
+cat("Both tables show:\n")
+cat("  - ITT row (full population)\n")
+cat("  - Questionable (H) row — identified subgroup where treatment is harmful\n")
+cat("  - Recommend (Hc) row — complement where treatment is beneficial\n")
+cat("  - When bootstrap results available: bias-corrected effect column\n")
+```
+
+
+# Session Info
+
+```{r session-info}
+sessionInfo()
+```
