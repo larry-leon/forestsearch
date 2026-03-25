@@ -46,6 +46,13 @@ consistency.}
 \item{confs_labels}{Character vector. Labels for confounders.}
 
 \item{details}{Logical. Print details during execution.}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+(uses Cox model).}
+
+\item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
+consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 }
 \value{
 Named numeric vector with consistency results, or NULL if criteria

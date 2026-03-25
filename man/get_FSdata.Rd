@@ -57,6 +57,12 @@ get_FSdata(
 \item{event.name}{Character. Name of event indicator variable.}
 
 \item{details}{Logical. If TRUE, prints details during execution.}
+
+\item{outcome_type}{Character. One of \code{"survival"} (default),
+\code{"binary"}, or \code{"continuous"}.}
+
+\item{offset.name}{Character or \code{NULL}. Name of the follow-up time
+column for rate-based measures (IRR, IRD).}
 }
 \description{
 Prepares a dataset for ForestSearch, including options for LASSO-based dimension reduction,

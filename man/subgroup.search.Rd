@@ -55,6 +55,16 @@ subgroup.search(
 \item{maxk}{Integer. Maximum number of factors in a subgroup.}
 
 \item{parallel_workers}{Integer. Number of parallel workers (default: all available cores).}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+(uses Cox model).}
+
+\item{df_analysis}{Data frame or \code{NULL}. Full analysis dataset, passed
+to the GLM estimator for within-subgroup evaluation.}
+
+\item{effect_threshold}{Numeric or \code{NULL}. GLM effect threshold for
+subgroup selection.  Default \code{NULL} (uses \code{hr.threshold}).}
 }
 \value{
 List with found subgroups, maximum HR, search time, configuration info,

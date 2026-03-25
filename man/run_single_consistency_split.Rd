@@ -21,6 +21,13 @@ run_single_consistency_split(
 \item{hr.consistency}{Numeric. Minimum HR threshold for consistency.}
 
 \item{cox_init}{Numeric. Initial value for Cox model (log HR).}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+(uses Cox model).}
+
+\item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
+consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 }
 \value{
 Numeric. 1 if both splits meet threshold, 0 if not, NA if error.

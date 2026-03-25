@@ -606,7 +606,7 @@ make_effect_estimator <- function(
 
     result <- tryCatch({
       # =================================================================
-      # Option A: IPTW — stabilized weights, coefficient IS the effect
+      # Option A: IPTW -- stabilized weights, coefficient IS the effect
       # =================================================================
       if (ps_adjust_method == "iptw" && "sw" %in% names(data_slice)) {
         fmla <- stats::as.formula(
@@ -630,7 +630,7 @@ make_effect_estimator <- function(
         )
 
       # =================================================================
-      # Option B: Bang & Robins DR — IPS covariate + G-computation
+      # Option B: Bang & Robins DR -- IPS covariate + G-computation
       # (Section 2.2, Bang & Robins 2005)
       # =================================================================
       } else if (ps_adjust_method == "dr_gcomp" &&
@@ -1010,7 +1010,7 @@ estimate_propensity_scores <- function(
   # -----------------------------------------------------------------------
   # Compute both adjustment quantities:
   #
-  # 1. Stabilized IPTW weights (Option A — default)
+  # 1. Stabilized IPTW weights (Option A -- default)
   #    sw_i = P(W=1) / e(X_i)       if W_i = 1
   #         = P(W=0) / (1 - e(X_i)) if W_i = 0
   #    Used as: glm(Y ~ treat, weights = sw, ...)

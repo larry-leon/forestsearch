@@ -382,7 +382,7 @@ grf.subg.harm.glm <- function(data,
   )
   config$return_selected_cuts_only <- return_selected_cuts_only
 
-  # Data preparation — no event variable needed
+  # Data preparation -- no event variable needed
   temp_matrix <- as.matrix(data[, confounders.name])
   X <- apply(temp_matrix, 2, as.numeric)
   Y <- data[, outcome.name]
@@ -417,7 +417,7 @@ grf.subg.harm.glm <- function(data,
     return(create_null_result(data, NULL, list(), config))
   }
 
-  # Fit causal forest (GLM — no horizon/tau needed)
+  # Fit causal forest (GLM -- no horizon/tau needed)
   cs.forest <- fit_causal_forest_glm(X, Y, W, config$RCT, config$seedit)
 
   # Everything downstream is identical to the survival path

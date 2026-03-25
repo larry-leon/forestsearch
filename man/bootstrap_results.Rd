@@ -47,7 +47,11 @@ bias correction.}
 \code{treat.recommend == 1}) from original sample. Used as reference for
 bias correction.}
 
-\item{seed}{Integer. Random seed for reproducibility. Default 8316951L.
+\item{seed}{Integer. Random seed for reproducibility. Default 8316951L.}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  When \code{NULL}
+(default), the Cox model via \code{cox.formula.boot} is used.
 Must match the seed used in \code{\link{bootstrap_ystar}} to ensure
 bootstrap index alignment.}
 }

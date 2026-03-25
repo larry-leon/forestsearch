@@ -12,7 +12,7 @@ cleaned vectors.}
 
 \item{id.x}{Integer vector.  1 = subject in this subgroup, 0 = not.}
 
-\item{estimator_fn}{Closure from \code{make_effect_estimator()}.}
+\item{estimator_fn}{Closure from \code{\link[=make_effect_estimator]{make_effect_estimator()}}.}
 }
 \value{
 A list with components \code{hr}, \code{lower}, \code{upper}, \code{med0}, \code{med1},
@@ -25,7 +25,7 @@ pre-built estimator closure.  Returns a list compatible with
 }
 \details{
 For binary outcomes with \code{effect_measure = "RD"}, the \code{hr} slot contains
-the risk difference (not a hazard ratio) — the name is retained for
+the risk difference (not a hazard ratio) -- the name is retained for
 pipeline compatibility.  Similarly, \code{lower}/\code{upper} are Wald-type CI
 bounds and \code{med0}/\code{med1} are \code{NA}.
 }

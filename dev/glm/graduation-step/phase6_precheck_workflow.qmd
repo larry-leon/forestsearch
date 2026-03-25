@@ -38,7 +38,9 @@ Run in RStudio console, in order:
 
 
 devtools::document()
-devtools::load_all()
+
+devtools::check(args = c("--as-cran", "--no-build-vignettes"))
+
 devtools::check(args = "--as-cran")
 
 

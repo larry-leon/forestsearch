@@ -210,7 +210,7 @@ forestsearch_Kfold <- function(
   cv_args$details <- FALSE
   cv_args$plot.sg <- FALSE
 
-  # PS must be re-estimated on each training fold — NULL out any
+  # PS must be re-estimated on each training fold -- NULL out any
   # user-supplied ps_hat (wrong length for training fold).
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
@@ -513,7 +513,7 @@ forestsearch_tenfold <- function(
   cv_args$details <- FALSE
   cv_args$plot.sg <- FALSE
 
-  # PS must be re-estimated on each training fold — NULL out any
+  # PS must be re-estimated on each training fold -- NULL out any
   # user-supplied ps_hat (wrong length for training fold).
   # ps_method and ps_adjust_method carry through via args_call_all.
   cv_args$ps_hat <- NULL
@@ -802,17 +802,17 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
   # ===========================================================================
 
   if (outall) {
-    # Detect GLM outcome type — SG_tab_estimates() is survival-specific
+    # Detect GLM outcome type -- SG_tab_estimates() is survival-specific
     outcome_type <- res$cv_args$outcome_type
     is_glm <- !is.null(outcome_type) && outcome_type != "survival"
 
     if (is_glm) {
       # GLM outcomes: detailed tables via SG_tab_estimates are not yet
       # supported (survival-specific columns RMST, HR).  Return core
-      # metrics only — full GLM CV summary tables are a future extension.
+      # metrics only -- full GLM CV summary tables are a future extension.
       if (details) {
         cat("Note: outall = TRUE with GLM outcome_type = '", outcome_type,
-            "' — detailed tables not yet available.\n")
+            "' -- detailed tables not yet available.\n")
         cat("  Returning sensitivity/PPV and find metrics.\n")
       }
       out <- list(

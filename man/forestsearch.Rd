@@ -63,7 +63,7 @@ forestsearch(
   offset.name = NULL,
   adverse_outcome = NULL,
   ps_method = NULL,
-  ps_adjust_method = c("iptw", "dr_gcomp"),
+  ps_adjust_method = c("none", "iptw", "dr_gcomp"),
   ps_hat = NULL
 )
 }
@@ -157,7 +157,7 @@ splits when \code{use_twostage = TRUE}). Default 1000.}
 \item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
 Early stopping threshold for consistency evaluation. When a candidate
 subgroup's consistency probability (\code{Pcons}) meets or exceeds this
-threshold, evaluation stops early — remaining candidates are skipped.
+threshold, evaluation stops early -- remaining candidates are skipped.
 Set to \code{NULL} to disable early stopping and force evaluation of
 all candidates up to \code{max_subgroups_search}. Default \code{0.95}.
 
@@ -208,6 +208,33 @@ is automatically calculated to provide ~2.5 SE margin.}
 \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 }}
+
+\item{outcome_type}{Character. One of \code{"survival"} (default),
+\code{"binary"}, or \code{"continuous"}.}
+
+\item{effect_measure}{Character or \code{NULL}. Effect measure for GLM
+outcomes.  For binary: \code{"RD"}, \code{"OR"}, \code{"RR"},
+\code{"IRR"}, \code{"IRD"}.  For continuous: \code{"MD"}.
+Default depends on \code{outcome_type}.}
+
+\item{offset.name}{Character or \code{NULL}. Name of the follow-up time
+column for rate-based measures (IRR, IRD).}
+
+\item{adverse_outcome}{Logical or \code{NULL}. If \code{TRUE}, higher
+outcome values indicate harm (default for binary).  If \code{FALSE},
+higher values indicate benefit (default for continuous).}
+
+\item{ps_method}{Character or \code{NULL}. Propensity score estimation
+method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
+\code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
+observational.}
+
+\item{ps_adjust_method}{Character. PS adjustment method: \code{"none"}
+(default), \code{"iptw"} (stabilized inverse probability of treatment
+weights), or \code{"dr_gcomp"} (IPS covariate).}
+
+\item{ps_hat}{Numeric vector or \code{NULL}. User-supplied propensity
+scores.  Must have length equal to \code{nrow(df.analysis)}.}
 }
 \value{
 A list of class "forestsearch" containing:

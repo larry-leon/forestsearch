@@ -20,6 +20,10 @@
 #' @param outcome.name Character. Name of outcome variable.
 #' @param event.name Character. Name of event indicator variable.
 #' @param details Logical. If TRUE, prints details during execution.
+#' @param outcome_type Character. One of \code{"survival"} (default),
+#'   \code{"binary"}, or \code{"continuous"}.
+#' @param offset.name Character or \code{NULL}. Name of the follow-up time
+#'   column for rate-based measures (IRR, IRD).
 #' @importFrom stats median quantile
 #' @examples
 #' \donttest{

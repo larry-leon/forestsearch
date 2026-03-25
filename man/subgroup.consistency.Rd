@@ -73,7 +73,7 @@ Default: 10}
 
 \item{stop_threshold}{Numeric in \code{[0, 1]} or \code{NULL}.
 When a candidate subgroup's consistency probability (\code{Pcons})
-meets or exceeds this threshold, evaluation stops early — remaining
+meets or exceeds this threshold, evaluation stops early -- remaining
 candidates are skipped. Set to \code{NULL} to disable early stopping
 and evaluate all candidates up to \code{stop_Kgroups}. Default: \code{NULL}.
 
@@ -135,6 +135,13 @@ sg_focus values with stop_threshold, defaults to min(workers, n_candidates/4).
 When stop_threshold is NULL, defaults to workers*2 for efficiency.}
 \item{show_message}{Print parallel config messages}
 }}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+(uses Cox model).}
+
+\item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
+consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 }
 \value{
 A list containing:

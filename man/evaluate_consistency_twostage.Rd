@@ -61,6 +61,13 @@ evaluate_consistency_twostage(
 \item{conf.level}{Numeric. Confidence level for early stopping (default 0.95).}
 
 \item{min.valid.screen}{Integer. Minimum valid splits in Stage 1 (default 10).}
+
+\item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
+\code{\link{make_effect_estimator}} for GLM outcomes.  Default \code{NULL}
+(uses Cox model).}
+
+\item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
+consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 }
 \value{
 Named numeric vector with consistency results, or NULL if not met.

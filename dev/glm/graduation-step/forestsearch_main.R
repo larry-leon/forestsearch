@@ -52,7 +52,7 @@
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
 #'   Early stopping threshold for consistency evaluation. When a candidate
 #'   subgroup's consistency probability (\code{Pcons}) meets or exceeds this
-#'   threshold, evaluation stops early — remaining candidates are skipped.
+#'   threshold, evaluation stops early -- remaining candidates are skipped.
 #'   Set to \code{NULL} to disable early stopping and force evaluation of
 #'   all candidates up to \code{max_subgroups_search}. Default \code{0.95}.
 #'
@@ -93,6 +93,26 @@
 #'     \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
+#' @param outcome_type Character. One of \code{"survival"} (default),
+#'   \code{"binary"}, or \code{"continuous"}.
+#' @param effect_measure Character or \code{NULL}. Effect measure for GLM
+#'   outcomes.  For binary: \code{"RD"}, \code{"OR"}, \code{"RR"},
+#'   \code{"IRR"}, \code{"IRD"}.  For continuous: \code{"MD"}.
+#'   Default depends on \code{outcome_type}.
+#' @param offset.name Character or \code{NULL}. Name of the follow-up time
+#'   column for rate-based measures (IRR, IRD).
+#' @param adverse_outcome Logical or \code{NULL}. If \code{TRUE}, higher
+#'   outcome values indicate harm (default for binary).  If \code{FALSE},
+#'   higher values indicate benefit (default for continuous).
+#' @param ps_method Character or \code{NULL}. Propensity score estimation
+#'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
+#'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
+#'   observational.
+#' @param ps_adjust_method Character. PS adjustment method: \code{"none"}
+#'   (default), \code{"iptw"} (stabilized inverse probability of treatment
+#'   weights), or \code{"dr_gcomp"} (IPS covariate).
+#' @param ps_hat Numeric vector or \code{NULL}. User-supplied propensity
+#'   scores.  Must have length equal to \code{nrow(df.analysis)}.
 #'
 #' @return A list of class "forestsearch" containing:
 #'   \describe{
@@ -285,7 +305,7 @@ forestsearch <- function(df.analysis,
                          adverse_outcome = NULL,
                          # Propensity score adjustment
                          ps_method = NULL,
-                         ps_adjust_method = c("iptw", "dr_gcomp"),
+                         ps_adjust_method = c("none", "iptw", "dr_gcomp"),
                          ps_hat = NULL) {
 
   # ===========================================================================
@@ -445,7 +465,7 @@ forestsearch <- function(df.analysis,
     # Resolve dmin.grf for GLM outcomes.
     # The survival default (dmin.grf = 12) is on the RMST scale (months)
     # and would filter out all candidates for binary/continuous outcomes
-    # where DR score differences are on the probability/mean scale (0–1).
+    # where DR score differences are on the probability/mean scale (0--1).
     # Default to 0.0 (any positive harm qualifies) unless the user
     # explicitly specified a value.
     if (missing(dmin.grf) || dmin.grf == 12) {
@@ -913,7 +933,7 @@ forestsearch <- function(df.analysis,
 
     # Only pass GLM closure params when active (non-NULL).
     # This ensures the survival path never sends unknown args to
-    # subgroup.consistency — critical for compatibility with
+    # subgroup.consistency -- critical for compatibility with
     # the CRAN-installed version.
     if (!is.null(estimator_fn)) {
       consistency_overrides$estimator_fn <- estimator_fn

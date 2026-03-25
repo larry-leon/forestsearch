@@ -24,6 +24,12 @@ lasso_selection(
 \item{event.name}{Character. Name of event indicator variable.}
 
 \item{seedit}{Integer. Random seed.}
+
+\item{outcome_type}{Character. One of \code{"survival"} (default),
+\code{"binary"}, or \code{"continuous"}.}
+
+\item{offset.name}{Character or \code{NULL}. Name of the follow-up time
+column for rate-based measures (IRR, IRD).}
 }
 \value{
 List with selected, omitted variables, coefficients, lambda, and fits.
