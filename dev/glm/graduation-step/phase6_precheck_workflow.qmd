@@ -1,0 +1,112 @@
+---
+title: "Phase 6: CRAN Check Workflow"
+subtitle: "GLM Extension — Pre-Check Steps"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+    theme: cosmo
+---
+
+# Files to Download
+
+Download all files from the Artifact Panel to your package root
+(`~/GitHub/forestsearch/`):
+
+| File | Destination | What Changed |
+|---|---|---|
+| `R/glm_effect_estimators.R` | `R/` | **NEW** — graduated from `dev/glm/` (1106 lines, 2 exports) |
+| `R/forestsearch_main.R` | `R/` | Section 2C: `ps_method`, `ps_adjust_method`, `ps_hat` params |
+| `R/forestsearch_cross_validation.R` | `R/` | Phase 5: `offset.name`, `ps_hat` NULL, `stringr` removed |
+| `R/grf_main.R` | `R/` | `result$forest` returned from `grf.subg.harm.glm()` |
+| `R/get_fsdata.R` | `R/` | Stale `@importFrom stringr` removed |
+| `DESCRIPTION` | root | `stringr` removed from Imports |
+
+# Pre-Check Sequence
+
+Run in RStudio console, in order:
+
+```r
+# Step 1: Regenerate NAMESPACE from roxygen tags
+#devtools::document()
+
+# Step 2: Verify everything loads
+#devtools::load_all()
+
+
+devtools::document()
+devtools::load_all()
+devtools::check(args = "--as-cran")
+
+
+# Step 3: Quick smoke test
+library(survival)
+df <- survival::gbsg
+df$id <- seq_len(nrow(df))
+df$grade3 <- as.integer(df$grade == "3")
+fn <- make_effect_estimator("binary", "hormon", "status",
+  offset.name = "rfstime", effect_measure = "IRR",
+  ps_adjust_method = "none")
+fn(df)$estimate  # should return a numeric value
+
+# Step 4: Full CRAN check
+devtools::check(args = "--as-cran")
+```
+
+# What `devtools::document()` Will Do
+
+From the roxygen tags in the source files, it will:
+
+1. **Add to NAMESPACE:**
+   - `export(make_effect_estimator)`
+   - `export(estimate_propensity_scores)`
+   - `importFrom(stats, glm, binomial, poisson, predict, as.formula, ...)`
+   - `importFrom(survival, coxph, Surv)`
+   - `importFrom(grf, regression_forest, predict.regression_forest)`
+
+2. **Remove from NAMESPACE:**
+   - `importFrom(stringr, str_length)`
+   - `importFrom(stringr, str_sub)`
+
+3. **Generate man pages:**
+   - `man/make_effect_estimator.Rd`
+   - `man/estimate_propensity_scores.Rd`
+
+# Expected Check Notes
+
+Likely notes from `R CMD check --as-cran`:
+
+| Note | Action |
+|---|---|
+| "Non-standard things in check directory" | Ignore (standard note) |
+| "Possibly missing imports: sandwich" | OK — `sandwich` is used conditionally via `requireNamespace()` |
+| New function `make_effect_estimator` has `\dontrun{}` examples | Correct — complex machinery, not self-contained |
+| New function `estimate_propensity_scores` has `\dontrun{}` examples | Correct — requires `grf` fitting |
+
+# Exports Summary
+
+After `devtools::document()`, the package will have these GLM-related exports:
+
+| Function | Purpose |
+|---|---|
+| `make_effect_estimator()` | Factory for estimator closures (OR, RD, RR, IRR, IRD, MD, HR) |
+| `estimate_propensity_scores()` | PS estimation with GRF/LASSO/logistic + IPTW weights |
+
+All other GLM functions (`.make_cox_estimator`, `.estimate_rd`, `.ps_grf`, etc.)
+remain internal (`@noRd`) — consistent with the package's pattern of minimizing
+exports and only exporting functions needed by parallel workers.
+
+# _pkgdown.yml Update
+
+Add the two new exports to a new reference category:
+
+```yaml
+  - title: "GLM Extension"
+    desc: "Effect estimation for binary and continuous outcomes"
+    contents:
+      - make_effect_estimator
+      - estimate_propensity_scores
+```

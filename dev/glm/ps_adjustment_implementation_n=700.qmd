@@ -382,7 +382,7 @@ cat("Dev source file:", dev_source_path, "\n")
 # inside each worker body.  simulate_confounded_trial() is defined in
 # this Quarto session and is auto-exported by future's globals detection.
 
-run_mc_scenario <- function(confounding_strength, n_sims, n = 2000) {
+run_mc_scenario <- function(confounding_strength, n_sims, n = 700) {
 
   results <- foreach(
     s = seq_len(n_sims),
@@ -729,4 +729,3 @@ forestsearch(df, outcome_type = "binary", is.RCT = FALSE,
 ```{r session-info}
 sessionInfo()
 ```
-
