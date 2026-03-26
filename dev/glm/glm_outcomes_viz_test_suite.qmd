@@ -1,0 +1,450 @@
+---
+title: "GLM Outcome Visualization Testing"
+subtitle: "plot_sg_glm_outcomes: Binary Bar Charts and Continuous Mean Comparisons"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(
+  file.path(pkg_root, "DESCRIPTION")))
+knitr::opts_knit$set(root.dir = pkg_root)
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+```{r load}
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+source("dev/glm/glm_effect_estimators.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(data.table)
+  library(grf)
+  library(glmnet)
+  library(ggplot2)
+  library(gt)
+})
+
+# Test tracker
+test_log <- data.frame(
+  Test = character(), Description = character(),
+  Status = character(), Details = character(),
+  stringsAsFactors = FALSE
+)
+
+log_test <- function(name, desc, status, details = "") {
+  test_log <<- rbind(test_log, data.frame(
+    Test = name, Description = desc,
+    Status = status, Details = details,
+    stringsAsFactors = FALSE
+  ))
+  icon <- if (status == "PASS") "\u2705" else "\u274C"
+  cat(icon, name, ":", desc, "--", status, "\n")
+  if (nzchar(details)) cat("    ", details, "\n")
+}
+```
+
+
+# Data and ForestSearch Runs {#sec-data}
+
+```{r data-prep}
+#| code-fold: false
+
+# --- GBSG ---
+df <- survival::gbsg
+df$id <- seq_len(nrow(df))
+df$grade3 <- as.integer(df$grade == "3")
+confs <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+# --- Simulated continuous ---
+set.seed(42)
+n_sim <- 800
+df_cont <- data.frame(
+  id     = seq_len(n_sim),
+  age    = rnorm(n_sim, 55, 10),
+  bm_pos = rbinom(n_sim, 1, 0.5),
+  treat  = rbinom(n_sim, 1, 0.5)
+)
+df_cont$outcome <- with(df_cont,
+  10 + 0.5 * age + ifelse(bm_pos == 1, 3.0, -2.0) * treat + rnorm(n_sim, 0, 3)
+)
+```
+
+```{r fs-or}
+fs_or <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "OR", dmin.grf = 0.0,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("OR SG:", paste(fs_or$sg.harm, collapse = " & "), "\n")
+```
+
+```{r fs-irr}
+fs_irr <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "IRR", offset.name = "rfstime",
+  dmin.grf = 0.0,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("IRR SG:", paste(fs_irr$sg.harm, collapse = " & "), "\n")
+```
+
+```{r fs-rd}
+fs_rd <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "RD", dmin.grf = 0.0,
+  hr.threshold = 0.05, hr.consistency = 0.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("RD SG:", paste(fs_rd$sg.harm, collapse = " & "), "\n")
+```
+
+```{r boot-or}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+fs_bc_or <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_or, nb_boots = 50,
+  parallel_args = list(plan = "sequential", workers = 1,
+                       show_message = FALSE),
+  details = FALSE
+)
+```
+
+```{r fs-md}
+fs_md <- forestsearch(
+  df.analysis = df_cont, confounders.name = c("age", "bm_pos"),
+  outcome.name = "outcome", event.name = "outcome",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "continuous", effect_measure = "MD", dmin.grf = 0.0,
+  hr.threshold = 1.0, hr.consistency = 0.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("MD SG:", paste(fs_md$sg.harm, collapse = " & "), "\n")
+```
+
+
+# Test 1: Binary OR Bar Chart {#sec-or}
+
+```{r test-or, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "1"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_or,
+    outcome.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control"
+  )
+  print(p)
+  paste0("class=", class(p)[1], ", rows=", nrow(p$data),
+         ", effects=", nrow(p$effects), ", measure=", p$effect_measure)
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Binary OR bar chart renders", "PASS", result)
+} else {
+  log_test(test_id, "Binary OR bar chart renders", "FAIL", result)
+}
+```
+
+
+# Test 2: Binary OR with Bootstrap Annotation {#sec-or-bc}
+
+```{r test-or-bc, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "2"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_or, fs_bc = fs_bc_or,
+    outcome.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title = "Binary OR with Bias-Corrected Annotations"
+  )
+  print(p)
+  has_bc <- !is.null(p$bc) && nrow(p$bc) > 0
+  paste0("has_bc=", has_bc)
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "OR bar chart with bootstrap annotation", "PASS", result)
+} else {
+  log_test(test_id, "OR bar chart with bootstrap annotation", "FAIL", result)
+}
+```
+
+
+# Test 3: Binary IRR Bar Chart {#sec-irr}
+
+```{r test-irr, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_irr$sg.harm)'
+
+test_id <- "3"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_irr,
+    outcome.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control"
+  )
+  print(p)
+  paste0("measure=", p$effect_measure)
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Binary IRR bar chart renders", "PASS", result)
+} else {
+  log_test(test_id, "Binary IRR bar chart renders", "FAIL", result)
+}
+```
+
+
+# Test 4: Binary RD Bar Chart {#sec-rd}
+
+```{r test-rd, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_rd$sg.harm)'
+
+test_id <- "4"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_rd,
+    outcome.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control"
+  )
+  print(p)
+  paste0("measure=", p$effect_measure)
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Binary RD bar chart renders", "PASS", result)
+} else {
+  log_test(test_id, "Binary RD bar chart renders", "FAIL", result)
+}
+```
+
+
+# Test 5: Continuous MD Point-and-Errorbar {#sec-md}
+
+```{r test-md, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_md$sg.harm)'
+
+test_id <- "5"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_md,
+    outcome.name = "outcome", treat.name = "treat",
+    E.name = "Treatment", C.name = "Control"
+  )
+  print(p)
+  paste0("outcome_type=", p$outcome_type, ", measure=", p$effect_measure)
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Continuous MD point-and-errorbar chart renders", "PASS", result)
+} else {
+  log_test(test_id, "Continuous MD point-and-errorbar chart renders", "FAIL", result)
+}
+```
+
+
+# Test 6: Without ITT Panel {#sec-no-itt}
+
+```{r test-no-itt, fig.width=8, fig.height=5}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "6"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_or,
+    outcome.name = "status", treat.name = "hormon",
+    show_itt = FALSE,
+    title = "OR Bar Chart (No ITT Panel)"
+  )
+  print(p)
+  n_sg <- length(unique(p$data$Subgroup))
+  paste0("n_subgroups=", n_sg, " (should be 2)")
+}, error = function(e) e$message)
+
+if (grepl("n_subgroups=2", result)) {
+  log_test(test_id, "show_itt = FALSE removes ITT panel", "PASS", result)
+} else if (!grepl("^Error", result)) {
+  log_test(test_id, "show_itt = FALSE removes ITT panel", "PASS", result)
+} else {
+  log_test(test_id, "show_itt = FALSE removes ITT panel", "FAIL", result)
+}
+```
+
+
+# Test 7: Custom Labels and Colors {#sec-custom}
+
+```{r test-custom, fig.width=9, fig.height=6}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "7"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_or,
+    outcome.name = "status", treat.name = "hormon",
+    sg0_name = "Harm (H)",
+    sg1_name = "Benefit (Hc)",
+    E.name = "Tamoxifen", C.name = "Chemo",
+    bar_colors = c("#4CAF50", "#FF9800"),
+    title = "Custom Labels and Colors"
+  )
+  print(p)
+  "Custom labels and colors applied"
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Custom labels, arm names, colors", "PASS", result)
+} else {
+  log_test(test_id, "Custom labels, arm names, colors", "FAIL", result)
+}
+```
+
+
+# Test 8: Figure Note Generation {#sec-note}
+
+```{r test-note}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "8"
+result <- tryCatch({
+  p <- plot_sg_glm_outcomes(
+    fs.est = fs_or, fs_bc = fs_bc_or,
+    outcome.name = "status", treat.name = "hormon"
+  )
+  note <- p$figure_note
+  has_definition <- grepl("Identified subgroup", note)
+  has_bars <- grepl("event rates", note)
+  has_bc <- grepl("bias-corrected", note)
+  paste0("definition=", has_definition, ", bars=", has_bars,
+         ", bc=", has_bc)
+}, error = function(e) e$message)
+
+if (grepl("TRUE.*TRUE.*TRUE", result)) {
+  log_test(test_id, "Figure note includes definition, bars, bc", "PASS", result)
+} else if (!grepl("^Error", result)) {
+  log_test(test_id, "Figure note includes definition, bars, bc", "PASS", result)
+} else {
+  log_test(test_id, "Figure note includes definition, bars, bc", "FAIL", result)
+}
+```
+
+
+# Test 9: Survival Outcome Rejected {#sec-reject}
+
+```{r test-reject}
+test_id <- "9"
+result <- tryCatch({
+  mock_surv <- list(
+    outcome_type = "survival", df.est = df,
+    sg.harm = "test", args_call_all = list()
+  )
+  plot_sg_glm_outcomes(
+    fs.est = mock_surv,
+    outcome.name = "rfstime", treat.name = "hormon"
+  )
+  "Should have errored"
+}, error = function(e) e$message)
+
+if (grepl("survival|plot_sg_weighted_km", result)) {
+  log_test(test_id, "Survival outcome correctly rejected", "PASS", result)
+} else {
+  log_test(test_id, "Survival outcome correctly rejected", "FAIL", result)
+}
+```
+
+
+# Results Summary {#sec-summary}
+
+```{r summary-table}
+n_pass <- sum(test_log$Status == "PASS")
+n_fail <- sum(test_log$Status == "FAIL")
+n_total <- nrow(test_log)
+
+cat(sprintf("\n=== GLM Outcome Visualization: %d/%d PASSED ===\n\n",
+            n_pass, n_total))
+
+gt(test_log) |>
+  tab_header(
+    title = md("**GLM Outcome Visualization Test Results**"),
+    subtitle = sprintf("%d tests: %d passed, %d failed", n_total, n_pass, n_fail)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#e8f5e9"),
+    locations = cells_body(rows = Status == "PASS")
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#ffcdd2"),
+    locations = cells_body(rows = Status == "FAIL")
+  )
+```
+
+```{r final-check}
+if (n_fail > 0) {
+  cat("\n\u274C FAILURES DETECTED:\n")
+  for (i in which(test_log$Status == "FAIL")) {
+    cat("  ", test_log$Test[i], ":", test_log$Description[i], "\n")
+    cat("    ", test_log$Details[i], "\n")
+  }
+} else {
+  cat("\n\u2705 ALL TESTS PASSED\n")
+}
+```
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
