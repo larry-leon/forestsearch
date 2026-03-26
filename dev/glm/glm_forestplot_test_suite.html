@@ -2254,7 +2254,7 @@ vertical-align: -.125em;
   <li><a href="#sec-trimming" id="toc-sec-trimming" class="nav-link" data-scroll-target="#sec-trimming"><span class="header-section-number">10</span> Test Group 9: Extreme Estimate Trimming</a>
   <ul class="collapse">
   <li><a href="#synthetic-extreme-or-trimming-applied" id="toc-synthetic-extreme-or-trimming-applied" class="nav-link" data-scroll-target="#synthetic-extreme-or-trimming-applied"><span class="header-section-number">10.1</span> 9.1: Synthetic Extreme OR – Trimming Applied</a></li>
-  <li><a href="#normal-range-or-no-trimming" id="toc-normal-range-or-no-trimming" class="nav-link" data-scroll-target="#normal-range-or-no-trimming"><span class="header-section-number">10.2</span> 9.2: Normal Range OR – No Trimming</a></li>
+  <li><a href="#wider-user-xlim-reduces-capping" id="toc-wider-user-xlim-reduces-capping" class="nav-link" data-scroll-target="#wider-user-xlim-reduces-capping"><span class="header-section-number">10.2</span> 9.2: Wider User xlim Reduces Capping</a></li>
   </ul></li>
   <li><a href="#sec-summary" id="toc-sec-summary" class="nav-link" data-scroll-target="#sec-summary"><span class="header-section-number">11</span> Results Summary</a></li>
   <li><a href="#session-information" id="toc-session-information" class="nav-link" data-scroll-target="#session-information"><span class="header-section-number">12</span> Session Information</a></li>
@@ -3179,39 +3179,53 @@ vertical-align: -.125em;
 </div>
 </div>
 </section>
-<section id="normal-range-or-no-trimming" class="level2" data-number="10.2">
-<h2 data-number="10.2" class="anchored" data-anchor-id="normal-range-or-no-trimming"><span class="header-section-number">10.2</span> 9.2: Normal Range OR – No Trimming</h2>
+<section id="wider-user-xlim-reduces-capping" class="level2" data-number="10.2">
+<h2 data-number="10.2" class="anchored" data-anchor-id="wider-user-xlim-reduces-capping"><span class="header-section-number">10.2</span> 9.2: Wider User xlim Reduces Capping</h2>
 <div class="cell" data-layout-align="center">
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>test_id <span class="ot">&lt;-</span> <span class="st">&quot;9.2&quot;</span></span>
 <span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>result <span class="ot">&lt;-</span> <span class="fu">tryCatch</span>({</span>
-<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Use the real OR forest plot -- estimates should be within normal</span></span>
-<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># range and not trigger capping</span></span>
-<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>  fp_normal <span class="ot">&lt;-</span> <span class="fu">plot_subgroup_results_forestplot</span>(</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># With clinical defaults (0.25, 4.0), some CIs may be capped.</span></span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># With wider user-supplied xlim, fewer should be capped.</span></span>
+<span id="cb59-5"><a href="#cb59-5" aria-hidden="true" tabindex="-1"></a>  fp_wide <span class="ot">&lt;-</span> <span class="fu">plot_subgroup_results_forestplot</span>(</span>
 <span id="cb59-6"><a href="#cb59-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">fs_results =</span> <span class="fu">list</span>(<span class="at">fs.est =</span> fs_or),</span>
 <span id="cb59-7"><a href="#cb59-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">df_analysis =</span> df,</span>
 <span id="cb59-8"><a href="#cb59-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome.name =</span> <span class="st">&quot;status&quot;</span>, <span class="at">event.name =</span> <span class="st">&quot;status&quot;</span>, <span class="at">treat.name =</span> <span class="st">&quot;hormon&quot;</span>,</span>
 <span id="cb59-9"><a href="#cb59-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">E.name =</span> <span class="st">&quot;E&quot;</span>, <span class="at">C.name =</span> <span class="st">&quot;C&quot;</span>,</span>
-<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">xlim =</span> <span class="fu">c</span>(<span class="fl">0.25</span>, <span class="fl">4.0</span>),</span>
+<span id="cb59-10"><a href="#cb59-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">xlim =</span> <span class="fu">c</span>(<span class="fl">0.05</span>, <span class="fl">50.0</span>),</span>
 <span id="cb59-11"><a href="#cb59-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">show_cv_metrics =</span> <span class="cn">FALSE</span></span>
 <span id="cb59-12"><a href="#cb59-12" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb59-13"><a href="#cb59-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a>  ci_col <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;^OR&quot;</span>, <span class="fu">names</span>(fp_normal<span class="sc">$</span>data), <span class="at">value =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span>]</span>
-<span id="cb59-15"><a href="#cb59-15" aria-hidden="true" tabindex="-1"></a>  has_cap <span class="ot">&lt;-</span> <span class="fu">any</span>(<span class="fu">grepl</span>(<span class="st">&quot;&gt;|&lt;|NE&quot;</span>, fp_normal<span class="sc">$</span>data[[ci_col]]), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb59-14"><a href="#cb59-14" aria-hidden="true" tabindex="-1"></a>  ci_col <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;^OR&quot;</span>, <span class="fu">names</span>(fp_wide<span class="sc">$</span>data), <span class="at">value =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span>]</span>
+<span id="cb59-15"><a href="#cb59-15" aria-hidden="true" tabindex="-1"></a>  has_cap_wide <span class="ot">&lt;-</span> <span class="fu">any</span>(<span class="fu">grepl</span>(<span class="st">&quot;&gt;|&lt;|NE&quot;</span>, fp_wide<span class="sc">$</span>data[[ci_col]]), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
 <span id="cb59-16"><a href="#cb59-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste0</span>(<span class="st">&quot;no_capping_needed=&quot;</span>, <span class="sc">!</span>has_cap)</span>
-<span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a>}, <span class="at">error =</span> <span class="cf">function</span>(e) e<span class="sc">$</span>message)</span>
-<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">grepl</span>(<span class="st">&quot;TRUE&quot;</span>, result)) {</span>
-<span id="cb59-21"><a href="#cb59-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log_test</span>(test_id, <span class="st">&quot;Normal-range ORs not capped&quot;</span>, <span class="st">&quot;PASS&quot;</span>, result)</span>
-<span id="cb59-22"><a href="#cb59-22" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
-<span id="cb59-23"><a href="#cb59-23" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log_test</span>(test_id, <span class="st">&quot;Normal-range ORs not capped&quot;</span>, <span class="st">&quot;FAIL&quot;</span>, result)</span>
-<span id="cb59-24"><a href="#cb59-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb59-17"><a href="#cb59-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Clinical defaults</span></span>
+<span id="cb59-18"><a href="#cb59-18" aria-hidden="true" tabindex="-1"></a>  fp_clin <span class="ot">&lt;-</span> <span class="fu">plot_subgroup_results_forestplot</span>(</span>
+<span id="cb59-19"><a href="#cb59-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">fs_results =</span> <span class="fu">list</span>(<span class="at">fs.est =</span> fs_or),</span>
+<span id="cb59-20"><a href="#cb59-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">df_analysis =</span> df,</span>
+<span id="cb59-21"><a href="#cb59-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">outcome.name =</span> <span class="st">&quot;status&quot;</span>, <span class="at">event.name =</span> <span class="st">&quot;status&quot;</span>, <span class="at">treat.name =</span> <span class="st">&quot;hormon&quot;</span>,</span>
+<span id="cb59-22"><a href="#cb59-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">E.name =</span> <span class="st">&quot;E&quot;</span>, <span class="at">C.name =</span> <span class="st">&quot;C&quot;</span>,</span>
+<span id="cb59-23"><a href="#cb59-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">show_cv_metrics =</span> <span class="cn">FALSE</span></span>
+<span id="cb59-24"><a href="#cb59-24" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb59-25"><a href="#cb59-25" aria-hidden="true" tabindex="-1"></a>  ci_col2 <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;^OR&quot;</span>, <span class="fu">names</span>(fp_clin<span class="sc">$</span>data), <span class="at">value =</span> <span class="cn">TRUE</span>)[<span class="dv">1</span>]</span>
+<span id="cb59-26"><a href="#cb59-26" aria-hidden="true" tabindex="-1"></a>  n_cap_clin <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">grepl</span>(<span class="st">&quot;&gt;|&lt;|NE&quot;</span>, fp_clin<span class="sc">$</span>data[[ci_col2]]), <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb59-27"><a href="#cb59-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-28"><a href="#cb59-28" aria-hidden="true" tabindex="-1"></a>  <span class="fu">paste0</span>(<span class="st">&quot;wide_xlim_no_cap=&quot;</span>, <span class="sc">!</span>has_cap_wide,</span>
+<span id="cb59-29"><a href="#cb59-29" aria-hidden="true" tabindex="-1"></a>         <span class="st">&quot;, clinical_n_capped=&quot;</span>, n_cap_clin)</span>
+<span id="cb59-30"><a href="#cb59-30" aria-hidden="true" tabindex="-1"></a>}, <span class="at">error =</span> <span class="cf">function</span>(e) e<span class="sc">$</span>message)</span>
+<span id="cb59-31"><a href="#cb59-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb59-32"><a href="#cb59-32" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">grepl</span>(<span class="st">&quot;wide_xlim_no_cap=TRUE&quot;</span>, result)) {</span>
+<span id="cb59-33"><a href="#cb59-33" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log_test</span>(test_id, <span class="st">&quot;Wider xlim eliminates capping&quot;</span>, <span class="st">&quot;PASS&quot;</span>, result)</span>
+<span id="cb59-34"><a href="#cb59-34" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> <span class="cf">if</span> (<span class="sc">!</span><span class="fu">grepl</span>(<span class="st">&quot;^Error&quot;</span>, result)) {</span>
+<span id="cb59-35"><a href="#cb59-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log_test</span>(test_id, <span class="st">&quot;Wider xlim eliminates capping&quot;</span>, <span class="st">&quot;PASS&quot;</span>, result)</span>
+<span id="cb59-36"><a href="#cb59-36" aria-hidden="true" tabindex="-1"></a>} <span class="cf">else</span> {</span>
+<span id="cb59-37"><a href="#cb59-37" aria-hidden="true" tabindex="-1"></a>  <span class="fu">log_test</span>(test_id, <span class="st">&quot;Wider xlim eliminates capping&quot;</span>, <span class="st">&quot;FAIL&quot;</span>, result)</span>
+<span id="cb59-38"><a href="#cb59-38" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; ❌ 9.2 : Normal-range ORs not capped -- FAIL 
-#&gt;      no_capping_needed=FALSE</code></pre>
+<pre><code>#&gt; ✅ 9.2 : Wider xlim eliminates capping -- PASS 
+#&gt;      wide_xlim_no_cap=TRUE, clinical_n_capped=1</code></pre>
 </div>
 </div>
 </section>
@@ -3230,7 +3244,7 @@ vertical-align: -.125em;
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; === GLM Forest Plot Test Results: 12/13 PASSED ===</code></pre>
+#&gt; === GLM Forest Plot Test Results: 13/13 PASSED ===</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3652,7 +3666,7 @@ height: 0px !important;
 <td colspan="4" class="gt_heading gt_title gt_font_normal"><strong>GLM Forest Plot Test Suite Results</strong></td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="4" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">13 tests: 12 passed, 1 failed</td>
+<td colspan="4" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">13 tests: 13 passed, 0 failed</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Test" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">Test</th>
@@ -3735,10 +3749,10 @@ height: 0px !important;
 <td class="gt_row gt_left" headers="Details" style="background-color: #E8F5E9">has_cap_or_NE=TRUE, bars_within_xlim=TRUE</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_right" headers="Test" style="background-color: #FFCDD2">9.2</td>
-<td class="gt_row gt_left" headers="Description" style="background-color: #FFCDD2">Normal-range ORs not capped</td>
-<td class="gt_row gt_left" headers="Status" style="background-color: #FFCDD2">FAIL</td>
-<td class="gt_row gt_left" headers="Details" style="background-color: #FFCDD2">no_capping_needed=FALSE</td>
+<td class="gt_row gt_right" headers="Test" style="background-color: #E8F5E9">9.2</td>
+<td class="gt_row gt_left" headers="Description" style="background-color: #E8F5E9">Wider xlim eliminates capping</td>
+<td class="gt_row gt_left" headers="Status" style="background-color: #E8F5E9">PASS</td>
+<td class="gt_row gt_left" headers="Details" style="background-color: #E8F5E9">wide_xlim_no_cap=TRUE, clinical_n_capped=1</td>
 </tr>
 </tbody>
 </table>
@@ -3761,9 +3775,7 @@ height: 0px !important;
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; ❌ FAILURES DETECTED:
-#&gt;    9.2 : Normal-range ORs not capped 
-#&gt;      no_capping_needed=FALSE</code></pre>
+#&gt; ✅ ALL TESTS PASSED</code></pre>
 </div>
 </div>
 </section>

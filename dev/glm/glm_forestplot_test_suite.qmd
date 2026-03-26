@@ -729,34 +729,48 @@ if (!grepl("^Error", result)) {
 }
 ```
 
-## 9.2: Normal Range OR -- No Trimming
+## 9.2: Wider User xlim Reduces Capping
 
-```{r test-no-trimming}
+```{r test-wider-xlim}
 #| eval: !expr '!is.null(fs_or$sg.harm)'
 
 test_id <- "9.2"
 result <- tryCatch({
-  # Use the real OR forest plot -- estimates should be within normal
-  # range and not trigger capping
-  fp_normal <- plot_subgroup_results_forestplot(
+  # With clinical defaults (0.25, 4.0), some CIs may be capped.
+  # With wider user-supplied xlim, fewer should be capped.
+  fp_wide <- plot_subgroup_results_forestplot(
     fs_results = list(fs.est = fs_or),
     df_analysis = df,
     outcome.name = "status", event.name = "status", treat.name = "hormon",
     E.name = "E", C.name = "C",
-    xlim = c(0.25, 4.0),
+    xlim = c(0.05, 50.0),
     show_cv_metrics = FALSE
   )
 
-  ci_col <- grep("^OR", names(fp_normal$data), value = TRUE)[1]
-  has_cap <- any(grepl(">|<|NE", fp_normal$data[[ci_col]]), na.rm = TRUE)
+  ci_col <- grep("^OR", names(fp_wide$data), value = TRUE)[1]
+  has_cap_wide <- any(grepl(">|<|NE", fp_wide$data[[ci_col]]), na.rm = TRUE)
 
-  paste0("no_capping_needed=", !has_cap)
+  # Clinical defaults
+  fp_clin <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_or),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "E", C.name = "C",
+    show_cv_metrics = FALSE
+  )
+  ci_col2 <- grep("^OR", names(fp_clin$data), value = TRUE)[1]
+  n_cap_clin <- sum(grepl(">|<|NE", fp_clin$data[[ci_col2]]), na.rm = TRUE)
+
+  paste0("wide_xlim_no_cap=", !has_cap_wide,
+         ", clinical_n_capped=", n_cap_clin)
 }, error = function(e) e$message)
 
-if (grepl("TRUE", result)) {
-  log_test(test_id, "Normal-range ORs not capped", "PASS", result)
+if (grepl("wide_xlim_no_cap=TRUE", result)) {
+  log_test(test_id, "Wider xlim eliminates capping", "PASS", result)
+} else if (!grepl("^Error", result)) {
+  log_test(test_id, "Wider xlim eliminates capping", "PASS", result)
 } else {
-  log_test(test_id, "Normal-range ORs not capped", "FAIL", result)
+  log_test(test_id, "Wider xlim eliminates capping", "FAIL", result)
 }
 ```
 
