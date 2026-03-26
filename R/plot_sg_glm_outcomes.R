@@ -112,6 +112,9 @@ plot_sg_glm_outcomes <- function(
     stop("Package 'ggplot2' is required.", call. = FALSE)
   }
 
+  # Avoid R CMD check NOTE for ggplot2 NSE variables
+  Arm <- effect_label <- bc_label <- NULL
+
   if (is.null(fs.est) || is.null(fs.est$df.est)) {
     stop("fs.est must contain a non-empty df.est data frame.", call. = FALSE)
   }
