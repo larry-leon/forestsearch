@@ -263,6 +263,7 @@ cat .gitignore | grep docs
 # Build only articles that haven't been built yet (skips already-built ones)
 # DNW (does not work, rebuilds everything)
 
+pkgdown::check_pkgdown()
 
 pkgdown::build_articles(lazy = TRUE)
 
