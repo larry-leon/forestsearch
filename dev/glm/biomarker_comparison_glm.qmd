@@ -1,0 +1,1282 @@
+---
+title: "Continuous Biomarker Evaluation for GLM Outcomes"
+subtitle: "Comparing glm_cs_fit, MFPI, and STEPP-GLM on Binary and Count Endpoints"
+author: "ForestSearch Package Documentation"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    theme: flatly
+    highlight-style: tango
+    fig-width: 9
+    fig-height: 6
+    fig-align: center
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center"
+)
+
+# =============================================================================
+# SIMULATION PARAMETERS
+# =============================================================================
+
+# Trial design
+sim_n_trial       <- 700L
+
+# Spline GLM (glm_cs_fit)
+sim_spline_df     <- 3L
+
+# MFPI bootstrap (GBSG illustration only)
+sim_n_boot_mfpi   <- 200L
+
+# STEPP sliding windows
+sim_patspop       <- 150L
+sim_minpatspop    <- 50L
+
+# STEPP permutation tests
+sim_nperm_gbsg    <- 999L
+sim_nperm_perm    <- 999L
+
+# Evaluation grid and nominal level
+sim_z_eval        <- c(0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
+sim_alpha         <- 0.05
+
+# Simulation counts
+sim_B_eval        <- 2000L
+sim_B_perm        <- 200L
+
+# Parallel workers
+sim_n_workers     <- floor(0.80 * max(1L, parallel::detectCores(logical = FALSE) - 1L))
+if (sim_n_workers <= 1) stop("Insufficient workers for parallelization")
+```
+
+```{r packages}
+#| code-fold: false
+
+# Load the installed forestsearch (for cox_cs_fit and other exports)
+library(forestsearch)
+
+# Source new GLM functions not yet exported from the package
+# glm_cs_fit() and glm_effect_estimators
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(
+  file.path(pkg_root, "DESCRIPTION")))
+
+source(file.path(pkg_root, "R", "glm_spline_fit.R"))
+source(file.path(pkg_root, "R", "glm_effect_estimators.R"))
+
+# Path for parallel workers to source glm_cs_fit
+glm_source_path <- file.path(pkg_root, "R", "glm_spline_fit.R")
+
+library(survival)
+library(splines)
+library(mfp)
+library(ggplot2)
+library(patchwork)
+library(scales)
+library(dplyr)
+library(doFuture)
+library(foreach)
+
+cat("glm_cs_fit available:", is.function(glm_cs_fit), "\n")
+```
+
+::: {.callout-note}
+## Relationship to the Survival Biomarker Vignette
+
+This document is the **GLM counterpart** to the survival-endpoint
+continuous biomarker evaluation vignette (`biomarker_comparison.qmd`).
+It applies the same three-method comparison framework --- spline
+interaction model, MFPI, and STEPP --- to **binary** and **count**
+outcomes rather than time-to-event endpoints.
+
+**New package function (in development):** `glm_cs_fit()` is the GLM
+analog of `cox_cs_fit()`.  It is sourced from `R/glm_spline_fit.R`
+for this vignette and will be exported in a future release.  It fits a
+natural-spline treatment--biomarker interaction GLM and produces a
+treatment-effect profile with delta-method CIs, directly paralleling
+the log-HR profile from `cox_cs_fit()`.
+
+| Survival Version | GLM Version | Effect Scale |
+|---|---|---|
+| `cox_cs_fit()` | `glm_cs_fit()` | log-OR, log-IRR, or MD |
+| MFPI (`family = cox`) | MFPI (`family = binomial`) | log-OR TEF |
+| STEPP (`stmodelKM`) | STEPP (`stmodelGLM`) | Risk or OR profile |
+:::
+
+
+# Overview {#sec-overview}
+
+A continuously-measured biomarker may **modify a treatment effect** on
+binary, count, or continuous outcomes.  Three methods address this:
+
+| Method | Core Idea | Link to R |
+|--------|-----------|-----------|
+| **`glm_cs_fit()`** | Natural-spline interaction GLM; returns profile + CIs | `forestsearch` (new) |
+| **MFPI** | FP functions fit per arm; difference is the TEF | `mfp` (CRAN) |
+| **STEPP-GLM** | Model-free GLM estimates in sliding windows | `stepp` (CRAN) |
+
+This vignette applies all three to:
+
+1. The **GBSG dataset** with a binary recurrence endpoint, examining
+   whether progesterone receptor (PGR) predicts hormonal therapy
+   benefit on the log-odds scale.
+2. Four **synthetic simulation scenarios** with known logistic
+   interaction functions, evaluating SE calibration, coverage, and CI
+   width for `glm_cs_fit()` and STEPP-GLM.
+
+::: {.callout-tip}
+## To-Do: Poisson/Count Extension
+
+The `stepp` CRAN package already supports `stmodelGLM` with
+`glm = "poisson"` for count data, and `glm_cs_fit()` accepts
+`family = "poisson"` with an offset.  A future section will add:
+
+- GBSG analysis with Poisson rate model (event count + log-time offset)
+- Simulation with known incidence-rate interaction functions
+- IRR profiles from all three methods
+- Comparison to `cox_cs_fit()` HR profiles on the same data (QC)
+:::
+
+
+# GBSG Dataset Analysis {#sec-gbsg}
+
+## Data Preparation
+
+```{r gbsg-prep}
+#| code-fold: false
+data("gbsg", package = "survival")
+
+gbsg <- gbsg |>
+  mutate(
+    rfstime_yr = rfstime / 365.25,
+    log_pgr    = log(pgr + 1),
+    treat      = hormon
+  )
+
+cat(sprintf(
+  "N = %d  |  Events = %d (%.1f%%)  |  Hormon n = %d  |  Control n = %d\n",
+  nrow(gbsg), sum(gbsg$status), 100 * mean(gbsg$status),
+  sum(gbsg$treat == 1), sum(gbsg$treat == 0)
+))
+
+# Overall log-OR (logistic regression)
+fit_logistic_itt <- glm(status ~ treat, family = binomial, data = gbsg)
+logor_itt        <- coef(fit_logistic_itt)["treat"]
+ci_logor_itt     <- confint.default(fit_logistic_itt)["treat", ]
+
+cat(sprintf(
+  "Overall OR (hormon vs control): %.3f  (95%% CI: %.3f -- %.3f)\n",
+  exp(logor_itt), exp(ci_logor_itt[1]), exp(ci_logor_itt[2])
+))
+
+# Also compute overall log-HR for reference/comparison
+fit_cox_itt <- coxph(Surv(rfstime_yr, status) ~ treat, data = gbsg)
+loghr_itt   <- coef(fit_cox_itt)["treat"]
+cat(sprintf(
+  "Overall HR (for reference): %.3f\n", exp(loghr_itt)
+))
+```
+
+## Biomarker Distribution
+
+```{r gbsg-eda}
+#| fig-height: 4
+#| fig-cap: "Distribution of log(PGR+1) by treatment arm."
+
+p_hist <- ggplot(gbsg, aes(x = log_pgr, fill = factor(treat))) +
+  geom_histogram(bins = 35, alpha = 0.65, position = "identity") +
+  scale_fill_manual(values  = c("#E05C5C", "#4472C4"),
+                    labels  = c("Control", "Hormonal therapy")) +
+  labs(x = "log(PGR + 1)", y = "Count", fill = NULL,
+       title = "PGR Distribution by Treatment Arm") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+
+p_box <- ggplot(
+  gbsg,
+  aes(x = log_pgr,
+      y = factor(treat, labels = c("Control", "Hormonal Rx")),
+      fill = factor(treat))
+) +
+  geom_violin(alpha = 0.65, show.legend = FALSE) +
+  geom_boxplot(width = 0.12, outlier.size = 0.7,
+               fill = "white", show.legend = FALSE) +
+  scale_fill_manual(values = c("#E05C5C", "#4472C4")) +
+  labs(x = "log(PGR + 1)", y = NULL, title = "Violin + Boxplot") +
+  theme_minimal(base_size = 12)
+
+p_hist + p_box + plot_layout(ncol = 2)
+```
+
+## Shared Biomarker Grid
+
+```{r z-grid}
+#| code-fold: false
+z_grid <- seq(
+  quantile(gbsg$log_pgr, 0.05),
+  quantile(gbsg$log_pgr, 0.95),
+  length.out = 200L
+)
+nd_grid <- data.frame(log_pgr = z_grid)
+```
+
+---
+
+## Method 1: `glm_cs_fit()` from `forestsearch` {#sec-glm-cs-fit}
+
+The GLM spline model:
+
+$$\text{logit}\bigl(P(Y=1 \mid Z, A)\bigr) = \beta_0 A + f(Z) + g(Z) \cdot A$$
+
+where $Z = \log(\text{pgr}+1)$, $A$ = treatment.  The log-OR profile
+is $\hat\beta(Z) = \hat\beta_0 + \hat g(Z)$ with delta-method CIs.
+
+```{r glm-cs-fit-gbsg}
+#| code-fold: false
+fit_gcsf <- glm_cs_fit(
+  df          = gbsg,
+  outcome_name = "status",
+  treat_name   = "treat",
+  z_name       = "log_pgr",
+  family       = "binomial",
+  spline_df    = sim_spline_df,
+  z_by         = 0.05,
+  z_quantile   = 0.95,
+  alpha        = sim_alpha,
+  show_plot    = FALSE,
+  verbose      = TRUE
+)
+
+df_gcsf <- data.frame(
+  z      = fit_gcsf$z_profile,
+  pgr    = exp(fit_gcsf$z_profile) - 1,
+  loghr  = fit_gcsf$loghr_est,
+  lo     = fit_gcsf$loghr_lower,
+  hi     = fit_gcsf$loghr_upper,
+  method = "glm_cs_fit (forestsearch)"
+)
+```
+
+## Method 1b: Manual Spline Logistic (for Transparency)
+
+```{r spline-logistic-gbsg}
+#| code-fold: false
+spline_df <- sim_spline_df
+
+fit_logistic_spline <- glm(
+  status ~ treat + ns(log_pgr, df = spline_df) +
+    ns(log_pgr, df = spline_df):treat,
+  family = binomial, data = gbsg
+)
+
+fit_logistic_main <- glm(
+  status ~ treat + ns(log_pgr, df = spline_df),
+  family = binomial, data = gbsg
+)
+
+lrt_logistic <- anova(fit_logistic_main, fit_logistic_spline, test = "Chisq")
+cat(sprintf(
+  "LRT for treat x ns(log_pgr): Chi-sq = %.2f, df = %d, p = %.4f\n",
+  lrt_logistic$Deviance[2],
+  lrt_logistic$Df[2],
+  lrt_logistic[2, "Pr(>Chi)"]
+))
+
+nd1 <- data.frame(log_pgr = z_grid, treat = 1, status = 0L)
+nd0 <- data.frame(log_pgr = z_grid, treat = 0, status = 0L)
+
+lp1_manual <- predict(fit_logistic_spline, newdata = nd1, type = "link")
+lp0_manual <- predict(fit_logistic_spline, newdata = nd0, type = "link")
+
+X1 <- model.matrix(fit_logistic_spline, data = nd1)
+X0 <- model.matrix(fit_logistic_spline, data = nd0)
+Xdiff <- X1 - X0
+
+logor_manual <- as.numeric(Xdiff %*% coef(fit_logistic_spline))
+se_manual    <- sqrt(diag(Xdiff %*% vcov(fit_logistic_spline) %*% t(Xdiff)))
+
+df_manual <- data.frame(
+  z      = z_grid,
+  pgr    = exp(z_grid) - 1,
+  loghr  = logor_manual,
+  lo     = logor_manual - 1.96 * se_manual,
+  hi     = logor_manual + 1.96 * se_manual,
+  method = "Manual Spline Logistic"
+)
+
+# Agreement check
+shared_z <- intersect(round(df_gcsf$z, 3), round(df_manual$z, 3))
+if (length(shared_z) > 0) {
+  idx_g <- match(round(shared_z[1], 3), round(df_gcsf$z, 3))
+  idx_m <- match(round(shared_z[1], 3), round(df_manual$z, 3))
+  cat(sprintf(
+    "Agreement at Z = %.3f: glm_cs_fit = %.4f, manual = %.4f (diff = %.2e)\n",
+    shared_z[1], df_gcsf$loghr[idx_g], df_manual$loghr[idx_m],
+    abs(df_gcsf$loghr[idx_g] - df_manual$loghr[idx_m])
+  ))
+}
+```
+
+---
+
+## Method 2: MFPI (Logistic) {#sec-mfpi}
+
+MFPI with `family = binomial` fits fractional polynomial prognostic
+functions per arm and takes the difference as the treatment-effect
+function (TEF).
+
+```{r mfpi-gbsg}
+#| code-fold: false
+fit_mfp0 <- mfp(status ~ fp(log_pgr, df = 4),
+                data = filter(gbsg, treat == 0),
+                family = binomial, verbose = FALSE)
+
+fit_mfp1 <- mfp(status ~ fp(log_pgr, df = 4),
+                data = filter(gbsg, treat == 1),
+                family = binomial, verbose = FALSE)
+
+cat("FP powers -- Control:", fit_mfp0$powers[, "power1"],
+    " | Hormon:", fit_mfp1$powers[, "power1"], "\n")
+
+lp0_mfp <- predict(fit_mfp0, newdata = nd_grid, type = "link")
+lp1_mfp <- predict(fit_mfp1, newdata = nd_grid, type = "link")
+
+raw_mfp   <- lp1_mfp - lp0_mfp
+logor_mfp <- raw_mfp - mean(raw_mfp) + logor_itt
+
+# Bootstrap CIs
+set.seed(2024L)
+n_boot <- sim_n_boot_mfpi
+boot_mat <- matrix(NA_real_, nrow = n_boot, ncol = length(z_grid))
+
+for (b in seq_len(n_boot)) {
+  idx  <- sample(nrow(gbsg), replace = TRUE)
+  bdat <- gbsg[idx, ]
+
+  f0b <- tryCatch(
+    mfp(status ~ fp(log_pgr, df = 4),
+        data = filter(bdat, treat == 0), family = binomial, verbose = FALSE),
+    error = function(e) NULL
+  )
+  f1b <- tryCatch(
+    mfp(status ~ fp(log_pgr, df = 4),
+        data = filter(bdat, treat == 1), family = binomial, verbose = FALSE),
+    error = function(e) NULL
+  )
+  if (is.null(f0b) || is.null(f1b)) next
+
+  lp0b <- tryCatch(predict(f0b, newdata = nd_grid, type = "link"),
+                   error = function(e) NULL)
+  lp1b <- tryCatch(predict(f1b, newdata = nd_grid, type = "link"),
+                   error = function(e) NULL)
+  if (is.null(lp0b) || is.null(lp1b)) next
+
+  raw_b         <- lp1b - lp0b
+  boot_mat[b, ] <- raw_b - mean(raw_b) + logor_itt
+}
+
+n_valid <- sum(complete.cases(boot_mat))
+cat(sprintf("Bootstrap: %d/%d valid resamples\n", n_valid, n_boot))
+
+df_mfpi <- data.frame(
+  z      = z_grid,
+  pgr    = exp(z_grid) - 1,
+  loghr  = logor_mfp,
+  lo     = apply(boot_mat, 2, quantile, probs = 0.025, na.rm = TRUE),
+  hi     = apply(boot_mat, 2, quantile, probs = 0.975, na.rm = TRUE),
+  method = "MFPI (logistic)"
+)
+```
+
+---
+
+## Method 3: STEPP-GLM {#sec-stepp-glm}
+
+### STEPP with GLM for Binary Outcomes
+
+The `stepp` CRAN package supports `stmodelGLM` with `glm = "binomial"`.
+Within each sliding window, a logistic regression
+`event ~ treat` is fitted and the log-OR is extracted.
+
+When the `stepp` package is not available, we use a Cox-based fallback
+adapted for logistic regression.
+
+```{r stepp-glm-fn}
+#| code-fold: true
+
+# =============================================================================
+# stepp_windows_glm() -- logistic sliding window fallback
+# =============================================================================
+stepp_windows_glm <- function(df, bm_var, outcome_var, treat_var,
+                              family     = "binomial",
+                              offset_var = NULL,
+                              patspop    = sim_patspop,
+                              minpatspop = sim_minpatspop,
+                              conf_level = 1 - sim_alpha) {
+  stopifnot(patspop > minpatspop)
+  z_crit <- qnorm(1 - (1 - conf_level) / 2)
+  df_ord <- df[order(df[[bm_var]]), ]
+  n      <- nrow(df_ord)
+  step   <- patspop - minpatspop
+  starts <- seq(1L, n - patspop + 1L, by = step)
+
+  fam <- switch(family,
+    binomial = stats::binomial(),
+    poisson  = stats::poisson(),
+    gaussian = stats::gaussian()
+  )
+
+  rows <- lapply(starts, function(i) {
+    sub <- df_ord[seq(i, i + patspop - 1L), ]
+    fit <- tryCatch({
+      if (!is.null(offset_var)) {
+        stats::glm(
+          as.formula(sprintf("%s ~ %s", outcome_var, treat_var)),
+          family = fam, data = sub,
+          offset = log(sub[[offset_var]])
+        )
+      } else {
+        stats::glm(
+          as.formula(sprintf("%s ~ %s", outcome_var, treat_var)),
+          family = fam, data = sub
+        )
+      }
+    }, error = function(e) NULL)
+
+    if (is.null(fit)) return(NULL)
+    b  <- coef(fit)[[treat_var]]
+    se <- sqrt(vcov(fit)[treat_var, treat_var])
+    data.frame(
+      mid_bm   = median(sub[[bm_var]]),
+      n_sub    = patspop,
+      n_events = sum(sub[[outcome_var]]),
+      loghr    = b,
+      se_loghr = se,
+      lo       = b - z_crit * se,
+      hi       = b + z_crit * se,
+      method   = paste0("STEPP-GLM (", family, ")")
+    )
+  })
+  do.call(rbind, Filter(Negate(is.null), rows))
+}
+
+
+# =============================================================================
+# stepp_fit_glm() -- unified STEPP-GLM wrapper
+# =============================================================================
+stepp_fit_glm <- function(df,
+                          outcome_name = "event",
+                          treat_name   = "treat",
+                          bm_name      = "bm",
+                          family       = "binomial",
+                          offset_name  = NULL,
+                          patspop      = sim_patspop,
+                          minpatspop   = sim_minpatspop,
+                          nperm        = 0L,
+                          conf_level   = 1 - sim_alpha,
+                          verbose      = TRUE) {
+
+  z_crit <- qnorm(1 - (1 - conf_level) / 2)
+
+  # Branch: stepp CRAN package with stmodelGLM
+  if (requireNamespace("stepp", quietly = TRUE) && nperm > 0) {
+    suppressPackageStartupMessages(library(stepp))
+    if (verbose) message("stepp_fit_glm: using stepp CRAN stmodelGLM")
+
+    swin <- new("stwin", type = "sliding",
+                r1 = minpatspop, r2 = patspop)
+    subp <- new("stsubpop")
+    subp <- generate(subp, win = swin, covariate = df[[bm_name]])
+
+    smod <- new("stmodelGLM",
+                coltrt = df[[treat_name]],
+                colY   = df[[outcome_name]],
+                trts   = c(1, 0),
+                glm    = family)
+
+    res <- new("steppes")
+    res <- estimate(res, subp, smod)
+
+    if (nperm > 0L) {
+      res <- test(res, nperm = as.integer(nperm), showstatus = FALSE)
+    }
+
+    bm_profile  <- res@subpop@medianz
+    loghr_est   <- res@effect$Logistic[[1]]$logOddsRatio
+    se_loghr    <- res@effect$Logistic[[1]]$logOddsRatioSE
+    pv_overall  <- if (nperm > 0) res@testresults$Res[[1]]$pvalue else NA_real_
+    method_used <- "stepp_cran_glm"
+
+  } else {
+    # Fallback: manual sliding window GLM
+    if (verbose) message("stepp_fit_glm: using GLM fallback")
+
+    fb <- stepp_windows_glm(
+      df = df, bm_var = bm_name, outcome_var = outcome_name,
+      treat_var = treat_name, family = family, offset_var = offset_name,
+      patspop = patspop, minpatspop = minpatspop, conf_level = conf_level
+    )
+
+    bm_profile  <- fb$mid_bm
+    loghr_est   <- fb$loghr
+    se_loghr    <- fb$se_loghr
+    pv_overall  <- NA_real_
+    method_used <- "stepp_windows_glm"
+  }
+
+  loghr_lower <- loghr_est - z_crit * se_loghr
+  loghr_upper <- loghr_est + z_crit * se_loghr
+
+  result <- list(
+    bm_profile  = bm_profile,
+    loghr_est   = loghr_est,
+    se_loghr    = se_loghr,
+    loghr_lower = loghr_lower,
+    loghr_upper = loghr_upper,
+    n_windows   = length(bm_profile),
+    pvalue      = pv_overall,
+    method_used = method_used,
+    family      = family,
+    conf_level  = conf_level,
+    nperm       = nperm,
+    bm_name     = bm_name
+  )
+  class(result) <- c("stepp_fit_glm", "list")
+
+  if (verbose) {
+    cat(sprintf(
+      "stepp_fit_glm [%s]: %d windows | log-OR range: %.3f to %.3f\n",
+      method_used, result$n_windows,
+      min(loghr_est, na.rm = TRUE), max(loghr_est, na.rm = TRUE)
+    ))
+    if (!is.na(pv_overall)) {
+      cat(sprintf("  Permutation p-value: %.4f\n", pv_overall))
+    }
+  }
+
+  invisible(result)
+}
+```
+
+```{r stepp-gbsg}
+#| code-fold: false
+fit_stepp_glm_gbsg <- stepp_fit_glm(
+  df          = gbsg,
+  outcome_name = "status",
+  treat_name   = "treat",
+  bm_name      = "log_pgr",
+  family       = "binomial",
+  patspop      = sim_patspop,
+  minpatspop   = sim_minpatspop,
+  nperm        = 0L,
+  conf_level   = 1 - sim_alpha
+)
+
+df_stepp_gbsg <- data.frame(
+  mid_bm = fit_stepp_glm_gbsg$bm_profile,
+  loghr  = fit_stepp_glm_gbsg$loghr_est,
+  lo     = fit_stepp_glm_gbsg$loghr_lower,
+  hi     = fit_stepp_glm_gbsg$loghr_upper,
+  method = "STEPP-GLM"
+)
+```
+
+---
+
+## Combined Results: GBSG (Binary Endpoint) {#sec-gbsg-combined}
+
+```{r gbsg-combined-plot}
+#| fig-height: 7.5
+#| fig-cap: "Treatment-effect (log-OR) profile for hormonal therapy vs control as a function of log(PGR+1) on the binary recurrence endpoint. All methods agree that benefit (negative log-OR) is concentrated at higher PGR values."
+
+col_map <- c(
+  "glm_cs_fit (forestsearch)" = "#4472C4",
+  "Manual Spline Logistic"     = "#7BAFD4",
+  "MFPI (logistic)"            = "#C00000",
+  "STEPP-GLM"                  = "#70AD47"
+)
+lwd_map <- c(
+  "glm_cs_fit (forestsearch)" = 1.4,
+  "Manual Spline Logistic"     = 0.7,
+  "MFPI (logistic)"            = 1.2,
+  "STEPP-GLM"                  = 1.0
+)
+pgr_ticks <- c(0, 7, 32, 132, 300)
+
+df_ribbon <- bind_rows(df_gcsf, df_manual, df_mfpi)
+
+ggplot() +
+  geom_hline(yintercept = 0, linetype = "dashed",
+             colour = "grey55", linewidth = 0.40) +
+  geom_hline(yintercept = logor_itt, linetype = "dotted",
+             colour = "grey35", linewidth = 0.55) +
+  annotate("text",
+           x     = max(z_grid) * 0.99, y = logor_itt + 0.06,
+           label = sprintf("Overall ITT (log-OR = %.2f)", logor_itt),
+           hjust = 1, size = 3.0, colour = "grey30") +
+  geom_ribbon(data = filter(df_ribbon,
+                            method %in% c("glm_cs_fit (forestsearch)",
+                                          "MFPI (logistic)")),
+              aes(x = z, ymin = lo, ymax = hi, fill = method), alpha = 0.12) +
+  geom_line(data = df_ribbon,
+            aes(x = z, y = loghr, colour = method, linewidth = method)) +
+  geom_linerange(data = df_stepp_gbsg,
+                 aes(x = mid_bm, ymin = lo, ymax = hi, colour = method),
+                 linewidth = 0.75, alpha = 0.75) +
+  geom_point(data = df_stepp_gbsg,
+             aes(x = mid_bm, y = loghr, colour = method),
+             size = 2.8, shape = 16) +
+  geom_rug(data = gbsg, aes(x = log_pgr),
+           alpha = 0.12, sides = "b", length = unit(0.015, "npc")) +
+  scale_colour_manual(values = col_map, name = NULL) +
+  scale_fill_manual(values = col_map, name = NULL) +
+  scale_linewidth_manual(values = lwd_map, name = NULL) +
+  scale_x_continuous(
+    name = "log(PGR + 1)",
+    sec.axis = sec_axis(~ exp(.) - 1,
+                        name   = "PGR (fmol, approximate)",
+                        breaks = pgr_ticks, labels = pgr_ticks)
+  ) +
+  labs(y     = "log Odds Ratio  (hormonal Rx vs control)",
+       title = "Biomarker-Treatment Interaction: Hormonal Therapy x PGR",
+       subtitle = "GBSG (Binary Endpoint), N = 686") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position  = "top",
+        panel.grid.minor = element_blank(),
+        plot.title       = element_text(face = "bold"))
+```
+
+## Comparison: log-OR vs log-HR Profile {#sec-or-vs-hr}
+
+Since the GBSG data supports both survival and binary analyses, we can
+overlay the `glm_cs_fit()` log-OR profile with the `cox_cs_fit()`
+log-HR profile on the same data.  Under proportional hazards, these
+should show similar qualitative patterns.
+
+```{r or-vs-hr-comparison, fig.height=5.5}
+#| fig-cap: "Overlay of log-HR (from cox_cs_fit, survival endpoint) and log-OR (from glm_cs_fit, binary endpoint) profiles. The qualitative shape agrees: both show increasing benefit at higher PGR."
+
+gbsg_fs <- gbsg |>
+  rename(os_time = rfstime_yr, os_event = status) |>
+  mutate(bm = log_pgr)
+
+fit_ccsf_compare <- cox_cs_fit(
+  df = gbsg_fs, tte_name = "os_time", event_name = "os_event",
+  treat_name = "treat", z_name = "bm",
+  spline_df = sim_spline_df, z_by = 0.05, z_quantile = 0.95,
+  alpha = sim_alpha, show_plot = FALSE, verbose = FALSE
+)
+
+df_hr <- data.frame(
+  z = fit_ccsf_compare$z_profile,
+  est = fit_ccsf_compare$loghr_est,
+  lo  = fit_ccsf_compare$loghr_lower,
+  hi  = fit_ccsf_compare$loghr_upper,
+  scale = "log-HR (cox_cs_fit)"
+)
+df_or <- data.frame(
+  z = fit_gcsf$z_profile,
+  est = fit_gcsf$loghr_est,
+  lo  = fit_gcsf$loghr_lower,
+  hi  = fit_gcsf$loghr_upper,
+  scale = "log-OR (glm_cs_fit)"
+)
+df_compare <- bind_rows(df_hr, df_or)
+
+ggplot(df_compare, aes(x = z, y = est, colour = scale, fill = scale)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey55") +
+  geom_ribbon(aes(ymin = lo, ymax = hi), alpha = 0.10, colour = NA) +
+  geom_line(linewidth = 1.2) +
+  scale_colour_manual(values = c("log-HR (cox_cs_fit)" = "#4472C4",
+                                  "log-OR (glm_cs_fit)" = "#C00000"),
+                      name = NULL) +
+  scale_fill_manual(values = c("log-HR (cox_cs_fit)" = "#4472C4",
+                                "log-OR (glm_cs_fit)" = "#C00000"),
+                    name = NULL) +
+  labs(x     = "log(PGR + 1)",
+       y     = "Treatment Effect (log scale)",
+       title = "log-HR vs log-OR Profile: GBSG",
+       subtitle = "Both show benefit concentrated at higher PGR") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+---
+
+# Simulation Study: Known Ground Truth {#sec-simulation}
+
+## Data Generating Mechanism (Logistic)
+
+Four scenarios with known log-OR interaction functions:
+
+| Scenario | True $\beta(Z)$ | Interpretation |
+|----------|-----------------|----------------|
+| **A -- Monotone** | $0.5 - 0.35\,Z$ | Benefit increases linearly |
+| **B -- Threshold** | $+0.35$ if $Z<2$; $-0.40$ if $Z \geq 2$ | Sharp sign reversal |
+| **C -- Null** | $-0.20$ (constant) | Uniform moderate benefit |
+| **D -- Non-monotone** | $-0.40(Z-1.8)^2 + 0.50$ | Harm peaks at $Z \approx 1.8$ |
+
+$$P(Y=1 \mid Z, A) = \text{expit}\bigl(-1.5 - 0.20\,Z + \beta(Z) \cdot A\bigr)$$
+
+```{r sim-dgm}
+#| code-fold: false
+
+simulate_binary_trial <- function(n = 700L, scenario = "monotone", seed = 42L) {
+  set.seed(seed)
+
+  bm    <- rgamma(n, shape = 2, rate = 0.6)
+  Z     <- log(bm + 1)
+  treat <- rbinom(n, 1L, 0.5)
+
+  true_logor <- switch(scenario,
+    monotone    = 0.5 - 0.35 * Z,
+    threshold   = ifelse(Z < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, n),
+    nonmonotone = -0.40 * (Z - 1.8)^2 + 0.50,
+    stop("Unknown scenario: ", scenario)
+  )
+
+  lp    <- -1.5 - 0.20 * Z + true_logor * treat
+  prob  <- plogis(lp)
+  event <- rbinom(n, 1L, prob)
+
+  data.frame(
+    event      = event,
+    treat      = treat,
+    bm         = bm,
+    Z          = Z,
+    true_logor = true_logor
+  )
+}
+
+scenarios <- c("monotone", "threshold", "null", "nonmonotone")
+dfs <- setNames(
+  lapply(scenarios, function(sc) simulate_binary_trial(scenario = sc)),
+  scenarios
+)
+
+for (sc in scenarios) {
+  d <- dfs[[sc]]
+  cat(sprintf(
+    "%-12s  N=%d  events=%d (%.0f%%)  true log-OR range [%.2f, %.2f]\n",
+    sc, nrow(d), sum(d$event), 100 * mean(d$event),
+    min(d$true_logor), max(d$true_logor)
+  ))
+}
+```
+
+## Fit All Three Methods
+
+```{r sim-fit}
+#| code-fold: true
+
+fit_all_methods_glm <- function(df, scenario_name) {
+
+  z_range <- seq(quantile(df$Z, 0.05), quantile(df$Z, 0.95),
+                 length.out = 150L)
+
+  # -- glm_cs_fit --
+  fit_gcsf_s <- tryCatch(
+    glm_cs_fit(
+      df = df, outcome_name = "event", treat_name = "treat",
+      z_name = "Z", family = "binomial",
+      spline_df = sim_spline_df, z_by = 0.05, z_quantile = 0.95,
+      alpha = sim_alpha, show_plot = FALSE, verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+
+  df_gcsf_s <- if (!is.null(fit_gcsf_s)) {
+    data.frame(z = fit_gcsf_s$z_profile, loghr = fit_gcsf_s$loghr_est,
+               lo = fit_gcsf_s$loghr_lower, hi = fit_gcsf_s$loghr_upper,
+               method = "glm_cs_fit", scenario = scenario_name)
+  } else {
+    data.frame(z = z_range, loghr = NA, lo = NA, hi = NA,
+               method = "glm_cs_fit", scenario = scenario_name)
+  }
+
+  # -- MFPI (logistic) --
+  logor_itt_s <- coef(glm(event ~ treat, family = binomial,
+                          data = df))["treat"]
+
+  lh_mfpi <- tryCatch({
+    f0s <- mfp(event ~ fp(Z, df = 4),
+               data = filter(df, treat == 0), family = binomial,
+               verbose = FALSE)
+    f1s <- mfp(event ~ fp(Z, df = 4),
+               data = filter(df, treat == 1), family = binomial,
+               verbose = FALSE)
+    raw_s <- predict(f1s, newdata = data.frame(Z = z_range), type = "link") -
+             predict(f0s, newdata = data.frame(Z = z_range), type = "link")
+    raw_s - mean(raw_s) + logor_itt_s
+  }, error = function(e) rep(NA_real_, length(z_range)))
+
+  df_mfpi_s <- data.frame(z = z_range, loghr = lh_mfpi, lo = NA, hi = NA,
+                           method = "MFPI", scenario = scenario_name)
+
+  # -- STEPP-GLM --
+  fit_st <- stepp_fit_glm(
+    df = df, outcome_name = "event", treat_name = "treat",
+    bm_name = "Z", family = "binomial",
+    patspop = sim_patspop, minpatspop = sim_minpatspop,
+    nperm = 0L, conf_level = 1 - sim_alpha, verbose = FALSE
+  )
+  df_st <- data.frame(mid_bm = fit_st$bm_profile, loghr = fit_st$loghr_est,
+                      lo = fit_st$loghr_lower, hi = fit_st$loghr_upper,
+                      method = "STEPP-GLM", scenario = scenario_name)
+
+  # -- True log-OR --
+  true_fn <- switch(scenario_name,
+    monotone    = 0.5 - 0.35 * z_range,
+    threshold   = ifelse(z_range < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, length(z_range)),
+    nonmonotone = -0.40 * (z_range - 1.8)^2 + 0.50
+  )
+  df_truth <- data.frame(z = z_range, loghr = true_fn, lo = NA, hi = NA,
+                         method = "True log-OR", scenario = scenario_name)
+
+  list(gcsf = df_gcsf_s, mfpi = df_mfpi_s, stepp = df_st, truth = df_truth)
+}
+
+sim_res <- setNames(
+  lapply(scenarios, function(sc) fit_all_methods_glm(dfs[[sc]], sc)),
+  scenarios
+)
+```
+
+## Scenario Plots
+
+```{r sim-plot-helper}
+#| code-fold: true
+
+col_sim <- c("glm_cs_fit"  = "#4472C4",
+             "MFPI"         = "#C00000",
+             "STEPP-GLM"    = "#70AD47",
+             "True log-OR"  = "black")
+lty_sim <- c("glm_cs_fit"  = "solid",
+             "MFPI"         = "solid",
+             "STEPP-GLM"    = "solid",
+             "True log-OR"  = "dashed")
+
+plot_scenario_glm <- function(res, title, ylim = c(-1.4, 1.0)) {
+  df_lines <- bind_rows(res$gcsf, res$mfpi, res$truth)
+
+  ggplot() +
+    geom_hline(yintercept = 0, linetype = "dotted",
+               colour = "grey60", linewidth = 0.4) +
+    geom_ribbon(data = res$gcsf,
+                aes(x = z, ymin = lo, ymax = hi),
+                fill = col_sim["glm_cs_fit"], alpha = 0.15) +
+    geom_line(data = df_lines,
+              aes(x = z, y = loghr, colour = method, linetype = method),
+              linewidth = 1.05, na.rm = TRUE) +
+    geom_linerange(data = res$stepp,
+                   aes(x = mid_bm, ymin = lo, ymax = hi),
+                   colour = col_sim["STEPP-GLM"], linewidth = 0.65,
+                   alpha = 0.70) +
+    geom_point(data = res$stepp,
+               aes(x = mid_bm, y = loghr),
+               colour = col_sim["STEPP-GLM"], size = 2.4, shape = 16) +
+    scale_colour_manual(values = col_sim, name = NULL) +
+    scale_linetype_manual(values = lty_sim, name = NULL) +
+    coord_cartesian(ylim = ylim) +
+    labs(x = "Biomarker  Z = log(bm + 1)",
+         y = "log-OR  (treatment vs control)", title = title) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "top", panel.grid.minor = element_blank(),
+          plot.title = element_text(face = "bold", size = 11))
+}
+```
+
+### Scenario A -- Monotone {#sec-scen-a}
+
+```{r sim-plot-a}
+#| fig-height: 5.5
+#| fig-cap: "Scenario A: True log-OR declines linearly. All three methods track the ground truth."
+plot_scenario_glm(sim_res$monotone, "Scenario A -- Monotone Interaction (log-OR)")
+```
+
+### Scenario B -- Threshold {#sec-scen-b}
+
+```{r sim-plot-b}
+#| fig-height: 5.5
+#| fig-cap: "Scenario B: Sharp sign reversal at Z = 2. The spline smooths the discontinuity."
+plot_scenario_glm(sim_res$threshold,
+                  "Scenario B -- Threshold  (sign change at Z = 2)")
+```
+
+### Scenario C -- Null {#sec-scen-c}
+
+```{r sim-plot-c}
+#| fig-height: 5.5
+#| fig-cap: "Scenario C: No interaction. All methods return approximately flat profiles."
+plot_scenario_glm(sim_res$null,
+                  "Scenario C -- Null Interaction (uniform log-OR = -0.20)")
+```
+
+### Scenario D -- Non-Monotone {#sec-scen-d}
+
+```{r sim-plot-d}
+#| fig-height: 5.5
+#| fig-cap: "Scenario D: Inverted-U interaction. Harm peaks near Z = 1.8."
+plot_scenario_glm(sim_res$nonmonotone,
+                  "Scenario D -- Non-Monotone (inverted-U, peak harm at Z = 1.8)",
+                  ylim = c(-1.2, 1.2))
+```
+
+---
+
+# Joint Simulation Evaluation: `glm_cs_fit()` and STEPP-GLM {#sec-joint-eval}
+
+## Simulation Metrics
+
+Across $B =$ `r sim_B_eval` simulated trials at the grid `z_eval`:
+
+| Quantity | Definition | Target |
+|----------|------------|--------|
+| **Bias** | $\bar{\hat\beta}(z) - \beta_0(z)$ | 0 |
+| **Empirical SE** | $\text{SD}(\hat\beta_b(z))$ | -- |
+| **Mean estimated SE** | Mean delta-method / Wald SE | -- |
+| **SE ratio** | Mean est. SE / Empirical SE | 1.0 |
+| **Coverage** | Prop. of 95% CIs containing truth | 0.95 |
+| **Mean CI width** | Average interval width | -- |
+
+## Simulation Engine
+
+```{r joint-eval-setup}
+#| code-fold: false
+
+compute_sim_summary_glm <- function(mat_est, mat_se, mat_lo, mat_hi,
+                                    true_fn, z_eval, scenario) {
+  mean_est <- colMeans(mat_est, na.rm = TRUE)
+  bias_abs <- mean_est - true_fn
+  rel_bias <- ifelse(abs(true_fn) >= 0.05, bias_abs / abs(true_fn), NA_real_)
+  emp_se   <- apply(mat_est, 2, sd, na.rm = TRUE)
+  mean_se  <- colMeans(mat_se, na.rm = TRUE)
+  ci_width <- colMeans(mat_hi - mat_lo, na.rm = TRUE)
+  covered  <- sweep(mat_lo, 2, true_fn, "<=") &
+              sweep(mat_hi, 2, true_fn, ">=")
+
+  data.frame(
+    z = z_eval, true_logor = round(true_fn, 3),
+    n_valid = colSums(!is.na(mat_est)),
+    bias = round(bias_abs, 3), rel_bias = round(rel_bias, 3),
+    mean_est = round(mean_est, 3), emp_se = round(emp_se, 3),
+    mean_se = round(mean_se, 3),
+    se_ratio = round(mean_se / emp_se, 3),
+    coverage = round(colMeans(covered, na.rm = TRUE), 3),
+    ci_width = round(ci_width, 3),
+    scenario = scenario, stringsAsFactors = FALSE
+  )
+}
+
+run_joint_eval_glm <- function(scenario,
+                               B          = sim_B_eval,
+                               z_eval     = sim_z_eval,
+                               alpha      = sim_alpha,
+                               patspop    = sim_patspop,
+                               minpatspop = sim_minpatspop,
+                               n_workers  = sim_n_workers) {
+  n_z <- length(z_eval)
+
+  old_plan <- plan()
+  on.exit(plan(old_plan), add = TRUE)
+  plan(multisession, workers = n_workers)
+
+  message(sprintf("run_joint_eval_glm [%s]: B = %d | workers = %d",
+                  scenario, B, n_workers))
+
+  t_sc <- proc.time()
+
+  res_list <- foreach(
+    b = seq_len(B), .combine = "c",
+    .options.future = list(seed = TRUE)
+  ) %dofuture% {
+    set.seed(b)
+    library(forestsearch)
+    library(splines)
+    source(glm_source_path)
+
+    d <- simulate_binary_trial(scenario = scenario, seed = b)
+
+    na_out <- list(est = rep(NA_real_, n_z), se = rep(NA_real_, n_z),
+                   lo  = rep(NA_real_, n_z), hi = rep(NA_real_, n_z))
+
+    # -- glm_cs_fit --
+    fit_gc <- tryCatch(
+      glm_cs_fit(
+        df = d, outcome_name = "event", treat_name = "treat",
+        z_name = "Z", family = "binomial",
+        spline_df = sim_spline_df, z_by = 0.05, z_quantile = 0.95,
+        alpha = alpha, show_plot = FALSE, verbose = FALSE
+      ),
+      error = function(e) NULL
+    )
+
+    out_gc <- na_out
+    if (!is.null(fit_gc)) {
+      ok <- z_eval >= min(fit_gc$z_profile) & z_eval <= max(fit_gc$z_profile)
+      if (any(ok)) {
+        out_gc$est[ok] <- approx(fit_gc$z_profile, fit_gc$loghr_est,
+                                  xout = z_eval[ok])$y
+        out_gc$se[ok]  <- approx(fit_gc$z_profile, fit_gc$se_loghr,
+                                  xout = z_eval[ok])$y
+        out_gc$lo[ok]  <- approx(fit_gc$z_profile, fit_gc$loghr_lower,
+                                  xout = z_eval[ok])$y
+        out_gc$hi[ok]  <- approx(fit_gc$z_profile, fit_gc$loghr_upper,
+                                  xout = z_eval[ok])$y
+      }
+    }
+
+    # -- STEPP-GLM --
+    fit_st <- tryCatch(
+      stepp_windows_glm(
+        df = d, bm_var = "Z", outcome_var = "event", treat_var = "treat",
+        family = "binomial", patspop = patspop, minpatspop = minpatspop,
+        conf_level = 1 - alpha
+      ),
+      error = function(e) NULL
+    )
+
+    out_st <- na_out
+    if (!is.null(fit_st) && nrow(fit_st) >= 2L) {
+      ok <- z_eval >= min(fit_st$mid_bm) & z_eval <= max(fit_st$mid_bm)
+      if (any(ok)) {
+        out_st$est[ok] <- approx(fit_st$mid_bm, fit_st$loghr,
+                                  xout = z_eval[ok])$y
+        out_st$se[ok]  <- approx(fit_st$mid_bm, fit_st$se_loghr,
+                                  xout = z_eval[ok])$y
+        out_st$lo[ok]  <- approx(fit_st$mid_bm, fit_st$lo,
+                                  xout = z_eval[ok])$y
+        out_st$hi[ok]  <- approx(fit_st$mid_bm, fit_st$hi,
+                                  xout = z_eval[ok])$y
+      }
+    }
+
+    list(list(gc = out_gc, st = out_st))
+  }
+
+  elapsed_sec <- round((proc.time() - t_sc)["elapsed"])
+
+  # Assemble matrices
+  mat_gc_est <- do.call(rbind, lapply(res_list, function(x) x$gc$est))
+  mat_gc_se  <- do.call(rbind, lapply(res_list, function(x) x$gc$se))
+  mat_gc_lo  <- do.call(rbind, lapply(res_list, function(x) x$gc$lo))
+  mat_gc_hi  <- do.call(rbind, lapply(res_list, function(x) x$gc$hi))
+
+  mat_st_est <- do.call(rbind, lapply(res_list, function(x) x$st$est))
+  mat_st_se  <- do.call(rbind, lapply(res_list, function(x) x$st$se))
+  mat_st_lo  <- do.call(rbind, lapply(res_list, function(x) x$st$lo))
+  mat_st_hi  <- do.call(rbind, lapply(res_list, function(x) x$st$hi))
+
+  true_fn <- switch(scenario,
+    monotone    = 0.5 - 0.35 * z_eval,
+    threshold   = ifelse(z_eval < 2.0, 0.35, -0.40),
+    null        = rep(-0.20, n_z),
+    nonmonotone = -0.40 * (z_eval - 1.8)^2 + 0.50
+  )
+
+  gcsf_sum  <- compute_sim_summary_glm(mat_gc_est, mat_gc_se,
+                                        mat_gc_lo, mat_gc_hi,
+                                        true_fn, z_eval, scenario)
+  stepp_sum <- compute_sim_summary_glm(mat_st_est, mat_st_se,
+                                        mat_st_lo, mat_st_hi,
+                                        true_fn, z_eval, scenario)
+
+  list(
+    gcsf  = list(summary = gcsf_sum,
+                  mat_est = mat_gc_est, mat_se = mat_gc_se,
+                  mat_lo  = mat_gc_lo,  mat_hi = mat_gc_hi,
+                  true_fn = true_fn),
+    stepp = list(summary = stepp_sum,
+                  mat_est = mat_st_est, mat_se = mat_st_se,
+                  mat_lo  = mat_st_lo,  mat_hi = mat_st_hi,
+                  true_fn = true_fn),
+    elapsed_sec = elapsed_sec, scenario = scenario, B = B
+  )
+}
+```
+
+## Run Evaluation -- All Four Scenarios
+
+```{r joint-eval-run}
+t_joint_start <- proc.time()
+
+eval_monotone    <- run_joint_eval_glm("monotone",    B = sim_B_eval)
+eval_threshold   <- run_joint_eval_glm("threshold",   B = sim_B_eval)
+eval_null        <- run_joint_eval_glm("null",        B = sim_B_eval)
+eval_nonmonotone <- run_joint_eval_glm("nonmonotone", B = sim_B_eval)
+
+t_joint_total <- round((proc.time() - t_joint_start)["elapsed"])
+cat(sprintf("Joint evaluation complete: B = %d | 4 scenarios | %d sec\n",
+            sim_B_eval, t_joint_total))
+```
+
+## `glm_cs_fit()` Results Table
+
+```{r gcsf-eval-table}
+#| tbl-cap: !expr 'sprintf("glm_cs_fit() SE and coverage across B = %d simulations.", sim_B_eval)'
+
+all_gcsf <- bind_rows(
+  eval_monotone$gcsf$summary,
+  eval_threshold$gcsf$summary,
+  eval_null$gcsf$summary,
+  eval_nonmonotone$gcsf$summary
+) |>
+  mutate(Scenario = case_match(scenario,
+    "monotone"    ~ "A: Monotone",
+    "threshold"   ~ "B: Threshold",
+    "null"        ~ "C: Null",
+    "nonmonotone" ~ "D: Non-Monotone"
+  )) |>
+  select(Scenario, z, true_logor, mean_est, bias, rel_bias,
+         emp_se, mean_se, se_ratio, coverage, ci_width)
+
+knitr::kable(all_gcsf,
+             col.names = c("Scenario", "z", "log-OR", "Est", "Bias", "Rel Bias",
+                           "Emp SE", "Mean SE", "SE Ratio", "Coverage", "CI Wid"),
+             align = "lrrrrrrrrrrr", digits = 3)
+```
+
+## Coverage and SE Ratio Profiles
+
+```{r eval-plots, fig.height=7}
+#| fig-cap: "Left: Empirical coverage vs 95% target. Right: SE ratio; values near 1.0 confirm delta-method calibration."
+
+col_sc <- c("A: Monotone" = "#4472C4", "B: Threshold" = "#C00000",
+            "C: Null"      = "#70AD47", "D: Non-Monotone" = "#9B59B6")
+
+df_gcsf_plot <- all_gcsf |>
+  mutate(Scenario = factor(Scenario,
+    levels = c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone")))
+
+p_cov <- ggplot(df_gcsf_plot, aes(x = z, y = coverage, colour = Scenario)) +
+  geom_hline(yintercept = 1 - sim_alpha, linetype = "dashed",
+             colour = "grey40") +
+  geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
+  scale_colour_manual(values = col_sc, name = NULL) +
+  scale_y_continuous(limits = c(0.3, 1), labels = percent_format(1)) +
+  labs(x = "Biomarker Z", y = "Coverage",
+       title = "glm_cs_fit: 95% CI Coverage") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank())
+
+p_se <- ggplot(df_gcsf_plot, aes(x = z, y = se_ratio, colour = Scenario)) +
+  geom_hline(yintercept = 1, linetype = "dashed", colour = "grey40") +
+  geom_line(linewidth = 1.1) + geom_point(size = 2.5) +
+  scale_colour_manual(values = col_sc, name = NULL) +
+  scale_y_continuous(limits = c(0.7, 1.3)) +
+  labs(x = "Biomarker Z", y = "SE Ratio (est / empirical)",
+       title = "glm_cs_fit: SE Calibration") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank())
+
+p_cov + p_se + plot_layout(ncol = 2, guides = "collect") &
+  theme(legend.position = "top")
+```
+
+## CI Width: `glm_cs_fit()` vs STEPP-GLM
+
+```{r ci-width-plot, fig.height=7}
+#| fig-cap: "Mean 95% CI width across scenarios. The spline is substantially more efficient than STEPP-GLM."
+
+all_stepp_glm <- bind_rows(
+  eval_monotone$stepp$summary,
+  eval_threshold$stepp$summary,
+  eval_null$stepp$summary,
+  eval_nonmonotone$stepp$summary
+) |>
+  mutate(Scenario = case_match(scenario,
+    "monotone"    ~ "A: Monotone",
+    "threshold"   ~ "B: Threshold",
+    "null"        ~ "C: Null",
+    "nonmonotone" ~ "D: Non-Monotone"
+  )) |>
+  select(Scenario, z, true_logor, mean_est, bias, rel_bias,
+         emp_se, mean_se, se_ratio, coverage, ci_width)
+
+df_ciw <- bind_rows(
+  mutate(all_gcsf, method = "glm_cs_fit (spline)"),
+  mutate(all_stepp_glm, method = "STEPP-GLM (window)")
+) |>
+  mutate(Scenario = factor(Scenario,
+    levels = c("A: Monotone", "B: Threshold", "C: Null", "D: Non-Monotone")))
+
+ggplot(df_ciw, aes(x = z, y = ci_width, colour = method, shape = method)) +
+  geom_line(linewidth = 1.0) + geom_point(size = 2.5) +
+  facet_wrap(~ Scenario, ncol = 2, scales = "free_y") +
+  scale_colour_manual(values = c("glm_cs_fit (spline)" = "#4472C4",
+                                  "STEPP-GLM (window)"  = "#70AD47"),
+                      name = NULL) +
+  scale_shape_manual(values = c(16, 17), name = NULL) +
+  labs(x = "Biomarker Z", y = "Mean 95% CI Width",
+       title = "CI Width: glm_cs_fit vs STEPP-GLM",
+       subtitle = sprintf("B = %d, N = %d", sim_B_eval, sim_n_trial)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", strip.text = element_text(face = "bold"))
+```
+
+---
+
+# To-Do: Poisson (Count) Extension {#sec-poisson-todo}
+
+::: {.callout-important}
+## Planned Extension
+
+The following extensions are planned for a future update:
+
+1. **GBSG Poisson Rate Analysis:** Use `event ~ treat + offset(log(rfstime))`
+   to produce an IRR profile over PGR, comparing `glm_cs_fit(family = "poisson")`
+   to the log-HR profile from `cox_cs_fit()`.
+
+2. **STEPP with `stmodelGLM(glm = "poisson")`:** The `stepp` CRAN
+   package already supports Poisson models via `stmodelGLM`.  The
+   `stepp_fit_glm()` wrapper defined in this vignette needs a
+   `stmodelGLM` branch for `family = "poisson"` with offset support.
+
+3. **Simulation with Rate-Based DGM:** Generate survival times from a
+   Weibull model (as in the survival vignette), then analyze the binary
+   event indicator with a Poisson offset model.  Compare:
+   - `cox_cs_fit()` log-HR profile
+   - `glm_cs_fit(family = "poisson")` log-IRR profile
+   - STEPP-GLM (Poisson) IRR profile
+
+4. **Count Outcome DGM:** For genuine count data (not survival
+   approximation), define a Poisson DGM:
+   $Y_i \sim \text{Pois}(\mu_i)$ where
+   $\log(\mu_i) = \alpha + \beta_0 Z_i + g(Z_i) A_i + \log(t_i)$.
+   This would evaluate the methods on a native count-data problem.
+
+5. **Package integration:** The `stepp_fit_glm()` and
+   `stepp_windows_glm()` functions defined inline in this vignette
+   should be exported from `forestsearch` once validated, paralleling
+   the existing `stepp_fit()` / `stepp_windows()` for survival.
+:::
+
+
+# Session Information {#sec-session}
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```
