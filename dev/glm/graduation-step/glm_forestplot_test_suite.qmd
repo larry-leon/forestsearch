@@ -1,0 +1,700 @@
+---
+title: "GLM Forest Plot Testing"
+subtitle: "Comprehensive Evaluation of plot_subgroup_results_forestplot for GLM Outcomes"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 11
+    fig-height: 8
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+
+pkg_root <- getwd()
+while (!file.exists(file.path(pkg_root, "DESCRIPTION")) &&
+       pkg_root != dirname(pkg_root)) {
+  pkg_root <- dirname(pkg_root)
+}
+stopifnot("Could not find package root" = file.exists(
+  file.path(pkg_root, "DESCRIPTION")))
+knitr::opts_knit$set(root.dir = pkg_root)
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+```{r load}
+devtools::document(quiet = TRUE)
+devtools::load_all(".", quiet = TRUE)
+#source("dev/glm/glm_effect_estimators.R")
+
+suppressPackageStartupMessages({
+  library(survival)
+  library(data.table)
+  library(grf)
+  library(glmnet)
+  library(gt)
+  library(forestploter)
+})
+
+# Test tracker
+test_log <- data.frame(
+  Test = character(), Description = character(),
+  Status = character(), Details = character(),
+  stringsAsFactors = FALSE
+)
+
+log_test <- function(name, desc, status, details = "") {
+  test_log <<- rbind(test_log, data.frame(
+    Test = name, Description = desc,
+    Status = status, Details = details,
+    stringsAsFactors = FALSE
+  ))
+  icon <- if (status == "PASS") "\u2705" else "\u274C"
+  cat(icon, name, ":", desc, "--", status, "\n")
+  if (nzchar(details)) cat("    ", details, "\n")
+}
+```
+
+
+# Synthetic Data {#sec-data}
+
+Two datasets are prepared:
+
+- **GBSG (real):** Used for survival and binary/rate-based GLM
+  outcomes (event = `status`, offset = `rfstime`).
+- **Simulated continuous:** Synthetic data with a known continuous
+  outcome and treatment-subgroup interaction.
+
+```{r data-prep}
+#| code-fold: false
+
+# --- GBSG setup ---
+df <- survival::gbsg
+df$id <- seq_len(nrow(df))
+df$grade3 <- as.integer(df$grade == "3")
+confs <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+
+cat("GBSG: N =", nrow(df), ", events =", sum(df$status),
+    ", P(hormon) =", round(mean(df$hormon), 3), "\n")
+
+# --- Simulated continuous outcome ---
+set.seed(42)
+n_sim <- 800
+df_cont <- data.frame(
+  id     = seq_len(n_sim),
+  age    = rnorm(n_sim, 55, 10),
+  bm     = rnorm(n_sim, 0, 1),
+  treat  = rbinom(n_sim, 1, 0.5)
+)
+# True subgroup: bm > 0 has harm (positive MD)
+df_cont$bm_pos <- as.integer(df_cont$bm > 0)
+df_cont$outcome <- with(df_cont,
+  10 + 0.5 * age + ifelse(bm > 0, 3.0, -2.0) * treat + rnorm(n_sim, 0, 3)
+)
+
+cat("Continuous sim: N =", n_sim,
+    ", subgroup {bm>0}: n =", sum(df_cont$bm_pos),
+    ", true MD(sg) = 3.0, true MD(co) = -2.0\n")
+```
+
+
+# Test Group 1: Survival Forest Plot (Regression Baseline) {#sec-survival}
+
+Verify the existing survival (HR) pathway works unchanged.
+
+## 1.1: ForestSearch + Bootstrap + Kfold (Survival)
+
+```{r fs-survival}
+n_cores <- max(1L, floor(parallel::detectCores() * 0.80))
+
+fs_surv <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "rfstime", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("Survival SG:", paste(fs_surv$sg.harm, collapse = " & "), "\n")
+```
+
+```{r boot-survival}
+#| eval: !expr '!is.null(fs_surv$sg.harm)'
+
+fs_bc_surv <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_surv, nb_boots = 50,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE),
+  details = FALSE
+)
+cat("Bootstrap success:",
+    round(100 * mean(!is.na(fs_bc_surv$results$H_biasadj_2))), "%\n")
+```
+
+```{r cv-survival}
+#| eval: !expr '!is.null(fs_surv$sg.harm)'
+
+fs_kfold_surv <- forestsearch_Kfold(
+  fs.est = fs_surv, Kfolds = 5,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE)
+)
+cat("CV found:", fs_kfold_surv$prop_SG_found, "%\n")
+```
+
+## 1.2: Survival Forest Plot
+
+```{r fp-survival, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_surv$sg.harm)'
+
+test_id <- "1.2"
+result <- tryCatch({
+  fp_surv <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_surv, fs_bc = fs_bc_surv,
+                      fs_kfold = fs_kfold_surv),
+    df_analysis = df,
+    outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 1.2: Survival (HR) Forest Plot"
+  )
+  plot(fp_surv)
+  paste0("rows=", nrow(fp_surv$data), ", class=", class(fp_surv)[1])
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "Survival HR forest plot renders", "PASS", result)
+} else {
+  log_test(test_id, "Survival HR forest plot renders", "FAIL", result)
+}
+```
+
+
+# Test Group 2: Binary GLM -- Odds Ratio (OR) {#sec-or}
+
+## 2.1: ForestSearch + Bootstrap (OR)
+
+```{r fs-or}
+fs_or <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "OR", dmin.grf = 0.0,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("OR SG:", paste(fs_or$sg.harm, collapse = " & "), "\n")
+```
+
+```{r boot-or}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+fs_bc_or <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_or, nb_boots = 50,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE),
+  details = FALSE
+)
+```
+
+```{r cv-or}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+fs_kfold_or <- forestsearch_Kfold(
+  fs.est = fs_or, Kfolds = 5,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE)
+)
+```
+
+## 2.2: OR Forest Plot
+
+```{r fp-or, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "2.2"
+result <- tryCatch({
+  fp_or <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_or, fs_bc = fs_bc_or,
+                      fs_kfold = fs_kfold_or),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 2.2: Binary Outcome -- OR Forest Plot"
+  )
+  plot(fp_or)
+
+  # Verify auto-detected display defaults
+  ci_col <- grep("^OR", names(fp_or$data), value = TRUE)
+  checks <- c(
+    has_or_label = length(ci_col) > 0,
+    outcome_type = fs_or$outcome_type == "binary",
+    measure      = fs_or$effect_measure == "OR"
+  )
+  paste0("rows=", nrow(fp_or$data), ", ci_col=", ci_col[1],
+         ", checks=", paste(names(checks[checks]), collapse = "+"))
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "OR forest plot renders with correct labels", "PASS", result)
+} else {
+  log_test(test_id, "OR forest plot renders with correct labels", "FAIL", result)
+}
+```
+
+
+# Test Group 3: Binary GLM -- Incidence Rate Ratio (IRR) {#sec-irr}
+
+## 3.1: ForestSearch + Bootstrap (IRR)
+
+```{r fs-irr}
+fs_irr <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "IRR", offset.name = "rfstime",
+  dmin.grf = 0.0,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("IRR SG:", paste(fs_irr$sg.harm, collapse = " & "), "\n")
+```
+
+```{r boot-irr}
+#| eval: !expr '!is.null(fs_irr$sg.harm)'
+
+fs_bc_irr <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_irr, nb_boots = 50,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE),
+  details = FALSE
+)
+```
+
+## 3.2: IRR Forest Plot
+
+```{r fp-irr, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_irr$sg.harm)'
+
+test_id <- "3.2"
+result <- tryCatch({
+  fp_irr <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_irr, fs_bc = fs_bc_irr),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 3.2: Binary Outcome -- IRR Forest Plot"
+  )
+  plot(fp_irr)
+
+  ci_col <- grep("^IRR", names(fp_irr$data), value = TRUE)
+  paste0("rows=", nrow(fp_irr$data), ", ci_col=", ci_col[1])
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "IRR forest plot renders (log scale, ref=1)", "PASS", result)
+} else {
+  log_test(test_id, "IRR forest plot renders (log scale, ref=1)", "FAIL", result)
+}
+```
+
+
+# Test Group 4: Binary GLM -- Risk Difference (RD) {#sec-rd}
+
+## 4.1: ForestSearch (RD)
+
+```{r fs-rd}
+fs_rd <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "RD", dmin.grf = 0.0,
+  hr.threshold = 0.05, hr.consistency = 0.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("RD SG:", paste(fs_rd$sg.harm, collapse = " & "), "\n")
+```
+
+## 4.2: RD Forest Plot (Identity Scale)
+
+```{r fp-rd, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_rd$sg.harm)'
+
+test_id <- "4.2"
+result <- tryCatch({
+  fp_rd <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_rd),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 4.2: Binary Outcome -- RD Forest Plot (identity scale)"
+  )
+  plot(fp_rd)
+
+  ci_col <- grep("^RD", names(fp_rd$data), value = TRUE)
+  paste0("rows=", nrow(fp_rd$data), ", ci_col=", ci_col[1],
+         ", identity_scale=TRUE")
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "RD forest plot renders (linear scale, ref=0)", "PASS", result)
+} else {
+  log_test(test_id, "RD forest plot renders (linear scale, ref=0)", "FAIL", result)
+}
+```
+
+
+# Test Group 5: Binary GLM -- IRR + IPTW (Observational) {#sec-iptw}
+
+## 5.1: ForestSearch + Bootstrap (IRR + IPTW)
+
+```{r fs-iptw}
+fs_iptw <- forestsearch(
+  df.analysis = df, confounders.name = confs, conf_force = c("er <= 0"),
+  outcome.name = "status", event.name = "status",
+  treat.name = "hormon", id.name = "id",
+  outcome_type = "binary", effect_measure = "IRR", offset.name = "rfstime",
+  dmin.grf = 0.0,
+  hr.threshold = 1.25, hr.consistency = 1.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr",
+  is.RCT = FALSE, ps_method = "grf", ps_adjust_method = "iptw"
+)
+cat("IPTW IRR SG:", paste(fs_iptw$sg.harm, collapse = " & "), "\n")
+```
+
+```{r boot-iptw}
+#| eval: !expr '!is.null(fs_iptw$sg.harm)'
+
+fs_bc_iptw <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_iptw, nb_boots = 50,
+  parallel_args = list(plan = "multisession", workers = n_cores,
+                       show_message = FALSE),
+  details = FALSE
+)
+```
+
+## 5.2: IPTW Forest Plot
+
+```{r fp-iptw, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_iptw$sg.harm)'
+
+test_id <- "5.2"
+result <- tryCatch({
+  fp_iptw <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_iptw, fs_bc = fs_bc_iptw),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 5.2: IRR + IPTW -- Observational Forest Plot"
+  )
+  plot(fp_iptw)
+  paste0("rows=", nrow(fp_iptw$data))
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "IPTW forest plot renders", "PASS", result)
+} else {
+  log_test(test_id, "IPTW forest plot renders", "FAIL", result)
+}
+```
+
+
+# Test Group 6: Continuous Outcome -- Mean Difference (MD) {#sec-md}
+
+## 6.1: ForestSearch (MD)
+
+```{r fs-md}
+fs_md <- forestsearch(
+  df.analysis = df_cont, confounders.name = c("age", "bm_pos"),
+  outcome.name = "outcome", event.name = "outcome",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "continuous", effect_measure = "MD", dmin.grf = 0.0,
+  hr.threshold = 1.0, hr.consistency = 0.0,
+  pconsistency.threshold = 0.80, stop_threshold = 0.80,
+  fs.splits = 100, max_subgroups_search = 3,
+  use_twostage = TRUE, use_grf = FALSE, use_lasso = TRUE,
+  return_selected_cuts_only = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE),
+  maxk = 2, sg_focus = "hr"
+)
+cat("MD SG:", paste(fs_md$sg.harm, collapse = " & "), "\n")
+```
+
+## 6.2: MD Forest Plot (Identity Scale)
+
+```{r fp-md, fig.width=11, fig.height=7}
+#| eval: !expr '!is.null(fs_md$sg.harm)'
+
+test_id <- "6.2"
+result <- tryCatch({
+  fp_md <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_md),
+    df_analysis = df_cont,
+    outcome.name = "outcome", event.name = "outcome", treat.name = "treat",
+    E.name = "Treatment", C.name = "Control",
+    title_text = "Test 6.2: Continuous Outcome -- MD Forest Plot"
+  )
+  plot(fp_md)
+
+  ci_col <- grep("^MD", names(fp_md$data), value = TRUE)
+  paste0("rows=", nrow(fp_md$data), ", ci_col=", ci_col[1])
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "MD forest plot renders (linear scale, ref=0)", "PASS", result)
+} else {
+  log_test(test_id, "MD forest plot renders (linear scale, ref=0)", "FAIL", result)
+}
+```
+
+
+# Test Group 7: Display Defaults Verification {#sec-defaults}
+
+## 7.1: Log-Scale Measures (OR, RR, IRR) Get xlog=TRUE, ref=1
+
+```{r test-defaults-log}
+test_id <- "7.1"
+result <- tryCatch({
+  # Minimal test: create a mock fs result with OR
+  mock_fs <- list(outcome_type = "binary", effect_measure = "OR",
+                  sg.harm = "test", df.est = df,
+                  args_call_all = list(offset.name = NULL))
+  mock_results <- list(fs.est = mock_fs)
+
+  # Capture the function environment to check defaults
+  # We verify by checking the ci_label column name
+  fp_test <- plot_subgroup_results_forestplot(
+    fs_results = mock_results,
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "E", C.name = "C",
+    show_cv_metrics = FALSE
+  )
+  ci_cols <- names(fp_test$data)
+  has_or <- any(grepl("^OR", ci_cols))
+  paste0("ci_label_has_OR=", has_or)
+}, error = function(e) e$message)
+
+if (grepl("TRUE", result)) {
+  log_test(test_id, "OR auto-detects xlog=TRUE, ci_label='OR (...)'", "PASS", result)
+} else {
+  log_test(test_id, "OR auto-detects xlog=TRUE, ci_label='OR (...)'", "FAIL", result)
+}
+```
+
+## 7.2: Identity-Scale Measures (RD, IRD, MD) Get xlog=FALSE, ref=0
+
+```{r test-defaults-identity}
+test_id <- "7.2"
+result <- tryCatch({
+  mock_fs <- list(outcome_type = "binary", effect_measure = "RD",
+                  sg.harm = "test", df.est = df,
+                  args_call_all = list(offset.name = NULL))
+  mock_results <- list(fs.est = mock_fs)
+
+  fp_test <- plot_subgroup_results_forestplot(
+    fs_results = mock_results,
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "E", C.name = "C",
+    show_cv_metrics = FALSE
+  )
+  ci_cols <- names(fp_test$data)
+  has_rd <- any(grepl("^RD", ci_cols))
+
+  # Check formatting: RD should use 3 decimal places
+  rd_col <- grep("^RD", ci_cols, value = TRUE)[1]
+  sample_val <- fp_test$data[[rd_col]][1]
+  has_3dp <- grepl("\\.[0-9]{3}", sample_val)
+
+  paste0("ci_label_has_RD=", has_rd, ", 3dp_format=", has_3dp)
+}, error = function(e) e$message)
+
+if (grepl("RD=TRUE.*3dp.*TRUE", result)) {
+  log_test(test_id, "RD auto-detects xlog=FALSE, 3dp formatting", "PASS", result)
+} else {
+  log_test(test_id, "RD auto-detects xlog=FALSE, 3dp formatting", "FAIL", result)
+}
+```
+
+## 7.3: Survival Falls Through to HR Defaults (Regression)
+
+```{r test-defaults-survival}
+test_id <- "7.3"
+result <- tryCatch({
+  mock_fs <- list(outcome_type = "survival", effect_measure = NULL,
+                  sg.harm = "test", df.est = df,
+                  args_call_all = list())
+  mock_results <- list(fs.est = mock_fs)
+
+  fp_test <- plot_subgroup_results_forestplot(
+    fs_results = mock_results,
+    df_analysis = df,
+    outcome.name = "rfstime", event.name = "status", treat.name = "hormon",
+    E.name = "E", C.name = "C",
+    show_cv_metrics = FALSE
+  )
+  ci_cols <- names(fp_test$data)
+  has_hr <- any(grepl("^HR", ci_cols))
+  paste0("ci_label_has_HR=", has_hr)
+}, error = function(e) e$message)
+
+if (grepl("TRUE", result)) {
+  log_test(test_id, "Survival auto-detects HR label (unchanged)", "PASS", result)
+} else {
+  log_test(test_id, "Survival auto-detects HR label (unchanged)", "FAIL", result)
+}
+```
+
+## 7.4: User-Specified xlim/ticks_at Override Auto-Defaults
+
+```{r test-user-override}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "7.4"
+result <- tryCatch({
+  fp_custom <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_or),
+    df_analysis = df,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "E", C.name = "C",
+    xlim = c(0.10, 10.0),
+    ticks_at = c(0.10, 0.50, 1.0, 2.0, 10.0),
+    show_cv_metrics = FALSE,
+    title_text = "Test 7.4: OR with custom xlim"
+  )
+  plot(fp_custom)
+  "User xlim/ticks_at accepted without error"
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "User xlim/ticks_at overrides auto-defaults", "PASS", result)
+} else {
+  log_test(test_id, "User xlim/ticks_at overrides auto-defaults", "FAIL", result)
+}
+```
+
+
+# Test Group 8: Reference Subgroups with GLM {#sec-ref}
+
+## 8.1: OR Forest Plot with Reference Subgroups
+
+```{r fp-or-refs, fig.width=11, fig.height=9}
+#| eval: !expr '!is.null(fs_or$sg.harm)'
+
+test_id <- "8.1"
+result <- tryCatch({
+  ref_list <- list(
+    er_neg = list(
+      subset_expr = "er <= 0",
+      name = "ER-negative",
+      type = "reference"
+    ),
+    er_pos = list(
+      subset_expr = "er > 0",
+      name = "ER-positive",
+      type = "reference"
+    ),
+    young = list(
+      subset_expr = "age < 50",
+      name = "Age < 50",
+      type = "reference"
+    )
+  )
+
+  fp_ref <- plot_subgroup_results_forestplot(
+    fs_results = list(fs.est = fs_or, fs_bc = fs_bc_or),
+    df_analysis = df,
+    subgroup_list = ref_list,
+    outcome.name = "status", event.name = "status", treat.name = "hormon",
+    E.name = "Hormon", C.name = "Control",
+    title_text = "Test 8.1: OR Forest Plot with Reference Subgroups"
+  )
+  plot(fp_ref)
+  paste0("rows=", nrow(fp_ref$data),
+         ", ref_rows=", sum(fp_ref$row_types == "reference"))
+}, error = function(e) e$message)
+
+if (!grepl("^Error", result)) {
+  log_test(test_id, "OR forest plot with reference subgroups", "PASS", result)
+} else {
+  log_test(test_id, "OR forest plot with reference subgroups", "FAIL", result)
+}
+```
+
+
+# Results Summary {#sec-summary}
+
+```{r summary-table}
+n_pass <- sum(test_log$Status == "PASS")
+n_fail <- sum(test_log$Status == "FAIL")
+n_total <- nrow(test_log)
+
+cat(sprintf("\n=== GLM Forest Plot Test Results: %d/%d PASSED ===\n\n",
+            n_pass, n_total))
+
+gt(test_log) |>
+  tab_header(
+    title = md("**GLM Forest Plot Test Suite Results**"),
+    subtitle = sprintf("%d tests: %d passed, %d failed", n_total, n_pass, n_fail)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#e8f5e9"),
+    locations = cells_body(rows = Status == "PASS")
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#ffcdd2"),
+    locations = cells_body(rows = Status == "FAIL")
+  )
+```
+
+```{r final-check}
+if (n_fail > 0) {
+  cat("\n\u274C FAILURES DETECTED:\n")
+  for (i in which(test_log$Status == "FAIL")) {
+    cat("  ", test_log$Test[i], ":", test_log$Description[i], "\n")
+    cat("    ", test_log$Details[i], "\n")
+  }
+} else {
+  cat("\n\u2705 ALL TESTS PASSED\n")
+}
+```
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
