@@ -1,0 +1,621 @@
+---
+title: "Count / Rate Outcomes in ForestSearch"
+subtitle: "GRF Subgroup Identification, Per-Subgroup Estimation, and Biomarker Profiling for Poisson Data"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# Introduction {#sec-intro}
+
+ForestSearch v0.2.0 extends subgroup identification beyond survival
+and binary outcomes to **count / rate data** via Poisson, quasi-Poisson,
+and negative-binomial GLMs.  This document exercises the three new
+user-facing functions on synthetic clinical trial data with a known
+treatment-effect subgroup:
+
+| Function | Purpose |
+|---|---|
+| `grf.subg.harm.glm()` | GRF-based subgroup identification for GLM outcomes |
+| `create_glm_row()` | Per-subgroup GLM effect estimation (one-row summary) |
+| `glm_effect_profile()` | Delta-method treatment-effect profile across a continuous biomarker |
+
+The DGM plants a **harm subgroup** (`v1 = 1`) where treatment
+*increases* the event rate (IRR > 1), while the complement benefits
+from treatment (IRR < 1).  The overall ITT effect is near null by design,
+making subgroup identification the analytic goal.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+library(forestsearch)
+library(ggplot2)
+library(patchwork)
+library(gt)
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Synthetic Data {#sec-data}
+
+```{r sim-data}
+#| code-fold: false
+
+set.seed(42)
+n <- 800
+
+# -- Covariates ---------------------------------------------------------------
+df <- data.frame(
+  id          = seq_len(n),
+  treat       = rbinom(n, 1, 0.5),
+  v1          = as.factor(rbinom(n, 1, 0.35)),
+  v2          = as.factor(rbinom(n, 1, 0.50)),
+  v3          = as.factor(rbinom(n, 1, 0.45)),
+  age         = round(rnorm(n, 60, 12)),
+  biomarker   = round(runif(n, 0.5, 5.0), 2),
+  person_time = round(runif(n, 0.5, 3.0), 2)
+)
+
+# -- Outcome: Poisson with heterogeneous treatment effect ---------------------
+# v1 = 1 (harm):       log(IRR) = +0.7  (IRR ~ 2.0, treatment harmful)
+# v1 = 0 (complement): log(IRR) = -0.4  (IRR ~ 0.67, treatment beneficial)
+# Continuous biomarker adds a smooth interaction on top
+
+log_rate <- with(df, {
+  -1.2 +                                # baseline log-rate
+    0.7  * treat * (v1 == 1) +           # harm subgroup effect
+    -0.4 * treat * (v1 == 0) +           # complement benefit
+    0.15 * treat * (biomarker - 2.5) +   # continuous interaction
+    0.02 * (age - 60) +                  # age effect on rate
+    log(person_time)                     # offset (exposure)
+})
+
+df$events <- rpois(n, lambda = exp(log_rate))
+```
+
+```{r data-summary}
+cat("=== Data Summary ===\n")
+cat("N:", n, "\n")
+cat("Events: mean =", round(mean(df$events), 2),
+    ", range = [", min(df$events), ",", max(df$events), "]\n")
+cat("Zero counts:", sum(df$events == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(df$events == 0)))
+cat("Person-time: mean =", round(mean(df$person_time), 2), "years\n")
+cat("\nPer-arm event rates:\n")
+for (arm in 0:1) {
+  idx <- df$treat == arm
+  rate <- sum(df$events[idx]) / sum(df$person_time[idx])
+  cat(sprintf("  treat = %d: events = %d, PT = %.1f, rate = %.3f/yr\n",
+              arm, sum(df$events[idx]), sum(df$person_time[idx]), rate))
+}
+```
+
+```{r data-truth}
+#| tbl-cap: "True treatment effects by subgroup"
+
+truth <- data.frame(
+  Subgroup = c("v1 = 1 (harm)", "v1 = 0 (complement)", "Overall"),
+  `True log-IRR` = c(0.7, -0.4, NA),
+  `True IRR` = c(exp(0.7), exp(-0.4), NA),
+  check.names = FALSE
+)
+
+# Compute observed overall IRR
+fit_overall <- glm(events ~ treat + offset(log(person_time)),
+                   family = poisson, data = df)
+truth$`True IRR`[3] <- exp(coef(fit_overall)["treat"])
+truth$`True log-IRR`[3] <- coef(fit_overall)["treat"]
+
+gt(truth) |>
+  tab_header(title = "DGM Treatment Effects") |>
+  fmt_number(columns = c("True log-IRR", "True IRR"), decimals = 3)
+```
+
+
+# GRF Subgroup Identification {#sec-grf}
+
+`grf.subg.harm.glm()` uses `grf::causal_forest()` for candidate
+variable screening (with a variance-stabilising $\log(Y + 0.5)$
+transformation for count data), followed by policy-tree enumeration
+and GLM-based effect estimation.
+
+## Standard Poisson {#sec-grf-poisson}
+
+```{r grf-poisson}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+grf_pois <- grf.subg.harm.glm(
+  data                = df,
+  confounders.name    = c("v1", "v2", "v3", "age"),
+  outcome.name        = "events",
+  treat.name          = "treat",
+  id.name             = "id",
+  outcome_type        = "count",
+  effect_measure      = "log_IRR",
+  offset.name         = "person_time",
+  overdispersion      = "none",
+  grf_count_transform = "log",
+  n.min               = 60,
+  dmin.grf            = 0,
+  maxdepth            = 2,
+  RCT                 = TRUE,
+  conf.level          = 0.95,
+  seedit              = 8316951,
+  verbose             = TRUE
+)
+
+timings$grf_poisson <- proc.time()[3] - t0
+```
+
+```{r grf-poisson-results}
+cat("\n=== GRF Subgroup Identification (Poisson) ===\n")
+cat("Subgroup found:", !is.null(grf_pois$sg.harm.id), "\n")
+if (!is.null(grf_pois$sg.harm.id)) {
+  cat("Definition:", paste(grf_pois$sg.harm.id, collapse = " & "), "\n")
+  n_harm <- sum(grf_pois$data$treat.recommend == 0)
+  cat(sprintf("Size: n(H) = %d (%.1f%%)\n", n_harm, 100 * n_harm / n))
+}
+
+cat("\nGRF variable importance:\n")
+vi <- sort(grf_pois$grf_varimp, decreasing = TRUE)
+for (i in seq_along(vi)) {
+  cat(sprintf("  %s: %.4f\n", names(vi)[i], vi[i]))
+}
+
+cat("\nGRF Y transform:", grf_pois$grf_y_transform, "\n")
+```
+
+## Quasi-Poisson {#sec-grf-quasi}
+
+```{r grf-quasi}
+t0 <- proc.time()[3]
+
+grf_quasi <- grf.subg.harm.glm(
+  data                = df,
+  confounders.name    = c("v1", "v2", "v3", "age"),
+  outcome.name        = "events",
+  treat.name          = "treat",
+  id.name             = "id",
+  outcome_type        = "count",
+  effect_measure      = "log_IRR",
+  offset.name         = "person_time",
+  overdispersion      = "quasi",
+  grf_count_transform = "log",
+  n.min               = 60,
+  conf.level          = 0.95,
+  seedit              = 8316951,
+  verbose             = TRUE
+)
+
+timings$grf_quasi <- proc.time()[3] - t0
+
+cat("Quasi-Poisson SG:", paste(grf_quasi$sg.harm.id, collapse = " & "), "\n")
+```
+
+
+# Per-Subgroup Estimation with `create_glm_row()` {#sec-glm-row}
+
+`create_glm_row()` fits a GLM within a pre-defined subgroup and returns
+a one-row data frame with point estimate, CI, sample size, and event
+counts.  This is the building block used internally by `grf.subg.harm.glm()`.
+
+```{r glm-row-demo}
+#| code-fold: false
+
+# Define subgroups from the GRF result
+sg_indicator <- grf_pois$data$treat.recommend
+df_harm <- df[sg_indicator == 0, ]
+df_comp <- df[sg_indicator == 1, ]
+
+# --- Poisson (model-based SEs) ---
+row_harm_pois <- create_glm_row(
+  df             = df_harm,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "none",
+  conf.level     = 0.95
+)
+
+row_comp_pois <- create_glm_row(
+  df             = df_comp,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "none",
+  conf.level     = 0.95
+)
+
+row_itt_pois <- create_glm_row(
+  df             = df,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "none",
+  conf.level     = 0.95
+)
+
+# --- Quasi-Poisson (dispersion-corrected SEs) ---
+row_harm_quasi <- create_glm_row(
+  df             = df_harm,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "quasi",
+  conf.level     = 0.95
+)
+
+row_comp_quasi <- create_glm_row(
+  df             = df_comp,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "quasi",
+  conf.level     = 0.95
+)
+```
+
+```{r glm-row-table}
+#| tbl-cap: "Per-subgroup log-IRR estimates: Poisson vs quasi-Poisson"
+
+est_table <- data.frame(
+  Subgroup = c("Harm (H)", "Complement (Hc)", "ITT"),
+  N = c(row_harm_pois$N, row_comp_pois$N, row_itt_pois$N),
+  Events_T = c(row_harm_pois$events_treat, row_comp_pois$events_treat,
+               row_itt_pois$events_treat),
+  Events_C = c(row_harm_pois$events_control, row_comp_pois$events_control,
+               row_itt_pois$events_control),
+  log_IRR_pois = c(row_harm_pois$est, row_comp_pois$est, row_itt_pois$est),
+  SE_pois = c(row_harm_pois$se, row_comp_pois$se, row_itt_pois$se),
+  log_IRR_quasi = c(row_harm_quasi$est, row_comp_quasi$est, NA),
+  SE_quasi = c(row_harm_quasi$se, row_comp_quasi$se, NA),
+  True_logIRR = c(0.7, -0.4, truth$`True log-IRR`[3]),
+  stringsAsFactors = FALSE
+)
+
+gt(est_table) |>
+  tab_header(
+    title = "Subgroup Effect Estimates",
+    subtitle = "Poisson vs quasi-Poisson standard errors"
+  ) |>
+  fmt_number(columns = c(log_IRR_pois, SE_pois, log_IRR_quasi, SE_quasi,
+                          True_logIRR), decimals = 3) |>
+  cols_label(
+    Subgroup = "Subgroup",
+    N = "N",
+    Events_T = "Events (Rx)",
+    Events_C = "Events (Ctrl)",
+    log_IRR_pois = "log-IRR",
+    SE_pois = "SE (Pois)",
+    log_IRR_quasi = "log-IRR",
+    SE_quasi = "SE (Quasi)",
+    True_logIRR = "True"
+  ) |>
+  tab_spanner(label = "Poisson", columns = c(log_IRR_pois, SE_pois)) |>
+  tab_spanner(label = "Quasi-Poisson", columns = c(log_IRR_quasi, SE_quasi)) |>
+  tab_source_note("True log-IRR: H = +0.70, Hc = -0.40")
+```
+
+
+# Biomarker Treatment-Effect Profile {#sec-profile}
+
+`glm_effect_profile()` estimates the treatment effect as a smooth function
+of a continuous biomarker using natural cubic splines with delta-method
+CIs.  This is the GLM analog of `cox_cs_fit()`.
+
+## Poisson Profile {#sec-profile-pois}
+
+```{r profile-poisson}
+#| code-fold: false
+#| fig-height: 5
+#| fig-cap: "Treatment-effect profile (log-IRR) across the continuous biomarker. The true DGM has a linear interaction with slope 0.15 per unit above the mean."
+
+t0 <- proc.time()[3]
+
+prof_pois <- glm_effect_profile(
+  df             = df,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  z.name         = "biomarker",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "none",
+  spline_df      = 3,
+  z_by           = 0.05,
+  z_quantile     = 0.95,
+  alpha          = 0.05,
+  verbose        = TRUE
+)
+
+timings$profile_poisson <- proc.time()[3] - t0
+
+print(prof_pois)
+```
+
+```{r profile-poisson-plot}
+#| fig-height: 5.5
+#| fig-cap: "Poisson log-IRR profile with 95 percent delta-method CIs. Dashed grey line: true linear interaction slope from the DGM."
+
+df_prof <- data.frame(
+  biomarker = prof_pois$z_profile,
+  est       = prof_pois$est,
+  lower     = prof_pois$lower,
+  upper     = prof_pois$upper
+)
+
+# True interaction: 0.15 * (biomarker - 2.5) + weighted average of
+# subgroup effects
+true_slope <- 0.15
+true_intercept <- 0.7 * 0.35 + (-0.4) * 0.65  # prevalence-weighted
+
+ggplot(df_prof, aes(x = biomarker, y = est)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, fill = "steelblue") +
+  geom_line(linewidth = 1.2, color = "steelblue") +
+  geom_abline(intercept = true_intercept - true_slope * 2.5,
+              slope = true_slope,
+              linetype = "dashed", color = "grey40", linewidth = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red", linewidth = 0.4) +
+  geom_rug(data = df, aes(x = biomarker, y = NULL),
+           alpha = 0.1, sides = "b", length = unit(0.02, "npc")) +
+  labs(x = "Biomarker", y = "log(IRR)",
+       title = "Treatment-Effect Profile: Poisson (log-IRR)",
+       subtitle = sprintf("Spline df = 3 | n = %d | Family: %s",
+                           nrow(df), prof_pois$family_used)) +
+  theme_minimal(base_size = 12) +
+  theme(panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+```
+
+## Quasi-Poisson Profile {#sec-profile-quasi}
+
+```{r profile-quasi}
+prof_quasi <- glm_effect_profile(
+  df             = df,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  z.name         = "biomarker",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "quasi",
+  spline_df      = 3,
+  z_by           = 0.05,
+  z_quantile     = 0.95,
+  alpha          = 0.05,
+  verbose        = TRUE
+)
+
+print(prof_quasi)
+```
+
+```{r profile-comparison}
+#| fig-height: 5.5
+#| fig-cap: "Poisson vs quasi-Poisson: point estimates are identical; quasi-Poisson CIs are wider when dispersion > 1."
+
+df_comp <- rbind(
+  data.frame(biomarker = prof_pois$z_profile, est = prof_pois$est,
+             lower = prof_pois$lower, upper = prof_pois$upper,
+             Method = "Poisson"),
+  data.frame(biomarker = prof_quasi$z_profile, est = prof_quasi$est,
+             lower = prof_quasi$lower, upper = prof_quasi$upper,
+             Method = "Quasi-Poisson")
+)
+
+ggplot(df_comp, aes(x = biomarker, y = est, colour = Method, fill = Method)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.10, colour = NA) +
+  geom_line(linewidth = 1.1) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red", linewidth = 0.4) +
+  scale_colour_manual(values = c("Poisson" = "steelblue",
+                                  "Quasi-Poisson" = "#E07B39")) +
+  scale_fill_manual(values = c("Poisson" = "steelblue",
+                                "Quasi-Poisson" = "#E07B39")) +
+  labs(x = "Biomarker", y = "log(IRR)",
+       title = "Variance Correction: Poisson vs Quasi-Poisson Profiles",
+       subtitle = sprintf("Dispersion estimate: %.3f", prof_quasi$dispersion)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+```
+
+
+# Negative Binomial Profile {#sec-negbin}
+
+For data with substantial overdispersion, `glm_effect_profile()` supports
+negative-binomial regression via `MASS::glm.nb()`.
+
+```{r profile-negbin}
+prof_nb <- glm_effect_profile(
+  df             = df,
+  outcome.name   = "events",
+  treat.name     = "treat",
+  z.name         = "biomarker",
+  effect_measure = "log_IRR",
+  offset.name    = "person_time",
+  overdispersion = "negbin",
+  spline_df      = 3,
+  z_by           = 0.05,
+  z_quantile     = 0.95,
+  alpha          = 0.05,
+  verbose        = TRUE
+)
+
+print(prof_nb)
+```
+
+```{r profile-all-three}
+#| fig-height: 6
+#| fig-cap: "All three variance estimators. Point estimates are nearly identical; CIs widen with stronger overdispersion correction."
+
+df_all <- rbind(
+  data.frame(biomarker = prof_pois$z_profile, est = prof_pois$est,
+             lower = prof_pois$lower, upper = prof_pois$upper,
+             Method = "Poisson"),
+  data.frame(biomarker = prof_quasi$z_profile, est = prof_quasi$est,
+             lower = prof_quasi$lower, upper = prof_quasi$upper,
+             Method = "Quasi-Poisson"),
+  data.frame(biomarker = prof_nb$z_profile, est = prof_nb$est,
+             lower = prof_nb$lower, upper = prof_nb$upper,
+             Method = "Negative Binomial")
+)
+df_all$Method <- factor(df_all$Method,
+                         levels = c("Poisson", "Quasi-Poisson",
+                                    "Negative Binomial"))
+
+ggplot(df_all, aes(x = biomarker, y = est, colour = Method, fill = Method)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.08, colour = NA) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red", linewidth = 0.4) +
+  scale_colour_manual(values = c("Poisson" = "steelblue",
+                                  "Quasi-Poisson" = "#E07B39",
+                                  "Negative Binomial" = "#7B2D8E")) +
+  scale_fill_manual(values = c("Poisson" = "steelblue",
+                                "Quasi-Poisson" = "#E07B39",
+                                "Negative Binomial" = "#7B2D8E")) +
+  labs(x = "Biomarker", y = "log(IRR)",
+       title = "Three Variance Estimators for Count Outcomes",
+       subtitle = sprintf(
+         "Dispersion: quasi = %.3f | negbin (1/theta) = %.3f",
+         prof_quasi$dispersion, prof_nb$dispersion
+       )) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+```
+
+
+# GRF Transform Comparison {#sec-transform}
+
+The `grf_count_transform` parameter controls how the count outcome is
+transformed before passing to `grf::causal_forest()` for factor screening.
+
+```{r grf-identity}
+grf_identity <- grf.subg.harm.glm(
+  data                = df,
+  confounders.name    = c("v1", "v2", "v3", "age"),
+  outcome.name        = "events",
+  treat.name          = "treat",
+  id.name             = "id",
+  outcome_type        = "count",
+  effect_measure      = "log_IRR",
+  offset.name         = "person_time",
+  overdispersion      = "none",
+  grf_count_transform = "identity",
+  n.min               = 60,
+  seedit              = 8316951,
+  verbose             = TRUE
+)
+```
+
+```{r grf-transform-compare}
+#| tbl-cap: "GRF screening: log vs identity transform"
+
+vi_log <- sort(grf_pois$grf_varimp, decreasing = TRUE)
+vi_id  <- sort(grf_identity$grf_varimp, decreasing = TRUE)
+
+vi_df <- data.frame(
+  Variable = names(vi_log),
+  `Importance (log)` = as.numeric(vi_log),
+  `Importance (identity)` = as.numeric(vi_id[names(vi_log)]),
+  check.names = FALSE
+)
+
+gt(vi_df) |>
+  tab_header(
+    title = "GRF Variable Importance by Transform",
+    subtitle = sprintf("log(Y + 0.5) vs raw Y | n = %d | %d zero counts",
+                        n, sum(df$events == 0))
+  ) |>
+  fmt_number(columns = c("Importance (log)", "Importance (identity)"),
+             decimals = 4) |>
+  tab_source_note(
+    sprintf("log SG: %s | identity SG: %s",
+            paste(grf_pois$sg.harm.id, collapse = " & "),
+            paste(grf_identity$sg.harm.id, collapse = " & "))
+  )
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Stage = c("GRF (Poisson)", "GRF (quasi-Poisson)",
+            "Effect profile (Poisson)", "Total"),
+  Seconds = c(
+    timings$grf_poisson, timings$grf_quasi,
+    timings$profile_poisson, timings$total
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = Seconds, decimals = 1) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total")
+  )
+```
+
+
+# Summary {#sec-summary}
+
+This document exercised the three new count-data functions in
+ForestSearch v0.2.0:
+
+**`grf.subg.harm.glm()`** correctly identified the planted harm
+subgroup (`v1 = 1`) using GRF with a $\log(Y + 0.5)$ variance-stabilising
+transform.  Both `grf_count_transform = "log"` (default) and
+`"identity"` were tested; the log transform is preferred when zero
+counts are present.
+
+**`create_glm_row()`** produced per-subgroup log-IRR estimates with
+Poisson and quasi-Poisson SEs.  Point estimates match between the two;
+quasi-Poisson SEs are wider when dispersion > 1, providing conservative
+inference.
+
+**`glm_effect_profile()`** produced smooth biomarker treatment-effect
+profiles under all three variance estimators (Poisson, quasi-Poisson,
+negative binomial).  Point estimates are nearly identical; CI width
+increases with the strength of overdispersion correction.  The
+profile correctly recovered the linear biomarker interaction from the
+DGM.
+
+
+# Session Information {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```
