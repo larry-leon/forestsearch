@@ -36,18 +36,16 @@
 #' @param family Character or family object.  One of \code{"binomial"}
 #'   (default), \code{"poisson"}, or \code{"gaussian"}.  Determines the
 #'   link function and the scale of the treatment-effect profile:
-#'   \itemize{
-#'     \item \code{"binomial"}: logit link; profile is log-OR
-#'     \item \code{"poisson"}: log link; profile is log-IRR (requires
-#'       \code{offset_name})
-#'     \item \code{"gaussian"}: identity link; profile is mean difference
-#'   }
+#'   \code{"binomial"} uses logit link (profile is log-OR);
+#'   \code{"poisson"} uses log link (profile is log-IRR, requires
+#'   \code{offset_name}); \code{"gaussian"} uses identity link (profile
+#'   is mean difference).
 #' @param offset_name Character or \code{NULL}.  Name of the offset
 #'   variable (e.g., log follow-up time for Poisson models).  The offset
 #'   is applied as \code{log(offset_var)} internally.  Required when
 #'   \code{family = "poisson"}.
 #' @param alpha Numeric. Significance level for confidence intervals
-#'   (two-sided).  Default: 0.05 (95\% CI).
+#'   (two-sided).  Default: 0.05 (95 percent CI).
 #' @param spline_df Integer. Degrees of freedom for the natural spline.
 #'   Default: 3.
 #' @param z_by Numeric. Increment for the biomarker prediction grid.
@@ -106,7 +104,9 @@
 #' estimated on the link scale (log-OR, log-IRR, or identity) with
 #' pointwise delta-method confidence intervals.
 #'
-#' @seealso \code{\link{cox_cs_fit}} for the survival analog.
+#' @seealso \code{\link{cox_cs_fit}} for the survival analog,
+#'   \code{\link{glm_effect_profile}} for the extended interface with
+#'   sandwich SEs and overdispersion correction.
 #'
 #' @examples
 #' \dontrun{
@@ -477,6 +477,8 @@ glm_cs_fit <- function(df,
 #'
 #' @param x A \code{glm_cs_fit} object.
 #' @param ... Additional arguments (unused).
+#' @return Invisibly returns \code{x}.
+#' @rdname glm_cs_fit
 #' @export
 print.glm_cs_fit <- function(x, ...) {
   cat("GLM Spline Fit (", x$family, " / ", x$effect_label, ")\n", sep = "")

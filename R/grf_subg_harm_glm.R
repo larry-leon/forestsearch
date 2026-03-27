@@ -1,0 +1,758 @@
+# =============================================================================
+# grf.subg.harm.glm.R
+# GRF-based subgroup identification for GLM outcomes
+#
+# Extends the forestsearch GLM extension to handle:
+#   Binary outcomes   : log-OR, log-RR, RD
+#   Continuous outcomes: mean difference
+#   Count / rate outcomes: log-IRR (Poisson + offset, quasi-Poisson, negbin)
+#
+# GRF screening strategy for count outcomes (grf_count_transform):
+#   "log"      [default] causal_forest() applied to log(Y + 0.5)  --
+#              variance-stabilising transformation; avoids log(0) for zeros.
+#   "identity" causal_forest() applied to Y directly (raw counts).
+#              Appropriate when counts are large and overdispersion moderate.
+#   This step is used ONLY for candidate factor selection and policy-tree
+#   cut generation. All downstream effect estimation uses the correctly
+#   specified GLM (Poisson / quasi-Poisson / negative binomial).
+# =============================================================================
+
+#' GRF Subgroup Identification for GLM Outcomes
+#'
+#' Identifies treatment effect subgroups for binary, continuous, and count
+#' outcomes using Generalized Random Forests (GRF) for candidate factor
+#' screening, followed by exhaustive subgroup enumeration with GLM-based
+#' effect estimation.
+#'
+#' For count / rate outcomes, the GRF screening step applies a
+#' variance-stabilising \eqn{\log(Y + 0.5)} transformation so that
+#' \code{grf::causal_forest()} can be applied without dedicated
+#' count-specific infrastructure. All subgroup effect estimates are
+#' computed from correctly specified Poisson, quasi-Poisson, or
+#' negative-binomial GLMs via \code{\link{create_glm_row}}.
+#'
+#' @param data Data frame containing the analysis data.
+#' @param confounders.name Character vector of potential effect modifier
+#'   (confounder) names. These are the candidate split variables for GRF
+#'   and the subgroup enumeration.
+#' @param outcome.name Character. Name of the outcome column.
+#' @param treat.name Character. Name of the binary treatment indicator (0/1).
+#'   Default: \code{"treat"}.
+#' @param id.name Character. Name of the subject ID column.
+#'   Default: \code{"id"}.
+#' @param outcome_type Character. Type of outcome. One of \code{"binary"}
+#'   (outcome is 0/1; use \code{effect_measure} to select log-OR, log-RR,
+#'   or RD), \code{"continuous"} (estimates mean difference), or
+#'   \code{"count"} (count or rate outcome; use \code{effect_measure = "log_IRR"}
+#'   with \code{offset.name} for incidence rate ratios).
+#'   Default: \code{"binary"}.
+#' @param effect_measure Character. Effect measure to estimate. One of
+#'   \code{"log_OR"} (log odds ratio, binary/logistic),
+#'   \code{"log_RR"} (log relative risk, binary/modified Poisson),
+#'   \code{"RD"} (risk difference, binary/identity link),
+#'   \code{"MD"} (mean difference, continuous/Gaussian), or
+#'   \code{"log_IRR"} (log incidence rate ratio, count/Poisson with offset).
+#'   Default is \code{"log_OR"} for binary, \code{"MD"} for continuous,
+#'   and \code{"log_IRR"} for count.
+#' @param offset.name Character or \code{NULL}. Name of the person-time
+#'   (exposure) column. When supplied, \code{log(offset)} enters the linear
+#'   predictor of the GLM as an offset term. Required when
+#'   \code{outcome_type = "count"} and \code{effect_measure = "log_IRR"}.
+#'   Ignored for binary and continuous outcomes. Default: \code{NULL}.
+#' @param overdispersion Character. Overdispersion correction for count models.
+#'   One of \code{"none"} (standard Poisson, model-based SEs),
+#'   \code{"quasi"} (quasi-Poisson, dispersion-corrected SEs), or
+#'   \code{"negbin"} (negative binomial via \code{MASS::glm.nb()}).
+#'   Ignored for binary and continuous outcomes. Default: \code{"none"}.
+#' @param grf_count_transform Character. Transformation applied to the count
+#'   outcome \emph{before} passing it to \code{grf::causal_forest()} for
+#'   factor screening. Has no effect on binary or continuous outcomes.
+#'   \code{"log"} (default) applies \eqn{Y^* = \log(Y + 0.5)}, which
+#'   prevents \eqn{\log(0)} when zero counts are present and approximates
+#'   variance stabilisation for Poisson data. \code{"identity"} passes
+#'   raw counts \eqn{Y^* = Y} directly, appropriate when counts are large
+#'   and rarely zero. Both options affect only GRF factor screening; all
+#'   subgroup effect estimates use the correctly specified GLM regardless.
+#'   Default: \code{"log"}.
+#' @param n.min Integer. Minimum subgroup sample size for a valid split.
+#'   Default: \code{60}.
+#' @param dmin.grf Numeric. Minimum absolute treatment effect difference
+#'   required for a GRF policy-tree node to be considered. Default: \code{0}.
+#' @param frac.tau Numeric. Fraction of the sample used for the GRF horizon
+#'   (time-horizon analogue for non-survival outcomes). Default: \code{0.5}.
+#' @param maxdepth Integer. Maximum depth for GRF policy trees. Default: \code{2}.
+#' @param RCT Logical. Whether data come from a randomised trial. When
+#'   \code{TRUE}, propensity scores are fixed at 0.5. Default: \code{TRUE}.
+#' @param sg.criterion Character. Subgroup selection criterion. One of
+#'   \code{"mDiff"} (maximum score difference) or \code{"Nsg"} (largest
+#'   valid subgroup). Default: \code{"mDiff"}.
+#' @param conf.level Numeric. Confidence level for subgroup effect estimates.
+#'   Default: \code{0.95}.
+#' @param seedit Integer. Random seed for GRF. Default: \code{8316951}.
+#' @param return_selected_cuts_only Logical. If \code{TRUE}, returns only
+#'   cuts from the tree depth that identified the selected subgroup. If
+#'   \code{FALSE} (default), returns all cuts from all fitted trees.
+#'   Matches the interface of \code{\link{grf.subg.harm.survival}}.
+#'   Default: \code{FALSE}.
+#' @param adverse_outcome Logical. If \code{TRUE}, a higher outcome value
+#'   indicates a worse result (e.g., adverse event count), so the "harm"
+#'   subgroup is where treatment increases the outcome. If \code{FALSE}
+#'   (default), higher values are better. Default: \code{FALSE}.
+#' @param details Logical. Print GRF diagnostic information. Default: \code{FALSE}.
+#' @param verbose Logical. Print progress messages. Default: \code{FALSE}.
+#'
+#' @return A list of class \code{"grf_glm_result"} containing:
+#'   \describe{
+#'     \item{sg.harm.id}{Character vector defining the identified subgroup
+#'       (e.g., \code{c("v1=1", "v3=1")}), or \code{NULL} if no subgroup
+#'       was found.}
+#'     \item{data}{The input data frame with a \code{treat.recommend} column
+#'       added (\code{0} = in harm/questionable subgroup, \code{1} =
+#'       complement).}
+#'     \item{tree.cuts}{Named list of GRF policy-tree split points.}
+#'     \item{grf_varimp}{Named numeric vector of GRF variable importances.}
+#'     \item{effect_measure}{Character: the effect measure used.}
+#'     \item{outcome_type}{Character: the outcome type.}
+#'     \item{overdispersion}{Character: the overdispersion correction applied.}
+#'     \item{offset.name}{Character or \code{NULL}: the offset variable name.}
+#'     \item{grf_count_transform}{Character: the transform argument as matched
+#'       (\code{"log"} or \code{"identity"}).}
+#'     \item{grf_y_transform}{Character: transformation actually applied to Y
+#'       for GRF screening (\code{"log(Y + 0.5)"}, \code{"identity"}, or
+#'       \code{"none"}).}
+#'   }
+#'
+#' @details
+#' ## GRF Screening for Count Outcomes
+#'
+#' \code{grf::causal_forest()} is designed for continuous outcomes. For count
+#' data, this function transforms \eqn{Y} before passing it to GRF according
+#' to the \code{grf_count_transform} argument:
+#'
+#' \describe{
+#'   \item{\code{"log"} (default)}{Applies \code{Y_star = log(Y + 0.5)}.
+#'     The +0.5 shift avoids \code{log(0)} for zero-count observations;
+#'     the log scale approximates variance stabilisation for Poisson data and
+#'     is recommended when any counts are zero or small.}
+#'   \item{\code{"identity"}}{Passes raw counts \code{Y_star = Y} directly.
+#'     Appropriate when counts are large, rarely zero, and the raw scale is
+#'     near-continuous (e.g., daily hospitalisation volumes in a large centre).}
+#' }
+#'
+#' In both cases the transformation applies \emph{only} to GRF factor
+#' screening and policy-tree cut generation -- it determines \emph{which
+#' variables} and \emph{which cut-points} are candidate subgroup definitions.
+#' The actual effect estimates in each subgroup are always computed from a
+#' correctly specified Poisson (or quasi-Poisson / negative-binomial) GLM via
+#' \code{\link{create_glm_row}}, regardless of \code{grf_count_transform}.
+#'
+#' Alternatively, setting \code{use_grf = FALSE} in the parent
+#' \code{\link{forestsearch}} call routes to LASSO-based factor selection,
+#' which supports \code{family = "poisson"} natively via \pkg{glmnet}.
+#'
+#' ## Offset and Person-Time
+#'
+#' When \code{offset.name} is supplied, \eqn{\log(\text{exposure}_i)} enters
+#' every GLM fit in the subgroup enumeration loop, so that subgroup effects
+#' are on the incidence-rate-ratio scale adjusted for differential follow-up.
+#'
+#' @examples
+#' \dontrun{
+#' # Simulate count data with heterogeneous treatment effect
+#' set.seed(123)
+#' n <- 600
+#' z1 <- rbinom(n, 1, 0.4)   # binary subgroup factor
+#' df_count <- data.frame(
+#'   id          = seq_len(n),
+#'   treat       = rbinom(n, 1, 0.5),
+#'   v1          = as.factor(z1),
+#'   v2          = as.factor(rbinom(n, 1, 0.5)),
+#'   person_time = runif(n, 0.5, 2.0),
+#'   age         = rnorm(n, 60, 10)
+#' )
+#' # Generate outcome: higher event rate for treated in z1 = 1 subgroup
+#' log_rate <- -1.5 +
+#'   0.8 * df_count$treat * (df_count$v1 == 1) -
+#'   0.3 * df_count$treat * (df_count$v1 == 0) +
+#'   log(df_count$person_time)
+#' df_count$events <- rpois(n, lambda = exp(log_rate))
+#'
+#' # Run GRF subgroup identification for count outcome (log transform, default)
+#' grf_glm <- grf.subg.harm.glm(
+#'   data                = df_count,
+#'   confounders.name    = c("v1", "v2", "age"),
+#'   outcome.name        = "events",
+#'   treat.name          = "treat",
+#'   id.name             = "id",
+#'   outcome_type        = "count",
+#'   effect_measure      = "log_IRR",
+#'   offset.name         = "person_time",
+#'   overdispersion      = "quasi",
+#'   grf_count_transform = "log",      # default: log(Y + 0.5)
+#'   n.min               = 60,
+#'   verbose             = TRUE
+#' )
+#' print(grf_glm$sg.harm.id)
+#'
+#' # Alternative: identity transform (large counts, no zeros)
+#' grf_glm_id <- grf.subg.harm.glm(
+#'   data                = df_count,
+#'   confounders.name    = c("v1", "v2", "age"),
+#'   outcome.name        = "events",
+#'   treat.name          = "treat",
+#'   id.name             = "id",
+#'   outcome_type        = "count",
+#'   effect_measure      = "log_IRR",
+#'   offset.name         = "person_time",
+#'   overdispersion      = "none",
+#'   grf_count_transform = "identity",  # raw counts passed to GRF
+#'   n.min               = 60
+#' )
+#' }
+#'
+#' @seealso
+#'   \code{\link{grf.subg.harm.survival}} for time-to-event outcomes,
+#'   \code{\link{create_glm_row}} for per-subgroup GLM estimation,
+#'   \code{\link{glm_effect_profile}} for continuous biomarker profiles.
+#'
+#' @importFrom grf causal_forest variable_importance
+#' @importFrom policytree policy_tree double_robust_scores
+#' @importFrom stats complete.cases
+#' @export
+grf.subg.harm.glm <- function(
+    data,
+    confounders.name,
+    outcome.name,
+    treat.name          = "treat",
+    id.name             = "id",
+    outcome_type        = c("binary", "continuous", "count"),
+    effect_measure      = NULL,
+    offset.name         = NULL,
+    overdispersion      = c("none", "quasi", "negbin"),
+    grf_count_transform = c("log", "identity"),
+    n.min               = 60L,
+    dmin.grf            = 0,
+    frac.tau            = 0.5,
+    maxdepth            = 2L,
+    RCT                 = TRUE,
+    sg.criterion        = c("mDiff", "Nsg"),
+    conf.level          = 0.95,
+    seedit              = 8316951L,
+    return_selected_cuts_only = FALSE,
+    adverse_outcome     = FALSE,
+    details             = FALSE,
+    verbose             = FALSE
+) {
+
+  # ---------------------------------------------------------------------------
+  # Argument matching
+  # ---------------------------------------------------------------------------
+  outcome_type        <- match.arg(outcome_type)
+  overdispersion      <- match.arg(overdispersion)
+  sg.criterion        <- match.arg(sg.criterion)
+  grf_count_transform <- match.arg(grf_count_transform)
+
+  # Default effect_measure by outcome type
+  if (is.null(effect_measure)) {
+    effect_measure <- switch(outcome_type,
+      binary     = "log_OR",
+      continuous = "MD",
+      count      = "log_IRR"
+    )
+  }
+
+  # ---------------------------------------------------------------------------
+  # Validate count-specific arguments
+  # ---------------------------------------------------------------------------
+  if (outcome_type == "count") {
+    if (effect_measure == "log_IRR" && is.null(offset.name)) {
+      warning(
+        "outcome_type = 'count' with effect_measure = 'log_IRR' but ",
+        "offset.name = NULL. Fitting Poisson GLM without offset -- ",
+        "effects will be on the log-rate (not log-IRR) scale. ",
+        "Supply offset.name = '<person_time_column>' for incidence rate ratios."
+      )
+    }
+    if (!effect_measure %in% c("log_IRR", "log_RR")) {
+      stop(
+        "For outcome_type = 'count', effect_measure must be 'log_IRR' or ",
+        "'log_RR'. Got: '", effect_measure, "'."
+      )
+    }
+  }
+
+  if (!is.null(offset.name) && !offset.name %in% names(data)) {
+    stop("offset.name '", offset.name, "' not found in data.")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Required columns check
+  # ---------------------------------------------------------------------------
+  req_cols <- c(outcome.name, treat.name, id.name, confounders.name)
+  if (!is.null(offset.name)) req_cols <- c(req_cols, offset.name)
+  missing_cols <- setdiff(req_cols, names(data))
+  if (length(missing_cols) > 0L) {
+    stop("Columns not found in data: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Complete-case subset
+  # ---------------------------------------------------------------------------
+  cc_cols <- c(outcome.name, treat.name, id.name, confounders.name)
+  if (!is.null(offset.name)) cc_cols <- c(cc_cols, offset.name)
+  keep <- stats::complete.cases(data[, cc_cols])
+  if (sum(keep) < n.min) {
+    stop(sprintf(
+      "Only %d complete observations; need at least n.min = %d.",
+      sum(keep), n.min
+    ))
+  }
+  data <- data[keep, , drop = FALSE]
+  n    <- nrow(data)
+
+  if (verbose) {
+    message(sprintf(
+      "[grf.subg.harm.glm] n = %d | outcome_type = '%s' | effect_measure = '%s'",
+      n, outcome_type, effect_measure
+    ))
+    if (outcome_type == "count") {
+      message(sprintf(
+        "[grf.subg.harm.glm] offset = '%s' | overdispersion = '%s'",
+        if (is.null(offset.name)) "none" else offset.name, overdispersion
+      ))
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Build covariate matrix X for GRF
+  # ---------------------------------------------------------------------------
+  X <- .build_grf_X(data, confounders.name)
+
+  Y_raw   <- data[[outcome.name]]
+  W       <- as.numeric(data[[treat.name]])
+
+  # ---------------------------------------------------------------------------
+  # GRF screening: outcome transformation for count data
+  # ---------------------------------------------------------------------------
+  grf_y_transform <- "none"
+
+  if (outcome_type == "count") {
+    if (grf_count_transform == "log") {
+      Y_grf           <- log(Y_raw + 0.5)
+      grf_y_transform <- "log(Y + 0.5)"
+      if (verbose) {
+        message(
+          "[grf.subg.harm.glm] Count outcome: applying log(Y + 0.5) for ",
+          "GRF factor screening (grf_count_transform = 'log'). ",
+          "Effect estimation uses Poisson/quasi GLM."
+        )
+      }
+    } else {
+      # "identity"  -- pass raw counts directly
+      Y_grf           <- Y_raw
+      grf_y_transform <- "identity"
+      if (verbose) {
+        message(
+          "[grf.subg.harm.glm] Count outcome: passing raw counts to GRF ",
+          "(grf_count_transform = 'identity'). Suitable when counts are ",
+          "large and rarely zero."
+        )
+      }
+    }
+  } else {
+    Y_grf <- Y_raw
+  }
+
+  # ---------------------------------------------------------------------------
+  # Fit causal forest
+  # ---------------------------------------------------------------------------
+  W_hat <- if (RCT) rep(0.5, n) else NULL
+
+  set.seed(seedit)
+  cs_forest <- tryCatch({
+    if (RCT) {
+      grf::causal_forest(X, Y_grf, W, W.hat = W_hat, seed = seedit)
+    } else {
+      grf::causal_forest(X, Y_grf, W, seed = seedit)
+    }
+  }, error = function(e) {
+    stop("grf::causal_forest() failed: ", e$message)
+  })
+
+  # Variable importance
+  vi <- grf::variable_importance(cs_forest)
+  names(vi) <- confounders.name
+  if (verbose) {
+    vi_sorted <- sort(vi, decreasing = TRUE)
+    message("[grf.subg.harm.glm] GRF variable importance (top 5):")
+    message(paste(sprintf("  %s: %.4f", names(vi_sorted)[seq_len(min(5, length(vi_sorted)))],
+                          vi_sorted[seq_len(min(5, length(vi_sorted)))]),
+                  collapse = "\n"))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Doubly-robust scores and policy trees
+  # ---------------------------------------------------------------------------
+  dr_scores <- tryCatch(
+    policytree::double_robust_scores(cs_forest),
+    error = function(e) {
+      stop("double_robust_scores() failed: ", e$message)
+    }
+  )
+
+  trees  <- vector("list", maxdepth)
+  values <- vector("list", maxdepth)
+  n_max  <- n  # exclude full population
+
+  for (d in seq_len(maxdepth)) {
+    trees[[d]] <- tryCatch(
+      policytree::policy_tree(X, dr_scores, depth = d),
+      error = function(e) NULL
+    )
+    if (!is.null(trees[[d]])) {
+      leaf_action <- predict(trees[[d]], X)
+      sg_idx      <- which(leaf_action == 1L)  # action 1 = recommend control
+      sg_n        <- length(sg_idx)
+      if (sg_n >= n.min && sg_n < n_max) {
+        # Score difference: mean(DR[sg]) - mean(DR[complement])
+        sc_sg  <- mean(dr_scores[sg_idx, 1L] - dr_scores[sg_idx, 2L])
+        sc_all <- mean(dr_scores[, 1L] - dr_scores[, 2L])
+        values[[d]] <- list(
+          depth    = d,
+          n_sg     = sg_n,
+          score    = sc_sg - sc_all,
+          sg_idx   = sg_idx,
+          leaf_action = leaf_action
+        )
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Select best subgroup
+  # ---------------------------------------------------------------------------
+  best <- .select_best_sg_glm(values, sg.criterion, dmin.grf, n, n.min)
+
+  if (is.null(best)) {
+    if (verbose) {
+      message("[grf.subg.harm.glm] No valid subgroup identified.")
+    }
+    data$treat.recommend <- 1L
+    return(structure(
+      list(
+        sg.harm.id          = NULL,
+        data                = data,
+        tree.cuts           = NULL,
+        grf_varimp          = vi,
+        effect_measure      = effect_measure,
+        outcome_type        = outcome_type,
+        overdispersion      = overdispersion,
+        offset.name         = offset.name,
+        grf_count_transform = grf_count_transform,
+        grf_y_transform     = grf_y_transform,
+        return_selected_cuts_only = return_selected_cuts_only,
+        adverse_outcome     = adverse_outcome
+      ),
+      class = "grf_glm_result"
+    ))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Extract tree cuts and subgroup definition
+  # ---------------------------------------------------------------------------
+  tree_cuts <- .extract_tree_cuts(trees[[best$depth]], X, confounders.name)
+  sg_harm_id <- .build_sg_harm_id(
+    trees[[best$depth]], confounders.name, data
+  )
+
+  data$treat.recommend <- ifelse(seq_len(n) %in% best$sg_idx, 0L, 1L)
+
+  if (verbose) {
+    n_harm <- sum(data$treat.recommend == 0L)
+    message(sprintf(
+      "[grf.subg.harm.glm] Subgroup found: n(H) = %d (%.1f%%) | definition: %s",
+      n_harm, 100 * n_harm / n,
+      paste(sg_harm_id, collapse = " & ")
+    ))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Return
+  # ---------------------------------------------------------------------------
+  structure(
+    list(
+      sg.harm.id          = sg_harm_id,
+      data                = data,
+      tree.cuts           = tree_cuts,
+      grf_varimp          = vi,
+      effect_measure      = effect_measure,
+      outcome_type        = outcome_type,
+      overdispersion      = overdispersion,
+      offset.name         = offset.name,
+      grf_count_transform = grf_count_transform,
+      grf_y_transform     = grf_y_transform,
+      return_selected_cuts_only = return_selected_cuts_only,
+      adverse_outcome     = adverse_outcome,
+      trees               = trees,
+      dr_scores           = dr_scores,
+      cs_forest           = cs_forest
+    ),
+    class = "grf_glm_result"
+  )
+}
+
+
+# =============================================================================
+# create_glm_row()   -- per-subgroup GLM effect estimate
+# =============================================================================
+
+#' Compute GLM Effect Estimate for a Single Subgroup
+#'
+#' Fits a GLM within the specified subgroup and returns a one-row data frame
+#' containing the effect estimate, confidence interval, sample size, and event
+#' count. Supports binary, continuous, and count (with offset) outcomes.
+#'
+#' @param df Data frame for the subgroup (already subset).
+#' @param outcome.name Character. Name of the outcome column.
+#' @param treat.name Character. Name of the treatment indicator.
+#' @param effect_measure Character. Effect measure; see
+#'   \code{\link{grf.subg.harm.glm}} for options.
+#' @param offset.name Character or \code{NULL}. Name of the person-time column.
+#'   When supplied, \code{log(offset)} is added as an offset term.
+#'   Default: \code{NULL}.
+#' @param overdispersion Character. One of \code{"none"}, \code{"quasi"},
+#'   \code{"negbin"}. Default: \code{"none"}.
+#' @param conf.level Numeric. Confidence level. Default: \code{0.95}.
+#' @param min_arm_n Integer. Minimum observations per arm; returns \code{NA}
+#'   row if either arm is below this threshold. Default: \code{5L}.
+#' @param min_arm_events Integer. For binary/count outcomes, minimum events
+#'   per arm; returns \code{NA} row if check fails. Default: \code{3L}.
+#' @param verbose Logical. Default: \code{FALSE}.
+#'
+#' @return A one-row data frame with columns:
+#'   \code{N}, \code{n_treat}, \code{n_control},
+#'   \code{events_treat}, \code{events_control} (for binary/count),
+#'   \code{est}, \code{lower}, \code{upper}, \code{se}, \code{effect_measure}.
+#'
+#' @seealso \code{\link{grf.subg.harm.glm}}
+#'
+#' @importFrom stats glm binomial poisson quasipoisson gaussian coef vcov
+#'   qnorm complete.cases as.formula
+#' @export
+create_glm_row <- function(
+    df,
+    outcome.name,
+    treat.name      = "treat",
+    effect_measure  = "log_OR",
+    offset.name     = NULL,
+    overdispersion  = "none",
+    conf.level      = 0.95,
+    min_arm_n       = 5L,
+    min_arm_events  = 3L,
+    verbose         = FALSE
+) {
+
+  z_mult <- stats::qnorm(1 - (1 - conf.level) / 2)
+
+  # NA row template
+  na_row <- data.frame(
+    N               = nrow(df),
+    n_treat         = sum(df[[treat.name]] == 1L, na.rm = TRUE),
+    n_control       = sum(df[[treat.name]] == 0L, na.rm = TRUE),
+    events_treat    = NA_integer_,
+    events_control  = NA_integer_,
+    est             = NA_real_,
+    lower           = NA_real_,
+    upper           = NA_real_,
+    se              = NA_real_,
+    effect_measure  = effect_measure,
+    stringsAsFactors = FALSE
+  )
+
+  # Basic sparsity check
+  n_treat   <- sum(df[[treat.name]] == 1L, na.rm = TRUE)
+  n_control <- sum(df[[treat.name]] == 0L, na.rm = TRUE)
+  if (n_treat < min_arm_n || n_control < min_arm_n) return(na_row)
+
+  Y <- df[[outcome.name]]
+  W <- df[[treat.name]]
+
+  # Event counts
+  if (effect_measure %in% c("log_OR", "log_RR", "RD", "log_IRR")) {
+    ev_treat   <- sum(Y[W == 1L], na.rm = TRUE)
+    ev_control <- sum(Y[W == 0L], na.rm = TRUE)
+    na_row$events_treat   <- as.integer(round(ev_treat))
+    na_row$events_control <- as.integer(round(ev_control))
+    if (ev_treat < min_arm_events || ev_control < min_arm_events) {
+      return(na_row)
+    }
+  } else {
+    na_row$events_treat   <- NA_integer_
+    na_row$events_control <- NA_integer_
+  }
+
+  # Build GLM formula with optional offset
+  if (!is.null(offset.name) && offset.name %in% names(df)) {
+    log_off_col <- ".log_offset_cr"
+    df[[log_off_col]] <- log(df[[offset.name]])
+    fml <- stats::as.formula(
+      paste(outcome.name, "~", treat.name, "+ offset(", log_off_col, ")")
+    )
+  } else {
+    log_off_col <- NULL
+    fml <- stats::as.formula(paste(outcome.name, "~", treat.name))
+  }
+
+  # Select family
+  family_obj <- .cr_resolve_family(effect_measure, overdispersion)
+  is_negbin  <- identical(family_obj, "negbin")
+
+  fit <- tryCatch({
+    if (is_negbin) {
+      if (!requireNamespace("MASS", quietly = TRUE)) {
+        stop("MASS required for negbin")
+      }
+      MASS::glm.nb(fml, data = df)
+    } else {
+      stats::glm(fml, data = df, family = family_obj)
+    }
+  }, error = function(e) {
+    if (verbose) message("[create_glm_row] GLM failed: ", e$message)
+    NULL
+  })
+
+  if (is.null(fit)) return(na_row)
+
+  # Extract treat coefficient
+  coef_names <- names(stats::coef(fit))
+  treat_idx  <- grep(paste0("^", treat.name), coef_names)
+  if (length(treat_idx) == 0L) return(na_row)
+
+  est    <- stats::coef(fit)[treat_idx]
+  vcov_m <- .cr_get_vcov(fit, effect_measure, overdispersion)
+  se     <- sqrt(max(vcov_m[treat_idx, treat_idx], 0))
+
+  data.frame(
+    N              = nrow(df),
+    n_treat        = n_treat,
+    n_control      = n_control,
+    events_treat   = na_row$events_treat,
+    events_control = na_row$events_control,
+    est            = as.numeric(est),
+    lower          = as.numeric(est - z_mult * se),
+    upper          = as.numeric(est + z_mult * se),
+    se             = as.numeric(se),
+    effect_measure = effect_measure,
+    stringsAsFactors = FALSE
+  )
+}
+
+
+# =============================================================================
+# Internal helpers
+# =============================================================================
+
+# Build numeric covariate matrix for GRF from data frame
+#' @noRd
+.build_grf_X <- function(data, confounders.name) {
+  X <- data[, confounders.name, drop = FALSE]
+  # Convert factors to numeric (integer codes)
+  for (v in names(X)) {
+    if (is.factor(X[[v]]) || is.character(X[[v]])) {
+      X[[v]] <- as.integer(as.factor(X[[v]]))
+    }
+  }
+  as.matrix(X)
+}
+
+
+# Select best subgroup from policy tree values
+#' @noRd
+.select_best_sg_glm <- function(values, sg.criterion, dmin.grf, n, n.min) {
+  valid <- Filter(Negate(is.null), values)
+  if (length(valid) == 0L) return(NULL)
+
+  if (sg.criterion == "mDiff") {
+    # Pick the tree with the largest score difference (most treatment effect
+    # heterogeneity) subject to n.min constraint
+    scores <- vapply(valid, `[[`, numeric(1), "score")
+    best_v <- valid[[which.max(scores)]]
+    if (max(scores) < dmin.grf) return(NULL)
+    return(best_v)
+  }
+
+  if (sg.criterion == "Nsg") {
+    # Pick the valid tree with the largest subgroup size
+    ns <- vapply(valid, `[[`, numeric(1), "n_sg")
+    return(valid[[which.max(ns)]])
+  }
+
+
+  NULL
+}
+
+
+# Extract variable cut-points from a policy tree
+#' @noRd
+.extract_tree_cuts <- function(tree, X, confounders.name) {
+  if (is.null(tree)) return(NULL)
+  tryCatch({
+    nodes <- tree$nodes
+    cuts  <- list()
+    for (nd in nodes) {
+      if (!is.null(nd$split_variable) && !is.null(nd$split_value)) {
+        var_name <- confounders.name[nd$split_variable]
+        cuts[[var_name]] <- c(cuts[[var_name]], nd$split_value)
+      }
+    }
+    lapply(cuts, unique)
+  }, error = function(e) NULL)
+}
+
+
+# Build sg.harm.id character vector from policy tree splits
+#' @noRd
+.build_sg_harm_id <- function(tree, confounders.name, data) {
+  if (is.null(tree)) return(NULL)
+  tryCatch({
+    nodes <- tree$nodes
+    parts <- character(0)
+    for (nd in nodes) {
+      if (!is.null(nd$split_variable) && !is.null(nd$split_value)) {
+        var_name <- confounders.name[nd$split_variable]
+        cut_val  <- nd$split_value
+        parts    <- c(parts, sprintf("%s <= %.4g", var_name, cut_val))
+      }
+    }
+    unique(parts)
+  }, error = function(e) NULL)
+}
+
+
+# Resolve GLM family for create_glm_row()
+#' @noRd
+.cr_resolve_family <- function(effect_measure, overdispersion) {
+  switch(effect_measure,
+    log_OR  = stats::binomial(link = "logit"),
+    RD      = stats::binomial(link = "identity"),
+    MD      = stats::gaussian(link = "identity"),
+    log_RR  = stats::poisson(link = "log"),
+    log_IRR = {
+      if (overdispersion == "quasi")  return(stats::quasipoisson(link = "log"))
+      if (overdispersion == "negbin") return("negbin")
+      stats::poisson(link = "log")
+    },
+    stop("Unknown effect_measure: ", effect_measure)
+  )
+}
+
+
+# Get vcov matrix, with sandwich correction when appropriate
+#' @noRd
+.cr_get_vcov <- function(fit, effect_measure, overdispersion) {
+  use_sandwich <- (effect_measure == "log_RR" && overdispersion == "none")
+  if (use_sandwich && requireNamespace("sandwich", quietly = TRUE)) {
+    return(sandwich::vcovHC(fit, type = "HC0"))
+  }
+  stats::vcov(fit)
+}
