@@ -140,7 +140,7 @@ plot_sg_glm_outcomes <- function(
   }
   if (is.null(effect_measure)) {
     effect_measure <- switch(outcome_type,
-      binary = "RD", continuous = "MD")
+      binary = "RD", continuous = "MD", count = "IRR")
   }
 
   if (is.null(offset.name) && !is.null(fs.est$args_call_all$offset.name)) {
@@ -179,6 +179,17 @@ plot_sg_glm_outcomes <- function(
       se_c <- sqrt(rate_c * (1 - rate_c) / n_c)
       se_t <- sqrt(rate_t * (1 - rate_t) / n_t)
       y_label <- "Event Rate"
+    } else if (outcome_type == "count" && !is.null(offset.name)) {
+      # Incidence rates per person-time
+      PT <- dfa[[offset.name]]
+      n_c <- sum(Treat == 0)
+      n_t <- sum(Treat == 1)
+      rate_c <- sum(Y[Treat == 0], na.rm = TRUE) / sum(PT[Treat == 0], na.rm = TRUE)
+      rate_t <- sum(Y[Treat == 1], na.rm = TRUE) / sum(PT[Treat == 1], na.rm = TRUE)
+      # Poisson-based SE for rates: sqrt(events) / person_time
+      se_c <- sqrt(sum(Y[Treat == 0], na.rm = TRUE)) / sum(PT[Treat == 0], na.rm = TRUE)
+      se_t <- sqrt(sum(Y[Treat == 1], na.rm = TRUE)) / sum(PT[Treat == 1], na.rm = TRUE)
+      y_label <- "Event Rate (per person-year)"
     } else {
       # Means per arm
       rate_c <- mean(Y[Treat == 0], na.rm = TRUE)
@@ -312,7 +323,11 @@ plot_sg_glm_outcomes <- function(
   # SECTION 5: BUILD GGPLOT
   # ===========================================================================
 
-  y_label <- if (outcome_type == "binary") "Event Rate" else "Mean Outcome"
+  y_label <- switch(outcome_type,
+    binary = "Event Rate",
+    count  = "Event Rate (per person-year)",
+    "Mean Outcome"
+  )
 
   if (is.null(title)) {
     title <- paste0("Subgroup Outcomes: ", sg_definition)
@@ -326,7 +341,7 @@ plot_sg_glm_outcomes <- function(
 
   dodge_width <- 0.7
 
-  if (outcome_type == "binary") {
+  if (outcome_type %in% c("binary", "count")) {
     # Grouped bar chart for event rates
     p <- ggplot2::ggplot(
       summ_df,
@@ -337,14 +352,14 @@ plot_sg_glm_outcomes <- function(
         width = 0.6, colour = "grey30", linewidth = 0.3
       ) +
       ggplot2::geom_errorbar(
-        ggplot2::aes(ymin = pmax(lo, 0), ymax = pmin(hi, 1)),
+        ggplot2::aes(ymin = pmax(lo, 0), ymax = hi),
         position = ggplot2::position_dodge(width = dodge_width),
         width = 0.15, linewidth = 0.5
       ) +
       # N labels above bars
       ggplot2::geom_text(
         ggplot2::aes(
-          y = pmin(hi, 1) + 0.02,
+          y = hi + 0.02 * max(summ_df$hi, na.rm = TRUE),
           label = paste0("n=", n)
         ),
         position = ggplot2::position_dodge(width = dodge_width),
@@ -409,8 +424,8 @@ plot_sg_glm_outcomes <- function(
 
   if (!is.null(effects_df) && nrow(effects_df) > 0) {
     # Compute y position for annotation (below bars)
-    if (outcome_type == "binary") {
-      annot_y <- -0.06
+    if (outcome_type %in% c("binary", "count")) {
+      annot_y <- -0.06 * max(summ_df$hi, na.rm = TRUE)
     } else {
       y_range <- max(summ_df$hi, na.rm = TRUE) - min(summ_df$lo, na.rm = TRUE)
       annot_y <- min(summ_df$lo, na.rm = TRUE) - y_range * 0.12
@@ -425,8 +440,8 @@ plot_sg_glm_outcomes <- function(
 
     # Add BC annotation below the effect estimate
     if (!is.null(bc_df) && nrow(bc_df) > 0) {
-      bc_y <- if (outcome_type == "binary") {
-        annot_y - 0.05
+      bc_y <- if (outcome_type %in% c("binary", "count")) {
+        annot_y - 0.05 * max(summ_df$hi, na.rm = TRUE)
       } else {
         annot_y - y_range * 0.08
       }
@@ -440,10 +455,12 @@ plot_sg_glm_outcomes <- function(
     }
 
     # Extend y-axis to accommodate annotations
-    if (outcome_type == "binary") {
-      bottom <- if (!is.null(bc_df)) annot_y - 0.08 else annot_y - 0.04
+    if (outcome_type %in% c("binary", "count")) {
+      bottom <- if (!is.null(bc_df)) annot_y - 0.08 * max(summ_df$hi, na.rm = TRUE) else annot_y - 0.04 * max(summ_df$hi, na.rm = TRUE)
+      y_top <- max(summ_df$hi, na.rm = TRUE) * 1.15
+      if (outcome_type == "binary") y_top <- min(1, y_top)
       p <- p + ggplot2::coord_cartesian(
-        ylim = c(bottom, min(1, max(summ_df$hi, na.rm = TRUE) + 0.10)),
+        ylim = c(bottom, y_top),
         clip = "off"
       )
     }
@@ -457,9 +474,9 @@ plot_sg_glm_outcomes <- function(
   note_parts <- c(note_parts,
     paste0("Identified subgroup (H): ", sg_definition, "."))
 
-  if (outcome_type == "binary") {
+  if (outcome_type %in% c("binary", "count")) {
     note_parts <- c(note_parts,
-      "Bars show event rates per arm; error bars show 95% CI.")
+      "Bars show event rates per arm; error bars show 95 percent CI.")
   } else {
     note_parts <- c(note_parts,
       "Points show arm means; error bars show +/- 1.96 SE.")

@@ -26,7 +26,7 @@ lasso_selection(
 \item{seedit}{Integer. Random seed.}
 
 \item{outcome_type}{Character. One of \code{"survival"} (default),
-\code{"binary"}, or \code{"continuous"}.}
+\code{"binary"}, \code{"continuous"}, or \code{"count"}.}
 
 \item{offset.name}{Character or \code{NULL}. Name of the follow-up time
 column for rate-based measures (IRR, IRD).}

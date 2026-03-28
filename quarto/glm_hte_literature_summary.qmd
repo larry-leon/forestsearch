@@ -1,0 +1,395 @@
+---
+title: "GLM Outcomes in Clinical Trials: Literature Summary"
+subtitle: "Binary (Tumor Response), Continuous (Change from Baseline), and Count (Exacerbation Rates)"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+---
+
+
+# Overview {#sec-overview}
+
+ForestSearch v0.2.0 extends subgroup identification beyond survival
+endpoints to three GLM outcome types.  This document summarizes the
+clinical motivation, statistical framework, and relevant literature
+for each, organized by therapeutic area.
+
+| Outcome Type | Effect Measures | Clinical Examples |
+|---|---|---|
+| **Binary** | RD, OR, RR | Tumor response (CR/PR), ACR20/50/70, virologic suppression |
+| **Continuous** | MD | DAS28 change, viral load change, FEV1 change, tumor size change |
+| **Count** | IRR, IRD | COPD exacerbations, MS relapses, HF hospitalizations |
+
+
+# Binary Outcomes {#sec-binary}
+
+## Clinical Applications
+
+### Oncology: Tumor Response Rates
+
+Tumor response is the archetypal binary endpoint in oncology.
+Patients are classified as responders (complete or partial response)
+vs non-responders (stable disease or progression) according to
+RECIST criteria.  Treatment effect is typically reported as:
+
+- **Odds ratio (OR)**: standard for logistic regression; log-OR is
+  the DINA estimand for binary data
+- **Risk difference (RD)**: clinically interpretable as the absolute
+  increase in response probability
+- **Relative risk (RR)**: response rate ratio; preferred when
+  baseline rates differ across subgroups
+
+**Key clinical examples of binary HTE in oncology:**
+
+- **HER2 status in breast cancer**: Trastuzumab benefits only
+  HER2-positive patients (IHC 3+ or FISH+).  The DESTINY-Breast04
+  trial extended this to HER2-low patients.
+- **PD-L1 expression in NSCLC**: FDA-approved checkpoint inhibitor
+  monotherapy is restricted to PD-L1 $\geq$ 1 percent or $\geq$ 50
+  percent depending on the agent, reflecting treatment-by-biomarker
+  interaction on the response rate scale.
+- **KRAS mutation status in mCRC**: Cetuximab and panitumumab
+  benefit only KRAS wild-type patients; initial all-comers approvals
+  were later restricted based on emerging HTE evidence.
+- **Microsatellite instability (MSI-H)**: Pembrolizumab is approved
+  tumor-agnostically for MSI-H solid tumors, reflecting a
+  biomarker-defined subgroup with dramatically higher response rates.
+
+### Immunology: ACR Response
+
+In rheumatoid arthritis (RA), the ACR20/50/70 criteria define binary
+responder status based on percentage improvement from baseline in
+tender and swollen joint counts plus three of five additional
+measures.  ACR20 is most commonly used as the primary endpoint in
+Phase III RA trials.  Treatment effect heterogeneity is well
+documented:
+
+- **Baseline DAS28** simultaneously increases odds of ACR70 response
+  (more room for improvement) and decreases odds of DAS remission
+  (harder to reach a low absolute threshold)
+- **Seropositivity** (RF+/anti-CCP+) predicts rituximab response
+- **Concomitant methotrexate** modifies anti-TNF response
+  (OR for EULAR remission: 1.97 with MTX vs without)
+
+### Virology: Virologic Suppression
+
+In HIV and hepatitis B/C trials, the primary endpoint is often
+binary: undetectable viral load (VL $<$ lower limit of
+quantification) at a fixed time point.  Baseline viral load is a
+strong effect modifier---higher baseline VL is associated with
+reduced odds of achieving undetectable VL, and this interaction
+varies by drug class.
+
+
+## Statistical Framework for Binary HTE
+
+The `forestsearch` GLM extension supports four effect measures for
+binary outcomes:
+
+| Measure | Model | Estimand | Scale |
+|---|---|---|---|
+| **RD** | Identity-link binomial or Poisson | $P_1 - P_0$ | Identity (default) |
+| **OR** | Logistic regression | $\log\frac{P_1/(1-P_1)}{P_0/(1-P_0)}$ | Log (DINA) |
+| **RR** | Log-link binomial (modified Poisson) | $\log(P_1/P_0)$ | Log |
+| **IRR** | Poisson with log-offset | $\log(\lambda_1/\lambda_0)$ | Log |
+
+For subgroup identification, the log-OR is the natural estimand
+(DINA for Bernoulli), but the RD is often preferred clinically
+because it directly quantifies the absolute benefit or harm.
+
+### Simulation DGM for Binary HTE
+
+A realistic oncology simulation:
+
+$$
+\text{logit}(P_i) = \beta_0 + \beta_W W_i + \beta_{WS} W_i S_i + \mathbf{x}_i'\boldsymbol{\gamma}
+$$
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| $n$ | 400--600 | Phase II/III oncology trial |
+| Baseline response rate (control) | 15--30 percent | Standard chemotherapy |
+| Treatment effect (complement) | OR = 2.5 (RD $\approx$ +20 pp) | Effective targeted therapy |
+| Harm subgroup (20--35 percent) | OR = 0.5 (RD $\approx$ $-$10 pp) | Biomarker-negative non-responders |
+| Noise covariates | 3--5 | Prognostic but non-predictive |
+
+### Key Literature: Binary HTE
+
+- **Virtual Twins** (Foster et al., *Statistics in Medicine*, 2011):
+  Predicts response probabilities for treatment and control "twins"
+  using random forests, then uses the difference as the outcome in
+  a CART tree.  Simulation uses binary outcomes with known subgroups
+  in an oncology setting (N = 200 Phase II trial).
+
+- **mCART** (Rigdon et al., *Trials*, 2018): Matching plus CART for
+  HTE detection with binary outcomes.  Simulation includes an N = 200
+  Phase II oncology trial with two HTE subgroups (response rates
+  56 percent vs 29 percent) and an N = 6000 cardiovascular trial.
+
+- **Integrating subgroups with mixed-type endpoints** (PMC6776708):
+  Bayesian hierarchical models for early-phase oncology trials with
+  binary tumor response across disease subtypes using weighted
+  logistic regression.
+
+- **Biomarker-driven trial design** (JCO Precision Oncology, 2024):
+  Reviews adaptive enrichment, stratification, and all-comers designs
+  with binary endpoints.  Discusses PD-L1, HER2, KRAS, and MSI-H
+  as examples of predictive biomarkers defining treatment-effect
+  subgroups.
+
+
+# Continuous Outcomes {#sec-continuous}
+
+## Clinical Applications
+
+### Immunology: DAS28 Change from Baseline
+
+The 28-joint Disease Activity Score (DAS28) is the primary
+continuous endpoint in many RA trials.  Change from baseline
+($\Delta$DAS28) is analyzed using ANCOVA or MMRM.
+
+**Typical parameters:**
+
+- Baseline DAS28: 5.5--6.5 (moderate-to-severe RA)
+- Placebo $\Delta$DAS28 at 24 weeks: $-$1.0 to $-$1.5
+- Active treatment $\Delta$DAS28 at 24 weeks: $-$2.0 to $-$3.0
+- Clinically important difference: 1.2 units
+- Treatment effect (mean difference): 0.8--1.3 units vs placebo
+
+**Treatment effect heterogeneity** is documented across:
+
+- **Baseline DAS28**: Higher baseline $\rightarrow$ greater absolute
+  improvement (regression to the mean + more room)
+- **Drug mechanism of action**: Tocilizumab (anti-IL-6R) shows
+  $\Delta$DAS28 $\approx$ $-$2.0 at 24 weeks, disproportionately
+  larger than other biologics ($\approx$ $-$0.9 to $-$1.3), partly
+  because DAS28 includes CRP, which IL-6 blockade suppresses
+  directly
+- **Serostatus**: RF+/anti-CCP+ patients may respond differently to
+  rituximab vs anti-TNF agents
+
+### Virology: Viral Load Change from Baseline
+
+In HIV and hepatitis B trials, viral load reduction from baseline
+(log$_{10}$ copies/mL) is a key continuous endpoint:
+
+- **HIV**: Change from baseline in log$_{10}$ VL at 48 weeks; typical
+  treatment effect 2--3 log$_{10}$ reduction
+- **Hepatitis B**: Baseline VL strongly predicts treatment response;
+  for every 1-unit increase in log$_{10}$ baseline VL, odds of
+  achieving undetectable VL decrease by $\approx$ 62 percent (Ali
+  et al.).  This makes baseline VL a critical effect modifier.
+
+### Oncology: Tumor Size Change
+
+Percent change from baseline in tumor size (sum of longest
+diameters) is a continuous endpoint used in Phase II trials and as
+a secondary endpoint in Phase III.  Waterfall plots display
+individual patient responses.
+
+### Respiratory: FEV1 Change from Baseline
+
+In COPD and asthma, change from baseline in pre-bronchodilator
+FEV1 (mL) is a key secondary endpoint:
+
+- Typical placebo change: $-$20 to +20 mL
+- Active treatment change: +50 to +200 mL
+- Treatment effect (mean difference): 56--170 mL vs placebo
+- HTE by baseline FEV1 percent predicted, smoking status,
+  eosinophil count
+
+
+## Statistical Framework for Continuous HTE
+
+The `forestsearch` GLM extension uses the mean difference (MD)
+as the default estimand for continuous outcomes:
+
+$$
+Y_i = \beta_0 + \beta_W W_i + \beta_S S_i + \beta_{WS} W_i S_i + \mathbf{x}_i'\boldsymbol{\gamma} + \epsilon_i
+$$
+
+The subgroup-specific treatment effects are:
+
+- **Harm subgroup** ($S = 1$): MD$_H$ = $\beta_W + \beta_{WS}$
+- **Complement** ($S = 0$): MD$_{Hc}$ = $\beta_W$
+
+The identity-scale threshold is used:
+`hr.consistency = 0.0` (both halves show positive treatment effect)
+and `hr.threshold` defaults to 0.0 (any positive effect qualifies).
+
+### Simulation DGM for Continuous HTE
+
+An RA DAS28 change-from-baseline simulation:
+
+$$
+Y_i = -1.5 + (-1.0) \cdot W_i + 1.5 \cdot W_i \cdot S_i + \mathbf{x}_i'\boldsymbol{\gamma} + \epsilon_i
+$$
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| $n$ | 600--1000 | Phase III RA trial |
+| Baseline DAS28 | $\sim N(6.0, 0.8)$ | Moderate-to-severe RA |
+| Placebo $\Delta$DAS28 | $-$1.5 | Background MTX therapy |
+| Treatment $\Delta$DAS28 (complement) | $-$2.5 (MD = $-$1.0) | Biologic + MTX |
+| Harm subgroup (25 percent) | $-$1.0 (MD = +0.5 vs placebo) | Non-responder subgroup |
+| Noise covariates | 3--5 | Age, sex, disease duration |
+| $\sigma$ | 1.5 | Residual SD |
+
+
+## Key Literature: Continuous HTE
+
+- **DINA** (*Biometrics*, 2025): Covers continuous (Gaussian) HTE
+  with mean difference as the natural parameter estimand.  Simulation
+  includes n = 500--2000 with 100 replicates.
+
+- **Model-based meta-analysis of DAS28** (PMC7894503): Characterizes
+  $\Delta$DAS28 across 130 RCTs (27,355 patients, 7 approved RA
+  drugs).  Baseline DAS28, disease duration, percent male, and trial
+  year are significant effect modifiers.  Tocilizumab shows
+  differentially greater response (1.99 units at 24 weeks vs
+  0.87--1.3 for other biologics).
+
+- **Biomarker--treatment interaction simulation** (PMC5819679):
+  Simulation study investigating how prognostic variables affect
+  estimation of biomarker--treatment interactions for time-to-event
+  outcomes, but the methodology generalizes to continuous endpoints.
+  Finds that including correct prognostic variables increases power
+  and reduces bias.
+
+- **Adaptive enrichment with continuous outcomes** (ScienceDirect,
+  2020): Two-stage enrichment design with sample size re-estimation
+  for continuous endpoints.  Simulation shows type I error control
+  and power improvement.
+
+- **STEPP** (PMC2988642): Subpopulation Treatment Effect Pattern
+  Plot for evaluating HTE across a continuous biomarker.  Applied
+  to breast cancer trials with hormone receptor expression on a
+  continuous scale.
+
+
+# Count / Rate Outcomes {#sec-count}
+
+(See companion document `count_data_hte_summary.qmd` for the full
+treatment.  Key points summarized here.)
+
+## Clinical Applications
+
+COPD exacerbations, MS relapses, HF hospitalizations, epileptic
+seizures.  Negative binomial models are standard for overdispersed
+count data.  MATINEE, GALATHEA/TERRANOVA, and BOREAS trials
+demonstrate eosinophil-driven HTE in COPD.
+
+## Statistical Framework
+
+Poisson GLM with log(person-time) offset; log-IRR as estimand;
+quasi-Poisson and negative binomial for overdispersion.  Threshold
+translation: `hr.threshold = 1.25` $\rightarrow$ `log(1.25) = 0.223`.
+
+
+# Cross-Cutting Themes {#sec-themes}
+
+## The DINA Framework Unifies All Three
+
+The DINA estimand (*Biometrics*, 2025) provides a unified treatment
+of HTE across all GLM outcome types.  For each exponential family
+distribution, the DINA is the difference in natural parameters:
+
+| Response | Natural Parameter | forestsearch `effect_measure` |
+|---|---|---|
+| Binary | Log-odds | `OR` (log-OR) |
+| Continuous | Mean | `MD` (mean difference) |
+| Count | Log-mean | `IRR` (log-IRR) |
+| Survival | Log-cumulative hazard | `HR` (log-HR) |
+
+The `forestsearch` GLM extension supports all of these, plus
+identity-scale alternatives (RD, IRD, RR) that are clinically
+preferred in some settings.
+
+## Consistency Criterion Across Outcome Types
+
+The consistency criterion (both halves of a random split must show
+the treatment effect exceeding a threshold) becomes more stringent
+as the per-split sample size decreases.  This is most acute for:
+
+- **Binary outcomes**: Small subgroups may have zero events in one
+  arm, preventing estimation
+- **Count data**: Half-sample event counts produce higher-variance
+  log-IRR estimates
+- **Continuous outcomes**: Least affected, as the mean is always
+  estimable
+
+## Biomarker-Driven Trial Design
+
+Across all three outcome types, the same biomarker-driven design
+paradigms apply:
+
+- **Enrichment**: Restrict enrollment to biomarker-positive patients
+- **Stratified**: Randomize within biomarker strata, analyze
+  separately
+- **All-comers**: Enroll all patients, test for treatment-by-biomarker
+  interaction
+- **Adaptive enrichment**: Start all-comers, restrict at interim
+
+ForestSearch is designed for the all-comers setting, where the
+subgroup is not pre-specified and must be identified from the data
+using GRF screening, LASSO selection, and consistency evaluation.
+
+
+# References {#sec-references}
+
+## Binary Outcomes
+
+- Foster, J.C., Taylor, J.M.G., Ruberg, S.J. (2011). Subgroup
+  identification from randomized clinical trial data. *Statistics
+  in Medicine*, 30, 2867--2880. (Virtual Twins)
+
+- Rigdon, J., et al. (2018). Preventing false discovery of
+  heterogeneous treatment effect subgroups in randomized trials.
+  *Trials*, 19, 382. (mCART with N = 200 Phase II oncology)
+
+- Chen, N., et al. (2019). Integrating subgroups with mixed-type
+  endpoints in early phase oncology trials. *Contemporary Clinical
+  Trials*, 86, 105850.
+
+- FDA / JCO Precision Oncology (2024). Biomarker-driven oncology
+  trial design and subgroup characterization.
+
+
+## Continuous Outcomes
+
+- Patel, N., et al. (2021). Model-based meta-analysis compares
+  DAS28 RA treatment effects. *CPT: Pharmacometrics and Systems
+  Pharmacology*, 10, 200--211. (130 RCTs, 27,355 patients)
+
+- Sauerbrei, W., et al. (2018). Simulation study on biomarker--
+  treatment interaction effects. *Trials*, 19, 100.
+
+- Bonetti, M., Gelber, R.D. (2004). Patterns of treatment effects
+  in subsets of patients in clinical trials. *Biostatistics*, 5,
+  465--481. (STEPP)
+
+- Mealing, S., et al. (2014). Importance of baseline viral load in
+  hepatitis B. *Systematic Reviews*, 3, 21.
+
+
+## Count / Rate Outcomes
+
+- See `count_data_hte_summary.qmd` for the complete bibliography.
+
+
+## Cross-Cutting
+
+- DINA: Estimating Heterogeneous Treatment Effects for General
+  Responses. *Biometrics*, 81(4), 2025.
+
+- Leon, L.F., et al. (2024). Exploratory Subgroup Identification.
+  *Statistics in Medicine*, 43, 4253--4275. doi:10.1002/sim.10163
+
+- Athey, S., et al. (2019). Generalized Random Forests. *Annals of
+  Statistics*, 47(2), 1148--1178.

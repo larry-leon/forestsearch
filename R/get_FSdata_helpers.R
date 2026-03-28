@@ -104,7 +104,7 @@ get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
 #' @param event.name Character. Name of event indicator variable.
 #' @param seedit Integer. Random seed.
 #' @param outcome_type Character. One of \code{"survival"} (default),
-#'   \code{"binary"}, or \code{"continuous"}.
+#'   \code{"binary"}, \code{"continuous"}, or \code{"count"}.
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
 #' @return List with selected, omitted variables, coefficients, lambda, and fits.
@@ -164,6 +164,10 @@ if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is r
     y <- df[[outcome.name]]
     glm_family <- "gaussian"
     offset_vec <- NULL
+  } else if (outcome_type == "count") {
+    y <- df[[outcome.name]]
+    glm_family <- "poisson"
+    offset_vec <- if (!is.null(offset.name)) log(df[[offset.name]]) else NULL
   } else {
     stop("Unknown outcome_type: ", outcome_type)
   }

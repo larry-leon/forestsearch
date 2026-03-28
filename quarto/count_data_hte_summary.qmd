@@ -1,0 +1,395 @@
+---
+title: "Count / Rate Outcomes in Clinical Trials"
+subtitle: "Heterogeneous Treatment Effects: Statistical Framework, Clinical Motivation, and Literature Review"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+
+# Clinical Motivation {#sec-clinical}
+
+## Where Count Outcomes Arise
+
+Many clinical trials use **recurrent event counts** as the primary or key
+secondary endpoint.  The outcome is the number of events a patient
+experiences over a follow-up period of variable length, analyzed as a rate
+(events per unit person-time).  Major therapeutic areas include:
+
+| Disease Area | Count Endpoint | Typical Rate (placebo) | Trial Examples |
+|---|---|---|---|
+| COPD | Moderate/severe exacerbations | 0.8--1.5 per patient-year | GALATHEA, TERRANOVA, REACT, MATINEE |
+| Asthma | Exacerbations requiring systemic steroids | 0.5--1.2 per patient-year | DREAM, MENSA |
+| Multiple sclerosis | Relapses | 0.3--0.8 per patient-year | TRIMS, TRANSFORMS |
+| Heart failure | Hospitalizations for HF | 0.3--0.6 per patient-year | PARADIGM-HF, DAPA-HF |
+| Oncology | New/enlarging MRI lesions | 1--5 per patient-year | MS studies using MRI activity |
+| Epilepsy | Seizure counts | Highly variable | Anti-epileptic drug trials |
+
+
+## Why Treatment Effect Heterogeneity Matters
+
+In COPD, biologic therapies targeting eosinophilic inflammation (e.g.,
+mepolizumab, benralizumab, dupilumab) have demonstrated a consistent
+pattern: **the treatment effect on exacerbation rates varies by baseline
+blood eosinophil count**.  For example, in the MATINEE trial of
+mepolizumab for COPD (Sciurba et al., *NEJM* 2025), the annualized
+exacerbation rate ratio (treatment vs placebo) was 0.79 overall, but
+subgroup analyses by baseline eosinophil count showed stronger effects in
+patients with higher eosinophil levels.  Similarly, the GALATHEA and
+TERRANOVA trials of benralizumab (Criner et al., *NEJM* 2019) showed no
+significant overall effect, yet pre-specified eosinophil subgroup analyses
+suggested potential benefit in the high-eosinophil subgroup.
+
+This clinical reality---that treatment effects on event rates vary
+across subpopulations defined by baseline biomarkers---is the direct
+motivation for extending `forestsearch` to count/rate outcomes.  The key
+clinical questions are:
+
+1. **Which subgroup experiences harm?** A treatment that reduces
+   exacerbation rates overall may *increase* rates in a subgroup (e.g.,
+   patients with low eosinophil counts receiving an anti-eosinophilic
+   biologic may lose the protective effects of eosinophils against
+   bacterial infections).
+
+2. **How large is the heterogeneity?** The incidence rate ratio (IRR) in
+   the harm subgroup vs the complement quantifies this directly.
+
+3. **Which baseline factors define the subgroup?** Exploratory methods
+   like `forestsearch` identify candidate factors from the data without
+   requiring pre-specification.
+
+
+# Statistical Framework {#sec-framework}
+
+## The Poisson GLM for Count Outcomes
+
+The standard model for count data with variable follow-up is the Poisson
+regression with a log-link and log(person-time) offset:
+
+$$
+Y_i \sim \text{Poisson}(\mu_i), \quad
+\log(\mu_i) = \mathbf{x}_i' \boldsymbol{\beta} + \log(t_i)
+$$
+
+where $Y_i$ is the event count, $t_i$ is person-time at risk, and
+$\mu_i / t_i$ is the incidence rate.  The treatment coefficient
+$\beta_{\text{treat}}$ estimates the log incidence rate ratio (log-IRR):
+
+$$
+\text{IRR} = \exp(\beta_{\text{treat}}) = \frac{\text{rate}_{\text{treatment}}}{\text{rate}_{\text{control}}}
+$$
+
+
+## Heterogeneous Treatment Effects on the Rate Scale
+
+Treatment effect heterogeneity in the count/rate setting is modeled via
+treatment-covariate interactions on the log-rate scale:
+
+$$
+\log(\mu_i) = \beta_0 + \beta_W W_i + \beta_S S_i + \beta_{WS} W_i S_i + \mathbf{x}_i' \boldsymbol{\gamma} + \log(t_i)
+$$
+
+where $W_i$ is the treatment indicator and $S_i$ is a subgroup indicator.
+The subgroup-specific IRRs are:
+
+- **Harm subgroup** ($S = 1$): $\text{IRR}_H = \exp(\beta_W + \beta_{WS})$
+- **Complement** ($S = 0$): $\text{IRR}_{Hc} = \exp(\beta_W)$
+- **Interaction IRR**: $\exp(\beta_{WS})$, the ratio of subgroup IRRs
+
+For `forestsearch`, the estimand stored in the `$hr` slot is
+$\beta_W + \beta_{WS}$ (the log-IRR within a candidate subgroup), which is
+compared against `hr.threshold` on the log scale.  The threshold
+translation is:
+
+- User specifies `hr.threshold = 1.25` (on the IRR scale)
+- Internally converted to `log(1.25) = 0.223` (on the log-IRR scale)
+- A candidate subgroup is retained if its log-IRR $> 0.223$
+
+Similarly, `hr.consistency = 1.0` maps to $\log(1.0) = 0.0$, meaning both
+halves of a random split must show log-IRR $> 0$ (i.e., IRR $> 1$,
+indicating harm).
+
+
+## Overdispersion
+
+The Poisson model assumes $\text{Var}(Y_i) = E(Y_i) = \mu_i$.  In
+practice, clinical count data almost always exhibit **overdispersion**:
+the variance exceeds the mean, often substantially.  Sources include:
+
+- **Unobserved patient-level frailty**: some patients are inherently more
+  prone to exacerbations due to unmeasured factors
+- **Event clustering**: one exacerbation may increase susceptibility to
+  the next (convalescence effects)
+- **Variable disease severity**: even after adjusting for measured
+  covariates, residual heterogeneity remains
+
+Three variance correction approaches are supported in `forestsearch`:
+
+| Method | Model | Variance | SE Adjustment |
+|---|---|---|---|
+| **Poisson** | `glm(family = poisson)` | $\mu_i$ | Model-based (equidispersion) |
+| **Quasi-Poisson** | `glm(family = quasipoisson)` | $\phi \cdot \mu_i$ | SEs $\times \sqrt{\hat\phi}$ |
+| **Negative Binomial** | `MASS::glm.nb()` | $\mu_i + \mu_i^2 / \theta$ | Full MLE with shape $\theta$ |
+
+The quasi-Poisson and negative binomial models produce **identical point
+estimates** for the log-IRR (same score equations for $\beta$); they
+differ only in standard errors and CIs.  Quasi-Poisson inflates SEs by a
+constant factor $\sqrt{\hat\phi}$ across all coefficients, while the
+negative binomial uses a quadratic variance function that gives more
+weight to overdispersion at higher mean counts.
+
+
+## The Poisson--Cox Connection
+
+Under proportional hazards with a constant baseline hazard (exponential
+survival), the Poisson GLM with a log(time) offset estimates the **same
+quantity** as the Cox proportional hazards model:
+
+$$
+\text{IRR}_{\text{Poisson}} \approx \text{HR}_{\text{Cox}}
+$$
+
+This connection is exact when:
+
+- The baseline hazard is constant within analysis intervals
+- Follow-up times are used as the offset
+- Event rates are relatively low (rare-events approximation)
+
+This was validated empirically in the companion QC document
+(`qc_cox_vs_poisson_simulation.qmd`), which showed near-identical
+subgroup identification and effect estimates between the two pipelines
+on GBSG survival data.
+
+
+# The DINA Estimand {#sec-dina}
+
+The most directly relevant methodological framework comes from the DINA
+paper (DIfference in NAtural parameters; *Biometrics*, 2025), which
+proposes a unified estimand for heterogeneous treatment effects across
+all response types:
+
+| Response Type | Natural Parameter | DINA Estimand |
+|---|---|---|
+| Gaussian (continuous) | Mean $\mu$ | $\mu_1(x) - \mu_0(x)$ (mean difference) |
+| Bernoulli (binary) | Log-odds $\log\frac{p}{1-p}$ | Log-odds ratio |
+| **Poisson (count)** | **Log-mean $\log\mu$** | **Log conditional mean ratio = log-IRR** |
+| Cox (survival) | Log-cumulative-hazard | Log-hazard ratio |
+
+The key insight is that for count data, the **log-IRR is the natural
+estimand** for treatment effect heterogeneity---not the rate difference
+or the raw rate ratio.  This is because:
+
+1. Log-IRR is additive in covariates (linear model structure)
+2. Log-IRR is symmetric: $\text{IRR}_{A \text{ vs } B} = 1/\text{IRR}_{B \text{ vs } A}$
+3. Log-IRR is the coefficient from the standard Poisson GLM
+
+The DINA paper's simulation study validates this approach using Poisson
+count data with 100 replicates, comparing five estimation methods across
+four response types.  Their simulation DGM for count data is:
+
+$$
+Y_i(w) \sim \text{Poisson}(\exp(\beta_0 + \beta_w w + f(X_i) + g(X_i) \cdot w))
+$$
+
+where $f(X_i)$ captures baseline rate heterogeneity and $g(X_i)$
+captures treatment effect heterogeneity.
+
+
+# Simulation Design for the ForestSearch Demonstration {#sec-dgm}
+
+## Clinical Scenario
+
+We simulate a **respiratory exacerbation trial** inspired by the COPD
+biologic therapy setting:
+
+- **Disease**: Chronic obstructive pulmonary disease (COPD)
+- **Endpoint**: Number of moderate/severe exacerbations over ~1 year
+- **Treatment**: Anti-inflammatory biologic vs placebo
+- **Subgroup**: Defined by eosinophil level (binary) and a continuous
+  biomarker interaction (FEV1)
+
+
+## DGM Parameters
+
+| Parameter | Value | Rationale |
+|---|---|---|
+| $n$ | 1000 | Typical Phase III COPD exacerbation trial |
+| Follow-up | 0.5--3.0 years (uniform) | Variable as-treated exposure |
+| Baseline rate (control) | ~1.2 events/person-year | GALATHEA ~0.93, REACT ~1.5, MATINEE ~1.01 |
+| Overdispersion | Moderate ($\phi \approx 1.1$--$1.3$) | Poisson DGM; overdispersion from heterogeneity |
+| **Harm subgroup** (eos low, 35 percent) | log-IRR = +1.0, IRR $\approx$ 2.7 | Treatment increases exacerbation rate |
+| **Complement** (eos high, 65 percent) | log-IRR = $-$0.5, IRR $\approx$ 0.61 | Treatment reduces exacerbation rate |
+| **FEV1 interaction** | Slope 0.15 per unit | Continuous effect modification |
+| **Noise covariates** | 2 binary (smoking, sex) + 1 continuous (age) | Tested for screening specificity |
+
+
+## Model Specification
+
+$$
+\log(\mu_i) = -1.0 + 1.0 \cdot W_i \cdot \mathbf{1}(\text{eos\_low}_i)
+- 0.5 \cdot W_i \cdot \mathbf{1}(\text{eos\_high}_i)
++ 0.15 \cdot W_i \cdot (\text{FEV1}_i - 2.5)
++ 0.02 \cdot (\text{age}_i - 60) + \log(t_i)
+$$
+
+$$Y_i \sim \text{Poisson}(\mu_i)$$
+
+The DGM produces a near-null overall ITT effect by design (harm and
+benefit roughly cancel), making subgroup identification the analytic goal.
+
+
+## Why This DGM Is Realistic
+
+1. **Baseline rates** (~1.2/year) match published placebo arm rates in
+   COPD trials (GALATHEA: ~0.93/year, REACT: ~1.5/year,
+   MATINEE: ~1.01/year).
+
+2. **Treatment effect magnitude**: The harm subgroup IRR of 2.7 is large
+   but clinically relevant---it represents a scenario where a biologic
+   therapy targeting one inflammatory pathway inadvertently worsens a
+   different mechanism in a subgroup (e.g., removing eosinophilic
+   protection against bacterial exacerbations in patients who do not have
+   eosinophilic inflammation).
+
+3. **Variable follow-up** via the person-time offset mirrors real trials
+   where patients discontinue or have staggered enrollment.
+
+4. **Overdispersion** is not built into the DGM (pure Poisson), which
+   means the quasi-Poisson and negative binomial CIs should be
+   *similar* to Poisson CIs---a useful validation check.  More complex
+   DGMs could add gamma-distributed random effects (negative binomial
+   DGP) or zero-inflation.
+
+
+# Methodological Notes {#sec-methods}
+
+## GRF Screening for Count Data
+
+The `grf::causal_forest()` targets $\tau(x) = E[Y(1) - Y(0) | X = x]$
+on the **difference** scale, not the log-ratio scale.  For count data,
+raw counts can have very high variance (especially for patients with
+high baseline rates), which can overwhelm the treatment effect signal in
+the causal forest splits.
+
+The **$\log(Y + 0.5)$ variance-stabilizing transform** applied before
+GRF screening addresses this by:
+
+1. Compressing the scale so high-count patients do not dominate splits
+2. Making the variance approximately constant (Anscombe transform)
+3. Aligning the difference scale with the log-ratio scale:
+   $\log(Y_1 + 0.5) - \log(Y_0 + 0.5) \approx \log(Y_1/Y_0) = \log(\text{IRR})$
+
+
+## LASSO Variable Selection
+
+For `outcome_type = "count"`, the LASSO step in `get_FSdata_helpers.R`
+uses `glmnet::cv.glmnet()` with `family = "poisson"` and a
+log(person-time) offset.  This performs penalized Poisson regression,
+selecting variables whose interactions with treatment are most
+predictive of the event rate.
+
+
+## Consistency Evaluation
+
+The consistency criterion requires that the candidate subgroup show
+log-IRR $>$ `hr.consistency` (mapped to log scale, e.g., $\log(1.0) = 0$)
+in *both halves* of each random split, in at least
+`pconsistency.threshold` fraction of splits.  This is more stringent for
+count data than for survival data because:
+
+1. Random half-samples have smaller per-arm event counts
+2. Poisson SEs are proportional to $1/\sqrt{\text{events}}$
+3. The point estimate in a half-sample has higher variance
+
+This explains why `forestsearch()` may not find the subgroup even when
+`grf.subg.harm.glm()` (which uses the full sample) identifies it easily.
+Adjusting `pconsistency.threshold` downward (e.g., 0.40 instead of 0.90)
+or increasing `fs.splits` can help.
+
+
+## ForestSearch Pipeline for Count Outcomes
+
+The integrated `forestsearch(outcome_type = "count")` pipeline follows
+the same architecture as survival outcomes:
+
+1. **GRF screening** $\rightarrow$ `grf.subg.harm.glm()` with
+   $\log(Y + 0.5)$ transform
+2. **LASSO selection** $\rightarrow$ `glmnet` with `family = "poisson"`
+   and log-offset
+3. **Exhaustive search** $\rightarrow$ `subgroup.search()` with the
+   Poisson IRR estimator closure from `make_effect_estimator()`
+4. **Consistency evaluation** $\rightarrow$ `subgroup.consistency()` with
+   log-scale thresholds
+5. **Bootstrap bias correction** $\rightarrow$
+   `forestsearch_bootstrap_dofuture()` (re-runs the full pipeline)
+6. **Cross-validation** $\rightarrow$ `forestsearch_Kfold()`
+
+
+# References {#sec-references}
+
+## Methodological
+
+- Leon, L.F., et al. (2024). Exploratory Subgroup Identification for
+  Treatment Effect Heterogeneity in Randomized Controlled Trials.
+  *Statistics in Medicine*, 43, 4253--4275. doi:10.1002/sim.10163
+
+- DINA: Estimating Heterogeneous Treatment Effects for General Responses.
+  *Biometrics*, 81(4), 2025. (Poisson count data simulation with log
+  conditional mean ratio as estimand)
+
+- Athey, S., Tibshirani, J., and Wager, S. (2019). Generalized Random
+  Forests. *Annals of Statistics*, 47(2), 1148--1178.
+
+- Keene, O.N., Jones, M.R.K., Lane, P.W., Anderson, J. (2007). Analysis
+  of Exacerbation Rates in Asthma and COPD: Example from the TRISTAN
+  Study. *Pharmaceutical Statistics*, 6, 89--97.
+
+
+## Clinical (COPD Exacerbation Trials)
+
+- Sciurba, F., et al. (2025). Mepolizumab to Prevent Exacerbations of
+  COPD with an Eosinophilic Phenotype (MATINEE). *NEJM*, 392, 1710--1720.
+  (Placebo rate ~1.01/year; NB model; eosinophil subgroup analysis)
+
+- Criner, G.J., et al. (2019). Benralizumab for the Prevention of COPD
+  Exacerbations (GALATHEA and TERRANOVA). *NEJM*, 381, 1023--1034.
+  (Placebo rate ~0.93/year; NB shape 0.4; eosinophil subgroup)
+
+- Bhatt, S.P., et al. (2023). Dupilumab for COPD with Type 2 Inflammation
+  (BOREAS). *NEJM*, 389, 205--214. (Placebo rate ~1.10/year; NB model;
+  eosinophil and FeNO subgroups)
+
+- Martinez, F.J., et al. (2015). Effect of Roflumilast on Exacerbations in
+  Severe COPD (REACT). *Lancet*, 385, 857--866.
+
+
+## Statistical Methods for Count Data
+
+- Austin, P.C., et al. (2018). Measures of Clustering and Heterogeneity in
+  Multilevel Poisson Regression. *Statistics in Medicine*, 37, 572--589.
+  (Median rate ratio, variance partition coefficient)
+
+- Abad, A.A., et al. (2010). Modeling and Simulation of Count Data.
+  *CPT: Pharmacometrics and Systems Pharmacology*, 3, e129.
+  (Overdispersion, underdispersion, autocorrelation)
+
+- Rogers, J.K., et al. (2016). Analysis of Recurrent Events with an
+  Associated Informative Dropout Time. *Statistics in Medicine*, 35,
+  2879--2901. (Joint frailty models for recurrent HF hospitalizations)
+
+- Rose, C., et al. (2025). Count Data, Rates, Rate Differences, and Rate
+  Ratios in Meta-Analysis. *Cochrane Evidence Synthesis and Methods*.
+  (Tutorial on rate ratios for count outcomes)
