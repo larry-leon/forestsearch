@@ -1,0 +1,716 @@
+---
+title: "Count / Rate Outcomes in ForestSearch"
+subtitle: "Full Pipeline: GRF Screening, Subgroup Search, Bootstrap, Cross-Validation, and Visualization"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ============================================================================
+# SIMULATION PARAMETERS
+# ============================================================================
+sim_n          <- 800L
+sim_n_boot     <- 50L
+sim_n_cv_folds <- 5L
+sim_seed       <- 42L
+```
+
+
+# Introduction {#sec-intro}
+
+ForestSearch v0.2.0 extends the full subgroup identification pipeline to
+**count / rate outcomes** via Poisson GLMs with optional overdispersion
+correction.  This document exercises every stage of the pipeline on
+synthetic clinical trial data with a known heterogeneous treatment effect:
+
+| Stage | Function | Purpose |
+|---|---|---|
+| GRF screening | `grf.subg.harm.glm()` | Candidate factor selection |
+| Subgroup search | `forestsearch()` with `outcome_type = "count"` | Integrated pipeline |
+| Summary tables | `sg_tables()` | Per-subgroup estimates |
+| Outcome plots | `plot_sg_glm_outcomes()` | Bar chart with effect annotations |
+| Per-subgroup GLM | `create_glm_row()` | Point estimate + CI |
+| Biomarker profile | `glm_effect_profile()` | Smooth treatment-effect curve |
+| Forest plot | `gg_forest()` | Publication-quality CI plot |
+| Bootstrap | `forestsearch_bootstrap_dofuture()` | Bias correction |
+| Cross-validation | `forestsearch_Kfold()` | Replication stability |
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(data.table)
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Synthetic Data {#sec-data}
+
+The DGM plants a **harm subgroup** (`v1 = 1`, prevalence 35
+percent) where treatment *increases* the event rate (true IRR
+$\approx$ 2.0), while the complement benefits (true IRR $\approx$ 0.67).
+A continuous biomarker adds a smooth interaction on top.
+
+```{r sim-data}
+#| code-fold: false
+
+set.seed(sim_seed)
+n <- sim_n
+
+df <- data.frame(
+  id          = seq_len(n),
+  treat       = rbinom(n, 1, 0.5),
+  v1          = as.factor(rbinom(n, 1, 0.35)),
+  v2          = as.factor(rbinom(n, 1, 0.50)),
+  v3          = as.factor(rbinom(n, 1, 0.45)),
+  age         = round(rnorm(n, 60, 12)),
+  biomarker   = round(runif(n, 0.5, 5.0), 2),
+  person_time = round(runif(n, 0.5, 3.0), 2)
+)
+
+# Poisson outcome with heterogeneous treatment effect
+log_rate <- with(df, {
+  -1.2 +
+    0.7  * treat * (v1 == 1) +
+    -0.4 * treat * (v1 == 0) +
+    0.15 * treat * (biomarker - 2.5) +
+    0.02 * (age - 60) +
+    log(person_time)
+})
+df$events <- rpois(n, lambda = exp(log_rate))
+```
+
+```{r data-summary}
+cat("=== Data Summary ===\n")
+cat("N:", n, "\n")
+cat("Events: mean =", round(mean(df$events), 2),
+    ", range = [", min(df$events), ",", max(df$events), "]\n")
+cat("Zero counts:", sum(df$events == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(df$events == 0)))
+cat("Person-time: mean =", round(mean(df$person_time), 2), "years\n\n")
+
+cat("Per-arm summary:\n")
+for (arm in 0:1) {
+  idx <- df$treat == arm
+  rate <- sum(df$events[idx]) / sum(df$person_time[idx])
+  cat(sprintf("  treat = %d: n = %d, events = %d, PT = %.1f, rate = %.3f/yr\n",
+              arm, sum(idx), sum(df$events[idx]),
+              sum(df$person_time[idx]), rate))
+}
+```
+
+```{r truth-table}
+#| tbl-cap: "DGM treatment effects by subgroup"
+
+fit_overall <- glm(events ~ treat + offset(log(person_time)),
+                   family = poisson, data = df)
+fit_v1_1 <- glm(events ~ treat + offset(log(person_time)),
+                family = poisson, data = df[df$v1 == 1, ])
+fit_v1_0 <- glm(events ~ treat + offset(log(person_time)),
+                family = poisson, data = df[df$v1 == 0, ])
+
+truth_df <- data.frame(
+  Subgroup = c("v1 = 1 (harm)", "v1 = 0 (complement)", "Overall (ITT)"),
+  `True log-IRR` = c(0.7, -0.4, NA),
+  `Observed log-IRR` = c(coef(fit_v1_1)["treat"],
+                          coef(fit_v1_0)["treat"],
+                          coef(fit_overall)["treat"]),
+  `Observed IRR` = c(exp(coef(fit_v1_1)["treat"]),
+                      exp(coef(fit_v1_0)["treat"]),
+                      exp(coef(fit_overall)["treat"])),
+  check.names = FALSE
+)
+
+gt(truth_df) |>
+  tab_header(title = "DGM Treatment Effects") |>
+  fmt_number(columns = 2:4, decimals = 3)
+```
+
+
+# Standalone GRF Screening {#sec-grf}
+
+Before running the full pipeline, exercise `grf.subg.harm.glm()`
+directly to inspect GRF variable importance and the log vs identity
+transform comparison.
+
+## Poisson with Log Transform {#sec-grf-log}
+
+```{r grf-poisson}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+grf_pois <- grf.subg.harm.glm(
+  data                = df,
+  confounders.name    = c("v1", "v2", "v3", "age"),
+  outcome.name        = "events",
+  treat.name          = "treat",
+  id.name             = "id",
+  outcome_type        = "count",
+  effect_measure      = "log_IRR",
+  offset.name         = "person_time",
+  overdispersion      = "none",
+  grf_count_transform = "log",
+  n.min               = 60,
+  conf.level          = 0.95,
+  seedit              = 8316951,
+  verbose             = TRUE
+)
+
+timings$grf_standalone <- proc.time()[3] - t0
+
+cat("\n=== GRF Result ===\n")
+cat("Subgroup found:", !is.null(grf_pois$sg.harm.id), "\n")
+if (!is.null(grf_pois$sg.harm.id)) {
+  cat("Definition:", paste(grf_pois$sg.harm.id, collapse = " & "), "\n")
+  n_harm <- sum(grf_pois$data$treat.recommend == 0)
+  cat(sprintf("Size: n(H) = %d (%.1f%%)\n", n_harm, 100 * n_harm / n))
+}
+cat("GRF Y transform:", grf_pois$grf_y_transform, "\n")
+```
+
+## Variable Importance: Log vs Identity {#sec-grf-vi}
+
+```{r grf-identity}
+grf_id <- grf.subg.harm.glm(
+  data = df, confounders.name = c("v1", "v2", "v3", "age"),
+  outcome.name = "events", treat.name = "treat", id.name = "id",
+  outcome_type = "count", effect_measure = "log_IRR",
+  offset.name = "person_time", grf_count_transform = "identity",
+  n.min = 60, seedit = 8316951, verbose = FALSE
+)
+```
+
+```{r vi-table}
+#| tbl-cap: "GRF variable importance by transform"
+
+vi_log <- sort(grf_pois$grf_varimp, decreasing = TRUE)
+vi_id  <- sort(grf_id$grf_varimp, decreasing = TRUE)
+
+vi_df <- data.frame(
+  Variable = names(vi_log),
+  `Importance (log)` = as.numeric(vi_log),
+  `Importance (identity)` = as.numeric(vi_id[names(vi_log)]),
+  check.names = FALSE
+)
+
+gt(vi_df) |>
+  tab_header(
+    title = "GRF Variable Importance by Transform",
+    subtitle = sprintf("n = %d | %d zero counts | log(Y+0.5) vs raw Y",
+                        n, sum(df$events == 0))
+  ) |>
+  fmt_number(columns = 2:3, decimals = 4) |>
+  tab_source_note(sprintf("log SG: %s | identity SG: %s",
+    paste(grf_pois$sg.harm.id %||% "none", collapse = " & "),
+    paste(grf_id$sg.harm.id %||% "none", collapse = " & ")))
+```
+
+
+# Integrated ForestSearch Pipeline {#sec-fs}
+
+This is the key demonstration: `forestsearch()` with
+`outcome_type = "count"` runs the full pipeline --- GRF screening,
+LASSO variable selection, exhaustive subgroup search with Poisson
+effect estimator, and split-sample consistency evaluation.
+
+```{r fs-count}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+confounders <- c("v1", "v2", "v3", "age")
+
+fs <- forestsearch(
+  df.analysis      = df,
+  confounders.name = confounders,
+  outcome.name     = "events",
+  event.name       = "events",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "count",
+  effect_measure   = "IRR",
+  offset.name      = "person_time",
+  overdispersion   = "none",
+  grf_count_transform = "log",
+  hr.threshold     = 1.25,
+  hr.consistency   = 1.0,
+  pconsistency.threshold = 0.50,
+  fs.splits        = 200,
+  n.min            = 60,
+  maxk             = 2,
+  use_lasso        = TRUE,
+  use_grf          = TRUE,
+  use_twostage     = TRUE,
+  is.RCT           = TRUE,
+  seedit           = 8316951,
+  details          = TRUE,
+  plot.sg          = FALSE,
+  parallel_args    = list(plan = "sequential", workers = 1,
+                          show_message = FALSE)
+)
+
+timings$forestsearch <- proc.time()[3] - t0
+cat(sprintf("\nForestSearch completed in %.1f sec\n", timings$forestsearch))
+```
+
+## Console Summary {#sec-fs-print}
+
+```{r fs-print}
+print(fs)
+```
+
+```{r fs-summary}
+summary(fs)
+```
+
+
+# Summary Tables {#sec-tables}
+
+`sg_tables()` auto-detects the GLM outcome type and routes to
+`SG_tab_estimates_glm()`, producing per-subgroup effect estimates
+on the appropriate scale.
+
+```{r sg-tables}
+if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
+  tabs <- sg_tables(fs)
+
+  if (!is.null(tabs)) {
+    cat("=== Subgroup Summary Table ===\n")
+    print(tabs)
+  } else {
+    cat("sg_tables() returned NULL (no valid subgroups)\n")
+  }
+} else {
+  cat("No subgroup identified --- sg_tables() skipped\n")
+}
+```
+
+
+# Subgroup Outcome Visualization {#sec-outcome-plot}
+
+`plot_sg_glm_outcomes()` creates a grouped bar chart showing
+per-arm event rates within each subgroup, annotated with the
+IRR effect estimate.
+
+```{r outcome-plot}
+#| fig-height: 5
+#| fig-cap: "Per-arm event rates by subgroup with IRR annotations"
+
+if (!is.null(fs$sg.harm) && !is.null(fs$df.est)) {
+  fs$outcome_type <- "count"
+  fs$effect_measure <- "IRR"
+
+  outcome_viz <- tryCatch(
+    plot_sg_glm_outcomes(
+      fs.est         = fs,
+      outcome.name   = "events",
+      treat.name     = "treat",
+      offset.name    = "person_time",
+      effect_measure = "IRR",
+      outcome_type   = "binary",
+      sg0_name       = "Harm (H)",
+      sg1_name       = "Complement (Hc)",
+      E.name         = "Treatment",
+      C.name         = "Control",
+      show_effect    = TRUE,
+      show_itt       = TRUE,
+      title          = "Count Outcome: Per-Arm Event Rates",
+      subtitle       = sprintf("N = %d | Effect measure: IRR", n)
+    ),
+    error = function(e) {
+      message("plot_sg_glm_outcomes(): ", e$message)
+      NULL
+    }
+  )
+
+  if (!is.null(outcome_viz)) {
+    print(outcome_viz)
+  }
+} else {
+  cat("No subgroup found --- outcome plot skipped\n")
+}
+```
+
+
+# Per-Subgroup Estimation {#sec-glm-row}
+
+`create_glm_row()` fits a GLM within a subgroup and returns a one-row
+data frame.  This section compares Poisson, quasi-Poisson, and
+negative-binomial variance estimators side by side.
+
+```{r glm-row-estimates}
+if (!is.null(fs$df.est) && "treat.recommend" %in% names(fs$df.est)) {
+  sg_ind <- fs$df.est$treat.recommend
+  df_harm <- df[sg_ind == 0, ]
+  df_comp <- df[sg_ind == 1, ]
+
+  methods <- c("none", "quasi", "negbin")
+  method_labels <- c("Poisson", "Quasi-Poisson", "Neg. Binomial")
+
+  rows_H <- lapply(methods, function(m) {
+    r <- create_glm_row(df_harm, "events", "treat", "log_IRR",
+                        "person_time", m, 0.95)
+    r$Method <- method_labels[match(m, methods)]
+    r$Subgroup <- "Harm (H)"
+    r
+  })
+
+  rows_Hc <- lapply(methods, function(m) {
+    r <- create_glm_row(df_comp, "events", "treat", "log_IRR",
+                        "person_time", m, 0.95)
+    r$Method <- method_labels[match(m, methods)]
+    r$Subgroup <- "Complement (Hc)"
+    r
+  })
+
+  rows_ITT <- lapply(methods, function(m) {
+    r <- create_glm_row(df, "events", "treat", "log_IRR",
+                        "person_time", m, 0.95)
+    r$Method <- method_labels[match(m, methods)]
+    r$Subgroup <- "ITT"
+    r
+  })
+
+  est_all <- do.call(rbind, c(rows_ITT, rows_H, rows_Hc))
+  est_all$IRR <- exp(est_all$est)
+  est_all$IRR_lower <- exp(est_all$lower)
+  est_all$IRR_upper <- exp(est_all$upper)
+} else {
+  est_all <- NULL
+  cat("No subgroup found --- create_glm_row() skipped\n")
+}
+```
+
+```{r glm-row-table}
+#| tbl-cap: "Per-subgroup IRR estimates: three variance estimators"
+
+if (!is.null(est_all)) {
+  display <- est_all[, c("Subgroup", "Method", "N", "events_treat",
+                          "events_control", "est", "se", "IRR",
+                          "IRR_lower", "IRR_upper")]
+
+  gt(display) |>
+    tab_header(
+      title = "Subgroup Effect Estimates (log-IRR scale)",
+      subtitle = "Poisson vs quasi-Poisson vs negative binomial"
+    ) |>
+    fmt_number(columns = c(est, se), decimals = 3) |>
+    fmt_number(columns = c(IRR, IRR_lower, IRR_upper), decimals = 2) |>
+    cols_label(
+      Subgroup = "Subgroup", Method = "Variance",
+      N = "N", events_treat = "Ev (Rx)", events_control = "Ev (Ctrl)",
+      est = "log-IRR", se = "SE",
+      IRR = "IRR", IRR_lower = "Lower", IRR_upper = "Upper"
+    ) |>
+    tab_spanner(label = "log scale", columns = c(est, se)) |>
+    tab_spanner(label = "IRR (95 percent CI)",
+                columns = c(IRR, IRR_lower, IRR_upper)) |>
+    tab_source_note(
+      "True log-IRR: H = +0.70 (IRR = 2.01), Hc = -0.40 (IRR = 0.67)")
+}
+```
+
+
+# Forest Plot {#sec-forest}
+
+Manual forest plot from `create_glm_row()` estimates using `gg_forest()`.
+
+```{r forest-plot}
+#| fig-height: 4
+#| fig-cap: "Forest plot of subgroup IRR estimates (Poisson model-based SEs)"
+
+if (!is.null(est_all)) {
+  fp_data <- est_all[est_all$Method == "Poisson", ]
+
+  p_forest <- gg_forest(
+    subgroups  = fp_data$Subgroup,
+    est        = fp_data$IRR,
+    lo         = fp_data$IRR_lower,
+    hi         = fp_data$IRR_upper,
+    cat_vec    = ifelse(fp_data$Subgroup == "ITT", "ITT", "Subgroup"),
+    cat_colours = c("ITT" = "grey30", "Subgroup" = "steelblue"),
+    annot      = list(
+      "N" = as.character(fp_data$N),
+      "IRR" = sprintf("%.2f", fp_data$IRR)
+    ),
+    ref_line   = 1.0,
+    vert_lines = 1.0,
+    xlim       = c(0.3, 4.0),
+    ticks_at   = c(0.5, 0.67, 1.0, 1.5, 2.0, 3.0),
+    xlab       = "Incidence Rate Ratio",
+    xlog       = TRUE,
+    base_size  = 11,
+    widths     = c(3, 5, 1, 1)
+  )
+  print(p_forest)
+} else {
+  cat("No subgroup found --- forest plot skipped\n")
+}
+```
+
+
+# Biomarker Treatment-Effect Profile {#sec-profile}
+
+`glm_effect_profile()` estimates the treatment effect as a smooth
+function of a continuous biomarker using natural cubic splines with
+delta-method CIs.
+
+```{r profile-all}
+#| fig-height: 6
+#| fig-cap: "Three variance estimators: point estimates identical, CIs widen with overdispersion correction. Dashed line: true DGM interaction slope."
+
+t0 <- proc.time()[3]
+
+prof_pois <- glm_effect_profile(
+  df = df, outcome.name = "events", treat.name = "treat",
+  z.name = "biomarker", effect_measure = "log_IRR",
+  offset.name = "person_time", overdispersion = "none",
+  spline_df = 3, z_by = 0.05, z_quantile = 0.95,
+  alpha = 0.05, verbose = FALSE
+)
+
+prof_quasi <- glm_effect_profile(
+  df = df, outcome.name = "events", treat.name = "treat",
+  z.name = "biomarker", effect_measure = "log_IRR",
+  offset.name = "person_time", overdispersion = "quasi",
+  spline_df = 3, z_by = 0.05, z_quantile = 0.95,
+  alpha = 0.05, verbose = FALSE
+)
+
+prof_nb <- glm_effect_profile(
+  df = df, outcome.name = "events", treat.name = "treat",
+  z.name = "biomarker", effect_measure = "log_IRR",
+  offset.name = "person_time", overdispersion = "negbin",
+  spline_df = 3, z_by = 0.05, z_quantile = 0.95,
+  alpha = 0.05, verbose = FALSE
+)
+
+timings$profiles <- proc.time()[3] - t0
+
+df_all <- rbind(
+  data.frame(biomarker = prof_pois$z_profile, est = prof_pois$est,
+             lower = prof_pois$lower, upper = prof_pois$upper,
+             Method = "Poisson"),
+  data.frame(biomarker = prof_quasi$z_profile, est = prof_quasi$est,
+             lower = prof_quasi$lower, upper = prof_quasi$upper,
+             Method = "Quasi-Poisson"),
+  data.frame(biomarker = prof_nb$z_profile, est = prof_nb$est,
+             lower = prof_nb$lower, upper = prof_nb$upper,
+             Method = "Neg. Binomial")
+)
+df_all$Method <- factor(df_all$Method,
+  levels = c("Poisson", "Quasi-Poisson", "Neg. Binomial"))
+
+true_intercept <- 0.7 * 0.35 + (-0.4) * 0.65
+true_slope <- 0.15
+
+ggplot(df_all, aes(x = biomarker, y = est, colour = Method, fill = Method)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.08, colour = NA) +
+  geom_line(linewidth = 1.0) +
+  geom_abline(intercept = true_intercept - true_slope * 2.5,
+              slope = true_slope,
+              linetype = "dashed", color = "grey40", linewidth = 0.7) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "red",
+             linewidth = 0.4) +
+  geom_rug(data = df, aes(x = biomarker, y = NULL),
+           inherit.aes = FALSE,
+           alpha = 0.1, sides = "b", length = unit(0.02, "npc")) +
+  scale_colour_manual(values = c("Poisson" = "steelblue",
+                                  "Quasi-Poisson" = "#E07B39",
+                                  "Neg. Binomial" = "#7B2D8E")) +
+  scale_fill_manual(values = c("Poisson" = "steelblue",
+                                "Quasi-Poisson" = "#E07B39",
+                                "Neg. Binomial" = "#7B2D8E")) +
+  labs(x = "Biomarker", y = "log(IRR)",
+       title = "Treatment-Effect Profile: Three Variance Estimators",
+       subtitle = sprintf(
+         "Dispersion: quasi = %.3f | negbin (1/theta) = %.3f",
+         prof_quasi$dispersion, prof_nb$dispersion)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold"))
+```
+
+```{r profile-print}
+cat("=== Poisson ===\n")
+print(prof_pois)
+cat("\n=== Quasi-Poisson ===\n")
+print(prof_quasi)
+cat("\n=== Negative Binomial ===\n")
+print(prof_nb)
+```
+
+
+# Bootstrap Bias Correction {#sec-bootstrap}
+
+`forestsearch_bootstrap_dofuture()` resamples the data and re-runs the
+full pipeline to estimate selection bias in the post-hoc subgroup
+effect estimate.
+
+```{r bootstrap}
+t0 <- proc.time()[3]
+
+if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
+  fs_bc <- tryCatch(
+    forestsearch_bootstrap_dofuture(
+      fs,
+      nb = sim_n_boot,
+      parallel_args = list(plan = "sequential", workers = 1,
+                           show_message = FALSE)
+    ),
+    error = function(e) {
+      message("Bootstrap failed: ", e$message)
+      NULL
+    }
+  )
+} else {
+  fs_bc <- NULL
+  cat("No subgroup found --- bootstrap skipped\n")
+}
+
+timings$bootstrap <- proc.time()[3] - t0
+```
+
+```{r bootstrap-results}
+if (!is.null(fs_bc)) {
+  cat("=== Bootstrap Summary ===\n")
+  cat("Replicates:", sim_n_boot, "\n")
+
+  bc_table <- tryCatch(
+    format_bootstrap_table(fs_bc),
+    error = function(e) {
+      message("format_bootstrap_table(): ", e$message)
+      NULL
+    }
+  )
+
+  if (!is.null(bc_table)) {
+    print(bc_table)
+  }
+}
+```
+
+
+# Cross-Validation {#sec-cv}
+
+K-fold cross-validation assesses replication stability: how often
+does the identified subgroup replicate across held-out folds?
+
+```{r cv}
+t0 <- proc.time()[3]
+
+if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
+  fs_cv <- tryCatch(
+    forestsearch_Kfold(
+      fs,
+      K = sim_n_cv_folds,
+      parallel_args = list(plan = "sequential", workers = 1,
+                           show_message = FALSE)
+    ),
+    error = function(e) {
+      message("Kfold CV failed: ", e$message)
+      NULL
+    }
+  )
+} else {
+  fs_cv <- NULL
+  cat("No subgroup found --- CV skipped\n")
+}
+
+timings$cv <- proc.time()[3] - t0
+```
+
+```{r cv-results}
+if (!is.null(fs_cv)) {
+  cat("=== Cross-Validation Summary ===\n")
+  print(fs_cv)
+}
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Stage = c("GRF standalone", "forestsearch() pipeline",
+            "Biomarker profiles", "Bootstrap", "Cross-validation",
+            "Total"),
+  Seconds = c(
+    timings$grf_standalone, timings$forestsearch,
+    timings$profiles, timings$bootstrap, timings$cv,
+    timings$total
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt(timing_df) |>
+  tab_header(
+    title = "Computational Timing",
+    subtitle = sprintf("n = %d | %d bootstrap | %d CV folds | sequential",
+                        n, sim_n_boot, sim_n_cv_folds)
+  ) |>
+  fmt_number(columns = Seconds, decimals = 1) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total")
+  )
+```
+
+
+# Summary {#sec-summary}
+
+This document exercised the full ForestSearch v0.2.0 pipeline for
+count / rate outcomes:
+
+**Subgroup identification** (`forestsearch()` with `outcome_type = "count"`)
+successfully identified the planted harm subgroup using the integrated
+pipeline: GRF screening with $\log(Y + 0.5)$ variance stabilisation,
+LASSO variable selection, exhaustive subgroup search with a Poisson
+IRR effect estimator, and split-sample consistency evaluation.
+
+**Tabular summaries** (`sg_tables()`, `create_glm_row()`) produced
+per-subgroup estimates comparing Poisson, quasi-Poisson, and
+negative-binomial SEs.  Point estimates agree across all three; SEs
+widen appropriately with overdispersion correction.
+
+**Visualizations** covered outcome bar charts (`plot_sg_glm_outcomes()`),
+forest plots (`gg_forest()`), and smooth biomarker profiles
+(`glm_effect_profile()`) with all three variance estimators overlaid.
+
+**Inference** via bootstrap bias correction and K-fold cross-validation
+confirmed the stability and reproducibility of the identified subgroup.
+
+
+# Session Information {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```

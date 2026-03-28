@@ -37,7 +37,7 @@
 #' lightweight and handle small-sample edge cases gracefully.
 #'
 #' @param outcome_type Character. One of \code{"survival"}, \code{"binary"},
-#'   \code{"continuous"}.
+#'   \code{"continuous"}, or \code{"count"}.
 #' @param treat.name  Character. Name of the binary treatment column (0/1).
 #' @param outcome.name Character. Name of the outcome column.
 #' @param event.name  Character or \code{NULL}. Name of the event indicator
@@ -97,7 +97,7 @@ make_effect_estimator <- function(
   ps_adjust_method <- match.arg(ps_adjust_method)
   outcome_type <- match.arg(
     outcome_type,
-    choices = c("survival", "binary", "continuous")
+    choices = c("survival", "binary", "continuous", "count")
   )
 
   # Resolve default effect measure
@@ -105,7 +105,8 @@ make_effect_estimator <- function(
     effect_measure <- switch(outcome_type,
       survival   = "HR",
       binary     = "RD",
-      continuous = "MD"
+      continuous = "MD",
+      count      = "IRR"
     )
   }
 
@@ -164,6 +165,24 @@ make_effect_estimator <- function(
       .make_lm_estimator(
         treat.name        = treat.name,
         outcome.name      = outcome.name,
+        adjust_covariates = adjust_covariates,
+        ps_adjust_method  = ps_adjust_method,
+        ...
+      )
+    },
+
+    count = {
+      # Count / rate outcomes always route to the Poisson rate estimator
+      effect_measure <- match.arg(
+        effect_measure,
+        choices = c("IRR", "IRD")
+      )
+      .make_poisson_rate_estimator(
+        treat.name        = treat.name,
+        outcome.name      = outcome.name,
+        offset.name       = offset.name,
+        effect_measure    = effect_measure,
+        robust_se         = robust_se,
         adjust_covariates = adjust_covariates,
         ps_adjust_method  = ps_adjust_method,
         ...

@@ -94,16 +94,27 @@
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
 #' @param outcome_type Character. One of \code{"survival"} (default),
-#'   \code{"binary"}, or \code{"continuous"}.
+#'   \code{"binary"}, \code{"continuous"}, or \code{"count"}.
 #' @param effect_measure Character or \code{NULL}. Effect measure for GLM
 #'   outcomes.  For binary: \code{"RD"}, \code{"OR"}, \code{"RR"},
 #'   \code{"IRR"}, \code{"IRD"}.  For continuous: \code{"MD"}.
+#'   For count: \code{"IRR"} (default), \code{"IRD"}.
 #'   Default depends on \code{outcome_type}.
 #' @param offset.name Character or \code{NULL}. Name of the follow-up time
 #'   column for rate-based measures (IRR, IRD).
 #' @param adverse_outcome Logical or \code{NULL}. If \code{TRUE}, higher
-#'   outcome values indicate harm (default for binary).  If \code{FALSE},
+#'   outcome values indicate harm (default for binary and count).  If \code{FALSE},
 #'   higher values indicate benefit (default for continuous).
+#' @param overdispersion Character. Overdispersion correction for
+#'   \code{outcome_type = "count"}.  One of \code{"none"} (default,
+#'   standard Poisson), \code{"quasi"} (quasi-Poisson), or \code{"negbin"}
+#'   (negative binomial via \code{MASS::glm.nb}).  Ignored for other
+#'   outcome types.
+#' @param grf_count_transform Character. Transformation applied to the
+#'   count outcome before passing to \code{grf::causal_forest()} for
+#'   factor screening.  \code{"log"} (default) applies
+#'   \eqn{\log(Y + 0.5)}; \code{"identity"} passes raw counts.
+#'   Ignored for non-count outcomes.
 #' @param ps_method Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
@@ -299,10 +310,13 @@ forestsearch <- function(df.analysis,
                          use_twostage = TRUE,
                          twostage_args = list(),
                          # NEW: GLM outcome support
-                         outcome_type = c("survival", "binary", "continuous"),
+                         outcome_type = c("survival", "binary", "continuous",
+                                          "count"),
                          effect_measure = NULL,
                          offset.name = NULL,
                          adverse_outcome = NULL,
+                         overdispersion = c("none", "quasi", "negbin"),
+                         grf_count_transform = c("log", "identity"),
                          # Propensity score adjustment
                          ps_method = NULL,
                          ps_adjust_method = c("none", "iptw", "dr_gcomp"),
@@ -382,16 +396,21 @@ forestsearch <- function(df.analysis,
   # ===========================================================================
 
   outcome_type <- match.arg(outcome_type)
+  overdispersion <- match.arg(overdispersion)
+  grf_count_transform <- match.arg(grf_count_transform)
 
   # Store resolved value so bootstrap/CV pick up the scalar, not the default vector
   args_call_all$outcome_type <- outcome_type
+  args_call_all$overdispersion <- overdispersion
+  args_call_all$grf_count_transform <- grf_count_transform
 
   # Resolve adverse_outcome default:
   #   Binary outcomes: TRUE (event = adverse, the clinical trial convention)
+  #   Count outcomes:  TRUE (higher count = more events = worse)
   #   Continuous outcomes: FALSE (user must set TRUE if higher Y = worse)
   #   Survival: not used (causal_survival_forest handles sign correctly)
   if (is.null(adverse_outcome)) {
-    adverse_outcome <- (outcome_type == "binary")
+    adverse_outcome <- (outcome_type %in% c("binary", "count"))
   }
   args_call_all$adverse_outcome <- adverse_outcome
 
@@ -407,7 +426,8 @@ forestsearch <- function(df.analysis,
     if (is.null(effect_measure)) {
       effect_measure <- switch(outcome_type,
         binary     = "RD",
-        continuous = "MD"
+        continuous = "MD",
+        count      = "IRR"
       )
     }
     # Store resolved effect_measure
@@ -599,12 +619,15 @@ forestsearch <- function(df.analysis,
         )
       } else {
         # GLM path: causal_forest (no event/horizon)
-        grf.subg.harm.glm(
+        # Map forestsearch outcome_type to grf.subg.harm.glm outcome_type
+        grf_glm_args <- list(
           data = df.analysis,
           confounders.name = confounders.name,
           outcome.name = outcome.name,
           treat.name = treat.name,
           id.name = id.name,
+          outcome_type = if (outcome_type == "count") "count" else
+                         if (outcome_type == "binary") "binary" else "continuous",
           n.min = n.min,
           dmin.grf = dmin.grf,
           RCT = is.RCT,
@@ -614,6 +637,13 @@ forestsearch <- function(df.analysis,
           return_selected_cuts_only = return_selected_cuts_only,
           adverse_outcome = adverse_outcome
         )
+        # Count-specific parameters
+        if (outcome_type == "count") {
+          grf_glm_args$offset.name         <- offset.name
+          grf_glm_args$overdispersion      <- overdispersion
+          grf_glm_args$grf_count_transform <- grf_count_transform
+        }
+        do.call(grf.subg.harm.glm, grf_glm_args)
       }
     },
       error = function(e) {
@@ -669,8 +699,8 @@ forestsearch <- function(df.analysis,
     if (!event.name %in% names(df.analysis)) {
       event.name <- outcome.name
     }
-  } else if (outcome_type == "continuous") {
-    # Continuous outcomes have no event; create a placeholder column
+  } else if (outcome_type %in% c("continuous", "count")) {
+    # Continuous / count outcomes have no censoring event; create a placeholder
     if (!event.name %in% names(df.analysis)) {
       df.analysis[[".event_placeholder"]] <- 1L
       event.name <- ".event_placeholder"
@@ -762,8 +792,14 @@ forestsearch <- function(df.analysis,
       }
     } else {
       # GLM path: causal_forest (no event/horizon)
-      # Flip outcome for adverse events (same logic as grf.subg.harm.glm)
-      Y_vi <- if (adverse_outcome) 1L - Y else Y
+      if (outcome_type == "count") {
+        # Count data: variance-stabilising log transform (same as
+        # grf.subg.harm.glm with grf_count_transform = "log")
+        Y_vi <- if (grf_count_transform == "log") log(Y + 0.5) else Y
+      } else {
+        # Binary / continuous: flip for adverse outcomes
+        Y_vi <- if (adverse_outcome) 1L - Y else Y
+      }
       cs.forest <- try(suppressWarnings(
         fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951)
       ), TRUE)

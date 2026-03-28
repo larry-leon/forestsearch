@@ -58,10 +58,12 @@ forestsearch(
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
-  outcome_type = c("survival", "binary", "continuous"),
+  outcome_type = c("survival", "binary", "continuous", "count"),
   effect_measure = NULL,
   offset.name = NULL,
   adverse_outcome = NULL,
+  overdispersion = c("none", "quasi", "negbin"),
+  grf_count_transform = c("log", "identity"),
   ps_method = NULL,
   ps_adjust_method = c("none", "iptw", "dr_gcomp"),
   ps_hat = NULL
@@ -210,19 +212,32 @@ is automatically calculated to provide ~2.5 SE margin.}
 }}
 
 \item{outcome_type}{Character. One of \code{"survival"} (default),
-\code{"binary"}, or \code{"continuous"}.}
+\code{"binary"}, \code{"continuous"}, or \code{"count"}.}
 
 \item{effect_measure}{Character or \code{NULL}. Effect measure for GLM
 outcomes.  For binary: \code{"RD"}, \code{"OR"}, \code{"RR"},
 \code{"IRR"}, \code{"IRD"}.  For continuous: \code{"MD"}.
+For count: \code{"IRR"} (default), \code{"IRD"}.
 Default depends on \code{outcome_type}.}
 
 \item{offset.name}{Character or \code{NULL}. Name of the follow-up time
 column for rate-based measures (IRR, IRD).}
 
 \item{adverse_outcome}{Logical or \code{NULL}. If \code{TRUE}, higher
-outcome values indicate harm (default for binary).  If \code{FALSE},
+outcome values indicate harm (default for binary and count).  If \code{FALSE},
 higher values indicate benefit (default for continuous).}
+
+\item{overdispersion}{Character. Overdispersion correction for
+\code{outcome_type = "count"}.  One of \code{"none"} (default,
+standard Poisson), \code{"quasi"} (quasi-Poisson), or \code{"negbin"}
+(negative binomial via \code{MASS::glm.nb}).  Ignored for other
+outcome types.}
+
+\item{grf_count_transform}{Character. Transformation applied to the
+count outcome before passing to \code{grf::causal_forest()} for
+factor screening.  \code{"log"} (default) applies
+\eqn{\log(Y + 0.5)}; \code{"identity"} passes raw counts.
+Ignored for non-count outcomes.}
 
 \item{ps_method}{Character or \code{NULL}. Propensity score estimation
 method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or

@@ -19,7 +19,7 @@ make_effect_estimator(
 }
 \arguments{
 \item{outcome_type}{Character. One of \code{"survival"}, \code{"binary"},
-\code{"continuous"}.}
+\code{"continuous"}, or \code{"count"}.}
 
 \item{treat.name}{Character. Name of the binary treatment column (0/1).}
 
