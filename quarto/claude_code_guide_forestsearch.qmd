@@ -1,0 +1,455 @@
+---
+title: "Using Claude Code with the forestsearch Package"
+subtitle: "A Step-by-Step Guide for RStudio Users on Mac"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+---
+
+
+# Overview
+
+Claude Code is a terminal-based AI coding agent that reads your
+codebase, edits files, runs commands, and manages git --- all
+through natural language.  Unlike the Claude web/app chat
+(where we've been working), Claude Code runs **on your machine**
+with direct access to your R installation, RStudio project files,
+and the forestsearch repo.
+
+**What this means for forestsearch development:**
+
+- Claude Code can run `devtools::check()`, `devtools::test()`,
+  `quarto::quarto_render()` directly
+- It can read, edit, and create R source files in the repo
+- It can run `Rscript` to execute QC checks and simulations
+- It sees the full project structure (DESCRIPTION, NAMESPACE,
+  R/, tests/, vignettes/)
+- It can commit changes via git
+
+**Your workflow stays the same**: RStudio remains your primary
+IDE for interactive R work, running code chunks, and reviewing
+output.  Claude Code supplements it from a terminal window,
+handling tasks like "run `devtools::check()` and fix any
+warnings" or "add roxygen documentation to this function."
+
+
+# Step 1: Prerequisites
+
+You already have everything needed:
+
+- **macOS** (Apple Silicon Mac)
+- **R 4.5+** installed
+- **RStudio** as your IDE
+- **Git** (used by GitHub Desktop)
+- A **Claude Pro, Max, or Team** subscription (the same
+  account you use for claude.ai)
+
+Verify R and git are accessible from Terminal:
+
+```bash
+# Open Terminal (Applications > Utilities > Terminal)
+which R
+# Should show something like: /Library/Frameworks/R.framework/...
+
+which Rscript
+# Should show a path
+
+which git
+# Should show: /usr/bin/git or similar
+```
+
+
+# Step 2: Install Claude Code
+
+Open **Terminal** (not the RStudio terminal --- use the
+standalone macOS Terminal app) and run:
+
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+This installs the native binary.  No Node.js required.
+Close and reopen Terminal, then verify:
+
+```bash
+claude --version
+```
+
+**Alternative via Homebrew** (if you prefer):
+
+```bash
+brew install --cask claude-code
+```
+
+Note: Homebrew does not auto-update; run
+`brew upgrade claude-code` periodically.
+
+
+# Step 3: Authenticate
+
+Run `claude` and follow the browser prompt to log in with your
+Anthropic account:
+
+```bash
+claude
+```
+
+A browser window opens.  Log in with the same account you use
+for claude.ai.  After authentication, you'll see the Claude
+Code prompt in your terminal.
+
+Type `/quit` to exit for now --- we'll configure the project
+first.
+
+
+# Step 4: Navigate to the forestsearch Repo
+
+In Terminal, navigate to your local forestsearch clone:
+
+```bash
+cd ~/path/to/forestsearch
+```
+
+If you're not sure of the path, open Finder, locate the
+`forestsearch` folder, and drag it into the Terminal window
+after typing `cd ` (with a trailing space).
+
+Verify you're in the right place:
+
+```bash
+ls DESCRIPTION NAMESPACE R/
+```
+
+You should see your package files.
+
+
+# Step 5: Create CLAUDE.md
+
+This is the key configuration file.  It tells Claude Code
+about your project conventions, commands, and rules.  Create
+a file called `CLAUDE.md` in the repo root:
+
+```bash
+touch CLAUDE.md
+open -a TextEdit CLAUDE.md
+```
+
+Or create it in RStudio: File > New File > Text File, save as
+`CLAUDE.md` in the repo root.
+
+Paste the following content:
+
+````markdown
+# forestsearch R Package
+
+## Project Overview
+
+R package for exploratory subgroup identification in clinical
+trials.  Implements the methodology from Leon et al. (2024,
+*Statistics in Medicine*).  The `feature/glm-extension` branch
+extends from Cox PH survival to binary, continuous, and count
+(Poisson) GLM outcomes.
+
+Repository: github.com/larry-leon/forestsearch
+Branch: `feature/glm-extension` (active development)
+CRAN version: 0.1.0 (survival only)
+Development version: 0.2.0 (adds GLM)
+
+## Commands
+
+```bash
+# Development cycle
+Rscript -e 'devtools::document()'
+Rscript -e 'devtools::load_all()'
+Rscript -e 'devtools::check()'
+Rscript -e 'devtools::test()'
+Rscript -e 'devtools::test(filter = "glm-pipeline")'
+
+# Install for worker processes (required for parallel/doFuture)
+Rscript -e 'devtools::install()'
+
+# Render Quarto documents
+Rscript -e 'quarto::quarto_render("path/to/file.qmd")'
+
+# CRAN check
+Rscript -e 'devtools::check(remote = TRUE, manual = TRUE)'
+```
+
+## Conventions
+
+- Follow tidyverse style guide
+- Use roxygen2 for all documentation (`@export`, `@param`, etc.)
+- `devtools::document()` regenerates NAMESPACE --- never hand-edit
+- All R source files use `.R` extension (uppercase)
+- Quarto documents use `.qmd` --- do not convert to `.Rmd`
+- CRAN target: 0 errors, 0 warnings, 0 notes
+- `n.min = 60` is the paper default --- do not change without
+  flagging it explicitly
+
+## Architecture
+
+- Subgroup identification always uses Cox PH in `forestsearch()`
+- GLM parameters (`outcome_type`, `effect_measure`, `offset.name`)
+  reach `.extract_fs_estimates_gen()` for estimation only
+- `grf_subg_harm_glm.R` is the canonical GLM GRF file
+- `filter_call_args()` silently drops unrecognized arguments ---
+  be aware of this when adding new parameters
+
+## Key Files
+
+- `R/forestsearch_main.R` --- main pipeline
+- `R/subgroup_consistency_main.R` --- consistency evaluation
+- `R/subgroup_consistency_helpers.R` --- split evaluation, helpers
+- `R/truefind_asymptotic.R` --- Cox detection probability
+- `R/truefind_asymptotic_glm.R` --- GLM detection probability
+- `R/grf_subg_harm_glm.R` --- GLM GRF candidate selection
+- `R/get_fsdata.R` --- candidate factor construction
+- `tests/testthat/` --- test suite
+
+## Testing
+
+Run tests with:
+```bash
+Rscript -e 'devtools::test(filter = "glm-pipeline")'
+```
+
+When writing tests, use `testthat` conventions.  Tests go in
+`tests/testthat/test-*.R`.
+
+## Known Issues
+
+- `tryCatch -> NULL` in forestsearch_main.R catches errors
+  silently at 4 locations.  Always check `error_log` field.
+- `show_message` in parallel_args must use `isTRUE()` wrapper.
+- Hardcoded `merge(by = "id")` on line 720 ignores `id.name`.
+
+## Do NOT
+
+- Change `n.min` from 60 without explicit discussion
+- Convert `.qmd` files to `.Rmd`
+- Hand-edit NAMESPACE (use `@export` in source + `devtools::document()`)
+- Use `sudo` with any R/npm commands
+- Introduce ad hoc modifications without flagging them
+````
+
+**Important**: Add `CLAUDE.md` to `.gitignore` if you don't
+want it in the public repo, or commit it if you want it shared.
+
+
+# Step 6: Start Claude Code on forestsearch
+
+```bash
+cd ~/path/to/forestsearch
+claude
+```
+
+Claude Code reads the `CLAUDE.md` file automatically.  You'll
+see a prompt where you can type natural language commands.
+
+
+# Step 7: Example Workflows
+
+## Run devtools::check() and Fix Issues
+
+```
+> Run devtools::check() and show me any warnings or notes.
+> If there are NOTE items about documentation, fix them.
+```
+
+Claude Code will execute `Rscript -e 'devtools::check()'`,
+read the output, and propose fixes.
+
+## Add Documentation to a Function
+
+```
+> Read R/truefind_asymptotic_glm.R and check that all exported
+> functions have complete roxygen2 documentation including
+> @param, @return, @examples, and @export tags.
+```
+
+## Run the Integration Tests
+
+```
+> Run the GLM pipeline integration tests and report results.
+```
+
+## Edit a Source File
+
+```
+> In R/subgroup_consistency_helpers.R, find the function
+> setup_parallel_SGcons and make sure show_message uses
+> isTRUE() to handle NULL values.
+```
+
+Claude Code will show you a diff and ask for confirmation
+before writing changes.
+
+## Render a Quarto Document
+
+```
+> Render quarto/binary_threshold_calibration.qmd and tell me
+> if there are any errors.
+```
+
+## Review a File
+
+```
+> Read R/forestsearch_main.R lines 600-700 and explain what
+> the grf_cuts normalization does.
+```
+
+
+# Step 8: Working Alongside RStudio
+
+The recommended workflow:
+
+1. **RStudio** stays open on your forestsearch project
+2. **Terminal** runs Claude Code in the same directory
+3. Both access the same files --- changes from either side
+   are visible to the other
+
+When Claude Code edits a file:
+
+- RStudio may show a "file changed on disk" prompt --- click
+  **Yes** to reload
+- If no prompt appears, close and reopen the file, or use
+  File > Revert
+
+When you edit in RStudio:
+
+- Claude Code sees the changes immediately (it reads files
+  on demand, not from a cache)
+
+**Tip**: Use RStudio for interactive R work (running code
+chunks, viewing plots, debugging).  Use Claude Code for
+batch operations (check, test, document, bulk edits).
+
+
+# Step 9: Useful Claude Code Commands
+
+Type these directly at the Claude Code prompt:
+
+| Command | What it does |
+|---|---|
+| `/help` | Show available commands |
+| `/compact` | Summarize conversation to free context |
+| `/quit` | Exit Claude Code |
+| `/cost` | Show token usage for the session |
+| `Ctrl+C` | Cancel current operation |
+
+You can also run one-off commands without entering the
+interactive session:
+
+```bash
+# Single task, no interactive session
+claude -p "Run devtools::check() on the forestsearch package"
+
+# Pipe content to Claude
+cat R/forestsearch_main.R | claude -p "Summarize this file"
+```
+
+
+# Step 10: Optional --- R Documentation MCP Server
+
+The `btw` R package provides an MCP server that lets Claude
+Code look up R package documentation.  This is helpful when
+Claude needs to understand functions from dependencies
+(`grf`, `survival`, `data.table`, etc.):
+
+```r
+# In RStudio console:
+pak::pak("posit-dev/btw")
+```
+
+Then in Terminal:
+
+```bash
+claude mcp add -s "user" r-btw -- \
+  Rscript -e "btw::btw_mcp_server(tools = 'docs')"
+```
+
+After this, Claude Code can look up help pages for any
+installed R package when it encounters unfamiliar functions.
+
+
+# Step 11: Optional --- R Skills for Claude Code
+
+Community-maintained Skills for R development can be
+installed from the Posit Claude Skills repo:
+
+```bash
+# In Claude Code:
+/install-skill https://github.com/posit-dev/claude-skills quarto
+```
+
+Available skills include Quarto authoring, R package release
+checklists, and Shiny development patterns.
+
+
+# Tips for forestsearch Development
+
+1. **Start small**: Begin with read-only tasks ("read this
+   file", "explain this function") before moving to edits.
+
+2. **Review diffs**: Claude Code shows proposed changes
+   before applying them.  Always review.
+
+3. **Use Plan Mode**: For complex tasks, ask Claude to plan
+   first:
+   ```
+   > /plan How should I restructure the consistency helpers
+   > to support the GLM extension?
+   ```
+
+4. **Context management**: For long sessions, use `/compact`
+   to summarize and free context window space.
+
+5. **Branch safety**: Claude Code respects your git state.
+   Work on `feature/glm-extension` as usual --- Claude Code
+   won't switch branches unless you ask.
+
+6. **Parallel processing note**: When Claude Code runs
+   `Rscript` commands, it uses your local R installation
+   with all installed packages.  `devtools::install()` must
+   have been run for `doFuture` workers to see recent changes.
+
+
+# Cost Considerations
+
+With a **Claude Pro** subscription ($20/month), Claude Code
+usage is included (subject to usage limits).  For heavy
+development sessions (running many `devtools::check()` cycles),
+**Claude Max** ($100 or $200/month) provides higher limits.
+
+Alternatively, with an **Anthropic Console** API key, you pay
+per token.  A typical Claude Code session costs $0.50--$2.00
+depending on the amount of code read and generated.
+
+
+# Quick Reference Card
+
+```
+# Install
+curl -fsSL https://claude.ai/install.sh | bash
+
+# Start (from repo root)
+cd ~/path/to/forestsearch
+claude
+
+# Common tasks
+> Run devtools::check()
+> Run devtools::test(filter = "glm-pipeline")
+> Read R/forestsearch_main.R and explain the grf_cuts handling
+> Add @examples to d_eff_binary() in R/truefind_asymptotic_glm.R
+> Render quarto/cox_vs_glm_approximation.qmd
+> What functions are exported but not documented?
+
+# Exit
+/quit
+```

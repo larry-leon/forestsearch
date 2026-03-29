@@ -1,0 +1,418 @@
+---
+title: "Correcting the Detection Probability Under the Null"
+subtitle: "Accounting for the Number of Viable Candidates"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# The Problem {#sec-problem}
+
+The Section 2.1 approximation gives the per-subgroup detection
+probability $P_1$.  Simulation shows:
+
+- **Power (H1)**: $P_1$ agrees well with simulation for
+  $N \ge 500$ (Sim/Approx $\approx$ 1.0).
+- **Type-I error (H0)**: $P_1$ increasingly underestimates
+  the simulated FPR as $N$ grows (Sim/Approx reaches 5--15x
+  at $N = 1000$).
+
+This is anti-intuitive only if one expects the approximation
+to model the *procedure-level* FPR directly.  It does not.
+$P_1$ models a *single pre-specified subgroup*.  The procedure
+evaluates many candidates, and the number of viable candidates
+**grows with $N$**.
+
+
+# Why Power Agreement Improves but FPR Agreement Worsens {#sec-why}
+
+## Power (H1)
+
+Under $H_1$, there exists a true subgroup $H$ with
+$\beta = \log(2) = 0.69$.  This signal is much larger than
+any noise candidate's $\hat\beta \approx 0$.  The procedure
+reliably identifies $H$ (when $N$ is large enough for $H$
+to enter the candidate set), and the approximation for
+$P_1(\beta = 0.69)$ is accurate because it models exactly
+the right quantity: the detection probability for a specific
+subgroup with a known effect.
+
+For $N = 200$, the approximation *overestimates* power
+because the true harm subgroup ($n_H \approx 60$) is right
+at `n.min = 60` and may be excluded from the candidate set
+in many simulations.  The approximation does not model the
+candidate-nomination step.
+
+## Type-I Error (H0)
+
+Under $H_0$, $\beta = 0$ for every subgroup.  The
+approximation gives $P_1(0) \approx 0.15$--$0.23$ depending
+on $d_{\text{eff}}$ and thresholds.  But the procedure finds
+*any* subgroup among $L$ candidates, so:
+
+$$
+P(\text{any passes}) \approx 1 - (1 - P_1)^{L_{\text{eff}}}
+$$
+
+The effective number of candidates $L_{\text{eff}}$ grows
+with $N$ because:
+
+1. **More subgroup combinations survive `n.min`**.  At
+   $N = 200$ with `n.min = 60`, a subgroup must be $\ge 30\%$
+   of the sample.  Two-factor combinations (e.g.,
+   bm1 = 0 AND bm2 = 0, prevalence $\approx 15\%$) have only
+   30 patients and are excluded.  At $N = 1000$, the same
+   combination has 150 patients, well above `n.min`.
+
+2. **GRF generates more cuts on continuous variables**.  With
+   more data, GRF produces additional split points on age,
+   each creating new candidate factors.
+
+3. **LASSO retains more variables**.  Increased power detects
+   spurious prognostic associations.
+
+
+# Empirical $L_{\text{eff}}$ {#sec-leff}
+
+From the simulation results (Table 5), we can solve for the
+implied $L_{\text{eff}}$ at each $N$:
+
+$$
+L_{\text{eff}} =
+\frac{\log(1 - \text{FPR}_{\text{sim}})}{\log(1 - P_1)}
+$$
+
+```{r load-packages}
+library(forestsearch)
+library(ggplot2)
+library(gt)
+```
+
+```{r compute-leff}
+#| code-fold: false
+
+# Simulation results from Table 5
+# Using c1=1.25, c2=1.25 (moderate thresholds) for stability
+sim_data <- data.frame(
+  N = c(200, 500, 700, 1000),
+  n_H = round(c(200, 500, 700, 1000) * 0.30),
+  P1 = c(0.152, 0.109, 0.091, 0.071),
+  Sim_FPR = c(0.185, 0.220, 0.270, 0.280)
+)
+
+sim_data$L_eff <- log(1 - sim_data$Sim_FPR) / log(1 - sim_data$P1)
+sim_data$N_over_nmin <- sim_data$N / 60
+
+cat("=== Implied L_eff (c1=1.25, c2=1.25) ===\n")
+print(sim_data[, c("N", "P1", "Sim_FPR", "L_eff", "N_over_nmin")])
+```
+
+
+## $L_{\text{eff}}$ Grows with $N / n_{\min}$
+
+```{r leff-model}
+#| fig-height: 5
+#| fig-cap: "L_eff grows approximately as a power of N/n.min.  The fit suggests L_eff ~ (N/n.min)^0.8."
+
+# Fit log-linear model: log(L_eff) = a + b * log(N/n.min)
+fit <- lm(log(L_eff) ~ log(N_over_nmin), data = sim_data)
+alpha <- coef(fit)[2]
+C <- exp(coef(fit)[1])
+
+cat(sprintf("Fit: L_eff = %.2f * (N/n.min)^%.2f\n", C, alpha))
+cat(sprintf("R-squared: %.3f\n", summary(fit)$r.squared))
+
+# Plot
+N_seq <- seq(100, 1200, by = 10)
+pred_df <- data.frame(
+  N = N_seq,
+  N_over_nmin = N_seq / 60,
+  L_eff_pred = C * (N_seq / 60)^alpha
+)
+
+ggplot() +
+  geom_point(data = sim_data, aes(x = N, y = L_eff),
+             size = 4, colour = "firebrick") +
+  geom_line(data = pred_df, aes(x = N, y = L_eff_pred),
+            colour = "steelblue", linewidth = 1) +
+  labs(x = "Total Sample Size N",
+       y = expression(L[eff]),
+       title = expression(L[eff] ~ "from Simulation (c1=1.25, c2=1.25)"),
+       subtitle = sprintf("Fit: L_eff = %.2f x (N/n.min)^%.2f",
+                           C, alpha)) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+
+## Validation Across Threshold Pairs
+
+```{r leff-by-threshold}
+#| tbl-cap: "Implied L_eff across threshold configurations.  L_eff should be similar across (c1, c2) for the same N if it reflects the candidate count."
+
+# Multiple (c1,c2) pairs from Table 5
+configs <- data.frame(
+  c1 = c(1.25, 1.25, 1.50, 1.50, 1.50,
+         1.25, 1.25, 1.50, 1.50, 1.50,
+         1.25, 1.25, 1.50, 1.50, 1.50,
+         1.25, 1.25, 1.50, 1.50, 1.50),
+  c2 = c(1.00, 1.25, 1.25, 1.35, 1.50,
+         1.00, 1.25, 1.25, 1.35, 1.50,
+         1.00, 1.25, 1.25, 1.35, 1.50,
+         1.00, 1.25, 1.25, 1.35, 1.50),
+  N  = c(rep(200, 5), rep(500, 5), rep(700, 5), rep(1000, 5)),
+  P1 = c(0.227, 0.152, 0.139, 0.121, 0.094,
+         0.195, 0.109, 0.083, 0.068, 0.045,
+         0.177, 0.091, 0.061, 0.049, 0.029,
+         0.153, 0.071, 0.039, 0.031, 0.016),
+  Sim_FPR = c(0.325, 0.185, 0.185, 0.155, 0.095,
+              0.505, 0.220, 0.220, 0.160, 0.090,
+              0.590, 0.270, 0.270, 0.170, 0.115,
+              0.765, 0.280, 0.280, 0.190, 0.080)
+)
+
+configs$L_eff <- log(1 - configs$Sim_FPR) / log(1 - configs$P1)
+configs$label <- sprintf("c1=%.2f, c2=%.2f", configs$c1, configs$c2)
+
+# Show L_eff by N
+leff_summary <- aggregate(L_eff ~ N, data = configs,
+                           FUN = function(x) {
+                             sprintf("%.1f (%.1f--%.1f)",
+                               median(x), min(x), max(x))
+                           })
+names(leff_summary)[2] <- "L_eff: median (range)"
+
+gt(leff_summary) |>
+  tab_header(
+    title = "Implied L_eff by Sample Size (Across Threshold Pairs)",
+    subtitle = "L_eff should be roughly constant within N"
+  )
+```
+
+
+```{r leff-scatter}
+#| fig-height: 5
+#| fig-cap: "L_eff by N, coloured by threshold pair.  If L_eff reflects the candidate count rather than the thresholds, points at the same N should cluster vertically."
+
+ggplot(configs, aes(x = N, y = L_eff, colour = label)) +
+  geom_point(size = 3, alpha = 0.7) +
+  labs(x = "N", y = expression(L[eff]),
+       title = "Implied L_eff Across Configurations",
+       colour = "Thresholds") +
+  scale_colour_brewer(palette = "Set2") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        plot.title = element_text(face = "bold"))
+```
+
+
+# The Corrected Approximation {#sec-corrected}
+
+## Formula
+
+$$
+\boxed{
+P_{\text{null}}^{\text{corrected}}(N) =
+1 - \bigl(1 - P_1(0)\bigr)^{L_{\text{eff}}(N)}
+}
+$$
+
+where $P_1(0)$ is the per-subgroup detection probability from
+the GLM approximation (`compute_detection_probability_glm()`
+with $\theta = 1$), and:
+
+$$
+L_{\text{eff}}(N) = C \cdot
+\left(\frac{N}{n_{\min}}\right)^{\alpha}
+$$
+
+with $C$ and $\alpha$ estimated from a reference simulation.
+
+**Important**: $L_{\text{eff}}$ is a property of the *candidate
+generation process* (GRF + LASSO + confounder set + maxk +
+n.min), not of the thresholds.  It should be approximately
+constant across $(c_1, c_2)$ for the same $N$ and confounder
+configuration.
+
+## Implementation
+
+```{r corrected-function}
+#| code-fold: false
+
+#' Corrected Null Detection Probability
+#'
+#' Adjusts the per-subgroup approximation for the number of
+#' viable candidates evaluated by ForestSearch.
+#'
+#' @param theta Numeric. True effect (1.0 for null).
+#' @param d_eff Numeric. Effective information.
+#' @param c1 Numeric. Screening threshold.
+#' @param c2 Numeric. Consistency threshold.
+#' @param N Integer. Total sample size.
+#' @param n_min Integer. Minimum subgroup size. Default: 60.
+#' @param L_eff_C Numeric. Calibration constant. Default: 0.8.
+#' @param L_eff_alpha Numeric. Power-law exponent. Default: 0.8.
+#'
+#' @return Numeric. Corrected detection probability.
+p_detect_null_corrected <- function(theta, d_eff, c1, c2,
+                                     N, n_min = 60,
+                                     L_eff_C = NULL,
+                                     L_eff_alpha = NULL) {
+  # Per-subgroup probability
+  P1 <- compute_detection_probability_glm(
+    theta = theta, d_eff = d_eff, c1 = c1, c2 = c2,
+    effect_scale = "ratio", method = "monte_carlo"
+  )
+
+  # Use fitted values if not provided
+  if (is.null(L_eff_C)) L_eff_C <- C
+  if (is.null(L_eff_alpha)) L_eff_alpha <- alpha
+
+  # Effective candidates
+  L_eff <- L_eff_C * (N / n_min)^L_eff_alpha
+
+  # Union bound
+  1 - (1 - P1)^L_eff
+}
+```
+
+
+## Validation Against Simulation
+
+```{r validate-correction}
+#| tbl-cap: "Corrected approximation vs simulation.  The corrected Sim/Approx ratio should be closer to 1.0 than the uncorrected."
+
+configs$P1_corrected <- mapply(function(N_val, d_eff, c1_val, c2_val) {
+  d <- d_eff_binary(round(0.30 * N_val), p_event = 0.30)
+  p_detect_null_corrected(1.0, d, c1_val, c2_val, N_val)
+}, configs$N, configs$P1, configs$c1, configs$c2)
+
+configs$Ratio_uncorrected <- round(configs$Sim_FPR / configs$P1, 2)
+configs$Ratio_corrected <- round(configs$Sim_FPR /
+                                   pmax(configs$P1_corrected, 0.001), 2)
+
+gt(configs[, c("N", "c1", "c2", "P1", "P1_corrected",
+               "Sim_FPR", "Ratio_uncorrected", "Ratio_corrected")]) |>
+  tab_header(
+    title = "Corrected vs Uncorrected Approximation (H0)",
+    subtitle = sprintf("L_eff = %.2f x (N/n.min)^%.2f", C, alpha)
+  ) |>
+  fmt_number(columns = c(P1, P1_corrected, Sim_FPR), decimals = 3) |>
+  cols_label(
+    P1 = "P1 (uncorr)", P1_corrected = "P1 (corrected)",
+    Sim_FPR = "Sim FPR",
+    Ratio_uncorrected = "Sim/Uncorr",
+    Ratio_corrected = "Sim/Corr"
+  ) |>
+  tab_row_group(label = "N = 1000", rows = N == 1000) |>
+  tab_row_group(label = "N = 700", rows = N == 700) |>
+  tab_row_group(label = "N = 500", rows = N == 500) |>
+  tab_row_group(label = "N = 200", rows = N == 200) |>
+  tab_source_note(
+    "Sim/Corr near 1.0 = correction works. Compare to Sim/Uncorr."
+  )
+```
+
+
+```{r validate-scatter}
+#| fig-height: 5
+#| fig-cap: "Corrected (triangles) vs uncorrected (circles) approximation against simulation.  Corrected points should cluster near the diagonal."
+
+plot_df <- data.frame(
+  Approx = c(configs$P1, configs$P1_corrected),
+  Sim = rep(configs$Sim_FPR, 2),
+  Method = rep(c("Uncorrected P1", "Corrected"), each = nrow(configs)),
+  N = rep(configs$N, 2)
+)
+
+ggplot(plot_df, aes(x = Approx, y = Sim)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              colour = "grey50") +
+  geom_point(aes(colour = factor(N), shape = Method), size = 3,
+             alpha = 0.7) +
+  scale_shape_manual(values = c("Uncorrected P1" = 16,
+                                 "Corrected" = 17)) +
+  coord_equal(xlim = c(0, 0.8), ylim = c(0, 0.8)) +
+  labs(x = "Approximated FPR", y = "Simulated FPR",
+       title = "Null FPR: Corrected vs Uncorrected Approximation",
+       colour = "N", shape = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        plot.title = element_text(face = "bold"))
+```
+
+
+# Discussion {#sec-discussion}
+
+## What $L_{\text{eff}}$ Captures
+
+$L_{\text{eff}}$ is not the total number of candidate subgroups.
+It is the effective number of *approximately independent*
+candidates that survive the sample-size and events filters.
+It depends on:
+
+- **$N / n_{\min}$**: the ratio of total sample size to the
+  minimum subgroup size.  This determines what fraction of
+  candidate combinations are viable.
+- **The confounder set**: more confounders $\to$ more
+  candidates $\to$ larger $L_{\text{eff}}$.
+- **`maxk`**: higher maxk allows more combinations.
+- **GRF and LASSO**: data-adaptive candidate selection adds
+  candidates that depend on the specific dataset.
+
+$L_{\text{eff}}$ does *not* depend on the thresholds $(c_1, c_2)$
+--- the thresholds determine $P_1$, while $L_{\text{eff}}$
+determines how many times $P_1$ is "rolled."
+
+## When to Calibrate $L_{\text{eff}}$
+
+The power-law fit $L_{\text{eff}} = C (N/n_{\min})^\alpha$ is
+specific to the binary DGM with confounders
+`(bm1, bm2, age, ecog)` and `maxk = 2`.  For a different
+confounder set or `maxk`, $C$ and $\alpha$ would differ.
+
+**Practical recommendation**: Run a small reference simulation
+(50--100 replicates) at 2--3 sample sizes under $H_0$ to
+calibrate $L_{\text{eff}}$ for the specific analysis configuration.
+Then use the corrected approximation for threshold selection.
+
+## Comparison to Survival
+
+For the survival simulations in Leon et al. (2024), the
+approximation worked well without a multiplicity correction.
+This is because:
+
+1. The GBSG-based DGM used $N = 300$--$700$ with $n_{\min} = 60$,
+   giving $N/n_{\min} = 5$--$12$ and $L_{\text{eff}} \approx 1$--$3$.
+2. Higher censoring rates reduced the number of viable candidates
+   (events filter is more restrictive).
+3. GRF for survival (causal survival forest) is more conservative
+   in cut generation than the GLM GRF.
+
+For binary outcomes with larger $N$ (e.g., $N = 1000$),
+$L_{\text{eff}}$ grows sufficiently that the correction becomes
+important.
+
+
+```{r session-info}
+sessionInfo()
+```

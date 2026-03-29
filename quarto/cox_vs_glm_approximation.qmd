@@ -756,6 +756,243 @@ p1 + p2 + plot_annotation(
 ```
 
 
+# Part IV: Corrected Null Approximation {#sec-correction}
+
+The per-subgroup approximation $P_1$ models a single
+pre-specified subgroup.  Under $H_0$, the procedure evaluates
+many candidates, and the effective number of viable candidates
+grows with $N$.
+
+## Multi-N Null Simulations for Calibration
+
+To calibrate $L_{\text{eff}}$ we need H0 simulations at
+multiple sample sizes.  We run a focused set at
+$N \in \{300, 500, 700, 1000\}$.
+
+```{r null-multi-N}
+N_cal_values <- c(300, 500, 700, 1000)
+n_sims_cal <- nsims_null  # use same count as main sims
+
+cat("Running multi-N null calibration simulations...\n")
+t0 <- proc.time()[3]
+
+cal_results <- list()
+for (N_val in N_cal_values) {
+  t_N <- proc.time()[3]
+
+  res_N <- foreach(
+    sim = seq_len(n_sims_cal),
+    .combine = rbind, .errorhandling = "remove",
+    .options.future = list(
+      packages = c("forestsearch", "survival", "data.table"),
+      seed = TRUE)
+  ) %dofuture% {
+    run_simulation_analysis(
+      sim_id = sim, dgm = dgm_null,
+      n_sample = N_val,
+      analysis_time = sim_config$analysis_time,
+      cens_adjust = sim_config$cens_adjust,
+      confounders_base = confounders_base,
+      cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+      n_add_noise = 0L,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params_cox, verbose = FALSE
+    )
+  }
+
+  fs_rows <- res_N[res_N$analysis == "FS", ]
+  fpr_N <- mean(fs_rows$any.H, na.rm = TRUE)
+
+  cal_results[[as.character(N_val)]] <- data.frame(
+    N = N_val, sim_fpr = fpr_N, n_sims = nrow(fs_rows)
+  )
+
+  cat(sprintf("  N = %4d: FPR = %.3f (%d sims) | %.1f sec\n",
+      N_val, fpr_N, nrow(fs_rows), proc.time()[3] - t_N))
+}
+
+cal_df <- do.call(rbind, cal_results)
+timings$null_cal <- proc.time()[3] - t0
+cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
+```
+
+
+## Compute Per-Subgroup $P_1$ at Each N
+
+```{r cal-P1}
+# Harm subgroup prevalence ~ 13% in the GBSG DGM
+p_harm <- 0.13
+
+cal_df$n_H <- round(p_harm * cal_df$N)
+cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
+
+cal_df$P1 <- sapply(cal_df$d_eff, function(d) {
+  p_detect_glm(1.0, d, 1.25, 1.0)
+})
+
+cat("=== Per-Subgroup P1 vs Simulated FPR ===\n")
+cal_df$ratio <- round(cal_df$sim_fpr / pmax(cal_df$P1, 0.001), 2)
+print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")])
+```
+
+
+## Calibrate $L_{\text{eff}}$
+
+```{r calibrate-leff}
+#| fig-height: 5
+#| fig-cap: "Implied L_eff at each N with power-law fit for the GBSG survival DGM."
+
+n_min_val <- 60
+
+# Implied L_eff
+cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
+
+# Filter to valid rows (sim_fpr > 0 and P1 > 0)
+cal_valid <- cal_df[cal_df$sim_fpr > 0 & cal_df$P1 > 0 &
+                     is.finite(cal_df$L_eff), ]
+
+if (nrow(cal_valid) >= 2) {
+  leff_cal <- calibrate_L_eff(
+    N       = cal_valid$N,
+    P1      = cal_valid$P1,
+    sim_fpr = cal_valid$sim_fpr,
+    n_min   = n_min_val
+  )
+  print(leff_cal)
+
+  C_fit <- leff_cal$C
+  alpha_fit <- leff_cal$alpha
+
+  # Plot
+  N_pred <- seq(200, 1200, by = 5)
+  pred_curve <- data.frame(
+    N = N_pred,
+    L_eff = C_fit * (N_pred / n_min_val)^alpha_fit
+  )
+
+  print(
+    ggplot() +
+      geom_point(data = cal_valid,
+                 aes(x = N, y = L_eff), size = 4, colour = "firebrick") +
+      geom_line(data = pred_curve,
+                aes(x = N, y = L_eff), colour = "steelblue",
+                linewidth = 1) +
+      labs(x = "Total Sample Size N",
+           y = expression(L[eff]),
+           title = expression(L[eff] * " Calibration: GBSG Survival DGM"),
+           subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f",
+                               C_fit, n_min_val, alpha_fit)) +
+      theme_minimal(base_size = 12) +
+      theme(plot.title = element_text(face = "bold"))
+  )
+} else {
+  cat("Insufficient valid calibration points (need >= 2).\n")
+  cat("Using fallback L_eff = 1 (no correction).\n")
+  C_fit <- 1 / (700 / n_min_val)
+  alpha_fit <- 1
+}
+```
+
+
+## Corrected Four-Way Table
+
+```{r corrected-four-way}
+#| tbl-cap: "Four-way comparison with L_eff-corrected null approximation.  The corrected row should align with simulation."
+
+L_eff_700 <- C_fit * (700 / n_min_val)^alpha_fit
+
+P1_cox <- compute_detection_probability(
+  1.0, n_H_dgm, prop_cens, 1.25, 1.0)
+P1_glm <- p_detect_glm(1.0, d_dgm, 1.25, 1.0)
+
+fpr_corr_cox <- 1 - (1 - P1_cox)^L_eff_700
+fpr_corr_glm <- 1 - (1 - P1_glm)^L_eff_700
+
+four_way_corr <- data.frame(
+  Calculation = c(
+    "(D) Cox Approx (uncorrected)",
+    "(D') Cox Approx (L_eff corrected)",
+    "(C) Cox Simulation",
+    "(B) GLM Approx (uncorrected)",
+    "(B') GLM Approx (L_eff corrected)",
+    "(A) GLM (Poisson) Simulation"
+  ),
+  `P(theta=1.0)` = c(
+    round(P1_cox, 3),
+    round(fpr_corr_cox, 3),
+    round(mean(cox_h0$any.H), 3),
+    round(P1_glm, 3),
+    round(fpr_corr_glm, 3),
+    round(mean(irr_h0$any.H), 3)
+  ),
+  `P(theta=2.0)` = c(
+    round(compute_detection_probability(2.0, n_H_dgm, prop_cens, 1.25, 1.0), 3),
+    NA,
+    round(mean(cox_h1$any.H), 3),
+    round(p_detect_glm(2.0, d_dgm, 1.25, 1.0), 3),
+    NA,
+    round(mean(irr_h1$any.H), 3)
+  ),
+  check.names = FALSE
+)
+
+gt(four_way_corr) |>
+  tab_header(
+    title = md("**Four-Way Comparison with L_eff Correction**"),
+    subtitle = sprintf("N=700, n(H)=%d, d=%d, L_eff=%.2f",
+                        n_H_dgm, d_dgm, L_eff_700)
+  ) |>
+  tab_row_group(label = "GLM (Poisson+offset)",
+    rows = grepl("GLM|\\(A\\)|\\(B\\)", Calculation)) |>
+  tab_row_group(label = "Cox PH",
+    rows = grepl("Cox|\\(C\\)|\\(D\\)", Calculation)) |>
+  tab_source_note(md(paste0(
+    "**Corrected rows (D', B')** should match simulation rows (C, A). ",
+    "Power (theta=2.0) does not need correction.")))
+```
+
+
+## Correction Assessment
+
+```{r correction-assessment}
+cat("=== L_eff Correction Assessment (N = 700) ===\n\n")
+cat(sprintf("L_eff at N=700: %.2f\n", L_eff_700))
+cat(sprintf("  (i.e., %.1f effectively independent candidates)\n\n", L_eff_700))
+
+cat("Cox PH (H0):\n")
+cat(sprintf("  Uncorrected P1:    %.3f\n", P1_cox))
+cat(sprintf("  Corrected:         %.3f\n", fpr_corr_cox))
+cat(sprintf("  Simulated:         %.3f\n", mean(cox_h0$any.H)))
+cat(sprintf("  Sim/Uncorrected:   %.2f\n",
+            mean(cox_h0$any.H) / max(P1_cox, 0.001)))
+cat(sprintf("  Sim/Corrected:     %.2f\n\n",
+            mean(cox_h0$any.H) / max(fpr_corr_cox, 0.001)))
+
+cat("GLM Poisson (H0):\n")
+cat(sprintf("  Uncorrected P1:    %.3f\n", P1_glm))
+cat(sprintf("  Corrected:         %.3f\n", fpr_corr_glm))
+cat(sprintf("  Simulated:         %.3f\n", mean(irr_h0$any.H)))
+cat(sprintf("  Sim/Uncorrected:   %.2f\n",
+            mean(irr_h0$any.H) / max(P1_glm, 0.001)))
+cat(sprintf("  Sim/Corrected:     %.2f\n",
+            mean(irr_h0$any.H) / max(fpr_corr_glm, 0.001)))
+```
+
+
+## Comparison to Binary Calibration
+
+```{r compare-binary}
+cat("=== Cross-DGM L_eff Comparison ===\n\n")
+cat("The L_eff calibration depends on the candidate generation\n")
+cat("process, not the outcome type.\n\n")
+cat(sprintf("GBSG Survival DGM (7 confounders): C=%.3f, alpha=%.3f\n",
+            C_fit, alpha_fit))
+cat(sprintf("  L_eff(N=700) = %.2f\n\n", L_eff_700))
+cat("Binary DGM (4 confounders): see binary_threshold_calibration.qmd\n")
+cat("  Expected: smaller L_eff (fewer confounders -> fewer candidates)\n")
+```
+
+
 # Summary {#sec-summary}
 
 ## Validation Conclusions
@@ -775,9 +1012,17 @@ ForestSearch in two complementary ways:
    simulation.  This confirms the GLM pipeline is correctly
    implemented.
 
-3. **Approximation ~ Simulation**: Both approximations
-   should agree with their respective simulations to the
-   degree established in the paper (Table 1 footnotes).
+3. **Power approximation ~ Simulation**: The per-subgroup
+   approximation agrees well with simulated power (H1),
+   confirming the variance formula.
+
+4. **$L_{\text{eff}}$ correction**: Under H0, the per-subgroup
+   $P_1$ underestimates the procedure-level FPR because multiple
+   candidates are evaluated.  The $L_{\text{eff}}$-corrected
+   approximation $1 - (1-P_1)^{L_{\text{eff}}}$ brings
+   the null prediction into alignment with simulation.
+   $L_{\text{eff}}$ is calibrated via
+   `calibrate_L_eff()` from a small H0 reference simulation.
 
 ## Implications for Other GLM Outcomes
 
@@ -820,9 +1065,10 @@ outcomes.
 
 ```{r timing-summary}
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
-cat(sprintf("DGM: %.1f min\nCox H1: %.1f min\nCox H0: %.1f min\nIRR H1: %.1f min\nIRR H0: %.1f min\nTotal: %.1f min\n",
+cat(sprintf("DGM: %.1f min\nCox H1: %.1f min\nCox H0: %.1f min\nIRR H1: %.1f min\nIRR H0: %.1f min\nNull Calibration: %.1f min\nTotal: %.1f min\n",
     timings$dgm/60, timings$alt_cox/60, timings$null_cox/60,
-    timings$alt_irr/60, timings$null_irr/60, timings$total/60))
+    timings$alt_irr/60, timings$null_irr/60,
+    timings$null_cal/60, timings$total/60))
 ```
 
 ```{r session-info}

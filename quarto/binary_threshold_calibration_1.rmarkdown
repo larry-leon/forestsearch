@@ -22,7 +22,7 @@ execute:
 ```{r setup}
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
-nsims       <- 200L
+nsims       <- 1000L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
 ```
@@ -364,13 +364,12 @@ t0 <- proc.time()[3]
 sim_pairs <- list(
   list(c1 = 1.25, c2 = 1.00),
   list(c1 = 1.25, c2 = 1.10),
+  list(c1 = 1.25, c2 = 1.25),
   list(c1 = 1.35, c2 = 1.00),
   list(c1 = 1.50, c2 = 1.00),
   list(c1 = 1.50, c2 = 1.25),
   list(c1 = 1.50, c2 = 1.35),
-  list(c1 = 1.60, c2 = 1.35),
-  list(c1 = 1.60, c2 = 1.40),
-  list(c1= 1.70, c2 =1.50)
+  list(c1 = 1.50, c2 = 1.50)
 )
 
 n_values <- c(200, 500, 700, 1000)
@@ -534,335 +533,6 @@ ggplot(tradeoff, aes(x = FPR, y = Power, label = config)) +
 ```
 
 
-# Part IV: Corrected Null Approximation {#sec-correction}
-
-The per-subgroup approximation $P_1$ models a single
-pre-specified subgroup.  Under $H_0$, the ForestSearch
-procedure evaluates many candidate subgroups, and the number
-of viable candidates **grows with $N$** as more subgroup
-combinations survive the `n.min` filter.  This explains the
-widening gap between $P_1$ and the simulated FPR at larger $N$.
-
-The corrected approximation accounts for this multiplicity:
-
-$$
-\text{FPR}_{\text{corrected}}(N) =
-1 - (1 - P_1)^{L_{\text{eff}}(N)}
-$$
-
-where $L_{\text{eff}}(N)$ is the effective number of
-approximately independent candidates evaluated by the procedure.
-
-
-## Why $L_{\text{eff}}$ Grows with $N$
-
-Three mechanisms drive the growth of $L_{\text{eff}}$:
-
-1. **More subgroup combinations survive `n.min`**.
-   At $N = 200$ with `n.min = 60`, a subgroup must comprise
-   at least 30% of the sample.  Two-factor combinations (e.g.,
-   bm1 = 0 AND bm2 = 0, prevalence $\approx 15\%$) have only
-   $\approx 30$ patients and are excluded.  At $N = 1000$, the
-   same combination has $\approx 150$ patients and enters the
-   candidate set.
-
-2. **GRF generates additional candidate cuts** on continuous
-   variables (age) when more data is available.
-
-3. **LASSO retains more variables** with increased power to
-   detect spurious prognostic associations.
-
-Key insight: $L_{\text{eff}}$ is a property of the candidate
-generation process (confounders, GRF, LASSO, maxk, n.min)
---- **not** of the thresholds $(c_1, c_2)$.  The thresholds
-determine $P_1$; $L_{\text{eff}}$ determines how many times
-$P_1$ is "rolled."
-
-
-## Implied $L_{\text{eff}}$ from Simulation
-
-For each $(N, c_1, c_2)$ configuration, solve for the implied
-$L_{\text{eff}}$:
-
-$$
-L_{\text{eff}} =
-\frac{\log(1 - \text{FPR}_{\text{sim}})}
-     {\log(1 - P_1)}
-$$
-
-```{r compute-leff}
-#| tbl-cap: "Implied L_eff at each N.  If L_eff is a property of the candidate count, it should be approximately constant across threshold pairs at the same N."
-
-h0_data <- oc_sim[has_hte == FALSE & detect > 0]
-h0_data[, L_eff := log(1 - detect) / log(1 - approx)]
-
-# Summary by N: median and range of L_eff across threshold pairs
-leff_by_N <- h0_data[, .(
-  `Median L_eff` = round(median(L_eff, na.rm = TRUE), 2),
-  `Min L_eff` = round(min(L_eff, na.rm = TRUE), 2),
-  `Max L_eff` = round(max(L_eff, na.rm = TRUE), 2),
-  n_configs = .N
-), by = .(N = n_total)]
-
-gt(leff_by_N) |>
-  tab_header(
-    title = "Implied L_eff by Sample Size",
-    subtitle = "Across all (c1, c2) pairs.  Consistency supports L_eff as a candidate-count property."
-  ) |>
-  cols_label(N = "N", n_configs = "# Configs")
-```
-
-
-## Fit the Power-Law Model
-
-```{r fit-leff}
-#| fig-height: 5
-#| fig-cap: "L_eff vs N with power-law fit.  Points are individual (c1,c2) configurations; line is the fitted model."
-
-n_min_val <- 60
-
-# Use all H0 configurations for the fit
-fit_data <- h0_data[, .(N = n_total, L_eff, c1, c2)]
-fit_data[, ratio := N / n_min_val]
-
-# Fit log-linear model on median L_eff per N
-leff_medians <- fit_data[, .(L_eff_med = median(L_eff)), by = N]
-leff_medians[, ratio := N / n_min_val]
-
-fit_leff <- lm(log(L_eff_med) ~ log(ratio), data = leff_medians)
-C_fit <- exp(coef(fit_leff)[1])
-alpha_fit <- unname(coef(fit_leff)[2])
-r2_fit <- summary(fit_leff)$r.squared
-
-cat(sprintf("Fitted model: L_eff = %.3f * (N / %d)^%.3f\n",
-            C_fit, n_min_val, alpha_fit))
-cat(sprintf("R-squared: %.3f\n", r2_fit))
-
-# Prediction curve
-N_pred <- seq(100, 1200, by = 5)
-pred_curve <- data.frame(
-  N = N_pred,
-  L_eff = C_fit * (N_pred / n_min_val)^alpha_fit
-)
-
-ggplot() +
-  geom_point(data = fit_data, aes(x = N, y = L_eff, colour = sprintf("c1=%.2f, c2=%.2f", c1, c2)),
-             alpha = 0.6, size = 2.5) +
-  geom_line(data = pred_curve, aes(x = N, y = L_eff),
-            colour = "black", linewidth = 1.2) +
-  scale_colour_brewer(palette = "Set2") +
-  labs(x = "Total Sample Size N",
-       y = expression(L[eff]),
-       title = expression("Implied " * L[eff] * " with Power-Law Fit"),
-       subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f,  R-sq = %.3f",
-                           C_fit, n_min_val, alpha_fit, r2_fit),
-       colour = "Thresholds") +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "right",
-        plot.title = element_text(face = "bold"))
-```
-
-
-## Calibrate Using `calibrate_L_eff()`
-
-```{r calibrate-formal}
-# Use the package function for formal calibration.
-# Compute median P1 and median sim FPR at each N (across all threshold pairs)
-# to ensure vectors are aligned.
-cal_input <- h0_data[, .(
-  P1_med      = median(approx, na.rm = TRUE),
-  sim_fpr_med = median(detect, na.rm = TRUE)
-), by = .(N = n_total)]
-setorder(cal_input, N)
-
-leff_cal <- calibrate_L_eff(
-  N       = cal_input$N,
-  P1      = cal_input$P1_med,
-  sim_fpr = cal_input$sim_fpr_med,
-  n_min   = n_min_val
-)
-
-print(leff_cal)
-```
-
-
-## Corrected Type-I Error Table
-
-```{r corrected-fpr}
-#| tbl-cap: "Corrected FPR vs simulation.  Sim/Corrected should be closer to 1.0 than Sim/Uncorrected."
-
-h0_corr <- copy(h0_data)
-
-# Apply correction using the fitted L_eff
-h0_corr[, L_eff_fitted := C_fit * (n_total / n_min_val)^alpha_fit]
-h0_corr[, fpr_corrected := 1 - (1 - approx)^L_eff_fitted]
-h0_corr[, ratio_uncorrected := round(detect / pmax(approx, 0.001), 2)]
-h0_corr[, ratio_corrected := round(detect / pmax(fpr_corrected, 0.001), 2)]
-
-gt(h0_corr[, .(N = n_total, c1, c2,
-               `P1 (uncorr)` = round(approx, 3),
-               `FPR (corrected)` = round(fpr_corrected, 3),
-               `Sim FPR` = round(detect, 3),
-               `Sim/Uncorr` = ratio_uncorrected,
-               `Sim/Corr` = ratio_corrected)]) |>
-  tab_header(
-    title = md("**Corrected vs Uncorrected Approximation (H0)**"),
-    subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f",
-                        C_fit, n_min_val, alpha_fit)
-  ) |>
-  tab_style(style = cell_fill(color = "#E8F5E9"),
-    locations = cells_body(columns = `Sim/Corr`,
-      rows = abs(`Sim/Corr` - 1) <= 0.3)) |>
-  tab_style(style = cell_fill(color = "#FFF9C4"),
-    locations = cells_body(columns = `Sim/Corr`,
-      rows = abs(`Sim/Corr` - 1) > 0.3 & abs(`Sim/Corr` - 1) <= 0.6)) |>
-  tab_row_group(label = "N = 1000", rows = N == 1000) |>
-  tab_row_group(label = "N = 700", rows = N == 700) |>
-  tab_row_group(label = "N = 500", rows = N == 500) |>
-  tab_row_group(label = "N = 200", rows = N == 200) |>
-  tab_source_note(
-    "Green: Sim/Corr within 30% of 1.0.  Yellow: 30-60% off."
-  )
-```
-
-
-## Corrected Scatter Plot
-
-```{r corrected-scatter}
-#| fig-height: 7
-#| fig-cap: "Corrected (triangles) vs uncorrected (circles) approximation against simulation.  Under H0, corrected points should move toward the diagonal."
-
-# Build comparison data for H0 only
-scatter_corr <- rbind(
-  h0_corr[, .(N = n_total, Approx = approx, Sim = detect,
-              Method = "Uncorrected P1",
-              config = sprintf("c1=%.2f, c2=%.2f", c1, c2))],
-  h0_corr[, .(N = n_total, Approx = fpr_corrected, Sim = detect,
-              Method = "Corrected",
-              config = sprintf("c1=%.2f, c2=%.2f", c1, c2))]
-)
-
-# Add H1 points (uncorrected only --- correction not needed for power)
-h1_scatter <- oc_sim[has_hte == TRUE,
-  .(N = n_total, Approx = approx, Sim = detect,
-    Method = "H1 Power (no correction needed)",
-    config = sprintf("c1=%.2f, c2=%.2f", c1, c2))]
-
-scatter_all <- rbind(scatter_corr, h1_scatter)
-
-ggplot(scatter_all, aes(x = Approx, y = Sim)) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
-              colour = "grey50") +
-  geom_point(aes(colour = Method, shape = Method), size = 3, alpha = 0.7) +
-  scale_shape_manual(values = c("Uncorrected P1" = 16,
-                                 "Corrected" = 17,
-                                 "H1 Power (no correction needed)" = 4)) +
-  scale_colour_manual(values = c("Uncorrected P1" = "firebrick",
-                                  "Corrected" = "steelblue",
-                                  "H1 Power (no correction needed)" = "grey40")) +
-  facet_wrap(~ paste("N =", N)) +
-  coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
-  labs(x = "Approximation", y = "Simulation",
-       title = "Corrected vs Uncorrected: All Configurations",
-       subtitle = "Triangles (corrected H0) should cluster near diagonal",
-       colour = NULL, shape = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "top",
-        plot.title = element_text(face = "bold"))
-```
-
-
-## Corrected Power-FPR Tradeoff
-
-```{r corrected-tradeoff}
-#| fig-height: 6
-#| fig-cap: "Power vs FPR using corrected (right) vs uncorrected (left) FPR estimates.  The green region is the acceptable operating region (FPR <= 15%, Power >= 50%)."
-
-# Build tradeoff with corrected FPR
-tradeoff_corr <- merge(
-  h0_corr[, .(n_total, c1, c2,
-              FPR_uncorr = approx,
-              FPR_corr = fpr_corrected,
-              FPR_sim = detect)],
-  oc_sim[has_hte == TRUE, .(n_total, c1, c2, Power = detect)],
-  by = c("n_total", "c1", "c2")
-)
-
-tradeoff_long <- rbind(
-  tradeoff_corr[, .(N = n_total, c1, c2,
-                    FPR = FPR_uncorr, Power,
-                    Source = "Uncorrected Approx")],
-  tradeoff_corr[, .(N = n_total, c1, c2,
-                    FPR = FPR_corr, Power,
-                    Source = "Corrected Approx")],
-  tradeoff_corr[, .(N = n_total, c1, c2,
-                    FPR = FPR_sim, Power,
-                    Source = "Simulation")]
-)
-tradeoff_long$config <- sprintf("c1=%.2f, c2=%.2f",
-                                 tradeoff_long$c1, tradeoff_long$c2)
-
-ggplot(tradeoff_long, aes(x = FPR, y = Power)) +
-  geom_rect(aes(xmin = 0, xmax = 0.15, ymin = 0.50, ymax = 1.0),
-    fill = "#E8F5E9", alpha = 0.2, inherit.aes = FALSE) +
-  geom_point(aes(colour = Source, shape = Source), size = 2.5, alpha = 0.7) +
-  scale_shape_manual(values = c("Uncorrected Approx" = 1,
-                                 "Corrected Approx" = 17,
-                                 "Simulation" = 16)) +
-  scale_colour_manual(values = c("Uncorrected Approx" = "firebrick",
-                                  "Corrected Approx" = "steelblue",
-                                  "Simulation" = "black")) +
-  facet_wrap(~ paste("N =", N)) +
-  labs(x = "FPR (H0)", y = "Power (H1, OR = 2.0)",
-       title = "Power-FPR Tradeoff: Corrected vs Uncorrected",
-       subtitle = "Corrected points (triangles) should align with simulation (filled circles)",
-       colour = NULL, shape = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "top",
-        plot.title = element_text(face = "bold"))
-```
-
-
-## Corrected Threshold Recommendations
-
-Using the corrected approximation, identify thresholds where
-the **corrected** FPR is within the acceptable range.
-
-```{r corrected-recommendations}
-#| tbl-cap: "Threshold recommendations using corrected FPR (target: corrected FPR <= 15%, simulated power >= 50%)"
-
-# Use corrected FPR for recommendations
-rec_corr <- tradeoff_corr[, .(
-  N = n_total, c1, c2,
-  `Corr FPR` = round(FPR_corr, 3),
-  `Sim FPR` = round(FPR_sim, 3),
-  `Sim Power` = round(Power, 3)
-)]
-
-# Acceptable: corrected FPR <= 15% AND sim power >= 50%
-acceptable_corr <- rec_corr[`Corr FPR` <= 0.15 & `Sim Power` >= 0.50]
-
-if (nrow(acceptable_corr) > 0) {
-  setorder(acceptable_corr, N, `Corr FPR`)
-  gt(acceptable_corr) |>
-    tab_header(
-      title = md("**Corrected-Approximation Threshold Recommendations**"),
-      subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f | pcons = %.2f",
-                          C_fit, n_min_val, alpha_fit, pcons)
-    ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
-    tab_row_group(label = "N = 700", rows = N == 700) |>
-    tab_row_group(label = "N = 500", rows = N == 500) |>
-    tab_row_group(label = "N = 200", rows = N == 200) |>
-    tab_source_note("Corr FPR = corrected approximation.  Sim FPR = validation.")
-} else {
-  cat("No configurations met both criteria with corrected FPR.\n")
-  setorder(rec_corr, N, `Corr FPR`)
-  print(rec_corr)
-}
-```
-
-
 # Summary {#sec-summary}
 
 ## Approximation Accuracy
@@ -870,29 +540,18 @@ if (nrow(acceptable_corr) > 0) {
 ```{r summary-assessment}
 cat("=== Assessment ===\n\n")
 
-cat("POWER (H1): The per-subgroup approximation agrees with simulated\n")
-cat("power for N >= 500 (Sim/Approx near 1.0).  For N = 200, the\n")
-cat("approximation overestimates because the true subgroup (n_H ~ 60)\n")
-cat("is at the n.min boundary and may not enter the candidate set.\n\n")
+cat("POWER (H1): The per-subgroup approximation should agree with\n")
+cat("simulated power because power measures detection of a specific\n")
+cat("true subgroup with known effect.\n\n")
 
-cat("TYPE-I ERROR (H0, UNCORRECTED): The per-subgroup P1 increasingly\n")
-cat("underestimates the simulated FPR as N grows because more candidate\n")
-cat("subgroups survive the n.min filter at larger N.\n\n")
-
-cat("TYPE-I ERROR (H0, CORRECTED): The L_eff-corrected approximation\n")
-cat("accounts for the effective number of candidates.  The corrected\n")
-cat("Sim/Approx ratio should be closer to 1.0 across all N values.\n\n")
-
-cat(sprintf("Fitted L_eff model: %.3f * (N/%d)^%.3f  (R-sq = %.3f)\n",
-            C_fit, n_min_val, alpha_fit, r2_fit))
-cat(sprintf("  N = 200:  L_eff = %.1f\n", C_fit * (200/n_min_val)^alpha_fit))
-cat(sprintf("  N = 500:  L_eff = %.1f\n", C_fit * (500/n_min_val)^alpha_fit))
-cat(sprintf("  N = 700:  L_eff = %.1f\n", C_fit * (700/n_min_val)^alpha_fit))
-cat(sprintf("  N = 1000: L_eff = %.1f\n", C_fit * (1000/n_min_val)^alpha_fit))
+cat("TYPE-I ERROR (H0): The per-subgroup approximation gives the\n")
+cat("probability for a specific subgroup. The procedure-level FPR\n")
+cat("may differ. As in the paper (Table 1 footnotes), the\n")
+cat("approximation guides threshold selection and simulation validates.\n")
 ```
 
 
-## Recommended Thresholds (Simulation-Validated)
+## Recommended Thresholds
 
 Based on the simulation results, identify configurations
 where the procedure achieves:
@@ -914,28 +573,18 @@ if (nrow(acceptable) > 0) {
       title = "Simulation-Validated Threshold Configurations",
       subtitle = sprintf("pcons = %.2f | %d sims per config", pcons, nsims)
     ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
-    tab_row_group(label = "N = 700", rows = N == 700) |>
+    tab_row_group(label = "N = 800", rows = N == 800) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
     tab_row_group(label = "N = 200", rows = N == 200)
 } else {
   cat("No configurations met both criteria.\n")
   cat("Consider: wider c2 range, different pconsistency, or larger N.\n\n")
+  # Show best tradeoffs anyway
   setorder(tradeoff, n_total, FPR)
   print(tradeoff[, .(N = n_total, c1, c2,
                      FPR = round(FPR, 3), Power = round(Power, 3))])
 }
 ```
-
-
-## Note on Calibration
-
-The $L_{\text{eff}}$ correction is specific to the confounder
-configuration used in this simulation (bm1, bm2, age, ecog)
-with `maxk = 2` and `n.min = 60`.  For a different confounder
-set or analysis configuration, recalibrate by running a small
-H0 simulation (50--100 replicates at 2--3 sample sizes) and
-using `calibrate_L_eff()` from the forestsearch package.
 
 
 # Timing and Session Info {#sec-session}
