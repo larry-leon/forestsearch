@@ -1,0 +1,448 @@
+---
+title: "Extending the ForestSearch Power Approximation to GLM Outcomes"
+subtitle: "From Cox Var(log-HR) = 4/d to a Unified Framework Across Response Types"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+
+# The Section 2.1 Approximation
+
+## Original Formulation (Cox / Survival)
+
+Leon et al. (2024, *Statistics in Medicine*) approximate the
+probability of ForestSearch identifying a subgroup H via:
+
+$$
+P(\text{detect} | \beta, d) = \int_{-\infty}^{\infty}
+\int_{-\infty}^{\infty}
+\mathbf{1}(w_1 + w_2 \ge 2\log(c_1)) \;
+\mathbf{1}(\min(w_1, w_2) \ge \log(c_2)) \;
+\varphi(w_1; \beta, 8/d) \;
+\varphi(w_2; \beta, 8/d) \;
+dw_1 \, dw_2,
+$$
+
+where:
+
+- $W_1, W_2 \stackrel{iid}{\sim} N(\beta, 8/d)$ represent
+  Cox log-HR estimators from 50/50 random splits
+- $\beta = \log(\theta^{\dagger}(H))$ is the true log-HR in
+  the subgroup
+- $d \approx n_H \cdot (1 - \text{censoring rate})$ is the
+  expected number of events
+- $c_1 = 1.25$ (screening threshold), $c_2 = 1.0$
+  (consistency threshold)
+
+The variance $8/d$ follows from $\text{Var}(\hat\beta_{\text{Cox}})
+\approx 4/d$ per treatment arm.  Each split-half has $d/2$ events,
+so $\text{Var}_{\text{split}} = 4/(d/2) = 8/d$.
+
+
+## Two Properties That Enable the Approximation
+
+The approximation rests on exactly two properties:
+
+1. **Asymptotic normality**: $\hat\beta \stackrel{d}{\to}
+   N(\beta, I^{-1}(\beta))$ where $I(\beta)$ is the Fisher
+   information
+
+2. **A simple variance formula**: $I^{-1}(\beta) \approx 4/d$,
+   depending only on the number of events $d$
+
+For **any** GLM estimator satisfying both properties, the
+approximation extends directly with the appropriate
+variance substitution.
+
+
+# Extension to GLM Outcomes
+
+## General Framework
+
+For a GLM with natural parameter $\eta$ (the DINA estimand), the
+MLE $\hat\eta$ is asymptotically normal:
+
+$$
+\hat\eta \stackrel{d}{\to}
+N\!\left(\eta, \; \sigma^2_{\text{split}}(\eta, n_H)\right)
+$$
+
+The detection probability becomes:
+
+$$
+P(\text{detect} | \eta, n_H) = \int \int
+\mathbf{1}(w_1 + w_2 \ge 2k_1) \;
+\mathbf{1}(\min(w_1, w_2) \ge k_2) \;
+\varphi(w_1; \eta, \sigma^2_s) \;
+\varphi(w_2; \eta, \sigma^2_s) \;
+dw_1 \, dw_2,
+$$
+
+where $\sigma^2_s \equiv \sigma^2_{\text{split}}$ and
+$k_1, k_2$ are the screening and consistency thresholds
+(on the natural-parameter scale).
+
+The **only quantity that changes** across outcome types is
+$\sigma^2_s$.  The integral structure, the bivariate normal
+density, and the indicator functions are identical.
+
+
+## Variance Formulas by Outcome Type
+
+### Survival (Cox PH) --- Original
+
+$$
+\sigma^2_s = \frac{8}{d}, \quad
+d = n_H \cdot (1 - p_{\text{cens}})
+$$
+
+where $d$ is the expected event count in the subgroup.
+
+### Count (Poisson / log-IRR)
+
+For Poisson regression with log-offset, the log-IRR estimator
+has:
+
+$$
+\text{Var}(\hat\beta_{\text{IRR}}) =
+\frac{1}{d_1} + \frac{1}{d_0}
+$$
+
+where $d_j$ = events in arm $j$.  For balanced arms and total
+events $D = d_1 + d_0$ in the subgroup:
+
+$$
+\sigma^2_s = \frac{8}{D}
+$$
+
+This is **identical** to the survival formula with $d \to D$.
+The Poisson--Cox connection makes this automatic: under
+proportional hazards with a constant baseline hazard, the
+Poisson IRR and the Cox HR estimate the same quantity with
+the same asymptotic variance.
+
+**Implication**: The existing `compute_detection_probability()`
+function works unchanged for count outcomes---simply
+pass $d = \text{total events in subgroup}$.
+
+### Binary (Logistic / log-OR)
+
+For logistic regression, the log-OR estimator has:
+
+$$
+\text{Var}(\hat\beta_{\text{OR}}) =
+\frac{1}{n_1 \bar p_1 (1 - \bar p_1)} +
+\frac{1}{n_0 \bar p_0 (1 - \bar p_0)}
+$$
+
+where $\bar p_j$ is the event probability in arm $j$ and
+$n_j$ is the arm size.  For balanced arms ($n_1 = n_0 = n_H/2$)
+and roughly equal event rates ($\bar p_1 \approx \bar p_0
+\approx \bar p$):
+
+$$
+\text{Var}(\hat\beta_{\text{OR}}) \approx
+\frac{4}{n_H \cdot \bar p (1 - \bar p)}
+$$
+
+In a half-sample ($n_{\text{split}} = n_H / 2$):
+
+$$
+\sigma^2_s = \frac{8}{n_H \cdot \bar p (1 - \bar p)}
+$$
+
+The "effective number of events" is
+$d_{\text{eff}} = n_H \cdot \bar p (1 - \bar p)$,
+which represents the Bernoulli information content.
+
+**Key difference from survival**: The variance depends on
+the event probability $\bar p$, not just the number of events.
+For rare events ($\bar p \approx 0.05$), $d_{\text{eff}}
+\approx 0.05 \cdot n_H$, which is much smaller than
+$n_H \cdot (1 - p_{\text{cens}})$ in survival, so the
+approximation will show lower power for rare binary events.
+
+### Continuous (Gaussian / MD)
+
+For the mean difference estimator from Gaussian regression:
+
+$$
+\text{Var}(\hat\beta_{\text{MD}}) =
+\sigma^2_Y \left(\frac{1}{n_1} + \frac{1}{n_0}\right)
+= \frac{4\sigma^2_Y}{n_H}
+$$
+
+In a half-sample:
+
+$$
+\sigma^2_s = \frac{8\sigma^2_Y}{n_H}
+$$
+
+**Key difference**: The thresholds are on the identity scale
+(not log), so $k_1 = c_1$ and $k_2 = c_2$ directly (no
+log transformation), and the variance depends on the
+residual SD $\sigma_Y$, which must be specified or estimated.
+
+
+## Summary Table
+
+| Outcome | Estimand $\eta$ | Split Variance $\sigma^2_s$ | Effective d | Thresholds |
+|---|---|---|---|---|
+| Survival | $\log(\text{HR})$ | $8/d$ | $n_H(1-p_c)$ | $k_j = \log(c_j)$ |
+| Count | $\log(\text{IRR})$ | $8/D$ | $D$ (total events) | $k_j = \log(c_j)$ |
+| Binary | $\log(\text{OR})$ | $8/(n_H\bar p(1-\bar p))$ | $n_H\bar p(1-\bar p)$ | $k_j = \log(c_j)$ |
+| Continuous | MD | $8\sigma^2_Y/n_H$ | $n_H/\sigma^2_Y$ | $k_j = c_j$ (identity) |
+
+
+# Implementation Approach
+
+## Unified `compute_detection_probability_glm()`
+
+The existing `compute_detection_probability()` can be
+generalized with a single additional parameter---the
+split-sample variance:
+
+```{r}
+#| eval: false
+#| code-fold: false
+
+compute_detection_probability_glm <- function(
+    effect,            # true effect (log-HR, log-OR, log-IRR, or MD)
+    sigma2_split,      # split-sample variance (outcome-type-specific)
+    k_screen,          # screening threshold (on natural scale)
+    k_consist,         # consistency threshold (on natural scale)
+    method = "cubature"
+) {
+  # Bivariate normal integration
+  # P(W1 + W2 >= 2*k_screen, min(W1, W2) >= k_consist)
+  # where W1, W2 ~ N(effect, sigma2_split) independently
+  ...
+}
+```
+
+## Convenience Wrappers
+
+```{r}
+#| eval: false
+#| code-fold: false
+
+# Survival / Count (identical formula)
+sigma2_split_events <- function(n_sg, event_rate) {
+  d <- n_sg * event_rate
+  8 / d
+}
+
+# Binary
+sigma2_split_binary <- function(n_sg, p_event) {
+  8 / (n_sg * p_event * (1 - p_event))
+}
+
+# Continuous
+sigma2_split_continuous <- function(n_sg, sigma_y) {
+  8 * sigma_y^2 / n_sg
+}
+```
+
+
+# Accuracy Assessment
+
+## When the Approximation Is Good
+
+The approximation relies on:
+
+1. **CLT convergence**: $\hat\eta$ is approximately normal.
+   For the Cox model, this requires $d \gtrsim 20$.  For
+   logistic regression, the rule of thumb is
+   $n_H \cdot \min(\bar p, 1 - \bar p) \gtrsim 10$.
+
+2. **Variance formula accuracy**: The formulas assume
+   balanced arms, no covariate adjustment, and (for binary)
+   homogeneous event rates.
+
+3. **Independence of splits**: The two half-samples are
+   independent conditional on the true effect $\eta$.
+
+## When Caution Is Needed
+
+| Scenario | Concern | Mitigation |
+|---|---|---|
+| Binary, rare events ($\bar p < 0.1$) | Normal approximation poor; separation risk | Use exact methods or simulation |
+| Binary, small subgroup ($n_H < 80$) | Finite-sample bias in log-OR | Firth correction variance |
+| Continuous, heavy tails | $\sigma^2_Y$ may be poorly estimated | Robust variance or bootstrap |
+| Count, overdispersion | True variance $>$ Poisson variance | Use quasi-Poisson: $\sigma^2_s = 8\hat\phi / D$ |
+| All types, covariate adjustment | Variance reduction not captured | Adjust $d_{\text{eff}}$ upward |
+
+
+# Connection to the DINA Framework
+
+The DINA paper (*Biometrics*, 2025) proposes the natural
+parameter as the universal estimand for HTE:
+
+| Response | Natural Parameter | DINA Estimand |
+|---|---|---|
+| Gaussian | $\mu$ | $\mu_1(x) - \mu_0(x)$ |
+| Bernoulli | $\log\frac{p}{1-p}$ | $\log\text{OR}$ |
+| Poisson | $\log\mu$ | $\log\text{IRR}$ |
+| Cox | $\log\Lambda$ | $\log\text{HR}$ |
+
+The ForestSearch Section 2.1 approximation is naturally a
+**DINA-scale** approximation: the bivariate normal integral
+operates on the natural parameter $\eta$, and the
+variance $\sigma^2_s$ is the Fisher information inverse for
+$\eta$ in a half-sample.
+
+This means the extension is not ad hoc---it follows
+directly from the exponential family structure that unifies
+all four response types.
+
+
+# Practical Implications
+
+## Recommended Default Thresholds
+
+The original thresholds ($c_1 = 1.25$, $c_2 = 1.0$) were
+calibrated for survival endpoints to yield ~10 percent type-I
+error when $\theta^{\dagger}(H) \le 1$.
+
+For GLM outcomes on the log scale (OR, IRR), the same thresholds
+on the exponentiated scale apply directly:
+
+- **OR / IRR**: $c_1 = 1.25 \to k_1 = \log(1.25)$,
+  $c_2 = 1.0 \to k_2 = 0$
+
+For continuous outcomes (MD), the thresholds are on the
+identity scale and must be calibrated to the outcome's
+natural units.  A general recommendation:
+
+- $k_1 = 0.2 \cdot \sigma_Y$ (screening: effect exceeds
+  0.2 SD units)
+- $k_2 = 0$ (consistency: both halves show positive effect)
+
+These yield similar operating characteristics to the survival
+defaults when expressed in standardized-effect-size units.
+
+## Power Curve Comparison
+
+The approximation enables rapid power comparison across
+outcome types without simulation:
+
+```{r}
+#| code-fold: false
+library(ggplot2)
+
+# Unified detection probability (Monte Carlo)
+detect_prob <- function(effect, sigma2_s, k_screen, k_consist,
+                        n_mc = 100000, seed = 42) {
+  set.seed(seed)
+  w1 <- rnorm(n_mc, mean = effect, sd = sqrt(sigma2_s))
+  w2 <- rnorm(n_mc, mean = effect, sd = sqrt(sigma2_s))
+  mean((w1 + w2 >= 2 * k_screen) & (w1 >= k_consist) & (w2 >= k_consist))
+}
+
+# Generate power curves for n_sg = 100
+n_sg <- 100
+effects <- seq(-0.5, 1.5, by = 0.05)
+
+# Survival: 45% censoring -> d = 55 events
+surv_power <- sapply(effects, function(e)
+  detect_prob(e, 8 / 55, log(1.25), 0))
+
+# Count: rate = 1.2/yr, follow-up = 1.5yr -> D = 180 events
+count_power <- sapply(effects, function(e)
+  detect_prob(e, 8 / 180, log(1.25), 0))
+
+# Binary: p = 0.30 -> d_eff = 100 * 0.3 * 0.7 = 21
+binary_power <- sapply(effects, function(e)
+  detect_prob(e, 8 / 21, log(1.25), 0))
+
+# Continuous: sigma = 1.5, threshold = 0 on identity scale
+cont_power <- sapply(effects, function(e)
+  detect_prob(e, 8 * 1.5^2 / 100, 0.2 * 1.5, 0))
+
+df_power <- data.frame(
+  effect = rep(effects, 4),
+  power = c(surv_power, count_power, binary_power, cont_power),
+  Outcome = rep(c("Survival (d=55)", "Count (D=180)",
+                  "Binary (p=0.30)", "Continuous (sigma=1.5)"),
+                each = length(effects))
+)
+
+ggplot(df_power, aes(x = effect, y = power, colour = Outcome)) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "grey50") +
+  geom_hline(yintercept = 0.80, linetype = "dashed", colour = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dotted", colour = "grey70") +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = "True Effect (natural parameter scale)",
+       y = "P(detect)",
+       title = "ForestSearch Detection Probability: Unified GLM Approximation",
+       subtitle = sprintf("n(H) = %d | Thresholds: screen = 1.25, consist = 1.0 (log scale)", n_sg)) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold")) +
+  annotate("text", x = -0.4, y = 0.12, label = "10%", size = 3) +
+  annotate("text", x = -0.4, y = 0.82, label = "80%", size = 3)
+```
+
+
+# Conclusions
+
+The Section 2.1 approximation extends naturally to all GLM
+outcome types via the exponential family structure:
+
+1. **Count outcomes**: The extension is exact---the variance
+   formula $8/D$ is identical to the survival formula, and
+   the existing `compute_detection_probability()` works
+   unchanged.
+
+2. **Binary outcomes**: The variance formula
+   $8/(n_H \bar p(1-\bar p))$ replaces $8/d$, introducing a
+   dependence on the event probability.  The approximation
+   is accurate for $n_H \cdot \min(\bar p, 1-\bar p) \gtrsim 10$.
+
+3. **Continuous outcomes**: The variance formula
+   $8\sigma^2_Y / n_H$ requires specifying the residual SD.
+   Thresholds must be on the identity scale.
+
+4. **The DINA connection**: The approximation operates on
+   the natural parameter for each exponential family member,
+   making it a natural extension rather than an ad hoc
+   modification.
+
+No published work was found that extends split-sample
+consistency power approximations to GLM outcomes in this
+manner.  This appears to be a novel contribution that could
+accompany the v0.2.0 GLM extension.
+
+
+# References
+
+- Leon, L.F., et al. (2024). Exploratory Subgroup
+  Identification in the Heterogeneous Cox Model.
+  *Statistics in Medicine*, 43, 4253--4275.
+
+- DINA: Estimating Heterogeneous Treatment Effects for
+  General Responses. *Biometrics*, 81(4), 2025.
+
+- Agresti, A. (2002). *Categorical Data Analysis*, 2nd ed.
+  Wiley. (Variance of log-OR: Section 3.1.3)
+
+- McCullagh, P. and Nelder, J.A. (1989). *Generalized Linear
+  Models*, 2nd ed. Chapman and Hall. (Fisher information for
+  exponential families)
+
+- Firth, D. (1993). Bias Reduction of Maximum Likelihood
+  Estimates. *Biometrika*, 80, 27--38. (Finite-sample
+  correction for logistic regression)

@@ -1,0 +1,784 @@
+---
+title: "Detection Probability for GLM Outcomes"
+subtitle: "Extending the Section 2.1 Approximation to General Response Types"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# Introduction {#sec-intro}
+
+Leon et al. (2024, Section 2.1, eq. 3) approximate the
+probability that ForestSearch identifies a specific subgroup $H$
+with true effect $\beta = \log(\theta^\dagger(H))$:
+
+$$
+p(c_1, c_2; d, \theta^\dagger(H)) =
+P(W_1 + W_2 \ge 2k_1, \;\min(W_1, W_2) \ge k_2)
+\tag{3}
+$$
+
+with $W_1, W_2 \stackrel{\text{iid}}{\sim} N(\beta, 8/d)$,
+$k_1 = \log(c_1)$, $k_2 = \log(c_2)$.
+
+This document extends (3) to all GLM outcome types supported
+by the `forestsearch` GLM extension and provides a unified
+implementation suitable for inclusion in the package.
+
+
+# Mathematical Framework {#sec-math}
+
+## The Unifying Quantity: $d_{\text{eff}}$
+
+The approximation (3) depends on the data only through two
+quantities: the true effect $\beta$ and the variance
+$\sigma^2_s = 8/d$.  For the Cox model, $d$ is the number of
+events.  For a general GLM, we define $d_{\text{eff}}$ such that
+the split-half variance is $\sigma^2_s = 8/d_{\text{eff}}$, and
+the approximation becomes:
+
+$$
+p(c_1, c_2; d_{\text{eff}}, \theta) =
+P(W_1 + W_2 \ge 2k_1, \;\min(W_1, W_2) \ge k_2)
+$$
+
+with $W_1, W_2 \stackrel{\text{iid}}{\sim}
+N(\beta, \; 8/d_{\text{eff}})$.
+
+Below we derive $d_{\text{eff}}$ for each GLM family from the
+Fisher information of the treatment coefficient.
+
+
+## Derivation by Family
+
+### Cox Proportional Hazards (Survival)
+
+For the Cox model $\lambda(t; V) = \lambda_0(t)\exp(\beta V)$,
+the partial likelihood score statistic satisfies (Jennison and
+Turnbull, 1984):
+
+$$
+\hat\beta \approx \frac{4}{d} \tilde{L}_d(0)
+\stackrel{d}{\to} N(\beta, \; 4/d)
+$$
+
+where $d = n_H(1 - p_c)$ is the expected number of events
+($p_c$ = censoring proportion).
+
+For a random 50/50 split, each half has $d/2$ events, giving:
+
+$$
+\hat\beta^j_s \sim N(\beta, \; 8/d), \quad j = 1, 2
+$$
+
+Therefore $d_{\text{eff}}^{\text{Cox}} = d = n_H(1 - p_c)$.
+
+**Thresholds**: $k_1 = \log(c_1)$, $k_2 = \log(c_2)$ (log scale).
+
+
+### Poisson Regression with Offset (Count Data)
+
+For $Y_i \sim \text{Poisson}(\mu_i)$ with
+$\log \mu_i = \beta_0 + \beta V_i + \log(t_i)$,
+the Fisher information for $\beta$ is (McCullagh and Nelder,
+1989, Section 2.5):
+
+$$
+I(\beta) = \sum_{i=1}^{n_H} \mu_i \cdot V_i^2
+\cdot \left(1 - \frac{\sum_j \mu_j V_j}{\sum_j \mu_j}\right)^{-1}
+$$
+
+Under balanced randomization and approximately equal expected
+counts per arm, this simplifies to:
+
+$$
+\text{Var}(\hat\beta) \approx \frac{1}{D_0} + \frac{1}{D_1}
+$$
+
+where $D_j = \sum_{i: V_i = j} \mu_i$ is the expected event
+count in arm $j$.  For balanced arms with total events
+$D = D_0 + D_1$:
+
+$$
+\text{Var}(\hat\beta_{\text{full}}) \approx \frac{4}{D},
+\qquad
+\text{Var}(\hat\beta_{\text{half}}) = \frac{8}{D}
+$$
+
+Therefore $d_{\text{eff}}^{\text{Poisson}} = D$ (total events).
+
+**Connection to Cox**: Under proportional hazards with
+piecewise-constant baseline, $D = d$ (Laird and Olivier, 1981;
+Whitehead, 1980), so the Poisson+offset approximation is
+identical to the Cox approximation.  This equivalence is
+validated empirically in the companion document
+`cox_vs_glm_approximation.qmd`.
+
+**Thresholds**: $k_1 = \log(c_1)$, $k_2 = \log(c_2)$ (log scale).
+
+
+### Logistic Regression (Binary Outcomes)
+
+For $Y_i \sim \text{Bernoulli}(p_i)$ with
+$\text{logit}(p_i) = \beta_0 + \beta V_i$,
+the Fisher information for $\beta$ is:
+
+$$
+I(\beta) = \sum_{i=1}^{n_H} p_i(1 - p_i) \cdot w_i
+$$
+
+where $w_i$ is the leverage of observation $i$ for the
+treatment coefficient.  For the simple two-sample model with
+balanced arms ($n_1 = n_0 = n_H/2$) and approximately equal
+event probabilities ($p_0 \approx p_1 \approx \bar p$):
+
+$$
+\text{Var}(\hat\beta) \approx
+\frac{1}{n_1 \bar p(1 - \bar p)} +
+\frac{1}{n_0 \bar p(1 - \bar p)} =
+\frac{4}{n_H \bar p(1 - \bar p)}
+$$
+
+Therefore $d_{\text{eff}}^{\text{Binary}} =
+n_H \cdot \bar p (1 - \bar p)$.
+
+**Comparison to survival**: For binary outcomes with
+$\bar p = 0.30$ and $n_H = 100$:
+$d_{\text{eff}} = 100 \times 0.21 = 21$.  For survival with
+45\% censoring: $d = 100 \times 0.55 = 55$.  The binary
+$d_{\text{eff}}$ is less than half the survival $d$ for the
+same $n_H$, explaining why the survival defaults (c1 = 1.25,
+c2 = 1.0) provide weaker type-I error control for binary
+outcomes.
+
+**Thresholds**: $k_1 = \log(c_1)$, $k_2 = \log(c_2)$ (log scale).
+
+
+### Gaussian Regression (Continuous Outcomes)
+
+For $Y_i \sim N(\mu_i, \sigma^2)$ with
+$\mu_i = \beta_0 + \beta V_i$ (identity link),
+the Fisher information for $\beta$ is:
+
+$$
+I(\beta) = \frac{n_H}{4\sigma^2}
+$$
+
+(balanced arms).  Therefore:
+
+$$
+\text{Var}(\hat\beta_{\text{full}}) = \frac{4\sigma^2}{n_H},
+\qquad
+\text{Var}(\hat\beta_{\text{half}}) = \frac{8\sigma^2}{n_H}
+$$
+
+and $d_{\text{eff}}^{\text{Continuous}} = n_H / \sigma^2$.
+
+**Note on thresholds**: The treatment effect $\beta$ is a mean
+difference (on the identity scale), not a log ratio.  Therefore
+the thresholds $k_1$ and $k_2$ are on the **identity scale**:
+$k_1 = c_1$ (not $\log(c_1)$) and $k_2 = c_2$ (not $\log(c_2)$).
+The user specifies these as meaningful clinical differences
+(e.g., $c_1 = 0.5$ SD units, $c_2 = 0$).
+
+
+### Quasi-Poisson (Overdispersed Count Data)
+
+For overdispersed counts with dispersion $\hat\phi > 1$:
+
+$$
+\text{Var}(\hat\beta) = \hat\phi \cdot \frac{4}{D}
+$$
+
+Therefore $d_{\text{eff}}^{\text{Quasi}} = D / \hat\phi$.
+
+
+## Summary Table
+
+| Outcome | Link | $\text{Var}(\hat\beta_{\text{full}})$ | $d_{\text{eff}}$ | Effect scale |
+|---|---|---|---|---|
+| Survival (Cox) | log-HR | $4/d$ | $n_H(1 - p_c)$ | log |
+| Poisson + offset | log-IRR | $4/D$ | $D$ (events) | log |
+| Binomial | logit | $4/(n_H \bar p(1-\bar p))$ | $n_H \bar p(1-\bar p)$ | log |
+| Gaussian | identity | $4\sigma^2/n_H$ | $n_H / \sigma^2$ | identity |
+| Quasi-Poisson | log-IRR | $4\hat\phi/D$ | $D / \hat\phi$ | log |
+
+
+# Implementation {#sec-impl}
+
+## Unified Function: `compute_detection_probability_glm()`
+
+The function takes $d_{\text{eff}}$ directly, with the same
+cubature and Monte Carlo methods as the existing
+`compute_detection_probability()`.
+
+```{r unified-function}
+#| code-fold: false
+
+#' Compute Detection Probability for GLM Outcomes
+#'
+#' Extends the Section 2.1 approximation (Leon et al., 2024,
+#' eq. 3) to arbitrary GLM outcomes via the effective information
+#' \eqn{d_{\text{eff}}}.
+#'
+#' @param theta Numeric (scalar or vector). True treatment effect
+#'   in the subgroup on the **natural scale**:
+#'   \itemize{
+#'     \item Ratio measures (HR, OR, IRR): the ratio itself
+#'       (e.g., 2.0 for doubling of hazard/odds/rate).
+#'     \item Difference measures (MD): the mean difference
+#'       (e.g., 0.5 for half a unit improvement).
+#'   }
+#' @param d_eff Numeric. Effective information in the subgroup.
+#'   Computed via the \code{d_eff_*} helper functions:
+#'   \itemize{
+#'     \item \code{d_eff_survival(n_sg, prop_cens)}
+#'     \item \code{d_eff_binary(n_sg, p_event)}
+#'     \item \code{d_eff_count(n_sg, event_rate)} or
+#'       \code{d_eff_count(total_events = D)}
+#'     \item \code{d_eff_continuous(n_sg, sigma_y)}
+#'   }
+#' @param c1 Numeric. Screening threshold on the natural scale:
+#'   \itemize{
+#'     \item Ratio measures: the ratio (e.g., 1.25)
+#'     \item Difference measures: the difference (e.g., 0.2)
+#'   }
+#' @param c2 Numeric. Consistency threshold on the natural scale.
+#'   Same convention as \code{c1}. Default: 1.0 for ratio
+#'   measures, 0.0 for difference measures.
+#' @param effect_scale Character. \code{"ratio"} (default) for
+#'   log-scale effects (HR, OR, IRR), \code{"difference"} for
+#'   identity-scale effects (MD).
+#' @param method Character. Integration method.
+#' @param n_mc Integer. Monte Carlo samples.
+#' @param seed Integer. RNG seed for Monte Carlo.
+#' @param verbose Logical. Progress messages for vector theta.
+#'
+#' @return If \code{theta} is scalar, a single probability.
+#'   If vector, a data.frame with columns \code{theta},
+#'   \code{probability}.
+#'
+#' @details
+#' The detection criterion (Leon et al., 2024, Section 2.1):
+#' \enumerate{
+#'   \item Screening: \eqn{W_1 + W_2 \ge 2k_1}
+#'   \item Consistency: \eqn{\min(W_1, W_2) \ge k_2}
+#' }
+#' with \eqn{W_1, W_2 \sim N(\beta, 8/d_{\text{eff}})}
+#' independently, where:
+#' \itemize{
+#'   \item For ratio measures:
+#'     \eqn{\beta = \log(\theta)}, \eqn{k_j = \log(c_j)}
+#'   \item For difference measures:
+#'     \eqn{\beta = \theta}, \eqn{k_j = c_j}
+#' }
+#'
+#' @examples
+#' \donttest{
+#' # Survival: reproduce Figure 2 of Leon et al. (2024)
+#' d <- d_eff_survival(n_sg = 60, prop_cens = 0.45)
+#' compute_detection_probability_glm(
+#'   theta = 2.0, d_eff = d, c1 = 1.25, c2 = 1.0
+#' )
+#'
+#' # Binary: OR = 2.0, event rate = 30%
+#' d <- d_eff_binary(n_sg = 100, p_event = 0.30)
+#' compute_detection_probability_glm(
+#'   theta = 2.0, d_eff = d, c1 = 1.25, c2 = 1.0
+#' )
+#'
+#' # Continuous: mean difference = 0.5, sigma = 1.5
+#' d <- d_eff_continuous(n_sg = 100, sigma_y = 1.5)
+#' compute_detection_probability_glm(
+#'   theta = 0.5, d_eff = d, c1 = 0.2, c2 = 0.0,
+#'   effect_scale = "difference"
+#' )
+#' }
+#'
+#' @export
+compute_detection_probability_glm <- function(
+    theta,
+    d_eff,
+    c1 = 1.25,
+    c2 = 1.0,
+    effect_scale = c("ratio", "difference"),
+    method = c("cubature", "monte_carlo"),
+    n_mc = 500000L,
+    seed = 42L,
+    verbose = FALSE
+) {
+
+  # --- Argument matching ---
+  effect_scale <- match.arg(effect_scale)
+  method <- match.arg(method)
+
+  # --- Input validation ---
+  if (d_eff <= 0) {
+    stop("d_eff must be positive")
+  }
+  if (effect_scale == "ratio" && any(theta <= 0)) {
+    stop("theta must be positive for ratio-scale effects")
+  }
+  if (effect_scale == "ratio" && (c1 <= 0 || c2 <= 0)) {
+    stop("c1 and c2 must be positive for ratio-scale effects")
+  }
+  if (d_eff < 5) {
+    warning("d_eff < 5: normal approximation may be unreliable")
+  }
+
+  # --- Transform to natural parameter scale ---
+  if (effect_scale == "ratio") {
+    beta <- log(theta)
+    k1 <- log(c1)
+    k2 <- log(c2)
+  } else {
+    beta <- theta
+    k1 <- c1
+    k2 <- c2
+  }
+
+  # --- Split-half variance ---
+  sigma2_s <- 8 / d_eff
+
+  # --- Handle vector theta ---
+  if (length(beta) > 1) {
+    probs <- vapply(beta, function(b) {
+      .detect_prob_single(b, sigma2_s, k1, k2, method, n_mc, seed)
+    }, numeric(1))
+    return(data.frame(theta = theta, probability = probs))
+  }
+
+  # --- Single theta ---
+  .detect_prob_single(beta, sigma2_s, k1, k2, method, n_mc, seed)
+}
+
+
+# Internal workhorse
+.detect_prob_single <- function(beta, sigma2_s, k1, k2,
+                                 method, n_mc, seed) {
+  if (method == "cubature") {
+    if (!requireNamespace("cubature", quietly = TRUE)) {
+      stop("Package 'cubature' required for method = 'cubature'.",
+           call. = FALSE)
+    }
+    sd_s <- sqrt(sigma2_s)
+    integrand <- function(x) {
+      meets <- (x[1] + x[2] >= 2 * k1) &&
+               (x[1] >= k2) && (x[2] >= k2)
+      if (!meets) return(0)
+      dnorm(x[1], beta, sd_s) * dnorm(x[2], beta, sd_s)
+    }
+    result <- cubature::adaptIntegrate(
+      f = integrand,
+      lowerLimit = c(k2, k2),
+      upperLimit = c(beta + 6 * sd_s, beta + 6 * sd_s),
+      tol = 1e-4
+    )
+    result$integral
+  } else {
+    set.seed(seed)
+    sd_s <- sqrt(sigma2_s)
+    w1 <- rnorm(n_mc, mean = beta, sd = sd_s)
+    w2 <- rnorm(n_mc, mean = beta, sd = sd_s)
+    mean((w1 + w2 >= 2 * k1) & (w1 >= k2) & (w2 >= k2))
+  }
+}
+```
+
+
+## d_eff Helper Functions
+
+```{r deff-helpers}
+#| code-fold: false
+
+#' Effective Information for Survival (Cox PH)
+#'
+#' @param n_sg Integer. Subgroup sample size.
+#' @param prop_cens Numeric. Proportion censored (0--1).
+#' @return Numeric. d_eff = n_sg * (1 - prop_cens).
+#' @export
+d_eff_survival <- function(n_sg, prop_cens) {
+  stopifnot(n_sg > 0, prop_cens >= 0, prop_cens < 1)
+  n_sg * (1 - prop_cens)
+}
+
+
+#' Effective Information for Binary Outcomes (Logistic)
+#'
+#' @param n_sg Integer. Subgroup sample size.
+#' @param p_event Numeric. Event probability (0--1).
+#' @return Numeric. d_eff = n_sg * p * (1 - p).
+#' @export
+d_eff_binary <- function(n_sg, p_event) {
+  stopifnot(n_sg > 0, p_event > 0, p_event < 1)
+  n_sg * p_event * (1 - p_event)
+}
+
+
+#' Effective Information for Count Outcomes (Poisson)
+#'
+#' @param n_sg Integer. Subgroup sample size (optional if
+#'   total_events provided).
+#' @param event_rate Numeric. Mean event rate per patient
+#'   (optional if total_events provided).
+#' @param total_events Numeric. Total observed events D
+#'   (optional; overrides n_sg * event_rate).
+#' @param dispersion Numeric. Overdispersion parameter
+#'   (1.0 for Poisson, > 1 for quasi-Poisson). Default: 1.0.
+#' @return Numeric. d_eff = D / dispersion.
+#' @export
+d_eff_count <- function(n_sg = NULL, event_rate = NULL,
+                        total_events = NULL, dispersion = 1.0) {
+  if (!is.null(total_events)) {
+    D <- total_events
+  } else if (!is.null(n_sg) && !is.null(event_rate)) {
+    D <- n_sg * event_rate
+  } else {
+    stop("Provide either total_events or both n_sg and event_rate")
+  }
+  stopifnot(D > 0, dispersion > 0)
+  D / dispersion
+}
+
+
+#' Effective Information for Continuous Outcomes (Gaussian)
+#'
+#' @param n_sg Integer. Subgroup sample size.
+#' @param sigma_y Numeric. Residual standard deviation of the
+#'   outcome.
+#' @return Numeric. d_eff = n_sg / sigma_y^2.
+#' @export
+d_eff_continuous <- function(n_sg, sigma_y) {
+  stopifnot(n_sg > 0, sigma_y > 0)
+  n_sg / sigma_y^2
+}
+```
+
+
+## Backward Compatibility
+
+The existing `compute_detection_probability()` is a special
+case with `effect_scale = "ratio"` and
+$d_{\text{eff}} = n_H (1 - p_c)$:
+
+```{r backward-compat}
+#| code-fold: false
+
+# Existing call:
+# compute_detection_probability(theta=2.0, n_sg=60, prop_cens=0.45,
+#                                hr_threshold=1.25, hr_consistency=1.0)
+
+# Equivalent GLM call:
+# d <- d_eff_survival(n_sg = 60, prop_cens = 0.45)
+# compute_detection_probability_glm(theta=2.0, d_eff=d,
+#                                    c1=1.25, c2=1.0)
+```
+
+
+# Validation {#sec-validation}
+
+```{r load-packages}
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+```
+
+
+## Survival: Reproduce Figure 2
+
+```{r validate-survival}
+#| fig-height: 5
+#| fig-cap: "Reproduction of Figure 2 (Leon et al., 2024). Solid lines: existing compute_detection_probability(). Dashed: new GLM function."
+
+hr_seq <- seq(0.5, 3.0, by = 0.05)
+n_values <- c(60, 80, 100)
+prop_cens <- 0.45
+
+curves <- do.call(rbind, lapply(n_values, function(n) {
+  d <- d_eff_survival(n, prop_cens)
+
+  # (D) Existing Cox function
+  p_cox <- sapply(hr_seq, function(hr) {
+    compute_detection_probability(hr, n, prop_cens, 1.25, 1.0,
+                                  method = "monte_carlo",
+                                  n_mc = 500000)
+  })
+
+  # (B) New GLM function
+  p_glm <- sapply(hr_seq, function(hr) {
+    compute_detection_probability_glm(hr, d, 1.25, 1.0,
+                                      method = "monte_carlo")
+  })
+
+  data.frame(
+    HR = rep(hr_seq, 2),
+    P = c(p_cox, p_glm),
+    Source = rep(c("(D) Existing Cox", "(B) GLM (d_eff)"),
+                each = length(hr_seq)),
+    n_label = sprintf("n = %d (d = %d)", n, round(d))
+  )
+}))
+
+ggplot(curves, aes(x = HR, y = P, colour = n_label,
+                   linetype = Source)) +
+  geom_line(linewidth = 0.9) +
+  geom_hline(yintercept = c(0.10, 0.80), linetype = "dashed",
+             colour = "grey50") +
+  geom_vline(xintercept = 1.0, linetype = "dotted",
+             colour = "grey70") +
+  scale_linetype_manual(values = c("(D) Existing Cox" = "solid",
+                                    "(B) GLM (d_eff)" = "dashed")) +
+  labs(x = expression(theta^dagger*(H)),
+       y = "P(detect H)",
+       title = "Validation: GLM Function Reproduces Figure 2",
+       subtitle = "Censoring = 45%. Solid = existing, Dashed = new (should overlap)",
+       colour = "Subgroup", linetype = "Function") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+## Numerical Agreement Table
+
+```{r validate-table}
+#| tbl-cap: "Point-by-point comparison at key theta values. Ratio should be 1.000."
+
+checkpoints <- expand.grid(
+  n_sg = c(60, 80, 100),
+  theta = c(0.75, 1.0, 1.5, 2.0, 2.5)
+)
+checkpoints$d <- round(checkpoints$n_sg * (1 - prop_cens))
+
+checkpoints$P_cox <- mapply(function(hr, n) {
+  compute_detection_probability(hr, n, prop_cens, 1.25, 1.0,
+                                method = "monte_carlo", n_mc = 500000)
+}, checkpoints$theta, checkpoints$n_sg)
+
+checkpoints$P_glm <- mapply(function(hr, d) {
+  compute_detection_probability_glm(hr, d, 1.25, 1.0,
+                                    method = "monte_carlo")
+}, checkpoints$theta, checkpoints$d)
+
+checkpoints$Ratio <- round(checkpoints$P_glm /
+                             pmax(checkpoints$P_cox, 1e-6), 4)
+
+gt(checkpoints[, c("n_sg", "d", "theta",
+                    "P_cox", "P_glm", "Ratio")]) |>
+  tab_header(
+    title = "Existing vs GLM Function: Numerical Agreement",
+    subtitle = "Ratio = P_glm / P_cox (should be ~1.000)"
+  ) |>
+  fmt_number(columns = c(P_cox, P_glm), decimals = 4) |>
+  cols_label(n_sg = "n(H)", d = "d", theta = "theta",
+             P_cox = "P (existing)", P_glm = "P (GLM)",
+             Ratio = "Ratio")
+```
+
+
+## Cross-Family Comparison
+
+```{r cross-family}
+#| fig-height: 7
+#| fig-cap: "Power curves across outcome types for the same subgroup size (n=100). The curves differ because d_eff differs."
+
+hr_seq <- seq(0.5, 3.0, by = 0.05)
+n_sg <- 100
+
+families <- list(
+  list(name = "Survival (45% cens)",
+       d = d_eff_survival(n_sg, 0.45),
+       scale = "ratio"),
+  list(name = "Poisson (rate=0.8/yr)",
+       d = d_eff_count(n_sg, event_rate = 0.8),
+       scale = "ratio"),
+  list(name = "Binary (p=0.30)",
+       d = d_eff_binary(n_sg, 0.30),
+       scale = "ratio"),
+  list(name = "Binary (p=0.50)",
+       d = d_eff_binary(n_sg, 0.50),
+       scale = "ratio")
+)
+
+family_curves <- do.call(rbind, lapply(families, function(fam) {
+  probs <- sapply(hr_seq, function(hr) {
+    compute_detection_probability_glm(hr, fam$d, 1.25, 1.0,
+                                      effect_scale = fam$scale,
+                                      method = "monte_carlo")
+  })
+  data.frame(
+    theta = hr_seq, P = probs,
+    Family = sprintf("%s (d_eff=%.0f)", fam$name, fam$d)
+  )
+}))
+
+ggplot(family_curves, aes(x = theta, y = P, colour = Family)) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = c(0.10, 0.80), linetype = "dashed",
+             colour = "grey50") +
+  geom_vline(xintercept = 1.0, linetype = "dotted",
+             colour = "grey70") +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = expression(theta^dagger*(H) ~ "(true effect)"),
+       y = "P(detect H)",
+       title = "Detection Probability Across Outcome Types",
+       subtitle = "n(H) = 100, c1 = 1.25, c2 = 1.0",
+       colour = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+```{r cross-family-table}
+#| tbl-cap: "d_eff and detection probabilities by outcome type (n=100, c1=1.25, c2=1.0)"
+
+fam_table <- data.frame(
+  Outcome = c("Survival (45% cens)", "Poisson (rate=0.8/yr)",
+              "Binary (p=0.30)", "Binary (p=0.50)",
+              "Continuous (sigma=1.5)"),
+  d_eff = c(
+    d_eff_survival(100, 0.45),
+    d_eff_count(100, event_rate = 0.8),
+    d_eff_binary(100, 0.30),
+    d_eff_binary(100, 0.50),
+    d_eff_continuous(100, 1.5)
+  ),
+  stringsAsFactors = FALSE
+)
+
+fam_table$`P(theta=1.0)` <- sapply(fam_table$d_eff, function(d) {
+  round(compute_detection_probability_glm(1.0, d, 1.25, 1.0,
+    method = "monte_carlo"), 3)
+})
+
+fam_table$`P(theta=2.0)` <- sapply(fam_table$d_eff, function(d) {
+  round(compute_detection_probability_glm(2.0, d, 1.25, 1.0,
+    method = "monte_carlo"), 3)
+})
+
+fam_table$`80% power at` <- sapply(fam_table$d_eff, function(d) {
+  # Find theta where power ~ 80%
+  hr_fine <- seq(1.0, 4.0, by = 0.01)
+  probs <- sapply(hr_fine, function(hr) {
+    compute_detection_probability_glm(hr, d, 1.25, 1.0,
+      method = "monte_carlo")
+  })
+  idx <- which.min(abs(probs - 0.80))
+  hr_fine[idx]
+})
+
+gt(fam_table) |>
+  tab_header(
+    title = "Cross-Family Comparison (n = 100)",
+    subtitle = "c1 = 1.25, c2 = 1.0"
+  ) |>
+  fmt_number(columns = d_eff, decimals = 1) |>
+  cols_label(
+    Outcome = "Outcome Type",
+    d_eff = "d_eff",
+    `P(theta=1.0)` = "Type-I Error",
+    `P(theta=2.0)` = "Power (OR=2)",
+    `80% power at` = "80% Power at"
+  )
+```
+
+
+## Continuous Outcome: Identity Scale
+
+```{r continuous-demo}
+#| fig-height: 5
+#| fig-cap: "Continuous outcome: thresholds on the identity scale. Horizontal axis is true mean difference."
+
+md_seq <- seq(-0.5, 2.0, by = 0.05)
+sigma_values <- c(1.0, 1.5, 2.0)
+
+cont_curves <- do.call(rbind, lapply(sigma_values, function(s) {
+  d <- d_eff_continuous(100, s)
+  probs <- sapply(md_seq, function(md) {
+    compute_detection_probability_glm(
+      theta = md, d_eff = d, c1 = 0.3, c2 = 0.0,
+      effect_scale = "difference", method = "monte_carlo")
+  })
+  data.frame(MD = md_seq, P = probs,
+             sigma = sprintf("sigma = %.1f (d_eff = %.0f)", s, d))
+}))
+
+ggplot(cont_curves, aes(x = MD, y = P, colour = sigma)) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = c(0.10, 0.80), linetype = "dashed",
+             colour = "grey50") +
+  geom_vline(xintercept = 0, linetype = "dotted",
+             colour = "grey70") +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "True Mean Difference",
+       y = "P(detect H)",
+       title = "Continuous Outcome: Detection Probability",
+       subtitle = "n(H) = 100, c1 = 0.3, c2 = 0.0 (identity scale)",
+       colour = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+# File for Package Integration {#sec-package}
+
+The functions `compute_detection_probability_glm()`,
+`d_eff_survival()`, `d_eff_binary()`, `d_eff_count()`,
+and `d_eff_continuous()` are defined above with full roxygen2
+documentation.  To add to the package:
+
+1. Copy the function definitions into
+   `R/truefind_asymptotic_glm.R`
+2. Add `@export` tags (included above)
+3. Run `devtools::document()`
+
+The existing `compute_detection_probability()` remains
+unchanged for backward compatibility.
+
+
+# References {#sec-references}
+
+- Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R.,
+  Anderson, K.M. (2024). Exploratory subgroup identification
+  in the heterogeneous Cox model. *Statistics in Medicine*,
+  43, 4253--4275.
+- Jennison, C. and Turnbull, B.W. (1984). Repeated confidence
+  intervals for group sequential clinical trials. *Controlled
+  Clinical Trials*, 5(1), 33--45.
+- McCullagh, P. and Nelder, J.A. (1989). *Generalized Linear
+  Models*, 2nd ed. Chapman and Hall.
+- Laird, N. and Olivier, D. (1981). Covariance analysis of
+  censored survival data using log-linear analysis techniques.
+  *JASA*, 76(374), 231--240.
+- Whitehead, J. (1980). Fitting Cox's regression model to
+  survival data using GLIM. *JRSS-C*, 29(3), 268--275.
+- Agresti, A. (2002). *Categorical Data Analysis*, 2nd ed.
+  Wiley. (Variance of log-OR: Section 3.1.3.)
+
+
+```{r session-info}
+sessionInfo()
+```

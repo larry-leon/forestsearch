@@ -656,6 +656,16 @@ forestsearch <- function(df.analysis,
     if (!is.null(grf_res) && !inherits(grf_res, "try-error")) {
       grf_cuts <- grf_res$tree.cuts
 
+      # GLM GRF returns tree.cuts as a named list of numeric values
+      # (e.g., list(bm1 = 1, age = c(70, 35))), but get_FSdata expects
+      # a character vector of cut expressions ("bm1 <= 1", "age <= 70").
+      # Convert list format to character expression format.
+      if (is.list(grf_cuts) && !is.null(names(grf_cuts))) {
+        grf_cuts <- unlist(lapply(names(grf_cuts), function(nm) {
+          paste0(nm, " <= ", grf_cuts[[nm]])
+        }))
+      }
+
       if (details) {
         # Concise GRF summary: subgroup found + cuts
         grf_sg <- grf_res$sg.harm.id
@@ -729,7 +739,9 @@ forestsearch <- function(df.analysis,
 
   if (inherits(FSdata, "try-error") || is.null(FSdata)) {
     warning("FSdata failure - returning NULL result")
-    return(list(sg.harm = NULL))
+    return(list(sg.harm = NULL,
+                error_log = list(stage = "get_FSdata",
+                                 message = "FSdata returned NULL or error")))
   }
 
   # Extract FSdata components
@@ -893,7 +905,9 @@ forestsearch <- function(df.analysis,
   )
   if (is.null(find.grps) || inherits(find.grps, "try-error")) {
     warning("Subgroup search failed")
-    return(list(sg.harm = NULL, args_call_all = args_call_all))
+    return(list(sg.harm = NULL, args_call_all = args_call_all,
+                error_log = list(stage = "subgroup.search",
+                                 message = "Search returned NULL or error")))
   }
 
 

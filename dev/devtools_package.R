@@ -180,6 +180,11 @@ library(pak)
 pak::pak("larry-leon/forestsearch")
 
 
+usethis::use_testthat()
+# Run just these tests
+devtools::test(filter = "glm-pipeline")
+
+
 # Nuclear option: manually delete the library folder, then reinstall
 #unlink(find.package("forestsearch"), recursive = TRUE)
 # Restart R again, then:

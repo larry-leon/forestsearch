@@ -1,0 +1,579 @@
+---
+title: "Selection-Adjusted Detection Probability for ForestSearch"
+subtitle: "A Generalized Approximation Accounting for the Data-Selection Effect"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 7
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# The Theoretical Gap {#sec-gap}
+
+## Section 2.1 Recap
+
+The original approximation (Leon et al., 2024, eq. 3) computes
+the probability that a **single pre-specified** subgroup $H$ with
+true log-effect $\beta$ passes both the screening and consistency
+thresholds:
+
+$$
+P_1(\beta) =
+\iint \mathbf{1}(w_1 + w_2 \ge 2k_1) \;
+\mathbf{1}(\min(w_1, w_2) \ge k_2) \;
+\varphi(w_j; \beta, \sigma^2_H) \;
+dw_1 \, dw_2
+$$
+
+where $W_1, W_2 \sim N(\beta, \sigma^2_H)$ are the split-half
+estimators (independent), $k_1 = \log(c_1)$, $k_2 = \log(c_2)$,
+and $\sigma^2_H = 8/d_{\text{eff}}$.
+
+Under $H_0$ (no HTE), $\beta = 0$ for any subgroup, and
+$P_1(0)$ gives the per-candidate false-positive probability.
+
+## Why It Fails for Binary Outcomes
+
+The approximation implicitly assumes the consistency check
+tests the **population parameter** $\beta$.  In practice, the
+consistency check re-splits the **same $n_H$ patients** that
+were selected by screening.  The distinction:
+
+- **Population parameter**: $\beta = 0$ for any subgroup
+  under $H_0$.
+- **Sample quantity**: $\hat\beta_{\text{full}}$ for the
+  selected subgroup is large (by construction, it passed the
+  screening threshold $k_1$).
+
+The random 50/50 consistency splits re-partition these
+same $n_H$ patients.  Every split estimates the **same sample
+treatment effect** $\hat\beta_{\text{full}}$ with noise.
+Since $\hat\beta_{\text{full}} > k_1 \gg k_2$ (especially
+when $k_2 = \log(1.0) = 0$), the consistency check passes
+trivially.
+
+For survival, higher estimator variance ($\sigma \approx 0.5$--$0.7$
+per half) meant the noise in each split was large enough to
+occasionally flip the sign, making consistency informative.
+For binary outcomes with large $d_{\text{eff}}$, the variance
+is small ($\sigma \approx 0.3$--$0.4$), and the selected
+$\hat\beta_{\text{full}}$ reliably propagates through splits.
+
+
+# The Selection-Adjusted Approximation {#sec-theory}
+
+## Key Insight: Decompose Into Selection + Consistency
+
+Instead of evaluating the joint probability directly,
+condition on the **full-sample estimate** $\hat\beta_{\text{full}}$:
+
+$$
+P(\text{detect}) =
+\int_{k^*}^{\infty}
+\underbrace{P_{\text{consist}}(x)}_{\text{consistency given } \hat\beta = x}
+\times
+\underbrace{f_{\text{sel}}(x)}_{\text{density of selected } \hat\beta}
+\; dx
+$$
+
+where $k^* = \max(k_1, k_2)$.
+
+## Derivation
+
+### Step 1: Change of Variables
+
+Transform $(W_1, W_2)$ to $(U, \delta)$:
+
+$$
+U = \frac{W_1 + W_2}{2} \approx \hat\beta_{\text{full}},
+\qquad
+\delta = \frac{W_1 - W_2}{2}
+$$
+
+Under $W_1, W_2 \stackrel{\text{iid}}{\sim} N(\beta, \sigma^2_H)$:
+
+$$
+U \sim N\!\left(\beta, \frac{\sigma^2_H}{2}\right) = N(\beta, \sigma^2_F),
+\qquad
+\delta \sim N(0, \sigma^2_F)
+$$
+
+where $\sigma^2_F = \sigma^2_H / 2 = 4/d_{\text{eff}}$ is
+the full-sample variance, and $U \perp \delta$.
+
+The conditions become:
+
+- **Screening**: $W_1 + W_2 \ge 2k_1 \iff U \ge k_1$
+- **Consistency**: $\min(W_1, W_2) \ge k_2 \iff |\delta| \le U - k_2$
+
+### Step 2: Consistency Probability Given $U = x$
+
+Given $\hat\beta_{\text{full}} = x$ and $\delta \sim N(0, \sigma^2_F)$:
+
+$$
+p_s(x) = P(|\delta| \le x - k_2) =
+\begin{cases}
+2\Phi\!\left(\frac{x - k_2}{\sigma_F}\right) - 1 & \text{if } x > k_2 \\
+0 & \text{if } x \le k_2
+\end{cases}
+$$
+
+This is the probability that **one** random split has both
+halves exceeding $k_2$.  Note: $p_s(x)$ depends on
+$\hat\beta_{\text{full}}$, not on the population $\beta$.
+
+### Step 3: Multiple Splits and pconsistency
+
+Over $S$ independent random splits, the number passing is
+$\text{Binomial}(S, p_s(x))$.  The subgroup passes consistency
+if at least $\lceil p_c \cdot S \rceil$ splits pass:
+
+$$
+P_{\text{consist}}(x) = P\!\left(\text{Binom}(S, p_s(x)) \ge
+\lceil p_c \cdot S \rceil\right)
+$$
+
+### Step 4: Selection Density
+
+Under $H_0$ ($\beta = 0$), the full-sample estimate for
+each candidate is $\hat\beta_j \sim N(0, \sigma^2_F)$.
+
+For a **single pre-specified** subgroup ($L = 1$):
+
+$$
+f_{\text{sel}}(x) = \frac{1}{\sigma_F}\varphi\!\left(\frac{x}{\sigma_F}\right)
+$$
+
+For the **maximum** of $L$ independent candidates
+($L > 1$):
+
+$$
+f_L(x) = \frac{L}{\sigma_F} \left[\Phi\!\left(\frac{x}{\sigma_F}\right)\right]^{L-1}
+\varphi\!\left(\frac{x}{\sigma_F}\right)
+$$
+
+### Step 5: The Generalized Formula
+
+$$
+\boxed{
+P_{\text{detect}}(L, k_1, k_2, \sigma_F, S, p_c) =
+\int_{k^*}^{\infty}
+P\!\left(\text{Binom}(S, p_s(x)) \ge \lceil p_c \cdot S \rceil\right)
+\times f_L(x) \; dx
+}
+$$
+
+**Properties:**
+
+- For $L = 1$, $S = 1$ (single subgroup, one split):
+  this reduces exactly to the Section 2.1 formula $P_1(\beta = 0)$.
+- For $L > 1$: accounts for the selection effect by shifting
+  the density toward larger $\hat\beta$.
+- For $S > 1$: accounts for the consistency proportion
+  threshold $p_c$ via the binomial.
+- The formula is a **one-dimensional integral**, easily
+  evaluated numerically.
+
+
+# Implementation {#sec-impl}
+
+```{r implementation}
+#| code-fold: false
+
+# ===========================================================================
+# Selection-adjusted detection probability
+# ===========================================================================
+
+#' @param L Number of effectively independent candidate subgroups
+#' @param k1 Screening threshold (log scale, e.g., log(1.25))
+#' @param k2 Consistency threshold (log scale, e.g., log(1.10))
+#' @param sigma_F Full-sample standard deviation: sqrt(4/d_eff)
+#' @param S Number of consistency splits (fs.splits)
+#' @param pc pconsistency.threshold
+#' @param n_quad Number of quadrature points
+detect_prob_selection <- function(L, k1, k2, sigma_F,
+                                  S = 200, pc = 0.85,
+                                  n_quad = 500) {
+  k_star <- max(k1, k2)
+  # Upper integration limit: mean of max + 6 SDs
+  x_max <- sigma_F * (sqrt(2 * log(max(L, 2))) + 6)
+  x_grid <- seq(k_star, x_max, length.out = n_quad)
+  dx <- x_grid[2] - x_grid[1]
+
+  # Step 1: p_s(x) = P(both halves > k2 | beta_full = x)
+  p_split <- pmax(0, 2 * pnorm((x_grid - k2) / sigma_F) - 1)
+
+  # Step 2: P(Binom(S, p_s) >= ceil(pc * S))
+  k_required <- ceiling(pc * S)
+  p_consist <- pbinom(k_required - 1, size = S, prob = p_split,
+                       lower.tail = FALSE)
+
+  # Step 3: f_L(x) = density of max of L iid N(0, sigma_F^2)
+  z <- x_grid / sigma_F
+  if (L == 1) {
+    f_sel <- dnorm(z) / sigma_F
+  } else {
+    # Use log-scale for numerical stability
+    log_f <- log(L) + (L - 1) * pnorm(z, log.p = TRUE) +
+             dnorm(z, log = TRUE) - log(sigma_F)
+    f_sel <- exp(log_f)
+  }
+
+  # Step 4: Integrate
+  integrand <- p_consist * f_sel
+  total <- sum(integrand) * dx
+
+  # Return components for diagnostics
+  list(
+    P_detect  = total,
+    E_beta_sel = sum(x_grid * f_sel * dx) /
+                   sum(f_sel[x_grid > k_star] * dx),
+    p_screen  = sum(f_sel[x_grid > k1]) * dx
+  )
+}
+
+
+# Convenience wrapper matching Section 2.1 interface
+detect_prob_binary <- function(log_or, n_sg, p_event,
+                               c1, c2, L = 1,
+                               S = 200, pc = 0.85) {
+  d_eff <- n_sg * p_event * (1 - p_event)
+  sigma_F <- sqrt(4 / d_eff)
+  k1 <- log(c1)
+  k2 <- log(c2)
+
+  # For beta != 0 (H1), shift the density
+  # Not implemented here; use Monte Carlo for H1
+
+  res <- detect_prob_selection(L, k1, k2, sigma_F, S, pc)
+  res$P_detect
+}
+```
+
+
+# Validation {#sec-validate}
+
+## Section 2.1 Equivalence (L = 1, S = 1)
+
+Verify the generalized formula reduces to the original
+for a single pre-specified subgroup with one split:
+
+```{r validate-section21}
+#| tbl-cap: "Generalized formula vs original Section 2.1 for L=1, S=1"
+
+# Original Section 2.1 (Monte Carlo)
+p1_mc <- function(n_sg, p_event, c1, c2, n_mc = 500000) {
+  set.seed(42)
+  d_eff <- n_sg * p_event * (1 - p_event)
+  sigma2_H <- 8 / d_eff
+  w1 <- rnorm(n_mc, 0, sqrt(sigma2_H))
+  w2 <- rnorm(n_mc, 0, sqrt(sigma2_H))
+  mean((w1 + w2 >= 2 * log(c1)) & (w1 >= log(c2)) & (w2 >= log(c2)))
+}
+
+configs <- expand.grid(
+  n_sg = c(60, 100, 200),
+  p_event = 0.30,
+  c1 = c(1.25, 1.50),
+  c2 = c(1.00, 1.10, 1.25)
+)
+configs <- configs[configs$c2 <= configs$c1, ]
+
+configs$P1_original <- mapply(p1_mc, configs$n_sg, configs$p_event,
+                              configs$c1, configs$c2)
+configs$P1_general <- mapply(function(n, p, c1, c2) {
+  detect_prob_binary(0, n, p, c1, c2, L = 1, S = 1, pc = 1.0)
+}, configs$n_sg, configs$p_event, configs$c1, configs$c2)
+
+library(gt)
+gt(data.frame(
+  `n(H)` = configs$n_sg, c1 = configs$c1, c2 = configs$c2,
+  `P1 (MC)` = round(configs$P1_original, 4),
+  `P1 (General)` = round(configs$P1_general, 4),
+  Ratio = round(configs$P1_general / pmax(configs$P1_original, 1e-6), 3),
+  check.names = FALSE
+)) |>
+  tab_header(
+    title = "Validation: Generalized Formula = Section 2.1 for L=1, S=1",
+    subtitle = "Ratio near 1.0 confirms equivalence"
+  )
+```
+
+
+## Effect of L (Number of Candidates)
+
+```{r effect-of-L}
+#| fig-height: 6
+#| fig-cap: "The selection effect (L > 1) shifts the detection probability upward. For large d_eff (N=800), even moderate L produces high FPR."
+
+library(ggplot2)
+
+L_values <- c(1, 3, 5, 10, 20)
+n_values <- c(60, 240)
+p_event <- 0.30
+
+# c2 = 1.0 (the problematic case)
+curves_c2_1 <- do.call(rbind, lapply(L_values, function(L) {
+  do.call(rbind, lapply(n_values, function(n) {
+    c2_seq <- seq(1.0, 1.5, by = 0.025)
+    probs <- sapply(c2_seq, function(c2) {
+      detect_prob_binary(0, n, p_event, c1 = 1.25, c2 = c2,
+                         L = L, S = 200, pc = 0.85)
+    })
+    data.frame(c2 = c2_seq, P_detect = probs,
+               L = paste0("L = ", L),
+               n_sg = paste0("n(H) = ", n))
+  }))
+}))
+
+ggplot(curves_c2_1, aes(x = c2, y = P_detect, colour = L)) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ n_sg) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = "Consistency Threshold c2 (OR scale)",
+       y = "P(detect under H0)",
+       title = "Selection-Adjusted FPR by c2 and Number of Candidates",
+       subtitle = "c1 = 1.25 | pcons = 0.85 | S = 200",
+       colour = "Candidates") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+```
+
+
+## Effect of pconsistency
+
+```{r effect-of-pcons}
+#| fig-height: 6
+#| fig-cap: "pconsistency provides secondary control, but c2 is the primary lever."
+
+pc_values <- c(0.80, 0.85, 0.90)
+
+curves_pc <- do.call(rbind, lapply(pc_values, function(pc) {
+  do.call(rbind, lapply(n_values, function(n) {
+    c2_seq <- seq(1.0, 1.5, by = 0.025)
+    probs <- sapply(c2_seq, function(c2) {
+      detect_prob_binary(0, n, p_event, c1 = 1.25, c2 = c2,
+                         L = 5, S = 200, pc = pc)
+    })
+    data.frame(c2 = c2_seq, P_detect = probs,
+               pcons = sprintf("pcons = %.2f", pc),
+               n_sg = paste0("n(H) = ", n))
+  }))
+}))
+
+ggplot(curves_pc, aes(x = c2, y = P_detect, colour = pcons)) +
+  geom_line(linewidth = 1.0) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "grey50") +
+  facet_wrap(~ n_sg) +
+  scale_colour_brewer(palette = "Dark2") +
+  labs(x = "Consistency Threshold c2 (OR scale)",
+       y = "P(detect under H0)",
+       title = "pconsistency Effect with Selection Adjustment (L = 5)",
+       subtitle = "c1 = 1.25 | S = 200",
+       colour = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+```
+
+
+## Calibrated Thresholds
+
+```{r calibrated-c2}
+#| tbl-cap: "c2 calibrated to yield ~10 percent FPR under the selection-adjusted approximation"
+
+calib <- expand.grid(
+  n_sg = c(60, 100, 150, 200, 240),
+  p_event = c(0.15, 0.30, 0.50),
+  L = c(3, 5, 10),
+  pc = 0.85,
+  stringsAsFactors = FALSE
+)
+calib$d_eff <- round(calib$n_sg * calib$p_event * (1 - calib$p_event), 1)
+
+c2_grid <- seq(1.00, 2.00, by = 0.025)
+
+calib$c2_cal <- sapply(seq_len(nrow(calib)), function(i) {
+  fprs <- sapply(c2_grid, function(c2) {
+    detect_prob_binary(0, calib$n_sg[i], calib$p_event[i],
+                       c1 = 1.25, c2 = c2,
+                       L = calib$L[i], S = 200, pc = calib$pc[i])
+  })
+  idx <- which.min(abs(fprs - 0.10))
+  c2_grid[idx]
+})
+
+calib$fpr_cal <- mapply(function(n, p, c2, L, pc) {
+  detect_prob_binary(0, n, p, c1 = 1.25, c2 = c2, L = L, S = 200, pc = pc)
+}, calib$n_sg, calib$p_event, calib$c2_cal, calib$L, calib$pc)
+
+# Show key configurations
+show <- calib[calib$p_event == 0.30, ]
+gt(show[, c("n_sg", "d_eff", "L", "c2_cal", "fpr_cal")]) |>
+  tab_header(
+    title = "Calibrated c2 for ~10% FPR (p = 0.30, c1 = 1.25, pcons = 0.85)",
+    subtitle = "L = effective number of independent candidates"
+  ) |>
+  fmt_number(columns = c(c2_cal, fpr_cal), decimals = 3) |>
+  cols_label(n_sg = "n(H)", d_eff = "d_eff", L = "L",
+             c2_cal = "c2 (cal)", fpr_cal = "Approx FPR")
+```
+
+
+```{r calibrated-plot}
+#| fig-height: 5
+#| fig-cap: "Calibrated c2 increases with d_eff and L."
+
+show_all <- calib[calib$p_event == 0.30, ]
+show_all$L_label <- paste("L =", show_all$L)
+
+ggplot(show_all, aes(x = d_eff, y = c2_cal, colour = L_label)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = L_label), linewidth = 0.8) +
+  geom_hline(yintercept = 1.0, linetype = "dotted", colour = "grey50") +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = expression(d[eff]), y = "Calibrated c2",
+       title = "Calibrated Consistency Threshold vs Effective Information",
+       subtitle = "Dotted: survival default c2 = 1.0",
+       colour = "Candidates") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+```
+
+
+# Comparison to Survival {#sec-survival}
+
+For survival with $n_H = 60$ and 45 percent censoring:
+
+$$
+d = 33, \quad \sigma_F = \sqrt{4/33} = 0.35, \quad
+\sigma_H = 0.49
+$$
+
+The conditional mean of the selected $\hat\beta_{\text{full}}$
+given it exceeds $k_1 = \log(1.25) = 0.22$:
+
+```{r survival-comparison}
+#| tbl-cap: "Why c2 = 1.0 works for survival but not binary"
+
+compare <- data.frame(
+  Setting = c("Survival (n=60, 45% cens)",
+              "Binary (n=60, p=0.30)",
+              "Binary (n=240, p=0.30)"),
+  d_eff = c(33, 12.6, 50.4),
+  sigma_F = round(sqrt(4 / c(33, 12.6, 50.4)), 3),
+  stringsAsFactors = FALSE
+)
+# E[max of L=5 | max > k1] for each
+compare$E_beta_sel <- sapply(compare$sigma_F, function(s) {
+  x <- seq(log(1.25), 5 * s, length.out = 1000)
+  dx <- x[2] - x[1]
+  f <- 5 * pnorm(x / s)^4 * dnorm(x / s) / s
+  f <- f / (sum(f) * dx)
+  sum(x * f * dx)
+})
+# P(both halves > 0 | beta_sel) per split
+compare$p_split_c2_1 <- round(
+  pmax(0, 2 * pnorm((compare$E_beta_sel - 0) / compare$sigma_F) - 1), 3)
+# P(both halves > log(1.10) | beta_sel)
+compare$p_split_c2_110 <- round(
+  pmax(0, 2 * pnorm((compare$E_beta_sel - log(1.10)) / compare$sigma_F) - 1), 3)
+
+gt(compare) |>
+  tab_header(
+    title = "Selection Effect: Survival vs Binary",
+    subtitle = "L = 5 candidates, c1 = 1.25"
+  ) |>
+  fmt_number(columns = c(E_beta_sel, p_split_c2_1, p_split_c2_110), decimals = 3) |>
+  cols_label(
+    d_eff = "d_eff", sigma_F = "sigma_F",
+    E_beta_sel = "E[beta_sel]",
+    p_split_c2_1 = "p_split (c2=1.0)",
+    p_split_c2_110 = "p_split (c2=1.10)"
+  )
+```
+
+
+# Summary {#sec-summary}
+
+## The Generalized Formula
+
+The selection-adjusted approximation:
+
+$$
+P_{\text{detect}} =
+\int_{k^*}^{\infty}
+P\!\left(\text{Binom}(S, p_s(x)) \ge \lceil p_c S \rceil\right)
+\times f_L(x) \; dx
+$$
+
+**reduces to Section 2.1** for $L = 1, S = 1$ and
+**generalizes** to account for:
+
+1. **Selection effect** ($L > 1$): the data-selected
+   subgroup has inflated $\hat\beta$ following the
+   extreme-value distribution of $L$ normals.
+2. **Multiple consistency splits** ($S > 1$): the
+   pconsistency threshold $p_c$ is modeled via the binomial.
+3. **Non-trivial consistency threshold** ($k_2 > 0$):
+   raising $c_2$ above 1.0 reduces $p_s(x)$ for moderate
+   $\hat\beta$, providing real protection against the
+   selection effect.
+
+## Key Insight
+
+The original approximation assumes the consistency check
+tests the population parameter $\beta = 0$.  The corrected
+approximation recognizes that the consistency check tests
+the **sample quantity** $\hat\beta_{\text{full}}$, which
+is inflated by selection.  The correction is mathematically
+clean: a change-of-variables decomposition of the
+bivariate integral followed by integration over the
+selection density.
+
+## Practical Implications
+
+- For **survival**: $\sigma_F \approx 0.35$ and
+  $E[\hat\beta_{\text{sel}}] \approx 0.6$.
+  At $c_2 = 1.0$: $p_{\text{split}} \approx 0.67$, so
+  pconsistency = 0.90 provides meaningful control.
+  The original approximation works because $p_{\text{split}}$
+  is moderate even for selected subgroups.
+
+- For **binary** with large $d_{\text{eff}}$:
+  $\sigma_F \approx 0.28$ and
+  $E[\hat\beta_{\text{sel}}] \approx 0.55$.
+  At $c_2 = 1.0$: $p_{\text{split}} \approx 0.95$,
+  rendering consistency nearly automatic.
+  Raising $c_2$ to 1.10--1.25 restores discrimination.
+
+## Next Steps
+
+1. **Validate** the selection-adjusted approximation against
+   the simulation results from the c2-sweep calibration study.
+2. **Determine $L$** empirically by comparing approximation
+   curves to simulation at various c2 values.
+3. **Implement** `compute_detection_probability_glm()` with
+   the selection-adjusted formula as an option.
+
+
+```{r session-info}
+sessionInfo()
+```

@@ -1,0 +1,660 @@
+---
+title: "Threshold Calibration for Binary Outcomes (Corrected)"
+subtitle: "Effect of Consistency Stringency and Multiplicity on the Power Approximation"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 7
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ============================================================================
+# SIMULATION PARAMETERS
+# ============================================================================
+nsims       <- 30L      # sims per scenario (increase to 500 for production)
+sim_seed    <- 8316951L
+n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+```
+
+
+# Introduction {#sec-intro}
+
+The initial threshold calibration study revealed a large
+discrepancy between the Section 2.1 approximation and
+simulation: simulated false-positive rates (FPR) of 82--99
+percent under H0, versus approximated FPR of 7--34 percent.
+
+This discrepancy has two distinct causes:
+
+1. **`pconsistency.threshold = 0.50`** (used in the initial
+   study) is far too lenient. The original paper (Leon et al.,
+   2024) uses **0.90** as the default. This single parameter
+   dominates the FPR.
+
+2. **The approximation is for a single pre-specified subgroup.**
+   ForestSearch searches over many candidates (all combinations
+   of $L$ factors up to `maxk`). The probability that *any one*
+   of many candidates exceeds the threshold is higher than for
+   a specific one. This is a multiplicity effect.
+
+This document disentangles these two effects by running a
+**pconsistency scan** from 0.50 to 0.95, comparing to the
+approximation at each level.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+```
+
+```{r parallel-setup}
+plan(multisession, workers = n_workers)
+cat("Workers:", n_workers, "| Sims per scenario:", nsims, "\n")
+```
+
+
+# The Approximation {#sec-approx}
+
+## Single-Subgroup Formula
+
+For a binary outcome with balanced arms and event probability
+$\bar p$, the split-sample variance is:
+
+$$
+\sigma^2_s = \frac{8}{n_H \cdot \bar p(1 - \bar p)}
+$$
+
+The detection probability for a **single pre-specified
+subgroup** is:
+
+$$
+P_1(\text{detect}) =
+\iint \mathbf{1}(w_1 + w_2 \ge 2k_1) \;
+\mathbf{1}(\min(w_1, w_2) \ge k_2) \;
+\varphi(w_1; \beta, \sigma^2_s) \;
+\varphi(w_2; \beta, \sigma^2_s) \;
+dw_1 \, dw_2
+$$
+
+## Multiplicity-Adjusted Approximation
+
+When ForestSearch evaluates $L_{\text{eff}}$ effectively
+independent candidate subgroups, the probability that at least
+one exceeds the threshold is approximately:
+
+$$
+P_L(\text{detect any}) \approx 1 - (1 - P_1)^{L_{\text{eff}}}
+$$
+
+This is a Bonferroni-like union bound. The effective number of
+independent tests $L_{\text{eff}}$ depends on the correlation
+structure among candidates. In practice:
+
+- With 4 confounders (2 binary + 1 continuous with ~3 GRF cuts
+  + 1 binary), $L \approx 7$ single-factor candidates
+- With `maxk = 2`: $\binom{7}{2} + 7 = 28$ total candidates
+- Correlation reduces $L_{\text{eff}}$ to roughly $5$--$15$
+
+We treat $L_{\text{eff}}$ as a calibration parameter.
+
+```{r approx-functions}
+#| code-fold: false
+
+detect_prob_single <- function(log_or, n_sg, p_event,
+                               c1, c2, n_mc = 200000, seed = 42) {
+  set.seed(seed)
+  sigma2_s <- 8 / (n_sg * p_event * (1 - p_event))
+  w1 <- rnorm(n_mc, mean = log_or, sd = sqrt(sigma2_s))
+  w2 <- rnorm(n_mc, mean = log_or, sd = sqrt(sigma2_s))
+  mean((w1 + w2 >= 2 * log(c1)) & (w1 >= log(c2)) & (w2 >= log(c2)))
+}
+
+detect_prob_multi <- function(log_or, n_sg, p_event,
+                              c1, c2, L_eff, ...) {
+  p1 <- detect_prob_single(log_or, n_sg, p_event, c1, c2, ...)
+  1 - (1 - p1)^L_eff
+}
+```
+
+
+# Simulation {#sec-sim}
+
+## Binary DGM
+
+```{r sim-dgm}
+#| code-fold: false
+
+sim_binary <- function(n, seed, has_hte = TRUE, p_base = 0.30) {
+  set.seed(seed)
+  df <- data.frame(
+    id    = seq_len(n),
+    treat = rbinom(n, 1, 0.5),
+    bm1   = as.factor(rbinom(n, 1, 0.70)),   # 30% = "0" = harm
+    bm2   = as.factor(rbinom(n, 1, 0.50)),
+    age   = round(rnorm(n, 55, 10)),
+    ecog  = as.factor(sample(0:1, n, replace = TRUE, prob = c(0.6, 0.4)))
+  )
+  lp <- with(df, {
+    qlogis(p_base) + 0.02 * (age - 55) + 0.3 * (ecog == 1)
+  })
+  if (has_hte) {
+    lp <- lp + with(df, {
+      0.69 * treat * (bm1 == 0) +
+        -0.92 * treat * (bm1 == 1)
+    })
+  }
+  df$progressed <- rbinom(n, 1, plogis(lp))
+  df$flag_harm  <- as.integer(df$bm1 == 0)
+  df
+}
+```
+
+
+## pconsistency Scan
+
+The critical experiment: fix `hr.threshold = 1.25`,
+`hr.consistency = 1.0`, and sweep `pconsistency.threshold`
+from 0.50 to 0.95.
+
+```{r pcons-scan}
+t0 <- proc.time()[3]
+
+pcons_values <- c(0.50, 0.65, 0.75, 0.85, 0.90, 0.95)
+n_values     <- c(200, 800)
+hte_values   <- c(FALSE, TRUE)
+
+tasks <- expand.grid(
+  sim = seq_len(nsims),
+  pcons = pcons_values,
+  n_total = n_values,
+  has_hte = hte_values,
+  stringsAsFactors = FALSE
+)
+
+cat(sprintf("pconsistency scan: %d tasks (%d configs x %d sims)\n",
+            nrow(tasks), length(pcons_values) * length(n_values) * length(hte_values),
+            nsims))
+
+run_pcons_sim <- function(sim_num, n_total, has_hte, pcons) {
+  seed <- sim_seed + sim_num
+  df <- sim_binary(n_total, seed, has_hte)
+
+  fs_error <- NA_character_
+  fs <- tryCatch(
+    forestsearch(
+      df.analysis      = df,
+      confounders.name = c("bm1", "bm2", "age", "ecog"),
+      outcome.name     = "progressed",
+      event.name       = "progressed",
+      treat.name       = "treat",
+      id.name          = "id",
+      outcome_type     = "binary",
+      effect_measure   = "OR",
+      adverse_outcome  = TRUE,
+      hr.threshold     = 1.25,
+      hr.consistency   = 1.0,
+      pconsistency.threshold = pcons,
+      fs.splits        = 200,
+      n.min            = max(30, round(n_total * 0.08)),
+      maxk             = 2,
+      use_lasso        = TRUE,
+      use_grf          = TRUE,
+      use_twostage     = TRUE,
+      is.RCT           = TRUE,
+      seedit           = seed,
+      details          = FALSE,
+      plot.sg          = FALSE,
+      parallel_args    = list(plan = "sequential", workers = 1,
+                              show_message = FALSE)
+    ),
+    error = function(e) { fs_error <<- conditionMessage(e); NULL }
+  )
+
+  found <- !is.null(fs) && !is.null(fs$sg.harm) && length(fs$sg.harm) > 0
+
+  out <- data.table(
+    sim = sim_num, n_total = n_total, has_hte = has_hte,
+    pcons = pcons, any_found = as.integer(found),
+    error_msg = fs_error
+  )
+
+  if (found && !is.null(fs$df.est) &&
+      "treat.recommend" %in% names(fs$df.est)) {
+    sg_ind <- fs$df.est$treat.recommend
+    flag   <- df$flag_harm
+    tp <- sum(sg_ind == 0 & flag == 1)
+    fp <- sum(sg_ind == 0 & flag == 0)
+    tn <- sum(sg_ind == 1 & flag == 0)
+    fn <- sum(sg_ind == 1 & flag == 1)
+    out$sens   <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
+    out$spec   <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+    out$ppv    <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+    out$size_H <- sum(sg_ind == 0)
+  } else {
+    out$sens <- out$spec <- out$ppv <- NA_real_
+    out$size_H <- NA_integer_
+  }
+  out
+}
+
+results_list <- foreach(
+  i = seq_len(nrow(tasks)),
+  .errorhandling = "pass",
+  .options.future = list(packages = c("forestsearch", "data.table"))
+) %dofuture% {
+  run_pcons_sim(
+    sim_num = tasks$sim[i],
+    n_total = tasks$n_total[i],
+    has_hte = tasks$has_hte[i],
+    pcons   = tasks$pcons[i]
+  )
+}
+
+sim_results <- rbindlist(results_list, fill = TRUE)
+t_sim <- proc.time()[3] - t0
+cat(sprintf("Simulation time: %.1f min | %d results\n", t_sim / 60, nrow(sim_results)))
+```
+
+
+# Results {#sec-results}
+
+## Detection Rate by pconsistency
+
+```{r detection-by-pcons}
+#| fig-height: 6
+#| fig-cap: "FPR (H0) and Power (H1) as a function of pconsistency.threshold. The original paper default (0.90) dramatically reduces FPR while preserving power for strong effects."
+
+oc <- sim_results[, .(
+  detect = mean(any_found, na.rm = TRUE),
+  n_err  = sum(!is.na(error_msg))
+), by = .(n_total, has_hte, pcons)]
+
+oc$Hypothesis <- ifelse(oc$has_hte, "H1: HTE (OR_H = 2.0)", "H0: No HTE")
+oc$N_label <- paste("N =", oc$n_total)
+
+ggplot(oc, aes(x = pcons, y = detect, colour = Hypothesis,
+               linetype = Hypothesis)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "grey50") +
+  geom_vline(xintercept = 0.90, linetype = "dotted", colour = "grey50",
+             linewidth = 0.8) +
+  facet_wrap(~ N_label) +
+  scale_colour_manual(values = c("H0: No HTE" = "firebrick",
+                                  "H1: HTE (OR_H = 2.0)" = "steelblue")) +
+  scale_x_continuous(breaks = pcons_values) +
+  labs(x = "pconsistency.threshold",
+       y = "Detection Rate",
+       title = "Effect of Consistency Stringency on Type-I Error and Power",
+       subtitle = "hr.threshold = 1.25 | hr.consistency = 1.0 | Vertical line: paper default (0.90)") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold")) +
+  annotate("text", x = 0.55, y = 0.12, label = "10% target", size = 3)
+```
+
+
+## Summary Table
+
+```{r pcons-table}
+#| tbl-cap: "Detection rates by pconsistency threshold"
+
+oc_wide <- dcast(oc, n_total + pcons ~ Hypothesis,
+                 value.var = "detect")
+setnames(oc_wide, c("N", "pcons",
+                     "FPR (H0)", "Power (H1)"))
+
+gt(oc_wide) |>
+  tab_header(
+    title = "Detection Rate by pconsistency Threshold",
+    subtitle = sprintf("c1=1.25 | c2=1.0 | %d sims per config", nsims)
+  ) |>
+  fmt_number(columns = 3:4, decimals = 3) |>
+  tab_style(
+    style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `FPR (H0)`,
+                           rows = `FPR (H0)` <= 0.15)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(columns = `FPR (H0)`,
+                           rows = `FPR (H0)` > 0.15)
+  ) |>
+  tab_row_group(label = "N = 800", rows = N == 800) |>
+  tab_row_group(label = "N = 200", rows = N == 200) |>
+  tab_source_note("Green: FPR <= 15%. Red: FPR > 15%.")
+```
+
+
+## Approximation vs Simulation at Each pconsistency
+
+The approximation is for a **single pre-specified subgroup**.
+To account for multiplicity, we calibrate $L_{\text{eff}}$:
+
+```{r calibrate-leff}
+#| fig-height: 6
+#| fig-cap: "Approximation (solid) vs simulation (dashed) at pconsistency = 0.90. The multiplicity-adjusted approximation with L_eff = 8 provides a better fit than the single-subgroup formula."
+
+# Compute single-subgroup approximation for each config
+p_bar <- 0.30
+
+approx_dt <- CJ(
+  pcons = pcons_values,
+  n_total = n_values,
+  has_hte = hte_values
+)
+approx_dt[, n_sg := round(0.30 * n_total)]
+approx_dt[, true_or := ifelse(has_hte, 2.0, 1.0)]
+approx_dt[, p1 := mapply(function(or, n) {
+  detect_prob_single(log(or), n, p_bar, 1.25, 1.0)
+}, true_or, n_sg)]
+
+# Multiplicity adjustment with different L_eff values
+for (L in c(1, 5, 8, 15)) {
+  col <- paste0("pL_", L)
+  approx_dt[, (col) := 1 - (1 - p1)^L]
+}
+
+# Merge with simulation results
+comparison <- merge(
+  oc[, .(n_total, has_hte, pcons, sim_detect = detect)],
+  approx_dt,
+  by = c("n_total", "has_hte"),
+  allow.cartesian = TRUE
+)
+
+# Note: approximation doesn't depend on pcons (it's for a single subgroup)
+# The simulation DOES depend on pcons
+# Plot at pcons = 0.90
+
+comp_90 <- comparison[pcons.x == 0.90 & has_hte == FALSE]
+
+if (nrow(comp_90) > 0) {
+  cat("=== Comparison at pconsistency = 0.90 (H0) ===\n")
+  cat(sprintf("  N=%d: Sim FPR=%.3f | P1=%.3f | P(L=5)=%.3f | P(L=8)=%.3f | P(L=15)=%.3f\n",
+              comp_90$n_total, comp_90$sim_detect,
+              comp_90$p1, comp_90$pL_5, comp_90$pL_8, comp_90$pL_15))
+}
+```
+
+
+## Full Comparison Table
+
+```{r full-comparison}
+#| tbl-cap: "Approximation vs simulation: which L_eff matches?"
+
+# For each (n_total, pcons) under H0, find L_eff that matches
+approx_h0 <- unique(approx_dt[has_hte == FALSE, .(n_total, p1, pL_5, pL_8, pL_15)])
+h0_compare <- merge(
+  oc[has_hte == FALSE, .(n_total, pcons, sim_fpr = detect)],
+  approx_h0,
+  by = "n_total"
+)
+# Note: p1 doesn't depend on pcons but sim_fpr does
+# The approximation doesn't model pconsistency directly
+# Show both to highlight the gap
+
+h0_show <- unique(h0_compare[, .(
+  N = n_total, pcons,
+  `Sim FPR` = sim_fpr,
+  `P1 (single)` = round(p1, 3),
+  `P(L=5)` = round(pL_5, 3),
+  `P(L=8)` = round(pL_8, 3),
+  `P(L=15)` = round(pL_15, 3)
+)])
+setorder(h0_show, N, pcons)
+
+gt(h0_show) |>
+  tab_header(
+    title = "H0 FPR: Simulation vs Approximation at Different L_eff",
+    subtitle = "Approximation does not model pconsistency (constant across rows per N)"
+  ) |>
+  fmt_number(columns = 3:7, decimals = 3) |>
+  tab_row_group(label = "N = 800", rows = N == 800) |>
+  tab_row_group(label = "N = 200", rows = N == 200) |>
+  tab_source_note(
+    "Key insight: simulation FPR drops sharply with pcons, but approximation is constant."
+  )
+```
+
+
+# Analysis {#sec-analysis}
+
+## Why the Approximation Misses pconsistency
+
+The Section 2.1 approximation models the **screening
++ consistency criterion** as:
+
+$$
+P(W_1 + W_2 \ge 2k_1, \; \min(W_1, W_2) \ge k_2)
+$$
+
+This implicitly assumes `pconsistency.threshold = 1.0`
+(ALL splits must satisfy the criterion). The actual
+ForestSearch implementation uses a PROPORTION threshold:
+the candidate passes if at least `pconsistency.threshold`
+fraction of `fs.splits` random 50/50 splits satisfy
+both halves exceeding `hr.consistency`.
+
+The relationship is:
+
+- **pcons = 1.0**: Every split must work $\to$ extremely
+  stringent $\to$ well modeled by the approximation
+- **pcons = 0.90**: 90 percent of splits $\to$ stringent
+  $\to$ approximation is a reasonable upper bound
+- **pcons = 0.50**: Only half the splits $\to$ very lenient
+  $\to$ approximation vastly underestimates FPR
+
+To extend the approximation for `pcons < 1.0`, we need:
+
+$$
+P(\text{detect at pcons}) \approx
+P\!\left(\text{Binomial}(S, P_{\text{split}}) \ge
+\lceil \text{pcons} \cdot S \rceil\right)
+$$
+
+where $S$ = `fs.splits` and $P_{\text{split}}$ is the
+probability that a single random split satisfies both
+halves exceeding the consistency threshold.
+
+```{r extended-approx}
+#| code-fold: false
+
+detect_prob_pcons <- function(log_or, n_sg, p_event, c1, c2,
+                              pcons = 0.90, fs_splits = 200,
+                              n_mc = 200000, seed = 42) {
+  set.seed(seed)
+  sigma2_s <- 8 / (n_sg * p_event * (1 - p_event))
+
+  # Step 1: P(single split satisfies consistency)
+  # Each split-half has n_sg/2 patients, so variance doubles
+  sigma2_half <- 2 * sigma2_s
+  w1 <- rnorm(n_mc, mean = log_or, sd = sqrt(sigma2_half))
+  w2 <- rnorm(n_mc, mean = log_or, sd = sqrt(sigma2_half))
+  p_split <- mean((w1 >= log(c2)) & (w2 >= log(c2)))
+
+  # Step 2: P(at least pcons fraction of S splits satisfy)
+  k_required <- ceiling(pcons * fs_splits)
+  p_detect <- stats::pbinom(k_required - 1, size = fs_splits,
+                             prob = p_split, lower.tail = FALSE)
+
+  # Step 3: Also need screening threshold on full sample
+  sigma2_full <- sigma2_s
+  w_full <- rnorm(n_mc, mean = log_or, sd = sqrt(sigma2_full))
+  p_screen <- mean(w_full >= log(c1))
+
+  # Combined: pass screening AND pass consistency
+  p_screen * p_detect
+}
+```
+
+
+## Extended Approximation vs Simulation
+
+```{r extended-comparison}
+#| fig-height: 6
+#| fig-cap: "Extended approximation (accounting for pconsistency) vs simulation. The extended formula captures the pconsistency effect."
+
+ext_approx <- do.call(rbind, lapply(pcons_values, function(pc) {
+  do.call(rbind, lapply(n_values, function(n) {
+    n_sg <- round(0.30 * n)
+    # H0
+    p0 <- detect_prob_pcons(0, n_sg, p_bar, 1.25, 1.0, pc, 200)
+    # H1
+    p1 <- detect_prob_pcons(log(2.0), n_sg, p_bar, 1.25, 1.0, pc, 200)
+    data.frame(n_total = n, pcons = pc,
+               approx_h0 = p0, approx_h1 = p1)
+  }))
+}))
+
+ext_merged <- merge(
+  oc[, .(n_total, pcons, has_hte, sim_detect = detect)],
+  as.data.table(ext_approx),
+  by = c("n_total", "pcons")
+)
+
+ext_merged$Hypothesis <- ifelse(ext_merged$has_hte,
+                                 "H1 (Power)", "H0 (FPR)")
+ext_merged$approx <- ifelse(ext_merged$has_hte,
+                             ext_merged$approx_h1,
+                             ext_merged$approx_h0)
+ext_merged$N_label <- paste("N =", ext_merged$n_total)
+
+ggplot(ext_merged, aes(x = pcons)) +
+  geom_line(aes(y = approx, colour = Hypothesis),
+            linewidth = 1.0) +
+  geom_point(aes(y = sim_detect, colour = Hypothesis),
+             size = 3, shape = 17) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "grey50") +
+  geom_vline(xintercept = 0.90, linetype = "dotted", colour = "grey50") +
+  facet_wrap(~ N_label) +
+  scale_colour_manual(values = c("H0 (FPR)" = "firebrick",
+                                  "H1 (Power)" = "steelblue")) +
+  scale_x_continuous(breaks = pcons_values) +
+  labs(x = "pconsistency.threshold",
+       y = "Detection Rate",
+       title = "Extended Approximation (lines) vs Simulation (triangles)",
+       subtitle = "Extended formula models pconsistency effect via Binomial(S, P_split)",
+       colour = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+## Detailed Table
+
+```{r extended-table}
+#| tbl-cap: "Extended approximation vs simulation"
+
+ext_show <- ext_merged[, .(
+  N = n_total, pcons,
+  H = Hypothesis,
+  Simulation = round(sim_detect, 3),
+  `Extended Approx` = round(approx, 3),
+  Ratio = round(sim_detect / pmax(approx, 0.001), 2)
+)]
+setorder(ext_show, N, H, pcons)
+
+gt(ext_show) |>
+  tab_header(
+    title = "Extended Approximation vs Simulation",
+    subtitle = "Ratio near 1.0 = good agreement"
+  ) |>
+  tab_row_group(label = "N = 800", rows = N == 800) |>
+  tab_row_group(label = "N = 200", rows = N == 200)
+```
+
+
+# Recommendations {#sec-recommend}
+
+## For Binary Outcomes
+
+Based on the pconsistency scan:
+
+```{r recommendation-table}
+#| tbl-cap: "Recommended settings for binary outcomes"
+
+rec <- data.frame(
+  Setting = c(
+    "Phase II (n = 200)",
+    "Phase III (n = 800)",
+    "Phase III, rare events (p = 0.10)"
+  ),
+  `hr.threshold` = c("1.25--1.50", "1.25", "1.50"),
+  `hr.consistency` = c("1.0", "1.0", "1.0"),
+  `pconsistency` = c("0.90", "0.90", "0.85--0.90"),
+  `Expected FPR` = c("5--15%", "5--15%", "5--10%"),
+  Rationale = c(
+    "Small n requires stringent consistency to avoid false positives",
+    "Larger n provides stable estimates; default thresholds adequate",
+    "Rare events reduce effective information; raise screening threshold"
+  ),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt(rec) |>
+  tab_header(
+    title = "Recommended ForestSearch Parameters for Binary Outcomes"
+  )
+```
+
+
+## Key Takeaways
+
+1. **`pconsistency.threshold` is the dominant parameter** for
+   controlling false-positive rates. The screening threshold
+   ($c_1$) matters less than the consistency stringency.
+
+2. **The paper default of pconsistency = 0.90 should be used**
+   for binary outcomes. The value 0.50 (used for count data
+   with sparse half-sample events) is inappropriate for binary
+   endpoints where each half-sample has adequate information.
+
+3. **The Section 2.1 approximation** is a useful lower bound but
+   does not directly model `pconsistency < 1.0` or multiplicity
+   from searching over candidates. The extended approximation
+   using $\text{Binomial}(S, P_{\text{split}})$ captures the
+   pconsistency effect.
+
+4. **For the GLM simulation study**, the binary scenarios
+   should use `pconsistency.threshold = 0.90`. Count data
+   scenarios may use a lower value (0.50--0.75) if half-sample
+   event counts are insufficient for stable estimation.
+
+
+# Timing and Session Info {#sec-session}
+
+```{r timing}
+cat(sprintf("Simulation time: %.1f min\n", t_sim / 60))
+```
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```

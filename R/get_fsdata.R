@@ -73,6 +73,22 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   # If grf was attempted but NO cuts were found then considering no cuts per grf
   if(use_grf && is.null(grf_cuts)) use_grf <- FALSE
 
+  # Type contract: grf_cuts must be a character vector of "var <= value"
+
+  # expressions when non-NULL.  GLM GRF may produce a named list instead;
+  # normalize here as a safety net (primary conversion is in forestsearch_main.R).
+  if (!is.null(grf_cuts) && is.list(grf_cuts) && !is.null(names(grf_cuts))) {
+    grf_cuts <- unlist(lapply(names(grf_cuts), function(nm) {
+      paste0(nm, " <= ", grf_cuts[[nm]])
+    }))
+  }
+  if (!is.null(grf_cuts) && !is.character(grf_cuts)) {
+    stop(sprintf(
+      "grf_cuts must be a character vector of cut expressions, got %s",
+      paste(class(grf_cuts), collapse = "/")
+    ))
+  }
+
   if(use_lasso &  (is.null(outcome.name))) stop("Outcome variable name needed for lasso")
 
   flag_continuous <- vapply(

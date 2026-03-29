@@ -1,0 +1,928 @@
+---
+title: "GLM Subgroup Identification: Simulation Study"
+subtitle: "Operating Characteristics Across Binary, Continuous, and Count Outcomes Inspired by the mCART Framework"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ============================================================================
+# SIMULATION PARAMETERS --- edit here to tune runtime vs precision
+# ============================================================================
+nsims       <- 44L       # simulations per scenario (increase for production)
+sim_seed    <- 8316951L
+n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+```
+
+
+# Introduction {#sec-intro}
+
+## Motivation
+
+This document evaluates the operating characteristics of `forestsearch()`
+for GLM outcomes across a systematic set of simulation scenarios inspired
+by the mCART framework (Rigdon et al., *Trials*, 2018).  The mCART paper
+evaluated four methods (logistic regression, random forest, gradient RF,
+and mCART) on five scenarios:
+
+| Scenario | Setting | N | True HTE |
+|---|---|---|---|
+| 1A | Phase II oncology | 200 | None (null) |
+| 1B | Phase II oncology | 200 | Two subgroups |
+| 2A | Phase III CVD | 6000 | None (null) |
+| 2B | Phase III CVD | 6000 | Four subgroups |
+| 2C | Phase III CVD (null ATE) | 6000 | Four subgroups, null overall |
+
+We adapt this framework for `forestsearch` across three GLM outcome types:
+
+| Outcome Type | Clinical Analog | Effect Measure | Key Scenarios |
+|---|---|---|---|
+| **Binary** | Disease progression (oncology) | RD, OR | Phase II (small n) and Phase III |
+| **Continuous** | DAS28 change (RA) | MD | Phase III immunology |
+| **Count** | Exacerbations (COPD) | IRR | Phase III respiratory |
+
+For each outcome type, we run:
+
+- **H0 (null)**: No treatment effect heterogeneity --- Type I error
+- **H1 (alternative)**: Planted harm subgroup --- Power, sensitivity,
+  specificity, PPV, NPV, effect estimation bias
+
+
+## Evaluation Metrics
+
+| Metric | Definition |
+|---|---|
+| Detection rate (power) | Proportion of simulations where any subgroup found |
+| Type I error | Detection rate under H0 |
+| Sensitivity | Proportion of true harm patients correctly classified |
+| Specificity | Proportion of true non-harm patients correctly classified |
+| PPV | Among identified harm patients, proportion truly harmed |
+| NPV | Among identified non-harm patients, proportion truly not harmed |
+| Bias (H) | Mean(estimated effect in H) $-$ true effect in H |
+| Bias (Hc) | Mean(estimated effect in Hc) $-$ true effect in Hc |
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+```
+
+```{r parallel-setup}
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("Simulations per scenario:", nsims, "\n")
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Data-Generating Mechanisms {#sec-dgm}
+
+```{r dgm-functions}
+#| code-fold: false
+
+# ============================================================================
+# Binary DGM: Oncology disease progression (Y=1 = adverse event)
+# ForestSearch assumes adverse_outcome=TRUE for binary (Y=1 = harm).
+# Higher log-OR = treatment increases adverse events = HARM.
+#
+# FACTOR CONVENTION: ForestSearch defines subgroups via variable <= cut.
+# For a binary factor with levels "0","1" -> numeric 1,2:
+#   variable <= 1 selects level "0" (the LOWER level).
+# So the HARM subgroup must be factor level "0".
+# ============================================================================
+sim_binary <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id    = seq_len(n),
+    treat = rbinom(n, 1, 0.5),
+    bm1   = as.factor(rbinom(n, 1, 0.70)),   # 30% are "0" = harm subgroup
+    bm2   = as.factor(rbinom(n, 1, 0.50)),   # noise
+    bm3   = as.factor(rbinom(n, 1, 0.45)),   # noise
+    age   = round(rnorm(n, 55, 10)),
+    ecog  = as.factor(sample(0:1, n, replace = TRUE, prob = c(0.6, 0.4)))
+  )
+  # Baseline progression rate ~30% (control)
+  lp <- with(df, {
+    -0.85 +                                  # baseline logit (~30%)
+      0.02 * (age - 55) +                    # age effect
+      0.3 * (ecog == 1)                      # ECOG effect
+  })
+  if (has_hte) {
+    # Harm (bm1=0):       OR = 2.0 -> treatment INCREASES progression
+    # Complement (bm1=1): OR = 0.4 -> treatment DECREASES progression
+    lp <- lp + with(df, {
+      0.69 * treat * (bm1 == 0) +            # log(2.0) = harm
+        -0.92 * treat * (bm1 == 1)           # log(0.4) = benefit
+    })
+  }
+  df$progressed <- rbinom(n, 1, plogis(lp))
+  df$flag_harm  <- as.integer(df$bm1 == 0)
+  df
+}
+
+
+# ============================================================================
+# Continuous DGM: RA DAS28 change from baseline (higher = worse)
+# ForestSearch defaults to adverse_outcome=FALSE for continuous.
+# Since higher DAS28 change = worse, we pass adverse_outcome=TRUE
+# so GRF screening looks for subgroups where treatment INCREASES Y.
+# ============================================================================
+sim_continuous <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id       = seq_len(n),
+    treat    = rbinom(n, 1, 0.5),
+    sero     = as.factor(rbinom(n, 1, 0.65)),  # 35% are "0" = harm subgroup
+    male     = as.factor(rbinom(n, 1, 0.40)),  # noise
+    smoking  = as.factor(rbinom(n, 1, 0.25)),  # noise
+    age      = round(rnorm(n, 55, 12)),
+    bas_das  = round(rnorm(n, 6.0, 0.8), 1)   # baseline DAS28
+  )
+  # Placebo effect ~-1.5; treatment adds ~-1.0 in complement
+  mu <- with(df, {
+    -1.5 +                                     # placebo effect
+      -0.3 * (bas_das - 6.0)                   # regression to mean
+  })
+  if (has_hte) {
+    # Harm (sero=0):       MD = +0.5 (treatment worse than placebo)
+    # Complement (sero=1): MD = -1.0 (treatment beneficial)
+    mu <- mu + with(df, {
+      0.5 * treat * (sero == 0) +
+        -1.0 * treat * (sero == 1)
+    })
+  } else {
+    mu <- mu - 0.5 * df$treat                  # uniform mild benefit
+  }
+  df$das28_chg  <- round(mu + rnorm(n, 0, 1.5), 2)
+  df$flag_harm  <- as.integer(df$sero == 0)
+  df
+}
+
+
+# ============================================================================
+# Count DGM: COPD exacerbations
+# ============================================================================
+sim_count <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id          = seq_len(n),
+    treat       = rbinom(n, 1, 0.5),
+    eos_low     = as.factor(rbinom(n, 1, 0.65)),  # 35% are "0" = harm subgroup
+    smoking     = as.factor(rbinom(n, 1, 0.50)),   # noise
+    male        = as.factor(rbinom(n, 1, 0.45)),   # noise
+    age         = round(rnorm(n, 60, 12)),
+    follow_up   = round(runif(n, 0.5, 3.0), 2)
+  )
+  log_rate <- with(df, {
+    -1.0 + 0.02 * (age - 60) + log(follow_up)
+  })
+  if (has_hte) {
+    log_rate <- log_rate + with(df, {
+      1.0  * treat * (eos_low == 0) +          # harm: IRR = e^1 = 2.7
+        -0.5 * treat * (eos_low == 1)           # benefit: IRR = e^-0.5 = 0.61
+    })
+  }
+  df$exacerbations <- rpois(n, lambda = exp(log_rate))
+  df$flag_harm     <- as.integer(df$eos_low == 0)
+  df
+}
+```
+
+
+# Simulation Scenarios {#sec-scenarios}
+
+```{r scenario-table}
+#| tbl-cap: "Simulation scenarios"
+
+scenarios <- data.frame(
+  ID = c("B-H0", "B-H1-S", "B-H1-L",
+         "C-H0", "C-H1",
+         "K-H0", "K-H1"),
+  Outcome = c("Binary", "Binary", "Binary",
+              "Continuous", "Continuous",
+              "Count", "Count"),
+  Hypothesis = c("Null", "Alternative", "Alternative",
+                 "Null", "Alternative",
+                 "Null", "Alternative"),
+  N = c(200, 200, 800,
+        600, 600,
+        1000, 1000),
+  Setting = c("Phase II oncology", "Phase II oncology", "Phase III oncology",
+              "Phase III RA", "Phase III RA",
+              "Phase III COPD", "Phase III COPD"),
+  `Harm Prevalence` = c("--", "30%", "30%",
+                         "--", "35%",
+                         "--", "35%"),
+  `True Effect (H)` = c("--", "OR=2.0", "OR=2.0",
+                          "--", "MD=+0.5",
+                          "--", "IRR=2.7"),
+  `True Effect (Hc)` = c("--", "OR=0.4", "OR=0.4",
+                           "--", "MD=-1.0",
+                           "--", "IRR=0.61"),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt(scenarios) |>
+  tab_header(
+    title = "Simulation Scenarios",
+    subtitle = "Inspired by the mCART framework (Rigdon et al., 2018)"
+  ) |>
+  tab_row_group(label = "Count (COPD exacerbations)",
+                rows = Outcome == "Count") |>
+  tab_row_group(label = "Continuous (DAS28 change)",
+                rows = Outcome == "Continuous") |>
+  tab_row_group(label = "Binary (disease progression)",
+                rows = Outcome == "Binary")
+```
+
+
+# Simulation Engine {#sec-engine}
+
+```{r run-one-sim}
+#| code-fold: false
+
+run_one_sim <- function(scenario_id, sim_num) {
+
+  # ---- Generate data ----
+  seed <- sim_seed + sim_num
+
+  result <- switch(scenario_id,
+    "B-H0"   = {
+      df <- sim_binary(200, seed, has_hte = FALSE)
+      list(df = df, ot = "binary",  em = "OR",  n = 200,
+           confounders = c("bm1", "bm2", "bm3", "age", "ecog"),
+           on = "progressed", en = "progressed", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           true_H = NA, true_Hc = NA)
+    },
+    "B-H1-S" = {
+      df <- sim_binary(200, seed, has_hte = TRUE)
+      list(df = df, ot = "binary",  em = "OR",  n = 200,
+           confounders = c("bm1", "bm2", "bm3", "age", "ecog"),
+           on = "progressed", en = "progressed", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           true_H = log(2.0), true_Hc = log(0.4))
+    },
+    "B-H1-L" = {
+      df <- sim_binary(800, seed, has_hte = TRUE)
+      list(df = df, ot = "binary",  em = "OR",  n = 800,
+           confounders = c("bm1", "bm2", "bm3", "age", "ecog"),
+           on = "progressed", en = "progressed", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           true_H = log(2.0), true_Hc = log(0.4))
+    },
+    "C-H0"   = {
+      df <- sim_continuous(600, seed, has_hte = FALSE)
+      list(df = df, ot = "continuous", em = "MD", n = 600,
+           confounders = c("sero", "male", "smoking", "age"),
+           on = "das28_chg", en = "das28_chg", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           true_H = NA, true_Hc = NA)
+    },
+    "C-H1"   = {
+      df <- sim_continuous(600, seed, has_hte = TRUE)
+      list(df = df, ot = "continuous", em = "MD", n = 600,
+           confounders = c("sero", "male", "smoking", "age"),
+           on = "das28_chg", en = "das28_chg", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           true_H = 0.5, true_Hc = -1.0)
+    },
+    "K-H0"   = {
+      df <- sim_count(1000, seed, has_hte = FALSE)
+      list(df = df, ot = "count",  em = "IRR",  n = 1000,
+           confounders = c("eos_low", "smoking", "male", "age"),
+           on = "exacerbations", en = "exacerbations", tn = "treat",
+           offset = "follow_up", adverse = TRUE,
+           true_H = NA, true_Hc = NA)
+    },
+    "K-H1"   = {
+      df <- sim_count(1000, seed, has_hte = TRUE)
+      list(df = df, ot = "count",  em = "IRR",  n = 1000,
+           confounders = c("eos_low", "smoking", "male", "age"),
+           on = "exacerbations", en = "exacerbations", tn = "treat",
+           offset = "follow_up", adverse = TRUE,
+           true_H = 1.0, true_Hc = -0.5)
+    }
+  )
+
+  # ---- Run forestsearch ----
+  fs_error <- NA_character_
+  fs <- tryCatch(
+    forestsearch(
+      df.analysis      = result$df,
+      confounders.name = result$confounders,
+      outcome.name     = result$on,
+      event.name       = result$en,
+      treat.name       = result$tn,
+      id.name          = "id",
+      outcome_type     = result$ot,
+      effect_measure   = result$em,
+      offset.name      = result$offset,
+      adverse_outcome  = result$adverse,
+      hr.threshold     = if (result$em == "MD") 0.0 else 1.25,
+      hr.consistency   = if (result$em == "MD") 0.0 else 1.0,
+      pconsistency.threshold = 0.50,
+      fs.splits        = 200,
+      n.min            = max(30, round(result$n * 0.08)),
+      maxk             = 2,
+      use_lasso        = TRUE,
+      use_grf          = TRUE,
+      use_twostage     = TRUE,
+      is.RCT           = TRUE,
+      seedit           = seed,
+      details          = FALSE,
+      plot.sg          = FALSE,
+      parallel_args    = list(plan = "sequential", workers = 1,
+                              show_message = FALSE)
+    ),
+    error = function(e) { fs_error <<- conditionMessage(e); NULL }
+  )
+
+  # ---- Extract results ----
+  found <- !is.null(fs) && !is.null(fs$sg.harm) && length(fs$sg.harm) > 0
+
+  out <- data.table(
+    scenario  = scenario_id,
+    sim       = sim_num,
+    any_found = as.integer(found),
+    sg_found  = if (found) paste(fs$sg.harm, collapse = " & ") else NA_character_,
+    n_total   = result$n,
+    error_msg = fs_error
+  )
+
+  if (found && !is.null(fs$df.est) &&
+      "treat.recommend" %in% names(fs$df.est)) {
+    sg_ind <- fs$df.est$treat.recommend
+    flag   <- result$df$flag_harm
+
+    # Classification metrics
+    tp <- sum(sg_ind == 0 & flag == 1)
+    fp <- sum(sg_ind == 0 & flag == 0)
+    tn <- sum(sg_ind == 1 & flag == 0)
+    fn <- sum(sg_ind == 1 & flag == 1)
+
+    out$sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
+    out$spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+    out$ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+    out$npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+    out$size_H <- sum(sg_ind == 0)
+  } else {
+    out$sens <- out$spec <- out$ppv <- out$npv <- NA_real_
+    out$size_H <- NA_integer_
+  }
+
+  out
+}
+```
+
+
+# Run Simulations {#sec-run}
+
+## Single-Trial Diagnostic
+
+Trace each step of the pipeline independently to pinpoint the failure.
+
+```{r single-trial-diagnostic}
+#| code-fold: false
+
+cat("=== Step-by-step pipeline diagnostic ===\n\n")
+
+# Generate one binary H1 dataset
+set.seed(sim_seed + 1)
+df_diag <- sim_binary(800, sim_seed + 1, has_hte = TRUE)
+
+cat("--- Step 0: Data summary ---\n")
+cat("N:", nrow(df_diag), "| harm (bm1=0):", sum(df_diag$bm1 == 0), "\n")
+cat("Progression rates:\n")
+for (bm in c(0, 1)) {
+  for (arm in c(0, 1)) {
+    idx <- df_diag$bm1 == bm & df_diag$treat == arm
+    cat(sprintf("  bm1=%d, treat=%d: %.3f (n=%d)\n",
+                bm, arm, mean(df_diag$progressed[idx]), sum(idx)))
+  }
+}
+
+cat("\n--- Step 1: Direct GLM estimation (known subgroup) ---\n")
+df_H  <- df_diag[df_diag$bm1 == 0, ]
+df_Hc <- df_diag[df_diag$bm1 == 1, ]
+
+row_H  <- create_glm_row(df_H,  "progressed", "treat", "log_OR", NULL, "none", 0.95)
+row_Hc <- create_glm_row(df_Hc, "progressed", "treat", "log_OR", NULL, "none", 0.95)
+row_all <- create_glm_row(df_diag, "progressed", "treat", "log_OR", NULL, "none", 0.95)
+
+cat(sprintf("  ITT:  log-OR = %.3f (SE=%.3f)\n", row_all$est, row_all$se))
+cat(sprintf("  H:    log-OR = %.3f (SE=%.3f)  [true = +0.69]\n", row_H$est, row_H$se))
+cat(sprintf("  Hc:   log-OR = %.3f (SE=%.3f)  [true = -0.92]\n", row_Hc$est, row_Hc$se))
+
+cat("\n--- Step 2: GRF standalone ---\n")
+grf_diag <- grf.subg.harm.glm(
+  data             = df_diag,
+  confounders.name = c("bm1", "bm2", "bm3", "age", "ecog"),
+  outcome.name     = "progressed",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  adverse_outcome  = TRUE,
+  n.min            = 30,
+  seedit           = sim_seed,
+  verbose          = TRUE
+)
+cat("GRF subgroup:", paste(grf_diag$sg.harm.id %||% "none"), "\n")
+cat("Variable importance:\n")
+print(sort(grf_diag$grf_varimp, decreasing = TRUE))
+
+cat("\n--- Step 3: forestsearch (verbose) ---\n")
+cat("Calling forestsearch with details=TRUE...\n")
+fs_diag <- forestsearch(
+  df.analysis      = df_diag,
+  confounders.name = c("bm1", "bm2", "bm3", "age", "ecog"),
+  outcome.name     = "progressed",
+  event.name       = "progressed",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  adverse_outcome  = TRUE,
+  hr.threshold     = 1.25,
+  hr.consistency   = 1.0,
+  pconsistency.threshold = 0.50,
+  fs.splits        = 200,
+  n.min            = 30,
+  maxk             = 2,
+  use_lasso        = TRUE,
+  use_grf          = TRUE,
+  use_twostage     = TRUE,
+  is.RCT           = TRUE,
+  seedit           = sim_seed,
+  details          = TRUE,
+  plot.sg          = FALSE,
+  parallel_args    = list(plan = "sequential", workers = 1,
+                          show_message = FALSE)
+)
+
+cat("\nforestsearch result:\n")
+cat("  sg.harm:", paste(fs_diag$sg.harm %||% "NULL"), "\n")
+if (!is.null(fs_diag$df.est)) {
+  cat("  df.est columns:", paste(names(fs_diag$df.est), collapse = ", "), "\n")
+  if ("treat.recommend" %in% names(fs_diag$df.est)) {
+    cat("  treat.recommend distribution:\n")
+    print(table(fs_diag$df.est$treat.recommend))
+  }
+}
+
+# Check what the search returned
+cat("\n--- Step 4b: Dump installed forestsearch GLM code path ---\n")
+# Deparse the installed forestsearch function to find the GLM/FSdata section
+fs_body <- capture.output(body(forestsearch::forestsearch))
+# Find lines around get_FSdata, filter_call_args, FSdata, sg.harm = NULL
+patterns <- c("FSdata", "filter_call", "sg.harm", "outcome_type.*!=.*survival",
+              "get_FSdata", "return.*list")
+for (pat in patterns) {
+  idx <- grep(pat, fs_body, ignore.case = TRUE)
+  if (length(idx) > 0) {
+    cat(sprintf("  Pattern '%s' found at lines: %s\n", pat, paste(idx, collapse = ", ")))
+    for (i in idx[1:min(2, length(idx))]) {
+      start <- max(1, i - 2)
+      end <- min(length(fs_body), i + 2)
+      cat(paste("    ", fs_body[start:end], collapse = "\n"), "\n    ---\n")
+    }
+  }
+}
+# First check what get_FSdata accepts
+cat("  get_FSdata signature:\n")
+cat("  ", paste(names(formals(get_FSdata)), collapse = ", "), "\n\n")
+
+# Call get_FSdata with ONLY the parameters it accepts
+tryCatch(
+  withCallingHandlers(
+    {
+      fsdata_test <- get_FSdata(
+        df.analysis      = df_diag,
+        confounders.name = c("bm1", "bm2", "bm3", "age", "ecog"),
+        outcome.name     = "progressed",
+        event.name       = "progressed",
+        outcome_type     = "binary",
+        cont.cutoff      = 4,
+        use_lasso        = TRUE,
+        grf_cuts         = NULL
+      )
+      cat("  get_FSdata returned successfully!\n")
+      cat("  Class:", class(fsdata_test), "\n")
+      cat("  Names:", paste(names(fsdata_test), collapse = ", "), "\n")
+      if (!is.null(fsdata_test$confs_names)) {
+        cat("  Candidate factors:", length(fsdata_test$confs_names), "\n")
+        cat("  ", paste(head(fsdata_test$confs_names, 10), collapse = ", "), "\n")
+      }
+    },
+    warning = function(w) {
+      cat("  WARNING:", conditionMessage(w), "\n")
+      invokeRestart("muffleWarning")
+    }
+  ),
+  error = function(e) {
+    cat("  ERROR:", conditionMessage(e), "\n")
+    cat("  Traceback:\n")
+    calls <- sys.calls()
+    for (i in seq_along(calls)) {
+      cat("  ", i, ":", deparse(calls[[i]], nlines = 1), "\n")
+    }
+  }
+)
+
+cat("\n--- Step 4c: get_FSdata with grf_cuts (reproduce failure) ---\n")
+# Get the actual grf_cuts that forestsearch would pass
+grf_cuts_actual <- grf_diag$tree.cuts
+cat("  grf_cuts class:", class(grf_cuts_actual), "\n")
+cat("  grf_cuts length:", length(grf_cuts_actual), "\n")
+if (is.list(grf_cuts_actual)) {
+  cat("  grf_cuts names:", paste(names(grf_cuts_actual), collapse = ", "), "\n")
+  str(grf_cuts_actual, max.level = 2)
+} else {
+  cat("  grf_cuts value:", paste(head(grf_cuts_actual, 10), collapse = ", "), "\n")
+}
+
+# Now call get_FSdata with the actual grf_cuts
+cat("\n  Calling get_FSdata with grf_cuts from GRF...\n")
+tryCatch(
+  withCallingHandlers(
+    {
+      fsdata_test2 <- get_FSdata(
+        df.analysis      = df_diag,
+        confounders.name = c("bm1", "bm2", "bm3", "age", "ecog"),
+        outcome.name     = "progressed",
+        event.name       = "progressed",
+        outcome_type     = "binary",
+        cont.cutoff      = 4,
+        use_lasso        = TRUE,
+        use_grf          = TRUE,
+        grf_cuts         = grf_cuts_actual
+      )
+      cat("  SUCCESS with grf_cuts!\n")
+      cat("  Candidate factors:", length(fsdata_test2$confs_names), "\n")
+    },
+    warning = function(w) {
+      cat("  WARNING:", conditionMessage(w), "\n")
+      invokeRestart("muffleWarning")
+    }
+  ),
+  error = function(e) {
+    cat("  ERROR:", conditionMessage(e), "\n")
+  }
+)
+cat("\n--- Step 5: Examine forestsearch internals ---\n")
+cat("  Names in result:", paste(names(fs_diag), collapse = ", "), "\n")
+for (nm in c("sg.harm", "hr.subgroups", "details.subgroups",
+             "subgroups", "grf_res")) {
+  val <- fs_diag[[nm]]
+  if (!is.null(val)) {
+    cat(sprintf("  $%s: %s (length %d)\n", nm, class(val)[1], length(val)))
+  } else {
+    cat(sprintf("  $%s: NULL\n", nm))
+  }
+}
+```
+
+## Full Simulation
+
+```{r run-all}
+t0 <- proc.time()[3]
+
+scenario_ids <- c("B-H0", "B-H1-S", "B-H1-L",
+                  "C-H0", "C-H1",
+                  "K-H0", "K-H1")
+
+results_list <- foreach(
+  sc = rep(scenario_ids, each = nsims),
+  sim = rep(seq_len(nsims), times = length(scenario_ids)),
+  .errorhandling = "pass",
+  .options.future = list(packages = c("forestsearch", "data.table"))
+) %dofuture% {
+  run_one_sim(sc, sim)
+}
+
+all_results <- rbindlist(results_list, fill = TRUE)
+
+timings$simulations <- proc.time()[3] - t0
+cat(sprintf("Total simulation time: %.1f sec (%.1f min)\n",
+            timings$simulations, timings$simulations / 60))
+cat(sprintf("Scenarios: %d | Sims per scenario: %d | Total: %d\n",
+            length(scenario_ids), nsims, nrow(all_results)))
+```
+
+## Diagnostic: Error Messages
+
+```{r diagnostics}
+# Show error summary
+errors <- all_results[!is.na(error_msg)]
+if (nrow(errors) > 0) {
+  cat("=== ERRORS DETECTED ===\n")
+  cat("Total errors:", nrow(errors), "of", nrow(all_results), "simulations\n\n")
+
+  error_summary <- errors[, .N, by = .(scenario, error_msg)]
+  setorder(error_summary, scenario, -N)
+  for (i in seq_len(nrow(error_summary))) {
+    cat(sprintf("[%s] %d errors: %s\n",
+                error_summary$scenario[i],
+                error_summary$N[i],
+                substr(error_summary$error_msg[i], 1, 120)))
+  }
+} else {
+  cat("No errors detected.\n")
+}
+
+cat("\n=== Detection summary ===\n")
+det_summary <- all_results[, .(
+  n_sims = .N,
+  n_found = sum(any_found),
+  n_errors = sum(!is.na(error_msg))
+), by = scenario]
+print(det_summary)
+```
+
+
+# Results {#sec-results}
+
+## Summary Table
+
+```{r summary-table}
+#| tbl-cap: "Operating characteristics by scenario"
+
+summary_dt <- all_results[, .(
+  N        = .N,
+  Power    = round(mean(any_found, na.rm = TRUE), 3),
+  Sens     = round(mean(sens, na.rm = TRUE), 3),
+  Spec     = round(mean(spec, na.rm = TRUE), 3),
+  PPV      = round(mean(ppv, na.rm = TRUE), 3),
+  NPV      = round(mean(npv, na.rm = TRUE), 3),
+  Mean_nH  = round(mean(size_H, na.rm = TRUE), 0)
+), by = scenario]
+
+# Merge with scenario metadata
+meta <- data.table(scenarios)[, .(ID, Outcome, Hypothesis, N, Setting)]
+setnames(meta, "ID", "scenario")
+setnames(meta, "N", "Sample_N")
+
+summary_merged <- merge(meta, summary_dt, by = "scenario")
+setorder(summary_merged, Outcome, Hypothesis)
+
+gt(summary_merged) |>
+  tab_header(
+    title = "ForestSearch GLM Operating Characteristics",
+    subtitle = sprintf("%d simulations per scenario | %d workers",
+                        nsims, n_workers)
+  ) |>
+  cols_label(
+    scenario = "Scenario", Outcome = "Outcome", Hypothesis = "H",
+    Sample_N = "N", Setting = "Setting", N = "Sims",
+    Power = "Detection", Sens = "Sens", Spec = "Spec",
+    PPV = "PPV", NPV = "NPV", Mean_nH = "Mean n(H)"
+  ) |>
+  tab_spanner(label = "Classification Metrics",
+              columns = c(Sens, Spec, PPV, NPV)) |>
+  tab_source_note(
+    sprintf("Runtime: %.1f min | Seed: %d",
+            timings$simulations / 60, sim_seed)
+  )
+```
+
+
+## Detection Rates
+
+```{r detection-plot}
+#| fig-height: 5
+#| fig-cap: "Detection rates by scenario. H0 scenarios show Type I error; H1 scenarios show power."
+
+det_dt <- all_results[, .(
+  Detection = mean(any_found, na.rm = TRUE)
+), by = scenario]
+
+det_dt <- merge(det_dt, meta, by = "scenario")
+
+det_dt$label <- sprintf("%s\n(n=%s)", det_dt$scenario, det_dt$Sample_N)
+det_dt$label <- factor(det_dt$label, levels = det_dt$label[order(det_dt$Outcome, det_dt$Hypothesis)])
+
+ggplot(det_dt, aes(x = label, y = Detection, fill = Hypothesis)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = sprintf("%.3f", Detection)),
+            vjust = -0.5, size = 3.5) +
+  scale_fill_manual(values = c("Null" = "grey70", "Alternative" = "steelblue")) +
+  facet_wrap(~ Outcome, scales = "free_x", nrow = 1) +
+  labs(x = NULL, y = "Detection Rate",
+       title = "Subgroup Detection Rates by Scenario",
+       subtitle = sprintf("%d simulations per scenario", nsims)) +
+  ylim(0, 1.1) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", axis.text.x = element_text(size = 8),
+        plot.title = element_text(face = "bold"))
+```
+
+
+## Classification Metrics (H1 Only)
+
+```{r classification-plot}
+#| fig-height: 5
+#| fig-cap: "Classification metrics for alternative hypothesis scenarios (where subgroup was found)."
+
+h1_dt <- all_results[grepl("H1", scenario) & any_found == 1]
+
+if (nrow(h1_dt) > 0) {
+  class_long <- melt(h1_dt,
+    id.vars = "scenario",
+    measure.vars = c("sens", "spec", "ppv", "npv"),
+    variable.name = "Metric", value.name = "Value"
+  )
+  class_long$Metric <- toupper(as.character(class_long$Metric))
+
+  ggplot(class_long, aes(x = Metric, y = Value, fill = Metric)) +
+    geom_boxplot(outlier.size = 1, alpha = 0.7) +
+    facet_wrap(~ scenario, nrow = 1) +
+    scale_fill_brewer(palette = "Set2") +
+    labs(x = NULL, y = "Value",
+         title = "Classification Metrics (H1 Scenarios)",
+         subtitle = "Distributions across simulations where subgroup was found") +
+    ylim(0, 1) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold"))
+} else {
+  cat("No subgroups found in any H1 simulation.\n")
+}
+```
+
+
+## Subgroup Size Distribution
+
+```{r size-plot}
+#| fig-height: 4
+#| fig-cap: "Distribution of identified harm subgroup size across simulations"
+
+h1_found <- all_results[grepl("H1", scenario) & any_found == 1]
+
+if (nrow(h1_found) > 0) {
+  ggplot(h1_found, aes(x = scenario, y = size_H, fill = scenario)) +
+    geom_boxplot(alpha = 0.7) +
+    geom_hline(aes(yintercept = n_total * 0.30),
+               linetype = "dashed", color = "red", linewidth = 0.5) +
+    labs(x = "Scenario", y = "n(H) identified",
+         title = "Identified Harm Subgroup Size",
+         subtitle = "Dashed line: true harm prevalence (30-35 percent of N)") +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "none",
+          plot.title = element_text(face = "bold"))
+} else {
+  cat("No subgroups found in any H1 simulation.\n")
+}
+```
+
+
+## Most Frequently Identified Subgroups
+
+```{r freq-subgroups}
+#| tbl-cap: "Top subgroups identified across simulations"
+
+h1_found <- all_results[grepl("H1", scenario) & any_found == 1]
+
+if (nrow(h1_found) > 0) {
+  freq_dt <- h1_found[, .N, by = .(scenario, sg_found)]
+  freq_dt <- freq_dt[order(scenario, -N)]
+
+  # Top 3 per scenario
+  freq_top <- freq_dt[, head(.SD, 3), by = scenario]
+  freq_top$Pct <- round(100 * freq_top$N /
+    freq_dt[, sum(N), by = scenario][freq_top, on = "scenario"]$V1, 1)
+
+  gt(freq_top) |>
+    tab_header(
+      title = "Most Frequently Identified Subgroups",
+      subtitle = "Top 3 per scenario (among simulations where subgroup found)"
+    ) |>
+    cols_label(scenario = "Scenario", sg_found = "Subgroup Definition",
+               N = "Count", Pct = "Percent")
+} else {
+  cat("No subgroups found in any H1 simulation.\n")
+}
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Stage = c("All simulations", "Total (including setup)"),
+  Seconds = c(timings$simulations, timings$total),
+  Minutes = c(timings$simulations / 60, timings$total / 60),
+  stringsAsFactors = FALSE
+)
+
+gt(timing_df) |>
+  tab_header(
+    title = "Computational Timing",
+    subtitle = sprintf("%d total simulations | %d workers",
+                        nsims * length(scenario_ids), n_workers)
+  ) |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)", Minutes = "Time (min)") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total (including setup)")
+  )
+```
+
+
+# Summary {#sec-summary}
+
+This simulation study evaluated `forestsearch()` across three GLM
+outcome types and seven scenarios inspired by the mCART framework.
+
+**Key findings:**
+
+- **Type I error** (H0 scenarios): Detection rates under the null
+  hypothesis quantify the false positive rate for each outcome type.
+  ForestSearch's split-sample consistency criterion provides built-in
+  multiplicity protection.
+
+- **Power** (H1 scenarios): Detection rates under the alternative
+  depend on sample size, effect magnitude, and the consistency
+  criterion stringency.  The small-sample Phase II binary scenario
+  (B-H1-S, n = 200) is the most challenging; the larger Phase III
+  scenarios have higher power.
+
+- **Classification accuracy**: When a subgroup is found, sensitivity,
+  specificity, PPV, and NPV characterize how well the identified
+  subgroup matches the true harm subgroup.
+
+- **Outcome type differences**: Count data faces higher variance in
+  half-sample splits (fewer events per arm), making the consistency
+  criterion harder to satisfy.  Continuous outcomes are the most
+  stable.  Binary outcomes in small samples (n = 200) face
+  separation issues.
+
+
+## Comparison to mCART Results
+
+The mCART paper found that in the Phase II oncology scenario (n = 200),
+mCART did not identify the true subgroups (false negatives), while LR,
+RF, and gradient RF found mostly false positives.  ForestSearch's
+consistency criterion is expected to behave similarly: conservative in
+small samples (few false positives, but also lower power) and more
+powerful in larger samples where the signal is strong enough to
+replicate across random splits.
+
+
+# References {#sec-references}
+
+- Rigdon, J., Basu, S., Engel, R., Baiocchi, M. (2018). Preventing
+  false discovery of heterogeneous treatment effect subgroups in
+  randomized trials. *Trials*, 19, 382.
+
+- Leon, L.F., et al. (2024). Exploratory Subgroup Identification.
+  *Statistics in Medicine*, 43, 4253--4275. doi:10.1002/sim.10163
+
+- DINA: Estimating Heterogeneous Treatment Effects for General
+  Responses. *Biometrics*, 81(4), 2025.
+
+- Foster, J.C., et al. (2011). Subgroup identification from
+  randomized clinical trial data. *Statistics in Medicine*, 30,
+  2867--2880. (Virtual Twins)
+
+
+# Session Information {#sec-session}
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```

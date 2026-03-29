@@ -36,7 +36,7 @@ setup_parallel_SGcons <- function(parallel_args = list(
 )) {
   plan_type <- parallel_args$plan
   n_workers <- parallel_args$workers
-  show_message <- parallel_args$show_message
+  show_message <- isTRUE(parallel_args$show_message)
 
   if (is.null(plan_type)) stop("parallel_args$plan must be specified.")
 
