@@ -1,0 +1,670 @@
+---
+title: "Null Threshold Search for Binary Outcomes"
+subtitle: "Mapping the (c1, c2) Operating Region Where FPR <= 10-12%"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+nsims_null  <- 20L
+sim_seed    <- 8316951L
+n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+```
+
+
+# Introduction {#sec-intro}
+
+The companion document `binary_threshold_calibration.qmd`
+establishes that:
+
+- The per-subgroup approximation $P_1$ is accurate for
+  **power** (H1) at $N \ge 500$
+- Under **H0**, the procedure-level FPR exceeds $P_1$ by a
+  factor $L_{\text{eff}}$ that grows with $N$
+- The $L_{\text{eff}}$-corrected approximation
+  $1 - (1-P_1)^{L_{\text{eff}}}$ aligns well with simulation
+
+This document focuses exclusively on **null operating
+characteristics** for the binary DGM.  We sweep a dense
+$(c_1, c_2)$ grid at multiple sample sizes to identify
+threshold configurations where the simulated FPR is at most
+10--12%.
+
+All simulations are under $H_0$ (uniform treatment effect,
+no subgroup heterogeneity).
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+```{r setup-parallel}
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("Sims per config:", nsims_null, "\n")
+```
+
+
+# Binary Null DGM {#sec-dgm}
+
+Under $H_0$: no treatment-by-biomarker interaction.  The
+outcome probability is $\approx 30\%$ with prognostic effects
+from age and ECOG but no treatment effect heterogeneity.
+
+```{r sim-null-fn}
+#| code-fold: false
+
+sim_binary_null <- function(n, seed) {
+  set.seed(seed)
+  df <- data.frame(
+    id = seq_len(n),
+    treat = rbinom(n, 1, 0.5),
+    bm1 = as.factor(rbinom(n, 1, 0.70)),
+    bm2 = as.factor(rbinom(n, 1, 0.50)),
+    age = round(rnorm(n, 55, 10)),
+    ecog = as.factor(sample(0:1, n, replace = TRUE, prob = c(0.6, 0.4)))
+  )
+  # No treatment effect (H0): prognostic covariates only
+  lp <- with(df, qlogis(0.30) + 0.02 * (age - 55) + 0.3 * (ecog == 1))
+  df$progressed <- rbinom(n, 1, plogis(lp))
+  df
+}
+```
+
+
+# Part I: Per-Subgroup Approximation {#sec-approx}
+
+Instant calculations --- no simulation required.
+
+```{r approx-fn}
+#| code-fold: false
+
+p_detect <- function(theta, d_eff, c1, c2) {
+  compute_detection_probability_glm(
+    theta = theta, d_eff = d_eff, c1 = c1, c2 = c2,
+    effect_scale = "ratio", method = "monte_carlo"
+  )
+}
+```
+
+
+## Approximation Grid
+
+```{r approx-grid}
+#| tbl-cap: "Per-subgroup P1(theta=1) across (c1,c2) for n(H)=150, p=0.30"
+
+# Representative subgroup: 30% prevalence at N=500 -> n_H=150
+n_H_ref <- 150
+p_event <- 0.30
+d_eff_ref <- d_eff_binary(n_H_ref, p_event)
+
+c1_seq <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50,
+            1.60, 1.70, 1.80)
+c2_seq <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25,
+            1.30, 1.40, 1.50)
+
+approx_null <- expand.grid(c1 = c1_seq, c2 = c2_seq,
+                            stringsAsFactors = FALSE)
+approx_null <- approx_null[approx_null$c2 <= approx_null$c1, ]
+
+approx_null$P1 <- mapply(function(c1v, c2v) {
+  round(p_detect(1.0, d_eff_ref, c1v, c2v), 4)
+}, approx_null$c1, approx_null$c2)
+
+cat(sprintf("Reference: n(H)=%d, p=%.2f, d_eff=%.1f\n",
+            n_H_ref, p_event, d_eff_ref))
+cat(sprintf("Grid: %d (c1,c2) pairs\n\n", nrow(approx_null)))
+
+gt(approx_null[approx_null$P1 <= 0.20, ]) |>
+  tab_header(
+    title = "Per-Subgroup P1(theta=1.0) by Threshold Pair",
+    subtitle = sprintf("n(H)=%d, p=%.2f, d_eff=%.1f (showing P1 <= 20%%)",
+                        n_H_ref, p_event, d_eff_ref)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = P1, rows = P1 <= 0.10)) |>
+  tab_style(style = cell_fill(color = "#FFF9C4"),
+    locations = cells_body(columns = P1,
+      rows = P1 > 0.10 & P1 <= 0.15))
+```
+
+
+## Approximation Heatmap
+
+```{r approx-heatmap, fig.width=9, fig.height=7}
+#| fig-cap: "Per-subgroup P1(theta=1) heatmap.  The procedure-level FPR will be higher by a factor of L_eff."
+
+ggplot(approx_null, aes(x = factor(c1), y = factor(c2), fill = P1)) +
+  geom_tile(colour = "white", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.1f%%", 100 * P1)),
+            size = 3, colour = "black") +
+  scale_fill_gradient2(
+    low = "#E8F5E9", mid = "#FFF9C4", high = "#E53935",
+    midpoint = 0.10, name = "P1"
+  ) +
+  labs(x = expression(c[1] ~ "(screening)"),
+       y = expression(c[2] ~ "(consistency)"),
+       title = "Per-Subgroup Approximation: P1(theta=1)",
+       subtitle = sprintf("Binary, n(H)=%d, p=%.2f, d_eff=%.1f",
+                           n_H_ref, p_event, d_eff_ref)) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"),
+        axis.text = element_text(size = 10))
+```
+
+
+# Part II: $L_{\text{eff}}$ Calibration {#sec-leff}
+
+## Multi-N Null Simulations
+
+Run ForestSearch under $H_0$ at the paper defaults (c1=1.25,
+c2=1.0) across multiple sample sizes to calibrate
+$L_{\text{eff}}$.
+
+```{r leff-sims}
+N_cal_values <- c(200, 300, 500, 700, 1000)
+n_sims_cal <- min(nsims_null, 200L)
+n_min_val <- 60
+pcons <- 0.90
+
+cat("Running L_eff calibration simulations...\n")
+t0 <- proc.time()[3]
+
+cal_results <- list()
+for (N_val in N_cal_values) {
+  t_N <- proc.time()[3]
+
+  res_N <- foreach(
+    s = seq_len(n_sims_cal),
+    .combine = c, .errorhandling = "pass",
+    .options.future = list(packages = c("forestsearch", "data.table"))
+  ) %dofuture% {
+    seed <- sim_seed + (N_val * 1000L) + s
+    df_null <- sim_binary_null(N_val, seed)
+    fs <- tryCatch(
+      forestsearch(
+        df.analysis = df_null,
+        confounders.name = c("bm1", "bm2", "age", "ecog"),
+        outcome.name = "progressed", event.name = "progressed",
+        treat.name = "treat", id.name = "id",
+        outcome_type = "binary", effect_measure = "OR",
+        adverse_outcome = TRUE,
+        hr.threshold = 1.25, hr.consistency = 1.0,
+        pconsistency.threshold = pcons, fs.splits = 400,
+        n.min = n_min_val, maxk = 2,
+        use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+        is.RCT = TRUE, seedit = seed, details = FALSE, plot.sg = FALSE,
+        parallel_args = list(plan = "sequential", workers = 1,
+                             show_message = FALSE)
+      ),
+      error = function(e) NULL
+    )
+    found <- !is.null(fs) && !is.null(fs$sg.harm) && length(fs$sg.harm) > 0
+    as.integer(found)
+  }
+
+  res_clean <- unlist(res_N[sapply(res_N, is.numeric)])
+  fpr_N <- mean(res_clean, na.rm = TRUE)
+  cal_results[[as.character(N_val)]] <- data.frame(
+    N = N_val, sim_fpr = fpr_N, n_sims = length(res_clean)
+  )
+
+  cat(sprintf("  N = %4d: FPR = %.3f (%d/%d) | %.1f sec\n",
+      N_val, fpr_N, sum(res_clean), length(res_clean),
+      proc.time()[3] - t_N))
+}
+
+cal_df <- do.call(rbind, cal_results)
+timings$leff_cal <- proc.time()[3] - t0
+cat(sprintf("L_eff calibration: %.1f min\n", timings$leff_cal / 60))
+```
+
+
+## Fit $L_{\text{eff}}$
+
+```{r fit-leff}
+#| fig-height: 5
+#| fig-cap: "Implied L_eff with power-law fit for the binary DGM (4 confounders)."
+
+p_harm <- 0.30  # 30% prevalence of harm subgroup
+
+cal_df$n_H <- round(p_harm * cal_df$N)
+cal_df$d_eff <- d_eff_binary(cal_df$n_H, p_event)
+cal_df$P1 <- sapply(cal_df$d_eff, function(d) {
+  p_detect(1.0, d, 1.25, 1.0)
+})
+
+# Clamp sim_fpr away from 0 and 1
+cal_df$sim_fpr <- pmax(cal_df$sim_fpr, 0.5 / n_sims_cal)
+cal_df$sim_fpr <- pmin(cal_df$sim_fpr, 1 - 0.5 / n_sims_cal)
+
+cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
+
+cat("=== Implied L_eff ===\n")
+print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "L_eff")])
+
+# Fit power law
+cal_valid <- cal_df[is.finite(cal_df$L_eff) & cal_df$L_eff > 0, ]
+
+if (nrow(cal_valid) >= 2) {
+  leff_cal <- calibrate_L_eff(
+    N = cal_valid$N, P1 = cal_valid$P1,
+    sim_fpr = cal_valid$sim_fpr, n_min = n_min_val
+  )
+  print(leff_cal)
+
+  C_fit <- leff_cal$C
+  alpha_fit <- leff_cal$alpha
+
+  N_pred <- seq(100, 1200, by = 5)
+  pred_curve <- data.frame(
+    N = N_pred, L_eff = C_fit * (N_pred / n_min_val)^alpha_fit
+  )
+
+  ggplot() +
+    geom_point(data = cal_valid, aes(x = N, y = L_eff),
+               size = 4, colour = "firebrick") +
+    geom_line(data = pred_curve, aes(x = N, y = L_eff),
+              colour = "steelblue", linewidth = 1) +
+    labs(x = "Total Sample Size N",
+         y = expression(L[eff]),
+         title = expression(L[eff] * " Calibration: Binary DGM"),
+         subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f   (4 confounders)",
+                             C_fit, n_min_val, alpha_fit)) +
+    theme_minimal(base_size = 12) +
+    theme(plot.title = element_text(face = "bold"))
+} else {
+  cat("Insufficient calibration points. Using L_eff = 1.\n")
+  C_fit <- 1; alpha_fit <- 0
+}
+```
+
+
+# Part III: Null Threshold Grid {#sec-grid}
+
+Sweep a dense $(c_1, c_2)$ grid under $H_0$ at multiple
+sample sizes.
+
+## Grid Design
+
+```{r grid-config}
+#| code-fold: false
+
+c1_grid <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40,
+             1.50, 1.60, 1.70, 1.80)
+c2_grid <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20,
+             1.25, 1.30, 1.40, 1.50)
+
+grid_pairs <- expand.grid(c1 = c1_grid, c2 = c2_grid,
+                           stringsAsFactors = FALSE)
+grid_pairs <- grid_pairs[grid_pairs$c2 <= grid_pairs$c1, ]
+
+N_grid_values <- c(500, 700, 1000)
+nsims_grid <- nsims_null
+
+cat(sprintf("Null grid: %d (c1,c2) pairs x %d N values x %d sims = %d tasks\n",
+    nrow(grid_pairs), length(N_grid_values), nsims_grid,
+    nrow(grid_pairs) * length(N_grid_values) * nsims_grid))
+```
+
+
+## Run Grid Simulations
+
+```{r run-grid}
+t0 <- proc.time()[3]
+
+# Build task list across all N values
+grid_tasks <- do.call(rbind, lapply(N_grid_values, function(N_val) {
+  do.call(rbind, lapply(seq_len(nrow(grid_pairs)), function(g) {
+    data.frame(
+      N = N_val, sim = seq_len(nsims_grid),
+      c1 = grid_pairs$c1[g], c2 = grid_pairs$c2[g],
+      stringsAsFactors = FALSE
+    )
+  }))
+}))
+
+cat(sprintf("Running %d null grid tasks...\n", nrow(grid_tasks)))
+
+grid_results <- foreach(
+  i = seq_len(nrow(grid_tasks)),
+  .combine = rbind, .errorhandling = "remove",
+  .options.future = list(packages = c("forestsearch", "data.table"))
+) %dofuture% {
+  N_val <- grid_tasks$N[i]
+  sim_id <- grid_tasks$sim[i]
+  c1_val <- grid_tasks$c1[i]
+  c2_val <- grid_tasks$c2[i]
+
+  seed <- sim_seed + (N_val * 1000L) + sim_id
+  df_null <- sim_binary_null(N_val, seed)
+
+  fs <- tryCatch(
+    forestsearch(
+      df.analysis = df_null,
+      confounders.name = c("bm1", "bm2", "age", "ecog"),
+      outcome.name = "progressed", event.name = "progressed",
+      treat.name = "treat", id.name = "id",
+      outcome_type = "binary", effect_measure = "OR",
+      adverse_outcome = TRUE,
+      hr.threshold = c1_val, hr.consistency = c2_val,
+      pconsistency.threshold = pcons, fs.splits = 400,
+      n.min = n_min_val, maxk = 2,
+      use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+      is.RCT = TRUE, seedit = seed, details = FALSE, plot.sg = FALSE,
+      parallel_args = list(plan = "sequential", workers = 1,
+                           show_message = FALSE)
+    ),
+    error = function(e) NULL
+  )
+
+  found <- !is.null(fs) && !is.null(fs$sg.harm) && length(fs$sg.harm) > 0
+  data.table(N = N_val, sim = sim_id, c1 = c1_val, c2 = c2_val,
+             any_found = as.integer(found))
+}
+
+timings$null_grid <- proc.time()[3] - t0
+cat(sprintf("Null grid: %.1f min | %d results\n",
+    timings$null_grid / 60, nrow(grid_results)))
+```
+
+
+# Part IV: Results {#sec-results}
+
+## FPR by Threshold Pair and N
+
+```{r grid-fpr}
+grid_dt <- data.table(grid_results)
+grid_fpr <- grid_dt[, .(
+  FPR = mean(any_found, na.rm = TRUE),
+  n_found = sum(any_found, na.rm = TRUE),
+  n_sims = .N
+), by = .(N, c1, c2)]
+
+# Add approximations
+grid_fpr[, n_H := round(p_harm * N)]
+grid_fpr[, d_eff := d_eff_binary(n_H, p_event)]
+grid_fpr[, P1 := mapply(function(d, c1v, c2v) {
+  p_detect(1.0, d, c1v, c2v)
+}, d_eff, c1, c2)]
+
+# L_eff corrected
+grid_fpr[, L_eff_N := C_fit * (N / n_min_val)^alpha_fit]
+grid_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
+```
+
+
+## FPR Heatmaps by N
+
+```{r grid-heatmaps, fig.width=10, fig.height=12}
+#| fig-cap: "Simulated FPR heatmaps by (c1, c2) at each sample size.  Green region: FPR <= 10%."
+
+heatmap_list <- lapply(N_grid_values, function(N_val) {
+  sub <- grid_fpr[N == N_val]
+  ggplot(sub, aes(x = factor(c1), y = factor(c2), fill = FPR)) +
+    geom_tile(colour = "white", linewidth = 0.5) +
+    geom_text(aes(label = sprintf("%.0f%%", 100 * FPR)),
+              size = 2.8, colour = "black") +
+    scale_fill_gradient2(
+      low = "#E8F5E9", mid = "#FFF9C4", high = "#E53935",
+      midpoint = 0.10,
+      limits = c(0, max(grid_fpr$FPR, 0.30)),
+      name = "FPR"
+    ) +
+    labs(x = expression(c[1]),
+         y = expression(c[2]),
+         title = sprintf("N = %d", N_val)) +
+    theme_minimal(base_size = 11) +
+    theme(plot.title = element_text(face = "bold"),
+          axis.text = element_text(size = 9))
+})
+
+wrap_plots(heatmap_list, ncol = 1) +
+  plot_annotation(
+    title = "Simulated FPR Under H0: Binary DGM",
+    subtitle = sprintf("%d sims per pair, n.min=%d, pcons=%.2f",
+                        nsims_grid, n_min_val, pcons))
+```
+
+
+## FPR Table (Acceptable Region)
+
+```{r grid-fpr-table}
+#| tbl-cap: "Threshold pairs with simulated FPR <= 15%.  Green: FPR <= 10%.  Yellow: 10-12%.  Orange: 12-15%."
+
+acceptable <- grid_fpr[FPR <= 0.15]
+setorder(acceptable, N, FPR)
+
+if (nrow(acceptable) > 0) {
+  gt(acceptable[, .(N, c1, c2,
+    `Sim FPR` = round(FPR, 3),
+    `P1` = round(P1, 3),
+    `FPR (corr)` = round(FPR_corr, 3),
+    `Sim/Corr` = round(FPR / pmax(FPR_corr, 0.001), 2))]) |>
+    tab_header(
+      title = md("**Threshold Configurations with FPR <= 15%**"),
+      subtitle = sprintf("Binary DGM, n.min=%d, pcons=%.2f",
+                          n_min_val, pcons)
+    ) |>
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = `Sim FPR`,
+        rows = `Sim FPR` <= 0.10)) |>
+    tab_style(style = cell_fill(color = "#FFF9C4"),
+      locations = cells_body(columns = `Sim FPR`,
+        rows = `Sim FPR` > 0.10 & `Sim FPR` <= 0.12)) |>
+    tab_style(style = cell_fill(color = "#FFE0B2"),
+      locations = cells_body(columns = `Sim FPR`,
+        rows = `Sim FPR` > 0.12 & `Sim FPR` <= 0.15)) |>
+    tab_row_group(label = "N = 1000", rows = N == 1000) |>
+    tab_row_group(label = "N = 700", rows = N == 700) |>
+    tab_row_group(label = "N = 500", rows = N == 500)
+} else {
+  cat("No configurations achieved FPR <= 15% in this grid.\n")
+}
+```
+
+
+## FPR Sensitivity to $c_2$ (Fixing $c_1$)
+
+```{r c2-profiles, fig.width=10, fig.height=8}
+#| fig-cap: "FPR vs c2 for each fixed c1, by sample size.  The 10-12% target band is highlighted."
+
+ggplot(grid_fpr, aes(x = c2, y = FPR,
+                      colour = factor(c1), group = factor(c1))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
+  geom_hline(yintercept = 0.12, linetype = "dashed", colour = "orange") +
+  annotate("rect", xmin = -Inf, xmax = Inf,
+           ymin = 0.10, ymax = 0.12,
+           alpha = 0.12, fill = "gold") +
+  facet_wrap(~ paste("N =", N), ncol = 1) +
+  scale_colour_brewer(palette = "Paired") +
+  labs(x = expression(c[2] ~ "(consistency threshold)"),
+       y = "Simulated FPR",
+       title = "FPR Sensitivity to Consistency Threshold",
+       colour = expression(c[1])) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        plot.title = element_text(face = "bold"))
+```
+
+
+## FPR Sensitivity to $c_1$ (Fixing $c_2$)
+
+```{r c1-profiles, fig.width=10, fig.height=8}
+#| fig-cap: "FPR vs c1 for each fixed c2, by sample size."
+
+ggplot(grid_fpr, aes(x = c1, y = FPR,
+                      colour = factor(c2), group = factor(c2))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
+  geom_hline(yintercept = 0.12, linetype = "dashed", colour = "orange") +
+  annotate("rect", xmin = -Inf, xmax = Inf,
+           ymin = 0.10, ymax = 0.12,
+           alpha = 0.12, fill = "gold") +
+  facet_wrap(~ paste("N =", N), ncol = 1) +
+  scale_colour_brewer(palette = "Set3") +
+  labs(x = expression(c[1] ~ "(screening threshold)"),
+       y = "Simulated FPR",
+       title = "FPR Sensitivity to Screening Threshold",
+       colour = expression(c[2])) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        plot.title = element_text(face = "bold"))
+```
+
+
+## $L_{\text{eff}}$ Correction Accuracy Across the Grid
+
+```{r corr-scatter, fig.width=9, fig.height=6}
+#| fig-cap: "Corrected (triangles) vs uncorrected (circles) against simulation across the full grid."
+
+ggplot(grid_fpr, aes(x = FPR)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+              colour = "grey50") +
+  geom_point(aes(y = P1, colour = "Uncorrected P1"),
+             size = 2, alpha = 0.5) +
+  geom_point(aes(y = FPR_corr, colour = "L_eff Corrected"),
+             size = 2, alpha = 0.5, shape = 17) +
+  scale_colour_manual(values = c("Uncorrected P1" = "firebrick",
+                                  "L_eff Corrected" = "steelblue")) +
+  facet_wrap(~ paste("N =", N)) +
+  coord_equal(xlim = c(0, max(grid_fpr$FPR, 0.3)),
+              ylim = c(0, max(grid_fpr$P1, 0.3))) +
+  labs(x = "Simulated FPR", y = "Approximated FPR",
+       title = "Approximation Accuracy Across Full Grid",
+       colour = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+## Comparison to Survival
+
+```{r compare-survival}
+cat("=== Cross-DGM L_eff Comparison ===\n\n")
+cat(sprintf("Binary DGM (4 confounders, maxk=2):\n"))
+cat(sprintf("  L_eff = %.3f * (N/%d)^%.3f\n", C_fit, n_min_val, alpha_fit))
+for (N_val in c(500, 700, 1000)) {
+  L <- C_fit * (N_val / n_min_val)^alpha_fit
+  cat(sprintf("  N = %4d: L_eff = %.1f\n", N_val, L))
+}
+cat("\nGBSG Survival DGM (7 confounders, maxk=2):\n")
+cat("  See cox_vs_glm_approximation.qmd for comparison.\n")
+cat("  Expected: larger L_eff (more confounders -> more candidates)\n")
+```
+
+
+# Summary {#sec-summary}
+
+```{r summary}
+cat("=== Null Threshold Search: Binary DGM ===\n\n")
+cat(sprintf("DGM: Binary, p=%.2f, 4 confounders, n.min=%d, pcons=%.2f\n",
+            p_event, n_min_val, pcons))
+cat(sprintf("L_eff model: %.3f * (N/%d)^%.3f\n\n",
+            C_fit, n_min_val, alpha_fit))
+
+for (N_val in N_grid_values) {
+  cat(sprintf("--- N = %d (L_eff = %.1f) ---\n", N_val,
+              C_fit * (N_val / n_min_val)^alpha_fit))
+
+  sub <- grid_fpr[N == N_val]
+
+  cat("  FPR <= 10%:\n")
+  ok10 <- sub[FPR <= 0.10]
+  if (nrow(ok10) > 0) {
+    setorder(ok10, -FPR)
+    for (r in seq_len(min(8, nrow(ok10)))) {
+      cat(sprintf("    c1=%.2f, c2=%.2f: %.1f%%\n",
+                  ok10$c1[r], ok10$c2[r], 100 * ok10$FPR[r]))
+    }
+    if (nrow(ok10) > 8) cat(sprintf("    ... and %d more\n", nrow(ok10) - 8))
+  } else {
+    cat("    None\n")
+  }
+
+  cat("  FPR in 10-12%:\n")
+  ok12 <- sub[FPR > 0.10 & FPR <= 0.12]
+  if (nrow(ok12) > 0) {
+    setorder(ok12, -FPR)
+    for (r in seq_len(min(8, nrow(ok12)))) {
+      cat(sprintf("    c1=%.2f, c2=%.2f: %.1f%%\n",
+                  ok12$c1[r], ok12$c2[r], 100 * ok12$FPR[r]))
+    }
+  } else {
+    cat("    None\n")
+  }
+  cat("\n")
+}
+```
+
+
+# Timing and Session Info {#sec-session}
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Stage = c("L_eff Calibration",
+            "Null Grid Sweep",
+            "Total"),
+  Seconds = c(timings$leff_cal, timings$null_grid, timings$total),
+  stringsAsFactors = FALSE
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(
+    title = "Computational Timing Summary",
+    subtitle = sprintf("%d (c1,c2) pairs x %d N values x %d sims | %d workers",
+      nrow(grid_pairs), length(N_grid_values), nsims_grid, n_workers)
+  ) |>
+  fmt_number(columns = Seconds, decimals = 1) |>
+  fmt_number(columns = Minutes, decimals = 2) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)",
+             Minutes = "Time (min)") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total")
+  )
+```
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```
