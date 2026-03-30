@@ -23,8 +23,8 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
-nsims_alt  <- 200L
-nsims_null <- 200L
+nsims_alt  <- 10000L
+nsims_null <- 20000L
 ```
 
 
@@ -666,8 +666,8 @@ irr_h1 <- results_alt_irr[results_alt_irr$analysis == "FS", ]
 cox_h0 <- results_null_cox[results_null_cox$analysis == "FS", ]
 irr_h0 <- results_null_irr[results_null_irr$analysis == "FS", ]
 
-# Approximation at n_H = 91, d = 49
-n_H_dgm <- 91
+# Approximation at n_H = 60
+n_H_dgm <- 60
 d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
 
 four_way <- data.frame(
