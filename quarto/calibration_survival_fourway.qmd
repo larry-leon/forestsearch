@@ -23,8 +23,11 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
-nsims_alt  <- 10000L
-nsims_null <- 20000L
+nsims_alt  <- 100L
+nsims_null <- 100L
+
+# Output directory for saved results
+output_dir <- "_data"
 ```
 
 
@@ -182,6 +185,9 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+# L_eff save/load helpers
+#source(here::here("R", "leff_calibration_io.R"))
 ```
 
 ```{r timing-init}
@@ -894,6 +900,24 @@ if (nrow(cal_valid) >= 2) {
 ```
 
 
+## Save $L_{\text{eff}}$ Calibration
+
+```{r save-leff}
+save_leff_calibration(
+  C = C_fit,
+  alpha = alpha_fit,
+  n_min = n_min_val,
+  outcome_type = "survival",
+  cal_data = cal_df,
+  dgm_description = paste(
+    "GBSG survival DGM, 7 confounders",
+    "(z1-z5, size, grade3),",
+    sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
+  n_sims_per_N = n_sims_cal
+)
+```
+
+
 ## Corrected Four-Way Table
 
 ```{r corrected-four-way}
@@ -988,7 +1012,7 @@ cat("process, not the outcome type.\n\n")
 cat(sprintf("GBSG Survival DGM (7 confounders): C=%.3f, alpha=%.3f\n",
             C_fit, alpha_fit))
 cat(sprintf("  L_eff(N=700) = %.2f\n\n", L_eff_700))
-cat("Binary DGM (4 confounders): see binary_threshold_calibration.qmd\n")
+cat("Binary DGM (4 confounders): see calibration_binary_leff.qmd\n")
 cat("  Expected: smaller L_eff (fewer confounders -> fewer candidates)\n")
 ```
 
@@ -1059,6 +1083,113 @@ outcomes.
 - Whitehead, J. (1980). Fitting Cox's regression model to
   survival data using GLIM. *Journal of the Royal Statistical
   Society C*, 29(3), 268--275.
+
+
+# Save All Simulation Results {#sec-save}
+
+The simulation results are computationally expensive (hours).
+Save everything to `.rds` so downstream documents and future
+analyses can reload without re-running.
+
+```{r save-all-results}
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+# --- Bundle all simulation results ---
+sim_bundle <- list(
+
+  # Metadata
+  params = list(
+    nsims_alt = nsims_alt,
+    nsims_null = nsims_null,
+    sim_config = sim_config,
+    fs_params_base = fs_params_base,
+    fs_params_cox = fs_params_cox,
+    fs_params_irr = fs_params_irr,
+    confounders_base = confounders_base,
+    timestamp = Sys.time(),
+    R_version = R.version.string,
+    forestsearch_version = tryCatch(
+      as.character(utils::packageVersion("forestsearch")),
+      error = function(e) "unknown")
+  ),
+
+  # DGM objects
+  dgm_alt = dgm_alt,
+  dgm_null = dgm_null,
+
+  # Raw simulation results (the expensive part)
+  results_alt_cox = results_alt_cox,
+  results_null_cox = results_null_cox,
+  results_alt_irr = results_alt_irr,
+  results_null_irr = results_null_irr,
+
+  # L_eff calibration
+  leff = list(
+    C = C_fit,
+    alpha = alpha_fit,
+    n_min = n_min_val,
+    cal_df = cal_df
+  ),
+
+  # Timing
+  timings = timings
+)
+
+rds_path <- file.path(output_dir,
+  sprintf("calibration_survival_fourway_%s.rds",
+          format(Sys.Date(), "%Y%m%d")))
+saveRDS(sim_bundle, rds_path)
+
+cat(sprintf("=== All results saved ===\n"))
+cat(sprintf("  File: %s\n", rds_path))
+cat(sprintf("  Size: %.1f MB\n", file.size(rds_path) / 1024^2))
+cat(sprintf("  Contents:\n"))
+cat(sprintf("    results_alt_cox:  %d rows\n", nrow(results_alt_cox)))
+cat(sprintf("    results_null_cox: %d rows\n", nrow(results_null_cox)))
+cat(sprintf("    results_alt_irr:  %d rows\n", nrow(results_alt_irr)))
+cat(sprintf("    results_null_irr: %d rows\n", nrow(results_null_irr)))
+cat(sprintf("    cal_df:           %d rows (N = %s)\n",
+            nrow(cal_df), paste(cal_df$N, collapse = ", ")))
+cat(sprintf("    L_eff:            C=%.4f, alpha=%.4f\n",
+            C_fit, alpha_fit))
+```
+
+
+## How to Reload
+
+```{r reload-example}
+#| eval: false
+#| code-fold: false
+
+# Load the full simulation bundle
+res <- readRDS("_data/calibration_survival_fourway_20260401.rds")
+
+# Access simulation results directly
+cox_h1 <- res$results_alt_cox[res$results_alt_cox$analysis == "FS", ]
+cox_h0 <- res$results_null_cox[res$results_null_cox$analysis == "FS", ]
+irr_h1 <- res$results_alt_irr[res$results_alt_irr$analysis == "FS", ]
+irr_h0 <- res$results_null_irr[res$results_null_irr$analysis == "FS", ]
+
+# Check what was run
+res$params$nsims_alt     # number of H1 sims
+res$params$nsims_null    # number of H0 sims
+res$params$sim_config    # N, analysis_time, etc.
+
+# L_eff calibration
+res$leff$C               # 0.029
+res$leff$alpha            # 0.882
+res$leff$cal_df           # raw calibration data
+
+# Re-derive metrics without re-running
+cat("Cox H0 FPR:", mean(cox_h0$any.H), "\n")
+cat("Cox H1 Power:", mean(cox_h1$any.H), "\n")
+cat("IRR H0 FPR:", mean(irr_h0$any.H), "\n")
+cat("IRR H1 Power:", mean(irr_h1$any.H), "\n")
+
+# Reload DGM for further analysis
+dgm <- res$dgm_alt
+# dgm can be passed to run_simulation_analysis() for more sims
+```
 
 
 # Timing and Session Info {#sec-session}

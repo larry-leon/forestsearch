@@ -26,18 +26,20 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ============================================================================
 # SIMULATION PARAMETERS --- edit here to tune runtime vs precision
 # ============================================================================
-nsims       <- 100L       # simulations per scenario (increase for production)
+nsims       <- 1000L       # simulations per scenario (increase for production)
 sim_seed    <- 8316951L
 n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
 
-# L_eff calibration (from binary_threshold_calibration.qmd, 5000 sims).
-# Used for binary threshold selection.  Count and continuous use L_eff = 1
-# (no calibration available yet; per-subgroup approximation only).
-L_eff_C_binary     <- 0.220
-L_eff_alpha_binary <- 1.298
+# L_eff calibration: loaded from .rds in the load-calibration chunk.
+# Fallback values if .rds not found:
+L_eff_C_binary_fallback     <- 0.220
+L_eff_alpha_binary_fallback <- 1.298
 
 # FPR target for threshold selection
 fpr_target <- 0.12
+
+# Output directory for calibration .rds files
+output_dir <- "_data"
 ```
 
 
@@ -88,6 +90,9 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# L_eff save/load helpers
+source(here::here("R", "leff_calibration_io.R"))
+
 # Load latest source (including suggest_thresholds.R)
 #if (requireNamespace("devtools", quietly = TRUE)) {
 #  try(devtools::load_all(here::here(), quiet = TRUE), silent = TRUE)
@@ -104,6 +109,43 @@ cat("Simulations per scenario:", nsims, "\n")
 ```{r timing-init}
 timings <- list()
 t_vignette_start <- proc.time()
+```
+
+```{r load-calibration}
+#| code-fold: false
+
+# Load binary L_eff calibration (from calibration_binary_leff.qmd)
+cal_binary <- tryCatch(
+  load_leff_calibration("binary", output_dir = output_dir),
+  error = function(e) {
+    message("Binary calibration .rds not found: ", e$message)
+    message("Using fallback values.")
+    list(C = L_eff_C_binary_fallback,
+         alpha = L_eff_alpha_binary_fallback,
+         n_min = 60L)
+  }
+)
+L_eff_C_binary     <- cal_binary$C
+L_eff_alpha_binary <- cal_binary$alpha
+
+# Count: use count-specific calibration if available,
+# otherwise fall back to binary
+cal_count <- tryCatch(
+  load_leff_calibration("count", output_dir = output_dir),
+  error = function(e) {
+    message("Count calibration not found; using binary as proxy.")
+    cal_binary
+  }
+)
+L_eff_C_count     <- cal_count$C
+L_eff_alpha_count <- cal_count$alpha
+
+cat(sprintf("Binary L_eff: C=%.4f, alpha=%.4f\n",
+            L_eff_C_binary, L_eff_alpha_binary))
+cat(sprintf("Count  L_eff: C=%.4f, alpha=%.4f (%s)\n",
+            L_eff_C_count, L_eff_alpha_count,
+            if (identical(cal_count, cal_binary)) "binary proxy"
+            else "count-specific"))
 ```
 
 
@@ -265,9 +307,11 @@ ft_C600 <- suggest_thresholds(
   c1_range = c(0.01, 1.0), c1_step = 0.01,
   c2_candidates = seq(0.0, 0.50, by = 0.01))
 
-# Count (ratio scale, L_eff = 1)
+# Count (ratio scale, L_eff from binary calibration as approximation:
+# same number of confounders, so candidate generation is similar)
 ft_K1000 <- suggest_thresholds(
-  d_eff_K1000, N = 1000, fpr_target = fpr_target)
+  d_eff_K1000, N = 1000, fpr_target = fpr_target,
+  L_eff_C = L_eff_C_binary, L_eff_alpha = L_eff_alpha_binary)
 
 # Build recommendation summary
 rec_list <- list()
@@ -293,7 +337,7 @@ rec_df <- do.call(rbind, rec_list)
 gt(rec_df) |>
   tab_header(
     title = md("**Threshold Recommendations (Smallest c1)**"),
-    subtitle = sprintf("FPR target = %.0f%% | Binary uses L_eff correction",
+    subtitle = sprintf("FPR target = %.0f%% | Binary and count use L_eff correction",
                         100 * fpr_target)
   ) |>
   fmt_number(columns = c(c1, c2, FPR_corr, d_eff), decimals = 2) |>
@@ -339,34 +383,34 @@ for (nm in names(thresh)) {
 #| tbl-cap: "Simulation scenarios with calibrated thresholds"
 
 scenarios <- data.frame(
-  ID = c("B-H0", "B-H1-S", "B-H1-L",
+  ID = c("B-H0", "B-H1-S", "B-H0-L", "B-H1-L",
          "C-H0", "C-H1",
          "K-H0", "K-H1"),
-  Outcome = c("Binary", "Binary", "Binary",
+  Outcome = c("Binary", "Binary", "Binary", "Binary",
               "Continuous", "Continuous",
               "Count", "Count"),
-  Hypothesis = c("Null", "Alternative", "Alternative",
+  Hypothesis = c("Null", "Alternative", "Null", "Alternative",
                  "Null", "Alternative",
                  "Null", "Alternative"),
-  N = c(200, 200, 800,
+  N = c(200, 200, 800, 800,
         600, 600,
         1000, 1000),
   Setting = c("Phase II oncology", "Phase II oncology",
-              "Phase III oncology",
+              "Phase III oncology", "Phase III oncology",
               "Phase III RA", "Phase III RA",
               "Phase III COPD", "Phase III COPD"),
   c1 = c(thresh$binary_small$c1, thresh$binary_small$c1,
-         thresh$binary_large$c1,
+         thresh$binary_large$c1, thresh$binary_large$c1,
          thresh$continuous$c1, thresh$continuous$c1,
          thresh$count$c1, thresh$count$c1),
   c2 = c(thresh$binary_small$c2, thresh$binary_small$c2,
-         thresh$binary_large$c2,
+         thresh$binary_large$c2, thresh$binary_large$c2,
          thresh$continuous$c2, thresh$continuous$c2,
          thresh$count$c2, thresh$count$c2),
-  `True Effect (H)` = c("--", "OR=2.0", "OR=2.0",
+  `True Effect (H)` = c("--", "OR=2.0", "--", "OR=2.0",
                           "--", "MD=+0.5",
                           "--", "IRR=2.7"),
-  `True Effect (Hc)` = c("--", "OR=0.4", "OR=0.4",
+  `True Effect (Hc)` = c("--", "OR=0.4", "--", "OR=0.4",
                            "--", "MD=-1.0",
                            "--", "IRR=0.61"),
   check.names = FALSE,
@@ -416,6 +460,16 @@ run_one_sim <- function(scenario_id, sim_num) {
            c1 = thresh$binary_small$c1,
            c2 = thresh$binary_small$c2,
            true_H = log(2.0), true_Hc = log(0.4))
+    },
+    "B-H0-L" = {
+      df <- sim_binary(800, seed, has_hte = FALSE)
+      list(df = df, ot = "binary", em = "OR", n = 800,
+           confounders = c("bm1", "bm2", "bm3", "age", "ecog"),
+           on = "progressed", en = "progressed", tn = "treat",
+           offset = NULL, adverse = TRUE,
+           c1 = thresh$binary_large$c1,
+           c2 = thresh$binary_large$c2,
+           true_H = NA, true_Hc = NA)
     },
     "B-H1-L" = {
       df <- sim_binary(800, seed, has_hte = TRUE)
@@ -611,7 +665,7 @@ if (!is.null(fs_diag)) {
 ```{r run-all}
 t0 <- proc.time()[3]
 
-scenario_ids <- c("B-H0", "B-H1-S", "B-H1-L",
+scenario_ids <- c("B-H0", "B-H1-S", "B-H0-L", "B-H1-L",
                   "C-H0", "C-H1",
                   "K-H0", "K-H1")
 
@@ -876,9 +930,11 @@ outcome types with **calibrated thresholds** selected by
   High $d_{\text{eff}}$ (low variance, large $n_H$) allows
   small thresholds.
 
-- **Count** (IRR scale): Thresholds on the ratio scale with
-  $L_{\text{eff}} = 1$.  $d_{\text{eff}} = D$ (total events)
-  depends on the mean event rate.
+- **Count** (IRR scale): Thresholds on the ratio scale using the
+  binary $L_{\text{eff}}$ calibration as an approximation (same number
+  of confounders, so the candidate generation process is similar).
+  $d_{\text{eff}} = D$ (total events) depends on the mean event rate.
+  A count-specific $L_{\text{eff}}$ calibration would be more rigorous.
 
 
 # References {#sec-references}

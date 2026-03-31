@@ -1,0 +1,1510 @@
+---
+title: "Pre-Screening for Treatment Effect Heterogeneity"
+subtitle: "Crump et al. (2008) Tests: OLS, Logistic, and Poisson+Offset"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+nsims       <- 500L
+sim_seed    <- 8316951L
+n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+```
+
+
+# Introduction {#sec-intro}
+
+## Motivation
+
+Before running `forestsearch()`, a natural first question is:
+**is there statistical evidence of treatment effect heterogeneity?**
+Crump, Hotz, Imbens, and Mitnik (2008) developed two nonparametric
+tests that answer this directly.  These tests avoid the multiple-testing
+problem that arises when estimating average effects for many
+substantively interesting subpopulations: a single test for zero
+conditional average treatment effects replaces many individual
+subgroup tests.
+
+## The Two Tests
+
+**Test 1 (Zero CATE, eq. 2.2):** $H_0: \tau(x) = 0$ for all
+$x \in \mathbb{X}$.  Is there ANY subpopulation with a nonzero
+average treatment effect?  This is much stronger than the standard
+test of $E[\tau(X)] = 0$ (zero ATE), which averages over subpopulations
+and can miss opposing effects that cancel out.
+
+**Test 2 (Constant CATE, eq. 2.3):** $H_0': \tau(x) = \tau$ for
+some $\tau$ and all $x \in \mathbb{X}$.  Is the average treatment
+effect the SAME across all subpopulations?  This is the key
+diagnostic for whether subgroup identification is warranted.
+
+**Contrast with the standard ATE test (eq. 2.4):** $H_0'': E[\tau(X)] = 0$.
+The standard test can fail to reject when there are strong opposing
+effects that cancel on average.  For example, if a treatment doubles
+the event rate in one subgroup (OR = 2.0) but halves it in another
+(OR = 0.4), the overall ATE may be near zero --- but both Crump
+tests will detect the heterogeneity.
+
+
+## Statistical Framework {#sec-framework}
+
+### Setup
+
+We observe $(Y_i, W_i, X_i)$ for $i = 1, \ldots, N$, where $Y_i$ is
+the outcome, $W_i \in \{0, 1\}$ is the treatment indicator, and
+$X_i \in \mathbb{R}^d$ are covariates.  Under unconfoundedness
+(Assumption 2.2), $W \perp (Y(0), Y(1)) | X$, and with overlap
+(Assumption 2.3), $\eta \le e(x) \le 1 - \eta$ for some $\eta > 0$.
+In an RCT with 1:1 randomization, both conditions are automatically
+satisfied.
+
+Define the conditional means $\mu_w(x) = E[Y(w) | X = x]$ for
+$w = 0, 1$ and the conditional average treatment effect
+$\tau(x) = \mu_1(x) - \mu_0(x)$.
+
+### Series (Sieve) Regression
+
+The key idea is to approximate $\mu_w(x)$ using a polynomial basis
+$P_K(x) = (p_1(x), \ldots, p_K(x))'$.  For `poly_order = 1`, this
+is simply $P_K(x) = (1, x_1, \ldots, x_d)'$ with $K = d + 1$.
+
+Separately for treated ($W = 1$) and control ($W = 0$) groups, fit:
+$$
+\hat\mu_w(x) = P_K(x)'\hat\xi_{w,K}, \quad w = 0, 1
+$$
+
+**For OLS** (original paper): $\hat\xi_{w,K}$ minimizes
+$\sum_{i: W_i = w} (Y_i - P_K(X_i)'\xi)^2$.
+
+**For GLM extension**: $\hat\xi_{w,K}$ maximizes the GLM
+log-likelihood separately in each arm.  This is a natural extension
+when the outcome is non-Gaussian.
+
+The null hypotheses translate to restrictions on the coefficient
+vectors: $H_0: \tau(x) = 0$ becomes $H_0: \xi_{0,K} = \xi_{1,K}$
+(all coefficients equal); $H_0': \tau(x) = \tau$ becomes
+$H_0': \xi_{0,1,K} = \xi_{1,1,K}$ (slope coefficients equal,
+intercepts may differ).
+
+
+### HC Sandwich Variance
+
+Under general heteroskedasticity, the variance of
+$\hat\xi_{w,K}$ is estimated by the HC0 sandwich.
+
+**OLS (eq. 3.6):**
+$$
+\hat\Omega_w = N_w \cdot
+\left(\sum_{i: W_i=w} P_i P_i'\right)^{-1}
+\left(\sum_{i: W_i=w} \hat{e}_i^2 P_i P_i'\right)
+\left(\sum_{i: W_i=w} P_i P_i'\right)^{-1}
+$$
+where $P_i = P_K(X_i)$ and $\hat{e}_i = Y_i - P_K(X_i)'\hat\xi_{w,K}$
+are the OLS residuals.  For binary $Y$, the residual variance at
+each point is approximately $\hat{p}(x)(1-\hat{p}(x))$, and the
+sandwich absorbs this automatically without requiring specification
+of the variance function.
+
+**GLM:**
+$$
+\hat\Omega_w = N_w \cdot A^{-1} B A^{-1}
+$$
+where $A = \sum_{i: W_i=w} w_i P_i P_i'$ is the expected Fisher
+information with working weights
+$w_i = (\partial\mu/\partial\eta)_i^2 / \text{Var}(\mu_i)$,
+and $B = \sum_{i: W_i=w} s_i s_i'$ is the empirical score outer
+product with score contributions
+$s_i = P_i \cdot (\partial\mu/\partial\eta)_i \cdot (Y_i - \mu_i) / \text{Var}(\mu_i)$.
+
+For **Poisson** (log link): $w_i = \mu_i$ and $s_i = P_i (Y_i - \mu_i)$.
+
+For **logistic** (logit link): $w_i = \mu_i(1 - \mu_i)$ and
+$s_i = P_i (Y_i - \mu_i)$.
+
+The combined variance of the coefficient difference is:
+$$
+\hat{V} = \hat\Omega_0 / N_0 + \hat\Omega_1 / N_1
+$$
+
+
+### Test Statistics
+
+**Zero CATE (eq. 3.8):**
+$$
+Q = (\hat\xi_{1,K} - \hat\xi_{0,K})' \hat{V}^{-1}
+(\hat\xi_{1,K} - \hat\xi_{0,K})
+\xrightarrow{d} \chi^2(K) \quad \text{under } H_0
+$$
+
+**Constant CATE (eq. 3.10):** Remove the intercept component
+(which captures the overall ATE) and test only the slope
+coefficients $\hat\xi_{w,1,K}$ (indices $2:K$):
+$$
+Q' = (\hat\xi_{1,1,K} - \hat\xi_{0,1,K})' \hat{V}_{11}^{-1}
+(\hat\xi_{1,1,K} - \hat\xi_{0,1,K})
+\xrightarrow{d} \chi^2(K-1) \quad \text{under } H_0'
+$$
+
+**Normalized version (large $K$):**
+$T = (Q - K) / \sqrt{2K} \xrightarrow{d} N(0, 1)$.
+
+The $p$-values come from standard $\chi^2$ or normal tables ---
+no bootstrap or simulation is required.  The authors recommend
+one-sided critical values (reject for large $Q$) since the test
+statistic is a quadratic form that is large when the regression
+functions differ.
+
+
+### Asymptotic Theory
+
+The validity of the nonparametric test requires (Assumptions 3.1--3.3):
+
+- The regression functions $\mu_w(x)$ are $s$ times continuously
+  differentiable with $s/d > 27/4$.
+- The number of basis terms $K$ grows with $N$ as $K = C \cdot N^\nu$
+  for $d/(2s + 2d) < \nu < 2/13$.
+
+In practice (their applications, Tables 2 and 4), fixed $K$ is used
+with covariate selection.  The asymptotic theory ensures that the
+parametric test remains valid as the model becomes more flexible.
+
+**Consistency (Theorem 3.2):** The test can detect local alternatives
+$\mu_1(x) - \mu_0(x) = \rho_N \cdot \Delta(x)$ whenever
+$\rho_N^{-1} = O(N^{1/2 - 2\nu - \varepsilon})$.
+
+
+### Covariate Selection
+
+The paper implements three methods (Section IV):
+
+- **All covariates**: Use all $d$ covariates in the basis.
+- **Top-down**: Start with all covariates; sequentially drop the
+  covariate with the smallest $|t|$-statistic until all remaining
+  have $|t| \ge 2$.  Selection uses control-group data only, then
+  the same specification is applied to the treatment group.
+- **Bottom-up**: Start empty; sequentially add the covariate with
+  the highest $|t|$-statistic until no remaining covariate has
+  $|t| \ge 2$.
+
+Results were robust to the selection method across all eight
+evaluation sites (Tables 2 and 4).
+
+
+## Application to Binary Outcomes {#sec-binary-theory}
+
+When $Y \in \{0, 1\}$, the OLS approach estimates a **linear
+probability model (LPM)**: $\hat\mu_w(x) \approx \Pr(Y = 1 | X = x, W = w)$.
+The LPM can predict outside $[0, 1]$, but this does not invalidate
+the test --- the null hypothesis concerns the conditional mean
+function, not its range.
+
+The HC sandwich is automatically heteroskedasticity-robust: for
+binary $Y$, the conditional variance is
+$\text{Var}(Y | X = x) = p(x)(1 - p(x))$, which varies across
+observations.  The sandwich estimator captures this without requiring
+the analyst to specify the variance function.
+
+**Scale of the test:**  The OLS test targets the **risk difference**
+scale: $\tau_{\text{RD}}(x) = \Pr(Y=1|X,W=1) - \Pr(Y=1|X,W=0)$.
+The logistic extension targets the **log-odds** scale:
+$\tau_{\text{logOR}}(x) = \text{logit}(\mu_1(x)) - \text{logit}(\mu_0(x))$.
+For the simulation DGM with opposing effects (OR = 2.0 vs OR = 0.4),
+both scales detect heterogeneity, but power may differ because the
+signal-to-noise ratio is scale-dependent.
+
+**Power considerations:**  The LPM is not the most efficient
+estimator for binary data.  The logistic extension may have slightly
+higher power because the logit link better matches the DGM.  However,
+the OLS version is simpler and the asymptotic theory is established.
+
+
+## Application to Survival via Poisson + Offset {#sec-poisson-theory}
+
+For survival data analyzed as event counts with follow-up exposure,
+the Poisson + offset model fits:
+$$
+\log E[Y_i | X_i, W_i = w] = P_K(X_i)'\xi_w + \log(t_i)
+$$
+where $Y_i \in \{0, 1\}$ is the event indicator and $t_i$ is the
+follow-up time.  The offset $\log(t_i)$ accounts for differential
+exposure, so the coefficients $\xi_w$ estimate **log event rates
+per unit time**.
+
+This is the same model underlying the **IRR pipeline** in
+`forestsearch`.  The Poisson model with binary $Y$ is an
+approximation to the Cox proportional hazards model: when event
+rates are low, $\Pr(\text{event in } [0, t]) \approx \lambda t$,
+and the Poisson likelihood approximates the partial likelihood.
+
+**Score contributions** for Poisson:
+$s_i = P_i \cdot (Y_i - \hat\mu_i)$, where
+$\hat\mu_i = \exp(P_K(X_i)'\hat\xi_w + \log t_i)$.  The sandwich
+variance uses these scores to account for overdispersion relative
+to the Poisson model.
+
+**Practical note:** The covariates must be passed as a numeric
+matrix (no R factors) to avoid rank-deficiency when `build_basis()`
+adds the intercept.  Convert factors to 0/1 indicators via
+`as.numeric(factor) - 1`.
+
+
+## Connection to ForestSearch {#sec-connection}
+
+The **Constant CATE test** is the natural pre-screening diagnostic
+for `forestsearch()`:
+
+```
+# Recommended workflow
+hte <- test_hte(Y, W, X)
+if (hte$constant_cate$p_value_chi < 0.05) {
+  # HTE exists: proceed with subgroup identification
+  fs <- forestsearch(...)
+} else {
+  # No evidence of HTE: interpret forestsearch results cautiously
+}
+```
+
+This provides a formal, published justification for running the
+subgroup search.
+
+**Key distinction:** The "null" in the simulation study means "no
+HTE" (uniform treatment effect), not "no treatment effect."  Under
+the continuous H0 DGM ($\tau(x) = -0.5$ for all $x$), the Zero
+CATE test correctly rejects (there IS a nonzero effect for all
+subpopulations), but the Constant CATE test correctly does NOT
+reject (there IS NO heterogeneity).  This distinction is important
+for interpreting the size/power table.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+library(survival)
+```
+
+```{r source-tests}
+#| code-fold: false
+source(here::here("../R", "test_hte_crump.R"))
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+```{r parallel-setup}
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("Sims per scenario:", nsims, "\n")
+```
+
+
+# Data-Generating Mechanisms {#sec-dgm}
+
+```{r dgm-functions}
+#| code-fold: false
+
+sim_binary <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id    = seq_len(n),
+    treat = rbinom(n, 1, 0.5),
+    bm1   = as.factor(rbinom(n, 1, 0.70)),
+    bm2   = as.factor(rbinom(n, 1, 0.50)),
+    bm3   = as.factor(rbinom(n, 1, 0.45)),
+    age   = round(rnorm(n, 55, 10)),
+    ecog  = as.factor(sample(0:1, n, TRUE, c(0.6, 0.4)))
+  )
+  lp <- with(df, -0.85 + 0.02 * (age - 55) + 0.3 * (ecog == 1))
+  if (has_hte)
+    lp <- lp + with(df, 0.69 * treat * (bm1 == 0) +
+                         -0.92 * treat * (bm1 == 1))
+  df$progressed <- rbinom(n, 1, plogis(lp))
+  df
+}
+
+sim_continuous <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id       = seq_len(n),
+    treat    = rbinom(n, 1, 0.5),
+    sero     = as.factor(rbinom(n, 1, 0.65)),
+    male     = as.factor(rbinom(n, 1, 0.40)),
+    smoking  = as.factor(rbinom(n, 1, 0.25)),
+    age      = round(rnorm(n, 55, 12)),
+    bas_das  = round(rnorm(n, 6.0, 0.8), 1)
+  )
+  mu <- with(df, -1.5 - 0.3 * (bas_das - 6.0))
+  if (has_hte) {
+    mu <- mu + with(df, 0.5 * treat * (sero == 0) -
+                         1.0 * treat * (sero == 1))
+  } else {
+    mu <- mu - 0.5 * df$treat
+  }
+  df$das28_chg <- round(mu + rnorm(n, 0, 1.5), 2)
+  df
+}
+
+sim_count <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id        = seq_len(n),
+    treat     = rbinom(n, 1, 0.5),
+    eos_low   = as.factor(rbinom(n, 1, 0.65)),
+    smoking   = as.factor(rbinom(n, 1, 0.50)),
+    male      = as.factor(rbinom(n, 1, 0.45)),
+    age       = round(rnorm(n, 60, 12)),
+    follow_up = round(runif(n, 0.5, 3.0), 2)
+  )
+  log_rate <- with(df, -1.0 + 0.02 * (age - 60) + log(follow_up))
+  if (has_hte)
+    log_rate <- log_rate + with(df, 1.0 * treat * (eos_low == 0) -
+                                     0.5 * treat * (eos_low == 1))
+  df$exacerbations <- rpois(n, lambda = exp(log_rate))
+  df
+}
+
+sim_survival_poisson <- function(n, seed, has_hte = TRUE) {
+  set.seed(seed)
+  df <- data.frame(
+    id        = seq_len(n),
+    treat     = rbinom(n, 1, 0.5),
+    biomarker = as.factor(rbinom(n, 1, 0.70)),
+    stage     = as.factor(rbinom(n, 1, 0.40)),
+    age       = round(rnorm(n, 60, 10)),
+    smoking   = as.factor(rbinom(n, 1, 0.35))
+  )
+  log_rate <- with(df, log(0.5) + 0.02 * (age - 60) +
+                        0.3 * (stage == 1))
+  if (has_hte)
+    log_rate <- log_rate + with(df,
+      log(2.0) * treat * (biomarker == 0) +
+      log(0.6) * treat * (biomarker == 1))
+  event_time <- rexp(n, rate = exp(log_rate))
+  cens_time <- runif(n, 1.0, 5.0)
+  df$follow_up <- pmin(event_time, cens_time)
+  df$event <- as.integer(event_time <= cens_time)
+  df$log_fu <- log(df$follow_up)
+  df
+}
+```
+
+
+## Covariate Construction
+
+Covariates must be passed as a **numeric matrix** (no factors)
+to avoid collinearity when `build_basis()` adds its intercept.
+Convert factors to 0/1 indicators:
+
+```{r cov-helpers}
+#| code-fold: false
+
+make_X_binary <- function(df) {
+  cbind(bm1  = as.numeric(df$bm1) - 1,
+        bm2  = as.numeric(df$bm2) - 1,
+        bm3  = as.numeric(df$bm3) - 1,
+        age  = df$age,
+        ecog = as.numeric(df$ecog) - 1)
+}
+
+make_X_continuous <- function(df) {
+  cbind(sero    = as.numeric(df$sero) - 1,
+        male    = as.numeric(df$male) - 1,
+        smoking = as.numeric(df$smoking) - 1,
+        age     = df$age,
+        bas_das = df$bas_das)
+}
+
+make_X_count <- function(df) {
+  cbind(eos_low = as.numeric(df$eos_low) - 1,
+        smoking = as.numeric(df$smoking) - 1,
+        male    = as.numeric(df$male) - 1,
+        age     = df$age)
+}
+
+make_X_survival <- function(df) {
+  cbind(biomarker = as.numeric(df$biomarker) - 1,
+        stage     = as.numeric(df$stage) - 1,
+        age       = df$age,
+        smoking   = as.numeric(df$smoking) - 1)
+}
+```
+
+
+# Single-Dataset Demonstrations {#sec-demo}
+
+## Binary: OLS vs Logistic
+
+```{r demo-binary}
+df_b <- sim_binary(800, sim_seed + 1, has_hte = TRUE)
+X_b <- make_X_binary(df_b)
+
+cat("=== Binary (N=800, H1: OR_H=2.0, OR_Hc=0.4) ===\n\n")
+cat("--- OLS (linear probability model) ---\n")
+print(test_hte(df_b$progressed, df_b$treat, X_b, regression = "ols"))
+
+cat("\n--- Logistic ---\n")
+print(test_hte(df_b$progressed, df_b$treat, X_b,
+               regression = "logistic"))
+```
+
+
+## Survival via Poisson + Offset
+
+```{r demo-survival}
+df_s <- sim_survival_poisson(700, sim_seed + 1, has_hte = TRUE)
+X_s <- make_X_survival(df_s)
+
+cat("=== Survival via Poisson+offset (N=700, H1) ===\n")
+cat("  IRR(harm): 2.0 | IRR(complement): 0.6\n")
+cat("  Event rate:", round(mean(df_s$event), 3), "\n\n")
+
+print(test_hte(df_s$event, df_s$treat, X_s,
+               regression = "poisson", offset = df_s$log_fu))
+```
+
+
+## Count: OLS vs Poisson + Offset
+
+```{r demo-count}
+df_k <- sim_count(1000, sim_seed + 1, has_hte = TRUE)
+X_k <- make_X_count(df_k)
+
+cat("=== Count (N=1000, H1: IRR_H=2.7, IRR_Hc=0.61) ===\n\n")
+cat("--- OLS ---\n")
+print(test_hte(df_k$exacerbations, df_k$treat, X_k,
+               regression = "ols"))
+
+cat("\n--- Poisson + offset ---\n")
+print(test_hte(df_k$exacerbations, df_k$treat, X_k,
+               regression = "poisson", offset = log(df_k$follow_up)))
+```
+
+
+# Monte Carlo Evaluation {#sec-mc}
+
+## Design
+
+```{r mc-config}
+#| code-fold: false
+
+mc_scenarios <- data.frame(
+  id = c("B-H0-ols", "B-H1-ols",
+         "B-H0-logit", "B-H1-logit",
+         "C-H0", "C-H1",
+         "K-H0-ols", "K-H1-ols",
+         "K-H0-pois", "K-H1-pois",
+         "S-H0-pois", "S-H1-pois"),
+  dgm = c(rep("binary", 4), rep("continuous", 2),
+           rep("count", 4), rep("survival", 2)),
+  has_hte = rep(c(FALSE, TRUE), 6),
+  N = c(800, 800, 800, 800, 600, 600,
+        1000, 1000, 1000, 1000, 700, 700),
+  regression = c("ols", "ols", "logistic", "logistic",
+                 "ols", "ols",
+                 "ols", "ols", "poisson", "poisson",
+                 "poisson", "poisson"),
+  use_offset = c(FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
+                 FALSE, FALSE, TRUE, TRUE, TRUE, TRUE),
+  stringsAsFactors = FALSE
+)
+
+gt(mc_scenarios) |>
+  tab_header(
+    title = "Monte Carlo Scenarios",
+    subtitle = sprintf("%d simulations per scenario", nsims)
+  )
+```
+
+
+## Run Monte Carlo
+
+```{r mc-run}
+t0 <- proc.time()[3]
+
+mc_tasks <- do.call(rbind, lapply(seq_len(nrow(mc_scenarios)),
+  function(s) data.frame(
+    scenario = mc_scenarios$id[s],
+    dgm = mc_scenarios$dgm[s],
+    has_hte = mc_scenarios$has_hte[s],
+    N = mc_scenarios$N[s],
+    regression = mc_scenarios$regression[s],
+    use_offset = mc_scenarios$use_offset[s],
+    sim = seq_len(nsims),
+    stringsAsFactors = FALSE
+  )))
+
+cat(sprintf("Running %d MC tasks...\n", nrow(mc_tasks)))
+
+mc_results <- foreach(
+  i = seq_len(nrow(mc_tasks)),
+  .combine = rbind, .errorhandling = "pass",
+  .options.future = list(seed = TRUE)
+) %dofuture% {
+
+  seed_i <- sim_seed + mc_tasks$sim[i] +
+    which(mc_scenarios$id == mc_tasks$scenario[i]) * 10000L
+
+  dgm_t <- mc_tasks$dgm[i]
+  N_val <- mc_tasks$N[i]
+  hte <- mc_tasks$has_hte[i]
+  reg <- mc_tasks$regression[i]
+  use_off <- mc_tasks$use_offset[i]
+
+  df <- switch(dgm_t,
+    "binary" = sim_binary(N_val, seed_i, hte),
+    "continuous" = sim_continuous(N_val, seed_i, hte),
+    "count" = sim_count(N_val, seed_i, hte),
+    "survival" = sim_survival_poisson(N_val, seed_i, hte))
+
+  Y <- switch(dgm_t,
+    "binary" = df$progressed,
+    "continuous" = df$das28_chg,
+    "count" = df$exacerbations,
+    "survival" = df$event)
+  W <- df$treat
+
+  X <- switch(dgm_t,
+    "binary" = make_X_binary(df),
+    "continuous" = make_X_continuous(df),
+    "count" = make_X_count(df),
+    "survival" = make_X_survival(df))
+
+  off <- if (use_off) {
+    if (dgm_t == "survival") df$log_fu else log(df$follow_up)
+  } else NULL
+
+  t0_res <- tryCatch(
+    test_zero_cate(Y, W, X, regression = reg, offset = off),
+    error = function(e) NULL)
+  t1_res <- tryCatch(
+    test_constant_cate(Y, W, X, regression = reg, offset = off),
+    error = function(e) NULL)
+
+  ate <- mean(Y[W == 1]) - mean(Y[W == 0])
+  se_ate <- sqrt(var(Y[W == 1]) / sum(W == 1) +
+                  var(Y[W == 0]) / sum(W == 0))
+
+  v_diag <- if (!is.null(t0_res) && !is.null(t0_res$V_hat))
+    paste(round(diag(t0_res$V_hat), 10), collapse = ",") else NA
+  diff_str <- if (!is.null(t0_res) && !is.null(t0_res$diff))
+    paste(round(t0_res$diff, 10), collapse = ",") else NA
+
+  data.frame(
+    scenario = mc_tasks$scenario[i], sim = mc_tasks$sim[i],
+    K = if (!is.null(t0_res)) t0_res$K else NA,
+    p_zero_cate = if (!is.null(t0_res)) t0_res$p_value_chi
+                  else NA_real_,
+    p_const_cate = if (!is.null(t1_res)) t1_res$p_value_chi
+                   else NA_real_,
+    p_zero_ate = 2 * pnorm(abs(ate / se_ate), lower.tail = FALSE),
+    Q_zero = if (!is.null(t0_res)) t0_res$chi_sq else NA_real_,
+    diff_str = diff_str, v_diag_str = v_diag,
+    stringsAsFactors = FALSE
+  )
+}
+
+timings$mc <- proc.time()[3] - t0
+mc_dt <- data.table(mc_results)
+cat(sprintf("MC completed: %.1f min | %d results\n",
+            timings$mc / 60, nrow(mc_dt)))
+
+# Report convergence
+conv_tbl <- mc_dt[, .(
+  n_total = .N,
+  n_converged = sum(!is.na(p_zero_cate)),
+  pct = round(100 * mean(!is.na(p_zero_cate)), 1)
+), by = scenario]
+cat("\n=== Convergence ===\n")
+print(conv_tbl)
+```
+
+
+## Size and Power
+
+```{r mc-results}
+#| tbl-cap: "Empirical size and power at the 5% level"
+
+mc_summary <- mc_dt[, .(
+  `Zero CATE` = round(mean(p_zero_cate < 0.05, na.rm = TRUE), 3),
+  `Constant CATE` = round(mean(p_const_cate < 0.05,
+                                na.rm = TRUE), 3),
+  `Zero ATE` = round(mean(p_zero_ate < 0.05, na.rm = TRUE), 3),
+  N_sims = sum(!is.na(p_zero_cate))
+), by = scenario]
+
+mc_summary <- merge(mc_summary,
+  data.table(mc_scenarios)[, .(id, dgm, has_hte, N, regression)],
+  by.x = "scenario", by.y = "id")
+mc_summary$H <- ifelse(mc_summary$has_hte, "H1 (power)", "H0 (size)")
+setorder(mc_summary, dgm, regression, has_hte)
+
+gt(mc_summary[, .(scenario, dgm, N, regression, H,
+                   `Zero CATE`, `Constant CATE`, `Zero ATE`,
+                   N_sims)]) |>
+  tab_header(
+    title = md("**Empirical Size and Power (5% Level)**"),
+    subtitle = sprintf("%d simulations per scenario", nsims)
+  ) |>
+  tab_spanner(label = "Rejection Rate",
+    columns = c(`Zero CATE`, `Constant CATE`, `Zero ATE`)) |>
+  cols_label(scenario = "ID", dgm = "Outcome", N = "N",
+    regression = "Model", H = "H", N_sims = "Sims") |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `Constant CATE`,
+      rows = grepl("H0", H) & `Constant CATE` <= 0.10)) |>
+  tab_style(style = cell_fill(color = "#BBDEFB"),
+    locations = cells_body(columns = `Constant CATE`,
+      rows = grepl("H1", H) & `Constant CATE` >= 0.50)) |>
+  tab_source_note("Green: H0 size <= 10%. Blue: H1 power >= 50%.")
+```
+
+
+## Power Comparison Plot
+
+```{r mc-plot, fig.width=10, fig.height=6}
+#| fig-cap: "Rejection rates by test, model, and hypothesis."
+
+mc_long <- melt(mc_summary,
+  id.vars = c("scenario", "dgm", "N", "regression", "H"),
+  measure.vars = c("Zero CATE", "Constant CATE", "Zero ATE"),
+  variable.name = "Test", value.name = "Rejection")
+mc_long$label <- sprintf("%s\n%s (N=%d)",
+  mc_long$dgm, mc_long$regression, mc_long$N)
+
+ggplot(mc_long, aes(x = Test, y = Rejection, fill = H)) +
+  geom_col(position = position_dodge(0.8), width = 0.7) +
+  geom_hline(yintercept = 0.05, linetype = "dashed",
+             colour = "red", linewidth = 0.5) +
+  geom_text(aes(label = sprintf("%.0f%%", 100 * Rejection)),
+    position = position_dodge(0.8), vjust = -0.5, size = 2.5) +
+  facet_wrap(~ label, nrow = 2) +
+  scale_fill_manual(
+    values = c("H0 (size)" = "grey70", "H1 (power)" = "steelblue")) +
+  labs(x = NULL, y = "Rejection Rate",
+       title = "Crump et al. Tests: Size and Power by Model") +
+  ylim(0, 1.15) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "top",
+        axis.text.x = element_text(angle = 20, hjust = 1),
+        plot.title = element_text(face = "bold"))
+```
+
+
+# Variance Estimation Diagnostic {#sec-var-diag}
+
+## Methodology
+
+A well-calibrated variance estimator is essential for valid inference.
+We evaluate the HC sandwich by comparing two quantities computed
+across $B$ Monte Carlo replications under $H_0$:
+
+**Empirical variance** (the "truth" from the MC):
+$$
+\widehat{\text{Var}}_{\text{emp}}(\hat\delta_k) =
+\frac{1}{B-1} \sum_{b=1}^B
+(\hat\delta_k^{(b)} - \bar{\hat\delta}_k)^2
+$$
+where $\hat\delta_k = \hat\xi_{1,k} - \hat\xi_{0,k}$ is the $k$-th
+component of the coefficient difference, and
+$\bar{\hat\delta}_k = B^{-1} \sum_b \hat\delta_k^{(b)}$ is its
+MC mean.
+
+**Mean estimated variance** (the average sandwich output):
+$$
+\bar{\hat{V}}_{kk} = \frac{1}{B} \sum_{b=1}^B \hat{V}_{kk}^{(b)}
+$$
+where $\hat{V}_{kk}^{(b)}$ is the $k$-th diagonal element of the
+sandwich variance estimate from replicate $b$.
+
+**Variance ratio:**
+$$
+\text{Ratio}_k =
+\frac{\bar{\hat{V}}_{kk}}
+     {\widehat{\text{Var}}_{\text{emp}}(\hat\delta_k)}
+$$
+
+Interpretation: ratio $\approx 1$ means the sandwich is well-calibrated;
+ratio $> 1$ means the sandwich is conservative (overestimates variance);
+ratio $< 1$ means the sandwich is liberal (underestimates variance,
+inflated Type I error).
+
+## Compute Ratios
+
+```{r var-diag, fig.height=7}
+#| fig-cap: "Variance ratio for each coefficient (H0 only)."
+
+h0_ids <- mc_summary[grepl("H0", H)]$scenario
+
+var_diag_list <- list()
+for (sc in h0_ids) {
+  sc_dt <- mc_dt[scenario == sc & !is.na(diff_str) &
+                  !is.na(v_diag_str)]
+  if (nrow(sc_dt) < 30) next
+  diff_mat <- do.call(rbind, lapply(sc_dt$diff_str, function(s)
+    as.numeric(strsplit(s, ",")[[1]])))
+  var_mat <- do.call(rbind, lapply(sc_dt$v_diag_str, function(s)
+    as.numeric(strsplit(s, ",")[[1]])))
+  K <- ncol(diff_mat)
+  emp_v <- apply(diff_mat, 2, var)
+  est_v <- colMeans(var_mat)
+  var_diag_list[[sc]] <- data.frame(
+    scenario = sc, coef_idx = seq_len(K),
+    emp_var = emp_v, est_var = est_v,
+    ratio = est_v / emp_v, stringsAsFactors = FALSE)
+}
+
+var_diag_df <- do.call(rbind, var_diag_list)
+
+if (nrow(var_diag_df) > 0) {
+  var_diag_df <- merge(var_diag_df,
+    mc_summary[, .(scenario, dgm, regression)], by = "scenario")
+  var_diag_df$label <- sprintf("%s (%s)", var_diag_df$dgm,
+                                var_diag_df$regression)
+
+  ggplot(var_diag_df, aes(x = factor(coef_idx), y = ratio)) +
+    geom_hline(yintercept = 1.0, linetype = "dashed",
+               colour = "firebrick", linewidth = 0.7) +
+    geom_point(size = 3, colour = "steelblue") +
+    geom_segment(aes(xend = factor(coef_idx), yend = 1.0),
+                 colour = "steelblue", linewidth = 0.4) +
+    facet_wrap(~ label, scales = "free_x", ncol = 2) +
+    labs(x = "Coefficient Index",
+         y = "Mean Est. Var / Empirical Var",
+         title = "Variance Calibration (H0 Scenarios)",
+         subtitle = sprintf("%d sims | Target: ratio near 1.0",
+                             nsims)) +
+    ylim(0, max(var_diag_df$ratio, 2.0)) +
+    theme_minimal(base_size = 12) +
+    theme(plot.title = element_text(face = "bold"))
+}
+```
+
+
+## Variance Summary Table
+
+```{r var-table}
+#| tbl-cap: "Variance calibration: empirical vs estimated (averaged across coefficients)"
+
+if (nrow(var_diag_df) > 0) {
+  var_summary <- data.table(var_diag_df)[, .(
+    K = .N,
+    `Mean Emp. Var` = signif(mean(emp_var), 4),
+    `Mean Est. Var` = signif(mean(est_var), 4),
+    `Mean Ratio` = round(mean(ratio), 3),
+    `Median Ratio` = round(median(ratio), 3),
+    `Min Ratio` = round(min(ratio), 3),
+    `Max Ratio` = round(max(ratio), 3)
+  ), by = .(scenario, dgm, regression)]
+
+  gt(var_summary) |>
+    tab_header(
+      title = md("**Variance Calibration Summary (H0)**"),
+      subtitle = paste(
+        "Emp. Var = empirical variance of coefficient difference",
+        "across sims;",
+        "Est. Var = MC average of sandwich diagonal;",
+        "Ratio = Est./Emp.")
+    ) |>
+    tab_spanner(label = "Averages Across K Coefficients",
+      columns = c(`Mean Emp. Var`, `Mean Est. Var`)) |>
+    tab_spanner(label = "Ratio (Est. / Emp.)",
+      columns = c(`Mean Ratio`, `Median Ratio`,
+                   `Min Ratio`, `Max Ratio`)) |>
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = `Mean Ratio`,
+        rows = `Mean Ratio` >= 0.85 & `Mean Ratio` <= 1.15)) |>
+    tab_style(style = cell_fill(color = "#FFEBEE"),
+      locations = cells_body(columns = `Mean Ratio`,
+        rows = `Mean Ratio` < 0.85 | `Mean Ratio` > 1.15)) |>
+    tab_source_note(
+      "Green: mean ratio within 15% of 1.0. Red: outside 15%."
+    )
+}
+```
+
+### Per-Coefficient Detail
+
+```{r var-detail}
+#| tbl-cap: "Per-coefficient variance calibration (H0 scenarios)"
+
+if (nrow(var_diag_df) > 0) {
+  detail_dt <- data.table(var_diag_df)
+  detail_dt$label <- sprintf("%s (%s)", detail_dt$dgm,
+                              detail_dt$regression)
+
+  gt(detail_dt[, .(
+    `Scenario` = label,
+    `Coef k` = coef_idx,
+    `Emp. Var` = signif(emp_var, 4),
+    `Est. Var` = signif(est_var, 4),
+    `Ratio` = round(ratio, 3)
+  )]) |>
+    tab_header(
+      title = md("**Per-Coefficient Variance Detail (H0)**"),
+      subtitle = sprintf("%d sims per scenario", nsims)
+    ) |>
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = Ratio,
+        rows = Ratio >= 0.85 & Ratio <= 1.15)) |>
+    tab_style(style = cell_fill(color = "#FFEBEE"),
+      locations = cells_body(columns = Ratio,
+        rows = Ratio < 0.85 | Ratio > 1.15))
+}
+```
+
+
+## Chi-Squared Q-Q Plots
+
+Under $H_0$, the test statistic $Q \sim \chi^2(K)$.
+
+```{r chisq-qq, fig.width=10, fig.height=5}
+#| fig-cap: "Q-Q: empirical Q vs theoretical chi-squared(K)."
+
+h0_dt <- mc_dt[scenario %in% h0_ids & !is.na(Q_zero)]
+h0_dt <- merge(h0_dt,
+  data.table(mc_scenarios)[, .(id, dgm, regression)],
+  by.x = "scenario", by.y = "id")
+
+if (nrow(h0_dt) > 0) {
+  h0_dt$label <- sprintf("%s (%s)", h0_dt$dgm, h0_dt$regression)
+
+  qq_list <- lapply(split(h0_dt, h0_dt$label), function(sub) {
+    K_val <- sub$K[1]
+    n <- nrow(sub)
+    ggplot(data.frame(
+        theo = qchisq(ppoints(n), df = K_val),
+        emp = sort(sub$Q_zero)),
+      aes(x = theo, y = emp)) +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+                  colour = "firebrick") +
+      geom_point(size = 1, alpha = 0.4, colour = "steelblue") +
+      labs(x = sprintf("chi-sq(%d)", K_val), y = "Q",
+           title = sub$label[1]) +
+      coord_equal() +
+      theme_minimal(base_size = 9)
+  })
+
+  wrap_plots(qq_list, ncol = 3) +
+    plot_annotation(
+      title = "Chi-Squared Q-Q Plots Under H0",
+      subtitle = sprintf("%d sims per scenario", nsims))
+}
+```
+
+
+# Real Data: GBSG Breast Cancer Trial {#sec-gbsg}
+
+## Background
+
+The German Breast Cancer Study Group (GBSG) trial randomized
+686 node-positive breast cancer patients to adjuvant **hormonal
+therapy** (tamoxifen, `hormon = 1`) versus **control**
+(`hormon = 0`).  The endpoint is recurrence-free survival
+(`rfstime`, days; `status` = 1 for recurrence or death).
+
+This is the same dataset used in the `forestsearch` vignettes
+and in Leon et al. (2024).  The overall ITT hazard ratio is
+approximately 0.69 (95% CI: 0.54--0.89), suggesting a benefit
+for hormonal therapy on average.
+
+The question is: **is this benefit uniform, or does it vary
+across patient subgroups?**  The Crump et al. tests can answer
+this without specifying the subgroups in advance.
+
+
+## Data Preparation
+
+```{r gbsg-prep}
+#| code-fold: false
+
+data("gbsg", package = "survival")
+
+df_gbsg <- gbsg
+df_gbsg$id <- seq_len(nrow(df_gbsg))
+df_gbsg$time_yr <- df_gbsg$rfstime / 365.25
+df_gbsg$grade3 <- as.integer(df_gbsg$grade == 3)
+df_gbsg$log_fu <- log(df_gbsg$time_yr)
+
+cat("=== GBSG Trial ===\n")
+cat(sprintf("  N: %d\n", nrow(df_gbsg)))
+cat(sprintf("  Events: %d (%.1f%%)\n",
+            sum(df_gbsg$status),
+            100 * mean(df_gbsg$status)))
+cat(sprintf("  Hormonal arm: %d | Control: %d\n",
+            sum(df_gbsg$hormon == 1),
+            sum(df_gbsg$hormon == 0)))
+cat(sprintf("  Median follow-up: %.1f years\n",
+            median(df_gbsg$time_yr)))
+```
+
+
+## ITT Analysis (Benchmark)
+
+```{r gbsg-itt}
+library(survival)
+
+fit_itt <- coxph(Surv(rfstime, status) ~ hormon, data = df_gbsg)
+hr_itt <- exp(coef(fit_itt)["hormon"])
+ci_itt <- exp(confint(fit_itt)["hormon", ])
+
+cat(sprintf("ITT Cox HR: %.3f (95%% CI: %.3f - %.3f)\n",
+            hr_itt, ci_itt[1], ci_itt[2]))
+cat(sprintf("  p-value: %.4f\n",
+            summary(fit_itt)$coefficients["hormon", "Pr(>|z|)"]))
+```
+
+
+## Covariate Matrix
+
+The covariates match those used in the `forestsearch` GBSG
+vignette.  All factors are converted to numeric 0/1 indicators.
+
+```{r gbsg-covariates}
+#| code-fold: false
+
+# Continuous: age, nodes, pgr, er, size
+# Binary: meno (menopausal status), grade3
+X_gbsg <- cbind(
+  age    = df_gbsg$age,
+  meno   = df_gbsg$meno,
+  size   = df_gbsg$size,
+  grade3 = df_gbsg$grade3,
+  nodes  = df_gbsg$nodes,
+  pgr    = df_gbsg$pgr,
+  er     = df_gbsg$er
+)
+
+Y_gbsg <- df_gbsg$status
+W_gbsg <- df_gbsg$hormon
+
+cat(sprintf("Covariate matrix: %d x %d\n", nrow(X_gbsg), ncol(X_gbsg)))
+cat("Variables:", paste(colnames(X_gbsg), collapse = ", "), "\n")
+```
+
+
+## OLS Tests
+
+```{r gbsg-ols}
+cat("=== OLS (Linear Probability Model) ===\n\n")
+res_gbsg_ols <- test_hte(Y_gbsg, W_gbsg, X_gbsg,
+                          regression = "ols")
+print(res_gbsg_ols)
+```
+
+
+## Logistic Tests
+
+```{r gbsg-logistic}
+cat("=== Logistic Regression ===\n\n")
+res_gbsg_logit <- test_hte(Y_gbsg, W_gbsg, X_gbsg,
+                            regression = "logistic")
+print(res_gbsg_logit)
+```
+
+
+## Poisson + Offset Tests (IRR Scale)
+
+Using the Poisson + offset approach with $\log(\text{follow-up time
+in years})$ as offset.  This tests for HTE on the **incidence rate
+ratio** scale, matching the `forestsearch` IRR pipeline.
+
+```{r gbsg-poisson}
+cat("=== Poisson + Offset (IRR Scale) ===\n\n")
+res_gbsg_pois <- test_hte(Y_gbsg, W_gbsg, X_gbsg,
+                           regression = "poisson",
+                           offset = df_gbsg$log_fu)
+print(res_gbsg_pois)
+```
+
+
+## Covariate Selection Comparison
+
+Following Tables 2 and 4 of Crump et al., we compare all three
+covariate selection methods for each regression model.
+
+```{r gbsg-all-methods}
+#| tbl-cap: "GBSG HTE Tests: Three Covariate Selection Methods"
+
+run_gbsg_methods <- function(Y, W, X, reg, off = NULL, label) {
+  methods <- c("all", "top_down", "bottom_up")
+  rows <- list()
+  for (m in methods) {
+    t0 <- tryCatch(
+      test_zero_cate(Y, W, X, covariate_select = m,
+                      regression = reg, offset = off),
+      error = function(e) NULL)
+    t1 <- tryCatch(
+      test_constant_cate(Y, W, X, covariate_select = m,
+                          regression = reg, offset = off),
+      error = function(e) NULL)
+    ate <- mean(Y[W == 1]) - mean(Y[W == 0])
+    se <- sqrt(var(Y[W == 1]) / sum(W == 1) +
+                var(Y[W == 0]) / sum(W == 0))
+
+    # Extract selected covariate names
+    sel_names <- if (!is.null(t0) &&
+                      !is.null(t0$covariates_selected)) {
+      paste(t0$covariates_selected, collapse = ", ")
+    } else {
+      paste(colnames(X), collapse = ", ")
+    }
+
+    rows[[m]] <- data.frame(
+      Model = label, Method = m,
+      Selected = sel_names,
+      Z_chisq = if (!is.null(t0)) round(t0$chi_sq, 2) else NA,
+      Z_dof = if (!is.null(t0)) t0$df else NA,
+      Z_pval = if (!is.null(t0)) round(t0$p_value_chi, 3) else NA,
+      C_chisq = if (!is.null(t1)) round(t1$chi_sq, 2) else NA,
+      C_dof = if (!is.null(t1)) t1$df else NA,
+      C_pval = if (!is.null(t1)) round(t1$p_value_chi, 3) else NA,
+      A_chisq = round((ate / se)^2, 2),
+      A_pval = round(2 * pnorm(abs(ate / se),
+                                lower.tail = FALSE), 3),
+      stringsAsFactors = FALSE
+    )
+  }
+  do.call(rbind, rows)
+}
+
+tab_ols <- run_gbsg_methods(Y_gbsg, W_gbsg, X_gbsg,
+  "ols", NULL, "OLS")
+tab_log <- run_gbsg_methods(Y_gbsg, W_gbsg, X_gbsg,
+  "logistic", NULL, "Logistic")
+tab_poi <- run_gbsg_methods(Y_gbsg, W_gbsg, X_gbsg,
+  "poisson", df_gbsg$log_fu, "Poisson+offset")
+tab_gbsg <- rbind(tab_ols, tab_log, tab_poi)
+
+gt(tab_gbsg) |>
+  tab_header(
+    title = md("**GBSG Trial: HTE Tests by Model and Covariate Selection**"),
+    subtitle = sprintf("N = %d, %d events (%.0f%%), 7 candidate covariates",
+      nrow(df_gbsg), sum(df_gbsg$status),
+      100 * mean(df_gbsg$status))
+  ) |>
+  tab_spanner(label = "Zero Cond. Ave. TE",
+              columns = c(Z_chisq, Z_dof, Z_pval)) |>
+  tab_spanner(label = "Constant Cond. Ave. TE",
+              columns = c(C_chisq, C_dof, C_pval)) |>
+  tab_spanner(label = "Zero Ave. TE",
+              columns = c(A_chisq, A_pval)) |>
+  cols_label(
+    Model = "Model", Method = "Method", Selected = "Selected Covariates",
+    Z_chisq = "chi-sq", Z_dof = "dof", Z_pval = "p-val",
+    C_chisq = "chi-sq", C_dof = "dof", C_pval = "p-val",
+    A_chisq = "chi-sq", A_pval = "p-val"
+  ) |>
+  tab_row_group(label = "Poisson + Offset",
+                rows = Model == "Poisson+offset") |>
+  tab_row_group(label = "Logistic",
+                rows = Model == "Logistic") |>
+  tab_row_group(label = "OLS",
+                rows = Model == "OLS") |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = Z_pval,
+      rows = !is.na(Z_pval) & Z_pval < 0.05)) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = C_pval,
+      rows = !is.na(C_pval) & C_pval < 0.05)) |>
+  tab_source_note(paste(
+    "Green: p < 0.05. 'Selected Covariates' shows which",
+    "variables survived the selection procedure.",
+    "Selection uses control-group data only (|t| >= 2 threshold)."))
+```
+
+
+## Interpretation
+
+The GBSG results should be compared with the findings from
+the `forestsearch` GBSG vignette.  Key questions:
+
+1. **Zero CATE test**: Does hormonal therapy have a nonzero
+   average effect for ALL covariate-defined subpopulations?
+   The standard ITT test found HR = `r round(hr_itt, 3)` with
+   $p$ = `r round(summary(fit_itt)$coefficients["hormon", "Pr(>|z|)"], 4)`.
+   The Zero CATE test asks a stronger question.
+
+2. **Constant CATE test**: Is the treatment effect HETEROGENEOUS?
+   If this test rejects, it provides formal justification for
+   running `forestsearch()` to identify which subgroups benefit
+   more or less from hormonal therapy.
+
+3. **Robustness across models**: Do the OLS, logistic, and
+   Poisson + offset approaches give consistent conclusions?
+   Consistency across models strengthens the evidence.
+
+4. **Robustness across covariate selection**: Do the results
+   change materially between all-covariates, top-down, and
+   bottom-up?  The "Selected Covariates" column reveals which
+   variables the selection procedure retained.  Stability across
+   methods (as Crump et al. found in their GAIN and WIN analyses)
+   supports the reliability of the conclusions.
+
+5. **Which covariates drive the heterogeneity?**  The top-down
+   and bottom-up methods identify which covariates are most
+   predictive of the outcome in the control group (and thus
+   candidates for effect modification).  If the same covariates
+   appear in both selection methods, this provides converging
+   evidence about the dimensions along which the treatment effect
+   varies.  Compare these with the covariates that `forestsearch`
+   identifies as defining the harm subgroup.
+
+
+# Choosing the Basis and ForestSearch Integration {#sec-basis}
+
+## The Theory-Practice Gap in Basis Selection
+
+The asymptotic theory (Assumption 3.3) requires $K$ to grow with
+$N$ at rate $K = C \cdot N^\nu$ for $d/(2s+2d) < \nu < 2/13$.
+This ensures the series approximation becomes arbitrarily flexible
+while the normal approximation remains valid.  The rate
+$\nu < 2/13 \approx 0.154$ is quite slow --- for $N = 1000$, even
+$\nu = 0.15$ gives $K \approx 3$--4 terms.
+
+In practice (Section IV, Tables 2 and 4), the paper uses a **fixed**
+basis of linear terms with substantive covariate selection.  In
+the GAIN analysis: 7 demographics + age$^2$ + 10 quarterly earnings
++ 10 zero-earnings indicators = 28 covariates, giving $K = 29$.
+The top-down and bottom-up methods then reduce this to $K = 2$--8
+depending on the site.
+
+The paper acknowledges this gap explicitly (p. 395): using $K$
+larger than necessary "combines the test of $\xi_{K_0}$ being zero
+with tests of additional parameters ... being equal to zero.  The
+latter are, in fact, zero under the parametric model, and, therefore,
+this addition lowers the power."
+
+The practical implication: **including too many irrelevant covariates
+dilutes power**, while including too few may miss the source of
+heterogeneity.  The covariate selection methods address this by
+focusing on covariates that are predictive of the outcome (in the
+control group), which is a reasonable proxy for covariates that
+might modify the treatment effect.
+
+
+## What the Covariate Selection Methods Do
+
+Each method operates on **control-group data only**, then applies
+the same specification to the treatment group.  This avoids
+using treatment information in the model selection step.
+
+**All covariates** (`covariate_select = "all"`): Uses every column
+of $X$ as a linear term.  For the GBSG analysis with 7 covariates,
+this gives $K = 8$ (intercept + 7 slopes).  This is the most
+powerful approach when all covariates are relevant, but loses power
+if many are noise.
+
+**Top-down** (`"top_down"`): Starting from all covariates, fits
+OLS of $Y$ on $(1, X)$ in the control group.  Sequentially drops
+the covariate with the smallest $|t|$-statistic until all remaining
+have $|t| \ge 2$.  This prunes irrelevant covariates, potentially
+increasing power by reducing the degrees of freedom of the test.
+For the GBSG analysis, this might retain only `er`, `nodes`, and
+`pgr` (the strongest prognostic factors).
+
+**Bottom-up** (`"bottom_up"`): Starting from the intercept only,
+sequentially adds the covariate with the largest $|t|$-statistic
+until no remaining covariate has $|t| \ge 2$.  This builds up a
+parsimonious model, which may differ from the top-down result
+due to collinearity among covariates.
+
+
+## Screening-Informed Basis Selection {#sec-fs-integration}
+
+A natural extension is to use **ForestSearch's own screening step**
+to inform the Crump test basis.  The idea:
+
+1. ForestSearch screens candidate subgroups and identifies $m$
+   candidates that meet the screening threshold (e.g., $m = 10$
+   candidates based on $k = 3$ underlying covariates: age, pgr,
+   meno).
+
+2. Extract the $k$ unique covariates from these candidates.
+
+3. Run the Crump test with $X$ = these $k$ covariates, giving
+   $K = k + 1$ basis terms.
+
+This approach has several attractive properties:
+
+- **Data-driven but focused**: The screening step has already
+  identified which covariates carry treatment-effect information.
+  The Crump test then formally evaluates whether this apparent
+  heterogeneity is statistically significant.
+
+- **Complementary to the consistency criterion**: ForestSearch's
+  consistency evaluation asks whether the *same subgroup*
+  replicates across random splits.  The Crump test asks whether
+  *any form of heterogeneity* exists on the identified dimensions.
+  A subgroup might fail the consistency criterion (too noisy to
+  replicate reliably) while the Crump test rejects (there IS
+  heterogeneity on these covariates, even if the exact subgroup
+  boundary is uncertain).
+
+- **Natural integration point**: The screened covariates are
+  available from `fs_result$confounders.evaluated` after GRF/LASSO
+  selection, or from the candidate subgroup definitions after the
+  search step.
+
+### Statistical Considerations
+
+Using forestsearch-selected covariates creates a **data-dependent
+basis**, which is not directly covered by the original asymptotic
+theory.  However, several factors mitigate the concern:
+
+1. The **selection mechanism differs** from the test: GRF variable
+   importance selects covariates based on prediction accuracy for
+   the CATE, while the Crump test evaluates coefficient equality
+   across treatment arms.  These are related but not identical
+   criteria.
+
+2. ForestSearch screening uses **split-halves**, while the Crump
+   test uses the **full sample**.  The data used for selection is
+   partially non-overlapping with the data used for testing.
+
+3. The **direction of bias** from covariate selection is toward
+   rejection (covariates were selected because they appeared
+   relevant).  This means the screening-informed test may have
+   **inflated size** under $H_0$.  The empirical size should be
+   evaluated via simulation.
+
+4. A **conservative interpretation**: If the screening-informed
+   Crump test does NOT reject, that is strong evidence against
+   HTE on these dimensions, since the test was given every
+   advantage (covariates pre-selected to show apparent HTE).
+   If it DOES reject, the result should be interpreted with the
+   caveat that the covariates were data-selected.
+
+
+### Implementation
+
+The `test_hte_from_forestsearch()` function extracts covariates
+from a forestsearch result and runs the Crump tests:
+
+```
+# After running forestsearch
+fs <- forestsearch(df.analysis, ...)
+
+# Screening-informed HTE test
+hte_fs <- test_hte_from_forestsearch(
+  fs_result = fs,
+  df = df.analysis,
+  outcome.name = "status",
+  treat.name = "hormon",
+  regression = "poisson",
+  offset = log(df.analysis$time_yr)
+)
+
+# The result includes:
+# - hte_fs$hte_test:         test results
+# - hte_fs$covariates_used:  which covariates were selected
+# - hte_fs$n_covariates:     K - 1
+# - hte_fs$source:           how covariates were selected
+```
+
+
+### Integration Within ForestSearch
+
+There are two natural integration points:
+
+**Option A: Post-hoc diagnostic** (recommended for v0.2.0).
+After forestsearch completes, the user calls
+`test_hte_from_forestsearch()` on the result.  This is simple,
+non-invasive, and allows the user to choose the regression model.
+The result can be added to the forestsearch output as:
+
+```
+fs$hte_diagnostic <- test_hte_from_forestsearch(fs, ...)
+```
+
+**Option B: Internal integration** (future).  Add the Crump test
+as an automatic step within `forestsearch()`, reporting the
+$p$-value alongside the consistency metric.  This would require:
+
+- Adding `regression` and `offset` parameters to `forestsearch()`
+  (or inferring them from `outcome_type` and `effect_measure`)
+- Running the test after the screening step but before or after
+  consistency evaluation
+- Including the test results in the return object
+
+Option B provides a richer output but adds complexity.  Option A
+is the pragmatic first step.
+
+
+## Demonstration: GBSG with ForestSearch-Selected Covariates
+
+```{r fs-informed-test}
+# If forestsearch has been run on the GBSG data and the result
+# is available, we can demonstrate the integration:
+if (exists("fs") && !is.null(fs$confounders.evaluated)) {
+  cat("=== ForestSearch-Informed HTE Test ===\n\n")
+
+  hte_fs <- test_hte_from_forestsearch(
+    fs_result = fs,
+    df = df_gbsg,
+    outcome.name = "status",
+    treat.name = "hormon",
+    regression = "poisson",
+    offset = df_gbsg$log_fu
+  )
+
+  cat("Covariates used:", paste(hte_fs$covariates_used,
+                                 collapse = ", "), "\n")
+  cat("Source:", hte_fs$source, "\n")
+  cat("K:", hte_fs$n_covariates + 1, "\n\n")
+  print(hte_fs$hte_test)
+} else {
+  cat("ForestSearch result not available in this session.\n")
+  cat("To demonstrate, run forestsearch() on the GBSG data first,\n")
+  cat("then call test_hte_from_forestsearch() on the result.\n\n")
+
+  # Simulate what the output would look like using the
+  # covariates that forestsearch typically selects for GBSG
+  # (from the forestsearch vignette: er, meno, pgr, nodes, age)
+  cat("--- Simulated integration using typical FS covariates ---\n")
+  cat("Covariates: er, meno (from forestsearch screening)\n\n")
+
+  X_fs <- cbind(er = df_gbsg$er, meno = df_gbsg$meno)
+  cat("OLS:\n")
+  print(test_hte(Y_gbsg, W_gbsg, X_fs, regression = "ols"))
+
+  cat("\nPoisson + offset:\n")
+  print(test_hte(Y_gbsg, W_gbsg, X_fs, regression = "poisson",
+                  offset = df_gbsg$log_fu))
+}
+```
+
+
+# Summary {#sec-summary}
+
+## Results by Regression Model
+
+- **OLS** (original paper): Works for all outcome types because the
+  HC sandwich handles heteroskedasticity automatically.  For binary
+  $Y$, this is a linear probability model --- it estimates risk
+  differences, and the sandwich captures the
+  $p(x)(1-p(x))$ variance without requiring specification.
+  Provides proper size control and good power across all DGMs tested.
+
+- **Logistic**: The proper link function for binary outcomes.
+  Tests on the **log-odds** scale rather than the risk-difference
+  scale.  May have slightly higher power than OLS when the DGM
+  has effects on the log-OR scale, because the model specification
+  better matches the true data-generating process.
+
+- **Poisson + offset**: Accommodates survival data (event indicator
+  + log follow-up as offset) and count data with differential
+  exposure.  The coefficients estimate **log event rates**, which
+  directly correspond to the IRR pipeline in `forestsearch`.
+  This enables formal HTE testing on the same scale that
+  `forestsearch` uses for subgroup identification.
+
+
+## Key Diagnostic: The Variance Ratio
+
+The variance ratio $\bar{\hat{V}}_{kk} / \widehat{\text{Var}}_{\text{emp}}(\hat\delta_k)$
+is the central calibration diagnostic:
+
+- **Ratio $\approx$ 1.0**: The sandwich variance estimator is
+  well-calibrated.  The asymptotic approximation is adequate at
+  the given sample size, and the $\chi^2$ reference distribution
+  is appropriate for computing $p$-values.
+
+- **Ratio $> 1$**: The sandwich **overestimates** the variance.
+  The test is conservative (actual size $<$ nominal level).  The
+  $\chi^2$ Q-Q plot will show the empirical quantiles falling
+  below the diagonal.
+
+- **Ratio $< 1$**: The sandwich **underestimates** the variance.
+  The test is liberal (actual size $>$ nominal level).  This is
+  more concerning and may require larger $N$ or a bias-corrected
+  variance estimator (HC1, HC2, or HC3).
+
+
+## Interpreting the Continuous H0 Results
+
+Under the continuous H0 DGM ($\tau(x) = -0.5$ for all $x$), the
+expected behavior is:
+
+| Test | Expected | Reason |
+|---|---|---|
+| Zero CATE | **Reject** (high power) | $\tau(x) = -0.5 \ne 0$ |
+| Constant CATE | **Not reject** (~5%) | $\tau(x)$ IS constant |
+| Zero ATE | **Reject** (high power) | $E[\tau(X)] = -0.5 \ne 0$ |
+
+This confirms that the "null" in our simulation study means "no HTE"
+(uniform treatment effect), not "no treatment effect."  The Constant
+CATE test correctly identifies the absence of heterogeneity even
+when the overall effect is large.
+
+
+## Connection to ForestSearch
+
+The **Constant CATE test** is the pre-screening diagnostic for
+`forestsearch()`.  If it rejects at the 5% level, there is formal
+evidence of treatment effect heterogeneity, and subgroup
+identification is scientifically motivated.  If it does not reject,
+any subgroup found by `forestsearch()` should be interpreted
+cautiously --- the apparent heterogeneity may be a chance finding.
+
+These tests are computationally trivial (OLS or GLM fit +
+sandwich variance, no bootstrap or simulation) and can be run as
+a **first step** before the more expensive `forestsearch()`
+procedure.
+
+
+# References {#sec-references}
+
+- Crump, R.K., Hotz, V.J., Imbens, G.W., Mitnik, O.A. (2008).
+  Nonparametric Tests for Treatment Effect Heterogeneity.
+  *Review of Economics and Statistics*, 90(3), 389--405.
+
+- Leon, L.F., et al. (2024). Exploratory Subgroup Identification.
+  *Statistics in Medicine*, 43, 4253--4275. doi:10.1002/sim.10163
+
+
+# Timing and Session Info {#sec-session}
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+gt(data.frame(
+  Stage = c("Monte Carlo", "Total"),
+  Seconds = c(timings$mc, timings$total),
+  Minutes = c(timings$mc, timings$total) / 60
+)) |>
+  tab_header(
+    title = "Timing",
+    subtitle = sprintf("%d sims x %d scenarios | %d workers",
+      nsims, nrow(mc_scenarios), n_workers)
+  ) |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1)
+```
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```

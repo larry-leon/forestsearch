@@ -1,0 +1,859 @@
+---
+title: "Threshold Selection Guide for ForestSearch"
+subtitle: "Using `suggest_thresholds()` to Choose (c1, c2) for Non-Survival Outcomes"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+
+# Background {#sec-background}
+
+## The Problem
+
+The paper defaults for ForestSearch (c1 = 1.25, c2 = 1.0)
+were calibrated for **survival endpoints** using the GBSG DGM
+(Leon et al., 2024).  For non-survival outcomes (binary,
+count, continuous), these defaults may not provide adequate
+FPR control because:
+
+1. **Lower $d_{\text{eff}}$**: Binary outcomes with
+   $\bar{p} = 0.30$ give $d_{\text{eff}} = 0.21 \cdot n_H$,
+   roughly one-third the survival value
+   ($d = 0.54 \cdot n_H$ at 46% censoring).  Lower
+   $d_{\text{eff}}$ means higher per-subgroup $P_1$.
+
+2. **Higher $L_{\text{eff}}$**: Without an events-based
+   minimum (`d0.min`, `d1.min`), more candidate subgroups
+   survive to the threshold check, so the procedure-level
+   FPR is amplified relative to the per-subgroup $P_1$.
+
+## The Solution
+
+`suggest_thresholds()` uses the **corrected approximation**
+to find the smallest $(c_1, c_2)$ that controls the
+procedure-level FPR:
+
+$$
+\text{FPR}_{\text{corr}} = 1 - (1 - P_1)^{L_{\text{eff}}(N)}
+\le \text{target}
+$$
+
+where:
+
+- $P_1 = P(W_1 + W_2 \ge 2 \log c_1,\;
+  \min(W_1, W_2) \ge \log c_2)$
+  with $W_1, W_2 \sim N(0, 8/d_{\text{eff}})$ under $H_0$
+- $L_{\text{eff}}(N) = C \cdot (N / n_{\min})^\alpha$ is
+  the effective number of candidates
+
+The function returns a **frontier table**: for each $c_1$
+(ascending), the minimum $c_2$ that achieves the target.
+The first row is the answer to "what is the smallest $c_1$?"
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(ggplot2)
+library(gt)
+
+# Load forestsearch from source (picks up suggest_thresholds.R
+# and other new files without needing devtools::install())
+devtools::load_all(here::here(), quiet = TRUE)
+```
+
+
+# Installation {#sec-install}
+
+The `suggest_thresholds()` function lives in
+`R/suggest_thresholds.R`.  After placing it in the package
+`R/` directory:
+
+```{r install-note}
+#| eval: false
+#| code-fold: false
+
+# From your package root:
+devtools::document()   # generates man/suggest_thresholds.Rd
+devtools::load_all()   # makes the function available
+?suggest_thresholds    # view the help page
+```
+
+
+# Example 1: Survival (Paper Defaults) {#sec-survival}
+
+For survival, the paper defaults should emerge naturally when
+$L_{\text{eff}} = 1$ (the default).
+
+```{r survival-example}
+#| code-fold: false
+
+# Subgroup: n_H = 91 (pH=13%, N=700), 46% censoring
+d_surv <- d_eff_survival(n_sg = 91, prop_cens = 0.46)
+cat(sprintf("d_eff (survival): %.0f events\n", d_surv))
+
+# Without L_eff correction (default: C=1, alpha=0 -> L_eff=1)
+frontier_surv <- suggest_thresholds(
+  d_eff = d_surv, N = 700,
+  fpr_target = 0.12
+)
+```
+
+```{r survival-table}
+#| tbl-cap: "Survival frontier: smallest c1 values achieving P1 <= 12% (L_eff = 1, so FPR_corr = P1)"
+
+gt(head(frontier_surv[, c("c1", "min_c2", "P1")], 10)) |>
+  tab_header(
+    title = "Survival: Threshold Frontier (L_eff = 1)",
+    subtitle = sprintf("d_eff = %d, N = 700", round(d_surv))
+  ) |>
+  fmt_number(columns = P1, decimals = 3) |>
+  tab_source_note(
+    "With L_eff = 1: corrected FPR = P1 (no multiplicity adjustment)."
+  )
+```
+
+With $L_{\text{eff}} = 1$, the per-subgroup approximation
+gives $P_1(1.25, 1.0) \approx 17\%$.  The paper found
+simulated FPR of ~5.6% at N = 700 because the true
+$L_{\text{eff}} < 1$ (the procedure is *more* conservative
+than a single test due to the events-based filters).
+The paper defaults are safe for survival.
+
+
+# Example 2: Binary Outcome {#sec-binary}
+
+## Without $L_{\text{eff}}$ Correction
+
+```{r binary-no-leff}
+#| code-fold: false
+
+# Subgroup: 30% prevalence, N=700 -> n_H = 210, p = 0.30
+d_bin <- d_eff_binary(n_sg = 210, p_event = 0.30)
+cat(sprintf("d_eff (binary): %.1f\n", d_bin))
+
+# Without correction: gives the per-subgroup P1 frontier
+frontier_bin_raw <- suggest_thresholds(
+  d_eff = d_bin, N = 700,
+  fpr_target = 0.12
+)
+```
+
+```{r binary-no-leff-table}
+#| tbl-cap: "Binary frontier WITHOUT L_eff correction (P1 only)"
+
+gt(head(frontier_bin_raw[, c("c1", "min_c2", "P1")], 8)) |>
+  tab_header(
+    title = "Binary: Per-Subgroup Frontier (L_eff = 1)",
+    subtitle = sprintf("d_eff = %.1f, N = 700", d_bin)
+  ) |>
+  fmt_number(columns = P1, decimals = 3) |>
+  tab_source_note(
+    "With L_eff = 1: corrected FPR = P1. This UNDERESTIMATES the true procedure-level FPR."
+  )
+```
+
+Without the $L_{\text{eff}}$ correction, the frontier suggests
+lower thresholds than are actually needed.
+
+## With $L_{\text{eff}}$ Correction
+
+The $L_{\text{eff}}$ calibration from
+`calibration_binary_leff.qmd` (5000 sims, 4 confounders):
+$C = 0.220$, $\alpha = 1.298$.
+
+```{r binary-with-leff}
+#| code-fold: false
+
+# With L_eff correction
+frontier_bin <- suggest_thresholds(
+  d_eff = d_bin, N = 700,
+  fpr_target = 0.12,
+  L_eff_C = 0.220,
+  L_eff_alpha = 1.298
+)
+```
+
+```{r binary-leff-table}
+#| tbl-cap: "Binary frontier WITH L_eff correction.  Note: P1 is 2-3% but the corrected FPR is 10-12% due to the L_eff multiplier."
+
+gt(head(frontier_bin, 10)) |>
+  tab_header(
+    title = "Binary: Corrected Frontier (L_eff calibrated)",
+    subtitle = sprintf("d_eff = %.1f, N = 700, L_eff = %.1f",
+      d_bin,
+      0.220 * (700 / 60)^1.298)
+  ) |>
+  fmt_number(columns = c(FPR_corr, P1), decimals = 3) |>
+  fmt_number(columns = L_eff, decimals = 1) |>
+  tab_source_note(
+    "P1 = per-subgroup probability. FPR_corr = 1-(1-P1)^L_eff = procedure-level FPR."
+  )
+```
+
+The corrected frontier shows that c1 = 1.55--1.60 with
+c2 = 1.50--1.55 is needed to achieve 12% FPR control.
+
+
+## How It Changes With Sample Size
+
+```{r binary-by-N, fig.height=6}
+#| fig-cap: "Binary frontier across sample sizes.  Larger N requires higher thresholds because L_eff grows."
+#| code-fold: false
+
+N_values <- c(300, 500, 700, 1000)
+p_harm <- 0.30
+p_event <- 0.30
+
+frontier_list <- lapply(N_values, function(N_val) {
+  n_H <- round(p_harm * N_val)
+  d <- d_eff_binary(n_H, p_event)
+  ft <- suggest_thresholds(
+    d_eff = d, N = N_val,
+    fpr_target = 0.12,
+    L_eff_C = 0.220, L_eff_alpha = 1.298
+  )
+  if (nrow(ft) > 0) {
+    ft$N <- N_val
+    ft$n_H <- n_H
+    ft$d_eff_val <- d
+  }
+  ft
+})
+
+frontier_all <- do.call(rbind, frontier_list)
+
+ggplot(frontier_all, aes(x = c1, y = min_c2,
+                          colour = factor(N))) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2.5) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = expression(c[1] ~ "(screening threshold)"),
+       y = expression("Min " * c[2] ~ "(consistency)"),
+       title = "Binary Outcome: Threshold Frontier by N",
+       subtitle = "Smallest (c1, c2) achieving corrected FPR <= 12%",
+       colour = "N") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        plot.title = element_text(face = "bold"))
+```
+
+
+# Example 3: Continuous Outcome {#sec-continuous}
+
+For continuous endpoints (e.g., change from baseline in blood
+pressure, biomarker level), the effect is a **mean difference**
+and thresholds are on the difference scale.
+
+$$
+d_{\text{eff}} = n_H / \sigma^2
+$$
+
+where $\sigma$ is the residual SD of the outcome.  Working in
+**standardized units** ($\sigma = 1$) is recommended so that
+$d_{\text{eff}} = n_H$ and the thresholds are on the Cohen's
+$d$ scale.
+
+```{r continuous-example}
+#| code-fold: false
+
+# Standardized continuous outcome (sigma = 1)
+# Subgroup: 25% prevalence, N = 600 -> n_H = 150
+n_H_cont <- 150
+sigma_y <- 1.0
+d_cont <- d_eff_continuous(n_sg = n_H_cont, sigma_y = sigma_y)
+cat(sprintf("d_eff (continuous, sigma=%.1f): %.0f\n", sigma_y, d_cont))
+
+frontier_cont <- suggest_thresholds(
+  d_eff = d_cont, N = 600,
+  fpr_target = 0.12,
+  effect_scale = "difference",
+  c1_range = c(0.01, 1.0),
+  c1_step = 0.01,
+  c2_candidates = seq(0.0, 0.50, by = 0.01)
+)
+```
+
+```{r continuous-table}
+#| tbl-cap: "Continuous frontier (standardized, sigma=1): thresholds are on the Cohen's d scale"
+
+if (nrow(frontier_cont) > 0) {
+  gt(head(frontier_cont[, c("c1", "min_c2", "P1")], 10)) |>
+    tab_header(
+      title = "Continuous: Threshold Frontier (L_eff = 1)",
+      subtitle = sprintf("d_eff = %.0f (n_H=%d, sigma=%.1f), N = 600",
+                          d_cont, n_H_cont, sigma_y)
+    ) |>
+    fmt_number(columns = P1, decimals = 3) |>
+    tab_source_note(
+      "Thresholds on the mean-difference scale.  With sigma=1, these are standardized effect sizes (Cohen's d)."
+    )
+} else {
+  cat("No pairs found.  d_eff =", d_cont,
+      "is large; try smaller c1_range.\n")
+}
+```
+
+::: {.callout-note}
+## Continuous: Threshold Interpretation
+
+For continuous outcomes, $c_1$ and $c_2$ are on the
+**mean difference** scale:
+
+- **Standardized** ($\sigma = 1$): $c_1 = 0.05$ means
+  "the half-sample mean difference must exceed 0.05 SD
+  units."  These are small Cohen's $d$ values.
+
+- **Unstandardized** ($\sigma = 15$, e.g., mmHg): scale
+  thresholds accordingly.
+  $d_{\text{eff}} = n_H / \sigma^2 = 150/225 = 0.67$.
+  Thresholds would be in mmHg.
+
+Because $d_{\text{eff}}$ for continuous outcomes can be very
+large (when $\sigma$ is small relative to $\sqrt{n_H}$), the
+per-subgroup $P_1$ may be low even at small thresholds.
+:::
+
+
+## Effect of Residual SD
+
+```{r continuous-sigma, fig.height=5}
+#| fig-cap: "Continuous outcome: how residual SD affects the threshold frontier.  Lower sigma = higher d_eff = lower thresholds needed."
+
+sigma_values <- c(0.5, 1.0, 2.0, 5.0)
+N_cont <- 600
+n_H_cont <- 150
+
+cont_list <- lapply(sigma_values, function(sig) {
+  d <- d_eff_continuous(n_H_cont, sig)
+  ft <- suggest_thresholds(
+    d_eff = d, N = N_cont,
+    fpr_target = 0.12,
+    effect_scale = "difference",
+    c1_range = c(0.01, 2.0), c1_step = 0.02,
+    c2_candidates = seq(0.0, 1.5, by = 0.02)
+  )
+  if (nrow(ft) > 0) {
+    ft$sigma <- sig
+    ft$d_eff_val <- d
+    ft$outcome <- sprintf("sigma=%.1f (d_eff=%.0f)", sig, d)
+  }
+  ft
+})
+cont_all <- do.call(rbind, cont_list[sapply(cont_list, nrow) > 0])
+
+if (nrow(cont_all) > 0) {
+  ggplot(cont_all, aes(x = c1, y = min_c2,
+                        colour = outcome)) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 2) +
+    scale_colour_brewer(palette = "Set1") +
+    labs(x = expression(c[1] ~ "(mean difference threshold)"),
+         y = expression("Min " * c[2] ~ "(consistency)"),
+         title = "Continuous: Frontier by Residual SD",
+         subtitle = sprintf("n(H)=%d, N=%d, FPR target=12%%",
+                             n_H_cont, N_cont),
+         colour = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "right",
+          plot.title = element_text(face = "bold"))
+}
+```
+
+
+# Example 4: Count Data {#sec-count}
+
+For general count outcomes (e.g., number of adverse events,
+exacerbations, hospital visits), the effect is an
+**incidence rate ratio** (IRR) on the log scale.
+
+$$
+d_{\text{eff}} = D \quad \text{(total count across both arms
+in the subgroup)}
+$$
+
+This uses `d_eff_count(total_events = D)` (not `d_eff_survival`).  When the
+mean count per person is $\bar\mu$ and the subgroup has
+$n_H$ subjects, $D \approx n_H \cdot \bar\mu$.
+
+```{r count-example}
+#| code-fold: false
+
+# Count outcome: mean 3 events per person, n_H = 120
+mu_bar <- 3.0
+n_H_count <- 120
+D_total <- round(n_H_count * mu_bar)
+d_count <- d_eff_count(total_events = D_total)
+cat(sprintf("d_eff (count): %.0f (D=%d, mu=%.1f, n_H=%d)\n",
+            d_count, D_total, mu_bar, n_H_count))
+
+frontier_count <- suggest_thresholds(
+  d_eff = d_count, N = 600,
+  fpr_target = 0.12,
+  effect_scale = "ratio"
+)
+```
+
+```{r count-table}
+#| tbl-cap: "Count data frontier: thresholds on the IRR scale"
+
+if (nrow(frontier_count) > 0) {
+  gt(head(frontier_count[, c("c1", "min_c2", "P1")], 10)) |>
+    tab_header(
+      title = "Count Data: Threshold Frontier (L_eff = 1)",
+      subtitle = sprintf(
+        "d_eff = %d (D=%d events, mu=%.1f/person), N = 600",
+        round(d_count), D_total, mu_bar)
+    ) |>
+    fmt_number(columns = P1, decimals = 3) |>
+    tab_source_note(
+      "Thresholds on the IRR scale (same interpretation as HR/OR)."
+    )
+} else {
+  cat("No pairs found.\n")
+}
+```
+
+::: {.callout-note}
+## Count Data: d_eff Depends on Event Rate
+
+The $d_{\text{eff}}$ for counts scales with the **total
+event count** $D = n_H \cdot \bar\mu$:
+
+- **High-rate** ($\bar\mu = 5$, $n_H = 100$):
+  $d_{\text{eff}} = 500$.  Very high information; paper
+  defaults likely adequate.
+
+- **Low-rate** ($\bar\mu = 0.3$, $n_H = 100$):
+  $d_{\text{eff}} = 30$.  Similar to survival; paper
+  defaults may be adequate.
+
+- **Very low-rate** ($\bar\mu = 0.1$, $n_H = 60$):
+  $d_{\text{eff}} = 6$.  Lower than binary; higher
+  thresholds needed.
+
+The count setting with moderate-to-high event rates is the
+most favorable for FPR control.
+:::
+
+
+## Effect of Event Rate
+
+```{r count-rates, fig.height=5}
+#| fig-cap: "Count data: how the mean event rate affects the threshold frontier.  Higher rates = more information = lower thresholds."
+
+mu_values <- c(0.3, 1.0, 3.0, 10.0)
+n_H_count <- 120
+N_count <- 600
+
+count_list <- lapply(mu_values, function(mu) {
+  D <- round(n_H_count * mu)
+  d <- d_eff_count(total_events = D)
+  ft <- suggest_thresholds(
+    d_eff = d, N = N_count,
+    fpr_target = 0.12,
+    effect_scale = "ratio"
+  )
+  if (nrow(ft) > 0) {
+    ft$mu <- mu
+    ft$d_eff_val <- d
+    ft$outcome <- sprintf("mu=%.1f (d_eff=%d)", mu, round(d))
+  }
+  ft
+})
+count_all <- do.call(rbind, count_list[sapply(count_list, nrow) > 0])
+
+if (nrow(count_all) > 0) {
+  ggplot(count_all, aes(x = c1, y = min_c2,
+                         colour = outcome)) +
+    geom_line(linewidth = 0.8) +
+    geom_point(size = 2) +
+    geom_point(data = data.frame(c1 = 1.25, min_c2 = 1.0),
+               colour = "black", size = 4, shape = 8) +
+    annotate("text", x = 1.28, y = 1.03,
+             label = "Paper\ndefaults", size = 3, hjust = 0) +
+    scale_colour_brewer(palette = "Dark2") +
+    labs(x = expression(c[1] ~ "(IRR screening threshold)"),
+         y = expression("Min " * c[2] ~ "(consistency)"),
+         title = "Count Data: Frontier by Mean Event Rate",
+         subtitle = sprintf("n(H)=%d, N=%d, FPR target=12%%",
+                             n_H_count, N_count),
+         colour = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "right",
+          plot.title = element_text(face = "bold"))
+}
+```
+
+
+# Example 5: Using the Result in ForestSearch {#sec-usage}
+
+## Binary
+
+```{r usage-binary}
+#| eval: false
+#| code-fold: false
+
+d <- d_eff_binary(n_sg = 210, p_event = 0.30)
+frontier <- suggest_thresholds(d, N = 700, fpr_target = 0.12,
+  L_eff_C = 0.220, L_eff_alpha = 1.298)
+
+fs <- forestsearch(
+  df.analysis = my_data,
+  confounders.name = c("bm1", "bm2", "age", "ecog"),
+  outcome.name = "response", event.name = "response",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "binary", effect_measure = "OR",
+  adverse_outcome = TRUE,
+  hr.threshold = frontier$c1[1],       # smallest c1
+  hr.consistency = frontier$min_c2[1],
+  pconsistency.threshold = 0.90,
+  n.min = 60, maxk = 2, fs.splits = 400,
+  use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+  is.RCT = TRUE, plot.sg = TRUE
+)
+```
+
+
+## Continuous
+
+```{r usage-continuous}
+#| eval: false
+#| code-fold: false
+
+# Standardized outcome (or divide by SD first)
+d <- d_eff_continuous(n_sg = 150, sigma_y = 1.0)
+frontier <- suggest_thresholds(d, N = 600, fpr_target = 0.12,
+  effect_scale = "difference",
+  c1_range = c(0.01, 1.0), c1_step = 0.01,
+  c2_candidates = seq(0.0, 0.50, by = 0.01))
+
+fs <- forestsearch(
+  df.analysis = my_data,
+  confounders.name = c("x1", "x2", "x3"),
+  outcome.name = "y_change", event.name = "y_change",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "continuous", effect_measure = "MD",
+  adverse_outcome = TRUE,
+  hr.threshold = frontier$c1[1],
+  hr.consistency = frontier$min_c2[1],
+  pconsistency.threshold = 0.90,
+  n.min = 60, maxk = 2, fs.splits = 400,
+  use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+  is.RCT = TRUE, plot.sg = TRUE
+)
+```
+
+::: {.callout-important}
+## Continuous: Threshold Units
+
+For `effect_measure = "MD"`, `hr.threshold` and
+`hr.consistency` are on the **mean difference** scale
+(not the HR/OR ratio scale).  ForestSearch automatically
+sets the default to 0.0 when it detects an identity-link
+measure.  The values from `suggest_thresholds()` with
+`effect_scale = "difference"` are ready to use directly.
+:::
+
+
+## Count Data
+
+```{r usage-count}
+#| eval: false
+#| code-fold: false
+
+D <- round(120 * 3.0)  # n_H * mean_count
+d <- d_eff_count(total_events = D)
+frontier <- suggest_thresholds(d, N = 600, fpr_target = 0.12,
+  effect_scale = "ratio")
+
+fs <- forestsearch(
+  df.analysis = my_data,
+  confounders.name = c("x1", "x2", "x3"),
+  outcome.name = "n_events", event.name = "n_events",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "count", effect_measure = "IRR",
+  adverse_outcome = TRUE,
+  hr.threshold = frontier$c1[1],
+  hr.consistency = frontier$min_c2[1],
+  pconsistency.threshold = 0.90,
+  n.min = 60, maxk = 2, fs.splits = 400,
+  use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+  is.RCT = TRUE, plot.sg = TRUE
+)
+```
+
+
+# Example 6: Cross-Outcome Comparison {#sec-compare}
+
+```{r compare-outcomes, fig.height=7}
+#| fig-cap: "Threshold frontiers by outcome type.  All on the ratio scale except continuous (difference scale, right panel)."
+
+N <- 700
+fpr_target <- 0.12
+
+# Survival: n_H = 91 (pH=13%), 46% censoring
+d_surv <- d_eff_survival(91, 0.46)
+ft_surv <- suggest_thresholds(d_surv, N, fpr_target)
+ft_surv$outcome <- sprintf("Survival (d_eff=%d)", round(d_surv))
+ft_surv$scale <- "Ratio scale"
+
+# Binary (with L_eff)
+d_bin <- d_eff_binary(210, 0.30)
+ft_bin <- suggest_thresholds(d_bin, N, fpr_target,
+  L_eff_C = 0.220, L_eff_alpha = 1.298)
+ft_bin$outcome <- sprintf("Binary (d_eff=%.0f, L_eff=%.1f)",
+  d_bin, 0.220 * (N / 60)^1.298)
+ft_bin$scale <- "Ratio scale"
+
+# Count: low rate (mu=0.5, similar to survival)
+d_cnt_lo <- d_eff_count(total_events = round(100 * 0.5))
+ft_cnt_lo <- suggest_thresholds(d_cnt_lo, N, fpr_target)
+ft_cnt_lo$outcome <- sprintf("Count mu=0.5 (d_eff=%d)",
+  round(d_cnt_lo))
+ft_cnt_lo$scale <- "Ratio scale"
+
+# Count: high rate (mu=5)
+d_cnt_hi <- d_eff_count(total_events = round(100 * 5))
+ft_cnt_hi <- suggest_thresholds(d_cnt_hi, N, fpr_target)
+ft_cnt_hi$outcome <- sprintf("Count mu=5 (d_eff=%d)",
+  round(d_cnt_hi))
+ft_cnt_hi$scale <- "Ratio scale"
+
+# Continuous (standardized)
+d_cont <- d_eff_continuous(150, 1.0)
+ft_cont <- suggest_thresholds(d_cont, N, fpr_target,
+  effect_scale = "difference",
+  c1_range = c(0.01, 1.0), c1_step = 0.01,
+  c2_candidates = seq(0.0, 0.50, by = 0.01))
+ft_cont$outcome <- sprintf("Continuous (d_eff=%d, sigma=1)",
+  round(d_cont))
+ft_cont$scale <- "Difference scale"
+
+# Ratio-scale outcomes
+ratio_df <- rbind(ft_surv, ft_bin, ft_cnt_lo, ft_cnt_hi)
+
+p_ratio <- ggplot(ratio_df, aes(x = c1, y = min_c2,
+                                 colour = outcome)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(size = 2) +
+  geom_point(data = data.frame(c1 = 1.25, min_c2 = 1.0),
+             colour = "black", size = 4, shape = 8) +
+  annotate("text", x = 1.28, y = 1.03,
+           label = "Paper\ndefaults", size = 3, hjust = 0) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(x = expression(c[1]),
+       y = expression("Min " * c[2]),
+       title = "Ratio-Scale Outcomes (HR / OR / IRR)",
+       colour = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom",
+        legend.direction = "vertical",
+        plot.title = element_text(face = "bold"))
+
+# Difference-scale outcome
+p_diff <- ggplot(ft_cont, aes(x = c1, y = min_c2)) +
+  geom_line(linewidth = 0.8, colour = "purple") +
+  geom_point(size = 2, colour = "purple") +
+  labs(x = expression(c[1] ~ "(mean difference)"),
+       y = expression("Min " * c[2]),
+       title = "Difference-Scale: Continuous (sigma=1)",
+       subtitle = sprintf("d_eff=%d, N=%d", round(d_cont), N)) +
+  theme_minimal(base_size = 11) +
+  theme(plot.title = element_text(face = "bold"))
+
+p_ratio + p_diff +
+  plot_layout(widths = c(2, 1)) +
+  plot_annotation(
+    title = "Cross-Outcome Threshold Frontier Comparison",
+    subtitle = sprintf("N=%d, FPR target=%.0f%%, L_eff=1 except where noted",
+                        N, 100 * fpr_target))
+```
+
+
+# The $L_{\text{eff}}$ Calibration Step {#sec-leff}
+
+## Why It Matters
+
+Without the $L_{\text{eff}}$ correction, `suggest_thresholds()`
+returns the **per-subgroup** frontier, which underestimates
+the procedure-level FPR.  The underestimation grows with $N$
+because more candidates are evaluated.
+
+| DGM | Confounders | $L_{\text{eff}}$ at N=700 | Source |
+|---|---|---|---|
+| GBSG survival | 7 | ~0.3 | calibration_survival_fourway.qmd |
+| Binary (4 conf) | 4 | ~5.3 | calibration_binary_leff.qmd |
+| Count | -- | Not yet calibrated | Use binary as starting point |
+| Continuous | -- | Not yet calibrated | Use binary as starting point |
+
+## How to Calibrate
+
+See `selection_binary_frontier.qmd` for the
+full blueprint.  The short version:
+
+```{r calibrate-example}
+#| eval: false
+#| code-fold: false
+
+# --- Quick L_eff calibration (100 sims x 5 N values) ---
+# 1. Define your H0 data generator
+sim_null <- function(n, seed) { ... }
+
+# 2. Run ForestSearch under H0 at multiple N values with
+#    a reference threshold (e.g., c1=1.25, c2=1.0).
+#    Record the simulated FPR at each N.
+
+# 3. Compute P1 at each N
+P1_vec <- sapply(N_values, function(N) {
+  n_H <- round(p_harm * N)
+  d <- d_eff_binary(n_H, p_event)
+  compute_detection_probability_glm(1.0, d, 1.25, 1.0,
+    effect_scale = "ratio")
+})
+
+# 4. Fit L_eff
+cal <- calibrate_L_eff(
+  N = N_values, P1 = P1_vec,
+  sim_fpr = sim_fpr_vec, n_min = 60
+)
+# cal$C, cal$alpha
+
+# 5. Use in suggest_thresholds()
+suggest_thresholds(d_eff = d, N = 700,
+  L_eff_C = cal$C, L_eff_alpha = cal$alpha,
+  fpr_target = 0.12)
+```
+
+
+## When You Can Skip It
+
+If you have no calibration data, calling
+`suggest_thresholds()` with the defaults ($C = 1$,
+$\alpha = 0$) gives the per-subgroup frontier.  This is
+**conservative for survival** (where $L_{\text{eff}} < 1$)
+and **optimistic for binary** (where $L_{\text{eff}} > 1$).
+
+For a quick rule of thumb without calibration:
+
+- **Survival**: paper defaults (c1 = 1.25, c2 = 1.0) are safe
+- **Binary**: start with c1 = 1.60, c2 = 1.50 and validate
+
+
+# Quick Reference {#sec-reference}
+
+## Function Signature
+
+```{r signature}
+#| eval: false
+#| code-fold: false
+
+suggest_thresholds(
+  d_eff,                              # from d_eff_*() helpers
+  N,                                  # total sample size
+  fpr_target = 0.10,                  # max procedure-level FPR
+  n_min = 60,                         # min subgroup size
+  L_eff_C = 1.0,                      # calibration constant
+  L_eff_alpha = 0.0,                  # calibration exponent
+  c1_range = c(1.05, 2.50),           # search range
+  c1_step = 0.05,                     # grid resolution
+  c2_candidates = seq(0.90, 2.0, 0.05),
+  effect_scale = "ratio"              # or "difference"
+)
+```
+
+## $d_{\text{eff}}$ by Outcome Type
+
+```{r deff-table}
+#| tbl-cap: "d_eff helpers and typical values"
+
+deff_ref <- data.frame(
+  `Outcome Type` = c("Survival (Cox PH)", "Binary (logit)",
+                      "Count (Poisson + offset)", "Continuous"),
+  `d_eff` = c("d_eff_survival(n_H, prop_cens)",
+               "d_eff_binary(n_H, p_event)",
+               "d_eff_count(total_events = D)",
+               "d_eff_continuous(n_H, sigma_y)"),
+  `Typical range` = c("33-65 (n_H=60-120, 46% cens)",
+                       "13-44 (n_H=60-210, p=0.30)",
+                       "Same as survival",
+                       "Depends on sigma"),
+  check.names = FALSE
+)
+
+gt(deff_ref) |>
+  tab_header(title = "d_eff Helpers by Outcome Type")
+```
+
+
+## Reference $L_{\text{eff}}$ Calibrations
+
+```{r leff-table}
+#| tbl-cap: "Published L_eff calibrations"
+
+leff_ref <- data.frame(
+  DGM = c("GBSG survival", "Binary (4 confounders)"),
+  C = c(0.029, 0.220),
+  alpha = c(0.882, 1.298),
+  `L_eff at N=700` = c(
+    round(0.029 * (700/60)^0.882, 1),
+    round(0.220 * (700/60)^1.298, 1)),
+  Source = c("calibration_survival_fourway.qmd",
+             "calibration_binary_leff.qmd"),
+  check.names = FALSE
+)
+
+gt(leff_ref) |>
+  tab_header(title = "Reference L_eff Calibrations")
+```
+
+
+## Recommended Thresholds Summary
+
+```{r recommendations}
+#| tbl-cap: "Recommended starting thresholds by outcome type"
+
+rec <- data.frame(
+  `Outcome Type` = c("Survival", "Binary (p~0.30)",
+                      "Count (high rate, mu>=3)",
+                      "Count (low rate, mu<1)",
+                      "Continuous (sigma=1)"),
+  `c1` = c("1.25", "1.55-1.60", "1.10-1.25",
+           "1.25-1.40", "0.03-0.10"),
+  `c2` = c("1.00", "1.50-1.55", "0.90-1.00",
+           "1.00-1.15", "0.01-0.05"),
+  `Scale` = c("HR", "OR", "IRR", "IRR", "Mean diff"),
+  `FPR at N=700` = c("~6% (GBSG)", "~10-12% (4 conf)",
+                      "Low (high d_eff)",
+                      "~5-12%",
+                      "Low (high d_eff)"),
+  Source = c("Paper (Table 1)", "Calibration study",
+             "Approximation", "Approximation",
+             "Approximation"),
+  check.names = FALSE
+)
+
+gt(rec) |>
+  tab_header(
+    title = "Recommended Starting Thresholds",
+    subtitle = "Validate with suggest_thresholds() for your specific configuration"
+  ) |>
+  tab_source_note(
+    "Paper defaults (c1=1.25, c2=1.0) remain the forestsearch() signature defaults."
+  )
+```

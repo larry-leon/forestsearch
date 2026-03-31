@@ -7,15 +7,26 @@
 #   quarto render quarto/
 #
 # Render a single document:
-#   quarto render quarto/cox_causal_review.qmd
-#   quarto render quarto/biomarker_comparison.qmd
+#   quarto render quarto/calibration_survival_fourway.qmd
+#   quarto render quarto/selection_binary_frontier.qmd
 #
 # Each .qmd has embed-resources: true in its own front matter, so every
-# output .html is fully self-contained — no external assets required.
+# output .html is fully self-contained --- no external assets required.
 # Share by email, open directly in a browser, or host on any static server.
 #
-# Output lands in quarto/_output/ (kept separate from source files).
+# Directory layout:
+#   quarto/
+#   +-- _output/   HTML renders (managed by Quarto, disposable)
+#   +-- _data/     .rds calibration & simulation bundles (persistent, precious)
+#
+# The _data/ directory stores computationally expensive results:
+#   - calibration_binary_leff.rds      (C1, hours of H0 sims)
+#   - calibration_survival_leff.rds    (C2/C3, hours of H0 sims)
+#   - calibration_survival_fourway_*.rds  (C2, all sim results)
+#
+# These .rds files are loaded by selection and validation documents
+# via load_leff_calibration() from R/leff_calibration_io.R.
 
 project:
-  type: default       # NOT "website" — each file renders independently
-  output-dir: _output # quarto/_output/cox_causal_review.html, etc.
+  type: default       # NOT "website" --- each file renders independently
+  output-dir: _output # quarto/_output/*.html (Quarto-managed)

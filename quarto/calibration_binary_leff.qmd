@@ -112,6 +112,9 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+# L_eff save/load helpers
+source(here::here("R", "leff_calibration_io.R"))
 plan(multisession, workers = n_workers)
 cat("Workers:", n_workers, "| Sims per config:", nsims, "\n")
 ```
@@ -683,6 +686,20 @@ leff_cal <- calibrate_L_eff(
 )
 
 print(leff_cal)
+
+# Save calibration to .rds for downstream documents
+save_leff_calibration(
+  C = C_fit,
+  alpha = alpha_fit,
+  n_min = n_min_val,
+  outcome_type = "binary",
+  cal_data = h0_data[, .(N = n_total, sim_fpr = fpr,
+    P1 = P1_default, L_eff = L_eff_implied)][!duplicated(N)],
+  dgm_description = paste(
+    "Binary DGM, 4 confounders (bm1, bm2, age, ecog),",
+    "p(event)=0.30, 30% harm prevalence"),
+  n_sims_per_N = nsims
+)
 ```
 
 

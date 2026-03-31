@@ -23,7 +23,10 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
-nsims_null <- 1500L
+nsims_null <- 30L
+
+# Output directory for .rds results
+output_dir <- "_data"
 ```
 
 
@@ -72,6 +75,9 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+# L_eff save/load helpers
+#source(here::here("../R", "leff_calibration_io.R"))
 ```
 
 ```{r timing-init}
@@ -427,6 +433,19 @@ if (nrow(cal_valid) >= 2) {
   cat("Insufficient calibration points. Using L_eff = 1.\n")
   C_fit <- 1; alpha_fit <- 0
 }
+
+# Save calibration to .rds for downstream documents
+save_leff_calibration(
+  C = C_fit,
+  alpha = alpha_fit,
+  n_min = n_min_val,
+  outcome_type = "survival",
+  cal_data = cal_df,
+  dgm_description = paste(
+    "GBSG survival DGM, 7 confounders (z1-z5, size, grade3),",
+    sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
+  n_sims_per_N = n_sims_cal
+)
 ```
 
 
@@ -618,8 +637,8 @@ ggplot(grid_fpr, aes(x = c2, y = FPR,
                       colour = factor(c1), group = factor(c1))) +
   geom_line(linewidth = 0.9) +
   geom_point(size = 2.5) +
-  geom_hline(yintercept = c(0.10, 0.12), linetype = "dashed",
-             colour = c("darkgreen", "orange")) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
+  geom_hline(yintercept = 0.12, linetype = "dashed", colour = "orange") +
   annotate("rect", xmin = -Inf, xmax = Inf,
            ymin = 0.10, ymax = 0.12,
            alpha = 0.15, fill = "gold") +
@@ -644,8 +663,8 @@ ggplot(grid_fpr, aes(x = c1, y = FPR,
                       colour = factor(c2), group = factor(c2))) +
   geom_line(linewidth = 0.9) +
   geom_point(size = 2.5) +
-  geom_hline(yintercept = c(0.10, 0.12), linetype = "dashed",
-             colour = c("darkgreen", "orange")) +
+  geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
+  geom_hline(yintercept = 0.12, linetype = "dashed", colour = "orange") +
   annotate("rect", xmin = -Inf, xmax = Inf,
            ymin = 0.10, ymax = 0.12,
            alpha = 0.15, fill = "gold") +
@@ -752,6 +771,107 @@ if (nrow(conservative) > 0) {
                 100 * conservative$FPR[r]))
   }
 }
+```
+
+
+# Save All Simulation Results {#sec-save}
+
+```{r save-all-results}
+if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+sim_bundle <- list(
+
+  # Metadata
+  params = list(
+    nsims_null = nsims_null,
+    nsims_grid = nsims_grid,
+    n_sims_cal = n_sims_cal,
+    N_grid = N_grid,
+    N_cal_values = N_cal_values,
+    sim_config = sim_config,
+    fs_params_base = fs_params_base,
+    fs_params_cox = fs_params_cox,
+    fs_params_irr = fs_params_irr,
+    c1_grid = c1_grid,
+    c2_grid = c2_grid,
+    n_min_val = n_min_val,
+    prop_cens = prop_cens,
+    p_harm = p_harm,
+    timestamp = Sys.time(),
+    R_version = R.version.string,
+    forestsearch_version = tryCatch(
+      as.character(utils::packageVersion("forestsearch")),
+      error = function(e) "unknown")
+  ),
+
+  # DGM
+  dgm_null = dgm_null,
+
+  # Paper-defaults null sims (Part II)
+  results_null_cox = results_null_cox,
+  results_null_irr = results_null_irr,
+
+  # L_eff calibration (Part III)
+  leff = list(
+    C = C_fit,
+    alpha = alpha_fit,
+    n_min = n_min_val,
+    cal_df = cal_df
+  ),
+
+  # Grid sweep results (Part IV)
+  grid_results = grid_results,
+  grid_fpr = grid_fpr,
+
+  # Timing
+  timings = timings
+)
+
+rds_path <- file.path(output_dir,
+  sprintf("calibration_survival_leff_grid_%s.rds",
+          format(Sys.Date(), "%Y%m%d")))
+saveRDS(sim_bundle, rds_path)
+
+cat(sprintf("=== All results saved ===\n"))
+cat(sprintf("  File: %s\n", rds_path))
+cat(sprintf("  Size: %.1f MB\n", file.size(rds_path) / 1024^2))
+cat(sprintf("  Contents:\n"))
+cat(sprintf("    results_null_cox: %d rows\n", nrow(results_null_cox)))
+cat(sprintf("    results_null_irr: %d rows\n", nrow(results_null_irr)))
+cat(sprintf("    cal_df:           %d rows (N = %s)\n",
+            nrow(cal_df), paste(cal_df$N, collapse = ", ")))
+cat(sprintf("    grid_results:     %d rows (%d configs x %d sims)\n",
+            nrow(grid_results), nrow(grid_pairs), nsims_grid))
+cat(sprintf("    grid_fpr:         %d (c1,c2) pairs\n", nrow(grid_fpr)))
+cat(sprintf("    L_eff:            C=%.4f, alpha=%.4f\n",
+            C_fit, alpha_fit))
+```
+
+
+## How to Reload
+
+```{r reload-example}
+#| eval: false
+#| code-fold: false
+
+res <- readRDS("_data/calibration_survival_leff_grid_20260401.rds")
+
+# Paper-defaults FPR
+cox_h0 <- res$results_null_cox[res$results_null_cox$analysis == "FS", ]
+cat("Cox H0 FPR:", mean(cox_h0$any.H), "\n")
+
+# L_eff calibration
+res$leff$C            # 0.029
+res$leff$alpha        # 0.882
+res$leff$cal_df       # raw calibration points
+
+# Grid sweep
+res$grid_fpr          # FPR by (c1, c2)
+res$grid_fpr[FPR <= 0.10]   # conservative configs
+
+# Config
+res$params$nsims_null       # how many sims
+res$params$c1_grid          # which thresholds swept
 ```
 
 

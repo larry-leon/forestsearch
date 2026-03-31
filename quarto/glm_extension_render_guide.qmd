@@ -1,0 +1,319 @@
+---
+title: "ForestSearch GLM Extension: Render Guide"
+subtitle: "File Names, Dependencies, and Render Sequence"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    theme: cosmo
+execute:
+  eval: false
+---
+
+
+# Quick Reference {#sec-quick}
+
+## All Files at a Glance
+
+| ID | Role | Filename | Lines | Outcome | Render? |
+|:--:|:-----|:---------|------:|:--------|:--------|
+| T1 | Theory | `theory_glm_detection_probability.qmd` | 784 | All | Rarely |
+| T2 | Theory | `theory_glm_leff_correction.qmd` | 418 | All | Rarely |
+| C1 | Calibration | `calibration_binary_leff.qmd` | 991 | Binary | Once (hours) |
+| C2 | Calibration | `calibration_survival_fourway.qmd` | 1098 | Survival | Once (hours) |
+| C3 | Calibration | `calibration_survival_leff_grid.qmd` | 809 | Survival | Once (hours) |
+| S1 | Selection | `selection_binary_frontier.qmd` | 1170 | Binary | As needed (seconds) |
+| S2 | Selection | `selection_survival_frontier.qmd` | 970 | Survival | As needed (seconds) |
+| S3 | Selection | `selection_glm_guide.qmd` | 859 | All | As needed (seconds) |
+| V1 | Validation | `validation_glm_simulation_study.qmd` | 958 | Bin/Cont/Count | As needed (minutes) |
+| V2 | Validation | `validation_hte_tests_crump.qmd` | 1510 | All + GBSG | As needed (minutes) |
+
+: {.striped .hover}
+
+
+## What Each Role Means
+
+| Role | What it does | How often to render | Typical runtime |
+|:-----|:-------------|:--------------------|:----------------|
+| **Theory** | Derives the math ($d_{\text{eff}}$, $L_{\text{eff}}$) | Only if the formulas change | < 1 min |
+| **Calibration** | Runs thousands of H0 sims to estimate $L_{\text{eff}}$ parameters | Once per DGM, keep `.rds` forever | 1--6 hours |
+| **Selection** | Uses saved $L_{\text{eff}}$ to find threshold frontier | Whenever you want new thresholds | < 1 min |
+| **Validation** | Runs ForestSearch under H0 and H1 to check OC | Per analysis configuration | 5--30 min |
+
+: {.striped .hover}
+
+
+# Render Sequence {#sec-sequence}
+
+## Step 0: Install the Package
+
+```r
+# If you get a "corrupt lazy-load database" error:
+remove.packages("forestsearch")
+# Restart R, then:
+devtools::install(args = "--no-byte-compile")
+library(forestsearch)
+```
+
+
+## Step 1: Calibration (run once, produces `.rds`)
+
+These are the expensive runs.  Each produces an `.rds` file
+in `quarto/_data/` that downstream documents load.
+
+| Order | File to render | Produces | L_eff result |
+|:-----:|:---------------|:---------|:-------------|
+| 1a | `calibration_binary_leff.qmd` | `calibration_binary_leff.rds` | C=0.220, $\alpha$=1.298 |
+| 1b | `calibration_survival_fourway.qmd` | `calibration_survival_leff.rds` | C=0.029, $\alpha$=0.882 |
+| 1c | `calibration_survival_leff_grid.qmd` | `calibration_survival_leff.rds` | Same (also saved) |
+
+: {.striped .hover}
+
+**Notes:**
+
+- 1a and 1b/1c are independent --- render in any order.
+- 1b (C2) and 1c (C3) both save the survival `.rds`.
+  C2 has more sims (20K) and is the primary source.
+  C3 also saves, so rendering either one is sufficient.
+- If you already have the `.rds` files from a prior run,
+  **skip this step entirely**.
+
+```r
+# Render calibration documents
+quarto::quarto_render("quarto/calibration_binary_leff.qmd")        # 1a
+quarto::quarto_render("quarto/calibration_survival_fourway.qmd")   # 1b
+# quarto::quarto_render("quarto/calibration_survival_leff_grid.qmd") # 1c (optional)
+```
+
+
+## Step 2: Selection (fast, loads `.rds`)
+
+These load the `.rds` from Step 1 and produce threshold
+frontiers instantly via the corrected approximation.
+
+| Order | File to render | Loads | Produces |
+|:-----:|:---------------|:------|:---------|
+| 2a | `selection_binary_frontier.qmd` | `calibration_binary_leff.rds` | Binary frontier table |
+| 2b | `selection_survival_frontier.qmd` | `calibration_survival_leff.rds` | Survival frontier table |
+| 2c | `selection_glm_guide.qmd` | (self-contained) | Cross-outcome comparison |
+
+: {.striped .hover}
+
+**Fallback:** If the `.rds` is missing, S1 and S2 fall back
+to hardcoded values and print a warning.  The results will
+be correct but the provenance trail is weaker.
+
+```r
+quarto::quarto_render("quarto/selection_binary_frontier.qmd")      # 2a
+quarto::quarto_render("quarto/selection_survival_frontier.qmd")    # 2b
+quarto::quarto_render("quarto/selection_glm_guide.qmd")            # 2c
+```
+
+
+## Step 3: Validation (uses calibrated thresholds)
+
+| Order | File to render | Loads | Purpose |
+|:-----:|:---------------|:------|:--------|
+| 3a | `validation_glm_simulation_study.qmd` | `calibration_binary_leff.rds` (+ count if available) | 8-scenario OC study |
+| 3b | `validation_hte_tests_crump.qmd` | (self-contained) | HTE pre-screening + GBSG |
+
+: {.striped .hover}
+
+```r
+quarto::quarto_render("quarto/validation_glm_simulation_study.qmd")  # 3a
+quarto::quarto_render("quarto/validation_hte_tests_crump.qmd")       # 3b
+```
+
+
+## Step 4: Theory (render if needed)
+
+These are standalone --- no dependencies, no `.rds` files.
+
+```r
+quarto::quarto_render("quarto/theory_glm_detection_probability.qmd")  # T1
+quarto::quarto_render("quarto/theory_glm_leff_correction.qmd")       # T2
+```
+
+
+# Data Flow Diagram {#sec-flow}
+
+```
+STEP 1: CALIBRATION (run once)
+================================================
+
+  calibration_binary_leff.qmd (C1)
+    5000 H0 sims x 4 sample sizes
+    → fits L_eff = 0.220 * (N/60)^1.298
+    → SAVES: _data/calibration_binary_leff.rds
+                  │
+  calibration_survival_fourway.qmd (C2)
+    20K H0 sims + 10K H1 sims
+    → fits L_eff = 0.029 * (N/60)^0.882
+    → SAVES: _data/calibration_survival_leff.rds
+                  │
+                  │
+STEP 2: SELECTION (fast)                  │
+================================================  │
+                                          │
+  selection_binary_frontier.qmd (S1)      │
+    LOADS: calibration_binary_leff.rds ◄──┤
+    → instant (c1,c2) grid               │
+    → frontier table                      │
+                                          │
+  selection_survival_frontier.qmd (S2)    │
+    LOADS: calibration_survival_leff.rds ◄┘
+    → instant (c1,c2) grid
+    → frontier table
+
+  selection_glm_guide.qmd (S3)
+    self-contained (calls suggest_thresholds())
+
+
+STEP 3: VALIDATION
+================================================
+
+  validation_glm_simulation_study.qmd (V1)
+    LOADS: calibration_binary_leff.rds
+    (+ calibration_count_leff.rds if available)
+    → 8 scenarios x 1000 sims
+
+  validation_hte_tests_crump.qmd (V2)
+    self-contained
+    → Crump et al. tests + GBSG real data
+```
+
+
+# L_eff Values Reference {#sec-leff}
+
+## Calibrated Parameters
+
+| Outcome | C | $\alpha$ | n_min | $L_{\text{eff}}$ at N=700 | Source |
+|:--------|----:|--------:|------:|------------------:|:-------|
+| **Binary** | 0.220 | 1.298 | 60 | ~5.3 | C1 (5000 sims) |
+| **Survival** | 0.029 | 0.882 | 60 | ~0.31 | C2/C3 (20K sims) |
+| **Count** | 0.220 | 1.298 | 60 | ~5.3 | Binary proxy |
+| **Continuous** | --- | --- | --- | 1.0 | Not needed |
+
+: {.striped .hover}
+
+## What L_eff Means
+
+$$
+L_{\text{eff}}(N) = C \cdot (N / n_{\min})^\alpha
+$$
+
+$$
+\text{FPR}_{\text{corr}} = 1 - (1 - P_1)^{L_{\text{eff}}}
+$$
+
+- **$L_{\text{eff}} > 1$** (binary, count): Procedure evaluates
+  many candidates, amplifying FPR beyond the per-subgroup $P_1$.
+  Need **higher** thresholds than paper defaults.
+
+- **$L_{\text{eff}} < 1$** (survival): Events-based filters
+  prune most candidates.  Procedure is MORE conservative than
+  a single test.  Paper defaults (c1=1.25, c2=1.0) are already
+  adequate.
+
+
+# .rds Files Reference {#sec-rds}
+
+## What Gets Saved Where
+
+| `.rds` File | Produced by | Consumed by | Contains |
+|:------------|:------------|:------------|:---------|
+| `calibration_binary_leff.rds` | C1 | S1, V1 | C, $\alpha$, n_min, cal_data |
+| `calibration_survival_leff.rds` | C2 or C3 | S2 | C, $\alpha$, n_min, cal_data |
+| `calibration_count_leff.rds` | *missing* | V1 (auto-upgrades) | TBD |
+
+: {.striped .hover}
+
+## How to Inspect a Saved Calibration
+
+```r
+cal <- load_leff_calibration("binary")
+# === L_eff Calibration: binary ===
+#   C = 0.2200, alpha = 1.2980, n_min = 60
+#   DGM: Binary DGM, 4 confounders (bm1, bm2, age, ecog)
+#   Sims per N: 5000
+#   Calibrated: 2026-03-30 14:22
+
+cal$C           # 0.220
+cal$alpha       # 1.298
+cal$cal_data    # data.frame with N, sim_fpr, P1, L_eff
+```
+
+
+# R Source Files {#sec-r-files}
+
+| File | Lines | Lives in | Purpose |
+|:-----|------:|:---------|:--------|
+| `leff_calibration_io.R` | 174 | `R/` | `save_leff_calibration()`, `load_leff_calibration()`, `get_leff()` |
+| `suggest_thresholds.R` | 173 | `R/` | Threshold frontier computation |
+| `test_hte_crump.R` | 419 | `R/` | Crump et al. HTE tests (OLS, logistic, Poisson) |
+| `forestsearch_main.R` | 1147 | `R/` | Main algorithm (includes GRF screening fix) |
+
+: {.striped .hover}
+
+
+# Missing Pieces {#sec-missing}
+
+| Priority | What | Why | Effort |
+|:---------|:-----|:----|:-------|
+| **HIGH** | `calibration_count_leff.qmd` | Count uses binary $L_{\text{eff}}$ as proxy (unvalidated) | Clone C1, swap DGM |
+| **HIGH** | `selection_count_frontier.qmd` | No count-specific frontier | Clone S1, use count $L_{\text{eff}}$ |
+| LOW | Rename C3 file on disk | `calibration_survival_leff_grid.qmd` already delivered | Just copy to `quarto/` |
+
+: {.striped .hover}
+
+
+# Typical Workflow {#sec-workflow}
+
+## First Time Setup
+
+```r
+# 1. Install package
+devtools::document()
+devtools::install(args = "--no-byte-compile")
+
+# 2. Run calibrations (once, ~hours)
+quarto::quarto_render("quarto/calibration_binary_leff.qmd")
+quarto::quarto_render("quarto/calibration_survival_fourway.qmd")
+
+# 3. Verify .rds files exist
+list.files("quarto/_data/", pattern = "calibration.*\\.rds")
+```
+
+
+## Regular Use (after calibration)
+
+```r
+# Selection (seconds)
+quarto::quarto_render("quarto/selection_binary_frontier.qmd")
+
+# Simulation study (minutes)
+quarto::quarto_render("quarto/validation_glm_simulation_study.qmd")
+
+# HTE tests + GBSG analysis (minutes)
+quarto::quarto_render("quarto/validation_hte_tests_crump.qmd")
+```
+
+
+## After Changing ForestSearch Code
+
+```r
+# Reinstall
+devtools::document()
+devtools::install(args = "--no-byte-compile")
+
+# Re-run calibrations if the algorithm changed
+# (e.g., GRF screening, consistency evaluation)
+quarto::quarto_render("quarto/calibration_binary_leff.qmd")
+
+# Then re-run downstream documents
+quarto::quarto_render("quarto/validation_glm_simulation_study.qmd")
+```

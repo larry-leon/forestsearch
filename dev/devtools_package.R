@@ -180,6 +180,11 @@ library(pak)
 pak::pak("larry-leon/forestsearch")
 
 
+devtools::install(args = "--no-byte-compile")
+library(forestsearch)
+packageVersion("forestsearch")
+
+
 usethis::use_testthat()
 # Run just these tests
 devtools::test(filter = "glm-pipeline")
