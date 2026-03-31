@@ -817,16 +817,28 @@ forestsearch <- function(df.analysis,
       ), TRUE)
     }
 
-    vi.cs <- round(grf::variable_importance(cs.forest), 4)
-    vi.cs2 <- data.frame(confs_labels, FSconfounders.name, vi.cs)
-    vi.order <- order(vi.cs, decreasing = TRUE)
-    vi.cs2 <- vi.cs2[vi.order, ]
+    if (!inherits(cs.forest, "try-error")) {
+      vi.cs <- round(grf::variable_importance(cs.forest), 4)
+      vi.cs2 <- data.frame(confs_labels, FSconfounders.name, vi.cs)
+      vi.order <- order(vi.cs, decreasing = TRUE)
+      vi.cs2 <- vi.cs2[vi.order, ]
 
-    conf.screen <- vi.cs2[, 2]
-    vi_ratio <- vi.cs2[, 3] / max(vi.cs2[, 3])
-    selected.vars <- which(vi_ratio > vi.grf.min)
-    conf.screen <- conf.screen[selected.vars]
-    conf.screen <- conf.screen[seq_len(min(length(conf.screen), max_n_confounders))]
+      conf.screen <- vi.cs2[, 2]
+      vi_max <- max(vi.cs2[, 3])
+      if (vi_max > 0) {
+        vi_ratio <- vi.cs2[, 3] / vi_max
+        selected.vars <- which(vi_ratio > vi.grf.min)
+        conf.screen <- conf.screen[selected.vars]
+        conf.screen <- conf.screen[seq_len(min(length(conf.screen), max_n_confounders))]
+      }
+      # Fall back to full set if GRF screening eliminated everything
+      if (length(conf.screen) == 0L) {
+        conf.screen <- FSconfounders.name
+      }
+    } else {
+      # GRF fit failed: skip screening, use all confounders
+      conf.screen <- FSconfounders.name
+    }
   } else {
     conf.screen <- FSconfounders.name
   }
