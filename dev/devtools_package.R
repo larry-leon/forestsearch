@@ -166,6 +166,8 @@ devtools::install()
 
 library(forestsearch)
 args(forestsearch)
+help(forestsearch)
+
 
 # In RStudio, from the forestsearch project directory:
 devtools::clean_dll()

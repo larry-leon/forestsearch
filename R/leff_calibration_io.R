@@ -3,7 +3,7 @@
 # =============================================================================
 #
 # Standardized save/load for L_eff calibration results.
-# Calibration documents save to quarto/_output/.
+# Calibration documents save to quarto/_data/.
 # Selection and validation documents load from the same location.
 #
 # =============================================================================
@@ -26,7 +26,7 @@
 #'   DGM used for calibration.
 #' @param n_sims_per_N Integer. Simulations per sample size.
 #' @param output_dir Character. Directory for .rds files.
-#'   Default: \code{here::here("quarto", "_output")}.
+#'   Default: \code{"_data"}.
 #' @param extra List. Any additional items to store.
 #'
 #' @return Invisible path to the saved file.
@@ -52,7 +52,7 @@ save_leff_calibration <- function(C, alpha, n_min,
                                    extra = list()) {
 
   if (is.null(output_dir)) {
-    output_dir <- here::here("quarto", "_output")
+    output_dir <- "_data"
   }
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
@@ -103,7 +103,7 @@ save_leff_calibration <- function(C, alpha, n_min,
 #' @param outcome_type Character. One of "binary", "survival",
 #'   "count", "continuous".
 #' @param output_dir Character. Directory containing .rds files.
-#'   Default: \code{here::here("quarto", "_output")}.
+#'   Default: \code{"_data"}.
 #' @param verbose Logical. Print summary on load. Default: TRUE.
 #'
 #' @return A list with components C, alpha, n_min, outcome_type,
@@ -122,7 +122,7 @@ load_leff_calibration <- function(outcome_type,
                                    verbose = TRUE) {
 
   if (is.null(output_dir)) {
-    output_dir <- here::here("quarto", "_output")
+    output_dir <- "_data"
   }
 
   filename <- sprintf("calibration_%s_leff.rds", outcome_type)

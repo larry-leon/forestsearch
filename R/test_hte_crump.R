@@ -10,6 +10,8 @@
 # variance diagnostic output, selected-covariate reporting.
 # =============================================================================
 
+#' @importFrom stats glm.fit var qr binomial
+
 
 #' Build Polynomial Basis Matrix
 #' @param X Numeric matrix (N x d). Must be numeric (no factors).

@@ -1,9 +1,142 @@
+# =============================================================================
+# Validation Helper: Outcome / Threshold Consistency
+# =============================================================================
+
+#' Validate outcome type, effect measure, and threshold consistency
+#'
+#' Checks for common misconfigurations that produce silent nonsense:
+#' (1) binary data declared as survival, (2) ratio-scale thresholds
+#' with identity-scale measures, (3) implausibly small ratio thresholds.
+#'
+#' @noRd
+.validate_outcome_threshold_config <- function(
+    df.analysis, outcome.name, event.name,
+    outcome_type, effect_measure,
+    hr.threshold, hr.consistency,
+    user_set_threshold, user_set_consistency) {
+
+  Y <- df.analysis[[outcome.name]]
+
+  # --- Check 1: Data looks binary but outcome_type is survival ---
+  y_unique <- sort(unique(Y[!is.na(Y)]))
+  y_is_binary <- length(y_unique) == 2 && all(y_unique %in% c(0, 1))
+
+  if (y_is_binary && outcome_type == "survival") {
+    # Could be legitimate (0/1 event indicator with separate time variable)
+    # but warn if there's no time-like variation
+    if (!is.null(event.name) && event.name %in% names(df.analysis)) {
+      E <- df.analysis[[event.name]]
+      if (identical(sort(unique(Y)), sort(unique(E)))) {
+        warning(
+          sprintf(paste0(
+            "outcome '%s' is binary (0/1) and identical to event ",
+            "column '%s'.\n",
+            "  If this is a binary endpoint (not survival), set ",
+            "outcome_type = 'binary'.\n",
+            "  If this IS survival, the outcome should be a ",
+            "time-to-event variable, not the event indicator."),
+            outcome.name, event.name),
+          call. = FALSE)
+      }
+    } else if (is.null(event.name) || !event.name %in% names(df.analysis)) {
+      warning(
+        sprintf(paste0(
+          "outcome '%s' is binary (0/1) but outcome_type = 'survival' ",
+          "and no event column found.\n",
+          "  Did you mean outcome_type = 'binary'?"),
+          outcome.name),
+        call. = FALSE)
+    }
+  }
+
+  # --- Check 2: Data looks continuous but outcome_type is binary ---
+  if (outcome_type == "binary" && length(y_unique) > 10) {
+    warning(
+      sprintf(paste0(
+        "outcome '%s' has %d unique values but outcome_type = 'binary'.\n",
+        "  Binary outcomes should have exactly 2 values (0/1).\n",
+        "  Did you mean outcome_type = 'continuous' or 'survival'?"),
+        outcome.name, length(y_unique)),
+      call. = FALSE)
+  }
+
+  # --- Check 3: Suspiciously small thresholds for ratio-scale ---
+  # If outcome_type is survival (ratio scale) and user passed very
+  # small thresholds, they likely intended an identity-scale measure
+  is_ratio <- outcome_type == "survival" ||
+    (!is.null(effect_measure) && effect_measure %in% c("OR", "RR", "IRR"))
+
+  if (is_ratio && user_set_threshold && hr.threshold > 0 &&
+      hr.threshold < 0.5) {
+    warning(
+      sprintf(paste0(
+        "effect.threshold = %.3f is very small for a ratio-scale ",
+        "measure (%s).\n",
+        "  HR/OR >= %.3f means virtually all subgroups pass screening.\n",
+        "  If you intended an identity-scale threshold (e.g., risk ",
+        "difference), set:\n",
+        "    outcome_type = 'binary', effect_measure = 'RD', ",
+        "effect.threshold = %.3f"),
+        hr.threshold,
+        if (outcome_type == "survival") "HR" else effect_measure,
+        hr.threshold, hr.threshold),
+      call. = FALSE)
+  }
+
+  if (is_ratio && user_set_consistency && hr.consistency > 0 &&
+      hr.consistency < 0.5) {
+    warning(
+      sprintf(paste0(
+        "consistency.threshold = %.3f is very small for a ratio-scale ",
+        "measure (%s).\n",
+        "  This means virtually all splits pass consistency.\n",
+        "  If you intended an identity-scale threshold, set:\n",
+        "    effect_measure = 'RD', consistency.threshold = %.3f"),
+        hr.consistency,
+        if (outcome_type == "survival") "HR" else effect_measure,
+        hr.consistency),
+      call. = FALSE)
+  }
+
+  # --- Check 4: Thresholds > 1 with identity-scale measure ---
+  # (Already handled in the GLM block, but catch early for clarity)
+  is_identity <- !is.null(effect_measure) &&
+    effect_measure %in% c("RD", "IRD", "MD")
+
+  if (is_identity && user_set_threshold && hr.threshold > 1.0) {
+    warning(
+      sprintf(paste0(
+        "effect.threshold = %.2f but effect_measure = '%s' ",
+        "(identity scale, range [-1, 1]).\n",
+        "  A risk difference cannot exceed 1.0.\n",
+        "  Did you mean effect_measure = 'OR' (ratio scale)?"),
+        hr.threshold, effect_measure),
+      call. = FALSE)
+  }
+
+  invisible(NULL)
+}
+
+
 #' @title ForestSearch: Exploratory Subgroup Identification
 #'
 #' @description
-#' Identifies subgroups with differential treatment effects in clinical trials
-#' using a combination of Generalized Random Forests (GRF), LASSO variable
-#' selection, and exhaustive combinatorial search with split-sample validation.
+#' Implements advanced statistical methods for exploratory subgroup
+#' identification in clinical trials.  Provides tools for identifying
+#' patient subgroups with differential treatment effects using machine
+#' learning approaches including Generalized Random Forests ('GRF'),
+#' LASSO regularization, and exhaustive combinatorial search algorithms.
+#' Supports survival endpoints (Cox proportional hazards), binary
+#' outcomes (log odds ratio, log relative risk, risk difference),
+#' continuous outcomes (mean difference), and count / rate outcomes
+#' (log incidence rate ratio via Poisson, quasi-Poisson, or
+#' negative-binomial GLMs with optional person-time offset).  Features
+#' bootstrap bias correction using infinitesimal jackknife methods to
+#' address selection bias in post-hoc analyses.  Designed for clinical
+#' researchers conducting exploratory subgroup analyses in randomized
+#' controlled trials, particularly for multi-regional clinical trials
+#' ('MRCT') requiring regional consistency evaluation.  Methods are
+#' described in Leon et al. (2024) \doi{10.1002/sim.10163}.
 #'
 #' @param df.analysis Data frame. Analysis dataset with required columns.
 #' @param outcome.name Character. Name of time-to-event outcome variable. Default "tte".
@@ -45,8 +178,21 @@
 #' @param conf.cont_medians Named numeric vector. Median values for continuous variables (optional).
 #' @param conf.cont_medians_force Named numeric vector. Forced median values (optional).
 #' @param n.min Integer. Minimum subgroup size. Default 60.
-#' @param hr.threshold Numeric. Minimum HR for candidate subgroups. Default 1.25.
-#' @param hr.consistency Numeric. Minimum HR for consistency validation. Default 1.0.
+#' @param effect.threshold Numeric or NULL. Screening threshold for candidate
+#'   subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio
+#'   scale (e.g., 1.5 means OR >= 1.5).  For identity-scale measures
+#'   (RD, IRD, MD): on the identity scale (e.g., 0.07 means RD >= 7 pct
+#'   points).  If NULL (default), falls back to \code{hr.threshold}.
+#' @param consistency.threshold Numeric or NULL. Threshold for split-sample
+#'   consistency.  Each random 50/50 split must produce an estimate at or
+#'   above this value.  Same scale conventions as \code{effect.threshold}.
+#'   If NULL (default), falls back to \code{hr.consistency}.
+#' @param hr.threshold Numeric. Legacy name for \code{effect.threshold}.
+#'   Retained for backward compatibility.  Default 1.25.  When
+#'   \code{effect.threshold} is provided, \code{hr.threshold} is ignored.
+#' @param hr.consistency Numeric. Legacy name for \code{consistency.threshold}.
+#'   Retained for backward compatibility.  Default 1.0.  When
+#'   \code{consistency.threshold} is provided, \code{hr.consistency} is ignored.
 #' @param sg_focus Character. Subgroup selection focus. One of "hr", "hrMaxSG", "maxSG",
 #'   "hrMinSG", "minSG". Default "hr".
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
@@ -73,6 +219,10 @@
 #' @param max.minutes Numeric. Maximum search time in minutes. Default 3.
 #' @param minp Numeric. Minimum prevalence threshold. Default 0.025.
 #' @param details Logical. Print progress details. Default FALSE.
+#' @param quiet Logical. If TRUE, suppress the configuration summary
+#'   message printed at startup.  Useful when \code{forestsearch()} is
+#'   called repeatedly inside bootstrap or cross-validation loops.
+#'   Default FALSE.
 #' @param maxk Integer. Maximum number of factors per subgroup. Default 2.
 #' @param by.risk Integer. Risk table interval. Default 12.
 #' @param plot.sg Logical. Plot subgroup survival curves. Default FALSE.
@@ -224,6 +374,25 @@
 #'   parallel_args = list(plan = "multisession", workers = 4),
 #'   details = TRUE
 #' )
+#'
+#' # Example 4: Binary outcome with OR thresholds
+#' result_binary <- forestsearch(
+#'   df.analysis = trial_data,
+#'   outcome_type = "binary",
+#'   effect_measure = "OR",
+#'   effect.threshold = 1.5,
+#'   consistency.threshold = 1.3,
+#'   pconsistency.threshold = 0.90
+#' )
+#'
+#' # Example 5: Binary outcome with RD thresholds
+#' result_rd <- forestsearch(
+#'   df.analysis = trial_data,
+#'   outcome_type = "binary",
+#'   effect_measure = "RD",
+#'   effect.threshold = 0.07,       # 7 pct-point harm
+#'   consistency.threshold = 0.03   # 3 pct-point per split
+#' )
 #' }
 #'
 #' @references
@@ -254,7 +423,6 @@
 #' @importFrom randomForest randomForest
 #' @importFrom weightedsurv df_counting
 #' @export
-
 forestsearch <- function(df.analysis,
                          outcome.name = "tte",
                          event.name = "event",
@@ -287,6 +455,8 @@ forestsearch <- function(df.analysis,
                          conf.cont_medians = NULL,
                          conf.cont_medians_force = NULL,
                          n.min = 60,
+                         effect.threshold = NULL,
+                         consistency.threshold = NULL,
                          hr.threshold = 1.25,
                          hr.consistency = 1.0,
                          sg_focus = "hr",
@@ -300,6 +470,7 @@ forestsearch <- function(df.analysis,
                          max.minutes = 3,
                          minp = 0.025,
                          details = FALSE,
+                         quiet = FALSE,
                          maxk = 2,
                          by.risk = 12,
                          plot.sg = FALSE,
@@ -328,6 +499,25 @@ forestsearch <- function(df.analysis,
 
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
+
+  # ===========================================================================
+  # SECTION 1B: RESOLVE THRESHOLD PARAMETER ALIASES
+  # ===========================================================================
+  # effect.threshold / consistency.threshold are the preferred names.
+  # hr.threshold / hr.consistency are kept for backward compatibility.
+  # New names take precedence if both are provided.
+
+  user_set_threshold <- !is.null(effect.threshold) || !missing(hr.threshold)
+  user_set_consistency <- !is.null(consistency.threshold) || !missing(hr.consistency)
+
+  if (!is.null(effect.threshold)) {
+    hr.threshold <- effect.threshold
+    args_call_all$hr.threshold <- hr.threshold
+  }
+  if (!is.null(consistency.threshold)) {
+    hr.consistency <- consistency.threshold
+    args_call_all$hr.consistency <- hr.consistency
+  }
 
   # ===========================================================================
   # SECTION 2: VALIDATE INPUTS
@@ -399,6 +589,23 @@ forestsearch <- function(df.analysis,
   overdispersion <- match.arg(overdispersion)
   grf_count_transform <- match.arg(grf_count_transform)
 
+  # ===========================================================================
+  # SECTION 2B-i: VALIDATE OUTCOME / THRESHOLD CONSISTENCY
+  # ===========================================================================
+  # Catch common misconfigurations before they produce silent nonsense.
+
+  .validate_outcome_threshold_config(
+    df.analysis  = df.analysis,
+    outcome.name = outcome.name,
+    event.name   = event.name,
+    outcome_type = outcome_type,
+    effect_measure = if (exists("effect_measure")) effect_measure else NULL,
+    hr.threshold = hr.threshold,
+    hr.consistency = hr.consistency,
+    user_set_threshold = user_set_threshold,
+    user_set_consistency = user_set_consistency
+  )
+
   # Store resolved value so bootstrap/CV pick up the scalar, not the default vector
   args_call_all$outcome_type <- outcome_type
   args_call_all$overdispersion <- overdispersion
@@ -452,26 +659,71 @@ forestsearch <- function(df.analysis,
       effect_measure = effect_measure
     )
 
-    # Resolve screening and consistency thresholds from effect_measure
-    # The user can override via hr.threshold and hr.consistency, which
-    # serve as the generic threshold params regardless of outcome type.
-    # Defaults differ by measure:
+    # Resolve screening and consistency thresholds from effect_measure.
+    #
+    # The parameters hr.threshold and hr.consistency are named for the
+    # survival (hazard ratio) case.  For GLM outcomes they serve as
+    # generic threshold parameters:
+    #   - Ratio-scale measures (OR, RR, IRR): thresholds are on the
+    #     ratio scale (e.g., 1.5 means OR >= 1.5).  Converted to log
+    #     internally.
+    #   - Identity-scale measures (RD, IRD, MD): thresholds are on the
+    #     identity scale (e.g., 0.07 means RD >= 7 pct points).
+    #     Values > 1 are nonsensical and trigger a warning.
+
     effect_threshold <- hr.threshold
     consistency_threshold <- hr.consistency
 
-    # For identity-scale measures, consistency_threshold = 0 means
-    # "both halves show any treatment harm" (analogous to HR > 1.0)
     if (effect_measure %in% c("RD", "IRD", "MD")) {
-      if (missing(hr.consistency) || hr.consistency == 1.0) {
+
+      # Detect ratio-scale values passed to identity-scale measure
+      if (effect_threshold > 1.0) {
+        warning(
+          sprintf(
+            paste0(
+              "effect.threshold = %.2f appears to be on a ratio scale, ",
+              "but effect_measure = '%s' uses the identity scale ",
+              "(range [-1, 1]).\n",
+              "  Did you mean effect.threshold = %.2f on the %s scale?\n",
+              "  Remapping to default: %.2f.\n",
+              "  To use a custom %s threshold, pass a value in [-1, 1] ",
+              "(e.g., effect.threshold = 0.07 for a 7 pct-point threshold)."),
+            effect_threshold, effect_measure,
+            effect_threshold, "OR", 0.05, effect_measure),
+          call. = FALSE)
+        effect_threshold <- switch(effect_measure,
+          RD = 0.05, IRD = 0.01, MD = 0.0)
+      }
+
+      if (consistency_threshold >= 1.0 && !user_set_consistency) {
+        # Default 1.0 maps to 0.0 ("any harm direction")
+        consistency_threshold <- 0.0
+      } else if (consistency_threshold > 1.0) {
+        warning(
+          sprintf(
+            paste0(
+              "consistency.threshold = %.2f appears to be on a ratio scale, ",
+              "but effect_measure = '%s' uses the identity scale.\n",
+              "  Remapping to default: 0.0.\n",
+              "  To use a custom %s consistency threshold, pass a value ",
+              "in [-1, 1]."),
+            consistency_threshold, effect_measure, effect_measure),
+          call. = FALSE)
         consistency_threshold <- 0.0
       }
-      if (missing(hr.threshold) || hr.threshold == 1.25) {
+
+      # Remap survival defaults if user didn't explicitly set thresholds
+      if (!user_set_threshold && hr.threshold == 1.25) {
         effect_threshold <- switch(effect_measure,
           RD  = 0.05,
           IRD = 0.01,
           MD  = 0.0
         )
       }
+      if (!user_set_consistency && hr.consistency == 1.0) {
+        consistency_threshold <- 0.0
+      }
+
     } else {
       # Log-scale measures (OR, RR, IRR): convert to log scale
       if (effect_threshold > 0) {
@@ -481,6 +733,83 @@ forestsearch <- function(df.analysis,
         consistency_threshold <- log(consistency_threshold)
       }
     }
+
+    # -----------------------------------------------------------------
+    # Configuration summary (always printed via message)
+    # -----------------------------------------------------------------
+    is_identity <- effect_measure %in% c("RD", "IRD", "MD")
+    measure_labels <- c(
+      RD  = "Risk Difference", OR = "Odds Ratio", RR = "Risk Ratio",
+      IRR = "Incidence Rate Ratio", IRD = "Incidence Rate Difference",
+      MD  = "Mean Difference"
+    )
+    measure_label <- measure_labels[[effect_measure]]
+
+    if (is_identity) {
+      screen_desc <- sprintf("%.4f", effect_threshold)
+      consist_desc <- sprintf("%.4f", consistency_threshold)
+      if (effect_measure == "RD") {
+        screen_interp <- sprintf(
+          "treatment increases event probability by >= %.1f pct points",
+          100 * effect_threshold)
+        consist_interp <- if (consistency_threshold == 0)
+          "each split shows any harm direction (RD > 0)"
+        else sprintf("each split shows RD >= %.1f pct points",
+                      100 * consistency_threshold)
+      } else {
+        screen_interp <- sprintf("%s >= %s", effect_measure, screen_desc)
+        consist_interp <- sprintf("%s >= %s per split",
+                                   effect_measure, consist_desc)
+      }
+    } else {
+      # Ratio scale: show on natural scale
+      screen_nat <- exp(effect_threshold)
+      consist_nat <- exp(consistency_threshold)
+      screen_desc <- sprintf("%.2f (log: %.4f)", screen_nat, effect_threshold)
+      consist_desc <- sprintf("%.2f (log: %.4f)", consist_nat, consistency_threshold)
+      screen_interp <- sprintf("subgroup %s >= %.2f",
+                                effect_measure, screen_nat)
+      consist_interp <- sprintf("each split %s >= %.2f",
+                                 effect_measure, consist_nat)
+    }
+
+    if (!quiet) {
+    message(sprintf(paste0(
+      "\n[forestsearch] Subgroup Identification Configuration\n",
+      "  Outcome type:   %s\n",
+      "  Effect measure: %s (%s)\n",
+      "  Scale:          %s\n",
+      "\n",
+      "  Screening:      %s >= %s\n",
+      "  Consistency:    %s >= %s\n",
+      "  Consistency rate threshold: %.0f%%\n",
+      "\n",
+      "  Interpretation:\n",
+      "    Candidates: %s\n",
+      "    Splits:     %s\n"),
+      outcome_type, effect_measure, measure_label,
+      if (is_identity) "identity" else "log (ratio)",
+      effect_measure, screen_desc,
+      effect_measure, consist_desc,
+      100 * pconsistency.threshold,
+      screen_interp, consist_interp))
+    }
+
+    # Store resolved config for the return object
+    threshold_config <- list(
+      outcome_type = outcome_type,
+      effect_measure = effect_measure,
+      screening = effect_threshold,
+      consistency = consistency_threshold,
+      screening_natural = if (is_identity) effect_threshold
+                          else exp(effect_threshold),
+      consistency_natural = if (is_identity) consistency_threshold
+                            else exp(consistency_threshold),
+      scale = if (is_identity) "identity" else "log",
+      pconsistency = pconsistency.threshold,
+      screening_description = screen_interp,
+      consistency_description = consist_interp
+    )
 
     # Resolve dmin.grf for GLM outcomes.
     # The survival default (dmin.grf = 12) is on the RMST scale (months)
@@ -492,14 +821,43 @@ forestsearch <- function(df.analysis,
       dmin.grf <- 0.0
     }
     args_call_all$dmin.grf <- dmin.grf
-
-    if (details) {
-      cat("GLM mode: outcome_type =", outcome_type,
-          ", effect_measure =", effect_measure, "\n")
-      cat("  Screening threshold:", effect_threshold, "\n")
-      cat("  Consistency threshold:", consistency_threshold, "\n")
-      cat("  dmin.grf:", dmin.grf, "\n")
+  } else {
+    # Survival path: print configuration summary
+    if (!quiet) {
+    message(sprintf(paste0(
+      "\n[forestsearch] Subgroup Identification Configuration\n",
+      "  Outcome type:   survival (Cox PH)\n",
+      "  Effect measure: HR (hazard ratio)\n",
+      "  Scale:          log (ratio)\n",
+      "\n",
+      "  Screening:      HR >= %.2f  (log: %.4f)\n",
+      "  Consistency:    HR >= %.2f  (log: %.4f)\n",
+      "  Consistency rate threshold: %.0f%%\n",
+      "\n",
+      "  Interpretation:\n",
+      "    Candidates: subgroup hazard ratio >= %.2f\n",
+      "    Splits:     each split HR >= %.2f\n"),
+      hr.threshold, log(hr.threshold),
+      hr.consistency, log(max(hr.consistency, 0.001)),
+      100 * pconsistency.threshold,
+      hr.threshold, hr.consistency))
     }
+
+    # Store resolved config for the return object
+    threshold_config <- list(
+      outcome_type = "survival",
+      effect_measure = "HR",
+      screening = log(hr.threshold),
+      consistency = log(max(hr.consistency, 0.001)),
+      screening_natural = hr.threshold,
+      consistency_natural = hr.consistency,
+      scale = "log",
+      pconsistency = pconsistency.threshold,
+      screening_description = sprintf(
+        "subgroup hazard ratio >= %.2f", hr.threshold),
+      consistency_description = sprintf(
+        "each split HR >= %.2f", hr.consistency)
+    )
   }
 
   # ===========================================================================
@@ -1132,7 +1490,10 @@ forestsearch <- function(df.analysis,
     consistency_algorithm = if (!is.null(grp.consistency)) grp.consistency$algorithm else NA,
     # NEW: GLM outcome information
     outcome_type = outcome_type,
-    effect_measure = effect_measure
+    effect_measure = effect_measure,
+    # NEW: Resolved threshold configuration
+    threshold_config = if (exists("threshold_config")) threshold_config
+                       else NULL
   )
 
   # Return early if FSdata or find.grps failed

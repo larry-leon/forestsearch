@@ -37,6 +37,8 @@ forestsearch(
   conf.cont_medians = NULL,
   conf.cont_medians_force = NULL,
   n.min = 60,
+  effect.threshold = NULL,
+  consistency.threshold = NULL,
   hr.threshold = 1.25,
   hr.consistency = 1,
   sg_focus = "hr",
@@ -50,6 +52,7 @@ forestsearch(
   max.minutes = 3,
   minp = 0.025,
   details = FALSE,
+  quiet = FALSE,
   maxk = 2,
   by.risk = 12,
   plot.sg = FALSE,
@@ -142,9 +145,24 @@ See \code{\link{grf.subg.harm.survival}} for details.}
 
 \item{n.min}{Integer. Minimum subgroup size. Default 60.}
 
-\item{hr.threshold}{Numeric. Minimum HR for candidate subgroups. Default 1.25.}
+\item{effect.threshold}{Numeric or NULL. Screening threshold for candidate
+subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio
+scale (e.g., 1.5 means OR >= 1.5).  For identity-scale measures
+(RD, IRD, MD): on the identity scale (e.g., 0.07 means RD >= 7 pct
+points).  If NULL (default), falls back to \code{hr.threshold}.}
 
-\item{hr.consistency}{Numeric. Minimum HR for consistency validation. Default 1.0.}
+\item{consistency.threshold}{Numeric or NULL. Threshold for split-sample
+consistency.  Each random 50/50 split must produce an estimate at or
+above this value.  Same scale conventions as \code{effect.threshold}.
+If NULL (default), falls back to \code{hr.consistency}.}
+
+\item{hr.threshold}{Numeric. Legacy name for \code{effect.threshold}.
+Retained for backward compatibility.  Default 1.25.  When
+\code{effect.threshold} is provided, \code{hr.threshold} is ignored.}
+
+\item{hr.consistency}{Numeric. Legacy name for \code{consistency.threshold}.
+Retained for backward compatibility.  Default 1.0.  When
+\code{consistency.threshold} is provided, \code{hr.consistency} is ignored.}
 
 \item{sg_focus}{Character. Subgroup selection focus. One of "hr", "hrMaxSG", "maxSG",
 "hrMinSG", "minSG". Default "hr".}
@@ -182,6 +200,11 @@ candidates.}
 \item{minp}{Numeric. Minimum prevalence threshold. Default 0.025.}
 
 \item{details}{Logical. Print progress details. Default FALSE.}
+
+\item{quiet}{Logical. If TRUE, suppress the configuration summary
+message printed at startup.  Useful when \code{forestsearch()} is
+called repeatedly inside bootstrap or cross-validation loops.
+Default FALSE.}
 
 \item{maxk}{Integer. Maximum number of factors per subgroup. Default 2.}
 
@@ -281,9 +304,22 @@ A list of class "forestsearch" containing:
 }
 }
 \description{
-Identifies subgroups with differential treatment effects in clinical trials
-using a combination of Generalized Random Forests (GRF), LASSO variable
-selection, and exhaustive combinatorial search with split-sample validation.
+Implements advanced statistical methods for exploratory subgroup
+identification in clinical trials.  Provides tools for identifying
+patient subgroups with differential treatment effects using machine
+learning approaches including Generalized Random Forests ('GRF'),
+LASSO regularization, and exhaustive combinatorial search algorithms.
+Supports survival endpoints (Cox proportional hazards), binary
+outcomes (log odds ratio, log relative risk, risk difference),
+continuous outcomes (mean difference), and count / rate outcomes
+(log incidence rate ratio via Poisson, quasi-Poisson, or
+negative-binomial GLMs with optional person-time offset).  Features
+bootstrap bias correction using infinitesimal jackknife methods to
+address selection bias in post-hoc analyses.  Designed for clinical
+researchers conducting exploratory subgroup analyses in randomized
+controlled trials, particularly for multi-regional clinical trials
+('MRCT') requiring regional consistency evaluation.  Methods are
+described in Leon et al. (2024) \doi{10.1002/sim.10163}.
 }
 \details{
 \strong{Algorithm Overview:}
@@ -355,6 +391,25 @@ result_custom <- forestsearch(
   ),
   parallel_args = list(plan = "multisession", workers = 4),
   details = TRUE
+)
+
+# Example 4: Binary outcome with OR thresholds
+result_binary <- forestsearch(
+  df.analysis = trial_data,
+  outcome_type = "binary",
+  effect_measure = "OR",
+  effect.threshold = 1.5,
+  consistency.threshold = 1.3,
+  pconsistency.threshold = 0.90
+)
+
+# Example 5: Binary outcome with RD thresholds
+result_rd <- forestsearch(
+  df.analysis = trial_data,
+  outcome_type = "binary",
+  effect_measure = "RD",
+  effect.threshold = 0.07,       # 7 pct-point harm
+  consistency.threshold = 0.03   # 3 pct-point per split
 )
 }
 

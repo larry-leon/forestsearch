@@ -35,7 +35,7 @@ DGM used for calibration.}
 \item{n_sims_per_N}{Integer. Simulations per sample size.}
 
 \item{output_dir}{Character. Directory for .rds files.
-Default: \code{here::here("quarto", "_output")}.}
+Default: \code{"_data"}.}
 
 \item{extra}{List. Any additional items to store.}
 }
