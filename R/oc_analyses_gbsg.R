@@ -650,6 +650,7 @@ run_forestsearch_analysis <- function(
   }
 
   fs_result <- tryCatch({
+    fs_args$quiet <- TRUE
     do.call(forestsearch, fs_args)
   }, error = function(e) {
     warning(sprintf("%s analysis failed: %s", analysis_label, e$message))

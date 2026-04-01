@@ -15,8 +15,8 @@ format:
     fig-width: 8
     fig-height: 6
 execute:
-  warning: false
-  message: false
+  warning: true
+  message: true
 ---
 
 ```{r setup}
@@ -356,7 +356,7 @@ NB <- 20
 
 t0 <- proc.time()
 
-fs_bc <- suppressMessages(forestsearch_bootstrap_dofuture(
+fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
   nb_boots = NB,
   show_three = FALSE,
@@ -366,7 +366,7 @@ fs_bc <- suppressMessages(forestsearch_bootstrap_dofuture(
     workers = n_cores,
     show_message = TRUE
   )
-))
+)
 
 plan("sequential")
 timings$bootstrap <- (proc.time() - t0)["elapsed"]
@@ -472,14 +472,14 @@ Two approaches are available:
 ```{r kfold-cv}
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
-Ksims <- 1
+Ksims <- 5
 
 t0 <- proc.time()
 
 fs_kfold <- forestsearch_tenfold(
   fs.est = fs,
   sims = Ksims,
-  Kfolds = 2,
+  Kfolds = 10,
   details = FALSE,
   parallel_args = list(
     plan = "multisession",

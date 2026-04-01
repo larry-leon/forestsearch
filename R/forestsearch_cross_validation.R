@@ -208,6 +208,7 @@ forestsearch_Kfold <- function(
   cv_args <- fs_args
   cv_args$parallel_args <- list(plan = "sequential", workers = 1, show_message = FALSE)
   cv_args$details <- FALSE
+  cv_args$quiet <- TRUE
   cv_args$plot.sg <- FALSE
 
   # PS must be re-estimated on each training fold -- NULL out any
@@ -511,6 +512,7 @@ forestsearch_tenfold <- function(
   cv_args <- fs_args
   cv_args$parallel_args <- list(plan = "sequential", workers = 1, show_message = FALSE)
   cv_args$details <- FALSE
+  cv_args$quiet <- TRUE
   cv_args$plot.sg <- FALSE
 
   # PS must be re-estimated on each training fold -- NULL out any

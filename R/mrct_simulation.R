@@ -460,6 +460,7 @@ mrct_region_sims <- function(
           cat("===================================================================\n")
         }
 
+        fs_call_args$quiet <- TRUE
         fs_result <- tryCatch({
           withCallingHandlers(
             do.call(forestsearch, fs_call_args),

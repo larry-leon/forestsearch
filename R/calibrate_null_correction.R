@@ -346,6 +346,7 @@ run_null_calibration <- function(
         )
       )
 
+      fs_call_args$quiet <- TRUE
       fs_result <- tryCatch(
         do.call(forestsearch, fs_call_args),
         error = function(e) NULL

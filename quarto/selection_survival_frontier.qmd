@@ -579,13 +579,34 @@ run_validation <- nsims_val > 0
 if (run_validation) {
   t0 <- proc.time()[3]
 
+  # Only validate the frontier pairs: the minimum c2 for each c1
+  # that achieves FPR_corr <= target.  At most 10 pairs.
+  if (exists("frontier") && nrow(frontier) > 0) {
+    val_candidates <- frontier[seq_len(min(10, nrow(frontier))),
+                                .(c1, c2 = min_c2, FPR_corr = FPR_at_min_c2)]
+  } else {
+    val_candidates <- sim_candidates[region == "selected",
+                                      .(c1, c2, FPR_corr = FPR_corr_worst)]
+    if (nrow(val_candidates) > 10)
+      val_candidates <- val_candidates[seq_len(10)]
+  }
+
+  cat(sprintf(
+    "Validating %d frontier pairs (min c2 per c1, FPR_corr <= %.0f%%)\n",
+    nrow(val_candidates), 100 * fpr_target))
+  for (r in seq_len(nrow(val_candidates))) {
+    cat(sprintf("  c1=%.2f, c2=%.2f (corr FPR=%.1f%%)\n",
+                val_candidates$c1[r], val_candidates$c2[r],
+                100 * val_candidates$FPR_corr[r]))
+  }
+
   val_tasks <- do.call(rbind, lapply(N_target, function(N_val) {
-    do.call(rbind, lapply(seq_len(nrow(sim_candidates)), function(g) {
+    do.call(rbind, lapply(seq_len(nrow(val_candidates)), function(g) {
       data.frame(
         N = N_val,
         sim = seq_len(nsims_val),
-        c1 = sim_candidates$c1[g],
-        c2 = sim_candidates$c2[g],
+        c1 = val_candidates$c1[g],
+        c2 = val_candidates$c2[g],
         stringsAsFactors = FALSE
       )
     }))
@@ -593,7 +614,7 @@ if (run_validation) {
 
   cat(sprintf(
     "Running %d validation tasks (%d pairs x %d N x %d sims)...\n",
-    nrow(val_tasks), nrow(sim_candidates),
+    nrow(val_tasks), nrow(val_candidates),
     length(N_target), nsims_val))
 
   val_results <- foreach(

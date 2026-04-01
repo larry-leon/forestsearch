@@ -385,6 +385,7 @@ run_simulation_analysis <- function(
   for (pn in valid_pnames)
     if (!is.null(params[[pn]])) fs_args[[pn]] <- params[[pn]]
 
+  fs_args$quiet <- TRUE
   fs_result <- tryCatch(
     do.call(forestsearch, fs_args),
     error = function(e) { warning(label, " failed: ", e$message); NULL }

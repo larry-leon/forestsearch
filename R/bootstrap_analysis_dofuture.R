@@ -360,6 +360,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot$showten_subgroups <- FALSE
     args_FS_boot$plot.sg <- FALSE
     args_FS_boot$plot.grf <- FALSE
+    args_FS_boot$quiet <- TRUE
 
     # CATEGORY 2: VARIABLE RE-SELECTION
     args_FS_boot$grf_res <- NULL
