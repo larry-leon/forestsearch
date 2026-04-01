@@ -28,7 +28,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Validation sims per (c1, c2, N) configuration
 nsims_val       <- 0L
 sim_seed        <- 8316951L
-n_workers       <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+n_workers       <- ceiling(0.9*max(1L, parallel::detectCores(logical = FALSE) - 1L))
 
 # L_eff calibration.
 # Loaded from _data/calibration_survival_leff.rds
