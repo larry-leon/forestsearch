@@ -26,7 +26,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # -- User-configurable parameters --
 
 # Validation sims per (c1, c2, N) configuration
-nsims_val       <- 0L
+# ~ 500 hr linux for (at most) 10 triplets {c1,c2,N}
+nsims_val       <- 1000L
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.9*max(1L, parallel::detectCores(logical = FALSE) - 1L))
 
