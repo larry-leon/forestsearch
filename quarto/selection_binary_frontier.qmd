@@ -26,25 +26,40 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # -- User-configurable parameters --
 
 # Validation sims per (c1, c2, N) configuration
-nsims_val       <- 0.0L
+nsims_val       <- 0L
 sim_seed        <- 8316951L
 n_workers       <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
 
-# L_eff calibration.
-# Loaded from _data/calibration_binary_leff.rds
-# (produced by calibration_binary_leff.qmd, aka C1).
-# If the .rds is not found, falls back to hardcoded values.
-# Set recalibrate = TRUE to re-derive from scratch (Part I).
-C_prior_fallback  <- 0.220
+# L_eff calibration fallback values
+C_prior_fallback     <- 0.220
 alpha_prior_fallback <- 1.298
+
 recalibrate     <- FALSE     # TRUE = run calibration sims
 n_sims_recal    <- 100L      # Sims per N when calibrating
 
 # FPR target for threshold selection
 fpr_target      <- 0.12
 
-# Output directory for saved results
+# Output directory for .rds results
 output_dir      <- "_data"
+
+# Load L_eff calibration from C1 (calibration_binary_leff.qmd).
+# Falls back to hardcoded values if .rds not found.
+source(here::here("R", "leff_calibration_io.R"))
+
+cal_binary <- tryCatch(
+  load_leff_calibration("binary", output_dir = output_dir),
+  error = function(e) {
+    message("Calibration .rds not found: ", e$message)
+    message("Using fallback values: C=", C_prior_fallback,
+            ", alpha=", alpha_prior_fallback)
+    list(C = C_prior_fallback, alpha = alpha_prior_fallback,
+         n_min = 60L, source = "fallback (hardcoded)")
+  }
+)
+
+C_prior     <- cal_binary$C
+alpha_prior <- cal_binary$alpha
 ```
 
 
@@ -105,9 +120,6 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
-
-# L_eff save/load helpers
-source(here::here("R", "leff_calibration_io.R"))
 ```
 
 ```{r timing-init}
@@ -121,27 +133,6 @@ cat("Using", n_workers, "parallel workers\n")
 cat("Validation sims per config:", nsims_val, "\n")
 cat("FPR target:", fpr_target, "\n")
 cat("Recalibrate L_eff:", recalibrate, "\n")
-```
-
-```{r load-calibration}
-#| code-fold: false
-
-# Load L_eff calibration from C1 (calibration_binary_leff.qmd)
-# Falls back to hardcoded values if .rds not found
-cal_binary <- tryCatch(
-  load_leff_calibration("binary", output_dir = output_dir),
-  error = function(e) {
-    message("Calibration .rds not found: ", e$message)
-    message("Using fallback values: C=", C_prior_fallback,
-            ", alpha=", alpha_prior_fallback)
-    list(C = C_prior_fallback, alpha = alpha_prior_fallback,
-         n_min = 60L, source = "fallback (hardcoded)")
-  }
-)
-
-C_prior     <- cal_binary$C
-alpha_prior <- cal_binary$alpha
-
 cat(sprintf("L_eff prior: C = %.4f, alpha = %.4f\n",
             C_prior, alpha_prior))
 if (!is.null(cal_binary$dgm_description))
