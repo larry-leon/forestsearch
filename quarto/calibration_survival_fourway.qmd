@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ~ 2500/hr linux 
-nsims_alt  <- 10000L
-nsims_null <- 20000L
+nsims_alt  <- 20L
+nsims_null <- 20L
 
 # Output directory for saved results
 output_dir <- "_data"
@@ -829,6 +829,7 @@ cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
 ```{r cal-P1}
 # Reference subgroup size: n.min (most conservative FPR)
 n_min_val <- 60
+p_harm <- 0.13   # retained for save_leff_calibration() metadata
 
 cal_df$n_H <- n_min_val
 cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
