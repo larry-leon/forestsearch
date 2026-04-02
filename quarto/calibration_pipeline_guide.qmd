@@ -346,19 +346,31 @@ The configuration summary message prints the resolved values:
 
 # Dependency Graph
 
-The render order and dependencies:
+The two pipelines are **completely independent** and can run
+on separate machines simultaneously.  Dependencies exist only
+**within** each pipeline.
 
+**Binary (2 documents, 1 dependency):**
 ```
 C1 ─────────────────────────→ S1
 (binary L_eff calibration      (binary frontier selection)
  + threshold-independence
  validation in one document)
+```
 
+**Survival (3 documents, 2 dependencies):**
+```
 C2 ───→ C3 ──────────────────→ S2
 (survival   (threshold-         (survival frontier
  L_eff       independence        selection and
  calibration) validation)        confirmation)
 ```
+
+**No cross-pipeline dependencies.**
+C1 and C2 share no data.  S1 and S2 share no data.  The
+`.rds` calibration files are outcome-specific:
+`calibration_binary_leff.rds` (C1 $\to$ S1) and
+`calibration_survival_leff.rds` (C2 $\to$ S2).
 
 **Detailed flow:**
 
@@ -410,25 +422,42 @@ C2 ───→ C3 ──────────────────→ S2
 
 # Recommended Render Order
 
+## Independent Pipelines
+
+The binary and survival pipelines share **no dependencies**.
+They can run on separate machines in parallel:
+
+```
+Machine A (binary):          Machine B (survival):
+  C1  (~2 hours)               C2  (~4 hours)
+  S1  (~80 min)                C3  (~2 hours)
+                               S2  (~80 min)
+```
+
+C1 does not depend on C2.  S1 does not depend on S2.
+The only dependencies are **within** each pipeline:
+
+- Binary: S1 depends on C1 (loads its `.rds`)
+- Survival: C3 depends on C2 (validates its L_eff);
+  S2 depends on C2 (loads its `.rds`) and logically
+  depends on C3 (confirms the extrapolation is valid)
+
 ## First Time (Full Calibration)
 
-```
-SURVIVAL:
-  1. C2  (L_eff calibration — ~4 hours, produces .rds)
-  2. C3  (threshold-independence validation — ~2 hours)
-     → CHECK: L_eff consistency table.  If CV > 50%,
-       the approximation is unreliable.
-  3. S2  (frontier selection — ~80 min with nsims_val = 500)
-     → CHECK: "In CI" column.  If most are "No",
-       the calibration needs revision.
+These can run in parallel on separate machines:
 
-BINARY:
-  4. C1  (L_eff calibration + threshold-independence — ~2 hours,
-         produces .rds.  No separate "C3" needed because C1
-         already runs 9 (c1,c2) pairs and validates L_eff
-         consistency across all of them.)
-  5. S1  (frontier selection — ~80 min with nsims_val = 500)
 ```
+MACHINE A — BINARY:               MACHINE B — SURVIVAL:
+  1a. C1  (~2 hours, .rds)          1b. C2  (~4 hours, .rds)
+      ├ calibrates L_eff             2b. C3  (~2 hours)
+      └ validates threshold-             → CHECK: L_eff consistency
+        independence (9 pairs)             table.  CV > 50% = problem.
+  2a. S1  (~80 min)                  3b. S2  (~80 min)
+      → CHECK: "In CI" column            → CHECK: "In CI" column
+```
+
+Within each machine, the order is strict (S1 needs C1's `.rds`;
+S2 needs C2's `.rds` and C3's validation evidence).
 
 ## Quick Re-run (Use Existing Calibration)
 
