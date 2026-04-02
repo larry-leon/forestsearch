@@ -64,6 +64,20 @@ The function returns a **frontier table**: for each $c_1$
 (ascending), the minimum $c_2$ that achieves the target.
 The first row is the answer to "what is the smallest $c_1$?"
 
+::: {.callout-note}
+The frontier values are based on the corrected approximation
+and do not involve simulation.  For simulation confirmation
+with 95% confidence intervals (treating the corrected FPR as
+the true rate), see:
+
+- `selection_binary_frontier.qmd` (S1) for binary outcomes
+- `selection_survival_frontier.qmd` (S2) for survival outcomes
+
+Set `nsims_val > 0` in those documents to run ForestSearch
+under $H_0$ and verify that the simulated FPR falls within
+the expected range.
+:::
+
 
 # Setup {#sec-setup}
 
@@ -857,3 +871,23 @@ gt(rec) |>
     "Paper defaults (c1=1.25, c2=1.0) remain the forestsearch() signature defaults."
   )
 ```
+
+::: {.callout-important}
+## Simulation Confirmation
+
+The thresholds above are derived from the corrected
+approximation $\text{FPR}_{\text{corr}} = 1 - (1 - P_1)^{L_{\text{eff}}}$.
+Before using them in a production analysis, confirm via
+simulation in the outcome-specific frontier documents:
+
+- **Binary**: `selection_binary_frontier.qmd` — set `nsims_val = 500`
+- **Survival**: `selection_survival_frontier.qmd` — set `nsims_val = 500`
+
+The validation tables in those documents report 95% confidence
+intervals treating the corrected FPR as the true rate:
+$[\hat{p} - 1.96\sqrt{\hat{p}(1-\hat{p})/B}, \;
+  \hat{p} + 1.96\sqrt{\hat{p}(1-\hat{p})/B}]$,
+where $\hat{p} = \text{FPR}_{\text{corr}}$ and $B$ is the
+number of simulation replicates.  If the simulated FPR falls
+within this interval, the approximation is well-calibrated.
+:::

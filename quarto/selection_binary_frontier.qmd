@@ -830,14 +830,21 @@ if (run_validation) {
 #| tbl-cap: "Simulated FPR vs corrected approximation for pre-selected pairs."
 
 if (run_validation) {
-  sim_se <- 1.96 * sqrt(fpr_target * (1 - fpr_target) / nsims_val)
+  # CI under H0: FPR_corr is the truth
+  val_fpr[, CI_lower := pmax(0, FPR_corr - 1.96 * sqrt(
+    FPR_corr * (1 - FPR_corr) / n_sims))]
+  val_fpr[, CI_upper := pmin(1, FPR_corr + 1.96 * sqrt(
+    FPR_corr * (1 - FPR_corr) / n_sims))]
+  val_fpr[, in_CI := Sim_FPR >= CI_lower & Sim_FPR <= CI_upper]
 
   gt(val_fpr[, .(N, c1, c2,
-    Region = region,
     `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
+    `95% CI` = sprintf("[%.1f%%, %.1f%%]",
+      100 * CI_lower, 100 * CI_upper),
     `Sim FPR` = sprintf("%.1f%% (%d/%d)",
       100 * Sim_FPR, n_found, n_sims),
-    `Sim/Corr` = round(Sim_FPR / pmax(FPR_corr, 0.001), 2)
+    `Sim/Corr` = round(Sim_FPR / pmax(FPR_corr, 0.001), 2),
+    `In CI` = ifelse(in_CI, "Yes", "No")
   )]) |>
     tab_header(
       title = md("**Simulation Validation of Selected Pairs**"),
@@ -848,9 +855,16 @@ if (run_validation) {
     tab_row_group(label = "N = 1000", rows = N == 1000) |>
     tab_row_group(label = "N = 700", rows = N == 700) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
-    tab_source_note(sprintf(
-      "Target: corr FPR <= %.0f%%. %d sims gives ~+/-%.0f%% precision (95%% CI).",
-      100 * fpr_target, nsims_val, 100 * sim_se))
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = `In CI`,
+        rows = `In CI` == "Yes")) |>
+    tab_style(style = cell_fill(color = "#FFEBEE"),
+      locations = cells_body(columns = `In CI`,
+        rows = `In CI` == "No")) |>
+    tab_source_note(paste(
+      "95% CI: expected range of Sim FPR if Corr FPR is the true rate.",
+      sprintf("Green = Sim FPR within CI; %d sims per config.",
+              nsims_val)))
 } else {
   cat("Validation table skipped (nsims_val = 0).\n")
 }
@@ -908,8 +922,11 @@ if (run_validation) {
   if (nrow(confirmed) > 0) {
     gt(confirmed[, .(N, c1, c2,
       `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
+      `95% CI` = sprintf("[%.1f%%, %.1f%%]",
+        100 * CI_lower, 100 * CI_upper),
       `Sim FPR` = sprintf("%.1f%%", 100 * Sim_FPR),
-      `Sim/Corr` = round(Sim_FPR / pmax(FPR_corr, 0.001), 2)
+      `Sim/Corr` = round(Sim_FPR / pmax(FPR_corr, 0.001), 2),
+      `In CI` = ifelse(in_CI, "Yes", "No")
     )]) |>
       tab_header(
         title = md(sprintf(
@@ -920,9 +937,15 @@ if (run_validation) {
       tab_row_group(label = "N = 1000", rows = N == 1000) |>
       tab_row_group(label = "N = 700", rows = N == 700) |>
       tab_row_group(label = "N = 500", rows = N == 500) |>
-      tab_source_note(
-        "Increase nsims_val for tighter confidence."
-      )
+      tab_style(style = cell_fill(color = "#E8F5E9"),
+        locations = cells_body(columns = `In CI`,
+          rows = `In CI` == "Yes")) |>
+      tab_style(style = cell_fill(color = "#FFEBEE"),
+        locations = cells_body(columns = `In CI`,
+          rows = `In CI` == "No")) |>
+      tab_source_note(paste(
+        "95% CI bounds treat Corr FPR as the true rate.",
+        "'In CI' = simulated FPR falls within expected range."))
   } else {
     cat("No pairs confirmed at this sim count.\n")
     cat("Consider increasing nsims_val.\n")
