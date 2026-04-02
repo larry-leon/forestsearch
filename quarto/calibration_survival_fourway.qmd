@@ -777,7 +777,7 @@ multiple sample sizes.  We run a focused set at
 $N \in \{300, 500, 700, 1000\}$.
 
 ```{r null-multi-N}
-N_cal_values <- c(300, 500, 700, 1000)
+N_cal_values <- c(300, 500, 700)
 n_sims_cal <- nsims_null  # use same count as main sims
 
 cat("Running multi-N null calibration simulations...\n")
@@ -827,10 +827,10 @@ cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
 ## Compute Per-Subgroup $P_1$ at Each N
 
 ```{r cal-P1}
-# Harm subgroup prevalence ~ 13% in the GBSG DGM
-p_harm <- 0.13
+# Reference subgroup size: n.min (most conservative FPR)
+n_min_val <- 60
 
-cal_df$n_H <- round(p_harm * cal_df$N)
+cal_df$n_H <- n_min_val
 cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
 
 cal_df$P1 <- sapply(cal_df$d_eff, function(d) {
@@ -917,6 +917,19 @@ save_leff_calibration(
   n_sims_per_N = n_sims_cal
 )
 ```
+
+::: {.callout-important}
+## Shared `.rds` With C3
+
+Both this document (C2) and `calibration_survival_leff_grid.qmd` (C3)
+save to `calibration_survival_leff.rds` via
+`save_leff_calibration(outcome_type = "survival")`.
+**C2 is the primary source** because it uses the full null simulation
+(up to 20K replicates).  C3 uses fewer replicates (500) and is
+designed as a faster grid sweep.  If both are rendered, the
+last-rendered file wins.  Render C2 last, or set
+`recalibrate = FALSE` in C3 to skip its calibration.
+:::
 
 
 ## Corrected Four-Way Table

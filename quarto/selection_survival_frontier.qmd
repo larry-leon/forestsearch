@@ -197,7 +197,7 @@ p_harm    <- 0.13     # Prevalence of harm subgroup in GBSG DGM
 pcons     <- 0.90
 
 # Subgroup characteristics at reference N = 700
-n_H_ref <- round(p_harm * 700)
+n_H_ref <- n_min_val
 d_dgm <- round(d_eff_survival(n_H_ref, prop_cens))
 cat(sprintf("Reference: N=700, n_H=%d, d_eff=%d events\n",
             n_H_ref, d_dgm))
@@ -242,7 +242,7 @@ sim_config <- list(
 
 ```{r run-calibration}
 if (recalibrate) {
-  N_cal_values <- c(300, 500, 700, 1000)
+  N_cal_values <- c(300, 500, 700)
 
   cat(sprintf("=== L_eff Calibration ===\n"))
   cat(sprintf("Reference thresholds: c1=1.25, c2=1.0\n"))
@@ -304,7 +304,7 @@ if (recalibrate) {
 
 if (recalibrate) {
   cal_df <- do.call(rbind, cal_results)
-  cal_df$n_H <- round(p_harm * cal_df$N)
+  cal_df$n_H <- n_min_val
   cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
   cal_df$P1 <- sapply(cal_df$d_eff, function(d)
     p_detect_glm(1.0, d, 1.25, 1.0))
@@ -368,7 +368,7 @@ if (recalibrate) {
 ## $L_{\text{eff}}$ Summary
 
 ```{r leff-summary}
-N_target <- c(300, 500, 700, 1000)
+N_target <- c(300, 500, 700)
 
 cat("=== L_eff Model ===\n")
 cat(sprintf("  L_eff(N) = %.3f * (N/%d)^%.3f\n\n",
@@ -423,7 +423,7 @@ full_grid <- expand.grid(c1 = c1_grid, c2 = c2_grid,
 full_grid <- full_grid[full_grid$c2 <= full_grid$c1, ]
 
 # Compute corrected FPR for every (c1, c2, N)
-full_grid$n_H <- round(p_harm * full_grid$N)
+full_grid$n_H <- n_min_val
 full_grid$d_eff <- round(d_eff_survival(full_grid$n_H, prop_cens))
 full_grid$L_eff <- C_fit * (full_grid$N / n_min_val)^alpha_fit
 
@@ -679,13 +679,21 @@ if (run_validation) {
     n_sims = .N
   ), by = .(N, c1, c2)]
 
-  val_fpr[, n_H := round(p_harm * N)]
+  val_fpr[, n_H := n_min_val]
   val_fpr[, d_eff := round(d_eff_survival(n_H, prop_cens))]
   val_fpr[, P1 := mapply(function(d, c1v, c2v) {
     p_detect_glm(1.0, d, c1v, c2v)
   }, d_eff, c1, c2)]
   val_fpr[, L_eff_N := C_fit * (N / n_min_val)^alpha_fit]
   val_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
+
+  # Implied L_eff: does the calibrated L_eff hold at these (c1, c2)?
+  val_fpr[, implied_L_eff := ifelse(
+    P1 > 0 & Sim_FPR > 0 & Sim_FPR < 1,
+    log(1 - Sim_FPR) / log(1 - P1),
+    NA_real_
+  )]
+  val_fpr[, L_eff_ratio := round(implied_L_eff / L_eff_N, 2)]
 
   val_fpr <- merge(val_fpr,
     sim_candidates[, .(c1, c2, region)],
@@ -727,7 +735,6 @@ if (run_validation) {
         "%d sims/config | L_eff = %.3f * (N/%d)^%.3f",
         nsims_val, C_fit, n_min_val, alpha_fit)
     ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
     tab_row_group(label = "N = 700", rows = N == 700) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
     tab_row_group(label = "N = 300", rows = N == 300) |>
@@ -780,6 +787,50 @@ if (run_validation) {
   )
 } else {
   cat("Scatter plot skipped (nsims_val = 0).\n")
+}
+```
+
+
+## L_eff Consistency Across Validated Pairs
+
+If the calibrated $L_{\text{eff}}$ is threshold-independent,
+the implied $L_{\text{eff}}$ from validation should match the
+calibrated value across all $(c_1, c_2)$ pairs.
+
+```{r leff-validation-diagnostic}
+#| tbl-cap: "Implied L_eff from simulation vs calibrated value."
+
+if (run_validation) {
+  leff_diag <- val_fpr[!is.na(implied_L_eff), .(
+    N, c1, c2,
+    `Sim FPR` = sprintf("%.1f%%", 100 * Sim_FPR),
+    `Calibrated` = round(L_eff_N, 2),
+    `Implied` = round(implied_L_eff, 2),
+    `Ratio` = L_eff_ratio
+  )]
+
+  if (nrow(leff_diag) > 0) {
+    gt(leff_diag) |>
+      tab_header(
+        title = md("**L_eff Consistency: Calibrated vs Implied**"),
+        subtitle = sprintf("Calibrated: L_eff = %.3f * (N/%d)^%.3f",
+                            C_fit, n_min_val, alpha_fit)
+      ) |>
+      tab_style(style = cell_fill(color = "#E8F5E9"),
+        locations = cells_body(columns = Ratio,
+          rows = Ratio >= 0.7 & Ratio <= 1.3)) |>
+      tab_style(style = cell_fill(color = "#FFEBEE"),
+        locations = cells_body(columns = Ratio,
+          rows = Ratio < 0.7 | Ratio > 1.3)) |>
+      tab_source_note(paste(
+        "Ratio = Implied / Calibrated.",
+        "Green: within +/-30%.  Red: outside +/-30%.",
+        "Stable ratio confirms L_eff is threshold-independent."))
+  } else {
+    cat("No valid implied L_eff values (all zero or NA).\n")
+  }
+} else {
+  cat("L_eff diagnostic skipped (nsims_val = 0).\n")
 }
 ```
 

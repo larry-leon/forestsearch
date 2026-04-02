@@ -130,7 +130,7 @@ p_detect_glm <- function(theta, d_eff, c1, c2) {
 #| tbl-cap: "Per-subgroup P1(theta=1) across (c1,c2) pairs for n(H)=91, d=49 events"
 
 # Subgroup characteristics: pH ~ 13%, N = 700, censoring ~ 46%
-n_H_dgm <- 91
+n_H_dgm <- 60
 prop_cens <- 0.46
 d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
 
@@ -332,7 +332,7 @@ gt(baseline_h0) |>
 ## Multi-N Null Simulations
 
 ```{r null-multi-N}
-N_cal_values <- c(300, 500, 700, 1000)
+N_cal_values <- c(300, 500, 700)
 n_sims_cal <- min(nsims_null, 500L)
 
 cat("Running multi-N null calibration simulations...\n")
@@ -388,7 +388,7 @@ cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
 n_min_val <- 60
 p_harm <- 0.13
 
-cal_df$n_H <- round(p_harm * cal_df$N)
+cal_df$n_H <- n_min_val
 cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
 cal_df$P1 <- sapply(cal_df$d_eff, function(d) {
   p_detect_glm(1.0, d, 1.25, 1.0)
@@ -447,6 +447,18 @@ save_leff_calibration(
   n_sims_per_N = n_sims_cal
 )
 ```
+
+::: {.callout-important}
+## Shared `.rds` With C2
+
+Both this document (C3) and `calibration_survival_fourway.qmd` (C2)
+save to `calibration_survival_leff.rds`.
+**C2 is the primary source** (up to 20K replicates per N).
+C3 uses fewer replicates and is designed as a faster grid sweep.
+If both are rendered, the last-rendered file wins.
+To avoid overwriting C2's calibration, set `recalibrate = FALSE`
+in this document or render C2 after C3.
+:::
 
 
 ## Corrected Baseline
@@ -601,6 +613,65 @@ gt(grid_fpr[, .(c1, c2,
   )
 ```
 
+
+## L_eff Consistency Across Threshold Pairs
+
+If $L_{\text{eff}}$ is truly a property of the candidate-generation
+process (confounders, GRF, LASSO, maxk, n.min) and not the
+threshold pair, the implied $L_{\text{eff}}$ should be
+approximately constant across $(c_1, c_2)$ at the same $N$.
+
+```{r leff-consistency}
+#| tbl-cap: "Implied L_eff at each (c1, c2) pair.  If L_eff is threshold-independent, values should cluster near the calibrated value."
+
+# Compute implied L_eff for each grid pair
+grid_fpr[, implied_L_eff := ifelse(
+  P1 > 0 & FPR > 0 & FPR < 1,
+  log(1 - FPR) / log(1 - P1),
+  NA_real_
+)]
+
+leff_summary <- grid_fpr[!is.na(implied_L_eff), .(
+  `Median` = round(median(implied_L_eff), 2),
+  `Min`    = round(min(implied_L_eff), 2),
+  `Max`    = round(max(implied_L_eff), 2),
+  `SD`     = round(sd(implied_L_eff), 3),
+  `CV`     = sprintf("%.0f%%", 100 * sd(implied_L_eff) /
+                      median(implied_L_eff)),
+  `n_pairs` = .N
+)]
+
+cat(sprintf(
+  "Calibrated L_eff at N=%d: %.2f\n", N_grid, L_eff_N))
+cat(sprintf(
+  "Implied L_eff across %d threshold pairs: median=%.2f, range=[%.2f, %.2f]\n",
+  leff_summary$n_pairs, leff_summary$Median,
+  leff_summary$Min, leff_summary$Max))
+
+gt(grid_fpr[!is.na(implied_L_eff),
+  .(c1, c2,
+    `Sim FPR` = sprintf("%.1f%%", 100 * FPR),
+    `P1` = sprintf("%.4f", P1),
+    `Implied L_eff` = round(implied_L_eff, 2),
+    `Calibrated L_eff` = round(L_eff_N, 2),
+    `Ratio` = round(implied_L_eff / L_eff_N, 2)
+  )]) |>
+  tab_header(
+    title = md("**L_eff Consistency Diagnostic**"),
+    subtitle = sprintf("N=%d | Calibrated: L_eff = %.3f * (N/%d)^%.3f = %.2f",
+                        N_grid, C_fit, n_min_val, alpha_fit, L_eff_N)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = Ratio,
+      rows = Ratio >= 0.7 & Ratio <= 1.3)) |>
+  tab_style(style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(columns = Ratio,
+      rows = Ratio < 0.7 | Ratio > 1.3)) |>
+  tab_source_note(paste(
+    "Ratio = Implied / Calibrated.",
+    "Green: within +/-30%.  Red: outside +/-30%.",
+    "Constant ratio supports threshold-independence."))
+```
 
 ## FPR Heatmap
 

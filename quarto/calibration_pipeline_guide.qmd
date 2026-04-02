@@ -1,0 +1,577 @@
+---
+title: "Threshold Calibration Pipeline"
+subtitle: "From Approximation to Simulation-Confirmed (c₁, c₂) Pairs"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  eval: false
+---
+
+
+# Overview
+
+ForestSearch identifies subgroups "maximally consistent with harm"
+by screening candidate subgroups against a **screening threshold**
+$c_1$ and requiring **split-sample consistency** at threshold $c_2$.
+The pair $(c_1, c_2)$ directly controls the false-positive rate
+(FPR): the probability of identifying a subgroup when no true
+heterogeneity exists.
+
+This document describes the five-document pipeline that calibrates
+$(c_1, c_2)$ pairs to achieve a target FPR (e.g., $\le 12\%$),
+and confirms the calibration by simulation.  The pipeline applies
+to **all outcome types** (survival, binary, continuous, count),
+though the specific documents differ by outcome.
+
+
+# The Core Approximation
+
+## Per-Subgroup Detection Probability
+
+Under $H_0$ (no treatment effect heterogeneity), a single
+candidate subgroup passes both the screening and consistency
+criteria with probability:
+
+$$
+P_1(c_1, c_2, d_{\text{eff}}) =
+P\!\bigl(W_1 + W_2 \ge 2\log c_1,\;
+  \min(W_1, W_2) \ge \log c_2\bigr)
+$$
+
+where $W_1, W_2 \sim N(0, \; 8 / d_{\text{eff}})$ are the
+split-half log-effect estimates under $H_0$, and
+$d_{\text{eff}}$ is the effective number of events in the
+subgroup.
+
+## Effective Events
+
+The effective events depend on the outcome type:
+
+- **Survival**: $d_{\text{eff}} = n_H \cdot (1 - p_{\text{cens}})$
+  where $p_{\text{cens}}$ is the censoring proportion
+- **Binary**: $d_{\text{eff}} = n_H \cdot p \cdot (1 - p)$
+  where $p$ is the event probability
+- **Continuous**: $d_{\text{eff}} = n_H / \sigma^2$ (standardized)
+
+A critical design choice:  **$n_H$ is set to `n.min` = 60
+throughout**.  This computes $P_1$ at the minimum viable
+subgroup size — the most conservative (highest FPR) case.
+Any subgroup that ForestSearch evaluates must have at least
+`n.min` observations, so $P_1$ at `n.min` is an upper bound
+on the per-subgroup false-positive probability.
+
+This also simplifies the approximation: $P_1$ depends only on
+$(c_1, c_2)$ and the outcome-type parameters (censoring rate,
+event probability, etc.) — it does **not** vary with $N$.
+
+## Procedure-Level FPR
+
+ForestSearch evaluates many candidate subgroups, not just one.
+The procedure-level FPR accounts for this multiplicity:
+
+$$
+\text{FPR}_{\text{corr}} = 1 - (1 - P_1)^{L_{\text{eff}}(N)}
+$$
+
+where $L_{\text{eff}}(N)$ is the **effective number of
+independent candidates** — the multiplicity correction.
+
+## The $L_{\text{eff}}$ Power Law
+
+$L_{\text{eff}}$ is modeled as a power law in $N$:
+
+$$
+L_{\text{eff}}(N) = C \cdot \left(\frac{N}{n_{\min}}\right)^\alpha
+$$
+
+The rationale: larger $N$ means more candidate subgroups survive
+the `n.min` filter, so $L_{\text{eff}}$ grows with $N$.  The
+power-law form captures this growth with two parameters $(C, \alpha)$
+that are calibrated from simulation.
+
+
+# The Five Documents
+
+## Document Roles
+
+| ID  | Document | Role | Sims? |
+|-----|----------|------|-------|
+| C1  | `calibration_binary_leff.qmd` | Calibrate $L_{\text{eff}}$ for **binary** AND validate threshold-independence | Yes (heavy) |
+| C2  | `calibration_survival_fourway.qmd` | Calibrate $L_{\text{eff}}$ for **survival** (single threshold pair) | Yes (heavy) |
+| C3  | `calibration_survival_leff_grid.qmd` | Validate $L_{\text{eff}}$ is **threshold-independent** for survival | Yes (moderate) |
+| S1  | `selection_binary_frontier.qmd` | Select and confirm **binary** $(c_1, c_2)$ frontier | Yes (targeted) |
+| S2  | `selection_survival_frontier.qmd` | Select and confirm **survival** $(c_1, c_2)$ frontier | Yes (targeted) |
+
+### Why No Separate C3 for Binary?
+
+C1 combines both roles — calibration and threshold-independence
+validation — in a single document.  It runs ForestSearch under
+$H_0$ at **9 different $(c_1, c_2)$ pairs** across all $N$
+values, extracts the implied $L_{\text{eff}}$ at each pair,
+and confirms that $L_{\text{eff}}$ is approximately constant
+across thresholds at the same $N$.
+
+The survival pipeline splits this into C2 (calibration at one
+pair) and C3 (grid sweep at many pairs) because the survival
+DGM is substantially more expensive.  Running 9 threshold
+pairs $\times$ 3 $N$ $\times$ 500 sims in a single survival
+document would take $\sim$12 hours.  Separating the two
+concerns allows C2 to invest its simulation budget in
+precision at one point, while C3 runs lighter simulations
+across many points to test the extrapolation.
+
+## The Key Assumption
+
+The entire pipeline rests on one assumption:
+
+> **$L_{\text{eff}}$ is a property of the candidate-generation
+> process** (confounders, GRF screening, LASSO, `maxk`, `n.min`)
+> **and does not depend on the threshold pair** $(c_1, c_2)$.
+
+If this holds, then:
+
+- Calibrate $L_{\text{eff}}$ at **one** threshold pair (e.g., the
+  paper defaults $c_1 = 1.25$, $c_2 = 1.0$)
+- Extrapolate to **all** $(c_1, c_2)$ via the approximation
+- Validate the selected frontier pairs by targeted simulation
+
+If this fails, the approximation grid in S1/S2 produces
+unreliable FPR estimates, and the "confirmed" pairs may not
+actually achieve the target.
+
+
+# The Pipeline in Detail
+
+## Stage 1: Calibrate $L_{\text{eff}}$ (C1, C2)
+
+**What happens:**  Run ForestSearch under $H_0$ at the paper
+defaults ($c_1 = 1.25$, $c_2 = 1.0$) across
+$N \in \{300, 500, 700\}$.  For each $N$, record the simulated
+FPR (proportion of runs that find any subgroup).
+
+**Extract implied $L_{\text{eff}}$:**  At each $N$, solve:
+
+$$
+L_{\text{eff}}(N) =
+\frac{\log(1 - \text{FPR}_{\text{sim}})}
+     {\log(1 - P_1)}
+$$
+
+where $P_1 = P_1(1.25, 1.0, d_{\text{eff}})$ is computed
+analytically at `n.min` = 60.
+
+**Fit the power law:**  Regress $\log L_{\text{eff}}$ on
+$\log(N / n_{\min})$ to obtain $(C, \alpha)$.
+
+**Output:**  An `.rds` bundle containing $(C, \alpha, n_{\min})$
+saved to `quarto/_data/`.
+
+**Typical runtime:**  C1 (binary): ~2 hours at 1000 sims $\times$
+9 threshold pairs $\times$ 3 $N$ $\times$ 2 hypotheses.
+C2 (survival): ~4 hours at 500 sims $\times$ 3 $N$.
+
+**Key parameters:**
+
+```r
+# Both C1 and C2 use:
+n.min = 60           # Minimum subgroup size (also n_H for P1)
+pconsistency.threshold = 0.90
+fs.splits = 400
+maxk = 2
+d0.min = 12, d1.min = 12
+
+# C1 (binary): 4 confounders, p_event = 0.30
+# C2 (survival): 7 confounders, prop_cens = 0.46
+```
+
+
+## Stage 2: Validate Threshold-Independence (C3)
+
+**Why this is needed:**  C2 calibrates $L_{\text{eff}}$ at one
+point: $(c_1, c_2) = (1.25, 1.0)$.  Before extrapolating to
+other threshold pairs, we need evidence that $L_{\text{eff}}$
+is approximately constant across $(c_1, c_2)$.
+
+**What happens:**  Run ForestSearch under $H_0$ at a grid of
+$(c_1, c_2)$ pairs at a single $N$ (e.g., $N = 700$).  For
+each pair, record the simulated FPR and compute the implied
+$L_{\text{eff}}$:
+
+$$
+L_{\text{eff}}^{\text{implied}}(c_1, c_2) =
+\frac{\log(1 - \text{FPR}_{\text{sim}}(c_1, c_2))}
+     {\log(1 - P_1(c_1, c_2, d_{\text{eff}}))}
+$$
+
+**The diagnostic:**  If $L_{\text{eff}}$ is truly threshold-
+independent, the implied values should cluster around the
+calibrated value from C2.  The L_eff consistency table reports:
+
+- Median, min, max of implied $L_{\text{eff}}$ across all pairs
+- Ratio = implied / calibrated (green if within $\pm 30\%$)
+- Coefficient of variation (CV) across pairs
+
+**What would falsify the assumption?**  If the ratio varies
+widely (e.g., CV > 50%, or some pairs show ratios < 0.5 or
+> 2.0), the calibrated $L_{\text{eff}}$ cannot be trusted for
+those threshold regions.
+
+**Why C3 is distinct from C2:**  C2 runs many sims at one
+$(c_1, c_2)$ to get a precise $L_{\text{eff}}$.  C3 runs
+fewer sims at many $(c_1, c_2)$ to test the extrapolation.
+They answer different questions:
+
+- C2: "What is $L_{\text{eff}}$?"
+- C3: "Is $L_{\text{eff}}$ the same everywhere?"
+
+**C1 advantage:**  The binary calibration document (C1) already
+validates across 9 threshold pairs at 4 sample sizes in a single
+run.  The survival pipeline separates this into C2 (calibration)
+and C3 (validation) because the survival DGM is more expensive.
+
+**Output:**  The L_eff consistency diagnostic table.  No `.rds`
+is strictly needed — the evidence is in the rendered document.
+C3 also saves its own $(C, \alpha)$ fit, but C2's should be
+preferred due to higher simulation count.
+
+
+## Stage 3: Approximation Grid (S1, S2 — instant)
+
+**What happens:**  Using the calibrated $(C, \alpha)$ from
+Stage 1 (loaded from `.rds` or recalibrated in-document),
+compute the corrected FPR on a dense grid:
+
+```r
+# For every (c1, c2, N) triple:
+d_eff     <- d_eff_*(n_min_val, ...)    # constant (n_H = 60)
+P1        <- compute_detection_probability_glm(1.0, d_eff, c1, c2)
+L_eff     <- C_fit * (N / n_min_val)^alpha_fit
+FPR_corr  <- 1 - (1 - P1)^L_eff
+```
+
+Note that $P_1$ depends on $(c_1, c_2)$ but **not** on $N$
+(because $n_H = 60$ is constant).  Only $L_{\text{eff}}$ varies
+with $N$.
+
+**Select acceptable pairs:**  Filter to pairs where
+$\text{FPR}_{\text{corr}} \le \text{target}$ at the **largest**
+$N$ (worst case, since $L_{\text{eff}}$ grows with $N$).
+
+**Extract the frontier:**  For each $c_1$, find the minimum
+$c_2$ that achieves the target.  This gives at most 10–15
+frontier pairs — the "Pareto-optimal" thresholds.
+
+**Runtime:**  Instant (sub-second).  No simulations.
+
+**Critical dependency:**  This step is only reliable if C3
+has confirmed that $L_{\text{eff}}$ is threshold-independent.
+Otherwise, the FPR estimates at pairs far from $(1.25, 1.0)$
+may be wrong.
+
+
+## Stage 4: Simulation Confirmation (S1, S2 — targeted)
+
+**What happens:**  Run ForestSearch under $H_0$ at the
+**frontier pairs only** — at most 10 $(c_1, c_2)$ values
+$\times$ 3 $N$ values = 30 configurations, each with
+`nsims_val` replicates (e.g., 500).
+
+**Why frontier-only:**  The approximation grid evaluates
+hundreds of $(c_1, c_2, N)$ triples instantly.  Simulation
+is expensive.  Restricting to the frontier (min $c_2$ per
+$c_1$) concentrates the budget on the pairs that matter.
+
+**Validation outputs:**
+
+1. **Simulation FPR vs corrected approximation** table with:
+   - `Corr FPR`: the approximation's prediction
+   - `95% CI`: $[p - 1.96\sqrt{p(1-p)/B}, \;
+     p + 1.96\sqrt{p(1-p)/B}]$ where $p = \text{FPR}_{\text{corr}}$
+     and $B$ = number of sims
+   - `Sim FPR`: the observed simulation FPR
+   - `In CI`: whether the simulation FPR falls within the
+     expected range if the approximation is correct
+
+2. **Confirmed acceptable pairs**: the subset where both
+   the approximation AND the simulation agree that
+   FPR $\le$ target.
+
+3. **L_eff consistency diagnostic** (S2 only): implied
+   $L_{\text{eff}}$ at each validated pair vs the calibrated
+   value.  This provides a second check on the threshold-
+   independence assumption, now at the specific pairs that
+   will be used in practice.
+
+**Typical runtime:**  10 pairs $\times$ 3 $N$ $\times$ 500
+sims = 15,000 ForestSearch runs.  At ~2 sec/run with 6
+workers: ~80 minutes.
+
+
+## Stage 5: Use the Confirmed Pair
+
+The confirmed $(c_1, c_2)$ pair is passed to `forestsearch()`
+via the new parameter names:
+
+```r
+fs <- forestsearch(
+  df.analysis = trial_data,
+  outcome_type = "survival",
+  effect.threshold = 1.40,       # confirmed c1
+  consistency.threshold = 1.15,  # confirmed c2
+  pconsistency.threshold = 0.90,
+  ...
+)
+```
+
+The configuration summary message prints the resolved values:
+
+```
+[forestsearch] Subgroup Identification Configuration
+  Outcome type:   survival (Cox PH)
+  Effect measure: HR (hazard ratio)
+  Screening:      HR >= 1.40  (log: 0.3365)
+  Consistency:    HR >= 1.15  (log: 0.1398)
+  Consistency rate threshold: 90%
+```
+
+
+# Dependency Graph
+
+The render order and dependencies:
+
+```
+C1 ─────────────────────────→ S1
+(binary L_eff calibration      (binary frontier selection)
+ + threshold-independence
+ validation in one document)
+
+C2 ───→ C3 ──────────────────→ S2
+(survival   (threshold-         (survival frontier
+ L_eff       independence        selection and
+ calibration) validation)        confirmation)
+```
+
+**Detailed flow:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    BINARY PIPELINE                              │
+│                                                                 │
+│  C1: Run FS under H0 at 9 (c1,c2) pairs × {300,500,700}       │
+│      ├── Calibrate L_eff power law                              │
+│      ├── Validate L_eff is ~constant across (c1,c2)  ◄── BOTH  │
+│      └── Save _data/calibration_binary_leff.rds        IN ONE   │
+│                          │                                      │
+│                          ▼                                      │
+│  S1: Load L_eff (or recalibrate at c1=1.25, c2=1.0)            │
+│      ├── Dense approximation grid (instant)                     │
+│      ├── Select frontier: FPR_corr <= 12% at worst-case N       │
+│      └── Validate <=10 frontier pairs by simulation             │
+│          └── 95% CI treating FPR_corr as truth                  │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                    SURVIVAL PIPELINE                            │
+│                                                                 │
+│  C2: Run FS under H0 at (1.25, 1.0) × {300,500,700}            │
+│      ├── Calibrate L_eff power law (precise, one pair)          │
+│      └── Save _data/calibration_survival_leff.rds               │
+│                          │                                      │
+│                          ▼                                      │
+│  C3: Run FS under H0 at grid of (c1,c2) pairs at N=700         │
+│      ├── Compute implied L_eff at each pair                     │
+│      └── Validate: is L_eff ~constant across (c1,c2)?           │
+│          (REQUIRED before trusting S2's extrapolation)          │
+│                          │                                      │
+│                          ▼                                      │
+│  S2: Load L_eff (or recalibrate at c1=1.25, c2=1.0)            │
+│      ├── Dense approximation grid (instant)                     │
+│      ├── Select frontier: FPR_corr <= 12% at worst-case N       │
+│      ├── Validate <=10 frontier pairs by simulation             │
+│      │   └── 95% CI treating FPR_corr as truth                  │
+│      └── L_eff consistency diagnostic from validation           │
+│          (second check on threshold-independence)                │
+│                                                                 │
+│  NOTE: C1 combines calibration + validation in one document.    │
+│  The survival pipeline separates them (C2 + C3) because the    │
+│  survival DGM is ~3x more expensive per ForestSearch run.       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+
+# Recommended Render Order
+
+## First Time (Full Calibration)
+
+```
+SURVIVAL:
+  1. C2  (L_eff calibration — ~4 hours, produces .rds)
+  2. C3  (threshold-independence validation — ~2 hours)
+     → CHECK: L_eff consistency table.  If CV > 50%,
+       the approximation is unreliable.
+  3. S2  (frontier selection — ~80 min with nsims_val = 500)
+     → CHECK: "In CI" column.  If most are "No",
+       the calibration needs revision.
+
+BINARY:
+  4. C1  (L_eff calibration + threshold-independence — ~2 hours,
+         produces .rds.  No separate "C3" needed because C1
+         already runs 9 (c1,c2) pairs and validates L_eff
+         consistency across all of them.)
+  5. S1  (frontier selection — ~80 min with nsims_val = 500)
+```
+
+## Quick Re-run (Use Existing Calibration)
+
+```
+1. S2  with recalibrate = FALSE, nsims_val = 500
+   (loads C2's .rds, ~80 min)
+2. S1  with recalibrate = FALSE, nsims_val = 500
+   (loads C1's .rds, ~80 min)
+```
+
+## Instant Preview (No Simulations)
+
+```
+1. S2  with recalibrate = FALSE, nsims_val = 0
+   (loads .rds, approximation grid only, <1 min)
+2. S1  with recalibrate = FALSE, nsims_val = 0
+```
+
+
+# Standardized Parameters
+
+All five documents use consistent parameters:
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| `n.min` | 60 | Minimum subgroup size |
+| `n_H` for $P_1$ | 60 (= `n.min`) | Most conservative FPR (smallest viable subgroup) |
+| $N$ values | {300, 500, 700} | Covers typical clinical trial sizes |
+| `pconsistency.threshold` | 0.90 | Paper default |
+| `fs.splits` | 400 | Paper default |
+| `maxk` | 2 | At most 2-factor subgroup definitions |
+| `d0.min`, `d1.min` | 12 | Minimum events per treatment arm |
+| `fpr_target` | 0.12 | 12% procedure-level FPR |
+
+### Why $n_H = n_{\min} = 60$?
+
+Previously, the approximation used $n_H = p_{\text{harm}} \times N$
+(e.g., $0.13 \times 700 = 91$ for survival).  This had two problems:
+
+1. **$P_1$ varied with $N$**, making the approximation harder to
+   interpret — both $P_1$ and $L_{\text{eff}}$ changed with $N$.
+2. **Under $H_0$, there is no true harm subgroup.**  The subgroups
+   that pass screening by chance have varying sizes, not necessarily
+   $p_{\text{harm}} \times N$.
+
+Setting $n_H = n_{\min} = 60$ resolves both:
+
+- $P_1$ is **constant** for a given $(c_1, c_2)$ — only
+  $L_{\text{eff}}$ varies with $N$
+- The approximation evaluates FPR at the **most conservative**
+  subgroup size — a genuine upper bound on the per-subgroup
+  false-positive probability
+- The separation of concerns is clean: $P_1$ captures the
+  threshold's stringency, $L_{\text{eff}}$ captures the
+  multiplicity
+
+### Why $N \in \{300, 500, 700\}$?
+
+- **300**: Smallest trial where ForestSearch has reasonable power
+  with `n.min = 60` (subgroups must be $\ge 20\%$ of $N$)
+- **500**: Mid-range; common Phase III size
+- **700**: Matches the GBSG dataset ($N = 686$)
+- Removed **200** (too small — most candidates pruned by
+  `n.min`, `d0.min`, `d1.min`) and **1000** (extrapolation
+  from the power law is reliable at this range)
+
+
+# What Can Go Wrong
+
+## The $L_{\text{eff}}$ assumption fails
+
+**Symptom:**  C3's consistency table shows large variation
+in implied $L_{\text{eff}}$ across threshold pairs (CV > 50%).
+S2's validation shows most frontier pairs with "In CI" = No.
+
+**Cause:**  At extreme thresholds (very high $c_1$ or very
+low $c_2$), the set of subgroups that pass screening may differ
+qualitatively from the set at the calibration point.
+
+**Fix:**  Calibrate $L_{\text{eff}}$ at multiple threshold
+pairs (as C1 already does for binary).  Use pair-specific
+$L_{\text{eff}}$ if the variation is systematic.
+
+## The $P_1$ approximation is inaccurate
+
+**Symptom:**  Sim FPR / Corr FPR ratio is consistently > 1.5
+or < 0.5 across all pairs.
+
+**Cause:**  The bivariate normal model for $(W_1, W_2)$ may
+not accurately represent the split-half estimates, especially
+for small $d_{\text{eff}}$ or non-survival outcomes.
+
+**Fix:**  Increase `n.min` (increases $d_{\text{eff}}$,
+improving the normal approximation).  Or use simulation-only
+threshold selection (skip the approximation grid entirely).
+
+## Different DGM between calibration and application
+
+**Symptom:**  Calibration-confirmed thresholds produce
+unexpected FPR in the target trial.
+
+**Cause:**  The calibration DGM (e.g., GBSG-based with 7
+confounders, 46% censoring) may not match the target trial's
+characteristics.  $L_{\text{eff}}$ depends on the number
+and distribution of candidate factors.
+
+**Fix:**  Recalibrate with `recalibrate = TRUE` using the
+target trial's confounder set and DGM parameters. Update
+`confounders_base`, `outcome_type`, `effect_measure`, and
+the DGM function in S1/S2.
+
+
+# Reference: Cross-Document Parameters
+
+For a given analysis, ensure these parameters are consistent
+across all documents in the pipeline:
+
+```r
+# --- Must be identical across C1/C2/C3/S1/S2 ---
+confounders_base  # Same candidate factor set
+outcome_type      # "survival", "binary", "continuous", "count"
+effect_measure    # "HR", "OR", "RR", "RD", "IRR", "MD"
+n.min = 60        # Minimum subgroup size (also n_H for P1)
+pconsistency.threshold = 0.90
+fs.splits = 400
+maxk = 2
+d0.min = 12; d1.min = 12
+N = c(300, 500, 700)
+
+# --- Outcome-specific (must match DGM) ---
+prop_cens = 0.46  # Survival: censoring proportion
+p_event = 0.30    # Binary: event probability
+sigma = 1.0       # Continuous: residual SD
+
+# --- Pipeline-specific ---
+fpr_target = 0.12       # Target FPR (S1, S2)
+nsims_val = 500          # Validation sims (S1, S2)
+nsims_null = 500-20000   # Calibration sims (C1, C2, C3)
+```
+
+
+# Session Information
+
+This document was generated on `r Sys.Date()`.
+The forestsearch package is available at
+[github.com/larry-leon/forestsearch](https://github.com/larry-leon/forestsearch).

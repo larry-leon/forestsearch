@@ -236,7 +236,7 @@ below.  Then set `run_calibration = TRUE`.
 ```{r run-calibration}
 if (recalibrate) {
   # -- Calibration parameters --
-  N_cal_values <- c(200, 300, 500, 700, 1000)
+  N_cal_values <- c(300, 500, 700)
   # Reference thresholds for calibration (moderate values)
   c1_cal <- 1.25
   c2_cal <- 1.0
@@ -327,7 +327,7 @@ if (recalibrate) {
   cal_df <- do.call(rbind, cal_results)
 
   # Compute d_eff and P1 at reference thresholds
-  cal_df$n_H <- round(p_harm * cal_df$N)
+  cal_df$n_H <- n_min_val
   cal_df$d_eff <- d_eff_binary(cal_df$n_H, p_event)
   cal_df$P1 <- sapply(cal_df$d_eff, function(d)
     p_detect(1.0, d, c1_cal, c2_cal))
@@ -398,7 +398,7 @@ if (recalibrate) {
 ## $L_{\text{eff}}$ Summary
 
 ```{r leff-summary}
-N_target <- c(500, 700, 1000)
+N_target <- c(300, 500, 700)
 
 cat("=== L_eff Model ===\n")
 cat(sprintf("  L_eff(N) = %.3f * (N/%d)^%.3f\n\n",
@@ -472,7 +472,7 @@ full_grid <- expand.grid(c1 = c1_grid, c2 = c2_grid,
 full_grid <- full_grid[full_grid$c2 <= full_grid$c1, ]
 
 # Compute corrected FPR for every (c1, c2, N)
-full_grid$n_H <- round(p_harm * full_grid$N)
+full_grid$n_H <- n_min_val
 full_grid$d_eff <- d_eff_binary(full_grid$n_H, p_event)
 full_grid$L_eff <- C_fit * (full_grid$N / n_min_val)^alpha_fit
 
@@ -802,7 +802,7 @@ if (run_validation) {
   ), by = .(N, c1, c2)]
 
   # Merge with approximation
-  val_fpr[, n_H := round(p_harm * N)]
+  val_fpr[, n_H := n_min_val]
   val_fpr[, d_eff := d_eff_binary(n_H, p_event)]
   val_fpr[, P1 := mapply(function(d, c1v, c2v) {
     p_detect(1.0, d, c1v, c2v)
@@ -852,7 +852,6 @@ if (run_validation) {
         "%d sims/config | L_eff = %.3f * (N/%d)^%.3f",
         nsims_val, C_fit, n_min_val, alpha_fit)
     ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
     tab_row_group(label = "N = 700", rows = N == 700) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
     tab_style(style = cell_fill(color = "#E8F5E9"),
@@ -934,7 +933,6 @@ if (run_validation) {
           100 * fpr_target)),
         subtitle = sprintf("%d sims per config", nsims_val)
       ) |>
-      tab_row_group(label = "N = 1000", rows = N == 1000) |>
       tab_row_group(label = "N = 700", rows = N == 700) |>
       tab_row_group(label = "N = 500", rows = N == 500) |>
       tab_style(style = cell_fill(color = "#E8F5E9"),

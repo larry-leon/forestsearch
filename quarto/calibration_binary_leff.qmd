@@ -29,6 +29,9 @@ n_workers   <- ceiling(0.95*max(1L, parallel::detectCores(logical = FALSE) - 1L)
 
 # Output directory for .rds results
 output_dir  <- "_data"
+
+# Reference subgroup size: n.min (most conservative FPR)
+n_min_val   <- 60L
 ```
 
 
@@ -380,7 +383,7 @@ sim_pairs <- list(
   list(c1= 1.70, c2 =1.50)
 )
 
-n_values <- c(200, 500, 700, 1000)
+n_values <- c(300, 500, 700)
 pcons <- 0.90
 
 tasks <- do.call(rbind, lapply(sim_pairs, function(pr) {
@@ -422,7 +425,7 @@ oc_sim <- sim_dt[, .(
 ), by = .(n_total, has_hte, c1, c2)]
 
 # Compute approximation for comparison
-oc_sim[, n_sg := round(0.30 * n_total)]
+oc_sim[, n_sg := n_min_val]
 oc_sim[, d_eff := round(d_eff_binary(n_sg, p_event = 0.30), 1)]
 oc_sim[, approx := mapply(function(hte, d, c1v, c2v) {
   theta <- if (hte) 2.0 else 1.0
@@ -737,7 +740,6 @@ gt(h0_corr[, .(N = n_total, c1, c2,
   tab_style(style = cell_fill(color = "#FFF9C4"),
     locations = cells_body(columns = `Sim/Corr`,
       rows = abs(`Sim/Corr` - 1) > 0.3 & abs(`Sim/Corr` - 1) <= 0.6)) |>
-  tab_row_group(label = "N = 1000", rows = N == 1000) |>
   tab_row_group(label = "N = 700", rows = N == 700) |>
   tab_row_group(label = "N = 500", rows = N == 500) |>
   tab_row_group(label = "N = 200", rows = N == 200) |>
@@ -871,7 +873,6 @@ if (nrow(acceptable_corr) > 0) {
       subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f | pcons = %.2f",
                           C_fit, n_min_val, alpha_fit, pcons)
     ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
     tab_row_group(label = "N = 700", rows = N == 700) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
     tab_row_group(label = "N = 200", rows = N == 200) |>
@@ -935,7 +936,6 @@ if (nrow(acceptable) > 0) {
       title = "Simulation-Validated Threshold Configurations",
       subtitle = sprintf("pcons = %.2f | %d sims per config", pcons, nsims)
     ) |>
-    tab_row_group(label = "N = 1000", rows = N == 1000) |>
     tab_row_group(label = "N = 700", rows = N == 700) |>
     tab_row_group(label = "N = 500", rows = N == 500) |>
     tab_row_group(label = "N = 200", rows = N == 200)
