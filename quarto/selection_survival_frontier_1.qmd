@@ -27,9 +27,9 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # Validation sims per (c1, c2, N) configuration
 # ~ 500 hr linux for (at most) 10 triplets {c1,c2,N}
-nsims_val       <- 500L
+nsims_val       <- 100L
 sim_seed        <- 8316951L
-n_workers       <- ceiling(0.9*max(1L, parallel::detectCores(logical = FALSE) - 1L))
+n_workers       <- ceiling(0.95*max(1L, parallel::detectCores(logical = FALSE) - 1L))
 
 # L_eff calibration.
 # Loaded from _data/calibration_survival_leff.rds
@@ -38,7 +38,7 @@ n_workers       <- ceiling(0.9*max(1L, parallel::detectCores(logical = FALSE) - 
 # Set recalibrate = TRUE to re-derive from scratch (Part I).
 C_prior_fallback  <- 0.029
 alpha_prior_fallback <- 0.882
-recalibrate     <- FALSE     # TRUE = run calibration sims
+recalibrate     <- TRUE     # TRUE = run calibration sims
 n_sims_recal    <- 200L      # Sims per N when calibrating
 
 # FPR target for threshold selection
