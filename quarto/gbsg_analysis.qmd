@@ -472,7 +472,7 @@ Two approaches are available:
 ```{r kfold-cv}
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
-Ksims <- 5
+Ksims <- 10
 
 t0 <- proc.time()
 
@@ -499,7 +499,7 @@ metrics_tables
 N-fold CV (leave-one-out):
 
 ```{r oob-cv}
-#| eval: false
+#| eval: true
 
 t0 <- proc.time()
 
@@ -680,11 +680,13 @@ patients may not benefit is consistent with:
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
 timing_df <- data.frame(
-  Analysis = c("GRF", "ForestSearch", "Bootstrap", "Total"),
+  Analysis = c("GRF", "ForestSearch", "Bootstrap", "kfold", "oob", "Total"),
   Seconds = c(
     timings$grf,
     timings$forestsearch,
     timings$bootstrap,
+    timings$kfold,
+    timings$oob,
     timings$total
   )
 )

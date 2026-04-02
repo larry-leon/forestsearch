@@ -23,9 +23,9 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ~ 450/hr on mac
-nsims       <- 1000L
+nsims       <- 100L
 sim_seed    <- 8316951L
-n_workers   <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
+n_workers   <- ceiling(0.95*max(1L, parallel::detectCores(logical = FALSE) - 1L))
 
 # Output directory for .rds results
 output_dir  <- "_data"
