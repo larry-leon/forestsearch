@@ -477,6 +477,232 @@ S2 needs C2's `.rds` and C3's validation evidence).
 ```
 
 
+# Data Flow: Saved and Loaded Files
+
+Each document in the pipeline produces `.rds` files that
+downstream documents consume.  There are two distinct types
+with different naming and loading conventions.
+
+
+## Type 1: L_eff Calibration Files (Fixed Name)
+
+These store the fitted power-law parameters $(C, \alpha)$ and
+are written by `save_leff_calibration()` and read by
+`load_leff_calibration()`.  The filename is **fixed** by
+outcome type --- last render wins.
+
+| Written by | Filename | Read by |
+|------------|----------|---------|
+| C1 | `calibration_binary_leff.rds` | S1 |
+| C2, C3, or S2 (recal) | `calibration_survival_leff.rds` | S2 |
+
+**How loading works:**
+
+```r
+# S1's setup chunk:
+cal_binary <- tryCatch(
+  load_leff_calibration("binary", output_dir = "_data"),
+  error = function(e) {
+    message("Calibration .rds not found: ", e$message)
+    list(C = C_prior_fallback, alpha = alpha_prior_fallback,
+         n_min = 60L, source = "fallback (hardcoded)")
+  }
+)
+C_prior     <- cal_binary$C
+alpha_prior <- cal_binary$alpha
+```
+
+The `tryCatch` fallback means S1/S2 can render even if the
+calibration `.rds` is missing --- they use hardcoded prior
+values as a safety net.  These fallback values are defined
+in the setup chunk with provenance comments:
+
+```r
+# Source: calibration_binary_leff.qmd (C1), last run YYYYMMDD.
+# Update these after re-running C1 with new DGM or confounders.
+C_prior_fallback     <- 0.220
+alpha_prior_fallback <- 1.298
+```
+
+**Priority when multiple documents write the same file:**
+C2 and C3 both call `save_leff_calibration(outcome_type =
+"survival")`, writing to the same `.rds`.  C2 uses more
+simulations (higher precision) and should be rendered first.
+If C3 is rendered after C2, C3's values overwrite C2's.
+In practice the values should agree closely; if they
+diverge, the DGMs may differ.
+
+**What is stored in the bundle:**
+
+```r
+# save_leff_calibration() writes:
+list(
+  C           = 0.029,          # fitted intercept
+  alpha       = 0.882,          # fitted exponent
+  n_min       = 60,             # reference subgroup size
+  outcome_type = "survival",
+  dgm_description = "GBSG survival, 7 confounders, ...",
+  n_sims_per_N = 500,
+  cal_data    = data.frame(N, sim_fpr, P1, L_eff),
+  timestamp   = Sys.time()
+)
+```
+
+
+## Type 2: Results Bundles (Date-Stamped)
+
+These store the full simulation results, approximation grids,
+and confirmed pairs.  The filename includes the render date,
+so **multiple runs accumulate** in the `_data/` directory.
+
+| Written by | Filename pattern |
+|------------|------------------|
+| C2 | `calibration_survival_fourway_YYYYMMDD.rds` |
+| C3 | `calibration_survival_leff_grid_YYYYMMDD.rds` |
+| S1 | `selection_binary_frontier_YYYYMMDD.rds` |
+| S2 | `selection_survival_frontier_YYYYMMDD.rds` |
+
+**How loading works --- `latest_rds()`:**
+
+Because the filename contains the date, the "How to Reload"
+sections use `latest_rds()` to find the most recent file
+matching a prefix:
+
+```r
+# In any document's "How to Reload" section:
+res <- readRDS(latest_rds("selection_survival_frontier"))
+
+# Output:
+# Found 3 file(s) matching 'selection_survival_frontier':
+#   selection_survival_frontier_20260402.rds  (2026-04-02 14:30) [latest]
+#   selection_survival_frontier_20260330.rds  (2026-03-30 09:15)
+#   selection_survival_frontier_20260328.rds  (2026-03-28 11:42)
+```
+
+To load a specific older run instead, use `readRDS()` directly:
+
+```r
+res <- readRDS("_data/selection_survival_frontier_20260330.rds")
+```
+
+**What is stored in each bundle:**
+
+C2 results bundle:
+
+```r
+list(
+  results_alt_cox  = data.table,  # H1 Cox simulation results
+  results_null_cox = data.table,  # H0 Cox simulation results
+  results_alt_irr  = data.table,  # H1 IRR (Poisson) results
+  results_null_irr = data.table,  # H0 IRR (Poisson) results
+  leff = list(C, alpha, cal_df),  # L_eff calibration
+  dgm_alt  = function,            # H1 DGM (for further sims)
+  dgm_null = function,            # H0 DGM
+  params   = list(...)            # All simulation parameters
+)
+```
+
+S1/S2 results bundle:
+
+```r
+list(
+  params           = list(C_fit, alpha_fit, fpr_target, ...),
+  leff_calibration = list(C, alpha, source),
+  leff_raw_data    = data.frame,   # Raw calibration points
+  approx_grid      = data.table,   # Full (c1, c2, N) grid
+  selected         = data.table,   # Pairs meeting target
+  frontier         = data.table,   # Min c2 per c1
+  sim_candidates   = data.table,   # Pairs sent to simulation
+  val_fpr          = data.table,   # Simulation results
+  confirmed        = data.table,   # Confirmed acceptable pairs
+  timings          = list(...)
+)
+```
+
+
+## Complete File Flow Diagram
+
+```
+_data/ directory contents after a full pipeline run:
+
+BINARY PIPELINE:
+  calibration_binary_leff.rds              ← C1 (fixed name)
+  calibration_binary_leff_YYYYMMDD.rds     ← C1 (date-stamped)
+  selection_binary_frontier_YYYYMMDD.rds   ← S1 (date-stamped)
+
+SURVIVAL PIPELINE:
+  calibration_survival_leff.rds            ← C2 or C3 (fixed name)
+  calibration_survival_fourway_YYYYMMDD.rds   ← C2 (date-stamped)
+  calibration_survival_leff_grid_YYYYMMDD.rds ← C3 (date-stamped)
+  selection_survival_frontier_YYYYMMDD.rds    ← S2 (date-stamped)
+
+Loading:
+  C1 → save_leff_calibration("binary")
+       saveRDS(bundle, "calibration_binary_leff_YYYYMMDD.rds")
+                    │
+                    ▼
+  S1 → load_leff_calibration("binary")  [or fallback]
+       saveRDS(bundle, "selection_binary_frontier_YYYYMMDD.rds")
+
+  C2 → save_leff_calibration("survival")
+       saveRDS(bundle, "calibration_survival_fourway_YYYYMMDD.rds")
+                    │
+                    ▼
+  C3 → load_leff_calibration("survival")  [optional]
+       save_leff_calibration("survival")  [overwrites C2's]
+       saveRDS(bundle, "calibration_survival_leff_grid_YYYYMMDD.rds")
+                    │
+                    ▼
+  S2 → load_leff_calibration("survival")  [or fallback]
+       save_leff_calibration("survival")  [if recalibrate=TRUE]
+       saveRDS(bundle, "selection_survival_frontier_YYYYMMDD.rds")
+```
+
+
+## When No Pairs Meet the Target
+
+If no $(c_1, c_2)$ pairs achieve
+$\text{FPR}_{\text{corr}} \le$ target, the documents provide
+actionable diagnostic output:
+
+1. **Closest pairs**: the 5 configurations nearest to the target,
+   with their actual FPR values
+2. **Gap size**: how far the best achievable FPR is from the target
+3. **Specific expansion code**: ready-to-paste `seq()` calls to
+   widen the threshold grid
+
+Example output from C1:
+
+```
+Best achievable Corr FPR: 15.9% (target: 12%)
+
+Suggestions:
+  1. Replace sim_pairs in the 'run-sims' chunk (Section 4.2)
+     with a denser grid. Example:
+
+     c1_seq <- seq(1.25, 2.00, by = 0.05)
+     c2_seq <- seq(1.00, 1.80, by = 0.05)
+     pair_grid <- expand.grid(c1 = c1_seq, c2 = c2_seq,
+                              stringsAsFactors = FALSE)
+     pair_grid <- pair_grid[pair_grid$c2 <= pair_grid$c1, ]
+     sim_pairs <- lapply(seq_len(nrow(pair_grid)), function(i)
+       list(c1 = pair_grid$c1[i], c2 = pair_grid$c2[i]))
+
+  2. Both c1 and c2 contribute: raising c2 tightens
+     consistency; raising c1 tightens screening.
+  3. The gap is small -- finer resolution (by = 0.02)
+     may find viable pairs within the current range.
+```
+
+The `seq()` ranges are computed dynamically: they start at
+the minimum values already tested and extend 0.30 beyond the
+current maximum.  The `pair_grid$c2 <= pair_grid$c1` filter
+ensures only valid pairs (consistency threshold $\le$
+screening threshold).  The `lapply` wraps each row into the
+`list(c1 = ..., c2 = ...)` format that the `tasks` builder
+expects.
+
+
 # Standardized Parameters
 
 All five documents use consistent parameters:

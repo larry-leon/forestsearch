@@ -925,7 +925,7 @@ cat(sprintf("    L_eff:            C=%.4f, alpha=%.4f\n",
 #| eval: false
 #| code-fold: false
 
-res <- readRDS("_data/calibration_survival_leff_grid_20260401.rds")
+res <- readRDS(latest_rds("calibration_survival_leff_grid"))
 
 # Paper-defaults FPR
 cox_h0 <- res$results_null_cox[res$results_null_cox$analysis == "FS", ]

@@ -172,3 +172,63 @@ get_leff <- function(N, outcome_type, output_dir = NULL) {
                                 verbose = FALSE)
   cal$C * (N / cal$n_min)^cal$alpha
 }
+
+
+#' Find the Most Recent .rds File Matching a Pattern
+#'
+#' Scans \code{output_dir} for files matching the given prefix
+#' pattern and returns the path to the most recently modified one.
+#' Date-stamped filenames (e.g., \code{results_20260402.rds}) sort
+#' naturally, but this function uses filesystem modification time
+#' for robustness.
+#'
+#' @param prefix Character. Filename prefix to match
+#'   (e.g., \code{"selection_survival_frontier"}).
+#' @param output_dir Character. Directory to scan.
+#'   Default: \code{"_data"}.
+#' @param verbose Logical. Print the matched file. Default: TRUE.
+#'
+#' @return Full path to the most recent matching file, or NULL
+#'   if no match is found.
+#'
+#' @examples
+#' \dontrun{
+#' path <- latest_rds("selection_survival_frontier")
+#' res  <- readRDS(path)
+#'
+#' path <- latest_rds("calibration_binary_leff_grid")
+#' }
+#'
+#' @export
+latest_rds <- function(prefix, output_dir = "_data",
+                        verbose = TRUE) {
+  pattern <- sprintf("^%s.*\\.rds$", prefix)
+  files <- list.files(output_dir, pattern = pattern,
+                       full.names = TRUE)
+
+  if (length(files) == 0) {
+    if (verbose) {
+      message(sprintf("No .rds files matching '%s' in %s/",
+                      prefix, output_dir))
+    }
+    return(NULL)
+  }
+
+  # Sort by modification time (most recent first)
+  mtimes <- file.mtime(files)
+  idx <- order(mtimes, decreasing = TRUE)
+  best <- files[idx[1]]
+
+  if (verbose) {
+    message(sprintf("Found %d file(s) matching '%s':", length(files), prefix))
+    for (i in seq_along(idx)) {
+      flag <- if (i == 1) " [latest]" else ""
+      message(sprintf("  %s  (%s)%s",
+                      basename(files[idx[i]]),
+                      format(mtimes[idx[i]], "%Y-%m-%d %H:%M"),
+                      flag))
+    }
+  }
+
+  best
+}

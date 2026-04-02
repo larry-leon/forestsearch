@@ -963,8 +963,8 @@ cal <- load_leff_calibration("survival")
 cal$C       # 0.029
 cal$alpha   # 0.882
 
-# --- Load selection results ---
-res <- readRDS("_data/selection_survival_frontier_20260330.rds")
+# --- Load the most recent selection results ---
+res <- readRDS(latest_rds("selection_survival_frontier"))
 res$leff_source    # Where L_eff came from
 res$frontier       # Smallest c1 for each target
 res$approx_grid    # Full approximation grid

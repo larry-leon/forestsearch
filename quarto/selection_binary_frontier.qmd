@@ -15,8 +15,8 @@ format:
     fig-width: 9
     fig-height: 6
 execute:
-  warning: false
-  message: false
+  warning: true
+  message: true
 ---
 
 ```{r setup}
@@ -26,7 +26,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # -- User-configurable parameters --
 
 # Validation sims per (c1, c2, N) configuration
-nsims_val       <- 100L
+nsims_val       <- 0L
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95*max(1L, parallel::detectCores(logical = FALSE) - 1L))
 
@@ -34,11 +34,11 @@ n_workers       <- ceiling(0.95*max(1L, parallel::detectCores(logical = FALSE) -
 C_prior_fallback     <- 0.220
 alpha_prior_fallback <- 1.298
 
-recalibrate     <- TRUE     # TRUE = run calibration sims
+recalibrate     <- FALSE     # TRUE = run calibration sims
 n_sims_recal    <- 200L      # Sims per N when calibrating
 
 # FPR target for threshold selection
-fpr_target      <- 0.12
+fpr_target      <- 0.15
 
 # Output directory for .rds results
 output_dir      <- "_data"
@@ -1031,8 +1031,8 @@ if (!is.null(output_dir)) {
 #| eval: false
 #| code-fold: false
 
-# Load saved results
-res <- readRDS("_data/selection_binary_frontier_20260330.rds")
+# Load the most recent results bundle
+res <- readRDS(latest_rds("selection_binary_frontier"))
 
 # Access components
 res$params$C_fit           # L_eff parameters

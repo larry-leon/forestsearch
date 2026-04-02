@@ -1176,8 +1176,8 @@ cat(sprintf("    L_eff:            C=%.4f, alpha=%.4f\n",
 #| eval: false
 #| code-fold: false
 
-# Load the full simulation bundle
-res <- readRDS("_data/calibration_survival_fourway_20260401.rds")
+# Load the most recent simulation bundle
+res <- readRDS(latest_rds("calibration_survival_fourway"))
 
 # Access simulation results directly
 cox_h1 <- res$results_alt_cox[res$results_alt_cox$analysis == "FS", ]
