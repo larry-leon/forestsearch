@@ -15,8 +15,8 @@ format:
     fig-width: 10
     fig-height: 7
 execute:
-  warning: false
-  message: false
+  warning: true
+  message: true
 ---
 
 ```{r setup}
@@ -24,6 +24,7 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
+# ~ 600/hr mac
 nsims       <- 30L       # sims per (c1, c2, N, hypothesis)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
