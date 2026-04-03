@@ -15,64 +15,221 @@ format:
     fig-width: 9
     fig-height: 6
 execute:
-  warning: false
-  message: false
+  warning: true
+  message: true
 ---
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(weightedsurv)
+library(data.table)
+library(survival)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+
+# L_eff save/load helpers
+#source(here::here("../R", "leff_calibration_io.R"))
+```
+
+```{r timing-init}
+timings <- list()
+t_vignette_start <- proc.time()
+```
 
 ```{r setup}
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-nsims_val       <- 0L  # validation sims per (c1, c2, N)
+nsims_val       <- 0L      # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
-n_workers       <- ceiling(0.9 * max(1L,
+n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
 
 # ── Output ──────────────────────────────────────────────────────
 output_dir      <- "_data"
 
-# ── FPR target ─────────────────────────────────────────────────
-fpr_target      <- 0.12
-
 # ── L_eff calibration source ──────────────────────────────────
-# Loaded from _data/calibration_survival_leff.rds (produced by C2).
-# Update fallbacks after re-running C2 with new DGM or confounders.
+# Loaded from _data/calibration_survival_leff.rds (produced by C2/C3).
+# Shared DGM/FS parameters are inherited from the calibration bundle.
+# Only override below if you intentionally want to differ.
 C_prior_fallback     <- 0.029
 alpha_prior_fallback <- 0.882
 recalibrate          <- FALSE   # TRUE = run calibration sims
-n_sims_recal         <- 200L   # sims per N when calibrating
+n_sims_recal         <- 200L   # sims per N when recalibrating
 
-# ── DGM / outcome parameters ──────────────────────────────────
-prop_cens  <- 0.46       # GBSG censoring proportion
-p_harm     <- 0.13       # harm subgroup prevalence (metadata only)
-n_min_val  <- 60L        # n.min = reference subgroup size for P1
+# ── FPR target ─────────────────────────────────────────────────
+fpr_target      <- 0.12
 
-# ── ForestSearch parameters ───────────────────────────────────
-confounders_base <- c("z1", "z2", "z3", "z4", "z5",
-                       "size", "grade3")
-pcons            <- 0.90 # pconsistency.threshold
+# ── Shared DGM / FS parameters (fallbacks if C2/C3 .rds missing) ─
+# These are overwritten by the saved config when available.
+prop_cens        <- 0.46
+p_harm           <- 0.13
+hr_h1            <- 2.0    # HR for harm subgroup under H1
+n_min_val        <- 60L
+confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+pcons            <- 0.90
 fs_splits        <- 400L
 maxk_val         <- 2L
-analysis_time    <- 84L  # GBSG analysis time (months)
+analysis_time    <- 84L    # GBSG analysis time (months)
 cens_adjust      <- log(1.5)
-
-# ── Sample sizes ──────────────────────────────────────────────
-n_sample         <- 700L # reference sample size for main sims
+n_sample         <- 700L   # reference sample size for main sims
 N_cal_values     <- c(300, 500, 700)
 N_target         <- c(300, 500, 700)
 
-# ── Threshold grid for approximation ─────────────────────────
-# Adjust these if no pairs meet fpr_target
-c1_grid     <- seq(1.00, 1.80, by = 0.05)
-c2_grid     <- seq(0.90, 1.50, by = 0.05)
+# ── Threshold grid for approximation (S2-specific) ───────────
+# When use_c1_grid = TRUE (default), the grid range is set to
+# C2/C3's validated range from the .rds bundle.  The step size
+# (grid_step) controls density.
+# When FALSE, the user-specified grids below are used as-is
+# (a warning is printed if they extend beyond C2/C3's range).
+use_c1_grid <- TRUE
+grid_step   <- 0.05      # step size for approximation grid
+c1_grid     <- seq(1.00, 1.80, by = grid_step)  # fallback only
+c2_grid     <- seq(0.90, 1.50, by = grid_step)  # fallback only
 
 # ── Validation ────────────────────────────────────────────────
 max_pairs   <- 40L       # max sim candidates (selected + boundary)
 
+# ── H1 power assessment at optimal pair ──────────────────────
+nsims_power <- 0L        # H1 sims at optimal pair (0 = approx only)
+
 # ── Heatmap display subset ────────────────────────────────────
 c1_heat     <- seq(1.00, 1.50, by = 0.05)
 c2_heat     <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25)
+```
+
+```{r load-calibration}
+#| code-fold: false
+
+# Load L_eff calibration from C2/C3 (calibration_survival_*.qmd)
+cal_survival <- tryCatch(
+  load_leff_calibration("survival", output_dir = output_dir),
+  error = function(e) {
+    message("Calibration .rds not found: ", e$message)
+    message("Using fallback values from setup chunk.")
+    list(C = C_prior_fallback, alpha = alpha_prior_fallback,
+         n_min = 60L, source = "fallback (hardcoded)",
+         extra = list())
+  }
+)
+
+C_prior     <- cal_survival$C
+alpha_prior <- cal_survival$alpha
+
+# Inherit shared parameters from C2/C3's config (if available)
+cfg <- cal_survival$extra
+if (length(cfg) > 0) {
+  cat("=== Inheriting config from survival calibration ===\n")
+  if (!is.null(cfg$confounders_base)) confounders_base <- cfg$confounders_base
+  if (!is.null(cfg$prop_cens))        prop_cens        <- cfg$prop_cens
+  if (!is.null(cfg$p_harm))           p_harm           <- cfg$p_harm
+  if (!is.null(cfg$hr_h1))            hr_h1            <- cfg$hr_h1
+  if (!is.null(cfg$pcons))            pcons            <- cfg$pcons
+  if (!is.null(cfg$fs_splits))        fs_splits        <- cfg$fs_splits
+  if (!is.null(cfg$maxk_val))         maxk_val         <- cfg$maxk_val
+  if (!is.null(cfg$n_min_val))        n_min_val        <- cfg$n_min_val
+  if (!is.null(cfg$analysis_time))    analysis_time    <- cfg$analysis_time
+  if (!is.null(cfg$cens_adjust))      cens_adjust      <- cfg$cens_adjust
+  if (!is.null(cfg$N_cal_values))     N_cal_values     <- cfg$N_cal_values
+  if (!is.null(cfg$fpr_target))       fpr_target       <- cfg$fpr_target
+  cat(sprintf("  confounders: %s\n", paste(confounders_base, collapse = ", ")))
+  cat(sprintf("  prop_cens=%.2f, pcons=%.2f, fs_splits=%d, maxk=%d\n",
+              prop_cens, pcons, fs_splits, maxk_val))
+  cat(sprintf("  fpr_target=%.2f, N_cal=%s\n",
+              fpr_target, paste(N_cal_values, collapse = ", ")))
+
+  # Grid range: clamp to C2/C3's validated range or warn
+  if (!is.null(cfg$c1_range) && !is.null(cfg$c2_range)) {
+    if (use_c1_grid) {
+      c1_grid <- seq(cfg$c1_range[1], cfg$c1_range[2], by = grid_step)
+      c2_grid <- seq(cfg$c2_range[1], cfg$c2_range[2], by = grid_step)
+      cat(sprintf("  Grid clamped to calibration's validated range:\n"))
+      cat(sprintf("    c1_grid = seq(%.2f, %.2f, by = %.2f) [%d values]\n",
+                  min(c1_grid), max(c1_grid), grid_step, length(c1_grid)))
+      cat(sprintf("    c2_grid = seq(%.2f, %.2f, by = %.2f) [%d values]\n",
+                  min(c2_grid), max(c2_grid), grid_step, length(c2_grid)))
+    } else {
+      cat("  Grid: using user-specified values (use_c1_grid = FALSE)\n")
+      if (min(c1_grid) < cfg$c1_range[1] ||
+          max(c1_grid) > cfg$c1_range[2]) {
+        warning(sprintf(paste0(
+          "S2 c1_grid [%.2f, %.2f] extends beyond calibration's validated ",
+          "range [%.2f, %.2f].\n",
+          "  L_eff threshold-independence is unverified outside this range.\n",
+          "  Consider expanding c1_grid in C2/C3 and re-running."),
+          min(c1_grid), max(c1_grid),
+          cfg$c1_range[1], cfg$c1_range[2]),
+          call. = FALSE)
+      }
+      if (min(c2_grid) < cfg$c2_range[1] ||
+          max(c2_grid) > cfg$c2_range[2]) {
+        warning(sprintf(paste0(
+          "S2 c2_grid [%.2f, %.2f] extends beyond calibration's validated ",
+          "range [%.2f, %.2f].\n",
+          "  Consider expanding c2_grid in C2/C3 and re-running."),
+          min(c2_grid), max(c2_grid),
+          cfg$c2_range[1], cfg$c2_range[2]),
+          call. = FALSE)
+      }
+    }
+  } else {
+    cat("  Grid range: no calibration range info; using setup-chunk values.\n")
+  }
+} else {
+  cat("=== Using fallback config from setup chunk ===\n")
+  cat("(Calibration .rds not found or has no extra config)\n")
+}
+
+cat(sprintf("\nL_eff prior: C = %.4f, alpha = %.4f\n",
+            C_prior, alpha_prior))
+if (!is.null(cal_survival$dgm_description))
+  cat(sprintf("Source: %s\n", cal_survival$dgm_description))
+if (!is.null(cal_survival$timestamp))
+  cat(sprintf("Calibrated: %s\n",
+              format(cal_survival$timestamp, "%Y-%m-%d %H:%M")))
+```
+
+::: {.callout-note}
+## Calibration Source
+
+The $L_{\text{eff}}$ prior and shared ForestSearch parameters
+were loaded from `_data/calibration_survival_leff.rds`, produced
+by `calibration_survival_fourway.qmd` (C2) or
+`calibration_survival_leff_grid.qmd` (C3).
+
+- **If the `.rds` exists:** inherits `confounders_base`,
+  `prop_cens`, `pcons`, `fs_splits`, `maxk_val`, `fpr_target`,
+  `analysis_time`, `cens_adjust`, and `N_cal_values` from the
+  calibration config.
+- **Grid range** (`use_c1_grid = TRUE`, default): `c1_grid` and
+  `c2_grid` are set to the calibration's validated range at S2's
+  `grid_step`.  Set `use_c1_grid = FALSE` to use the setup-chunk
+  values instead (a warning is printed if they extend beyond the
+  validated range).
+- **If `.rds` not found:** uses the fallback values defined in the
+  setup chunk.
+- **To recalibrate from scratch:** set `recalibrate = TRUE`.
+
+Note: For survival, $L_{\text{eff}} < 1$ at typical sample
+sizes because the events-based filters (`d0.min`, `d1.min`)
+aggressively prune candidates.  The paper defaults
+(c1 = 1.25, c2 = 1.0) are already conservative for survival.
+:::
+
+```{r setup-parallel}
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("Validation sims per config:", nsims_val, "\n")
+cat("FPR target:", fpr_target, "\n")
+cat("Recalibrate L_eff:", recalibrate, "\n")
 ```
 
 
@@ -115,90 +272,50 @@ $$
 
 Prior calibration (from `calibration_survival_fourway.qmd`,
 GBSG survival DGM, 7 confounders):
-loaded from `_data/calibration_survival_leff.rds` if available,
-otherwise falls back to $C = `r C_prior_fallback`$,
-$\alpha = `r alpha_prior_fallback`$.
-
-Note: For survival, $L_{\text{eff}} < 1$ at typical sample
-sizes because the events-based filters (`d0.min`, `d1.min`)
-aggressively prune candidates.  The paper defaults
-(c1 = 1.25, c2 = 1.0) are already conservative for survival.
+$C = `r C_prior`$, $\alpha = `r alpha_prior`$.
 
 
-# Setup {#sec-setup}
+## Calibration Simulation Flow (from C2/C3) {.unnumbered}
 
-```{r load-packages}
-#| code-fold: false
-library(forestsearch)
-library(weightedsurv)
-library(data.table)
-library(survival)
-library(ggplot2)
-library(patchwork)
-library(gt)
-library(foreach)
-library(doFuture)
-library(future)
+::: {.callout-note collapse="true"}
+## How the Calibration Simulations Work
 
-# L_eff save/load helpers
-#source(here::here("../R", "leff_calibration_io.R"))
-```
+**C2** (`calibration_survival_fourway.qmd`) and **C3**
+(`calibration_survival_leff_grid.qmd`) run ForestSearch under
+$H_0$ to calibrate $L_{\text{eff}}$ and validate
+threshold-independence.  S2 consumes their fitted $(C, \alpha)$
+and config.
 
-```{r load-calibration}
-#| code-fold: false
+**Grid construction.** C3 defines `c1_grid` and `c2_grid` in
+its setup chunk.  `expand.grid()` with the `c2 <= c1` filter
+produces the valid pairs.  Each pair is crossed with
+`N_cal_values` (sample sizes) and `n_sims_cal` replications.
 
-# Load L_eff calibration from C2 (calibration_survival_fourway.qmd)
-# Falls back to hardcoded values if .rds not found
-cal_survival <- tryCatch(
-  load_leff_calibration("survival", output_dir = output_dir),
-  error = function(e) {
-    message("Calibration .rds not found: ", e$message)
-    message("Using fallback values: C=", C_prior_fallback,
-            ", alpha=", alpha_prior_fallback)
-    list(C = C_prior_fallback, alpha = alpha_prior_fallback,
-         n_min = 60L, source = "fallback (hardcoded)")
-  }
-)
+**Data generation.** `setup_gbsg_dgm(model = "null")` creates the
+GBSG DGM with no treatment effect.  `run_simulation_analysis()`
+generates the data and runs ForestSearch for each replication.
 
-C_prior     <- cal_survival$C
-alpha_prior <- cal_survival$alpha
+**ForestSearch call.** Each task calls `forestsearch()` via
+`run_simulation_analysis()` with the task's `(c1, c2)` and the
+shared parameters (`pcons`, `fs_splits`, `n.min`, `maxk`).
+Events-based filters (`d0.min`, `d1.min`) prune candidates
+aggressively for survival outcomes.
 
-cat(sprintf("L_eff prior: C = %.4f, alpha = %.4f\n",
-            C_prior, alpha_prior))
-if (!is.null(cal_survival$dgm_description))
-  cat(sprintf("Source: %s\n", cal_survival$dgm_description))
-if (!is.null(cal_survival$timestamp))
-  cat(sprintf("Calibrated: %s\n",
-              format(cal_survival$timestamp, "%Y-%m-%d %H:%M")))
-```
+**Aggregation.** Results are grouped by `(n_total, c1, c2)`.
+The detection rate `mean(any.H)` gives the simulated FPR.
 
-::: {.callout-note}
-## Calibration Source
+**L_eff calibration.** The per-subgroup approximation $P_1$ is
+computed at `n_H = n.min` using `d_eff_survival()`.  The implied
+$L_{\text{eff}} = \log(1 - \text{FPR}_{\text{sim}}) / \log(1 - P_1)$
+is computed at each `(c1, c2, N)`.  Consistency across threshold
+pairs validates the key assumption.  The power law
+$L_{\text{eff}}(N) = C (N/n_{\min})^\alpha$ is fitted.
 
-The $L_{\text{eff}}$ prior was loaded from
-`_data/calibration_survival_leff.rds`.  This file is produced by
-`calibration_survival_fourway.qmd` (C2).
-
-- **If the `.rds` exists:** uses $C = `r round(C_prior, 4)`$,
-  $\alpha = `r round(alpha_prior, 3)`$ from the calibration run.
-- **If not found:** falls back to $C = `r C_prior_fallback`$,
-  $\alpha = `r alpha_prior_fallback`$ (hardcoded in setup).
-- **To recalibrate from scratch:** set `recalibrate = TRUE` in
-  the setup chunk.
+**What S2 uses.** S2 loads $C$ and $\alpha$ from the calibration
+`.rds`.  It also inherits the ForestSearch config and grid ranges.
+S2's approximation grid can be denser than the calibration grid,
+but defaults to the validated range (see `use_c1_grid`).
 :::
-
-```{r timing-init}
-timings <- list()
-t_vignette_start <- proc.time()
-```
-
-```{r setup-parallel}
-plan(multisession, workers = n_workers)
-cat("Using", n_workers, "parallel workers\n")
-cat("Validation sims per config:", nsims_val, "\n")
-cat("FPR target:", fpr_target, "\n")
-cat("Recalibrate L_eff:", recalibrate, "\n")
-```
 
 
 # Null DGM {#sec-dgm}
@@ -216,6 +333,18 @@ cat("  AHR:", round(dgm_null$AHR, 3), "\n")
 timings$dgm <- proc.time()[3] - t0
 ```
 
+```{r create-dgm-h1}
+#| code-fold: false
+
+# H1 DGM: harm subgroup with HR = hr_h1 (bm1 analog = first split)
+# Used only when nsims_power > 0 in the optimal pair section.
+# setup_gbsg_dgm with k_treat > 1 creates heterogeneous treatment effect;
+# wrap in a helper consistent with C2/C3's simulation pattern.
+create_dgm_h1 <- function(hr_h1_val) {
+  setup_gbsg_dgm(model = "harm", k_treat = hr_h1_val, verbose = FALSE)
+}
+```
+
 
 # Part I: $L_{\text{eff}}$ Calibration {#sec-leff}
 
@@ -225,8 +354,18 @@ For survival, $L_{\text{eff}}$ is typically less than 1 because
 the events-based filters (`d0.min`, `d1.min`) prune most
 candidate subgroups before they reach the threshold check.
 This means the procedure is *more conservative* than a
-single per-subgroup test, and the paper defaults (c1 = 1.25,
-c2 = 1.0) provide strong FPR control.
+single per-subgroup test.
+
+$$
+\text{FPR}_{\text{corr}}(N) =
+1 - (1 - P_1)^{L_{\text{eff}}(N)},
+\qquad
+L_{\text{eff}}(N) = C \cdot (N / n_{\min})^\alpha
+$$
+
+$L_{\text{eff}}$ depends on the **candidate generation process**
+(confounder set, GRF, LASSO, maxk, n.min, d0.min, d1.min) --- not
+on the thresholds $(c_1, c_2)$.
 
 ## Derived Objects
 
@@ -239,7 +378,7 @@ d_dgm <- round(d_eff_survival(n_H_ref, prop_cens))
 cat(sprintf("Reference: n_H=%d (n.min), d_eff=%d events, prop_cens=%.2f\n",
             n_H_ref, d_dgm, prop_cens))
 
-# Convenience wrapper for detection probability
+# Convenience wrapper
 p_detect_glm <- function(theta, d_eff, c1, c2) {
   compute_detection_probability_glm(
     theta = theta, d_eff = d_eff, c1 = c1, c2 = c2,
@@ -247,7 +386,7 @@ p_detect_glm <- function(theta, d_eff, c1, c2) {
   )
 }
 
-# Compound parameter objects (from setup-chunk scalars)
+# Compound parameter objects from setup-chunk scalars
 fs_params_base <- list(
   hr.threshold = 1.25,
   hr.consistency = 1.0,
@@ -267,7 +406,8 @@ fs_params_cox <- modifyList(fs_params_base, list(
 ))
 
 sim_config <- list(
-  n_sample = n_sample, analysis_time = analysis_time,
+  n_sample = n_sample,
+  analysis_time = analysis_time,
   cens_adjust = cens_adjust
 )
 
@@ -278,11 +418,22 @@ cat(sprintf("n.min=%d, pcons=%.2f, maxk=%d\n",
 
 ## Calibration Simulation
 
+Set `recalibrate = TRUE` in the setup chunk to execute.
+When `FALSE`, the prior values ($C = `r C_prior`$,
+$\alpha = `r alpha_prior`$) are used.
+
+**To adapt for a new scenario**: modify `setup_gbsg_dgm()`,
+the `confounders_base` list, and `fs_params_cox` for your DGM.
+Then set `recalibrate = TRUE`.
+
 ```{r run-calibration}
 if (recalibrate) {
+  c1_cal <- 1.25
+  c2_cal <- 1.0
 
   cat(sprintf("=== L_eff Calibration ===\n"))
-  cat(sprintf("Reference thresholds: c1=1.25, c2=1.0\n"))
+  cat(sprintf("Reference thresholds: c1=%.2f, c2=%.2f\n",
+              c1_cal, c2_cal))
   cat(sprintf("N values: %s\n", paste(N_cal_values, collapse=", ")))
   cat(sprintf("Sims per N: %d\n\n", n_sims_recal))
 
@@ -299,6 +450,10 @@ if (recalibrate) {
         packages = c("forestsearch", "survival", "data.table"),
         seed = TRUE)
     ) %dofuture% {
+      fs_params_cal <- modifyList(fs_params_cox, list(
+        hr.threshold = c1_cal,
+        hr.consistency = c2_cal
+      ))
       run_simulation_analysis(
         sim_id = sim, dgm = dgm_null,
         n_sample = N_val,
@@ -309,7 +464,7 @@ if (recalibrate) {
           treat_sim + z1 + z2 + z3,
         n_add_noise = 0L,
         run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
-        fs_params = fs_params_cox, verbose = FALSE
+        fs_params = fs_params_cal, verbose = FALSE
       )
     }
 
@@ -328,7 +483,7 @@ if (recalibrate) {
 } else {
   timings$leff_cal <- 0
   cat("Calibration skipped (recalibrate = FALSE).\n")
-  cat("Using prior values from calibration_survival_fourway.\n")
+  cat("Using prior values from calibration_survival_*.qmd.\n")
 }
 ```
 
@@ -351,8 +506,7 @@ if (recalibrate) {
   cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
 
   cat("=== Implied L_eff ===\n")
-  print(cal_df[, c("N", "n_H", "d_eff", "P1",
-                    "sim_fpr", "L_eff")])
+  print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "L_eff")])
 
   cal_valid <- cal_df[is.finite(cal_df$L_eff) &
                        cal_df$L_eff > 0, ]
@@ -383,8 +537,9 @@ if (recalibrate) {
              title = expression(
                L[eff] * " Calibration: GBSG Survival DGM"),
              subtitle = sprintf(
-               "L_eff = %.3f * (N/%d)^%.3f",
-               C_fit, n_min_val, alpha_fit)) +
+               "L_eff = %.3f * (N/%d)^%.3f  (R-sq = %.3f)",
+               C_fit, n_min_val, alpha_fit,
+               leff_cal$r_squared)) +
         theme_minimal(base_size = 12) +
         theme(plot.title = element_text(face = "bold"))
     )
@@ -392,6 +547,18 @@ if (recalibrate) {
     cat("Insufficient calibration points; using prior.\n")
     C_fit <- C_prior; alpha_fit <- alpha_prior
   }
+
+  # Save updated calibration
+  save_leff_calibration(
+    C = C_fit, alpha = alpha_fit, n_min = n_min_val,
+    outcome_type = "survival",
+    cal_data = cal_df,
+    dgm_description = paste(
+      "GBSG survival DGM,", length(confounders_base), "confounders",
+      sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
+    n_sims_per_N = n_sims_recal,
+    output_dir = output_dir
+  )
 
 } else {
   C_fit <- C_prior
@@ -412,7 +579,9 @@ cat(sprintf("  L_eff(N) = %.3f * (N/%d)^%.3f\n\n",
 cat("=== L_eff at Target Sample Sizes ===\n")
 for (N_val in N_target) {
   L <- C_fit * (N_val / n_min_val)^alpha_fit
-  cat(sprintf("  N = %4d: L_eff = %.2f\n", N_val, L))
+  cat(sprintf("  N = %4d: L_eff = %.2f%s\n", N_val, L,
+              if (L < 1) " (< 1: procedure more conservative than per-subgroup)"
+              else ""))
 }
 
 cat(sprintf("\n=== Source: %s ===\n",
@@ -427,20 +596,20 @@ cat("than a single per-subgroup test (events filters prune candidates).\n")
 ::: {.callout-tip}
 ## Blueprint: How to Calibrate for a New Survival DGM
 
-**Step 1.** Replace `setup_gbsg_dgm()` / `simulate_from_dgm()`
-with your H0 data generator.
+**Step 1.** Replace `setup_gbsg_dgm()` with your H0 data generator.
 
-**Step 2.** Update `confounders_base` and `fs_params_cox` to
-match your analysis configuration.
+**Step 2.** Update `confounders_base` and `fs_params_cox` in the
+`leff-params` chunk to match your analysis configuration.
 
-**Step 3.** Update `p_harm` (harm subgroup prevalence) and
-`prop_cens` (censoring proportion) for `d_eff_survival()`.
+**Step 3.** Update `prop_cens` (for `d_eff_survival()`) and
+`p_harm` in the setup chunk.
 
 **Step 4.** Set `recalibrate = TRUE` and `n_sims_recal` to at
 least 200.
 
 **Step 5.** After the calibration run, record the fitted $C$
-and $\alpha$ as your new `C_prior` / `alpha_prior`.
+and $\alpha$ as your new `C_prior` / `alpha_prior` in the setup
+chunk for future runs with `recalibrate = FALSE`.
 :::
 
 
@@ -471,6 +640,8 @@ full_dt <- data.table(full_grid)
 cat(sprintf("Dense grid: %d c1 x %d c2 x %d N = %d configs\n",
     length(c1_grid), length(c2_grid), length(N_target),
     nrow(full_dt)))
+cat(sprintf("(c1 range: %.2f--%.2f, c2 range: %.2f--%.2f)\n",
+    min(c1_grid), max(c1_grid), min(c2_grid), max(c2_grid)))
 ```
 
 
@@ -513,6 +684,11 @@ wrap_plots(heatmap_list, ncol = 1) +
 
 ## Pre-Select: Smallest $(c_1, c_2)$ Meeting the Target
 
+For each $(c_1, c_2)$, the corrected FPR must be at most
+`r 100 * fpr_target`% at **every** target $N$.  Since
+$L_{\text{eff}}$ grows with $N$ (or shrinks, for survival with
+$L_{\text{eff}} < 1$), verify at the worst-case $N$.
+
 ```{r select-pairs}
 #| tbl-cap: "Frontier: minimum c2 for each c1 to achieve corrected FPR <= target at all N"
 
@@ -535,7 +711,7 @@ cat(sprintf(
   "Pairs with corrected FPR <= %.0f%% at N=%d: %d of %d\n",
   100 * fpr_target, N_max, nrow(selected), nrow(fpr_wide)))
 
-# Frontier
+# Frontier: minimum c2 for each c1
 frontier <- selected[, .(
   min_c2 = min(c2),
   FPR_at_min_c2 = FPR_corr_worst[which.min(c2)]
@@ -567,7 +743,320 @@ if (nrow(frontier) > 0) {
 ```
 
 
-## Boundary Pairs
+## Optimal Pair: Power Curve
+
+The frontier identifies the **least restrictive** thresholds
+that still control FPR.  We extract $(c_{1,\min}, c_{2,\min})$
+--- the smallest $c_1$ achieving the target, paired with its
+minimum $c_2$ --- and plot the power curve.
+
+::: {.callout-important}
+## Why the $L_{\text{eff}}$ Correction Is Asymmetric
+
+**Under $H_0$ (FPR):** the procedure evaluates $\sim L_{\text{eff}}$
+approximately independent candidates, so:
+
+$$
+\text{FPR}_{\text{corr}} = 1 - (1 - P_1)^{L_{\text{eff}}}
+$$
+
+For survival with $L_{\text{eff}} < 1$, the corrected FPR is
+*lower* than $P_1$, confirming the paper defaults are conservative.
+
+**Under $H_1$ (power):** there is one true harm subgroup with
+effect $\theta^\dagger(H)$.  Its detection probability is
+$P_1(\theta^\dagger)$.  The uncorrected $P_1$ is the primary
+power measure (probability of detecting the correct subgroup).
+The corrected $1 - (1-P_1)^{L_{\text{eff}}}$ slightly adjusts
+for multi-candidate evaluation.
+
+When `nsims_power > 0`, a targeted $H_1$ simulation is run at
+$\text{HR} = `r hr_h1`$ for the optimal pair to spot-check
+$P_1$ accuracy at the effect size of interest.
+:::
+
+```{r optimal-pair-power}
+#| fig-height: 7
+#| fig-cap: !expr 'if (exists("frontier") && nrow(frontier) > 0) sprintf("Power curve for optimal pair (c1=%.2f, c2=%.2f). Solid blue = corrected, dashed grey = per-subgroup P1, red diamonds = simulation (if run).", frontier$c1[1], frontier$min_c2[1]) else "No frontier found."'
+
+if (exists("frontier") && nrow(frontier) > 0) {
+
+  c1_opt <- frontier$c1[1]
+  c2_opt <- frontier$min_c2[1]
+
+  cat(sprintf("=== Optimal Pair: c1 = %.2f, c2 = %.2f ===\n",
+              c1_opt, c2_opt))
+  cat(sprintf("Corrected FPR at this pair: %.1f%% (target: %.0f%%)\n",
+              100 * frontier$FPR_at_min_c2[1], 100 * fpr_target))
+
+  # ── Approximation power curve ──────────────────────────────
+  d_ref <- d_dgm  # d_eff at n.min
+  hr_seq <- seq(0.5, 4.0, by = 0.05)
+
+  power_curves <- do.call(rbind, lapply(N_target, function(N_val) {
+    L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
+    data.frame(
+      HR = rep(hr_seq, 2),
+      Power = c(
+        sapply(hr_seq, function(hr) {
+          P1 <- p_detect_glm(hr, d_ref, c1_opt, c2_opt)
+          1 - (1 - P1)^L_eff
+        }),
+        sapply(hr_seq, function(hr) {
+          p_detect_glm(hr, d_ref, c1_opt, c2_opt)
+        })
+      ),
+      Type = rep(c("Corrected (any detection)",
+                   "Per-subgroup P1 (correct subgroup)"),
+                 each = length(hr_seq)),
+      N = sprintf("N = %d (L_eff = %.2f)", N_val, L_eff)
+    )
+  }))
+
+  # ── Targeted H1 simulation at hr_h1 ────────────────────────
+  sim_power_points <- NULL
+  if (nsims_power > 0) {
+    cat(sprintf("\n--- Running %d H1 sims at HR = %.1f ---\n",
+                nsims_power, hr_h1))
+    t0_power <- proc.time()[3]
+
+    dgm_h1 <- create_dgm_h1(hr_h1)
+
+    sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
+      found <- foreach(
+        s = seq_len(nsims_power),
+        .combine = c, .errorhandling = "pass",
+        .options.future = list(
+          packages = c("forestsearch", "survival", "data.table"),
+          seed = TRUE)
+      ) %dofuture% {
+        fs_params_opt <- modifyList(fs_params_cox, list(
+          hr.threshold = c1_opt,
+          hr.consistency = c2_opt
+        ))
+        res <- run_simulation_analysis(
+          sim_id = s, dgm = dgm_h1,
+          n_sample = N_val,
+          analysis_time = sim_config$analysis_time,
+          cens_adjust = sim_config$cens_adjust,
+          confounders_base = confounders_base,
+          cox_formula_adj = survival::Surv(y_sim, event_sim) ~
+            treat_sim + z1 + z2 + z3,
+          n_add_noise = 0L,
+          run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+          fs_params = fs_params_opt, verbose = FALSE
+        )
+        fs_row <- res[res$analysis == "FS", ]
+        if (nrow(fs_row) > 0) fs_row$any.H[1] else 0L
+      }
+      res_clean <- unlist(found[sapply(found, is.numeric)])
+      sim_pwr <- mean(res_clean, na.rm = TRUE)
+      L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
+      cat(sprintf("  N = %4d: Sim power = %.1f%% (%d/%d) | L_eff = %.2f\n",
+                  N_val, 100 * sim_pwr, sum(res_clean),
+                  length(res_clean), L_eff))
+      data.frame(
+        HR = hr_h1, Power = sim_pwr,
+        Type = "Simulation",
+        N = sprintf("N = %d (L_eff = %.2f)", N_val, L_eff))
+    }))
+
+    sim_power_points <- sim_power_results
+    cat(sprintf("Power simulation: %.1f min\n",
+                (proc.time()[3] - t0_power) / 60))
+  }
+
+  # ── Plot ────────────────────────────────────────────────────
+  p <- ggplot(power_curves, aes(x = HR, y = Power,
+                                 linetype = Type, colour = Type)) +
+    geom_line(linewidth = 0.9) +
+    geom_hline(yintercept = c(fpr_target, 0.80),
+               linetype = "dashed", colour = "grey50", linewidth = 0.4) +
+    geom_vline(xintercept = 1.0, linetype = "dotted", colour = "grey70")
+
+  if (!is.null(sim_power_points)) {
+    p <- p +
+      geom_point(data = sim_power_points,
+                 aes(x = HR, y = Power),
+                 colour = "red", size = 3, shape = 18,
+                 inherit.aes = FALSE) +
+      geom_text(data = sim_power_points,
+                aes(x = HR, y = Power,
+                    label = sprintf("%.0f%%", 100 * Power)),
+                colour = "red", vjust = -1, size = 3,
+                inherit.aes = FALSE)
+  }
+
+  p <- p +
+    facet_wrap(~ N, ncol = 1) +
+    scale_linetype_manual(values = c(
+      "Corrected (any detection)" = "solid",
+      "Per-subgroup P1 (correct subgroup)" = "dashed")) +
+    scale_colour_manual(values = c(
+      "Corrected (any detection)" = "steelblue",
+      "Per-subgroup P1 (correct subgroup)" = "grey50")) +
+    labs(x = expression(theta^dagger*(H) ~ "(true HR in subgroup)"),
+         y = "Detection Probability",
+         title = sprintf("Optimal Pair: c1 = %.2f, c2 = %.2f",
+                          c1_opt, c2_opt),
+         subtitle = sprintf(
+           "d_eff = %d (n_H = %d, prop_cens = %.2f) | FPR target = %.0f%%%s",
+           d_ref, n_min_val, prop_cens, 100 * fpr_target,
+           if (nsims_power > 0)
+             sprintf(" | Red diamonds: %d H1 sims at HR=%.1f",
+                     nsims_power, hr_h1) else ""),
+         linetype = NULL, colour = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "top",
+          plot.title = element_text(face = "bold"))
+  print(p)
+
+  # ── Power summary table ────────────────────────────────────
+  cat("\n=== Power at Key Effect Sizes ===\n")
+  for (hr_val in c(1.0, 1.25, 1.50, hr_h1, 2.5, 3.0)) {
+    cat(sprintf("HR=%-5.2f: ", hr_val))
+    for (N_val in N_target) {
+      L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
+      P1 <- p_detect_glm(hr_val, d_ref, c1_opt, c2_opt)
+      P_corr <- 1 - (1 - P1)^L_eff
+      cat(sprintf("N=%d P1=%.1f%% Corr=%.1f%%  ",
+                  N_val, 100 * P1, 100 * P_corr))
+    }
+    cat("\n")
+  }
+
+} else {
+  cat("No frontier found. Cannot compute optimal pair power curve.\n")
+  cat("Consider expanding c1_grid/c2_grid or relaxing fpr_target.\n")
+}
+```
+
+```{r optimal-pair-table}
+#| tbl-cap: !expr 'if (exists("c1_opt")) sprintf("Power at optimal pair (c1 = %.2f, c2 = %.2f) by sample size and effect size", c1_opt, c2_opt) else "Power summary"'
+
+if (exists("c1_opt")) {
+
+  hr_vals <- unique(sort(c(1.0, 1.25, 1.50, hr_h1, 2.5, 3.0)))
+
+  power_tbl <- do.call(rbind, lapply(hr_vals, function(hr_val) {
+    row <- data.frame(HR = hr_val, stringsAsFactors = FALSE)
+    for (N_val in N_target) {
+      L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
+      P1 <- p_detect_glm(hr_val, d_ref, c1_opt, c2_opt)
+      P_corr <- 1 - (1 - P1)^L_eff
+      row[[sprintf("P1_N%d", N_val)]]   <- P1
+      row[[sprintf("Corr_N%d", N_val)]] <- P_corr
+
+      if (!is.null(sim_power_points) && abs(hr_val - hr_h1) < 0.01) {
+        sp <- sim_power_points[
+          sim_power_points$N == sprintf("N = %d (L_eff = %.2f)",
+                                         N_val, L_eff), ]
+        row[[sprintf("Sim_N%d", N_val)]] <- if (nrow(sp) > 0)
+          sp$Power[1] else NA_real_
+      } else {
+        row[[sprintf("Sim_N%d", N_val)]] <- NA_real_
+      }
+    }
+    row
+  }))
+
+  tbl <- gt(power_tbl) |>
+    fmt_percent(columns = -HR, decimals = 1) |>
+    sub_missing(missing_text = "\u2014") |>
+    fmt_number(columns = HR, decimals = 2)
+
+  for (N_val in N_target) {
+    tbl <- tbl |>
+      tab_spanner(
+        label = sprintf("N = %d", N_val),
+        columns = starts_with(c(sprintf("P1_N%d", N_val),
+                                sprintf("Corr_N%d", N_val),
+                                sprintf("Sim_N%d", N_val)))
+      ) |>
+      cols_label(
+        !!sprintf("P1_N%d", N_val)   := "P1",
+        !!sprintf("Corr_N%d", N_val) := "Corrected",
+        !!sprintf("Sim_N%d", N_val)  := "Simulation"
+      )
+  }
+
+  if (is.null(sim_power_points)) {
+    sim_cols <- sprintf("Sim_N%d", N_target)
+    tbl <- tbl |> cols_hide(columns = any_of(sim_cols))
+  }
+
+  tbl |>
+    tab_header(
+      title = sprintf("Power: Optimal Pair (c1 = %.2f, c2 = %.2f)",
+                      c1_opt, c2_opt),
+      subtitle = sprintf(
+        "d_eff = %d (n_H = %d, prop_cens = %.2f) | P1 = correct subgroup%s",
+        d_ref, n_min_val, prop_cens,
+        if (!is.null(sim_power_points))
+          sprintf(" | Sim: %d sims at HR = %.1f", nsims_power, hr_h1)
+        else "")
+    ) |>
+    tab_style(
+      style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(
+        columns = starts_with("P1_"),
+        rows = HR == hr_h1)
+    ) |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_body(rows = HR == hr_h1)
+    ) |>
+    tab_source_note(sprintf(
+      "P1 = per-subgroup detection (primary power measure) | Corrected = 1-(1-P1)^L_eff | HR = %.1f row highlighted",
+      hr_h1))
+}
+```
+
+
+## Full Selected Pairs Table
+
+```{r selected-table}
+#| tbl-cap: "All pairs meeting the corrected FPR target, sorted by c1 then c2"
+
+if (nrow(selected) > 0) {
+  display_cols <- c("c1", "c2", "FPR_corr_worst")
+  for (N_val in N_target) {
+    display_cols <- c(display_cols, sprintf("FPR_N%d", N_val))
+  }
+
+  display_dt <- selected[, ..display_cols]
+  names(display_dt)[3] <- "Worst Case"
+  for (N_val in N_target) {
+    old_name <- sprintf("FPR_N%d", N_val)
+    new_name <- sprintf("N=%d", N_val)
+    names(display_dt)[names(display_dt) == old_name] <- new_name
+  }
+
+  for (col in names(display_dt)[3:ncol(display_dt)]) {
+    display_dt[[col]] <- sprintf("%.1f%%", 100 * display_dt[[col]])
+  }
+
+  gt(display_dt) |>
+    tab_header(
+      title = md(sprintf(
+        "**All Pairs with Corrected FPR <= %.0f%%**",
+        100 * fpr_target)),
+      subtitle = "Sorted by c1 (ascending), then c2 (ascending)"
+    ) |>
+    tab_spanner(
+      label = "Corrected FPR by N",
+      columns = 4:ncol(display_dt)
+    ) |>
+    tab_source_note(
+      "Worst Case = max corrected FPR across N values"
+    )
+} else {
+  cat("No pairs met the target.\n")
+}
+```
+
+
+## Boundary Pairs (Near the Target)
 
 ```{r boundary-pairs}
 boundary <- fpr_wide[FPR_corr_worst > fpr_target &
@@ -579,7 +1068,6 @@ sim_candidates <- rbind(
 )
 setorder(sim_candidates, c1, c2)
 
-# Thin to manageable count (max_pairs from setup)
 if (nrow(sim_candidates) > max_pairs) {
   n_sel <- sum(sim_candidates$region == "selected")
   n_boundary_keep <- max(max_pairs - n_sel, 5L)
@@ -610,8 +1098,6 @@ run_validation <- nsims_val > 0
 if (run_validation) {
   t0 <- proc.time()[3]
 
-  # Only validate the frontier pairs: the minimum c2 for each c1
-  # that achieves FPR_corr <= target.  At most 10 pairs.
   if (exists("frontier") && nrow(frontier) > 0) {
     val_candidates <- frontier[seq_len(min(10, nrow(frontier))),
                                 .(c1, c2 = min_c2, FPR_corr = FPR_at_min_c2)]
@@ -717,7 +1203,7 @@ if (run_validation) {
   val_fpr[, L_eff_N := C_fit * (N / n_min_val)^alpha_fit]
   val_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
 
-  # Implied L_eff: does the calibrated L_eff hold at these (c1, c2)?
+  # Implied L_eff diagnostic
   val_fpr[, implied_L_eff := ifelse(
     P1 > 0 & Sim_FPR > 0 & Sim_FPR < 1,
     log(1 - Sim_FPR) / log(1 - P1),
@@ -740,10 +1226,9 @@ if (run_validation) {
 ## Validation Table
 
 ```{r val-table}
-#| tbl-cap: "Simulated FPR vs corrected approximation."
+#| tbl-cap: "Simulated FPR vs corrected approximation for pre-selected pairs."
 
 if (run_validation) {
-  # CI under H0: FPR_corr is the truth
   val_fpr[, CI_lower := pmax(0, FPR_corr - 1.96 * sqrt(
     FPR_corr * (1 - FPR_corr) / n_sims))]
   val_fpr[, CI_upper := pmin(1, FPR_corr + 1.96 * sqrt(
@@ -821,11 +1306,7 @@ if (run_validation) {
 ```
 
 
-## L_eff Consistency Across Validated Pairs
-
-If the calibrated $L_{\text{eff}}$ is threshold-independent,
-the implied $L_{\text{eff}}$ from validation should match the
-calibrated value across all $(c_1, c_2)$ pairs.
+## $L_{\text{eff}}$ Consistency Across Validated Pairs
 
 ```{r leff-validation-diagnostic}
 #| tbl-cap: "Implied L_eff from simulation vs calibrated value."
@@ -890,6 +1371,9 @@ if (run_validation) {
           100 * fpr_target)),
         subtitle = sprintf("%d sims per config", nsims_val)
       ) |>
+      tab_row_group(label = "N = 700", rows = N == 700) |>
+      tab_row_group(label = "N = 500", rows = N == 500) |>
+      tab_row_group(label = "N = 300", rows = N == 300) |>
       tab_style(style = cell_fill(color = "#E8F5E9"),
         locations = cells_body(columns = `In CI`,
           rows = `In CI` == "Yes")) |>
@@ -901,7 +1385,9 @@ if (run_validation) {
         "'In CI' = simulated FPR falls within expected range."))
   } else {
     cat("No pairs confirmed at this sim count.\n")
+    cat("Consider increasing nsims_val.\n")
   }
+
 } else {
   confirmed <- selected
   confirmed[, N := NA_integer_]
@@ -909,6 +1395,7 @@ if (run_validation) {
   cat(sprintf(
     "Approximation-selected pairs (corrected FPR <= %.0f%%): %d\n",
     100 * fpr_target, nrow(confirmed)))
+  cat("Re-render with nsims_val > 0 to validate by simulation.\n")
 }
 ```
 
@@ -917,24 +1404,36 @@ if (run_validation) {
 
 ```{r save-results}
 # If recalibrated in this run, save the new L_eff values
-# in the standardized format so downstream documents can load them
 if (recalibrate && exists("leff_cal")) {
   save_leff_calibration(
-    C = C_fit,
-    alpha = alpha_fit,
-    n_min = n_min_val,
+    C = C_fit, alpha = alpha_fit, n_min = n_min_val,
     outcome_type = "survival",
     cal_data = if (exists("cal_df")) cal_df else NULL,
     dgm_description = paste(
-      "GBSG survival DGM, 7 confounders",
-      "(z1-z5, size, grade3),",
+      "GBSG survival DGM,", length(confounders_base), "confounders",
+      paste0("(", paste(confounders_base, collapse = ", "), "),"),
       sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
     n_sims_per_N = n_sims_recal,
-    output_dir = output_dir
+    output_dir = output_dir,
+    extra = list(
+      confounders_base = confounders_base,
+      prop_cens        = prop_cens,
+      p_harm           = p_harm,
+      hr_h1            = hr_h1,
+      pcons            = pcons,
+      fs_splits        = fs_splits,
+      maxk_val         = maxk_val,
+      n_min_val        = n_min_val,
+      analysis_time    = analysis_time,
+      cens_adjust      = cens_adjust,
+      fpr_target       = fpr_target,
+      N_cal_values     = N_cal_values,
+      c1_range         = range(c1_grid),
+      c2_range         = range(c2_grid)
+    )
   )
 }
 
-# Save the full selection results bundle
 results_bundle <- list(
   params = list(
     nsims_val = nsims_val, sim_seed = sim_seed,
@@ -944,7 +1443,9 @@ results_bundle <- list(
     n_sims_recal = n_sims_recal,
     fpr_target = fpr_target,
     n_min_val = n_min_val, prop_cens = prop_cens,
-    p_harm = p_harm, pcons = pcons,
+    p_harm = p_harm, hr_h1 = hr_h1,
+    pcons = pcons, analysis_time = analysis_time,
+    cens_adjust = cens_adjust,
     N_target = N_target,
     c1_grid = c1_grid, c2_grid = c2_grid,
     timestamp = Sys.time()
@@ -990,8 +1491,8 @@ if (!is.null(output_dir)) {
 
 # --- Load L_eff calibration (for use in other documents) ---
 cal <- load_leff_calibration("survival")
-cal$C       # 0.029
-cal$alpha   # 0.882
+cal$C       # fitted C
+cal$alpha   # fitted alpha
 
 # --- Load the most recent selection results ---
 res <- readRDS(latest_rds("selection_survival_frontier"))
@@ -999,6 +1500,7 @@ res$leff_source    # Where L_eff came from
 res$frontier       # Smallest c1 for each target
 res$approx_grid    # Full approximation grid
 res$val_fpr        # Simulation results (if run)
+res$params$fpr_target   # FPR target used
 ```
 
 
@@ -1006,8 +1508,11 @@ res$val_fpr        # Simulation results (if run)
 
 ```{r summary}
 cat("=== Approximation-Driven Null Threshold Search ===\n\n")
-cat(sprintf("DGM: GBSG survival, 7 confounders\n"))
-cat(sprintf("n.min=%d, pcons=%.2f, maxk=2\n", n_min_val, pcons))
+cat(sprintf("DGM: GBSG survival, %d confounders\n",
+            length(confounders_base)))
+cat(sprintf("n.min=%d, pcons=%.2f, maxk=%d\n", n_min_val, pcons, maxk_val))
+cat(sprintf("prop_cens=%.2f, analysis_time=%d months\n",
+            prop_cens, analysis_time))
 cat(sprintf("L_eff = %.3f * (N/%d)^%.3f",
             C_fit, n_min_val, alpha_fit))
 if (!recalibrate) cat("  [from prior calibration]")
@@ -1020,14 +1525,27 @@ cat(sprintf("Target: corrected FPR <= %.0f%% at all N in {%s}\n\n",
             paste(N_target, collapse = ", ")))
 
 if (exists("frontier") && nrow(frontier) > 0) {
-  cat("--- Frontier (smallest c1, minimum c2) ---\n")
-  cat(sprintf("  Smallest c1: %.2f (with c2 >= %.2f)\n\n",
-              frontier$c1[1], frontier$min_c2[1]))
+  c1_opt <- frontier$c1[1]
+  c2_opt <- frontier$min_c2[1]
+
+  cat("--- Optimal Pair: (c1_min, c2_min) ---\n")
+  cat(sprintf("  c1_min = %.2f, c2_min = %.2f\n", c1_opt, c2_opt))
+  cat(sprintf("  Corrected FPR: %.1f%% (target: %.0f%%)\n",
+              100 * frontier$FPR_at_min_c2[1], 100 * fpr_target))
+  cat(sprintf("  Per-subgroup P1(HR=1): %.1f%%\n",
+              100 * p_detect_glm(1.0, d_dgm, c1_opt, c2_opt)))
+  cat(sprintf("  Approx power at HR=%.1f: %.1f%%\n\n",
+              hr_h1,
+              100 * p_detect_glm(hr_h1, d_dgm, c1_opt, c2_opt)))
+
+  cat("--- Full Frontier ---\n")
   for (r in seq_len(min(10, nrow(frontier)))) {
     cat(sprintf("  c1=%.2f: min c2=%.2f (corr FPR=%.1f%%)\n",
                 frontier$c1[r], frontier$min_c2[r],
                 100 * frontier$FPR_at_min_c2[r]))
   }
+  if (nrow(frontier) > 10)
+    cat(sprintf("  ... and %d more c1 values\n", nrow(frontier) - 10))
   cat("\n")
 }
 
@@ -1040,6 +1558,8 @@ if (run_validation) {
   cat(sprintf("Confirmed: %d configs\n", n_confirmed))
 } else {
   cat("Validation: SKIPPED (nsims_val = 0)\n")
+  cat("Set nsims_val > 0 (e.g., 30 for quick check, 500 for\n")
+  cat("production) and re-render to validate by simulation.\n")
 }
 
 cat("\n--- Paper defaults (c1=1.25, c2=1.0) ---\n")
