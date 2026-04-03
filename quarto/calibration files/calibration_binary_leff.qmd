@@ -384,7 +384,7 @@ cat(sprintf("Simulation: %d pairs x %d N x %d hypothesis x %d sims = %d tasks\n"
     length(sim_pairs), length(N_cal_values), n_hyp, nsims, nrow(tasks)))
 if (!run_h1) cat("(H1 skipped: power computed from approximation)\n")
 
-res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "pass",
+res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "remove",
   .options.future = list(packages = c("forestsearch", "data.table"),
                          seed = TRUE)
 ) %dofuture% {
@@ -511,7 +511,7 @@ gt(h0_comp[, .(N = n_total, c1, c2, d_eff,
   tab_style(style = cell_fill(color = "#FFEBEE"),
     locations = cells_body(columns = `Sim FPR`,
       rows = `Sim FPR` > 0.20)) |>
-  tab_row_group(label = "N = 800", rows = N == 800) |>
+  tab_row_group(label = "N = 700", rows = N == 700) |>
   tab_row_group(label = "N = 500", rows = N == 500) |>
   tab_row_group(label = "N = 300", rows = N == 300) |>
   tab_source_note(
@@ -1071,8 +1071,8 @@ gt(timing_df) |>
   tab_header(
     title = "Computational Timing Summary",
     subtitle = sprintf(
-      "%d threshold pairs x %d N values x 2 hypotheses x %d sims = %d tasks | %d workers",
-      length(sim_pairs), length(N_cal_values), nsims,
+      "%d threshold pairs x %d N values x %d hypothesis x %d sims = %d tasks | %d workers",
+      length(sim_pairs), length(N_cal_values), n_hyp, nsims,
       nrow(tasks), n_workers)
   ) |>
   fmt_number(columns = Seconds, decimals = 1) |>
