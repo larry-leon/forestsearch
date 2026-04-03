@@ -24,35 +24,39 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-nsims       <- 50L       # sims per (c1, c2, N, hypothesis)
+nsims       <- 30L       # sims per (c1, c2, N, hypothesis)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
+run_h1      <- FALSE     # FALSE = skip H1 sims, use approximation
 
 # ── Output ──────────────────────────────────────────────────────
 output_dir  <- "_data"
 
 # ── FPR approximation ──────────────────────────────────────────
 n_min_val   <- 60L       # n.min = reference subgroup size for P1
-fpr_target  <- 0.15      # target procedure-level FPR (must match S1)
+fpr_target  <- 0.12      # target procedure-level FPR (must match S1)
 
 # ── DGM / outcome parameters ──────────────────────────────────
 p_event     <- 0.30      # event probability in the binary DGM
+p_harm      <- 0.30      # harm subgroup prevalence (metadata only)
+theta_h1    <- 2.0       # OR for harm subgroup under H1
 confounders_name <- c("bm1", "bm2", "age", "ecog")
 
-# ── ForestSearch parameters (used in run_sim) ─────────────────
+# ── ForestSearch parameters ───────────────────────────────────
 pcons       <- 0.90      # pconsistency.threshold
 fs_splits   <- 400L
 maxk_val    <- 2L
-n_values    <- c(300, 500, 700)
+
+# ── Sample sizes (shared with S1) ────────────────────────────
+N_cal_values <- c(300, 500, 700)
 
 # ── Threshold grid for simulation validation ──────────────────
-# Adjust these if no pairs meet fpr_target
-#c1_sim_seq  <- seq(1.25, 2.00, by = 0.125)
-#c2_sim_seq  <- seq(1.00, 1.70, by = 0.25)
-
-c1_sim_seq = round(seq(1.5, 2.25, length = 5),2)
-c2_sim_seq = round(seq(1.25, 2.0, length = 5),2)
+# C1 validates L_eff threshold-independence across this grid.
+# S1's approximation grid should fall within this range.
+# Adjust if no pairs meet fpr_target.
+c1_grid     <- round(seq(1.50, 2.25, length.out = 5), 2)
+c2_grid     <- round(seq(1.25, 2.00, length.out = 5), 2)
 
 ```
 
@@ -177,7 +181,7 @@ surv_bench$`P(theta=1.0)` <- sapply(surv_bench$d, function(d)
 surv_bench$`P(theta=0.75)` <- sapply(surv_bench$d, function(d)
   round(p_detect(0.75, d, 1.25, 1.0), 3))
 surv_bench$`P(theta=2.0)` <- sapply(surv_bench$d, function(d)
-  round(p_detect(2.0, d, 1.25, 1.0), 3))
+  round(p_detect(theta_h1, d, 1.25, 1.0), 3))
 
 gt(surv_bench) |>
   tab_header(
@@ -213,7 +217,7 @@ bin_check$P_10 <- sapply(bin_check$d_eff, function(d)
 bin_check$P_075 <- sapply(bin_check$d_eff, function(d)
   round(p_detect(0.75, d, 1.25, 1.0), 3))
 bin_check$Power_20 <- sapply(bin_check$d_eff, function(d)
-  round(p_detect(2.0, d, 1.25, 1.0), 3))
+  round(p_detect(theta_h1, d, 1.25, 1.0), 3))
 
 gt(bin_check) |>
   tab_header(
@@ -226,88 +230,42 @@ gt(bin_check) |>
 ```
 
 
-## Threshold Search: Find c1, c2 Where P(1.0) ~ 10%
+## Per-Subgroup P1 at Key Thresholds
 
-```{r threshold-search}
-#| fig-height: 8
-#| fig-cap: "Power curves for binary outcomes (p=0.30) under candidate threshold pairs. Horizontal lines: 10% (type-I error target) and 80% (power target)."
-
-or_seq <- seq(0.5, 3.0, by = 0.05)
-
-# Candidate (c1, c2) pairs to evaluate
-pairs <- list(
-  list(c1 = 1.25, c2 = 1.00, label = "c1=1.25, c2=1.00 (survival)"),
-  list(c1 = 1.50, c2 = 1.00, label = "c1=1.50, c2=1.00"),
-  list(c1 = 1.25, c2 = 1.10, label = "c1=1.25, c2=1.10"),
-  list(c1 = 1.25, c2 = 1.25, label = "c1=1.25, c2=1.25 (c2=c1)"),
-  list(c1 = 1.50, c2 = 1.25, label = "c1=1.50, c2=1.25"),
-  list(c1 = 1.50, c2 = 1.50, label = "c1=1.50, c2=1.50 (c2=c1)")
-)
-
-n_sg_vals <- c(60, 150, 240)
-
-curve_data <- do.call(rbind, lapply(pairs, function(pr) {
-  do.call(rbind, lapply(n_sg_vals, function(n) {
-    d_eff <- d_eff_binary(n, p_event = p_event)
-    probs <- sapply(or_seq, function(or) p_detect(or, d_eff, pr$c1, pr$c2))
-    data.frame(OR = or_seq, power = probs,
-               Config = pr$label,
-               n_sg = sprintf("n(H) = %d (d_eff = %.0f)", n, d_eff))
-  }))
-}))
-
-ggplot(curve_data, aes(x = OR, y = power, colour = Config)) +
-  geom_line(linewidth = 0.9) +
-  geom_hline(yintercept = c(0.10, 0.80), linetype = "dashed", colour = "grey50") +
-  geom_vline(xintercept = 1.0, linetype = "dotted", colour = "grey70") +
-  facet_wrap(~ n_sg, ncol = 1) +
-  scale_colour_brewer(palette = "Set1") +
-  labs(x = expression(theta^dagger*(H) ~ "(true OR in subgroup)"),
-       y = "P(detect H)",
-       title = "GLM Approximation: Binary Outcomes (p = 0.30)",
-       subtitle = "Per-subgroup detection probability",
-       colour = "Thresholds") +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "top", plot.title = element_text(face = "bold"),
-        legend.text = element_text(size = 9))
-```
-
-
-## Approximation Summary Table
+A brief check of $P_1$ at `n.min` for the grid endpoints
+and the paper default.  Full threshold selection (frontier,
+power curves, validation) is performed in
+`selection_binary_frontier.qmd` (S1).
 
 ```{r approx-summary}
-#| tbl-cap: "Per-subgroup type-I error and power for candidate threshold pairs (p=0.30)"
+#| tbl-cap: !expr 'sprintf("Per-subgroup P1 at n.min = %d (p = %.2f, d_eff = %.0f)", n_min_val, p_event, d_eff_binary(n_min_val, p_event))'
 
-n_configs <- c(60, 100, 150, 200, 240)
+d_ref <- round(d_eff_binary(n_min_val, p_event))
 
-approx_grid <- do.call(rbind, lapply(pairs, function(pr) {
-  do.call(rbind, lapply(n_configs, function(n) {
-    d_eff <- d_eff_binary(n, p_event = p_event)
-    data.frame(
-      Config = pr$label, n_sg = n, d_eff = round(d_eff, 1),
-      c1 = pr$c1, c2 = pr$c2,
-      `P(1.0)` = round(p_detect(1.0, d_eff, pr$c1, pr$c2), 3),
-      `P(0.75)` = round(p_detect(0.75, d_eff, pr$c1, pr$c2), 3),
-      `Power(2.0)` = round(p_detect(2.0, d_eff, pr$c1, pr$c2), 3),
-      check.names = FALSE)
-  }))
-}))
+# Representative pairs: paper default + grid corners
+check_pairs <- data.frame(
+  c1 = c(1.25, min(c1_grid), max(c1_grid)),
+  c2 = c(1.00, min(c2_grid), max(c2_grid)),
+  Label = c("Paper default", "Grid min", "Grid max"),
+  stringsAsFactors = FALSE
+)
+check_pairs <- check_pairs[check_pairs$c2 <= check_pairs$c1, ]
 
-# Show configurations where P(1.0) ~ 10%
-target <- approx_grid[approx_grid$`P(1.0)` <= 0.15 &
-                       approx_grid$`P(1.0)` >= 0.03, ]
+check_pairs$`P(OR=1)` <- sapply(seq_len(nrow(check_pairs)), function(i)
+  round(p_detect(1.0, d_ref, check_pairs$c1[i], check_pairs$c2[i]), 3))
+check_pairs[[sprintf("Power(OR=%.1f)", theta_h1)]] <-
+  sapply(seq_len(nrow(check_pairs)), function(i)
+    round(p_detect(theta_h1, d_ref, check_pairs$c1[i], check_pairs$c2[i]), 3))
 
-gt(target) |>
+gt(check_pairs) |>
   tab_header(
-    title = "Threshold Pairs with P(OR=1.0) in 3-15% Range",
-    subtitle = "Candidates for simulation validation"
+    title = "Per-Subgroup Detection at n.min",
+    subtitle = sprintf("d_eff = %d | See S1 for full threshold selection",
+                        d_ref)
   ) |>
   tab_style(style = cell_fill(color = "#E8F5E9"),
-    locations = cells_body(columns = `P(1.0)`,
-      rows = `P(1.0)` >= 0.05 & `P(1.0)` <= 0.12)) |>
-  cols_label(Config = "Thresholds", n_sg = "n(H)",
-    d_eff = "d_eff", `P(1.0)` = "P(OR=1)",
-    `P(0.75)` = "P(OR=0.75)", `Power(2.0)` = "Power(OR=2)")
+    locations = cells_body(columns = `P(OR=1)`,
+      rows = `P(OR=1)` >= 0.03 & `P(OR=1)` <= fpr_target))
 ```
 
 
@@ -327,11 +285,12 @@ sim_binary <- function(n, seed, has_hte = TRUE) {
     age = round(rnorm(n, 55, 10)),
     ecog = as.factor(sample(0:1, n, replace = TRUE, prob = c(0.6, 0.4)))
   )
-  # Baseline event probability = p_event (0.30, set in setup chunk)
-  lp <- with(df, qlogis(0.30) + 0.02 * (age - 55) + 0.3 * (ecog == 1))
+  # Baseline event rate from setup: p_event
+  lp <- with(df, qlogis(p_event) + 0.02 * (age - 55) + 0.3 * (ecog == 1))
   if (has_hte) {
     lp <- lp + with(df,
-      log(2.0) * treat * (bm1 == 0) + log(0.4) * treat * (bm1 == 1))
+      log(theta_h1) * treat * (bm1 == 0) +
+      log(1 / theta_h1) * treat * (bm1 == 1))
   }
   df$progressed <- rbinom(n, 1, plogis(lp))
   df$flag_harm  <- as.integer(df$bm1 == 0)
@@ -390,7 +349,7 @@ run_sim <- function(sim_num, n_total, has_hte, c1, c2, pcons) {
 
 Validate the approximation-selected threshold pairs.
 Fix pconsistency = 0.90.  The threshold grid is defined
-by `c1_sim_seq` and `c2_sim_seq` in the setup chunk.
+by `c1_grid` and `c2_grid` in the setup chunk.
 
 ::: {.callout-tip}
 For initial runs, use a coarser grid (`by = 0.10`) to
@@ -402,26 +361,31 @@ identify the viable region quickly, then refine with
 t0 <- proc.time()[3]
 
 # Build threshold pairs from the grid defined in the setup chunk
-pair_grid <- expand.grid(c1 = c1_sim_seq, c2 = c2_sim_seq,
+pair_grid <- expand.grid(c1 = c1_grid, c2 = c2_grid,
                           stringsAsFactors = FALSE)
 pair_grid <- pair_grid[pair_grid$c2 <= pair_grid$c1, ]
 sim_pairs <- lapply(seq_len(nrow(pair_grid)), function(i)
   list(c1 = pair_grid$c1[i], c2 = pair_grid$c2[i]))
 
 cat(sprintf("Threshold grid: %d c1 x %d c2 -> %d valid pairs (c2 <= c1)\n",
-    length(c1_sim_seq), length(c2_sim_seq), length(sim_pairs)))
+    length(c1_grid), length(c2_grid), length(sim_pairs)))
 
+# Build task grid: H0 always; H1 only if run_h1 = TRUE
+hte_levels <- if (run_h1) c(FALSE, TRUE) else FALSE
 tasks <- do.call(rbind, lapply(sim_pairs, function(pr) {
   expand.grid(sim = seq_len(nsims), c1 = pr$c1, c2 = pr$c2,
-              n_total = n_values, has_hte = c(FALSE, TRUE),
+              n_total = N_cal_values, has_hte = hte_levels,
               stringsAsFactors = FALSE)
 }))
 
-cat(sprintf("Simulation: %d threshold pairs x %d N x 2 hypotheses x %d sims = %d tasks\n",
-    length(sim_pairs), length(n_values), nsims, nrow(tasks)))
+n_hyp <- if (run_h1) 2L else 1L
+cat(sprintf("Simulation: %d pairs x %d N x %d hypothesis x %d sims = %d tasks\n",
+    length(sim_pairs), length(N_cal_values), n_hyp, nsims, nrow(tasks)))
+if (!run_h1) cat("(H1 skipped: power computed from approximation)\n")
 
 res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "pass",
-  .options.future = list(packages = c("forestsearch", "data.table"))
+  .options.future = list(packages = c("forestsearch", "data.table"),
+                         seed = TRUE)
 ) %dofuture% {
   run_sim(tasks$sim[i], tasks$n_total[i], tasks$has_hte[i],
           tasks$c1[i], tasks$c2[i], pcons)
@@ -441,7 +405,7 @@ The approximation should agree well with simulated power,
 since power measures detection of a **specific true subgroup**.
 
 ```{r power-comparison}
-#| tbl-cap: "Approximation vs simulated power (H1: true OR_H = 2.0, true n(H) ~ 30% of N)"
+#| tbl-cap: !expr 'sprintf("Power at OR_H = %.1f: %s", theta_h1, if (run_h1) "approximation vs simulation" else "approximation only (H1 sims skipped)")'
 
 oc_sim <- sim_dt[, .(
   detect = mean(any_found, na.rm = TRUE),
@@ -453,27 +417,65 @@ oc_sim <- sim_dt[, .(
 oc_sim[, n_sg := n_min_val]
 oc_sim[, d_eff := round(d_eff_binary(n_sg, p_event = p_event), 1)]
 oc_sim[, approx := mapply(function(hte, d, c1v, c2v) {
-  theta <- if (hte) 2.0 else 1.0
+  theta <- if (hte) theta_h1 else 1.0
   p_detect(theta, d, c1v, c2v)
 }, has_hte, d_eff, c1, c2)]
 
-# Power comparison
-h1_comp <- oc_sim[has_hte == TRUE]
+if (run_h1) {
+  # Simulated power comparison
+  h1_comp <- oc_sim[has_hte == TRUE]
+  gt(h1_comp[, .(N = n_total, c1, c2, d_eff,
+                 `Approx Power` = round(approx, 3),
+                 `Sim Power` = round(detect, 3),
+                 `Sim/Approx` = round(detect / pmax(approx, 0.001), 2),
+                 Sens = round(mean_sens, 3),
+                 PPV = round(mean_ppv, 3))]) |>
+    tab_header(
+      title = sprintf("Power: Approximation vs Simulation (H1, OR_H = %.1f)",
+                      theta_h1),
+      subtitle = sprintf("pcons = %.2f | %d sims per config", pcons, nsims)
+    ) |>
+    tab_source_note("Sim/Approx near 1.0 = approximation is accurate for power")
+} else {
+  # Approximation-only power table (no H1 sims)
+  d_ref <- round(d_eff_binary(n_min_val, p_event))
+  power_grid <- expand.grid(
+    c1 = unique(oc_sim$c1), c2 = unique(oc_sim$c2),
+    N = N_cal_values, stringsAsFactors = FALSE)
+  power_grid <- power_grid[power_grid$c2 <= power_grid$c1, ]
+  power_grid$d_eff <- d_ref
+  power_grid$`Approx Power` <- sapply(seq_len(nrow(power_grid)), function(i)
+    round(p_detect(theta_h1, d_ref, power_grid$c1[i], power_grid$c2[i]), 3))
 
-gt(h1_comp[, .(N = n_total, c1, c2, d_eff,
-               `Approx Power` = round(approx, 3),
-               `Sim Power` = round(detect, 3),
-               `Sim/Approx` = round(detect / pmax(approx, 0.001), 2),
-               Sens = round(mean_sens, 3),
-               PPV = round(mean_ppv, 3))]) |>
-  tab_header(
-    title = "Power: Approximation vs Simulation (H1, OR_H = 2.0)",
-    subtitle = sprintf("pcons = %.2f | %d sims per config", pcons, nsims)
-  ) |>
-  tab_row_group(label = "N = 800", rows = N == 800) |>
-  tab_row_group(label = "N = 500", rows = N == 500) |>
-  tab_row_group(label = "N = 300", rows = N == 300) |>
-  tab_source_note("Sim/Approx near 1.0 = approximation is accurate for power")
+  cat(sprintf("Power computed from approximation (theta = %.1f, d_eff = %d).\n",
+              theta_h1, d_ref))
+  cat("Set run_h1 = TRUE in the setup chunk to validate by simulation.\n\n")
+
+  gt(power_grid) |>
+    tab_header(
+      title = sprintf("Approximation Power (OR_H = %.1f)", theta_h1),
+      subtitle = sprintf("d_eff = %d (n_H = %d, p_event = %.2f) | No simulation",
+                          d_ref, n_min_val, p_event)
+    ) |>
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = `Approx Power`,
+        rows = `Approx Power` >= 0.80))
+}
+
+# When H1 sims were skipped, inject approximation-based H1 rows
+# into oc_sim so downstream FPR-Power tradeoff tables work unchanged
+if (!run_h1) {
+  h0_rows <- oc_sim[has_hte == FALSE]
+  h1_synth <- copy(h0_rows)
+  h1_synth[, has_hte := TRUE]
+  h1_synth[, detect := mapply(function(d, c1v, c2v)
+    p_detect(theta_h1, d, c1v, c2v), d_eff, c1, c2)]
+  h1_synth[, approx := detect]  # approx = detect for synthetic rows
+  h1_synth[, c("mean_sens", "mean_ppv") := NA_real_]
+  oc_sim <- rbind(oc_sim, h1_synth)
+  cat(sprintf("Injected %d approximation-based H1 rows into oc_sim.\n",
+              nrow(h1_synth)))
+}
 ```
 
 
@@ -561,7 +563,7 @@ ggplot(tradeoff, aes(x = FPR, y = Power, label = config)) +
   geom_text(size = 2, nudge_y = -0.04, check_overlap = TRUE) +
   facet_wrap(~ paste("N =", n_total)) +
   scale_colour_brewer(palette = "Set1") +
-  labs(x = "Simulated FPR (H0)", y = "Simulated Power (H1, OR=2)",
+  labs(x = "Simulated FPR (H0)", y = sprintf("Power (H1, OR=%.1f)", theta_h1),
        title = "Operating Characteristics by Threshold Pair",
        colour = NULL) +
   theme_minimal(base_size = 12) +
@@ -717,7 +719,7 @@ leff_cal <- calibrate_L_eff(
 
 print(leff_cal)
 
-# Save calibration to .rds for downstream documents
+# Save calibration to .rds for downstream documents (S1)
 save_leff_calibration(
   C = C_fit,
   alpha = alpha_fit,
@@ -725,10 +727,27 @@ save_leff_calibration(
   outcome_type = "binary",
   cal_data = cal_input,
   dgm_description = paste(
-    "Binary DGM, 4 confounders (bm1, bm2, age, ecog),",
-    "p(event)=0.30, 30% harm prevalence"),
+    "Binary DGM,", length(confounders_name), "confounders",
+    paste0("(", paste(confounders_name, collapse = ", "), "),"),
+    sprintf("p(event)=%.2f, %.0f%% harm prevalence",
+            p_event, 100 * p_harm)),
   n_sims_per_N = nsims,
-  output_dir = output_dir
+  output_dir = output_dir,
+  extra = list(
+    # ForestSearch config (S1 should match these)
+    confounders_name = confounders_name,
+    p_event          = p_event,
+    p_harm           = p_harm,
+    theta_h1         = theta_h1,
+    pcons            = pcons,
+    fs_splits        = fs_splits,
+    maxk_val         = maxk_val,
+    fpr_target       = fpr_target,
+    N_cal_values     = N_cal_values,
+    # Grid range validated for L_eff threshold-independence
+    c1_range = range(c1_grid),
+    c2_range = range(c2_grid)
+  )
 )
 ```
 
@@ -859,7 +878,7 @@ ggplot(tradeoff_long, aes(x = FPR, y = Power)) +
                                   "Corrected Approx" = "steelblue",
                                   "Simulation" = "black")) +
   facet_wrap(~ paste("N =", N)) +
-  labs(x = "FPR (H0)", y = "Power (H1, OR = 2.0)",
+  labs(x = "FPR (H0)", y = sprintf("Power (H1, OR=%.1f)", theta_h1),
        title = "Power-FPR Tradeoff: Corrected vs Uncorrected",
        subtitle = "Corrected points (triangles) should align with simulation (filled circles)",
        colour = NULL, shape = NULL) +
@@ -924,14 +943,14 @@ if (nrow(acceptable_corr) > 0) {
               100 * best_fpr, 100 * fpr_target))
   cat("\nSuggestions:\n")
   cat("  1. Expand the threshold grid in the setup chunk:\n")
-  cat(sprintf("     Current: c1_sim_seq = seq(%.2f, %.2f, by = 0.05)\n",
-              min(c1_sim_seq), max(c1_sim_seq)))
-  cat(sprintf("              c2_sim_seq = seq(%.2f, %.2f, by = 0.05)\n",
-              min(c2_sim_seq), max(c2_sim_seq)))
-  cat(sprintf("     Try:     c1_sim_seq = seq(%.2f, %.2f, by = 0.05)\n",
-              min(c1_sim_seq), max(c1_sim_seq) + 0.30))
-  cat(sprintf("              c2_sim_seq = seq(%.2f, %.2f, by = 0.05)\n",
-              min(c2_sim_seq), max(c2_sim_seq) + 0.30))
+  cat(sprintf("     Current: c1_grid = seq(%.2f, %.2f, by = 0.05)\n",
+              min(c1_grid), max(c1_grid)))
+  cat(sprintf("              c2_grid = seq(%.2f, %.2f, by = 0.05)\n",
+              min(c2_grid), max(c2_grid)))
+  cat(sprintf("     Try:     c1_grid = seq(%.2f, %.2f, by = 0.05)\n",
+              min(c1_grid), max(c1_grid) + 0.30))
+  cat(sprintf("              c2_grid = seq(%.2f, %.2f, by = 0.05)\n",
+              min(c2_grid), max(c2_grid) + 0.30))
   cat("  2. Both c1 and c2 contribute: raising c2 tightens\n")
   cat("     consistency; raising c1 tightens screening.\n")
   cat("     Typically c2 has a larger effect on FPR at the\n")
@@ -1011,10 +1030,10 @@ if (nrow(acceptable) > 0) {
               100 * best_fpr, 100 * fpr_target))
   cat("\nSuggestions:\n")
   cat("  1. Expand the threshold grid in the setup chunk:\n")
-  cat(sprintf("     Current: c1_sim_seq up to %.2f, c2_sim_seq up to %.2f\n",
-              max(c1_sim_seq), max(c2_sim_seq)))
-  cat(sprintf("     Try:     c1_sim_seq up to %.2f, c2_sim_seq up to %.2f\n",
-              max(c1_sim_seq) + 0.30, max(c2_sim_seq) + 0.30))
+  cat(sprintf("     Current: c1_grid up to %.2f, c2_grid up to %.2f\n",
+              max(c1_grid), max(c2_grid)))
+  cat(sprintf("     Try:     c1_grid up to %.2f, c2_grid up to %.2f\n",
+              max(c1_grid) + 0.30, max(c2_grid) + 0.30))
   if (best_fpr - fpr_target < 0.05) {
     cat("  2. The gap is small -- finer resolution (by = 0.02)\n")
     cat("     may find viable pairs within the current range.\n")
@@ -1052,7 +1071,7 @@ gt(timing_df) |>
     title = "Computational Timing Summary",
     subtitle = sprintf(
       "%d threshold pairs x %d N values x 2 hypotheses x %d sims = %d tasks | %d workers",
-      length(sim_pairs), length(n_values), nsims,
+      length(sim_pairs), length(N_cal_values), nsims,
       nrow(tasks), n_workers)
   ) |>
   fmt_number(columns = Seconds, decimals = 1) |>

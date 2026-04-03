@@ -122,9 +122,9 @@ across thresholds at the same $N$.
 
 The survival pipeline splits this into C2 (calibration at one
 pair) and C3 (grid sweep at many pairs) because the survival
-DGM is substantially more expensive.  Running 9 threshold
-pairs $\times$ 3 $N$ $\times$ 500 sims in a single survival
-document would take $\sim$12 hours.  Separating the two
+DGM is substantially more expensive.  Running a dense threshold
+grid $\times$ 3 $N$ $\times$ 500 sims in a single survival
+document would take many hours.  Separating the two
 concerns allows C2 to invest its simulation budget in
 precision at one point, while C3 runs lighter simulations
 across many points to test the extrapolation.
@@ -175,8 +175,10 @@ $\log(N / n_{\min})$ to obtain $(C, \alpha)$.
 **Output:**  An `.rds` bundle containing $(C, \alpha, n_{\min})$
 saved to `quarto/_data/`.
 
-**Typical runtime:**  C1 (binary): ~2 hours at 1000 sims $\times$
-9 threshold pairs $\times$ 3 $N$ $\times$ 2 hypotheses.
+**Typical runtime:**  C1 (binary): depends on grid size.  With
+`c1_sim_seq` $\times$ `c2_sim_seq` $\approx$ 15 valid pairs
+$\times$ 3 $N$ $\times$ 2 hypotheses $\times$ `nsims`, expect
+1--4 hours at `nsims = 500`.
 C2 (survival): ~4 hours at 500 sims $\times$ 3 $N$.
 
 **Key parameters:**
@@ -234,9 +236,10 @@ They answer different questions:
 - C3: "Is $L_{\text{eff}}$ the same everywhere?"
 
 **C1 advantage:**  The binary calibration document (C1) already
-validates across 9 threshold pairs at 4 sample sizes in a single
-run.  The survival pipeline separates this into C2 (calibration)
-and C3 (validation) because the survival DGM is more expensive.
+validates across a dense grid of threshold pairs at 3 sample
+sizes in a single run.  The survival pipeline separates this
+into C2 (calibration) and C3 (validation) because the survival
+DGM is more expensive.
 
 **Output:**  The L_eff consistency diagnostic table.  No `.rds`
 is strictly needed — the evidence is in the rendered document.
@@ -378,7 +381,7 @@ C1 and C2 share no data.  S1 and S2 share no data.  The
 ┌─────────────────────────────────────────────────────────────────┐
 │                    BINARY PIPELINE                              │
 │                                                                 │
-│  C1: Run FS under H0 at 9 (c1,c2) pairs × {300,500,700}       │
+│  C1: Run FS under H0 at grid of (c1,c2) pairs × {300,500,700}  │
 │      ├── Calibrate L_eff power law                              │
 │      ├── Validate L_eff is ~constant across (c1,c2)  ◄── BOTH  │
 │      └── Save _data/calibration_binary_leff.rds        IN ONE   │

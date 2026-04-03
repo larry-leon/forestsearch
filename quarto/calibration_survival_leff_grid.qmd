@@ -23,10 +23,29 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
-nsims_null <- 30L
+# ── Simulation control ──────────────────────────────────────────
+nsims_null <- 30L        # H0 sims per config (use 500+ for production)
 
-# Output directory for .rds results
+# ── Output ──────────────────────────────────────────────────────
 output_dir <- "_data"
+
+# ── FPR target ─────────────────────────────────────────────────
+fpr_target <- 0.12
+
+# ── DGM / outcome parameters ──────────────────────────────────
+prop_cens  <- 0.46       # GBSG censoring proportion
+p_harm     <- 0.13       # harm subgroup prevalence (metadata only)
+n_min_val  <- 60L        # n.min = reference subgroup size for P1
+
+# ── ForestSearch parameters ───────────────────────────────────
+confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+pcons      <- 0.90       # pconsistency.threshold
+fs_splits  <- 400L
+maxk_val   <- 2L
+n_sample   <- 700L       # sample size for main sims
+
+# ── L_eff calibration ────────────────────────────────────────
+N_cal_values <- c(300, 500, 700)
 ```
 
 
@@ -127,11 +146,10 @@ p_detect_glm <- function(theta, d_eff, c1, c2) {
 ## Approximation Across Threshold Pairs
 
 ```{r approx-grid-null}
-#| tbl-cap: "Per-subgroup P1(theta=1) across (c1,c2) pairs for n(H)=91, d=49 events"
+#| tbl-cap: "Per-subgroup P1(theta=1) across (c1,c2) pairs at n.min"
 
-# Subgroup characteristics: pH ~ 13%, N = 700, censoring ~ 46%
-n_H_dgm <- 60
-prop_cens <- 0.46
+# Reference subgroup: n_H = n.min (from setup)
+n_H_dgm <- n_min_val
 d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
 
 c1_seq <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50)
@@ -189,16 +207,15 @@ ggplot(approx_null, aes(x = factor(c1), y = factor(c2), fill = P1)) +
 ## Simulation Parameters
 
 ```{r sim-params}
-confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
-
+# Build compound parameter objects from setup-chunk scalars
 fs_params_base <- list(
   hr.threshold = 1.25,
   hr.consistency = 1.0,
-  pconsistency.threshold = 0.90,
-  fs.splits = 400,
-  n.min = 60,
+  pconsistency.threshold = pcons,
+  fs.splits = fs_splits,
+  n.min = n_min_val,
   d0.min = 12, d1.min = 12,
-  maxk = 2, by.risk = 12,
+  maxk = maxk_val, by.risk = 12,
   vi.grf.min = -0.2,
   use_lasso = TRUE, use_grf = TRUE,
   use_twostage = TRUE, twostage_args = list()
@@ -218,7 +235,7 @@ fs_params_irr <- modifyList(fs_params_base, list(
 
 sim_config <- list(
   n_sims_null = nsims_null,
-  n_sample = 700, analysis_time = 84,
+  n_sample = n_sample, analysis_time = 84,
   seed_base = 8316951, cens_adjust = log(1.5)
 )
 
@@ -332,7 +349,6 @@ gt(baseline_h0) |>
 ## Multi-N Null Simulations
 
 ```{r null-multi-N}
-N_cal_values <- c(300, 500, 700)
 n_sims_cal <- min(nsims_null, 500L)
 
 cat("Running multi-N null calibration simulations...\n")
@@ -384,9 +400,6 @@ cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
 ```{r calibrate-leff}
 #| fig-height: 5
 #| fig-cap: "Implied L_eff with power-law fit for the GBSG survival DGM."
-
-n_min_val <- 60
-p_harm <- 0.13
 
 cal_df$n_H <- n_min_val
 cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))

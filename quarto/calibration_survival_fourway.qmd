@@ -23,12 +23,28 @@ execute:
 #| include: false
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
-# ~ 2500/hr linux 
-nsims_alt  <- 20L
-nsims_null <- 20L
+# ── Simulation control ──────────────────────────────────────────
+nsims_alt  <- 20L        # H1 sims (use 500+ for production)
+nsims_null <- 20L        # H0 sims (use 500+ for production)
+sim_seed   <- 8316951L
 
-# Output directory for saved results
+# ── Output ──────────────────────────────────────────────────────
 output_dir <- "_data"
+
+# ── DGM / outcome parameters ──────────────────────────────────
+prop_cens  <- 0.46       # GBSG censoring proportion
+p_harm     <- 0.13       # harm subgroup prevalence (metadata only)
+n_min_val  <- 60L        # n.min = reference subgroup size for P1
+
+# ── ForestSearch parameters ───────────────────────────────────
+confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+pcons      <- 0.90       # pconsistency.threshold
+fs_splits  <- 400L
+maxk_val   <- 2L
+n_sample   <- 700L       # sample size for main sims
+
+# ── L_eff calibration ────────────────────────────────────────
+N_cal_values <- c(300, 500, 700)
 ```
 
 
@@ -251,10 +267,8 @@ timings$dgm <- proc.time()[3] - t0
 ```{r approx-cox}
 #| code-fold: false
 
-# Subgroup characteristics from the DGM
-# pH ~ 13%, N = 700 -> n_H ~ 91, censoring ~ 46%
+# Subgroup characteristics from the DGM (prop_cens set in setup)
 n_H_values <- c(60, 80, 91, 100, 120)
-prop_cens <- 0.46
 
 cat("=== (D) Cox Approximation ===\n")
 cat("Using compute_detection_probability() from forestsearch\n\n")
@@ -434,16 +448,15 @@ cat(sprintf("\nVariance of log-effect:\n  Cox:     %.4f\n  Poisson: %.4f\n  4/d:
 ## Simulation Parameters
 
 ```{r sim-params}
-confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
-
+# Build compound parameter objects from setup-chunk scalars
 fs_params_base <- list(
   hr.threshold = 1.25,
   hr.consistency = 1.0,
-  pconsistency.threshold = 0.90,
-  fs.splits = 400,
-  n.min = 60,
+  pconsistency.threshold = pcons,
+  fs.splits = fs_splits,
+  n.min = n_min_val,
   d0.min = 12, d1.min = 12,
-  maxk = 2, by.risk = 12,
+  maxk = maxk_val, by.risk = 12,
   vi.grf.min = -0.2,
   use_lasso = TRUE, use_grf = TRUE,
   use_twostage = TRUE, twostage_args = list()
@@ -463,8 +476,8 @@ fs_params_irr <- modifyList(fs_params_base, list(
 
 sim_config <- list(
   n_sims_alt = nsims_alt, n_sims_null = nsims_null,
-  n_sample = 700, analysis_time = 84,
-  seed_base = 8316951, cens_adjust = log(1.5)
+  n_sample = n_sample, analysis_time = 84,
+  seed_base = sim_seed, cens_adjust = log(1.5)
 )
 
 cat("Simulation config:\n")
@@ -674,7 +687,7 @@ cox_h0 <- results_null_cox[results_null_cox$analysis == "FS", ]
 irr_h0 <- results_null_irr[results_null_irr$analysis == "FS", ]
 
 # Approximation at n_H = 60
-n_H_dgm <- 60
+n_H_dgm <- n_min_val  # from setup
 d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
 
 four_way <- data.frame(
@@ -777,7 +790,6 @@ multiple sample sizes.  We run a focused set at
 $N \in \{300, 500, 700, 1000\}$.
 
 ```{r null-multi-N}
-N_cal_values <- c(300, 500, 700)
 n_sims_cal <- nsims_null  # use same count as main sims
 
 cat("Running multi-N null calibration simulations...\n")
@@ -827,10 +839,6 @@ cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
 ## Compute Per-Subgroup $P_1$ at Each N
 
 ```{r cal-P1}
-# Reference subgroup size: n.min (most conservative FPR)
-n_min_val <- 60
-p_harm <- 0.13   # retained for save_leff_calibration() metadata
-
 cal_df$n_H <- n_min_val
 cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
 
@@ -849,8 +857,6 @@ print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")])
 ```{r calibrate-leff}
 #| fig-height: 5
 #| fig-cap: "Implied L_eff at each N with power-law fit for the GBSG survival DGM."
-
-n_min_val <- 60
 
 # Implied L_eff
 cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
