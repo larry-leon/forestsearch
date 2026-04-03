@@ -16,7 +16,7 @@ format:
     fig-height: 6
 execute:
   warning: true
-  message: false
+  message: true
 ---
 
 ```{r setup}
@@ -266,9 +266,10 @@ results_null_cox <- foreach(
   sim = seq_len(nsims_null),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table"),
+    packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
 ) %dofuture% {
+  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_null,
     n_sample = sim_config$n_sample,
@@ -296,9 +297,10 @@ results_null_irr <- foreach(
   sim = seq_len(nsims_null),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table"),
+    packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
 ) %dofuture% {
+  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_null,
     n_sample = sim_config$n_sample,
@@ -374,9 +376,10 @@ for (N_val in N_cal_values) {
     sim = seq_len(n_sims_cal),
     .combine = rbind, .errorhandling = "remove",
     .options.future = list(
-      packages = c("forestsearch", "survival", "data.table"),
+      packages = c("forestsearch", "survival", "data.table", "future"),
       seed = TRUE)
   ) %dofuture% {
+    future::plan("sequential")
     run_simulation_analysis(
       sim_id = sim, dgm = dgm_null,
       n_sample = N_val,
@@ -599,9 +602,10 @@ grid_results <- foreach(
   i = seq_len(nrow(grid_tasks)),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table"),
+    packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
 ) %dofuture% {
+  future::plan("sequential")
   sim_id <- grid_tasks$sim[i]
   c1_val <- grid_tasks$c1[i]
   c2_val <- grid_tasks$c2[i]

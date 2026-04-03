@@ -454,9 +454,10 @@ if (recalibrate) {
       sim = seq_len(n_sims_recal),
       .combine = rbind, .errorhandling = "remove",
       .options.future = list(
-        packages = c("forestsearch", "survival", "data.table"),
+        packages = c("forestsearch", "survival", "data.table", "future"),
         seed = TRUE)
     ) %dofuture% {
+      future::plan("sequential")
       fs_params_cal <- modifyList(fs_params_cox, list(
         hr.threshold = c1_cal,
         hr.consistency = c2_cal
@@ -832,11 +833,12 @@ if (exists("frontier") && nrow(frontier) > 0) {
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
       found <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "pass",
+        .combine = c, .errorhandling = "remove",
         .options.future = list(
-          packages = c("forestsearch", "survival", "data.table"),
+          packages = c("forestsearch", "survival", "data.table", "future"),
           seed = TRUE)
       ) %dofuture% {
+        future::plan("sequential")
         fs_params_opt <- modifyList(fs_params_cox, list(
           hr.threshold = c1_opt,
           hr.consistency = c2_opt
@@ -1145,9 +1147,10 @@ if (run_validation) {
     i = seq_len(nrow(val_tasks)),
     .combine = rbind, .errorhandling = "remove",
     .options.future = list(
-      packages = c("forestsearch", "survival", "data.table"),
+      packages = c("forestsearch", "survival", "data.table", "future"),
       seed = TRUE)
   ) %dofuture% {
+    future::plan("sequential")
     N_val  <- val_tasks$N[i]
     sim_id <- val_tasks$sim[i]
     c1_val <- val_tasks$c1[i]
