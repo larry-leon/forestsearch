@@ -443,7 +443,7 @@ if (recalibrate) {
 
     res_N <- foreach(
       s = seq_len(n_sims_recal),
-      .combine = c, .errorhandling = "remove",
+      .combine = c, .errorhandling = "pass",
       .options.future = list(
         packages = c("forestsearch", "data.table"), seed = TRUE)
     ) %dofuture% {
@@ -464,8 +464,8 @@ if (recalibrate) {
           treat.name = "treat", id.name = "id",
           outcome_type = "binary", effect_measure = "OR",
           adverse_outcome = TRUE,
-          hr.threshold = c1_cal,
-          hr.consistency = c2_cal,
+          effect.threshold = c1_cal,
+          consistency.threshold = c2_cal,
           pconsistency.threshold = pcons, fs.splits = fs_splits,
           n.min = n_min_val, maxk = maxk_val,
           use_lasso = TRUE, use_grf = TRUE,
@@ -893,7 +893,7 @@ if (exists("frontier") && nrow(frontier) > 0) {
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
       found <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "remove",
+        .combine = c, .errorhandling = "pass",
         .options.future = list(
           packages = c("forestsearch", "data.table"),
           seed = TRUE)
@@ -908,8 +908,8 @@ if (exists("frontier") && nrow(frontier) > 0) {
             treat.name = "treat", id.name = "id",
             outcome_type = "binary", effect_measure = "OR",
             adverse_outcome = TRUE,
-            hr.threshold = c1_opt,
-            hr.consistency = c2_opt,
+            effect.threshold = c1_opt,
+            consistency.threshold = c2_opt,
             pconsistency.threshold = pcons, fs.splits = fs_splits,
             n.min = n_min_val, maxk = maxk_val,
             use_lasso = TRUE, use_grf = TRUE,
@@ -1250,7 +1250,7 @@ if (run_validation) {
     c1_val <- val_tasks$c1[i]
     c2_val <- val_tasks$c2[i]
 
-    seed <- sim_seed + 200000L + (N_val * 1000L) + sim_id
+    seed <- sim_seed + (N_val * 1000L) + sim_id
     df_null <- sim_binary_null(N_val, seed)
 
     fs <- tryCatch(
@@ -1261,7 +1261,7 @@ if (run_validation) {
         treat.name = "treat", id.name = "id",
         outcome_type = "binary", effect_measure = "OR",
         adverse_outcome = TRUE,
-        hr.threshold = c1_val, hr.consistency = c2_val,
+        effect.threshold = c1_val, consistency.threshold = c2_val,
         pconsistency.threshold = pcons, fs.splits = fs_splits,
         n.min = n_min_val, maxk = maxk_val,
         use_lasso = TRUE, use_grf = TRUE,

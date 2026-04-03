@@ -375,7 +375,8 @@ run_simulation_analysis <- function(
     "maxk", "max.minutes", "by.risk", "vi.grf.min",
     "frac.tau", "dmin.grf", "grf_depth",
     "use_twostage", "twostage_args",
-    "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat"
+    "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat",
+    "parallel_args"
     # NOTE: outcome_type, effect_measure, offset.name are intentionally
     # EXCLUDED from the forestsearch() whitelist.  They affect only the
     # *estimation* step (.extract_fs_estimates_gen), not subgroup

@@ -15,8 +15,8 @@ format:
     fig-width: 9
     fig-height: 6
 execute:
-  warning: true
-  message: true
+  warning: false
+  message: false
 ---
 
 ```{r setup}
@@ -26,8 +26,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ── Simulation control ──────────────────────────────────────────
 # ~ 4000/hr linux
 # 500/2000 ~ 25m
-nsims_alt  <- 20L        # H1 sims (use 500+ for production)
-nsims_null <- 20L        # H0 sims (use 500+ for production)
+nsims_alt  <- 500L        # H1 sims (use 500+ for production)
+nsims_null <- 2000L        # H0 sims (use 500+ for production)
 sim_seed   <- 8316951L
 n_workers  <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -521,10 +521,8 @@ results_alt_cox <- foreach(
   sim = seq_len(sim_config$n_sims_alt),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table", "future"),
-    seed = TRUE)
+    packages = c("forestsearch", "survival", "data.table"), seed = TRUE)
 ) %dofuture% {
-  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_alt,
     n_sample = sim_config$n_sample,
@@ -550,10 +548,8 @@ results_null_cox <- foreach(
   sim = seq_len(sim_config$n_sims_null),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table", "future"),
-    seed = TRUE)
+    packages = c("forestsearch", "survival", "data.table"), seed = TRUE)
 ) %dofuture% {
-  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_null,
     n_sample = sim_config$n_sample,
@@ -581,10 +577,8 @@ results_alt_irr <- foreach(
   sim = seq_len(sim_config$n_sims_alt),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table", "future"),
-    seed = TRUE)
+    packages = c("forestsearch", "survival", "data.table"), seed = TRUE)
 ) %dofuture% {
-  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_alt,
     n_sample = sim_config$n_sample,
@@ -610,10 +604,8 @@ results_null_irr <- foreach(
   sim = seq_len(sim_config$n_sims_null),
   .combine = rbind, .errorhandling = "remove",
   .options.future = list(
-    packages = c("forestsearch", "survival", "data.table", "future"),
-    seed = TRUE)
+    packages = c("forestsearch", "survival", "data.table"), seed = TRUE)
 ) %dofuture% {
-  future::plan("sequential")
   run_simulation_analysis(
     sim_id = sim, dgm = dgm_null,
     n_sample = sim_config$n_sample,
@@ -839,10 +831,9 @@ for (N_val in N_cal_values) {
     sim = seq_len(n_sims_cal),
     .combine = rbind, .errorhandling = "remove",
     .options.future = list(
-      packages = c("forestsearch", "survival", "data.table", "future"),
+      packages = c("forestsearch", "survival", "data.table"),
       seed = TRUE)
   ) %dofuture% {
-    future::plan("sequential")
     run_simulation_analysis(
       sim_id = sim, dgm = dgm_null,
       n_sample = N_val,

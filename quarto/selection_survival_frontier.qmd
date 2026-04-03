@@ -16,7 +16,7 @@ format:
     fig-height: 6
 execute:
   warning: true
-  message: true
+  message: false
 ---
 
 # Setup {#sec-setup}
@@ -48,7 +48,7 @@ t_vignette_start <- proc.time()
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-nsims_val       <- 0L      # validation sims per (c1, c2, N)
+nsims_val       <- 20L      # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -99,7 +99,7 @@ c2_grid     <- seq(0.90, 1.50, by = grid_step)  # fallback only
 max_pairs   <- 40L       # max sim candidates (selected + boundary)
 
 # ── H1 power assessment at optimal pair ──────────────────────
-nsims_power <- 0L        # H1 sims at optimal pair (0 = approx only)
+nsims_power <- 20L        # H1 sims at optimal pair (0 = approx only)
 
 # ── Heatmap display subset ────────────────────────────────────
 c1_heat     <- seq(1.00, 1.50, by = 0.05)
@@ -341,7 +341,13 @@ timings$dgm <- proc.time()[3] - t0
 # setup_gbsg_dgm with k_treat > 1 creates heterogeneous treatment effect;
 # wrap in a helper consistent with C2/C3's simulation pattern.
 create_dgm_h1 <- function(hr_h1_val) {
-  setup_gbsg_dgm(model = "harm", k_treat = hr_h1_val, verbose = FALSE)
+  k_inter <- calibrate_k_inter(
+    target_hr_harm = hr_h1_val,
+    model = "alt", k_treat = 1.0,
+    cens_type = "weibull", use_ahr = FALSE, verbose = FALSE
+  )
+  setup_gbsg_dgm(model = "alt", k_treat = 1.0,
+                 k_inter = k_inter, verbose = FALSE)
 }
 ```
 
@@ -397,7 +403,8 @@ fs_params_base <- list(
   maxk = maxk_val, by.risk = 12,
   vi.grf.min = -0.2,
   use_lasso = TRUE, use_grf = TRUE,
-  use_twostage = TRUE, twostage_args = list()
+  use_twostage = TRUE, twostage_args = list(),
+  parallel_args = list(plan="sequential", workers = 1, show_message = FALSE)
 )
 
 fs_params_cox <- modifyList(fs_params_base, list(
@@ -447,9 +454,10 @@ if (recalibrate) {
       sim = seq_len(n_sims_recal),
       .combine = rbind, .errorhandling = "remove",
       .options.future = list(
-        packages = c("forestsearch", "survival", "data.table"),
+        packages = c("forestsearch", "survival", "data.table", "future"),
         seed = TRUE)
     ) %dofuture% {
+      future::plan("sequential")
       fs_params_cal <- modifyList(fs_params_cox, list(
         hr.threshold = c1_cal,
         hr.consistency = c2_cal
@@ -825,11 +833,12 @@ if (exists("frontier") && nrow(frontier) > 0) {
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
       found <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "pass",
+        .combine = c, .errorhandling = "remove",
         .options.future = list(
-          packages = c("forestsearch", "survival", "data.table"),
+          packages = c("forestsearch", "survival", "data.table", "future"),
           seed = TRUE)
       ) %dofuture% {
+        future::plan("sequential")
         fs_params_opt <- modifyList(fs_params_cox, list(
           hr.threshold = c1_opt,
           hr.consistency = c2_opt
@@ -1138,9 +1147,10 @@ if (run_validation) {
     i = seq_len(nrow(val_tasks)),
     .combine = rbind, .errorhandling = "remove",
     .options.future = list(
-      packages = c("forestsearch", "survival", "data.table"),
+      packages = c("forestsearch", "survival", "data.table", "future"),
       seed = TRUE)
   ) %dofuture% {
+    future::plan("sequential")
     N_val  <- val_tasks$N[i]
     sim_id <- val_tasks$sim[i]
     c1_val <- val_tasks$c1[i]
