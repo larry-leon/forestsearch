@@ -219,8 +219,7 @@ library(foreach)
 library(doFuture)
 library(future)
 
-# L_eff save/load helpers
-#source(here::here("R", "leff_calibration_io.R"))
+# L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 cat("H1 sims:", nsims_alt, "| H0 sims:", nsims_null, "\n")
@@ -538,8 +537,14 @@ results_alt_cox <- foreach(
   )
 }
 timings$alt_cox <- proc.time()[3] - t0
+if (nrow(results_alt_cox) < sim_config$n_sims_alt) {
+  warning(sprintf(
+    "Cox H1: %d of %d tasks silently failed.",
+    sim_config$n_sims_alt - nrow(results_alt_cox), sim_config$n_sims_alt
+  ))
+}
 cat("Cox H1:", round(timings$alt_cox/60, 1), "min |",
-    nrow(results_alt_cox), "rows\n")
+    nrow(results_alt_cox), "/", sim_config$n_sims_alt, "rows\n")
 ```
 
 ```{r run-cox-null}
@@ -567,7 +572,14 @@ results_null_cox <- foreach(
   )
 }
 timings$null_cox <- proc.time()[3] - t0
-cat("Cox H0:", round(timings$null_cox/60, 1), "min\n")
+if (nrow(results_null_cox) < sim_config$n_sims_null) {
+  warning(sprintf(
+    "Cox H0: %d of %d tasks silently failed.",
+    sim_config$n_sims_null - nrow(results_null_cox), sim_config$n_sims_null
+  ))
+}
+cat("Cox H0:", round(timings$null_cox/60, 1), "min |",
+    nrow(results_null_cox), "/", sim_config$n_sims_null, "rows\n")
 ```
 
 
@@ -598,8 +610,14 @@ results_alt_irr <- foreach(
   )
 }
 timings$alt_irr <- proc.time()[3] - t0
+if (nrow(results_alt_irr) < sim_config$n_sims_alt) {
+  warning(sprintf(
+    "IRR H1: %d of %d tasks silently failed.",
+    sim_config$n_sims_alt - nrow(results_alt_irr), sim_config$n_sims_alt
+  ))
+}
 cat("IRR H1:", round(timings$alt_irr/60, 1), "min |",
-    nrow(results_alt_irr), "rows\n")
+    nrow(results_alt_irr), "/", sim_config$n_sims_alt, "rows\n")
 ```
 
 ```{r run-irr-null}
@@ -627,7 +645,14 @@ results_null_irr <- foreach(
   )
 }
 timings$null_irr <- proc.time()[3] - t0
-cat("IRR H0:", round(timings$null_irr/60, 1), "min\n")
+if (nrow(results_null_irr) < sim_config$n_sims_null) {
+  warning(sprintf(
+    "IRR H0: %d of %d tasks silently failed.",
+    sim_config$n_sims_null - nrow(results_null_irr), sim_config$n_sims_null
+  ))
+}
+cat("IRR H0:", round(timings$null_irr/60, 1), "min |",
+    nrow(results_null_irr), "/", sim_config$n_sims_null, "rows\n")
 ```
 
 
@@ -857,6 +882,12 @@ for (N_val in N_cal_values) {
   }
 
   fs_rows <- res_N[res_N$analysis == "FS", ]
+  if (nrow(fs_rows) < n_sims_cal) {
+    warning(sprintf(
+      "Calibration N=%d: %d of %d tasks silently failed.",
+      N_val, n_sims_cal - nrow(fs_rows), n_sims_cal
+    ))
+  }
   fpr_N <- mean(fs_rows$any.H, na.rm = TRUE)
 
   cal_results[[as.character(N_val)]] <- data.frame(

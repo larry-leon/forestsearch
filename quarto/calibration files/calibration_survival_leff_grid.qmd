@@ -283,7 +283,14 @@ results_null_cox <- foreach(
   )
 }
 timings$null_cox <- proc.time()[3] - t0
-cat("Cox H0:", round(timings$null_cox / 60, 1), "min\n")
+if (nrow(results_null_cox) < nsims_null) {
+  warning(sprintf(
+    "Cox H0: %d of %d tasks silently failed.",
+    nsims_null - nrow(results_null_cox), nsims_null
+  ))
+}
+cat("Cox H0:", round(timings$null_cox / 60, 1), "min |",
+    nrow(results_null_cox), "/", nsims_null, "rows\n")
 ```
 
 
@@ -314,7 +321,14 @@ results_null_irr <- foreach(
   )
 }
 timings$null_irr <- proc.time()[3] - t0
-cat("IRR H0:", round(timings$null_irr / 60, 1), "min\n")
+if (nrow(results_null_irr) < nsims_null) {
+  warning(sprintf(
+    "IRR H0: %d of %d tasks silently failed.",
+    nsims_null - nrow(results_null_irr), nsims_null
+  ))
+}
+cat("IRR H0:", round(timings$null_irr / 60, 1), "min |",
+    nrow(results_null_irr), "/", nsims_null, "rows\n")
 ```
 
 
@@ -394,6 +408,12 @@ for (N_val in N_cal_values) {
   }
 
   fs_rows <- res_N[res_N$analysis == "FS", ]
+  if (nrow(fs_rows) < n_sims_cal) {
+    warning(sprintf(
+      "Calibration N=%d: %d of %d tasks silently failed.",
+      N_val, n_sims_cal - nrow(fs_rows), n_sims_cal
+    ))
+  }
   fpr_N <- mean(fs_rows$any.H, na.rm = TRUE)
 
   cal_results[[as.character(N_val)]] <- data.frame(
@@ -636,8 +656,17 @@ grid_results <- foreach(
 }
 
 timings$null_grid <- proc.time()[3] - t0
-cat(sprintf("Null grid: %.1f min | %d results\n",
-    timings$null_grid / 60, nrow(grid_results)))
+n_expected_grid <- nrow(grid_tasks)
+n_received_grid <- nrow(grid_results)
+if (n_received_grid < n_expected_grid) {
+  warning(sprintf(
+    "Null grid: %d of %d tasks silently failed (%.1f%% loss).",
+    n_expected_grid - n_received_grid, n_expected_grid,
+    100 * (1 - n_received_grid / n_expected_grid)
+  ))
+}
+cat(sprintf("Null grid: %.1f min | %d/%d results\n",
+    timings$null_grid / 60, n_received_grid, n_expected_grid))
 ```
 
 

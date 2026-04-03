@@ -3,17 +3,6 @@ title: "Cox vs GLM Approximation: A Four-Way Comparison"
 subtitle: "Validating the GLM Power Approximation via the Poisson-Cox Equivalence"
 author: "Larry F. Leon"
 date: today
-format:
-  html:
-    embed-resources: true
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
-    code-summary: "Show code"
-    theme: cosmo
-    fig-width: 9
-    fig-height: 6
 execute:
   warning: true
   message: true
@@ -26,8 +15,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ── Simulation control ──────────────────────────────────────────
 # ~ 4000/hr linux
 # 500/2000 ~ 25m
-nsims_alt  <- 1000L        # H1 sims (use 500+ for production)
-nsims_null <- 10000L        # H0 sims (use 500+ for production)
+nsims_alt  <- 20L        # H1 sims (use 500+ for production)
+nsims_null <- 20L        # H0 sims (use 500+ for production)
 sim_seed   <- 8316951L
 n_workers  <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -219,8 +208,7 @@ library(foreach)
 library(doFuture)
 library(future)
 
-# L_eff save/load helpers
-#source(here::here("R", "leff_calibration_io.R"))
+# L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 cat("H1 sims:", nsims_alt, "| H0 sims:", nsims_null, "\n")
@@ -538,8 +526,14 @@ results_alt_cox <- foreach(
   )
 }
 timings$alt_cox <- proc.time()[3] - t0
+if (nrow(results_alt_cox) < sim_config$n_sims_alt) {
+  warning(sprintf(
+    "Cox H1: %d of %d tasks silently failed.",
+    sim_config$n_sims_alt - nrow(results_alt_cox), sim_config$n_sims_alt
+  ))
+}
 cat("Cox H1:", round(timings$alt_cox/60, 1), "min |",
-    nrow(results_alt_cox), "rows\n")
+    nrow(results_alt_cox), "/", sim_config$n_sims_alt, "rows\n")
 ```
 
 ```{r run-cox-null}
@@ -567,7 +561,14 @@ results_null_cox <- foreach(
   )
 }
 timings$null_cox <- proc.time()[3] - t0
-cat("Cox H0:", round(timings$null_cox/60, 1), "min\n")
+if (nrow(results_null_cox) < sim_config$n_sims_null) {
+  warning(sprintf(
+    "Cox H0: %d of %d tasks silently failed.",
+    sim_config$n_sims_null - nrow(results_null_cox), sim_config$n_sims_null
+  ))
+}
+cat("Cox H0:", round(timings$null_cox/60, 1), "min |",
+    nrow(results_null_cox), "/", sim_config$n_sims_null, "rows\n")
 ```
 
 
@@ -598,8 +599,14 @@ results_alt_irr <- foreach(
   )
 }
 timings$alt_irr <- proc.time()[3] - t0
+if (nrow(results_alt_irr) < sim_config$n_sims_alt) {
+  warning(sprintf(
+    "IRR H1: %d of %d tasks silently failed.",
+    sim_config$n_sims_alt - nrow(results_alt_irr), sim_config$n_sims_alt
+  ))
+}
 cat("IRR H1:", round(timings$alt_irr/60, 1), "min |",
-    nrow(results_alt_irr), "rows\n")
+    nrow(results_alt_irr), "/", sim_config$n_sims_alt, "rows\n")
 ```
 
 ```{r run-irr-null}
@@ -627,7 +634,14 @@ results_null_irr <- foreach(
   )
 }
 timings$null_irr <- proc.time()[3] - t0
-cat("IRR H0:", round(timings$null_irr/60, 1), "min\n")
+if (nrow(results_null_irr) < sim_config$n_sims_null) {
+  warning(sprintf(
+    "IRR H0: %d of %d tasks silently failed.",
+    sim_config$n_sims_null - nrow(results_null_irr), sim_config$n_sims_null
+  ))
+}
+cat("IRR H0:", round(timings$null_irr/60, 1), "min |",
+    nrow(results_null_irr), "/", sim_config$n_sims_null, "rows\n")
 ```
 
 
@@ -857,6 +871,12 @@ for (N_val in N_cal_values) {
   }
 
   fs_rows <- res_N[res_N$analysis == "FS", ]
+  if (nrow(fs_rows) < n_sims_cal) {
+    warning(sprintf(
+      "Calibration N=%d: %d of %d tasks silently failed.",
+      N_val, n_sims_cal - nrow(fs_rows), n_sims_cal
+    ))
+  }
   fpr_N <- mean(fs_rows$any.H, na.rm = TRUE)
 
   cal_results[[as.character(N_val)]] <- data.frame(

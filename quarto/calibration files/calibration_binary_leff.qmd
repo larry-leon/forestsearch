@@ -147,8 +147,7 @@ library(foreach)
 library(doFuture)
 library(future)
 
-# L_eff save/load helpers
-#source(here::here("../R", "leff_calibration_io.R"))
+# L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
 cat("Workers:", n_workers, "| Sims per config:", nsims, "\n")
 ```
@@ -310,21 +309,23 @@ run_sim <- function(sim_num, n_total, has_hte, c1, c2, pcons) {
   df <- sim_binary(n_total, seed, has_hte)
   fs_error <- NA_character_
   fs <- tryCatch(
-    forestsearch(
-      df.analysis = df,
-      confounders.name = confounders_name,
-      outcome.name = "progressed", event.name = "progressed",
-      treat.name = "treat", id.name = "id",
-      outcome_type = "binary", effect_measure = "OR",
-      adverse_outcome = TRUE,
-      hr.threshold = c1, hr.consistency = c2,
-      pconsistency.threshold = pcons, fs.splits = fs_splits,
-      n.min = n_min_val, maxk = maxk_val,
-      use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
-      is.RCT = TRUE, seedit = seed, details = FALSE,
-      quiet = TRUE, plot.sg = FALSE,
-      parallel_args = list(plan = "sequential", workers = 1,
-                           show_message = FALSE)
+    suppressWarnings(
+      forestsearch(
+        df.analysis = df,
+        confounders.name = confounders_name,
+        outcome.name = "progressed", event.name = "progressed",
+        treat.name = "treat", id.name = "id",
+        outcome_type = "binary", effect_measure = "OR",
+        adverse_outcome = TRUE,
+        hr.threshold = c1, hr.consistency = c2,
+        pconsistency.threshold = pcons, fs.splits = fs_splits,
+        n.min = n_min_val, maxk = maxk_val,
+        use_lasso = TRUE, use_grf = TRUE, use_twostage = TRUE,
+        is.RCT = TRUE, seedit = seed, details = FALSE,
+        quiet = TRUE, plot.sg = FALSE,
+        parallel_args = list(plan = "sequential", workers = 1,
+                             show_message = FALSE)
+      )
     ),
     error = function(e) { fs_error <<- conditionMessage(e); NULL }
   )
@@ -388,13 +389,50 @@ res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "remove",
   .options.future = list(packages = c("forestsearch", "data.table"),
                          seed = TRUE)
 ) %dofuture% {
+  future::plan("sequential")
   run_sim(tasks$sim[i], tasks$n_total[i], tasks$has_hte[i],
           tasks$c1[i], tasks$c2[i], pcons)
 }
 sim_dt <- rbindlist(res, fill = TRUE)
 timings$simulation <- proc.time()[3] - t0
-cat(sprintf("Simulation: %.1f min | %d results | %d errors\n",
-    timings$simulation/60, nrow(sim_dt), sum(!is.na(sim_dt$error_msg))))
+
+# ── Post-hoc task-count check (.errorhandling = "remove" is silent) ──
+n_expected <- nrow(tasks)
+n_received <- nrow(sim_dt)
+if (n_received < n_expected) {
+  warning(sprintf(
+    "%d of %d tasks silently failed (%.1f%% loss). FPR/power estimates may be noisy.",
+    n_expected - n_received, n_expected,
+    100 * (1 - n_received / n_expected)
+  ))
+}
+cat(sprintf("Simulation: %.1f min | %d/%d results | %d internal errors\n",
+    timings$simulation / 60, n_received, n_expected,
+    sum(!is.na(sim_dt$error_msg))))
+
+# ── FSdata failure diagnostic ────────────────────────────────────
+n_fsdata_err <- sum(!is.na(sim_dt$error_msg))
+if (n_fsdata_err > 0) {
+  cat(sprintf(
+    "FSdata screening failures: %d / %d (%.2f%%)\n",
+    n_fsdata_err, n_received, 100 * n_fsdata_err / n_received
+  ))
+  # Break down by N to confirm concentration at small sample sizes
+  err_by_N <- sim_dt[!is.na(error_msg), .N, by = n_total]
+  tot_by_N <- sim_dt[, .N, by = n_total]
+  diag <- merge(tot_by_N, err_by_N, by = "n_total", all.x = TRUE,
+                suffixes = c("_total", "_err"))
+  diag[is.na(N_err), N_err := 0L]
+  diag[, pct := round(100 * N_err / N_total, 2)]
+  cat("  By sample size:\n")
+  for (r in seq_len(nrow(diag))) {
+    cat(sprintf("    N = %d: %d / %d (%.2f%%)\n",
+                diag$n_total[r], diag$N_err[r],
+                diag$N_total[r], diag$pct[r]))
+  }
+  cat("  (Cox-LASSO screening on binary Surv(y,y) data;\n")
+  cat("   resolved when forestsearch() supports GLM natively in v0.2.0)\n")
+}
 ```
 
 
@@ -720,10 +758,15 @@ leff_cal <- calibrate_L_eff(
 
 print(leff_cal)
 
+# Verify lm() and calibrate_L_eff() agree
+cat(sprintf("\nConsistency check: lm() C=%.4f alpha=%.4f vs calibrate_L_eff() C=%.4f alpha=%.4f\n",
+            C_fit, alpha_fit, leff_cal$C, leff_cal$alpha))
+
 # Save calibration to .rds for downstream documents (S1)
+# Use calibrate_L_eff() output (the canonical package function)
 save_leff_calibration(
-  C = C_fit,
-  alpha = alpha_fit,
+  C = leff_cal$C,
+  alpha = leff_cal$alpha,
   n_min = n_min_val,
   outcome_type = "binary",
   cal_data = cal_input,

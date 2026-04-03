@@ -110,6 +110,17 @@ names.  This version calls \code{\link{simulate_from_dgm}} and accepts
 explicit column-name parameters, making it applicable to any DGM built
 with \code{\link{generate_aft_dgm_flex}}.
 }
+\section{GLM Parameters}{
+
+GLM-specific parameters (\code{outcome_type}, \code{effect_measure},
+\code{offset.name}) must be passed inside \code{fs_params}, not as
+top-level arguments.  They route only to the estimation step
+(\code{.extract_fs_estimates_gen}, \code{.extract_grf_estimates_gen}),
+not to \code{forestsearch()} itself, which uses Cox PH for subgroup
+identification in v0.1.x.  Passing these as top-level arguments will
+result in them being silently ignored.
+}
+
 \examples{
 \dontrun{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)

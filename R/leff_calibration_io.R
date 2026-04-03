@@ -51,6 +51,18 @@ save_leff_calibration <- function(C, alpha, n_min,
                                    output_dir = NULL,
                                    extra = list()) {
 
+  # ── Input validation ───────────────────────────────────────────────────────
+
+  stopifnot(
+    "C must be a positive scalar" = is.numeric(C) && length(C) == 1 && C > 0,
+    "alpha must be a finite numeric scalar" =
+      is.numeric(alpha) && length(alpha) == 1 && is.finite(alpha),
+    "n_min must be a positive integer" =
+      is.numeric(n_min) && length(n_min) == 1 && n_min > 0,
+    "outcome_type must be a non-empty character string" =
+      is.character(outcome_type) && nzchar(outcome_type)
+  )
+
   if (is.null(output_dir)) {
     output_dir <- "_data"
   }
@@ -168,6 +180,10 @@ load_leff_calibration <- function(outcome_type,
 #'
 #' @export
 get_leff <- function(N, outcome_type, output_dir = NULL) {
+  stopifnot(
+    "N must be a positive numeric value" =
+      is.numeric(N) && all(N > 0)
+  )
   cal <- load_leff_calibration(outcome_type, output_dir,
                                 verbose = FALSE)
   cal$C * (N / cal$n_min)^cal$alpha
@@ -202,6 +218,13 @@ get_leff <- function(N, outcome_type, output_dir = NULL) {
 #' @export
 latest_rds <- function(prefix, output_dir = "_data",
                         verbose = TRUE) {
+  if (!dir.exists(output_dir)) {
+    if (verbose) {
+      message(sprintf("Directory '%s' does not exist.", output_dir))
+    }
+    return(NULL)
+  }
+
   pattern <- sprintf("^%s.*\\.rds$", prefix)
   files <- list.files(output_dir, pattern = pattern,
                        full.names = TRUE)
@@ -214,19 +237,36 @@ latest_rds <- function(prefix, output_dir = "_data",
     return(NULL)
   }
 
-  # Sort by modification time (most recent first)
-  mtimes <- file.mtime(files)
-  idx <- order(mtimes, decreasing = TRUE)
+  # Prefer date-stamp sort when filenames contain _YYYYMMDD;
+
+  # fall back to mtime (which can be unreliable on NFS / cloud mounts).
+  date_stamps <- regmatches(
+    basename(files),
+    regexpr("\\d{8}", basename(files))
+  )
+  has_dates <- length(date_stamps) == length(files) &&
+    all(nchar(date_stamps) == 8)
+
+  if (has_dates) {
+    idx <- order(date_stamps, decreasing = TRUE)
+    sort_label <- "date stamp"
+  } else {
+    mtimes <- file.mtime(files)
+    idx <- order(mtimes, decreasing = TRUE)
+    sort_label <- "modification time"
+  }
   best <- files[idx[1]]
 
   if (verbose) {
-    message(sprintf("Found %d file(s) matching '%s':", length(files), prefix))
+    message(sprintf(
+      "Found %d file(s) matching '%s' (sorted by %s):",
+      length(files), prefix, sort_label
+    ))
     for (i in seq_along(idx)) {
       flag <- if (i == 1) " [latest]" else ""
+      mt <- format(file.mtime(files[idx[i]]), "%Y-%m-%d %H:%M")
       message(sprintf("  %s  (%s)%s",
-                      basename(files[idx[i]]),
-                      format(mtimes[idx[i]], "%Y-%m-%d %H:%M"),
-                      flag))
+                      basename(files[idx[i]]), mt, flag))
     }
   }
 

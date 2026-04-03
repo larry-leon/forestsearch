@@ -477,6 +477,12 @@ if (recalibrate) {
     }
 
     fs_rows <- res_N[res_N$analysis == "FS", ]
+    if (nrow(fs_rows) < n_sims_recal) {
+      warning(sprintf(
+        "Calibration N=%d: %d of %d tasks silently failed.",
+        N_val, n_sims_recal - nrow(fs_rows), n_sims_recal
+      ))
+    }
     fpr_N <- mean(fs_rows$any.H, na.rm = TRUE)
     cal_results[[as.character(N_val)]] <- data.frame(
       N = N_val, sim_fpr = fpr_N, n_sims = nrow(fs_rows)
@@ -859,6 +865,12 @@ if (exists("frontier") && nrow(frontier) > 0) {
         if (nrow(fs_row) > 0) fs_row$any.H[1] else 0L
       }
       res_clean <- unlist(found[sapply(found, is.numeric)])
+      if (length(res_clean) < nsims_power) {
+        warning(sprintf(
+          "H1 N=%d: %d of %d tasks silently failed.",
+          N_val, nsims_power - length(res_clean), nsims_power
+        ))
+      }
       sim_pwr <- mean(res_clean, na.rm = TRUE)
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
       cat(sprintf("  N = %4d: Sim power = %.1f%% (%d/%d) | L_eff = %.2f\n",
@@ -1182,8 +1194,17 @@ if (run_validation) {
   }
 
   timings$validation <- proc.time()[3] - t0
-  cat(sprintf("Validation: %.1f min | %d results\n",
-      timings$validation / 60, nrow(val_results)))
+  n_expected_val <- nrow(val_tasks)
+  n_received_val <- nrow(val_results)
+  if (n_received_val < n_expected_val) {
+    warning(sprintf(
+      "Validation: %d of %d tasks silently failed (%.1f%% loss).",
+      n_expected_val - n_received_val, n_expected_val,
+      100 * (1 - n_received_val / n_expected_val)
+    ))
+  }
+  cat(sprintf("Validation: %.1f min | %d/%d results\n",
+      timings$validation / 60, n_received_val, n_expected_val))
 
 } else {
   timings$validation <- 0

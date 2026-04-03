@@ -3,17 +3,6 @@ title: "Null Threshold Search for Binary Outcomes"
 subtitle: "Approximation-Driven Selection with Simulation Validation"
 author: "Larry F. Leon"
 date: today
-format:
-  html:
-    embed-resources: true
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    code-fold: true
-    code-summary: "Show code"
-    theme: cosmo
-    fig-width: 9
-    fig-height: 6
 execute:
   warning: true
   message: true
@@ -447,6 +436,7 @@ if (recalibrate) {
       .options.future = list(
         packages = c("forestsearch", "data.table"), seed = TRUE)
     ) %dofuture% {
+      future::plan("sequential")
       seed <- sim_seed + (N_val * 1000L) + s
       df_null <- sim_binary_null(N_val, seed)
 
@@ -456,25 +446,27 @@ if (recalibrate) {
       #   - outcome.name / event.name: match the DGM
       #   - outcome_type / effect_measure: match the endpoint
       fs <- tryCatch(
-        forestsearch(
-          df.analysis = df_null,
-          confounders.name = confounders_name,
-          outcome.name = "progressed",
-          event.name = "progressed",
-          treat.name = "treat", id.name = "id",
-          outcome_type = "binary", effect_measure = "OR",
-          adverse_outcome = TRUE,
-          hr.threshold = c1_cal,
-          hr.consistency = c2_cal,
-          pconsistency.threshold = pcons, fs.splits = fs_splits,
-          n.min = n_min_val, maxk = maxk_val,
-          use_lasso = TRUE, use_grf = TRUE,
-          use_twostage = TRUE,
-          is.RCT = TRUE, seedit = seed,
-          details = FALSE, quiet = TRUE, plot.sg = FALSE,
-          parallel_args = list(plan = "sequential",
-                               workers = 1,
-                               show_message = FALSE)
+        suppressWarnings(
+          forestsearch(
+            df.analysis = df_null,
+            confounders.name = confounders_name,
+            outcome.name = "progressed",
+            event.name = "progressed",
+            treat.name = "treat", id.name = "id",
+            outcome_type = "binary", effect_measure = "OR",
+            adverse_outcome = TRUE,
+            hr.threshold = c1_cal,
+            hr.consistency = c2_cal,
+            pconsistency.threshold = pcons, fs.splits = fs_splits,
+            n.min = n_min_val, maxk = maxk_val,
+            use_lasso = TRUE, use_grf = TRUE,
+            use_twostage = TRUE,
+            is.RCT = TRUE, seedit = seed,
+            details = FALSE, quiet = TRUE, plot.sg = FALSE,
+            parallel_args = list(plan = "sequential",
+                                 workers = 1,
+                                 show_message = FALSE)
+          )
         ),
         error = function(e) NULL
       )
@@ -484,6 +476,12 @@ if (recalibrate) {
     }
 
     res_clean <- unlist(res_N[sapply(res_N, is.numeric)])
+    if (length(res_clean) < n_sims_recal) {
+      warning(sprintf(
+        "N=%d: %d of %d tasks silently failed.",
+        N_val, n_sims_recal - length(res_clean), n_sims_recal
+      ))
+    }
     fpr_N <- mean(res_clean, na.rm = TRUE)
     cal_results[[as.character(N_val)]] <- data.frame(
       N = N_val, sim_fpr = fpr_N,
@@ -898,26 +896,29 @@ if (exists("frontier") && nrow(frontier) > 0) {
           packages = c("forestsearch", "data.table"),
           seed = TRUE)
       ) %dofuture% {
+        future::plan("sequential")
         seed <- sim_seed + 100000L + (N_val * 1000L) + s
         df_h1 <- sim_binary_h1(N_val, seed)
         fs <- tryCatch(
-          forestsearch(
-            df.analysis = df_h1,
-            confounders.name = confounders_name,
-            outcome.name = "progressed", event.name = "progressed",
-            treat.name = "treat", id.name = "id",
-            outcome_type = "binary", effect_measure = "OR",
-            adverse_outcome = TRUE,
-            hr.threshold = c1_opt,
-            hr.consistency = c2_opt,
-            pconsistency.threshold = pcons, fs.splits = fs_splits,
-            n.min = n_min_val, maxk = maxk_val,
-            use_lasso = TRUE, use_grf = TRUE,
-            use_twostage = TRUE,
-            is.RCT = TRUE, seedit = seed,
-            details = FALSE, quiet = TRUE, plot.sg = FALSE,
-            parallel_args = list(plan = "sequential", workers = 1,
-                                 show_message = FALSE)
+          suppressWarnings(
+            forestsearch(
+              df.analysis = df_h1,
+              confounders.name = confounders_name,
+              outcome.name = "progressed", event.name = "progressed",
+              treat.name = "treat", id.name = "id",
+              outcome_type = "binary", effect_measure = "OR",
+              adverse_outcome = TRUE,
+              hr.threshold = c1_opt,
+              hr.consistency = c2_opt,
+              pconsistency.threshold = pcons, fs.splits = fs_splits,
+              n.min = n_min_val, maxk = maxk_val,
+              use_lasso = TRUE, use_grf = TRUE,
+              use_twostage = TRUE,
+              is.RCT = TRUE, seedit = seed,
+              details = FALSE, quiet = TRUE, plot.sg = FALSE,
+              parallel_args = list(plan = "sequential", workers = 1,
+                                   show_message = FALSE)
+            )
           ),
           error = function(e) NULL
         )
@@ -926,6 +927,12 @@ if (exists("frontier") && nrow(frontier) > 0) {
         as.integer(found)
       }
       res_clean <- unlist(found[sapply(found, is.numeric)])
+      if (length(res_clean) < nsims_power) {
+        warning(sprintf(
+          "H1 N=%d: %d of %d tasks silently failed.",
+          N_val, nsims_power - length(res_clean), nsims_power
+        ))
+      }
       sim_pwr <- mean(res_clean, na.rm = TRUE)
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
       cat(sprintf("  N = %4d: Sim power = %.1f%% (%d/%d) | L_eff = %.2f\n",
@@ -1245,6 +1252,7 @@ if (run_validation) {
     .options.future = list(
       packages = c("forestsearch", "data.table"), seed = TRUE)
   ) %dofuture% {
+    future::plan("sequential")
     N_val  <- val_tasks$N[i]
     sim_id <- val_tasks$sim[i]
     c1_val <- val_tasks$c1[i]
@@ -1254,22 +1262,24 @@ if (run_validation) {
     df_null <- sim_binary_null(N_val, seed)
 
     fs <- tryCatch(
-      forestsearch(
-        df.analysis = df_null,
-        confounders.name = confounders_name,
-        outcome.name = "progressed", event.name = "progressed",
-        treat.name = "treat", id.name = "id",
-        outcome_type = "binary", effect_measure = "OR",
-        adverse_outcome = TRUE,
-        hr.threshold = c1_val, hr.consistency = c2_val,
-        pconsistency.threshold = pcons, fs.splits = fs_splits,
-        n.min = n_min_val, maxk = maxk_val,
-        use_lasso = TRUE, use_grf = TRUE,
-        use_twostage = TRUE,
-        is.RCT = TRUE, seedit = seed,
-        details = FALSE, quiet = TRUE, plot.sg = FALSE,
-        parallel_args = list(plan = "sequential", workers = 1,
-                             show_message = FALSE)
+      suppressWarnings(
+        forestsearch(
+          df.analysis = df_null,
+          confounders.name = confounders_name,
+          outcome.name = "progressed", event.name = "progressed",
+          treat.name = "treat", id.name = "id",
+          outcome_type = "binary", effect_measure = "OR",
+          adverse_outcome = TRUE,
+          hr.threshold = c1_val, hr.consistency = c2_val,
+          pconsistency.threshold = pcons, fs.splits = fs_splits,
+          n.min = n_min_val, maxk = maxk_val,
+          use_lasso = TRUE, use_grf = TRUE,
+          use_twostage = TRUE,
+          is.RCT = TRUE, seedit = seed,
+          details = FALSE, quiet = TRUE, plot.sg = FALSE,
+          parallel_args = list(plan = "sequential", workers = 1,
+                               show_message = FALSE)
+        )
       ),
       error = function(e) NULL
     )
@@ -1281,9 +1291,20 @@ if (run_validation) {
                any_found = as.integer(found))
   }
 
+  # ── Post-hoc task-count check ──────────────────────────────────
+  n_expected_val <- nrow(val_tasks)
+  n_received_val <- nrow(val_results)
+  if (n_received_val < n_expected_val) {
+    warning(sprintf(
+      "Validation: %d of %d tasks silently failed (%.1f%% loss).",
+      n_expected_val - n_received_val, n_expected_val,
+      100 * (1 - n_received_val / n_expected_val)
+    ))
+  }
+
   timings$validation <- proc.time()[3] - t0
-  cat(sprintf("Validation: %.1f min | %d results\n",
-      timings$validation / 60, nrow(val_results)))
+  cat(sprintf("Validation: %.1f min | %d/%d results\n",
+      timings$validation / 60, n_received_val, n_expected_val))
 
 } else {
   timings$validation <- 0

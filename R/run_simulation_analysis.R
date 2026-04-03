@@ -21,6 +21,12 @@
 # Default parameter lists
 # =============================================================================
 
+# Null-coalescing helper (local to this file).
+# Defined here rather than importing rlang::%||% because this file
+# runs inside parallel workers where rlang may not be loaded.
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+
 #' Default ForestSearch parameters (general)
 #' @keywords internal
 default_sim_params <- function() {
@@ -125,6 +131,15 @@ default_grf_params_gen <- function() {
 #'
 #' @seealso \code{\link{simulate_from_dgm}},
 #'   \code{\link{generate_aft_dgm_flex}}, \code{\link{setup_gbsg_dgm}}
+#'
+#' @section GLM Parameters:
+#' GLM-specific parameters (\code{outcome_type}, \code{effect_measure},
+#' \code{offset.name}) must be passed inside \code{fs_params}, not as
+#' top-level arguments.  They route only to the estimation step
+#' (\code{.extract_fs_estimates_gen}, \code{.extract_grf_estimates_gen}),
+#' not to \code{forestsearch()} itself, which uses Cox PH for subgroup
+#' identification in v0.1.x.  Passing these as top-level arguments will
+#' result in them being silently ignored.
 #'
 #' @importFrom data.table data.table rbindlist
 #' @importFrom survival coxph Surv
@@ -313,6 +328,8 @@ run_simulation_analysis <- function(
   }
 
   if (run_grf) {
+    # Resolve id_name from merged GRF params (falls back to "id")
+    id_name_resolved <- grf_merged$id.name %||% "id"
     results_list[["GRF"]] <- cbind(df_pop,
       .run_grf_analysis_gen(
         data = sim_data, confounders_name = confounders_name,
@@ -323,7 +340,8 @@ run_simulation_analysis <- function(
         label = "GRF", verbose = show_verbose, debug = debug,
         outcome_type   = fs_params$outcome_type,
         effect_measure = fs_params$effect_measure,
-        offset_name    = fs_params$offset.name
+        offset_name    = fs_params$offset.name,
+        id_name        = id_name_resolved
       ))
   }
 
@@ -530,8 +548,8 @@ run_simulation_analysis <- function(
 
   # ── Subgroup effect estimates ────────────────────────────────────────────
   if (is_glm) {
-    if (out$size.H  > 10) out$hr.H.hat  <- .glm_effect(subset(df, sg_hat == 1))
-    if (out$size.Hc > 10) out$hr.Hc.hat <- .glm_effect(subset(df, sg_hat == 0))
+    if (out$size.H  > 10) out$hr.H.hat  <- .glm_effect(df[df$sg_hat == 1, ])
+    if (out$size.Hc > 10) out$hr.Hc.hat <- .glm_effect(df[df$sg_hat == 0, ])
   } else {
     .cox_hr <- function(sub_df) tryCatch(
       exp(survival::coxph(
@@ -541,8 +559,8 @@ run_simulation_analysis <- function(
       error = function(e) NA_real_
     )
 
-    if (out$size.H  > 10) out$hr.H.hat  <- .cox_hr(subset(df, sg_hat == 1))
-    if (out$size.Hc > 10) out$hr.Hc.hat <- .cox_hr(subset(df, sg_hat == 0))
+    if (out$size.H  > 10) out$hr.H.hat  <- .cox_hr(df[df$sg_hat == 1, ])
+    if (out$size.Hc > 10) out$hr.Hc.hat <- .cox_hr(df[df$sg_hat == 0, ])
   }
 
   # ── AHR and CDE (survival-only estimands) ────────────────────────────────
@@ -603,7 +621,8 @@ run_simulation_analysis <- function(
     cox_formula, cox_formula_adj,
     outcome_name, event_name, treat_name, harm_col,
     label, verbose, debug,
-    outcome_type = NULL, effect_measure = NULL, offset_name = NULL
+    outcome_type = NULL, effect_measure = NULL, offset_name = NULL,
+    id_name = "id"
 ) {
   grf_fun <- tryCatch(
     get("grf.subg.harm.survival", mode = "function",
@@ -620,7 +639,7 @@ run_simulation_analysis <- function(
       treat_name = treat_name, harm_col = harm_col,
       analysis = label, verbose = verbose, debug = debug,
       outcome_type = outcome_type, effect_measure = effect_measure,
-      offset_name = offset_name
+      offset_name = offset_name, id_name = id_name
     ))
   }
 
@@ -644,7 +663,7 @@ run_simulation_analysis <- function(
     treat_name = treat_name, harm_col = harm_col,
     analysis = label, verbose = verbose, debug = debug,
     outcome_type = outcome_type, effect_measure = effect_measure,
-    offset_name = offset_name
+    offset_name = offset_name, id_name = id_name
   )
 }
 
@@ -659,7 +678,8 @@ run_simulation_analysis <- function(
     cox_formula, cox_formula_adj,
     outcome_name, event_name, treat_name, harm_col,
     analysis, verbose, debug,
-    outcome_type = NULL, effect_measure = NULL, offset_name = NULL
+    outcome_type = NULL, effect_measure = NULL, offset_name = NULL,
+    id_name = "id"
 ) {
 
   # ── Detect GLM mode ──────────────────────────────────────────────────────
@@ -781,9 +801,9 @@ run_simulation_analysis <- function(
   # AHR / CDE (survival-only)
   if (!is_glm) {
     .merge_sg <- function(base_df, sg_df, cols) {
-      if ("id" %in% names(base_df) && "id" %in% names(sg_df))
-        merge(base_df[, c("id", cols), drop = FALSE],
-              sg_df[, c("id", "sg_hat")], by = "id", all.y = TRUE)
+      if (id_name %in% names(base_df) && id_name %in% names(sg_df))
+        merge(base_df[, c(id_name, cols), drop = FALSE],
+              sg_df[, c(id_name, "sg_hat")], by = id_name, all.y = TRUE)
       else if (nrow(base_df) == nrow(sg_df)) {
         base_df$sg_hat <- sg_df$sg_hat; base_df
       } else NULL
@@ -808,9 +828,9 @@ run_simulation_analysis <- function(
   # True-subgroup metrics
   if (harm_col %in% names(df)) {
     .merge_sg_class <- function(base_df, sg_df, hcol) {
-      if ("id" %in% names(base_df) && "id" %in% names(sg_df))
-        merge(base_df[, c("id", hcol), drop = FALSE],
-              sg_df[, c("id", "sg_hat")], by = "id", all.y = TRUE)
+      if (id_name %in% names(base_df) && id_name %in% names(sg_df))
+        merge(base_df[, c(id_name, hcol), drop = FALSE],
+              sg_df[, c(id_name, "sg_hat")], by = id_name, all.y = TRUE)
       else if (nrow(base_df) == nrow(sg_df)) {
         base_df$sg_hat <- sg_df$sg_hat; base_df
       } else NULL
@@ -855,6 +875,3 @@ run_simulation_analysis <- function(
 
   out
 }
-
-# Null-coalescing helper (local to this file)
-`%||%` <- function(a, b) if (!is.null(a)) a else b

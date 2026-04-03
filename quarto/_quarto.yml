@@ -1,32 +1,31 @@
-# quarto/_quarto.yml
-#
-# Minimal Quarto project config for forestsearch extended documentation.
-# Place this file in the quarto/ subdirectory alongside the .qmd files.
-#
-# Render all documents (from repo root):
-#   quarto render quarto/
-#
-# Render a single document:
-#   quarto render quarto/calibration_survival_fourway.qmd
-#   quarto render quarto/selection_binary_frontier.qmd
-#
-# Each .qmd has embed-resources: true in its own front matter, so every
-# output .html is fully self-contained --- no external assets required.
-# Share by email, open directly in a browser, or host on any static server.
-#
-# Directory layout:
-#   quarto/
-#   +-- _output/   HTML renders (managed by Quarto, disposable)
-#   +-- _data/     .rds calibration & simulation bundles (persistent, precious)
-#
-# The _data/ directory stores computationally expensive results:
-#   - calibration_binary_leff.rds      (C1, hours of H0 sims)
-#   - calibration_survival_leff.rds    (C2/C3, hours of H0 sims)
-#   - calibration_survival_fourway_*.rds  (C2, all sim results)
-#
-# These .rds files are loaded by selection and validation documents
-# via load_leff_calibration() from R/leff_calibration_io.R.
-
 project:
-  type: default       # NOT "website" --- each file renders independently
-  output-dir: _output # quarto/_output/*.html (Quarto-managed)
+  title: "forestsearch GLM Calibration"
+  output-dir: _output
+
+# ── Shared format (inherited by all .qmd files) ────────────────
+# Document-specific overrides (title, subtitle, fig dimensions,
+# execute settings) go in each .qmd's YAML header.
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    number-sections: true
+    embed-resources: true
+    theme:
+      light: cosmo
+    html-math-method: mathjax
+    smooth-scroll: true
+    title-block-banner: "#2C3E50"
+    title-block-banner-color: white
+    mainfont: "Palatino, Georgia, serif"
+    monofont: "Fira Code, JetBrains Mono, Consolas, monospace"
+    fontsize: "1.05em"
+    linestretch: 1.45
+    link-external-newwindow: true
+    code-fold: true
+    code-tools: true
+    anchor-sections: true
+    fig-responsive: true
+    fig-width: 9
+    fig-height: 6
