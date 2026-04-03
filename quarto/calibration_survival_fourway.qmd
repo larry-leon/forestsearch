@@ -24,17 +24,26 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-nsims_alt  <- 20L        # H1 sims (use 500+ for production)
-nsims_null <- 20L        # H0 sims (use 500+ for production)
+# ~ 400/hr linux
+nsims_alt  <- 100L        # H1 sims (use 500+ for production)
+nsims_null <- 300L        # H0 sims (use 500+ for production)
 sim_seed   <- 8316951L
+n_workers  <- ceiling(0.95 * max(1L,
+  parallel::detectCores(logical = FALSE) - 1L))
 
 # ── Output ──────────────────────────────────────────────────────
 output_dir <- "_data"
 
+# ── FPR target ─────────────────────────────────────────────────
+fpr_target <- 0.12
+
 # ── DGM / outcome parameters ──────────────────────────────────
 prop_cens  <- 0.46       # GBSG censoring proportion
-p_harm     <- 0.13       # harm subgroup prevalence (metadata only)
+p_harm     <- 0.13       # harm subgroup prevalence
 n_min_val  <- 60L        # n.min = reference subgroup size for P1
+hr_h1      <- 2.0        # target HR for harm subgroup under H1
+analysis_time <- 84L     # GBSG analysis time (months)
+cens_adjust   <- log(1.5)
 
 # ── ForestSearch parameters ───────────────────────────────────
 confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
@@ -42,6 +51,12 @@ pcons      <- 0.90       # pconsistency.threshold
 fs_splits  <- 400L
 maxk_val   <- 2L
 n_sample   <- 700L       # sample size for main sims
+
+# ── Approximation display ────────────────────────────────────
+# n_H values for the per-subgroup approximation table
+n_H_values <- c(60, 80, 91, 100, 120)
+# Reference subgroup size for power curves (expected n_H at n_sample)
+n_sg_ref   <- round(p_harm * n_sample)   # 0.13 * 700 = 91
 
 # ── L_eff calibration ────────────────────────────────────────
 N_cal_values <- c(300, 500, 700)
@@ -205,17 +220,14 @@ library(future)
 
 # L_eff save/load helpers
 #source(here::here("R", "leff_calibration_io.R"))
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("H1 sims:", nsims_alt, "| H0 sims:", nsims_null, "\n")
 ```
 
 ```{r timing-init}
 timings <- list()
 t_vignette_start <- proc.time()
-```
-
-```{r setup-parallel}
-n_workers <- min(parallel::detectCores() - 1, 120)
-plan(multisession, workers = n_workers)
-cat("Using", n_workers, "parallel workers\n")
 ```
 
 
@@ -230,9 +242,9 @@ while the complement benefits ($\theta^\dagger(H^c) < 1$).
 ```{r create-dgms}
 t0 <- proc.time()[3]
 
-# Alternative: calibrate for HR(H) = 2.0
+# Alternative: calibrate for HR(H) = hr_h1 (from setup)
 k_inter_cox <- calibrate_k_inter(
-  target_hr_harm = 2.0,
+  target_hr_harm = hr_h1,
   model = "alt",
   k_treat = 1.0,
   cens_type = "weibull",
@@ -245,7 +257,7 @@ dgm_alt <- setup_gbsg_dgm(
 )
 dgm_alt <- compute_dgm_cde(dgm_alt)
 
-cat("\nCalibrated Alternative DGM:\n")
+cat(sprintf("\nCalibrated Alternative DGM (target HR(H) = %.1f):\n", hr_h1))
 cat("  HR(H):", round(dgm_alt$hr_H_true, 3), "\n")
 cat("  HR(Hc):", round(dgm_alt$hr_Hc_true, 3), "\n")
 cat("  HR(ITT):", round(dgm_alt$hr_causal, 3), "\n")
@@ -267,9 +279,7 @@ timings$dgm <- proc.time()[3] - t0
 ```{r approx-cox}
 #| code-fold: false
 
-# Subgroup characteristics from the DGM (prop_cens set in setup)
-n_H_values <- c(60, 80, 91, 100, 120)
-
+# n_H_values defined in setup chunk
 cat("=== (D) Cox Approximation ===\n")
 cat("Using compute_detection_probability() from forestsearch\n\n")
 
@@ -287,13 +297,14 @@ approx_cox$P_theta_1.0 <- sapply(approx_cox$n_H, function(n) {
   )
 })
 
-# Power: theta = 2.0
-approx_cox$P_theta_2.0 <- sapply(approx_cox$n_H, function(n) {
-  compute_detection_probability(
-    theta = 2.0, n_sg = n, prop_cens = prop_cens,
-    hr_threshold = 1.25, hr_consistency = 1.0
-  )
-})
+# Power: theta = hr_h1
+approx_cox[[sprintf("P_theta_%.1f", hr_h1)]] <-
+  sapply(approx_cox$n_H, function(n) {
+    compute_detection_probability(
+      theta = hr_h1, n_sg = n, prop_cens = prop_cens,
+      hr_threshold = 1.25, hr_consistency = 1.0
+    )
+  })
 
 # Beneficial null: theta = 0.75
 approx_cox$P_theta_0.75 <- sapply(approx_cox$n_H, function(n) {
@@ -333,9 +344,10 @@ approx_glm$P_theta_1.0 <- sapply(approx_glm$d_eff, function(d) {
   p_detect_glm(1.0, d, 1.25, 1.0)
 })
 
-approx_glm$P_theta_2.0 <- sapply(approx_glm$d_eff, function(d) {
-  p_detect_glm(2.0, d, 1.25, 1.0)
-})
+approx_glm[[sprintf("P_theta_%.1f", hr_h1)]] <-
+  sapply(approx_glm$d_eff, function(d) {
+    p_detect_glm(hr_h1, d, 1.25, 1.0)
+  })
 
 approx_glm$P_theta_0.75 <- sapply(approx_glm$d_eff, function(d) {
   p_detect_glm(0.75, d, 1.25, 1.0)
@@ -353,21 +365,23 @@ approx_comp <- data.frame(
   d = approx_cox$d,
   `Cox P(1.0)` = round(approx_cox$P_theta_1.0, 4),
   `GLM P(1.0)` = round(approx_glm$P_theta_1.0, 4),
-  `Cox P(2.0)` = round(approx_cox$P_theta_2.0, 4),
-  `GLM P(2.0)` = round(approx_glm$P_theta_2.0, 4),
+  `Cox P(hr_h1)` = round(approx_cox[[sprintf("P_theta_%.1f", hr_h1)]], 4),
+  `GLM P(hr_h1)` = round(approx_glm[[sprintf("P_theta_%.1f", hr_h1)]], 4),
   `Cox P(0.75)` = round(approx_cox$P_theta_0.75, 4),
   `GLM P(0.75)` = round(approx_glm$P_theta_0.75, 4),
   check.names = FALSE
 )
+names(approx_comp)[5] <- sprintf("Cox P(%.1f)", hr_h1)
+names(approx_comp)[6] <- sprintf("GLM P(%.1f)", hr_h1)
 
 gt(approx_comp) |>
   tab_header(
     title = "(B) vs (D): GLM and Cox Approximations",
     subtitle = "d_eff(Poisson) = d(Cox) = events. Values should match."
   ) |>
-  tab_spanner(label = "Type-I Error (OR=1)", columns = 3:4) |>
-  tab_spanner(label = "Power (OR=2)", columns = 5:6) |>
-  tab_spanner(label = "Beneficial (OR=0.75)", columns = 7:8) |>
+  tab_spanner(label = "Type-I Error (HR=1)", columns = 3:4) |>
+  tab_spanner(label = sprintf("Power (HR=%.1f)", hr_h1), columns = 5:6) |>
+  tab_spanner(label = "Beneficial (HR=0.75)", columns = 7:8) |>
   tab_source_note("c1=1.25, c2=1.0, censoring=46%")
 ```
 
@@ -378,21 +392,22 @@ gt(approx_comp) |>
 #| fig-height: 6
 #| fig-cap: "Power curves from both approximations. The two curves should be indistinguishable (validating d_eff = d)."
 
-or_seq <- seq(0.5, 3.0, by = 0.05)
-n_sg <- 91  # Expected n_H for pH=13%, N=700
-d <- round(d_eff_survival(n_sg, prop_cens))
+# n_sg_ref and d defined from setup-chunk scalars
+d_ref <- round(d_eff_survival(n_sg_ref, prop_cens))
 
-cox_curve <- sapply(or_seq, function(or) {
-  compute_detection_probability(or, n_sg, prop_cens, 1.25, 1.0)
+hr_seq <- seq(0.5, 3.0, by = 0.05)
+
+cox_curve <- sapply(hr_seq, function(hr) {
+  compute_detection_probability(hr, n_sg_ref, prop_cens, 1.25, 1.0)
 })
-glm_curve <- sapply(or_seq, function(or) {
-  p_detect_glm(or, d, 1.25, 1.0)
+glm_curve <- sapply(hr_seq, function(hr) {
+  p_detect_glm(hr, d_ref, 1.25, 1.0)
 })
 
 curve_df <- data.frame(
-  OR = rep(or_seq, 2),
+  OR = rep(hr_seq, 2),
   P_detect = c(cox_curve, glm_curve),
-  Method = rep(c("(D) Cox Approx", "(B) GLM Approx"), each = length(or_seq))
+  Method = rep(c("(D) Cox Approx", "(B) GLM Approx"), each = length(hr_seq))
 )
 
 ggplot(curve_df, aes(x = OR, y = P_detect, colour = Method, linetype = Method)) +
@@ -404,7 +419,8 @@ ggplot(curve_df, aes(x = OR, y = P_detect, colour = Method, linetype = Method)) 
   labs(x = expression(theta^dagger*(H)),
        y = "P(detect H)",
        title = "Approximation Comparison: Cox vs GLM",
-       subtitle = sprintf("n(H)=%d, d=%d events, c1=1.25, c2=1.0", n_sg, d)) +
+       subtitle = sprintf("n(H)=%d, d=%d events, c1=1.25, c2=1.0",
+                          n_sg_ref, d_ref)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "top", plot.title = element_text(face = "bold"))
 ```
@@ -416,8 +432,9 @@ ggplot(curve_df, aes(x = OR, y = P_detect, colour = Method, linetype = Method)) 
 
 ```{r single-trial}
 sim_data <- simulate_from_dgm(
-  dgm = dgm_alt, n = 700, rand_ratio = 1,
-  seed = 1, analysis_time = 84, cens_adjust = log(1.5)
+  dgm = dgm_alt, n = n_sample, rand_ratio = 1,
+  seed = 1, analysis_time = analysis_time,
+  cens_adjust = cens_adjust
 )
 sim_data$id <- seq_len(nrow(sim_data))
 
@@ -475,15 +492,19 @@ fs_params_irr <- modifyList(fs_params_base, list(
 ))
 
 sim_config <- list(
-  n_sims_alt = nsims_alt, n_sims_null = nsims_null,
-  n_sample = n_sample, analysis_time = 84,
-  seed_base = sim_seed, cens_adjust = log(1.5)
+  n_sims_alt = nsims_alt,
+  n_sims_null = nsims_null,
+  n_sample = n_sample,
+  analysis_time = analysis_time,
+  seed_base = sim_seed,
+  cens_adjust = cens_adjust
 )
 
 cat("Simulation config:\n")
 cat("  H1 sims:", sim_config$n_sims_alt, "\n")
 cat("  H0 sims:", sim_config$n_sims_null, "\n")
 cat("  N:", sim_config$n_sample, "\n")
+cat("  analysis_time:", sim_config$analysis_time, "months\n")
 cat("  n.min:", fs_params_base$n.min, "(paper default)\n")
 ```
 
@@ -686,8 +707,8 @@ irr_h1 <- results_alt_irr[results_alt_irr$analysis == "FS", ]
 cox_h0 <- results_null_cox[results_null_cox$analysis == "FS", ]
 irr_h0 <- results_null_irr[results_null_irr$analysis == "FS", ]
 
-# Approximation at n_H = 60
-n_H_dgm <- n_min_val  # from setup
+# Approximation at n_H = n_min_val (from setup)
+n_H_dgm <- n_min_val
 d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
 
 four_way <- data.frame(
@@ -706,24 +727,27 @@ four_way <- data.frame(
   ),
   `P(theta=0.75)` = c(
     round(compute_detection_probability(0.75, n_H_dgm, prop_cens, 1.25, 1.0), 3),
-    NA,  # Not directly measured
+    NA,
     round(p_detect_glm(0.75, d_dgm, 1.25, 1.0), 3),
     NA
   ),
-  `P(theta=2.0)` = c(
-    round(compute_detection_probability(2.0, n_H_dgm, prop_cens, 1.25, 1.0), 3),
+  `P(theta=hr_h1)` = c(
+    round(compute_detection_probability(hr_h1, n_H_dgm, prop_cens, 1.25, 1.0), 3),
     round(mean(cox_h1$any.H), 3),
-    round(p_detect_glm(2.0, d_dgm, 1.25, 1.0), 3),
+    round(p_detect_glm(hr_h1, d_dgm, 1.25, 1.0), 3),
     round(mean(irr_h1$any.H), 3)
   ),
   check.names = FALSE
 )
+names(four_way)[5] <- sprintf("P(theta=%.1f)", hr_h1)
 
 gt(four_way) |>
   tab_header(
     title = md("**Four-Way Comparison: Approximation vs Simulation**"),
-    subtitle = sprintf("n(H)=%d, d=%d events, c1=1.25, c2=1.0", n_H_dgm, d_dgm)
+    subtitle = sprintf("n(H)=%d, d=%d events, c1=1.25, c2=1.0",
+                       n_H_dgm, d_dgm)
   ) |>
+  sub_missing(missing_text = "\u2014") |>
   tab_source_note(md(paste0(
     "**Key:** (B)=(D) validates the GLM variance formula. ",
     "(A)=(C) validates the GLM pipeline. ",
@@ -786,13 +810,15 @@ grows with $N$.
 ## Multi-N Null Simulations for Calibration
 
 To calibrate $L_{\text{eff}}$ we need H0 simulations at
-multiple sample sizes.  We run a focused set at
-$N \in \{300, 500, 700, 1000\}$.
+multiple sample sizes ($N \in \{`r paste(N_cal_values, collapse = ", ")`\}$,
+defined in the setup chunk).
 
 ```{r null-multi-N}
 n_sims_cal <- nsims_null  # use same count as main sims
 
 cat("Running multi-N null calibration simulations...\n")
+cat(sprintf("N values: %s | Sims per N: %d\n",
+            paste(N_cal_values, collapse = ", "), n_sims_cal))
 t0 <- proc.time()[3]
 
 cal_results <- list()
@@ -861,6 +887,9 @@ print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")])
 # Implied L_eff
 cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
 
+cat("=== Implied L_eff ===\n")
+print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "L_eff")])
+
 # Filter to valid rows (sim_fpr > 0 and P1 > 0)
 cal_valid <- cal_df[cal_df$sim_fpr > 0 & cal_df$P1 > 0 &
                      is.finite(cal_df$L_eff), ]
@@ -877,7 +906,6 @@ if (nrow(cal_valid) >= 2) {
   C_fit <- leff_cal$C
   alpha_fit <- leff_cal$alpha
 
-  # Plot
   N_pred <- seq(200, 1200, by = 5)
   pred_curve <- data.frame(
     N = N_pred,
@@ -894,15 +922,23 @@ if (nrow(cal_valid) >= 2) {
       labs(x = "Total Sample Size N",
            y = expression(L[eff]),
            title = expression(L[eff] * " Calibration: GBSG Survival DGM"),
-           subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f",
-                               C_fit, n_min_val, alpha_fit)) +
+           subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f  (R-sq = %.3f)",
+                               C_fit, n_min_val, alpha_fit,
+                               leff_cal$r_squared)) +
       theme_minimal(base_size = 12) +
       theme(plot.title = element_text(face = "bold"))
   )
+
+  cat(sprintf("\nFitted model: L_eff = %.3f * (N/%d)^%.3f\n",
+              C_fit, n_min_val, alpha_fit))
+  for (N_val in N_cal_values) {
+    cat(sprintf("  N = %4d: L_eff = %.2f\n", N_val,
+                C_fit * (N_val / n_min_val)^alpha_fit))
+  }
 } else {
   cat("Insufficient valid calibration points (need >= 2).\n")
   cat("Using fallback L_eff = 1 (no correction).\n")
-  C_fit <- 1 / (700 / n_min_val)
+  C_fit <- 1 / (n_sample / n_min_val)
   alpha_fit <- 1
 }
 ```
@@ -911,6 +947,7 @@ if (nrow(cal_valid) >= 2) {
 ## Save $L_{\text{eff}}$ Calibration
 
 ```{r save-leff}
+# Save calibration to .rds for downstream documents (S2)
 save_leff_calibration(
   C = C_fit,
   alpha = alpha_fit,
@@ -918,10 +955,30 @@ save_leff_calibration(
   outcome_type = "survival",
   cal_data = cal_df,
   dgm_description = paste(
-    "GBSG survival DGM, 7 confounders",
-    "(z1-z5, size, grade3),",
+    "GBSG survival DGM,", length(confounders_base), "confounders",
+    paste0("(", paste(confounders_base, collapse = ", "), "),"),
     sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
-  n_sims_per_N = n_sims_cal
+  n_sims_per_N = n_sims_cal,
+  output_dir = output_dir,
+  extra = list(
+    # ForestSearch config (S2 should match these)
+    confounders_base = confounders_base,
+    prop_cens        = prop_cens,
+    p_harm           = p_harm,
+    hr_h1            = hr_h1,
+    pcons            = pcons,
+    fs_splits        = fs_splits,
+    maxk_val         = maxk_val,
+    n_min_val        = n_min_val,
+    analysis_time    = analysis_time,
+    cens_adjust      = cens_adjust,
+    fpr_target       = fpr_target,
+    N_cal_values     = N_cal_values,
+    # Grid range validated for L_eff threshold-independence
+    # (not swept in C2; C3 provides this via its grid sweep)
+    c1_range = c(1.00, 1.50),
+    c2_range = c(0.90, 1.25)
+  )
 )
 ```
 
@@ -932,7 +989,7 @@ Both this document (C2) and `calibration_survival_leff_grid.qmd` (C3)
 save to `calibration_survival_leff.rds` via
 `save_leff_calibration(outcome_type = "survival")`.
 **C2 is the primary source** because it uses the full null simulation
-(up to 20K replicates).  C3 uses fewer replicates (500) and is
+(up to 20K replicates).  C3 uses fewer replicates and is
 designed as a faster grid sweep.  If both are rendered, the
 last-rendered file wins.  Render C2 last, or set
 `recalibrate = FALSE` in C3 to skip its calibration.
@@ -944,14 +1001,14 @@ last-rendered file wins.  Render C2 last, or set
 ```{r corrected-four-way}
 #| tbl-cap: "Four-way comparison with L_eff-corrected null approximation.  The corrected row should align with simulation."
 
-L_eff_700 <- C_fit * (700 / n_min_val)^alpha_fit
+L_eff_main <- C_fit * (n_sample / n_min_val)^alpha_fit
 
 P1_cox <- compute_detection_probability(
   1.0, n_H_dgm, prop_cens, 1.25, 1.0)
 P1_glm <- p_detect_glm(1.0, d_dgm, 1.25, 1.0)
 
-fpr_corr_cox <- 1 - (1 - P1_cox)^L_eff_700
-fpr_corr_glm <- 1 - (1 - P1_glm)^L_eff_700
+fpr_corr_cox <- 1 - (1 - P1_cox)^L_eff_main
+fpr_corr_glm <- 1 - (1 - P1_glm)^L_eff_main
 
 four_way_corr <- data.frame(
   Calculation = c(
@@ -970,39 +1027,42 @@ four_way_corr <- data.frame(
     round(fpr_corr_glm, 3),
     round(mean(irr_h0$any.H), 3)
   ),
-  `P(theta=2.0)` = c(
-    round(compute_detection_probability(2.0, n_H_dgm, prop_cens, 1.25, 1.0), 3),
+  `P(theta=hr_h1)` = c(
+    round(compute_detection_probability(hr_h1, n_H_dgm, prop_cens, 1.25, 1.0), 3),
     NA,
     round(mean(cox_h1$any.H), 3),
-    round(p_detect_glm(2.0, d_dgm, 1.25, 1.0), 3),
+    round(p_detect_glm(hr_h1, d_dgm, 1.25, 1.0), 3),
     NA,
     round(mean(irr_h1$any.H), 3)
   ),
   check.names = FALSE
 )
+names(four_way_corr)[3] <- sprintf("P(theta=%.1f)", hr_h1)
 
 gt(four_way_corr) |>
   tab_header(
     title = md("**Four-Way Comparison with L_eff Correction**"),
-    subtitle = sprintf("N=700, n(H)=%d, d=%d, L_eff=%.2f",
-                        n_H_dgm, d_dgm, L_eff_700)
+    subtitle = sprintf("N=%d, n(H)=%d, d=%d, L_eff=%.2f",
+                        n_sample, n_H_dgm, d_dgm, L_eff_main)
   ) |>
+  sub_missing(missing_text = "\u2014") |>
   tab_row_group(label = "GLM (Poisson+offset)",
     rows = grepl("GLM|\\(A\\)|\\(B\\)", Calculation)) |>
   tab_row_group(label = "Cox PH",
     rows = grepl("Cox|\\(C\\)|\\(D\\)", Calculation)) |>
   tab_source_note(md(paste0(
     "**Corrected rows (D', B')** should match simulation rows (C, A). ",
-    "Power (theta=2.0) does not need correction.")))
+    sprintf("Power (theta=%.1f) does not need correction.", hr_h1))))
 ```
 
 
 ## Correction Assessment
 
 ```{r correction-assessment}
-cat("=== L_eff Correction Assessment (N = 700) ===\n\n")
-cat(sprintf("L_eff at N=700: %.2f\n", L_eff_700))
-cat(sprintf("  (i.e., %.1f effectively independent candidates)\n\n", L_eff_700))
+cat(sprintf("=== L_eff Correction Assessment (N = %d) ===\n\n", n_sample))
+cat(sprintf("L_eff at N=%d: %.2f\n", n_sample, L_eff_main))
+cat(sprintf("  (i.e., %.1f effectively independent candidates)\n\n",
+            L_eff_main))
 
 cat("Cox PH (H0):\n")
 cat(sprintf("  Uncorrected P1:    %.3f\n", P1_cox))
@@ -1030,9 +1090,9 @@ cat(sprintf("  Sim/Corrected:     %.2f\n",
 cat("=== Cross-DGM L_eff Comparison ===\n\n")
 cat("The L_eff calibration depends on the candidate generation\n")
 cat("process, not the outcome type.\n\n")
-cat(sprintf("GBSG Survival DGM (7 confounders): C=%.3f, alpha=%.3f\n",
-            C_fit, alpha_fit))
-cat(sprintf("  L_eff(N=700) = %.2f\n\n", L_eff_700))
+cat(sprintf("GBSG Survival DGM (%d confounders): C=%.3f, alpha=%.3f\n",
+            length(confounders_base), C_fit, alpha_fit))
+cat(sprintf("  L_eff(N=%d) = %.2f\n\n", n_sample, L_eff_main))
 cat("Binary DGM (4 confounders): see calibration_binary_leff.qmd\n")
 cat("  Expected: smaller L_eff (fewer confounders -> fewer candidates)\n")
 ```
@@ -1115,13 +1175,23 @@ analyses can reload without re-running.
 ```{r save-all-results}
 if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-# --- Bundle all simulation results ---
 sim_bundle <- list(
 
   # Metadata
   params = list(
     nsims_alt = nsims_alt,
     nsims_null = nsims_null,
+    sim_seed = sim_seed,
+    n_workers = n_workers,
+    n_sample = n_sample,
+    hr_h1 = hr_h1,
+    analysis_time = analysis_time,
+    cens_adjust = cens_adjust,
+    fpr_target = fpr_target,
+    prop_cens = prop_cens,
+    p_harm = p_harm,
+    n_min_val = n_min_val,
+    N_cal_values = N_cal_values,
     sim_config = sim_config,
     fs_params_base = fs_params_base,
     fs_params_cox = fs_params_cox,
@@ -1192,24 +1262,22 @@ irr_h1 <- res$results_alt_irr[res$results_alt_irr$analysis == "FS", ]
 irr_h0 <- res$results_null_irr[res$results_null_irr$analysis == "FS", ]
 
 # Check what was run
-res$params$nsims_alt     # number of H1 sims
-res$params$nsims_null    # number of H0 sims
-res$params$sim_config    # N, analysis_time, etc.
+res$params$nsims_alt        # number of H1 sims
+res$params$nsims_null       # number of H0 sims
+res$params$hr_h1            # HR for harm subgroup
+res$params$analysis_time    # GBSG analysis time
+res$params$fpr_target       # FPR target
 
 # L_eff calibration
-res$leff$C               # 0.029
-res$leff$alpha            # 0.882
-res$leff$cal_df           # raw calibration data
+res$leff$C               # fitted C
+res$leff$alpha           # fitted alpha
+res$leff$cal_df          # raw calibration data
 
 # Re-derive metrics without re-running
 cat("Cox H0 FPR:", mean(cox_h0$any.H), "\n")
 cat("Cox H1 Power:", mean(cox_h1$any.H), "\n")
 cat("IRR H0 FPR:", mean(irr_h0$any.H), "\n")
 cat("IRR H1 Power:", mean(irr_h1$any.H), "\n")
-
-# Reload DGM for further analysis
-dgm <- res$dgm_alt
-# dgm can be passed to run_simulation_analysis() for more sims
 ```
 
 
@@ -1217,10 +1285,35 @@ dgm <- res$dgm_alt
 
 ```{r timing-summary}
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
-cat(sprintf("DGM: %.1f min\nCox H1: %.1f min\nCox H0: %.1f min\nIRR H1: %.1f min\nIRR H0: %.1f min\nNull Calibration: %.1f min\nTotal: %.1f min\n",
-    timings$dgm/60, timings$alt_cox/60, timings$null_cox/60,
-    timings$alt_irr/60, timings$null_irr/60,
-    timings$null_cal/60, timings$total/60))
+
+timing_df <- data.frame(
+  Stage = c("DGM", "Cox H1", "Cox H0",
+            "IRR H1", "IRR H0",
+            "L_eff Calibration (multi-N)",
+            "Total"),
+  Seconds = c(timings$dgm, timings$alt_cox, timings$null_cox,
+              timings$alt_irr, timings$null_irr,
+              timings$null_cal, timings$total),
+  stringsAsFactors = FALSE
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(
+    title = "Computational Timing Summary",
+    subtitle = sprintf(
+      "%d H1 sims + %d H0 sims + %d cal sims x %d N | %d workers",
+      nsims_alt, nsims_null, n_sims_cal,
+      length(N_cal_values), n_workers)
+  ) |>
+  fmt_number(columns = Seconds, decimals = 1) |>
+  fmt_number(columns = Minutes, decimals = 2) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)",
+             Minutes = "Time (min)") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total")
+  )
 ```
 
 ```{r session-info}
