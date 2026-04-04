@@ -945,8 +945,11 @@ if (exists("frontier") && nrow(frontier) > 0) {
     }))
 
     sim_power_points <- sim_power_results
+    timings$power <- proc.time()[3] - t0_power
     cat(sprintf("Power simulation: %.1f min\n",
-                (proc.time()[3] - t0_power) / 60))
+                timings$power / 60))
+  } else {
+    timings$power <- 0
   }
 
   # ── Plot ────────────────────────────────────────────────────
@@ -1700,6 +1703,10 @@ if (run_validation) {
   stages <- c(stages, "Validation Simulation")
   seconds <- c(seconds, timings$validation)
 }
+if (timings$power > 0) {
+  stages <- c(stages, "Power Simulation (H1)")
+  seconds <- c(seconds, timings$power)
+}
 stages <- c(stages, "Total")
 seconds <- c(seconds, timings$total)
 
@@ -1708,6 +1715,27 @@ timing_df <- data.frame(
   stringsAsFactors = FALSE
 )
 timing_df$Minutes <- timing_df$Seconds / 60
+timing_df$Hours   <- timing_df$Seconds / 3600
+
+# ── Per-1,000 simulation projection ──────────────────────────
+sim_secs <- timings$leff_cal +
+  (if (run_validation) timings$validation else 0) +
+  timings$power
+n_total_sims <- (if (recalibrate) n_sims_recal * length(N_cal_values) else 0L) +
+  (if (run_validation) nrow(sim_candidates) * length(N_target) * nsims_val else 0L) +
+  (if (nsims_power > 0) nsims_power * length(N_target) else 0L)
+
+if (n_total_sims > 0) {
+  secs_per_sim <- sim_secs / n_total_sims
+  proj_1k <- secs_per_sim * 1000
+  timing_df <- rbind(timing_df, data.frame(
+    Stage   = sprintf("Projected per 1,000 sims (%d actual)", n_total_sims),
+    Seconds = proj_1k,
+    Minutes = proj_1k / 60,
+    Hours   = proj_1k / 3600,
+    stringsAsFactors = FALSE
+  ))
+}
 
 subtitle_text <- if (run_validation) {
   sprintf("%d pairs x %d N x %d sims = %d tasks | %d workers",
@@ -1727,11 +1755,12 @@ gt(timing_df) |>
   ) |>
   fmt_number(columns = Seconds, decimals = 1) |>
   fmt_number(columns = Minutes, decimals = 2) |>
+  fmt_number(columns = Hours,   decimals = 3) |>
   cols_label(Stage = "Stage", Seconds = "Time (sec)",
-             Minutes = "Time (min)") |>
+             Minutes = "Time (min)", Hours = "Time (hr)") |>
   tab_style(
     style = cell_text(weight = "bold"),
-    locations = cells_body(rows = Stage == "Total")
+    locations = cells_body(rows = grepl("Total|Projected", Stage))
   )
 ```
 
