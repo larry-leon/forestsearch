@@ -13,10 +13,11 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-# ~ 4000/hr linux
-# 500/2000 ~ 25m
-nsims_alt  <- 20L        # H1 sims (use 500+ for production)
-nsims_null <- 20L        # H0 sims (use 500+ for production)
+# 100/200 ~ 3m linux
+# 1k/2k ~ 16m
+# 4k/8k ~ 1hr
+nsims_alt  <- 10000L        # H1 sims (use 500+ for production)
+nsims_null <- 25000L        # H0 sims (use 500+ for production)
 sim_seed   <- 8316951L
 n_workers  <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
