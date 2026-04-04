@@ -14,7 +14,8 @@ build_estimation_table(
   subtitle = NULL,
   font_size = 12,
   cde_H = NULL,
-  cde_Hc = NULL
+  cde_Hc = NULL,
+  subgroup_notation = c("harm", "benefit")
 )
 }
 \arguments{
@@ -51,6 +52,10 @@ column is shown. When \code{NULL} (default), auto-detected from
 
 \item{cde_Hc}{Numeric or \code{NULL}. Controlled direct effect
 for the complement. Auto-detected analogously.}
+
+\item{subgroup_notation}{Character. \code{"harm"} (default) labels
+subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+benefit-search analyses (treatment switching).}
 }
 \value{
 A \code{gt} table object, or \code{NULL} if no estimable

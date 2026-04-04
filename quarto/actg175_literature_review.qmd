@@ -1,0 +1,367 @@
+---
+title: "ACTG175 as a Benchmark Dataset"
+subtitle: "Literature Overview and Binary Endpoint Considerations for ForestSearch"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    theme: cosmo
+---
+
+# Introduction
+
+The AIDS Clinical Trials Group Study 175 (ACTG175) has become one
+of the most widely used benchmark datasets in the causal inference
+and precision medicine literature.  The trial's public availability
+via `speff2trial::ACTG175`, its four-arm randomised design, rich
+baseline covariate set, and multiple endpoint types make it
+particularly well-suited for methodological development.
+
+This document surveys published analyses of ACTG175, organised by
+endpoint type, with particular attention to **binary endpoints**
+that are relevant to the ForestSearch GLM extension
+(`outcome_type = "binary"`).  The goal is to inform the design of
+simulation studies for the benefit-search framework described in
+León et al. (2024, *Statistics in Medicine*, §4.2).
+
+
+# Trial Design and Original Results
+
+## Overview
+
+ACTG175 was a randomised, double-blind, phase II/III clinical trial
+enrolling 2,467 HIV-1--infected adults with CD4 T cell counts
+between 200 and 500 cells/mm³ (Hammer et al., *NEJM* 1996).
+Patients were randomised with equal probability to one of four
+daily regimens:
+
+| Arm | Regimen | Abbreviation |
+|-----|---------|-------------|
+| 0 | Zidovudine 600 mg | ZDV |
+| 1 | Zidovudine 600 mg + Didanosine 400 mg | ZDV+ddI |
+| 2 | Zidovudine 600 mg + Zalcitabine 2.25 mg | ZDV+ddC |
+| 3 | Didanosine 400 mg | ddI |
+
+Approximately 43% of participants had no prior antiretroviral
+treatment (ART-naive).
+
+## Primary endpoint
+
+The primary endpoint was a composite **time-to-event**: the first
+occurrence of (i) a $\geq 50\%$ decline in CD4 T cell count,
+(ii) progression to AIDS, or (iii) death.  ZDV monotherapy was
+inferior to each of the other three regimens, with risk reductions
+of 50% (ZDV+ddI), 46% (ZDV+ddC), and 39% (ddI alone).
+
+## Key findings
+
+- Combination therapies (arms 1 and 2) were generally more
+  effective than monotherapies (arms 0 and 3).
+- For clinical endpoints (AIDS or death), ZDV+ddI and ddI alone
+  were both superior to ZDV monotherapy.
+- Results were similar in the ART-naive and ART-experienced strata.
+- Prior ART experience substantially influenced treatment
+  effectiveness.
+
+
+# Available Endpoints in the Public Dataset
+
+The `speff2trial::ACTG175` data frame contains 2,139 observations
+(some patients were excluded from the public release) with 27
+variables.  The key endpoints are:
+
+## Survival endpoint
+
+- `days`: Number of days until the first occurrence of the
+  composite primary endpoint.
+- `cens`: Event indicator (1 = event, 0 = censored).
+
+This is the endpoint used in León et al. (2024) and the current
+`actg175_simulations_benefit.qmd` simulation study.
+
+## Post-randomisation biomarkers
+
+- `cd420`: CD4 T cell count at 20 $\pm$ 5 weeks.
+- `cd820`: CD8 T cell count at 20 $\pm$ 5 weeks.
+- `cd496`: CD4 T cell count at 96 $\pm$ 5 weeks (subject to
+  $\sim$30% missingness; the indicator `r` flags observed values).
+
+## Treatment adherence
+
+- `offtrt`: Indicator of whether the patient was taken off
+  treatment before 96 $\pm$ 5 weeks (1 = off treatment).
+
+## Derived binary endpoints
+
+Several binary endpoints can be constructed from these variables:
+
+| Binary endpoint | Construction | Clinical meaning | Missingness |
+|---|---|---|---|
+| CD4 response at 20 weeks | `I(cd420 > cd40)` | Immunologic response | Low (~3%) |
+| CD4 response at 96 weeks | `I(cd496 > cd40)` | Durable immunologic response | High (~30%) |
+| Off-treatment by 96 weeks | `offtrt` | Treatment tolerability | None |
+| Landmark composite at day 365 | `I(days <= 365 & cens == 1)` | 1-year event occurrence | None |
+| Landmark composite at day 730 | `I(days <= 730 & cens == 1)` | 2-year event occurrence | None |
+
+
+# Published Analyses by Research Stream
+
+## Semiparametric efficient estimation
+
+The `speff2trial` package was developed to implement the
+semiparametric efficient estimation method of Tsiatis, Davidian,
+Zhang, and Lu (*Statistics in Medicine*, 2008).  Their approach
+improves efficiency in two-sample treatment comparisons by
+leveraging baseline covariates and post-randomisation variables
+(treated as auxiliary information under a missing-at-random
+framework).
+
+The package demonstrates estimation with both a **quantitative
+endpoint** (`cd496`, CD4 count at 96 weeks) and a **dichotomous
+endpoint** created from `cd496`.  The `speff()` function handles
+both endpoint types, with the dichotomous case using a logistic
+working model.  This was one of the earliest published uses of
+ACTG175 with a binary outcome.
+
+## Optimal treatment regimes and precision medicine
+
+ACTG175 has become a standard test case for individualized treatment
+rule (ITR) methods, typically comparing arms 1 vs 2 (ZDV+ddI vs
+ZDV+ddC), which yields $N \approx 1{,}046$ patients.
+
+### Survival-based ITRs
+
+Jiang et al. (*JRSS-B*, 2017) used ACTG175 to estimate optimal
+treatment regimes maximising $t$-year survival probability.  They
+found that age, Karnofsky score, and baseline CD4 count were the
+three most important treatment-effect modifiers.  An interesting
+finding relevant to ForestSearch: ZDV+ddC led to more favourable
+outcomes for *younger* patients (split at median age 34 years),
+while ZDV+ddI was preferable for older patients.
+
+### Continuous outcome ITRs
+
+Fan et al. (2017) and Shi et al. (2020) used CD4 count at 20
+$\pm$ 5 weeks (`cd420`) as a continuous response for optimal
+treatment regime estimation, comparing ZDV+ddI vs ZDV+ddC.  More
+recently (2025, arXiv), this same configuration was used to
+demonstrate efficiency-optimal inference under nonregularity in
+OTR estimation.
+
+### Binary outcome ITRs
+
+The precision medicine course at UNC (Kosorok, 2019) uses ACTG175
+with `cd496` as a continuous outcome to compare random forests,
+doubly robust AIPWE, and other ITR methods.  The framework naturally
+extends to binary outcomes (e.g., `I(cd496 > cd40)`), which would
+align directly with the ForestSearch GLM extension.
+
+Shah et al. (*Biometrics*, 2023) used ACTG175 for stabilised direct
+learning to estimate ITRs, further demonstrating the dataset's role
+as a benchmark for treatment effect heterogeneity methods.
+
+## Causal forest and machine learning approaches
+
+Gong et al. (*CPT: Pharmacometrics \& Systems Pharmacology*, 2021)
+conducted a systematic evaluation of the causal forest method
+against conventional two-step approaches for heterogeneous treatment
+effect analysis.  While their simulations did not use ACTG175
+directly, the methodological framework (binary treatment, multiple
+covariates, potential effect modifiers) is directly applicable.
+
+More broadly, causal forests and related methods (gradient random
+forests, honest estimation) have been applied to HTE detection with
+binary outcomes in clinical trial settings, with ACTG175's structure
+serving as a natural test case.
+
+## Multiple endpoint analyses
+
+Hernandez (2023, arXiv:2311.15410) performed a comprehensive
+multiple-endpoint analysis of ACTG175, demonstrating that jointly
+considering all endpoints (CD4 decline, AIDS progression, death)
+yields results of greater significance than single-endpoint
+approaches.  This work highlights the potential for ForestSearch to
+operate on different endpoint constructions within the same dataset.
+
+## Longitudinal analyses
+
+The `LongCART` package provides a restructured version of ACTG175
+with 6,417 observations from 2,139 patients, formatted for
+longitudinal recursive partitioning using repeated CD4 measurements.
+This represents yet another analytical perspective on the same
+data --- longitudinal subgroup identification rather than cross-
+sectional or time-to-event.
+
+## Covariate adjustment in randomised trials
+
+Tsiatis et al. (*Statistics in Medicine*, 2008) and Lu and Tsiatis
+(*Biometrika*, 2008) used ACTG175 to demonstrate covariate
+adjustment methods:
+
+- Linear regression of `cd420` on baseline covariates (continuous
+  endpoint).
+- Cox regression of time to death with auxiliary covariate
+  adjustment (survival endpoint).
+
+These efficiency-improvement methods are complementary to
+ForestSearch's subgroup identification approach.
+
+
+# Arm Comparisons in the Literature
+
+Different research groups have used different arm comparisons,
+which is important context for simulation design:
+
+| Comparison | Arms | N | Used by |
+|---|---|---|---|
+| ZDV+ddI vs ddI | 1 vs 3 | ~1,083 | León et al. (2024), ForestSearch benefit search |
+| ZDV+ddI vs ZDV+ddC | 1 vs 2 | ~1,046 | Jiang et al. (2017), Fan et al. (2017), UNC coursework |
+| All four arms | 0--3 | ~2,139 | Hammer et al. (1996), Hernandez (2023) |
+| ZDV vs others | 0 vs 1/2/3 | varies | Original primary analysis |
+
+The arms 1 vs 2 comparison is the most common in the precision
+medicine literature, likely because both are combination therapies
+with similar overall efficacy but potential heterogeneous effects
+by age and other modifiers.
+
+
+# Binary Endpoint Considerations for ForestSearch {#sec-binary}
+
+## Candidate endpoints
+
+For extending ForestSearch simulations to binary outcomes using
+ACTG175, three constructions are most practical:
+
+### CD4 response at 20 weeks {#sec-cd420-binary}
+
+**Construction**: `y_binary = I(cd420 > cd40)` (CD4 increased from
+baseline to 20 weeks).
+
+**Advantages**:
+
+- Low missingness ($\sim$3%), minimal missing-data complications.
+- Clear clinical meaning: immunologic response to treatment.
+- Already used in the semiparametric estimation literature.
+- 20-week assessment provides a fixed-time binary outcome with no
+  censoring issues.
+
+**Considerations**:
+
+- Post-randomisation biomarker, so the analysis targets a
+  "mediation-like" estimand rather than a pure ITT endpoint.
+- Effect sizes may differ from the survival endpoint.
+
+### Landmark composite
+
+**Construction**: `y_binary = I(days <= t_star & cens == 1)` for a
+chosen landmark time $t^{*}$ (e.g., 365 or 730 days).
+
+**Advantages**:
+
+- Directly derived from the primary survival endpoint, so subgroup
+  effects should be consistent with the survival analysis.
+- No missingness (defined for all patients).
+- Landmark analysis is a well-established regulatory framework.
+
+**Considerations**:
+
+- Treats patients censored before $t^{*}$ as non-events, which
+  introduces bias when censoring is informative.
+- Choice of $t^{*}$ affects the event rate and statistical power.
+
+### Off-treatment indicator
+
+**Construction**: `y_binary = offtrt` (off treatment before 96
+weeks).
+
+**Advantages**:
+
+- No missingness, no censoring.
+- Captures a different clinical dimension (tolerability/adherence).
+
+**Considerations**:
+
+- Treatment discontinuation may be confounded by disease
+  progression.
+- Less directly connected to the efficacy question studied in the
+  survival simulations.
+
+## Recommended starting point
+
+The **CD4 response at 20 weeks** (`I(cd420 > cd40)`) is the most
+practical starting point for binary endpoint simulations:
+
+1. It has the lowest missingness among the binary constructions.
+2. It has established precedent in the literature (Tsiatis et al.,
+   2008).
+3. The 20-week fixed-time assessment avoids censoring complications
+   entirely.
+4. The effect measure (risk difference or odds ratio) maps directly
+   to the ForestSearch GLM extension with `outcome_type = "binary"`.
+
+The **landmark composite** at $t^{*} = 365$ days is a natural
+second step, as it connects the binary and survival analysis paths
+on the same underlying endpoint.
+
+## DGM considerations for binary simulations
+
+For `generate_aft_dgm_flex()` with binary outcomes, the key
+architectural question (noted in the roadmap) is how the GLM
+interaction is parameterised.  In the survival case, `k_inter`
+amplifies the treatment--subgroup interaction on the log-hazard
+scale.  For binary outcomes, the analogous parameter would operate
+on the log-odds scale via `glm(..., family = binomial)`.
+
+The benefit-search framework (treatment switching) applies
+identically to binary outcomes: switch the treatment indicator,
+run ForestSearch with elevated thresholds on the odds-ratio scale,
+then invert the results.
+
+
+# References {.unnumbered}
+
+- Hammer, S.M., Katzenstein, D.A., Hughes, M.D., et al. (1996).
+  A trial comparing nucleoside monotherapy with combination therapy
+  in HIV-infected adults with CD4 cell counts from 200 to 500 per
+  cubic millimeter. *New England Journal of Medicine*, 335,
+  1081--1090.
+
+- León, L.F., Jemielita, T., Guo, Z., Marceau West, R., Anderson,
+  K.M. (2024). Exploratory subgroup identification in the
+  heterogeneous Cox model: A relatively simple procedure.
+  *Statistics in Medicine*, 43, 3921--3942.
+
+- Tsiatis, A.A., Davidian, M., Zhang, M., Lu, X. (2008). Covariate
+  adjustment for two-sample treatment comparisons in randomized
+  clinical trials: A principled yet flexible approach. *Statistics
+  in Medicine*, 27, 4658--4677.
+
+- Lu, X., Tsiatis, A.A. (2008). Improving the efficiency of the
+  log-rank test using auxiliary covariates. *Biometrika*, 95,
+  679--694.
+
+- Jiang, R., Lu, W., Song, R., Davidian, M. (2017). On estimation
+  of optimal treatment regimes for maximizing $t$-year survival
+  probability. *Journal of the Royal Statistical Society, Series B*,
+  79, 1165--1185.
+
+- Shah, A., et al. (2023). Stabilized direct learning for efficient
+  estimation of individualized treatment rules. *Biometrics*, 79,
+  2586--2598.
+
+- Hernandez, F. (2023). A comprehensive analysis of HIV treatment
+  efficacy in the ACTG 175 trial through multiple-endpoint
+  approaches. arXiv:2311.15410.
+
+- Gong, X., et al. (2021). Heterogeneous treatment effect analysis
+  based on machine-learning methodology. *CPT: Pharmacometrics \&
+  Systems Pharmacology*, 10, 1556--1565.
+
+- HIV Trialists' Collaborative Group (1999). Zidovudine,
+  didanosine, and zalcitabine in the treatment of HIV infection:
+  meta-analyses of the randomised evidence. *The Lancet*, 353,
+  2014--2025.

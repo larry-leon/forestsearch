@@ -11,7 +11,8 @@ build_classification_table(
   title = "Subgroup Identification and Classification Rates",
   n_sims = NULL,
   bold_threshold = 0.05,
-  font_size = 12
+  font_size = 12,
+  subgroup_notation = c("harm", "benefit")
 )
 }
 \arguments{
@@ -43,6 +44,10 @@ Default: 0.05.}
 
 \item{font_size}{Numeric. Font size in pixels for table text. Default: 12.
 Increase to 14 or 16 for larger display.}
+
+\item{subgroup_notation}{Character. \code{"harm"} (default) labels
+subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+benefit-search analyses (treatment switching).}
 }
 \value{
 A \code{gt} table object.

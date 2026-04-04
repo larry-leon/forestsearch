@@ -12,7 +12,8 @@ interpret_estimation_table(
   n_boots = 300,
   digits = 2,
   scenario = NULL,
-  cat = TRUE
+  cat = TRUE,
+  subgroup_notation = c("harm", "benefit")
 )
 }
 \arguments{
@@ -44,6 +45,10 @@ implies null).}
 \item{cat}{Logical. If \code{TRUE} (default), prints the paragraph via
 \code{cat()}. If \code{FALSE}, returns it invisibly as a character string
 (useful for programmatic insertion into Rmd via \code{results = "asis"}).}
+
+\item{subgroup_notation}{Character. \code{"harm"} (default) labels
+subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+benefit-search analyses (treatment switching).}
 }
 \value{
 Invisibly returns the interpretation as a character string.

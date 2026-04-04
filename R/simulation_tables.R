@@ -7,6 +7,118 @@
 # Subgroup) are consolidated in R/globals.R per package convention.
 
 # =============================================================================
+# Subgroup Notation Helper
+# =============================================================================
+
+#' Get Subgroup Display Labels for Harm or Benefit Notation
+#'
+#' Returns Unicode label components for H/Hc (harm search) or Q/Qc (benefit
+#' search) notation.  Used internally by \code{build_classification_table},
+#' \code{build_estimation_table}, \code{interpret_estimation_table}, and
+#' \code{format_oc_results} to switch between the two notation systems
+#' described in Leon et al. (2024, Sections 2--4.2).
+#'
+#' @param notation Character. \code{"harm"} (default) uses H/Hc notation
+#'   for detrimental-subgroup searches.  \code{"benefit"} uses Q/Qc notation
+#'   for benefit-subgroup searches (treatment switching).
+#'
+#' @return A named list with components:
+#' \describe{
+#'   \item{sg, sg_c}{True subgroup and complement (e.g., "H", "Hc")}
+#'   \item{sg_hat, sg_hat_c}{Estimated subgroup and complement (Unicode hat)}
+#'   \item{plain, plain_c}{Plain-text labels for metric names}
+#'   \item{word}{Descriptive word: "harm" or "benefit"}
+#' }
+#'
+#' @keywords internal
+get_sg_labels <- function(notation = c("harm", "benefit")) {
+  notation <- match.arg(notation)
+  if (notation == "harm") {
+    list(
+      sg       = "H",
+      sg_c     = "H\u1D9C",
+      sg_hat   = "\u0124",
+      sg_hat_c = "\u0124\u1D9C",
+      plain    = "H",
+      plain_c  = "Hc",
+      word     = "harm"
+    )
+  } else {
+    list(
+      sg       = "Q",
+      sg_c     = "Q\u1D9C",
+      sg_hat   = "Q\u0302",
+      sg_hat_c = "Q\u0302\u1D9C",
+      plain    = "Q",
+      plain_c  = "Qc",
+      word     = "benefit"
+    )
+  }
+}
+
+
+#' Invert HR Columns in Simulation Results for Benefit Search
+#'
+#' Transforms simulation results from the switched treatment scale (HR > 1
+#' for the benefit subgroup) to the original scale (HR < 1 for benefit).
+#' Called automatically by table functions when
+#' \code{subgroup_notation = "benefit"}.
+#'
+#' @param res Data frame of simulation results (from
+#'   \code{\link{run_simulation_analysis}}).
+#'
+#' @return Data frame with all HR-related columns inverted (1/x).
+#'   Non-HR columns (classification metrics, subgroup sizes, etc.) are
+#'   unchanged.
+#'
+#' @keywords internal
+invert_hr_columns <- function(res) {
+  hr_cols <- c(
+    "hr.H.hat", "hr.Hc.hat", "hr.H.bc", "hr.Hc.bc",
+    "hr.H.true", "hr.Hc.true", "hr.itt", "hr.adj.itt",
+    "ahr.H.hat", "ahr.Hc.hat", "ahr.H.true", "ahr.Hc.true",
+    "cde.H.hat", "cde.Hc.hat"
+  )
+  for (col in intersect(hr_cols, names(res))) {
+    res[[col]] <- 1 / res[[col]]
+  }
+  res
+}
+
+
+#' Invert DGM Hazard Ratios for Benefit Search
+#'
+#' Transforms a DGM object's truth values from the switched treatment scale
+#' to the original scale.  Inverts all fields in \code{hazard_ratios} and
+#' legacy top-level HR fields so that \code{\link{get_dgm_hr}} returns
+#' original-scale values.  Called automatically by table functions when
+#' \code{subgroup_notation = "benefit"}.
+#'
+#' @param dgm A DGM object (\code{gbsg_dgm} or \code{aft_dgm_flex}).
+#'
+#' @return Modified DGM object with all hazard ratio fields inverted (1/x).
+#'   Non-HR fields (super-population data, model parameters, etc.) are
+#'   unchanged.
+#'
+#' @keywords internal
+invert_dgm_hrs <- function(dgm) {
+  if (!is.null(dgm$hazard_ratios)) {
+    for (nm in names(dgm$hazard_ratios)) {
+      val <- dgm$hazard_ratios[[nm]]
+      if (is.numeric(val) && length(val) == 1 && !is.na(val)) {
+        dgm$hazard_ratios[[nm]] <- 1 / val
+      }
+    }
+  }
+  for (f in c("hr_H_true", "hr_Hc_true", "hr_causal",
+              "AHR", "AHR_H_true", "AHR_Hc_true",
+              "cde_H", "cde_Hc", "CDE")) {
+    if (!is.null(dgm[[f]])) dgm[[f]] <- 1 / dgm[[f]]
+  }
+  dgm
+}
+
+# =============================================================================
 # Classification / Identification Rate Table
 # =============================================================================
 
@@ -40,6 +152,9 @@
 #'   Default: 0.05.
 #' @param font_size Numeric. Font size in pixels for table text. Default: 12.
 #'   Increase to 14 or 16 for larger display.
+#' @param subgroup_notation Character. \code{"harm"} (default) labels
+#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   benefit-search analyses (treatment switching).
 #'
 #' @return A \code{gt} table object.
 #'
@@ -89,8 +204,12 @@ build_classification_table <- function(
     title = "Subgroup Identification and Classification Rates",
     n_sims = NULL,
     bold_threshold = 0.05,
-    font_size = 12
+    font_size = 12,
+    subgroup_notation = c("harm", "benefit")
 ) {
+
+  subgroup_notation <- match.arg(subgroup_notation)
+  L <- get_sg_labels(subgroup_notation)
 
   rows_list <- list()
 
@@ -101,6 +220,12 @@ build_classification_table <- function(
     hyp <- sc$hypothesis
     n   <- sc$n_sample
     lab <- sc$label
+
+    # Benefit search: invert HRs from switched → original scale
+    if (subgroup_notation == "benefit") {
+      res <- data.table::as.data.table(invert_hr_columns(res))
+      dgm <- invert_dgm_hrs(dgm)
+    }
 
     # Determine analyses if not specified
     if (is.null(analyses)) {
@@ -121,27 +246,39 @@ build_classification_table <- function(
     } else {
       df_s <- dgm$df_super_rand %||% dgm$df_super
       harm_col <- intersect(c("flag.harm", "flag_harm"), names(df_s))
-      prop_H <- if (length(harm_col) > 0) {
+      prop_sg <- if (length(harm_col) > 0) {
         round(100 * mean(df_s[[harm_col[1]]], na.rm = TRUE), 0)
       } else { NA_integer_ }
-      hr_H   <- round(get_dgm_hr(dgm, "hr_H"), 2)
-      hr_Hc  <- round(get_dgm_hr(dgm, "hr_Hc"), 2)
+      hr_sg  <- round(get_dgm_hr(dgm, "hr_H"), 2)
+      hr_sgc <- round(get_dgm_hr(dgm, "hr_Hc"), 2)
       hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
       if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, 2)
       section_label <- sprintf(
-        "%s Alt: N=%d, p_H=%d%%, theta(H)=%s, theta(Hc)=%s, theta(ITT)=%s",
-        lab, n, prop_H, hr_H, hr_Hc, hr_itt
+        "%s Alt: N=%d, p_%s=%d%%, theta(%s)=%s, theta(%s)=%s, theta(ITT)=%s",
+        lab, n, L$plain, prop_sg, L$plain, hr_sg,
+        L$plain_c, hr_sgc, hr_itt
       )
     }
 
-    # ── Metric names depend on hypothesis ───────────────────────────────────
-    metric_names <- if (hyp == "null") {
-      c("any(H)", "sens(Hc)", "ppv(Hc)", "avg|H|")
+    # ── Metric computation ─────────────────────────────────────────────────
+    # Internal keys decouple computation from display labels (H vs Q)
+    metric_keys <- if (hyp == "null") {
+      c("any_sg", "sens_sgc", "ppv_sgc", "avg_sg")
     } else {
-      c("any(H)", "sens(H)", "sens(Hc)", "ppv(H)", "ppv(Hc)", "avg|H|")
+      c("any_sg", "sens_sg", "sens_sgc", "ppv_sg", "ppv_sgc", "avg_sg")
     }
 
-    for (metric in metric_names) {
+    metric_display <- c(
+      any_sg   = sprintf("any(%s)", L$plain),
+      sens_sg  = sprintf("sens(%s)", L$plain),
+      sens_sgc = sprintf("sens(%s)", L$plain_c),
+      ppv_sg   = sprintf("ppv(%s)", L$plain),
+      ppv_sgc  = sprintf("ppv(%s)", L$plain_c),
+      avg_sg   = sprintf("avg|%s|", L$plain)
+    )
+
+    for (key in metric_keys) {
+      metric <- metric_display[[key]]
       row_vals <- list(Scenario = section_label, Metric = metric)
 
       for (a in analyses_use) {
@@ -149,20 +286,20 @@ build_classification_table <- function(
         r_found <- r[r$any.H == 1, ]
 
         val <- switch(
-          metric,
-          "any(H)"   = mean(r$any.H, na.rm = TRUE),
-          "sens(H)"  = mean(r$sens, na.rm = TRUE),
-          "sens(Hc)" = mean(r$spec, na.rm = TRUE),
-          "ppv(H)"   = mean(r$ppv, na.rm = TRUE),
-          "ppv(Hc)"  = mean(r$npv, na.rm = TRUE),
-          "avg|H|"   = if (nrow(r_found) > 0) {
+          key,
+          "any_sg"   = mean(r$any.H, na.rm = TRUE),
+          "sens_sg"  = mean(r$sens, na.rm = TRUE),
+          "sens_sgc" = mean(r$spec, na.rm = TRUE),
+          "ppv_sg"   = mean(r$ppv, na.rm = TRUE),
+          "ppv_sgc"  = mean(r$npv, na.rm = TRUE),
+          "avg_sg"   = if (nrow(r_found) > 0) {
             round(mean(r_found$size.H, na.rm = TRUE), 0)
           } else {
             NA_real_
           }
         )
 
-        row_vals[[a]] <- if (metric == "avg|H|") val else round(val, digits)
+        row_vals[[a]] <- if (key == "avg_sg") val else round(val, digits)
       }
 
       rows_list[[length(rows_list) + 1]] <- as.data.frame(
@@ -210,7 +347,7 @@ build_classification_table <- function(
 
     for (col_name in analyses_in_tbl) {
       bold_rows <- which(
-        table_df$Metric == "any(H)" &
+        table_df$Metric == sprintf("any(%s)", L$plain) &
           !is.na(table_df[[col_name]]) &
           is.numeric(table_df[[col_name]]) &
           table_df[[col_name]] > bold_threshold
@@ -275,6 +412,9 @@ build_classification_table <- function(
 #'   \code{dgm$cde_H} or \code{dgm$hazard_ratios$CDE_harm}.
 #' @param cde_Hc Numeric or \code{NULL}. Controlled direct effect
 #'   for the complement. Auto-detected analogously.
+#' @param subgroup_notation Character. \code{"harm"} (default) labels
+#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   benefit-search analyses (treatment switching).
 #'
 #' @return A \code{gt} table object, or \code{NULL} if no estimable
 #'   realizations exist.
@@ -340,8 +480,18 @@ build_estimation_table <- function(
     subtitle = NULL,
     font_size = 12,
     cde_H = NULL,
-    cde_Hc = NULL
+    cde_Hc = NULL,
+    subgroup_notation = c("harm", "benefit")
 ) {
+
+  subgroup_notation <- match.arg(subgroup_notation)
+  L <- get_sg_labels(subgroup_notation)
+
+  # Benefit search: invert HRs from switched → original scale
+  if (subgroup_notation == "benefit") {
+    results <- invert_hr_columns(results)
+    dgm     <- invert_dgm_hrs(dgm)
+  }
 
   res <- data.table::as.data.table(results)
 
@@ -358,8 +508,6 @@ build_estimation_table <- function(
   }
 
   # ── True values from DGM ──────────────────────────────────────────────────
-  # Paper notation: theta-dagger = marginal (causal) HR
-  #                 theta-ddagger = controlled direct effect (CDE)
   # Use get_dgm_hr() for compatibility with both gbsg_dgm and aft_dgm_flex
   theta_H_true  <- get_dgm_hr(dgm, "hr_H")
   theta_Hc_true <- get_dgm_hr(dgm, "hr_Hc")
@@ -437,38 +585,42 @@ build_estimation_table <- function(
   #          \u2021 = double-dagger, \u0302 = combining circumflex,
   #          \u03b8 = theta, \u00e2 = a-hat
 
+  # Notation-aware label map: internal keys -> Unicode display
+  # Unicode: \u0302 = combining circumflex, \u1D9C = superscript-c,
+  #          \u2020 = dagger, \u2021 = double-dagger,
+  #          \u03b8 = theta, \u00e2 = a-hat
+  sg  <- L$sg_hat    # e.g., Ĥ or Q̂
+  sgc <- L$sg_hat_c  # e.g., Ĥᶜ or Q̂ᶜ
+
   label_map <- list(
-    "theta-hat(H-hat)"   = "\u03b8\u0302(\u0124)",
-    "theta-hat*(H-hat)"  = "\u03b8\u0302*(\u0124)",
-    "ahr-hat(H-hat)"     = "\u00e2hr(\u0124)",
-    "cde-hat(H-hat)"     = "\u03b8\u2021(\u0124)",
-    "theta-hat(Hc-hat)"  = "\u03b8\u0302(\u0124\u1D9C)",
-    "theta-hat*(Hc-hat)" = "\u03b8\u0302*(\u0124\u1D9C)",
-    "ahr-hat(Hc-hat)"    = "\u00e2hr(\u0124\u1D9C)",
-    "cde-hat(Hc-hat)"    = "\u03b8\u2021(\u0124\u1D9C)"
+    "theta-hat(sg-hat)"   = sprintf("\u03b8\u0302(%s)", sg),
+    "theta-hat*(sg-hat)"  = sprintf("\u03b8\u0302*(%s)", sg),
+    "ahr-hat(sg-hat)"     = sprintf("\u00e2hr(%s)", sg),
+    "cde-hat(sg-hat)"     = sprintf("\u03b8\u2021(%s)", sg),
+    "theta-hat(sgc-hat)"  = sprintf("\u03b8\u0302(%s)", sgc),
+    "theta-hat*(sgc-hat)" = sprintf("\u03b8\u0302*(%s)", sgc),
+    "ahr-hat(sgc-hat)"    = sprintf("\u00e2hr(%s)", sgc),
+    "cde-hat(sgc-hat)"    = sprintf("\u03b8\u2021(%s)", sgc)
   )
 
-  # Row-group header builders using paper notation:
-  #   theta-dagger (marginal truth) always shown
-  #   theta-ddagger (CDE truth) appended when available
-  build_H_label <- function(n_est, avg_sz, theta_true, cde_val) {
-    # CDE part (theta-ddagger)
+  # Row-group header builders using paper notation
+  build_sg_label <- function(n_est, avg_sz, theta_true, cde_val) {
     cde_part <- if (!is.na(cde_val)) {
-      sprintf(", \u03b8\u2021(H) = %s", round(cde_val, 2))
+      sprintf(", \u03b8\u2021(%s) = %s", L$sg, round(cde_val, 2))
     } else ""
     sprintf(
-      "\u0124: %d estimable, avg |\u0124| = %d, \u03b8\u2020(H) = %s%s",
-      n_est, avg_sz, round(theta_true, 2), cde_part
+      "%s: %d estimable, avg |%s| = %d, \u03b8\u2020(%s) = %s%s",
+      sg, n_est, sg, avg_sz, L$sg, round(theta_true, 2), cde_part
     )
   }
 
-  build_Hc_label <- function(avg_sz_Hc, theta_true, cde_val) {
+  build_sgc_label <- function(avg_sz_sgc, theta_true, cde_val) {
     cde_part <- if (!is.na(cde_val)) {
-      sprintf(", \u03b8\u2021(H\u1D9C) = %s", round(cde_val, 2))
+      sprintf(", \u03b8\u2021(%s) = %s", L$sg_c, round(cde_val, 2))
     } else ""
     sprintf(
-      "\u0124\u1D9C: avg |\u0124\u1D9C| = %d, \u03b8\u2020(H\u1D9C) = %s%s",
-      avg_sz_Hc, round(theta_true, 2), cde_part
+      "%s: avg |%s| = %d, \u03b8\u2020(%s) = %s%s",
+      sgc, sgc, avg_sz_sgc, L$sg_c, round(theta_true, 2), cde_part
     )
   }
 
@@ -514,7 +666,7 @@ build_estimation_table <- function(
   # Cox HR (identified subgroup)
   if ("hr.H.hat" %in% names(res_found)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$hr.H.hat, theta_H_true, "theta-hat(H-hat)",
+      res_found$hr.H.hat, theta_H_true, "theta-hat(sg-hat)",
       cde_val = if (has_cde) cde_H else NA_real_
     )
   }
@@ -522,7 +674,7 @@ build_estimation_table <- function(
   # Cox HR (bias-corrected)
   if ("hr.H.bc" %in% names(res_found)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$hr.H.bc, theta_H_true, "theta-hat*(H-hat)",
+      res_found$hr.H.bc, theta_H_true, "theta-hat*(sg-hat)",
       cde_val = if (has_cde) cde_H else NA_real_
     )
   }
@@ -530,24 +682,24 @@ build_estimation_table <- function(
   # AHR (identified subgroup) — AHR is a different estimand, no CDE comparison
   if ("ahr.H.hat" %in% names(res_found) && !is.na(ahr_H_true)) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$ahr.H.hat, ahr_H_true, "ahr-hat(H-hat)"
+      res_found$ahr.H.hat, ahr_H_true, "ahr-hat(sg-hat)"
     )
   }
 
   # CDE (identified subgroup) — bias is relative to CDE truth only
   if ("cde.H.hat" %in% names(res_found) && has_cde) {
     rows_H[[length(rows_H) + 1]] <- make_est_row(
-      res_found$cde.H.hat, cde_H, "cde-hat(H-hat)"
+      res_found$cde.H.hat, cde_H, "cde-hat(sg-hat)"
     )
   }
 
-  # ── Rows for Hc (complement) ──────────────────────────────────────────────
+  # ── Rows for complement ────────────────────────────────────────────────────
   rows_Hc <- list()
 
   # Cox HR (identified complement)
   if ("hr.Hc.hat" %in% names(res_found)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$hr.Hc.hat, theta_Hc_true, "theta-hat(Hc-hat)",
+      res_found$hr.Hc.hat, theta_Hc_true, "theta-hat(sgc-hat)",
       cde_val = if (has_cde) cde_Hc else NA_real_
     )
   }
@@ -555,7 +707,7 @@ build_estimation_table <- function(
   # Cox HR (bias-corrected)
   if ("hr.Hc.bc" %in% names(res_found)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$hr.Hc.bc, theta_Hc_true, "theta-hat*(Hc-hat)",
+      res_found$hr.Hc.bc, theta_Hc_true, "theta-hat*(sgc-hat)",
       cde_val = if (has_cde) cde_Hc else NA_real_
     )
   }
@@ -563,14 +715,14 @@ build_estimation_table <- function(
   # AHR (identified complement)
   if ("ahr.Hc.hat" %in% names(res_found) && !is.na(ahr_Hc_true)) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$ahr.Hc.hat, ahr_Hc_true, "ahr-hat(Hc-hat)"
+      res_found$ahr.Hc.hat, ahr_Hc_true, "ahr-hat(sgc-hat)"
     )
   }
 
   # CDE (identified complement) — bias is relative to CDE truth only
   if ("cde.Hc.hat" %in% names(res_found) && has_cde) {
     rows_Hc[[length(rows_Hc) + 1]] <- make_est_row(
-      res_found$cde.Hc.hat, cde_Hc, "cde-hat(Hc-hat)"
+      res_found$cde.Hc.hat, cde_Hc, "cde-hat(sgc-hat)"
     )
   }
 
@@ -583,14 +735,14 @@ build_estimation_table <- function(
   }
 
   if (!is.null(df_H)) {
-    h_label <- build_H_label(
+    h_label <- build_sg_label(
       n_estimable, avg_size_H, theta_H_true,
       if (has_cde) cde_H else NA_real_
     )
     df_H[, Subgroup := h_label]
   }
   if (!is.null(df_Hc)) {
-    hc_label <- build_Hc_label(
+    hc_label <- build_sgc_label(
       round(mean(res_found$size.Hc, na.rm = TRUE), 0),
       theta_Hc_true,
       if (has_cde) cde_Hc else NA_real_
@@ -652,17 +804,17 @@ build_estimation_table <- function(
       row_group.padding = gt::px(4)
     )
 
-  # Notation footnote (paper-aligned)
+  # Notation footnote (paper-aligned, notation-aware)
   footnote_parts <- paste0(
-    "\u03b8\u0302(\u0124) = plugin Cox HR in identified subgroup; ",
-    "\u03b8\u0302*(\u0124) = bootstrap bias-corrected; ",
-    "\u00e2hr(\u0124) = average hazard ratio in identified subgroup; ",
+    "\u03b8\u0302(", L$sg_hat, ") = plugin Cox HR in identified subgroup; ",
+    "\u03b8\u0302*(", L$sg_hat, ") = bootstrap bias-corrected; ",
+    "\u00e2hr(", L$sg_hat, ") = average hazard ratio in identified subgroup; ",
     "b\u2020 = bias relative to marginal HR \u03b8\u2020 (causal truth)"
   )
   if (has_cde) {
     footnote_parts <- paste0(
       footnote_parts,
-      "; \u03b8\u2021(\u0124) = controlled direct effect in identified subgroup",
+      "; \u03b8\u2021(", L$sg_hat, ") = controlled direct effect in identified subgroup",
       "; b\u2021 = bias relative to CDE \u03b8\u2021"
     )
   }
@@ -704,6 +856,9 @@ build_estimation_table <- function(
 #' @param cat Logical. If \code{TRUE} (default), prints the paragraph via
 #'   \code{cat()}. If \code{FALSE}, returns it invisibly as a character string
 #'   (useful for programmatic insertion into Rmd via \code{results = "asis"}).
+#' @param subgroup_notation Character. \code{"harm"} (default) labels
+#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   benefit-search analyses (treatment switching).
 #'
 #' @return Invisibly returns the interpretation as a character string.
 #'
@@ -730,8 +885,18 @@ interpret_estimation_table <- function(
     n_boots = 300,
     digits = 2,
     scenario = NULL,
-    cat = TRUE
+    cat = TRUE,
+    subgroup_notation = c("harm", "benefit")
 ) {
+
+  subgroup_notation <- match.arg(subgroup_notation)
+  L <- get_sg_labels(subgroup_notation)
+
+  # Benefit search: invert HRs from switched → original scale
+  if (subgroup_notation == "benefit") {
+    results <- invert_hr_columns(results)
+    dgm     <- invert_dgm_hrs(dgm)
+  }
 
   res <- data.table::as.data.table(results)
 
@@ -878,13 +1043,13 @@ interpret_estimation_table <- function(
   } else {
     paras[1] <- sprintf(
       paste0(
-        "Under the alternative hypothesis (true HR(H) = %s, ",
-        "true HR(Hc) = %s), %d of %d simulations (%s) ",
+        "Under the alternative hypothesis (true HR(%s) = %s, ",
+        "true HR(%s) = %s), %d of %d simulations (%s) ",
         "identified a subgroup using %s. ",
         "The identified subgroup averaged %d patients ",
         "(complement: %d)."
       ),
-      fmt_s(theta_H_true), fmt_s(theta_Hc_true),
+      L$plain, fmt_s(theta_H_true), L$plain_c, fmt_s(theta_Hc_true),
       n_estimable, n_sims, fmt_pct(detect_rate),
       analysis_method, avg_size_H, avg_size_Hc
     )
@@ -901,13 +1066,14 @@ interpret_estimation_table <- function(
           "The naive Cox HR in the identified subgroup averaged %s ",
           "(SD = %s), representing %s relative bias above the true ",
           "value of %s. This upward bias reflects selection: the algorithm ",
-          "identified whichever patients happened to look most like a harm ",
+          "identified whichever patients happened to look most like a %s ",
           "subgroup by chance. In the complement, the Cox HR averaged %s ",
           "(%s bias), showing the expected mirror effect where removing ",
           "the worst-looking patients makes the remainder appear modestly ",
           "better."
         ),
         hr_H_avg, hr_H_sd, bias_H_str, true_hr_str,
+        L$word,
         hr_Hc_avg, bias_Hc_str
       )
     } else {
@@ -915,11 +1081,11 @@ interpret_estimation_table <- function(
         paste0(
           "The naive Cox HR in the identified subgroup averaged %s ",
           "(SD = %s), corresponding to %s relative bias versus the ",
-          "true HR(H) = %s. In the complement, the estimate averaged %s ",
-          "(%s bias vs. true HR(Hc) = %s)."
+          "true HR(%s) = %s. In the complement, the estimate averaged %s ",
+          "(%s bias vs. true HR(%s) = %s)."
         ),
-        hr_H_avg, hr_H_sd, bias_H_str, fmt_s(theta_H_true),
-        hr_Hc_avg, bias_Hc_str, fmt_s(theta_Hc_true)
+        hr_H_avg, hr_H_sd, bias_H_str, L$plain, fmt_s(theta_H_true),
+        hr_Hc_avg, bias_Hc_str, L$plain_c, fmt_s(theta_Hc_true)
       )
     }
   }
@@ -977,10 +1143,10 @@ interpret_estimation_table <- function(
     cde_para <- sprintf(
       paste0(
         "Relative to the controlled direct effect (CDE) truth ",
-        "theta-ddagger(H) = %s, the naive plugin shows %s ",
+        "theta-ddagger(%s) = %s, the naive plugin shows %s ",
         "relative bias."
       ),
-      fmt_s(cde_H), fmt_pct(b_cde_H)
+      L$plain, fmt_s(cde_H), fmt_pct(b_cde_H)
     )
     if (has_hr_bc) {
       b_cde_bc <- if (cde_H != 0) {
@@ -999,14 +1165,14 @@ interpret_estimation_table <- function(
     ahr_para <- sprintf(
       paste0(
         "The average hazard ratio (AHR) in the identified subgroup ",
-        "averaged %s (%s relative bias vs. true AHR(H) = %s)"
+        "averaged %s (%s relative bias vs. true AHR(%s) = %s)"
       ),
-      ahr_H_avg, fmt_pct(ahr_H_bias), fmt_s(ahr_H_true)
+      ahr_H_avg, fmt_pct(ahr_H_bias), L$plain, fmt_s(ahr_H_true)
     )
     if (has_ahr_Hc) {
       ahr_para <- paste0(ahr_para, sprintf(
-        "; in the complement, %s (%s bias vs. true AHR(Hc) = %s)",
-        ahr_Hc_avg, fmt_pct(ahr_Hc_bias), fmt_s(ahr_Hc_true)
+        "; in the complement, %s (%s bias vs. true AHR(%s) = %s)",
+        ahr_Hc_avg, fmt_pct(ahr_Hc_bias), L$plain_c, fmt_s(ahr_Hc_true)
       ))
     }
     if (has_hr_H && !is.na(ahr_H_bias) && !is.na(hr_H_bias) &&
@@ -1060,6 +1226,9 @@ interpret_estimation_table <- function(
 #' @param subtitle Character. Table subtitle. Default: \code{NULL}.
 #' @param bold_threshold Numeric. Values in \code{any(H)} rows exceeding this
 #'   threshold are shown in bold. Set \code{NULL} to disable. Default: 0.05.
+#' @param subgroup_notation Character. \code{"harm"} (default) labels
+#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   benefit-search analyses (treatment switching).
 #'
 #' @return A \code{gt} table object.
 #'
@@ -1082,8 +1251,12 @@ render_reference_table <- function(
     ref_df,
     title = "Reference Simulation Results",
     subtitle = NULL,
-    bold_threshold = 0.05
+    bold_threshold = 0.05,
+    subgroup_notation = c("harm", "benefit")
 ) {
+
+  subgroup_notation <- match.arg(subgroup_notation)
+  L <- get_sg_labels(subgroup_notation)
 
   ref_df <- as.data.frame(ref_df, stringsAsFactors = FALSE)
 
@@ -1106,9 +1279,10 @@ render_reference_table <- function(
   # Bold inflated Type I error
   if (!is.null(bold_threshold)) {
     analysis_cols <- setdiff(names(ref_df), c("Scenario", "Metric"))
+    any_label <- sprintf("any(%s)", L$plain)
     for (col_name in analysis_cols) {
       bold_rows <- which(
-        ref_df$Metric == "any(H)" &
+        ref_df$Metric == any_label &
           !is.na(ref_df[[col_name]]) &
           is.numeric(ref_df[[col_name]]) &
           ref_df[[col_name]] > bold_threshold

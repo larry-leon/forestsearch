@@ -8,7 +8,8 @@ render_reference_table(
   ref_df,
   title = "Reference Simulation Results",
   subtitle = NULL,
-  bold_threshold = 0.05
+  bold_threshold = 0.05,
+  subgroup_notation = c("harm", "benefit")
 )
 }
 \arguments{
@@ -22,6 +23,10 @@ grouping.}
 
 \item{bold_threshold}{Numeric. Values in \code{any(H)} rows exceeding this
 threshold are shown in bold. Set \code{NULL} to disable. Default: 0.05.}
+
+\item{subgroup_notation}{Character. \code{"harm"} (default) labels
+subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+benefit-search analyses (treatment switching).}
 }
 \value{
 A \code{gt} table object.

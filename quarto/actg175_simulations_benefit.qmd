@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 44L
-nsims_null  <- 44L
+nsims_alt   <- 50L
+nsims_null  <- 50L
 sim_seed    <- 8316951L
 n_workers   <- min(
   parallel::detectCores(logical = FALSE) - 1L, 120L
@@ -299,8 +299,7 @@ change; subsequent sections implement them in detail.
 | **Treatment** | `hormon` (0/1) | `arms`: 1 = ZDV+ddI (combination), 3 = ddI (monotherapy); **switched** for benefit search |
 | **Confounders** | 7 binary variables: ER, age, meno, PgR, nodes, size, grade | 12 variables: age, preanti, weight, Karnofsky, CD4, CD8, hemophilia, homosexual, IV drugs, race, gender, symptoms |
 | **Discretisation** | ER $\leq$ Q25, age $\leq$ median, meno = premenopausal, etc. | Age $>$ 34, preanti $\leq$ 744.5 days, weight $\leq$ 75 kg, CD4 $\leq$ median, etc. (from León et al. 2024 analysis) |
-| **Subgroup definition** | $H = \{\text{ER-low} \cap \text{premenopausal}\}$ ($\sim$13% prevalence) | $Q = \{\text{Age} > 34 \cap \text{Preanti} \leq 744.5\}$ ($\sim$35% prevalence, benefit subgroup) |
-| **DGM builder** | `setup_gbsg_dgm()` | `generate_aft_dgm_flex()` |
+| **Subgroup definition** | *H* = {ER-low and premenopausal} (~13% prevalence) | *Q* = {Age > 34 and Preanti ≤ 744.5} (~35% prevalence, benefit subgroup) || **DGM builder** | `setup_gbsg_dgm()` | `generate_aft_dgm_flex()` |
 | **Censoring** | Weibull; `analysis_time = 84` months | Weibull; `analysis_time = 1200` days ($\sim$3.3 years) |
 | **ForestSearch parameters** | `n.min = 60`, `maxk = 2`, `hr.threshold = 1.25` | `hr.threshold = 1.667`, `hr.consistency = 1.25` (benefit search thresholds) |
 
@@ -1251,6 +1250,12 @@ metrics:
 
 ## Operating Characteristics Under H1
 
+The simulation engine runs on the **switched** treatment scale.
+When `subgroup_notation = "benefit"` is passed to the table
+functions, they automatically invert all hazard ratios to the
+**original** scale (HR < 1 = benefit from ZDV+ddI) and apply
+Q/Qc notation.
+
 ```{r oc-alt}
 t0 <- proc.time()[3]
 
@@ -1259,13 +1264,14 @@ format_oc_results(
   metrics   = c("detection", "classification", "cde_estimates"),
   digits    = 2,
   digits_hr = 2,
-  title     = "ACTG175: Identification Properties (HTEs)",
+  title     = "ACTG175: Identification Properties (Benefit Search)",
   subtitle  = sprintf(
-    "n = %d, %d sims, HR(H) = %.2f, HR(Hc) = %.2f",
+    "n = %d, %d sims, HR(Q) = %.2f, HR(Qc) = %.2f",
     sim_config$n_sample, nsims_alt,
-    dgm_calibrated$hazard_ratios$harm_subgroup,
-    dgm_calibrated$hazard_ratios$no_harm_subgroup
-  )
+    1 / dgm_calibrated$hazard_ratios$harm_subgroup,
+    1 / dgm_calibrated$hazard_ratios$no_harm_subgroup
+  ),
+  subgroup_notation = "benefit"
 )
 
 build_estimation_table(
@@ -1276,7 +1282,8 @@ build_estimation_table(
     "ACTG175 DGM | n = %d, %d sims",
     sim_config$n_sample, nsims_alt
   ),
-  font_size = 16
+  font_size = 16,
+  subgroup_notation = "benefit"
 )
 
 timings$summarize_alt <- proc.time()[3] - t0
@@ -1288,7 +1295,8 @@ timings$summarize_alt <- proc.time()[3] - t0
 interpret_estimation_table(
   results_alt, dgm_calibrated,
   analysis_method = "FS",
-  scenario = "alt"
+  scenario = "alt",
+  subgroup_notation = "benefit"
 )
 ```
 
@@ -1306,8 +1314,9 @@ format_oc_results(
   subtitle = sprintf(
     "n = %d, %d sims, HR(ITT) = %.2f",
     sim_config$n_sample, nsims_null,
-    dgm_null$hazard_ratios$overall
-  )
+    1 / dgm_null$hazard_ratios$overall
+  ),
+  subgroup_notation = "benefit"
 )
 
 timings$summarize_null <- proc.time()[3] - t0
@@ -1343,7 +1352,8 @@ build_classification_table(
   digits    = 2,
   font_size = 16,
   title     = "ACTG175: Subgroup Identification and Classification",
-  n_sims    = nsims_alt
+  n_sims    = nsims_alt,
+  subgroup_notation = "benefit"
 )
 ```
 

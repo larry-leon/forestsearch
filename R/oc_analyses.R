@@ -1689,6 +1689,9 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #' @param title Character. Table title. Default: "Operating Characteristics Summary"
 #' @param subtitle Character. Table subtitle. Default: NULL
 #' @param use_gt Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE
+#' @param subgroup_notation Character. \code{"harm"} (default) labels
+#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   benefit-search analyses (treatment switching).
 #'
 #' @return A gt table object (if use_gt = TRUE and gt package available) or data.frame
 #'
@@ -1726,8 +1729,17 @@ format_oc_results <- function(
     digits_hr = 3,
     title = "Operating Characteristics Summary",
     subtitle = NULL,
-    use_gt = TRUE
+    use_gt = TRUE,
+    subgroup_notation = c("harm", "benefit")
 ) {
+
+  subgroup_notation <- match.arg(subgroup_notation)
+  L <- get_sg_labels(subgroup_notation)
+
+  # Benefit search: invert HRs from switched → original scale
+  if (subgroup_notation == "benefit") {
+    results <- invert_hr_columns(results)
+  }
 
   # Convert to data.table if needed
   if (!data.table::is.data.table(results)) {
@@ -1939,13 +1951,10 @@ format_oc_results <- function(
     }
 
     # Rename columns for display using math notation (pure Unicode)
-    # Aligned with build_estimation_table() notation (Leon et al. 2024):
-    #   H      = true (oracle) subgroup
-    #   H-hat  = identified subgroup (\u0124 = Ĥ)
-    #   *      = bootstrap bias-corrected (NOT used here)
-    #   \u1D9C = superscript-c (complement)
-    #   \u2020 = dagger, \u2021 = double-dagger
-    #   \u03b8 = theta, \u00e2 = â
+    # Notation-aware: H/Hc for harm search, Q/Qc for benefit search
+    # Unicode: \u0302 = combining circumflex, \u1D9C = superscript-c,
+    #          \u2020 = dagger, \u2021 = double-dagger,
+    #          \u03b8 = theta, \u00e2 = a-hat
 
     label_list <- list(
       Analysis  = "Method",
@@ -1954,15 +1963,11 @@ format_oc_results <- function(
     )
 
     # HR column labels (conditional on existence)
-    # Per build_estimation_table() notation:
-    #   theta-hat(H-hat) = estimate in identified subgroup
-    #   theta-hat(H)     = estimate in true subgroup (oracle)
-    #   * is reserved for bootstrap bias-corrected estimates
     hr_label_map <- list(
-      HR_H_hat   = "\u03b8\u0302(\u0124)",
-      HR_Hc_hat  = "\u03b8\u0302(\u0124\u1D9C)",
-      HR_H_true  = "\u03b8\u0302(H)",
-      HR_Hc_true = "\u03b8\u0302(H\u1D9C)",
+      HR_H_hat   = sprintf("\u03b8\u0302(%s)", L$sg_hat),
+      HR_Hc_hat  = sprintf("\u03b8\u0302(%s)", L$sg_hat_c),
+      HR_H_true  = sprintf("\u03b8\u0302(%s)", L$sg),
+      HR_Hc_true = sprintf("\u03b8\u0302(%s)", L$sg_c),
       HR_ITT     = "\u03b8\u0302(ITT)"
     )
     for (col_nm in names(hr_label_map)) {
@@ -1972,12 +1977,11 @@ format_oc_results <- function(
     }
 
     # AHR column labels (conditional on existence)
-    # âhr(H) = AHR in true subgroup, âhr(Ĥ) = AHR in identified subgroup
     ahr_label_map <- list(
-      AHR_H_true  = "\u00e2hr(H)",
-      AHR_Hc_true = "\u00e2hr(H\u1D9C)",
-      AHR_H_hat   = "\u00e2hr(\u0124)",
-      AHR_Hc_hat  = "\u00e2hr(\u0124\u1D9C)"
+      AHR_H_true  = sprintf("\u00e2hr(%s)", L$sg),
+      AHR_Hc_true = sprintf("\u00e2hr(%s)", L$sg_c),
+      AHR_H_hat   = sprintf("\u00e2hr(%s)", L$sg_hat),
+      AHR_Hc_hat  = sprintf("\u00e2hr(%s)", L$sg_hat_c)
     )
     for (col_nm in names(ahr_label_map)) {
       if (col_nm %in% names(summary_df)) {
@@ -1986,12 +1990,11 @@ format_oc_results <- function(
     }
 
     # CDE column labels (conditional on existence)
-    # theta-ddagger(H) = CDE in true subgroup, theta-ddagger(Ĥ) = CDE in identified
     cde_label_map <- list(
-      CDE_H_true  = "\u03b8\u2021(H)",
-      CDE_Hc_true = "\u03b8\u2021(H\u1D9C)",
-      CDE_H_hat   = "\u03b8\u2021(\u0124)",
-      CDE_Hc_hat  = "\u03b8\u2021(\u0124\u1D9C)"
+      CDE_H_true  = sprintf("\u03b8\u2021(%s)", L$sg),
+      CDE_Hc_true = sprintf("\u03b8\u2021(%s)", L$sg_c),
+      CDE_H_hat   = sprintf("\u03b8\u2021(%s)", L$sg_hat),
+      CDE_Hc_hat  = sprintf("\u03b8\u2021(%s)", L$sg_hat_c)
     )
     for (col_nm in names(cde_label_map)) {
       if (col_nm %in% names(summary_df)) {
