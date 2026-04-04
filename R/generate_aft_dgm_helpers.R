@@ -145,16 +145,20 @@ prepare_censoring_model <- function(df_work,
 
     covariate_cols <- grep("^zcens_", names(df_work), value = TRUE)
 
-    if (length(covariate_cols) >= 1) {
-      X_cens <- as.matrix(df_work[, c("treat", covariate_cols)])
+    # Build formula from column names so predict() can resolve covariates
+    # in newdata (df_super).  Using ~ X_cens with a pre-built matrix causes
+    # predict.survreg() to silently fall back to the training data when
+    # newdata lacks the matrix variable, producing nrow(df_work) predictions
+    # instead of nrow(df_super).
+    cens_covars <- if (length(covariate_cols) >= 1) {
+      c("treat", covariate_cols)
     } else {
-      X_cens <- as.matrix(df_work[, c("treat")])
+      "treat"
     }
+    cens_formula <- reformulate(cens_covars, response = "Surv(y, 1 - event)")
 
-    fit_cens1 <- survreg(Surv(y, 1 - event) ~ X_cens,
-                         data = df_work, dist = "weibull")
-    fit_cens2 <- survreg(Surv(y, 1 - event) ~ X_cens,
-                         data = df_work, dist = "lognormal")
+    fit_cens1 <- survreg(cens_formula, data = df_work, dist = "weibull")
+    fit_cens2 <- survreg(cens_formula, data = df_work, dist = "lognormal")
     fit_cens3 <- survreg(Surv(y, 1 - event) ~ 1,
                          data = df_work, dist = "weibull")
     fit_cens4 <- survreg(Surv(y, 1 - event) ~ 1,
@@ -180,7 +184,7 @@ prepare_censoring_model <- function(df_work,
     )
 
     # -------------------------------------------------------------------------
-    # KEY FIX: store COVARIATE-ONLY contribution (gamma'X), intercept excluded.
+    # Store COVARIATE-ONLY contribution (gamma'X), intercept excluded.
     #
     # predict(survreg, type = "linear") returns the FULL linear predictor:
     #   mu_cens + gamma_cens' X
@@ -212,6 +216,20 @@ prepare_censoring_model <- function(df_work,
       stop("Error in creating counterfactual: could not set treat := 1")
     df_super$lin_pred_cens_1 <- predict(fit_cens, newdata = newdata,
                                         type = "linear") - mu_cens
+
+    # Defensive dimension check — catches predict() fallback to training data
+    n_expected <- nrow(df_super)
+    if (length(df_super$lin_pred_cens_0) != n_expected ||
+        length(df_super$lin_pred_cens_1) != n_expected) {
+      stop(sprintf(
+        paste("prepare_censoring_model: lin_pred_cens has %d elements",
+              "but df_super has %d rows. predict() likely fell back to",
+              "the training data. Ensure the censoring formula uses",
+              "column names, not a pre-built matrix."),
+        length(df_super$lin_pred_cens_0), n_expected),
+        call. = FALSE
+      )
+    }
 
   } else {
     # -------------------------------------------------------------------------
@@ -999,22 +1017,21 @@ prepare_censoring_model_legacy <- function(df_work, cens_type, cens_params,
   if(cens_type != "uniform"){
     covariate_cols <- grep("^zcens_", names(df_work), value = TRUE)
 
-    if(length(covariate_cols) >= 1){
-      X_cens <- as.matrix(df_work[, c("treat", covariate_cols)])
+    # Use reformulate() instead of pre-built matrix to ensure predict()
+    # resolves covariates in newdata (df_super) correctly.
+    cens_covars <- if (length(covariate_cols) >= 1) {
+      c("treat", covariate_cols)
     } else {
-      X_cens <- as.matrix(df_work[, c("treat")])
+      "treat"
     }
+    cens_formula <- reformulate(cens_covars, response = "Surv(y, 1 - event)")
 
-    fit_cens1 <- survreg(Surv(y, 1 - event) ~ X_cens,
-                         data = df_work, dist = "weibull")
+    fit_cens1 <- survreg(cens_formula, data = df_work, dist = "weibull")
 
-
-    fit_cens2 <- survreg(Surv(y, 1 - event) ~ X_cens,
-                         data = df_work, dist = "lognormal")
+    fit_cens2 <- survreg(cens_formula, data = df_work, dist = "lognormal")
 
     fit_cens3 <- survreg(Surv(y, 1 - event) ~ 1,
                          data = df_work, dist = "weibull")
-
 
     fit_cens4 <- survreg(Surv(y, 1 - event) ~ 1,
                          data = df_work, dist = "lognormal")
@@ -1042,15 +1059,31 @@ prepare_censoring_model_legacy <- function(df_work, cens_type, cens_params,
       type = c(fit_cens$dist)
     )
 
+    # Store covariate-only contribution (gamma'X), subtract intercept.
+    # predict(type = "linear") returns mu + gamma'X; we store gamma'X only
+    # because simulate_from_dgm() adds mu separately.
     newdata <- df_super
     newdata$treat <- 0
     if(!all(newdata$treat == 0)) stop("Error in creating counterfactual setting treat := 0")
-    df_super$lin_pred_cens_0  <- predict(fit_cens, newdata = newdata, type = "linear")
+    df_super$lin_pred_cens_0  <- predict(fit_cens, newdata = newdata,
+                                         type = "linear") - mu_cens
 
     newdata <- df_super
     newdata$treat <- 1
     if(!all(newdata$treat == 1)) stop("Error in creating counterfactual setting treat := 1")
-    df_super$lin_pred_cens_1  <- predict(fit_cens, newdata = newdata, type = "linear")
+    df_super$lin_pred_cens_1  <- predict(fit_cens, newdata = newdata,
+                                         type = "linear") - mu_cens
+
+    # Defensive dimension check
+    n_expected <- nrow(df_super)
+    if (length(df_super$lin_pred_cens_0) != n_expected) {
+      stop(sprintf(
+        paste("prepare_censoring_model_legacy: lin_pred_cens has %d elements",
+              "but df_super has %d rows."),
+        length(df_super$lin_pred_cens_0), n_expected),
+        call. = FALSE
+      )
+    }
 
 
   } else if (cens_type == "uniform") {

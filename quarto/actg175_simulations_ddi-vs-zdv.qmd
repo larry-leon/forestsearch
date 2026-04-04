@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 44L
-nsims_null  <- 44L
+nsims_alt   <- 100L
+nsims_null  <- 100L
 sim_seed    <- 8316951L
 n_workers   <- min(
   parallel::detectCores(logical = FALSE) - 1L, 120L
@@ -225,11 +225,11 @@ change; subsequent sections implement them in detail.
 | **Event indicator** | `status` (1 = recurrence/death) | `cens` (1 = event) |
 | **Treatment** | `hormon` (0/1) | `arms`: 1 = didanosine, 2 = zidovudine; coded as `treat = ifelse(arms == 1, 1, 0)` |
 | **Confounders** | 7 binary variables: ER, age, meno, PgR, nodes, size, grade | 12 variables: age, weight, Karnofsky, CD4 baseline, CD8 baseline, hemophilia, homosexual, IV drugs, race, gender, prior antiretroviral, symptoms |
-| **Discretisation** | ER $\leq$ Q`r gbsg_er_quantile * 100`, age $\leq$ median, meno = premenopausal, etc. | Age $\leq$ `r actg_age_cut`, weight $\leq$ `r actg_wtkg_cut` kg, CD4 $\leq$ median, CD8 $>$ `r actg_cd80_cut`, etc. (guided by GRF screening in the `.Rnw` analysis) |
-| **Subgroup definition** | $H = \{\text{ER-low} \cap \text{premenopausal}\}$ ($\sim$13% prevalence) | $H = \{\text{age} \leq `r actg_age_cut` \cap \text{CD8} > `r actg_cd80_cut`\}$ ($\sim$15--20% prevalence) |
+| **Discretisation** | ER $\leq$ Q25, age $\leq$ median, meno = premenopausal, etc. | Age $\leq$ 34, weight $\leq$ 75 kg, CD4 $\leq$ median, CD8 $>$ 1292, etc. (guided by GRF screening in the `.Rnw` analysis) |
+| **Subgroup definition** | $H = \{\text{ER-low} \cap \text{premenopausal}\}$ ($\sim$13% prevalence) | $H = \{\text{age} \leq 34 \cap \text{CD8} > 1292\}$ ($\sim$15--20% prevalence) |
 | **DGM builder** | `setup_gbsg_dgm()` | `generate_aft_dgm_flex()` |
-| **Censoring** | Weibull; `analysis_time = 84` months | Weibull; `analysis_time =` `r sim_analysis_time` days ($\sim$3.3 years) |
-| **ForestSearch parameters** | `n.min =` `r fs_n_min`, `maxk =` `r fs_maxk`, `hr.threshold =` `r fs_hr_threshold` | Same defaults; adjusted if needed after initial runs |
+| **Censoring** | Weibull; `analysis_time = 84` months | Weibull; `analysis_time = 1200` days ($\sim$3.3 years) |
+| **ForestSearch parameters** | `n.min = 60`, `maxk = 2`, `hr.threshold = 1.25` | Same defaults; adjusted if needed after initial runs |
 
 The subgroup definition for ACTG175 is derived from the GRF
 screening analysis in `actg175_analysis_v1.Rnw`, which identified
@@ -258,6 +258,29 @@ library(future)
 #| include: false
 timings <- list()
 t_vignette_start <- proc.time()
+```
+
+```{r compat-helper}
+#| include: false
+# Backward-compatibility aliases for generate_aft_dgm_flex() objects.
+# Several downstream functions (build_classification_table, etc.)
+# access top-level fields (hr_H_true, df_super_rand) that exist on
+# gbsg_dgm objects but not on native aft_dgm_flex objects.  This
+# helper adds the aliases so the pipeline works with either DGM type.
+add_compat_aliases <- function(dgm) {
+  if (is.null(dgm$hr_H_true) && !is.null(dgm$hazard_ratios)) {
+    dgm$hr_H_true  <- dgm$hazard_ratios$harm_subgroup
+    dgm$hr_Hc_true <- dgm$hazard_ratios$no_harm_subgroup
+    dgm$hr_causal  <- dgm$hazard_ratios$overall
+    dgm$AHR        <- dgm$hazard_ratios$AHR
+    dgm$AHR_H_true <- dgm$hazard_ratios$AHR_harm
+    dgm$AHR_Hc_true <- dgm$hazard_ratios$AHR_no_harm
+  }
+  if (is.null(dgm$df_super_rand) && !is.null(dgm$df_super)) {
+    dgm$df_super_rand <- dgm$df_super
+  }
+  dgm
+}
 ```
 
 
@@ -671,13 +694,14 @@ dgm_alt <- generate_aft_dgm_flex(
 # to compute CDE bias and RMSE metrics.  Always call this after
 # creating any alternative-hypothesis DGM.
 dgm_alt <- compute_dgm_cde(dgm_alt)
+dgm_alt <- add_compat_aliases(dgm_alt)
 
 cat("\n=== ACTG175 Alternative DGM ===\n")
-cat("  HR(H):",   round(dgm_alt$hr_H_true,   3), "\n")
-cat("  HR(Hc):",  round(dgm_alt$hr_Hc_true,  3), "\n")
-cat("  HR(ITT):", round(dgm_alt$hr_causal,    3), "\n")
-cat("  AHR(H):",  round(dgm_alt$AHR_H_true,  3), "\n")
-cat("  AHR(Hc):", round(dgm_alt$AHR_Hc_true, 3), "\n")
+cat("  HR(H):",   round(dgm_alt$hazard_ratios$harm_subgroup,      3), "\n")
+cat("  HR(Hc):",  round(dgm_alt$hazard_ratios$no_harm_subgroup,     3), "\n")
+cat("  HR(ITT):", round(dgm_alt$hazard_ratios$overall, 3), "\n")
+cat("  AHR(H):",  round(dgm_alt$hazard_ratios$AHR_harm,     3), "\n")
+cat("  AHR(Hc):", round(dgm_alt$hazard_ratios$AHR_no_harm,    3), "\n")
 cat("  H prevalence:",
     round(100 * mean(dgm_alt$df_super$flag_harm), 1), "%\n")
 
@@ -774,8 +798,8 @@ for (i in seq_along(cal_k_grid)) {
   )
 
   if (!is.null(dgm_k)) {
-    cal_results$hr_H[i]  <- dgm_k$hr_H_true
-    cal_results$hr_Hc[i] <- dgm_k$hr_Hc_true
+    cal_results$hr_H[i]  <- dgm_k$hazard_ratios$harm_subgroup
+    cal_results$hr_Hc[i] <- dgm_k$hazard_ratios$no_harm_subgroup
   }
 }
 
@@ -850,11 +874,12 @@ dgm_calibrated <- generate_aft_dgm_flex(
 )
 # Enrich with CDE potential outcomes (required for estimation tables)
 dgm_calibrated <- compute_dgm_cde(dgm_calibrated)
+dgm_calibrated <- add_compat_aliases(dgm_calibrated)
 
 cat("\n=== Calibrated ACTG175 DGM ===\n")
-cat("  HR(H):",   round(dgm_calibrated$hr_H_true,  3), "\n")
-cat("  HR(Hc):",  round(dgm_calibrated$hr_Hc_true, 3), "\n")
-cat("  HR(ITT):", round(dgm_calibrated$hr_causal,   3), "\n")
+cat("  HR(H):",   round(dgm_calibrated$hazard_ratios$harm_subgroup,      3), "\n")
+cat("  HR(Hc):",  round(dgm_calibrated$hazard_ratios$no_harm_subgroup,     3), "\n")
+cat("  HR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
 
 timings$dgm_calibrated <- proc.time()[3] - t0
 ```
@@ -885,9 +910,10 @@ dgm_null <- generate_aft_dgm_flex(
   seed            = sim_seed,
   verbose         = TRUE
 )
+dgm_null <- add_compat_aliases(dgm_null)
 
 cat("\n=== ACTG175 Null DGM ===\n")
-cat("  HR(ITT):", round(dgm_null$hr_causal, 3), "\n")
+cat("  HR(ITT):", round(dgm_null$hazard_ratios$overall, 3), "\n")
 
 timings$dgm_null <- proc.time()[3] - t0
 ```
@@ -931,10 +957,8 @@ censoring model.
 
 ```{r censoring-diagnostic}
 check_censoring_dgm(
-  dgm           = dgm_calibrated,
-  n             = single_n,
-  analysis_time = sim_analysis_time,
-  seed          = single_seed
+  sim_data = sim_data,
+  dgm      = dgm_calibrated
 )
 ```
 
@@ -1141,7 +1165,8 @@ format_oc_results(
   subtitle  = sprintf(
     "n = %d, %d sims, HR(H) = %.2f, HR(Hc) = %.2f",
     sim_config$n_sample, nsims_alt,
-    dgm_calibrated$hr_H_true, dgm_calibrated$hr_Hc_true
+    dgm_calibrated$hazard_ratios$harm_subgroup,
+    dgm_calibrated$hazard_ratios$no_harm_subgroup
   )
 )
 
@@ -1183,7 +1208,7 @@ format_oc_results(
   subtitle = sprintf(
     "n = %d, %d sims, HR(ITT) = %.2f",
     sim_config$n_sample, nsims_null,
-    dgm_null$hr_causal
+    dgm_null$hazard_ratios$overall
   )
 )
 
@@ -1247,10 +1272,10 @@ prop_cens <- mean(results_alt$p.cens)
 
 cat("Expected subgroup size:", round(n_sg_expected), "\n")
 cat("Censoring proportion:",   round(prop_cens, 3), "\n")
-cat("True HR(H):",             round(dgm_calibrated$hr_H_true, 3), "\n")
+cat("True HR(H):",             round(dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
 
 prob_detect <- compute_detection_probability(
-  theta          = dgm_calibrated$hr_H_true,
+  theta          = dgm_calibrated$hazard_ratios$harm_subgroup,
   n_sg           = round(n_sg_expected),
   prop_cens      = prop_cens,
   hr_threshold   = fs_params$hr.threshold,
@@ -1287,7 +1312,7 @@ plot_detection_curve(
   )
 )
 
-abline(v = dgm_calibrated$hr_H_true, lty = 2, col = "blue")
+abline(v = dgm_calibrated$hazard_ratios$harm_subgroup, lty = 2, col = "blue")
 ```
 
 

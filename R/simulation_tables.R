@@ -110,19 +110,24 @@ build_classification_table <- function(
     }
 
     # ── Section header label ────────────────────────────────────────────────
+    # Use get_dgm_hr() for compatibility with both gbsg_dgm and aft_dgm_flex
     if (hyp == "null") {
-      hr_itt <- round(dgm$hr_causal, 2)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
+      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, 2)
       section_label <- sprintf(
         "%s Null: N=%d, theta(ITT) = %s",
         lab, n, hr_itt
       )
     } else {
-      prop_H <- round(
-        100 * mean(dgm$df_super_rand$flag.harm, na.rm = TRUE), 0
-      )
-      hr_H   <- round(dgm$hr_H_true, 2)
-      hr_Hc  <- round(dgm$hr_Hc_true, 2)
-      hr_itt <- round(dgm$hr_causal, 2)
+      df_s <- dgm$df_super_rand %||% dgm$df_super
+      harm_col <- intersect(c("flag.harm", "flag_harm"), names(df_s))
+      prop_H <- if (length(harm_col) > 0) {
+        round(100 * mean(df_s[[harm_col[1]]], na.rm = TRUE), 0)
+      } else { NA_integer_ }
+      hr_H   <- round(get_dgm_hr(dgm, "hr_H"), 2)
+      hr_Hc  <- round(get_dgm_hr(dgm, "hr_Hc"), 2)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
+      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, 2)
       section_label <- sprintf(
         "%s Alt: N=%d, p_H=%d%%, theta(H)=%s, theta(Hc)=%s, theta(ITT)=%s",
         lab, n, prop_H, hr_H, hr_Hc, hr_itt
@@ -355,8 +360,9 @@ build_estimation_table <- function(
   # ── True values from DGM ──────────────────────────────────────────────────
   # Paper notation: theta-dagger = marginal (causal) HR
   #                 theta-ddagger = controlled direct effect (CDE)
-  theta_H_true  <- dgm$hr_H_true
-  theta_Hc_true <- dgm$hr_Hc_true
+  # Use get_dgm_hr() for compatibility with both gbsg_dgm and aft_dgm_flex
+  theta_H_true  <- get_dgm_hr(dgm, "hr_H")
+  theta_Hc_true <- get_dgm_hr(dgm, "hr_Hc")
   avg_size_H    <- round(mean(res_found$size.H, na.rm = TRUE), 0)
 
   # True AHR values (via backward-compatible helper)
@@ -376,10 +382,10 @@ build_estimation_table <- function(
   has_cde <- !is.na(cde_H) && !is.na(cde_Hc)
 
   # Fallback: compute CDE from super-population if available but not stored
-
-  if (!has_cde && !is.null(dgm$df_super_rand)) {
-    df_sp <- dgm$df_super_rand
-    if (all(c("theta_0", "theta_1") %in% names(df_sp))) {
+  # Support both gbsg_dgm (df_super_rand) and aft_dgm_flex (df_super)
+  if (!has_cde) {
+    df_sp <- dgm$df_super_rand %||% dgm$df_super
+    if (!is.null(df_sp) && all(c("theta_0", "theta_1") %in% names(df_sp))) {
       dgm <- compute_dgm_cde(dgm)
       if (is.null(cde_H) || is.na(cde_H)) {
         cde_H <- get_dgm_hr(dgm, "cde_H")
@@ -754,8 +760,9 @@ interpret_estimation_table <- function(
   # Fall back to the overall (causal) HR — the uniform true value for any
 
   # subset under the null.  Try multiple sources for robustness.
-  theta_H_true  <- dgm$hr_H_true
-  theta_Hc_true <- dgm$hr_Hc_true
+  # Use get_dgm_hr() for compatibility with both gbsg_dgm and aft_dgm_flex
+  theta_H_true  <- get_dgm_hr(dgm, "hr_H")
+  theta_Hc_true <- get_dgm_hr(dgm, "hr_Hc")
   ahr_H_true    <- get_dgm_hr(dgm, "ahr_H")
   ahr_Hc_true   <- get_dgm_hr(dgm, "ahr_Hc")
 

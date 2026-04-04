@@ -171,7 +171,7 @@
 #' }
 #' @export
 #' @importFrom survival survreg coxph Surv
-#' @importFrom stats quantile median uniroot rexp runif rnorm rbinom model.matrix coef
+#' @importFrom stats quantile median uniroot rexp runif rnorm rbinom model.matrix coef reformulate
 
 generate_aft_dgm_flex <- function(data,
                                   continuous_vars,
