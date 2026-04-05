@@ -14,9 +14,9 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
 # ~750/hr linux
-nsims_null  <- 10000L       # H0 sims for Part II (paper-defaults Cox & IRR)
-nsims_cal   <- 10000L        # H0 sims per N for L_eff calibration (Part III)
-nsims_grid  <- 10000L        # H0 sims per (c1,c2) pair for grid sweep (Part IV)
+nsims_null  <- 5000L       # H0 sims for Part II (paper-defaults Cox & IRR)
+nsims_cal   <- 5000L        # H0 sims per N for L_eff calibration (Part III)
+nsims_grid  <- 5000L        # H0 sims per (c1,c2) pair for grid sweep (Part IV)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
