@@ -656,10 +656,33 @@ create_glm_row <- function(
 #' @noRd
 .build_grf_X <- function(data, confounders.name) {
   X <- data[, confounders.name, drop = FALSE]
-  # Convert factors to numeric (integer codes)
+
+  # Convert factors/characters to numeric.
+
+  # IMPORTANT: Must use the same conversion as evaluate_comparison()
+
+  # in forestsearch_helpers.R.  For factors with all-numeric levels
+
+  # (e.g., levels "0"/"1"), use as.numeric(as.character()) to get
+
+  # the actual level values {0, 1}.  For non-numeric levels (e.g.,
+
+  # "male"/"female"), fall back to integer codes {1, 2, ...}.
+  #
+  # If these scales diverge, GRF split_values become inconsistent
+  # with downstream cut evaluation, causing valid cuts to be
+  # silently dropped (e.g., "z1 <= 1" is trivially TRUE on
+  # the {0, 1} scale but meaningful on the {1, 2} scale).
   for (v in names(X)) {
     if (is.factor(X[[v]]) || is.character(X[[v]])) {
-      X[[v]] <- as.integer(as.factor(X[[v]]))
+      lvls <- if (is.factor(X[[v]])) levels(X[[v]]) else unique(X[[v]])
+      if (!anyNA(suppressWarnings(as.numeric(lvls)))) {
+        # All-numeric levels: preserve original values
+        X[[v]] <- as.numeric(as.character(X[[v]]))
+      } else {
+        # Non-numeric levels: integer codes
+        X[[v]] <- as.integer(as.factor(X[[v]]))
+      }
     }
   }
   as.matrix(X)
