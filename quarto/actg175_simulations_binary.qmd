@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-nsims_alt   <- 200L
-nsims_null  <- 200L
+nsims_alt   <- 1000L
+nsims_null  <- 1000L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 120L)
 
@@ -227,8 +227,8 @@ fs_actg <- forestsearch(
   n.min            = fs_n_min,
   d0.min           = fs_d0_min,
   d1.min           = fs_d1_min,
-  hr.threshold     = fs_or_threshold,
-  hr.consistency   = fs_or_consistency,
+  effect.threshold     = fs_or_threshold,
+  consistency.threshold   = fs_or_consistency,
   pconsistency.threshold = fs_pconsistency,
   fs.splits        = fs_splits,
   maxk             = fs_maxk,
@@ -239,7 +239,7 @@ fs_actg <- forestsearch(
   details          = TRUE,
   quiet            = FALSE,
   parallel_args    = list(
-    plan = "sequential", workers = 1, show_message = FALSE
+    plan = "multisession", workers = 9, show_message = TRUE
   )
 )
 
