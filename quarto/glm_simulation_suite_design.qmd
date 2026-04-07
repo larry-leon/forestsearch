@@ -1,0 +1,458 @@
+---
+title: "Design: GLM Simulation Suite for forestsearch"
+subtitle: "Extending the survival simulation framework to binary, continuous, and count outcomes"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    theme: cosmo
+---
+
+
+# Current Architecture (Survival)
+
+The survival simulation pipeline consists of four layers:
+
+```
+generate_aft_dgm_flex()        →  class "aft_dgm_flex"
+    ↓
+simulate_from_dgm(dgm, n, …)  →  data.frame with y_sim, event_sim, treat_sim
+    ↓
+run_simulation_analysis(dgm, …)
+    ├── .run_fs_analysis_gen()  →  forestsearch() + .extract_fs_estimates_gen()
+    ├── .run_fs_analysis_gen()  →  forestsearch() + .extract_fs_estimates_gen()  [GRF variant]
+    └── .run_grf_analysis_gen() →  grf.subg.harm.survival() + .extract_grf_estimates_gen()
+    ↓
+format_oc_results(), build_estimation_table(), build_classification_table()
+```
+
+Key design features of the survival pipeline:
+
+- **`generate_aft_dgm_flex()`** fits a Weibull AFT model, creates a
+  super-population with individual-level potential outcomes
+  (`lin_pred_0`, `lin_pred_1`), and computes true subgroup HRs.
+
+- **`simulate_from_dgm()`** samples from the super-population,
+  assigns treatment, generates latent survival times via the AFT
+  model, applies censoring, and returns a trial-like data frame.
+
+- **`run_simulation_analysis()`** calls `simulate_from_dgm()` then
+  dispatches to FS and/or GRF analysis functions.  Each returns a
+  single-row `data.table` with effect estimates and classification
+  metrics.
+
+- The reporting functions (`format_oc_results`, etc.) operate on the
+  stacked results across all replicates.
+
+
+# Design Requirements for GLM Extension
+
+## What the GLM suite must support
+
+1. **Binary outcomes** (`outcome_type = "binary"`):
+   logistic regression, OR/RD/RR as effect measures.
+
+2. **Continuous outcomes** (`outcome_type = "continuous"`):
+   linear regression, mean difference (MD).
+
+3. **Count outcomes** (`outcome_type = "count"`):
+   Poisson/quasi-Poisson regression, IRR/IRD, with optional offset.
+
+4. **Flexible subgroup definitions**: Same `subgroup_vars` /
+   `subgroup_cuts` interface as `generate_aft_dgm_flex()`.
+
+5. **Calibration**: Ability to find the interaction strength that
+   produces a target effect size (e.g., OR(Q) = 2.0).
+
+6. **Seamless integration**: `run_simulation_analysis()` should work
+   with both survival and GLM DGMs without the caller needing
+   separate code paths.
+
+## What the GLM suite does NOT need
+
+- Censoring (outcomes are fully observed).
+- AHR / CDE estimands (survival-specific).
+- Entry times or administrative censoring.
+
+
+# Proposed Functions
+
+## `generate_glm_dgm()` — DGM Constructor
+
+Mirrors `generate_aft_dgm_flex()`.  Fits a GLM to the source data,
+creates a super-population with individual-level potential outcomes
+on the response scale, and stores true subgroup effects.
+
+```r
+generate_glm_dgm <- function(
+    data,
+    factor_vars,
+    outcome_var,
+    treatment_var,
+    outcome_type        = c("binary", "continuous", "count"),
+    effect_measure      = NULL,       # NULL → default per outcome_type
+    offset_var          = NULL,       # for count data
+    subgroup_vars       = NULL,
+    subgroup_cuts       = NULL,       # same flexible spec as aft_dgm_flex
+    model               = c("alt", "null"),
+    k_treat             = 1,          # treatment effect modifier
+    k_inter             = 1,          # interaction effect modifier
+    n_super             = 5000L,
+    draw_treatment      = FALSE,
+    seed                = 8316951L,
+    verbose             = FALSE
+)
+```
+
+### Internal pipeline
+
+1. **Validate and prepare**: match `outcome_type`, set default
+   `effect_measure` (OR for binary, MD for continuous, IRR for count).
+
+2. **Discretise covariates**: same as `generate_aft_dgm_flex()` — apply
+   `subgroup_cuts` to create factor variables and `flag_harm`.
+
+3. **Fit baseline GLM**: `glm(outcome ~ treatment + covariates,
+   family = ...)` on the source data.  Extract coefficients.
+
+4. **Modify coefficients**: apply `k_treat` to the treatment coefficient,
+   `k_inter` to the treatment × subgroup interaction (or set to 0 for
+   `model = "null"`).
+
+5. **Create super-population**: sample `n_super` rows with replacement.
+   Compute potential outcomes:
+   - `p0` / `mu0`: predicted response under control (using modified coefficients)
+   - `p1` / `mu1`: predicted response under treatment
+   For binary: `p0 = plogis(eta_0)`, `p1 = plogis(eta_1)`.
+   For continuous: `mu0 = eta_0`, `mu1 = eta_1`.
+   For count: `mu0 = exp(eta_0 + offset)`, `mu1 = exp(eta_1 + offset)`.
+
+6. **Compute true effects**: using super-population potential outcomes,
+   compute OR/RD/MD/IRR for Q, Qc, and overall.  Store in
+   `hazard_ratios` list (field name retained for compatibility with
+   reporting functions).
+
+7. **Return**: list of class `c("glm_dgm", "list")`.
+
+### Return structure
+
+```r
+list(
+  # Super-population
+  df_super = data.frame(..., p0, p1, flag_harm, ...),
+
+  # True effects (named for reporting-function compatibility)
+  hazard_ratios = list(
+    harm_subgroup    = effect_Q,      # e.g., OR(Q) on switched scale
+    no_harm_subgroup = effect_Qc,
+    overall          = effect_ITT
+  ),
+
+  # GLM-specific metadata
+  outcome_type   = "binary",
+  effect_measure = "OR",
+  offset_var     = NULL,
+
+  # Model parameters
+  model_params = list(
+    coefficients   = coef(fit_base),
+    family         = family(fit_base),
+    k_treat        = k_treat,
+    k_inter        = k_inter
+  ),
+
+  # Subgroup info
+  subgroup_info = list(
+    vars       = subgroup_vars,
+    cuts       = subgroup_cuts,
+    definition = "z1 == 1 & z2 == 1",
+    size       = sum(df_super$flag_harm),
+    proportion = mean(df_super$flag_harm)
+  ),
+
+  model_type = "alt",
+  n_super    = n_super,
+  seed       = seed
+)
+class: c("glm_dgm", "list")
+```
+
+## `simulate_from_glm_dgm()` — Data Generator
+
+Simpler than `simulate_from_dgm()` because there is no censoring.
+
+```r
+simulate_from_glm_dgm <- function(
+    dgm,                  # "glm_dgm" object
+    n            = NULL,  # NULL = use full super-population
+    rand_ratio   = 1,     # treatment:control ratio
+    seed         = NULL,
+    draw_treatment = TRUE
+)
+```
+
+### Internal pipeline
+
+1. **Sample**: draw `n` rows from `dgm$df_super` with replacement
+   (or use full super-population if `n = NULL`).
+
+2. **Assign treatment**: `rbinom(n, 1, p)` where `p` is derived from
+   `rand_ratio`.  If `draw_treatment = FALSE`, retain original.
+
+3. **Generate outcome**:
+   - Binary: `y_sim = rbinom(n, 1, ifelse(treat == 1, p1, p0))`
+   - Continuous: `y_sim = ifelse(treat == 1, mu1, mu0) + rnorm(n, sd = sigma)`
+     where `sigma` is the residual SD from the baseline model.
+   - Count: `y_sim = rpois(n, ifelse(treat == 1, mu1, mu0))`
+
+4. **Return**: data.frame with columns:
+   `id`, `y_sim`, `treat_sim`, `flag_harm`, all covariate columns,
+   and for count data, the offset column.
+   No `event_sim` column (fully observed).
+
+### Compatibility note
+
+ForestSearch's binary pipeline requires `event.name` to be specified.
+For binary outcomes, `event.name = outcome.name` (the outcome IS the
+event indicator).  `simulate_from_glm_dgm()` does NOT create a
+separate `event_sim` column — the caller sets
+`event.name = "y_sim"` in the `forestsearch()` call.
+
+
+## `calibrate_glm_interaction()` — Effect Size Calibration
+
+```r
+calibrate_glm_interaction <- function(
+    dgm,                     # "glm_dgm" object (model = "alt")
+    target_effect,            # target effect size in Q (e.g., OR = 2.0)
+    effect_measure = NULL,    # NULL → use dgm$effect_measure
+    k_inter_range  = c(0, 5), # search range
+    grid_step      = 0.05,    # grid resolution
+    tol            = 0.01,    # convergence tolerance
+    verbose        = FALSE
+)
+```
+
+Returns a modified DGM with the calibrated interaction and updated
+true effects.  This replaces the ad-hoc `add_interaction()` +
+grid-search pattern used in the Quarto documents.
+
+
+## Updates to `run_simulation_analysis()`
+
+### Dispatch on DGM class
+
+```r
+run_simulation_analysis <- function(sim_id, dgm, ...) {
+  # ...existing argument parsing...
+
+  if (inherits(dgm, "glm_dgm")) {
+    sim_data <- simulate_from_glm_dgm(
+      dgm  = dgm,
+      n    = n_sample,
+      seed = seed_base + sim_id
+    )
+  } else {
+    sim_data <- simulate_from_dgm(
+      dgm           = dgm,
+      n             = n_sample,
+      seed          = seed_base + sim_id,
+      analysis_time = analysis_time,
+      cens_adjust   = cens_adjust
+    )
+  }
+
+  # ...rest unchanged...
+}
+```
+
+### Propagate GLM parameters from DGM to forestsearch()
+
+When `dgm` is a `"glm_dgm"`, the function should automatically inject
+`outcome_type`, `effect_measure`, and `offset.name` into `fs_params`
+(unless the caller explicitly set them):
+
+```r
+if (inherits(dgm, "glm_dgm")) {
+  glm_defaults <- list(
+    outcome_type   = dgm$outcome_type,
+    effect_measure = dgm$effect_measure,
+    offset.name    = dgm$offset_var
+  )
+  # Inject only if not already set by caller
+  for (nm in names(glm_defaults)) {
+    if (is.null(fs_params[[nm]])) fs_params[[nm]] <- glm_defaults[[nm]]
+  }
+}
+```
+
+### Update `.run_fs_analysis_gen()` whitelist
+
+The `valid_pnames` whitelist at line 388 must add GLM parameters
+now that `forestsearch()` v0.2.0 supports them natively:
+
+```r
+valid_pnames <- c(
+  # ...existing survival params...
+  # GLM params (v0.2.0+)
+  "outcome_type", "effect_measure", "offset.name"
+)
+```
+
+The comment at line 398–402 notes these were "intentionally EXCLUDED"
+for v0.1.x — this is the update point.
+
+### Update `.run_grf_analysis_gen()` dispatch
+
+When `outcome_type` is non-survival, dispatch to
+`grf.subg.harm.glm()` instead of `grf.subg.harm.survival()`:
+
+```r
+if (is_glm) {
+  grf_fun <- get("grf.subg.harm.glm", mode = "function",
+                  envir = asNamespace("forestsearch"))
+  # ...build args with outcome_type, effect_measure, etc.
+} else {
+  grf_fun <- get("grf.subg.harm.survival", mode = "function",
+                  envir = asNamespace("forestsearch"))
+}
+```
+
+
+## `default_sim_params_glm()` — GLM Defaults
+
+```r
+default_sim_params_glm <- function(outcome_type = "binary") {
+  list(
+    outcome.name             = "y_sim",
+    event.name               = "y_sim",   # binary: event IS outcome
+    treat.name               = "treat_sim",
+    id.name                  = "id",
+    outcome_type             = outcome_type,
+    effect_measure           = switch(outcome_type,
+      binary     = "OR",
+      continuous = "MD",
+      count      = "IRR"
+    ),
+    use_lasso                = FALSE,
+    use_grf                  = TRUE,
+    hr.threshold             = 1.25,
+    hr.consistency           = 1.0,
+    pconsistency.threshold   = 0.90,
+    fs.splits                = 400,
+    n.min                    = 60,
+    d0.min                   = 12,
+    d1.min                   = 12,
+    maxk                     = 2,
+    vi.grf.min               = -0.2
+  )
+}
+```
+
+
+# File Organization
+
+| File | Contents |
+|------|----------|
+| `R/generate_glm_dgm.R` | `generate_glm_dgm()` and helpers |
+| `R/simulate_from_glm_dgm.R` | `simulate_from_glm_dgm()` |
+| `R/calibrate_glm_interaction.R` | `calibrate_glm_interaction()` |
+| `R/run_simulation_analysis.R` | Updated with GLM dispatch (existing file) |
+
+New functions are `@export`ed.  Existing functions in
+`run_simulation_analysis.R` are modified in place.
+
+
+# Implementation Phases
+
+## Phase 1: Binary endpoint (immediate)
+
+- `generate_glm_dgm()` with `outcome_type = "binary"` only.
+- `simulate_from_glm_dgm()` for binary outcomes.
+- `calibrate_glm_interaction()` for OR targets.
+- Update `run_simulation_analysis()` dispatch.
+- Update `.run_fs_analysis_gen()` whitelist.
+- Validate using the ACTG175 binary simulation document.
+
+## Phase 2: Continuous endpoint
+
+- Extend `generate_glm_dgm()` for `outcome_type = "continuous"`.
+- Extend `simulate_from_glm_dgm()` with Gaussian noise.
+- Validate with a continuous-outcome example.
+
+## Phase 3: Count endpoint
+
+- Extend `generate_glm_dgm()` for `outcome_type = "count"`.
+- Extend `simulate_from_glm_dgm()` with Poisson/NB generation.
+- Offset handling.
+- Validate with a count-outcome example.
+
+## Phase 4: GRF standalone dispatch
+
+- Update `.run_grf_analysis_gen()` to dispatch to `grf.subg.harm.glm()`.
+- Resolve the outcome-direction question (adverse vs. improvement)
+  for GRF on binary endpoints.
+
+
+# Mapping to Existing ACTG175 Binary Document
+
+Once Phase 1 is complete, the `actg175_simulations_binary.qmd`
+document simplifies dramatically — the custom `simulate_binary_trial()`,
+`run_binary_fs()`, and `extract_binary_estimates()` functions are
+replaced by package functions:
+
+```r
+# Before (custom, ~120 lines in the Quarto doc):
+dgm_alt  <- make_binary_dgm(...)
+sim_data <- simulate_binary_trial(dgm_alt, n, sim_id, seed)
+result   <- run_binary_fs(sim_data, dgm_alt, fs_params, confounders)
+
+# After (package functions):
+dgm_alt  <- generate_glm_dgm(data, factor_vars = z_vars,
+               outcome_var = "y_binary", treatment_var = "treat",
+               outcome_type = "binary", subgroup_vars = c("z1","z2"),
+               subgroup_cuts = list(z1 = 1L, z2 = 1L),
+               model = "alt", k_inter = k_inter_cal)
+dgm_alt  <- calibrate_glm_interaction(dgm_alt, target_effect = 2.0)
+
+result   <- run_simulation_analysis(
+               sim_id = i, dgm = dgm_alt,
+               n_sample = 1000, confounders_base = z_vars,
+               run_fs = TRUE, run_grf = FALSE,
+               fs_params = list(hr.threshold = 1.667, ...))
+```
+
+The reporting functions (`format_oc_results`, `build_estimation_table`,
+etc.) already work with the `hr.*` column names and the
+`subgroup_notation = "benefit"` inversion — no changes needed.
+
+
+# Key Design Decisions
+
+1. **Retain `hazard_ratios` field name**: Even though GLM effects are
+   ORs or MDs, the field is named `hazard_ratios` in the DGM object
+   for compatibility with `get_dgm_hr()`, `build_estimation_table()`,
+   and other reporting functions that index this field.
+
+2. **`event.name = outcome.name` for binary**: ForestSearch requires
+   `event.name`.  For binary outcomes, the outcome IS the event.
+   `simulate_from_glm_dgm()` does NOT create a separate event column.
+
+3. **No separate `run_glm_simulation_analysis()`**: The existing
+   `run_simulation_analysis()` dispatches on DGM class.  This avoids
+   code duplication and keeps the Quarto document interface uniform.
+
+4. **GRF standalone deferred to Phase 4**: The outcome-direction
+   question (GRF CATE on improvement vs. adverse event) needs
+   resolution before GRF can be integrated into the simulation loop
+   for binary endpoints.
+
+5. **`k_inter` vs. `beta_inter`**: The survival DGM uses `k_inter` as
+   a *multiplier* on the fitted interaction coefficient.  The GLM DGM
+   uses it the same way: `beta_inter_modified = k_inter *
+   beta_inter_fitted`.  `calibrate_glm_interaction()` finds the
+   `k_inter` that hits a target effect size.

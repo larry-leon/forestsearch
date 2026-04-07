@@ -37,8 +37,8 @@ t_vignette_start <- proc.time()
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
-# 1k per 36m; 2k / hr
-nsims_val       <- 5000L      # validation sims per (c1, c2, N)
+# 1200 / hr linux
+nsims_val       <- 10000L      # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
