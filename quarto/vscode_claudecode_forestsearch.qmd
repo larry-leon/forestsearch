@@ -1,0 +1,1066 @@
+---
+title: "VS Code & Claude Code for `forestsearch` Development"
+subtitle: "A Practical Developer Guide with Platform Notes and Worked Workflows"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    toc-title: "Contents"
+    number-sections: true
+    theme: cosmo
+    fontfamily: palatino
+    monofont: "Fira Code"
+    highlight-style: github
+    code-fold: false
+    code-copy: true
+    title-block-banner: "#2C3E50"
+    title-block-banner-color: "white"
+    embed-resources: true
+execute:
+  eval: false
+  echo: true
+---
+
+::: {.callout-note}
+This document covers the complete setup and workflow for using **VS Code** and **Claude Code**
+in `forestsearch` R package development, with explicit notes on differences between
+**Linux (System76 / COSMIC)** and **macOS**. All workflows are grounded in the
+`forestsearch` architecture: survival endpoints, GLM extensions, `doFuture`/`foreach`
+parallelism, and CRAN compliance requirements.
+:::
+
+---
+
+# Overview
+
+`forestsearch` is a multi-file CRAN R package with an active GLM extension
+(`feature/glm-extension` branch). The development environment combines:
+
+- **RStudio** — primary R editing, package checking, interactive sessions
+- **VS Code** — secondary editor for multi-file navigation, terminal management,
+  Quarto authoring
+- **Claude Code** — AI pair-programmer operating on the repo at the shell level,
+  reading and editing files directly
+- **GitHub Desktop + RStudio Terminal** — version control
+
+This guide focuses on the VS Code + Claude Code layer and how it complements the
+existing RStudio workflow.
+
+---
+
+# Installation
+
+## Node.js (Required for Claude Code)
+
+Claude Code is an npm package and requires Node.js ≥ 18.
+
+### Linux (System76 / COSMIC)
+
+```bash
+# Check current version
+node --version
+
+# If missing or < 18, install via nvm (recommended over apt)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Reload shell, then:
+nvm install --lts
+nvm use --lts
+node --version   # should print v20.x or v22.x
+```
+
+::: {.callout-tip}
+**Linux-specific:** `apt install nodejs` often installs Node 12 (Ubuntu 22.04) or
+Node 18 (Ubuntu 24.04). Use `nvm` to guarantee a current LTS version regardless of
+your Ubuntu release.
+:::
+
+### macOS
+
+```bash
+# Recommended: use Homebrew
+brew install node
+
+# Or use nvm (same as Linux)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+source ~/.zshrc
+nvm install --lts
+```
+
+::: {.callout-note}
+**macOS vs Linux:** On macOS, Node installed via Homebrew is immediately on `PATH`
+without shell restarts. On Linux with `nvm`, you must source `~/.bashrc` or open
+a new terminal before `node` and `npm` are available.
+:::
+
+## Claude Code
+
+```bash
+# Both platforms
+npm install -g @anthropic-ai/claude-code
+
+# Verify installation
+claude --version
+```
+
+### Authentication
+
+```bash
+# On first run, opens browser for Anthropic login
+claude
+
+# Or set API key directly (useful for CI / remote machines)
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+**Linux note:** If running on a headless server or in a Wayland session where
+browser auto-open fails, Claude Code will print a URL to the terminal — paste it
+manually into Firefox.
+
+**macOS note:** Browser opens automatically in your default browser (Safari or
+Chrome). No special handling needed.
+
+## VS Code
+
+### Linux (System76 / COSMIC)
+
+Download the `.deb` package from [code.visualstudio.com](https://code.visualstudio.com/):
+
+```bash
+# Install from downloaded .deb
+sudo dpkg -i code_*.deb
+sudo apt-get install -f   # fix any dependency issues
+
+# Or via Snap (easier updates, slight startup overhead)
+sudo snap install --classic code
+```
+
+::: {.callout-warning}
+**COSMIC desktop note:** VS Code renders correctly under COSMIC (X11 compatibility
+layer). If you observe blurry fonts, add `--enable-features=UseOzonePlatform
+--ozone-platform=wayland` to your VS Code launch flags in
+`~/.config/code-flags.conf`.
+:::
+
+### macOS
+
+Download the `.zip` or `.dmg` from [code.visualstudio.com](https://code.visualstudio.com/)
+and drag to `/Applications`. Then enable the `code` CLI:
+
+- Open VS Code → `Cmd+Shift+P` → **Shell Command: Install 'code' command in PATH**
+
+---
+
+# VS Code Configuration for `forestsearch`
+
+## Required Extensions
+
+Install these from the VS Code Extensions panel (`Ctrl+Shift+X` / `Cmd+Shift+X`):
+
+| Extension ID | Purpose |
+|---|---|
+| `REditorSupport.r` | R syntax highlighting, linting, hover docs |
+| `quarto.quarto` | `.qmd` rendering, preview, syntax |
+| `eamodio.gitlens` | Branch visibility, blame, history |
+| `mechatroner.rainbow-csv` | Readable `.csv` inspection |
+| `ms-vscode.live-server` | Preview rendered HTML (optional) |
+| `christian-kohler.path-intellisense` | File path autocomplete |
+
+## Workspace Settings
+
+Create `.vscode/settings.json` in the `forestsearch` repo root:
+
+```json
+{
+  "r.rterm.linux": "/usr/bin/radian",
+  "r.rterm.mac": "/usr/local/bin/radian",
+  "r.bracketedPaste": true,
+  "r.sessionWatcher": true,
+  "editor.formatOnSave": false,
+  "editor.rulers": [80],
+  "editor.tabSize": 2,
+  "files.associations": {
+    "*.R": "r",
+    "*.r": "r",
+    "*.qmd": "quarto",
+    "*.Rmd": "rmd"
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/*.Rcheck": true,
+    "**/man/*.Rd": false
+  },
+  "[r]": {
+    "editor.defaultFormatter": "REditorSupport.r",
+    "editor.formatOnSave": false
+  },
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.osx": "zsh"
+}
+```
+
+::: {.callout-note}
+**Platform difference:** `r.rterm.linux` and `r.rterm.mac` take separate paths.
+On macOS with Homebrew, radian is typically at `/opt/homebrew/bin/radian` (Apple
+Silicon) or `/usr/local/bin/radian` (Intel). Run `which radian` on both platforms
+to confirm the correct path.
+:::
+
+## Radian (Better R Console)
+
+```bash
+# Linux
+pip3 install radian --user
+
+# macOS (Homebrew Python)
+pip3 install radian
+
+# Verify
+which radian
+radian --version
+```
+
+## Recommended `.vscode/extensions.json`
+
+Commit this to the repo so collaborators get extension recommendations automatically:
+
+```json
+{
+  "recommendations": [
+    "REditorSupport.r",
+    "quarto.quarto",
+    "eamodio.gitlens",
+    "mechatroner.rainbow-csv"
+  ]
+}
+```
+
+---
+
+# The `CLAUDE.md` File — Most Important Setup Step
+
+Claude Code reads `CLAUDE.md` from the repo root automatically at the start of
+every session. This encodes all `forestsearch`-specific architectural constraints
+so you never have to re-explain them.
+
+Create `CLAUDE.md` at the repo root with the following content:
+
+````markdown
+# forestsearch Development Context
+
+## Package Identity
+- CRAN R package for subgroup identification in clinical trials
+- Active branch: `feature/glm-extension` (binary/continuous GLM extension)
+- Style guide: tidyverse style guide throughout
+- Documentation: roxygen2; `devtools::document()` overwrites NAMESPACE
+- CRAN check pipeline: `devtools::document()` → `devtools::load_all()` → `devtools::check()`
+
+## Critical File Rules
+- **File-first:** Always read the current file before producing any revision.
+  Never produce revisions that don't incorporate the author's own edits.
+- **Quarto is intentional:** Never convert `.qmd` to `.Rmd`.
+- **Scope discipline:** When asked about a Quarto document, do not touch R source
+  files, DESCRIPTION, NAMESPACE, or pkgdown config unless explicitly asked.
+- **NAMESPACE is generated:** Never hand-edit NAMESPACE. Use `@export` tags in
+  roxygen2 headers and run `devtools::document()`.
+
+## Branch Strategy
+- `master`: CRAN-ready; must pass `devtools::check()` with 0 errors/warnings/notes
+- `feature/glm-extension`: Active GLM development (binary + continuous outcomes)
+- `cran-review-N`: Reviewer response branches; squash-merged to master
+
+## Known Architectural Debts
+- Line 720 of `forestsearch_main.R`: `merge(by = "id")` hardcodes `id_name` — known debt
+- Four `\dontrun{}` blocks remain in `oc_analyses_gbsg.R`
+- `subset()` in programming contexts is fragile — prefer `[` or `filter()`
+
+## Silent Failure Risks (highest priority in code review)
+- `.errorhandling = "remove"` with no post-hoc accounting → silent task loss
+- `valid_pnames` whitelist in `.run_fs_analysis_gen()` silently drops unrecognized params
+- `tryCatch` silently catching degenerate survival objects
+
+## Parallel Architecture (`doFuture` / `foreach`)
+- Functions called inside `%dofuture%` bodies must be explicitly exported or embedded
+- `future::plan("sequential")` must be set inside worker bodies to prevent nested parallelism
+- `devtools::install()` required for `callr` workers — `load_all()` is insufficient
+- Nested parallelism bug root cause: `valid_pnames` whitelist silently drops params
+
+## GLM Extension (v0.2.0, `feature/glm-extension`)
+Key new files:
+- `glm_effect_estimators.R` — estimator closure factory (`make_effect_estimator()`)
+- `glm_effect_profile.R` — GLM effect profile
+- `grf_subg_harm_glm.R` — main GLM entry point (`grf.subg.harm.glm`)
+- `plot_sg_glm_outcomes.R` — GLM outcome visualization
+- `glm_spline_fit.R` — GLM spline support
+
+Parameter: `outcome_type` ∈ {"binary", "survival", "continuous"}
+Effect measures: "OR", "RR", "RD" (binary); "HR", "AHR" (survival); "MD" (continuous)
+
+## Quarto Calibration Suite
+Five documents in `quarto/`:
+- `calibration_binary_leff.qmd`
+- `calibration_survival_fourway.qmd`
+- `calibration_survival_leff_grid.qmd`
+- `selection_binary_frontier.qmd`
+- `selection_survival_frontier.qmd`
+
+All parameters consolidated in setup chunks. `_quarto.yml` centralizes formatting.
+Git tracks `quarto/_output/` HTML and `quarto/_data/` `.rds` bundles (simulations expensive).
+
+## Code Review Protocol
+Structure audits by severity: Critical → High → Moderate → Minor.
+Audit ALL instances across ALL files before proposing any fix.
+Never address errors one at a time as they surface.
+````
+
+::: {.callout-tip}
+**Why this matters:** Without `CLAUDE.md`, Claude Code starts each session with zero
+knowledge of your architecture. With it, constraints like "don't hand-edit NAMESPACE"
+and "audit all files before fixing" are enforced automatically from the first prompt.
+:::
+
+---
+
+# Launching Claude Code
+
+## Standard Session Start
+
+```bash
+# Navigate to repo root
+cd ~/path/to/forestsearch
+
+# Confirm branch
+git branch   # should show * feature/glm-extension (or master)
+
+# Launch Claude Code
+claude
+```
+
+Claude Code will print the repo name and confirm it has read `CLAUDE.md`.
+
+## Branch-Oriented Session Start
+
+Always orient Claude Code at session start when your work is branch-specific:
+
+```
+> We are on the feature/glm-extension branch. The files glm_effect_estimators.R,
+  grf_subg_harm_glm.R, plot_sg_glm_outcomes.R, and glm_spline_fit.R are
+  GLM-extension files not present on master. Keep all edits scoped to these files
+  unless I explicitly say otherwise.
+```
+
+---
+
+# Terminal Layout in VS Code
+
+VS Code supports split terminals. The recommended layout for `forestsearch` work:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  VS Code Editor Pane                                │
+│  (open: glm_effect_estimators.R + CLAUDE.md side   │
+│   by side, or .qmd + _output/ HTML)                │
+├──────────────────────┬──────────────────────────────┤
+│  Terminal 1          │  Terminal 2                  │
+│  Claude Code session │  radian / R session          │
+│  $ claude            │  $ radian                    │
+│                      │  > devtools::load_all()       │
+└──────────────────────┴──────────────────────────────┘
+```
+
+Open a split terminal: `` Ctrl+` `` to open terminal → click the split icon (⊞)
+in the terminal toolbar.
+
+::: {.callout-note}
+**macOS shortcut:** `` Ctrl+` `` works on both platforms. On macOS you can also
+use `Cmd+J` to toggle the terminal panel.
+:::
+
+---
+
+# Common Claude Code Prompt Patterns
+
+## File Reading (Always First)
+
+The most important rule: **always read the file before revising it.**
+
+```
+> Read glm_effect_estimators.R and show me the current structure of
+  make_effect_estimator().
+```
+
+```
+> Before making any changes: read forestsearch_main.R lines 710-730
+  and confirm how id_name is currently handled.
+```
+
+## Cross-File Audits
+
+Claude Code can grep and read across all 55+ `.R` files:
+
+```
+> Audit all .R files for uses of merge(by = "id") and report which ones
+  ignore the id_name argument. Organize findings by severity.
+```
+
+```
+> Find all %dofuture% blocks across the package and list every variable
+  referenced inside them that is not passed via .export or embedded.
+  This is a parallel scoping audit.
+```
+
+```
+> Find all tryCatch() calls that catch errors silently (no message,
+  no warning, just return(NULL) or NA). List file and line number for each.
+```
+
+## CRAN Compliance Checks
+
+```
+> Scan all .R files for non-ASCII characters. List file, line number,
+  and the offending character.
+```
+
+```
+> List every function that appears in NAMESPACE but does not have
+  an @export tag in its roxygen2 header. Also list functions with
+  @export tags that are missing from NAMESPACE.
+```
+
+```
+> Find all \dontrun{} blocks in the package and list their locations.
+  Suggest which can be converted to \donttest{}.
+```
+
+## Targeted Edits
+
+```
+> In glm_effect_estimators.R, add input validation for the effect_measure
+  argument. Valid values are "OR", "RR", "RD" for binary; "HR", "AHR"
+  for survival; "MD" for continuous. Follow the validation pattern used
+  in Cox_estimation_helpers.R for the est.scale argument.
+  Read both files before making any change.
+```
+
+---
+
+# Platform Differences: Linux vs macOS
+
+## Path Conventions
+
+| Item | Linux (System76) | macOS |
+|---|---|---|
+| R binary | `/usr/bin/R` | `/usr/local/bin/R` (Intel) or `/opt/homebrew/bin/R` (Apple Silicon) |
+| radian | `~/.local/bin/radian` | `/usr/local/bin/radian` or `/opt/homebrew/bin/radian` |
+| Node / npm | `~/.nvm/versions/node/...` (nvm) | `/opt/homebrew/bin/node` (brew) |
+| Claude Code | `~/.nvm/.../bin/claude` | `/opt/homebrew/bin/claude` |
+| Home directory | `/home/larry` | `/Users/larry` |
+| Config files | `~/.bashrc`, `~/.bash_profile` | `~/.zshrc` (default shell is zsh since macOS Catalina) |
+
+## Shell Differences
+
+Linux uses **bash** by default; macOS uses **zsh** since Catalina (2019).
+
+```bash
+# Linux: add to ~/.bashrc
+export ANTHROPIC_API_KEY="sk-ant-..."
+export PATH="$HOME/.local/bin:$PATH"
+
+# macOS: add to ~/.zshrc
+export ANTHROPIC_API_KEY="sk-ant-..."
+export PATH="/opt/homebrew/bin:$PATH"
+```
+
+After editing:
+```bash
+# Linux
+source ~/.bashrc
+
+# macOS
+source ~/.zshrc
+```
+
+## Parallel Computing (`doFuture` / `multicore`)
+
+::: {.callout-warning}
+**Critical platform difference for `forestsearch` parallel code.**
+:::
+
+```r
+# multicore forking works on Linux
+future::plan("multicore", workers = 4)   # ✅ Linux: TRUE fork-based parallelism
+
+# On macOS: multicore is disabled in RStudio (GUI process restriction)
+future::plan("multicore", workers = 4)   # ⚠️  macOS + RStudio → silently falls back to sequential
+future::plan("multisession", workers = 4) # ✅ macOS: use multisession instead
+```
+
+When testing `bootstrap_dofuture_main.R` on macOS, always use `multisession`:
+
+```r
+# Safe cross-platform plan for forestsearch bootstrap
+plan_str <- if (.Platform$OS.type == "unix" && !grepl("darwin", R.version$os)) {
+  "multicore"
+} else {
+  "multisession"
+}
+future::plan(plan_str, workers = parallel::detectCores() - 1)
+```
+
+## File System Performance
+
+- **Linux:** File I/O inside `%dofuture%` workers is fast; `.rds` bundle writes
+  in `quarto/_data/` are near-instant.
+- **macOS:** File I/O can be slower due to Gatekeeper and SIP; large `.rds`
+  writes (>100 MB) may be noticeably slower. This matters when running the
+  calibration Quarto documents that save expensive simulation outputs.
+
+## `devtools::check()` Behavior
+
+```r
+# Linux: check() runs in a subprocess using the system R
+devtools::check()  # uses /usr/bin/R by default
+
+# macOS: check() may use a different R than your interactive session
+# if multiple R versions are installed via Homebrew or CRAN pkg
+# Confirm which R is active:
+system("which R")
+R.home()
+```
+
+On macOS, if you have multiple R versions via [rig](https://github.com/r-lib/rig),
+set the active version explicitly:
+
+```bash
+rig default 4.4   # or whichever version you're targeting
+```
+
+## win-builder (CRAN Submission) — Both Platforms
+
+Both Linux and macOS require the same `win-builder` submission step for CRAN:
+
+```r
+devtools::check_win_devel()   # submits to win-builder; results emailed ~30 min
+devtools::check_win_release()
+```
+
+There is no platform difference here — win-builder runs on Windwows regardless of
+your development OS.
+
+---
+
+# Worked Workflow Examples
+
+## Workflow 1: Revising GLM Simulations with Debug-First Strategy
+
+This is the recommended pattern when you have modified GLM simulation code and want
+to validate behavior **before** installing the package.
+
+### Context
+
+You have edited `glm_effect_estimators.R` and `grf_subg_harm_glm.R` on
+`feature/glm-extension`. You want to test `grf.subg.harm.glm()` with a small
+binary-outcome dataset before running `devtools::install()`.
+
+### Step 1 — Orient Claude Code
+
+```
+> We are on the feature/glm-extension branch working on the GLM simulation
+  calibration. The relevant files are:
+    - glm_effect_estimators.R   (estimator closures)
+    - grf_subg_harm_glm.R       (main GLM entry point)
+    - calibration_binary_leff.qmd (Quarto calibration doc)
+
+  Please read grf_subg_harm_glm.R now and summarize the current
+  argument signature of grf.subg.harm.glm().
+```
+
+### Step 2 — Load with `load_all()` for Interactive Debugging
+
+In Terminal 2 (radian):
+
+```r
+library(devtools)
+load_all()   # loads package from source WITHOUT installing
+             # changes to .R files are immediately reflected
+
+# Construct a minimal binary outcome dataset
+set.seed(42)
+n <- 200
+df_test <- data.frame(
+  y      = rbinom(n, 1, 0.3),
+  trt    = rbinom(n, 1, 0.5),
+  age    = rnorm(n, 55, 10),
+  biomarker = rnorm(n, 0, 1),
+  id     = seq_len(n)
+)
+
+# Test the GLM entry point
+result <- grf.subg.harm.glm(
+  y          = df_test$y,
+  trt        = df_test$trt,
+  X          = df_test[, c("age", "biomarker")],
+  df         = df_test,
+  outcome_type = "binary",
+  effect_measure = "OR",
+  n.boots    = 50,   # small for debugging
+  details    = TRUE
+)
+```
+
+::: {.callout-tip}
+**Why `load_all()` not `install()`?** `devtools::load_all()` sources all package
+functions into the global environment without compiling or installing. Changes
+to `.R` files take effect on the next `load_all()` call — no install/restart
+cycle. This is the correct tool for iterative debugging.
+
+**Exception:** `callr`-based parallel workers (as used in `bootstrap_dofuture_main.R`)
+require the package to be *installed*, not just loaded. For those, you must use
+`devtools::install()` before testing parallel code.
+:::
+
+### Step 3 — Ask Claude Code to Diagnose Errors
+
+If Step 2 produces an error, paste it into Claude Code:
+
+```
+> grf.subg.harm.glm() is failing with this error when outcome_type = "binary":
+
+  Error in make_effect_estimator(outcome_type, effect_measure) :
+    unused argument (effect_measure = "OR")
+
+  Read glm_effect_estimators.R and diagnose the root cause. Do not
+  propose a fix yet — just explain what is wrong.
+```
+
+After diagnosis:
+
+```
+> Now propose the minimal fix. Show the exact str_replace you would
+  apply to glm_effect_estimators.R. Do not touch any other file.
+```
+
+### Step 4 — Reload and Re-test
+
+After Claude Code applies the fix:
+
+```r
+# In radian terminal
+load_all()   # pick up the edit immediately
+
+result <- grf.subg.harm.glm(
+  y = df_test$y, trt = df_test$trt,
+  X = df_test[, c("age", "biomarker")], df = df_test,
+  outcome_type = "binary", effect_measure = "OR",
+  n.boots = 50, details = TRUE
+)
+
+# Inspect output
+str(result)
+result$fs.est$harm.definition
+```
+
+Repeat Steps 3–4 until `result` is correct.
+
+### Step 5 — Install and Test Parallel Bootstrap
+
+Only after interactive debugging passes:
+
+```r
+# Install (needed for callr workers in bootstrap)
+devtools::install(quiet = TRUE)
+
+# Test parallel bootstrap (small scale)
+library(forestsearch)
+
+boot_result <- forestsearch_bootstrap_dofuture(
+  y = df_test$y, trt = df_test$trt,
+  X = df_test[, c("age", "biomarker")], df = df_test,
+  outcome_type = "binary", effect_measure = "OR",
+  n.boots = 100,
+  parallel_args = list(
+    plan    = "multisession",   # macOS: use multisession; Linux: multicore OK
+    workers = 2
+  )
+)
+```
+
+### Step 6 — Run Full CRAN Check
+
+```r
+devtools::document()   # regenerate man/ and NAMESPACE
+devtools::check()      # full check; must pass with 0 errors/warnings/notes
+```
+
+---
+
+## Workflow 2: Cross-File Audit Before a CRAN Submission
+
+### Context
+
+You are preparing `v0.2.0` for CRAN submission and want a systematic audit
+of the GLM extension before running win-builder.
+
+### Step 1 — Namespace and Export Audit
+
+```
+> Audit the GLM extension for CRAN submission readiness.
+
+  Step 1: Read NAMESPACE and list every grf.subg.harm.glm-related
+  function that is exported.
+
+  Step 2: Read grf_subg_harm_glm.R, glm_effect_estimators.R,
+  plot_sg_glm_outcomes.R, and glm_cs_fit (wherever it lives).
+  List every function that has an @export tag.
+
+  Step 3: Report any functions with @export tags NOT in NAMESPACE,
+  and any NAMESPACE entries with no @export tag. Organize by severity.
+```
+
+### Step 2 — Silent Failure Audit
+
+```
+> Audit the GLM extension files (glm_effect_estimators.R,
+  grf_subg_harm_glm.R, bootstrap_dofuture_main.R) specifically for
+  silent failure patterns:
+
+  1. tryCatch blocks that return NULL or NA without any message
+  2. .errorhandling = "remove" in %dofuture% / %dopar% calls
+  3. Any use of suppressWarnings() or suppressMessages() that could
+     hide structural problems
+
+  Report file, line number, and the specific risk for each instance.
+  Do not propose fixes — audit only.
+```
+
+### Step 3 — Non-ASCII and Encoding Check
+
+Claude Code can run shell commands:
+
+```
+> Run this shell command and show the output:
+  grep -rn --include="*.R" '[^\x00-\x7F]' R/
+```
+
+Or ask Claude Code directly:
+
+```
+> Scan all .R files for non-ASCII characters. For each occurrence,
+  report the file, line number, the character, and its Unicode code point.
+```
+
+### Step 4 — Fix in Priority Order
+
+```
+> Now address the issues found, in this order:
+  1. Missing @export tags (NAMESPACE divergence)
+  2. Silent tryCatch blocks in GLM bootstrap path
+  3. Non-ASCII characters
+
+  Read each file before editing. Apply one fix at a time and confirm
+  before proceeding to the next.
+```
+
+### Step 5 — Final Check Sequence
+
+```r
+devtools::document()
+devtools::load_all()
+devtools::check()
+
+# If clean:
+devtools::check_win_devel()
+```
+
+---
+
+## Workflow 3: Quarto Calibration Document Revision
+
+### Context
+
+You are revising `calibration_binary_leff.qmd` — updating the simulation grid
+or fixing a parameter that was incorrectly scattered outside the setup chunk.
+
+### Step 1 — Orient Claude Code (Scope Discipline)
+
+```
+> I am working on calibration_binary_leff.qmd in the quarto/ directory.
+
+  Scope rule for this session: do NOT touch any .R source files,
+  DESCRIPTION, NAMESPACE, or pkgdown config. Work only on the .qmd file
+  and, if necessary, _quarto.yml.
+
+  Please read calibration_binary_leff.qmd now and identify every
+  tunable parameter that is NOT in the setup chunk.
+  List them with their line numbers.
+```
+
+### Step 2 — Parameter Consolidation
+
+```
+> Consolidate all tunable parameters into the setup chunk.
+  The parameters that should be there are:
+
+    n_sims, n_min_vec, leff_grid, outcome_type, effect_measure,
+    calibration_seed, output_dir
+
+  Move any of these that appear outside the setup chunk INTO the setup
+  chunk. Use the existing setup chunk variable names consistently.
+  Show me the revised setup chunk before applying any change.
+```
+
+### Step 3 — Preview Without Re-running Simulations
+
+Quarto documents that load from `_data/*.rds` can be previewed cheaply:
+
+```bash
+# In Terminal 1 (bash)
+cd quarto
+quarto preview calibration_binary_leff.qmd --no-execute-daemon
+```
+
+This renders using cached `.rds` data without re-running simulations.
+
+To force full re-execution (expensive — re-runs all simulations):
+
+```bash
+quarto render calibration_binary_leff.qmd
+```
+
+### Step 4 — Git Tracking for Output
+
+After a successful render:
+
+```bash
+git add quarto/_output/calibration_binary_leff.html
+git add quarto/_data/leff_calibration_binary.rds
+git commit -m "feat: update binary leff calibration grid"
+```
+
+::: {.callout-note}
+**Why track outputs in Git?** Simulation outputs are expensive to regenerate.
+Tracking the `.rds` bundles and rendered HTML in Git means collaborators (or
+future-you) can load pre-computed results without re-running hours of simulation.
+The `^quarto$` entry in `.Rbuildignore` prevents these from leaking into the
+CRAN tarball.
+:::
+
+---
+
+## Workflow 4: Debugging Parallel Bootstrap on macOS
+
+### Context
+
+The `bootstrap_dofuture_main.R` parallel bootstrap is failing silently — workers
+complete but results are empty — when running on macOS.
+
+### Step 1 — Confirm the Plan Setting
+
+```
+> Read bootstrap_dofuture_main.R and show me exactly where
+  future::plan() is set. Is it set inside or outside the worker body?
+  What plan value is used?
+```
+
+### Step 2 — Switch to Sequential for Diagnosis
+
+```r
+# In radian — bypass parallelism entirely
+devtools::load_all()
+
+boot_result <- forestsearch_bootstrap_dofuture(
+  ...,
+  parallel_args = list(plan = "sequential", workers = 1)
+)
+```
+
+If sequential works but parallel fails → parallel scoping issue.
+
+### Step 3 — Identify Unexported Variables
+
+```
+> In bootstrap_dofuture_main.R, list every variable and function
+  referenced inside %dofuture% worker bodies that is not:
+  (a) passed via .export = c(...), or
+  (b) a base R function, or
+  (c) defined inside the worker body itself.
+
+  This is a parallel scoping audit. Report all missing exports.
+```
+
+### Step 4 — Add Missing Exports
+
+```
+> The following objects are missing from .export:
+    make_effect_estimator, .run_single_consistency_split, estimator_fn
+
+  Add them to the .export vector in the %dofuture% call in
+  bootstrap_dofuture_main.R. Read the file first.
+```
+
+### Step 5 — macOS-Specific: Force `multisession`
+
+```
+> In bootstrap_dofuture_main.R, update the plan selection logic so that
+  on macOS (R.version$os containing "darwin"), the plan always falls
+  back to "multisession" even if "multicore" was requested.
+  Add a message() call informing the user of the fallback.
+```
+
+---
+
+# Git Workflow Integration
+
+## Checking Status from Claude Code
+
+Claude Code can run git commands:
+
+```
+> Run git status and git log --oneline -10 and show me the output.
+```
+
+## Committing from Claude Code
+
+```
+> Stage and commit the changes to glm_effect_estimators.R with the
+  commit message:
+  "fix: add input validation for effect_measure in make_effect_estimator()"
+```
+
+## Branch Switching
+
+```bash
+# In the bash terminal (not via Claude Code — safer to do manually)
+git checkout master
+git checkout feature/glm-extension
+```
+
+::: {.callout-warning}
+Avoid asking Claude Code to switch branches mid-session. The file system
+changes instantly and Claude Code's in-memory context of the files may
+become stale. Switch branches in the bash terminal, then start a new
+Claude Code session.
+:::
+
+---
+
+# Recommended Session Templates
+
+## Template: Starting a GLM Debug Session
+
+```
+> Session context:
+  - Branch: feature/glm-extension
+  - Goal: debug grf.subg.harm.glm() with binary outcome data
+  - Files in scope: glm_effect_estimators.R, grf_subg_harm_glm.R
+  - Files out of scope: all master-only files, DESCRIPTION, NAMESPACE
+
+  Step 1: Read grf_subg_harm_glm.R
+  Step 2: Summarize the argument signature
+  Step 3: Wait for my next instruction
+```
+
+## Template: Starting a CRAN Audit Session
+
+```
+> Session context:
+  - Branch: master (or feature/glm-extension for v0.2.0 prep)
+  - Goal: CRAN submission readiness audit
+  - Priority order: exports → silent failures → non-ASCII → \dontrun{} blocks
+
+  Begin with a NAMESPACE vs @export audit across all .R files.
+  Do not propose any fix until the full audit is complete.
+  Organize findings by severity: Critical → High → Moderate → Minor.
+```
+
+## Template: Starting a Quarto Session
+
+```
+> Session context:
+  - File: quarto/calibration_binary_leff.qmd
+  - Scope rule: do NOT touch .R source files, DESCRIPTION, NAMESPACE
+  - Goal: [describe your specific goal]
+
+  Read the file first. Then proceed.
+```
+
+---
+
+# Troubleshooting
+
+## Claude Code Can't Find `R`
+
+```bash
+# Linux
+which R        # if blank: R is not on PATH
+sudo ln -s /usr/lib/R/bin/R /usr/local/bin/R  # or add to .bashrc
+
+# macOS
+which R        # if blank:
+export PATH="/usr/local/bin:$PATH"  # Intel
+export PATH="/opt/homebrew/bin:$PATH"  # Apple Silicon
+```
+
+## `devtools::install()` Required for Parallel Workers
+
+If Claude Code suggests testing parallel bootstrap with just `load_all()`:
+
+```
+> CORRECTION: The parallel bootstrap uses callr workers which require
+  the package to be installed, not just loaded. The correct sequence is:
+    devtools::document()
+    devtools::install(quiet = TRUE)
+    library(forestsearch)
+  then test the parallel function.
+```
+
+## Claude Code Edits the Wrong File
+
+If Claude Code starts editing a file outside the declared scope:
+
+```
+> STOP. You are editing [wrong file]. The scope for this session is
+  [correct file] only. Revert that edit and re-read the scope rule.
+```
+
+## `future::plan("multicore")` Falls Back Silently on macOS
+
+```r
+# Check what plan is actually active
+future::plan()   # prints current plan; look for SequentialFuture if fallen back
+```
+
+If you see `SequentialFuture` when you expected `MulticoreFuture`, switch to
+`multisession` explicitly (see Workflow 4).
+
+---
+
+# Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  forestsearch: VS Code + Claude Code Quick Reference            │
+├─────────────────────────────────────────────────────────────────┤
+│  ALWAYS before editing:   read the file first                   │
+│  ALWAYS for NAMESPACE:    @export tags + devtools::document()   │
+│  ALWAYS for parallel:     devtools::install() not load_all()    │
+│  ALWAYS on macOS:         plan("multisession") not "multicore"  │
+│  NEVER:                   convert .qmd to .Rmd                  │
+│  NEVER:                   hand-edit NAMESPACE                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Debug sequence:          load_all() → test → fix → load_all()  │
+│  Install sequence:        document() → install() → library()    │
+│  CRAN check:              document() → load_all() → check()     │
+│  Parallel test:           document() → install() → test         │
+├─────────────────────────────────────────────────────────────────┤
+│  Linux parallel plan:     "multicore" (fork-based, RStudio OK)  │
+│  macOS parallel plan:     "multisession" (RStudio restriction)  │
+├─────────────────────────────────────────────────────────────────┤
+│  Git: track quarto/_output/ HTML and quarto/_data/ .rds         │
+│  Git: .Rbuildignore has ^quarto$ (keeps CRAN tarball clean)     │
+└─────────────────────────────────────────────────────────────────┘
+```
