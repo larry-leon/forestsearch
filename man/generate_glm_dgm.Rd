@@ -14,7 +14,7 @@ generate_glm_dgm(
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
   model = c("alt", "null"),
-  k_inter = 1,
+  k_inter = 0,
   n_super = 5000L,
   seed = 8316951L,
   verbose = FALSE
@@ -51,9 +51,13 @@ functions.}
 treatment--subgroup interaction, \code{"null"} for uniform treatment
 effect. Default \code{"alt"}.}
 
-\item{k_inter}{Numeric interaction-effect modifier applied to the
-treatment x subgroup coefficient. Values > 1 strengthen the
-interaction; 0 removes it. Default \code{1}.}
+\item{k_inter}{Numeric. Direct additive shift on the linear predictor
+(log-odds for binary) for Q members under treatment.  Positive
+values increase the outcome for Q under treatment; negative values
+decrease it.  This is NOT a multiplier on a fitted coefficient --
+it is the raw shift added to the log-odds after the baseline model
+is fitted WITHOUT the interaction.  Default \code{0} (no
+interaction, equivalent to \code{model = "null"}).}
 
 \item{n_super}{Integer. Size of the super-population. Default
 \code{5000L}.}
@@ -113,7 +117,7 @@ dgm <- generate_glm_dgm(
   subgroup_vars = c("z1", "z2"),
   subgroup_cuts = list(z1 = 1L, z2 = 1L),
   model         = "alt",
-  k_inter       = 1.5,
+  k_inter       = 1.0,   # additive log-odds shift for Q under treatment
   verbose       = TRUE
 )
 }

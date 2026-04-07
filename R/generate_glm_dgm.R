@@ -48,9 +48,13 @@
 #' @param model Character. \code{"alt"} for alternative hypothesis with
 #'   treatment--subgroup interaction, \code{"null"} for uniform treatment
 #'   effect. Default \code{"alt"}.
-#' @param k_inter Numeric interaction-effect modifier applied to the
-#'   treatment x subgroup coefficient. Values > 1 strengthen the
-#'   interaction; 0 removes it. Default \code{1}.
+#' @param k_inter Numeric. Direct additive shift on the linear predictor
+#'   (log-odds for binary) for Q members under treatment.  Positive
+#'   values increase the outcome for Q under treatment; negative values
+#'   decrease it.  This is NOT a multiplier on a fitted coefficient --
+#'   it is the raw shift added to the log-odds after the baseline model
+#'   is fitted WITHOUT the interaction.  Default \code{0} (no
+#'   interaction, equivalent to \code{model = "null"}).
 #' @param n_super Integer. Size of the super-population. Default
 #'   \code{5000L}.
 #' @param seed Integer. Random seed for super-population sampling.
@@ -99,7 +103,7 @@
 #'   subgroup_vars = c("z1", "z2"),
 #'   subgroup_cuts = list(z1 = 1L, z2 = 1L),
 #'   model         = "alt",
-#'   k_inter       = 1.5,
+#'   k_inter       = 1.0,   # additive log-odds shift for Q under treatment
 #'   verbose       = TRUE
 #' )
 #' }
@@ -116,7 +120,7 @@ generate_glm_dgm <- function(
     subgroup_vars   = NULL,
     subgroup_cuts   = NULL,
     model           = c("alt", "null"),
-    k_inter         = 1,
+    k_inter         = 0,
     n_super         = 5000L,
     seed            = 8316951L,
     verbose         = FALSE
@@ -213,43 +217,36 @@ generate_glm_dgm <- function(
     count      = stats::poisson()
   )
 
-  # Build formula: outcome ~ treatment + factors [+ interaction]
+  # -- Fit baseline model WITHOUT interaction ----------------------------------
+  # The interaction is added as a direct additive shift to the linear
+  # predictor AFTER fitting.  This avoids the non-collapsibility problem
+  # in logistic regression where including/excluding covariates changes
+  # other coefficient estimates.
   rhs <- c(treatment_var, factor_vars)
-  # Always include the interaction when a subgroup is defined, so the
-  # coefficient exists in both alt (k_inter > 0) and null (k_inter = 0).
-  has_subgroup <- !is.null(subgroup_vars) && sum(data$flag_harm) > 0
-  if (has_subgroup) {
-    data$treat_x_sg <- data[[treatment_var]] * data$flag_harm
-    rhs <- c(rhs, "treat_x_sg")
-  }
-
   fml <- stats::as.formula(paste(outcome_var, "~", paste(rhs, collapse = " + ")))
   fit_base <- stats::glm(fml, data = data, family = glm_family)
 
   if (verbose) {
-    cat("\nBaseline GLM fit:\n")
+    cat("\nBaseline GLM fit (no interaction):\n")
     cat(sprintf("  AIC: %.1f\n", stats::AIC(fit_base)))
-    cat(sprintf("  Treatment coefficient: %.4f\n",
-        stats::coef(fit_base)[treatment_var]))
-    if ("treat_x_sg" %in% names(stats::coef(fit_base))) {
-      cat(sprintf("  Interaction coefficient: %.4f\n",
-          stats::coef(fit_base)["treat_x_sg"]))
-    }
+    cat(sprintf("  Treatment coefficient: %.4f (OR = %.3f)\n",
+        stats::coef(fit_base)[treatment_var],
+        exp(stats::coef(fit_base)[treatment_var])))
   }
 
-  # -- Modify interaction coefficient ----------------------------------------
-  beta <- stats::coef(fit_base)
-  if ("treat_x_sg" %in% names(beta)) {
-    if (model == "null") {
-      beta["treat_x_sg"] <- 0
-      if (verbose) cat("  Null model: interaction set to 0\n")
-    } else {
-      beta["treat_x_sg"] <- beta["treat_x_sg"] * k_inter
-      if (verbose) {
-        cat(sprintf("  Modified interaction (k_inter = %.3f): %.4f\n",
-            k_inter, beta["treat_x_sg"]))
-      }
-    }
+  # -- Determine interaction shift ---------------------------------------------
+  # k_inter is a DIRECT additive shift on the linear predictor (log-odds
+  # for binary) for Q members under treatment.  This matches the inline
+  # approach where beta_inter is added to qlogis(p1) for Q members.
+  #   k_inter = 0: no interaction (null model)
+  #   k_inter > 0: treatment increases the outcome for Q
+  #   k_inter < 0: treatment decreases the outcome for Q
+  beta_inter <- if (model == "null") 0 else k_inter
+
+  if (verbose) {
+    cat(sprintf("  Interaction shift (k_inter): %.4f", k_inter))
+    if (model == "null") cat(" (null model: forced to 0)")
+    cat("\n")
   }
 
   # -- Create super-population -----------------------------------------------
@@ -260,30 +257,20 @@ generate_glm_dgm <- function(
   rownames(df_super) <- NULL
 
   # -- Compute potential outcomes --------------------------------------------
-  # Build model matrices for control and treatment
-  df_0 <- df_super
-  df_0[[treatment_var]] <- 0L
-  if ("treat_x_sg" %in% names(df_0)) df_0$treat_x_sg <- 0
+  # Baseline predictions from the model WITHOUT interaction
+  df_0 <- df_super; df_0[[treatment_var]] <- 0L
+  df_1 <- df_super; df_1[[treatment_var]] <- 1L
 
-  df_1 <- df_super
-  df_1[[treatment_var]] <- 1L
-  if ("treat_x_sg" %in% names(df_1)) {
-    df_1$treat_x_sg <- 1L * df_1$flag_harm
-  }
-
-  # Compute linear predictors using modified coefficients
-  X_0 <- stats::model.matrix(fml, data = df_0)
-  X_1 <- stats::model.matrix(fml, data = df_1)
-
-  # Ensure coefficient vector aligns with model matrix columns
-  beta_aligned <- beta[colnames(X_0)]
-
-  eta_0 <- as.numeric(X_0 %*% beta_aligned)
-  eta_1 <- as.numeric(X_1 %*% beta_aligned)
+  p0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
+  p1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
 
   if (outcome_type == "binary") {
-    df_super$p0 <- stats::plogis(eta_0)
+    # Add interaction: shift log-odds of p1 for Q members under treatment
+    in_Q <- df_super$flag_harm == 1
+    eta_1 <- stats::qlogis(p1_base)
+    eta_1[in_Q] <- eta_1[in_Q] + beta_inter
     df_super$p1 <- stats::plogis(eta_1)
+    df_super$p0 <- p0_base
   }
   # Future: continuous -> mu0/mu1; count -> mu0/mu1 with offset
 
@@ -317,9 +304,10 @@ generate_glm_dgm <- function(
 
     # Model parameters
     model_params = list(
-      coefficients = beta,
+      coefficients = stats::coef(fit_base),
       family       = glm_family,
       k_inter      = k_inter,
+      beta_inter   = beta_inter,
       sigma        = sigma_resid,
       formula      = fml
     ),

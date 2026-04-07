@@ -3160,7 +3160,7 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Single-data analysis: %.1f sec</span><span class="sc">\n</span><span class="st">&quot;</span>, timings<span class="sc">$</span>single_data))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; Single-data analysis: 1.1 sec</code></pre>
+#&gt; Single-data analysis: 1.0 sec</code></pre>
 </div>
 </div>
 </section>
@@ -3448,7 +3448,7 @@ window.Quarto = {
 <span id="cb117-47"><a href="#cb117-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_failed_null =</span> n_failed_null</span>
 <span id="cb117-48"><a href="#cb117-48" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb117-49"><a href="#cb117-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb117-50"><a href="#cb117-50" aria-hidden="true" tabindex="-1"></a>  filename <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;actg175_binary_simulations_%dalts_%dnulls.rds&quot;</span>,</span>
+<span id="cb117-50"><a href="#cb117-50" aria-hidden="true" tabindex="-1"></a>  filename <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;actg175_binary_benefit_simulations_%dalts_%dnulls.rds&quot;</span>,</span>
 <span id="cb117-51"><a href="#cb117-51" aria-hidden="true" tabindex="-1"></a>                       nsims_alt, nsims_null)</span>
 <span id="cb117-52"><a href="#cb117-52" aria-hidden="true" tabindex="-1"></a>  path <span class="ot">&lt;-</span> <span class="fu">file.path</span>(output_dir, filename)</span>
 <span id="cb117-53"><a href="#cb117-53" aria-hidden="true" tabindex="-1"></a>  <span class="fu">saveRDS</span>(bundle, path)</span>
@@ -3466,7 +3466,7 @@ window.Quarto = {
 <span id="cb117-65"><a href="#cb117-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;save_results = FALSE; skipping save.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb117-66"><a href="#cb117-66" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Results saved: _data/actg175_binary_simulations_100alts_200nulls.rds
+<pre><code>#&gt; Results saved: _data/actg175_binary_benefit_simulations_100alts_200nulls.rds
 #&gt;   Size: 2058.5 KB
 #&gt;   Alt sims: 100 (0 failed)
 #&gt;   Null sims: 200 (0 failed)
@@ -5844,7 +5844,7 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">calibrate</td>
-<td class="gt_row gt_right" headers="Seconds">1.4</td>
+<td class="gt_row gt_right" headers="Seconds">1.3</td>
 <td class="gt_row gt_right" headers="Minutes">0.02</td>
 </tr>
 <tr class="even">
@@ -5854,7 +5854,7 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">single_data</td>
-<td class="gt_row gt_right" headers="Seconds">1.1</td>
+<td class="gt_row gt_right" headers="Seconds">1.0</td>
 <td class="gt_row gt_right" headers="Minutes">0.02</td>
 </tr>
 <tr class="even">
@@ -5864,13 +5864,13 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">sims_alt</td>
-<td class="gt_row gt_right" headers="Seconds">133.0</td>
-<td class="gt_row gt_right" headers="Minutes">2.22</td>
+<td class="gt_row gt_right" headers="Seconds">132.3</td>
+<td class="gt_row gt_right" headers="Minutes">2.21</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step">sims_null</td>
-<td class="gt_row gt_right" headers="Seconds">42.3</td>
-<td class="gt_row gt_right" headers="Minutes">0.70</td>
+<td class="gt_row gt_right" headers="Seconds">40.4</td>
+<td class="gt_row gt_right" headers="Minutes">0.67</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">report_alt</td>
@@ -5879,8 +5879,8 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step" style="font-weight: bold">total</td>
-<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">178.0</td>
-<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">2.97</td>
+<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">175.3</td>
+<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">2.92</td>
 </tr>
 </tbody>
 </table>
@@ -5933,14 +5933,14 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb132"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb132-1"><a href="#cb132-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Alt sims:   %5.0f sec (%4.1f min)</span><span class="sc">\n</span><span class="st">&quot;</span>, proj_alt, proj_alt <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Alt sims:    1330 sec (22.2 min)</code></pre>
+<pre><code>#&gt;   Alt sims:    1323 sec (22.1 min)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb134"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb134-1"><a href="#cb134-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Null sims:  %5.0f sec (%4.1f min)</span><span class="sc">\n</span><span class="st">&quot;</span>, proj_null, proj_null <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Null sims:    423 sec ( 7.0 min)</code></pre>
+<pre><code>#&gt;   Null sims:    404 sec ( 6.7 min)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -5955,7 +5955,7 @@ height: 0px !important;
 <span id="cb138-2"><a href="#cb138-2" aria-hidden="true" tabindex="-1"></a>    proj_total, proj_total <span class="sc">/</span> <span class="dv">60</span>, proj_total <span class="sc">/</span> <span class="dv">3600</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Total:       1755 sec (29.3 min = 0.5 hours)</code></pre>
+<pre><code>#&gt;   Total:       1730 sec (28.8 min = 0.5 hours)</code></pre>
 </div>
 </div>
 </section>
@@ -7281,7 +7281,7 @@ height: 0px !important;
 <span id="cb143-748"><a href="#cb143-748" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_failed_null =</span> n_failed_null</span>
 <span id="cb143-749"><a href="#cb143-749" aria-hidden="true" tabindex="-1"></a>  )</span>
 <span id="cb143-750"><a href="#cb143-750" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb143-751"><a href="#cb143-751" aria-hidden="true" tabindex="-1"></a>  filename <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;actg175_binary_simulations_%dalts_%dnulls.rds&quot;</span>,</span>
+<span id="cb143-751"><a href="#cb143-751" aria-hidden="true" tabindex="-1"></a>  filename <span class="ot">&lt;-</span> <span class="fu">sprintf</span>(<span class="st">&quot;actg175_binary_benefit_simulations_%dalts_%dnulls.rds&quot;</span>,</span>
 <span id="cb143-752"><a href="#cb143-752" aria-hidden="true" tabindex="-1"></a>                       nsims_alt, nsims_null)</span>
 <span id="cb143-753"><a href="#cb143-753" aria-hidden="true" tabindex="-1"></a>  path <span class="ot">&lt;-</span> <span class="fu">file.path</span>(output_dir, filename)</span>
 <span id="cb143-754"><a href="#cb143-754" aria-hidden="true" tabindex="-1"></a>  <span class="fu">saveRDS</span>(bundle, path)</span>
