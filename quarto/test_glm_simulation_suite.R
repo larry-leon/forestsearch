@@ -242,18 +242,20 @@ check("1.11 same seed = identical DGM", {
   )
 })
 
-# 1.12 get_dgm_hr() compatibility
-check("1.12 get_dgm_hr compatibility", {
+# 1.12 hazard_ratios compatible with get_dgm_hr interface
+check("1.12 hazard_ratios has get_dgm_hr-compatible fields", {
   dgm <- generate_glm_dgm(
     data = actg_df, factor_vars = z_vars,
     outcome_var = "y_binary", treatment_var = "treat",
     subgroup_vars = sg_vars, subgroup_cuts = sg_cuts,
     n_super = 1000L, seed = 42L
   )
-  hr_H  <- get_dgm_hr(dgm, "hr_H")
-  hr_Hc <- get_dgm_hr(dgm, "hr_Hc")
-  hr_o  <- get_dgm_hr(dgm, "hr_overall")
-  stopifnot(!is.na(hr_H), !is.na(hr_Hc), !is.na(hr_o))
+  hr <- dgm$hazard_ratios
+  stopifnot(
+    !is.na(hr$harm_subgroup),
+    !is.na(hr$no_harm_subgroup),
+    !is.na(hr$overall)
+  )
 })
 
 # 1.13 print method works
