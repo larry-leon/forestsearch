@@ -132,8 +132,14 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       cat("## Prior to lasso:", c(conf.cont_medians), "\n")
       cat("#### Lasso selection results", "\n")
       print(get_lasso$fit$beta)
-      cat("Cox-LASSO selected:",c(lassokeep),"\n")
-      cat("Cox-LASSO not selected:",c(lassoomit),"\n")
+      lasso_label <- switch(outcome_type,
+        binary     = "Logistic-LASSO",
+        continuous = "Linear-LASSO",
+        count      = "Poisson-LASSO",
+        "Cox-LASSO"
+      )
+      cat(paste0(lasso_label, " selected:"), c(lassokeep), "\n")
+      cat(paste0(lasso_label, " not selected:"), c(lassoomit), "\n")
       cat("### End Lasso selection", "\n")
     }
     # If any selected per lasso
