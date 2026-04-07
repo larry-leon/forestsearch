@@ -1,9 +1,9 @@
 # =============================================================================
-# run_simulation_analysis() — General simulation wrapper
+# run_simulation_analysis() -- General simulation wrapper
 # =============================================================================
 #
-# Replaces oc_analyses_gbsg.R::run_simulation_analysis(), which was coupled
-# to simulate_from_gbsg_dgm() and hardcoded column names (y.sim, event.sim,
+# Replaces the legacy run_simulation_analysis() which was coupled
+# to simulate_from_gbsg_dgm() and hardcoded GBSG column names (y.sim, event.sim,
 # flag.harm, treat).
 #
 # Design:
@@ -89,7 +89,7 @@ default_grf_params_gen <- function() {
 #'   \code{\link{generate_aft_dgm_flex}} or \code{\link{setup_gbsg_dgm}}.
 #' @param n_sample Integer. Per-replicate sample size.
 #' @param analysis_time Numeric. Calendar time of analysis on the DGM time
-#'   scale.  Use \code{Inf} (default) for no administrative censoring —
+#'   scale.  Use \code{Inf} (default) for no administrative censoring --
 #'   equivalent to the legacy \code{max_follow = Inf}.
 #' @param cens_adjust Numeric. Log-scale shift to censoring times passed to
 #'   \code{simulate_from_dgm(cens_adjust = ...)}. Replaces legacy
@@ -158,7 +158,7 @@ run_simulation_analysis <- function(
     n_sample,
     analysis_time    = Inf,
     cens_adjust      = 0,
-    # Deprecated legacy parameter names — emit a warning if used
+    # Deprecated legacy parameter names -- emit a warning if used
     max_follow       = NULL,
     muC_adj          = NULL,
     confounders_base = c("v1", "v2", "v3", "v4", "v5", "v6", "v7"),
@@ -183,7 +183,7 @@ run_simulation_analysis <- function(
 
   show_verbose <- verbose && (is.null(verbose_n) || sim_id <= verbose_n)
 
-  # ── Deprecated parameter shims ─────────────────────────────────────────────
+  # -- Deprecated parameter shims ---------------------------------------------
   if (!is.null(max_follow)) {
     warning(
       "'max_follow' is deprecated. Use 'analysis_time' instead.\n",
@@ -210,28 +210,45 @@ run_simulation_analysis <- function(
     message(paste(rep("=", 60), collapse = ""))
   }
 
-  # ── Simulate data ──────────────────────────────────────────────────────────
+  # -- Simulate data ----------------------------------------------------------
   if (show_verbose)
     message(sprintf("\n[1] Simulating data (n=%d, analysis_time=%s, cens_adjust=%g)...",
                     n_sample, analysis_time, cens_adjust))
 
-  sim_data <- tryCatch(
-    simulate_from_dgm(
-      dgm           = dgm,
-      n             = n_sample,
-      seed          = seed_base + sim_id,
-      analysis_time = analysis_time,
-      cens_adjust   = cens_adjust
-    ),
-    error = function(e) stop("simulate_from_dgm failed: ", e$message)
-  )
+  is_glm_dgm <- inherits(dgm, "glm_dgm")
+
+  if (is_glm_dgm) {
+    # GLM DGM: no censoring, no entry times
+    sim_data <- tryCatch(
+      simulate_from_glm_dgm(
+        dgm  = dgm,
+        n    = n_sample,
+        seed = seed_base + sim_id
+      ),
+      error = function(e) stop("simulate_from_glm_dgm failed: ", e$message)
+    )
+    # Standardise column names for downstream code
+    outcome_name <- "y_sim"
+    event_name   <- "y_sim"   # binary: event IS outcome
+  } else {
+    sim_data <- tryCatch(
+      simulate_from_dgm(
+        dgm           = dgm,
+        n             = n_sample,
+        seed          = seed_base + sim_id,
+        analysis_time = analysis_time,
+        cens_adjust   = cens_adjust
+      ),
+      error = function(e) stop("simulate_from_dgm failed: ", e$message)
+    )
+  }
 
   if (show_verbose)
     message(sprintf("    n=%d  events=%d (%.1f%%)",
                     nrow(sim_data), sum(sim_data[[event_name]]),
                     100 * mean(sim_data[[event_name]])))
 
-  # ── Optional noise variables ───────────────────────────────────────────────
+  # -- Optional noise variables -----------------------------------------------
   confounders_name <- confounders_base
   if (n_add_noise > 0L) {
     set.seed(seed_base + 1000L * sim_id)
@@ -242,7 +259,7 @@ run_simulation_analysis <- function(
       message(sprintf("    Added %d noise variable(s)", n_add_noise))
   }
 
-  # ── True subgroup properties ───────────────────────────────────────────────
+  # -- True subgroup properties -----------------------------------------------
   has_harm <- harm_col %in% names(sim_data)
   size_H_true  <- if (has_harm) sum(sim_data[[harm_col]])        else NA_integer_
   prop_H_true  <- if (has_harm) mean(sim_data[[harm_col]])       else NA_real_
@@ -274,7 +291,7 @@ run_simulation_analysis <- function(
     propHc_true  = prop_Hc_true
   )
 
-  # ── Merge parameter defaults ───────────────────────────────────────────────
+  # -- Merge parameter defaults -----------------------------------------------
   fs_defaults  <- default_sim_params()
   grf_defaults <- default_grf_params_gen()
   grf_merged   <- modifyList(grf_defaults, grf_params)
@@ -287,7 +304,23 @@ run_simulation_analysis <- function(
   grf_merged$event.name    <- event_name
   grf_merged$treat.name    <- treat_name
 
-  # ── Run analyses ───────────────────────────────────────────────────────────
+  # -- Auto-inject GLM params from DGM (unless caller overrides) -------------
+  if (is_glm_dgm) {
+    glm_defaults <- list(
+      outcome_type   = dgm$outcome_type,
+      effect_measure = dgm$effect_measure,
+      offset.name    = dgm$offset_var
+    )
+    for (nm in names(glm_defaults)) {
+      if (is.null(fs_params[[nm]])) fs_params[[nm]] <- glm_defaults[[nm]]
+    }
+    if (show_verbose) {
+      message(sprintf("  GLM params from DGM: outcome_type=%s, effect_measure=%s",
+                      dgm$outcome_type, dgm$effect_measure))
+    }
+  }
+
+  # -- Run analyses -----------------------------------------------------------
   results_list <- list()
 
   if (show_verbose) {
@@ -394,12 +427,10 @@ run_simulation_analysis <- function(
     "frac.tau", "dmin.grf", "grf_depth",
     "use_twostage", "twostage_args",
     "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat",
-    "parallel_args"
-    # NOTE: outcome_type, effect_measure, offset.name are intentionally
-    # EXCLUDED from the forestsearch() whitelist.  They affect only the
-    # *estimation* step (.extract_fs_estimates_gen), not subgroup
-    # *identification* — which always uses Cox PH in forestsearch v0.1.x.
-    # Add them back here once forestsearch() natively supports GLM.
+    "parallel_args",
+    # GLM params (v0.2.0+): forestsearch() now natively supports GLM
+    # subgroup identification via outcome_type / effect_measure.
+    "outcome_type", "effect_measure", "offset.name", "seedit"
   )
   for (pn in valid_pnames)
     if (!is.null(params[[pn]])) fs_args[[pn]] <- params[[pn]]
@@ -447,7 +478,7 @@ run_simulation_analysis <- function(
     outcome_type = NULL, effect_measure = NULL, offset_name = NULL
 ) {
 
-  # ── Detect GLM mode ──────────────────────────────────────────────────────
+  # -- Detect GLM mode ------------------------------------------------------
   is_glm <- !is.null(outcome_type) && outcome_type != "survival"
 
   out <- data.table::data.table(
@@ -468,7 +499,7 @@ run_simulation_analysis <- function(
     taumax = max(df[[outcome_name]])
   )
 
-  # ── Build estimation closures ─────────────────────────────────────────────
+  # -- Build estimation closures ---------------------------------------------
   if (is_glm) {
     # Resolve GLM family from effect_measure
     glm_family <- switch(
@@ -499,7 +530,7 @@ run_simulation_analysis <- function(
     # ITT
     out$hr.itt <- .glm_effect(df)
   } else {
-    # ── Survival (Cox) ITT ─────────────────────────────────────────────────
+    # -- Survival (Cox) ITT -------------------------------------------------
     out$hr.itt <- tryCatch(
       exp(survival::coxph(
         survival::Surv(df[[outcome_name]], df[[event_name]]) ~ df[[treat_name]]
@@ -546,7 +577,7 @@ run_simulation_analysis <- function(
   out$size.H  <- sum(df$sg_hat, na.rm = TRUE)
   out$size.Hc <- sum(df$sg_hat == 0L, na.rm = TRUE)
 
-  # ── Subgroup effect estimates ────────────────────────────────────────────
+  # -- Subgroup effect estimates --------------------------------------------
   if (is_glm) {
     if (out$size.H  > 10) out$hr.H.hat  <- .glm_effect(df[df$sg_hat == 1, ])
     if (out$size.Hc > 10) out$hr.Hc.hat <- .glm_effect(df[df$sg_hat == 0, ])
@@ -563,7 +594,7 @@ run_simulation_analysis <- function(
     if (out$size.Hc > 10) out$hr.Hc.hat <- .cox_hr(df[df$sg_hat == 0, ])
   }
 
-  # ── AHR and CDE (survival-only estimands) ────────────────────────────────
+  # -- AHR and CDE (survival-only estimands) --------------------------------
   if (!is_glm) {
     if ("loghr_po" %in% names(df)) {
       out$ahr.H.hat  <- compute_ahr(df, df$sg_hat)
@@ -575,7 +606,7 @@ run_simulation_analysis <- function(
     }
   }
 
-  # ── True-subgroup classification metrics ─────────────────────────────────
+  # -- True-subgroup classification metrics ---------------------------------
   if (harm_col %in% names(df)) {
     true_H <- df[[harm_col]] == 1L
     hat_H  <- df$sg_hat == 1L
@@ -624,14 +655,28 @@ run_simulation_analysis <- function(
     outcome_type = NULL, effect_measure = NULL, offset_name = NULL,
     id_name = "id"
 ) {
-  grf_fun <- tryCatch(
-    get("grf.subg.harm.survival", mode = "function",
-        envir = asNamespace("forestsearch")),
-    error = function(e) NULL
-  )
+
+  # -- Dispatch: GLM vs survival GRF -----------------------------------------
+  is_glm <- !is.null(outcome_type) && outcome_type != "survival"
+
+  if (is_glm) {
+    grf_fun <- tryCatch(
+      get("grf.subg.harm.glm", mode = "function",
+          envir = asNamespace("forestsearch")),
+      error = function(e) NULL
+    )
+    fun_label <- "grf.subg.harm.glm"
+  } else {
+    grf_fun <- tryCatch(
+      get("grf.subg.harm.survival", mode = "function",
+          envir = asNamespace("forestsearch")),
+      error = function(e) NULL
+    )
+    fun_label <- "grf.subg.harm.survival"
+  }
 
   if (is.null(grf_fun)) {
-    warning("grf.subg.harm.survival not found. Skipping GRF analysis.")
+    warning(fun_label, " not found. Skipping GRF analysis.")
     return(.extract_grf_estimates_gen(
       df = data, grf_est = NULL, dgm = dgm,
       cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
@@ -643,11 +688,25 @@ run_simulation_analysis <- function(
     ))
   }
 
+  # -- Build arguments -------------------------------------------------------
   grf_args <- list(data = data, confounders.name = confounders_name,
                    details = verbose)
-  grf_pnames <- c("outcome.name", "event.name", "id.name", "treat.name",
-                  "frac.tau", "n.min", "dmin.grf", "RCT", "sg.criterion",
-                  "maxdepth", "seedit")
+
+  if (is_glm) {
+    # GLM GRF: pass outcome_type and effect_measure
+    grf_pnames <- c("outcome.name", "id.name", "treat.name",
+                    "n.min", "dmin.grf", "RCT", "sg.criterion",
+                    "maxdepth", "seedit", "adverse_outcome")
+    grf_args$outcome_type <- outcome_type
+    if (!is.null(effect_measure)) grf_args$effect_measure <- effect_measure
+    if (!is.null(offset_name))    grf_args$offset.name    <- offset_name
+  } else {
+    # Survival GRF: pass event.name and frac.tau
+    grf_pnames <- c("outcome.name", "event.name", "id.name", "treat.name",
+                    "frac.tau", "n.min", "dmin.grf", "RCT", "sg.criterion",
+                    "maxdepth", "seedit")
+  }
+
   for (pn in grf_pnames)
     if (!is.null(params[[pn]])) grf_args[[pn]] <- params[[pn]]
 
@@ -682,7 +741,7 @@ run_simulation_analysis <- function(
     id_name = "id"
 ) {
 
-  # ── Detect GLM mode ──────────────────────────────────────────────────────
+  # -- Detect GLM mode ------------------------------------------------------
   is_glm <- !is.null(outcome_type) && outcome_type != "survival"
 
   out <- data.table::data.table(
@@ -703,7 +762,7 @@ run_simulation_analysis <- function(
     taumax = max(df[[outcome_name]])
   )
 
-  # ── Build estimation closures ─────────────────────────────────────────────
+  # -- Build estimation closures ---------------------------------------------
   if (is_glm) {
     glm_family <- switch(
       effect_measure %||% "OR",

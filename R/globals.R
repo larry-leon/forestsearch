@@ -207,7 +207,7 @@ utils::globalVariables(c(
 
 # ============================================================================
 # Operating characteristics / simulation analysis
-# (from oc_analyses_gbsg_refactored.R, simulation_tables.R)
+# (from oc_analyses.R, simulation_tables.R)
 # ============================================================================
   "any.H",
   "ppv", "npv", "sens", "spec",
@@ -248,7 +248,7 @@ utils::globalVariables(c(
   "sg_label", "count", "bar_label",
 
 # ============================================================================
-# gg_forest() — ggplot2 aes() column names
+# gg_forest() -- ggplot2 aes() column names
 # ============================================================================
   "subgroup",   # y aesthetic in label and CI panels
   "row_col",    # colour/fill aesthetic mapped from data frame column
