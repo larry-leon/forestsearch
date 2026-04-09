@@ -22,9 +22,13 @@
 #' @param target_effect Numeric. Target effect size in Q on the scale
 #'   determined by \code{effect_measure} (e.g., OR = 2.0 for a binary
 #'   outcome).
-#' @param outcome_type Character. Currently only \code{"binary"}.
+#' @param outcome_type Character. One of \code{"binary"},
+#'   \code{"continuous"}, or \code{"count"}.
 #' @param effect_measure Character. Effect measure. Default \code{NULL}
 #'   (selects default per \code{outcome_type}).
+#' @param offset_var Character or \code{NULL}. Name of the exposure /
+#'   follow-up time column for count outcomes with an offset (IRR, IRD).
+#'   Default \code{NULL}.
 #' @param subgroup_vars Character vector of subgroup-defining variables.
 #' @param subgroup_cuts Named list of cutpoint specifications.
 #' @param k_inter_range Numeric vector of length 2. Search range for
@@ -72,8 +76,9 @@ calibrate_glm_interaction <- function(
     outcome_var,
     treatment_var,
     target_effect,
-    outcome_type    = c("binary"),
+    outcome_type    = c("binary", "continuous", "count"),
     effect_measure  = NULL,
+    offset_var      = NULL,
     subgroup_vars   = NULL,
     subgroup_cuts   = NULL,
     k_inter_range   = c(-10, 10),
@@ -108,6 +113,7 @@ calibrate_glm_interaction <- function(
       treatment_var = treatment_var,
       outcome_type  = outcome_type,
       effect_measure = effect_measure,
+      offset_var    = offset_var,
       subgroup_vars = subgroup_vars,
       subgroup_cuts = subgroup_cuts,
       model         = "alt",
@@ -137,6 +143,7 @@ calibrate_glm_interaction <- function(
     treatment_var = treatment_var,
     outcome_type  = outcome_type,
     effect_measure = effect_measure,
+    offset_var    = offset_var,
     subgroup_vars = subgroup_vars,
     subgroup_cuts = subgroup_cuts,
     model         = "alt",

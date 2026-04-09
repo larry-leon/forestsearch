@@ -9,8 +9,9 @@ generate_glm_dgm(
   factor_vars,
   outcome_var,
   treatment_var,
-  outcome_type = c("binary"),
+  outcome_type = c("binary", "continuous", "count"),
   effect_measure = NULL,
+  offset_var = NULL,
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
   model = c("alt", "null"),
@@ -32,12 +33,18 @@ ForestSearch (e.g., \code{paste0("z", 1:12)}).}
 \item{treatment_var}{Character string naming the treatment variable
 (must be 0/1 coded).}
 
-\item{outcome_type}{Character. Currently only \code{"binary"} is
-supported (Phase 1). Future phases will add \code{"continuous"} and
-\code{"count"}.}
+\item{outcome_type}{Character. One of \code{"binary"},
+\code{"continuous"}, or \code{"count"}.}
 
 \item{effect_measure}{Character. Effect measure for the GLM.
-Default is \code{NULL}, which selects \code{"OR"} for binary outcomes.}
+Default is \code{NULL}, which selects \code{"OR"} for binary,
+\code{"MD"} for continuous, \code{"IRR"} for count outcomes.}
+
+\item{offset_var}{Character or \code{NULL}. Name of the exposure /
+follow-up time column for count outcomes with an offset.
+Required when \code{effect_measure} is \code{"IRR"} or
+\code{"IRD"}.  The offset enters the Poisson GLM as
+\code{offset(log(offset_var))}.  Default \code{NULL}.}
 
 \item{subgroup_vars}{Character vector of variable names defining the
 subgroup. Default \code{NULL} (no subgroup).}
@@ -52,12 +59,18 @@ treatment--subgroup interaction, \code{"null"} for uniform treatment
 effect. Default \code{"alt"}.}
 
 \item{k_inter}{Numeric. Direct additive shift on the linear predictor
-(log-odds for binary) for Q members under treatment.  Positive
-values increase the outcome for Q under treatment; negative values
-decrease it.  This is NOT a multiplier on a fitted coefficient --
-it is the raw shift added to the log-odds after the baseline model
-is fitted WITHOUT the interaction.  Default \code{0} (no
-interaction, equivalent to \code{model = "null"}).}
+for Q members under treatment.  The interpretation depends on
+\code{outcome_type}:
+\describe{
+\item{binary}{Shift on the log-odds scale. Positive increases
+P(Y=1) for Q under treatment.}
+\item{continuous}{Shift on the mean scale (identity link).
+Positive increases \eqn{E(Y)} for Q under treatment.}
+\item{count}{Shift on the log-rate scale. Positive increases
+\eqn{E(Y)} for Q under treatment (multiplicative: rate multiplied
+by \code{exp(k_inter)}).}
+}
+Default \code{0} (no interaction, equivalent to \code{model = "null"}).}
 
 \item{n_super}{Integer. Size of the super-population. Default
 \code{5000L}.}
@@ -72,17 +85,20 @@ Default \code{8316951L}.}
 An object of class \code{c("glm_dgm", "list")} with:
 \describe{
 \item{\code{df_super}}{Super-population data frame with potential
-outcome columns \code{p0}, \code{p1} (binary), and
-\code{flag_harm}.}
+outcome columns: \code{p0}, \code{p1} (binary probabilities),
+or \code{mu0}, \code{mu1} (conditional means for continuous /
+count outcomes), and \code{flag_harm}.}
 \item{\code{hazard_ratios}}{Named list with \code{harm_subgroup},
 \code{no_harm_subgroup}, and \code{overall} -- effect estimates
 on the scale determined by \code{effect_measure}.  Field name
 retained for compatibility with \code{get_dgm_hr()} and
 reporting functions.}
-\item{\code{outcome_type}}{Character: \code{"binary"}.}
+\item{\code{outcome_type}}{Character: \code{"binary"},
+\code{"continuous"}, or \code{"count"}.}
 \item{\code{effect_measure}}{Character: the effect measure used.}
 \item{\code{model_params}}{List with fitted coefficients, family,
-\code{k_inter}, and residual SD (for continuous outcomes).}
+\code{k_inter}, residual SD (continuous), and offset variable
+name (count).}
 \item{\code{subgroup_info}}{List with subgroup definition,
 size, and proportion.}
 \item{\code{model_type}}{Character: \code{"alt"} or \code{"null"}.}

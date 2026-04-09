@@ -10,8 +10,9 @@ calibrate_glm_interaction(
   outcome_var,
   treatment_var,
   target_effect,
-  outcome_type = c("binary"),
+  outcome_type = c("binary", "continuous", "count"),
   effect_measure = NULL,
+  offset_var = NULL,
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
   k_inter_range = c(-10, 10),
@@ -35,10 +36,15 @@ calibrate_glm_interaction(
 determined by \code{effect_measure} (e.g., OR = 2.0 for a binary
 outcome).}
 
-\item{outcome_type}{Character. Currently only \code{"binary"}.}
+\item{outcome_type}{Character. One of \code{"binary"},
+\code{"continuous"}, or \code{"count"}.}
 
 \item{effect_measure}{Character. Effect measure. Default \code{NULL}
 (selects default per \code{outcome_type}).}
+
+\item{offset_var}{Character or \code{NULL}. Name of the exposure /
+follow-up time column for count outcomes with an offset (IRR, IRD).
+Default \code{NULL}.}
 
 \item{subgroup_vars}{Character vector of subgroup-defining variables.}
 

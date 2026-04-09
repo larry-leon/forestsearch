@@ -3,8 +3,8 @@
 # =============================================================================
 #
 # Mirrors generate_aft_dgm_flex() for non-survival outcomes.
-# Phase 1: binary endpoints (logistic regression).
-# Phase 2/3: continuous and count endpoints (planned).
+# Supports binary (logistic), continuous (Gaussian), and count (Poisson)
+# endpoints with optional offset for rate-based measures.
 #
 # Key design decisions:
 #   - Reuses define_subgroups() from generate_aft_dgm_helpers.R for subgroup
@@ -34,11 +34,16 @@
 #' @param outcome_var Character string naming the outcome variable.
 #' @param treatment_var Character string naming the treatment variable
 #'   (must be 0/1 coded).
-#' @param outcome_type Character. Currently only \code{"binary"} is
-#'   supported (Phase 1). Future phases will add \code{"continuous"} and
-#'   \code{"count"}.
+#' @param outcome_type Character. One of \code{"binary"},
+#'   \code{"continuous"}, or \code{"count"}.
 #' @param effect_measure Character. Effect measure for the GLM.
-#'   Default is \code{NULL}, which selects \code{"OR"} for binary outcomes.
+#'   Default is \code{NULL}, which selects \code{"OR"} for binary,
+#'   \code{"MD"} for continuous, \code{"IRR"} for count outcomes.
+#' @param offset_var Character or \code{NULL}. Name of the exposure /
+#'   follow-up time column for count outcomes with an offset.
+#'   Required when \code{effect_measure} is \code{"IRR"} or
+#'   \code{"IRD"}.  The offset enters the Poisson GLM as
+#'   \code{offset(log(offset_var))}.  Default \code{NULL}.
 #' @param subgroup_vars Character vector of variable names defining the
 #'   subgroup. Default \code{NULL} (no subgroup).
 #' @param subgroup_cuts Named list of cutpoint specifications for
@@ -49,12 +54,18 @@
 #'   treatment--subgroup interaction, \code{"null"} for uniform treatment
 #'   effect. Default \code{"alt"}.
 #' @param k_inter Numeric. Direct additive shift on the linear predictor
-#'   (log-odds for binary) for Q members under treatment.  Positive
-#'   values increase the outcome for Q under treatment; negative values
-#'   decrease it.  This is NOT a multiplier on a fitted coefficient --
-#'   it is the raw shift added to the log-odds after the baseline model
-#'   is fitted WITHOUT the interaction.  Default \code{0} (no
-#'   interaction, equivalent to \code{model = "null"}).
+#'   for Q members under treatment.  The interpretation depends on
+#'   \code{outcome_type}:
+#'   \describe{
+#'     \item{binary}{Shift on the log-odds scale. Positive increases
+#'       P(Y=1) for Q under treatment.}
+#'     \item{continuous}{Shift on the mean scale (identity link).
+#'       Positive increases \eqn{E(Y)} for Q under treatment.}
+#'     \item{count}{Shift on the log-rate scale. Positive increases
+#'       \eqn{E(Y)} for Q under treatment (multiplicative: rate multiplied
+#'       by \code{exp(k_inter)}).}
+#'   }
+#'   Default \code{0} (no interaction, equivalent to \code{model = "null"}).
 #' @param n_super Integer. Size of the super-population. Default
 #'   \code{5000L}.
 #' @param seed Integer. Random seed for super-population sampling.
@@ -65,17 +76,20 @@
 #' @return An object of class \code{c("glm_dgm", "list")} with:
 #'   \describe{
 #'     \item{\code{df_super}}{Super-population data frame with potential
-#'       outcome columns \code{p0}, \code{p1} (binary), and
-#'       \code{flag_harm}.}
+#'       outcome columns: \code{p0}, \code{p1} (binary probabilities),
+#'       or \code{mu0}, \code{mu1} (conditional means for continuous /
+#'       count outcomes), and \code{flag_harm}.}
 #'     \item{\code{hazard_ratios}}{Named list with \code{harm_subgroup},
 #'       \code{no_harm_subgroup}, and \code{overall} -- effect estimates
 #'       on the scale determined by \code{effect_measure}.  Field name
 #'       retained for compatibility with \code{get_dgm_hr()} and
 #'       reporting functions.}
-#'     \item{\code{outcome_type}}{Character: \code{"binary"}.}
+#'     \item{\code{outcome_type}}{Character: \code{"binary"},
+#'       \code{"continuous"}, or \code{"count"}.}
 #'     \item{\code{effect_measure}}{Character: the effect measure used.}
 #'     \item{\code{model_params}}{List with fitted coefficients, family,
-#'       \code{k_inter}, and residual SD (for continuous outcomes).}
+#'       \code{k_inter}, residual SD (continuous), and offset variable
+#'       name (count).}
 #'     \item{\code{subgroup_info}}{List with subgroup definition,
 #'       size, and proportion.}
 #'     \item{\code{model_type}}{Character: \code{"alt"} or \code{"null"}.}
@@ -115,8 +129,9 @@ generate_glm_dgm <- function(
     factor_vars,
     outcome_var,
     treatment_var,
-    outcome_type    = c("binary"),
+    outcome_type    = c("binary", "continuous", "count"),
     effect_measure  = NULL,
+    offset_var      = NULL,
     subgroup_vars   = NULL,
     subgroup_cuts   = NULL,
     model           = c("alt", "null"),
@@ -152,6 +167,29 @@ generate_glm_dgm <- function(
     if (!all(y_vals %in% c(0L, 1L, 0, 1))) {
       stop("For binary outcomes, '", outcome_var,
            "' must contain only 0/1 values.")
+    }
+  }
+
+  if (outcome_type == "count") {
+    y_vals <- data[[outcome_var]]
+    if (any(y_vals < 0, na.rm = TRUE) || any(y_vals != floor(y_vals), na.rm = TRUE)) {
+      stop("For count outcomes, '", outcome_var,
+           "' must contain non-negative integers.")
+    }
+    if (!is.null(offset_var)) {
+      if (!offset_var %in% names(data)) {
+        stop("offset_var '", offset_var, "' not found in data.")
+      }
+      if (any(data[[offset_var]] <= 0, na.rm = TRUE)) {
+        stop("offset_var '", offset_var,
+             "' must contain strictly positive values (exposure/person-time).")
+      }
+    }
+  }
+
+  if (outcome_type == "continuous") {
+    if (!is.numeric(data[[outcome_var]])) {
+      stop("For continuous outcomes, '", outcome_var, "' must be numeric.")
     }
   }
 
@@ -223,15 +261,30 @@ generate_glm_dgm <- function(
   # in logistic regression where including/excluding covariates changes
   # other coefficient estimates.
   rhs <- c(treatment_var, factor_vars)
+  # For count outcomes with offset, include offset in the model.
+  # We use the formula approach (offset(log(var))) rather than the
+  # offset= argument so that predict() with newdata handles offset
+  # correctly without recycling the original offset vector.
+  if (outcome_type == "count" && !is.null(offset_var)) {
+    rhs <- c(rhs, sprintf("offset(log(%s))", offset_var))
+  }
+
   fml <- stats::as.formula(paste(outcome_var, "~", paste(rhs, collapse = " + ")))
   fit_base <- stats::glm(fml, data = data, family = glm_family)
 
   if (verbose) {
     cat("\nBaseline GLM fit (no interaction):\n")
     cat(sprintf("  AIC: %.1f\n", stats::AIC(fit_base)))
-    cat(sprintf("  Treatment coefficient: %.4f (OR = %.3f)\n",
-        stats::coef(fit_base)[treatment_var],
-        exp(stats::coef(fit_base)[treatment_var])))
+    coef_label <- switch(outcome_type,
+      binary = sprintf("(OR = %.3f)", exp(stats::coef(fit_base)[treatment_var])),
+      count  = sprintf("(IRR = %.3f)", exp(stats::coef(fit_base)[treatment_var])),
+      continuous = sprintf("(MD = %.3f)", stats::coef(fit_base)[treatment_var])
+    )
+    cat(sprintf("  Treatment coefficient: %.4f %s\n",
+        stats::coef(fit_base)[treatment_var], coef_label))
+    if (outcome_type == "count" && !is.null(offset_var)) {
+      cat(sprintf("  Offset variable: %s\n", offset_var))
+    }
   }
 
   # -- Determine interaction shift ---------------------------------------------
@@ -261,18 +314,43 @@ generate_glm_dgm <- function(
   df_0 <- df_super; df_0[[treatment_var]] <- 0L
   df_1 <- df_super; df_1[[treatment_var]] <- 1L
 
-  p0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
-  p1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
+  in_Q <- df_super$flag_harm == 1
 
   if (outcome_type == "binary") {
+    # predict(type="response") gives probabilities directly
+    p0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
+    p1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
+
     # Add interaction: shift log-odds of p1 for Q members under treatment
-    in_Q <- df_super$flag_harm == 1
     eta_1 <- stats::qlogis(p1_base)
     eta_1[in_Q] <- eta_1[in_Q] + beta_inter
     df_super$p1 <- stats::plogis(eta_1)
     df_super$p0 <- p0_base
+
+  } else if (outcome_type == "continuous") {
+    # Gaussian with identity link: predict gives conditional means
+    mu0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
+    mu1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
+
+    # Add interaction: direct shift on the mean for Q under treatment
+    mu1_base[in_Q] <- mu1_base[in_Q] + beta_inter
+    df_super$mu0 <- mu0_base
+    df_super$mu1 <- mu1_base
+
+  } else if (outcome_type == "count") {
+    # Poisson with log link.
+    # When offset is in the formula, predict(type="link") returns
+    # X*beta + log(offset) — the full linear predictor including offset.
+    # When no offset, it returns just X*beta.
+    eta_0 <- stats::predict(fit_base, newdata = df_0, type = "link")
+    eta_1 <- stats::predict(fit_base, newdata = df_1, type = "link")
+
+    # Add interaction: shift on log-rate for Q under treatment
+    eta_1[in_Q] <- eta_1[in_Q] + beta_inter
+
+    df_super$mu0 <- exp(eta_0)
+    df_super$mu1 <- exp(eta_1)
   }
-  # Future: continuous -> mu0/mu1; count -> mu0/mu1 with offset
 
   # -- Compute true effects --------------------------------------------------
   effects <- .compute_glm_effects(
@@ -309,7 +387,8 @@ generate_glm_dgm <- function(
       k_inter      = k_inter,
       beta_inter   = beta_inter,
       sigma        = sigma_resid,
-      formula      = fml
+      formula      = fml,
+      offset_var   = offset_var
     ),
 
     # Subgroup information
@@ -364,10 +443,24 @@ generate_glm_dgm <- function(
         "OR" = (p1 / (1 - p1)) / (p0 / (1 - p0)),
         "RD" = p1 - p0,
         "RR" = p1 / p0,
-        stop("Unknown effect_measure: ", effect_measure)
+        stop("Unknown binary effect_measure: ", effect_measure)
+      )
+    } else if (outcome_type == "continuous") {
+      mu1 <- mean(df$mu1)
+      mu0 <- mean(df$mu0)
+      switch(effect_measure,
+        "MD" = mu1 - mu0,
+        stop("Unknown continuous effect_measure: ", effect_measure)
+      )
+    } else if (outcome_type == "count") {
+      mu1 <- mean(df$mu1)
+      mu0 <- mean(df$mu0)
+      switch(effect_measure,
+        "IRR" = mu1 / mu0,
+        "IRD" = mu1 - mu0,
+        stop("Unknown count effect_measure: ", effect_measure)
       )
     }
-    # Future: continuous -> mean(mu1) - mean(mu0); count -> exp(...)
   }
 
   in_Q <- df_super$flag_harm == 1
