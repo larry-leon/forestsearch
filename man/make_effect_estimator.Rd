@@ -11,6 +11,7 @@ make_effect_estimator(
   event.name = NULL,
   offset.name = NULL,
   effect_measure = NULL,
+  adverse_outcome = TRUE,
   robust_se = TRUE,
   adjust_covariates = NULL,
   ps_adjust_method = c("none", "iptw", "dr_gcomp"),
@@ -37,6 +38,14 @@ For binary: \code{"RD"} (default), \code{"OR"}, \code{"RR"},
 For continuous: \code{"MD"} (default).
 For survival: \code{"HR"} (default).
 \code{NULL} uses the default for the outcome type.}
+
+\item{adverse_outcome}{Logical. If \code{TRUE} (default), higher
+outcome values indicate harm and the effect is computed on the
+raw outcome.  If \code{FALSE}, the outcome is beneficial (e.g.,
+improvement) and the effect is computed on \code{1 - Y} internally
+so that effect > 0 (or OR > 1) consistently indicates treatment
+harm.  Only applies to binary outcomes; ignored for survival,
+continuous, and count.}
 
 \item{robust_se}{Logical. Use sandwich robust SE when available.
 Default \code{TRUE}.}

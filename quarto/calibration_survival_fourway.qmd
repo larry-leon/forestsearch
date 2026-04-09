@@ -16,8 +16,13 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # 100/200 ~ 3m linux
 # 1k/2k ~ 16m
 # 4k/8k ~ 1hr
-nsims_alt  <- 1000L        # H1 sims (use 500+ for production)
-nsims_null <- 1000L        # H0 sims (use 500+ for production)
+nsims_alt  <- 50L        # H1 sims (use 500+ for production)
+nsims_null <- 100L        # H0 sims (use 500+ for production)
+
+# Projection for production nsims values
+prod_alt  <- 10000L
+prod_null <- 50000L
+
 sim_seed   <- 8316951L
 n_workers  <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -42,6 +47,17 @@ pcons      <- 0.90       # pconsistency.threshold
 fs_splits  <- 400L
 maxk_val   <- 2L
 n_sample   <- 700L       # sample size for main sims
+fs_hr_threshold    <- 1.25   # c1: screening threshold
+fs_hr_consistency  <- 1.0    # c2: consistency threshold
+fs_d0_min          <- 12L    # min events, control arm
+fs_d1_min          <- 12L    # min events, treatment arm
+fs_by_risk         <- 12L    # risk-table interval (months for GBSG)
+fs_vi_grf_min      <- -0.2   # GRF variable importance threshold
+n_sims_cal         <- nsims_null  # L_eff calibration sims per N
+
+# -- Adjusted Cox formula (used in run_simulation_analysis) ---
+cox_formula_adj <- survival::Surv(y_sim, event_sim) ~
+  treat_sim + z1 + z2 + z3
 
 # ── Approximation display ────────────────────────────────────
 # n_H values for the per-subgroup approximation table
@@ -209,6 +225,35 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# -- Safe foreach result collection -------------------------------------------
+# Replaces .errorhandling = "remove" (which silently drops failures)
+# with .errorhandling = "pass" + post-hoc separation of errors from results.
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  n_failed <- sum(is_err)
+  if (n_failed > 0) {
+    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
+    warning(sprintf("%s%d of %d tasks failed.",
+        if (nzchar(label)) paste0(label, ": ") else "",
+        n_failed, length(raw_list)))
+    message("  First errors:\n    ",
+        paste(head(unique(err_msgs), 3), collapse = "\n    "))
+  }
+  good <- raw_list[!is_err]
+  if (length(good) == 0) {
+    result <- NULL
+  } else if (requireNamespace("data.table", quietly = TRUE)) {
+    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
+    result <- as.data.frame(result)
+  } else {
+    result <- do.call(rbind, good)
+  }
+  attr(result, "n_failed") <- n_failed
+  attr(result, "n_total") <- length(raw_list)
+  result
+}
+
+
 # L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
@@ -239,24 +284,60 @@ k_inter_cox <- calibrate_k_inter(
   k_treat = 1.0,
   cens_type = "weibull",
   use_ahr = FALSE,
-  verbose = TRUE
+  verbose = FALSE
 )
 
 dgm_alt <- setup_gbsg_dgm(
-  model = "alt", k_treat = 1.0, k_inter = k_inter_cox, verbose = TRUE
+  model = "alt", k_treat = 1.0, k_inter = k_inter_cox, verbose = FALSE
 )
 dgm_alt <- compute_dgm_cde(dgm_alt)
 
-cat(sprintf("\nCalibrated Alternative DGM (target HR(H) = %.1f):\n", hr_h1))
-cat("  HR(H):", round(dgm_alt$hr_H_true, 3), "\n")
-cat("  HR(Hc):", round(dgm_alt$hr_Hc_true, 3), "\n")
-cat("  HR(ITT):", round(dgm_alt$hr_causal, 3), "\n")
-
 # Null: uniform treatment effect
-dgm_null <- setup_gbsg_dgm(model = "null", k_treat = 1.0, verbose = TRUE)
+dgm_null <- setup_gbsg_dgm(model = "null", k_treat = 1.0, verbose = FALSE)
 
-cat("\nNull DGM:\n")
-cat("  HR(ITT):", round(dgm_null$hr_causal, 3), "\n")
+dgm_summary <- data.frame(
+  Subgroup = c("H (harm)", "Hc (complement)", "ITT (overall)"),
+  `Alt HR` = c(
+    round(dgm_alt$hr_H_true, 3),
+    round(dgm_alt$hr_Hc_true, 3),
+    round(dgm_alt$hr_causal, 3)
+  ),
+  `Alt AHR` = c(
+    round(dgm_alt$hazard_ratios$AHR_harm, 3),
+    round(dgm_alt$hazard_ratios$AHR_no_harm, 3),
+    NA_real_
+  ),
+  `Null HR` = c(
+    NA_real_,
+    NA_real_,
+    round(dgm_null$hr_causal, 3)
+  ),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt(dgm_summary) |>
+  tab_header(
+    title = "Data Generating Mechanisms",
+    subtitle = sprintf(
+      "Target HR(H) = %.1f | k_inter = %.4f | H prevalence = %.1f%%",
+      hr_h1, k_inter_cox,
+      100 * mean(dgm_alt$df_super$flag_harm)
+    )
+  ) |>
+  sub_missing(missing_text = "---") |>
+  cols_label(
+    Subgroup = "",
+    `Alt HR` = "HR (CDE)",
+    `Alt AHR` = "AHR",
+    `Null HR` = "HR"
+  ) |>
+  tab_spanner(label = "Alternative", columns = c("Alt HR", "Alt AHR")) |>
+  tab_spanner(label = "Null", columns = "Null HR") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Subgroup == "H (harm)")
+  )
 
 timings$dgm <- proc.time()[3] - t0
 ```
@@ -283,7 +364,7 @@ approx_cox <- data.frame(
 approx_cox$P_theta_1.0 <- sapply(approx_cox$n_H, function(n) {
   compute_detection_probability(
     theta = 1.0, n_sg = n, prop_cens = prop_cens,
-    hr_threshold = 1.25, hr_consistency = 1.0
+    hr_threshold = fs_hr_threshold, hr_consistency = fs_hr_consistency
   )
 })
 
@@ -292,7 +373,7 @@ approx_cox[[sprintf("P_theta_%.1f", hr_h1)]] <-
   sapply(approx_cox$n_H, function(n) {
     compute_detection_probability(
       theta = hr_h1, n_sg = n, prop_cens = prop_cens,
-      hr_threshold = 1.25, hr_consistency = 1.0
+      hr_threshold = fs_hr_threshold, hr_consistency = fs_hr_consistency
     )
   })
 
@@ -300,7 +381,7 @@ approx_cox[[sprintf("P_theta_%.1f", hr_h1)]] <-
 approx_cox$P_theta_0.75 <- sapply(approx_cox$n_H, function(n) {
   compute_detection_probability(
     theta = 0.75, n_sg = n, prop_cens = prop_cens,
-    hr_threshold = 1.25, hr_consistency = 1.0
+    hr_threshold = fs_hr_threshold, hr_consistency = fs_hr_consistency
   )
 })
 ```
@@ -428,10 +509,6 @@ sim_data <- simulate_from_dgm(
 )
 sim_data$id <- seq_len(nrow(sim_data))
 
-cat("Simulated trial: N =", nrow(sim_data),
-    "| Events =", sum(sim_data$event_sim),
-    "(", round(100 * mean(sim_data$event_sim), 1), "%)\n")
-
 # Cox HR
 fit_cox <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
 cox_hr <- exp(coef(fit_cox))
@@ -443,12 +520,52 @@ fit_pois <- glm(event_sim ~ treat_sim + offset(log(y_sim)),
 pois_irr <- exp(coef(fit_pois)["treat_sim"])
 pois_se <- sqrt(vcov(fit_pois)["treat_sim", "treat_sim"])
 
-cat(sprintf("\nITT Estimates:\n  Cox HR:      %.4f (SE: %.4f)\n  Poisson IRR: %.4f (SE: %.4f)\n  Ratio:       %.4f\n",
-            cox_hr, cox_se, pois_irr, pois_se, cox_hr / pois_irr))
-
 d_obs <- sum(sim_data$event_sim)
-cat(sprintf("\nVariance of log-effect:\n  Cox:     %.4f\n  Poisson: %.4f\n  4/d:     %.4f  (d = %d)\n",
-            cox_se^2, pois_se^2, 4/d_obs, d_obs))
+
+# Summary table
+qc_df <- data.frame(
+  Quantity = c(
+    "N", "Events", "Event rate (%)",
+    "Effect estimate", "SE(log-effect)", "Var(log-effect)",
+    "4/d (theoretical variance)"
+  ),
+  Cox = c(
+    nrow(sim_data), d_obs,
+    round(100 * mean(sim_data$event_sim), 1),
+    sprintf("HR = %.4f", cox_hr),
+    sprintf("%.4f", cox_se),
+    sprintf("%.4f", cox_se^2),
+    sprintf("%.4f (d = %d)", 4/d_obs, d_obs)
+  ),
+  Poisson = c(
+    nrow(sim_data), d_obs,
+    round(100 * mean(sim_data$event_sim), 1),
+    sprintf("IRR = %.4f", pois_irr),
+    sprintf("%.4f", pois_se),
+    sprintf("%.4f", pois_se^2),
+    sprintf("%.4f (d = %d)", 4/d_obs, d_obs)
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt(qc_df) |>
+  tab_header(
+    title = "Single-Trial QC: Cox vs Poisson+Offset",
+    subtitle = sprintf(
+      "HR/IRR ratio = %.4f (should be ~1.0)",
+      cox_hr / pois_irr
+    )
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Quantity %in% c("Effect estimate",
+                                                   "Var(log-effect)"))
+  ) |>
+  cols_label(
+    Quantity = "",
+    Cox = "Cox PH",
+    Poisson = "Poisson + offset"
+  )
 ```
 
 
@@ -457,14 +574,14 @@ cat(sprintf("\nVariance of log-effect:\n  Cox:     %.4f\n  Poisson: %.4f\n  4/d:
 ```{r sim-params}
 # Build compound parameter objects from setup-chunk scalars
 fs_params_base <- list(
-  hr.threshold = 1.25,
-  hr.consistency = 1.0,
+  hr.threshold = fs_hr_threshold,
+  hr.consistency = fs_hr_consistency,
   pconsistency.threshold = pcons,
   fs.splits = fs_splits,
   n.min = n_min_val,
-  d0.min = 12, d1.min = 12,
-  maxk = maxk_val, by.risk = 12,
-  vi.grf.min = -0.2,
+  d0.min = fs_d0_min, d1.min = fs_d1_min,
+  maxk = maxk_val, by.risk = fs_by_risk,
+  vi.grf.min = fs_vi_grf_min,
   use_lasso = TRUE, use_grf = TRUE,
   use_twostage = TRUE, twostage_args = list(),
   parallel_args = list(plan="sequential", workers = 1, show_message = FALSE)
@@ -476,10 +593,12 @@ fs_params_cox <- modifyList(fs_params_base, list(
 ))
 
 fs_params_irr <- modifyList(fs_params_base, list(
-  outcome.name = "y_sim", event.name = "event_sim",
+  outcome.name = "event_sim",   # binary event indicator (0/1)
+  event.name = "event_sim",
   treat.name = "treat_sim", id.name = "id",
   outcome_type = "binary", effect_measure = "IRR",
-  offset.name = "y_sim", dmin.grf = 0.0
+  offset.name = "y_sim",        # follow-up time for log(time) offset
+  dmin.grf = 0.0
 ))
 
 sim_config <- list(
@@ -491,12 +610,19 @@ sim_config <- list(
   cens_adjust = cens_adjust
 )
 
-cat("Simulation config:\n")
-cat("  H1 sims:", sim_config$n_sims_alt, "\n")
-cat("  H0 sims:", sim_config$n_sims_null, "\n")
-cat("  N:", sim_config$n_sample, "\n")
-cat("  analysis_time:", sim_config$analysis_time, "months\n")
-cat("  n.min:", fs_params_base$n.min, "(paper default)\n")
+gt(data.frame(
+  Parameter = c("H1 sims", "H0 sims", "N", "Analysis time", "n.min",
+                "c1 (hr.threshold)", "c2 (hr.consistency)"),
+  Value = c(sim_config$n_sims_alt, sim_config$n_sims_null,
+            sim_config$n_sample,
+            paste0(sim_config$analysis_time, " months"),
+            fs_params_base$n.min,
+            fs_params_base$hr.threshold,
+            fs_params_base$hr.consistency),
+  stringsAsFactors = FALSE
+)) |>
+  tab_header(title = "Simulation Configuration") |>
+  cols_label(Parameter = "", Value = "")
 ```
 
 
@@ -506,9 +632,9 @@ cat("  n.min:", fs_params_base$n.min, "(paper default)\n")
 cat("Running Cox H1 simulations...\n")
 t0 <- proc.time()[3]
 
-results_alt_cox <- foreach(
+results_alt_cox_raw <- foreach(
   sim = seq_len(sim_config$n_sims_alt),
-  .combine = rbind, .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
@@ -520,13 +646,15 @@ results_alt_cox <- foreach(
     analysis_time = sim_config$analysis_time,
     cens_adjust = sim_config$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+    cox_formula_adj = cox_formula_adj,
     n_add_noise = 0L,
     run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
     fs_params = fs_params_cox, verbose = FALSE
   )
 }
 timings$alt_cox <- proc.time()[3] - t0
+results_alt_cox <- collect_results(results_alt_cox_raw, "Cox H1")
+n_failed_alt_cox <- attr(results_alt_cox, "n_failed")
 if (nrow(results_alt_cox) < sim_config$n_sims_alt) {
   warning(sprintf(
     "Cox H1: %d of %d tasks silently failed.",
@@ -541,9 +669,9 @@ cat("Cox H1:", round(timings$alt_cox/60, 1), "min |",
 cat("Running Cox H0 simulations...\n")
 t0 <- proc.time()[3]
 
-results_null_cox <- foreach(
+results_null_cox_raw <- foreach(
   sim = seq_len(sim_config$n_sims_null),
-  .combine = rbind, .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
@@ -555,13 +683,15 @@ results_null_cox <- foreach(
     analysis_time = sim_config$analysis_time,
     cens_adjust = sim_config$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+    cox_formula_adj = cox_formula_adj,
     n_add_noise = 0L,
     run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
     fs_params = fs_params_cox, verbose = FALSE
   )
 }
 timings$null_cox <- proc.time()[3] - t0
+results_null_cox <- collect_results(results_null_cox_raw, "Cox H0")
+n_failed_null_cox <- attr(results_null_cox, "n_failed")
 if (nrow(results_null_cox) < sim_config$n_sims_null) {
   warning(sprintf(
     "Cox H0: %d of %d tasks silently failed.",
@@ -579,9 +709,9 @@ cat("Cox H0:", round(timings$null_cox/60, 1), "min |",
 cat("Running Poisson IRR H1 simulations...\n")
 t0 <- proc.time()[3]
 
-results_alt_irr <- foreach(
+results_alt_irr_raw <- foreach(
   sim = seq_len(sim_config$n_sims_alt),
-  .combine = rbind, .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
@@ -593,13 +723,15 @@ results_alt_irr <- foreach(
     analysis_time = sim_config$analysis_time,
     cens_adjust = sim_config$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+    cox_formula_adj = cox_formula_adj,
     n_add_noise = 0L,
     run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
     fs_params = fs_params_irr, verbose = FALSE
   )
 }
 timings$alt_irr <- proc.time()[3] - t0
+results_alt_irr <- collect_results(results_alt_irr_raw, "IRR H1")
+n_failed_alt_irr <- attr(results_alt_irr, "n_failed")
 if (nrow(results_alt_irr) < sim_config$n_sims_alt) {
   warning(sprintf(
     "IRR H1: %d of %d tasks silently failed.",
@@ -614,9 +746,9 @@ cat("IRR H1:", round(timings$alt_irr/60, 1), "min |",
 cat("Running Poisson IRR H0 simulations...\n")
 t0 <- proc.time()[3]
 
-results_null_irr <- foreach(
+results_null_irr_raw <- foreach(
   sim = seq_len(sim_config$n_sims_null),
-  .combine = rbind, .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE)
@@ -628,13 +760,15 @@ results_null_irr <- foreach(
     analysis_time = sim_config$analysis_time,
     cens_adjust = sim_config$cens_adjust,
     confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+    cox_formula_adj = cox_formula_adj,
     n_add_noise = 0L,
     run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
     fs_params = fs_params_irr, verbose = FALSE
   )
 }
 timings$null_irr <- proc.time()[3] - t0
+results_null_irr <- collect_results(results_null_irr_raw, "IRR H0")
+n_failed_null_irr <- attr(results_null_irr, "n_failed")
 if (nrow(results_null_irr) < sim_config$n_sims_null) {
   warning(sprintf(
     "IRR H0: %d of %d tasks silently failed.",
@@ -789,12 +923,37 @@ irr_det <- irr_h1[, c("sim", "any.H")]
 names(irr_det) <- c("sim", "irr")
 conc <- merge(cox_det, irr_det, by = "sim")
 
-cat("=== Per-Simulation Concordance (H1) ===\n")
-cat("Both found:", sum(conc$cox == 1 & conc$irr == 1), "\n")
-cat("Neither:   ", sum(conc$cox == 0 & conc$irr == 0), "\n")
-cat("Cox only:  ", sum(conc$cox == 1 & conc$irr == 0), "\n")
-cat("IRR only:  ", sum(conc$cox == 0 & conc$irr == 1), "\n")
-cat("Agreement: ", round(100 * mean(conc$cox == conc$irr), 1), "%\n")
+conc_df <- data.frame(
+  Outcome = c("Both detected", "Neither detected", "Cox only", "IRR only",
+              "Agreement"),
+  Count = c(
+    sum(conc$cox == 1 & conc$irr == 1),
+    sum(conc$cox == 0 & conc$irr == 0),
+    sum(conc$cox == 1 & conc$irr == 0),
+    sum(conc$cox == 0 & conc$irr == 1),
+    NA_integer_
+  ),
+  Pct = c(
+    round(100 * mean(conc$cox == 1 & conc$irr == 1), 1),
+    round(100 * mean(conc$cox == 0 & conc$irr == 0), 1),
+    round(100 * mean(conc$cox == 1 & conc$irr == 0), 1),
+    round(100 * mean(conc$cox == 0 & conc$irr == 1), 1),
+    round(100 * mean(conc$cox == conc$irr), 1)
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt(conc_df) |>
+  tab_header(
+    title = "Per-Simulation Concordance (H1)",
+    subtitle = sprintf("%d simulation pairs", nrow(conc))
+  ) |>
+  sub_missing(missing_text = "---") |>
+  cols_label(Outcome = "", Count = "N", Pct = "%") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Outcome == "Agreement")
+  )
 ```
 
 
@@ -839,7 +998,7 @@ multiple sample sizes ($N \in \{`r paste(N_cal_values, collapse = ", ")`\}$,
 defined in the setup chunk).
 
 ```{r null-multi-N}
-n_sims_cal <- nsims_null  # use same count as main sims
+# n_sims_cal defined in setup chunk
 
 cat("Running multi-N null calibration simulations...\n")
 cat(sprintf("N values: %s | Sims per N: %d\n",
@@ -850,9 +1009,9 @@ cal_results <- list()
 for (N_val in N_cal_values) {
   t_N <- proc.time()[3]
 
-  res_N <- foreach(
+  res_N_raw <- foreach(
     sim = seq_len(n_sims_cal),
-    .combine = rbind, .errorhandling = "remove",
+    .errorhandling = "pass",
     .options.future = list(
       packages = c("forestsearch", "survival", "data.table", "future"),
       seed = TRUE)
@@ -864,13 +1023,14 @@ for (N_val in N_cal_values) {
       analysis_time = sim_config$analysis_time,
       cens_adjust = sim_config$cens_adjust,
       confounders_base = confounders_base,
-      cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+      cox_formula_adj = cox_formula_adj,
       n_add_noise = 0L,
       run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
       fs_params = fs_params_cox, verbose = FALSE
     )
   }
 
+  res_N <- collect_results(res_N_raw, sprintf("cal N=%d", N_val))
   fs_rows <- res_N[res_N$analysis == "FS", ]
   if (nrow(fs_rows) < n_sims_cal) {
     warning(sprintf(
@@ -904,9 +1064,17 @@ cal_df$P1 <- sapply(cal_df$d_eff, function(d) {
   p_detect_glm(1.0, d, 1.25, 1.0)
 })
 
-cat("=== Per-Subgroup P1 vs Simulated FPR ===\n")
 cal_df$ratio <- round(cal_df$sim_fpr / pmax(cal_df$P1, 0.001), 2)
-print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")])
+
+gt(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")]) |>
+  tab_header(title = "Per-Subgroup P1 vs Simulated FPR") |>
+  fmt_number(columns = c(P1, sim_fpr), decimals = 4) |>
+  fmt_number(columns = ratio, decimals = 2) |>
+  cols_label(
+    N = "N", n_H = "n(H)", d_eff = "d_eff",
+    P1 = "P1 (approx)", sim_fpr = "Sim FPR",
+    ratio = "Sim/P1"
+  )
 ```
 
 
@@ -919,8 +1087,14 @@ print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "ratio")])
 # Implied L_eff
 cal_df$L_eff <- log(1 - cal_df$sim_fpr) / log(1 - cal_df$P1)
 
-cat("=== Implied L_eff ===\n")
-print(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "L_eff")])
+gt(cal_df[, c("N", "n_H", "d_eff", "P1", "sim_fpr", "L_eff")]) |>
+  tab_header(title = "Implied L_eff at Each Sample Size") |>
+  fmt_number(columns = c(P1, sim_fpr), decimals = 4) |>
+  fmt_number(columns = L_eff, decimals = 3) |>
+  cols_label(
+    N = "N", n_H = "n(H)", d_eff = "d_eff",
+    P1 = "P1", sim_fpr = "Sim FPR", L_eff = "L_eff"
+  )
 
 # Filter to valid rows (sim_fpr > 0 and P1 > 0)
 cal_valid <- cal_df[cal_df$sim_fpr > 0 & cal_df$P1 > 0 &
@@ -961,12 +1135,7 @@ if (nrow(cal_valid) >= 2) {
       theme(plot.title = element_text(face = "bold"))
   )
 
-  cat(sprintf("\nFitted model: L_eff = %.3f * (N/%d)^%.3f\n",
-              C_fit, n_min_val, alpha_fit))
-  for (N_val in N_cal_values) {
-    cat(sprintf("  N = %4d: L_eff = %.2f\n", N_val,
-                C_fit * (N_val / n_min_val)^alpha_fit))
-  }
+  # Fitted model summary included in calibrate_L_eff print() above
 } else {
   cat("Insufficient valid calibration points (need >= 2).\n")
   cat("Using fallback L_eff = 1 (no correction).\n")
@@ -1091,42 +1260,63 @@ gt(four_way_corr) |>
 ## Correction Assessment
 
 ```{r correction-assessment}
-cat(sprintf("=== L_eff Correction Assessment (N = %d) ===\n\n", n_sample))
-cat(sprintf("L_eff at N=%d: %.2f\n", n_sample, L_eff_main))
-cat(sprintf("  (i.e., %.1f effectively independent candidates)\n\n",
-            L_eff_main))
+sim_fpr_cox <- mean(cox_h0$any.H)
+sim_fpr_irr <- mean(irr_h0$any.H)
 
-cat("Cox PH (H0):\n")
-cat(sprintf("  Uncorrected P1:    %.3f\n", P1_cox))
-cat(sprintf("  Corrected:         %.3f\n", fpr_corr_cox))
-cat(sprintf("  Simulated:         %.3f\n", mean(cox_h0$any.H)))
-cat(sprintf("  Sim/Uncorrected:   %.2f\n",
-            mean(cox_h0$any.H) / max(P1_cox, 0.001)))
-cat(sprintf("  Sim/Corrected:     %.2f\n\n",
-            mean(cox_h0$any.H) / max(fpr_corr_cox, 0.001)))
+corr_df <- data.frame(
+  Metric = c("Uncorrected P1", "L_eff-corrected", "Simulated FPR",
+             "Sim / Uncorrected", "Sim / Corrected"),
+  Cox = c(
+    sprintf("%.4f", P1_cox),
+    sprintf("%.4f", fpr_corr_cox),
+    sprintf("%.4f", sim_fpr_cox),
+    sprintf("%.2f", sim_fpr_cox / max(P1_cox, 0.001)),
+    sprintf("%.2f", sim_fpr_cox / max(fpr_corr_cox, 0.001))
+  ),
+  Poisson = c(
+    sprintf("%.4f", P1_glm),
+    sprintf("%.4f", fpr_corr_glm),
+    sprintf("%.4f", sim_fpr_irr),
+    sprintf("%.2f", sim_fpr_irr / max(P1_glm, 0.001)),
+    sprintf("%.2f", sim_fpr_irr / max(fpr_corr_glm, 0.001))
+  ),
+  stringsAsFactors = FALSE
+)
 
-cat("GLM Poisson (H0):\n")
-cat(sprintf("  Uncorrected P1:    %.3f\n", P1_glm))
-cat(sprintf("  Corrected:         %.3f\n", fpr_corr_glm))
-cat(sprintf("  Simulated:         %.3f\n", mean(irr_h0$any.H)))
-cat(sprintf("  Sim/Uncorrected:   %.2f\n",
-            mean(irr_h0$any.H) / max(P1_glm, 0.001)))
-cat(sprintf("  Sim/Corrected:     %.2f\n",
-            mean(irr_h0$any.H) / max(fpr_corr_glm, 0.001)))
+gt(corr_df) |>
+  tab_header(
+    title = sprintf("L_eff Correction Assessment (N = %d)", n_sample),
+    subtitle = sprintf("L_eff = %.2f (%.1f effective candidates)",
+                        L_eff_main, L_eff_main)
+  ) |>
+  cols_label(Metric = "", Cox = "Cox PH", Poisson = "Poisson + offset") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Metric == "Sim / Corrected")
+  )
 ```
 
 
 ## Comparison to Binary Calibration
 
 ```{r compare-binary}
-cat("=== Cross-DGM L_eff Comparison ===\n\n")
-cat("The L_eff calibration depends on the candidate generation\n")
-cat("process, not the outcome type.\n\n")
-cat(sprintf("GBSG Survival DGM (%d confounders): C=%.3f, alpha=%.3f\n",
-            length(confounders_base), C_fit, alpha_fit))
-cat(sprintf("  L_eff(N=%d) = %.2f\n\n", n_sample, L_eff_main))
-cat("Binary DGM (4 confounders): see calibration_binary_leff.qmd\n")
-cat("  Expected: smaller L_eff (fewer confounders -> fewer candidates)\n")
+gt(data.frame(
+  DGM = c(
+    sprintf("GBSG Survival (%d confounders)", length(confounders_base)),
+    "Binary (4 confounders)"
+  ),
+  C = c(sprintf("%.3f", C_fit), "See calibration_binary_leff.qmd"),
+  alpha = c(sprintf("%.3f", alpha_fit), "---"),
+  `L_eff (N=700)` = c(sprintf("%.2f", L_eff_main),
+                        "Expected smaller (fewer candidates)"),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)) |>
+  tab_header(
+    title = "Cross-DGM L_eff Comparison",
+    subtitle = "L_eff depends on candidate generation, not outcome type"
+  ) |>
+  cols_label(DGM = "")
 ```
 
 
@@ -1331,21 +1521,28 @@ timing_df <- data.frame(
 timing_df$Minutes <- timing_df$Seconds / 60
 timing_df$Hours   <- timing_df$Seconds / 3600
 
-# ── Per-1,000 simulation projection ──────────────────────────
-# Simulation time = sum of all sim stages (excluding DGM setup)
-sim_secs <- timings$alt_cox + timings$null_cox +
-            timings$alt_irr + timings$null_irr + timings$null_cal
-n_total_sims <- nsims_alt + nsims_null +         # Cox + IRR main
-                nsims_alt + nsims_null +          # IRR main
-                n_sims_cal * length(N_cal_values) # L_eff cal
-secs_per_sim <- sim_secs / max(n_total_sims, 1)
-proj_1k      <- secs_per_sim * 1000
+# ── Production projection: 500 alt + 1000 null ───────────────
+# Per-replicate cost by analysis type
+time_per_alt_cox  <- timings$alt_cox / nsims_alt
+time_per_null_cox <- timings$null_cox / nsims_null
+time_per_alt_irr  <- timings$alt_irr / nsims_alt
+time_per_null_irr <- timings$null_irr / nsims_null
+time_per_cal      <- timings$null_cal / (n_sims_cal * length(N_cal_values))
+
+proj_cox_alt  <- time_per_alt_cox * prod_alt
+proj_cox_null <- time_per_null_cox * prod_null
+proj_irr_alt  <- time_per_alt_irr * prod_alt
+proj_irr_null <- time_per_null_irr * prod_null
+proj_cal      <- time_per_cal * prod_null * length(N_cal_values)
+proj_other    <- timings$dgm
+proj_total    <- proj_cox_alt + proj_cox_null + proj_irr_alt +
+                 proj_irr_null + proj_cal + proj_other
 
 timing_df <- rbind(timing_df, data.frame(
-  Stage   = sprintf("Projected per 1,000 sims (%.0f actual)", n_total_sims),
-  Seconds = proj_1k,
-  Minutes = proj_1k / 60,
-  Hours   = proj_1k / 3600,
+  Stage   = sprintf("Projected: %d alt + %d null", prod_alt, prod_null),
+  Seconds = proj_total,
+  Minutes = proj_total / 60,
+  Hours   = proj_total / 3600,
   stringsAsFactors = FALSE
 ))
 
@@ -1366,6 +1563,27 @@ gt(timing_df) |>
     style = cell_text(weight = "bold"),
     locations = cells_body(rows = grepl("Total|Projected", Stage))
   )
+```
+
+### Projection Detail
+
+```{r projection-detail}
+cat(sprintf("Current run: %d alt + %d null on %d workers\n",
+    nsims_alt, nsims_null, n_workers))
+cat(sprintf("  Per-replicate (Cox):  %.1f sec (alt), %.1f sec (null)\n",
+    time_per_alt_cox, time_per_null_cox))
+cat(sprintf("  Per-replicate (IRR):  %.1f sec (alt), %.1f sec (null)\n",
+    time_per_alt_irr, time_per_null_irr))
+cat(sprintf("  Per-replicate (cal):  %.1f sec\n", time_per_cal))
+cat(sprintf("\nProjected for %d alt + %d null:\n", prod_alt, prod_null))
+cat(sprintf("  Cox alt:   %5.0f sec (%4.1f min)\n", proj_cox_alt, proj_cox_alt / 60))
+cat(sprintf("  Cox null:  %5.0f sec (%4.1f min)\n", proj_cox_null, proj_cox_null / 60))
+cat(sprintf("  IRR alt:   %5.0f sec (%4.1f min)\n", proj_irr_alt, proj_irr_alt / 60))
+cat(sprintf("  IRR null:  %5.0f sec (%4.1f min)\n", proj_irr_null, proj_irr_null / 60))
+cat(sprintf("  L_eff cal: %5.0f sec (%4.1f min)\n", proj_cal, proj_cal / 60))
+cat(sprintf("  DGM setup: %5.0f sec (%4.1f min)\n", proj_other, proj_other / 60))
+cat(sprintf("  Total:     %5.0f sec (%4.1f min = %.1f hours)\n",
+    proj_total, proj_total / 60, proj_total / 3600))
 ```
 
 ```{r session-info}

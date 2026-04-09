@@ -20,6 +20,35 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+# -- Safe foreach result collection -------------------------------------------
+# Replaces .errorhandling = "remove" (which silently drops failures)
+# with .errorhandling = "pass" + post-hoc separation of errors from results.
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  n_failed <- sum(is_err)
+  if (n_failed > 0) {
+    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
+    warning(sprintf("%s%d of %d tasks failed.",
+        if (nzchar(label)) paste0(label, ": ") else "",
+        n_failed, length(raw_list)))
+    message("  First errors:\n    ",
+        paste(head(unique(err_msgs), 3), collapse = "\n    "))
+  }
+  good <- raw_list[!is_err]
+  if (length(good) == 0) {
+    result <- NULL
+  } else if (requireNamespace("data.table", quietly = TRUE)) {
+    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
+    result <- as.data.frame(result)
+  } else {
+    result <- do.call(rbind, good)
+  }
+  attr(result, "n_failed") <- n_failed
+  attr(result, "n_total") <- length(raw_list)
+  result
+}
+
 ```
 
 ```{r timing-init}
@@ -430,9 +459,9 @@ if (recalibrate) {
   for (N_val in N_cal_values) {
     t_N <- proc.time()[3]
 
-    res_N <- foreach(
+    res_N_raw <- foreach(
       s = seq_len(n_sims_recal),
-      .combine = c, .errorhandling = "remove",
+      .combine = c, .errorhandling = "pass",
       .options.future = list(
         packages = c("forestsearch", "data.table"), seed = TRUE)
     ) %dofuture% {
@@ -475,6 +504,7 @@ if (recalibrate) {
       as.integer(found)
     }
 
+    res_N <- res_N_raw  # .combine = c with body-level tryCatch
     res_clean <- unlist(res_N[sapply(res_N, is.numeric)])
     if (length(res_clean) < n_sims_recal) {
       warning(sprintf(
@@ -891,7 +921,7 @@ if (exists("frontier") && nrow(frontier) > 0) {
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
       found <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "remove",
+        .combine = c, .errorhandling = "pass",
         .options.future = list(
           packages = c("forestsearch", "data.table"),
           seed = TRUE)
@@ -1251,7 +1281,7 @@ if (run_validation) {
 
   val_results <- foreach(
     i = seq_len(nrow(val_tasks)),
-    .combine = rbind, .errorhandling = "remove",
+    .errorhandling = "pass",
     .options.future = list(
       packages = c("forestsearch", "data.table"), seed = TRUE)
   ) %dofuture% {

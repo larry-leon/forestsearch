@@ -111,8 +111,11 @@ Default: \code{"log"}.}
 \item{n.min}{Integer. Minimum subgroup sample size for a valid split.
 Default: \code{60}.}
 
-\item{dmin.grf}{Numeric. Minimum absolute treatment effect difference
-required for a GRF policy-tree node to be considered. Default: \code{0}.}
+\item{dmin.grf}{Numeric. Minimum absolute CATE magnitude (on the
+doubly robust score scale) required for the identified subgroup to
+be declared valid.  The score equals \code{-CATE(H)}, so a positive
+threshold requires the subgroup CATE to be sufficiently negative
+(treatment hurts).  Default: \code{0}.}
 
 \item{frac.tau}{Numeric. Fraction of the sample used for the GRF horizon
 (time-horizon analogue for non-survival outcomes). Default: \code{0.5}.}

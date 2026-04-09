@@ -50,6 +50,13 @@
 #'   For continuous: \code{"MD"} (default).
 #'   For survival: \code{"HR"} (default).
 #'   \code{NULL} uses the default for the outcome type.
+#' @param adverse_outcome Logical. If \code{TRUE} (default), higher
+#'   outcome values indicate harm and the effect is computed on the
+#'   raw outcome.  If \code{FALSE}, the outcome is beneficial (e.g.,
+#'   improvement) and the effect is computed on \code{1 - Y} internally
+#'   so that effect > 0 (or OR > 1) consistently indicates treatment
+#'   harm.  Only applies to binary outcomes; ignored for survival,
+#'   continuous, and count.
 #' @param robust_se Logical. Use sandwich robust SE when available.
 #'   Default \code{TRUE}.
 #' @param adjust_covariates Character vector or \code{NULL}. Additional
@@ -89,6 +96,7 @@ make_effect_estimator <- function(
     event.name         = NULL,
     offset.name        = NULL,
     effect_measure     = NULL,
+    adverse_outcome    = TRUE,
     robust_se          = TRUE,
     adjust_covariates  = NULL,
     ps_adjust_method   = c("none", "iptw", "dr_gcomp"),
@@ -156,6 +164,7 @@ make_effect_estimator <- function(
           robust_se         = robust_se,
           adjust_covariates = adjust_covariates,
           ps_adjust_method  = ps_adjust_method,
+          adverse_outcome   = adverse_outcome,
           ...
         )
       }
@@ -274,6 +283,7 @@ make_effect_estimator <- function(
     robust_se         = TRUE,
     adjust_covariates = NULL,
     ps_adjust_method  = "none",
+    adverse_outcome   = TRUE,
     ...
 ) {
   force(treat.name)
@@ -282,8 +292,18 @@ make_effect_estimator <- function(
   force(robust_se)
   force(adjust_covariates)
   force(ps_adjust_method)
+  force(adverse_outcome)
 
   function(data_slice) {
+    # When the outcome is beneficial (adverse_outcome = FALSE), flip
+    # Y -> 1 - Y so that the effect is computed on the adverse (failure)
+    # scale.  This ensures that effect > 0 (RD) or effect > 1 (OR/RR)
+    # consistently indicates treatment HARM, aligning with the
+    # survival convention where HR > 1 = treatment hurts.
+    if (!adverse_outcome) {
+      data_slice[[outcome.name]] <- 1L - data_slice[[outcome.name]]
+    }
+
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
 

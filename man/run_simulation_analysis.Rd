@@ -41,7 +41,7 @@ run_simulation_analysis(
 \item{n_sample}{Integer. Per-replicate sample size.}
 
 \item{analysis_time}{Numeric. Calendar time of analysis on the DGM time
-scale.  Use \code{Inf} (default) for no administrative censoring --
+scale.  Use \code{Inf} (default) for no administrative censoring —
 equivalent to the legacy \code{max_follow = Inf}.}
 
 \item{cens_adjust}{Numeric. Log-scale shift to censoring times passed to

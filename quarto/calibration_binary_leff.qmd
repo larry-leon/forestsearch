@@ -140,6 +140,35 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# -- Safe foreach result collection -------------------------------------------
+# Replaces .errorhandling = "remove" (which silently drops failures)
+# with .errorhandling = "pass" + post-hoc separation of errors from results.
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  n_failed <- sum(is_err)
+  if (n_failed > 0) {
+    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
+    warning(sprintf("%s%d of %d tasks failed.",
+        if (nzchar(label)) paste0(label, ": ") else "",
+        n_failed, length(raw_list)))
+    message("  First errors:\n    ",
+        paste(head(unique(err_msgs), 3), collapse = "\n    "))
+  }
+  good <- raw_list[!is_err]
+  if (length(good) == 0) {
+    result <- NULL
+  } else if (requireNamespace("data.table", quietly = TRUE)) {
+    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
+    result <- as.data.frame(result)
+  } else {
+    result <- do.call(rbind, good)
+  }
+  attr(result, "n_failed") <- n_failed
+  attr(result, "n_total") <- length(raw_list)
+  result
+}
+
+
 # L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
 cat("Workers:", n_workers, "| Sims per config:", nsims, "\n")
@@ -378,7 +407,7 @@ cat(sprintf("Simulation: %d pairs x %d N x %d hypothesis x %d sims = %d tasks\n"
     length(sim_pairs), length(N_cal_values), n_hyp, nsims, nrow(tasks)))
 if (!run_h1) cat("(H1 skipped: power computed from approximation)\n")
 
-res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "remove",
+res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "pass",
   .options.future = list(packages = c("forestsearch", "data.table"),
                          seed = TRUE)
 ) %dofuture% {
@@ -389,7 +418,7 @@ res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "remove",
 sim_dt <- rbindlist(res, fill = TRUE)
 timings$simulation <- proc.time()[3] - t0
 
-# ── Post-hoc task-count check (.errorhandling = "remove" is silent) ──
+# ── Post-hoc task-count check (.errorhandling = "pass" is silent) ──
 n_expected <- nrow(tasks)
 n_received <- nrow(sim_dt)
 if (n_received < n_expected) {

@@ -651,12 +651,13 @@ forestsearch <- function(df.analysis,
 
     # Build the estimator closure
     estimator_fn <- make_effect_estimator(
-      outcome_type   = outcome_type,
-      treat.name     = treat.name,
-      outcome.name   = outcome.name,
-      event.name     = if (outcome_type == "survival") event.name else NULL,
-      offset.name    = offset.name,
-      effect_measure = effect_measure
+      outcome_type    = outcome_type,
+      treat.name      = treat.name,
+      outcome.name    = outcome.name,
+      event.name      = if (outcome_type == "survival") event.name else NULL,
+      offset.name     = offset.name,
+      effect_measure  = effect_measure,
+      adverse_outcome = adverse_outcome
     )
 
     # Resolve screening and consistency thresholds from effect_measure.
@@ -1109,15 +1110,9 @@ forestsearch <- function(df.analysis,
 
   # Concise LASSO summary
   if (details && use_lasso) {
-    lasso_label <- switch(outcome_type,
-      binary     = "Logistic-LASSO",
-      continuous = "Linear-LASSO",
-      count      = "Poisson-LASSO",
-      "Cox-LASSO"
-    )
     n_kept <- length(lassokeep)
     n_total <- n_kept + length(lassoomit)
-    cat(lasso_label, "selected:", n_kept, "of", n_total, "candidate factors\n")
+    cat("Cox-LASSO selected:", n_kept, "of", n_total, "candidate factors\n")
     if (length(lassoomit) > 0) {
       cat("  Omitted:", paste(lassoomit, collapse = ", "), "\n")
     }

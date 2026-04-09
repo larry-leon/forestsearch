@@ -76,8 +76,11 @@
 #'   Default: \code{"log"}.
 #' @param n.min Integer. Minimum subgroup sample size for a valid split.
 #'   Default: \code{60}.
-#' @param dmin.grf Numeric. Minimum absolute treatment effect difference
-#'   required for a GRF policy-tree node to be considered. Default: \code{0}.
+#' @param dmin.grf Numeric. Minimum absolute CATE magnitude (on the
+#'   doubly robust score scale) required for the identified subgroup to
+#'   be declared valid.  The score equals \code{-CATE(H)}, so a positive
+#'   threshold requires the subgroup CATE to be sufficiently negative
+#'   (treatment hurts).  Default: \code{0}.
 #' @param frac.tau Numeric. Fraction of the sample used for the GRF horizon
 #'   (time-horizon analogue for non-survival outcomes). Default: \code{0.5}.
 #' @param maxdepth Integer. Maximum depth for GRF policy trees. Default: \code{2}.
@@ -414,13 +417,21 @@ grf.subg.harm.glm <- function(
       sg_idx      <- which(leaf_action == 1L)  # action 1 = recommend control
       sg_n        <- length(sg_idx)
       if (sg_n >= n.min && sg_n < n_max) {
-        # Score difference: mean(DR[sg]) - mean(DR[complement])
-        sc_sg  <- mean(dr_scores[sg_idx, 1L] - dr_scores[sg_idx, 2L])
-        sc_all <- mean(dr_scores[, 1L] - dr_scores[, 2L])
+        # Treatment effect contrast in the identified subgroup.
+        # DR scores: column 1 = Gamma_0 (control reward),
+        #            column 2 = Gamma_1 (treated reward).
+        # CATE = E[Y(1) - Y(0)] = Gamma_1 - Gamma_0.
+        # score = -CATE_sg: positive when treatment hurts the subgroup
+        #   (Gamma_0 > Gamma_1), matching the survival GRF convention
+        #   where diff = control_mean - treated_mean.
+        cate_sg  <- mean(dr_scores[sg_idx, 2L] - dr_scores[sg_idx, 1L])
+        cate_sgc <- mean(dr_scores[-sg_idx, 2L] - dr_scores[-sg_idx, 1L])
         values[[d]] <- list(
           depth    = d,
           n_sg     = sg_n,
-          score    = sc_sg - sc_all,
+          score    = -cate_sg,  # positive = treatment hurts subgroup
+          cate_sg  = cate_sg,
+          cate_sgc = cate_sgc,
           sg_idx   = sg_idx,
           leaf_action = leaf_action
         )
@@ -474,6 +485,10 @@ grf.subg.harm.glm <- function(
       n_harm, 100 * n_harm / n,
       paste(sg_harm_id, collapse = " & ")
     ))
+    message(sprintf(
+      "[grf.subg.harm.glm] CATE(H) = %.4f, CATE(Hc) = %.4f, score = %.4f (depth %d)",
+      best$cate_sg, best$cate_sgc, best$score, best$depth
+    ))
   }
 
   # ---------------------------------------------------------------------------
@@ -495,7 +510,10 @@ grf.subg.harm.glm <- function(
       adverse_outcome     = adverse_outcome,
       trees               = trees,
       dr_scores           = dr_scores,
-      cs_forest           = cs_forest
+      cs_forest           = cs_forest,
+      cate_sg             = best$cate_sg,
+      cate_sgc            = best$cate_sgc,
+      best_depth          = best$depth
     ),
     class = "grf_glm_result"
   )
@@ -696,8 +714,9 @@ create_glm_row <- function(
   if (length(valid) == 0L) return(NULL)
 
   if (sg.criterion == "mDiff") {
-    # Pick the tree with the largest score difference (most treatment effect
-    # heterogeneity) subject to n.min constraint
+    # Pick the tree with the largest absolute harm signal (-CATE in
+    # the subgroup), subject to dmin.grf threshold.  This matches
+    # the survival GRF convention where diff = control_mean - treated_mean.
     scores <- vapply(valid, `[[`, numeric(1), "score")
     best_v <- valid[[which.max(scores)]]
     if (max(scores) < dmin.grf) return(NULL)

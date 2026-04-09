@@ -1,0 +1,864 @@
+---
+title: "GRF Scoring for Binary Outcomes: Methodology and Simulation Study"
+subtitle: "Aligning Doubly Robust CATE Estimates with ForestSearch Subgroup Identification"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# -- Simulation control -------------------------------------------------------
+nsims           <- 200L
+sim_seed        <- 8316951L
+sim_n_sample    <- 1000L
+n_workers       <- min(parallel::detectCores(logical = FALSE) - 1L, 120L)
+
+# -- ACTG175 data preparation -------------------------------------------------
+actg_arms       <- c(1L, 3L)
+actg_age_cut    <- 34
+actg_preanti_cut <- 744.5
+
+# -- DGM ----------------------------------------------------------------------
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+dgm_n_super       <- 5000L
+
+# -- Calibration ---------------------------------------------------------------
+cal_target_or     <- 2.0
+cal_k_grid_range  <- c(0, 3)
+cal_grid_step     <- 0.05
+
+# -- GRF standalone parameters ------------------------------------------------
+grf_n_min         <- 60L
+grf_dmin          <- 0.0
+grf_maxdepth      <- 2L
+grf_sg_criterion  <- "mDiff"
+
+# -- ForestSearch parameters ---------------------------------------------------
+fs_or_threshold   <- round(1 / 0.60, 3)
+fs_or_consistency <- round(1 / 0.80, 3)
+fs_pconsistency   <- 0.90
+fs_splits         <- 400L
+fs_n_min          <- 60L
+fs_d0_min         <- 12L
+fs_d1_min         <- 12L
+fs_maxk           <- 2L
+fs_vi_grf_min     <- -0.2
+fs_seedit         <- 8316951L
+
+# -- Output persistence --------------------------------------------------------
+save_results      <- TRUE
+output_dir        <- "_data"
+```
+
+
+# Introduction {#sec-intro}
+
+## GRF and the Conditional Average Treatment Effect
+
+Generalized Random Forests (GRF; Athey, Tibshirani, and Wager, 2019)
+estimate the Conditional Average Treatment Effect (CATE):
+
+$$
+\tau(x) = E[Y_i(1) - Y_i(0) \mid X_i = x]
+$$
+
+For a binary treatment $W \in \{0, 1\}$ and covariates $X$, GRF's
+`causal_forest()` constructs adaptive neighborhood weights
+$\alpha_i(x)$ via a forest trained to maximize heterogeneity in
+treatment effects.  The CATE is then estimated by a locally weighted
+residual-on-residual regression (Robinson, 1988):
+
+$$
+\hat{\tau}(x) = \text{lm}\Big(
+  Y_i - \hat{m}^{(-i)}(X_i) \sim W_i - \hat{e}^{(-i)}(X_i),
+  \; \text{weights} = \alpha_i(x)
+\Big)
+$$
+
+where $\hat{m}(x) = E[Y \mid X = x]$ is the conditional mean and
+$\hat{e}(x) = P(W = 1 \mid X = x)$ is the propensity score.
+
+
+## Doubly Robust Scores
+
+The `policytree` package computes doubly robust (DR) scores
+from a fitted causal forest.  For a binary treatment, the function
+`double_robust_scores()` returns an $n \times 2$ matrix
+$[\Gamma_0, \Gamma_1]$ where each column is a doubly robust estimate
+of the expected potential outcome under that action:
+
+$$
+\Gamma_{ia} = \hat{\mu}_a(X_i) + \frac{1}{\hat{e}_a(X_i)}
+\big(Y_i - \hat{\mu}_a(X_i)\big) \cdot \mathbb{1}(A_i = a)
+$$
+
+- Column 1 ($\Gamma_0$): DR estimate of $E[Y(0) \mid X]$ (control reward)
+- Column 2 ($\Gamma_1$): DR estimate of $E[Y(1) \mid X]$ (treated reward)
+
+The CATE for individual $i$ is $\Gamma_{i1} - \Gamma_{i0}$.
+
+
+## Policy Trees and Subgroup Selection
+
+A `policy_tree` maximizes the sum of rewards across all
+observations by finding splits that assign each individual to the
+action with the highest DR score.  For a binary treatment:
+
+- `predict(tree, X) == 1` $\Rightarrow$ recommend control
+  ($\Gamma_0 > \Gamma_1$, treatment hurts)
+- `predict(tree, X) == 2` $\Rightarrow$ recommend treatment
+  ($\Gamma_1 > \Gamma_0$, treatment helps)
+
+This means individuals assigned to action 1 form a subgroup where
+the estimated CATE is negative --- treatment is harmful.
+
+
+## Score Convention: Survival vs Binary GRF {#sec-convention}
+
+In `forestsearch`, GRF standalone analysis identifies a "harm"
+subgroup and computes a score for selecting among candidate subgroups
+(across tree depths).  The convention must align between survival and
+binary endpoints.
+
+**Survival GRF** (`grf.subg.harm.survival`, via `grf_helpers.R`):
+
+The score per leaf node is:
+$$
+\text{diff} = \overline{\Gamma}_0^{\text{leaf}} - \overline{\Gamma}_1^{\text{leaf}}
+= -\widehat{\text{CATE}}_{\text{leaf}}
+$$
+
+The leaf with `which.max(diff)` is selected --- where treatment
+hurts most.  The threshold `dmin.grf` is compared to this
+**absolute** harm magnitude.
+
+**Binary GRF** (`grf.subg.harm.glm`, revised):
+
+The score is now aligned:
+$$
+\text{score} = -\widehat{\text{CATE}}_{\text{sg}}
+= \overline{\Gamma}_0^{\text{sg}} - \overline{\Gamma}_1^{\text{sg}}
+$$
+
+where $\text{sg}$ is the set of individuals assigned to
+`leaf_action == 1` (recommend control).
+
+**Previously**, the score was computed as a relative difference:
+$\text{score} = (\overline{\Gamma}_0 - \overline{\Gamma}_1)_{\text{sg}} -
+(\overline{\Gamma}_0 - \overline{\Gamma}_1)_{\text{all}}$,
+which measured excess harm relative to the population average rather
+than the absolute treatment effect contrast within the subgroup.  This
+gave `dmin.grf` a different interpretation from the survival GRF
+and could miss subgroups with large absolute harm but small differential.
+
+
+## Scope of This Document
+
+This document:
+
+1. Validates the revised scoring on ACTG175-based simulations with
+   binary outcomes (CD4 improvement).
+
+2. Examines GRF standalone CATE accuracy and subgroup identification.
+
+3. Compares GRF standalone with ForestSearch (FS) under the same DGM.
+
+
+# Data Preparation {#sec-data}
+
+```{r load-packages}
+library(forestsearch)
+library(survival)
+library(speff2trial)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(doFuture)
+library(foreach)
+library(grf)
+
+timings <- list()
+```
+
+```{r prepare-data}
+t0 <- proc.time()[3]
+
+actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+actg_df$id <- seq_len(nrow(actg_df))
+actg_df$treat_orig <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df$treat <- 1L - actg_df$treat_orig
+actg_df$y_binary <- as.integer(actg_df$cd420 > actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+actg_df$z4  <- as.factor(ifelse(
+  actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+actg_df$z5  <- as.factor(ifelse(
+  actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+actg_df$z6  <- as.factor(ifelse(
+  actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+
+cat(sprintf("N = %d, response rate = %.1f%%\n",
+    nrow(actg_df), 100 * mean(actg_df$y_binary)))
+cat(sprintf("Q prevalence: %.1f%%\n",
+    100 * mean(actg_df$flag_harm_ref)))
+
+timings$data_prep <- proc.time()[3] - t0
+```
+
+
+# DGM Construction {#sec-dgm}
+
+```{r build-dgm}
+t0 <- proc.time()[3]
+
+dgm_calibrated <- calibrate_glm_interaction(
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "y_binary",
+  treatment_var = "treat",
+  target_effect = cal_target_or,
+  outcome_type  = "binary",
+  effect_measure = "OR",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  k_inter_range = cal_k_grid_range,
+  grid_step     = cal_grid_step,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+dgm_null <- generate_glm_dgm(
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "y_binary",
+  treatment_var = "treat",
+  outcome_type  = "binary",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "null",
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== Alternative DGM ===\n")
+cat("  OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
+cat("  OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
+cat("  k_inter:", dgm_calibrated$model_params$k_inter, "\n")
+
+cat("\n=== Null DGM ===\n")
+cat("  OR(ITT):", round(dgm_null$hazard_ratios$overall, 3), "\n")
+
+timings$dgm <- proc.time()[3] - t0
+```
+
+
+# Single-Data GRF Analysis {#sec-single-data}
+
+Before simulations, run GRF standalone on the observed ACTG175 data
+to verify the revised scoring produces interpretable results.
+
+```{r single-grf}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+confounders_actg <- dgm_calibrated$factor_vars
+
+grf_result <- grf.subg.harm.glm(
+  data             = actg_df,
+  confounders.name = confounders_actg,
+  outcome.name     = "y_binary",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  n.min            = grf_n_min,
+  dmin.grf         = grf_dmin,
+  maxdepth         = grf_maxdepth,
+  RCT              = TRUE,
+  sg.criterion     = grf_sg_criterion,
+  details          = TRUE,
+  seedit           = fs_seedit
+)
+
+cat("\n=== GRF Single-Data Result ===\n")
+if (!is.null(grf_result$sg.harm.id)) {
+  cat("Subgroup: ", paste(grf_result$sg.harm.id, collapse = " & "), "\n")
+  cat(sprintf("  CATE(H):  %.4f\n", grf_result$cate_sg))
+  cat(sprintf("  CATE(Hc): %.4f\n", grf_result$cate_sgc))
+
+  in_H  <- grf_result$data$treat.recommend == 0
+  in_Hc <- grf_result$data$treat.recommend == 1
+  cat(sprintf("  n(H) = %d (%.1f%%),  n(Hc) = %d\n",
+      sum(in_H), 100 * mean(in_H), sum(in_Hc)))
+
+  # Classification against true Q
+  true_Q <- actg_df$flag_harm_ref == 1
+  tp <- sum(in_H & true_Q); fp <- sum(in_H & !true_Q)
+  fn <- sum(!in_H & true_Q); tn <- sum(!in_H & !true_Q)
+  cat(sprintf("\n  Classification vs true Q:\n"))
+  cat(sprintf("    TP=%d FP=%d FN=%d TN=%d\n", tp, fp, fn, tn))
+  cat(sprintf("    Sens=%.3f Spec=%.3f PPV=%.3f\n",
+      tp/(tp+fn), tn/(tn+fp), tp/(tp+fp)))
+} else {
+  cat("No subgroup identified.\n")
+}
+
+timings$single_grf <- proc.time()[3] - t0
+```
+
+
+## GRF CATE Distribution
+
+```{r cate-distribution, fig.height=5}
+#| fig-cap: "Distribution of GRF-estimated CATE on observed ACTG175 data."
+
+# Extract individual CATE predictions from the causal forest
+tau_hat <- predict(grf_result$cs_forest)$predictions
+
+cate_df <- data.frame(
+  cate = tau_hat,
+  group = ifelse(actg_df$flag_harm_ref == 1, "Q (true)", "Qc (true)")
+)
+
+ggplot(cate_df, aes(x = cate, fill = group)) +
+  geom_histogram(bins = 40, alpha = 0.6, position = "identity") +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  scale_fill_manual(values = c("Q (true)" = "firebrick",
+                                "Qc (true)" = "steelblue")) +
+  labs(x = "Estimated CATE (switched scale)",
+       y = "Count",
+       title = "Individual CATE Estimates from GRF",
+       subtitle = "CATE > 0 = treatment (ddI) helps; CATE < 0 = ddI hurts",
+       fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top")
+```
+
+
+# Simulation Study {#sec-sims}
+
+## Design
+
+The simulation evaluates GRF standalone and ForestSearch under the
+ACTG175 binary DGM with OR(Q) = `r cal_target_or` on the switched
+treatment scale.
+
+For each replicate:
+
+1. Simulate $n =$ `r sim_n_sample` observations from the calibrated
+   (alt) or null DGM via `simulate_from_glm_dgm()`.
+2. Run GRF standalone (`grf.subg.harm.glm()`) with the revised
+   scoring.
+3. Run ForestSearch (`forestsearch()`) with `outcome_type = "binary"`.
+4. Record: detection (any subgroup found), CATE estimates,
+   classification metrics (sensitivity, specificity, PPV).
+
+
+## Setup
+
+```{r sim-setup}
+#| code-fold: false
+
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+```
+
+
+## Simulation Function
+
+```{r sim-function}
+run_single_sim <- function(sim_id, dgm, confounders, run_grf_standalone,
+                            grf_params, fs_params_list) {
+  # Simulate data
+  df_sim <- simulate_from_glm_dgm(dgm, n = sim_n_sample,
+                                    seed = sim_seed + sim_id)
+
+  results <- list()
+
+  # -- GRF standalone ----------------------------------------------------------
+  if (run_grf_standalone) {
+    grf_res <- tryCatch({
+      grf.subg.harm.glm(
+        data             = df_sim,
+        confounders.name = confounders,
+        outcome.name     = "y_sim",
+        treat.name       = "treat_sim",
+        id.name          = "id",
+        outcome_type     = "binary",
+        effect_measure   = "OR",
+        n.min            = grf_params$n.min,
+        dmin.grf         = grf_params$dmin.grf,
+        maxdepth         = grf_params$maxdepth,
+        RCT              = TRUE,
+        sg.criterion     = grf_params$sg.criterion,
+        seedit           = grf_params$seedit
+      )
+    }, error = function(e) NULL)
+
+    grf_detected <- !is.null(grf_res) && !is.null(grf_res$sg.harm.id)
+
+    if (grf_detected) {
+      in_H  <- grf_res$data$treat.recommend == 0
+      true_Q <- df_sim$flag_harm == 1
+
+      tp <- sum(in_H & true_Q); fp <- sum(in_H & !true_Q)
+      fn <- sum(!in_H & true_Q); tn <- sum(!in_H & !true_Q)
+
+      results[["GRF"]] <- data.frame(
+        sim_id   = sim_id,
+        analysis = "GRF",
+        any.H    = 1L,
+        n_H      = sum(in_H),
+        cate_H   = grf_res$cate_sg,
+        cate_Hc  = grf_res$cate_sgc,
+        sens     = tp / max(tp + fn, 1),
+        spec     = tn / max(tn + fp, 1),
+        ppv      = tp / max(tp + fp, 1),
+        npv      = tn / max(tn + fn, 1),
+        stringsAsFactors = FALSE
+      )
+    } else {
+      results[["GRF"]] <- data.frame(
+        sim_id = sim_id, analysis = "GRF", any.H = 0L,
+        n_H = 0L, cate_H = NA_real_, cate_Hc = NA_real_,
+        sens = NA_real_, spec = NA_real_,
+        ppv = NA_real_, npv = NA_real_,
+        stringsAsFactors = FALSE
+      )
+    }
+  }
+
+  # -- ForestSearch ------------------------------------------------------------
+  fs_res <- tryCatch({
+    suppressWarnings(forestsearch(
+      df.analysis      = df_sim,
+      confounders.name = confounders,
+      outcome.name     = "y_sim",
+      event.name       = "y_sim",
+      treat.name       = "treat_sim",
+      id.name          = "id",
+      outcome_type     = fs_params_list$outcome_type,
+      effect_measure   = fs_params_list$effect_measure,
+      seedit           = fs_params_list$seedit,
+      n.min            = fs_params_list$n.min,
+      d0.min           = fs_params_list$d0.min,
+      d1.min           = fs_params_list$d1.min,
+      hr.threshold     = fs_params_list$hr.threshold,
+      hr.consistency   = fs_params_list$hr.consistency,
+      pconsistency.threshold = fs_params_list$pconsistency.threshold,
+      fs.splits        = fs_params_list$fs.splits,
+      maxk             = fs_params_list$maxk,
+      use_lasso        = FALSE,
+      use_grf          = TRUE,
+      is.RCT           = TRUE,
+      vi.grf.min       = fs_params_list$vi.grf.min,
+      details          = FALSE,
+      quiet            = TRUE,
+      parallel_args    = list(plan = "sequential", workers = 1,
+                              show_message = FALSE)
+    ))
+  }, error = function(e) NULL)
+
+  fs_detected <- !is.null(fs_res) && !is.null(fs_res$grp.consistency) &&
+    !is.null(fs_res$grp.consistency$sg.harm.id) &&
+    length(fs_res$grp.consistency$sg.harm.id) > 0 &&
+    !all(is.na(fs_res$grp.consistency$sg.harm.id))
+
+  if (fs_detected) {
+    df_est <- fs_res$df.est
+    in_H   <- df_est$treat.recommend == 0
+    true_Q <- df_sim$flag_harm == 1
+
+    tp <- sum(in_H & true_Q); fp <- sum(in_H & !true_Q)
+    fn <- sum(!in_H & true_Q); tn <- sum(!in_H & !true_Q)
+
+    # Compute OR in identified subgroup
+    fit_H <- tryCatch(
+      glm(y_sim ~ treat_sim, data = df_est[in_H, ], family = binomial),
+      error = function(e) NULL
+    )
+    or_H <- if (!is.null(fit_H)) exp(coef(fit_H)["treat_sim"]) else NA_real_
+
+    results[["FS"]] <- data.frame(
+      sim_id   = sim_id,
+      analysis = "FS",
+      any.H    = 1L,
+      n_H      = sum(in_H),
+      cate_H   = NA_real_,
+      cate_Hc  = NA_real_,
+      sens     = tp / max(tp + fn, 1),
+      spec     = tn / max(tn + fp, 1),
+      ppv      = tp / max(tp + fp, 1),
+      npv      = tn / max(tn + fn, 1),
+      stringsAsFactors = FALSE
+    )
+  } else {
+    results[["FS"]] <- data.frame(
+      sim_id = sim_id, analysis = "FS", any.H = 0L,
+      n_H = 0L, cate_H = NA_real_, cate_Hc = NA_real_,
+      sens = NA_real_, spec = NA_real_,
+      ppv = NA_real_, npv = NA_real_,
+      stringsAsFactors = FALSE
+    )
+  }
+
+  do.call(rbind, results)
+}
+```
+
+
+## Alternative Hypothesis
+
+```{r run-alt}
+cat("Running", nsims, "simulations under H1...\n")
+t0 <- proc.time()[3]
+
+grf_p <- list(n.min = grf_n_min, dmin.grf = grf_dmin,
+              maxdepth = grf_maxdepth, sg.criterion = grf_sg_criterion,
+              seedit = fs_seedit)
+
+fs_p <- list(
+  outcome_type = "binary", effect_measure = "OR",
+  hr.threshold = fs_or_threshold, hr.consistency = fs_or_consistency,
+  pconsistency.threshold = fs_pconsistency, fs.splits = fs_splits,
+  n.min = fs_n_min, d0.min = fs_d0_min, d1.min = fs_d1_min,
+  maxk = fs_maxk, vi.grf.min = fs_vi_grf_min, seedit = fs_seedit
+)
+
+results_alt <- foreach(
+  sim = seq_len(nsims),
+  .combine = rbind,
+  .errorhandling = "remove",
+  .options.future = list(
+    packages = c("forestsearch", "grf", "policytree", "data.table"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_single_sim(
+    sim_id = sim, dgm = dgm_calibrated,
+    confounders = dgm_calibrated$factor_vars,
+    run_grf_standalone = TRUE,
+    grf_params = grf_p, fs_params_list = fs_p
+  )
+}
+
+timings$sims_alt <- proc.time()[3] - t0
+cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
+cat("Results:", nrow(results_alt), "rows\n")
+```
+
+
+## Null Hypothesis
+
+```{r run-null}
+cat("Running", nsims, "simulations under H0...\n")
+t0 <- proc.time()[3]
+
+results_null <- foreach(
+  sim = seq_len(nsims),
+  .combine = rbind,
+  .errorhandling = "remove",
+  .options.future = list(
+    packages = c("forestsearch", "grf", "policytree", "data.table"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_single_sim(
+    sim_id = sim, dgm = dgm_null,
+    confounders = dgm_null$factor_vars,
+    run_grf_standalone = TRUE,
+    grf_params = grf_p, fs_params_list = fs_p
+  )
+}
+
+timings$sims_null <- proc.time()[3] - t0
+cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
+```
+
+```{r cleanup}
+plan(sequential)
+```
+
+
+# Results {#sec-results}
+
+```{r compute-metrics}
+results_alt_dt  <- as.data.table(results_alt)
+results_null_dt <- as.data.table(results_null)
+
+summarize_method <- function(dt, method_name) {
+  sub <- dt[analysis == method_name]
+  n_sims <- nrow(sub)
+  det <- mean(sub$any.H)
+  det_sims <- sub[any.H == 1]
+
+  list(
+    method    = method_name,
+    n_sims    = n_sims,
+    detection = det,
+    mean_sens = if (nrow(det_sims) > 0) mean(det_sims$sens, na.rm = TRUE) else NA,
+    mean_spec = if (nrow(det_sims) > 0) mean(det_sims$spec, na.rm = TRUE) else NA,
+    mean_ppv  = if (nrow(det_sims) > 0) mean(det_sims$ppv, na.rm = TRUE) else NA,
+    mean_n_H  = if (nrow(det_sims) > 0) mean(det_sims$n_H, na.rm = TRUE) else NA,
+    mean_cate_H  = if (nrow(det_sims) > 0) mean(det_sims$cate_H, na.rm = TRUE) else NA,
+    mean_cate_Hc = if (nrow(det_sims) > 0) mean(det_sims$cate_Hc, na.rm = TRUE) else NA
+  )
+}
+```
+
+
+## Detection and Classification Under H1
+
+```{r oc-alt}
+alt_grf <- summarize_method(results_alt_dt, "GRF")
+alt_fs  <- summarize_method(results_alt_dt, "FS")
+
+alt_summary <- rbind(
+  as.data.frame(alt_grf),
+  as.data.frame(alt_fs)
+)
+
+gt(alt_summary) |>
+  tab_header(
+    title = "Operating Characteristics Under H1",
+    subtitle = sprintf(
+      "n = %d, %d sims, OR(Q) = %.2f (switched)",
+      sim_n_sample, nsims,
+      dgm_calibrated$hazard_ratios$harm_subgroup
+    )
+  ) |>
+  fmt_percent(columns = c(detection, mean_sens, mean_spec, mean_ppv),
+              decimals = 1, scale_values = TRUE) |>
+  fmt_number(columns = c(mean_n_H, mean_cate_H, mean_cate_Hc),
+             decimals = 2) |>
+  cols_label(
+    method = "Method",
+    n_sims = "Sims",
+    detection = "Detection",
+    mean_sens = "Sensitivity",
+    mean_spec = "Specificity",
+    mean_ppv  = "PPV",
+    mean_n_H  = "Mean n(H)",
+    mean_cate_H  = "Mean CATE(H)",
+    mean_cate_Hc = "Mean CATE(Hc)"
+  )
+```
+
+
+## False Discovery Under H0
+
+```{r oc-null}
+null_grf <- summarize_method(results_null_dt, "GRF")
+null_fs  <- summarize_method(results_null_dt, "FS")
+
+null_summary <- rbind(
+  as.data.frame(null_grf),
+  as.data.frame(null_fs)
+)
+
+gt(null_summary) |>
+  tab_header(
+    title = "False Discovery Under H0",
+    subtitle = sprintf("n = %d, %d sims", sim_n_sample, nsims)
+  ) |>
+  fmt_percent(columns = detection, decimals = 1, scale_values = TRUE) |>
+  cols_label(
+    method = "Method",
+    n_sims = "Sims",
+    detection = "FDR"
+  ) |>
+  cols_hide(c(mean_sens, mean_spec, mean_ppv, mean_n_H,
+              mean_cate_H, mean_cate_Hc))
+```
+
+
+## GRF CATE Accuracy Under H1
+
+```{r cate-accuracy, fig.height=5}
+#| fig-cap: "Distribution of GRF-estimated CATE(H) and CATE(Hc) across simulations (H1 only, detections only)."
+
+grf_alt_det <- results_alt_dt[analysis == "GRF" & any.H == 1]
+
+if (nrow(grf_alt_det) > 0) {
+  cate_long <- rbind(
+    data.frame(subgroup = "H (identified)",
+               cate = grf_alt_det$cate_H),
+    data.frame(subgroup = "Hc (complement)",
+               cate = grf_alt_det$cate_Hc)
+  )
+
+  ggplot(cate_long, aes(x = cate, fill = subgroup)) +
+    geom_histogram(bins = 30, alpha = 0.6, position = "identity") +
+    geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+    scale_fill_manual(values = c("H (identified)" = "firebrick",
+                                  "Hc (complement)" = "steelblue")) +
+    labs(x = "CATE (switched scale)",
+         y = "Count",
+         title = "GRF CATE Estimates Across Simulations",
+         subtitle = sprintf(
+           "Mean CATE(H) = %.3f, Mean CATE(Hc) = %.3f",
+           mean(grf_alt_det$cate_H, na.rm = TRUE),
+           mean(grf_alt_det$cate_Hc, na.rm = TRUE)
+         ),
+         fill = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "top")
+} else {
+  cat("No GRF detections under H1.\n")
+}
+```
+
+
+## Sensitivity Comparison
+
+```{r sensitivity-plot, fig.height=5}
+#| fig-cap: "Sensitivity by method across simulations (H1 detections only)."
+
+det_alt <- results_alt_dt[any.H == 1]
+
+if (nrow(det_alt) > 0) {
+  ggplot(det_alt, aes(x = analysis, y = sens, fill = analysis)) +
+    geom_boxplot(alpha = 0.6) +
+    scale_fill_manual(values = c("FS" = "steelblue", "GRF" = "firebrick")) +
+    labs(x = NULL, y = "Sensitivity",
+         title = "Sensitivity of Subgroup Identification (H1)",
+         subtitle = "Proportion of true Q captured by identified H") +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "none")
+} else {
+  cat("No detections under H1.\n")
+}
+```
+
+
+## Classification Summary
+
+```{r classification-comparison}
+det_both <- results_alt_dt[any.H == 1, .(
+  Detection = .N / nsims,
+  Sensitivity = mean(sens, na.rm = TRUE),
+  Specificity = mean(spec, na.rm = TRUE),
+  PPV = mean(ppv, na.rm = TRUE),
+  `Mean n(H)` = mean(n_H, na.rm = TRUE)
+), by = analysis]
+
+gt(det_both) |>
+  tab_header(
+    title = "Classification Comparison (H1, Detections Only)",
+    subtitle = sprintf("n = %d, %d sims", sim_n_sample, nsims)
+  ) |>
+  fmt_number(columns = c(Detection, Sensitivity, Specificity, PPV),
+             decimals = 3) |>
+  fmt_number(columns = `Mean n(H)`, decimals = 0) |>
+  cols_label(analysis = "Method")
+```
+
+
+# Timing {#sec-timing}
+
+```{r timing}
+timings$total <- Reduce(`+`, timings)
+
+timing_df <- data.frame(
+  Step = names(timings),
+  Seconds = round(unlist(timings), 1),
+  Minutes = round(unlist(timings) / 60, 2)
+)
+
+gt(timing_df) |>
+  tab_header(title = "Computation Timing") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Step == "total")
+  )
+```
+
+
+# Discussion {#sec-discussion}
+
+## Key Findings
+
+The revised GRF scoring aligns the binary endpoint GRF with the
+survival GRF convention:
+
+- **Score = $-\widehat{\text{CATE}}_{\text{sg}}$**: the absolute
+  negative treatment effect in the identified subgroup.  Positive
+  score means treatment hurts.
+
+- **`dmin.grf`** now has a consistent interpretation across survival
+  and binary: the minimum CATE magnitude required to declare a subgroup.
+
+- The CATE estimates stored in the result object (`cate_sg`, `cate_sgc`)
+  provide direct diagnostic information about the treatment effect
+  contrast in each subgroup.
+
+## FS vs GRF Direction on Binary Improvement Outcomes
+
+With Y = improvement and switched treatment (ddI = `treat`):
+
+- **FS** searches for OR > threshold (ddI increases improvement for Q).
+  FS's identified H is where ddI **helps**.
+
+- **GRF** assigns `treat.recommend = 0` to patients where
+  $\hat{\tau}(x) < 0$ (ddI decreases improvement).
+  GRF's identified H is where ddI **hurts**.
+
+Under the switched-treatment benefit-search framework, these two
+methods identify **complementary** subgroups: FS finds Q (benefit from
+combo) while GRF finds Qc (harmed by ddI). This is not a bug but a
+fundamental consequence of the OR scale: OR > 1 = treatment helps,
+whereas GRF's CATE < 0 = treatment hurts.
+
+For survival endpoints, this is not an issue because HR > 1 = treatment
+hurts (more events), which aligns with GRF's CATE < 0 direction.
+
+## Implications for `run_grf = TRUE` in Binary Simulations
+
+Setting `run_grf = FALSE` in the binary simulation document remains
+appropriate until a decision is made on how to present the
+complementary GRF results.  Three options remain open:
+
+1. Report FS and GRF as complementary (FS finds Q, GRF finds Qc).
+2. Flip GRF's subgroup selection for improvement outcomes.
+3. Swap labels at the reporting level when `subgroup_notation = "benefit"`.
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```

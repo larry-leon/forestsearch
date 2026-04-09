@@ -57,11 +57,9 @@ actg_age_cut     <- 34
 actg_preanti_cut <- 744.5
 
 # -- Benefit search via treatment switching ------------------------------------
-# Under switched roles (ddI = treat, combo = control), the BENEFIT
-# subgroup Q appears as a "harm" subgroup because ddI hurts Q.
-# With adverse_outcome = FALSE, FS computes OR on failure (1-Y)
-# internally, so OR > 1 consistently means "treatment hurts":
-#   c1 = 1/0.60 = 1.667  (screening: OR(failure) >= 1.667)
+# Under switched roles, the BENEFIT subgroup Q appears as a "harm"
+# subgroup (ddI monotherapy is worse for Q).  Thresholds on OR scale:
+#   c1 = 1/0.60 = 1.667  (screening: OR >= 1.667 under switched roles)
 #   c2 = 1/0.80 = 1.25   (consistency)
 # After identification, ORs are inverted to the original scale via
 # subgroup_notation = "benefit".
@@ -73,12 +71,9 @@ dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
 dgm_n_super       <- 5000L
 
 # -- Calibration ---------------------------------------------------------------
-# Target OR(improvement, Q) = 0.5 under switched treatment.
-# This is equivalent to OR(failure, Q) = 1/0.5 = 2.0, which is the
-# scale FS uses internally when adverse_outcome = FALSE.
-# On the original scale: OR(improvement, Q) = 1/0.5 = 2.0 (combo helps).
-cal_target_or     <- 0.5
-cal_k_grid_range  <- c(-3, 0)
+# Target OR(Q) = 2.0 under SWITCHED treatment (= 0.50 on original scale).
+cal_target_or     <- 2.0
+cal_k_grid_range  <- c(0, 3)
 cal_grid_step     <- 0.05
 
 # -- Simulation study ----------------------------------------------------------
@@ -178,15 +173,10 @@ collect_results <- function(raw_list, label = "") {
         n_failed, length(raw_list)))
     message("  First errors:\n    ",
         paste(head(unique(err_msgs), 3), collapse = "\n    "))
-    if (n_failed == length(raw_list)) {
-      stop(sprintf("%sAll %d tasks failed. First error: %s",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, err_msgs[1]), call. = FALSE)
-    }
   }
   good <- raw_list[!is_err]
   if (length(good) == 0) {
-    result <- data.frame()
+    result <- NULL
   } else if (requireNamespace("data.table", quietly = TRUE)) {
     result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
     result <- as.data.frame(result)
@@ -348,18 +338,13 @@ dgm_calibrated <- calibrate_glm_interaction(
 )
 
 cat("\n=== Calibrated ACTG175 Binary DGM ===\n")
-cat("  Improvement scale (raw Y):\n")
-cat("    OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
+cat("  OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
     " (target:", cal_target_or, ")\n")
-cat("    OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
-cat("    OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
-cat("  Failure scale (1-Y, used by FS with adverse_outcome=FALSE):\n")
-cat("    OR(Q):  ", round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
-cat("    OR(Qc): ", round(1 / dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
 cat("  k_inter:", dgm_calibrated$model_params$k_inter, "\n")
-cat("  Original (unswitched) scale: OR(Q) =",
-    round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3),
-    "(combo helps Q)\n")
+cat("  -> Original scale: OR(Q) =",
+    round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
 
 timings$calibrate <- proc.time()[3] - t0
 ```
@@ -400,9 +385,8 @@ ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
     y = "OR(Q) on switched scale",
     title = "ACTG175 Binary DGM Calibration",
     subtitle = sprintf(
-      "Best: k_inter = %.2f -> OR(improve, Q) = %.3f, OR(failure, Q) = %.3f",
-      best_k, dgm_calibrated$hazard_ratios$harm_subgroup,
-      1 / dgm_calibrated$hazard_ratios$harm_subgroup
+      "Best: k_inter = %.2f -> OR(Q) = %.3f (target: %.1f)",
+      best_k, dgm_calibrated$hazard_ratios$harm_subgroup, cal_target_or
     )
   ) +
   theme_minimal(base_size = 12) +
@@ -612,7 +596,6 @@ fs_params <- list(
   # GLM pipeline (auto-injected from DGM, but explicit for clarity)
   outcome_type           = "binary",
   effect_measure         = "OR",
-  adverse_outcome        = FALSE,   # Y = improvement (beneficial)
 
   # Variable screening
   use_lasso              = fs_use_lasso,

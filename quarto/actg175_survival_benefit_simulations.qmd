@@ -15,8 +15,8 @@ format:
     fig-width: 9
     fig-height: 6
 execute:
-  warning: false
-  message: false
+  warning: true
+  message: true
 ---
 
 ```{r setup}
@@ -27,8 +27,14 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 50L
-nsims_null  <- 50L
+nsims_alt   <- 2000L
+nsims_null  <- 4000L
+
+# These are "production" run projection nsims
+prod_alt  <- 10000L
+prod_null <- 20000L
+# 10k/20k ~ 1hr linux
+
 sim_seed    <- 8316951L
 n_workers   <- min(
   parallel::detectCores(logical = FALSE) - 1L, 120L
@@ -115,8 +121,9 @@ single_rand_ratio <- 1      # Randomisation ratio (1:1)
 sim_n_sample      <- 1000L  # Per-simulation sample size
 # Administrative censoring time on the DGM's time scale.
 # CRITICAL: must use the SAME units as the outcome variable in the
-# source data.  ACTG175 uses days, so analysis_time is in days.
-sim_analysis_time <- 1200   # days (~3.3 years), near ACTG175 median follow-up
+# source data.  ACTG175 times are converted from days to months
+# (days / 30.4375).
+sim_analysis_time <- 48     # months 
 sim_cens_adjust   <- 0      # Additional censoring adjustment (log-scale)
 sim_n_noise       <- 0L     # Number of noise variables added per replicate
 
@@ -140,8 +147,19 @@ fs_n_min               <- 60L    # Minimum subgroup size (total)
 fs_d0_min              <- 12L    # Minimum events in control arm
 fs_d1_min              <- 12L    # Minimum events in treatment arm
 fs_maxk                <- 2L     # Maximum number of subgroup-defining variables
-fs_by_risk             <- 12L    # Risk-table interval (days)
+fs_by_risk             <- 6L     # Risk-table interval (months)
 fs_vi_grf_min          <- -0.2   # Minimum GRF variable importance
+
+# ── GRF standalone parameters ───────────────────────────────────
+# These control the GRF-only subgroup analysis (run_grf = TRUE).
+# dmin.grf is on the RMST scale (months after time-unit conversion).
+# The default in default_grf_params_gen() is dmin.grf = 12, which
+# was calibrated for days (~0.4 months).  After converting ACTG175
+# times to months, this must be rescaled.
+grf_dmin               <- 2    # min RMST difference (months)
+grf_frac_tau           <- 0.80   # fraction of max event time for horizon
+grf_maxdepth           <- 2L     # max policy tree depth
+grf_sg_criterion       <- "mDiff"
 
 # ── Adjusted Cox formula (used in run_simulation_analysis) ───────
 # Note: treat_sim is the SWITCHED treatment indicator in the
@@ -300,13 +318,13 @@ change; subsequent sections implement them in detail.
 | Step | GBSG (original) | ACTG175 (this document) |
 |------|-----------------|-------------------------|
 | **Data source** | `survival::gbsg` (686 patients) | `speff2trial::ACTG175`, arms 1 vs 3 (~1,083 patients) |
-| **Outcome** | Recurrence-free survival in months (`rfstime / 30.4375`) | Time to first event in days (`days`) |
+| **Outcome** | Recurrence-free survival in months (`rfstime / 30.4375`) | Time to first event in months (`days / 30.4375`) |
 | **Event indicator** | `status` (1 = recurrence/death) | `cens` (1 = event) |
 | **Treatment** | `hormon` (0/1) | `arms`: 1 = ZDV+ddI (combination), 3 = ddI (monotherapy); **switched** for benefit search |
 | **Confounders** | 7 binary variables: ER, age, meno, PgR, nodes, size, grade | 12 variables: age, preanti, weight, Karnofsky, CD4, CD8, hemophilia, homosexual, IV drugs, race, gender, symptoms |
-| **Discretisation** | ER $\leq$ Q25, age $\leq$ median, meno = premenopausal, etc. | Age $>$ 34, preanti $\leq$ 744.5 days, weight $\leq$ 75 kg, CD4 $\leq$ median, etc. (from León et al. 2024 analysis) |
+| **Discretisation** | ER $\leq$ Q25, age $\leq$ median, meno = premenopausal, etc. | Age $>$ 34, preanti $\leq$ 744.5, weight $\leq$ 75 kg, CD4 $\leq$ median, etc. (from León et al. 2024 analysis) |
 | **Subgroup definition** | *H* = {ER-low and premenopausal} (~13% prevalence) | *Q* = {Age > 34 and Preanti ≤ 744.5} (~35% prevalence, benefit subgroup) || **DGM builder** | `setup_gbsg_dgm()` | `generate_aft_dgm_flex()` |
-| **Censoring** | Weibull; `analysis_time = 84` months | Weibull; `analysis_time = 1200` days ($\sim$3.3 years) |
+| **Censoring** | Weibull; `analysis_time = 84` months | Weibull; `analysis_time = 48` months ($\sim$4 years) |
 | **ForestSearch parameters** | `n.min = 60`, `maxk = 2`, `hr.threshold = 1.25` | `hr.threshold = 1.667`, `hr.consistency = 1.25` (benefit search thresholds) |
 
 The benefit subgroup definition for ACTG175 is derived from the
@@ -331,6 +349,35 @@ library(gt)
 library(foreach)
 library(doFuture)
 library(future)
+
+# -- Safe foreach result collection -------------------------------------------
+# Replaces .errorhandling = "remove" (which silently drops failures)
+# with .errorhandling = "pass" + post-hoc separation of errors from results.
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  n_failed <- sum(is_err)
+  if (n_failed > 0) {
+    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
+    warning(sprintf("%s%d of %d tasks failed.",
+        if (nzchar(label)) paste0(label, ": ") else "",
+        n_failed, length(raw_list)))
+    message("  First errors:\n    ",
+        paste(head(unique(err_msgs), 3), collapse = "\n    "))
+  }
+  good <- raw_list[!is_err]
+  if (length(good) == 0) {
+    result <- NULL
+  } else if (requireNamespace("data.table", quietly = TRUE)) {
+    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
+    result <- as.data.frame(result)
+  } else {
+    result <- do.call(rbind, good)
+  }
+  attr(result, "n_failed") <- n_failed
+  attr(result, "n_total") <- length(raw_list)
+  result
+}
+
 ```
 
 ```{r timing-init}
@@ -396,7 +443,8 @@ gbsg_df$flag_harm <- as.integer(gbsg_df$z1 == 1 & gbsg_df$z3 == 1)
 # Select arms 1 (ZDV+ddI) and 3 (ddI alone), matching the paper
 actg_df        <- subset(speff2trial::ACTG175, arms %in% actg_arms)
 actg_df$id     <- seq_len(nrow(actg_df))
-actg_df$time_days <- actg_df$days
+actg_df$time_days   <- actg_df$days
+actg_df$time_months <- actg_df$time_days / 30.4375
 
 # Original treatment coding: arm 1 (ZDV+ddI) = 1, arm 3 (ddI) = 0
 actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
@@ -527,11 +575,11 @@ comp <- data.frame(
     sprintf("%d", nrow(actg_df)),
     "ZDV+ddI (combination) vs. ddI (monotherapy)",
     "Time to >= 50% CD4 decline, AIDS, or death",
-    "Days",
-    sprintf("%.0f days", median(actg_df$time_days)),
+    "Months",
+    sprintf("%.1f months", median(actg_df$time_months)),
     sprintf("%.0f%%", 100 * mean(actg_df$cens)),
     sprintf("%.3f", exp(coef(coxph(
-      Surv(time_days, cens) ~ treat_orig, data = actg_df
+      Surv(time_months, cens) ~ treat_orig, data = actg_df
     )))),
     sprintf("Age > %d AND Preanti <= %.0f", actg_age_cut, actg_preanti_cut),
     sprintf("%.0f%%", 100 * mean(actg_df$flag_harm)),
@@ -649,7 +697,7 @@ p_gbsg <- ggplot(km_gbsg_df, aes(x = time, y = surv, colour = arm)) +
   theme(legend.position = "bottom")
 
 # ── ACTG175 KM ───────────────────────────────────────────────
-km_actg <- survfit(Surv(time_days, cens) ~ treat_orig, data = actg_df)
+km_actg <- survfit(Surv(time_months, cens) ~ treat_orig, data = actg_df)
 km_actg_df <- data.frame(
   time = c(km_actg$time[1:km_actg$strata[1]],
            km_actg$time[(km_actg$strata[1] + 1):sum(km_actg$strata)]),
@@ -665,7 +713,7 @@ p_actg <- ggplot(km_actg_df, aes(x = time, y = surv, colour = arm)) +
   geom_step(linewidth = 0.8) +
   labs(
     title = "ACTG175",
-    x = "Days", y = "Survival Probability",
+    x = "Months", y = "Survival Probability",
     colour = "Treatment"
   ) +
   theme_minimal(base_size = 11) +
@@ -701,13 +749,13 @@ cat(sprintf(
 cat("  N(Q):", sum(actg_df$flag_harm), "/", nrow(actg_df),
     sprintf("(%.1f%%)\n", 100 * mean(actg_df$flag_harm)))
 fit_actg_h <- coxph(
-  Surv(time_days, cens) ~ treat_orig,
+  Surv(time_months, cens) ~ treat_orig,
   data = actg_df[actg_df$flag_harm == 1, ]
 )
 cat("  Observed HR(Q), original scale:",
     round(exp(coef(fit_actg_h)), 3), "\n")
 fit_actg_hc <- coxph(
-  Surv(time_days, cens) ~ treat_orig,
+  Surv(time_months, cens) ~ treat_orig,
   data = actg_df[actg_df$flag_harm == 0, ]
 )
 cat("  Observed HR(Qc), original scale:",
@@ -756,7 +804,7 @@ the switched indicator (ddI = 1, ZDV+ddI = 0).
 # Column names here must match the *_var arguments below.
 # Note: 'treat' is already the SWITCHED indicator from the prep step.
 dfa        <- actg_df
-dfa$y      <- dfa$time_days   # outcome in days
+dfa$y      <- dfa$time_months # outcome in months (days / 30.4375)
 dfa$event  <- dfa$cens        # 1 = event, 0 = censored
 # 'treat' is the switched indicator (ddI=1, ZDV+ddI=0)
 
@@ -814,8 +862,8 @@ timings$dgm_alt <- proc.time()[3] - t0
 ### Time-Scale Sanity Check {#sec-timescale-check}
 
 The single most common simulation failure is building the DGM on one
-time scale (e.g., days) and then passing `analysis_time` in a different
-scale (e.g., months).  This results in a follow-up window far shorter
+time scale (e.g., months) and then passing `analysis_time` in a different
+scale.  This results in a follow-up window far shorter
 or longer than the DGM event-time distribution, producing either
 universal censoring or no censoring at all.
 
@@ -829,9 +877,9 @@ The diagnostic below verifies that the DGM's implied median event time
 observed_median <- median(dfa$y[dfa$event == 1])
 dgm_median      <- exp(dgm_alt$model_params$mu)
 
-cat(sprintf("Observed median event time:  %.0f days\n", observed_median))
-cat(sprintf("DGM implied median (exp(mu)): %.0f days\n", dgm_median))
-cat(sprintf("analysis_time:                %.0f days\n", sim_analysis_time))
+cat(sprintf("Observed median event time:  %.1f months\n", observed_median))
+cat(sprintf("DGM implied median (exp(mu)): %.1f months\n", dgm_median))
+cat(sprintf("analysis_time:                %.0f months\n", sim_analysis_time))
 
 if (sim_analysis_time < dgm_median * 0.5) {
   warning("analysis_time is much shorter than DGM median -- ",
@@ -1066,6 +1114,185 @@ check_censoring_dgm(
 ```
 
 
+## Baseline Characteristics (Simulated Trial) {#sec-single-demog}
+
+```{r single-demographics}
+# Label treatment arms for the table
+sim_data$treat_label <- factor(
+  sim_data$treat_sim,
+  levels = c(0, 1),
+  labels = c("Combo (ZDV+ddI)", "ddI monotherapy")
+)
+
+# Simulated data has z1-z12 as factor columns from the DGM super-population.
+# Identify which z-variables are present
+z_vars <- grep("^z[0-9]+$", names(sim_data), value = TRUE)
+z_vars_present <- z_vars[z_vars %in% names(sim_data)]
+
+create_summary_table(
+  data       = sim_data,
+  treat_var  = "treat_label",
+  vars_continuous  = "y_sim",
+  vars_categorical = z_vars_present,
+  var_labels = c(y_sim = "Follow-up time (months)"),
+  table_title = "Simulated Trial: Baseline Characteristics by Treatment Arm",
+  table_subtitle = sprintf("N = %d, Events = %d (%.1f%%)",
+    nrow(sim_data), sum(sim_data$event_sim),
+    100 * mean(sim_data$event_sim)),
+  font_size = 11
+)
+```
+
+
+## Kaplan-Meier Analysis (Simulated Trial) {#sec-single-km}
+
+```{r single-km}
+#| fig-width: 8
+#| fig-height: 5.5
+#| fig-cap: "Kaplan-Meier curves for a single simulated ACTG175 trial (switched treatment scale)."
+
+dfcount_sim <- weightedsurv::df_counting(
+  df        = sim_data,
+  by.risk   = fs_by_risk,
+  tte.name  = "y_sim",
+  event.name = "event_sim",
+  treat.name = "treat_sim"
+)
+
+weightedsurv::plot_weighted_km(
+  dfcount_sim,
+  conf.int     = TRUE,
+  show.logrank = TRUE,
+  ymax         = 1.05,
+  xmed.fraction = 0.775,
+  ymed.offset   = 0.125
+)
+title(main = "Simulated ACTG175 Trial: ITT Kaplan-Meier",
+      sub  = sprintf("N = %d | Events = %d | Switched treatment (ddI = treat)",
+                      nrow(sim_data), sum(sim_data$event_sim)),
+      cex.sub = 0.85)
+```
+
+```{r single-cox-summary}
+fit_sim_adj <- coxph(
+  Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
+  data = sim_data
+)
+
+cat("=== Single Simulated Trial: Cox PH Summary ===\n")
+cat(sprintf("  Unadjusted HR: %.3f\n", exp(coef(coxph(
+  Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)))))
+cat(sprintf("  Adjusted HR:   %.3f (z1 + z2 + z3)\n",
+    exp(coef(fit_sim_adj)["treat_sim"])))
+```
+
+
+## ForestSearch on Simulated Trial {#sec-single-fs}
+
+```{r single-fs}
+t0 <- proc.time()[3]
+
+fs_single <- tryCatch(
+  suppressWarnings(forestsearch(
+    df.analysis            = sim_data,
+    confounders.name       = dgm_calibrated$factor_vars,
+    outcome.name           = "y_sim",
+    event.name             = "event_sim",
+    treat.name             = "treat_sim",
+    id.name                = "id",
+    hr.threshold           = fs_hr_threshold,
+    hr.consistency         = fs_hr_consistency,
+    pconsistency.threshold = fs_pconsistency_thresh,
+    fs.splits              = fs_splits,
+    n.min                  = fs_n_min,
+    d0.min                 = fs_d0_min,
+    d1.min                 = fs_d1_min,
+    maxk                   = fs_maxk,
+    by.risk                = fs_by_risk,
+    vi.grf.min             = fs_vi_grf_min,
+    use_lasso              = TRUE,
+    use_grf                = TRUE,
+    is.RCT                 = TRUE,
+    details                = TRUE,
+    quiet                  = FALSE,
+    seedit                 = sim_seed,
+    parallel_args          = list(
+      plan = "sequential", workers = 1, show_message = FALSE
+    )
+  )),
+  error = function(e) {
+    warning("ForestSearch failed: ", e$message)
+    NULL
+  }
+)
+
+timings$single_fs <- proc.time()[3] - t0
+cat(sprintf("\nForestSearch completed in %.1f sec\n", timings$single_fs))
+```
+
+```{r single-fs-results}
+fs_single_detected <- !is.null(fs_single) &&
+  !is.null(fs_single$grp.consistency) &&
+  !is.null(fs_single$grp.consistency$sg.harm.id) &&
+  length(fs_single$grp.consistency$sg.harm.id) > 0
+
+if (fs_single_detected) {
+  sg_id <- fs_single$grp.consistency$sg.harm.id
+  cat("=== ForestSearch Result (Single Simulated Trial) ===\n")
+  cat("  Subgroup:", paste(sg_id, collapse = " & "), "\n")
+
+  df_est <- fs_single$df.est
+  in_H   <- df_est$treat.recommend == 0
+  true_Q <- sim_data$flag_harm == 1
+
+  tp <- sum(in_H & true_Q); fp <- sum(in_H & !true_Q)
+  fn <- sum(!in_H & true_Q); tn <- sum(!in_H & !true_Q)
+  cat(sprintf("  n(H) = %d (%.1f%%), n(Hc) = %d\n",
+      sum(in_H), 100 * mean(in_H), sum(!in_H)))
+  cat(sprintf("  Sensitivity: %.3f\n", tp / max(tp + fn, 1)))
+  cat(sprintf("  Specificity: %.3f\n", tn / max(tn + fp, 1)))
+  cat(sprintf("  PPV:         %.3f\n", tp / max(tp + fp, 1)))
+} else {
+  cat("ForestSearch did not identify a subgroup in this single trial.\n")
+  cat("This can happen with moderate effect sizes at n =", single_n, "\n")
+}
+```
+
+
+### KM by Identified Subgroups
+
+```{r single-fs-km}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Kaplan-Meier curves by ForestSearch-identified subgroup (single simulated trial)."
+
+if (fs_single_detected) {
+  km_result <- plot_sg_weighted_km(
+    fs.est       = fs_single,
+    outcome.name = "y_sim",
+    event.name   = "event_sim",
+    treat.name   = "treat_sim",
+    by.risk      = fs_by_risk,
+    conf.int     = TRUE,
+    show.logrank = TRUE,
+    show.cox     = TRUE,
+    show.cox.bc  = FALSE,
+    ymax         = 1.05,
+    xmed.fraction = 0.65,
+    title        = "Simulated ACTG175: KM by Identified Subgroup"
+  )
+} else {
+  cat("No subgroup identified -- KM plot skipped.\n")
+}
+```
+
+::: {.callout-note}
+The subgroup identified in this single trial may differ from the true
+$Q$ defined by the DGM. The simulation study below evaluates how often
+ForestSearch correctly recovers the true subgroup across many replicates.
+:::
+
+
 # Running Simulation Studies {#sec-sims}
 
 ## Setup
@@ -1137,6 +1364,14 @@ fs_params <- list(
   )
 )
 
+# -- GRF standalone parameter overrides ----------------------------------------
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  frac.tau     = grf_frac_tau,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion
+)
+
 # ── Simulation configuration ─────────────────────────────────
 sim_config <- list(
   n_sample      = sim_n_sample,
@@ -1152,10 +1387,9 @@ sim_config <- list(
 cat("Running", nsims_alt, "simulations under H1...\n")
 t0 <- proc.time()[3]
 
-results_alt <- foreach(
+results_alt_raw <- foreach(
   sim = seq_len(nsims_alt),
-  .combine = rbind,
-  .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE
@@ -1178,12 +1412,16 @@ results_alt <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
+    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
 
 timings$sims_alt <- proc.time()[3] - t0
+results_alt <- collect_results(results_alt_raw, "H1 alt")
+n_failed_alt <- attr(results_alt, "n_failed")
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
+if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
 cat("Results:", nrow(results_alt), "rows\n")
 ```
 
@@ -1194,10 +1432,9 @@ cat("Results:", nrow(results_alt), "rows\n")
 cat("Running", nsims_null, "simulations under H0...\n")
 t0 <- proc.time()[3]
 
-results_null <- foreach(
+results_null_raw <- foreach(
   sim = seq_len(nsims_null),
-  .combine = rbind,
-  .errorhandling = "remove",
+  .errorhandling = "pass",
   .options.future = list(
     packages = c("forestsearch", "survival", "data.table", "future"),
     seed = TRUE
@@ -1218,12 +1455,16 @@ results_null <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
+    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
 
 timings$sims_null <- proc.time()[3] - t0
+results_null <- collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
+if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
 ```
 
 ```{r cleanup-plan}
@@ -1236,12 +1477,7 @@ plan(sequential)
 if (save_results) {
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
-  # -- Post-hoc failure accounting ---------------------------------------------
-  n_analyses      <- sum(run_fs, run_fs_grf, run_grf)
-  n_completed_alt <- nrow(results_alt) / n_analyses
-  n_failed_alt    <- nsims_alt - n_completed_alt
-  n_completed_null <- nrow(results_null) / n_analyses
-  n_failed_null    <- nsims_null - n_completed_null
+  # -- Failure accounting via collect_results() above ---------------------------
 
   bundle <- list(
     # -- Core results ----------------------------------------------------------
@@ -1282,7 +1518,8 @@ if (save_results) {
     analyses_run = list(
       run_fs     = run_fs,
       run_fs_grf = run_fs_grf,
-      run_grf    = run_grf
+      run_grf    = run_grf,
+      grf_params = grf_params
     ),
 
     # -- Provenance ------------------------------------------------------------
@@ -1306,10 +1543,10 @@ if (save_results) {
 
   cat(sprintf("Results saved: %s\n", path))
   cat(sprintf("  Size: %.1f KB\n", file.size(path) / 1024))
-  cat(sprintf("  Alt sims: %d (%d failed)\n",
-      as.integer(n_completed_alt), n_failed_alt))
-  cat(sprintf("  Null sims: %d (%d failed)\n",
-      as.integer(n_completed_null), n_failed_null))
+  cat(sprintf("  Alt sims: %d completed (%d failed)\n",
+      nsims_alt - n_failed_alt, n_failed_alt))
+  cat(sprintf("  Null sims: %d completed (%d failed)\n",
+      nsims_null - n_failed_null, n_failed_null))
   cat(sprintf("  HR(Q) = %.3f, HR(Qc) = %.3f\n",
       dgm_calibrated$hazard_ratios$harm_subgroup,
       dgm_calibrated$hazard_ratios$no_harm_subgroup))
@@ -1384,6 +1621,19 @@ build_estimation_table(
   subgroup_notation = "benefit"
 )
 
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "GRF",
+  subtitle = sprintf(
+    "ACTG175 DGM | n = %d, %d sims",
+    sim_config$n_sample, nsims_alt
+  ),
+  font_size = 16,
+  subgroup_notation = "benefit"
+)
+
+
 timings$summarize_alt <- proc.time()[3] - t0
 ```
 
@@ -1416,6 +1666,31 @@ format_oc_results(
   ),
   subgroup_notation = "benefit"
 )
+
+build_estimation_table(
+  results         = results_null,
+  dgm             = dgm_null,
+  analysis_method = "FS",
+  subtitle = sprintf(
+    "ACTG175 DGM | n = %d, %d sims",
+    sim_config$n_sample, nsims_null
+  ),
+  font_size = 16,
+  subgroup_notation = "benefit"
+)
+
+build_estimation_table(
+  results         = results_null,
+  dgm             = dgm_null,
+  analysis_method = "GRF",
+  subtitle = sprintf(
+    "ACTG175 DGM | n = %d, %d sims",
+    sim_config$n_sample, nsims_null
+  ),
+  font_size = 16,
+  subgroup_notation = "benefit"
+)
+
 
 timings$summarize_null <- proc.time()[3] - t0
 ```
@@ -1533,6 +1808,7 @@ timing_df <- data.frame(
     "k_inter calibration",
     "DGM calibrated",
     "DGM creation (H0)",
+    "Single-trial ForestSearch",
     "Simulations H1",
     "Simulations H0",
     "Summarize H1",
@@ -1544,6 +1820,7 @@ timing_df <- data.frame(
     timings$calibrate,
     timings$dgm_calibrated,
     timings$dgm_null,
+    timings$single_fs,
     timings$sims_alt,
     timings$sims_null,
     timings$summarize_alt,
@@ -1553,6 +1830,7 @@ timing_df <- data.frame(
   stringsAsFactors = FALSE
 )
 timing_df$Minutes <- timing_df$Seconds / 60
+timing_df$Hours   <- timing_df$Seconds / 3600
 
 gt(timing_df) |>
   tab_header(
@@ -1564,10 +1842,12 @@ gt(timing_df) |>
   ) |>
   fmt_number(columns = Seconds, decimals = 1) |>
   fmt_number(columns = Minutes, decimals = 2) |>
+  fmt_number(columns = Hours,   decimals = 3) |>
   cols_label(
     Stage   = "Stage",
     Seconds = "Time (sec)",
-    Minutes = "Time (min)"
+    Minutes = "Time (min)",
+    Hours   = "Time (hr)"
   ) |>
   tab_style(
     style = cell_text(weight = "bold"),
@@ -1578,27 +1858,52 @@ gt(timing_df) |>
 ### Projection for Production Runs
 
 ```{r projection}
+# Per-replicate cost by stage
 time_per_alt  <- timings$sims_alt / nsims_alt
 time_per_null <- timings$sims_null / nsims_null
 
-prod_alt  <- 1000L
-prod_null <- 2000L
-
-proj_alt  <- time_per_alt * prod_alt
-proj_null <- time_per_null * prod_null
+proj_alt   <- time_per_alt * prod_alt
+proj_null  <- time_per_null * prod_null
 proj_other <- timings$total - timings$sims_alt - timings$sims_null
 proj_total <- proj_alt + proj_null + proj_other
 
-cat(sprintf("Current run: %d alt + %d null on %d workers\n",
-    nsims_alt, nsims_null, n_workers))
-cat(sprintf("  Per-replicate: %.1f sec (alt), %.1f sec (null)\n",
-    time_per_alt, time_per_null))
-cat(sprintf("\nProjected for %d alt + %d null:\n", prod_alt, prod_null))
-cat(sprintf("  Alt sims:   %5.0f sec (%4.1f min)\n", proj_alt, proj_alt / 60))
-cat(sprintf("  Null sims:  %5.0f sec (%4.1f min)\n", proj_null, proj_null / 60))
-cat(sprintf("  Other:      %5.0f sec (%4.1f min)\n", proj_other, proj_other / 60))
-cat(sprintf("  Total:      %5.0f sec (%4.1f min = %.1f hours)\n",
-    proj_total, proj_total / 60, proj_total / 3600))
+proj_df <- data.frame(
+  Component = c("H1 simulations", "H0 simulations", "Other (DGM, calibration, summaries)",
+                "Total"),
+  Count     = c(
+    sprintf("%d replicates", prod_alt),
+    sprintf("%d replicates", prod_null),
+    "---",
+    sprintf("%d + %d", prod_alt, prod_null)
+  ),
+  `Per replicate` = c(
+    sprintf("%.1f sec", time_per_alt),
+    sprintf("%.1f sec", time_per_null),
+    "---",
+    "---"
+  ),
+  Projected = c(
+    sprintf("%.1f min", proj_alt / 60),
+    sprintf("%.1f min", proj_null / 60),
+    sprintf("%.1f min", proj_other / 60),
+    sprintf("%.1f min (%.1f hours)", proj_total / 60, proj_total / 3600)
+  ),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt(proj_df) |>
+  tab_header(
+    title = sprintf("Projected Time: %d alt + %d null", prod_alt, prod_null),
+    subtitle = sprintf(
+      "Based on current run (%d + %d on %d workers)",
+      nsims_alt, nsims_null, n_workers
+    )
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Component == "Total")
+  )
 ```
 
 
@@ -1625,7 +1930,7 @@ ForestSearch under different conditions than the GBSG template:
    motivated cutpoints, rather than the GBSG's receptor-status
    $\times$ menopausal-status interaction.
 
-5. **Days vs months**: the time scale is different, affecting the
+5. **Time scale**: ACTG175 times have been converted from days to months for
    AFT model parametrisation but not the HR-scale operating
    characteristics.
 
