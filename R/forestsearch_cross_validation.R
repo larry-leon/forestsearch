@@ -809,20 +809,141 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
     is_glm <- !is.null(outcome_type) && outcome_type != "survival"
 
     if (is_glm) {
-      # GLM outcomes: detailed tables via SG_tab_estimates are not yet
-      # supported (survival-specific columns RMST, HR).  Return core
-      # metrics only -- full GLM CV summary tables are a future extension.
-      if (details) {
-        cat("Note: outall = TRUE with GLM outcome_type = '", outcome_type,
-            "' -- detailed tables not yet available.\n")
-        cat("  Returning sensitivity/PPV and find metrics.\n")
+      # GLM outcomes: detailed tables via SG_tab_estimates_glm
+      effect_measure <- res$cv_args$effect_measure
+      if (is.null(effect_measure)) {
+        effect_measure <- switch(outcome_type,
+          binary     = "RD",
+          continuous = "MD",
+          count      = "IRR",
+          "RD"
+        )
       }
+      offset.name <- res$cv_args$offset.name
+
+      # Build estimator closure for the table
+      estimator_fn_cv <- tryCatch(
+        make_effect_estimator(
+          outcome_type   = outcome_type,
+          treat.name     = treat.name,
+          outcome.name   = outcome.name,
+          offset.name    = offset.name,
+          effect_measure = effect_measure
+        ),
+        error = function(e) NULL
+      )
+
+      # ITT table
+      itt_tab <- tryCatch(
+        SG_tab_estimates_glm(
+          df             = as.data.frame(df_CV),
+          SG_flag        = "ITT",
+          outcome.name   = outcome.name,
+          treat.name     = treat.name,
+          estimator_fn   = estimator_fn_cv,
+          effect_measure = effect_measure,
+          est.scale      = est.scale
+        ),
+        error = function(e) {
+          if (details) cat("GLM ITT table failed:", e$message, "\n")
+          NULL
+        }
+      )
+
+      # Original subgroup table (full-data assignments)
+      SG_tab_original <- tryCatch(
+        SG_tab_estimates_glm(
+          df             = as.data.frame(df_CV),
+          SG_flag        = "treat.recommend.original",
+          outcome.name   = outcome.name,
+          treat.name     = treat.name,
+          estimator_fn   = estimator_fn_cv,
+          effect_measure = effect_measure,
+          sg1_name       = sg1.name,
+          sg0_name       = sg0.name,
+          est.scale      = est.scale
+        ),
+        error = function(e) {
+          if (details) cat("GLM original SG table failed:", e$message, "\n")
+          NULL
+        }
+      )
+
+      # K-fold subgroup table
+      if (n_sgfound == 2) {
+        SG_tab_Kfold <- tryCatch(
+          SG_tab_estimates_glm(
+            df             = as.data.frame(df_CV),
+            SG_flag        = "treat.recommend",
+            outcome.name   = outcome.name,
+            treat.name     = treat.name,
+            estimator_fn   = estimator_fn_cv,
+            effect_measure = effect_measure,
+            sg1_name       = sg1.name,
+            sg0_name       = sg0.name,
+            est.scale      = est.scale
+          ),
+          error = function(e) {
+            if (details) cat("GLM Kfold SG table failed:", e$message, "\n")
+            NULL
+          }
+        )
+      } else {
+        SG_tab_Kfold <- itt_tab
+      }
+
+      # Combine tables (GLM columns: Subgroup, n, n1, Rate(C), Rate(T), {EM} (95% CI))
+      tab_all <- NULL
+      eff_label <- paste0(effect_measure, " (95% CI)")
+      glm_cols <- c("Subgroup", "n", "n1", "Rate(C)", "Rate(T)", eff_label)
+
+      if (!is.null(itt_tab) && !is.null(SG_tab_original)) {
+        # Only select columns that actually exist in the tables
+        glm_cols_avail <- intersect(glm_cols, colnames(itt_tab))
+
+        if (length(glm_cols_avail) > 0) {
+          if (n_sgfound == 2 && !is.null(SG_tab_Kfold)) {
+            temp1  <- itt_tab[glm_cols_avail]
+            temp2a <- SG_tab_original[1, glm_cols_avail]
+            temp2b <- SG_tab_original[2, glm_cols_avail]
+            temp3a <- SG_tab_Kfold[1, glm_cols_avail]
+            temp3b <- SG_tab_Kfold[2, glm_cols_avail]
+            tab_all <- rbind(temp1, temp2a, temp3a, temp2b, temp3b)
+            # Rename effect column to just the measure name
+            colnames(tab_all)[colnames(tab_all) == eff_label] <- effect_measure
+            rownames(tab_all) <- c("Overall", "FA_0", "KfA_0", "FA_1", "KfA_1")
+          } else {
+            temp1  <- itt_tab[glm_cols_avail]
+            temp2a <- SG_tab_original[1, glm_cols_avail]
+            temp2b <- if (nrow(SG_tab_original) > 1) {
+              SG_tab_original[2, glm_cols_avail]
+            } else {
+              NULL
+            }
+            tab_all <- rbind(temp1, temp2a, temp2b)
+            colnames(tab_all)[colnames(tab_all) == eff_label] <- effect_measure
+            rownames(tab_all) <- if (is.null(temp2b)) {
+              c("Overall", "FA_0")
+            } else {
+              c("Overall", "FA_0", "FA_1")
+            }
+          }
+
+          if (details) print(tab_all)
+        }
+      }
+
       out <- list(
+        itt_tab = itt_tab,
+        SG_tab_original = SG_tab_original,
+        SG_tab_Kfold = SG_tab_Kfold,
+        CV_summary = CV_summary,
         sens_metrics_original = sens_metrics_original,
         find_metrics = find_metrics,
-        CV_summary = CV_summary,
         SGs_found = SGs_found,
-        outcome_type = outcome_type
+        tab_all = tab_all,
+        outcome_type = outcome_type,
+        effect_measure = effect_measure
       )
     } else {
     # Generate detailed tables (survival outcomes)

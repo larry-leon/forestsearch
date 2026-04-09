@@ -119,8 +119,8 @@ fs_splits                  <- 400
 fs_max_subgroups_search    <- 3
 
 # ─── Bootstrap / CV ──────────────────────────────────────────────────────
-NB    <- 1000    # Bootstrap iterations (use 500–2000 for production)
-Ksims <- 100    # K-fold CV iterations (use ≥ 50 for production)
+NB    <- 2000    # Bootstrap iterations (use 500–2000 for production)
+Ksims <- 1000    # K-fold CV iterations (use ≥ 50 for production)
 
 # ─── Poisson-specific parameters ─────────────────────────────────────────
 pois_outcome.name   <- "status"         # event indicator (0/1 count)
@@ -802,6 +802,70 @@ pois_summaries$diagnostics_table_gt
 ```
 
 
+## Poisson Cross-Validation
+
+### Out-of-Bag (N-Fold) Cross-Validation
+
+```{r pois-oob-cv}
+#| eval: true
+
+t0 <- proc.time()
+
+fs_pois_OOB <- forestsearch_Kfold(
+  fs.est = fs_pois,
+  details = FALSE,
+  Kfolds = round(nrow(df.analysis) / 100, 0),
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$pois_oob <- (proc.time() - t0)["elapsed"]
+
+cv_pois_out <- forestsearch_KfoldOut(
+  res = fs_pois_OOB,
+  details = FALSE,
+  outall = TRUE
+)
+
+pois_cv_tables <- cv_summary_tables(cv_pois_out)
+pois_cv_tables$combined_table
+pois_cv_tables$metrics_table
+```
+
+
+## Poisson Forest Plot
+
+```{r pois-forest-plot}
+#| fig-width: 18
+#| fig-height: 12
+#| fig-cap: "Subgroup forest plot (Poisson rate model)"
+
+result_pois <- plot_subgroup_results_forestplot(
+  fs_results = list(
+    fs.est = fs_pois,
+    fs_bc = fs_pois_bc,
+    fs_OOB = NULL,
+    fs_kfold = NULL
+  ),
+  df_analysis = df.analysis,
+  subgroup_list = subgroups,
+  outcome.name = pois_outcome.name,
+  event.name = pois_outcome.name,
+  treat.name = pois_treat.name,
+  E.name = "Hormonal",
+  C.name = "Chemo",
+  ci_column_spaces = 25,
+  theme = my_theme
+)
+
+render_forestplot(result_pois)
+```
+
+
 # Part III: Cox vs. Poisson Comparison {#sec-comparison}
 
 ## Subgroup Membership Concordance
@@ -981,6 +1045,7 @@ timing_df <- data.frame(
     "ForestSearch (Cox)", "Bootstrap (Cox)",
     "K-Fold CV (Cox)", "OOB CV (Cox)",
     "ForestSearch (Poisson)", "Bootstrap (Poisson)",
+    "OOB CV (Poisson)",
     "Total"
   ),
   Seconds = c(
@@ -988,6 +1053,7 @@ timing_df <- data.frame(
     timings$cox_fs, timings$cox_bootstrap,
     timings$cox_kfold, timings$cox_oob,
     timings$pois_fs, timings$pois_bootstrap,
+    timings$pois_oob,
     timings$total
   )
 )
