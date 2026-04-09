@@ -955,6 +955,21 @@ sg_tables <- function(fs,
     n_candidates <- nrow(fs$find.grps$out.found$hr.subgroups)
     max_sg_est <- fs$find.grps$max_sg_est
 
+    # Resolve display label for effect measure
+    effect_display <- if (is_glm) {
+      em <- args_fs$effect_measure
+      if (is.null(em)) "Effect" else em
+    } else {
+      "HR"
+    }
+    # For GLM ratio measures, max_sg_est is on log scale; exponentiate
+    max_display <- if (is_glm && !is.null(args_fs$effect_measure) &&
+                       args_fs$effect_measure %in% c("OR", "RR", "IRR")) {
+      round(exp(max_sg_est), 2)
+    } else {
+      round(max_sg_est, 2)
+    }
+
     # Add search metadata as source notes
     sg10_out <- sg10_out |>
       gt::tab_source_note(
@@ -972,7 +987,7 @@ sg_tables <- function(fs,
           paste0(
             "**Search Results:** ",
             "Candidate subgroups found = ", n_candidates, "; ",
-            "Maximum HR estimate = ", round(max_sg_est, 2)
+            "Maximum ", effect_display, " estimate = ", max_display
           )
         )
       ) |>

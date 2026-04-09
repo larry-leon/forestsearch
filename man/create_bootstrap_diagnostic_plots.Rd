@@ -8,7 +8,8 @@ create_bootstrap_diagnostic_plots(
   results,
   H_estimates,
   Hc_estimates,
-  overall_timing = NULL
+  overall_timing = NULL,
+  effect_label = "HR"
 )
 }
 \arguments{

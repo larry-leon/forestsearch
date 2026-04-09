@@ -29,7 +29,9 @@ subgroup.consistency(
   twostage_args = list(),
   parallel_args = list(),
   estimator_fn = NULL,
-  consistency_threshold = NULL
+  consistency_threshold = NULL,
+  effect_label = "HR",
+  effect_log_scale = FALSE
 )
 }
 \arguments{
@@ -142,6 +144,16 @@ When stop_threshold is NULL, defaults to workers*2 for efficiency.}
 
 \item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
 consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
+
+\item{effect_label}{Character. Column label for the effect measure in
+diagnostic output (e.g., candidate subgroup table).  Default \code{"HR"}.
+Set automatically by \code{\link{forestsearch}} to the resolved
+\code{effect_measure} (e.g., \code{"IRR"}, \code{"OR"}) for GLM outcomes.}
+
+\item{effect_log_scale}{Logical. If \code{TRUE}, the \code{HR} column in
+\code{hr.subgroups} stores log-scale values (log-OR, log-IRR) and will
+be exponentiated for display in diagnostic output.  Default \code{FALSE}
+(Cox stores natural-scale HR).}
 }
 \value{
 A list containing:

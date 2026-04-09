@@ -222,8 +222,19 @@ summary.forestsearch <- function(object, ...) {
           round(object$prop_maxk, 4), "\n")
     }
     if (!is.null(object$max_sg_est)) {
-      cat("  Maximum subgroup HR estimate:",
-          round(object$max_sg_est, 3), "\n")
+      eff_lbl <- if (!is.null(object$effect_measure)) {
+        object$effect_measure
+      } else {
+        "HR"
+      }
+      # For GLM ratio measures, max_sg_est is on log scale
+      max_val <- if (!is.null(object$effect_measure) &&
+                     object$effect_measure %in% c("OR", "RR", "IRR")) {
+        exp(object$max_sg_est)
+      } else {
+        object$max_sg_est
+      }
+      cat(sprintf("  Maximum subgroup %s estimate: %.3f\n", eff_lbl, max_val))
     }
     cat("\n")
   }

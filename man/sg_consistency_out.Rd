@@ -13,7 +13,8 @@ sg_consistency_out(
   details = FALSE,
   plot.sg = FALSE,
   by.risk = 12,
-  confs_labels
+  confs_labels,
+  is_glm = FALSE
 )
 }
 \arguments{
@@ -34,6 +35,9 @@ sg_consistency_out(
 \item{by.risk}{Numeric. Risk interval for plotting.}
 
 \item{confs_labels}{Character vector. Human-readable labels.}
+
+\item{is_glm}{Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
+plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.}
 }
 \value{
 List with results, subgroup definition, labels, flags, and group id.

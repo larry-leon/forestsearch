@@ -127,12 +127,27 @@ summarize_bootstrap_results <- function(sgharm,
   # SECTION 4: CREATE FORMATTED TABLE WITH SUBGROUP FOOTNOTE
   # ===========================================================================
 
+  # Auto-detect effect measure from FSsg_tab column names
+  # GLM tables have "IRR (95% CI)" or "OR (95% CI)" etc.; survival has "HR (95% CI)"
+  effect_label <- "HR"
+  if (is.data.frame(FSsg_tab) || is.matrix(FSsg_tab)) {
+    tab_cols <- colnames(FSsg_tab)
+    eff_match <- regmatches(
+      tab_cols,
+      regexpr("^(IRR|OR|RR|RD|IRD|MD|HR)", tab_cols)
+    )
+    eff_match <- eff_match[nchar(eff_match) > 0]
+    if (length(eff_match) > 0 && eff_match[1] != "HR") {
+      effect_label <- eff_match[1]
+    }
+  }
+
   formatted_table <- format_bootstrap_table(
     FSsg_tab = FSsg_tab,
     nb_boots = nb_boots,
     est.scale = est.scale,
     boot_success_rate = boot_success_rate,
-    sg_definition = sg_definition  # NEW: pass subgroup definition
+    sg_definition = sg_definition
   )
 
   # ===========================================================================
@@ -246,7 +261,8 @@ summarize_bootstrap_results <- function(sgharm,
         nb_boots = nb_boots,
         results = results,
         H_estimates = H_estimates,
-        Hc_estimates = Hc_estimates
+        Hc_estimates = Hc_estimates,
+        effect_label = effect_label
       )
     }, error = function(e) {
       warning("Could not create gt diagnostics table: ", e$message)
@@ -265,7 +281,8 @@ summarize_bootstrap_results <- function(sgharm,
         results = results,
         H_estimates = H_estimates,
         Hc_estimates = Hc_estimates,
-        overall_timing = overall_timing
+        overall_timing = overall_timing,
+        effect_label = effect_label
       )
     }, error = function(e) {
       warning("Could not create diagnostic plots: ", e$message)

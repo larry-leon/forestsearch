@@ -1363,6 +1363,11 @@ forestsearch <- function(df.analysis,
       # outcomes; hr.threshold must be on the same scale so the re-filtering
       # inside subgroup.consistency (line: found.hrs$HR >= hr.threshold) works.
       consistency_overrides$hr.threshold <- effect_threshold
+      # Display labels: use the resolved effect_measure name and flag
+      # log-scale so the candidate table exponentiates for display.
+      consistency_overrides$effect_label <- effect_measure
+      consistency_overrides$effect_log_scale <-
+        effect_measure %in% c("OR", "RR", "IRR")
     }
 
     # Run subgroup consistency analysis with error handling

@@ -84,6 +84,14 @@
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param effect_label Character. Column label for the effect measure in
+#'   diagnostic output (e.g., candidate subgroup table).  Default \code{"HR"}.
+#'   Set automatically by \code{\link{forestsearch}} to the resolved
+#'   \code{effect_measure} (e.g., \code{"IRR"}, \code{"OR"}) for GLM outcomes.
+#' @param effect_log_scale Logical. If \code{TRUE}, the \code{HR} column in
+#'   \code{hr.subgroups} stores log-scale values (log-OR, log-IRR) and will
+#'   be exponentiated for display in diagnostic output.  Default \code{FALSE}
+#'   (Cox stores natural-scale HR).
 #' @param use_twostage Logical. Use two-stage adaptive algorithm. Default: FALSE
 #' @param twostage_args List. Parameters for two-stage algorithm:
 #'   \describe{
@@ -188,7 +196,9 @@ subgroup.consistency <- function(df,
                                  twostage_args = list(),
                                  parallel_args = list(),
                                  estimator_fn = NULL,
-                                 consistency_threshold = NULL) {
+                                 consistency_threshold = NULL,
+                                 effect_label = "HR",
+                                 effect_log_scale = FALSE) {
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -326,7 +336,8 @@ subgroup.consistency <- function(df,
 
   if (nrow(found.hrs) == 0) {
     if (details) {
-      cat("No subgroups meet criteria (HR >=", hr.threshold)
+      cat("No subgroups meet criteria (", effect_label, " >=",
+          if (effect_log_scale) exp(hr.threshold) else hr.threshold)
       if (is.finite(m1.threshold)) cat(" and m1 <=", m1.threshold)
       cat(")\n")
     }
@@ -398,13 +409,17 @@ subgroup.consistency <- function(df,
     cat(paste(rep("=", 80), collapse = ""), "\n\n")
     # Print header
     cat(sprintf("%-5s  %-8s  %-6s  %-6s  %-3s  %s\n",
-                "Rank", "HR", "N", "Events", "K", "Subgroup Definition"))
+                "Rank", effect_label, "N", "Events", "K", "Subgroup Definition"))
     cat(paste(rep("-", 80), collapse = ""), "\n")
 
 
     for (i in seq_len(n_show)) {
       # Extract subgroup info
       hr_i <- found.hrs$HR[i]
+      # For GLM ratio measures, HR column stores log-scale values;
+      # exponentiate to display on the natural scale (consistent with
+      # how Cox displays natural-scale HR, not log-HR).
+      hr_display <- if (effect_log_scale) exp(hr_i) else hr_i
       n_i <- found.hrs$n[i]
       e_i <- found.hrs$E[i]
       # Get factor names for this subgroup (e.g., "q1.1", "q3.0", "q5.1")
@@ -425,7 +440,7 @@ subgroup.consistency <- function(df,
       }
       # Print row
       cat(sprintf("%-5d  %-8.3f  %-6d  %-6d  %-3d  %s\n",
-                  i, hr_i, n_i, e_i, k_i, factors_str))
+                  i, hr_display, n_i, e_i, k_i, factors_str))
     }
     cat(paste(rep("-", 80), collapse = ""), "\n")
     if (n_candidates > 10) {
@@ -786,7 +801,8 @@ subgroup.consistency <- function(df,
         index.Z = index.Z,
         names.Z = names.Z,
         by.risk = by.risk,
-        confs_labels = confs_labels
+        confs_labels = confs_labels,
+        is_glm = !is.null(estimator_fn)
       )
     }, error = function(e) {
       warning("Error in sg_consistency_out for '", focus_type, "': ", e$message)

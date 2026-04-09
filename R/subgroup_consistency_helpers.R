@@ -499,6 +499,8 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @param plot.sg Logical. Plot subgroup curves.
 #' @param by.risk Numeric. Risk interval for plotting.
 #' @param confs_labels Character vector. Human-readable labels.
+#' @param is_glm Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
+#'   plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.
 #'
 #' @return List with results, subgroup definition, labels, flags, and group id.
 #'
@@ -515,7 +517,8 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @export
 sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
                                details = FALSE, plot.sg = FALSE,
-                               by.risk = 12, confs_labels) {
+                               by.risk = 12, confs_labels,
+                               is_glm = FALSE) {
 
   result_new <- sort_subgroups(result_new, sg_focus)
   top_result <- result_new[1, ]
@@ -524,7 +527,7 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
   # === ADD THIS PLOTTING SECTION ===
 
 
-  if (details && plot.sg) {
+  if (details && plot.sg && !is_glm) {
     sg.harm <- subgroup_info$sg.harm
 
     in_harm <- Reduce(`&`, lapply(sg.harm, function(v) df[[v]] == 1L))

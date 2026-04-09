@@ -9,7 +9,8 @@ format_bootstrap_diagnostics_table(
   nb_boots,
   results,
   H_estimates = NULL,
-  Hc_estimates = NULL
+  Hc_estimates = NULL,
+  effect_label = "HR"
 )
 }
 \arguments{

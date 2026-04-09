@@ -65,23 +65,49 @@ format_bootstrap_table <- function(FSsg_tab,
   col_names <- colnames(FSsg_tab)
   labels_list <- list(Subgroup = "Subgroup")
 
+  # Auto-detect GLM vs survival from column names:
+  # GLM tables have "Rate(C)"/"Rate(T)" instead of "m1"/"m0"/"RMST"
+  is_glm_table <- any(grepl("Rate\\(", col_names)) || !any(c("m1", "m0", "RMST") %in% col_names)
+
   if ("n" %in% col_names) labels_list$n <- "N"
   if ("n1" %in% col_names) labels_list$n1 <- gt::md("N<sub>T</sub>")
   if ("events" %in% col_names) labels_list$events <- "Events"
-  if ("m1" %in% col_names) labels_list$m1 <- gt::md("Med<sub>T</sub>")
-  if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>C</sub>")
-  if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>d</sub>")
 
-  # Handle HR column
-  hr_col <- grep("HR.*CI", col_names, value = TRUE)[1]
-  if (!is.na(hr_col) && length(hr_col) > 0) {
-    labels_list[[hr_col]] <- gt::md("HR<br/>(95% CI)<sup>\u2020</sup>")
+  if (!is_glm_table) {
+    # Survival-specific columns
+    if ("m1" %in% col_names) labels_list$m1 <- gt::md("Med<sub>T</sub>")
+    if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>C</sub>")
+    if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>d</sub>")
+  } else {
+    # GLM-specific columns
+    rate_c <- grep("^Rate\\(C\\)", col_names, value = TRUE)[1]
+    rate_t <- grep("^Rate\\(T\\)", col_names, value = TRUE)[1]
+    if (!is.na(rate_c)) labels_list[[rate_c]] <- gt::md("Rate<sub>C</sub>")
+    if (!is.na(rate_t)) labels_list[[rate_t]] <- gt::md("Rate<sub>T</sub>")
   }
 
-  # Handle adjusted HR column
-  hr_adj_col <- grep("HR\\*", col_names, value = TRUE)[1]
-  if (!is.na(hr_adj_col) && length(hr_adj_col) > 0) {
-    labels_list[[hr_adj_col]] <- gt::md("HR<sup>\u2021</sup><br/>(95% CI)")
+  # Handle effect estimate column (HR for survival, IRR/OR/RD/MD for GLM)
+  # Detect the effect measure from column names
+  effect_col <- grep("(HR|IRR|OR|RR|RD|IRD|MD)\\s*\\(.*CI\\)", col_names, value = TRUE)[1]
+  effect_measure_detected <- if (!is.na(effect_col)) {
+    sub("\\s*\\(.*", "", effect_col)
+  } else {
+    "HR"
+  }
+
+  if (!is.na(effect_col)) {
+    labels_list[[effect_col]] <- gt::md(paste0(
+      effect_measure_detected, "<br/>(95% CI)<sup>\u2020</sup>"
+    ))
+  }
+
+  # Handle adjusted / bias-corrected column
+  bc_col <- grep("(HR|IRR|OR|RR|RD|IRD|MD)\\*", col_names, value = TRUE)[1]
+  if (!is.na(bc_col)) {
+    bc_measure <- sub("\\*$", "", bc_col)
+    labels_list[[bc_col]] <- gt::md(paste0(
+      bc_measure, "<sup>\u2021</sup><br/>(95% CI)"
+    ))
   }
 
   # Create base gt table
@@ -100,37 +126,54 @@ format_bootstrap_table <- function(FSsg_tab,
       gt::tab_spanner(label = "Sample Size", columns = sample_size_cols)
   }
 
-  survival_cols <- intersect(c("m1", "m0", "RMST"), col_names)
-  if (length(survival_cols) > 0) {
-    tbl <- tbl |>
-      gt::tab_spanner(label = "Survival", columns = survival_cols)
+  if (!is_glm_table) {
+    survival_cols <- intersect(c("m1", "m0", "RMST"), col_names)
+    if (length(survival_cols) > 0) {
+      tbl <- tbl |>
+        gt::tab_spanner(label = "Survival", columns = survival_cols)
+    }
+  } else {
+    rate_cols <- grep("^Rate\\(", col_names, value = TRUE)
+    if (length(rate_cols) > 0) {
+      tbl <- tbl |>
+        gt::tab_spanner(label = "Event Rates", columns = rate_cols)
+    }
   }
 
-  hr_cols <- grep("HR", col_names, value = TRUE)
-  if (length(hr_cols) > 0) {
+  # Treatment effect spanner — match all effect columns generically
+  effect_all_cols <- grep(
+    "(HR|IRR|OR|RR|RD|IRD|MD)(\\s*\\(|\\*)", col_names, value = TRUE
+  )
+  if (length(effect_all_cols) > 0) {
     tbl <- tbl |>
-      gt::tab_spanner(label = "Treatment Effect", columns = gt::starts_with("HR"))
+      gt::tab_spanner(label = "Treatment Effect", columns = effect_all_cols)
   }
 
   # Add methodology footnotes
-  if (!is.na(hr_col) && length(hr_col) > 0) {
+  if (!is.na(effect_col)) {
+    unadj_label <- if (is_glm_table) {
+      sprintf("**Unadjusted %s**: GLM estimate with robust standard errors",
+              effect_measure_detected)
+    } else {
+      "**Unadjusted HR**: Standard Cox regression hazard ratio with robust standard errors"
+    }
     tbl <- tbl |>
       gt::tab_footnote(
-        footnote = gt::md(
-          "**Unadjusted HR**: Standard Cox regression hazard ratio with robust standard errors"
-        ),
-        locations = gt::cells_column_labels(columns = dplyr::all_of(hr_col))
+        footnote = gt::md(unadj_label),
+        locations = gt::cells_column_labels(columns = dplyr::all_of(effect_col))
       )
   }
 
-  if (!is.na(hr_adj_col) && length(hr_adj_col) > 0) {
+  if (!is.na(bc_col)) {
+    bc_label <- sprintf(
+      "**Bias-corrected %s**: Bootstrap-adjusted estimate using infinitesimal jackknife method (%d iterations). Corrects for optimism in subgroup selection.",
+      if (is_glm_table) effect_measure_detected else "HR",
+      nb_boots
+    )
     tbl <- tbl |>
       gt::tab_footnote(
-        footnote = gt::md(sprintf(
-          "**Bias-corrected HR**: Bootstrap-adjusted estimate using infinitesimal jackknife method (%d iterations). Corrects for optimism in subgroup selection.",
-          nb_boots
-        )),
-        locations = gt::cells_column_labels(columns = dplyr::all_of(hr_adj_col))
+        footnote = gt::md(bc_label),
+        locations = gt::cells_column_labels(columns = dplyr::all_of(bc_col))
       )
   }
 
@@ -159,10 +202,17 @@ format_bootstrap_table <- function(FSsg_tab,
   }
 
   # Add source note
-  source_note_text <- paste0(
-    "*Note*: Med = Median survival time (months). ",
-    "RMST<sub>d</sub> = Restricted mean survival time difference."
-  )
+  if (is_glm_table) {
+    source_note_text <- paste0(
+      "*Note*: Rate<sub>C</sub> = control arm event rate; ",
+      "Rate<sub>T</sub> = treatment arm event rate."
+    )
+  } else {
+    source_note_text <- paste0(
+      "*Note*: Med = Median survival time (months). ",
+      "RMST<sub>d</sub> = Restricted mean survival time difference."
+    )
+  }
 
   if (!is.null(boot_success_rate)) {
     source_note_text <- paste0(
@@ -446,7 +496,8 @@ format_bootstrap_diagnostics_table <- function(diagnostics,
                                                nb_boots,
                                                results,
                                                H_estimates = NULL,
-                                               Hc_estimates = NULL) {
+                                               Hc_estimates = NULL,
+                                               effect_label = "HR") {
 
   if (!requireNamespace("gt", quietly = TRUE)) {
     stop("Package 'gt' is required for table formatting.")
@@ -491,7 +542,9 @@ format_bootstrap_diagnostics_table <- function(diagnostics,
 
     diagnostics_rows$H <- data.frame(
       Category = c("Subgroup H (Questionable)", "", "", ""),
-      Metric = c("Observed HR", "Bias-corrected HR", "Bootstrap CV (%)", "N estimates"),
+      Metric = c(paste("Observed", effect_label),
+                 paste("Bias-corrected", effect_label),
+                 "Bootstrap CV (%)", "N estimates"),
       Value = c(
         sprintf("%.3f", H_estimates$H0),
         sprintf("%.3f", H_estimates$H2),
@@ -509,7 +562,9 @@ format_bootstrap_diagnostics_table <- function(diagnostics,
 
     diagnostics_rows$Hc <- data.frame(
       Category = c("Subgroup Hc (Recommend)", "", "", ""),
-      Metric = c("Observed HR", "Bias-corrected HR", "Bootstrap CV (%)", "N estimates"),
+      Metric = c(paste("Observed", effect_label),
+                 paste("Bias-corrected", effect_label),
+                 "Bootstrap CV (%)", "N estimates"),
       Value = c(
         sprintf("%.3f", Hc_estimates$H0),
         sprintf("%.3f", Hc_estimates$H2),
@@ -586,7 +641,8 @@ format_bootstrap_diagnostics_table <- function(diagnostics,
 create_bootstrap_diagnostic_plots <- function(results,
                                               H_estimates,
                                               Hc_estimates,
-                                              overall_timing = NULL) {
+                                              overall_timing = NULL,
+                                              effect_label = "HR") {
 
   if (!requireNamespace("ggplot2", quietly = TRUE)) {
     return(NULL)
@@ -610,7 +666,7 @@ create_bootstrap_diagnostic_plots <- function(results,
         ggplot2::labs(
           title = "Bootstrap Distribution: Subgroup H",
           subtitle = "Green = bias-corrected, Red = observed",
-          x = "Log Hazard Ratio (bias-corrected)",
+          x = paste0("Log ", effect_label, " (bias-corrected)"),
           y = "Frequency"
         ) +
         ggplot2::theme_minimal() +
@@ -639,7 +695,7 @@ create_bootstrap_diagnostic_plots <- function(results,
         ggplot2::labs(
           title = "Bootstrap Distribution: Subgroup Hc",
           subtitle = "Green = bias-corrected, Red = observed",
-          x = "Log Hazard Ratio (bias-corrected)",
+          x = paste0("Log ", effect_label, " (bias-corrected)"),
           y = "Frequency"
         ) +
         ggplot2::theme_minimal() +
