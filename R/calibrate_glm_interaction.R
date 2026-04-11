@@ -31,6 +31,9 @@
 #'   Default \code{NULL}.
 #' @param subgroup_vars Character vector of subgroup-defining variables.
 #' @param subgroup_cuts Named list of cutpoint specifications.
+#' @param k_treat Numeric. Treatment effect scaling factor passed to
+#'   \code{\link{generate_glm_dgm}}.  Default \code{1} (preserve fitted
+#'   treatment effect).  Set to \code{0} to zero out the ITT effect.
 #' @param k_inter_range Numeric vector of length 2. Search range for
 #'   \code{k_inter}. Default \code{c(0, 10)}.
 #' @param grid_step Numeric. Grid resolution. Default \code{0.05}.
@@ -81,6 +84,7 @@ calibrate_glm_interaction <- function(
     offset_var      = NULL,
     subgroup_vars   = NULL,
     subgroup_cuts   = NULL,
+    k_treat         = 1,
     k_inter_range   = c(-10, 10),
     grid_step       = 0.05,
     n_super         = 5000L,
@@ -117,6 +121,7 @@ calibrate_glm_interaction <- function(
       subgroup_vars = subgroup_vars,
       subgroup_cuts = subgroup_cuts,
       model         = "alt",
+      k_treat       = k_treat,
       k_inter       = k,
       n_super       = n_super,
       seed          = seed,
@@ -147,6 +152,7 @@ calibrate_glm_interaction <- function(
     subgroup_vars = subgroup_vars,
     subgroup_cuts = subgroup_cuts,
     model         = "alt",
+    k_treat       = k_treat,
     k_inter       = best_k,
     n_super       = n_super,
     seed          = seed,

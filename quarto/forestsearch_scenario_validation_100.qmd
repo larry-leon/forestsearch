@@ -1,0 +1,1128 @@
+---
+title: "ForestSearch Scenario Validation Suite"
+subtitle: "End-to-End Simulation Tests for All Search Configurations"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 5
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# -- Global simulation parameters ------------------------------------------
+nsims_alt     <- 100L
+nsims_null    <- 100L
+sim_seed      <- 8316951L
+n_workers     <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+sim_n_sample  <- 600L
+dgm_n_super   <- 5000L
+N_syn         <- 1200L        # synthetic source data size
+
+# -- ForestSearch parameters (shared across scenarios) ---------------------
+fs_splits     <- 400L
+n_min         <- 40L
+d0_min        <- 8L
+d1_min        <- 8L
+maxk          <- 2L
+pcons         <- 0.80         # consistency rate threshold
+vi_grf_min    <- -0.2
+
+# -- Screening and consistency thresholds ----------------------------------
+# Binary / Count (ratio scale)
+thresh_or     <- 1.5          # OR screening threshold (S1, S2, S3)
+consist_or    <- 1.2          # OR consistency threshold
+# Benefit + adverse binary/survival (switched scale ITT closer to threshold)
+thresh_or_ba  <- 2.0          # higher threshold for S4
+consist_or_ba <- 1.5
+# Continuous (identity scale)
+thresh_md     <- 15           # MD screening threshold
+consist_md    <- 5            # MD consistency threshold
+# Count
+thresh_irr    <- 1.5
+consist_irr   <- 1.2
+# Survival adverse (switched, S9)
+thresh_hr_sw  <- 2.0          # higher threshold for switched survival
+consist_hr_sw <- 1.5
+# Survival positive (direct, S10)
+thresh_hr_pos <- 2.0
+consist_hr_pos <- 1.5
+```
+
+
+# Purpose {#sec-purpose}
+
+This document validates **every combination** of search type
+(harm / benefit) x outcome orientation (adverse / positive) x
+endpoint type (binary / continuous / count / survival) through
+small-scale simulations.
+
+Each scenario plants a known subgroup Q and confirms that
+ForestSearch:
+
+1. **Detects Q** under H1 (detection rate > 50%)
+2. **Controls FPR** under H0 (false positive rate < 15%)
+
+## Null DGM Design
+
+The null hypothesis in ForestSearch is **no treatment effect
+heterogeneity** (no HTE).  This does NOT mean zero treatment
+effect.  Under H0, everyone receives a homogeneous (generally
+beneficial) treatment effect -- there is no subgroup with a
+different treatment effect.
+
+FPR depends on the **gap between the null ITT effect and the
+screening threshold**.  When this gap is small, random sampling
+variability pushes some subgroup estimates above the threshold,
+inflating FPR.  This is expected statistical behaviour, not a
+sign convention error.
+
+For clean validation of **sign conventions**, null outcomes use
+homogeneous beneficial treatment effects.  The null ITT effect
+for each scenario is reported in the results table.
+
+Note: for **benefit + adverse** scenarios (S4, S9), switching
+treatment labels inverts the ITT.  A beneficial treatment with
+OR = 0.7 on the original scale becomes OR = 1/0.7 = 1.43 on
+the switched scale.  A **stronger** beneficial treatment produces
+a **higher** switched-scale effect, **closer to** (or above)
+the screening threshold.  This is the opposite of harm search
+scenarios where a stronger beneficial treatment pushes the
+effect further below threshold.
+
+Therefore, benefit + adverse null DGMs must use **weaker**
+treatment effects than other scenarios:
+
+- **Harm search** null: strong benefit is fine (OR << 1 is far
+  below threshold > 1)
+- **Benefit + positive** null: strong benefit is fine
+  (switched-scale OR << 1 is far below threshold)
+- **Benefit + adverse** null: weak benefit required
+  (OR close to 1 → switched OR close to 1 → below threshold)
+
+The `k_treat` parameter in `generate_aft_dgm_flex()` (and
+the analogous parameter in `generate_glm_dgm()`) can attenuate
+the fitted treatment coefficient to achieve this.
+
+
+## Implementation Details
+
+The table below shows how each scenario maps to ForestSearch
+parameters.  The **Null ITT** column always reports the effect
+of the **original treatment** on the **original outcome** — the
+clinical interpretation.  Internally, ForestSearch may operate on
+a manipulated scale (negated Y or switched treatment), but the
+ITT is always translated back.
+
+**Interpretation of Null ITT values:**
+
+- **Adverse outcomes** (events, pain, hazard): beneficial treatment
+  produces OR/IRR/HR < 1 or MD < 0. Treatment *reduces* the bad
+  outcome.
+- **Positive outcomes** (improvement, CD4): beneficial treatment
+  produces OR > 1 or MD > 0. Treatment *increases* the good outcome.
+
+All nine scenarios have a beneficial treatment effect under the
+null, consistent across outcome types.
+
+```{r tbl-impl}
+impl <- data.frame(
+  Scenario = paste0("S", 1:10),
+  Search = c("Harm","Harm","Benefit","Benefit",
+             "Harm","Harm","Benefit","Harm","Benefit","Benefit"),
+  Outcome = c("Adverse","Positive","Positive","Adverse",
+              "Adverse","Positive","Positive","Adverse","Adverse",
+              "Positive"),
+  Endpoint = c("Binary","Binary","Binary","Binary",
+               "Continuous","Continuous","Continuous","Count",
+               "Survival","Survival"),
+  Y_used = c(
+    "Y (events)",
+    "1 - Y (failure)",
+    "Y (improvement)",
+    "Y (events)",
+    "Y (pain score)",
+    "-Y (negated CD4)",
+    "Y (CD4 change)",
+    "Y (event count)",
+    "time / event",
+    "time / event"
+  ),
+  Treat_used = c(
+    "Original", "Original", "Switched", "Switched",
+    "Original", "Original", "Switched", "Original",
+    "Switched", "Original"
+  ),
+  FS_searches_for = c(
+    "OR >= c1",
+    "OR >= c1",
+    "OR >= c1",
+    "OR >= c1",
+    "MD >= c1",
+    "MD >= c1",
+    "MD >= c1",
+    "IRR >= c1",
+    "HR >= c1",
+    "HR >= c1"
+  ),
+  Null_ITT = c(
+    "OR < 1 (reduces events)",
+    "OR > 1 (increases improvement)",
+    "OR > 1 (increases improvement)",
+    "OR < 1 (reduces events)",
+    "MD < 0 (reduces pain)",
+    "MD > 0 (increases CD4)",
+    "MD > 0 (increases CD4)",
+    "IRR < 1 (reduces rate)",
+    "HR < 1 (delays adverse event)",
+    "HR > 1 (accelerates recovery)"
+  ),
+  stringsAsFactors = FALSE
+)
+
+impl |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "Scenario Implementation Details",
+    subtitle = paste(
+      "How each search goal maps to ForestSearch parameters.",
+      "Null ITT always reported as original treatment effect",
+      "on original outcome.")
+  ) |>
+  gt::cols_label(
+    Y_used = "Outcome Used by FS",
+    Treat_used = "Treatment Used by FS",
+    FS_searches_for = "FS Searches For",
+    Null_ITT = "Null ITT (Original Treatment)"
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#e8f5e9"),
+    locations = gt::cells_body(
+      columns = "Null_ITT")
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#fff3e0"),
+    locations = gt::cells_body(rows = c(4, 9))
+  ) |>
+  gt::tab_footnote(
+    footnote = paste(
+      "Benefit + adverse scenarios (S4, S9): switching treatment",
+      "inverts the beneficial ITT on the search scale, placing it",
+      "closer to the threshold. These use higher thresholds (2.0)."),
+    locations = gt::cells_body(columns = "Treat_used",
+                           rows = c(4, 9))
+  )
+```
+
+
+## Detailed Scenario Explanations {#sec-explanations}
+
+ForestSearch always searches for subgroups where the effect
+estimate exceeds a threshold: $\hat{\theta}(S) \geq c_1$.
+This comparison never changes.  All scenario setup reduces to
+orienting the data so the target subgroup produces
+$\hat{\theta} > 0$.  Below is a detailed walkthrough of
+each scenario, explaining *why* each manipulation is needed
+and *how* to interpret the resulting estimates.
+
+### Harm Search Scenarios (S1, S2, S5, S6, S8)
+
+In a harm search, we want to find subgroups where treatment
+causes worse outcomes.  Treatment is generally beneficial
+(the overall ITT favours treatment), but some patients
+may be harmed.
+
+- **S1 (Harm + Adverse Binary, direct).**
+  The outcome Y = 1 represents an adverse event (e.g., death,
+  recurrence).  Treatment reduces events overall (OR < 1), but
+  in the harm subgroup Q, treatment *increases* events (OR > 1
+  in Q).  Since "higher Y = worse" and "treatment increases Y
+  for Q," the effect estimate in Q naturally exceeds the
+  threshold.  **No manipulation needed.**
+
+- **S2 (Harm + Positive Binary, negate Y).**
+  The outcome Y = 1 represents improvement (positive).
+  Treatment increases improvement overall, but in Q, treatment
+  *reduces* improvement.  The problem: a reduced positive
+  outcome gives OR < 1 in Q, which fails the
+  $\hat{\theta} \geq c_1$ check.
+  **Fix:** Define a new outcome $Y' = 1 - Y$ (failure).
+  Now treatment increasing failure for Q gives OR($Y'$) > 1
+  in Q.  The **Null ITT** is reported on the original scale
+  (improvement): OR > 1 means treatment increases improvement.
+  The DGM operates on the failure scale $Y'$, so its
+  reported OR is on the failure scale.
+
+- **S5 (Harm + Adverse Continuous, direct).**
+  Y is a continuous adverse outcome (e.g., pain score; higher
+  = worse).  Treatment reduces pain overall (MD < 0), but in Q,
+  treatment increases pain (MD > 0).  Naturally exceeds the
+  threshold.  **No manipulation needed.**
+
+- **S6 (Harm + Positive Continuous, negate Y).**
+  Y is a positive outcome (e.g., CD4 count; higher = better).
+  Treatment increases CD4 overall, but in Q, treatment reduces
+  CD4.  A negative MD fails the threshold.
+  **Fix:** Use $Y' = -Y$ (negated).  Now treatment increasing
+  the negated outcome for Q gives MD > 0.  The Null ITT is
+  reported on the original (positive) scale: MD > 0 means
+  treatment increases CD4.
+
+- **S8 (Harm + Adverse Count, direct).**
+  Y is an adverse event count (e.g., number of infections).
+  Treatment reduces the rate overall (IRR < 1), but in Q,
+  treatment increases it (IRR > 1).  Naturally exceeds the
+  threshold.  **No manipulation needed.**
+
+### Benefit Search Scenarios (S3, S4, S7, S9, S10)
+
+In a benefit search, we want to find subgroups where treatment
+helps *more* than average.  Treatment is generally beneficial,
+and the benefit subgroup Q has amplified benefit.
+
+- **S3 (Benefit + Positive Binary, switch treatment).**
+  Y = 1 represents improvement.  Treatment increases improvement
+  for everyone, but Q improves *more*.  The problem: the
+  benefit subgroup has OR > 1, but so does everyone — there
+  is no contrast.
+  **Fix:** Switch treatment labels (treat $\leftarrow$ 1 - treat).
+  Under switched labels, the "treatment" (actually control)
+  *decreases* improvement for Q relative to the original
+  treatment.  On the switched scale, OR > 1 in Q indicates
+  that the switched "treatment" increases outcome — equivalently,
+  the *original* treatment helps Q more.  The Null ITT is
+  reported on the original scale: OR > 1 means treatment
+  increases improvement.
+
+- **S4 (Benefit + Adverse Binary, switch treatment).**
+  Y = 1 represents an adverse event.  Treatment reduces events
+  for Q more than for others (stronger benefit).
+  **Fix:** Switch treatment labels.  Under switched labels,
+  the "treatment" (actually control) increases events for Q,
+  giving OR > 1 on the switched scale.
+  **FPR challenge:** A beneficial treatment with OR = 0.7 gives
+  OR$_\text{sw}$ = 1/0.7 = 1.43.  This is inherently close
+  to the threshold.  With binary data in small subgroups
+  (~75 per arm), SD(log OR) $\approx$ 0.33, and multiplicity
+  across ~21 candidates pushes estimates above threshold.
+  This scenario requires near-zero null treatment effect
+  for clean FPR validation.
+
+- **S7 (Benefit + Positive Continuous, switch treatment).**
+  Y is a positive outcome (CD4).  Treatment increases CD4
+  for everyone, but Q benefits more.
+  **Fix:** Switch treatment labels.  Under switched labels,
+  the "treatment" (control) produces lower CD4 for Q than
+  the original treatment, giving positive MD on the switched
+  scale.  The Null ITT is reported on the original scale:
+  MD > 0 means treatment increases CD4.
+
+- **S9 (Benefit + Adverse Survival, switch treatment).**
+  Time-to-event with adverse event (death).  Treatment
+  delays the adverse event (HR < 1 on original scale, i.e.,
+  beneficial).  Q benefits *more* from treatment.
+  **Fix:** Switch treatment labels.  Under switched labels,
+  the "treatment" (control) accelerates events for Q,
+  giving HR > 1 on the switched scale.  The Null ITT is
+  reported on the original scale: HR < 1 means treatment
+  delays the adverse event.
+  **FPR challenge:** Same inversion issue as S4.  Uses
+  `k_treat` to attenuate the null treatment effect.
+
+- **S10 (Benefit + Positive Survival, direct).**
+  Time-to-event with positive event (recovery).  Treatment
+  accelerates recovery (HR > 1 on original scale, i.e.,
+  beneficial).  Q recovers even faster under treatment.
+  Since HR > 1 naturally exceeds the threshold,
+  **no manipulation needed.**  This is the mirror image
+  of S9 and demonstrates that the beneficial direction
+  of HR depends on whether the event is adverse or
+  positive.
+
+
+# Setup {#sec-setup}
+
+```{r packages}
+library(forestsearch)
+library(survival)
+library(speff2trial)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(doFuture)
+library(foreach)
+
+plan(multisession, workers = n_workers)
+cat("Workers:", n_workers, "\n")
+
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  if (sum(is_err) > 0)
+    warning(sprintf("%s: %d of %d tasks failed.", label,
+                    sum(is_err), length(raw_list)))
+  good <- raw_list[!is_err]
+  if (length(good) == 0) return(data.frame())
+  as.data.frame(data.table::rbindlist(good, use.names = TRUE, fill = TRUE))
+}
+
+run_scenario_sims <- function(dgm, nsims, confounders, fs_params, label) {
+  cat(sprintf("  Running %d sims (%s)...\n", nsims, label))
+  t0 <- proc.time()[3]
+  raw <- foreach(
+    sim = seq_len(nsims), .errorhandling = "pass",
+    .options.future = list(
+      packages = c("forestsearch","survival","data.table","future"),
+      seed = TRUE)
+  ) %dofuture% {
+    future::plan("sequential")
+    run_simulation_analysis(
+      sim_id = sim, dgm = dgm, n_sample = sim_n_sample,
+      confounders_base = confounders, n_add_noise = 0L,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params, verbose = FALSE)
+  }
+  elapsed <- proc.time()[3] - t0
+  results <- collect_results(raw, label)
+  n_err <- sum(vapply(raw, inherits, logical(1), "error"))
+  det <- if (nrow(results) > 0 && "any.H" %in% names(results))
+    100 * mean(results$any.H[results$analysis == "FS"], na.rm = TRUE)
+  else NA_real_
+  cat(sprintf("  %s: %.1f%% detection, %d failed, %.1f sec\n",
+      label, det, n_err, elapsed))
+  list(results = results, detection = det, n_failed = n_err,
+       elapsed = elapsed, label = label)
+}
+
+base_fs_params <- list(
+  outcome.name = "y_sim", event.name = "y_sim",
+  treat.name = "treat_sim", id.name = "id",
+  use_lasso = FALSE, use_grf = TRUE,
+  fs.splits = fs_splits, n.min = n_min,
+  d0.min = d0_min, d1.min = d1_min,
+  maxk = maxk, vi.grf.min = vi_grf_min, seedit = sim_seed,
+  pconsistency.threshold = pcons,
+  parallel_args = list(plan = "sequential", workers = 1,
+                        show_message = FALSE))
+
+master_results <- data.frame(
+  Scenario = character(0), Search = character(0),
+  Outcome_Type = character(0), Endpoint = character(0),
+  Manipulation = character(0), Null_ITT = character(0),
+  Det_H1 = numeric(0), FPR_H0 = numeric(0),
+  Status = character(0), stringsAsFactors = FALSE)
+
+timing_log <- data.frame(
+  Scenario = character(0), Endpoint = character(0),
+  nsims_H1 = integer(0), nsims_H0 = integer(0),
+  time_H1 = numeric(0), time_H0 = numeric(0),
+  per_sim_H1 = numeric(0), per_sim_H0 = numeric(0),
+  stringsAsFactors = FALSE)
+
+record <- function(scenario, search, otype, endpoint, manip,
+                   null_itt, det, fpr,
+                   r_alt_obj = NULL, r_null_obj = NULL) {
+  status <- if (is.na(det) || is.na(fpr)) "ERROR"
+    else if (det >= 50 && fpr <= 15) "PASS"
+    else if (det >= 30 && fpr <= 20) "MARGINAL"
+    else "FAIL"
+  master_results[nrow(master_results) + 1, ] <<- data.frame(
+    Scenario = scenario, Search = search, Outcome_Type = otype,
+    Endpoint = endpoint, Manipulation = manip,
+    Null_ITT = null_itt,
+    Det_H1 = round(det, 1), FPR_H0 = round(fpr, 1),
+    Status = status, stringsAsFactors = FALSE)
+  # Accumulate timing
+  if (!is.null(r_alt_obj) && !is.null(r_null_obj)) {
+    t_h1 <- r_alt_obj$elapsed
+    t_h0 <- r_null_obj$elapsed
+    n_h1 <- nsims_alt
+    n_h0 <- nsims_null
+    timing_log[nrow(timing_log) + 1, ] <<- data.frame(
+      Scenario = scenario, Endpoint = endpoint,
+      nsims_H1 = n_h1, nsims_H0 = n_h0,
+      time_H1 = round(t_h1, 1), time_H0 = round(t_h0, 1),
+      per_sim_H1 = round(t_h1 / n_h1, 3),
+      per_sim_H0 = round(t_h0 / n_h0, 3),
+      stringsAsFactors = FALSE)
+  }
+}
+```
+
+
+# Synthetic Data {#sec-data}
+
+```{r syn-data}
+set.seed(42)
+syn <- data.frame(
+  id = seq_len(N_syn), treat = rep(0:1, each = N_syn / 2),
+  z1 = as.factor(sample(0:1, N_syn, TRUE)),
+  z2 = as.factor(sample(0:1, N_syn, TRUE)),
+  z3 = as.factor(sample(0:1, N_syn, TRUE)),
+  z4 = as.factor(sample(0:1, N_syn, TRUE)))
+in_Q <- syn$z1 == 1 & syn$z2 == 1
+syn$treat_sw <- 1L - syn$treat
+syn$fu <- rep(1, N_syn)
+cat(sprintf("Synthetic: N=%d, Q prevalence=%.1f%%\n",
+    N_syn, 100 * mean(in_Q)))
+
+# -- ALT outcomes (treatment beneficial overall, REVERSED for Q) ------------
+# In real trials, treatment helps overall. The harm subgroup Q is
+# where the general benefit reverses. The benefit subgroup Q is
+# where the general benefit is amplified.
+
+# S1: Harm + adverse binary. Treatment REDUCES events overall,
+#     but INCREASES events for Q (harm subgroup).
+syn$y_adverse_bin_alt <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1 & in_Q, 0.65,        # treat HURTS Q
+    ifelse(syn$treat == 1, 0.22, 0.35)))      # treat HELPS everyone else
+
+# S3: Benefit + positive binary. Treatment INCREASES improvement
+#     overall, with AMPLIFIED benefit for Q.
+syn$y_positive_bin_alt <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1 & in_Q, 0.80,        # treat HELPS Q even more
+    ifelse(syn$treat == 1, 0.50, 0.40)))      # treat helps everyone
+
+syn$y_adverse_cont_alt <- 50 - 5 * syn$treat + rnorm(N_syn, sd = 15)
+syn$y_adverse_cont_alt[in_Q & syn$treat == 1] <-
+  syn$y_adverse_cont_alt[in_Q & syn$treat == 1] + 30   # reverses for Q
+
+syn$y_positive_cont_alt <- 200 + 8 * syn$treat + rnorm(N_syn, sd = 40)
+syn$y_positive_cont_alt[in_Q & syn$treat == 1] <-
+  syn$y_positive_cont_alt[in_Q & syn$treat == 1] + 50  # amplified for Q
+
+# Count: treatment reduces rate overall, increases for Q
+lambda_alt <- exp(0.5 - 0.15 * syn$treat)              # treat reduces rate
+lambda_alt[in_Q & syn$treat == 1] <-
+  lambda_alt[in_Q & syn$treat == 1] * 4                 # except Q
+syn$y_adverse_ct_alt <- rpois(N_syn, lambda_alt)
+
+# S2: harm + positive binary (negate Y).
+# Treatment increases improvement overall, but REDUCES it for Q.
+# After negation, treatment reduces failure overall, increases for Q.
+syn$y_s2_alt <- 1L - rbinom(N_syn, 1,
+  ifelse(syn$treat == 1 & in_Q, 0.15,        # treat hurts Q (low improve)
+    ifelse(syn$treat == 1, 0.55, 0.40)))      # treat helps everyone else
+
+# S4: benefit + adverse binary (switch treat).
+# Treatment reduces events for Q (benefit).
+syn$y_s4_alt <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1 & in_Q, 0.10,        # treat strongly helps Q
+    ifelse(syn$treat == 1, 0.33, 0.38)))      # treat mildly helps everyone
+
+# S6: harm + positive continuous (negate Y).
+# Treatment increases CD4 overall but reduces it for Q.
+syn$y_s6_alt <- -(200 + 8 * syn$treat + rnorm(N_syn, sd = 40))
+syn$y_s6_alt[in_Q & syn$treat == 1] <-
+  syn$y_s6_alt[in_Q & syn$treat == 1] + 50   # reverses for Q on negated scale
+
+# -- NULL outcomes (homogeneous beneficial treatment, NO HTE) ---------------
+# Treatment is clearly beneficial for everyone equally.
+# Under the null, the search-scale effect is far from the threshold.
+
+# Binary adverse null: treatment reduces events (OR_adverse < 1)
+syn$y_adverse_bin_null <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1, 0.22, 0.35))         # OR_adv ~ 0.52
+
+# Binary positive null: treatment increases improvement (OR_pos > 1)
+syn$y_positive_bin_null <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1, 0.55, 0.40))         # OR_pos ~ 1.83
+
+# Continuous adverse null: treatment reduces pain
+syn$y_adverse_cont_null <- 50 - 5 * syn$treat + rnorm(N_syn, sd = 15)
+
+# Continuous positive null: treatment increases CD4
+syn$y_positive_cont_null <- 200 + 8 * syn$treat + rnorm(N_syn, sd = 40)
+
+# Count adverse null: treatment reduces event rate
+syn$y_adverse_ct_null <- rpois(N_syn, exp(0.5 - 0.15 * syn$treat))
+
+# S2 null (failure scale): treatment reduces failure
+syn$y_s2_null <- 1L - rbinom(N_syn, 1,
+  ifelse(syn$treat == 1, 0.55, 0.40))         # OR_fail ~ 0.55
+
+# S4 null (adverse, switched scale):
+# CRITICAL: for benefit + adverse with switched treatment, the
+# switched-scale OR = 1/OR_orig.
+# With binary data in small subgroups (~75 per arm), the SD of
+# log(OR) is ~0.33. With ~21 candidates (maxk=2), multiplicity
+# means even OR_sw = 1.15 produces 30%+ FPR.
+# Use near-zero treatment effect for clean FPR validation.
+syn$y_s4_null <- rbinom(N_syn, 1,
+  ifelse(syn$treat == 1, 0.395, 0.40))         # OR_orig ~ 0.98 -> OR_sw ~ 1.02
+
+# S6 null (negated continuous): treatment increases CD4
+syn$y_s6_null <- -(200 + 8 * syn$treat + rnorm(N_syn, sd = 40))
+
+# S10: Benefit + Positive Survival (direct, no switching)
+# Positive event (e.g., recovery): treatment ACCELERATES it → HR > 1
+# Use mild null treatment effect so HR(null) is well below threshold.
+# Alt: Q recovers even faster under treatment
+rate_s10_base <- 0.05
+rate_s10_alt <- rate_s10_base * exp(0.15 * syn$treat)
+rate_s10_alt[in_Q & syn$treat == 1] <-
+  rate_s10_alt[in_Q & syn$treat == 1] * 3
+syn$time_s10_alt <- rexp(N_syn, rate_s10_alt)
+syn$event_s10_alt <- 1L
+syn$event_s10_alt[syn$time_s10_alt > 60] <- 0L
+syn$time_s10_alt <- pmin(syn$time_s10_alt, 60)
+
+# Null: homogeneous mild recovery acceleration (HR ~ 1.16)
+rate_s10_null <- rate_s10_base * exp(0.15 * syn$treat)
+syn$time_s10_null <- rexp(N_syn, rate_s10_null)
+syn$event_s10_null <- 1L
+syn$event_s10_null[syn$time_s10_null > 60] <- 0L
+syn$time_s10_null <- pmin(syn$time_s10_null, 60)
+
+# -- Report null ITT effects (ORIGINAL treatment scale) --------------------
+# For switched scenarios, report effect of the ORIGINAL treatment.
+cat("\nNull ITT effects (original treatment, homogeneous, no HTE):\n")
+safe_or <- function(y, w) {
+  t <- table(y, w); (t[2,2]*t[1,1]) / (t[1,2]*t[2,1])
+}
+cat(sprintf("  S1 Binary adverse:      OR = %.2f (treat reduces events)\n",
+    safe_or(syn$y_adverse_bin_null, syn$treat)))
+cat(sprintf("  S2 Binary pos (negated): OR = %.2f (treat increases improvement)\n",
+    1 / safe_or(syn$y_s2_null, syn$treat)))
+cat(sprintf("  S3 Binary positive:      OR = %.2f (treat increases improvement)\n",
+    safe_or(syn$y_positive_bin_null, syn$treat)))
+cat(sprintf("  S4 Binary adverse:       OR = %.2f (treat reduces events)\n",
+    safe_or(syn$y_s4_null, syn$treat)))
+cat(sprintf("  S5 Continuous adverse:   MD = %.1f (treat reduces pain)\n",
+    mean(syn$y_adverse_cont_null[syn$treat==1]) -
+    mean(syn$y_adverse_cont_null[syn$treat==0])))
+cat(sprintf("  S6 Continuous positive:  MD = +%.1f (treat increases CD4)\n",
+    -(mean(syn$y_s6_null[syn$treat==1]) -
+      mean(syn$y_s6_null[syn$treat==0]))))
+cat(sprintf("  S7 Continuous positive:  MD = +%.1f (treat increases CD4)\n",
+    mean(syn$y_positive_cont_null[syn$treat==1]) -
+    mean(syn$y_positive_cont_null[syn$treat==0])))
+cat(sprintf("  S8 Count adverse:       IRR = %.2f (treat reduces rate)\n",
+    mean(syn$y_adverse_ct_null[syn$treat==1]) /
+    max(mean(syn$y_adverse_ct_null[syn$treat==0]), 0.001)))
+
+# S10: compute HR from synthetic positive-event data
+cox_s10 <- survival::coxph(
+  survival::Surv(time_s10_null, event_s10_null) ~ treat, data = syn)
+cat(sprintf("  S10 Survival positive:   HR = %.2f (treat accelerates recovery)\n",
+    exp(coef(cox_s10)["treat"])))
+```
+
+
+# S1: Harm + Adverse Binary (Direct) {#sec-s1}
+
+```{r s1}
+cat("=== S1: Harm + Adverse Binary (direct) ===\n")
+fs_p <- modifyList(base_fs_params, list(
+  outcome_type = "binary", effect_measure = "OR",
+  effect.threshold = thresh_or, consistency.threshold = consist_or))
+
+dgm_s1_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_bin_alt", "treat",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 1.2, n_super = dgm_n_super, seed = sim_seed)
+dgm_s1_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_bin_null", "treat",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt <- sprintf("OR=%.2f", dgm_s1_null$hazard_ratios$overall)
+cat(sprintf("  Alt: OR(Q)=%.2f  Null ITT: %s (treat reduces events)\n",
+    dgm_s1_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s1_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p, "H1")
+r_null <- run_scenario_sims(dgm_s1_null, nsims_null, c("z1","z2","z3","z4"), fs_p, "H0")
+record("S1","Harm","Adverse","Binary","Direct",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S2: Harm + Positive Binary (Negate Y) {#sec-s2}
+
+```{r s2}
+cat("=== S2: Harm + Positive Binary (negate Y) ===\n")
+dgm_s2_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s2_alt", "treat",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 1.0, n_super = dgm_n_super, seed = sim_seed)
+dgm_s2_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s2_null", "treat",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+# S2 DGM is on the FAILURE (negated) scale. Invert to original
+# improvement scale: OR(improve) = 1 / OR(failure)
+null_itt <- sprintf("OR=%.2f", 1 / dgm_s2_null$hazard_ratios$overall)
+cat(sprintf("  Alt: OR(Q,fail)=%.2f  Null ITT: %s (treat increases improvement)\n",
+    dgm_s2_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s2_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p, "H1")
+r_null <- run_scenario_sims(dgm_s2_null, nsims_null, c("z1","z2","z3","z4"), fs_p, "H0")
+record("S2","Harm","Positive","Binary","Negate Y",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S3: Benefit + Positive Binary (Switch Treatment) {#sec-s3}
+
+```{r s3}
+cat("=== S3: Benefit + Positive Binary (switch treatment) ===\n")
+dgm_s3_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_positive_bin_alt", "treat_sw",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 2.5, n_super = dgm_n_super, seed = sim_seed)
+dgm_s3_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_positive_bin_null", "treat_sw",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt_sw <- dgm_s3_null$hazard_ratios$overall
+null_itt <- sprintf("OR=%.2f", 1 / null_itt_sw)
+cat(sprintf("  Alt: OR(Q,sw)=%.2f  Null ITT: %s (treat increases improvement)\n",
+    dgm_s3_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s3_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p, "H1")
+r_null <- run_scenario_sims(dgm_s3_null, nsims_null, c("z1","z2","z3","z4"), fs_p, "H0")
+record("S3","Benefit","Positive","Binary","Switch treat",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S4: Benefit + Adverse Binary (Switch Treatment) {#sec-s4}
+
+```{r s4}
+cat("=== S4: Benefit + Adverse Binary (switch treatment) ===\n")
+
+# Benefit + adverse with switched treatment: the switched-scale ITT
+# is 1/OR_orig. Stronger benefit → higher OR_sw → closer to threshold.
+# The null data uses a WEAK beneficial treatment (OR_orig ~ 0.94)
+# so that OR_sw ~ 1.06, well below the threshold.
+fs_p4 <- modifyList(base_fs_params, list(
+  outcome_type = "binary", effect_measure = "OR",
+  effect.threshold = thresh_or_ba, consistency.threshold = consist_or_ba))
+
+dgm_s4_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s4_alt", "treat_sw",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 2.0, n_super = dgm_n_super, seed = sim_seed)
+dgm_s4_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s4_null", "treat_sw",
+  "binary", "OR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt_sw <- dgm_s4_null$hazard_ratios$overall
+null_itt <- sprintf("OR=%.2f", 1 / null_itt_sw)
+cat(sprintf("  Alt: OR(Q,sw)=%.2f  Null ITT: %s (treat reduces events)\n",
+    dgm_s4_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s4_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p4, "H1")
+r_null <- run_scenario_sims(dgm_s4_null, nsims_null, c("z1","z2","z3","z4"), fs_p4, "H0")
+record("S4","Benefit","Adverse","Binary","Switch treat",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S5: Harm + Adverse Continuous (Direct) {#sec-s5}
+
+```{r s5}
+cat("=== S5: Harm + Adverse Continuous (direct) ===\n")
+fs_p5 <- modifyList(base_fs_params, list(
+  outcome_type = "continuous", effect_measure = "MD",
+  effect.threshold = thresh_md, consistency.threshold = consist_md))
+
+dgm_s5_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_cont_alt", "treat",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 20, n_super = dgm_n_super, seed = sim_seed)
+dgm_s5_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_cont_null", "treat",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt <- sprintf("MD=%.1f", dgm_s5_null$hazard_ratios$overall)
+cat(sprintf("  Alt: MD(Q)=%.1f  Null ITT: %s (treat reduces pain)\n",
+    dgm_s5_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s5_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p5, "H1")
+r_null <- run_scenario_sims(dgm_s5_null, nsims_null, c("z1","z2","z3","z4"), fs_p5, "H0")
+record("S5","Harm","Adverse","Continuous","Direct",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S6: Harm + Positive Continuous (Negate Y) {#sec-s6}
+
+```{r s6}
+cat("=== S6: Harm + Positive Continuous (negate Y) ===\n")
+dgm_s6_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s6_alt", "treat",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 20, n_super = dgm_n_super, seed = sim_seed)
+dgm_s6_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_s6_null", "treat",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt_neg <- dgm_s6_null$hazard_ratios$overall
+null_itt <- sprintf("MD=+%.1f", -null_itt_neg)
+cat(sprintf("  Alt: MD(Q,neg)=%.1f  Null ITT: %s (treat increases CD4)\n",
+    dgm_s6_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s6_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p5, "H1")
+r_null <- run_scenario_sims(dgm_s6_null, nsims_null, c("z1","z2","z3","z4"), fs_p5, "H0")
+record("S6","Harm","Positive","Continuous","Negate Y",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S7: Benefit + Positive Continuous (Switch Treatment) {#sec-s7}
+
+```{r s7}
+cat("=== S7: Benefit + Positive Continuous (switch treatment) ===\n")
+dgm_s7_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_positive_cont_alt", "treat_sw",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 40, n_super = dgm_n_super, seed = sim_seed)
+dgm_s7_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_positive_cont_null", "treat_sw",
+  "continuous", "MD",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt_sw <- dgm_s7_null$hazard_ratios$overall
+null_itt <- sprintf("MD=+%.1f", -null_itt_sw)
+cat(sprintf("  Alt: MD(Q,sw)=%.1f  Null ITT: %s (treat increases CD4)\n",
+    dgm_s7_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s7_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p5, "H1")
+r_null <- run_scenario_sims(dgm_s7_null, nsims_null, c("z1","z2","z3","z4"), fs_p5, "H0")
+record("S7","Benefit","Positive","Continuous","Switch treat",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S8: Harm + Adverse Count (Direct) {#sec-s8}
+
+```{r s8}
+cat("=== S8: Harm + Adverse Count (direct) ===\n")
+fs_p8 <- modifyList(base_fs_params, list(
+  outcome_type = "count", effect_measure = "IRR",
+  offset.name = "fu",
+  effect.threshold = thresh_irr, consistency.threshold = consist_irr))
+
+dgm_s8_alt <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_ct_alt", "treat",
+  "count", "IRR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "alt", k_inter = 0.7, n_super = dgm_n_super, seed = sim_seed)
+dgm_s8_null <- generate_glm_dgm(
+  syn, c("z1","z2","z3","z4"), "y_adverse_ct_null", "treat",
+  "count", "IRR",
+  subgroup_vars = c("z1","z2"), subgroup_cuts = list(z1=1L, z2=1L),
+  model = "null", n_super = dgm_n_super, seed = sim_seed)
+
+null_itt <- sprintf("IRR=%.2f", dgm_s8_null$hazard_ratios$overall)
+cat(sprintf("  Alt: IRR(Q)=%.2f  Null ITT: %s (treat reduces rate)\n",
+    dgm_s8_alt$hazard_ratios$harm_subgroup, null_itt))
+
+r_alt  <- run_scenario_sims(dgm_s8_alt, nsims_alt, c("z1","z2","z3","z4"), fs_p8, "H1")
+r_null <- run_scenario_sims(dgm_s8_null, nsims_null, c("z1","z2","z3","z4"), fs_p8, "H0")
+record("S8","Harm","Adverse","Count","Direct",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S9: Benefit + Adverse Survival (Switch Treatment) {#sec-s9}
+
+```{r s9}
+cat("=== S9: Benefit + Adverse Survival (switch treatment) ===\n")
+
+actg_surv <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_surv$id <- seq_len(nrow(actg_surv))
+actg_surv$treat <- 1L - ifelse(actg_surv$arms == 1L, 1L, 0L)
+actg_surv$y <- actg_surv$days / 30.4375
+actg_surv$event <- actg_surv$cens
+
+actg_surv$z1  <- as.factor(ifelse(actg_surv$age > 34, 1L, 0L))
+actg_surv$z2  <- as.factor(ifelse(actg_surv$preanti <= 744.5, 1L, 0L))
+actg_surv$z3  <- as.factor(ifelse(actg_surv$wtkg <= 75, 1L, 0L))
+actg_surv$z4  <- as.factor(ifelse(
+  actg_surv$karnof <= median(actg_surv$karnof), 1L, 0L))
+actg_surv$z5  <- as.factor(ifelse(
+  actg_surv$cd40 <= median(actg_surv$cd40), 1L, 0L))
+actg_surv$z6  <- as.factor(ifelse(
+  actg_surv$cd80 <= median(actg_surv$cd80), 1L, 0L))
+actg_surv$z7  <- as.factor(actg_surv$hemo)
+actg_surv$z8  <- as.factor(actg_surv$homo)
+actg_surv$z9  <- as.factor(actg_surv$drugs)
+actg_surv$z10 <- as.factor(actg_surv$race)
+actg_surv$z11 <- as.factor(actg_surv$gender)
+actg_surv$z12 <- as.factor(actg_surv$symptom)
+
+surv_fv <- paste0("z", 1:12)
+
+dgm_s9_alt <- generate_aft_dgm_flex(
+  data = actg_surv, outcome_var = "y", event_var = "event",
+  treatment_var = "treat", continuous_vars = character(0),
+  factor_vars = surv_fv,
+  subgroup_vars = c("z1","z2"),
+  subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  model = "alt", k_inter = 2.5, k_treat = 1,
+  n_super = dgm_n_super, seed = sim_seed, verbose = TRUE)
+
+# S9 null: attenuate treatment effect so HR_sw stays well below threshold.
+# Same logic as S4: stronger beneficial treatment → higher HR_sw → FPR.
+# k_treat = 0.3 reduces the fitted treatment coefficient to 30% of
+# its original value, giving a mild beneficial effect under the null.
+dgm_s9_null <- generate_aft_dgm_flex(
+  data = actg_surv, outcome_var = "y", event_var = "event",
+  treatment_var = "treat", continuous_vars = character(0),
+  factor_vars = surv_fv,
+  subgroup_vars = c("z1","z2"),
+  subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  model = "null", k_treat = 0.15,
+  n_super = dgm_n_super, seed = sim_seed, verbose = FALSE)
+
+null_itt_sw <- dgm_s9_null$hazard_ratios$overall
+null_itt <- sprintf("HR=%.2f", 1 / null_itt_sw)
+cat(sprintf("  Alt: HR(Q,sw)=%.2f  Null ITT: %s (treat reduces hazard)\n",
+    dgm_s9_alt$hazard_ratios$harm_subgroup, null_itt))
+
+# Benefit + adverse survival: same logic as S4.
+# k_treat = 0.3 attenuates null treatment effect → HR_sw closer to 1.0.
+fs_p9 <- list(
+  outcome.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim", id.name = "id",
+  use_lasso = TRUE, use_grf = TRUE,
+  hr.threshold = thresh_hr_sw, hr.consistency = consist_hr_sw,
+  pconsistency.threshold = pcons, fs.splits = fs_splits,
+  n.min = n_min, d0.min = d0_min, d1.min = d1_min, maxk = maxk,
+  vi.grf.min = vi_grf_min, seedit = sim_seed,
+  parallel_args = list(plan = "sequential", workers = 1,
+                        show_message = FALSE))
+
+r_alt  <- run_scenario_sims(dgm_s9_alt, nsims_alt, surv_fv, fs_p9, "H1")
+r_null <- run_scenario_sims(dgm_s9_null, nsims_null, surv_fv, fs_p9, "H0")
+record("S9","Benefit","Adverse","Survival","Switch treat",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+
+# S10: Benefit + Positive Survival (Direct) {#sec-s10}
+
+Positive event (recovery, remission).  Treatment **accelerates**
+the good event → HR > 1 is beneficial.  No switching or negation
+needed — HR > 1 naturally exceeds the ForestSearch threshold.
+
+This is the counterpart to S9:
+
+- **S9**: adverse event, beneficial treatment → HR < 1 (delays bad event), requires switching
+- **S10**: positive event, beneficial treatment → HR > 1 (accelerates good event), direct search
+
+```{r s10}
+cat("=== S10: Benefit + Positive Survival (direct) ===\n")
+
+# Build data frames for generate_aft_dgm_flex
+df_s10_alt <- data.frame(
+  id = syn$id, treat = syn$treat,
+  z1 = syn$z1, z2 = syn$z2, z3 = syn$z3, z4 = syn$z4,
+  y = syn$time_s10_alt, event = syn$event_s10_alt)
+df_s10_null <- data.frame(
+  id = syn$id, treat = syn$treat,
+  z1 = syn$z1, z2 = syn$z2, z3 = syn$z3, z4 = syn$z4,
+  y = syn$time_s10_null, event = syn$event_s10_null)
+
+dgm_s10_alt <- generate_aft_dgm_flex(
+  data = df_s10_alt, outcome_var = "y", event_var = "event",
+  treatment_var = "treat", continuous_vars = character(0),
+  factor_vars = c("z1","z2","z3","z4"),
+  subgroup_vars = c("z1","z2"),
+  subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  model = "alt", k_inter = 2.0, k_treat = 1,
+  n_super = dgm_n_super, seed = sim_seed, verbose = TRUE)
+
+dgm_s10_null <- generate_aft_dgm_flex(
+  data = df_s10_null, outcome_var = "y", event_var = "event",
+  treatment_var = "treat", continuous_vars = character(0),
+  factor_vars = c("z1","z2","z3","z4"),
+  subgroup_vars = c("z1","z2"),
+  subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  model = "null", k_treat = 1,
+  n_super = dgm_n_super, seed = sim_seed, verbose = FALSE)
+
+# HR > 1 = treatment accelerates positive event = beneficial
+null_itt <- sprintf("HR=%.2f", dgm_s10_null$hazard_ratios$overall)
+cat(sprintf("  Alt: HR(Q)=%.2f  Null ITT: %s (treat accelerates recovery)\n",
+    dgm_s10_alt$hazard_ratios$harm_subgroup, null_itt))
+
+fs_p10 <- list(
+  outcome.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim", id.name = "id",
+  use_lasso = TRUE, use_grf = TRUE,
+  hr.threshold = thresh_hr_pos, hr.consistency = consist_hr_pos,
+  pconsistency.threshold = pcons, fs.splits = fs_splits,
+  n.min = n_min, d0.min = d0_min, d1.min = d1_min, maxk = maxk,
+  vi.grf.min = vi_grf_min, seedit = sim_seed,
+  parallel_args = list(plan = "sequential", workers = 1,
+                        show_message = FALSE))
+
+r_alt  <- run_scenario_sims(dgm_s10_alt, nsims_alt,
+  c("z1","z2","z3","z4"), fs_p10, "H1")
+r_null <- run_scenario_sims(dgm_s10_null, nsims_null,
+  c("z1","z2","z3","z4"), fs_p10, "H0")
+record("S10","Benefit","Positive","Survival","Direct",null_itt,
+       r_alt$detection, r_null$detection, r_alt, r_null)
+```
+
+```{r cleanup}
+plan(sequential)
+```
+
+
+# Results Summary {#sec-results}
+
+```{r results-table}
+master_results |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "ForestSearch Scenario Validation Results",
+    subtitle = sprintf("%d alt / %d null sims, N=%d per sim",
+      nsims_alt, nsims_null, sim_n_sample)) |>
+  gt::cols_label(Null_ITT = "Null ITT", Det_H1 = "Det %",
+    FPR_H0 = "FPR %", Outcome_Type = "Outcome") |>
+  gt::tab_style(style = gt::cell_fill(color = "#c8e6c9"),
+    locations = gt::cells_body(rows = Status == "PASS")) |>
+  gt::tab_style(style = gt::cell_fill(color = "#fff9c4"),
+    locations = gt::cells_body(rows = Status == "MARGINAL")) |>
+  gt::tab_style(style = gt::cell_fill(color = "#ffcdd2"),
+    locations = gt::cells_body(rows = Status == "FAIL")) |>
+  gt::tab_footnote(
+    footnote = paste(
+      "PASS: Det >= 50% AND FPR <= 15%.",
+      "Null ITT = homogeneous treatment effect (no HTE).",
+      "Elevated FPR indicates threshold too close to null ITT,",
+      "NOT a sign convention error."),
+    locations = gt::cells_column_labels(columns = "Status"))
+```
+
+```{r results-plot, fig.height=5}
+if (nrow(master_results) > 0) {
+  ggplot(master_results, aes(x = FPR_H0, y = Det_H1)) +
+    geom_point(aes(colour = Status, shape = Endpoint), size = 4) +
+    geom_text(aes(label = Scenario), vjust = -1, size = 3) +
+    geom_hline(yintercept = 50, linetype = "dashed", colour = "grey60") +
+    geom_vline(xintercept = 15, linetype = "dashed", colour = "grey60") +
+    scale_colour_manual(values = c(
+      PASS="green4", MARGINAL="orange", FAIL="red", ERROR="grey50")) +
+    labs(x = "False Positive Rate (%)", y = "Detection Rate (%)",
+         title = "Scenario Validation: Detection vs FPR",
+         subtitle = "Target: upper-left quadrant") +
+    coord_cartesian(
+      xlim = c(0, max(25, max(master_results$FPR_H0, na.rm=TRUE)+5)),
+      ylim = c(0, 105)) +
+    theme_minimal(base_size = 12)
+}
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing}
+total_elapsed <- proc.time()[3]
+cat(sprintf("Total document render time: %.1f minutes\n", total_elapsed / 60))
+cat(sprintf("Workers used: %d\n\n", n_workers))
+
+if (nrow(timing_log) > 0) {
+  # Add projections for 500 alt / 1000 null
+  timing_log$proj_H1 <- round(timing_log$per_sim_H1 * 500, 1)
+  timing_log$proj_H0 <- round(timing_log$per_sim_H0 * 1000, 1)
+  timing_log$proj_total <- timing_log$proj_H1 + timing_log$proj_H0
+  timing_log$proj_min <- round(timing_log$proj_total / 60, 1)
+
+  timing_log |>
+    gt::gt() |>
+    gt::tab_header(
+      title = "Timing Summary by Scenario",
+      subtitle = sprintf(
+        "Current run: %d alt + %d null sims, %d workers",
+        nsims_alt, nsims_null, n_workers)
+    ) |>
+    gt::cols_label(
+      time_H1 = "H1 (sec)",
+      time_H0 = "H0 (sec)",
+      per_sim_H1 = "Per Sim H1 (sec)",
+      per_sim_H0 = "Per Sim H0 (sec)",
+      proj_H1 = "H1 500 (sec)",
+      proj_H0 = "H0 1000 (sec)",
+      proj_total = "Total (sec)",
+      proj_min = "Total (min)"
+    ) |>
+    gt::tab_spanner(
+      label = "Current Run",
+      columns = c("nsims_H1", "nsims_H0", "time_H1", "time_H0")
+    ) |>
+    gt::tab_spanner(
+      label = "Per Simulation",
+      columns = c("per_sim_H1", "per_sim_H0")
+    ) |>
+    gt::tab_spanner(
+      label = "Projected: 500 alt / 1000 null",
+      columns = c("proj_H1", "proj_H0", "proj_total", "proj_min")
+    ) |>
+    gt::tab_source_note(sprintf(
+      "Projected total for 500/1000: %.1f minutes (%.1f hours)",
+      sum(timing_log$proj_min), sum(timing_log$proj_min) / 60))
+}
+```
+
+
+# Conclusion {#sec-conclusion}
+
+```{r conclusion}
+n_pass <- sum(master_results$Status == "PASS")
+n_total <- nrow(master_results)
+n_fail <- sum(master_results$Status == "FAIL")
+
+cat(sprintf("%d of %d scenarios passed.\n", n_pass, n_total))
+if (n_fail > 0) {
+  cat("\nScenarios with elevated FPR:\n")
+  failed <- master_results[master_results$Status == "FAIL",
+    c("Scenario", "Null_ITT", "FPR_H0")]
+  print(failed, row.names = FALSE)
+  cat("\nElevated FPR typically indicates the screening threshold\n")
+  cat("is too close to the null ITT effect. The L_eff calibration\n")
+  cat("procedure in the full simulation documents addresses this.\n")
+}
+```
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```

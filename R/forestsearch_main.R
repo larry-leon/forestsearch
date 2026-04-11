@@ -99,11 +99,12 @@
   }
 
   # --- Check 4: Thresholds > 1 with identity-scale measure ---
-  # (Already handled in the GLM block, but catch early for clarity)
-  is_identity <- !is.null(effect_measure) &&
-    effect_measure %in% c("RD", "IRD", "MD")
+  # RD/IRD are probability/rate differences bounded in [-1, 1].
+  # MD (mean difference) has no natural bounds -- skip this check for MD.
+  is_bounded_identity <- !is.null(effect_measure) &&
+    effect_measure %in% c("RD", "IRD")
 
-  if (is_identity && user_set_threshold && hr.threshold > 1.0) {
+  if (is_bounded_identity && user_set_threshold && hr.threshold > 1.0) {
     warning(
       sprintf(paste0(
         "effect.threshold = %.2f but effect_measure = '%s' ",
@@ -675,10 +676,20 @@ forestsearch <- function(df.analysis,
     effect_threshold <- hr.threshold
     consistency_threshold <- hr.consistency
 
-    if (effect_measure %in% c("RD", "IRD", "MD")) {
+    if (effect_measure %in% c("RD", "IRD")) {
+
+      # Remap survival defaults silently for RD/IRD
+      if (!user_set_threshold && hr.threshold == 1.25) {
+        effect_threshold <- switch(effect_measure, RD = 0.05, IRD = 0.01)
+      }
+      if (!user_set_consistency && hr.consistency == 1.0) {
+        consistency_threshold <- 0.0
+      }
 
       # Detect ratio-scale values passed to identity-scale measure
-      if (effect_threshold > 1.0) {
+      # NOTE: RD/IRD are probability/rate differences bounded in [-1, 1].
+      # MD (mean difference) has no natural bounds and is NOT checked here.
+      if (user_set_threshold && effect_threshold > 1.0) {
         warning(
           sprintf(
             paste0(
@@ -693,7 +704,7 @@ forestsearch <- function(df.analysis,
             effect_threshold, "OR", 0.05, effect_measure),
           call. = FALSE)
         effect_threshold <- switch(effect_measure,
-          RD = 0.05, IRD = 0.01, MD = 0.0)
+          RD = 0.05, IRD = 0.01)
       }
 
       if (consistency_threshold >= 1.0 && !user_set_consistency) {
@@ -713,13 +724,15 @@ forestsearch <- function(df.analysis,
         consistency_threshold <- 0.0
       }
 
-      # Remap survival defaults if user didn't explicitly set thresholds
+    } else if (effect_measure == "MD") {
+
+      # MD (mean difference) is on the natural outcome scale with no
+      # fixed bounds.  Thresholds of 30, 50, etc. are legitimate for
+      # outcomes like CD4 counts.  Only remap survival defaults if
+      # user didn't explicitly set thresholds.
       if (!user_set_threshold && hr.threshold == 1.25) {
-        effect_threshold <- switch(effect_measure,
-          RD  = 0.05,
-          IRD = 0.01,
-          MD  = 0.0
-        )
+        # Survival default 1.25 is meaningless for MD; use 0.0
+        effect_threshold <- 0.0
       }
       if (!user_set_consistency && hr.consistency == 1.0) {
         consistency_threshold <- 0.0
@@ -860,6 +873,30 @@ forestsearch <- function(df.analysis,
         "each split HR >= %.2f", hr.consistency)
     )
   }
+
+  # -- Search alignment diagnostic --------------------------------------
+  # Only print when details = TRUE (single-data exploratory analysis).
+  # Suppressed during bootstrap, cross-validation, and simulation loops
+  # where quiet = TRUE or details = FALSE.
+  search_diag <- interpret_search_config(
+    outcome_type         = if (outcome_type == "survival") "survival"
+                           else outcome_type,
+    effect_measure       = if (outcome_type == "survival") "HR"
+                           else effect_measure,
+    adverse_outcome      = adverse_outcome,
+    effect_threshold     = if (outcome_type == "survival") log(hr.threshold)
+                           else effect_threshold,
+    consistency_threshold = if (outcome_type == "survival")
+                              log(max(hr.consistency, 0.001))
+                            else consistency_threshold,
+    use_lasso            = use_lasso,
+    use_grf              = use_grf,
+    outcome.name         = outcome.name,
+    event.name           = event.name,
+    treat.name           = treat.name,
+    offset.name          = offset.name,
+    quiet                = !details || quiet
+  )
 
   # ===========================================================================
   # SECTION 2C: PROPENSITY SCORE ESTIMATION (optional)

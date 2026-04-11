@@ -15,6 +15,7 @@ calibrate_glm_interaction(
   offset_var = NULL,
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
+  k_treat = 1,
   k_inter_range = c(-10, 10),
   grid_step = 0.05,
   n_super = 5000L,
@@ -49,6 +50,10 @@ Default \code{NULL}.}
 \item{subgroup_vars}{Character vector of subgroup-defining variables.}
 
 \item{subgroup_cuts}{Named list of cutpoint specifications.}
+
+\item{k_treat}{Numeric. Treatment effect scaling factor passed to
+\code{\link{generate_glm_dgm}}.  Default \code{1} (preserve fitted
+treatment effect).  Set to \code{0} to zero out the ITT effect.}
 
 \item{k_inter_range}{Numeric vector of length 2. Search range for
 \code{k_inter}. Default \code{c(0, 10)}.}

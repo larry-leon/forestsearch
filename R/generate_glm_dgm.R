@@ -53,6 +53,18 @@
 #' @param model Character. \code{"alt"} for alternative hypothesis with
 #'   treatment--subgroup interaction, \code{"null"} for uniform treatment
 #'   effect. Default \code{"alt"}.
+#' @param k_treat Numeric. Scaling factor for the fitted treatment
+#'   coefficient on the linear predictor scale.  \code{k_treat = 1}
+#'   (default) preserves the fitted treatment effect as-is.
+#'   \code{k_treat > 1} amplifies the treatment main effect, useful
+#'   when the source dataset has a weak treatment effect and a
+#'   stronger ITT is desired for simulation.  \code{k_treat < 1}
+#'   attenuates the effect.  Analogous to the \code{k_treat}
+#'   parameter in \code{\link{generate_aft_dgm_flex}}.
+#'   Note: the null DGM (\code{model = "null"}) represents a
+#'   \emph{homogeneous} treatment effect (no HTE), not a zero
+#'   treatment effect.  \code{k_treat} scales the magnitude of
+#'   that homogeneous effect.
 #' @param k_inter Numeric. Direct additive shift on the linear predictor
 #'   for Q members under treatment.  The interpretation depends on
 #'   \code{outcome_type}:
@@ -135,6 +147,7 @@ generate_glm_dgm <- function(
     subgroup_vars   = NULL,
     subgroup_cuts   = NULL,
     model           = c("alt", "null"),
+    k_treat         = 1,
     k_inter         = 0,
     n_super         = 5000L,
     seed            = 8316951L,
@@ -199,6 +212,7 @@ generate_glm_dgm <- function(
     cat(sprintf("  effect_measure: %s\n", effect_measure))
     cat(sprintf("  model:          %s\n", model))
     cat(sprintf("  k_inter:        %.3f\n", k_inter))
+    cat(sprintf("  k_treat:        %.3f\n", k_treat))
     cat(sprintf("  n_super:        %d\n", n_super))
     cat(sprintf("  n observations: %d\n", nrow(data)))
   }
@@ -300,6 +314,9 @@ generate_glm_dgm <- function(
     cat(sprintf("  Interaction shift (k_inter): %.4f", k_inter))
     if (model == "null") cat(" (null model: forced to 0)")
     cat("\n")
+    if (k_treat != 1) {
+      cat(sprintf("  Treatment scaling (k_treat): %.4f\n", k_treat))
+    }
   }
 
   # -- Create super-population -----------------------------------------------
@@ -310,42 +327,64 @@ generate_glm_dgm <- function(
   rownames(df_super) <- NULL
 
   # -- Compute potential outcomes --------------------------------------------
-  # Baseline predictions from the model WITHOUT interaction
+  # All computation uses the linear predictor (link scale):
+  #   binary:     logit scale
+  #   continuous: identity scale (link = response)
+  #   count:      log scale (includes offset if in formula)
+  #
+  # Treatment effect scaling:
+  #   eta_0 = predict(treatment=0, type="link")
+  #   eta_1 = predict(treatment=1, type="link")
+  #   treatment_effect = eta_1 - eta_0  (= fitted beta_treat, constant)
+  #   eta_1_scaled = eta_0 + k_treat * treatment_effect
+  #
+  # Then add interaction (k_inter) for Q members under treatment.
+
   df_0 <- df_super; df_0[[treatment_var]] <- 0L
   df_1 <- df_super; df_1[[treatment_var]] <- 1L
 
   in_Q <- df_super$flag_harm == 1
 
   if (outcome_type == "binary") {
-    # predict(type="response") gives probabilities directly
-    p0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
-    p1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
-
-    # Add interaction: shift log-odds of p1 for Q members under treatment
-    eta_1 <- stats::qlogis(p1_base)
-    eta_1[in_Q] <- eta_1[in_Q] + beta_inter
-    df_super$p1 <- stats::plogis(eta_1)
-    df_super$p0 <- p0_base
-
-  } else if (outcome_type == "continuous") {
-    # Gaussian with identity link: predict gives conditional means
-    mu0_base <- stats::predict(fit_base, newdata = df_0, type = "response")
-    mu1_base <- stats::predict(fit_base, newdata = df_1, type = "response")
-
-    # Add interaction: direct shift on the mean for Q under treatment
-    mu1_base[in_Q] <- mu1_base[in_Q] + beta_inter
-    df_super$mu0 <- mu0_base
-    df_super$mu1 <- mu1_base
-
-  } else if (outcome_type == "count") {
-    # Poisson with log link.
-    # When offset is in the formula, predict(type="link") returns
-    # X*beta + log(offset) — the full linear predictor including offset.
-    # When no offset, it returns just X*beta.
+    # Link scale: logit
     eta_0 <- stats::predict(fit_base, newdata = df_0, type = "link")
     eta_1 <- stats::predict(fit_base, newdata = df_1, type = "link")
 
-    # Add interaction: shift on log-rate for Q under treatment
+    # Scale treatment effect
+    treat_effect <- eta_1 - eta_0   # = beta_treat (constant)
+    eta_1 <- eta_0 + k_treat * treat_effect
+
+    # Add interaction for Q under treatment
+    eta_1[in_Q] <- eta_1[in_Q] + beta_inter
+
+    df_super$p0 <- stats::plogis(eta_0)
+    df_super$p1 <- stats::plogis(eta_1)
+
+  } else if (outcome_type == "continuous") {
+    # Identity link: response = link
+    mu0 <- stats::predict(fit_base, newdata = df_0, type = "response")
+    mu1 <- stats::predict(fit_base, newdata = df_1, type = "response")
+
+    # Scale treatment effect
+    treat_effect <- mu1 - mu0       # = beta_treat (constant)
+    mu1 <- mu0 + k_treat * treat_effect
+
+    # Add interaction for Q under treatment
+    mu1[in_Q] <- mu1[in_Q] + beta_inter
+
+    df_super$mu0 <- mu0
+    df_super$mu1 <- mu1
+
+  } else if (outcome_type == "count") {
+    # Log link (includes offset when in formula)
+    eta_0 <- stats::predict(fit_base, newdata = df_0, type = "link")
+    eta_1 <- stats::predict(fit_base, newdata = df_1, type = "link")
+
+    # Scale treatment effect on the log scale
+    treat_effect <- eta_1 - eta_0   # = beta_treat (constant)
+    eta_1 <- eta_0 + k_treat * treat_effect
+
+    # Add interaction for Q under treatment
     eta_1[in_Q] <- eta_1[in_Q] + beta_inter
 
     df_super$mu0 <- exp(eta_0)
@@ -384,6 +423,7 @@ generate_glm_dgm <- function(
     model_params = list(
       coefficients = stats::coef(fit_base),
       family       = glm_family,
+      k_treat      = k_treat,
       k_inter      = k_inter,
       beta_inter   = beta_inter,
       sigma        = sigma_resid,

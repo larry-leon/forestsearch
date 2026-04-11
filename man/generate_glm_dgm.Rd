@@ -15,6 +15,7 @@ generate_glm_dgm(
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
   model = c("alt", "null"),
+  k_treat = 1,
   k_inter = 0,
   n_super = 5000L,
   seed = 8316951L,
@@ -57,6 +58,19 @@ functions.}
 \item{model}{Character. \code{"alt"} for alternative hypothesis with
 treatment--subgroup interaction, \code{"null"} for uniform treatment
 effect. Default \code{"alt"}.}
+
+\item{k_treat}{Numeric. Scaling factor for the fitted treatment
+coefficient on the linear predictor scale.  \code{k_treat = 1}
+(default) preserves the fitted treatment effect as-is.
+\code{k_treat > 1} amplifies the treatment main effect, useful
+when the source dataset has a weak treatment effect and a
+stronger ITT is desired for simulation.  \code{k_treat < 1}
+attenuates the effect.  Analogous to the \code{k_treat}
+parameter in \code{\link{generate_aft_dgm_flex}}.
+Note: the null DGM (\code{model = "null"}) represents a
+\emph{homogeneous} treatment effect (no HTE), not a zero
+treatment effect.  \code{k_treat} scales the magnitude of
+that homogeneous effect.}
 
 \item{k_inter}{Numeric. Direct additive shift on the linear predictor
 for Q members under treatment.  The interpretation depends on

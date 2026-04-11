@@ -211,25 +211,66 @@ run_simulation_analysis <- function(
   }
 
   # ── Simulate data ──────────────────────────────────────────────────────────
-  if (show_verbose)
-    message(sprintf("\n[1] Simulating data (n=%d, analysis_time=%s, cens_adjust=%g)...",
-                    n_sample, analysis_time, cens_adjust))
+  is_glm_dgm <- inherits(dgm, "glm_dgm")
+
+  if (show_verbose) {
+    if (is_glm_dgm) {
+      message(sprintf("\n[1] Simulating GLM data (n=%d, outcome_type=%s)...",
+                      n_sample, dgm$outcome_type))
+    } else {
+      message(sprintf("\n[1] Simulating data (n=%d, analysis_time=%s, cens_adjust=%g)...",
+                      n_sample, analysis_time, cens_adjust))
+    }
+  }
 
   sim_data <- tryCatch(
-    simulate_from_dgm(
-      dgm           = dgm,
-      n             = n_sample,
-      seed          = seed_base + sim_id,
-      analysis_time = analysis_time,
-      cens_adjust   = cens_adjust
-    ),
-    error = function(e) stop("simulate_from_dgm failed: ", e$message)
+    if (is_glm_dgm) {
+      simulate_from_glm_dgm(
+        dgm  = dgm,
+        n    = n_sample,
+        seed = seed_base + sim_id
+      )
+    } else {
+      simulate_from_dgm(
+        dgm           = dgm,
+        n             = n_sample,
+        seed          = seed_base + sim_id,
+        analysis_time = analysis_time,
+        cens_adjust   = cens_adjust
+      )
+    },
+    error = function(e) stop("Simulation failed: ", e$message)
   )
 
-  if (show_verbose)
-    message(sprintf("    n=%d  events=%d (%.1f%%)",
-                    nrow(sim_data), sum(sim_data[[event_name]]),
-                    100 * mean(sim_data[[event_name]])))
+  if (show_verbose) {
+    if (is_glm_dgm) {
+      message(sprintf("    n=%d  mean(y)=%.3f",
+                      nrow(sim_data), mean(sim_data[["y_sim"]], na.rm = TRUE)))
+    } else {
+      message(sprintf("    n=%d  events=%d (%.1f%%)",
+                      nrow(sim_data), sum(sim_data[[event_name]]),
+                      100 * mean(sim_data[[event_name]])))
+    }
+  }
+
+  # ── GLM event_name resolution ──────────────────────────────────────────
+
+  # simulate_from_glm_dgm() produces y_sim but not event_sim.
+  # Downstream code (forestsearch, .extract_fs_estimates_gen) expects
+  # an event column.  Resolve:
+  #   binary: event = outcome (y_sim is 0/1)
+  #   continuous/count: create a placeholder column of 1s
+  if (is_glm_dgm) {
+    ot <- dgm$outcome_type
+    if (ot == "binary") {
+      event_name <- outcome_name
+    } else {
+      # Continuous and count: no censoring concept; placeholder
+      if (!event_name %in% names(sim_data)) {
+        sim_data[[event_name]] <- 1L
+      }
+    }
+  }
 
   # ── Optional noise variables ───────────────────────────────────────────────
   confounders_name <- confounders_base
@@ -390,12 +431,15 @@ run_simulation_analysis <- function(
     "outcome_type", "effect_measure", "offset.name",
     "use_lasso", "use_grf", "conf_force",
     "hr.threshold", "hr.consistency", "pconsistency.threshold",
+    # Preferred GLM-era names (override hr.threshold / hr.consistency
+    # inside forestsearch when both are provided)
+    "effect.threshold", "consistency.threshold",
     "fs.splits", "n.min", "d0.min", "d1.min",
     "maxk", "max.minutes", "by.risk", "vi.grf.min",
     "frac.tau", "dmin.grf", "grf_depth",
     "use_twostage", "twostage_args",
     "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat",
-    "parallel_args"
+    "parallel_args", "seedit"
   )
   for (pn in valid_pnames)
     if (!is.null(params[[pn]])) fs_args[[pn]] <- params[[pn]]
