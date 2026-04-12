@@ -119,8 +119,15 @@ fs_splits                  <- 400
 fs_max_subgroups_search    <- 3
 
 # ─── Bootstrap / CV ──────────────────────────────────────────────────────
-NB    <- 500    # Bootstrap iterations (use 500–2000 for production)
-Ksims <- 50    # K-fold CV iterations (use ≥ 50 for production)
+NB    <- 20    # Bootstrap iterations (use 500–2000 for production)
+Ksims <- 10    # K-fold CV iterations (use ≥ 50 for production)
+
+# ─── GRF parameters (shared across Cox and Poisson) ─────────────────────
+grf_tune           <- TRUE  # cross-validated GRF hyperparameter tuning
+grf_vi_min         <- -0.2   # GRF variable importance threshold
+grf_dmin_cox       <- 12     # min RMST difference for Cox GRF (months)
+grf_dmin_pois      <- 0.0    # min CATE difference for Poisson GRF
+grf_maxdepth       <- 2L     # max policy tree depth
 
 # ─── Poisson-specific parameters ─────────────────────────────────────────
 pois_outcome.name   <- "status"         # event indicator (0/1 count)
@@ -221,12 +228,13 @@ grf_est <- grf.subg.harm.survival(
   event.name = cox_event.name,
   id.name = id.name,
   treat.name = cox_treat.name,
-  maxdepth = 2,
-  n.min = 60,
-  dmin.grf = 12,
+  maxdepth = grf_maxdepth,
+  n.min = fs_n.min,
+  dmin.grf = grf_dmin_cox,
   frac.tau = 0.6,
   details = TRUE,
-  return_selected_cuts_only = FALSE
+  return_selected_cuts_only = FALSE,
+  tune_grf = grf_tune
 )
 
 timings$grf <- (proc.time() - t0)["elapsed"]
@@ -319,7 +327,9 @@ fs_cox <- forestsearch(
   # Output options
   showten_subgroups = TRUE,
   details = TRUE,
-  plot.sg = TRUE
+  plot.sg = TRUE,
+  vi.grf.min = grf_vi_min,
+  tune_grf = grf_tune
 )
 
 plan("sequential")
@@ -699,7 +709,9 @@ fs_pois <- forestsearch(
   # Output options
   showten_subgroups = TRUE,
   details = TRUE,
-  plot.sg = FALSE   # KM plots not applicable; use plot_sg_glm_outcomes()
+  plot.sg = FALSE,   # KM plots not applicable; use plot_sg_glm_outcomes()
+  vi.grf.min = grf_vi_min,
+  tune_grf = grf_tune
 )
 
 plan("sequential")

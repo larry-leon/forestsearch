@@ -1,0 +1,518 @@
+---
+title: "GRF dmin.grf Calibration for ACTG175 Binary Benefit"
+subtitle: "Calibrating to the 12-Confounder ACTG175 DGM"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 10
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ── All tunable parameters in this single location ──────────────────
+
+# Simulation budget
+nsims         <- 100L           # Sims per dmin × hypothesis
+sim_n         <- 1000L          # Sample size per sim (matches ACTG175 doc)
+sim_seed      <- 8316951L
+n_workers     <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+
+# ACTG175 data setup (replicate from binary benefit document)
+actg_arms        <- c(1L, 3L)
+actg_treat_arm   <- 1L
+actg_age_cut     <- 34
+actg_preanti_cut <- 744.5
+
+# DGM
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+dgm_n_super       <- 5000L
+
+# Calibration target
+cal_target_or     <- 2.0         # OR(Q) on switched scale
+cal_k_grid_range  <- c(0, 3)
+cal_grid_step     <- 0.05
+
+# dmin.grf grid — focused on the actionable range
+dmin_grid <- c(0, 0.02, 0.05, 0.08, 0.10, 0.12, 0.15, 0.20, 0.25, 0.30)
+
+# GRF parameters (fixed across sweep)
+grf_maxdepth     <- 2L
+grf_sg_criterion <- "mDiff"
+grf_n_min        <- 40L
+grf_adverse_outcome <- TRUE    # Y-flip for binary benefit search
+grf_tune         <- FALSE      # cross-validated GRF hyperparameter tuning
+
+# Targets
+target_fpr <- 15   # Maximum acceptable FPR (%)
+target_det <- 50   # Minimum acceptable detection (%)
+```
+
+
+# Purpose {#sec-purpose}
+
+The `grf_dmin_calibration_binary.qmd` document calibrated
+`dmin.grf` on **synthetic 4-confounder data** and found
+`dmin.grf = 0.02` achieves strong FPR control.  However, the
+ACTG175 binary benefit scenario uses **12 binary confounders**,
+which creates substantially more candidate splits for the
+policy tree and weakens FPR control.
+
+This document calibrates `dmin.grf` directly on the ACTG175
+DGM to find the value that balances detection power and FPR
+control for this specific application.
+
+Current results at `dmin.grf = 0.10` (2,000 sims):
+
+| Metric | FS | GRF |
+|--------|------|------|
+| H1 Detection | 74% | 72% |
+| H1 Sensitivity | 0.57 | 0.90 |
+| H1 PPV | 0.80 | 0.75 |
+| H0 FPR | 4% | 28% |
+| θ̂(Q̂) bias | — | 1.8% |
+
+
+# Data Preparation {#sec-data}
+
+```{r packages}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(doFuture)
+library(foreach)
+
+plan(multisession, workers = n_workers)
+cat(sprintf("Workers: %d\n", n_workers))
+
+reset_workers <- function(msg = "") {
+  if (nzchar(msg)) cat(sprintf("[Resetting workers: %s]\n", msg))
+  plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+  plan(multisession, workers = n_workers)
+}
+
+t_start <- proc.time()
+```
+
+```{r prepare-actg175}
+# Replicate ACTG175 data preparation from binary benefit document
+actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+actg_df$id <- seq_len(nrow(actg_df))
+actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
+actg_df$treat <- 1L - actg_df$treat_orig   # switched for benefit search
+actg_df$y_binary <- as.integer(actg_df$cd420 > actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# Discretise covariates
+actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+actg_df$z4  <- as.factor(ifelse(actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+actg_df$z5  <- as.factor(ifelse(actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+actg_df$z6  <- as.factor(ifelse(actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+cat(sprintf("N=%d, confounders=%d, Q prevalence=%.1f%%\n",
+    nrow(actg_df), length(dgm_factor_vars),
+    100 * mean(actg_df$flag_harm_ref)))
+```
+
+
+# DGM Construction {#sec-dgm}
+
+```{r build-dgms}
+# Calibrate H1 DGM
+dgm_calibrated <- calibrate_glm_interaction(
+  data = actg_df, factor_vars = dgm_factor_vars,
+  outcome_var = "y_binary", treatment_var = "treat",
+  target_effect = cal_target_or,
+  outcome_type = "binary", effect_measure = "OR",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  k_inter_range = cal_k_grid_range, grid_step = cal_grid_step,
+  n_super = dgm_n_super, seed = sim_seed, verbose = TRUE
+)
+
+cat(sprintf("\nH1 DGM: OR(Q)=%.3f (target %.1f), k_inter=%.2f\n",
+    dgm_calibrated$hazard_ratios$harm_subgroup,
+    cal_target_or, dgm_calibrated$model_params$k_inter))
+
+# H0 DGM (homogeneous treatment effect)
+dgm_null <- generate_glm_dgm(
+  data = actg_df, factor_vars = dgm_factor_vars,
+  outcome_var = "y_binary", treatment_var = "treat",
+  outcome_type = "binary", effect_measure = "OR",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model = "null", k_treat = 1,
+  n_super = dgm_n_super, seed = sim_seed
+)
+
+cat(sprintf("H0 DGM: OR(ITT)=%.3f\n",
+    dgm_null$hazard_ratios$overall))
+```
+
+
+# dmin.grf Sweep {#sec-sweep}
+
+For each value in the grid, run `r nsims` simulations under both
+H1 and H0. Each simulation calls `grf.subg.harm.glm()` directly
+with 12 confounders at N = `r sim_n`.
+
+```{r sweep-fn}
+run_dmin_eval <- function(dgm, nsims, dmin_val) {
+  results_raw <- foreach(
+    i = seq_len(nsims),
+    .errorhandling = "pass",
+    .options.future = list(
+      packages = c("forestsearch", "survival", "data.table"),
+      seed = TRUE
+    )
+  ) %dofuture% {
+    sim_df <- simulate_from_glm_dgm(dgm, n = sim_n,
+                                     seed = sim_seed + i * 1000L)
+    res <- tryCatch(
+      grf.subg.harm.glm(
+        data = sim_df, confounders.name = dgm_factor_vars,
+        outcome.name = "y_sim", treat.name = "treat_sim",
+        id.name = "id", outcome_type = "binary",
+        adverse_outcome = grf_adverse_outcome,
+        n.min = grf_n_min, dmin.grf = dmin_val, maxdepth = grf_maxdepth,
+        RCT = TRUE, sg.criterion = grf_sg_criterion,
+        tune_grf = grf_tune,
+        seedit = 42L, verbose = FALSE
+      ),
+      error = function(e) NULL
+    )
+
+    detected <- !is.null(res) && !is.null(res$sg.harm.id) &&
+      length(res$sg.harm.id) > 0 && !all(is.na(res$sg.harm.id))
+
+    # Classification metrics (only if detected)
+    sens <- ppv <- n_H <- NA_real_
+    if (detected && !is.null(res$data) &&
+        "treat.recommend" %in% names(res$data)) {
+      in_H <- res$data$treat.recommend == 0
+      true_Q <- sim_df$flag_harm
+      n_H <- sum(in_H)
+      tp <- sum(in_H & true_Q == 1)
+      fp <- sum(in_H & true_Q == 0)
+      fn <- sum(!in_H & true_Q == 1)
+      sens <- tp / max(tp + fn, 1)
+      ppv  <- tp / max(tp + fp, 1)
+    }
+
+    list(detected = detected, sens = sens, ppv = ppv, n_H = n_H)
+  }
+
+  is_err <- vapply(results_raw, inherits, logical(1), "error")
+  good <- results_raw[!is_err]
+
+  det_vec  <- vapply(good, function(x) x$detected, logical(1))
+  sens_vec <- vapply(good, function(x) x$sens, numeric(1))
+  ppv_vec  <- vapply(good, function(x) x$ppv, numeric(1))
+  nH_vec   <- vapply(good, function(x) x$n_H, numeric(1))
+
+  list(
+    det_pct    = 100 * mean(det_vec),
+    mean_sens  = mean(sens_vec[det_vec & !is.na(sens_vec)]),
+    mean_ppv   = mean(ppv_vec[det_vec & !is.na(ppv_vec)]),
+    mean_nH    = mean(nH_vec[det_vec & !is.na(nH_vec)]),
+    n_errors   = sum(is_err)
+  )
+}
+```
+
+```{r run-sweep}
+cat(sprintf("dmin.grf grid: %s\n", paste(dmin_grid, collapse = ", ")))
+cat(sprintf("Sims per point: %d alt + %d null, N=%d\n", nsims, nsims, sim_n))
+cat(sprintf("Confounders: %d\n\n", length(dgm_factor_vars)))
+
+sweep_results <- data.frame(
+  dmin = numeric(0), Det_H1 = numeric(0), FPR_H0 = numeric(0),
+  Sens_H1 = numeric(0), PPV_H1 = numeric(0),
+  Avg_nH_H1 = numeric(0),
+  Sens_H0 = numeric(0), PPV_H0 = numeric(0),
+  stringsAsFactors = FALSE
+)
+
+for (dmin_val in dmin_grid) {
+  cat(sprintf("--- dmin = %.2f ---\n", dmin_val))
+
+  if (dmin_val == dmin_grid[1] || dmin_val == 0.15) {
+    reset_workers(sprintf("dmin=%.2f", dmin_val))
+  }
+
+  # H1
+  t0 <- proc.time()[3]
+  h1 <- run_dmin_eval(dgm_calibrated, nsims, dmin_val)
+  t_h1 <- proc.time()[3] - t0
+
+  # H0
+  t0 <- proc.time()[3]
+  h0 <- run_dmin_eval(dgm_null, nsims, dmin_val)
+  t_h0 <- proc.time()[3] - t0
+
+  sweep_results[nrow(sweep_results) + 1, ] <- data.frame(
+    dmin = dmin_val,
+    Det_H1 = round(h1$det_pct, 1),
+    FPR_H0 = round(h0$det_pct, 1),
+    Sens_H1 = round(h1$mean_sens, 3),
+    PPV_H1 = round(h1$mean_ppv, 3),
+    Avg_nH_H1 = round(h1$mean_nH, 0),
+    Sens_H0 = round(h0$mean_sens, 3),
+    PPV_H0 = round(h0$mean_ppv, 3),
+    stringsAsFactors = FALSE
+  )
+
+  flag <- if (h1$det_pct >= target_det && h0$det_pct <= target_fpr) " ***" else ""
+  cat(sprintf("  H1: Det=%.0f%%, Sens=%.2f, PPV=%.2f, avg|H|=%.0f (%.0fs)\n",
+      h1$det_pct, h1$mean_sens, h1$mean_ppv, h1$mean_nH, t_h1))
+  cat(sprintf("  H0: FPR=%.0f%%, Sens=%.2f, PPV=%.2f (%.0fs)%s\n\n",
+      h0$det_pct, h0$mean_sens, h0$mean_ppv, t_h0, flag))
+}
+
+plan(sequential)
+```
+
+
+# Results {#sec-results}
+
+## Full Results Table {#sec-table}
+
+```{r results-table}
+sweep_results$Pass <- sweep_results$Det_H1 >= target_det &
+                      sweep_results$FPR_H0 <= target_fpr
+
+sweep_results |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "ACTG175 Binary Benefit: dmin.grf Calibration",
+    subtitle = sprintf(
+      "%d alt + %d null sims, N=%d, 12 confounders | Target: Det >= %d%%, FPR <= %d%%",
+      nsims, nsims, sim_n, target_det, target_fpr)
+  ) |>
+  gt::cols_label(
+    dmin = "dmin.grf",
+    Det_H1 = "Det (%)",
+    FPR_H0 = "FPR (%)",
+    Sens_H1 = "Sens (H1)",
+    PPV_H1 = "PPV (H1)",
+    Avg_nH_H1 = "Avg |Ĥ| (H1)",
+    Sens_H0 = "Sens (H0)",
+    PPV_H0 = "PPV (H0)"
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#c8e6c9"),
+    locations = gt::cells_body(rows = Pass == TRUE)
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#fff9c4"),
+    locations = gt::cells_body(
+      rows = Det_H1 >= target_det & FPR_H0 <= 25 & !Pass)
+  ) |>
+  gt::cols_hide(columns = "Pass") |>
+  gt::tab_footnote(
+    footnote = "Green = meets both targets. Yellow = near-miss (FPR <= 25%)."
+  )
+```
+
+## Detection vs FPR Tradeoff {#sec-tradeoff}
+
+```{r tradeoff-plot, fig.height=5}
+#| fig-cap: "Detection and FPR as a function of dmin.grf for the ACTG175 12-confounder DGM."
+
+if (nrow(sweep_results) > 0) {
+  plot_df <- rbind(
+    transform(sweep_results, Metric = "Detection (H1)", Rate = Det_H1),
+    transform(sweep_results, Metric = "FPR (H0)", Rate = FPR_H0)
+  )
+
+  ggplot(plot_df, aes(x = dmin, y = Rate, colour = Metric, linetype = Metric)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 3) +
+    geom_text(aes(label = sprintf("%.0f%%", Rate)), vjust = -1.2, size = 2.8,
+              show.legend = FALSE) +
+    geom_hline(yintercept = target_fpr, linetype = "dotted",
+               colour = "red", linewidth = 0.5) +
+    geom_hline(yintercept = target_det, linetype = "dotted",
+               colour = "blue", linewidth = 0.5) +
+    annotate("rect", xmin = -Inf, xmax = Inf,
+             ymin = 0, ymax = target_fpr,
+             alpha = 0.05, fill = "green") +
+    scale_colour_manual(values = c(
+      "Detection (H1)" = "#2c3e50", "FPR (H0)" = "#e74c3c")) +
+    scale_linetype_manual(values = c(
+      "Detection (H1)" = "solid", "FPR (H0)" = "dashed")) +
+    labs(
+      x = "dmin.grf",
+      y = "Rate (%)",
+      title = "ACTG175 Binary: Detection and FPR vs dmin.grf",
+      subtitle = sprintf(
+        "%d sims/point, N=%d, 12 confounders | OR(Q)=%.2f (switched)",
+        nsims, sim_n, dgm_calibrated$hazard_ratios$harm_subgroup)
+    ) +
+    coord_cartesian(ylim = c(0, 105)) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+}
+```
+
+## Sensitivity and PPV vs dmin.grf {#sec-classification}
+
+```{r classification-plot, fig.height=5}
+#| fig-cap: "Classification quality (among detections) as a function of dmin.grf."
+
+if (nrow(sweep_results) > 0) {
+  cls_df <- rbind(
+    data.frame(dmin = sweep_results$dmin,
+               Metric = "Sensitivity", Value = sweep_results$Sens_H1),
+    data.frame(dmin = sweep_results$dmin,
+               Metric = "PPV", Value = sweep_results$PPV_H1)
+  )
+
+  ggplot(cls_df, aes(x = dmin, y = Value, colour = Metric)) +
+    geom_line(linewidth = 1) +
+    geom_point(size = 3) +
+    labs(
+      x = "dmin.grf",
+      y = "Classification Metric",
+      title = "ACTG175 Binary: Classification Quality vs dmin.grf (H1)",
+      subtitle = "Among simulations where GRF detected a subgroup"
+    ) +
+    scale_colour_manual(values = c(
+      Sensitivity = "#27ae60", PPV = "#2980b9")) +
+    coord_cartesian(ylim = c(0, 1.05)) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+}
+```
+
+## Subgroup Size vs dmin.grf {#sec-size}
+
+```{r size-plot, fig.height=4}
+#| fig-cap: "Average identified subgroup size under H1 as a function of dmin.grf."
+
+if (nrow(sweep_results) > 0) {
+  true_Q_size <- round(sim_n * mean(actg_df$flag_harm_ref))
+
+  ggplot(sweep_results, aes(x = dmin, y = Avg_nH_H1)) +
+    geom_line(linewidth = 1, colour = "#2c3e50") +
+    geom_point(size = 3, colour = "#2c3e50") +
+    geom_hline(yintercept = true_Q_size, linetype = "dashed",
+               colour = "firebrick") +
+    annotate("text", x = max(dmin_grid) * 0.8, y = true_Q_size + 20,
+             label = sprintf("True |Q| ≈ %d", true_Q_size),
+             colour = "firebrick", size = 3.5) +
+    labs(
+      x = "dmin.grf",
+      y = "Average |Ĥ|",
+      title = "Identified Subgroup Size vs dmin.grf",
+      subtitle = "Closer to true |Q| = better calibration"
+    ) +
+    coord_cartesian(ylim = c(0, sim_n)) +
+    theme_minimal(base_size = 12)
+}
+```
+
+
+## Recommendation {#sec-recommendation}
+
+```{r recommendation}
+#| results: asis
+
+# Find the best dmin that meets targets
+good <- sweep_results[sweep_results$Det_H1 >= target_det &
+                        sweep_results$FPR_H0 <= target_fpr, ]
+
+if (nrow(good) > 0) {
+  best <- good[which.min(good$dmin), ]
+  cat(sprintf(
+    "**Recommended `dmin.grf = %.2f`** for the ACTG175 binary benefit scenario:\n\n",
+    best$dmin))
+  cat(sprintf("- Detection: %.0f%%\n", best$Det_H1))
+  cat(sprintf("- FPR: %.0f%%\n", best$FPR_H0))
+  cat(sprintf("- Sensitivity: %.2f\n", best$Sens_H1))
+  cat(sprintf("- PPV: %.2f\n", best$PPV_H1))
+  cat(sprintf("- Average |Ĥ|: %.0f (true |Q| ≈ %d)\n",
+      best$Avg_nH_H1, round(sim_n * mean(actg_df$flag_harm_ref))))
+} else {
+  cat("**No `dmin.grf` value achieves both targets.**\n\n")
+
+  # Find best tradeoff
+  sweep_results$score <- sweep_results$Det_H1 - 2 * sweep_results$FPR_H0
+  best_trade <- sweep_results[which.max(sweep_results$score), ]
+  cat(sprintf(
+    "Best tradeoff: `dmin.grf = %.2f` (Det=%.0f%%, FPR=%.0f%%, Sens=%.2f, PPV=%.2f)\n\n",
+    best_trade$dmin, best_trade$Det_H1, best_trade$FPR_H0,
+    best_trade$Sens_H1, best_trade$PPV_H1))
+
+  # Also show relaxed target
+  relaxed <- sweep_results[sweep_results$Det_H1 >= target_det &
+                             sweep_results$FPR_H0 <= 25, ]
+  if (nrow(relaxed) > 0) {
+    best_relaxed <- relaxed[which.min(relaxed$dmin), ]
+    cat(sprintf(
+      "With relaxed FPR target (≤ 25%%): `dmin.grf = %.2f` (Det=%.0f%%, FPR=%.0f%%)\n",
+      best_relaxed$dmin, best_relaxed$Det_H1, best_relaxed$FPR_H0))
+  }
+}
+```
+
+
+# Comparison with 4-Confounder Calibration {#sec-comparison}
+
+The synthetic 4-confounder calibration
+(`grf_dmin_calibration_binary.qmd`) found `dmin.grf = 0.02`
+sufficient for FPR $\leq 9\%$.  The difference here reflects:
+
+- **12 vs 4 confounders**: more candidate splits = higher
+  multiplicity for the policy tree
+- **Correlated confounders**: ACTG175 covariates have real
+  correlations (e.g., CD4/CD8, age/Karnofsky) that create
+  redundant splits
+- **Imbalanced prevalence**: some z-variables have very
+  asymmetric marginal distributions
+
+
+# Timing {#sec-timing}
+
+```{r timing}
+elapsed <- (proc.time() - t_start)["elapsed"]
+cat(sprintf("Total render time: %.1f minutes (%.0f seconds)\n",
+    elapsed / 60, elapsed))
+cat(sprintf("Configuration: %d sims × %d dmin values × 2 hypotheses\n",
+    nsims, length(dmin_grid)))
+cat(sprintf("Total GRF calls: ~%d\n",
+    2 * nsims * length(dmin_grid)))
+```
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```

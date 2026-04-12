@@ -4,7 +4,7 @@
 \alias{fit_causal_forest_glm}
 \title{Fit Causal Forest for GLM Outcomes}
 \usage{
-fit_causal_forest_glm(X, Y, W, RCT, seedit)
+fit_causal_forest_glm(X, Y, W, RCT, seedit, tune_grf = FALSE)
 }
 \arguments{
 \item{X}{Numeric matrix. Covariates.}
@@ -16,6 +16,10 @@ fit_causal_forest_glm(X, Y, W, RCT, seedit)
 \item{RCT}{Logical. Is this RCT data?}
 
 \item{seedit}{Integer. Random seed.}
+
+\item{tune_grf}{Logical. If TRUE, enables cross-validated hyperparameter
+tuning via \code{tune.parameters = "all"}. Default FALSE preserves
+existing behavior.}
 }
 \value{
 Causal forest object.

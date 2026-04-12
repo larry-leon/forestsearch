@@ -266,6 +266,13 @@
 #'   factor screening.  \code{"log"} (default) applies
 #'   \eqn{\log(Y + 0.5)}; \code{"identity"} passes raw counts.
 #'   Ignored for non-count outcomes.
+#' @param tune_grf Logical. If \code{TRUE}, enables cross-validated
+#'   hyperparameter tuning for GRF's \code{causal_forest()} via
+#'   \code{tune.parameters = "all"}.  If \code{FALSE} (default), all
+#'   GRF parameters remain at their defaults, preserving existing
+#'   behavior.  Applies to both internal GRF pre-screening and
+#'   standalone GRF analysis when passed through
+#'   \code{run_simulation_analysis()}.
 #' @param ps_method Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
@@ -489,6 +496,7 @@ forestsearch <- function(df.analysis,
                          adverse_outcome = NULL,
                          overdispersion = c("none", "quasi", "negbin"),
                          grf_count_transform = c("log", "identity"),
+                         tune_grf = FALSE,
                          # Propensity score adjustment
                          ps_method = NULL,
                          ps_adjust_method = c("none", "iptw", "dr_gcomp"),
@@ -1186,16 +1194,19 @@ forestsearch <- function(df.analysis,
     if (outcome_type == "survival") {
       # Survival path: causal_survival_forest (unchanged)
       tau.rmst <- min(c(max(Y[Treat == 1 & Event == 1]), max(Y[Treat == 0 & Event == 1])))
+      tune_arg <- if (tune_grf) "all" else "none"
 
       if (!is.RCT) {
         cs.forest <- try(suppressWarnings(
           grf::causal_survival_forest(X, Y, Treat, Event,
-                                       horizon = 0.9 * tau.rmst, seed = 8316951)
+                                       horizon = 0.9 * tau.rmst, seed = 8316951,
+                                       tune.parameters = tune_arg)
         ), TRUE)
       } else {
         cs.forest <- try(suppressWarnings(
           grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                       horizon = 0.9 * tau.rmst, seed = 8316951)
+                                       horizon = 0.9 * tau.rmst, seed = 8316951,
+                                       tune.parameters = tune_arg)
         ), TRUE)
       }
     } else {
@@ -1209,7 +1220,8 @@ forestsearch <- function(df.analysis,
         Y_vi <- if (adverse_outcome) 1L - Y else Y
       }
       cs.forest <- try(suppressWarnings(
-        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951)
+        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951,
+                              tune_grf = tune_grf)
       ), TRUE)
     }
 

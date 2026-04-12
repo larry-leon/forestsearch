@@ -1,0 +1,420 @@
+---
+title: "GRF Usage Review for ForestSearch: Specifications, Best Practices, and Recommendations"
+subtitle: "Literature and Documentation Deep Dive"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  eval: false
+---
+
+
+# Purpose {#sec-purpose}
+
+This document reviews how `grf.subg.harm.glm()` in the
+`forestsearch` package uses the GRF ecosystem (`grf::causal_forest`
+and `policytree::policy_tree`) for subgroup identification with
+binary endpoints.  It compares our current implementation against
+the GRF authors' recommendations, the published literature on
+applied causal forest usage (Rehill 2025, 133 papers reviewed),
+and the package documentation (grf v2.6.1, March 2026).
+
+The goals are to:
+
+1. Assess whether 100 simulations is sufficient for calibration
+2. Identify gaps between our usage and best practices
+3. Make concrete recommendations for improving GRF performance
+
+
+# Simulation Budget: Is 100 Sufficient? {#sec-sims}
+
+## Statistical Precision
+
+For detection and FPR rates estimated from $n$ Bernoulli trials,
+the standard error is $\text{SE} = \sqrt{p(1-p)/n}$.
+
+| True rate | SE at $n=100$ | SE at $n=500$ | SE at $n=2000$ |
+|-----------|---------------|---------------|----------------|
+| 10%       | 3.0 pp        | 1.3 pp        | 0.7 pp         |
+| 30%       | 4.6 pp        | 2.0 pp        | 1.0 pp         |
+| 50%       | 5.0 pp        | 2.2 pp        | 1.1 pp         |
+| 70%       | 4.6 pp        | 2.0 pp        | 1.0 pp         |
+| 90%       | 3.0 pp        | 1.3 pp        | 0.7 pp         |
+
+At 100 sims, a measured FPR of 33% has a 95% CI of roughly
+[24%, 42%] --- wide enough that we cannot distinguish it from
+the 25% target.  For the dmin.grf calibration results:
+
+| dmin.grf | FPR (100 sims) | 95% CI |
+|----------|----------------|--------|
+| 0.10     | 33%            | [24%, 42%] |
+| 0.12     | 20%            | [13%, 27%] |
+| 0.15     | 9%             | [4%, 14%]  |
+
+**Conclusion**: 100 sims is sufficient for **screening** ---
+identifying the approximate range of interest.  For the final
+calibration, 500 sims would narrow CIs to $\pm$4 pp, and the
+binary benefit document already runs 2,000 sims for the final
+operating characteristics.  The two-stage approach (screen at
+100, validate at 2000) is efficient and sound.
+
+
+# GRF Specifications vs ForestSearch Usage {#sec-review}
+
+## CATE Definition for Binary Outcomes
+
+GRF estimates $\tau(x) = E[Y(1) - Y(0) \mid X = x]$, which for
+binary $Y$ is the **risk difference** (probability scale).  This
+is correct and well-established in the literature.
+
+ForestSearch's `dmin.grf` operates on this same risk difference
+scale, which makes it interpretable: `dmin.grf = 0.10` means
+"require at least a 10 percentage point absolute difference in
+event rates for the policy tree to declare a subgroup."
+
+::: {.callout-note title="Finding 1: CATE scale is correct"}
+Our usage of `causal_forest()` for binary outcomes is consistent
+with the GRF documentation.  Binary $Y$ is treated as continuous,
+producing risk difference CATEs.
+:::
+
+
+## Parameter Tuning (`tune.parameters`) {#sec-tuning}
+
+**Current ForestSearch setting**: `tune.parameters = "none"`
+(GRF default)
+
+**GRF recommendation**: The official documentation and examples
+consistently demonstrate `tune.parameters = "all"` for serious
+applications.  This tunes `min.node.size`, `mtry`,
+`sample.fraction`, `honesty.fraction`, `honesty.prune.leaves`,
+`alpha`, and `imbalance.penalty` via cross-validation.
+
+The tuning procedure uses 200-tree mini-forests across 50
+replications to evaluate 1000 random parameter combinations.
+This adds computational cost but can substantially improve
+CATE estimation quality.
+
+::: {.callout-warning title="Finding 2: Tuning is not enabled"}
+ForestSearch uses `tune.parameters = "none"`, which means all
+GRF hyperparameters are at their defaults.  This may explain why
+GRF performance degrades more than expected when moving from
+4-confounder synthetic data to 12-confounder ACTG175 data ---
+the default `mtry = ceiling(sqrt(p) + 20)` may be suboptimal.
+
+**Recommendation**: Add a `tune_grf` parameter to
+`grf.subg.harm.glm()` that passes through to
+`causal_forest(tune.parameters = ...)`.  Default to `"none"` for
+backward compatibility, but document `"all"` as recommended for
+applications with many confounders.
+:::
+
+
+## Variable Importance and Feature Selection {#sec-vi}
+
+**GRF recommended approach** (from the official examples):
+
+```r
+# Fit outcome model, get variable importance
+forest.Y <- regression_forest(X, Y, tune.parameters = "all")
+forest.Y.varimp <- variable_importance(forest.Y)
+
+# Select variables with above-average importance
+selected.vars <- which(forest.Y.varimp / mean(forest.Y.varimp) > 0.2)
+
+# Fit causal forest on selected variables
+tau.forest <- causal_forest(X[, selected.vars], Y, W, ...)
+```
+
+**ForestSearch approach**: Uses `variable_importance()` from the
+causal forest (not an outcome model), with threshold
+`vi.grf.min = -0.2`.
+
+Key differences:
+
+1. **Source of VI**: GRF recommends VI from an **outcome**
+   regression forest (prognostic variables), not the causal
+   forest itself.  The rationale is that strong predictors of Y
+   are needed for the R-learner residualization to work.
+
+2. **Threshold**: GRF uses a **relative** threshold
+   (`vi / mean(vi) > 0.2`), while ForestSearch uses an
+   **absolute** signed threshold.
+
+3. **What variables are passed**: GRF recommends fitting the
+   causal forest on **only the selected variables**.
+   ForestSearch passes all variables to `causal_forest()` but
+   uses VI to filter the policy tree's candidate cuts.
+
+::: {.callout-note title="Finding 3: VI approach differs from GRF recommendation"}
+ForestSearch's approach of using causal forest VI with an
+absolute threshold is a reasonable variant, but the GRF authors'
+recommendation to use **outcome model VI** for initial screening
+is worth investigating.  With 12 binary confounders, some of
+which are strong prognostic predictors (CD4, CD8), using
+outcome-model VI could help `causal_forest()` focus on true
+effect modifiers rather than prognostic factors.
+
+**Recommendation (Tier 2)**: Consider a two-stage VI approach:
+(1) regression_forest on Y to identify prognostic variables,
+(2) causal_forest on selected variables.
+:::
+
+
+## Number of Trees {#sec-trees}
+
+**Current setting**: 2,000 (GRF default)
+
+**GRF documentation**: "Getting accurate confidence intervals
+generally requires more trees than getting accurate predictions.
+Default is 2000."  The examples use `num.trees = 4000` when
+variance estimates are needed.
+
+For subgroup identification (where we use the policy tree, not
+CATEs directly), 2,000 trees should be sufficient.  The policy
+tree aggregates information across all trees, so additional
+trees improve stability but with diminishing returns.
+
+::: {.callout-note title="Finding 4: Tree count is adequate"}
+2,000 trees is reasonable for subgroup identification.  Increasing
+to 4,000 would improve CATE estimation stability but would
+double GRF computation time per simulation.
+
+**Recommendation**: Keep 2,000 as default.  Add `num.trees` as
+a passthrough parameter for users who want more precise CATE
+estimates.
+:::
+
+
+## Propensity Model (`W.hat`) {#sec-propensity}
+
+**Current setting**: `W.hat = rep(0.5, n)` when `RCT = TRUE`
+
+**GRF documentation**: For RCTs with balanced randomization,
+this is exactly correct.  When propensity is known, providing
+it directly (rather than estimating) improves efficiency.
+
+::: {.callout-note title="Finding 5: Propensity handling is correct"}
+No change needed.  For non-RCT applications, W.hat should be
+estimated via `regression_forest()`.
+:::
+
+
+## Honesty and Sample Splitting {#sec-honesty}
+
+**Current setting**: `honesty = TRUE` (GRF default),
+`honesty.fraction = 0.5`
+
+**GRF documentation**: Honesty means half the subsample determines
+splits, the other half populates leaf estimates.  This prevents
+overfitting and provides valid asymptotic inference.
+
+For subgroup identification, honesty is important because it
+prevents the policy tree from "discovering" subgroups that are
+artifacts of the training data.
+
+::: {.callout-note title="Finding 6: Honesty is correctly enabled"}
+No change needed.
+:::
+
+
+## Policy Tree Usage {#sec-policytree}
+
+**Current usage**: ForestSearch fits the policy tree on the
+**same** data used to fit the causal forest.
+
+**GRF/policytree recommendation**: The official examples and
+the Rehill (2025) review emphasize using **separate data** for
+fitting the causal forest and evaluating the policy tree:
+
+```r
+train <- sample(1:n, n / 2)
+c.forest <- causal_forest(X[train, ], Y[train], W[train])
+dr.scores <- double_robust_scores(c.forest)
+tree <- policy_tree(X[train, ], dr.scores[train, ], 2)
+
+# Evaluate on held-out data
+test <- -train
+node.id <- predict(tree, X[test, ])
+```
+
+However, this reduces the effective sample size for both
+training and evaluation.  At N = 1,000 with 12 confounders,
+splitting to 500/500 may weaken both the forest and the policy
+tree substantially.
+
+::: {.callout-warning title="Finding 7: No train/test split for policy tree"}
+ForestSearch uses the same data for forest fitting and policy tree
+fitting, which is methodologically standard for screening tools
+but could contribute to inflated FPR.  The bootstrap consistency
+criterion in ForestSearch partially addresses this by requiring
+the subgroup to replicate across resamples.
+
+For the standalone GRF analysis (no FS bootstrap), the lack of
+sample splitting is a more significant concern --- it directly
+explains why GRF's FPR is higher than ForestSearch's.
+
+**Recommendation (Tier 2)**: For the standalone GRF, consider
+implementing optional train/test splitting: fit causal forest on
+a training half, fit policy tree on the training half's
+doubly-robust scores, then validate on the test half.  This would
+provide FPR control without `dmin.grf` tuning.
+:::
+
+
+## `dmin.grf`: A ForestSearch Innovation {#sec-dmin}
+
+`dmin.grf` is **not** a GRF or policytree parameter.  It is a
+ForestSearch-specific threshold applied to the policy tree's CATE
+difference between leaves.  The standard `policy_tree()` has only
+`min.node.size` (default 1) as a regularization parameter.
+
+The idea is sound: requiring a minimum absolute CATE difference
+to declare a subgroup is analogous to a clinical significance
+threshold.  On the risk difference scale, `dmin.grf = 0.10`
+means "at least 10 percentage points difference in event rates."
+
+The ACTG175 calibration results (100 sims) show:
+
+| dmin.grf | Det (%) | FPR (%) | Sens | PPV |
+|----------|---------|---------|------|-----|
+| 0.00     | 100     | 90      | 0.92 | 0.74 |
+| 0.10     | 72      | 33      | 0.92 | 0.76 |
+| 0.12     | 54      | 20      | 0.94 | 0.78 |
+| 0.15     | 28      | 9       | 0.94 | 0.81 |
+
+The tradeoff curve shows a sweet spot around dmin = 0.10--0.12
+where detection remains above 50% and FPR drops substantially.
+The high sensitivity (0.92) and reasonable PPV (0.76) at these
+values indicate excellent classification quality.
+
+::: {.callout-note title="Finding 8: dmin.grf is a reasonable approach"}
+While `dmin.grf` has no basis in GRF theory, it serves a
+practical role as a multiplicity correction for the policy tree.
+The calibration approach --- sweeping over a grid and selecting
+based on FPR control --- is methodologically sound.
+
+**Recommendation**: Document `dmin.grf` clearly as a
+ForestSearch-specific screening parameter, not a GRF parameter.
+Report the calibration curve as part of any GRF-based analysis.
+:::
+
+
+# Literature Findings {#sec-literature}
+
+## Rehill (2025): Applied Causal Forest Review
+
+This review of 133 papers using causal forests found:
+
+- Most researchers use **default parameters** (as we do)
+- Very few papers use `policytree` for formal subgroup
+  identification (only 1 out of 133)
+- The most common subgroup approach is **CATE quantile binning**
+  (split into terciles/quartiles by predicted CATE)
+- Variable importance is widely used but **without confidence
+  intervals**, which the authors flag as a concern
+- There is "no real understanding of statistical power for kernel
+  bandwidths in the causal forest"
+
+## Iterative Causal Forest (iCF, 2024)
+
+The iCF method addresses instability in single causal forest
+subgroup decisions by:
+
+1. Growing forests at multiple depths
+2. Using plurality votes across trees to select the most common
+   root split
+3. Cross-validating the subgroup decision
+
+This iterative approach is conceptually similar to ForestSearch's
+bootstrap consistency criterion but applied within the GRF
+framework.
+
+## Binary Outcomes
+
+GRF's `causal_forest()` handles binary $Y$ natively --- it treats
+$Y \in \{0, 1\}$ as continuous and estimates the risk difference
+CATE.  There is no separate binary-specific forest.  This is
+documented and used widely in the applied literature.
+
+
+# Recommendations Summary {#sec-recommendations}
+
+## Tier 1: Immediate (for current binary benefit document)
+
+1. **Simulation budget**: 100 sims is adequate for screening
+   `dmin.grf`.  The 2,000-sim run in the binary benefit document
+   provides publication-quality precision.
+
+2. **dmin.grf = 0.10--0.12**: The calibration supports this
+   range for the ACTG175 12-confounder setting.  Use 0.10 as
+   the default for now (current document already uses this).
+
+3. **adverse_outcome = TRUE**: The Y-flip fix is correct and
+   essential.  Document the convention explicitly.
+
+## Tier 2: Near-term improvements
+
+4. **Enable `tune.parameters = "all"`**: Add as a passthrough
+   option.  This is the single most impactful change recommended
+   by the GRF documentation and may substantially improve CATE
+   estimation quality.
+
+5. **Train/test policy tree split**: Implement optional
+   sample splitting for the standalone GRF analysis.  This would
+   provide FPR control without needing `dmin.grf` calibration.
+
+6. **Outcome-model variable importance**: Consider using
+   `regression_forest()` VI for initial variable screening before
+   the causal forest, as recommended by GRF documentation.
+
+## Tier 3: Future research
+
+7. **RATE/AUTOC pre-test**: Use GRF's built-in
+   `rank_average_treatment_effect()` as a formal test for the
+   presence of heterogeneity before running subgroup
+   identification.
+
+8. **Doubly-robust scores for policytree**: The policytree
+   package provides `double_robust_scores()` which should be
+   used instead of raw CATE predictions for policy tree fitting.
+   This is the approach recommended by Athey & Wager (2021).
+
+9. **iCF-style stability**: Consider implementing plurality
+   voting across causal forest trees for root split selection,
+   similar to the iCF algorithm.
+
+
+# Key References {#sec-references}
+
+- Athey, S., Tibshirani, J., & Wager, S. (2019). Generalized
+  Random Forests. *Annals of Statistics*, 47(2).
+
+- Wager, S., & Athey, S. (2018). Estimation and Inference of
+  Heterogeneous Treatment Effects using Random Forests.
+  *JASA*, 113(523).
+
+- Athey, S., & Wager, S. (2021). Policy Learning With
+  Observational Data. *Econometrica*, 89(1).
+
+- Rehill, P. (2025). How Do Applied Researchers Use the Causal
+  Forest? A Methodological Review. *International Statistical
+  Review*.
+
+- Sverdrup, E., et al. (2020). policytree: Policy learning via
+  doubly robust empirical welfare maximization over trees.
+  *JOSS*, 5(50).
+
+- Wang, X., et al. (2024). Iterative Causal Forest: A Novel
+  Algorithm for Subgroup Identification. *PMC*.
+
+- GRF package documentation, v2.6.1, March 2026.
+  https://grf-labs.github.io/grf/

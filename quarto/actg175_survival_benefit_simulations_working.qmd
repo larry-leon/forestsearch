@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 20L
-nsims_null  <- 20L
+nsims_alt   <- 50L
+nsims_null  <- 50L
 
 # These are "production" run projection nsims
 prod_alt  <- 10000L
@@ -36,7 +36,9 @@ prod_null <- 20000L
 # 10k/20k ~ 1hr linux
 
 sim_seed    <- 8316951L
-n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+n_workers   <- min(
+  parallel::detectCores(logical = FALSE) - 1L, 120L
+)
 
 # ── Dataset preparation: GBSG ───────────────────────────────────
 gbsg_er_quantile <- 0.25          # ER percentile cutpoint for ER-low definition
@@ -158,8 +160,6 @@ grf_dmin               <- 2    # min RMST difference (months)
 grf_frac_tau           <- 0.80   # fraction of max event time for horizon
 grf_maxdepth           <- 2L     # max policy tree depth
 grf_sg_criterion       <- "mDiff"
-grf_tune               <- FALSE   # cross-validated GRF hyperparameter tuning
-                                   # Set TRUE to enable tune.parameters = "all"
 
 # ── Adjusted Cox formula (used in run_simulation_analysis) ───────
 # Note: treat_sim is the SWITCHED treatment indicator in the
@@ -590,18 +590,18 @@ comp <- data.frame(
   stringsAsFactors = FALSE
 )
 
-gt::gt(comp) |>
-  gt::tab_header(
+gt(comp) |>
+  tab_header(
     title = "Dataset Comparison: GBSG vs ACTG175"
   ) |>
-  gt::cols_label(Feature = "") |>
-  gt::tab_style(
-    style = gt::cell_text(weight = "bold"),
-    locations = gt::cells_body(columns = Feature)
+  cols_label(Feature = "") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = Feature)
   ) |>
-  gt::tab_style(
-    style = gt::cell_fill(color = "#F5F5F5"),
-    locations = gt::cells_body(rows = seq(1, nrow(comp), by = 2))
+  tab_style(
+    style = cell_fill(color = "#F5F5F5"),
+    locations = cells_body(rows = seq(1, nrow(comp), by = 2))
   )
 ```
 
@@ -654,15 +654,15 @@ conf_map <- data.frame(
   stringsAsFactors = FALSE
 )
 
-gt::gt(conf_map) |>
-  gt::tab_header(
+gt(conf_map) |>
+  tab_header(
     title = "Confounder Variable Mapping"
   ) |>
-  gt::tab_style(
-    style = gt::cell_fill(color = "#E3F2FD"),
-    locations = gt::cells_body(rows = 1:2)
+  tab_style(
+    style = cell_fill(color = "#E3F2FD"),
+    locations = cells_body(rows = 1:2)
   ) |>
-  gt::tab_source_note(
+  tab_source_note(
     "Highlighted rows define the harm subgroup H."
   )
 ```
@@ -1038,21 +1038,10 @@ timings$dgm_calibrated <- proc.time()[3] - t0
 
 ## Step 5: Create Null DGM
 
-Under `model = "null"`, the treatment effect is **homogeneous**
-across all patients --- no treatment effect heterogeneity.
-Treatment is still beneficial for everyone; there is simply no
-subgroup with a different treatment effect.  Any subgroup
-detected under the null is a false positive.
-
-Note: `k_treat = 1` preserves the fitted ITT treatment effect
-in the null DGM.  For this benefit + adverse survival scenario
-(switched treatment), the switched-scale ITT HR is the reciprocal
-of the original beneficial HR.  If the original HR = 0.84, the
-switched HR = 1/0.84 = 1.19.  This is below the threshold
-(c1 = 1.667), but the gap is narrower than in harm-search
-scenarios.  The resulting FPR reflects realistic operating
-characteristics; the $L_\text{eff}$ calibration procedure
-accounts for this when selecting thresholds.
+Under `model = "null"`, the treatment effect is uniform across
+all patients (no treatment effect heterogeneity).  The `k_inter`
+argument is irrelevant under the null and defaults to `1`.  Any
+subgroup detected under the null is a false positive.
 
 ```{r dgm-null}
 t0 <- proc.time()[3]
@@ -1067,7 +1056,7 @@ dgm_null <- generate_aft_dgm_flex(
   subgroup_vars   = dgm_subgroup_vars,
   subgroup_cuts   = dgm_subgroup_cuts,
   model           = "null",
-  k_treat         = dgm_k_treat,   # 1.0 = preserve fitted ITT effect
+  k_treat         = dgm_k_treat,
   n_super         = dgm_n_super,
   seed            = sim_seed,
   verbose         = TRUE
@@ -1075,8 +1064,7 @@ dgm_null <- generate_aft_dgm_flex(
 dgm_null <- add_compat_aliases(dgm_null)
 
 cat("\n=== ACTG175 Null DGM ===\n")
-cat("  HR(ITT, switched):", round(dgm_null$hazard_ratios$overall, 3), "\n")
-cat("  HR(ITT, original):", round(1 / dgm_null$hazard_ratios$overall, 3), "\n")
+cat("  HR(ITT):", round(dgm_null$hazard_ratios$overall, 3), "\n")
 
 timings$dgm_null <- proc.time()[3] - t0
 ```
@@ -1362,16 +1350,12 @@ fs_params <- list(
   maxk                   = fs_maxk,      # Max subgroup-defining variables
   by.risk                = fs_by_risk,   # Risk-table granularity (time units)
   vi.grf.min             = fs_vi_grf_min, # GRF variable importance threshold
-  seedit                 = sim_seed,      # Reproducible split-half consistency
 
   # Two-stage estimation: after identifying a subgroup, re-estimates
   # the treatment effect using an independent hold-out sample.
   # Recommended for bias correction.
   use_twostage           = TRUE,
   twostage_args          = list(),
-
-  # GRF tuning (applies to ForestSearch's internal GRF pre-screening)
-  tune_grf               = grf_tune,
 
   # Inner parallelism: ForestSearch runs sequentially within each
   # worker.  The outer loop (foreach) parallelises across replicates.
@@ -1385,8 +1369,7 @@ grf_params <- list(
   dmin.grf     = grf_dmin,
   frac.tau     = grf_frac_tau,
   maxdepth     = grf_maxdepth,
-  sg.criterion = grf_sg_criterion,
-  tune_grf     = grf_tune
+  sg.criterion = grf_sg_criterion
 )
 
 # ── Simulation configuration ─────────────────────────────────
@@ -1444,12 +1427,6 @@ cat("Results:", nrow(results_alt), "rows\n")
 
 
 ## Null Hypothesis Simulations
-
-```{r reset-workers-null}
-# Reset worker pool to prevent memory accumulation from alt sims
-plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-plan(multisession, workers = n_workers)
-```
 
 ```{r run-null}
 cat("Running", nsims_null, "simulations under H0...\n")
@@ -1855,26 +1832,26 @@ timing_df <- data.frame(
 timing_df$Minutes <- timing_df$Seconds / 60
 timing_df$Hours   <- timing_df$Seconds / 3600
 
-gt::gt(timing_df) |>
-  gt::tab_header(
+gt(timing_df) |>
+  tab_header(
     title    = "Computational Timing Summary",
     subtitle = sprintf(
       "%d H1 + %d H0 sims | %d workers",
       nsims_alt, nsims_null, n_workers
     )
   ) |>
-  gt::fmt_number(columns = Seconds, decimals = 1) |>
-  gt::fmt_number(columns = Minutes, decimals = 2) |>
-  gt::fmt_number(columns = Hours,   decimals = 3) |>
-  gt::cols_label(
+  fmt_number(columns = Seconds, decimals = 1) |>
+  fmt_number(columns = Minutes, decimals = 2) |>
+  fmt_number(columns = Hours,   decimals = 3) |>
+  cols_label(
     Stage   = "Stage",
     Seconds = "Time (sec)",
     Minutes = "Time (min)",
     Hours   = "Time (hr)"
   ) |>
-  gt::tab_style(
-    style = gt::cell_text(weight = "bold"),
-    locations = gt::cells_body(rows = Stage == "Total")
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Stage == "Total")
   )
 ```
 
@@ -1915,17 +1892,17 @@ proj_df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-gt::gt(proj_df) |>
-  gt::tab_header(
+gt(proj_df) |>
+  tab_header(
     title = sprintf("Projected Time: %d alt + %d null", prod_alt, prod_null),
     subtitle = sprintf(
       "Based on current run (%d + %d on %d workers)",
       nsims_alt, nsims_null, n_workers
     )
   ) |>
-  gt::tab_style(
-    style = gt::cell_text(weight = "bold"),
-    locations = gt::cells_body(rows = Component == "Total")
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Component == "Total")
   )
 ```
 
@@ -1948,8 +1925,8 @@ ForestSearch under different conditions than the GBSG template:
    GBSG, which reduces $d_{\text{eff}}$ per subgroup and may
    affect detection power.
 
-4. **Different subgroup structure**: the age $\times$ preanti subgroup
-   is defined by continuous variables discretised at clinically
+4. **Different subgroup structure**: the age $\times$ CD8 subgroup
+   is defined by continuous biomarkers discretised at clinically
    motivated cutpoints, rather than the GBSG's receptor-status
    $\times$ menopausal-status interaction.
 

@@ -36,7 +36,8 @@ run_simulation_analysis(
 \item{sim_id}{Integer. Simulation replicate index (used as seed offset).}
 
 \item{dgm}{An \code{"aft_dgm_flex"} object from
-\code{\link{generate_aft_dgm_flex}} or \code{\link{setup_gbsg_dgm}}.}
+\code{\link{generate_aft_dgm_flex}} or \code{\link{setup_gbsg_dgm}},
+or a \code{"glm_dgm"} object from \code{\link{generate_glm_dgm}}.}
 
 \item{n_sample}{Integer. Per-replicate sample size.}
 

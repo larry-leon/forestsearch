@@ -1,0 +1,314 @@
+---
+title: "GRF Subgroup Identification in ForestSearch"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+vignette: >
+  %\VignetteIndexEntry{GRF Subgroup Identification in ForestSearch}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+execute:
+  eval: false
+---
+
+
+# Overview
+
+ForestSearch uses Generalized Random Forests (GRF) in two
+complementary roles:
+
+1. **Variable screening within ForestSearch** (`use_grf = TRUE`):
+   `causal_forest()` identifies candidate effect-modifying
+   variables via variable importance.  These candidates are passed
+   to ForestSearch's exhaustive search and bootstrap consistency
+   evaluation.
+
+2. **Standalone subgroup identification** (`run_grf = TRUE` in
+   simulation documents, or calling `grf.subg.harm.glm()` /
+   `grf.subg.harm.survival()` directly): GRF provides an
+   independent, threshold-free comparison.  It uses
+   `causal_forest()` for CATE estimation and
+   `policytree::policy_tree()` for interpretable subgroup rules.
+
+This vignette documents the GRF integration, its parameters,
+and practical guidance for selecting settings.
+
+
+# CATE and Sign Conventions {#sec-cate}
+
+## How GRF Estimates Treatment Effects
+
+`grf::causal_forest()` estimates the conditional average treatment
+effect (CATE):
+
+$$\tau(x) = E[Y(1) - Y(0) \mid X = x]$$
+
+For binary outcomes, this is the **risk difference** on the
+probability scale.  Positive CATE means treatment increases $Y$.
+
+## The `adverse_outcome` Parameter
+
+In clinical trials, higher $Y$ often means a worse outcome
+(adverse event, relapse, etc.).  In benefit-search scenarios,
+the subgroup where treatment helps most has a positive CATE on
+the *improvement* scale --- which means treatment *reduces* the
+adverse outcome.
+
+The `adverse_outcome` parameter resolves this:
+
+- **`adverse_outcome = TRUE`** (default for binary/count in
+  `forestsearch()`):
+  Flips $Y$ to $1 - Y$ (binary) or $-Y$ (continuous) before
+  `causal_forest()`.  After the flip, negative CATE = treatment
+  increases the bad outcome = harm.  The policy tree's
+  "recommend control" region correctly identifies Q.
+
+- **`adverse_outcome = FALSE`**: Uses $Y$ directly.  Appropriate
+  when higher $Y$ = better (quality of life, improvement).
+
+When using `run_simulation_analysis()`, the default for
+standalone GRF mirrors `forestsearch()`'s default: `TRUE` for
+binary and count outcomes, not applied for survival (where
+`causal_survival_forest` handles the sign internally).
+
+
+# The `dmin.grf` Parameter {#sec-dmin}
+
+## What It Does
+
+`dmin.grf` is a ForestSearch-specific screening threshold applied
+to the policy tree's CATE difference between leaves.  It is
+**not** a GRF or policytree parameter.
+
+For binary outcomes, `dmin.grf` is on the **risk difference**
+scale:
+
+- `dmin.grf = 0.05` requires at least a 5 percentage point
+  absolute difference in event rates between treatment arms for
+  a policy tree node to qualify as a subgroup.
+
+- `dmin.grf = 0` means any split is accepted, which typically
+  produces near-100% false positive rates.
+
+## Calibration Guidance
+
+`dmin.grf` should be calibrated for the specific application
+because the optimal value depends on the number of confounders,
+sample size, and effect size.
+
+**4-confounder synthetic data** (1,500 sims per point):
+
+| `dmin.grf` | Detection | FPR   |
+|------------|-----------|-------|
+| 0.00       | 76--100%  | 18%   |
+| 0.02       | 76--100%  | 9%    |
+| 0.05       | 76--100%  | 3%    |
+
+**12-confounder ACTG175 data** (100 sims per point, N = 1000):
+
+| `dmin.grf` | Detection | FPR   | Sensitivity |
+|------------|-----------|-------|-------------|
+| 0.00       | 100%      | 90%   | 0.92        |
+| 0.10       | 72%       | 33%   | 0.92        |
+| 0.12       | 54%       | 20%   | 0.94        |
+| 0.15       | 28%       | 9%    | 0.94        |
+
+More confounders require a larger `dmin.grf` because the policy
+tree evaluates more candidate splits, increasing the chance of
+spurious partitions.
+
+The recommended approach is to run
+`grf_dmin_calibration_actg175_binary.qmd` (or an analogous
+calibration document) for the specific application before
+selecting the final value.
+
+
+# The `tune_grf` Parameter {#sec-tune}
+
+## What It Does
+
+When `tune_grf = TRUE`, ForestSearch passes
+`tune.parameters = "all"` to `grf::causal_forest()`, enabling
+cross-validated tuning of `min.node.size`, `mtry`,
+`sample.fraction`, `alpha`, and `imbalance.penalty`.
+
+When `tune_grf = FALSE` (the default), all GRF hyperparameters
+remain at their package defaults.
+
+## When Tuning Helps
+
+Empirical evidence from the GRF literature (Dandl et al., 2024;
+Rehill, 2025) indicates:
+
+- **Randomized trials** (`W.hat = 0.5`): Tuning has minimal
+  impact because confounding is eliminated by design.  The
+  R-learner residualization step, which relies on accurate
+  nuisance models, is trivial when propensity is known.
+
+- **Observational data** (unknown propensity): Tuning can
+  substantially improve performance because the nuisance models
+  for $E[Y \mid X]$ and $E[W \mid X]$ benefit from optimized
+  hyperparameters.  This is where ForestSearch's `ps_method` and
+  `ps_adjust_method` parameters interact with GRF tuning.
+
+**Recommendation**: Use `tune_grf = FALSE` for RCT analyses.
+Set `tune_grf = TRUE` when applying ForestSearch to
+observational data, especially with propensity score adjustment
+enabled (`ps_method != NULL`).
+
+## Caution
+
+GRF Issue #777 documents a case where `tune.parameters = "all"`
+reversed CATE predictions by selecting overly large
+`min.node.size` values that smoothed out genuine heterogeneity.
+When enabling tuning, always compare results against the
+untuned baseline.
+
+
+# GRF vs ForestSearch: Complementary Strengths {#sec-comparison}
+
+The two methods have different strengths:
+
+| Property | ForestSearch | GRF Standalone |
+|----------|-------------|----------------|
+| **FPR control** | Strong (bootstrap consistency, L~eff~ correction) | Weaker (relies on `dmin.grf` calibration) |
+| **Sensitivity** | Moderate (conservative by design) | High (threshold-free CATE estimation) |
+| **Subgroup estimation** | Bias-corrected via infinitesimal jackknife | Direct GLM on identified subgroup |
+| **Multiplicity** | Explicit L~eff~ correction | No built-in correction |
+| **Interpretability** | Same (both produce cut-point rules) | Same |
+
+Presenting both methods side-by-side in simulation documents
+provides a comprehensive evaluation.  Example from the ACTG175
+binary benefit simulation (100 sims, N = 1000):
+
+| Metric | FS | GRF (dmin = 0.10) |
+|--------|------|------|
+| H1 Detection | 75% | 69% |
+| H1 Sensitivity | 0.51 | 0.90 |
+| H0 FPR | 6% | 35% |
+| $\hat{\theta}(\hat{Q})$ bias | — | 4.4% |
+
+
+# Usage Examples {#sec-examples}
+
+## Standalone GRF for Binary Outcomes
+
+```r
+library(forestsearch)
+
+result <- grf.subg.harm.glm(
+  data = trial_data,
+  confounders.name = c("age", "biomarker", "stage"),
+  outcome.name = "response",
+  treat.name = "treat",
+  id.name = "id",
+  outcome_type = "binary",
+  adverse_outcome = TRUE,   # Y = 1 is bad
+  dmin.grf = 0.10,          # calibrated for this application
+  maxdepth = 2L,
+  tune_grf = FALSE,         # default for RCTs
+  verbose = TRUE
+)
+
+# Subgroup definition
+result$sg.harm.id
+
+# Variable importance
+result$grf_varimp
+```
+
+## GRF Within ForestSearch Simulations
+
+```r
+fs_params <- list(
+  outcome.name = "y_sim",
+  event.name   = "y_sim",
+  treat.name   = "treat_sim",
+  id.name      = "id",
+  outcome_type = "binary",
+  effect_measure = "OR",
+  use_grf    = TRUE,       # GRF pre-screening
+  tune_grf   = FALSE,      # tuning for FS internal GRF
+  # ... other FS params
+)
+
+grf_params <- list(
+  dmin.grf     = 0.10,
+  maxdepth     = 2L,
+  sg.criterion = "mDiff",
+  tune_grf     = FALSE    # tuning for standalone GRF
+)
+
+result <- run_simulation_analysis(
+  sim_id = 1L,
+  dgm = dgm_calibrated,
+  n_sample = 1000L,
+  confounders_base = paste0("z", 1:12),
+  run_fs = TRUE,
+  run_grf = TRUE,
+  fs_params = fs_params,
+  grf_params = grf_params
+)
+```
+
+## GRF for Observational Data
+
+```r
+# With propensity score adjustment and GRF tuning
+result <- forestsearch(
+  df.analysis,
+  outcome.name = "y",
+  event.name   = "y",
+  treat.name   = "treat",
+  id.name      = "id",
+  confounders.name = covariates,
+  outcome_type = "binary",
+  effect_measure = "OR",
+  # GRF tuning: recommended for observational data
+  use_grf  = TRUE,
+  tune_grf = TRUE,
+  # Propensity score adjustment
+  ps_method = "grf",
+  ps_adjust_method = "iptw",
+  # Standard FS parameters
+  hr.threshold = 1.5,
+  hr.consistency = 1.25,
+  is.RCT = FALSE
+)
+```
+
+
+# References {#sec-references}
+
+Athey, S., Tibshirani, J., & Wager, S. (2019). Generalized
+  random forests. *Annals of Statistics*, 47(2), 1148--1178.
+
+Dandl, S., Haslinger, C., Hothorn, T., Seibold, H., Sverdrup, E.,
+  Wager, S., & Zeileis, A. (2024). What makes forest-based
+  heterogeneous treatment effect estimators work? *Annals of
+  Applied Statistics*, 18(1), 506--528.
+
+León, L.F., Marceau-West, C., & Gao, C. (2024). ForestSearch:
+  A new method for exploratory subgroup identification in
+  clinical trials. *Statistics in Medicine*.
+  doi:10.1002/sim.10163.
+
+Rehill, P. (2025). How do applied researchers use the causal
+  forest? A methodological review. *International Statistical
+  Review*.
+
+Sverdrup, E., Kanodia, A., Zhou, Z., Athey, S., & Wager, S.
+  (2020). policytree: Policy learning via doubly robust
+  empirical welfare maximization over trees. *JOSS*, 5(50).
+
+Wager, S., & Athey, S. (2018). Estimation and inference of
+  heterogeneous treatment effects using random forests.
+  *JASA*, 113(523), 1228--1242.

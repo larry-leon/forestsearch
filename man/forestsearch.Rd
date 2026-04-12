@@ -67,6 +67,7 @@ forestsearch(
   adverse_outcome = NULL,
   overdispersion = c("none", "quasi", "negbin"),
   grf_count_transform = c("log", "identity"),
+  tune_grf = FALSE,
   ps_method = NULL,
   ps_adjust_method = c("none", "iptw", "dr_gcomp"),
   ps_hat = NULL
@@ -261,6 +262,14 @@ count outcome before passing to \code{grf::causal_forest()} for
 factor screening.  \code{"log"} (default) applies
 \eqn{\log(Y + 0.5)}; \code{"identity"} passes raw counts.
 Ignored for non-count outcomes.}
+
+\item{tune_grf}{Logical. If \code{TRUE}, enables cross-validated
+hyperparameter tuning for GRF's \code{causal_forest()} via
+\code{tune.parameters = "all"}.  If \code{FALSE} (default), all
+GRF parameters remain at their defaults, preserving existing
+behavior.  Applies to both internal GRF pre-screening and
+standalone GRF analysis when passed through
+\code{run_simulation_analysis()}.}
 
 \item{ps_method}{Character or \code{NULL}. Propensity score estimation
 method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or

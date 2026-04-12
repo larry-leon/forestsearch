@@ -22,6 +22,9 @@
 #'   depth that identified the selected subgroup meeting `dmin.grf`. If FALSE (default),
 
 #'   returns all cuts from all fitted trees (depths 1 through `maxdepth`).
+#' @param tune_grf Logical. If \code{TRUE}, enables cross-validated
+#'   hyperparameter tuning via \code{tune.parameters = "all"} in the
+#'   causal survival forest. Default \code{FALSE}.
 #'
 #' @return A list with GRF results, including:
 #'   \item{data}{Original data with added treatment recommendation flags}
@@ -105,7 +108,8 @@ grf.subg.harm.survival <- function(data,
                                    sg.criterion = "mDiff",
                                    maxdepth = 2,
                                    seedit = 8316951,
-                                   return_selected_cuts_only = FALSE) {
+                                   return_selected_cuts_only = FALSE,
+                                   tune_grf = FALSE) {
 
   # ===========================================================================
   # SECTION: INPUT VALIDATION
@@ -177,7 +181,8 @@ grf.subg.harm.survival <- function(data,
   # Purpose: Fit GRF causal survival forest to identify treatment heterogeneity
   # ===========================================================================
 
-  cs.forest <- fit_causal_forest(X, Y, W, D, tau.rmst, config$RCT, config$seedit)
+  cs.forest <- fit_causal_forest(X, Y, W, D, tau.rmst, config$RCT, config$seedit,
+                                  tune_grf = tune_grf)
 
   # ===========================================================================
   # SECTION: SUBGROUP IDENTIFICATION VIA POLICY TREES
@@ -264,210 +269,14 @@ grf.subg.harm.survival <- function(data,
 }
 
 
-#' GRF Subgroup Identification for GLM Outcomes
-#'
-#' Identifies subgroups with differential treatment effect using generalized
-#' random forests (GRF) and policy trees for binary or continuous outcomes.
-#' This is the GLM counterpart to [grf.subg.harm.survival()], using
-#' [grf::causal_forest()] instead of [grf::causal_survival_forest()].
-#'
-#' @section Sign Convention and `adverse_outcome`:
-#'
-#' [grf::causal_forest()] estimates the conditional average treatment effect
-#' (CATE) as `E[Y(1) - Y(0) | X]`, where higher Y is implicitly "better."
-#' The downstream policy tree machinery selects subgroups where the control
-#' action has higher doubly-robust scores (i.e., treatment is harmful).
-#'
-#' This works correctly when **higher Y = better** (e.g., survival time,
-#' quality of life score).  However, in clinical trials the outcome is
-#' typically an adverse event (Y = 1 is death, relapse, etc.), meaning
-#' **higher Y = worse**.  In this case:
-#'
-#' \itemize{
-#'   \item The harmful subgroup has `diff = control_score - treated_score < 0`
-#'     because treatment increases the bad outcome
-#'   \item The `diff >= dmin.grf` gate selects the **complement** instead
-#' }
-#'
-#' Setting `adverse_outcome = TRUE` (the default for binary outcomes) flips
-#' the outcome to `1 - Y` before fitting the causal forest, so that higher
-#' values = no event = better.  This aligns the sign convention with
-#' [grf::causal_survival_forest()], where higher RMST = better.
-#'
-#' The flip is internal to GRF candidate selection only.  It does **not**
-#' affect the downstream search, consistency, or bootstrap pipeline, which
-#' operate on the original outcome scale.
-#'
-#' @param data Data frame containing the analysis data.
-#' @param confounders.name Character vector of confounder variable names.
-#' @param outcome.name Character. Name of outcome variable.
-#' @param treat.name Character. Name of treatment group variable (0/1).
-#' @param id.name Character. Name of ID variable.
-#' @param n.min Integer. Minimum subgroup size (default: 60).
-#' @param dmin.grf Numeric. Minimum difference in subgroup mean DR scores
-#'   for a leaf node to qualify as a candidate subgroup (default: 0.0).
-#'   Units are on the probability scale for binary outcomes (e.g.,
-#'   `dmin.grf = 0.05` requires a 5 percentage-point difference).
-#' @param RCT Logical. Is the data from a randomized controlled trial?
-#'   (default: TRUE)
-#' @param details Logical. Print details during execution (default: FALSE).
-#' @param sg.criterion Character. Subgroup selection criterion
-#'   ("mDiff" or "Nsg").
-#' @param maxdepth Integer. Maximum tree depth (1, 2, or 3; default: 2).
-#' @param seedit Integer. Random seed (default: 8316951).
-#' @param return_selected_cuts_only Logical. If TRUE, returns only cuts from
-#'   the selected tree depth (default: FALSE).
-#' @param adverse_outcome Logical. If TRUE (the default), the outcome Y = 1
-#'   is treated as an adverse event.  The outcome is flipped to `1 - Y` before
-#'   fitting the causal forest so that the harm-detection sign convention
-#'   aligns with [grf::causal_survival_forest()].  Set to FALSE when
-#'   higher Y = better (e.g., continuous quality-of-life scores).
-#'
-#' @return A list with GRF results (same structure as
-#'   [grf.subg.harm.survival()]).
-#'
-#' @examples
-#' \dontrun{
-#' # Binary adverse event (default: adverse_outcome = TRUE)
-#' result <- grf.subg.harm.glm(
-#'   data = trial_data,
-#'   confounders.name = c("age", "biomarker"),
-#'   outcome.name = "response",
-#'   treat.name = "treat",
-#'   id.name = "id"
-#' )
-#'
-#' # Continuous outcome where higher = better (e.g., QoL)
-#' result_qol <- grf.subg.harm.glm(
-#'   data = trial_data,
-#'   confounders.name = c("age", "biomarker"),
-#'   outcome.name = "qol_score",
-#'   treat.name = "treat",
-#'   id.name = "id",
-#'   adverse_outcome = FALSE
-#' )
-#' }
-#'
-#' @keywords internal
-grf.subg.harm.glm <- function(data,
-                               confounders.name,
-                               outcome.name,
-                               treat.name,
-                               id.name,
-                               n.min = 60,
-                               dmin.grf = 0.0,
-                               RCT = TRUE,
-                               details = FALSE,
-                               sg.criterion = "mDiff",
-                               maxdepth = 2,
-                               seedit = 8316951,
-                               return_selected_cuts_only = FALSE,
-                               adverse_outcome = TRUE) {
+# ── grf.subg.harm.glm() has been moved to grf_subg_harm_glm.R ──────────────
+# The canonical implementation lives in grf_subg_harm_glm.R and supports
+# outcome_type, effect_measure, offset.name, overdispersion, tune_grf,
+# and other GLM-extension parameters.  The old version that was here
+# (binary-only, @keywords internal, no outcome_type routing) has been
+# removed to avoid function-name collisions during devtools::load_all().
+# ────────────────────────────────────────────────────────────────────────────
 
-  if (maxdepth > 3) stop("Maximum depth cannot exceed 3")
-
-  valid_criteria <- c("mDiff", "Nsg")
-  if (!sg.criterion %in% valid_criteria) {
-    stop("sg.criterion must be one of: ", paste(valid_criteria, collapse = ", "))
-  }
-
-  config <- create_grf_config(
-    frac.tau = 1.0,
-    n.min = n.min,
-    dmin.grf = dmin.grf,
-    RCT = RCT,
-    sg.criterion = sg.criterion,
-    maxdepth = maxdepth,
-    seedit = seedit
-  )
-  config$return_selected_cuts_only <- return_selected_cuts_only
-
-  # Data preparation -- no event variable needed
-  temp_matrix <- as.matrix(data[, confounders.name])
-  X <- apply(temp_matrix, 2, as.numeric)
-  Y <- data[, outcome.name]
-  W <- data[, treat.name]
-
-  # -----------------------------------------------------------------------
-  # Adverse outcome flip
-  #
-  # causal_forest estimates CATE = E[Y(1) - Y(0) | X] and the policy tree
-  # selects leaves where control has higher DR scores (diff > 0).  When
-  # Y = adverse event (higher = worse), the harmful subgroup has diff < 0,
-  # so the gate diff >= dmin.grf selects the wrong group.
-  #
-  # Flipping to 1 - Y makes higher = no event = better, aligning with
-  # causal_survival_forest's convention (higher RMST = better).
-  # -----------------------------------------------------------------------
-  if (adverse_outcome) {
-    if (details) {
-      cat("GRF GLM: flipping outcome (adverse_outcome = TRUE)\n")
-      cat("  Original Y range: [", min(Y), ",", max(Y), "]\n")
-    }
-    Y <- 1L - Y
-    if (details) {
-      cat("  Flipped  Y range: [", min(Y), ",", max(Y), "]\n")
-    }
-  }
-
-  # Validate minimum arm sizes
-  n_treat <- sum(W == 1)
-  n_ctrl  <- sum(W == 0)
-  if (n_treat < config$n.min || n_ctrl < config$n.min) {
-    return(create_null_result(data, NULL, list(), config))
-  }
-
-  # Fit causal forest (GLM -- no horizon/tau needed)
-  cs.forest <- fit_causal_forest_glm(X, Y, W, config$RCT, config$seedit)
-
-  # Everything downstream is identical to the survival path
-  dr.scores <- policytree::double_robust_scores(cs.forest)
-  n.max <- length(Y)
-
-  tree_results <- fit_policy_trees(X, data, dr.scores, config$maxdepth, config$n.min)
-  trees <- tree_results$trees
-  values <- tree_results$values
-
-  best_subgroup <- select_best_subgroup(
-    values = values,
-    sg.criterion = config$sg.criterion,
-    dmin.grf = config$dmin.grf,
-    n.max = n.max
-  )
-
-  if (is.null(best_subgroup)) {
-    if (details) print_grf_details(config, values, NULL, NULL)
-    return(create_null_result(data, values, trees, config))
-  }
-
-  data <- assign_subgroup_membership(data, best_subgroup, trees, X)
-  selected_tree <- trees[[best_subgroup$depth]]
-  sg_harm_id <- find_leaf_split(selected_tree, best_subgroup$leaf.node)
-
-  if (config$return_selected_cuts_only) {
-    tree_cuts <- extract_selected_tree_cuts(trees, best_subgroup$depth, config$maxdepth)
-  } else {
-    tree_cuts <- extract_all_tree_cuts(trees, config$maxdepth)
-  }
-
-  if (details) print_grf_details(config, values, best_subgroup, sg_harm_id, tree_cuts)
-
-  result <- create_success_result(
-    data = data,
-    best_subgroup = best_subgroup,
-    trees = trees,
-    tree_cuts = tree_cuts,
-    selected_tree = selected_tree,
-    sg_harm_id = sg_harm_id,
-    values = values,
-    config = config
-  )
-
-  # Attach the fitted causal forest for downstream PS extraction
-  result$forest <- cs.forest
-
-  return(result)
-}
 #'
 #' Evaluates the performance of GRF-identified subgroups, including hazard ratios,
 #' bias, and predictive values. This function is typically used in simulation studies

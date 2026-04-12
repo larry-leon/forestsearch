@@ -49,6 +49,8 @@ create_grf_config <- function(frac.tau, n.min, dmin.grf, RCT,
 #' @param tau.rmst Numeric. Time horizon for RMST
 #' @param RCT Logical. Is this RCT data?
 #' @param seedit Integer. Random seed
+#' @param tune_grf Logical. If TRUE, enables cross-validated hyperparameter
+#'   tuning via \code{tune.parameters = "all"}. Default FALSE.
 #' @return Causal survival forest object
 #' @examples
 #' \donttest{
@@ -63,12 +65,15 @@ create_grf_config <- function(frac.tau, n.min, dmin.grf, RCT,
 #' }
 #' @export
 
-fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
+fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit,
+                              tune_grf = FALSE) {
+  tune_arg <- if (tune_grf) "all" else "none"
   if (RCT) {
     cs.forest <- try(
       suppressWarnings(
         grf::causal_survival_forest(X, Y, W, D, W.hat = 0.5,
-                                    horizon = tau.rmst, seed = seedit)
+                                    horizon = tau.rmst, seed = seedit,
+                                    tune.parameters = tune_arg)
       ),
       TRUE
     )
@@ -76,7 +81,8 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
     cs.forest <- try(
       suppressWarnings(
         grf::causal_survival_forest(X, Y, W, D,
-                                    horizon = tau.rmst, seed = seedit)
+                                    horizon = tau.rmst, seed = seedit,
+                                    tune.parameters = tune_arg)
       ),
       TRUE
     )
@@ -101,20 +107,27 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit) {
 #' @param W Numeric vector. Treatment indicator (0/1).
 #' @param RCT Logical. Is this RCT data?
 #' @param seedit Integer. Random seed.
+#' @param tune_grf Logical. If TRUE, enables cross-validated hyperparameter
+#'   tuning via \code{tune.parameters = "all"}. Default FALSE preserves
+#'   existing behavior.
 #' @return Causal forest object.
 #' @keywords internal
-fit_causal_forest_glm <- function(X, Y, W, RCT, seedit) {
+fit_causal_forest_glm <- function(X, Y, W, RCT, seedit,
+                                  tune_grf = FALSE) {
+  tune_arg <- if (tune_grf) "all" else "none"
   if (RCT) {
     cf <- try(
       suppressWarnings(
-        grf::causal_forest(X, Y, W, W.hat = 0.5, seed = seedit)
+        grf::causal_forest(X, Y, W, W.hat = 0.5, seed = seedit,
+                           tune.parameters = tune_arg)
       ),
       TRUE
     )
   } else {
     cf <- try(
       suppressWarnings(
-        grf::causal_forest(X, Y, W, seed = seedit)
+        grf::causal_forest(X, Y, W, seed = seedit,
+                           tune.parameters = tune_arg)
       ),
       TRUE
     )

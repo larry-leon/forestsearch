@@ -86,7 +86,8 @@ default_grf_params_gen <- function() {
 #'
 #' @param sim_id Integer. Simulation replicate index (used as seed offset).
 #' @param dgm An \code{"aft_dgm_flex"} object from
-#'   \code{\link{generate_aft_dgm_flex}} or \code{\link{setup_gbsg_dgm}}.
+#'   \code{\link{generate_aft_dgm_flex}} or \code{\link{setup_gbsg_dgm}},
+#'   or a \code{"glm_dgm"} object from \code{\link{generate_glm_dgm}}.
 #' @param n_sample Integer. Per-replicate sample size.
 #' @param analysis_time Numeric. Calendar time of analysis on the DGM time
 #'   scale.  Use \code{Inf} (default) for no administrative censoring —
@@ -211,17 +212,13 @@ run_simulation_analysis <- function(
   }
 
   # ── Simulate data ──────────────────────────────────────────────────────────
-  is_glm_dgm <- inherits(dgm, "glm_dgm")
+  if (show_verbose)
+    message(sprintf("\n[1] Simulating data (n=%d, analysis_time=%s, cens_adjust=%g)...",
+                    n_sample, analysis_time, cens_adjust))
 
-  if (show_verbose) {
-    if (is_glm_dgm) {
-      message(sprintf("\n[1] Simulating GLM data (n=%d, outcome_type=%s)...",
-                      n_sample, dgm$outcome_type))
-    } else {
-      message(sprintf("\n[1] Simulating data (n=%d, analysis_time=%s, cens_adjust=%g)...",
-                      n_sample, analysis_time, cens_adjust))
-    }
-  }
+  # Class-based dispatch: glm_dgm uses simulate_from_glm_dgm(),
+  # aft_dgm_flex uses simulate_from_dgm().
+  is_glm_dgm <- inherits(dgm, "glm_dgm")
 
   sim_data <- tryCatch(
     if (is_glm_dgm) {
@@ -242,35 +239,21 @@ run_simulation_analysis <- function(
     error = function(e) stop("Simulation failed: ", e$message)
   )
 
-  if (show_verbose) {
-    if (is_glm_dgm) {
-      message(sprintf("    n=%d  mean(y)=%.3f",
-                      nrow(sim_data), mean(sim_data[["y_sim"]], na.rm = TRUE)))
+  # GLM sims don't produce event_sim; create it for downstream compatibility.
+  # For binary: event_sim = y_sim (the outcome IS the event).
+  # For continuous/count: event_sim = 1 (all observed, no censoring).
+  if (is_glm_dgm && !event_name %in% names(sim_data)) {
+    if (!is.null(dgm$outcome_type) && dgm$outcome_type == "binary") {
+      sim_data[[event_name]] <- sim_data[[outcome_name]]
     } else {
-      message(sprintf("    n=%d  events=%d (%.1f%%)",
-                      nrow(sim_data), sum(sim_data[[event_name]]),
-                      100 * mean(sim_data[[event_name]])))
+      sim_data[[event_name]] <- 1L
     }
   }
 
-  # ── GLM event_name resolution ──────────────────────────────────────────
-
-  # simulate_from_glm_dgm() produces y_sim but not event_sim.
-  # Downstream code (forestsearch, .extract_fs_estimates_gen) expects
-  # an event column.  Resolve:
-  #   binary: event = outcome (y_sim is 0/1)
-  #   continuous/count: create a placeholder column of 1s
-  if (is_glm_dgm) {
-    ot <- dgm$outcome_type
-    if (ot == "binary") {
-      event_name <- outcome_name
-    } else {
-      # Continuous and count: no censoring concept; placeholder
-      if (!event_name %in% names(sim_data)) {
-        sim_data[[event_name]] <- 1L
-      }
-    }
-  }
+  if (show_verbose)
+    message(sprintf("    n=%d  events=%d (%.1f%%)",
+                    nrow(sim_data), sum(sim_data[[event_name]]),
+                    100 * mean(sim_data[[event_name]])))
 
   # ── Optional noise variables ───────────────────────────────────────────────
   confounders_name <- confounders_base
@@ -428,18 +411,21 @@ run_simulation_analysis <- function(
 
   valid_pnames <- c(
     "outcome.name", "event.name", "treat.name", "id.name",
-    "outcome_type", "effect_measure", "offset.name",
     "use_lasso", "use_grf", "conf_force",
     "hr.threshold", "hr.consistency", "pconsistency.threshold",
-    # Preferred GLM-era names (override hr.threshold / hr.consistency
-    # inside forestsearch when both are provided)
-    "effect.threshold", "consistency.threshold",
     "fs.splits", "n.min", "d0.min", "d1.min",
     "maxk", "max.minutes", "by.risk", "vi.grf.min",
     "frac.tau", "dmin.grf", "grf_depth",
     "use_twostage", "twostage_args",
     "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat",
-    "parallel_args", "seedit"
+    "parallel_args",
+    # GLM extension (v0.2.0): these now affect identification —
+    # LASSO family selection, subgroup search path (GLM vs Cox),
+    # and estimator closure — not just downstream estimation.
+    # Safe for survival: when absent from fs_params, forestsearch()
+    # uses its own default (outcome_type = "survival").
+    "outcome_type", "effect_measure", "offset.name",
+    "tune_grf"
   )
   for (pn in valid_pnames)
     if (!is.null(params[[pn]])) fs_args[[pn]] <- params[[pn]]
@@ -664,14 +650,23 @@ run_simulation_analysis <- function(
     outcome_type = NULL, effect_measure = NULL, offset_name = NULL,
     id_name = "id"
 ) {
+  # ── GRF function dispatch ────────────────────────────────────────────────
+
+  # GLM outcomes route to grf.subg.harm.glm(); survival (or NULL) routes
+  # to the original grf.subg.harm.survival().  When outcome_type is NULL
+  # (survival scenarios that don't set it), the survival path runs exactly
+  # as before — no behavior change.
+  is_glm <- !is.null(outcome_type) && outcome_type != "survival"
+  grf_fn_name <- if (is_glm) "grf.subg.harm.glm" else "grf.subg.harm.survival"
+
   grf_fun <- tryCatch(
-    get("grf.subg.harm.survival", mode = "function",
+    get(grf_fn_name, mode = "function",
         envir = asNamespace("forestsearch")),
     error = function(e) NULL
   )
 
   if (is.null(grf_fun)) {
-    warning("grf.subg.harm.survival not found. Skipping GRF analysis.")
+    warning(grf_fn_name, " not found. Skipping GRF analysis.")
     return(.extract_grf_estimates_gen(
       df = data, grf_est = NULL, dgm = dgm,
       cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
@@ -690,6 +685,27 @@ run_simulation_analysis <- function(
                   "maxdepth", "seedit")
   for (pn in grf_pnames)
     if (!is.null(params[[pn]])) grf_args[[pn]] <- params[[pn]]
+
+  # GLM-specific parameters (ignored by grf.subg.harm.survival)
+  if (is_glm) {
+    grf_args$outcome_type  <- outcome_type
+    if (!is.null(effect_measure)) grf_args$effect_measure <- effect_measure
+    if (!is.null(offset_name))    grf_args$offset.name    <- offset_name
+    # grf.subg.harm.glm() does NOT accept event.name — remove it
+    # to prevent "unused argument" error from do.call()
+    grf_args$event.name <- NULL
+
+    # Match forestsearch()'s adverse_outcome default: TRUE for binary/count.
+    # This ensures standalone GRF uses the same Y-flip as FS's internal
+    # GRF pre-screening, producing consistent subgroup identification.
+    ao <- params$adverse_outcome
+    if (is.null(ao)) ao <- outcome_type %in% c("binary", "count")
+    grf_args$adverse_outcome <- ao
+
+    # Pass tune_grf if set (default FALSE preserves existing behavior)
+    tg <- params$tune_grf
+    if (!is.null(tg)) grf_args$tune_grf <- tg
+  }
 
   grf_result <- tryCatch(
     do.call(grf_fun, grf_args),

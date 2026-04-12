@@ -19,7 +19,8 @@ grf.subg.harm.survival(
   sg.criterion = "mDiff",
   maxdepth = 2,
   seedit = 8316951,
-  return_selected_cuts_only = FALSE
+  return_selected_cuts_only = FALSE,
+  tune_grf = FALSE
 )
 }
 \arguments{
@@ -54,6 +55,10 @@ grf.subg.harm.survival(
 \item{return_selected_cuts_only}{Logical. If TRUE, returns only cuts from the tree
 depth that identified the selected subgroup meeting \code{dmin.grf}. If FALSE (default),
 returns all cuts from all fitted trees (depths 1 through \code{maxdepth}).}
+
+\item{tune_grf}{Logical. If \code{TRUE}, enables cross-validated
+hyperparameter tuning via \code{tune.parameters = "all"} in the
+causal survival forest. Default \code{FALSE}.}
 }
 \value{
 A list with GRF results, including:

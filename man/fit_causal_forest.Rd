@@ -4,7 +4,7 @@
 \alias{fit_causal_forest}
 \title{Fit causal survival forest}
 \usage{
-fit_causal_forest(X, Y, W, D, tau.rmst, RCT, seedit)
+fit_causal_forest(X, Y, W, D, tau.rmst, RCT, seedit, tune_grf = FALSE)
 }
 \arguments{
 \item{X}{Matrix. Covariate matrix}
@@ -20,6 +20,9 @@ fit_causal_forest(X, Y, W, D, tau.rmst, RCT, seedit)
 \item{RCT}{Logical. Is this RCT data?}
 
 \item{seedit}{Integer. Random seed}
+
+\item{tune_grf}{Logical. If TRUE, enables cross-validated hyperparameter
+tuning via \code{tune.parameters = "all"}. Default FALSE.}
 }
 \value{
 Causal survival forest object

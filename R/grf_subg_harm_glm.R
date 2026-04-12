@@ -101,6 +101,14 @@
 #'   indicates a worse result (e.g., adverse event count), so the "harm"
 #'   subgroup is where treatment increases the outcome. If \code{FALSE}
 #'   (default), higher values are better. Default: \code{FALSE}.
+#' @param tune_grf Logical. If \code{TRUE}, enables cross-validated
+#'   hyperparameter tuning for the causal forest via
+#'   \code{tune.parameters = "all"}, which tunes \code{min.node.size},
+#'   \code{mtry}, \code{sample.fraction}, \code{alpha}, and
+#'   \code{imbalance.penalty}. If \code{FALSE} (default), all GRF
+#'   parameters remain at their defaults, preserving existing behavior.
+#'   Most impactful for observational data where nuisance models benefit
+#'   from tuning; defaults are near-optimal for RCTs (Dandl et al., 2024).
 #' @param details Logical. Print GRF diagnostic information. Default: \code{FALSE}.
 #' @param verbose Logical. Print progress messages. Default: \code{FALSE}.
 #'
@@ -243,6 +251,7 @@ grf.subg.harm.glm <- function(
     seedit              = 8316951L,
     return_selected_cuts_only = FALSE,
     adverse_outcome     = FALSE,
+    tune_grf            = FALSE,
     details             = FALSE,
     verbose             = FALSE
 ) {
@@ -367,16 +376,37 @@ grf.subg.harm.glm <- function(
   }
 
   # ---------------------------------------------------------------------------
+  # Adverse outcome flip: align CATE direction with ForestSearch convention.
+  # When adverse_outcome = TRUE, Y is flipped (binary: 1-Y, continuous: -Y)
+  # so that positive CATE = treatment increases the BAD outcome = harm.
+  # This ensures the most-negative-CATE subgroup is the true "harm" group,
+  # matching forestsearch()'s internal GRF pre-screening behavior.
+  # ---------------------------------------------------------------------------
+  if (adverse_outcome) {
+    if (outcome_type == "binary") {
+      Y_grf <- 1L - Y_grf
+      if (verbose) message("[grf.subg.harm.glm] adverse_outcome=TRUE: using 1-Y for causal_forest()")
+    } else if (outcome_type == "continuous") {
+      Y_grf <- -Y_grf
+      if (verbose) message("[grf.subg.harm.glm] adverse_outcome=TRUE: using -Y for causal_forest()")
+    }
+    # count: log transform already applied above; flip not needed
+  }
+
+  # ---------------------------------------------------------------------------
   # Fit causal forest
   # ---------------------------------------------------------------------------
   W_hat <- if (RCT) rep(0.5, n) else NULL
+  tune_arg <- if (tune_grf) "all" else "none"
 
   set.seed(seedit)
   cs_forest <- tryCatch({
     if (RCT) {
-      grf::causal_forest(X, Y_grf, W, W.hat = W_hat, seed = seedit)
+      grf::causal_forest(X, Y_grf, W, W.hat = W_hat, seed = seedit,
+                         tune.parameters = tune_arg)
     } else {
-      grf::causal_forest(X, Y_grf, W, seed = seedit)
+      grf::causal_forest(X, Y_grf, W, seed = seedit,
+                         tune.parameters = tune_arg)
     }
   }, error = function(e) {
     stop("grf::causal_forest() failed: ", e$message)

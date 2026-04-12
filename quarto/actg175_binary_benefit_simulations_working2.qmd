@@ -1,7 +1,7 @@
 ---
 title: "Simulation Studies Based on ACTG175: Binary Endpoint (GLM)"
 subtitle: "Benefit Subgroup Identification with CD4 Response at 20 Weeks"
-author: "Larry F. León"
+author: "Larry F. Leon"
 date: today
 format:
   html:
@@ -27,7 +27,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 nsims_alt   <- 100L
 nsims_null  <- 100L
 sim_seed    <- 8316951L
-n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 120L)
 
 # -- Dataset preparation: ACTG175 ---------------------------------------------
 #
@@ -83,7 +83,7 @@ sim_n_noise       <- 0L
 # -- Analysis flags ------------------------------------------------------------
 run_fs            <- TRUE    # Run ForestSearch
 run_fs_grf        <- FALSE   # Run FS with GRF pre-screening only
-run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm)
+run_grf           <- FALSE   # Run standalone GRF analysis
 
 # -- ForestSearch parameters (benefit search thresholds) -----------------------
 fs_or_threshold        <- round(1 / 0.60, 3)   # c1
@@ -97,33 +97,6 @@ fs_maxk                <- 2L
 fs_vi_grf_min          <- -0.2
 fs_seedit              <- 8316951L
 
-# -- GRF standalone parameters ------------------------------------------------
-# grf.subg.harm.glm() uses causal_forest() for candidate factor screening,
-# then policy trees for subgroup identification.
-#
-# dmin.grf: minimum absolute CATE (risk difference) for a policy-tree
-#   node to qualify as a subgroup.  Calibrated via
-#   grf_dmin_calibration_actg175_binary.qmd (100 sims, 12 confounders):
-#     dmin=0.00: Det=100%, FPR=90%
-#     dmin=0.10: Det= 72%, FPR=33%  <- current setting
-#     dmin=0.12: Det= 54%, FPR=20%
-#     dmin=0.15: Det= 28%, FPR= 9%
-#
-# tune_grf: if TRUE, enables cross-validated hyperparameter tuning
-#   (tune.parameters = "all") in causal_forest().  Tunes min.node.size,
-#   mtry, sample.fraction, alpha, imbalance.penalty.  Adds ~2-3 sec per
-#   GRF call but may improve CATE estimation with many confounders.
-#
-# adverse_outcome: controls the 1-Y flip before causal_forest().
-#   For binary benefit search with positive outcome (cd420 > cd40),
-#   run_simulation_analysis() defaults to TRUE for binary outcomes,
-#   which is correct: the switched treatment makes Q have negative
-#   CATE on the flipped scale, aligning with GRF's "harm" convention.
-grf_dmin               <- 0.10    # calibrated for ACTG175 12-confounder setting
-grf_maxdepth           <- 2L      # max policy tree depth (matches FS maxk)
-grf_sg_criterion       <- "mDiff" # subgroup selection criterion
-grf_tune               <- TRUE   # cross-validated GRF hyperparameter tuning
-
 # -- ForestSearch pipeline flags -----------------------------------------------
 fs_use_lasso           <- FALSE
 fs_use_grf             <- TRUE
@@ -133,18 +106,10 @@ fs_is_rct              <- TRUE
 sg_notation            <- "benefit"
 
 # -- Output persistence --------------------------------------------------------
+# Save simulation results to _data/ for downstream analysis.
+# Set save_results = FALSE to skip saving (e.g., during development).
 save_results           <- TRUE
 output_dir             <- "_data"
-
-# -- Production projection targets --------------------------------------------
-prod_alt               <- 2000L
-prod_null              <- 4000L
-```
-
-```{r timing-init}
-#| include: false
-t_vignette_start <- proc.time()
-timings <- list()
 ```
 
 
@@ -183,62 +148,6 @@ replacing hazard ratios (HR):
    functions.
 
 
-# GRF Standalone: Calibration Summary {#sec-grf-calibration}
-
-The standalone GRF analysis uses `grf.subg.harm.glm()` with
-`causal_forest()` for candidate factor screening and policy
-trees for subgroup identification.  The key tuning parameter
-is `dmin.grf`, the minimum absolute CATE (conditional average
-treatment effect) on the **risk difference** scale required for
-a policy-tree node to be valid.
-
-## Configuration
-
-For the **benefit + positive** scenario with switched treatment
-(the ACTG175 binary configuration), the correct GRF setup is:
-
-- `adverse_outcome = FALSE` (Y = improvement is positive)
-- Treatment indicator = **switched** (ddI = 1, ZDV+ddI = 0)
-- GRF identifies the subgroup where the switched "treatment"
-  produces the most negative CATE --- i.e., where ddI monotherapy
-  is worst relative to combination, which is the **benefit**
-  subgroup on the original scale
-
-The `adverse_outcome` parameter has **no effect** for this
-scenario type because the outcome is positive and not flipped.
-
-## Calibration Results
-
-The `grf_dmin_calibration_binary.qmd` document evaluated
-`dmin.grf` across 10 grid points (0 to 0.30) at three
-effect sizes (weak/moderate/strong), using 1,500 simulations
-per grid point.  Results for the Benefit+Positive scenario:
-
-| `dmin.grf` | Detection (%) | FPR (%) | Recommendation |
-|------------|--------------|---------|----------------|
-| 0.00       | 76--100      | 18      | High FPR       |
-| **0.02**   | **76--100**  | **9**   | **Selected**   |
-| 0.05       | 76--100      | 3       | Conservative   |
-| 0.08       | 75--100      | 1       | Very conservative |
-| 0.10       | 75--99       | < 1     | Detection loss at weak effects |
-| 0.15       | 57--82       | 0       | Substantial power loss |
-
-The selected `dmin.grf = 0.02` corresponds to a 2 percentage
-point minimum risk difference --- clinically, GRF requires at
-least a 2% absolute difference in event rates between treatment
-arms to flag a subgroup.  This achieves detection $\geq 76\%$
-even at weak effect sizes while controlling FPR to $\leq 9\%$.
-
-::: {.callout-note}
-The GRF FPR is higher than ForestSearch's because GRF lacks the
-bootstrap consistency filter.  ForestSearch requires the subgroup
-effect to exceed a threshold in 90% of bootstrap replicates,
-providing stronger FPR control at the cost of lower detection.
-The two methods are complementary: GRF provides a
-threshold-free comparison.
-:::
-
-
 # Data Preparation {#sec-data}
 
 ```{r load-packages}
@@ -259,20 +168,15 @@ collect_results <- function(raw_list, label = "") {
   n_failed <- sum(is_err)
   if (n_failed > 0) {
     err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    # Use cat() for immediate output (warning/message may be buffered)
-    cat(sprintf("*** %s%d of %d tasks failed ***\n",
+    warning(sprintf("%s%d of %d tasks failed.",
         if (nzchar(label)) paste0(label, ": ") else "",
         n_failed, length(raw_list)))
-    cat("  First errors:\n")
-    for (msg in head(unique(err_msgs), 3)) cat("    ", msg, "\n")
+    message("  First errors:\n    ",
+        paste(head(unique(err_msgs), 3), collapse = "\n    "))
   }
   good <- raw_list[!is_err]
   if (length(good) == 0) {
-    # Return empty data.frame instead of NULL to avoid attr() crash
-    result <- data.frame()
-    warning(sprintf("%sAll %d tasks failed. See error messages above.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        length(raw_list)))
+    result <- NULL
   } else if (requireNamespace("data.table", quietly = TRUE)) {
     result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
     result <- as.data.frame(result)
@@ -283,6 +187,9 @@ collect_results <- function(raw_list, label = "") {
   attr(result, "n_total") <- length(raw_list)
   result
 }
+
+
+timings <- list()
 ```
 
 ```{r prepare-datasets}
@@ -489,11 +396,9 @@ ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
 
 ## Step 3: Create Null DGM
 
-Under `model = "null"`, the treatment effect is **homogeneous**
-across all patients (no treatment effect heterogeneity).  Treatment
-is still beneficial for everyone --- there is simply no subgroup
-with a different treatment effect.  The `flag_harm` column is
-still populated for classification evaluation.
+Under `model = "null"`, the interaction coefficient is zeroed
+out -- no treatment effect heterogeneity.  The subgroup flag
+(`flag_harm`) is still populated for classification evaluation.
 
 ```{r dgm-null}
 t0 <- proc.time()[3]
@@ -697,9 +602,6 @@ fs_params <- list(
   use_grf                = fs_use_grf,
 
   # Subgroup detection thresholds
-  # Note: hr.threshold/hr.consistency are the generic ForestSearch
-  # parameter names regardless of endpoint type. For binary outcomes,
-  # these represent OR thresholds on the switched scale.
   hr.threshold           = fs_or_threshold,
   hr.consistency         = fs_or_consistency,
   pconsistency.threshold = fs_pconsistency,
@@ -713,21 +615,10 @@ fs_params <- list(
   vi.grf.min             = fs_vi_grf_min,
   seedit                 = fs_seedit,
 
-  # GRF tuning (applies to ForestSearch's internal GRF pre-screening)
-  tune_grf               = grf_tune,
-
   # Inner parallelism: sequential within each worker
   parallel_args          = list(
     plan = "sequential", workers = 1, show_message = FALSE
   )
-)
-
-# -- GRF standalone parameter overrides ----------------------------------------
-grf_params <- list(
-  dmin.grf     = grf_dmin,
-  maxdepth     = grf_maxdepth,
-  sg.criterion = grf_sg_criterion,
-  tune_grf     = grf_tune
 )
 ```
 
@@ -757,7 +648,6 @@ results_alt_raw <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
-    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
@@ -771,25 +661,12 @@ n_failed_alt <- attr(results_alt, "n_failed")
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
 cat("Results:", nrow(results_alt), "rows\n")
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
-if (nrow(results_alt) > 0) {
-  cat(sprintf("Detection rate: %.1f%%\n",
-      100 * mean(results_alt$any.H[results_alt$analysis == "FS"])))
-} else {
-  cat("All simulations failed — see error messages above.\n")
-  cat("Common causes:\n")
-  cat("  1. devtools::document() -> devtools::install() -> restart R needed\n")
-  cat("  2. Package version mismatch between interactive and worker sessions\n")
-}
+cat(sprintf("Detection rate: %.1f%%\n",
+    100 * mean(results_alt$any.H[results_alt$analysis == "FS"])))
 ```
 
 
 ## Null Hypothesis Simulations
-
-```{r reset-workers-null}
-# Reset worker pool to prevent memory accumulation from alt sims
-plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-plan(multisession, workers = n_workers)
-```
 
 ```{r run-null}
 cat("Running", nsims_null, "simulations under H0...\n")
@@ -814,7 +691,6 @@ results_null_raw <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
-    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
@@ -826,7 +702,7 @@ n_failed_null <- attr(results_null, "n_failed")
 
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
 if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
-cat(sprintf("False positive rate: %.1f%%\n",
+cat(sprintf("False discovery rate: %.1f%%\n",
     100 * mean(results_null$any.H[results_null$analysis == "FS"])))
 ```
 
@@ -863,9 +739,6 @@ if (save_results) {
 
     # -- ForestSearch parameters -----------------------------------------------
     fs_params = fs_params,
-
-    # -- GRF parameters --------------------------------------------------------
-    grf_params = grf_params,
 
     # -- DGM true effects (convenience) ----------------------------------------
     true_effects = list(
@@ -960,20 +833,6 @@ build_estimation_table(
   subgroup_notation = sg_notation
 )
 
-if ("GRF" %in% unique(results_alt$analysis)) {
-  build_estimation_table(
-    results         = results_alt,
-    dgm             = dgm_calibrated,
-    analysis_method = "GRF",
-    subtitle = sprintf(
-      "ACTG175 Binary DGM (GRF, dmin=%.2f) | n = %d, %d sims",
-      grf_dmin, sim_n_sample, nsims_alt
-    ),
-    font_size = 16,
-    subgroup_notation = sg_notation
-  )
-}
-
 timings$report_alt <- proc.time()[3] - t0
 ```
 
@@ -1043,7 +902,7 @@ build_classification_table(
 # Timing Summary {#sec-timing}
 
 ```{r timing}
-timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+timings$total <- Reduce(`+`, timings)
 
 timing_df <- data.frame(
   Step = c(names(timings)),
@@ -1052,7 +911,7 @@ timing_df <- data.frame(
 )
 
 timing_df |>
-  gt::gt() |>
+  gt() |>
   gt::tab_header(title = "Computation Timing") |>
   gt::tab_style(
     style = gt::cell_text(weight = "bold"),
@@ -1067,7 +926,10 @@ timing_df |>
 time_per_alt  <- timings$sims_alt / nsims_alt
 time_per_null <- timings$sims_null / nsims_null
 
-# prod_alt and prod_null defined in setup chunk
+# Target production counts
+prod_alt  <- 1000L
+prod_null <- 2000L
+
 proj_alt  <- time_per_alt * prod_alt
 proj_null <- time_per_null * prod_null
 proj_other <- timings$total - timings$sims_alt - timings$sims_null
@@ -1110,17 +972,11 @@ This document mirrors the structure of `actg175_simulations_benefit.qmd`
    DGM stores OR-scale effects in the `hazard_ratios` list for
    reporting compatibility.
 
-5. **GRF standalone included**: the standalone GRF analysis
-   (`grf.subg.harm.glm`) uses `causal_forest()` for candidate
-   factor screening and policy trees for subgroup identification.
-   For the benefit + positive binary scenario with switched
-   treatment, `dmin.grf = 0.02` (calibrated via 1,500 sims per
-   grid point in `grf_dmin_calibration_binary.qmd`) achieves
-   detection $\geq 76\%$ with FPR $\leq 9\%$.  The dispatch
-   fix in `run_simulation_analysis.R` (adding `outcome_type`,
-   `effect_measure`, `offset.name` to the `valid_pnames`
-   whitelist) routes binary data to `grf.subg.harm.glm()`
-   instead of the survival-only `grf.subg.harm.survival()`.
+5. **GRF standalone deferred**: the standalone GRF analysis
+   (`grf.subg.harm.glm`) identifies subgroups based on rate
+   differences, which has a different effect direction than FS's
+   OR-based search on improvement outcomes.  Alignment is under
+   investigation.
 
 ## Limitations
 
