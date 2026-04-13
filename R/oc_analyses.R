@@ -526,11 +526,19 @@ format_oc_results <- function(
     # Detection rate
     detection_rate <- mean(res$any.H, na.rm = TRUE)
 
-    # Classification metrics (averaged across all sims)
+    # Classification metrics (averaged across sims with detection).
+    # Under null models (León et al. 2024, Sec 3): Q = emptyset,
+    # so sens = NA and ppv = 0.  NaN from mean(all-NA) is replaced
+    # with NA for clean table display.
     sens <- mean(res$sens, na.rm = TRUE)
     spec <- mean(res$spec, na.rm = TRUE)
     ppv <- mean(res$ppv, na.rm = TRUE)
     npv <- mean(res$npv, na.rm = TRUE)
+
+    if (is.nan(sens)) sens <- NA
+    if (is.nan(spec)) spec <- NA
+    if (is.nan(ppv))  ppv  <- NA
+    if (is.nan(npv))  npv  <- NA
 
     # HR estimates (only when subgroup found)
     res_found <- res[res$any.H == 1, ]

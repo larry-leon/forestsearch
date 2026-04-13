@@ -285,6 +285,20 @@ build_classification_table <- function(
         r <- res[res$analysis == a, ]
         r_found <- r[r$any.H == 1, ]
 
+        # León et al. (2024, Table 1): classification metrics are averaged
+        # across ALL simulations (unconditional).  Under alt, when Ĥ = ∅:
+        #   sens(Ĥ) = #{Ĥ ∩ H}/#{H} = 0/|H| = 0  (H exists but not found)
+        #   ppv(Ĥ)  = #{Ĥ ∩ H}/#{Ĥ} = 0/0         (convention: 0)
+        # Under null, sens is genuinely undefined (H = ∅) → keep NA.
+        # The raw values from run_simulation_analysis store NA for both
+        # sens and ppv when any.H = 0; we replace with 0 under alt only.
+        if (hyp != "null") {
+          r$sens[is.na(r$sens) & r$any.H == 0] <- 0
+          r$ppv[is.na(r$ppv) & r$any.H == 0]   <- 0
+          r$spec[is.na(r$spec) & r$any.H == 0]  <- 1
+          r$npv[is.na(r$npv) & r$any.H == 0]    <- 1
+        }
+
         val <- switch(
           key,
           "any_sg"   = mean(r$any.H, na.rm = TRUE),

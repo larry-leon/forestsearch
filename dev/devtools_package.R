@@ -164,6 +164,8 @@ devtools::install(dependencies = FALSE)
 
 devtools::install()
 
+devtools::build()
+
 library(forestsearch)
 args(forestsearch)
 help(forestsearch)

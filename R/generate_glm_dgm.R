@@ -244,8 +244,9 @@ generate_glm_dgm <- function(
 
   # -- Define subgroup (reuse generate_aft_dgm_helpers.R) --------------------
   # Always create flag_harm with model = "alt" so the subgroup indicator
-  # is available for classification metrics under both hypotheses.
-  # The null model zeros out the interaction coefficient later.
+  # is available for the coefficient fitting pipeline (interaction_term).
+  # Under the null, flag_harm is zeroed out after subgroup definition
+  # because Q = emptyset (León et al. 2024, Section 3).
   df_work <- data
   df_work$treat <- data[[treatment_var]]
 
@@ -261,6 +262,12 @@ generate_glm_dgm <- function(
 
   data$flag_harm        <- sg_result$flag_harm
   data$interaction_term <- sg_result$interaction_term
+
+  # Under null: Q = emptyset. Zero out flag_harm so classification
+  # metrics are correctly undefined (sens=NA, ppv=0).
+  if (model == "null") {
+    data$flag_harm <- 0L
+  }
 
   # -- Fit baseline GLM ------------------------------------------------------
   glm_family <- switch(outcome_type,
@@ -444,6 +451,7 @@ generate_glm_dgm <- function(
     factor_vars = factor_vars,
 
     model_type = model,
+    model      = model,       # For downstream null detection
     n_super    = n_super,
     seed       = seed
   )

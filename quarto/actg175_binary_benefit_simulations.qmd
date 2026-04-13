@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 100L
-nsims_null  <- 100L
+nsims_alt   <- 1000L
+nsims_null  <- 2000L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
 
@@ -122,7 +122,7 @@ fs_seedit              <- 8316951L
 grf_dmin               <- 0.10    # calibrated for ACTG175 12-confounder setting
 grf_maxdepth           <- 2L      # max policy tree depth (matches FS maxk)
 grf_sg_criterion       <- "mDiff" # subgroup selection criterion
-grf_tune               <- TRUE   # cross-validated GRF hyperparameter tuning
+grf_tune               <- FALSE   # cross-validated GRF hyperparameter tuning
 
 # -- ForestSearch pipeline flags -----------------------------------------------
 fs_use_lasso           <- FALSE
@@ -490,10 +490,13 @@ ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
 ## Step 3: Create Null DGM
 
 Under `model = "null"`, the treatment effect is **homogeneous**
-across all patients (no treatment effect heterogeneity).  Treatment
-is still beneficial for everyone --- there is simply no subgroup
-with a different treatment effect.  The `flag_harm` column is
-still populated for classification evaluation.
+across all patients (no treatment effect heterogeneity).
+Per León et al. (2024, Section 3), $Q = \emptyset$ and
+$Q^c$ is the ITT population.  The `flag_harm` column is
+retained as a structural label in the simulated data (marking
+$z_1 = 1 \cap z_2 = 1$) but has **no treatment-effect
+meaning**: there is no true benefit subgroup under this
+hypothesis.
 
 ```{r dgm-null}
 t0 <- proc.time()[3]
@@ -913,16 +916,63 @@ if (save_results) {
 
 ## Metrics Glossary {#sec-glossary}
 
-The operating-characteristics tables report:
+Classification metrics follow the definitions in León et al.
+(2024, Section 3) adapted for the benefit search.
 
-- **detection**: proportion of simulations where ForestSearch
-  identifies *any* subgroup ($\texttt{any.H} = 1$).  Under the
-  alternative this is detection power; under the null it is
-  the false-positive rate.
+### Detection
 
-- **classification**: among detections, overlap between the
-  identified subgroup $\hat{H}$ and the true subgroup $H$.
-  Includes sensitivity, specificity, and PPV.
+**Found** ($\text{any}(Q)$): proportion of simulations where
+the method identifies *any* benefit subgroup
+($\texttt{any.H} = 1$).
+
+- **Under H1** (alternative): $Q$ exists with a differential
+  treatment effect.  $\text{any}(Q)$ is **detection power**.
+- **Under H0** (null): $Q = \emptyset$ and $Q^c$ is the ITT
+  population.  $\text{any}(Q)$ is the **false positive rate
+  (FPR)** for falsely declaring that a benefit subgroup exists.
+
+### Classification Under H1
+
+Under the alternative, the true benefit subgroup $Q$ exists
+($Q = \{z_1 = 1 \cap z_2 = 1\}$, prevalence $\approx 34\%$)
+with a genuinely different treatment effect.  Following
+León et al. (2024, Section 3), define for estimated
+subgroup $\hat{Q}$:
+
+$$
+\text{sens}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in Q\}},
+\quad
+\text{ppv}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in \hat{Q}\}},
+$$
+
+with analogous measures for the complement $\hat{Q}^c$.
+
+The operating-characteristics tables report these as:
+
+| Table column | León et al. notation | Interpretation |
+|---|---|---|
+| **Sen** | $\text{sens}(\hat{Q})$ | Fraction of true $Q$ captured by $\hat{Q}$ |
+| **Spec** | $\text{sens}(\hat{Q}^c)$ | Fraction of true $Q^c$ correctly in $\hat{Q}^c$ |
+| **PPV** | $\text{ppv}(\hat{Q})$ | Fraction of $\hat{Q}$ truly in $Q$ |
+| **NPV** | $\text{ppv}(\hat{Q}^c)$ | Fraction of $\hat{Q}^c$ truly in $Q^c$ |
+
+All classification metrics are **conditional on detection**
+($\text{any}(Q) = 1$) and averaged across those simulations.
+
+### Classification Under H0
+
+Under the null, $Q = \emptyset$ --- no subgroup with a
+differential treatment effect exists.  The complement $Q^c$
+is the entire ITT population.  Per León et al. (2024,
+Section 3), $\text{sens}(\hat{Q})$ is **undefined** (shown
+as "—" in the table) and $\text{ppv}(\hat{Q}) \equiv 0$.
+For the complement, $\text{sens}(\hat{Q}^c) = |\hat{Q}^c|/N$
+and $\text{ppv}(\hat{Q}^c) = 1$ since $Q^c$ = ITT.
+
+The only operationally meaningful metric under H0 is the
+**detection rate (FPR)**.
+
+### Effect Estimates
 
 All effect estimates are displayed on the **original** treatment
 scale (OR $< 1$ = benefit from ZDV+ddI) via
@@ -1005,6 +1055,12 @@ format_oc_results(
   subgroup_notation = sg_notation
 )
 ```
+
+::: {.callout-note}
+Under H0, $Q = \emptyset$.  Sen is undefined (shown as "—")
+and PPV $\equiv 0$ (León et al. 2024, Section 3).
+The detection rate (Found) is the false positive rate.
+:::
 
 
 ## Classification Table
