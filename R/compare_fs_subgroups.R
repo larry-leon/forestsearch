@@ -14,22 +14,28 @@ utils::globalVariables("group")
 #'
 #' Cross-tabulates subgroup assignments from two analyses and produces
 #' a formatted \code{gt} summary table with concordance statistics.
-#' Accepts either \code{forestsearch} result objects or raw indicator
-#' vectors, making it suitable for comparing any two subgroup methods
-#' (e.g., FS vs GRF, Cox vs Poisson, two simulation runs).
+#' Accepts \code{forestsearch} result objects, GRF result lists, or raw
+#' indicator vectors.  Non-detection (no subgroup found) is handled
+#' automatically: all subjects are classified to the complement.
 #'
-#' @param fs1 Either a \code{forestsearch} result object (with
-#'   \code{df.est$treat.recommend}), a \code{grf.subg.harm} result
-#'   (with \code{data$treat.recommend}), or an integer/logical vector
-#'   of subgroup indicators (0 = H, 1 = Hc).
+#' @param fs1 Either a \code{forestsearch} result object, a
+#'   \code{grf.subg.harm} result (with \code{data$treat.recommend}),
+#'   or an integer/logical vector of subgroup indicators
+#'   (0 = in H/Q, 1 = in Hc/Qc).
 #' @param fs2 Same types as \code{fs1} for the second analysis.
 #' @param label1 Character. Display label for the first analysis.
 #' @param label2 Character. Display label for the second analysis.
 #' @param id.name Character. Subject ID column for merge alignment.
-#'   Only used when \code{fs1}/\code{fs2} are result objects.
+#'   Only used when both inputs are result objects.
 #'   If \code{NULL}, row-position alignment is assumed.
-#' @param sg0_label Character. Label for H (treat.recommend == 0).
-#' @param sg1_label Character. Label for Hc (treat.recommend == 1).
+#' @param sg0_label Character or \code{NULL}. Label for H/Q
+#'   (\code{treat.recommend == 0}).  If \code{NULL}, auto-generated
+#'   from \code{subgroup_notation}.
+#' @param sg1_label Character or \code{NULL}. Label for Hc/Qc
+#'   (\code{treat.recommend == 1}).  If \code{NULL}, auto-generated.
+#' @param subgroup_notation Character. \code{"harm"} uses H/Hc labels;
+#'   \code{"benefit"} uses Q/Qc labels.  Only used when
+#'   \code{sg0_label}/\code{sg1_label} are \code{NULL}.
 #' @param title Character. Table title.
 #' @param subtitle Character or \code{NULL}. Auto-generated if NULL.
 #' @param font_size Numeric. Font size for gt table.
@@ -44,15 +50,21 @@ utils::globalVariables("group")
 #'
 #' @examples
 #' \dontrun{
-#' # Compare two forestsearch objects
+#' # Harm search: Cox vs Poisson (both forestsearch objects)
 #' result <- compare_fs_subgroups(fs_cox, fs_pois,
-#'   label1 = "Cox PH", label2 = "Poisson")
+#'   label1 = "Cox PH", label2 = "Poisson",
+#'   subgroup_notation = "harm")
 #'
-#' # Compare raw indicator vectors
+#' # Benefit search: FS vs GRF (handles non-detection automatically)
+#' result <- compare_fs_subgroups(fs_result, grf_result,
+#'   label1 = "ForestSearch", label2 = "GRF",
+#'   subgroup_notation = "benefit")
+#'
+#' # Raw vectors
 #' result <- compare_fs_subgroups(
-#'   fs_result$df.est$treat.recommend,
-#'   grf_result$data$treat.recommend,
-#'   label1 = "ForestSearch", label2 = "GRF")
+#'   c(rep(0L, 30), rep(1L, 70)),
+#'   c(rep(0L, 25), rep(1L, 75)),
+#'   label1 = "Method A", label2 = "Method B")
 #' }
 #'
 #' @importFrom gt gt tab_header tab_spanner cols_label fmt_number
@@ -65,38 +77,60 @@ compare_fs_subgroups <- function(
     label1    = "Analysis 1",
     label2    = "Analysis 2",
     id.name   = NULL,
-    sg0_label = "H (Questionable)",
-    sg1_label = "H\u1d9c (Recommend)",
+    sg0_label = NULL,
+    sg1_label = NULL,
+    subgroup_notation = c("harm", "benefit"),
     title     = "Subgroup Membership Comparison",
     subtitle  = NULL,
     font_size = 12
 ) {
 
+  subgroup_notation <- match.arg(subgroup_notation)
+
+  # ─── Default labels from notation ──────────────────────────────────────
+  if (is.null(sg0_label)) {
+    sg0_label <- if (subgroup_notation == "harm")
+      "H (Questionable)" else "Q (Benefit)"
+  }
+  if (is.null(sg1_label)) {
+    sg1_label <- if (subgroup_notation == "harm")
+      paste0("H", "\u1d9c", " (Recommend)") else
+      paste0("Q", "\u1d9c", " (No benefit)")
+  }
+
   # ─── Extract indicator vectors from various input types ────────────────
   .extract_sg <- function(obj, obj_label) {
     # Raw vector
     if (is.numeric(obj) || is.logical(obj)) {
-      return(list(sg = as.integer(obj), ids = NULL, sg_def = NULL))
+      return(list(sg = as.integer(obj), ids = NULL, sg_def = NULL,
+                  detected = any(as.integer(obj) == 0L)))
     }
     # forestsearch object
-    if (inherits(obj, "forestsearch") && !is.null(obj$df.est)) {
-      stopifnot("treat.recommend" %in% names(obj$df.est))
-      ids <- if (!is.null(id.name) && id.name %in% names(obj$df.est))
-        obj$df.est[[id.name]] else NULL
-      sg_def <- if (!is.null(obj$sg.harm))
+    if (inherits(obj, "forestsearch")) {
+      sg_def <- if (!is.null(obj$sg.harm) && length(obj$sg.harm) > 0)
         paste(obj$sg.harm, collapse = " & ") else "(none identified)"
-      return(list(sg = obj$df.est$treat.recommend, ids = ids,
-                  sg_def = sg_def))
+
+      if (!is.null(obj$df.est) &&
+          "treat.recommend" %in% names(obj$df.est)) {
+        ids <- if (!is.null(id.name) && id.name %in% names(obj$df.est))
+          obj$df.est[[id.name]] else NULL
+        return(list(sg = obj$df.est$treat.recommend, ids = ids,
+                    sg_def = sg_def, detected = any(obj$df.est$treat.recommend == 0L)))
+      }
+      # df.est is NULL → no subgroup detected → all Hc
+      # N will be inferred from the other input in alignment
+      return(list(sg = NULL, ids = NULL, sg_def = sg_def, detected = FALSE))
     }
     # GRF result (list with data$treat.recommend)
     if (is.list(obj) && !is.null(obj$data) &&
         "treat.recommend" %in% names(obj$data)) {
       ids <- if (!is.null(id.name) && id.name %in% names(obj$data))
         obj$data[[id.name]] else NULL
-      sg_def <- if (!is.null(obj$sg.harm.id))
-        paste(obj$sg.harm.id, collapse = " & ") else NULL
+      sg_def <- if (!is.null(obj$sg.harm.id) && length(obj$sg.harm.id) > 0)
+        paste(obj$sg.harm.id, collapse = " & ") else "(none identified)"
       return(list(sg = obj$data$treat.recommend, ids = ids,
-                  sg_def = sg_def))
+                  sg_def = sg_def,
+                  detected = any(obj$data$treat.recommend == 0L)))
     }
     stop(sprintf(
       paste0("%s must be a forestsearch object, a GRF result with ",
@@ -107,6 +141,19 @@ compare_fs_subgroups <- function(
 
   ex1 <- .extract_sg(fs1, "fs1")
   ex2 <- .extract_sg(fs2, "fs2")
+
+  # ─── Handle non-detection: fill NULL sg with all-complement ────────────
+  if (is.null(ex1$sg) && is.null(ex2$sg))
+    stop("Both inputs have no subgroup assignments.", call. = FALSE)
+
+  if (is.null(ex1$sg)) {
+    n <- length(ex2$sg)
+    ex1$sg <- rep(1L, n)
+  }
+  if (is.null(ex2$sg)) {
+    n <- length(ex1$sg)
+    ex2$sg <- rep(1L, n)
+  }
 
   sg_def1 <- if (!is.null(ex1$sg_def)) ex1$sg_def else "(vector input)"
   sg_def2 <- if (!is.null(ex2$sg_def)) ex2$sg_def else "(vector input)"
@@ -186,7 +233,9 @@ compare_fs_subgroups <- function(
 
   # Auto subtitle
   if (is.null(subtitle)) {
-    subtitle <- sprintf("%s vs. %s", label1, label2)
+    det1 <- if (ex1$detected) sg_def1 else "(no detection)"
+    det2 <- if (ex2$detected) sg_def2 else "(no detection)"
+    subtitle <- sprintf("%s: %s vs. %s: %s", label1, det1, label2, det2)
   }
 
   # Build gt table

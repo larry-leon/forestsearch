@@ -24,7 +24,8 @@
 # Null-coalescing helper (local to this file).
 # Defined here rather than importing rlang::%||% because this file
 # runs inside parallel workers where rlang may not be loaded.
-`%||%` <- function(a, b) if (!is.null(a)) a else b
+if (!exists("%||%", inherits = FALSE))
+  `%||%` <- function(a, b) if (!is.null(a)) a else b
 
 
 #' Default ForestSearch parameters (general)
@@ -313,6 +314,7 @@ run_simulation_analysis <- function(
 
   # ── Run analyses ───────────────────────────────────────────────────────────
   results_list <- list()
+  sg_hat_list  <- list()   # per-subject subgroup assignments for concordance
 
   if (show_verbose) {
     to_run <- c(if (run_fs) "FS", if (run_fs_grf) "FSlg", if (run_grf) "GRF")
@@ -324,15 +326,16 @@ run_simulation_analysis <- function(
       modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = FALSE)),
       fs_params
     )
-    results_list[["FS"]] <- cbind(df_pop,
-      .run_fs_analysis_gen(
+    fs_out <- .run_fs_analysis_gen(
         data = sim_data, confounders_name = confounders_name,
         params = fs_p, dgm = dgm,
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
         outcome_name = outcome_name, event_name = event_name,
         treat_name = treat_name, harm_col = harm_col,
         label = "FS", verbose = show_verbose
-      ))
+      )
+    sg_hat_list[["FS"]] <- attr(fs_out, "sg_hat")
+    results_list[["FS"]] <- cbind(df_pop, fs_out)
   }
 
   if (run_fs_grf) {
@@ -340,22 +343,22 @@ run_simulation_analysis <- function(
       modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = TRUE)),
       fs_params
     )
-    results_list[["FSlg"]] <- cbind(df_pop,
-      .run_fs_analysis_gen(
+    fslg_out <- .run_fs_analysis_gen(
         data = sim_data, confounders_name = confounders_name,
         params = fs_p, dgm = dgm,
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
         outcome_name = outcome_name, event_name = event_name,
         treat_name = treat_name, harm_col = harm_col,
         label = "FSlg", verbose = show_verbose
-      ))
+      )
+    sg_hat_list[["FSlg"]] <- attr(fslg_out, "sg_hat")
+    results_list[["FSlg"]] <- cbind(df_pop, fslg_out)
   }
 
   if (run_grf) {
     # Resolve id_name from merged GRF params (falls back to "id")
     id_name_resolved <- grf_merged$id.name %||% "id"
-    results_list[["GRF"]] <- cbind(df_pop,
-      .run_grf_analysis_gen(
+    grf_out <- .run_grf_analysis_gen(
         data = sim_data, confounders_name = confounders_name,
         params = grf_merged, dgm = dgm,
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
@@ -366,12 +369,51 @@ run_simulation_analysis <- function(
         effect_measure = fs_params$effect_measure,
         offset_name    = fs_params$offset.name,
         id_name        = id_name_resolved
-      ))
+      )
+    sg_hat_list[["GRF"]] <- attr(grf_out, "sg_hat")
+    results_list[["GRF"]] <- cbind(df_pop, grf_out)
   }
 
   if (length(results_list) == 0) {
     warning("No analyses were run. Check run_fs / run_fs_grf / run_grf.")
     return(NULL)
+  }
+
+  # ── Pairwise classification concordance ──────────────────────────────────
+  # When multiple methods run on the same sim_data, compute per-subject
+
+  # agreement between each pair.  Stored as columns agree.M1.M2 and
+  # kappa.M1.M2 on every row (values are per-sim, identical across methods).
+  valid_sg <- names(sg_hat_list)[
+    vapply(sg_hat_list, function(x) !is.null(x) && length(x) > 0, logical(1))
+  ]
+
+  if (length(valid_sg) >= 2) {
+    pairs <- utils::combn(valid_sg, 2, simplify = FALSE)
+    for (pair in pairs) {
+      sg1 <- sg_hat_list[[pair[1]]]
+      sg2 <- sg_hat_list[[pair[2]]]
+
+      if (length(sg1) == length(sg2)) {
+        agree <- mean(sg1 == sg2)
+
+        # Cohen's kappa
+        ct <- table(factor(sg1, levels = 0:1),
+                    factor(sg2, levels = 0:1))
+        p_obs <- sum(diag(ct)) / sum(ct)
+        p_exp <- sum(rowSums(ct) * colSums(ct)) / sum(ct)^2
+        kappa <- if (abs(1 - p_exp) < 1e-10) 1.0 else
+          (p_obs - p_exp) / (1 - p_exp)
+
+        col_agree <- paste0("agree.", pair[1], ".", pair[2])
+        col_kappa <- paste0("kappa.", pair[1], ".", pair[2])
+
+        for (nm in names(results_list)) {
+          results_list[[nm]][[col_agree]] <- agree
+          results_list[[nm]][[col_kappa]] <- kappa
+        }
+      }
+    }
   }
 
   result <- data.table::rbindlist(results_list, fill = TRUE)
@@ -569,6 +611,7 @@ run_simulation_analysis <- function(
       }
     }
 
+    attr(out, "sg_hat") <- rep(0L, nrow(df))
     return(out)
   }
 
@@ -603,6 +646,7 @@ run_simulation_analysis <- function(
           out$spec <- 1;  out$npv <- 1
         }
       }
+      attr(out, "sg_hat") <- rep(0L, nrow(df))
       return(out)
     }
   }
@@ -671,6 +715,8 @@ run_simulation_analysis <- function(
     }
   }
 
+  attr(out, "sg_hat") <- if ("sg_hat" %in% names(df)) df$sg_hat else
+    rep(0L, nrow(df))
   out
 }
 
@@ -856,6 +902,7 @@ run_simulation_analysis <- function(
         out$spec <- 1;  out$npv <- 1
       }
     }
+    attr(out, "sg_hat") <- rep(0L, nrow(df))
     return(out)
   }
 
@@ -881,6 +928,7 @@ run_simulation_analysis <- function(
         out$spec <- 1;  out$npv <- 1
       }
     }
+    attr(out, "sg_hat") <- rep(0L, nrow(df))
     return(out)
   }
 
@@ -994,5 +1042,6 @@ run_simulation_analysis <- function(
     }
   }
 
+  attr(out, "sg_hat") <- grf_data$sg_hat
   out
 }
