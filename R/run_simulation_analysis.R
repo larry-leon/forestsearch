@@ -544,6 +544,31 @@ run_simulation_analysis <- function(
 
   if (is.null(fs_res) || nrow(fs_res) == 0) {
     out$hr.Hc.hat <- out$hr.itt
+    out$size.H  <- 0L
+    out$size.Hc <- nrow(df)
+
+    # Classification when nothing found: everyone is predicted Hc.
+    # Matches fs.estimates.out() from the paper's original code.
+    if (harm_col %in% names(df)) {
+      true_H <- df[[harm_col]] == 1L
+      n_true_H <- sum(true_H)
+
+      if (n_true_H > 0) {
+        # Alt: H exists but was not found.
+        # sens = 0 (none of H captured), ppv = 0 (no Ĥ predicted).
+        out$sens <- 0
+        out$ppv  <- 0
+        out$spec <- sum(!true_H) / nrow(df)  # = |Hc|/N
+        out$npv  <- 1                          # all Hc correctly in Ĥc
+      }
+      # Null (n_true_H == 0): sens/ppv remain NA (undefined).
+      # spec = 1, npv = 1 (everyone is Hc and predicted Hc).
+      if (n_true_H == 0) {
+        out$spec <- 1
+        out$npv  <- 1
+      }
+    }
+
     return(out)
   }
 
@@ -565,6 +590,19 @@ run_simulation_analysis <- function(
       df$sg_hat <- create_subgroup_indicator(df, sg_factors)
     else {
       out$hr.Hc.hat <- out$hr.itt
+      out$size.H  <- 0L
+      out$size.Hc <- nrow(df)
+
+      if (harm_col %in% names(df)) {
+        true_H <- df[[harm_col]] == 1L
+        n_true_H <- sum(true_H)
+        if (n_true_H > 0) {
+          out$sens <- 0;  out$ppv <- 0
+          out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+        } else {
+          out$spec <- 1;  out$npv <- 1
+        }
+      }
       return(out)
     }
   }
@@ -804,6 +842,20 @@ run_simulation_analysis <- function(
 
   if (is.null(grf_est)) {
     out$hr.Hc.hat <- out$hr.itt
+    out$size.H  <- 0L
+    out$size.Hc <- nrow(df)
+
+    # Classification when GRF fails: everyone is predicted Hc.
+    if (harm_col %in% names(df)) {
+      true_H <- df[[harm_col]] == 1L
+      n_true_H <- sum(true_H)
+      if (n_true_H > 0) {
+        out$sens <- 0;  out$ppv <- 0
+        out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+      } else {
+        out$spec <- 1;  out$npv <- 1
+      }
+    }
     return(out)
   }
 
@@ -816,6 +868,19 @@ run_simulation_analysis <- function(
 
   if (!has_sg || !has_tr) {
     out$hr.Hc.hat <- out$hr.itt
+    out$size.H  <- 0L
+    out$size.Hc <- nrow(df)
+
+    if (harm_col %in% names(df)) {
+      true_H <- df[[harm_col]] == 1L
+      n_true_H <- sum(true_H)
+      if (n_true_H > 0) {
+        out$sens <- 0;  out$ppv <- 0
+        out$spec <- sum(!true_H) / nrow(df);  out$npv <- 1
+      } else {
+        out$spec <- 1;  out$npv <- 1
+      }
+    }
     return(out)
   }
 

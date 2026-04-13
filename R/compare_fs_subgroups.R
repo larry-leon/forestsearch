@@ -10,61 +10,49 @@
 utils::globalVariables("group")
 
 
-#' Compare Subgroup Membership Across Two ForestSearch Analyses
+#' Compare Subgroup Membership Across Two Analyses
 #'
-#' Cross-tabulates the subgroup assignments (\code{treat.recommend}) from
-#' two \code{forestsearch} result objects and produces a formatted \code{gt}
-#' summary table with concordance statistics.  Useful for assessing whether
-#' different modelling approaches (e.g., Cox PH vs. Poisson rate model)
-#' identify the same patients as belonging to the harm subgroup.
+#' Cross-tabulates subgroup assignments from two analyses and produces
+#' a formatted \code{gt} summary table with concordance statistics.
+#' Accepts either \code{forestsearch} result objects or raw indicator
+#' vectors, making it suitable for comparing any two subgroup methods
+#' (e.g., FS vs GRF, Cox vs Poisson, two simulation runs).
 #'
-#' @param fs1 A \code{forestsearch} result object (must contain
-#'   \code{df.est$treat.recommend}).
-#' @param fs2 A second \code{forestsearch} result object.
+#' @param fs1 Either a \code{forestsearch} result object (with
+#'   \code{df.est$treat.recommend}), a \code{grf.subg.harm} result
+#'   (with \code{data$treat.recommend}), or an integer/logical vector
+#'   of subgroup indicators (0 = H, 1 = Hc).
+#' @param fs2 Same types as \code{fs1} for the second analysis.
 #' @param label1 Character. Display label for the first analysis.
-#'   Default: \code{"Analysis 1"}.
 #' @param label2 Character. Display label for the second analysis.
-#'   Default: \code{"Analysis 2"}.
-#' @param id.name Character. Name of the subject ID column in
-#'   \code{df.est}.
-#'   If \code{NULL} (default), row-position alignment is assumed (both
-#'   \code{df.est} data frames must have identical row order and length).
-#'   When specified, a merge on \code{id.name} is performed so that
-#'   analyses with different row orders are handled correctly.
-#' @param sg0_label Character. Label for H (harm / questionable benefit)
-#'   subgroup (\code{treat.recommend == 0}).
-#'   Default: \code{"H (Questionable)"}.
-#' @param sg1_label Character. Label for Hc (recommend treatment)
-#'   subgroup (\code{treat.recommend == 1}).
-#'   Default: \code{"H\u1d9c (Recommend)"}.
-#' @param title Character or \code{NULL}. Table title.
-#'   Default: \code{"Subgroup Membership Comparison"}.
-#' @param subtitle Character or \code{NULL}. Table subtitle.
-#'   Default: auto-generated from \code{label1} and \code{label2}.
-#' @param font_size Numeric. Base font size for the gt table.
-#'   Default: 12.
+#' @param id.name Character. Subject ID column for merge alignment.
+#'   Only used when \code{fs1}/\code{fs2} are result objects.
+#'   If \code{NULL}, row-position alignment is assumed.
+#' @param sg0_label Character. Label for H (treat.recommend == 0).
+#' @param sg1_label Character. Label for Hc (treat.recommend == 1).
+#' @param title Character. Table title.
+#' @param subtitle Character or \code{NULL}. Auto-generated if NULL.
+#' @param font_size Numeric. Font size for gt table.
 #'
-#' @return A list with components:
+#' @return A list with:
 #'   \describe{
-#'     \item{table}{A \code{gt} object ready for display or export.}
-#'     \item{crosstab}{The underlying cross-tabulation matrix.}
-#'     \item{concordance}{A list of agreement statistics: \code{agreement}
-#'       (proportion), \code{kappa} (Cohen's kappa), \code{n_agree},
-#'       \code{n_disagree}, \code{n_total}.}
-#'     \item{membership}{A data frame with per-subject assignments
-#'       from both analyses.}
+#'     \item{table}{A \code{gt} cross-tabulation table.}
+#'     \item{crosstab}{The raw cross-tabulation matrix.}
+#'     \item{concordance}{Agreement, kappa, counts.}
+#'     \item{membership}{Per-subject assignments from both analyses.}
 #'   }
 #'
 #' @examples
 #' \dontrun{
-#' # Compare Cox and Poisson ForestSearch analyses
+#' # Compare two forestsearch objects
+#' result <- compare_fs_subgroups(fs_cox, fs_pois,
+#'   label1 = "Cox PH", label2 = "Poisson")
+#'
+#' # Compare raw indicator vectors
 #' result <- compare_fs_subgroups(
-#'   fs_cox, fs_pois,
-#'   label1 = "Cox PH (HR)",
-#'   label2 = "Poisson (IRR)",
-#'   id.name = "id"
-#' )
-#' result$table
+#'   fs_result$df.est$treat.recommend,
+#'   grf_result$data$treat.recommend,
+#'   label1 = "ForestSearch", label2 = "GRF")
 #' }
 #'
 #' @importFrom gt gt tab_header tab_spanner cols_label fmt_number
@@ -84,54 +72,66 @@ compare_fs_subgroups <- function(
     font_size = 12
 ) {
 
-  # ─── Input validation ────────────────────────────────────────────────────
-  stopifnot(
-    inherits(fs1, "forestsearch"),
-    inherits(fs2, "forestsearch"),
-    !is.null(fs1$df.est),
-    !is.null(fs2$df.est),
-    "treat.recommend" %in% names(fs1$df.est),
-    "treat.recommend" %in% names(fs2$df.est)
-  )
+  # ─── Extract indicator vectors from various input types ────────────────
+  .extract_sg <- function(obj, obj_label) {
+    # Raw vector
+    if (is.numeric(obj) || is.logical(obj)) {
+      return(list(sg = as.integer(obj), ids = NULL, sg_def = NULL))
+    }
+    # forestsearch object
+    if (inherits(obj, "forestsearch") && !is.null(obj$df.est)) {
+      stopifnot("treat.recommend" %in% names(obj$df.est))
+      ids <- if (!is.null(id.name) && id.name %in% names(obj$df.est))
+        obj$df.est[[id.name]] else NULL
+      sg_def <- if (!is.null(obj$sg.harm))
+        paste(obj$sg.harm, collapse = " & ") else "(none identified)"
+      return(list(sg = obj$df.est$treat.recommend, ids = ids,
+                  sg_def = sg_def))
+    }
+    # GRF result (list with data$treat.recommend)
+    if (is.list(obj) && !is.null(obj$data) &&
+        "treat.recommend" %in% names(obj$data)) {
+      ids <- if (!is.null(id.name) && id.name %in% names(obj$data))
+        obj$data[[id.name]] else NULL
+      sg_def <- if (!is.null(obj$sg.harm.id))
+        paste(obj$sg.harm.id, collapse = " & ") else NULL
+      return(list(sg = obj$data$treat.recommend, ids = ids,
+                  sg_def = sg_def))
+    }
+    stop(sprintf(
+      paste0("%s must be a forestsearch object, a GRF result with ",
+             "data$treat.recommend, or a numeric/logical vector."),
+      obj_label
+    ), call. = FALSE)
+  }
 
-  df1 <- fs1$df.est
-  df2 <- fs2$df.est
+  ex1 <- .extract_sg(fs1, "fs1")
+  ex2 <- .extract_sg(fs2, "fs2")
+
+  sg_def1 <- if (!is.null(ex1$sg_def)) ex1$sg_def else "(vector input)"
+  sg_def2 <- if (!is.null(ex2$sg_def)) ex2$sg_def else "(vector input)"
 
   # ─── Align subjects ─────────────────────────────────────────────────────
-  if (!is.null(id.name)) {
-    if (!id.name %in% names(df1) || !id.name %in% names(df2)) {
-      stop("id.name '", id.name, "' not found in one or both df.est objects.",
-           call. = FALSE)
-    }
+  if (!is.null(id.name) && !is.null(ex1$ids) && !is.null(ex2$ids)) {
     merged <- merge(
-      data.frame(id = df1[[id.name]], sg1 = df1$treat.recommend),
-      data.frame(id = df2[[id.name]], sg2 = df2$treat.recommend),
+      data.frame(id = ex1$ids, sg1 = ex1$sg),
+      data.frame(id = ex2$ids, sg2 = ex2$sg),
       by = "id"
     )
-    if (nrow(merged) == 0L) {
+    if (nrow(merged) == 0L)
       stop("No matching IDs between the two analyses.", call. = FALSE)
-    }
-    if (nrow(merged) < nrow(df1) || nrow(merged) < nrow(df2)) {
-      warning(
-        sprintf("Merged %d of %d (analysis 1) and %d (analysis 2) subjects.",
-                nrow(merged), nrow(df1), nrow(df2)),
-        call. = FALSE
-      )
-    }
+    if (nrow(merged) < length(ex1$sg) || nrow(merged) < length(ex2$sg))
+      warning(sprintf("Merged %d of %d / %d subjects.",
+                      nrow(merged), length(ex1$sg), length(ex2$sg)),
+              call. = FALSE)
   } else {
-    if (nrow(df1) != nrow(df2)) {
-      stop(
-        sprintf(
-          paste0("Row counts differ (%d vs %d) and id.name is NULL.\n",
-                 "  Provide id.name for merge-based alignment."),
-          nrow(df1), nrow(df2)),
-        call. = FALSE
-      )
-    }
+    if (length(ex1$sg) != length(ex2$sg))
+      stop(sprintf("Lengths differ (%d vs %d). Provide id.name or equal-length vectors.",
+                   length(ex1$sg), length(ex2$sg)), call. = FALSE)
     merged <- data.frame(
-      id  = seq_len(nrow(df1)),
-      sg1 = df1$treat.recommend,
-      sg2 = df2$treat.recommend
+      id  = seq_along(ex1$sg),
+      sg1 = ex1$sg,
+      sg2 = ex2$sg
     )
   }
 
@@ -168,18 +168,6 @@ compare_fs_subgroups <- function(
   )
 
   # ─── Build gt display table ─────────────────────────────────────────────
-
-  # Subgroup definitions
-  sg_def1 <- if (!is.null(fs1$sg.harm)) {
-    paste(fs1$sg.harm, collapse = " & ")
-  } else {
-    "(none identified)"
-  }
-  sg_def2 <- if (!is.null(fs2$sg.harm)) {
-    paste(fs2$sg.harm, collapse = " & ")
-  } else {
-    "(none identified)"
-  }
 
   # Cross-tab as data frame for gt
   ct_df <- as.data.frame.matrix(ct_mat)

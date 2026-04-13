@@ -1313,3 +1313,4 @@ render_reference_table <- function(
 
   gt_tbl
 }
+

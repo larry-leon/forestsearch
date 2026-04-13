@@ -2,7 +2,7 @@
 % Please edit documentation in R/compare_fs_subgroups.R
 \name{compare_fs_subgroups}
 \alias{compare_fs_subgroups}
-\title{Compare Subgroup Membership Across Two ForestSearch Analyses}
+\title{Compare Subgroup Membership Across Two Analyses}
 \usage{
 compare_fs_subgroups(
   fs1,
@@ -18,70 +18,58 @@ compare_fs_subgroups(
 )
 }
 \arguments{
-\item{fs1}{A \code{forestsearch} result object (must contain
-\code{df.est$treat.recommend}).}
+\item{fs1}{Either a \code{forestsearch} result object (with
+\code{df.est$treat.recommend}), a \code{grf.subg.harm} result
+(with \code{data$treat.recommend}), or an integer/logical vector
+of subgroup indicators (0 = H, 1 = Hc).}
 
-\item{fs2}{A second \code{forestsearch} result object.}
+\item{fs2}{Same types as \code{fs1} for the second analysis.}
 
-\item{label1}{Character. Display label for the first analysis.
-Default: \code{"Analysis 1"}.}
+\item{label1}{Character. Display label for the first analysis.}
 
-\item{label2}{Character. Display label for the second analysis.
-Default: \code{"Analysis 2"}.}
+\item{label2}{Character. Display label for the second analysis.}
 
-\item{id.name}{Character. Name of the subject ID column in
-\code{df.est}.
-If \code{NULL} (default), row-position alignment is assumed (both
-\code{df.est} data frames must have identical row order and length).
-When specified, a merge on \code{id.name} is performed so that
-analyses with different row orders are handled correctly.}
+\item{id.name}{Character. Subject ID column for merge alignment.
+Only used when \code{fs1}/\code{fs2} are result objects.
+If \code{NULL}, row-position alignment is assumed.}
 
-\item{sg0_label}{Character. Label for H (harm / questionable benefit)
-subgroup (\code{treat.recommend == 0}).
-Default: \code{"H (Questionable)"}.}
+\item{sg0_label}{Character. Label for H (treat.recommend == 0).}
 
-\item{sg1_label}{Character. Label for Hc (recommend treatment)
-subgroup (\code{treat.recommend == 1}).
-Default: \code{"H\u1d9c (Recommend)"}.}
+\item{sg1_label}{Character. Label for Hc (treat.recommend == 1).}
 
-\item{title}{Character or \code{NULL}. Table title.
-Default: \code{"Subgroup Membership Comparison"}.}
+\item{title}{Character. Table title.}
 
-\item{subtitle}{Character or \code{NULL}. Table subtitle.
-Default: auto-generated from \code{label1} and \code{label2}.}
+\item{subtitle}{Character or \code{NULL}. Auto-generated if NULL.}
 
-\item{font_size}{Numeric. Base font size for the gt table.
-Default: 12.}
+\item{font_size}{Numeric. Font size for gt table.}
 }
 \value{
-A list with components:
+A list with:
 \describe{
-\item{table}{A \code{gt} object ready for display or export.}
-\item{crosstab}{The underlying cross-tabulation matrix.}
-\item{concordance}{A list of agreement statistics: \code{agreement}
-(proportion), \code{kappa} (Cohen's kappa), \code{n_agree},
-\code{n_disagree}, \code{n_total}.}
-\item{membership}{A data frame with per-subject assignments
-from both analyses.}
+\item{table}{A \code{gt} cross-tabulation table.}
+\item{crosstab}{The raw cross-tabulation matrix.}
+\item{concordance}{Agreement, kappa, counts.}
+\item{membership}{Per-subject assignments from both analyses.}
 }
 }
 \description{
-Cross-tabulates the subgroup assignments (\code{treat.recommend}) from
-two \code{forestsearch} result objects and produces a formatted \code{gt}
-summary table with concordance statistics.  Useful for assessing whether
-different modelling approaches (e.g., Cox PH vs. Poisson rate model)
-identify the same patients as belonging to the harm subgroup.
+Cross-tabulates subgroup assignments from two analyses and produces
+a formatted \code{gt} summary table with concordance statistics.
+Accepts either \code{forestsearch} result objects or raw indicator
+vectors, making it suitable for comparing any two subgroup methods
+(e.g., FS vs GRF, Cox vs Poisson, two simulation runs).
 }
 \examples{
 \dontrun{
-# Compare Cox and Poisson ForestSearch analyses
+# Compare two forestsearch objects
+result <- compare_fs_subgroups(fs_cox, fs_pois,
+  label1 = "Cox PH", label2 = "Poisson")
+
+# Compare raw indicator vectors
 result <- compare_fs_subgroups(
-  fs_cox, fs_pois,
-  label1 = "Cox PH (HR)",
-  label2 = "Poisson (IRR)",
-  id.name = "id"
-)
-result$table
+  fs_result$df.est$treat.recommend,
+  grf_result$data$treat.recommend,
+  label1 = "ForestSearch", label2 = "GRF")
 }
 
 }

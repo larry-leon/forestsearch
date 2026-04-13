@@ -24,10 +24,15 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 1000L
-nsims_null  <- 2000L
+nsims_alt   <- 20L
+nsims_null  <- 20L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+
+# -- Production projection targets --------------------------------------------
+prod_alt               <- 5000L
+prod_null              <- 25000L
+
 
 # -- Dataset preparation: ACTG175 ---------------------------------------------
 #
@@ -136,9 +141,6 @@ sg_notation            <- "benefit"
 save_results           <- TRUE
 output_dir             <- "_data"
 
-# -- Production projection targets --------------------------------------------
-prod_alt               <- 2000L
-prod_null              <- 4000L
 ```
 
 ```{r timing-init}
@@ -162,6 +164,66 @@ The simulation uses the `forestsearch` GLM simulation suite
 `simulate_from_glm_dgm`) and routes through
 `run_simulation_analysis()` via class-based dispatch on the
 `"glm_dgm"` object.
+
+## Statistical Goals
+
+This simulation study addresses three questions about
+ForestSearch and GRF standalone subgroup identification
+applied to **binary outcomes**:
+
+1. **Detection power (H1)**: When a benefit subgroup $Q$
+   exists with OR(Q) = `r cal_target_or` (switched scale),
+   how often do ForestSearch and GRF identify *any* subgroup?
+2. **False positive control (H0)**: When the treatment effect
+   is homogeneous (no true $Q$), how often does each method
+   falsely declare a benefit subgroup?
+3. **Classification accuracy (H1)**: Conditional on detection,
+   how well does the estimated $\hat{Q}$ recover the true $Q$?
+   Measured by sensitivity ($\text{sens}(\hat{Q})$: fraction of
+   true $Q$ captured) and positive predictive value
+   ($\text{ppv}(\hat{Q})$: fraction of $\hat{Q}$ truly in $Q$).
+
+::: {.callout-tip}
+## Summary of results
+See [Summary] at the end for a data-driven
+summary of detection, classification, and timing from this run.
+:::
+
+## Simulation Pipeline
+
+The simulation proceeds in six steps:
+
+1. **Data preparation** (@sec-data): Load the ACTG175 trial,
+   restrict to arms 1 (ZDV+ddI) and 3 (ddI), create binary
+   covariates $z_1$--$z_{12}$, and switch treatment labels
+   so ddI = `treat = 1` and ZDV+ddI = `treat = 0` (benefit
+   search convention).
+
+2. **DGM construction** (@sec-dgm): Fit a logistic regression
+   to the observed data, create a 5,000-subject super-population,
+   and define the true benefit subgroup
+   $Q = \{z_1 = 1 \cap z_2 = 1\}$ (age > `r actg_age_cut`
+   AND preanti $\leq$ `r actg_preanti_cut`).
+
+3. **Calibration** (@sec-calibrate): Search over `k_inter`
+   values to find the interaction strength that produces
+   $\text{OR}(Q) = `r cal_target_or`$ on the switched scale
+   (= $`r round(1/cal_target_or, 2)`$ on the original scale).
+
+4. **Single-data analysis** (@sec-single): Run ForestSearch
+   and GRF on the observed ACTG175 data to verify the
+   pipeline produces valid results before scaling to
+   simulation.
+
+5. **Monte Carlo simulation** (@sec-sims): For each of
+   `r nsims_alt` alternative and `r nsims_null` null
+   replicates, draw a random sample of $N = `r sim_n_sample`$
+   from the DGM super-population, run ForestSearch and GRF,
+   and record detection, classification, and effect estimates.
+
+6. **Evaluation** (@sec-results): Compute operating
+   characteristics (detection, sensitivity, PPV, effect
+   estimation bias) under both hypotheses.
 
 ## Benefit Search on the OR Scale
 
@@ -637,6 +699,88 @@ cat(sprintf("\nSingle-data analysis: %.1f sec\n", timings$single_data))
 ```
 
 
+## GRF Standalone on Observed Data
+
+```{r grf-single-data}
+#| code-fold: false
+
+grf_actg <- grf.subg.harm.glm(
+  data             = actg_df,
+  confounders.name = confounders_actg,
+  outcome.name     = "y_binary",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  dmin.grf         = grf_dmin,
+  maxdepth         = grf_maxdepth,
+  RCT              = TRUE,
+  sg.criterion     = grf_sg_criterion,
+  details          = TRUE
+)
+
+if (!is.null(grf_actg$sg.harm.id) && length(grf_actg$sg.harm.id) > 0) {
+  cat("GRF subgroup:", paste(grf_actg$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_actg$data$treat.recommend == 0
+  cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+      sum(grf_H), sum(!grf_H)))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+
+## FS vs GRF Concordance on Observed Data
+
+```{r fs-grf-concordance}
+# Compare subgroup membership between ForestSearch and GRF standalone
+fs_has_sg  <- !is.null(fs_actg$grp.consistency$sg.harm.id)
+grf_has_sg <- !is.null(grf_actg$sg.harm.id) &&
+              length(grf_actg$sg.harm.id) > 0
+
+if (fs_has_sg && grf_has_sg) {
+  sg_compare <- compare_fs_subgroups(
+    fs1       = fs_actg,
+    fs2       = grf_actg,
+    label1    = "ForestSearch",
+    label2    = "GRF Standalone",
+    id.name   = "id",
+    sg0_label = "Q (Benefit)",
+    sg1_label = paste0("Q", "\u1d9c", " (No benefit)"),
+    title     = "FS vs GRF: Subgroup Membership Concordance",
+    subtitle  = "ACTG175 observed data (binary benefit search)",
+    font_size = 13
+  )
+
+  sg_compare$table
+
+} else if (fs_has_sg && !grf_has_sg) {
+  cat("GRF did not identify a subgroup — concordance not computed.\n")
+  cat("ForestSearch subgroup:",
+      paste(fs_actg$grp.consistency$sg.harm.id, collapse = " & "), "\n")
+} else if (!fs_has_sg && grf_has_sg) {
+  cat("ForestSearch did not identify a subgroup — concordance not computed.\n")
+  cat("GRF subgroup:", paste(grf_actg$sg.harm.id, collapse = " & "), "\n")
+} else {
+  cat("Neither method identified a subgroup.\n")
+}
+```
+
+```{r fs-grf-concordance-detail}
+if (fs_has_sg && grf_has_sg) {
+  cat("Concordance statistics:\n")
+  cat(sprintf("  Agreement: %.1f%%\n",
+      100 * sg_compare$concordance$agreement))
+  cat(sprintf("  Cohen's kappa: %.3f\n",
+      sg_compare$concordance$kappa))
+  cat(sprintf("  Concordant: %d / Discordant: %d / Total: %d\n",
+      sg_compare$concordance$n_agree,
+      sg_compare$concordance$n_disagree,
+      sg_compare$concordance$n_total))
+}
+```
+
+
 # Single Trial Simulation {#sec-single-trial}
 
 Before the full simulation study, verify that `simulate_from_glm_dgm()`
@@ -956,8 +1100,15 @@ The operating-characteristics tables report these as:
 | **PPV** | $\text{ppv}(\hat{Q})$ | Fraction of $\hat{Q}$ truly in $Q$ |
 | **NPV** | $\text{ppv}(\hat{Q}^c)$ | Fraction of $\hat{Q}^c$ truly in $Q^c$ |
 
-All classification metrics are **conditional on detection**
-($\text{any}(Q) = 1$) and averaged across those simulations.
+Classification metrics are averaged across **all** simulations
+(León et al. 2024, Table 1).  When no subgroup is detected
+($\hat{Q} = \emptyset$), the simulation contributes
+$\text{sens}(\hat{Q}) = 0$ and $\text{ppv}(\hat{Q}) = 0$
+(since no member of $Q$ is captured and no subjects are
+assigned to $\hat{Q}$).  This convention is implemented
+at the source in `run_simulation_analysis()`, matching
+the original `fs.estimates.out()` function used in
+León et al. (2024).
 
 ### Classification Under H0
 
@@ -1213,6 +1364,58 @@ bundle$true_effects$k_inter # calibrated interaction shift
 # Reproduce tables
 format_oc_results(results_alt, ...)
 build_estimation_table(results_alt, dgm = dgm_cal, ...)
+```
+
+
+# Summary {#sec-summary}
+
+```{r summary-compute}
+#| code-fold: true
+#| code-summary: "Compute summary metrics"
+
+mc_se <- function(p, n) sqrt(p * (1 - p) / n)
+methods <- sort(unique(results_alt$analysis))
+
+summ <- data.frame(Method = methods, stringsAsFactors = FALSE)
+for (m in methods) {
+  ra <- results_alt[results_alt$analysis == m, ]
+  rn <- results_null[results_null$analysis == m, ]
+
+  summ$alt_det[summ$Method == m]   <- mean(ra$any.H, na.rm = TRUE)
+  summ$null_fpr[summ$Method == m]  <- mean(rn$any.H, na.rm = TRUE)
+  summ$alt_sens[summ$Method == m]  <- mean(ra$sens, na.rm = TRUE)
+  summ$alt_ppv[summ$Method == m]   <- mean(ra$ppv, na.rm = TRUE)
+  summ$se_det[summ$Method == m]    <- mc_se(
+    summ$alt_det[summ$Method == m], nrow(ra))
+  summ$se_fpr[summ$Method == m]    <- mc_se(
+    summ$null_fpr[summ$Method == m], nrow(rn))
+}
+```
+
+## Key Findings
+
+```{r summary-findings}
+#| results: asis
+
+cat(sprintf("**Simulation budget**: %d alt + %d null sims.\n\n", nsims_alt, nsims_null))
+
+for (m in methods) {
+  s <- summ[summ$Method == m, ]
+  cat(sprintf("- **%s**: Detection = %.1f%%, FPR = %.1f%%, sens(%s) = %.2f, ppv(%s) = %.2f.\n",
+      m, 100 * s$alt_det, 100 * s$null_fpr,
+      ifelse(sg_notation == "benefit", "Q", "H"), s$alt_sens,
+      ifelse(sg_notation == "benefit", "Q", "H"), s$alt_ppv))
+}
+
+time_per_alt  <- timings$sims_alt / nsims_alt
+time_per_null <- timings$sims_null / nsims_null
+cat(sprintf("\n- **Timing**: %.1f sec/sim (alt), %.1f sec/sim (null) on %d workers.\n",
+    time_per_alt, time_per_null, n_workers))
+cat(sprintf("- **Total runtime**: %.1f minutes.\n",
+    as.numeric(timings$total) / 60))
+cat(sprintf("- **Projected for %d alt + %d null**: %.1f hours.\n",
+    prod_alt, prod_null,
+    (prod_alt * time_per_alt + prod_null * time_per_null) / 3600))
 ```
 
 
