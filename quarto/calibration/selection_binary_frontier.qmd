@@ -7,6 +7,9 @@ execute:
   warning: true
   message: true
   fig-align: center
+format:
+  html:
+    code-fold: true
 knitr:
   opts_chunk:
     comment: "#>"
@@ -32,7 +35,7 @@ library(future)
 ```
 
 ```{r timing-init}
-timings <- list()
+timings <- list(leff_cal = 0, validation = 0, power = 0)
 t_vignette_start <- proc.time()
 ```
 
@@ -42,13 +45,18 @@ t_vignette_start <- proc.time()
 
 # ── Simulation control ──────────────────────────────────────────
 # 1000/hr mac
-nsims_val       <- 50L    # validation sims per (c1, c2, N)
+nsims_val       <- 1000L    # validation sims per (c1, c2, N)
+
+# Projection sim values
+nsims_val_prod   <- 1000L
+nsims_power_prod <- 200L
+
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
 
 # ── Output ──────────────────────────────────────────────────────
-output_dir      <- "_data"
+output_dir      <- "../_data"
 
 # ── L_eff calibration source ──────────────────────────────────
 # Loaded from C1's .rds.  Shared DGM/FS parameters are inherited
@@ -60,7 +68,7 @@ recalibrate          <- FALSE
 n_sims_recal         <- 200L
 
 # ── FPR target ─────────────────────────────────────────────────
-fpr_target      <- 0.12
+fpr_target      <- 0.15
 
 # ── Shared DGM / FS parameters (fallbacks if C1 .rds missing) ─
 # These are overwritten by C1's saved config when available.
@@ -96,7 +104,13 @@ c2_heat     <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50)
 ```
 
 ```{r load-calibration}
-#| code-fold: false
+#| code-fold: true
+
+# Diagnostic: confirm working directory and .rds availability
+cat(sprintf("Working directory: %s\n", getwd()))
+cal_rds <- file.path(output_dir, "calibration_binary_leff.rds")
+cat(sprintf("Looking for: %s → %s\n",
+            cal_rds, if (file.exists(cal_rds)) "FOUND" else "NOT FOUND"))
 
 # Load L_eff calibration from C1 (calibration_binary_leff.qmd)
 cal_binary <- tryCatch(
@@ -1238,6 +1252,14 @@ if (run_validation) {
   cat(sprintf(
     "Validating %d frontier pairs (min c2 per c1, FPR_corr <= %.0f%%)\n",
     nrow(val_candidates), 100 * fpr_target))
+
+  if (nrow(val_candidates) == 0) {
+    warning("No candidate pairs to validate — skipping validation phase.")
+    run_validation <- FALSE
+    timings$validation <- 0
+    val_results <- NULL
+  } else {
+
   for (r in seq_len(nrow(val_candidates))) {
     cat(sprintf("  c1=%.2f, c2=%.2f (corr FPR=%.1f%%)\n",
                 val_candidates$c1[r], val_candidates$c2[r],
@@ -1319,6 +1341,8 @@ if (run_validation) {
   timings$validation <- proc.time()[3] - t0
   cat(sprintf("Validation: %.1f min | %d/%d results\n",
       timings$validation / 60, n_received_val, n_expected_val))
+
+  }  # end if (nrow(val_candidates) > 0)
 
 } else {
   timings$validation <- 0
@@ -1718,7 +1742,7 @@ if (timings$power > 0) {
   stages <- c(stages, "Power Simulation (H1)")
   seconds <- c(seconds, timings$power)
 }
-stages <- c(stages, "Total")
+stages <- c(stages, "Total (this run)")
 seconds <- c(seconds, timings$total)
 
 timing_df <- data.frame(
@@ -1728,31 +1752,41 @@ timing_df <- data.frame(
 timing_df$Minutes <- timing_df$Seconds / 60
 timing_df$Hours   <- timing_df$Seconds / 3600
 
-# ── Per-1,000 simulation projection ──────────────────────────
-sim_secs <- timings$leff_cal +
-  (if (run_validation) timings$validation else 0) +
-  timings$power
-n_total_sims <- (if (recalibrate) n_sims_recal * length(N_cal_values) else 0L) +
-  (if (run_validation) nrow(sim_candidates) * length(N_target) * nsims_val else 0L) +
-  (if (nsims_power > 0) nsims_power * length(N_target) else 0L)
+# ── Production projections ──────────────────────────────────
+# Scale observed phase timings to production simulation counts.
+# Calibration is fixed (not scaled); validation and power scale
+# linearly with nsims.
 
-if (n_total_sims > 0) {
-  secs_per_sim <- sim_secs / n_total_sims
-  proj_1k <- secs_per_sim * 1000
+proj_val <- 0
+if (run_validation && nsims_val > 0) {
+  proj_val <- timings$validation * (nsims_val_prod / nsims_val)
   timing_df <- rbind(timing_df, data.frame(
-    Stage   = sprintf("Projected per 1,000 sims (%d actual)", n_total_sims),
-    Seconds = proj_1k,
-    Minutes = proj_1k / 60,
-    Hours   = proj_1k / 3600,
-    stringsAsFactors = FALSE
-  ))
+    Stage   = sprintf("Projected: Validation (%d sims)", nsims_val_prod),
+    Seconds = proj_val, Minutes = proj_val / 60,
+    Hours   = proj_val / 3600, stringsAsFactors = FALSE))
 }
+
+proj_pwr <- 0
+if (timings$power > 0 && nsims_power > 0) {
+  proj_pwr <- timings$power * (nsims_power_prod / nsims_power)
+  timing_df <- rbind(timing_df, data.frame(
+    Stage   = sprintf("Projected: Power (%d sims)", nsims_power_prod),
+    Seconds = proj_pwr, Minutes = proj_pwr / 60,
+    Hours   = proj_pwr / 3600, stringsAsFactors = FALSE))
+}
+
+proj_total <- timings$leff_cal + proj_val + proj_pwr
+timing_df <- rbind(timing_df, data.frame(
+  Stage   = sprintf("Projected: Production total (%d val + %d pwr)",
+                     nsims_val_prod, nsims_power_prod),
+  Seconds = proj_total, Minutes = proj_total / 60,
+  Hours   = proj_total / 3600, stringsAsFactors = FALSE))
 
 subtitle_text <- if (run_validation) {
   sprintf("%d pairs x %d N x %d sims = %d tasks | %d workers",
-    nrow(sim_candidates), length(N_target),
+    nrow(val_candidates), length(N_target),
     nsims_val,
-    nrow(sim_candidates) * length(N_target) * nsims_val,
+    nrow(val_candidates) * length(N_target) * nsims_val,
     n_workers)
 } else {
   sprintf("Approximation only (no simulation) | %d workers",
@@ -1771,7 +1805,11 @@ gt(timing_df) |>
              Minutes = "Time (min)", Hours = "Time (hr)") |>
   tab_style(
     style = cell_text(weight = "bold"),
-    locations = cells_body(rows = grepl("Total|Projected", Stage))
+    locations = cells_body(rows = grepl("Total|Projected: Prod", Stage))
+  ) |>
+  tab_style(
+    style = cell_text(style = "italic"),
+    locations = cells_body(rows = grepl("Projected:", Stage))
   )
 ```
 
