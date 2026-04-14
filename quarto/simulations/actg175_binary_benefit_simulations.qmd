@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 5000L
-nsims_null  <- 20000L
+nsims_alt   <- 2500L
+nsims_null  <- 25000L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
 
@@ -114,7 +114,7 @@ fs_seedit              <- 8316951L
 #     dmin=0.12: Det= 54%, FPR=20%
 #     dmin=0.15: Det= 28%, FPR= 9%
 #
-# tune_grf: if TRUE, enables cross-validated hyperparameter tuning
+# grf_tune: if TRUE, enables cross-validated hyperparameter tuning
 #   (tune.parameters = "all") in causal_forest().  Tunes min.node.size,
 #   mtry, sample.fraction, alpha, imbalance.penalty.  Adds ~2-3 sec per
 #   GRF call but may improve CATE estimation with many confounders.
