@@ -230,33 +230,8 @@ library(doFuture)
 library(future)
 
 # -- Safe foreach result collection -------------------------------------------
-# Replaces .errorhandling = "remove" (which silently drops failures)
-# with .errorhandling = "pass" + post-hoc separation of errors from results.
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    warning(sprintf("%s%d of %d tasks failed.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    message("  First errors:\n    ",
-        paste(head(unique(err_msgs), 3), collapse = "\n    "))
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) {
-    result <- NULL
-  } else if (requireNamespace("data.table", quietly = TRUE)) {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  } else {
-    result <- do.call(rbind, good)
-  }
-  attr(result, "n_failed") <- n_failed
-  attr(result, "n_total") <- length(raw_list)
-  result
-}
-
+# collect_results() lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
 
 # L_eff save/load helpers (exported from forestsearch >= 0.2.0)
 plan(multisession, workers = n_workers)
@@ -658,7 +633,7 @@ results_alt_cox_raw <- foreach(
   )
 }
 timings$alt_cox <- proc.time()[3] - t0
-results_alt_cox <- collect_results(results_alt_cox_raw, "Cox H1")
+results_alt_cox <- forestsearch:::collect_results(results_alt_cox_raw, "Cox H1")
 n_failed_alt_cox <- attr(results_alt_cox, "n_failed")
 if (nrow(results_alt_cox) < sim_config$n_sims_alt) {
   warning(sprintf(
@@ -699,7 +674,7 @@ results_null_cox_raw <- foreach(
   )
 }
 timings$null_cox <- proc.time()[3] - t0
-results_null_cox <- collect_results(results_null_cox_raw, "Cox H0")
+results_null_cox <- forestsearch:::collect_results(results_null_cox_raw, "Cox H0")
 n_failed_null_cox <- attr(results_null_cox, "n_failed")
 if (nrow(results_null_cox) < sim_config$n_sims_null) {
   warning(sprintf(
@@ -743,7 +718,7 @@ results_alt_irr_raw <- foreach(
   )
 }
 timings$alt_irr <- proc.time()[3] - t0
-results_alt_irr <- collect_results(results_alt_irr_raw, "IRR H1")
+results_alt_irr <- forestsearch:::collect_results(results_alt_irr_raw, "IRR H1")
 n_failed_alt_irr <- attr(results_alt_irr, "n_failed")
 if (nrow(results_alt_irr) < sim_config$n_sims_alt) {
   warning(sprintf(
@@ -784,7 +759,7 @@ results_null_irr_raw <- foreach(
   )
 }
 timings$null_irr <- proc.time()[3] - t0
-results_null_irr <- collect_results(results_null_irr_raw, "IRR H0")
+results_null_irr <- forestsearch:::collect_results(results_null_irr_raw, "IRR H0")
 n_failed_null_irr <- attr(results_null_irr, "n_failed")
 if (nrow(results_null_irr) < sim_config$n_sims_null) {
   warning(sprintf(
@@ -1071,7 +1046,7 @@ for (N_val in N_cal_values) {
     )
   }
 
-  res_N <- collect_results(res_N_raw, sprintf("cal N=%d", N_val))
+  res_N <- forestsearch:::collect_results(res_N_raw, sprintf("cal N=%d", N_val))
   fs_rows <- res_N[res_N$analysis == "FS", ]
   if (nrow(fs_rows) < n_sims_cal) {
     warning(sprintf(
