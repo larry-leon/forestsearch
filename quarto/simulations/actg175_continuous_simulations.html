@@ -3095,7 +3095,7 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb85"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb85-1"><a href="#cb85-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Running&quot;</span>, nsims_alt, <span class="st">&quot;simulations under H1...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Running 50 simulations under H1...</code></pre>
+<pre><code>#&gt; Running 1000 simulations under H1...</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3132,14 +3132,14 @@ window.Quarto = {
 <span id="cb87-31"><a href="#cb87-31" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>sims_alt <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Completed in 0.5 minutes</code></pre>
+<pre><code>#&gt; Completed in 4.7 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb89"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb89-1"><a href="#cb89-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Results:&quot;</span>, <span class="fu">nrow</span>(results_alt), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Results: 50 rows</code></pre>
+<pre><code>#&gt; Results: 1000 rows</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3148,7 +3148,7 @@ window.Quarto = {
 <span id="cb91-3"><a href="#cb91-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results_alt<span class="sc">$</span>any.H[results_alt<span class="sc">$</span>analysis <span class="sc">==</span> <span class="st">&quot;FS&quot;</span>])))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Detection rate: 90.0%</code></pre>
+<pre><code>#&gt; Detection rate: 93.9%</code></pre>
 </div>
 </div>
 </section>
@@ -3163,8 +3163,8 @@ window.Quarto = {
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt;           used  (Mb) gc trigger  (Mb) max used  (Mb)
-#&gt; Ncells 2691508 143.8    4764034 254.5  4764034 254.5
-#&gt; Vcells 5381575  41.1   10155470  77.5 10155470  77.5</code></pre>
+#&gt; Ncells 2732511 146.0    4764052 254.5  4764052 254.5
+#&gt; Vcells 5523311  42.2   12266603  93.6 10155503  77.5</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3181,7 +3181,7 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb97"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb97-1"><a href="#cb97-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Running&quot;</span>, nsims_null, <span class="st">&quot;simulations under H0...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Running 50 simulations under H0...</code></pre>
+<pre><code>#&gt; Running 2000 simulations under H0...</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3218,7 +3218,7 @@ window.Quarto = {
 <span id="cb99-31"><a href="#cb99-31" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>sims_null <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Completed in 0.7 minutes</code></pre>
+<pre><code>#&gt; Completed in 16 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3227,7 +3227,7 @@ window.Quarto = {
 <span id="cb101-3"><a href="#cb101-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results_null<span class="sc">$</span>any.H[results_null<span class="sc">$</span>analysis <span class="sc">==</span> <span class="st">&quot;FS&quot;</span>])))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; False discovery rate: 12.0%</code></pre>
+<pre><code>#&gt; False discovery rate: 12.2%</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -3273,7 +3273,7 @@ window.Quarto = {
 <span id="cb104-34"><a href="#cb104-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;save_results = FALSE; skipping save.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb104-35"><a href="#cb104-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Saved: _data/actg175_continuous_simulations_50alts_50nulls.rds</code></pre>
+<pre><code>#&gt; Saved: _data/actg175_continuous_simulations_1000alts_2000nulls.rds</code></pre>
 </div>
 </div>
 </section>
@@ -3715,7 +3715,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">ACTG175 Continuous: Subgroup Identification</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 50 sims, MD(Q) = 39.7, MD(Qc) = -26.3 (switched)</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 1000 sims, MD(Q) = 39.7, MD(Qc) = -26.3 (switched)</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -3735,11 +3735,11 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FS</td>
-<td class="gt_row gt_right" headers="N_sims">50</td>
-<td class="gt_row gt_right" headers="Detection">0.90</td>
-<td class="gt_row gt_right" headers="Sen">0.42</td>
-<td class="gt_row gt_right" headers="Spec">0.92</td>
-<td class="gt_row gt_right" headers="PPV">0.67</td>
+<td class="gt_row gt_right" headers="N_sims">1000</td>
+<td class="gt_row gt_right" headers="Detection">0.94</td>
+<td class="gt_row gt_right" headers="Sen">0.47</td>
+<td class="gt_row gt_right" headers="Spec">0.93</td>
+<td class="gt_row gt_right" headers="PPV">0.71</td>
 <td class="gt_row gt_right" headers="NPV">0.81</td>
 </tr>
 </tbody>
@@ -4165,7 +4165,7 @@ height: 0px !important;
 <td colspan="6" class="gt_heading gt_title gt_font_normal">Estimation Properties</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Continuous DGM | n = 1000, 50 sims (FS: 45/50 (90%) estimable)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Continuous DGM | n = 1000, 1000 sims (FS: 939/1000 (94%) estimable)</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-size: 16px" scope="col"></th>
@@ -4178,26 +4178,26 @@ height: 0px !important;
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74</th>
+<th colspan="6" id="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
-<td class="gt_row gt_right" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  Avg" style="font-size: 16px">-56.44</td>
-<td class="gt_row gt_right" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  SD" style="font-size: 16px">20.01</td>
-<td class="gt_row gt_right" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  Min" style="font-size: 16px">-95.85</td>
-<td class="gt_row gt_right" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  Max" style="font-size: 16px">-22.52</td>
-<td class="gt_row gt_right" headers="Q̂: 45 estimable, avg |Q̂| = 191, θ†(Q) = -39.74  b† (%)" style="font-size: 16px">42.01</td>
+<td class="gt_row gt_left" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
+<td class="gt_row gt_right" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  Avg" style="font-size: 16px">-57.01</td>
+<td class="gt_row gt_right" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  SD" style="font-size: 16px">18.68</td>
+<td class="gt_row gt_right" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  Min" style="font-size: 16px">-124.29</td>
+<td class="gt_row gt_right" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  Max" style="font-size: 16px">-21.91</td>
+<td class="gt_row gt_right" headers="Q̂: 939 estimable, avg |Q̂| = 204, θ†(Q) = -39.74  b† (%)" style="font-size: 16px">43.44</td>
 </tr>
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26</th>
+<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  Avg" style="font-size: 16px">14.58</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  SD" style="font-size: 16px">11.83</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  Min" style="font-size: 16px">-6.19</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  Max" style="font-size: 16px">43.63</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 809, θ†(Qᶜ) = 26.26  b† (%)" style="font-size: 16px">-44.46</td>
+<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  Avg" style="font-size: 16px">17.34</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  SD" style="font-size: 16px">12.75</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  Min" style="font-size: 16px">-15.03</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  Max" style="font-size: 16px">54.30</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 796, θ†(Qᶜ) = 26.26  b† (%)" style="font-size: 16px">-33.95</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -4646,7 +4646,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">ACTG175 Continuous: Type I Error (Null)</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 50 sims, MD(ITT) = -26.3 (switched)</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 2000 sims, MD(ITT) = -26.3 (switched)</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -4666,7 +4666,7 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FS</td>
-<td class="gt_row gt_right" headers="N_sims">50</td>
+<td class="gt_row gt_right" headers="N_sims">2000</td>
 <td class="gt_row gt_right" headers="Detection">0.12</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
 <td class="gt_row gt_right" headers="Spec">0.99</td>
@@ -5117,7 +5117,7 @@ height: 0px !important;
 <td colspan="2" class="gt_heading gt_title gt_font_normal">ACTG175 Continuous: Subgroup Identification and Classification</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Across 50 simulations per scenario</td>
+<td colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Across 1,000 simulations per scenario</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Metric" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"></th>
@@ -5142,26 +5142,26 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-cont Null: N=1000, theta(ITT) = 26.26  Metric" style="font-size: 16px">avg|Q|</td>
-<td class="gt_row gt_right" headers="ACTG-cont Null: N=1000, theta(ITT) = 26.26  FS" style="font-size: 16px">124.00</td>
+<td class="gt_row gt_right" headers="ACTG-cont Null: N=1000, theta(ITT) = 26.26  FS" style="font-size: 16px">115.00</td>
 </tr>
 <tr class="gt_group_heading_row even">
 <th colspan="2" id="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51</th>
 </tr>
 <tr class="gt_row_group_first odd">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">any(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px; font-weight: bold">0.90</td>
+<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px; font-weight: bold">0.94</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">sens(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.42</td>
+<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.47</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">sens(Qc)</td>
-<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.92</td>
+<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.93</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">ppv(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.67</td>
+<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">0.71</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">ppv(Qc)</td>
@@ -5169,7 +5169,7 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  Metric" style="font-size: 16px">avg|Q|</td>
-<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">191.00</td>
+<td class="gt_row gt_right" headers="ACTG-cont Alt: N=1000, p_Q=34%, theta(Q)=-39.74, theta(Qc)=26.26, theta(ITT)=3.51  FS" style="font-size: 16px">204.00</td>
 </tr>
 </tbody>
 </table>
@@ -5622,7 +5622,7 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">calibrate</td>
-<td class="gt_row gt_right" headers="Seconds">1.1</td>
+<td class="gt_row gt_right" headers="Seconds">1.2</td>
 <td class="gt_row gt_right" headers="Minutes">0.02</td>
 </tr>
 <tr class="even">
@@ -5637,13 +5637,13 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step">sims_alt</td>
-<td class="gt_row gt_right" headers="Seconds">31.9</td>
-<td class="gt_row gt_right" headers="Minutes">0.53</td>
+<td class="gt_row gt_right" headers="Seconds">279.1</td>
+<td class="gt_row gt_right" headers="Minutes">4.65</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">sims_null</td>
-<td class="gt_row gt_right" headers="Seconds">43.9</td>
-<td class="gt_row gt_right" headers="Minutes">0.73</td>
+<td class="gt_row gt_right" headers="Seconds">962.5</td>
+<td class="gt_row gt_right" headers="Minutes">16.04</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step">report_alt</td>
@@ -5652,8 +5652,8 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step" style="font-weight: bold">total</td>
-<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">77.1</td>
-<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">1.29</td>
+<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">1243.1</td>
+<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">20.72</td>
 </tr>
 </tbody>
 </table>
@@ -6237,8 +6237,8 @@ height: 0px !important;
 <span id="cb114-24"><a href="#cb114-24" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">comment =</span> <span class="st">&quot;#&gt;&quot;</span>, <span class="at">fig.align =</span> <span class="st">&quot;center&quot;</span>)</span>
 <span id="cb114-25"><a href="#cb114-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb114-26"><a href="#cb114-26" aria-hidden="true" tabindex="-1"></a><span class="co"># ─── Simulation control ─────────────────────────────────────────────────</span></span>
-<span id="cb114-27"><a href="#cb114-27" aria-hidden="true" tabindex="-1"></a>nsims_alt   <span class="ot">&lt;-</span> <span class="dv">50</span>L</span>
-<span id="cb114-28"><a href="#cb114-28" aria-hidden="true" tabindex="-1"></a>nsims_null  <span class="ot">&lt;-</span> <span class="dv">50</span>L</span>
+<span id="cb114-27"><a href="#cb114-27" aria-hidden="true" tabindex="-1"></a>nsims_alt   <span class="ot">&lt;-</span> <span class="dv">1000</span>L</span>
+<span id="cb114-28"><a href="#cb114-28" aria-hidden="true" tabindex="-1"></a>nsims_null  <span class="ot">&lt;-</span> <span class="dv">2000</span>L</span>
 <span id="cb114-29"><a href="#cb114-29" aria-hidden="true" tabindex="-1"></a>sim_seed    <span class="ot">&lt;-</span> <span class="dv">8316951</span>L</span>
 <span id="cb114-30"><a href="#cb114-30" aria-hidden="true" tabindex="-1"></a>n_workers   <span class="ot">&lt;-</span> <span class="fu">min</span>(parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>) <span class="sc">-</span> <span class="dv">1</span>L, <span class="dv">12</span>L)</span>
 <span id="cb114-31"><a href="#cb114-31" aria-hidden="true" tabindex="-1"></a></span>
