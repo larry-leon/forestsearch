@@ -2,23 +2,29 @@
 % Please edit documentation in R/simulation_tables.R
 \name{invert_hr_columns}
 \alias{invert_hr_columns}
-\title{Invert HR Columns in Simulation Results for Benefit Search}
+\title{Invert Effect Columns in Simulation Results for Benefit Search}
 \usage{
-invert_hr_columns(res)
+invert_hr_columns(res, effect_measure = NULL)
 }
 \arguments{
 \item{res}{Data frame of simulation results (from
 \code{\link{run_simulation_analysis}}).}
+
+\item{effect_measure}{Character or \code{NULL}.  The effect measure
+used in the simulation.  When \code{NULL} (default), ratio-scale
+inversion (\code{1/x}) is used for backward compatibility with
+survival analyses.}
 }
 \value{
-Data frame with all HR-related columns inverted (1/x).
-Non-HR columns (classification metrics, subgroup sizes, etc.) are
-unchanged.
+Data frame with all effect-related columns inverted.
+Non-effect columns (classification metrics, subgroup sizes, etc.)
+are unchanged.
 }
 \description{
-Transforms simulation results from the switched treatment scale (HR > 1
-for the benefit subgroup) to the original scale (HR < 1 for benefit).
-Called automatically by table functions when
+Transforms simulation results from the switched treatment scale to the
+original scale.  For ratio-scale measures (HR, OR, IRR), inversion is
+\code{1/x}; for identity-scale measures (MD, RD, IRD), inversion is
+\code{-x}.  Called automatically by table functions when
 \code{subgroup_notation = "benefit"}.
 }
 \keyword{internal}

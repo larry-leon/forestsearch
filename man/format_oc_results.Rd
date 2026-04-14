@@ -13,6 +13,8 @@ format_oc_results(
   title = "Operating Characteristics Summary",
   subtitle = NULL,
   use_gt = TRUE,
+  effect_measure = NULL,
+  dgm = NULL,
   subgroup_notation = c("harm", "benefit")
 )
 }
@@ -36,6 +38,19 @@ Default: NULL (all analyses in results)}
 \item{subtitle}{Character. Table subtitle. Default: NULL}
 
 \item{use_gt}{Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE}
+
+\item{effect_measure}{Character or \code{NULL}.  The effect measure
+used in the simulation (e.g., \code{"HR"}, \code{"OR"}, \code{"MD"}).
+When provided, identity-scale measures (MD, RD, IRD) are negated
+rather than reciprocated during benefit-search inversion.  When
+\code{NULL} (default), auto-detected from \code{dgm$effect_measure}
+if \code{dgm} is provided; otherwise ratio-scale inversion
+(\code{1/x}) is used for backward compatibility.}
+
+\item{dgm}{Optional DGM object (\code{gbsg_dgm}, \code{aft_dgm_flex},
+or \code{glm_dgm}).  When provided, \code{effect_measure} is
+auto-detected from \code{dgm$effect_measure} (unless explicitly
+overridden) and column spanner labels adapt to the outcome type.}
 
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
 subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for

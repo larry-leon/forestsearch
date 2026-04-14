@@ -551,12 +551,16 @@ run_simulation_analysis <- function(
 
     .glm_effect <- function(sub_df) {
       tryCatch({
+        # GLM response is the outcome (y_sim), NOT the event indicator.
+        # For binary: outcome_name = "y_sim" (0/1 response).
+        # For continuous: outcome_name = "y_sim" (CD4 change etc.).
+        # event_name = "event_sim" is a survival concept (constant 1 for GLM).
         if (!is.null(offset_name) && offset_name %in% names(sub_df)) {
           off_vec <- log(pmax(sub_df[[offset_name]], 1e-6))
-          fit <- stats::glm(sub_df[[event_name]] ~ sub_df[[treat_name]],
+          fit <- stats::glm(sub_df[[outcome_name]] ~ sub_df[[treat_name]],
                             family = glm_family, offset = off_vec)
         } else {
-          fit <- stats::glm(sub_df[[event_name]] ~ sub_df[[treat_name]],
+          fit <- stats::glm(sub_df[[outcome_name]] ~ sub_df[[treat_name]],
                             family = glm_family)
         }
         b <- coef(fit)[[2]]  # treatment coefficient
@@ -856,12 +860,14 @@ run_simulation_analysis <- function(
 
     .glm_effect_grf <- function(sub_df, oc, ec, tc) {
       tryCatch({
+        # GLM response is the outcome column (oc), NOT the event indicator (ec).
+        # ec is a survival concept; for GLM, oc holds the actual response.
         if (!is.null(offset_name) && offset_name %in% names(sub_df)) {
           off_vec <- log(pmax(sub_df[[offset_name]], 1e-6))
-          fit <- stats::glm(sub_df[[ec]] ~ sub_df[[tc]],
+          fit <- stats::glm(sub_df[[oc]] ~ sub_df[[tc]],
                             family = glm_family, offset = off_vec)
         } else {
-          fit <- stats::glm(sub_df[[ec]] ~ sub_df[[tc]],
+          fit <- stats::glm(sub_df[[oc]] ~ sub_df[[tc]],
                             family = glm_family)
         }
         b <- coef(fit)[[2]]

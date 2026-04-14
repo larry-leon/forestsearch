@@ -453,6 +453,17 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #' @param title Character. Table title. Default: "Operating Characteristics Summary"
 #' @param subtitle Character. Table subtitle. Default: NULL
 #' @param use_gt Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE
+#' @param effect_measure Character or \code{NULL}.  The effect measure
+#'   used in the simulation (e.g., \code{"HR"}, \code{"OR"}, \code{"MD"}).
+#'   When provided, identity-scale measures (MD, RD, IRD) are negated
+#'   rather than reciprocated during benefit-search inversion.  When
+#'   \code{NULL} (default), auto-detected from \code{dgm$effect_measure}
+#'   if \code{dgm} is provided; otherwise ratio-scale inversion
+#'   (\code{1/x}) is used for backward compatibility.
+#' @param dgm Optional DGM object (\code{gbsg_dgm}, \code{aft_dgm_flex},
+#'   or \code{glm_dgm}).  When provided, \code{effect_measure} is
+#'   auto-detected from \code{dgm$effect_measure} (unless explicitly
+#'   overridden) and column spanner labels adapt to the outcome type.
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
 #'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
 #'   benefit-search analyses (treatment switching).
@@ -494,15 +505,22 @@ format_oc_results <- function(
     title = "Operating Characteristics Summary",
     subtitle = NULL,
     use_gt = TRUE,
+    effect_measure = NULL,
+    dgm = NULL,
     subgroup_notation = c("harm", "benefit")
 ) {
 
   subgroup_notation <- match.arg(subgroup_notation)
   L <- get_sg_labels(subgroup_notation)
 
-  # Benefit search: invert HRs from switched -> original scale
+  # Auto-detect effect_measure from DGM if not explicitly provided
+  if (is.null(effect_measure) && !is.null(dgm)) {
+    effect_measure <- dgm$effect_measure
+  }
+
+  # Benefit search: invert effects from switched -> original scale
   if (subgroup_notation == "benefit") {
-    results <- invert_hr_columns(results)
+    results <- invert_hr_columns(results, effect_measure)
   }
 
   # Convert to data.table if needed
@@ -793,9 +811,18 @@ format_oc_results <- function(
                                   "HR_Hc_true", "HR_ITT"),
                                 names(summary_df))
       if (length(hr_span_cols) > 0) {
+        hr_label <- if (!is.null(effect_measure) &&
+                        is_identity_scale(effect_measure)) {
+          effect_measure
+        } else if (!is.null(effect_measure) &&
+                   effect_measure %in% c("OR", "RR", "IRR")) {
+          paste0("GLM ", effect_measure)
+        } else {
+          "Cox Hazard Ratios"
+        }
         gt_table <- gt::tab_spanner(
           gt_table,
-          label = "Cox Hazard Ratios",
+          label = hr_label,
           columns = gt::all_of(hr_span_cols)
         )
       }

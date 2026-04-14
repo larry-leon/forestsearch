@@ -2,23 +2,33 @@
 % Please edit documentation in R/simulation_tables.R
 \name{invert_dgm_hrs}
 \alias{invert_dgm_hrs}
-\title{Invert DGM Hazard Ratios for Benefit Search}
+\title{Invert DGM Effect Values for Benefit Search}
 \usage{
-invert_dgm_hrs(dgm)
+invert_dgm_hrs(dgm, effect_measure = NULL)
 }
 \arguments{
-\item{dgm}{A DGM object (\code{gbsg_dgm} or \code{aft_dgm_flex}).}
+\item{dgm}{A DGM object (\code{gbsg_dgm}, \code{aft_dgm_flex}, or
+\code{glm_dgm}).}
+
+\item{effect_measure}{Character or \code{NULL}.  Overrides auto-detection
+from \code{dgm$effect_measure}.  When \code{NULL} (default) and
+\code{dgm$effect_measure} is also absent, ratio-scale (\code{1/x})
+is used for backward compatibility.}
 }
 \value{
-Modified DGM object with all hazard ratio fields inverted (1/x).
-Non-HR fields (super-population data, model parameters, etc.) are
-unchanged.
+Modified DGM object with all effect fields inverted.
+Non-effect fields (super-population data, model parameters, etc.)
+are unchanged.
 }
 \description{
 Transforms a DGM object's truth values from the switched treatment scale
-to the original scale.  Inverts all fields in \code{hazard_ratios} and
-legacy top-level HR fields so that \code{\link{get_dgm_hr}} returns
-original-scale values.  Called automatically by table functions when
+to the original scale.  For ratio-scale measures (HR, OR, IRR), fields
+are reciprocated (\code{1/x}); for identity-scale measures (MD, RD, IRD),
+fields are negated (\code{-x}).  The effect measure is auto-detected from
+\code{dgm$effect_measure} when not explicitly provided.
+}
+\details{
+Called automatically by table functions when
 \code{subgroup_notation = "benefit"}.
 }
 \keyword{internal}

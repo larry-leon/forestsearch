@@ -57,63 +57,136 @@ get_sg_labels <- function(notation = c("harm", "benefit")) {
 }
 
 
-#' Invert HR Columns in Simulation Results for Benefit Search
+#' Is this Effect Measure on the Identity Scale?
 #'
-#' Transforms simulation results from the switched treatment scale (HR > 1
-#' for the benefit subgroup) to the original scale (HR < 1 for benefit).
-#' Called automatically by table functions when
+#' Identity-scale measures (MD, RD, IRD) use additive differences;
+#' ratio-scale measures (HR, OR, RR, IRR) use multiplicative ratios.
+#' The distinction matters for benefit-search inversion: ratio-scale
+#' values are reciprocated (\code{1/x}), identity-scale values are
+#' negated (\code{-x}).
+#'
+#' @param effect_measure Character.  One of \code{"HR"}, \code{"OR"},
+#'   \code{"RR"}, \code{"IRR"}, \code{"RD"}, \code{"IRD"}, \code{"MD"},
+#'   or \code{NULL} (treated as ratio-scale for backward compatibility).
+#'
+#' @return Logical.  \code{TRUE} for identity-scale measures.
+#'
+#' @keywords internal
+is_identity_scale <- function(effect_measure) {
+  !is.null(effect_measure) && effect_measure %in% c("MD", "RD", "IRD")
+}
+
+
+#' Human-Readable Effect Measure Label
+#'
+#' Returns a descriptive label for use in table footnotes and narrative
+#' text.  Falls back to \code{"HR"} for survival analyses.
+#'
+#' @param effect_measure Character or \code{NULL}.
+#' @param outcome_type Character or \code{NULL}.
+#'
+#' @return Character label (e.g., \code{"Cox HR"}, \code{"OR"},
+#'   \code{"mean difference"}).
+#'
+#' @keywords internal
+effect_measure_label <- function(effect_measure = NULL,
+                                 outcome_type = NULL) {
+  if (is.null(effect_measure) ||
+      (is.null(outcome_type) && effect_measure == "HR") ||
+      (!is.null(outcome_type) && outcome_type == "survival")) {
+    return("Cox HR")
+  }
+  switch(effect_measure,
+    OR  = "OR",
+    RR  = "RR",
+    RD  = "risk difference",
+    IRR = "IRR",
+    IRD = "incidence rate difference",
+    MD  = "mean difference",
+    effect_measure
+  )
+}
+
+
+#' Invert Effect Columns in Simulation Results for Benefit Search
+#'
+#' Transforms simulation results from the switched treatment scale to the
+#' original scale.  For ratio-scale measures (HR, OR, IRR), inversion is
+#' \code{1/x}; for identity-scale measures (MD, RD, IRD), inversion is
+#' \code{-x}.  Called automatically by table functions when
 #' \code{subgroup_notation = "benefit"}.
 #'
 #' @param res Data frame of simulation results (from
 #'   \code{\link{run_simulation_analysis}}).
+#' @param effect_measure Character or \code{NULL}.  The effect measure
+#'   used in the simulation.  When \code{NULL} (default), ratio-scale
+#'   inversion (\code{1/x}) is used for backward compatibility with
+#'   survival analyses.
 #'
-#' @return Data frame with all HR-related columns inverted (1/x).
-#'   Non-HR columns (classification metrics, subgroup sizes, etc.) are
-#'   unchanged.
+#' @return Data frame with all effect-related columns inverted.
+#'   Non-effect columns (classification metrics, subgroup sizes, etc.)
+#'   are unchanged.
 #'
 #' @keywords internal
-invert_hr_columns <- function(res) {
+invert_hr_columns <- function(res, effect_measure = NULL) {
   hr_cols <- c(
     "hr.H.hat", "hr.Hc.hat", "hr.H.bc", "hr.Hc.bc",
     "hr.H.true", "hr.Hc.true", "hr.itt", "hr.adj.itt",
     "ahr.H.hat", "ahr.Hc.hat", "ahr.H.true", "ahr.Hc.true",
     "cde.H.hat", "cde.Hc.hat"
   )
+  use_negate <- is_identity_scale(effect_measure)
   for (col in intersect(hr_cols, names(res))) {
-    res[[col]] <- 1 / res[[col]]
+    res[[col]] <- if (use_negate) -res[[col]] else 1 / res[[col]]
   }
   res
 }
 
 
-#' Invert DGM Hazard Ratios for Benefit Search
+#' Invert DGM Effect Values for Benefit Search
 #'
 #' Transforms a DGM object's truth values from the switched treatment scale
-#' to the original scale.  Inverts all fields in \code{hazard_ratios} and
-#' legacy top-level HR fields so that \code{\link{get_dgm_hr}} returns
-#' original-scale values.  Called automatically by table functions when
+#' to the original scale.  For ratio-scale measures (HR, OR, IRR), fields
+#' are reciprocated (\code{1/x}); for identity-scale measures (MD, RD, IRD),
+#' fields are negated (\code{-x}).  The effect measure is auto-detected from
+#' \code{dgm$effect_measure} when not explicitly provided.
+#'
+#' Called automatically by table functions when
 #' \code{subgroup_notation = "benefit"}.
 #'
-#' @param dgm A DGM object (\code{gbsg_dgm} or \code{aft_dgm_flex}).
+#' @param dgm A DGM object (\code{gbsg_dgm}, \code{aft_dgm_flex}, or
+#'   \code{glm_dgm}).
+#' @param effect_measure Character or \code{NULL}.  Overrides auto-detection
+#'   from \code{dgm$effect_measure}.  When \code{NULL} (default) and
+#'   \code{dgm$effect_measure} is also absent, ratio-scale (\code{1/x})
+#'   is used for backward compatibility.
 #'
-#' @return Modified DGM object with all hazard ratio fields inverted (1/x).
-#'   Non-HR fields (super-population data, model parameters, etc.) are
-#'   unchanged.
+#' @return Modified DGM object with all effect fields inverted.
+#'   Non-effect fields (super-population data, model parameters, etc.)
+#'   are unchanged.
 #'
 #' @keywords internal
-invert_dgm_hrs <- function(dgm) {
+invert_dgm_hrs <- function(dgm, effect_measure = NULL) {
+  # Auto-detect from DGM if not explicitly provided
+  if (is.null(effect_measure)) {
+    effect_measure <- dgm$effect_measure
+  }
+  use_negate <- is_identity_scale(effect_measure)
+
+  .invert_val <- function(x) if (use_negate) -x else 1 / x
+
   if (!is.null(dgm$hazard_ratios)) {
     for (nm in names(dgm$hazard_ratios)) {
       val <- dgm$hazard_ratios[[nm]]
       if (is.numeric(val) && length(val) == 1 && !is.na(val)) {
-        dgm$hazard_ratios[[nm]] <- 1 / val
+        dgm$hazard_ratios[[nm]] <- .invert_val(val)
       }
     }
   }
   for (f in c("hr_H_true", "hr_Hc_true", "hr_causal",
               "AHR", "AHR_H_true", "AHR_Hc_true",
               "cde_H", "cde_Hc", "CDE")) {
-    if (!is.null(dgm[[f]])) dgm[[f]] <- 1 / dgm[[f]]
+    if (!is.null(dgm[[f]])) dgm[[f]] <- .invert_val(dgm[[f]])
   }
   dgm
 }
@@ -223,8 +296,9 @@ build_classification_table <- function(
 
     # Benefit search: invert HRs from switched → original scale
     if (subgroup_notation == "benefit") {
-      res <- data.table::as.data.table(invert_hr_columns(res))
-      dgm <- invert_dgm_hrs(dgm)
+      em <- dgm$effect_measure
+      res <- data.table::as.data.table(invert_hr_columns(res, em))
+      dgm <- invert_dgm_hrs(dgm, em)
     }
 
     # Determine analyses if not specified
@@ -501,10 +575,15 @@ build_estimation_table <- function(
   subgroup_notation <- match.arg(subgroup_notation)
   L <- get_sg_labels(subgroup_notation)
 
-  # Benefit search: invert HRs from switched → original scale
+  # Detect GLM outcome type from DGM for scale-aware inversion and labels
+  dgm_ot <- dgm$outcome_type
+  dgm_em <- dgm$effect_measure
+  is_glm_dgm <- !is.null(dgm_ot) && dgm_ot != "survival"
+
+  # Benefit search: invert effects from switched → original scale
   if (subgroup_notation == "benefit") {
-    results <- invert_hr_columns(results)
-    dgm     <- invert_dgm_hrs(dgm)
+    results <- invert_hr_columns(results, dgm_em)
+    dgm     <- invert_dgm_hrs(dgm, dgm_em)
   }
 
   res <- data.table::as.data.table(results)
@@ -818,13 +897,25 @@ build_estimation_table <- function(
       row_group.padding = gt::px(4)
     )
 
-  # Notation footnote (paper-aligned, notation-aware)
-  footnote_parts <- paste0(
-    "\u03b8\u0302(", L$sg_hat, ") = plugin Cox HR in identified subgroup; ",
-    "\u03b8\u0302*(", L$sg_hat, ") = bootstrap bias-corrected; ",
-    "\u00e2hr(", L$sg_hat, ") = average hazard ratio in identified subgroup; ",
-    "b\u2020 = bias relative to marginal HR \u03b8\u2020 (causal truth)"
-  )
+  # Notation footnote (paper-aligned, notation-aware, GLM-aware)
+  if (is_glm_dgm) {
+    em_label <- dgm_em %||% "GLM"
+    footnote_parts <- paste0(
+      "\u03b8\u0302(", L$sg_hat, ") = plugin ", em_label,
+      " estimate in identified subgroup; ",
+      "\u03b8\u0302*(", L$sg_hat, ") = bootstrap bias-corrected; ",
+      "b\u2020 = bias relative to true ", em_label,
+      " \u03b8\u2020 (causal truth)"
+    )
+  } else {
+    footnote_parts <- paste0(
+      "\u03b8\u0302(", L$sg_hat, ") = plugin Cox HR in identified subgroup; ",
+      "\u03b8\u0302*(", L$sg_hat, ") = bootstrap bias-corrected; ",
+      "\u00e2hr(", L$sg_hat,
+      ") = average hazard ratio in identified subgroup; ",
+      "b\u2020 = bias relative to marginal HR \u03b8\u2020 (causal truth)"
+    )
+  }
   if (has_cde) {
     footnote_parts <- paste0(
       footnote_parts,
@@ -906,11 +997,17 @@ interpret_estimation_table <- function(
   subgroup_notation <- match.arg(subgroup_notation)
   L <- get_sg_labels(subgroup_notation)
 
-  # Benefit search: invert HRs from switched → original scale
+  # Benefit search: invert effects from switched → original scale
   if (subgroup_notation == "benefit") {
-    results <- invert_hr_columns(results)
+    results <- invert_hr_columns(results, dgm$effect_measure)
     dgm     <- invert_dgm_hrs(dgm)
   }
+
+  # Detect GLM outcome for narrative labels
+  dgm_ot <- dgm$outcome_type
+  dgm_em <- dgm$effect_measure
+  is_glm <- !is.null(dgm_ot) && dgm_ot != "survival"
+  em_label <- effect_measure_label(dgm_em, dgm_ot)
 
   res <- data.table::as.data.table(results)
 
@@ -985,7 +1082,7 @@ interpret_estimation_table <- function(
   avg_size_Hc <- round(mean(res_found$size.Hc, na.rm = TRUE), 0)
   detect_rate <- round(100 * n_estimable / n_sims, 1)
 
-  # Cox HR summaries
+  # Effect estimate summaries
   has_hr_H  <- "hr.H.hat" %in% names(res_found)
   has_hr_Hc <- "hr.Hc.hat" %in% names(res_found)
   has_hr_bc <- "hr.H.bc" %in% names(res_found)
@@ -1045,31 +1142,32 @@ interpret_estimation_table <- function(
   if (scenario == "null") {
     paras[1] <- sprintf(
       paste0(
-        "Under the null hypothesis (true HR = %s uniformly), ",
+        "Under the null hypothesis (true %s = %s uniformly), ",
         "%d of %d simulations (%s) identified a subgroup using %s. ",
         "This low detection rate confirms controlled type-I error. ",
         "Among those %d false detections, the identified subgroup ",
         "averaged %d patients."
       ),
-      true_hr_str, n_estimable, n_sims, fmt_pct(detect_rate),
+      em_label, true_hr_str, n_estimable, n_sims, fmt_pct(detect_rate),
       analysis_method, n_estimable, avg_size_H
     )
   } else {
     paras[1] <- sprintf(
       paste0(
-        "Under the alternative hypothesis (true HR(%s) = %s, ",
-        "true HR(%s) = %s), %d of %d simulations (%s) ",
+        "Under the alternative hypothesis (true %s(%s) = %s, ",
+        "true %s(%s) = %s), %d of %d simulations (%s) ",
         "identified a subgroup using %s. ",
         "The identified subgroup averaged %d patients ",
         "(complement: %d)."
       ),
-      L$plain, fmt_s(theta_H_true), L$plain_c, fmt_s(theta_Hc_true),
+      em_label, L$plain, fmt_s(theta_H_true),
+      em_label, L$plain_c, fmt_s(theta_Hc_true),
       n_estimable, n_sims, fmt_pct(detect_rate),
       analysis_method, avg_size_H, avg_size_Hc
     )
   }
 
-  # --- Paragraph 2: Cox HR estimates ---
+  # --- Paragraph 2: Effect estimates ---
   if (has_hr_H && has_hr_Hc) {
     bias_H_str  <- fmt_pct(hr_H_bias)
     bias_Hc_str <- fmt_pct(hr_Hc_bias)
@@ -1077,29 +1175,30 @@ interpret_estimation_table <- function(
     if (scenario == "null") {
       paras[2] <- sprintf(
         paste0(
-          "The naive Cox HR in the identified subgroup averaged %s ",
+          "The naive %s in the identified subgroup averaged %s ",
           "(SD = %s), representing %s relative bias above the true ",
           "value of %s. This upward bias reflects selection: the algorithm ",
           "identified whichever patients happened to look most like a %s ",
-          "subgroup by chance. In the complement, the Cox HR averaged %s ",
+          "subgroup by chance. In the complement, the %s averaged %s ",
           "(%s bias), showing the expected mirror effect where removing ",
           "the worst-looking patients makes the remainder appear modestly ",
           "better."
         ),
-        hr_H_avg, hr_H_sd, bias_H_str, true_hr_str,
+        em_label, hr_H_avg, hr_H_sd, bias_H_str, true_hr_str,
         L$word,
-        hr_Hc_avg, bias_Hc_str
+        em_label, hr_Hc_avg, bias_Hc_str
       )
     } else {
       paras[2] <- sprintf(
         paste0(
-          "The naive Cox HR in the identified subgroup averaged %s ",
+          "The naive %s in the identified subgroup averaged %s ",
           "(SD = %s), corresponding to %s relative bias versus the ",
-          "true HR(%s) = %s. In the complement, the estimate averaged %s ",
-          "(%s bias vs. true HR(%s) = %s)."
+          "true %s(%s) = %s. In the complement, the estimate averaged %s ",
+          "(%s bias vs. true %s(%s) = %s)."
         ),
-        hr_H_avg, hr_H_sd, bias_H_str, L$plain, fmt_s(theta_H_true),
-        hr_Hc_avg, bias_Hc_str, L$plain_c, fmt_s(theta_Hc_true)
+        em_label, hr_H_avg, hr_H_sd, bias_H_str,
+        em_label, L$plain, fmt_s(theta_H_true),
+        hr_Hc_avg, bias_Hc_str, em_label, L$plain_c, fmt_s(theta_Hc_true)
       )
     }
   }
@@ -1174,7 +1273,7 @@ interpret_estimation_table <- function(
     paras[length(paras) + 1] <- cde_para
   }
 
-  # --- Paragraph 5: AHR comparison (if available) ---
+  # --- Paragraph 5: AHR comparison (survival-only) ---
   if (has_ahr_H) {
     ahr_para <- sprintf(
       paste0(
@@ -1192,7 +1291,7 @@ interpret_estimation_table <- function(
     if (has_hr_H && !is.na(ahr_H_bias) && !is.na(hr_H_bias) &&
         abs(ahr_H_bias) < abs(hr_H_bias)) {
       ahr_para <- paste0(ahr_para,
-        ". The AHR shows attenuated bias relative to the Cox HR, ",
+        ". The AHR shows attenuated bias relative to the ", em_label, ", ",
         "consistent with AHR being a marginal rather than conditional ",
         "estimand."
       )
