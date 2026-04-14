@@ -302,36 +302,9 @@ grf_params_60 <- list(
 # Run Simulations
 
 ```{r collect-helper}
-#| code-fold: true
-#| code-summary: "collect_results helper"
-
-# Safe foreach result collection (León et al. convention):
-# .errorhandling = "pass" returns errors as condition objects;
-# this helper separates them from valid results and reports.
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    cat(sprintf("*** %s%d of %d tasks failed ***\n",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    cat("  First errors:\n")
-    for (msg in head(unique(err_msgs), 3)) cat("    ", msg, "\n")
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) {
-    result <- data.frame()
-    warning(sprintf("%sAll %d tasks failed.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        length(raw_list)))
-  } else {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  }
-  attr(result, "n_failed") <- n_failed
-  result
-}
+#| include: false
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
 ```
 
 ## Alternative Hypothesis (M1 Alt)
@@ -429,7 +402,7 @@ results_alt_raw <- foreach(
 plan("sequential")
 t_alt <- proc.time()[3] - t0
 
-results_alt <- collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 cat(sprintf("Alt: %d sims completed in %.1f min\n", nsims, t_alt / 60))
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
@@ -535,7 +508,7 @@ results_null_raw <- foreach(
 plan("sequential")
 t_null <- proc.time()[3] - t0
 
-results_null <- collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 cat(sprintf("Null: %d sims completed in %.1f min\n", nsims, t_null / 60))
 if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))

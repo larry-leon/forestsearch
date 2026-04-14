@@ -28,32 +28,8 @@ library(doFuture)
 library(future)
 
 # -- Safe foreach result collection -------------------------------------------
-# Replaces .errorhandling = "remove" (which silently drops failures)
-# with .errorhandling = "pass" + post-hoc separation of errors from results.
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    warning(sprintf("%s%d of %d tasks failed.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    message("  First errors:\n    ",
-        paste(head(unique(err_msgs), 3), collapse = "\n    "))
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) {
-    result <- NULL
-  } else if (requireNamespace("data.table", quietly = TRUE)) {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  } else {
-    result <- do.call(rbind, good)
-  }
-  attr(result, "n_failed") <- n_failed
-  attr(result, "n_total") <- length(raw_list)
-  result
-}
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
 
 
 # L_eff save/load helpers
@@ -70,13 +46,13 @@ t_vignette_start <- proc.time()
 
 # ── Simulation control ──────────────────────────────────────────
 # 1200 / hr linux
-nsims_val       <- 5000L      # validation sims per (c1, c2, N)
+nsims_val       <- 1000L      # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
 
 # ── Output ──────────────────────────────────────────────────────
-output_dir      <- "_data"
+output_dir      <- "../_data"
 
 # ── L_eff calibration source ──────────────────────────────────
 # Loaded from _data/calibration_survival_leff.rds (produced by C2/C3).
@@ -123,13 +99,17 @@ max_pairs   <- 40L       # max sim candidates (selected + boundary)
 # ── H1 power assessment at optimal pair ──────────────────────
 nsims_power <- 500L        # H1 sims at optimal pair (0 = approx only)
 
+# ── Production projection targets ────────────────────────────
+prod_nsims_val   <- 1000L   # validation sims per (c1, c2, N)
+prod_nsims_power <- 500L    # H1 sims at optimal pair
+
 # ── Heatmap display subset ────────────────────────────────────
 c1_heat     <- seq(1.00, 1.50, by = 0.05)
 c2_heat     <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25)
 ```
 
 ```{r load-calibration}
-#| code-fold: false
+#| code-fold: true
 
 # Load L_eff calibration from C2/C3 (calibration_survival_*.qmd)
 cal_survival <- tryCatch(
@@ -498,7 +478,7 @@ if (recalibrate) {
       )
     }
 
-    res_N <- collect_results(res_N_raw, sprintf("N=%d", N_val))
+    res_N <- forestsearch:::collect_results(res_N_raw, sprintf("N=%d", N_val))
     fs_rows <- res_N[res_N$analysis == "FS", ]
     if (nrow(fs_rows) < n_sims_recal) {
       warning(sprintf(
@@ -860,7 +840,7 @@ if (exists("frontier") && nrow(frontier) > 0) {
     dgm_h1 <- create_dgm_h1(hr_h1)
 
     # Reset workers before power simulation phase
-    future::plan("sequential")
+    future::plan("sequential"); gc(verbose = FALSE); Sys.sleep(1)
     future::plan("multisession", workers = n_workers)
 
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
@@ -1186,7 +1166,7 @@ if (run_validation) {
     length(N_target), nsims_val))
 
   # Reset workers before validation phase
-  future::plan("sequential")
+  future::plan("sequential"); gc(verbose = FALSE); Sys.sleep(1)
   future::plan("multisession", workers = n_workers)
 
   val_results_raw <- foreach(
@@ -1228,7 +1208,7 @@ if (run_validation) {
   }
 
   timings$validation <- proc.time()[3] - t0
-  val_results <- collect_results(val_results_raw, "validation")
+  val_results <- forestsearch:::collect_results(val_results_raw, "validation")
   n_expected_val <- nrow(val_tasks)
   n_received_val <- nrow(val_results)
   if (!is.null(n_received_val) && n_received_val < n_expected_val) {
@@ -1665,30 +1645,60 @@ timing_df <- data.frame(
 timing_df$Minutes <- timing_df$Seconds / 60
 timing_df$Hours   <- timing_df$Seconds / 3600
 
-# ── Per-1,000 simulation projection ──────────────────────────
-sim_secs <- timings$leff_cal +
-  (if (run_validation) timings$validation else 0) +
-  timings$power
-n_total_sims <- (if (recalibrate) n_sims_recal * length(N_cal_values) else 0L) +
-  (if (run_validation) nrow(sim_candidates) * length(N_target) * nsims_val else 0L) +
-  (if (nsims_power > 0) nsims_power * length(N_target) else 0L)
+# ── Per-simulation rate and production projections ────────────
+# Compute per-sim rate from observed validation + power timings.
+# Project to production targets: nsims_val -> prod_nsims_val,
+# nsims_power -> prod_nsims_power.
 
-if (n_total_sims > 0) {
-  secs_per_sim <- sim_secs / n_total_sims
-  proj_1k <- secs_per_sim * 1000
-  timing_df <- rbind(timing_df, data.frame(
-    Stage   = sprintf("Projected per 1,000 sims (%d actual)", n_total_sims),
-    Seconds = proj_1k,
-    Minutes = proj_1k / 60,
-    Hours   = proj_1k / 3600,
-    stringsAsFactors = FALSE
-  ))
+n_pairs_val <- if (run_validation && exists("sim_candidates")) {
+  nrow(sim_candidates)
+} else 0L
+n_N_target <- length(N_target)
+
+# Observed simulation counts
+n_val_actual   <- if (run_validation) n_pairs_val * n_N_target * nsims_val else 0L
+n_power_actual <- if (nsims_power > 0) nsims_power * n_N_target else 0L
+
+# Separate per-sim rates for validation and power
+if (run_validation && n_val_actual > 0) {
+  secs_per_val_sim <- timings$validation / n_val_actual
+} else {
+  secs_per_val_sim <- NA_real_
 }
+if (nsims_power > 0 && n_power_actual > 0) {
+  secs_per_power_sim <- timings$power / n_power_actual
+} else {
+  secs_per_power_sim <- NA_real_
+}
+
+# Production projection
+n_val_prod   <- n_pairs_val * n_N_target * prod_nsims_val
+n_power_prod <- prod_nsims_power * n_N_target
+
+proj_val_secs   <- if (!is.na(secs_per_val_sim)) {
+  secs_per_val_sim * n_val_prod
+} else 0
+proj_power_secs <- if (!is.na(secs_per_power_sim)) {
+  secs_per_power_sim * n_power_prod
+} else 0
+proj_other_secs <- timings$dgm + timings$leff_cal
+proj_total_secs <- proj_val_secs + proj_power_secs + proj_other_secs
+
+# Add projection rows
+timing_df <- rbind(timing_df, data.frame(
+  Stage   = sprintf(
+    "Projected: %s val + %s power",
+    format(prod_nsims_val, big.mark = ","),
+    format(prod_nsims_power, big.mark = ",")),
+  Seconds = proj_total_secs,
+  Minutes = proj_total_secs / 60,
+  Hours   = proj_total_secs / 3600,
+  stringsAsFactors = FALSE
+))
 
 subtitle_text <- if (run_validation) {
   sprintf("%d pairs x %d N x %d sims | %d workers",
-    nrow(sim_candidates), length(N_target),
-    nsims_val, n_workers)
+    n_pairs_val, n_N_target, nsims_val, n_workers)
 } else {
   sprintf("Approximation only | %d workers", n_workers)
 }
@@ -1707,6 +1717,27 @@ gt(timing_df) |>
     style = cell_text(weight = "bold"),
     locations = cells_body(rows = grepl("Total|Projected", Stage))
   )
+
+# ── Projection detail ────────────────────────────────────────
+cat(sprintf("Current run: %d val + %d power on %d workers\n",
+    nsims_val, nsims_power, n_workers))
+if (!is.na(secs_per_val_sim)) {
+  cat(sprintf("  Per-replicate (val):   %.2f sec\n", secs_per_val_sim))
+}
+if (!is.na(secs_per_power_sim)) {
+  cat(sprintf("  Per-replicate (power): %.2f sec\n", secs_per_power_sim))
+}
+cat(sprintf("\nProjected for %s val + %s power:\n",
+    format(prod_nsims_val, big.mark = ","),
+    format(prod_nsims_power, big.mark = ",")))
+cat(sprintf("  Validation: %5.0f sec (%4.1f min)\n",
+    proj_val_secs, proj_val_secs / 60))
+cat(sprintf("  Power:      %5.0f sec (%4.1f min)\n",
+    proj_power_secs, proj_power_secs / 60))
+cat(sprintf("  Other:      %5.0f sec (%4.1f min)\n",
+    proj_other_secs, proj_other_secs / 60))
+cat(sprintf("  Total:      %5.0f sec (%4.1f min = %.1f hours)\n",
+    proj_total_secs, proj_total_secs / 60, proj_total_secs / 3600))
 ```
 
 ```{r session-info}
