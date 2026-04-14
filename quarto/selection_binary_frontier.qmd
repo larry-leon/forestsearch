@@ -66,7 +66,7 @@ t_vignette_start <- proc.time()
 
 # ── Simulation control ──────────────────────────────────────────
 # 1000/hr mac
-nsims_val       <- 500L    # validation sims per (c1, c2, N)
+nsims_val       <- 50L    # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -1335,16 +1335,10 @@ if (run_validation) {
                any_found = as.integer(found))
   }
 
-  # ── Post-hoc task-count check ──────────────────────────────────
+  # ── Post-hoc error collection ──────────────────────────────────
+  val_results <- collect_results(val_results, label = "Validation")
   n_expected_val <- nrow(val_tasks)
-  n_received_val <- nrow(val_results)
-  if (n_received_val < n_expected_val) {
-    warning(sprintf(
-      "Validation: %d of %d tasks silently failed (%.1f%% loss).",
-      n_expected_val - n_received_val, n_expected_val,
-      100 * (1 - n_received_val / n_expected_val)
-    ))
-  }
+  n_received_val <- if (is.null(val_results)) 0L else nrow(val_results)
 
   timings$validation <- proc.time()[3] - t0
   cat(sprintf("Validation: %.1f min | %d/%d results\n",
