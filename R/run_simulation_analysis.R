@@ -358,11 +358,14 @@ run_simulation_analysis <- function(
   if (run_grf) {
     # Resolve id_name from merged GRF params (falls back to "id")
     id_name_resolved <- grf_merged$id.name %||% "id"
+    # Effective names for estimation (see FS sync comment above)
+    grf_est_outcome <- fs_params[["outcome.name"]] %||% outcome_name
+    grf_est_event   <- fs_params[["event.name"]]   %||% event_name
     grf_out <- .run_grf_analysis_gen(
         data = sim_data, confounders_name = confounders_name,
         params = grf_merged, dgm = dgm,
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
-        outcome_name = outcome_name, event_name = event_name,
+        outcome_name = grf_est_outcome, event_name = grf_est_event,
         treat_name = treat_name, harm_col = harm_col,
         label = "GRF", verbose = show_verbose, debug = debug,
         outcome_type   = fs_params$outcome_type,
@@ -482,6 +485,15 @@ run_simulation_analysis <- function(
     !is.null(fs_result$grp.consistency$out_sg$result) &&
     nrow(fs_result$grp.consistency$out_sg$result) > 0
 
+  # Effective names for estimation: honour fs_params overrides.
+  # Critical for Poisson+offset (IRR) where fs_params sets
+  # outcome.name = "event_sim" (binary count) but the function-level
+  # outcome_name still holds "y_sim" (survival time).  Without this
+  # sync, the Poisson GLM receives continuous times as the response,
+  # producing dpois() non-integer warnings and biased estimates.
+  est_outcome <- params[["outcome.name"]] %||% outcome_name
+  est_event   <- params[["event.name"]]   %||% event_name
+
   .extract_fs_estimates_gen(
     df           = data,
     fs_res       = if (has_result) fs_result$grp.consistency$out_sg$result else NULL,
@@ -489,8 +501,8 @@ run_simulation_analysis <- function(
     dgm          = dgm,
     cox_formula  = cox_formula,
     cox_formula_adj = cox_formula_adj,
-    outcome_name = outcome_name,
-    event_name   = event_name,
+    outcome_name = est_outcome,
+    event_name   = est_event,
     treat_name   = treat_name,
     harm_col     = harm_col,
     analysis     = label,
@@ -551,10 +563,10 @@ run_simulation_analysis <- function(
 
     .glm_effect <- function(sub_df) {
       tryCatch({
-        # GLM response is the outcome (y_sim), NOT the event indicator.
-        # For binary: outcome_name = "y_sim" (0/1 response).
-        # For continuous: outcome_name = "y_sim" (CD4 change etc.).
-        # event_name = "event_sim" is a survival concept (constant 1 for GLM).
+        # GLM response is outcome_name — the column that matches the GLM
+        # family.  For native GLM sims this is "y_sim"; for Poisson+offset
+        # on survival data the caller passes "event_sim" (binary indicator)
+        # so the response is a 0/1 count with log(time) as offset.
         if (!is.null(offset_name) && offset_name %in% names(sub_df)) {
           off_vec <- log(pmax(sub_df[[offset_name]], 1e-6))
           fit <- stats::glm(sub_df[[outcome_name]] ~ sub_df[[treat_name]],
@@ -860,8 +872,9 @@ run_simulation_analysis <- function(
 
     .glm_effect_grf <- function(sub_df, oc, ec, tc) {
       tryCatch({
-        # GLM response is the outcome column (oc), NOT the event indicator (ec).
-        # ec is a survival concept; for GLM, oc holds the actual response.
+        # GLM response is oc (outcome_name).  For Poisson+offset on
+        # survival data, the caller sets oc = "event_sim" (binary count)
+        # with offset = log(time); for native GLM sims, oc = "y_sim".
         if (!is.null(offset_name) && offset_name %in% names(sub_df)) {
           off_vec <- log(pmax(sub_df[[offset_name]], 1e-6))
           fit <- stats::glm(sub_df[[oc]] ~ sub_df[[tc]],
