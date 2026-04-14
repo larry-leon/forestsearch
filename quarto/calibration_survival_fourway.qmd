@@ -6,18 +6,21 @@ date: today
 execute:
   warning: true
   message: true
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
 ---
 
 ```{r setup}
 #| include: false
-knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
 # 100/200 ~ 3m linux
 # 1k/2k ~ 16m
 # 4k/8k ~ 1hr
-nsims_alt  <- 5000L        # H1 sims (use 500+ for production)
-nsims_null <- 10000L        # H0 sims (use 500+ for production)
+nsims_alt  <- 500L        # H1 sims (use 500+ for production)
+nsims_null <- 1000L        # H0 sims (use 500+ for production)
 
 # Projection for production nsims values
 prod_alt  <- 10000L
@@ -665,6 +668,10 @@ if (nrow(results_alt_cox) < sim_config$n_sims_alt) {
 }
 cat("Cox H1:", round(timings$alt_cox/60, 1), "min |",
     nrow(results_alt_cox), "/", sim_config$n_sims_alt, "rows\n")
+
+# Reset workers to prevent memory accumulation between phases
+future::plan("sequential")
+future::plan("multisession", workers = n_workers)
 ```
 
 ```{r run-cox-null}
@@ -702,6 +709,10 @@ if (nrow(results_null_cox) < sim_config$n_sims_null) {
 }
 cat("Cox H0:", round(timings$null_cox/60, 1), "min |",
     nrow(results_null_cox), "/", sim_config$n_sims_null, "rows\n")
+
+# Reset workers
+future::plan("sequential")
+future::plan("multisession", workers = n_workers)
 ```
 
 
@@ -742,6 +753,10 @@ if (nrow(results_alt_irr) < sim_config$n_sims_alt) {
 }
 cat("IRR H1:", round(timings$alt_irr/60, 1), "min |",
     nrow(results_alt_irr), "/", sim_config$n_sims_alt, "rows\n")
+
+# Reset workers
+future::plan("sequential")
+future::plan("multisession", workers = n_workers)
 ```
 
 ```{r run-irr-null}
@@ -779,6 +794,10 @@ if (nrow(results_null_irr) < sim_config$n_sims_null) {
 }
 cat("IRR H0:", round(timings$null_irr/60, 1), "min |",
     nrow(results_null_irr), "/", sim_config$n_sims_null, "rows\n")
+
+# Reset workers before comparison/calibration phases
+future::plan("sequential")
+future::plan("multisession", workers = n_workers)
 ```
 
 
@@ -957,6 +976,26 @@ gt(conc_df) |>
     locations = cells_body(rows = Outcome == "Agreement")
   )
 ```
+
+::: {.callout-note}
+## Detection vs Classification Concordance
+
+The table above reports **detection-level** concordance: whether
+Cox and IRR agree on the *existence* of a subgroup in each
+simulation.  A more informative measure is **per-subject
+classification concordance** — whether the two estimators assign
+the same patients to H.  Two methods can both detect a subgroup
+yet disagree on which patients belong to it.
+
+Per-subject concordance between estimators that run in separate
+`run_simulation_analysis()` calls requires storing the full
+`treat.recommend` vector from each.  This is deferred to v0.3.0,
+when `run_simulation_analysis()` will support multiple estimator
+configurations in a single call with automatic pairwise
+concordance (as currently implemented for FS vs GRF within a
+single call).  See `compare_fs_subgroups()` for the single-dataset
+analogue (e.g., `gbsg_analysis_cox_poisson.qmd`).
+:::
 
 
 ## Subgroup Estimate Scatter

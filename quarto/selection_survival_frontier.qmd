@@ -6,6 +6,10 @@ date: today
 execute:
   warning: true
   message: false
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
 ---
 
 # Setup {#sec-setup}
@@ -63,7 +67,6 @@ t_vignette_start <- proc.time()
 
 ```{r setup}
 #| include: false
-knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ── Simulation control ──────────────────────────────────────────
 # 1200 / hr linux
@@ -856,6 +859,10 @@ if (exists("frontier") && nrow(frontier) > 0) {
 
     dgm_h1 <- create_dgm_h1(hr_h1)
 
+    # Reset workers before power simulation phase
+    future::plan("sequential")
+    future::plan("multisession", workers = n_workers)
+
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
       found <- foreach(
         s = seq_len(nsims_power),
@@ -1177,6 +1184,10 @@ if (run_validation) {
     "Running %d validation tasks (%d pairs x %d N x %d sims)...\n",
     nrow(val_tasks), nrow(val_candidates),
     length(N_target), nsims_val))
+
+  # Reset workers before validation phase
+  future::plan("sequential")
+  future::plan("multisession", workers = n_workers)
 
   val_results <- foreach(
     i = seq_len(nrow(val_tasks)),
