@@ -1,0 +1,313 @@
+---
+title: "Development Session Summary: GLM Extension Fixes"
+subtitle: "ForestSearch v0.2.0 — Continuous Outcome Support and Reporting Infrastructure"
+author: "Larry F. León"
+date: 2025-04-14
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    theme: cosmo
+    code-fold: true
+    code-summary: "Show code"
+    mainfont: "Palatino, Georgia, serif"
+    monofont: "Fira Code, JetBrains Mono, Consolas, monospace"
+    title-block-banner: "#2C3E50"
+    title-block-banner-color: white
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(echo = FALSE, comment = "#>")
+```
+
+
+# Overview
+
+This document records the changes made during the April 14, 2025
+development session on the `feature/glm-extension` branch.  The
+session addressed three categories of issues: a critical estimator
+bug in `run_simulation_analysis.R`, a family of reporting-layer
+bugs in the benefit-search inversion and labeling code, and
+structural cleanup of the Quarto document directory.
+
+**Files modified:**
+
+| File | Category | Severity |
+|------|----------|----------|
+| `R/run_simulation_analysis.R` | Estimator bug | Critical |
+| `R/simulation_tables.R` | Reporting / labels | High |
+| `R/oc_analyses.R` | Reporting / labels | High |
+| `quarto/simulations/actg175_continuous_simulations.qmd` | Worker reset + `collect_results` | Moderate |
+| `quarto/` (directory structure) | Organization | Maintenance |
+
+All changes maintain backward compatibility with survival and
+binary outcome types.  Existing simulation documents that use
+HR or OR measures produce identical output.
+
+
+# Bug 1: GLM Estimator Uses Wrong Response Variable {#sec-estimator}
+
+## Symptom
+
+The estimation table for continuous simulations showed all zeros:
+
+| Estimator | Avg | SD | Min | Max | b† (%) |
+|-----------|-----|----|-----|-----|--------|
+| θ̂(Q̂)     | 0   | 0  | 0   | 0   | -100   |
+| θ̂(Q̂ᶜ)    | 0   | 0  | 0   | 0   | -100   |
+
+## Root Cause
+
+Two estimator closures in `run_simulation_analysis.R` used
+`event_name` as the GLM response variable instead of
+`outcome_name`.
+
+In `.extract_fs_estimates_gen()` (ForestSearch path, line 556):
+
+```r
+# BEFORE (buggy):
+fit <- stats::glm(sub_df[[event_name]] ~ sub_df[[treat_name]],
+                  family = glm_family)
+
+# AFTER (fixed):
+fit <- stats::glm(sub_df[[outcome_name]] ~ sub_df[[treat_name]],
+                  family = glm_family)
+```
+
+The same bug existed in `.extract_grf_estimates_gen()` (GRF path,
+line 861), where the closure parameter `ec` (event column) was
+used instead of `oc` (outcome column).
+
+## Why It Caused Zeros
+
+For continuous outcomes, `run_simulation_analysis()` creates
+`event_sim = 1L` for all observations (a compatibility shim for
+downstream Cox code).  Fitting `glm(1 ~ treat_sim, family = gaussian())`
+gives a treatment coefficient of exactly zero, because the
+response is constant.
+
+## Why Binary Was Unaffected
+
+The binary simulation document explicitly sets
+`event.name = "y_sim"` in `fs_params`, making
+`event_name == outcome_name` by coincidence.  The continuous
+document correctly omits `event.name` (no concept of events
+for continuous data), so the default `"event_sim"` exposed
+the bug.
+
+## Verification
+
+QC test on synthetic data with true MD = 40:
+
+```r
+# Fixed closure: MD = 41.13 (correct)
+# Buggy closure: MD = 0.00  (constant response)
+```
+
+
+# Bug 2: Benefit-Search Inversion for Identity-Scale Measures {#sec-inversion}
+
+## Symptom
+
+The estimation table header showed `θ†(Q) = 0.03` instead of
+the expected `θ†(Q) = -39.7` (negated from the switched-scale
+value of +39.7).  Estimation values were `Inf` and `NaN`.
+
+## Root Cause
+
+`invert_hr_columns()` and `invert_dgm_hrs()` in
+`simulation_tables.R` unconditionally used `1/x` to convert
+from switched → original scale.  This is correct for
+ratio-scale measures (HR, OR, IRR) but wrong for
+identity-scale measures (MD, RD, IRD), where the correct
+inversion is negation (`-x`).
+
+| Measure | Scale | Correct Inversion | Old (buggy) |
+|---------|-------|-------------------|-------------|
+| HR      | Ratio | 1/1.85 = 0.54     | 1/1.85 = 0.54 ✓ |
+| OR      | Ratio | 1/2.0 = 0.50      | 1/2.0 = 0.50 ✓ |
+| **MD**  | Identity | **-(39.7) = -39.7** | **1/39.7 = 0.025** ✗ |
+| **RD**  | Identity | **-(0.12) = -0.12** | **1/0.12 = 8.33** ✗ |
+| IRR     | Ratio | 1/1.5 = 0.67      | 1/1.5 = 0.67 ✓ |
+| **IRD** | Identity | **-(0.05) = -0.05** | **1/0.05 = 20** ✗ |
+
+For MD values near zero, `1/x` produces `Inf`, explaining
+the NaN values in the original output.
+
+## Fix
+
+Added `effect_measure` parameter to both functions with
+auto-detection from `dgm$effect_measure`:
+
+```r
+# New helper
+is_identity_scale <- function(effect_measure) {
+  !is.null(effect_measure) && effect_measure %in% c("MD", "RD", "IRD")
+}
+
+# Updated inversion
+invert_hr_columns <- function(res, effect_measure = NULL) {
+  use_negate <- is_identity_scale(effect_measure)
+  for (col in intersect(hr_cols, names(res))) {
+    res[[col]] <- if (use_negate) -res[[col]] else 1 / res[[col]]
+  }
+  res
+}
+```
+
+All six call sites across `simulation_tables.R` and
+`oc_analyses.R` were updated to thread `effect_measure`.
+
+
+# Bug 3: Hardcoded Survival Labels in Reporting Functions {#sec-labels}
+
+## Symptom
+
+Binary outcome estimation tables displayed footnotes referencing
+"plugin Cox HR" and "average hazard ratio" — survival-specific
+terminology applied to binary and continuous outcomes.
+
+## Fix
+
+Added `effect_measure_label()` helper and GLM-aware branching
+throughout the reporting layer:
+
+| Function | What changed |
+|----------|-------------|
+| `build_estimation_table()` | Footnote branches: GLM → "plugin OR estimate"; survival → "plugin Cox HR" |
+| `interpret_estimation_table()` | All 5 narrative paragraphs use `em_label` instead of hardcoded "Cox HR" |
+| `format_oc_results()` | HR column spanner adapts (e.g., "GLM OR" for binary) |
+
+The `effect_measure_label()` function returns context-appropriate
+labels:
+
+| outcome_type | effect_measure | Label |
+|-------------|----------------|-------|
+| survival | HR | Cox HR |
+| binary | OR | OR |
+| binary | RD | risk difference |
+| continuous | MD | mean difference |
+| count | IRR | IRR |
+| count | IRD | incidence rate difference |
+
+AHR and CDE paragraphs in `interpret_estimation_table()` are
+naturally gated by `has_ahr_H` and `has_cde_interp`, which are
+`FALSE` for GLM outcomes (those columns are all `NA`).  No
+explicit suppression was needed.
+
+
+# Enhancement: `dgm` Parameter for `format_oc_results()` {#sec-dgm}
+
+`format_oc_results()` previously had no way to auto-detect the
+effect measure.  Added an optional `dgm` parameter:
+
+```r
+format_oc_results(
+  results,
+  dgm = dgm_calibrated,       # NEW: auto-detects effect_measure
+  subgroup_notation = "benefit"
+)
+```
+
+When `dgm` is provided, `effect_measure` is auto-detected from
+`dgm$effect_measure`, matching the API of `build_estimation_table()`
+and `build_classification_table()` which already accept `dgm`.
+When `dgm = NULL` (default), backward-compatible ratio-scale
+inversion is used.
+
+
+# Continuous Simulations Document Updates {#sec-continuous}
+
+## Worker Pool Reset
+
+Added `reset-workers-null` chunk between the alt and null
+simulation loops, matching the pattern in all three other
+simulation documents:
+
+```r
+# Reset worker pool to prevent memory accumulation from alt sims.
+# Without this, null sims run on bloated workers and can be ~20x slower.
+plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+plan(multisession, workers = n_workers)
+```
+
+## `collect_results()` Migration
+
+Removed the 24-line inline `collect_results()` definition and
+switched to the package-internal version:
+
+```r
+# Before:
+collect_results <- function(raw_list, label = "") { ... }
+results_alt <- collect_results(results_alt_raw, "H1 alt")
+
+# After:
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
+```
+
+
+# Quarto Directory Reorganization {#sec-reorg}
+
+## Before
+
+73 files in a flat `quarto/` directory: production documents,
+working copies, QC scripts, guides, and archive material all
+intermixed.
+
+## After
+
+| Directory | Contents | Files |
+|-----------|----------|-------|
+| `simulations/` | Production simulation studies | 8 |
+| `calibration/` | L_eff calibration and threshold selection | 12 |
+| `grf/` | GRF standalone calibration and review | 9 |
+| `applications/` | Applied analyses and validation | 15 |
+| `guides/` | Theory, literature, how-to guides | 22 |
+| `qc/` | QC and test scripts (R) | 14 |
+| `archive/` | Superseded working copies | 15 |
+
+Root now contains only `_quarto.yml`, `_data/`, `README.md`,
+`.gitignore`, and the 7 topic directories.
+
+## Key Design Decisions
+
+**Co-located output**: `output-dir` was removed from
+`_quarto.yml`, so Quarto renders HTML alongside each `.qmd`
+file.  Each topic directory contains both source and output.
+
+**Shared data cache**: `_data/` remains at the `quarto/` root.
+All moved documents had `output_dir <- "_data"` updated to
+`output_dir <- "../_data"` via `sed`.  Functions like
+`save_leff_calibration()` and `load_leff_calibration()` that
+default to `output_dir = "_data"` will need explicit
+`output_dir = "../_data"` when called from subdirectories.
+
+**Git history preserved**: All moves used `git mv`, so GitHub
+shows renames rather than delete-and-create.
+
+
+# Summary of Outcome/Measure Coverage {#sec-matrix}
+
+After all fixes, the reporting layer handles every
+outcome/measure combination correctly:
+
+| Outcome | Measure | Inversion | Footnote | Spanner | AHR/CDE |
+|---------|---------|-----------|----------|---------|---------|
+| Survival | HR | 1/x | plugin Cox HR | Cox Hazard Ratios | Shown |
+| Binary | OR | 1/x | plugin OR estimate | GLM OR | Suppressed |
+| Binary | RD | −x | plugin RD estimate | RD | Suppressed |
+| Continuous | MD | −x | plugin MD estimate | MD | Suppressed |
+| Count | IRR | 1/x | plugin IRR estimate | GLM IRR | Suppressed |
+| Count | IRD | −x | plugin IRD estimate | IRD | Suppressed |
+
+
+# Session Info
+
+```{r}
+#| echo: true
+sessionInfo()
+```
