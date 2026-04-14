@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ─── Simulation control ─────────────────────────────────────────────────
-nsims_alt   <- 50L
-nsims_null  <- 50L
+nsims_alt   <- 1000L
+nsims_null  <- 1000L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 
@@ -156,30 +156,9 @@ library(ggplot2)
 library(doFuture)
 library(foreach)
 
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    warning(sprintf("%s%d of %d tasks failed.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    if (n_failed == length(raw_list)) {
-      stop(sprintf("%sAll %d tasks failed. First error: %s",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, err_msgs[1]), call. = FALSE)
-    }
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) result <- data.frame()
-  else {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  }
-  attr(result, "n_failed") <- n_failed
-  attr(result, "n_total") <- length(raw_list)
-  result
-}
+# -- Safe foreach result collection -------------------------------------------
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
 
 timings <- list()
 ```
@@ -505,7 +484,7 @@ results_alt_raw <- foreach(
 
 timings$sims_alt <- proc.time()[3] - t0
 
-results_alt <- collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
@@ -555,7 +534,7 @@ results_null_raw <- foreach(
 
 timings$sims_null <- proc.time()[3] - t0
 
-results_null <- collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
