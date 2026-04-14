@@ -351,32 +351,8 @@ library(doFuture)
 library(future)
 
 # -- Safe foreach result collection -------------------------------------------
-# Replaces .errorhandling = "remove" (which silently drops failures)
-# with .errorhandling = "pass" + post-hoc separation of errors from results.
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    warning(sprintf("%s%d of %d tasks failed.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    message("  First errors:\n    ",
-        paste(head(unique(err_msgs), 3), collapse = "\n    "))
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) {
-    result <- NULL
-  } else if (requireNamespace("data.table", quietly = TRUE)) {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  } else {
-    result <- do.call(rbind, good)
-  }
-  attr(result, "n_failed") <- n_failed
-  attr(result, "n_total") <- length(raw_list)
-  result
-}
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
 
 ```
 
@@ -1435,7 +1411,7 @@ results_alt_raw <- foreach(
 }
 
 timings$sims_alt <- proc.time()[3] - t0
-results_alt <- collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
@@ -1484,7 +1460,7 @@ results_null_raw <- foreach(
 }
 
 timings$sims_null <- proc.time()[3] - t0
-results_null <- collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
 if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
