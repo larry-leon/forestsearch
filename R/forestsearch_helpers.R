@@ -7,6 +7,7 @@
 #   - get_dfpred()             : Apply subgroup definition to new data
 #   - evaluate_comparison()    : Safe operator-dispatch expression evaluator
 #   - get_param()              : Extract parameter with default fallback
+#   - collect_results()        : Post-hoc error/result separation for foreach
 # =============================================================================
 
 
@@ -296,4 +297,89 @@ safe_subset <- function(df, expr) {
 }
 
 
+# =============================================================================
+# PARALLEL RESULT HELPERS
+# =============================================================================
 
+#' Collect Results from foreach with Error Handling
+#'
+#' Separates successful results from errors in the output of a
+#' \code{\link[foreach]{foreach}} loop run with
+#' \code{.errorhandling = "pass"}.  Successful results are combined via
+#' \code{\link[data.table]{rbindlist}} (if available) or \code{rbind};
+#' failed tasks are counted and reported as a warning.
+#'
+#' This replaces the fragile pattern of calling \code{nrow()} or
+#' \code{rbind()} directly on a raw \code{foreach} result list, which
+#' fails silently when error objects are mixed in with data-frame rows.
+#'
+#' @param raw_list List returned by \code{foreach(...,
+#'   .errorhandling = "pass")}.  Each element is either a data frame /
+#'   data.table (success) or a condition object (failure).
+#' @param label Character.
+#'   Optional label included in the warning message to identify
+#'   which simulation phase produced the errors (e.g.,
+#'   \code{"Validation"}, \code{"Bootstrap"}).
+#'
+#' @return A data frame of row-bound successful results, or \code{NULL}
+#'   if every task failed.
+#'   Two attributes are attached:
+#'   \describe{
+#'     \item{\code{n_failed}}{Integer.
+#'       Number of tasks that returned errors.}
+#'     \item{\code{n_total}}{Integer.
+#'       Total number of tasks (successes + failures).}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' library(foreach)
+#' library(doFuture)
+#' future::plan("sequential")
+#'
+#' raw <- foreach(i = 1:5, .errorhandling = "pass") %dofuture% {
+#'   if (i == 3) stop("simulated failure")
+#'   data.frame(task = i, value = rnorm(1))
+#' }
+#' res <- collect_results(raw, label = "demo")
+#' # Warning: demo: 1 of 5 tasks failed.
+#' nrow(res)
+#' # [1] 4
+#' attr(res, "n_failed")
+#' # [1] 1
+#' }
+#'
+#' @keywords internal
+collect_results <- function(raw_list, label = "") {
+  is_err <- vapply(raw_list, inherits, logical(1), "error")
+  n_failed <- sum(is_err)
+
+  if (n_failed > 0L) {
+    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
+    warning(
+      sprintf(
+        "%s%d of %d tasks failed.",
+        if (nzchar(label)) paste0(label, ": ") else "",
+        n_failed, length(raw_list)
+      ),
+      call. = FALSE
+    )
+    message(
+      "  First error(s):\n    ",
+      paste(utils::head(unique(err_msgs), 3), collapse = "\n    ")
+    )
+  }
+
+  good <- raw_list[!is_err]
+
+  if (length(good) == 0L) {
+    result <- NULL
+  } else {
+    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
+    result <- as.data.frame(result)
+  }
+
+  attr(result, "n_failed") <- n_failed
+  attr(result, "n_total") <- length(raw_list)
+  result
+}
