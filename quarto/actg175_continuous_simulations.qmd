@@ -518,6 +518,14 @@ cat(sprintf("Detection rate: %.1f%%\n",
 
 ## Null Hypothesis Simulations
 
+```{r reset-workers-null}
+# Reset worker pool to prevent memory accumulation from alt sims.
+# Without this, null sims run on bloated workers and can be ~20x slower.
+plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+plan(multisession, workers = n_workers)
+cat(sprintf("Workers reset: %d cores\n", n_workers))
+```
+
 ```{r run-null}
 cat("Running", nsims_null, "simulations under H0...\n")
 t0 <- proc.time()[3]
