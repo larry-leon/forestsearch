@@ -421,6 +421,9 @@ res <- foreach(i = seq_len(nrow(tasks)), .errorhandling = "pass",
 sim_dt <- rbindlist(res, fill = TRUE)
 timings$simulation <- proc.time()[3] - t0
 
+# Free parallel workers before sequential post-processing
+future::plan("sequential"); gc(verbose = FALSE)
+
 # ── Post-hoc task-count check (.errorhandling = "pass" is silent) ──
 n_expected <- nrow(tasks)
 n_received <- nrow(sim_dt)

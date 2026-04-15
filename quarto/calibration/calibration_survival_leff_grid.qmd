@@ -348,7 +348,7 @@ cat("Cox H0:", round(timings$null_cox / 60, 1), "min |",
     nrow(results_null_cox), "/", nsims_null, "rows\n")
 
 # Reset workers to prevent memory accumulation
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 ```
 
@@ -391,7 +391,7 @@ cat("IRR H0:", round(timings$null_irr / 60, 1), "min |",
     nrow(results_null_irr), "/", nsims_null, "rows\n")
 
 # Reset workers before calibration phases
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 ```
 
@@ -498,6 +498,9 @@ for (N_val in N_cal_values) {
 cal_df <- do.call(rbind, cal_results)
 timings$null_cal <- proc.time()[3] - t0
 cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
+
+# Free workers before L_eff fitting (re-established before grid phase)
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 
@@ -682,7 +685,7 @@ cat(sprintf("(c1 range: %.2f--%.2f, c2 range: %.2f--%.2f)\n",
 
 ```{r run-null-grid}
 # Reset workers before grid phase
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 
 t0 <- proc.time()[3]
@@ -740,6 +743,9 @@ n_expected_grid <- nrow(grid_tasks)
 n_failed_grid   <- attr(grid_results, "n_failed")
 cat(sprintf("Null grid: %.1f min | %d/%d results (%d failed)\n",
     timings$null_grid / 60, nrow(grid_results), n_expected_grid, n_failed_grid))
+
+# Free workers before sequential post-processing
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 

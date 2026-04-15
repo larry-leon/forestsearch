@@ -523,6 +523,9 @@ if (recalibrate) {
   cat("Calibration skipped (recalibrate = FALSE).\n")
   cat("Using prior values from calibration_binary_leff.qmd.\n")
 }
+
+# Free workers before L_eff fitting (re-established before power phase)
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 
@@ -912,7 +915,7 @@ if (exists("frontier") && nrow(frontier) > 0) {
     t0_power <- proc.time()[3]
 
     # Reset workers before power simulation phase
-    future::plan("sequential")
+    future::plan("sequential"); gc(verbose = FALSE)
     future::plan("multisession", workers = n_workers)
 
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
@@ -1285,7 +1288,7 @@ if (run_validation) {
     length(N_target), nsims_val))
 
   # Reset workers before validation phase
-  future::plan("sequential")
+  future::plan("sequential"); gc(verbose = FALSE)
   future::plan("multisession", workers = n_workers)
 
   val_results <- foreach(
@@ -1350,6 +1353,9 @@ if (run_validation) {
   cat("Validation skipped (nsims_val = 0).\n")
   cat("Threshold selection based on corrected approximation only.\n")
 }
+
+# Free workers before sequential post-processing
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 

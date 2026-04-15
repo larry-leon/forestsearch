@@ -4,7 +4,7 @@ subtitle: "Validating the GLM Power Approximation via the Poisson-Cox Equivalenc
 author: "Larry F. Leon"
 date: today
 execute:
-  warning: true
+  warning: false
   message: true
   fig-align: center
 knitr:
@@ -23,8 +23,8 @@ nsims_alt  <- 20L        # H1 sims (use 500+ for production)
 nsims_null <- 20L        # H0 sims (use 500+ for production)
 
 # Projection for production nsims values
-prod_alt  <- 10000L
-prod_null <- 50000L
+prod_alt  <- 2500L
+prod_null <- 10000L
 
 sim_seed   <- 8316951L
 n_workers  <- ceiling(0.95 * max(1L,
@@ -645,7 +645,7 @@ cat("Cox H1:", round(timings$alt_cox/60, 1), "min |",
     nrow(results_alt_cox), "/", sim_config$n_sims_alt, "rows\n")
 
 # Reset workers to prevent memory accumulation between phases
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 ```
 
@@ -686,7 +686,7 @@ cat("Cox H0:", round(timings$null_cox/60, 1), "min |",
     nrow(results_null_cox), "/", sim_config$n_sims_null, "rows\n")
 
 # Reset workers
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 ```
 
@@ -730,7 +730,7 @@ cat("IRR H1:", round(timings$alt_irr/60, 1), "min |",
     nrow(results_alt_irr), "/", sim_config$n_sims_alt, "rows\n")
 
 # Reset workers
-future::plan("sequential")
+future::plan("sequential"); gc(verbose = FALSE)
 future::plan("multisession", workers = n_workers)
 ```
 
@@ -771,8 +771,7 @@ cat("IRR H0:", round(timings$null_irr/60, 1), "min |",
     nrow(results_null_irr), "/", sim_config$n_sims_null, "rows\n")
 
 # Reset workers before comparison/calibration phases
-future::plan("sequential")
-future::plan("multisession", workers = n_workers)
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 
@@ -1021,6 +1020,9 @@ cat(sprintf("N values: %s | Sims per N: %d\n",
             paste(N_cal_values, collapse = ", "), n_sims_cal))
 t0 <- proc.time()[3]
 
+# Re-establish workers for calibration phase
+future::plan("multisession", workers = n_workers)
+
 cal_results <- list()
 for (N_val in N_cal_values) {
   t_N <- proc.time()[3]
@@ -1067,6 +1069,9 @@ for (N_val in N_cal_values) {
 cal_df <- do.call(rbind, cal_results)
 timings$null_cal <- proc.time()[3] - t0
 cat(sprintf("Multi-N calibration: %.1f min\n", timings$null_cal / 60))
+
+# Free workers before sequential post-processing
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 

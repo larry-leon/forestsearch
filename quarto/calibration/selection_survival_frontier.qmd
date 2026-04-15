@@ -502,6 +502,9 @@ if (recalibrate) {
   cat("Calibration skipped (recalibrate = FALSE).\n")
   cat("Using prior values from calibration_survival_*.qmd.\n")
 }
+
+# Free workers before L_eff fitting (re-established before power phase)
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 
@@ -1229,6 +1232,9 @@ if (run_validation) {
   cat("Validation skipped (nsims_val = 0).\n")
   cat("Threshold selection based on corrected approximation only.\n")
 }
+
+# Free workers before sequential post-processing
+future::plan("sequential"); gc(verbose = FALSE)
 ```
 
 
