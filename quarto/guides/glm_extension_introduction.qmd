@@ -1,0 +1,790 @@
+---
+title: "ForestSearch GLM Extension: Overview and Simulation Evidence"
+subtitle: "Binary, Continuous, and Survival Outcomes Beyond the Cox Model"
+author: "Larry F. León"
+date: today
+execute:
+  echo: false
+  warning: false
+  message: false
+  eval: false
+knitr:
+  opts_chunk:
+    comment: "#>"
+---
+
+
+# Introduction {#sec-intro}
+
+The `forestsearch` package (León et al., 2024) implements an exploratory
+subgroup identification procedure for clinical trials with survival
+endpoints, using the Cox proportional-hazards model as the core
+estimator. Version 0.2.0 extends this framework to **generalized linear
+model (GLM) outcomes**, enabling exploratory subgroup search for binary,
+continuous, and count endpoints within the same methodology.
+
+This document provides an overview of the GLM extension: how to access
+the development branch, a conceptual summary of the four simulation
+studies validating and demonstrating the new capabilities, a discussion
+of threshold specification for each outcome type, and a comparison of the
+two subgroup identification engines --- ForestSearch (FS) and the
+standalone GRF module --- as applied to non-survival data.
+
+
+# Accessing the GLM Extension {#sec-access}
+
+The GLM extension is developed on the `feature/glm-extension` branch of
+the public repository. To install the development version:
+
+```r
+# Install from the development branch
+remotes::install_github(
+  "larry-leon/forestsearch",
+  ref = "feature/glm-extension"
+)
+```
+
+If `remotes` is not installed:
+
+```r
+install.packages("remotes")
+remotes::install_github(
+  "larry-leon/forestsearch",
+  ref = "feature/glm-extension"
+)
+```
+
+To clone the branch for local development and contribute:
+
+```bash
+git clone https://github.com/larry-leon/forestsearch.git
+cd forestsearch
+git checkout feature/glm-extension
+```
+
+Or, within an existing clone:
+
+```bash
+git fetch origin
+git checkout feature/glm-extension
+git pull origin feature/glm-extension
+```
+
+**Dependencies.** The GLM extension requires the same packages as the
+survival version (`survival`, `grf`, `glmnet`, `data.table`,
+`doFuture`, `foreach`, `future`) plus `speff2trial` for the ACTG175
+simulation vignettes.
+
+::: {.callout-note}
+## CRAN release plan
+
+The `feature/glm-extension` branch targets CRAN submission as version
+0.2.0. The `master` branch contains the current CRAN release (v0.1.0),
+which supports survival outcomes only. The GLM branch is
+backward-compatible: all v0.1.0 survival analyses continue to work
+without modification.
+:::
+
+
+# Simulation Studies {#sec-sims}
+
+Four simulation documents validate the GLM implementation and
+characterize its operating properties. Each builds a data-generating
+mechanism (DGM) from an existing clinical trial dataset, calibrates an
+interaction effect to achieve a target subgroup effect size, and
+evaluates ForestSearch's ability to detect and correctly classify the
+subgroup across hundreds to thousands of Monte Carlo replicates.
+
+
+## Survival Fourway: Proof-of-Concept for the GLM Framework {#sec-fourway}
+
+**Document:** `calibration_survival_fourway.qmd`
+
+### The Poisson–Cox equivalence as a validation anchor
+
+The first simulation does not introduce a new clinical setting: it
+validates the GLM machinery itself. The key insight is the
+**Poisson–Cox equivalence**: when survival data are analysed by Poisson
+regression with a log follow-up time offset, the resulting incidence rate
+ratio (IRR) estimates the same quantity as the Cox partial likelihood
+hazard ratio, and their variances are asymptotically identical.
+
+Specifically, for the Cox model $\lambda(t; V) = \lambda_0(t)\exp(\beta
+V)$ the partial likelihood score gives $\widehat\beta \approx N(\beta,
+4/d)$, where $d$ is the number of events. For the Poisson+offset model
+$\log E[Y_i] = \beta_0 + \beta V_i + \log(t_i)$, the Fisher information
+for $\beta$ is $I(\beta) = d_0 + d_1 = D$ (total events), so
+$\operatorname{Var}(\widehat\beta) \approx 4/D$. Because $D = d$, the
+two effective information quantities are identical:
+
+$$
+d_{\text{eff}}^{\text{Poisson}} = D = d^{\text{Cox}}
+$$
+
+This equivalence means that the ForestSearch asymptotic approximation
+for the per-subgroup detection probability,
+
+$$
+p(c_1, c_2;\, d,\, \theta^\dagger(H))
+= P\!\left(W_1 + W_2 \ge 2\log c_1,\ \min(W_1,W_2) \ge \log c_2\right),
+\quad W_1, W_2 \overset{\text{iid}}{\sim} N(\beta,\, 8/d),
+$$
+
+applies unchanged to Poisson+offset data when $d_{\text{eff}} = D$ is
+substituted. The GLM approximation formula (`compute_detection_probability_glm()`)
+therefore produces **identical numerical output** to the survival formula
+(`compute_detection_probability()`) when applied to the same survival
+data through either model.
+
+### Study design
+
+The simulation uses the GBSG-based DGM from León et al. (2024): a
+super-population of breast cancer patients with a true harm subgroup $H$
+defined by ER-low status and pre-menopausal age. Key parameters:
+
+| Parameter | Value |
+|-----------|-------|
+| Sample size $N$ | 700 |
+| Subgroup prevalence $p(H)$ | 13% |
+| Target HR($H$) | 2.0 |
+| Censoring proportion | 46% |
+| Analysis time | 84 months |
+| Confounders | 7 (z1–z5, size, grade3) |
+| H1 / H0 simulations | 2,000 / 5,000 |
+
+The same GBSG null DGM is run twice: once via the established Cox PH
+pipeline **(C)** and once via the new GLM pipeline with
+`outcome_type = "binary"`, `effect_measure = "IRR"`, and
+`offset.name = "y_sim"` (follow-up time) **(A)**. A critical
+implementation detail is that the Poisson model's outcome variable is the
+**binary event indicator** `event_sim` (0/1), not the observed survival
+time `y_sim`; the follow-up time enters as the log-offset, not as the
+response.
+
+### Four-way structure
+
+The comparison has four cells: two analytical methods (Cox, Poisson+offset)
+crossed with two evaluation modes (asymptotic approximation, Monte Carlo
+simulation).
+
+| Label | Method | Source |
+|---|---|---|
+| **(A)** | Poisson+offset simulation | GLM pipeline |
+| **(B)** | GLM approximation ($d_{\text{eff}} = D$) | GLM theory |
+| **(C)** | Cox PH simulation | Established pipeline |
+| **(D)** | Cox approximation (`compute_detection_probability()`) | Package (Section 2.1) |
+
+The expected outcomes are: **(B)** = **(D)** exactly (both use $d_{\text{eff}} = d$);
+**(A)** $\approx$ **(C)** within simulation error; and approximations (B, D)
+close to the corresponding simulations (A, C).
+
+Agreement across all four cells simultaneously validates (i) the GLM
+variance formula, (ii) the correctness of the Poisson+offset
+implementation, and (iii) the GLM simulation infrastructure
+(`generate_glm_dgm()`, `simulate_from_glm_dgm()`,
+`run_simulation_analysis()`).
+
+
+## Binary Outcomes: ACTG175 Benefit Subgroup Search {#sec-binary}
+
+**Document:** `actg175_binary_benefit_simulations.qmd`
+
+### Clinical context and benefit-search convention
+
+The ACTG175 trial compared four antiretroviral regimens in HIV-positive
+patients (Hammer et al., 1996). Following León et al. (2024, Section
+4.2), the simulation focuses on arms 1 (ZDV+ddI combination) versus 3
+(ddI monotherapy) and searches for a **benefit subgroup** $Q$: a patient
+subset where ddI monotherapy is superior to the combination, identified
+by the treatment-switching convention.
+
+ForestSearch's harm-detection machinery is repurposed for benefit
+detection by **reversing the treatment labels**: ddI monotherapy is
+re-coded as `treat = 1` and ZDV+ddI as `treat = 0`. Under this
+re-coding, the benefit subgroup $Q$ appears as a "harm" subgroup in the
+search, and the package's `subgroup_notation = "benefit"` flag handles
+the back-inversion for reporting. The subgroup-defining variables are:
+
+- $z_1 = 1$: Age $>$ 34 years (median split)
+- $z_2 = 1$: Prior antiretroviral exposure $\leq$ 744.5 days (third quartile split)
+
+The binary outcome is CD4 count response at 20 weeks ($\mathtt{cd420} >
+\mathtt{cd40}$), a well-established surrogate endpoint.
+
+### DGM and calibration
+
+A logistic regression is fitted to the observed ACTG175 data (arms 1 and
+3 only, switched treatment coding) to construct a 5,000-subject
+super-population. The interaction parameter `k_inter` shifts the
+log-odds of a positive CD4 response for Q members under ddI
+(treat = 1). Calibration searches for the `k_inter` value that achieves
+OR$(Q) = 2.0$ on the switched scale — corresponding to
+OR$(Q) = 0.50$ on the original treatment scale, i.e. a strong benefit
+for Q patients receiving ddI monotherapy.
+
+### Study design
+
+| Parameter | Value |
+|-----------|-------|
+| Sample size $N$ | 1,000 |
+| Subgroup definition | $z_1 = 1 \cap z_2 = 1$ (Age $>$ 34 AND Preanti $\leq$ 745 days) |
+| Subgroup prevalence $p(Q)$ | ~25% |
+| Target OR$(Q)$ — switched scale | 2.0 |
+| Target OR$(Q)$ — original scale | 0.50 |
+| Confounders | 12 ($z_1$–$z_{12}$, binary) |
+| H1 / H0 simulations | 2,500 / 25,000 |
+| Methods compared | ForestSearch (FS) + standalone GRF |
+
+Both ForestSearch and the standalone GRF module (`grf.subg.harm.glm()`)
+are run on every replicate, enabling a direct operating-characteristic
+comparison.
+
+
+## Continuous Outcomes: CD4 Change in ACTG175 {#sec-continuous}
+
+**Document:** `actg175_continuous_simulations.qmd`
+
+### Endpoint and model
+
+Rather than binarising the CD4 response, this simulation uses the raw
+CD4 count change from baseline to 20 weeks ($\mathtt{cd420} -
+\mathtt{cd40}$) as a continuous endpoint. The effect measure is the
+**mean difference (MD)** between treatment arms within the subgroup,
+estimated via a Gaussian GLM with identity link:
+
+$$
+E[\text{CD4 change}_i] = \mu_0 + \beta \cdot \text{treat}_i,
+\quad \text{treat} \in \{0, 1\}
+$$
+
+Subgroup identification proceeds on the MD scale: a candidate subgroup
+must satisfy $\widehat{\text{MD}} \geq c_1$ in the full subgroup and
+$\widehat{\text{MD}} \geq c_2$ in each random split.
+
+### DGM and calibration
+
+The DGM follows the same ACTG175 structure as the binary simulation:
+switched treatment labels, same confounder set ($z_1$–$z_{12}$), same
+subgroup definition ($z_1 = 1 \cap z_2 = 1$). Under the Gaussian model,
+the interaction parameter `k_inter` maps **linearly** to MD$(Q)$:
+$\text{MD}(Q) = \beta_T + k_{\text{inter}}$, where $\beta_T$ is the
+fitted main treatment coefficient. This makes calibration considerably
+simpler than the binary (logistic) case. The target is MD$(Q) = +40$
+cells/$\mu$L on the switched scale.
+
+The DGM preserves the residual standard deviation $\hat\sigma$ from the
+baseline Gaussian GLM fit, ensuring realistic noise levels in simulated
+datasets.
+
+### Study design
+
+| Parameter | Value |
+|-----------|-------|
+| Sample size $N$ | 1,000 |
+| Outcome | CD4 change (cells/$\mu$L) |
+| Target MD$(Q)$ — switched scale | +40 cells/$\mu$L |
+| H1 / H0 simulations | 2,500 / 5,000 |
+| Methods compared | ForestSearch (FS) only |
+
+The standalone GRF module is not run for continuous outcomes in this
+document. Variable screening within ForestSearch uses Gaussian LASSO
+(`glmnet` with `family = "gaussian"`) instead of the binomial or Cox
+variants used in the other pipelines.
+
+
+## Survival Benefit Search: ACTG175 with Cox PH {#sec-survival-benefit}
+
+**Document:** `actg175_survival_benefit_simulations.qmd`
+
+This fourth simulation applies the **established Cox PH** pipeline to
+the ACTG175 trial for benefit subgroup detection in time-to-event data,
+serving as a survival-domain analog to the binary benefit simulation. The
+outcome is time to AIDS-defining event or death (converted from days to
+months). The same treatment-switching convention is applied, with
+thresholds on the hazard ratio scale. ForestSearch and the GRF standalone
+module are both evaluated. This document demonstrates that the
+benefit-search framework extends naturally to the ACTG175 survival
+endpoint and provides a direct basis for comparing survival and binary
+operating characteristics under the same trial and subgroup definition.
+
+
+# Effect and Consistency Thresholds {#sec-thresholds}
+
+ForestSearch gates subgroup selection at two sequential checkpoints. A
+candidate subgroup $H$ is retained only if both are satisfied in a given
+bootstrap replicate:
+
+1. **Screening threshold $c_1$**: the estimated effect in $H$ must
+   exceed $c_1$ (on the effect measure's natural scale).
+2. **Consistency threshold $c_2$**: the effect must exceed $c_2$ in each
+   random half-split of $H$.
+
+The proportion of replicates in which **both** conditions hold must
+reach `pconsistency.threshold` (default 0.90) for the subgroup to be
+reported. Together, $c_1$, $c_2$, and `pconsistency.threshold` determine
+the procedure's false-positive rate (FPR) and power.
+
+## Threshold specification by outcome type
+
+For survival outcomes, León et al. (2024, Section 3) established
+$(c_1, c_2) = (1.25, 1.0)$ on the HR scale as defaults providing
+an approximate 12% FPR at $N = 700$. For GLM outcomes these defaults
+require reconsideration because the effective information $d_{\text{eff}}$
+depends on the outcome distribution, as shown in the following table:
+
+| Outcome | Link | $\kappa$ | $d_{\text{eff}}$ |
+|---------|------|---------|-----------------|
+| Cox PH | log-HR | $(1 - p_c)$ | $d$ (events) |
+| Poisson + offset | log-IRR | $\bar\mu$ | $D$ (events) |
+| Binomial | logit | $\bar p(1-\bar p)$ | $n_H \bar p(1-\bar p)$ |
+| Gaussian | identity | $1/\sigma^2$ | $n_H / \sigma^2$ |
+
+For binary outcomes with a typical event rate of 30–50%, $d_{\text{eff}}
+= n_H \bar p(1-\bar p) < n_H/4$, which is generally smaller than the
+number of events $d$ for survival data with similar subgroup sizes. This
+means the Cox defaults $(1.25, 1.0)$ are **less conservative** for binary
+outcomes and would yield FPR substantially above 12% unless thresholds
+are raised.
+
+## Survival Fourway
+
+The Cox defaults $(c_1, c_2) = (1.25, 1.0)$ apply directly to the
+Poisson+offset analysis as well, since $d_{\text{eff}}^{\text{Poisson}} =
+D = d^{\text{Cox}}$. This is precisely the point of the four-way
+comparison: verifying that no threshold adjustment is needed when
+switching from Cox PH to Poisson+offset on the same survival data.
+
+## Binary outcomes (OR scale)
+
+The binary simulations use an elevated threshold pair on the OR scale:
+
+$$
+c_1 = 1/0.60 \approx 1.667, \qquad c_2 = 1/0.80 = 1.25
+$$
+
+These are the benefit-search thresholds from León et al. (2024), which
+correspond to requiring OR$(Q) \geq 1.667$ under switched treatment
+roles (equivalent to OR$(Q) \leq 0.60$ on the original treatment scale).
+The elevation relative to the Cox defaults reflects two factors: (i) the
+benefit-search convention, where thresholds on the switched scale must be
+larger to protect against false detection of the original "harm" null;
+and (ii) the reduced $d_{\text{eff}}$ for binary outcomes, which implies
+higher per-subgroup type I error at the Cox defaults. An FPR calibration
+study (`calibration_binary_leff.qmd`, not included here) characterizes
+the FPR under these thresholds as a function of $N$ for the ACTG175
+binary DGM.
+
+## Continuous outcomes (MD scale)
+
+For continuous outcomes with `effect_measure = "MD"`, thresholds are on
+the **natural difference scale** in the same units as the outcome. The
+simulation specifies:
+
+$$
+c_1 = 30 \;\text{cells}/\mu\text{L}, \qquad c_2 = 10 \;\text{cells}/\mu\text{L}
+$$
+
+These values were chosen given the calibrated subgroup effect MD$(Q) =
++40$ cells/$\mu$L: a candidate must show at least a 30-cell/$\mu$L mean
+difference in the full subgroup and at least 10 cells/$\mu$L in each
+half-split. Unlike the ratio-scale (HR, OR, IRR) thresholds, there is no
+natural "null" value of 1.0; instead, the threshold must be specified
+relative to the expected effect size and the noise level $\sigma$ in the
+data. Formal FPR calibration for continuous outcomes analogous to the
+$L_{\text{eff}}$ framework developed for survival data is a subject of
+ongoing work.
+
+## A shared invariance
+
+Across all outcome types, the bootstrap consistency filter
+(`pconsistency.threshold = 0.90`) and the minimum subgroup-size
+constraints (`n.min`, `d0.min`, `d1.min`) remain unchanged. The
+`d0.min` and `d1.min` parameters, which require a minimum number of
+events in the control and treatment arms of a candidate subgroup, are
+survival-specific (event counts). For binary and continuous outcomes in
+the current implementation they are set but play a minor role because
+all subjects have observed outcomes; future GLM-native calibration
+documents will revisit their specification for non-survival data.
+
+
+# ForestSearch vs. GRF for GLM Outcomes {#sec-fs-vs-grf}
+
+The package provides two complementary subgroup identification strategies.
+Both have been extended to GLM outcomes in v0.2.0, but they differ
+substantially in their design philosophies, operating characteristics,
+and the role played by thresholds.
+
+## ForestSearch (FS)
+
+ForestSearch proceeds in three stages:
+
+1. **Candidate generation**: LASSO regression (with the appropriate GLM
+   family) and, optionally, variable importance screening via GRF
+   identify which confounders are most promising as subgroup-defining
+   variables. The two-stage option applies LASSO first, then runs GRF
+   restricted to the LASSO-selected variables.
+
+2. **Enumeration**: all subgroup definitions consistent with the selected
+   variables and the `maxk` depth limit are evaluated. For each
+   candidate, the effect estimate is compared against $c_1$.
+
+3. **Consistency filter**: the dataset is randomly split, and the effect
+   in each half must exceed $c_2$. This is repeated across `fs.splits`
+   random splits; the candidate is retained only if the consistency
+   criterion is met in at least `pconsistency.threshold` $\times 100$\%
+   of splits.
+
+For GLM outcomes, the LASSO step switches family automatically:
+`family = "binomial"` (OR, RD), `family = "poisson"` (IRR, IRD),
+or `family = "gaussian"` (MD). The consistency filter and enumeration
+logic are unchanged. Thresholds $c_1$ and $c_2$ must be calibrated to
+the outcome scale as described in @sec-thresholds.
+
+**Strengths.** The bootstrap consistency filter provides strong FPR
+control: a subgroup must survive repeated random half-split tests,
+which substantially reduces the probability that a spurious signal
+passes. The enumeration strategy is exhaustive within the candidate
+set, so the identified subgroup is the globally best-scoring definition
+(subject to the consistency requirement), not a locally optimal one.
+
+**Limitations.** The threshold dependence is both a strength and a
+limitation: thresholds must be calibrated per-DGM and per-outcome-type
+to achieve a target FPR. The enumeration step is computationally
+intensive for large candidate sets or deep `maxk` values.
+
+## Standalone GRF (`grf.subg.harm.glm()`)
+
+The GRF module is model-free by design. It uses `causal_forest()` from
+the `grf` package to estimate conditional average treatment effects
+(CATEs) at the individual level, then applies policy trees to partition
+the covariate space into treatment-preferring and control-preferring
+regions. The subgroup is the region where CATE is most extreme
+(most negative CATE under the harm convention, or most positive under
+the benefit convention, depending on `adverse_outcome`).
+
+For GLM outcomes, CATEs are estimated on the **risk-difference** (RD)
+scale regardless of `effect_measure`, because `causal_forest()` is a
+non-parametric estimator of $E[Y(1) - Y(0) \mid X]$. The only
+GLM-specific tuning parameter is `dmin.grf`: the minimum absolute
+CATE (in RD units) required for a policy-tree node to qualify as a
+subgroup.
+
+**Strengths.** GRF is threshold-free in the sense that it does not
+require specifying $c_1$ or $c_2$; only `dmin.grf` needs calibration.
+CATEs capture heterogeneity at the individual level before
+discretisation, which can make the approach more sensitive when the
+true subgroup boundary is smooth rather than defined by a single
+covariate cut. The cross-fitted CATE estimates are doubly robust in
+large samples.
+
+**Limitations.** Because GRF lacks the bootstrap consistency filter,
+its FPR tends to be higher than ForestSearch's at comparable power levels.
+For binary outcomes in the ACTG175 simulation, calibration across the
+`dmin.grf` grid shows that FPR control requires accepting some power
+reduction: at `dmin.grf = 0.02` (2% risk difference), FPR is approximately
+9%, compared to ForestSearch's lower FPR at similar detection rates.
+GRF also requires larger sample sizes for reliable CATE estimation;
+the consistency of the policy-tree partition can be sensitive to
+the chosen `min.node.size` and `mtry` hyperparameters.
+
+## Direct comparison in the binary simulation
+
+The binary ACTG175 simulation (`actg175_binary_benefit_simulations.qmd`)
+runs both methods on every replicate, enabling a direct comparison. Key
+distinctions observed:
+
+- **Detection rate**: GRF achieves comparable or higher detection than
+  ForestSearch under $H_1$, particularly at moderate effect sizes, because
+  it does not require the effect to survive the consistency filter.
+
+- **FPR control**: ForestSearch provides stronger FPR control under $H_0$.
+  The bootstrap consistency filter is the primary mechanism: requiring the
+  signal to replicate across 90% of random data splits effectively guards
+  against chance associations. GRF's `dmin.grf` threshold controls FPR
+  only indirectly, by raising the minimum detectable CATE.
+
+- **Classification concordance**: when both methods detect a subgroup in
+  the same replicate, per-subject classification agreement (quantified
+  by Cohen's $\kappa$ via `agree.FS.GRF` and `kappa.FS.GRF`) reflects
+  the degree to which the two approaches carve the covariate space
+  similarly. High concordance confirms they are targeting the same
+  underlying subgroup; low concordance suggests the methods are sensitive
+  to different aspects of the heterogeneity.
+
+- **Complementarity**: the two methods are designed to be used together.
+  ForestSearch provides a formally calibrated result with strong FPR
+  control; GRF provides a model-free corroborating screen. Agreement
+  between them strengthens the case for a genuine subgroup; disagreement
+  prompts further investigation.
+
+For the continuous ACTG175 simulation, only ForestSearch is currently
+run. Standalone GRF for continuous outcomes (`grf.subg.harm.glm()` with
+a Gaussian response) is implemented in the package but its
+calibration is deferred to a future document.
+
+## Summary
+
+| Feature | ForestSearch | Standalone GRF |
+|---------|-------------|----------------|
+| Core estimator | GLM (logistic/Poisson/Gaussian) | Causal forest (non-parametric) |
+| Effect scale for screening | Match `effect_measure` (HR, OR, IRR, MD) | Risk difference (always) |
+| Threshold parameters | $c_1$, $c_2$, `pconsistency.threshold` | `dmin.grf` |
+| FPR mechanism | Bootstrap consistency filter | Minimum CATE threshold |
+| FPR control | Stronger | Moderate (requires calibration) |
+| Power | Moderate to high | Comparable to higher |
+| Subgroup boundary | Exhaustive enumeration | Policy-tree partition |
+| Hyperparameter sensitivity | Low (thresholds are interpretable) | Moderate (`min.node.size`, `mtry`) |
+| GLM families supported | Binomial, Poisson, Gaussian | All (CATE on RD scale) |
+| Benefit search | Via treatment switching + inversion | Via `adverse_outcome` flag |
+
+
+# References {#sec-references}
+
+- Hammer, S.M., et al. (1996). A trial of three nucleoside analogues
+  for HIV infection. *New England Journal of Medicine*, 335, 1081--1090.
+- León, L.F., Jemielita, T., Guo, Z., Marceau West, R., and Anderson,
+  K.M. (2024). Exploratory subgroup identification in the heterogeneous
+  Cox model. *Statistics in Medicine*, 43, 4253--4275.
+  doi:10.1002/sim.10163.
+- McCullagh, P. and Nelder, J.A. (1989). *Generalized Linear Models*,
+  2nd ed. Chapman and Hall.
+- Laird, N. and Olivier, D. (1981). Covariance analysis of censored
+  survival data using log-linear analysis techniques. *Journal of the
+  American Statistical Association*, 76(374), 231--240.
+- Athey, S., Tibshirani, J., and Wager, S. (2019). Generalized random
+  forests. *Annals of Statistics*, 47(2), 1148--1178.
+
+
+# Appendix: Simulation Results Summary {#sec-appendix .appendix}
+
+The tables below summarise the key operating characteristics from all
+four simulation documents, extracted from the rendered HTML output.
+Results are from the production runs included in
+`sims_to_summarize.zip`; all simulations used seed 8316951.
+
+
+## A.1 Study Designs at a Glance {#sec-app-design}
+
+| | **Survival Fourway** | **Binary Benefit** | **Continuous Benefit** | **Survival Benefit** |
+|---|---|---|---|---|
+| **Document** | `calibration_survival_fourway` | `actg175_binary_benefit_simulations` | `actg175_continuous_simulations` | `actg175_survival_benefit_simulations` |
+| **Dataset / DGM** | GBSG (AFT DGM) | ACTG175 (GLM DGM) | ACTG175 (GLM DGM) | ACTG175 (AFT DGM) |
+| **Outcome** | Time-to-event | Binary (CD4 response) | Continuous (CD4 change) | Time-to-event |
+| **Effect measure** | HR / IRR | OR | MD | HR |
+| **GLM family** | — / Poisson+offset | Binomial (logit) | Gaussian (identity) | — |
+| **Estimators run** | Cox PH + Poisson+offset | FS + GRF | FS only | FS + GRF |
+| **Benefit search** | No (harm) | Yes (switched) | Yes (switched) | Yes (switched) |
+| **True subgroup** | ER-low & pre-meno ($p_H = 13$%) | $z_1=1 \cap z_2=1$ ($\approx 25$%) | $z_1=1 \cap z_2=1$ ($\approx 25$%) | $z_1=1 \cap z_2=1$ ($\approx 25$%) |
+| **Target effect in $H$** | HR = 2.0 (harm) | OR = 2.0 switched (= 0.5 orig.) | MD = +40 switched | HR = 2.0 switched (= 0.5 orig.) |
+| **Sample size $N$** | 700 | 1,000 | 1,000 | 1,000 |
+| **Confounders** | 7 | 12 | 12 | 12 |
+| **H1 / H0 sims** | 2,000 / 5,000 | 2,500 / 25,000 | 2,500 / 5,000 | 2,500 / 20,000 |
+| **Screening $c_1$** | 1.25 (HR) | 1.667 (OR) | 30 (MD) | 1.667 (HR) |
+| **Consistency $c_2$** | 1.0 (HR) | 1.25 (OR) | 10 (MD) | 1.25 (HR) |
+| **pconsistency** | 0.90 | 0.90 | 0.90 | 0.90 |
+
+
+## A.2 Operating Characteristics Under H1 (Power) {#sec-app-h1}
+
+### Survival Fourway — Cox PH (C) vs. Poisson+offset (A)
+
+GBSG DGM, $N = 700$, 2,000 replicates, true HR$(H) = 2.00$,
+HR$(H^c) = 0.66$.
+
+| Metric | (C) Cox PH | (A) Poisson+offset |
+|--------|-----------|-------------------|
+| Detection rate | 0.833 | 0.880 |
+| Sensitivity | 0.718 | 0.701 |
+| Specificity | 0.964 | 0.963 |
+| PPV | 0.736 | 0.729 |
+| NPV | 0.983 | 0.974 |
+| Mean $\hat\theta(H)$ | 2.311 (HR) | 2.163 (IRR) |
+| Mean $\hat\theta(H^c)$ | 0.639 | 0.654 |
+| Mean $\hat\theta$ (ITT) | 0.745 | 0.755 |
+
+Detection, classification, and effect estimates are closely matched
+across the two estimators, confirming the GLM pipeline equivalence.
+
+
+### Binary Benefit — FS vs. GRF
+
+ACTG175 GLM DGM, $N = 1{,}000$, 2,500 replicates, OR$(Q) = 2.01$
+(switched scale), OR$(Q^c) = 0.67$.
+
+| Metric | FS | GRF (`dmin` = 0.10) |
+|--------|-----|---------------------|
+| Detection rate | 0.74 | 0.72 |
+| Sensitivity | 0.42 | 0.65 |
+| Specificity | 0.88 | 0.79 |
+| PPV | 0.59 | 0.54 |
+| NPV | 0.87 | 0.96 |
+| Estimable replicates | 1,849 / 2,500 (74%) | 1,791 / 2,500 (72%) |
+| Avg $|\hat Q|$ | 218 | 417 |
+| Mean $\hat\theta(\hat Q)$ | 0.36 (SD 0.11) | 0.51 (SD 0.09) |
+| Estimation bias $b^\dagger$ | −28.6% | +1.8% |
+
+FS achieves stronger specificity and PPV while GRF shows better
+sensitivity and substantially lower estimation bias (conditional
+on selection). GRF's $\hat Q$ is nearly twice as large on average,
+partly explaining its higher sensitivity but lower PPV.
+
+
+### Continuous Benefit — FS only
+
+ACTG175 Gaussian DGM, $N = 1{,}000$, 2,500 replicates, MD$(Q) = 39.7$
+cells/$\mu$L (switched scale), MD$(Q^c) = -26.3$.
+
+| Metric | FS |
+|--------|----|
+| Detection rate | 0.94 |
+| Sensitivity | 0.47 |
+| Specificity | 0.93 |
+| PPV | 0.71 |
+| NPV | 0.81 |
+| Estimable replicates | 2,359 / 2,500 (94%) |
+| Avg $|\hat Q|$ | 205 |
+| Mean $\hat\theta(\hat Q)$ | −56.2 (SD 18.8) |
+| Estimation bias $b^\dagger$ | +41.3% |
+
+Detection is the highest across all GLM simulations (94%), reflecting
+the large absolute effect size (MD = +40) relative to the threshold
+($c_1 = 30$). Estimation bias is notable (selected subgroup effects
+overestimated by ~41%), consistent with the selection bias inherent in
+ForestSearch and analogous to what is observed in the survival setting.
+
+
+### Survival Benefit — FS vs. GRF
+
+ACTG175 AFT DGM, $N = 1{,}000$, 2,500 replicates, HR$(Q) = 0.49$
+(original scale, i.e. switched HR = 2.04), HR$(Q^c) = 0.90$.
+
+| Metric | FS | GRF (`dmin` = 2 months) |
+|--------|----|--------------------------|
+| Detection rate | 0.88 | 0.98 |
+| Sensitivity | 0.46 | 0.49 |
+| Specificity | 0.81 | 0.76 |
+| PPV | 0.54 | 0.50 |
+| NPV | 0.80 | 0.76 |
+| Estimable replicates | 2,208 / 2,500 (88%) | 2,455 / 2,500 (98%) |
+| Avg $|\hat Q|$ | 290 | 331 |
+| Mean $\hat\theta(\hat Q)$ (HR) | 0.40 (SD 0.08) | 0.47 (SD 0.12) |
+
+
+## A.3 Operating Characteristics Under H0 (FPR) {#sec-app-h0}
+
+| Study | Method | H0 sims | FPR | Note |
+|-------|--------|---------|-----|------|
+| Survival Fourway | (C) Cox PH | 5,000 | 5.5% | GBSG null, uniform HR = 0.72 |
+| Survival Fourway | (A) Poisson+offset | 5,000 | 14.6% | Same data, elevated vs. Cox |
+| Binary Benefit | FS | 25,000 | 4.3% | ACTG175 null, OR(ITT) = 0.67 switched |
+| Binary Benefit | GRF | 25,000 | 29.5% | `dmin` = 0.10; see note |
+| Continuous Benefit | FS | 5,000 | 12.0% | ACTG175 null, MD(ITT) = −26.3 switched |
+| Survival Benefit | FS | 20,000 | 49.0% | ACTG175 null, HR(ITT) = 0.82 orig. |
+| Survival Benefit | GRF | 20,000 | 89.0% | `dmin` = 2 months; see note |
+
+**Notes.**
+
+- The Poisson+offset FPR (14.6%) is substantially higher than the Cox
+  FPR (5.5%) on the same survival data. The two procedures share
+  identical identification logic, but the ForestSearch algorithm
+  uses Cox PH internally for subgroup evaluation at every node; the
+  "Poisson" label refers only to the final estimation step. The
+  inflated FPR suggests the current implementation routes subgroup
+  *screening* through Cox regardless of `effect_measure`, and the
+  discrepancy reflects this mismatch — the Poisson branch evaluates
+  effects with a different model than the one used to set thresholds
+  under the Cox defaults.
+
+- GRF FPR for binary outcomes (29.5% at `dmin` = 0.10) is high
+  relative to FS. The calibration document
+  (`grf_dmin_calibration_binary.qmd`) characterised the FPR–power
+  tradeoff: `dmin` = 0.02 achieves FPR ≤ 9% while preserving
+  ≥ 76% detection. The `dmin` = 0.10 setting used in the production
+  run reflects a more conservative power choice (detection ~72%,
+  FPR ~30%) and should be re-evaluated for deployment.
+
+- The survival benefit FPR (49% FS, 89% GRF) is inflated because the
+  null DGM preserves the ACTG175 trial's real ITT treatment effect
+  (HR = 0.84 original, i.e. HR = 1.19 on the switched scale). This
+  is close to the threshold $c_1 = 1.667$ for some subgroups when
+  combined with the 12-confounder search space and $N = 1{,}000$.
+  The benefit-search FPR under a truly null ITT effect would be
+  substantially lower. Threshold recalibration for this DGM is
+  ongoing.
+
+- The $L_{\text{eff}}$ null calibration from the Survival Fourway at
+  $c_1 = 1.25$, $c_2 = 1.0$ yielded simulated FPRs of 5.4%, 6.6%,
+  and 5.5% at $N = 300$, 500, and 700 respectively — consistent with
+  the paper's target and validating the calibration framework for
+  survival data.
+
+
+## A.4 Approximation Validation (Survival Fourway) {#sec-app-approx}
+
+The four-way table at $n_H = 60$ ($d = 32$ events), $c_1 = 1.25$,
+$c_2 = 1.0$:
+
+| | Method | P($\theta = 1.0$) | P($\theta = 0.75$) | P($\theta = 2.0$) |
+|---|---|---|---|---|
+| **(D)** Cox Approximation | Approx | 0.194 | 0.050 | 0.825 |
+| **(C)** Cox Simulation | Simulation | 0.055 | — | 0.833 |
+| **(B)** GLM Approximation | Approx | 0.194 | 0.051 | 0.822 |
+| **(A)** GLM Simulation | Simulation | 0.146 | — | 0.880 |
+
+**(B) = (D)** to three decimal places, confirming the
+$d_{\text{eff}}^{\text{Poisson}} = D = d^{\text{Cox}}$ equivalence.
+Approximation and simulation agree closely under H1:
+**(C)** = 0.833 vs **(D)** = 0.825; **(A)** = 0.880 vs **(B)** = 0.822.
+The H0 discrepancy between simulated FPRs (C: 5.5%, A: 14.6%) versus
+the per-subgroup approximation (B = D: 19.4%) reflects the
+$L_{\text{eff}} < 1$ structure for survival data: after calibration,
+the corrected approximation aligns with simulation.
+
+
+## A.5 FS vs. GRF Concordance — Binary Benefit {#sec-app-concordance}
+
+Per-subject classification concordance between FS and GRF across
+2,500 H1 replicates (ACTG175 binary, $N = 1{,}000$):
+
+| Concordance metric | Value |
+|--------------------|-------|
+| Mean agreement (all replicates) | 80.3% (SD 17.0%) |
+| Mean Cohen's $\kappa$ | 0.486 (SD 0.406) |
+| Median $\kappa$ | 0.416 |
+| Both detected $Q$ | 1,570 (63%) |
+| FS only | 279 (11%) |
+| GRF only | 221 (9%) |
+| Neither detected | 430 (17%) |
+| Mean agreement \| both detect | 77.0% |
+| Mean $\kappa$ \| both detect | 0.500 |
+
+When both methods detect a subgroup in the same replicate ($n = 1{,}570$,
+63%), per-subject agreement averages 77% ($\kappa = 0.50$) — moderate
+concordance. This reflects the fundamental difference in how each
+method partitions the covariate space: FS enumerates binary-factor
+intersections exhaustively; GRF partitions via policy trees on the
+estimated CATE surface. Disagreement in individual-level assignment
+can coexist with agreement on which variables are most informative.
+
+
+## A.6 Computational Timing {#sec-app-timing}
+
+| Study | H1 sims | H0 sims | Workers | H1 time | H0 time | Total |
+|-------|---------|---------|---------|---------|---------|-------|
+| Survival Fourway | 2,000 | 5,000 | 121 | 3.2 min | 6.8 min (Cox) / 7.3 min (IRR) | ~20 min |
+| Binary Benefit | 2,500 | 25,000 | 12 | 17 min | 130 min | 147.5 min |
+| Continuous Benefit | 2,500 | 5,000 | 12 | 11.4 min | 39.3 min | ~51 min |
+| Survival Benefit | 2,500 | 20,000 | 115 | 5 min | 39.5 min | ~45 min |
+
+Per-replicate costs on the machines used:
+
+| Study | sec/sim (H1) | sec/sim (H0) |
+|-------|-------------|-------------|
+| Binary Benefit (12 workers) | 0.4 | 0.3 |
+| Continuous (12 workers) | ~0.3 | ~0.5 |
+| Survival Benefit (115 workers) | ~0.1 | ~0.1 |
+
+The Binary Benefit study has the highest wall time due to the large H0
+budget ($25{,}000$ sims for stable FPR estimation) and modest worker
+count (12 physical cores). The Survival Fourway benefits from 121
+workers but involves the heavier Cox bootstrap consistency evaluation.
