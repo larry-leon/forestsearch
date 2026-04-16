@@ -38,6 +38,7 @@ library(future)
 
 ```{r timing-init}
 timings <- list()
+timings$power <- 0     # default; overwritten if H1 power sims run
 t_vignette_start <- proc.time()
 ```
 
@@ -46,7 +47,19 @@ t_vignette_start <- proc.time()
 
 # ── Simulation control ──────────────────────────────────────────
 # 1200 / hr linux
-nsims_val       <- 20L      # validation sims per (c1, c2, N)
+#
+# nsims_val precision at typical survival FPR ~ 5-10%:
+#   20  sims: ±6.5pp CI at FPR=10%  — dev/smoke-test only
+#   200 sims: ±2.1pp CI at FPR=10%  — quick check
+#   500 sims: ±1.3pp CI at FPR=10%  — minimum for publication
+#  1000 sims: ±0.9pp CI at FPR=10%  — production (recommended)
+#  2000 sims: ±0.6pp CI at FPR=10%  — high-precision publication
+#
+# Tasks = n_frontier_pairs × length(N_target) × nsims_val
+# At ~3 sec/task on Mac (~1200/hr linux):
+#   500 sims × 10 pairs × 3 N = 15,000 tasks ≈ 38 min (linux)
+#  1000 sims × 10 pairs × 3 N = 30,000 tasks ≈ 75 min (linux)
+nsims_val       <- 1000L      # validation sims per (c1, c2, N)
 sim_seed        <- 8316951L
 n_workers       <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -97,15 +110,18 @@ c2_grid     <- seq(0.90, 1.50, by = grid_step)  # fallback only
 max_pairs   <- 40L       # max sim candidates (selected + boundary)
 
 # ── H1 power assessment at optimal pair ──────────────────────
-nsims_power <- 20L        # H1 sims at optimal pair (0 = approx only)
+nsims_power <- 500L        # H1 sims at optimal pair (0 = approx only)
 
 # ── Production projection targets ────────────────────────────
-prod_nsims_val   <- 1000L   # validation sims per (c1, c2, N)
-prod_nsims_power <- 500L    # H1 sims at optimal pair
+prod_nsims_val   <- 1000L   # recommended: ±0.9pp CI at FPR=10%
+prod_nsims_power <- 500L    # recommended: ±4.4pp CI at power=50%
 
 # ── Heatmap display subset ────────────────────────────────────
 c1_heat     <- seq(1.00, 1.50, by = 0.05)
 c2_heat     <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25)
+
+# ── Anchor master RNG seed ────────────────────────────────────
+set.seed(sim_seed)
 ```
 
 ```{r load-calibration}
@@ -141,7 +157,17 @@ if (length(cfg) > 0) {
   if (!is.null(cfg$analysis_time))    analysis_time    <- cfg$analysis_time
   if (!is.null(cfg$cens_adjust))      cens_adjust      <- cfg$cens_adjust
   if (!is.null(cfg$N_cal_values))     N_cal_values     <- cfg$N_cal_values
-  if (!is.null(cfg$fpr_target))       fpr_target       <- cfg$fpr_target
+  # fpr_target is intentionally NOT inherited — it is a policy parameter
+  # set in the setup chunk of this document.  Warn if the calibration
+  # source used a different value so the user can reconcile.
+  if (!is.null(cfg$fpr_target) && !isTRUE(all.equal(cfg$fpr_target, fpr_target))) {
+    warning(sprintf(paste0(
+      "Calibration .rds was produced with fpr_target = %.2f ",
+      "but this document uses fpr_target = %.2f (from setup chunk).\n",
+      "  If you want to match the calibration source, update fpr_target ",
+      "in the setup chunk."),
+      cfg$fpr_target, fpr_target), call. = FALSE)
+  }
   cat(sprintf("  confounders: %s\n", paste(confounders_base, collapse = ", ")))
   cat(sprintf("  prop_cens=%.2f, pcons=%.2f, fs_splits=%d, maxk=%d\n",
               prop_cens, pcons, fs_splits, maxk_val))
@@ -208,9 +234,12 @@ by `calibration_survival_fourway.qmd` (C2) or
 `calibration_survival_leff_grid.qmd` (C3).
 
 - **If the `.rds` exists:** inherits `confounders_base`,
-  `prop_cens`, `pcons`, `fs_splits`, `maxk_val`, `fpr_target`,
+  `prop_cens`, `pcons`, `fs_splits`, `maxk_val`,
   `analysis_time`, `cens_adjust`, and `N_cal_values` from the
-  calibration config.
+  calibration config.  `fpr_target` is **not** inherited — it
+  is a policy parameter set in the setup chunk of this document.
+  A warning is printed if the calibration source used a different
+  value.
 - **Grid range** (`use_c1_grid = TRUE`, default): `c1_grid` and
   `c2_grid` are set to the calibration's validated range at S2's
   `grid_step`.  Set `use_c1_grid = FALSE` to use the setup-chunk
@@ -386,8 +415,8 @@ d_dgm <- round(d_eff_survival(n_H_ref, prop_cens))
 cat(sprintf("Reference: n_H=%d (n.min), d_eff=%d events, prop_cens=%.2f\n",
             n_H_ref, d_dgm, prop_cens))
 
-# Convenience wrapper
-p_detect_glm <- function(theta, d_eff, c1, c2) {
+# Convenience wrapper: works for both survival (ratio) and GLM scales
+p_detect <- function(theta, d_eff, c1, c2) {
   compute_detection_probability_glm(
     theta = theta, d_eff = d_eff, c1 = c1, c2 = c2,
     effect_scale = "ratio", method = "monte_carlo"
@@ -519,7 +548,7 @@ if (recalibrate) {
   cal_df$n_H <- n_min_val
   cal_df$d_eff <- round(d_eff_survival(cal_df$n_H, prop_cens))
   cal_df$P1 <- sapply(cal_df$d_eff, function(d)
-    p_detect_glm(1.0, d, 1.25, 1.0))
+    p_detect(1.0, d, 1.25, 1.0))
 
   cal_df$sim_fpr <- pmax(cal_df$sim_fpr, 0.5 / n_sims_recal)
   cal_df$sim_fpr <- pmin(cal_df$sim_fpr, 1 - 0.5 / n_sims_recal)
@@ -568,17 +597,9 @@ if (recalibrate) {
     C_fit <- C_prior; alpha_fit <- alpha_prior
   }
 
-  # Save updated calibration
-  save_leff_calibration(
-    C = C_fit, alpha = alpha_fit, n_min = n_min_val,
-    outcome_type = "survival",
-    cal_data = cal_df,
-    dgm_description = paste(
-      "GBSG survival DGM,", length(confounders_base), "confounders",
-      sprintf("prop_cens=%.2f, p_harm=%.2f", prop_cens, p_harm)),
-    n_sims_per_N = n_sims_recal,
-    output_dir = output_dir
-  )
+  # NOTE: Calibration is saved in the save-results chunk (Part V),
+
+  # which includes the full extra config list.
 
 } else {
   C_fit <- C_prior
@@ -650,7 +671,7 @@ full_grid$d_eff <- round(d_eff_survival(full_grid$n_H, prop_cens))
 full_grid$L_eff <- C_fit * (full_grid$N / n_min_val)^alpha_fit
 
 full_grid$P1 <- mapply(function(d, c1v, c2v) {
-  p_detect_glm(1.0, d, c1v, c2v)
+  p_detect(1.0, d, c1v, c2v)
 }, full_grid$d_eff, full_grid$c1, full_grid$c2)
 
 full_grid$FPR_corr <- 1 - (1 - full_grid$P1)^full_grid$L_eff
@@ -819,11 +840,11 @@ if (exists("frontier") && nrow(frontier) > 0) {
       HR = rep(hr_seq, 2),
       Power = c(
         sapply(hr_seq, function(hr) {
-          P1 <- p_detect_glm(hr, d_ref, c1_opt, c2_opt)
+          P1 <- p_detect(hr, d_ref, c1_opt, c2_opt)
           1 - (1 - P1)^L_eff
         }),
         sapply(hr_seq, function(hr) {
-          p_detect_glm(hr, d_ref, c1_opt, c2_opt)
+          p_detect(hr, d_ref, c1_opt, c2_opt)
         })
       ),
       Type = rep(c("Corrected (any detection)",
@@ -847,9 +868,9 @@ if (exists("frontier") && nrow(frontier) > 0) {
     future::plan("multisession", workers = n_workers)
 
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
-      found <- foreach(
+      found_raw <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "pass",
+        .errorhandling = "pass",
         .options.future = list(
           packages = c("forestsearch", "survival", "data.table", "future"),
           seed = TRUE)
@@ -872,20 +893,21 @@ if (exists("frontier") && nrow(frontier) > 0) {
           fs_params = fs_params_opt, verbose = FALSE
         )
         fs_row <- res[res$analysis == "FS", ]
-        if (nrow(fs_row) > 0) fs_row$any.H[1] else 0L
+        data.frame(
+          sim = s, N = N_val,
+          any_found = if (nrow(fs_row) > 0) fs_row$any.H[1] else 0L
+        )
       }
-      res_clean <- unlist(found[sapply(found, is.numeric)])
-      if (length(res_clean) < nsims_power) {
-        warning(sprintf(
-          "H1 N=%d: %d of %d tasks silently failed.",
-          N_val, nsims_power - length(res_clean), nsims_power
-        ))
-      }
-      sim_pwr <- mean(res_clean, na.rm = TRUE)
+      res_df <- forestsearch:::collect_results(
+        found_raw, label = sprintf("H1 power N=%d", N_val)
+      )
+      n_good <- if (!is.null(res_df)) nrow(res_df) else 0L
+      sim_pwr <- if (n_good > 0) mean(res_df$any_found, na.rm = TRUE) else NA_real_
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
       cat(sprintf("  N = %4d: Sim power = %.1f%% (%d/%d) | L_eff = %.2f\n",
-                  N_val, 100 * sim_pwr, sum(res_clean),
-                  length(res_clean), L_eff))
+                  N_val, 100 * sim_pwr,
+                  if (n_good > 0) sum(res_df$any_found) else 0L,
+                  n_good, L_eff))
       data.frame(
         HR = hr_h1, Power = sim_pwr,
         Type = "Simulation",
@@ -896,9 +918,15 @@ if (exists("frontier") && nrow(frontier) > 0) {
     timings$power <- proc.time()[3] - t0_power
     cat(sprintf("Power simulation: %.1f min\n",
                 timings$power / 60))
+
+    # Free workers after power phase
+    future::plan("sequential"); gc(verbose = FALSE)
   } else {
     timings$power <- 0
   }
+
+  # Ensure sequential mode before plotting/post-processing
+  future::plan("sequential")
 
   # ── Plot ────────────────────────────────────────────────────
   p <- ggplot(power_curves, aes(x = HR, y = Power,
@@ -951,7 +979,7 @@ if (exists("frontier") && nrow(frontier) > 0) {
     cat(sprintf("HR=%-5.2f: ", hr_val))
     for (N_val in N_target) {
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
-      P1 <- p_detect_glm(hr_val, d_ref, c1_opt, c2_opt)
+      P1 <- p_detect(hr_val, d_ref, c1_opt, c2_opt)
       P_corr <- 1 - (1 - P1)^L_eff
       cat(sprintf("N=%d P1=%.1f%% Corr=%.1f%%  ",
                   N_val, 100 * P1, 100 * P_corr))
@@ -976,7 +1004,7 @@ if (exists("c1_opt")) {
     row <- data.frame(HR = hr_val, stringsAsFactors = FALSE)
     for (N_val in N_target) {
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
-      P1 <- p_detect_glm(hr_val, d_ref, c1_opt, c2_opt)
+      P1 <- p_detect(hr_val, d_ref, c1_opt, c2_opt)
       P_corr <- 1 - (1 - P1)^L_eff
       row[[sprintf("P1_N%d", N_val)]]   <- P1
       row[[sprintf("Corr_N%d", N_val)]] <- P_corr
@@ -1252,7 +1280,7 @@ if (run_validation) {
   val_fpr[, n_H := n_min_val]
   val_fpr[, d_eff := round(d_eff_survival(n_H, prop_cens))]
   val_fpr[, P1 := mapply(function(d, c1v, c2v) {
-    p_detect_glm(1.0, d, c1v, c2v)
+    p_detect(1.0, d, c1v, c2v)
   }, d_eff, c1, c2)]
   val_fpr[, L_eff_N := C_fit * (N / n_min_val)^alpha_fit]
   val_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
@@ -1265,9 +1293,19 @@ if (run_validation) {
   )]
   val_fpr[, L_eff_ratio := round(implied_L_eff / L_eff_N, 2)]
 
-  val_fpr <- merge(val_fpr,
-    sim_candidates[, .(c1, c2, region)],
-    by = c("c1", "c2"), all.x = TRUE)
+  # Assign region: validated pairs come from frontier (selected by
+  # construction).  Try to enrich from sim_candidates; default to
+  # "frontier" for any pair not found there (avoids NA from merge
+  # mismatch when val_candidates derive from frontier but
+  # sim_candidates uses selected + boundary).
+  if (exists("sim_candidates") && nrow(sim_candidates) > 0) {
+    val_fpr <- merge(val_fpr,
+      sim_candidates[, .(c1, c2, region)],
+      by = c("c1", "c2"), all.x = TRUE)
+    val_fpr[is.na(region), region := "frontier"]
+  } else {
+    val_fpr[, region := "frontier"]
+  }
 } else {
   val_dt <- NULL
   val_fpr <- NULL
@@ -1289,7 +1327,7 @@ if (run_validation) {
     FPR_corr * (1 - FPR_corr) / n_sims))]
   val_fpr[, in_CI := Sim_FPR >= CI_lower & Sim_FPR <= CI_upper]
 
-  gt(val_fpr[, .(N, c1, c2,
+  tbl_val_out <- gt(val_fpr[, .(N, c1, c2,
     `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
     `95% CI` = sprintf("[%.1f%%, %.1f%%]",
       100 * CI_lower, 100 * CI_upper),
@@ -1303,10 +1341,14 @@ if (run_validation) {
       subtitle = sprintf(
         "%d sims/config | L_eff = %.3f * (N/%d)^%.3f",
         nsims_val, C_fit, n_min_val, alpha_fit)
-    ) |>
-    tab_row_group(label = "N = 700", rows = N == 700) |>
-    tab_row_group(label = "N = 500", rows = N == 500) |>
-    tab_row_group(label = "N = 300", rows = N == 300) |>
+    )
+  # Dynamic row groups for each N (reversed so largest appears first)
+  for (n_val in rev(sort(unique(val_fpr$N)))) {
+    tbl_val_out <- tbl_val_out |>
+      tab_row_group(label = sprintf("N = %d", n_val),
+                    rows = N == n_val)
+  }
+  tbl_val_out |>
     tab_style(style = cell_fill(color = "#E8F5E9"),
       locations = cells_body(columns = `In CI`,
         rows = `In CI` == "Yes")) |>
@@ -1341,7 +1383,8 @@ if (run_validation) {
                  colour = "firebrick") +
       scale_colour_manual(
         values = c("selected" = "steelblue",
-                   "boundary" = "orange")) +
+                   "boundary" = "orange",
+                   "frontier" = "steelblue")) +
       facet_wrap(~ paste("N =", N)) +
       coord_equal(
         xlim = c(0, max(val_fpr$FPR_corr, 0.20)),
@@ -1411,7 +1454,7 @@ if (run_validation) {
   setorder(confirmed, N, -Sim_FPR)
 
   if (nrow(confirmed) > 0) {
-    gt(confirmed[, .(N, c1, c2,
+    tbl_conf <- gt(confirmed[, .(N, c1, c2,
       `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
       `95% CI` = sprintf("[%.1f%%, %.1f%%]",
         100 * CI_lower, 100 * CI_upper),
@@ -1424,10 +1467,13 @@ if (run_validation) {
           "**Confirmed Pairs: FPR <= %.0f%% (Approx AND Sim)**",
           100 * fpr_target)),
         subtitle = sprintf("%d sims per config", nsims_val)
-      ) |>
-      tab_row_group(label = "N = 700", rows = N == 700) |>
-      tab_row_group(label = "N = 500", rows = N == 500) |>
-      tab_row_group(label = "N = 300", rows = N == 300) |>
+      )
+    for (n_val in rev(sort(unique(confirmed$N)))) {
+      tbl_conf <- tbl_conf |>
+        tab_row_group(label = sprintf("N = %d", n_val),
+                      rows = N == n_val)
+    }
+    tbl_conf |>
       tab_style(style = cell_fill(color = "#E8F5E9"),
         locations = cells_body(columns = `In CI`,
           rows = `In CI` == "Yes")) |>
@@ -1587,10 +1633,10 @@ if (exists("frontier") && nrow(frontier) > 0) {
   cat(sprintf("  Corrected FPR: %.1f%% (target: %.0f%%)\n",
               100 * frontier$FPR_at_min_c2[1], 100 * fpr_target))
   cat(sprintf("  Per-subgroup P1(HR=1): %.1f%%\n",
-              100 * p_detect_glm(1.0, d_dgm, c1_opt, c2_opt)))
+              100 * p_detect(1.0, d_dgm, c1_opt, c2_opt)))
   cat(sprintf("  Approx power at HR=%.1f: %.1f%%\n\n",
               hr_h1,
-              100 * p_detect_glm(hr_h1, d_dgm, c1_opt, c2_opt)))
+              100 * p_detect(hr_h1, d_dgm, c1_opt, c2_opt)))
 
   cat("--- Full Frontier ---\n")
   for (r in seq_len(min(10, nrow(frontier)))) {
@@ -1656,8 +1702,8 @@ timing_df$Hours   <- timing_df$Seconds / 3600
 # Project to production targets: nsims_val -> prod_nsims_val,
 # nsims_power -> prod_nsims_power.
 
-n_pairs_val <- if (run_validation && exists("sim_candidates")) {
-  nrow(sim_candidates)
+n_pairs_val <- if (run_validation && exists("val_candidates")) {
+  nrow(val_candidates)
 } else 0L
 n_N_target <- length(N_target)
 
@@ -1749,4 +1795,144 @@ cat(sprintf("  Total:      %5.0f sec (%4.1f min = %.1f hours)\n",
 ```{r session-info}
 plan(sequential)
 sessionInfo()
+```
+
+
+# Appendix: Simulation Budget Guidance {#sec-simbudget .appendix}
+
+The validation phase (`nsims_val`) and the H1 power simulation
+(`nsims_power`) have independent precision requirements.
+The table below gives the key recommendation for `nsims_val`.
+
+| `nsims_val` | 95% CI ±(pp) at FPR = 10% | Use case |
+|-------------|--------------------------|----------|
+| 20 | ±6.5 pp | Dev / smoke-test only |
+| 200 | ±2.1 pp | Quick sanity check |
+| **500** | **±1.3 pp** | **Minimum for publication** |
+| **1,000** | **±0.9 pp** | **Production (recommended)** |
+| 2,000 | ±0.6 pp | High-precision publication |
+
+: Recommended `nsims_val` settings. Boundary classification requires
+  the CI to be narrower than the 2--3 pp gap between adjacent threshold
+  pairs near the target FPR. {#tbl-nsims-val}
+
+For the GBSG survival DGM with 10 frontier pairs × 3 $N$ values,
+`nsims_val = 1,000` produces 30,000 validation tasks — approximately
+75 minutes on the Linux machine (1,200 tasks/hr) or 25 hours on a Mac
+(3 sec/task). The current `prod_nsims_val = 1000L` in the setup chunk
+reflects this recommendation; `nsims_val` should be kept small (20--50)
+for development runs.
+
+The computed tables below show the same precision analysis using the
+actual number of frontier pairs and $N$ values from the current run,
+along with the analogous guidance for `nsims_power`.
+
+```{r sim-budget-s2}
+#| tbl-cap: "Validation simulation budget: 95% CI half-width for simulated FPR at the typical survival operating point."
+#| code-fold: true
+
+ci_hw <- function(fpr, n, z = 1.96)
+  z * sqrt(fpr * (1 - fpr) / n)
+
+# ── Typical operating FPR for survival ────────────────────────
+# With L_eff < 1, corrected FPR is below P1.
+# Use the neighbourhood of the target as the reference.
+fpr_ref <- fpr_target     # e.g. 0.12 or 0.15
+
+n_pairs_frontier <- if (exists("frontier") && nrow(frontier) > 0)
+  min(10L, nrow(frontier)) else 10L   # pairs actually validated
+n_N <- length(N_target)
+
+# ── nsims_val precision table ──────────────────────────────────
+nsims_seq <- c(20L, 100L, 200L, 500L, 1000L, 2000L)
+val_budget <- data.frame(
+  `nsims_val` = nsims_seq,
+  `95% CI ±(pp) at FPR=5%`   = round(100 * sapply(nsims_seq,
+                                 function(n) ci_hw(0.05, n)), 1),
+  `95% CI ±(pp) at FPR=10%`  = round(100 * sapply(nsims_seq,
+                                 function(n) ci_hw(0.10, n)), 1),
+  `95% CI ±(pp) at FPR=15%`  = round(100 * sapply(nsims_seq,
+                                 function(n) ci_hw(0.15, n)), 1),
+  `Tasks (×%d pairs × %d N)` = nsims_seq * n_pairs_frontier * n_N,
+  check.names = FALSE
+)
+names(val_budget)[5] <- sprintf(
+  "Tasks (×%d pairs × %d N)", n_pairs_frontier, n_N)
+
+# ── nsims_power precision table ────────────────────────────────
+power_seq <- c(20L, 100L, 200L, 500L, 1000L)
+power_budget <- data.frame(
+  `nsims_power` = power_seq,
+  `95% CI ±(pp) at power=30%` = round(100 * sapply(power_seq,
+                                  function(n) ci_hw(0.30, n)), 1),
+  `95% CI ±(pp) at power=50%` = round(100 * sapply(power_seq,
+                                  function(n) ci_hw(0.50, n)), 1),
+  `95% CI ±(pp) at power=70%` = round(100 * sapply(power_seq,
+                                  function(n) ci_hw(0.70, n)), 1),
+  `Tasks (×%d N)` = power_seq * n_N,
+  check.names = FALSE
+)
+names(power_budget)[5] <- sprintf("Tasks (×%d N)", n_N)
+
+# ── Recommendations summary ────────────────────────────────────
+recs <- data.frame(
+  Parameter = c("nsims_val", "nsims_power"),
+  `Current` = c(nsims_val, nsims_power),
+  `Minimum` = c(500L, 200L),
+  `Production` = c(1000L, 500L),
+  `Precision at production` = c(
+    sprintf("±%.1fpp at FPR=%.0f%%",
+            100 * ci_hw(fpr_ref, 1000), 100 * fpr_ref),
+    sprintf("±%.1fpp at power=50%%",
+            100 * ci_hw(0.50, 500))
+  ),
+  check.names = FALSE
+)
+
+tbl_recs <- gt(recs) |>
+  tab_header(
+    title = "Recommended Simulation Budgets",
+    subtitle = sprintf(
+      "GBSG survival DGM | %d frontier pairs × %d N values | %d workers",
+      n_pairs_frontier, n_N, n_workers)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = Production,
+      rows = Current >= Minimum)) |>
+  tab_style(style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(columns = Current,
+      rows = Current < Minimum)) |>
+  tab_source_note(paste(
+    "Green production: current setting meets minimum.",
+    "Red current: below minimum — raise before production run."))
+knitr::asis_output(gt::as_raw_html(tbl_recs))
+cat("\n")
+
+tbl_val <- gt(val_budget) |>
+  tab_header(
+    title = "nsims_val Precision",
+    subtitle = sprintf(
+      "Validation: %d frontier pairs × %d N values",
+      n_pairs_frontier, n_N)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = `nsims_val` >= 500L)) |>
+  tab_source_note(paste(
+    "Green: meets minimum (500). Production recommended: 1,000.",
+    "Boundary classification requires CI narrower than 2-3pp gap."))
+knitr::asis_output(gt::as_raw_html(tbl_val))
+cat("\n")
+
+tbl_pow <- gt(power_budget) |>
+  tab_header(
+    title = "nsims_power Precision",
+    subtitle = sprintf("H1 power spot-check at HR = %.1f | %d N values",
+                        hr_h1, n_N)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = `nsims_power` >= 200L)) |>
+  tab_source_note(paste(
+    "Green: meets minimum (200). Production recommended: 500.",
+    "P1 approximation is primary power measure; simulation is a spot-check."))
+knitr::asis_output(gt::as_raw_html(tbl_pow))
 ```

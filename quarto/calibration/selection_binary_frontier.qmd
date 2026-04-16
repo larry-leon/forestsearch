@@ -101,6 +101,9 @@ nsims_power <- 200L      # H1 sims at optimal pair (0 = approx only)
 # ── Heatmap display subset ────────────────────────────────────
 c1_heat     <- seq(1.00, 2.50, by = 0.10)
 c2_heat     <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50, 1.75, 2.0, 2.25, 2.5)
+
+# ── Anchor master RNG seed ────────────────────────────────────
+set.seed(sim_seed)
 ```
 
 ```{r load-calibration}
@@ -509,7 +512,7 @@ if (recalibrate) {
 
     res_N_raw <- foreach(
       s = seq_len(n_sims_recal),
-      .combine = c, .errorhandling = "pass",
+      .errorhandling = "pass",
       .options.future = list(
         packages = c("forestsearch", "data.table"), seed = TRUE)
     ) %dofuture% {
@@ -549,25 +552,22 @@ if (recalibrate) {
       )
       found <- !is.null(fs) && !is.null(fs$sg.harm) &&
                length(fs$sg.harm) > 0
-      as.integer(found)
+      data.frame(sim = s, any_found = as.integer(found))
     }
 
-    res_N <- res_N_raw  # .combine = c with body-level tryCatch
-    res_clean <- unlist(res_N[sapply(res_N, is.numeric)])
-    if (length(res_clean) < n_sims_recal) {
-      warning(sprintf(
-        "N=%d: %d of %d tasks silently failed.",
-        N_val, n_sims_recal - length(res_clean), n_sims_recal
-      ))
-    }
-    fpr_N <- mean(res_clean, na.rm = TRUE)
+    res_N <- forestsearch:::collect_results(
+      res_N_raw, label = sprintf("Calibration N=%d", N_val)
+    )
+    n_good <- if (!is.null(res_N)) nrow(res_N) else 0L
+    fpr_N <- if (n_good > 0) mean(res_N$any_found, na.rm = TRUE) else NA_real_
     cal_results[[as.character(N_val)]] <- data.frame(
       N = N_val, sim_fpr = fpr_N,
-      n_sims = length(res_clean)
+      n_sims = n_good
     )
     cat(sprintf("  N = %4d: FPR = %.3f (%d/%d) | %.1f sec\n",
-        N_val, fpr_N, sum(res_clean), length(res_clean),
-        proc.time()[3] - t_N))
+        N_val, fpr_N,
+        if (n_good > 0) sum(res_N$any_found) else 0L,
+        n_good, proc.time()[3] - t_N))
   }
 
   timings$leff_cal <- proc.time()[3] - t0
@@ -974,9 +974,9 @@ if (exists("frontier") && nrow(frontier) > 0) {
     future::plan("multisession", workers = n_workers)
 
     sim_power_results <- do.call(rbind, lapply(N_target, function(N_val) {
-      found <- foreach(
+      found_raw <- foreach(
         s = seq_len(nsims_power),
-        .combine = c, .errorhandling = "pass",
+        .errorhandling = "pass",
         .options.future = list(
           packages = c("forestsearch", "data.table"),
           seed = TRUE)
@@ -1009,20 +1009,19 @@ if (exists("frontier") && nrow(frontier) > 0) {
         )
         found <- !is.null(fs) && !is.null(fs$sg.harm) &&
                  length(fs$sg.harm) > 0
-        as.integer(found)
+        data.frame(sim = s, N = N_val,
+                   any_found = as.integer(found))
       }
-      res_clean <- unlist(found[sapply(found, is.numeric)])
-      if (length(res_clean) < nsims_power) {
-        warning(sprintf(
-          "H1 N=%d: %d of %d tasks silently failed.",
-          N_val, nsims_power - length(res_clean), nsims_power
-        ))
-      }
-      sim_pwr <- mean(res_clean, na.rm = TRUE)
+      res_df <- forestsearch:::collect_results(
+        found_raw, label = sprintf("H1 power N=%d", N_val)
+      )
+      n_good <- if (!is.null(res_df)) nrow(res_df) else 0L
+      sim_pwr <- if (n_good > 0) mean(res_df$any_found, na.rm = TRUE) else NA_real_
       L_eff <- C_fit * (N_val / n_min_val)^alpha_fit
       cat(sprintf("  N = %4d: Sim power = %.1f%% (%d/%d) | L_eff = %.2f\n",
-                  N_val, 100 * sim_pwr, sum(res_clean),
-                  length(res_clean), L_eff))
+                  N_val, 100 * sim_pwr,
+                  if (n_good > 0) sum(res_df$any_found) else 0L,
+                  n_good, L_eff))
       data.frame(
         OR = theta_h1, Power = sim_pwr,
         Type = "Simulation",
@@ -1033,9 +1032,15 @@ if (exists("frontier") && nrow(frontier) > 0) {
     timings$power <- proc.time()[3] - t0_power
     cat(sprintf("Power simulation: %.1f min\n",
                 timings$power / 60))
+
+    # Free workers after power phase
+    future::plan("sequential"); gc(verbose = FALSE)
   } else {
     timings$power <- 0
   }
+
+  # Ensure sequential mode before plotting/post-processing
+  future::plan("sequential")
 
   # ── Plot ────────────────────────────────────────────────────
   p <- ggplot(power_curves, aes(x = OR, y = Power,
@@ -1434,10 +1439,17 @@ if (run_validation) {
   val_fpr[, L_eff_N := C_fit * (N / n_min_val)^alpha_fit]
   val_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
 
-  # Add region label
-  val_fpr <- merge(val_fpr,
-    sim_candidates[, .(c1, c2, region)],
-    by = c("c1", "c2"), all.x = TRUE)
+  # Assign region: validated pairs come from frontier (selected by
+  # construction).  Try to enrich from sim_candidates; default to
+  # "frontier" for any pair not found there.
+  if (exists("sim_candidates") && nrow(sim_candidates) > 0) {
+    val_fpr <- merge(val_fpr,
+      sim_candidates[, .(c1, c2, region)],
+      by = c("c1", "c2"), all.x = TRUE)
+    val_fpr[is.na(region), region := "frontier"]
+  } else {
+    val_fpr[, region := "frontier"]
+  }
 
 } else {
   val_dt <- NULL
@@ -1461,7 +1473,7 @@ if (run_validation) {
     FPR_corr * (1 - FPR_corr) / n_sims))]
   val_fpr[, in_CI := Sim_FPR >= CI_lower & Sim_FPR <= CI_upper]
 
-  gt(val_fpr[, .(N, c1, c2,
+  tbl_val_out <- gt(val_fpr[, .(N, c1, c2,
     `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
     `95% CI` = sprintf("[%.1f%%, %.1f%%]",
       100 * CI_lower, 100 * CI_upper),
@@ -1475,9 +1487,14 @@ if (run_validation) {
       subtitle = sprintf(
         "%d sims/config | L_eff = %.3f * (N/%d)^%.3f",
         nsims_val, C_fit, n_min_val, alpha_fit)
-    ) |>
-    tab_row_group(label = "N = 700", rows = N == 700) |>
-    tab_row_group(label = "N = 500", rows = N == 500) |>
+    )
+  # Dynamic row groups for each N (reversed so largest appears first)
+  for (n_val in rev(sort(unique(val_fpr$N)))) {
+    tbl_val_out <- tbl_val_out |>
+      tab_row_group(label = sprintf("N = %d", n_val),
+                    rows = N == n_val)
+  }
+  tbl_val_out |>
     tab_style(style = cell_fill(color = "#E8F5E9"),
       locations = cells_body(columns = `In CI`,
         rows = `In CI` == "Yes")) |>
@@ -1512,7 +1529,8 @@ if (run_validation) {
                  colour = "firebrick") +
       scale_colour_manual(
         values = c("selected" = "steelblue",
-                   "boundary" = "orange")) +
+                   "boundary" = "orange",
+                   "frontier" = "steelblue")) +
       facet_wrap(~ paste("N =", N)) +
       coord_equal(
         xlim = c(0, max(val_fpr$FPR_corr, 0.20)),
@@ -1543,7 +1561,7 @@ if (run_validation) {
   setorder(confirmed, N, -Sim_FPR)
 
   if (nrow(confirmed) > 0) {
-    gt(confirmed[, .(N, c1, c2,
+    tbl_conf <- gt(confirmed[, .(N, c1, c2,
       `Corr FPR` = sprintf("%.1f%%", 100 * FPR_corr),
       `95% CI` = sprintf("[%.1f%%, %.1f%%]",
         100 * CI_lower, 100 * CI_upper),
@@ -1556,9 +1574,13 @@ if (run_validation) {
           "**Confirmed Pairs: FPR <= %.0f%% (Approx AND Sim)**",
           100 * fpr_target)),
         subtitle = sprintf("%d sims per config", nsims_val)
-      ) |>
-      tab_row_group(label = "N = 700", rows = N == 700) |>
-      tab_row_group(label = "N = 500", rows = N == 500) |>
+      )
+    for (n_val in rev(sort(unique(confirmed$N)))) {
+      tbl_conf <- tbl_conf |>
+        tab_row_group(label = sprintf("N = %d", n_val),
+                      rows = N == n_val)
+    }
+    tbl_conf |>
       tab_style(style = cell_fill(color = "#E8F5E9"),
         locations = cells_body(columns = `In CI`,
           rows = `In CI` == "Yes")) |>
@@ -1621,6 +1643,9 @@ results_bundle <- list(
   # Pre-selected candidates
   sim_candidates = sim_candidates,
 
+  # Frontier: minimum c2 per c1 achieving corrected FPR target
+  frontier = if (exists("frontier")) frontier else NULL,
+
   # Raw simulation results (per-replicate)
   val_results_raw = val_dt,
 
@@ -1656,7 +1681,7 @@ if (!is.null(output_dir)) {
 #| code-fold: false
 
 # Load the most recent results bundle
-res <- readRDS(latest_rds("selection_binary_frontier"))
+res <- readRDS(latest_rds("binary_null_search"))
 
 # Access components
 res$params$C_fit           # L_eff parameters
