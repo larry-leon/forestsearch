@@ -14,11 +14,10 @@ knitr:
 
 ```{r setup}
 #| include: false
-
 # ── Simulation control ──────────────────────────────────────────
 # ~750/hr linux
 nsims_null  <- 2000L       # H0 sims for Part II (paper-defaults Cox & IRR)
-nsims_cal   <- 2000L       # H0 sims per N for L_eff calibration (Part III)
+nsims_cal   <- 1000L       # H0 sims per N for L_eff calibration (Part III)
 nsims_grid  <- 2000L       # H0 sims per (c1,c2) pair for grid sweep (Part IV)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
@@ -28,8 +27,8 @@ n_workers   <- ceiling(0.95 * max(1L,
 # These control what the "Projected production run" row reports.
 # They do not affect what is actually simulated above.
 nsims_prod_null <- 4000L   # target null sims (Parts II)
-nsims_prod_cal  <- 500L    # target cal sims per N (Part III)
-nsims_prod_grid <- 500L    # target grid sims per pair (Part IV)
+nsims_prod_cal  <- 2000L    # target cal sims per N (Part III)
+nsims_prod_grid <- 2000L    # target grid sims per pair (Part IV)
 
 # ── Output ──────────────────────────────────────────────────────
 output_dir  <- "../_data"
@@ -709,19 +708,21 @@ if (nrow(cal_valid) >= 2) {
     N = N_pred, L_eff = C_fit * (N_pred / n_min_val)^alpha_fit
   )
 
-  ggplot() +
-    geom_point(data = cal_valid, aes(x = N, y = L_eff),
-               size = 4, colour = "firebrick") +
-    geom_line(data = pred_curve, aes(x = N, y = L_eff),
-              colour = "steelblue", linewidth = 1) +
-    labs(x = "Total Sample Size N",
-         y = expression(L[eff]),
-         title = expression(L[eff] * " Calibration: GBSG Survival DGM"),
-         subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f  (R-sq = %.3f)",
-                             C_fit, n_min_val, alpha_fit,
-                             leff_cal$r_squared)) +
-    theme_minimal(base_size = 12) +
-    theme(plot.title = element_text(face = "bold"))
+  print(
+    ggplot() +
+      geom_point(data = cal_valid, aes(x = N, y = L_eff),
+                 size = 4, colour = "firebrick") +
+      geom_line(data = pred_curve, aes(x = N, y = L_eff),
+                colour = "steelblue", linewidth = 1) +
+      labs(x = "Total Sample Size N",
+           y = expression(L[eff]),
+           title = expression(L[eff] * " Calibration: GBSG Survival DGM"),
+           subtitle = sprintf("L_eff = %.3f * (N/%d)^%.3f  (R-sq = %.3f)",
+                               C_fit, n_min_val, alpha_fit,
+                               leff_cal$r_squared)) +
+      theme_minimal(base_size = 12) +
+      theme(plot.title = element_text(face = "bold"))
+  )
 } else {
   cat("Insufficient calibration points. Using L_eff = 1.\n")
   C_fit <- 1; alpha_fit <- 0
@@ -925,9 +926,14 @@ grid_fpr[, Sim_over_P1   := round(FPR / pmax(P1, 0.001), 2)]
 grid_fpr[, Sim_over_Corr := round(FPR / pmax(FPR_corr, 0.001), 2)]
 
 # ── Overview summary ─────────────────────────────────────────
+fpr_range_str <- function(vals) {
+  if (length(vals) == 0 || all(is.na(vals))) return("—")
+  sprintf("%.1f–%.1f%%", 100 * min(vals, na.rm = TRUE),
+                          100 * max(vals, na.rm = TRUE))
+}
 fpr_overview <- data.frame(
   Region = c(
-    sprintf("FPR <= 10%%"),
+    "FPR <= 10%",
     sprintf("10%% < FPR <= %.0f%%", 100 * fpr_target),
     sprintf("FPR > %.0f%%", 100 * fpr_target)
   ),
@@ -937,17 +943,9 @@ fpr_overview <- data.frame(
     sum(grid_fpr$FPR > fpr_target)
   ),
   `FPR range` = c(
-    if (any(grid_fpr$FPR <= 0.10))
-      sprintf("%.1f–%.1f%%", 100*min(grid_fpr$FPR[grid_fpr$FPR<=0.10]),
-                              100*max(grid_fpr$FPR[grid_fpr$FPR<=0.10]))
-    else "—",
-    if (any(grid_fpr$FPR > 0.10 & grid_fpr$FPR <= fpr_target))
-      sprintf("%.1f–%.1f%%",
-        100*min(grid_fpr$FPR[grid_fpr$FPR>0.10 & grid_fpr$FPR<=fpr_target]),
-        100*max(grid_fpr$FPR[grid_fpr$FPR>0.10 & grid_fpr$FPR<=fpr_target]))
-    else "—",
-    sprintf("%.1f–%.1f%%", 100*min(grid_fpr$FPR[grid_fpr$FPR>fpr_target]),
-                            100*max(grid_fpr$FPR[grid_fpr$FPR>fpr_target]))
+    fpr_range_str(grid_fpr$FPR[grid_fpr$FPR <= 0.10]),
+    fpr_range_str(grid_fpr$FPR[grid_fpr$FPR > 0.10 & grid_fpr$FPR <= fpr_target]),
+    fpr_range_str(grid_fpr$FPR[grid_fpr$FPR > fpr_target])
   ),
   check.names = FALSE
 )
@@ -977,7 +975,8 @@ gt(best_fpr[, .(c1, c2,
     `Sim FPR`  = sprintf("%.1f%%", 100 * FPR),
     `P1`       = sprintf("%.1f%%", 100 * P1),
     `FPR_corr` = sprintf("%.1f%%", 100 * FPR_corr),
-    `Sim/Corr` = Sim_over_Corr)]) |>
+    `Sim/Corr` = Sim_over_Corr,
+    fpr_num    = FPR)]) |>    # keep numeric for row predicate, hidden below
   tab_header(
     title = md("**Best Threshold Pairs (Lowest Sim FPR)**"),
     subtitle = sprintf(
@@ -986,11 +985,11 @@ gt(best_fpr[, .(c1, c2,
   ) |>
   tab_style(style = cell_fill(color = "#E8F5E9"),
     locations = cells_body(columns = `Sim FPR`,
-      rows = as.numeric(sub("%","", `Sim FPR`)) / 100 <= fpr_target)) |>
+      rows = fpr_num <= fpr_target)) |>
   tab_style(style = cell_fill(color = "#FFF9C4"),
     locations = cells_body(columns = `Sim FPR`,
-      rows = as.numeric(sub("%","", `Sim FPR`)) / 100 > fpr_target &
-             as.numeric(sub("%","", `Sim FPR`)) / 100 <= fpr_target + 0.05)) |>
+      rows = fpr_num > fpr_target & fpr_num <= fpr_target + 0.05)) |>
+  cols_hide(columns = fpr_num) |>
   tab_source_note(sprintf(
     "Green: FPR <= %.0f%% (target). Yellow: within 5pp of target.",
     100 * fpr_target))
@@ -1085,7 +1084,7 @@ ggplot(grid_fpr, aes(x = factor(c1), y = factor(c2), fill = FPR)) +
 #| fig-cap: "FPR vs c2 for each fixed c1.  The target band is highlighted."
 
 ggplot(grid_fpr, aes(x = c2, y = FPR,
-                      colour = factor(c1), group = factor(c1))) +
+                      colour = c1, group = factor(c1))) +
   geom_line(linewidth = 0.9) +
   geom_point(size = 2.5) +
   geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
@@ -1093,12 +1092,11 @@ ggplot(grid_fpr, aes(x = c2, y = FPR,
   annotate("rect", xmin = -Inf, xmax = Inf,
            ymin = 0.10, ymax = fpr_target,
            alpha = 0.15, fill = "gold") +
-  scale_colour_brewer(palette = "Set1") +
+  scale_colour_viridis_c(name = expression(c[1]), option = "D") +
   labs(x = expression(c[2] ~ "(consistency threshold)"),
        y = "Simulated FPR",
        title = "FPR Sensitivity to Consistency Threshold",
-       subtitle = sprintf("N=%d, each line is a fixed c1", N_grid),
-       colour = expression(c[1])) +
+       subtitle = sprintf("N=%d, each line is a fixed c1", N_grid)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "right",
         plot.title = element_text(face = "bold"))
@@ -1111,7 +1109,7 @@ ggplot(grid_fpr, aes(x = c2, y = FPR,
 #| fig-cap: "FPR vs c1 for each fixed c2.  Shows the screening threshold's independent effect."
 
 ggplot(grid_fpr, aes(x = c1, y = FPR,
-                      colour = factor(c2), group = factor(c2))) +
+                      colour = c2, group = factor(c2))) +
   geom_line(linewidth = 0.9) +
   geom_point(size = 2.5) +
   geom_hline(yintercept = 0.10, linetype = "dashed", colour = "darkgreen") +
@@ -1119,12 +1117,11 @@ ggplot(grid_fpr, aes(x = c1, y = FPR,
   annotate("rect", xmin = -Inf, xmax = Inf,
            ymin = 0.10, ymax = fpr_target,
            alpha = 0.15, fill = "gold") +
-  scale_colour_brewer(palette = "Set2") +
+  scale_colour_viridis_c(name = expression(c[2]), option = "C") +
   labs(x = expression(c[1] ~ "(screening threshold)"),
        y = "Simulated FPR",
        title = "FPR Sensitivity to Screening Threshold",
-       subtitle = sprintf("N=%d, each line is a fixed c2", N_grid),
-       colour = expression(c[2])) +
+       subtitle = sprintf("N=%d, each line is a fixed c2", N_grid)) +
   theme_minimal(base_size = 12) +
   theme(legend.position = "right",
         plot.title = element_text(face = "bold"))
@@ -1165,7 +1162,7 @@ acceptable_grid <- grid_fpr[FPR <= fpr_target]
 setorder(acceptable_grid, FPR)
 
 if (nrow(acceptable_grid) > 0) {
-  gt(acceptable_grid[, .(c1, c2,
+  gt_acc <- gt(acceptable_grid[, .(c1, c2,
     `Sim FPR` = sprintf("%.1f%%", 100 * FPR),
     `P1 (uncorr)` = sprintf("%.1f%%", 100 * P1),
     `FPR (corr)` = sprintf("%.1f%%", 100 * FPR_corr))]) |>
@@ -1177,6 +1174,7 @@ if (nrow(acceptable_grid) > 0) {
                           N_grid, n_min_val)
     ) |>
     tab_source_note("Paper defaults: c1=1.25, c2=1.0")
+  knitr::asis_output(gt::as_raw_html(gt_acc))
 } else {
   cat(sprintf("No configurations achieved FPR <= %.0f%% in this grid.\n",
               100 * fpr_target))
@@ -1204,37 +1202,44 @@ make_row <- function(dt, label) {
     `Sim FPR`   = sprintf("%.1f%%", 100 * FPR),
     `P1`        = sprintf("%.1f%%", 100 * P1),
     `FPR_corr`  = sprintf("%.1f%%", 100 * FPR_corr),
-    `Sim/Corr`  = round(Sim_over_Corr, 2)
+    `Sim/Corr`  = round(Sim_over_Corr, 2),
+    fpr_num     = FPR   # numeric column for gt row predicates
   )]
 }
 
 summary_dt <- rbind(
-  make_row(paper_row, "Paper default"),
-  make_row(target_band, sprintf("Target band (8–%.0f%%)", 100*fpr_target)),
-  make_row(conservative, "Conservative (FPR <= 10%)")
+  make_row(paper_row,   "Paper default"),
+  make_row(target_band, sprintf("Target band (8-%d%%)", round(100 * fpr_target))),
+  make_row(conservative,"Conservative (FPR <= 10%)")
 )
 
-gt(summary_dt) |>
-  tab_header(
-    title = md("**Null Operating Characteristics Summary**"),
-    subtitle = sprintf(
-      "GBSG survival DGM | N=%d | n.min=%d | pcons=%.2f | L_eff=%.2f",
-      N_grid, n_min_val, pcons, L_eff_N)
-  ) |>
-  tab_row_group(label = "Conservative (FPR ≤ 10%)",
-    rows = Region == "Conservative (FPR <= 10%)") |>
-  tab_row_group(label = sprintf("Target band (8–%.0f%%)", 100*fpr_target),
-    rows = Region == sprintf("Target band (8–%.0f%%)", 100*fpr_target)) |>
-  tab_row_group(label = "Paper default (c1=1.25, c2=1.0)",
-    rows = Region == "Paper default") |>
-  cols_hide(columns = Region) |>
-  tab_style(style = cell_fill(color = "#E8F5E9"),
-    locations = cells_body(columns = `Sim FPR`,
-      rows = as.numeric(sub("%","",`Sim FPR`))/100 <= fpr_target)) |>
-  tab_source_note(paste(
-    "L_eff note: for survival, L_eff < 1 is common because events-based filters",
-    "(d0.min, d1.min) aggressively prune candidates,",
-    "making paper defaults already conservative for survival endpoints."))
+if (is.null(summary_dt) || nrow(summary_dt) == 0) {
+  cat("No rows met any of the three FPR criteria at this grid resolution.\n")
+} else {
+  target_label <- sprintf("Target band (8-%d%%)", round(100 * fpr_target))
+  gt_out <- gt(summary_dt) |>
+    tab_header(
+      title = md("**Null Operating Characteristics Summary**"),
+      subtitle = sprintf(
+        "GBSG survival DGM | N=%d | n.min=%d | pcons=%.2f | L_eff=%.2f",
+        N_grid, n_min_val, pcons, L_eff_N)
+    ) |>
+    tab_row_group(label = "Conservative (FPR \u2264 10%)",
+      rows = Region == "Conservative (FPR <= 10%)") |>
+    tab_row_group(label = sprintf("Target band (8\u2013%d%%)", round(100*fpr_target)),
+      rows = Region == target_label) |>
+    tab_row_group(label = "Paper default (c1=1.25, c2=1.0)",
+      rows = Region == "Paper default") |>
+    cols_hide(columns = c(Region, fpr_num)) |>
+    tab_style(style = cell_fill(color = "#E8F5E9"),
+      locations = cells_body(columns = `Sim FPR`,
+        rows = fpr_num <= fpr_target)) |>
+    tab_source_note(paste(
+      "L_eff note: for survival, L_eff < 1 is common because events-based filters",
+      "(d0.min, d1.min) aggressively prune candidates,",
+      "making paper defaults already conservative for survival endpoints."))
+  knitr::asis_output(gt::as_raw_html(gt_out))
+}
 ```
 
 
@@ -1249,7 +1254,7 @@ sim_bundle <- list(
   params = list(
     nsims_null = nsims_null,
     nsims_grid = nsims_grid,
-    n_sims_cal = n_sims_cal,
+    n_sims_cal = nsims_cal,
     sim_seed = sim_seed,
     N_grid = N_grid,
     N_cal_values = N_cal_values,
@@ -1410,8 +1415,9 @@ gt(timing_df) |>
       n_workers, nrow(grid_pairs), nsims_grid,
       nsims_cal, length(N_cal_values))
   ) |>
-  fmt_number(columns = c(Seconds, Minutes, Hours),
-             decimals = c(1, 2, 3), rows = !is.na(Seconds)) |>
+  fmt_number(columns = Seconds, decimals = 1, rows = !is.na(Seconds)) |>
+  fmt_number(columns = Minutes, decimals = 2, rows = !is.na(Minutes)) |>
+  fmt_number(columns = Hours,   decimals = 3, rows = !is.na(Hours))   |>
   cols_label(Stage = "Stage", Seconds = "Time (sec)",
              Minutes = "Time (min)", Hours = "Time (hr)") |>
   tab_style(style = cell_text(weight = "bold"),
@@ -1429,4 +1435,163 @@ gt(timing_df) |>
 ```{r session-info}
 plan(sequential)
 sessionInfo()
+```
+
+
+# Appendix: Simulation Budget Guidance {#sec-simbudget .appendix}
+
+The three simulation phases have independent precision requirements.
+The table below summarises the 95% confidence interval half-width
+for a simulated FPR estimate as a function of the number of
+replicates, together with the implied total task counts and
+recommended production targets.
+
+```{r sim-budget}
+#| tbl-cap: "Simulation budget guidance: 95% CI half-width for simulated FPR by phase and replicate count."
+#| code-fold: true
+
+# ── Helper ────────────────────────────────────────────────────
+ci_hw <- function(fpr, n, z = 1.96)
+  z * sqrt(fpr * (1 - fpr) / n)
+
+se_leff <- function(fpr, P1, n) {
+  se_f <- sqrt(fpr * (1 - fpr) / n)
+  se_f / (P1 * abs(log(1 - P1)))
+}
+
+cv_leff <- function(fpr, P1, n) {
+  L <- log(1 - fpr) / log(1 - P1)
+  100 * se_leff(fpr, P1, n) / L
+}
+
+# ── Parameters from this document ────────────────────────────
+P1_ref   <- p_detect_glm(1.0, d_dgm, 1.25, 1.0)   # P1 at paper defaults
+n_pairs  <- nrow(grid_pairs)                          # 63 pairs
+
+# ── Part II: baseline null sims ───────────────────────────────
+fpr_base <- c(mean(cox_h0$any.H), fpr_target)         # actual + target
+fpr_ii   <- mean(fpr_base)                            # representative value
+
+budget_ii <- data.frame(
+  `nsims_null` = c(500L, 1000L, 2000L, 4000L),
+  `95% CI ±(pp)` = round(100 * sapply(c(500,1000,2000,4000),
+                    function(n) ci_hw(fpr_ii, n)), 1),
+  check.names = FALSE
+)
+
+# ── Part III: L_eff calibration ───────────────────────────────
+# Representative FPR at N=500 (middle cal point)
+fpr_cal <- if (exists("cal_df") && nrow(cal_df) > 0)
+  cal_df$sim_fpr[which.min(abs(cal_df$N - 500))] else 0.07
+
+budget_iii <- data.frame(
+  `nsims_cal` = c(200L, 500L, 1000L, 2000L),
+  `CV of L_eff (%)` = round(sapply(c(200,500,1000,2000),
+                       function(n) cv_leff(fpr_cal, P1_ref, n)), 0),
+  check.names = FALSE
+)
+
+# ── Part IV: grid sweep ────────────────────────────────────────
+budget_iv <- data.frame(
+  `nsims_grid` = c(500L, 1000L, 2000L, 4000L),
+  `95% CI ±(pp) @ FPR=10%` = round(100 * sapply(c(500,1000,2000,4000),
+                              function(n) ci_hw(0.10, n)), 1),
+  `95% CI ±(pp) @ FPR=5%`  = round(100 * sapply(c(500,1000,2000,4000),
+                              function(n) ci_hw(0.05, n)), 1),
+  `Total tasks (×%d pairs)` = c(500,1000,2000,4000) * n_pairs,
+  check.names = FALSE
+)
+names(budget_iv)[4] <- sprintf("Total tasks (×%d pairs)", n_pairs)
+
+# ── Recommended settings ──────────────────────────────────────
+recs <- data.frame(
+  Phase = c(
+    "Part II — Baseline null (Cox + IRR)",
+    "Part III — L_eff calibration",
+    "Part IV — Grid sweep"
+  ),
+  Parameter = c("nsims_null", "nsims_cal", "nsims_grid"),
+  `Current (actual)` = c(nsims_null, nsims_cal, nsims_grid),
+  `Minimum` = c(2000L, 1000L, 2000L),
+  `Production` = c(4000L, 2000L, 2000L),
+  `Precision at production` = c(
+    sprintf("±%.1fpp at FPR=%.0f%%",
+            100 * ci_hw(fpr_ii, 4000), 100 * fpr_ii),
+    sprintf("CV~%.0f%% on L_eff",
+            cv_leff(fpr_cal, P1_ref, 2000)),
+    sprintf("±%.1fpp at FPR=10%%",
+            100 * ci_hw(0.10, 2000))
+  ),
+  check.names = FALSE
+)
+
+# ── Render tables ─────────────────────────────────────────────
+tbl_recs <- gt(recs) |>
+  tab_header(
+    title = "Recommended Simulation Budgets",
+    subtitle = sprintf(
+      "GBSG survival DGM | %d cal N values | %d grid pairs | %d workers",
+      length(N_cal_values), n_pairs, n_workers)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(
+      columns = Production,
+      rows = `Current (actual)` >= Minimum)) |>
+  tab_style(style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(
+      columns = `Current (actual)`,
+      rows = `Current (actual)` < Minimum)) |>
+  tab_source_note(paste(
+    "Green: current setting meets or exceeds minimum.",
+    "Red: current setting is below minimum — raise before production run.",
+    sprintf("Part III note: C2 (calibration_survival_fourway.qmd) runs up to 20K sims/N",
+            ""))) |>
+  cols_label(`Current (actual)` = "Current")
+
+knitr::asis_output(gt::as_raw_html(tbl_recs))
+
+cat("\n")
+
+# Detail tables
+tbl_ii <- gt(budget_ii) |>
+  tab_header(
+    title = "Part II — Baseline Null Precision",
+    subtitle = sprintf("Single threshold pair | representative FPR = %.1f%%",
+                        100 * fpr_ii)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = `nsims_null` >= 2000L)) |>
+  tab_source_note("Green: meets minimum. 2,000 = minimum; 4,000 = production.")
+
+tbl_iii <- gt(budget_iii) |>
+  tab_header(
+    title = "Part III — L_eff Calibration Precision",
+    subtitle = sprintf(
+      "3-point power-law fit | P1=%.3f at paper defaults | FPR~%.1f%% at N=500",
+      P1_ref, 100 * fpr_cal)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = `nsims_cal` >= 1000L)) |>
+  tab_source_note(paste(
+    "CV is high because L_eff < 1 for survival (events-based pruning).",
+    "C2 is the primary calibration source; C3 is a cross-check.",
+    "1,000 = minimum standalone; 2,000 = production standalone."))
+
+tbl_iv <- gt(budget_iv) |>
+  tab_header(
+    title = "Part IV — Grid Sweep Precision",
+    subtitle = sprintf(
+      "%d threshold pairs | boundary detection requires CI < 2-3pp gap",
+      n_pairs)
+  ) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = `nsims_grid` >= 2000L)) |>
+  tab_source_note(
+    "2,000 sims/pair: ±1.3pp at FPR=10% — adequate for boundary classification.")
+
+knitr::asis_output(gt::as_raw_html(tbl_ii))
+cat("\n")
+knitr::asis_output(gt::as_raw_html(tbl_iii))
+cat("\n")
+knitr::asis_output(gt::as_raw_html(tbl_iv))
 ```
