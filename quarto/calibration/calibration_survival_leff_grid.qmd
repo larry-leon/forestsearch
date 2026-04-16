@@ -18,29 +18,18 @@ knitr:
 # ── Simulation control ──────────────────────────────────────────
 # ~750/hr linux
 nsims_null  <- 2000L       # H0 sims for Part II (paper-defaults Cox & IRR)
-nsims_cal   <- 2000L        # H0 sims per N for L_eff calibration (Part III)
-nsims_grid  <- 2000L        # H0 sims per (c1,c2) pair for grid sweep (Part IV)
+nsims_cal   <- 2000L       # H0 sims per N for L_eff calibration (Part III)
+nsims_grid  <- 2000L       # H0 sims per (c1,c2) pair for grid sweep (Part IV)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
 
-# ── Runtime budget note ─────────────────────────────────────────
-# Part II runs nsims_null at 1 threshold pair       → nsims_null tasks
-# Part III runs nsims_cal at length(N_cal_values) N  → nsims_cal * 3 tasks
-# Part IV runs nsims_grid at ~30-40 (c1,c2) pairs   → nsims_grid * 40 tasks
-#
-# At ~6 sec/task on Linux:
-#   nsims_null=4000          → ~7 hrs  (Part II)
-#   nsims_cal=500, 3 N       → ~2.5 hrs (Part III)
-#   nsims_grid=500, 40 pairs → ~33 hrs  (Part IV)
-#
-# For production L_eff calibration, prefer C2 (up to 25K sims).
-# C3's calibration is a faster cross-check; 500 sims per N gives
-# SE(FPR) ~ 1% at FPR ~ 5%, which is adequate for the power-law
-# fit but less precise than C2.
-#
-# To increase precision: raise nsims_cal and/or nsims_grid directly.
-# There is no hidden cap — these parameters control exactly what runs.
+# ── Production targets (for timing projection only) ─────────────
+# These control what the "Projected production run" row reports.
+# They do not affect what is actually simulated above.
+nsims_prod_null <- 4000L   # target null sims (Parts II)
+nsims_prod_cal  <- 500L    # target cal sims per N (Part III)
+nsims_prod_grid <- 500L    # target grid sims per pair (Part IV)
 
 # ── Output ──────────────────────────────────────────────────────
 output_dir  <- "../_data"
@@ -113,6 +102,184 @@ We compare:
 
 All simulations are under $H_0$ (uniform treatment effect,
 no subgroup heterogeneity).
+
+
+## Pipeline Overview {#sec-pipeline}
+
+The figure below shows the complete workflow across the C3 and S2 documents.
+C3 (this document) establishes the null operating characteristics and fits
+the $L_{\text{eff}}$ power law. S2 (`selection_survival_frontier.qmd`)
+consumes the calibration to sweep a dense threshold grid and select
+operating points.
+
+```{=html}
+<figure style="margin:1.5rem 0 2rem;">
+<svg id="surv-pipeline" width="100%" viewBox="0 0 680 860" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>Survival calibration pipeline: C3 to S2</title>
+<desc>Flowchart of the two-document survival L_eff calibration pipeline. C3 runs Cox and Poisson H0 simulations at paper defaults, then multi-N calibration to fit L_eff, then a grid sweep at the reference N. S2 loads the calibration, applies the corrected FPR formula across a dense grid, selects and validates frontier pairs.</desc>
+<defs>
+<style>
+#surv-pipeline .th{font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px;font-weight:500}
+#surv-pipeline .ts{font-family:ui-sans-serif,system-ui,sans-serif;font-size:12px;font-weight:400}
+#surv-pipeline .arr{stroke:#888780;stroke-width:1.5;fill:none}
+#surv-pipeline .leader{stroke:#B4B2A9;stroke-width:0.5;stroke-dasharray:4 3;fill:none}
+#surv-pipeline .node{cursor:default}
+#surv-pipeline .c-teal>rect{fill:#E1F5EE;stroke:#0F6E56;stroke-width:0.5}
+#surv-pipeline .c-teal .th{fill:#085041}
+#surv-pipeline .c-teal .ts{fill:#0F6E56}
+#surv-pipeline .c-purple>rect{fill:#EEEDFE;stroke:#534AB7;stroke-width:0.5}
+#surv-pipeline .c-purple .th{fill:#3C3489}
+#surv-pipeline .c-purple .ts{fill:#534AB7}
+#surv-pipeline .c-amber>rect{fill:#FAEEDA;stroke:#BA7517;stroke-width:0.5}
+#surv-pipeline .c-amber .th{fill:#633806}
+#surv-pipeline .c-amber .ts{fill:#854F0B}
+#surv-pipeline .c-gray>rect{fill:#F1EFE8;stroke:#888780;stroke-width:0.5}
+#surv-pipeline .c-gray .th{fill:#444441}
+#surv-pipeline .c-gray .ts{fill:#5F5E5A}
+#surv-pipeline .c-green>rect{fill:#EAF3DE;stroke:#3B6D11;stroke-width:0.5}
+#surv-pipeline .c-green .th{fill:#27500A}
+#surv-pipeline .c-green .ts{fill:#3B6D11}
+#surv-pipeline .c-coral>rect{fill:#FAECE7;stroke:#993C1D;stroke-width:0.5}
+#surv-pipeline .c-coral .th{fill:#4A1B0C}
+#surv-pipeline .c-coral .ts{fill:#993C1D}
+</style>
+<marker id="sv-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+<!-- Section headers -->
+<g class="c-teal">
+<rect x="60" y="14" width="560" height="28" rx="6"/>
+<text class="th" x="340" y="28" text-anchor="middle" dominant-baseline="central">C3 — calibration_survival_leff_grid.qmd</text>
+</g>
+<g class="c-purple">
+<rect x="60" y="444" width="560" height="28" rx="6"/>
+<text class="th" x="340" y="458" text-anchor="middle" dominant-baseline="central">S2 — selection_survival_frontier.qmd</text>
+</g>
+<!-- Separator -->
+<line x1="80" y1="433" x2="600" y2="433" stroke="#B4B2A9" stroke-width="0.8" stroke-dasharray="5 3"/>
+<!-- C3 arrows -->
+<line x1="340" y1="106" x2="340" y2="122" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="172" x2="340" y2="188" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="238" x2="340" y2="254" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="304" x2="340" y2="320" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="370" x2="340" y2="386" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="420" x2="340" y2="488" class="arr" marker-end="url(#sv-arrow)"/>
+<!-- S2 arrows -->
+<line x1="340" y1="538" x2="340" y2="554" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="604" x2="340" y2="620" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="670" x2="340" y2="686" class="arr" marker-end="url(#sv-arrow)"/>
+<line x1="340" y1="736" x2="340" y2="752" class="arr" marker-end="url(#sv-arrow)"/>
+<!-- C3 nodes -->
+<g class="node c-teal">
+<rect x="140" y="56" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="74" text-anchor="middle" dominant-baseline="central">Part I: Per-subgroup approximation</text>
+<text class="ts" x="340" y="91" text-anchor="middle" dominant-baseline="central">P1(c1, c2; d_eff)  ·  d_eff = n_H × (1 − prop_cens)</text>
+</g>
+<g class="node c-teal">
+<rect x="140" y="122" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="140" text-anchor="middle" dominant-baseline="central">Part II: Baseline null simulations</text>
+<text class="ts" x="340" y="157" text-anchor="middle" dominant-baseline="central">Cox PH + Poisson IRR at paper defaults (c1=1.25, c2=1.0)</text>
+</g>
+<g class="node c-teal">
+<rect x="140" y="188" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="206" text-anchor="middle" dominant-baseline="central">Part III: Multi-N L_eff calibration</text>
+<text class="ts" x="340" y="223" text-anchor="middle" dominant-baseline="central">L_eff = log(1−FPR) / log(1−P1)  ·  fit C·(N/n_min)^α</text>
+</g>
+<g class="node c-amber">
+<rect x="140" y="254" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="272" text-anchor="middle" dominant-baseline="central">CV diagnostic — threshold-independence check</text>
+<text class="ts" x="340" y="289" text-anchor="middle" dominant-baseline="central">CV of implied L_eff across grid  ·  flag if CV &gt; 30%</text>
+</g>
+<g class="node c-teal">
+<rect x="140" y="320" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="338" text-anchor="middle" dominant-baseline="central">Part IV: Null threshold grid sweep</text>
+<text class="ts" x="340" y="355" text-anchor="middle" dominant-baseline="central">Sim FPR at each (c1, c2) for N = n_sample</text>
+</g>
+<g class="node c-gray">
+<rect x="190" y="386" width="300" height="34" rx="8"/>
+<text class="th" x="340" y="398" text-anchor="middle" dominant-baseline="central">Save to .rds</text>
+<text class="ts" x="340" y="414" text-anchor="middle" dominant-baseline="central">C, α, c1_range, grid_fpr</text>
+</g>
+<!-- S2 nodes -->
+<g class="node c-purple">
+<rect x="140" y="488" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="506" text-anchor="middle" dominant-baseline="central">Load .rds · verify grid range</text>
+<text class="ts" x="340" y="523" text-anchor="middle" dominant-baseline="central">C, α  ·  S2 grid must stay within C3's validated range</text>
+</g>
+<g class="node c-purple">
+<rect x="140" y="554" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="572" text-anchor="middle" dominant-baseline="central">Compute FPR_corr on dense grid</text>
+<text class="ts" x="340" y="589" text-anchor="middle" dominant-baseline="central">FPR_corr = 1 − (1 − P1)^(C · (N/n_min)^α)</text>
+</g>
+<g class="node c-purple">
+<rect x="140" y="620" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="638" text-anchor="middle" dominant-baseline="central">Select frontier pairs</text>
+<text class="ts" x="340" y="655" text-anchor="middle" dominant-baseline="central">FPR_corr ≤ target at worst-case N  ·  binding at N_max</text>
+</g>
+<g class="node c-purple">
+<rect x="140" y="686" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="704" text-anchor="middle" dominant-baseline="central">Validate with H0 simulations</text>
+<text class="ts" x="340" y="721" text-anchor="middle" dominant-baseline="central">Sim FPR vs FPR_corr  ·  check In CI (95%)</text>
+</g>
+<g class="node c-green">
+<rect x="140" y="752" width="400" height="50" rx="8"/>
+<text class="th" x="340" y="770" text-anchor="middle" dominant-baseline="central">Optimal pair + power curve</text>
+<text class="ts" x="340" y="787" text-anchor="middle" dominant-baseline="central">c1_opt, c2_opt  ·  H1 power at HR_h1 = 2.0</text>
+</g>
+<!-- Side notes: Cox vs IRR -->
+<g class="c-coral">
+<rect x="548" y="126" width="114" height="42" rx="4"/>
+<text class="ts" x="605" y="143" text-anchor="middle" dominant-baseline="central">Cox PH primary</text>
+<text class="ts" x="605" y="159" text-anchor="middle" dominant-baseline="central">IRR cross-check</text>
+</g>
+<line x1="540" y1="148" x2="548" y2="148" class="leader"/>
+<!-- nsims annotations -->
+<g class="c-gray">
+<rect x="18" y="130" width="110" height="42" rx="4"/>
+<text class="ts" x="73" y="147" text-anchor="middle" dominant-baseline="central">Prod: 4,000</text>
+<text class="ts" x="73" y="163" text-anchor="middle" dominant-baseline="central">null sims</text>
+</g>
+<line x1="128" y1="148" x2="140" y2="148" class="leader"/>
+<g class="c-gray">
+<rect x="18" y="196" width="110" height="42" rx="4"/>
+<text class="ts" x="73" y="213" text-anchor="middle" dominant-baseline="central">Prod: 500</text>
+<text class="ts" x="73" y="229" text-anchor="middle" dominant-baseline="central">per N × 3 N</text>
+</g>
+<line x1="128" y1="214" x2="140" y2="214" class="leader"/>
+<g class="c-gray">
+<rect x="18" y="328" width="110" height="42" rx="4"/>
+<text class="ts" x="73" y="345" text-anchor="middle" dominant-baseline="central">Prod: 500</text>
+<text class="ts" x="73" y="361" text-anchor="middle" dominant-baseline="central">per pair × 63</text>
+</g>
+<line x1="128" y1="346" x2="140" y2="346" class="leader"/>
+<g class="c-gray">
+<rect x="18" y="694" width="110" height="42" rx="4"/>
+<text class="ts" x="73" y="711" text-anchor="middle" dominant-baseline="central">Prod: 2,000</text>
+<text class="ts" x="73" y="727" text-anchor="middle" dominant-baseline="central">per pair × N</text>
+</g>
+<line x1="128" y1="712" x2="140" y2="712" class="leader"/>
+<!-- Legend -->
+<g class="c-teal"><rect x="88" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="106" y="830" dominant-baseline="central" style="fill:#444441">C3 step</text>
+<g class="c-purple"><rect x="176" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="194" y="830" dominant-baseline="central" style="fill:#444441">S2 step</text>
+<g class="c-amber"><rect x="264" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="282" y="830" dominant-baseline="central" style="fill:#444441">Check</text>
+<g class="c-gray"><rect x="352" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="370" y="830" dominant-baseline="central" style="fill:#444441">Data / note</text>
+<g class="c-coral"><rect x="454" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="472" y="830" dominant-baseline="central" style="fill:#444441">Model detail</text>
+<g class="c-green"><rect x="556" y="824" width="12" height="12" rx="2"/></g>
+<text class="ts" x="574" y="830" dominant-baseline="central" style="fill:#444441">Output</text>
+</svg>
+<figcaption style="font-size:0.82em;color:#5F5E5A;margin-top:0.4rem;text-align:center;">
+Figure: Two-document survival calibration pipeline. Left annotations show recommended
+production simulation budgets. The long arrow crossing the dashed line is the
+<code>.rds</code> handoff.
+</figcaption>
+</figure>
+```
 
 
 # Setup {#sec-setup}
@@ -204,37 +371,25 @@ p_detect_glm <- function(theta, d_eff, c1, c2) {
 ```
 
 
-## Approximation Across Threshold Pairs
+## Per-Subgroup Approximation
 
 ```{r approx-grid-null}
-#| tbl-cap: !expr 'sprintf("Per-subgroup P1(theta=1) across (c1,c2) pairs at n.min = %d", n_min_val)'
-
 # Reference subgroup: n_H = n.min (from setup)
 n_H_dgm <- n_min_val
-d_dgm <- round(d_eff_survival(n_H_dgm, prop_cens))
+d_dgm   <- round(d_eff_survival(n_H_dgm, prop_cens))
 
 approx_null <- expand.grid(c1 = c1_grid, c2 = c2_grid,
                             stringsAsFactors = FALSE)
 approx_null <- approx_null[approx_null$c2 <= approx_null$c1, ]
+approx_null$P1 <- mapply(function(c1v, c2v)
+  round(p_detect_glm(1.0, d_dgm, c1v, c2v), 4),
+  approx_null$c1, approx_null$c2)
 
-approx_null$P1 <- mapply(function(c1v, c2v) {
-  round(p_detect_glm(1.0, d_dgm, c1v, c2v), 4)
-}, approx_null$c1, approx_null$c2)
-
-gt(approx_null) |>
-  tab_header(
-    title = "Per-Subgroup P1(theta=1.0) by Threshold Pair",
-    subtitle = sprintf("n(H)=%d, d=%d events, prop_cens=%.2f",
-                        n_H_dgm, d_dgm, prop_cens)
-  ) |>
-  tab_style(style = cell_fill(color = "#E8F5E9"),
-    locations = cells_body(columns = P1, rows = P1 <= 0.10)) |>
-  tab_style(style = cell_fill(color = "#FFF9C4"),
-    locations = cells_body(columns = P1,
-      rows = P1 > 0.10 & P1 <= 0.15)) |>
-  tab_source_note(
-    "P1 is the per-subgroup probability.  Procedure-level FPR may differ."
-  )
+cat(sprintf("d_eff = %d (n_H=%d, prop_cens=%.2f) | %d valid (c1,c2) pairs\n",
+            d_dgm, n_H_dgm, prop_cens, nrow(approx_null)))
+cat(sprintf("P1 range: %.3f -- %.3f (paper default c1=1.25, c2=1.0: %.3f)\n",
+            min(approx_null$P1), max(approx_null$P1),
+            approx_null$P1[approx_null$c1 == 1.25 & approx_null$c2 == 1.00]))
 ```
 
 
@@ -751,113 +906,151 @@ future::plan("sequential"); gc(verbose = FALSE)
 
 # Part V: Results {#sec-results}
 
-## FPR Table
+## FPR Summary and Best Threshold Pairs
 
 ```{r grid-fpr-table}
-#| tbl-cap: !expr 'sprintf("Simulated FPR under H0 by (c1, c2).  Green: FPR <= 10%%.  Yellow: 10-%.0f%%.  Red: > %.0f%%.", 100 * fpr_target, 100 * fpr_target)'
-
-grid_dt <- data.table(grid_results)
+grid_dt  <- data.table(grid_results)
 grid_fpr <- grid_dt[, .(
-  FPR = mean(any_H, na.rm = TRUE),
+  FPR    = mean(any_H, na.rm = TRUE),
   n_found = sum(any_H, na.rm = TRUE),
-  n_sims = .N
+  n_sims  = .N
 ), by = .(c1, c2)]
 
-# Add approximations
-grid_fpr[, P1 := mapply(function(c1v, c2v) {
-  p_detect_glm(1.0, d_dgm, c1v, c2v)
-}, c1, c2)]
-
-# L_eff corrected
+# Approximations
+grid_fpr[, P1 := mapply(function(c1v, c2v)
+  p_detect_glm(1.0, d_dgm, c1v, c2v), c1, c2)]
 L_eff_N <- C_fit * (N_grid / n_min_val)^alpha_fit
-grid_fpr[, FPR_corr := 1 - (1 - P1)^L_eff_N]
+grid_fpr[, FPR_corr      := 1 - (1 - P1)^L_eff_N]
 grid_fpr[, Sim_over_P1   := round(FPR / pmax(P1, 0.001), 2)]
 grid_fpr[, Sim_over_Corr := round(FPR / pmax(FPR_corr, 0.001), 2)]
 
-gt(grid_fpr[, .(c1, c2,
-                `Sim FPR` = round(FPR, 3),
-                `Found/Total` = sprintf("%d/%d", n_found, n_sims),
-                `P1 (uncorr)` = round(P1, 3),
-                `FPR (corr)` = round(FPR_corr, 3),
-                `Sim/P1` = Sim_over_P1,
-                `Sim/Corr` = Sim_over_Corr)]) |>
+# ── Overview summary ─────────────────────────────────────────
+fpr_overview <- data.frame(
+  Region = c(
+    sprintf("FPR <= 10%%"),
+    sprintf("10%% < FPR <= %.0f%%", 100 * fpr_target),
+    sprintf("FPR > %.0f%%", 100 * fpr_target)
+  ),
+  `Pairs (n)` = c(
+    sum(grid_fpr$FPR <= 0.10),
+    sum(grid_fpr$FPR > 0.10 & grid_fpr$FPR <= fpr_target),
+    sum(grid_fpr$FPR > fpr_target)
+  ),
+  `FPR range` = c(
+    if (any(grid_fpr$FPR <= 0.10))
+      sprintf("%.1f–%.1f%%", 100*min(grid_fpr$FPR[grid_fpr$FPR<=0.10]),
+                              100*max(grid_fpr$FPR[grid_fpr$FPR<=0.10]))
+    else "—",
+    if (any(grid_fpr$FPR > 0.10 & grid_fpr$FPR <= fpr_target))
+      sprintf("%.1f–%.1f%%",
+        100*min(grid_fpr$FPR[grid_fpr$FPR>0.10 & grid_fpr$FPR<=fpr_target]),
+        100*max(grid_fpr$FPR[grid_fpr$FPR>0.10 & grid_fpr$FPR<=fpr_target]))
+    else "—",
+    sprintf("%.1f–%.1f%%", 100*min(grid_fpr$FPR[grid_fpr$FPR>fpr_target]),
+                            100*max(grid_fpr$FPR[grid_fpr$FPR>fpr_target]))
+  ),
+  check.names = FALSE
+)
+
+gt(fpr_overview) |>
   tab_header(
-    title = md("**Simulated FPR Under H0 by Threshold Pair**"),
-    subtitle = sprintf("N=%d, %d sims/pair, n.min=%d, pcons=%.2f, L_eff=%.2f",
-                        N_grid, nsims_grid, n_min_val, pcons, L_eff_N)
+    title = md("**Simulated FPR: Grid Overview**"),
+    subtitle = sprintf("N=%d | %d sims/pair | n.min=%d | L_eff=%.2f",
+                        N_grid, nsims_grid, n_min_val, L_eff_N)
+  ) |>
+  tab_style(style = list(cell_fill(color = "#E8F5E9"),
+                          cell_text(weight = "bold")),
+    locations = cells_body(rows = 1)) |>
+  tab_style(style = cell_fill(color = "#FFF9C4"),
+    locations = cells_body(rows = 2)) |>
+  tab_style(style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(rows = 3)) |>
+  tab_source_note(sprintf(
+    "%d total (c1,c2) pairs | target FPR <= %.0f%% | paper defaults c1=1.25, c2=1.0",
+    nrow(grid_fpr), 100 * fpr_target))
+
+# ── Best pairs: lowest simulated FPR ─────────────────────────
+n_best <- min(10L, nrow(grid_fpr))
+best_fpr <- grid_fpr[order(FPR)][seq_len(n_best)]
+
+gt(best_fpr[, .(c1, c2,
+    `Sim FPR`  = sprintf("%.1f%%", 100 * FPR),
+    `P1`       = sprintf("%.1f%%", 100 * P1),
+    `FPR_corr` = sprintf("%.1f%%", 100 * FPR_corr),
+    `Sim/Corr` = Sim_over_Corr)]) |>
+  tab_header(
+    title = md("**Best Threshold Pairs (Lowest Sim FPR)**"),
+    subtitle = sprintf(
+      "Top %d of %d pairs | paper defaults (c1=1.25, c2=1.0) shown for reference",
+      n_best, nrow(grid_fpr))
   ) |>
   tab_style(style = cell_fill(color = "#E8F5E9"),
     locations = cells_body(columns = `Sim FPR`,
-      rows = `Sim FPR` <= 0.10)) |>
+      rows = as.numeric(sub("%","", `Sim FPR`)) / 100 <= fpr_target)) |>
   tab_style(style = cell_fill(color = "#FFF9C4"),
     locations = cells_body(columns = `Sim FPR`,
-      rows = `Sim FPR` > 0.10 & `Sim FPR` <= fpr_target)) |>
-  tab_style(style = cell_fill(color = "#FFEBEE"),
-    locations = cells_body(columns = `Sim FPR`,
-      rows = `Sim FPR` > fpr_target)) |>
+      rows = as.numeric(sub("%","", `Sim FPR`)) / 100 > fpr_target &
+             as.numeric(sub("%","", `Sim FPR`)) / 100 <= fpr_target + 0.05)) |>
   tab_source_note(sprintf(
-    "Green: FPR <= 10%%. Yellow: 10-%.0f%%. Red: > %.0f%%.",
-    100 * fpr_target, 100 * fpr_target))
+    "Green: FPR <= %.0f%% (target). Yellow: within 5pp of target.",
+    100 * fpr_target))
 ```
 
 
 ## $L_{\text{eff}}$ Consistency Across Threshold Pairs
 
 If $L_{\text{eff}}$ is truly a property of the candidate-generation
-process (confounders, GRF, LASSO, maxk, n.min) and not the
-threshold pair, the implied $L_{\text{eff}}$ should be
-approximately constant across $(c_1, c_2)$ at the same $N$.
+process and not the threshold pair, the implied $L_{\text{eff}}$
+should be approximately constant across $(c_1, c_2)$ at the same $N$.
+A coefficient of variation (CV) below 20% is acceptable.
 
 ```{r leff-consistency}
-#| tbl-cap: "Implied L_eff at each (c1, c2) pair.  If L_eff is threshold-independent, values should cluster near the calibrated value."
+#| fig-height: 4
+#| fig-cap: "Implied vs calibrated L_eff across all (c1, c2) pairs. Points near the horizontal line support threshold-independence."
 
-# Compute implied L_eff for each grid pair
 grid_fpr[, implied_L_eff := ifelse(
   P1 > 0 & FPR > 0 & FPR < 1,
-  log(1 - FPR) / log(1 - P1),
-  NA_real_
-)]
+  log(1 - FPR) / log(1 - P1), NA_real_)]
 
-leff_summary <- grid_fpr[!is.na(implied_L_eff), .(
-  `Median` = round(median(implied_L_eff), 2),
-  `Min`    = round(min(implied_L_eff), 2),
-  `Max`    = round(max(implied_L_eff), 2),
-  `SD`     = round(sd(implied_L_eff), 3),
-  `CV`     = sprintf("%.0f%%", 100 * sd(implied_L_eff) /
-                      median(implied_L_eff)),
-  `n_pairs` = .N
-)]
+leff_valid <- grid_fpr[!is.na(implied_L_eff)]
+cv_val <- 100 * sd(leff_valid$implied_L_eff) /
+           median(leff_valid$implied_L_eff)
 
-cat(sprintf(
-  "Calibrated L_eff at N=%d: %.2f\n", N_grid, L_eff_N))
-cat(sprintf(
-  "Implied L_eff across %d threshold pairs: median=%.2f, range=[%.2f, %.2f]\n",
-  leff_summary$n_pairs, leff_summary$Median,
-  leff_summary$Min, leff_summary$Max))
+cat(sprintf("Calibrated L_eff at N=%d: %.2f\n", N_grid, L_eff_N))
+cat(sprintf("Implied L_eff: median=%.2f, range=[%.2f, %.2f], CV=%.0f%%\n",
+    median(leff_valid$implied_L_eff),
+    min(leff_valid$implied_L_eff),
+    max(leff_valid$implied_L_eff), cv_val))
+if (cv_val > 30) {
+  warning(sprintf(
+    "CV = %.0f%% > 30%% — L_eff may not be threshold-independent at this grid.",
+    cv_val))
+} else {
+  cat(sprintf("CV = %.0f%% (< 30%%) — threshold-independence assumption holds.\n",
+              cv_val))
+}
 
-gt(grid_fpr[!is.na(implied_L_eff),
-  .(c1, c2,
-    `Sim FPR` = sprintf("%.1f%%", 100 * FPR),
-    `P1` = sprintf("%.4f", P1),
-    `Implied L_eff` = round(implied_L_eff, 2),
-    `Calibrated L_eff` = round(L_eff_N, 2),
-    `Ratio` = round(implied_L_eff / L_eff_N, 2)
-  )]) |>
-  tab_header(
-    title = md("**L_eff Consistency Diagnostic**"),
-    subtitle = sprintf("N=%d | Calibrated: L_eff = %.3f * (N/%d)^%.3f = %.2f",
-                        N_grid, C_fit, n_min_val, alpha_fit, L_eff_N)
-  ) |>
-  tab_style(style = cell_fill(color = "#E8F5E9"),
-    locations = cells_body(columns = Ratio,
-      rows = Ratio >= 0.7 & Ratio <= 1.3)) |>
-  tab_style(style = cell_fill(color = "#FFEBEE"),
-    locations = cells_body(columns = Ratio,
-      rows = Ratio < 0.7 | Ratio > 1.3)) |>
-  tab_source_note(paste(
-    "Ratio = Implied / Calibrated.",
-    "Green: within +/-30%.  Red: outside +/-30%.",
-    "Constant ratio supports threshold-independence."))
+# Scatter: implied vs calibrated, coloured by Sim FPR
+ggplot(leff_valid, aes(x = interaction(factor(c1), factor(c2), sep=","),
+                        y = implied_L_eff, colour = FPR)) +
+  geom_hline(yintercept = L_eff_N, linetype = "dashed",
+             colour = "steelblue", linewidth = 0.9) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  annotate("label", x = 1, y = L_eff_N,
+           label = sprintf("Calibrated = %.2f", L_eff_N),
+           colour = "steelblue", size = 3, hjust = 0, vjust = -0.3) +
+  scale_colour_gradient(low = "#E8F5E9", high = "#E53935",
+                         name = "Sim FPR", labels = scales::percent) +
+  labs(x = "(c1, c2) pair",
+       y = expression("Implied " * L[eff]),
+       title = expression(L[eff] * " Consistency Across Threshold Grid"),
+       subtitle = sprintf("CV = %.0f%% | Calibrated = %.2f | N = %d",
+                           cv_val, L_eff_N, N_grid)) +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        plot.title = element_text(face = "bold"),
+        legend.position = "right")
 ```
 
 ## FPR Heatmap
@@ -994,51 +1187,54 @@ if (nrow(acceptable_grid) > 0) {
 # Summary {#sec-summary}
 
 ```{r summary}
-cat("=== Null Operating Characteristics Summary ===\n\n")
-cat(sprintf("DGM: GBSG survival, N=%d, n.min=%d, pcons=%.2f\n",
-            N_grid, n_min_val, pcons))
-cat(sprintf("L_eff model: %.3f * (N/%d)^%.3f\n",
-            C_fit, n_min_val, alpha_fit))
-cat(sprintf("L_eff at N=%d: %.2f\n\n", N_grid, L_eff_N))
-
-cat("--- Paper Defaults (c1=1.25, c2=1.0) ---\n")
-paper_row <- grid_fpr[c1 == 1.25 & c2 == 1.00]
-if (nrow(paper_row) > 0) {
-  cat(sprintf("  Sim FPR: %.1f%%\n", 100 * paper_row$FPR))
-  cat(sprintf("  P1:      %.1f%%\n", 100 * paper_row$P1))
-  cat(sprintf("  Corr:    %.1f%%\n\n", 100 * paper_row$FPR_corr))
-}
-
-cat(sprintf("--- Configurations with FPR in 8-%.0f%% ---\n",
-            100 * fpr_target))
-target_range <- grid_fpr[FPR >= 0.08 & FPR <= fpr_target]
-if (nrow(target_range) > 0) {
-  setorder(target_range, -FPR)
-  for (r in seq_len(nrow(target_range))) {
-    cat(sprintf("  c1=%.2f, c2=%.2f: FPR=%.1f%%\n",
-                target_range$c1[r], target_range$c2[r],
-                100 * target_range$FPR[r]))
-  }
-} else {
-  cat("  None in this range.\n")
-}
-
-cat("\n--- All (c1,c2) with FPR <= 10% ---\n")
+# ── Key configurations ────────────────────────────────────────
+paper_row   <- grid_fpr[c1 == 1.25 & c2 == 1.00]
+target_band <- grid_fpr[FPR >= 0.08 & FPR <= fpr_target]
+setorder(target_band, -FPR)
 conservative <- grid_fpr[FPR <= 0.10]
-if (nrow(conservative) > 0) {
-  setorder(conservative, c1, c2)
-  for (r in seq_len(nrow(conservative))) {
-    cat(sprintf("  c1=%.2f, c2=%.2f: FPR=%.1f%%\n",
-                conservative$c1[r], conservative$c2[r],
-                100 * conservative$FPR[r]))
-  }
+setorder(conservative, c1, c2)
+
+# Build display table: paper default + target band + conservative
+make_row <- function(dt, label) {
+  if (nrow(dt) == 0) return(NULL)
+  dt[, .(
+    Region   = label,
+    c1       = c1,
+    c2       = c2,
+    `Sim FPR`   = sprintf("%.1f%%", 100 * FPR),
+    `P1`        = sprintf("%.1f%%", 100 * P1),
+    `FPR_corr`  = sprintf("%.1f%%", 100 * FPR_corr),
+    `Sim/Corr`  = round(Sim_over_Corr, 2)
+  )]
 }
 
-cat(sprintf("\n--- Note on L_eff ---\n"))
-cat("For survival, L_eff < 1 is common because the events-based\n")
-cat("filters (d0.min, d1.min) aggressively prune candidates.\n")
-cat("This means the paper defaults (c1=1.25, c2=1.0) are already\n")
-cat("conservative for survival endpoints.\n")
+summary_dt <- rbind(
+  make_row(paper_row, "Paper default"),
+  make_row(target_band, sprintf("Target band (8–%.0f%%)", 100*fpr_target)),
+  make_row(conservative, "Conservative (FPR <= 10%)")
+)
+
+gt(summary_dt) |>
+  tab_header(
+    title = md("**Null Operating Characteristics Summary**"),
+    subtitle = sprintf(
+      "GBSG survival DGM | N=%d | n.min=%d | pcons=%.2f | L_eff=%.2f",
+      N_grid, n_min_val, pcons, L_eff_N)
+  ) |>
+  tab_row_group(label = "Conservative (FPR ≤ 10%)",
+    rows = Region == "Conservative (FPR <= 10%)") |>
+  tab_row_group(label = sprintf("Target band (8–%.0f%%)", 100*fpr_target),
+    rows = Region == sprintf("Target band (8–%.0f%%)", 100*fpr_target)) |>
+  tab_row_group(label = "Paper default (c1=1.25, c2=1.0)",
+    rows = Region == "Paper default") |>
+  cols_hide(columns = Region) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `Sim FPR`,
+      rows = as.numeric(sub("%","",`Sim FPR`))/100 <= fpr_target)) |>
+  tab_source_note(paste(
+    "L_eff note: for survival, L_eff < 1 is common because events-based filters",
+    "(d0.min, d1.min) aggressively prune candidates,",
+    "making paper defaults already conservative for survival endpoints."))
 ```
 
 
@@ -1152,62 +1348,82 @@ res$params$fpr_target       # FPR target
 ```{r timing-summary}
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
+# ── Per-call wall-clock rates ─────────────────────────────────
+# All times are already parallelised wall-clock seconds.
+n_tasks_cox  <- nsims_null
+n_tasks_irr  <- nsims_null
+n_tasks_cal  <- nsims_cal * length(N_cal_values)
+n_tasks_grid <- nsims_grid * nrow(grid_pairs)
+
+rate_cox  <- timings$null_cox  / n_tasks_cox
+rate_irr  <- timings$null_irr  / n_tasks_irr
+rate_cal  <- timings$null_cal  / n_tasks_cal
+rate_grid <- timings$null_grid / n_tasks_grid
+
+# ── Actual run ────────────────────────────────────────────────
 timing_df <- data.frame(
-  Stage = c("DGM", "Cox H0 (paper defaults)",
-            "IRR H0 (paper defaults)",
-            "L_eff Calibration (multi-N)",
-            "Null Grid Sweep",
-            "Total"),
-  Seconds = c(timings$dgm, timings$null_cox, timings$null_irr,
-              timings$null_cal, timings$null_grid, timings$total),
+  Stage = c(
+    sprintf("DGM setup"),
+    sprintf("Cox H0 — paper defaults (%d sims)", nsims_null),
+    sprintf("IRR H0 — paper defaults (%d sims)", nsims_null),
+    sprintf("L_eff calibration (%d sims × %d N)", nsims_cal, length(N_cal_values)),
+    sprintf("Null grid sweep (%d sims × %d pairs)", nsims_grid, nrow(grid_pairs)),
+    "Total (including rendering)"
+  ),
+  Seconds = c(
+    timings$dgm, timings$null_cox, timings$null_irr,
+    timings$null_cal, timings$null_grid, timings$total),
   stringsAsFactors = FALSE
 )
 timing_df$Minutes <- timing_df$Seconds / 60
 timing_df$Hours   <- timing_df$Seconds / 3600
 
-# -- Production projection -----------------------------------------------------
-# Per-replicate cost by stage
-time_per_cox  <- timings$null_cox / nsims_null
-time_per_irr  <- timings$null_irr / nsims_null
-time_per_cal  <- timings$null_cal / (nsims_cal * length(N_cal_values))
-time_per_grid <- timings$null_grid / (nsims_grid * nrow(grid_pairs))
+# ── Per-call rates row ────────────────────────────────────────
+rates_row <- data.frame(
+  Stage   = sprintf("Wall-clock per FS call (%d workers): Cox %.2fs | IRR %.2fs | Grid %.2fs",
+                     n_workers, rate_cox, rate_irr, rate_grid),
+  Seconds = NA_real_, Minutes = NA_real_, Hours = NA_real_,
+  stringsAsFactors = FALSE)
 
-prod_null <- 4000L
-prod_cal  <- 500L
-prod_grid <- 500L
+# ── Production projection ─────────────────────────────────────
+proj_cox   <- rate_cox  * nsims_prod_null
+proj_irr   <- rate_irr  * nsims_prod_null
+proj_cal   <- rate_cal  * nsims_prod_cal * length(N_cal_values)
+proj_grid  <- rate_grid * nsims_prod_grid * nrow(grid_pairs)
+proj_total <- proj_cox + proj_irr + proj_cal + proj_grid + timings$dgm
 
-proj_cox  <- time_per_cox * prod_null
-proj_irr  <- time_per_irr * prod_null
-proj_cal  <- time_per_cal * prod_cal * length(N_cal_values)
-proj_grid <- time_per_grid * prod_grid * nrow(grid_pairs)
-proj_other <- timings$dgm
-proj_total <- proj_cox + proj_irr + proj_cal + proj_grid + proj_other
-
-timing_df <- rbind(timing_df, data.frame(
-  Stage   = sprintf("Projected: %d null / %d cal / %d grid",
-                     prod_null, prod_cal, prod_grid),
+prod_row <- data.frame(
+  Stage   = sprintf("Production estimate: %d null / %d cal / %d grid  (%d pairs)",
+                     nsims_prod_null, nsims_prod_cal, nsims_prod_grid, nrow(grid_pairs)),
   Seconds = proj_total,
   Minutes = proj_total / 60,
   Hours   = proj_total / 3600,
-  stringsAsFactors = FALSE
-))
+  stringsAsFactors = FALSE)
+
+timing_df <- rbind(timing_df, rates_row, prod_row)
+
 gt(timing_df) |>
   tab_header(
     title = "Computational Timing Summary",
     subtitle = sprintf(
-      "%d (c1,c2) pairs x %d sims + %d cal sims x %d N | %d workers",
-      nrow(grid_pairs), nsims_grid, n_sims_cal,
-      length(N_cal_values), n_workers)
+      "%d workers | grid: %d pairs × %d sims | cal: %d sims × %d N",
+      n_workers, nrow(grid_pairs), nsims_grid,
+      nsims_cal, length(N_cal_values))
   ) |>
-  fmt_number(columns = Seconds, decimals = 1) |>
-  fmt_number(columns = Minutes, decimals = 2) |>
-  fmt_number(columns = Hours,   decimals = 3) |>
+  fmt_number(columns = c(Seconds, Minutes, Hours),
+             decimals = c(1, 2, 3), rows = !is.na(Seconds)) |>
   cols_label(Stage = "Stage", Seconds = "Time (sec)",
              Minutes = "Time (min)", Hours = "Time (hr)") |>
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(rows = grepl("Total|Projected", Stage))
-  )
+  tab_style(style = cell_text(weight = "bold"),
+    locations = cells_body(rows = grepl("Total|Production", Stage))) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = grepl("Production", Stage))) |>
+  tab_style(style = cell_fill(color = "#F1EFE8"),
+    locations = cells_body(rows = grepl("Wall-clock", Stage))) |>
+  tab_source_note(sprintf(
+    "Production estimate: %d null + %d irr + %d cal×%dN + %d grid×%d pairs | same machine, same workers.",
+    nsims_prod_null, nsims_prod_null, nsims_prod_cal, length(N_cal_values),
+    nsims_prod_grid, nrow(grid_pairs)))
 ```
 
 ```{r session-info}

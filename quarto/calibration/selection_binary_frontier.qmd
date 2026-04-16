@@ -45,7 +45,7 @@ t_vignette_start <- proc.time()
 
 # ── Simulation control ──────────────────────────────────────────
 # 1000/hr mac
-nsims_val       <- 1000L    # validation sims per (c1, c2, N)
+nsims_val       <- 5000L    # validation sims per (c1, c2, N)
 
 # Projection sim values
 nsims_val_prod   <- 1000L
@@ -68,7 +68,7 @@ recalibrate          <- FALSE
 n_sims_recal         <- 200L
 
 # ── FPR target ─────────────────────────────────────────────────
-fpr_target      <- 0.15
+fpr_target <- 0.25
 
 # ── Shared DGM / FS parameters (fallbacks if C1 .rds missing) ─
 # These are overwritten by C1's saved config when available.
@@ -91,16 +91,16 @@ N_target         <- c(300, 500, 700)
 # (a warning is printed if they extend beyond C1's range).
 use_c1_grid <- TRUE
 grid_step   <- 0.05      # step size for approximation grid
-c1_grid     <- seq(1.00, 2.00, by = grid_step)  # fallback only
-c2_grid     <- seq(0.90, 1.60, by = grid_step)  # fallback only
+c1_grid     <- seq(1.00, 2.50, by = grid_step)  # fallback only
+c2_grid     <- seq(0.90, 2.50, by = grid_step)  # fallback only
 
 # ── Validation ────────────────────────────────────────────────
 max_pairs   <- 40L
 nsims_power <- 200L      # H1 sims at optimal pair (0 = approx only)
 
 # ── Heatmap display subset ────────────────────────────────────
-c1_heat     <- seq(1.20, 1.90, by = 0.10)
-c2_heat     <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50)
+c1_heat     <- seq(1.00, 2.50, by = 0.10)
+c2_heat     <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50, 1.75, 2.0, 2.25, 2.5)
 ```
 
 ```{r load-calibration}
@@ -139,12 +139,14 @@ if (length(cfg) > 0) {
   if (!is.null(cfg$fs_splits))        fs_splits        <- cfg$fs_splits
   if (!is.null(cfg$maxk_val))         maxk_val         <- cfg$maxk_val
   if (!is.null(cfg$N_cal_values))     N_cal_values     <- cfg$N_cal_values
-  if (!is.null(cfg$fpr_target))       fpr_target       <- cfg$fpr_target
+  # NOTE: fpr_target is intentionally NOT inherited from C1.
+  # It is a policy parameter set in the setup chunk of this document.
   cat(sprintf("  confounders: %s\n", paste(confounders_name, collapse = ", ")))
   cat(sprintf("  p_event=%.2f, pcons=%.2f, fs_splits=%d, maxk=%d\n",
               p_event, pcons, fs_splits, maxk_val))
-  cat(sprintf("  fpr_target=%.2f, N_cal=%s\n",
-              fpr_target, paste(N_cal_values, collapse = ", ")))
+  cat(sprintf("  N_cal=%s\n", paste(N_cal_values, collapse = ", ")))
+  cat(sprintf("  fpr_target=%.2f (from setup chunk, not inherited)\n",
+              fpr_target))
 
   # Grid range: clamp to C1's validated range or warn
   if (!is.null(cfg$c1_range) && !is.null(cfg$c2_range)) {
@@ -198,25 +200,69 @@ if (!is.null(cal_binary$dgm_description))
 if (!is.null(cal_binary$timestamp))
   cat(sprintf("Calibrated: %s\n",
               format(cal_binary$timestamp, "%Y-%m-%d %H:%M")))
+
+# Saturation floor: warn if the approximation grid dips below the
+# threshold range where L_eff was validated in C1.
+saturation_floor_c1 <- cfg$saturation_floor_c1
+if (!is.null(saturation_floor_c1)) {
+  cat(sprintf("\nSaturation floor (from C1): c1 >= %.2f\n",
+              saturation_floor_c1))
+  if (min(c1_grid) < saturation_floor_c1) {
+    warning(sprintf(paste0(
+      "S1 c1_grid starts at %.2f, below C1's saturation floor of %.2f.\n",
+      "  Corrected FPR values at c1 < %.2f are unreliable (L_eff overestimated).\n",
+      "  Raise min(c1_grid) or set use_c1_grid = TRUE to clamp to C1's range."),
+      min(c1_grid), saturation_floor_c1, saturation_floor_c1),
+      call. = FALSE)
+  } else {
+    cat("  Grid is above saturation floor: corrected FPR is reliable.\n")
+  }
+} else {
+  cat("\n(No saturation floor in .rds — re-run C1 to record it.)\n")
+}
 ```
 
 ::: {.callout-note}
-## Calibration Source
+## Calibration Source and Threshold-Independence Requirement
 
 The $L_{\text{eff}}$ prior and shared ForestSearch parameters
 were loaded from `_data/calibration_binary_leff.rds`, produced
 by `calibration_binary_leff.qmd` (C1).
 
 - **If the `.rds` exists:** inherits `p_event`, `confounders_name`,
-  `pcons`, `fs_splits`, `maxk_val`, `fpr_target`, and `N_cal_values`
-  from C1's config.
+  `pcons`, `fs_splits`, `maxk_val`, and `N_cal_values`
+  from C1's config. `fpr_target` is **not** inherited — it is a
+  policy parameter set in the setup chunk of this document.
 - **Grid range** (`use_c1_grid = TRUE`, default): `c1_grid` and
-  `c2_grid` are set to C1's validated range at S1's `grid_step`.
-  Set `use_c1_grid = FALSE` to use the setup-chunk values instead
-  (a warning is printed if they extend beyond C1's range).
+  `c2_grid` are set to C1's *non-saturated* validated range at S1's
+  `grid_step`.  Set `use_c1_grid = FALSE` to use the setup-chunk
+  values instead (a warning is printed if they extend beyond C1's
+  validated range).
 - **If `.rds` not found:** uses the fallback values defined in the
   setup chunk.
 - **To recalibrate from scratch:** set `recalibrate = TRUE`.
+
+::: {.callout-important collapse="true"}
+## The Saturation Floor — Why the Grid Must Stay Within C1's Range
+
+The $L_{\text{eff}}$ framework assumes that the corrected FPR formula
+$1 - (1-P_1)^{L_{\text{eff}}}$ is applied only within the threshold
+range where $L_{\text{eff}}$ is threshold-independent.
+
+For binary outcomes with small $d_{\text{eff}}$, there is a
+**saturation floor** below which the simulated FPR is insensitive to
+$(c_1, c_2)$ because essentially all candidate subgroups exceed the
+threshold by sampling noise.  The implied $L_{\text{eff}}$ is inflated
+in this regime.  If the calibrated $L_{\text{eff}}$ is extrapolated
+back to these low thresholds it will **overestimate** the procedure-level
+FPR.
+
+C1 records `saturation_floor_c1` in the `.rds`.  The grid in this
+document is clamped to `c1_range` from the `.rds` to ensure all
+computed corrected FPR values are within the reliable range.  Do not
+set `use_c1_grid = FALSE` without first verifying that the threshold
+range you are sweeping lies above the saturation floor.
+:::
 :::
 
 ```{r setup-parallel}
@@ -372,6 +418,15 @@ sim_binary_h1 <- function(n, seed) {
 # Part I: $L_{\text{eff}}$ Calibration {#sec-leff}
 
 ## Background
+
+::: {.callout-note}
+## Pipeline diagram
+The complete two-document calibration workflow is illustrated in
+`calibration_binary_leff.qmd` (@sec-pipeline).  That figure shows
+how C1 fits $L_{\text{eff}}$ from simulations (including the CV
+diagnostic and saturation-floor filter) and how S1 consumes the
+result to sweep the threshold grid and validate selected pairs.
+:::
 
 The per-subgroup approximation $P_1$ gives the probability
 that a single pre-specified subgroup passes the screening and
@@ -703,7 +758,7 @@ cat(sprintf("(c1 range: %.2f--%.2f, c2 range: %.2f--%.2f)\n",
 ## Corrected FPR Heatmaps
 
 ```{r approx-heatmaps, fig.width=10, fig.height=12}
-#| fig-cap: "Corrected approximation FPR across the (c1,c2) grid.  Only the region near the 12% boundary is relevant for threshold selection."
+#| fig-cap: "Corrected approximation FPR across the (c1,c2) grid.  Only the region near the FPR boundary is relevant for threshold selection."
 
 # Subset to readable range (c1_heat, c2_heat from setup)
 heat_sub <- full_dt[c1 %in% c1_heat & c2 %in% c2_heat]
