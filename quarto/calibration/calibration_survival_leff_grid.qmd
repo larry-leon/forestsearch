@@ -17,9 +17,9 @@ knitr:
 
 # ── Simulation control ──────────────────────────────────────────
 # ~750/hr linux
-nsims_null  <- 1000L       # H0 sims for Part II (paper-defaults Cox & IRR)
-nsims_cal   <- 1000L        # H0 sims per N for L_eff calibration (Part III)
-nsims_grid  <- 1000L        # H0 sims per (c1,c2) pair for grid sweep (Part IV)
+nsims_null  <- 2000L       # H0 sims for Part II (paper-defaults Cox & IRR)
+nsims_cal   <- 2000L        # H0 sims per N for L_eff calibration (Part III)
+nsims_grid  <- 2000L        # H0 sims per (c1,c2) pair for grid sweep (Part IV)
 sim_seed    <- 8316951L
 n_workers   <- ceiling(0.95 * max(1L,
   parallel::detectCores(logical = FALSE) - 1L))
@@ -79,8 +79,8 @@ N_cal_values <- c(300, 500, 700)
 # ── Threshold grid for null sweep (Part IV) ──────────────────
 # C3 validates L_eff threshold-independence across this grid.
 # S2's approximation grid should fall within this range.
-c1_grid <- c(1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50)
-c2_grid <- c(0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25)
+c1_grid <- c(0.90,1.00, 1.10, 1.15, 1.20, 1.25, 1.30, 1.40, 1.50)
+c2_grid <- c(0.80,0.90, 0.95, 1.00, 1.05, 1.10, 1.15, 1.20, 1.25)
 ```
 
 
