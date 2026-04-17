@@ -193,6 +193,13 @@ test_zero_cate <- function(Y, W, X, poly_order = 1L,
 #' H0': tau(x) = tau for some tau and all x.
 #'
 #' @inheritParams test_zero_cate
+#' @return A list with components \code{test}, \code{chi_sq}, \code{df},
+#'   \code{p_value_chi}, \code{normal} (normal-approximation statistic),
+#'   \code{p_value_normal}, \code{K} (number of covariates), \code{N0},
+#'   \code{N1}, \code{regression}, \code{covariates_selected},
+#'   \code{ate_diff} (intercept-difference point estimate), and
+#'   \code{diff_slope}, \code{V_slope}.  Returns \code{NULL} if per-arm
+#'   fits fail or fewer than two covariates are retained.
 #' @export
 test_constant_cate <- function(Y, W, X, poly_order = 1L,
                                covariate_select = c("all",
@@ -263,6 +270,10 @@ test_hte <- function(Y, W, X, poly_order = 1L,
 }
 
 
+#' Print method for \code{hte_test} objects
+#' @param x An \code{hte_test} object.
+#' @param ... Unused; present for S3 compatibility.
+#' @return The input \code{x}, invisibly.
 #' @export
 print.hte_test <- function(x, ...) {
   cat("=== Crump et al. (2008) HTE Tests ===\n")

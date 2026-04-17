@@ -204,6 +204,7 @@ create_forest_theme <- function(
 #'
 #' @param x An fs_forest_theme object
 #' @param ... Additional arguments (ignored)
+#' @return The input \code{x}, invisibly.
 #' @examples
 #' theme <- create_forest_theme()
 #' print(theme)
@@ -365,6 +366,7 @@ save_forestplot <- function(
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @return The input \code{x}, invisibly.
 #' @examples
 #' \dontrun{
 #' fs <- forestsearch(gbsg,
@@ -402,6 +404,7 @@ print.fs_forestplot <- function(x, ...) {
 #'
 #' @param x An fs_forestplot object
 #' @param ... Additional arguments (ignored)
+#' @return The input \code{x}, invisibly.
 #' @examples
 #' \dontrun{
 #' fs <- forestsearch(gbsg,

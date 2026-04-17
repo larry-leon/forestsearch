@@ -300,6 +300,8 @@ apply_spline_constraint <- function(b0, spline_var, knot, zeta, log_hrs,
 #'
 #' @param dgm_result Result object from generate_aft_dgm_flex with spline
 #' @param add_points Logical; add observed data points. Default TRUE
+#' @return Called for its side effect of producing a base-R plot.  Returns
+#'   \code{NULL} invisibly.
 #' @examples
 #' \dontrun{
 #' library(survival)

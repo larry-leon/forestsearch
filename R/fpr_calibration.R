@@ -386,6 +386,10 @@ fpr_calibration <- function(c1,
 
 # ── S3 methods ───────────────────────────────────────────────────────────────
 
+#' Print method for \code{fpr_calibration} objects
+#' @param x An \code{fpr_calibration} object.
+#' @param ... Unused; present for S3 compatibility.
+#' @return The input \code{x}, invisibly.
 #' @export
 print.fpr_calibration <- function(x, ...) {
   cat("\n=== fpr_calibration result ===\n")
@@ -418,6 +422,13 @@ print.fpr_calibration <- function(x, ...) {
 }
 
 
+#' Summary method for \code{fpr_calibration} objects
+#'
+#' Delegates to \code{\link{print.fpr_calibration}}.
+#'
+#' @param object An \code{fpr_calibration} object.
+#' @param ... Passed to the print method.
+#' @return The input \code{object}, invisibly.
 #' @export
 summary.fpr_calibration <- function(object, ...) {
   print(object, ...)

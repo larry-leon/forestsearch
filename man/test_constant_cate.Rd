@@ -33,6 +33,15 @@ test_constant_cate(
 
 \item{offset}{Numeric offset vector (Poisson only).}
 }
+\value{
+A list with components \code{test}, \code{chi_sq}, \code{df},
+\code{p_value_chi}, \code{normal} (normal-approximation statistic),
+\code{p_value_normal}, \code{K} (number of covariates), \code{N0},
+\code{N1}, \code{regression}, \code{covariates_selected},
+\code{ate_diff} (intercept-difference point estimate), and
+\code{diff_slope}, \code{V_slope}.  Returns \code{NULL} if per-arm
+fits fail or fewer than two covariates are retained.
+}
 \description{
 H0': tau(x) = tau for some tau and all x.
 }

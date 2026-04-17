@@ -172,6 +172,26 @@
 #' @export
 #' @importFrom survival survreg coxph Surv
 #' @importFrom stats quantile median uniroot rexp runif rnorm rbinom model.matrix coef reformulate
+#'
+#' @return An object of class \code{"aft_dgm_flex"} (a list) with components:
+#'   \describe{
+#'     \item{\code{df_super}}{Data frame containing the super-population,
+#'       including covariates, treatment, counterfactual linear predictors,
+#'       and subgroup indicator \code{flag_harm}.}
+#'     \item{\code{model_params}}{List with AFT parameters \code{mu},
+#'       \code{tau}, \code{gamma}, \code{b0}, the fitted \code{censoring}
+#'       model, and optional \code{spline_info}.}
+#'     \item{\code{subgroup_info}}{List describing the true subgroup:
+#'       \code{vars}, \code{cuts}, \code{definitions}, \code{size},
+#'       \code{proportion}.}
+#'     \item{\code{hazard_ratios}}{List of true HR/AHR/CDE values on the
+#'       super-population (see \code{\link{compute_dgm_cde}}).}
+#'     \item{\code{analysis_vars}}{Named list of column roles
+#'       (continuous, factor, covariates, treatment, outcome, event).}
+#'     \item{\code{model_type}}{\code{"null"} or \code{"alt"}.}
+#'     \item{\code{n_super}}{Super-population size.}
+#'     \item{\code{seed}}{Seed used for super-population generation.}
+#'   }
 
 generate_aft_dgm_flex <- function(data,
                                   continuous_vars,

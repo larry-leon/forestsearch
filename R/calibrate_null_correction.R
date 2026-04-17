@@ -109,6 +109,10 @@ calibrate_L_eff <- function(N, P1, sim_fpr, n_min = 60) {
 }
 
 
+#' Print method for \code{leff_calibration} objects
+#' @param x A \code{leff_calibration} object.
+#' @param ... Unused; present for S3 compatibility.
+#' @return The input \code{x}, invisibly.
 #' @export
 print.leff_calibration <- function(x, ...) {
   cat("L_eff Calibration\n")

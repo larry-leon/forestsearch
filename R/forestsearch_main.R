@@ -215,8 +215,13 @@
 #' @param m1.threshold Numeric. Maximum median survival threshold. Default Inf.
 #' @param pconsistency.threshold Numeric. Minimum consistency proportion. Default 0.90.
 #' @param showten_subgroups Logical. Show top 10 subgroups. Default FALSE.
-#' @param d0.min Integer. Minimum control arm events. Default 12.
-#' @param d1.min Integer. Minimum treatment arm events. Default 12.
+#' @param d0.min Integer. Minimum per-arm filter for candidate subgroups.
+#'   For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
+#'   number of events in the control arm (for binary, events are Y = 1).
+#'   Ignored for \code{"continuous"} outcomes (only \code{n.min} applies).
+#'   Default 12.
+#' @param d1.min Integer. Same as \code{d0.min} for the treatment arm.
+#'   Default 12.
 #' @param max.minutes Numeric. Maximum search time in minutes. Default 3.
 #' @param minp Numeric. Minimum prevalence threshold. Default 0.025.
 #' @param details Logical. Print progress details. Default FALSE.

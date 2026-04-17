@@ -192,9 +192,14 @@ candidates.}
 
 \item{showten_subgroups}{Logical. Show top 10 subgroups. Default FALSE.}
 
-\item{d0.min}{Integer. Minimum control arm events. Default 12.}
+\item{d0.min}{Integer. Minimum per-arm filter for candidate subgroups.
+For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
+number of events in the control arm (for binary, events are Y = 1).
+Ignored for \code{"continuous"} outcomes (only \code{n.min} applies).
+Default 12.}
 
-\item{d1.min}{Integer. Minimum treatment arm events. Default 12.}
+\item{d1.min}{Integer. Same as \code{d0.min} for the treatment arm.
+Default 12.}
 
 \item{max.minutes}{Numeric. Maximum search time in minutes. Default 3.}
 

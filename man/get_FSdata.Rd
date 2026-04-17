@@ -64,6 +64,20 @@ get_FSdata(
 \item{offset.name}{Character or \code{NULL}. Name of the follow-up time
 column for rate-based measures (IRR, IRD).}
 }
+\value{
+A list with components:
+\describe{
+\item{\code{df}}{Data frame with derived subgroup factor columns.}
+\item{\code{confs_names}}{Character vector of factor column names
+added to \code{df}.}
+\item{\code{confs}}{Named character vector of cut expressions
+(continuous cuts plus categorical indicators).}
+\item{\code{lassokeep}}{Character vector of confounders retained
+by LASSO screening (empty if \code{use_lasso = FALSE}).}
+\item{\code{lassoomit}}{Character vector of confounders dropped by
+LASSO screening (empty if \code{use_lasso = FALSE}).}
+}
+}
 \description{
 Prepares a dataset for ForestSearch, including options for LASSO-based dimension reduction,
 GRF cuts, forced cuts, and flexible cut strategies. Returns a list with the processed data,

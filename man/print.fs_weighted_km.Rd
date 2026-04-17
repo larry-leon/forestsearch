@@ -11,6 +11,9 @@
 
 \item{...}{Additional arguments (unused)}
 }
+\value{
+The input \code{x}, invisibly.
+}
 \description{
 Print Method for fs_weighted_km Objects
 }

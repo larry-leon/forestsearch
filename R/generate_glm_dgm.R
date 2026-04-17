@@ -529,6 +529,10 @@ generate_glm_dgm <- function(
 # Print method
 # =============================================================================
 
+#' Print method for \code{glm_dgm} objects
+#' @param x A \code{glm_dgm} object from \code{\link{generate_glm_dgm}}.
+#' @param ... Unused; present for S3 compatibility.
+#' @return The input \code{x}, invisibly.
 #' @export
 print.glm_dgm <- function(x, ...) {
   cat("GLM Data Generating Mechanism\n")

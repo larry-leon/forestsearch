@@ -519,6 +519,7 @@ figure_note <- function(x,
 #'
 #' @param x An fs_weighted_km object from plot_sg_weighted_km()
 #' @param ... Additional arguments (unused)
+#' @return The input \code{x}, invisibly.
 #'
 #' @export
 print.fs_weighted_km <- function(x, ...) {

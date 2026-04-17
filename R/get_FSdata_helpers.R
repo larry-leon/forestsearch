@@ -125,7 +125,22 @@ lasso_selection <- function(df, confounders.name, outcome.name, event.name,
                            seedit = 8316951,
                            outcome_type = "survival",
                            offset.name = NULL) {
-set.seed(seedit)
+# Scope the seed locally so this function does not pollute the caller's
+# RNG stream.  Save the current state, set the local seed, and restore
+# on exit.  If seedit is NULL, leave the RNG untouched entirely.
+if (!is.null(seedit)) {
+  old_seed <- if (exists(".Random.seed", envir = .GlobalEnv)) {
+    get(".Random.seed", envir = .GlobalEnv)
+  } else NULL
+  on.exit({
+    if (!is.null(old_seed)) {
+      assign(".Random.seed", old_seed, envir = .GlobalEnv)
+    } else if (exists(".Random.seed", envir = .GlobalEnv)) {
+      rm(".Random.seed", envir = .GlobalEnv)
+    }
+  }, add = TRUE)
+  set.seed(seedit)
+}
 # Package checks
 if (!requireNamespace("glmnet", quietly = TRUE)) stop("Package 'glmnet' is required.")
 if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is required.")

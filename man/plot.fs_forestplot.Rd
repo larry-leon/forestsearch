@@ -11,6 +11,9 @@
 
 \item{...}{Additional arguments (ignored)}
 }
+\value{
+The input \code{x}, invisibly.
+}
 \description{
 Plot Method for ForestSearch Forest Plot
 }
