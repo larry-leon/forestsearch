@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 2500L
-nsims_null  <- 20000L
+nsims_alt   <- 20L
+nsims_null  <- 30L
 
 # These are "production" run projection nsims
 prod_alt  <- 10000L
@@ -142,8 +142,8 @@ fs_hr_consistency      <- round(1 / 0.80, 3)  # c2 for benefit search
 fs_pconsistency_thresh <- 0.90   # Bootstrap consistency proportion threshold
 fs_splits              <- 400L   # Number of ForestSearch bootstrap splits
 fs_n_min               <- 60L    # Minimum subgroup size (total)
-fs_d0_min              <- 12L    # Minimum events in control arm
-fs_d1_min              <- 12L    # Minimum events in treatment arm
+fs_d0_min              <- 10L    # Minimum events in control arm
+fs_d1_min              <- 10L    # Minimum events in treatment arm
 fs_maxk                <- 2L     # Maximum number of subgroup-defining variables
 fs_by_risk             <- 6L     # Risk-table interval (months)
 fs_vi_grf_min          <- -0.2   # Minimum GRF variable importance

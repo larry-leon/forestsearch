@@ -22,7 +22,9 @@ subgroup.search(
   parallel_workers = parallel::detectCores(),
   estimator_fn = NULL,
   df_analysis = NULL,
-  effect_threshold = NULL
+  effect_threshold = NULL,
+  effect_measure = NULL,
+  outcome_type = NULL
 )
 }
 \arguments{
@@ -38,11 +40,16 @@ subgroup.search(
 
 \item{n.min}{Integer. Minimum subgroup size.}
 
-\item{d0.min}{Integer. Minimum number of events in control.}
+\item{d0.min}{Integer. Minimum per-arm filter.  For survival and binary
+outcomes: minimum number of \strong{events} in the control arm within the
+candidate subgroup.  Ignored for continuous outcomes (only
+\code{n.min} applies).}
 
-\item{d1.min}{Integer. Minimum number of events in treatment.}
+\item{d1.min}{Integer. Same as \code{d0.min} for the treatment arm.}
 
-\item{hr.threshold}{Numeric. Hazard ratio threshold for subgroup selection.}
+\item{hr.threshold}{Numeric. Effect threshold for subgroup selection.
+On the log scale for ratio measures (OR, HR), identity scale for
+difference measures (RD, MD).}
 
 \item{max.minutes}{Numeric. Maximum minutes for search.}
 
@@ -65,6 +72,16 @@ to the GLM estimator for within-subgroup evaluation.}
 
 \item{effect_threshold}{Numeric or \code{NULL}. GLM effect threshold for
 subgroup selection.  Default \code{NULL} (uses \code{hr.threshold}).}
+
+\item{effect_measure}{Character or \code{NULL}. Effect measure name
+(e.g., \code{"OR"}, \code{"HR"}, \code{"RD"}).  Used for display labels
+in the filtering summary.  Default \code{NULL}.}
+
+\item{outcome_type}{Character or \code{NULL}. One of \code{"survival"},
+\code{"binary"}, \code{"continuous"}, \code{"count"}.  Controls
+d0.min/d1.min interpretation: events per arm for binary/survival,
+ignored for continuous.  Default \code{NULL} (inferred from
+\code{estimator_fn} presence).}
 }
 \value{
 List with found subgroups, maximum HR, search time, configuration info,

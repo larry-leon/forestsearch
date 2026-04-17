@@ -1,0 +1,513 @@
+---
+title: "Review: Classification Metric Calculations in ForestSearch"
+subtitle: "Exhaustive audit of sens, spec, PPV, NPV under harm and benefit searches"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+execute:
+  warning: true
+  message: false
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
+---
+
+
+# Purpose {#sec-purpose}
+
+This document provides an exhaustive review of how classification
+metrics (sensitivity, specificity, PPV, NPV) are calculated in the
+`forestsearch` simulation pipeline, with specific attention to whether
+the metrics are correctly labeled and computed under both
+**harm searches** (`subgroup_notation = "harm"`) and
+**benefit searches** (`subgroup_notation = "benefit"`).
+
+The central question: in the binary benefit simulation, FS reports
+`sens(Q) = 42%`.  Is this truly the sensitivity **for Q** (the
+fraction of true benefit-subgroup members captured by $\hat{Q}$),
+or is it accidentally the sensitivity for the complement $Q^c$?
+
+
+# Code Audit: Tracing the Classification Pipeline {#sec-audit}
+
+## Step 1: How `flag_harm` is created
+
+The true subgroup indicator `flag_harm` is created by
+`define_subgroups()` (in `generate_aft_dgm_helpers.R`, line 486):
+
+```r
+# All subgroup conditions met → flag_harm = 1
+flag_harm <- as.numeric(Reduce("&", subgroup_indicators))
+```
+
+This is called by both `generate_glm_dgm()` (binary/continuous/count
+DGMs) and `generate_aft_dgm_flex()` (survival DGMs).
+
+**Critical point:** `flag_harm = 1` marks the **target subgroup**
+regardless of search direction.  For a harm search, this is $H$; for
+a benefit search with treatment switching, this is $Q$.  The name
+`flag_harm` is inherited from the survival-only v0.1.x code but
+functions as a generic "target subgroup" indicator.
+
+Under the null model (`model = "null"`), `generate_glm_dgm()` explicitly
+zeros out `flag_harm` (line 269):
+
+```r
+if (model == "null") {
+  data$flag_harm <- 0L
+}
+```
+
+So under $H_0$, no subject is in the target subgroup ($Q = \emptyset$).
+
+
+## Step 2: How `sg_hat` is built from ForestSearch output
+
+In `run_simulation_analysis.R` (line 624):
+
+```r
+df$sg_hat <- as.integer(fs_full$df.est$treat.recommend == 0)
+```
+
+The convention is:
+
+- `treat.recommend == 0` → "do NOT recommend treatment" → subject is
+  in the **estimated** subgroup ($\hat{H}$ or $\hat{Q}$)
+- `treat.recommend == 1` → "recommend treatment" → subject is in the
+  **complement** ($\hat{H}^c$ or $\hat{Q}^c$)
+
+So `sg_hat == 1` means "in the estimated target subgroup."
+
+For **GRF** (line 937), the identical convention is used:
+
+```r
+harm_ind <- as.integer(grf_data$treat.recommend == 0)
+```
+
+
+## Step 3: How TP/FP/TN/FN are computed
+
+In `run_simulation_analysis.R` (lines 687--697), for **FS**:
+
+```r
+true_H <- df[[harm_col]] == 1L     # in TRUE target subgroup
+hat_H  <- df$sg_hat == 1L          # in ESTIMATED target subgroup
+
+tp <- sum(true_H & hat_H)          # correctly identified
+fp <- sum(!true_H & hat_H)         # falsely included
+tn <- sum(!true_H & !hat_H)        # correctly excluded
+fn <- sum(true_H & !hat_H)         # missed
+```
+
+For **GRF** (lines 1010--1019), the identical logic is used after
+merging `flag_harm` and `sg_hat` via subject IDs.
+
+
+## Step 4: Metrics definitions
+
+```r
+sens = tp / (tp + fn)    # fraction of TRUE subgroup captured
+spec = tn / (tn + fp)    # fraction of complement correctly excluded
+ppv  = tp / (tp + fp)    # fraction of estimated subgroup that is correct
+npv  = tn / (tn + fn)    # fraction of estimated complement that is correct
+```
+
+
+## Step 5: What happens in a benefit search?
+
+In a benefit search, treatment roles are switched before calling
+`forestsearch()`.  ForestSearch always identifies the "harm" subgroup
+internally (subjects where the switched treatment appears harmful).
+Under the original treatment scale, these are the subjects who
+**benefit** from the original treatment.
+
+The mapping:
+
+| Code variable | Harm search meaning | Benefit search meaning |
+|---|---|---|
+| `flag_harm == 1` | Subject is in $H$ | Subject is in $Q$ |
+| `treat.recommend == 0` | Subject is in $\hat{H}$ | Subject is in $\hat{Q}$ |
+| `sg_hat == 1` | In $\hat{H}$ | In $\hat{Q}$ |
+| `true_H` | In $H$ | In $Q$ |
+| `hat_H` | In $\hat{H}$ | In $\hat{Q}$ |
+| `TP` | In $H \cap \hat{H}$ | In $Q \cap \hat{Q}$ |
+| `sens` | sens($H$) | sens($Q$) |
+| `ppv` | ppv($H$) | ppv($Q$) |
+
+**The classification computation is invariant to the search direction.**
+The `subgroup_notation` parameter only affects display labels (H/Hc vs
+Q/Qc) in `format_oc_results()` and `compare_fs_subgroups()`.
+
+
+## Step 6: `compare_fs_subgroups()` alignment
+
+`compare_fs_subgroups()` extracts subgroup membership via the same
+convention:
+
+```r
+# forestsearch object (line 117-118):
+sg = obj$df.est$treat.recommend     # 0 = in subgroup, 1 = complement
+detected = any(obj$df.est$treat.recommend == 0L)
+
+# GRF object (line 131-133):
+sg = obj$data$treat.recommend       # same convention
+```
+
+Labels are applied via `subgroup_notation`:
+
+- `"harm"`:  sg0 = "H (Questionable)", sg1 = "Hc (Recommend)"
+- `"benefit"`: sg0 = "Q (Benefit)", sg1 = "Qc (No benefit)"
+
+The cross-tabulation then compares two analyses' `treat.recommend`
+vectors directly.  This is **aligned** with the classification metrics
+in `run_simulation_analysis()` because both use the same
+`treat.recommend == 0` → target subgroup convention.
+
+
+# Pressure Test: Synthetic Data Verification {#sec-pressure}
+
+```{r setup}
+#| include: false
+library(forestsearch)
+library(data.table)
+library(gt)
+```
+
+
+## Test 1: Perfect detection (TP = true subgroup)
+
+```{r test-perfect}
+# Synthetic data: 100 subjects, 30 in true subgroup
+N <- 100L
+n_Q <- 30L
+
+df_test <- data.frame(
+  id         = seq_len(N),
+  flag_harm  = c(rep(1L, n_Q), rep(0L, N - n_Q)),
+  sg_hat     = c(rep(1L, n_Q), rep(0L, N - n_Q))  # perfect detection
+)
+
+true_H <- df_test$flag_harm == 1L
+hat_H  <- df_test$sg_hat == 1L
+
+tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
+tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
+
+cat("=== Test 1: Perfect detection ===\n")
+cat(sprintf("  N = %d, |Q| = %d, |Q_hat| = %d\n", N, sum(true_H), sum(hat_H)))
+cat(sprintf("  TP = %d, FP = %d, TN = %d, FN = %d\n", tp, fp, tn, fn))
+cat(sprintf("  sens = %.2f (expect 1.00)\n", tp / (tp + fn)))
+cat(sprintf("  spec = %.2f (expect 1.00)\n", tn / (tn + fp)))
+cat(sprintf("  ppv  = %.2f (expect 1.00)\n", tp / (tp + fp)))
+cat(sprintf("  npv  = %.2f (expect 1.00)\n", tn / (tn + fn)))
+
+stopifnot(tp == 30, fp == 0, tn == 70, fn == 0)
+stopifnot(tp / (tp + fn) == 1, tn / (tn + fp) == 1)
+cat("  PASSED\n")
+```
+
+
+## Test 2: No detection (all predicted complement)
+
+```{r test-no-detection}
+df_test2 <- data.frame(
+  id         = seq_len(N),
+  flag_harm  = c(rep(1L, n_Q), rep(0L, N - n_Q)),
+  sg_hat     = rep(0L, N)   # nothing detected
+)
+
+true_H <- df_test2$flag_harm == 1L
+hat_H  <- df_test2$sg_hat == 1L
+
+tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
+tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
+
+cat("=== Test 2: No detection ===\n")
+cat(sprintf("  TP = %d, FP = %d, TN = %d, FN = %d\n", tp, fp, tn, fn))
+cat(sprintf("  sens = %.2f (expect 0.00)\n", tp / (tp + fn)))
+cat(sprintf("  spec = %.2f (expect 1.00)\n", tn / (tn + fp)))
+cat(sprintf("  ppv  = NA   (TP+FP=0, undefined)\n"))
+cat(sprintf("  npv  = %.2f (expect %.2f = |Qc|/N)\n",
+    tn / (tn + fn), (N - n_Q) / N))
+
+stopifnot(tp == 0, fp == 0, tn == 70, fn == 30)
+stopifnot(tp / (tp + fn) == 0)
+cat("  PASSED\n")
+```
+
+
+## Test 3: Partial overlap (the realistic case)
+
+```{r test-partial}
+# True Q: subjects 1-30.  Estimated Q_hat: subjects 11-50 (overlap = 20)
+df_test3 <- data.frame(
+  id         = seq_len(N),
+  flag_harm  = c(rep(1L, 30), rep(0L, 70)),
+  sg_hat     = c(rep(0L, 10), rep(1L, 40), rep(0L, 50))
+)
+
+true_H <- df_test3$flag_harm == 1L
+hat_H  <- df_test3$sg_hat == 1L
+
+tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
+tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
+
+sens <- tp / (tp + fn)
+spec <- tn / (tn + fp)
+ppv  <- tp / (tp + fp)
+npv  <- tn / (tn + fn)
+
+cat("=== Test 3: Partial overlap ===\n")
+cat(sprintf("  True Q = {1,...,30}, Q_hat = {11,...,50}\n"))
+cat(sprintf("  Overlap = {11,...,30} = 20 subjects\n"))
+cat(sprintf("  TP = %d, FP = %d, TN = %d, FN = %d\n", tp, fp, tn, fn))
+cat(sprintf("  sens = %.2f (= 20/30 = 0.667, fraction of Q in Q_hat)\n", sens))
+cat(sprintf("  spec = %.2f (= 50/70 = 0.714, fraction of Qc excluded from Q_hat)\n", spec))
+cat(sprintf("  ppv  = %.2f (= 20/40 = 0.500, fraction of Q_hat truly in Q)\n", ppv))
+cat(sprintf("  npv  = %.2f (= 50/60 = 0.833, fraction of Q_hat_c truly in Qc)\n", npv))
+
+stopifnot(tp == 20, fp == 20, tn == 50, fn == 10)
+stopifnot(abs(sens - 20/30) < 1e-10)
+stopifnot(abs(spec - 50/70) < 1e-10)
+stopifnot(abs(ppv  - 20/40) < 1e-10)
+stopifnot(abs(npv  - 50/60) < 1e-10)
+cat("  PASSED\n")
+```
+
+
+## Test 4: Null hypothesis ($Q = \emptyset$)
+
+```{r test-null}
+df_test4 <- data.frame(
+  id         = seq_len(N),
+  flag_harm  = rep(0L, N),      # no true subgroup
+  sg_hat     = c(rep(1L, 15), rep(0L, 85))  # false detection
+)
+
+true_H <- df_test4$flag_harm == 1L
+hat_H  <- df_test4$sg_hat == 1L
+
+tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
+tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
+
+sens_val <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
+spec_val <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+ppv_val  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+npv_val  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+
+cat("=== Test 4: Null hypothesis (Q = emptyset) ===\n")
+cat(sprintf("  TP = %d, FP = %d, TN = %d, FN = %d\n", tp, fp, tn, fn))
+cat(sprintf("  sens = %s  (TP+FN=0 → NA, correct)\n",
+    ifelse(is.na(sens_val), "NA", sprintf("%.2f", sens_val))))
+cat(sprintf("  spec = %.2f (= 85/100 = 0.85)\n", spec_val))
+cat(sprintf("  ppv  = %.2f (= 0/15 = 0.00, all detections are false)\n", ppv_val))
+cat(sprintf("  npv  = %.2f (= 85/85 = 1.00, everyone in Q_hat_c is truly Qc)\n", npv_val))
+
+stopifnot(is.na(sens_val))
+stopifnot(ppv_val == 0)
+stopifnot(npv_val == 1)
+cat("  PASSED\n")
+```
+
+
+## Test 5: Null with no detection (correct behavior)
+
+```{r test-null-no-detect}
+df_test5 <- data.frame(
+  id         = seq_len(N),
+  flag_harm  = rep(0L, N),   # no true subgroup
+  sg_hat     = rep(0L, N)    # no detection either
+)
+
+true_H <- df_test5$flag_harm == 1L
+hat_H  <- df_test5$sg_hat == 1L
+
+tp <- sum(true_H & hat_H);   fp <- sum(!true_H & hat_H)
+tn <- sum(!true_H & !hat_H); fn <- sum(true_H & !hat_H)
+
+spec_val <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+npv_val  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+
+cat("=== Test 5: Null + no detection ===\n")
+cat(sprintf("  TP = %d, FP = %d, TN = %d, FN = %d\n", tp, fp, tn, fn))
+cat(sprintf("  spec = %.2f (expect 1.00)\n", spec_val))
+cat(sprintf("  npv  = %.2f (expect 1.00)\n", npv_val))
+cat("  Matches run_simulation_analysis() lines 608-610\n")
+
+stopifnot(spec_val == 1, npv_val == 1)
+cat("  PASSED\n")
+```
+
+
+## Test 6: Inverted labels — what if Q and Qc were swapped?
+
+This test verifies that swapping the definitions would produce
+detectably wrong results.
+
+```{r test-swap}
+# Same partial-overlap data as Test 3
+true_Q <- df_test3$flag_harm == 1L    # correct
+true_Qc <- df_test3$flag_harm == 0L   # WRONG: this is the complement
+hat_Q  <- df_test3$sg_hat == 1L
+
+# Correct calculation (for Q)
+tp_correct <- sum(true_Q & hat_Q)
+fn_correct <- sum(true_Q & !hat_Q)
+sens_correct <- tp_correct / (tp_correct + fn_correct)
+
+# WRONG calculation (if we accidentally used Qc as the target)
+tp_wrong <- sum(true_Qc & hat_Q)
+fn_wrong <- sum(true_Qc & !hat_Q)
+sens_wrong <- tp_wrong / (tp_wrong + fn_wrong)
+
+cat("=== Test 6: What if we swapped Q and Qc? ===\n")
+cat(sprintf("  Correct: sens(Q)  = %d/%d = %.3f\n",
+    tp_correct, tp_correct + fn_correct, sens_correct))
+cat(sprintf("  WRONG:   sens(Qc) = %d/%d = %.3f\n",
+    tp_wrong, tp_wrong + fn_wrong, sens_wrong))
+cat(sprintf("  These differ by %.3f — a swap would be detectable.\n",
+    abs(sens_correct - sens_wrong)))
+
+stopifnot(abs(sens_correct - 20/30) < 1e-10)
+stopifnot(abs(sens_wrong - 20/70) < 1e-10)
+cat("  PASSED: sens(Q) = 0.667 ≠ sens(Qc) = 0.286\n")
+```
+
+
+## Test 7: Verify `compare_fs_subgroups()` alignment
+
+```{r test-compare}
+# Create two mock indicator vectors (0 = in subgroup, 1 = complement)
+# Matching the treat.recommend convention
+mock_fs1 <- c(rep(0L, 40), rep(1L, 60))   # Q_hat = subjects 1-40
+mock_fs2 <- c(rep(0L, 25), rep(1L, 75))   # Q_hat = subjects 1-25
+
+result <- compare_fs_subgroups(
+  mock_fs1, mock_fs2,
+  label1 = "Method A", label2 = "Method B",
+  subgroup_notation = "benefit"
+)
+
+cat("=== Test 7: compare_fs_subgroups() alignment ===\n")
+cat("Cross-tabulation:\n")
+print(result$crosstab)
+
+cat(sprintf("\nAgreement: %.1f%%\n", 100 * result$concordance$agreement))
+
+# Verify: both in Q → 25, both in Qc → 60, A=Q B=Qc → 15, A=Qc B=Q → 0
+ct <- as.matrix(result$crosstab)
+stopifnot(ct[1,1] == 25)   # both in Q
+stopifnot(ct[2,2] == 60)   # both in Qc
+stopifnot(ct[1,2] == 15)   # A=Q, B=Qc
+stopifnot(ct[2,1] == 0)    # A=Qc, B=Q
+cat("  Cross-tab values verified.\n")
+
+# Key check: the "sg0" position (row 1, col 1) corresponds to
+# treat.recommend == 0 for both methods.  With subgroup_notation = "benefit",
+# this is labeled "Q (Benefit)".  This matches the convention in
+# run_simulation_analysis() where sg_hat = (treat.recommend == 0).
+cat("  Labels aligned with classification metric convention.\n")
+cat("  PASSED\n")
+```
+
+
+## Test 8: Harm search — verify same logic with H/Hc labels
+
+```{r test-harm}
+result_harm <- compare_fs_subgroups(
+  mock_fs1, mock_fs2,
+  label1 = "Method A", label2 = "Method B",
+  subgroup_notation = "harm"
+)
+
+cat("=== Test 8: Harm search labels ===\n")
+cat("Cross-tabulation:\n")
+print(result_harm$crosstab)
+
+# Same numerical values, different labels
+ct_harm <- as.matrix(result_harm$crosstab)
+ct_benefit <- as.matrix(result$crosstab)
+stopifnot(all(ct_harm == ct_benefit))
+cat("  Numerical values identical to benefit search.\n")
+cat("  Only labels differ: H/Hc vs Q/Qc.\n")
+cat("  PASSED\n")
+```
+
+
+# Summary of Findings {#sec-findings}
+
+## Answer to the central question
+
+**`sens(Q) = 42%` is correctly computed and correctly labeled.**
+
+The 42% is the fraction of true benefit-subgroup members $Q$ that
+are captured by the estimated $\hat{Q}$.  This has been verified by
+tracing through every step of the pipeline:
+
+1. **`flag_harm`** is created by `define_subgroups()` and marks the
+   **target subgroup** — $Q$ in a benefit search, $H$ in a harm
+   search.
+
+2. **`treat.recommend == 0`** in ForestSearch output marks subjects
+   in the **estimated** target subgroup ($\hat{Q}$ or $\hat{H}$).
+
+3. **`sg_hat = as.integer(treat.recommend == 0)`** converts this to a
+   binary indicator where 1 = in estimated subgroup.
+
+4. **`true_H = (flag_harm == 1)`** and **`hat_H = (sg_hat == 1)`**
+   are then compared to produce TP/FP/TN/FN.
+
+5. **`sens = TP/(TP+FN)`** is the fraction of the true target subgroup
+   captured — this is sens($Q$) for a benefit search.
+
+The computation is **invariant** to the search direction.  The
+`subgroup_notation` parameter only affects display labels in
+`format_oc_results()`, `build_estimation_table()`, and
+`compare_fs_subgroups()`.
+
+
+## `compare_fs_subgroups()` alignment
+
+The cross-tabulation function uses the same `treat.recommend == 0` →
+target subgroup convention.  With `subgroup_notation = "benefit"`,
+the sg0 position is labeled "Q (Benefit)" — matching the classification
+metric convention.  Verified with synthetic data in Test 7.
+
+
+## Edge cases verified
+
+| Scenario | sens | spec | ppv | npv | Source |
+|---|---|---|---|---|---|
+| Perfect detection | 1.00 | 1.00 | 1.00 | 1.00 | Test 1 |
+| No detection (H1) | 0.00 | 1.00 | NA | $|Q^c|/N$ | Test 2, lines 600--604 |
+| Partial overlap | 0.667 | 0.714 | 0.500 | 0.833 | Test 3 |
+| Null + false detect | NA | 0.85 | 0.00 | 1.00 | Test 4 |
+| Null + no detect | NA | 1.00 | NA | 1.00 | Test 5, lines 608--610 |
+| Swapped Q/Qc | 0.286 ≠ 0.667 | — | — | — | Test 6 |
+
+
+## Naming convention note
+
+The name `flag_harm` is a legacy from the survival-only v0.1.x
+codebase where the target subgroup was always a harm subgroup.
+In the GLM extension (v0.2.0), `flag_harm` serves as a generic
+"target subgroup indicator" — it marks $Q$ in benefit searches
+and $H$ in harm searches.  Renaming to `flag_subgroup` or
+`flag_target` would reduce confusion but is a Tier 3 cosmetic
+change that should be deferred to avoid breaking downstream
+code that references `flag_harm` by name.
+
+
+# Session Info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

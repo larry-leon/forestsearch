@@ -18,7 +18,8 @@ evaluate_combination_with_status(
   rmin,
   kk,
   estimator_fn = NULL,
-  df_clean = NULL
+  df_clean = NULL,
+  outcome_type = NULL
 )
 }
 \arguments{
@@ -34,11 +35,13 @@ evaluate_combination_with_status(
 
 \item{n.min}{Integer. Minimum sample size.}
 
-\item{d0.min}{Integer. Minimum control events.}
+\item{d0.min}{Integer. Minimum control events (binary/survival) or ignored
+(continuous).}
 
-\item{d1.min}{Integer. Minimum treatment events.}
+\item{d1.min}{Integer. Minimum treatment events (binary/survival) or ignored
+(continuous).}
 
-\item{hr.threshold}{Numeric. HR threshold.}
+\item{hr.threshold}{Numeric. Effect threshold (log scale for ratio measures).}
 
 \item{minp}{Numeric. Minimum prevalence.}
 
@@ -53,10 +56,10 @@ List with:
 0 = failed variance check,
 1 = passed variance, failed prevalence,
 2 = passed prevalence, failed redundancy,
-3 = passed redundancy, failed events,
-4 = passed events, failed sample size,
-5 = passed sample size, failed Cox fit,
-6 = passed Cox fit, failed HR threshold,
+3 = passed redundancy, failed per-arm filter,
+4 = passed per-arm filter, failed sample size,
+5 = passed sample size, failed model fit,
+6 = passed model fit, failed effect threshold,
 7 = passed all criteria (success)}
 \item{result}{Result row if successful, NULL otherwise}
 }

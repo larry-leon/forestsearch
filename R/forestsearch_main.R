@@ -1308,6 +1308,8 @@ forestsearch <- function(df.analysis,
     search_overrides$estimator_fn <- estimator_fn
     search_overrides$df_analysis <- df
     search_overrides$effect_threshold <- effect_threshold
+    search_overrides$effect_measure <- effect_measure
+    search_overrides$outcome_type <- outcome_type
   }
 
   # Merge and filter arguments

@@ -14,9 +14,14 @@
 #' @param ID Optional vector of subject IDs.
 #' @param Z Matrix or data frame of candidate subgroup factors (binary indicators).
 #' @param n.min Integer. Minimum subgroup size.
-#' @param d0.min Integer. Minimum number of events in control.
-#' @param d1.min Integer. Minimum number of events in treatment.
-#' @param hr.threshold Numeric. Hazard ratio threshold for subgroup selection.
+#' @param d0.min Integer. Minimum per-arm filter.  For survival and binary
+#'   outcomes: minimum number of **events** in the control arm within the
+#'   candidate subgroup.  Ignored for continuous outcomes (only
+#'   \code{n.min} applies).
+#' @param d1.min Integer. Same as \code{d0.min} for the treatment arm.
+#' @param hr.threshold Numeric. Effect threshold for subgroup selection.
+#'   On the log scale for ratio measures (OR, HR), identity scale for
+#'   difference measures (RD, MD).
 #' @param max.minutes Numeric. Maximum minutes for search.
 #' @param minp Numeric. Minimum prevalence rate for each factor.
 #' @param rmin Integer. Minimum required reduction in sample size when adding a factor.
@@ -30,6 +35,14 @@
 #'   to the GLM estimator for within-subgroup evaluation.
 #' @param effect_threshold Numeric or \code{NULL}. GLM effect threshold for
 #'   subgroup selection.  Default \code{NULL} (uses \code{hr.threshold}).
+#' @param effect_measure Character or \code{NULL}. Effect measure name
+#'   (e.g., \code{"OR"}, \code{"HR"}, \code{"RD"}).  Used for display labels
+#'   in the filtering summary.  Default \code{NULL}.
+#' @param outcome_type Character or \code{NULL}. One of \code{"survival"},
+#'   \code{"binary"}, \code{"continuous"}, \code{"count"}.  Controls
+#'   d0.min/d1.min interpretation: events per arm for binary/survival,
+#'   ignored for continuous.  Default \code{NULL} (inferred from
+#'   \code{estimator_fn} presence).
 #'
 #' @return List with found subgroups, maximum HR, search time, configuration info,
 #'   and filtering statistics.
@@ -57,7 +70,9 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
                             parallel_workers = parallel::detectCores(),
                             estimator_fn = NULL,
                             df_analysis = NULL,
-                            effect_threshold = NULL) {
+                            effect_threshold = NULL,
+                            effect_measure = NULL,
+                            outcome_type = NULL) {
 
   # =========================================================================
   # SECTION 1: DATA PREPARATION AND VALIDATION
@@ -120,7 +135,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     max.minutes = max.minutes, t.start = t.start,
     maxk = maxk, L = L,
     estimator_fn = estimator_fn,
-    df_clean = df_clean
+    df_clean = df_clean,
+    outcome_type = outcome_type
   )
 
   # Reset to sequential plan
@@ -138,9 +154,29 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
   t.sofar <- t.min
 
   if (details) {
-    cat("Events criteria: control >=", d0.min, ", treatment >=", d1.min, "\n")
+    is_glm <- !is.null(estimator_fn)
+    is_ratio <- !is.null(effect_measure) &&
+      effect_measure %in% c("OR", "RR", "IRR", "HR")
+    is_binary <- !is.null(outcome_type) && outcome_type == "binary"
+
+    # d0/d1 label: "events" for survival and binary; "subjects" for continuous
+    d_label <- if (is_binary) "events" else if (is_glm) "subjects" else "events"
+    cat(sprintf("Per-arm %s criteria: control >= %d, treatment >= %d\n",
+        d_label, d0.min, d1.min))
     cat("Sample size criteria: n >=", n.min, "\n")
     cat("Subgroup search completed in", round(t.min, 2), "minutes\n")
+
+    # Threshold display: natural scale for ratio measures, raw for identity
+    if (is_ratio && hr.threshold > 0) {
+      thresh_display <- sprintf("%s >= %.3f",
+          if (!is.null(effect_measure)) effect_measure else "HR",
+          exp(hr.threshold))
+    } else {
+      thresh_display <- sprintf("effect >= %.4f", hr.threshold)
+    }
+
+    # Model label
+    model_label <- if (is_glm) "GLM" else "Cox"
 
     # Print filter counts
     cat("\n--- Filtering Summary ---\n")
@@ -148,11 +184,13 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     cat("  Passed variance check:", filter_counts$n_passed_variance, "\n")
     cat("  Passed prevalence (>=", minp, "):", filter_counts$n_passed_prevalence, "\n")
     cat("  Passed redundancy check:", filter_counts$n_passed_redundancy, "\n")
-    cat("  Passed event counts (d0>=", d0.min, ", d1>=", d1.min, "):",
-        filter_counts$n_passed_events, "\n")
+    cat(sprintf("  Passed %s counts (d0>= %d, d1>= %d): %d\n",
+        d_label, d0.min, d1.min, filter_counts$n_passed_events))
     cat("  Passed sample size (n>=", n.min, "):", filter_counts$n_passed_sample_size, "\n")
-    cat("  Cox model fit successfully:", filter_counts$n_passed_cox, "\n")
-    cat("  Passed HR threshold (>=", hr.threshold, "):", filter_counts$n_passed_hr, "\n")
+    cat(sprintf("  %s model fit successfully: %d\n",
+        model_label, filter_counts$n_passed_cox))
+    cat(sprintf("  Passed effect threshold (%s): %d\n",
+        thresh_display, filter_counts$n_passed_hr))
     cat("-------------------------\n\n")
   }
 
@@ -179,7 +217,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
                                          minp, rmin, max.minutes, t.start,
                                          maxk, L,
                                          estimator_fn = NULL,
-                                         df_clean = NULL) {
+                                         df_clean = NULL,
+                                         outcome_type = NULL) {
 
   tot_counts <- combo_info$max_count
 
@@ -200,7 +239,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
       hr.threshold = hr.threshold, minp = minp, rmin = rmin,
       kk = kk,
       estimator_fn = estimator_fn,
-      df_clean = df_clean
+      df_clean = df_clean,
+      outcome_type = outcome_type
     )
   })
 
@@ -456,9 +496,11 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #' @param tt Numeric vector. Treatment indicators.
 #' @param zz Matrix. Factor indicators.
 #' @param n.min Integer. Minimum sample size.
-#' @param d0.min Integer. Minimum control events.
-#' @param d1.min Integer. Minimum treatment events.
-#' @param hr.threshold Numeric. HR threshold.
+#' @param d0.min Integer. Minimum control events (binary/survival) or ignored
+#'   (continuous).
+#' @param d1.min Integer. Minimum treatment events (binary/survival) or ignored
+#'   (continuous).
+#' @param hr.threshold Numeric. Effect threshold (log scale for ratio measures).
 #' @param minp Numeric. Minimum prevalence.
 #' @param rmin Integer. Minimum size reduction.
 #' @param kk Integer. Combination index.
@@ -469,10 +511,10 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #'       0 = failed variance check,
 #'       1 = passed variance, failed prevalence,
 #'       2 = passed prevalence, failed redundancy,
-#'       3 = passed redundancy, failed events,
-#'       4 = passed events, failed sample size,
-#'       5 = passed sample size, failed Cox fit,
-#'       6 = passed Cox fit, failed HR threshold,
+#'       3 = passed redundancy, failed per-arm filter,
+#'       4 = passed per-arm filter, failed sample size,
+#'       5 = passed sample size, failed model fit,
+#'       6 = passed model fit, failed effect threshold,
 #'       7 = passed all criteria (success)}
 #'     \item{result}{Result row if successful, NULL otherwise}
 #'   }
@@ -482,7 +524,8 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
                                              n.min, d0.min, d1.min, hr.threshold,
                                              minp, rmin, kk,
                                              estimator_fn = NULL,
-                                             df_clean = NULL) {
+                                             df_clean = NULL,
+                                             outcome_type = NULL) {
 
   # Extract selected factors
   selected_cols <- which(covs.in == 1)
@@ -509,12 +552,29 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
   # ---------- GLM path ----------
   if (!is.null(estimator_fn) && !is.null(df_clean)) {
 
-    # Status 3: Check per-arm sample size (replaces event-count check)
-    n0_sg <- sum(tt[id.x == 1] == 0)
-    n1_sg <- sum(tt[id.x == 1] == 1)
-    if (n0_sg < d0.min || n1_sg < d1.min) {
-      return(list(status = 3L, result = NULL))
+    is_binary <- !is.null(outcome_type) && outcome_type == "binary"
+    is_continuous <- !is.null(outcome_type) &&
+      outcome_type %in% c("continuous", "count")
+
+    # Status 3: Per-arm filter
+    #   Binary:     minimum EVENTS (Y=1) per arm — analogous to survival
+    #   Continuous:  d0.min/d1.min not meaningful — skip, rely on n.min
+    if (is_binary) {
+      # Events per arm: sum of binary outcome within each arm of the subgroup
+      d0_sg <- sum(yy[id.x == 1 & tt == 0])
+      d1_sg <- sum(yy[id.x == 1 & tt == 1])
+      if (d0_sg < d0.min || d1_sg < d1.min) {
+        return(list(status = 3L, result = NULL))
+      }
+    } else if (!is_continuous) {
+      # Unknown GLM type: fall back to per-arm sample size check
+      n0_sg <- sum(tt[id.x == 1] == 0)
+      n1_sg <- sum(tt[id.x == 1] == 1)
+      if (n0_sg < d0.min || n1_sg < d1.min) {
+        return(list(status = 3L, result = NULL))
+      }
     }
+    # Continuous: skip Status 3 entirely — d0.min/d1.min do not apply
 
     # Status 4: Check total subgroup size
     nx <- sum(id.x)
@@ -534,11 +594,13 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
     }
 
     # Status 7: Passed
-    event_counts <- list(
-      d0    = n0_sg,
-      d1    = n1_sg,
-      total = n0_sg + n1_sg
-    )
+    if (is_binary) {
+      event_counts <- list(d0 = d0_sg, d1 = d1_sg, total = d0_sg + d1_sg)
+    } else {
+      n0_sg <- sum(tt[id.x == 1] == 0)
+      n1_sg <- sum(tt[id.x == 1] == 1)
+      event_counts <- list(d0 = n0_sg, d1 = n1_sg, total = n0_sg + n1_sg)
+    }
     result_row <- create_result_row(kk, covs.in, nx, event_counts, glm_result)
     return(list(status = 7L, result = result_row))
   }

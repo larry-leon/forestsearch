@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 2500L
-nsims_null  <- 25000L
+nsims_alt   <- 25L
+nsims_null  <- 30L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
 
@@ -96,8 +96,8 @@ fs_or_consistency      <- round(1 / 0.80, 3)   # c2
 fs_pconsistency        <- 0.90
 fs_splits              <- 400L
 fs_n_min               <- 60L
-fs_d0_min              <- 12L
-fs_d1_min              <- 12L
+fs_d0_min              <- 10L
+fs_d1_min              <- 10L
 fs_maxk                <- 2L
 fs_vi_grf_min          <- -0.2
 fs_seedit              <- 8316951L

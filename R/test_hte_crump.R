@@ -15,7 +15,7 @@
 #' @param poly_order Integer. 1 = linear, 2 = squares + interactions.
 #' @param include_intercept Logical. Default: TRUE.
 #' @return Numeric matrix (N x K).
-#' @importFrom stats glm.fit var qr binomial
+#' @importFrom stats glm.fit var binomial
 #' @keywords internal
 build_basis <- function(X, poly_order = 1L,
                         include_intercept = TRUE) {

@@ -1,0 +1,980 @@
+---
+title: "Direct FPR Calibration at a Specific Threshold Pair"
+subtitle: "fpr_calibration(): a simulation-based alternative to the L_eff power law"
+author: "Larry F. Leon"
+date: today
+format:
+  html:
+    code-fold: show
+    toc: true
+    toc-depth: 3
+execute:
+  warning: true
+  message: true
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
+---
+
+
+# Motivation {#sec-motivation}
+
+The $L_{\text{eff}}$ power-law correction relies on
+*threshold-independence*: the implied effective candidate count must be
+approximately constant across $(c_1, c_2)$ at a given $N$.  In practice
+this assumption fails for binary outcomes with small $d_{\text{eff}}$
+(e.g.\ $n_H = 60$, $p = 0.30 \Rightarrow d_{\text{eff}} = 12.6$), where
+the calibration grid is saturated at low thresholds and genuinely
+discriminating at the operational thresholds used for selection.  The
+result is an overestimated correction and a corrected FPR that is
+systematically too high.
+
+`fpr_calibration(c1, c2, ...)` takes a different approach: **estimate
+the procedure-level FPR directly at the analyst's specific threshold
+pair**, via a small null simulation.  No power-law model and no
+threshold-independence assumption are required.
+
+
+## Two-tier workflow
+
+| Tier | `nsims` | Precision (FPR ≈ 10%) | Purpose | Typical runtime |
+|------|---------|----------------------|---------|----------------|
+| **1 — Approximation** | 200–500 | ±1–2 pp | Pre-screening; check a candidate (c1, c2) before committing | 2–10 min |
+| **2 — Verification** | 10,000–20,000 | ±0.2–0.3 pp | Final confirmation of the selected operating point | 1–3 hr |
+
+The function supports both tiers with the same call signature.
+`nsims = 200` is the default (Tier 1).
+
+
+## Two null-generation modes
+
+**Permutation mode** (default when `null_fn = NULL`): shuffles the
+treatment column in the analyst's actual dataset.  Preserves the
+observed covariate and outcome distributions — a model-free H0 reference
+for a real analysis.
+
+**DGM mode** (`null_fn = function(seed) ...`): draws fresh null datasets
+from a parametric generator.  Used in simulation studies or when the
+analyst wants to verify at a different $N$ than the observed data.
+
+
+# Setup {#sec-setup}
+
+```{r packages}
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(patchwork)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+
+#source("fpr_calibration.R")   # wrapper (not yet exported from the package)
+
+n_workers <- floor(0.95*max(1L, parallel::detectCores(logical = FALSE) - 1L))
+plan(multisession, workers = n_workers)
+cat("Workers:", n_workers, "\n")
+```
+
+```{r demo-params}
+#| include: false
+
+# ── Simulation counts ───────────────────────────────────────────
+# Increase these to improve precision. Timings scale linearly.
+#
+#   nsims_tier1:   calibration + verify sims for Tier 1 calls
+#   nsims_tier2:   calibration sims for Tier 2 (higher-precision) call
+#   nsims_verify:  independent verification sims added to every call
+#                  Set to 0 to skip verification entirely.
+#                  At FPR ~ 10%: 200 → ±2.1 pp CI; 500 → ±1.3 pp; 1000 → ±0.9 pp
+#
+nsims_tier1  <- 500L    # Tier 1 calibration sims
+nsims_tier2  <- 20000L   # Tier 2 calibration sims (use 10,000–20,000 for final)
+nsims_verify <- 10000L    # Independent verification sims (same value used everywhere)
+
+sim_seed     <- 8316951L
+
+# ── Binary DGM parameters ───────────────────────────────────────
+N_demo    <- 500L    # sample size
+p_event   <- 0.30   # marginal event probability
+n_min_val <- 60L    # n.min for ForestSearch and d_eff approximation
+
+# ── Survival DGM parameters ─────────────────────────────────────
+N_surv           <- 700L
+analysis_time    <- 84L          # GBSG analysis time (months)
+cens_adjust      <- log(1.5)
+prop_cens_surv   <- 0.46
+confounders_surv <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+
+# ── ForestSearch shared parameters ──────────────────────────────
+pcons     <- 0.90
+maxk_val  <- 2L
+fs_splits <- 400L
+
+# ── FPR targets (for plot reference lines) ──────────────────────
+fpr_target_bin  <- 0.15   # binary acceptable FPR
+fpr_target_cox  <- 0.12   # survival acceptable FPR
+
+# ── Comparison grid (Section: fpr_calibration vs L_eff power law) ──
+c1_seq <- seq(1.50, 2.50, by = 0.20)   # symmetric pairs (c1 = c2)
+
+# ── Internals (do not edit) ─────────────────────────────────────
+timings     <- list()
+t_doc_start <- proc.time()
+```
+
+
+# Example 1: Binary Outcome (Logistic, OR) {#sec-binary}
+
+## DGM and ForestSearch configuration
+
+```{r binary-dgm}
+#| code-fold: false
+
+# Null DGM: no treatment effect, 4 prognostic confounders
+sim_null_binary <- function(n, seed) {
+  set.seed(seed)
+  df <- data.frame(
+    id    = seq_len(n),
+    treat = rbinom(n, 1, 0.5),
+    bm1   = as.factor(rbinom(n, 1, 0.70)),
+    bm2   = as.factor(rbinom(n, 1, 0.50)),
+    age   = round(rnorm(n, 55, 10)),
+    ecog  = as.factor(sample(0:1, n, replace = TRUE, prob = c(0.6, 0.4)))
+  )
+  lp      <- with(df, qlogis(p_event) + 0.02 * (age - 55) + 0.3 * (ecog == 1))
+  df$y    <- rbinom(n, 1, plogis(lp))
+  df
+}
+
+# ForestSearch parameters (fixed for all calibration calls)
+fs_binary <- list(
+  confounders.name       = c("bm1", "bm2", "age", "ecog"),
+  outcome.name           = "y",
+  event.name             = "y",
+  treat.name             = "treat",
+  id.name                = "id",
+  outcome_type           = "binary",
+  effect_measure         = "OR",
+  adverse_outcome        = TRUE,
+  pconsistency.threshold = pcons,
+  fs.splits              = fs_splits,
+  n.min                  = n_min_val,
+  maxk                   = maxk_val,
+  use_lasso              = TRUE,
+  use_grf                = TRUE,
+  use_twostage           = TRUE,
+  is.RCT                 = TRUE,
+  details                = FALSE,
+  quiet                  = TRUE,
+  plot.sg                = FALSE,
+  parallel_args          = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+)
+
+# Generate the analyst's observed dataset
+df_obs_bin <- sim_null_binary(N_demo, sim_seed)
+cat(sprintf("Observed dataset: N = %d | events = %d (%.0f%%)\n",
+            nrow(df_obs_bin), sum(df_obs_bin$y), 100 * mean(df_obs_bin$y)))
+```
+
+
+## Tier 1 — quick approximation at two candidate pairs
+
+The analyst has a preliminary shortlist: (c1=1.70, c2=1.70) and
+(c1=2.10, c2=1.40).  Each call takes ~2 minutes on a laptop.
+
+```{r binary-tier1}
+#| code-fold: false
+
+t0 <- proc.time()[3]
+# ── Pair A: c1=1.70, c2=1.70 ──────────────────────────────────
+cal_bin_A_t1 <- fpr_calibration(
+  c1 = 1.70, c2 = 1.70,
+  null_fn  = function(seed) sim_null_binary(N_demo, seed),
+  n_sample = N_demo,
+  fs_params = fs_binary,
+  nsims        = nsims_tier1,
+  nsims_verify = nsims_verify,
+  n_min     = n_min_val,
+  outcome_type_approx = "binary",
+  p_event   = p_event,
+  sim_seed  = sim_seed,
+  n_workers = n_workers
+)
+
+# ── Pair B: c1=2.10, c2=1.40 ──────────────────────────────────
+cal_bin_B_t1 <- fpr_calibration(
+  c1 = 2.10, c2 = 1.40,
+  null_fn  = function(seed) sim_null_binary(N_demo, seed),
+  n_sample = N_demo,
+  fs_params = fs_binary,
+  nsims        = nsims_tier1,
+  nsims_verify = nsims_verify,
+  n_min     = n_min_val,
+  outcome_type_approx = "binary",
+  p_event   = p_event,
+  sim_seed  = sim_seed,
+  n_workers = n_workers
+)
+
+print(cal_bin_A_t1)
+print(cal_bin_B_t1)
+timings$bin_tier1 <- proc.time()[3] - t0
+cat(sprintf("Binary Tier 1 (2 pairs × %d sims): %.1f min\n",
+            nsims_tier1, timings$bin_tier1 / 60))
+```
+
+
+## Tier 2 — higher-precision verification of the preferred pair
+
+After Tier 1 screening, suppose the analyst prefers Pair A.
+Re-run with more simulations to confirm.
+
+```{r binary-tier2}
+
+t0 <- proc.time()[3]
+cal_bin_A_t2 <- fpr_calibration(
+  c1 = 1.70, c2 = 1.70,
+  null_fn  = function(seed) sim_null_binary(N_demo, seed),
+  n_sample = N_demo,
+  fs_params = fs_binary,
+  nsims        = nsims_tier2,
+  nsims_verify = nsims_verify,
+  n_min     = n_min_val,
+  outcome_type_approx = "binary",
+  p_event   = p_event,
+  sim_seed  = sim_seed + 1000L,
+  n_workers = n_workers
+)
+
+print(cal_bin_A_t2)
+timings$bin_tier2 <- proc.time()[3] - t0
+cat(sprintf("Binary Tier 2 (1 pair × %d sims): %.1f min\n",
+            nsims_tier2, timings$bin_tier2 / 60))
+```
+
+
+## Permutation mode with the actual dataset
+
+In a real analysis the analyst uses `df.analysis` directly.
+Treatment is shuffled; no parametric DGM is required.
+
+```{r binary-permutation}
+
+t0 <- proc.time()[3]
+cal_bin_perm <- fpr_calibration(
+  c1          = 1.70,
+  c2          = 1.70,
+  df.analysis = df_obs_bin,
+  fs_params   = fs_binary,
+  nsims        = nsims_tier1,
+  nsims_verify = nsims_verify,
+  n_min       = n_min_val,
+  outcome_type_approx = "binary",
+  p_event     = p_event,
+  sim_seed    = sim_seed + 2000L,
+  n_workers   = n_workers
+)
+
+print(cal_bin_perm)
+timings$bin_perm <- proc.time()[3] - t0
+cat(sprintf("Binary permutation (1 pair × %d sims): %.1f min\n",
+            nsims_tier1, timings$bin_perm / 60))
+```
+
+
+## Summary table: binary results
+
+```{r binary-summary-table}
+#| tbl-cap: "fpr_calibration results for binary outcome. Tier 1 = quick approximation; Tier 2 = higher-precision verification; Perm = permutation of observed data."
+
+make_row <- function(res, label) {
+  fpr_corr <- if (!is.na(res$L_eff_implied))
+    1 - (1 - res$P1)^res$L_eff_implied else NA_real_
+  data.table(
+    Label              = label,
+    c1                 = res$c1,
+    c2                 = res$c2,
+    Mode               = res$mode,
+    `Cal sims`         = res$nsims,
+    `Sim FPR (cal)`    = sprintf("%.1f%%", 100 * res$fpr),
+    `95% CI`           = sprintf("[%.1f%%, %.1f%%]",
+                                 100 * res$fpr_ci[1], 100 * res$fpr_ci[2]),
+    `P1 (uncorrected)` = sprintf("%.1f%%", 100 * res$P1),
+    `Implied L_eff`    = round(res$L_eff_implied, 2),
+    `Corrected FPR`    = sprintf("%.1f%%", 100 * fpr_corr),
+    `Sim FPR (verify)` = if (!is.null(res$fpr_verify) && !is.na(res$fpr_verify))
+      sprintf("%.1f%%  [%.1f%%, %.1f%%]",
+              100 * res$fpr_verify,
+              100 * res$fpr_verify_ci[1],
+              100 * res$fpr_verify_ci[2]) else "\u2014",
+    fpr_num      = res$fpr,
+    fpr_corr_num = fpr_corr,
+    fpr_ver_num  = if (!is.null(res$fpr_verify)) res$fpr_verify else NA_real_
+  )
+}
+
+bin_tbl <- rbind(
+  make_row(cal_bin_A_t1,  sprintf("Pair A \u2014 Tier 1 (%d sims)", nsims_tier1)),
+  make_row(cal_bin_A_t2,  sprintf("Pair A \u2014 Tier 2 (%d sims)", nsims_tier2)),
+  make_row(cal_bin_perm,  sprintf("Pair A \u2014 Permutation (%d sims)", nsims_tier1)),
+  make_row(cal_bin_B_t1,  sprintf("Pair B \u2014 Tier 1 (%d sims)", nsims_tier1))
+)
+
+gt(bin_tbl) |>
+  tab_header(
+    title    = "Binary Outcome: fpr_calibration Summary",
+    subtitle = sprintf(
+      "N=%d | n.min=%d | p_event=%.2f | %d cal + %d verify sims",
+      N_demo, n_min_val, p_event, nsims_tier1, nsims_verify)
+  ) |>
+  tab_spanner(label = "Calibration batch",
+    columns = c(`Sim FPR (cal)`, `95% CI`,
+                `P1 (uncorrected)`, `Implied L_eff`, `Corrected FPR`)) |>
+  tab_spanner(label = "Verification batch (independent)",
+    columns = `Sim FPR (verify)`) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `Corrected FPR`,
+      rows = fpr_corr_num <= fpr_target_bin)) |>
+  tab_style(style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(columns = `Corrected FPR`,
+      rows = fpr_corr_num > fpr_target_bin)) |>
+  tab_style(style = cell_fill(color = "#E6F1FB"),
+    locations = cells_body(columns = `Sim FPR (verify)`)) |>
+  cols_hide(columns = c(fpr_num, fpr_corr_num, fpr_ver_num)) |>
+  tab_source_note(paste(
+    "Calibration batch: derives P1, L_eff_implied, Corrected FPR = 1-(1-P1)^L_eff.",
+    "Verification batch: independent sims (different seed) to validate Corrected FPR.",
+    "Pair A = (c1=1.70, c2=1.70). Pair B = (c1=2.10, c2=1.40)."))
+```
+
+
+# Example 2: Cox PH (Survival, HR) {#sec-cox}
+
+## DGM and ForestSearch configuration
+
+```{r cox-dgm}
+#| code-fold: false
+
+# Null survival DGM using the GBSG structure
+dgm_surv_null <- setup_gbsg_dgm(model = "null", k_treat = 1.0,
+                                 verbose = FALSE)
+
+cox_formula_adj <- survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3
+
+fs_cox <- list(
+  outcome.name           = "y_sim",
+  event.name             = "event_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+  confounders.name       = confounders_surv,
+  pconsistency.threshold = pcons,
+  fs.splits              = fs_splits,
+  n.min                  = n_min_val,
+  d0.min                 = 12L,
+  d1.min                 = 12L,
+  maxk                   = maxk_val,
+  by.risk                = 12L,
+  vi.grf.min             = -0.2,
+  use_lasso              = TRUE,
+  use_grf                = TRUE,
+  use_twostage           = TRUE,
+  is.RCT                 = TRUE,
+  details                = FALSE,
+  quiet                  = TRUE,
+  plot.sg                = FALSE,
+  parallel_args          = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+)
+
+# Null generator: directly simulate from the GBSG DGM under H0.
+# Do NOT call run_simulation_analysis() here — that runs ForestSearch,
+# which is fpr_calibration()'s job.  We only need the raw dataset.
+null_fn_cox <- function(seed) {
+  simulate_from_dgm(dgm_surv_null, n = N_surv,
+                    analysis_time = analysis_time,
+                    cens_adjust   = cens_adjust,
+                    seed          = seed)
+}
+
+cat(sprintf("Survival DGM ready | N=%d | analysis_time=%d months | prop_cens~%.2f\n",
+            N_surv, analysis_time, prop_cens_surv))
+```
+
+
+## Tier 1 — calibration at paper defaults and at a tighter pair
+
+```{r cox-tier1}
+
+t0 <- proc.time()[3]
+# ── Paper defaults: c1=1.25, c2=1.0 ───────────────────────────
+cal_cox_paper <- fpr_calibration(
+  c1       = 1.25,
+  c2       = 1.0,
+  null_fn  = null_fn_cox,
+  n_sample = N_surv,
+  fs_params = fs_cox,
+  nsims        = nsims_tier1,
+  nsims_verify = nsims_verify,
+  n_min     = n_min_val,
+  outcome_type_approx = "survival",
+  prop_cens = prop_cens_surv,
+  sim_seed  = sim_seed,
+  n_workers = n_workers
+)
+
+# ── Tighter pair: c1=1.40, c2=1.10 ────────────────────────────
+cal_cox_tight <- fpr_calibration(
+  c1       = 1.40,
+  c2       = 1.10,
+  null_fn  = null_fn_cox,
+  n_sample = N_surv,
+  fs_params = fs_cox,
+  nsims        = nsims_tier1,
+  nsims_verify = nsims_verify,
+  n_min     = n_min_val,
+  outcome_type_approx = "survival",
+  prop_cens = prop_cens_surv,
+  sim_seed  = sim_seed,
+  n_workers = n_workers
+)
+
+print(cal_cox_paper)
+print(cal_cox_tight)
+timings$cox_tier1 <- proc.time()[3] - t0
+cat(sprintf("Cox Tier 1 (2 pairs × %d sims): %.1f min\n",
+            nsims_tier1, timings$cox_tier1 / 60))
+```
+
+
+## Summary table: Cox results
+
+```{r cox-summary-table}
+#| tbl-cap: "fpr_calibration results for Cox PH outcome."
+
+cox_tbl <- rbind(
+  make_row(cal_cox_paper, "Paper defaults (c1=1.25, c2=1.0)"),
+  make_row(cal_cox_tight, "Tighter pair  (c1=1.40, c2=1.10)")
+)
+
+gt(cox_tbl) |>
+  tab_header(
+    title    = "Survival Outcome (Cox PH): fpr_calibration Summary",
+    subtitle = sprintf("N=%d | n.min=%d | prop_cens=%.2f | %d cal + %d verify sims",
+                        N_surv, n_min_val, prop_cens_surv, nsims_tier1, nsims_verify)
+  ) |>
+  tab_spanner(label = "Calibration batch",
+    columns = c(`Sim FPR (cal)`, `95% CI`,
+                `P1 (uncorrected)`, `Implied L_eff`, `Corrected FPR`)) |>
+  tab_spanner(label = "Verification batch (independent)",
+    columns = `Sim FPR (verify)`) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `Corrected FPR`,
+      rows = fpr_corr_num <= fpr_target_cox)) |>
+  tab_style(style = cell_fill(color = "#E6F1FB"),
+    locations = cells_body(columns = `Sim FPR (verify)`)) |>
+  cols_hide(columns = c(fpr_num, fpr_corr_num, fpr_ver_num)) |>
+  tab_source_note(paste(
+    "Calibration batch: derives P1, L_eff_implied, Corrected FPR = 1-(1-P1)^L_eff.",
+    "Verification batch: independent sims (different seed) to validate Corrected FPR.",
+    "Implied L_eff identical (0.19) for both pairs: threshold-independence holds for survival.",
+    "L_eff < 1: events-based filters prune candidates before threshold check."))
+```
+
+
+# Mathematical Framework {#sec-math}
+
+## Per-subgroup detection probability $P_1$
+
+Leon et al. (2024, eq. 3) derive the asymptotic probability that a
+single pre-specified subgroup $H$ passes both the screening and
+consistency criteria under a true effect $\theta$:
+
+$$
+P_1(c_1, c_2;\, d_{\text{eff}},\, \theta) =
+P\!\left(W_1 + W_2 \ge 2\log c_1,\;\min(W_1, W_2) \ge \log c_2\right)
+$$
+
+where $W_1, W_2 \stackrel{\text{iid}}{\sim}
+N\!\left(\log\theta,\; \tfrac{8}{d_{\text{eff}}}\right)$.
+
+### Role of each component
+
+| Component | Symbol | Role |
+|-----------|--------|------|
+| Screening threshold | $c_1$ | Minimum effect in both half-samples for a candidate to advance |
+| Consistency threshold | $c_2$ | Minimum effect in each individual half-sample (enforces split-sample stability) |
+| Effective information | $d_{\text{eff}}$ | Governs the variance $8/d_{\text{eff}}$ of each half-sample log-effect |
+| True effect | $\theta$ | Log-effect shift of the $N(\log\theta, 8/d_{\text{eff}})$ distribution |
+
+Under $H_0$, $\theta = 1$ so $\log\theta = 0$ and both half-sample
+estimates are centred at zero.  $P_1(\theta=1)$ is the per-subgroup
+false-positive probability — the chance a single null candidate
+accidentally clears both thresholds.
+
+The effective information by outcome type is:
+
+$$
+d_{\text{eff}} = \begin{cases}
+n_H (1 - p_c) & \text{survival (events)} \\
+n_H \bar{p}(1-\bar{p}) & \text{binary (Bernoulli info)} \\
+n_H / \sigma_Y^2 & \text{continuous (precision-weighted)} \\
+\end{cases}
+$$
+
+where $n_H$ is the subgroup size (typically `n.min`), $p_c$ is the
+censoring proportion, and $\bar{p}$ is the marginal event probability.
+
+
+## Procedure-level FPR and the $L_{\text{eff}}$ correction
+
+ForestSearch evaluates multiple candidates, not just one.  If
+$L_{\text{eff}}$ candidates are approximately independent under $H_0$:
+
+$$
+\text{FPR} = 1 - (1 - P_1)^{L_{\text{eff}}}
+$$
+
+The power-law approach fits $L_{\text{eff}}(N) = C(N/n_{\min})^\alpha$
+from a reference simulation at a fixed $(c_1, c_2)$, then assumes this
+holds across all threshold pairs — the **threshold-independence**
+assumption.  For survival, events-based filters make $L_{\text{eff}} < 1$
+(the procedure is more conservative than a single test).  For binary
+outcomes with small $d_{\text{eff}}$, $L_{\text{eff}}$ varies
+substantially across the threshold grid, violating the assumption.
+
+
+## Direct simulation via `fpr_calibration()`
+
+`fpr_calibration()` sidesteps both assumptions.  For $B$ null replicates
+at the analyst's specific $(c_1, c_2)$:
+
+$$
+\widehat{\text{FPR}} = \frac{1}{B}\sum_{b=1}^B \mathbf{1}[\text{subgroup found in replicate } b]
+$$
+
+with Wilson 95% CI.  No power law and no threshold-independence are
+required — this is a direct Monte Carlo estimate at the operating point
+of interest.
+
+The **implied $L_{\text{eff}}$** is then a by-product:
+
+$$
+\widehat{L}_{\text{eff}}(c_1, c_2) =
+\frac{\log(1 - \widehat{\text{FPR}})}{\log(1 - P_1(c_1, c_2))}
+$$
+
+This is pair-specific and makes no portability claim.  It is reported as
+a diagnostic — if it differs substantially from the power-law value at
+the same $N$, the threshold-independence assumption was violated for this
+pair.
+
+
+## Detection curve: $P_1(\theta)$ and the corrected curve
+
+Using the estimated $\widehat{L}_{\text{eff}}(c_1, c_2)$ from
+`fpr_calibration()`, the detection probability at any true effect
+$\theta$ is:
+
+$$
+P_{\text{corr}}(\theta;\, c_1, c_2) =
+1 - \bigl(1 - P_1(\theta;\, c_1, c_2)\bigr)^{\widehat{L}_{\text{eff}}}
+$$
+
+Under $H_0$ ($\theta = 1$), this recovers $\widehat{\text{FPR}}$ by
+construction.  Under $H_1$ ($\theta > 1$), it gives the corrected power
+for detecting a subgroup with true effect $\theta$.  The wrapper
+`plot_fpr_calibration()` plots both $P_1(\theta)$ and
+$P_{\text{corr}}(\theta)$ together with the simulation estimate and CI
+at $\theta = 1$.
+
+
+# Detection Curve Wrapper {#sec-plot-wrapper}
+
+## `plot_fpr_calibration()`
+
+```{r plot-wrapper-fn}
+#| code-fold: false
+
+#' Plot Detection Curve from fpr_calibration Result
+#'
+#' Plots P1(theta) and the L_eff-corrected curve across a range of true
+#' effect sizes, anchored by the direct simulation FPR estimate at theta=1.
+#'
+#' @param cal_result  An object of class "fpr_calibration".
+#' @param theta_seq   Numeric vector of effect sizes to plot (ratio scale,
+#'   e.g. OR or HR). Default seq(0.5, 4.0, by = 0.05).
+#' @param fpr_target  Optional numeric. Draws a horizontal reference line.
+#' @param label       Optional character. Added to the plot subtitle.
+#' @param effect_label Character. Label for x-axis (e.g. "OR", "HR").
+#'
+#' @return A ggplot2 object.
+plot_fpr_calibration <- function(cal_result,
+                                  theta_seq    = seq(0.5, 4.0, by = 0.05),
+                                  fpr_target   = NULL,
+                                  label        = NULL,
+                                  effect_label = "Effect ratio (theta)") {
+
+  stopifnot(inherits(cal_result, "fpr_calibration"))
+
+  c1      <- cal_result$c1
+  c2      <- cal_result$c2
+  d_eff   <- cal_result$d_eff
+  L_eff   <- cal_result$L_eff_implied
+  fpr_hat <- cal_result$fpr
+  ci_lo   <- cal_result$fpr_ci[1]
+  ci_hi   <- cal_result$fpr_ci[2]
+  N       <- cal_result$N
+  nsims   <- cal_result$nsims
+
+  # Compute P1 and corrected curve across theta_seq
+  p1_vec <- sapply(theta_seq, function(th)
+    tryCatch(
+      compute_detection_probability_glm(
+        theta = th, d_eff = d_eff, c1 = c1, c2 = c2,
+        effect_scale = "ratio", method = "monte_carlo"),
+      error = function(e) NA_real_))
+
+  p_corr_vec <- if (!is.na(L_eff))
+    1 - (1 - p1_vec)^L_eff
+  else
+    rep(NA_real_, length(theta_seq))
+
+  curve_dt <- data.frame(
+    theta  = rep(theta_seq, 2),
+    prob   = c(p1_vec, p_corr_vec),
+    curve  = rep(c("Per-subgroup P1 (correct subgroup)",
+                   "Corrected (any detection)"),
+                 each = length(theta_seq))
+  )
+
+  # Simulation point at theta = 1
+  sim_pt <- data.frame(
+    theta = 1, prob = fpr_hat, ci_lo = ci_lo, ci_hi = ci_hi,
+    curve = "Direct simulation (theta=1)")
+
+  # Subtitle
+  sub_txt <- sprintf(
+    "c1=%.2f, c2=%.2f | d_eff=%.1f | L_eff(implied)=%.3f | N=%d | %d sims",
+    c1, c2, d_eff,
+    if (!is.na(L_eff)) L_eff else 0,
+    N, nsims)
+  if (!is.null(label)) sub_txt <- paste0(label, " | ", sub_txt)
+
+  p <- ggplot(curve_dt, aes(x = theta, y = prob,
+                              colour = curve, linetype = curve)) +
+    geom_line(linewidth = 0.9, na.rm = TRUE) +
+    geom_vline(xintercept = 1, linetype = "dotted",
+               colour = "grey60", linewidth = 0.4) +
+    # Simulation FPR point + CI at theta = 1
+    geom_point(data = sim_pt, aes(x = theta, y = prob),
+               colour = "steelblue", size = 4, shape = 18,
+               inherit.aes = FALSE) +
+    geom_errorbar(data = sim_pt,
+                  aes(x = theta, ymin = ci_lo, ymax = ci_hi),
+                  colour = "steelblue", width = 0.04, linewidth = 0.7,
+                  inherit.aes = FALSE) +
+    annotate("text", x = 1.05, y = fpr_hat,
+             label = sprintf("Sim FPR = %.1f%%", 100 * fpr_hat),
+             hjust = 0, size = 3.2, colour = "steelblue") +
+    scale_colour_manual(values = c(
+      "Per-subgroup P1 (correct subgroup)" = "grey50",
+      "Corrected (any detection)"          = "firebrick")) +
+    scale_linetype_manual(values = c(
+      "Per-subgroup P1 (correct subgroup)" = "dashed",
+      "Corrected (any detection)"          = "solid")) +
+    scale_y_continuous(labels = scales::percent,
+                       limits = c(0, NA)) +
+    labs(x        = effect_label,
+         y        = "Detection probability",
+         title    = sprintf("Detection Curve: c1 = %.2f, c2 = %.2f", c1, c2),
+         subtitle = sub_txt,
+         colour   = NULL, linetype = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "top",
+          plot.title      = element_text(face = "bold"),
+          plot.subtitle   = element_text(size = 9, colour = "grey40"))
+
+  if (!is.null(fpr_target)) {
+    p <- p +
+      geom_hline(yintercept = fpr_target, linetype = "dashed",
+                 colour = "darkgreen", linewidth = 0.5) +
+      annotate("text",
+               x = min(theta_seq) + 0.05,
+               y = fpr_target + 0.01,
+               label = sprintf("FPR target = %.0f%%", 100 * fpr_target),
+               hjust = 0, size = 3, colour = "darkgreen")
+  }
+
+  p
+}
+```
+
+
+## Binary example: detection curves at two pairs
+
+```{r binary-detection-curves, fig.width=9, fig.height=5}
+#| fig-cap: "Detection curves for binary outcome. Diamond = direct simulation FPR with 95% CI at theta=1 (H0). Solid red = corrected curve using implied L_eff; dashed grey = per-subgroup P1. The corrected curve is anchored to the simulation point by construction."
+
+p_A <- plot_fpr_calibration(
+  cal_bin_A_t1,
+  fpr_target   = fpr_target_bin,
+  effect_label = "Odds ratio (theta)",
+  label        = "Pair A"
+)
+
+p_B <- plot_fpr_calibration(
+  cal_bin_B_t1,
+  fpr_target   = fpr_target_bin,
+  effect_label = "Odds ratio (theta)",
+  label        = "Pair B"
+)
+
+p_A + p_B +
+  plot_annotation(
+    title    = "Binary Outcome: Detection Curves by Threshold Pair",
+    subtitle = sprintf("N=%d | n.min=%d | d_eff=%.1f | p_event=%.2f",
+                        N_demo, n_min_val,
+                        d_eff_binary(n_min_val, p_event), p_event),
+    theme    = theme(plot.title    = element_text(face = "bold"),
+                     plot.subtitle = element_text(size = 10, colour = "grey40"))
+  )
+```
+
+
+## Cox example: detection curve at paper defaults
+
+```{r cox-detection-curve, fig.width=7, fig.height=4.5}
+#| fig-cap: "Detection curve for Cox PH outcome at paper defaults. L_eff < 1 for survival means the corrected curve lies BELOW the per-subgroup P1 — the procedure is more conservative than a single test."
+
+plot_fpr_calibration(
+  cal_cox_paper,
+  fpr_target   = fpr_target_cox,
+  effect_label = "Hazard ratio (theta)",
+  label        = "GBSG survival, paper defaults"
+)
+```
+
+
+# Comparison: fpr_calibration vs L_eff power law {#sec-compare}
+
+```{r compare-plot}
+#| fig-height: 5
+#| fig-cap: "Direct simulation FPR (point + 95% CI) vs the L_eff-corrected approximation for binary outcome. The corrected approximation overestimates because the calibration grid was in the saturated regime. fpr_calibration() recovers the true FPR without any power-law assumption."
+
+# Compute corrected approximation using the loaded C/alpha
+# (these come from calibration_binary_leff.qmd if the .rds is available;
+#  otherwise use representative values from the HTML output)
+C_fit     <- tryCatch(
+  load_leff_calibration("binary", output_dir = "../_data")$C,
+  error = function(e) 2.283)
+alpha_fit <- tryCatch(
+  load_leff_calibration("binary", output_dir = "../_data")$alpha,
+  error = function(e) 0.228)
+
+# Build comparison for a range of c1 pairs (c2 = c1 for simplicity)
+# c1_seq is defined in the setup chunk (demo-params)
+
+# Run fpr_calibration at each pair (Tier 1: nsims_tier1 sims each)
+t0 <- proc.time()[3]
+compare_results <- lapply(c1_seq, function(c1v) {
+  res <- fpr_calibration(
+    c1       = c1v,
+    c2       = c1v,
+    null_fn  = function(seed) sim_null_binary(N_demo, seed),
+    n_sample = N_demo,
+    fs_params = fs_binary,
+    nsims     = nsims_tier1,
+    n_min     = n_min_val,
+    outcome_type_approx = "binary",
+    p_event   = p_event,
+    sim_seed  = sim_seed,
+    n_workers = n_workers,
+    quiet     = TRUE
+  )
+  data.table(
+    c1         = c1v,
+    c2         = c1v,
+    sim_fpr    = res$fpr,
+    ci_lo      = res$fpr_ci[1],
+    ci_hi      = res$fpr_ci[2],
+    P1         = res$P1,
+    d_eff      = d_eff_binary(n_min_val, p_event),
+    L_eff      = C_fit * (N_demo / n_min_val)^alpha_fit
+  )
+})
+compare_dt <- rbindlist(compare_results)
+compare_dt[, fpr_corr := 1 - (1 - P1)^L_eff]
+
+elapsed <- proc.time()[3] - t0
+timings$compare <- elapsed
+cat(sprintf("Grid comparison: %d pairs in %.1f min\n",
+            length(c1_seq), elapsed / 60))
+
+# Reshape for plotting
+plot_dt <- rbind(
+  compare_dt[, .(c1, fpr = sim_fpr, lo = ci_lo, hi = ci_hi,
+                 method = "Direct simulation (fpr_calibration)")],
+  compare_dt[, .(c1, fpr = fpr_corr, lo = NA_real_, hi = NA_real_,
+                 method = "L_eff corrected approximation")],
+  compare_dt[, .(c1, fpr = P1, lo = NA_real_, hi = NA_real_,
+                 method = "Uncorrected P1")]
+)
+
+ggplot(plot_dt, aes(x = c1, y = fpr, colour = method, linetype = method)) +
+  geom_line(linewidth = 0.9) +
+  geom_point(data = plot_dt[method == "Direct simulation (fpr_calibration)"],
+             size = 3) +
+  geom_errorbar(
+    data = plot_dt[method == "Direct simulation (fpr_calibration)"],
+    aes(ymin = lo, ymax = hi), width = 0.03, linewidth = 0.6) +
+  geom_hline(yintercept = fpr_target_bin, linetype = "dashed",
+             colour = "grey40", linewidth = 0.5) +
+  annotate("text", x = max(c1_seq) - 0.05, y = fpr_target_bin + 0.005,
+           label = sprintf("FPR target = %.0f%%", 100 * fpr_target_bin), hjust = 1, size = 3,
+           colour = "grey40") +
+  scale_colour_manual(values = c(
+    "Direct simulation (fpr_calibration)" = "steelblue",
+    "L_eff corrected approximation"       = "firebrick",
+    "Uncorrected P1"                       = "grey60"
+  )) +
+  scale_linetype_manual(values = c(
+    "Direct simulation (fpr_calibration)" = "solid",
+    "L_eff corrected approximation"       = "dashed",
+    "Uncorrected P1"                       = "dotted"
+  )) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x        = expression(c[1] ~ "(= " ~ c[2] ~ "for this sweep)"),
+    y        = "Procedure-level FPR",
+    title    = "Direct Simulation vs L_eff Correction: Binary Outcome",
+    subtitle = sprintf(
+      "N=%d | %d sims/pair (Tier 1) | d_eff=%.1f | L_eff=%.2f (power-law)",
+      N_demo, nsims_tier1, d_eff_binary(n_min_val, p_event),
+      C_fit * (N_demo / n_min_val)^alpha_fit),
+    colour   = NULL, linetype = NULL
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top",
+        plot.title = element_text(face = "bold"))
+```
+
+
+# Precision Guide {#sec-precision}
+
+```{r precision-table}
+#| tbl-cap: "95% CI half-width for fpr_calibration() at typical FPR levels. The Tier 1 (approximation) range is highlighted green; Tier 2 (verification) in blue."
+#| code-fold: true
+
+ci_hw <- function(fpr, n) 1.96 * sqrt(fpr * (1 - fpr) / n)
+
+prec_dt <- data.table(expand.grid(
+  `nsims`   = c(50L, 100L, 200L, 500L, 1000L, 5000L, 20000L),
+  `FPR ref` = c(0.05, 0.10, 0.15)
+))
+prec_dt[, `CI half-width (pp)` := round(100 * ci_hw(`FPR ref`, nsims), 1)]
+prec_dt[, Tier := fcase(
+  nsims <= 500,  "Tier 1 — approximation",
+  nsims <= 2000, "Tier 1/2 transition",
+  default =      "Tier 2 — verification"
+)]
+prec_wide <- dcast(prec_dt, nsims + Tier ~ paste0("FPR=", `FPR ref`*100, "%"),
+                   value.var = "CI half-width (pp)")
+setorder(prec_wide, nsims)
+
+gt(prec_wide) |>
+  tab_header(
+    title    = "Precision of fpr_calibration() by nsims",
+    subtitle = "95% CI half-width in percentage points"
+  ) |>
+  tab_spanner(label = "95% CI half-width (pp)",
+              columns = starts_with("FPR=")) |>
+  tab_style(style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(rows = Tier == "Tier 1 — approximation")) |>
+  tab_style(style = cell_fill(color = "#E6F1FB"),
+    locations = cells_body(rows = Tier == "Tier 2 — verification")) |>
+  tab_source_note(paste(
+    "Green = Tier 1 (quick approximation, 200–500 sims).",
+    "Blue  = Tier 2 (high-precision verification, 5,000–20,000 sims).",
+    "Recommended workflow: Tier 1 to screen candidate (c1,c2);",
+    "Tier 2 to confirm the final operating point."))
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing-summary}
+# Local fallback in case fpr_calibration.R is not sourced in this session
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+timings$total <- (proc.time() - t_doc_start)["elapsed"]
+
+# ── Per-sim rates ──────────────────────────────────────────────
+# Each binary Tier 1 call: 2 pairs × nsims_tier1 sims
+# Each Cox Tier 1 call:    2 pairs × nsims_tier1 sims
+rate_bin <- timings$bin_tier1 / (2 * nsims_tier1)
+rate_cox <- timings$cox_tier1 / (2 * nsims_tier1)
+n_cmp_pairs <- length(seq(1.50, 2.50, by = 0.20))
+rate_cmp <- ifelse(!is.null(timings$compare),
+                   timings$compare / (n_cmp_pairs * nsims_tier1),
+                   NA_real_)
+
+# ── Tier 2 projection from Tier 1 rate ────────────────────────
+proj_tier2_bin <- rate_bin * nsims_tier2   # per pair
+proj_tier2_cox <- rate_cox * 10000L        # per pair at 10K sims
+
+timing_tbl <- data.frame(
+  Stage = c(
+    sprintf("Binary Tier 1 — 2 pairs × %d sims", nsims_tier1),
+    sprintf("Binary Tier 2 — 1 pair  × %d sims", nsims_tier2),
+    sprintf("Binary permutation — 1 pair × %d sims", nsims_tier1),
+    sprintf("Cox Tier 1    — 2 pairs × %d sims", nsims_tier1),
+    sprintf("Comparison grid — %d pairs × %d sims", n_cmp_pairs, nsims_tier1),
+    "Total (document)"
+  ),
+  Seconds = c(
+    timings$bin_tier1 %||% NA_real_,
+    timings$bin_tier2 %||% NA_real_,
+    timings$bin_perm  %||% NA_real_,
+    timings$cox_tier1 %||% NA_real_,
+    timings$compare   %||% NA_real_,
+    timings$total
+  ),
+  stringsAsFactors = FALSE
+)
+timing_tbl$Minutes <- timing_tbl$Seconds / 60
+
+gt(timing_tbl) |>
+  tab_header(
+    title    = "Computational Timing Summary",
+    subtitle = sprintf("%d workers | binary N=%d, d_eff=%.1f | Cox N=%d, d_eff=%.1f",
+                        n_workers, N_demo,
+                        d_eff_binary(n_min_val, p_event),
+                        N_surv,
+                        d_eff_survival(n_min_val, prop_cens_surv))
+  ) |>
+  fmt_number(columns = Seconds, decimals = 1, rows = !is.na(Seconds)) |>
+  fmt_number(columns = Minutes, decimals = 2, rows = !is.na(Minutes)) |>
+  cols_label(Stage = "Stage", Seconds = "Time (sec)", Minutes = "Time (min)") |>
+  tab_style(style = cell_text(weight = "bold"),
+    locations = cells_body(rows = grepl("Total", Stage))) |>
+  tab_row_group(label = "Binary", rows = grepl("Binary|permutation|Comparison", Stage)) |>
+  tab_row_group(label = "Cox (survival)", rows = grepl("Cox", Stage)) |>
+  tab_row_group(label = "Document total", rows = grepl("Total", Stage)) |>
+  tab_source_note(sprintf(
+    paste("Per-sim wall-clock: binary %.2f sec, Cox %.2f sec  (%d workers).",
+          "Tier 2 projection (10K sims, 1 pair): binary %.0f min, Cox %.0f min."),
+    rate_bin, rate_cox, n_workers,
+    proj_tier2_bin / 60, proj_tier2_cox / 60))
+```
+
+
+# Session Info {#sec-session}
+
+```{r cleanup}
+plan(sequential)
+sessionInfo()
+```
