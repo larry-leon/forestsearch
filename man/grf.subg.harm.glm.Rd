@@ -137,9 +137,12 @@ from tuning; defaults are near-optimal for RCTs (Dandl et al., 2024).}
 \value{
 A list of class \code{"grf_glm_result"} containing:
 \describe{
-\item{sg.harm.id}{Character vector defining the identified subgroup
-(e.g., \code{c("v1=1", "v3=1")}), or \code{NULL} if no subgroup
-was found.}
+\item{sg.harm.id}{\strong{Character vector of cut expressions}
+defining the identified subgroup (e.g., \code{c("v1=1", "v3=1")}),
+length equal to the depth of the selected policy tree.
+\code{NULL} if no subgroup was found.  \strong{Not} a per-subject
+membership indicator; see the \emph{Field naming collision}
+section below.}
 \item{data}{The input data frame with a \code{treat.recommend} column
 added (\code{0} = in harm/questionable subgroup, \code{1} =
 complement).}
@@ -204,6 +207,33 @@ every GLM fit in the subgroup enumeration loop, so that subgroup effects
 are on the incidence-rate-ratio scale adjusted for differential follow-up.
 }
 }
+\section{Field naming collision with forestsearch / subgroup.consistency}{
+
+The field name \code{sg.harm.id} has \strong{different semantics} on
+this object versus on the \code{grp.consistency} list returned by
+\code{\link{subgroup.consistency}} (and nested inside the
+\code{\link{forestsearch}} result):
+
+\tabular{lll}{
+\strong{Object} \tab \strong{\code{sg.harm.id} contains} \tab \strong{Length / type} \cr
+\code{grf.subg.harm.glm()} result (this function) \tab character vector of cut expressions \tab character, length = depth of selected tree \cr
+\code{subgroup.consistency()} result \tab per-subject 0/1 membership indicator \tab integer, length \code{nrow(df)} \cr
+}
+
+\strong{Practical consequence.}  On this object, pasting
+\code{paste(obj$sg.harm.id, collapse = " & ")} correctly renders
+the identified subgroup.  On a \code{grp.consistency} list the same
+expression silently concatenates a long 0/1 indicator and produces
+output like \code{"0 & 0 & 1 & 0 & ..."}.  When writing code that
+must handle both object types, dispatch on class first, or use the
+top-level \code{sg.harm} field that the \code{\link{forestsearch}}
+result exposes.
+
+This naming collision is a documented CRAN-stable API for v0.1.x
+and v0.2.x; it is expected to be resolved via a deprecation cycle
+in a future minor release.
+}
+
 \examples{
 \dontrun{
 # Simulate count data with heterogeneous treatment effect

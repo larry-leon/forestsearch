@@ -29,7 +29,11 @@
 #' @return A list with GRF results, including:
 #'   \item{data}{Original data with added treatment recommendation flags}
 #'   \item{grf.gsub}{Selected subgroup information}
-#'   \item{sg.harm.id}{Expression defining the identified subgroup}
+#'   \item{sg.harm.id}{\strong{Character vector of cut expressions}
+#'     defining the identified subgroup (length = depth of the selected
+#'     policy tree), or \code{NULL} if no subgroup was found.  \strong{Not}
+#'     a per-subject membership indicator; see the \emph{Field naming
+#'     collision} section below.}
 #'   \item{tree.cuts}{Cut expressions - either all cuts from all trees (if
 #'     `return_selected_cuts_only = FALSE`) or only cuts from the selected tree
 #'     depth (if `return_selected_cuts_only = TRUE`)}
@@ -40,6 +44,31 @@
 #'   \item{selected_depth}{Depth of the tree that identified the subgroup (when found)}
 #'   \item{return_selected_cuts_only}{Logical indicating which cut extraction mode was used}
 #'   Additional tree-specific cuts and objects (tree1, tree2, tree3) based on maxdepth
+#'
+#' @section Field naming collision with forestsearch / subgroup.consistency:
+#' The field name \code{sg.harm.id} has \strong{different semantics} on
+#' this object versus on the \code{grp.consistency} list returned by
+#' \code{\link{subgroup.consistency}} (and nested inside the
+#' \code{\link{forestsearch}} result):
+#'
+#' \tabular{lll}{
+#'   \strong{Object} \tab \strong{\code{sg.harm.id} contains} \tab \strong{Length / type} \cr
+#'   \code{grf.subg.harm.survival()} result (this function) \tab character vector of cut expressions \tab character, length = depth of selected tree \cr
+#'   \code{subgroup.consistency()} result \tab per-subject 0/1 membership indicator \tab integer, length \code{nrow(data)} \cr
+#' }
+#'
+#' \strong{Practical consequence.}  On this object, pasting
+#' \code{paste(obj$sg.harm.id, collapse = " & ")} correctly renders
+#' the identified subgroup.  On a \code{grp.consistency} list the same
+#' expression silently concatenates a long 0/1 indicator and produces
+#' output like \code{"0 & 0 & 1 & 0 & ..."}.  When writing code that
+#' must handle both object types, dispatch on class first, or use the
+#' top-level \code{sg.harm} field that the \code{\link{forestsearch}}
+#' result exposes.
+#'
+#' This naming collision is a documented CRAN-stable API for v0.1.x
+#' and v0.2.x; it is expected to be resolved via a deprecation cycle
+#' in a future minor release.
 #'
 #' @details
 #' The `return_selected_cuts_only` parameter controls which cuts are returned:

@@ -119,8 +119,16 @@
 #'     \item{out_sg}{Selected subgroup results}
 #'     \item{sg_focus}{Selection criterion used}
 #'     \item{df_flag}{Data frame with treatment recommendations}
-#'     \item{sg.harm}{Subgroup definition labels}
-#'     \item{sg.harm.id}{Subgroup membership indicator}
+#'     \item{sg.harm}{\strong{Subgroup definition labels} -- character
+#'       vector of factor-level cut names (e.g., \code{c("z1.1", "z2.1")}),
+#'       of length equal to the number of cuts defining the subgroup.
+#'       \code{NULL} if no subgroup was identified.}
+#'     \item{sg.harm.id}{\strong{Per-subject subgroup-membership
+#'       indicator} -- integer vector of length \code{nrow(df)} with
+#'       \code{1} if subject \eqn{i} is in the identified subgroup and
+#'       \code{0} otherwise.  \code{NULL} if no subgroup was identified.
+#'       \strong{Not} a character vector of cut expressions; see the
+#'       \emph{Field naming collision} section below.}
 #'     \item{algorithm}{"twostage" or "fixed"}
 #'     \item{n_candidates_evaluated}{Number of candidates actually evaluated}
 #'     \item{n_candidates_total}{Total candidates available}
@@ -130,6 +138,29 @@
 #'     \item{stop_threshold}{Threshold used for early stopping}
 #'     \item{seed}{Random seed used for reproducibility (NULL if not set)}
 #'   }
+#'
+#' @section Field naming collision with GRF results:
+#' The field name \code{sg.harm.id} has \strong{different semantics} on
+#' this object versus on the result objects returned by
+#' \code{\link{grf.subg.harm.glm}} and \code{\link{grf.subg.harm.survival}}:
+#'
+#' \tabular{lll}{
+#'   \strong{Object} \tab \strong{\code{sg.harm.id} contains} \tab \strong{Length / type} \cr
+#'   \code{subgroup.consistency()} result (this function) \tab per-subject 0/1 membership indicator \tab integer, length \code{nrow(df)} \cr
+#'   \code{grf.subg.harm.glm()} result \tab character vector of cut expressions \tab character, length = depth of selected tree \cr
+#'   \code{grf.subg.harm.survival()} result \tab character vector of cut expressions \tab character, length = depth of selected tree \cr
+#' }
+#'
+#' \strong{Practical consequence.}  Do not paste \code{sg.harm.id} with
+#' \code{paste(..., collapse = " & ")} to print "the identified subgroup"
+#' without first checking object class.  For subgroup labels from a
+#' \code{\link{forestsearch}} or \code{subgroup.consistency()} result,
+#' use \code{sg.harm} (character vector of cut names) -- the FS main
+#' result exposes \code{sg.harm} at the top level.
+#'
+#' This naming collision is a documented CRAN-stable API for v0.1.x
+#' and v0.2.x; it is expected to be resolved via a deprecation cycle
+#' in a future minor release.
 #'
 #' @examples
 #' \dontrun{

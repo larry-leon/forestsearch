@@ -296,6 +296,11 @@ A list of class "forestsearch" containing:
 \item out_sg: Selected subgroup based on sg_focus
 \item sg_focus: Focus criterion used
 \item df_flag: Treatment recommendations
+\item sg.harm: Subgroup definition labels (character vector
+of cut names) -- same as the top-level \code{sg.harm}
+\item sg.harm.id: per-subject 0/1 membership indicator
+(\emph{not} a character vector of cut expressions; see
+the \emph{Field naming collision} section below)
 \item algorithm: "twostage" or "fixed"
 \item n_candidates_evaluated: Number evaluated
 \item n_passed: Number passing threshold
@@ -309,7 +314,11 @@ A list of class "forestsearch" containing:
 \item{minutes_all}{Total computation time}
 \item{grf_res}{GRF results object}
 \item{sg_focus}{Subgroup focus criterion used}
-\item{sg.harm}{Selected subgroup definition}
+\item{sg.harm}{Selected subgroup definition -- character vector
+of factor-level cut names.  \strong{Recommended accessor} for
+displaying the identified subgroup (e.g.,
+\code{paste(obj$sg.harm, collapse = " & ")}).  \code{NULL} if
+no subgroup was identified.}
 \item{grf_cuts}{GRF cut points used}
 \item{prop_maxk}{Proportion of max combinations searched}
 \item{max_sg_est}{Maximum subgroup HR estimate}
@@ -367,6 +376,20 @@ The two-stage algorithm is recommended for:
 For final regulatory submissions, \code{use_twostage = FALSE} may be preferred
 for exact reproducibility.
 }
+\section{Field naming collision with GRF results}{
+
+The top-level \code{sg.harm} on this object and the
+\code{grp.consistency$sg.harm} nested field both hold a character
+vector of cut expressions.  The nested \code{grp.consistency$sg.harm.id}
+field holds a \emph{per-subject 0/1 membership indicator}, not a cut
+vector -- unlike \code{sg.harm.id} on GRF result objects, which
+\emph{does} hold cut expressions.  See
+\code{\link{subgroup.consistency}} and \code{\link{grf.subg.harm.glm}}
+for the full discussion of this naming collision.  Code that must
+handle both object types should prefer the top-level \code{sg.harm}
+accessor on forestsearch results.
+}
+
 \examples{
 \dontrun{
 # Example 1: Standard analysis (backward compatible)
