@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Simulation budget ---------------------------------------------------------
-nsims              <- 20000L        # Paper uses 20000; scale up for production
-n_workers          <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+nsims              <- 100L        # Paper uses 20000; scale up for production
+n_workers          <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 # -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------
 # N = 700, pH ≈ 13%, θ†(H) = 2.0, θ†(Hc) = 0.65, θ†(ITT) ≈ 0.71
