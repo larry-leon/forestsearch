@@ -127,9 +127,71 @@ default_grf_params_gen <- function() {
 #' @param verbose_n Integer. If set, only print for \code{sim_id <=
 #'   verbose_n}. Default \code{NULL}.
 #' @param debug Logical. Print detailed debug output. Default \code{FALSE}.
+#' @param keep Character vector. Optional names of heavy diagnostic
+#'   objects to attach as a list in \code{attr(result, "diagnostics")}.
+#'   Allowed values (any combination):
+#'   \describe{
+#'     \item{\code{"fs_full"}}{The full \code{forestsearch()} result
+#'       object (minus the \code{df.est} analysis data frame, which is
+#'       stripped to control memory).  Includes \code{sg.harm},
+#'       \code{grp.consistency}, \code{confounders.candidate},
+#'       \code{confounders.evaluated}, GRF cuts, and timing.}
+#'     \item{\code{"df.est"}}{The analysis data frame with
+#'       \code{treat.recommend} column attached.  Heavy; use sparingly.}
+#'     \item{\code{"candidate_table"}}{The data table of candidate
+#'       subgroups evaluated
+#'       (\code{fs_full$grp.consistency$out_sg$result}).  Medium-weight;
+#'       useful for diagnosing which candidates were near-threshold.}
+#'     \item{\code{"grf_full"}}{The full
+#'       \code{grf.subg.harm.*()} result object.}
+#'   }
+#'   Default \code{character(0)} (attach nothing; current behavior).
+#' @param keep_first_n Integer.  When \code{keep} is non-empty, attach
+#'   the requested diagnostics only if \code{sim_id <= keep_first_n}.
+#'   Default \code{Inf} (attach for all replicates).  Use this to
+#'   capture full details for, e.g., the first 20 simulations without
+#'   bloating the result object for long production runs.
 #'
-#' @return A \code{data.table} with one row per analysis method, containing
-#'   subgroup size, HR, AHR, CDE, and classification metrics.
+#' @return A \code{data.table} with one row per analysis method.
+#'   Always-present scalar columns cover: true-subgroup size/effect
+#'   from the DGM, per-method detection flag (\code{any.H}), estimated
+#'   subgroup size (\code{size.H}, \code{size.Hc}), effect estimates
+#'   (\code{hr.H.hat}, \code{hr.Hc.hat}, \code{hr.itt}, and their true
+#'   counterparts), classification metrics against the DGM-stored
+#'   subgroup (\code{sens}, \code{spec}, \code{ppv}, \code{npv}), and
+#'   pairwise concordance between methods (\code{agree.*.*},
+#'   \code{kappa.*.*}).  As of v0.2.0 the following ForestSearch
+#'   diagnostic columns are also always populated (\code{NA} for GRF
+#'   rows):
+#'   \describe{
+#'     \item{\code{sg.def}}{Character.  Cut-expression string of the
+#'       identified subgroup, formed as
+#'       \code{paste(fs_full$sg.harm, collapse = " & ")}.  Empty
+#'       string when no subgroup was identified.  Read across all
+#'       replicates to diagnose which cuts the method is selecting
+#'       (e.g., \code{table(results$sg.def)}).}
+#'     \item{\code{sg.n_factors}}{Integer.  Number of factors in the
+#'       identified subgroup definition.}
+#'     \item{\code{n_candidates_evaluated}}{Integer.  Number of
+#'       candidate subgroups actually evaluated for consistency
+#'       (before or at the early-stop candidate).}
+#'     \item{\code{n_candidates_total}}{Integer.  Total number of
+#'       candidate subgroups available.}
+#'     \item{\code{n_passed}}{Integer.  Number of candidates meeting
+#'       the consistency threshold.}
+#'     \item{\code{consistency_algorithm}}{Character.  \code{"fixed"}
+#'       or \code{"twostage"}.}
+#'     \item{\code{early_stop_triggered}}{Logical.  Whether
+#'       evaluation stopped early due to \code{stop_threshold}.}
+#'     \item{\code{fs_minutes}}{Numeric.  Wall time for the FS run
+#'       in minutes.}
+#'   }
+#'   The analogous GRF row carries \code{sg.def} (from
+#'   \code{grf_result$sg.harm.id}) and \code{grf_selected_depth}.
+#'   When \code{keep} is non-empty and \code{sim_id <= keep_first_n},
+#'   the heavy objects are attached as
+#'   \code{attr(result, "diagnostics")} — a named list with one
+#'   element per keeper (\code{fs_full}, \code{grf_full}, etc.).
 #'
 #' @seealso \code{\link{simulate_from_dgm}},
 #'   \code{\link{generate_aft_dgm_flex}}, \code{\link{setup_gbsg_dgm}}
@@ -180,10 +242,24 @@ run_simulation_analysis <- function(
     seed_base        = 8316951L,
     verbose          = FALSE,
     verbose_n        = NULL,
-    debug            = FALSE
+    debug            = FALSE,
+    keep             = character(0),
+    keep_first_n     = Inf
 ) {
 
   show_verbose <- verbose && (is.null(verbose_n) || sim_id <= verbose_n)
+
+  # ── Validate keep / keep_first_n ─────────────────────────────────────────
+  valid_keep <- c("fs_full", "df.est", "candidate_table", "grf_full")
+  keep_invalid <- setdiff(keep, valid_keep)
+  if (length(keep_invalid) > 0L) {
+    stop(sprintf(
+      "Invalid 'keep' values: %s. Allowed: %s.",
+      paste(shQuote(keep_invalid), collapse = ", "),
+      paste(shQuote(valid_keep), collapse = ", ")
+    ), call. = FALSE)
+  }
+  keep_this_sim <- length(keep) > 0L && sim_id <= keep_first_n
 
   # ── Deprecated parameter shims ─────────────────────────────────────────────
   if (!is.null(max_follow)) {
@@ -321,6 +397,11 @@ run_simulation_analysis <- function(
     message(sprintf("\n[3] Running: %s", paste(to_run, collapse = ", ")))
   }
 
+  # Accumulator for heavy diagnostic objects (populated only when
+  # keep_this_sim = TRUE).  Each element is itself a named list carrying
+  # whichever keepers were requested for that method.
+  diagnostics_list <- list()
+
   if (run_fs) {
     fs_p <- modifyList(
       modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = FALSE)),
@@ -332,9 +413,17 @@ run_simulation_analysis <- function(
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
         outcome_name = outcome_name, event_name = event_name,
         treat_name = treat_name, harm_col = harm_col,
-        label = "FS", verbose = show_verbose
+        label = "FS", verbose = show_verbose,
+        keep = if (keep_this_sim) keep else character(0)
       )
     sg_hat_list[["FS"]] <- attr(fs_out, "sg_hat")
+    if (keep_this_sim) {
+      keepers <- attr(fs_out, "keepers")
+      if (!is.null(keepers)) diagnostics_list[["FS"]] <- keepers
+    }
+    # Strip attributes before cbind so data.table semantics stay clean
+    attr(fs_out, "sg_hat")  <- NULL
+    attr(fs_out, "keepers") <- NULL
     results_list[["FS"]] <- cbind(df_pop, fs_out)
   }
 
@@ -349,9 +438,16 @@ run_simulation_analysis <- function(
         cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
         outcome_name = outcome_name, event_name = event_name,
         treat_name = treat_name, harm_col = harm_col,
-        label = "FSlg", verbose = show_verbose
+        label = "FSlg", verbose = show_verbose,
+        keep = if (keep_this_sim) keep else character(0)
       )
     sg_hat_list[["FSlg"]] <- attr(fslg_out, "sg_hat")
+    if (keep_this_sim) {
+      keepers <- attr(fslg_out, "keepers")
+      if (!is.null(keepers)) diagnostics_list[["FSlg"]] <- keepers
+    }
+    attr(fslg_out, "sg_hat")  <- NULL
+    attr(fslg_out, "keepers") <- NULL
     results_list[["FSlg"]] <- cbind(df_pop, fslg_out)
   }
 
@@ -371,9 +467,16 @@ run_simulation_analysis <- function(
         outcome_type   = fs_params$outcome_type,
         effect_measure = fs_params$effect_measure,
         offset_name    = fs_params$offset.name,
-        id_name        = id_name_resolved
+        id_name        = id_name_resolved,
+        keep = if (keep_this_sim) keep else character(0)
       )
     sg_hat_list[["GRF"]] <- attr(grf_out, "sg_hat")
+    if (keep_this_sim) {
+      keepers <- attr(grf_out, "keepers")
+      if (!is.null(keepers)) diagnostics_list[["GRF"]] <- keepers
+    }
+    attr(grf_out, "sg_hat")  <- NULL
+    attr(grf_out, "keepers") <- NULL
     results_list[["GRF"]] <- cbind(df_pop, grf_out)
   }
 
@@ -421,6 +524,17 @@ run_simulation_analysis <- function(
 
   result <- data.table::rbindlist(results_list, fill = TRUE)
 
+  # Attach heavy diagnostics (only populated when keep_this_sim = TRUE).
+  # Consumers can retrieve via attr(result, "diagnostics").  Note:
+  # data.table::rbindlist() may drop this attribute in downstream
+  # collect_results() unless the caller preserves per-sim structure;
+  # see collect_results(..., keep_diagnostics = TRUE).
+  if (length(diagnostics_list) > 0L) {
+    # Tag with sim_id for provenance when collected across replicates
+    attr(diagnostics_list, "sim_id") <- sim_id
+    attr(result, "diagnostics") <- diagnostics_list
+  }
+
   if (show_verbose)
     message(sprintf("\n[4] Done: %d rows x %d cols\n%s",
                     nrow(result), ncol(result),
@@ -439,7 +553,8 @@ run_simulation_analysis <- function(
     data, confounders_name, params, dgm,
     cox_formula, cox_formula_adj,
     outcome_name, event_name, treat_name, harm_col,
-    label, verbose
+    label, verbose,
+    keep = character(0)
 ) {
   if (verbose) {
     message(sprintf("\n  [%s] ForestSearch: n=%d events=%d (%.1f%%)",
@@ -454,26 +569,25 @@ run_simulation_analysis <- function(
     plot.sg          = FALSE
   )
 
-  valid_pnames <- c(
-    "outcome.name", "event.name", "treat.name", "id.name",
-    "use_lasso", "use_grf", "conf_force",
-    "hr.threshold", "hr.consistency", "pconsistency.threshold",
-    "fs.splits", "n.min", "d0.min", "d1.min",
-    "maxk", "max.minutes", "by.risk", "vi.grf.min",
-    "frac.tau", "dmin.grf", "grf_depth",
-    "use_twostage", "twostage_args",
-    "adverse_outcome", "ps_method", "ps_adjust_method", "ps_hat",
-    "parallel_args",
-    # GLM extension (v0.2.0): these now affect identification —
-    # LASSO family selection, subgroup search path (GLM vs Cox),
-    # and estimator closure — not just downstream estimation.
-    # Safe for survival: when absent from fs_params, forestsearch()
-    # uses its own default (outcome_type = "survival").
-    "outcome_type", "effect_measure", "offset.name",
-    "tune_grf"
+  # Parameters we ALWAYS manage internally — users cannot override
+  # these via fs_params even if they try.  The rest flows from
+  # formals(forestsearch) via filter_valid_args(), so any new
+  # forestsearch() argument is automatically reachable.
+  fs_internal_args <- c(
+    "df.analysis",      # we pass `data` explicitly
+    "confounders.name", # we pass `confounders_name` explicitly
+    "details",          # driven by verbose argument above
+    "plot.sg",          # always FALSE in simulation loops
+    "quiet"             # set below to TRUE
   )
-  for (pn in valid_pnames)
-    if (!is.null(params[[pn]])) fs_args[[pn]] <- params[[pn]]
+
+  user_fs_args <- filter_valid_args(
+    params        = params,
+    target_fun    = forestsearch,
+    exclude       = fs_internal_args,
+    warn_unknown  = FALSE  # silent drop matches legacy behavior
+  )
+  fs_args <- utils::modifyList(fs_args, user_fs_args)
 
   fs_args$quiet <- TRUE
   fs_result <- tryCatch(
@@ -494,7 +608,7 @@ run_simulation_analysis <- function(
   est_outcome <- params[["outcome.name"]] %||% outcome_name
   est_event   <- params[["event.name"]]   %||% event_name
 
-  .extract_fs_estimates_gen(
+  out <- .extract_fs_estimates_gen(
     df           = data,
     fs_res       = if (has_result) fs_result$grp.consistency$out_sg$result else NULL,
     fs_full      = if (has_result) fs_result else NULL,
@@ -511,6 +625,60 @@ run_simulation_analysis <- function(
     effect_measure = params$effect_measure,
     offset_name    = params$offset.name
   )
+
+  # ── Populate FS-specific scalar diagnostics ──────────────────────────────
+  # These are always attached; callers that don't care can ignore them.
+  # Read safely — any path may be NULL when fs_result is NULL or partial.
+  .sg_harm <- if (has_result) fs_result$sg.harm else NULL
+  .gc      <- if (!is.null(fs_result)) fs_result$grp.consistency else NULL
+
+  out$sg.def <- if (!is.null(.sg_harm) && length(.sg_harm) > 0L &&
+                    !all(is.na(.sg_harm))) {
+    paste(.sg_harm, collapse = " & ")
+  } else {
+    ""
+  }
+  out$sg.n_factors <- if (!is.null(.sg_harm))
+    sum(!is.na(.sg_harm)) else 0L
+  out$n_candidates_evaluated <- if (!is.null(.gc$n_candidates_evaluated))
+    as.integer(.gc$n_candidates_evaluated) else NA_integer_
+  out$n_candidates_total     <- if (!is.null(.gc$n_candidates_total))
+    as.integer(.gc$n_candidates_total) else NA_integer_
+  out$n_passed               <- if (!is.null(.gc$n_passed))
+    as.integer(.gc$n_passed) else NA_integer_
+  out$consistency_algorithm  <- if (!is.null(.gc$algorithm))
+    as.character(.gc$algorithm) else NA_character_
+  out$early_stop_triggered   <- if (!is.null(.gc$early_stop_triggered))
+    as.logical(.gc$early_stop_triggered) else NA
+  out$fs_minutes             <- if (!is.null(fs_result$minutes_all))
+    as.numeric(fs_result$minutes_all) else NA_real_
+
+  # ── Assemble keepers (heavy objects) when requested ─────────────────────
+  keepers <- NULL
+  if (length(keep) > 0L && !is.null(fs_result)) {
+    keepers <- list()
+    if ("fs_full" %in% keep) {
+      # Strip df.est (potentially large analysis data frame) to control
+      # memory; users can request it explicitly via keep = "df.est".
+      fs_keep <- fs_result
+      fs_keep$df.est     <- NULL
+      fs_keep$df.predict <- NULL
+      fs_keep$df.test    <- NULL
+      keepers$fs_full <- fs_keep
+    }
+    if ("df.est" %in% keep && !is.null(fs_result$df.est)) {
+      keepers$df.est <- fs_result$df.est
+    }
+    if ("candidate_table" %in% keep && has_result) {
+      keepers$candidate_table <- fs_result$grp.consistency$out_sg$result
+    }
+  }
+
+  # sg_hat is carried by the caller for concordance calculation;
+  # keepers is populated (possibly NULL) for the diagnostics accumulator.
+  attr(out, "keepers") <- keepers
+
+  out
 }
 
 
@@ -748,7 +916,8 @@ run_simulation_analysis <- function(
     outcome_name, event_name, treat_name, harm_col,
     label, verbose, debug,
     outcome_type = NULL, effect_measure = NULL, offset_name = NULL,
-    id_name = "id"
+    id_name = "id",
+    keep = character(0)
 ) {
   # ── GRF function dispatch ────────────────────────────────────────────────
 
@@ -767,7 +936,7 @@ run_simulation_analysis <- function(
 
   if (is.null(grf_fun)) {
     warning(grf_fn_name, " not found. Skipping GRF analysis.")
-    return(.extract_grf_estimates_gen(
+    out <- .extract_grf_estimates_gen(
       df = data, grf_est = NULL, dgm = dgm,
       cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
       outcome_name = outcome_name, event_name = event_name,
@@ -775,16 +944,36 @@ run_simulation_analysis <- function(
       analysis = label, verbose = verbose, debug = debug,
       outcome_type = outcome_type, effect_measure = effect_measure,
       offset_name = offset_name, id_name = id_name
-    ))
+    )
+    out$sg.def <- ""
+    out$sg.n_factors <- 0L
+    out$grf_selected_depth <- NA_integer_
+    attr(out, "keepers") <- NULL
+    return(out)
   }
 
   grf_args <- list(data = data, confounders.name = confounders_name,
                    details = verbose)
-  grf_pnames <- c("outcome.name", "event.name", "id.name", "treat.name",
-                  "frac.tau", "n.min", "dmin.grf", "RCT", "sg.criterion",
-                  "maxdepth", "seedit")
-  for (pn in grf_pnames)
-    if (!is.null(params[[pn]])) grf_args[[pn]] <- params[[pn]]
+
+  # Parameters always managed internally — users cannot override these
+  # via grf_params.  The rest flows from formals(grf_fun), so any new
+  # grf.subg.harm.*() argument is automatically reachable.  grf_fun
+  # was dispatched above to either grf.subg.harm.survival (is_glm FALSE)
+  # or grf.subg.harm.glm (is_glm TRUE), so the allowlist tracks the
+  # correct target signature automatically.
+  grf_internal_args <- c(
+    "data",
+    "confounders.name",
+    "details"
+  )
+
+  user_grf_args <- filter_valid_args(
+    params        = params,
+    target_fun    = grf_fun,
+    exclude       = grf_internal_args,
+    warn_unknown  = FALSE
+  )
+  grf_args <- utils::modifyList(grf_args, user_grf_args)
 
   # GLM-specific parameters (ignored by grf.subg.harm.survival)
   if (is_glm) {
@@ -812,7 +1001,7 @@ run_simulation_analysis <- function(
     error = function(e) { warning(label, " failed: ", e$message); NULL }
   )
 
-  .extract_grf_estimates_gen(
+  out <- .extract_grf_estimates_gen(
     df = data, grf_est = grf_result, dgm = dgm,
     cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
     outcome_name = outcome_name, event_name = event_name,
@@ -821,6 +1010,32 @@ run_simulation_analysis <- function(
     outcome_type = outcome_type, effect_measure = effect_measure,
     offset_name = offset_name, id_name = id_name
   )
+
+  # ── Populate GRF-specific scalar diagnostics ─────────────────────────────
+  # For GRF results, sg.harm.id carries the cut-expression vector
+  # (character).  See docs in grf_subg_harm_glm.R / grf_main.R.
+  .sg_cuts <- if (!is.null(grf_result))
+    grf_result$sg.harm.id %||% grf_result$sg_harm_id else NULL
+
+  out$sg.def <- if (!is.null(.sg_cuts) && length(.sg_cuts) > 0L &&
+                    !all(is.na(.sg_cuts)) && !all(.sg_cuts == "")) {
+    paste(.sg_cuts, collapse = " & ")
+  } else {
+    ""
+  }
+  out$sg.n_factors <- if (!is.null(.sg_cuts))
+    sum(!is.na(.sg_cuts) & .sg_cuts != "") else 0L
+  out$grf_selected_depth <- if (!is.null(grf_result$selected_depth))
+    as.integer(grf_result$selected_depth) else NA_integer_
+
+  # ── Assemble GRF keepers when requested ─────────────────────────────────
+  keepers <- NULL
+  if (length(keep) > 0L && !is.null(grf_result) && "grf_full" %in% keep) {
+    keepers <- list(grf_full = grf_result)
+  }
+  attr(out, "keepers") <- keepers
+
+  out
 }
 
 

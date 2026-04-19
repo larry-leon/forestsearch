@@ -29,7 +29,9 @@ run_simulation_analysis(
   seed_base = 8316951L,
   verbose = FALSE,
   verbose_n = NULL,
-  debug = FALSE
+  debug = FALSE,
+  keep = character(0),
+  keep_first_n = Inf
 )
 }
 \arguments{
@@ -99,10 +101,74 @@ sim_id}. Default \code{8316951L}.}
 verbose_n}. Default \code{NULL}.}
 
 \item{debug}{Logical. Print detailed debug output. Default \code{FALSE}.}
+
+\item{keep}{Character vector. Optional names of heavy diagnostic
+objects to attach as a list in \code{attr(result, "diagnostics")}.
+Allowed values (any combination):
+\describe{
+\item{\code{"fs_full"}}{The full \code{forestsearch()} result
+object (minus the \code{df.est} analysis data frame, which is
+stripped to control memory).  Includes \code{sg.harm},
+\code{grp.consistency}, \code{confounders.candidate},
+\code{confounders.evaluated}, GRF cuts, and timing.}
+\item{\code{"df.est"}}{The analysis data frame with
+\code{treat.recommend} column attached.  Heavy; use sparingly.}
+\item{\code{"candidate_table"}}{The data table of candidate
+subgroups evaluated
+(\code{fs_full$grp.consistency$out_sg$result}).  Medium-weight;
+useful for diagnosing which candidates were near-threshold.}
+\item{\code{"grf_full"}}{The full
+\code{grf.subg.harm.*()} result object.}
+}
+Default \code{character(0)} (attach nothing; current behavior).}
+
+\item{keep_first_n}{Integer.  When \code{keep} is non-empty, attach
+the requested diagnostics only if \code{sim_id <= keep_first_n}.
+Default \code{Inf} (attach for all replicates).  Use this to
+capture full details for, e.g., the first 20 simulations without
+bloating the result object for long production runs.}
 }
 \value{
-A \code{data.table} with one row per analysis method, containing
-subgroup size, HR, AHR, CDE, and classification metrics.
+A \code{data.table} with one row per analysis method.
+Always-present scalar columns cover: true-subgroup size/effect
+from the DGM, per-method detection flag (\code{any.H}), estimated
+subgroup size (\code{size.H}, \code{size.Hc}), effect estimates
+(\code{hr.H.hat}, \code{hr.Hc.hat}, \code{hr.itt}, and their true
+counterparts), classification metrics against the DGM-stored
+subgroup (\code{sens}, \code{spec}, \code{ppv}, \code{npv}), and
+pairwise concordance between methods (\code{agree.*.*},
+\code{kappa.*.*}).  As of v0.2.0 the following ForestSearch
+diagnostic columns are also always populated (\code{NA} for GRF
+rows):
+\describe{
+\item{\code{sg.def}}{Character.  Cut-expression string of the
+identified subgroup, formed as
+\code{paste(fs_full$sg.harm, collapse = " & ")}.  Empty
+string when no subgroup was identified.  Read across all
+replicates to diagnose which cuts the method is selecting
+(e.g., \code{table(results$sg.def)}).}
+\item{\code{sg.n_factors}}{Integer.  Number of factors in the
+identified subgroup definition.}
+\item{\code{n_candidates_evaluated}}{Integer.  Number of
+candidate subgroups actually evaluated for consistency
+(before or at the early-stop candidate).}
+\item{\code{n_candidates_total}}{Integer.  Total number of
+candidate subgroups available.}
+\item{\code{n_passed}}{Integer.  Number of candidates meeting
+the consistency threshold.}
+\item{\code{consistency_algorithm}}{Character.  \code{"fixed"}
+or \code{"twostage"}.}
+\item{\code{early_stop_triggered}}{Logical.  Whether
+evaluation stopped early due to \code{stop_threshold}.}
+\item{\code{fs_minutes}}{Numeric.  Wall time for the FS run
+in minutes.}
+}
+The analogous GRF row carries \code{sg.def} (from
+\code{grf_result$sg.harm.id}) and \code{grf_selected_depth}.
+When \code{keep} is non-empty and \code{sim_id <= keep_first_n},
+the heavy objects are attached as
+\code{attr(result, "diagnostics")} — a named list with one
+element per keeper (\code{fs_full}, \code{grf_full}, etc.).
 }
 \description{
 General replacement for the legacy \code{run_simulation_analysis()} that

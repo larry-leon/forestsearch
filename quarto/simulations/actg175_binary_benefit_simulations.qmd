@@ -1,6 +1,6 @@
 ---
 title: "Simulation Studies Based on ACTG175: Binary Endpoint (GLM)"
-subtitle: "Benefit Subgroup Identification with CD4 Response at 20 Weeks"
+subtitle: "Benefit Subgroup Identification with CD4 Response at 20 Weeks -- Raw Continuous Covariates"
 author: "Larry F. León"
 date: today
 format:
@@ -24,10 +24,46 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 100L
-nsims_null  <- 100L
+nsims_alt   <- 5000L
+nsims_null  <- 20000L
 sim_seed    <- 8316951L
-n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+# -- FS diagnostic capture (priority D) ---------------------------------------
+# run_simulation_analysis() can attach the full forestsearch() and GRF
+# result objects to the first N replicates via keep = / keep_first_n =.
+# Set diag_keep_first_n > 0 to enable diagnostic capture; set to 0L to
+# disable (and save memory).  Default 20L gives Section 7's per-sim detail
+# print and the cross-sim subgroup frequency summary in @sec-results.
+diag_keep_first_n <- 20L
+diag_keep         <- c("fs_full", "candidate_table")
+
+# -- Subgroup-distribution plot thresholds (Section 8.2) ----------------------
+# plot_sg_distribution() displays only subgroup labels that appear in at
+# least min_pct of the detecting sims.  Under H1 (many finds) a larger
+# threshold keeps the bar chart readable; under H0 (rare finds, heavy
+# fragmentation across labels) a smaller threshold keeps any bars at all
+# above the line.  Adjust to taste.  Values are in percent (0-100).
+sgdist_min_pct_alt  <- 0   # H1: identified & complement bars
+sgdist_min_pct_null <- 0   # H0: identified & complement bars
+
+# Cap on the number of bars shown in the subgroup-distribution charts.
+# If more labels clear the min_pct threshold, the top sgdist_top_k are
+# shown and the rest are pooled into a single "Other (k labels)" bar.
+# Prevents unreadable charts under H0 when finds are fragmented across
+# many singleton labels.
+sgdist_top_k         <- 15L
+
+# Whether to render the pooled "Other (k labels)" bar alongside the top
+# sgdist_top_k.  Set FALSE to drop the pooled bar entirely, which keeps
+# the axis tightly focused on the top labels.  Useful under H0 when the
+# "Other" bar is so large that it compresses the top labels visually.
+# The subtitle continues to report the suppressed count for honesty.
+# Per-scenario so you can show the pooled bar under H1 (where it is
+# typically small and informative) and hide it under H0 (where it may
+# dominate).
+sgdist_show_other_alt  <- FALSE
+sgdist_show_other_null <- FALSE
 
 # -- Production projection targets --------------------------------------------
 prod_alt               <- 5000L
@@ -47,15 +83,13 @@ prod_null              <- 25000L
 # monotherapy) and searched for a BENEFIT subgroup Q by switching
 # treatment roles.
 #
-# Cutpoint rationale (from Leon et al. 2024, Section 4.2):
-#   z1 (age):       age > 34       -- median split
-#   z2 (preanti):   preanti <= 745 -- q3 split
-#   z3 (wtkg):      wtkg <= 75     -- GRF-identified prognostic split
-#   z4 (Karnofsky): data-driven median
-#   z5 (CD4):       cd40 <= median
-#   z6 (CD8):       cd80 <= median
-#   z7-z12:         binary indicators passed through as-is
+# True subgroup anchor (used for DGM construction and ground-truth
+# classification ONLY; NOT exposed to the analysis methods):
+#   z1 (age):     age > 34        -- median split
+#   z2 (preanti): preanti <= 745  -- q3 split
 #
+# Analysis candidate covariates are provided as described in the
+# "Realistic analysis setting" block below.
 actg_arms        <- c(1L, 3L)
 actg_treat_arm   <- 1L
 actg_age_cut     <- 34
@@ -64,16 +98,57 @@ actg_preanti_cut <- 744.5
 # -- Benefit search via treatment switching ------------------------------------
 # Under switched roles, the BENEFIT subgroup Q appears as a "harm"
 # subgroup (ddI monotherapy is worse for Q).  Thresholds on OR scale:
-#   c1 = 1/0.60 = 1.667  (screening: OR >= 1.667 under switched roles)
-#   c2 = 1/0.80 = 1.25   (consistency)
+#   c1 = fs_or_threshold    (screening: OR >= c1 under switched roles)
+#   c2 = fs_or_consistency  (consistency)
+# Numeric values are set below in the ForestSearch parameters block
+# and propagated through to Section 1.5 via inline r-references.
 # After identification, ORs are inverted to the original scale via
 # subgroup_notation = "benefit".
 
 # -- DGM construction ---------------------------------------------------------
+# The DGM uses the discretised z1-z12 factor formulation because
+# generate_glm_dgm() requires factor covariates.  The TRUE benefit
+# subgroup is defined by {z1 = 1 AND z2 = 1}, i.e. age > 34 AND
+# preanti <= 744.5.  This provides the ground truth for the
+# sensitivity / PPV computations in run_simulation_analysis().
 dgm_factor_vars   <- paste0("z", 1:12)
 dgm_subgroup_vars <- c("z1", "z2")
 dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
 dgm_n_super       <- 5000L
+
+# -- Realistic analysis setting -----------------------------------------------
+# The simulation mimics a real data analysis in which the analyst does
+# NOT know which variables define Q nor the cuts that identify it.
+# Continuous covariates are therefore supplied to forestsearch() and
+# grf.subg.harm.glm() in their RAW form; the search methods discover
+# cuts themselves (forestsearch: median / GRF-derived / forced cuts;
+# grf.subg.harm.glm: policy-tree splits).
+#
+# NOTE: the true subgroup Q still involves age (continuous, cut at 34)
+# and preanti (continuous, cut at 744.5).  Forestsearch will attempt
+# cuts at medians and GRF-selected thresholds, which will generally
+# DIFFER from the true cuts.  This is the realistic setting and is
+# precisely what we want to evaluate: the method's ability to recover
+# an effect subgroup when the cutpoints are unknown.
+analysis_continuous_vars <- c(
+  "age",      # continuous; TRUE cut (34) unknown to analyst
+  "preanti",  # continuous; TRUE cut (744.5) unknown to analyst
+  "wtkg",     # continuous
+  "karnof",   # Karnofsky score (integer 70-100, treated as continuous)
+  "cd40",     # baseline CD4 (continuous)
+  "cd80"      # baseline CD8 (continuous)
+)
+
+# Truly binary indicators from ACTG175 (passed as factors to the
+# analysis; no cut to discover).
+analysis_binary_vars <- c(
+  "hemo",     # hemophilia (0/1)
+  "homo",     # homosexual activity (0/1)
+  "drugs",    # IV drug use history (0/1)
+  "race",     # race (0/1, white vs non-white as coded)
+  "gender",   # gender (0/1)
+  "symptom"   # symptomatic (0/1)
+)
 
 # -- Calibration ---------------------------------------------------------------
 # Target OR(Q) = 2.0 under SWITCHED treatment (= 0.50 on original scale).
@@ -92,8 +167,8 @@ run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm)
 
 # -- ForestSearch parameters (benefit search thresholds) -----------------------
 fs_or_threshold        <- round(1 / 0.60, 3)   # c1
-fs_or_consistency      <- round(1 / 0.80, 3)   # c2
-fs_pconsistency        <- 0.90
+fs_or_consistency      <- round(1 / 0.75, 3)   # c2
+fs_pconsistency        <- 0.80
 fs_splits              <- 400L
 fs_n_min               <- 60L
 fs_d0_min              <- 10L
@@ -101,38 +176,134 @@ fs_d1_min              <- 10L
 fs_maxk                <- 2L
 fs_vi_grf_min          <- -0.2
 fs_seedit              <- 8316951L
+fs_cont_cutoff         <- 4L   # is.continuous() threshold (# unique values)
+
+# -- Candidate-selection criterion (sg_focus) ---------------------------------
+# `sg_focus` controls how forestsearch() sorts the candidate subgroups that
+# meet the screening threshold, and therefore which one becomes the
+# identified subgroup.  Five options (see ?subgroup_consistency):
+#   "hr"       : primary sort = Pcons desc, secondary = effect size desc,
+#                tertiary = K asc.  Package default.
+#   "maxSG"    : primary sort = N desc (LARGEST candidate first),
+#                secondary = Pcons desc, tertiary = K asc.  Use this when
+#                the goal is to identify the LARGEST benefitting subgroup
+#                among those meeting the consistency threshold.
+#   "minSG"    : primary sort = N asc (smallest candidate first).
+#   "hrMaxSG"  : compound (N desc, effect desc) — forces stop_threshold = NULL.
+#   "hrMinSG"  : compound (N asc, effect desc) — forces stop_threshold = NULL.
+#
+# For this ACTG175 binary-benefit study we want to recover the LARGEST
+# subgroup in which the ZDV+ddI combination is superior to ddI monotherapy,
+# so we use "maxSG".  Early stopping is valid under "maxSG" (single sort
+# criterion), though stop_threshold is set to NULL throughout this document.
+fs_sg_focus            <- "maxSG"
+
+# -- Continuous-variable cut strategy -----------------------------------------
+# cut_type controls how candidate cuts are generated for each continuous
+# covariate that forestsearch detects (i.e. any variable with more than
+# fs_cont_cutoff unique values that is passed through confounders.name).
+#
+#   "default" : per continuous variable, get_conf_force() -> cut_var()
+#               generates FOUR candidate cuts:
+#                   var <= mean(var)
+#                   var <= median(var)    (= Q2)
+#                   var <= qlow(var)      (= Q1, 25th percentile)
+#                   var <= qhigh(var)     (= Q3, 75th percentile)
+#               This is the richer strategy and is the package default.
+#
+#   "median"  : per continuous variable, a SINGLE candidate cut:
+#                   var <= median(var)
+#               Use this to stress-test the "truly unknown cuts" regime
+#               when the true cut is not at the median.
+#
+# Honest disclosure for this setup:
+#   The true Q-defining cuts are age > 34 (~median of arms 1+3) and
+#   preanti <= 744.5 (~Q3 of arms 1+3).  With cut_type = "default",
+#   BOTH true cuts are present in the candidate set (age at median,
+#   preanti at Q3).  With cut_type = "median", only the age cut is
+#   recoverable; preanti's true Q3 cut is NOT in the candidate set,
+#   forcing forestsearch to approximate Q via the wrong threshold.
+#
+# The default value ("default") is kept here so the simulation
+# evaluates the realistic setting where the analyst uses the richer
+# cut strategy a priori (without knowing the truth).  GRF candidate
+# cuts (use_grf = TRUE) are additionally appended to this set.
+fs_cut_type            <- "default"
 
 # -- GRF standalone parameters ------------------------------------------------
 # grf.subg.harm.glm() uses causal_forest() for candidate factor screening,
-# then policy trees for subgroup identification.
+# then policy trees for subgroup identification.  With continuous inputs,
+# policy trees automatically search over all candidate thresholds.
 #
 # dmin.grf: minimum absolute CATE (risk difference) for a policy-tree
-#   node to qualify as a subgroup.  Calibrated via
-#   grf_dmin_calibration_actg175_binary.qmd (100 sims, 12 confounders):
-#     dmin=0.00: Det=100%, FPR=90%
-#     dmin=0.10: Det= 72%, FPR=33%  <- current setting
-#     dmin=0.12: Det= 54%, FPR=20%
-#     dmin=0.15: Det= 28%, FPR= 9%
-#
-# grf_tune: if TRUE, enables cross-validated hyperparameter tuning
-#   (tune.parameters = "all") in causal_forest().  Tunes min.node.size,
-#   mtry, sample.fraction, alpha, imbalance.penalty.  Adds ~2-3 sec per
-#   GRF call but may improve CATE estimation with many confounders.
-#
-# adverse_outcome: controls the 1-Y flip before causal_forest().
-#   For binary benefit search with positive outcome (cd420 > cd40),
-#   run_simulation_analysis() defaults to TRUE for binary outcomes,
-#   which is correct: the switched treatment makes Q have negative
-#   CATE on the flipped scale, aligning with GRF's "harm" convention.
-grf_dmin               <- 0.10    # calibrated for ACTG175 12-confounder setting
-grf_maxdepth           <- 2L      # max policy tree depth (matches FS maxk)
-grf_sg_criterion       <- "mDiff" # subgroup selection criterion
-grf_tune               <- FALSE   # cross-validated GRF hyperparameter tuning
+#   node to qualify as a subgroup.  The calibration grids referenced
+#   below were built on discretised inputs; with raw continuous inputs
+#   the effective candidate-cut space is larger, which typically
+#   INCREASES FPR slightly at a given dmin.grf.  Re-calibration is
+#   recommended for production runs; dmin.grf = 0.10 is the current
+#   conservative default carried over from the discretised setting.
+grf_dmin               <- 0.10
+grf_maxdepth           <- 2L
+grf_sg_criterion       <- "mDiff"
+grf_tune               <- FALSE
 
 # -- ForestSearch pipeline flags -----------------------------------------------
 fs_use_lasso           <- FALSE
 fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
+
+# -- Single-inspection wrapper -------------------------------------------------
+# fs_run() wraps forestsearch() with the parameter values defined above, so
+# the two single-data / single-trial inspection calls (Sections 5 and 6) can
+# share one definition instead of duplicating ~25 lines each.  The wrapper is
+# intentionally narrow in scope: it is for interactive inspection runs where
+# `details = TRUE` / `quiet = FALSE` are appropriate.  The simulation-loop
+# path (Section 8) goes through run_simulation_analysis() instead, which
+# constructs its own silent forestsearch() call internally.
+#
+# Arguments are the four column-name fields that differ between call sites;
+# everything else (thresholds, pipeline flags, parallelism) is taken from
+# the setup-chunk parameters.  Extra arguments are passed through to
+# forestsearch() via `...` so a caller can override e.g. `maxk` without
+# editing the wrapper.
+fs_run <- function(data,
+                   outcome_col,
+                   event_col,
+                   treat_col,
+                   id_col = "id",
+                   ...) {
+  forestsearch(
+    df.analysis      = data,
+    confounders.name = confounders_analysis,
+    outcome.name     = outcome_col,
+    event.name       = event_col,
+    treat.name       = treat_col,
+    id.name          = id_col,
+    outcome_type     = "binary",
+    effect_measure   = "OR",
+    seedit           = fs_seedit,
+    n.min            = fs_n_min,
+    d0.min           = fs_d0_min,
+    d1.min           = fs_d1_min,
+    hr.threshold     = fs_or_threshold,
+    hr.consistency   = fs_or_consistency,
+    pconsistency.threshold = fs_pconsistency,
+    fs.splits        = fs_splits,
+    maxk             = fs_maxk,
+    sg_focus         = fs_sg_focus,
+    use_lasso        = fs_use_lasso,
+    use_grf          = fs_use_grf,
+    is.RCT           = fs_is_rct,
+    vi.grf.min       = fs_vi_grf_min,
+    cont.cutoff      = fs_cont_cutoff,
+    cut_type         = fs_cut_type,
+    details          = TRUE,
+    quiet            = FALSE,
+    parallel_args    = list(plan = "sequential", workers = 1,
+                             show_message = FALSE),
+    ...
+  )
+}
 
 # -- Reporting -----------------------------------------------------------------
 sg_notation            <- "benefit"
@@ -165,11 +336,64 @@ The simulation uses the `forestsearch` GLM simulation suite
 `run_simulation_analysis()` via class-based dispatch on the
 `"glm_dgm"` object.
 
+## Realistic Analysis Setting
+
+A prior version of this simulation discretised every continuous
+covariate into a binary factor **before** handing the data to
+`forestsearch()` / `grf.subg.harm.glm()`.  The binarisation used
+the same cuts that define the true subgroup $Q$ (e.g. age > 34,
+preanti $\leq$ 744.5).  That setup implicitly gives the analysis
+method knowledge of the true cutpoints, which is unrealistic.
+
+The current setup **retains continuous covariates in their raw
+form for the analysis step**.  The data-generating mechanism
+(DGM) is built from the discretised factors (`z1`--`z12`) because
+`generate_glm_dgm()` requires factor covariates and the true
+subgroup must be defined algebraically.  The analysis methods,
+however, see the **raw** continuous columns (`age`, `preanti`,
+`wtkg`, `karnof`, `cd40`, `cd80`) along with the six truly
+binary indicators (`hemo`, `homo`, `drugs`, `race`, `gender`,
+`symptom`).  Cutpoints for the continuous covariates are
+discovered by the search methods themselves (median splits,
+GRF-derived cuts, policy-tree splits), exactly as in a real
+analysis.
+
+::: {.callout-important}
+## What changes vs the prior (discretised) setup
+
+- **Ground truth is unchanged**: the true benefit subgroup $Q$
+  is still $\{\text{age} > 34\} \cap \{\text{preanti} \leq 744.5\}$
+  with prevalence $\approx 34\%$, and the DGM's OR(Q) calibration
+  is untouched.
+- **Classification metrics are unchanged in definition**: `flag_harm`
+  is computed identically from `z1` and `z2`.
+- **What changes is the search problem**: ForestSearch must
+  discover the cuts from candidate thresholds; GRF builds policy
+  trees over raw continuous inputs.  Expect lower sensitivity and
+  PPV than the discretised setting, because the analyst does not
+  receive oracle cuts.
+
+**Cut-set coverage for this run.**  ForestSearch is configured with
+`cut_type = "default"` (the package default), which generates four
+candidate cuts per continuous covariate: mean, median, Q1, and Q3.
+For the ACTG175 covariate distribution the median of `age` is
+approximately 34 and Q3 of `preanti` is approximately 744.5, so
+**both true Q-defining cuts happen to fall inside the default
+candidate set** — they are simply not privileged over the other
+candidates.  The analyst has no oracle knowledge of which cuts
+matter; ForestSearch must select them based on the data.  Switching
+to `cut_type = "median"` would exclude preanti's Q3 cut from the
+candidate set entirely, providing a harder stress test.  GRF policy
+trees search over all continuous thresholds internally and are
+unaffected by this setting.
+:::
+
 ## Statistical Goals
 
 This simulation study addresses three questions about
 ForestSearch and GRF standalone subgroup identification
-applied to **binary outcomes**:
+applied to **binary outcomes** in the realistic (raw covariate)
+setting:
 
 1. **Detection power (H1)**: When a benefit subgroup $Q$
    exists with OR(Q) = `r cal_target_or` (switched scale),
@@ -194,16 +418,22 @@ summary of detection, classification, and timing from this run.
 The simulation proceeds in six steps:
 
 1. **Data preparation** (@sec-data): Load the ACTG175 trial,
-   restrict to arms 1 (ZDV+ddI) and 3 (ddI), create binary
-   covariates $z_1$--$z_{12}$, and switch treatment labels
-   so ddI = `treat = 1` and ZDV+ddI = `treat = 0` (benefit
-   search convention).
+   restrict to arms 1 (ZDV+ddI) and 3 (ddI), switch treatment
+   labels so ddI = `treat = 1` and ZDV+ddI = `treat = 0`
+   (benefit search convention), and construct BOTH:
+   (a) the binary `z1`--`z12` factor set needed by the DGM; and
+   (b) the realistic analysis candidate set
+   (`age`, `preanti`, `wtkg`, `karnof`, `cd40`, `cd80`, `hemo`,
+   `homo`, `drugs`, `race`, `gender`, `symptom`).
 
 2. **DGM construction** (@sec-dgm): Fit a logistic regression
-   to the observed data, create a 5,000-subject super-population,
-   and define the true benefit subgroup
+   to the observed data using the `z1`--`z12` factor
+   formulation, create a 5,000-subject super-population, and
+   define the true benefit subgroup
    $Q = \{z_1 = 1 \cap z_2 = 1\}$ (age > `r actg_age_cut`
-   AND preanti $\leq$ `r actg_preanti_cut`).
+   AND preanti $\leq$ `r actg_preanti_cut`).  The super-
+   population retains the **raw** covariate columns as well as
+   the `z1`--`z12` indicators.
 
 3. **Calibration** (@sec-calibrate): Search over `k_inter`
    values to find the interaction strength that produces
@@ -211,15 +441,16 @@ The simulation proceeds in six steps:
    (= $`r round(1/cal_target_or, 2)`$ on the original scale).
 
 4. **Single-data analysis** (@sec-single): Run ForestSearch
-   and GRF on the observed ACTG175 data to verify the
-   pipeline produces valid results before scaling to
-   simulation.
+   and GRF on the observed ACTG175 data using the **raw**
+   analysis candidate set to verify the pipeline produces
+   valid results before scaling to simulation.
 
 5. **Monte Carlo simulation** (@sec-sims): For each of
    `r nsims_alt` alternative and `r nsims_null` null
    replicates, draw a random sample of $N = `r sim_n_sample`$
-   from the DGM super-population, run ForestSearch and GRF,
-   and record detection, classification, and effect estimates.
+   from the DGM super-population, run ForestSearch and GRF
+   on the raw analysis covariates, and record detection,
+   classification, and effect estimates.
 
 6. **Evaluation** (@sec-results): Compute operating
    characteristics (detection, sensitivity, PPV, effect
@@ -234,8 +465,11 @@ replacing hazard ratios (HR):
 1. **Switch treatment roles**: ddI monotherapy $\to$ `treat = 1`,
    ZDV+ddI combination $\to$ `treat = 0`.
 
-2. **Raise thresholds** on the OR scale:
-   $c_1 = 1/0.60 \approx 1.667$, $c_2 = 1/0.80 = 1.25$.
+2. **Raise thresholds** on the OR scale: $c_1 =$ `r fs_or_threshold`
+   (screening) and $c_2 =$ `r fs_or_consistency` (consistency).  Both
+   come from the Quarto setup chunk (`fs_or_threshold`,
+   `fs_or_consistency`) so any change to the setup parameters flows
+   through here automatically.
 
 3. **Run ForestSearch** with `outcome_type = "binary"`,
    `effect_measure = "OR"`.
@@ -245,10 +479,55 @@ replacing hazard ratios (HR):
    functions.
 
 
-# GRF Standalone: Calibration Summary {#sec-grf-calibration}
+## Candidate Selection: `sg_focus = "maxSG"`
+
+When several candidate subgroups simultaneously meet both the screening
+threshold ($c_1 =$ `r fs_or_threshold`) and the consistency threshold
+($c_2 =$ `r fs_or_consistency`), `forestsearch()` must pick one.  That
+choice is governed by `sg_focus`.  Five options are available:
+
+| `sg_focus`  | Primary sort   | Secondary        | Tertiary | Interpretation |
+|-------------|----------------|------------------|----------|-----------------|
+| `"hr"`      | Pcons desc     | effect desc      | K asc    | Package default. Favours *most-consistent* candidate. |
+| `"maxSG"`   | **N desc**     | Pcons desc       | K asc    | **Largest** qualifying candidate. |
+| `"minSG"`   | N asc          | Pcons desc       | K asc    | Smallest qualifying candidate. |
+| `"hrMaxSG"` | N desc         | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
+| `"hrMinSG"` | N asc          | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
+
+For the ACTG175 benefit search, the analytic goal is to recover the
+**largest subgroup in which the ZDV+ddI combination is superior to ddI
+monotherapy** — the population we would, in a real trial, most want to
+describe and quantify.  Once the screening-plus-consistency filter has
+passed, there is no further reason to pick a smaller, tighter subgroup;
+the largest qualifying candidate is the most policy-relevant one.
+
+We therefore use `fs_sg_focus <- "maxSG"` throughout this document (set
+in the Quarto setup chunk). The concrete effect is:
+
+- **Sort is by candidate N (descending)**, with Pcons as tiebreaker.
+  Among candidates that pass screening and consistency, FS keeps the
+  one with the largest $|H|$.
+- **Single sort criterion**, so early stopping remains valid;
+  `stop_threshold` can still be set if desired.  (In this document we
+  set `stop_threshold = NULL` so all qualifying candidates are
+  enumerated.)
+
+This choice has two practical consequences that we track throughout
+the operating-characteristics analysis:
+
+1. $\widehat{|H|}$ will typically be closer to $|Q|$ than under the
+   default `sg_focus = "hr"`, which trades size for consistency and
+   tends to return strict subsets of $Q$.
+2. The distribution of identified subgroups across simulations
+   (reported in Section 8.2) should concentrate on a small number of
+   definitions close to the true $Q$ anchor, rather than fragmenting
+   into many small tight splits.
+
+
+# GRF Standalone: Calibration Notes {#sec-grf-calibration}
 
 The standalone GRF analysis uses `grf.subg.harm.glm()` with
-`causal_forest()` for candidate factor screening and policy
+`causal_forest()` for candidate variable screening and policy
 trees for subgroup identification.  The key tuning parameter
 is `dmin.grf`, the minimum absolute CATE (conditional average
 treatment effect) on the **risk difference** scale required for
@@ -264,32 +543,27 @@ For the **benefit + positive** scenario with switched treatment
 - GRF identifies the subgroup where the switched "treatment"
   produces the most negative CATE --- i.e., where ddI monotherapy
   is worst relative to combination, which is the **benefit**
-  subgroup on the original scale
+  subgroup on the original scale.
 
-The `adverse_outcome` parameter has **no effect** for this
-scenario type because the outcome is positive and not flipped.
+## Impact of Raw Continuous Inputs on Calibration
 
-## Calibration Results
+Prior `dmin.grf` calibration (in `grf_dmin_calibration_binary.qmd`)
+was conducted on **discretised** inputs (`z1`--`z12` binary
+factors) and recommended `dmin.grf = 0.02` for the benefit +
+positive binary configuration.
 
-The `grf_dmin_calibration_binary.qmd` document evaluated
-`dmin.grf` across 10 grid points (0 to 0.30) at three
-effect sizes (weak/moderate/strong), using 1,500 simulations
-per grid point.  Results for the Benefit+Positive scenario:
+With raw continuous inputs the policy-tree search evaluates
+many more candidate thresholds per covariate, which tends to:
 
-| `dmin.grf` | Detection (%) | FPR (%) | Recommendation |
-|------------|--------------|---------|----------------|
-| 0.00       | 76--100      | 18      | High FPR       |
-| **0.02**   | **76--100**  | **9**   | **Selected**   |
-| 0.05       | 76--100      | 3       | Conservative   |
-| 0.08       | 75--100      | 1       | Very conservative |
-| 0.10       | 75--99       | < 1     | Detection loss at weak effects |
-| 0.15       | 57--82       | 0       | Substantial power loss |
+- **Widen the null distribution of the best CATE**, inflating
+  the false positive rate at a given `dmin.grf`.
+- **Improve sensitivity to the true cuts** when they align with
+  natural splits in the covariate distribution.
 
-The selected `dmin.grf = 0.02` corresponds to a 2 percentage
-point minimum risk difference --- clinically, GRF requires at
-least a 2% absolute difference in event rates between treatment
-arms to flag a subgroup.  This achieves detection $\geq 76\%$
-even at weak effect sizes while controlling FPR to $\leq 9\%$.
+The current document uses `dmin.grf = `r grf_dmin`` as a
+conservative default carried over from the discretised setting.
+A dedicated calibration run with raw continuous inputs is
+recommended before production scaling.
 
 ::: {.callout-note}
 The GRF FPR is higher than ForestSearch's because GRF lacks the
@@ -304,6 +578,8 @@ threshold-free comparison.
 # Data Preparation {#sec-data}
 
 ```{r load-packages}
+#| code-fold: true
+#| code-summary: "Library loads (click to expand)"
 library(forestsearch)
 library(survival)
 library(speff2trial)
@@ -313,41 +589,17 @@ library(ggplot2)
 library(doFuture)
 library(foreach)
 
-# -- Safe foreach result collection -------------------------------------------
-# Replaces .errorhandling = "remove" (which silently drops failures)
-# with .errorhandling = "pass" + post-hoc separation of errors from results.
-collect_results <- function(raw_list, label = "") {
-  is_err <- vapply(raw_list, inherits, logical(1), "error")
-  n_failed <- sum(is_err)
-  if (n_failed > 0) {
-    err_msgs <- vapply(raw_list[is_err], conditionMessage, character(1))
-    # Use cat() for immediate output (warning/message may be buffered)
-    cat(sprintf("*** %s%d of %d tasks failed ***\n",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        n_failed, length(raw_list)))
-    cat("  First errors:\n")
-    for (msg in head(unique(err_msgs), 3)) cat("    ", msg, "\n")
-  }
-  good <- raw_list[!is_err]
-  if (length(good) == 0) {
-    # Return empty data.frame instead of NULL to avoid attr() crash
-    result <- data.frame()
-    warning(sprintf("%sAll %d tasks failed. See error messages above.",
-        if (nzchar(label)) paste0(label, ": ") else "",
-        length(raw_list)))
-  } else if (requireNamespace("data.table", quietly = TRUE)) {
-    result <- data.table::rbindlist(good, use.names = TRUE, fill = TRUE)
-    result <- as.data.frame(result)
-  } else {
-    result <- do.call(rbind, good)
-  }
-  attr(result, "n_failed") <- n_failed
-  attr(result, "n_total") <- length(raw_list)
-  result
-}
+# Safe foreach result collection and worker resets are provided by
+# forestsearch v0.2.0 via the exported helpers collect_results() and
+# reset_workers() (R/forestsearch_helpers.R).  Call as
+# forestsearch::collect_results(...) or just collect_results(...) after
+# library(forestsearch).
 ```
 
 ```{r prepare-datasets}
+#| code-fold: true
+#| code-summary: "Data preparation & classification_metrics() helper (click to expand)"
+
 t0 <- proc.time()[3]
 
 # -- ACTG175: arms 1 (ZDV+ddI) vs 3 (ddI) ------------------------------------
@@ -368,16 +620,25 @@ n_before <- nrow(actg_df)
 actg_df <- actg_df[!is.na(actg_df$cd420), ]
 n_after  <- nrow(actg_df)
 
-cat(sprintf("ACTG175: N = %d -> %d after removing %d with missing cd420\n",
-    n_before, n_after, n_before - n_after))
-cat(sprintf("Overall response rate: %.1f%%\n",
-    100 * mean(actg_df$y_binary)))
-cat(sprintf("  ZDV+ddI (arm 1): %.1f%%\n",
-    100 * mean(actg_df$y_binary[actg_df$treat_orig == 1])))
-cat(sprintf("  ddI (arm 3):     %.1f%%\n",
-    100 * mean(actg_df$y_binary[actg_df$treat_orig == 0])))
+# =============================================================================
+# Two parallel covariate views are constructed on the SAME data frame:
+#
+#   (1) DGM factor set: z1--z12 binary factors. Used by generate_glm_dgm()
+#       and calibrate_glm_interaction() to fit the baseline logistic
+#       regression and define the TRUE subgroup Q = {z1=1 & z2=1}.
+#
+#   (2) Analysis candidate set: raw continuous covariates + truly binary
+#       indicators. Used by forestsearch() and grf.subg.harm.glm() in
+#       both the observed-data analysis and every simulated replicate.
+#       The analyst does NOT know the cuts that define Q.
+# =============================================================================
 
-# -- Discretise covariates (same as survival version) --------------------------
+# -- (1) DGM factor set: z1-z12 binary factors --------------------------------
+#
+# The z-series preserves the discretisation from León et al. (2024,
+# Section 4.2). These are needed by the DGM because generate_glm_dgm()
+# requires factor covariates, and because the true Q is defined
+# algebraically in terms of z1 and z2.
 actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
 actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
 actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
@@ -394,30 +655,237 @@ actg_df$z10 <- as.factor(actg_df$race)
 actg_df$z11 <- as.factor(actg_df$gender)
 actg_df$z12 <- as.factor(actg_df$symptom)
 
-cat(sprintf("\nSubgroup Q: Age > %d AND Preanti <= %.0f\n",
-    actg_age_cut, actg_preanti_cut))
+# -- (2) Analysis candidate set: raw + binary ---------------------------------
+#
+# The continuous columns (age, preanti, wtkg, karnof, cd40, cd80) are
+# ALREADY in the ACTG175 dataframe in their raw form. We make the six
+# truly-binary indicators into factors so that forestsearch's
+# is.continuous() detection treats them as categorical without
+# attempting median/GRF cuts.
+for (v in analysis_binary_vars) {
+  actg_df[[v]] <- as.factor(actg_df[[v]])
+}
 
-# True subgroup flag (for reference -- generate_glm_dgm creates its own)
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
+# Sanity: covariate-type inventory for the analyst-visible candidate set
+cov_types <- vapply(confounders_analysis,
+  function(v) if (is.factor(actg_df[[v]])) "factor" else class(actg_df[[v]])[1],
+  character(1))
+n_unique_per_cov <- vapply(confounders_analysis,
+  function(v) length(unique(actg_df[[v]])), integer(1))
+
+# -- True subgroup flag (for reference; generate_glm_dgm creates its own) -----
 actg_df$flag_harm_ref <- as.integer(
   actg_df$z1 == 1 & actg_df$z2 == 1
 )
-cat(sprintf("  Q prevalence: %d / %d (%.1f%%)\n",
-    sum(actg_df$flag_harm_ref), nrow(actg_df),
-    100 * mean(actg_df$flag_harm_ref)))
 
-cat(sprintf("\nResponse rates by subgroup (original scale):\n"))
-cat(sprintf("  Q:  ZDV+ddI = %.1f%%,  ddI = %.1f%%\n",
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 &
-                                  actg_df$treat_orig == 1]),
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 &
-                                  actg_df$treat_orig == 0])))
-cat(sprintf("  Qc: ZDV+ddI = %.1f%%,  ddI = %.1f%%\n",
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 &
-                                  actg_df$treat_orig == 1]),
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 &
-                                  actg_df$treat_orig == 0])))
+# -- Summary scalars captured for downstream display ---------------------------
+# (Displayed below via structured callout + gt tables, not cat().)
+n_ex_missing <- n_before - n_after
+resp_overall <- 100 * mean(actg_df$y_binary)
+resp_ZDV_ddI <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 1])
+resp_ddI     <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 0])
+Q_n          <- sum(actg_df$flag_harm_ref)
+Q_N          <- nrow(actg_df)
+Q_prev_pct   <- 100 * mean(actg_df$flag_harm_ref)
+
+# Response-rate 2x2 grid (row = subgroup, col = treatment arm)
+resp_grid <- data.frame(
+  Subgroup  = c("Q (age > 34 & preanti \u2264 745)",
+                "Qc (complement)"),
+  `ZDV+ddI` = c(
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 1]),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 1])),
+  `ddI`     = c(
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 0]),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0])),
+  check.names = FALSE
+)
+
+# -----------------------------------------------------------------------------
+# Classification-metrics helper
+# -----------------------------------------------------------------------------
+# Mirrors the arithmetic used inside run_simulation_analysis() (see lines
+# 691-697 of R/run_simulation_analysis.R) so single-data and single-trial
+# reports agree with simulation summaries.  Returns BOTH the numeric list
+# (for inline interpolation) AND a gt table (for display).
+#
+# Inputs:
+#   hat_H   logical of length N.  TRUE = subject is in the identified H-hat.
+#   true_H  logical of length N.  TRUE = subject is in the true / anchoring H.
+#   title   character, table header.
+#   show_npv  logical.  Include NPV column (omitted in hypothetical-truth
+#             contexts to match prior vignette output).
+#   truth_label  character, passed through to the table caption to
+#                distinguish "DGM-anchoring (hypothetical)" from "known
+#                true subgroup (simulated)".
+#
+# Returns a list with components:
+#   n_hat, n_true, tp, fp, fn, tn, sens, spec, ppv, npv (scalar numerics;
+#   NPV may be NA if show_npv = FALSE), plus $table (a gt object ready
+#   to be printed).
+classification_metrics <- function(hat_H, true_H,
+                                   title       = "Classification metrics",
+                                   show_npv    = TRUE,
+                                   truth_label = NULL) {
+  stopifnot(length(hat_H) == length(true_H))
+  hat_H  <- as.logical(hat_H)
+  true_H <- as.logical(true_H)
+
+  tp <- sum( hat_H &  true_H, na.rm = TRUE)
+  fp <- sum( hat_H & !true_H, na.rm = TRUE)
+  fn <- sum(!hat_H &  true_H, na.rm = TRUE)
+  tn <- sum(!hat_H & !true_H, na.rm = TRUE)
+
+  sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
+  spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
+  ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
+  npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
+
+  # Display table: counts row + metrics row
+  counts_row  <- data.frame(
+    Metric = "Counts",
+    `n(H-hat)` = sum(hat_H),
+    `n(true H)` = sum(true_H),
+    TP = tp, FP = fp, FN = fn, TN = tn,
+    check.names = FALSE
+  )
+  metrics_row <- data.frame(
+    Metric = "Rates",
+    `Sens`  = sens,
+    `Spec`  = spec,
+    `PPV`   = ppv,
+    `NPV`   = if (show_npv) npv else NA_real_,
+    check.names = FALSE
+  )
+
+  tbl_counts <- gt::gt(counts_row) |>
+    gt::tab_header(title = title,
+                   subtitle = if (!is.null(truth_label))
+                     sprintf("Truth reference: %s", truth_label) else NULL) |>
+    gt::tab_options(table.font.size = 11)
+
+  tbl_metrics_df <- metrics_row
+  metric_cols <- c("Sens", "Spec", "PPV")
+  if (show_npv) {
+    metric_cols <- c(metric_cols, "NPV")
+  } else {
+    tbl_metrics_df$NPV <- NULL
+  }
+  tbl_metrics <- gt::gt(tbl_metrics_df) |>
+    gt::fmt_number(columns = gt::all_of(metric_cols), decimals = 3) |>
+    gt::tab_options(table.font.size = 11)
+
+  list(
+    n_hat = sum(hat_H), n_true = sum(true_H),
+    tp = tp, fp = fp, fn = fn, tn = tn,
+    sens = sens, spec = spec, ppv = ppv, npv = npv,
+    table_counts  = tbl_counts,
+    table_metrics = tbl_metrics
+  )
+}
 
 timings$data_prep <- proc.time()[3] - t0
+```
+
+::: {.callout-note title="Dataset summary"}
+- **Source cohort**: ACTG175 arms 1 (ZDV+ddI, experimental) and 3
+  (ddI, control). N = `r n_before` before exclusion,
+  **N = `r Q_N`** after removing `r n_ex_missing` subject(s) with
+  missing `cd420`.
+- **Outcome**: binary response `y_binary = I(cd420 > cd40)`.
+  Overall response rate `r sprintf("%.1f%%", resp_overall)`;
+  ZDV+ddI arm `r sprintf("%.1f%%", resp_ZDV_ddI)`; ddI arm
+  `r sprintf("%.1f%%", resp_ddI)`.
+- **True subgroup Q** (used for ground-truth classification only, not
+  exposed to the analysis methods): age $>$ `r actg_age_cut` AND
+  preanti $\le$ `r actg_preanti_cut`. Prevalence **`r Q_n` / `r Q_N`
+  (`r sprintf("%.1f%%", Q_prev_pct)`)**.
+- **Analysis candidate set** (`r length(confounders_analysis)` covariates):
+  `r length(analysis_continuous_vars)` continuous
+  (`r paste(analysis_continuous_vars, collapse = ", ")`) +
+  `r length(analysis_binary_vars)` binary factors
+  (`r paste(analysis_binary_vars, collapse = ", ")`).
+- **DGM factor set**: z1–z12 binary factors, preserving the
+  discretisation from León et al. (2024, Section 4.2). Kept on the same
+  data frame so `generate_glm_dgm()` can build the super-population from
+  the factor representation while the analysis methods see the raw
+  continuous covariates.
+:::
+
+## Baseline Characteristics by Treatment Arm
+
+```{r tbl1-demographics}
+#| code-fold: true
+
+# Label the original-scale arms for the header row (benefit-search
+# "switched treatment" is a package-internal convention; the reader
+# should see the original clinical labels in the demographics table).
+actg_df$treat_label <- factor(
+  ifelse(actg_df$treat_orig == 1L, "ZDV+ddI (experimental)",
+                                    "ddI (control)"),
+  levels = c("ddI (control)", "ZDV+ddI (experimental)")
+)
+
+create_summary_table(
+  data             = actg_df,
+  treat_var        = "treat_label",
+  vars_continuous  = analysis_continuous_vars,
+  vars_categorical = analysis_binary_vars,
+  var_labels       = list(
+    age     = "Age, years",
+    preanti = "Days of prior antiretroviral therapy",
+    wtkg    = "Weight, kg",
+    karnof  = "Karnofsky score",
+    cd40    = "Baseline CD4 count",
+    cd80    = "Baseline CD8 count",
+    hemo    = "Hemophilia",
+    homo    = "Homosexual activity",
+    drugs   = "IV drug use history",
+    race    = "Non-white race",
+    gender  = "Male",
+    symptom = "Symptomatic"
+  ),
+  table_title      = "ACTG175: Baseline Characteristics by Treatment Arm",
+  table_subtitle   = sprintf("N = %d (ZDV+ddI: %d; ddI: %d)",
+                             nrow(actg_df),
+                             sum(actg_df$treat_orig == 1L),
+                             sum(actg_df$treat_orig == 0L)),
+  source_note      = paste(
+    "Analysis candidate set (what forestsearch / GRF see).",
+    "Continuous variables are NOT discretised in the analysis step \u2014",
+    "cut points are discovered by the methods."
+  ),
+  show_pvalue      = TRUE,
+  show_smd         = TRUE,
+  show_missing     = FALSE,
+  font_size        = 11
+)
+```
+
+## Response Rates by Subgroup and Arm
+
+```{r tbl1-response-grid}
+#| code-fold: true
+
+gt::gt(resp_grid) |>
+  gt::tab_header(
+    title    = "Response Rate (%) by True Subgroup and Treatment Arm",
+    subtitle = "Original treatment scale; subgroup Q = {age > 34} AND {preanti \u2264 745}"
+  ) |>
+  gt::fmt_number(columns = c("ZDV+ddI", "ddI"), decimals = 1) |>
+  gt::cols_label(
+    Subgroup    = gt::md("**Subgroup**"),
+    `ZDV+ddI`   = gt::md("**ZDV+ddI**"),
+    `ddI`       = gt::md("**ddI**")
+  ) |>
+  gt::tab_source_note(
+    source_note = gt::md(sprintf(
+      "For reference only \u2014 this is the observed *marginal* response-rate pattern in the true subgroup and its complement. The DGM calibrates to OR(Q) = %.2f on the switched (benefit-search) scale; see Section 4.",
+      cal_target_or))
+  ) |>
+  gt::tab_options(table.font.size = 11)
 ```
 
 
@@ -428,6 +896,15 @@ on the observed ACTG175 data, create a super-population with
 individual-level potential outcomes ($p_0$, $p_1$), and compute
 true subgroup effects.  `calibrate_glm_interaction()` then searches
 for the `k_inter` that produces the target OR(Q).
+
+**Note on DGM inputs.**  The DGM continues to use the `z1`--`z12`
+factor formulation.  This is a design requirement of
+`generate_glm_dgm()` (which coerces any input to `factor` via
+`as.factor()`) and is also the natural way to define the true
+subgroup $Q$ algebraically.  The super-population returned by
+the DGM *retains all original columns of `actg_df`*, including
+the raw `age`, `preanti`, `wtkg`, `karnof`, `cd40`, `cd80`
+columns, which are then used by the analysis step.
 
 ## Step 1: Build Initial DGM
 
@@ -454,6 +931,16 @@ cat("\n=== Initial ACTG175 Binary DGM ===\n")
 cat("  OR(Q):  ", round(dgm_alt_init$hazard_ratios$harm_subgroup, 3), "\n")
 cat("  OR(Qc): ", round(dgm_alt_init$hazard_ratios$no_harm_subgroup, 3), "\n")
 cat("  OR(ITT):", round(dgm_alt_init$hazard_ratios$overall, 3), "\n")
+
+# Sanity check: super-population retains raw continuous columns
+missing_raw <- setdiff(analysis_continuous_vars, names(dgm_alt_init$df_super))
+if (length(missing_raw) > 0) {
+  stop("DGM super-population is missing raw continuous columns: ",
+       paste(missing_raw, collapse = ", "))
+} else {
+  cat("\nRaw continuous columns present in super-population: ",
+      paste(analysis_continuous_vars, collapse = ", "), "\n")
+}
 
 timings$dgm_init <- proc.time()[3] - t0
 ```
@@ -507,6 +994,8 @@ timings$calibrate <- proc.time()[3] - t0
 ### Calibration Curve
 
 ```{r calibration-plot, fig.height=5}
+#| code-fold: true
+#| code-summary: "Calibration-curve ggplot (click to expand)"
 #| fig-cap: "Calibration of k_inter: OR(Q) as a function of the interaction parameter."
 
 cal_grid <- seq(cal_k_grid_range[1], cal_k_grid_range[2], by = cal_grid_step)
@@ -588,53 +1077,79 @@ timings$dgm_null <- proc.time()[3] - t0
 
 # Single-Data Analysis {#sec-single}
 
+:::{.callout-important title="Real-data setting: the 'true' subgroup is hypothetical"}
+This section analyses the **actual ACTG175 data** -- not a simulated
+trial.  The true benefit subgroup in a real trial is **unknown**; it is
+the object the analysis is trying to estimate.
+
+For the package's classification machinery to report values, however,
+some reference subgroup must be supplied as `flag_harm_ref`.  Here we
+use the anchor
+$Q_{\text{ref}} = \{\text{age} > `r actg_age_cut`\} \cap \{\text{preanti} \le `r actg_preanti_cut`\}$
+because this is the subgroup around which the **simulation DGM is
+calibrated** (see @sec-dgm).  It is the natural reference for judging
+whether the method recovers the DGM-embedded signal in the observed
+data, **but it is not an oracle claim about clinical truth**.
+
+As a consequence, the TP / FP / FN / TN / sensitivity / specificity /
+PPV values reported below for the single-data FS run are best read as
+**"agreement with the DGM-anchoring subgroup"**, not as
+classification-against-truth.  On genuinely unseen real data with no
+simulation DGM attached, these metrics are not defined and should not
+be reported.
+:::
+
 Before any simulation, run ForestSearch on the **actual ACTG175
 data** with `details = TRUE` to examine every step of the
 procedure: LASSO screening, GRF variable importance, candidate
 enumeration, and bootstrap consistency.
 
+The analysis uses the **realistic candidate set**:
+
+```{r show-analysis-set}
+#| code-fold: true
+#| code-summary: "Echo candidate covariate set (click to expand)"
+#| output: false
+cat("Analysis candidate covariates (no oracle cuts):\n")
+cat("  Continuous:", paste(analysis_continuous_vars, collapse = ", "), "\n")
+cat("  Binary:    ", paste(analysis_binary_vars, collapse = ", "), "\n")
+cat("\nForestsearch / GRF will discover cuts on the continuous\n")
+cat("covariates themselves; the TRUE cuts (age > 34, preanti <= 745)\n")
+cat("are NOT provided.\n")
+```
+
+::: {.callout-note title="What the analysis methods see"}
+The analysis candidate set (passed to `forestsearch()` / `grf.subg.harm.glm()`
+as `confounders.name`) is:
+
+- **Continuous** (`r length(analysis_continuous_vars)`):
+  `r paste(analysis_continuous_vars, collapse = ", ")`
+- **Binary** (`r length(analysis_binary_vars)`):
+  `r paste(analysis_binary_vars, collapse = ", ")`
+
+The methods discover cuts on the continuous covariates themselves;
+the TRUE cuts (age $>$ `r actg_age_cut`, preanti $\le$
+`r actg_preanti_cut`) are **not** provided.
+:::
+
 ```{r single-data}
-#| code-fold: false
+#| code-fold: true
+#| code-summary: "fs_run() on real data (click to expand)"
 t0 <- proc.time()[3]
 
-cat("=", rep("=", 60), "\n", sep = "")
-cat("  ForestSearch on ACTG175 observed data\n")
-cat("  outcome_type = 'binary', effect_measure = 'OR'\n")
-cat("  Treatment: switched (ddI = 1, ZDV+ddI = 0)\n")
-cat("  Y = I(cd420 > cd40) = improvement\n")
-cat("  Thresholds: c1 =", fs_or_threshold,
-    " c2 =", fs_or_consistency, "\n")
-cat("=", rep("=", 60), "\n\n", sep = "")
+# ForestSearch on ACTG175 observed data
+#   outcome_type = 'binary', effect_measure = 'OR'
+#   Treatment: switched (ddI = 1, ZDV+ddI = 0)
+#   Y = I(cd420 > cd40) = improvement
+#   Covariates: RAW continuous + binary indicators
+#   Thresholds: c1 = fs_or_threshold, c2 = fs_or_consistency
 
-confounders_actg <- dgm_calibrated$factor_vars
-
-fs_actg <- forestsearch(
-  df.analysis      = actg_df,
-  confounders.name = confounders_actg,
-  outcome.name     = "y_binary",
-  event.name       = "y_binary",
-  treat.name       = "treat",
-  id.name          = "id",
-  outcome_type     = "binary",
-  effect_measure   = "OR",
-  seedit           = fs_seedit,
-  n.min            = fs_n_min,
-  d0.min           = fs_d0_min,
-  d1.min           = fs_d1_min,
-  hr.threshold     = fs_or_threshold,
-  hr.consistency   = fs_or_consistency,
-  pconsistency.threshold = fs_pconsistency,
-  fs.splits        = fs_splits,
-  maxk             = fs_maxk,
-  use_lasso        = fs_use_lasso,
-  use_grf          = fs_use_grf,
-  is.RCT           = fs_is_rct,
-  vi.grf.min       = fs_vi_grf_min,
-  details          = TRUE,
-  quiet            = FALSE,
-  parallel_args    = list(
-    plan = "sequential", workers = 1, show_message = FALSE
-  )
+fs_actg <- fs_run(
+  data        = actg_df,
+  outcome_col = "y_binary",
+  event_col   = "y_binary",
+  treat_col   = "treat",
+  id_col      = "id"
 )
 
 timings$single_data <- proc.time()[3] - t0
@@ -643,12 +1158,19 @@ timings$single_data <- proc.time()[3] - t0
 ## Examine Result
 
 ```{r examine-single}
-#| code-fold: false
+#| code-fold: true
+#| code-summary: "Examine FS result + subgroup OR fits (click to expand)"
 
 cat("\n=== ForestSearch Result ===\n")
 
 if (!is.null(fs_actg$grp.consistency)) {
-  sg <- fs_actg$grp.consistency$sg.harm.id
+  # NOTE: for a forestsearch object, the cut expressions defining the
+  # identified subgroup live in `grp.consistency$sg.harm` (character
+  # vector of factor-level cut names).  `grp.consistency$sg.harm.id`
+  # is a different object: a per-subject 0/1 indicator of subgroup
+  # membership with length nrow(df).  (For GRF objects, `sg.harm.id`
+  # does carry the cut expressions — same name, different semantics.)
+  sg <- fs_actg$grp.consistency$sg.harm
   if (!is.null(sg) && length(sg) > 0 && !all(is.na(sg))) {
     cat("Subgroup identified:", paste(sg, collapse = " & "), "\n")
 
@@ -678,35 +1200,65 @@ if (!is.null(fs_actg$grp.consistency)) {
     cat(sprintf("  OR(ITT, switched): %.3f\n",
         exp(coef(fit_itt)["treat"])))
 
-    true_H <- df_est$flag_harm_ref == 1
-    if (sum(true_H) > 0 && sum(in_H) > 0) {
-      tp <- sum(in_H & true_H);  fp <- sum(in_H & !true_H)
-      fn <- sum(!in_H & true_H); tn <- sum(!in_H & !true_H)
-      cat(sprintf("\n  Classification vs true Q:\n"))
-      cat(sprintf("    TP: %d  FP: %d  FN: %d  TN: %d\n",
-          tp, fp, fn, tn))
-      cat(sprintf("    Sens: %.3f  Spec: %.3f  PPV: %.3f\n",
-          tp/(tp+fn), tn/(tn+fp), tp/(tp+fp)))
-    }
+    # --------------------------------------------------------------------
+    # CLASSIFICATION AGAINST THE DGM-ANCHORING SUBGROUP (HYPOTHETICAL)
+    # --------------------------------------------------------------------
+    # On real data the clinical truth is unknown.  We report these
+    # quantities only as a hypothetical benchmark: if the true benefit
+    # subgroup were the DGM anchor Q_ref (below), what would the
+    # FS-identified subgroup's agreement with it look like?
+    # See the callout at the top of this section.
+    #
+    # The arithmetic is factored out into classification_metrics()
+    # (defined in the prepare-datasets chunk) which mirrors the
+    # simulation-loop computation in run_simulation_analysis().  Tables
+    # are printed in the chunk that follows.
+    cls_fs_actg <- classification_metrics(
+      hat_H       = (df_est$treat.recommend == 0),
+      true_H      = (df_est$flag_harm_ref == 1),
+      title       = "ForestSearch on observed ACTG175: classification metrics",
+      show_npv    = FALSE,
+      truth_label = sprintf(
+        "DGM-anchoring subgroup Q_ref = {age > %d AND preanti \u2264 %.1f} (NOT clinical truth)",
+        actg_age_cut, actg_preanti_cut))
   } else {
     cat("No subgroup identified by ForestSearch.\n")
+    cls_fs_actg <- NULL
   }
 } else {
   cat("ForestSearch did not return grp.consistency.\n")
+  cls_fs_actg <- NULL
 }
 
 cat(sprintf("\nSingle-data analysis: %.1f sec\n", timings$single_data))
+```
+
+```{r fs-single-data-classification}
+#| code-fold: true
+#| results: asis
+
+# gt tables render reliably when they're the last expression of a chunk.
+# Inside a conditional (or when piped through print()), knitr does not
+# always dispatch the gt print method — it falls back to printing the
+# raw HTML source as text.  Emitting gt::as_raw_html() via cat() under
+# `results: asis` is the canonical workaround and works in every knitr
+# context.
+if (!is.null(cls_fs_actg)) {
+  cat(gt::as_raw_html(cls_fs_actg$table_counts),  "\n\n")
+  cat(gt::as_raw_html(cls_fs_actg$table_metrics), "\n\n")
+}
 ```
 
 
 ## GRF Standalone on Observed Data
 
 ```{r grf-single-data}
-#| code-fold: false
+#| code-fold: true
+#| code-summary: "GRF standalone call + output (click to expand)"
 
 grf_actg <- grf.subg.harm.glm(
   data             = actg_df,
-  confounders.name = confounders_actg,
+  confounders.name = confounders_analysis,
   outcome.name     = "y_binary",
   treat.name       = "treat",
   id.name          = "id",
@@ -746,7 +1298,7 @@ sg_compare <- compare_fs_subgroups(
   id.name            = "id",
   subgroup_notation  = sg_notation,
   title              = "FS vs GRF: Subgroup Membership Concordance",
-  subtitle           = "ACTG175 observed data (binary benefit search)",
+  subtitle           = "ACTG175 observed data (binary benefit search, raw continuous)",
   font_size          = 13
 )
 
@@ -768,14 +1320,25 @@ cat(sprintf("  Concordant: %d / Discordant: %d / Total: %d\n",
 
 # Single Trial Simulation {#sec-single-trial}
 
-Before the full simulation study, verify that `simulate_from_glm_dgm()`
-and `run_simulation_analysis()` work end-to-end on a single replicate.
+Before the full simulation study, simulate a **single replicate** from
+the calibrated DGM and run the two analysis methods end-to-end with
+`details = TRUE`.  This mirrors what every replicate inside the Monte
+Carlo loop will see and lets us sanity-check the full pipeline --
+LASSO screening, GRF pre-screening, candidate enumeration, consistency
+evaluation, subgroup-effect estimation -- before burning the budget of
+thousands of replicates.
 
-```{r single-trial}
-#| code-fold: false
+Unlike @sec-single, the **true subgroup here is known by construction**
+(it is the DGM-embedded Q), so the classification metrics reported
+below are valid TP / FP / FN / TN values against an actual ground
+truth.
+
+```{r single-trial-simulate}
+#| code-fold: true
+#| code-summary: "Simulate one trial from the calibrated DGM (click to expand)"
 t0 <- proc.time()[3]
 
-# Simulate one trial from the calibrated DGM
+# ── Simulate one trial from the calibrated DGM ─────────────────────────
 df_single <- simulate_from_glm_dgm(
   dgm  = dgm_calibrated,
   n    = sim_n_sample,
@@ -786,16 +1349,174 @@ cat(sprintf("Single trial: N = %d, response rate = %.1f%%\n",
     nrow(df_single), 100 * mean(df_single$y_sim)))
 cat(sprintf("  treat allocation: %.1f%%\n",
     100 * mean(df_single$treat_sim)))
-cat(sprintf("  Q prevalence: %.1f%%\n",
+cat(sprintf("  True Q prevalence: %.1f%%\n",
     100 * mean(df_single$flag_harm)))
 
-# Verify OR in the simulated data
+# ── Verify OR in the simulated data ───────────────────────────────────
 fit_single <- glm(y_sim ~ treat_sim, data = df_single, family = binomial)
-cat(sprintf("  Simulated ITT OR: %.3f (DGM: %.3f)\n",
+cat(sprintf("  Simulated ITT OR: %.3f (DGM target: %.3f)\n",
     exp(coef(fit_single)["treat_sim"]),
     dgm_calibrated$hazard_ratios$overall))
 
+# ── Confirm raw continuous columns are present in simulated data ──────
+missing_in_sim <- setdiff(confounders_analysis, names(df_single))
+if (length(missing_in_sim) > 0) {
+  stop("Simulated data is missing analysis columns: ",
+       paste(missing_in_sim, collapse = ", "))
+}
+```
+
+## ForestSearch on the Simulated Trial
+
+```{r single-trial-fs}
+#| code-fold: true
+#| code-summary: "fs_run() on the simulated trial (click to expand)"
+
+# Ensure a stable id column for compare_fs_subgroups() alignment
+df_single$id <- seq_len(nrow(df_single))
+
+fs_single <- fs_run(
+  data        = df_single,
+  outcome_col = "y_sim",
+  event_col   = "y_sim",
+  treat_col   = "treat_sim",
+  id_col      = "id"
+)
+```
+
+```{r single-trial-fs-summary}
+#| code-fold: true
+#| code-summary: "Examine FS result on simulated trial (click to expand)"
+
+cat("\n=== ForestSearch on simulated trial ===\n")
+
+if (!is.null(fs_single$sg.harm) && length(fs_single$sg.harm) > 0L &&
+    !all(is.na(fs_single$sg.harm))) {
+
+  cat("Subgroup identified (cut expressions):\n")
+  for (s in fs_single$sg.harm) cat("  ", s, "\n")
+
+  df_est <- fs_single$df.est
+  in_H   <- df_est$treat.recommend == 0
+
+  # Classification against the KNOWN true subgroup in simulated data.
+  # Factored helper in the prepare-datasets chunk; tables are printed
+  # in the chunk that follows.
+  cls_fs_single <- classification_metrics(
+    hat_H       = in_H,
+    true_H      = (df_est$flag_harm == 1),
+    title       = "ForestSearch on simulated trial: classification metrics",
+    show_npv    = TRUE,
+    truth_label = "Known true subgroup Q in the simulated data")
+
+  # Subgroup effect on switched and original scales
+  if (sum(in_H) >= 10L) {
+    fit_H <- glm(y_sim ~ treat_sim,
+                 data = df_est[in_H, ], family = binomial)
+    or_H  <- exp(coef(fit_H)["treat_sim"])
+    cat(sprintf("\n  OR(H_hat, switched) = %.3f  (inverted: %.3f)\n",
+        or_H, 1/or_H))
+  }
+  if (sum(!in_H) >= 10L) {
+    fit_Hc <- glm(y_sim ~ treat_sim,
+                  data = df_est[!in_H, ], family = binomial)
+    cat(sprintf("  OR(Hc_hat, switched) = %.3f  (inverted: %.3f)\n",
+        exp(coef(fit_Hc)["treat_sim"]),
+        1/exp(coef(fit_Hc)["treat_sim"])))
+  }
+
+} else {
+  cat("No subgroup identified by ForestSearch on this replicate.\n")
+  cls_fs_single <- NULL
+}
+```
+
+```{r fs-single-trial-classification}
+#| code-fold: true
+#| results: asis
+
+if (!is.null(cls_fs_single)) {
+  cat(gt::as_raw_html(cls_fs_single$table_counts),  "\n\n")
+  cat(gt::as_raw_html(cls_fs_single$table_metrics), "\n\n")
+}
+```
+
+## GRF Standalone on the Simulated Trial
+
+```{r single-trial-grf}
+#| code-fold: true
+#| code-summary: "GRF call + output on simulated trial (click to expand)"
+
+grf_single <- grf.subg.harm.glm(
+  data             = df_single,
+  confounders.name = confounders_analysis,
+  outcome.name     = "y_sim",
+  treat.name       = "treat_sim",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  dmin.grf         = grf_dmin,
+  maxdepth         = grf_maxdepth,
+  RCT              = TRUE,
+  sg.criterion     = grf_sg_criterion,
+  details          = TRUE
+)
+
+cat("\n=== GRF standalone on simulated trial ===\n")
+if (!is.null(grf_single$sg.harm.id) &&
+    length(grf_single$sg.harm.id) > 0L &&
+    !all(is.na(grf_single$sg.harm.id))) {
+  cat("GRF subgroup (cut expressions):\n")
+  for (s in grf_single$sg.harm.id) cat("  ", s, "\n")
+
+  grf_H  <- grf_single$data$treat.recommend == 0
+  true_H <- grf_single$data$flag_harm == 1
+
+  # Classification metrics via the same helper used for FS.  Tables
+  # printed in the chunk that follows.
+  cls_grf_single <- classification_metrics(
+    hat_H       = grf_H,
+    true_H      = true_H,
+    title       = "GRF on simulated trial: classification metrics",
+    show_npv    = TRUE,
+    truth_label = "Known true subgroup Q in the simulated data")
+} else {
+  cat("GRF: no subgroup identified on this replicate.\n")
+  cls_grf_single <- NULL
+}
+
 timings$single_trial <- proc.time()[3] - t0
+cat(sprintf("\nSingle trial analysis: %.1f sec\n", timings$single_trial))
+```
+
+```{r grf-single-trial-classification}
+#| code-fold: true
+#| results: asis
+
+if (!is.null(cls_grf_single)) {
+  cat(gt::as_raw_html(cls_grf_single$table_counts),  "\n\n")
+  cat(gt::as_raw_html(cls_grf_single$table_metrics), "\n\n")
+}
+```
+
+## FS vs GRF Concordance on the Simulated Trial
+
+```{r single-trial-concordance}
+#| code-fold: true
+#| code-summary: "FS vs GRF agreement on simulated trial (click to expand)"
+sg_compare_sim <- compare_fs_subgroups(
+  fs1                = fs_single,
+  fs2                = grf_single,
+  label1             = "ForestSearch",
+  label2             = "GRF Standalone",
+  id.name            = "id",
+  subgroup_notation  = sg_notation,
+  title              = "FS vs GRF on simulated trial",
+  subtitle           = sprintf("N = %d, simulated from calibrated DGM",
+                               nrow(df_single)),
+  font_size          = 13
+)
+sg_compare_sim$table
 ```
 
 
@@ -804,13 +1525,18 @@ timings$single_trial <- proc.time()[3] - t0
 ## Setup
 
 ```{r sim-setup}
-#| code-fold: false
+#| code-fold: true
+#| code-summary: "FS / GRF parameter lists for run_simulation_analysis() (click to expand)"
 
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 
-# -- Candidate variable set ----------------------------------------------------
-confounders_actg <- dgm_calibrated$factor_vars
+# -- Candidate variable set (RAW continuous + binary) --------------------------
+# This is the key behavioural change vs the prior discretised setup:
+# forestsearch() and grf.subg.harm.glm() receive raw continuous inputs
+# and must discover cuts.
+cat("Analysis confounders passed to FS/GRF:\n")
+cat("  ", paste(confounders_analysis, collapse = ", "), "\n")
 
 # -- ForestSearch parameters ---------------------------------------------------
 fs_params <- list(
@@ -820,13 +1546,24 @@ fs_params <- list(
   treat.name             = "treat_sim",
   id.name                = "id",
 
-  # GLM pipeline (auto-injected from DGM, but explicit for clarity)
+  # GLM pipeline
   outcome_type           = "binary",
   effect_measure         = "OR",
 
   # Variable screening
   use_lasso              = fs_use_lasso,
   use_grf                = fs_use_grf,
+
+  # Consistency algorithm (v0.2.0 default: 3-10x speedup)
+  use_twostage           = TRUE,
+
+  # Continuous-variable detection threshold
+  cont.cutoff            = fs_cont_cutoff,
+
+  # Candidate cut strategy for continuous covariates
+  # ("default" = mean + median + Q1 + Q3 per continuous variable;
+  #  "median"  = median only). See setup chunk for full explanation.
+  cut_type               = fs_cut_type,
 
   # Subgroup detection thresholds
   # Note: hr.threshold/hr.consistency are the generic ForestSearch
@@ -835,6 +1572,11 @@ fs_params <- list(
   hr.threshold           = fs_or_threshold,
   hr.consistency         = fs_or_consistency,
   pconsistency.threshold = fs_pconsistency,
+
+  # Candidate-selection criterion: "maxSG" prefers the LARGEST
+  # candidate subgroup meeting the consistency threshold (see setup
+  # chunk for full description of sg_focus options).
+  sg_focus               = fs_sg_focus,
 
   # Computational constraints
   fs.splits              = fs_splits,
@@ -867,7 +1609,14 @@ grf_params <- list(
 ## Alternative Hypothesis Simulations
 
 ```{r run-alt}
+#| code-fold: true
+#| code-summary: "H1 simulation loop — foreach wiring + run_simulation_analysis() (click to expand)"
+#| output: false
 cat("Running", nsims_alt, "simulations under H1...\n")
+if (diag_keep_first_n > 0L) {
+  cat(sprintf("  Diagnostic capture: keep = {%s}, first %d sim(s)\n",
+      paste(diag_keep, collapse = ", "), diag_keep_first_n))
+}
 t0 <- proc.time()[3]
 
 results_alt_raw <- foreach(
@@ -883,26 +1632,35 @@ results_alt_raw <- foreach(
     sim_id           = sim,
     dgm              = dgm_calibrated,
     n_sample         = sim_n_sample,
-    confounders_base = confounders_actg,
+    confounders_base = confounders_analysis,
     n_add_noise      = sim_n_noise,
     run_fs           = run_fs,
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
     grf_params       = grf_params,
+    keep             = diag_keep,
+    keep_first_n     = diag_keep_first_n,
     verbose          = FALSE
   )
 }
 
 timings$sims_alt <- proc.time()[3] - t0
 
-# Post-hoc failure accounting
-results_alt <- collect_results(results_alt_raw, "H1 alt")
+# Post-hoc failure accounting + diagnostic harvest
+# keep_diagnostics = TRUE preserves per-replicate fs_full / candidate_table
+# attached by run_simulation_analysis() (stripped by rbindlist otherwise).
+results_alt <- collect_results(results_alt_raw, "H1 alt",
+                               keep_diagnostics = diag_keep_first_n > 0L)
 n_failed_alt <- attr(results_alt, "n_failed")
+diagnostics_alt <- attr(results_alt, "diagnostics")
 
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
 cat("Results:", nrow(results_alt), "rows\n")
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
+if (!is.null(diagnostics_alt))
+  cat(sprintf("  Diagnostic objects captured: %d replicate(s)\n",
+      length(diagnostics_alt)))
 if (nrow(results_alt) > 0) {
   cat(sprintf("Detection rate: %.1f%%\n",
       100 * mean(results_alt$any.H[results_alt$analysis == "FS"])))
@@ -915,15 +1673,269 @@ if (nrow(results_alt) > 0) {
 ```
 
 
-## Null Hypothesis Simulations
+## ForestSearch Sensitivity Diagnostic {#sec-fs-sensitivity}
+
+:::{.callout-note title="Why this section exists"}
+Empirically, FS sensitivity in this configuration hovers around 20%.
+That raises the question: **which subgroups is FS actually
+identifying?**  If it consistently picks up one component of the true
+subgroup $Q = \{\text{age} > 34 \cap \text{preanti} \le 745\}$ but
+misses the other, the low sensitivity is mechanical (one-of-two cuts
+→ ≈ 50% true-Q overlap, further diluted by cut-point mismatch).  If
+it picks noise variables, the low sensitivity reflects a different
+problem.  The diagnostics below separate these hypotheses.
+:::
+
+### Per-replicate subgroup definitions (first 20)
+
+The `sg.def` column on `results_alt` carries the cut-expression string
+of the FS-identified subgroup for **every** replicate (a v0.2.0
+addition to `run_simulation_analysis()`).  We print the first 20
+alongside the corresponding sensitivity / PPV / size for context.
+
+```{r fs-diag-per-sim}
+#| code-fold: true
+#| code-summary: "First N FS subgroup definitions (click to expand)"
+
+fs_rows <- results_alt[results_alt$analysis == "FS", ]
+show_n  <- min(20L, nrow(fs_rows))
+
+diag_tbl <- data.frame(
+  sim      = fs_rows$sim[seq_len(show_n)],
+  any.H    = fs_rows$any.H[seq_len(show_n)],
+  size.H   = fs_rows$size.H[seq_len(show_n)],
+  sens     = round(fs_rows$sens[seq_len(show_n)], 3),
+  ppv      = round(fs_rows$ppv[seq_len(show_n)],  3),
+  sg.def   = fs_rows$sg.def[seq_len(show_n)],
+  stringsAsFactors = FALSE
+)
+
+diag_tbl$sg.def[!nzchar(diag_tbl$sg.def)] <- "(none identified)"
+
+knitr::kable(
+  diag_tbl,
+  col.names = c("Sim", "any.H", "|H_hat|", "Sens", "PPV",
+                "Identified subgroup"),
+  caption = sprintf(
+    "First %d H1 replicates: FS-identified subgroup definitions.",
+    show_n),
+  align = c("r", "c", "r", "r", "r", "l")
+)
+```
+
+### Cross-replicate subgroup-definition frequency (all sims)
+
+```{r fs-diag-def-freq}
+#| code-fold: true
+#| code-summary: "Cross-replicate subgroup-definition frequency (click to expand)"
+
+all_defs <- fs_rows$sg.def
+all_defs[!nzchar(all_defs)] <- "(none identified)"
+
+def_freq <- sort(table(all_defs), decreasing = TRUE)
+def_df <- data.frame(
+  subgroup = names(def_freq),
+  n        = as.integer(def_freq),
+  pct      = round(100 * as.integer(def_freq) / length(all_defs), 1),
+  stringsAsFactors = FALSE
+)
+
+# Show all unique subgroups (usually <= 20) or top 20
+show_rows <- min(20L, nrow(def_df))
+knitr::kable(
+  def_df[seq_len(show_rows), ],
+  col.names = c("Identified subgroup",
+                "Replicates",
+                "% of H1 sims"),
+  caption = sprintf(
+    "Frequency of FS-identified subgroup definitions across %d H1 replicates.",
+    length(all_defs)),
+  row.names = FALSE,
+  align = c("l", "r", "r")
+)
+```
+
+### Variable-level frequency
+
+Each subgroup definition is a conjunction of one or more cut
+expressions.  Here we parse out the **variable names** appearing in
+those cuts and count how often each variable is selected.  If FS is
+recovering one component of true-$Q$ but missing the other, this
+table will show a strong imbalance between `age` and `preanti`.
+
+```{r fs-diag-var-freq}
+#| code-fold: true
+#| code-summary: "Variable-level frequency across FS finds (click to expand)"
+
+extract_vars <- function(sg_str) {
+  if (!nzchar(sg_str)) return(character(0))
+  parts <- strsplit(sg_str, "\\s*&\\s*", perl = TRUE)[[1]]
+  # A cut expression may be wrapped in braces and optionally negated:
+  #   "{age <= 34}"       -> variable "age"
+  #   "!{age <= 34}"      -> variable "age"
+  #   "preanti"           -> variable "preanti"   (plain indicator)
+  # Strip the outer !/{ / } wrappers, then take the first whitespace-
+  # delimited token — the variable name.
+  vars <- vapply(parts, function(p) {
+    p <- trimws(p)
+    p <- sub("^!", "",  p)           # optional negation
+    p <- sub("^\\{", "", p)           # optional opening brace
+    p <- sub("\\}$", "", p)           # optional closing brace
+    tok <- strsplit(trimws(p), "\\s+", perl = TRUE)[[1]][1]
+    if (is.na(tok)) "" else tok
+  }, character(1))
+  unique(vars[nzchar(vars)])
+}
+
+all_var_uses <- unlist(lapply(fs_rows$sg.def, extract_vars))
+if (length(all_var_uses) == 0L) {
+  cat("No identified subgroups across any replicate.\n")
+} else {
+  var_freq <- sort(table(all_var_uses), decreasing = TRUE)
+  n_detect <- sum(nzchar(fs_rows$sg.def))
+  var_df <- data.frame(
+    variable       = names(var_freq),
+    n_times_used   = as.integer(var_freq),
+    pct_of_detects = round(100 * as.integer(var_freq) / n_detect, 1),
+    stringsAsFactors = FALSE
+  )
+  knitr::kable(
+    var_df,
+    col.names = c("Variable",
+                  "Times used",
+                  "% of detecting sims"),
+    caption = sprintf(
+      paste0("Variables appearing in FS-identified subgroups across ",
+             "%d detecting replicates (of %d total)."),
+      n_detect, nrow(fs_rows)),
+    row.names = FALSE,
+    align = c("l", "r", "r")
+  )
+}
+```
+
+### FS-pipeline diagnostic columns
+
+These columns (populated by `run_simulation_analysis()` from the full
+`forestsearch()` result per replicate) let us check whether FS is
+completing the full search or exiting via early stopping, and how
+many candidates it's evaluating.
+
+```{r fs-diag-pipeline}
+#| code-fold: true
+#| code-summary: "FS diagnostic columns (click to expand)"
+
+if ("n_candidates_evaluated" %in% names(fs_rows)) {
+  pipe_df <- data.frame(
+    metric = c("Pconsistency threshold met (n_passed > 0)",
+               "Early stopping triggered",
+               "Candidates evaluated (mean)",
+               "Candidates total available (mean)",
+               "FS runtime, minutes (mean)"),
+    value  = c(
+      sprintf("%.1f%% of sims",
+              100 * mean(fs_rows$n_passed > 0, na.rm = TRUE)),
+      sprintf("%.1f%% of sims",
+              100 * mean(fs_rows$early_stop_triggered, na.rm = TRUE)),
+      sprintf("%.1f",
+              mean(fs_rows$n_candidates_evaluated, na.rm = TRUE)),
+      sprintf("%.1f",
+              mean(fs_rows$n_candidates_total, na.rm = TRUE)),
+      sprintf("%.2f",
+              mean(fs_rows$fs_minutes, na.rm = TRUE))
+    ),
+    stringsAsFactors = FALSE
+  )
+  knitr::kable(
+    pipe_df,
+    col.names = c("Diagnostic", "Value"),
+    caption = "FS pipeline diagnostics aggregated across H1 replicates.",
+    align = c("l", "r")
+  )
+}
+```
+
+### Full `fs_full` objects for the first few sims (if captured)
+
+When `diag_keep_first_n > 0` and `"fs_full" %in% diag_keep`, the full
+`forestsearch()` result objects (minus `df.est`/`df.predict` to keep
+memory bounded) are attached as `attr(results_alt, "diagnostics")`,
+keyed by `sim_id`.  Below we pull the first one and inspect the
+candidate-evaluation table — which lists every subgroup that passed
+the screening threshold and their consistency p-values.
+
+```{r fs-diag-candidate-peek}
+#| code-fold: true
+#| code-summary: "Peek at full fs_full objects for first few sims (click to expand)"
+
+if (!is.null(diagnostics_alt) && length(diagnostics_alt) > 0L) {
+  # diagnostics_alt is named by sim_id: $sim1 / $sim2 / ...
+  first_key <- names(diagnostics_alt)[1L]
+  d <- diagnostics_alt[[first_key]]
+
+  cat(sprintf("Captured diagnostics for %d replicate(s): %s ... %s\n",
+      length(diagnostics_alt),
+      utils::head(names(diagnostics_alt), 1L),
+      utils::tail(names(diagnostics_alt), 1L)))
+  cat(sprintf("\nInspecting keeper set for '%s':\n", first_key))
+  cat("  methods:", paste(names(d), collapse = ", "), "\n")
+  if (!is.null(d$FS)) {
+    cat("  FS keepers: ", paste(names(d$FS), collapse = ", "), "\n")
+  }
+
+  # Show the FS candidate table for the first captured replicate
+  if (!is.null(d$FS$candidate_table) &&
+      inherits(d$FS$candidate_table, "data.frame") &&
+      nrow(d$FS$candidate_table) > 0L) {
+    cat(sprintf(
+      "\nCandidate subgroups evaluated for %s (top 10 by row):\n",
+      first_key))
+    print(utils::head(d$FS$candidate_table, 10L))
+  }
+} else {
+  cat("No diagnostics captured (diag_keep_first_n == 0 or all sims failed).\n")
+}
+```
+
+### Interpretation
+
+Read the four tables above top-to-bottom:
+
+- If the **subgroup-definition frequency** shows a handful of
+  recurring cut expressions dominating, FS is converging on a small
+  number of candidates.  If one of them matches true-$Q$ closely
+  (e.g., `age <= 34 & preanti <= 745`), sensitivity on those sims
+  should be high in the per-sim table.
+- If the **variable frequency** shows `age` dominating and `preanti`
+  rarely present (or vice versa), FS is recovering **one component
+  only**.  Sensitivity of ≈ 0.50 on that sub-population of sims is
+  expected; weighted by the fraction of times both are found, the
+  average lands near 20%.  This is a candidate-enumeration issue,
+  not a pathology.
+- If noise variables (`noise1`, …) show up prominently, the threshold
+  or consistency settings are too permissive for this sample size.
+- If `n_passed > 0` is low (say < 30%), the identification threshold
+  `fs_or_threshold` is binding and the subgroup is being **rejected
+  outright** in most sims.  This would show up as `size.H = 0` and
+  `any.H = 0L` for those replicates in the per-sim table.
+
+The combination of the four tables is enough to pick between these
+hypotheses without re-running anything.
+
+
+
 
 ```{r reset-workers-null}
-# Reset worker pool to prevent memory accumulation from alt sims
-plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-plan(multisession, workers = n_workers)
+# Reset worker pool between alt and null phases to prevent memory
+# accumulation and worker bloat (null sims on bloated workers can be
+# ~20x slower).  reset_workers() is exported from forestsearch v0.2.0.
+forestsearch::reset_workers(workers = n_workers)
 ```
 
 ```{r run-null}
+#| code-fold: true
+#| code-summary: "H0 simulation loop (click to expand)"
+#| output: false
 cat("Running", nsims_null, "simulations under H0...\n")
 t0 <- proc.time()[3]
 
@@ -940,7 +1952,7 @@ results_null_raw <- foreach(
     sim_id           = sim,
     dgm              = dgm_null,
     n_sample         = sim_n_sample,
-    confounders_base = confounders_actg,
+    confounders_base = confounders_analysis,
     n_add_noise      = sim_n_noise,
     run_fs           = run_fs,
     run_fs_grf       = run_fs_grf,
@@ -967,7 +1979,10 @@ plan(sequential)
 ```
 
 ```{r save-results}
-#| code-fold: false
+#| code-fold: true
+#| code-summary: "Bundle assembly & save (click to expand)"
+
+save_info <- NULL  # populated below when save_results = TRUE
 
 if (save_results) {
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
@@ -983,6 +1998,7 @@ if (save_results) {
 
     # -- Simulation configuration ----------------------------------------------
     config = list(
+      # Scenario counts
       nsims_alt    = nsims_alt,
       nsims_null   = nsims_null,
       n_sample     = sim_n_sample,
@@ -990,7 +2006,64 @@ if (save_results) {
       sim_seed     = sim_seed,
       n_workers    = n_workers,
       outcome_type = "binary",
-      effect_measure = "OR"
+      effect_measure = "OR",
+
+      # Document the analysis candidate set used (important provenance
+      # for comparing to prior discretised runs)
+      analysis_continuous_vars = analysis_continuous_vars,
+      analysis_binary_vars     = analysis_binary_vars,
+      confounders_analysis     = confounders_analysis,
+
+      # ForestSearch thresholds and criteria (kept as top-level scalars
+      # for easy inspection; fs_params below holds the full list)
+      fs_or_threshold    = fs_or_threshold,
+      fs_or_consistency  = fs_or_consistency,
+      fs_sg_focus        = fs_sg_focus,
+      fs_pconsistency    = fs_pconsistency,
+      fs_splits          = fs_splits,
+      fs_maxk            = fs_maxk,
+      fs_use_lasso       = fs_use_lasso,
+      fs_use_grf         = fs_use_grf,
+      fs_is_rct          = fs_is_rct,
+      fs_vi_grf_min      = fs_vi_grf_min,
+      fs_cut_type        = fs_cut_type,
+      fs_cont_cutoff     = fs_cont_cutoff,
+      fs_n_min           = fs_n_min,
+      fs_d0_min          = fs_d0_min,
+      fs_d1_min          = fs_d1_min,
+      fs_seedit          = fs_seedit,
+
+      # GRF standalone parameters
+      grf_dmin           = grf_dmin,
+      grf_maxdepth       = grf_maxdepth,
+      grf_sg_criterion   = grf_sg_criterion,
+      grf_tune           = grf_tune,
+
+      # Reporting parameters
+      sg_notation        = sg_notation,
+      sgdist_min_pct_alt  = sgdist_min_pct_alt,
+      sgdist_min_pct_null = sgdist_min_pct_null,
+      sgdist_top_k        = sgdist_top_k,
+      sgdist_show_other_alt  = sgdist_show_other_alt,
+      sgdist_show_other_null = sgdist_show_other_null,
+
+      # Production projection targets (carried for reference only;
+      # the run itself uses nsims_alt / nsims_null above)
+      prod_alt  = prod_alt,
+      prod_null = prod_null,
+
+      # DGM construction parameters (for replayability)
+      dgm_n_super        = dgm_n_super,
+      dgm_subgroup_vars  = dgm_subgroup_vars,
+      dgm_subgroup_cuts  = dgm_subgroup_cuts,
+      dgm_factor_vars    = dgm_factor_vars,
+      cal_target_or      = cal_target_or,
+      cal_k_grid_range   = cal_k_grid_range,
+      cal_grid_step      = cal_grid_step,
+
+      # Diagnostic capture (Section 7)
+      diag_keep          = diag_keep,
+      diag_keep_first_n  = diag_keep_first_n
     ),
 
     # -- ForestSearch parameters -----------------------------------------------
@@ -1021,22 +2094,48 @@ if (save_results) {
     n_failed_null = n_failed_null
   )
 
-  filename <- sprintf("actg175_binary_benefit_simulations_%dalts_%dnulls.rds",
-                       nsims_alt, nsims_null)
+  filename <- sprintf(
+    "actg175_binary_benefit_simulations_rawcont_%dalts_%dnulls.rds",
+    nsims_alt, nsims_null
+  )
   path <- file.path(output_dir, filename)
   saveRDS(bundle, path)
 
-  cat(sprintf("Results saved: %s\n", path))
-  cat(sprintf("  Size: %.1f KB\n", file.size(path) / 1024))
-  cat(sprintf("  Alt sims: %d completed (%d failed)\n",
-      nsims_alt - n_failed_alt, n_failed_alt))
-  cat(sprintf("  Null sims: %d completed (%d failed)\n",
-      nsims_null - n_failed_null, n_failed_null))
-  cat(sprintf("  OR(Q) = %.3f, OR(Qc) = %.3f\n",
-      dgm_calibrated$hazard_ratios$harm_subgroup,
-      dgm_calibrated$hazard_ratios$no_harm_subgroup))
+  save_info <- data.frame(
+    Field = c("Path", "Size (KB)", "H1 sims (completed / failed)",
+              "H0 sims (completed / failed)",
+              "OR(Q) on switched scale", "OR(Qc) on switched scale"),
+    Value = c(
+      path,
+      sprintf("%.1f", file.size(path) / 1024),
+      sprintf("%d / %d",
+              nsims_alt - n_failed_alt,  n_failed_alt),
+      sprintf("%d / %d",
+              nsims_null - n_failed_null, n_failed_null),
+      sprintf("%.3f",
+              dgm_calibrated$hazard_ratios$harm_subgroup),
+      sprintf("%.3f",
+              dgm_calibrated$hazard_ratios$no_harm_subgroup)
+    ),
+    stringsAsFactors = FALSE
+  )
+}
+```
+
+```{r save-results-confirmation}
+#| code-fold: true
+#| results: asis
+
+if (!is.null(save_info)) {
+  cat(gt::as_raw_html(
+    gt::gt(save_info) |>
+      gt::tab_header(title = "Simulation bundle saved") |>
+      gt::cols_label(Field = gt::md("**Field**"),
+                     Value = gt::md("**Value**")) |>
+      gt::tab_options(table.font.size = 11)
+  ), "\n\n")
 } else {
-  cat("save_results = FALSE; skipping save.\n")
+  cat("*`save_results = FALSE`; bundle not written.*\n\n")
 }
 ```
 
@@ -1095,6 +2194,17 @@ at the source in `run_simulation_analysis()`, matching
 the original `fs.estimates.out()` function used in
 León et al. (2024).
 
+::: {.callout-note}
+## Classification metrics with discovered cuts
+
+Because cuts are discovered from the data in this setup, a
+$\hat{Q}$ that captures "roughly the right region" but with
+slightly shifted boundaries will still receive high sens/PPV.
+Expect these metrics to be lower than under the discretised
+(oracle-cut) setup — the gap quantifies the cost of not knowing
+the true cuts in advance.
+:::
+
 ### Classification Under H0
 
 Under the null, $Q = \emptyset$ --- no subgroup with a
@@ -1124,7 +2234,7 @@ format_oc_results(
   metrics   = c("detection", "classification"),
   digits    = 2,
   digits_hr = 2,
-  title     = "ACTG175 Binary: Identification (Benefit Search)",
+  title     = "ACTG175 Binary: Identification (Benefit Search, Raw Continuous)",
   subtitle  = sprintf(
     "n = %d, %d sims, OR(Q) = %.2f, OR(Qc) = %.2f (switched)",
     sim_n_sample, nsims_alt,
@@ -1133,13 +2243,450 @@ format_oc_results(
   ),
   subgroup_notation = sg_notation
 )
+```
 
+### True Subgroup Sizes Across Replicates
+
+`run_simulation_analysis()` records the per-replicate size of the
+**true** benefit subgroup $Q$ (`flag_harm == 1`) and its complement
+$Q^c$ (`flag_harm == 0`) in the columns `sizeH_true`, `sizeHc_true`,
+`propH_true`, `propHc_true`.  The estimation tables below report
+$\widehat{|H|}$ (the identified subgroup size averaged across
+replicates); the callout here gives the corresponding true-subgroup
+sizes for comparison.
+
+```{r true-size-summary}
+#| code-fold: true
+
+# One row per replicate-method combination, but sizeH_true is identical
+# across method rows within the same sim. Deduplicate on sim.
+truth_by_sim <- unique(results_alt[, c("sim", "sizeH_true", "sizeHc_true",
+                                        "propH_true", "propHc_true")])
+
+callout_Q <- sprintf(
+  "|Q|:  mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeH_true),
+  sd(truth_by_sim$sizeH_true),
+  min(truth_by_sim$sizeH_true),
+  max(truth_by_sim$sizeH_true),
+  100 * mean(truth_by_sim$propH_true))
+
+callout_Qc <- sprintf(
+  "|Qc|: mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeHc_true),
+  sd(truth_by_sim$sizeHc_true),
+  min(truth_by_sim$sizeHc_true),
+  max(truth_by_sim$sizeHc_true),
+  100 * mean(truth_by_sim$propHc_true))
+
+cat(sprintf("True subgroup sizes across %d H1 replicates (N = %d each):\n",
+            nrow(truth_by_sim), sim_n_sample))
+cat("  ", callout_Q,  "\n")
+cat("  ", callout_Qc, "\n")
+```
+
+::: {.callout-note title="Reference sizes for the estimation tables below"}
+- **|Q| (true benefit subgroup)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeH_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeH_true))`,
+  range `r min(truth_by_sim$sizeH_true)`–`r max(truth_by_sim$sizeH_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propH_true))`).
+- **|Qc| (complement)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeHc_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeHc_true))`,
+  range `r min(truth_by_sim$sizeHc_true)`–`r max(truth_by_sim$sizeHc_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propHc_true))`).
+
+Compare to $\widehat{|H|}$ (the FS-identified subgroup size) reported in
+the row-group labels of the estimation tables below.  A ratio
+$\widehat{|H|} \big/ \overline{|Q|} \approx 1$ indicates the method is
+recovering a subgroup close to the true size; values much smaller
+suggest FS is identifying a strict subset of $Q$; values larger suggest
+FS is absorbing some $Q^c$ subjects into $\hat H$.
+:::
+
+### Distribution of Identified Subgroups
+
+::: {.callout-tip title="Reminder: the true subgroup"}
+The true subgroup $Q$ that FS is trying to recover is defined by
+$\{\text{age} > `r actg_age_cut`\} \cap
+ \{\text{preanti} \le `r actg_preanti_cut`\}$.
+
+- **Observed ACTG175 prevalence**: `r Q_n` / `r Q_N`
+  (`r sprintf("%.1f%%", Q_prev_pct)`).
+- **Simulated-trial prevalence** ($n = `r sim_n_sample`$): mean
+  `r sprintf("%.1f", mean(truth_by_sim$sizeH_true))` (SD
+  `r sprintf("%.2f", sd(truth_by_sim$sizeH_true))`,
+  range `r min(truth_by_sim$sizeH_true)`–`r max(truth_by_sim$sizeH_true)`,
+  proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propH_true))`).
+
+Under H1 the bar chart should concentrate on definitions close to this
+anchor.  Under H0 the true subgroup does not exist, so any finds
+reflect false discovery across the candidate space.
+:::
+
+This section uses a vignette-local variant of the package's
+`forestsearch::plot_sg_distribution()` — designed for the MRCT
+consistency simulator and its `any_found` / `sg_found` schema — adapted
+here for the binary `run_simulation_analysis()` output
+(`any.H` / `sg.def`) with two behavioural differences that matter under
+a diffuse null:
+
+1. **Top-K cap**: at most `sgdist_top_k` = `r sgdist_top_k` bars are
+   shown; additional passing labels pool into a single "Other
+   (*k* labels)" row.  Without this, a diffuse H0 where every find
+   lands on a distinct label (the textbook false-positive signature)
+   renders as one-count-per-row with crushed, overlapping labels.
+2. **Bar labels rendered inside bars** so the counts never clip off
+   the right edge at small counts.
+
+We show the distribution of the identified subgroup $\hat H$ under H1
+(calibrated HTE) and H0 (null).  Filtering thresholds are set in the
+setup chunk as `sgdist_min_pct_alt` (H1, initial value
+`r sgdist_min_pct_alt`%) and `sgdist_min_pct_null` (H0, initial value
+`r sgdist_min_pct_null`%); the chart renderer automatically halves the
+threshold — twice if necessary — when no label clears the initial
+value.  Chart height adapts to the number of bars actually shown, so
+the visual quality stays consistent across scenarios regardless of
+how many distinct labels pass the filter.
+
+When the generalization of `plot_sg_distribution()` happens at the
+package level (planned for v0.3.0), the top-K + adaptive-height logic
+below will graduate back to the package so this adapter becomes a
+one-line call.
+
+```{r oc-alt-sgdist-helpers}
+#| code-fold: true
+
+# -- Helper: build the frame in the column schema (any_found, sg_found).
+make_sg_plot_frame <- function(results_tbl) {
+  rows <- results_tbl[results_tbl$analysis == "FS", ]
+  out <- data.frame(any_found = rows$any.H, stringsAsFactors = FALSE)
+  out$sg_found <- ifelse(is.na(rows$sg.def) | rows$sg.def == "",
+                         "none", rows$sg.def)
+  out
+}
+
+# -- Helper: count label frequencies and return a data.frame with
+#    sg_found (character), count (integer), pct (double), sorted by
+#    count desc.  Caller applies min_pct filter and top-K cap.
+sg_counts_tbl <- function(frame) {
+  found <- frame[frame$any_found == 1L, ]
+  n_found <- nrow(found)
+  if (n_found == 0L) return(NULL)
+  tab <- sort(table(found$sg_found), decreasing = TRUE)
+  df  <- data.frame(sg_found = names(tab),
+                    count    = as.integer(tab),
+                    stringsAsFactors = FALSE)
+  df$pct <- 100 * df$count / n_found
+  df
+}
+
+# Build the plot directly.  Differs from the package's
+# plot_sg_distribution() in three important ways for the vignette:
+#   1. Top-K cap: shows at most top_k bars; remaining labels pool
+#      into a single "Other (k labels)" bar (controlled by show_other).
+#      Prevents unreadable charts under H0 when finds are fragmented
+#      across many singletons (e.g. 68/68 distinct labels each at
+#      count 1).  Set show_other = FALSE to drop the pooled bar and
+#      focus the axis tightly on the top-K labels; the subtitle
+#      still reports the suppressed count for honesty.
+#   2. Bar labels rendered INSIDE bars (hjust = 1.05) so they don't
+#      clip off the right edge when counts are small.
+#   3. Returns an object with attached attr("n_bars") so the calling
+#      chunk can compute an adaptive fig height.
+build_sgdist_plot <- function(frame,
+                              min_pct,
+                              title,
+                              wrap_width   = 30,
+                              top_k        = 15L,
+                              show_other   = TRUE,
+                              min_floor_pct = 0.5,
+                              max_halvings  = 2) {
+
+  counts <- sg_counts_tbl(frame)
+  n_found <- if (!is.null(counts)) sum(counts$count) else 0L
+  n_total <- nrow(frame)
+
+  if (is.null(counts)) {
+    return(empty_sgdist_plot(
+      title = title,
+      msg   = sprintf("No subgroups identified\n(0 of %d sims)", n_total)))
+  }
+
+  current    <- min_pct
+  attempts   <- c(current)
+  n_halvings <- 0L
+  keep       <- counts[counts$pct >= current, , drop = FALSE]
+  while (nrow(keep) == 0L && n_halvings < max_halvings &&
+         (current / 2) >= min_floor_pct) {
+    current    <- current / 2
+    attempts   <- c(attempts, current)
+    n_halvings <- n_halvings + 1L
+    keep       <- counts[counts$pct >= current, , drop = FALSE]
+  }
+  if (nrow(keep) == 0L) {
+    return(empty_sgdist_plot(
+      title = title,
+      msg   = sprintf(
+        "No label \u2265 %g%% even after halving to %g%%\n(%d of %d sims found)",
+        attempts[1], current, n_found, n_total)))
+  }
+
+  # -- Top-K cap: always compute the pool metadata (for subtitle
+  #    reporting) but only attach the "Other" bar to `keep` if
+  #    show_other = TRUE.
+  n_distinct_passing <- nrow(keep)
+  pool_info <- NULL
+  if (n_distinct_passing > top_k) {
+    top    <- keep[seq_len(top_k), , drop = FALSE]
+    rest   <- keep[seq.int(top_k + 1L, n_distinct_passing), , drop = FALSE]
+    pool_info <- list(
+      n_labels = nrow(rest),
+      count    = sum(rest$count),
+      pct      = sum(rest$pct))
+    if (show_other) {
+      pooled_row <- data.frame(
+        sg_found = sprintf("Other (%d labels)", pool_info$n_labels),
+        count    = pool_info$count,
+        pct      = pool_info$pct,
+        stringsAsFactors = FALSE)
+      keep <- rbind(top, pooled_row)
+    } else {
+      keep <- top
+    }
+  }
+
+  # -- Wrap long labels for display ------------------------------------------
+  keep$sg_label <- vapply(keep$sg_found, function(x)
+    paste(strwrap(x, width = wrap_width), collapse = "\n"), character(1))
+  keep$sg_label <- factor(keep$sg_label, levels = rev(keep$sg_label))
+  keep$bar_label <- sprintf("%d (%.1f%%)", keep$count, keep$pct)
+
+  # Subtitle conveys: overall find rate + how many labels we're
+  # displaying out of how many passed + how many (additional) were
+  # pooled or suppressed as "Other" + (if auto-halved) the effective
+  # threshold.
+  sub <- sprintf("Found: %d / %d sims | Showing top %d of %d labels \u2265 %g%%",
+                 n_found, n_total,
+                 min(top_k, n_distinct_passing),
+                 n_distinct_passing, current)
+  if (!is.null(pool_info)) {
+    verb <- if (show_other) "Other" else "Suppressed"
+    sub <- paste0(sub,
+                  sprintf(" | %s: %d (%.1f%%)",
+                          verb, pool_info$count, pool_info$pct))
+  }
+
+  # -- Build plot ------------------------------------------------------------
+  # Bar-label placement inside the bar (hjust > 1) so labels don't clip.
+  # Labels are small black text over a light-filled bar.
+  p <- ggplot2::ggplot(keep,
+                        ggplot2::aes(x = sg_label, y = count, fill = sg_label)) +
+    ggplot2::geom_col() +
+    ggplot2::geom_text(ggplot2::aes(label = bar_label),
+                        hjust = 1.05, size = 3.2) +
+    ggplot2::coord_flip() +
+    ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02))) +
+    ggplot2::labs(
+      x = NULL, y = "Count",
+      title = title, subtitle = sub) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(
+      legend.position = "none",
+      plot.subtitle = ggplot2::element_text(size = 10, colour = "grey40"),
+      panel.grid.major.y = ggplot2::element_blank(),
+      axis.text.y = ggplot2::element_text(size = 10))
+
+  if (n_halvings > 0L) {
+    p <- p + ggplot2::labs(
+      caption = sprintf(
+        "Threshold auto-halved %d \u00d7 from %g%% to %g%% (no label cleared the initial value).",
+        n_halvings, attempts[1], current))
+  }
+
+  attr(p, "n_bars") <- nrow(keep)
+  p
+}
+
+# Placeholder panel when no bars can be shown.
+empty_sgdist_plot <- function(title, msg) {
+  p <- ggplot2::ggplot() +
+    ggplot2::annotate("text", x = 0.5, y = 0.5,
+                       label = msg, size = 5, hjust = 0.5) +
+    ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
+    ggplot2::labs(title = title) +
+    ggplot2::theme_void(base_size = 12) +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
+  attr(p, "n_bars") <- 0L
+  p
+}
+
+# Choose fig height adaptive to bar count: ~0.35 inch per bar,
+# floor 4.0 inches, ceiling 10 inches.
+sgdist_fig_height <- function(n_bars, floor_in = 4.0, ceil_in = 10.0) {
+  max(floor_in, min(ceil_in, 3.0 + 0.35 * max(1, n_bars)))
+}
+
+# Pre-compute the two plots so we can query n_bars for each chunk.
+plot_sgdist_alt <- build_sgdist_plot(
+  make_sg_plot_frame(results_alt),
+  min_pct    = sgdist_min_pct_alt,
+  top_k      = sgdist_top_k,
+  show_other = sgdist_show_other_alt,
+  title      = "HTE: Subgroups Identified (H-hat)",
+  wrap_width = 30)
+
+plot_sgdist_null <- build_sgdist_plot(
+  make_sg_plot_frame(results_null),
+  min_pct    = sgdist_min_pct_null,
+  top_k      = sgdist_top_k,
+  show_other = sgdist_show_other_null,
+  title      = "Null: Subgroups Identified (H-hat)",
+  wrap_width = 30)
+
+h_alt  <- sgdist_fig_height(attr(plot_sgdist_alt,  "n_bars"))
+h_null <- sgdist_fig_height(attr(plot_sgdist_null, "n_bars"))
+```
+
+```{r oc-alt-sgdist, fig.width=10, fig.height=h_alt}
+#| code-fold: true
+
+print(plot_sgdist_alt)
+```
+
+```{r oc-null-sgdist, fig.width=10, fig.height=h_null}
+#| code-fold: true
+
+print(plot_sgdist_null)
+```
+
+Under `sg_focus = "maxSG"` and H1, the chart should concentrate on
+definitions close to the true $Q$ anchor (age $> 34$ and preanti
+$\le$ 745 on the discretised side of the DGM).  Under H0 the find
+rate is low and any bars that clear the (possibly auto-halved)
+threshold are scattered across the candidate space — the expected
+false-discovery signature.  When the H0 chart is dominated by a large
+"Other (*k* labels)" bar — i.e., many distinct labels each passing
+the threshold at count 1 or 2 — that is itself the diagnostic: FS is
+firing on unrelated noise with no preferred label.
+
+### Distribution of Effect Estimates
+
+The MRCT analogue is `forestsearch::SGplot_estimates()`, which
+displays violins for four populations (ITT, non-AP training, AP
+testing, AP-subgroup) defined by the train/test split used in the
+MRCT consistency framework.  The ACTG175 binary-benefit study is a
+single-population design (no train/test split), so we construct a
+three-panel binary analogue using the columns `hr.itt` (ITT OR),
+`hr.H.hat` (identified subgroup $\hat H$), and `hr.Hc.hat`
+(identified complement $\hat H^c$) that `run_simulation_analysis()`
+already populates.  All three are on the switched-treatment scale
+and inverted to the original benefit scale for display.  On the
+benefit scale, OR $> 1$ indicates the ZDV+ddI combination is superior
+to ddI monotherapy.  As before, both H1 and H0 scenarios are shown.
+
+```{r oc-alt-ordist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+
+# Invert OR from switched scale to original benefit scale (1/OR).
+# Only invert finite positives; leave NAs/non-positives as NA.
+invert_or <- function(x) ifelse(is.finite(x) & x > 0, 1 / x, NA_real_)
+
+# Helper: build three-panel OR distribution (ITT, H-hat, Hc-hat).
+build_or_panels <- function(results_tbl) {
+  fs <- results_tbl[results_tbl$analysis == "FS", ]
+  data.table::rbindlist(list(
+    data.table::data.table(
+      est      = invert_or(fs$hr.itt),
+      analysis = "ITT"),
+    data.table::data.table(
+      est      = invert_or(fs$hr.H.hat[fs$any.H == 1L]),
+      analysis = "Identified H-hat"),
+    data.table::data.table(
+      est      = invert_or(fs$hr.Hc.hat[fs$any.H == 1L]),
+      analysis = "Identified Hc-hat (benefit)")
+  ))
+}
+
+ordist_plot <- function(df_or, title, subtitle,
+                         or_ref = NA_real_) {
+  df_or$analysis <- factor(
+    df_or$analysis,
+    levels = c("ITT", "Identified H-hat", "Identified Hc-hat (benefit)"))
+
+  lbls <- vapply(levels(df_or$analysis), function(g) {
+    v <- df_or$est[df_or$analysis == g]; v <- v[!is.na(v)]
+    if (length(v) < 2) g
+    else sprintf("%s\nMean: %.3f (%.3f),  N = %d",
+                 g, mean(v), sd(v), length(v))
+  }, character(1))
+
+  p <- ggplot2::ggplot(df_or,
+                        ggplot2::aes(x = analysis, y = est,
+                                     fill = analysis)) +
+    ggplot2::geom_violin(trim = FALSE, alpha = 0.7) +
+    ggplot2::geom_boxplot(width = 0.12, fill = "white",
+                          outlier.size = 0.6) +
+    ggplot2::geom_hline(yintercept = 1, colour = "red",
+                        linetype = "dashed") +
+    ggplot2::scale_x_discrete(labels = lbls) +
+    ggplot2::scale_fill_brewer(palette = "Pastel1") +
+    ggplot2::labs(x = "Analysis Population",
+                  y = "Odds Ratio (benefit scale)",
+                  title = title, subtitle = subtitle) +
+    ggplot2::theme_minimal(base_size = 12) +
+    ggplot2::theme(legend.position = "none",
+                   axis.text.x = ggplot2::element_text(size = 10))
+  if (!is.na(or_ref)) {
+    p <- p + ggplot2::geom_hline(yintercept = or_ref,
+                                  colour = "darkgreen",
+                                  linetype = "dotted")
+  }
+  p
+}
+
+# H1 panel with OR(Q) truth overlay
+or_Q_true <- 1 / dgm_calibrated$hazard_ratios$harm_subgroup
+ordist_plot(
+  build_or_panels(results_alt),
+  title    = "ACTG175 Binary (HTE): OR Estimates Across Simulations",
+  subtitle = sprintf(
+    "n = %d, %d sims | dotted green = true OR(Q) on benefit scale = %.2f",
+    sim_n_sample, nsims_alt, or_Q_true),
+  or_ref   = or_Q_true)
+```
+
+```{r oc-null-ordist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+
+# Under H0, the DGM has no harm subgroup, so there is no OR(Q)
+# reference.  Plot with null reference at OR = 1 only.
+ordist_plot(
+  build_or_panels(results_null),
+  title    = "ACTG175 Binary (Null): OR Estimates Across Simulations",
+  subtitle = sprintf(
+    "n = %d, %d sims | no true harm/benefit subgroup; dashed red = OR = 1",
+    sim_n_sample, nsims_null))
+```
+
+Under H1 (top panel), the left violin (ITT) is centred near the DGM's
+implied ITT benefit; the middle violin ($\widehat{\mathrm{OR}}(\hat
+H)$) should concentrate near the dotted green reference line at the
+true $\mathrm{OR}(Q)$; the right violin ($\widehat{\mathrm{OR}}(\hat
+H^c)$) shows the residual effect in the complement and should sit
+near $\mathrm{OR} = 1$ (i.e., no benefit in $\hat H^c$ once $\hat H$
+is removed).  Under H0 (bottom panel), all three violins should
+centre near $\mathrm{OR} = 1$; any concentration away from 1 in the
+subgroup panels, conditional on a subgroup being found, reflects the
+selection-driven bias that the bootstrap bias-correction in
+`forestsearch()` is designed to correct.
+
+```{r oc-alt-tables}
 build_estimation_table(
   results         = results_alt,
   dgm             = dgm_calibrated,
   analysis_method = "FS",
   subtitle = sprintf(
-    "ACTG175 Binary DGM | n = %d, %d sims",
+    "ACTG175 Binary DGM (raw cont.) | n = %d, %d sims",
     sim_n_sample, nsims_alt
   ),
   font_size = 16,
@@ -1152,7 +2699,7 @@ if ("GRF" %in% unique(results_alt$analysis)) {
     dgm             = dgm_calibrated,
     analysis_method = "GRF",
     subtitle = sprintf(
-      "ACTG175 Binary DGM (GRF, dmin=%.2f) | n = %d, %d sims",
+      "ACTG175 Binary DGM, GRF raw cont. (dmin=%.2f) | n = %d, %d sims",
       grf_dmin, sim_n_sample, nsims_alt
     ),
     font_size = 16,
@@ -1182,7 +2729,7 @@ format_oc_results(
   results_null,
   metrics  = c("detection", "classification"),
   digits   = 2,
-  title    = "ACTG175 Binary: Type I Error (Null)",
+  title    = "ACTG175 Binary: Type I Error (Null, Raw Continuous)",
   subtitle = sprintf(
     "n = %d, %d sims, OR(ITT) = %.2f (switched)",
     sim_n_sample, nsims_null,
@@ -1206,14 +2753,14 @@ build_classification_table(
   scenario_results = list(
     null = list(
       results  = results_null,
-      label    = "ACTG-bin",
+      label    = "ACTG-bin-raw",
       n_sample = sim_n_sample,
       dgm      = dgm_null,
       hypothesis = "null"
     ),
     alt = list(
       results  = results_alt,
-      label    = "ACTG-bin",
+      label    = "ACTG-bin-raw",
       n_sample = sim_n_sample,
       dgm      = dgm_calibrated,
       hypothesis = "alt"
@@ -1225,7 +2772,7 @@ build_classification_table(
   ))),
   digits    = 2,
   font_size = 16,
-  title     = "ACTG175 Binary: Subgroup Identification and Classification",
+  title     = "ACTG175 Binary (Raw Continuous): Subgroup Identification and Classification",
   n_sims    = nsims_alt,
   subgroup_notation = sg_notation
 )
@@ -1255,6 +2802,10 @@ timing_df |>
 ### Projection for Production Runs
 
 ```{r projection}
+#| code-fold: true
+#| code-summary: "Projection arithmetic (click to expand)"
+#| results: asis
+
 # Per-replicate cost (simulation loop only)
 time_per_alt  <- timings$sims_alt / nsims_alt
 time_per_null <- timings$sims_null / nsims_null
@@ -1265,16 +2816,41 @@ proj_null <- time_per_null * prod_null
 proj_other <- timings$total - timings$sims_alt - timings$sims_null
 proj_total <- proj_alt + proj_null + proj_other
 
-cat(sprintf("Current run: %d alt + %d null on %d workers\n",
-    nsims_alt, nsims_null, n_workers))
-cat(sprintf("  Per-replicate: %.1f sec (alt), %.1f sec (null)\n",
-    time_per_alt, time_per_null))
-cat(sprintf("\nProjected for %d alt + %d null:\n", prod_alt, prod_null))
-cat(sprintf("  Alt sims:   %5.0f sec (%4.1f min)\n", proj_alt, proj_alt / 60))
-cat(sprintf("  Null sims:  %5.0f sec (%4.1f min)\n", proj_null, proj_null / 60))
-cat(sprintf("  Other:      %5.0f sec (%4.1f min)\n", proj_other, proj_other / 60))
-cat(sprintf("  Total:      %5.0f sec (%4.1f min = %.1f hours)\n",
-    proj_total, proj_total / 60, proj_total / 3600))
+proj_df <- data.frame(
+  Metric = c(
+    sprintf("Current run (%d alt + %d null on %d workers)",
+            nsims_alt, nsims_null, n_workers),
+    "Per-replicate, H1",
+    "Per-replicate, H0",
+    sprintf("Projected H1 (%d sims)", prod_alt),
+    sprintf("Projected H0 (%d sims)", prod_null),
+    "Projected other (calibration, setup, reporting)",
+    "Projected total"),
+  Seconds = c(NA_real_,
+              time_per_alt, time_per_null,
+              proj_alt, proj_null, proj_other, proj_total),
+  Minutes = c(NA_real_,
+              time_per_alt / 60, time_per_null / 60,
+              proj_alt / 60, proj_null / 60, proj_other / 60,
+              proj_total / 60),
+  Hours   = c(NA_real_, NA_real_, NA_real_, NA_real_, NA_real_,
+              NA_real_, proj_total / 3600),
+  stringsAsFactors = FALSE)
+
+cat(gt::as_raw_html(
+  gt::gt(proj_df) |>
+    gt::tab_header(title = sprintf(
+      "Projected runtime for production simulation (%d H1 + %d H0)",
+      prod_alt, prod_null)) |>
+    gt::fmt_number(columns = c("Seconds", "Minutes", "Hours"),
+                   decimals = 1) |>
+    gt::sub_missing(missing_text = "\u2014") |>
+    gt::cols_label(Metric  = gt::md("**Metric**"),
+                   Seconds = gt::md("**Seconds**"),
+                   Minutes = gt::md("**Minutes**"),
+                   Hours   = gt::md("**Hours**")) |>
+    gt::tab_options(table.font.size = 11)
+), "\n\n")
 ```
 
 
@@ -1305,14 +2881,28 @@ This document mirrors the structure of `actg175_simulations_benefit.qmd`
 5. **GRF standalone included**: the standalone GRF analysis
    (`grf.subg.harm.glm`) uses `causal_forest()` for candidate
    factor screening and policy trees for subgroup identification.
-   For the benefit + positive binary scenario with switched
-   treatment, `dmin.grf = 0.02` (calibrated via 1,500 sims per
-   grid point in `grf_dmin_calibration_binary.qmd`) achieves
-   detection $\geq 76\%$ with FPR $\leq 9\%$.  The dispatch
-   fix in `run_simulation_analysis.R` (adding `outcome_type`,
-   `effect_measure`, `offset.name` to the `valid_pnames`
-   whitelist) routes binary data to `grf.subg.harm.glm()`
-   instead of the survival-only `grf.subg.harm.survival()`.
+
+## Key Difference from the Prior Discretised Setup
+
+The prior version of this document discretised every continuous
+covariate into a binary factor (using the same cuts that define
+the true subgroup $Q$) before the analysis step.  That setup
+implicitly gives the analysis methods knowledge of the true
+cutpoints.  **This document feeds raw continuous covariates
+(`age`, `preanti`, `wtkg`, `karnof`, `cd40`, `cd80`) to the
+analysis methods**, so the search methods must discover cuts
+themselves.  The DGM construction is unchanged: the true $Q$ is
+still $\{\text{age} > 34\} \cap \{\text{preanti} \leq 744.5\}$
+and the calibration targets the same OR(Q).
+
+**Expected consequences** relative to the discretised run:
+
+- Lower sensitivity and PPV for both FS and GRF, because
+  discovered cuts will generally differ from the true cuts.
+- Similar or slightly higher FPR for GRF, because the policy-tree
+  search space is larger over continuous inputs.
+- Detection power depends on how closely the median / GRF-derived
+  cuts align with the true cuts.
 
 ## Limitations
 
@@ -1325,30 +2915,75 @@ This document mirrors the structure of `actg175_simulations_benefit.qmd`
   for Q members under treatment.  Positive values increase the
   outcome for Q; negative values decrease it.
 
+- `dmin.grf` was calibrated on the discretised setup; a fresh
+  calibration run with raw continuous inputs is recommended
+  before production scaling.
+
 ## Reloading Saved Results
 
 When `save_results = TRUE`, the simulation bundle is saved as an
-`.rds` file in the `_data/` directory.  To reload for downstream
-analysis:
+`.rds` file in the `_data/` directory.  The bundle carries every
+scalar, list, and object the vignette reads downstream of the
+simulation run, which makes it straightforward to (a) reload for
+interactive analysis or (b) split this document into a separate
+"run" script and a "report" document in the future.
 
 ```r
-bundle <- readRDS("../_data/actg175_binary_simulations_200alts_200nulls.rds")
+bundle <- readRDS(
+  "../_data/actg175_binary_benefit_simulations_rawcont_100alts_100nulls.rds"
+)
 
-# Core results (data.tables)
+# -- Core results (data.tables) --------------------------------------------
 results_alt  <- bundle$results_alt
 results_null <- bundle$results_null
 
-# DGM objects (class "glm_dgm")
-dgm_cal  <- bundle$dgm_calibrated
-dgm_null <- bundle$dgm_null
+# -- DGM objects (class "glm_dgm") -----------------------------------------
+dgm_calibrated <- bundle$dgm_calibrated
+dgm_null       <- bundle$dgm_null
 
-# True effects
-bundle$true_effects$or_Q    # OR(Q) on switched scale
-bundle$true_effects$k_inter # calibrated interaction shift
+# -- Restore ALL vignette-scope scalars consumed downstream of the run -----
+# (Assigning locally lets Section 8 chunks run unchanged against the
+#  reloaded bundle.)
+with(bundle$config, {
+  sim_n_sample        <<- n_sample
+  nsims_alt           <<- nsims_alt
+  nsims_null          <<- nsims_null
+  n_workers           <<- n_workers
+  confounders_analysis<<- confounders_analysis
+  sg_notation         <<- sg_notation
+  sgdist_min_pct_alt  <<- sgdist_min_pct_alt
+  sgdist_min_pct_null <<- sgdist_min_pct_null
+  sgdist_top_k        <<- sgdist_top_k
+  sgdist_show_other_alt  <<- sgdist_show_other_alt
+  sgdist_show_other_null <<- sgdist_show_other_null
+  grf_dmin            <<- grf_dmin
+  prod_alt            <<- prod_alt
+  prod_null           <<- prod_null
+})
 
-# Reproduce tables
-format_oc_results(results_alt, ...)
-build_estimation_table(results_alt, dgm = dgm_cal, ...)
+timings      <- bundle$timings
+n_failed_alt <- bundle$n_failed_alt
+n_failed_null<- bundle$n_failed_null
+
+# -- True effects (convenience) --------------------------------------------
+bundle$true_effects$or_Q     # OR(Q) on switched scale
+bundle$true_effects$or_Qc    # OR(Qc)
+bundle$true_effects$or_ITT   # OR(ITT)
+bundle$true_effects$k_inter  # calibrated interaction shift
+
+# -- FS / GRF parameter lists (passed to run_simulation_analysis) ----------
+bundle$fs_params
+bundle$grf_params
+
+# -- Provenance ------------------------------------------------------------
+bundle$timestamp         # when the run completed
+bundle$R_version         # R version used
+bundle$fs_version        # forestsearch version used
+
+# -- Reproduce Section 8 tables with the reloaded objects ------------------
+format_oc_results(results_alt,    subgroup_notation = sg_notation, ...)
+build_estimation_table(results_alt, dgm = dgm_calibrated,
+                        subgroup_notation = sg_notation, ...)
 ```
 
 
@@ -1387,7 +3022,8 @@ it classifies all subjects to $Q^c$.
 
 ```{r sim-concordance}
 #| code-fold: true
-#| code-summary: "Classification concordance"
+#| code-summary: "Classification concordance (click to expand)"
+#| results: asis
 
 conc_col <- "agree.FS.GRF"
 kappa_col <- "kappa.FS.GRF"
@@ -1396,71 +3032,135 @@ if (all(c(conc_col, kappa_col) %in% names(results_alt)) &&
     all(c("FS", "GRF") %in% methods)) {
 
   # One row per sim (take FS rows — concordance is per-sim, same on both)
-  fs_alt <- results_alt[results_alt$analysis == "FS", ]
+  fs_alt  <- results_alt[results_alt$analysis == "FS", ]
   grf_alt <- results_alt[results_alt$analysis == "GRF", ]
+  n       <- nrow(fs_alt)
 
-  cat(sprintf("=== FS vs GRF Classification Concordance (%d sims) ===\n\n",
-      nrow(fs_alt)))
-  cat(sprintf("  Mean agreement:  %.1f%% (SD: %.1f%%)\n",
-      100 * mean(fs_alt[[conc_col]], na.rm = TRUE),
-      100 * sd(fs_alt[[conc_col]], na.rm = TRUE)))
-  cat(sprintf("  Mean kappa:      %.3f (SD: %.3f)\n",
-      mean(fs_alt[[kappa_col]], na.rm = TRUE),
-      sd(fs_alt[[kappa_col]], na.rm = TRUE)))
-  cat(sprintf("  Median kappa:    %.3f\n\n",
-      median(fs_alt[[kappa_col]], na.rm = TRUE)))
-
-  # Detection patterns
-  both   <- sum(fs_alt$any.H == 1 & grf_alt$any.H == 1)
-  fs_only <- sum(fs_alt$any.H == 1 & grf_alt$any.H == 0)
+  both     <- sum(fs_alt$any.H == 1 & grf_alt$any.H == 1)
+  fs_only  <- sum(fs_alt$any.H == 1 & grf_alt$any.H == 0)
   grf_only <- sum(fs_alt$any.H == 0 & grf_alt$any.H == 1)
-  neither <- sum(fs_alt$any.H == 0 & grf_alt$any.H == 0)
-  n <- nrow(fs_alt)
+  neither  <- sum(fs_alt$any.H == 0 & grf_alt$any.H == 0)
+  both_idx <- fs_alt$any.H == 1 & grf_alt$any.H == 1
 
-  cat("Detection patterns:\n")
-  cat(sprintf("  Both detect:    %3d (%.0f%%)\n", both, 100 * both / n))
-  cat(sprintf("  FS only:        %3d (%.0f%%)\n", fs_only, 100 * fs_only / n))
-  cat(sprintf("  GRF only:       %3d (%.0f%%)\n", grf_only, 100 * grf_only / n))
-  cat(sprintf("  Neither:        %3d (%.0f%%)\n", neither, 100 * neither / n))
+  conc_df <- data.frame(
+    Metric = c(
+      "Mean agreement (%)",
+      "SD agreement (%)",
+      "Mean kappa",
+      "SD kappa",
+      "Median kappa",
+      "Both detect",
+      "FS only",
+      "GRF only",
+      "Neither",
+      sprintf("Mean agreement | both detect (n = %d)", both),
+      sprintf("Mean kappa | both detect (n = %d)",     both)
+    ),
+    Value = c(
+      sprintf("%.1f", 100 * mean(fs_alt[[conc_col]],  na.rm = TRUE)),
+      sprintf("%.1f", 100 * sd(fs_alt[[conc_col]],    na.rm = TRUE)),
+      sprintf("%.3f",       mean(fs_alt[[kappa_col]], na.rm = TRUE)),
+      sprintf("%.3f",       sd(fs_alt[[kappa_col]],   na.rm = TRUE)),
+      sprintf("%.3f",       median(fs_alt[[kappa_col]], na.rm = TRUE)),
+      sprintf("%d (%.0f%%)", both,     100 * both     / n),
+      sprintf("%d (%.0f%%)", fs_only,  100 * fs_only  / n),
+      sprintf("%d (%.0f%%)", grf_only, 100 * grf_only / n),
+      sprintf("%d (%.0f%%)", neither,  100 * neither  / n),
+      if (both > 0)
+        sprintf("%.1f%%", 100 * mean(fs_alt[[conc_col]][both_idx],  na.rm = TRUE))
+      else "\u2014",
+      if (both > 0)
+        sprintf("%.3f",         mean(fs_alt[[kappa_col]][both_idx], na.rm = TRUE))
+      else "\u2014"
+    ),
+    stringsAsFactors = FALSE)
 
-  if (both > 0) {
-    both_idx <- fs_alt$any.H == 1 & grf_alt$any.H == 1
-    cat(sprintf("\nWhen both detect (n=%d):\n", both))
-    cat(sprintf("  Mean agreement: %.1f%%\n",
-        100 * mean(fs_alt[[conc_col]][both_idx], na.rm = TRUE)))
-    cat(sprintf("  Mean kappa:     %.3f\n",
-        mean(fs_alt[[kappa_col]][both_idx], na.rm = TRUE)))
-  }
+  cat(gt::as_raw_html(
+    gt::gt(conc_df,
+           groupname_col = NULL) |>
+      gt::tab_header(title = sprintf(
+        "FS vs GRF classification concordance (%d sims)", n)) |>
+      gt::tab_row_group(label = "Overall agreement",
+                        rows = 1:5) |>
+      gt::tab_row_group(label = "Detection patterns",
+                        rows = 6:9) |>
+      gt::tab_row_group(label = "Conditional on both detecting",
+                        rows = 10:11) |>
+      gt::row_group_order(groups = c(
+        "Overall agreement",
+        "Detection patterns",
+        "Conditional on both detecting")) |>
+      gt::cols_label(Metric = gt::md("**Metric**"),
+                     Value  = gt::md("**Value**")) |>
+      gt::tab_options(table.font.size = 11)
+  ), "\n\n")
+
 } else {
-  cat("Concordance columns not found in results.\n")
-  cat("Ensure run_simulation_analysis() was called with run_fs=TRUE and run_grf=TRUE.\n")
+  cat("*Concordance columns not found in results.  Ensure",
+      "`run_simulation_analysis()` was called with",
+      "`run_fs = TRUE` and `run_grf = TRUE`.*\n\n")
 }
 ```
 
 ## Key Findings
 
 ```{r summary-findings}
+#| code-fold: true
+#| code-summary: "Summary computation (click to expand)"
 #| results: asis
 
-cat(sprintf("**Simulation budget**: %d alt + %d null sims.\n\n", nsims_alt, nsims_null))
+# Top-line narrative (kept as markdown, not a table)
+cat(sprintf(
+  "**Simulation budget**: %d H1 + %d H0 sims.\n\n",
+  nsims_alt, nsims_null))
+cat("**Analysis setting**: raw continuous covariates;",
+    "cuts discovered by the methods.\n\n")
 
-for (m in methods) {
-  s <- summ[summ$Method == m, ]
-  cat(sprintf("- **%s**: Detection = %.1f%%, FPR = %.1f%%, sens(%s) = %.2f, ppv(%s) = %.2f.\n",
-      m, 100 * s$alt_det, 100 * s$null_fpr,
-      ifelse(sg_notation == "benefit", "Q", "H"), s$alt_sens,
-      ifelse(sg_notation == "benefit", "Q", "H"), s$alt_ppv))
-}
+# Per-method operating-characteristic summary as a gt table
+truth_label <- ifelse(sg_notation == "benefit", "Q", "H")
 
-time_per_alt  <- timings$sims_alt / nsims_alt
+kf_df <- data.frame(
+  Method         = summ$Method,
+  `Detection (%)` = sprintf("%.1f", 100 * summ$alt_det),
+  `FPR (%)`       = sprintf("%.1f", 100 * summ$null_fpr),
+  `Sens`          = sprintf("%.2f", summ$alt_sens),
+  `PPV`           = sprintf("%.2f", summ$alt_ppv),
+  check.names = FALSE,
+  stringsAsFactors = FALSE)
+
+cat(gt::as_raw_html(
+  gt::gt(kf_df) |>
+    gt::tab_header(title = "Operating characteristics by method") |>
+    gt::tab_spanner(label = sprintf("Classification vs %s", truth_label),
+                    columns = c("Sens", "PPV")) |>
+    gt::cols_label(Method = gt::md("**Method**")) |>
+    gt::tab_options(table.font.size = 11)
+), "\n\n")
+
+# Timing summary as a second compact gt table
+time_per_alt  <- timings$sims_alt  / nsims_alt
 time_per_null <- timings$sims_null / nsims_null
-cat(sprintf("\n- **Timing**: %.1f sec/sim (alt), %.1f sec/sim (null) on %d workers.\n",
-    time_per_alt, time_per_null, n_workers))
-cat(sprintf("- **Total runtime**: %.1f minutes.\n",
-    as.numeric(timings$total) / 60))
-cat(sprintf("- **Projected for %d alt + %d null**: %.1f hours.\n",
-    prod_alt, prod_null,
-    (prod_alt * time_per_alt + prod_null * time_per_null) / 3600))
+time_df <- data.frame(
+  Metric = c(sprintf("Per-replicate (H1), %d workers",  n_workers),
+             sprintf("Per-replicate (H0), %d workers",  n_workers),
+             "This run (total)",
+             sprintf("Projected production (%d H1 + %d H0)",
+                     prod_alt, prod_null)),
+  Value  = c(sprintf("%.1f sec",  time_per_alt),
+             sprintf("%.1f sec",  time_per_null),
+             sprintf("%.1f min",  as.numeric(timings$total) / 60),
+             sprintf("%.1f hours",
+                     (prod_alt  * time_per_alt +
+                      prod_null * time_per_null) / 3600)),
+  stringsAsFactors = FALSE)
+
+cat(gt::as_raw_html(
+  gt::gt(time_df) |>
+    gt::tab_header(title = "Timing") |>
+    gt::cols_label(Metric = gt::md("**Metric**"),
+                   Value  = gt::md("**Value**")) |>
+    gt::tab_options(table.font.size = 11)
+), "\n\n")
 ```
 
 

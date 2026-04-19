@@ -24,10 +24,10 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 100L
-nsims_null  <- 100L
+nsims_alt   <- 2500L
+nsims_null  <- 20000L
 sim_seed    <- 8316951L
-n_workers   <- max(1L, floor(0.90 * parallel::detectCores(logical = FALSE)))
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 # -- Production projection targets --------------------------------------------
 prod_alt               <- 5000L

@@ -2539,7 +2539,7 @@ window.Quarto = {
 <li><p><strong>DGM construction</strong> (<a href="#sec-dgm" class="quarto-xref">Section 4</a>): Fit a logistic regression to the observed data using the <code>z1</code>–<code>z12</code> factor formulation, create a 5,000-subject super-population, and define the true benefit subgroup <span class="math inline">\(Q = \{z_1 = 1 \cap z_2 = 1\}\)</span> (age &gt; 34 AND preanti <span class="math inline">\(\leq\)</span> 744.5). The super- population retains the <strong>raw</strong> covariate columns as well as the <code>z1</code>–<code>z12</code> indicators.</p></li>
 <li><p><strong>Calibration</strong> (<a href="#sec-calibrate" class="quarto-xref">Section 4.2</a>): Search over <code>k_inter</code> values to find the interaction strength that produces <span class="math inline">\(\text{OR}(Q) = 2\)</span> on the switched scale (= <span class="math inline">\(0.5\)</span> on the original scale).</p></li>
 <li><p><strong>Single-data analysis</strong> (<a href="#sec-single" class="quarto-xref">Section 5</a>): Run ForestSearch and GRF on the observed ACTG175 data using the <strong>raw</strong> analysis candidate set to verify the pipeline produces valid results before scaling to simulation.</p></li>
-<li><p><strong>Monte Carlo simulation</strong> (<a href="#sec-sims" class="quarto-xref">Section 7</a>): For each of 100 alternative and 100 null replicates, draw a random sample of <span class="math inline">\(N = 1000\)</span> from the DGM super-population, run ForestSearch and GRF on the raw analysis covariates, and record detection, classification, and effect estimates.</p></li>
+<li><p><strong>Monte Carlo simulation</strong> (<a href="#sec-sims" class="quarto-xref">Section 7</a>): For each of 2500 alternative and 20000 null replicates, draw a random sample of <span class="math inline">\(N = 1000\)</span> from the DGM super-population, run ForestSearch and GRF on the raw analysis covariates, and record detection, classification, and effect estimates.</p></li>
 <li><p><strong>Evaluation</strong> (<a href="#sec-results" class="quarto-xref">Section 8</a>): Compute operating characteristics (detection, sensitivity, PPV, effect estimation bias) under both hypotheses.</p></li>
 </ol>
 </section>
@@ -3435,7 +3435,7 @@ Note
 #&gt; Evaluated 1 of 6 candidates (early stop) 
 #&gt; 1 subgroups passed consistency threshold
 #&gt; SG focus = hr 
-#&gt; Seconds and minutes forestsearch overall = 2.393 0.0399 
+#&gt; Seconds and minutes forestsearch overall = 2.336 0.0389 
 #&gt; Consistency algorithm used: twostage 
 #&gt; Subgroup identified: !{wtkg &lt;= 83.4624} &amp; !{cd40 &lt;= 390}</code></pre>
 </div>
@@ -3518,7 +3518,7 @@ Note
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb121"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb121-1"><a href="#cb121-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">Single-data analysis: %.1f sec</span><span class="sc">\n</span><span class="st">&quot;</span>, timings<span class="sc">$</span>single_data))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; Single-data analysis: 2.4 sec</code></pre>
+#&gt; Single-data analysis: 2.3 sec</code></pre>
 </div>
 </div>
 </section>
@@ -4119,7 +4119,7 @@ GRF Standalone
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb143"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb143-1"><a href="#cb143-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plan</span>(multisession, <span class="at">workers =</span> n_workers)</span>
 <span id="cb143-2"><a href="#cb143-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Using&quot;</span>, n_workers, <span class="st">&quot;parallel workers</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Using 12 parallel workers</code></pre>
+<pre><code>#&gt; Using 13 parallel workers</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb145"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb145-1"><a href="#cb145-1" aria-hidden="true" tabindex="-1"></a><span class="co"># -- Candidate variable set (RAW continuous + binary) --------------------------</span></span>
 <span id="cb145-2"><a href="#cb145-2" aria-hidden="true" tabindex="-1"></a><span class="co"># This is the key behavioural change vs the prior discretised setup:</span></span>
@@ -4200,7 +4200,7 @@ GRF Standalone
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb150"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb150-1"><a href="#cb150-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Running&quot;</span>, nsims_alt, <span class="st">&quot;simulations under H1...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Running 100 simulations under H1...</code></pre>
+<pre><code>#&gt; Running 2500 simulations under H1...</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -4239,14 +4239,14 @@ GRF Standalone
 <span id="cb152-33"><a href="#cb152-33" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>sims_alt <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Completed in 1.3 minutes</code></pre>
+<pre><code>#&gt; Completed in 28.5 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb154"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb154-1"><a href="#cb154-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Results:&quot;</span>, <span class="fu">nrow</span>(results_alt), <span class="st">&quot;rows</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Results: 200 rows</code></pre>
+<pre><code>#&gt; Results: 5000 rows</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -4262,7 +4262,7 @@ GRF Standalone
 <span id="cb156-10"><a href="#cb156-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Detection rate: 91.0%</code></pre>
+<pre><code>#&gt; Detection rate: 94.6%</code></pre>
 </div>
 </div>
 </section>
@@ -4276,8 +4276,8 @@ GRF Standalone
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt;            used  (Mb) gc trigger  (Mb) limit (Mb) max used  (Mb)
-#&gt; Ncells  3263411 174.3    4769300 254.8         NA  4769300 254.8
-#&gt; Vcells 11173472  85.3   20761355 158.4      36864 17234462 131.5</code></pre>
+#&gt; Ncells  3371580 180.1    6038352 322.5         NA  6038352 322.5
+#&gt; Vcells 11684663  89.2   20761361 158.4      36864 17234466 131.5</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -4290,7 +4290,7 @@ GRF Standalone
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb161"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb161-1"><a href="#cb161-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Running&quot;</span>, nsims_null, <span class="st">&quot;simulations under H0...</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Running 100 simulations under H0...</code></pre>
+<pre><code>#&gt; Running 20000 simulations under H0...</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -4328,7 +4328,7 @@ GRF Standalone
 <span id="cb163-32"><a href="#cb163-32" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Completed in&quot;</span>, <span class="fu">round</span>(timings<span class="sc">$</span>sims_null <span class="sc">/</span> <span class="dv">60</span>, <span class="dv">1</span>), <span class="st">&quot;minutes</span><span class="sc">\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Completed in 1.6 minutes</code></pre>
+<pre><code>#&gt; Completed in 267.3 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -4337,7 +4337,7 @@ GRF Standalone
 <span id="cb165-3"><a href="#cb165-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="sc">*</span> <span class="fu">mean</span>(results_null<span class="sc">$</span>any.H[results_null<span class="sc">$</span>analysis <span class="sc">==</span> <span class="st">&quot;FS&quot;</span>])))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; False positive rate: 52.0%</code></pre>
+<pre><code>#&gt; False positive rate: 44.1%</code></pre>
 </div>
 </div>
 <div class="cell" data-layout-align="center">
@@ -4424,10 +4424,10 @@ GRF Standalone
 <span id="cb168-75"><a href="#cb168-75" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;save_results = FALSE; skipping save.</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb168-76"><a href="#cb168-76" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Results saved: ../_data/actg175_binary_benefit_simulations_rawcont_100alts_100nulls.rds
-#&gt;   Size: 2039.9 KB
-#&gt;   Alt sims: 100 completed (0 failed)
-#&gt;   Null sims: 100 completed (0 failed)
+<pre><code>#&gt; Results saved: ../_data/actg175_binary_benefit_simulations_rawcont_2500alts_20000nulls.rds
+#&gt;   Size: 3499.9 KB
+#&gt;   Alt sims: 2500 completed (0 failed)
+#&gt;   Null sims: 20000 completed (0 failed)
 #&gt;   OR(Q) = 2.007, OR(Qc) = 0.668</code></pre>
 </div>
 </div>
@@ -4952,7 +4952,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">ACTG175 Binary: Identification (Benefit Search, Raw Continuous)</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 100 sims, OR(Q) = 2.01, OR(Qc) = 0.67 (switched)</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 2500 sims, OR(Q) = 2.01, OR(Qc) = 0.67 (switched)</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -4972,21 +4972,21 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FS</td>
-<td class="gt_row gt_right" headers="N_sims">100</td>
-<td class="gt_row gt_right" headers="Detection">0.91</td>
-<td class="gt_row gt_right" headers="Sen">0.21</td>
-<td class="gt_row gt_right" headers="Spec">0.93</td>
-<td class="gt_row gt_right" headers="PPV">0.63</td>
+<td class="gt_row gt_right" headers="N_sims">2500</td>
+<td class="gt_row gt_right" headers="Detection">0.95</td>
+<td class="gt_row gt_right" headers="Sen">0.24</td>
+<td class="gt_row gt_right" headers="Spec">0.94</td>
+<td class="gt_row gt_right" headers="PPV">0.66</td>
 <td class="gt_row gt_right" headers="NPV">0.73</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">GRF</td>
-<td class="gt_row gt_right" headers="N_sims">100</td>
-<td class="gt_row gt_right" headers="Detection">0.94</td>
-<td class="gt_row gt_right" headers="Sen">0.72</td>
-<td class="gt_row gt_right" headers="Spec">0.72</td>
-<td class="gt_row gt_right" headers="PPV">0.57</td>
-<td class="gt_row gt_right" headers="NPV">0.87</td>
+<td class="gt_row gt_right" headers="N_sims">2500</td>
+<td class="gt_row gt_right" headers="Detection">0.96</td>
+<td class="gt_row gt_right" headers="Sen">0.75</td>
+<td class="gt_row gt_right" headers="Spec">0.75</td>
+<td class="gt_row gt_right" headers="PPV">0.61</td>
+<td class="gt_row gt_right" headers="NPV">0.88</td>
 </tr>
 </tbody>
 </table>
@@ -5411,7 +5411,7 @@ height: 0px !important;
 <td colspan="6" class="gt_heading gt_title gt_font_normal">Estimation Properties</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Binary DGM (raw cont.) | n = 1000, 100 sims (FS: 91/100 (91%) estimable)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Binary DGM (raw cont.) | n = 1000, 2500 sims (FS: 2364/2500 (95%) estimable)</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-size: 16px" scope="col"></th>
@@ -5424,26 +5424,26 @@ height: 0px !important;
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5</th>
+<th colspan="6" id="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
-<td class="gt_row gt_right" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  Avg" style="font-size: 16px">0.26</td>
-<td class="gt_row gt_right" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  SD" style="font-size: 16px">0.09</td>
-<td class="gt_row gt_right" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  Min" style="font-size: 16px">0.10</td>
-<td class="gt_row gt_right" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  Max" style="font-size: 16px">0.51</td>
-<td class="gt_row gt_right" headers="Q̂: 91 estimable, avg |Q̂| = 108, θ†(Q) = 0.5  b† (%)" style="font-size: 16px">-48.01</td>
+<td class="gt_row gt_left" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
+<td class="gt_row gt_right" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  Avg" style="font-size: 16px">0.26</td>
+<td class="gt_row gt_right" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  SD" style="font-size: 16px">0.09</td>
+<td class="gt_row gt_right" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  Min" style="font-size: 16px">0.00</td>
+<td class="gt_row gt_right" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  Max" style="font-size: 16px">0.52</td>
+<td class="gt_row gt_right" headers="Q̂: 2364 estimable, avg |Q̂| = 114, θ†(Q) = 0.5  b† (%)" style="font-size: 16px">-48.61</td>
 </tr>
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5</th>
+<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  Avg" style="font-size: 16px">1.23</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  SD" style="font-size: 16px">0.19</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  Min" style="font-size: 16px">0.89</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  Max" style="font-size: 16px">1.95</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 892, θ†(Qᶜ) = 1.5  b† (%)" style="font-size: 16px">-18.02</td>
+<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  Avg" style="font-size: 16px">1.27</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  SD" style="font-size: 16px">0.21</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  Min" style="font-size: 16px">0.73</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  Max" style="font-size: 16px">2.32</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 886, θ†(Qᶜ) = 1.5  b† (%)" style="font-size: 16px">-15.07</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -5875,7 +5875,7 @@ height: 0px !important;
 <td colspan="6" class="gt_heading gt_title gt_font_normal">Estimation Properties</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Binary DGM, GRF raw cont. (dmin=0.10) | n = 1000, 100 sims (GRF: 94/100 (94%) estimable)</td>
+<td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">ACTG175 Binary DGM, GRF raw cont. (dmin=0.10) | n = 1000, 2500 sims (GRF: 2409/2500 (96%) estimable)</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-size: 16px" scope="col"></th>
@@ -5888,26 +5888,26 @@ height: 0px !important;
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5</th>
+<th colspan="6" id="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
-<td class="gt_row gt_right" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  Avg" style="font-size: 16px">0.49</td>
-<td class="gt_row gt_right" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  SD" style="font-size: 16px">0.08</td>
-<td class="gt_row gt_right" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  Min" style="font-size: 16px">0.30</td>
-<td class="gt_row gt_right" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  Max" style="font-size: 16px">0.64</td>
-<td class="gt_row gt_right" headers="Q̂: 94 estimable, avg |Q̂| = 443, θ†(Q) = 0.5  b† (%)" style="font-size: 16px">-1.79</td>
+<td class="gt_row gt_left" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  Estimator" style="font-size: 16px">θ̂(Q̂)</td>
+<td class="gt_row gt_right" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  Avg" style="font-size: 16px">0.47</td>
+<td class="gt_row gt_right" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  SD" style="font-size: 16px">0.09</td>
+<td class="gt_row gt_right" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  Min" style="font-size: 16px">0.14</td>
+<td class="gt_row gt_right" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  Max" style="font-size: 16px">0.70</td>
+<td class="gt_row gt_right" headers="Q̂: 2409 estimable, avg |Q̂| = 430, θ†(Q) = 0.5  b† (%)" style="font-size: 16px">-5.23</td>
 </tr>
 <tr class="gt_group_heading_row odd">
-<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5</th>
+<th colspan="6" id="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 16px; font-weight: bold" scope="colgroup">Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  Avg" style="font-size: 16px">1.95</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  SD" style="font-size: 16px">0.27</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  Min" style="font-size: 16px">1.31</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  Max" style="font-size: 16px">3.11</td>
-<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 557, θ†(Qᶜ) = 1.5  b† (%)" style="font-size: 16px">30.07</td>
+<td class="gt_row gt_left" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  Estimator" style="font-size: 16px">θ̂(Q̂ᶜ)</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  Avg" style="font-size: 16px">1.97</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  SD" style="font-size: 16px">0.32</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  Min" style="font-size: 16px">1.10</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  Max" style="font-size: 16px">4.47</td>
+<td class="gt_row gt_right" headers="Q̂ᶜ: avg |Q̂ᶜ| = 570, θ†(Qᶜ) = 1.5  b† (%)" style="font-size: 16px">31.48</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -5936,8 +5936,8 @@ height: 0px !important;
 <span id="cb174-5"><a href="#cb174-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">subgroup_notation =</span> sg_notation</span>
 <span id="cb174-6"><a href="#cb174-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p>Under the alternative hypothesis (true OR(Q) = 0.5, true OR(Qc) = 1.5), 91 of 100 simulations (91.0%) identified a subgroup using FS. The identified subgroup averaged 108 patients (complement: 892).</p>
-<p>The naive OR in the identified subgroup averaged 0.26 (SD = 0.09), corresponding to -48.0% relative bias versus the true OR(Q) = 0.5. In the complement, the estimate averaged 1.23 (-18.0% bias vs. true OR(Qc) = 1.5).</p>
+<p>Under the alternative hypothesis (true OR(Q) = 0.5, true OR(Qc) = 1.5), 2364 of 2500 simulations (94.6%) identified a subgroup using FS. The identified subgroup averaged 114 patients (complement: 886).</p>
+<p>The naive OR in the identified subgroup averaged 0.26 (SD = 0.09), corresponding to -48.6% relative bias versus the true OR(Q) = 0.5. In the complement, the estimate averaged 1.27 (-15.1% bias vs. true OR(Qc) = 1.5).</p>
 </div>
 </section>
 </section>
@@ -6372,7 +6372,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">ACTG175 Binary: Type I Error (Null, Raw Continuous)</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 100 sims, OR(ITT) = 0.67 (switched)</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">n = 1000, 20000 sims, OR(ITT) = 0.67 (switched)</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -6392,19 +6392,19 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FS</td>
-<td class="gt_row gt_right" headers="N_sims">100</td>
-<td class="gt_row gt_right" headers="Detection">0.52</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.44</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
-<td class="gt_row gt_right" headers="Spec">0.95</td>
+<td class="gt_row gt_right" headers="Spec">0.96</td>
 <td class="gt_row gt_right" headers="PPV">0.00</td>
 <td class="gt_row gt_right" headers="NPV">1.00</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">GRF</td>
-<td class="gt_row gt_right" headers="N_sims">100</td>
-<td class="gt_row gt_right" headers="Detection">0.96</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.94</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
-<td class="gt_row gt_right" headers="Spec">0.82</td>
+<td class="gt_row gt_right" headers="Spec">0.83</td>
 <td class="gt_row gt_right" headers="PPV">0.00</td>
 <td class="gt_row gt_right" headers="NPV">1.00</td>
 </tr>
@@ -6865,7 +6865,7 @@ height: 0px !important;
 <td colspan="3" class="gt_heading gt_title gt_font_normal">ACTG175 Binary (Raw Continuous): Subgroup Identification and Classification</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Across 100 simulations per scenario</td>
+<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Across 2,500 simulations per scenario</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Metric" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"></th>
@@ -6879,13 +6879,13 @@ height: 0px !important;
 </tr>
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  Metric" style="font-size: 16px">any(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px; font-weight: bold">0.52</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  GRF" style="font-size: 16px; font-weight: bold">0.96</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px; font-weight: bold">0.44</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  GRF" style="font-size: 16px; font-weight: bold">0.94</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  Metric" style="font-size: 16px">sens(Qc)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px">0.95</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  GRF" style="font-size: 16px">0.82</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px">0.96</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  GRF" style="font-size: 16px">0.83</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  Metric" style="font-size: 16px">ppv(Qc)</td>
@@ -6894,7 +6894,7 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  Metric" style="font-size: 16px">avg|Q|</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px">96.00</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  FS" style="font-size: 16px">90.00</td>
 <td class="gt_row gt_right" headers="ACTG-bin-raw Null: N=1000, theta(ITT) = 1.5  GRF" style="font-size: 16px">185.00</td>
 </tr>
 <tr class="gt_group_heading_row even">
@@ -6902,33 +6902,33 @@ height: 0px !important;
 </tr>
 <tr class="gt_row_group_first odd">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">any(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px; font-weight: bold">0.91</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px; font-weight: bold">0.94</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px; font-weight: bold">0.95</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px; font-weight: bold">0.96</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">sens(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.21</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.72</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.24</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.75</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">sens(Qc)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.93</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.72</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.94</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.75</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">ppv(Q)</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.63</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.57</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.66</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.61</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">ppv(Qc)</td>
 <td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">0.73</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.87</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">0.88</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  Metric" style="font-size: 16px">avg|Q|</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">108.00</td>
-<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">443.00</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  FS" style="font-size: 16px">114.00</td>
+<td class="gt_row gt_right" headers="ACTG-bin-raw Alt: N=1000, p_Q=34%, theta(Q)=0.5, theta(Qc)=1.5, theta(ITT)=1.09  GRF" style="font-size: 16px">430.00</td>
 </tr>
 </tbody>
 </table>
@@ -7391,7 +7391,7 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">single_data</td>
-<td class="gt_row gt_right" headers="Seconds">2.4</td>
+<td class="gt_row gt_right" headers="Seconds">2.3</td>
 <td class="gt_row gt_right" headers="Minutes">0.04</td>
 </tr>
 <tr class="even">
@@ -7401,13 +7401,13 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">sims_alt</td>
-<td class="gt_row gt_right" headers="Seconds">77.0</td>
-<td class="gt_row gt_right" headers="Minutes">1.28</td>
+<td class="gt_row gt_right" headers="Seconds">1712.1</td>
+<td class="gt_row gt_right" headers="Minutes">28.54</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step">sims_null</td>
-<td class="gt_row gt_right" headers="Seconds">97.8</td>
-<td class="gt_row gt_right" headers="Minutes">1.63</td>
+<td class="gt_row gt_right" headers="Seconds">16038.6</td>
+<td class="gt_row gt_right" headers="Minutes">267.31</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">report_alt</td>
@@ -7416,8 +7416,8 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step" style="font-weight: bold">total</td>
-<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">182.3</td>
-<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">3.04</td>
+<td class="gt_row gt_right" headers="Seconds" style="font-weight: bold">17758.4</td>
+<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">295.97</td>
 </tr>
 </tbody>
 </table>
@@ -7444,7 +7444,7 @@ height: 0px !important;
 <span id="cb178-12"><a href="#cb178-12" aria-hidden="true" tabindex="-1"></a>    nsims_alt, nsims_null, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Current run: 100 alt + 100 null on 12 workers</code></pre>
+<pre><code>#&gt; Current run: 2500 alt + 20000 null on 13 workers</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7452,7 +7452,7 @@ height: 0px !important;
 <span id="cb180-2"><a href="#cb180-2" aria-hidden="true" tabindex="-1"></a>    time_per_alt, time_per_null))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Per-replicate: 0.8 sec (alt), 1.0 sec (null)</code></pre>
+<pre><code>#&gt;   Per-replicate: 0.7 sec (alt), 0.8 sec (null)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7467,21 +7467,21 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb184"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb184-1"><a href="#cb184-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Alt sims:   %5.0f sec (%4.1f min)</span><span class="sc">\n</span><span class="st">&quot;</span>, proj_alt, proj_alt <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Alt sims:    3852 sec (64.2 min)</code></pre>
+<pre><code>#&gt;   Alt sims:    3424 sec (57.1 min)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb186"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb186-1"><a href="#cb186-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Null sims:  %5.0f sec (%4.1f min)</span><span class="sc">\n</span><span class="st">&quot;</span>, proj_null, proj_null <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Null sims:  24461 sec (407.7 min)</code></pre>
+<pre><code>#&gt;   Null sims:  20048 sec (334.1 min)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb188"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb188-1"><a href="#cb188-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Other:      %5.0f sec (%4.1f min)</span><span class="sc">\n</span><span class="st">&quot;</span>, proj_other, proj_other <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Other:          7 sec ( 0.1 min)</code></pre>
+<pre><code>#&gt;   Other:          8 sec ( 0.1 min)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7489,7 +7489,7 @@ height: 0px !important;
 <span id="cb190-2"><a href="#cb190-2" aria-hidden="true" tabindex="-1"></a>    proj_total, proj_total <span class="sc">/</span> <span class="dv">60</span>, proj_total <span class="sc">/</span> <span class="dv">3600</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Total:      28320 sec (472.0 min = 7.9 hours)</code></pre>
+<pre><code>#&gt;   Total:      23480 sec (391.3 min = 6.5 hours)</code></pre>
 </div>
 </div>
 </section>
@@ -7630,21 +7630,21 @@ height: 0px !important;
 <span id="cb194-46"><a href="#cb194-46" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; === FS vs GRF Classification Concordance (100 sims) ===
+<pre><code>#&gt; === FS vs GRF Classification Concordance (2500 sims) ===
 #&gt; 
-#&gt;   Mean agreement:  64.6% (SD: 15.1%)
-#&gt;   Mean kappa:      0.198 (SD: 0.230)
-#&gt;   Median kappa:    0.137
+#&gt;   Mean agreement:  66.3% (SD: 14.8%)
+#&gt;   Mean kappa:      0.242 (SD: 0.240)
+#&gt;   Median kappa:    0.169
 #&gt; 
 #&gt; Detection patterns:
-#&gt;   Both detect:     87 (87%)
-#&gt;   FS only:          4 (4%)
-#&gt;   GRF only:         7 (7%)
-#&gt;   Neither:          2 (2%)
+#&gt;   Both detect:    2308 (92%)
+#&gt;   FS only:         56 (2%)
+#&gt;   GRF only:       101 (4%)
+#&gt;   Neither:         35 (1%)
 #&gt; 
-#&gt; When both detect (n=87):
-#&gt;   Mean agreement: 62.2%
-#&gt;   Mean kappa:     0.205</code></pre>
+#&gt; When both detect (n=2308):
+#&gt;   Mean agreement: 65.2%
+#&gt;   Mean kappa:     0.247</code></pre>
 </div>
 </div>
 </section>
@@ -7655,7 +7655,7 @@ height: 0px !important;
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb196"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb196-1"><a href="#cb196-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;**Simulation budget**: %d alt + %d null sims.</span><span class="sc">\n\n</span><span class="st">&quot;</span>, nsims_alt, nsims_null))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p><strong>Simulation budget</strong>: 100 alt + 100 null sims.</p>
+<p><strong>Simulation budget</strong>: 2500 alt + 20000 null sims.</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb197"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb197-1"><a href="#cb197-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;**Analysis setting**: raw continuous covariates; cuts discovered by the methods.</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -7672,8 +7672,8 @@ height: 0px !important;
 <span id="cb198-7"><a href="#cb198-7" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <ul>
-<li><strong>FS</strong>: Detection = 91.0%, FPR = 52.0%, sens(Q) = 0.21, ppv(Q) = 0.63.</li>
-<li><strong>GRF</strong>: Detection = 94.0%, FPR = 96.0%, sens(Q) = 0.72, ppv(Q) = 0.57.</li>
+<li><strong>FS</strong>: Detection = 94.6%, FPR = 44.1%, sens(Q) = 0.24, ppv(Q) = 0.66.</li>
+<li><strong>GRF</strong>: Detection = 96.4%, FPR = 94.0%, sens(Q) = 0.75, ppv(Q) = 0.61.</li>
 </ul>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7683,7 +7683,7 @@ height: 0px !important;
 <span id="cb199-4"><a href="#cb199-4" aria-hidden="true" tabindex="-1"></a>    time_per_alt, time_per_null, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <ul>
-<li><strong>Timing</strong>: 0.8 sec/sim (alt), 1.0 sec/sim (null) on 12 workers.</li>
+<li><strong>Timing</strong>: 0.7 sec/sim (alt), 0.8 sec/sim (null) on 13 workers.</li>
 </ul>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7691,7 +7691,7 @@ height: 0px !important;
 <span id="cb200-2"><a href="#cb200-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">as.numeric</span>(timings<span class="sc">$</span>total) <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <ul>
-<li><strong>Total runtime</strong>: 3.0 minutes.</li>
+<li><strong>Total runtime</strong>: 296.0 minutes.</li>
 </ul>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7700,7 +7700,7 @@ height: 0px !important;
 <span id="cb201-3"><a href="#cb201-3" aria-hidden="true" tabindex="-1"></a>    (prod_alt <span class="sc">*</span> time_per_alt <span class="sc">+</span> prod_null <span class="sc">*</span> time_per_null) <span class="sc">/</span> <span class="dv">3600</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <ul>
-<li><strong>Projected for 5000 alt + 25000 null</strong>: 7.9 hours.</li>
+<li><strong>Projected for 5000 alt + 25000 null</strong>: 6.5 hours.</li>
 </ul>
 </div>
 </section>
@@ -8256,10 +8256,10 @@ height: 0px !important;
 <span id="cb204-24"><a href="#cb204-24" aria-hidden="true" tabindex="-1"></a>knitr<span class="sc">::</span>opts_chunk<span class="sc">$</span><span class="fu">set</span>(<span class="at">comment =</span> <span class="st">&quot;#&gt;&quot;</span>, <span class="at">fig.align =</span> <span class="st">&quot;center&quot;</span>)</span>
 <span id="cb204-25"><a href="#cb204-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb204-26"><a href="#cb204-26" aria-hidden="true" tabindex="-1"></a><span class="co"># -- Simulation control -------------------------------------------------------</span></span>
-<span id="cb204-27"><a href="#cb204-27" aria-hidden="true" tabindex="-1"></a>nsims_alt   <span class="ot">&lt;-</span> <span class="dv">100</span>L</span>
-<span id="cb204-28"><a href="#cb204-28" aria-hidden="true" tabindex="-1"></a>nsims_null  <span class="ot">&lt;-</span> <span class="dv">100</span>L</span>
+<span id="cb204-27"><a href="#cb204-27" aria-hidden="true" tabindex="-1"></a>nsims_alt   <span class="ot">&lt;-</span> <span class="dv">2500</span>L</span>
+<span id="cb204-28"><a href="#cb204-28" aria-hidden="true" tabindex="-1"></a>nsims_null  <span class="ot">&lt;-</span> <span class="dv">20000</span>L</span>
 <span id="cb204-29"><a href="#cb204-29" aria-hidden="true" tabindex="-1"></a>sim_seed    <span class="ot">&lt;-</span> <span class="dv">8316951</span>L</span>
-<span id="cb204-30"><a href="#cb204-30" aria-hidden="true" tabindex="-1"></a>n_workers   <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="dv">1</span>L, <span class="fu">floor</span>(<span class="fl">0.90</span> <span class="sc">*</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>)))</span>
+<span id="cb204-30"><a href="#cb204-30" aria-hidden="true" tabindex="-1"></a>n_workers   <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="dv">1</span>L, <span class="fu">floor</span>(<span class="fl">0.95</span> <span class="sc">*</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>)))</span>
 <span id="cb204-31"><a href="#cb204-31" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb204-32"><a href="#cb204-32" aria-hidden="true" tabindex="-1"></a><span class="co"># -- Production projection targets --------------------------------------------</span></span>
 <span id="cb204-33"><a href="#cb204-33" aria-hidden="true" tabindex="-1"></a>prod_alt               <span class="ot">&lt;-</span> <span class="dv">5000</span>L</span>

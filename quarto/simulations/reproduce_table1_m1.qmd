@@ -27,7 +27,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Simulation budget ---------------------------------------------------------
-nsims              <- 100L        # Paper uses 20000; scale up for production
+nsims              <- 5000L        # Paper uses 20000; scale up for production
 n_workers          <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 # -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------
@@ -267,6 +267,7 @@ fs_params_lasso <- list(
   seedit                 = fs_seedit,
   use_lasso              = TRUE,
   use_grf                = FALSE,    # FSl: LASSO only
+  use_twostage           = FALSE,     # v0.2.0 default (3-10x speedup)
   tune_grf               = grf_tune,
   parallel_args          = list(
     plan = "sequential", workers = 1, show_message = FALSE
@@ -303,8 +304,8 @@ grf_params_60 <- list(
 
 ```{r collect-helper}
 #| include: false
-# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
-# Called via ::: since it is an internal (unexported) utility.
+# collect_results() and reset_workers() are exported from forestsearch
+# (R/forestsearch_helpers.R) as of v0.2.0; call with :: or unqualified.
 ```
 
 ## Alternative Hypothesis (M1 Alt)
@@ -402,7 +403,7 @@ results_alt_raw <- foreach(
 plan("sequential")
 t_alt <- proc.time()[3] - t0
 
-results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 cat(sprintf("Alt: %d sims completed in %.1f min\n", nsims, t_alt / 60))
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
@@ -508,7 +509,7 @@ results_null_raw <- foreach(
 plan("sequential")
 t_null <- proc.time()[3] - t0
 
-results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 cat(sprintf("Null: %d sims completed in %.1f min\n", nsims, t_null / 60))
 if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))

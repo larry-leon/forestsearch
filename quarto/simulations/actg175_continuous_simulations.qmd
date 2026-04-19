@@ -432,6 +432,9 @@ fs_params <- list(
   use_lasso              = fs_use_lasso,
   use_grf                = fs_use_grf,
 
+  # Consistency algorithm (v0.2.0 default: 3-10x speedup)
+  use_twostage           = TRUE,
+
   # Subgroup detection thresholds (identity scale)
   effect.threshold       = fs_md_threshold,
   consistency.threshold  = fs_md_consistency,
@@ -484,7 +487,7 @@ results_alt_raw <- foreach(
 
 timings$sims_alt <- proc.time()[3] - t0
 
-results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
@@ -500,9 +503,10 @@ cat(sprintf("Detection rate: %.1f%%\n",
 ```{r reset-workers-null}
 # Reset worker pool to prevent memory accumulation from alt sims.
 # Without this, null sims run on bloated workers and can be ~20x slower.
-plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-plan(multisession, workers = n_workers)
-cat(sprintf("Workers reset: %d cores\n", n_workers))
+# reset_workers() consolidates: plan(sequential) -> gc() -> Sys.sleep() ->
+# plan(multisession, workers = n_workers).  Exported from forestsearch
+# v0.2.0 (R/forestsearch_helpers.R).
+forestsearch::reset_workers(workers = n_workers)
 ```
 
 ```{r run-null}
@@ -534,7 +538,7 @@ results_null_raw <- foreach(
 
 timings$sims_null <- proc.time()[3] - t0
 
-results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")

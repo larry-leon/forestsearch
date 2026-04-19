@@ -333,6 +333,44 @@ ForestSearch identifies **Estrogen ≤ 0** (ER-negative) as the subgroup with
 potential harm. This is biologically plausible: tamoxifen is a selective
 estrogen receptor modulator with limited efficacy in ER-negative tumors.
 
+### Agreement with GRF
+
+ForestSearch and GRF identify subgroups by different mechanisms --
+FS via exhaustive search with consistency filtering, GRF via causal
+survival forests plus policy trees -- so agreement on subject-level
+membership provides an informal robustness check.  `compare_fs_subgroups()`
+produces a publication-ready cross-tabulation plus Cohen's kappa; it
+accepts forestsearch and GRF result objects directly, and handles
+non-detection (method identifies no subgroup) by assigning all
+subjects to the complement.
+
+```{r fs-grf-concordance}
+sg_compare <- compare_fs_subgroups(
+  fs1               = fs,
+  fs2               = grf_est,
+  label1            = "ForestSearch",
+  label2            = "GRF Standalone",
+  id.name           = id.name,
+  subgroup_notation = "harm",
+  title             = "FS vs GRF: Subgroup Membership Concordance",
+  subtitle          = "GBSG observed data (Cox, harm search)",
+  font_size         = 13
+)
+sg_compare$table
+```
+
+```{r fs-grf-concordance-stats}
+cat("Concordance statistics:\n")
+cat(sprintf("  Agreement:       %.1f%%\n",
+    100 * sg_compare$concordance$agreement))
+cat(sprintf("  Cohen's kappa:   %.3f\n",
+    sg_compare$concordance$kappa))
+cat(sprintf("  Concordant:      %d / Discordant: %d / Total: %d\n",
+    sg_compare$concordance$n_agree,
+    sg_compare$concordance$n_disagree,
+    sg_compare$concordance$n_total))
+```
+
 
 # Bootstrap Bias Correction
 

@@ -119,11 +119,11 @@ fs_splits                  <- 400
 fs_max_subgroups_search    <- 3
 
 # ─── Bootstrap / CV ──────────────────────────────────────────────────────
-NB    <- 1000    # Bootstrap iterations (use 500–2000 for production)
-Ksims <- 50    # K-fold CV iterations (use ≥ 50 for production)
+NB    <- 50    # Bootstrap iterations (use 500–2000 for production)
+Ksims <- 10    # K-fold CV iterations (use ≥ 50 for production)
 
 # ─── GRF parameters (shared across Cox and Poisson) ─────────────────────
-grf_tune           <- TRUE  # cross-validated GRF hyperparameter tuning
+grf_tune           <- FALSE  # cross-validated GRF hyperparameter tuning (off by default)
 grf_vi_min         <- -0.2   # GRF variable importance threshold
 grf_dmin_cox       <- 12     # min RMST difference for Cox GRF (months)
 grf_dmin_pois      <- 0.0    # min CATE difference for Poisson GRF

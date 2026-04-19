@@ -1,0 +1,1174 @@
+---
+title: "MRCT Consistency Evaluation via Subgroup Identification"
+subtitle: "A ForestSearch Framework with a View Towards Biomarker Causal Effects"
+author: "Larry Leon, Masashi Shimura, Xiaojing Cui, Kenichi Takahashi, Shuping Jiang, and William Wang"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    theme: "Madrid"
+    colortheme: "default"
+    fonttheme: "structurebold"
+    slide_level: 2
+    keep_tex: true
+    latex_engine: pdflatex
+    includes:
+      in_header: MRCT_beamer_preamble.tex
+classoption: "aspectratio=169"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  comment = "#>",
+  dev = "pdf",
+  out.width = "95%",
+  fig.width = 9,
+  fig.height = 5
+)
+options(warn = -1, width = 72)
+rm(list = ls())
+```
+
+```{r load-packages, include=FALSE}
+suppressWarnings({
+  library(survival)
+  library(data.table)
+  library(ggplot2)
+  library(gt)
+  library(dplyr)
+  library(grf)
+  library(grid)
+  library(forestploter)
+  library(DiagrammeR)
+  library(DiagrammeRsvg)
+  library(rsvg)
+  library(knitr)
+  library(kableExtra)
+  library(doFuture)
+  library(doRNG)
+  library(forestsearch)
+  library(weightedsurv)
+})
+
+registerDoFuture()
+registerDoRNG()
+theme_set(theme_minimal(base_size = 11))
+```
+
+
+```{r case-study-data}
+# Load synthetic case-study dataset
+dfsynth <- read.table("data/dfsynthetic.csv",
+                       header = TRUE, sep = ",")
+df.case <- dfsynth
+df.case$AP <- df.case$region_asia
+```
+
+
+```{r create-dgm-spline}
+dgm_spline <- generate_aft_dgm_flex(
+  data = df.case,
+  continuous_vars = c("age", "bm"),
+  factor_vars = c("male", "histology",
+                   "prior_treat", "AP"),
+  set_beta_spec = list(set_var = c("z_AP"),
+                       beta_var = -log(5)),
+  continuous_vars_cens = c("age"),
+  factor_vars_cens = c("prior_treat"),
+  cens_type = "weibull",
+  outcome_var = "tte", event_var = "event",
+  treatment_var = "treat",
+  subgroup_vars = NULL, subgroup_cuts = NULL,
+  k_inter = 0.0, model = "alt",
+  spline_spec = list(
+    var = "z_bm", knot = 5, zeta = 10,
+    log_hrs = log(c(3, 1.25, 0.5))
+  ),
+  verbose = FALSE, standardize = FALSE
+)
+```
+
+
+
+# Outline
+
+0. **Regional Consistency**: The MRCT regional consistency challenge
+1. **Methodology**: Weibull AFT / Cox model with spline biomarker effects
+2. **Estimands**: Marginal HR, Average HR, and Controlled Direct Effect
+3. **ForestSearch Algorithm**: Exploratory subgroup identification 
+4. **Case Study**: Synthetic MRCT with biomarker-driven treatment heterogeneity
+5. **Simulation Design**: DGM specification and per-replicate workflow
+6. **Operating Characteristics**: HTE and Null scenarios 
+7. **Summary and Discussion**
+
+
+# The MRCT Consistency Challenge
+
+
+## Exploratory Subgroup Identification Analyses
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{The Scenario}
+
+\begin{itemize}
+\item A \textbf{global oncology trial} meets statistical significance for the ITT population
+\item \textbf{Asia-Pacific (AP)} comprises 15--20\% of the trial
+\item \textbf{Consistency criterion}: positive point estimate (Cox model HR $< 1.0$) in AP region
+\item \textbf{Problem}: AP regional HR estimate $\approx 1.0$ --- consistency appears to fail
+\end{itemize}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\begin{block}{Key Question}
+Can a subgroup $\mathcal{G}$ with \textbf{enhanced benefit} be identified in non-AP such that AP$(\mathcal{G})$ meets regional consistency?
+\end{block}
+
+\smallskip
+
+\textbf{Forest Search (León et al., 2024)}
+
+\smallskip
+
+Imagine a forest plot evaluating all-possible combinations of covariates (e.g. ecog = 0, ecog = 1, bm low, bm high, ecog = 0 \& bm low, etc) 
+
+\smallskip
+
+Signals of harm (Cox estimate $> 1.25$ threshold); \textit{Reproducibility}? 
+
+\end{column}
+\end{columns}
+
+
+# Statistical Framework
+
+
+## Weibull AFT / Cox Dual Representation
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{AFT Model} (\texttt{survreg}):
+$$\log(T) = \log(\theta) + L'\gamma + \tau\varepsilon$$
+where $\tau = 1/\nu$ and $\varepsilon \sim$ extreme value.
+
+\medskip
+
+\textbf{Cox Hazard Model}:
+$$\lambda(t;\, L) = \lambda_{0}(t)\,\exp(L'\beta)$$
+with Weibull baseline $\lambda_{0}(t) = \nu\theta^{-\nu}t^{\nu-1}$.
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\begin{alertblock}{AFT-to-Hazard Transformation}
+$$\beta = -\gamma\,/\,\tau$$
+R's \texttt{survreg} estimates $(\log\hat{\theta}, \hat{\gamma}, \hat{\tau})$ on the AFT scale; hazard-ratio coefficients are obtained by dividing by the scale parameter.
+\end{alertblock}
+
+\medskip
+
+Potential outcomes are \emph{simulated} on the AFT scale while treatment effects are \emph{interpreted} on the hazard-ratio scale.
+
+\end{column}
+\end{columns}
+
+
+## Two-Phase Spline Model {.shrink}
+
+Cox linear predictor with biomarker $Z$ and treatment $X$:
+
+$$L'\beta := \beta_{1} X + \beta_{2} Z + \beta_{3} ZX + \beta_{4}(Z-k)\mathbf{1}(Z>k) + \beta_{5}(Z-k)\mathbf{1}(Z>k)X$$
+
+\small
+
+| Parameter | Term | Role |
+|:---------:|------|------|
+| $\beta_{1}$ | $X$ | Main treatment effect (intercept of log-HR) |
+| $\beta_{2}$ | $Z$ | Prognostic biomarker effect (both arms) |
+| $\beta_{3}$ | $ZX$ | Biomarker $\times$ treatment interaction ($Z \leq k$) |
+| $\beta_{4}$ | $(Z{-}k)\mathbf{1}(Z{>}k)$ | Spline: prognostic slope change above $k$ |
+| $\beta_{5}$ | $(Z{-}k)\mathbf{1}(Z{>}k)X$ | Spline: treatment-effect slope change above $k$ |
+
+\normalsize
+
+
+
+## Causal Log-HR and Spline Parameterization
+
+\vspace{6pt}
+
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{0.94\textwidth}}
+\hline
+\textbf{Causal log-hazard-ratio} for biomarker level $z$: \\[4pt]
+$\displaystyle \psi^{0}(z) = \begin{cases} \beta_{1}^{0} + \beta_{3}^{0}\, z, & z \leq k \\[4pt] \beta_{1}^{0} + \beta_{3}^{0}\, z + \beta_{5}^{0}(z-k), & z > k \end{cases}$ \\[6pt]
+\hline
+\begin{minipage}[t]{0.48\textwidth}
+\vspace{4pt}
+\textbf{Spline Parameterization:} \\[4pt]
+$\displaystyle \beta_{1}^{0} = \psi^{0}(0)$ \\[6pt]
+$\displaystyle \beta_{3}^{0} = \frac{\psi^{0}(k) - \psi^{0}(0)}{k}$ \\[6pt]
+$\displaystyle \beta_{5}^{0} = \frac{\psi^{0}(\zeta) - \psi^{0}(0) - \beta_{3}^{0}\zeta}{\zeta - k}$
+\vspace{4pt}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.44\textwidth}
+\vspace{4pt}
+\textbf{Working Example:} \\[4pt]
+\centering
+\begin{tabular}{ccc}
+$z$ & $\psi^{0}(z)$ & HR$(z)$ \\
+\hline
+0            & $\log(3.00)$  & 3.00 \\
+5 (knot)     & $\log(1.25)$  & 1.25 \\
+10 ($\zeta$) & $\log(0.50)$  & 0.50 \\
+\end{tabular}
+\\[8pt]
+\raggedright
+Harm at low $z$, crossover near knot, \\
+benefit at high $z$.
+\vspace{4pt}
+\end{minipage} \\
+\hline
+\end{tabular}
+\end{center}
+
+
+## Potential Outcomes and Estimands {.shrink}
+
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+
+\textbf{Potential Outcome (PO)} $T[x,z]$, under treatment condition $x$ (set to $x=1[0]$ for treatment[control]) and biomarker level $z$
+
+
+\begin{alertblock}{PO contrast} $\psi^{0}(z) = \{m(0,z) - m(1,z)\}/\tau$: Difference in true means of POs $\log(T[0,z]) - \log(T[1,z])$.
+\end{alertblock}
+
+\textbf{Strong prognostic $W$:} Linear predictor $l_{x,z,w} = \beta_{1}^{0}x + \beta_{2}^{0}z + \beta_{3}^{0}zx + \beta_{4}^{0}(z-k)I(z>k) + \beta_{5}^{0}(z-k)I(z>k)x + \beta_{w}^{0}w$
+
+\begin{alertblock}{PO hazard function (omitting baseline)}
+$\theta^{x}(z,v) = \exp(l(x,z,v))$
+\end{alertblock}
+
+\end{column}
+\begin{column}{0.43\textwidth}
+
+\begin{alertblock}{Average Hazard Ratio (AHR)}
+$$\text{AHR}(z^{+}) = \exp\!\bigl\{E_{Z \geq z}\;\psi^{0}(Z)\bigr\}$$
+Exponentiated average of differences in true means of POs (causal log-hazard ratios across $z$)
+\end{alertblock}
+
+\begin{alertblock}{Controlled Direct Effect (CDE)}
+ Let $\bar{\theta}^{x}(z+) = E_{Z \geq z,V}\theta^{x}(Z,V)$
+
+
+$$\text{CDE}(z^{+}) = \bar{\theta}^{1}(z+)\;/\;\bar{\theta}^{0}(z+)$$
+
+Ratio of average exponentiated hazards
+\end{alertblock}
+
+\end{column}
+\end{columns}
+
+
+## Three Treatment Effect Estimands {.fragile .shrink}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+dgm_spline <- generate_aft_dgm_flex(
+  data = df.case,
+  continuous_vars = c("age", "bm"),
+  factor_vars = c("male", "histology",
+                   "prior_treat", "AP"),
+  set_beta_spec = list(set_var = c("z_AP"),
+                       beta_var = -log(5)),
+  continuous_vars_cens = c("age"),
+  factor_vars_cens = c("prior_treat"),
+  cens_type = "weibull",
+  outcome_var = "tte", event_var = "event",
+  treatment_var = "treat",
+  subgroup_vars = NULL, subgroup_cuts = NULL,
+  k_inter = 0.0, model = "alt",
+  spline_spec = list(
+    var = "z_bm", knot = 5, zeta = 10,
+    log_hrs = log(c(3, 1.25, 0.5))
+  ),
+  verbose = FALSE, standardize = FALSE
+)
+\end{lstlisting}
+\end{column}
+\begin{column}{0.52\textwidth}
+```{r, fig.width = 4, fig.height = 3.5}
+df_large <- simulate_from_dgm(
+  dgm = dgm_spline, n = 5000,
+  rand_ratio = 1, draw_treatment = FALSE,
+  entry_var = "entrytime",
+  analysis_time = 60, cens_adjust = 0,
+  seed = 12345
+)
+results_ahr <- cox_ahr_cde_analysis(
+  df = df_large,
+  verbose = FALSE,
+  tte_name = "y_sim", event_name = "event_sim",
+  treat_name = "treat_sim",
+  z_name = "z_bm", hr_threshold = NULL,
+  plot_style = "grid",
+  plot_select = "ahr_only"
+)
+```
+\end{column}
+\end{columns}
+
+
+
+
+
+## Subgroup Defined by (general) $H$ {.shrink}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{AFT Model Specification}
+$\log T_i(x=1) = \mu + \mathbf{L}_i(1)^{\top} \boldsymbol{\gamma} + \tau\ \varepsilon_i$
+
+The covariate vector includes treatment, prognostic effects ($V$, say), and an interaction:
+$$\mathbf{L}_i(x=a)^{\top}\boldsymbol{\gamma} = a \cdot \gamma_{\text{treat}} + \mathbf{V}_i^{\top}\boldsymbol{\gamma}_V + a \cdot H_i \cdot \gamma_{\text{int}}$$
+where $H_i \in \{0,1\}$ flags harm-subgroup membership ($\mathcal{S}$).
+
+$$\text{AHR}(\mathcal{S}) = \exp\!\left\{\frac{1}{|\mathcal{S}|}\sum_{i \in \mathcal{S}} \psi_i^{0}\right\}$$
+
+\end{column}
+
+\begin{column}{0.48\textwidth}
+
+The \textbf{marginal hazard ratio} for a subgroup $\mathcal{S}$ is obtained from a Cox model fit to stacked potential outcomes:
+
+\begin{alertblock}
+
+$\text{HR}_{\text{marg}}(\mathcal{S}) = \exp\!\bigl(\hat{\beta}_{\text{Cox}} \;\big|\; \text{data} = \{(T_i(1), 1, 1),\, (T_i(0), 1, 0) : i \in \mathcal{S}\}\bigr)$
+
+\end{alertblock}
+
+\textbf{Computation in ForestSearch}:
+\begin{enumerate}
+\item Generate shared error: $\varepsilon_i = \log(\text{Exp}(1))$
+\item Compute potential survival times:
+\begin{align*}
+\log T_i(1) &= \mu + \sigma\varepsilon_i + \mathbf{L}_i(1)^{\top}\boldsymbol{\gamma} \\
+\log T_i(0) &= \mu + \sigma\varepsilon_i + \mathbf{L}_i(0)^{\top}\boldsymbol{\gamma}
+\end{align*}
+\item Fit: $\text{HR}_{\text{marg}} = \exp(\hat{\beta}_{\text{treat}})$
+\end{enumerate}
+
+\end{column}
+\end{columns}
+
+
+
+## ForestSearch Algorithm (León et al., 2024, \emph{SIM})
+
+\begin{enumerate}
+\item \textbf{Candidate Selection} --- From baseline covariates to $L$ candidate subgroup indicators
+  \begin{itemize}
+  \item \textit{LASSO}: Cox regularization for prognostic selection; mitigates false discovery from noise
+  \item \textit{GRF}: Causal survival forest targets RMST to identify treatment effect heterogeneity
+  \item Continuous covariates $\rightarrow$ binary splits (medians, quartiles, GRF cuts)
+  \end{itemize}
+
+\item \textbf{Exhaustive Subgroup Search} --- All combos of $L$ candidates (default max of 2-way)
+  \begin{itemize}
+  \item $L(L-1)/2 + L$ possible combinations from $L$ subgroup indicators (max = 2)
+  \item Filter: $n \geq 60$, events $d_0 \geq 12$, and $d_1 \geq 12$
+  \item Screen: Cox HR $\geq 1.25$ (experimental vs.\ control) ``signal of harm''
+  \end{itemize}
+
+\item \textbf{Splitting Consistency} --- Validate each candidate ($R = 1,000$ splits)
+  \begin{itemize}
+  \item Randomly split subgroup 50/50; require \emph{both halves} HR $\geq 1.0$ ``consistent with harm''
+  \item $\hat{p}_{\text{cons}} = R^{-1}\sum_{r} I(\min(\hat{\beta}_s^{1r}, \hat{\beta}_s^{2r}) \geq 0) \geq 90\%$
+  \item Select $\widehat{H}$: subgroup ``maximally consistent with harm''
+  \end{itemize}
+\end{enumerate}
+
+## Three Subgroup Identification Objectives
+
+\small
+
+| Objective | Goal | Criterion | Strategy |
+|:---------:|------|-----------|----------|
+| **A** | Largest detrimental | $\hat{\beta} \geq \log(0.90)$ | Harm SG; complement = benefit |
+| **B** | **Smallest** harmful | $\hat{\beta} \geq \log(0.90)$ | Min $\hat{\mathcal{H}}$; $\hat{\mathcal{H}}^{c} = \hat{\mathcal{G}}$ |
+| **C** | **Largest** beneficial | $\hat{\beta} \leq \log(0.60)$ | Directly target strong benefit |
+
+\normalsize
+
+\medskip
+
+- In **(A)** and **(B)**: identify harm $\hat{\mathcal{H}}$, then the complement $\hat{\mathcal{G}} = \hat{\mathcal{H}}^{c}$ is generally beneficial
+- In **(C)**: directly target a clinically compelling beneficial subgroup effect
+
+
+
+## Part 1: DGM Specification & Simulation Engine
+
+```{=latex}
+\centering
+\resizebox{!}{0.85\textheight}{%
+\begin{tikzpicture}[
+  node distance=0.4cm and 0.7cm,
+  font=\small,
+  setup/.style={rectangle, rounded corners=4pt, draw=blue!60, fill=blue!8,
+    text width=5.0cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  dgm/.style={rectangle, rounded corners=4pt, draw=orange!80, fill=orange!8,
+    text width=4.6cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  scenario/.style={rectangle, rounded corners=4pt, draw=orange!80, fill=orange!15,
+    text width=3.6cm, align=center, minimum height=0.6cm, inner sep=3pt},
+  simbox/.style={rectangle, rounded corners=4pt, draw=green!60!black, fill=green!8,
+    text width=5.0cm, align=center, minimum height=0.65cm, inner sep=3pt},
+  arrow/.style={-{Stealth[length=5pt]}, thick, draw=gray!70},
+]
+\node[setup] (data) {\textbf{Case-Study Dataset}\\[-1pt]
+  {\scriptsize Synthetic trial ($N \approx 2000$)}\\[-1pt]
+  {\scriptsize Covariates, entry-times, treatment}};
+\node[dgm, below=of data] (dgm) {\textbf{generate\_aft\_dgm\_flex()}\\[-1pt]
+  {\scriptsize Weibull AFT + spline biomarker effects}\\[-1pt]
+  {\scriptsize Censoring model selection (AIC/BIC)}};
+\node[scenario, below left=0.45cm and 0.3cm of dgm] (alt) {\textbf{HTE Scenario}\\[-1pt]
+  {\scriptsize $\log(3,\; 1.25,\; 0.50)$}\\[-1pt]
+  {\scriptsize \textit{Strong biomarker effect}}};
+\node[scenario, below right=0.45cm and 0.3cm of dgm] (null) {\textbf{Null Scenario}\\[-1pt]
+  {\scriptsize $\log(0.7,\; 0.7,\; 0.7)$}\\[-1pt]
+  {\scriptsize \textit{Uniform benefit}}};
+\node[dgm, below=1.35cm of dgm] (dgmobj) {\textbf{DGM Object}\\[-1pt]
+  {\scriptsize Model params ($\beta^{0}, \tau, \theta$), super-population, censoring}};
+\node[simbox, below=of dgmobj] (engine) {\textbf{mrct\_region\_sims()}\\[-1pt]
+  {\scriptsize $N_{\text{sims}} = 1{,}000 - 10{,}000$ replicates}};
+\node[simbox, below=of engine] (simdata) {\textbf{simulate\_from\_dgm()}\\[-1pt]
+  {\scriptsize Draw $n = 500$; Survival times}\\[-1pt]
+  {\scriptsize Censoring + admin (analysis\_time $= 60$)}};
+\draw[arrow] (data) -- (dgm);
+\draw[arrow] (dgm) -- (alt);
+\draw[arrow] (dgm) -- (null);
+\draw[arrow] (alt) -- (dgmobj);
+\draw[arrow] (null) -- (dgmobj);
+\draw[arrow] (dgmobj) -- (engine);
+\draw[arrow] (engine) -- (simdata);
+\end{tikzpicture}%
+}
+```
+
+
+
+## Part 2: Per-Replicate Analysis
+
+```{=latex}
+\centering
+\resizebox{!}{0.85\textheight}{%
+\begin{tikzpicture}[
+  node distance=0.25cm and 0.6cm,
+  font=\scriptsize,
+  simbox/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!8,
+    text width=3.8cm, align=center, minimum height=0.5cm, inner sep=2pt},
+  region/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!12,
+    text width=2.4cm, align=center, minimum height=0.4cm, inner sep=2pt},
+  fsbox/.style={rectangle, rounded corners=3pt, draw=red!60, fill=red!6,
+    text width=2.8cm, align=center, minimum height=0.4cm, inner sep=2pt},
+  fsstep/.style={rectangle, rounded corners=2pt, draw=red!40, fill=red!4,
+    text width=2.6cm, align=center, minimum height=0.35cm, inner sep=2pt},
+  decision/.style={diamond, draw=purple!70, fill=purple!8,
+    text width=1.0cm, align=center, inner sep=1pt, aspect=2.0},
+  record/.style={rectangle, rounded corners=3pt, draw=green!60!black, fill=green!8,
+    text width=4.8cm, align=center, minimum height=0.5cm, inner sep=2pt},
+  arrow/.style={-{Stealth[length=4pt]}, thick, draw=gray!70},
+]
+\node[simbox] (simdata) {\textbf{simulate\_from\_dgm()}\\[-1pt]
+  Simulated trial ($n = 500$)};
+\node[region, below left=0.3cm and 0.3cm of simdata] (nonap) {\textbf{Non-AP} (Training)\\[-1pt]
+  ${\sim}80$--$85\%$};
+\node[region, below right=0.3cm and 0.3cm of simdata] (ap) {\textbf{AP} (Testing)\\[-1pt]
+  ${\sim}15$--$20\%$};
+\node[fsbox, below=0.35cm of nonap] (fs) {\textbf{forestsearch()}\\[-1pt]
+  on Non-AP data};
+\node[fsstep, below=of fs] (grf) {GRF cut selection};
+\node[fsstep, below=of grf] (lasso) {Cox-LASSO selection};
+\node[fsstep, below=of lasso] (enum) {Enumerate all-possible\\[-1pt]
+  subgroup candidates};
+\node[fsstep, below=of enum] (screen) {Screen: HR $\geq 0.90$\\[-1pt]
+  Consistency $\geq 80\%$};
+\node[fsstep, below=of screen] (select) {Select smallest subgroup\\[-1pt]
+  (\texttt{sg\_focus="minSG"})};
+\node[decision, below=0.3cm of select] (found) {$\hat{\mathcal{G}}$\\found?};
+\node[fsbox, right=0.8cm of found] (apply) {Apply $\hat{\mathcal{G}}$ to AP\\[-1pt]
+  HR(AP, $\hat{\mathcal{G}}$)};
+\node[fsstep, left=0.8cm of found] (nofound) {any\_found $= 0$};
+\node[record, below=0.55cm of found] (record) {\textbf{Record per-replicate results}\\[-1pt]
+  any\_found, sg definition,
+  HR(non-AP), HR(AP), HR(ITT), HR(AP,\,$\hat{\mathcal{G}}$)};
+\draw[arrow] (simdata) -- (nonap);
+\draw[arrow] (simdata) -- (ap);
+\draw[arrow] (nonap) -- (fs);
+\draw[arrow] (fs) -- (grf);
+\draw[arrow] (grf) -- (lasso);
+\draw[arrow] (lasso) -- (enum);
+\draw[arrow] (enum) -- (screen);
+\draw[arrow] (screen) -- (select);
+\draw[arrow] (select) -- (found);
+\draw[arrow] (found) -- node[above] {Yes} (apply);
+\draw[arrow] (found) -- node[above] {No} (nofound);
+\draw[arrow] (apply) |- (record);
+\draw[arrow] (nofound) |- (record);
+\draw[arrow, dashed, gray] (ap) |- (apply);
+\end{tikzpicture}%
+}
+```
+
+
+
+
+# Case Study and Simulations
+
+## Super population 
+
+\small
+
+```{r superpop, echo=FALSE, fig.align ='center'}
+
+create_summary_table(
+  data = dgm_spline$df_super,
+  treat_var = "treat",
+  table_title = "Super-population Characteristics by Treatment Arm",
+  vars_continuous = c("z_age", "z_bm", "entrytime", "lin_pred_1", "lin_pred_0"),
+  vars_categorical = c("z_male", "z_histology", "z_prior_treat", "z_AP", "ecog", "strat"),
+  font_size = 12
+) |>
+  gt::tab_options(table.align = "center", table.width = gt::pct(80))
+
+
+```
+
+
+```{r simulate-from-dgm, echo=FALSE}
+df_example <- simulate_from_dgm(
+  dgm = dgm_spline, n = 500,
+  rand_ratio = 1, draw_treatment = FALSE,
+  entry_var = "entrytime",
+  analysis_time = 60, cens_adjust = 0,
+  seed = 123
+)
+
+df_nonAP <- subset(df_example, z_AP == 0)
+df_AP    <- subset(df_example, z_AP == 1)
+
+```
+
+\normalsize
+
+
+## Kaplan-Meier: ITT Ideal (No Censoring) and Censoring
+
+```{r km-itt-ideal, fig.height=6, fig.width=11}
+dfc <- df_counting(df = df_example, by.risk = 6,
+  tte.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim")
+
+df_example$t_true <- pmin(df_example$t_true, 100)
+df_example$event_mod <- ifelse(df_example$t_true <= 100, 1, 0)
+dfideal <- df_counting(df = df_example, by.risk = 6,
+  tte.name = "t_true", event.name = "event_mod",
+  treat.name = "treat_sim")
+
+par(mfrow = c(1, 2))
+plot_weighted_km(dfideal, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.7, ymed.offset = 0.15)
+title("ITT no censoring (through 100 months)")
+
+plot_weighted_km(dfc, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.7, ymed.offset = 0.15)
+title("ITT censored")
+```
+
+
+## Kaplan-Meier: Non-AP and AP Populations
+
+```{r km-regional, fig.height=6, fig.width=12}
+dfc0 <- df_counting(df = df_nonAP, by.risk = 6,
+  tte.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim")
+dfc1 <- df_counting(df = df_AP, by.risk = 6,
+  tte.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim")
+
+par(mfrow = c(1, 2))
+plot_weighted_km(dfc0, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.65, ymed.offset = 0.15)
+title("Non-AP (Training)")
+
+plot_weighted_km(dfc1, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.65, ymed.offset = 0.15)
+title("AP (Testing)")
+```
+
+
+## Spline Fit to Observed Data {.fragile}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+cox_cs_fit(
+df = df_example,
+tte_name = "y_sim", event_name = "event_sim",
+treat_name = "treat_sim",
+truebeta_name = "loghr_po",
+z_name = "z_bm", z_by = 1, z_window = 0.5,
+alpha = 0.20,
+verbose = FALSE,
+plot_params = list(
+xlab = "Biomarker Level",
+main_title = "Biomarker Heterogeneity (n=500)")
+)
+\end{lstlisting}
+
+\end{column}
+
+\begin{column}{0.52\textwidth}
+
+```{r spline-fit, fig.width = 6, fig.height = 6}
+result <- cox_cs_fit(
+  df = df_example,
+  tte_name = "y_sim", event_name = "event_sim",
+  treat_name = "treat_sim",
+  truebeta_name = "loghr_po",
+  z_name = "z_bm", z_by = 1, z_window = 0.5,
+  alpha = 0.20,
+  verbose = FALSE,
+  plot_params = list(
+    xlab = "Biomarker Level",
+    main_title = "Biomarker Heterogeneity (n=500)")
+)
+```
+
+
+\end{column}
+\end{columns}
+
+
+
+
+# ForestSearch: Subgroup Identification
+
+
+```{r forestsearch-alt, echo=FALSE, eval=TRUE}
+confounders.name <- c("z_age", "z_bm", "z_male",
+  "ecog", "z_histology", "z_prior_treat", "strat")
+
+dfa <- as.data.frame(df_nonAP)
+
+fs_output <- capture.output(
+  fs <- forestsearch(
+    dfa,
+    confounders.name = confounders.name,
+    outcome.name = "y_sim",
+    treat.name = "treat_sim",
+    event.name = "event_sim", id.name = "id",
+    potentialOutcome.name = "loghr_po",
+    df.test = as.data.frame(df_AP),
+    hr.threshold = 0.9, hr.consistency = 0.80,
+    stop_threshold = NULL,
+    details = TRUE,
+    pconsistency.threshold = 0.90,
+    sg_focus = "minSG", max_subgroups_search = 30,
+    showten_subgroups = TRUE,
+    conf_force = c("z_age <= 65", "z_bm < 1",
+      "z_bm < 2", "z_bm < 3", "z_bm < 4", "z_bm < 5", "z_bm < 6", "z_bm < 7", "z_bm < 8", "z_bm < 9", "z_bm < 10"),
+    use_grf = TRUE, use_lasso = TRUE,
+    maxk = 1, n.min = 60, d0.min = 10,
+    d1.min = 10, plot.sg = FALSE, by.risk = 6,
+    parallel_args = list(plan = "multisession",
+      workers = 100, show_message = TRUE)
+  )
+)
+
+plan("sequential")
+
+```
+
+
+## ForestSearch on Non-AP Data 
+
+
+```{r, results='asis', echo=FALSE, eval = TRUE}
+# Split after filtering summary instead
+forestsearch:::format_fs_details(
+  fs_output,
+  split_after = "Found.*candidate",
+  fontsize = "tiny",
+  col_widths = c(0.55, 0.45)
+)
+```
+
+
+
+\normalsize
+
+## Subgroups Identified: Non-AP Training {.shrink}
+
+```{r fs-sg10, results="asis"}
+res_tabs <- sg_tables(fs, ndecimals = 2,
+  which_df = "est",
+  est_title = "Treatment Effect Estimates",
+  est_caption = "Non-AP (training)")
+res_tabs$sg10_out
+```
+
+
+
+## Training and Testing Estimates 
+
+```{r fs-estimates,fig.align = 'center'}
+
+res_tabs$tab_estimates %>%
+  gt::tab_options(
+    table.align = "center",
+    table.font.size = gt::px(9),
+    table.width     = gt::pct(100)
+  )
+
+res_tabs_ap <- sg_tables(fs, ndecimals = 2,
+  which_df = "testing",
+  est_title = NULL,
+  est_caption = "AP (testing)")
+
+res_tabs_ap$tab_estimates %>%
+  gt::tab_options(
+    table.align = "center",
+    table.font.size = gt::px(9),
+    table.width     = gt::pct(100)
+  )
+
+
+```
+
+
+
+## AP (ITT) vs Biomarker High (per identified $\geq 2$)
+
+```{r km-ap-bm, fig.height=4.5, fig.width=9}
+
+# Instead of low, all AP
+df_AP_lo <- df_AP
+
+df_AP_hi <- subset(df_AP, z_bm >= 2)
+
+if (nrow(df_AP_lo) > 10 & nrow(df_AP_hi) > 10) {
+  dfc_lo <- df_counting(df = df_AP_lo, by.risk = 6,
+    tte.name = "y_sim", event.name = "event_sim",
+    treat.name = "treat_sim")
+  dfc_hi <- df_counting(df = df_AP_hi, by.risk = 6,
+    tte.name = "y_sim", event.name = "event_sim",
+    treat.name = "treat_sim")
+
+  par(mfrow = c(1, 2))
+  plot_weighted_km(dfc_lo, conf.int = FALSE,
+    show.logrank = TRUE, ymax = 1.1,
+    xmed.fraction = 0.725, ymed.offset = 0.15)
+  title("AP Population")
+  plot_weighted_km(dfc_hi, conf.int = FALSE,
+    show.logrank = TRUE, ymax = 1.1,
+    xmed.fraction = 0.725, ymed.offset = 0.15)
+  title("AP Population: BM >= 2")
+}
+```
+
+
+# Null Hypothesis Evaluation (Uniform HR = 0.7)
+
+
+## Null: Regional Kaplan-Meier Plots
+
+```{r km-null, fig.height=4.5, fig.width=9}
+
+dgm_null <- generate_aft_dgm_flex(
+  data = df.case,
+  continuous_vars = c("age", "bm"),
+  factor_vars = c("male", "histology",
+                   "prior_treat", "AP"),
+  set_beta_spec = list(set_var = c("z_AP"),
+                       beta_var = -log(5)),
+  continuous_vars_cens = c("age"),
+  factor_vars_cens = c("prior_treat"),
+  outcome_var = "tte", event_var = "event",
+  treatment_var = "treat",
+  cens_type = "weibull",
+  subgroup_vars = NULL, subgroup_cuts = NULL,
+  model = "alt",
+  spline_spec = list(var = "z_bm", knot = 5,
+    zeta = 10, log_hrs = log(c(0.7, 0.7, 0.7))),
+  k_inter = 0.0, verbose = FALSE
+)
+
+
+df_null <- simulate_from_dgm(
+  dgm = dgm_null, n = 500, rand_ratio = 1,
+  draw_treatment = FALSE, entry_var = "entrytime",
+  analysis_time = 60, cens_adjust = 0, seed = 12345
+)
+
+df_null_nonAP <- subset(df_null, z_AP == 0)
+df_null_AP    <- subset(df_null, z_AP == 1)
+
+dfc_null0 <- df_counting(df = df_null_nonAP, by.risk = 6,
+  tte.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim")
+dfc_null1 <- df_counting(df = df_null_AP, by.risk = 6,
+  tte.name = "y_sim", event.name = "event_sim",
+  treat.name = "treat_sim")
+
+par(mfrow = c(1, 2))
+plot_weighted_km(dfc_null0, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.6, ymed.offset = 0.15)
+title("Null: non-AP (Training)")
+plot_weighted_km(dfc_null1, conf.int = FALSE,
+  show.logrank = TRUE, ymax = 1.1,
+  xmed.fraction = 0.6, ymed.offset = 0.15)
+title("Null: AP (Testing)")
+```
+
+
+## ForestSearch Under Null 
+
+```{r fs-null, eval=TRUE}
+dfa_null <- as.data.frame(df_null_nonAP)
+
+fs_null_output <- capture.output(
+  fs <- forestsearch(
+    dfa_null,
+    confounders.name = confounders.name,
+    outcome.name = "y_sim",
+    treat.name = "treat_sim",
+    event.name = "event_sim", id.name = "id",
+    potentialOutcome.name = "loghr_po",
+    hr.threshold = 0.9, hr.consistency = 0.80,
+    stop_threshold = NULL,
+    details = TRUE,
+    pconsistency.threshold = 0.90,
+    sg_focus = "minSG", max_subgroups_search = 30,
+    showten_subgroups = TRUE,
+    conf_force = c("z_age <= 65", "z_bm < 1",
+      "z_bm < 2", "z_bm < 3", "z_bm < 4", "z_bm < 5", "z_bm < 6", "z_bm < 7", "z_bm < 8", "z_bm < 9", "z_bm < 10"),
+    use_grf = TRUE, use_lasso = TRUE,
+    maxk = 1, n.min = 60, d0.min = 10,
+    d1.min = 10, plot.sg = FALSE, by.risk = 6,
+    parallel_args = list(plan = "multisession",
+      workers = 100, show_message = TRUE)
+  )
+)
+
+plan("sequential")
+
+
+```
+
+```{r, results='asis', echo=FALSE, eval = TRUE}
+# Split after filtering summary instead
+forestsearch:::format_fs_details(
+  fs_null_output,
+  split_after = "Found.*candidate",
+  fontsize = "tiny",
+  col_widths = c(0.55, 0.45)
+)
+```
+
+\normalsize
+
+
+# Simulation Studies: Operating Characteristics
+
+
+## HTE Scenario: Simulation Setup {.fragile}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+options(future.globals.onReference = "ignore")
+results_alt <- mrct_region_sims(
+  dgm       = dgm_spline,
+  n_sims    = 5000,
+  verbose_n_sims = 1L,
+  n_sample  = 500,
+  region_var = "z_AP",
+
+  sg_focus  = "minSG", maxk = 1,
+  hr.threshold  = 0.90,
+  hr.consistency = 0.80,
+  pconsistency.threshold = 0.80,
+
+  confounders.name = c("z_age", "z_bm",
+    "z_male", "ecog", "z_histology",
+    "z_prior_treat", "strat"),
+  conf_force = c("z_age <= 65",
+    "z_bm <= 0", "z_bm <= 1",
+    "z_bm <= 2", "z_bm <= 5"),
+\end{lstlisting}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{lstlisting}
+  fs_args = list(
+    use_grf = TRUE, use_lasso = TRUE,
+    cut_type = "default", n.min = 60,
+    stop_threshold = 0.95,
+    d0.min = 12, d1.min = 12,
+    max_subgroups_search = 30,
+    use_twostage = TRUE,
+    twostage_args = list(
+      n.splits.screen = 50,
+      batch.size = 25,
+      conf.level = 0.99)),
+
+  sim_args = list(rand_ratio = 1,
+                  draw_treatment = FALSE),
+  analysis_time = 60, cens_adjust = 0,
+  parallel_args = list(
+    plan = "multisession",
+    workers = 10, show_message = TRUE),
+  details = TRUE, seed = 20240101
+)
+\end{lstlisting}
+\end{column}
+\end{columns}
+
+\normalsize
+
+
+## HTE Scenario: Summary Results {.shrink}
+
+```{r alt-summarize, echo = FALSE, fig.align = 'center'}
+results_alt <- readRDS("results/results_alt_k=1.rds")
+results_null <- readRDS("results/results_null_k=1.rds")
+
+temp <- forestsearch:::summaryout_mrct(
+  pop_summary = NULL,
+  mrct_sims   = results_alt,
+  mrct_sims_null = results_null,
+  scenario_labels = c("HTE","Uniform"),
+  showtable   = FALSE,
+  table_width = 600,
+  font_size = 12
+) 
+
+
+temp$out_table %>%
+  gt::tab_options(
+    table.align = "center",
+    table.font.size = gt::px(9),
+    table.width     = gt::pct(100)
+  )
+
+
+```
+
+
+## HTE Scenario: HR Distributions
+
+```{r alt-hrplot, fig.height = 4, fig.width=8}
+plot_out <- forestsearch:::SGplot_estimates(
+  df             = results_alt,
+  label_training = "Non-AP, ITT",
+  label_itt      = "Overall, ITT",
+  label_testing  = "AP, ITT",
+  label_sg       = "AP, identified subgroup"
+)
+print(plot_out$plot_estimates)
+```
+
+
+## HTE Scenario: Subgroup Distribution
+
+```{r alt-sgdist, fig.height=4, fig.width=8}
+forestsearch:::plot_sg_distribution(results_alt, min_pct = 0.5,
+  title = "HTE Scenario: Subgroups Found",
+  wrap_width = 30)
+```
+
+
+
+
+## Null Scenario: HR Distributions
+
+```{r null-hrplot, fig.height=3.5, fig.width=8}
+plot_out_null <- forestsearch:::SGplot_estimates(
+  df             = results_null,
+  label_training = "Non-AP, ITT",
+  label_itt      = "Overall, ITT",
+  label_testing  = "AP, ITT",
+  label_sg       = "AP, identified subgroup",
+  trim_fraction = 0.01
+)
+print(plot_out_null$plot_estimates)
+```
+
+
+## Null Scenario: Subgroup Distribution
+
+```{r null-sgdist, fig.height=4.5, fig.width=8}
+forestsearch:::plot_sg_distribution(results_null, min_pct = 0.5,
+  title = "Uniform Benefit Scenario: Subgroups Found",
+  wrap_width = 30)
+```
+
+
+
+
+# Key Takeaways
+
+
+## Summary
+
+1. **ForestSearch** provides a principled approach to subgroup identification that directly addresses MRCT regional consistency challenges
+
+2. The **Weibull AFT/Cox dual framework** enables causal interpretation --- simulated on AFT scale, interpreted via hazard ratios
+
+3. Three complementary estimands (**AHR**, **CDE**, **Marginal HR**) robustly characterize treatment effect heterogeneity
+
+4. The **train/test paradigm** (non-AP $\to$ AP) avoids overfitting
+
+5. **Data-driven simulation** evaluates full operating characteristics --- false discovery, estimation bias, CI coverage --- grounded in real trial data
+
+6. **Simulation results** demonstrate the approach can recover AP consistency under heterogeneous effects while controlling false-discovery under the null
+
+
+## {.plain}
+
+\begin{center}
+\vspace{1.5cm}
+
+{\Large \textbf{Thank You}}
+
+\vspace{0.8cm}
+
+\textbf{ForestSearch R Package}
+
+\medskip
+
+Leon, L.F., Jemielita, T., Guo, Z., Marceau West, R. \& Anderson, K.M. (2024)
+
+\emph{Exploratory subgroup identification in the heterogeneous Cox model.}
+
+Statistics in Medicine. doi:10.1002/sim.10163
+
+\vspace{0.8cm}
+
+\texttt{remotes::install\_github("larry-leon/forestsearch")}
+
+\smallskip
+\url{https://larry-leon.github.io/forestsearch/}
+
+\vspace{0.5cm}
+
+\small
+R code throughout this deck is directly executable with the ForestSearch
+package and the synthetic case-study dataset.
+
+\end{center}
+
+# Additional Notes
+
+## Some More Details {.shrink}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{Dual Causal Status}
+
+The Weibull AFT scale-change parameter $\exp(-\beta)$ equals the \textbf{geometric mean ratio} of potential survival times:
+$$\exp\!\bigl(E[\log T_{i}(1) - \log T_{i}(0)]\bigr)$$
+Simultaneously \textbf{individual-level} and \textbf{population-level} causal.
+
+\medskip
+
+\textbf{AHR Inherits This Status}:
+$$\text{AHR}(\mathcal{S}) = \exp\!\left(\frac{1}{|\mathcal{S}|}\sum_{i \in \mathcal{S}} [\theta_{i}(1) - \theta_{i}(0)]\right)$$
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textbf{Cox HR as Operational Tool}
+
+\begin{itemize}
+\item \emph{True} effects: defined through $\psi^{0}(z)$
+\item Subgroup \emph{selection}: Cox HR as efficient screening
+\item Subgroup \emph{evaluation}: AHR and CDE
+\item \emph{Correction}: bootstrap bias correction (\texttt{hr.H.bc})
+\end{itemize}
+
+\medskip
+
+\textbf{De-Biased Estimation}:
+$$\hat{\beta}^{*}(\hat{\mathcal{H}}) = \hat{\beta}(\hat{\mathcal{H}}) - \frac{1}{B}\sum_{b=1}^{B}\bigl[\eta^{*}_{b}(\hat{\mathcal{H}}^{*}_{b}) + \eta^{*}_{b}(\hat{\mathcal{H}})\bigr]$$
+
+Infinitesimal jackknife for valid CIs.
+
+\end{column}
+\end{columns}
+
+
+## ForestSearch Implementation Details {.shrink}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+
+\textbf{Feature Discovery Pipeline}
+
+\begin{enumerate}
+\item \textbf{GRF} (causal survival forests): treatment effect heterogeneity via RMST
+\item \textbf{LASSO} regularization: variable screening via Cox penalized regression
+\item \textbf{Exhaustive combinatorial search}: across factors and cutpoints
+\item \textbf{Forced cutpoints}: \texttt{conf\_force} for domain-guided biomarker cuts
+\end{enumerate}
+
+\medskip
+
+\textbf{Selection Criteria}
+
+\begin{itemize}
+\item HR threshold: $\hat{\beta} \geq \log(0.90)$ 
+\item Consistency rate $\geq$ 80--90\% 
+\item Minimum sizes: $n \geq 60$, $d \geq 12$ 
+\item \texttt{sg\_focus}: \texttt{"minSG"} $|$ \texttt{"hr"} $|$ \texttt{"maxSG"}
+\end{itemize}
+
+\end{column}
+\begin{column}{0.48\textwidth}
+
+\textbf{Cross-Validation}
+\begin{itemize}
+\item \texttt{leave-one-out}
+\item \texttt{10-fold}
+\item \texttt{agreement metrics: cv-testing vs full} sens, ppv, subgroup match (cv-training vs full) metrics
+\end{itemize}
+
+\medskip
+\textbf{Bootstrap Inference}
+\begin{itemize}
+\item parallelised (dofuture) bootstrap
+\item Full algorithm mimicked in each replicate ($B = 300$--$2000$)
+\item IJ variance estimation for valid confidence intervals
+\end{itemize}
+
+\end{column}
+\end{columns}
+

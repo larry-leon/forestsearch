@@ -1,0 +1,1004 @@
+---
+title: "Reproduction: León et al. (2024) Table 1, M1 Block"
+subtitle: "ForestSearch v0.2.0 — Pressure Test"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ═══════════════════════════════════════════════════════════════════
+# ALL TUNABLE PARAMETERS
+# ═══════════════════════════════════════════════════════════════════
+
+# -- Simulation budget ---------------------------------------------------------
+nsims              <- 5000L        # Paper uses 20000; scale up for production
+n_workers          <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+# -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------
+# N = 700, pH ≈ 13%, θ†(H) = 2.0, θ†(Hc) = 0.65, θ†(ITT) ≈ 0.71
+# Censoring ≈ 46%, analysis_time = 84 months
+sim_n_sample       <- 700L
+sim_analysis_time  <- 84L         # GBSG follow-up (months)
+sim_cens_adjust    <- log(1.5)    # Censoring adjustment
+
+dgm_p_harm        <- 0.13        # target prevalence of H
+dgm_hr_h1         <- 2.0         # target θ†(H)
+dgm_z1_quantile   <- 0.25        # ER cutoff quantile → pH ≈ 13%
+dgm_n_super        <- 5000L
+dgm_seed           <- 8316951L
+
+# -- ForestSearch parameters (Section 2, Step 3) -------------------------------
+# c1 = 1.25 (screening), c2 = 1.0 (consistency)
+# "at least 60 subjects and 10 events in each arm"
+fs_hr_threshold    <- 1.25
+fs_hr_consistency  <- 1.0
+fs_pconsistency    <- 0.90
+fs_splits          <- 400L
+fs_n_min           <- 60L
+fs_d0_min          <- 10L         # Paper: "10 events in each arm"
+fs_d1_min          <- 10L
+fs_maxk            <- 2L
+fs_vi_grf_min      <- -0.2
+fs_seedit          <- 8316951L
+
+# -- GRF standalone parameters (Section 3.1) -----------------------------------
+# Paper criterion: "RMST benefit of (at least) 6 months for control."
+# DR scores from causal_survival_forest are anti-symmetric:
+#   control[i] = -treated[i]  (verified in §1.2 DR Score Verification)
+# Policy tree diff = control_mean - treated_mean = X - (-X) = 2X.
+# A 6-month RMST benefit (X = 6) → diff = 12.
+# Therefore dmin.grf = 12, matching default_grf_params_gen().
+# GRF60: τ = 0.6 * min(τ0, τ1)
+grf_dmin           <- 12          # 6-month RMST criterion (= 2 × 6 on DR scale)
+grf_dmin_60        <- 12          # Same criterion for GRF60
+grf_frac_tau       <- 0.6         # GRF60 truncation fraction
+grf_maxdepth       <- 2L
+grf_sg_criterion   <- "mDiff"
+grf_tune           <- FALSE       # Paper predates tune_grf feature
+
+# -- Confounders (no noise for first block) ------------------------------------
+# Z1-Z5: prognostic; size, grade3: nonprognostic but correlated
+confounders_base   <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+n_add_noise        <- 0L          # First block: no noise factors
+
+# -- Cox formula (treatment-only, per paper Section 2) -------------------------
+cox_formula_adj    <- survival::Surv(y_sim, event_sim) ~ treat_sim
+```
+
+
+# Paper Reference
+
+This document reproduces the first block of Table 1 from:
+
+> León, L.F., Jemielita, T., Guo, Z., Marceau West, R., & Anderson, K.M.
+> (2024). Exploratory subgroup identification in the heterogeneous Cox model:
+> A relatively simple procedure. *Statistics in Medicine*, 43, 3921–3942.
+
+**M1 scenario**: N = 700, pH ≈ 13%, θ†(H) = 2.0, θ†(Hc) = 0.65,
+θ†(ITT) ≈ 0.71, censoring ≈ 46%.  Average size of true H = 89.
+
+::: {.callout-tip}
+## Summary of concordance
+
+See [Summary and Concordance] at the end for a data-driven
+comparison of all methods against the paper, including the
+`dmin.grf` calibration rationale and the unconditional averaging
+convention.
+:::
+
+## DR Score Verification: `dmin.grf = 12`
+
+The paper's GRF criterion is "an estimated RMST benefit of
+(at least) 6 months for control" (Section 3.1).  The DR scores
+from `causal_survival_forest` are **anti-symmetric**
+($\Gamma_{i,\text{control}} = -\Gamma_{i,\text{treated}}$),
+so the policy tree leaf difference is twice the raw RMST effect:
+`diff = X − (−X) = 2X`.  A 6-month benefit → `dmin.grf = 12`.
+
+```{r dr-score-check}
+#| code-fold: false
+
+# Verify the anti-symmetric structure of causal_survival_forest DR scores
+set.seed(42)
+n_check <- 500
+X_check <- matrix(rnorm(n_check * 5), n_check, 5)
+W_check <- rbinom(n_check, 1, 0.5)
+Y_check <- rexp(n_check) * (1 + 0.3 * W_check * (X_check[, 1] > 0))
+D_check <- rbinom(n_check, 1, 0.8)
+h_check <- quantile(Y_check[D_check == 1], 0.9)
+
+csf_check <- grf::causal_survival_forest(
+  X_check, Y_check, W_check, D_check,
+  W.hat = 0.5, horizon = h_check, seed = 42, num.trees = 500
+)
+dr_check <- policytree::double_robust_scores(csf_check)
+
+cat("=== DR Score Anti-Symmetry Verification ===\n")
+cat(sprintf("  colnames: %s\n", paste(colnames(dr_check), collapse = ", ")))
+cat(sprintf("  control + treated = 0?  max|sum| = %.2e\n",
+    max(abs(dr_check[, 1] + dr_check[, 2]))))
+cat(sprintf("  => diff = control - treated = 2 * control\n"))
+cat(sprintf("  => dmin.grf = 12 implements a '6-month RMST benefit'\n"))
+
+# Show the doubling relationship
+cate_check <- predict(csf_check)$predictions
+dr_diff <- dr_check[, 1] - dr_check[, 2]
+cat(sprintf("\n  mean(CATE): %.4f\n", mean(cate_check)))
+cat(sprintf("  mean(control - treated): %.4f\n", mean(dr_diff)))
+cat(sprintf("  ratio (diff / CATE): %.2f  (expected ≈ 2.0)\n",
+    mean(dr_diff) / mean(cate_check)))
+```
+
+
+## Expected Results (Paper Table 1, M1, No Noise, 20,000 Sims)
+
+### M1 Null: N = 700, θ†(ITT) = 0.7
+
+Under H0, H = ∅.  Per Section 3: sens(Ĥ) is undefined,
+ppv(Ĥ) ≡ 0.  Only any(H), sens(Ĥ$^c$), ppv(Ĥ$^c$), and
+avg|Ĥ| are reported.
+
+|  | FSl | FSlg | GRF | GRF60 | VT(24) | VT(36) |
+|---|---|---|---|---|---|---|
+| **any(H)** | 0.02 | 0.03 | **0.25** | 0.05 | 0.03 | 0.04 |
+| **sens(Ĥ$^c$)** | 1.00 | 1.00 | 0.97 | 0.99 | 1.00 | 1.00 |
+| **ppv(Ĥ$^c$)** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| **avg\|Ĥ\|** | 114 | 99 | 88 | 78 | 78 | 79 |
+
+Boldface = any(H) ≥ 0.10 (inflated type I error per paper convention).
+Asymptotic approximation (equation 3): 0.036.
+
+### M1 Alt: N = 700, pH = 13%, θ†(H) = 2, θ†(Hc) = 0.65, θ†(ITT) = 0.71
+
+|  | FSl | FSlg | GRF | GRF60 | VT(24) | VT(36) |
+|---|---|---|---|---|---|---|
+| **any(H)** | 0.77 | 0.86 | 0.94 | 0.72 | 0.49 | 0.47 |
+| **sens(Ĥ)** | 0.72 | 0.82 | 0.84 | 0.66 | 0.46 | 0.42 |
+| **sens(Ĥ$^c$)** | 0.99 | 0.99 | 0.97 | 0.98 | 0.99 | 0.99 |
+| **ppv(Ĥ)** | 0.69 | 0.80 | 0.78 | 0.61 | 0.44 | 0.41 |
+| **ppv(Ĥ$^c$)** | 0.96 | 0.98 | 0.98 | 0.96 | 0.93 | 0.93 |
+| **avg\|Ĥ\|** | 94 | 92 | 102 | 99 | 92 | 93 |
+
+Asymptotic approximation for detection (equation 3): 0.90.
+Average size of true H = 89.
+
+::: {.callout-note}
+VT(24) and VT(36) (virtual twins) are included for reference
+but are not reproduced here.  This document runs FSl, FSlg,
+GRF, and GRF60 — the four methods implemented in `forestsearch`.
+:::
+
+
+# DGM Calibration
+
+```{r dgm-calibration}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(foreach)
+library(doFuture)
+library(ggplot2)
+
+# Calibrate k_inter for θ†(H) ≈ 2.0
+k_inter_cal <- calibrate_k_inter(
+  target_hr_harm = dgm_hr_h1,
+  z1_quantile    = dgm_z1_quantile,
+  k_treat        = 1.0,
+  n_super        = dgm_n_super,
+  seed           = dgm_seed,
+  verbose        = TRUE
+)
+
+cat(sprintf("Calibrated k_inter = %.4f\n", k_inter_cal))
+```
+
+```{r dgm-create}
+# Alternative DGM
+dgm_alt <- setup_gbsg_dgm(
+  model       = "alt",
+  k_treat     = 1.0,
+  k_inter     = k_inter_cal,
+  z1_quantile = dgm_z1_quantile,
+  n_super     = dgm_n_super,
+  seed        = dgm_seed,
+  verbose     = TRUE
+)
+dgm_alt <- compute_dgm_cde(dgm_alt)
+
+# Null DGM
+dgm_null <- setup_gbsg_dgm(
+  model   = "null",
+  k_treat = 1.0,
+  n_super = dgm_n_super,
+  seed    = dgm_seed,
+  verbose = TRUE
+)
+
+cat("\n=== M1 DGM Properties ===\n")
+cat(sprintf("  pH:       %.1f%%\n", 100 * mean(dgm_alt$df_super$flag_harm)))
+cat(sprintf("  θ†(H):    %.3f  (target: %.1f)\n",
+    dgm_alt$hr_H_true, dgm_hr_h1))
+cat(sprintf("  θ†(Hc):   %.3f\n", dgm_alt$hr_Hc_true))
+cat(sprintf("  θ†(ITT):  %.3f  (alt)\n", dgm_alt$hr_causal))
+cat(sprintf("  θ†(ITT):  %.3f  (null)\n", dgm_null$hr_causal))
+```
+
+
+# Simulation Functions
+
+```{r sim-setup}
+#| code-fold: false
+
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+
+# ── FS parameter lists ────────────────────────────────────────────
+# FSl: LASSO only (no GRF screening)
+fs_params_lasso <- list(
+  outcome.name           = "y_sim",
+  event.name             = "event_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+  hr.threshold           = fs_hr_threshold,
+  hr.consistency         = fs_hr_consistency,
+  pconsistency.threshold = fs_pconsistency,
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  vi.grf.min             = fs_vi_grf_min,
+  seedit                 = fs_seedit,
+  use_lasso              = TRUE,
+  use_grf                = FALSE,    # FSl: LASSO only
+  use_twostage           = FALSE,     # v0.2.0 default (3-10x speedup)
+  tune_grf               = grf_tune,
+  parallel_args          = list(
+    plan = "sequential", workers = 1, show_message = FALSE
+  )
+)
+
+# FSlg: LASSO + GRF (paper's combined algorithm)
+fs_params_lasso_grf <- modifyList(fs_params_lasso, list(
+  use_grf = TRUE     # FSlg: LASSO + GRF
+))
+
+# ── GRF standalone parameter lists ───────────────────────────────
+# GRF: full τ = min(τ0, τ1)
+grf_params_full <- list(
+  dmin.grf     = grf_dmin,
+  frac.tau     = 1.0,              # GRF: full horizon
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion,
+  tune_grf     = grf_tune
+)
+
+# GRF60: τ = 0.6 * min(τ0, τ1)
+grf_params_60 <- list(
+  dmin.grf     = grf_dmin_60,
+  frac.tau     = grf_frac_tau,     # GRF60: 60% horizon
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion,
+  tune_grf     = grf_tune
+)
+```
+
+
+# Run Simulations
+
+```{r collect-helper}
+#| include: false
+# collect_results() and reset_workers() are exported from forestsearch
+# (R/forestsearch_helpers.R) as of v0.2.0; call with :: or unqualified.
+```
+
+## Alternative Hypothesis (M1 Alt)
+
+Four analyses per simulation: FSl, FSlg, GRF, GRF60.
+
+```{r run-alt}
+t0 <- proc.time()[3]
+
+results_alt_raw <- foreach(
+  i = seq_len(nsims),
+  .errorhandling = "pass",
+  .options.future = list(seed = TRUE)
+) %dofuture% {
+  future::plan("sequential")
+
+  # FSl (LASSO only)
+  r_fsl <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_alt,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params_lasso,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_fsl)) r_fsl$analysis <- "FSl"
+
+  # FSlg (LASSO + GRF)
+  r_fslg <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_alt,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params_lasso_grf,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
+
+  # GRF (full τ)
+  r_grf <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_alt,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = FALSE, run_fs_grf = FALSE, run_grf = TRUE,
+      grf_params = grf_params_full,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_grf)) r_grf$analysis <- "GRF"
+
+  # GRF60 (0.6τ)
+  r_grf60 <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_alt,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = FALSE, run_fs_grf = FALSE, run_grf = TRUE,
+      grf_params = grf_params_60,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_grf60)) r_grf60$analysis <- "GRF60"
+
+  data.table::rbindlist(
+    Filter(Negate(is.null), list(r_fsl, r_fslg, r_grf, r_grf60)),
+    fill = TRUE
+  )
+}
+
+plan("sequential")
+t_alt <- proc.time()[3] - t0
+
+results_alt <- forestsearch::collect_results(results_alt_raw, "H1 alt")
+n_failed_alt <- attr(results_alt, "n_failed")
+cat(sprintf("Alt: %d sims completed in %.1f min\n", nsims, t_alt / 60))
+if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
+```
+
+
+```{r reset-workers-null}
+# Reset worker pool to prevent memory accumulation from alt sims.
+# Without this, null sims run on bloated workers and are ~20x slower.
+plan(sequential)
+gc(verbose = FALSE)
+Sys.sleep(1)
+plan(multisession, workers = n_workers)
+cat(sprintf("Workers reset: %d cores\n", n_workers))
+```
+
+## Null Hypothesis (M1 Null)
+
+```{r run-null}
+t0 <- proc.time()[3]
+
+results_null_raw <- foreach(
+  i = seq_len(nsims),
+  .errorhandling = "pass",
+  .options.future = list(seed = TRUE)
+) %dofuture% {
+  future::plan("sequential")
+
+  r_fsl <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_null,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params_lasso,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_fsl)) r_fsl$analysis <- "FSl"
+
+  r_fslg <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_null,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = TRUE, run_fs_grf = FALSE, run_grf = FALSE,
+      fs_params = fs_params_lasso_grf,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
+
+  r_grf <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_null,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = FALSE, run_fs_grf = FALSE, run_grf = TRUE,
+      grf_params = grf_params_full,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_grf)) r_grf$analysis <- "GRF"
+
+  r_grf60 <- tryCatch(
+    run_simulation_analysis(
+      sim_id = i, dgm = dgm_null,
+      n_sample = sim_n_sample,
+      confounders_base = confounders_base,
+      n_add_noise = n_add_noise,
+      run_fs = FALSE, run_fs_grf = FALSE, run_grf = TRUE,
+      grf_params = grf_params_60,
+      cox_formula_adj = cox_formula_adj,
+      analysis_time = sim_analysis_time,
+      cens_adjust = sim_cens_adjust,
+      verbose = FALSE
+    ),
+    error = function(e) NULL
+  )
+  if (!is.null(r_grf60)) r_grf60$analysis <- "GRF60"
+
+  data.table::rbindlist(
+    Filter(Negate(is.null), list(r_fsl, r_fslg, r_grf, r_grf60)),
+    fill = TRUE
+  )
+}
+
+plan("sequential")
+t_null <- proc.time()[3] - t0
+
+results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
+cat(sprintf("Null: %d sims completed in %.1f min\n", nsims, t_null / 60))
+if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
+```
+
+
+# Results
+
+## Operating Characteristics
+
+```{r oc-tables}
+# ── H1: Detection and Classification ─────────────────────────────
+format_oc_results(
+  results_alt,
+  analyses = c("FSl", "FSlg", "GRF", "GRF60"),
+  metrics  = c("detection", "classification"),
+  digits   = 2,
+  title    = "M1 Alt: Identification (Harm Search)",
+  subtitle = sprintf(
+    "N = %d, %d sims, θ†(H) = %.1f, θ†(Hc) = %.2f, θ†(ITT) ≈ %.2f",
+    sim_n_sample, nsims, dgm_hr_h1,
+    dgm_alt$hr_Hc_true, dgm_alt$hr_causal
+  ),
+  subgroup_notation = "harm"
+)
+
+# ── H0: Type I Error ─────────────────────────────────────────────
+format_oc_results(
+  results_null,
+  analyses = c("FSl", "FSlg", "GRF", "GRF60"),
+  metrics  = c("detection", "classification"),
+  digits   = 2,
+  title    = "M1 Null: Type I Error",
+  subtitle = sprintf(
+    "N = %d, %d sims, θ†(ITT) ≈ %.2f",
+    sim_n_sample, nsims, dgm_null$hr_causal
+  ),
+  subgroup_notation = "harm"
+)
+```
+
+
+## Classification Table (Paper Format)
+
+```{r classification-table}
+build_classification_table(
+  scenario_results = list(
+    null = list(
+      results    = results_null,
+      label      = "M1",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_null,
+      hypothesis = "null"
+    ),
+    alt = list(
+      results    = results_alt,
+      label      = "M1",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_alt,
+      hypothesis = "alt"
+    )
+  ),
+  analyses = c("FSl", "FSlg", "GRF", "GRF60"),
+  digits   = 2,
+  title    = sprintf(
+    "Table 1 Reproduction (M1, N=%d, %d sims) | θ†(H)=%.1f, θ†(Hc)=%.2f, pH≈%d%%",
+    sim_n_sample, nsims, dgm_hr_h1, dgm_alt$hr_Hc_true,
+    round(100 * mean(dgm_alt$df_super$flag_harm))
+  ),
+  subgroup_notation = "harm",
+  font_size = 14
+)
+```
+
+
+## Side-by-Side Comparison with Paper
+
+```{r comparison}
+#| code-fold: true
+#| code-summary: "Build comparison tables"
+
+# Paper's Table 1 M1 values (20,000 sims, no noise)
+paper <- data.frame(
+  Method  = c("FSl", "FSlg", "GRF", "GRF60"),
+  # Null
+  null_any     = c(0.02, 0.03, 0.25, 0.05),
+  null_sens_Hc = c(1.00, 1.00, 0.97, 0.99),
+  null_ppv_Hc  = c(1.00, 1.00, 1.00, 1.00),
+  null_avg_H   = c(114,  99,   88,   78),
+  # Alt
+  alt_any      = c(0.77, 0.86, 0.94, 0.72),
+  alt_sens_H   = c(0.72, 0.82, 0.84, 0.66),
+  alt_sens_Hc  = c(0.99, 0.99, 0.97, 0.98),
+  alt_ppv_H    = c(0.69, 0.80, 0.78, 0.61),
+  alt_ppv_Hc   = c(0.96, 0.98, 0.98, 0.96),
+  alt_avg_H    = c(94,   92,  102,   99),
+  stringsAsFactors = FALSE
+)
+
+# Extract our results
+our <- data.frame(Method = c("FSl", "FSlg", "GRF", "GRF60"),
+                  stringsAsFactors = FALSE)
+for (m in our$Method) {
+  rn <- results_null[results_null$analysis == m, ]
+  ra <- results_alt[results_alt$analysis == m, ]
+  rn_det <- rn[rn$any.H == 1, ]
+  ra_det <- ra[ra$any.H == 1, ]
+
+  # Null
+  our$null_any[our$Method == m]     <- mean(rn$any.H, na.rm = TRUE)
+  our$null_sens_Hc[our$Method == m] <- if (nrow(rn_det) > 0)
+    mean(rn_det$spec, na.rm = TRUE) else NA
+  our$null_ppv_Hc[our$Method == m]  <- if (nrow(rn_det) > 0)
+    mean(rn_det$npv, na.rm = TRUE) else NA
+  our$null_avg_H[our$Method == m]   <- if (nrow(rn_det) > 0)
+    mean(rn_det$size.H, na.rm = TRUE) else NA
+
+  # Alt — unconditional averaging (León et al. 2024, Table 1 convention).
+  # When Ĥ = ∅ under alt: sens(Ĥ) = 0/|H| = 0,  ppv(Ĥ) = 0 (convention).
+  # sens(Ĥc) = 1 (everyone is in Ĥc),  ppv(Ĥc) = |Hc|/N.
+  ra_sens <- ifelse(is.na(ra$sens) & ra$any.H == 0, 0, ra$sens)
+  ra_ppv  <- ifelse(is.na(ra$ppv)  & ra$any.H == 0, 0, ra$ppv)
+  ra_spec <- ifelse(is.na(ra$spec) & ra$any.H == 0, 1, ra$spec)
+  ra_npv  <- ifelse(is.na(ra$npv)  & ra$any.H == 0, 1, ra$npv)
+
+  our$alt_any[our$Method == m]      <- mean(ra$any.H, na.rm = TRUE)
+  our$alt_sens_H[our$Method == m]   <- mean(ra_sens, na.rm = TRUE)
+  our$alt_sens_Hc[our$Method == m]  <- mean(ra_spec, na.rm = TRUE)
+  our$alt_ppv_H[our$Method == m]    <- mean(ra_ppv, na.rm = TRUE)
+  our$alt_ppv_Hc[our$Method == m]   <- mean(ra_npv, na.rm = TRUE)
+  our$alt_avg_H[our$Method == m]    <- if (nrow(ra_det) > 0)
+    mean(ra_det$size.H, na.rm = TRUE) else NA
+}
+```
+
+### M1 Alternative: Paper vs Reproduction
+
+```{r comparison-alt-table}
+fmt2 <- function(x) ifelse(is.na(x) | is.nan(x), "—", sprintf("%.2f", x))
+fmt0 <- function(x) ifelse(is.na(x) | is.nan(x), "—", sprintf("%.0f", x))
+
+alt_df <- data.frame(
+  Method      = rep(paper$Method, each = 2),
+  Source      = rep(c("Paper", sprintf("Ours (%d)", nsims)), 4),
+  `any(H)`    = c(rbind(fmt2(paper$alt_any),    fmt2(our$alt_any))),
+  `sens(H)`   = c(rbind(fmt2(paper$alt_sens_H), fmt2(our$alt_sens_H))),
+  `sens(Hc)`  = c(rbind(fmt2(paper$alt_sens_Hc),fmt2(our$alt_sens_Hc))),
+  `ppv(H)`    = c(rbind(fmt2(paper$alt_ppv_H),  fmt2(our$alt_ppv_H))),
+  `ppv(Hc)`   = c(rbind(fmt2(paper$alt_ppv_Hc), fmt2(our$alt_ppv_Hc))),
+  `avg|H|`    = c(rbind(fmt0(paper$alt_avg_H),  fmt0(our$alt_avg_H))),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt::gt(alt_df, groupname_col = "Method") |>
+  gt::tab_header(
+    title = "M1 Alternative: Paper (20,000 sims) vs Reproduction",
+    subtitle = sprintf(
+      "N = %d, %d sims | θ†(H) = %.1f, θ†(Hc) = %.2f, pH ≈ %d%%",
+      sim_n_sample, nsims, dgm_hr_h1,
+      dgm_alt$hr_Hc_true,
+      round(100 * mean(dgm_alt$df_super$flag_harm))
+    )
+  ) |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#f0f7ff"),
+    locations = gt::cells_body(
+      rows = Source != "Paper"
+    )
+  ) |>
+  gt::tab_options(table.font.size = gt::px(13))
+```
+
+### M1 Null: Paper vs Reproduction
+
+```{r comparison-null-table}
+null_df <- data.frame(
+  Method      = rep(paper$Method, each = 2),
+  Source      = rep(c("Paper", sprintf("Ours (%d)", nsims)), 4),
+  `any(H)`    = c(rbind(fmt2(paper$null_any),     fmt2(our$null_any))),
+  `sens(Hc)`  = c(rbind(fmt2(paper$null_sens_Hc), fmt2(our$null_sens_Hc))),
+  `ppv(Hc)`   = c(rbind(fmt2(paper$null_ppv_Hc),  fmt2(our$null_ppv_Hc))),
+  `avg|H|`    = c(rbind(fmt0(paper$null_avg_H),   fmt0(our$null_avg_H))),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt::gt(null_df, groupname_col = "Method") |>
+  gt::tab_header(
+    title = "M1 Null: Paper (20,000 sims) vs Reproduction",
+    subtitle = sprintf(
+      "N = %d, %d sims | θ†(ITT) ≈ %.2f",
+      sim_n_sample, nsims, dgm_null$hr_causal
+    )
+  ) |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#fff5f0"),
+    locations = gt::cells_body(
+      rows = Source != "Paper"
+    )
+  ) |>
+  gt::tab_options(table.font.size = gt::px(13))
+```
+
+### Summary of Discrepancies
+
+```{r discrepancy-summary}
+#| code-fold: true
+#| code-summary: "Discrepancy analysis"
+
+# Compute absolute differences for key metrics
+disc <- data.frame(
+  Method = paper$Method,
+  stringsAsFactors = FALSE
+)
+
+disc$d_null_fpr   <- abs(our$null_any - paper$null_any)
+disc$d_alt_any    <- abs(our$alt_any  - paper$alt_any)
+disc$d_alt_sens   <- abs(our$alt_sens_H - paper$alt_sens_H)
+disc$d_alt_ppv    <- abs(our$alt_ppv_H  - paper$alt_ppv_H)
+disc$d_alt_sens_c <- abs(our$alt_sens_Hc - paper$alt_sens_Hc)
+disc$d_alt_ppv_c  <- abs(our$alt_ppv_Hc  - paper$alt_ppv_Hc)
+
+# Monte Carlo SE for a proportion at the paper's nsims
+mc_se <- function(p, n) sqrt(p * (1 - p) / n)
+
+cat("=== Discrepancy Analysis ===\n\n")
+cat(sprintf("Paper: 20,000 sims  |  Ours: %d sims\n\n", nsims))
+
+cat("--- Null (Type I Error) ---\n")
+for (m in disc$Method) {
+  d <- disc[disc$Method == m, ]
+  p_val <- paper$null_any[paper$Method == m]
+  se_ours <- mc_se(our$null_any[our$Method == m], nsims)
+  cat(sprintf("  %-6s  |diff| = %.3f  (MC SE at %d sims ≈ %.3f)  %s\n",
+      m, d$d_null_fpr, nsims, se_ours,
+      if (d$d_null_fpr <= 2 * se_ours) "within 2 SE" else "** > 2 SE **"))
+}
+
+cat("\n--- Alternative (Detection & Classification) ---\n")
+cat(sprintf("  %-6s  %8s  %8s  %8s  %8s\n",
+    "", "|d|any(H)", "|d|sens", "|d|ppv", "Status"))
+for (m in disc$Method) {
+  d <- disc[disc$Method == m, ]
+  se_any  <- mc_se(our$alt_any[our$Method == m], nsims)
+  # For classification, conditional on detection
+  n_det <- sum(results_alt$any.H[results_alt$analysis == m] == 1)
+  se_sens <- if (n_det > 0) mc_se(our$alt_sens_H[our$Method == m], n_det) else NA
+  max_d <- max(d$d_alt_any, d$d_alt_sens, d$d_alt_ppv, na.rm = TRUE)
+  status <- if (max_d <= 0.10) "close" else if (max_d <= 0.20) "moderate" else "large"
+  cat(sprintf("  %-6s  %8.3f  %8.3f  %8.3f  %8s\n",
+      m, d$d_alt_any, d$d_alt_sens, d$d_alt_ppv, status))
+}
+
+cat(sprintf("\nNote: With %d sims, MC standard errors for proportions ≈ 0.03-0.05.\n",
+    nsims))
+cat("Discrepancies within ~0.10 are consistent with simulation variability.\n")
+cat("Scale to nsims = 5000+ for tighter estimates.\n")
+```
+
+
+## Timing and Projections
+
+```{r timing}
+#| code-fold: false
+
+# Per-replicate timing
+sec_per_alt  <- t_alt / nsims
+sec_per_null <- t_null / nsims
+total_sec    <- t_alt + t_null
+
+cat("=== Timing Summary ===\n\n")
+cat(sprintf("  Alt simulations:  %d sims in %.1f min (%.1f sec/sim)\n",
+    nsims, t_alt / 60, sec_per_alt))
+cat(sprintf("  Null simulations: %d sims in %.1f min (%.1f sec/sim)\n",
+    nsims, t_null / 60, sec_per_null))
+cat(sprintf("  Total:            %.1f min\n", total_sec / 60))
+cat(sprintf("  Workers:          %d\n\n", n_workers))
+
+# Projections
+for (n_target in c(1000, 2000, 5000, 20000)) {
+  proj_alt  <- n_target * sec_per_alt
+  proj_null <- n_target * sec_per_null
+  proj_total <- proj_alt + proj_null
+  cat(sprintf("  Projection for %5d sims: %.0f min (%.1f hours)\n",
+      n_target, proj_total / 60, proj_total / 3600))
+}
+
+cat(sprintf("\n  Recommendation: nsims = 5000 provides MC SE ≈ 0.007 for\n"))
+cat(sprintf("  proportions near 0.80, sufficient to distinguish all\n"))
+cat(sprintf("  methods at the resolution of the paper's Table 1.\n"))
+```
+
+
+## Summary and Concordance {#summary}
+
+```{r summary-concordance}
+#| code-fold: true
+#| code-summary: "Compute summary metrics"
+
+# Helper: extract value for method m from our/paper
+o <- function(m, col) our[[col]][our$Method == m]
+p <- function(m, col) paper[[col]][paper$Method == m]
+mc_se <- function(phat, n) sqrt(phat * (1 - phat) / n)
+
+# Build concordance table
+methods <- c("FSl", "FSlg", "GRF", "GRF60")
+concordance <- data.frame(
+  Method       = methods,
+  Paper_any    = sapply(methods, p, "alt_any"),
+  Ours_any     = sapply(methods, o, "alt_any"),
+  Paper_sens   = sapply(methods, p, "alt_sens_H"),
+  Ours_sens    = sapply(methods, o, "alt_sens_H"),
+  Paper_ppv    = sapply(methods, p, "alt_ppv_H"),
+  Ours_ppv     = sapply(methods, o, "alt_ppv_H"),
+  Paper_FPR    = sapply(methods, p, "null_any"),
+  Ours_FPR     = sapply(methods, o, "null_any"),
+  stringsAsFactors = FALSE
+)
+concordance$d_any  <- abs(concordance$Ours_any - concordance$Paper_any)
+concordance$d_sens <- abs(concordance$Ours_sens - concordance$Paper_sens)
+concordance$d_ppv  <- abs(concordance$Ours_ppv - concordance$Paper_ppv)
+concordance$max_d  <- pmax(concordance$d_any, concordance$d_sens, concordance$d_ppv)
+concordance$grade  <- ifelse(concordance$max_d <= 0.05, "excellent",
+                      ifelse(concordance$max_d <= 0.10, "close",
+                      ifelse(concordance$max_d <= 0.15, "moderate", "investigate")))
+```
+
+### Alt: Detection and Classification (Unconditional)
+
+```{r summary-alt-table}
+fmt2 <- function(x) sprintf("%.2f", x)
+fmt3 <- function(x) sprintf("%.3f", x)
+
+summ_df <- data.frame(
+  Method    = concordance$Method,
+  `Paper any(H)` = fmt2(concordance$Paper_any),
+  `Ours any(H)`  = fmt2(concordance$Ours_any),
+  `|d|`          = fmt3(concordance$d_any),
+  `Paper sens`   = fmt2(concordance$Paper_sens),
+  `Ours sens`    = fmt2(concordance$Ours_sens),
+  `|d| `         = fmt3(concordance$d_sens),
+  `Paper ppv`    = fmt2(concordance$Paper_ppv),
+  `Ours ppv`     = fmt2(concordance$Ours_ppv),
+  `|d|  `        = fmt3(concordance$d_ppv),
+  Grade          = concordance$grade,
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt::gt(summ_df) |>
+  gt::tab_header(
+    title = sprintf("Alt Concordance: Paper (20,000) vs Reproduction (%d sims)", nsims),
+    subtitle = "Unconditional averaging (sens = 0 when undetected)"
+  ) |>
+  gt::tab_spanner(label = "Detection", columns = 2:4) |>
+  gt::tab_spanner(label = "Sensitivity", columns = 5:7) |>
+  gt::tab_spanner(label = "PPV", columns = 8:10) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#e8f5e9"),
+    locations = gt::cells_body(rows = Grade %in% c("excellent", "close"))
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#fff3e0"),
+    locations = gt::cells_body(rows = Grade == "moderate")
+  ) |>
+  gt::tab_style(
+    style = gt::cell_fill(color = "#ffebee"),
+    locations = gt::cells_body(rows = Grade == "investigate")
+  ) |>
+  gt::tab_options(table.font.size = gt::px(12))
+```
+
+### Null: Type I Error
+
+```{r summary-null-table}
+null_df <- data.frame(
+  Method      = methods,
+  `Paper FPR` = fmt2(concordance$Paper_FPR),
+  `Ours FPR`  = fmt2(concordance$Ours_FPR),
+  `|d|`       = fmt3(abs(concordance$Ours_FPR - concordance$Paper_FPR)),
+  `MC SE`     = fmt3(sapply(methods, function(m)
+    mc_se(o(m, "null_any"), sum(results_null$analysis == m)))),
+  check.names = FALSE,
+  stringsAsFactors = FALSE
+)
+
+gt::gt(null_df) |>
+  gt::tab_header(
+    title = sprintf("Null Concordance: Paper (20,000) vs Reproduction (%d sims)", nsims)
+  ) |>
+  gt::tab_options(table.font.size = gt::px(12))
+```
+
+
+### Key Findings
+
+```{r summary-findings}
+#| results: asis
+
+# Detection
+best_det  <- concordance$Method[which.min(concordance$d_any)]
+worst_det <- concordance$Method[which.max(concordance$d_any)]
+
+# Classification
+best_cls  <- concordance$Method[which.min(concordance$max_d)]
+worst_cls <- concordance$Method[which.max(concordance$max_d)]
+
+cat(sprintf("**Simulation budget**: %d sims (paper: 20,000). ", nsims))
+cat(sprintf("MC SE ≈ %.3f for proportions near 0.80.\n\n",
+    mc_se(0.80, nsims)))
+
+cat(sprintf("**Best overall concordance**: %s (max |d| = %.3f, grade: %s).\n\n",
+    best_cls,
+    concordance$max_d[concordance$Method == best_cls],
+    concordance$grade[concordance$Method == best_cls]))
+
+cat(sprintf("**Largest discrepancy**: %s (max |d| = %.3f, grade: %s).\n\n",
+    worst_cls,
+    concordance$max_d[concordance$Method == worst_cls],
+    concordance$grade[concordance$Method == worst_cls]))
+
+cat("**`dmin.grf` calibration**: DR scores from `causal_survival_forest` ")
+cat("are anti-symmetric ($\\Gamma_{\\text{control}} = -\\Gamma_{\\text{treated}}$), ")
+cat("so the policy tree leaf difference equals 2× the raw RMST effect. ")
+cat("A \"6-month RMST benefit\" → `dmin.grf = 12`.\n\n")
+
+cat("**Averaging convention**: The paper reports **unconditional** ")
+cat("classification metrics (sens = 0 when $\\hat{H} = \\emptyset$ under alt). ")
+cat(sprintf("This matters most for GRF60 (detection = %.0f%%) where the ",
+    100 * o("GRF60", "alt_any")))
+cat("conditional/unconditional gap is largest.\n\n")
+
+cat(sprintf("**Timing**: %.1f sec/sim (alt), %.1f sec/sim (null) on %d workers. ",
+    t_alt / nsims, t_null / nsims, n_workers))
+cat(sprintf("Projected for 20,000 sims: %.1f hours.\n",
+    (20000 * (t_alt + t_null) / nsims) / 3600))
+```
+
+
+## Pressure Test: Null Classification
+
+Under H0, `dgm$model == "null"` means Q = ∅ (León et al.,
+Section 3).  With the DGM fix, `flag_harm = 0` for all
+subjects, so `sens = NA` and `ppv = 0` naturally.
+
+```{r null-classification-check}
+#| code-fold: false
+
+cat("=== Null Classification Pressure Test ===\n\n")
+cat("dgm_null$model:", dgm_null$model, "\n\n")
+
+for (m in c("FSl", "FSlg", "GRF", "GRF60")) {
+  rn <- results_null[results_null$analysis == m, ]
+  rn_det <- rn[rn$any.H == 1, ]
+  n_det <- nrow(rn_det)
+
+  cat(sprintf("%-6s  FPR=%.2f (%d/%d)\n", m,
+      mean(rn$any.H, na.rm = TRUE), n_det, nrow(rn)))
+
+  if (n_det > 0) {
+    cat(sprintf("  sens: all NA? %s  (expected: TRUE)\n",
+        all(is.na(rn_det$sens))))
+    cat(sprintf("  ppv:  all 0?  %s  (expected: TRUE)\n",
+        all(rn_det$ppv == 0, na.rm = TRUE)))
+    cat(sprintf("  spec: mean=%.3f  (= avg |Hc_hat|/N)\n",
+        mean(rn_det$spec, na.rm = TRUE)))
+    cat(sprintf("  npv:  all 1?  %s  (expected: TRUE)\n",
+        all(rn_det$npv == 1, na.rm = TRUE)))
+  } else {
+    cat("  No false positives — classification not computed\n")
+  }
+  cat("\n")
+}
+```
+
+
+## Session Info
+
+```{r session}
+cat(sprintf("Total runtime: %.1f minutes\n", (t_alt + t_null) / 60))
+sessionInfo()
+```
+

@@ -1,0 +1,698 @@
+---
+title: "Simulation Studies: Poisson Rate Model (GBSG)"
+subtitle: "Subgroup Identification with Incidence Rate Ratios"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ─── Simulation control ─────────────────────────────────────────────────
+nsims_alt   <- 100L
+nsims_null  <- 200L
+sim_seed    <- 8316951L
+n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
+
+# ─── Dataset: GBSG ──────────────────────────────────────────────────────
+# Treat the binary recurrence indicator (status) as a Poisson count
+# (0 or 1) with person-time offset (time_months).  Under exponential
+# survival, the Poisson IRR approximates the Cox HR.
+
+# ─── Subgroup definition ────────────────────────────────────────────────
+# ER-negative patients: consistent with the Cox analysis finding.
+# Dichotomised covariates follow the GBSG vignette conventions.
+dgm_factor_vars   <- c("z_age", "z_meno", "z_size", "z_grade3",
+                        "z_nodes", "z_pgr", "z_er")
+dgm_subgroup_vars <- c("z_er")
+dgm_subgroup_cuts <- list(z_er = 1L)
+dgm_n_super       <- 5000L
+
+# ─── Calibration ────────────────────────────────────────────────────────
+# Target IRR(H) = 2.0 in the harm subgroup (treatment increases event rate)
+cal_target_irr    <- 2.0
+cal_k_grid_range  <- c(0, 3)
+cal_grid_step     <- 0.05
+
+# ─── Simulation study ──────────────────────────────────────────────────
+sim_n_sample      <- 686L    # match original GBSG sample size
+sim_n_noise       <- 0L
+
+# ─── Analysis flags ────────────────────────────────────────────────────
+run_fs            <- TRUE
+run_fs_grf        <- FALSE
+run_grf           <- FALSE
+
+# ─── ForestSearch parameters ───────────────────────────────────────────
+fs_irr_threshold       <- 1.25
+fs_irr_consistency     <- 1.0
+fs_pconsistency        <- 0.90
+fs_splits              <- 400L
+fs_n_min               <- 60L
+fs_d0_min              <- 12L
+fs_d1_min              <- 12L
+fs_maxk                <- 2L
+fs_vi_grf_min          <- -0.2
+fs_seedit              <- 8316951L
+
+# ─── ForestSearch pipeline flags ───────────────────────────────────────
+fs_use_lasso           <- TRUE    # Poisson-LASSO available
+fs_use_grf             <- TRUE
+fs_is_rct              <- TRUE
+
+# ─── Output persistence ───────────────────────────────────────────────
+save_results           <- TRUE
+output_dir             <- "_data"
+```
+
+
+# Introduction {#sec-intro}
+
+## Motivation
+
+This document validates the ForestSearch GLM extension for **count
+outcomes** (Poisson regression with offset) using the German Breast
+Cancer Study Group (GBSG) dataset.  By treating each patient's binary
+recurrence indicator (`status`) as a count (0 or 1) with
+`log(time_months)` as the exposure offset, we obtain incidence rate
+ratios (IRR) that approximate the Cox hazard ratios (HR) under
+exponential survival.
+
+This design serves two purposes:
+
+1. **Cross-validation with the Cox pipeline**: If the Poisson rate
+   model identifies the same subgroup with similar effect sizes, this
+   strengthens confidence in both approaches.
+
+2. **GLM count simulation infrastructure**: Exercises `generate_glm_dgm()`
+   with `outcome_type = "count"` and `offset_var`, validating the
+   entire pipeline (DGM → calibration → simulation → ForestSearch →
+   operating characteristics).
+
+
+# Data Preparation {#sec-data}
+
+```{r load-packages}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(doFuture)
+library(foreach)
+
+# Safe foreach result collection and worker resets are provided by
+# forestsearch v0.2.0 via the exported helpers collect_results() and
+# reset_workers() (R/forestsearch_helpers.R).  Call as
+# forestsearch::collect_results(...) or just collect_results(...) after
+# library(forestsearch).
+
+timings <- list()
+```
+
+```{r prepare-data}
+t0 <- proc.time()[3]
+
+df.analysis <- gbsg
+
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+  treat       <- hormon
+})
+
+# Dichotomise covariates for ForestSearch
+df.analysis$z_age    <- as.factor(ifelse(df.analysis$age > median(df.analysis$age), 1L, 0L))
+df.analysis$z_meno   <- as.factor(df.analysis$meno)
+df.analysis$z_size   <- as.factor(ifelse(df.analysis$size > median(df.analysis$size), 1L, 0L))
+df.analysis$z_grade3 <- as.factor(df.analysis$grade3)
+df.analysis$z_nodes  <- as.factor(ifelse(df.analysis$nodes > median(df.analysis$nodes), 1L, 0L))
+df.analysis$z_pgr    <- as.factor(ifelse(df.analysis$pgr > median(df.analysis$pgr), 1L, 0L))
+df.analysis$z_er     <- as.factor(ifelse(df.analysis$er <= 0, 1L, 0L))
+
+cat(sprintf("GBSG: N = %d, events = %d (%.1f%%)\n",
+    nrow(df.analysis), sum(df.analysis$status),
+    100 * mean(df.analysis$status)))
+cat(sprintf("Median follow-up: %.1f months\n",
+    median(df.analysis$time_months)))
+
+# Verify Poisson IRR ≈ Cox HR at ITT level
+cox_itt <- coxph(Surv(time_months, status) ~ hormon, data = df.analysis)
+pois_itt <- glm(status ~ hormon, family = poisson(),
+                offset = log(pmax(time_months, 1e-6)),
+                data = df.analysis)
+cat(sprintf("\nITT Cox HR:      %.4f\n", exp(coef(cox_itt))))
+cat(sprintf("ITT Poisson IRR: %.4f\n", exp(coef(pois_itt)[["hormon"]])))
+cat(sprintf("|HR - IRR|:      %.4f\n",
+    abs(exp(coef(cox_itt)) - exp(coef(pois_itt)[["hormon"]]))))
+
+# Subgroup prevalence
+cat(sprintf("\nER-negative (z_er == 1): %d / %d (%.1f%%)\n",
+    sum(df.analysis$z_er == 1), nrow(df.analysis),
+    100 * mean(df.analysis$z_er == 1)))
+
+timings$data_prep <- proc.time()[3] - t0
+```
+
+
+# Creating the Poisson DGM {#sec-dgm}
+
+The GLM DGM fits a Poisson regression with offset to the observed
+GBSG data, creates a super-population with individual-level potential
+outcome means ($\mu_0$, $\mu_1$), and computes true subgroup effects
+on the IRR scale.
+
+## Step 1: Initial DGM
+
+```{r create-dgm-alt}
+t0 <- proc.time()[3]
+
+dgm_alt_init <- generate_glm_dgm(
+  data          = df.analysis,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "status",
+  treatment_var = "hormon",
+  outcome_type  = "count",
+  effect_measure = "IRR",
+  offset_var    = "time_months",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "alt",
+  k_inter       = 0,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== Initial GBSG Poisson DGM ===\n")
+cat("  IRR(H):  ", round(dgm_alt_init$hazard_ratios$harm_subgroup, 3), "\n")
+cat("  IRR(Hc): ", round(dgm_alt_init$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  IRR(ITT):", round(dgm_alt_init$hazard_ratios$overall, 3), "\n")
+
+timings$dgm_init <- proc.time()[3] - t0
+```
+
+
+## Step 2: Calibrate for Target IRR {#sec-calibrate}
+
+The `k_inter` parameter shifts the log-rate for subgroup H members
+under treatment.  We search over a grid to find the value producing
+the target IRR(H).
+
+```{r calibrate}
+t0 <- proc.time()[3]
+
+dgm_calibrated <- calibrate_glm_interaction(
+  data          = df.analysis,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "status",
+  treatment_var = "hormon",
+  target_effect = cal_target_irr,
+  outcome_type  = "count",
+  effect_measure = "IRR",
+  offset_var    = "time_months",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  k_inter_range = cal_k_grid_range,
+  grid_step     = cal_grid_step,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== Calibrated GBSG Poisson DGM ===\n")
+cat("  IRR(H):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
+    " (target:", cal_target_irr, ")\n")
+cat("  IRR(Hc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  IRR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
+cat("  k_inter: ", dgm_calibrated$model_params$k_inter, "\n")
+
+timings$calibrate <- proc.time()[3] - t0
+```
+
+### Calibration Curve
+
+```{r calibration-plot, fig.height=5}
+#| fig-cap: "Calibration of k_inter: IRR(H) as a function of the interaction parameter."
+
+cal_grid <- seq(cal_k_grid_range[1], cal_k_grid_range[2], by = cal_grid_step)
+cal_irr_H <- vapply(cal_grid, function(k) {
+  d <- generate_glm_dgm(
+    data = df.analysis, factor_vars = dgm_factor_vars,
+    outcome_var = "status", treatment_var = "hormon",
+    outcome_type = "count", effect_measure = "IRR",
+    offset_var = "time_months",
+    subgroup_vars = dgm_subgroup_vars,
+    subgroup_cuts = dgm_subgroup_cuts, model = "alt",
+    k_inter = k, n_super = dgm_n_super, seed = sim_seed
+  )
+  d$hazard_ratios$harm_subgroup
+}, numeric(1))
+
+cal_df <- data.frame(k_inter = cal_grid, irr_H = cal_irr_H)
+best_k <- dgm_calibrated$model_params$k_inter
+
+ggplot(cal_df, aes(x = k_inter, y = irr_H)) +
+  geom_line(linewidth = 1, colour = "steelblue") +
+  geom_hline(yintercept = cal_target_irr, linetype = "dashed",
+             colour = "grey50") +
+  geom_hline(yintercept = 1.0, linetype = "dotted",
+             colour = "grey70") +
+  geom_point(
+    data = data.frame(k_inter = best_k,
+                      irr_H = dgm_calibrated$hazard_ratios$harm_subgroup),
+    colour = "red", size = 4, shape = 16
+  ) +
+  labs(
+    x = "k_inter (log-rate shift for H under treatment)",
+    y = "IRR(H)",
+    title = "GBSG Poisson DGM Calibration",
+    subtitle = sprintf("Best: k_inter = %.2f -> IRR(H) = %.3f",
+      best_k, dgm_calibrated$hazard_ratios$harm_subgroup)
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+
+## Step 3: Null DGM
+
+Under `model = "null"`, the interaction is zeroed out — no
+treatment effect heterogeneity.
+
+```{r dgm-null}
+t0 <- proc.time()[3]
+
+dgm_null <- generate_glm_dgm(
+  data          = df.analysis,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "status",
+  treatment_var = "hormon",
+  outcome_type  = "count",
+  effect_measure = "IRR",
+  offset_var    = "time_months",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "null",
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== GBSG Null DGM ===\n")
+cat("  IRR(ITT):", round(dgm_null$hazard_ratios$overall, 3), "\n")
+cat("  IRR(H):  ", round(dgm_null$hazard_ratios$harm_subgroup, 3), "\n")
+cat("  IRR(Hc): ", round(dgm_null$hazard_ratios$no_harm_subgroup, 3), "\n")
+
+timings$dgm_null <- proc.time()[3] - t0
+```
+
+
+# Single Trial Verification {#sec-single-trial}
+
+Verify that `simulate_from_glm_dgm()` and `run_simulation_analysis()`
+work end-to-end on a single replicate before the full simulation.
+
+```{r single-trial}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+df_single <- simulate_from_glm_dgm(
+  dgm  = dgm_calibrated,
+  n    = sim_n_sample,
+  seed = sim_seed + 1L
+)
+
+cat(sprintf("Single trial: N = %d, event rate = %.1f%%\n",
+    nrow(df_single), 100 * mean(df_single$y_sim)))
+cat(sprintf("  H prevalence: %.1f%%\n",
+    100 * mean(df_single$flag_harm)))
+
+# Verify IRR in the simulated data
+fit_single <- glm(y_sim ~ treat_sim, data = df_single, family = poisson(),
+                  offset = log(pmax(df_single$time_months, 1e-6)))
+cat(sprintf("  Simulated ITT IRR: %.3f (DGM: %.3f)\n",
+    exp(coef(fit_single)["treat_sim"]),
+    dgm_calibrated$hazard_ratios$overall))
+
+timings$single_trial <- proc.time()[3] - t0
+```
+
+
+# Running Simulation Studies {#sec-sims}
+
+## Setup
+
+```{r sim-setup}
+#| code-fold: false
+
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+
+confounders_gbsg <- dgm_calibrated$factor_vars
+
+fs_params <- list(
+  outcome.name           = "y_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+
+  # GLM pipeline
+  outcome_type           = "count",
+  effect_measure         = "IRR",
+  offset.name            = "time_months",
+
+  # Variable screening
+  use_lasso              = fs_use_lasso,
+  use_grf                = fs_use_grf,
+
+  # Consistency algorithm (v0.2.0 default: 3-10x speedup)
+  use_twostage           = TRUE,
+
+  # Subgroup detection thresholds (GLM-era names)
+  effect.threshold       = fs_irr_threshold,
+  consistency.threshold  = fs_irr_consistency,
+  pconsistency.threshold = fs_pconsistency,
+
+  # Computational constraints
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  vi.grf.min             = fs_vi_grf_min,
+  seedit                 = fs_seedit,
+
+  # Inner parallelism: sequential within each worker
+  parallel_args          = list(
+    plan = "sequential", workers = 1, show_message = FALSE
+  )
+)
+```
+
+
+## Alternative Hypothesis Simulations
+
+```{r run-alt}
+cat("Running", nsims_alt, "simulations under H1...\n")
+t0 <- proc.time()[3]
+
+results_alt_raw <- foreach(
+  sim = seq_len(nsims_alt),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_calibrated,
+    n_sample         = sim_n_sample,
+    confounders_base = confounders_gbsg,
+    n_add_noise      = sim_n_noise,
+    run_fs           = run_fs,
+    run_fs_grf       = run_fs_grf,
+    run_grf          = run_grf,
+    fs_params        = fs_params,
+    verbose          = FALSE
+  )
+}
+
+timings$sims_alt <- proc.time()[3] - t0
+
+results_alt <- collect_results(results_alt_raw, "H1 alt")
+n_failed_alt <- attr(results_alt, "n_failed")
+
+cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
+cat("Results:", nrow(results_alt), "rows\n")
+if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
+cat(sprintf("Detection rate: %.1f%%\n",
+    100 * mean(results_alt$any.H[results_alt$analysis == "FS"])))
+```
+
+
+## Null Hypothesis Simulations
+
+```{r reset-workers-null}
+# Reset worker pool between alt and null phases to prevent memory
+# accumulation and worker bloat.  Without this, null sims run on
+# bloated workers and can be substantially slower.
+# reset_workers() is exported from forestsearch v0.2.0.
+forestsearch::reset_workers(workers = n_workers)
+```
+
+```{r run-null}
+cat("Running", nsims_null, "simulations under H0...\n")
+t0 <- proc.time()[3]
+
+results_null_raw <- foreach(
+  sim = seq_len(nsims_null),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_null,
+    n_sample         = sim_n_sample,
+    confounders_base = confounders_gbsg,
+    n_add_noise      = sim_n_noise,
+    run_fs           = run_fs,
+    run_fs_grf       = run_fs_grf,
+    run_grf          = run_grf,
+    fs_params        = fs_params,
+    verbose          = FALSE
+  )
+}
+
+timings$sims_null <- proc.time()[3] - t0
+
+results_null <- collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
+
+cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
+if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
+cat(sprintf("False discovery rate: %.1f%%\n",
+    100 * mean(results_null$any.H[results_null$analysis == "FS"])))
+```
+
+```{r cleanup-plan}
+plan(sequential)
+```
+
+```{r save-results}
+#| code-fold: false
+
+if (save_results) {
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  bundle <- list(
+    results_alt    = results_alt,
+    results_null   = results_null,
+    dgm_calibrated = dgm_calibrated,
+    dgm_null       = dgm_null,
+    config = list(
+      nsims_alt    = nsims_alt,
+      nsims_null   = nsims_null,
+      n_sample     = sim_n_sample,
+      n_noise      = sim_n_noise,
+      n_workers    = n_workers,
+      fs_params    = fs_params,
+      target_irr   = cal_target_irr,
+      subgroup     = paste(dgm_subgroup_vars, collapse = " & ")
+    ),
+    true_effects = list(
+      irr_H    = dgm_calibrated$hazard_ratios$harm_subgroup,
+      irr_Hc   = dgm_calibrated$hazard_ratios$no_harm_subgroup,
+      irr_ITT  = dgm_calibrated$hazard_ratios$overall,
+      k_inter  = dgm_calibrated$model_params$k_inter
+    ),
+    timings = timings
+  )
+
+  fname <- sprintf("gbsg_poisson_simulations_%dalts_%dnulls.rds",
+      nsims_alt, nsims_null)
+  saveRDS(bundle, file.path(output_dir, fname))
+  cat("Saved:", file.path(output_dir, fname), "\n")
+} else {
+  cat("save_results = FALSE; skipping save.\n")
+}
+```
+
+
+# Results {#sec-results}
+
+## Operating Characteristics Under H1
+
+```{r oc-alt}
+t0 <- proc.time()[3]
+
+format_oc_results(
+  results_alt,
+  metrics   = c("detection", "classification"),
+  digits    = 2,
+  digits_hr = 2,
+  title     = "GBSG Poisson: Subgroup Identification (Harm Search)",
+  subtitle  = sprintf(
+    "n = %d, %d sims, IRR(H) = %.2f, IRR(Hc) = %.2f",
+    sim_n_sample, nsims_alt,
+    dgm_calibrated$hazard_ratios$harm_subgroup,
+    dgm_calibrated$hazard_ratios$no_harm_subgroup
+  )
+)
+
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "FS",
+  subtitle = sprintf(
+    "GBSG Poisson DGM | n = %d, %d sims",
+    sim_n_sample, nsims_alt
+  ),
+  font_size = 16
+)
+
+timings$report_alt <- proc.time()[3] - t0
+```
+
+
+## Operating Characteristics Under H0
+
+```{r oc-null}
+format_oc_results(
+  results_null,
+  metrics  = c("detection", "classification"),
+  digits   = 2,
+  title    = "GBSG Poisson: Type I Error (Null)",
+  subtitle = sprintf(
+    "n = %d, %d sims, IRR(ITT) = %.2f",
+    sim_n_sample, nsims_null,
+    dgm_null$hazard_ratios$overall
+  )
+)
+```
+
+
+## Classification Table
+
+```{r classification}
+build_classification_table(
+  scenario_results = list(
+    null = list(
+      results    = results_null,
+      label      = "GBSG-pois",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_null,
+      hypothesis = "null"
+    ),
+    alt = list(
+      results    = results_alt,
+      label      = "GBSG-pois",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_calibrated,
+      hypothesis = "alt"
+    )
+  ),
+  analyses = sort(unique(c(
+    unique(results_null$analysis),
+    unique(results_alt$analysis)
+  ))),
+  digits    = 2,
+  font_size = 16,
+  title     = "GBSG Poisson: Subgroup Identification and Classification",
+  n_sims    = nsims_alt
+)
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing}
+timings$total <- Reduce(`+`, timings)
+
+timing_df <- data.frame(
+  Step = names(timings),
+  Seconds = round(unlist(timings), 1),
+  Minutes = round(unlist(timings) / 60, 2)
+)
+
+timing_df |>
+  gt() |>
+  gt::tab_header(title = "Computation Timing") |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = Step == "total")
+  )
+```
+
+
+# Discussion {#sec-discussion}
+
+## Connection to the Cox Analysis
+
+The Poisson rate model with a single interval per patient is the
+piecewise exponential approximation to Cox regression.  Under
+exponential survival, IRR = HR exactly.  This simulation validates
+that ForestSearch recovers the same subgroup (ER-negative) and
+similar effect sizes when using the GLM count pipeline instead of
+the Cox pipeline.
+
+## Key Differences from the Binary Simulation
+
+1. **Offset**: The Poisson model includes `log(time_months)` as an
+   offset.  This carries through `generate_glm_dgm()` (formula-based
+   offset), `simulate_from_glm_dgm()` (retained in simulated data),
+   and `forestsearch()` (via `offset.name`).
+
+2. **LASSO screening**: Uses `glmnet` with `family = "poisson"` and
+   `offset = log(time_months)`.
+
+3. **GRF screening**: Uses `causal_forest()` on `log(Y + 0.5)` for
+   variance stabilisation.
+
+4. **No censoring model**: The count outcome is fully observed.
+   Person-time variability is captured by the offset.
+
+## Limitations
+
+- The DGM assumes a constant baseline hazard (implicit in the
+  single-interval Poisson model).  Departures from this — such as
+  non-proportional hazards — would make IRR ≠ HR.
+
+- With `status` ∈ {0, 1}, count data machinery is applied to binary
+  data.  True recurrent-event count simulations (where Y > 1 is
+  possible) would exercise the Poisson DGM more thoroughly.
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```
+
+
+# References {#sec-references}
+
+- León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+  "Exploratory subgroup identification in the heterogeneous Cox model."
+  *Statistics in Medicine*, 43, 3921--3942.

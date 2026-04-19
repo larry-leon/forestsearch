@@ -1411,7 +1411,7 @@ results_alt_raw <- foreach(
 }
 
 timings$sims_alt <- proc.time()[3] - t0
-results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
+results_alt <- forestsearch::collect_results(results_alt_raw, "H1 alt")
 n_failed_alt <- attr(results_alt, "n_failed")
 cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
 if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
@@ -1422,9 +1422,10 @@ cat("Results:", nrow(results_alt), "rows\n")
 ## Null Hypothesis Simulations
 
 ```{r reset-workers-null}
-# Reset worker pool to prevent memory accumulation from alt sims
-plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-plan(multisession, workers = n_workers)
+# Reset worker pool between alt and null phases to prevent memory
+# accumulation and worker bloat (null sims on bloated workers can be
+# ~20x slower).  reset_workers() is exported from forestsearch v0.2.0.
+forestsearch::reset_workers(workers = n_workers)
 ```
 
 ```{r run-null}
@@ -1460,7 +1461,7 @@ results_null_raw <- foreach(
 }
 
 timings$sims_null <- proc.time()[3] - t0
-results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
+results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
 n_failed_null <- attr(results_null, "n_failed")
 cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
 if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
