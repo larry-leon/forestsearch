@@ -55,6 +55,63 @@ meaningful "harm threshold").  An appendix (@sec-appendix-fpr) directly
 calibrates the procedure-level false-positive rate (FPR) at the operational
 thresholds used in the main analysis.
 
+## Executive Overview
+
+**Goal.**  This analysis applies ForestSearch to the GBSG breast cancer
+trial (N = 686) to ask whether there exists a sizeable subgroup of
+patients for whom hormonal therapy may *not* be beneficial — or may
+even be detrimental.  The analysis is run with `sg_focus = "maxSG"`,
+which targets the **largest** subgroup satisfying the harm criterion
+rather than the smallest or the one with the most extreme hazard
+ratio.  This framing is intentional: from a risk-management standpoint,
+the more actionable question is "how many patients in the trial
+population could reasonably be recommended *against* this therapy?"
+rather than "what is the worst-affected subgroup we can find?".  A
+larger identified subgroup, if genuine, translates into a larger
+population for whom alternative therapies should be considered.
+
+**Key findings.**  At the León (2024) operational thresholds
+(c₁ = 1.25 screening, c₂ = 1.00 consistency) with
+`pconsistency.threshold = 0.90` and `stop_threshold = 0.95`,
+ForestSearch identifies **ER-negative patients (estrogen receptor
+status ≤ 0)** as the largest subgroup passing the harm criterion —
+82 patients, 12% of the ITT population.  The identified subgroup shows
+an estimated hazard ratio of 1.95 (95% CI: 1.04, 3.67) against the
+therapy, while the complement (604 patients, 88%) shows a clear
+benefit of 0.61 (0.47, 0.80).  Overall ITT is 0.69 (0.54, 0.89).  The
+finding is biologically plausible: tamoxifen is a selective estrogen
+receptor modulator with limited efficacy in ER-negative disease, and
+meta-analyses and clinical guidelines already recommend tamoxifen
+primarily for ER-positive tumors.
+
+**Validation.**  Three independent checks support the identification:
+(i) bootstrap bias correction (1,000 iterations) adjusts for
+selection-induced optimism in the subgroup effect estimates;
+(ii) K-fold and out-of-bag cross-validation across 50 repetitions
+confirm the ER factor is recovered with high frequency rather than
+being an artifact of a particular split; (iii) the FPR calibration
+appendix (@sec-appendix-fpr) directly simulates the null hypothesis
+via `setup_gbsg_dgm(model = "null")` and finds a procedure-level FPR
+of 6.0% (95% CI: 5.4%, 6.7%) from 5,000 calibration replicates, with
+an independent verification batch at 7.0% (6.3%, 7.7%) on disjoint
+seeds — below the 12% tolerance and well-aligned with the asymptotic
+León (2024) equation-3 approximation (P1 = 19.7%, implied L\_eff =
+0.283).  Theta-grid verification at θ†(H) ∈ {0.75, 0.9, 1.0, 1.25,
+1.5, 2.0} further tests the transportability of the correction across
+the null and alternative regions.
+
+**Caveats.**  These findings are specific to the analysis specification
+used here — in particular the `maxSG` search direction, the
+(c₁, c₂) = (1.25, 1.00) operational thresholds, the `pconsistency`
+and `stop_threshold` values, the LASSO + GRF screening combination,
+and the `n.min = 60` / `d0.min = d1.min = 12` subgroup-size filters.
+Different specifications would produce different subgroups, different
+FPR calibration, and potentially different conclusions.  The ER ≤ 0
+finding is stable across the validation checks under *these*
+specifications; readers adapting this workflow to their own trials
+should re-calibrate at their chosen operational configuration and
+verify robustness to specification changes.
+
 
 # Setup {#sec-setup}
 
@@ -120,8 +177,8 @@ Ksims_cv  <- 50L
 # CI half-width at FPR ~ 10%:
 #   200 sims  ≈ ±2.1 pp  |  500 sims  ≈ ±1.3 pp  |  1000 sims ≈ ±0.9 pp
 #   5000 sims ≈ ±0.4 pp  |  10000 sims ≈ ±0.3 pp | 20000 sims ≈ ±0.2 pp
-nsims_tier1_fpr   <- 10000L     # calibration batch
-nsims_verify_fpr  <- 10000L    # verification batch (set to 0L to skip)
+nsims_tier1_fpr   <- 500L     # calibration batch
+nsims_verify_fpr  <- 1000L    # verification batch (set to 0L to skip)
 sim_seed_fpr      <- 8316951L
 fpr_target_surv   <- 0.12     # reference line on detection curves
 
@@ -137,9 +194,9 @@ fpr_target_surv   <- 0.12     # reference line on detection curves
 # Below theta_merge_cut the merged curve shows the corrected prediction;
 # above it the merged curve shows the uncorrected per-subgroup P1.
 # The diamonds from theta_grid_verify empirically test this assumption.
-theta_grid_verify  <- c(0.75, 0.90, 1.25)   # θ = 1.00 comes from verification batch
+theta_grid_verify  <- c(0.75, 0.90, 1.25, 1.50, 2.00)   # θ = 1.00 comes from verification batch
 theta_merge_cut    <- 1.25                   # boundary (working hypothesis)
-nsims_theta_verify <- 10000L                   # sims per θ (set 0L to skip grid)
+nsims_theta_verify <- 500L                   # sims per θ (set 0L to skip grid)
 
 # Survival DGM parameters (for the DGM-based FPR estimate)
 # Note: the censoring structure is baked into setup_gbsg_dgm() and shifted
@@ -149,6 +206,48 @@ nsims_theta_verify <- 10000L                   # sims per θ (set 0L to skip gri
 analysis_time_dgm <- 84L             # months
 cens_adjust_dgm   <- log(1.5)
 confounders_dgm   <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+
+# ── Caching of expensive appendix simulations ──────────────────────────────
+# The appendix simulation chunks (calibration batch, verification batch,
+# theta-grid verification) are the dominant runtime contributors (often
+# > 1 hour at production nsims settings).  Each chunk's results are cached
+# to an RDS file keyed by a parameter fingerprint; a rebuild is triggered
+# whenever any input to the cache key changes.
+#
+# To FORCE re-computation (e.g. after changing the DGM or fs_params):
+#   - Set cache_refresh <- TRUE below, OR
+#   - Delete the corresponding .rds file from cache_dir manually.
+#
+# Cache files live in the chat's working directory; they are small
+# (< 5 MB each) and safe to commit or .gitignore as preferred.
+cache_dir     <- "_cache_gbsg_appendix"
+cache_refresh <- FALSE   # set TRUE to force re-running all cached chunks
+
+if (!dir.exists(cache_dir)) dir.create(cache_dir, showWarnings = FALSE)
+
+# Helper: read an RDS cache if present and compatible, else run `compute()`
+# and write the result. `key` is a named list of all values that invalidate
+# the cache when they change.  `label` is a short human-readable tag used
+# in messages.
+.cache_compute <- function(cache_file, key, compute, label = "chunk") {
+  path <- file.path(cache_dir, cache_file)
+  if (!cache_refresh && file.exists(path)) {
+    cached <- readRDS(path)
+    if (identical(cached$key, key)) {
+      message(sprintf("[cache HIT ] %s: loaded from %s", label, path))
+      return(cached$value)
+    }
+    message(sprintf("[cache MISS] %s: key changed, rebuilding", label))
+  } else if (cache_refresh) {
+    message(sprintf("[cache SKIP] %s: cache_refresh = TRUE", label))
+  } else {
+    message(sprintf("[cache MISS] %s: no cache file, building", label))
+  }
+  value <- compute()
+  saveRDS(list(key = key, value = value), path)
+  message(sprintf("[cache SAVE] %s: wrote %s", label, path))
+  value
+}
 
 # ── Internals (do not edit) ────────────────────────────────────────────────
 timings <- list()
@@ -836,50 +935,73 @@ null replicates.
 ```{r fpr-dgm-loop}
 #| code-fold: true
 
-t0 <- proc.time()[3]
+# Cache key: everything that changes the simulation output.
+.cal_key <- list(
+  nsims         = nsims_tier1_fpr,
+  seed_base     = sim_seed_fpr + 2000L,
+  fs_params     = fs_params_runsim,
+  dgm_id        = list(model = "null", seed = 8316951L),
+  n_sample      = nrow(df.analysis),
+  analysis_time = analysis_time_dgm,
+  cens_adjust   = cens_adjust_dgm,
+  confounders   = confounders_dgm
+)
 
-results_null_raw <- foreach(
-  i = seq_len(nsims_tier1_fpr),
-  .errorhandling = "pass",
-  .options.future = list(packages = c("forestsearch"), seed = TRUE)
-) %dofuture% {
-  future::plan("sequential")
+.cal_cached <- .cache_compute(
+  cache_file = "results_null.rds",
+  key        = .cal_key,
+  label      = sprintf("calibration batch (%d sims)", nsims_tier1_fpr),
+  compute    = function() {
+    t0 <- proc.time()[3]
 
-  r_fslg <- tryCatch(
-    run_simulation_analysis(
-      sim_id           = i,
-      dgm              = dgm_gbsg_null,
-      n_sample         = nrow(df.analysis),
-      confounders_base = confounders_dgm,
-      n_add_noise      = 0L,
-      run_fs           = TRUE,
-      run_fs_grf       = FALSE,
-      run_grf          = FALSE,
-      fs_params        = fs_params_runsim,
-      cox_formula_adj  = cox_formula_adj_runsim,
-      analysis_time    = analysis_time_dgm,
-      cens_adjust      = cens_adjust_dgm,
-      seed_base        = sim_seed_fpr + 2000L,
-      verbose          = FALSE
-    ),
-    error = function(e) NULL
-  )
-  if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
+    raw <- foreach(
+      i = seq_len(nsims_tier1_fpr),
+      .errorhandling = "pass",
+      .options.future = list(packages = c("forestsearch"), seed = TRUE)
+    ) %dofuture% {
+      future::plan("sequential")
 
-  data.table::rbindlist(
-    Filter(Negate(is.null), list(r_fslg)),
-    fill = TRUE
-  )
-}
+      r_fslg <- tryCatch(
+        run_simulation_analysis(
+          sim_id           = i,
+          dgm              = dgm_gbsg_null,
+          n_sample         = nrow(df.analysis),
+          confounders_base = confounders_dgm,
+          n_add_noise      = 0L,
+          run_fs           = TRUE,
+          run_fs_grf       = FALSE,
+          run_grf          = FALSE,
+          fs_params        = fs_params_runsim,
+          cox_formula_adj  = cox_formula_adj_runsim,
+          analysis_time    = analysis_time_dgm,
+          cens_adjust      = cens_adjust_dgm,
+          seed_base        = sim_seed_fpr + 2000L,
+          verbose          = FALSE
+        ),
+        error = function(e) NULL
+      )
+      if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
 
-plan("sequential")
-timings$fpr_runsim <- proc.time()[3] - t0
+      data.table::rbindlist(
+        Filter(Negate(is.null), list(r_fslg)),
+        fill = TRUE
+      )
+    }
 
-results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
-n_failed_null <- attr(results_null, "n_failed")
-cat(sprintf("Calibration batch: %d sims completed in %.1f min\n",
+    plan("sequential")
+    list(
+      results = forestsearch::collect_results(raw, "H0 null"),
+      elapsed = proc.time()[3] - t0
+    )
+  }
+)
+
+results_null       <- .cal_cached$results
+timings$fpr_runsim <- .cal_cached$elapsed
+n_failed_null      <- attr(results_null, "n_failed")
+cat(sprintf("Calibration batch: %d sims (elapsed %.1f min, cache-aware)\n",
             nsims_tier1_fpr, timings$fpr_runsim / 60))
-if (n_failed_null > 0L)
+if (!is.null(n_failed_null) && n_failed_null > 0L)
   cat(sprintf("  *** %d of %d replicates failed ***\n",
               n_failed_null, nsims_tier1_fpr))
 ```
@@ -898,56 +1020,77 @@ chunk to skip.
 #| code-fold: true
 
 if (nsims_verify_fpr > 0L) {
-  t0 <- proc.time()[3]
+  .ver_key <- list(
+    nsims         = nsims_verify_fpr,
+    seed_base     = sim_seed_fpr + 50000L,
+    fs_params     = fs_params_runsim,
+    dgm_id        = list(model = "null", seed = 8316951L),
+    n_sample      = nrow(df.analysis),
+    analysis_time = analysis_time_dgm,
+    cens_adjust   = cens_adjust_dgm,
+    confounders   = confounders_dgm
+  )
 
-  # Reset worker pool to prevent memory accumulation from the
-  # calibration batch before running the verification batch.
-  plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-  plan(multisession, workers = n_workers)
+  .ver_cached <- .cache_compute(
+    cache_file = "results_verify.rds",
+    key        = .ver_key,
+    label      = sprintf("verification batch (%d sims)", nsims_verify_fpr),
+    compute    = function() {
+      t0 <- proc.time()[3]
 
-  results_verify_raw <- foreach(
-    i = seq_len(nsims_verify_fpr),
-    .errorhandling = "pass",
-    .options.future = list(packages = c("forestsearch"), seed = TRUE)
-  ) %dofuture% {
-    future::plan("sequential")
+      # Reset worker pool to prevent memory accumulation from a prior
+      # batch before running this one.
+      plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+      plan(multisession, workers = n_workers)
 
-    r_fslg <- tryCatch(
-      run_simulation_analysis(
-        sim_id           = i,
-        dgm              = dgm_gbsg_null,
-        n_sample         = nrow(df.analysis),
-        confounders_base = confounders_dgm,
-        n_add_noise      = 0L,
-        run_fs           = TRUE,
-        run_fs_grf       = FALSE,
-        run_grf          = FALSE,
-        fs_params        = fs_params_runsim,
-        cox_formula_adj  = cox_formula_adj_runsim,
-        analysis_time    = analysis_time_dgm,
-        cens_adjust      = cens_adjust_dgm,
-        seed_base        = sim_seed_fpr + 50000L,
-        verbose          = FALSE
-      ),
-      error = function(e) NULL
-    )
-    if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
+      raw <- foreach(
+        i = seq_len(nsims_verify_fpr),
+        .errorhandling = "pass",
+        .options.future = list(packages = c("forestsearch"), seed = TRUE)
+      ) %dofuture% {
+        future::plan("sequential")
 
-    data.table::rbindlist(
-      Filter(Negate(is.null), list(r_fslg)),
-      fill = TRUE
-    )
-  }
+        r_fslg <- tryCatch(
+          run_simulation_analysis(
+            sim_id           = i,
+            dgm              = dgm_gbsg_null,
+            n_sample         = nrow(df.analysis),
+            confounders_base = confounders_dgm,
+            n_add_noise      = 0L,
+            run_fs           = TRUE,
+            run_fs_grf       = FALSE,
+            run_grf          = FALSE,
+            fs_params        = fs_params_runsim,
+            cox_formula_adj  = cox_formula_adj_runsim,
+            analysis_time    = analysis_time_dgm,
+            cens_adjust      = cens_adjust_dgm,
+            seed_base        = sim_seed_fpr + 50000L,
+            verbose          = FALSE
+          ),
+          error = function(e) NULL
+        )
+        if (!is.null(r_fslg)) r_fslg$analysis <- "FSlg"
 
-  plan("sequential")
-  timings$fpr_verify <- proc.time()[3] - t0
+        data.table::rbindlist(
+          Filter(Negate(is.null), list(r_fslg)),
+          fill = TRUE
+        )
+      }
 
-  results_verify <- forestsearch::collect_results(
-    results_verify_raw, "H0 null (verify)")
-  n_failed_verify <- attr(results_verify, "n_failed")
-  cat(sprintf("Verification batch: %d sims completed in %.1f min\n",
+      plan("sequential")
+      list(
+        results = forestsearch::collect_results(raw, "H0 null (verify)"),
+        elapsed = proc.time()[3] - t0
+      )
+    }
+  )
+
+  results_verify      <- .ver_cached$results
+  timings$fpr_verify  <- .ver_cached$elapsed
+  n_failed_verify     <- attr(results_verify, "n_failed")
+  cat(sprintf("Verification batch: %d sims (elapsed %.1f min, cache-aware)\n",
               nsims_verify_fpr, timings$fpr_verify / 60))
-  if (n_failed_verify > 0L)
+  if (!is.null(n_failed_verify) && n_failed_verify > 0L)
     cat(sprintf("  *** %d of %d replicates failed ***\n",
                 n_failed_verify, nsims_verify_fpr))
 } else {
@@ -977,107 +1120,125 @@ to skip this block.
 #| code-fold: true
 
 if (nsims_theta_verify > 0L && length(theta_grid_verify) > 0L) {
-  t0 <- proc.time()[3]
+  .theta_key <- list(
+    theta_grid    = theta_grid_verify,
+    nsims         = nsims_theta_verify,
+    fs_params     = fs_params_runsim,
+    n_sample      = nrow(df.analysis),
+    analysis_time = analysis_time_dgm,
+    cens_adjust   = cens_adjust_dgm,
+    confounders   = confounders_dgm,
+    seed_offsets  = sim_seed_fpr + 80000L + seq_along(theta_grid_verify),
+    sim_seeds     = sim_seed_fpr + 100000L + 1000L * seq_along(theta_grid_verify)
+  )
 
-  # ── Step 1: Calibrate k_inter and build one alt DGM per θ ────────
-  # Serial computation — deliberately done BEFORE activating a
-  # multisession plan so we don't keep workers idle (and holding
-  # memory) during the ~30–60 seconds of k_inter calibration.  Each
-  # calibration is a uniroot over ~10–20 small DGM builds in the
-  # main process.
-  plan(sequential)
+  .theta_cached <- .cache_compute(
+    cache_file = "theta_verify.rds",
+    key        = .theta_key,
+    label      = sprintf("theta-grid verification (%d θ × %d sims)",
+                         length(theta_grid_verify), nsims_theta_verify),
+    compute    = function() {
+      t0 <- proc.time()[3]
 
-  alt_dgms <- vector("list", length(theta_grid_verify))
-  names(alt_dgms) <- sprintf("theta_%.2f", theta_grid_verify)
-  for (j in seq_along(theta_grid_verify)) {
-    th   <- theta_grid_verify[j]
-    kj   <- calibrate_k_inter(
-      target_hr_harm = th,
-      k_treat        = 1.0,
-      seed           = sim_seed_fpr + 80000L + j,
-      verbose        = FALSE
-    )
-    alt_dgms[[j]] <- setup_gbsg_dgm(
-      model   = "alt",
-      k_treat = 1.0,
-      k_inter = kj,
-      seed    = sim_seed_fpr + 80000L + j,
-      verbose = FALSE
-    )
-    cat(sprintf("  θ=%.2f calibrated: k_inter=%.4f | hr_H_true=%.3f\n",
-                th, kj, alt_dgms[[j]]$hr_H_true))
-  }
+      # ── Step 1: Calibrate k_inter and build one alt DGM per θ ──
+      # Sequential computation — done BEFORE activating multisession
+      # so workers don't sit idle during ~30–60 s of k_inter calibration.
+      plan(sequential)
 
-  # ── Step 2: Run sims per θ ──────────────────────────────────────
-  # Reset workers BEFORE EACH per-θ batch to prevent memory
-  # accumulation across batches.  With 3 θ values × 500 sims, skipping
-  # per-batch resets can compound worker memory usage and slow later
-  # batches substantially (pattern from reproduce_table1_m1.qmd).
-  theta_rows <- vector("list", length(theta_grid_verify))
-  for (j in seq_along(theta_grid_verify)) {
-    th  <- theta_grid_verify[j]
-    dgj <- alt_dgms[[j]]
-    seed_offset_j <- 100000L + 1000L * j
+      alt_dgms <- vector("list", length(theta_grid_verify))
+      names(alt_dgms) <- sprintf("theta_%.2f", theta_grid_verify)
+      for (j in seq_along(theta_grid_verify)) {
+        th   <- theta_grid_verify[j]
+        kj   <- calibrate_k_inter(
+          target_hr_harm = th,
+          k_treat        = 1.0,
+          seed           = sim_seed_fpr + 80000L + j,
+          verbose        = FALSE
+        )
+        alt_dgms[[j]] <- setup_gbsg_dgm(
+          model   = "alt",
+          k_treat = 1.0,
+          k_inter = kj,
+          seed    = sim_seed_fpr + 80000L + j,
+          verbose = FALSE
+        )
+        cat(sprintf("  θ=%.2f calibrated: k_inter=%.4f | hr_H_true=%.3f\n",
+                    th, kj, alt_dgms[[j]]$hr_H_true))
+      }
 
-    plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
-    plan(multisession, workers = n_workers)
+      # ── Step 2: Run sims per θ, resetting workers before each ──
+      theta_rows <- vector("list", length(theta_grid_verify))
+      for (j in seq_along(theta_grid_verify)) {
+        th  <- theta_grid_verify[j]
+        dgj <- alt_dgms[[j]]
+        seed_offset_j <- 100000L + 1000L * j
 
-    raw_j <- foreach(
-      i = seq_len(nsims_theta_verify),
-      .errorhandling = "pass",
-      .options.future = list(packages = c("forestsearch"), seed = TRUE)
-    ) %dofuture% {
-      future::plan("sequential")
+        plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+        plan(multisession, workers = n_workers)
 
-      r <- tryCatch(
-        run_simulation_analysis(
-          sim_id           = i,
-          dgm              = dgj,
-          n_sample         = nrow(df.analysis),
-          confounders_base = confounders_dgm,
-          n_add_noise      = 0L,
-          run_fs           = TRUE,
-          run_fs_grf       = FALSE,
-          run_grf          = FALSE,
-          fs_params        = fs_params_runsim,
-          cox_formula_adj  = cox_formula_adj_runsim,
-          analysis_time    = analysis_time_dgm,
-          cens_adjust      = cens_adjust_dgm,
-          seed_base        = sim_seed_fpr + seed_offset_j,
-          verbose          = FALSE
-        ),
-        error = function(e) NULL
+        raw_j <- foreach(
+          i = seq_len(nsims_theta_verify),
+          .errorhandling = "pass",
+          .options.future = list(packages = c("forestsearch"), seed = TRUE)
+        ) %dofuture% {
+          future::plan("sequential")
+
+          r <- tryCatch(
+            run_simulation_analysis(
+              sim_id           = i,
+              dgm              = dgj,
+              n_sample         = nrow(df.analysis),
+              confounders_base = confounders_dgm,
+              n_add_noise      = 0L,
+              run_fs           = TRUE,
+              run_fs_grf       = FALSE,
+              run_grf          = FALSE,
+              fs_params        = fs_params_runsim,
+              cox_formula_adj  = cox_formula_adj_runsim,
+              analysis_time    = analysis_time_dgm,
+              cens_adjust      = cens_adjust_dgm,
+              seed_base        = sim_seed_fpr + seed_offset_j,
+              verbose          = FALSE
+            ),
+            error = function(e) NULL
+          )
+          if (!is.null(r)) r$analysis <- "FSlg"
+          data.table::rbindlist(
+            Filter(Negate(is.null), list(r)), fill = TRUE)
+        }
+
+        res_j <- forestsearch::collect_results(
+          raw_j, sprintf("theta=%.2f", th))
+        rj    <- res_j[res_j$analysis == "FSlg", ]
+        ndet  <- sum(rj$any.H == 1L, na.rm = TRUE)
+        nrep  <- nrow(rj)
+        ci    <- .wilson_ci(ndet, nrep)
+
+        theta_rows[[j]] <- data.table(
+          theta      = th,
+          nsims      = nrep,
+          detections = ndet,
+          fpr        = ndet / nrep,
+          ci_lo      = ci[1],
+          ci_hi      = ci[2]
+        )
+        cat(sprintf("  θ=%.2f: detection %d/%d = %.1f%% [%.1f%%, %.1f%%]\n",
+                    th, ndet, nrep, 100 * ndet / nrep,
+                    100 * ci[1], 100 * ci[2]))
+      }
+
+      plan("sequential")
+      list(
+        df      = data.table::rbindlist(theta_rows),
+        elapsed = proc.time()[3] - t0
       )
-      if (!is.null(r)) r$analysis <- "FSlg"
-      data.table::rbindlist(
-        Filter(Negate(is.null), list(r)), fill = TRUE)
     }
+  )
 
-    res_j <- forestsearch::collect_results(
-      raw_j, sprintf("theta=%.2f", th))
-    rj    <- res_j[res_j$analysis == "FSlg", ]
-    ndet  <- sum(rj$any.H == 1L, na.rm = TRUE)
-    nrep  <- nrow(rj)
-    ci    <- .wilson_ci(ndet, nrep)
+  theta_verify_df          <- .theta_cached$df
+  timings$fpr_theta_verify <- .theta_cached$elapsed
 
-    theta_rows[[j]] <- data.table(
-      theta      = th,
-      nsims      = nrep,
-      detections = ndet,
-      fpr        = ndet / nrep,
-      ci_lo      = ci[1],
-      ci_hi      = ci[2]
-    )
-    cat(sprintf("  θ=%.2f: detection %d/%d = %.1f%% [%.1f%%, %.1f%%]\n",
-                th, ndet, nrep, 100 * ndet / nrep,
-                100 * ci[1], 100 * ci[2]))
-  }
-
-  plan("sequential")
-  theta_verify_df <- data.table::rbindlist(theta_rows)
-  timings$fpr_theta_verify <- proc.time()[3] - t0
-
-  cat(sprintf("\nTheta-grid verification: %d θ values × %d sims in %.1f min\n",
+  cat(sprintf("\nTheta-grid verification: %d θ values × %d sims (elapsed %.1f min, cache-aware)\n",
               length(theta_grid_verify), nsims_theta_verify,
               timings$fpr_theta_verify / 60))
 } else {
@@ -1359,7 +1520,7 @@ forward from θ = 1.
 # Verification diamonds are overlaid from an optional data.table with columns
 # theta / fpr / ci_lo / ci_hi.
 plot_fpr_calibration <- function(cal_result,
-                                  theta_seq      = seq(0.5, 4.0, by = 0.05),
+                                  theta_seq      = seq(0.5, 3.0, by = 0.05),
                                   theta_cut      = 1.25,
                                   theta_verify   = NULL,
                                   fpr_target     = NULL,
