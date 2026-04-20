@@ -5,7 +5,7 @@ author: "Larry F. León"
 date: today
 format:
   html:
-    code-fold: show
+    code-fold: true
     toc: true
     toc-depth: 3
 execute:
@@ -160,10 +160,10 @@ maxk_val            <- 2L
 
 # ── Bootstrap / cross-validation counts ────────────────────────────────────
 # Increase for production:
-#   NB_boot  = 500-2000   (here: 20 for fast knit)
-#   Ksims_cv = 50         (here: 10 for fast knit)
-NB_boot   <- 1000L
-Ksims_cv  <- 50L
+#   NB_boot  = 500-2000   (20 for fast knit)
+#   Ksims_cv = 50         (10 for fast knit)
+NB_boot   <- 20L
+Ksims_cv  <- 5L
 
 # ── FPR calibration (appendix) ─────────────────────────────────────────────
 # The appendix runs two independent null-simulation batches:
@@ -177,8 +177,8 @@ Ksims_cv  <- 50L
 # CI half-width at FPR ~ 10%:
 #   200 sims  ≈ ±2.1 pp  |  500 sims  ≈ ±1.3 pp  |  1000 sims ≈ ±0.9 pp
 #   5000 sims ≈ ±0.4 pp  |  10000 sims ≈ ±0.3 pp | 20000 sims ≈ ±0.2 pp
-nsims_tier1_fpr   <- 500L     # calibration batch
-nsims_verify_fpr  <- 1000L    # verification batch (set to 0L to skip)
+nsims_tier1_fpr   <- 50L     # calibration batch
+nsims_verify_fpr  <- 50L    # verification batch (set to 0L to skip)
 sim_seed_fpr      <- 8316951L
 fpr_target_surv   <- 0.12     # reference line on detection curves
 
@@ -194,9 +194,9 @@ fpr_target_surv   <- 0.12     # reference line on detection curves
 # Below theta_merge_cut the merged curve shows the corrected prediction;
 # above it the merged curve shows the uncorrected per-subgroup P1.
 # The diamonds from theta_grid_verify empirically test this assumption.
-theta_grid_verify  <- c(0.75, 0.90, 1.25, 1.50, 2.00)   # θ = 1.00 comes from verification batch
+theta_grid_verify  <- c(0.75, 0.90, 1.25, 1.50, 1.75, 2.00, 2.5, 3.0)   # θ = 1.00 comes from verification batch
 theta_merge_cut    <- 1.25                   # boundary (working hypothesis)
-nsims_theta_verify <- 500L                   # sims per θ (set 0L to skip grid)
+nsims_theta_verify <- 50L                   # sims per θ (set 0L to skip grid)
 
 # Survival DGM parameters (for the DGM-based FPR estimate)
 # Note: the censoring structure is baked into setup_gbsg_dgm() and shifted
@@ -218,12 +218,51 @@ confounders_dgm   <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
 #   - Set cache_refresh <- TRUE below, OR
 #   - Delete the corresponding .rds file from cache_dir manually.
 #
-# Cache files live in the chat's working directory; they are small
-# (< 5 MB each) and safe to commit or .gitignore as preferred.
+# cache_dir is a RELATIVE path by default — resolved against R's working
+# directory at knit time, which Quarto sets to the directory containing
+# this .qmd file (unless overridden by execute-dir in YAML or a
+# _quarto.yml project setting).  Change to an absolute path (e.g.
+# "~/forestsearch_caches/gbsg") to decouple the cache from the .qmd
+# location.  Cache files are small (< 5 MB each).
 cache_dir     <- "_cache_gbsg_appendix"
+
+# ── USER NOTE: When to force a cache rebuild ───────────────────────────────
+# Cached chunks automatically invalidate when any keyed parameter changes
+# (nsims_*, seeds, fs_params_runsim fields, DGM params, theta_grid_verify,
+# etc.).  However, changes to the R code INSIDE the compute() closures are
+# NOT tracked — only the parameters passed as `key`.  So if you:
+#
+#   (a) rewrite the foreach body or the collect/post-processing logic,
+#   (b) change how run_simulation_analysis() is called (e.g. flip run_grf),
+#   (c) upgrade the forestsearch package to a version that changes results,
+#   (d) fix a bug in the simulation wrapper,
+#
+# then the cache will silently keep returning stale results.  Two ways to
+# force a clean rebuild:
+#
+#   1. Set cache_refresh <- TRUE below, knit once, then set back to FALSE.
+#      Rebuilds ALL cached chunks (calibration + verification + theta-grid).
+#
+#   2. Delete one or more specific .rds files from cache_dir.  The next
+#      knit will rebuild ONLY those chunks — other cached results are kept.
+#      Files under cache_dir:
+#        - results_null.rds    (calibration batch)
+#        - results_verify.rds  (verification batch)
+#        - theta_verify.rds    (theta-grid verification)
+#      Use option 2 when you want surgical control; use option 1 when in
+#      doubt or after package upgrades.
+#
 cache_refresh <- FALSE   # set TRUE to force re-running all cached chunks
 
 if (!dir.exists(cache_dir)) dir.create(cache_dir, showWarnings = FALSE)
+
+# Report the resolved absolute path on every knit so you know exactly
+# where the .rds files are landing (and can verify the path matches
+# your expectation before a long run).
+cat(sprintf("Cache directory: %s\n", normalizePath(cache_dir, mustWork = TRUE)))
+cat(sprintf("Working directory (getwd()): %s\n", getwd()))
+cat(sprintf("cache_refresh = %s  (TRUE forces all cached chunks to rebuild)\n",
+            cache_refresh))
 
 # Helper: read an RDS cache if present and compatible, else run `compute()`
 # and write the result. `key` is a named list of all values that invalidate
@@ -248,6 +287,93 @@ if (!dir.exists(cache_dir)) dir.create(cache_dir, showWarnings = FALSE)
   message(sprintf("[cache SAVE] %s: wrote %s", label, path))
   value
 }
+
+# ── Utility helpers (hoisted here so they can be QC-tested before any ────
+# expensive chunk runs) ──────────────────────────────────────────────────
+
+# Null-coalescing operator (forestsearch has one but it's unexported)
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+# Wilson 95% CI wrapper around forestsearch::wilson_ci() (the exported
+# package helper used by the two-stage consistency machinery).  The
+# package function returns c(estimate, lower, upper); we drop the
+# estimate and return c(lower, upper) for backward-compatibility with
+# this appendix's existing ci[1] / ci[2] indexing.  At n = 0 we return
+# c(NA, NA) rather than the package's c(lower = 0, upper = 1) no-info
+# CI, because in this appendix an empty results table means the sim
+# didn't run rather than "truly 0 successes observed".
+.wilson_ci <- function(x, n) {
+  if (n == 0) return(c(NA_real_, NA_real_))
+  ci <- forestsearch::wilson_ci(x, n, conf.level = 0.95)
+  c(ci[["lower"]], ci[["upper"]])
+}
+
+# Coerce a timing to NA_real_ if missing, NULL, or zero (skipped).
+# Used to render the FPR-stage rows in the Computational Timing table.
+.fpr_stage <- function(val) {
+  if (is.null(val) || is.na(val) || val == 0) NA_real_ else val
+}
+
+# Per-replicate cost.  Returns NA_real_ when either input is missing,
+# when the sim count is zero, or when the row has no meaningful sim
+# count (e.g. GRF / ForestSearch rows where Sims is NA_integer_).
+# Order of checks matters: length-zero inputs break is.na(), and NA
+# inputs break the subsequent `n == 0` test.
+.sec_per_sim <- function(total_sec, n) {
+  if (length(total_sec) == 0L || length(n) == 0L) return(NA_real_)
+  if (is.na(total_sec) || is.na(n))               return(NA_real_)
+  if (n == 0)                                      return(NA_real_)
+  total_sec / n
+}
+
+# ── Knit-time QC self-test ────────────────────────────────────────────────
+# Runs before any expensive chunk so knit fails in < 1 second if any
+# helper is broken, rather than after an hour of simulation.  Covers the
+# pathological inputs that have bitten previous knit attempts: named
+# numeric scalars (from proc.time()["elapsed"]), NA integers in the
+# denominator, NULL slots in `timings`, empty-vector edge cases.
+local({
+  e <- environment()  # force use of current env for stopifnot lookups
+
+  # %||%
+  stopifnot(identical((NULL %||% "x"), "x"))
+  stopifnot(identical((42 %||% "x"), 42))
+  stopifnot(identical((NA %||% "x"), NA))   # NA is not NULL — returns a
+
+  # .fpr_stage()
+  stopifnot(is.na(.fpr_stage(NULL)))
+  stopifnot(is.na(.fpr_stage(NA_real_)))
+  stopifnot(is.na(.fpr_stage(0)))
+  stopifnot(identical(.fpr_stage(72.3), 72.3))
+  stopifnot(identical(.fpr_stage(c(elapsed = 72.3)),
+                      c(elapsed = 72.3)))   # named scalar passes through
+
+  # .sec_per_sim()
+  stopifnot(is.na(.sec_per_sim(NA_real_, 500)))         # missing total
+  stopifnot(is.na(.sec_per_sim(100, NA_integer_)))      # missing n — the bug
+  stopifnot(is.na(.sec_per_sim(100, 0)))                # skipped batch
+  stopifnot(is.na(.sec_per_sim(numeric(0), 500)))       # empty total
+  stopifnot(is.na(.sec_per_sim(100, integer(0))))       # empty n
+  stopifnot(identical(.sec_per_sim(100, 500), 0.2))     # normal case
+  stopifnot(identical(.sec_per_sim(c(elapsed = 100), 500L),
+                      c(elapsed = 0.2)))                # named scalar OK
+
+  # .wilson_ci()
+  ci <- .wilson_ci(0, 0)
+  stopifnot(all(is.na(ci)))
+  ci <- .wilson_ci(50, 500)
+  stopifnot(ci[1] >= 0 && ci[2] <= 1 && ci[1] < 0.1 && ci[2] > 0.1)
+  ci <- .wilson_ci(0, 500)
+  # Wilson lower bound at x = 0 is theoretically zero but comes out as
+  # a tiny positive roundoff value (~1e-19) because the package uses
+  # max(0, center - margin) where center and margin are numerically
+  # equal in exact arithmetic but subtract to near-zero noise in
+  # double precision.  Assert near-zero rather than exact zero.
+  stopifnot(ci[1] < 1e-10 && ci[2] > 0 && ci[2] < 0.01)
+
+  message("[QC] helper self-test passed (.wilson_ci, .fpr_stage, ",
+          ".sec_per_sim, %||%)")
+})
 
 # ── Internals (do not edit) ────────────────────────────────────────────────
 timings <- list()
@@ -839,15 +965,9 @@ cat("Workers:", n_workers, "\n")
 
 # DGM and ForestSearch params are constructed in @sec-appendix-dgm-setup below.
 
-# Wilson CI helper (used by theta-grid verification and summary table).
-.wilson_ci <- function(x, n, z = 1.96) {
-  if (n == 0) return(c(NA_real_, NA_real_))
-  p <- x / n
-  denom  <- 1 + z^2 / n
-  centre <- (p + z^2 / (2 * n)) / denom
-  margin <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / denom
-  c(max(0, centre - margin), min(1, centre + margin))
-}
+# Note: helpers .wilson_ci(), .fpr_stage(), .sec_per_sim(), and %||% are
+# hoisted to the main setup chunk at the top of the document so a knit-time
+# self-test can run before any expensive simulation.
 ```
 
 
@@ -1770,45 +1890,97 @@ complement the clinical evidence.
 # Computational Timing {#sec-timing}
 
 ```{r timing-summary}
-# Local null-coalescing operator (the one in forestsearch is unexported)
-`%||%` <- function(a, b) if (!is.null(a)) a else b
-
+# Helpers (%||%, .fpr_stage, .sec_per_sim) are defined in the main setup
+# chunk so they can be QC-tested before any expensive simulation.
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
-# Sum FPR sub-components into a single row for display
-timings$fpr_total <- sum(c(
-  timings$fpr_runsim       %||% 0,  # calibration batch
-  timings$fpr_verify       %||% 0,  # verification batch at theta = 1
-  timings$fpr_theta_verify %||% 0   # theta-grid verification
-))
+# FPR appendix sub-components — individual stages plus rolled-up total.
+# Each stage may be 0 (skipped via nsims_*_fpr = 0L) or NA (not run at
+# all).  Show NA for skipped stages in the table so the reader can tell
+# a skip from a fast run.
+fpr_tier1_sec  <- .fpr_stage(timings$fpr_runsim)        # calibration batch
+fpr_verify_sec <- .fpr_stage(timings$fpr_verify)        # verification batch
+fpr_theta_sec  <- .fpr_stage(timings$fpr_theta_verify)  # theta-grid verification
+
+timings$fpr_total <- sum(c(fpr_tier1_sec, fpr_verify_sec, fpr_theta_sec),
+                         na.rm = TRUE)
+
+n_theta_total <- if (!is.null(theta_verify_df))
+  sum(theta_verify_df$nsims, na.rm = TRUE) else NA_integer_
 
 timing_df <- data.frame(
-  Analysis = c("GRF", "ForestSearch", "Bootstrap",
-               "kfold CV", "OOB CV",
-               "FPR calibration (appendix)", "Total"),
-  Seconds  = c(
-    timings$grf,
-    timings$forestsearch,
-    timings$bootstrap,
-    timings$kfold,
-    timings$oob,
+  Analysis = c("GRF",
+               "ForestSearch",
+               "Bootstrap",
+               "kfold CV",
+               "OOB CV",
+               "FPR tier 1 (calibration batch)",
+               "FPR verification batch",
+               "FPR theta-grid verification",
+               "FPR calibration — total (appendix)",
+               "Total"),
+  Seconds = as.numeric(c(
+    timings$grf          %||% NA_real_,
+    timings$forestsearch %||% NA_real_,
+    timings$bootstrap    %||% NA_real_,
+    timings$kfold        %||% NA_real_,
+    timings$oob          %||% NA_real_,
+    fpr_tier1_sec,
+    fpr_verify_sec,
+    fpr_theta_sec,
     if (timings$fpr_total > 0) timings$fpr_total else NA_real_,
-    timings$total
+    timings$total        %||% NA_real_
+  )),
+  Sims = c(
+    NA_integer_, NA_integer_,
+    NB_boot %||% NA_integer_,
+    Ksims_cv %||% NA_integer_,
+    Ksims_cv %||% NA_integer_,
+    nsims_tier1_fpr %||% NA_integer_,
+    nsims_verify_fpr %||% NA_integer_,
+    n_theta_total,
+    NA_integer_,
+    NA_integer_
   )
 )
-timing_df$Minutes <- timing_df$Seconds / 60
+timing_df$Minutes     <- timing_df$Seconds / 60
+timing_df$sec_per_sim <- mapply(.sec_per_sim, timing_df$Seconds, timing_df$Sims)
 
 gt(timing_df) |>
   tab_header(title = "Computational Timing") |>
   fmt_number(columns = c(Seconds, Minutes), decimals = 1,
              rows = !is.na(Seconds)) |>
+  fmt_number(columns = sec_per_sim, decimals = 2,
+             rows = !is.na(sec_per_sim)) |>
+  fmt_integer(columns = Sims, rows = !is.na(Sims)) |>
+  sub_missing(missing_text = "—") |>
   cols_label(
-    Analysis = "Component",
-    Seconds  = "Time (sec)",
-    Minutes  = "Time (min)"
+    Analysis    = "Component",
+    Seconds     = "Time (sec)",
+    Minutes     = "Time (min)",
+    Sims        = "Sims",
+    sec_per_sim = "sec / sim"
   ) |>
-  tab_style(style = cell_text(weight = "bold"),
-            locations = cells_body(rows = Analysis == "Total"))
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = Analysis %in% c(
+      "FPR calibration — total (appendix)", "Total"))
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#F5F5F5"),
+    locations = cells_body(rows = Analysis %in% c(
+      "FPR tier 1 (calibration batch)",
+      "FPR verification batch",
+      "FPR theta-grid verification"))
+  ) |>
+  tab_source_note(paste(
+    "FPR calibration stages are shaded grey; their sum appears as the",
+    "bold 'FPR calibration — total (appendix)' row.",
+    "sec/sim divides elapsed time by the simulation count for the",
+    "appendix stages and by NB_boot / Ksims_cv for bootstrap / CV.",
+    "Dashes indicate skipped or non-simulation components.",
+    "When cached stages are loaded from .rds (cache HIT), the elapsed",
+    "time shown is from the ORIGINAL run, not the current knit."))
 ```
 
 
