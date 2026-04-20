@@ -9,8 +9,8 @@ format:
     toc: true
     toc-depth: 3
 execute:
-  warning: true
-  message: true
+  warning: false
+  message: false
   fig-align: center
 knitr:
   opts_chunk:
@@ -162,8 +162,8 @@ maxk_val            <- 2L
 # Increase for production:
 #   NB_boot  = 500-2000   (20 for fast knit)
 #   Ksims_cv = 50         (10 for fast knit)
-NB_boot   <- 20L
-Ksims_cv  <- 5L
+NB_boot   <- 2000L
+Ksims_cv  <- 50L
 
 # ── FPR calibration (appendix) ─────────────────────────────────────────────
 # The appendix runs two independent null-simulation batches:
@@ -177,8 +177,8 @@ Ksims_cv  <- 5L
 # CI half-width at FPR ~ 10%:
 #   200 sims  ≈ ±2.1 pp  |  500 sims  ≈ ±1.3 pp  |  1000 sims ≈ ±0.9 pp
 #   5000 sims ≈ ±0.4 pp  |  10000 sims ≈ ±0.3 pp | 20000 sims ≈ ±0.2 pp
-nsims_tier1_fpr   <- 50L     # calibration batch
-nsims_verify_fpr  <- 50L    # verification batch (set to 0L to skip)
+nsims_tier1_fpr   <- 5000L     # calibration batch
+nsims_verify_fpr  <- 5000L    # verification batch (set to 0L to skip)
 sim_seed_fpr      <- 8316951L
 fpr_target_surv   <- 0.12     # reference line on detection curves
 
@@ -196,7 +196,7 @@ fpr_target_surv   <- 0.12     # reference line on detection curves
 # The diamonds from theta_grid_verify empirically test this assumption.
 theta_grid_verify  <- c(0.75, 0.90, 1.25, 1.50, 1.75, 2.00, 2.5, 3.0)   # θ = 1.00 comes from verification batch
 theta_merge_cut    <- 1.25                   # boundary (working hypothesis)
-nsims_theta_verify <- 50L                   # sims per θ (set 0L to skip grid)
+nsims_theta_verify <- 5000L                   # sims per θ (set 0L to skip grid)
 
 # ── (c1, c2) sensitivity sweep (Appendix §10.7) ─────────────────────────────
 # Once the reference (c1, c2) pair has been validated via tier 1 +
@@ -211,7 +211,7 @@ nsims_theta_verify <- 50L                   # sims per θ (set 0L to skip grid)
 # curve anchors the overlay.
 c1_sweep          <- c(1.00, 1.25, 1.40)
 c2_sweep          <- c(0.90, 1.00)
-nsims_sweep       <- 50L                     # sims per (c1, c2) pair
+nsims_sweep       <- 5000L                     # sims per (c1, c2) pair
 sweep_seed_base   <- sim_seed_fpr + 200000L   # disjoint from other batches
 cache_sweep       <- TRUE                     # per-pair RDS caching under _cache_gbsg_sweep/
 
