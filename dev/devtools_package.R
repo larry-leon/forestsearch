@@ -1,18 +1,18 @@
 
-Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
-
-In oc_analyses_gbsg.R and sim_aft_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
-Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
-If so, please create a new "oc_analyses.R", including any necessary helpers, which comprehensively replaces oc_analyses_gbsg.R and sim_aft_gbsg.R.
-I would like to phase out any specific reference to "gbsg", except when using as an example dataset.   Please create a multiple step strategy so
-that we can verify any revisions at each step are working properly.
-
-
-Let's start over, this is going nowhere and in circles.   The original R codebase has now been restored.
-Let's start with create_gbsg_dgm(), and proceed in separate steps so that each change can be verified before
-proceeding to the next step.
-To check the success of migrating create_gbsg_dgm() the following legacy results
-should be created:
+# Please fetch forestsearch codebase https://github.com/larry-leon/forestsearch
+#
+# In oc_analyses_gbsg.R and sim_aft_gbsg.R there are "gbsg" specific functions, create_gbsg_dgm() and simulate_from_gbsg_dgm().
+# Can these be replaced with the more general functions generate_aft_dgm_flex() and simulate_from_dgm()?
+# If so, please create a new "oc_analyses.R", including any necessary helpers, which comprehensively replaces oc_analyses_gbsg.R and sim_aft_gbsg.R.
+# I would like to phase out any specific reference to "gbsg", except when using as an example dataset.   Please create a multiple step strategy so
+# that we can verify any revisions at each step are working properly.
+#
+#
+# Let's start over, this is going nowhere and in circles.   The original R codebase has now been restored.
+# Let's start with create_gbsg_dgm(), and proceed in separate steps so that each change can be verified before
+# proceeding to the next step.
+# To check the success of migrating create_gbsg_dgm() the following legacy results
+# should be created:
 # dgm_alt <- create_gbsg_dgm(
 #   model = "alt",
 #   k_treat = 1.0,
