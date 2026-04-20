@@ -1,0 +1,1343 @@
+---
+title: "Exploratory Subgroup Identification with ForestSearch"
+subtitle: "German Breast Cancer Study Group (GBSG) Analysis"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    code-fold: show
+    toc: true
+    toc-depth: 3
+execute:
+  warning: true
+  message: true
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
+---
+
+
+# Introduction {#sec-intro}
+
+This vignette demonstrates the **ForestSearch** methodology for exploratory
+subgroup identification in survival analysis, as described in
+León et al. (2024) *Statistics in Medicine*.
+
+## Motivation
+
+In clinical trials, particularly oncology, subgroup analyses are essential for:
+
+- Evaluating treatment effect consistency across patient populations
+- Identifying subgroups where treatment may be detrimental (harm)
+- Characterizing subgroups with enhanced benefit
+- Informing regulatory decisions and clinical practice
+
+While prespecified subgroups provide stronger evidence, important subgroups
+based on patient characteristics may not be anticipated. ForestSearch provides
+a principled approach to **exploratory** subgroup identification with proper
+statistical inference.
+
+## Methodology Overview
+
+ForestSearch identifies subgroups through:
+
+1. **Candidate factor selection**: Using LASSO and/or Generalized Random Forests (GRF)
+2. **Exhaustive subgroup search**: Evaluating all combinations up to `maxk` factors
+3. **Consistency-based selection**: Applying splitting consistency criteria
+4. **Bootstrap bias correction**: Adjusting for selection-induced optimism
+5. **Cross-validation**: Assessing algorithm stability
+
+The key innovation is the **splitting consistency criterion**: a subgroup is
+considered "consistent with harm" if, when randomly split 50/50 many times,
+both halves consistently show hazard ratios ≥ 1.0 (where 1.0 represents a
+meaningful "harm threshold").  An appendix (@sec-appendix-fpr) directly
+calibrates the procedure-level false-positive rate (FPR) at the operational
+thresholds used in the main analysis.
+
+
+# Setup {#sec-setup}
+
+## Packages
+
+```{r load-packages}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(policytree)
+library(foreach)
+library(doFuture)
+library(future)
+
+# Optional
+library(patchwork)
+library(weightedsurv)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+```{r gbsg-params}
+#| include: false
+
+# ─── All tunable parameters centralised here ───────────────────────────────
+
+# ── Parallel processing ────────────────────────────────────────────────────
+# Set to detectCores() - 1 for production; 2 for CRAN checks.
+n_workers <- floor(0.95 * max(1L, parallel::detectCores(logical = FALSE) - 1L))
+
+# ── Main-analysis ForestSearch operational parameters ──────────────────────
+# These are the settings used throughout Sections 3-6.
+c1_paper            <- 1.25    # hr.threshold (screening)
+c2_paper            <- 1.00    # hr.consistency (consistency)
+pcons_val           <- 0.90    # pconsistency.threshold
+stop_thresh_val     <- 0.95    # early-stopping threshold
+fs_splits_val       <- 400L    # consistency-evaluation splits
+max_sgs_search_val  <- 10L
+n_min_val           <- 60L
+d0_min_val          <- 10L
+d1_min_val          <- 10L
+maxk_val            <- 2L
+
+# ── Bootstrap / cross-validation counts ────────────────────────────────────
+# Increase for production:
+#   NB_boot  = 500-2000   (here: 20 for fast knit)
+#   Ksims_cv = 50         (here: 10 for fast knit)
+NB_boot   <- 1000L
+Ksims_cv  <- 50L
+
+# ── FPR calibration (appendix) ─────────────────────────────────────────────
+# Tier 1 = quick approximation (±1.3 pp at FPR~10%, 500 sims)
+# Tier 2 = higher-precision verification (±0.3 pp at FPR~10%, 10k sims)
+# Tier 2 defaults to 0 (skipped) — raise to 10000-20000 when a verified
+# operating point is needed.  Typical Tier 2 runtime: 1-3 hours.
+nsims_tier1_fpr   <- 500L
+nsims_tier2_fpr   <- 0L        # e.g. 10000L to run Tier 2 verification
+nsims_verify_fpr  <- 10000L        # independent-seed verification per call
+sim_seed_fpr      <- 8316951L
+fpr_target_surv   <- 0.12      # reference line on detection curves
+
+# Survival DGM parameters (for the DGM-based FPR estimate)
+analysis_time_dgm <- 84L             # months
+cens_adjust_dgm   <- log(1.5)
+prop_cens_surv    <- 0.56            # observed in GBSG
+confounders_dgm   <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+
+# ── Internals (do not edit) ────────────────────────────────────────────────
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Data: German Breast Cancer Study Group {#sec-data}
+
+## Study Background
+
+The GBSG trial evaluated hormonal treatment (tamoxifen) versus chemotherapy
+in node-positive breast cancer patients. Key characteristics:
+
+- **Sample size**: N = 686
+- **Outcome**: Recurrence-free survival time
+- **Censoring rate**: ~56%
+- **Treatment**: Hormonal therapy (tamoxifen) vs. chemotherapy
+
+## Data Preparation
+
+```{r data-setup}
+# Load GBSG data (included in forestsearch package)
+df.analysis <- gbsg
+
+# Prepare analysis variables
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+  treat <- hormon
+})
+
+# Define variable roles
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
+```
+
+## Baseline Characteristics
+
+```{r baseline-table}
+create_summary_table(
+  data             = df.analysis,
+  treat_var        = treat.name,
+  table_title      = "GBSG Baseline Characteristics by Treatment Arm",
+  vars_continuous  = c("age", "nodes", "size", "er", "pgr"),
+  vars_categorical = c("grade", "meno"),
+  font_size        = 12
+)
+```
+
+## Kaplan-Meier Analysis (ITT Population)
+
+```{r km-itt}
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "ITT Kaplan-Meier curves with 95% CI and log-rank test."
+
+dfcount <- df_counting(
+  df         = df.analysis,
+  by.risk    = 6,
+  tte.name   = outcome.name,
+  event.name = event.name,
+  treat.name = treat.name
+)
+
+plot_weighted_km(
+  dfcount,
+  conf.int      = TRUE,
+  show.logrank  = TRUE,
+  ymax          = 1.05,
+  xmed.fraction = 0.775,
+  ymed.offset   = 0.125
+)
+```
+
+The ITT Cox hazard ratio estimate is approximately 0.69 (95% CI: 0.54, 0.89),
+suggesting an overall benefit for hormonal therapy.
+
+
+# Preliminary Analysis: Generalized Random Forests {#sec-grf}
+
+Before running ForestSearch, we use GRF to explore potential treatment
+effect heterogeneity and identify candidate factors.
+
+```{r grf-analysis}
+t0 <- proc.time()
+
+grf_est <- grf.subg.harm.survival(
+  data             = df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  event.name       = event.name,
+  id.name          = id.name,
+  treat.name       = treat.name,
+  maxdepth         = 2,
+  n.min            = n_min_val,
+  dmin.grf         = 12,
+  frac.tau         = 0.6,
+  details          = TRUE,
+  return_selected_cuts_only = FALSE
+)
+
+timings$grf <- (proc.time() - t0)["elapsed"]
+```
+
+```{r grf-trees}
+#| fig-width: 10
+#| fig-height: 4
+#| fig-cap: "GRF policy trees. leaf1 = recommend control; leaf2 = recommend treatment."
+
+oldpar <- par(mfrow = c(1, 2))
+plot(grf_est$tree1, leaf.labels = c("Control", "Treat"), main = "Depth 1")
+plot(grf_est$tree2, leaf.labels = c("Control", "Treat"), main = "Depth 2")
+par(oldpar)
+```
+
+GRF identifies estrogen receptor status (ER) as a key factor, with ER ≤ 0
+suggesting potential harm from hormonal therapy.
+
+
+# ForestSearch Analysis {#sec-forestsearch}
+
+## Running ForestSearch
+
+ForestSearch performs an exhaustive search over candidate subgroup
+combinations with up to `maxk` factors. Key parameters:
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `hr.threshold` | `r c1_paper` | Minimum HR for consistency evaluation |
+| `hr.consistency` | `r c2_paper` | Minimum consistency rate for candidates |
+| `pconsistency.threshold` | `r pcons_val` | Required consistency for selection |
+| `maxk` | `r maxk_val` | Maximum factors in subgroup definition |
+| `n.min` | `r n_min_val` | Minimum subgroup sample size |
+| `d0.min`, `d1.min` | `r d0_min_val` | Minimum events per treatment arm |
+
+```{r forestsearch-main}
+#| fig-width: 10
+#| fig-height: 7
+
+t0 <- proc.time()
+
+fs <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  treat.name       = treat.name,
+  event.name       = event.name,
+  id.name          = id.name,
+  # Threshold parameters (per León et al. 2024)
+  hr.threshold           = c1_paper,
+  hr.consistency         = c2_paper,
+  pconsistency.threshold = pcons_val,
+  stop_threshold         = stop_thresh_val,
+  # Search configuration
+  sg_focus             = "maxSG",
+  max_subgroups_search = max_sgs_search_val,
+  use_twostage         = TRUE,
+  # Factor selection
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  # Subgroup constraints
+  maxk   = maxk_val,
+  n.min  = n_min_val,
+  d0.min = d0_min_val,
+  d1.min = d1_min_val,
+  # Consistency evaluation
+  fs.splits = fs_splits_val,
+  # Parallel processing
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = TRUE
+  ),
+  # Output
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = TRUE
+)
+
+plan("sequential")
+timings$forestsearch <- (proc.time() - t0)["elapsed"]
+
+cat("\nForestSearch completed in",
+    round(timings$forestsearch, 1), "seconds\n")
+```
+
+
+## ForestSearch Results
+
+### Identified Subgroups
+
+```{r fs-results}
+res_tabs <- sg_tables(fs, ndecimals = 3, which_df = "est")
+res_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r fs-estimates}
+res_tabs$tab_estimates
+```
+
+### Identified Subgroup Definition
+
+```{r fs-subgroup}
+cat("Identified subgroup (H):", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs$df.est$treat.recommend == 0)))
+```
+
+ForestSearch identifies **Estrogen ≤ 0** (ER-negative) as the subgroup with
+potential harm. This is biologically plausible: tamoxifen is a selective
+estrogen receptor modulator with limited efficacy in ER-negative tumors.
+
+### Agreement with GRF
+
+ForestSearch and GRF identify subgroups by different mechanisms —
+FS via exhaustive search with consistency filtering, GRF via causal
+survival forests plus policy trees — so agreement on subject-level
+membership provides an informal robustness check. `compare_fs_subgroups()`
+produces a publication-ready cross-tabulation plus Cohen's kappa.
+
+```{r fs-grf-concordance}
+sg_compare <- compare_fs_subgroups(
+  fs1               = fs,
+  fs2               = grf_est,
+  label1            = "ForestSearch",
+  label2            = "GRF Standalone",
+  id.name           = id.name,
+  subgroup_notation = "harm",
+  title             = "FS vs GRF: Subgroup Membership Concordance",
+  subtitle          = "GBSG observed data (Cox, harm search)",
+  font_size         = 13
+)
+sg_compare$table
+```
+
+```{r fs-grf-concordance-stats}
+cat("Concordance statistics:\n")
+cat(sprintf("  Agreement:       %.1f%%\n",
+    100 * sg_compare$concordance$agreement))
+cat(sprintf("  Cohen's kappa:   %.3f\n",
+    sg_compare$concordance$kappa))
+cat(sprintf("  Concordant:      %d / Discordant: %d / Total: %d\n",
+    sg_compare$concordance$n_agree,
+    sg_compare$concordance$n_disagree,
+    sg_compare$concordance$n_total))
+```
+
+
+# Bootstrap Bias Correction {#sec-bootstrap}
+
+## Rationale
+
+Cox model estimates from identified subgroups are **upwardly biased** due to
+the selection process (subgroups are selected *because* they show extreme
+effects). Bootstrap bias correction addresses this by:
+
+1. Resampling with replacement
+2. Re-running the entire ForestSearch algorithm
+3. Computing bias terms from bootstrap vs. observed estimates
+4. Applying infinitesimal jackknife variance estimation
+
+## Running Bootstrap Analysis
+
+```{r bootstrap}
+t0 <- proc.time()
+
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs,
+  nb_boots      = NB_boot,
+  show_three    = FALSE,
+  details       = FALSE,
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings$bootstrap / 60, 1), "minutes\n")
+```
+
+## Bootstrap Summary and Diagnostics
+
+```{r bootstrap-summary}
+summaries <- summarize_bootstrap_results(
+  sgharm       = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale    = "hr"
+)
+summaries$table
+```
+
+## Kaplan-Meier by Identified Subgroups
+
+```{r fs-results-figure}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Kaplan-Meier survival curves by identified subgroup"
+
+km_result <- plot_sg_weighted_km(
+  fs.est         = fs,
+  outcome.name   = "time_months",
+  event.name     = "status",
+  treat.name     = "hormon",
+  show.logrank   = FALSE,
+  conf.int       = TRUE,
+  by.risk        = 12,
+  show.cox       = FALSE,
+  show.cox.bc    = TRUE,
+  fs_bc          = fs_bc,
+  hr_bc_position = "topright"
+)
+```
+
+::: {.callout-note}
+`r figure_note(km_result, prefix = "**Note:** ", custom_text = "Medians [95% CI] for arms are un-adjusted.")`
+:::
+
+
+### Event Count Summary
+
+Low event counts can lead to unstable HR estimates.
+
+```{r event-summary}
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 15)
+```
+
+### Bootstrap Diagnostics
+
+```{r bootstrap-diagnostics}
+summaries$diagnostics_table_gt
+```
+
+### Subgroup Agreement
+
+How consistently does bootstrap identify the same subgroup?
+
+```{r subgroup-agreement}
+if (!is.null(summaries$subgroup_summary$original_agreement)) {
+  summaries$subgroup_summary$original_agreement
+}
+
+if (!is.null(summaries$subgroup_summary$factor_presence)) {
+  summaries$subgroup_summary$factor_presence
+}
+```
+
+### Bootstrap Distributions
+
+```{r bootstrap-plots}
+#| fig-width: 10
+#| fig-height: 4
+
+if (!is.null(summaries$plots)) {
+  summaries$plots$H_distribution + summaries$plots$Hc_distribution
+}
+```
+
+
+# Cross-Validation {#sec-cv}
+
+Cross-validation assesses the **stability** of the ForestSearch algorithm.
+Two approaches are available.
+
+## K-Fold Cross-Validation
+
+```{r kfold-cv}
+t0 <- proc.time()
+
+fs_kfold <- forestsearch_tenfold(
+  fs.est        = fs,
+  sims          = Ksims_cv,
+  Kfolds        = 10,
+  details       = FALSE,
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = FALSE
+  )
+)
+
+plan("sequential")
+timings$kfold <- (proc.time() - t0)["elapsed"]
+metrics_tables <- cv_metrics_tables(fs_kfold)
+metrics_tables
+```
+
+## Out-of-Bag (N-Fold) Cross-Validation
+
+```{r oob-cv}
+#| eval: true
+
+t0 <- proc.time()
+
+fs_OOB <- forestsearch_Kfold(
+  fs.est        = fs,
+  details       = FALSE,
+  Kfolds        = round(nrow(df.analysis) / 100, 0),
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$oob <- (proc.time() - t0)["elapsed"]
+
+cv_out <- forestsearch_KfoldOut(
+  res     = fs_OOB,
+  details = FALSE,
+  outall  = TRUE
+)
+
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
+
+# Results Visualization {#sec-viz}
+
+## Forest Plot
+
+```{r forest-plot}
+#| fig-width: 18
+#| fig-height: 12
+#| fig-cap: "Subgroup forest plot including identified subgroups"
+
+subgroups <- list(
+  age_gt65     = list(subset_expr = "age > 65",  name = "Age > 65",  type = "reference"),
+  age_le65     = list(subset_expr = "age <= 65", name = "Age <= 65", type = "reference"),
+  pgr_positive = list(subset_expr = "pgr > 0",   name = "PgR > 0",   type = "reference"),
+  pgr_negative = list(subset_expr = "pgr <= 0",  name = "PgR <= 0",  type = "reference")
+)
+
+my_theme <- create_forest_theme(base_size = 24,
+                                 footnote_fontsize = 17,
+                                 cv_fontsize = 22)
+
+result <- plot_subgroup_results_forestplot(
+  fs_results = list(
+    fs.est   = fs,
+    fs_bc    = fs_bc,
+    fs_OOB   = NULL,
+    fs_kfold = fs_kfold
+  ),
+  df_analysis      = df.analysis,
+  subgroup_list    = subgroups,
+  outcome.name     = outcome.name,
+  event.name       = event.name,
+  treat.name       = treat.name,
+  E.name           = "Hormonal",
+  C.name           = "Chemo",
+  ci_column_spaces = 25,
+  xlog             = TRUE,
+  theme            = my_theme
+)
+
+render_forestplot(result)
+```
+
+## KM Difference Plots: ITT and Subgroups
+
+```{r KMdiffs}
+#| fig-width: 8
+#| fig-height: 6
+#| fig-cap: "ITT (black) and subgroup KM differences with 95% confidence band."
+
+ref_sgs <- list(
+  age_young = list(subset_expr = "age < 65",  color = "brown"),
+  age_old   = list(subset_expr = "age >= 65", color = "orange")
+)
+
+plot_km_band_forestsearch(
+  df            = df.analysis,
+  fs.est        = fs,
+  ref_subgroups = ref_sgs,
+  outcome.name  = outcome.name,
+  event.name    = event.name,
+  treat.name    = treat.name,
+  draws_band    = 20
+)
+```
+
+
+# Summary and Interpretation {#sec-summary}
+
+## Key Findings
+
+```{r summary-findings}
+cat(strrep("=", 60), "\n")
+cat("FORESTSEARCH ANALYSIS SUMMARY\n")
+cat(strrep("=", 60), "\n\n")
+
+cat("Dataset: GBSG (N =", nrow(df.analysis), ")\n")
+cat("Outcome: Recurrence-free survival\n\n")
+
+cat("ITT Analysis:\n")
+cat("  HR (95% CI): 0.69 (0.54, 0.89)\n\n")
+
+cat("Identified Subgroup (H):\n")
+cat("  Definition:", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("  Size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 0)))
+cat("  Unadjusted HR:",
+    sprintf("%.2f", exp(fs$grp.consistency$out_sg$result$hr[1])), "\n")
+
+cat("\nComplement Subgroup (Hc):\n")
+cat("  Size:", sum(fs$df.est$treat.recommend == 1),
+    sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 1)))
+```
+
+## Clinical Interpretation
+
+The ForestSearch analysis identifies **estrogen receptor-negative (ER ≤ 0)**
+patients as a subgroup with potential lack of benefit from hormonal therapy.
+
+**Biological plausibility**: Tamoxifen is a selective estrogen receptor
+modulator. Its efficacy depends on ER expression. The finding that ER-negative
+patients may not benefit is consistent with:
+
+- Mechanistic understanding of tamoxifen action
+- Meta-analyses showing no tamoxifen benefit in ER-negative breast cancer
+- Clinical guidelines recommending tamoxifen primarily for ER-positive tumors
+
+**Caveats**:
+
+1. This is an **exploratory** analysis requiring independent validation.
+2. The bias-corrected estimates have wider confidence intervals.
+3. Cross-validation metrics should be evaluated for algorithm stability.
+4. The procedure-level false-positive rate at the operational
+   thresholds (c1 = `r c1_paper`, c2 = `r sprintf("%.2f", c2_paper)`)
+   is directly quantified in @sec-appendix-fpr below.
+
+
+# Appendix: Direct FPR Calibration at the Operational Thresholds {#sec-appendix-fpr}
+
+## Motivation {#sec-appendix-rationale}
+
+The main analysis uses threshold pair
+(c1 = `r c1_paper`, c2 = `r sprintf("%.2f", c2_paper)`) with
+`pconsistency.threshold = `r pcons_val`` and
+`stop_threshold = `r stop_thresh_val``.  A natural question follows
+from any exploratory subgroup-identification analysis:
+
+> Under the null hypothesis of *no treatment-by-subgroup interaction*,
+> how often would ForestSearch spuriously identify **any** subgroup
+> at these operational settings?
+
+`fpr_calibration()` answers this by running ForestSearch under a null
+reference distribution a small number of times at the analyst's exact
+threshold pair.  It bypasses the L\_eff power-law correction entirely
+— no threshold-independence assumption is required — and returns a
+direct Monte Carlo estimate of the procedure-level FPR with a Wilson
+95\% CI.
+
+We use the **parametric DGM approach** via `setup_gbsg_dgm(model =
+"null")`: draw fresh null datasets from a data-generating mechanism
+calibrated to the GBSG AFT structure with treatment effect set to the
+null and no treatment-by-subgroup interaction.  This provides a
+well-controlled reference distribution consistent with prior
+simulation experience with the GBSG DGM.
+
+
+## Analysis setup {#sec-appendix-setup}
+
+```{r fpr-setup}
+#| code-fold: false
+
+# ── Parallel plan (same workers as main analysis) ─────────────────
+plan(multisession, workers = n_workers)
+cat("Workers:", n_workers, "\n")
+
+# DGM-side fs_params are constructed in the DGM setup chunk below
+# (fs_params_gbsg_dgm).  No permutation-side fs_params are needed.
+```
+
+
+## DGM-based FPR calibration {#sec-appendix-dgm}
+
+We use `setup_gbsg_dgm(model = "null")` as the null DGM — parameters
+calibrated to the GBSG AFT structure with treatment effect set to the
+null and no treatment-by-subgroup interaction.  `simulate_from_dgm()`
+then generates the replicates.
+
+The null generator is constructed via a **closure factory** (rather
+than as a plain anonymous function capturing globals by name) to
+force the DGM S3 object and auxiliary parameters into a dedicated
+enclosing environment.  This guarantees that `{future}` parallel
+workers receive a self-contained function rather than one that
+relies on lexical resolution in the knit session's `globalenv()`.
+
+```{r fpr-dgm-setup}
+#| code-fold: false
+
+dgm_gbsg_null <- setup_gbsg_dgm(
+  model   = "null",
+  verbose = FALSE
+)
+
+# Null generator.
+#
+# We build null_fn_gbsg via a FACTORY FUNCTION so that dgm_gbsg_null,
+# the target N, analysis_time, and cens_adjust are captured in a
+# DEDICATED enclosing environment — NOT globalenv().  The {future}
+# global-detection scanner exports enclosing environments that are
+# not globalenv() by default, but objects living directly in
+# globalenv() that are referenced only via lexical scope inside a
+# closure are NOT always exported.  Wrapping construction in a
+# factory forces every dependency (especially the S3 aft_dgm_flex
+# object dgm_gbsg_null, which simulate_from_dgm() dispatches on) to
+# live in the closure's own env and be auto-exported to workers.
+#
+# See the fpr_calibration_demo.qmd's null_fn_cox: in that document
+# the DGM call succeeds at scale because the knit environment
+# happens to serialise dgm_surv_null correctly; here we make the
+# export explicit to eliminate the ambiguity.
+make_null_fn <- function(dgm, n_target, analysis_time_, cens_adjust_) {
+  force(dgm)
+  force(n_target)
+  force(analysis_time_)
+  force(cens_adjust_)
+  function(seed) {
+    simulate_from_dgm(
+      dgm,
+      n             = n_target,
+      analysis_time = analysis_time_,
+      cens_adjust   = cens_adjust_,
+      seed          = seed
+    )
+  }
+}
+
+null_fn_gbsg <- make_null_fn(
+  dgm            = dgm_gbsg_null,
+  n_target       = nrow(df.analysis),
+  analysis_time_ = analysis_time_dgm,
+  cens_adjust_   = cens_adjust_dgm
+)
+
+# Sanity: verify the factory-built closure captures what we expect.
+cat("null_fn_gbsg enclosing environment:\n")
+print(environment(null_fn_gbsg))
+cat("Names in that environment:\n")
+print(ls(envir = environment(null_fn_gbsg)))
+
+# DGM-side fs_params.  Built to mirror the parameter set the package
+# developer already verified works in fpr_calibration_demo.qmd's
+# fs_cox list — specifically, we drop return_selected_cuts_only,
+# cut_type, and showten_subgroups (which the demo did not set) and
+# add is.RCT, by.risk, and vi.grf.min (which the demo did set).
+# We retain the operational pcons / stop_threshold from the main
+# GBSG analysis so the DGM-based FPR estimate is calibrated at the
+# same operational setting used for subgroup identification.
+fs_params_gbsg_dgm <- list(
+  outcome.name           = "y_sim",
+  event.name             = "event_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+  confounders.name       = confounders_dgm,
+  pconsistency.threshold = pcons_val,
+  stop_threshold         = stop_thresh_val,
+  sg_focus               = "hr",
+  max_subgroups_search   = max_sgs_search_val,
+  use_twostage           = TRUE,
+  fs.splits              = fs_splits_val,
+  n.min                  = n_min_val,
+  d0.min                 = d0_min_val,
+  d1.min                 = d1_min_val,
+  maxk                   = maxk_val,
+  by.risk                = 12L,
+  vi.grf.min             = -0.2,
+  use_lasso              = TRUE,
+  use_grf                = TRUE,
+  is.RCT                 = TRUE,
+  details                = FALSE,
+  quiet                  = TRUE,
+  plot.sg                = FALSE,
+  parallel_args          = list(plan = "sequential", workers = 1,
+                                 show_message = FALSE)
+)
+
+cat(sprintf("DGM null ready | N = %d | analysis_time = %d months | prop_cens ~ %.2f\n",
+            nrow(df.analysis), analysis_time_dgm, prop_cens_surv))
+```
+
+### DGM sanity check: single-replicate probe {#sec-appendix-dgm-probe}
+
+Before running 500 replicates in parallel (where `foreach(.errorhandling = "pass")`
+silently captures any error), we run a single DGM replicate inline and
+inspect the result.  This surfaces any column-name mismatch, parameter
+incompatibility, or package-loading issue in one place, with the full
+R error visible if anything goes wrong.
+
+```{r fpr-dgm-probe}
+#| code-fold: false
+
+# (1) Generate a single null replicate from the DGM.
+probe_df <- null_fn_gbsg(seed = sim_seed_fpr + 2000L)
+
+cat("DGM replicate N:", nrow(probe_df), "\n")
+cat("DGM columns (first 20):",
+    paste(head(names(probe_df), 20), collapse = ", "), "\n")
+cat("Confounders requested:", paste(confounders_dgm, collapse = ", "), "\n")
+missing_cols <- setdiff(confounders_dgm, names(probe_df))
+if (length(missing_cols) > 0) {
+  cat("** MISSING columns in DGM output: ",
+      paste(missing_cols, collapse = ", "), " **\n")
+} else {
+  cat("All confounder columns present in DGM output.\n")
+}
+cat("Confounder types:\n")
+print(sapply(probe_df[confounders_dgm], function(x)
+  paste(class(x), collapse = "/")))
+cat("Event rate:", sprintf("%.1f%%", 100 * mean(probe_df$event_sim)), "\n")
+
+# (2) Run forestsearch on the single replicate and show any error.
+probe_call <- c(
+  list(df.analysis    = probe_df,
+       hr.threshold   = c1_paper,
+       hr.consistency = c2_paper,
+       seedit         = sim_seed_fpr + 2000L),
+  fs_params_gbsg_dgm
+)
+
+probe_fs <- tryCatch(do.call(forestsearch, probe_call),
+                     error = function(e) e)
+
+if (inherits(probe_fs, "error")) {
+  cat("\n*** DGM single-replicate forestsearch() FAILED ***\n")
+  cat("Error message:\n  ", conditionMessage(probe_fs), "\n", sep = "")
+} else {
+  cat("\nDGM single-replicate forestsearch() completed.\n")
+  cat("  sg.harm:",
+      if (length(probe_fs$sg.harm) > 0)
+        paste(probe_fs$sg.harm, collapse = " & ")
+      else "(none)", "\n")
+}
+```
+
+### DGM parallel-worker probe: surface hidden errors {#sec-appendix-dgm-worker-probe}
+
+The previous probe ran sequentially in the knit process and succeeded.
+When we run the same call through `fpr_calibration()` with
+`n_workers > 1`, every replicate fails silently because the internal
+`foreach(.errorhandling = "pass")` captures but does not re-throw
+errors.  To diagnose, we reproduce the parallel path here with 8
+replicates and **print the first returned error object** verbatim.
+
+Common root causes surfaced by this probe:
+
+1. **`forestsearch` not installed in the worker's library path**.
+   Parallel workers start fresh R processes and can only `library()`
+   installed packages — `devtools::load_all()` state does not
+   transfer.  Fix: `devtools::install()` before knitting.
+2. **A closure-captured object is not exported to workers**.  Rare;
+   `{future}` auto-detects globals, but unusual S3 objects sometimes
+   slip through.  Fix: use `future.globals = TRUE` explicitly or
+   refactor `null_fn_gbsg()` to build the DGM internally.
+3. **Worker-specific package/library path misconfiguration** (e.g.
+   user library not on `.libPaths()` inside the worker).
+
+```{r fpr-dgm-worker-probe}
+#| code-fold: false
+
+suppressPackageStartupMessages({
+  library(foreach)
+  library(doFuture)
+  library(future)
+})
+
+# Use the SAME plan that fpr_calibration would set internally.
+future::plan("multisession", workers = min(8L, n_workers))
+
+probe_batch <- tryCatch(
+  foreach::foreach(
+    i = seq_len(8L),
+    .errorhandling = "pass",
+    .options.future = list(packages = c("forestsearch"), seed = TRUE)
+  ) %dofuture% {
+    future::plan("sequential")
+
+    # Step A: does the worker see the forestsearch package?
+    fs_available <- "forestsearch" %in% loadedNamespaces() ||
+                    requireNamespace("forestsearch", quietly = TRUE)
+
+    # Step B: can the worker build a null replicate?
+    null_df <- tryCatch(
+      null_fn_gbsg(seed = sim_seed_fpr + 2000L + i),
+      error = function(e) e
+    )
+    if (inherits(null_df, "error")) {
+      return(list(stage = "null_fn_gbsg",
+                  fs_available = fs_available,
+                  msg = conditionMessage(null_df)))
+    }
+
+    # Step C: can the worker run forestsearch?
+    fs_args <- c(list(df.analysis    = null_df,
+                      hr.threshold   = c1_paper,
+                      hr.consistency = c2_paper,
+                      seedit         = sim_seed_fpr + 2000L + i),
+                 fs_params_gbsg_dgm)
+    fs_out <- tryCatch(do.call(forestsearch::forestsearch, fs_args),
+                       error = function(e) e)
+    if (inherits(fs_out, "error")) {
+      return(list(stage = "forestsearch",
+                  fs_available = fs_available,
+                  msg = conditionMessage(fs_out)))
+    }
+
+    list(stage = "ok",
+         fs_available = fs_available,
+         found = as.integer(!is.null(fs_out$sg.harm) &&
+                              length(fs_out$sg.harm) > 0))
+  },
+  error = function(e) e
+)
+
+future::plan("sequential")
+
+# Report results
+if (inherits(probe_batch, "error")) {
+  cat("*** foreach loop itself errored ***\n",
+      conditionMessage(probe_batch), "\n", sep = "")
+} else {
+  # Classify each result
+  stages <- sapply(probe_batch, function(x) {
+    if (inherits(x, "error")) "captured-error"
+    else if (is.list(x) && !is.null(x$stage)) x$stage
+    else "unknown"
+  })
+  cat("Parallel-worker probe (8 replicates):\n")
+  print(table(stages, useNA = "ifany"))
+
+  # Show first captured error verbatim
+  err_idx <- which(stages == "captured-error")
+  if (length(err_idx) > 0) {
+    err <- probe_batch[[err_idx[1]]]
+    cat("\nFirst captured foreach-error (",
+        length(err_idx), " of 8):\n  ",
+        conditionMessage(err), "\n", sep = "")
+  }
+  # Show first non-ok structured result
+  bad_idx <- which(stages %in% c("null_fn_gbsg", "forestsearch"))
+  if (length(bad_idx) > 0) {
+    bad <- probe_batch[[bad_idx[1]]]
+    cat("\nFirst structured failure (",
+        length(bad_idx), " of 8):\n",
+        "  stage:         ", bad$stage, "\n",
+        "  fs_available:  ", bad$fs_available, "\n",
+        "  error message: ", bad$msg, "\n", sep = "")
+  }
+  ok_idx <- which(stages == "ok")
+  if (length(ok_idx) > 0) {
+    cat("\n", length(ok_idx), " of 8 replicates completed successfully.\n",
+        sep = "")
+  }
+}
+```
+
+### Tier 1 at paper defaults (c1 = `r c1_paper`, c2 = `r sprintf("%.2f", c2_paper)`)
+
+```{r fpr-dgm-paper}
+#| code-fold: false
+
+t0 <- proc.time()[3]
+cal_dgm_paper <- fpr_calibration(
+  c1           = c1_paper,
+  c2           = c2_paper,
+  null_fn      = null_fn_gbsg,
+  n_sample     = nrow(df.analysis),
+  fs_params    = fs_params_gbsg_dgm,
+  nsims        = nsims_tier1_fpr,
+  nsims_verify = nsims_verify_fpr,
+  n_min        = n_min_val,
+  outcome_type_approx = "survival",
+  prop_cens    = prop_cens_surv,
+  sim_seed     = sim_seed_fpr + 2000L,
+  n_workers    = n_workers
+)
+print(cal_dgm_paper)
+timings$fpr_dgm_paper <- proc.time()[3] - t0
+```
+
+
+## Results {#sec-appendix-consistency}
+
+```{r fpr-consistency-table}
+#| tbl-cap: "DGM-based FPR calibration at the GBSG operational thresholds. Sim FPR is the direct Monte Carlo estimate; Implied L_eff is the pair-specific effective multiplicity; Corrected FPR = 1-(1-P1)^L_eff_implied (tautological at the calibration pair, reported for completeness)."
+
+make_row <- function(res, pair_label) {
+  fpr_corr <- if (!is.na(res$L_eff_implied))
+    1 - (1 - res$P1)^res$L_eff_implied else NA_real_
+  data.table(
+    Pair              = pair_label,
+    `Cal sims`        = res$nsims,
+    `Sim FPR`         = sprintf("%.1f%%", 100 * res$fpr),
+    `95% CI`          = sprintf("[%.1f%%, %.1f%%]",
+                                 100 * res$fpr_ci[1],
+                                 100 * res$fpr_ci[2]),
+    `P1 (uncorrected)` = sprintf("%.1f%%", 100 * res$P1),
+    `Implied L_eff`    = round(res$L_eff_implied, 3),
+    `Corrected FPR`    = sprintf("%.1f%%", 100 * fpr_corr),
+    fpr_num            = res$fpr,
+    fpr_corr_num       = fpr_corr
+  )
+}
+
+paper_label <- sprintf(
+  "Operational (c1 = %.2f, c2 = %.2f | pcons = %.2f, stop = %.2f)",
+  c1_paper, c2_paper, pcons_val, stop_thresh_val)
+
+consistency_tbl <- make_row(cal_dgm_paper, paper_label)
+
+gt(consistency_tbl) |>
+  tab_header(
+    title    = "GBSG: DGM-based FPR Calibration",
+    subtitle = sprintf("N = %d | n.min = %d | %d calibration sims",
+                        nrow(df.analysis), n_min_val, nsims_tier1_fpr)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#E8F5E9"),
+    locations = cells_body(columns = `Corrected FPR`,
+                           rows = fpr_corr_num <= fpr_target_surv)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#FFEBEE"),
+    locations = cells_body(columns = `Corrected FPR`,
+                           rows = fpr_corr_num > fpr_target_surv)
+  ) |>
+  cols_hide(columns = c(fpr_num, fpr_corr_num)) |>
+  tab_source_note(sprintf(
+    paste(
+      "DGM mode simulates null replicates from setup_gbsg_dgm(model = 'null').",
+      "Corrected FPR = 1-(1-P1)^L_eff_implied using the pair-specific L_eff.",
+      "Green shading: corrected FPR <= target %.0f%%.",
+      "Red shading: corrected FPR > target."),
+    100 * fpr_target_surv))
+```
+
+
+## Detection curves at the operational threshold pair {#sec-appendix-detection}
+
+The detection curve shows, for any true hazard ratio $\theta$, the
+probability that ForestSearch detects a subgroup with that true effect.
+At $\theta = 1$ (H0) the curve passes through the direct simulation FPR
+estimate by construction.
+
+```{r plot-fpr-calibration-fn}
+#| code-fold: true
+
+# Local wrapper (to be exported from forestsearch in a future release).
+plot_fpr_calibration <- function(cal_result,
+                                  theta_seq    = seq(0.5, 4.0, by = 0.05),
+                                  fpr_target   = NULL,
+                                  label        = NULL,
+                                  effect_label = "Effect ratio (theta)") {
+  stopifnot(inherits(cal_result, "fpr_calibration"))
+
+  c1       <- cal_result$c1
+  c2       <- cal_result$c2
+  d_eff    <- cal_result$d_eff
+  L_eff    <- cal_result$L_eff_implied
+  fpr_hat  <- cal_result$fpr
+  ci_lo    <- cal_result$fpr_ci[1]
+  ci_hi    <- cal_result$fpr_ci[2]
+  N        <- cal_result$N
+  nsims    <- cal_result$nsims
+
+  p1_vec <- sapply(theta_seq, function(th)
+    tryCatch(
+      compute_detection_probability_glm(
+        theta = th, d_eff = d_eff, c1 = c1, c2 = c2,
+        effect_scale = "ratio", method = "monte_carlo"),
+      error = function(e) NA_real_))
+
+  p_corr_vec <- if (!is.na(L_eff))
+    1 - (1 - p1_vec)^L_eff
+  else rep(NA_real_, length(theta_seq))
+
+  curve_dt <- data.frame(
+    theta = rep(theta_seq, 2),
+    prob  = c(p1_vec, p_corr_vec),
+    curve = rep(c("Per-subgroup P1 (correct subgroup)",
+                  "Corrected (any detection)"),
+                each = length(theta_seq))
+  )
+
+  sim_pt <- data.frame(
+    theta = 1, prob = fpr_hat, ci_lo = ci_lo, ci_hi = ci_hi,
+    curve = "Direct simulation (theta=1)")
+
+  sub_txt <- sprintf(
+    "c1=%.2f, c2=%.2f | d_eff=%.1f | L_eff(implied)=%.3f | N=%d | %d sims",
+    c1, c2, d_eff,
+    if (!is.na(L_eff)) L_eff else 0,
+    N, nsims)
+  if (!is.null(label)) sub_txt <- paste0(label, " | ", sub_txt)
+
+  p <- ggplot(curve_dt, aes(x = theta, y = prob,
+                             colour = curve, linetype = curve)) +
+    geom_line(linewidth = 0.9, na.rm = TRUE) +
+    geom_vline(xintercept = 1, linetype = "dotted",
+               colour = "grey60", linewidth = 0.4) +
+    geom_point(data = sim_pt, aes(x = theta, y = prob),
+               colour = "steelblue", size = 4, shape = 18,
+               inherit.aes = FALSE) +
+    geom_errorbar(data = sim_pt,
+                  aes(x = theta, ymin = ci_lo, ymax = ci_hi),
+                  colour = "steelblue", width = 0.04, linewidth = 0.7,
+                  inherit.aes = FALSE) +
+    annotate("text", x = 1.05, y = fpr_hat,
+             label = sprintf("Sim FPR = %.1f%%", 100 * fpr_hat),
+             hjust = 0, size = 3.2, colour = "steelblue") +
+    scale_colour_manual(values = c(
+      "Per-subgroup P1 (correct subgroup)" = "grey50",
+      "Corrected (any detection)"          = "firebrick")) +
+    scale_linetype_manual(values = c(
+      "Per-subgroup P1 (correct subgroup)" = "dashed",
+      "Corrected (any detection)"          = "solid")) +
+    scale_y_continuous(labels = scales::percent, limits = c(0, NA)) +
+    labs(x        = effect_label,
+         y        = "Detection probability",
+         title    = sprintf("Detection Curve: c1 = %.2f, c2 = %.2f", c1, c2),
+         subtitle = sub_txt,
+         colour   = NULL, linetype = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "top",
+          plot.title    = element_text(face = "bold"),
+          plot.subtitle = element_text(size = 9, colour = "grey40"))
+
+  if (!is.null(fpr_target)) {
+    p <- p +
+      geom_hline(yintercept = fpr_target, linetype = "dashed",
+                 colour = "darkgreen", linewidth = 0.5) +
+      annotate("text",
+               x = min(theta_seq) + 0.05, y = fpr_target + 0.01,
+               label = sprintf("FPR target = %.0f%%", 100 * fpr_target),
+               hjust = 0, size = 3, colour = "darkgreen")
+  }
+  p
+}
+```
+
+```{r fpr-detection-curves}
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "DGM-based detection curve at the paper-default threshold pair. Diamond = direct-simulation FPR with 95% CI at theta=1 (H0). Dashed grey = per-subgroup P1; solid red = corrected detection probability using the pair-specific implied L_eff."
+
+plot_fpr_calibration(
+  cal_dgm_paper,
+  fpr_target   = fpr_target_surv,
+  effect_label = "Hazard ratio (theta)",
+  label        = sprintf("DGM | N = %d | prop_cens ~ %.2f | %d sims",
+                          nrow(df.analysis), prop_cens_surv, nsims_tier1_fpr)
+)
+```
+
+
+## Optional: Tier 2 verification at paper defaults {#sec-appendix-tier2}
+
+If Tier 1 suggests the corrected FPR is close to the target (and the
+operational thresholds will be used for interpretation), a Tier 2
+high-precision DGM run is worthwhile.  This typically takes 1–3 hours.
+Set `nsims_tier2_fpr <- 0L` in the setup chunk to skip.
+
+```{r fpr-tier2}
+#| code-fold: false
+
+if (nsims_tier2_fpr > 0L) {
+  t0 <- proc.time()[3]
+  cal_dgm_paper_t2 <- fpr_calibration(
+    c1           = c1_paper,
+    c2           = c2_paper,
+    null_fn      = null_fn_gbsg,
+    n_sample     = nrow(df.analysis),
+    fs_params    = fs_params_gbsg_dgm,
+    nsims        = nsims_tier2_fpr,
+    nsims_verify = 0L,
+    n_min        = n_min_val,
+    outcome_type_approx = "survival",
+    prop_cens    = prop_cens_surv,
+    sim_seed     = sim_seed_fpr + 50000L,
+    n_workers    = n_workers
+  )
+  print(cal_dgm_paper_t2)
+  timings$fpr_dgm_tier2 <- proc.time()[3] - t0
+} else {
+  message("Tier 2 skipped (nsims_tier2_fpr = 0L). ",
+          "Set nsims_tier2_fpr to a positive integer in the setup chunk to run.")
+}
+```
+
+
+## Interpretation {#sec-appendix-interp}
+
+**Reading the result.**  The single row in @sec-appendix-consistency
+reports the directly simulated FPR at the main-analysis operating
+point: threshold pair (`r c1_paper`, `r sprintf("%.2f", c2_paper)`)
+with `pconsistency.threshold = `r pcons_val`` and
+`stop_threshold = `r stop_thresh_val``.  The 95\% CI reflects Monte
+Carlo uncertainty from `r nsims_tier1_fpr` DGM replicates (Wilson
+interval).  The **Implied L\_eff** is derived internally
+(`log(1 − FPR) / log(1 − P1)`) and is the pair-specific effective
+multiplicity — it replaces the universal power-law model and does not
+assume threshold-independence.
+
+**How to read the corrected FPR.**  `Corrected FPR = 1 − (1 − P1)^L_eff_implied`
+is tautological at the calibration pair (it equals the direct
+simulation FPR by construction) and is reported primarily so the
+result can be compared with power-law-corrected estimates elsewhere.
+The **Sim FPR** column is the operational figure to quote.
+
+**Relation to the P1 approximation.**  The per-subgroup asymptotic
+probability P1 reflects the chance that a single pre-specified
+subgroup passes both the screening and consistency criteria under
+H0.  The ratio L\_eff\_implied quantifies how many effectively
+independent candidate subgroups the procedure is evaluating after
+LASSO + GRF + two-stage screening with `maxk = `r maxk_val``.  For
+survival with events-based filters (`d0.min`, `d1.min`), L\_eff is
+typically close to or below 1 when the filters prune the candidate
+pool tightly; values well above 1 indicate the candidate pool is
+larger than a single test.
+
+**Interpreting the identified ER ≤ 0 subgroup.**  The FPR figure
+above is the procedure-level Type-I error rate: the probability that
+ForestSearch identifies *any* subgroup under H0 at these operational
+settings.  It is not subgroup-specific and should be interpreted as a
+property of the analysis procedure rather than of the specific
+subgroup found.  A high calibrated FPR indicates that the identified
+subgroup (ER ≤ 0) warrants particularly cautious interpretation and
+independent validation — the biological plausibility of the tamoxifen
+/ ER-status mechanism supports the finding, but the statistical
+evidence alone is weaker than the nominal split-sample HR
+consistency suggests.
+
+
+# Computational Timing {#sec-timing}
+
+```{r timing-summary}
+# Local null-coalescing operator (the one in forestsearch is unexported)
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+# Sum FPR sub-components into a single row for display
+timings$fpr_total <- sum(c(
+  timings$fpr_dgm_paper  %||% 0,
+  timings$fpr_dgm_tier2  %||% 0
+))
+
+timing_df <- data.frame(
+  Analysis = c("GRF", "ForestSearch", "Bootstrap",
+               "kfold CV", "OOB CV",
+               "FPR calibration (appendix)", "Total"),
+  Seconds  = c(
+    timings$grf,
+    timings$forestsearch,
+    timings$bootstrap,
+    timings$kfold,
+    timings$oob,
+    if (timings$fpr_total > 0) timings$fpr_total else NA_real_,
+    timings$total
+  )
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1,
+             rows = !is.na(Seconds)) |>
+  cols_label(
+    Analysis = "Component",
+    Seconds  = "Time (sec)",
+    Minutes  = "Time (min)"
+  ) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(rows = Analysis == "Total"))
+```
+
+
+# References {#sec-refs}
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```
