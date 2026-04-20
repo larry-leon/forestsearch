@@ -198,6 +198,23 @@ theta_grid_verify  <- c(0.75, 0.90, 1.25, 1.50, 1.75, 2.00, 2.5, 3.0)   # θ = 1
 theta_merge_cut    <- 1.25                   # boundary (working hypothesis)
 nsims_theta_verify <- 50L                   # sims per θ (set 0L to skip grid)
 
+# ── (c1, c2) sensitivity sweep (Appendix §10.7) ─────────────────────────────
+# Once the reference (c1, c2) pair has been validated via tier 1 +
+# verification + theta-grid, an analyst may want to explore the
+# neighbourhood of (c1, c2) using a CHEAPER tier-1-only batch per pair.
+# The sweep produces one merged detection curve per pair overlaid on a
+# single figure — useful for FPR/TPR tradeoff exploration.
+#
+# Grid: c1 (hr.threshold) ∈ c1_sweep, c2 (hr.consistency) ∈ c2_sweep,
+# restricted to c2 < c1 (consistency threshold strictly below screening
+# threshold).  The paper reference pair (1.25, 1.00) is included so its
+# curve anchors the overlay.
+c1_sweep          <- c(1.00, 1.25, 1.40)
+c2_sweep          <- c(0.90, 1.00)
+nsims_sweep       <- 50L                     # sims per (c1, c2) pair
+sweep_seed_base   <- sim_seed_fpr + 200000L   # disjoint from other batches
+cache_sweep       <- TRUE                     # per-pair RDS caching under _cache_gbsg_sweep/
+
 # Survival DGM parameters (for the DGM-based FPR estimate)
 # Note: the censoring structure is baked into setup_gbsg_dgm() and shifted
 # by cens_adjust_dgm.  We do NOT set prop_cens as a parameter here — the
@@ -653,25 +670,48 @@ effects). Bootstrap bias correction addresses this by:
 ## Running Bootstrap Analysis
 
 ```{r bootstrap}
-t0 <- proc.time()
-
-fs_bc <- forestsearch_bootstrap_dofuture(
-  fs.est        = fs,
-  nb_boots      = NB_boot,
-  show_three    = FALSE,
-  details       = FALSE,
-  parallel_args = list(
-    plan         = "multisession",
-    workers      = n_workers,
-    show_message = TRUE
-  )
+.boot_key <- list(
+  sg_harm        = fs$sg.harm,
+  sg_size        = sum(fs$df.est$treat.recommend == 0),
+  c1             = c1_paper,
+  c2             = c2_paper,
+  pcons          = pcons_val,
+  stop_thresh    = stop_thresh_val,
+  fs_splits      = fs_splits_val,
+  n_min          = n_min_val,
+  d0_min         = d0_min_val,
+  d1_min         = d1_min_val,
+  maxk           = maxk_val,
+  NB_boot        = NB_boot,
+  seed_main      = 8316951L       # ForestSearch's internal seed
 )
 
-plan("sequential")
-timings$bootstrap <- (proc.time() - t0)["elapsed"]
+.boot_cached <- .cache_compute(
+  cache_file = "bootstrap_main.rds",
+  key        = .boot_key,
+  label      = sprintf("bootstrap (%d iterations)", NB_boot),
+  compute    = function() {
+    t0 <- proc.time()[3]
+    res <- forestsearch_bootstrap_dofuture(
+      fs.est        = fs,
+      nb_boots      = NB_boot,
+      show_three    = FALSE,
+      details       = FALSE,
+      parallel_args = list(
+        plan         = "multisession",
+        workers      = n_workers,
+        show_message = TRUE
+      )
+    )
+    plan("sequential")
+    list(result = res, elapsed = proc.time()[3] - t0)
+  }
+)
 
+fs_bc              <- .boot_cached$result
+timings$bootstrap  <- .boot_cached$elapsed
 cat("\nBootstrap completed in",
-    round(timings$bootstrap / 60, 1), "minutes\n")
+    round(timings$bootstrap / 60, 1), "minutes (cache-aware)\n")
 ```
 
 ## Bootstrap Summary and Diagnostics
@@ -761,23 +801,47 @@ Two approaches are available.
 ## K-Fold Cross-Validation
 
 ```{r kfold-cv}
-t0 <- proc.time()
-
-fs_kfold <- forestsearch_tenfold(
-  fs.est        = fs,
-  sims          = Ksims_cv,
-  Kfolds        = 10,
-  details       = FALSE,
-  parallel_args = list(
-    plan         = "multisession",
-    workers      = n_workers,
-    show_message = FALSE
-  )
+.kfold_key <- list(
+  sg_harm     = fs$sg.harm,
+  sg_size     = sum(fs$df.est$treat.recommend == 0),
+  c1          = c1_paper,
+  c2          = c2_paper,
+  pcons       = pcons_val,
+  stop_thresh = stop_thresh_val,
+  fs_splits   = fs_splits_val,
+  n_min       = n_min_val,
+  d0_min      = d0_min_val,
+  d1_min      = d1_min_val,
+  maxk        = maxk_val,
+  Ksims_cv    = Ksims_cv,
+  Kfolds      = 10L
 )
 
-plan("sequential")
-timings$kfold <- (proc.time() - t0)["elapsed"]
-metrics_tables <- cv_metrics_tables(fs_kfold)
+.kfold_cached <- .cache_compute(
+  cache_file = "kfold_cv.rds",
+  key        = .kfold_key,
+  label      = sprintf("k-fold CV (%d sims × 10 folds)", Ksims_cv),
+  compute    = function() {
+    t0 <- proc.time()[3]
+    res <- forestsearch_tenfold(
+      fs.est        = fs,
+      sims          = Ksims_cv,
+      Kfolds        = 10,
+      details       = FALSE,
+      parallel_args = list(
+        plan         = "multisession",
+        workers      = n_workers,
+        show_message = FALSE
+      )
+    )
+    plan("sequential")
+    list(result = res, elapsed = proc.time()[3] - t0)
+  }
+)
+
+fs_kfold        <- .kfold_cached$result
+timings$kfold   <- .kfold_cached$elapsed
+metrics_tables  <- cv_metrics_tables(fs_kfold)
 metrics_tables
 ```
 
@@ -786,21 +850,47 @@ metrics_tables
 ```{r oob-cv}
 #| eval: true
 
-t0 <- proc.time()
+.oob_kfolds <- round(nrow(df.analysis) / 100, 0)
 
-fs_OOB <- forestsearch_Kfold(
-  fs.est        = fs,
-  details       = FALSE,
-  Kfolds        = round(nrow(df.analysis) / 100, 0),
-  parallel_args = list(
-    plan         = "multisession",
-    workers      = n_workers,
-    show_message = TRUE
-  )
+.oob_key <- list(
+  sg_harm     = fs$sg.harm,
+  sg_size     = sum(fs$df.est$treat.recommend == 0),
+  c1          = c1_paper,
+  c2          = c2_paper,
+  pcons       = pcons_val,
+  stop_thresh = stop_thresh_val,
+  fs_splits   = fs_splits_val,
+  n_min       = n_min_val,
+  d0_min      = d0_min_val,
+  d1_min      = d1_min_val,
+  maxk        = maxk_val,
+  n_sample    = nrow(df.analysis),
+  Kfolds      = .oob_kfolds
 )
 
-plan("sequential")
-timings$oob <- (proc.time() - t0)["elapsed"]
+.oob_cached <- .cache_compute(
+  cache_file = "oob_cv.rds",
+  key        = .oob_key,
+  label      = sprintf("OOB CV (%d folds)", .oob_kfolds),
+  compute    = function() {
+    t0 <- proc.time()[3]
+    res <- forestsearch_Kfold(
+      fs.est        = fs,
+      details       = FALSE,
+      Kfolds        = .oob_kfolds,
+      parallel_args = list(
+        plan         = "multisession",
+        workers      = n_workers,
+        show_message = TRUE
+      )
+    )
+    plan("sequential")
+    list(result = res, elapsed = proc.time()[3] - t0)
+  }
+)
+
+fs_OOB        <- .oob_cached$result
+timings$oob   <- .oob_cached$elapsed
 
 cv_out <- forestsearch_KfoldOut(
   res     = fs_OOB,
@@ -1887,6 +1977,414 @@ quantifies the Type-I error of the identification procedure to
 complement the clinical evidence.
 
 
+## (c₁, c₂) sensitivity sweep {#sec-appendix-sweep}
+
+Once the reference operational pair (c₁, c₂) = (`r c1_paper`, `r sprintf("%.2f", c2_paper)`)
+has been validated via the tier-1 calibration + verification +
+theta-grid transportability check earlier in this appendix, an analyst
+may want to **fine-tune around the reference** using a cheaper
+tier-1-only batch per (c₁, c₂) pair.  The reference pair's
+verification work establishes that the multiplicity-correction
+methodology transports across θ; the neighbourhood sweep is then a
+localized sensitivity exploration of the FPR (at θ = 1) / TPR (at
+θ > 1) tradeoff as thresholds move.
+
+The grid used here is:
+
+$$
+\text{c}_1 \in \{`r paste(c1_sweep, collapse = ", ")`\}
+\;\times\;
+\text{c}_2 \in \{`r paste(c2_sweep, collapse = ", ")`\}
+\quad\text{subject to } \text{c}_2 < \text{c}_1,
+$$
+
+which yields the 5 valid pairs enumerated in the table below.  The
+`r nsims_sweep`-sim tier-1 batches are cached per pair under
+`_cache_gbsg_sweep/` so adding a new pair on a later knit only pays
+the cost of the new pair.
+
+```{r sweep-setup}
+#| code-fold: true
+
+# Build the grid of (c1, c2) pairs subject to c2 < c1.
+sweep_grid <- do.call(rbind, lapply(c1_sweep, function(c1_) {
+  do.call(rbind, lapply(c2_sweep, function(c2_) {
+    data.frame(c1 = c1_, c2 = c2_)
+  }))
+}))
+sweep_grid <- sweep_grid[sweep_grid$c2 < sweep_grid$c1, ]
+rownames(sweep_grid) <- NULL
+
+# Flag the reference pair (1.25, 1.00) so it can be rendered emphasized
+# on the overlay plot.
+sweep_grid$is_ref <- (sweep_grid$c1 == c1_paper) &
+                      (sweep_grid$c2 == c2_paper)
+
+# Cache directory, parallel to the main appendix cache
+sweep_cache_dir <- "_cache_gbsg_sweep"
+if (cache_sweep && !dir.exists(sweep_cache_dir))
+  dir.create(sweep_cache_dir, showWarnings = FALSE)
+
+cat(sprintf("(c1, c2) sensitivity grid: %d pairs\n", nrow(sweep_grid)))
+print(sweep_grid)
+```
+
+
+### Sweep execution {#sec-appendix-sweep-run}
+
+For each pair, run `nsims_sweep` null replicates using `fs_params_runsim`
+with `hr.threshold` and `hr.consistency` overridden to (c₁, c₂).
+Results cache per-pair under `_cache_gbsg_sweep/sweep_c1_<c1>_c2_<c2>.rds`.
+
+```{r sweep-run}
+#| code-fold: true
+
+# ── Helper: run a single tier-1 batch at a given (c1, c2) ────────
+.run_sweep_pair <- function(c1_val, c2_val) {
+  fs_params_pair <- modifyList(fs_params_runsim, list(
+    hr.threshold   = c1_val,
+    hr.consistency = c2_val
+  ))
+
+  plan(sequential); gc(verbose = FALSE); Sys.sleep(1)
+  plan(multisession, workers = n_workers)
+
+  t0 <- proc.time()[3]
+  raw <- foreach(
+    i = seq_len(nsims_sweep),
+    .errorhandling = "pass",
+    .options.future = list(packages = c("forestsearch"), seed = TRUE)
+  ) %dofuture% {
+    future::plan("sequential")
+    r <- tryCatch(
+      run_simulation_analysis(
+        sim_id           = i,
+        dgm              = dgm_gbsg_null,
+        n_sample         = nrow(df.analysis),
+        confounders_base = confounders_dgm,
+        n_add_noise      = 0L,
+        run_fs           = TRUE,
+        run_fs_grf       = FALSE,
+        run_grf          = FALSE,
+        fs_params        = fs_params_pair,
+        cox_formula_adj  = cox_formula_adj_runsim,
+        analysis_time    = analysis_time_dgm,
+        cens_adjust      = cens_adjust_dgm,
+        seed_base        = sweep_seed_base + round(1000 * c1_val) +
+                           round(100  * c2_val),
+        verbose          = FALSE
+      ),
+      error = function(e) NULL
+    )
+    if (!is.null(r)) r$analysis <- "FSlg"
+    data.table::rbindlist(Filter(Negate(is.null), list(r)), fill = TRUE)
+  }
+  plan("sequential")
+  elapsed <- proc.time()[3] - t0
+
+  res    <- forestsearch::collect_results(raw, sprintf("sweep c1=%.2f c2=%.2f",
+                                                       c1_val, c2_val))
+  rn     <- res[res$analysis == "FSlg", ]
+  n_rep  <- nrow(rn)
+  ndet   <- sum(rn$any.H == 1L, na.rm = TRUE)
+  fpr    <- ndet / n_rep
+  ci     <- .wilson_ci(ndet, n_rep)
+
+  # Asymptotic P1 and L_eff at this (c1, c2).  Note: d_eff_survival()
+  # takes (n_sg, prop_cens) — the conservative choice is n_sg = n.min
+  # (subgroup-size floor), matching the reference-pair asymptotic block.
+  d_eff  <- forestsearch::d_eff_survival(
+    n_sg      = fs_params_pair$n.min,
+    prop_cens = mean(rn$p.cens, na.rm = TRUE))
+  P1     <- forestsearch::compute_detection_probability_glm(
+    theta = 1, d_eff = d_eff, c1 = c1_val, c2 = c2_val,
+    effect_scale = "ratio", method = "monte_carlo")
+  L_eff  <- if (!is.na(P1) && P1 > 0 && P1 < 1 && !is.na(fpr) && fpr < 1)
+    log(1 - fpr) / log(1 - P1) else NA_real_
+
+  list(
+    c1 = c1_val, c2 = c2_val, fpr = fpr, ci_lo = ci[1], ci_hi = ci[2],
+    n_reps = n_rep, d_eff = d_eff, P1 = P1, L_eff = L_eff,
+    elapsed = elapsed
+  )
+}
+
+# ── Cache wrapper: one .rds per pair ─────────────────────────────
+.sweep_cached_pair <- function(c1_val, c2_val) {
+  if (!cache_sweep) return(.run_sweep_pair(c1_val, c2_val))
+
+  cache_file <- sprintf("sweep_c1_%.2f_c2_%.2f.rds", c1_val, c2_val)
+  key <- list(
+    c1            = c1_val,
+    c2            = c2_val,
+    nsims         = nsims_sweep,
+    seed_base     = sweep_seed_base,
+    fs_params     = fs_params_runsim,
+    dgm_id        = list(model = "null", seed = 8316951L),
+    n_sample      = nrow(df.analysis),
+    analysis_time = analysis_time_dgm,
+    cens_adjust   = cens_adjust_dgm,
+    confounders   = confounders_dgm
+  )
+  path <- file.path(sweep_cache_dir, cache_file)
+
+  if (!cache_refresh && file.exists(path)) {
+    cached <- readRDS(path)
+    if (identical(cached$key, key)) {
+      message(sprintf("[sweep cache HIT ] c1=%.2f c2=%.2f",
+                      c1_val, c2_val))
+      return(cached$value)
+    }
+    message(sprintf("[sweep cache MISS] c1=%.2f c2=%.2f: key changed",
+                    c1_val, c2_val))
+  } else {
+    message(sprintf("[sweep cache MISS] c1=%.2f c2=%.2f: %s",
+                    c1_val, c2_val,
+                    if (cache_refresh) "cache_refresh = TRUE"
+                    else "no cache file"))
+  }
+  val <- .run_sweep_pair(c1_val, c2_val)
+  saveRDS(list(key = key, value = val), path)
+  message(sprintf("[sweep cache SAVE] c1=%.2f c2=%.2f", c1_val, c2_val))
+  val
+}
+
+# ── Run all pairs ─────────────────────────────────────────────────
+sweep_results <- vector("list", nrow(sweep_grid))
+for (k in seq_len(nrow(sweep_grid))) {
+  sweep_results[[k]] <- .sweep_cached_pair(
+    sweep_grid$c1[k], sweep_grid$c2[k])
+}
+timings$fpr_sweep <- sum(vapply(sweep_results,
+                                function(x) x$elapsed %||% 0, numeric(1)))
+
+# Summary table
+sweep_df <- do.call(rbind, lapply(sweep_results, function(r) {
+  data.frame(
+    c1 = r$c1, c2 = r$c2,
+    nsims = r$n_reps,
+    fpr = r$fpr, ci_lo = r$ci_lo, ci_hi = r$ci_hi,
+    P1 = r$P1, L_eff = r$L_eff
+  )
+}))
+sweep_df$is_ref <- sweep_grid$is_ref
+
+cat(sprintf("\nSweep completed: %d pairs × %d sims, elapsed %.1f min\n",
+            nrow(sweep_grid), nsims_sweep, timings$fpr_sweep / 60))
+```
+
+
+### Sweep summary table {#sec-appendix-sweep-table}
+
+```{r sweep-table}
+#| code-fold: true
+
+gt(sweep_df) |>
+  fmt_number(columns = c(c1, c2), decimals = 2) |>
+  fmt_percent(columns = c(fpr, ci_lo, ci_hi, P1), decimals = 1) |>
+  fmt_number(columns = L_eff, decimals = 3) |>
+  fmt_integer(columns = nsims) |>
+  cols_merge(columns = c(ci_lo, ci_hi), pattern = "[{1}, {2}]") |>
+  cols_hide(columns = is_ref) |>
+  cols_label(
+    c1    = "c1",
+    c2    = "c2",
+    nsims = "Sims",
+    fpr   = "Sim FPR",
+    ci_lo = "95% CI",
+    P1    = "P1(asymp)",
+    L_eff = "Implied L_eff"
+  ) |>
+  tab_header(
+    title = sprintf("(c1, c2) sensitivity sweep | N = %d | %d sims per pair",
+                    nrow(df.analysis), nsims_sweep),
+    subtitle = sprintf(
+      "Reference pair (%.2f, %.2f) shown in bold",
+      c1_paper, c2_paper)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = is_ref)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#F5F5F5"),
+    locations = cells_body(rows = is_ref)
+  ) |>
+  tab_source_note(paste(
+    "Simulated from the same null DGM (setup_gbsg_dgm(model = 'null'))",
+    "used for the reference calibration.  Sim FPR = mean(any.H) at this",
+    "(c1, c2); P1(asymp) = compute_detection_probability_glm(theta = 1, ...);",
+    "Implied L_eff = log(1 − Sim FPR) / log(1 − P1).  Seeds are",
+    "pair-specific and disjoint from the reference tier-1, verification,",
+    "and theta-grid batches."
+  ))
+```
+
+
+### Overlay of merged detection curves {#sec-appendix-sweep-plot}
+
+Each pair's **merged** curve is constructed with the same conventions
+as the reference figure (@sec-appendix-detection): corrected
+prediction for θ ≤ `r theta_merge_cut` using that pair's own
+`L_eff_cal`, uncorrected per-subgroup P1(θ) for θ ≥ `r theta_merge_cut`
+using that pair's (c₁, c₂).  The reference pair is drawn with a
+heavier line weight; verification diamonds from the theta-grid work
+are overlaid at the reference pair only (the other pairs have not
+been independently verified — this figure assumes transportability of
+the multiplicity correction based on the reference pair's verification).
+
+```{r sweep-plot}
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 6
+#| fig-cap: "Merged detection-curve overlay across (c1, c2) sensitivity sweep.  Each pair's curve uses its own L_eff_cal and operational thresholds in the same estimate-then-predict structure as the reference figure.  Verification diamonds shown only at the reference pair (1.25, 1.00).  At θ = 1 each curve's y-value is the simulated FPR for that (c1, c2); at θ > 1 the curve is an interpretable per-subgroup TPR when the harm-subgroup HR equals θ."
+
+theta_seq_sweep <- seq(0.5, 3.0, by = 0.05)
+
+# Build per-pair curve data
+sweep_curve_df <- do.call(rbind, lapply(sweep_results, function(r) {
+  # Uncorrected P1 curve at this (c1, c2)
+  p1 <- sapply(theta_seq_sweep, function(th)
+    tryCatch(
+      compute_detection_probability_glm(
+        theta = th, d_eff = r$d_eff, c1 = r$c1, c2 = r$c2,
+        effect_scale = "ratio", method = "monte_carlo"),
+      error = function(e) NA_real_))
+  # Corrected prediction
+  p_corr <- if (!is.na(r$L_eff)) 1 - (1 - p1)^r$L_eff
+            else rep(NA_real_, length(theta_seq_sweep))
+
+  # Merge: corrected for θ ≤ cut, uncorrected for θ ≥ cut (same split
+  # used for the reference figure — makes curves visually comparable)
+  null_idx <- theta_seq_sweep <= theta_merge_cut
+  alt_idx  <- theta_seq_sweep >= theta_merge_cut
+  merged <- numeric(length(theta_seq_sweep))
+  merged[null_idx] <- p_corr[null_idx]
+  merged[alt_idx]  <- p1[alt_idx]
+
+  data.frame(
+    theta    = theta_seq_sweep,
+    prob     = merged,
+    pair     = sprintf("c1 = %.2f, c2 = %.2f", r$c1, r$c2),
+    is_ref   = (r$c1 == c1_paper) & (r$c2 == c2_paper)
+  )
+}))
+
+# Verification diamonds (reference pair only).  Include θ = 1 from the
+# reference calibration and any theta_grid_verify points.
+ref_diamonds <- data.frame(
+  theta = 1, prob = fpr_cal, ci_lo = ci_cal[1], ci_hi = ci_cal[2]
+)
+if (!is.null(theta_verify_df) && nrow(theta_verify_df) > 0L) {
+  ref_diamonds <- rbind(
+    ref_diamonds,
+    data.frame(theta = theta_verify_df$theta,
+               prob  = theta_verify_df$fpr,
+               ci_lo = theta_verify_df$ci_lo,
+               ci_hi = theta_verify_df$ci_hi)
+  )
+}
+
+# Per-pair linewidth and alpha: reference pair emphasized
+sweep_curve_df$lwd   <- ifelse(sweep_curve_df$is_ref, 1.3, 0.8)
+sweep_curve_df$alpha <- ifelse(sweep_curve_df$is_ref, 1.0, 0.85)
+
+ggplot(sweep_curve_df, aes(x = theta, y = prob,
+                           colour = pair, group = pair)) +
+  # FPR target demarcation line (horizontal) — the analyst's
+  # operational budget for procedure-level Type-I error.  Drawn more
+  # prominently than the θ = 1 / θ = theta_merge_cut reference lines
+  # because it directly indicates which (c1, c2) pairs fall within the
+  # target budget vs exceed it.
+  geom_hline(yintercept = fpr_target_surv, linetype = "longdash",
+             colour = "firebrick", linewidth = 0.6, alpha = 0.8) +
+  annotate("text",
+           x = 0.55, y = fpr_target_surv,
+           label = sprintf("FPR target = %.0f%%", 100 * fpr_target_surv),
+           hjust = 0, vjust = -0.5,
+           size = 3.2, colour = "firebrick", fontface = "bold") +
+  geom_vline(xintercept = 1, linetype = "dotted",
+             colour = "grey60", linewidth = 0.4) +
+  geom_vline(xintercept = theta_merge_cut, linetype = "dashed",
+             colour = "grey40", linewidth = 0.4) +
+  geom_line(aes(linewidth = lwd, alpha = alpha), na.rm = TRUE) +
+  geom_errorbar(data = ref_diamonds,
+                aes(x = theta, ymin = ci_lo, ymax = ci_hi),
+                colour = "black", width = 0.05, linewidth = 0.7,
+                inherit.aes = FALSE) +
+  geom_point(data = ref_diamonds,
+             aes(x = theta, y = prob),
+             colour = "black", size = 3.5, shape = 18,
+             inherit.aes = FALSE) +
+  scale_colour_viridis_d(option = "viridis", end = 0.85) +
+  scale_linewidth_identity() +
+  scale_alpha_identity() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1),
+                     limits = c(0, 1)) +
+  labs(
+    x      = "True harm-subgroup HR (θ†(H))",
+    y      = "Detection probability",
+    colour = "(c1, c2)",
+    title  = sprintf("(c1, c2) sensitivity sweep | %d pairs × %d sims",
+                     nrow(sweep_grid), nsims_sweep),
+    subtitle = sprintf(
+      "Diamonds: verification at reference (%.2f, %.2f); merge at θ = %.2f; FPR budget = %.0f%%",
+      c1_paper, c2_paper, theta_merge_cut, 100 * fpr_target_surv)
+  ) +
+  theme(
+    legend.position        = "inside",                       # ggplot2 >= 3.5.0 idiom
+    legend.position.inside = c(0.80, 0.30),                  # right-middle band of panel
+    legend.justification    = c(0, 0.5),                      # left-middle anchor of legend
+    legend.background       = element_rect(fill = scales::alpha("white", 0.85),
+                                           colour = "grey80", linewidth = 0.3),
+    legend.key              = element_rect(fill = NA, colour = NA),
+    legend.key.size         = unit(0.8, "lines"),
+    legend.title            = element_text(size = 10),
+    legend.text             = element_text(size = 9),
+    legend.margin           = margin(4, 6, 4, 6),
+    plot.title              = element_text(size = 12, face = "bold"),
+    plot.subtitle           = element_text(size = 10, colour = "grey30"),
+    panel.grid.minor        = element_blank()
+  )
+```
+
+
+### Interpretation of the sweep {#sec-appendix-sweep-interp}
+
+**FPR side (left of θ = 1).**  At θ = 1 each curve's y-value is that
+pair's simulated FPR under H0, and the range of FPRs across the grid
+shows how sensitive the procedure-level Type-I error is to operational
+threshold choice.  The reference pair (`r c1_paper`, `r sprintf("%.2f", c2_paper)`)
+is one point in this range; tighter thresholds (larger c₁ and/or c₂)
+push FPR down, looser thresholds push it up.  The red dashed
+horizontal line at `r sprintf("%.0f%%", 100 * fpr_target_surv)` marks
+the analyst's FPR budget — any pair whose curve lies below this line
+at θ = 1 is operating within the target Type-I error rate.
+
+**TPR side (right of θ = 1).**  For each pair, the curve at θ > 1
+traces the per-subgroup detection probability (uncorrected P1) when
+the harm subgroup's true HR equals θ.  This is the power characteristic
+under each (c₁, c₂) configuration for a single subgroup of effective
+size d_eff.  Higher curves indicate faster detection of stronger harm
+signals.
+
+**Reading the tradeoff.**  A pair that sits uniformly above another is
+both more powerful (higher TPR in the alt region) and less
+conservative (higher FPR in the null region) — that pair trades
+Type-I error for Type-II error.  A pair that dominates another on
+both axes (rare but possible when the grid is coarse) is strictly
+better.  Ordinarily the curves reveal a Pareto frontier, and the
+analyst's job is to choose the point on that frontier consistent with
+the trial's error-rate budget.
+
+**Caveats.**  This sweep assumes the multiplicity correction
+transports across (c₁, c₂); it has been verified only at the
+reference pair.  For production reporting at a non-reference pair,
+an analyst should re-run the full tier-1 + verification + theta-grid
+workflow at that pair to confirm.  The sweep is a fast exploration
+tool, not a substitute for the full appendix workflow.
+
+
 # Computational Timing {#sec-timing}
 
 ```{r timing-summary}
@@ -1901,12 +2399,17 @@ timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 fpr_tier1_sec  <- .fpr_stage(timings$fpr_runsim)        # calibration batch
 fpr_verify_sec <- .fpr_stage(timings$fpr_verify)        # verification batch
 fpr_theta_sec  <- .fpr_stage(timings$fpr_theta_verify)  # theta-grid verification
+fpr_sweep_sec  <- .fpr_stage(timings$fpr_sweep)         # (c1, c2) sensitivity sweep
 
-timings$fpr_total <- sum(c(fpr_tier1_sec, fpr_verify_sec, fpr_theta_sec),
+timings$fpr_total <- sum(c(fpr_tier1_sec, fpr_verify_sec, fpr_theta_sec,
+                           fpr_sweep_sec),
                          na.rm = TRUE)
 
 n_theta_total <- if (!is.null(theta_verify_df))
   sum(theta_verify_df$nsims, na.rm = TRUE) else NA_integer_
+
+n_sweep_total <- if (exists("sweep_df") && !is.null(sweep_df))
+  sum(sweep_df$nsims, na.rm = TRUE) else NA_integer_
 
 timing_df <- data.frame(
   Analysis = c("GRF",
@@ -1917,6 +2420,7 @@ timing_df <- data.frame(
                "FPR tier 1 (calibration batch)",
                "FPR verification batch",
                "FPR theta-grid verification",
+               "FPR (c1, c2) sensitivity sweep",
                "FPR calibration — total (appendix)",
                "Total"),
   Seconds = as.numeric(c(
@@ -1928,6 +2432,7 @@ timing_df <- data.frame(
     fpr_tier1_sec,
     fpr_verify_sec,
     fpr_theta_sec,
+    fpr_sweep_sec,
     if (timings$fpr_total > 0) timings$fpr_total else NA_real_,
     timings$total        %||% NA_real_
   )),
@@ -1939,6 +2444,7 @@ timing_df <- data.frame(
     nsims_tier1_fpr %||% NA_integer_,
     nsims_verify_fpr %||% NA_integer_,
     n_theta_total,
+    n_sweep_total,
     NA_integer_,
     NA_integer_
   )
@@ -1971,7 +2477,8 @@ gt(timing_df) |>
     locations = cells_body(rows = Analysis %in% c(
       "FPR tier 1 (calibration batch)",
       "FPR verification batch",
-      "FPR theta-grid verification"))
+      "FPR theta-grid verification",
+      "FPR (c1, c2) sensitivity sweep"))
   ) |>
   tab_source_note(paste(
     "FPR calibration stages are shaded grey; their sum appears as the",
