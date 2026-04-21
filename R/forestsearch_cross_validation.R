@@ -395,6 +395,15 @@ forestsearch_Kfold <- function(
 #' @param Kfolds Integer. Number of folds per simulation (default: 10).
 #' @param details Logical. Print progress details (default: TRUE).
 #' @param parallel_args List. Parallelization configuration.
+#' @param keep_resCV Logical. If \code{TRUE}, preserve the full per-subject
+#'   cross-validation prediction data frame for every simulation in the
+#'   returned \code{resCV_all} slot.  Useful for post-hoc metric computation,
+#'   reproducibility debugging, or auditing which subjects landed in which
+#'   fold.  Memory cost scales as \code{sims * nrow(df.est) * ~9 columns}
+#'   (for a 686-subject trial with 200 sims, ~10 MB; for a 10,000-subject
+#'   trial with 1,000 sims, ~1 GB).  Default: \code{FALSE}.  Regardless of
+#'   this flag, a compact \code{fold_summary} (one row per sim x fold) is
+#'   always returned; see Return.
 #'
 #' @return List with components:
 #' \describe{
@@ -402,6 +411,19 @@ forestsearch_Kfold <- function(
 #'   \item{find_summary}{Named vector of median subgroup-finding metrics}
 #'   \item{sens_out}{Matrix of sensitivity metrics (sims x metrics)}
 #'   \item{find_out}{Matrix of finding metrics (sims x metrics)}
+#'   \item{fold_summary}{Data frame with one row per (sim, fold) combination.
+#'     Columns: \code{sim}, \code{fold}, \code{n_test}, \code{sg1}, \code{sg2},
+#'     \code{grf_cuts}, \code{any_found}.  The \code{grf_cuts} column records
+#'     the GRF policy-tree cut expressions returned for each training fold
+#'     (collapsed with " | " when multiple cuts are returned; \code{NA} when
+#'     GRF was not used, failed, or returned no cuts).  Always returned
+#'     (compact; cheap).  Lets you tabulate, for example, which subgroup was
+#'     identified in each fold of each simulation, the empirical distribution
+#'     of GRF cut choices across the full sim x fold grid, or the
+#'     relationship between GRF's cut and the final identified subgroup.}
+#'   \item{resCV_all}{List of length \code{sims}; element \emph{i} is the
+#'     per-subject \code{resCV} data frame from simulation \emph{i}.  Only
+#'     populated when \code{keep_resCV = TRUE}; otherwise \code{NULL}.}
 #'   \item{timing_minutes}{Total execution time}
 #'   \item{sims}{Number of simulations run}
 #'   \item{Kfolds}{Number of folds per simulation}
@@ -439,7 +461,8 @@ forestsearch_tenfold <- function(
     Kfolds = 10,
     details = TRUE,
     seed = 8316951L,
-    parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE)
+    parallel_args = list(plan = "multisession", workers = 6, show_message = TRUE),
+    keep_resCV = FALSE
 ) {
 
   # ===========================================================================
@@ -548,6 +571,8 @@ forestsearch_tenfold <- function(
     # Run K-fold CV sequentially within this simulation
     resCV_list <- vector("list", Kfolds)
 
+    grf_cuts_list <- vector("list", Kfolds)
+
     for (cv_index in seq_len(Kfolds)) {
       testIndexes <- which(folds == cv_index, arr.ind = TRUE)
       x.test <- df_scrambled[testIndexes, ]
@@ -569,9 +594,19 @@ forestsearch_tenfold <- function(
       } else {
         df.test <- x.test
         df.test$cvindex <- cv_index
-        df.test$sg1 <- NA
-        df.test$sg2 <- NA
+        df.test$sg1 <- NA_character_      # typed NA: avoids logical -> character
+        df.test$sg2 <- NA_character_      # coercion surprises in downstream rbind
         df.test$treat.recommend <- 1.0
+      }
+
+      # Capture training-fold GRF cuts (may be NULL, character(), or vector).
+      # Collapse to a single string for compact storage in fold_summary.
+      if (!inherits(fs.train, "try-error") &&
+          !is.null(fs.train$grf_cuts) &&
+          length(fs.train$grf_cuts) > 0L) {
+        grf_cuts_list[[cv_index]] <- paste(fs.train$grf_cuts, collapse = " | ")
+      } else {
+        grf_cuts_list[[cv_index]] <- NA_character_
       }
 
       resCV_list[[cv_index]] <- df.test[, c(id.name, outcome.name, event.name, treat.name,
@@ -581,6 +616,26 @@ forestsearch_tenfold <- function(
 
     resCV <- do.call(rbind, resCV_list)
     resCV <- as.data.frame(resCV)
+
+    # Compact per-fold summary (always preserved; ~6 * Kfolds bytes).
+    # Use as.character() to defend against any logical-NA columns that
+    # slip through the rbind type coercion above.
+    fold_summary_i <- data.frame(
+      sim       = ksim,
+      fold      = seq_len(Kfolds),
+      n_test    = vapply(resCV_list, nrow, integer(1)),
+      sg1       = vapply(resCV_list,
+                         function(x) as.character(x$sg1[1]), character(1)),
+      sg2       = vapply(resCV_list,
+                         function(x) as.character(x$sg2[1]), character(1)),
+      grf_cuts  = vapply(grf_cuts_list,
+                         function(x) if (is.null(x)) NA_character_ else x,
+                         character(1)),
+      stringsAsFactors = FALSE
+    )
+    fold_summary_i$any_found <- as.integer(
+      !is.na(fold_summary_i$sg1) | !is.na(fold_summary_i$sg2)
+    )
 
     # Summarize this simulation
     res <- list(
@@ -601,8 +656,10 @@ forestsearch_tenfold <- function(
 
     list(
       sens_metrics_original = out$sens_metrics_original,
-      find_metrics = out$find_metrics,
-      sim_id = ksim
+      find_metrics          = out$find_metrics,
+      sim_id                = ksim,
+      fold_summary          = fold_summary_i,
+      resCV                 = if (isTRUE(keep_resCV)) resCV else NULL
     )
   }
 })
@@ -625,6 +682,19 @@ forestsearch_tenfold <- function(
   sens_out <- do.call(rbind, lapply(valid_results, `[[`, "sens_metrics_original"))
   find_out <- do.call(rbind, lapply(valid_results, `[[`, "find_metrics"))
 
+  # Stack fold-level summaries across simulations (always produced).
+  fold_summary_all <- do.call(
+    rbind, lapply(valid_results, `[[`, "fold_summary")
+  )
+  rownames(fold_summary_all) <- NULL
+
+  # Preserve full per-subject CV predictions only if requested.
+  resCV_all <- if (isTRUE(keep_resCV)) {
+    lapply(valid_results, `[[`, "resCV")
+  } else {
+    NULL
+  }
+
   # Compute summaries
   sens_summary <- apply(sens_out, 2, median, na.rm = TRUE)
   find_summary <- apply(find_out, 2, median, na.rm = TRUE)
@@ -644,13 +714,15 @@ forestsearch_tenfold <- function(
   # ===========================================================================
 
   result <- list(
-    sens_summary = sens_summary,
-    find_summary = find_summary,
-    sens_out = sens_out,
-    find_out = find_out,
+    sens_summary   = sens_summary,
+    find_summary   = find_summary,
+    sens_out       = sens_out,
+    find_out       = find_out,
+    fold_summary   = fold_summary_all,
+    resCV_all      = resCV_all,
     timing_minutes = t_min,
-    sims = length(valid_results),
-    Kfolds = Kfolds
+    sims           = length(valid_results),
+    Kfolds         = Kfolds
   )
 
   class(result) <- c("fs_tenfold", "list")
@@ -1308,6 +1380,35 @@ print.fs_tenfold <- function(x, ...) {
   cat("Simulations:", x$sims, "\n")
   cat("Folds per simulation:", x$Kfolds, "\n")
   cat("Time:", round(x$timing_minutes, 2), "minutes\n")
+
+  # Fold-level summary (always present in objects created with
+  # forestsearch v0.3.0+; older objects may lack this field, so guard
+  # on its presence for forward/backward compatibility).
+  if (!is.null(x$fold_summary) && nrow(x$fold_summary) > 0) {
+    fs_any <- mean(x$fold_summary$any_found, na.rm = TRUE)
+    n_distinct_sg1 <- length(unique(
+      x$fold_summary$sg1[!is.na(x$fold_summary$sg1)]
+    ))
+    cat(sprintf(
+      "Folds with subgroup identified: %.1f%% (%d of %d sim x fold pairs)\n",
+      100 * fs_any,
+      sum(x$fold_summary$any_found, na.rm = TRUE),
+      nrow(x$fold_summary)
+    ))
+    cat(sprintf(
+      "Distinct leading subgroups across folds: %d\n", n_distinct_sg1
+    ))
+  }
+
+  # resCV_all preservation status
+  if (is.null(x$resCV_all)) {
+    cat("Per-subject resCV: not preserved",
+        "(set `keep_resCV = TRUE` to retain)\n")
+  } else {
+    cat(sprintf("Per-subject resCV: preserved for %d simulation(s)\n",
+                length(x$resCV_all)))
+  }
+
   cat("\nSensitivity Summary (median across simulations):\n")
   print(round(x$sens_summary, 3))
   cat("\nSubgroup Finding Summary (median across simulations):\n")

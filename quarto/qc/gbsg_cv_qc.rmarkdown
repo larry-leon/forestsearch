@@ -1,0 +1,1089 @@
+---
+title: "ForestSearch Cross-Validation QC"
+subtitle: "GBSG: matching León et al. (2024) Section 4.1 CV properties"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+execute:
+  warning: false
+  message: false
+  fig-align: center
+knitr:
+  opts_chunk:
+    comment: "#>"
+---
+
+# Purpose {#sec-purpose}
+
+This document exists solely to **QC the ForestSearch cross-validation
+machinery** against the benchmarks reported in León et al. (2024)
+Section 4.1.  All bootstrap, FPR-calibration, theta-grid, sensitivity-sweep,
+visualisation, and summary sections have been stripped out — only the
+components needed to:
+
+1. Reproduce the full-data ForestSearch analysis (to provide the `fs`
+   object that CV consumes), and
+2. Run the two CV procedures (10-fold repeated and N-fold leave-one-out),
+
+are retained here.
+
+**Paper targets (León et al. 2024, Section 4.1, GBSG, `maxSG` search):**
+
+| Quantity | Paper value |
+|---------|-------------|
+| Identified Ĥ (full data) | `er <= 0` (ER-negative) |
+| θ̂(Ĥ)                     | 1.95 (1.05, 3.61) |
+| θ̂(Ĥc)                    | 0.61 (0.47, 0.80) |
+| N-fold (LOO) subgroup recovery | 686 / 686 folds identify `er <= 0` |
+| 10-fold CV: median folds with identified subgroup | 9 / 10 |
+| 10-fold CV: sensCV(Ĥ)    | ≈ 73% |
+| 10-fold CV: ppvCV(Ĥ)     | ≈ 83% |
+| 10-fold CV: sensCV(Ĥc)   | ≈ 98% |
+| 10-fold CV: ppvCV(Ĥc)    | ≈ 96% |
+| 10-fold CV: exact-match reproduction rate | 70% (median) |
+
+**Configuration note.**  `use_twostage` post-dates the paper and
+`sg_focus = "maxSG"` was the paper's search direction, so
+`use_twostage = FALSE` is the reproducibility default here.  If a run
+produces materially different CV metrics from the paper benchmarks,
+re-check the `CV Configuration Sanity Check` section before
+investigating the CV code itself.
+
+
+# Setup {#sec-setup}
+
+## Packages
+
+```{r load-packages}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(foreach)
+library(doFuture)
+library(future)
+```
+
+## Parameters
+
+Only the parameters relevant to the FS + CV pipeline are retained.  All
+FPR / theta-grid / sweep parameters have been removed.
+
+```{r qc-params}
+#| include: false
+
+# ── Parallel processing ────────────────────────────────────────────────────
+# Set to detectCores() - 1 for production; 2 for CRAN checks.
+n_workers <- floor(0.95 * max(1L, parallel::detectCores(logical = FALSE) - 1L))
+
+# ── ForestSearch operational parameters (per León et al. 2024) ─────────────
+c1_paper            <- 1.25    # hr.threshold (screening)
+c2_paper            <- 1.00    # hr.consistency (consistency)
+pcons_val           <- 0.90    # pconsistency.threshold
+stop_thresh_val     <- 0.95    # early-stopping threshold
+fs_splits_val       <- 400L    # consistency-evaluation splits
+max_sgs_search_val  <- 10L
+n_min_val           <- 60L
+d0_min_val          <- 10L
+d1_min_val          <- 10L
+maxk_val            <- 2L
+
+# ── Cross-validation counts ────────────────────────────────────────────────
+# León et al. (2024) Section 4.1 uses 200 random 10-fold CV analyses;
+# for fast knits, lower Ksims_cv to 10-20 at the cost of stability
+# in the median sensitivity / ppv estimates.
+Ksims_cv <- 1L
+```
+
+
+# Data: German Breast Cancer Study Group {#sec-data}
+
+```{r data-setup}
+# Load GBSG data (included in forestsearch package)
+df.analysis <- gbsg
+
+# Prepare analysis variables
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+  treat <- hormon
+})
+
+# Define variable roles
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
+```
+
+
+# ForestSearch Analysis {#sec-forestsearch}
+
+## Running ForestSearch
+
+Paper configuration: `sg_focus = "maxSG"`, LASSO + GRF screening,
+single-stage consistency evaluation (`use_twostage = FALSE`).
+
+```{r forestsearch-main}
+#| fig-width: 10
+#| fig-height: 7
+
+t0 <- proc.time()
+
+fs <- forestsearch(
+  df.analysis,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  treat.name       = treat.name,
+  event.name       = event.name,
+  id.name          = id.name,
+  # Threshold parameters (per León et al. 2024)
+  hr.threshold           = c1_paper,
+  hr.consistency         = c2_paper,
+  pconsistency.threshold = pcons_val,
+  stop_threshold         = stop_thresh_val,
+  # Search configuration (paper: sg_focus = "maxSG", single-stage)
+  sg_focus             = "maxSG",
+  max_subgroups_search = max_sgs_search_val,
+  use_twostage         = FALSE,        # paper predates two-stage
+  # Factor selection
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  dmin.grf = 4,
+  frac.tau = 0.8,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  # Subgroup constraints
+  maxk   = maxk_val,
+  n.min  = n_min_val,
+  d0.min = d0_min_val,
+  d1.min = d1_min_val,
+  # Consistency evaluation
+  fs.splits = fs_splits_val,
+  # Parallel processing
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = TRUE
+  ),
+  # Output
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  quiet = TRUE,
+  plot.sg           = FALSE
+)
+
+plan("sequential")
+fs_seconds <- as.numeric((proc.time() - t0)["elapsed"])
+cat(sprintf("\nForestSearch completed in %.1f seconds\n", fs_seconds))
+```
+
+## ForestSearch Results
+
+### Identified Subgroup
+
+```{r fs-subgroup}
+cat("Identified subgroup (H):", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs$df.est$treat.recommend == 0)))
+```
+
+### Treatment Effect Estimates
+
+```{r fs-estimates}
+res_tabs <- sg_tables(fs, ndecimals = 3, which_df = "est")
+res_tabs$tab_estimates
+```
+
+
+# Cross-Validation {#sec-cv}
+
+## CV Configuration Sanity Check {#sec-cv-config}
+
+The CV functions execute with `cv_args <- fs$args_call_all` (plus a
+few forced overrides: sequential plan, `details = FALSE`,
+`quiet = TRUE`, `plot.sg = FALSE`, `ps_hat = NULL`).  So *every*
+parameter from the original `forestsearch()` call propagates into the
+CV folds — not just the paper-critical ones.  This section reports
+the effective settings two ways:
+
+1. **Paper-reproducibility focus** — the handful of parameters that
+   drive paper reproducibility, flagged against their paper-target
+   values.
+2. **Full propagated configuration** — every non-infrastructure entry
+   in `fs$args_call_all`, auto-discovered so nothing can drift out of
+   the sanity-check when new parameters are added to
+   `forestsearch()`.
+
+Paper references (León et al. 2024, Section 4.1):
+
+- **N-fold CV** = leave-one-out (`Kfolds = N`).
+- **10-fold CV** across 200 random simulations.
+- Subgroup search uses LASSO first-stage screen + GRF candidate
+  factors, single-stage consistency (`use_twostage = FALSE`).
+
+### Paper-reproducibility focus
+
+```{r cv-config-paper-focus}
+# Map of paper-critical arguments to their paper-target values.
+# NOTE: adding a new entry here just adds a row; the table is not
+# the thing the CV run actually consumes — that is fs$args_call_all
+# directly via cv_args <- fs_args inside forestsearch_Kfold/tenfold.
+.paper_targets <- list(
+  sg_focus               = "maxSG",
+  use_twostage           = FALSE,
+  use_lasso              = FALSE,
+  use_grf                = TRUE,
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.00,
+  pconsistency.threshold = 0.90,
+  maxk                   = 2L
+)
+
+.args <- fs$args_call_all
+
+.paper_df <- data.frame(
+  Setting = names(.paper_targets),
+  Value   = vapply(names(.paper_targets), function(nm) {
+    val <- .args[[nm]]
+    if (is.null(val)) "NULL" else as.character(val)
+  }, character(1)),
+  Paper_target = vapply(.paper_targets, function(v) as.character(v),
+                        character(1)),
+  stringsAsFactors = FALSE
+)
+.paper_df$Matches <- ifelse(.paper_df$Value == .paper_df$Paper_target,
+                            "YES", "NO")
+
+# CV-runner parameters (separate from forestsearch() args, set in this QMD)
+.runner_df <- data.frame(
+  Setting      = c("Kfolds_kfold", "Kfolds_oob", "Ksims_cv"),
+  Value        = c("10", as.character(nrow(df.analysis)),
+                   as.character(Ksims_cv)),
+  Paper_target = c("10", as.character(nrow(df.analysis)), "200"),
+  stringsAsFactors = FALSE
+)
+.runner_df$Matches <- ifelse(.runner_df$Value == .runner_df$Paper_target,
+                             "YES", "NO")
+
+.focus_df <- rbind(.runner_df, .paper_df)
+rownames(.focus_df) <- NULL
+
+gt::gt(.focus_df) |>
+  gt::tab_header(title = "Paper-critical CV settings vs León et al. (2024)") |>
+  gt::cols_label(
+    Setting      = "Setting",
+    Value        = "In effect",
+    Paper_target = "Paper target",
+    Matches      = "Match?"
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_text(weight = "bold", color = "darkred"),
+    locations = gt::cells_body(columns = "Matches", rows = Matches == "NO")
+  )
+```
+
+### Full propagated configuration (auto-discovered)
+
+Every non-infrastructure entry in `fs$args_call_all`.  Infrastructure
+entries (data, parallel plan, reusable-object caches, display flags)
+are excluded because they don't affect reproducibility — the CV code
+explicitly overrides them.
+
+```{r cv-config-full-discover}
+# Parameters the CV code deliberately overrides or ignores.  Exclude
+# from the reproducibility audit so the table focuses on things that
+# actually affect results.
+.cv_exclude <- c(
+  "df.analysis",         # data
+  "parallel_args",       # infrastructure
+  "grf_res", "grf_cuts", # reusable GRF objects, not config
+  "ps_hat",              # reusable PS object, recomputed per fold
+  "details", "quiet", "plot.sg", "plot.grf",
+  "showten_subgroups"    # display flags
+)
+
+.all_args   <- fs$args_call_all
+.keep_names <- setdiff(names(.all_args), .cv_exclude)
+.keep_args  <- .all_args[.keep_names]
+
+# Flatten each value to a single-cell character representation.
+.flatten_value <- function(x) {
+  if (is.null(x))                       return("NULL")
+  if (is.list(x) && length(x) == 0)     return("list()")
+  if (is.list(x))                       return(sprintf("<list of %d>", length(x)))
+  if (is.function(x))                   return("<function>")
+  if (length(x) == 0)                   return("(empty)")
+  if (length(x) > 1)                    return(paste(as.character(x),
+                                                     collapse = ", "))
+  as.character(x)
+}
+
+.full_df <- data.frame(
+  Setting = names(.keep_args),
+  Value   = vapply(.keep_args, .flatten_value, character(1)),
+  stringsAsFactors = FALSE
+)
+.full_df <- .full_df[order(.full_df$Setting), ]
+rownames(.full_df) <- NULL
+
+gt::gt(.full_df) |>
+  gt::tab_header(
+    title = sprintf(
+      "All %d propagated forestsearch() arguments", nrow(.full_df)),
+    subtitle = "(auto-discovered from fs$args_call_all)"
+  ) |>
+  gt::tab_source_note(paste(
+    "Any parameter added to forestsearch() in a future package version",
+    "appears here automatically without editing this chunk.  The CV code",
+    "itself uses fs$args_call_all directly, so this table reflects",
+    "exactly what the CV folds see (modulo the forced infrastructure",
+    "overrides listed above)."))
+```
+
+
+## 10-Fold Cross-Validation {#sec-cv-kfold}
+
+Paper benchmark: median 9/10 folds identify a subgroup, sensCV(Ĥ) ≈ 73%,
+ppvCV(Ĥ) ≈ 83%, sensCV(Ĥc) ≈ 98%, ppvCV(Ĥc) ≈ 96%, exact-match rate
+≈ 70% (median).
+
+### Inspection: first simulation's 10 training folds {#sec-cv-kfold-inspect}
+
+Before the aggregate `forestsearch_tenfold()` run, this block replicates
+the **exact** data preparation and fold assignment that the function
+would apply to `ksim = 1` (seed `8316951 + 1000 * 1 = 8317951`), then
+calls `forestsearch()` directly on each of the 10 training folds with
+`details = TRUE` and `quiet = FALSE`.  The printout below shows the
+full training-FS diagnostic for every fold of the first simulation.
+
+```{r kfold-cv-inspect-sim1}
+#| results: "markup"
+
+# Replicate the data-prep stanza inside forestsearch_tenfold
+.get_names <- c(confounders.name, outcome.name, event.name, id.name, treat.name)
+.dfa <- fs$df.est[, c(.get_names, "treat.recommend")]
+names(.dfa)[names(.dfa) == "treat.recommend"] <- "treat.recommend.original"
+.dfnew <- as.data.frame(.dfa)
+
+# Replicate sim = 1 shuffling: set.seed(seed + 1000 * ksim)
+set.seed(8316951L + 1000L * 1L)
+.id_sample <- sample(seq_len(nrow(.dfnew)), replace = FALSE)
+.df_scrambled <- .dfnew[.id_sample, ]
+
+# Replicate fold assignment: cut(seq_len(N), breaks = Kfolds)
+.folds_sim1 <- cut(seq_len(nrow(.df_scrambled)), breaks = 10, labels = FALSE)
+
+# Build verbose cv_args (mirrors forestsearch_tenfold SECTION 3
+# except details/quiet flags are flipped ON for inspection).
+.inspect_cv_args <- fs$args_call_all
+.inspect_cv_args$parallel_args <- list(
+  plan         = "multisession",
+  workers      = n_workers,
+  show_message = FALSE
+)
+.inspect_cv_args$details <- TRUE     # <<-- print full training FS details
+.inspect_cv_args$quiet   <- FALSE    # <<-- include startup config banner
+.inspect_cv_args$plot.sg <- FALSE
+.inspect_cv_args$ps_hat  <- NULL
+
+# Loop over all 10 folds of sim = 1
+.inspect_rows_kfold <- vector("list", 10L)
+
+for (.cv_i in seq_len(10L)) {
+  cat(sprintf(
+    "\n\n=========================================================\n"))
+  cat(sprintf("  sim = 1  |  fold = %d / 10  |  seed = %d\n",
+              .cv_i, 8316951L + 1000L * 1L))
+  cat(sprintf(
+    "=========================================================\n"))
+
+  .test_idx <- which(.folds_sim1 == .cv_i, arr.ind = TRUE)
+  .x_train  <- .df_scrambled[-.test_idx, ]
+
+  cat(sprintf("Training-fold size:  n = %d\n", nrow(.x_train)))
+  cat(sprintf("Held-out test size:  n = %d\n\n", length(.test_idx)))
+
+  .inspect_cv_args$df.analysis <- .x_train
+
+  .fs_train_i <- try(
+    do.call(forestsearch, .inspect_cv_args),
+    silent = FALSE
+  )
+  plan("sequential")
+
+  if (inherits(.fs_train_i, "try-error")) {
+    .sg_found_i <- "(forestsearch ERROR)"
+  } else if (is.null(.fs_train_i$sg.harm)) {
+    .sg_found_i <- "(no subgroup)"
+  } else {
+    .sg_found_i <- paste(.fs_train_i$sg.harm, collapse = " & ")
+  }
+
+  .inspect_rows_kfold[[.cv_i]] <- data.frame(
+    fold            = .cv_i,
+    n_train         = nrow(.x_train),
+    training_SG     = .sg_found_i,
+    stringsAsFactors = FALSE
+  )
+}
+
+.inspect_summary_kfold <- do.call(rbind, .inspect_rows_kfold)
+```
+
+#### Scan summary across the 10 training folds (sim = 1)
+
+```{r kfold-cv-inspect-summary}
+gt::gt(.inspect_summary_kfold) |>
+  gt::tab_header(title = "sim = 1: training-fold subgroups") |>
+  gt::cols_label(
+    fold        = "Fold",
+    n_train     = "n (train)",
+    training_SG = "Training-FS subgroup"
+  ) |>
+  gt::tab_source_note(paste(
+    "Full-data subgroup:",
+    paste(fs$sg.harm, collapse = " & "),
+    "| Any row equal to this is an 'exact match' for sim = 1."
+  ))
+```
+
+
+### Aggregate 10-fold CV across simulations
+
+```{r kfold-cv}
+t0 <- proc.time()
+fs_kfold <- forestsearch_tenfold(
+  fs.est        = fs,
+  sims          = Ksims_cv,
+  Kfolds        = 10,
+  details       = FALSE,
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = FALSE
+  )
+)
+plan("sequential")
+kfold_seconds <- as.numeric((proc.time() - t0)["elapsed"])
+
+metrics_tables <- cv_metrics_tables(fs_kfold)
+metrics_tables
+```
+
+### 10-fold CV: paper-comparable summary
+
+```{r kfold-cv-compare}
+# Per-simulation "folds with identified subgroup" is not directly stored
+# in the fs_tenfold object's summary outputs; derive it from the raw
+# metrics matrix if available.  Otherwise, just print the median sens /
+# ppv summary side-by-side with the paper values.
+
+.paper_10fold <- data.frame(
+  metric = c("sens_H", "ppv_H", "sens_Hc", "ppv_Hc"),
+  paper  = c(0.73, 0.83, 0.98, 0.96)
+)
+
+.qc_10fold <- data.frame(
+  metric = names(fs_kfold$sens_summary),
+  qc     = as.numeric(fs_kfold$sens_summary)
+)
+
+compare_df <- merge(.paper_10fold, .qc_10fold, by = "metric", sort = FALSE)
+compare_df$diff_pp <- (compare_df$qc - compare_df$paper) * 100
+
+gt::gt(compare_df) |>
+  gt::fmt_number(columns = c("paper", "qc"), decimals = 3) |>
+  gt::fmt_number(columns = "diff_pp", decimals = 1) |>
+  gt::tab_header(title = "10-fold CV: this QC vs León et al. (2024)") |>
+  gt::cols_label(
+    metric  = "Metric",
+    paper   = "Paper (median)",
+    qc      = "This QC (median)",
+    diff_pp = "Diff (pp)"
+  ) |>
+  gt::tab_source_note(paste(
+    "A gap of > ~5 pp on sens_H after the sanity-check passes suggests a",
+    "change in the CV procedure itself; verify package version and",
+    "forestsearch_tenfold() behavior before investigating further."))
+```
+
+
+### Diagnostic: legacy-style splitter sensitivity check {#sec-cv-splitter-debug}
+
+The legacy (paper-vintage) ForestSearch used an **exact 50/50 split
+without replacement** when evaluating subgroup consistency:
+`sample(seq_len(N), size = round(N/2), replace = FALSE)`.  The current
+package uses **independent Bernoulli trials**
+(`sample(c(TRUE, FALSE), N, replace = TRUE, prob = c(0.5, 0.5))`),
+which gives binomially-distributed split sizes
+(SD ≈ √(N/4)).  For small subgroups this extra per-split variance
+plausibly destabilises fold-to-fold subgroup recovery in CV, as
+discussed in `legacy_vs_current_audit.md` §1.1.
+
+This block monkey-patches `forestsearch::run_single_consistency_split()`
+via `assignInNamespace()` to use the legacy exact-50/50 splitter,
+re-runs a small number of 10-fold CV simulations, and compares
+sens_H / sens_Hc / ppv_H / ppv_Hc against the current Bernoulli
+version.  If the *Legacy* row is materially closer to the *Paper
+target* row than *Current* is, the splitter difference is the
+dominant cause of the paper-vs-current CV gap.  If Legacy and Current
+are roughly equal, §1.2 (Pcons denominator convention) or §1.3
+(per-candidate seeding) from the audit is the more likely
+explanation.
+
+Both versions run **sequentially** (no multisession workers) so the
+namespace override is in effect — workers would reload the package
+and bypass the patch.  Cost is roughly 1–2 minutes per sim × 2
+versions.  Default `debug_splitter_sims = 10L` → ~15–20 minutes total.
+Set it to `0L` to skip the diagnostic entirely.
+
+```{r cv-splitter-diagnostic}
+#| results: "markup"
+
+debug_splitter_sims <- 10L   # set to 0L to skip the whole diagnostic
+
+if (debug_splitter_sims > 0L) {
+
+  # -------------------------------------------------------------------
+  # 1.  Define legacy-style splitter
+  # -------------------------------------------------------------------
+  # Matches subgroup_consistency_v0.R lines 157-169: exact 50/50 via
+  # sample(...,replace=FALSE).  Non-estimable splits return 0 (not NA),
+  # matching the legacy convention that
+  #   flag.consistency <- rep(0, n.splits)
+  #   ... only overwritten when BOTH splits estimable AND HRs > threshold
+  # so the denominator in Pcons = mean(flag.consistency) is always
+  # n.splits.
+  legacy_run_single_consistency_split <- function(
+      df.x, N.x, hr.consistency, cox_init = 0,
+      estimator_fn = NULL, consistency_threshold = NULL) {
+
+    # Exact 50/50 split (no replacement)
+    n_half <- round(N.x / 2)
+    idx_split1 <- tryCatch(
+      sample(seq_len(N.x), size = n_half, replace = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(idx_split1)) return(0)           # legacy: error -> 0
+
+    df.x <- as.data.frame(df.x)
+    df.x.split1 <- df.x[ idx_split1, , drop = FALSE]
+    df.x.split2 <- df.x[-idx_split1, , drop = FALSE]
+
+    if (nrow(df.x.split1) < 5 || nrow(df.x.split2) < 5) return(0)
+
+    # ---- Survival path (Larry's GBSG setup) ------------------------
+    if (is.null(estimator_fn)) {
+      if (sum(df.x.split1$Event) < 2 ||
+          sum(df.x.split2$Event) < 2) return(0)
+
+      fit1 <- tryCatch(
+        suppressWarnings(survival::coxph(
+          survival::Surv(Y, Event) ~ Treat, data = df.x.split1,
+          init = cox_init, robust = FALSE,
+          model = FALSE, x = FALSE, y = FALSE)),
+        error = function(e) NULL
+      )
+      fit2 <- tryCatch(
+        suppressWarnings(survival::coxph(
+          survival::Surv(Y, Event) ~ Treat, data = df.x.split2,
+          init = cox_init, robust = FALSE,
+          model = FALSE, x = FALSE, y = FALSE)),
+        error = function(e) NULL
+      )
+      if (is.null(fit1) || is.null(fit2)) return(0)
+      hr.split1 <- exp(fit1$coefficients[1])
+      hr.split2 <- exp(fit2$coefficients[1])
+      if (is.na(hr.split1) || is.na(hr.split2)) return(0)
+      return(as.numeric(
+        hr.split1 > hr.consistency && hr.split2 > hr.consistency))
+    }
+
+    # ---- GLM path (not exercised for GBSG survival) -----------------
+    for (half in list(df.x.split1, df.x.split2)) {
+      treat_col <- intersect(c("Treat", "treat"), names(half))
+      if (length(treat_col) > 0L) {
+        tc <- treat_col[1L]
+        if (sum(half[[tc]] == 1L) < 3L ||
+            sum(half[[tc]] == 0L) < 3L) return(0)
+      }
+    }
+    res1 <- estimator_fn(df.x.split1)
+    res2 <- estimator_fn(df.x.split2)
+    if (is.na(res1$estimate) || is.na(res2$estimate)) return(0)
+    as.numeric(res1$estimate >= consistency_threshold &&
+               res2$estimate >= consistency_threshold)
+  }
+
+  # -------------------------------------------------------------------
+  # 2.  Save original + install legacy override in forestsearch ns
+  # -------------------------------------------------------------------
+  .original_run_single <- forestsearch::run_single_consistency_split
+  assignInNamespace(
+    "run_single_consistency_split",
+    legacy_run_single_consistency_split,
+    ns = "forestsearch"
+  )
+
+  # -------------------------------------------------------------------
+  # 3.  Run CV with the legacy splitter (sequential)
+  # -------------------------------------------------------------------
+  #     Must stay in-process so the namespace override is live --
+  #     multisession workers would reload forestsearch and bypass it.
+  .t0 <- proc.time()
+  fs_kfold_legacy <- tryCatch(
+    forestsearch_tenfold(
+      fs.est        = fs,
+      sims          = debug_splitter_sims,
+      Kfolds        = 10,
+      details       = FALSE,
+      parallel_args = list(plan = "sequential",
+                           workers = 1, show_message = FALSE)
+    ),
+    error = function(e) {
+      # Restore even on error
+      assignInNamespace(
+        "run_single_consistency_split",
+        .original_run_single, ns = "forestsearch")
+      stop("Legacy-splitter CV run failed: ", conditionMessage(e))
+    }
+  )
+  plan("sequential")
+  .legacy_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+  # -------------------------------------------------------------------
+  # 4.  Restore the original splitter
+  # -------------------------------------------------------------------
+  assignInNamespace(
+    "run_single_consistency_split",
+    .original_run_single,
+    ns = "forestsearch"
+  )
+
+  # -------------------------------------------------------------------
+  # 5.  Run matched-sim-count CV with the CURRENT (Bernoulli) splitter
+  # -------------------------------------------------------------------
+  #     Same sequential plan, same seed base -> fair side-by-side.
+  .t0 <- proc.time()
+  fs_kfold_current <- forestsearch_tenfold(
+    fs.est        = fs,
+    sims          = debug_splitter_sims,
+    Kfolds        = 10,
+    details       = FALSE,
+    parallel_args = list(plan = "sequential",
+                         workers = 1, show_message = FALSE)
+  )
+  plan("sequential")
+  .current_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+  # -------------------------------------------------------------------
+  # 6.  Comparison table
+  # -------------------------------------------------------------------
+  cat(sprintf(
+    "\nSplitter diagnostic: %d sims × 10 folds, sequential execution\n",
+    debug_splitter_sims))
+  cat(sprintf("  Legacy  splitter:  elapsed = %6.1f s\n", .legacy_seconds))
+  cat(sprintf("  Current splitter:  elapsed = %6.1f s\n", .current_seconds))
+
+  .paper_vals <- c(sens_H = 0.73, sens_Hc = 0.98,
+                   ppv_H  = 0.83, ppv_Hc  = 0.96)
+
+  .splitter_compare <- data.frame(
+    Splitter = c("Legacy (exact 50/50)",
+                 "Current (Bernoulli)",
+                 "Paper target"),
+    sens_H  = c(unname(fs_kfold_legacy$sens_summary["sens_H"]),
+                unname(fs_kfold_current$sens_summary["sens_H"]),
+                unname(.paper_vals["sens_H"])),
+    sens_Hc = c(unname(fs_kfold_legacy$sens_summary["sens_Hc"]),
+                unname(fs_kfold_current$sens_summary["sens_Hc"]),
+                unname(.paper_vals["sens_Hc"])),
+    ppv_H   = c(unname(fs_kfold_legacy$sens_summary["ppv_H"]),
+                unname(fs_kfold_current$sens_summary["ppv_H"]),
+                unname(.paper_vals["ppv_H"])),
+    ppv_Hc  = c(unname(fs_kfold_legacy$sens_summary["ppv_Hc"]),
+                unname(fs_kfold_current$sens_summary["ppv_Hc"]),
+                unname(.paper_vals["ppv_Hc"])),
+    stringsAsFactors = FALSE
+  )
+  rownames(.splitter_compare) <- NULL
+
+  gt::gt(.splitter_compare) |>
+    gt::tab_header(
+      title = sprintf(
+        "Splitter diagnostic: medians over %d sims × 10 folds",
+        debug_splitter_sims),
+      subtitle = "Sequential execution; namespace patch via assignInNamespace()"
+    ) |>
+    gt::fmt_number(
+      columns  = c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc"),
+      decimals = 3
+    ) |>
+    gt::tab_source_note(paste(
+      "If the 'Legacy' row is materially closer to 'Paper target' than",
+      "the 'Current' row is, the exact-50/50 splitter is a key driver of",
+      "the paper-vs-current CV gap.  If Legacy ≈ Current, the splitter is",
+      "NOT the dominant cause, and §1.2 (Pcons denominator) or §1.3",
+      "(per-candidate seeding) from legacy_vs_current_audit.md is the",
+      "more likely explanation."
+    ))
+
+} else {
+  cat("Splitter diagnostic skipped (debug_splitter_sims = 0L).\n")
+  cat("Set debug_splitter_sims = 10L (or higher) to run the comparison.\n")
+}
+```
+
+
+## N-Fold (Leave-One-Out) Cross-Validation {#sec-cv-oob}
+
+León et al. (2024) Section 4.1 defines N-fold CV as leave-one-out:
+*"across the N = 686 training sets (based on deleting a single
+subject) all analyses identified Estrogen<=0"*.  We therefore set
+`Kfolds = nrow(df.analysis)`.  A smaller `Kfolds` (e.g. 7) would be a
+coarse K-fold CV, **not** the paper's N-fold / LOO — each training
+fold would be missing ~98 subjects rather than 1.
+
+### Inspection: first 10 "delete-1" training datasets {#sec-cv-oob-inspect}
+
+Before the full N = `r nrow(df.analysis)` leave-one-out run, this
+block replicates the exact LOO fold assignment used by
+`forestsearch_Kfold()` (no scrambling when `Kfolds = N`; fold *k*
+holds out observation *k* by position in `fs$df.est`), then calls
+`forestsearch()` directly on each of the first 10 delete-1 training
+datasets with `details = TRUE` and `quiet = FALSE`.  The printout
+below shows the full training-FS diagnostic for each of those 10
+folds.
+
+```{r oob-cv-inspect-first10}
+#| results: "markup"
+
+# Replicate forestsearch_Kfold data prep (same as the tenfold version)
+.dfa_oob <- fs$df.est[, c(.get_names, "treat.recommend")]
+names(.dfa_oob)[names(.dfa_oob) == "treat.recommend"] <- "treat.recommend.original"
+.dfnew_oob <- as.data.frame(.dfa_oob)
+
+# LOO: NO scrambling (forestsearch_Kfold scrambles only when
+# Kfolds < nrow).  Fold k = observation k by position.
+.N_oob <- nrow(.dfnew_oob)
+.folds_oob <- cut(seq_len(.N_oob), breaks = .N_oob, labels = FALSE)
+
+# Reuse the verbose cv_args from the k-fold inspection (same details /
+# quiet / plot.sg / ps_hat / parallel_args settings apply).
+.oob_inspect_cv_args <- .inspect_cv_args
+
+# Loop over the first 10 LOO folds
+n_oob_inspect <- 10L
+.inspect_rows_oob <- vector("list", n_oob_inspect)
+
+for (.cv_i in seq_len(n_oob_inspect)) {
+  cat(sprintf(
+    "\n\n=========================================================\n"))
+  cat(sprintf("  LOO fold = %d / %d  |  holding out row %d of fs$df.est\n",
+              .cv_i, .N_oob, .cv_i))
+  cat(sprintf(
+    "=========================================================\n"))
+
+  .test_idx <- which(.folds_oob == .cv_i, arr.ind = TRUE)
+  .x_train  <- .dfnew_oob[-.test_idx, ]
+
+  cat(sprintf("Training-fold size:  n = %d\n", nrow(.x_train)))
+  cat(sprintf("Held-out subject id: %s\n\n",
+              as.character(.dfnew_oob[[id.name]][.test_idx])))
+
+  .oob_inspect_cv_args$df.analysis <- .x_train
+
+  .fs_train_i <- try(
+    do.call(forestsearch, .oob_inspect_cv_args),
+    silent = FALSE
+  )
+  plan("sequential")
+
+  if (inherits(.fs_train_i, "try-error")) {
+    .sg_found_i <- "(forestsearch ERROR)"
+  } else if (is.null(.fs_train_i$sg.harm)) {
+    .sg_found_i <- "(no subgroup)"
+  } else {
+    .sg_found_i <- paste(.fs_train_i$sg.harm, collapse = " & ")
+  }
+
+  .inspect_rows_oob[[.cv_i]] <- data.frame(
+    fold            = .cv_i,
+    held_out_id     = .dfnew_oob[[id.name]][.test_idx],
+    n_train         = nrow(.x_train),
+    training_SG     = .sg_found_i,
+    stringsAsFactors = FALSE
+  )
+}
+
+.inspect_summary_oob <- do.call(rbind, .inspect_rows_oob)
+```
+
+#### Scan summary across the first 10 LOO training folds
+
+```{r oob-cv-inspect-summary}
+gt::gt(.inspect_summary_oob) |>
+  gt::tab_header(title = sprintf(
+    "First 10 of %d LOO training folds: identified subgroups",
+    .N_oob)) |>
+  gt::cols_label(
+    fold        = "Fold",
+    held_out_id = "Held-out id",
+    n_train     = "n (train)",
+    training_SG = "Training-FS subgroup"
+  ) |>
+  gt::tab_source_note(paste(
+    "Full-data subgroup:",
+    paste(fs$sg.harm, collapse = " & "),
+    "| Paper target: all 686 rows identify 'er <= 0'."
+  ))
+```
+
+
+### Aggregate N-fold (LOO) CV across all folds
+
+```{r oob-cv}
+.oob_kfolds <- nrow(df.analysis)
+
+t0 <- proc.time()
+fs_OOB <- forestsearch_Kfold(
+  fs.est        = fs,
+  details       = FALSE,
+  Kfolds        = .oob_kfolds,
+  parallel_args = list(
+    plan         = "multisession",
+    workers      = n_workers,
+    show_message = TRUE
+  )
+)
+plan("sequential")
+oob_seconds <- as.numeric((proc.time() - t0)["elapsed"])
+
+cv_out <- forestsearch_KfoldOut(
+  res     = fs_OOB,
+  details = FALSE,
+  outall  = TRUE
+)
+
+tables <- cv_summary_tables(cv_out)
+tables$combined_table
+tables$metrics_table
+```
+
+### Per-fold subgroup distribution across all N LOO training sets
+
+The previous chunk's `forestsearch_KfoldOut(outall = TRUE)` already
+collected the subgroup definition identified by each of the
+`r nrow(df.analysis)` LOO training folds into `cv_out$SGs_found`
+(a `Kfolds × 2` matrix with columns `sg1`, `sg2`).  The chunks
+below tabulate that matrix.  No re-running of `forestsearch()` —
+we are summarising work the main OOB run already did.
+
+```{r oob-sg-frequency}
+# Build a single "identified subgroup" label per fold by pasting
+# sg1 and sg2 (sg2 is NA for depth-1 subgroups; both NA = no subgroup).
+.sg_found_df <- as.data.frame(cv_out$SGs_found, stringsAsFactors = FALSE)
+
+.sg_label_per_fold <- vapply(
+  seq_len(nrow(.sg_found_df)),
+  function(i) {
+    s1 <- .sg_found_df$sg1[i]
+    s2 <- .sg_found_df$sg2[i]
+    if (is.na(s1) && is.na(s2)) return("(no subgroup)")
+    parts <- c(s1, s2)
+    parts <- parts[!is.na(parts) & parts != ""]
+    paste(parts, collapse = " & ")
+  },
+  character(1)
+)
+
+# Full-data subgroup string for comparison
+sg_full_label <- paste(fs$sg.harm, collapse = " & ")
+
+# Frequency table, sorted by count descending
+.sg_freq <- as.data.frame(
+  table(training_SG = .sg_label_per_fold),
+  stringsAsFactors = FALSE
+)
+.sg_freq <- .sg_freq[order(-.sg_freq$Freq), ]
+.sg_freq$pct        <- 100 * .sg_freq$Freq / sum(.sg_freq$Freq)
+.sg_freq$match_full <- ifelse(
+  .sg_freq$training_SG == sg_full_label, "YES", ""
+)
+rownames(.sg_freq) <- NULL
+
+gt::gt(.sg_freq) |>
+  gt::tab_header(
+    title = sprintf(
+      "LOO training subgroups across all N = %d folds",
+      sum(.sg_freq$Freq)),
+    subtitle = sprintf("Full-data subgroup: %s", sg_full_label)
+  ) |>
+  gt::fmt_number(columns = "pct", decimals = 1) |>
+  gt::cols_label(
+    training_SG = "Training-FS subgroup",
+    Freq        = "n folds",
+    pct         = "% folds",
+    match_full  = "Matches full?"
+  ) |>
+  gt::tab_source_note(paste(
+    "Paper target: all 686 folds identify",
+    sprintf("'%s'", sg_full_label),
+    "(León et al. 2024, Section 4.1)."
+  ))
+```
+
+### LOO subgroup-recovery summary statistics
+
+```{r oob-sg-summary-stats}
+.n_folds_total   <- length(.sg_label_per_fold)
+.n_no_subgroup   <- sum(.sg_label_per_fold == "(no subgroup)")
+.n_with_subgroup <- .n_folds_total - .n_no_subgroup
+.n_match_full    <- sum(.sg_label_per_fold == sg_full_label)
+.n_distinct_sgs  <- length(unique(
+  .sg_label_per_fold[.sg_label_per_fold != "(no subgroup)"]
+))
+
+.loo_summary <- data.frame(
+  Metric = c(
+    "Total LOO folds",
+    "Folds with any subgroup found",
+    "Folds with no subgroup found",
+    "Folds exactly matching full-data subgroup",
+    "Distinct subgroup definitions across folds"
+  ),
+  Value = c(
+    sprintf("%d", .n_folds_total),
+    sprintf("%d (%.1f%%)",
+            .n_with_subgroup,
+            100 * .n_with_subgroup / .n_folds_total),
+    sprintf("%d (%.1f%%)",
+            .n_no_subgroup,
+            100 * .n_no_subgroup / .n_folds_total),
+    sprintf("%d (%.1f%%)",
+            .n_match_full,
+            100 * .n_match_full / .n_folds_total),
+    sprintf("%d", .n_distinct_sgs)
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.loo_summary) |>
+  gt::tab_header(title = "LOO (delete-1) subgroup-recovery summary") |>
+  gt::cols_label(Metric = "Metric", Value = "Value") |>
+  gt::tab_source_note(paste(
+    "Paper target: 'Folds with any subgroup found' = 100%;",
+    "'Folds exactly matching full-data subgroup' = 100%;",
+    "'Distinct subgroup definitions' = 1."
+  ))
+```
+
+### N-fold (LOO) CV: paper-comparable summary
+
+```{r oob-cv-compare}
+sg_full   <- paste(fs$sg.harm, collapse = " & ")
+pct_found <- fs_OOB$prop_SG_found
+
+cat(sprintf("Full-data subgroup: %s\n", sg_full))
+cat(sprintf("Percent of N = %d LOO training folds with an identified subgroup: %s%%\n",
+            .oob_kfolds, format(pct_found)))
+
+cat(sprintf("Paper target: 100%% (all 686 folds identify %s)\n",
+            "er <= 0"))
+
+# Exact-match rate to the full-data Ĥ across folds
+exact_rate <- 100 * mean(fs_OOB$resCV$treat.recommend ==
+                         fs_OOB$resCV$treat.recommend.original)
+cat(sprintf("Subject-level agreement between LOO and full-data predictions: %.1f%%\n",
+            exact_rate))
+cat("Paper target: ~100% (agreement implied by identical subgroup recovery)\n")
+```
+
+
+# N-fold (LOO) Cross-Validation: baseline 
+
+```{r loo-baseline}
+#| message: false
+.t0 <- proc.time()
+loo_baseline <- forestsearch_Kfold(
+  fs.est        = fs,
+  Kfolds        = nrow(df.analysis),
+  parallel_args = list(plan         = "multisession",
+                       workers      = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.baseline_loo_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+sprintf("Baseline LOO finished in %.1f s", .baseline_loo_seconds)
+
+loo_baseline_out <- forestsearch_KfoldOut(
+  res     = loo_baseline,
+  details = FALSE,
+  outall  = TRUE
+)
+
+tables <- cv_summary_tables(loo_baseline_out)
+tables$combined_table
+tables$metrics_table
+
+```
+
+
+
+
+# Timing {#sec-timing}
+
+```{r timing-summary}
+timing_df <- data.frame(
+  Component = c("ForestSearch (full data)",
+                "10-fold CV",
+                "N-fold (LOO) CV"),
+  Seconds   = c(fs_seconds, kfold_seconds, oob_seconds),
+  Sims      = c(NA_integer_, Ksims_cv, .oob_kfolds)
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt::gt(timing_df) |>
+  gt::fmt_number(columns = c("Seconds", "Minutes"), decimals = 1) |>
+  gt::fmt_integer(columns = "Sims") |>
+  gt::sub_missing(missing_text = "—") |>
+  gt::tab_header(title = "CV QC: Computational Timing") |>
+  gt::tab_source_note(paste(
+    "Every knit re-runs ForestSearch and both CV procedures from scratch.",
+    "To cache expensive CV runs across knits, wrap the forestsearch_tenfold()",
+    "and forestsearch_Kfold() calls in the .cache_compute() helper from",
+    "the production gbsg_analysis.qmd."))
+```
+
+
+# References {#sec-refs}
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+plan(sequential)
+sessionInfo()
+```
+

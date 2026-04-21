@@ -1,0 +1,532 @@
+---
+title: "GBSG Diagnostic: 10-fold CV with `conf_force('er <= 0')` and GRF Cut Distribution"
+subtitle: "Does GRF drift on larger training-set perturbations, and does conf_force recover stability?"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    mathjax: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+---
+
+# Purpose {#sec-purpose}
+
+Context for this document: the prior LOO diagnostic
+(`gbsg_er_forced_cut_diagnostic.qmd`) ran with `outcome.name = "rfstime"`
+(days scale) and `dmin.grf = 60` (60 days ≈ 2 months), which is a
+substantially looser GRF filter than `gbsg_cv_qc.qmd`, which runs
+with `outcome.name = "time_months"` and the signature default
+`dmin.grf = 12` (12 months).  That unit/filter difference accounts
+for the apparent disagreement between the two documents' LOO
+results (the LOO-baseline in the forced-cut diagnostic showed
+686/686 exact match; `gbsg_cv_qc.qmd` §5.3 and §6 showed partial
+mismatch).
+
+This document reruns the baseline-vs-forced comparison at 10-fold CV,
+**using the same months-scale outcome and `dmin.grf = 12` as
+`gbsg_cv_qc.qmd`**, so its results are directly comparable to
+§5.2 of that document.
+
+Two questions:
+
+**Q1.**  Under the paper-reproduction config (months scale,
+`dmin.grf = 12`), how often does GRF return `er <= 0` as its
+policy-tree cut across 10-fold training sets (which are ~90% of
+the full sample)?  This is the direct measurement the earlier LOO
+diagnostic could not provide, enabled by the `grf_cuts` column
+newly preserved in `fold_summary`.
+
+**Q2.**  On folds where GRF drifts to a different `er` cut (e.g.,
+`er <= 8`), does forcing `er <= 0` into the candidate pool via
+`conf_force = c("er <= 0")` recover a stable `{er <= 0}`
+identification?  Or does the consistency stage still prefer the
+drifted cut?
+
+If GRF is stable at 10-fold under this config, the forced comparison
+will show near-zero Δ.  If GRF drifts on a substantial fraction of
+folds, the forced comparison tells us whether the drift is
+recoverable by supplying `er <= 0` as an alternative candidate.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+# Variable names (match gbsg_cv_qc.qmd exactly)
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name     <- "time_months"      # MONTHS scale to match cv_qc
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+# ForestSearch paper-reproduction settings (match gbsg_cv_qc.qmd exactly).
+# Key alignment: outcome is on months scale, so dmin.grf = 12 means
+# 12 months -- matching cv_qc's implicit default.
+fs_args_common <- list(
+  # Threshold parameters (Leon et al. 2024)
+  hr.threshold              = 1.25,
+  hr.consistency            = 1.00,
+  pconsistency.threshold    = 0.90,
+  stop_threshold            = 0.95,
+  # Search configuration
+  sg_focus                  = "maxSG",
+  max_subgroups_search      = 10L,
+  use_twostage              = FALSE,
+  # Factor selection / GRF
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  dmin.grf                  = 12,        # <<-- months scale; matches cv_qc default
+  # Subgroup constraints
+  maxk                      = 2L,
+  n.min                     = 60L,
+  d0.min                    = 10L,
+  d1.min                    = 10L,
+  # Consistency evaluation
+  fs.splits                 = 400L,
+  # Output
+  details                   = FALSE,
+  quiet                     = TRUE,
+  plot.sg                   = FALSE,
+  plot.grf                  = FALSE
+)
+
+# 10-fold CV
+Ksims_cv  <- 100L    # repetitions of 10-fold split (total 1000 sim x fold pairs)
+Kfolds_cv <- 10L
+
+# Parallel execution
+n_workers <- max(1L, parallel::detectCores() - 1L)
+```
+
+```{r data-setup}
+df <- survival::gbsg
+df$grade3      <- as.integer(df$grade == "3")
+df$id          <- seq_len(nrow(df))
+df$time_months <- df$rfstime / 30.4375     # <<-- match cv_qc unit conversion
+```
+
+
+# Full-data ForestSearch (two runs) {#sec-full}
+
+Provided for self-containment; these are the same objects the LOO
+diagnostic produced.  Both runs should identify `{er <= 0}`.
+
+## Baseline (no forced cuts)
+
+```{r fs-baseline}
+#| message: false
+fs_baseline <- do.call(
+  forestsearch,
+  c(list(
+    df.analysis      = df,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    treat.name       = treat.name,
+    id.name          = id.name,
+    conf_force       = NULL,
+    parallel_args    = list(plan         = "multisession",
+                            workers      = n_workers,
+                            show_message = FALSE)
+  ), fs_args_common)
+)
+plan("sequential")
+
+cat(sprintf(
+  "Baseline full-data sg.harm: %s\n",
+  if (is.null(fs_baseline$sg.harm)) "(none)" else
+    paste(fs_baseline$sg.harm, collapse = " & ")
+))
+cat(sprintf(
+  "Baseline full-data GRF cuts: %s\n",
+  if (is.null(fs_baseline$grf_cuts)) "(none)" else
+    paste(fs_baseline$grf_cuts, collapse = " | ")
+))
+```
+
+## With `conf_force = c("er <= 0")`
+
+```{r fs-forced}
+#| message: false
+fs_forced <- do.call(
+  forestsearch,
+  c(list(
+    df.analysis      = df,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    treat.name       = treat.name,
+    id.name          = id.name,
+    conf_force       = c("er <= 0"),
+    parallel_args    = list(plan         = "multisession",
+                            workers      = n_workers,
+                            show_message = FALSE)
+  ), fs_args_common)
+)
+plan("sequential")
+
+cat(sprintf(
+  "Forced full-data sg.harm: %s\n",
+  if (is.null(fs_forced$sg.harm)) "(none)" else
+    paste(fs_forced$sg.harm, collapse = " & ")
+))
+cat(sprintf(
+  "Forced full-data GRF cuts: %s\n",
+  if (is.null(fs_forced$grf_cuts)) "(none)" else
+    paste(fs_forced$grf_cuts, collapse = " | ")
+))
+```
+
+
+# 10-fold CV: baseline {#sec-tenfold-baseline}
+
+```{r tenfold-baseline}
+#| message: false
+.t0 <- proc.time()
+tenfold_baseline <- forestsearch_tenfold(
+  fs.est        = fs_baseline,
+  sims          = Ksims_cv,
+  Kfolds        = Kfolds_cv,
+  details       = FALSE,
+  keep_resCV    = FALSE,
+  parallel_args = list(plan         = "multisession",
+                       workers      = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.baseline_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+sprintf("Baseline 10-fold CV (%d sims x %d folds) finished in %.1f s",
+        Ksims_cv, Kfolds_cv, .baseline_seconds)
+```
+
+
+# 10-fold CV: forced cut {#sec-tenfold-forced}
+
+```{r tenfold-forced}
+#| message: false
+.t0 <- proc.time()
+tenfold_forced <- forestsearch_tenfold(
+  fs.est        = fs_forced,
+  sims          = Ksims_cv,
+  Kfolds        = Kfolds_cv,
+  details       = FALSE,
+  keep_resCV    = FALSE,
+  parallel_args = list(plan         = "multisession",
+                       workers      = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.forced_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+sprintf("Forced 10-fold CV (%d sims x %d folds) finished in %.1f s",
+        Ksims_cv, Kfolds_cv, .forced_seconds)
+```
+
+
+# Side-by-side comparison {#sec-compare}
+
+## Aggregate agreement and subgroup-finding metrics
+
+```{r compare-metrics}
+.metric_names <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
+.find_names   <- c("Any", "Exact", "At least 1",
+                   "Cov1", "Cov2",
+                   "Cov 1 & 2", "Cov1 exact", "Cov2 exact")
+
+.compare <- rbind(
+  data.frame(
+    metric   = .metric_names,
+    Baseline = unname(tenfold_baseline$sens_summary[.metric_names]),
+    Forced   = unname(tenfold_forced$sens_summary[.metric_names]),
+    stringsAsFactors = FALSE
+  ),
+  data.frame(
+    metric   = .find_names,
+    Baseline = unname(tenfold_baseline$find_summary[.find_names]),
+    Forced   = unname(tenfold_forced$find_summary[.find_names]),
+    stringsAsFactors = FALSE
+  )
+)
+.compare$Delta <- .compare$Forced - .compare$Baseline
+
+gt::gt(.compare) |>
+  gt::tab_header(
+    title    = "10-fold CV agreement metrics: baseline vs conf_force('er <= 0')",
+    subtitle = sprintf(
+      "GBSG, N = %d, %d sims x %d folds = %d sim x fold pairs",
+      nrow(df), Ksims_cv, Kfolds_cv, Ksims_cv * Kfolds_cv
+    )
+  ) |>
+  gt::fmt_number(columns = c("Baseline", "Forced", "Delta"),
+                 decimals = 3) |>
+  gt::cols_label(
+    metric   = "Metric",
+    Baseline = "Baseline (median)",
+    Forced   = "conf_force (median)",
+    Delta    = "Δ (Forced − Baseline)"
+  ) |>
+  gt::tab_source_note(paste(
+    "Positive Δ on sens_H, ppv_H, and Exact supports the hypothesis",
+    "that GRF drifts on some 10-fold training sets (dropping ~10%",
+    "of subjects), and that forcing 'er <= 0' as a candidate",
+    "recovers stability.  Near-zero Δ would indicate GRF is stable",
+    "even under 10-fold perturbations."
+  ))
+```
+
+## Per-fold identified-subgroup distribution
+
+Uses the `fold_summary` slot to show the empirical distribution of
+training-FS subgroups across all sim × fold pairs.
+
+```{r compare-fold-dist}
+.fold_dist_10fold <- function(tenfold_out, label) {
+  fsum <- tenfold_out$fold_summary
+  fold_sgs <- ifelse(
+    is.na(fsum$sg1),
+    "(no subgroup)",
+    ifelse(
+      is.na(fsum$sg2),
+      fsum$sg1,
+      paste(fsum$sg1, fsum$sg2, sep = " & ")
+    )
+  )
+  tab <- as.data.frame(table(sg = fold_sgs), stringsAsFactors = FALSE)
+  tab <- tab[order(-tab$Freq), , drop = FALSE]
+  names(tab) <- c("Training-FS subgroup", "n folds")
+  tab[["% folds"]] <- round(
+    100 * tab[["n folds"]] / nrow(fsum), 2
+  )
+  tab$Config <- label
+  tab
+}
+
+.dist_base  <- .fold_dist_10fold(tenfold_baseline, "Baseline")
+.dist_force <- .fold_dist_10fold(tenfold_forced,   "Forced")
+
+gt::gt(.dist_base[, c("Training-FS subgroup", "n folds", "% folds")]) |>
+  gt::tab_header(
+    title = sprintf("Baseline 10-fold: subgroups across %d sim × fold pairs",
+                    nrow(tenfold_baseline$fold_summary))
+  )
+
+gt::gt(.dist_force[, c("Training-FS subgroup", "n folds", "% folds")]) |>
+  gt::tab_header(
+    title = sprintf("Forced conf_force('er <= 0') 10-fold: subgroups across %d pairs",
+                    nrow(tenfold_forced$fold_summary))
+  )
+```
+
+
+# GRF cut distribution across 10-fold training sets {#sec-grf-cuts}
+
+Uses the newly-preserved `grf_cuts` column in `fold_summary` to
+tabulate what GRF returned on each of the `r Ksims_cv * Kfolds_cv`
+10-fold training sets.  This is the direct measurement of GRF's
+cut-choice distribution at the 90%-of-N training-set size.
+
+## `er`-cut values chosen by GRF --- baseline
+
+```{r grf-cuts-baseline}
+.extract_er_cut <- function(cuts_str) {
+  if (is.na(cuts_str)) return("(no GRF cut)")
+  parts <- strsplit(cuts_str, " \\| ", fixed = FALSE)[[1]]
+  er_parts <- parts[grepl("^er\\b", parts)]
+  if (length(er_parts) == 0L) return("(no er cut)")
+  paste(er_parts, collapse = "; ")
+}
+
+fsum_base <- tenfold_baseline$fold_summary
+fsum_base$er_cut <- vapply(
+  fsum_base$grf_cuts, .extract_er_cut, character(1)
+)
+
+.er_freq_base <- as.data.frame(
+  table(er_cut = fsum_base$er_cut),
+  stringsAsFactors = FALSE
+)
+names(.er_freq_base) <- c("GRF er-cut", "n folds")
+.er_freq_base <- .er_freq_base[order(-.er_freq_base[["n folds"]]), ,
+                                drop = FALSE]
+.er_freq_base[["% folds"]] <- round(
+  100 * .er_freq_base[["n folds"]] / nrow(fsum_base), 2
+)
+
+gt::gt(.er_freq_base) |>
+  gt::tab_header(
+    title    = "Baseline 10-fold: GRF `er`-cut distribution",
+    subtitle = sprintf(
+      "Across %d sim × fold training sets (~90%% of N each)",
+      nrow(fsum_base)
+    )
+  ) |>
+  gt::tab_source_note(paste(
+    "If one row dominates at near-100%, GRF is stable even under",
+    "10-fold perturbations.  Multiple rows with non-trivial",
+    "frequency would indicate GRF drift --- and in that case, folds",
+    "with non-zero cuts are the ones where conf_force would be",
+    "expected to help."
+  ))
+```
+
+## `er`-cut values chosen by GRF --- forced-cut run
+
+Sanity check: because `conf_force = c("er <= 0")` does not affect
+GRF itself (it injects the cut *after* GRF runs, into `get_FSdata`),
+the GRF cut distribution here should match the baseline within
+Monte-Carlo noise.  If it doesn't, something unexpected is going
+on with the parameter propagation.
+
+```{r grf-cuts-forced}
+fsum_forc <- tenfold_forced$fold_summary
+fsum_forc$er_cut <- vapply(
+  fsum_forc$grf_cuts, .extract_er_cut, character(1)
+)
+
+.er_freq_forc <- as.data.frame(
+  table(er_cut = fsum_forc$er_cut),
+  stringsAsFactors = FALSE
+)
+names(.er_freq_forc) <- c("GRF er-cut", "n folds")
+.er_freq_forc <- .er_freq_forc[order(-.er_freq_forc[["n folds"]]), ,
+                                drop = FALSE]
+.er_freq_forc[["% folds"]] <- round(
+  100 * .er_freq_forc[["n folds"]] / nrow(fsum_forc), 2
+)
+
+gt::gt(.er_freq_forc) |>
+  gt::tab_header(
+    title    = "Forced 10-fold: GRF `er`-cut distribution (should match baseline)",
+    subtitle = sprintf(
+      "Across %d sim × fold training sets",
+      nrow(fsum_forc)
+    )
+  )
+```
+
+## Cross-tab: GRF `er`-cut vs identified subgroup (baseline)
+
+Shows, for each GRF cut value, which final subgroup the algorithm
+identified.  Reveals whether non-`er <= 0` GRF cuts actually
+translated into non-`{er <= 0}` identifications, or whether the
+consistency stage was able to recover the canonical subgroup from
+a different GRF starting point.
+
+```{r xtab-baseline}
+fsum_base$sg_full <- ifelse(
+  is.na(fsum_base$sg1),
+  "(no subgroup)",
+  ifelse(
+    is.na(fsum_base$sg2),
+    fsum_base$sg1,
+    paste(fsum_base$sg1, fsum_base$sg2, sep = " & ")
+  )
+)
+
+.xtab_base <- as.data.frame(
+  table(
+    `GRF er-cut`  = fsum_base$er_cut,
+    `Identified subgroup` = fsum_base$sg_full
+  ),
+  stringsAsFactors = FALSE
+)
+.xtab_base <- .xtab_base[.xtab_base$Freq > 0, , drop = FALSE]
+names(.xtab_base)[names(.xtab_base) == "Freq"] <- "n folds"
+
+gt::gt(.xtab_base) |>
+  gt::tab_header(
+    title = "Baseline: GRF `er`-cut vs identified subgroup"
+  )
+```
+
+## Cross-tab: GRF `er`-cut vs identified subgroup (forced)
+
+```{r xtab-forced}
+fsum_forc$sg_full <- ifelse(
+  is.na(fsum_forc$sg1),
+  "(no subgroup)",
+  ifelse(
+    is.na(fsum_forc$sg2),
+    fsum_forc$sg1,
+    paste(fsum_forc$sg1, fsum_forc$sg2, sep = " & ")
+  )
+)
+
+.xtab_forc <- as.data.frame(
+  table(
+    `GRF er-cut`  = fsum_forc$er_cut,
+    `Identified subgroup` = fsum_forc$sg_full
+  ),
+  stringsAsFactors = FALSE
+)
+.xtab_forc <- .xtab_forc[.xtab_forc$Freq > 0, , drop = FALSE]
+names(.xtab_forc)[names(.xtab_forc) == "Freq"] <- "n folds"
+
+gt::gt(.xtab_forc) |>
+  gt::tab_header(
+    title    = "Forced: GRF `er`-cut vs identified subgroup",
+    subtitle = "Rows where GRF drifted but subgroup is still {er <= 0} are where conf_force rescued the result"
+  )
+```
+
+
+# Summary checkpoint {#sec-summary}
+
+```{r summary}
+# Fraction of folds where GRF chose er <= 0
+.frac_grf_er0_base <- mean(fsum_base$er_cut == "er <= 0", na.rm = TRUE)
+.frac_grf_er0_forc <- mean(fsum_forc$er_cut == "er <= 0", na.rm = TRUE)
+
+# Fraction of folds where final identified subgroup is {er <= 0}
+.frac_sg_er0_base <- mean(fsum_base$sg_full == "{er <= 0}", na.rm = TRUE)
+.frac_sg_er0_forc <- mean(fsum_forc$sg_full == "{er <= 0}", na.rm = TRUE)
+
+.summary_df <- data.frame(
+  Check = c(
+    "Baseline: fraction of folds where GRF returned er <= 0",
+    "Baseline: fraction of folds where identified sg is {er <= 0}",
+    "Forced:   fraction of folds where GRF returned er <= 0",
+    "Forced:   fraction of folds where identified sg is {er <= 0}",
+    "GRF drift visible at 10-fold? (baseline GRF er <= 0 < 0.99)",
+    "Does conf_force recover sg consistency where GRF drifted?"
+  ),
+  Value = c(
+    sprintf("%.3f", .frac_grf_er0_base),
+    sprintf("%.3f", .frac_sg_er0_base),
+    sprintf("%.3f", .frac_grf_er0_forc),
+    sprintf("%.3f", .frac_sg_er0_forc),
+    ifelse(.frac_grf_er0_base < 0.99, "YES", "NO"),
+    ifelse(.frac_sg_er0_forc - .frac_sg_er0_base > 0.02, "YES", "NO / N/A")
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.summary_df) |>
+  gt::tab_header(title = "Key 10-fold CV summary figures")
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

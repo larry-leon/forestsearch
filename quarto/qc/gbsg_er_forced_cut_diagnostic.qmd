@@ -1,0 +1,417 @@
+---
+title: "GBSG Diagnostic: Forcing `er <= 0` as a Candidate in LOO-CV"
+subtitle: "Does injecting the full-data cut into every fold stabilize LOO subgroup recovery?"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    mathjax: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+---
+
+# Purpose {#sec-purpose}
+
+The `gbsg_cv_qc.qmd` LOO analysis (§5.3.3) showed that 27 of 686
+training folds identified a subgroup that *still involves* `er` but
+with a different cut point --- typically `er <= 8` paired with a
+second factor on `size` or `meno`.  The cut `er <= 0` that appears
+in the full-data analysis is selected by the GRF causal-survival-forest
++ policy-tree stage, which chooses a split value specific to each
+fold's training data.  Because GRF's split choice is data-dependent,
+holding out a specific subject can flip the policy tree's preferred
+split on `er` from 0 to a different value, after which the
+consistency-passing candidate on that fold is `{er <= 8} & ...`
+instead of `{er <= 0}`.
+
+This document tests that hypothesis directly.  `forestsearch()`
+accepts a `conf_force` parameter that forces a specific cut
+expression into the candidate pool, regardless of what GRF produces.
+Setting `conf_force = c("er <= 0")` on the full-data run makes
+`er <= 0` available on every LOO fold.  If GRF split-point
+instability is the dominant driver of the non-exact-match folds, we
+expect:
+
+1. **LOO exact-match rate jumps** from 96.1% to essentially 100%.
+2. **`sens_H`, `PPV_H` improve** toward paper-level values.
+3. **The `FA_0 = 1.95 (1.04, 3.67)` vs `KfA_0 = 0.50 (0.22, 1.16)` HR
+   disagreement** in §5.3.2 disappears --- FA_0 and KfA_0 should
+   have nearly identical subject membership.
+
+If those three predictions hold, GRF split-point instability is
+confirmed as the dominant driver, and concrete remedies become
+available (GRF seed-averaging, a wider default cut grid on the
+offending variable, or a user-facing recommendation to set
+`conf_force` when stability is a priority).  If the predictions
+don't hold, something else is contributing --- most likely LASSO
+screening sometimes dropping `er`, or the consistency threshold
+boundary fluctuating with the specific fold --- and the next
+diagnostic should target those.
+
+**This is a *diagnostic* configuration, not a recommended analysis
+setting.**  Pre-specifying a cut point that was learned from the
+same data contaminates the subsequent CV as an inference tool.
+We use it here purely to isolate GRF's contribution to LOO
+variance.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+# Data
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name     <- "rfstime"
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+# ForestSearch paper-reproduction settings (match gbsg_cv_qc.qmd)
+fs_args_common <- list(
+  is.RCT                 = TRUE,
+  use_lasso              = TRUE,
+  use_grf                = TRUE,
+  use_twostage           = FALSE,
+  sg_focus               = "maxSG",
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.00,
+  pconsistency.threshold = 0.90,
+  stop_threshold         = 0.95,
+  fs.splits              = 400L,
+  n.min                  = 60L,
+  d0.min                 = 10L,
+  d1.min                 = 10L,
+  maxk                   = 2L,
+  max_subgroups_search   = 10L,
+  dmin.grf               = 4,
+  frac.tau               = 0.8,
+  quiet                  = TRUE,
+  details                = FALSE,
+  plot.sg                = FALSE,
+  plot.grf               = FALSE
+)
+
+# Parallel execution
+n_workers <- max(1L, parallel::detectCores() - 1L)
+```
+
+```{r data-setup}
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+df$id     <- seq_len(nrow(df))
+df$rfstime <- df$rfstime/30.4375
+```
+
+
+# Full-data ForestSearch (two runs) {#sec-full}
+
+## Baseline (no forced cuts)
+
+```{r fs-baseline}
+#| message: false
+.t0 <- proc.time()
+fs_baseline <- do.call(
+  forestsearch,
+  c(list(
+    df.analysis      = df,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    treat.name       = treat.name,
+    id.name          = id.name,
+    conf_force       = NULL,
+    parallel_args    = list(plan         = "multisession",
+                            workers      = n_workers,
+                            show_message = FALSE)
+  ), fs_args_common)
+)
+plan("sequential")
+.baseline_full_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+cat(sprintf(
+  "Baseline full-data sg.harm: %s  (%.1f s)\n",
+  if (is.null(fs_baseline$sg.harm)) "(none)" else
+    paste(fs_baseline$sg.harm, collapse = " & "),
+  .baseline_full_seconds
+))
+```
+
+## With `conf_force = c("er <= 0")`
+
+```{r fs-forced}
+#| message: false
+.t0 <- proc.time()
+fs_forced <- do.call(
+  forestsearch,
+  c(list(
+    df.analysis      = df,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    treat.name       = treat.name,
+    id.name          = id.name,
+    conf_force       = c("er <= 0"),         # <<-- the only change
+    parallel_args    = list(plan         = "multisession",
+                            workers      = n_workers,
+                            show_message = FALSE)
+  ), fs_args_common)
+)
+plan("sequential")
+.forced_full_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+cat(sprintf(
+  "Forced-cut full-data sg.harm: %s  (%.1f s)\n",
+  if (is.null(fs_forced$sg.harm)) "(none)" else
+    paste(fs_forced$sg.harm, collapse = " & "),
+  .forced_full_seconds
+))
+```
+
+Both configurations should identify `{er <= 0}` on the full data.
+The forced-cut run guarantees it is in the candidate pool; the
+baseline run reaches it via GRF.
+
+
+# N-fold (LOO) Cross-Validation: baseline {#sec-loo-baseline}
+
+```{r loo-baseline}
+#| message: false
+.t0 <- proc.time()
+loo_baseline <- forestsearch_Kfold(
+  fs.est        = fs_baseline,
+  Kfolds        = nrow(df),
+  parallel_args = list(plan         = "multisession",
+                       workers      = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.baseline_loo_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+loo_baseline_out <- forestsearch_KfoldOut(
+  loo_baseline, outall = TRUE, details = FALSE
+)
+
+sprintf("Baseline LOO finished in %.1f s", .baseline_loo_seconds)
+```
+
+
+# N-fold (LOO) Cross-Validation: forced cut {#sec-loo-forced}
+
+```{r loo-forced}
+#| message: false
+.t0 <- proc.time()
+loo_forced <- forestsearch_Kfold(
+  fs.est        = fs_forced,
+  Kfolds        = nrow(df),
+  parallel_args = list(plan         = "multisession",
+                       workers      = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.forced_loo_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+loo_forced_out <- forestsearch_KfoldOut(
+  loo_forced, outall = TRUE, details = FALSE
+)
+
+sprintf("Forced-cut LOO finished in %.1f s", .forced_loo_seconds)
+```
+
+
+# Side-by-side comparison {#sec-compare}
+
+## Agreement and subgroup-finding metrics
+
+```{r compare-metrics}
+.metric_names <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
+.find_names   <- c("Any", "Exact", "At least 1",
+                   "Cov1", "Cov2",
+                   "Cov 1 & 2", "Cov1 exact", "Cov2 exact")
+
+.compare <- rbind(
+  data.frame(
+    metric   = .metric_names,
+    Baseline = unname(loo_baseline_out$sens_metrics_original[.metric_names]),
+    Forced   = unname(loo_forced_out$sens_metrics_original[.metric_names]),
+    stringsAsFactors = FALSE
+  ),
+  data.frame(
+    metric   = .find_names,
+    Baseline = unname(loo_baseline_out$find_metrics[.find_names]),
+    Forced   = unname(loo_forced_out$find_metrics[.find_names]),
+    stringsAsFactors = FALSE
+  )
+)
+.compare$Delta <- .compare$Forced - .compare$Baseline
+
+gt::gt(.compare) |>
+  gt::tab_header(
+    title    = "LOO-CV agreement metrics: baseline vs conf_force('er <= 0')",
+    subtitle = sprintf(
+      "GBSG, N = %d, paper-reproduction config",
+      nrow(df)
+    )
+  ) |>
+  gt::fmt_number(columns = c("Baseline", "Forced", "Delta"),
+                 decimals = 3) |>
+  gt::cols_label(
+    metric   = "Metric",
+    Baseline = "Baseline",
+    Forced   = "conf_force",
+    Delta    = "Δ (Forced − Baseline)"
+  ) |>
+  gt::tab_source_note(paste(
+    "Positive Δ on sens_H, ppv_H, and Exact supports the hypothesis",
+    "that GRF split-point instability is the dominant driver of the",
+    "non-exact-match LOO folds in gbsg_cv_qc.qmd §5.3.3.  Near-zero Δ",
+    "would indicate the instability is NOT primarily GRF-driven."
+  ))
+```
+
+## FA_0 vs KfA_0 hazard-ratio comparison
+
+This is the §5.3.2-equivalent table.  The concerning baseline result
+in `gbsg_cv_qc.qmd` was FA_0 = 1.95 (1.04, 3.67) vs KfA_0 = 0.50
+(0.22, 1.16) --- point estimates disagreeing directionally with
+barely-overlapping CIs.
+
+```{r fa-vs-kfa-compare}
+.extract_row <- function(tab_all, row_name) {
+  if (is.null(tab_all) || !row_name %in% rownames(tab_all)) {
+    return(list(n = NA, HR = NA_character_))
+  }
+  list(
+    n  = tab_all[row_name, "n"],
+    HR = tab_all[row_name, "Hazard ratio"]
+  )
+}
+
+.b_fa0 <- .extract_row(loo_baseline_out$tab_all, "FA_0")
+.b_kf0 <- .extract_row(loo_baseline_out$tab_all, "KfA_0")
+.f_fa0 <- .extract_row(loo_forced_out$tab_all,   "FA_0")
+.f_kf0 <- .extract_row(loo_forced_out$tab_all,   "KfA_0")
+
+.harm_tab <- data.frame(
+  Config   = c("Baseline", "Baseline",
+               "Forced",   "Forced"),
+  Analysis = c("FA_0 (full-data)", "KfA_0 (LOO-CV)",
+               "FA_0 (full-data)", "KfA_0 (LOO-CV)"),
+  n        = c(.b_fa0$n, .b_kf0$n, .f_fa0$n, .f_kf0$n),
+  HR       = c(.b_fa0$HR, .b_kf0$HR, .f_fa0$HR, .f_kf0$HR),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.harm_tab) |>
+  gt::tab_header(
+    title    = "Harm-subgroup HR: full-analysis (FA_0) vs LOO-CV (KfA_0)",
+    subtitle = "Both configurations"
+  ) |>
+  gt::tab_source_note(paste(
+    "If forcing 'er <= 0' aligns FA_0 and KfA_0 to nearly identical",
+    "HRs, the §5.3.2 disagreement is attributable to GRF split-point",
+    "drift across folds.  A persistent disagreement under the forced",
+    "cut would indicate a different mechanism."
+  ))
+```
+
+## Per-fold identified-subgroup distribution
+
+Compares the empirical distribution of fold-level subgroups between
+the two configurations.  Under the forced cut, almost every fold
+should either identify `{er <= 0}` (the forced candidate wins) or
+report no subgroup at all.
+
+```{r compare-per-fold}
+.fold_dist <- function(kfold_out, label) {
+  resCV <- kfold_out$resCV
+  fold_sgs <- vapply(
+    unique(resCV$cvindex),
+    function(k) {
+      rows <- resCV[resCV$cvindex == k, , drop = FALSE]
+      sg1 <- as.character(rows$sg1[1])
+      sg2 <- as.character(rows$sg2[1])
+      if (is.na(sg1) && is.na(sg2)) return("(no subgroup)")
+      if (is.na(sg2)) return(sg1)
+      paste(sg1, sg2, sep = " & ")
+    },
+    character(1)
+  )
+
+  tab <- as.data.frame(table(sg = fold_sgs), stringsAsFactors = FALSE)
+  tab$Config <- label
+  tab <- tab[order(-tab$Freq), , drop = FALSE]
+  names(tab)[names(tab) == "sg"]   <- "Training-FS subgroup"
+  names(tab)[names(tab) == "Freq"] <- "n folds"
+  tab
+}
+
+.dist_baseline <- .fold_dist(loo_baseline, "Baseline")
+.dist_forced   <- .fold_dist(loo_forced,   "Forced")
+
+gt::gt(.dist_baseline) |>
+  gt::tab_header(
+    title = "Baseline: LOO training-fold subgroups"
+  ) |>
+  gt::cols_move_to_start(columns = "Config")
+
+gt::gt(.dist_forced) |>
+  gt::tab_header(
+    title = "Forced conf_force('er <= 0'): LOO training-fold subgroups"
+  ) |>
+  gt::cols_move_to_start(columns = "Config")
+```
+
+
+# Summary checkpoint {#sec-summary}
+
+```{r summary-table}
+.summary_df <- data.frame(
+  Check = c(
+    "Baseline full-data sg.harm contains '{er <= 0}'",
+    "Forced    full-data sg.harm contains '{er <= 0}'",
+    "Forced LOO Exact match - Baseline Exact match > 2 pp",
+    "Forced LOO sens_H     - Baseline sens_H     > 0.05",
+    "Forced LOO ppv_H      - Baseline ppv_H      > 0.05"
+  ),
+  Observed = c(
+    any(grepl("er <= 0", fs_baseline$sg.harm, fixed = TRUE)),
+    any(grepl("er <= 0", fs_forced$sg.harm,   fixed = TRUE)),
+    (loo_forced_out$find_metrics["Exact"]
+      - loo_baseline_out$find_metrics["Exact"]) > 0.02,
+    (loo_forced_out$sens_metrics_original["sens_H"]
+      - loo_baseline_out$sens_metrics_original["sens_H"]) > 0.05,
+    (loo_forced_out$sens_metrics_original["ppv_H"]
+      - loo_baseline_out$sens_metrics_original["ppv_H"]) > 0.05
+  ),
+  stringsAsFactors = FALSE
+)
+.summary_df$Result <- ifelse(.summary_df$Observed,
+                             "\U2713 YES", "\U2717 NO")
+
+gt::gt(.summary_df[, c("Check", "Result")]) |>
+  gt::tab_header(title = "Checks relevant to the GRF-instability hypothesis")
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

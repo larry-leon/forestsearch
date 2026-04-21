@@ -1,0 +1,564 @@
+---
+title: "GBSG 10-fold CV: dmin.grf Sensitivity Analysis"
+subtitle: "dmin.grf = {12, 6, 4} months, with/without conf_force, at frac.tau = 0.8"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    mathjax: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+---
+
+# Purpose {#sec-purpose}
+
+The prior 10-fold diagnostic (`gbsg_10fold_cv_diagnostic.qmd`, run at
+`dmin.grf = 12` months, `frac.tau = 0.6`) revealed three facts:
+
+1. **GRF returns no `er` cut on 41% of 10-fold training sets** (410 of
+   1000 sim × fold pairs).  When GRF fails to surface `er <= 0`, the
+   downstream pipeline typically finds no subgroup at all, or drifts
+   to weak alternatives.
+2. **On folds where GRF does surface `er <= 0` (58%)**, the pipeline
+   recovers `{er <= 0}` exactly 80% of the time.
+3. **Forcing `er <= 0` via `conf_force`** rescues ~82% of the
+   no-GRF-`er`-cut folds, lifting `sens_H` from 0.524 to 0.841.
+
+A separately rendered LOO diagnostic at `dmin.grf = 4` months and
+`frac.tau = 0.8` (more relaxed GRF settings) showed near-perfect
+recovery: 684/686 LOO folds identifying `{er <= 0}`, `sens_H = 1.000`,
+no contribution from `conf_force`.  The strategic read: GRF's job is
+candidate *discovery*; the FS consistency stage is the gatekeeper.
+Let GRF cast a wide net.
+
+Two questions addressed here:
+
+**A.** When GRF at `dmin.grf = 12` "returned no `er` cut" on 41% of
+10-fold training sets, did it produce cuts on *other* variables
+(`pgr`, `grade3`, `age`), or did the policy tree fail to produce any
+qualifying subgroup at all?  This is a straight tabulation of the
+full `grf_cuts` column now preserved in `fold_summary`.
+
+**B.** Does relaxing `dmin.grf` close the gap between full-data/LOO
+and 10-fold CV?  We run three `dmin.grf` settings (12, 6, 4 months)
+corresponding to (6, 3, 2)-month RMST difference thresholds, each
+with and without `conf_force`, all at `frac.tau = 0.8`.
+
+Six 10-fold CV variants side-by-side:
+
+| Config        | `dmin.grf` | `conf_force`     | Approx. RMST threshold |
+|:--------------|:-----------|:-----------------|:-----------------------|
+| A: strict base   | 12         | NULL             | 6 months |
+| B: strict forced | 12         | `c("er <= 0")`   | 6 months |
+| C: mid base      | 6          | NULL             | 3 months |
+| D: mid forced    | 6          | `c("er <= 0")`   | 3 months |
+| E: relaxed base  | 4          | NULL             | 2 months |
+| F: relaxed forced| 4          | `c("er <= 0")`   | 2 months |
+
+Expected runtime: ~45–60 minutes for all six runs at 100 sims × 10
+folds each.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+# Variable names (match gbsg_cv_qc.qmd and prior 10-fold diagnostic)
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name     <- "time_months"
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+# Base args shared across all four runs.  dmin.grf and conf_force vary;
+# everything else mirrors the prior diagnostic (which in turn matches
+# gbsg_cv_qc.qmd paper-reproduction config).
+fs_args_base <- list(
+  # Threshold parameters (Leon et al. 2024)
+  hr.threshold              = 1.25,
+  hr.consistency            = 1.00,
+  pconsistency.threshold    = 0.90,
+  stop_threshold            = 0.95,
+  # Search configuration
+  sg_focus                  = "maxSG",
+  max_subgroups_search      = 10L,
+  use_twostage              = FALSE,
+  # Factor selection / GRF
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  frac.tau                  = 0.8,        # relaxed RMST integration horizon
+  # Subgroup constraints
+  maxk                      = 2L,
+  n.min                     = 60L,
+  d0.min                    = 10L,
+  d1.min                    = 10L,
+  # Consistency evaluation
+  fs.splits                 = 400L,
+  # Output
+  details                   = FALSE,
+  quiet                     = TRUE,
+  plot.sg                   = FALSE,
+  plot.grf                  = FALSE
+)
+
+# 10-fold CV
+Ksims_cv  <- 100L
+Kfolds_cv <- 10L
+
+# Parallel execution
+n_workers <- max(1L, parallel::detectCores() - 1L)
+```
+
+```{r data-setup}
+df <- survival::gbsg
+df$grade3      <- as.integer(df$grade == "3")
+df$id          <- seq_len(nrow(df))
+df$time_months <- df$rfstime / 30.4375
+```
+
+
+# Full-data ForestSearch (four configs) {#sec-full}
+
+Brief sanity checks; all six should identify `{er <= 0}` on the
+full data.
+
+```{r fs-full-all}
+#| message: false
+.run_fs <- function(dmin_val, conf_force_val) {
+  args <- c(list(
+    df.analysis      = df,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    treat.name       = treat.name,
+    id.name          = id.name,
+    dmin.grf         = dmin_val,
+    conf_force       = conf_force_val,
+    parallel_args    = list(plan         = "multisession",
+                            workers      = n_workers,
+                            show_message = FALSE)
+  ), fs_args_base)
+  do.call(forestsearch, args)
+}
+
+fs_A <- .run_fs(12, NULL);          plan("sequential")  # A: dmin=12 base
+fs_B <- .run_fs(12, c("er <= 0"));  plan("sequential")  # B: dmin=12 forced
+fs_C <- .run_fs(6,  NULL);          plan("sequential")  # C: dmin=6  base
+fs_D <- .run_fs(6,  c("er <= 0"));  plan("sequential")  # D: dmin=6  forced
+fs_E <- .run_fs(4,  NULL);          plan("sequential")  # E: dmin=4  base
+fs_F <- .run_fs(4,  c("er <= 0"));  plan("sequential")  # F: dmin=4  forced
+
+.config_labels <- c("A: dmin=12 base",   "B: dmin=12 forced",
+                    "C: dmin=6  base",   "D: dmin=6  forced",
+                    "E: dmin=4  base",   "F: dmin=4  forced")
+
+.full_summary <- data.frame(
+  Config   = .config_labels,
+  sg.harm  = c(paste(fs_A$sg.harm, collapse = " & "),
+               paste(fs_B$sg.harm, collapse = " & "),
+               paste(fs_C$sg.harm, collapse = " & "),
+               paste(fs_D$sg.harm, collapse = " & "),
+               paste(fs_E$sg.harm, collapse = " & "),
+               paste(fs_F$sg.harm, collapse = " & ")),
+  grf_cuts = c(paste(fs_A$grf_cuts, collapse = " | "),
+               paste(fs_B$grf_cuts, collapse = " | "),
+               paste(fs_C$grf_cuts, collapse = " | "),
+               paste(fs_D$grf_cuts, collapse = " | "),
+               paste(fs_E$grf_cuts, collapse = " | "),
+               paste(fs_F$grf_cuts, collapse = " | ")),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.full_summary) |>
+  gt::tab_header(title = "Full-data identification across six configs")
+```
+
+
+# 10-fold CV runs (six configs) {#sec-tenfold}
+
+```{r run-all-tenfold}
+#| message: false
+.run_tenfold <- function(fs_est, label) {
+  t0 <- proc.time()
+  out <- forestsearch_tenfold(
+    fs.est        = fs_est,
+    sims          = Ksims_cv,
+    Kfolds        = Kfolds_cv,
+    details       = FALSE,
+    keep_resCV    = FALSE,
+    parallel_args = list(plan         = "multisession",
+                         workers      = n_workers,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  secs <- as.numeric((proc.time() - t0)["elapsed"])
+  message(sprintf("  %s: %.1f s", label, secs))
+  attr(out, "runtime_seconds") <- secs
+  out
+}
+
+message("Running six 10-fold CV configs:")
+tf_A <- .run_tenfold(fs_A, "A: dmin=12 base   ")
+tf_B <- .run_tenfold(fs_B, "B: dmin=12 forced ")
+tf_C <- .run_tenfold(fs_C, "C: dmin=6  base   ")
+tf_D <- .run_tenfold(fs_D, "D: dmin=6  forced ")
+tf_E <- .run_tenfold(fs_E, "E: dmin=4  base   ")
+tf_F <- .run_tenfold(fs_F, "F: dmin=4  forced ")
+
+.runtime_summary <- data.frame(
+  Config  = .config_labels,
+  Seconds = c(attr(tf_A, "runtime_seconds"),
+              attr(tf_B, "runtime_seconds"),
+              attr(tf_C, "runtime_seconds"),
+              attr(tf_D, "runtime_seconds"),
+              attr(tf_E, "runtime_seconds"),
+              attr(tf_F, "runtime_seconds")),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.runtime_summary) |>
+  gt::tab_header(
+    title = sprintf(
+      "10-fold CV runtimes (%d sims × %d folds each)",
+      Ksims_cv, Kfolds_cv)
+  ) |>
+  gt::fmt_number(columns = "Seconds", decimals = 1)
+```
+
+
+# Aggregate metrics {#sec-metrics}
+
+```{r metrics-table}
+.metric_names <- c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc")
+.find_names   <- c("Any", "Exact", "At least 1",
+                   "Cov1", "Cov2", "Cov 1 & 2",
+                   "Cov1 exact", "Cov2 exact")
+
+.extract_metrics <- function(tf, label) {
+  vals <- c(tf$sens_summary[.metric_names],
+            tf$find_summary[.find_names])
+  data.frame(
+    metric = c(.metric_names, .find_names),
+    value  = unname(vals),
+    Config = label,
+    stringsAsFactors = FALSE
+  )
+}
+
+.all_metrics <- rbind(
+  .extract_metrics(tf_A, "A: dmin=12 base"),
+  .extract_metrics(tf_B, "B: dmin=12 forced"),
+  .extract_metrics(tf_C, "C: dmin=6  base"),
+  .extract_metrics(tf_D, "D: dmin=6  forced"),
+  .extract_metrics(tf_E, "E: dmin=4  base"),
+  .extract_metrics(tf_F, "F: dmin=4  forced")
+)
+
+# Pivot to wide (metric x config)
+.metrics_wide <- reshape(
+  .all_metrics,
+  timevar   = "Config",
+  idvar     = "metric",
+  direction = "wide"
+)
+names(.metrics_wide) <- gsub("^value\\.", "", names(.metrics_wide))
+
+gt::gt(.metrics_wide) |>
+  gt::tab_header(
+    title    = "10-fold CV agreement and finding metrics across six configs",
+    subtitle = sprintf(
+      "GBSG, N = %d, %d sims × %d folds = %d sim × fold pairs, frac.tau = 0.8",
+      nrow(df), Ksims_cv, Kfolds_cv, Ksims_cv * Kfolds_cv)
+  ) |>
+  gt::fmt_number(columns = -metric, decimals = 3) |>
+  gt::cols_label(metric = "Metric") |>
+  gt::tab_source_note(paste(
+    "Δ(base -> forced) at fixed dmin.grf measures the conf_force rescue.",
+    "Scan along the base configs (A, C, E) to see whether relaxing",
+    "dmin.grf closes the base-vs-forced gap without needing conf_force."
+  ))
+```
+
+
+# Full `grf_cuts` distribution across 10-fold training sets {#sec-grf-full}
+
+This section answers Question A from §1: at each `dmin.grf`
+setting, what did GRF actually return across the 1000 sim × fold
+training sets?  Specifically, when the `er`-cut projection shows
+no entry, did GRF still produce cuts on other variables, or did
+the policy tree return nothing at all?
+
+## Full `grf_cuts` strings, all six configs
+
+```{r grf-full-dist}
+.clean_grf <- function(x) {
+  if (is.na(x) || x == "") return("(no GRF cut)")
+  x
+}
+
+.grf_dist <- function(tf, label, top_n = 15L) {
+  fsum <- tf$fold_summary
+  cuts <- vapply(fsum$grf_cuts, .clean_grf, character(1))
+  tab <- as.data.frame(table(cuts = cuts), stringsAsFactors = FALSE)
+  tab <- tab[order(-tab$Freq), , drop = FALSE]
+  tab$Config <- label
+  tab$Pct    <- round(100 * tab$Freq / nrow(fsum), 2)
+  head(tab, top_n)
+}
+
+.grf_all <- rbind(
+  .grf_dist(tf_A, "A: dmin=12 base"),
+  .grf_dist(tf_B, "B: dmin=12 forced"),
+  .grf_dist(tf_C, "C: dmin=6  base"),
+  .grf_dist(tf_D, "D: dmin=6  forced"),
+  .grf_dist(tf_E, "E: dmin=4  base"),
+  .grf_dist(tf_F, "F: dmin=4  forced")
+)
+names(.grf_all)[names(.grf_all) == "cuts"] <- "GRF cuts"
+names(.grf_all)[names(.grf_all) == "Freq"] <- "n folds"
+names(.grf_all)[names(.grf_all) == "Pct"]  <- "% folds"
+
+gt::gt(.grf_all,
+       groupname_col = "Config",
+       row_group_as_column = TRUE) |>
+  gt::tab_header(
+    title    = "Top GRF cut strings across 10-fold training sets",
+    subtitle = "Full grf_cuts column; not projected to any single variable"
+  )
+```
+
+## `er`-variable projection (for comparison with prior doc)
+
+```{r grf-er-projection}
+.extract_er_cut <- function(cuts_str) {
+  if (is.na(cuts_str)) return("(no GRF cut)")
+  parts <- strsplit(cuts_str, " \\| ", fixed = FALSE)[[1]]
+  er_parts <- parts[grepl("^er\\b", parts)]
+  if (length(er_parts) == 0L) return("(no er cut)")
+  paste(er_parts, collapse = "; ")
+}
+
+.er_proj <- function(tf, label) {
+  fsum <- tf$fold_summary
+  er_cuts <- vapply(fsum$grf_cuts, .extract_er_cut, character(1))
+  tab <- as.data.frame(table(er_cut = er_cuts), stringsAsFactors = FALSE)
+  tab <- tab[order(-tab$Freq), , drop = FALSE]
+  tab$Config <- label
+  tab$Pct    <- round(100 * tab$Freq / nrow(fsum), 2)
+  tab
+}
+
+.er_all <- rbind(
+  .er_proj(tf_A, "A: dmin=12 base"),
+  .er_proj(tf_B, "B: dmin=12 forced"),
+  .er_proj(tf_C, "C: dmin=6  base"),
+  .er_proj(tf_D, "D: dmin=6  forced"),
+  .er_proj(tf_E, "E: dmin=4  base"),
+  .er_proj(tf_F, "F: dmin=4  forced")
+)
+names(.er_all)[names(.er_all) == "er_cut"] <- "er-cut projection"
+names(.er_all)[names(.er_all) == "Freq"]   <- "n folds"
+names(.er_all)[names(.er_all) == "Pct"]    <- "% folds"
+
+gt::gt(.er_all,
+       groupname_col = "Config",
+       row_group_as_column = TRUE) |>
+  gt::tab_header(
+    title    = "GRF `er`-cut projection (for continuity with prior doc)",
+    subtitle = "'(no er cut)' means GRF split on other variable(s); '(no GRF cut)' means GRF returned nothing"
+  )
+```
+
+
+# Cross-tab: full GRF cut × identified subgroup {#sec-xtab}
+
+For each config, counts of (GRF `grf_cuts` string) × (identified
+training-FS subgroup).  The informative rows are those where GRF
+returned a cut that does **not** involve `er` and yet the pipeline
+still identified `{er <= 0}` (only possible under a forced config)
+or a non-`er` subgroup based on the GRF cut.
+
+```{r xtab-helper}
+.build_sg_full <- function(fsum) {
+  ifelse(
+    is.na(fsum$sg1),
+    "(no subgroup)",
+    ifelse(
+      is.na(fsum$sg2),
+      fsum$sg1,
+      paste(fsum$sg1, fsum$sg2, sep = " & ")
+    )
+  )
+}
+
+.xtab <- function(tf, label) {
+  fsum <- tf$fold_summary
+  fsum$grf_clean <- vapply(fsum$grf_cuts, .clean_grf, character(1))
+  fsum$sg_full   <- .build_sg_full(fsum)
+
+  tab <- as.data.frame(
+    table(`GRF cuts`  = fsum$grf_clean,
+          `Identified subgroup` = fsum$sg_full),
+    stringsAsFactors = FALSE
+  )
+  tab <- tab[tab$Freq > 0, , drop = FALSE]
+  names(tab)[names(tab) == "Freq"] <- "n folds"
+  tab$Config <- label
+  tab <- tab[order(-tab[["n folds"]]), , drop = FALSE]
+  tab
+}
+```
+
+## Config A: `dmin.grf = 12`, baseline
+
+```{r xtab-A}
+.xA <- .xtab(tf_A, "A: dmin=12 base")
+gt::gt(.xA[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "A: dmin.grf = 12, baseline",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xA[["n folds"]]))
+  )
+```
+
+## Config B: `dmin.grf = 12`, forced
+
+```{r xtab-B}
+.xB <- .xtab(tf_B, "B: dmin=12 forced")
+gt::gt(.xB[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "B: dmin.grf = 12, forced",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xB[["n folds"]]))
+  )
+```
+
+## Config C: `dmin.grf = 6`, baseline
+
+```{r xtab-C}
+.xC <- .xtab(tf_C, "C: dmin=6  base")
+gt::gt(.xC[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "C: dmin.grf = 6, baseline",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xC[["n folds"]]))
+  )
+```
+
+## Config D: `dmin.grf = 6`, forced
+
+```{r xtab-D}
+.xD <- .xtab(tf_D, "D: dmin=6  forced")
+gt::gt(.xD[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "D: dmin.grf = 6, forced",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xD[["n folds"]]))
+  )
+```
+
+## Config E: `dmin.grf = 4`, baseline
+
+```{r xtab-E}
+.xE <- .xtab(tf_E, "E: dmin=4  base")
+gt::gt(.xE[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "E: dmin.grf = 4, baseline",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xE[["n folds"]]))
+  )
+```
+
+## Config F: `dmin.grf = 4`, forced
+
+```{r xtab-F}
+.xF <- .xtab(tf_F, "F: dmin=4  forced")
+gt::gt(.xF[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+  gt::tab_header(
+    title    = "F: dmin.grf = 4, forced",
+    subtitle = sprintf("%d total sim × fold pairs",
+                       sum(.xF[["n folds"]]))
+  )
+```
+
+
+# Headline summary {#sec-summary}
+
+```{r headline}
+.headline <- function(tf, label) {
+  fsum <- tf$fold_summary
+  grf  <- vapply(fsum$grf_cuts, .clean_grf, character(1))
+  er   <- vapply(fsum$grf_cuts, .extract_er_cut, character(1))
+  sg   <- .build_sg_full(fsum)
+
+  data.frame(
+    Config                               = label,
+    `Folds with GRF producing any cut`  = sprintf(
+      "%d (%.1f%%)",
+      sum(grf != "(no GRF cut)"),
+      100 * mean(grf != "(no GRF cut)")),
+    `Folds with GRF cut containing er`  = sprintf(
+      "%d (%.1f%%)",
+      sum(grepl("^er\\b", fsum$grf_cuts) |
+          grepl("\\| *er\\b", fsum$grf_cuts)),
+      100 * mean(grepl("^er\\b", fsum$grf_cuts) |
+                 grepl("\\| *er\\b", fsum$grf_cuts))),
+    `Folds identifying {er <= 0} exactly` = sprintf(
+      "%d (%.1f%%)",
+      sum(sg == "{er <= 0}"),
+      100 * mean(sg == "{er <= 0}")),
+    `Folds with no subgroup identified`   = sprintf(
+      "%d (%.1f%%)",
+      sum(sg == "(no subgroup)"),
+      100 * mean(sg == "(no subgroup)")),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+}
+
+.all_headline <- rbind(
+  .headline(tf_A, "A: dmin=12 base"),
+  .headline(tf_B, "B: dmin=12 forced"),
+  .headline(tf_C, "C: dmin=6  base"),
+  .headline(tf_D, "D: dmin=6  forced"),
+  .headline(tf_E, "E: dmin=4  base"),
+  .headline(tf_F, "F: dmin=4  forced")
+)
+
+gt::gt(.all_headline) |>
+  gt::tab_header(title = "Headline figures across six configs") |>
+  gt::tab_source_note(paste(
+    "Compare the base configs (A -> C -> E) to see the effect of",
+    "relaxing dmin.grf on GRF's output and downstream identification.",
+    "Compare (A -> B), (C -> D), (E -> F) to see conf_force's",
+    "contribution at each dmin.grf setting; if base and forced agree",
+    "at a given dmin.grf, the threshold is relaxed enough that GRF",
+    "alone suffices."
+  ))
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

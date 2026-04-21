@@ -1,0 +1,536 @@
+---
+title: "Synthetic CV Benchmark for ForestSearch"
+subtitle: "Known-truth validation of subgroup identification and CV reproducibility"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    mathjax: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+---
+
+# Purpose {#sec-purpose}
+
+This document validates the ForestSearch subgroup-identification and
+cross-validation machinery against a synthetic dataset where the
+*ground truth is known* and the detection task is made deliberately
+easy.  It is complementary to `gbsg_cv_qc.qmd`: that document asks
+"does the current implementation reproduce the León et al. (2024)
+paper on GBSG?", whereas this one asks "does the current
+implementation identify the *correct* harm subgroup when all
+difficulty is stripped out of the problem?".
+
+The data-generating mechanism (DGM) is a Weibull proportional-hazards
+model with **three binary covariates only**: one true harm driver
+(`z1`) with a strong treatment-by-subgroup interaction, plus two
+prognostic-only factors (`z2`, `z3`) that shift the baseline hazard
+but do *not* interact with treatment.  There are **no noise
+covariates, no continuous variables, and no cut grid** --- the
+algorithm has only six candidate subgroups to evaluate (three
+singletons + three pairs under `maxk = 2`), and `{z1}` is among
+them.  See the roxygen header of `make_benchmark_dataset.R` for
+full specification.
+
+Because this is a deliberately easy test, a correctly-functioning
+implementation should score at the top of every metric in the
+**Pass/Fail thresholds** tables below *without* any pre-screening
+(LASSO, GRF) turned on.  Performance substantially below these
+thresholds points to a real issue in the core algorithm or CV
+wrapper, not a dataset-difficulty issue.
+
+```{mermaid}
+flowchart LR
+  A[make_benchmark_dataset] --> B[Full-data forestsearch]
+  B --> C{sg.harm == '{z1}'?}
+  C -->|YES| D[10-fold CV × Ksims]
+  C -->|NO| X[FAIL: benchmark unusable]
+  D --> E{sens_H ≥ 0.90?}
+  E -->|YES| F[LOO CV]
+  E -->|NO| Y[FAIL: CV unstable]
+  F --> G[Compare FA_0 HR vs KfA_0 HR]
+```
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r source-dgm}
+# Source the DGM generator.  Must be alongside this .qmd.
+source("make_benchmark_dataset.R")
+```
+
+```{r benchmark-config}
+# Dataset
+N                <- 700L       # sample size (comparable to GBSG's 686)
+prev_z1          <- 0.20       # true harm prevalence
+hr_harm          <- 2.20       # HR in harm subgroup
+hr_benefit       <- 0.65       # HR in benefit group
+dgm_seed         <- 20250421L
+
+# Cross-validation
+Ksims_cv         <- 50L        # repetitions for 10-fold CV
+Kfolds_tenfold   <- 10L
+run_loo_cv       <- TRUE       # set FALSE to skip LOO (≈ 5–10 min)
+
+# ForestSearch parameters -- NO pre-screening, matching the "easy"
+# benchmark design.  With binary-only candidates and no noise, the
+# algorithm should identify {z1} without any help.
+fs_sg_focus            <- "maxSG"
+fs_hr_threshold        <- 1.25
+fs_hr_consistency      <- 1.00
+fs_pconsistency_thresh <- 0.90
+fs_stop_threshold      <- 0.95
+fs_splits              <- 400L
+fs_n_min               <- 30L
+fs_d0_min              <- 5L
+fs_d1_min              <- 5L
+fs_maxk                <- 2L
+fs_max_subgroups       <- 10L
+
+# Parallel execution
+n_workers  <- max(1L, parallel::detectCores() - 1L)
+```
+
+
+# Data Generation {#sec-data}
+
+```{r generate-data}
+df <- make_benchmark_dataset(
+  n          = N,
+  prev_z1    = prev_z1,
+  hr_harm    = hr_harm,
+  hr_benefit = hr_benefit,
+  seed       = dgm_seed
+)
+
+stopifnot(
+  nrow(df) == N,
+  all(c("time", "status", "treat", "z1") %in% names(df))
+)
+```
+
+```{r dgm-summary-table}
+.summary <- summarize_benchmark_dataset(df)
+
+.summary_df <- data.frame(
+  Statistic = c(
+    "Sample size (n)",
+    "Harm prevalence (realized)",
+    "Overall event rate",
+    "Events in harm subgroup, treated",
+    "Events in harm subgroup, control",
+    "Events in benefit group, treated",
+    "Events in benefit group, control",
+    "Empirical HR, overall",
+    "Empirical HR, harm subgroup (expect ≈ 2.00)",
+    "Empirical HR, benefit group (expect ≈ 0.70)"
+  ),
+  Value = c(
+    format(.summary$n),
+    sprintf("%.3f (nominal %.2f)", .summary$harm_prevalence, prev_z1),
+    sprintf("%.1f%%", 100 * .summary$event_rate),
+    format(.summary$events_by_arm["1", "1"]),
+    format(.summary$events_by_arm["0", "1"]),
+    format(.summary$events_by_arm["1", "0"]),
+    format(.summary$events_by_arm["0", "0"]),
+    sprintf("%.3f", .summary$hr_overall),
+    sprintf("%.3f", .summary$hr_harm),
+    sprintf("%.3f", .summary$hr_benefit)
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.summary_df) |>
+  gt::tab_header(
+    title = "Synthetic dataset: realized summary",
+    subtitle = "z1 = true harm driver; z2, z3 = prognostic-only (no treatment interaction)"
+  ) |>
+  gt::cols_label(Statistic = "Statistic", Value = "Value")
+```
+
+
+# Full-data ForestSearch {#sec-full-fs}
+
+```{r fs-full}
+#| message: false
+candidate_names <- c("z1", "z2", "z3")
+
+fs <- forestsearch(
+  df.analysis            = df,
+  confounders.name       = candidate_names,
+  outcome.name           = "time",
+  event.name             = "status",
+  treat.name             = "treat",
+  id.name                = "id",
+  is.RCT                 = TRUE,
+  use_lasso              = FALSE,
+  use_grf                = FALSE,
+  use_twostage           = FALSE,
+  sg_focus               = fs_sg_focus,
+  hr.threshold           = fs_hr_threshold,
+  hr.consistency         = fs_hr_consistency,
+  pconsistency.threshold = fs_pconsistency_thresh,
+  stop_threshold         = fs_stop_threshold,
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  max_subgroups_search   = fs_max_subgroups,
+  parallel_args          = list(plan         = "sequential",
+                                workers      = 1L,
+                                show_message = FALSE),
+  quiet                  = TRUE,
+  details                = FALSE
+)
+plan("sequential")
+
+# The label we expect is "{z1}" (a single binary factor cut).
+fs_sg <- paste(fs$sg.harm, collapse = " & ")
+cat("Identified subgroup (sg.harm): ", fs_sg, "\n", sep = "")
+```
+
+```{r fs-benchmark-row-1}
+.bench1 <- data.frame(
+  Check       = "Full-data sg.harm identifies the true harm driver",
+  Expected    = "{z1}",
+  Observed    = if (is.null(fs$sg.harm)) "(none)" else fs_sg,
+  Pass        = identical(fs_sg, "{z1}"),
+  stringsAsFactors = FALSE
+)
+.bench1$Result <- ifelse(.bench1$Pass, "\U2713 PASS", "\U2717 FAIL")
+
+gt::gt(.bench1[, c("Check", "Expected", "Observed", "Result")]) |>
+  gt::tab_header(title = "Benchmark 1: Full-data identification") |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ffcccc"),
+    locations = gt::cells_body(rows = !.bench1$Pass)
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ccffcc"),
+    locations = gt::cells_body(rows = .bench1$Pass)
+  )
+
+if (!.bench1$Pass) {
+  warning(
+    "Full-data benchmark FAILED.  Downstream CV benchmarks will ",
+    "interpret mismatched 'sg.harm' incorrectly.  Investigate ",
+    "before continuing."
+  )
+}
+```
+
+
+# Ground-truth HR in the harm subgroup {#sec-truth-hr}
+
+For comparison with the CV-based KfA_0 HR below.
+
+```{r fa-truth-hr}
+.fit_truth <- survival::coxph(
+  survival::Surv(time, status) ~ treat,
+  data = df[df$z1 == 1L, ], robust = FALSE
+)
+.sm <- summary(.fit_truth)$conf.int
+.truth_hr  <- unname(.sm[1, 1])
+.truth_lo  <- unname(.sm[1, 3])
+.truth_hi  <- unname(.sm[1, 4])
+.truth_n   <- sum(df$z1 == 1L)
+.truth_d   <- sum(df$status[df$z1 == 1L])
+
+sprintf(
+  "True harm subgroup (z1 = 1): n = %d, events = %d, HR = %.2f (%.2f, %.2f)",
+  .truth_n, .truth_d, .truth_hr, .truth_lo, .truth_hi
+)
+```
+
+
+# 10-fold Cross-Validation Benchmark {#sec-cv-kfold}
+
+```{r kfold-cv}
+#| message: false
+.t0 <- proc.time()
+fs_kfold <- forestsearch_tenfold(
+  fs.est        = fs,
+  sims          = Ksims_cv,
+  Kfolds        = Kfolds_tenfold,
+  details       = FALSE,
+  keep_resCV    = FALSE,         # fold_summary is enough for benchmarks
+  parallel_args = list(plan = "multisession",
+                       workers = n_workers,
+                       show_message = FALSE)
+)
+plan("sequential")
+.kfold_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+sprintf("10-fold CV finished in %.1f s", .kfold_seconds)
+```
+
+## Aggregate agreement metrics
+
+```{r kfold-aggregate}
+.kfold_metrics <- data.frame(
+  metric   = c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc",
+               "Any Found", "Exact Match"),
+  value    = c(
+    unname(fs_kfold$sens_summary["sens_H"]),
+    unname(fs_kfold$sens_summary["sens_Hc"]),
+    unname(fs_kfold$sens_summary["ppv_H"]),
+    unname(fs_kfold$sens_summary["ppv_Hc"]),
+    unname(fs_kfold$find_summary["Any"]),
+    unname(fs_kfold$find_summary["Exact"])
+  ),
+  threshold = c(0.95, 0.95, 0.95, 0.95, 0.99, 0.95),
+  stringsAsFactors = FALSE
+)
+.kfold_metrics$Pass   <- .kfold_metrics$value >= .kfold_metrics$threshold
+.kfold_metrics$Result <- ifelse(.kfold_metrics$Pass,
+                                "\U2713 PASS", "\U2717 FAIL")
+
+gt::gt(.kfold_metrics) |>
+  gt::tab_header(
+    title    = sprintf("Benchmark 2: 10-fold CV (%d sims)", Ksims_cv),
+    subtitle = "Pass thresholds per DGM design"
+  ) |>
+  gt::fmt_number(columns = c("value", "threshold"), decimals = 3) |>
+  gt::cols_label(
+    metric    = "Metric",
+    value     = "Observed (median)",
+    threshold = "Threshold",
+    Pass      = "Meets?",
+    Result    = "Result"
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ffcccc"),
+    locations = gt::cells_body(rows = !.kfold_metrics$Pass)
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ccffcc"),
+    locations = gt::cells_body(rows = .kfold_metrics$Pass)
+  )
+```
+
+## Fold-level distribution (uses the new `fold_summary` slot)
+
+Because the package update preserves `fold_summary` for every
+`forestsearch_tenfold()` call, we can inspect the empirical
+distribution of identified subgroups across all sim × fold pairs
+directly --- no re-running required.
+
+```{r kfold-fold-summary}
+if (!is.null(fs_kfold$fold_summary)) {
+
+  fsum <- fs_kfold$fold_summary
+
+  # Compact display: subgroup -> number of folds that identified it
+  .sg_table <- as.data.frame(
+    table(
+      subgroup = ifelse(
+        is.na(fsum$sg1),
+        "(no subgroup)",
+        ifelse(
+          is.na(fsum$sg2),
+          fsum$sg1,
+          paste(fsum$sg1, fsum$sg2, sep = " & ")
+        )
+      )
+    )
+  )
+  names(.sg_table) <- c("Training-FS subgroup", "n folds")
+  .sg_table <- .sg_table[
+    order(-.sg_table[["n folds"]]), , drop = FALSE
+  ]
+  .sg_table[["% folds"]] <- round(
+    100 * .sg_table[["n folds"]] / sum(.sg_table[["n folds"]]), 2
+  )
+  .sg_table[["Matches truth?"]] <- ifelse(
+    .sg_table[["Training-FS subgroup"]] == "{z1}", "YES", ""
+  )
+
+  gt::gt(.sg_table) |>
+    gt::tab_header(
+      title = sprintf(
+        "Identified subgroups across all %d sim × fold pairs",
+        nrow(fsum)
+      ),
+      subtitle = "Ground truth: {z1}"
+    )
+
+} else {
+  cat("fold_summary slot not available. ",
+      "Install the v0.3.0 update to forestsearch_cross_validation.R.\n",
+      sep = "")
+}
+```
+
+
+# N-fold (LOO) Cross-Validation Benchmark {#sec-cv-oob}
+
+```{r oob-cv}
+#| message: false
+if (isTRUE(run_loo_cv)) {
+  .t0 <- proc.time()
+  fs_oob <- forestsearch_Kfold(
+    fs.est        = fs,
+    Kfolds        = nrow(df),
+    parallel_args = list(plan = "multisession",
+                         workers = n_workers,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  .oob_seconds <- as.numeric((proc.time() - .t0)["elapsed"])
+
+  fs_oob_out <- forestsearch_KfoldOut(fs_oob, outall = TRUE, details = FALSE)
+  sprintf("LOO CV finished in %.1f s", .oob_seconds)
+} else {
+  cat("LOO CV skipped (run_loo_cv = FALSE).\n")
+}
+```
+
+## Aggregate agreement metrics
+
+```{r oob-aggregate}
+#| eval: !expr run_loo_cv
+.oob_metrics <- data.frame(
+  metric    = c("sens_H", "sens_Hc", "ppv_H", "ppv_Hc",
+                "Any Found", "Exact Match"),
+  value     = c(
+    unname(fs_oob_out$sens_metrics_original["sens_H"]),
+    unname(fs_oob_out$sens_metrics_original["sens_Hc"]),
+    unname(fs_oob_out$sens_metrics_original["ppv_H"]),
+    unname(fs_oob_out$sens_metrics_original["ppv_Hc"]),
+    unname(fs_oob_out$find_metrics["Any"]),
+    unname(fs_oob_out$find_metrics["Exact"])
+  ),
+  threshold = c(0.95, 0.95, 0.95, 0.95, 0.99, 0.98),
+  stringsAsFactors = FALSE
+)
+.oob_metrics$Pass   <- .oob_metrics$value >= .oob_metrics$threshold
+.oob_metrics$Result <- ifelse(.oob_metrics$Pass,
+                              "\U2713 PASS", "\U2717 FAIL")
+
+gt::gt(.oob_metrics) |>
+  gt::tab_header(
+    title    = "Benchmark 3: LOO (N-fold) CV",
+    subtitle = "Pass thresholds per DGM design"
+  ) |>
+  gt::fmt_number(columns = c("value", "threshold"), decimals = 3) |>
+  gt::cols_label(
+    metric    = "Metric",
+    value     = "Observed",
+    threshold = "Threshold",
+    Pass      = "Meets?",
+    Result    = "Result"
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ffcccc"),
+    locations = gt::cells_body(rows = !.oob_metrics$Pass)
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ccffcc"),
+    locations = gt::cells_body(rows = .oob_metrics$Pass)
+  )
+```
+
+## FA_0 vs KfA_0 HR comparison {#sec-fa-vs-kfa}
+
+Under the synthetic DGM with 100% (or nearly so) exact match, the
+KfA_0 subgroup should contain the same subjects as FA_0, so the two
+Cox HRs should agree within Monte-Carlo noise.  A large discrepancy
+here reproduces the disturbing pattern observed in the GBSG LOO
+analysis (Section 5.3.2 of `gbsg_cv_qc.qmd`) and would indicate the
+CV procedure is destabilizing the harm estimate even on easy data.
+
+```{r oob-fa-vs-kfa}
+#| eval: !expr run_loo_cv
+.tab <- fs_oob_out$tab_all
+# tab_all rows: "Overall", "FA_0", "KfA_0", "FA_1", "KfA_1"
+
+.fa_kfa <- data.frame(
+  Analysis = c("FA_0 (full-data harm)",
+               "KfA_0 (LOO-CV harm)"),
+  n        = c(.tab["FA_0", "n"], .tab["KfA_0", "n"]),
+  HR       = c(.tab["FA_0", "Hazard ratio"],
+               .tab["KfA_0", "Hazard ratio"]),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.fa_kfa) |>
+  gt::tab_header(
+    title    = "Full-analysis vs LOO-CV: harm-subgroup Cox HR",
+    subtitle = "True HR in harm subgroup ≈ 2.00"
+  ) |>
+  gt::tab_source_note(paste(
+    "Expected: both HRs in [1.5, 3.0] with similar CIs.",
+    "Large directional disagreement (e.g., FA > 1.5 but KfA < 1.0)",
+    "signals CV instability despite an easy DGM."
+  ))
+```
+
+
+# Benchmark summary {#sec-summary}
+
+```{r overall-summary}
+.all_passes <- c(
+  full_fs = .bench1$Pass,
+  kfold   = all(.kfold_metrics$Pass)
+)
+
+if (isTRUE(run_loo_cv)) {
+  .all_passes <- c(.all_passes, oob = all(.oob_metrics$Pass))
+}
+
+.total <- all(.all_passes)
+.status <- ifelse(.total,
+                  "\U2713 ALL BENCHMARKS PASSED",
+                  "\U2717 ONE OR MORE BENCHMARKS FAILED")
+
+.overall_df <- data.frame(
+  Stage = c(
+    "Full-data identification",
+    "10-fold CV (all metrics)",
+    if (isTRUE(run_loo_cv)) "LOO CV (all metrics)" else NULL
+  ),
+  Result = c(
+    ifelse(.all_passes["full_fs"], "\U2713 PASS", "\U2717 FAIL"),
+    ifelse(.all_passes["kfold"],   "\U2713 PASS", "\U2717 FAIL"),
+    if (isTRUE(run_loo_cv))
+      ifelse(.all_passes["oob"],   "\U2713 PASS", "\U2717 FAIL")
+  ),
+  stringsAsFactors = FALSE
+)
+
+gt::gt(.overall_df) |>
+  gt::tab_header(title = .status) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ccffcc"),
+    locations = gt::cells_body(rows = grepl("PASS", .overall_df$Result))
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#ffcccc"),
+    locations = gt::cells_body(rows = grepl("FAIL", .overall_df$Result))
+  )
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```
