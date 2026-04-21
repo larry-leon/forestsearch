@@ -189,8 +189,8 @@ grf_est <- grf.subg.harm.survival(
   treat.name = treat.name,
   maxdepth = 2,
   n.min = 60,
-  dmin.grf = 12,
-  frac.tau = 0.6,
+  dmin.grf = 0,
+  frac.tau = 1,
   details = TRUE,
   return_selected_cuts_only = FALSE
 )
@@ -224,7 +224,7 @@ operations (bootstrap, cross-validation).
 
 ```{r parallel-setup}
 # Detect available cores (limited to 2 cores for CRAN checks)
-n_cores <- 12
+n_cores <- 120
 n_cores_total <- parallel::detectCores()
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 ```
@@ -261,14 +261,16 @@ fs <- forestsearch(
   # Threshold parameters (per León et al. 2024)
   hr.threshold = 1.25,
   hr.consistency = 1.0,
-  pconsistency.threshold = 0.80,
-  stop_threshold = 0.80,
+  pconsistency.threshold = 0.90,
+  stop_threshold = 0.95,
   # Search configuration
-  sg_focus = "hr",
-  max_subgroups_search = 3,
+  sg_focus = "maxSG",
+  max_subgroups_search = 10,
   use_twostage = TRUE,
   # Factor selection
   use_grf = TRUE,
+  dmin.grf = 0,
+  frac.tau = 0.80,
   return_selected_cuts_only = TRUE,
   use_lasso = TRUE,
   cut_type = "default",
@@ -390,7 +392,7 @@ Bootstrap bias correction addresses this by:
 ```{r bootstrap}
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 20
+NB <- 2000
 
 t0 <- proc.time()
 
@@ -460,9 +462,7 @@ Low event counts can lead to unstable HR estimates. This summary helps
 identify potential issues:
 
 ```{r event-summary}
-# note that default required minimum events is 12 for subgroup candidate
-# Here we evaluate frequency of subgroup candidates in bootstrap samples less than 15
-event_summary <- summarize_bootstrap_events(fs_bc, threshold = 15)
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 10)
 ```
 
 ### Bootstrap Diagnostics
@@ -510,7 +510,7 @@ Two approaches are available:
 ```{r kfold-cv}
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
-Ksims <- 10
+Ksims <- 50
 
 t0 <- proc.time()
 
@@ -544,7 +544,7 @@ t0 <- proc.time()
 fs_OOB <- forestsearch_Kfold(
   fs.est = fs,
   details = FALSE,
-  Kfolds = round(nrow(df.analysis) / 100, 0),  # N-fold = leave-one-out
+  Kfolds = nrow(df.analysis),  # N-fold = leave-one-out
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,

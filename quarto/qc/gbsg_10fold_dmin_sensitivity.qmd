@@ -129,10 +129,10 @@ fs_args_base <- list(
 
 # 10-fold CV
 Ksims_cv  <- 100L
-Kfolds_cv <- 10L
+Kfolds_cv <- 30L
 
 # Parallel execution
-n_workers <- max(1L, parallel::detectCores() - 1L)
+n_workers <- floor(0.95*max(1L, parallel::detectCores() - 1L))
 ```
 
 ```{r data-setup}

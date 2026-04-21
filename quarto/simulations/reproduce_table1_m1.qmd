@@ -27,7 +27,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Simulation budget ---------------------------------------------------------
-nsims              <- 20000L        # Paper uses 20000; scale up for production
+nsims              <- 1000L        # Paper uses 20000; scale up for production
 n_workers          <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 # -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------
@@ -265,6 +265,8 @@ fs_params_lasso <- list(
   maxk                   = fs_maxk,
   vi.grf.min             = fs_vi_grf_min,
   seedit                 = fs_seedit,
+  dmin.grf = 4,
+  frac.tau = 0.6,
   use_lasso              = TRUE,
   use_grf                = FALSE,    # FSl: LASSO only
   use_twostage           = FALSE,     # v0.2.0 default (3-10x speedup)
