@@ -64,6 +64,13 @@ Six 10-fold CV variants side-by-side:
 Expected runtime: ~45–60 minutes for all six runs at 100 sims × 10
 folds each.
 
+**Checkpoint behavior.** The six CV runs are saved to
+`gbsg_10fold_dmin_sensitivity_checkpoint.rds` in the working
+directory immediately after completion, before any downstream
+post-processing.  If that file exists at render time, the CV is
+skipped and results are loaded from disk.  To force a rerun, delete
+the checkpoint file.
+
 
 # Setup {#sec-setup}
 
@@ -87,7 +94,7 @@ event.name       <- "status"
 treat.name       <- "hormon"
 id.name          <- "id"
 
-# Base args shared across all four runs.  dmin.grf and conf_force vary;
+# Base args shared across all six runs.  dmin.grf and conf_force vary;
 # everything else mirrors the prior diagnostic (which in turn matches
 # gbsg_cv_qc.qmd paper-reproduction config).
 fs_args_base <- list(
@@ -216,22 +223,48 @@ gt::gt(.full_summary) |>
   out
 }
 
-message("Running six 10-fold CV configs:")
-tf_A <- .run_tenfold(fs_A, "A: dmin=12 base   ")
-tf_B <- .run_tenfold(fs_B, "B: dmin=12 forced ")
-tf_C <- .run_tenfold(fs_C, "C: dmin=6  base   ")
-tf_D <- .run_tenfold(fs_D, "D: dmin=6  forced ")
-tf_E <- .run_tenfold(fs_E, "E: dmin=4  base   ")
-tf_F <- .run_tenfold(fs_F, "F: dmin=4  forced ")
+# Checkpoint path.  If this file exists, the expensive CV runs are
+# skipped and the six tf_* objects are loaded from disk.  Delete the
+# file (or set .checkpoint_path <- tempfile()) to force a rerun.
+.checkpoint_path <- "gbsg_10fold_dmin_sensitivity_checkpoint.rds"
+
+if (file.exists(.checkpoint_path)) {
+  message(sprintf("Loading CV results from checkpoint: %s",
+                  .checkpoint_path))
+  .ckpt <- readRDS(.checkpoint_path)
+  tf_A <- .ckpt$tf_A; tf_B <- .ckpt$tf_B
+  tf_C <- .ckpt$tf_C; tf_D <- .ckpt$tf_D
+  tf_E <- .ckpt$tf_E; tf_F <- .ckpt$tf_F
+  rm(.ckpt)
+} else {
+  message("Running six 10-fold CV configs:")
+  tf_A <- .run_tenfold(fs_A, "A: dmin=12 base   ")
+  tf_B <- .run_tenfold(fs_B, "B: dmin=12 forced ")
+  tf_C <- .run_tenfold(fs_C, "C: dmin=6  base   ")
+  tf_D <- .run_tenfold(fs_D, "D: dmin=6  forced ")
+  tf_E <- .run_tenfold(fs_E, "E: dmin=4  base   ")
+  tf_F <- .run_tenfold(fs_F, "F: dmin=4  forced ")
+
+  # Write the checkpoint BEFORE any downstream post-processing, so a
+  # bug in a table-formatting chunk doesn't cost us the CV results.
+  saveRDS(
+    list(tf_A = tf_A, tf_B = tf_B, tf_C = tf_C,
+         tf_D = tf_D, tf_E = tf_E, tf_F = tf_F),
+    .checkpoint_path
+  )
+  message(sprintf("Wrote checkpoint to %s", .checkpoint_path))
+}
+
+.get_runtime <- function(tf) {
+  x <- attr(tf, "runtime_seconds")
+  if (is.null(x)) NA_real_ else as.numeric(x)
+}
 
 .runtime_summary <- data.frame(
   Config  = .config_labels,
-  Seconds = c(attr(tf_A, "runtime_seconds"),
-              attr(tf_B, "runtime_seconds"),
-              attr(tf_C, "runtime_seconds"),
-              attr(tf_D, "runtime_seconds"),
-              attr(tf_E, "runtime_seconds"),
-              attr(tf_F, "runtime_seconds")),
+  Seconds = c(.get_runtime(tf_A), .get_runtime(tf_B),
+              .get_runtime(tf_C), .get_runtime(tf_D),
+              .get_runtime(tf_E), .get_runtime(tf_F)),
   stringsAsFactors = FALSE
 )
 
@@ -333,13 +366,18 @@ the policy tree return nothing at all?
   .grf_dist(tf_E, "E: dmin=4  base"),
   .grf_dist(tf_F, "F: dmin=4  forced")
 )
-names(.grf_all)[names(.grf_all) == "cuts"] <- "GRF cuts"
-names(.grf_all)[names(.grf_all) == "Freq"] <- "n folds"
-names(.grf_all)[names(.grf_all) == "Pct"]  <- "% folds"
+names(.grf_all)[names(.grf_all) == "cuts"] <- "grf_cut"
+names(.grf_all)[names(.grf_all) == "Freq"] <- "n_folds"
+names(.grf_all)[names(.grf_all) == "Pct"]  <- "pct_folds"
 
 gt::gt(.grf_all,
        groupname_col = "Config",
        row_group_as_column = TRUE) |>
+  gt::cols_label(
+    grf_cut   = "GRF cuts",
+    n_folds   = "n folds",
+    pct_folds = "% folds"
+  ) |>
   gt::tab_header(
     title    = "Top GRF cut strings across 10-fold training sets",
     subtitle = "Full grf_cuts column; not projected to any single variable"
@@ -375,13 +413,18 @@ gt::gt(.grf_all,
   .er_proj(tf_E, "E: dmin=4  base"),
   .er_proj(tf_F, "F: dmin=4  forced")
 )
-names(.er_all)[names(.er_all) == "er_cut"] <- "er-cut projection"
-names(.er_all)[names(.er_all) == "Freq"]   <- "n folds"
-names(.er_all)[names(.er_all) == "Pct"]    <- "% folds"
+names(.er_all)[names(.er_all) == "er_cut"] <- "er_cut_proj"
+names(.er_all)[names(.er_all) == "Freq"]   <- "n_folds"
+names(.er_all)[names(.er_all) == "Pct"]    <- "pct_folds"
 
 gt::gt(.er_all,
        groupname_col = "Config",
        row_group_as_column = TRUE) |>
+  gt::cols_label(
+    er_cut_proj = "er-cut projection",
+    n_folds     = "n folds",
+    pct_folds   = "% folds"
+  ) |>
   gt::tab_header(
     title    = "GRF `er`-cut projection (for continuity with prior doc)",
     subtitle = "'(no er cut)' means GRF split on other variable(s); '(no GRF cut)' means GRF returned nothing"
@@ -415,15 +458,17 @@ or a non-`er` subgroup based on the GRF cut.
   fsum$grf_clean <- vapply(fsum$grf_cuts, .clean_grf, character(1))
   fsum$sg_full   <- .build_sg_full(fsum)
 
+  # Use simple names here; as.data.frame.table() would mangle names
+  # containing spaces into dotted names, breaking the column-select
+  # below.  Rename at the gt-display step instead.
   tab <- as.data.frame(
-    table(`GRF cuts`  = fsum$grf_clean,
-          `Identified subgroup` = fsum$sg_full),
+    table(grf_cut = fsum$grf_clean, subgroup = fsum$sg_full),
     stringsAsFactors = FALSE
   )
   tab <- tab[tab$Freq > 0, , drop = FALSE]
-  names(tab)[names(tab) == "Freq"] <- "n folds"
+  names(tab)[names(tab) == "Freq"] <- "n_folds"
   tab$Config <- label
-  tab <- tab[order(-tab[["n folds"]]), , drop = FALSE]
+  tab <- tab[order(-tab$n_folds), , drop = FALSE]
   tab
 }
 ```
@@ -432,11 +477,16 @@ or a non-`er` subgroup based on the GRF cut.
 
 ```{r xtab-A}
 .xA <- .xtab(tf_A, "A: dmin=12 base")
-gt::gt(.xA[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xA[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "A: dmin.grf = 12, baseline",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xA[["n folds"]]))
+                       sum(.xA$n_folds))
   )
 ```
 
@@ -444,11 +494,16 @@ gt::gt(.xA[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 
 ```{r xtab-B}
 .xB <- .xtab(tf_B, "B: dmin=12 forced")
-gt::gt(.xB[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xB[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "B: dmin.grf = 12, forced",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xB[["n folds"]]))
+                       sum(.xB$n_folds))
   )
 ```
 
@@ -456,11 +511,16 @@ gt::gt(.xB[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 
 ```{r xtab-C}
 .xC <- .xtab(tf_C, "C: dmin=6  base")
-gt::gt(.xC[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xC[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "C: dmin.grf = 6, baseline",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xC[["n folds"]]))
+                       sum(.xC$n_folds))
   )
 ```
 
@@ -468,11 +528,16 @@ gt::gt(.xC[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 
 ```{r xtab-D}
 .xD <- .xtab(tf_D, "D: dmin=6  forced")
-gt::gt(.xD[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xD[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "D: dmin.grf = 6, forced",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xD[["n folds"]]))
+                       sum(.xD$n_folds))
   )
 ```
 
@@ -480,11 +545,16 @@ gt::gt(.xD[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 
 ```{r xtab-E}
 .xE <- .xtab(tf_E, "E: dmin=4  base")
-gt::gt(.xE[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xE[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "E: dmin.grf = 4, baseline",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xE[["n folds"]]))
+                       sum(.xE$n_folds))
   )
 ```
 
@@ -492,11 +562,16 @@ gt::gt(.xE[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 
 ```{r xtab-F}
 .xF <- .xtab(tf_F, "F: dmin=4  forced")
-gt::gt(.xF[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
+gt::gt(.xF[, c("grf_cut", "subgroup", "n_folds")]) |>
+  gt::cols_label(
+    grf_cut  = "GRF cuts",
+    subgroup = "Identified subgroup",
+    n_folds  = "n folds"
+  ) |>
   gt::tab_header(
     title    = "F: dmin.grf = 4, forced",
     subtitle = sprintf("%d total sim × fold pairs",
-                       sum(.xF[["n folds"]]))
+                       sum(.xF$n_folds))
   )
 ```
 
@@ -507,30 +582,20 @@ gt::gt(.xF[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 .headline <- function(tf, label) {
   fsum <- tf$fold_summary
   grf  <- vapply(fsum$grf_cuts, .clean_grf, character(1))
-  er   <- vapply(fsum$grf_cuts, .extract_er_cut, character(1))
   sg   <- .build_sg_full(fsum)
 
+  has_er_cut <- grepl("^er\\b", fsum$grf_cuts) |
+                grepl("\\| *er\\b", fsum$grf_cuts)
+  has_er_cut[is.na(has_er_cut)] <- FALSE
+
+  fmt_pct <- function(x) sprintf("%d (%.1f%%)", sum(x), 100 * mean(x))
+
   data.frame(
-    Config                               = label,
-    `Folds with GRF producing any cut`  = sprintf(
-      "%d (%.1f%%)",
-      sum(grf != "(no GRF cut)"),
-      100 * mean(grf != "(no GRF cut)")),
-    `Folds with GRF cut containing er`  = sprintf(
-      "%d (%.1f%%)",
-      sum(grepl("^er\\b", fsum$grf_cuts) |
-          grepl("\\| *er\\b", fsum$grf_cuts)),
-      100 * mean(grepl("^er\\b", fsum$grf_cuts) |
-                 grepl("\\| *er\\b", fsum$grf_cuts))),
-    `Folds identifying {er <= 0} exactly` = sprintf(
-      "%d (%.1f%%)",
-      sum(sg == "{er <= 0}"),
-      100 * mean(sg == "{er <= 0}")),
-    `Folds with no subgroup identified`   = sprintf(
-      "%d (%.1f%%)",
-      sum(sg == "(no subgroup)"),
-      100 * mean(sg == "(no subgroup)")),
-    check.names = FALSE,
+    Config          = label,
+    grf_any_cut     = fmt_pct(grf != "(no GRF cut)"),
+    grf_er_cut      = fmt_pct(has_er_cut),
+    sg_er0_exact    = fmt_pct(sg == "{er <= 0}"),
+    sg_none         = fmt_pct(sg == "(no subgroup)"),
     stringsAsFactors = FALSE
   )
 }
@@ -545,6 +610,12 @@ gt::gt(.xF[, c("GRF cuts", "Identified subgroup", "n folds")]) |>
 )
 
 gt::gt(.all_headline) |>
+  gt::cols_label(
+    grf_any_cut  = "GRF produced any cut",
+    grf_er_cut   = "GRF cut contains er",
+    sg_er0_exact = "Identified {er <= 0} exactly",
+    sg_none      = "No subgroup identified"
+  ) |>
   gt::tab_header(title = "Headline figures across six configs") |>
   gt::tab_source_note(paste(
     "Compare the base configs (A -> C -> E) to see the effect of",
