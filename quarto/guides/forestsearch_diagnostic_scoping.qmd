@@ -1,0 +1,403 @@
+---
+title: "Expanding Bootstrap and Cross-Validation Diagnostics in forestsearch"
+subtitle: "Scoping document for v0.3.0 (post-GLM-extension) development"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-fold: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+---
+
+# Purpose and context
+
+The `forestsearch` package currently provides
+`summarize_bootstrap_results()` as the primary post-hoc summary
+tool for bootstrap analyses.  This function produces a formatted
+treatment-effect table, bootstrap diagnostics, timing summaries,
+and (via `summarize_bootstrap_subgroups()`) a subgroup-stability
+summary with basic statistics, consistency distributions, factor
+frequencies, and original-analysis agreement counts.
+
+During investigation of GBSG's cross-validation behavior in
+early 2026, a set of additional diagnostics proved essential:
+
+- **Per-fold `grf_cuts` capture** (now in `fold_summary` of
+  `forestsearch_tenfold()` as of the `feature/glm-extension`
+  branch): the raw GRF policy-tree output for each training
+  set, letting the analyst distinguish "GRF found a cut on a
+  different variable" from "GRF found no cut."
+- **GRF cut × identified subgroup cross-tabs**: aggregates
+  showing, for each unique GRF output, what subgroup the
+  pipeline identified.  Reveals whether GRF and the
+  consistency stage are aligned or are finding different
+  signals.
+- **Sensitivity sweep over `dmin.grf` and `frac.tau`**: the
+  six-cell design (three `dmin.grf` values × two `conf_force`
+  states) that characterized GRF's contribution to candidate
+  discovery under training-set perturbation.
+- **Fold-level no-subgroup rate and its decomposition**:
+  separating "GRF failed to surface any cut" from "GRF found
+  a cut but consistency stage rejected it."
+
+These were built as post-hoc Quarto documents and bespoke R
+scripts operating on the `fold_summary` data frame.  The
+evidence they surfaced was decisive for interpreting the CV
+results (see `gbsg_10fold_dmin_sensitivity.qmd` and the
+companion vignette section on `conf_force`).
+
+This scoping document describes how to promote that one-off
+work into first-class package features.
+
+
+# Current state
+
+## What `summarize_bootstrap_results()` provides
+
+For bootstrap analyses only (`forestsearch_bootstrap_dofuture()`
+output):
+
+- Formatted gt table of treatment effects with subgroup footnote
+- Bootstrap diagnostic metrics and gt table
+- Optional diagnostic plots
+- Subgroup-stability summary (via
+  `summarize_bootstrap_subgroups()`):
+  - Basic statistics (median / quartiles of `Pcons`, `hr_sg`,
+    `N_sg`, `K_sg`)
+  - Consistency distribution binned by `Pcons`
+  - Subgroup size distribution
+  - Factor frequency (by position and overall)
+  - Agreement with original subgroup definition
+  - Factor presence counts (base factors)
+- Timing analysis (if timing data is available)
+
+## What the CV functions provide
+
+`forestsearch_tenfold()` and `forestsearch_Kfold()` return:
+
+- Sensitivity and finding metrics (`sens_summary`,
+  `find_summary`, `sens_out`, `find_out`)
+- `fold_summary` data frame with columns `sim`, `fold`,
+  `n_test`, `sg1`, `sg2`, `grf_cuts`, `any_found`
+- Optional `resCV_all` (full per-subject CV predictions) if
+  `keep_resCV = TRUE`
+- Timing information
+
+There is currently **no analogue to
+`summarize_bootstrap_results()` for CV output**.  The
+`fold_summary` data is exposed but the analyst must write
+their own aggregations.
+
+
+# Proposed additions
+
+Three categories, in order of independence and ease:
+
+1. CV post-hoc summary function (analogous to
+   `summarize_bootstrap_results()`)
+2. Diagnostic capture enhancements (more state preserved in
+   `fold_summary` and bootstrap results)
+3. Sensitivity-sweep driver (runs multiple configs and
+   aggregates)
+
+## Category 1: CV post-hoc summary
+
+A new exported function `summarize_cv_results()` parallel to
+`summarize_bootstrap_results()`.  Signature:
+
+```r
+summarize_cv_results <- function(cv_output,
+                                 original_sg = NULL,
+                                 original_grf_cuts = NULL,
+                                 create_plots = FALSE)
+```
+
+Returns a list with components:
+
+- **`identification_summary`** — gt table of top identified
+  subgroups across the sim × fold grid, with counts and
+  percentages.  Analogous to `summarize_bootstrap_subgroups()`
+  factor frequencies but for `fold_summary$sg1`, `sg2`.
+- **`grf_cut_summary`** — gt table of the top raw `grf_cuts`
+  strings, showing how often GRF returned each output.
+  Analyst reads: "GRF returned `er <= 0` on 85% of training
+  sets; returned no cut on 10%; returned non-`er` cuts on 5%."
+- **`cut_vs_subgroup_xtab`** — gt table cross-tabulating
+  unique `grf_cuts` strings against identified subgroups.
+  The interpretation table: when GRF returned X, the pipeline
+  identified Y; reveals whether GRF's discovery aligns with
+  the pipeline's final selection.
+- **`no_subgroup_decomposition`** — tabulation of folds that
+  identified no subgroup, broken into "GRF returned no cut"
+  vs "GRF returned a cut but consistency rejected it."  This
+  tells the analyst whether to relax `dmin.grf` or
+  `pconsistency.threshold`.
+- **`original_agreement`** — if `original_sg` and
+  `original_grf_cuts` are supplied, fraction of folds matching
+  the original analysis subgroup exactly, matching on factor
+  presence, matching on GRF cut, and all combinations.
+- **`metrics_table`** — formatted version of `sens_summary`
+  and `find_summary`.
+- **`plots`** — if `create_plots = TRUE`: histograms of fold
+  counts by GRF cut, by identified subgroup; distribution of
+  fold size `n_test`; timeline of per-sim subgroup churn.
+
+All of this runs on the existing `fold_summary` object and
+requires no re-rendering.  The analyst can call
+`summarize_cv_results(my_cv_output)` directly.
+
+Implementation scope: one new file
+`R/summarize_cv_results.R` plus helpers.  Probably 200--400
+lines of R.  Tests: unit tests for each helper using the
+existing GBSG QC artifact.
+
+## Category 2: Diagnostic capture enhancements
+
+### CV enhancements
+
+Currently `fold_summary` has `sg1`, `sg2`, `grf_cuts`,
+`any_found`.  Useful additions:
+
+- **`pconsistency`**: the actual `Pcons` value achieved by
+  the identified subgroup on each fold (NA if no subgroup).
+  Lets the analyst see how close rejected candidates were to
+  the 0.90 threshold.
+- **`lasso_selected`**: list column of LASSO-kept variables
+  per fold.  Reveals whether LASSO itself varies across
+  training sets.
+- **`n_candidates_evaluated`**: integer count of candidates
+  that reached the consistency stage on each fold.  A large
+  value means the pipeline did a lot of work; a small value
+  means GRF/LASSO pruned aggressively.
+- **`training_fs_hr`**: the subgroup HR on the training fold
+  (not the test HR).  Comparing to the test-fold HR reveals
+  in-sample optimism.
+
+Most of these are already computed internally in
+`forestsearch()`; the change is to surface them in the return
+object.  Adding one column at a time is safe and
+backward-compatible.
+
+### Bootstrap enhancements
+
+`forestsearch_bootstrap_dofuture()` already returns `results`
+with `M.1`, `M.2`, `Pcons`, `hr_sg`, `N_sg`, `K_sg`.  Useful
+additions:
+
+- **`grf_cuts_b`**: the raw `grf_cuts` per bootstrap
+  iteration.  Bootstrap currently doesn't preserve this
+  (unlike the CV path).  Same motivation: distinguish "GRF
+  did not find a cut" from "GRF found a different cut" across
+  resamples.
+- **`n_candidates_evaluated_b`**: same as CV.
+- **`training_fs_hr_b`** vs test-set HR: bias measurement.
+- **`conf_force_triggered`**: for each bootstrap, indicator
+  of whether the identified subgroup matches a `conf_force`
+  candidate vs a GRF-discovered one.
+
+## Category 3: Sensitivity-sweep driver
+
+A new wrapper `forestsearch_sensitivity_sweep()`:
+
+```r
+forestsearch_sensitivity_sweep <- function(
+  fs_base,                  # baseline forestsearch output
+  vary_dmin_grf = NULL,     # vector of values to try
+  vary_frac_tau = NULL,
+  vary_conf_force = NULL,   # list of conf_force candidate vectors
+  vary_pconsistency = NULL,
+  sims = 100L,
+  Kfolds = 10L,
+  cv_method = c("tenfold", "kfold"),
+  parallel_args = NULL,
+  checkpoint_path = NULL
+)
+```
+
+Runs the Cartesian product of the `vary_*` arguments (each
+defaults to "the single value from `fs_base$args_call_all`"
+if `NULL`, giving a single run), and returns a data frame
+with one row per config × sim × fold, plus aggregated summary
+tables.
+
+The checkpoint-path argument is critical: long sweeps
+(~30-60 min each) benefit from incremental saving so partial
+failures don't discard completed work.  Pattern borrowed
+directly from what we added to the sensitivity QMD.
+
+Implementation scope: 200--300 lines; uses existing
+`forestsearch_tenfold()` / `forestsearch_Kfold()` inside.
+Output directly consumable by `summarize_cv_results()`.
+
+
+# Phased plan
+
+Category 1 and the CV enhancements in Category 2 are the
+highest-value and lowest-risk additions.  Recommend this
+sequence:
+
+## Phase A: CV summary function (Category 1, v0.3.0)
+
+- Implement `summarize_cv_results()` with current
+  `fold_summary` columns.
+- Add vignette section documenting its use.
+- Unit tests against GBSG artifact.
+
+Independent of everything else.  Can ship with the GLM
+extension release.
+
+## Phase B: CV diagnostic capture (Category 2, CV, v0.3.0 or v0.3.1)
+
+- Add one column at a time to `fold_summary`.  Start with
+  `pconsistency` (most diagnostic value for threshold
+  calibration).
+- Extend `summarize_cv_results()` to use new columns.
+- Document backward compatibility: old `fold_summary` objects
+  still work; new columns are NA if missing.
+
+Can be staged across multiple point releases.
+
+## Phase C: Bootstrap enhancements (Category 2, bootstrap, v0.3.x)
+
+- Add `grf_cuts_b` preservation to
+  `forestsearch_bootstrap_dofuture()`.
+- Extend `summarize_bootstrap_subgroups()` to use it.
+- Same backward-compatibility pattern as CV.
+
+## Phase D: Sensitivity sweep (Category 3, v0.4.0)
+
+- Implement `forestsearch_sensitivity_sweep()`.
+- Depends on A, B, and C (sweep output feeds the summaries).
+- This is the biggest piece; worth its own release once the
+  plumbing is in place.
+
+
+# Open design questions
+
+Before implementation starts, these are worth resolving:
+
+1. **Should `summarize_cv_results()` cover both
+   `forestsearch_tenfold()` and `forestsearch_Kfold()` (LOO)
+   output, or have separate entry points?**
+
+   Current thinking: single function with detection of the
+   output type via an attribute or via presence of `sims`
+   vs `Kfolds = N`.  LOO output is a degenerate case
+   (`sims = 1`, `Kfolds = N`) of the tenfold path in terms
+   of `fold_summary` structure.
+
+2. **Should the CV and bootstrap summary functions share a
+   common `summarize_resampling_results()` core, with
+   `summarize_cv_results()` and `summarize_bootstrap_results()`
+   as thin wrappers?**
+
+   The factor-frequency, consistency-distribution, and
+   agreement-counts logic is already duplicated across CV
+   post-hoc scripts and `summarize_bootstrap_subgroups()`.
+   Refactoring now is cleaner than post-hoc consolidation.
+
+3. **How much of the `gt` table formatting should live in the
+   diagnostic function versus in separate
+   `format_cv_*_tables()` helpers?**
+
+   Current bootstrap code has
+   `format_subgroup_summary_tables()` as a separate function.
+   Mirror that pattern for CV.
+
+4. **Checkpoint mechanism for `forestsearch_sensitivity_sweep()`**:
+   file-based `.rds` as in our Quarto examples, or something
+   more structured (e.g., `arrow` / `parquet` for large
+   sweeps)?
+
+   For v0.4.0 scope, file-based `.rds` at one file per config
+   is probably sufficient.  Large-scale parallel sweeps could
+   motivate `parquet` later.
+
+5. **Is the `conf_force` vs GRF-discovered indicator
+   (`conf_force_triggered`) worth preserving?**
+
+   It requires tracking candidate provenance through the
+   `forestsearch()` pipeline, which is more invasive than
+   the other additions.  Probably defer to v0.4.0 or later
+   unless there's a strong motivating use case.
+
+
+# Why continue this work in a fresh chat
+
+The existing chat (from which this scoping document
+originated) contains roughly forty turns of investigative
+work across multiple days: unit-scale debugging, sensitivity
+rendering, vignette drafting.  Most of that context is no
+longer actively useful for implementation decisions.
+
+Starting a fresh chat lets the design discussion focus on:
+
+- API design for `summarize_cv_results()`
+- Exact column additions to `fold_summary` and bootstrap
+  `results`
+- Test coverage and backward compatibility
+- Vignette integration
+
+without dragging along the investigative noise.  The memory
+system preserves the high-level context (`fold_summary` now
+has `grf_cuts`; `frac.tau = 0.8, dmin.grf = 6` worked well
+for GBSG; `conf_force` helps even when GRF succeeds).  For
+specific details, `conversation_search` can find the
+relevant threads.
+
+Suggested opening for a new chat:
+
+> I'd like to implement diagnostic expansions for
+> cross-validation and bootstrap in the forestsearch
+> package, based on the scoping in
+> `forestsearch_diagnostic_scoping.qmd`.  Let's start with
+> Phase A: implementing `summarize_cv_results()`.
+
+
+# Artifacts from the preceding investigation
+
+These are the reference documents that informed this
+scoping:
+
+- `gbsg_er_forced_cut_diagnostic.qmd` / `.html`:
+  LOO-scale diagnostic comparing baseline and
+  `conf_force = c("er <= 0")` at `dmin.grf = 4`,
+  `frac.tau = 0.8`.
+- `gbsg_10fold_cv_diagnostic.qmd` / `.html`: first
+  100 × 10-fold CV with `grf_cuts` capture patched into
+  `forestsearch_cross_validation.R`.
+- `gbsg_10fold_dmin_sensitivity.qmd` / `.html`: six-config
+  sensitivity sweep at `dmin.grf ∈ {12, 6, 4}` ×
+  `conf_force ∈ {NULL, c("er <= 0")}`, `frac.tau = 0.8`.
+- `vignette_section_conf_force.qmd`: drop-in vignette
+  section documenting candidate-specification strategy and
+  the six-step diagnostic workflow.
+- `forestsearch_cross_validation.R` (patched): adds
+  `grf_cuts` column to `fold_summary` return slot of
+  `forestsearch_tenfold()`.
+
+The key empirical findings:
+
+- GBSG 100 × 10-fold CV at `dmin.grf = 12`, `frac.tau = 0.8`:
+  GRF returns a cut on 89.8% of 1000 training sets,
+  contains `er` on 87.7%.  Pipeline identifies `{er <= 0}`
+  exactly on 48.3%, no subgroup on 15.4%.
+- Same design with `conf_force = c("er <= 0")`: no-subgroup
+  drops to 7.0%, exact identification rises to 51.7%,
+  `sens_H` rises from 0.622 to 0.707.
+- Relaxing `dmin.grf` to 6 closes the GRF-coverage gap
+  (to 100% and 97.8% respectively).  Further relaxation
+  to 4 produces identical output --- plateau reached.
+- `conf_force` still adds value even at the relaxed
+  threshold (`sens_H` 0.689 → 0.707, no-subgroup
+  8.1% → 6.9%).
+- The ~25-30% of folds that identify non-`er` subgroups
+  (age partitions, `{grade3} & {pgr <= 7}` compounds)
+  persist across all configs.  These reflect genuine
+  consistency-stage behavior on specific resamples, not
+  algorithmic failure.

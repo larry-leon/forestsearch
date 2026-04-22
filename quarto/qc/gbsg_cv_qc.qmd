@@ -162,7 +162,8 @@ fs <- forestsearch(
   # Factor selection
   use_grf                   = TRUE,
   return_selected_cuts_only = TRUE,
-  dmin.grf = 6,
+  dmin.grf = 0,
+  # 6-months looks good
   frac.tau = 0.8,
   use_lasso                 = FALSE,
   cut_type                  = "default",
@@ -386,7 +387,7 @@ set.seed(8316951L + 1000L * 1L)
 .df_scrambled <- .dfnew[.id_sample, ]
 
 # Replicate fold assignment: cut(seq_len(N), breaks = Kfolds)
-.folds_sim1 <- cut(seq_len(nrow(.df_scrambled)), breaks = 10, labels = FALSE)
+.folds_sim1 <- cut(seq_len(nrow(.df_scrambled)), breaks = 5, labels = FALSE)
 
 # Build verbose cv_args (mirrors forestsearch_tenfold SECTION 3
 # except details/quiet flags are flipped ON for inspection).
@@ -470,7 +471,7 @@ t0 <- proc.time()
 fs_kfold <- forestsearch_tenfold(
   fs.est        = fs,
   sims          = Ksims_cv,
-  Kfolds        = 10,
+  Kfolds        = 5,
   details       = FALSE,
   parallel_args = list(
     plan         = "multisession",
@@ -650,7 +651,7 @@ if (debug_splitter_sims > 0L) {
     forestsearch_tenfold(
       fs.est        = fs,
       sims          = debug_splitter_sims,
-      Kfolds        = 10,
+      Kfolds        = 5,
       details       = FALSE,
       parallel_args = list(plan = "sequential",
                            workers = 1, show_message = FALSE)
@@ -683,7 +684,7 @@ if (debug_splitter_sims > 0L) {
   fs_kfold_current <- forestsearch_tenfold(
     fs.est        = fs,
     sims          = debug_splitter_sims,
-    Kfolds        = 10,
+    Kfolds        = 5,
     details       = FALSE,
     parallel_args = list(plan = "sequential",
                          workers = 1, show_message = FALSE)

@@ -413,14 +413,38 @@ forestsearch_Kfold <- function(
 #'   \item{find_out}{Matrix of finding metrics (sims x metrics)}
 #'   \item{fold_summary}{Data frame with one row per (sim, fold) combination.
 #'     Columns: \code{sim}, \code{fold}, \code{n_test}, \code{sg1}, \code{sg2},
-#'     \code{grf_cuts}, \code{any_found}.  The \code{grf_cuts} column records
-#'     the GRF policy-tree cut expressions returned for each training fold
-#'     (collapsed with " | " when multiple cuts are returned; \code{NA} when
-#'     GRF was not used, failed, or returned no cuts).  Always returned
-#'     (compact; cheap).  Lets you tabulate, for example, which subgroup was
-#'     identified in each fold of each simulation, the empirical distribution
-#'     of GRF cut choices across the full sim x fold grid, or the
-#'     relationship between GRF's cut and the final identified subgroup.}
+#'     \code{grf_cuts}, \code{pconsistency}, \code{training_fs_hr},
+#'     \code{n_candidates_evaluated}, \code{any_found}.
+#'
+#'     \itemize{
+#'       \item \code{grf_cuts}: GRF policy-tree cut expressions returned
+#'         for each training fold (collapsed with " | " when multiple
+#'         cuts are returned; \code{NA} when GRF was not used, failed,
+#'         or returned no cuts).
+#'       \item \code{pconsistency}: consistency probability (\code{Pcons})
+#'         achieved by the identified subgroup on each fold
+#'         (\code{NA_real_} when no subgroup was identified or the
+#'         training ForestSearch call errored).
+#'       \item \code{training_fs_hr}: in-sample hazard ratio (or GLM
+#'         effect estimate, on its natural scale) for the identified
+#'         subgroup on the training fold.  Optimistically biased
+#'         relative to any independent estimate; surfaced for
+#'         diagnostic comparison only.  \code{NA_real_} when no
+#'         subgroup was identified.
+#'       \item \code{n_candidates_evaluated}: integer count of candidate
+#'         subgroups actually evaluated for consistency on this training
+#'         fold.  Populated whenever the consistency stage ran (even if
+#'         zero candidates met the threshold and thus no subgroup was
+#'         identified); \code{NA_integer_} when the training call
+#'         errored or consistency evaluation did not run.
+#'     }
+#'
+#'     Always returned (compact; cheap).  Lets you tabulate, for
+#'     example, which subgroup was identified in each fold of each
+#'     simulation, the empirical distribution of GRF cut choices
+#'     across the full sim x fold grid, the relationship between GRF's
+#'     cut and the final identified subgroup, or the near-miss
+#'     consistency values among folds that did not surface a subgroup.}
 #'   \item{resCV_all}{List of length \code{sims}; element \emph{i} is the
 #'     per-subject \code{resCV} data frame from simulation \emph{i}.  Only
 #'     populated when \code{keep_resCV = TRUE}; otherwise \code{NULL}.}
@@ -573,6 +597,26 @@ forestsearch_tenfold <- function(
 
     grf_cuts_list <- vector("list", Kfolds)
 
+    # Per-fold Pcons capture (Phase B).  NA_real_ when no subgroup was
+    # identified or the training FS call errored; otherwise the Pcons
+    # value carried on the top-ranked result row (same access path as
+    # bootstrap_analysis_dofuture.R).
+    pconsistency_list <- rep(NA_real_, Kfolds)
+
+    # Per-fold training-subgroup HR.  Captured from the same top-ranked
+    # result row as pconsistency.  This is the IN-SAMPLE (training-fold)
+    # HR and will be optimistically biased relative to any independent
+    # estimate; it is surfaced for diagnostic comparison only, not
+    # inference.  NA_real_ when no subgroup was identified.
+    training_fs_hr_list <- rep(NA_real_, Kfolds)
+
+    # Per-fold candidate count.  Integer number of candidate subgroups
+    # actually evaluated for consistency on this training fold.
+    # Populated whenever the consistency stage ran (even if zero
+    # candidates passed the threshold); NA_integer_ when the training
+    # FS call errored or consistency evaluation did not run at all.
+    n_candidates_list <- rep(NA_integer_, Kfolds)
+
     for (cv_index in seq_len(Kfolds)) {
       testIndexes <- which(folds == cv_index, arr.ind = TRUE)
       x.test <- df_scrambled[testIndexes, ]
@@ -591,12 +635,43 @@ forestsearch_tenfold <- function(
         df.test$sg1 <- sg1
         df.test$sg2 <- sg2
 
+        # Capture Pcons and training HR of the identified subgroup
+        # (top-ranked result row).  Same access pattern as
+        # bootstrap_results() uses for the bootstrap
+        # grp.consistency$out_sg$result slot.
+        sg_result <- fs.train$grp.consistency$out_sg$result
+        if (!is.null(sg_result) && is.data.frame(sg_result) &&
+            nrow(sg_result) > 0L) {
+          if ("Pcons" %in% names(sg_result)) {
+            pconsistency_list[cv_index] <- as.numeric(
+              sg_result[1L, "Pcons"]
+            )
+          }
+          if ("hr" %in% names(sg_result)) {
+            training_fs_hr_list[cv_index] <- as.numeric(
+              sg_result[1L, "hr"]
+            )
+          }
+        }
+
       } else {
         df.test <- x.test
         df.test$cvindex <- cv_index
         df.test$sg1 <- NA_character_      # typed NA: avoids logical -> character
         df.test$sg2 <- NA_character_      # coercion surprises in downstream rbind
         df.test$treat.recommend <- 1.0
+      }
+
+      # Capture candidate count independently of subgroup identification.
+      # The consistency stage may have run and evaluated N candidates
+      # even when zero candidates met the threshold (and thus sg.harm
+      # is NULL).
+      if (!inherits(fs.train, "try-error") &&
+          !is.null(fs.train$grp.consistency) &&
+          !is.null(fs.train$grp.consistency$n_candidates_evaluated)) {
+        n_candidates_list[cv_index] <- as.integer(
+          fs.train$grp.consistency$n_candidates_evaluated
+        )
       }
 
       # Capture training-fold GRF cuts (may be NULL, character(), or vector).
@@ -621,16 +696,21 @@ forestsearch_tenfold <- function(
     # Use as.character() to defend against any logical-NA columns that
     # slip through the rbind type coercion above.
     fold_summary_i <- data.frame(
-      sim       = ksim,
-      fold      = seq_len(Kfolds),
-      n_test    = vapply(resCV_list, nrow, integer(1)),
-      sg1       = vapply(resCV_list,
-                         function(x) as.character(x$sg1[1]), character(1)),
-      sg2       = vapply(resCV_list,
-                         function(x) as.character(x$sg2[1]), character(1)),
-      grf_cuts  = vapply(grf_cuts_list,
-                         function(x) if (is.null(x)) NA_character_ else x,
-                         character(1)),
+      sim                    = ksim,
+      fold                   = seq_len(Kfolds),
+      n_test                 = vapply(resCV_list, nrow, integer(1)),
+      sg1                    = vapply(resCV_list,
+                                      function(x) as.character(x$sg1[1]),
+                                      character(1)),
+      sg2                    = vapply(resCV_list,
+                                      function(x) as.character(x$sg2[1]),
+                                      character(1)),
+      grf_cuts               = vapply(grf_cuts_list,
+                                      function(x) if (is.null(x)) NA_character_ else x,
+                                      character(1)),
+      pconsistency           = pconsistency_list,
+      training_fs_hr         = training_fs_hr_list,
+      n_candidates_evaluated = n_candidates_list,
       stringsAsFactors = FALSE
     )
     fold_summary_i$any_found <- as.integer(

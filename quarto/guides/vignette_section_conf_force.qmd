@@ -1,0 +1,340 @@
+---
+title: "Specifying candidate subgroups: clinical judgment and `conf_force`"
+author: "Larry F. León"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+---
+
+# Specifying candidate subgroups
+
+## Two sources of candidate cuts
+
+ForestSearch constructs its candidate pool from three sources:
+
+1. A **default cut grid** built from each continuous confounder's
+   distribution (quartiles / median / mean, controlled by
+   `cut_type`).
+2. **GRF**-selected cuts returned by a causal-survival-forest
+   policy tree fitted to the training data (`use_grf = TRUE`).
+3. **User-specified cuts** passed via `conf_force`, a character
+   vector of `"variable <= value"` or `"variable > value"`
+   expressions.
+
+All three are merged into a single candidate list that
+`forestsearch()` evaluates through the consistency stage
+(`fs.splits = 400` split-sample evaluations at
+`pconsistency.threshold = 0.90`).  Only candidates that clear
+the consistency hurdle can be identified as `sg.harm`.
+
+The three sources are complementary.  The default grid provides
+coverage of nominal values (quartiles are defensible priors when
+nothing else is known).  GRF provides data-driven discovery of
+subgroups with strong treatment-effect heterogeneity.  `conf_force`
+provides a mechanism for the analyst to inject clinically or
+biologically motivated cuts that may not be surfaced by either of
+the first two.
+
+## Why user-specified candidates matter: a GBSG case study
+
+### Background
+
+The GBSG breast-cancer data set (`survival::gbsg`, N = 686)
+contains a prognostic-indicator subgroup `{er <= 0}` (n = 82, 12%
+of the cohort) with a hazard ratio for hormone therapy of
+1.95 (95% CI 1.04, 3.67) versus 0.69 for the overall ITT
+population.  `{er <= 0}` is the subgroup identified by the full-data
+ForestSearch analysis (León et al. 2024).
+
+The value 0 is biologically meaningful --- it marks the ER-negative
+tumor subgroup --- but it is not produced by quartile-based default
+cuts of the `er` distribution (`mean ≈ 96`, `Q1 ≈ 8`, `median ≈ 36`,
+`Q3 ≈ 132`).  The only mechanisms that can surface `er <= 0` into
+the candidate pool are (a) GRF's policy-tree search landing on
+exactly `0`, or (b) the analyst supplying
+`conf_force = c("er <= 0")`.
+
+### Cross-validation stress tests
+
+We ran repeated 10-fold cross-validation --- 100 random fold
+partitions of 10 folds each, yielding 1000 sim × fold pairs ---
+under six configurations that vary `dmin.grf` (GRF's minimum
+RMST-difference threshold, in months) with and without
+`conf_force = c("er <= 0")`.  All runs used `frac.tau = 0.8`,
+`pconsistency.threshold = 0.90`, `fs.splits = 400`,
+`hr.threshold = 1.25`, `hr.consistency = 1.00`.
+
+| Config | `dmin.grf` | `conf_force`     | GRF ≥1 cut | GRF cut uses `er` | `{er ≤ 0}` identified | No subgroup |
+|:-------|:-----------|:-----------------|:-----------|:------------------|:----------------------|:------------|
+| A      | 12         | `NULL`           | 89.8%      | 87.7%             | 48.3%                 | 15.4%       |
+| B      | 12         | `c("er <= 0")`   | 89.8%      | 87.7%             | 51.7%                 |  7.0%       |
+| C      | 6          | `NULL`           | 100.0%     | 97.8%             | 51.0%                 |  8.1%       |
+| D      | 6          | `c("er <= 0")`   | 100.0%     | 97.8%             | 51.6%                 |  6.9%       |
+| E      | 4          | `NULL`           | 100.0%     | 97.8%             | 51.0%                 |  8.1%       |
+| F      | 4          | `c("er <= 0")`   | 100.0%     | 97.8%             | 51.6%                 |  6.9%       |
+
+Median subgroup-finding metrics (sensitivity and positive
+predictive value for the harm subgroup `H`):
+
+| Config | `sens_H` | `ppv_H` | `ppv_Hc` |
+|:-------|:---------|:--------|:---------|
+| A      | 0.622    | 0.605   | 0.948    |
+| B      | 0.707    | 0.649   | 0.959    |
+| C      | 0.689    | 0.632   | 0.957    |
+| D      | 0.707    | 0.641   | 0.959    |
+| E      | 0.689    | 0.632   | 0.957    |
+| F      | 0.707    | 0.641   | 0.959    |
+
+### Four findings
+
+**1. GRF sometimes returns no cut.**  At `dmin.grf = 12` (Config A),
+GRF's policy tree declined to return any qualifying cut on 10.2%
+of the 1000 10-fold training sets.  On those 102 folds, the
+default quartile-based grid cannot supply `{er <= 0}` (because 0
+is not at a quartile of `er`).  The pipeline has no path to the
+correct subgroup and returns `(no subgroup)` on 87.3% of those
+folds.
+
+**2. Relaxing `dmin.grf` largely eliminates the no-cut problem.**
+At `dmin.grf = 6` or `4` (Configs C, E), GRF returns a cut on
+every training set and contains an `er` cut on 97.8% of them.
+But relaxing `dmin.grf` below 6 adds nothing --- Configs E and F
+produce identical fold-level output to C and D, indicating the
+threshold is no longer binding.
+
+**3. `conf_force` helps even when GRF succeeds.**  Compare
+Configs C and D --- both have GRF returning a cut on 100% of
+folds.  The forced run still improves exact identification
+(51.0 → 51.6%), reduces no-subgroup folds (8.1 → 6.9%), and
+raises `sens_H` (0.689 → 0.707).  The mechanism is not that
+`conf_force` discovers anything new; it provides a second path
+through the candidate pool.  On marginal folds where
+`{er ≤ 0}` sits near the `pconsistency = 0.90` boundary
+from its GRF-sourced entry, the `conf_force`-sourced entry can
+clear consistency via a different evaluation order.
+
+**4. `conf_force` is most valuable at tighter GRF thresholds.**
+At `dmin.grf = 12` (A → B), `conf_force` reduces no-subgroup
+folds from 15.4% → 7.0% and raises `sens_H` from 0.622 → 0.707
+--- an 8-point gain.  At `dmin.grf = 4` (E → F), the
+corresponding gain is only 0.689 → 0.707 (2 points), because
+GRF is already doing most of the work.  But the gain is
+still there: `conf_force` never hurts, and it can substantially
+help when GRF's filter is restrictive.
+
+## Recommendation
+
+**For any application where specific cut points are clinically
+or biologically meaningful, supply them via `conf_force` rather
+than relying on GRF alone to discover them.**  Reasons:
+
+- GRF's policy-tree search is data-dependent.  Under
+  cross-validation and bootstrap resampling, training sets of
+  90% and smaller can cause GRF to return no cut, a different
+  cut, or a cut at a slightly different value (e.g., `er <= 10`
+  instead of `er <= 0`).  A cut that the analyst knows
+  *a priori* to be of interest should not be left to chance.
+
+- The consistency stage is the real gatekeeper.  Adding
+  clinically motivated candidates via `conf_force` does not
+  weaken the method.  A bad candidate --- one without genuine
+  treatment-heterogeneity signal --- will fail
+  `pconsistency.threshold = 0.90` and be rejected.  What
+  `conf_force` buys is coverage: the analyst's candidates
+  always get a fair hearing.
+
+- The cost is asymmetric.  On folds or bootstrap samples
+  where GRF already surfaces the candidate, `conf_force`
+  is redundant and the pipeline early-stops without extra
+  cost.  On folds where GRF misses it, `conf_force` is the
+  difference between a correct identification and a
+  no-subgroup return.
+
+### Suggested workflow
+
+1. Run the **full-data analysis** with `use_grf = TRUE` and
+   whatever default cuts are reasonable.  Let GRF contribute
+   to candidate discovery unconditionally; it often finds
+   cuts the analyst did not anticipate.
+
+2. **Identify clinically meaningful cuts** that were surfaced
+   by GRF or that are canonical thresholds in the relevant
+   literature (e.g., age 65, BMI 30, tumor-marker cutoffs).
+   These become the candidates to preserve under resampling.
+
+3. For the **cross-validation and bootstrap diagnostic runs**,
+   pass those candidates as `conf_force`.  This insulates
+   the resampling-based operating characteristics from
+   training-set-specific drift in GRF's policy-tree search.
+
+4. If the resampling diagnostics show different identified
+   subgroups than the full-data analysis with `conf_force`,
+   that disagreement is informative --- but it reflects
+   genuine consistency-stage behavior on smaller samples,
+   not an artifact of candidate discovery.
+
+### A note on alternatives to `conf_force`
+
+The `defaultcut_names` argument provides a related mechanism:
+any variable name passed to `defaultcut_names` has its default
+cuts generated automatically via `get_conf_force()` and appended
+to the candidate pool.  This is useful when the analyst wants
+a variable's natural cut points preserved without computing
+them manually.  `conf_force` and `defaultcut_names` compose:
+`conf_force` adds specific expressions, `defaultcut_names`
+adds a family of cuts for a variable.
+
+
+## A subtlety: non-target subgroups in the identification distribution
+
+The cross-validation output includes a non-trivial fraction of
+folds that identify a subgroup *other than* `{er <= 0}` ---
+age partitions like `{age <= 47} & !{age <= 43}` or compound
+expressions like `{grade3} & {pgr <= 7}` appear in roughly 25%
+of the 10-fold training sets even when `conf_force` is set.
+This is not a failure of the algorithm.  It reflects a real
+feature of the data and the method.
+
+When 10% of the sample is held out under 10-fold CV, the
+remaining ~617 subjects contain enough variation that a
+different configuration of the same covariates can, on some
+specific partitions, produce a subgroup whose consistency
+score exceeds 0.90 while `{er <= 0}`'s does not.  In those
+cases the pipeline is working correctly --- it is reporting
+the subgroup most strongly supported *on that particular
+training set*.  Whether those alternative subgroups represent
+real biological signals masked by the dominance of `{er <= 0}`
+at full data, or whether they are finite-sample artifacts, is
+a question about the data and cannot be answered by algorithmic
+tuning alone.
+
+`conf_force` does not and should not suppress these alternative
+identifications.  What it does is ensure that `{er <= 0}` is
+always in the competition, so when it fails to emerge from
+cross-validation it is because the training sample did not
+support it, not because the candidate pool did not include it.
+
+This distinction matters for interpreting resampling diagnostics.
+A 51.6% exact-identification rate for `{er <= 0}` under `conf_force`
+does not mean the pipeline is wrong 48.4% of the time.  It means
+that roughly half of 10-fold training sets show the `{er <= 0}`
+signal strongly enough to clear `pconsistency = 0.90`, and the
+rest either show it weakly or show something else more strongly.
+An analyst comparing candidate subgroups should look at the
+`fold_summary` distribution as a whole, not just the headline
+identification rate.
+
+
+## Preliminary defaults for this case study
+
+The sensitivity analysis summarized above suggests two
+parameter values that worked well for GBSG at N = 686 with a
+harm-subgroup prevalence of 12%:
+
+- **`dmin.grf = 6`** (= 3-month RMST difference on the
+  months-scale outcome) was the effective floor for GBSG ---
+  GRF returned cuts on 100% of 10-fold training sets, and
+  further relaxation to `dmin.grf = 4` produced identical
+  fold-level output.  This suggests the binding constraint
+  was no longer the threshold itself.  The signature default
+  of `dmin.grf = 12` (6-month RMST difference) left 10% of
+  10-fold training sets with no GRF cut, which represents
+  10% of resampling-based diagnostic information that was
+  simply unavailable under the stricter threshold.
+
+- **`frac.tau = 0.8`** (RMST integration horizon at 80% of
+  max follow-up, up from the default 0.6).  The LOO
+  diagnostic at this setting reached 99.7% exact
+  identification of `{er <= 0}`, and the 10-fold run reached
+  97.8% GRF coverage of `er` cuts --- substantially higher
+  than at `frac.tau = 0.6`.  The wider integration horizon
+  lets treatment-heterogeneity signals accumulate further into
+  the tail of the survival distribution, which helps for
+  breast-cancer data where long follow-up is the norm.
+
+**These are preliminary case-study defaults, not
+recommendations for all survival analyses.**  The values that
+worked for GBSG reflect its particular sample size, event rate,
+follow-up distribution, and harm-subgroup prevalence.  A data
+set with shorter follow-up, smaller subgroup prevalence, or a
+different covariate structure may respond differently to the
+same settings.  The signature defaults of `dmin.grf = 12` and
+`frac.tau = 0.6` are conservative choices that work across a
+range of scenarios but may be suboptimal for any specific
+application.
+
+
+## Using this workstream as a template for your own analysis
+
+The full sequence of diagnostic documents represents a
+reusable template for evaluating ForestSearch behavior on new
+data.  The steps, in order:
+
+1. **Full-data ForestSearch** with `details = TRUE` and a
+   plot.  This establishes the candidate subgroup,
+   identifies which covariates GRF flags as important,
+   and reveals the `grf_cuts` that will enter the
+   candidate pool.  If GRF's cuts do not include clinically
+   obvious thresholds, this is the first signal that
+   `conf_force` may be needed.
+
+2. **LOO cross-validation** via `forestsearch_Kfold()` at
+   `Kfolds = nrow(df)`.  This is the lightest perturbation
+   of the training set --- each fold drops only one subject
+   --- and answers the question "is the full-data
+   identification stable to removal of any one subject?"
+   A high exact-match rate (95%+) here is a necessary
+   condition for trusting the full-data finding.  A lower
+   rate calls for the deeper diagnostics below.
+
+3. **Forced-cut diagnostic.**  Re-run LOO with
+   `conf_force = c("<candidate from step 1>")`.  Comparing
+   forced vs baseline LOO reveals whether the full-data
+   candidate was barely reaching the consistency threshold
+   (in which case `conf_force` will substantially raise
+   exact-match) or was a robust signal that `conf_force`
+   redundantly confirms.
+
+4. **Repeated 10-fold CV** via `forestsearch_tenfold()`
+   with `sims = 100` and `Kfolds = 10`.  This is the
+   serious stress test --- each fold drops 10% of the
+   sample.  The `grf_cuts` column preserved in
+   `fold_summary` lets the analyst see what GRF produced
+   on each of the 1000 training sets, not just what the
+   pipeline identified.
+
+5. **Sensitivity sweep over `dmin.grf` and `frac.tau`.**
+   Three values of `dmin.grf` crossed with two values of
+   `conf_force` (baseline and forced) gives a six-cell
+   sensitivity grid.  The patterns to look for: does
+   relaxing `dmin.grf` close the gap between baseline
+   and forced (meaning GRF, not `conf_force`, is the
+   binding constraint)?  Does the closure plateau at some
+   value, indicating the threshold is no longer binding?
+   Does forcing still add value after relaxation?
+
+6. **Write up the evidence.**  The sensitivity-sweep
+   tables make both positive and negative findings
+   visible.  A finding that `conf_force` adds little at
+   a given `dmin.grf` setting is just as informative as
+   a finding that it adds a lot.
+
+The six-cell sensitivity pattern and the `fold_summary`
+cross-tabs are the two most reusable components.  An analyst
+working on different data can reproduce the document
+structure by swapping in their dataset, their
+confounders, their clinically motivated `conf_force`
+candidates, and their time-scale-appropriate `dmin.grf` values.
+
+
+---
+
+*Sources.*  The 10-fold sensitivity results summarized above are
+produced by `gbsg_10fold_dmin_sensitivity.qmd`.  The full-data
+analysis and LOO cross-validation are in `gbsg_cv_qc.qmd` and
+`gbsg_er_forced_cut_diagnostic.qmd`.  The per-fold
+`grf_cuts` column that enables the cross-tabulation analysis
+is preserved in the `fold_summary` return slot of
+`forestsearch_tenfold()`.

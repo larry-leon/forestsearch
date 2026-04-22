@@ -1,0 +1,1121 @@
+---
+title: "Living test: `summarize_cv_results()`"
+subtitle: "Validates Phase A CV diagnostic expansion using GBSG"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+params:
+  quick_mode: true       # TRUE: sims=10 (~1-2 min). FALSE: sims=100 (~15-20 min).
+  force_rerun: false     # TRUE: ignore checkpoint and re-run CV.
+---
+
+# Purpose {#sec-purpose}
+
+This document exercises every branch of
+`summarize_cv_results()` against a `forestsearch_tenfold()` run
+on the GBSG dataset.  It is a "living" test: re-running it with
+an updated function should produce identical pass/fail results.
+A cumulative pass/fail table is rendered in
+@sec-summary.
+
+Coverage:
+
+1. **Minimal invocation** — `summarize_cv_results(tf)` with no
+   optional arguments.  Inspects structure of the returned
+   object and confirms every component slot is populated.
+2. **Full invocation** — with `original_sg`,
+   `original_grf_cuts`, and `create_plots = TRUE`.  Validates
+   `original_agreement` and plot components.
+3. **Input validation** — confirms the documented error
+   conditions fire with expected messages.
+4. **Backward compatibility** — simulates a pre-feature-branch
+   object by dropping `grf_cuts` from `fold_summary`; confirms
+   graceful NULL returns for the GRF-dependent slots.
+5. **Cross-reference against manual aggregation** — reproduces
+   `grf_cut_summary` using the `.clean_grf` + `.grf_dist`
+   helpers lifted directly from `gbsg_10fold_dmin_sensitivity.qmd`,
+   then asserts row-for-row equality with the function's output.
+6. **Print method** — confirms `print.fs_cv_summary()` emits the
+   expected metadata and section headers.
+7. **Phase B diagnostic columns** — confirms the new
+   `fold_summary` columns (`pconsistency`, `training_fs_hr`,
+   `n_candidates_evaluated`) are present, typed correctly, `NA`
+   exactly when their semantics require it, and in valid domains.
+   Confirms the `pconsistency_distribution` and
+   `fold_numeric_summary` slots are populated from the columns
+   and produce the expected row counts.  Confirms
+   backward-compatible behaviour when individual columns or the
+   entire Phase B set are stripped.
+
+The document uses `dmin.grf = 12, frac.tau = 0.8` (the strict
+baseline from `gbsg_10fold_dmin_sensitivity.qmd` config A).  This
+setting produces a diverse mix of `{er <= 0}`, `(no subgroup)`,
+and non-`er` subgroups across folds, which exercises all
+diagnostic branches even at small simulation counts.
+
+**Checkpoint behaviour.** The CV run is saved to
+`test_summarize_cv_checkpoint_quick.rds` or
+`test_summarize_cv_checkpoint_full.rds` in the working
+directory (suffix depends on `params$quick_mode`).  If that
+file exists and `params$force_rerun` is `FALSE`, the CV is
+skipped.  Stale checkpoints that predate Phase B (missing the
+`pconsistency` column) are detected automatically and refreshed.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+# --- Simulation size -------------------------------------------------------
+if (isTRUE(params$quick_mode)) {
+  Ksims_cv  <- 10L
+  Kfolds_cv <- 10L
+  ckpt_path <- "test_summarize_cv_checkpoint_quick.rds"
+  cat("Mode: quick (sims = 10).  Set quick_mode = FALSE for sims = 100.\n")
+} else {
+  Ksims_cv  <- 100L
+  Kfolds_cv <- 10L
+  ckpt_path <- "test_summarize_cv_checkpoint_full.rds"
+  cat("Mode: full (sims = 100).  Expect 15-20 min runtime.\n")
+}
+
+# --- GBSG-specific parameters ---------------------------------------------
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name     <- "time_months"
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+# --- forestsearch() base arguments (mirrors sensitivity QMD config A) -----
+fs_args_base <- list(
+  hr.threshold              = 1.25,
+  hr.consistency            = 1.00,
+  pconsistency.threshold    = 0.90,
+  stop_threshold            = 0.95,
+  sg_focus                  = "maxSG",
+  max_subgroups_search      = 10L,
+  use_twostage              = FALSE,
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  frac.tau                  = 0.8,
+  dmin.grf                  = 12,
+  maxk                      = 2L,
+  n.min                     = 60L,
+  d0.min                    = 10L,
+  d1.min                    = 10L,
+  fs.splits                 = 400L,
+  details                   = FALSE,
+  quiet                     = TRUE,
+  plot.sg                   = FALSE,
+  plot.grf                  = FALSE
+)
+
+# --- Parallel configuration ------------------------------------------------
+n_workers <- floor(0.95 * max(1L, parallel::detectCores() - 1L))
+```
+
+```{r data-setup}
+df              <- survival::gbsg
+df$grade3       <- as.integer(df$grade == "3")
+df$id           <- seq_len(nrow(df))
+df$time_months  <- df$rfstime / 30.4375
+```
+
+```{r test-harness}
+# Test-result collector.  Every test case appends a row; the final
+# section renders these into a gt summary table.
+test_results <- data.frame(
+  Section = character(0),
+  Test    = character(0),
+  Status  = character(0),
+  Detail  = character(0),
+  stringsAsFactors = FALSE
+)
+
+.tc <- function(section, test, pass, detail = "") {
+  status <- if (isTRUE(pass)) "PASS" else "FAIL"
+  new_row <- data.frame(
+    Section = section,
+    Test    = test,
+    Status  = status,
+    Detail  = substr(detail, 1L, 120L),
+    stringsAsFactors = FALSE
+  )
+  # Append to parent scope
+  test_results <<- rbind(test_results, new_row)
+  invisible(pass)
+}
+
+.expect_error <- function(section, test, expr, pattern) {
+  err_msg <- NULL
+  tryCatch(
+    eval(expr),
+    error = function(e) { err_msg <<- conditionMessage(e) }
+  )
+  pass   <- !is.null(err_msg) && grepl(pattern, err_msg, fixed = FALSE)
+  detail <- if (!is.null(err_msg)) err_msg else "<no error thrown>"
+  .tc(section, test, pass, detail)
+}
+```
+
+
+# Baseline runs {#sec-baseline}
+
+## Full-data ForestSearch (always runs)
+
+```{r fs-full}
+#| message: false
+fs_full <- do.call(forestsearch, c(list(
+  df.analysis      = df,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  event.name       = event.name,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  parallel_args    = list(plan         = "multisession",
+                          workers      = n_workers,
+                          show_message = FALSE)
+), fs_args_base))
+plan("sequential")
+
+cat("Full-data identified subgroup:",
+    paste(fs_full$sg.harm, collapse = " & "), "\n")
+cat("Full-data GRF cuts:         ",
+    paste(fs_full$grf_cuts, collapse = " | "), "\n")
+```
+
+## 10-fold CV (checkpointed)
+
+```{r cv-run}
+#| message: false
+.run_cv <- function() {
+  t0 <- proc.time()
+  out <- forestsearch_tenfold(
+    fs.est        = fs_full,
+    sims          = Ksims_cv,
+    Kfolds        = Kfolds_cv,
+    details       = FALSE,
+    keep_resCV    = FALSE,
+    parallel_args = list(plan         = "multisession",
+                         workers      = n_workers,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  attr(out, "runtime_seconds") <-
+    as.numeric((proc.time() - t0)["elapsed"])
+  out
+}
+
+if (file.exists(ckpt_path) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading CV from checkpoint: %s", ckpt_path))
+  tf <- readRDS(ckpt_path)
+
+  # Phase B staleness check: older checkpoints lack one or more of the
+  # new diagnostic columns.  Rerun rather than silently failing Test 7.
+  required_phase_b <- c("pconsistency", "training_fs_hr",
+                        "n_candidates_evaluated")
+  missing_phase_b <- setdiff(required_phase_b, names(tf$fold_summary))
+  if (length(missing_phase_b) > 0L) {
+    message(sprintf(paste0(
+      "Checkpoint %s predates full Phase B (missing: %s). ",
+      "Re-running CV..."), ckpt_path,
+      paste(missing_phase_b, collapse = ", ")))
+    tf <- .run_cv()
+    saveRDS(tf, ckpt_path)
+    message(sprintf("Wrote refreshed checkpoint to %s", ckpt_path))
+  }
+} else {
+  message(sprintf("Running %d-sim x %d-fold CV ...",
+                  Ksims_cv, Kfolds_cv))
+  tf <- .run_cv()
+  saveRDS(tf, ckpt_path)
+  message(sprintf("Wrote checkpoint to %s", ckpt_path))
+}
+
+cat(sprintf("CV completed: %d sims x %d folds = %d sim x fold pairs\n",
+            tf$sims, tf$Kfolds, nrow(tf$fold_summary)))
+cat(sprintf("fold_summary columns: %s\n",
+            paste(names(tf$fold_summary), collapse = ", ")))
+
+.tc("Baseline", "fold_summary has required columns",
+    all(c("sim", "fold", "sg1", "sg2", "any_found") %in%
+          names(tf$fold_summary)),
+    detail = paste(names(tf$fold_summary), collapse = ", "))
+
+.tc("Baseline", "fold_summary$grf_cuts present",
+    "grf_cuts" %in% names(tf$fold_summary),
+    detail = "Required for feature-branch diagnostic slots")
+
+.tc("Baseline", "fold_summary$pconsistency present",
+    "pconsistency" %in% names(tf$fold_summary),
+    detail = "Required for Phase B pconsistency_distribution slot")
+
+.tc("Baseline", "fold_summary$training_fs_hr present",
+    "training_fs_hr" %in% names(tf$fold_summary),
+    detail = "Phase B diagnostic column")
+
+.tc("Baseline", "fold_summary$n_candidates_evaluated present",
+    "n_candidates_evaluated" %in% names(tf$fold_summary),
+    detail = "Phase B diagnostic column")
+```
+
+
+# Test 1: Minimal invocation {#sec-test1}
+
+Calls `summarize_cv_results(tf)` with no optional arguments.
+Every slot should be populated except `original_agreement` and
+`plots` (which require opt-in).
+
+```{r test1-run}
+cv_diag <- summarize_cv_results(tf)
+
+# Top-level slots
+slot_status <- list(
+  identification_summary    = !is.null(cv_diag$identification_summary),
+  grf_cut_summary           = !is.null(cv_diag$grf_cut_summary),
+  cut_vs_subgroup_xtab      = !is.null(cv_diag$cut_vs_subgroup_xtab),
+  no_subgroup_decomposition = !is.null(cv_diag$no_subgroup_decomposition),
+  original_agreement        = is.null(cv_diag$original_agreement),
+  metrics_table             = !is.null(cv_diag$metrics_table),
+  plots                     = is.null(cv_diag$plots)
+)
+
+for (nm in names(slot_status)) {
+  expected_populated <- !grepl("^(original_agreement|plots)$", nm)
+  observed_populated <- if (grepl("^(original_agreement|plots)$", nm)) {
+    !slot_status[[nm]]
+  } else {
+    slot_status[[nm]]
+  }
+  .tc("Test 1: minimal",
+      sprintf("slot %s matches expectation", nm),
+      isTRUE(slot_status[[nm]]),
+      detail = sprintf("populated = %s", observed_populated))
+}
+
+# Metadata
+.tc("Test 1: minimal", "n_sims matches tf$sims",
+    cv_diag$n_sims == tf$sims,
+    detail = sprintf("obs=%d exp=%d", cv_diag$n_sims, tf$sims))
+.tc("Test 1: minimal", "n_folds matches tf$Kfolds",
+    cv_diag$n_folds == tf$Kfolds,
+    detail = sprintf("obs=%d exp=%d", cv_diag$n_folds, tf$Kfolds))
+.tc("Test 1: minimal", "total_pairs matches nrow(fold_summary)",
+    cv_diag$total_pairs == nrow(tf$fold_summary),
+    detail = sprintf("obs=%d exp=%d",
+                     cv_diag$total_pairs, nrow(tf$fold_summary)))
+.tc("Test 1: minimal", "has_grf_cuts == TRUE (feature branch)",
+    isTRUE(cv_diag$has_grf_cuts))
+.tc("Test 1: minimal", "class == 'fs_cv_summary'",
+    inherits(cv_diag, "fs_cv_summary"))
+
+# Raw data structure
+.tc("Test 1: minimal", "$data$identification is data.frame",
+    is.data.frame(cv_diag$data$identification))
+.tc("Test 1: minimal", "$data$grf_cuts is data.frame",
+    is.data.frame(cv_diag$data$grf_cuts))
+.tc("Test 1: minimal", "identification df has expected columns",
+    all(c("Rank", "Subgroup", "n_folds", "pct_folds") %in%
+          names(cv_diag$data$identification)))
+.tc("Test 1: minimal", "grf_cuts df has expected columns",
+    all(c("Rank", "grf_cut", "n_folds", "pct_folds") %in%
+          names(cv_diag$data$grf_cuts)))
+
+# Row-count sanity.  When top_n truncates, an "(N others)" row
+# aggregates the tail; the n_folds column must still sum to total_pairs.
+total_expected <- nrow(tf$fold_summary)
+total_id       <- sum(cv_diag$data$identification$n_folds)
+.tc("Test 1: minimal",
+    "identification n_folds sums to total pairs (including (N others))",
+    total_id == total_expected,
+    detail = sprintf("obs=%d exp=%d", total_id, total_expected))
+
+total_grf <- sum(cv_diag$data$grf_cuts$n_folds)
+.tc("Test 1: minimal",
+    "grf_cuts n_folds sums to total pairs (including (N others))",
+    total_grf == total_expected,
+    detail = sprintf("obs=%d exp=%d", total_grf, total_expected))
+
+# If the "(N others)" row is present, it should carry the tail count.
+id_has_others  <- any(grepl("^\\(\\d+ others\\)$",
+                            cv_diag$data$identification$Subgroup))
+grf_has_others <- any(grepl("^\\(\\d+ others\\)$",
+                            cv_diag$data$grf_cuts$grf_cut))
+.tc("Test 1: minimal", "identification_summary row count <= top_n + 1",
+    nrow(cv_diag$data$identification) <= 16L,
+    detail = sprintf("rows=%d; has (N others) row=%s",
+                     nrow(cv_diag$data$identification), id_has_others))
+.tc("Test 1: minimal", "grf_cut_summary row count <= top_n + 1",
+    nrow(cv_diag$data$grf_cuts) <= 16L,
+    detail = sprintf("rows=%d; has (N others) row=%s",
+                     nrow(cv_diag$data$grf_cuts), grf_has_others))
+```
+
+## Rendered gt tables from minimal invocation
+
+### Identification summary
+
+```{r test1-display-id}
+cv_diag$identification_summary
+```
+
+### GRF cut summary
+
+```{r test1-display-grf}
+cv_diag$grf_cut_summary
+```
+
+### Cut × subgroup cross-tab
+
+```{r test1-display-xtab}
+cv_diag$cut_vs_subgroup_xtab
+```
+
+### No-subgroup decomposition
+
+```{r test1-display-nosg}
+cv_diag$no_subgroup_decomposition
+```
+
+### Metrics table (delegated to `cv_metrics_tables()`)
+
+```{r test1-display-metrics}
+cv_diag$metrics_table
+```
+
+
+# Test 2: Full invocation with originals and plots {#sec-test2}
+
+```{r test2-run}
+cv_diag_full <- summarize_cv_results(
+  cv_output         = tf,
+  original_sg       = fs_full$sg.harm,
+  original_grf_cuts = fs_full$grf_cuts,
+  create_plots      = TRUE
+)
+
+.tc("Test 2: full", "$original_agreement populated",
+    !is.null(cv_diag_full$original_agreement))
+.tc("Test 2: full", "$plots populated",
+    !is.null(cv_diag_full$plots))
+.tc("Test 2: full", "$plots$identification is ggplot",
+    inherits(cv_diag_full$plots$identification, "ggplot"))
+.tc("Test 2: full", "$plots$grf_cut is ggplot (has_grf_cuts TRUE)",
+    inherits(cv_diag_full$plots$grf_cut, "ggplot"))
+
+# original_agreement raw data structure
+oa_df <- cv_diag_full$data$original_agreement
+.tc("Test 2: full", "original_agreement df has Metric, Value",
+    all(c("Metric", "Value") %in% names(oa_df)))
+.tc("Test 2: full", "original_agreement includes Exact subgroup match row",
+    any(grepl("Exact subgroup match", oa_df$Metric)))
+.tc("Test 2: full", "original_agreement includes Exact GRF-cut match row",
+    any(grepl("Exact GRF-cut match", oa_df$Metric)))
+.tc("Test 2: full", "original_agreement includes Both match row",
+    any(grepl("Both subgroup and GRF cut match", oa_df$Metric)))
+```
+
+## Rendered original agreement table
+
+```{r test2-display-original}
+cv_diag_full$original_agreement
+```
+
+## Rendered plots
+
+```{r test2-display-plot-id, fig.height=4}
+cv_diag_full$plots$identification
+```
+
+```{r test2-display-plot-grf, fig.height=4}
+cv_diag_full$plots$grf_cut
+```
+
+
+# Test 3: Input validation {#sec-test3}
+
+Confirms each documented error condition fires with the
+expected message pattern.
+
+```{r test3-run}
+# Case 3.1: non-list input
+.expect_error(
+  "Test 3: errors", "non-list input rejected",
+  expr    = quote(summarize_cv_results(cv_output = "not a list")),
+  pattern = "must be a list"
+)
+
+# Case 3.2: empty fold_summary
+tf_empty <- tf
+tf_empty$fold_summary <- tf$fold_summary[0, , drop = FALSE]
+.expect_error(
+  "Test 3: errors", "empty fold_summary rejected",
+  expr    = quote(summarize_cv_results(cv_output = tf_empty)),
+  pattern = "missing or empty"
+)
+
+# Case 3.3: missing required column
+tf_bad <- tf
+tf_bad$fold_summary$sg1 <- NULL
+.expect_error(
+  "Test 3: errors", "missing required column rejected",
+  expr    = quote(summarize_cv_results(cv_output = tf_bad)),
+  pattern = "missing required column"
+)
+
+# Case 3.4: bad top_n
+.expect_error(
+  "Test 3: errors", "non-positive top_n rejected",
+  expr    = quote(summarize_cv_results(cv_output = tf, top_n = 0)),
+  pattern = "positive integer"
+)
+
+# Case 3.5: fs_kfold redirection
+# We synthesise a minimal fs_kfold object with the right class; it must
+# emit the pointer to cv_summary_tables()/cv_metrics_tables().
+tf_kfold_fake <- structure(
+  list(fold_summary = tf$fold_summary),
+  class = c("fs_kfold", "list")
+)
+.expect_error(
+  "Test 3: errors", "fs_kfold object redirected",
+  expr    = quote(summarize_cv_results(cv_output = tf_kfold_fake)),
+  pattern = "cv_summary_tables|cv_metrics_tables"
+)
+```
+
+
+# Test 4: Backward compatibility {#sec-test4}
+
+Drops `grf_cuts` from `fold_summary` to simulate a
+pre-feature-branch object.  Expects graceful NULL for the
+GRF-dependent slots and a populated `identification_summary`.
+
+```{r test4-run}
+tf_nogrf <- tf
+tf_nogrf$fold_summary <- tf$fold_summary[
+  , setdiff(names(tf$fold_summary), "grf_cuts"),
+  drop = FALSE
+]
+
+cv_diag_nogrf <- summarize_cv_results(tf_nogrf)
+
+.tc("Test 4: backward-compat", "has_grf_cuts FALSE",
+    isFALSE(cv_diag_nogrf$has_grf_cuts))
+.tc("Test 4: backward-compat", "identification_summary populated",
+    !is.null(cv_diag_nogrf$identification_summary))
+.tc("Test 4: backward-compat", "grf_cut_summary NULL",
+    is.null(cv_diag_nogrf$grf_cut_summary))
+.tc("Test 4: backward-compat", "cut_vs_subgroup_xtab NULL",
+    is.null(cv_diag_nogrf$cut_vs_subgroup_xtab))
+.tc("Test 4: backward-compat", "no_subgroup_decomposition NULL",
+    is.null(cv_diag_nogrf$no_subgroup_decomposition))
+.tc("Test 4: backward-compat", "$data$grf_cuts NULL",
+    is.null(cv_diag_nogrf$data$grf_cuts))
+.tc("Test 4: backward-compat", "metrics_table still populated",
+    !is.null(cv_diag_nogrf$metrics_table))
+```
+
+
+# Test 5: Cross-reference against manual aggregation {#sec-test5}
+
+Reproduces `grf_cut_summary` and `identification_summary` using
+the `.clean_grf` + `.grf_dist` + `.build_sg_full` helpers lifted
+directly from `gbsg_10fold_dmin_sensitivity.qmd`, then asserts
+row-for-row equality with the function output.  This is the
+refactor-safety check: the function should produce identical
+results to the manual one-off aggregation the sensitivity QMD
+performed.
+
+To isolate the tabulation logic from the top-n truncation layer,
+this test calls `summarize_cv_results(..., top_n = Inf)` so the
+function returns the full frequency distribution without an
+`"(N others)"` aggregation row.  The row-sum invariant under
+truncation is covered separately in Test 1.
+
+```{r test5-untruncated}
+# Untruncated variant for byte-exact comparison
+cv_diag_full_topn <- summarize_cv_results(tf, top_n = Inf)
+```
+
+```{r test5-manual-helpers}
+# Lifted verbatim from gbsg_10fold_dmin_sensitivity.qmd
+.clean_grf_manual <- function(x) {
+  if (is.na(x) || x == "") return("(no GRF cut)")
+  x
+}
+
+.grf_dist_manual <- function(fsum, top_n = Inf) {
+  cuts <- vapply(fsum$grf_cuts, .clean_grf_manual, character(1))
+  tab  <- as.data.frame(table(cuts = cuts), stringsAsFactors = FALSE)
+  tab  <- tab[order(-tab$Freq), , drop = FALSE]
+  if (is.finite(top_n) && nrow(tab) > top_n) tab <- utils::head(tab, top_n)
+  tab
+}
+
+.build_sg_full_manual <- function(fsum) {
+  ifelse(
+    is.na(fsum$sg1),
+    "(no subgroup)",
+    ifelse(
+      is.na(fsum$sg2),
+      fsum$sg1,
+      paste(fsum$sg1, fsum$sg2, sep = " & ")
+    )
+  )
+}
+```
+
+```{r test5-compare-grf}
+# Manual (no truncation)
+manual_grf <- .grf_dist_manual(tf$fold_summary)
+manual_grf_aligned <- data.frame(
+  grf_cut = as.character(manual_grf$cuts),
+  n_folds = as.integer(manual_grf$Freq),
+  stringsAsFactors = FALSE
+)
+rownames(manual_grf_aligned) <- NULL
+
+# Function (untruncated)
+fn_grf <- cv_diag_full_topn$data$grf_cuts
+fn_grf_aligned <- data.frame(
+  grf_cut = fn_grf$grf_cut,
+  n_folds = as.integer(fn_grf$n_folds),
+  stringsAsFactors = FALSE
+)
+rownames(fn_grf_aligned) <- NULL
+
+# Same number of rows?
+.tc("Test 5: cross-ref", "grf_cut_summary row count matches manual",
+    nrow(manual_grf_aligned) == nrow(fn_grf_aligned),
+    detail = sprintf("manual=%d fn=%d",
+                     nrow(manual_grf_aligned),
+                     nrow(fn_grf_aligned)))
+
+# Row-for-row equality
+eq_ok <- isTRUE(all.equal(manual_grf_aligned, fn_grf_aligned))
+.tc("Test 5: cross-ref", "grf_cut_summary rows match manual exactly",
+    eq_ok,
+    detail = if (eq_ok) "all.equal TRUE" else
+      paste(utils::capture.output(
+        all.equal(manual_grf_aligned, fn_grf_aligned)
+      ), collapse = "; "))
+```
+
+```{r test5-compare-id}
+# Manual identification tabulation (no truncation)
+manual_sg <- .build_sg_full_manual(tf$fold_summary)
+tab <- as.data.frame(table(Subgroup = manual_sg),
+                     stringsAsFactors = FALSE)
+tab <- tab[order(-tab$Freq), , drop = FALSE]
+
+manual_id_aligned <- data.frame(
+  Subgroup = as.character(tab$Subgroup),
+  n_folds  = as.integer(tab$Freq),
+  stringsAsFactors = FALSE
+)
+rownames(manual_id_aligned) <- NULL
+
+fn_id <- cv_diag_full_topn$data$identification
+fn_id_aligned <- data.frame(
+  Subgroup = fn_id$Subgroup,
+  n_folds  = as.integer(fn_id$n_folds),
+  stringsAsFactors = FALSE
+)
+rownames(fn_id_aligned) <- NULL
+
+.tc("Test 5: cross-ref", "identification_summary row count matches manual",
+    nrow(manual_id_aligned) == nrow(fn_id_aligned),
+    detail = sprintf("manual=%d fn=%d",
+                     nrow(manual_id_aligned),
+                     nrow(fn_id_aligned)))
+
+eq_ok <- isTRUE(all.equal(manual_id_aligned, fn_id_aligned))
+.tc("Test 5: cross-ref", "identification_summary rows match manual exactly",
+    eq_ok,
+    detail = if (eq_ok) "all.equal TRUE" else
+      paste(utils::capture.output(
+        all.equal(manual_id_aligned, fn_id_aligned)
+      ), collapse = "; "))
+```
+
+```{r test5-compare-nosg-total}
+# Manual no-subgroup count
+manual_no_sg <- sum(manual_sg == "(no subgroup)")
+# Function
+fn_no_sg <- cv_diag$data$no_subgroup$n_folds[
+  cv_diag$data$no_subgroup$Category == "Folds with no subgroup identified"
+]
+
+.tc("Test 5: cross-ref", "no_subgroup total matches manual",
+    isTRUE(manual_no_sg == fn_no_sg),
+    detail = sprintf("manual=%d fn=%d", manual_no_sg, fn_no_sg))
+
+# Manual GRF-none-among-no-sg count
+manual_grf_none_in_no_sg <- sum(
+  (manual_sg == "(no subgroup)") &
+    vapply(tf$fold_summary$grf_cuts, .clean_grf_manual,
+           character(1)) == "(no GRF cut)"
+)
+fn_grf_none_in_no_sg <- cv_diag$data$no_subgroup$n_folds[
+  cv_diag$data$no_subgroup$Category == "  GRF returned no cut"
+]
+
+.tc("Test 5: cross-ref", "decomposition 'GRF none' matches manual",
+    isTRUE(manual_grf_none_in_no_sg == fn_grf_none_in_no_sg),
+    detail = sprintf("manual=%d fn=%d",
+                     manual_grf_none_in_no_sg, fn_grf_none_in_no_sg))
+```
+
+
+# Test 6: Print method {#sec-test6}
+
+Confirms `print.fs_cv_summary()` emits the expected header
+lines and section markers.
+
+```{r test6-run}
+out <- utils::capture.output(print(cv_diag))
+
+.tc("Test 6: print", "print output non-empty",
+    length(out) > 0L)
+.tc("Test 6: print", "print output contains 'Simulations'",
+    any(grepl("Simulations:", out)))
+.tc("Test 6: print", "print output contains 'Total sim x fold pairs'",
+    any(grepl("Total sim x fold pairs", out)))
+.tc("Test 6: print", "print output contains 'Top identified subgroups'",
+    any(grepl("Top identified subgroups", out)))
+.tc("Test 6: print", "print output contains 'Top GRF cuts'",
+    any(grepl("Top GRF cuts", out)))
+.tc("Test 6: print", "print output contains 'No-subgroup decomposition'",
+    any(grepl("No-subgroup decomposition", out)))
+```
+
+Full captured output:
+
+```{r test6-display, results='asis'}
+cat("```\n")
+cat(out, sep = "\n")
+cat("\n```\n")
+```
+
+
+# Test 7: Phase B diagnostic columns {#sec-test7}
+
+Validates the three new `fold_summary` columns populated by
+`forestsearch_tenfold()` on the feature branch
+(`pconsistency`, `training_fs_hr`, `n_candidates_evaluated`)
+and the two new summary slots exposed by
+`summarize_cv_results()` (`pconsistency_distribution`,
+`fold_numeric_summary`).
+
+## 7.1 Column presence and value domain
+
+```{r test7-column}
+has_pcons <- "pconsistency" %in% names(tf$fold_summary)
+.tc("Test 7: pconsistency", "fold_summary$pconsistency column present",
+    has_pcons,
+    detail = if (has_pcons) "yes" else
+      "NO -- rerun forestsearch_tenfold() with Phase B branch")
+
+if (has_pcons) {
+  pv <- tf$fold_summary$pconsistency
+
+  .tc("Test 7: pconsistency", "pconsistency is numeric",
+      is.numeric(pv),
+      detail = sprintf("class=%s", class(pv)[1]))
+
+  # NA iff no subgroup identified
+  na_aligned <- all(
+    is.na(pv) == (tf$fold_summary$any_found == 0L)
+  )
+  .tc("Test 7: pconsistency",
+      "NA pconsistency iff any_found == 0",
+      na_aligned,
+      detail = sprintf(
+        "NA count=%d; any_found==0 count=%d",
+        sum(is.na(pv)),
+        sum(tf$fold_summary$any_found == 0L)))
+
+  # Domain check: non-NA values should be in [0, 1]
+  pv_nona <- pv[!is.na(pv)]
+  in_range <- length(pv_nona) == 0L ||
+    (all(pv_nona >= 0) && all(pv_nona <= 1))
+  .tc("Test 7: pconsistency",
+      "non-NA pconsistency values in [0, 1]",
+      in_range,
+      detail = if (length(pv_nona) > 0L)
+        sprintf("range = [%.3f, %.3f], median = %.3f",
+                min(pv_nona), max(pv_nona), median(pv_nona))
+      else "no identifying folds")
+
+  # Given pconsistency.threshold = 0.90 in config, all identifying
+  # Pcons should be >= that threshold (by construction of
+  # forestsearch()'s selection rule).
+  thresh <- fs_args_base$pconsistency.threshold
+  above_thresh <- length(pv_nona) == 0L || all(pv_nona >= thresh)
+  .tc("Test 7: pconsistency",
+      sprintf("identifying Pcons >= threshold (%.2f)", thresh),
+      above_thresh,
+      detail = if (length(pv_nona) > 0L)
+        sprintf("min = %.3f; threshold = %.2f", min(pv_nona), thresh)
+      else "no identifying folds")
+}
+```
+
+## 7.2 Slot populated when column present
+
+```{r test7-slot-present}
+if (has_pcons) {
+  .tc("Test 7: pconsistency",
+      "has_pconsistency metadata TRUE",
+      isTRUE(cv_diag$has_pconsistency))
+  .tc("Test 7: pconsistency",
+      "pconsistency_distribution slot populated",
+      !is.null(cv_diag$pconsistency_distribution))
+  .tc("Test 7: pconsistency",
+      "$data$pconsistency is data.frame",
+      is.data.frame(cv_diag$data$pconsistency))
+
+  pcd <- cv_diag$data$pconsistency
+  .tc("Test 7: pconsistency",
+      "pconsistency df has expected columns",
+      all(c("Pcons_range", "n_folds", "pct_of_identifying") %in%
+            names(pcd)))
+
+  # Summary rows carry median/IQR/total — last three rows
+  last_rows <- pcd$Pcons_range[(nrow(pcd) - 2L):nrow(pcd)]
+  .tc("Test 7: pconsistency",
+      "last three rows include Median/IQR/total summary",
+      any(grepl("Median", last_rows)) &&
+      any(grepl("IQR",    last_rows)) &&
+      any(grepl("Identifying", last_rows)),
+      detail = paste(last_rows, collapse = " | "))
+
+  # Bin row counts should sum to number of identifying folds
+  n_identifying <- sum(!is.na(tf$fold_summary$pconsistency))
+  bin_rows <- pcd[1:6, , drop = FALSE]  # 6 bins from 0 to 1
+  bin_sum <- sum(bin_rows$n_folds, na.rm = TRUE)
+  .tc("Test 7: pconsistency",
+      "bin n_folds sums to identifying-fold count",
+      bin_sum == n_identifying,
+      detail = sprintf("sum=%d exp=%d", bin_sum, n_identifying))
+}
+```
+
+## 7.3 Backward compatibility (column stripped)
+
+```{r test7-backcompat}
+if (has_pcons) {
+  tf_nopcons <- tf
+  tf_nopcons$fold_summary <- tf$fold_summary[
+    , setdiff(names(tf$fold_summary), "pconsistency"),
+    drop = FALSE
+  ]
+  cv_diag_nopcons <- summarize_cv_results(tf_nopcons)
+
+  .tc("Test 7: pconsistency",
+      "has_pconsistency FALSE when column absent",
+      isFALSE(cv_diag_nopcons$has_pconsistency))
+  .tc("Test 7: pconsistency",
+      "pconsistency_distribution NULL when column absent",
+      is.null(cv_diag_nopcons$pconsistency_distribution))
+  .tc("Test 7: pconsistency",
+      "$data$pconsistency NULL when column absent",
+      is.null(cv_diag_nopcons$data$pconsistency))
+  .tc("Test 7: pconsistency",
+      "other slots still populated when pconsistency absent",
+      !is.null(cv_diag_nopcons$identification_summary) &&
+      !is.null(cv_diag_nopcons$grf_cut_summary))
+}
+```
+
+## 7.4 Rendered pconsistency_distribution table
+
+```{r test7-display}
+if (has_pcons) cv_diag$pconsistency_distribution
+```
+
+## 7.5 `training_fs_hr` column
+
+```{r test7-hr}
+has_hr <- "training_fs_hr" %in% names(tf$fold_summary)
+.tc("Test 7: pconsistency",
+    "fold_summary$training_fs_hr column present",
+    has_hr,
+    detail = if (has_hr) "yes" else
+      "NO -- rerun forestsearch_tenfold() with Phase B branch")
+
+if (has_hr) {
+  hr <- tf$fold_summary$training_fs_hr
+  .tc("Test 7: pconsistency", "training_fs_hr is numeric",
+      is.numeric(hr),
+      detail = sprintf("class=%s", class(hr)[1]))
+
+  # NA iff no subgroup identified (same gate as pconsistency)
+  na_aligned <- all(is.na(hr) == (tf$fold_summary$any_found == 0L))
+  .tc("Test 7: pconsistency",
+      "NA training_fs_hr iff any_found == 0",
+      na_aligned,
+      detail = sprintf(
+        "NA count=%d; any_found==0 count=%d",
+        sum(is.na(hr)),
+        sum(tf$fold_summary$any_found == 0L)))
+
+  # Domain: non-NA HRs should be positive and finite
+  hr_nona <- hr[!is.na(hr)]
+  in_domain <- length(hr_nona) == 0L ||
+    (all(hr_nona > 0) && all(is.finite(hr_nona)))
+  .tc("Test 7: pconsistency",
+      "non-NA training_fs_hr values positive and finite",
+      in_domain,
+      detail = if (length(hr_nona) > 0L)
+        sprintf("range = [%.3f, %.3f], median = %.3f",
+                min(hr_nona), max(hr_nona), median(hr_nona))
+      else "no identifying folds")
+
+  # GBSG at sg_focus = "maxSG" with hr.threshold = 1.25 forces
+  # identifying HRs above the threshold.  Sanity check.
+  hr_thresh <- fs_args_base$hr.threshold
+  above_hr_thresh <- length(hr_nona) == 0L || all(hr_nona >= hr_thresh)
+  .tc("Test 7: pconsistency",
+      sprintf("identifying HRs >= hr.threshold (%.2f)", hr_thresh),
+      above_hr_thresh,
+      detail = if (length(hr_nona) > 0L)
+        sprintf("min = %.3f; threshold = %.2f", min(hr_nona), hr_thresh)
+      else "no identifying folds")
+}
+```
+
+## 7.6 `n_candidates_evaluated` column
+
+```{r test7-cands}
+has_cands <- "n_candidates_evaluated" %in% names(tf$fold_summary)
+.tc("Test 7: pconsistency",
+    "fold_summary$n_candidates_evaluated column present",
+    has_cands,
+    detail = if (has_cands) "yes" else
+      "NO -- rerun forestsearch_tenfold() with Phase B branch")
+
+if (has_cands) {
+  nc <- tf$fold_summary$n_candidates_evaluated
+  .tc("Test 7: pconsistency", "n_candidates_evaluated is integer",
+      is.integer(nc),
+      detail = sprintf("class=%s", class(nc)[1]))
+
+  # Every fold that identified a subgroup must have evaluated
+  # at least 1 candidate.  The converse is NOT true: a fold can
+  # have evaluated many candidates and still identify none.
+  identifying_idx <- which(tf$fold_summary$any_found == 1L)
+  if (length(identifying_idx) > 0L) {
+    nc_identifying <- nc[identifying_idx]
+    nc_identifying_ok <- all(
+      !is.na(nc_identifying) & nc_identifying >= 1L
+    )
+    .tc("Test 7: pconsistency",
+        "identifying folds have n_candidates_evaluated >= 1",
+        nc_identifying_ok,
+        detail = sprintf(
+          "identifying folds: n=%d, min candidates=%s",
+          length(identifying_idx),
+          if (all(is.na(nc_identifying))) "all NA"
+          else as.character(min(nc_identifying, na.rm = TRUE))))
+  }
+
+  # Domain: non-NA values should be non-negative
+  nc_nona <- nc[!is.na(nc)]
+  in_domain <- length(nc_nona) == 0L ||
+    (all(nc_nona >= 0L) && all(is.finite(nc_nona)))
+  .tc("Test 7: pconsistency",
+      "non-NA n_candidates_evaluated values non-negative",
+      in_domain,
+      detail = if (length(nc_nona) > 0L)
+        sprintf("range = [%d, %d], median = %d",
+                as.integer(min(nc_nona)),
+                as.integer(max(nc_nona)),
+                as.integer(median(nc_nona)))
+      else "no populated values")
+}
+```
+
+## 7.7 `fold_numeric_summary` slot
+
+```{r test7-numsum}
+.tc("Test 7: pconsistency",
+    "fold_numeric_summary slot populated",
+    !is.null(cv_diag$fold_numeric_summary))
+.tc("Test 7: pconsistency",
+    "$data$fold_numeric_summary is data.frame",
+    is.data.frame(cv_diag$data$fold_numeric_summary))
+
+fns <- cv_diag$data$fold_numeric_summary
+expected_cols <- c("Metric", "n", "median", "Q1", "Q3", "min",
+                   "max", "n_na", "Context")
+.tc("Test 7: pconsistency",
+    "fold_numeric_summary has expected columns",
+    all(expected_cols %in% names(fns)),
+    detail = paste(setdiff(expected_cols, names(fns)),
+                   collapse = ", "))
+
+# Given GBSG + Phase B, all four metric rows should appear.
+expected_metrics <- c(
+  "Test-fold size (n_test)",
+  "Pcons (identifying folds)",
+  "Training-fold HR (identifying folds)",
+  "Candidates evaluated per fold"
+)
+.tc("Test 7: pconsistency",
+    "fold_numeric_summary includes all four Phase B metric rows",
+    all(expected_metrics %in% fns$Metric),
+    detail = paste(setdiff(expected_metrics, fns$Metric),
+                   collapse = ", "))
+
+# Row counts must match the per-column non-NA counts.
+for (spec in list(
+  list(metric = "Pcons (identifying folds)",
+       col    = "pconsistency",
+       filt   = function(x) !is.na(x)),
+  list(metric = "Training-fold HR (identifying folds)",
+       col    = "training_fs_hr",
+       filt   = function(x) !is.na(x)),
+  list(metric = "Candidates evaluated per fold",
+       col    = "n_candidates_evaluated",
+       filt   = function(x) !is.na(x)),
+  list(metric = "Test-fold size (n_test)",
+       col    = "n_test",
+       filt   = function(x) !is.na(x))
+)) {
+  if (!spec$col %in% names(tf$fold_summary)) next
+  row    <- fns[fns$Metric == spec$metric, , drop = FALSE]
+  actual <- sum(spec$filt(tf$fold_summary[[spec$col]]))
+  .tc("Test 7: pconsistency",
+      sprintf("%s: n matches non-NA count", spec$metric),
+      nrow(row) == 1L && row$n == actual,
+      detail = sprintf("row$n=%d actual=%d",
+                       if (nrow(row) == 1L) row$n else NA_integer_,
+                       actual))
+}
+```
+
+## 7.8 Rendered fold_numeric_summary table
+
+```{r test7-numsum-display}
+cv_diag$fold_numeric_summary
+```
+
+## 7.9 Backward compat: strip ALL Phase B columns
+
+Also confirms that stripping Phase B columns wholesale doesn't
+disturb the non-Phase-B slots.
+
+```{r test7-backcompat-all}
+tf_noB <- tf
+tf_noB$fold_summary <- tf$fold_summary[
+  , setdiff(names(tf$fold_summary),
+            c("pconsistency", "training_fs_hr",
+              "n_candidates_evaluated")),
+  drop = FALSE
+]
+cv_diag_noB <- summarize_cv_results(tf_noB)
+
+.tc("Test 7: pconsistency",
+    "pconsistency_distribution NULL when all Phase B stripped",
+    is.null(cv_diag_noB$pconsistency_distribution))
+.tc("Test 7: pconsistency",
+    "fold_numeric_summary still populated (n_test always present)",
+    !is.null(cv_diag_noB$fold_numeric_summary))
+.tc("Test 7: pconsistency",
+    "non-Phase-B slots still populated when Phase B stripped",
+    !is.null(cv_diag_noB$identification_summary) &&
+      !is.null(cv_diag_noB$grf_cut_summary) &&
+      !is.null(cv_diag_noB$no_subgroup_decomposition))
+
+# fold_numeric_summary should have exactly 1 row (n_test only)
+fns_noB <- cv_diag_noB$data$fold_numeric_summary
+.tc("Test 7: pconsistency",
+    "fold_numeric_summary has only n_test row when Phase B stripped",
+    nrow(fns_noB) == 1L && fns_noB$Metric[1] == "Test-fold size (n_test)",
+    detail = sprintf("rows=%d, metrics=%s",
+                     nrow(fns_noB),
+                     paste(fns_noB$Metric, collapse = ", ")))
+```
+
+
+# Test summary {#sec-summary}
+
+```{r summary-table}
+n_total <- nrow(test_results)
+n_pass  <- sum(test_results$Status == "PASS")
+n_fail  <- n_total - n_pass
+
+gt::gt(test_results,
+       groupname_col = "Section",
+       row_group_as_column = TRUE) |>
+  gt::tab_header(
+    title    = gt::md(sprintf(
+      "**Living test results: %d / %d passing**", n_pass, n_total)),
+    subtitle = sprintf(
+      "GBSG, %d sims x %d folds, dmin.grf = %g, frac.tau = %g",
+      Ksims_cv, Kfolds_cv,
+      fs_args_base$dmin.grf, fs_args_base$frac.tau)
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4edda"),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "PASS"
+    )
+  ) |>
+  gt::tab_style(
+    style    = list(
+      gt::cell_fill(color = "#f8d7da"),
+      gt::cell_text(weight = "bold")
+    ),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "FAIL"
+    )
+  ) |>
+  gt::cols_label(
+    Test   = "Test case",
+    Status = "Status",
+    Detail = "Detail"
+  ) |>
+  gt::tab_options(table.font.size = gt::px(12))
+
+# Also emit a one-line headline suitable for grep-based CI.
+if (n_fail == 0L) {
+  message(sprintf("ALL TESTS PASSED: %d / %d", n_pass, n_total))
+} else {
+  message(sprintf("TESTS FAILED: %d / %d failing", n_fail, n_total))
+  print(test_results[test_results$Status == "FAIL",
+                     c("Section", "Test", "Detail")])
+}
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```
