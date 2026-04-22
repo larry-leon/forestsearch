@@ -423,20 +423,23 @@ forestsearch_Kfold <- function(
 #'     achieved by the identified subgroup on each fold (\code{NA_real_}
 #'     when no subgroup was identified or the training ForestSearch
 #'     call errored).  The \code{training_fs_hr} column records the
-#'     in-sample hazard ratio (or GLM effect estimate on its natural
-#'     scale) for the identified subgroup on the training fold --
-#'     optimistically biased relative to any independent estimate;
-#'     surfaced for diagnostic comparison only, with \code{NA_real_}
-#'     when no subgroup was identified.  The
-#'     \code{n_candidates_evaluated} column records the integer count
-#'     of candidate subgroups actually evaluated for consistency on
-#'     this training fold (populated whenever the consistency stage
-#'     ran, even if zero candidates met the threshold and thus no
-#'     subgroup was identified; \code{NA_integer_} when the training
-#'     call errored or consistency evaluation did not run).  Always
-#'     returned (compact; cheap).  Lets you tabulate, for example,
-#'     which subgroup was identified in each fold of each simulation,
-#'     the empirical distribution of GRF cut choices across the full
+#'     in-sample effect estimate for the identified subgroup on the
+#'     training fold, on its NATURAL SCALE regardless of outcome type
+#'     (hazard ratio for survival; odds ratio, rate ratio, or risk
+#'     ratio for GLM ratio measures after internal exponentiation;
+#'     mean/risk difference for GLM additive measures); optimistically
+#'     biased relative to any independent estimate and surfaced for
+#'     diagnostic comparison only, with \code{NA_real_} when no
+#'     subgroup was identified.  The \code{n_candidates_evaluated}
+#'     column records the integer count of candidate subgroups
+#'     actually evaluated for consistency on this training fold
+#'     (populated whenever the consistency stage ran, even if zero
+#'     candidates met the threshold and thus no subgroup was
+#'     identified; \code{NA_integer_} when the training call errored
+#'     or consistency evaluation did not run).  Always returned
+#'     (compact; cheap).  Lets you tabulate, for example, which
+#'     subgroup was identified in each fold of each simulation, the
+#'     empirical distribution of GRF cut choices across the full
 #'     sim x fold grid, the relationship between GRF's cut and the
 #'     final identified subgroup, or the near-miss consistency values
 #'     among folds that did not surface a subgroup.}
@@ -630,10 +633,20 @@ forestsearch_tenfold <- function(
         df.test$sg1 <- sg1
         df.test$sg2 <- sg2
 
-        # Capture Pcons and training HR of the identified subgroup
+        # Capture Pcons and training-fold subgroup effect estimate
         # (top-ranked result row).  Same access pattern as
         # bootstrap_results() uses for the bootstrap
         # grp.consistency$out_sg$result slot.
+        #
+        # Phase B note on scale: the "hr" column in sg_result stores
+        # the effect estimate on the scale that forestsearch()'s
+        # internal search used.  For survival this is HR on natural
+        # scale.  For GLM with ratio-measure effect_measure (OR, IRR,
+        # RR), the stored value is log-scale; we exponentiate at
+        # capture so the training_fs_hr column is ALWAYS on natural
+        # scale regardless of outcome type.  For additive GLM measures
+        # (RD, IRD, MD) the value is already identity-scale and we
+        # leave it alone.
         sg_result <- fs.train$grp.consistency$out_sg$result
         if (!is.null(sg_result) && is.data.frame(sg_result) &&
             nrow(sg_result) > 0L) {
@@ -643,9 +656,23 @@ forestsearch_tenfold <- function(
             )
           }
           if ("hr" %in% names(sg_result)) {
-            training_fs_hr_list[cv_index] <- as.numeric(
-              sg_result[1L, "hr"]
-            )
+            raw_val <- as.numeric(sg_result[1L, "hr"])
+
+            # Detect whether the stored value is on log scale.  Survival
+            # stores HR on natural scale; GLM ratio measures store log
+            # values; GLM additive measures store identity values.
+            otype_tr <- fs.train$outcome_type
+            emeas_tr <- fs.train$effect_measure
+            is_glm_tr     <- !is.null(otype_tr) && otype_tr != "survival"
+            is_log_scale  <- is_glm_tr &&
+              !is.null(emeas_tr) &&
+              emeas_tr %in% c("OR", "IRR", "RR")
+
+            training_fs_hr_list[cv_index] <- if (is_log_scale) {
+              exp(raw_val)
+            } else {
+              raw_val
+            }
           }
         }
 

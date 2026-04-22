@@ -57,20 +57,23 @@ column records the consistency probability (\code{Pcons})
 achieved by the identified subgroup on each fold (\code{NA_real_}
 when no subgroup was identified or the training ForestSearch
 call errored).  The \code{training_fs_hr} column records the
-in-sample hazard ratio (or GLM effect estimate on its natural
-scale) for the identified subgroup on the training fold --
-optimistically biased relative to any independent estimate;
-surfaced for diagnostic comparison only, with \code{NA_real_}
-when no subgroup was identified.  The
-\code{n_candidates_evaluated} column records the integer count
-of candidate subgroups actually evaluated for consistency on
-this training fold (populated whenever the consistency stage
-ran, even if zero candidates met the threshold and thus no
-subgroup was identified; \code{NA_integer_} when the training
-call errored or consistency evaluation did not run).  Always
-returned (compact; cheap).  Lets you tabulate, for example,
-which subgroup was identified in each fold of each simulation,
-the empirical distribution of GRF cut choices across the full
+in-sample effect estimate for the identified subgroup on the
+training fold, on its NATURAL SCALE regardless of outcome type
+(hazard ratio for survival; odds ratio, rate ratio, or risk
+ratio for GLM ratio measures after internal exponentiation;
+mean/risk difference for GLM additive measures); optimistically
+biased relative to any independent estimate and surfaced for
+diagnostic comparison only, with \code{NA_real_} when no
+subgroup was identified.  The \code{n_candidates_evaluated}
+column records the integer count of candidate subgroups
+actually evaluated for consistency on this training fold
+(populated whenever the consistency stage ran, even if zero
+candidates met the threshold and thus no subgroup was
+identified; \code{NA_integer_} when the training call errored
+or consistency evaluation did not run).  Always returned
+(compact; cheap).  Lets you tabulate, for example, which
+subgroup was identified in each fold of each simulation, the
+empirical distribution of GRF cut choices across the full
 sim x fold grid, the relationship between GRF's cut and the
 final identified subgroup, or the near-miss consistency values
 among folds that did not surface a subgroup.}

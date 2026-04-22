@@ -62,8 +62,12 @@
 #'     \code{fold_summary} (\code{n_test}, \code{pconsistency},
 #'     \code{training_fs_hr}, \code{n_candidates_evaluated}).  Absent
 #'     columns simply don't produce rows, so the table adapts to
-#'     pre-feature-branch objects without error.  Training-fold HRs
-#'     are in-sample estimates (optimistically biased) and are surfaced
+#'     pre-feature-branch objects without error.  Training-fold
+#'     subgroup effects are on the effect measure's natural scale
+#'     (HR for survival; OR, RR, IRR, RD, IRD, or MD for GLM,
+#'     exponentiated at capture for ratio measures so the column is
+#'     always on natural scale regardless of outcome type); they are
+#'     in-sample estimates (optimistically biased) and are surfaced
 #'     for diagnostic comparison across folds only.
 #'   \item \code{original_agreement}: if \code{original_sg} and/or
 #'     \code{original_grf_cuts} are supplied, fraction of folds matching
@@ -830,9 +834,9 @@ print.fs_cv_summary <- function(x, n = 5L, ...) {
     ),
     list(
       col     = "training_fs_hr",
-      label   = "Training-fold HR (identifying folds)",
+      label   = "Training-fold subgroup effect (identifying folds)",
       filter  = function(fsum) !is.na(fsum$training_fs_hr),
-      context = "In-sample; optimistically biased"
+      context = "Natural scale; in-sample; optimistically biased"
     ),
     list(
       col     = "n_candidates_evaluated",
@@ -1219,9 +1223,11 @@ print.fs_cv_summary <- function(x, n = 5L, ...) {
     ) |>
     gt::tab_source_note(
       paste0(
-        "Training-fold HRs are in-sample estimates and are ",
-        "optimistically biased.  They are shown here for diagnostic ",
-        "comparison across folds only; do not use for inference."
+        "Training-fold subgroup effects are in-sample estimates on the ",
+        "effect measure's natural scale (HR for survival; OR, RR, IRR, ",
+        "RD, IRD, or MD for GLM).  They are optimistically biased and ",
+        "shown here for diagnostic comparison across folds only; do ",
+        "not use for inference."
       )
     ) |>
     gt::tab_options(table.font.size = gt::px(13))
