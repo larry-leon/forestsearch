@@ -277,6 +277,67 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
       )
   }
 
+  # =========================================================================
+  # TABLE 6: GRF CUT FREQUENCY (Phase C)
+  #
+  # Raw GRF policy-tree cuts captured per bootstrap iteration.  Spans
+  # all iterations (not just successful ones), so a prominent
+  # "(no GRF cut)" row on failing bootstraps alongside a common cut on
+  # successful ones distinguishes "GRF failed" from "consistency
+  # rejected".  Guard against NULL for backward compat with pre-Phase-C
+  # bootstrap objects.
+  # =========================================================================
+
+  if (!is.null(subgroup_summary$grf_cut_freq) &&
+      nrow(subgroup_summary$grf_cut_freq) > 0L) {
+
+    # Truncate to top 15 + aggregate tail as "(N others)" so the
+    # Percent column always sums to ~100 regardless of distinct-cut count.
+    # Mirrors the CV-side .cv_aggregate_others() contract.
+    top_n_display <- 15L
+    gcf <- subgroup_summary$grf_cut_freq
+    if (nrow(gcf) > top_n_display) {
+      head_df <- utils::head(gcf, top_n_display)
+      tail_df <- gcf[seq.int(top_n_display + 1L, nrow(gcf)), , drop = FALSE]
+      n_tail  <- sum(tail_df$N)
+      k_tail  <- nrow(tail_df)
+      total_all <- sum(gcf$N)
+      others_row <- data.table::data.table(
+        Rank    = top_n_display + 1L,
+        grf_cut = sprintf("(%d others)", k_tail),
+        N       = n_tail,
+        Percent = 100 * n_tail / total_all
+      )
+      gcf <- rbind(head_df, others_row)
+    }
+
+    tables$grf_cut_freq <- gcf |>
+      gt::gt() |>
+      gt::tab_header(
+        title = gt::md("**GRF Cuts Across Bootstrap Iterations**"),
+        subtitle = sprintf(
+          "Raw grf_cuts output from each bootstrap (all %d iterations)",
+          sum(subgroup_summary$grf_cut_freq$N)
+        )
+      ) |>
+      gt::cols_label(
+        Rank    = "Rank",
+        grf_cut = "GRF cuts",
+        N       = "N",
+        Percent = "% of bootstraps"
+      ) |>
+      gt::fmt_number(columns = "Percent", decimals = 2) |>
+      gt::tab_source_note(
+        paste0(
+          "Spans all bootstrap iterations, not just successful ones. ",
+          "A prominent '(no GRF cut)' row indicates GRF-discovery ",
+          "instability across resamples; a single dominant cut with ",
+          "low no-subgroup rate indicates stable discovery paired ",
+          "with consistency-stage variability."
+        )
+      ) |>
+      gt::tab_options(table.font.size = gt::px(13))
+  }
 
   return(tables)
 }

@@ -45,6 +45,8 @@ utils::globalVariables(c(
   "H_biasadj_2",
   "Hc_biasadj_1",
   "Hc_biasadj_2",
+  "grf_cuts_b",
+  "grf_cut",
 
 # ============================================================================
 # Subgroup identification

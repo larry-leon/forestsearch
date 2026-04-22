@@ -414,37 +414,32 @@ forestsearch_Kfold <- function(
 #'   \item{fold_summary}{Data frame with one row per (sim, fold) combination.
 #'     Columns: \code{sim}, \code{fold}, \code{n_test}, \code{sg1}, \code{sg2},
 #'     \code{grf_cuts}, \code{pconsistency}, \code{training_fs_hr},
-#'     \code{n_candidates_evaluated}, \code{any_found}.
-#'
-#'     \itemize{
-#'       \item \code{grf_cuts}: GRF policy-tree cut expressions returned
-#'         for each training fold (collapsed with " | " when multiple
-#'         cuts are returned; \code{NA} when GRF was not used, failed,
-#'         or returned no cuts).
-#'       \item \code{pconsistency}: consistency probability (\code{Pcons})
-#'         achieved by the identified subgroup on each fold
-#'         (\code{NA_real_} when no subgroup was identified or the
-#'         training ForestSearch call errored).
-#'       \item \code{training_fs_hr}: in-sample hazard ratio (or GLM
-#'         effect estimate, on its natural scale) for the identified
-#'         subgroup on the training fold.  Optimistically biased
-#'         relative to any independent estimate; surfaced for
-#'         diagnostic comparison only.  \code{NA_real_} when no
-#'         subgroup was identified.
-#'       \item \code{n_candidates_evaluated}: integer count of candidate
-#'         subgroups actually evaluated for consistency on this training
-#'         fold.  Populated whenever the consistency stage ran (even if
-#'         zero candidates met the threshold and thus no subgroup was
-#'         identified); \code{NA_integer_} when the training call
-#'         errored or consistency evaluation did not run.
-#'     }
-#'
-#'     Always returned (compact; cheap).  Lets you tabulate, for
-#'     example, which subgroup was identified in each fold of each
-#'     simulation, the empirical distribution of GRF cut choices
-#'     across the full sim x fold grid, the relationship between GRF's
-#'     cut and the final identified subgroup, or the near-miss
-#'     consistency values among folds that did not surface a subgroup.}
+#'     \code{n_candidates_evaluated}, \code{any_found}.  The
+#'     \code{grf_cuts} column records the GRF policy-tree cut
+#'     expressions returned for each training fold (collapsed with
+#'     " | " when multiple cuts are returned; \code{NA} when GRF was
+#'     not used, failed, or returned no cuts).  The \code{pconsistency}
+#'     column records the consistency probability (\code{Pcons})
+#'     achieved by the identified subgroup on each fold (\code{NA_real_}
+#'     when no subgroup was identified or the training ForestSearch
+#'     call errored).  The \code{training_fs_hr} column records the
+#'     in-sample hazard ratio (or GLM effect estimate on its natural
+#'     scale) for the identified subgroup on the training fold --
+#'     optimistically biased relative to any independent estimate;
+#'     surfaced for diagnostic comparison only, with \code{NA_real_}
+#'     when no subgroup was identified.  The
+#'     \code{n_candidates_evaluated} column records the integer count
+#'     of candidate subgroups actually evaluated for consistency on
+#'     this training fold (populated whenever the consistency stage
+#'     ran, even if zero candidates met the threshold and thus no
+#'     subgroup was identified; \code{NA_integer_} when the training
+#'     call errored or consistency evaluation did not run).  Always
+#'     returned (compact; cheap).  Lets you tabulate, for example,
+#'     which subgroup was identified in each fold of each simulation,
+#'     the empirical distribution of GRF cut choices across the full
+#'     sim x fold grid, the relationship between GRF's cut and the
+#'     final identified subgroup, or the near-miss consistency values
+#'     among folds that did not surface a subgroup.}
 #'   \item{resCV_all}{List of length \code{sims}; element \emph{i} is the
 #'     per-subject \code{resCV} data frame from simulation \emph{i}.  Only
 #'     populated when \code{keep_resCV = TRUE}; otherwise \code{NULL}.}

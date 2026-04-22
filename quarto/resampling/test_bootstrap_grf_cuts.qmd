@@ -1,0 +1,515 @@
+---
+title: "Living test: Phase C bootstrap `grf_cuts_b`"
+subtitle: "Validates bootstrap-side GRF-cut capture and summary"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+params:
+  quick_mode: true       # TRUE: nb_boots=30 (~30 sec). FALSE: nb_boots=200 (~3-5 min).
+  force_rerun: false     # TRUE: ignore checkpoint and re-run bootstrap.
+---
+
+# Purpose {#sec-purpose}
+
+Validates Phase C: the `grf_cuts_b` column captured per bootstrap
+iteration in `bootstrap_results()` and surfaced through the
+`summarize_bootstrap_subgroups()` -> `format_subgroup_summary_tables()`
+pipeline.  Parallel in spirit to the CV-side
+`test_summarize_cv_results.qmd` but narrower in scope: Phase C is a
+single new column and a single new summary slot.
+
+Coverage:
+
+1. **Column presence and domain** — `results$grf_cuts_b` is a
+   character column, populated whenever the bootstrap call succeeded
+   regardless of subgroup identification, `NA_character_` otherwise.
+2. **`summarize_bootstrap_subgroups()` `grf_cut_freq` slot** —
+   populated with a tidy `data.table(Rank, grf_cut, N, Percent)` that
+   spans all bootstraps (not just the successful ones).  `N` sums to
+   `nb_boots`.
+3. **Formatter integration** — `format_subgroup_summary_tables()`
+   produces a `grf_cut_freq` gt table with a `"(N others)"` tail row
+   when distinct cuts exceed the display cap.
+4. **End-to-end via `summarize_bootstrap_results()`** — exposes the
+   new slot through the existing pipeline without disturbing other
+   slots.
+5. **Backward compatibility** — stripping `grf_cuts_b` from
+   `results` degrades to `NULL` for the new slots without breaking
+   anything else.
+
+A cumulative pass/fail table renders in @sec-summary.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+if (isTRUE(params$quick_mode)) {
+  nb_boots  <- 30L
+  ckpt_path <- "test_bootstrap_grf_cuts_checkpoint_quick.rds"
+  cat("Mode: quick (nb_boots = 30).  Set quick_mode = FALSE for 200.\n")
+} else {
+  nb_boots  <- 200L
+  ckpt_path <- "test_bootstrap_grf_cuts_checkpoint_full.rds"
+  cat("Mode: full (nb_boots = 200).  Expect 3-5 min runtime.\n")
+}
+
+confounders.name <- c("age", "meno", "size", "grade3",
+                      "nodes", "pgr", "er")
+outcome.name     <- "time_months"
+event.name       <- "status"
+treat.name       <- "hormon"
+id.name          <- "id"
+
+fs_args_base <- list(
+  hr.threshold              = 1.25,
+  hr.consistency            = 1.00,
+  pconsistency.threshold    = 0.90,
+  stop_threshold            = 0.95,
+  sg_focus                  = "maxSG",
+  max_subgroups_search      = 10L,
+  use_twostage              = FALSE,
+  use_grf                   = TRUE,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  frac.tau                  = 0.8,
+  dmin.grf                  = 12,
+  maxk                      = 2L,
+  n.min                     = 60L,
+  d0.min                    = 10L,
+  d1.min                    = 10L,
+  fs.splits                 = 400L,
+  details                   = FALSE,
+  quiet                     = TRUE,
+  plot.sg                   = FALSE,
+  plot.grf                  = FALSE
+)
+
+n_workers <- floor(0.95 * max(1L, parallel::detectCores() - 1L))
+```
+
+```{r data-setup}
+df             <- survival::gbsg
+df$grade3      <- as.integer(df$grade == "3")
+df$id          <- seq_len(nrow(df))
+df$time_months <- df$rfstime / 30.4375
+```
+
+```{r test-harness}
+test_results <- data.frame(
+  Section = character(0),
+  Test    = character(0),
+  Status  = character(0),
+  Detail  = character(0),
+  stringsAsFactors = FALSE
+)
+
+.tc <- function(section, test, pass, detail = "") {
+  status <- if (isTRUE(pass)) "PASS" else "FAIL"
+  test_results <<- rbind(test_results, data.frame(
+    Section = section, Test = test, Status = status,
+    Detail  = substr(detail, 1L, 120L),
+    stringsAsFactors = FALSE
+  ))
+  invisible(pass)
+}
+```
+
+
+# Baseline run {#sec-baseline}
+
+Full-data ForestSearch followed by a small bootstrap.  Checkpoint
+preserves the `fs_bc` object; stale checkpoints are detected via the
+`grf_cuts_b` column.
+
+```{r fs-full}
+#| message: false
+fs_full <- do.call(forestsearch, c(list(
+  df.analysis      = df,
+  confounders.name = confounders.name,
+  outcome.name     = outcome.name,
+  event.name       = event.name,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  parallel_args    = list(plan         = "multisession",
+                          workers      = n_workers,
+                          show_message = FALSE)
+), fs_args_base))
+plan("sequential")
+
+cat("Full-data subgroup:",
+    paste(fs_full$sg.harm, collapse = " & "), "\n")
+cat("Full-data GRF cuts:",
+    paste(fs_full$grf_cuts, collapse = " | "), "\n")
+```
+
+```{r bootstrap-run}
+#| message: false
+.run_bootstrap <- function() {
+  t0 <- proc.time()
+  out <- forestsearch_bootstrap_dofuture(
+    fs.est        = fs_full,
+    nb_boots      = nb_boots,
+    parallel_args = list(plan         = "multisession",
+                         workers      = n_workers,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  attr(out, "runtime_seconds") <-
+    as.numeric((proc.time() - t0)["elapsed"])
+  out
+}
+
+if (file.exists(ckpt_path) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading bootstrap from checkpoint: %s", ckpt_path))
+  fs_bc <- readRDS(ckpt_path)
+
+  # Phase C staleness check.
+  if (!"grf_cuts_b" %in% names(fs_bc$results)) {
+    message(sprintf(paste0(
+      "Checkpoint %s predates Phase C (no grf_cuts_b column). ",
+      "Re-running bootstrap..."), ckpt_path))
+    fs_bc <- .run_bootstrap()
+    saveRDS(fs_bc, ckpt_path)
+    message(sprintf("Wrote refreshed checkpoint to %s", ckpt_path))
+  }
+} else {
+  message(sprintf("Running bootstrap (nb_boots = %d) ...", nb_boots))
+  fs_bc <- .run_bootstrap()
+  saveRDS(fs_bc, ckpt_path)
+  message(sprintf("Wrote checkpoint to %s", ckpt_path))
+}
+
+cat(sprintf("Bootstrap iterations: %d\n", nrow(fs_bc$results)))
+cat(sprintf("results columns: %s\n",
+            paste(names(fs_bc$results), collapse = ", ")))
+
+.tc("Baseline", "results$grf_cuts_b column present",
+    "grf_cuts_b" %in% names(fs_bc$results),
+    detail = "Required for Phase C summary slots")
+
+.tc("Baseline", "nrow(results) == nb_boots",
+    nrow(fs_bc$results) == nb_boots,
+    detail = sprintf("obs=%d exp=%d",
+                     nrow(fs_bc$results), nb_boots))
+```
+
+
+# Test 1: Column domain {#sec-test1}
+
+```{r test1}
+gcb <- fs_bc$results$grf_cuts_b
+
+.tc("Test 1: column", "grf_cuts_b is character",
+    is.character(gcb),
+    detail = sprintf("class=%s", class(gcb)[1]))
+
+# Non-empty strings should look like GRF cut expressions or be NA.
+# Empty strings are not expected (capture logic either populates with
+# a real cut or defaults to NA_character_).
+.tc("Test 1: column", "no empty-string grf_cuts_b values",
+    !any(!is.na(gcb) & gcb == ""),
+    detail = sprintf("n empty=%d",
+                     sum(!is.na(gcb) & gcb == "")))
+
+# grf_cuts_b NA implies the bootstrap either errored or produced no
+# cut.  On a successful GBSG bootstrap at these settings, we expect
+# most iterations to produce some cut.  Not a strict assertion --
+# warn rather than fail if the rate is high.
+na_rate <- mean(is.na(gcb))
+.tc("Test 1: column", "NA rate for grf_cuts_b is reported",
+    TRUE,  # always pass; informational only
+    detail = sprintf("NA rate = %.1f%%", 100 * na_rate))
+
+# Values that ARE populated should contain at least one "<=" or ">="
+# (GRF cut expressions have the pattern "variable op threshold").
+nonna <- gcb[!is.na(gcb) & gcb != ""]
+has_op <- length(nonna) == 0L ||
+  all(grepl("<=|>=|<|>|=", nonna))
+.tc("Test 1: column", "populated cuts contain comparison operator",
+    has_op,
+    detail = sprintf("populated=%d; all look like cuts=%s",
+                     length(nonna), has_op))
+```
+
+
+# Test 2: `summarize_bootstrap_subgroups()` `grf_cut_freq` slot {#sec-test2}
+
+Exercises the exported `summarize_bootstrap_subgroups()` tabulation
+helper directly, validating its contract independent of the
+`summarize_bootstrap_results()` orchestrator (which is validated
+end-to-end in @sec-test4).
+
+```{r test2}
+subg_summary <- summarize_bootstrap_subgroups(
+  results     = fs_bc$results,
+  nb_boots    = nb_boots,
+  original_sg = fs_full$sg.harm,
+  maxk        = 2L
+)
+
+.tc("Test 2: subgroups slot", "grf_cut_freq slot present",
+    "grf_cut_freq" %in% names(subg_summary))
+.tc("Test 2: subgroups slot", "grf_cut_freq is non-NULL",
+    !is.null(subg_summary$grf_cut_freq))
+.tc("Test 2: subgroups slot", "grf_cut_freq inherits data.table",
+    inherits(subg_summary$grf_cut_freq, "data.table"))
+
+gcf <- subg_summary$grf_cut_freq
+expected_cols <- c("Rank", "grf_cut", "N", "Percent")
+.tc("Test 2: subgroups slot", "grf_cut_freq has expected columns",
+    all(expected_cols %in% names(gcf)),
+    detail = paste(setdiff(expected_cols, names(gcf)), collapse = ", "))
+
+# Spans all bootstraps, not just successful ones.  N must sum to
+# nb_boots exactly.
+.tc("Test 2: subgroups slot", "grf_cut_freq N sums to nb_boots",
+    sum(gcf$N) == nb_boots,
+    detail = sprintf("sum=%d exp=%d", sum(gcf$N), nb_boots))
+
+# Percent must sum to ~100 (modulo rounding)
+.tc("Test 2: subgroups slot", "grf_cut_freq Percent sums to ~100",
+    abs(sum(gcf$Percent) - 100) < 0.5,
+    detail = sprintf("sum=%.2f", sum(gcf$Percent)))
+
+# Rank is sequential 1..nrow
+.tc("Test 2: subgroups slot", "grf_cut_freq Rank is sequential",
+    identical(gcf$Rank, seq_len(nrow(gcf))),
+    detail = sprintf("rank range=[%d, %d], nrow=%d",
+                     min(gcf$Rank), max(gcf$Rank), nrow(gcf)))
+
+# Sort invariant: N non-increasing
+.tc("Test 2: subgroups slot", "grf_cut_freq sorted by descending N",
+    all(diff(gcf$N) <= 0),
+    detail = sprintf("first N=%d, last N=%d",
+                     gcf$N[1], gcf$N[nrow(gcf)]))
+
+# NA values from grf_cuts_b must map to a single "(no GRF cut)" row
+# (not be silently dropped).
+na_count_in_col  <- sum(is.na(fs_bc$results$grf_cuts_b))
+no_grf_cut_row_n <- if ("(no GRF cut)" %in% gcf$grf_cut) {
+  gcf$N[gcf$grf_cut == "(no GRF cut)"]
+} else {
+  0L
+}
+.tc("Test 2: subgroups slot", "NA values map to '(no GRF cut)' row",
+    na_count_in_col == no_grf_cut_row_n,
+    detail = sprintf("NAs in col=%d, '(no GRF cut)' row N=%d",
+                     na_count_in_col, no_grf_cut_row_n))
+```
+
+
+# Test 3: `format_subgroup_summary_tables()` integration {#sec-test3}
+
+```{r test3}
+fmt_tables <- forestsearch:::format_subgroup_summary_tables(
+  subg_summary, nb_boots
+)
+
+.tc("Test 3: format", "grf_cut_freq gt table produced",
+    "grf_cut_freq" %in% names(fmt_tables))
+.tc("Test 3: format", "grf_cut_freq is a gt_tbl",
+    inherits(fmt_tables$grf_cut_freq, "gt_tbl"))
+
+# Previously-existing tables still present (no regression)
+prior_tables <- c("basic_stats", "agreement")
+for (tn in prior_tables) {
+  if (tn %in% names(fmt_tables)) {
+    .tc("Test 3: format",
+        sprintf("prior table '%s' still produced", tn),
+        inherits(fmt_tables[[tn]], "gt_tbl"),
+        detail = "no regression")
+  }
+}
+```
+
+## Rendered grf_cut_freq table
+
+```{r test3-display}
+fmt_tables$grf_cut_freq
+```
+
+
+# Test 4: End-to-end via `summarize_bootstrap_results()` {#sec-test4}
+
+```{r test4}
+summaries <- summarize_bootstrap_results(
+  sgharm       = fs_full$sg.harm,
+  boot_results = fs_bc,
+  create_plots = FALSE
+)
+
+.tc("Test 4: end-to-end",
+    "subgroup_summary$grf_cut_freq reachable via top-level summaries",
+    !is.null(summaries$subgroup_summary$grf_cut_freq))
+.tc("Test 4: end-to-end",
+    "top-level table slot still produced",
+    inherits(summaries$table, "gt_tbl"))
+.tc("Test 4: end-to-end",
+    "top-level diagnostics_table_gt still produced",
+    inherits(summaries$diagnostics_table_gt, "gt_tbl"))
+
+# Same grf_cut_freq content regardless of whether we called
+# summarize_bootstrap_subgroups() directly or via summarize_bootstrap_results()
+.tc("Test 4: end-to-end",
+    "grf_cut_freq identical through both access paths",
+    isTRUE(all.equal(
+      summaries$subgroup_summary$grf_cut_freq,
+      subg_summary$grf_cut_freq
+    )))
+```
+
+
+# Test 5: Backward compatibility {#sec-test5}
+
+Strip `grf_cuts_b` from `results` to simulate a pre-Phase-C object.
+Expects graceful `NULL` for the new slot and no disturbance to the
+rest of the summary pipeline.
+
+```{r test5}
+fs_bc_nogrf <- fs_bc
+fs_bc_nogrf$results <- fs_bc$results[
+  , setdiff(names(fs_bc$results), "grf_cuts_b"), with = FALSE
+]
+
+subg_nogrf <- summarize_bootstrap_subgroups(
+  results     = fs_bc_nogrf$results,
+  nb_boots    = nb_boots,
+  original_sg = fs_full$sg.harm,
+  maxk        = 2L
+)
+
+.tc("Test 5: backward-compat",
+    "grf_cut_freq NULL when column absent",
+    is.null(subg_nogrf$grf_cut_freq))
+.tc("Test 5: backward-compat",
+    "basic_stats still produced when Phase C absent",
+    !is.null(subg_nogrf$basic_stats))
+.tc("Test 5: backward-compat",
+    "factor_freq still produced when Phase C absent",
+    !is.null(subg_nogrf$factor_freq))
+
+fmt_nogrf <- forestsearch:::format_subgroup_summary_tables(
+  subg_nogrf, nb_boots
+)
+.tc("Test 5: backward-compat",
+    "formatter omits grf_cut_freq gt when source NULL",
+    !"grf_cut_freq" %in% names(fmt_nogrf))
+.tc("Test 5: backward-compat",
+    "other formatter outputs still produced",
+    "basic_stats" %in% names(fmt_nogrf))
+```
+
+
+# Test 6: Empty-results edge case {#sec-test6}
+
+Confirms the early-return path in `summarize_bootstrap_subgroups()`
+(no successful iterations) still populates `grf_cut_freq` when
+`grf_cuts_b` is present -- this is the most diagnostically valuable
+case.
+
+```{r test6}
+# Synthesise a results object where no iteration identified a
+# subgroup (all Pcons NA) but grf_cuts_b is populated.
+res_no_subg <- data.table::copy(fs_bc$results)
+res_no_subg[, Pcons := NA_real_]  # force n_found = 0
+
+subg_no <- suppressWarnings(summarize_bootstrap_subgroups(
+  results     = res_no_subg,
+  nb_boots    = nb_boots,
+  original_sg = NULL,
+  maxk        = 2L
+))
+
+.tc("Test 6: empty-results", "early-return populates grf_cut_freq",
+    !is.null(subg_no$grf_cut_freq),
+    detail = "most diagnostic case: GRF output when no sg found")
+.tc("Test 6: empty-results", "n_found is 0 in early-return",
+    subg_no$n_found == 0L)
+
+# When early-return triggers, grf_cut_freq should still sum to nb_boots
+if (!is.null(subg_no$grf_cut_freq)) {
+  .tc("Test 6: empty-results",
+      "grf_cut_freq N sums to nb_boots in early-return",
+      sum(subg_no$grf_cut_freq$N) == nb_boots,
+      detail = sprintf("sum=%d exp=%d",
+                       sum(subg_no$grf_cut_freq$N), nb_boots))
+}
+```
+
+
+# Test summary {#sec-summary}
+
+```{r summary-table}
+n_total <- nrow(test_results)
+n_pass  <- sum(test_results$Status == "PASS")
+n_fail  <- n_total - n_pass
+
+gt::gt(test_results,
+       groupname_col = "Section",
+       row_group_as_column = TRUE) |>
+  gt::tab_header(
+    title    = gt::md(sprintf(
+      "**Phase C test results: %d / %d passing**", n_pass, n_total)),
+    subtitle = sprintf(
+      "GBSG, nb_boots = %d, dmin.grf = %g, frac.tau = %g",
+      nb_boots, fs_args_base$dmin.grf, fs_args_base$frac.tau)
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#d4edda"),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "PASS"
+    )
+  ) |>
+  gt::tab_style(
+    style     = list(
+      gt::cell_fill(color = "#f8d7da"),
+      gt::cell_text(weight = "bold")
+    ),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "FAIL"
+    )
+  ) |>
+  gt::cols_label(
+    Test   = "Test case",
+    Status = "Status",
+    Detail = "Detail"
+  ) |>
+  gt::tab_options(table.font.size = gt::px(12))
+
+if (n_fail == 0L) {
+  message(sprintf("ALL TESTS PASSED: %d / %d", n_pass, n_total))
+} else {
+  message(sprintf("TESTS FAILED: %d / %d failing", n_fail, n_total))
+  print(test_results[test_results$Status == "FAIL",
+                     c("Section", "Test", "Detail")])
+}
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

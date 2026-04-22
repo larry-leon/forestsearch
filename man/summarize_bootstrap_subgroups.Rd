@@ -27,14 +27,53 @@ List with summary components:
 \item{agreement}{Data.table of subgroup definition agreement counts}
 \item{factor_presence}{Data.table of base factor presence counts}
 \item{factor_presence_specific}{Data.table of specific factor definitions}
+\item{grf_cut_freq}{Data.table of GRF policy-tree cut frequencies
+across all bootstrap iterations (not just successful ones).
+Columns: \code{Rank}, \code{grf_cut}, \code{N},
+\code{Percent}.  \code{NULL} when \code{results} lacks the
+\code{grf_cuts_b} column (pre-Phase-C objects).  Unlike
+subgroup-related tables, this tabulation is NOT restricted
+to iterations that identified a subgroup -- it spans all
+bootstraps so that the analyst can distinguish "GRF produced
+no cut" from "GRF produced a cut that consistency rejected".}
 \item{original_agreement}{Data.table comparing to original analysis subgroup}
 \item{n_found}{Integer. Number of successful iterations}
 \item{pct_found}{Numeric. Percentage of successful iterations}
 }
 }
 \description{
-Comprehensive summary of bootstrap subgroup identification results including
-basic statistics, factor frequencies, consistency distributions, and agreement
-with the original analysis subgroup.
+Comprehensive tabulation of bootstrap subgroup identification results
+including basic statistics, factor frequencies, consistency
+distributions, GRF-cut frequencies, and agreement with the original
+analysis subgroup.  Returns raw \code{data.table} tabulations
+suitable for custom post-processing, export, or plotting; for the
+full formatted pipeline (gt tables, diagnostics, plots) call
+\code{\link{summarize_bootstrap_results}} instead.
 }
-\keyword{internal}
+\examples{
+\dontrun{
+# Run bootstrap analysis
+boot_out <- forestsearch_bootstrap_dofuture(fs.est, nb_boots = 500)
+
+# Raw tabulations for custom post-processing
+subg <- summarize_bootstrap_subgroups(
+  results     = boot_out$results,
+  nb_boots    = 500,
+  original_sg = fs.est$sg.harm,
+  maxk        = 2L
+)
+
+# Inspect the GRF cut frequencies across all bootstraps
+subg$grf_cut_freq
+
+# Export factor frequencies to CSV for an external report
+data.table::fwrite(subg$factor_freq, "factor_freq.csv")
+}
+
+}
+\seealso{
+\code{\link{summarize_bootstrap_results}} for the full
+formatted summary pipeline (gt tables plus diagnostics and plots).
+\code{\link{forestsearch_bootstrap_dofuture}} to run the bootstrap
+analysis that produces the \code{results} object consumed here.
+}

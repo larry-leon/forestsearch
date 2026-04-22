@@ -69,6 +69,16 @@
 #'     \item{M.5}{Character. Fifth factor label}
 #'     \item{M.6}{Character. Sixth factor label}
 #'     \item{M.7}{Character. Seventh factor label}
+#'     \item{grf_cuts_b}{Character. GRF policy-tree cut expressions
+#'       returned on this bootstrap sample, collapsed with " | " when
+#'       multiple cuts are produced.  \code{NA_character_} when GRF was
+#'       not used, the bootstrap forestsearch call errored, or GRF
+#'       returned no cuts.  Populated independently of whether a
+#'       subgroup was identified: GRF may surface a candidate cut on
+#'       bootstraps where the downstream consistency stage rejects all
+#'       candidates.  Mirrors the \code{grf_cuts} column that
+#'       \code{\link{forestsearch_tenfold}} captures in its
+#'       \code{fold_summary} return slot.}
 #'   }
 #'   Rows where no valid subgroup was found will have \code{NA} for bias corrections.
 #'   The returned object has a "timing" attribute with summary statistics.
@@ -522,6 +532,12 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     Pcons <- hr_sg <- N_sg <- E_sg <- K_sg <- g_sg <- m_sg <- NA_real_
     M.1 <- M.2 <- M.3 <- M.4 <- M.5 <- M.6 <- M.7 <- NA_character_
 
+    # Initialize Phase C GRF-cut capture.  Populated whenever the
+    # bootstrap forestsearch call itself succeeds; independent of whether
+    # a subgroup was identified (GRF may return a cut even when the
+    # downstream consistency stage rejects every candidate).
+    grf_cuts_b <- NA_character_
+
     # Extract consistency results if available
     if (!inherits(run_bootstrap, "try-error") &&
         !is.null(run_bootstrap$grp.consistency) &&
@@ -556,6 +572,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         if (actual_k >= 6) M.6 <- first_row[["M.6"]]
         if (actual_k >= 7) M.7 <- first_row[["M.7"]]
       }
+    }
+
+    # Extract GRF cuts independently of subgroup identification.
+    # Mirrors the CV-side capture in forestsearch_tenfold(); collapses
+    # multi-cut output with " | " to match the CV format exactly.
+    if (!inherits(run_bootstrap, "try-error") &&
+        !is.null(run_bootstrap$grf_cuts) &&
+        length(run_bootstrap$grf_cuts) > 0L) {
+      grf_cuts_b <- paste(run_bootstrap$grf_cuts, collapse = " | ")
     }
 
     # Single data.table creation (FAST: no cbind, no copies)
@@ -599,7 +624,10 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       M.4 = M.4,
       M.5 = M.5,
       M.6 = M.6,
-      M.7 = M.7
+      M.7 = M.7,
+
+      # GRF POLICY-TREE OUTPUT (Phase C)
+      grf_cuts_b = grf_cuts_b
     )
 
     return(dfres)
