@@ -983,7 +983,7 @@ expected_cols <- c("Metric", "n", "median", "Q1", "Q3", "min",
 expected_metrics <- c(
   "Test-fold size (n_test)",
   "Pcons (identifying folds)",
-  "Training-fold HR (identifying folds)",
+  "Training-fold subgroup effect (identifying folds)",
   "Candidates evaluated per fold"
 )
 .tc("Test 7: pconsistency",
@@ -997,7 +997,7 @@ for (spec in list(
   list(metric = "Pcons (identifying folds)",
        col    = "pconsistency",
        filt   = function(x) !is.na(x)),
-  list(metric = "Training-fold HR (identifying folds)",
+  list(metric = "Training-fold subgroup effect (identifying folds)",
        col    = "training_fs_hr",
        filt   = function(x) !is.na(x)),
   list(metric = "Candidates evaluated per fold",
