@@ -15,7 +15,6 @@ format:
     number-sections: true
 params:
   quick_mode: true       # TRUE: nb_boots=30 (~30 sec). FALSE: nb_boots=200 (~3-5 min).
-  force_rerun: false     # TRUE: ignore checkpoint and re-run bootstrap.
 ---
 
 # Purpose {#sec-purpose}
@@ -45,6 +44,14 @@ Coverage:
 5. **Backward compatibility** — stripping `grf_cuts_b` from
    `results` degrades to `NULL` for the new slots without breaking
    anything else.
+6. **Empty-results edge case** — early-return path still populates
+   `grf_cut_freq`.
+7. **v0.2.0 bootstrap return-value contract** — `any_found` column
+   mirrors `fold_summary$any_found`; `fs_bootstrap` S3 class tag is
+   set; metadata fields (`nb_boots`, `original_sg`, `outcome_type`,
+   `effect_measure`, `est.scale`) populate for downstream consumers
+   and `print.fs_bootstrap`; the print method dispatches correctly
+   and respects `top_n`.
 
 A cumulative pass/fail table renders in @sec-summary.
 
@@ -66,11 +73,9 @@ library(doFuture)
 ```{r config}
 if (isTRUE(params$quick_mode)) {
   nb_boots  <- 30L
-  ckpt_path <- "test_bootstrap_grf_cuts_checkpoint_quick.rds"
   cat("Mode: quick (nb_boots = 30).  Set quick_mode = FALSE for 200.\n")
 } else {
   nb_boots  <- 200L
-  ckpt_path <- "test_bootstrap_grf_cuts_checkpoint_full.rds"
   cat("Mode: full (nb_boots = 200).  Expect 3-5 min runtime.\n")
 }
 
@@ -181,25 +186,8 @@ cat("Full-data GRF cuts:",
   out
 }
 
-if (file.exists(ckpt_path) && !isTRUE(params$force_rerun)) {
-  message(sprintf("Loading bootstrap from checkpoint: %s", ckpt_path))
-  fs_bc <- readRDS(ckpt_path)
-
-  # Phase C staleness check.
-  if (!"grf_cuts_b" %in% names(fs_bc$results)) {
-    message(sprintf(paste0(
-      "Checkpoint %s predates Phase C (no grf_cuts_b column). ",
-      "Re-running bootstrap..."), ckpt_path))
-    fs_bc <- .run_bootstrap()
-    saveRDS(fs_bc, ckpt_path)
-    message(sprintf("Wrote refreshed checkpoint to %s", ckpt_path))
-  }
-} else {
-  message(sprintf("Running bootstrap (nb_boots = %d) ...", nb_boots))
-  fs_bc <- .run_bootstrap()
-  saveRDS(fs_bc, ckpt_path)
-  message(sprintf("Wrote checkpoint to %s", ckpt_path))
-}
+message(sprintf("Running bootstrap (nb_boots = %d) ...", nb_boots))
+fs_bc <- .run_bootstrap()
 
 cat(sprintf("Bootstrap iterations: %d\n", nrow(fs_bc$results)))
 cat(sprintf("results columns: %s\n",
@@ -456,6 +444,153 @@ if (!is.null(subg_no$grf_cut_freq)) {
       detail = sprintf("sum=%d exp=%d",
                        sum(subg_no$grf_cut_freq$N), nb_boots))
 }
+```
+
+
+# Test 7: v0.2.0 bootstrap return-value contract {#sec-test7}
+
+Validates the v0.2.0 additions to the bootstrap return object that
+downstream consumers (`print.fs_bootstrap`, CV-style fold identification
+diagnostics, cross-API count comparisons) depend on.  These are
+orthogonal to Phase C (`grf_cuts_b` / `grf_cut_freq`) and were added
+in the same release as the GLM extension.
+
+The `detail = ...` strings in this section use `%||%` (null-coalesce)
+to produce readable messages when a metadata slot is NULL.  Defined
+locally here to avoid depending on package-internal exports.
+
+```{r test7-helper}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## S3 class and core schema
+
+```{r test7-class}
+.tc("Test 7: v0.2.0", "fs_bc inherits 'fs_bootstrap' class",
+    inherits(fs_bc, "fs_bootstrap"),
+    detail = sprintf("classes = %s",
+                     paste(class(fs_bc), collapse = "/")))
+
+.tc("Test 7: v0.2.0", "results has any_found column",
+    "any_found" %in% names(fs_bc$results))
+
+.tc("Test 7: v0.2.0", "any_found is integer",
+    is.integer(fs_bc$results$any_found),
+    detail = sprintf("class = %s",
+                     class(fs_bc$results$any_found)[1]))
+
+.tc("Test 7: v0.2.0", "any_found values are all 0L or 1L",
+    all(fs_bc$results$any_found %in% c(0L, 1L)),
+    detail = sprintf("distinct = %s",
+                     paste(sort(unique(fs_bc$results$any_found)),
+                           collapse = ",")))
+```
+
+## `any_found` agrees with `!is.na(Pcons)`
+
+Both are indicators of "this iteration identified a subgroup."  The
+counts must agree exactly; disagreement would mean one of the two
+internal definitions has drifted.
+
+```{r test7-equiv}
+by_pcons    <- sum(!is.na(fs_bc$results$Pcons))
+by_anyfound <- sum(fs_bc$results$any_found == 1L)
+
+.tc("Test 7: v0.2.0",
+    "any_found count matches !is.na(Pcons) count",
+    by_pcons == by_anyfound,
+    detail = sprintf("Pcons=%d, any_found=%d", by_pcons, by_anyfound))
+```
+
+## Metadata fields present
+
+Each is consumed by `print.fs_bootstrap` and by cached-object
+inspection workflows.  Being NULL on a fresh object would indicate a
+regression in `bootstrap_results()` or an early-return path that
+skipped the metadata assembly.
+
+```{r test7-metadata}
+.tc("Test 7: v0.2.0", "nb_boots metadata non-NULL",
+    !is.null(fs_bc$nb_boots),
+    detail = sprintf("nb_boots = %s", fs_bc$nb_boots %||% "NULL"))
+
+# original_sg may legitimately be NULL when the primary fit didn't
+# identify a subgroup; we only require the slot to exist in the
+# structure, not that it be populated.
+.tc("Test 7: v0.2.0", "original_sg slot exists on return",
+    "original_sg" %in% names(fs_bc))
+
+.tc("Test 7: v0.2.0", "outcome_type metadata non-NULL",
+    !is.null(fs_bc$outcome_type),
+    detail = sprintf("outcome_type = %s",
+                     fs_bc$outcome_type %||% "NULL"))
+
+.tc("Test 7: v0.2.0", "effect_measure metadata non-NULL",
+    !is.null(fs_bc$effect_measure),
+    detail = sprintf("effect_measure = %s",
+                     fs_bc$effect_measure %||% "NULL"))
+
+.tc("Test 7: v0.2.0", "est.scale metadata non-NULL",
+    !is.null(fs_bc$est.scale),
+    detail = sprintf("est.scale = %s",
+                     fs_bc$est.scale %||% "NULL"))
+```
+
+## Metadata values match the call
+
+GBSG rfstime/status/hormon is a Cox PH survival setup by default, so
+the return contract should record `outcome_type = "survival"` and
+`effect_measure = "HR"`.  `nb_boots` must echo the value passed in.
+
+```{r test7-metadata-values}
+.tc("Test 7: v0.2.0", "nb_boots echoes the call argument",
+    identical(fs_bc$nb_boots, nb_boots),
+    detail = sprintf("returned=%s, expected=%d",
+                     fs_bc$nb_boots %||% "NULL", nb_boots))
+
+.tc("Test 7: v0.2.0", "outcome_type == 'survival' for GBSG Cox path",
+    identical(fs_bc$outcome_type, "survival"),
+    detail = sprintf("got %s", fs_bc$outcome_type %||% "NULL"))
+
+.tc("Test 7: v0.2.0", "effect_measure == 'HR' for GBSG Cox path",
+    identical(fs_bc$effect_measure, "HR"),
+    detail = sprintf("got %s", fs_bc$effect_measure %||% "NULL"))
+```
+
+## `print.fs_bootstrap` dispatches without error
+
+Bare-name evaluation must trigger the S3 method and produce the
+rich summary output (not the default list printer).  `capture.output`
+silences the printed text so the test log stays clean; we only care
+that the call succeeds.
+
+```{r test7-print-default}
+print_err <- tryCatch(
+  { capture.output(print(fs_bc)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("Test 7: v0.2.0",
+    "print(fs_bc) dispatches without error",
+    is.null(print_err),
+    detail = if (is.null(print_err)) "OK" else print_err)
+```
+
+## `top_n` parameter honoured
+
+`top_n = 5L` should run without error and print through the richer
+top-subgroup list.  Regression mode for this would be a missing
+argument in the method signature, or NSE/data.table-subsetting bugs
+that surface only on larger `top_n` values.
+
+```{r test7-print-topn}
+topn_err <- tryCatch(
+  { capture.output(print(fs_bc, top_n = 5L)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("Test 7: v0.2.0",
+    "print(fs_bc, top_n = 5L) dispatches without error",
+    is.null(topn_err),
+    detail = if (is.null(topn_err)) "OK" else topn_err)
 ```
 
 

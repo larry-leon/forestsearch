@@ -79,6 +79,12 @@ Data.table with one row per bootstrap iteration and columns:
 \item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
 \item{tmins_iteration}{Numeric. Total minutes for this bootstrap iteration}
 \item{Pcons}{Numeric. Consistency p-value for top subgroup}
+\item{any_found}{Integer 0/1. Identification flag; equivalent to
+\code{as.integer(!is.na(Pcons))}.  Added in v0.2.0 to mirror the
+\code{fold_summary$any_found} column produced by
+\code{\link{forestsearch_tenfold}}, so cross-API diagnostics
+(\code{sum(results$any_found == 1L)}) work identically for
+bootstrap and CV outputs.}
 \item{hr_sg}{Numeric. Hazard ratio for top subgroup}
 \item{N_sg}{Integer. Sample size of top subgroup}
 \item{E_sg}{Integer. Number of events in top subgroup}

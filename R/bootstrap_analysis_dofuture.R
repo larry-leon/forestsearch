@@ -56,6 +56,12 @@
 #'     \item{tmins_search}{Numeric. Minutes spent on subgroup search in this iteration}
 #'     \item{tmins_iteration}{Numeric. Total minutes for this bootstrap iteration}
 #'     \item{Pcons}{Numeric. Consistency p-value for top subgroup}
+#'     \item{any_found}{Integer 0/1. Identification flag; equivalent to
+#'       \code{as.integer(!is.na(Pcons))}.  Added in v0.2.0 to mirror the
+#'       \code{fold_summary$any_found} column produced by
+#'       \code{\link{forestsearch_tenfold}}, so cross-API diagnostics
+#'       (\code{sum(results$any_found == 1L)}) work identically for
+#'       bootstrap and CV outputs.}
 #'     \item{hr_sg}{Numeric. Hazard ratio for top subgroup}
 #'     \item{N_sg}{Integer. Sample size of top subgroup}
 #'     \item{E_sg}{Integer. Number of events in top subgroup}
@@ -612,6 +618,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
       # CONSISTENCY RESULTS FROM TOP SUBGROUP
       Pcons = Pcons,
+      # any_found: integer 0/1, TRUE iff a subgroup was identified in
+      # this iteration (equivalent to !is.na(Pcons)).  Mirrors the CV
+      # fold_summary$any_found convention so cross-API diagnostics can
+      # use the same column name.  Added in v0.2.0.
+      any_found = as.integer(!is.na(Pcons)),
       hr_sg = hr_sg,
       N_sg = N_sg,
       E_sg = E_sg,
@@ -648,5 +659,29 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     avg_minutes_per_boot = tmins_total_bootstrap / nb_boots,
     avg_seconds_per_boot = (tmins_total_bootstrap * 60) / nb_boots
   )
+
+  # =========================================================================
+  # SECTION: RETURN-VALUE SCHEMA VALIDATION
+  # =========================================================================
+  # Catch accidental column drops/renames before downstream code
+  # (summarize_bootstrap_subgroups, print.fs_bootstrap, smoke tests)
+  # silently misbehaves.  Covers the columns those consumers actually
+  # read, not an exhaustive enumeration of every output column.
+  required_cols <- c(
+    "boot_id",
+    "Pcons", "any_found",
+    "hr_sg", "N_sg", "K_sg",
+    "M.1", "M.2", "M.3", "M.4", "M.5", "M.6", "M.7",
+    "H_biasadj_1", "H_biasadj_2", "Hc_biasadj_1", "Hc_biasadj_2",
+    "grf_cuts_b"
+  )
+  missing_cols <- setdiff(required_cols, names(foreach_results))
+  if (length(missing_cols) > 0L) {
+    stop(sprintf(
+      "bootstrap_results() return value is missing required column(s): %s.\n  This indicates a return-contract regression; downstream consumers (summarize_bootstrap_subgroups, print.fs_bootstrap) will fail or silently misbehave.",
+      paste(shQuote(missing_cols), collapse = ", ")
+    ), call. = FALSE)
+  }
+
   return(foreach_results)
 }

@@ -1,6 +1,6 @@
 ---
-title: "Living test: Phase A/B/C GLM compatibility"
-subtitle: "Synthetic binary outcome + OR effect measure"
+title: "Living test: Phase A/B/C GLM compatibility (count / IRR)"
+subtitle: "Synthetic count outcome + IRR effect measure + person-time offset"
 author: "Larry F. León"
 date: today
 format:
@@ -23,45 +23,54 @@ Validates that the Phase A/B/C diagnostic features
 (`fold_summary$grf_cuts`, `fold_summary$pconsistency`,
 `fold_summary$training_fs_hr`, `fold_summary$n_candidates_evaluated`,
 `summarize_cv_results()` slots, and the bootstrap `grf_cut_freq`
-slot) work correctly when the outcome is **binary** rather than
-survival.
+slot) work correctly when the outcome is a **count** (Poisson GLM
+with log link and optional person-time offset) rather than survival
+or binary.
 
-The key GLM-specific concern is `training_fs_hr` on log-scale effect
-measures (OR, IRR, RR): `forestsearch()`'s internal result stores
-these values on log scale, but Phase B's capture applies `exp()` so
-the column is always on natural scale regardless of outcome type.
-This document exercises the full pipeline on synthetic binary data
-with `effect_measure = "OR"` to confirm that contract.
+Parallel in intent to `test_glm_compatibility.qmd`, but specialised
+to the count / IRR path.  The count-specific concerns are:
 
-The synthetic DGM mirrors the canonical ACTG175 binary-benefit
-configuration: a mix of **continuous** covariates (where GRF
-discovers cuts) and **binary factor** covariates (passed through
-without cut discovery), with `sg_focus = "maxSG"` to recover the
-largest qualifying subgroup.
+1. `training_fs_hr` on log-link measures (IRR): `forestsearch()`
+   stores internal effect values on the log scale, but Phase B's
+   capture must apply `exp()` so the column is on the natural
+   (multiplicative) IRR scale regardless of outcome type.  Values
+   near `log(IRR_harm)` in the fold-summary would indicate a missing
+   transform.
+2. The `offset.name` pathway: forestsearch() must propagate the
+   person-time offset through all internal GLM fits; failure mode is
+   an effect estimate that treats the count as raw and drops to
+   near-null even when the rate ratio is large.
+
+The synthetic DGM plants a harm signal driven by
+`age <= 50 & biomarker_hi == 1`, with true IRR ≈ 2.0 inside the
+subgroup and ≈ 1.0 outside, with follow-up time (`ftime`) supplied
+as an offset.  Covariates mix continuous (GRF cuts discoverable) and
+binary factor (passed through without cut attempt), with
+`sg_focus = "maxSG"` to recover the largest qualifying subgroup.
 
 Coverage:
 
 1. **Synthetic data generation** — harm subgroup driven by
-   `age <= 50 & biomarker_hi == 1`.  Ground truth OR ≈ 2.0 within
-   subgroup, ≈ 1.0 outside.  Mix of continuous and binary factor
-   covariates exercises both cut-discovery paths.
-2. **Primary ForestSearch call** — confirms the GLM routing
-   succeeds, returns a populated object with `df.est` and
-   `args_call_all`, and surfaces `outcome_type` / `effect_measure`
-   metadata correctly.
-3. **CV pipeline (Phase A/B)** — runs `forestsearch_tenfold()` at
-   small sims, confirms every new `fold_summary` column populates
-   correctly on GLM data, confirms `summarize_cv_results()` produces
-   each diagnostic slot, and specifically confirms `training_fs_hr`
-   values are on OR scale (i.e., > 1 for harm, not log-OR values
-   centered near 0.7).
-4. **Bootstrap pipeline (Phase C)** — runs
-   `forestsearch_bootstrap_dofuture()` at small `nb_boots`, confirms
-   `results$grf_cuts_b` populates and `summarize_bootstrap_subgroups()`
-   surfaces `grf_cut_freq`.
-5. **Cross-check** — captured `training_fs_hr` on an identifying
-   fold agrees within order-of-magnitude with an independent `glm()`
-   refit on the same subgroup.
+   `age <= 50 & biomarker_hi == 1`, true IRR ≈ 2.0, mix of continuous
+   and factor covariates, follow-up time as offset.
+2. **Primary ForestSearch call** — confirms the count GLM routing
+   succeeds, the offset is honoured, outcome-type / effect-measure
+   metadata is preserved through the return.
+3. **CV pipeline (Phase A/B)** — confirms every new `fold_summary`
+   column populates on count data, confirms `summarize_cv_results()`
+   produces each diagnostic slot, and confirms `training_fs_hr`
+   values are on IRR scale (i.e., > 1 for harm, not log-IRR values
+   centred near 0.7).
+4. **Bootstrap pipeline (Phase C)** — confirms `results$grf_cuts_b`
+   populates and `summarize_bootstrap_subgroups()` surfaces
+   `grf_cut_freq`.
+5. **v0.2.0 bootstrap return-value contract** — `any_found` column,
+   `fs_bootstrap` S3 class tag, metadata (nb_boots, outcome_type,
+   effect_measure, est.scale), and `print.fs_bootstrap` dispatch
+   work on the count path.
+6. **Cross-check** — captured `training_fs_hr` on an identifying
+   fold agrees within order-of-magnitude with an independent
+   Poisson `glm()` refit (with offset) on the same subgroup.
 
 A cumulative pass/fail table renders in @sec-summary.
 
@@ -120,19 +129,21 @@ test_results <- data.frame(
 ```
 
 
-# Synthetic binary-outcome DGM {#sec-dgm}
+# Synthetic count-outcome DGM {#sec-dgm}
 
-Mirrors the ACTG175 binary-benefit configuration: a mix of
-continuous and binary factor covariates, with a harm signal defined
-jointly by one continuous cut (`age <= 50`) and one binary factor
-(`biomarker_hi == 1`).  Outcome is Bernoulli; natural effect measure
-is odds ratio.
+Mirrors the binary compatibility pattern but with a count response:
+event counts per subject are Poisson distributed with rate governed
+by treatment and subgroup membership, scaled by individual follow-up
+time (`ftime`).  The natural effect measure is the incidence rate
+ratio (IRR) reached via a log link.  Harm signal is jointly defined
+by a continuous cut (`age <= 50`) and a binary factor
+(`biomarker_hi == 1`).
 
 ```{r generate-data}
 set.seed(20260421)
 
-OR_harm    <- 2.0     # true OR in harm subgroup (treatment worsens outcome)
-OR_benefit <- 1.0     # null treatment effect outside harm subgroup
+IRR_harm    <- 2.0     # true IRR in harm subgroup (treatment worsens rate)
+IRR_benefit <- 1.0     # null rate ratio outside harm subgroup
 
 df_syn <- data.frame(
   id           = seq_len(N),
@@ -144,46 +155,47 @@ df_syn <- data.frame(
   biomarker_hi = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
   sex          = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
   site         = factor(sample(0:1, N, replace = TRUE),
-                        levels = c(0L, 1L))
+                        levels = c(0L, 1L)),
+  ftime        = round(runif(N, 1, 5), 2)   # person-time (arbitrary units)
 )
 
 # True harm subgroup: age <= 50 AND biomarker_hi == 1
 true_harm    <- df_syn$age <= 50 & df_syn$biomarker_hi == "1"
-treat_effect <- ifelse(true_harm, log(OR_harm), log(OR_benefit))
+treat_effect <- ifelse(true_harm, log(IRR_harm), log(IRR_benefit))
 
-linpred <- 0 + df_syn$treat * treat_effect
-prob_y  <- plogis(linpred)
-df_syn$y <- rbinom(N, 1L, prob_y)
+# Baseline rate = 0.5 events per unit ftime; apply treatment-by-subgroup
+# interaction on the log scale, then scale by ftime to get expected count.
+base_rate <- 0.5
+rate      <- base_rate * exp(df_syn$treat * treat_effect)
+df_syn$y  <- rpois(N, lambda = rate * df_syn$ftime)
 
-cat(sprintf("N = %d, overall event rate = %.3f\n",
-            nrow(df_syn), mean(df_syn$y)))
+cat(sprintf("N = %d, mean count = %.2f (median %d, max %d)\n",
+            nrow(df_syn), mean(df_syn$y),
+            median(df_syn$y), max(df_syn$y)))
 cat(sprintf("True harm prevalence: %.2f\n", mean(true_harm)))
-cat(sprintf("Event rate | treat = 0: %.3f\n",
-            mean(df_syn$y[df_syn$treat == 0])))
-cat(sprintf("Event rate | treat = 1: %.3f\n",
-            mean(df_syn$y[df_syn$treat == 1])))
 
-overall_or <- (mean(df_syn$y[df_syn$treat == 1]) /
-                (1 - mean(df_syn$y[df_syn$treat == 1]))) /
-              (mean(df_syn$y[df_syn$treat == 0]) /
-                (1 - mean(df_syn$y[df_syn$treat == 0])))
-cat(sprintf("Overall empirical OR: %.2f\n", overall_or))
+rate_0 <- sum(df_syn$y[df_syn$treat == 0L]) /
+          sum(df_syn$ftime[df_syn$treat == 0L])
+rate_1 <- sum(df_syn$y[df_syn$treat == 1L]) /
+          sum(df_syn$ftime[df_syn$treat == 1L])
+cat(sprintf("Event rate per unit ftime | treat = 0: %.3f\n", rate_0))
+cat(sprintf("Event rate per unit ftime | treat = 1: %.3f\n", rate_1))
+cat(sprintf("Overall empirical IRR: %.2f\n", rate_1 / rate_0))
 ```
 
 Empirical check that the harm subgroup is recoverable:
 
 ```{r dgm-sanity}
 har <- df_syn[true_harm, ]
-or_harm_emp <- (mean(har$y[har$treat == 1]) /
-                  (1 - mean(har$y[har$treat == 1]))) /
-               (mean(har$y[har$treat == 0]) /
-                  (1 - mean(har$y[har$treat == 0])))
-cat(sprintf("Empirical OR in true harm subgroup: %.2f (DGM = %.1f)\n",
-            or_harm_emp, OR_harm))
+r0 <- sum(har$y[har$treat == 0L]) / sum(har$ftime[har$treat == 0L])
+r1 <- sum(har$y[har$treat == 1L]) / sum(har$ftime[har$treat == 1L])
+irr_harm_emp <- r1 / r0
+cat(sprintf("Empirical IRR in true harm subgroup: %.2f (DGM = %.1f)\n",
+            irr_harm_emp, IRR_harm))
 
-.tc("DGM", "empirical harm OR > 1.3",
-    or_harm_emp > 1.3,
-    detail = sprintf("empirical OR = %.2f", or_harm_emp))
+.tc("DGM", "empirical harm IRR > 1.3",
+    irr_harm_emp > 1.3,
+    detail = sprintf("empirical IRR = %.2f", irr_harm_emp))
 
 .tc("DGM", "harm subgroup prevalence between 15% and 40%",
     mean(true_harm) > 0.15 && mean(true_harm) < 0.40,
@@ -193,9 +205,11 @@ cat(sprintf("Empirical OR in true harm subgroup: %.2f (DGM = %.1f)\n",
 
 # Primary ForestSearch call {#sec-fs-full}
 
-Configuration mirrors the ACTG175 pattern:
+Configuration exercises the count / IRR pathway with a person-time
+offset:
 
-- `outcome_type = "binary"`, `effect_measure = "OR"`
+- `outcome_type = "count"`, `effect_measure = "IRR"`,
+  `offset.name = "ftime"`
 - `sg_focus = "maxSG"` (largest qualifying subgroup)
 - `is.RCT = TRUE`, `vi.grf.min = -0.2`, `cont.cutoff = 4L`
 - Mixed covariates: continuous (cuts discovered by GRF) + factor
@@ -208,11 +222,11 @@ fs_args <- list(
   confounders.name = c("age", "wtkg", "biomarker", "karnof",
                        "biomarker_hi", "sex", "site"),
   outcome.name     = "y",
-  event.name       = "y",
   treat.name       = "treat",
   id.name          = "id",
-  outcome_type     = "binary",
-  effect_measure   = "OR",
+  outcome_type     = "count",
+  effect_measure   = "IRR",
+  offset.name      = "ftime",
   hr.threshold             = 1.25,
   hr.consistency           = 1.00,
   pconsistency.threshold   = 0.80,
@@ -267,10 +281,10 @@ cat(sprintf("GRF cuts: %s\n",
     !is.null(fs_full$args_call_all))
 .tc("Primary FS", "df.est present on return",
     !is.null(fs_full$df.est))
-.tc("Primary FS", "outcome_type == 'binary' preserved on return",
-    identical(fs_full$outcome_type, "binary"))
-.tc("Primary FS", "effect_measure == 'OR' preserved on return",
-    identical(fs_full$effect_measure, "OR"))
+.tc("Primary FS", "outcome_type == 'count' preserved on return",
+    identical(fs_full$outcome_type, "count"))
+.tc("Primary FS", "effect_measure == 'IRR' preserved on return",
+    identical(fs_full$effect_measure, "IRR"))
 .tc("Primary FS", "a subgroup was identified",
     !is.null(fs_full$sg.harm))
 
@@ -284,19 +298,19 @@ if (!is.null(fs_full$sg.harm)) {
       detail = sprintf("sg = '%s'", sg_str))
 }
 
-# The top-ranked result row's 'hr' column holds log-OR for binary+OR.
-# Exponentiating should give a value roughly matching OR_harm (2.0).
+# The top-ranked result row's 'hr' column holds log-IRR for count+IRR.
+# Exponentiating should give a value roughly matching IRR_harm (2.0).
 if (!is.null(fs_full$grp.consistency$out_sg$result) &&
     nrow(fs_full$grp.consistency$out_sg$result) > 0L) {
   stored_hr <- as.numeric(
     fs_full$grp.consistency$out_sg$result[1L, "hr"]
   )
-  or_nat <- exp(stored_hr)
+  irr_nat <- exp(stored_hr)
   .tc("Primary FS",
-      "stored 'hr' is on log scale (exp() yields plausible OR)",
-      or_nat > 1.1 && or_nat < 8,
-      detail = sprintf("stored='hr'=%.3f, exp()=%.2f (DGM OR = %.1f)",
-                       stored_hr, or_nat, OR_harm))
+      "stored 'hr' is on log scale (exp() yields plausible IRR)",
+      irr_nat > 1.1 && irr_nat < 8,
+      detail = sprintf("stored='hr'=%.3f, exp()=%.2f (DGM IRR = %.1f)",
+                       stored_hr, irr_nat, IRR_harm))
 }
 ```
 
@@ -348,8 +362,8 @@ fs <- fs_cv$fold_summary
 ## KEY GLM check: `training_fs_hr` is on natural scale
 
 ```{r cv-glm-scale}
-# Under our DGM (OR_harm = 2.0), identifying folds should yield
-# training_fs_hr values > 1 (typically 1.3 to 5 range on the OR
+# Under our DGM (IRR_harm = 2.0), identifying folds should yield
+# training_fs_hr values > 1 (typically 1.3 to 5 range on the IRR
 # scale).  If Phase B's exp() transform is missing, the values would
 # cluster near log(2.0) ~ 0.69 instead.
 hr_vals  <- fs$training_fs_hr
@@ -461,8 +475,8 @@ cv_diag$grf_cut_summary
 ### Rendered `fold_numeric_summary`
 
 Critical GLM check: the "Training-fold subgroup effect" row's median
-should be on natural OR scale (value > 1), not log-OR scale (would be
-near 0.5–1.0).
+should be on natural IRR scale (value > 1), not log-IRR scale (would
+be near 0.5–1.0).
 
 ```{r cv-fnum-display}
 cv_diag$fold_numeric_summary
@@ -554,7 +568,7 @@ if (!is.null(subg_summary$grf_cut_freq)) {
     utils::head(10) |>
     gt::gt() |>
     gt::tab_header(
-      title = gt::md("**GRF cuts across bootstrap iterations (GLM binary outcome)**"),
+      title = gt::md("**GRF cuts across bootstrap iterations (GLM count outcome)**"),
       subtitle = sprintf("Top 10 of %d unique cuts across %d iterations",
                          nrow(subg_summary$grf_cut_freq), nb_boots)
     ) |>
@@ -571,9 +585,10 @@ if (!is.null(subg_summary$grf_cut_freq)) {
 # Cross-check: `training_fs_hr` vs. independent GLM refit {#sec-crosscheck}
 
 Confirm numerical correctness of Phase B's `exp()` transform by
-re-fitting the GLM directly on an identifying fold's subgroup (using
-full data as a plausibility proxy, since exact per-fold splits
-aren't preserved).
+re-fitting the Poisson GLM directly on an identifying fold's subgroup
+(using full data as a plausibility proxy, since exact per-fold splits
+aren't preserved).  The independent refit includes `log(ftime)` as an
+offset so its coefficient is comparable to forestsearch's stored IRR.
 
 ```{r crosscheck}
 id_folds <- fs_cv$fold_summary[
@@ -594,8 +609,6 @@ if (nrow(id_folds) > 0L) {
   cat(sprintf("Captured training_fs_hr: %.3f\n", captured_hr))
 
   # Evaluate the subgroup expression(s) to get a membership flag.
-  # forestsearch() returns R-evaluable expressions like "age <= 50"
-  # or "biomarker_hi == 1".
   in_sg <- tryCatch({
     sg1_flag <- eval(parse(text = pick$sg1), envir = df_syn)
     if (!is.na(pick$sg2)) {
@@ -609,28 +622,146 @@ if (nrow(id_folds) > 0L) {
   if (!is.null(in_sg) && sum(in_sg) > 10L) {
     df_sg <- df_syn[in_sg, ]
     m <- tryCatch(
-      glm(y ~ treat, family = binomial, data = df_sg),
+      glm(y ~ treat + offset(log(ftime)),
+          family = poisson, data = df_sg),
       error = function(e) NULL
     )
     if (!is.null(m)) {
-      or_refit <- exp(coef(m)["treat"])
-      cat(sprintf("Re-fit OR on full-data subgroup: %.3f\n", or_refit))
+      irr_refit <- exp(coef(m)["treat"])
+      cat(sprintf("Re-fit IRR on full-data subgroup: %.3f\n", irr_refit))
 
       .tc("Cross-check",
-          "captured training_fs_hr and re-fit OR both > 1",
-          captured_hr > 1 && or_refit > 1,
+          "captured training_fs_hr and re-fit IRR both > 1",
+          captured_hr > 1 && irr_refit > 1,
           detail = sprintf("captured = %.2f, refit = %.2f",
-                           captured_hr, or_refit))
+                           captured_hr, irr_refit))
 
       .tc("Cross-check",
           "captured and refit agree within 3x",
-          (captured_hr / or_refit > 1/3) &&
-          (captured_hr / or_refit < 3),
+          (captured_hr / irr_refit > 1/3) &&
+          (captured_hr / irr_refit < 3),
           detail = sprintf("ratio = %.2f",
-                           captured_hr / or_refit))
+                           captured_hr / irr_refit))
     }
   }
 }
+```
+
+
+# v0.2.0 bootstrap return-value contract {#sec-v020}
+
+Validates the v0.2.0 additions to the bootstrap return object that
+downstream consumers (`print.fs_bootstrap`, CV-style fold
+identification diagnostics, cross-API count comparisons) depend on.
+Orthogonal to Phase C; included here so each outcome-type
+compatibility doc exercises the contract independently.
+
+```{r v020-helper}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## S3 class and core schema
+
+```{r v020-class}
+.tc("v0.2.0", "fs_bc inherits 'fs_bootstrap' class",
+    inherits(fs_bc, "fs_bootstrap"),
+    detail = sprintf("classes = %s",
+                     paste(class(fs_bc), collapse = "/")))
+
+.tc("v0.2.0", "results has any_found column",
+    "any_found" %in% names(fs_bc$results))
+
+.tc("v0.2.0", "any_found is integer",
+    is.integer(fs_bc$results$any_found),
+    detail = sprintf("class = %s",
+                     class(fs_bc$results$any_found)[1]))
+
+.tc("v0.2.0", "any_found values are all 0L or 1L",
+    all(fs_bc$results$any_found %in% c(0L, 1L)),
+    detail = sprintf("distinct = %s",
+                     paste(sort(unique(fs_bc$results$any_found)),
+                           collapse = ",")))
+```
+
+## `any_found` agrees with `!is.na(Pcons)`
+
+```{r v020-equiv}
+by_pcons    <- sum(!is.na(fs_bc$results$Pcons))
+by_anyfound <- sum(fs_bc$results$any_found == 1L)
+
+.tc("v0.2.0",
+    "any_found count matches !is.na(Pcons) count",
+    by_pcons == by_anyfound,
+    detail = sprintf("Pcons=%d, any_found=%d", by_pcons, by_anyfound))
+```
+
+## Metadata fields populated on the count path
+
+```{r v020-metadata}
+.tc("v0.2.0", "nb_boots metadata non-NULL",
+    !is.null(fs_bc$nb_boots),
+    detail = sprintf("nb_boots = %s", fs_bc$nb_boots %||% "NULL"))
+
+.tc("v0.2.0", "original_sg slot exists on return",
+    "original_sg" %in% names(fs_bc))
+
+.tc("v0.2.0", "outcome_type metadata non-NULL",
+    !is.null(fs_bc$outcome_type),
+    detail = sprintf("outcome_type = %s",
+                     fs_bc$outcome_type %||% "NULL"))
+
+.tc("v0.2.0", "effect_measure metadata non-NULL",
+    !is.null(fs_bc$effect_measure),
+    detail = sprintf("effect_measure = %s",
+                     fs_bc$effect_measure %||% "NULL"))
+
+.tc("v0.2.0", "est.scale metadata non-NULL",
+    !is.null(fs_bc$est.scale),
+    detail = sprintf("est.scale = %s",
+                     fs_bc$est.scale %||% "NULL"))
+```
+
+## Metadata values match the count call
+
+```{r v020-metadata-values}
+.tc("v0.2.0", "nb_boots echoes the call argument",
+    identical(fs_bc$nb_boots, nb_boots),
+    detail = sprintf("returned=%s, expected=%d",
+                     fs_bc$nb_boots %||% "NULL", nb_boots))
+
+.tc("v0.2.0", "outcome_type == 'count'",
+    identical(fs_bc$outcome_type, "count"),
+    detail = sprintf("got %s", fs_bc$outcome_type %||% "NULL"))
+
+.tc("v0.2.0", "effect_measure == 'IRR'",
+    identical(fs_bc$effect_measure, "IRR"),
+    detail = sprintf("got %s", fs_bc$effect_measure %||% "NULL"))
+```
+
+## `print.fs_bootstrap` dispatches without error
+
+```{r v020-print-default}
+print_err <- tryCatch(
+  { capture.output(print(fs_bc)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("v0.2.0",
+    "print(fs_bc) dispatches without error",
+    is.null(print_err),
+    detail = if (is.null(print_err)) "OK" else print_err)
+```
+
+## `top_n` parameter honoured
+
+```{r v020-print-topn}
+topn_err <- tryCatch(
+  { capture.output(print(fs_bc, top_n = 5L)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("v0.2.0",
+    "print(fs_bc, top_n = 5L) dispatches without error",
+    is.null(topn_err),
+    detail = if (is.null(topn_err)) "OK" else topn_err)
 ```
 
 
@@ -646,10 +777,10 @@ gt::gt(test_results,
        row_group_as_column = TRUE) |>
   gt::tab_header(
     title    = gt::md(sprintf(
-      "**GLM compatibility test results: %d / %d passing**",
+      "**GLM compatibility (count / IRR) test results: %d / %d passing**",
       n_pass, n_total)),
     subtitle = sprintf(
-      "Binary outcome (OR), N=%d, CV sims=%d, nb_boots=%d",
+      "Count outcome (IRR, offset=ftime), N=%d, CV sims=%d, nb_boots=%d",
       N, Ksims_cv, nb_boots)
   ) |>
   gt::tab_style(

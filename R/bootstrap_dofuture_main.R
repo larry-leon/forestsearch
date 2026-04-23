@@ -47,7 +47,8 @@
 #'   }
 #'   If empty list, inherits settings from original forestsearch call.
 #'
-#' @return List with the following components:
+#' @return An \code{fs_bootstrap} object (a list with class
+#'   \code{c("fs_bootstrap", "list")}) containing:
 #' \describe{
 #'   \item{results}{Data.table with bias-corrected estimates for each bootstrap iteration}
 #'   \item{SG_CIs}{List of confidence intervals for H and Hc (raw and bias-corrected)}
@@ -56,6 +57,23 @@
 #'   \item{H_estimates}{Detailed estimates for subgroup H}
 #'   \item{Hc_estimates}{Detailed estimates for subgroup Hc}
 #'   \item{summary}{(If create_summary=TRUE) Enhanced summary with tables and diagnostics}
+#'   \item{nb_boots}{Integer. Number of bootstrap iterations requested.
+#'     Used by \code{\link{print.fs_bootstrap}} to compute identification
+#'     percentages without re-inspecting \code{results}.  Added in v0.2.0.}
+#'   \item{original_sg}{Character vector. The subgroup identified by the
+#'     primary \code{\link{forestsearch}} call (\code{fs.est$sg.harm}),
+#'     carried forward so that \code{\link{print.fs_bootstrap}} can
+#'     report exact- and partial-match rates without retaining a
+#'     reference to \code{fs.est}.  Added in v0.2.0.}
+#'   \item{outcome_type}{Character. Outcome type of the underlying
+#'     analysis: one of \code{"survival"}, \code{"binary"},
+#'     \code{"continuous"}, or \code{"count"}.  Added in v0.2.0.}
+#'   \item{effect_measure}{Character. Effect measure label
+#'     (\code{"HR"} for survival; \code{"OR"}, \code{"RR"}, \code{"RD"},
+#'     \code{"IRR"}, \code{"IRD"}, or \code{"MD"} for GLM outcomes).
+#'     Added in v0.2.0.}
+#'   \item{est.scale}{Character. Estimation scale for confidence
+#'     intervals (\code{"hr"} or \code{"1/hr"}).  Added in v0.2.0.}
 #' }
 #'
 #' @section Performance:
@@ -378,8 +396,17 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
       FSsg_tab = NULL,
       Ystar_mat = Ystar_mat,
       H_estimates = NULL,
-      Hc_estimates = NULL
+      Hc_estimates = NULL,
+      # Metadata mirrors the normal-return path so print.fs_bootstrap can
+      # still produce a partial summary on the early-return object.
+      nb_boots       = nb_boots,
+      original_sg    = fs.est$sg.harm,
+      outcome_type   = if (is_glm) outcome_type else "survival",
+      effect_measure = if (is_glm) args_forestsearch_call$effect_measure
+                       else "HR",
+      est.scale      = est.scale
     )
+    class(out) <- c("fs_bootstrap", "list")
     return(out)
   }
 
@@ -509,9 +536,206 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     FSsg_tab = FSsg_tab,
     Ystar_mat = Ystar_mat,
     H_estimates = H_estimates,
-    Hc_estimates = Hc_estimates
+    Hc_estimates = Hc_estimates,
+    # Metadata needed by print.fs_bootstrap so that the print method does
+    # not need to retain a reference to fs.est.  Added in v0.2.0 alongside
+    # the fs_bootstrap class tag.
+    nb_boots       = nb_boots,
+    original_sg    = fs.est$sg.harm,
+    outcome_type   = if (is_glm) outcome_type else "survival",
+    effect_measure = if (is_glm) args_forestsearch_call$effect_measure
+                     else "HR",
+    est.scale      = est.scale
   )
 
-
-   return(out)
+  class(out) <- c("fs_bootstrap", "list")
+  return(out)
 }
+
+# ==============================================================================
+# PRINT METHOD
+# ==============================================================================
+
+#' Print Method for ForestSearch Bootstrap Results
+#'
+#' Prints a concise but informative summary of an \code{fs_bootstrap}
+#' object returned by \code{\link{forestsearch_bootstrap_dofuture}}.
+#' Covers identification rate, agreement with the primary subgroup,
+#' top identified subgroups, and bias-corrected effect estimates.
+#'
+#' @details
+#' The print method is deliberately richer than the corresponding
+#' \code{print.fs_kfold} / \code{print.fs_tenfold} methods because the
+#' bootstrap is the primary inferential machinery of the package, while
+#' the CV routines are complementary diagnostics.  For the full
+#' per-factor breakdown, consistency distribution, size distribution,
+#' and GRF cut tabulation, call \code{\link{summarize_bootstrap_subgroups}}.
+#'
+#' @param x An \code{fs_bootstrap} object.
+#' @param top_n Integer.  Maximum number of top identified subgroups
+#'   to print.  Default 3.
+#' @param ... Additional arguments (ignored; present for S3
+#'   consistency).
+#'
+#' @return Invisibly returns \code{x}.
+#'
+#' @seealso
+#' \code{\link{forestsearch_bootstrap_dofuture}} to produce the object.
+#' \code{\link{summarize_bootstrap_subgroups}} for full tabulations.
+#'
+#' @examples
+#' \dontrun{
+#' fs <- forestsearch(
+#'   df.analysis = mydata,
+#'   confounders.name = c("age", "sex", "biomarker"),
+#'   outcome.name = "time", event.name = "status", treat.name = "treat"
+#' )
+#' fs_bc <- forestsearch_bootstrap_dofuture(fs, nb_boots = 500)
+#' print(fs_bc)          # rich default summary
+#' print(fs_bc, top_n = 5)
+#' }
+#'
+#' @export
+print.fs_bootstrap <- function(x, top_n = 3L, ...) {
+
+  # ---------------------------------------------------------------------------
+  # Header
+  # ---------------------------------------------------------------------------
+  cat("ForestSearch Bootstrap Results\n")
+  cat("==============================\n")
+
+  # ---------------------------------------------------------------------------
+  # Iteration count, timing
+  # ---------------------------------------------------------------------------
+  nb <- if (!is.null(x$nb_boots)) x$nb_boots else nrow(x$results)
+  cat(sprintf("Iterations: %d\n", nb))
+
+  timing <- attr(x$results, "timing")
+  if (!is.null(timing) && !is.null(timing$total_minutes)) {
+    cat(sprintf("Total time: %.2f minutes  (%.2f sec/iter)\n",
+                timing$total_minutes, timing$avg_seconds_per_boot))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Outcome context (helps when printing a loaded/cached object)
+  # ---------------------------------------------------------------------------
+  if (!is.null(x$outcome_type)) {
+    cat(sprintf("Outcome type: %s  (effect measure: %s)\n",
+                x$outcome_type,
+                x$effect_measure %||% "HR"))
+  }
+
+  # ---------------------------------------------------------------------------
+  # Identification rate
+  # ---------------------------------------------------------------------------
+  if (is.null(x$results) || nrow(x$results) == 0L) {
+    cat("\nNo bootstrap results to summarize.\n")
+    return(invisible(x))
+  }
+
+  # Prefer any_found when present (v0.2.0+), fall back to Pcons for
+  # backward compatibility with cached objects from older versions.
+  any_found_vec <- if ("any_found" %in% names(x$results)) {
+    x$results$any_found == 1L
+  } else {
+    !is.na(x$results$Pcons)
+  }
+  n_found <- sum(any_found_vec, na.rm = TRUE)
+  pct_found <- 100 * n_found / nb
+
+  cat(sprintf(
+    "\nIterations identifying a subgroup: %d / %d (%.1f%%)\n",
+    n_found, nb, pct_found
+  ))
+
+  # ---------------------------------------------------------------------------
+  # Bias-corrected effect estimates (if available)
+  # ---------------------------------------------------------------------------
+  if (!is.null(x$SG_CIs)) {
+    effect_label <- x$effect_measure %||% "HR"
+    cat(sprintf("\nSubgroup effect estimates (%s, 95%% CI):\n", effect_label))
+    cat(sprintf("  H  (Questionable)  unadjusted:     %s\n",
+                x$SG_CIs$H_raw  %||% "NA"))
+    cat(sprintf("                     bias-corrected: %s\n",
+                x$SG_CIs$H_bc   %||% "NA"))
+    cat(sprintf("  Hc (Recommended)   unadjusted:     %s\n",
+                x$SG_CIs$Hc_raw %||% "NA"))
+    cat(sprintf("                     bias-corrected: %s\n",
+                x$SG_CIs$Hc_bc  %||% "NA"))
+  } else {
+    cat("\nSubgroup effect estimates: not available (both H and Hc estimates failed).\n")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Top identified subgroups
+  # ---------------------------------------------------------------------------
+  if (n_found > 0L) {
+
+    # Build canonical-form subgroup strings from M.1..M.7
+    m_cols <- intersect(paste0("M.", 1:7), names(x$results))
+    if (length(m_cols) > 0L) {
+      # Coerce to data.frame BEFORE subsetting so standard `[` semantics
+      # apply.  If `x$results` is a data.table (which is what
+      # `bootstrap_results()` returns), writing the inner subset first
+      # would trigger NSE and interpret `m_cols` as a column name.
+      res_ok <- as.data.frame(x$results)[any_found_vec, m_cols, drop = FALSE]
+
+      sg_strs <- vapply(seq_len(nrow(res_ok)), function(i) {
+        vals <- unlist(res_ok[i, , drop = TRUE])
+        vals <- vals[!is.na(vals) & vals != ""]
+        if (length(vals) == 0L) NA_character_
+        else paste(sort(vals), collapse = " & ")
+      }, character(1))
+
+      sg_strs <- sg_strs[!is.na(sg_strs)]
+      if (length(sg_strs) > 0L) {
+        tt <- sort(table(sg_strs), decreasing = TRUE)
+        k <- min(as.integer(top_n), length(tt))
+        cat(sprintf("\nTop %d identified subgroup(s):\n", k))
+        for (i in seq_len(k)) {
+          cat(sprintf("  %d. %s  (%d / %d, %.1f%%)\n",
+                      i, names(tt)[i], as.integer(tt[i]),
+                      n_found, 100 * as.integer(tt[i]) / n_found))
+        }
+      }
+    }
+
+    # -------------------------------------------------------------------------
+    # Agreement with original (primary-analysis) subgroup
+    # -------------------------------------------------------------------------
+    if (!is.null(x$original_sg) && length(x$original_sg) > 0L) {
+      orig_chars <- as.character(x$original_sg)
+      orig_chars <- orig_chars[!is.na(orig_chars) & orig_chars != ""]
+
+      if (length(orig_chars) > 0L && length(m_cols) > 0L) {
+        orig_canonical <- paste(sort(orig_chars), collapse = " & ")
+
+        # sg_strs already computed above if m_cols existed
+        exact_n <- sum(sg_strs == orig_canonical, na.rm = TRUE)
+
+        # Partial match: any shared factor
+        partial_n <- sum(vapply(sg_strs, function(s) {
+          if (is.na(s)) return(FALSE)
+          any(strsplit(s, " & ", fixed = TRUE)[[1]] %in% orig_chars)
+        }, logical(1)), na.rm = TRUE)
+
+        cat(sprintf("\nAgreement with primary subgroup %s:\n", orig_canonical))
+        cat(sprintf("  Exact match:   %d / %d (%.1f%%)\n",
+                    exact_n, n_found, 100 * exact_n / n_found))
+        cat(sprintf("  Partial match (shared factor): %d / %d (%.1f%%)\n",
+                    partial_n, n_found, 100 * partial_n / n_found))
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Footer
+  # ---------------------------------------------------------------------------
+  cat("\nUse summarize_bootstrap_subgroups() for full diagnostics.\n")
+
+  invisible(x)
+}
+
+# Helper: %||% (NULL-coalescing operator), kept local to avoid a package-
+# wide dependency on rlang.  Used only in print.fs_bootstrap above.
+`%||%` <- function(a, b) if (is.null(a)) b else a

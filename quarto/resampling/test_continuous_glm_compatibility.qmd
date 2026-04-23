@@ -1,6 +1,6 @@
 ---
-title: "Living test: Phase A/B/C GLM compatibility"
-subtitle: "Synthetic binary outcome + OR effect measure"
+title: "Living test: Phase A/B/C GLM compatibility (continuous / MD)"
+subtitle: "Synthetic continuous outcome + mean difference on identity scale"
 author: "Larry F. León"
 date: today
 format:
@@ -23,45 +23,56 @@ Validates that the Phase A/B/C diagnostic features
 (`fold_summary$grf_cuts`, `fold_summary$pconsistency`,
 `fold_summary$training_fs_hr`, `fold_summary$n_candidates_evaluated`,
 `summarize_cv_results()` slots, and the bootstrap `grf_cut_freq`
-slot) work correctly when the outcome is **binary** rather than
-survival.
+slot) work correctly when the outcome is **continuous** (Gaussian
+GLM with identity link) rather than survival, binary, or count.
 
-The key GLM-specific concern is `training_fs_hr` on log-scale effect
-measures (OR, IRR, RR): `forestsearch()`'s internal result stores
-these values on log scale, but Phase B's capture applies `exp()` so
-the column is always on natural scale regardless of outcome type.
-This document exercises the full pipeline on synthetic binary data
-with `effect_measure = "OR"` to confirm that contract.
+Parallel in intent to `test_glm_compatibility.qmd`, but specialised
+to the continuous / MD path.  The continuous-specific concerns are
+*inverse* to those of the log-link (binary / count) paths:
 
-The synthetic DGM mirrors the canonical ACTG175 binary-benefit
-configuration: a mix of **continuous** covariates (where GRF
-discovers cuts) and **binary factor** covariates (passed through
-without cut discovery), with `sg_focus = "maxSG"` to recover the
-largest qualifying subgroup.
+1. `training_fs_hr` on an identity-link measure (MD): the effect is
+   *already* on the natural (additive) scale.  Phase B must NOT
+   apply `exp()` here — values should be raw mean differences, not
+   multiplicatively transformed.  A regression where `exp()` leaks
+   into the identity-scale path would produce values near
+   `exp(MD_harm)` instead of `MD_harm`.
+2. The `hr.threshold` convention for identity-scale searches: for
+   MD the threshold is a raw outcome-scale increment, not a
+   multiplicative ratio.  A default of 0.5 means "at least 0.5
+   outcome-scale units worse".
+
+The synthetic DGM plants a harm signal driven by
+`age <= 50 & biomarker_hi == 1`, with true MD ≈ 3.0 inside the
+subgroup and ≈ 0 outside.  Covariates mix continuous (GRF cuts
+discoverable) and binary factor (passed through without cut
+attempt), with `sg_focus = "maxSG"` to recover the largest
+qualifying subgroup.
 
 Coverage:
 
 1. **Synthetic data generation** — harm subgroup driven by
-   `age <= 50 & biomarker_hi == 1`.  Ground truth OR ≈ 2.0 within
-   subgroup, ≈ 1.0 outside.  Mix of continuous and binary factor
-   covariates exercises both cut-discovery paths.
-2. **Primary ForestSearch call** — confirms the GLM routing
-   succeeds, returns a populated object with `df.est` and
-   `args_call_all`, and surfaces `outcome_type` / `effect_measure`
-   metadata correctly.
-3. **CV pipeline (Phase A/B)** — runs `forestsearch_tenfold()` at
-   small sims, confirms every new `fold_summary` column populates
-   correctly on GLM data, confirms `summarize_cv_results()` produces
-   each diagnostic slot, and specifically confirms `training_fs_hr`
-   values are on OR scale (i.e., > 1 for harm, not log-OR values
-   centered near 0.7).
-4. **Bootstrap pipeline (Phase C)** — runs
-   `forestsearch_bootstrap_dofuture()` at small `nb_boots`, confirms
-   `results$grf_cuts_b` populates and `summarize_bootstrap_subgroups()`
-   surfaces `grf_cut_freq`.
-5. **Cross-check** — captured `training_fs_hr` on an identifying
-   fold agrees within order-of-magnitude with an independent `glm()`
-   refit on the same subgroup.
+   `age <= 50 & biomarker_hi == 1`, true MD ≈ 3.0, mix of continuous
+   and factor covariates.
+2. **Primary ForestSearch call** — confirms the continuous GLM
+   routing succeeds, outcome-type / effect-measure metadata is
+   preserved, and the stored effect value is on identity scale
+   (not log-transformed).
+3. **CV pipeline (Phase A/B)** — confirms every new `fold_summary`
+   column populates on continuous data, confirms
+   `summarize_cv_results()` produces each diagnostic slot, and
+   confirms `training_fs_hr` values are on MD / identity scale
+   (i.e., values in the sensible range around `MD_harm`, not
+   exponentiated to e.g. `exp(3) ~ 20`).
+4. **Bootstrap pipeline (Phase C)** — confirms `results$grf_cuts_b`
+   populates and `summarize_bootstrap_subgroups()` surfaces
+   `grf_cut_freq`.
+5. **v0.2.0 bootstrap return-value contract** — `any_found` column,
+   `fs_bootstrap` S3 class tag, metadata (nb_boots, outcome_type,
+   effect_measure, est.scale), and `print.fs_bootstrap` dispatch
+   work on the continuous path.
+6. **Cross-check** — captured `training_fs_hr` on an identifying
+   fold agrees within a small additive tolerance with an independent
+   `lm()` refit on the same subgroup.
 
 A cumulative pass/fail table renders in @sec-summary.
 
@@ -120,19 +131,19 @@ test_results <- data.frame(
 ```
 
 
-# Synthetic binary-outcome DGM {#sec-dgm}
+# Synthetic continuous-outcome DGM {#sec-dgm}
 
-Mirrors the ACTG175 binary-benefit configuration: a mix of
-continuous and binary factor covariates, with a harm signal defined
-jointly by one continuous cut (`age <= 50`) and one binary factor
-(`biomarker_hi == 1`).  Outcome is Bernoulli; natural effect measure
-is odds ratio.
+Gaussian outcome with treatment-by-subgroup interaction on the
+identity scale: within the harm subgroup the treatment arm has
+mean shifted by `MD_harm`; outside the subgroup treatment has no
+effect.  Harm signal jointly defined by `age <= 50` and
+`biomarker_hi == 1`.
 
 ```{r generate-data}
 set.seed(20260421)
 
-OR_harm    <- 2.0     # true OR in harm subgroup (treatment worsens outcome)
-OR_benefit <- 1.0     # null treatment effect outside harm subgroup
+MD_harm    <- 3.0     # true MD in harm subgroup (treatment worsens mean)
+MD_benefit <- 0.0     # null treatment effect outside harm subgroup
 
 df_syn <- data.frame(
   id           = seq_len(N),
@@ -149,41 +160,38 @@ df_syn <- data.frame(
 
 # True harm subgroup: age <= 50 AND biomarker_hi == 1
 true_harm    <- df_syn$age <= 50 & df_syn$biomarker_hi == "1"
-treat_effect <- ifelse(true_harm, log(OR_harm), log(OR_benefit))
+treat_effect <- ifelse(true_harm, MD_harm, MD_benefit)
 
-linpred <- 0 + df_syn$treat * treat_effect
-prob_y  <- plogis(linpred)
-df_syn$y <- rbinom(N, 1L, prob_y)
+# Linear predictor is the mean; add Gaussian noise with sd = 1 so
+# MD_harm = 3 corresponds to ~3-sigma signal inside the subgroup.
+mu       <- df_syn$treat * treat_effect
+df_syn$y <- rnorm(N, mean = mu, sd = 1)
 
-cat(sprintf("N = %d, overall event rate = %.3f\n",
-            nrow(df_syn), mean(df_syn$y)))
+cat(sprintf("N = %d, mean(y) = %.3f, sd(y) = %.3f\n",
+            nrow(df_syn), mean(df_syn$y), sd(df_syn$y)))
 cat(sprintf("True harm prevalence: %.2f\n", mean(true_harm)))
-cat(sprintf("Event rate | treat = 0: %.3f\n",
+cat(sprintf("Mean y | treat = 0: %.3f\n",
             mean(df_syn$y[df_syn$treat == 0])))
-cat(sprintf("Event rate | treat = 1: %.3f\n",
+cat(sprintf("Mean y | treat = 1: %.3f\n",
             mean(df_syn$y[df_syn$treat == 1])))
 
-overall_or <- (mean(df_syn$y[df_syn$treat == 1]) /
-                (1 - mean(df_syn$y[df_syn$treat == 1]))) /
-              (mean(df_syn$y[df_syn$treat == 0]) /
-                (1 - mean(df_syn$y[df_syn$treat == 0])))
-cat(sprintf("Overall empirical OR: %.2f\n", overall_or))
+overall_md <- mean(df_syn$y[df_syn$treat == 1]) -
+              mean(df_syn$y[df_syn$treat == 0])
+cat(sprintf("Overall empirical MD: %.3f\n", overall_md))
 ```
 
 Empirical check that the harm subgroup is recoverable:
 
 ```{r dgm-sanity}
 har <- df_syn[true_harm, ]
-or_harm_emp <- (mean(har$y[har$treat == 1]) /
-                  (1 - mean(har$y[har$treat == 1]))) /
-               (mean(har$y[har$treat == 0]) /
-                  (1 - mean(har$y[har$treat == 0])))
-cat(sprintf("Empirical OR in true harm subgroup: %.2f (DGM = %.1f)\n",
-            or_harm_emp, OR_harm))
+md_harm_emp <- mean(har$y[har$treat == 1]) -
+               mean(har$y[har$treat == 0])
+cat(sprintf("Empirical MD in true harm subgroup: %.2f (DGM = %.1f)\n",
+            md_harm_emp, MD_harm))
 
-.tc("DGM", "empirical harm OR > 1.3",
-    or_harm_emp > 1.3,
-    detail = sprintf("empirical OR = %.2f", or_harm_emp))
+.tc("DGM", "empirical harm MD > 1.5",
+    md_harm_emp > 1.5,
+    detail = sprintf("empirical MD = %.2f", md_harm_emp))
 
 .tc("DGM", "harm subgroup prevalence between 15% and 40%",
     mean(true_harm) > 0.15 && mean(true_harm) < 0.40,
@@ -193,11 +201,14 @@ cat(sprintf("Empirical OR in true harm subgroup: %.2f (DGM = %.1f)\n",
 
 # Primary ForestSearch call {#sec-fs-full}
 
-Configuration mirrors the ACTG175 pattern:
+Configuration exercises the continuous / MD pathway on identity
+scale:
 
-- `outcome_type = "binary"`, `effect_measure = "OR"`
+- `outcome_type = "continuous"`, `effect_measure = "MD"`
 - `sg_focus = "maxSG"` (largest qualifying subgroup)
 - `is.RCT = TRUE`, `vi.grf.min = -0.2`, `cont.cutoff = 4L`
+- `hr.threshold = 0.5` — identity-scale increment (not multiplicative)
+- `hr.consistency = 0.0` — identity-scale baseline (not 1.0 as for log links)
 - Mixed covariates: continuous (cuts discovered by GRF) + factor
   (passed through without cut attempt)
 - `use_grf = TRUE`, `use_lasso = FALSE`
@@ -208,13 +219,14 @@ fs_args <- list(
   confounders.name = c("age", "wtkg", "biomarker", "karnof",
                        "biomarker_hi", "sex", "site"),
   outcome.name     = "y",
-  event.name       = "y",
   treat.name       = "treat",
   id.name          = "id",
-  outcome_type     = "binary",
-  effect_measure   = "OR",
-  hr.threshold             = 1.25,
-  hr.consistency           = 1.00,
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  # MD is additive -- hr.threshold is an outcome-scale increment,
+  # hr.consistency is the null-effect baseline (0 instead of 1).
+  hr.threshold             = 0.5,
+  hr.consistency           = 0.0,
   pconsistency.threshold   = 0.80,
   sg_focus                 = "maxSG",
   max_subgroups_search     = 10L,
@@ -267,10 +279,10 @@ cat(sprintf("GRF cuts: %s\n",
     !is.null(fs_full$args_call_all))
 .tc("Primary FS", "df.est present on return",
     !is.null(fs_full$df.est))
-.tc("Primary FS", "outcome_type == 'binary' preserved on return",
-    identical(fs_full$outcome_type, "binary"))
-.tc("Primary FS", "effect_measure == 'OR' preserved on return",
-    identical(fs_full$effect_measure, "OR"))
+.tc("Primary FS", "outcome_type == 'continuous' preserved on return",
+    identical(fs_full$outcome_type, "continuous"))
+.tc("Primary FS", "effect_measure == 'MD' preserved on return",
+    identical(fs_full$effect_measure, "MD"))
 .tc("Primary FS", "a subgroup was identified",
     !is.null(fs_full$sg.harm))
 
@@ -284,19 +296,21 @@ if (!is.null(fs_full$sg.harm)) {
       detail = sprintf("sg = '%s'", sg_str))
 }
 
-# The top-ranked result row's 'hr' column holds log-OR for binary+OR.
-# Exponentiating should give a value roughly matching OR_harm (2.0).
+# For MD / identity link, the top-ranked result row's 'hr' column
+# should hold the MD directly (no log transform applied).  A
+# plausible value for DGM MD_harm = 3.0 is in the range [1, 6].  If
+# someone had applied exp() in error, the value would be around
+# exp(3) ~ 20.
 if (!is.null(fs_full$grp.consistency$out_sg$result) &&
     nrow(fs_full$grp.consistency$out_sg$result) > 0L) {
   stored_hr <- as.numeric(
     fs_full$grp.consistency$out_sg$result[1L, "hr"]
   )
-  or_nat <- exp(stored_hr)
   .tc("Primary FS",
-      "stored 'hr' is on log scale (exp() yields plausible OR)",
-      or_nat > 1.1 && or_nat < 8,
-      detail = sprintf("stored='hr'=%.3f, exp()=%.2f (DGM OR = %.1f)",
-                       stored_hr, or_nat, OR_harm))
+      "stored 'hr' is on identity scale (MD directly, not exp())",
+      stored_hr > 0.5 && stored_hr < 10,
+      detail = sprintf("stored='hr'=%.3f (DGM MD = %.1f; exp() would give %.2f)",
+                       stored_hr, MD_harm, exp(stored_hr)))
 }
 ```
 
@@ -345,13 +359,15 @@ fs <- fs_cv$fold_summary
     "n_candidates_evaluated" %in% names(fs))
 ```
 
-## KEY GLM check: `training_fs_hr` is on natural scale
+## KEY GLM check: `training_fs_hr` is on identity (MD) scale
 
 ```{r cv-glm-scale}
-# Under our DGM (OR_harm = 2.0), identifying folds should yield
-# training_fs_hr values > 1 (typically 1.3 to 5 range on the OR
-# scale).  If Phase B's exp() transform is missing, the values would
-# cluster near log(2.0) ~ 0.69 instead.
+# Under our DGM (MD_harm = 3.0), identifying folds should yield
+# training_fs_hr values in a sensible additive range around MD_harm
+# (typically 1 to 6 on the MD scale).  The failure mode here is the
+# INVERSE of the log-link tests in the binary/count compat docs: if
+# exp() accidentally leaks into the identity-scale path, values
+# would cluster near exp(MD) ~ 20, not near MD itself.
 hr_vals  <- fs$training_fs_hr
 hr_nonna <- hr_vals[!is.na(hr_vals)]
 
@@ -364,18 +380,22 @@ if (length(hr_nonna) > 0L) {
               length(hr_nonna)))
   cat(sprintf("  median=%.3f, min=%.3f, max=%.3f\n",
               med_hr, min_hr, max_hr))
-  cat(sprintf("  (on log scale, median would be %.3f)\n", log(med_hr)))
+  cat(sprintf("  (if exp() had leaked in, median would be ~ %.2f)\n",
+              exp(med_hr)))
 
-  # Natural-scale values should be > 1 for a harm search.  Log-scale
-  # values would be near log(2) = 0.69 (below hr.threshold = 1.25).
+  # Identity-scale values for a harm search should be positive and
+  # within a plausible additive band around MD_harm.  If values were
+  # on log scale (i.e. pre-exp()), they'd be near log(3.0) ~ 1.1 which
+  # still passes > 0 but fails the "within 3x MD_harm" check.  If
+  # exp() leaked in, values would be near exp(3.0) ~ 20 and fail the
+  # upper bound.
   .tc("CV GLM scale",
-      "training_fs_hr values > 1 (natural scale, not log)",
-      med_hr > 1,
-      detail = sprintf("median = %.3f (would be %.3f if log-scale)",
-                       med_hr, log(med_hr)))
+      "training_fs_hr values > 0 (harm direction preserved)",
+      med_hr > 0,
+      detail = sprintf("median = %.3f", med_hr))
 
-  # Given hr.threshold = 1.25 was enforced during search, identifying
-  # folds must have training_fs_hr >= 1.25 on natural scale.
+  # Given hr.threshold = 0.5 was enforced during search, identifying
+  # folds must have training_fs_hr >= 0.5 on identity scale.
   .tc("CV GLM scale",
       sprintf("training_fs_hr >= hr.threshold (%.2f) for all id-ing folds",
               fs_args$hr.threshold),
@@ -383,9 +403,19 @@ if (length(hr_nonna) > 0L) {
       detail = sprintf("min = %.3f; threshold = %.2f",
                        min_hr, fs_args$hr.threshold))
 
-  .tc("CV GLM scale", "training_fs_hr values finite and plausible",
-      all(is.finite(hr_nonna)) && max_hr < 100,
-      detail = sprintf("max = %.3f", max_hr))
+  # Upper-bound check: exp(MD_harm) ~ 20 would cluster well above 10,
+  # so a cap at 10 catches the exp()-leak failure mode while still
+  # permitting legitimate tail folds with MD estimates up to ~3x DGM.
+  .tc("CV GLM scale",
+      "training_fs_hr values are on identity scale (not exp-transformed)",
+      max_hr < 10,
+      detail = sprintf("max = %.3f (exp(MD_harm) would be %.2f)",
+                       max_hr, exp(MD_harm)))
+
+  .tc("CV GLM scale", "training_fs_hr values all finite",
+      all(is.finite(hr_nonna)),
+      detail = sprintf("finite=%d/%d",
+                       sum(is.finite(hr_nonna)), length(hr_nonna)))
 }
 ```
 
@@ -461,8 +491,8 @@ cv_diag$grf_cut_summary
 ### Rendered `fold_numeric_summary`
 
 Critical GLM check: the "Training-fold subgroup effect" row's median
-should be on natural OR scale (value > 1), not log-OR scale (would be
-near 0.5–1.0).
+should be on identity (MD) scale — a value in the plausible additive
+range around `MD_harm`, *not* an exponentially transformed value.
 
 ```{r cv-fnum-display}
 cv_diag$fold_numeric_summary
@@ -478,12 +508,22 @@ if (nrow(eff_row) == 1L) {
   .tc("CV summary",
       "fold_numeric_summary effect-row label is 'subgroup effect' (outcome-agnostic)",
       grepl("subgroup effect", eff_row$Metric, fixed = TRUE))
+  # Context string may say "natural scale" or "identity scale" depending
+  # on how the formatter describes the continuous / MD path.  Accept
+  # either; failure here would mean the context column is missing any
+  # scale annotation at all.
   .tc("CV summary",
-      "fold_numeric_summary effect-row context mentions 'natural scale'",
-      grepl("natural scale", eff_row$Context, ignore.case = TRUE))
+      "fold_numeric_summary effect-row context mentions a scale",
+      grepl("natural scale|identity scale|MD|mean difference",
+            eff_row$Context, ignore.case = TRUE),
+      detail = sprintf("Context = '%s'", eff_row$Context))
+  # For MD harm, median should be positive on identity scale.  If
+  # exp() had leaked in, it would be near exp(MD_harm) ~ 20 and this
+  # loose bound wouldn't catch it; the upper-bound check in
+  # cv-glm-scale is where that failure is caught.
   .tc("CV summary",
-      "fold_numeric_summary effect-row median > 1 (natural scale verified)",
-      !is.na(eff_row$median) && eff_row$median > 1,
+      "fold_numeric_summary effect-row median > 0 (identity-scale harm)",
+      !is.na(eff_row$median) && eff_row$median > 0,
       detail = sprintf("median = %.3f", eff_row$median))
 }
 ```
@@ -554,7 +594,7 @@ if (!is.null(subg_summary$grf_cut_freq)) {
     utils::head(10) |>
     gt::gt() |>
     gt::tab_header(
-      title = gt::md("**GRF cuts across bootstrap iterations (GLM binary outcome)**"),
+      title = gt::md("**GRF cuts across bootstrap iterations (GLM continuous outcome)**"),
       subtitle = sprintf("Top 10 of %d unique cuts across %d iterations",
                          nrow(subg_summary$grf_cut_freq), nb_boots)
     ) |>
@@ -570,10 +610,12 @@ if (!is.null(subg_summary$grf_cut_freq)) {
 
 # Cross-check: `training_fs_hr` vs. independent GLM refit {#sec-crosscheck}
 
-Confirm numerical correctness of Phase B's `exp()` transform by
-re-fitting the GLM directly on an identifying fold's subgroup (using
-full data as a plausibility proxy, since exact per-fold splits
-aren't preserved).
+Confirm numerical correctness of the identity-scale path by
+re-fitting `lm(y ~ treat)` directly on an identifying fold's subgroup
+(using full data as a plausibility proxy, since exact per-fold splits
+aren't preserved).  Because MD is additive, the agreement check
+uses an additive tolerance rather than the multiplicative 3x ratio
+used for log-link compatibility tests.
 
 ```{r crosscheck}
 id_folds <- fs_cv$fold_summary[
@@ -594,8 +636,6 @@ if (nrow(id_folds) > 0L) {
   cat(sprintf("Captured training_fs_hr: %.3f\n", captured_hr))
 
   # Evaluate the subgroup expression(s) to get a membership flag.
-  # forestsearch() returns R-evaluable expressions like "age <= 50"
-  # or "biomarker_hi == 1".
   in_sg <- tryCatch({
     sg1_flag <- eval(parse(text = pick$sg1), envir = df_syn)
     if (!is.na(pick$sg2)) {
@@ -609,28 +649,151 @@ if (nrow(id_folds) > 0L) {
   if (!is.null(in_sg) && sum(in_sg) > 10L) {
     df_sg <- df_syn[in_sg, ]
     m <- tryCatch(
-      glm(y ~ treat, family = binomial, data = df_sg),
+      lm(y ~ treat, data = df_sg),
       error = function(e) NULL
     )
     if (!is.null(m)) {
-      or_refit <- exp(coef(m)["treat"])
-      cat(sprintf("Re-fit OR on full-data subgroup: %.3f\n", or_refit))
+      # For Gaussian / identity link, the treat coefficient IS the
+      # MD directly -- no exp() transform.
+      md_refit <- as.numeric(coef(m)["treat"])
+      cat(sprintf("Re-fit MD on full-data subgroup: %.3f\n", md_refit))
 
       .tc("Cross-check",
-          "captured training_fs_hr and re-fit OR both > 1",
-          captured_hr > 1 && or_refit > 1,
-          detail = sprintf("captured = %.2f, refit = %.2f",
-                           captured_hr, or_refit))
+          "captured training_fs_hr and re-fit MD both > 0",
+          captured_hr > 0 && md_refit > 0,
+          detail = sprintf("captured = %.3f, refit = %.3f",
+                           captured_hr, md_refit))
 
+      # Additive tolerance: captured MD and refit MD should agree
+      # within +/- 1.0 outcome units.  This is a loose bound because
+      # the fold and full-data subgroups differ; it catches
+      # order-of-magnitude errors (e.g. exp() leaking in) without
+      # being tripped by ordinary sampling variation.
       .tc("Cross-check",
-          "captured and refit agree within 3x",
-          (captured_hr / or_refit > 1/3) &&
-          (captured_hr / or_refit < 3),
-          detail = sprintf("ratio = %.2f",
-                           captured_hr / or_refit))
+          "captured and refit MD agree within +/- 1.0 units",
+          abs(captured_hr - md_refit) < 1.0,
+          detail = sprintf("diff = %.3f",
+                           captured_hr - md_refit))
     }
   }
 }
+```
+
+
+# v0.2.0 bootstrap return-value contract {#sec-v020}
+
+Validates the v0.2.0 additions to the bootstrap return object that
+downstream consumers (`print.fs_bootstrap`, CV-style fold
+identification diagnostics, cross-API count comparisons) depend on.
+Orthogonal to Phase C; included here so each outcome-type
+compatibility doc exercises the contract independently.
+
+```{r v020-helper}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## S3 class and core schema
+
+```{r v020-class}
+.tc("v0.2.0", "fs_bc inherits 'fs_bootstrap' class",
+    inherits(fs_bc, "fs_bootstrap"),
+    detail = sprintf("classes = %s",
+                     paste(class(fs_bc), collapse = "/")))
+
+.tc("v0.2.0", "results has any_found column",
+    "any_found" %in% names(fs_bc$results))
+
+.tc("v0.2.0", "any_found is integer",
+    is.integer(fs_bc$results$any_found),
+    detail = sprintf("class = %s",
+                     class(fs_bc$results$any_found)[1]))
+
+.tc("v0.2.0", "any_found values are all 0L or 1L",
+    all(fs_bc$results$any_found %in% c(0L, 1L)),
+    detail = sprintf("distinct = %s",
+                     paste(sort(unique(fs_bc$results$any_found)),
+                           collapse = ",")))
+```
+
+## `any_found` agrees with `!is.na(Pcons)`
+
+```{r v020-equiv}
+by_pcons    <- sum(!is.na(fs_bc$results$Pcons))
+by_anyfound <- sum(fs_bc$results$any_found == 1L)
+
+.tc("v0.2.0",
+    "any_found count matches !is.na(Pcons) count",
+    by_pcons == by_anyfound,
+    detail = sprintf("Pcons=%d, any_found=%d", by_pcons, by_anyfound))
+```
+
+## Metadata fields populated on the continuous path
+
+```{r v020-metadata}
+.tc("v0.2.0", "nb_boots metadata non-NULL",
+    !is.null(fs_bc$nb_boots),
+    detail = sprintf("nb_boots = %s", fs_bc$nb_boots %||% "NULL"))
+
+.tc("v0.2.0", "original_sg slot exists on return",
+    "original_sg" %in% names(fs_bc))
+
+.tc("v0.2.0", "outcome_type metadata non-NULL",
+    !is.null(fs_bc$outcome_type),
+    detail = sprintf("outcome_type = %s",
+                     fs_bc$outcome_type %||% "NULL"))
+
+.tc("v0.2.0", "effect_measure metadata non-NULL",
+    !is.null(fs_bc$effect_measure),
+    detail = sprintf("effect_measure = %s",
+                     fs_bc$effect_measure %||% "NULL"))
+
+.tc("v0.2.0", "est.scale metadata non-NULL",
+    !is.null(fs_bc$est.scale),
+    detail = sprintf("est.scale = %s",
+                     fs_bc$est.scale %||% "NULL"))
+```
+
+## Metadata values match the continuous call
+
+```{r v020-metadata-values}
+.tc("v0.2.0", "nb_boots echoes the call argument",
+    identical(fs_bc$nb_boots, nb_boots),
+    detail = sprintf("returned=%s, expected=%d",
+                     fs_bc$nb_boots %||% "NULL", nb_boots))
+
+.tc("v0.2.0", "outcome_type == 'continuous'",
+    identical(fs_bc$outcome_type, "continuous"),
+    detail = sprintf("got %s", fs_bc$outcome_type %||% "NULL"))
+
+.tc("v0.2.0", "effect_measure == 'MD'",
+    identical(fs_bc$effect_measure, "MD"),
+    detail = sprintf("got %s", fs_bc$effect_measure %||% "NULL"))
+```
+
+## `print.fs_bootstrap` dispatches without error
+
+```{r v020-print-default}
+print_err <- tryCatch(
+  { capture.output(print(fs_bc)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("v0.2.0",
+    "print(fs_bc) dispatches without error",
+    is.null(print_err),
+    detail = if (is.null(print_err)) "OK" else print_err)
+```
+
+## `top_n` parameter honoured
+
+```{r v020-print-topn}
+topn_err <- tryCatch(
+  { capture.output(print(fs_bc, top_n = 5L)); NULL },
+  error = function(e) conditionMessage(e)
+)
+.tc("v0.2.0",
+    "print(fs_bc, top_n = 5L) dispatches without error",
+    is.null(topn_err),
+    detail = if (is.null(topn_err)) "OK" else topn_err)
 ```
 
 
@@ -646,10 +809,10 @@ gt::gt(test_results,
        row_group_as_column = TRUE) |>
   gt::tab_header(
     title    = gt::md(sprintf(
-      "**GLM compatibility test results: %d / %d passing**",
+      "**GLM compatibility (continuous / MD) test results: %d / %d passing**",
       n_pass, n_total)),
     subtitle = sprintf(
-      "Binary outcome (OR), N=%d, CV sims=%d, nb_boots=%d",
+      "Continuous outcome (MD, identity scale), N=%d, CV sims=%d, nb_boots=%d",
       N, Ksims_cv, nb_boots)
   ) |>
   gt::tab_style(

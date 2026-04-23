@@ -15,7 +15,6 @@ format:
     number-sections: true
 params:
   quick_mode: true       # TRUE: sims=10 (~1-2 min). FALSE: sims=100 (~15-20 min).
-  force_rerun: false     # TRUE: ignore checkpoint and re-run CV.
 ---
 
 # Purpose {#sec-purpose}
@@ -62,13 +61,9 @@ setting produces a diverse mix of `{er <= 0}`, `(no subgroup)`,
 and non-`er` subgroups across folds, which exercises all
 diagnostic branches even at small simulation counts.
 
-**Checkpoint behaviour.** The CV run is saved to
-`test_summarize_cv_checkpoint_quick.rds` or
-`test_summarize_cv_checkpoint_full.rds` in the working
-directory (suffix depends on `params$quick_mode`).  If that
-file exists and `params$force_rerun` is `FALSE`, the CV is
-skipped.  Stale checkpoints that predate Phase B (missing the
-`pconsistency` column) are detected automatically and refreshed.
+**Checkpoint behaviour.** This document does not cache CV results;
+the run executes every render.  At quick-mode sims, this takes on
+the order of 1–2 minutes.
 
 
 # Setup {#sec-setup}
@@ -91,12 +86,10 @@ library(doFuture)
 if (isTRUE(params$quick_mode)) {
   Ksims_cv  <- 10L
   Kfolds_cv <- 10L
-  ckpt_path <- "test_summarize_cv_checkpoint_quick.rds"
   cat("Mode: quick (sims = 10).  Set quick_mode = FALSE for sims = 100.\n")
 } else {
   Ksims_cv  <- 100L
   Kfolds_cv <- 10L
-  ckpt_path <- "test_summarize_cv_checkpoint_full.rds"
   cat("Mode: full (sims = 100).  Expect 15-20 min runtime.\n")
 }
 
@@ -207,7 +200,7 @@ cat("Full-data GRF cuts:         ",
     paste(fs_full$grf_cuts, collapse = " | "), "\n")
 ```
 
-## 10-fold CV (checkpointed)
+## 10-fold CV
 
 ```{r cv-run}
 #| message: false
@@ -229,31 +222,9 @@ cat("Full-data GRF cuts:         ",
   out
 }
 
-if (file.exists(ckpt_path) && !isTRUE(params$force_rerun)) {
-  message(sprintf("Loading CV from checkpoint: %s", ckpt_path))
-  tf <- readRDS(ckpt_path)
-
-  # Phase B staleness check: older checkpoints lack one or more of the
-  # new diagnostic columns.  Rerun rather than silently failing Test 7.
-  required_phase_b <- c("pconsistency", "training_fs_hr",
-                        "n_candidates_evaluated")
-  missing_phase_b <- setdiff(required_phase_b, names(tf$fold_summary))
-  if (length(missing_phase_b) > 0L) {
-    message(sprintf(paste0(
-      "Checkpoint %s predates full Phase B (missing: %s). ",
-      "Re-running CV..."), ckpt_path,
-      paste(missing_phase_b, collapse = ", ")))
-    tf <- .run_cv()
-    saveRDS(tf, ckpt_path)
-    message(sprintf("Wrote refreshed checkpoint to %s", ckpt_path))
-  }
-} else {
-  message(sprintf("Running %d-sim x %d-fold CV ...",
-                  Ksims_cv, Kfolds_cv))
-  tf <- .run_cv()
-  saveRDS(tf, ckpt_path)
-  message(sprintf("Wrote checkpoint to %s", ckpt_path))
-}
+message(sprintf("Running %d-sim x %d-fold CV ...",
+                Ksims_cv, Kfolds_cv))
+tf <- .run_cv()
 
 cat(sprintf("CV completed: %d sims x %d folds = %d sim x fold pairs\n",
             tf$sims, tf$Kfolds, nrow(tf$fold_summary)))

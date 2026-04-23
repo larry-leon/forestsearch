@@ -43,7 +43,8 @@ or "sequential"
 If empty list, inherits settings from original forestsearch call.}
 }
 \value{
-List with the following components:
+An \code{fs_bootstrap} object (a list with class
+\code{c("fs_bootstrap", "list")}) containing:
 \describe{
 \item{results}{Data.table with bias-corrected estimates for each bootstrap iteration}
 \item{SG_CIs}{List of confidence intervals for H and Hc (raw and bias-corrected)}
@@ -52,6 +53,23 @@ List with the following components:
 \item{H_estimates}{Detailed estimates for subgroup H}
 \item{Hc_estimates}{Detailed estimates for subgroup Hc}
 \item{summary}{(If create_summary=TRUE) Enhanced summary with tables and diagnostics}
+\item{nb_boots}{Integer. Number of bootstrap iterations requested.
+Used by \code{\link{print.fs_bootstrap}} to compute identification
+percentages without re-inspecting \code{results}.  Added in v0.2.0.}
+\item{original_sg}{Character vector. The subgroup identified by the
+primary \code{\link{forestsearch}} call (\code{fs.est$sg.harm}),
+carried forward so that \code{\link{print.fs_bootstrap}} can
+report exact- and partial-match rates without retaining a
+reference to \code{fs.est}.  Added in v0.2.0.}
+\item{outcome_type}{Character. Outcome type of the underlying
+analysis: one of \code{"survival"}, \code{"binary"},
+\code{"continuous"}, or \code{"count"}.  Added in v0.2.0.}
+\item{effect_measure}{Character. Effect measure label
+(\code{"HR"} for survival; \code{"OR"}, \code{"RR"}, \code{"RD"},
+\code{"IRR"}, \code{"IRD"}, or \code{"MD"} for GLM outcomes).
+Added in v0.2.0.}
+\item{est.scale}{Character. Estimation scale for confidence
+intervals (\code{"hr"} or \code{"1/hr"}).  Added in v0.2.0.}
 }
 }
 \description{
