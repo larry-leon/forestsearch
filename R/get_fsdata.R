@@ -58,28 +58,106 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
                        outcome.name = "tte", event.name = "event", details=TRUE,
                        outcome_type = "survival", offset.name = NULL){
 
-  # Initialize to original analysis dataframe and output df.FS containing cutpoints
-  if(!is.data.frame(df.analysis)){
-    df.FS <- as.data.frame(df.analysis)
-  } else {
-    df.FS <- df.analysis
+  # Validate df.analysis at entry with a clear error.  Previously this
+  # silently coerced via as.data.frame(), which for non-data.frame
+  # inputs produces a downstream failure at the outcome-column numeric
+  # check with the misleading message "Outcome column must be numeric."
+  # Rejecting at entry gives the user an actionable message about what
+  # they actually got wrong.
+  if (!is.data.frame(df.analysis)) {
+    stop(sprintf(paste0(
+      "'df.analysis' must be a data.frame (or inherit from data.frame); ",
+      "got an object of class %s.  If you have a matrix, tibble, or ",
+      "data.table, coerce with as.data.frame() before calling."),
+      paste(class(df.analysis), collapse = "/")),
+      call. = FALSE)
+  }
+  df.FS <- df.analysis
+
+  # Resolve outcome_type if it's the raw default vector, then validate
+  # explicitly.  Downstream code branches on this value via switch();
+  # rejecting unknown values at entry gives a clearer error than a
+  # cryptic "EXPR must be a length 1 vector" from deep in the pipeline.
+  if (length(outcome_type) > 1L) outcome_type <- outcome_type[1L]
+  valid_otypes <- c("survival", "binary", "continuous", "count")
+  if (!outcome_type %in% valid_otypes) {
+    stop(sprintf(
+      "outcome_type = '%s' is not recognized.  Must be one of: %s.",
+      outcome_type,
+      paste(shQuote(valid_otypes), collapse = ", ")),
+      call. = FALSE)
   }
 
-  # Resolve outcome_type if it's the raw default vector
-  if (length(outcome_type) > 1L) outcome_type <- outcome_type[1L]
+  # Validate cut_type.  Downstream code has four separate branches
+  # matching on cut_type; a typo like "defualt" would silently match
+  # none of them, leaving conf_force unmodified and producing a
+  # different candidate-cut set than the user expected.
+  valid_cut_types <- c("default", "median")
+  if (!cut_type %in% valid_cut_types) {
+    stop(sprintf(
+      "cut_type = '%s' is not recognized.  Must be one of: %s.",
+      cut_type,
+      paste(shQuote(valid_cut_types), collapse = ", ")),
+      call. = FALSE)
+  }
 
-  # Check that outcome and event columns are numeric
-  if(!is.numeric(df.FS[[outcome.name]])) stop("Outcome column must be numeric.")
-  if(!is.numeric(df.FS[[event.name]])) stop("Event column must be numeric (0/1).")
+  # Validate confounders.name structure.  NULL or empty character leads
+  # to silently-empty confs downstream; the resulting error (Fix B) is
+  # already actionable, but catching at entry is cleaner.
+  if (is.null(confounders.name) || length(confounders.name) == 0L) {
+    stop("'confounders.name' must be a non-empty character vector.",
+         call. = FALSE)
+  }
+  if (!is.character(confounders.name)) {
+    stop(sprintf(
+      "'confounders.name' must be a character vector; got %s.",
+      paste(class(confounders.name), collapse = "/")),
+      call. = FALSE)
+  }
+  missing_conf <- setdiff(confounders.name, names(df.FS))
+  if (length(missing_conf) > 0L) {
+    stop(sprintf(
+      "confounders.name references columns not in df.analysis: %s.",
+      paste(shQuote(missing_conf), collapse = ", ")),
+      call. = FALSE)
+  }
 
-  # Check that confounders are numeric or factors
+  # Check that outcome and event columns are present and numeric
+  if (!outcome.name %in% names(df.FS)) {
+    stop(sprintf("Outcome column '%s' not found in df.analysis.",
+                 outcome.name), call. = FALSE)
+  }
+  if (!event.name %in% names(df.FS)) {
+    stop(sprintf("Event column '%s' not found in df.analysis.",
+                 event.name), call. = FALSE)
+  }
+  if (!is.numeric(df.FS[[outcome.name]])) {
+    stop(sprintf("Outcome column '%s' must be numeric.",
+                 outcome.name), call. = FALSE)
+  }
+  if (!is.numeric(df.FS[[event.name]])) {
+    stop(sprintf("Event column '%s' must be numeric (0/1).",
+                 event.name), call. = FALSE)
+  }
 
-  types <- sapply(df.FS[confounders.name], function(x) is.numeric(x) || is.factor(x))
-  if (!all(types)) stop("All confounders must be numeric or factor.")
+  # Check that confounders are numeric or factors, naming any that
+  # violate (previously reported generically "All confounders must be
+  # numeric or factor" with no column identification).
+  types <- vapply(confounders.name,
+                  function(v) is.numeric(df.FS[[v]]) || is.factor(df.FS[[v]]),
+                  logical(1))
+  if (!all(types)) {
+    bad <- confounders.name[!types]
+    bad_classes <- vapply(bad, function(v) class(df.FS[[v]])[1], character(1))
+    stop(sprintf(
+      "All confounders must be numeric or factor; offending: %s.",
+      paste(sprintf("'%s' (%s)", bad, bad_classes), collapse = ", ")),
+      call. = FALSE)
+  }
 
   # Default cuts forced per defaultcut_names
   if(!is.null(defaultcut_names)){
-    conf_force_default <- get_conf_force(df = df.FS,conf.force.names = defaultcut_names,cont.cutoff = 4)
+    conf_force_default <- get_conf_force(df = df.FS, conf.force.names = defaultcut_names, cont.cutoff = cont.cutoff)
     # append to conf_force
     conf_force <- c(conf_force,conf_force_default)
   }
@@ -177,7 +255,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       lasso_tocut <- conf.cont_medians
     }
     if (length(lasso_tocut) > 0) {
-      conf_force_lasso <- get_conf_force(df = df.FS, conf.force.names = lasso_tocut, cont.cutoff = 4)
+      conf_force_lasso <- get_conf_force(df = df.FS, conf.force.names = lasso_tocut, cont.cutoff = cont.cutoff)
     }
     # Override cuts at medians
     conf.cont_medians <- NULL
@@ -205,7 +283,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
     if (!is.null(defaultcut_names)) {
       tocut <- setdiff(conf.cont_medians, defaultcut_names)
       if (length(tocut) > 0) {
-        conf_force_add <- get_conf_force(df = df.FS, conf.force.names = tocut, cont.cutoff = 4)
+        conf_force_add <- get_conf_force(df = df.FS, conf.force.names = tocut, cont.cutoff = cont.cutoff)
       }
       # Override cuts at medians
       conf.cont_medians <- NULL
@@ -213,7 +291,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
     if (is.null(defaultcut_names)) {
       tocut <- conf.cont_medians
       if (length(tocut) > 0) {
-        conf_force_add <- get_conf_force(df = df.FS, conf.force.names = tocut, cont.cutoff = 4)
+        conf_force_add <- get_conf_force(df = df.FS, conf.force.names = tocut, cont.cutoff = cont.cutoff)
       }
       # Override cuts at medians
       conf.cont_medians <- NULL
@@ -274,11 +352,22 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
 
   # Re-introduce conf.cont_force_medians
   if(!is.null(conf.cont_medians_force)) conf.cont_medians <- c(conf.cont_medians,conf.cont_medians_force)
-  conf.cont_Medcuts<-NULL
-  medians <- sapply(conf.cont_medians, function(x) round(median(df.FS[[x]]), 2))
-  conf.cont_Medcuts_vec <- paste0(conf.cont_medians, ' <= ', medians)
-  conf.cont_Medcuts_vec
-  confs<-c(conf.categorical,conf.cont_Medcuts)
+
+  # Build median cut expressions from the names remaining in
+  # conf.cont_medians.  IMPORTANT: prior versions assigned the vector
+  # to 'conf.cont_Medcuts_vec' and then used 'conf.cont_Medcuts' (NULL)
+  # in the confs assembly below, silently dropping all median cuts
+  # under cut_type = "median".  This block now builds and uses a
+  # single consistent name.
+  if (length(conf.cont_medians) > 0L) {
+    medians <- vapply(conf.cont_medians,
+                      function(x) round(median(df.FS[[x]], na.rm = TRUE), 2),
+                      numeric(1))
+    conf.cont_Medcuts <- paste0(conf.cont_medians, ' <= ', medians)
+  } else {
+    conf.cont_Medcuts <- character(0)
+  }
+  confs <- c(conf.categorical, conf.cont_Medcuts)
   # At this stage, these are confs per Lasso (GRF step is next)
   if(use_lasso) confs_lasso <- confs
   # Factors included per GRF not in confs_lasso
@@ -317,7 +406,35 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
     }
   }
   n_confs<-length(confs)
-  if(n_confs==0) stop("Error in FS dataset prior to flag drop")
+  if (n_confs == 0) {
+    # Build a diagnostic identifying which upstream source was empty
+    # so the user can see at a glance where the pipeline broke down.
+    # Each line reports the count that actually reached this point.
+    sources <- c(
+      sprintf("GRF cuts (%d)",
+              if (use_grf) length(grf_cuts) else 0L),
+      sprintf("LASSO selected (%d)",
+              if (use_lasso) length(lassokeep) else 0L),
+      sprintf("conf_force (%d)",          length(conf_force)),
+      sprintf("conf.cont_medians (%d)",   length(conf.cont_medians)),
+      sprintf("conf.categorical (%d)",    length(conf.categorical))
+    )
+    stop(sprintf(paste0(
+      "get_FSdata: no candidate cut expressions could be constructed ",
+      "from the supplied inputs.  ",
+      "Upstream source counts: %s.  ",
+      "Check that: (1) GRF is succeeding for this outcome type ",
+      "(rerun forestsearch() with details = TRUE to inspect); ",
+      "(2) LASSO is not shrinking all covariates to zero (try ",
+      "use_lasso = FALSE); ",
+      "(3) candidate covariates are numeric or factor and have ",
+      "sufficient variability; ",
+      "(4) GRF-related thresholds (dmin.grf, frac.tau, vi.grf.min) ",
+      "are appropriate for the outcome type and sample size ",
+      "(frac.tau is survival-specific and may be ignored for GLM)."),
+      paste(sources, collapse = ", ")
+    ))
+  }
 
   # =========================================================================
   # REFACTORED SECTION: CONSOLIDATED CUT EVALUATION (3.4x faster)
