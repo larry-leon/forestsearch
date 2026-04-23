@@ -1,0 +1,279 @@
+---
+title: "Smoke test: Count GLM end-to-end pipeline"
+subtitle: "Poisson outcome with offset, IRR effect measure"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+params:
+  quick_mode: true
+  force_rerun: false
+---
+
+# Purpose {#sec-purpose}
+
+Smoke test exercising the **count outcome path** end-to-end:
+primary `forestsearch()` call → CV via `forestsearch_tenfold()` →
+bootstrap via `forestsearch_bootstrap_dofuture()` → summary tables.
+
+If any stage fails to render or produces implausible numbers, the
+count-GLM path has regressed.  The DGM uses a known harm signal
+(IRR = 2.0 within `age <= 50 & biomarker_hi == 1`) with follow-up
+time as an offset.
+
+This document is a smoke test, not a unit-test suite.  Success
+criteria are (1) clean render, (2) pipeline identifies the planted
+harm signal on the primary fit, (3) outputs look reasonable.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+if (isTRUE(params$quick_mode)) {
+  N         <- 800L
+  Ksims_cv  <- 5L
+  Kfolds_cv <- 10L
+  nb_boots  <- 20L
+  ckpt_tag  <- "quick"
+} else {
+  N         <- 1500L
+  Ksims_cv  <- 20L
+  Kfolds_cv <- 10L
+  nb_boots  <- 100L
+  ckpt_tag  <- "full"
+}
+cv_ckpt   <- sprintf("smoke_count_cv_%s.rds",   ckpt_tag)
+boot_ckpt <- sprintf("smoke_count_boot_%s.rds", ckpt_tag)
+n_workers <- min(4L, floor(0.95 * max(1L, parallel::detectCores() - 1L)))
+cat(sprintf("N=%d, Ksims=%d, nb_boots=%d\n", N, Ksims_cv, nb_boots))
+```
+
+
+# Synthetic count DGM {#sec-dgm}
+
+```{r dgm}
+set.seed(20260421)
+IRR_harm <- 2.0
+df_syn <- data.frame(
+  id           = seq_len(N),
+  treat        = rbinom(N, 1L, 0.5),
+  age          = round(rnorm(N, 55, 12)),
+  biomarker    = rnorm(N),
+  wtkg         = round(rnorm(N, 75, 12), 1),
+  biomarker_hi = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
+  sex          = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
+  ftime        = round(runif(N, 1, 5), 2)
+)
+in_harm  <- df_syn$age <= 50 & df_syn$biomarker_hi == "1"
+base_rate <- 0.5
+rate     <- base_rate * exp(df_syn$treat * ifelse(in_harm, log(IRR_harm), 0))
+df_syn$y <- rpois(N, rate * df_syn$ftime)
+
+cat(sprintf("N = %d\n", nrow(df_syn)))
+cat(sprintf("Overall event count: mean=%.2f, median=%d, max=%d\n",
+            mean(df_syn$y), median(df_syn$y), max(df_syn$y)))
+cat(sprintf("Harm subgroup prevalence: %.2f\n", mean(in_harm)))
+cat(sprintf("Mean rate | treat=0, in harm: %.3f\n",
+            mean(df_syn$y[df_syn$treat == 0L & in_harm] /
+                 df_syn$ftime[df_syn$treat == 0L & in_harm])))
+cat(sprintf("Mean rate | treat=1, in harm: %.3f\n",
+            mean(df_syn$y[df_syn$treat == 1L & in_harm] /
+                 df_syn$ftime[df_syn$treat == 1L & in_harm])))
+```
+
+
+# Primary ForestSearch call {#sec-fs}
+
+```{r fs-run}
+#| message: false
+fs_args <- list(
+  confounders.name = c("age", "biomarker", "wtkg", "biomarker_hi", "sex"),
+  outcome.name     = "y",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "count",
+  effect_measure   = "IRR",
+  offset.name      = "ftime",
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.00,
+  pconsistency.threshold = 0.80,
+  sg_focus               = "maxSG",
+  max_subgroups_search   = 10L,
+  use_grf                = TRUE,
+  use_lasso              = FALSE,
+  is.RCT                 = TRUE,
+  vi.grf.min             = -0.2,
+  cont.cutoff            = 4L,
+  cut_type               = "default",
+  seedit                 = 8316951L,
+  maxk                   = 2L,
+  n.min                  = 60L,
+  d0.min                 = 10L,
+  d1.min                 = 10L,
+  fs.splits              = 300L,
+  details                = FALSE,
+  quiet                  = TRUE,
+  plot.sg                = FALSE,
+  plot.grf               = FALSE,
+  parallel_args          = list(plan = "multisession",
+                                workers = n_workers,
+                                show_message = FALSE)
+)
+
+t0 <- proc.time()
+fs_full <- do.call(forestsearch,
+                   c(list(df.analysis = df_syn), fs_args))
+plan("sequential")
+t_fs <- (proc.time() - t0)["elapsed"]
+
+stopifnot(!is.null(fs_full$args_call_all))
+
+cat(sprintf("forestsearch() completed in %.1fs\n", t_fs))
+cat(sprintf("Identified subgroup: %s\n",
+            if (is.null(fs_full$sg.harm)) "(none)"
+            else paste(fs_full$sg.harm, collapse = " & ")))
+cat(sprintf("GRF cuts:          %s\n",
+            paste(fs_full$grf_cuts, collapse = " | ")))
+cat(sprintf("outcome_type:      %s\n", fs_full$outcome_type))
+cat(sprintf("effect_measure:    %s\n", fs_full$effect_measure))
+```
+
+
+# Cross-validation {#sec-cv}
+
+```{r cv-run}
+#| message: false
+.run_cv <- function() {
+  forestsearch_tenfold(
+    fs.est        = fs_full,
+    sims          = Ksims_cv,
+    Kfolds        = Kfolds_cv,
+    details       = FALSE,
+    parallel_args = list(plan    = "multisession",
+                         workers = n_workers,
+                         show_message = FALSE)
+  )
+}
+
+if (file.exists(cv_ckpt) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading CV from %s", cv_ckpt))
+  fs_cv <- readRDS(cv_ckpt)
+} else {
+  message(sprintf("Running CV (sims=%d, Kfolds=%d)...",
+                  Ksims_cv, Kfolds_cv))
+  fs_cv <- .run_cv()
+  saveRDS(fs_cv, cv_ckpt)
+}
+plan("sequential")
+
+cat(sprintf("CV: %d sims x %d folds = %d rows\n",
+            fs_cv$sims, fs_cv$Kfolds, nrow(fs_cv$fold_summary)))
+cat(sprintf("Folds identifying a subgroup: %d / %d\n",
+            sum(fs_cv$fold_summary$any_found == 1L),
+            nrow(fs_cv$fold_summary)))
+```
+
+## Fold-level summary
+
+```{r cv-summary}
+cv_diag <- summarize_cv_results(
+  cv_output         = fs_cv,
+  original_sg       = fs_full$sg.harm,
+  original_grf_cuts = fs_full$grf_cuts,
+  top_n             = 10L
+)
+
+cv_diag$identification_summary
+```
+
+## Fold numeric diagnostics
+
+Key check for count outcome: the "Training-fold subgroup effect"
+median should be > 1 on the **natural IRR scale** (not log-IRR).
+
+```{r cv-numeric}
+cv_diag$fold_numeric_summary
+```
+
+## GRF cut stability across folds
+
+```{r cv-grf-cuts}
+cv_diag$grf_cut_summary
+```
+
+
+# Bootstrap {#sec-bootstrap}
+
+```{r boot-run}
+#| message: false
+.run_boot <- function() {
+  forestsearch_bootstrap_dofuture(
+    fs.est        = fs_full,
+    nb_boots      = nb_boots,
+    parallel_args = list(plan    = "multisession",
+                         workers = n_workers,
+                         show_message = FALSE)
+  )
+}
+
+if (file.exists(boot_ckpt) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading bootstrap from %s", boot_ckpt))
+  fs_bc <- readRDS(boot_ckpt)
+} else {
+  message(sprintf("Running bootstrap (nb_boots=%d)...", nb_boots))
+  fs_bc <- .run_boot()
+  saveRDS(fs_bc, boot_ckpt)
+}
+plan("sequential")
+
+cat(sprintf("Bootstrap: %d iterations\n", nrow(fs_bc$results)))
+cat(sprintf("Iterations identifying a subgroup: %d / %d\n",
+            sum(!is.na(fs_bc$results$sg1_b)),
+            nrow(fs_bc$results)))
+```
+
+## GRF cut frequency across bootstraps
+
+```{r boot-grf}
+subg_summary <- summarize_bootstrap_subgroups(
+  results     = fs_bc$results,
+  nb_boots    = nb_boots,
+  original_sg = fs_full$sg.harm,
+  maxk        = 2L
+)
+
+if (!is.null(subg_summary$grf_cut_freq)) {
+  subg_summary$grf_cut_freq |>
+    utils::head(10) |>
+    gt::gt() |>
+    gt::tab_header(title = gt::md("**Top GRF cuts across bootstraps**")) |>
+    gt::fmt_number(columns = "Percent", decimals = 2) |>
+    gt::tab_options(table.font.size = gt::px(13))
+}
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

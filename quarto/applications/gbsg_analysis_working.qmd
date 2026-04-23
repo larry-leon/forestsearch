@@ -488,6 +488,40 @@ if (!is.null(summaries$subgroup_summary$factor_presence)) {
 }
 ```
 
+### GRF-Cut Stability Across Bootstraps
+
+Separately from whether bootstrap identifies the *same subgroup*, we can
+ask what raw cut GRF itself surfaced on each resample, independent of
+whether the downstream consistency stage accepted it.  A dominant row
+here paired with a low `(no GRF cut)` rate indicates that GRF's
+upstream discovery is stable across resamples; a frequent
+`(no GRF cut)` row indicates GRF itself is the source of
+variability.  This distinction matters because the two failure modes
+call for different tuning responses — relaxing `dmin.grf` /
+`frac.tau` (for "GRF produced no cut") vs. relaxing
+`pconsistency.threshold` (for "GRF produced a cut that consistency
+rejected").
+
+```{r bootstrap-grf-cuts}
+if (!is.null(summaries$subgroup_summary$grf_cut_freq)) {
+  summaries$subgroup_summary$grf_cut_freq |>
+    utils::head(10) |>
+    gt::gt() |>
+    gt::tab_header(
+      title = gt::md("**GRF cuts across bootstrap iterations**"),
+      subtitle = "Top 10 by frequency; spans all bootstraps (not just successful ones)"
+    ) |>
+    gt::cols_label(
+      Rank    = "Rank",
+      grf_cut = "GRF cuts",
+      N       = "N",
+      Percent = "% of bootstraps"
+    ) |>
+    gt::fmt_number(columns = "Percent", decimals = 2) |>
+    gt::tab_options(table.font.size = gt::px(13))
+}
+```
+
 ### Bootstrap Distributions
 
 ```{r bootstrap-plots}
@@ -531,6 +565,91 @@ timings$kfold <- (proc.time() - t0)["elapsed"]
 metrics_tables <- cv_metrics_tables(fs_kfold)
 metrics_tables
 ```
+
+### Diagnostic Tabulations
+
+`summarize_cv_results()` consolidates the per-fold record into a panel
+of diagnostic tables that together answer the core questions an
+analyst asks of a repeated K-fold run: which subgroups did the
+pipeline identify across resamples, which GRF cuts drove those
+identifications, when identification failed what was the proximate
+cause, and how confidently were the successful identifications made.
+
+```{r cv-diagnostics-run}
+cv_diag <- summarize_cv_results(
+  cv_output         = fs_kfold,
+  original_sg       = fs$sg.harm,
+  original_grf_cuts = fs$grf_cuts,
+  top_n             = 10L
+)
+```
+
+**Which subgroups emerged across resamples?**  The identification
+summary shows the distribution of selected subgroups across all
+`r paste0(Ksims, " × 10 = ", Ksims * 10)` sim × fold pairs.  A
+single dominant subgroup with high share indicates the pipeline
+converges on a stable selection; a long tail suggests selection is
+sensitive to the particular training split.
+
+```{r cv-identification}
+cv_diag$identification_summary
+```
+
+**Which GRF cuts drove those selections?**  The GRF cut summary
+tabulates the raw policy-tree output on each training fold,
+independent of whether the downstream consistency stage accepted
+it.  Comparison against the identification summary reveals whether
+GRF's upstream discovery is stable (a dominant cut shared across
+folds) or noisy (a long tail of one-off cuts).
+
+```{r cv-grf-cut}
+cv_diag$grf_cut_summary
+```
+
+**When a fold failed to identify a subgroup, why?**  The no-subgroup
+decomposition splits the non-identifying folds into two actionable
+buckets: *GRF returned no cut* (nothing for consistency to evaluate,
+typically pointing at `dmin.grf` or `frac.tau` thresholds) versus
+*GRF returned a cut but consistency rejected it* (candidates existed
+but none met `pconsistency.threshold`).  The former argues for
+relaxing the GRF upstream; the latter for relaxing the consistency
+threshold or reviewing candidate quality.
+
+```{r cv-no-subgroup}
+cv_diag$no_subgroup_decomposition
+```
+
+**How confidently were the successful identifications made?**  Among
+folds that *did* identify a subgroup, the `pconsistency_distribution`
+shows where the selected candidate's consistency probability
+(`Pcons`) landed relative to the 0.90 threshold.  Identifications in
+the `[0.85, 0.95)` bin are marginal; those concentrated at or near
+1.0 are robust.
+
+```{r cv-pcons}
+cv_diag$pconsistency_distribution
+```
+
+**How do all the numeric fold-level diagnostics summarize together?**
+The `fold_numeric_summary` tabulates median / IQR / range for each
+numeric column in the per-fold record: fold size (`n_test`),
+consistency probability (`pconsistency`), training-fold HR of the
+selected subgroup (`training_fs_hr`, optimistically biased — for
+diagnostic comparison only), and candidate count
+(`n_candidates_evaluated`).
+
+```{r cv-fold-numeric}
+cv_diag$fold_numeric_summary
+```
+
+**Agreement with the full-data analysis.**  How often does a training
+fold reproduce the original full-data subgroup exactly, share a
+factor with it, or match its GRF cut?
+
+```{r cv-original-agreement}
+cv_diag$original_agreement
+```
+
 
 ## Out-of-Bag (N-Fold) Cross-Validation
 

@@ -170,6 +170,11 @@ library(forestsearch)
 args(forestsearch)
 help(forestsearch)
 
+# Testing
+# Be careful: Claude tends to modify tests until they pass without anything actionable
+devtools::test()
+
+
 # From your forestsearch project directory:
 devtools::clean_dll()
 devtools::document()

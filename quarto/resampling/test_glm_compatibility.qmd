@@ -1,0 +1,719 @@
+---
+title: "Living test: Phase A/B/C GLM compatibility"
+subtitle: "Synthetic binary outcome + OR effect measure"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-tools: true
+    code-fold: true
+    theme: cosmo
+    fontsize: 11pt
+    number-sections: true
+params:
+  quick_mode: true       # TRUE: smaller grid (fast). FALSE: larger.
+  force_rerun: false
+---
+
+# Purpose {#sec-purpose}
+
+Validates that the Phase A/B/C diagnostic features
+(`fold_summary$grf_cuts`, `fold_summary$pconsistency`,
+`fold_summary$training_fs_hr`, `fold_summary$n_candidates_evaluated`,
+`summarize_cv_results()` slots, and the bootstrap `grf_cut_freq`
+slot) work correctly when the outcome is **binary** rather than
+survival.
+
+The key GLM-specific concern is `training_fs_hr` on log-scale effect
+measures (OR, IRR, RR): `forestsearch()`'s internal result stores
+these values on log scale, but Phase B's capture applies `exp()` so
+the column is always on natural scale regardless of outcome type.
+This document exercises the full pipeline on synthetic binary data
+with `effect_measure = "OR"` to confirm that contract.
+
+The synthetic DGM mirrors the canonical ACTG175 binary-benefit
+configuration: a mix of **continuous** covariates (where GRF
+discovers cuts) and **binary factor** covariates (passed through
+without cut discovery), with `sg_focus = "maxSG"` to recover the
+largest qualifying subgroup.
+
+Coverage:
+
+1. **Synthetic data generation** — harm subgroup driven by
+   `age <= 50 & biomarker_hi == 1`.  Ground truth OR ≈ 2.0 within
+   subgroup, ≈ 1.0 outside.  Mix of continuous and binary factor
+   covariates exercises both cut-discovery paths.
+2. **Primary ForestSearch call** — confirms the GLM routing
+   succeeds, returns a populated object with `df.est` and
+   `args_call_all`, and surfaces `outcome_type` / `effect_measure`
+   metadata correctly.
+3. **CV pipeline (Phase A/B)** — runs `forestsearch_tenfold()` at
+   small sims, confirms every new `fold_summary` column populates
+   correctly on GLM data, confirms `summarize_cv_results()` produces
+   each diagnostic slot, and specifically confirms `training_fs_hr`
+   values are on OR scale (i.e., > 1 for harm, not log-OR values
+   centered near 0.7).
+4. **Bootstrap pipeline (Phase C)** — runs
+   `forestsearch_bootstrap_dofuture()` at small `nb_boots`, confirms
+   `results$grf_cuts_b` populates and `summarize_bootstrap_subgroups()`
+   surfaces `grf_cut_freq`.
+5. **Cross-check** — captured `training_fs_hr` on an identifying
+   fold agrees within order-of-magnitude with an independent `glm()`
+   refit on the same subgroup.
+
+A cumulative pass/fail table renders in @sec-summary.
+
+
+# Setup {#sec-setup}
+
+```{r load-packages}
+#| message: false
+#| warning: false
+library(forestsearch)
+library(data.table)
+library(gt)
+library(future)
+library(foreach)
+library(doFuture)
+```
+
+```{r config}
+if (isTRUE(params$quick_mode)) {
+  N         <- 800L
+  Ksims_cv  <- 5L
+  Kfolds_cv <- 10L
+  nb_boots  <- 20L
+  ckpt_tag  <- "quick"
+} else {
+  N         <- 1500L
+  Ksims_cv  <- 20L
+  Kfolds_cv <- 10L
+  nb_boots  <- 100L
+  ckpt_tag  <- "full"
+}
+ckpt_path      <- sprintf("test_glm_compatibility_checkpoint_%s.rds", ckpt_tag)
+boot_ckpt_path <- sprintf("test_glm_bootstrap_checkpoint_%s.rds",    ckpt_tag)
+cat(sprintf("Mode: %s (N=%d, Ksims=%d, nb_boots=%d)\n",
+            ckpt_tag, N, Ksims_cv, nb_boots))
+
+n_workers <- min(4L, floor(0.95 * max(1L, parallel::detectCores() - 1L)))
+```
+
+```{r test-harness}
+test_results <- data.frame(
+  Section = character(0),
+  Test    = character(0),
+  Status  = character(0),
+  Detail  = character(0),
+  stringsAsFactors = FALSE
+)
+
+.tc <- function(section, test, pass, detail = "") {
+  status <- if (isTRUE(pass)) "PASS" else "FAIL"
+  test_results <<- rbind(test_results, data.frame(
+    Section = section, Test = test, Status = status,
+    Detail  = substr(detail, 1L, 140L),
+    stringsAsFactors = FALSE
+  ))
+  invisible(pass)
+}
+```
+
+
+# Synthetic binary-outcome DGM {#sec-dgm}
+
+Mirrors the ACTG175 binary-benefit configuration: a mix of
+continuous and binary factor covariates, with a harm signal defined
+jointly by one continuous cut (`age <= 50`) and one binary factor
+(`biomarker_hi == 1`).  Outcome is Bernoulli; natural effect measure
+is odds ratio.
+
+```{r generate-data}
+set.seed(20260421)
+
+OR_harm    <- 2.0     # true OR in harm subgroup (treatment worsens outcome)
+OR_benefit <- 1.0     # null treatment effect outside harm subgroup
+
+df_syn <- data.frame(
+  id           = seq_len(N),
+  treat        = rbinom(N, 1L, 0.5),
+  age          = round(rnorm(N, mean = 55, sd = 12)),
+  wtkg         = round(rnorm(N, mean = 75, sd = 12), 1),
+  biomarker    = rnorm(N),
+  karnof       = sample(70:100, N, replace = TRUE),
+  biomarker_hi = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
+  sex          = factor(rbinom(N, 1L, 0.5), levels = c(0L, 1L)),
+  site         = factor(sample(0:1, N, replace = TRUE),
+                        levels = c(0L, 1L))
+)
+
+# True harm subgroup: age <= 50 AND biomarker_hi == 1
+true_harm    <- df_syn$age <= 50 & df_syn$biomarker_hi == "1"
+treat_effect <- ifelse(true_harm, log(OR_harm), log(OR_benefit))
+
+linpred <- 0 + df_syn$treat * treat_effect
+prob_y  <- plogis(linpred)
+df_syn$y <- rbinom(N, 1L, prob_y)
+
+cat(sprintf("N = %d, overall event rate = %.3f\n",
+            nrow(df_syn), mean(df_syn$y)))
+cat(sprintf("True harm prevalence: %.2f\n", mean(true_harm)))
+cat(sprintf("Event rate | treat = 0: %.3f\n",
+            mean(df_syn$y[df_syn$treat == 0])))
+cat(sprintf("Event rate | treat = 1: %.3f\n",
+            mean(df_syn$y[df_syn$treat == 1])))
+
+overall_or <- (mean(df_syn$y[df_syn$treat == 1]) /
+                (1 - mean(df_syn$y[df_syn$treat == 1]))) /
+              (mean(df_syn$y[df_syn$treat == 0]) /
+                (1 - mean(df_syn$y[df_syn$treat == 0])))
+cat(sprintf("Overall empirical OR: %.2f\n", overall_or))
+```
+
+Empirical check that the harm subgroup is recoverable:
+
+```{r dgm-sanity}
+har <- df_syn[true_harm, ]
+or_harm_emp <- (mean(har$y[har$treat == 1]) /
+                  (1 - mean(har$y[har$treat == 1]))) /
+               (mean(har$y[har$treat == 0]) /
+                  (1 - mean(har$y[har$treat == 0])))
+cat(sprintf("Empirical OR in true harm subgroup: %.2f (DGM = %.1f)\n",
+            or_harm_emp, OR_harm))
+
+.tc("DGM", "empirical harm OR > 1.3",
+    or_harm_emp > 1.3,
+    detail = sprintf("empirical OR = %.2f", or_harm_emp))
+
+.tc("DGM", "harm subgroup prevalence between 15% and 40%",
+    mean(true_harm) > 0.15 && mean(true_harm) < 0.40,
+    detail = sprintf("prev = %.2f", mean(true_harm)))
+```
+
+
+# Primary ForestSearch call {#sec-fs-full}
+
+Configuration mirrors the ACTG175 pattern:
+
+- `outcome_type = "binary"`, `effect_measure = "OR"`
+- `sg_focus = "maxSG"` (largest qualifying subgroup)
+- `is.RCT = TRUE`, `vi.grf.min = -0.2`, `cont.cutoff = 4L`
+- Mixed covariates: continuous (cuts discovered by GRF) + factor
+  (passed through without cut attempt)
+- `use_grf = TRUE`, `use_lasso = FALSE`
+
+```{r fs-full}
+#| message: false
+fs_args <- list(
+  confounders.name = c("age", "wtkg", "biomarker", "karnof",
+                       "biomarker_hi", "sex", "site"),
+  outcome.name     = "y",
+  event.name       = "y",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  hr.threshold             = 1.25,
+  hr.consistency           = 1.00,
+  pconsistency.threshold   = 0.80,
+  sg_focus                 = "maxSG",
+  max_subgroups_search     = 10L,
+  use_grf                  = TRUE,
+  use_lasso                = FALSE,
+  is.RCT                   = TRUE,
+  vi.grf.min               = -0.2,
+  cont.cutoff              = 4L,
+  cut_type                 = "default",
+  seedit                   = 8316951L,
+  maxk                     = 2L,
+  n.min                    = 60L,
+  d0.min                   = 10L,
+  d1.min                   = 10L,
+  fs.splits                = 300L,
+  details                  = FALSE,
+  quiet                    = TRUE,
+  plot.sg                  = FALSE,
+  plot.grf                 = FALSE,
+  parallel_args            = list(plan         = "multisession",
+                                  workers      = n_workers,
+                                  show_message = FALSE)
+)
+
+fs_full <- do.call(forestsearch,
+                   c(list(df.analysis = df_syn), fs_args))
+plan("sequential")
+
+# Hard check: if the primary call collapsed to a minimal
+# early-return, fail LOUDLY here rather than letting downstream
+# chunks error with cryptic messages.
+if (is.null(fs_full$args_call_all) || is.null(fs_full$df.est)) {
+  stop(sprintf(paste0(
+    "Primary ForestSearch call collapsed to an early-return path ",
+    "(args_call_all=%s, df.est=%s, sg.harm=%s).  Check for upstream ",
+    "FSdata / find.grps / consistency failures."),
+    !is.null(fs_full$args_call_all),
+    !is.null(fs_full$df.est),
+    !is.null(fs_full$sg.harm)))
+}
+
+cat(sprintf("Identified subgroup: %s\n",
+            paste(fs_full$sg.harm, collapse = " & ")))
+cat(sprintf("outcome_type on return: %s\n", fs_full$outcome_type))
+cat(sprintf("effect_measure on return: %s\n", fs_full$effect_measure))
+cat(sprintf("GRF cuts: %s\n",
+            paste(fs_full$grf_cuts, collapse = " | ")))
+
+.tc("Primary FS", "args_call_all present on return",
+    !is.null(fs_full$args_call_all))
+.tc("Primary FS", "df.est present on return",
+    !is.null(fs_full$df.est))
+.tc("Primary FS", "outcome_type == 'binary' preserved on return",
+    identical(fs_full$outcome_type, "binary"))
+.tc("Primary FS", "effect_measure == 'OR' preserved on return",
+    identical(fs_full$effect_measure, "OR"))
+.tc("Primary FS", "a subgroup was identified",
+    !is.null(fs_full$sg.harm))
+
+if (!is.null(fs_full$sg.harm)) {
+  sg_str <- paste(fs_full$sg.harm, collapse = " & ")
+  # Identified subgroup should involve at least one of the true
+  # signal variables (age or biomarker_hi)
+  .tc("Primary FS",
+      "identified subgroup involves true-signal variable",
+      grepl("age|biomarker_hi", sg_str),
+      detail = sprintf("sg = '%s'", sg_str))
+}
+
+# The top-ranked result row's 'hr' column holds log-OR for binary+OR.
+# Exponentiating should give a value roughly matching OR_harm (2.0).
+if (!is.null(fs_full$grp.consistency$out_sg$result) &&
+    nrow(fs_full$grp.consistency$out_sg$result) > 0L) {
+  stored_hr <- as.numeric(
+    fs_full$grp.consistency$out_sg$result[1L, "hr"]
+  )
+  or_nat <- exp(stored_hr)
+  .tc("Primary FS",
+      "stored 'hr' is on log scale (exp() yields plausible OR)",
+      or_nat > 1.1 && or_nat < 8,
+      detail = sprintf("stored='hr'=%.3f, exp()=%.2f (DGM OR = %.1f)",
+                       stored_hr, or_nat, OR_harm))
+}
+```
+
+
+# CV pipeline on GLM data {#sec-cv}
+
+## Run CV
+
+```{r cv-run}
+#| message: false
+.run_cv <- function() {
+  forestsearch_tenfold(
+    fs.est        = fs_full,
+    sims          = Ksims_cv,
+    Kfolds        = Kfolds_cv,
+    details       = FALSE,
+    parallel_args = list(plan    = "multisession",
+                         workers = n_workers,
+                         show_message = FALSE)
+  )
+}
+
+if (file.exists(ckpt_path) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading CV from %s", ckpt_path))
+  fs_cv <- readRDS(ckpt_path)
+
+  required <- c("pconsistency", "training_fs_hr",
+                "n_candidates_evaluated", "grf_cuts")
+  if (!all(required %in% names(fs_cv$fold_summary))) {
+    message("Stale checkpoint; rerunning CV...")
+    fs_cv <- .run_cv()
+    saveRDS(fs_cv, ckpt_path)
+  }
+} else {
+  message(sprintf("Running CV (sims=%d, Kfolds=%d) ...",
+                  Ksims_cv, Kfolds_cv))
+  fs_cv <- .run_cv()
+  saveRDS(fs_cv, ckpt_path)
+}
+plan("sequential")
+
+cat(sprintf("CV complete: %d sims x %d folds = %d rows\n",
+            fs_cv$sims, fs_cv$Kfolds, nrow(fs_cv$fold_summary)))
+cat(sprintf("fold_summary columns: %s\n",
+            paste(names(fs_cv$fold_summary), collapse = ", ")))
+```
+
+## Column-level checks on GLM data
+
+```{r cv-columns}
+fs <- fs_cv$fold_summary
+
+.tc("CV columns", "fold_summary$grf_cuts present",
+    "grf_cuts" %in% names(fs))
+.tc("CV columns", "fold_summary$pconsistency present",
+    "pconsistency" %in% names(fs))
+.tc("CV columns", "fold_summary$training_fs_hr present",
+    "training_fs_hr" %in% names(fs))
+.tc("CV columns", "fold_summary$n_candidates_evaluated present",
+    "n_candidates_evaluated" %in% names(fs))
+```
+
+## KEY GLM check: `training_fs_hr` is on natural scale
+
+```{r cv-glm-scale}
+# Under our DGM (OR_harm = 2.0), identifying folds should yield
+# training_fs_hr values > 1 (typically 1.3 to 5 range on the OR
+# scale).  If Phase B's exp() transform is missing, the values would
+# cluster near log(2.0) ~ 0.69 instead.
+hr_vals  <- fs$training_fs_hr
+hr_nonna <- hr_vals[!is.na(hr_vals)]
+
+if (length(hr_nonna) > 0L) {
+  med_hr <- median(hr_nonna)
+  min_hr <- min(hr_nonna)
+  max_hr <- max(hr_nonna)
+
+  cat(sprintf("training_fs_hr across %d identifying folds:\n",
+              length(hr_nonna)))
+  cat(sprintf("  median=%.3f, min=%.3f, max=%.3f\n",
+              med_hr, min_hr, max_hr))
+  cat(sprintf("  (on log scale, median would be %.3f)\n", log(med_hr)))
+
+  # Natural-scale values should be > 1 for a harm search.  Log-scale
+  # values would be near log(2) = 0.69 (below hr.threshold = 1.25).
+  .tc("CV GLM scale",
+      "training_fs_hr values > 1 (natural scale, not log)",
+      med_hr > 1,
+      detail = sprintf("median = %.3f (would be %.3f if log-scale)",
+                       med_hr, log(med_hr)))
+
+  # Given hr.threshold = 1.25 was enforced during search, identifying
+  # folds must have training_fs_hr >= 1.25 on natural scale.
+  .tc("CV GLM scale",
+      sprintf("training_fs_hr >= hr.threshold (%.2f) for all id-ing folds",
+              fs_args$hr.threshold),
+      all(hr_nonna >= fs_args$hr.threshold),
+      detail = sprintf("min = %.3f; threshold = %.2f",
+                       min_hr, fs_args$hr.threshold))
+
+  .tc("CV GLM scale", "training_fs_hr values finite and plausible",
+      all(is.finite(hr_nonna)) && max_hr < 100,
+      detail = sprintf("max = %.3f", max_hr))
+}
+```
+
+## Pcons and candidate-count column checks
+
+```{r cv-pconsistency}
+pv          <- fs$pconsistency
+identifying <- !is.na(fs$sg1)
+.tc("CV Pcons", "pconsistency NA iff any_found == 0",
+    all(is.na(pv) == (fs$any_found == 0L)))
+if (sum(identifying) > 0L) {
+  .tc("CV Pcons", "non-NA pconsistency in [0, 1]",
+      all(pv[identifying] >= 0 & pv[identifying] <= 1))
+  .tc("CV Pcons",
+      sprintf("pconsistency >= threshold (%.2f) for identifying folds",
+              fs_args$pconsistency.threshold),
+      all(pv[identifying] >= fs_args$pconsistency.threshold))
+}
+```
+
+```{r cv-candidates}
+nc <- fs$n_candidates_evaluated
+.tc("CV candidates", "n_candidates_evaluated is integer",
+    is.integer(nc))
+.tc("CV candidates", "n_candidates_evaluated non-negative",
+    all(is.na(nc) | nc >= 0L))
+id_idx <- which(fs$any_found == 1L)
+if (length(id_idx) > 0L) {
+  .tc("CV candidates",
+      "identifying folds evaluated >= 1 candidate",
+      all(!is.na(nc[id_idx]) & nc[id_idx] >= 1L))
+}
+```
+
+## `summarize_cv_results()` on GLM data
+
+```{r cv-summary}
+cv_diag <- summarize_cv_results(
+  cv_output         = fs_cv,
+  original_sg       = fs_full$sg.harm,
+  original_grf_cuts = fs_full$grf_cuts,
+  top_n             = 10L
+)
+
+.tc("CV summary", "identification_summary slot populated",
+    !is.null(cv_diag$identification_summary))
+.tc("CV summary", "grf_cut_summary slot populated",
+    !is.null(cv_diag$grf_cut_summary))
+.tc("CV summary", "no_subgroup_decomposition slot populated",
+    !is.null(cv_diag$no_subgroup_decomposition))
+.tc("CV summary", "pconsistency_distribution slot populated",
+    !is.null(cv_diag$pconsistency_distribution))
+.tc("CV summary", "fold_numeric_summary slot populated",
+    !is.null(cv_diag$fold_numeric_summary))
+.tc("CV summary", "original_agreement slot populated",
+    !is.null(cv_diag$original_agreement))
+.tc("CV summary", "has_pconsistency metadata TRUE",
+    isTRUE(cv_diag$has_pconsistency))
+```
+
+### Rendered `identification_summary`
+
+```{r cv-ident-display}
+cv_diag$identification_summary
+```
+
+### Rendered `grf_cut_summary`
+
+```{r cv-grf-display}
+cv_diag$grf_cut_summary
+```
+
+### Rendered `fold_numeric_summary`
+
+Critical GLM check: the "Training-fold subgroup effect" row's median
+should be on natural OR scale (value > 1), not log-OR scale (would be
+near 0.5–1.0).
+
+```{r cv-fnum-display}
+cv_diag$fold_numeric_summary
+```
+
+```{r cv-fnum-values}
+fns <- cv_diag$data$fold_numeric_summary
+eff_row <- fns[
+  fns$Metric == "Training-fold subgroup effect (identifying folds)",
+  , drop = FALSE
+]
+if (nrow(eff_row) == 1L) {
+  .tc("CV summary",
+      "fold_numeric_summary effect-row label is 'subgroup effect' (outcome-agnostic)",
+      grepl("subgroup effect", eff_row$Metric, fixed = TRUE))
+  .tc("CV summary",
+      "fold_numeric_summary effect-row context mentions 'natural scale'",
+      grepl("natural scale", eff_row$Context, ignore.case = TRUE))
+  .tc("CV summary",
+      "fold_numeric_summary effect-row median > 1 (natural scale verified)",
+      !is.na(eff_row$median) && eff_row$median > 1,
+      detail = sprintf("median = %.3f", eff_row$median))
+}
+```
+
+
+# Bootstrap pipeline on GLM data {#sec-boot}
+
+## Run bootstrap
+
+```{r boot-run}
+#| message: false
+.run_bootstrap <- function() {
+  forestsearch_bootstrap_dofuture(
+    fs.est        = fs_full,
+    nb_boots      = nb_boots,
+    parallel_args = list(plan    = "multisession",
+                         workers = n_workers,
+                         show_message = FALSE)
+  )
+}
+
+if (file.exists(boot_ckpt_path) && !isTRUE(params$force_rerun)) {
+  message(sprintf("Loading bootstrap from %s", boot_ckpt_path))
+  fs_bc <- readRDS(boot_ckpt_path)
+  if (!"grf_cuts_b" %in% names(fs_bc$results)) {
+    message("Stale bootstrap checkpoint; rerunning...")
+    fs_bc <- .run_bootstrap()
+    saveRDS(fs_bc, boot_ckpt_path)
+  }
+} else {
+  message(sprintf("Running bootstrap (nb_boots=%d) ...", nb_boots))
+  fs_bc <- .run_bootstrap()
+  saveRDS(fs_bc, boot_ckpt_path)
+}
+plan("sequential")
+
+cat(sprintf("Bootstrap complete: %d iterations, columns:\n",
+            nrow(fs_bc$results)))
+cat(paste(names(fs_bc$results), collapse = ", "), "\n")
+```
+
+## Column and slot checks
+
+```{r boot-column}
+.tc("Bootstrap column", "results$grf_cuts_b present",
+    "grf_cuts_b" %in% names(fs_bc$results))
+.tc("Bootstrap column", "grf_cuts_b is character",
+    is.character(fs_bc$results$grf_cuts_b))
+.tc("Bootstrap column", "nrow(results) == nb_boots",
+    nrow(fs_bc$results) == nb_boots)
+```
+
+```{r boot-slot}
+subg_summary <- summarize_bootstrap_subgroups(
+  results     = fs_bc$results,
+  nb_boots    = nb_boots,
+  original_sg = fs_full$sg.harm,
+  maxk        = 2L
+)
+
+.tc("Bootstrap slot", "grf_cut_freq slot populated",
+    !is.null(subg_summary$grf_cut_freq))
+
+gcf <- subg_summary$grf_cut_freq
+if (!is.null(gcf)) {
+  .tc("Bootstrap slot", "grf_cut_freq N sums to nb_boots",
+      sum(gcf$N) == nb_boots,
+      detail = sprintf("sum=%d exp=%d", sum(gcf$N), nb_boots))
+  .tc("Bootstrap slot", "grf_cut_freq sorted by descending N",
+      all(diff(gcf$N) <= 0))
+}
+```
+
+### Rendered GRF-cut frequency
+
+```{r boot-display}
+if (!is.null(subg_summary$grf_cut_freq)) {
+  subg_summary$grf_cut_freq |>
+    utils::head(10) |>
+    gt::gt() |>
+    gt::tab_header(
+      title = gt::md("**GRF cuts across bootstrap iterations (GLM binary outcome)**"),
+      subtitle = sprintf("Top 10 of %d unique cuts across %d iterations",
+                         nrow(subg_summary$grf_cut_freq), nb_boots)
+    ) |>
+    gt::cols_label(
+      Rank = "Rank", grf_cut = "GRF cuts",
+      N = "N",       Percent = "% of bootstraps"
+    ) |>
+    gt::fmt_number(columns = "Percent", decimals = 2) |>
+    gt::tab_options(table.font.size = gt::px(13))
+}
+```
+
+
+# Cross-check: `training_fs_hr` vs. independent GLM refit {#sec-crosscheck}
+
+Confirm numerical correctness of Phase B's `exp()` transform by
+re-fitting the GLM directly on an identifying fold's subgroup (using
+full data as a plausibility proxy, since exact per-fold splits
+aren't preserved).
+
+```{r crosscheck}
+id_folds <- fs_cv$fold_summary[
+  !is.na(fs_cv$fold_summary$training_fs_hr), , drop = FALSE
+]
+
+if (nrow(id_folds) > 0L) {
+  # Pick the median fold by training_fs_hr
+  pick <- id_folds[order(abs(id_folds$training_fs_hr -
+                              median(id_folds$training_fs_hr)))[1], ]
+  captured_hr <- pick$training_fs_hr
+
+  cat(sprintf("Sampled identifying fold: sim=%d, fold=%d\n",
+              pick$sim, pick$fold))
+  cat(sprintf("Subgroup definition: %s%s\n",
+              pick$sg1,
+              if (!is.na(pick$sg2)) paste0(" & ", pick$sg2) else ""))
+  cat(sprintf("Captured training_fs_hr: %.3f\n", captured_hr))
+
+  # Evaluate the subgroup expression(s) to get a membership flag.
+  # forestsearch() returns R-evaluable expressions like "age <= 50"
+  # or "biomarker_hi == 1".
+  in_sg <- tryCatch({
+    sg1_flag <- eval(parse(text = pick$sg1), envir = df_syn)
+    if (!is.na(pick$sg2)) {
+      sg2_flag <- eval(parse(text = pick$sg2), envir = df_syn)
+      sg1_flag & sg2_flag
+    } else {
+      sg1_flag
+    }
+  }, error = function(e) NULL)
+
+  if (!is.null(in_sg) && sum(in_sg) > 10L) {
+    df_sg <- df_syn[in_sg, ]
+    m <- tryCatch(
+      glm(y ~ treat, family = binomial, data = df_sg),
+      error = function(e) NULL
+    )
+    if (!is.null(m)) {
+      or_refit <- exp(coef(m)["treat"])
+      cat(sprintf("Re-fit OR on full-data subgroup: %.3f\n", or_refit))
+
+      .tc("Cross-check",
+          "captured training_fs_hr and re-fit OR both > 1",
+          captured_hr > 1 && or_refit > 1,
+          detail = sprintf("captured = %.2f, refit = %.2f",
+                           captured_hr, or_refit))
+
+      .tc("Cross-check",
+          "captured and refit agree within 3x",
+          (captured_hr / or_refit > 1/3) &&
+          (captured_hr / or_refit < 3),
+          detail = sprintf("ratio = %.2f",
+                           captured_hr / or_refit))
+    }
+  }
+}
+```
+
+
+# Test summary {#sec-summary}
+
+```{r summary-table}
+n_total <- nrow(test_results)
+n_pass  <- sum(test_results$Status == "PASS")
+n_fail  <- n_total - n_pass
+
+gt::gt(test_results,
+       groupname_col = "Section",
+       row_group_as_column = TRUE) |>
+  gt::tab_header(
+    title    = gt::md(sprintf(
+      "**GLM compatibility test results: %d / %d passing**",
+      n_pass, n_total)),
+    subtitle = sprintf(
+      "Binary outcome (OR), N=%d, CV sims=%d, nb_boots=%d",
+      N, Ksims_cv, nb_boots)
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#d4edda"),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "PASS"
+    )
+  ) |>
+  gt::tab_style(
+    style     = list(
+      gt::cell_fill(color = "#f8d7da"),
+      gt::cell_text(weight = "bold")
+    ),
+    locations = gt::cells_body(
+      columns = "Status", rows = Status == "FAIL"
+    )
+  ) |>
+  gt::cols_label(
+    Test   = "Test case",
+    Status = "Status",
+    Detail = "Detail"
+  ) |>
+  gt::tab_options(table.font.size = gt::px(12))
+
+if (n_fail == 0L) {
+  message(sprintf("ALL TESTS PASSED: %d / %d", n_pass, n_total))
+} else {
+  message(sprintf("TESTS FAILED: %d / %d failing", n_fail, n_total))
+  print(test_results[test_results$Status == "FAIL",
+                     c("Section", "Test", "Detail")])
+}
+```
+
+
+# Session info {#sec-session}
+
+```{r session}
+sessionInfo()
+```

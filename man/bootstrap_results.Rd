@@ -92,6 +92,16 @@ Data.table with one row per bootstrap iteration and columns:
 \item{M.5}{Character. Fifth factor label}
 \item{M.6}{Character. Sixth factor label}
 \item{M.7}{Character. Seventh factor label}
+\item{grf_cuts_b}{Character. GRF policy-tree cut expressions
+returned on this bootstrap sample, collapsed with " | " when
+multiple cuts are produced.  \code{NA_character_} when GRF was
+not used, the bootstrap forestsearch call errored, or GRF
+returned no cuts.  Populated independently of whether a
+subgroup was identified: GRF may surface a candidate cut on
+bootstraps where the downstream consistency stage rejects all
+candidates.  Mirrors the \code{grf_cuts} column that
+\code{\link{forestsearch_tenfold}} captures in its
+\code{fold_summary} return slot.}
 }
 Rows where no valid subgroup was found will have \code{NA} for bias corrections.
 The returned object has a "timing" attribute with summary statistics.

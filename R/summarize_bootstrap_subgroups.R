@@ -1,8 +1,12 @@
 #' Summarize Bootstrap Subgroup Analysis Results
 #'
-#' Comprehensive summary of bootstrap subgroup identification results including
-#' basic statistics, factor frequencies, consistency distributions, and agreement
-#' with the original analysis subgroup.
+#' Comprehensive tabulation of bootstrap subgroup identification results
+#' including basic statistics, factor frequencies, consistency
+#' distributions, GRF-cut frequencies, and agreement with the original
+#' analysis subgroup.  Returns raw \code{data.table} tabulations
+#' suitable for custom post-processing, export, or plotting; for the
+#' full formatted pipeline (gt tables, diagnostics, plots) call
+#' \code{\link{summarize_bootstrap_results}} instead.
 #'
 #' @param results Data.table or data.frame. Bootstrap results with subgroup
 #'   characteristics including columns like Pcons, hr_sg, N_sg, K_sg, and M.1-M.k
@@ -21,15 +25,49 @@
 #'     \item{agreement}{Data.table of subgroup definition agreement counts}
 #'     \item{factor_presence}{Data.table of base factor presence counts}
 #'     \item{factor_presence_specific}{Data.table of specific factor definitions}
+#'     \item{grf_cut_freq}{Data.table of GRF policy-tree cut frequencies
+#'       across all bootstrap iterations (not just successful ones).
+#'       Columns: \code{Rank}, \code{grf_cut}, \code{N},
+#'       \code{Percent}.  \code{NULL} when \code{results} lacks the
+#'       \code{grf_cuts_b} column (pre-Phase-C objects).  Unlike
+#'       subgroup-related tables, this tabulation is NOT restricted
+#'       to iterations that identified a subgroup -- it spans all
+#'       bootstraps so that the analyst can distinguish "GRF produced
+#'       no cut" from "GRF produced a cut that consistency rejected".}
 #'     \item{original_agreement}{Data.table comparing to original analysis subgroup}
 #'     \item{n_found}{Integer. Number of successful iterations}
 #'     \item{pct_found}{Numeric. Percentage of successful iterations}
 #'   }
 #'
+#' @seealso \code{\link{summarize_bootstrap_results}} for the full
+#'   formatted summary pipeline (gt tables plus diagnostics and plots).
+#'   \code{\link{forestsearch_bootstrap_dofuture}} to run the bootstrap
+#'   analysis that produces the \code{results} object consumed here.
+#'
+#' @examples
+#' \dontrun{
+#' # Run bootstrap analysis
+#' boot_out <- forestsearch_bootstrap_dofuture(fs.est, nb_boots = 500)
+#'
+#' # Raw tabulations for custom post-processing
+#' subg <- summarize_bootstrap_subgroups(
+#'   results     = boot_out$results,
+#'   nb_boots    = 500,
+#'   original_sg = fs.est$sg.harm,
+#'   maxk        = 2L
+#' )
+#'
+#' # Inspect the GRF cut frequencies across all bootstraps
+#' subg$grf_cut_freq
+#'
+#' # Export factor frequencies to CSV for an external report
+#' data.table::fwrite(subg$factor_freq, "factor_freq.csv")
+#' }
+#'
 #' @importFrom data.table data.table .N setnames setcolorder copy as.data.table
 #'   rbindlist
 #' @importFrom stats median sd quantile
-#' @keywords internal
+#' @export
 summarize_bootstrap_subgroups <- function(results,
                                           nb_boots,
                                           original_sg = NULL,
@@ -75,6 +113,42 @@ summarize_bootstrap_subgroups <- function(results,
   # Early return if no subgroups found
   if (n_found == 0) {
     warning("No subgroups identified in any bootstrap iteration")
+
+    # Phase C: even when no subgroup was ever identified, tabulating
+    # the per-iteration GRF cuts is the most diagnostically valuable
+    # output we can produce -- it tells the analyst whether GRF
+    # surfaced cuts that consistency rejected wholesale, or whether
+    # GRF itself produced nothing across the bootstraps.
+    early_grf_cut_freq <- NULL
+    if ("grf_cuts_b" %in% names(results)) {
+      cuts_clean <- vapply(
+        results$grf_cuts_b,
+        function(x) {
+          if (is.null(x) || length(x) == 0L) return("(no GRF cut)")
+          if (is.na(x) || !nzchar(x))         return("(no GRF cut)")
+          x
+        },
+        character(1)
+      )
+      ft <- table(cuts_clean)
+      if (length(ft) > 0L) {
+        n_total <- length(cuts_clean)
+        early_grf_cut_freq <- data.table::data.table(
+          grf_cut = names(ft),
+          N       = as.integer(ft),
+          Percent = 100 * as.integer(ft) / n_total
+        )
+        early_grf_cut_freq <- early_grf_cut_freq[
+          order(-early_grf_cut_freq$N)
+        ]
+        early_grf_cut_freq$Rank <- seq_len(nrow(early_grf_cut_freq))
+        data.table::setcolorder(
+          early_grf_cut_freq,
+          c("Rank", "grf_cut", "N", "Percent")
+        )
+      }
+    }
+
     return(list(
       basic_stats = NULL,
       consistency_dist = NULL,
@@ -83,6 +157,7 @@ summarize_bootstrap_subgroups <- function(results,
       agreement = NULL,
       factor_presence = NULL,
       factor_presence_specific = NULL,
+      grf_cut_freq = early_grf_cut_freq,
       original_agreement = NULL,
       n_found = 0,
       pct_found = 0
@@ -491,6 +566,50 @@ summarize_bootstrap_subgroups <- function(results,
   }
 
   # ===========================================================================
+  # SECTION 9: GRF-CUT FREQUENCY (Phase C)
+  #
+  # Tabulates the raw grf_cuts_b strings captured per bootstrap iteration.
+  # Unlike subgroup tables (which filter to successful iterations), this
+  # tabulation spans ALL iterations -- GRF may surface a cut even when
+  # the downstream consistency stage rejects every candidate.  A frequent
+  # "(no GRF cut)" row on non-successful bootstraps vs. common across
+  # successful ones distinguishes "GRF failed" from "consistency rejected".
+  #
+  # NULL when results lack the grf_cuts_b column (backward-compat with
+  # pre-Phase-C results objects).
+  # ===========================================================================
+
+  grf_cut_freq <- NULL
+
+  if ("grf_cuts_b" %in% names(results)) {
+    cuts_clean <- vapply(
+      results$grf_cuts_b,
+      function(x) {
+        if (is.null(x) || length(x) == 0L) return("(no GRF cut)")
+        if (is.na(x) || !nzchar(x))         return("(no GRF cut)")
+        x
+      },
+      character(1)
+    )
+
+    freq_table <- table(cuts_clean)
+    if (length(freq_table) > 0L) {
+      n_total <- length(cuts_clean)
+      grf_cut_freq <- data.table::data.table(
+        grf_cut   = names(freq_table),
+        N         = as.integer(freq_table),
+        Percent   = 100 * as.integer(freq_table) / n_total
+      )
+      grf_cut_freq <- grf_cut_freq[order(-grf_cut_freq$N)]
+      grf_cut_freq$Rank <- seq_len(nrow(grf_cut_freq))
+      data.table::setcolorder(
+        grf_cut_freq,
+        c("Rank", "grf_cut", "N", "Percent")
+      )
+    }
+  }
+
+  # ===========================================================================
   # RETURN COMPILED RESULTS
   # ===========================================================================
 
@@ -510,6 +629,7 @@ summarize_bootstrap_subgroups <- function(results,
     } else {
       NULL
     },
+    grf_cut_freq = grf_cut_freq,
     original_agreement = original_agreement,
     n_found = n_found,
     pct_found = pct_found

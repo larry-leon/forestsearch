@@ -100,8 +100,12 @@ with one row per numeric diagnostic column present in
 \code{fold_summary} (\code{n_test}, \code{pconsistency},
 \code{training_fs_hr}, \code{n_candidates_evaluated}).  Absent
 columns simply don't produce rows, so the table adapts to
-pre-feature-branch objects without error.  Training-fold HRs
-are in-sample estimates (optimistically biased) and are surfaced
+pre-feature-branch objects without error.  Training-fold
+subgroup effects are on the effect measure's natural scale
+(HR for survival; OR, RR, IRR, RD, IRD, or MD for GLM,
+exponentiated at capture for ratio measures so the column is
+always on natural scale regardless of outcome type); they are
+in-sample estimates (optimistically biased) and are surfaced
 for diagnostic comparison across folds only.
 \item \code{original_agreement}: if \code{original_sg} and/or
 \code{original_grf_cuts} are supplied, fraction of folds matching

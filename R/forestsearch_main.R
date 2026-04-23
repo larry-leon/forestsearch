@@ -164,8 +164,8 @@
 #' @param grf_cuts List. Custom GRF cut points (optional).
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
-#' @param dmin.grf Integer. Minimum events for GRF. Default 4.
-#' @param frac.tau Numeric. Fraction of tau for RMST. Default 0.8.
+#' @param dmin.grf Integer. Minimum events for GRF. Default 12.
+#' @param frac.tau Numeric. Fraction of tau for RMST. Default 0.6.
 #' @param return_selected_cuts_only Logical. If TRUE (default), GRF returns only cuts from the
 #'   tree depth that identified the selected subgroup meeting `dmin.grf`. If FALSE
 #'   returns all cuts from all fitted trees (depths 1 through `grf_depth`).
@@ -219,17 +219,10 @@
 #'   For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
 #'   number of events in the control arm (for binary, events are Y = 1).
 #'   Ignored for \code{"continuous"} outcomes (only \code{n.min} applies).
-#'   Default 10.
+#'   Default 12.
 #' @param d1.min Integer. Same as \code{d0.min} for the treatment arm.
-#'   Default 10.
-#' @param max.minutes Numeric. \strong{Currently inert; scheduled for
-#'   deprecation in v0.3.0.} Previously intended as a wall-clock time
-#'   budget for the combination search, this argument is no longer
-#'   enforced in the parallelized search path and has no effect on
-#'   behavior. Search scope is governed by \code{maxk}, candidate-factor
-#'   screening (\code{use_grf}, \code{use_lasso}, \code{conf_force}),
-#'   and the number of parallel workers. The default of 3 is retained
-#'   only for signature compatibility.
+#'   Default 12.
+#' @param max.minutes Numeric. Maximum search time in minutes. Default 3.
 #' @param minp Numeric. Minimum prevalence threshold. Default 0.025.
 #' @param details Logical. Print progress details. Default FALSE.
 #' @param quiet Logical. If TRUE, suppress the configuration summary
@@ -476,7 +469,7 @@ forestsearch <- function(df.analysis,
                          df.predict = NULL,
                          df.test = NULL,
                          is.RCT = TRUE,
-                         seedit = 8316951L,
+                         seedit = 8316951,
                          est.scale = "hr",
                          use_lasso = TRUE,
                          use_grf = TRUE,
@@ -484,8 +477,8 @@ forestsearch <- function(df.analysis,
                          grf_cuts = NULL,
                          max_n_confounders = 1000,
                          grf_depth = 2,
-                         dmin.grf = 4,
-                         frac.tau = 0.8,
+                         dmin.grf = 12,
+                         frac.tau = 0.6,
                          return_selected_cuts_only = TRUE,
                          conf_force = NULL,
                          defaultcut_names = NULL,
@@ -506,8 +499,8 @@ forestsearch <- function(df.analysis,
                          pconsistency.threshold = 0.90,
                          stop_threshold = 0.95,
                          showten_subgroups = FALSE,
-                         d0.min = 10,
-                         d1.min = 10,
+                         d0.min = 12,
+                         d1.min = 12,
                          max.minutes = 3,
                          minp = 0.025,
                          details = FALSE,
@@ -1176,9 +1169,10 @@ forestsearch <- function(df.analysis,
 
   if (inherits(FSdata, "try-error") || is.null(FSdata)) {
     warning("FSdata failure - returning NULL result")
-    return(list(sg.harm = NULL,
-                error_log = list(stage = "get_FSdata",
-                                 message = "FSdata returned NULL or error")))
+    return(list(sg.harm       = NULL,
+                args_call_all = args_call_all,
+                error_log     = list(stage   = "get_FSdata",
+                                     message = "FSdata returned NULL or error")))
   }
 
   # Extract FSdata components
