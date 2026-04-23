@@ -27,7 +27,7 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # ═══════════════════════════════════════════════════════════════════
 
 # -- Simulation budget ---------------------------------------------------------
-nsims              <- 1000L        # Paper uses 20000; scale up for production
+nsims              <- 20000L        # Paper uses 20000; scale up for production
 n_workers          <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 # -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------
@@ -49,7 +49,7 @@ dgm_seed           <- 8316951L
 fs_hr_threshold    <- 1.25
 fs_hr_consistency  <- 1.0
 fs_pconsistency    <- 0.90
-fs_splits          <- 400L
+fs_splits          <- 1000L
 fs_n_min           <- 60L
 fs_d0_min          <- 10L         # Paper: "10 events in each arm"
 fs_d1_min          <- 10L
@@ -265,11 +265,14 @@ fs_params_lasso <- list(
   maxk                   = fs_maxk,
   vi.grf.min             = fs_vi_grf_min,
   seedit                 = fs_seedit,
-  dmin.grf = 4,
-  frac.tau = 0.6,
+  # These are much more relaxed than paper but after more CV
+  # experience a more reproducible algorithm is to relax GRF 
+  # criteria when re-sampling (relevant for CV and bootstrap)
+  dmin.grf               = 4,
+  frac.tau               = 0.8,
   use_lasso              = TRUE,
   use_grf                = FALSE,    # FSl: LASSO only
-  use_twostage           = FALSE,     # v0.2.0 default (3-10x speedup)
+  use_twostage           = TRUE,     # v0.2.0 default (3-10x speedup)
   tune_grf               = grf_tune,
   parallel_args          = list(
     plan = "sequential", workers = 1, show_message = FALSE
