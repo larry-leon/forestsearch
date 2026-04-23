@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Larry F. León">
-<meta name="dcterms.date" content="2026-04-21">
+<meta name="dcterms.date" content="2026-04-22">
 
 <title>Reproduction: León et al. (2024) Table 1, M1 Block</title>
 <style>
@@ -2379,7 +2379,7 @@ window.Quarto = {
       <div>
       <div class="quarto-title-meta-heading">Published</div>
       <div class="quarto-title-meta-contents">
-        <p class="date">April 21, 2026</p>
+        <p class="date">April 22, 2026</p>
       </div>
     </div>
     
@@ -3056,10 +3056,10 @@ Note
 <span id="cb114-16"><a href="#cb114-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">vi.grf.min             =</span> fs_vi_grf_min,</span>
 <span id="cb114-17"><a href="#cb114-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">seedit                 =</span> fs_seedit,</span>
 <span id="cb114-18"><a href="#cb114-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">dmin.grf =</span> <span class="dv">4</span>,</span>
-<span id="cb114-19"><a href="#cb114-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">frac.tau =</span> <span class="fl">0.6</span>,</span>
+<span id="cb114-19"><a href="#cb114-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">frac.tau =</span> <span class="fl">0.8</span>,</span>
 <span id="cb114-20"><a href="#cb114-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb114-21"><a href="#cb114-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,    <span class="co"># FSl: LASSO only</span></span>
-<span id="cb114-22"><a href="#cb114-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">FALSE</span>,     <span class="co"># v0.2.0 default (3-10x speedup)</span></span>
+<span id="cb114-22"><a href="#cb114-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,     <span class="co"># v0.2.0 default (3-10x speedup)</span></span>
 <span id="cb114-23"><a href="#cb114-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">tune_grf               =</span> grf_tune,</span>
 <span id="cb114-24"><a href="#cb114-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">parallel_args          =</span> <span class="fu">list</span>(</span>
 <span id="cb114-25"><a href="#cb114-25" aria-hidden="true" tabindex="-1"></a>    <span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>, <span class="at">workers =</span> <span class="dv">1</span>, <span class="at">show_message =</span> <span class="cn">FALSE</span></span>
@@ -3194,7 +3194,7 @@ Note
 <span id="cb115-93"><a href="#cb115-93" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Alt: %d sims completed in %.1f min</span><span class="sc">\n</span><span class="st">&quot;</span>, nsims, t_alt <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Alt: 1000 sims completed in 5.6 min</code></pre>
+<pre><code>#&gt; Alt: 20000 sims completed in 71.9 min</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3210,9 +3210,9 @@ Note
 <span id="cb118-4"><a href="#cb118-4" aria-hidden="true" tabindex="-1"></a><span class="fu">gc</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;           used  (Mb) gc trigger  (Mb) max used  (Mb)
-#&gt; Ncells 2555607 136.5    4827744 257.9  4827744 257.9
-#&gt; Vcells 5370456  41.0   10166930  77.6 10166930  77.6</code></pre>
+<pre><code>#&gt;            used  (Mb) gc trigger  (Mb) max used  (Mb)
+#&gt; Ncells  3544643 189.4    6910720 369.1  6910720 369.1
+#&gt; Vcells 12517881  95.6   21512228 164.2 15990012 122.0</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3321,7 +3321,7 @@ Note
 <span id="cb122-89"><a href="#cb122-89" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Null: %d sims completed in %.1f min</span><span class="sc">\n</span><span class="st">&quot;</span>, nsims, t_null <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Null: 1000 sims completed in 4.9 min</code></pre>
+<pre><code>#&gt; Null: 20000 sims completed in 65.0 min</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -3765,7 +3765,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">M1 Alt: Identification (Harm Search)</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 1000 sims, θ†(H) = 2.0, θ†(Hc) = 0.66, θ†(ITT) ≈ 0.72</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 20000 sims, θ†(H) = 2.0, θ†(Hc) = 0.66, θ†(ITT) ≈ 0.72</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -3785,38 +3785,38 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FSl</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.69</td>
-<td class="gt_row gt_right" headers="Sen">0.55</td>
-<td class="gt_row gt_right" headers="Spec">0.94</td>
-<td class="gt_row gt_right" headers="PPV">0.57</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.71</td>
+<td class="gt_row gt_right" headers="Sen">0.57</td>
+<td class="gt_row gt_right" headers="Spec">0.95</td>
+<td class="gt_row gt_right" headers="PPV">0.59</td>
 <td class="gt_row gt_right" headers="NPV">0.98</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">FSlg</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.89</td>
-<td class="gt_row gt_right" headers="Sen">0.76</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.91</td>
+<td class="gt_row gt_right" headers="Sen">0.78</td>
 <td class="gt_row gt_right" headers="Spec">0.97</td>
-<td class="gt_row gt_right" headers="PPV">0.78</td>
+<td class="gt_row gt_right" headers="PPV">0.81</td>
 <td class="gt_row gt_right" headers="NPV">0.98</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">GRF</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.91</td>
-<td class="gt_row gt_right" headers="Sen">0.78</td>
-<td class="gt_row gt_right" headers="Spec">0.95</td>
-<td class="gt_row gt_right" headers="PPV">0.73</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.93</td>
+<td class="gt_row gt_right" headers="Sen">0.81</td>
+<td class="gt_row gt_right" headers="Spec">0.96</td>
+<td class="gt_row gt_right" headers="PPV">0.75</td>
 <td class="gt_row gt_right" headers="NPV">0.98</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">GRF60</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.64</td>
-<td class="gt_row gt_right" headers="Sen">0.59</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.67</td>
+<td class="gt_row gt_right" headers="Sen">0.60</td>
 <td class="gt_row gt_right" headers="Spec">0.94</td>
-<td class="gt_row gt_right" headers="PPV">0.55</td>
+<td class="gt_row gt_right" headers="PPV">0.57</td>
 <td class="gt_row gt_right" headers="NPV">0.99</td>
 </tr>
 </tbody>
@@ -4253,7 +4253,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">M1 Null: Type I Error</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 1000 sims, θ†(ITT) ≈ 0.72</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 20000 sims, θ†(ITT) ≈ 0.72</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Analysis" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="font-weight: bold" scope="col">Method</th>
@@ -4273,7 +4273,7 @@ Classification
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">FSl</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
 <td class="gt_row gt_right" headers="Detection">0.05</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
 <td class="gt_row gt_right" headers="Spec">0.99</td>
@@ -4282,7 +4282,7 @@ Classification
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">FSlg</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
 <td class="gt_row gt_right" headers="Detection">0.12</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
 <td class="gt_row gt_right" headers="Spec">0.98</td>
@@ -4291,8 +4291,8 @@ Classification
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Analysis">GRF</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.32</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.29</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
 <td class="gt_row gt_right" headers="Spec">0.96</td>
 <td class="gt_row gt_right" headers="PPV">0.00</td>
@@ -4300,10 +4300,10 @@ Classification
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Analysis">GRF60</td>
-<td class="gt_row gt_right" headers="N_sims">1000</td>
-<td class="gt_row gt_right" headers="Detection">0.05</td>
+<td class="gt_row gt_right" headers="N_sims">20000</td>
+<td class="gt_row gt_right" headers="Detection">0.04</td>
 <td class="gt_row gt_center" headers="Sen">-</td>
-<td class="gt_row gt_right" headers="Spec">0.99</td>
+<td class="gt_row gt_right" headers="Spec">1.00</td>
 <td class="gt_row gt_right" headers="PPV">0.00</td>
 <td class="gt_row gt_right" headers="NPV">1.00</td>
 </tr>
@@ -4748,7 +4748,7 @@ height: 0px !important;
 <table class="gt_table caption-top table table-sm table-striped small" data-quarto-bootstrap="false">
 <thead>
 <tr class="gt_heading header">
-<td colspan="5" class="gt_heading gt_title gt_font_normal gt_bottom_border">Table 1 Reproduction (M1, N=700, 1000 sims) | θ†(H)=2.0, θ†(Hc)=0.66, pH≈13%</td>
+<td colspan="5" class="gt_heading gt_title gt_font_normal gt_bottom_border">Table 1 Reproduction (M1, N=700, 20000 sims) | θ†(H)=2.0, θ†(Hc)=0.66, pH≈13%</td>
 </tr>
 <tr class="gt_col_headings even">
 <th id="Metric" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col"></th>
@@ -4766,15 +4766,15 @@ height: 0px !important;
 <td class="gt_row gt_left" headers="M1 Null: N=700, theta(ITT) = 0.72  Metric" style="font-size: 14px">any(H)</td>
 <td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSl" style="font-size: 14px">0.05</td>
 <td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSlg" style="font-size: 14px; font-weight: bold">0.12</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF" style="font-size: 14px; font-weight: bold">0.32</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">0.05</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF" style="font-size: 14px; font-weight: bold">0.29</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">0.04</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M1 Null: N=700, theta(ITT) = 0.72  Metric" style="font-size: 14px">sens(Hc)</td>
 <td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSl" style="font-size: 14px">0.99</td>
 <td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSlg" style="font-size: 14px">0.98</td>
 <td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF" style="font-size: 14px">0.96</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">0.99</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">1.00</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M1 Null: N=700, theta(ITT) = 0.72  Metric" style="font-size: 14px">ppv(Hc)</td>
@@ -4785,41 +4785,41 @@ height: 0px !important;
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M1 Null: N=700, theta(ITT) = 0.72  Metric" style="font-size: 14px">avg|H|</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSl" style="font-size: 14px">104.00</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSlg" style="font-size: 14px">97.00</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF" style="font-size: 14px">90.00</td>
-<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">75.00</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSl" style="font-size: 14px">102.00</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  FSlg" style="font-size: 14px">98.00</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF" style="font-size: 14px">89.00</td>
+<td class="gt_row gt_right" headers="M1 Null: N=700, theta(ITT) = 0.72  GRF60" style="font-size: 14px">76.00</td>
 </tr>
 <tr class="gt_group_heading_row even">
 <th colspan="5" id="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-size: 14px; font-weight: bold" scope="colgroup">M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72</th>
 </tr>
 <tr class="gt_row_group_first odd">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">any(H)</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px; font-weight: bold">0.69</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px; font-weight: bold">0.88</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px; font-weight: bold">0.91</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px; font-weight: bold">0.64</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px; font-weight: bold">0.71</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px; font-weight: bold">0.91</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px; font-weight: bold">0.93</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px; font-weight: bold">0.67</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">sens(H)</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.55</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">0.76</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.78</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">0.59</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.57</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">0.78</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.81</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">0.60</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">sens(Hc)</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.94</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.95</td>
 <td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">0.97</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.95</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.96</td>
 <td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">0.94</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">ppv(H)</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.57</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">0.78</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.73</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">0.55</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">0.59</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">0.81</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">0.75</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">0.57</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">ppv(Hc)</td>
@@ -4830,10 +4830,10 @@ height: 0px !important;
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  Metric" style="font-size: 14px">avg|H|</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">89.00</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">88.00</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSl" style="font-size: 14px">88.00</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  FSlg" style="font-size: 14px">87.00</td>
 <td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF" style="font-size: 14px">101.00</td>
-<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">99.00</td>
+<td class="gt_row gt_right" headers="M1 Alt: N=700, p_H=13%, theta(H)=2, theta(Hc)=0.66, theta(ITT)=0.72  GRF60" style="font-size: 14px">97.00</td>
 </tr>
 </tbody>
 </table>
@@ -5348,7 +5348,7 @@ height: 0px !important;
 <td colspan="7" class="gt_heading gt_title gt_font_normal">M1 Alternative: Paper (20,000 sims) vs Reproduction</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 1000 sims | θ†(H) = 2.0, θ†(Hc) = 0.66, pH ≈ 13%</td>
+<td colspan="7" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 20000 sims | θ†(H) = 2.0, θ†(Hc) = 0.66, pH ≈ 13%</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Source" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Source</th>
@@ -5374,13 +5374,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="FSl  avg|H|">94</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="FSl  Source" style="background-color: #F0F7FF">Ours (1000)</td>
-<td class="gt_row gt_right" headers="FSl  any(H)" style="background-color: #F0F7FF">0.69</td>
-<td class="gt_row gt_right" headers="FSl  sens(H)" style="background-color: #F0F7FF">0.55</td>
-<td class="gt_row gt_right" headers="FSl  sens(Hc)" style="background-color: #F0F7FF">0.94</td>
-<td class="gt_row gt_right" headers="FSl  ppv(H)" style="background-color: #F0F7FF">0.57</td>
+<td class="gt_row gt_left" headers="FSl  Source" style="background-color: #F0F7FF">Ours (20000)</td>
+<td class="gt_row gt_right" headers="FSl  any(H)" style="background-color: #F0F7FF">0.71</td>
+<td class="gt_row gt_right" headers="FSl  sens(H)" style="background-color: #F0F7FF">0.57</td>
+<td class="gt_row gt_right" headers="FSl  sens(Hc)" style="background-color: #F0F7FF">0.95</td>
+<td class="gt_row gt_right" headers="FSl  ppv(H)" style="background-color: #F0F7FF">0.59</td>
 <td class="gt_row gt_right" headers="FSl  ppv(Hc)" style="background-color: #F0F7FF">0.98</td>
-<td class="gt_row gt_right" headers="FSl  avg|H|" style="background-color: #F0F7FF">89</td>
+<td class="gt_row gt_right" headers="FSl  avg|H|" style="background-color: #F0F7FF">88</td>
 </tr>
 <tr class="gt_group_heading_row even">
 <th colspan="7" id="FSlg" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-weight: bold" scope="colgroup">FSlg</th>
@@ -5395,13 +5395,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="FSlg  avg|H|">92</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="FSlg  Source" style="background-color: #F0F7FF">Ours (1000)</td>
-<td class="gt_row gt_right" headers="FSlg  any(H)" style="background-color: #F0F7FF">0.89</td>
-<td class="gt_row gt_right" headers="FSlg  sens(H)" style="background-color: #F0F7FF">0.76</td>
+<td class="gt_row gt_left" headers="FSlg  Source" style="background-color: #F0F7FF">Ours (20000)</td>
+<td class="gt_row gt_right" headers="FSlg  any(H)" style="background-color: #F0F7FF">0.91</td>
+<td class="gt_row gt_right" headers="FSlg  sens(H)" style="background-color: #F0F7FF">0.78</td>
 <td class="gt_row gt_right" headers="FSlg  sens(Hc)" style="background-color: #F0F7FF">0.97</td>
-<td class="gt_row gt_right" headers="FSlg  ppv(H)" style="background-color: #F0F7FF">0.78</td>
+<td class="gt_row gt_right" headers="FSlg  ppv(H)" style="background-color: #F0F7FF">0.81</td>
 <td class="gt_row gt_right" headers="FSlg  ppv(Hc)" style="background-color: #F0F7FF">0.98</td>
-<td class="gt_row gt_right" headers="FSlg  avg|H|" style="background-color: #F0F7FF">88</td>
+<td class="gt_row gt_right" headers="FSlg  avg|H|" style="background-color: #F0F7FF">87</td>
 </tr>
 <tr class="gt_group_heading_row odd">
 <th colspan="7" id="GRF" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-weight: bold" scope="colgroup">GRF</th>
@@ -5416,11 +5416,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="GRF  avg|H|">102</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="GRF  Source" style="background-color: #F0F7FF">Ours (1000)</td>
-<td class="gt_row gt_right" headers="GRF  any(H)" style="background-color: #F0F7FF">0.91</td>
-<td class="gt_row gt_right" headers="GRF  sens(H)" style="background-color: #F0F7FF">0.78</td>
-<td class="gt_row gt_right" headers="GRF  sens(Hc)" style="background-color: #F0F7FF">0.95</td>
-<td class="gt_row gt_right" headers="GRF  ppv(H)" style="background-color: #F0F7FF">0.73</td>
+<td class="gt_row gt_left" headers="GRF  Source" style="background-color: #F0F7FF">Ours (20000)</td>
+<td class="gt_row gt_right" headers="GRF  any(H)" style="background-color: #F0F7FF">0.93</td>
+<td class="gt_row gt_right" headers="GRF  sens(H)" style="background-color: #F0F7FF">0.81</td>
+<td class="gt_row gt_right" headers="GRF  sens(Hc)" style="background-color: #F0F7FF">0.96</td>
+<td class="gt_row gt_right" headers="GRF  ppv(H)" style="background-color: #F0F7FF">0.75</td>
 <td class="gt_row gt_right" headers="GRF  ppv(Hc)" style="background-color: #F0F7FF">0.98</td>
 <td class="gt_row gt_right" headers="GRF  avg|H|" style="background-color: #F0F7FF">101</td>
 </tr>
@@ -5437,13 +5437,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="GRF60  avg|H|">99</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="GRF60  Source" style="background-color: #F0F7FF">Ours (1000)</td>
-<td class="gt_row gt_right" headers="GRF60  any(H)" style="background-color: #F0F7FF">0.64</td>
-<td class="gt_row gt_right" headers="GRF60  sens(H)" style="background-color: #F0F7FF">0.59</td>
+<td class="gt_row gt_left" headers="GRF60  Source" style="background-color: #F0F7FF">Ours (20000)</td>
+<td class="gt_row gt_right" headers="GRF60  any(H)" style="background-color: #F0F7FF">0.67</td>
+<td class="gt_row gt_right" headers="GRF60  sens(H)" style="background-color: #F0F7FF">0.60</td>
 <td class="gt_row gt_right" headers="GRF60  sens(Hc)" style="background-color: #F0F7FF">0.94</td>
-<td class="gt_row gt_right" headers="GRF60  ppv(H)" style="background-color: #F0F7FF">0.55</td>
+<td class="gt_row gt_right" headers="GRF60  ppv(H)" style="background-color: #F0F7FF">0.57</td>
 <td class="gt_row gt_right" headers="GRF60  ppv(Hc)" style="background-color: #F0F7FF">0.99</td>
-<td class="gt_row gt_right" headers="GRF60  avg|H|" style="background-color: #F0F7FF">99</td>
+<td class="gt_row gt_right" headers="GRF60  avg|H|" style="background-color: #F0F7FF">97</td>
 </tr>
 </tbody>
 </table>
@@ -5892,7 +5892,7 @@ height: 0px !important;
 <td colspan="5" class="gt_heading gt_title gt_font_normal">M1 Null: Paper (20,000 sims) vs Reproduction</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="5" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 1000 sims | θ†(ITT) ≈ 0.72</td>
+<td colspan="5" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">N = 700, 20000 sims | θ†(ITT) ≈ 0.72</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Source" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Source</th>
@@ -5914,11 +5914,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="FSl  avg|H|">114</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="FSl  Source" style="background-color: #FFF5F0">Ours (1000)</td>
+<td class="gt_row gt_left" headers="FSl  Source" style="background-color: #FFF5F0">Ours (20000)</td>
 <td class="gt_row gt_right" headers="FSl  any(H)" style="background-color: #FFF5F0">0.05</td>
 <td class="gt_row gt_right" headers="FSl  sens(Hc)" style="background-color: #FFF5F0">0.85</td>
 <td class="gt_row gt_right" headers="FSl  ppv(Hc)" style="background-color: #FFF5F0">1.00</td>
-<td class="gt_row gt_right" headers="FSl  avg|H|" style="background-color: #FFF5F0">104</td>
+<td class="gt_row gt_right" headers="FSl  avg|H|" style="background-color: #FFF5F0">102</td>
 </tr>
 <tr class="gt_group_heading_row even">
 <th colspan="5" id="FSlg" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-weight: bold" scope="colgroup">FSlg</th>
@@ -5931,11 +5931,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="FSlg  avg|H|">99</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="FSlg  Source" style="background-color: #FFF5F0">Ours (1000)</td>
+<td class="gt_row gt_left" headers="FSlg  Source" style="background-color: #FFF5F0">Ours (20000)</td>
 <td class="gt_row gt_right" headers="FSlg  any(H)" style="background-color: #FFF5F0">0.12</td>
 <td class="gt_row gt_right" headers="FSlg  sens(Hc)" style="background-color: #FFF5F0">0.86</td>
 <td class="gt_row gt_right" headers="FSlg  ppv(Hc)" style="background-color: #FFF5F0">1.00</td>
-<td class="gt_row gt_right" headers="FSlg  avg|H|" style="background-color: #FFF5F0">97</td>
+<td class="gt_row gt_right" headers="FSlg  avg|H|" style="background-color: #FFF5F0">98</td>
 </tr>
 <tr class="gt_group_heading_row odd">
 <th colspan="5" id="GRF" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-weight: bold" scope="colgroup">GRF</th>
@@ -5948,11 +5948,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="GRF  avg|H|">88</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="GRF  Source" style="background-color: #FFF5F0">Ours (1000)</td>
-<td class="gt_row gt_right" headers="GRF  any(H)" style="background-color: #FFF5F0">0.32</td>
+<td class="gt_row gt_left" headers="GRF  Source" style="background-color: #FFF5F0">Ours (20000)</td>
+<td class="gt_row gt_right" headers="GRF  any(H)" style="background-color: #FFF5F0">0.29</td>
 <td class="gt_row gt_right" headers="GRF  sens(Hc)" style="background-color: #FFF5F0">0.87</td>
 <td class="gt_row gt_right" headers="GRF  ppv(Hc)" style="background-color: #FFF5F0">1.00</td>
-<td class="gt_row gt_right" headers="GRF  avg|H|" style="background-color: #FFF5F0">90</td>
+<td class="gt_row gt_right" headers="GRF  avg|H|" style="background-color: #FFF5F0">89</td>
 </tr>
 <tr class="gt_group_heading_row even">
 <th colspan="5" id="GRF60" class="gt_group_heading" data-quarto-table-cell-role="th" style="font-weight: bold" scope="colgroup">GRF60</th>
@@ -5965,11 +5965,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="GRF60  avg|H|">78</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="GRF60  Source" style="background-color: #FFF5F0">Ours (1000)</td>
-<td class="gt_row gt_right" headers="GRF60  any(H)" style="background-color: #FFF5F0">0.05</td>
+<td class="gt_row gt_left" headers="GRF60  Source" style="background-color: #FFF5F0">Ours (20000)</td>
+<td class="gt_row gt_right" headers="GRF60  any(H)" style="background-color: #FFF5F0">0.04</td>
 <td class="gt_row gt_right" headers="GRF60  sens(Hc)" style="background-color: #FFF5F0">0.89</td>
 <td class="gt_row gt_right" headers="GRF60  ppv(Hc)" style="background-color: #FFF5F0">1.00</td>
-<td class="gt_row gt_right" headers="GRF60  avg|H|" style="background-color: #FFF5F0">75</td>
+<td class="gt_row gt_right" headers="GRF60  avg|H|" style="background-color: #FFF5F0">76</td>
 </tr>
 </tbody>
 </table>
@@ -6009,7 +6009,7 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb133"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb133-1"><a href="#cb133-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Paper: 20,000 sims  |  Ours: %d sims</span><span class="sc">\n\n</span><span class="st">&quot;</span>, nsims))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Paper: 20,000 sims  |  Ours: 1000 sims</code></pre>
+<pre><code>#&gt; Paper: 20,000 sims  |  Ours: 20000 sims</code></pre>
 </div>
 <details class="code-fold">
 <summary>Discrepancy analysis</summary>
@@ -6030,10 +6030,10 @@ height: 0px !important;
 <span id="cb137-8"><a href="#cb137-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   FSl     |diff| = 0.030  (MC SE at 1000 sims ≈ 0.007)  ** &gt; 2 SE **
-#&gt;   FSlg    |diff| = 0.086  (MC SE at 1000 sims ≈ 0.010)  ** &gt; 2 SE **
-#&gt;   GRF     |diff| = 0.073  (MC SE at 1000 sims ≈ 0.015)  ** &gt; 2 SE **
-#&gt;   GRF60   |diff| = 0.001  (MC SE at 1000 sims ≈ 0.007)  within 2 SE</code></pre>
+<pre><code>#&gt;   FSl     |diff| = 0.030  (MC SE at 20000 sims ≈ 0.002)  ** &gt; 2 SE **
+#&gt;   FSlg    |diff| = 0.088  (MC SE at 20000 sims ≈ 0.002)  ** &gt; 2 SE **
+#&gt;   GRF     |diff| = 0.037  (MC SE at 20000 sims ≈ 0.003)  ** &gt; 2 SE **
+#&gt;   GRF60   |diff| = 0.008  (MC SE at 20000 sims ≈ 0.001)  ** &gt; 2 SE **</code></pre>
 </div>
 <details class="code-fold">
 <summary>Discrepancy analysis</summary>
@@ -6066,10 +6066,10 @@ height: 0px !important;
 <span id="cb143-11"><a href="#cb143-11" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   FSl        0.078     0.165     0.120  moderate
-#&gt;   FSlg       0.025     0.061     0.024     close
-#&gt;   GRF        0.032     0.057     0.052     close
-#&gt;   GRF60      0.081     0.074     0.060     close</code></pre>
+<pre><code>#&gt;   FSl        0.055     0.150     0.101  moderate
+#&gt;   FSlg       0.054     0.037     0.009     close
+#&gt;   GRF        0.008     0.031     0.027     close
+#&gt;   GRF60      0.048     0.062     0.044     close</code></pre>
 </div>
 <details class="code-fold">
 <summary>Discrepancy analysis</summary>
@@ -6078,7 +6078,7 @@ height: 0px !important;
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>#&gt; 
-#&gt; Note: With 1000 sims, MC standard errors for proportions ≈ 0.03-0.05.</code></pre>
+#&gt; Note: With 20000 sims, MC standard errors for proportions ≈ 0.03-0.05.</code></pre>
 </div>
 <details class="code-fold">
 <summary>Discrepancy analysis</summary>
@@ -6112,16 +6112,16 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb153"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb153-1"><a href="#cb153-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Alt simulations:  %d sims in %.1f min (%.1f sec/sim)</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb153-2"><a href="#cb153-2" aria-hidden="true" tabindex="-1"></a>    nsims, t_alt <span class="sc">/</span> <span class="dv">60</span>, sec_per_alt))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Alt simulations:  1000 sims in 5.6 min (0.3 sec/sim)</code></pre>
+<pre><code>#&gt;   Alt simulations:  20000 sims in 71.9 min (0.2 sec/sim)</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb155"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb155-1"><a href="#cb155-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Null simulations: %d sims in %.1f min (%.1f sec/sim)</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb155-2"><a href="#cb155-2" aria-hidden="true" tabindex="-1"></a>    nsims, t_null <span class="sc">/</span> <span class="dv">60</span>, sec_per_null))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Null simulations: 1000 sims in 4.9 min (0.3 sec/sim)</code></pre>
+<pre><code>#&gt;   Null simulations: 20000 sims in 65.0 min (0.2 sec/sim)</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb157"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb157-1"><a href="#cb157-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Total:            %.1f min</span><span class="sc">\n</span><span class="st">&quot;</span>, total_sec <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Total:            10.5 min</code></pre>
+<pre><code>#&gt;   Total:            136.9 min</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb159"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb159-1"><a href="#cb159-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;  Workers:          %d</span><span class="sc">\n\n</span><span class="st">&quot;</span>, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
@@ -6136,10 +6136,10 @@ height: 0px !important;
 <span id="cb161-7"><a href="#cb161-7" aria-hidden="true" tabindex="-1"></a>      n_target, proj_total <span class="sc">/</span> <span class="dv">60</span>, proj_total <span class="sc">/</span> <span class="dv">3600</span>))</span>
 <span id="cb161-8"><a href="#cb161-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt;   Projection for  1000 sims: 11 min (0.2 hours)
-#&gt;   Projection for  2000 sims: 21 min (0.4 hours)
-#&gt;   Projection for  5000 sims: 53 min (0.9 hours)
-#&gt;   Projection for 20000 sims: 211 min (3.5 hours)</code></pre>
+<pre><code>#&gt;   Projection for  1000 sims: 7 min (0.1 hours)
+#&gt;   Projection for  2000 sims: 14 min (0.2 hours)
+#&gt;   Projection for  5000 sims: 34 min (0.6 hours)
+#&gt;   Projection for 20000 sims: 137 min (2.3 hours)</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb163"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb163-1"><a href="#cb163-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">  Recommendation: nsims = 5000 provides MC SE ≈ 0.007 for</span><span class="sc">\n</span><span class="st">&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
@@ -6649,7 +6649,7 @@ height: 0px !important;
 </colgroup>
 <thead>
 <tr class="gt_heading header">
-<td colspan="11" class="gt_heading gt_title gt_font_normal">Alt Concordance: Paper (20,000) vs Reproduction (1000 sims)</td>
+<td colspan="11" class="gt_heading gt_title gt_font_normal">Alt Concordance: Paper (20,000) vs Reproduction (20000 sims)</td>
 </tr>
 <tr class="gt_heading even">
 <td colspan="11" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Unconditional averaging (sens = 0 when undetected)</td>
@@ -6683,53 +6683,53 @@ PPV
 <tr class="odd">
 <td class="gt_row gt_left" headers="Method" style="background-color: #FFEBEE">FSl</td>
 <td class="gt_row gt_right" headers="Paper any(H)" style="background-color: #FFEBEE">0.77</td>
-<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #FFEBEE">0.69</td>
-<td class="gt_row gt_right" headers="|d|" style="background-color: #FFEBEE">0.078</td>
+<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #FFEBEE">0.71</td>
+<td class="gt_row gt_right" headers="|d|" style="background-color: #FFEBEE">0.055</td>
 <td class="gt_row gt_right" headers="Paper sens" style="background-color: #FFEBEE">0.72</td>
-<td class="gt_row gt_right" headers="Ours sens" style="background-color: #FFEBEE">0.55</td>
-<td class="gt_row gt_right" headers="|d| " style="background-color: #FFEBEE">0.165</td>
+<td class="gt_row gt_right" headers="Ours sens" style="background-color: #FFEBEE">0.57</td>
+<td class="gt_row gt_right" headers="|d| " style="background-color: #FFEBEE">0.150</td>
 <td class="gt_row gt_right" headers="Paper ppv" style="background-color: #FFEBEE">0.69</td>
-<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #FFEBEE">0.57</td>
-<td class="gt_row gt_right" headers="|d|  " style="background-color: #FFEBEE">0.120</td>
+<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #FFEBEE">0.59</td>
+<td class="gt_row gt_right" headers="|d|  " style="background-color: #FFEBEE">0.101</td>
 <td class="gt_row gt_left" headers="Grade" style="background-color: #FFEBEE">investigate</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Method" style="background-color: #E8F5E9">FSlg</td>
 <td class="gt_row gt_right" headers="Paper any(H)" style="background-color: #E8F5E9">0.86</td>
-<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.89</td>
-<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.025</td>
+<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.91</td>
+<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.054</td>
 <td class="gt_row gt_right" headers="Paper sens" style="background-color: #E8F5E9">0.82</td>
-<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.76</td>
-<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.061</td>
+<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.78</td>
+<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.037</td>
 <td class="gt_row gt_right" headers="Paper ppv" style="background-color: #E8F5E9">0.80</td>
-<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.78</td>
-<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.024</td>
+<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.81</td>
+<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.009</td>
 <td class="gt_row gt_left" headers="Grade" style="background-color: #E8F5E9">close</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Method" style="background-color: #E8F5E9">GRF</td>
 <td class="gt_row gt_right" headers="Paper any(H)" style="background-color: #E8F5E9">0.94</td>
-<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.91</td>
-<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.032</td>
+<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.93</td>
+<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.008</td>
 <td class="gt_row gt_right" headers="Paper sens" style="background-color: #E8F5E9">0.84</td>
-<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.78</td>
-<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.057</td>
+<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.81</td>
+<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.031</td>
 <td class="gt_row gt_right" headers="Paper ppv" style="background-color: #E8F5E9">0.78</td>
-<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.73</td>
-<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.052</td>
-<td class="gt_row gt_left" headers="Grade" style="background-color: #E8F5E9">close</td>
+<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.75</td>
+<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.027</td>
+<td class="gt_row gt_left" headers="Grade" style="background-color: #E8F5E9">excellent</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Method" style="background-color: #E8F5E9">GRF60</td>
 <td class="gt_row gt_right" headers="Paper any(H)" style="background-color: #E8F5E9">0.72</td>
-<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.64</td>
-<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.081</td>
+<td class="gt_row gt_right" headers="Ours any(H)" style="background-color: #E8F5E9">0.67</td>
+<td class="gt_row gt_right" headers="|d|" style="background-color: #E8F5E9">0.048</td>
 <td class="gt_row gt_right" headers="Paper sens" style="background-color: #E8F5E9">0.66</td>
-<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.59</td>
-<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.074</td>
+<td class="gt_row gt_right" headers="Ours sens" style="background-color: #E8F5E9">0.60</td>
+<td class="gt_row gt_right" headers="|d| " style="background-color: #E8F5E9">0.062</td>
 <td class="gt_row gt_right" headers="Paper ppv" style="background-color: #E8F5E9">0.61</td>
-<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.55</td>
-<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.060</td>
+<td class="gt_row gt_right" headers="Ours ppv" style="background-color: #E8F5E9">0.57</td>
+<td class="gt_row gt_right" headers="|d|  " style="background-color: #E8F5E9">0.044</td>
 <td class="gt_row gt_left" headers="Grade" style="background-color: #E8F5E9">close</td>
 </tr>
 </tbody>
@@ -7162,7 +7162,7 @@ height: 0px !important;
 <table class="gt_table caption-top table table-sm table-striped small" data-quarto-bootstrap="false">
 <thead>
 <tr class="gt_heading header">
-<td colspan="5" class="gt_heading gt_title gt_font_normal gt_bottom_border">Null Concordance: Paper (20,000) vs Reproduction (1000 sims)</td>
+<td colspan="5" class="gt_heading gt_title gt_font_normal gt_bottom_border">Null Concordance: Paper (20,000) vs Reproduction (20000 sims)</td>
 </tr>
 <tr class="gt_col_headings even">
 <th id="Method" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Method</th>
@@ -7178,28 +7178,28 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="Paper FPR">0.02</td>
 <td class="gt_row gt_right" headers="Ours FPR">0.05</td>
 <td class="gt_row gt_right" headers="|d|">0.030</td>
-<td class="gt_row gt_right" headers="MC SE">0.007</td>
+<td class="gt_row gt_right" headers="MC SE">0.002</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Method">FSlg</td>
 <td class="gt_row gt_right" headers="Paper FPR">0.03</td>
 <td class="gt_row gt_right" headers="Ours FPR">0.12</td>
-<td class="gt_row gt_right" headers="|d|">0.086</td>
-<td class="gt_row gt_right" headers="MC SE">0.010</td>
+<td class="gt_row gt_right" headers="|d|">0.088</td>
+<td class="gt_row gt_right" headers="MC SE">0.002</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Method">GRF</td>
 <td class="gt_row gt_right" headers="Paper FPR">0.25</td>
-<td class="gt_row gt_right" headers="Ours FPR">0.32</td>
-<td class="gt_row gt_right" headers="|d|">0.073</td>
-<td class="gt_row gt_right" headers="MC SE">0.015</td>
+<td class="gt_row gt_right" headers="Ours FPR">0.29</td>
+<td class="gt_row gt_right" headers="|d|">0.037</td>
+<td class="gt_row gt_right" headers="MC SE">0.003</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Method">GRF60</td>
 <td class="gt_row gt_right" headers="Paper FPR">0.05</td>
-<td class="gt_row gt_right" headers="Ours FPR">0.05</td>
-<td class="gt_row gt_right" headers="|d|">0.001</td>
-<td class="gt_row gt_right" headers="MC SE">0.007</td>
+<td class="gt_row gt_right" headers="Ours FPR">0.04</td>
+<td class="gt_row gt_right" headers="|d|">0.008</td>
+<td class="gt_row gt_right" headers="MC SE">0.001</td>
 </tr>
 </tbody>
 </table>
@@ -7223,13 +7223,13 @@ height: 0px !important;
 <span id="cb172-8"><a href="#cb172-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb172-9"><a href="#cb172-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;**Simulation budget**: %d sims (paper: 20,000). &quot;</span>, nsims))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p><strong>Simulation budget</strong>: 1000 sims (paper: 20,000).</p>
+<p><strong>Simulation budget</strong>: 20000 sims (paper: 20,000).</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb173"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb173-1"><a href="#cb173-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;MC SE ≈ %.3f for proportions near 0.80.</span><span class="sc">\n\n</span><span class="st">&quot;</span>,</span>
 <span id="cb173-2"><a href="#cb173-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mc_se</span>(<span class="fl">0.80</span>, nsims)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p>MC SE ≈ 0.013 for proportions near 0.80.</p>
+<p>MC SE ≈ 0.003 for proportions near 0.80.</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb174"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb174-1"><a href="#cb174-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;**Best overall concordance**: %s (max |d| = %.3f, grade: %s).</span><span class="sc">\n\n</span><span class="st">&quot;</span>,</span>
@@ -7237,7 +7237,7 @@ height: 0px !important;
 <span id="cb174-3"><a href="#cb174-3" aria-hidden="true" tabindex="-1"></a>    concordance<span class="sc">$</span>max_d[concordance<span class="sc">$</span>Method <span class="sc">==</span> best_cls],</span>
 <span id="cb174-4"><a href="#cb174-4" aria-hidden="true" tabindex="-1"></a>    concordance<span class="sc">$</span>grade[concordance<span class="sc">$</span>Method <span class="sc">==</span> best_cls]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p><strong>Best overall concordance</strong>: GRF (max |d| = 0.057, grade: close).</p>
+<p><strong>Best overall concordance</strong>: GRF (max |d| = 0.031, grade: excellent).</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb175"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb175-1"><a href="#cb175-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;**Largest discrepancy**: %s (max |d| = %.3f, grade: %s).</span><span class="sc">\n\n</span><span class="st">&quot;</span>,</span>
@@ -7245,7 +7245,7 @@ height: 0px !important;
 <span id="cb175-3"><a href="#cb175-3" aria-hidden="true" tabindex="-1"></a>    concordance<span class="sc">$</span>max_d[concordance<span class="sc">$</span>Method <span class="sc">==</span> worst_cls],</span>
 <span id="cb175-4"><a href="#cb175-4" aria-hidden="true" tabindex="-1"></a>    concordance<span class="sc">$</span>grade[concordance<span class="sc">$</span>Method <span class="sc">==</span> worst_cls]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p><strong>Largest discrepancy</strong>: FSl (max |d| = 0.165, grade: investigate).</p>
+<p><strong>Largest discrepancy</strong>: FSl (max |d| = 0.150, grade: investigate).</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb176"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb176-1"><a href="#cb176-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;**`dmin.grf` calibration**: DR scores from `causal_survival_forest` &quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -7281,7 +7281,7 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb182"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb182-1"><a href="#cb182-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;This matters most for GRF60 (detection = %.0f%%) where the &quot;</span>,</span>
 <span id="cb182-2"><a href="#cb182-2" aria-hidden="true" tabindex="-1"></a>    <span class="dv">100</span> <span class="sc">*</span> <span class="fu">o</span>(<span class="st">&quot;GRF60&quot;</span>, <span class="st">&quot;alt_any&quot;</span>)))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p>This matters most for GRF60 (detection = 64%) where the</p>
+<p>This matters most for GRF60 (detection = 67%) where the</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb183"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb183-1"><a href="#cb183-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;conditional/unconditional gap is largest.</span><span class="sc">\n\n</span><span class="st">&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -7292,13 +7292,13 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb184"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb184-1"><a href="#cb184-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;**Timing**: %.1f sec/sim (alt), %.1f sec/sim (null) on %d workers. &quot;</span>,</span>
 <span id="cb184-2"><a href="#cb184-2" aria-hidden="true" tabindex="-1"></a>    t_alt <span class="sc">/</span> nsims, t_null <span class="sc">/</span> nsims, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p><strong>Timing</strong>: 0.3 sec/sim (alt), 0.3 sec/sim (null) on 121 workers.</p>
+<p><strong>Timing</strong>: 0.2 sec/sim (alt), 0.2 sec/sim (null) on 121 workers.</p>
 <details class="code-fold">
 <summary>Show code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb185"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb185-1"><a href="#cb185-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Projected for 20,000 sims: %.1f hours.</span><span class="sc">\n</span><span class="st">&quot;</span>,</span>
 <span id="cb185-2"><a href="#cb185-2" aria-hidden="true" tabindex="-1"></a>    (<span class="dv">20000</span> <span class="sc">*</span> (t_alt <span class="sc">+</span> t_null) <span class="sc">/</span> nsims) <span class="sc">/</span> <span class="dv">3600</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<p>Projected for 20,000 sims: 3.5 hours.</p>
+<p>Projected for 20,000 sims: 2.3 hours.</p>
 </div>
 </section>
 </section>
@@ -7337,28 +7337,28 @@ height: 0px !important;
 <span id="cb190-21"><a href="#cb190-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
 <span id="cb190-22"><a href="#cb190-22" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; FSl     FPR=0.05 (50/1000)
+<pre><code>#&gt; FSl     FPR=0.05 (992/20000)
 #&gt;   sens: all NA? TRUE  (expected: TRUE)
 #&gt;   ppv:  all 0?  TRUE  (expected: TRUE)
-#&gt;   spec: mean=0.851  (= avg |Hc_hat|/N)
+#&gt;   spec: mean=0.854  (= avg |Hc_hat|/N)
 #&gt;   npv:  all 1?  TRUE  (expected: TRUE)
 #&gt; 
-#&gt; FSlg    FPR=0.12 (116/1000)
+#&gt; FSlg    FPR=0.12 (2362/20000)
 #&gt;   sens: all NA? TRUE  (expected: TRUE)
 #&gt;   ppv:  all 0?  TRUE  (expected: TRUE)
 #&gt;   spec: mean=0.861  (= avg |Hc_hat|/N)
 #&gt;   npv:  all 1?  TRUE  (expected: TRUE)
 #&gt; 
-#&gt; GRF     FPR=0.32 (323/1000)
+#&gt; GRF     FPR=0.29 (5739/20000)
 #&gt;   sens: all NA? TRUE  (expected: TRUE)
 #&gt;   ppv:  all 0?  TRUE  (expected: TRUE)
-#&gt;   spec: mean=0.872  (= avg |Hc_hat|/N)
+#&gt;   spec: mean=0.873  (= avg |Hc_hat|/N)
 #&gt;   npv:  all 1?  TRUE  (expected: TRUE)
 #&gt; 
-#&gt; GRF60   FPR=0.05 (49/1000)
+#&gt; GRF60   FPR=0.04 (834/20000)
 #&gt;   sens: all NA? TRUE  (expected: TRUE)
 #&gt;   ppv:  all 0?  TRUE  (expected: TRUE)
-#&gt;   spec: mean=0.893  (= avg |Hc_hat|/N)
+#&gt;   spec: mean=0.891  (= avg |Hc_hat|/N)
 #&gt;   npv:  all 1?  TRUE  (expected: TRUE)</code></pre>
 </div>
 </div>
@@ -7371,7 +7371,7 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb192"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb192-1"><a href="#cb192-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;Total runtime: %.1f minutes</span><span class="sc">\n</span><span class="st">&quot;</span>, (t_alt <span class="sc">+</span> t_null) <span class="sc">/</span> <span class="dv">60</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>#&gt; Total runtime: 10.5 minutes</code></pre>
+<pre><code>#&gt; Total runtime: 136.9 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Show code</summary>
@@ -7920,7 +7920,7 @@ height: 0px !important;
 <span id="cb196-27"><a href="#cb196-27" aria-hidden="true" tabindex="-1"></a><span class="co"># ═══════════════════════════════════════════════════════════════════</span></span>
 <span id="cb196-28"><a href="#cb196-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb196-29"><a href="#cb196-29" aria-hidden="true" tabindex="-1"></a><span class="co"># -- Simulation budget ---------------------------------------------------------</span></span>
-<span id="cb196-30"><a href="#cb196-30" aria-hidden="true" tabindex="-1"></a>nsims              <span class="ot">&lt;-</span> <span class="dv">1000</span>L        <span class="co"># Paper uses 20000; scale up for production</span></span>
+<span id="cb196-30"><a href="#cb196-30" aria-hidden="true" tabindex="-1"></a>nsims              <span class="ot">&lt;-</span> <span class="dv">20000</span>L        <span class="co"># Paper uses 20000; scale up for production</span></span>
 <span id="cb196-31"><a href="#cb196-31" aria-hidden="true" tabindex="-1"></a>n_workers          <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="dv">1</span>L, <span class="fu">floor</span>(<span class="fl">0.95</span> <span class="sc">*</span> parallel<span class="sc">::</span><span class="fu">detectCores</span>(<span class="at">logical =</span> <span class="cn">FALSE</span>)))</span>
 <span id="cb196-32"><a href="#cb196-32" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb196-33"><a href="#cb196-33" aria-hidden="true" tabindex="-1"></a><span class="co"># -- DGM: M1 scenario (León et al. 2024, Section 3) ---------------------------</span></span>
@@ -7942,7 +7942,7 @@ height: 0px !important;
 <span id="cb196-49"><a href="#cb196-49" aria-hidden="true" tabindex="-1"></a>fs_hr_threshold    <span class="ot">&lt;-</span> <span class="fl">1.25</span></span>
 <span id="cb196-50"><a href="#cb196-50" aria-hidden="true" tabindex="-1"></a>fs_hr_consistency  <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
 <span id="cb196-51"><a href="#cb196-51" aria-hidden="true" tabindex="-1"></a>fs_pconsistency    <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
-<span id="cb196-52"><a href="#cb196-52" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">400</span>L</span>
+<span id="cb196-52"><a href="#cb196-52" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">1000</span>L</span>
 <span id="cb196-53"><a href="#cb196-53" aria-hidden="true" tabindex="-1"></a>fs_n_min           <span class="ot">&lt;-</span> <span class="dv">60</span>L</span>
 <span id="cb196-54"><a href="#cb196-54" aria-hidden="true" tabindex="-1"></a>fs_d0_min          <span class="ot">&lt;-</span> <span class="dv">10</span>L         <span class="co"># Paper: &quot;10 events in each arm&quot;</span></span>
 <span id="cb196-55"><a href="#cb196-55" aria-hidden="true" tabindex="-1"></a>fs_d1_min          <span class="ot">&lt;-</span> <span class="dv">10</span>L</span>
@@ -8159,10 +8159,10 @@ height: 0px !important;
 <span id="cb196-266"><a href="#cb196-266" aria-hidden="true" tabindex="-1"></a>  <span class="at">vi.grf.min             =</span> fs_vi_grf_min,</span>
 <span id="cb196-267"><a href="#cb196-267" aria-hidden="true" tabindex="-1"></a>  <span class="at">seedit                 =</span> fs_seedit,</span>
 <span id="cb196-268"><a href="#cb196-268" aria-hidden="true" tabindex="-1"></a>  <span class="at">dmin.grf =</span> <span class="dv">4</span>,</span>
-<span id="cb196-269"><a href="#cb196-269" aria-hidden="true" tabindex="-1"></a>  <span class="at">frac.tau =</span> <span class="fl">0.6</span>,</span>
+<span id="cb196-269"><a href="#cb196-269" aria-hidden="true" tabindex="-1"></a>  <span class="at">frac.tau =</span> <span class="fl">0.8</span>,</span>
 <span id="cb196-270"><a href="#cb196-270" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_lasso              =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb196-271"><a href="#cb196-271" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_grf                =</span> <span class="cn">FALSE</span>,    <span class="co"># FSl: LASSO only</span></span>
-<span id="cb196-272"><a href="#cb196-272" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">FALSE</span>,     <span class="co"># v0.2.0 default (3-10x speedup)</span></span>
+<span id="cb196-272"><a href="#cb196-272" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_twostage           =</span> <span class="cn">TRUE</span>,     <span class="co"># v0.2.0 default (3-10x speedup)</span></span>
 <span id="cb196-273"><a href="#cb196-273" aria-hidden="true" tabindex="-1"></a>  <span class="at">tune_grf               =</span> grf_tune,</span>
 <span id="cb196-274"><a href="#cb196-274" aria-hidden="true" tabindex="-1"></a>  <span class="at">parallel_args          =</span> <span class="fu">list</span>(</span>
 <span id="cb196-275"><a href="#cb196-275" aria-hidden="true" tabindex="-1"></a>    <span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>, <span class="at">workers =</span> <span class="dv">1</span>, <span class="at">show_message =</span> <span class="cn">FALSE</span></span>
