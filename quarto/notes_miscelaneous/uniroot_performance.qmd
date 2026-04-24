@@ -1,0 +1,306 @@
+---
+title: "Improving `uniroot()` Performance in R"
+subtitle: "Techniques, benchmarks, and alternatives"
+author: "Larry Leon"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: false
+    code-tools: true
+    theme: cosmo
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+  eval: true
+editor: source
+---
+
+# Overview
+
+`stats::uniroot()` is R's standard univariate root-finder. It calls compiled
+C code (`.External2("do_zeroin2")`) implementing Brent's method — a hybrid
+of bisection, secant, and inverse quadratic interpolation. Because the
+core algorithm is already in C, the usual performance bottleneck is
+**not** the root-finder itself but one of:
+
+1. An unnecessarily wide search bracket,
+2. Avoidable function evaluations,
+3. An overly tight tolerance,
+4. An expensive user-supplied `f(x)` written in interpreted R,
+5. Calling `uniroot()` repeatedly with a cold start.
+
+This document lays out the main levers in rough effort-to-payoff order,
+with runnable benchmarks. The techniques compound when `uniroot()` is
+called inside a bootstrap or simulation loop, where per-call savings
+multiply by `B × n_subgroups`.
+
+```{r setup}
+suppressPackageStartupMessages({
+  library(microbenchmark)
+})
+
+# A "moderately expensive" objective we can reuse across sections.
+# Think of it as a stand-in for a likelihood or estimating equation.
+make_objective <- function(target, work = 0L) {
+  force(target); force(work)
+  function(x) {
+    if (work > 0L) for (i in seq_len(work)) sqrt(i)  # fake CPU work
+    pnorm(x) - target
+  }
+}
+
+f <- make_objective(0.975)
+```
+
+# Key techniques
+
+## Tighten the search bracket
+
+Brent's method converges superlinearly, but the starting bracket still
+matters — every doubling of the interval costs roughly one extra
+iteration. If you can bound the root analytically (even loosely), pass
+the narrowest honest `interval` you have.
+
+```{r bracket-width}
+microbenchmark(
+  very_wide = uniroot(f, interval = c(-50, 50)),
+  wide      = uniroot(f, interval = c(-10, 10)),
+  tight     = uniroot(f, interval = c(1, 3)),
+  times = 200L
+)
+```
+
+## Pre-compute the endpoints via `f.lower` / `f.upper`
+
+If you've already evaluated `f` at the bracket ends — very common, since
+you often check signs to confirm a root is bracketed — pass them in.
+This saves two function evaluations per call, which is typically a
+15–25% speedup when `f` is the bottleneck.
+
+```{r fcache}
+fl <- f(1); fu <- f(3)
+
+microbenchmark(
+  without_endpoints = uniroot(f, interval = c(1, 3)),
+  with_endpoints    = uniroot(f, interval = c(1, 3),
+                              f.lower = fl, f.upper = fu),
+  times = 500L
+)
+```
+
+## Relax `tol` when appropriate
+
+The default is `.Machine$double.eps^0.25` ≈ `1.22e-4` for the *x*
+tolerance. For things like confidence-interval endpoints or HR
+thresholds where 4–5 significant figures suffice, leave the default or
+loosen it. Tightening costs ~3–4 extra evaluations per order of
+magnitude.
+
+```{r tolerance}
+microbenchmark(
+  tol_1e_10 = uniroot(f, interval = c(1, 3), tol = 1e-10),
+  tol_1e_8  = uniroot(f, interval = c(1, 3), tol = 1e-8),
+  default   = uniroot(f, interval = c(1, 3)),
+  tol_1e_3  = uniroot(f, interval = c(1, 3), tol = 1e-3),
+  times = 500L
+)
+```
+
+## Avoid `extendInt` in hot loops
+
+`extendInt = "yes"` (or `"upX"/"downX"`) is great for robustness but
+each extension costs extra evaluations and risks an unbracketed
+diverge. Inside a bootstrap where you know monotonicity, bracket
+explicitly and only fall back to extension if a bracket check fails.
+
+## Move `f` to C++ via Rcpp
+
+When `f` itself is the bottleneck — for example, if it calls
+`survfit()`, does numerical integration, or loops over observations in
+R — rewriting it in C++ is usually the biggest single win. The
+R-to-C callback overhead per evaluation is small relative to
+interpreted R loops inside `f`.
+
+The chunk below simulates an expensive `f`; the tighter bracket still
+helps, but notice how the absolute timings rise — this is the regime
+where Rcpp pays off.
+
+```{r expensive-f}
+f_slow <- make_objective(0.975, work = 1000L)
+microbenchmark(
+  wide_slow_f  = uniroot(f_slow, interval = c(-10, 10)),
+  tight_slow_f = uniroot(f_slow, interval = c(1, 3)),
+  times = 100L
+)
+```
+
+## Warm-start across batched calls
+
+Classic win when calling `uniroot()` many times with slowly varying
+parameters — the common case inside a bootstrap, a grid search, or a
+profile likelihood. Instead of starting each call with the same wide
+bracket, initialize with a small window around the previous root.
+
+```{r warm-start}
+targets <- seq(0.50, 0.999, length.out = 1000)
+
+naive_batch <- function(targets) {
+  vapply(targets, function(tg) {
+    uniroot(make_objective(tg), interval = c(-10, 10))$root
+  }, numeric(1))
+}
+
+warm_batch <- function(targets, half_width = 0.5) {
+  out  <- numeric(length(targets))
+  prev <- 0
+  for (i in seq_along(targets)) {
+    out[i] <- uniroot(
+      make_objective(targets[i]),
+      interval  = c(prev - half_width, prev + half_width),
+      extendInt = "yes"  # safety net for rare misses
+    )$root
+    prev <- out[i]
+  }
+  out
+}
+
+# Sanity check — the two approaches agree to within tol
+stopifnot(max(abs(naive_batch(targets) - warm_batch(targets))) < 1e-3)
+
+microbenchmark(
+  naive = naive_batch(targets),
+  warm  = warm_batch(targets),
+  times = 5L
+)
+```
+
+## Cache endpoint evaluations across batched calls
+
+If many calls share bracket endpoints and the "expensive" part of `f`
+is independent of the varying parameter (common after profiling out a
+nuisance parameter in a survival estimating equation), compute the
+endpoint pieces once and reuse them.
+
+```{r endpoint-cache}
+fixed_bracket_naive <- function(targets) {
+  vapply(targets, function(tg) {
+    g <- function(x) pnorm(x) - tg
+    uniroot(g, interval = c(-5, 5))$root
+  }, numeric(1))
+}
+
+fixed_bracket_cached <- function(targets) {
+  lo <- -5; hi <- 5
+  plo <- pnorm(lo); phi <- pnorm(hi)  # target-independent work
+  vapply(targets, function(tg) {
+    g <- function(x) pnorm(x) - tg
+    uniroot(g, interval = c(lo, hi),
+            f.lower = plo - tg, f.upper = phi - tg)$root
+  }, numeric(1))
+}
+
+microbenchmark(
+  no_cache = fixed_bracket_naive(targets),
+  cached   = fixed_bracket_cached(targets),
+  times = 10L
+)
+```
+
+# Alternatives worth knowing
+
+## `rootSolve::uniroot.all()`
+
+Grids an interval, then polishes each sign change. Use when
+monotonicity is **not** guaranteed — for example, when searching for
+multiple crossings of a test statistic.
+
+```{r rootsolve}
+#| eval: !expr 'requireNamespace("rootSolve", quietly = TRUE)'
+ff <- function(x) sin(x) - 0.3
+rootSolve::uniroot.all(ff, interval = c(0, 4 * pi))
+```
+
+## `pracma::brentDekker()` / `pracma::fzero()`
+
+Same Brent–Dekker family, sometimes with more diagnostic output or
+slightly different behavior on pathological functions. Usually within
+noise of base `uniroot()`.
+
+```{r pracma}
+#| eval: !expr 'requireNamespace("pracma", quietly = TRUE)'
+microbenchmark(
+  base   = uniroot(f, interval = c(1, 3)),
+  pracma = pracma::brentDekker(f, a = 1, b = 3),
+  times = 200L
+)
+```
+
+## Hand-rolled Newton for monotone, smooth objectives
+
+When you have a cheap derivative and know the objective is monotone and
+$C^1$, Newton's method typically beats Brent because it throws away the
+bracket-safety work that Brent does. The normal-quantile example below
+illustrates the scale of the difference; `qnorm()` is included as the
+reference "fully compiled" option.
+
+```{r newton}
+newton_qnorm <- function(p, x0 = 0, tol = 1e-8, maxit = 50L) {
+  x <- x0
+  for (i in seq_len(maxit)) {
+    fx <- pnorm(x) - p
+    if (abs(fx) < tol) return(x)
+    dfx <- dnorm(x)
+    if (dfx < 1e-300) break
+    x <- x - fx / dfx
+  }
+  x
+}
+
+stopifnot(abs(newton_qnorm(0.975) - qnorm(0.975)) < 1e-6)
+
+f975 <- make_objective(0.975)
+microbenchmark(
+  uniroot_call = uniroot(f975, interval = c(-5, 5))$root,
+  newton_call  = newton_qnorm(0.975),
+  qnorm_call   = qnorm(0.975),       # reference
+  times = 500L
+)
+```
+
+## Other directions
+
+- **`nleqslv::nleqslv()`** — when you find yourself wrapping `uniroot()`
+  to solve several coupled equations, switch to a proper nonlinear
+  systems solver.
+- **`RcppNumerical`** — Brent-style root-finders callable directly from
+  C++, useful when the enclosing loop is also in C++.
+- **Table-and-interpolate** — if the objective is smooth and called
+  millions of times with the same structure, a precomputed spline over
+  the parameter space can replace root-finding entirely.
+
+# Decision checklist
+
+When a `uniroot()`-heavy routine is slow, work through these in order:
+
+1. **Profile first.** `profvis::profvis({ ... })` to confirm
+   `uniroot()` (or its objective) is actually the hotspot.
+2. **Narrow the bracket** using domain knowledge.
+3. **Pass `f.lower` / `f.upper`** whenever available.
+4. **Relax `tol`** if 4–5 significant figures is enough.
+5. **Avoid `extendInt`** in hot loops.
+6. **Warm-start** across batched calls.
+7. **Move `f` into Rcpp** if it dominates the profile.
+8. **Consider Newton/Halley** for monotone $C^1$ objectives with a
+   cheap derivative.
+
+# Session information
+
+```{r sessioninfo}
+sessionInfo()
+```

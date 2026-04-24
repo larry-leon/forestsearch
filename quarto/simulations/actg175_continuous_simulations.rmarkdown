@@ -1,0 +1,908 @@
+---
+title: "Simulation Studies: Continuous Outcome (ACTG175)"
+subtitle: "Subgroup Identification with Mean Difference in CD4 Change"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# ─── Simulation control ─────────────────────────────────────────────────
+nsims_alt   <- 25L
+nsims_null  <- 50L
+sim_seed    <- 8316951L
+n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
+
+# ─── Dataset: ACTG175 ──────────────────────────────────────────────────
+# Arms 1 (ZDV+ddI) vs 3 (ddI) — same as the binary simulation.
+# Outcome: CD4 change from baseline to 20 weeks
+#          cd4_change = cd420 - cd40
+# Positive values indicate improvement (CD4 increase).
+# With positive k_inter, the DGM creates a subgroup Q where ddI
+# has an extreme positive effect (MORE CD4 improvement than combo),
+# mirroring the working binary simulation's approach.
+actg_arms        <- c(1L, 3L)
+actg_treat_arm   <- 1L
+actg_age_cut     <- 34
+actg_preanti_cut <- 744.5
+
+# ─── Benefit search via treatment switching ─────────────────────────────
+# Under switched roles (ddI = treat, combo = control), the DGM
+# creates a subgroup Q where ddI has an extreme POSITIVE effect
+# (ddI increases CD4 change for Q more than combo does).
+# This mirrors the working binary simulation: cal_target > 1 on the
+# switched scale with positive k_inter grid.
+# ForestSearch searches for MD >= threshold:
+#   c1 = 30   (screening: MD >= 30 in Q)
+#   c2 = 10   (consistency: each split MD >= 10)
+
+# ─── Subgroup definition ────────────────────────────────────────────────
+dgm_factor_vars   <- paste0("z", 1:12)
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+dgm_n_super       <- 5000L
+
+# ─── Calibration ────────────────────────────────────────────────────────
+# Target: MD(Q) = +40 on the switched scale.
+# Positive MD means ddI (treat=1) INCREASES CD4 change for Q by 40
+# more than combo.  This mirrors the working binary simulation
+# (cal_target_or = 2.0 with positive k_inter grid).
+# ForestSearch searches for MD >= threshold, so positive MD works.
+cal_target_md     <- 40
+cal_k_grid_range  <- c(0, 120)
+cal_grid_step     <- 2
+
+# ─── Simulation study ──────────────────────────────────────────────────
+sim_n_sample      <- 1000L
+sim_n_noise       <- 0L
+
+# ─── Analysis flags ────────────────────────────────────────────────────
+run_fs            <- TRUE
+run_fs_grf        <- FALSE
+run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm, GLM-path)
+
+# ─── ForestSearch parameters ───────────────────────────────────────────
+# For continuous outcomes with identity-scale measure (MD), thresholds
+# are on the natural difference scale.
+# ForestSearch searches for subgroups where MD >= threshold.
+# With the DGM creating MD(Q) = +40, the threshold = 30 detects Q.
+fs_md_threshold        <- 30     # MD >= 30
+fs_md_consistency      <- 10     # MD >= 10 in each split
+fs_pconsistency        <- 0.90
+fs_splits              <- 400L
+fs_n_min               <- 60L
+fs_d0_min              <- 12L
+fs_d1_min              <- 12L
+fs_maxk                <- 2L
+fs_vi_grf_min          <- -0.2
+fs_seedit              <- 8316951L
+
+# ─── ForestSearch pipeline flags ───────────────────────────────────────
+fs_use_lasso           <- TRUE    # Gaussian-LASSO
+fs_use_grf             <- TRUE
+fs_is_rct              <- TRUE
+
+# ─── GRF parameters (standalone grf.subg.harm.glm, GLM-path) ──────────
+# Mirror the binary/survival setup.  For the GLM path, outcome_type
+# and effect_measure are injected automatically by
+# run_simulation_analysis(); adverse_outcome is FALSE for continuous
+# (not in c("binary", "count")), matching the benefit-search DGM where
+# the subgroup shows a LARGE POSITIVE MD under switched roles.
+grf_dmin               <- 10     # minimum MD on the mDiff criterion
+grf_maxdepth           <- 2L     # max policy tree depth
+grf_sg_criterion       <- "mDiff"
+grf_tune               <- FALSE  # cross-validated GRF hyperparameter tuning
+
+# ─── Reporting ─────────────────────────────────────────────────────────
+sg_notation            <- "benefit"
+
+# ─── Results visualization ────────────────────────────────────────────
+# Controls for the subgroup-distribution and effect-distribution plots
+# in @sec-results (rendered by forestsearch::plot_sg_distribution()
+# and forestsearch::plot_effect_distribution()).  See the binary
+# benefit vignette for a discussion of auto-halving / top-K behaviour.
+sgdist_min_pct_alt     <- 5          # initial threshold, H1
+sgdist_min_pct_null    <- 5          # initial threshold, H0
+sgdist_top_k           <- 15L        # max bars before pooling
+sgdist_show_other_alt  <- FALSE      # suppress pooled "Other" bar, H1
+sgdist_show_other_null <- FALSE      # suppress pooled "Other" bar, H0
+
+# ─── Output persistence ───────────────────────────────────────────────
+save_results           <- TRUE
+output_dir             <- "_data"
+```
+
+
+# Introduction {#sec-intro}
+
+## Motivation
+
+This document validates the ForestSearch GLM extension for
+**continuous outcomes** using the ACTG175 trial.  Instead of
+binarising CD4 response (`cd420 > cd40`), we use the raw CD4
+change (`cd420 - cd40`) as a continuous endpoint analysed via
+Gaussian GLM with mean difference (MD) as the effect measure.
+
+This tests the full pipeline:
+
+1. `generate_glm_dgm()` with `outcome_type = "continuous"`:
+   potential means $\mu_0$, $\mu_1$
+2. `calibrate_glm_interaction()` to find `k_inter` producing a
+   target MD in the subgroup
+3. `simulate_from_glm_dgm()` generating $Y = \mu + \varepsilon$,
+   $\varepsilon \sim N(0, \sigma^2)$
+4. `run_simulation_analysis()` dispatching via `"glm_dgm"` class
+5. Operating characteristics via `format_oc_results()` and
+   `build_estimation_table()`
+
+## Clinical Context
+
+In the ACTG175 trial, CD4 count at 20 weeks is a well-established
+surrogate for clinical outcomes in HIV.  The combination therapy
+(ZDV+ddI) generally produces larger CD4 increases than monotherapy
+(ddI).  The question is whether there exists a subgroup where the
+benefit of combination therapy is particularly pronounced.
+
+Using the switched-treatment convention (ddI = treat = 1), a
+positive `k_inter` increases E[Y|Q, treat=1], creating a subgroup
+Q where ddI has an extreme positive effect on CD4 change.
+ForestSearch detects this subgroup because MD(Q) exceeds the
+threshold, while the population baseline effect is negative
+(ddI generally hurts).  This mirrors the working binary simulation.
+
+
+# Data Preparation {#sec-data}
+
+```{r load-packages}
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(doFuture)
+library(foreach)
+
+# -- Safe foreach result collection -------------------------------------------
+# collect_results() now lives in forestsearch (R/forestsearch_helpers.R).
+# Called via ::: since it is an internal (unexported) utility.
+
+timings <- list()
+```
+
+```{r prepare-data}
+t0 <- proc.time()[3]
+
+actg_df <- subset(speff2trial::ACTG175, arms %in% actg_arms)
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Original treatment: arm 1 = 1, arm 3 = 0
+actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
+
+# Switched treatment for benefit search
+actg_df$treat <- 1L - actg_df$treat_orig
+
+# Continuous outcome: CD4 change from baseline to 20 weeks
+actg_df$cd4_change <- actg_df$cd420 - actg_df$cd40
+
+# Remove missing cd420
+n_before <- nrow(actg_df)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+n_after  <- nrow(actg_df)
+
+cat(sprintf("ACTG175 arms 1 vs 3: N = %d -> %d after removing %d missing\n",
+    n_before, n_after, n_before - n_after))
+cat(sprintf("CD4 change: mean = %.1f, SD = %.1f, range = [%d, %d]\n",
+    mean(actg_df$cd4_change), sd(actg_df$cd4_change),
+    min(actg_df$cd4_change), max(actg_df$cd4_change)))
+cat(sprintf("  ZDV+ddI (arm 1): mean = %.1f\n",
+    mean(actg_df$cd4_change[actg_df$treat_orig == 1])))
+cat(sprintf("  ddI (arm 3):     mean = %.1f\n",
+    mean(actg_df$cd4_change[actg_df$treat_orig == 0])))
+cat(sprintf("  MD (combo - mono, original scale): %.1f\n",
+    mean(actg_df$cd4_change[actg_df$treat_orig == 1]) -
+    mean(actg_df$cd4_change[actg_df$treat_orig == 0])))
+
+# Discretise covariates (same as binary simulation)
+actg_df$z1  <- as.factor(ifelse(actg_df$age > actg_age_cut, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= actg_preanti_cut, 1L, 0L))
+actg_df$z3  <- as.factor(ifelse(actg_df$wtkg <= 75, 1L, 0L))
+actg_df$z4  <- as.factor(ifelse(
+  actg_df$karnof <= median(actg_df$karnof), 1L, 0L))
+actg_df$z5  <- as.factor(ifelse(
+  actg_df$cd40 <= median(actg_df$cd40), 1L, 0L))
+actg_df$z6  <- as.factor(ifelse(
+  actg_df$cd80 <= median(actg_df$cd80), 1L, 0L))
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+# Reference subgroup Q
+actg_df$flag_Q_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+cat(sprintf("\nSubgroup Q: age > %d AND preanti <= %.0f\n",
+    actg_age_cut, actg_preanti_cut))
+cat(sprintf("  Q prevalence: %d / %d (%.1f%%)\n",
+    sum(actg_df$flag_Q_ref), nrow(actg_df),
+    100 * mean(actg_df$flag_Q_ref)))
+
+# CD4 change by subgroup (original scale)
+cat("\nCD4 change by subgroup (original treatment scale):\n")
+for (grp in c("Q", "Qc")) {
+  idx <- if (grp == "Q") actg_df$flag_Q_ref == 1 else actg_df$flag_Q_ref == 0
+  md <- mean(actg_df$cd4_change[idx & actg_df$treat_orig == 1]) -
+    mean(actg_df$cd4_change[idx & actg_df$treat_orig == 0])
+  cat(sprintf("  %s (n=%d): MD(combo - mono) = %.1f\n",
+      grp, sum(idx), md))
+}
+
+timings$data_prep <- proc.time()[3] - t0
+```
+
+
+# Creating the Continuous DGM {#sec-dgm}
+
+## Step 1: Initial DGM
+
+```{r create-dgm-alt}
+t0 <- proc.time()[3]
+
+dgm_alt_init <- generate_glm_dgm(
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "cd4_change",
+  treatment_var = "treat",
+  outcome_type  = "continuous",
+  effect_measure = "MD",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "alt",
+  k_inter       = 0,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== Initial ACTG175 Continuous DGM ===\n")
+cat("  MD(Q):  ", round(dgm_alt_init$hazard_ratios$harm_subgroup, 1), "\n")
+cat("  MD(Qc): ", round(dgm_alt_init$hazard_ratios$no_harm_subgroup, 1), "\n")
+cat("  MD(ITT):", round(dgm_alt_init$hazard_ratios$overall, 1), "\n")
+cat("  sigma:  ", round(dgm_alt_init$model_params$sigma, 1), "\n")
+
+timings$dgm_init <- proc.time()[3] - t0
+```
+
+## Step 2: Calibrate for Target MD {#sec-calibrate}
+
+The `k_inter` parameter is a direct additive shift on the mean for
+Q members under treatment.  Negative `k_inter` decreases E[Y|Q, T=1],
+meaning ddI (switched treatment) produces worse CD4 gains for Q.
+
+```{r calibrate}
+t0 <- proc.time()[3]
+
+dgm_calibrated <- calibrate_glm_interaction(
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "cd4_change",
+  treatment_var = "treat",
+  target_effect = cal_target_md,
+  outcome_type  = "continuous",
+  effect_measure = "MD",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  k_inter_range = cal_k_grid_range,
+  grid_step     = cal_grid_step,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== Calibrated ACTG175 Continuous DGM ===\n")
+cat("  Switched scale (ddI = treat):\n")
+cat("    MD(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 1),
+    " (target:", cal_target_md, ")\n")
+cat("    MD(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 1), "\n")
+cat("    MD(ITT):", round(dgm_calibrated$hazard_ratios$overall, 1), "\n")
+cat("  -> Original scale: MD(Q) =",
+    round(-dgm_calibrated$hazard_ratios$harm_subgroup, 1), "\n")
+cat("  k_inter:", round(dgm_calibrated$model_params$k_inter, 2), "\n")
+cat("  sigma:  ", round(dgm_calibrated$model_params$sigma, 1), "\n")
+
+timings$calibrate <- proc.time()[3] - t0
+```
+
+### Calibration Curve
+
+```{r calibration-plot, fig.height=5}
+#| fig-cap: "Calibration of k_inter: MD(Q) as a function of the interaction parameter."
+
+cal_grid <- seq(cal_k_grid_range[1], cal_k_grid_range[2], by = cal_grid_step)
+cal_md_Q <- vapply(cal_grid, function(k) {
+  d <- generate_glm_dgm(
+    data = actg_df, factor_vars = dgm_factor_vars,
+    outcome_var   = "cd4_change", treatment_var = "treat",
+    outcome_type = "continuous", effect_measure = "MD",
+    subgroup_vars = dgm_subgroup_vars,
+    subgroup_cuts = dgm_subgroup_cuts, model = "alt",
+    k_inter = k, n_super = dgm_n_super, seed = sim_seed
+  )
+  d$hazard_ratios$harm_subgroup
+}, numeric(1))
+
+cal_df <- data.frame(k_inter = cal_grid, md_Q = cal_md_Q)
+best_k <- dgm_calibrated$model_params$k_inter
+
+ggplot(cal_df, aes(x = k_inter, y = md_Q)) +
+  geom_line(linewidth = 1, colour = "darkorange") +
+  geom_hline(yintercept = cal_target_md, linetype = "dashed",
+             colour = "grey50") +
+  geom_hline(yintercept = 0, linetype = "dotted",
+             colour = "grey70") +
+  geom_point(
+    data = data.frame(k_inter = best_k,
+                      md_Q = dgm_calibrated$hazard_ratios$harm_subgroup),
+    colour = "red", size = 4, shape = 16
+  ) +
+  labs(
+    x = "k_inter (mean shift for Q under treatment)",
+    y = "MD(Q) on switched scale",
+    title = "ACTG175 Continuous DGM Calibration",
+    subtitle = sprintf("Best: k_inter = %.0f -> MD(Q) = %.1f",
+      best_k, dgm_calibrated$hazard_ratios$harm_subgroup)
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold"))
+```
+
+## Step 3: Null DGM
+
+```{r dgm-null}
+t0 <- proc.time()[3]
+
+dgm_null <- generate_glm_dgm(
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "cd4_change",
+  treatment_var = "treat",
+  outcome_type  = "continuous",
+  effect_measure = "MD",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "null",
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
+)
+
+cat("\n=== ACTG175 Null DGM ===\n")
+cat("  MD(ITT):", round(dgm_null$hazard_ratios$overall, 1), "\n")
+cat("  MD(Q):  ", round(dgm_null$hazard_ratios$harm_subgroup, 1), "\n")
+cat("  MD(Qc): ", round(dgm_null$hazard_ratios$no_harm_subgroup, 1), "\n")
+
+timings$dgm_null <- proc.time()[3] - t0
+```
+
+
+# Single Trial Verification {#sec-single-trial}
+
+```{r single-trial}
+#| code-fold: false
+t0 <- proc.time()[3]
+
+df_single <- simulate_from_glm_dgm(
+  dgm  = dgm_calibrated,
+  n    = sim_n_sample,
+  seed = sim_seed + 1L
+)
+
+cat(sprintf("Single trial: N = %d\n", nrow(df_single)))
+cat(sprintf("  CD4 change: mean = %.1f, SD = %.1f\n",
+    mean(df_single$y_sim), sd(df_single$y_sim)))
+cat(sprintf("  Q prevalence: %.1f%%\n",
+    100 * mean(df_single$flag_harm)))
+
+# Verify MD in the simulated data
+md_sim <- mean(df_single$y_sim[df_single$treat_sim == 1]) -
+  mean(df_single$y_sim[df_single$treat_sim == 0])
+cat(sprintf("  Simulated ITT MD: %.1f (DGM: %.1f)\n",
+    md_sim, dgm_calibrated$hazard_ratios$overall))
+
+timings$single_trial <- proc.time()[3] - t0
+```
+
+
+# Running Simulation Studies {#sec-sims}
+
+## Setup
+
+```{r sim-setup}
+#| code-fold: false
+
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+
+confounders_actg <- dgm_calibrated$factor_vars
+
+fs_params <- list(
+  outcome.name           = "y_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+
+  # GLM pipeline
+  outcome_type           = "continuous",
+  effect_measure         = "MD",
+
+  # Variable screening
+  use_lasso              = fs_use_lasso,
+  use_grf                = fs_use_grf,
+
+  # Consistency algorithm (v0.2.0 default: 3-10x speedup)
+  use_twostage           = TRUE,
+
+  # Subgroup detection thresholds (identity scale)
+  effect.threshold       = fs_md_threshold,
+  consistency.threshold  = fs_md_consistency,
+  pconsistency.threshold = fs_pconsistency,
+
+  # Constraints
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  vi.grf.min             = fs_vi_grf_min,
+  seedit                 = fs_seedit,
+
+  parallel_args          = list(
+    plan = "sequential", workers = 1, show_message = FALSE
+  )
+)
+
+# -- GRF standalone parameter overrides ----------------------------------------
+# Supplied to run_simulation_analysis(grf_params = ...); the GLM path
+# automatically injects outcome_type = "continuous", effect_measure = "MD",
+# and adverse_outcome = FALSE (continuous outcomes are not in
+# c("binary", "count")).  See R/run_simulation_analysis.R.
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion,
+  tune_grf     = grf_tune
+)
+```
+
+
+## Alternative Hypothesis Simulations
+
+```{r run-alt}
+cat("Running", nsims_alt, "simulations under H1...\n")
+t0 <- proc.time()[3]
+
+results_alt_raw <- foreach(
+  sim = seq_len(nsims_alt),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_calibrated,
+    n_sample         = sim_n_sample,
+    confounders_base = confounders_actg,
+    n_add_noise      = sim_n_noise,
+    run_fs           = run_fs,
+    run_fs_grf       = run_fs_grf,
+    run_grf          = run_grf,
+    fs_params        = fs_params,
+    grf_params       = grf_params,
+    verbose          = FALSE
+  )
+}
+
+timings$sims_alt <- proc.time()[3] - t0
+
+results_alt <- forestsearch::collect_results(results_alt_raw, "H1 alt")
+n_failed_alt <- attr(results_alt, "n_failed")
+
+cat("Completed in", round(timings$sims_alt / 60, 1), "minutes\n")
+cat("Results:", nrow(results_alt), "rows\n")
+if (n_failed_alt > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_alt))
+cat(sprintf("Detection rate: %.1f%%\n",
+    100 * mean(results_alt$any.H[results_alt$analysis == "FS"])))
+```
+
+
+## Null Hypothesis Simulations
+
+```{r reset-workers-null}
+# Reset worker pool to prevent memory accumulation from alt sims.
+# Without this, null sims run on bloated workers and can be ~20x slower.
+# reset_workers() consolidates: plan(sequential) -> gc() -> Sys.sleep() ->
+# plan(multisession, workers = n_workers).  Exported from forestsearch
+# v0.2.0 (R/forestsearch_helpers.R).
+forestsearch::reset_workers(workers = n_workers)
+```
+
+```{r run-null}
+cat("Running", nsims_null, "simulations under H0...\n")
+t0 <- proc.time()[3]
+
+results_null_raw <- foreach(
+  sim = seq_len(nsims_null),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_null,
+    n_sample         = sim_n_sample,
+    confounders_base = confounders_actg,
+    n_add_noise      = sim_n_noise,
+    run_fs           = run_fs,
+    run_fs_grf       = run_fs_grf,
+    run_grf          = run_grf,
+    fs_params        = fs_params,
+    grf_params       = grf_params,
+    verbose          = FALSE
+  )
+}
+
+timings$sims_null <- proc.time()[3] - t0
+
+results_null <- forestsearch::collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
+
+cat("Completed in", round(timings$sims_null / 60, 1), "minutes\n")
+if (n_failed_null > 0) cat(sprintf("  *** %d FAILED ***\n", n_failed_null))
+cat(sprintf("False discovery rate: %.1f%%\n",
+    100 * mean(results_null$any.H[results_null$analysis == "FS"])))
+```
+
+```{r cleanup-plan}
+plan(sequential)
+```
+
+```{r save-results}
+#| code-fold: false
+
+if (save_results) {
+  if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+
+  bundle <- list(
+    results_alt    = results_alt,
+    results_null   = results_null,
+    dgm_calibrated = dgm_calibrated,
+    dgm_null       = dgm_null,
+    config = list(
+      nsims_alt    = nsims_alt,
+      nsims_null   = nsims_null,
+      n_sample     = sim_n_sample,
+      n_noise      = sim_n_noise,
+      n_workers    = n_workers,
+      fs_params    = fs_params,
+      grf_params   = grf_params,
+      target_md    = cal_target_md,
+      subgroup     = paste(dgm_subgroup_vars, collapse = " & ")
+    ),
+    true_effects = list(
+      md_Q     = dgm_calibrated$hazard_ratios$harm_subgroup,
+      md_Qc    = dgm_calibrated$hazard_ratios$no_harm_subgroup,
+      md_ITT   = dgm_calibrated$hazard_ratios$overall,
+      k_inter  = dgm_calibrated$model_params$k_inter,
+      sigma    = dgm_calibrated$model_params$sigma
+    ),
+    timings = timings
+  )
+
+  fname <- sprintf("actg175_continuous_simulations_%dalts_%dnulls.rds",
+      nsims_alt, nsims_null)
+  saveRDS(bundle, file.path(output_dir, fname))
+  cat("Saved:", file.path(output_dir, fname), "\n")
+} else {
+  cat("save_results = FALSE; skipping save.\n")
+}
+```
+
+
+# Results {#sec-results}
+
+## Operating Characteristics Under H1
+
+```{r oc-alt}
+t0 <- proc.time()[3]
+
+format_oc_results(
+  results_alt,
+  metrics   = c("detection", "classification"),
+  digits    = 2,
+  digits_hr = 1,
+  title     = "ACTG175 Continuous: Subgroup Identification",
+  subtitle  = sprintf(
+    "n = %d, %d sims, MD(Q) = %.1f, MD(Qc) = %.1f (switched)",
+    sim_n_sample, nsims_alt,
+    dgm_calibrated$hazard_ratios$harm_subgroup,
+    dgm_calibrated$hazard_ratios$no_harm_subgroup
+  ),
+  subgroup_notation = sg_notation
+)
+
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "FS",
+  subtitle = sprintf(
+    "ACTG175 Continuous DGM | n = %d, %d sims",
+    sim_n_sample, nsims_alt
+  ),
+  font_size = 16,
+  subgroup_notation = sg_notation
+)
+
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "GRF",
+  subtitle = sprintf(
+    "ACTG175 Continuous DGM | n = %d, %d sims",
+    sim_n_sample, nsims_alt
+  ),
+  font_size = 16,
+  subgroup_notation = sg_notation
+)
+
+timings$report_alt <- proc.time()[3] - t0
+```
+
+
+## Operating Characteristics Under H0
+
+```{r oc-null}
+format_oc_results(
+  results_null,
+  metrics  = c("detection", "classification"),
+  digits   = 2,
+  title    = "ACTG175 Continuous: Type I Error (Null)",
+  subtitle = sprintf(
+    "n = %d, %d sims, MD(ITT) = %.1f (switched)",
+    sim_n_sample, nsims_null,
+    dgm_null$hazard_ratios$overall
+  ),
+  subgroup_notation = sg_notation
+)
+```
+
+
+## Classification Table
+
+```{r classification}
+build_classification_table(
+  scenario_results = list(
+    null = list(
+      results    = results_null,
+      label      = "ACTG-cont",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_null,
+      hypothesis = "null"
+    ),
+    alt = list(
+      results    = results_alt,
+      label      = "ACTG-cont",
+      n_sample   = sim_n_sample,
+      dgm        = dgm_calibrated,
+      hypothesis = "alt"
+    )
+  ),
+  analyses = sort(unique(c(
+    unique(results_null$analysis),
+    unique(results_alt$analysis)
+  ))),
+  digits    = 2,
+  font_size = 16,
+  title     = "ACTG175 Continuous: Subgroup Identification and Classification",
+  n_sims    = nsims_alt,
+  subgroup_notation = sg_notation
+)
+```
+
+
+## Distribution of Identified Subgroups
+
+Bar chart of subgroup definitions identified across simulations, under
+H1 and H0, rendered by `forestsearch::plot_sg_distribution()`.  Under
+the benefit search, the expected H1 anchor is the DGM's subgroup
+$Q$ (see @sec-dgm).  Auto-halving (up to twice) lowers the
+percentage threshold when no label clears the initial value.
+
+```{r oc-sgdist-build}
+#| code-fold: true
+#| code-summary: "Build subgroup-distribution plots (click to expand)"
+
+plot_sgdist_alt <- plot_sg_distribution(
+  results              = results_alt[results_alt$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_alt,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_alt,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "HTE: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+plot_sgdist_null <- plot_sg_distribution(
+  results              = results_null[results_null$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_null,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_null,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "Null: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+h_alt  <- sgdist_fig_height(attr(plot_sgdist_alt,  "n_bars"))
+h_null <- sgdist_fig_height(attr(plot_sgdist_null, "n_bars"))
+```
+
+```{r oc-alt-sgdist, fig.width=10, fig.height=h_alt}
+#| code-fold: true
+
+print(plot_sgdist_alt)
+```
+
+```{r oc-null-sgdist, fig.width=10, fig.height=h_null}
+#| code-fold: true
+
+print(plot_sgdist_null)
+```
+
+
+## Distribution of MD Estimates
+
+Three-panel violin of mean-difference (MD) estimates on the benefit
+scale across simulations: ITT, the identified $\hat H$, and its
+complement $\hat H^c$.  Under H1 the dotted green line overlays the
+DGM-implied true MD$(Q)$ on the benefit scale.  For additive measures,
+the "benefit scale" simply flips the sign of MD$(Q)$ under switched
+treatment roles.
+
+```{r oc-alt-mddist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H1 MD-distribution violin (click to expand)"
+
+md_Q_true <- -dgm_calibrated$hazard_ratios$harm_subgroup
+
+plot_effect_distribution(
+  results           = results_alt,
+  analysis_method   = "FS",
+  effect_measure    = "MD",
+  subgroup_notation = sg_notation,
+  reference_effect  = md_Q_true,
+  title             = "ACTG175 Continuous (HTE): MD Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | dotted green = true MD(Q) on benefit scale = %.1f",
+    sim_n_sample, nsims_alt, md_Q_true)
+)
+```
+
+```{r oc-null-mddist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H0 MD-distribution violin (click to expand)"
+
+plot_effect_distribution(
+  results           = results_null,
+  analysis_method   = "FS",
+  effect_measure    = "MD",
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Continuous (Null): MD Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | no true benefit subgroup; dashed red = MD = 0",
+    sim_n_sample, nsims_null)
+)
+```
+
+
+# Timing Summary {#sec-timing}
+
+```{r timing}
+timings$total <- Reduce(`+`, timings)
+
+timing_df <- data.frame(
+  Step = names(timings),
+  Seconds = round(unlist(timings), 1),
+  Minutes = round(unlist(timings) / 60, 2)
+)
+
+timing_df |>
+  gt() |>
+  gt::tab_header(title = "Computation Timing") |>
+  gt::tab_style(
+    style = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = Step == "total")
+  )
+```
+
+
+# Discussion {#sec-discussion}
+
+## Key Design Decisions
+
+1. **Positive k_inter, positive target**: Following the working binary
+   simulation's pattern, the DGM uses a positive `k_inter` to create
+   a subgroup Q where ddI has an extreme positive effect (MD = +40).
+   The population baseline effect is negative (ddI generally hurts),
+   so there is a real Q vs Qc contrast that ForestSearch can detect.
+
+2. **Identity-scale thresholds**: For continuous outcomes with
+   `effect_measure = "MD"`, the screening and consistency thresholds
+   are on the natural difference scale (e.g., MD >= 30 cells/$\mu$L).
+   This differs from ratio-scale measures (HR, OR, IRR) where
+   thresholds are multiplicative.
+
+3. **Residual variance**: The DGM preserves the residual SD
+   ($\sigma$) from the baseline Gaussian GLM fit, ensuring
+   realistic noise levels in simulated data.
+
+4. **Linear calibration**: For Gaussian GLM with identity link,
+   `k_inter` maps linearly to MD(Q): $\text{MD}(Q) = \beta_T + k$
+   where $\beta_T$ is the fitted treatment coefficient.  This makes
+   calibration trivial compared to the non-linear binary (logistic)
+   case.
+
+## Comparison with the Binary ACTG175 Simulation
+
+The same subgroup definition (z1 = age > 34, z2 = preanti <= 745)
+is used.  Differences:
+
+- **No floor/ceiling effects**: continuous CD4 change has no natural
+  bounds, so the DGM does not need the careful probability-clipping
+  logic of the binary version.
+- **Gaussian LASSO**: variable screening uses `glmnet` with
+  `family = "gaussian"` instead of `"binomial"`.
+- **Effect size interpretation**: MD = +40 cells/$\mu$L means ddI
+  increases CD4 change by 40 more than combo for Q.  On the original
+  scale, this means combo provides 40 less CD4 benefit for Q.
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```
+
+
+# References {#sec-references}
+
+- Hammer SM, et al. (1996). *NEJM*, 335, 1081--1090.
+- León LF, et al. (2024). *Statistics in Medicine*, 43, 3921--3942.
+

@@ -598,7 +598,7 @@ library(foreach)
 
 ```{r prepare-datasets}
 #| code-fold: true
-#| code-summary: "Data preparation & classification_metrics() helper (click to expand)"
+#| code-summary: "Data preparation (click to expand)"
 
 t0 <- proc.time()[3]
 
@@ -702,89 +702,6 @@ resp_grid <- data.frame(
     100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0])),
   check.names = FALSE
 )
-
-# -----------------------------------------------------------------------------
-# Classification-metrics helper
-# -----------------------------------------------------------------------------
-# Mirrors the arithmetic used inside run_simulation_analysis() (see lines
-# 691-697 of R/run_simulation_analysis.R) so single-data and single-trial
-# reports agree with simulation summaries.  Returns BOTH the numeric list
-# (for inline interpolation) AND a gt table (for display).
-#
-# Inputs:
-#   hat_H   logical of length N.  TRUE = subject is in the identified H-hat.
-#   true_H  logical of length N.  TRUE = subject is in the true / anchoring H.
-#   title   character, table header.
-#   show_npv  logical.  Include NPV column (omitted in hypothetical-truth
-#             contexts to match prior vignette output).
-#   truth_label  character, passed through to the table caption to
-#                distinguish "DGM-anchoring (hypothetical)" from "known
-#                true subgroup (simulated)".
-#
-# Returns a list with components:
-#   n_hat, n_true, tp, fp, fn, tn, sens, spec, ppv, npv (scalar numerics;
-#   NPV may be NA if show_npv = FALSE), plus $table (a gt object ready
-#   to be printed).
-classification_metrics <- function(hat_H, true_H,
-                                   title       = "Classification metrics",
-                                   show_npv    = TRUE,
-                                   truth_label = NULL) {
-  stopifnot(length(hat_H) == length(true_H))
-  hat_H  <- as.logical(hat_H)
-  true_H <- as.logical(true_H)
-
-  tp <- sum( hat_H &  true_H, na.rm = TRUE)
-  fp <- sum( hat_H & !true_H, na.rm = TRUE)
-  fn <- sum(!hat_H &  true_H, na.rm = TRUE)
-  tn <- sum(!hat_H & !true_H, na.rm = TRUE)
-
-  sens <- if ((tp + fn) > 0) tp / (tp + fn) else NA_real_
-  spec <- if ((tn + fp) > 0) tn / (tn + fp) else NA_real_
-  ppv  <- if ((tp + fp) > 0) tp / (tp + fp) else NA_real_
-  npv  <- if ((tn + fn) > 0) tn / (tn + fn) else NA_real_
-
-  # Display table: counts row + metrics row
-  counts_row  <- data.frame(
-    Metric = "Counts",
-    `n(H-hat)` = sum(hat_H),
-    `n(true H)` = sum(true_H),
-    TP = tp, FP = fp, FN = fn, TN = tn,
-    check.names = FALSE
-  )
-  metrics_row <- data.frame(
-    Metric = "Rates",
-    `Sens`  = sens,
-    `Spec`  = spec,
-    `PPV`   = ppv,
-    `NPV`   = if (show_npv) npv else NA_real_,
-    check.names = FALSE
-  )
-
-  tbl_counts <- gt::gt(counts_row) |>
-    gt::tab_header(title = title,
-                   subtitle = if (!is.null(truth_label))
-                     sprintf("Truth reference: %s", truth_label) else NULL) |>
-    gt::tab_options(table.font.size = 11)
-
-  tbl_metrics_df <- metrics_row
-  metric_cols <- c("Sens", "Spec", "PPV")
-  if (show_npv) {
-    metric_cols <- c(metric_cols, "NPV")
-  } else {
-    tbl_metrics_df$NPV <- NULL
-  }
-  tbl_metrics <- gt::gt(tbl_metrics_df) |>
-    gt::fmt_number(columns = gt::all_of(metric_cols), decimals = 3) |>
-    gt::tab_options(table.font.size = 11)
-
-  list(
-    n_hat = sum(hat_H), n_true = sum(true_H),
-    tp = tp, fp = fp, fn = fn, tn = tn,
-    sens = sens, spec = spec, ppv = ppv, npv = npv,
-    table_counts  = tbl_counts,
-    table_metrics = tbl_metrics
-  )
-}
 
 timings$data_prep <- proc.time()[3] - t0
 ```
@@ -1077,26 +994,15 @@ timings$dgm_null <- proc.time()[3] - t0
 
 # Single-Data Analysis {#sec-single}
 
-:::{.callout-important title="Real-data setting: the 'true' subgroup is hypothetical"}
+:::{.callout-important title="Real-data setting: no ground-truth classification"}
 This section analyses the **actual ACTG175 data** -- not a simulated
 trial.  The true benefit subgroup in a real trial is **unknown**; it is
-the object the analysis is trying to estimate.
-
-For the package's classification machinery to report values, however,
-some reference subgroup must be supplied as `flag_harm_ref`.  Here we
-use the anchor
-$Q_{\text{ref}} = \{\text{age} > `r actg_age_cut`\} \cap \{\text{preanti} \le `r actg_preanti_cut`\}$
-because this is the subgroup around which the **simulation DGM is
-calibrated** (see @sec-dgm).  It is the natural reference for judging
-whether the method recovers the DGM-embedded signal in the observed
-data, **but it is not an oracle claim about clinical truth**.
-
-As a consequence, the TP / FP / FN / TN / sensitivity / specificity /
-PPV values reported below for the single-data FS run are best read as
-**"agreement with the DGM-anchoring subgroup"**, not as
-classification-against-truth.  On genuinely unseen real data with no
-simulation DGM attached, these metrics are not defined and should not
-be reported.
+the object the analysis is trying to estimate.  We therefore report the
+subgroup ForestSearch identifies and the resulting arm-specific ORs,
+but we **do not** compute classification metrics (sens / spec / PPV)
+against any reference subgroup -- there is no clinical truth to
+classify against.  Classification is only meaningful in the simulation
+setting of @sec-sims, where the DGM fixes a known $Q$.
 :::
 
 Before any simulation, run ForestSearch on the **actual ACTG175
@@ -1199,56 +1105,15 @@ if (!is.null(fs_actg$grp.consistency)) {
     fit_itt <- glm(y_binary ~ treat, data = df_est, family = binomial)
     cat(sprintf("  OR(ITT, switched): %.3f\n",
         exp(coef(fit_itt)["treat"])))
-
-    # --------------------------------------------------------------------
-    # CLASSIFICATION AGAINST THE DGM-ANCHORING SUBGROUP (HYPOTHETICAL)
-    # --------------------------------------------------------------------
-    # On real data the clinical truth is unknown.  We report these
-    # quantities only as a hypothetical benchmark: if the true benefit
-    # subgroup were the DGM anchor Q_ref (below), what would the
-    # FS-identified subgroup's agreement with it look like?
-    # See the callout at the top of this section.
-    #
-    # The arithmetic is factored out into classification_metrics()
-    # (defined in the prepare-datasets chunk) which mirrors the
-    # simulation-loop computation in run_simulation_analysis().  Tables
-    # are printed in the chunk that follows.
-    cls_fs_actg <- classification_metrics(
-      hat_H       = (df_est$treat.recommend == 0),
-      true_H      = (df_est$flag_harm_ref == 1),
-      title       = "ForestSearch on observed ACTG175: classification metrics",
-      show_npv    = FALSE,
-      truth_label = sprintf(
-        "DGM-anchoring subgroup Q_ref = {age > %d AND preanti \u2264 %.1f} (NOT clinical truth)",
-        actg_age_cut, actg_preanti_cut))
   } else {
     cat("No subgroup identified by ForestSearch.\n")
-    cls_fs_actg <- NULL
   }
 } else {
   cat("ForestSearch did not return grp.consistency.\n")
-  cls_fs_actg <- NULL
 }
 
 cat(sprintf("\nSingle-data analysis: %.1f sec\n", timings$single_data))
 ```
-
-```{r fs-single-data-classification}
-#| code-fold: true
-#| results: asis
-
-# gt tables render reliably when they're the last expression of a chunk.
-# Inside a conditional (or when piped through print()), knitr does not
-# always dispatch the gt print method — it falls back to printing the
-# raw HTML source as text.  Emitting gt::as_raw_html() via cat() under
-# `results: asis` is the canonical workaround and works in every knitr
-# context.
-if (!is.null(cls_fs_actg)) {
-  cat(gt::as_raw_html(cls_fs_actg$table_counts),  "\n\n")
-  cat(gt::as_raw_html(cls_fs_actg$table_metrics), "\n\n")
-}
-```
-
 
 ## GRF Standalone on Observed Data
 
@@ -1329,9 +1194,10 @@ evaluation, subgroup-effect estimation -- before burning the budget of
 thousands of replicates.
 
 Unlike @sec-single, the **true subgroup here is known by construction**
-(it is the DGM-embedded Q), so the classification metrics reported
-below are valid TP / FP / FN / TN values against an actual ground
-truth.
+(it is the DGM-embedded Q).  Per-replicate classification metrics are
+reported in aggregate for the full simulation loop in @sec-results;
+here we show only the identified subgroup definitions and estimated
+ORs so the pipeline can be inspected end-to-end on a single replicate.
 
 ```{r single-trial-simulate}
 #| code-fold: true
@@ -1399,16 +1265,6 @@ if (!is.null(fs_single$sg.harm) && length(fs_single$sg.harm) > 0L &&
   df_est <- fs_single$df.est
   in_H   <- df_est$treat.recommend == 0
 
-  # Classification against the KNOWN true subgroup in simulated data.
-  # Factored helper in the prepare-datasets chunk; tables are printed
-  # in the chunk that follows.
-  cls_fs_single <- classification_metrics(
-    hat_H       = in_H,
-    true_H      = (df_est$flag_harm == 1),
-    title       = "ForestSearch on simulated trial: classification metrics",
-    show_npv    = TRUE,
-    truth_label = "Known true subgroup Q in the simulated data")
-
   # Subgroup effect on switched and original scales
   if (sum(in_H) >= 10L) {
     fit_H <- glm(y_sim ~ treat_sim,
@@ -1427,17 +1283,6 @@ if (!is.null(fs_single$sg.harm) && length(fs_single$sg.harm) > 0L &&
 
 } else {
   cat("No subgroup identified by ForestSearch on this replicate.\n")
-  cls_fs_single <- NULL
-}
-```
-
-```{r fs-single-trial-classification}
-#| code-fold: true
-#| results: asis
-
-if (!is.null(cls_fs_single)) {
-  cat(gt::as_raw_html(cls_fs_single$table_counts),  "\n\n")
-  cat(gt::as_raw_html(cls_fs_single$table_metrics), "\n\n")
 }
 ```
 
@@ -1470,33 +1315,14 @@ if (!is.null(grf_single$sg.harm.id) &&
   for (s in grf_single$sg.harm.id) cat("  ", s, "\n")
 
   grf_H  <- grf_single$data$treat.recommend == 0
-  true_H <- grf_single$data$flag_harm == 1
-
-  # Classification metrics via the same helper used for FS.  Tables
-  # printed in the chunk that follows.
-  cls_grf_single <- classification_metrics(
-    hat_H       = grf_H,
-    true_H      = true_H,
-    title       = "GRF on simulated trial: classification metrics",
-    show_npv    = TRUE,
-    truth_label = "Known true subgroup Q in the simulated data")
+  cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+      sum(grf_H), sum(!grf_H)))
 } else {
   cat("GRF: no subgroup identified on this replicate.\n")
-  cls_grf_single <- NULL
 }
 
 timings$single_trial <- proc.time()[3] - t0
 cat(sprintf("\nSingle trial analysis: %.1f sec\n", timings$single_trial))
-```
-
-```{r grf-single-trial-classification}
-#| code-fold: true
-#| results: asis
-
-if (!is.null(cls_grf_single)) {
-  cat(gt::as_raw_html(cls_grf_single$table_counts),  "\n\n")
-  cat(gt::as_raw_html(cls_grf_single$table_metrics), "\n\n")
-}
 ```
 
 ## FS vs GRF Concordance on the Simulated Trial
@@ -2323,225 +2149,59 @@ anchor.  Under H0 the true subgroup does not exist, so any finds
 reflect false discovery across the candidate space.
 :::
 
-This section uses a vignette-local variant of the package's
-`forestsearch::plot_sg_distribution()` — designed for the MRCT
-consistency simulator and its `any_found` / `sg_found` schema — adapted
-here for the binary `run_simulation_analysis()` output
-(`any.H` / `sg.def`) with two behavioural differences that matter under
-a diffuse null:
+The distribution of the identified subgroup $\hat H$ under H1
+(calibrated HTE) and H0 (null) is rendered by
+`forestsearch::plot_sg_distribution()`.  Three vignette-level settings
+control how the charts behave:
 
-1. **Top-K cap**: at most `sgdist_top_k` = `r sgdist_top_k` bars are
-   shown; additional passing labels pool into a single "Other
-   (*k* labels)" row.  Without this, a diffuse H0 where every find
-   lands on a distinct label (the textbook false-positive signature)
-   renders as one-count-per-row with crushed, overlapping labels.
-2. **Bar labels rendered inside bars** so the counts never clip off
-   the right edge at small counts.
+1. **Top-K cap** (`sgdist_top_k` = `r sgdist_top_k`): at most that
+   many bars are shown; additional passing labels pool into a single
+   "Other (*k* labels)" row (or are suppressed -- see
+   `sgdist_show_other_alt` / `sgdist_show_other_null`).  Without
+   this, a diffuse H0 with one find per distinct label (the textbook
+   false-positive signature) renders as overlapping, unreadable
+   rows.
+2. **Auto-halving** (`max_halvings = 2L`): the minimum-percentage
+   thresholds (`sgdist_min_pct_alt` = `r sgdist_min_pct_alt`%,
+   `sgdist_min_pct_null` = `r sgdist_min_pct_null`%) are halved up
+   to twice if no label clears the initial value, so the chart does
+   not render empty.
+3. **Adaptive figure height** via `sgdist_fig_height()`, driven by
+   `attr(p, "n_bars")`, keeps the vertical resolution consistent
+   across scenarios regardless of how many distinct labels pass the
+   filter.
 
-We show the distribution of the identified subgroup $\hat H$ under H1
-(calibrated HTE) and H0 (null).  Filtering thresholds are set in the
-setup chunk as `sgdist_min_pct_alt` (H1, initial value
-`r sgdist_min_pct_alt`%) and `sgdist_min_pct_null` (H0, initial value
-`r sgdist_min_pct_null`%); the chart renderer automatically halves the
-threshold — twice if necessary — when no label clears the initial
-value.  Chart height adapts to the number of bars actually shown, so
-the visual quality stays consistent across scenarios regardless of
-how many distinct labels pass the filter.
-
-When the generalization of `plot_sg_distribution()` happens at the
-package level (planned for v0.3.0), the top-K + adaptive-height logic
-below will graduate back to the package so this adapter becomes a
-one-line call.
-
-```{r oc-alt-sgdist-helpers}
+```{r oc-sgdist-build}
 #| code-fold: true
+#| code-summary: "Build subgroup-distribution plots (click to expand)"
 
-# -- Helper: build the frame in the column schema (any_found, sg_found).
-make_sg_plot_frame <- function(results_tbl) {
-  rows <- results_tbl[results_tbl$analysis == "FS", ]
-  out <- data.frame(any_found = rows$any.H, stringsAsFactors = FALSE)
-  out$sg_found <- ifelse(is.na(rows$sg.def) | rows$sg.def == "",
-                         "none", rows$sg.def)
-  out
-}
+plot_sgdist_alt <- plot_sg_distribution(
+  results              = results_alt[results_alt$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_alt,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_alt,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "HTE: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
 
-# -- Helper: count label frequencies and return a data.frame with
-#    sg_found (character), count (integer), pct (double), sorted by
-#    count desc.  Caller applies min_pct filter and top-K cap.
-sg_counts_tbl <- function(frame) {
-  found <- frame[frame$any_found == 1L, ]
-  n_found <- nrow(found)
-  if (n_found == 0L) return(NULL)
-  tab <- sort(table(found$sg_found), decreasing = TRUE)
-  df  <- data.frame(sg_found = names(tab),
-                    count    = as.integer(tab),
-                    stringsAsFactors = FALSE)
-  df$pct <- 100 * df$count / n_found
-  df
-}
-
-# Build the plot directly.  Differs from the package's
-# plot_sg_distribution() in three important ways for the vignette:
-#   1. Top-K cap: shows at most top_k bars; remaining labels pool
-#      into a single "Other (k labels)" bar (controlled by show_other).
-#      Prevents unreadable charts under H0 when finds are fragmented
-#      across many singletons (e.g. 68/68 distinct labels each at
-#      count 1).  Set show_other = FALSE to drop the pooled bar and
-#      focus the axis tightly on the top-K labels; the subtitle
-#      still reports the suppressed count for honesty.
-#   2. Bar labels rendered INSIDE bars (hjust = 1.05) so they don't
-#      clip off the right edge when counts are small.
-#   3. Returns an object with attached attr("n_bars") so the calling
-#      chunk can compute an adaptive fig height.
-build_sgdist_plot <- function(frame,
-                              min_pct,
-                              title,
-                              wrap_width   = 30,
-                              top_k        = 15L,
-                              show_other   = TRUE,
-                              min_floor_pct = 0.5,
-                              max_halvings  = 2) {
-
-  counts <- sg_counts_tbl(frame)
-  n_found <- if (!is.null(counts)) sum(counts$count) else 0L
-  n_total <- nrow(frame)
-
-  if (is.null(counts)) {
-    return(empty_sgdist_plot(
-      title = title,
-      msg   = sprintf("No subgroups identified\n(0 of %d sims)", n_total)))
-  }
-
-  current    <- min_pct
-  attempts   <- c(current)
-  n_halvings <- 0L
-  keep       <- counts[counts$pct >= current, , drop = FALSE]
-  while (nrow(keep) == 0L && n_halvings < max_halvings &&
-         (current / 2) >= min_floor_pct) {
-    current    <- current / 2
-    attempts   <- c(attempts, current)
-    n_halvings <- n_halvings + 1L
-    keep       <- counts[counts$pct >= current, , drop = FALSE]
-  }
-  if (nrow(keep) == 0L) {
-    return(empty_sgdist_plot(
-      title = title,
-      msg   = sprintf(
-        "No label \u2265 %g%% even after halving to %g%%\n(%d of %d sims found)",
-        attempts[1], current, n_found, n_total)))
-  }
-
-  # -- Top-K cap: always compute the pool metadata (for subtitle
-  #    reporting) but only attach the "Other" bar to `keep` if
-  #    show_other = TRUE.
-  n_distinct_passing <- nrow(keep)
-  pool_info <- NULL
-  if (n_distinct_passing > top_k) {
-    top    <- keep[seq_len(top_k), , drop = FALSE]
-    rest   <- keep[seq.int(top_k + 1L, n_distinct_passing), , drop = FALSE]
-    pool_info <- list(
-      n_labels = nrow(rest),
-      count    = sum(rest$count),
-      pct      = sum(rest$pct))
-    if (show_other) {
-      pooled_row <- data.frame(
-        sg_found = sprintf("Other (%d labels)", pool_info$n_labels),
-        count    = pool_info$count,
-        pct      = pool_info$pct,
-        stringsAsFactors = FALSE)
-      keep <- rbind(top, pooled_row)
-    } else {
-      keep <- top
-    }
-  }
-
-  # -- Wrap long labels for display ------------------------------------------
-  keep$sg_label <- vapply(keep$sg_found, function(x)
-    paste(strwrap(x, width = wrap_width), collapse = "\n"), character(1))
-  keep$sg_label <- factor(keep$sg_label, levels = rev(keep$sg_label))
-  keep$bar_label <- sprintf("%d (%.1f%%)", keep$count, keep$pct)
-
-  # Subtitle conveys: overall find rate + how many labels we're
-  # displaying out of how many passed + how many (additional) were
-  # pooled or suppressed as "Other" + (if auto-halved) the effective
-  # threshold.
-  sub <- sprintf("Found: %d / %d sims | Showing top %d of %d labels \u2265 %g%%",
-                 n_found, n_total,
-                 min(top_k, n_distinct_passing),
-                 n_distinct_passing, current)
-  if (!is.null(pool_info)) {
-    verb <- if (show_other) "Other" else "Suppressed"
-    sub <- paste0(sub,
-                  sprintf(" | %s: %d (%.1f%%)",
-                          verb, pool_info$count, pool_info$pct))
-  }
-
-  # -- Build plot ------------------------------------------------------------
-  # Bar-label placement inside the bar (hjust > 1) so labels don't clip.
-  # Labels are small black text over a light-filled bar.
-  p <- ggplot2::ggplot(keep,
-                        ggplot2::aes(x = sg_label, y = count, fill = sg_label)) +
-    ggplot2::geom_col() +
-    ggplot2::geom_text(ggplot2::aes(label = bar_label),
-                        hjust = 1.05, size = 3.2) +
-    ggplot2::coord_flip() +
-    ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.02))) +
-    ggplot2::labs(
-      x = NULL, y = "Count",
-      title = title, subtitle = sub) +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(
-      legend.position = "none",
-      plot.subtitle = ggplot2::element_text(size = 10, colour = "grey40"),
-      panel.grid.major.y = ggplot2::element_blank(),
-      axis.text.y = ggplot2::element_text(size = 10))
-
-  if (n_halvings > 0L) {
-    p <- p + ggplot2::labs(
-      caption = sprintf(
-        "Threshold auto-halved %d \u00d7 from %g%% to %g%% (no label cleared the initial value).",
-        n_halvings, attempts[1], current))
-  }
-
-  attr(p, "n_bars") <- nrow(keep)
-  p
-}
-
-# Placeholder panel when no bars can be shown.
-empty_sgdist_plot <- function(title, msg) {
-  p <- ggplot2::ggplot() +
-    ggplot2::annotate("text", x = 0.5, y = 0.5,
-                       label = msg, size = 5, hjust = 0.5) +
-    ggplot2::xlim(0, 1) + ggplot2::ylim(0, 1) +
-    ggplot2::labs(title = title) +
-    ggplot2::theme_void(base_size = 12) +
-    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
-  attr(p, "n_bars") <- 0L
-  p
-}
-
-# Choose fig height adaptive to bar count: ~0.35 inch per bar,
-# floor 4.0 inches, ceiling 10 inches.
-sgdist_fig_height <- function(n_bars, floor_in = 4.0, ceil_in = 10.0) {
-  max(floor_in, min(ceil_in, 3.0 + 0.35 * max(1, n_bars)))
-}
-
-# Pre-compute the two plots so we can query n_bars for each chunk.
-plot_sgdist_alt <- build_sgdist_plot(
-  make_sg_plot_frame(results_alt),
-  min_pct    = sgdist_min_pct_alt,
-  top_k      = sgdist_top_k,
-  show_other = sgdist_show_other_alt,
-  title      = "HTE: Subgroups Identified (H-hat)",
-  wrap_width = 30)
-
-plot_sgdist_null <- build_sgdist_plot(
-  make_sg_plot_frame(results_null),
-  min_pct    = sgdist_min_pct_null,
-  top_k      = sgdist_top_k,
-  show_other = sgdist_show_other_null,
-  title      = "Null: Subgroups Identified (H-hat)",
-  wrap_width = 30)
+plot_sgdist_null <- plot_sg_distribution(
+  results              = results_null[results_null$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_null,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_null,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "Null: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
 
 h_alt  <- sgdist_fig_height(attr(plot_sgdist_alt,  "n_bars"))
 h_null <- sgdist_fig_height(attr(plot_sgdist_null, "n_bars"))
@@ -2586,86 +2246,38 @@ to ddI monotherapy.  As before, both H1 and H0 scenarios are shown.
 
 ```{r oc-alt-ordist, fig.width=9, fig.height=4.5}
 #| code-fold: true
+#| code-summary: "H1 OR-distribution violin (click to expand)"
 
-# Invert OR from switched scale to original benefit scale (1/OR).
-# Only invert finite positives; leave NAs/non-positives as NA.
-invert_or <- function(x) ifelse(is.finite(x) & x > 0, 1 / x, NA_real_)
-
-# Helper: build three-panel OR distribution (ITT, H-hat, Hc-hat).
-build_or_panels <- function(results_tbl) {
-  fs <- results_tbl[results_tbl$analysis == "FS", ]
-  data.table::rbindlist(list(
-    data.table::data.table(
-      est      = invert_or(fs$hr.itt),
-      analysis = "ITT"),
-    data.table::data.table(
-      est      = invert_or(fs$hr.H.hat[fs$any.H == 1L]),
-      analysis = "Identified H-hat"),
-    data.table::data.table(
-      est      = invert_or(fs$hr.Hc.hat[fs$any.H == 1L]),
-      analysis = "Identified Hc-hat (benefit)")
-  ))
-}
-
-ordist_plot <- function(df_or, title, subtitle,
-                         or_ref = NA_real_) {
-  df_or$analysis <- factor(
-    df_or$analysis,
-    levels = c("ITT", "Identified H-hat", "Identified Hc-hat (benefit)"))
-
-  lbls <- vapply(levels(df_or$analysis), function(g) {
-    v <- df_or$est[df_or$analysis == g]; v <- v[!is.na(v)]
-    if (length(v) < 2) g
-    else sprintf("%s\nMean: %.3f (%.3f),  N = %d",
-                 g, mean(v), sd(v), length(v))
-  }, character(1))
-
-  p <- ggplot2::ggplot(df_or,
-                        ggplot2::aes(x = analysis, y = est,
-                                     fill = analysis)) +
-    ggplot2::geom_violin(trim = FALSE, alpha = 0.7) +
-    ggplot2::geom_boxplot(width = 0.12, fill = "white",
-                          outlier.size = 0.6) +
-    ggplot2::geom_hline(yintercept = 1, colour = "red",
-                        linetype = "dashed") +
-    ggplot2::scale_x_discrete(labels = lbls) +
-    ggplot2::scale_fill_brewer(palette = "Pastel1") +
-    ggplot2::labs(x = "Analysis Population",
-                  y = "Odds Ratio (benefit scale)",
-                  title = title, subtitle = subtitle) +
-    ggplot2::theme_minimal(base_size = 12) +
-    ggplot2::theme(legend.position = "none",
-                   axis.text.x = ggplot2::element_text(size = 10))
-  if (!is.na(or_ref)) {
-    p <- p + ggplot2::geom_hline(yintercept = or_ref,
-                                  colour = "darkgreen",
-                                  linetype = "dotted")
-  }
-  p
-}
-
-# H1 panel with OR(Q) truth overlay
 or_Q_true <- 1 / dgm_calibrated$hazard_ratios$harm_subgroup
-ordist_plot(
-  build_or_panels(results_alt),
-  title    = "ACTG175 Binary (HTE): OR Estimates Across Simulations",
-  subtitle = sprintf(
+
+plot_effect_distribution(
+  results           = results_alt,
+  analysis_method   = "FS",
+  effect_measure    = "OR",
+  subgroup_notation = sg_notation,
+  reference_effect  = or_Q_true,
+  title             = "ACTG175 Binary (HTE): OR Estimates Across Simulations",
+  subtitle          = sprintf(
     "n = %d, %d sims | dotted green = true OR(Q) on benefit scale = %.2f",
-    sim_n_sample, nsims_alt, or_Q_true),
-  or_ref   = or_Q_true)
+    sim_n_sample, nsims_alt, or_Q_true)
+)
 ```
 
 ```{r oc-null-ordist, fig.width=9, fig.height=4.5}
 #| code-fold: true
+#| code-summary: "H0 OR-distribution violin (click to expand)"
 
-# Under H0, the DGM has no harm subgroup, so there is no OR(Q)
-# reference.  Plot with null reference at OR = 1 only.
-ordist_plot(
-  build_or_panels(results_null),
-  title    = "ACTG175 Binary (Null): OR Estimates Across Simulations",
-  subtitle = sprintf(
+# Under H0 the DGM has no benefit subgroup -- no true-effect reference.
+plot_effect_distribution(
+  results           = results_null,
+  analysis_method   = "FS",
+  effect_measure    = "OR",
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Binary (Null): OR Estimates Across Simulations",
+  subtitle          = sprintf(
     "n = %d, %d sims | no true harm/benefit subgroup; dashed red = OR = 1",
-    sim_n_sample, nsims_null))
+    sim_n_sample, nsims_null)
+)
 ```
 
 Under H1 (top panel), the left violin (ITT) is centred near the DGM's

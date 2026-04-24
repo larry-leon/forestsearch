@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 20L
-nsims_null  <- 30L
+nsims_alt   <- 5000L
+nsims_null  <- 20000L
 
 # These are "production" run projection nsims
 prod_alt  <- 10000L
@@ -171,6 +171,18 @@ cox_formula_adj <- survival::Surv(y_sim, event_sim) ~
 # ── Detection curve ──────────────────────────────────────────────
 det_theta_range <- c(0.5, 3.0)  # HR range for detection curve
 det_n_points    <- 50L          # Number of points on detection curve
+
+# ── Results visualization ────────────────────────────────────────
+# Controls for the subgroup-distribution and effect-distribution
+# plots in @sec-results (rendered by forestsearch::plot_sg_distribution()
+# and forestsearch::plot_effect_distribution()).  See the binary
+# benefit vignette for a discussion of auto-halving and top-K behaviour.
+sg_notation            <- "benefit"  # for effect-distribution inversion
+sgdist_min_pct_alt     <- 5          # initial threshold, H1
+sgdist_min_pct_null    <- 5          # initial threshold, H0
+sgdist_top_k           <- 15L        # max bars before pooling
+sgdist_show_other_alt  <- FALSE      # suppress pooled "Other" bar, H1
+sgdist_show_other_null <- FALSE      # suppress pooled "Other" bar, H0
 
 # -- Output persistence -------------------------------------------------------
 # Save simulation results to _data/ for downstream analysis.
@@ -1727,6 +1739,111 @@ build_classification_table(
   title     = "ACTG175: Subgroup Identification and Classification",
   n_sims    = nsims_alt,
   subgroup_notation = "benefit"
+)
+```
+
+
+## Distribution of Identified Subgroups
+
+The distribution of the identified subgroup $\hat H$ under H1
+(calibrated HTE) and H0 (null) is rendered by
+`forestsearch::plot_sg_distribution()`.  Under the benefit search,
+the expected H1 anchor is the DGM's
+$Q = \{\texttt{z1} = 1\} \cap \{\texttt{z2} = 1\}$ (age > `r actg_age_cut`
+and preanti $\le$ `r actg_preanti_cut`).  Charts adapt their height to
+the number of bars via `sgdist_fig_height()` and auto-halve the
+percentage threshold (up to twice) when no label clears the initial
+value.
+
+```{r oc-sgdist-build}
+#| code-fold: true
+#| code-summary: "Build subgroup-distribution plots (click to expand)"
+
+plot_sgdist_alt <- plot_sg_distribution(
+  results              = results_alt[results_alt$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_alt,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_alt,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "HTE: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+plot_sgdist_null <- plot_sg_distribution(
+  results              = results_null[results_null$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_null,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_null,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "Null: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+h_alt  <- sgdist_fig_height(attr(plot_sgdist_alt,  "n_bars"))
+h_null <- sgdist_fig_height(attr(plot_sgdist_null, "n_bars"))
+```
+
+```{r oc-alt-sgdist, fig.width=10, fig.height=h_alt}
+#| code-fold: true
+
+print(plot_sgdist_alt)
+```
+
+```{r oc-null-sgdist, fig.width=10, fig.height=h_null}
+#| code-fold: true
+
+print(plot_sgdist_null)
+```
+
+
+## Distribution of HR Estimates
+
+Three-panel violin showing the distribution of HR estimates on the
+benefit scale across simulations: ITT, the identified $\hat H$, and
+its complement $\hat H^c$.  Under H1 the dotted green line overlays
+the DGM-implied true HR$(Q)$ on the benefit scale
+($1 /$ DGM's `harm_subgroup` HR).
+
+```{r oc-alt-hrdist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H1 HR-distribution violin (click to expand)"
+
+hr_Q_true <- 1 / dgm_calibrated$hazard_ratios$harm_subgroup
+
+plot_effect_distribution(
+  results           = results_alt,
+  analysis_method   = "FS",
+  effect_measure    = "HR",
+  subgroup_notation = sg_notation,
+  reference_effect  = hr_Q_true,
+  title             = "ACTG175 Survival (HTE): HR Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | dotted green = true HR(Q) on benefit scale = %.2f",
+    sim_n_sample, nsims_alt, hr_Q_true)
+)
+```
+
+```{r oc-null-hrdist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H0 HR-distribution violin (click to expand)"
+
+plot_effect_distribution(
+  results           = results_null,
+  analysis_method   = "FS",
+  effect_measure    = "HR",
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Survival (Null): HR Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | no true benefit subgroup; dashed red = HR = 1",
+    sim_n_sample, nsims_null)
 )
 ```
 

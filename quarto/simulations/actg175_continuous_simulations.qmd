@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ─── Simulation control ─────────────────────────────────────────────────
-nsims_alt   <- 2500L
-nsims_null  <- 5000L
+nsims_alt   <- 25L
+nsims_null  <- 50L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 
@@ -75,7 +75,7 @@ sim_n_noise       <- 0L
 # ─── Analysis flags ────────────────────────────────────────────────────
 run_fs            <- TRUE
 run_fs_grf        <- FALSE
-run_grf           <- FALSE
+run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm, GLM-path)
 
 # ─── ForestSearch parameters ───────────────────────────────────────────
 # For continuous outcomes with identity-scale measure (MD), thresholds
@@ -98,8 +98,30 @@ fs_use_lasso           <- TRUE    # Gaussian-LASSO
 fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
 
+# ─── GRF parameters (standalone grf.subg.harm.glm, GLM-path) ──────────
+# Mirror the binary/survival setup.  For the GLM path, outcome_type
+# and effect_measure are injected automatically by
+# run_simulation_analysis(); adverse_outcome is FALSE for continuous
+# (not in c("binary", "count")), matching the benefit-search DGM where
+# the subgroup shows a LARGE POSITIVE MD under switched roles.
+grf_dmin               <- 10     # minimum MD on the mDiff criterion
+grf_maxdepth           <- 2L     # max policy tree depth
+grf_sg_criterion       <- "mDiff"
+grf_tune               <- FALSE  # cross-validated GRF hyperparameter tuning
+
 # ─── Reporting ─────────────────────────────────────────────────────────
 sg_notation            <- "benefit"
+
+# ─── Results visualization ────────────────────────────────────────────
+# Controls for the subgroup-distribution and effect-distribution plots
+# in @sec-results (rendered by forestsearch::plot_sg_distribution()
+# and forestsearch::plot_effect_distribution()).  See the binary
+# benefit vignette for a discussion of auto-halving / top-K behaviour.
+sgdist_min_pct_alt     <- 5          # initial threshold, H1
+sgdist_min_pct_null    <- 5          # initial threshold, H0
+sgdist_top_k           <- 15L        # max bars before pooling
+sgdist_show_other_alt  <- FALSE      # suppress pooled "Other" bar, H1
+sgdist_show_other_null <- FALSE      # suppress pooled "Other" bar, H0
 
 # ─── Output persistence ───────────────────────────────────────────────
 save_results           <- TRUE
@@ -453,6 +475,18 @@ fs_params <- list(
     plan = "sequential", workers = 1, show_message = FALSE
   )
 )
+
+# -- GRF standalone parameter overrides ----------------------------------------
+# Supplied to run_simulation_analysis(grf_params = ...); the GLM path
+# automatically injects outcome_type = "continuous", effect_measure = "MD",
+# and adverse_outcome = FALSE (continuous outcomes are not in
+# c("binary", "count")).  See R/run_simulation_analysis.R.
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion,
+  tune_grf     = grf_tune
+)
 ```
 
 
@@ -481,6 +515,7 @@ results_alt_raw <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
+    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
@@ -532,6 +567,7 @@ results_null_raw <- foreach(
     run_fs_grf       = run_fs_grf,
     run_grf          = run_grf,
     fs_params        = fs_params,
+    grf_params       = grf_params,
     verbose          = FALSE
   )
 }
@@ -569,6 +605,7 @@ if (save_results) {
       n_noise      = sim_n_noise,
       n_workers    = n_workers,
       fs_params    = fs_params,
+      grf_params   = grf_params,
       target_md    = cal_target_md,
       subgroup     = paste(dgm_subgroup_vars, collapse = " & ")
     ),
@@ -618,6 +655,18 @@ build_estimation_table(
   results         = results_alt,
   dgm             = dgm_calibrated,
   analysis_method = "FS",
+  subtitle = sprintf(
+    "ACTG175 Continuous DGM | n = %d, %d sims",
+    sim_n_sample, nsims_alt
+  ),
+  font_size = 16,
+  subgroup_notation = sg_notation
+)
+
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "GRF",
   subtitle = sprintf(
     "ACTG175 Continuous DGM | n = %d, %d sims",
     sim_n_sample, nsims_alt
@@ -677,6 +726,108 @@ build_classification_table(
   title     = "ACTG175 Continuous: Subgroup Identification and Classification",
   n_sims    = nsims_alt,
   subgroup_notation = sg_notation
+)
+```
+
+
+## Distribution of Identified Subgroups
+
+Bar chart of subgroup definitions identified across simulations, under
+H1 and H0, rendered by `forestsearch::plot_sg_distribution()`.  Under
+the benefit search, the expected H1 anchor is the DGM's subgroup
+$Q$ (see @sec-dgm).  Auto-halving (up to twice) lowers the
+percentage threshold when no label clears the initial value.
+
+```{r oc-sgdist-build}
+#| code-fold: true
+#| code-summary: "Build subgroup-distribution plots (click to expand)"
+
+plot_sgdist_alt <- plot_sg_distribution(
+  results              = results_alt[results_alt$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_alt,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_alt,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "HTE: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+plot_sgdist_null <- plot_sg_distribution(
+  results              = results_null[results_null$analysis == "FS", ],
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  min_pct              = sgdist_min_pct_null,
+  top_k                = sgdist_top_k,
+  show_other           = sgdist_show_other_null,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "Null: Subgroups Identified (H-hat)",
+  wrap_width           = 30
+)
+
+h_alt  <- sgdist_fig_height(attr(plot_sgdist_alt,  "n_bars"))
+h_null <- sgdist_fig_height(attr(plot_sgdist_null, "n_bars"))
+```
+
+```{r oc-alt-sgdist, fig.width=10, fig.height=h_alt}
+#| code-fold: true
+
+print(plot_sgdist_alt)
+```
+
+```{r oc-null-sgdist, fig.width=10, fig.height=h_null}
+#| code-fold: true
+
+print(plot_sgdist_null)
+```
+
+
+## Distribution of MD Estimates
+
+Three-panel violin of mean-difference (MD) estimates on the benefit
+scale across simulations: ITT, the identified $\hat H$, and its
+complement $\hat H^c$.  Under H1 the dotted green line overlays the
+DGM-implied true MD$(Q)$ on the benefit scale.  For additive measures,
+the "benefit scale" simply flips the sign of MD$(Q)$ under switched
+treatment roles.
+
+```{r oc-alt-mddist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H1 MD-distribution violin (click to expand)"
+
+md_Q_true <- -dgm_calibrated$hazard_ratios$harm_subgroup
+
+plot_effect_distribution(
+  results           = results_alt,
+  analysis_method   = "FS",
+  effect_measure    = "MD",
+  subgroup_notation = sg_notation,
+  reference_effect  = md_Q_true,
+  title             = "ACTG175 Continuous (HTE): MD Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | dotted green = true MD(Q) on benefit scale = %.1f",
+    sim_n_sample, nsims_alt, md_Q_true)
+)
+```
+
+```{r oc-null-mddist, fig.width=9, fig.height=4.5}
+#| code-fold: true
+#| code-summary: "H0 MD-distribution violin (click to expand)"
+
+plot_effect_distribution(
+  results           = results_null,
+  analysis_method   = "FS",
+  effect_measure    = "MD",
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Continuous (Null): MD Estimates Across Simulations",
+  subtitle          = sprintf(
+    "n = %d, %d sims | no true benefit subgroup; dashed red = MD = 0",
+    sim_n_sample, nsims_null)
 )
 ```
 

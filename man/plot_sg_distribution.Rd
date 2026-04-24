@@ -8,31 +8,124 @@ plot_sg_distribution(
   results,
   min_pct = 5,
   title = "Distribution of Identified Subgroups",
-  wrap_width = 25
+  wrap_width = 25,
+  any_col = "any_found",
+  label_col = "sg_found",
+  top_k = NULL,
+  show_other = TRUE,
+  min_floor_pct = 0.5,
+  max_halvings = 0L,
+  bar_label_inside = FALSE,
+  placeholder_on_empty = FALSE
 )
 }
 \arguments{
-\item{results}{data.table from \code{mrct_region_sims()}}
+\item{results}{\code{data.frame} or \code{data.table} with at least
+two columns: a per-replicate detection flag (0/1) and an
+identified-subgroup label string.  Column names are configurable
+via \code{any_col} and \code{label_col}.  The defaults
+(\code{"any_found"}, \code{"sg_found"}) match
+\code{\link{mrct_region_sims}()}; pass
+\code{any_col = "any.H"}, \code{label_col = "sg.def"} to plot
+\code{\link{run_simulation_analysis}()} output.}
 
-\item{min_pct}{Numeric. Minimum percentage threshold for display (default: 5)}
+\item{min_pct}{Numeric.  Minimum percentage threshold for display
+(0-100).  Default: \code{5}.}
 
-\item{title}{Character. Plot title. Default: "Distribution of Identified Subgroups"}
+\item{title}{Character.  Plot title.}
 
-\item{wrap_width}{Integer. Character width for wrapping long subgroup labels.
-Default: 25}
+\item{wrap_width}{Integer.  Character width for wrapping long
+subgroup labels.  Default: \code{25}.}
+
+\item{any_col}{Character.  Column name of the per-replicate
+detection flag.  Default: \code{"any_found"}.}
+
+\item{label_col}{Character.  Column name of the identified-subgroup
+label string.  Default: \code{"sg_found"}.}
+
+\item{top_k}{Integer or \code{NULL}.  Maximum number of bars to
+display; additional passing labels are pooled into a single
+"Other (\eqn{k} labels)" bar (see \code{show_other}).  Prevents
+unreadable charts under diffuse null hypotheses where finds are
+fragmented across many singleton labels.  Default: \code{NULL}
+(no cap, i.e. the original behaviour).}
+
+\item{show_other}{Logical.  When \code{top_k} is set and extra
+labels are pooled, attach the "Other" bar.  Default: \code{TRUE}.
+Set to \code{FALSE} to suppress the pooled bar entirely; its
+count and percent are still reported in the subtitle for honesty.}
+
+\item{min_floor_pct}{Numeric.  Lower bound on automatic threshold
+halving.  Default: \code{0.5}.}
+
+\item{max_halvings}{Integer.  Maximum number of halvings applied to
+\code{min_pct} when no label clears the initial threshold.
+Default: \code{0} (no halving, i.e. the original behaviour).
+Set to \code{2} to match the extended-diagnostic behaviour used
+in the benefit-search vignettes.}
+
+\item{bar_label_inside}{Logical.  Render bar labels inside bars
+(\code{hjust = 1.05}) instead of outside (\code{hjust = -0.1}).
+Prevents small-count labels from clipping off the right edge.
+Default: \code{FALSE} (original outside-of-bar placement).}
+
+\item{placeholder_on_empty}{Logical.  When no subgroups clear the
+threshold (even after halving), return a minimal
+"no data" placeholder plot with \code{attr(p, "n_bars") = 0L}
+instead of \code{invisible(NULL)}.  Default: \code{FALSE} (the
+original behaviour).  Set to \code{TRUE} to simplify adaptive-
+figure-height rendering in vignettes.}
 }
 \value{
-A ggplot2 object
+A \code{ggplot2} object, or \code{invisible(NULL)} when no
+subgroups are found and \code{placeholder_on_empty = FALSE}.
+When a plot is returned it carries two attributes:
+\describe{
+\item{\code{n_bars}}{Integer.  Number of bars in the plot
+(0 in the placeholder case).  Use
+\code{\link{sgdist_fig_height}()} to compute an adaptive
+figure height for knitr.}
+\item{\code{effective_min_pct}}{Numeric.  The threshold in
+effect after any automatic halving.}
+}
 }
 \description{
 Bar chart of subgroups identified across simulations, filtered to
 those appearing in at least \code{min_pct} of the found simulations.
+Supports two column schemas (MRCT and \code{run_simulation_analysis}),
+top-\eqn{K} capping with a pooled "Other" bar, automatic threshold
+halving when no label clears the initial cut, and an \code{n_bars}
+attribute for adaptive figure-height computation.
 }
 \examples{
 \dontrun{
+# MRCT / mrct_region_sims() output (default column schema)
 fs <- forestsearch(gbsg,
   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 plot_sg_distribution(fs$grp.consistency$result_new)
+
+# run_simulation_analysis() output with top-K cap and auto-halving
+fs_rows <- results_alt[results_alt$analysis == "FS", ]
+p <- plot_sg_distribution(
+  fs_rows,
+  any_col              = "any.H",
+  label_col            = "sg.def",
+  top_k                = 15L,
+  show_other           = FALSE,
+  max_halvings         = 2L,
+  bar_label_inside     = TRUE,
+  placeholder_on_empty = TRUE,
+  title                = "HTE: Subgroups Identified (H-hat)"
+)
+fig_h <- sgdist_fig_height(attr(p, "n_bars"))
 }
+
+}
+\seealso{
+\code{\link{sgdist_fig_height}} for computing an adaptive
+figure height from \code{n_bars}, and
+\code{\link{run_simulation_analysis}} /
+\code{\link{mrct_region_sims}} for the upstream simulation
+engines.
 }
