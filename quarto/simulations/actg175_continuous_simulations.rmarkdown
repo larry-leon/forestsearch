@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ─── Simulation control ─────────────────────────────────────────────────
-nsims_alt   <- 25L
-nsims_null  <- 50L
+nsims_alt   <- 2500L
+nsims_null  <- 5000L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 
@@ -99,15 +99,39 @@ fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
 
 # ─── GRF parameters (standalone grf.subg.harm.glm, GLM-path) ──────────
-# Mirror the binary/survival setup.  For the GLM path, outcome_type
-# and effect_measure are injected automatically by
-# run_simulation_analysis(); adverse_outcome is FALSE for continuous
-# (not in c("binary", "count")), matching the benefit-search DGM where
-# the subgroup shows a LARGE POSITIVE MD under switched roles.
-grf_dmin               <- 10     # minimum MD on the mDiff criterion
+# Mirror the binary/survival setup.  For the GLM path, run_simulation_analysis()
+# automatically injects outcome_type and effect_measure.  adverse_outcome
+# MUST be set explicitly for continuous + benefit search (see below).
+#
+# Why adverse_outcome = TRUE for this vignette:
+#   This is a BENEFIT search under switched treatment roles (ddI = 1,
+#   combo = 0).  The DGM constructs a subgroup Q where ddI DECREASES
+#   CD4 change on the ORIGINAL scale, i.e. high POSITIVE MD on the
+#   SWITCHED scale (ddI increases Y = cd4_change in Q).
+#
+#   grf.subg.harm.glm() finds subgroups by maximising score = -CATE
+#   (score > 0 = "treatment hurts").  Under switched roles, "treatment
+#   hurts" means ddI reduces cd4_change — the OPPOSITE of our Q.
+#
+#   Setting adverse_outcome = TRUE negates Y internally
+#   (Y_grf = -cd4_change), so "positive CATE" now corresponds to
+#   "ddI increases -Y = ddI reduces cd4_change" on the switched scale.
+#   This is precisely the direction ForestSearch's internal consistency
+#   search is already looking for under benefit search, so FS and GRF
+#   identify the SAME Q — and their estimated MD(Q) on the switched
+#   scale agree in sign (both positive, ~+40).  After subgroup_notation
+#   = "benefit" inverts to the original scale, both land on MD(Q) ~ -40
+#   as expected.
+#
+# Default of adverse_outcome = FALSE (set by run_simulation_analysis()
+# for continuous outcomes) is correct for HARM searches on continuous
+# outcomes where higher Y is already worse (e.g. lab-value toxicity).
+# It is WRONG for benefit searches via treatment switching.
+grf_dmin               <- 30     # minimum MD on the mDiff criterion
 grf_maxdepth           <- 2L     # max policy tree depth
 grf_sg_criterion       <- "mDiff"
 grf_tune               <- FALSE  # cross-validated GRF hyperparameter tuning
+grf_adverse_outcome    <- TRUE   # see comment above
 
 # ─── Reporting ─────────────────────────────────────────────────────────
 sg_notation            <- "benefit"
@@ -478,14 +502,17 @@ fs_params <- list(
 
 # -- GRF standalone parameter overrides ----------------------------------------
 # Supplied to run_simulation_analysis(grf_params = ...); the GLM path
-# automatically injects outcome_type = "continuous", effect_measure = "MD",
-# and adverse_outcome = FALSE (continuous outcomes are not in
-# c("binary", "count")).  See R/run_simulation_analysis.R.
+# automatically injects outcome_type = "continuous" and effect_measure = "MD".
+# adverse_outcome is explicitly overridden to TRUE here (see the detailed
+# comment in the setup chunk) -- without the override, run_simulation_analysis()
+# defaults it to FALSE for continuous outcomes, which is correct for harm
+# searches but WRONG for benefit-search-via-switched-treatment as used here.
 grf_params <- list(
-  dmin.grf     = grf_dmin,
-  maxdepth     = grf_maxdepth,
-  sg.criterion = grf_sg_criterion,
-  tune_grf     = grf_tune
+  dmin.grf        = grf_dmin,
+  maxdepth        = grf_maxdepth,
+  sg.criterion    = grf_sg_criterion,
+  tune_grf        = grf_tune,
+  adverse_outcome = grf_adverse_outcome
 )
 ```
 

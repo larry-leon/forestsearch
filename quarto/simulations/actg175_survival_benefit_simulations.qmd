@@ -91,6 +91,14 @@ actg_wtkg_cut    <- 75           # Weight cutpoint (kg): wtkg <= cut -> z3 = 1
 # benefit subgroup Q appears as a harm subgroup in the DGM
 # framework.  All downstream simulation and analysis uses the
 # switched treatment indicator.
+#
+# The DGM uses the discretised z1-z12 factor formulation because
+# generate_aft_dgm_flex() requires factor covariates.  The TRUE
+# benefit subgroup is defined by {z1 = 1 AND z2 = 1}, i.e.
+# age > 34 AND preanti <= 744.5.  This provides the ground truth
+# for the sensitivity / PPV computations in run_simulation_analysis()
+# but is NOT exposed to the analysis methods (see analysis_*_vars
+# below).
 dgm_factor_vars   <- paste0("z", 1:12) # All binary confounder names
 dgm_continuous_vars <- character(0)    # No continuous covariates
 dgm_subgroup_vars <- c("z1", "z2")    # Variables defining benefit subgroup Q
@@ -102,6 +110,33 @@ dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
 dgm_k_treat       <- 1.0             # Main treatment effect multiplier
 dgm_n_super       <- 5000L           # Super-population size for DGM
 dgm_k_inter_init  <- 2.0             # Starting k_inter before calibration
+
+# ── Realistic analysis candidate set ─────────────────────────────
+# Mirrors the binary vignette: a real analyst would NOT know which
+# variables define Q nor where to cut them.  Continuous covariates are
+# therefore supplied to forestsearch() and grf.subg.harm.survival() in
+# their RAW form; the search methods discover cuts themselves
+# (forestsearch: median / GRF-derived / forced cuts; GRF policy-tree
+# splits).  The discretised z1-z12 variables are kept on the data
+# frame only so generate_aft_dgm_flex() can build the super-population
+# from them and so the truth column flag_harm can be checked --- they
+# are NOT part of the analysis candidate set.
+analysis_continuous_vars <- c(
+  "age",      # continuous; TRUE cut (34) unknown to analyst
+  "preanti",  # continuous; TRUE cut (744.5) unknown to analyst
+  "wtkg",     # continuous
+  "karnof",   # Karnofsky score (integer 70-100, treated as continuous)
+  "cd40",     # baseline CD4 (continuous)
+  "cd80"      # baseline CD8 (continuous)
+)
+analysis_binary_vars <- c(
+  "hemo",     # hemophilia (0/1)
+  "homo",     # homosexual activity (0/1)
+  "drugs",    # IV drug use history (0/1)
+  "race",     # race (0/1, white vs non-white as coded)
+  "gender",   # gender (0/1)
+  "symptom"   # symptomatic (0/1)
+)
 
 # ── Calibration ─────────────────────────────────────────────────
 # Target HR(Q) = 2.0 under SWITCHED treatment (= 0.50 under original).
@@ -147,19 +182,221 @@ fs_d1_min              <- 10L    # Minimum events in treatment arm
 fs_maxk                <- 2L     # Maximum number of subgroup-defining variables
 fs_by_risk             <- 6L     # Risk-table interval (months)
 fs_vi_grf_min          <- -0.2   # Minimum GRF variable importance
+fs_use_lasso           <- FALSE   # LASSO pre-screening
+fs_use_grf             <- TRUE   # GRF pre-screening
+fs_is_rct              <- TRUE   # Randomized trial (propensity = 0.5)
 
-# ── GRF standalone parameters ───────────────────────────────────
-# These control the GRF-only subgroup analysis (run_grf = TRUE).
+# -- Candidate-selection criterion (sg_focus) ---------------------------------
+# `sg_focus` controls how forestsearch() sorts the candidate subgroups that
+# meet the screening threshold, and therefore which one becomes the
+# identified subgroup.  Five options (see ?subgroup_consistency):
+#   "hr"       : primary sort = Pcons desc, secondary = effect size desc,
+#                tertiary = K asc.  Package default.
+#   "maxSG"    : primary sort = N desc (LARGEST candidate first),
+#                secondary = Pcons desc, tertiary = K asc.  Use this when
+#                the goal is to identify the LARGEST benefitting subgroup
+#                among those meeting the consistency threshold.
+#   "minSG"    : primary sort = N asc (smallest candidate first).
+#   "hrMaxSG"  : compound (N desc, effect desc) -- forces stop_threshold = NULL.
+#   "hrMinSG"  : compound (N asc, effect desc) -- forces stop_threshold = NULL.
+#
+# For this ACTG175 survival-benefit study we want to recover the LARGEST
+# subgroup in which ddI monotherapy is superior to ZDV+ddI combination
+# (on the original scale) -- equivalently, the largest subgroup where
+# the SWITCHED treatment is harmful.  We therefore use "maxSG".  Early
+# stopping is valid under "maxSG" (single sort criterion), though
+# stop_threshold is set to NULL throughout this document.
+fs_sg_focus            <- "maxSG"
+
+# -- Continuous-variable detection threshold ---------------------------------
+# is.continuous() classifies a covariate as continuous if it has more than
+# `cont.cutoff` unique values.  The default of 4 distinguishes integer-coded
+# binaries / small-cardinality factors (treated categorically) from genuine
+# continuous covariates (treated with cut-set generation).  Pinned here for
+# documentation; the package default is the same.
+fs_cont_cutoff         <- 4L
+
+# -- Continuous-variable cut strategy ----------------------------------------
+# cut_type controls how candidate cuts are generated for each continuous
+# covariate that forestsearch detects (i.e. any variable with more than
+# fs_cont_cutoff unique values that is passed through confounders.name).
+#
+#   "default" : per continuous variable, get_conf_force() -> cut_var()
+#               generates FOUR candidate cuts:
+#                   var <= mean(var)
+#                   var <= median(var)    (= Q2)
+#                   var <= qlow(var)      (= Q1, 25th percentile)
+#                   var <= qhigh(var)     (= Q3, 75th percentile)
+#               This is the richer strategy and is the package default.
+#
+#   "median"  : per continuous variable, a SINGLE candidate cut:
+#                   var <= median(var)
+#               Use this to stress-test the "truly unknown cuts" regime
+#               when the true cut is not at the median.
+#
+# Honest disclosure for this setup:
+#   The true Q-defining cuts are age > actg_age_cut (~median of arms 1+3)
+#   and preanti <= actg_preanti_cut (~Q3 of arms 1+3).  With cut_type =
+#   "default", BOTH true cuts are present in the candidate set (age at
+#   median, preanti at Q3).  With cut_type = "median", only the age cut
+#   is recoverable; preanti's true Q3 cut is NOT in the candidate set,
+#   forcing forestsearch to approximate Q via the wrong threshold.
+#
+# The default value ("default") is kept here so the simulation evaluates
+# the realistic setting where the analyst uses the richer cut strategy
+# a priori (without knowing the truth).  GRF candidate cuts (use_grf =
+# TRUE) are additionally appended to this set.
+fs_cut_type            <- "default"
+
+# ── Unified ForestSearch parameters ─────────────────────────────
+# Single source of truth for every forestsearch() call in this
+# document.  All three call sites use the same knob bundle:
+#   1. Single-data analysis on observed ACTG175 (@sec-single-data)
+#   2. Single simulated trial verification   (@sec-single-fs)
+#   3. Simulation loop via run_simulation_analysis() (@sec-sims)
+#
+# Column names (outcome.name / event.name / treat.name / id.name)
+# are deliberately OMITTED here -- they differ per call (observed
+# data uses "time_months"/"cens"/"treat", simulated data uses
+# "y_sim"/"event_sim"/"treat_sim") and are supplied at the call
+# site.  run_simulation_analysis() overwrites them automatically
+# from its own outcome_name/event_name/treat_name arguments (see
+# R/run_simulation_analysis.R lines 384--389).
+
+# ── GRF parameters (used by both FS's internal pre-screening
+# AND the standalone GRF analysis below) ─────────────────────
 # dmin.grf is on the RMST scale (months after time-unit conversion).
-# The default in default_grf_params_gen() is dmin.grf = 12, which
-# was calibrated for days (~0.4 months).  After converting ACTG175
-# times to months, this must be rescaled.
-grf_dmin               <- 2    # min RMST difference (months)
-grf_frac_tau           <- 0.80   # fraction of max event time for horizon
-grf_maxdepth           <- 2L     # max policy tree depth
+# The default in forestsearch()/default_grf_params_gen() is 12,
+# calibrated for days (~0.4 months).  After converting ACTG175 times
+# to months, we rescale.
+grf_dmin               <- 2     # min RMST difference (months)
+grf_frac_tau           <- 0.80  # fraction of max event time for horizon
+grf_maxdepth           <- 2L    # max policy tree depth
 grf_sg_criterion       <- "mDiff"
-grf_tune               <- FALSE   # cross-validated GRF hyperparameter tuning
-                                   # Set TRUE to enable tune.parameters = "all"
+grf_tune               <- FALSE # cross-validated GRF hyperparameter tuning
+                                # Set TRUE to enable tune.parameters = "all"
+
+fs_params <- list(
+  # ── Outcome path (matches forestsearch() formal defaults but
+  # pinned for documentation; survival is the package default) ──
+  outcome_type           = "survival",
+  est.scale              = "hr",         # report effects on HR scale
+
+  # ── Variable screening flags ────────────────────────────────
+  use_lasso              = fs_use_lasso,
+  use_grf                = fs_use_grf,
+  is.RCT                 = fs_is_rct,
+
+  # ── Two-stage consistency (v0.2.0 default: 3-10x speedup) ───
+  use_twostage           = TRUE,
+  twostage_args          = list(),
+
+  # ── Subgroup detection thresholds (Leon et al. 2024, Sec 3) ─
+  hr.threshold           = fs_hr_threshold,          # c1
+  hr.consistency         = fs_hr_consistency,        # c2
+  pconsistency.threshold = fs_pconsistency_thresh,   # bootstrap pi
+
+  # ── Candidate-selection criterion ────────────────────────────
+  # "maxSG" prefers the LARGEST candidate subgroup meeting the
+  # consistency threshold.  See @sec-candidate-selection for the
+  # full rationale and the alternatives.
+  sg_focus               = fs_sg_focus,
+
+  # ── Search-budget controls ───────────────────────────────────
+  # stop_threshold = NULL means "evaluate all candidates up to
+  # max_subgroups_search regardless of how strong the leading
+  # candidate's Pcons is".  This is the right choice for a
+  # simulation study where every replicate should enumerate the
+  # same way.  Compatible with sg_focus = "maxSG"; would be
+  # forced to NULL anyway if sg_focus were "hrMaxSG"/"hrMinSG".
+  stop_threshold         = NULL,
+  max_subgroups_search   = 10L,
+  max.minutes            = Inf,    # no wall-clock truncation
+  minp                   = 0.025,  # legacy lower bound on p-value
+
+  # ── Continuous-variable handling ────────────────────────────
+  # cont.cutoff: is.continuous() unique-value threshold.
+  # cut_type:    candidate-cut generation strategy.  See setup
+  #              comments for the four-cut "default" expansion.
+  cont.cutoff            = fs_cont_cutoff,
+  cut_type               = fs_cut_type,
+
+  # ── Bootstrap + size / event constraints ────────────────────
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  by.risk                = fs_by_risk,
+
+  # ── GRF pre-screening (FS's internal use) ───────────────────
+  # vi.grf.min: minimum GRF variable importance for a covariate
+  # to enter the candidate set.
+  # dmin.grf:   minimum RMST difference (months on this dataset's
+  #             time scale) for a GRF policy-tree node to qualify.
+  #             The package default of 12 is calibrated on days;
+  #             ACTG175 uses months, so we rescale.  Same value as
+  #             the standalone-GRF analysis (grf_dmin) for
+  #             consistency between FS's internal pre-screening
+  #             and the standalone GRF run.
+  # frac.tau:   fraction of max event time used as the RMST horizon.
+  vi.grf.min             = fs_vi_grf_min,
+  dmin.grf               = grf_dmin,
+  frac.tau               = grf_frac_tau,
+
+  # ── GRF tuning (cross-validated hyperparameter selection) ───
+  tune_grf               = grf_tune,
+
+  # ── Reproducibility ─────────────────────────────────────────
+  seedit                 = sim_seed,
+
+  # ── Parallelism (sequential within each forestsearch call;
+  # the outer foreach loop parallelises across replicates) ────
+  parallel_args          = list(
+    plan = "sequential", workers = 1, show_message = FALSE
+  )
+)
+
+# ── fs_run(): thin wrapper used for direct (non-simulation) calls ─
+# Combines fs_params with the per-call column names and any extra
+# overrides (passed through via `...`).  Used by the single-data
+# analysis and single-trial chunks; the simulation loop passes
+# `fs_params` directly to run_simulation_analysis() without going
+# through this helper.
+#
+# Why do.call(): forestsearch() has >40 formal arguments, so named
+# passthrough via list concatenation is cleaner and guarantees
+# the wrapper adds zero implicit defaults of its own.
+fs_run <- function(data,
+                   outcome,
+                   event,
+                   treat,
+                   id        = "id",
+                   details   = TRUE,
+                   quiet     = FALSE,
+                   ...) {
+  # Build the argument list in priority order:
+  #   per-call args (...) > fs_params (canonical knobs)
+  # Then deduplicate by name so do.call() doesn't error on
+  # duplicate bindings ("matched by multiple actual arguments").
+  # duplicated() keeps the FIRST occurrence of each name and marks
+  # subsequent ones as duplicates -- so call_overrides (listed
+  # first) win over fs_params (listed last).
+  call_overrides <- list(...)
+  fixed_args <- list(
+    df.analysis      = data,
+    confounders.name = confounders_analysis,
+    outcome.name     = outcome,
+    event.name       = event,
+    treat.name       = treat,
+    id.name          = id,
+    details          = details,
+    quiet            = quiet
+  )
+  combined <- c(call_overrides, fixed_args, fs_params)
+  combined <- combined[!duplicated(names(combined))]
+  do.call(forestsearch, combined)
+}
 
 # ── Adjusted Cox formula (used in run_simulation_analysis) ───────
 # Note: treat_sim is the SWITCHED treatment indicator in the
@@ -321,6 +558,59 @@ a sensitivity analysis.  Whichever approach you choose, document
 the rationale alongside the cutpoint value in your setup chunk.
 
 
+## Candidate Selection: `sg_focus = "maxSG"` {#sec-candidate-selection}
+
+When several candidate subgroups simultaneously meet both the screening
+threshold ($c_1 =$ `r fs_hr_threshold`) and the consistency threshold
+($c_2 =$ `r fs_hr_consistency`), `forestsearch()` must pick one.  That
+choice is governed by `sg_focus`.  Five options are available:
+
+| `sg_focus`  | Primary sort   | Secondary        | Tertiary | Interpretation |
+|-------------|----------------|------------------|----------|-----------------|
+| `"hr"`      | Pcons desc     | effect desc      | K asc    | Package default. Favours *most-consistent* candidate. |
+| `"maxSG"`   | **N desc**     | Pcons desc       | K asc    | **Largest** qualifying candidate. |
+| `"minSG"`   | N asc          | Pcons desc       | K asc    | Smallest qualifying candidate. |
+| `"hrMaxSG"` | N desc         | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
+| `"hrMinSG"` | N asc          | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
+
+For the ACTG175 survival-benefit search, the analytic goal is to
+recover the **largest subgroup in which ddI monotherapy is superior to
+the ZDV+ddI combination on the original scale** -- equivalently, the
+largest subgroup for which the SWITCHED treatment (combination = 1) is
+harmful.  This is the population we would, in a real trial, most want
+to describe and quantify.  Once the screening-plus-consistency filter
+has passed, there is no further reason to pick a smaller, tighter
+subgroup; the largest qualifying candidate is the most policy-relevant
+one.
+
+We therefore use `fs_sg_focus <- "maxSG"` throughout this document
+(set in the Quarto setup chunk).  The concrete effect is:
+
+- **Sort is by candidate N (descending)**, with Pcons as tiebreaker.
+  Among candidates that pass screening and consistency, FS keeps the
+  one with the largest $|H|$.
+- **Single sort criterion**, so early stopping remains valid;
+  `stop_threshold` can still be set if desired.  (In this document
+  we leave `stop_threshold` at the package default since `"maxSG"`
+  is compatible with early stopping.)
+
+This choice has two practical consequences that we track throughout
+the operating-characteristics analysis:
+
+1. $\widehat{|H|}$ will typically be closer to $|Q|$ than under the
+   default `sg_focus = "hr"`, which trades size for consistency and
+   tends to return strict subsets of $Q$.
+2. The distribution of identified subgroups across simulations
+   (reported in @sec-results) should concentrate on a small number of
+   definitions close to the true $Q$ anchor, rather than fragmenting
+   into many small tight splits.
+
+The choice is enforced by passing `sg_focus = fs_sg_focus` in the
+unified `fs_params` list, so all three call sites
+(`@sec-single-data`, `@sec-single-fs`, and `@sec-sims`) use the same
+selection criterion.
+
+
 ## Steps for Swapping GBSG with ACTG175 {#sec-swap-steps}
 
 Replacing the GBSG template with ACTG175 requires changes at every
@@ -475,6 +765,19 @@ actg_df$z9  <- as.factor(actg_df$drugs)
 actg_df$z10 <- as.factor(actg_df$race)
 actg_df$z11 <- as.factor(actg_df$gender)
 actg_df$z12 <- as.factor(actg_df$symptom)
+
+# ── Realistic analyst-facing candidate set ──────────────────────
+# The truly-binary indicators are coerced to factors so forestsearch's
+# is.continuous() detection treats them as categorical (no median /
+# GRF cut attempted).  The continuous columns (age, preanti, wtkg,
+# karnof, cd40, cd80) are left in their RAW numeric form -- the
+# search methods discover cuts.  The z1-z12 factors built above
+# remain on the data frame only for the DGM (factor_vars argument)
+# and the truth flag.
+for (v in analysis_binary_vars) {
+  actg_df[[v]] <- as.factor(actg_df[[v]])
+}
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
 
 # ── Factor coding summary ──────────────────────────────────────
 # z1  = 1 => age > 34          (older — benefit subgroup factor)
@@ -748,6 +1051,184 @@ fit_actg_hc <- coxph(
 )
 cat("  Observed HR(Qc), original scale:",
     round(exp(coef(fit_actg_hc)), 3), "\n")
+```
+
+
+# Single-Data Analysis on Observed ACTG175 {#sec-single-data}
+
+:::{.callout-important title="Real-data setting: no ground-truth classification"}
+This section analyses the **actual ACTG175 data** -- not a simulated
+trial.  The true benefit subgroup in a real trial is **unknown**; it
+is the object the analysis is trying to estimate.  We therefore
+report the subgroup ForestSearch identifies and the resulting
+arm-specific HRs, but we **do not** compute classification metrics
+(sens / spec / PPV) against any reference subgroup -- there is no
+clinical truth to classify against.  Classification is only
+meaningful in the simulation setting of @sec-sims, where the DGM
+fixes a known $Q$.
+:::
+
+Before any simulation, run ForestSearch on the **actual ACTG175
+data** with `details = TRUE` to examine every step of the procedure:
+LASSO screening, GRF variable importance, candidate enumeration, and
+bootstrap consistency.
+
+::: {.callout-note title="What the analysis methods see"}
+The analysis candidate set (passed to `forestsearch()` /
+`grf.subg.harm.survival()` as `confounders.name`) is:
+
+- **Continuous** (`r length(analysis_continuous_vars)`):
+  `r paste(analysis_continuous_vars, collapse = ", ")`
+- **Binary** (`r length(analysis_binary_vars)`):
+  `r paste(analysis_binary_vars, collapse = ", ")`
+
+The methods discover cuts on the continuous covariates themselves;
+the TRUE cuts (age $>$ `r actg_age_cut`, preanti $\le$
+`r actg_preanti_cut`) are **not** provided.
+:::
+
+```{r single-data-fs}
+#| code-fold: true
+#| code-summary: "ForestSearch on observed ACTG175 (click to expand)"
+t0 <- proc.time()[3]
+
+fs_actg <- tryCatch(
+  suppressWarnings(
+    fs_run(
+      data    = actg_df,
+      outcome = "time_months",
+      event   = "cens",
+      treat   = "treat",          # SWITCHED: ddI = 1
+      # Per-call override: disable LASSO screening on the observed data
+      # (retained from the original vignette).  Any forestsearch() arg can
+      # be overridden here; fs_run() passes `...` straight through.
+      use_lasso = FALSE
+    )
+  ),
+  error = function(e) {
+    warning("ForestSearch on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+timings$single_data_fs <- proc.time()[3] - t0
+cat(sprintf("\nForestSearch (real data) completed in %.1f sec\n",
+            timings$single_data_fs))
+```
+
+## Examine Result
+
+```{r examine-single-data-fs}
+#| code-fold: true
+#| code-summary: "Examine FS result on observed ACTG175 (click to expand)"
+
+cat("\n=== ForestSearch Result (Observed ACTG175) ===\n")
+
+if (!is.null(fs_actg) && !is.null(fs_actg$grp.consistency)) {
+  sg <- fs_actg$grp.consistency$sg.harm
+  if (!is.null(sg) && length(sg) > 0 && !all(is.na(sg))) {
+    cat("Subgroup identified:", paste(sg, collapse = " & "), "\n")
+
+    df_est <- fs_actg$df.est
+    in_H  <- df_est$treat.recommend == 0
+    in_Hc <- df_est$treat.recommend == 1
+    cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+        sum(in_H), sum(in_Hc)))
+
+    if (sum(in_H) >= 10) {
+      fit_H <- coxph(Surv(time_months, cens) ~ treat,
+                     data = df_est[in_H, ])
+      hr_H <- exp(coef(fit_H))
+      cat(sprintf("  HR(H, switched):  %.3f  (inverted: %.3f)\n",
+          hr_H, 1 / hr_H))
+    }
+    if (sum(in_Hc) >= 10) {
+      fit_Hc <- coxph(Surv(time_months, cens) ~ treat,
+                      data = df_est[in_Hc, ])
+      hr_Hc <- exp(coef(fit_Hc))
+      cat(sprintf("  HR(Hc, switched): %.3f  (inverted: %.3f)\n",
+          hr_Hc, 1 / hr_Hc))
+    }
+
+    fit_itt <- coxph(Surv(time_months, cens) ~ treat, data = df_est)
+    hr_itt <- exp(coef(fit_itt))
+    cat(sprintf("  HR(ITT, switched): %.3f  (inverted: %.3f)\n",
+        hr_itt, 1 / hr_itt))
+  } else {
+    cat("No subgroup identified by ForestSearch.\n")
+  }
+} else {
+  cat("ForestSearch did not return grp.consistency.\n")
+}
+```
+
+
+## GRF Standalone on Observed Data
+
+```{r single-data-grf}
+#| code-fold: true
+#| code-summary: "GRF standalone on observed ACTG175 (click to expand)"
+
+grf_actg <- tryCatch(
+  grf.subg.harm.survival(
+    data             = actg_df,
+    confounders.name = confounders_analysis,
+    outcome.name     = "time_months",
+    event.name       = "cens",
+    treat.name       = "treat",
+    id.name          = "id",
+    dmin.grf         = grf_dmin,
+    frac.tau         = grf_frac_tau,
+    maxdepth         = grf_maxdepth,
+    RCT              = TRUE,
+    sg.criterion     = grf_sg_criterion,
+    seedit           = sim_seed,
+    details          = TRUE
+  ),
+  error = function(e) {
+    warning("GRF on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+if (!is.null(grf_actg) &&
+    !is.null(grf_actg$sg.harm.id) &&
+    length(grf_actg$sg.harm.id) > 0L) {
+  cat("GRF subgroup:",
+      paste(grf_actg$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_actg$data$treat.recommend == 0
+  cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+      sum(grf_H), sum(!grf_H)))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+
+## FS vs GRF Concordance on Observed Data
+
+When a method does not detect a subgroup, its classification is "all
+subjects to $Q^c$" (`treat.recommend = 1` for everyone).
+`compare_fs_subgroups()` handles this automatically -- no manual
+fallback is needed.
+
+```{r single-data-concordance}
+#| code-fold: true
+
+if (!is.null(fs_actg) && !is.null(grf_actg)) {
+  sg_compare <- compare_fs_subgroups(
+    fs1                = fs_actg,
+    fs2                = grf_actg,
+    label1             = "ForestSearch",
+    label2             = "GRF Standalone",
+    id.name            = "id",
+    subgroup_notation  = "benefit",
+    title              = "FS vs GRF: Subgroup Membership Concordance",
+    subtitle           = "ACTG175 observed data (survival benefit search, raw continuous)",
+    font_size          = 13
+  )
+  sg_compare$table
+}
 ```
 
 
@@ -1189,37 +1670,36 @@ cat(sprintf("  Adjusted HR:   %.3f (z1 + z2 + z3)\n",
 
 ## ForestSearch on Simulated Trial {#sec-single-fs}
 
+::: {.callout-warning title="Single-replicate caveat: realistic-analysis variance"}
+Because the analysis methods see covariates in their RAW form (not
+the discretised z-factors), variable-screening steps such as LASSO
+and GRF must rediscover the truth-defining variables from scratch in
+each replicate.  Under modest sample sizes (n = `r sim_n_sample` per
+trial here), it is **expected** that any single replicate may fail
+to retain the true subgroup-defining variables -- this is the price
+of the realistic-analysis pattern, not a bug.
+
+Reliable inference about the method's behaviour comes from the
+**full simulation loop** in @sec-results, where the operating
+characteristics aggregate across `r nsims_alt` simulations.  The H1
+detection rate, classification metrics, and bias diagnostics in
+@sec-oc-alt are the appropriate basis for evaluating the method;
+the single-replicate output below is a pipeline-sanity check, not a
+performance claim.
+:::
+
 ```{r single-fs}
 t0 <- proc.time()[3]
 
 fs_single <- tryCatch(
-  suppressWarnings(forestsearch(
-    df.analysis            = sim_data,
-    confounders.name       = dgm_calibrated$factor_vars,
-    outcome.name           = "y_sim",
-    event.name             = "event_sim",
-    treat.name             = "treat_sim",
-    id.name                = "id",
-    hr.threshold           = fs_hr_threshold,
-    hr.consistency         = fs_hr_consistency,
-    pconsistency.threshold = fs_pconsistency_thresh,
-    fs.splits              = fs_splits,
-    n.min                  = fs_n_min,
-    d0.min                 = fs_d0_min,
-    d1.min                 = fs_d1_min,
-    maxk                   = fs_maxk,
-    by.risk                = fs_by_risk,
-    vi.grf.min             = fs_vi_grf_min,
-    use_lasso              = TRUE,
-    use_grf                = TRUE,
-    is.RCT                 = TRUE,
-    details                = TRUE,
-    quiet                  = FALSE,
-    seedit                 = sim_seed,
-    parallel_args          = list(
-      plan = "sequential", workers = 1, show_message = FALSE
+  suppressWarnings(
+    fs_run(
+      data    = sim_data,
+      outcome = "y_sim",
+      event   = "event_sim",
+      treat   = "treat_sim"
     )
-  )),
+  ),
   error = function(e) {
     warning("ForestSearch failed: ", e$message)
     NULL
@@ -1306,67 +1786,23 @@ cat("Using", n_workers, "parallel workers\n")
 # ── Candidate variable set ────────────────────────────────────
 # confounders_base tells run_simulation_analysis() which columns in
 # the simulated data to pass to ForestSearch and GRF as candidate
-# subgroup-defining variables.  These must:
-#   1. Be present in the super-population (dgm$df_super)
-#   2. Be binary factors (0/1) for ForestSearch
-#   3. Match the names used in factor_vars when building the DGM
-#
-# If your dataset uses different variable names (e.g. "age_bin",
-# "cd4_low"), update BOTH factor_vars (in the DGM call) and
-# confounders_base (here) to match.
-confounders_actg <- dgm_factor_vars
+# subgroup-defining variables.  Mirrors the binary vignette: a real
+# analyst would NOT know which variables define Q nor where to cut
+# them, so the candidate set is the RAW continuous columns
+# (age, preanti, wtkg, karnof, cd40, cd80) plus the truly-binary
+# factor columns (hemo, homo, drugs, race, gender, symptom).  The
+# discretised z1-z12 columns remain on the simulated data frame
+# only for the DGM (via factor_vars) and the truth flag --- they
+# are NOT candidates for the analysis search.
+confounders_actg <- confounders_analysis
 
 # ── ForestSearch parameters ───────────────────────────────────
-# These are passed to run_simulation_analysis() and forwarded to
-# forestsearch().  The annotations below explain each parameter
-# and when you might change it for your own study.
-fs_params <- list(
-  # Column name mappings — must match simulate_from_dgm() output
-  outcome.name           = "y_sim",
-  event.name             = "event_sim",
-  treat.name             = "treat_sim",
-  id.name                = "id",
-
-  # Variable screening flags
-  use_lasso              = TRUE,    # LASSO pre-screening (recommended)
-  use_grf                = TRUE,    # GRF pre-screening (recommended)
-
-  # Subgroup detection thresholds (see Leon et al. 2024, Section 3)
-  # c1: a candidate subgroup must have HR > hr.threshold to be flagged.
-  # Increase for more conservative detection; decrease for more power.
-  hr.threshold           = fs_hr_threshold,
-  # c2: in each bootstrap replicate, the subgroup HR must exceed this
-  # value.  Typically set to 1.0 (any harm signal).
-  hr.consistency         = fs_hr_consistency,
-  # The proportion of bootstrap replicates in which the subgroup HR
-  # exceeds c2.  The paper default is 0.90.
-  pconsistency.threshold = fs_pconsistency_thresh,
-
-  # Computational and sample-size constraints
-  fs.splits              = fs_splits,    # Bootstrap replicates (400 is default)
-  n.min                  = fs_n_min,     # Minimum subgroup size (both arms)
-  d0.min                 = fs_d0_min,    # Minimum events, control arm
-  d1.min                 = fs_d1_min,    # Minimum events, treatment arm
-  maxk                   = fs_maxk,      # Max subgroup-defining variables
-  by.risk                = fs_by_risk,   # Risk-table granularity (time units)
-  vi.grf.min             = fs_vi_grf_min, # GRF variable importance threshold
-  seedit                 = sim_seed,      # Reproducible split-half consistency
-
-  # Two-stage estimation: after identifying a subgroup, re-estimates
-  # the treatment effect using an independent hold-out sample.
-  # Recommended for bias correction.
-  use_twostage           = TRUE,
-  twostage_args          = list(),
-
-  # GRF tuning (applies to ForestSearch's internal GRF pre-screening)
-  tune_grf               = grf_tune,
-
-  # Inner parallelism: ForestSearch runs sequentially within each
-  # worker.  The outer loop (foreach) parallelises across replicates.
-  parallel_args          = list(
-    plan = "sequential", workers = 1, show_message = FALSE
-  )
-)
+# fs_params is defined ONCE in the setup chunk (see top of file,
+# section "Unified ForestSearch parameters").  All three FS call
+# sites in this document -- single-data analysis, single-trial
+# verification, and the simulation loop -- consume that same list
+# to guarantee identical knob settings.  Do NOT redefine fs_params
+# here; edit the setup chunk if you need to change it.
 
 # -- GRF standalone parameter overrides ----------------------------------------
 grf_params <- list(
@@ -1595,7 +2031,7 @@ metrics:
   (see León et al. 2024, Section 2.2).
 
 
-## Operating Characteristics Under H1
+## Operating Characteristics Under H1 {#sec-oc-alt}
 
 The simulation engine runs on the **switched** treatment scale.
 When `subgroup_notation = "benefit"` is passed to the table

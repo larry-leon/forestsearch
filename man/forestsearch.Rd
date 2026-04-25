@@ -25,8 +25,8 @@ forestsearch(
   grf_cuts = NULL,
   max_n_confounders = 1000,
   grf_depth = 2,
-  dmin.grf = 12,
-  frac.tau = 0.6,
+  dmin.grf = 4,
+  frac.tau = 0.8,
   return_selected_cuts_only = TRUE,
   conf_force = NULL,
   defaultcut_names = NULL,
@@ -47,8 +47,8 @@ forestsearch(
   pconsistency.threshold = 0.9,
   stop_threshold = 0.95,
   showten_subgroups = FALSE,
-  d0.min = 12,
-  d1.min = 12,
+  d0.min = 10,
+  d1.min = 10,
   max.minutes = 3,
   minp = 0.025,
   details = FALSE,
@@ -119,9 +119,9 @@ forestsearch(
 
 \item{grf_depth}{Integer. GRF tree depth. Default 2.}
 
-\item{dmin.grf}{Integer. Minimum events for GRF. Default 12.}
+\item{dmin.grf}{Integer. Minimum events for GRF. Default 4.}
 
-\item{frac.tau}{Numeric. Fraction of tau for RMST. Default 0.6.}
+\item{frac.tau}{Numeric. Fraction of tau for RMST. Default 0.8.}
 
 \item{return_selected_cuts_only}{Logical. If TRUE (default), GRF returns only cuts from the
 tree depth that identified the selected subgroup meeting \code{dmin.grf}. If FALSE
@@ -196,12 +196,19 @@ candidates.}
 For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
 number of events in the control arm (for binary, events are Y = 1).
 Ignored for \code{"continuous"} outcomes (only \code{n.min} applies).
-Default 12.}
+Default 10.}
 
 \item{d1.min}{Integer. Same as \code{d0.min} for the treatment arm.
-Default 12.}
+Default 10.}
 
-\item{max.minutes}{Numeric. Maximum search time in minutes. Default 3.}
+\item{max.minutes}{Numeric. \strong{Currently inert; scheduled for
+deprecation in v0.3.0.} Previously intended as a wall-clock time
+budget for the combination search, this argument is no longer
+enforced in the parallelized search path and has no effect on
+behavior. Search scope is governed by \code{maxk}, candidate-factor
+screening (\code{use_grf}, \code{use_lasso}, \code{conf_force}),
+and the number of parallel workers. The default of 3 is retained
+only for signature compatibility.}
 
 \item{minp}{Numeric. Minimum prevalence threshold. Default 0.025.}
 

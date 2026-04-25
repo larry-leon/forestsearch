@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ─── Simulation control ─────────────────────────────────────────────────
-nsims_alt   <- 25L
-nsims_null  <- 50L
+nsims_alt   <- 2500L
+nsims_null  <- 5000L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 
@@ -53,10 +53,43 @@ actg_preanti_cut <- 744.5
 #   c2 = 10   (consistency: each split MD >= 10)
 
 # ─── Subgroup definition ────────────────────────────────────────────────
+# The DGM uses the discretised z1-z12 factor formulation because
+# generate_glm_dgm() requires factor covariates.  The TRUE benefit
+# subgroup is defined by {z1 = 1 AND z2 = 1}, i.e. age > 34 AND
+# preanti <= 744.5.  This provides the ground truth for the
+# sensitivity / PPV computations in run_simulation_analysis() but
+# is NOT exposed to the analysis methods (see below).
 dgm_factor_vars   <- paste0("z", 1:12)
 dgm_subgroup_vars <- c("z1", "z2")
 dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
 dgm_n_super       <- 5000L
+
+# ─── Realistic analysis candidate set ───────────────────────────────────
+# Mirrors the binary vignette: a real analyst would NOT know which
+# variables define Q nor where to cut them.  Continuous covariates are
+# therefore supplied to forestsearch() and grf.subg.harm.glm() in their
+# RAW form; the search methods discover cuts themselves (forestsearch:
+# median / GRF-derived / forced cuts; grf.subg.harm.glm: policy-tree
+# splits).  The discretised z1-z12 variables are kept on the data frame
+# only so generate_glm_dgm() can build the super-population from them
+# and so the truth column flag_harm can be checked --- they are NOT
+# part of the analysis candidate set.
+analysis_continuous_vars <- c(
+  "age",      # continuous; TRUE cut (34) unknown to analyst
+  "preanti",  # continuous; TRUE cut (744.5) unknown to analyst
+  "wtkg",     # continuous
+  "karnof",   # Karnofsky score (integer 70-100, treated as continuous)
+  "cd40",     # baseline CD4 (continuous)
+  "cd80"      # baseline CD8 (continuous)
+)
+analysis_binary_vars <- c(
+  "hemo",     # hemophilia (0/1)
+  "homo",     # homosexual activity (0/1)
+  "drugs",    # IV drug use history (0/1)
+  "race",     # race (0/1, white vs non-white as coded)
+  "gender",   # gender (0/1)
+  "symptom"   # symptomatic (0/1)
+)
 
 # ─── Calibration ────────────────────────────────────────────────────────
 # Target: MD(Q) = +40 on the switched scale.
@@ -99,15 +132,39 @@ fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
 
 # ─── GRF parameters (standalone grf.subg.harm.glm, GLM-path) ──────────
-# Mirror the binary/survival setup.  For the GLM path, outcome_type
-# and effect_measure are injected automatically by
-# run_simulation_analysis(); adverse_outcome is FALSE for continuous
-# (not in c("binary", "count")), matching the benefit-search DGM where
-# the subgroup shows a LARGE POSITIVE MD under switched roles.
-grf_dmin               <- 10     # minimum MD on the mDiff criterion
+# Mirror the binary/survival setup.  For the GLM path, run_simulation_analysis()
+# automatically injects outcome_type and effect_measure.  adverse_outcome
+# MUST be set explicitly for continuous + benefit search (see below).
+#
+# Why adverse_outcome = TRUE for this vignette:
+#   This is a BENEFIT search under switched treatment roles (ddI = 1,
+#   combo = 0).  The DGM constructs a subgroup Q where ddI DECREASES
+#   CD4 change on the ORIGINAL scale, i.e. high POSITIVE MD on the
+#   SWITCHED scale (ddI increases Y = cd4_change in Q).
+#
+#   grf.subg.harm.glm() finds subgroups by maximising score = -CATE
+#   (score > 0 = "treatment hurts").  Under switched roles, "treatment
+#   hurts" means ddI reduces cd4_change — the OPPOSITE of our Q.
+#
+#   Setting adverse_outcome = TRUE negates Y internally
+#   (Y_grf = -cd4_change), so "positive CATE" now corresponds to
+#   "ddI increases -Y = ddI reduces cd4_change" on the switched scale.
+#   This is precisely the direction ForestSearch's internal consistency
+#   search is already looking for under benefit search, so FS and GRF
+#   identify the SAME Q — and their estimated MD(Q) on the switched
+#   scale agree in sign (both positive, ~+40).  After subgroup_notation
+#   = "benefit" inverts to the original scale, both land on MD(Q) ~ -40
+#   as expected.
+#
+# Default of adverse_outcome = FALSE (set by run_simulation_analysis()
+# for continuous outcomes) is correct for HARM searches on continuous
+# outcomes where higher Y is already worse (e.g. lab-value toxicity).
+# It is WRONG for benefit searches via treatment switching.
+grf_dmin               <- 30     # minimum MD on the mDiff criterion
 grf_maxdepth           <- 2L     # max policy tree depth
 grf_sg_criterion       <- "mDiff"
 grf_tune               <- FALSE  # cross-validated GRF hyperparameter tuning
+grf_adverse_outcome    <- TRUE   # see comment above
 
 # ─── Reporting ─────────────────────────────────────────────────────────
 sg_notation            <- "benefit"
@@ -235,6 +292,18 @@ actg_df$z10 <- as.factor(actg_df$race)
 actg_df$z11 <- as.factor(actg_df$gender)
 actg_df$z12 <- as.factor(actg_df$symptom)
 
+# ── Realistic analyst-facing candidate set ──────────────────────────────
+# The truly-binary indicators are coerced to factors so forestsearch's
+# is.continuous() detection treats them as categorical (no median/GRF
+# cut attempted).  The continuous columns (age, preanti, wtkg, karnof,
+# cd40, cd80) are left in their RAW numeric form -- the search methods
+# discover cuts.  The z1-z12 factors built above remain on the data
+# frame only for the DGM (factor_vars argument) and the truth flag.
+for (v in analysis_binary_vars) {
+  actg_df[[v]] <- as.factor(actg_df[[v]])
+}
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
 # Reference subgroup Q
 actg_df$flag_Q_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
 cat(sprintf("\nSubgroup Q: age > %d AND preanti <= %.0f\n",
@@ -254,6 +323,201 @@ for (grp in c("Q", "Qc")) {
 }
 
 timings$data_prep <- proc.time()[3] - t0
+```
+
+
+# Single-Data Analysis on Observed ACTG175 {#sec-single-data}
+
+:::{.callout-important title="Real-data setting: no ground-truth classification"}
+This section analyses the **actual ACTG175 data** -- not a simulated
+trial.  The true benefit subgroup in a real trial is **unknown**; it
+is the object the analysis is trying to estimate.  We therefore
+report the subgroup ForestSearch identifies and the resulting
+arm-specific MDs, but we **do not** compute classification metrics
+(sens / spec / PPV) against any reference subgroup -- there is no
+clinical truth to classify against.  Classification is only
+meaningful in the simulation setting of @sec-sims, where the DGM
+fixes a known $Q$.
+:::
+
+Before any simulation, run ForestSearch on the **actual ACTG175
+data** with `details = TRUE` to examine every step of the procedure:
+LASSO screening, GRF variable importance, candidate enumeration, and
+bootstrap consistency.
+
+::: {.callout-note title="What the analysis methods see"}
+The analysis candidate set (passed to `forestsearch()` /
+`grf.subg.harm.glm()` as `confounders.name`) is:
+
+- **Continuous** (`r length(analysis_continuous_vars)`):
+  `r paste(analysis_continuous_vars, collapse = ", ")`
+- **Binary** (`r length(analysis_binary_vars)`):
+  `r paste(analysis_binary_vars, collapse = ", ")`
+
+The methods discover cuts on the continuous covariates themselves;
+the TRUE cuts (age $>$ `r actg_age_cut`, preanti $\le$
+`r actg_preanti_cut`) are **not** provided.
+:::
+
+```{r single-data-fs}
+#| code-fold: true
+#| code-summary: "ForestSearch on observed ACTG175 (click to expand)"
+t0 <- proc.time()[3]
+
+fs_actg <- tryCatch(
+  suppressWarnings(forestsearch(
+    df.analysis            = actg_df,
+    confounders.name       = confounders_analysis,
+    outcome.name           = "cd4_change",
+    treat.name             = "treat",          # SWITCHED: ddI = 1
+    id.name                = "id",
+    outcome_type           = "continuous",
+    effect_measure         = "MD",
+    effect.threshold       = fs_md_threshold,
+    consistency.threshold  = fs_md_consistency,
+    pconsistency.threshold = fs_pconsistency,
+    fs.splits              = fs_splits,
+    n.min                  = fs_n_min,
+    d0.min                 = fs_d0_min,
+    d1.min                 = fs_d1_min,
+    maxk                   = fs_maxk,
+    vi.grf.min             = fs_vi_grf_min,
+    use_lasso              = fs_use_lasso,
+    use_grf                = fs_use_grf,
+    use_twostage           = TRUE,
+    is.RCT                 = fs_is_rct,
+    details                = TRUE,
+    quiet                  = FALSE,
+    seedit                 = fs_seedit,
+    parallel_args          = list(
+      plan = "sequential", workers = 1, show_message = FALSE
+    )
+  )),
+  error = function(e) {
+    warning("ForestSearch on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+timings$single_data_fs <- proc.time()[3] - t0
+cat(sprintf("\nForestSearch (real data) completed in %.1f sec\n",
+            timings$single_data_fs))
+```
+
+## Examine Result
+
+```{r examine-single-data-fs}
+#| code-fold: true
+#| code-summary: "Examine FS result on observed ACTG175 (click to expand)"
+
+cat("\n=== ForestSearch Result (Observed ACTG175) ===\n")
+
+if (!is.null(fs_actg) && !is.null(fs_actg$grp.consistency)) {
+  sg <- fs_actg$grp.consistency$sg.harm
+  if (!is.null(sg) && length(sg) > 0 && !all(is.na(sg))) {
+    cat("Subgroup identified:", paste(sg, collapse = " & "), "\n")
+
+    df_est <- fs_actg$df.est
+    in_H  <- df_est$treat.recommend == 0
+    in_Hc <- df_est$treat.recommend == 1
+    cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+        sum(in_H), sum(in_Hc)))
+
+    if (sum(in_H) >= 10) {
+      fit_H <- glm(cd4_change ~ treat, data = df_est[in_H, ],
+                   family = gaussian)
+      md_H <- coef(fit_H)["treat"]
+      cat(sprintf("  MD(H, switched):  %.2f  (inverted: %.2f)\n",
+          md_H, -md_H))
+    }
+    if (sum(in_Hc) >= 10) {
+      fit_Hc <- glm(cd4_change ~ treat, data = df_est[in_Hc, ],
+                    family = gaussian)
+      md_Hc <- coef(fit_Hc)["treat"]
+      cat(sprintf("  MD(Hc, switched): %.2f  (inverted: %.2f)\n",
+          md_Hc, -md_Hc))
+    }
+
+    fit_itt <- glm(cd4_change ~ treat, data = df_est, family = gaussian)
+    md_itt  <- coef(fit_itt)["treat"]
+    cat(sprintf("  MD(ITT, switched): %.2f  (inverted: %.2f)\n",
+        md_itt, -md_itt))
+  } else {
+    cat("No subgroup identified by ForestSearch.\n")
+  }
+} else {
+  cat("ForestSearch did not return grp.consistency.\n")
+}
+```
+
+
+## GRF Standalone on Observed Data
+
+```{r single-data-grf}
+#| code-fold: true
+#| code-summary: "GRF standalone on observed ACTG175 (click to expand)"
+
+grf_actg <- tryCatch(
+  grf.subg.harm.glm(
+    data             = actg_df,
+    confounders.name = confounders_analysis,
+    outcome.name     = "cd4_change",
+    treat.name       = "treat",
+    id.name          = "id",
+    outcome_type     = "continuous",
+    effect_measure   = "MD",
+    dmin.grf         = grf_dmin,
+    maxdepth         = grf_maxdepth,
+    RCT              = TRUE,
+    sg.criterion     = grf_sg_criterion,
+    seedit           = fs_seedit,
+    adverse_outcome  = grf_adverse_outcome,  # see setup chunk: TRUE for benefit search
+    details          = TRUE
+  ),
+  error = function(e) {
+    warning("GRF on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+if (!is.null(grf_actg) &&
+    !is.null(grf_actg$sg.harm.id) &&
+    length(grf_actg$sg.harm.id) > 0L) {
+  cat("GRF subgroup:",
+      paste(grf_actg$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_actg$data$treat.recommend == 0
+  cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+      sum(grf_H), sum(!grf_H)))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+
+## FS vs GRF Concordance on Observed Data
+
+When a method does not detect a subgroup, its classification is "all
+subjects to $Q^c$" (`treat.recommend = 1` for everyone).
+`compare_fs_subgroups()` handles this automatically -- no manual
+fallback is needed.
+
+```{r single-data-concordance}
+#| code-fold: true
+
+if (!is.null(fs_actg) && !is.null(grf_actg)) {
+  sg_compare <- compare_fs_subgroups(
+    fs1                = fs_actg,
+    fs2                = grf_actg,
+    label1             = "ForestSearch",
+    label2             = "GRF Standalone",
+    id.name            = "id",
+    subgroup_notation  = sg_notation,
+    title              = "FS vs GRF: Subgroup Membership Concordance",
+    subtitle           = "ACTG175 observed data (continuous benefit search, raw covariates)",
+    font_size          = 13
+  )
+  sg_compare$table
+}
 ```
 
 
@@ -403,6 +667,24 @@ timings$dgm_null <- proc.time()[3] - t0
 
 # Single Trial Verification {#sec-single-trial}
 
+::: {.callout-warning title="Single-replicate caveat: realistic-analysis variance"}
+This section verifies the simulator pipeline by drawing one trial
+from `dgm_calibrated`.  Because the analysis methods see covariates
+in their RAW form (not the discretised z-factors), variable-screening
+steps such as LASSO and GRF must rediscover the truth-defining
+variables from scratch in each replicate.  Under modest sample sizes
+(n = `r sim_n_sample` per trial here), it is **expected** that any
+single replicate may fail to retain the true subgroup-defining
+variables -- this is the price of the realistic-analysis pattern,
+not a bug.
+
+Reliable inference about method behaviour comes from the **full
+simulation loop** in @sec-results, where the operating
+characteristics aggregate across `r nsims_alt` simulations
+(@sec-oc-alt).  The single-replicate output below is a pipeline-
+sanity check, not a performance claim.
+:::
+
 ```{r single-trial}
 #| code-fold: false
 t0 <- proc.time()[3]
@@ -439,7 +721,10 @@ timings$single_trial <- proc.time()[3] - t0
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 
-confounders_actg <- dgm_calibrated$factor_vars
+# Analysis candidate set: raw continuous + factor binaries (NOT the
+# discretised z1-z12).  Defined in the setup + prepare-data chunks so
+# the variable is just referenced here.
+confounders_actg <- confounders_analysis
 
 fs_params <- list(
   outcome.name           = "y_sim",
@@ -478,14 +763,17 @@ fs_params <- list(
 
 # -- GRF standalone parameter overrides ----------------------------------------
 # Supplied to run_simulation_analysis(grf_params = ...); the GLM path
-# automatically injects outcome_type = "continuous", effect_measure = "MD",
-# and adverse_outcome = FALSE (continuous outcomes are not in
-# c("binary", "count")).  See R/run_simulation_analysis.R.
+# automatically injects outcome_type = "continuous" and effect_measure = "MD".
+# adverse_outcome is explicitly overridden to TRUE here (see the detailed
+# comment in the setup chunk) -- without the override, run_simulation_analysis()
+# defaults it to FALSE for continuous outcomes, which is correct for harm
+# searches but WRONG for benefit-search-via-switched-treatment as used here.
 grf_params <- list(
-  dmin.grf     = grf_dmin,
-  maxdepth     = grf_maxdepth,
-  sg.criterion = grf_sg_criterion,
-  tune_grf     = grf_tune
+  dmin.grf        = grf_dmin,
+  maxdepth        = grf_maxdepth,
+  sg.criterion    = grf_sg_criterion,
+  tune_grf        = grf_tune,
+  adverse_outcome = grf_adverse_outcome
 )
 ```
 
@@ -631,7 +919,7 @@ if (save_results) {
 
 # Results {#sec-results}
 
-## Operating Characteristics Under H1
+## Operating Characteristics Under H1 {#sec-oc-alt}
 
 ```{r oc-alt}
 t0 <- proc.time()[3]

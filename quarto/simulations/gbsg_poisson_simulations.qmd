@@ -35,13 +35,39 @@ n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 # survival, the Poisson IRR approximates the Cox HR.
 
 # ─── Subgroup definition ────────────────────────────────────────────────
-# ER-negative patients: consistent with the Cox analysis finding.
-# Dichotomised covariates follow the GBSG vignette conventions.
+# The DGM uses the discretised z_* factor formulation because
+# generate_glm_dgm() requires factor covariates.  The TRUE harm
+# subgroup is defined by {z_er = 1}, i.e. ER-negative patients
+# (er <= 0 in the GBSG dataset).  This provides the ground truth
+# for the sensitivity / PPV computations in run_simulation_analysis()
+# but is NOT exposed to the analysis methods (see analysis_*_vars
+# below).
 dgm_factor_vars   <- c("z_age", "z_meno", "z_size", "z_grade3",
                         "z_nodes", "z_pgr", "z_er")
 dgm_subgroup_vars <- c("z_er")
 dgm_subgroup_cuts <- list(z_er = 1L)
 dgm_n_super       <- 5000L
+
+# ─── Realistic analysis candidate set ───────────────────────────────────
+# Mirrors the binary vignette: a real analyst would NOT know which
+# variable defines H nor where to cut it.  Continuous covariates are
+# therefore supplied to forestsearch() and grf.subg.harm.glm() in their
+# RAW form; the search methods discover cuts themselves.  The
+# discretised z_* variables are kept on the data frame only so
+# generate_glm_dgm() can build the super-population from them and so
+# the truth column flag_harm can be checked --- they are NOT part of
+# the analysis candidate set.
+analysis_continuous_vars <- c(
+  "age",     # continuous; conventional cut at median (unknown to analyst)
+  "size",    # tumour size (mm); continuous
+  "nodes",   # number of positive lymph nodes; continuous
+  "pgr",     # progesterone receptor (fmol/L); continuous
+  "er"       # estrogen receptor (fmol/L); continuous; TRUE cut (er <= 0) unknown
+)
+analysis_binary_vars <- c(
+  "meno",    # menopausal status (0/1)
+  "grade3"   # high tumour grade indicator (0/1)
+)
 
 # ─── Calibration ────────────────────────────────────────────────────────
 # Target IRR(H) = 2.0 in the harm subgroup (treatment increases event rate)
@@ -146,6 +172,18 @@ df.analysis$z_nodes  <- as.factor(ifelse(df.analysis$nodes > median(df.analysis$
 df.analysis$z_pgr    <- as.factor(ifelse(df.analysis$pgr > median(df.analysis$pgr), 1L, 0L))
 df.analysis$z_er     <- as.factor(ifelse(df.analysis$er <= 0, 1L, 0L))
 
+# ── Realistic analyst-facing candidate set ──────────────────────────────
+# The truly-binary indicators are coerced to factors so forestsearch's
+# is.continuous() detection treats them as categorical (no median /
+# GRF cut attempted).  The continuous columns (age, size, nodes, pgr,
+# er) are left in their RAW numeric form -- the search methods discover
+# cuts.  The z_* factors built above remain on the data frame only for
+# the DGM (factor_vars argument) and the truth flag.
+for (v in analysis_binary_vars) {
+  df.analysis[[v]] <- as.factor(df.analysis[[v]])
+}
+confounders_analysis <- c(analysis_continuous_vars, analysis_binary_vars)
+
 cat(sprintf("GBSG: N = %d, events = %d (%.1f%%)\n",
     nrow(df.analysis), sum(df.analysis$status),
     100 * mean(df.analysis$status)))
@@ -168,6 +206,210 @@ cat(sprintf("\nER-negative (z_er == 1): %d / %d (%.1f%%)\n",
     100 * mean(df.analysis$z_er == 1)))
 
 timings$data_prep <- proc.time()[3] - t0
+```
+
+
+# Single-Data Analysis on Observed GBSG {#sec-single-data}
+
+:::{.callout-important title="Real-data setting: no ground-truth classification"}
+This section analyses the **actual GBSG data** -- not a simulated
+trial.  The true harm subgroup in a real trial is **unknown**; it is
+the object the analysis is trying to estimate.  We therefore report
+the subgroup ForestSearch identifies and the resulting arm-specific
+IRRs, but we **do not** compute classification metrics (sens / spec
+/ PPV) against any reference subgroup -- there is no clinical truth
+to classify against.  Classification is only meaningful in the
+simulation setting of @sec-sims, where the DGM fixes a known $H$.
+:::
+
+Before any simulation, run ForestSearch on the **actual GBSG data**
+with `details = TRUE` to examine every step of the procedure: LASSO
+screening, GRF variable importance, candidate enumeration, and
+bootstrap consistency.
+
+::: {.callout-note title="What the analysis methods see"}
+The analysis candidate set (passed to `forestsearch()` /
+`grf.subg.harm.glm()` as `confounders.name`) is:
+
+- **Continuous** (`r length(analysis_continuous_vars)`):
+  `r paste(analysis_continuous_vars, collapse = ", ")`
+- **Binary** (`r length(analysis_binary_vars)`):
+  `r paste(analysis_binary_vars, collapse = ", ")`
+
+The methods discover cuts on the continuous covariates themselves;
+the TRUE cut (er $\le$ 0, i.e. ER-negative) is **not** provided.
+:::
+
+```{r single-data-fs}
+#| code-fold: true
+#| code-summary: "ForestSearch on observed GBSG (click to expand)"
+t0 <- proc.time()[3]
+
+fs_gbsg <- tryCatch(
+  suppressWarnings(forestsearch(
+    df.analysis            = df.analysis,
+    confounders.name       = confounders_analysis,
+    outcome.name           = "status",
+    treat.name             = "hormon",
+    id.name                = "id",
+    outcome_type           = "count",
+    effect_measure         = "IRR",
+    offset.name            = "time_months",
+    effect.threshold       = fs_irr_threshold,
+    consistency.threshold  = fs_irr_consistency,
+    pconsistency.threshold = fs_pconsistency,
+    fs.splits              = fs_splits,
+    n.min                  = fs_n_min,
+    d0.min                 = fs_d0_min,
+    d1.min                 = fs_d1_min,
+    maxk                   = fs_maxk,
+    vi.grf.min             = fs_vi_grf_min,
+    use_lasso              = fs_use_lasso,
+    use_grf                = fs_use_grf,
+    use_twostage           = TRUE,
+    is.RCT                 = fs_is_rct,
+    details                = TRUE,
+    quiet                  = FALSE,
+    seedit                 = fs_seedit,
+    parallel_args          = list(
+      plan = "sequential", workers = 1, show_message = FALSE
+    )
+  )),
+  error = function(e) {
+    warning("ForestSearch on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+timings$single_data_fs <- proc.time()[3] - t0
+cat(sprintf("\nForestSearch (real data) completed in %.1f sec\n",
+            timings$single_data_fs))
+```
+
+## Examine Result
+
+```{r examine-single-data-fs}
+#| code-fold: true
+#| code-summary: "Examine FS result on observed GBSG (click to expand)"
+
+cat("\n=== ForestSearch Result (Observed GBSG) ===\n")
+
+if (!is.null(fs_gbsg) && !is.null(fs_gbsg$grp.consistency)) {
+  sg <- fs_gbsg$grp.consistency$sg.harm
+  if (!is.null(sg) && length(sg) > 0 && !all(is.na(sg))) {
+    cat("Subgroup identified:", paste(sg, collapse = " & "), "\n")
+
+    df_est <- fs_gbsg$df.est
+    in_H  <- df_est$treat.recommend == 0
+    in_Hc <- df_est$treat.recommend == 1
+    cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+        sum(in_H), sum(in_Hc)))
+
+    .pois_fit <- function(d) {
+      tryCatch(
+        glm(status ~ hormon, data = d, family = poisson(),
+            offset = log(pmax(d$time_months, 1e-6))),
+        error = function(e) NULL)
+    }
+
+    if (sum(in_H) >= 10) {
+      fit_H <- .pois_fit(df_est[in_H, ])
+      if (!is.null(fit_H)) {
+        cat(sprintf("  IRR(H):  %.3f\n",
+            exp(coef(fit_H)[["hormon"]])))
+      }
+    }
+    if (sum(in_Hc) >= 10) {
+      fit_Hc <- .pois_fit(df_est[in_Hc, ])
+      if (!is.null(fit_Hc)) {
+        cat(sprintf("  IRR(Hc): %.3f\n",
+            exp(coef(fit_Hc)[["hormon"]])))
+      }
+    }
+
+    fit_itt <- .pois_fit(df_est)
+    if (!is.null(fit_itt)) {
+      cat(sprintf("  IRR(ITT): %.3f\n",
+          exp(coef(fit_itt)[["hormon"]])))
+    }
+  } else {
+    cat("No subgroup identified by ForestSearch.\n")
+  }
+} else {
+  cat("ForestSearch did not return grp.consistency.\n")
+}
+```
+
+
+## GRF Standalone on Observed Data
+
+This vignette runs GRF on the observed data even though
+`run_grf = FALSE` for the simulation loop -- a one-time call on
+real data is cheap and provides a useful comparison point.
+
+```{r single-data-grf}
+#| code-fold: true
+#| code-summary: "GRF standalone on observed GBSG (click to expand)"
+
+grf_gbsg <- tryCatch(
+  grf.subg.harm.glm(
+    data             = df.analysis,
+    confounders.name = confounders_analysis,
+    outcome.name     = "status",
+    treat.name       = "hormon",
+    id.name          = "id",
+    outcome_type     = "count",
+    effect_measure   = "IRR",
+    offset.name      = "time_months",
+    RCT              = TRUE,
+    sg.criterion     = "mDiff",
+    seedit           = fs_seedit,
+    details          = TRUE
+  ),
+  error = function(e) {
+    warning("GRF on observed data failed: ", e$message)
+    NULL
+  }
+)
+
+if (!is.null(grf_gbsg) &&
+    !is.null(grf_gbsg$sg.harm.id) &&
+    length(grf_gbsg$sg.harm.id) > 0L) {
+  cat("GRF subgroup:",
+      paste(grf_gbsg$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_gbsg$data$treat.recommend == 0
+  cat(sprintf("  Size(H): %d,  Size(Hc): %d\n",
+      sum(grf_H), sum(!grf_H)))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+
+## FS vs GRF Concordance on Observed Data
+
+When a method does not detect a subgroup, its classification is "all
+subjects to $H^c$" (`treat.recommend = 1` for everyone).
+`compare_fs_subgroups()` handles this automatically -- no manual
+fallback is needed.
+
+```{r single-data-concordance}
+#| code-fold: true
+
+if (!is.null(fs_gbsg) && !is.null(grf_gbsg)) {
+  sg_compare <- compare_fs_subgroups(
+    fs1                = fs_gbsg,
+    fs2                = grf_gbsg,
+    label1             = "ForestSearch",
+    label2             = "GRF Standalone",
+    id.name            = "id",
+    subgroup_notation  = "harm",
+    title              = "FS vs GRF: Subgroup Membership Concordance",
+    subtitle           = "GBSG observed data (Poisson harm search, raw covariates)",
+    font_size          = 13
+  )
+  sg_compare$table
+}
 ```
 
 
@@ -326,6 +568,24 @@ timings$dgm_null <- proc.time()[3] - t0
 
 # Single Trial Verification {#sec-single-trial}
 
+::: {.callout-warning title="Single-replicate caveat: realistic-analysis variance"}
+This section verifies the simulator pipeline by drawing one trial
+from `dgm_calibrated`.  Because the analysis methods see covariates
+in their RAW form (not the discretised z-factors), variable-screening
+steps such as LASSO and GRF must rediscover the truth-defining
+variables from scratch in each replicate.  Under modest sample sizes
+(n = `r sim_n_sample` per trial here), it is **expected** that any
+single replicate may fail to retain the true subgroup-defining
+variables -- this is the price of the realistic-analysis pattern,
+not a bug.
+
+Reliable inference about method behaviour comes from the **full
+simulation loop** in @sec-results, where the operating
+characteristics aggregate across `r nsims_alt` simulations
+(@sec-oc-alt).  The single-replicate output below is a pipeline-
+sanity check, not a performance claim.
+:::
+
 Verify that `simulate_from_glm_dgm()` and `run_simulation_analysis()`
 work end-to-end on a single replicate before the full simulation.
 
@@ -365,7 +625,10 @@ timings$single_trial <- proc.time()[3] - t0
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
 
-confounders_gbsg <- dgm_calibrated$factor_vars
+# Analysis candidate set: raw continuous + factor binaries (NOT the
+# discretised z_* variables).  Defined in the setup + prepare-data
+# chunks so the variable is just referenced here.
+confounders_gbsg <- confounders_analysis
 
 fs_params <- list(
   outcome.name           = "y_sim",
@@ -542,7 +805,7 @@ if (save_results) {
 
 # Results {#sec-results}
 
-## Operating Characteristics Under H1
+## Operating Characteristics Under H1 {#sec-oc-alt}
 
 ```{r oc-alt}
 t0 <- proc.time()[3]
