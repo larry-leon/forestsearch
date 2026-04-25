@@ -506,12 +506,14 @@ build_classification_table <- function(
 #' @param trim_threshold Numeric or \code{NULL}. When the raw mean of
 #'   an estimator's values exceeds this absolute value, that row's
 #'   Avg / SD / Min / Max are recomputed on the central
-#'   \code{1 - 2 * trim_fraction} of estimates and the row's Estimator
-#'   label is suffixed with \code{"(trimmed)"}. A footnote is added to
-#'   the table when any row triggers trimming. Set \code{NULL} to
-#'   disable trimming entirely. Default: \code{1000} (a value typical
-#'   simulation results will never approach unless a small subgroup
-#'   produces a degenerate effect estimate).
+#'   \code{1 - 2 * trim_fraction} of estimates, and a small footnote
+#'   marker is placed on the row's Avg cell. The Estimator label is
+#'   left unchanged so the Unicode notation (e.g., \eqn{\hat\theta(\hat
+#'   Q)}) renders normally; only the Avg cell carries the trim
+#'   indicator. Set \code{NULL} to disable trimming entirely. Default:
+#'   \code{1000} (a value typical simulation results will never
+#'   approach unless a small subgroup produces a degenerate effect
+#'   estimate).
 #' @param trim_fraction Numeric in \code{(0, 0.5)}. Fraction of
 #'   estimates to trim from each tail (per row) when trimming
 #'   triggers. Default: \code{0.01} (lower and upper 1\%; central 98\%
@@ -735,9 +737,10 @@ build_estimation_table <- function(
   # ── Trimming infrastructure ──────────────────────────────────────────────
   # Mirrors summaryout_mrct() in mrct_simulation.R.  Trimming triggers ONLY
   # when abs(mean(est)) exceeds trim_threshold for a given row, so default
-  # behaviour on healthy data is unchanged.  An environment is used (not
-  # <<-) so make_est_row() can mutate the flag without tripping CRAN's
-  # global-assignment check.
+  # behaviour on healthy data is unchanged.  Trimmed rows are tracked via
+  # a hidden .trimmed column on the per-row data.frame returned by
+  # make_est_row(), then surfaced as a cell-level gt footnote on the Avg
+  # column after the gt table is built.
   if (!is.null(trim_threshold)) {
     if (!is.numeric(trim_threshold) || length(trim_threshold) != 1L ||
         trim_threshold <= 0) {
@@ -749,15 +752,16 @@ build_estimation_table <- function(
       stop("'trim_fraction' must be in (0, 0.5).", call. = FALSE)
     }
   }
-  trim_env <- new.env(parent = emptyenv())
-  trim_env$trimmed_any <- FALSE
 
   # ── Helper: compute one estimation row ────────────────────────────────────
   # When has_cde is TRUE, produces both b-dagger and b-ddagger bias columns.
   # Threshold-gated trimming: when abs(raw mean) exceeds trim_threshold the
   # central (1 - 2 * trim_fraction) of estimates is used for avg / sd / min /
-  # max, the row is flagged in trim_env, and the Estimator label gains a
-  # " (trimmed)" suffix.  When trim_threshold is NULL no trimming occurs.
+  # max, and the row is flagged via a hidden .trimmed column.  The Estimator
+  # label is left unchanged so the label_map Unicode substitution still
+  # matches; trimmed rows are surfaced to the reader via a cell-level gt
+  # footnote on the Avg column (added after the label substitution).  When
+  # trim_threshold is NULL no trimming occurs.
   make_est_row <- function(estimates, true_val, label, cde_val = NA_real_) {
     est <- estimates[!is.na(estimates)]
     if (length(est) == 0) return(NULL)
@@ -773,7 +777,6 @@ build_estimation_table <- function(
       if (length(est_trim) >= 3L) {
         est        <- est_trim
         is_trimmed <- TRUE
-        trim_env$trimmed_any <- TRUE
       }
     }
 
@@ -787,14 +790,13 @@ build_estimation_table <- function(
     # internally consistent.
     b_dagger <- 100 * (avg_est - true_val) / true_val
 
-    row_label <- if (is_trimmed) paste0(label, " (trimmed)") else label
-
     row <- data.frame(
-      Estimator          = row_label,
+      Estimator          = label,
       Avg                = round(avg_est, digits),
       SD                 = round(sd_est, digits),
       Min                = round(min_est, digits),
       Max                = round(max_est, digits),
+      .trimmed           = is_trimmed,
       check.names        = FALSE,
       stringsAsFactors   = FALSE
     )
@@ -909,6 +911,17 @@ build_estimation_table <- function(
   }
 
   # ── gt table ──────────────────────────────────────────────────────────────
+  # Capture trimmed-row indices and drop the internal .trimmed flag column
+  # BEFORE the label_map substitution and gt construction.  Indices feed a
+  # cell-level footnote on the Avg column added below; dropping the column
+  # keeps it out of the rendered table.
+  trimmed_rows <- if (".trimmed" %in% names(table_df)) {
+    which(table_df$.trimmed)
+  } else integer(0)
+  if (".trimmed" %in% names(table_df)) {
+    table_df[, .trimmed := NULL]
+  }
+
   # Replace plain-text keys with Unicode labels before creating gt.
   # No fmt_markdown or text_transform — pure Unicode renders natively.
 
@@ -983,18 +996,25 @@ build_estimation_table <- function(
   }
   gt_tbl <- gt::tab_footnote(gt_tbl, footnote = footnote_parts)
 
-  # Trim footnote: shown only if any row triggered threshold-gated trimming.
-  if (trim_env$trimmed_any) {
+  # Cell-level trim footnote on the Avg column of affected rows.  Replaces
+  # the previous bottom-of-table source_note + "(trimmed)" label suffix
+  # combination — the suffix broke the Estimator label_map substitution and
+  # leaked raw keys (e.g., "theta-hat(sgc-hat)") into the rendered table.
+  # Cell-level footnotes preserve the Unicode label notation and place a
+  # small superscript marker only on the affected Avg cells.
+  if (length(trimmed_rows) > 0) {
     pct <- round(trim_fraction * 100)
     trim_note <- sprintf(
-      paste0("Rows marked '(trimmed)' had raw mean exceeding %s; the ",
-             "Avg / SD / Min / Max shown for those rows are computed on ",
-             "the central %d%% of estimates (lower and upper %d%% excluded ",
-             "per row)."),
-      format(trim_threshold, big.mark = ","),
-      100 - 2 * pct, pct
+      paste0("Avg / SD / Min / Max for marked rows are computed on the ",
+             "central %d%% of estimates (lower and upper %d%% excluded) ",
+             "because the row's raw mean exceeded %s."),
+      100 - 2 * pct, pct, format(trim_threshold, big.mark = ",")
     )
-    gt_tbl <- gt::tab_footnote(gt_tbl, footnote = trim_note)
+    gt_tbl <- gt::tab_footnote(
+      gt_tbl,
+      footnote  = trim_note,
+      locations = gt::cells_body(columns = "Avg", rows = trimmed_rows)
+    )
   }
 
   gt_tbl
@@ -1440,8 +1460,8 @@ interpret_estimation_table <- function(
       paste0("*Note*: One or more reported summaries above were computed ",
              "on the central %d%% of estimates because the raw mean ",
              "exceeded %s; this avoids unwieldy values driven by a small ",
-             "number of extreme replicates.  The companion table in ",
-             "Section 8.2.3 marks the affected rows with '(trimmed)'."),
+             "number of extreme replicates.  The companion estimation ",
+             "table marks the affected rows with '(trimmed)'."),
       pct_kept, format(trim_threshold, big.mark = ",")
     )
   }

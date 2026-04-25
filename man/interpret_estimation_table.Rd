@@ -13,7 +13,9 @@ interpret_estimation_table(
   digits = 2,
   scenario = NULL,
   cat = TRUE,
-  subgroup_notation = c("harm", "benefit")
+  subgroup_notation = c("harm", "benefit"),
+  trim_threshold = 1000,
+  trim_fraction = 0.01
 )
 }
 \arguments{
@@ -49,6 +51,18 @@ implies null).}
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
 subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
 benefit-search analyses (treatment switching).}
+
+\item{trim_threshold}{Numeric or \code{NULL}. When the raw mean of
+an estimate vector exceeds this absolute value, the narrative
+reports averages and SDs computed on the central
+\code{1 - 2 * trim_fraction} of estimates and adds a closing
+note disclosing the trimming. Set \code{NULL} to disable.
+Default: \code{1000} (matches \code{build_estimation_table}).}
+
+\item{trim_fraction}{Numeric in \code{(0, 0.5)}. Fraction of
+estimates to trim from each tail when trimming triggers.
+Default: \code{0.01}.  Has no effect when
+\code{trim_threshold = NULL}.}
 }
 \value{
 Invisibly returns the interpretation as a character string.

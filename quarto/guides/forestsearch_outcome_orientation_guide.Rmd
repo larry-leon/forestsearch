@@ -1,0 +1,1089 @@
+---
+title: "ForestSearch Outcome Orientation Reference"
+subtitle: "Setting Up Harm and Benefit Searches Across All Endpoint Types"
+author: "Larry F. León"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    number_sections: true
+    code_folding: show
+    theme: cosmo
+    highlight: tango
+    fig_width: 9
+    fig_height: 6
+vignette: >
+  %\VignetteIndexEntry{ForestSearch Outcome Orientation Reference}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = TRUE,
+  warning    = FALSE,
+  message    = FALSE,
+  fig.align  = "center",
+  fig.retina = 2,
+  comment    = "#>"
+)
+
+# Bootstrap 5 code-folding hook for pkgdown compatibility
+# Usage: add `echo=FALSE, code_fold=TRUE` to any chunk header
+knitr::knit_hooks$set(code_fold = function(before, options, envir) {
+  if (!before && isTRUE(options$code_fold)) {
+    id <- gsub("[^a-zA-Z0-9]", "", options$label)
+    code_lines <- knitr::knit_code$get(options$label)
+    code_text  <- htmltools::htmlEscape(paste(code_lines, collapse = "\n"))
+    sprintf(
+      '<p><a class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" href="#collapse-%s" role="button" aria-expanded="false" aria-controls="collapse-%s"><i class="bi bi-code-slash"></i> Code</a></p>\n<div class="collapse" id="collapse-%s"><div class="card card-body p-0"><pre class="r"><code class="hljs">%s</code></pre></div></div>',
+      id, id, id, code_text
+    )
+  }
+})
+
+library(forestsearch)
+library(ggplot2)
+library(gt)
+```
+
+
+# The Core Rule {#sec-rule}
+
+ForestSearch uses a single comparison direction throughout the
+entire search pipeline:
+
+$$
+\hat{\theta}(S) \;\geq\; c_1
+$$
+
+where $\hat{\theta}(S)$ is the estimated treatment effect in
+candidate subgroup $S$ and $c_1$ is the screening threshold
+(`effect.threshold`).  The consistency check uses the same
+direction: each bootstrap split must satisfy
+$\hat{\theta}(S_b) \geq c_2$.
+
+**This comparison never changes.**  There is no internal sign flip
+for the core search.  All scenario setup reduces to one question:
+
+> *How do I orient my data so that the subgroup I want to find
+> produces $\hat{\theta}(S) > 0$?*
+
+
+## What the Parameters Control
+
+| Parameter | Where it acts | What it does |
+|-----------|---------------|--------------|
+| `effect.threshold` | `subgroup_search()` | Screening: candidate must have $\hat{\theta} \geq c_1$ |
+| `consistency.threshold` | `sg_consistency_out()` | Bootstrap: each split must have $\hat{\theta} \geq c_2$ |
+| `adverse_outcome` | GRF variable importance only | Flips $Y$ for `causal_forest()` pre-screening |
+| `outcome_type` | Estimator selection | Selects GLM family (logistic, Gaussian, Poisson) |
+| `effect_measure` | Scale of $\hat{\theta}$ | OR/RR/RD for binary; MD for continuous; IRR/IRD for count |
+
+**Critical**: `adverse_outcome` does **not** affect the core search
+comparison.  It only controls whether GRF sees $Y$ or $1-Y$ when
+computing variable importance scores.
+
+
+# Effect Scale and Threshold Conventions {#sec-scales}
+
+## Ratio-Scale Measures (OR, RR, IRR, HR)
+
+ForestSearch works on the **log scale** internally.  When you set
+`effect.threshold = 1.25`, it is converted to $\log(1.25) = 0.223$
+before comparison.  The estimator returns $\log(\hat{\theta})$, so
+the comparison is:
+
+$$\log(\hat{\theta}) \geq \log(c_1)$$
+
+- $\hat{\theta} > 1$: treatment increases the outcome (events, odds, rate)
+- $\hat{\theta} < 1$: treatment decreases the outcome
+- $\hat{\theta} = 1$: no treatment effect
+
+## Identity-Scale Measures (MD, RD, IRD)
+
+No log transformation.  The comparison is directly:
+
+$$\hat{\theta} \geq c_1$$
+
+For **RD** and **IRD**: bounded in $[-1, 1]$.  ForestSearch warns if
+$c_1 > 1$ and remaps to a default.
+
+For **MD** (mean difference): **unbounded**.  Thresholds like 30
+cells/$\mu$L are legitimate.  ForestSearch does **not** warn or remap
+for MD.  (This was a bug fixed in the current version — MD was
+previously treated like RD.)
+
+
+# The Eight Scenarios {#sec-scenarios}
+
+Every subgroup search involves three binary choices:
+
+1. **Search type**: Harm (find $S$ where treatment hurts) vs Benefit
+   (find $S$ where treatment helps)
+2. **Outcome orientation**: Adverse (higher $Y$ = worse, e.g., death,
+   events) vs Positive (higher $Y$ = better, e.g., response, CD4)
+3. **Endpoint type**: Survival (HR), Binary (OR), Continuous (MD),
+   Count (IRR)
+
+For **survival endpoints**, the "outcome orientation" maps to the
+clinical meaning of the event:
+
+- **Adverse event** (death, recurrence): HR > 1 = treatment
+  increases hazard = harm.  This is the standard clinical trial
+  convention.
+- **Positive event** (recovery, remission): HR > 1 = treatment
+  accelerates the good event = benefit.  Less common but valid.
+
+This gives $2 \times 2 \times 4 = 16$ combinations, but the setup
+rules reduce to a simple decision tree.
+
+```{r decision-tree, fig.height=4, fig.cap="Decision tree for ForestSearch setup."}
+
+scenarios <- data.frame(
+  search      = rep(c("Harm", "Benefit"), each = 4),
+  outcome     = rep(c("Adverse\n(higher=worse)", "Positive\n(higher=better)"), 4),
+  action      = c(
+    "Direct: effect > 0 ✓",            # Harm + Adverse
+    "Negate Y or\nswitch treatment",    # Harm + Positive
+    "Switch treatment\n+ negate Y",     # Benefit + Adverse
+    "Direct: switch\ntreatment only"    # Benefit + Positive
+  ),
+  example     = c(
+    "GBSG: status (event)\nhormon (treat)\nHR > 1 = harm",
+    "Rare: negate Y so\nhigher = worse",
+    "Rare: switch treat\nand negate Y",
+    "ACTG: y_binary (improve)\nswitch treat\nOR > 1 on switched"
+  ),
+  color       = c("green3", "orange", "orange", "green3"),
+  stringsAsFactors = FALSE
+)
+
+cat("Decision tree displayed as table below.\n")
+```
+
+
+## The Decision Table
+
+```{r scenario-table1}
+
+tbl_data <- data.frame(
+  Search = c(
+    "Harm", "Harm", "Harm", "Harm",
+    "Harm", "Harm",
+    "Benefit", "Benefit", "Benefit", "Benefit",
+    "Benefit", "Benefit"
+  ),
+  Outcome = c(
+    "Adverse (↑Y = worse)", "Adverse (↑Y = worse)",
+    "Adverse (↑Y = worse)",
+    "Positive (↑Y = better)", "Positive (↑Y = better)",
+    "Positive (↑Y = better)",
+    "Adverse (↑Y = worse)", "Adverse (↑Y = worse)",
+    "Adverse (↑Y = worse)",
+    "Positive (↑Y = better)", "Positive (↑Y = better)",
+    "Positive (↑Y = better)"
+  ),
+  Endpoint = c(
+    "Survival (adverse event)", "Binary/Count", "Continuous",
+    "Survival (positive event)", "Binary/Count", "Continuous",
+    "Survival (adverse event)", "Binary/Count", "Continuous",
+    "Survival (positive event)", "Binary/Count", "Continuous"
+  ),
+  Setup = c(
+    "Direct: HR > 1 = harm",
+    "Direct: no changes needed",
+    "Direct: no changes needed",
+    "Switch treatment (HR > 1 = delays good event = harm)",
+    "Negate Y: use 1−Y (binary)",
+    "Negate Y: use −Y",
+    "Switch treatment (HR > 1 on switched = original helps)",
+    "Switch treatment labels",
+    "Switch treatment labels",
+    "Direct: HR > 1 = accelerates good event = benefit",
+    "Switch treatment labels",
+    "Switch treatment labels"
+  ),
+  Effect_Sign = c(
+    "HR(Q) > 1 naturally",
+    "θ(Q) > 0 naturally",
+    "θ(Q) > 0 naturally",
+    "HR(Q) > 1 after switch",
+    "θ(Q) > 0 after negation",
+    "θ(Q) > 0 after negation",
+    "HR(Q) > 1 after switch",
+    "θ(Q) > 0 after switch",
+    "θ(Q) > 0 after switch",
+    "HR(Q) > 1 naturally",
+    "θ(Q) > 0 after switch",
+    "θ(Q) > 0 after switch"
+  ),
+  Example = c(
+    "GBSG: status=recurrence, hormon=treat, HR>1=harm",
+    "Poisson events, IRR > 1 = more events",
+    "BP increase: MD > 0 = treatment raises BP",
+    "Time to recovery: switch treat, HR>1=delays recovery",
+    "Binary response: use 1−Y (failure)",
+    "CD4 improvement: use −Y (CD4 loss)",
+    "GBSG: switch treat, HR>1=no-hormone increases hazard",
+    "ACTG: switch treat, OR>1 on switched scale",
+    "ACTG: switch treat, MD>0 on switched scale",
+    "Time to recovery: HR>1=accelerates recovery (benefit)",
+    "Rare: switch treat for positive binary",
+    "Rare: switch treat for positive continuous"
+  ),
+  stringsAsFactors = FALSE
+)
+
+names(tbl_data) <- c("Search", "Outcome", "Endpoint", "Setup",
+                      "Effect Sign", "Example")
+
+tbl_data |>
+  gt() |>
+  tab_header(
+    title = "ForestSearch Setup Guide",
+    subtitle = "How to orient data for each search scenario"
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#e8f5e9"),
+    locations = cells_body(rows = c(1, 2, 7, 8))
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#fff3e0"),
+    locations = cells_body(rows = c(3, 4, 5, 6))
+  ) |>
+  tab_footnote(
+    footnote = "Green rows: direct setup (no outcome manipulation needed).",
+    locations = cells_column_labels(columns = "Setup")
+  ) |>
+  tab_footnote(
+    footnote = "Orange rows: outcome negation and/or treatment switching required.",
+    locations = cells_column_labels(columns = "Setup")
+  ) |>
+  cols_width(Setup ~ px(250), Example ~ px(280)) |>
+  tab_options(table.font.size = 13)
+```
+
+
+# Worked Examples {#sec-examples}
+
+## Harm Search + Adverse Outcome (Direct) {#sec-harm-adverse}
+
+**The simplest case.** Higher $Y$ is already worse, and we want to
+find where treatment makes it even worse.
+
+### Survival: GBSG Recurrence
+
+```
+# Y = time to recurrence (shorter = worse, but Cox HR > 1 = worse)
+# treat = hormonal therapy
+# Event = recurrence (adverse)
+# Subgroup where HR > 1: treatment increases hazard
+forestsearch(
+  outcome.name = "rfstime",
+  event.name   = "status",       # 1 = event (adverse)
+  treat.name   = "hormon",
+  effect.threshold = 1.25        # HR >= 1.25
+)
+```
+
+**DGM setup**: `generate_aft_dgm_flex()` with positive `k_inter`.
+Positive `k_inter` increases hazard for $Q$ under treatment → HR > 1.
+
+**GRF pre-screening**: Uses `causal_survival_forest()`, which
+takes `(time, event, horizon)` and internally estimates treatment
+effects on survival probability.  Events are assumed adverse:
+positive CATE = treatment increases survival = treatment helps.
+Variable importance identifies covariates with the most treatment
+effect heterogeneity.  `adverse_outcome` is not used in this path.
+
+### Count: GBSG Poisson Rate Model
+
+```
+# Y = status (0/1 event count)
+# offset = log(time_months)
+# IRR > 1 = treatment increases event rate (adverse)
+forestsearch(
+  outcome.name     = "status",
+  event.name       = "status",
+  treat.name       = "hormon",
+  outcome_type     = "count",
+  effect_measure   = "IRR",
+  offset.name      = "time_months",
+  effect.threshold = 1.25        # IRR >= 1.25
+)
+```
+
+**DGM setup**: `generate_glm_dgm(outcome_type = "count", k_inter = 0.5)`.
+Positive `k_inter` shifts log-rate up for $Q$ → IRR > 1.
+
+**Result**: 80% detection, 3.5% FPR (confirmed working).
+
+
+## Harm Search + Positive Outcome (Negate Y) {#sec-harm-positive}
+
+Higher $Y$ is better, but we want to find where treatment hurts.
+This is **unusual** — typically if you're searching for harm, the
+outcome is already adverse.  But it arises when, e.g., you want to
+find where treatment reduces a beneficial outcome.
+
+### Binary: Treatment Reduces Response Rate
+
+```
+# Y = 1 if patient responds (positive)
+# We want: find S where treatment REDUCES P(response)
+# Problem: OR < 1 when treatment hurts → fails θ ≥ c₁
+# Fix: negate Y
+data$y_failure <- 1L - data$y_response
+forestsearch(
+  outcome.name     = "y_failure",
+  event.name       = "y_failure",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  effect.threshold = 1.5         # OR(failure) >= 1.5
+)
+```
+
+### Continuous: Treatment Reduces CD4
+
+```
+# Y = cd420 - cd40 (positive = improvement)
+# We want: find S where treatment REDUCES CD4 change
+# Fix: negate Y
+data$cd4_loss <- -(data$cd420 - data$cd40)
+forestsearch(
+  outcome.name     = "cd4_loss",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  effect.threshold = 30          # MD(loss) >= 30
+)
+```
+
+
+## Benefit Search + Positive Outcome (Switch Treatment) {#sec-benefit-positive}
+
+**The ACTG175 pattern.** Higher $Y$ is better, and we want to find
+where the *experimental* treatment helps more than control.
+
+### The Treatment Switching Trick
+
+ForestSearch always searches for $\hat{\theta} \geq c_1$.
+If we keep the original treatment labels, the benefit subgroup has
+$\hat{\theta} < 0$ (control is worse) and fails the comparison.
+
+**Fix**: Swap treatment and control labels.  Under the switched
+labels, the subgroup where the original treatment helps now appears
+as a subgroup where the "new treatment" (actually the control) hurts.
+The effect flips sign and exceeds the threshold.
+
+### Survival: Benefit Search (Adverse Event)
+
+This is the standard clinical trial benefit search.  The event is
+adverse (death, recurrence), and we want to find $Q$ where the
+experimental treatment reduces hazard.
+
+```
+# Event = recurrence (adverse)
+# treat_orig = hormonal therapy
+# Goal: find Q where hormonal therapy REDUCES recurrence
+
+# Switch treatment labels
+data$treat_sw <- 1L - data$hormon
+
+# Now: under switched labels, HR > 1 in Q means
+# the original control (no hormone) increases hazard
+# → equivalently, hormone REDUCES hazard for Q
+
+forestsearch(
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  treat.name       = "treat_sw",        # switched!
+  effect.threshold = 1.25               # HR ≥ 1.25
+)
+```
+
+**DGM setup**: `generate_aft_dgm_flex()` with positive `k_inter`
+and the switched treatment column.  Positive `k_inter` increases
+hazard for $Q$ under the switched treatment (= no hormone) →
+HR > 1 on the switched scale.
+
+### Survival: Positive Event (Time to Recovery)
+
+In rare cases the survival event is positive — time to remission,
+time to discharge.  Here HR > 1 = treatment **accelerates** the
+good event, which is beneficial.
+
+```
+# Event = remission (positive)
+# HR > 1 = treatment accelerates remission = treatment helps
+# This is ALREADY a benefit search — no switching needed!
+
+forestsearch(
+  outcome.name     = "time_to_remission",
+  event.name       = "remission_status",
+  treat.name       = "treat",           # original labels!
+  effect.threshold = 1.25               # HR ≥ 1.25 (beneficial)
+)
+```
+
+For a **harm** search with a positive event (find $Q$ where
+treatment delays recovery), you would switch treatment labels so
+that HR > 1 under the switched labels means the original treatment
+delays the positive event.
+
+### Binary: ACTG175 CD4 Improvement
+
+```
+# Arms: ZDV+ddI (combo, arm 1) vs ddI (mono, arm 3)
+# Y = I(cd420 > cd40)  (improvement, positive)
+# Goal: find S where combo helps more than mono
+
+# Step 1: Switch treatment labels
+data$treat <- 1L - data$treat_orig   # ddI = 1, combo = 0
+
+# Step 2: No outcome negation needed (Y is positive,
+#          and switching makes the "harm" subgroup be
+#          where ddI hurts, i.e., combo helps)
+
+forestsearch(
+  outcome.name     = "y_binary",     # improvement (0/1)
+  event.name       = "y_binary",
+  treat.name       = "treat",        # switched!
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  effect.threshold = 1.667           # OR >= 1/0.60
+)
+```
+
+**DGM setup**:
+
+```
+# Target OR(Q) = 2.0 on the switched scale
+# Positive k_inter: ddI (treat=1) increases P(improve) for Q
+# This means Q is where ddI helps — equivalently, combo doesn't help Q
+# Wait: that's the OPPOSITE of what we want!
+#
+# Actually: with switched labels (ddI = treat),
+# positive k_inter increases P(Y=1|Q, ddI)
+# → OR(switched) > 1 in Q
+# → ForestSearch finds Q as "harmed by ddI"
+# → Reporting inverts: Q benefits from combo
+calibrate_glm_interaction(
+  target_effect = 2.0,           # OR(Q, switched) = 2.0
+  k_inter_range = c(0, 3),      # positive grid
+  outcome_type  = "binary",
+  effect_measure = "OR"
+)
+```
+
+**Result**: 75% detection, 6% FPR (confirmed working).
+
+### Continuous: ACTG175 CD4 Change
+
+```
+# Y = cd420 - cd40 (CD4 change, positive = improvement)
+# Goal: find S where combo produces more improvement
+
+# Step 1: Switch treatment labels
+data$treat <- 1L - data$treat_orig
+
+# Step 2: No outcome negation — with switching,
+#         positive MD means ddI increases CD4 change
+#         for Q more than combo does.
+#         ForestSearch finds Q where MD > threshold.
+
+forestsearch(
+  outcome.name     = "cd4_change",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  effect.threshold = 30           # MD >= 30 cells/µL
+)
+```
+
+**DGM setup**:
+
+```
+calibrate_glm_interaction(
+  outcome_var   = "cd4_change",
+  target_effect = 40,            # MD(Q, switched) = +40
+  k_inter_range = c(0, 120),    # positive grid
+  outcome_type  = "continuous",
+  effect_measure = "MD"
+)
+```
+
+
+## Benefit Search + Adverse Outcome (Switch + Negate) {#sec-benefit-adverse}
+
+Higher $Y$ is worse (e.g., events), but we want to find where
+the experimental treatment helps.  This requires both switching
+treatment labels **and** negating the outcome.
+
+This is the rarest scenario — typically if the outcome is adverse,
+you'd search for harm rather than benefit.
+
+
+# The `adverse_outcome` Parameter {#sec-adverse}
+
+## Where It Acts
+
+`adverse_outcome` has **two** effects, in different parts of the
+pipeline:
+
+### Effect 1: Binary Estimator Outcome Flip
+
+In `make_effect_estimator()` → `.make_binary_estimator()` (line 303):
+
+```r
+if (!adverse_outcome) {
+  data_slice[[outcome.name]] <- 1L - data_slice[[outcome.name]]
+}
+```
+
+When `adverse_outcome = FALSE`: the estimator flips $Y \to 1 - Y$
+before computing OR/RD/RR.  This converts a positive outcome
+(response) to its failure complement, ensuring that OR > 1 means
+"treatment increases failure" (harm).
+
+When `adverse_outcome = TRUE`: no flip.  The estimator sees $Y$
+as-is.  If $Y$ is truly adverse (events), OR > 1 = treatment
+increases events = harm.  If $Y$ is positive (improvement) but
+you're using switched treatment, OR > 1 = switched-treatment
+increases improvement = the subgroup you want.
+
+**This flip does NOT apply to continuous or count estimators.**
+Those always use $Y$ as-is.
+
+### Effect 2: GRF Variable Importance Flip
+
+In `forestsearch()` (line ~1172):
+
+```r
+Y_vi <- if (adverse_outcome) 1L - Y else Y
+```
+
+This is the **opposite** direction from Effect 1.
+`causal_forest()` estimates CATE where positive = treatment helps.
+When `adverse_outcome = TRUE`, $Y$ represents bad outcomes, so we
+flip to $1 - Y$ (good scale) for GRF.  When `adverse_outcome = FALSE`,
+$Y$ is already on the good scale.
+
+**This flip applies only to binary and continuous GLM outcomes.**
+Survival uses `causal_survival_forest()` which handles the
+survival outcome natively.  Count outcomes use a log transform.
+
+### Effect 3: Survival — `causal_survival_forest()`
+
+For Cox/survival analyses, `adverse_outcome` does not directly
+appear in the code path.  The GRF pre-screening uses
+`causal_survival_forest()`, which takes `(Y = time, Event, horizon)`
+and estimates treatment effects on survival probability.
+
+**Implicit assumption**: `causal_survival_forest()` treats events
+as adverse — positive CATE = treatment increases survival
+probability = treatment helps.  This is correct when the event
+is death, recurrence, or any adverse outcome.
+
+**When the event is positive** (e.g., recovery, remission): the
+CATE sign is reversed.  Positive CATE = treatment delays recovery
+= treatment hurts.  Variable importance is based on magnitude, so
+pre-screening still identifies heterogeneous variables, but the
+sign interpretation is flipped.  The Cox HR comparison
+($\text{HR} \geq c_1$) remains correct because HR > 1 means
+treatment accelerates the (positive) event.
+
+
+## Summary Table
+
+```{r adverse-outcome-table}
+ao_tbl <- data.frame(
+  Endpoint = c(
+    "Survival (adverse event)",
+    "Survival (positive event)",
+    "Binary (adverse: events)",
+    "Binary (positive: response)",
+    "Continuous (adverse: pain)",
+    "Continuous (positive: CD4)",
+    "Count (adverse: events)",
+    "Count (positive: recoveries)"
+  ),
+  Default = c(
+    "N/A", "N/A",
+    "TRUE", "TRUE",
+    "FALSE", "FALSE",
+    "TRUE", "TRUE"
+  ),
+  Correct_Setting = c(
+    "N/A (handled by causal_survival_forest)",
+    "N/A (HR direction is naturally correct)",
+    "TRUE (no flip needed)",
+    "TRUE if using switched treatment\nFALSE if NOT switching treatment",
+    "TRUE (flip for GRF: higher pain = worse)",
+    "FALSE (no flip: higher CD4 = better)",
+    "TRUE (no flip needed)",
+    "FALSE (flip for GRF: higher recoveries = better)"
+  ),
+  Estimator_Flip = c(
+    "N/A", "N/A",
+    "No", "No (TRUE) / Yes (FALSE)",
+    "N/A", "N/A",
+    "N/A", "N/A"
+  ),
+  GRF_Flip = c(
+    "causal_survival_forest",
+    "causal_survival_forest",
+    "Yes (1−Y)", "No",
+    "Yes (1−Y)", "No",
+    "log transform", "log transform"
+  ),
+  stringsAsFactors = FALSE
+)
+
+ao_tbl |>
+  gt::gt() |>
+  gt::tab_header(
+    title = "adverse_outcome: What It Does for Each Endpoint",
+    subtitle = "Two independent effects: estimator flip (binary only) and GRF flip"
+  ) |>
+  gt::cols_label(
+    Correct_Setting = "Recommended",
+    Estimator_Flip = "Flips Y in Estimator?",
+    GRF_Flip = "GRF Pre-screening"
+  ) |>
+  gt::tab_options(table.font.size = 12) |>
+  gt::cols_width(Correct_Setting ~ gt::px(220))
+```
+
+
+## The ACTG175 Binary Benefit Case
+
+The working ACTG175 binary benefit simulation uses:
+
+- `Y = I(cd420 > cd40)` — improvement (positive outcome)
+- `treat = 1 - treat_orig` — switched (ddI = treat)
+- `adverse_outcome` — not set, defaults to `TRUE` for binary
+
+With `adverse_outcome = TRUE`:
+
+1. **Binary estimator**: no flip.  OR computed on improvement.
+   OR > 1 = ddI increases P(improve) for Q.
+2. **GRF**: flips to $1 - Y$ (failure).  `causal_forest` sees
+   failure, identifies variables where treatment increases failure
+   (= variables where ddI hurts = where combo helps).
+3. **DGM**: positive `k_inter` increases P(improve|Q, ddI) →
+   OR(improve) > 1 in Q.
+4. **ForestSearch**: finds Q where OR ≥ threshold.
+5. **Reporting**: `subgroup_notation = "benefit"` inverts labels.
+
+This works because the estimator sees improvement directly, and
+the DGM creates a positive effect on improvement for Q under the
+switched treatment.
+
+**What would happen with `adverse_outcome = FALSE`?**
+
+The estimator would flip Y → 1−Y (failure).  Now:
+- ddI increasing P(improve|Q) → ddI decreasing P(fail|Q)
+- OR(fail) < 1 in Q → fails $\hat{\theta} \geq c_1$
+- Zero detection.
+
+This is why the "broken" binary simulation (which set
+`adverse_outcome = FALSE`) produced garbage results.
+
+
+# Common Pitfalls {#sec-pitfalls}
+
+## Pitfall 1: Wrong Calibration Target Direction
+
+> **Symptom**: 100% detection AND 97% false positive rate.
+>
+> **Cause**: Calibration target on the wrong scale (e.g.,
+> `cal_target_or = 0.5` with `k_inter_range = c(-3, 0)`).
+> This makes Q only slightly more extreme in the same direction
+> as everyone — no real contrast.
+>
+> **Fix**: Use target > 1 with positive `k_inter` for ratio measures,
+> or positive target with positive grid for MD.
+
+## Pitfall 2: MD Threshold Remapped to 0.05
+
+> **Symptom**: Zero detections or near-100% detections for continuous
+> outcomes with `effect_measure = "MD"`.
+>
+> **Cause**: The threshold validator treated MD like RD (bounded in
+> $[-1, 1]$) and remapped `effect.threshold = 30` to `0.05`.
+>
+> **Fix**: Fixed in current version — MD is now correctly treated as
+> unbounded.
+
+## Pitfall 3: Confusing `adverse_outcome` with Outcome Negation
+
+> **Symptom**: Zero detection with benefit search and positive outcome.
+>
+> **Cause**: Setting `adverse_outcome = FALSE` when using a positive
+> binary outcome with switched treatment.  This causes the **binary
+> estimator** to flip $Y \to 1-Y$ internally, which reverses the
+> effect sign and breaks the $\hat{\theta} \geq c_1$ comparison.
+>
+> **The working ACTG175 binary simulation** leaves `adverse_outcome`
+> at its default (`TRUE` for binary).  Despite the name suggesting
+> "the outcome is adverse," the actual meaning is: **keep $Y$ as-is
+> for the estimator** (no flip).
+>
+> **Rule of thumb**: For benefit search with switched treatment,
+> use `adverse_outcome = TRUE` (or leave as default for binary).
+> Only set `FALSE` if you explicitly want the estimator to compute
+> effects on the $1-Y$ scale.
+
+## Pitfall 4: Survival with Positive Events
+
+> **Symptom**: GRF pre-screening selects wrong variables for a
+> survival outcome where the event is positive (e.g., recovery).
+>
+> **Cause**: `causal_survival_forest()` implicitly assumes events
+> are adverse.  When the event is positive, the CATE sign is
+> reversed, but variable importance is based on magnitude, so
+> pre-screening still identifies heterogeneous variables.
+>
+> **Impact**: Low — variable importance is magnitude-based, not
+> sign-based.  The Cox HR comparison ($\text{HR} \geq c_1$) is
+> unaffected.  But if GRF pre-screening is the bottleneck, consider
+> switching to LASSO-only screening (`use_grf = FALSE`).
+
+
+# Quick Reference Card {#sec-quickref}
+
+```{r quickref}
+
+qr <- data.frame(
+  Scenario = c(
+    "GBSG Cox harm (adverse event)",
+    "GBSG Cox benefit (adverse event, switched)",
+    "Survival benefit (positive event, direct)",
+    "Survival harm (positive event, switched)",
+    "GBSG Poisson (harm, adverse)",
+    "ACTG binary benefit (positive)",
+    "ACTG continuous benefit (positive)",
+    "Binary harm + positive outcome",
+    "Continuous harm + positive outcome"
+  ),
+  Y = c(
+    "rfstime/status",
+    "rfstime/status",
+    "time_to_recovery/recovered",
+    "time_to_recovery/recovered",
+    "status (0/1)",
+    "I(cd420 > cd40)",
+    "cd420 - cd40",
+    "1 - response",
+    "-(improvement)"
+  ),
+  Treatment = c(
+    "hormon (original)",
+    "1 - hormon (switched)",
+    "original",
+    "1 - treat (switched)",
+    "hormon (original)",
+    "1 - treat_orig (switched)",
+    "1 - treat_orig (switched)",
+    "original",
+    "original"
+  ),
+  effect.threshold = c(
+    "1.25 (HR)", "1.25 (HR)",
+    "1.25 (HR)", "1.25 (HR)",
+    "1.25 (IRR)",
+    "1.667 (OR)", "30 (MD)",
+    "1.5 (OR)", "30 (MD)"
+  ),
+  adverse_outcome = c(
+    "N/A (Cox)", "N/A (Cox)",
+    "N/A (Cox)", "N/A (Cox)",
+    "TRUE (default)",
+    "TRUE (default)", "FALSE (default)",
+    "TRUE", "TRUE"
+  ),
+  DGM_target = c(
+    "HR(Q) = 1.5", "HR(Q) = 1.5 (switched)",
+    "HR(Q) = 1.5", "HR(Q) = 1.5 (switched)",
+    "IRR(Q) = 2.0",
+    "OR(Q) = 2.0", "MD(Q) = +40",
+    "OR(Q) = 2.0", "MD(Q) = +30"
+  ),
+  k_inter_grid = c(
+    "positive", "positive (switched treat)",
+    "positive", "positive (switched treat)",
+    "c(0, 2)",
+    "c(0, 3)", "c(0, 120)",
+    "c(0, 5)", "c(0, 100)"
+  ),
+  stringsAsFactors = FALSE
+)
+
+qr |>
+  gt() |>
+  tab_header(
+    title = "Parameter Quick Reference",
+    subtitle = "All confirmed-working scenarios"
+  ) |>
+  cols_label(
+    effect.threshold = "effect.threshold",
+    adverse_outcome = "adverse_outcome",
+    DGM_target = "DGM Target",
+    k_inter_grid = "k_inter Grid"
+  ) |>
+  tab_style(
+    style = cell_text(size = "small"),
+    locations = cells_body()
+  ) |>
+  tab_options(table.font.size = 12)
+```
+
+
+# Verification: Synthetic Tests {#sec-verify}
+
+```{r synthetic-verify}
+set.seed(42)
+N <- 800
+syn <- data.frame(
+  id = seq_len(N), treat = rep(0:1, each = N / 2),
+  z1 = as.factor(sample(0:1, N, TRUE)),
+  z2 = as.factor(sample(0:1, N, TRUE)),
+  z3 = as.factor(sample(0:1, N, TRUE))
+)
+in_Q <- syn$z1 == 1 & syn$z2 == 1
+
+cat(sprintf("Q prevalence: %.1f%%\n\n", 100 * mean(in_Q)))
+```
+
+## Test 1: Harm Search — Adverse Binary (Direct)
+
+```{r test-harm-adverse-v1}
+# Treatment increases P(event) for Q
+p_event <- ifelse(syn$treat == 1 & in_Q, 0.70,
+            ifelse(syn$treat == 1, 0.35, 0.35))
+syn$y_event <- rbinom(N, 1, p_event)
+
+cat("=== Harm + Adverse Binary ===\n")
+cat(sprintf("  OR(Q):  %.2f  (should be > 1)\n",
+    {t <- table(syn$y_event[in_Q], syn$treat[in_Q])
+     (t[2,2]*t[1,1]) / (t[1,2]*t[2,1])}))
+
+fs1 <- suppressWarnings(forestsearch(
+  df.analysis = syn, confounders.name = c("z1", "z2", "z3"),
+  outcome.name = "y_event", event.name = "y_event",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "binary", effect_measure = "OR",
+  effect.threshold = 2.0, consistency.threshold = 1.5,
+  pconsistency.threshold = 0.80,
+  fs.splits = 200L, n.min = 40L, d0.min = 8L, d1.min = 8L,
+  maxk = 2L, use_lasso = FALSE, use_grf = TRUE, is.RCT = TRUE,
+  seedit = 42L, quiet = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1,
+                       show_message = FALSE)
+))
+
+found <- !is.null(fs1) && !is.null(fs1$grp.consistency)
+cat(sprintf("  Subgroup found: %s\n", found))
+if (found) {
+  sg <- names(fs1$grp.consistency$sg.harm$subgroup)
+  cat(sprintf("  Variables: %s\n", paste(sg, collapse = ", ")))
+  cat(sprintf("  Correct: %s\n", all(c("z1", "z2") %in% sg)))
+}
+```
+
+## Test 2: Benefit Search — Positive Binary (Switch Treatment)
+
+```{r test-benefit-positive}
+# Combo (treat_orig = 1) helps Q improve more
+p_improve <- ifelse(syn$treat == 0 & in_Q, 0.75,   # combo helps Q
+              ifelse(syn$treat == 0, 0.45,           # combo baseline
+               ifelse(in_Q, 0.40, 0.45)))            # ddI doesn't help Q
+
+syn$y_improve <- rbinom(N, 1, p_improve)
+
+# Switch treatment: ddI = 1, combo = 0
+syn$treat_sw <- 1L - syn$treat
+
+cat("\n=== Benefit + Positive Binary (switched treatment) ===\n")
+cat(sprintf("  OR(Q, switched): %.2f  (should be > 1)\n",
+    {t <- table(syn$y_improve[in_Q], syn$treat_sw[in_Q])
+     (t[2,2]*t[1,1]) / (t[1,2]*t[2,1])}))
+
+fs2 <- suppressWarnings(forestsearch(
+  df.analysis = syn, confounders.name = c("z1", "z2", "z3"),
+  outcome.name = "y_improve", event.name = "y_improve",
+  treat.name = "treat_sw", id.name = "id",
+  outcome_type = "binary", effect_measure = "OR",
+  effect.threshold = 1.5, consistency.threshold = 1.2,
+  pconsistency.threshold = 0.80,
+  fs.splits = 200L, n.min = 40L, d0.min = 8L, d1.min = 8L,
+  maxk = 2L, use_lasso = FALSE, use_grf = TRUE, is.RCT = TRUE,
+  seedit = 42L, quiet = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1,
+                       show_message = FALSE)
+))
+
+found2 <- !is.null(fs2) && !is.null(fs2$grp.consistency)
+cat(sprintf("  Subgroup found: %s\n", found2))
+if (found2) {
+  sg2 <- names(fs2$grp.consistency$sg.harm$subgroup)
+  cat(sprintf("  Variables: %s\n", paste(sg2, collapse = ", ")))
+}
+```
+
+## Test 3: Harm Search — Positive Continuous (Negate Y)
+
+```{r test-harm-positive-cont}
+# Treatment reduces a beneficial outcome for Q
+syn$y_good <- 50 + 5 * syn$treat + rnorm(N, sd = 12)
+syn$y_good[in_Q & syn$treat == 1] <-
+  syn$y_good[in_Q & syn$treat == 1] - 25
+
+# Negate: higher = worse
+syn$y_bad <- -syn$y_good
+
+cat("\n=== Harm + Positive Continuous (negated) ===\n")
+cat(sprintf("  Original MD(Q): %.1f (treat reduces Y for Q)\n",
+    mean(syn$y_good[in_Q & syn$treat == 1]) -
+    mean(syn$y_good[in_Q & syn$treat == 0])))
+cat(sprintf("  Negated MD(Q):  %.1f (should be > 0)\n",
+    mean(syn$y_bad[in_Q & syn$treat == 1]) -
+    mean(syn$y_bad[in_Q & syn$treat == 0])))
+
+fs3 <- suppressWarnings(forestsearch(
+  df.analysis = syn, confounders.name = c("z1", "z2", "z3"),
+  outcome.name = "y_bad", event.name = "y_bad",
+  treat.name = "treat", id.name = "id",
+  outcome_type = "continuous", effect_measure = "MD",
+  effect.threshold = 10, consistency.threshold = 5,
+  pconsistency.threshold = 0.80,
+  fs.splits = 200L, n.min = 40L, d0.min = 8L, d1.min = 8L,
+  maxk = 2L, use_lasso = TRUE, use_grf = TRUE, is.RCT = TRUE,
+  seedit = 42L, quiet = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1,
+                       show_message = FALSE)
+))
+
+found3 <- !is.null(fs3) && !is.null(fs3$grp.consistency)
+cat(sprintf("  Subgroup found: %s\n", found3))
+if (found3) {
+  sg3 <- names(fs3$grp.consistency$sg.harm$subgroup)
+  cat(sprintf("  Variables: %s\n", paste(sg3, collapse = ", ")))
+}
+```
+
+## Test 4: Benefit Search — Positive Continuous (Switch Treatment)
+
+```{r test-benefit-positive-cont}
+# Combo helps Q more on a positive outcome
+syn$y_cd4 <- 30 + 3 * (1 - syn$treat) + rnorm(N, sd = 15)
+syn$y_cd4[in_Q & syn$treat == 0] <-
+  syn$y_cd4[in_Q & syn$treat == 0] + 20
+
+cat("\n=== Benefit + Positive Continuous (switched treatment) ===\n")
+
+# Under switched treatment: MD(Q, switched) > 0
+cat(sprintf("  MD(Q, switched): %.1f (should be > 0)\n",
+    mean(syn$y_cd4[in_Q & syn$treat_sw == 1]) -
+    mean(syn$y_cd4[in_Q & syn$treat_sw == 0])))
+
+fs4 <- suppressWarnings(forestsearch(
+  df.analysis = syn, confounders.name = c("z1", "z2", "z3"),
+  outcome.name = "y_cd4", event.name = "y_cd4",
+  treat.name = "treat_sw", id.name = "id",
+  outcome_type = "continuous", effect_measure = "MD",
+  effect.threshold = 10, consistency.threshold = 5,
+  pconsistency.threshold = 0.80,
+  fs.splits = 200L, n.min = 40L, d0.min = 8L, d1.min = 8L,
+  maxk = 2L, use_lasso = TRUE, use_grf = TRUE, is.RCT = TRUE,
+  seedit = 42L, quiet = TRUE,
+  parallel_args = list(plan = "sequential", workers = 1,
+                       show_message = FALSE)
+))
+
+found4 <- !is.null(fs4) && !is.null(fs4$grp.consistency)
+cat(sprintf("  Subgroup found: %s\n", found4))
+if (found4) {
+  sg4 <- names(fs4$grp.consistency$sg.harm$subgroup)
+  cat(sprintf("  Variables: %s\n", paste(sg4, collapse = ", ")))
+}
+```
+
+
+## Summary of Tests
+
+```{r test-summary}
+results <- data.frame(
+  Test = c(
+    "1: Harm + Adverse binary",
+    "2: Benefit + Positive binary (switch)",
+    "3: Harm + Positive continuous (negate)",
+    "4: Benefit + Positive continuous (switch)"
+  ),
+  Found = c(found, found2, found3, found4),
+  stringsAsFactors = FALSE
+)
+
+results |>
+  gt() |>
+  tab_header(title = "Verification Summary") |>
+  tab_style(
+    style = cell_fill(color = "#c8e6c9"),
+    locations = cells_body(rows = Found == TRUE)
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#ffcdd2"),
+    locations = cells_body(rows = Found == FALSE)
+  )
+```
+
+
+# DGM Setup Summary {#sec-dgm}
+
+## The Golden Rule for DGMs
+
+> **Positive `k_inter` + positive calibration target + positive
+> `k_inter_range` grid.**
+
+This creates a subgroup $Q$ where the effect estimate (on whatever
+scale is being used) is large and positive.  ForestSearch detects it
+because $\hat{\theta}(Q) \geq c_1$.
+
+The outcome and treatment manipulations (negation, switching) happen
+**before** the DGM is created — the DGM operates on the final,
+oriented data.
+
+```{r dgm-summary}
+dgm_guide <- data.frame(
+  Endpoint = c("Binary (OR)", "Continuous (MD)", "Count (IRR)",
+               "Count + offset (IRR)"),
+  outcome_var = c("y_failure or y_improve", "cd4_change or cd4_loss",
+                  "event_count", "event_count"),
+  k_inter = c("positive → ↑ P(Y|Q,T)", "positive → ↑ E[Y|Q,T]",
+              "positive → ↑ rate(Q,T)", "positive → ↑ rate(Q,T)"),
+  Target_scale = c("OR(Q) > 1", "MD(Q) > 0", "IRR(Q) > 1", "IRR(Q) > 1"),
+  Grid = c("c(0, 3–5)", "c(0, 50–200)", "c(0, 2–3)", "c(0, 2–3)"),
+  stringsAsFactors = FALSE
+)
+
+dgm_guide |>
+  gt() |>
+  tab_header(
+    title = "DGM Configuration Guide",
+    subtitle = "All targets and grids should be positive"
+  ) |>
+  cols_label(
+    outcome_var = "outcome_var",
+    k_inter = "k_inter Effect",
+    Target_scale = "Target",
+    Grid = "k_inter_range"
+  )
+```
+
+
+# Session Info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```

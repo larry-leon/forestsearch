@@ -64,17 +64,16 @@
 #'   \eqn{\hat H^c} panels to replicates where a subgroup was
 #'   identified (\code{any.H == 1}).  Default: \code{TRUE}.  The ITT
 #'   panel always uses all replicates.
-#' @param trim_threshold Numeric or \code{NULL}.  When non-\code{NULL},
-#'   trimming is applied only if any of the three groups has a raw
-#'   mean exceeding this absolute value -- i.e., extreme outliers that
-#'   distort the violin or push annotated mean/SD into scientific
-#'   notation.  When \code{NULL} (default), no trimming is performed
-#'   and behaviour is backward-compatible.  The MRCT analogue
-#'   \code{\link{SGplot_estimates}} uses the same pattern but triggers
-#'   trimming purely on \code{trim_fraction}; this function adds the
-#'   threshold gate so casual use does not trim healthy data.  Typical
-#'   values: \code{NULL} for clean datasets, \code{100} for OR / HR
-#'   plots that occasionally show wild estimates.
+#' @param trim_threshold Numeric or \code{NULL}.  Trimming is applied
+#'   only if any of the three groups has a raw mean exceeding this
+#'   absolute value -- i.e., extreme outliers that distort the violin
+#'   or push annotated mean/SD into scientific notation.  Default:
+#'   \code{1000}, matching \code{\link{build_estimation_table}} so the
+#'   plot and the companion gt table auto-trim on the same condition.
+#'   Set \code{NULL} to disable trimming entirely; set a smaller value
+#'   (e.g., \code{100}) to be more aggressive on plots where reasonable
+#'   OR / HR / IRR estimates sit well below 100 and even moderate
+#'   outliers visibly distort the violin axis.
 #' @param trim_fraction Numeric in (0, 0.5).  Fraction of observations
 #'   to trim from each tail of each group when trimming triggers.
 #'   Default: \code{0.01} (1\% from each tail; i.e., the central 98\%
@@ -132,7 +131,7 @@ plot_effect_distribution <- function(
     subtitle          = NULL,
     panel_labels      = NULL,
     drop_undetected   = TRUE,
-    trim_threshold    = NULL,
+    trim_threshold    = 1000,
     trim_fraction     = 0.01
 ) {
 
