@@ -147,8 +147,8 @@ cat("Decision tree displayed as table below.\n")
 
 ## The Decision Table
 
-```{r scenario-table}
-#| label: tbl-scenarios
+```{r scenario-table1}
+#| label: tbl-scenarios1
 #| tbl-cap: "Complete setup guide for all ForestSearch scenarios."
 
 tbl_data <- data.frame(
@@ -851,7 +851,7 @@ cat(sprintf("Q prevalence: %.1f%%\n\n", 100 * mean(in_Q)))
 
 ## Test 1: Harm Search — Adverse Binary (Direct)
 
-```{r test-harm-adverse}
+```{r test-harm-adverse-v1}
 # Treatment increases P(event) for Q
 p_event <- ifelse(syn$treat == 1 & in_Q, 0.70,
             ifelse(syn$treat == 1, 0.35, 0.35))

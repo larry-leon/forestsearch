@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 50L
-nsims_null  <- 200L
+nsims_alt   <- 100L
+nsims_null  <- 100L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
@@ -96,12 +96,25 @@ actg_age_cut     <- 34
 actg_preanti_cut <- 744.5
 
 # -- Benefit search via treatment switching ------------------------------------
-# Under switched roles, the BENEFIT subgroup Q appears as a "harm"
-# subgroup (ddI monotherapy is worse for Q).  Thresholds on OR scale:
-#   c1 = fs_or_threshold    (screening: OR >= c1 under switched roles)
+# This vignette implements a BENEFIT search for the experimental treatment
+# (ZDV+ddI) using two combined conventions, so the package's harm-search
+# machinery points in the right direction (full table in the Appendix):
+#
+#   1. Treatment is switched (ddI = 1, ZDV+ddI = 0) — so a benefit subgroup
+#      of the original experimental appears as a "harm" subgroup of the
+#      switched-treatment.
+#
+#   2. The binary outcome is encoded on the ADVERSE scale: y_binary = 1
+#      when the patient FAILED to improve (cd420 <= cd40).  This aligns
+#      with the package's binary OR convention where "OR > 1 = harm" on
+#      Y as given (i.e., adverse_outcome = TRUE, the binary default).
+#
+# Under these conventions, OR(Q) > c1 in the analysis means: the switched
+# treatment (ddI) increases the odds of non-improvement in Q, equivalently
+# the original experimental (ZDV+ddI) increases the odds of improvement in
+# Q -- the benefit signal we want.  Thresholds:
+#   c1 = fs_or_threshold    (screening)
 #   c2 = fs_or_consistency  (consistency)
-# Numeric values are set below in the ForestSearch parameters block
-# and propagated through to Section 1.5 via inline r-references.
 # After identification, ORs are inverted to the original scale via
 # subgroup_notation = "benefit".
 
@@ -115,6 +128,37 @@ dgm_factor_vars   <- paste0("z", 1:12)
 dgm_subgroup_vars <- c("z1", "z2")
 dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
 dgm_n_super       <- 5000L
+
+# -- Treatment-effect scaling (k_treat) ---------------------------------------
+# k_treat scales the fitted treatment main effect on the linear-predictor
+# (log-odds) scale inside generate_glm_dgm():
+#
+#   eta_1 = eta_0 + k_treat * (eta_1_fitted - eta_0_fitted)
+#
+#   k_treat = 1 (default) preserves the fitted ACTG175 treatment effect.
+#   k_treat > 1 amplifies the marginal ITT effect.
+#   k_treat < 1 attenuates it.
+#
+# Two scenario-specific knobs so the H0 and H1 simulations can carry
+# different baseline marginal effects independently:
+#
+#   dgm_k_treat_alt  -- applied to the calibrated alt DGM (used by both
+#                       the initial alt build and the calibration grid).
+#                       Calibration searches k_inter at this k_treat to
+#                       hit cal_target_or, so changing this changes the
+#                       k_inter that maps to OR(Q) = 2.0.
+#
+#   dgm_k_treat_null -- applied to the null (homogeneous-effect) DGM.
+#                       Note: the null model represents a HOMOGENEOUS
+#                       treatment effect (not a zero effect); k_treat
+#                       scales the magnitude of that homogeneous effect.
+#                       Useful for testing FPR under a stronger common
+#                       benefit baseline.
+#
+# Both default to 1 so the existing operating-characteristic results are
+# unchanged.  Set to a non-unit value to explore sensitivity.
+dgm_k_treat_alt   <- 1.0
+dgm_k_treat_null  <- 1.0
 
 # -- Realistic analysis setting -----------------------------------------------
 # The simulation mimics a real data analysis in which the analyst does
@@ -151,7 +195,11 @@ analysis_binary_vars <- c(
 )
 
 # -- Calibration ---------------------------------------------------------------
-# Target OR(Q) = 2.0 under SWITCHED treatment (= 0.50 on original scale).
+# Target OR(Q) = 2.0.  With y_binary on the adverse scale and switched
+# treatment, OR(Q) = 2.0 has the natural reading: "in Q, the experimental
+# treatment (ZDV+ddI) doubles the odds of improvement compared to ddI."
+# (Under the (switched, adverse) and (original, positive) scales the
+# magnitude is the same -- both give 2.0; see Appendix A.3.)
 cal_target_or     <- 2.0
 cal_k_grid_range  <- c(0, 3)
 cal_grid_step     <- 0.05
@@ -168,7 +216,7 @@ run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm)
 # -- ForestSearch parameters (benefit search thresholds) -----------------------
 fs_or_threshold        <- round(1 / 0.60, 3)   # c1
 fs_or_consistency      <- round(1 / 0.75, 3)   # c2
-fs_pconsistency        <- 0.80
+fs_pconsistency        <- 0.90
 fs_splits              <- 400L
 fs_n_min               <- 60L
 fs_d0_min              <- 10L
@@ -177,6 +225,31 @@ fs_maxk                <- 2L
 fs_vi_grf_min          <- -0.2
 fs_seedit              <- 8316951L
 fs_cont_cutoff         <- 4L   # is.continuous() threshold (# unique values)
+
+# -- FS-internal dmin.grf -----------------------------------------------------
+# fs_dmin_grf is the dmin.grf value passed to forestsearch().  Inside
+# forestsearch(), this parameter forwards to grf.subg.harm.glm() during
+# the internal GRF candidate-cut extraction step (use_grf = TRUE).  The
+# parameter MEANING is identical to the standalone GRF dmin.grf
+# (minimum absolute CATE for a policy-tree node), but its ROLE differs:
+#
+#   - Standalone GRF  : dmin.grf is the FINAL subgroup-identification
+#                       threshold.  Higher = stricter final subgroup.
+#                       Controlled by grf_dmin (below).
+#
+#   - FS-internal GRF : dmin.grf is a CANDIDATE-CUT FILTER.  Cuts that
+#                       fail this threshold are not passed back to FS's
+#                       downstream enumeration.  Higher = fewer cuts
+#                       reach FS, which may improve speed but can also
+#                       remove cuts that FS would have used productively.
+#                       Controlled by fs_dmin_grf (this variable).
+#
+# These two values are tuned independently.  The default 0.0 reproduces
+# forestsearch()'s GLM default (any positive harm qualifies), so the
+# existing simulation results are bit-identical.  Calibrate this
+# independently from grf_dmin if you want a stricter pre-filter on FS
+# candidate cuts.
+fs_dmin_grf            <- 0.0
 
 # -- Candidate-selection criterion (sg_focus) ---------------------------------
 # `sg_focus` controls how forestsearch() sorts the candidate subgroups that
@@ -295,6 +368,7 @@ fs_run <- function(data,
     use_grf          = fs_use_grf,
     is.RCT           = fs_is_rct,
     vi.grf.min       = fs_vi_grf_min,
+    dmin.grf         = fs_dmin_grf,
     cont.cutoff      = fs_cont_cutoff,
     cut_type         = fs_cut_type,
     details          = TRUE,
@@ -328,7 +402,18 @@ timings <- list()
 This document extends the ACTG175 benefit-search simulation
 framework from survival outcomes (time-to-event) to a **binary
 endpoint**: whether a patient's CD4 count improved from baseline
-to 20 weeks, defined as $Y = I(\text{cd420} > \text{cd40})$.
+to 20 weeks.  The clinical concept is improvement, but for the
+analysis the outcome is **encoded on the adverse scale** as
+$y\_binary = I(\text{cd420} \leq \text{cd40})$ -- a 1 indicates
+**failure to improve**.  Combined with treatment switching
+(ddI $\to$ `treat = 1`, ZDV+ddI $\to$ `treat = 0`), this aligns
+with the package's harm-search convention: $\text{OR} > c_1$
+in the analysis corresponds to *benefit of the experimental
+treatment* in the identified subgroup.
+
+A full reference table of effect-measure / outcome-direction
+combinations appears in the [Appendix](#sec-appendix-conventions).
+@sec-stat-goals summarises the row that applies to this vignette.
 
 The simulation uses the `forestsearch` GLM simulation suite
 (`generate_glm_dgm`, `calibrate_glm_interaction`,
@@ -388,7 +473,7 @@ trees search over all continuous thresholds internally and are
 unaffected by this setting.
 :::
 
-## Statistical Goals
+## Statistical Goals {#sec-stat-goals}
 
 This simulation study addresses three questions about
 ForestSearch and GRF standalone subgroup identification
@@ -396,8 +481,10 @@ applied to **binary outcomes** in the realistic (raw covariate)
 setting:
 
 1. **Detection power (H1)**: When a benefit subgroup $Q$
-   exists with OR(Q) = `r cal_target_or` (switched scale),
-   how often do ForestSearch and GRF identify *any* subgroup?
+   exists with $\text{OR}(Q) = `r cal_target_or`$ -- i.e., in
+   $Q$, the experimental treatment (ZDV+ddI) doubles the odds
+   of improvement compared to ddI -- how often do ForestSearch
+   and GRF identify *any* subgroup?
 2. **False positive control (H0)**: When the treatment effect
    is homogeneous (no true $Q$), how often does each method
    falsely declare a benefit subgroup?
@@ -406,6 +493,26 @@ setting:
    Measured by sensitivity ($\text{sens}(\hat{Q})$: fraction of
    true $Q$ captured) and positive predictive value
    ($\text{ppv}(\hat{Q})$: fraction of $\hat{Q}$ truly in $Q$).
+
+::: {.callout-note}
+## Directional configuration for this vignette
+
+| Item | Value |
+|------|-------|
+| Outcome type | Binary |
+| Native effect measure | OR |
+| Y direction in the data | Adverse (`y_binary = 1` $\Leftrightarrow$ no improvement) |
+| Search goal | Benefit (of ZDV+ddI) |
+| Treatment coding | Switched (ddI = 1, ZDV+ddI = 0) |
+| `adverse_outcome` | `TRUE` (binary default; matches Y direction) |
+| What "$\text{OR} > c_1$" means here | switched-treatment increases P(no improvement) in Q $\Leftrightarrow$ ZDV+ddI is beneficial in Q |
+| `subgroup_notation` | `"benefit"` |
+
+This is one row of the Appendix master table
+([@sec-appendix-conventions]) -- consult that table for any
+other (outcome type $\times$ Y direction $\times$ search goal)
+combination.
+:::
 
 ::: {.callout-tip}
 ## Summary of results
@@ -437,8 +544,9 @@ The simulation proceeds in six steps:
 
 3. **Calibration** (@sec-calibrate): Search over `k_inter`
    values to find the interaction strength that produces
-   $\text{OR}(Q) = `r cal_target_or`$ on the switched scale
-   (= $`r round(1/cal_target_or, 2)`$ on the original scale).
+   $\text{OR}(Q) = `r cal_target_or`$ -- a 2$\times$ odds-ratio
+   of improvement for the experimental treatment in $Q$ (see
+   @sec-stat-goals for the directional convention).
 
 4. **Single-data analysis** (@sec-single): Run ForestSearch
    and GRF on the observed ACTG175 data using the **raw**
@@ -460,23 +568,17 @@ The simulation proceeds in six steps:
 
 The benefit-search approach from Leon et al. (2024, Section 4.2)
 applies identically to binary outcomes, with odds ratios (OR)
-replacing hazard ratios (HR):
-
-1. **Switch treatment roles**: ddI monotherapy $\to$ `treat = 1`,
-   ZDV+ddI combination $\to$ `treat = 0`.
-
-2. **Raise thresholds** on the OR scale: $c_1 =$ `r fs_or_threshold`
-   (screening) and $c_2 =$ `r fs_or_consistency` (consistency).  Both
-   come from the Quarto setup chunk (`fs_or_threshold`,
-   `fs_or_consistency`) so any change to the setup parameters flows
-   through here automatically.
-
-3. **Run ForestSearch** with `outcome_type = "binary"`,
-   `effect_measure = "OR"`.
-
-4. **Inversion** is handled automatically by the package when
-   `subgroup_notation = "benefit"` is passed to the reporting
-   functions.
+replacing hazard ratios (HR).  The full configuration is shown in
+the directional table in @sec-stat-goals and in the master
+reference table in @sec-appendix-conventions; in brief, the
+combination of switched treatment and adverse-coded `y_binary`
+makes the package's harm-search machinery point at the benefit
+direction, with screening threshold $c_1 =$ `r fs_or_threshold`
+and consistency threshold $c_2 =$ `r fs_or_consistency` (both
+sourced from the Quarto setup chunk).  Inversion to the original
+scale is handled automatically by the package when
+`subgroup_notation = "benefit"` is passed to the reporting
+functions.
 
 
 ## Candidate Selection: `sg_focus = "maxSG"`
@@ -486,13 +588,13 @@ threshold ($c_1 =$ `r fs_or_threshold`) and the consistency threshold
 ($c_2 =$ `r fs_or_consistency`), `forestsearch()` must pick one.  That
 choice is governed by `sg_focus`.  Five options are available:
 
-| `sg_focus`  | Primary sort   | Secondary        | Tertiary | Interpretation |
-|-------------|----------------|------------------|----------|-----------------|
-| `"hr"`      | Pcons desc     | effect desc      | K asc    | Package default. Favours *most-consistent* candidate. |
-| `"maxSG"`   | **N desc**     | Pcons desc       | K asc    | **Largest** qualifying candidate. |
-| `"minSG"`   | N asc          | Pcons desc       | K asc    | Smallest qualifying candidate. |
-| `"hrMaxSG"` | N desc         | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
-| `"hrMinSG"` | N asc          | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
+| `sg_focus`  | Primary sort   | Secondary        | Interpretation |
+|-------------|----------------|------------------|----------------|
+| `"hr"`      | Pcons      | effect       | Package default. Favours *most-consistent* candidate. |
+| `"maxSG"`   | **N **     | Pcons        | **Largest** qualifying candidate. |
+| `"minSG"`   | N           | Pcons        | Smallest qualifying candidate. |
+| `"hrMaxSG"` | N          | effect       | Compound. Forces `stop_threshold = NULL`. |
+| `"hrMinSG"` | N         | effect       | Compound. Forces `stop_threshold = NULL`. |
 
 For the ACTG175 benefit search, the analytic goal is to recover the
 **largest subgroup in which the ZDV+ddI combination is superior to ddI
@@ -613,7 +715,12 @@ actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
 actg_df$treat <- 1L - actg_df$treat_orig
 
 # -- Binary outcome: CD4 response at 20 weeks ---------------------------------
-actg_df$y_binary <- as.integer(actg_df$cd420 > actg_df$cd40)
+# Encoded on the ADVERSE scale: y_binary = 1 means the patient FAILED to
+# improve (cd420 <= cd40).  Combined with switched treatment, this aligns
+# with the package's harm-search convention so OR(Q) > c1 corresponds to
+# benefit of the original experimental treatment in Q.  See Section 1.1
+# and the Appendix for the full directional convention.
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
 
 # Remove subjects with missing cd420
 n_before <- nrow(actg_df)
@@ -682,24 +789,29 @@ actg_df$flag_harm_ref <- as.integer(
 
 # -- Summary scalars captured for downstream display ---------------------------
 # (Displayed below via structured callout + gt tables, not cat().)
+# y_binary is encoded on the adverse scale (= no improvement); response rate
+# is therefore 1 - mean(y_binary) so the displayed clinical summary stays in
+# the natural "% improvement" framing.
 n_ex_missing <- n_before - n_after
-resp_overall <- 100 * mean(actg_df$y_binary)
-resp_ZDV_ddI <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 1])
-resp_ddI     <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 0])
+resp_overall <- 100 * (1 - mean(actg_df$y_binary))
+resp_ZDV_ddI <- 100 * (1 - mean(actg_df$y_binary[actg_df$treat_orig == 1]))
+resp_ddI     <- 100 * (1 - mean(actg_df$y_binary[actg_df$treat_orig == 0]))
 Q_n          <- sum(actg_df$flag_harm_ref)
 Q_N          <- nrow(actg_df)
 Q_prev_pct   <- 100 * mean(actg_df$flag_harm_ref)
 
 # Response-rate 2x2 grid (row = subgroup, col = treatment arm)
+# Same inversion: display % improvement, computed from the adverse-coded
+# y_binary as 1 - mean(y_binary).
 resp_grid <- data.frame(
   Subgroup  = c("Q (age > 34 & preanti \u2264 745)",
                 "Qc (complement)"),
   `ZDV+ddI` = c(
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 1]),
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 1])),
+    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 1])),
+    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 1]))),
   `ddI`     = c(
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 0]),
-    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0])),
+    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 0])),
+    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0]))),
   check.names = FALSE
 )
 
@@ -711,8 +823,9 @@ timings$data_prep <- proc.time()[3] - t0
   (ddI, control). N = `r n_before` before exclusion,
   **N = `r Q_N`** after removing `r n_ex_missing` subject(s) with
   missing `cd420`.
-- **Outcome**: binary response `y_binary = I(cd420 > cd40)`.
-  Overall response rate `r sprintf("%.1f%%", resp_overall)`;
+- **Outcome**: binary response, encoded internally as
+  `y_binary = I(cd420 <= cd40)` (adverse scale; see Section 1.1).
+  Overall **improvement** rate `r sprintf("%.1f%%", resp_overall)`;
   ZDV+ddI arm `r sprintf("%.1f%%", resp_ZDV_ddI)`; ddI arm
   `r sprintf("%.1f%%", resp_ddI)`.
 - **True subgroup Q** (used for ground-truth classification only, not
@@ -838,6 +951,7 @@ dgm_alt_init <- generate_glm_dgm(
   subgroup_vars = dgm_subgroup_vars,
   subgroup_cuts = dgm_subgroup_cuts,
   model         = "alt",
+  k_treat       = dgm_k_treat_alt,
   k_inter       = 0,    # no interaction before calibration
   n_super       = dgm_n_super,
   seed          = sim_seed,
@@ -889,6 +1003,7 @@ dgm_calibrated <- calibrate_glm_interaction(
   effect_measure = "OR",
   subgroup_vars = dgm_subgroup_vars,
   subgroup_cuts = dgm_subgroup_cuts,
+  k_treat       = dgm_k_treat_alt,
   k_inter_range = cal_k_grid_range,
   grid_step     = cal_grid_step,
   n_super       = dgm_n_super,
@@ -902,8 +1017,6 @@ cat("  OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
 cat("  OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
 cat("  OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
 cat("  k_inter:", dgm_calibrated$model_params$k_inter, "\n")
-cat("  -> Original scale: OR(Q) =",
-    round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
 
 timings$calibrate <- proc.time()[3] - t0
 ```
@@ -922,6 +1035,7 @@ cal_or_Q <- vapply(cal_grid, function(k) {
     outcome_var = "y_binary", treatment_var = "treat",
     outcome_type = "binary", subgroup_vars = dgm_subgroup_vars,
     subgroup_cuts = dgm_subgroup_cuts, model = "alt",
+    k_treat = dgm_k_treat_alt,
     k_inter = k, n_super = dgm_n_super, seed = sim_seed
   )
   d$hazard_ratios$harm_subgroup
@@ -955,6 +1069,126 @@ ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
 ```
 
 
+### Illustrative `k_treat` values: OR(ITT), OR(Q), and gap to c1
+
+To give the reader a concrete sense of how `k_treat` shifts the
+marginal and subgroup effects under H1, the table below holds the
+calibrated `k_inter` fixed and varies `k_treat` over the same grid
+$\{0.5, 1.0, 1.5\}$ as the null analog.  `k_treat` scales the
+fitted main treatment effect directly, so $\text{OR}(\text{ITT})$
+tracks `k_treat` smoothly; $\text{OR}(Q)$ inherits both the
+scaled main effect and the held-fixed interaction, so it hits
+the calibration target $\text{OR}(Q) = `r cal_target_or`$ only at
+the calibration `k_treat` and drifts away as `k_treat` is
+perturbed.  **Larger** `k_treat` amplifies the main effect,
+pushing both $\text{OR}(\text{ITT})$ and $\text{OR}(Q)$ further
+above c1 (improving FS detection); **smaller** `k_treat`
+attenuates and may pull $\text{OR}(Q)$ back toward c1
+(degrading detection).
+
+```{r dgm-alt-illustrate}
+#| code-fold: true
+#| code-summary: "Build three illustrative alt DGMs and tabulate (click to expand)"
+
+# Three illustrative alt DGMs.  k_inter is HELD FIXED at the value
+# returned by calibration (dgm_calibrated$model_params$k_inter); only
+# k_treat varies.  These DGMs are NOT used in the simulation loop
+# below — the simulation uses dgm_calibrated, which is the calibrated
+# alt DGM at k_treat = dgm_k_treat_alt.  The grid here is purely a
+# didactic table.
+k_inter_cal  <- dgm_calibrated$model_params$k_inter
+k_treat_grid <- c(0.5, 1.0, 1.5)
+
+illust_rows_alt <- lapply(k_treat_grid, function(k) {
+  d <- generate_glm_dgm(
+    data           = actg_df,
+    factor_vars    = dgm_factor_vars,
+    outcome_var    = "y_binary",
+    treatment_var  = "treat",
+    outcome_type   = "binary",
+    effect_measure = "OR",
+    subgroup_vars  = dgm_subgroup_vars,
+    subgroup_cuts  = dgm_subgroup_cuts,
+    model          = "alt",
+    k_treat        = k,
+    k_inter        = k_inter_cal,
+    n_super        = dgm_n_super,
+    seed           = sim_seed,
+    verbose        = FALSE
+  )
+  or_ITT_switched <- as.numeric(d$hazard_ratios$overall)
+  or_Q_switched   <- as.numeric(d$hazard_ratios$harm_subgroup)
+  data.frame(
+    k_treat       = k,
+    or_itt_switch = or_ITT_switched,
+    or_itt_orig   = 1 / or_ITT_switched,
+    or_Q_switch   = or_Q_switched,
+    or_Q_orig     = 1 / or_Q_switched,
+    gap_to_c1     = fs_or_threshold - or_Q_switched
+  )
+})
+illust_tbl_alt <- do.call(rbind, illust_rows_alt)
+
+gt::gt(illust_tbl_alt) |>
+  gt::tab_header(
+    title    = "Illustrative alt DGMs: OR(ITT), OR(Q), and gap to c1 by k_treat",
+    subtitle = sprintf(
+      paste0("ACTG175 benefit search, switched scale; ",
+             "c1 = %.3f, k_inter = %.3f (held fixed), n_super = %d"),
+      fs_or_threshold, k_inter_cal, dgm_n_super
+    )
+  ) |>
+  gt::tab_spanner(
+    label   = "OR(ITT)",
+    columns = c(or_itt_switch, or_itt_orig)
+  ) |>
+  gt::tab_spanner(
+    label   = "OR(Q)",
+    columns = c(or_Q_switch, or_Q_orig)
+  ) |>
+  gt::cols_label(
+    k_treat       = "k_treat",
+    or_itt_switch = "switched",
+    or_itt_orig   = "original",
+    or_Q_switch   = "switched",
+    or_Q_orig     = "original",
+    gap_to_c1     = gt::md("Gap (c1 \u2212 OR_Q_switched)")
+  ) |>
+  gt::fmt_number(
+    columns  = c(or_itt_switch, or_itt_orig,
+                 or_Q_switch,   or_Q_orig,   gap_to_c1),
+    decimals = 3
+  ) |>
+  gt::fmt_number(columns = k_treat, decimals = 1) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = k_treat == 1.0)
+  ) |>
+  gt::tab_footnote(
+    footnote = paste0(
+      "k_treat = 1.0 (bold row) preserves the fitted main treatment ",
+      "effect; this is the function default for generate_glm_dgm(). ",
+      "This document's calibration was performed at k_treat = ",
+      format(dgm_k_treat_alt, nsmall = 1),
+      " (set in the setup chunk via dgm_k_treat_alt), and the resulting ",
+      "k_inter = ", sprintf("%.3f", k_inter_cal),
+      " is held fixed across all three rows.  k_treat scales the main ",
+      "treatment effect directly, so OR(ITT) tracks k_treat smoothly; ",
+      "OR(Q) hits the calibration target only at the calibration k_treat ",
+      "because the held-fixed k_inter still adds to the linear predictor ",
+      "for Q members regardless of k_treat. ",
+      "Note: under H1, a NEGATIVE gap (last column) means OR(Q) exceeds ",
+      "c1, which is detection-favorable -- the opposite sign convention ",
+      "from the null table (where a positive gap is favorable, i.e., no ",
+      "false alarm). Effects are computed exactly from the super-",
+      "population's individual potential outcomes (p0, p1); marginal ORs ",
+      "depend on the covariate distribution and are not, in general, ",
+      "equal to any single conditional OR."
+    )
+  )
+```
+
+
 ## Step 3: Create Null DGM
 
 Under `model = "null"`, the treatment effect is **homogeneous**
@@ -978,6 +1212,7 @@ dgm_null <- generate_glm_dgm(
   subgroup_vars = dgm_subgroup_vars,
   subgroup_cuts = dgm_subgroup_cuts,
   model         = "null",
+  k_treat       = dgm_k_treat_null,
   n_super       = dgm_n_super,
   seed          = sim_seed,
   verbose       = TRUE
@@ -989,6 +1224,96 @@ cat("  OR(Q):  ", round(dgm_null$hazard_ratios$harm_subgroup, 3), "\n")
 cat("  OR(Qc): ", round(dgm_null$hazard_ratios$no_harm_subgroup, 3), "\n")
 
 timings$dgm_null <- proc.time()[3] - t0
+```
+
+
+### Illustrative `k_treat` values: OR(ITT) and gap to c1
+
+To give the reader a concrete sense of how `k_treat` controls the
+marginal ITT effect and therefore the gap from c1, the table below
+constructs three illustrative null DGMs at `k_treat` $\in \{0.5,
+1.0, 1.5\}$ using the same data, factor list, super-population
+size, and seed as the main `dgm_null` above.  The default
+(`k_treat = 1.0`) preserves the fitted ITT effect; **larger**
+`k_treat` amplifies the marginal benefit, pushing the
+switched-scale OR further above 1 and *narrowing* the gap to c1;
+**smaller** `k_treat` attenuates the marginal effect toward
+OR $\approx 1$ and *widens* the gap.
+
+```{r dgm-null-illustrate}
+#| code-fold: true
+#| code-summary: "Build three illustrative null DGMs and tabulate (click to expand)"
+
+# Three illustrative null DGMs.  These are NOT used in the simulation
+# loop below; the simulation uses `dgm_null` from the previous chunk
+# (constructed with k_treat = dgm_k_treat_null).  The grid here is
+# purely a didactic table so the reader can see how k_treat moves
+# OR(ITT) and the gap to c1.
+k_treat_grid <- c(0.5, 1.0, 1.5)
+
+illust_rows <- lapply(k_treat_grid, function(k) {
+  d <- generate_glm_dgm(
+    data           = actg_df,
+    factor_vars    = dgm_factor_vars,
+    outcome_var    = "y_binary",
+    treatment_var  = "treat",
+    outcome_type   = "binary",
+    effect_measure = "OR",
+    subgroup_vars  = dgm_subgroup_vars,
+    subgroup_cuts  = dgm_subgroup_cuts,
+    model          = "null",
+    k_treat        = k,
+    n_super        = dgm_n_super,
+    seed           = sim_seed,
+    verbose        = FALSE
+  )
+  or_switched <- as.numeric(d$hazard_ratios$overall)
+  data.frame(
+    k_treat     = k,
+    or_switched = or_switched,
+    or_original = 1 / or_switched,
+    gap_to_c1   = fs_or_threshold - or_switched
+  )
+})
+illust_tbl <- do.call(rbind, illust_rows)
+
+gt::gt(illust_tbl) |>
+  gt::tab_header(
+    title    = "Illustrative null DGMs: OR(ITT) and gap to c1 by k_treat",
+    subtitle = sprintf(
+      "ACTG175 benefit search, switched scale; c1 = %.3f, n_super = %d",
+      fs_or_threshold, dgm_n_super
+    )
+  ) |>
+  gt::cols_label(
+    k_treat     = "k_treat",
+    or_switched = "OR(ITT, switched)",
+    or_original = "OR(ITT, original)",
+    gap_to_c1   = gt::md("Gap (c1 \u2212 OR_switched)")
+  ) |>
+  gt::fmt_number(
+    columns  = c(or_switched, or_original, gap_to_c1),
+    decimals = 3
+  ) |>
+  gt::fmt_number(columns = k_treat, decimals = 1) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = k_treat == 1.0)
+  ) |>
+  gt::tab_footnote(
+    footnote = paste0(
+      "k_treat = 1.0 (bold row) preserves the fitted ITT effect; this is ",
+      "the function default for generate_glm_dgm(). This document's null ",
+      "simulation uses k_treat = ", format(dgm_k_treat_null, nsmall = 1),
+      " (set in the setup chunk via dgm_k_treat_null). Smaller k_treat ",
+      "attenuates the marginal effect toward OR \u2248 1 (widening the gap ",
+      "to c1); larger k_treat amplifies the effect (narrowing the gap). ",
+      "The realised OR is computed exactly from the super-population's ",
+      "individual potential outcomes (p0, p1); the marginal OR depends ",
+      "on the covariate distribution and is not, in general, equal to ",
+      "any single conditional OR."
+    )
+  )
 ```
 
 
@@ -1091,19 +1416,17 @@ if (!is.null(fs_actg$grp.consistency)) {
       fit_H <- glm(y_binary ~ treat, data = df_est[in_H, ],
                     family = binomial)
       or_H <- exp(coef(fit_H)["treat"])
-      cat(sprintf("  OR(H, switched):  %.3f  (inverted: %.3f)\n",
-          or_H, 1/or_H))
+      cat(sprintf("  OR(H):  %.3f\n", or_H))
     }
     if (sum(in_Hc) >= 10) {
       fit_Hc <- glm(y_binary ~ treat, data = df_est[in_Hc, ],
                      family = binomial)
       or_Hc <- exp(coef(fit_Hc)["treat"])
-      cat(sprintf("  OR(Hc, switched): %.3f  (inverted: %.3f)\n",
-          or_Hc, 1/or_Hc))
+      cat(sprintf("  OR(Hc): %.3f\n", or_Hc))
     }
 
     fit_itt <- glm(y_binary ~ treat, data = df_est, family = binomial)
-    cat(sprintf("  OR(ITT, switched): %.3f\n",
+    cat(sprintf("  OR(ITT): %.3f\n",
         exp(coef(fit_itt)["treat"])))
   } else {
     cat("No subgroup identified by ForestSearch.\n")
@@ -1411,6 +1734,7 @@ fs_params <- list(
   d1.min                 = fs_d1_min,
   maxk                   = fs_maxk,
   vi.grf.min             = fs_vi_grf_min,
+  dmin.grf               = fs_dmin_grf,   # FS-internal GRF cut filter
   seedit                 = fs_seedit,
 
   # GRF tuning (applies to ForestSearch's internal GRF pre-screening)
@@ -2351,6 +2675,37 @@ format_oc_results(
 )
 ```
 
+```{r oc-null-tables}
+build_estimation_table(
+  results         = results_null,
+  dgm             = dgm_null,
+  analysis_method = "FS",
+  subtitle = sprintf(
+    "ACTG175 Binary DGM (raw cont.) | n = %d, %d sims",
+    sim_n_sample, nsims_null
+  ),
+  font_size = 16,
+  subgroup_notation = sg_notation
+)
+
+if ("GRF" %in% unique(results_null$analysis)) {
+  build_estimation_table(
+    results         = results_null,
+    dgm             = dgm_null,
+    analysis_method = "GRF",
+    subtitle = sprintf(
+      "ACTG175 Binary DGM, GRF raw cont. (dmin=%.2f) | n = %d, %d sims",
+      grf_dmin, sim_n_sample, nsims_null
+    ),
+    font_size = 16,
+    subgroup_notation = sg_notation
+  )
+}
+```
+
+
+
+
 ::: {.callout-note}
 Under H0, $Q = \emptyset$.  Sen is undefined (shown as "—")
 and PPV $\equiv 0$ (León et al. 2024, Section 3).
@@ -2774,6 +3129,290 @@ cat(gt::as_raw_html(
     gt::tab_options(table.font.size = 11)
 ), "\n\n")
 ```
+
+
+# Appendix: Effect Measures and Outcome Direction Conventions {#sec-appendix-conventions}
+
+*This appendix is a quick-lookup reference for this vignette's
+directional configuration.  For comprehensive coverage across all
+endpoint types -- including the eight-scenario decision table,
+worked code examples for binary, continuous, count, and survival
+outcomes, common pitfalls, and verification tests -- see the
+standalone* [*ForestSearch Outcome Orientation Reference*](https://larry-leon.github.io/forestsearch/articles/forestsearch_outcome_orientation_guide.html) *vignette.*
+
+## A.1 The unified harm-search convention
+
+Every subgroup search in `forestsearch` uses a **single comparison
+direction** throughout the pipeline.  In each candidate subgroup
+$S$, the package checks whether the estimated treatment effect
+satisfies
+
+$$
+\hat{\theta}(S) \;\geq\; c_1
+$$
+
+(`effect.threshold`), with the same direction reused for the
+bootstrap consistency check, $\hat{\theta}(S_b) \geq c_2$.  This
+comparison never flips.  The entire question of how to set up a
+search reduces to: **how do I orient my data so the subgroup I
+want to find produces $\hat{\theta}(S) > 0$ on the chosen effect
+scale?**
+
+Two transformations handle the orientations that don't satisfy
+this naturally.  First, **benefit search** -- finding a subgroup
+in which the original experimental treatment is *beneficial* --
+is implemented by switching the treatment labels so the worse
+arm becomes `treat = 1`.  A benefit subgroup of the original
+experimental then appears as a harm subgroup of the
+switched-treatment; magnitudes are inverted at reporting time
+via `subgroup_notation = "benefit"`.  Second, when the user's
+binary outcome is encoded on the positive scale (higher $Y$ =
+better), the binary effect estimator can substitute $1 - Y$
+before computing the OR -- this is what the `adverse_outcome`
+flag controls in the FS estimator path.
+
+The flag's *name* suggests an interpretive label ("the outcome
+is adverse"), but mechanically what it does in the binary FS
+estimator is **flip $Y$ to $1 - Y$ when `adverse_outcome = FALSE`,
+and leave $Y$ as-is when `TRUE`** (the default for binary).  The
+two framings -- pre-flip $Y$ at data prep and pass `TRUE`, or
+keep $Y$ positive and pass `FALSE` -- are mechanically
+equivalent for binary outcomes.  For **continuous** and **count**
+outcomes the FS effect estimator does **not** auto-flip on the
+flag (only the GRF candidate-cut step does); for those outcome
+types you must encode $Y$ on the harm direction at data prep
+and pass `adverse_outcome = TRUE`.  The simplest safe rule
+across all GLM outcome types is therefore: **encode $Y$ on the
+adverse scale at data prep and pass `adverse_outcome = TRUE`
+everywhere**.  This is the convention used by the present
+vignette; see @sec-stat-goals for the specific row that applies
+and Section 1.1 for the data-prep step.
+
+::: {.callout-tip title="DGM golden rule"}
+Once the data is correctly oriented, build the DGM with **positive
+`k_inter`**, a **positive calibration target**, and a **positive
+`k_inter_range` grid**.  The DGM operates on the final, oriented
+data; outcome and treatment manipulations (negation, switching)
+happen at the data-prep step, *before* the DGM is constructed.
+:::
+
+## A.2 Effect scales and threshold conventions
+
+`forestsearch` works on the **log scale** internally for ratio
+measures and on the **identity scale** for additive measures.
+This affects how `effect.threshold` is interpreted:
+
+| Measure type | Examples | What `effect.threshold = c₁` becomes |
+|--------------|----------|---------------------------------------|
+| Ratio | HR, OR, IRR, RR | $\log(c_1)$ -- e.g., 1.25 → 0.223 |
+| Additive (bounded) | RD, IRD | $c_1$ directly; bounded in $[-1, 1]$ |
+| Additive (unbounded) | MD | $c_1$ directly; unbounded |
+
+For RD and IRD, the package warns and remaps if the threshold
+is set outside the bounded range.  For MD (mean difference) the
+threshold is genuinely unbounded -- values like
+30 cells/$\mu$L are legitimate, and the package no longer
+remaps them as it once did when MD was incorrectly treated as a
+bounded measure.  In all cases, the comparison the package
+performs internally is $\hat{\theta} \geq$ (transformed
+threshold), with $\hat{\theta}$ on the same scale (log for
+ratios, identity for additives).
+
+
+## A.3 Reference table
+
+```{r appendix-conventions-table}
+#| code-fold: true
+#| code-summary: "Build the master conventions table (click to expand)"
+
+conv <- data.frame(
+  Outcome   = c(rep("Binary",     4),
+                rep("Continuous", 4),
+                rep("Count",      4),
+                rep("Survival",   2)),
+  Measure   = c(rep("OR",  4),
+                rep("MD",  4),
+                rep("IRR", 4),
+                rep("HR",  2)),
+  Direction = c(
+    "Positive (e.g., improvement = 1)",
+    "Positive (e.g., improvement = 1)",
+    "Adverse (e.g., death = 1)",
+    "Adverse (e.g., death = 1)",
+    "Positive (e.g., QoL score, higher = better)",
+    "Positive (e.g., QoL score, higher = better)",
+    "Adverse (e.g., pain score, higher = worse)",
+    "Adverse (e.g., pain score, higher = worse)",
+    "Positive (rare: e.g., recovery events)\u00b9",
+    "Positive (rare: e.g., recovery events)\u00b9",
+    "Adverse (e.g., adverse-event count)",
+    "Adverse (e.g., adverse-event count)",
+    "Event = adverse (fixed by causal_survival_forest)",
+    "Event = adverse (fixed)"
+  ),
+  Goal      = rep(c("Harm", "Benefit"), 7),
+  EncodeY   = c(
+    "Y as-is", "Y as-is",         # binary positive
+    "Y as-is", "Y as-is",         # binary adverse
+    "Pre-flip: Y_use = -Y\u00b2",  # cont positive
+    "Pre-flip: Y_use = -Y\u00b2",
+    "Y as-is", "Y as-is",         # cont adverse
+    "(see footnote 1)",            # count positive
+    "(see footnote 1)",
+    "Y as-is", "Y as-is",         # count adverse
+    "Y as-is", "Y as-is"          # survival
+  ),
+  Treat     = rep(c("Original", "Switched"), 7),
+  AdvFlag   = c(
+    "FALSE", "FALSE",   # binary positive
+    "TRUE",  "TRUE",    # binary adverse
+    "TRUE",  "TRUE",    # cont positive (after pre-flip)
+    "TRUE",  "TRUE",    # cont adverse
+    "TRUE",  "TRUE",    # count positive
+    "TRUE",  "TRUE",    # count adverse
+    "(N/A)", "(N/A)"     # survival
+  ),
+  Notation  = rep(c("\"harm\"", "\"benefit\""), 7),
+  Meaning   = c(
+    # Binary
+    "Trt reduces P(positive Y) in subgroup",
+    "Orig-experimental increases P(positive Y) in subgroup",
+    "Trt increases P(adverse Y) in subgroup",
+    "Orig-experimental reduces P(adverse Y) in subgroup",
+    # Continuous
+    "Trt reduces Y (positive scale) in subgroup",
+    "Orig-experimental increases Y (positive scale) in subgroup",
+    "Trt increases Y (adverse scale) in subgroup",
+    "Orig-experimental reduces Y (adverse scale) in subgroup",
+    # Count
+    "Trt reduces rate of (positive) events in subgroup",
+    "Orig-experimental increases rate of (positive) events",
+    "Trt increases rate of adverse events in subgroup",
+    "Orig-experimental reduces rate of adverse events",
+    # Survival
+    "Trt increases hazard of event in subgroup",
+    "Orig-experimental reduces hazard of event in subgroup"
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Build gt
+gt_conv <- gt::gt(conv, groupname_col = "Outcome", rowname_col = NULL) |>
+  gt::cols_label(
+    Measure   = gt::md("**Measure**"),
+    Direction = gt::md("**Native Y direction**"),
+    Goal      = gt::md("**Search goal**"),
+    EncodeY   = gt::md("**Encode Y at data prep**"),
+    Treat     = gt::md("**Treatment coding**"),
+    AdvFlag   = gt::md("**`adverse_outcome`**"),
+    Notation  = gt::md("**`subgroup_notation`**"),
+    Meaning   = gt::md("**\"Effect > c\u2081\" means in subgroup**")
+  ) |>
+  gt::tab_header(
+    title    = "Effect measure / outcome-direction / search-goal combinations",
+    subtitle = "User-facing settings for forestsearch() and grf.subg.harm.glm()"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(
+    table.font.size = 10,
+    row_group.padding = gt::px(4),
+    data_row.padding  = gt::px(3)
+  ) |>
+  gt::tab_footnote(
+    footnote = paste0(
+      "Positive count outcomes are uncommon (count outcomes typically ",
+      "model adverse events or rates).  If you have one, model the ",
+      "complement (e.g., max-rate minus observed) on the adverse scale, ",
+      "or consult the package authors."
+    ),
+    locations = gt::cells_body(
+      columns = "Direction",
+      rows    = which(conv$Outcome == "Count" & grepl("rare", conv$Direction))
+    )
+  ) |>
+  gt::tab_footnote(
+    footnote = paste0(
+      "For continuous outcomes the FS effect estimator (`make_lm_estimator`) ",
+      "does not respect `adverse_outcome`.  Pre-flip Y to the adverse direction ",
+      "at data prep so OR / MD > threshold consistently indicates harm.  ",
+      "GRF (`grf.subg.harm.glm`) does respect the flag for continuous; the ",
+      "pre-flip + `adverse_outcome = TRUE` rule keeps both pipelines aligned."
+    ),
+    locations = gt::cells_body(
+      columns = "EncodeY",
+      rows    = which(conv$Outcome == "Continuous" &
+                      grepl("Pre-flip", conv$EncodeY))
+    )
+  )
+
+gt_conv
+```
+
+## A.4 Worked example: this vignette's configuration
+
+The present vignette uses the row **Binary | OR | Adverse | Benefit**.
+Concretely:
+
+- The clinical concept is improvement (CD4 response by 20 weeks),
+  but `y_binary` is encoded at data prep on the **adverse** scale
+  as $I(\text{cd420} \leq \text{cd40})$ -- a 1 indicates failure
+  to improve.
+- Treatment is **switched** so ddI $\to$ `treat = 1` and
+  ZDV+ddI $\to$ `treat = 0`.
+- `adverse_outcome` defaults to `TRUE` for binary inside
+  `forestsearch()` and is consistent with the adverse encoding
+  of `y_binary`.
+- The package's harm-search machinery flags subgroups where the
+  switched treatment (ddI) increases the odds of non-improvement
+  -- equivalently, where the original experimental (ZDV+ddI) is
+  beneficial in giving improvement.
+- Calibration target $\text{OR}(Q) = `r cal_target_or`$ corresponds
+  to a $`r cal_target_or`\times$ odds-ratio of benefit for
+  ZDV+ddI in $Q$.  This is the same magnitude as OR computed on
+  the natural (original treatment, improvement-Y) scale, by the
+  $\text{OR}(\text{switched, adverse}) = \text{OR}(\text{original, positive})$
+  symmetry.
+- Reporting uses `subgroup_notation = "benefit"` so summary tables
+  display effect estimates on the original-experimental side.
+
+
+## A.5 Common pitfalls
+
+The standalone [*ForestSearch Outcome Orientation Reference*](https://larry-leon.github.io/forestsearch/articles/forestsearch_outcome_orientation_guide.html)
+is the authoritative source for setup mechanics across all endpoint
+types.  Two pitfalls show up often enough in practice to flag
+here:
+
+::: {.callout-warning title="Pitfall 1: calibration target on the wrong scale"}
+Setting (e.g.) `cal_target_or = 0.5` together with a negative
+`k_inter_range` produces a $Q$ that is only marginally more
+extreme than the rest of the sample in the same direction --
+no real contrast.  *Symptom:* near-100% detection paired with
+very high false-positive rate (~97%).  *Fix:* use a target
+above 1 with a positive `k_inter` grid for ratio measures, or
+a positive target with a positive grid for MD.
+:::
+
+::: {.callout-warning title="Pitfall 2: `adverse_outcome` confused with outcome negation"}
+Setting `adverse_outcome = FALSE` for a benefit search with
+switched treatment and a *positive* binary outcome causes the
+binary FS estimator to flip $Y \to 1 - Y$, reversing the OR
+direction and breaking the $\hat{\theta} \geq c_1$ comparison.
+*Symptom:* zero detection.  *Fix:* leave `adverse_outcome` at
+its default `TRUE` for binary, *or* pre-flip $Y$ at data prep
+(the convention used by this vignette -- see @sec-stat-goals).
+:::
+
+For the full list of pitfalls -- including MD-threshold remapping
+behaviour, survival with positive events, and DGM construction
+gotchas -- the eight-scenario decision table, the four
+verification tests, and worked code examples for binary,
+continuous, count, and survival outcomes, see the standalone
+[*ForestSearch Outcome Orientation Reference*](https://larry-leon.github.io/forestsearch/articles/forestsearch_outcome_orientation_guide.html)
+vignette.
 
 
 # Session Info {#sec-session}

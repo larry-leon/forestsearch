@@ -15,7 +15,9 @@ build_estimation_table(
   font_size = 12,
   cde_H = NULL,
   cde_Hc = NULL,
-  subgroup_notation = c("harm", "benefit")
+  subgroup_notation = c("harm", "benefit"),
+  trim_threshold = 1000,
+  trim_fraction = 0.01
 )
 }
 \arguments{
@@ -56,6 +58,21 @@ for the complement. Auto-detected analogously.}
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
 subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
 benefit-search analyses (treatment switching).}
+
+\item{trim_threshold}{Numeric or \code{NULL}. When the raw mean of
+an estimator's values exceeds this absolute value, that row's
+Avg / SD / Min / Max are recomputed on the central
+\code{1 - 2 * trim_fraction} of estimates and the row's Estimator
+label is suffixed with \code{"(trimmed)"}. A footnote is added to
+the table when any row triggers trimming. Set \code{NULL} to
+disable trimming entirely. Default: \code{1000} (a value typical
+simulation results will never approach unless a small subgroup
+produces a degenerate effect estimate).}
+
+\item{trim_fraction}{Numeric in \code{(0, 0.5)}. Fraction of
+estimates to trim from each tail (per row) when trimming
+triggers. Default: \code{0.01} (lower and upper 1\\%; central 98\\%
+used). Has no effect when \code{trim_threshold = NULL}.}
 }
 \value{
 A \code{gt} table object, or \code{NULL} if no estimable

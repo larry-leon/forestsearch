@@ -13,7 +13,9 @@ plot_effect_distribution(
   title = NULL,
   subtitle = NULL,
   panel_labels = NULL,
-  drop_undetected = TRUE
+  drop_undetected = TRUE,
+  trim_threshold = NULL,
+  trim_fraction = 0.01
 )
 }
 \arguments{
@@ -63,11 +65,33 @@ Default: \code{c(itt = "ITT", H = "Identified H-hat",
 \eqn{\hat H^c} panels to replicates where a subgroup was
 identified (\code{any.H == 1}).  Default: \code{TRUE}.  The ITT
 panel always uses all replicates.}
+
+\item{trim_threshold}{Numeric or \code{NULL}.  When non-\code{NULL},
+trimming is applied only if any of the three groups has a raw
+mean exceeding this absolute value -- i.e., extreme outliers that
+distort the violin or push annotated mean/SD into scientific
+notation.  When \code{NULL} (default), no trimming is performed
+and behaviour is backward-compatible.  The MRCT analogue
+\code{\link{SGplot_estimates}} uses the same pattern but triggers
+trimming purely on \code{trim_fraction}; this function adds the
+threshold gate so casual use does not trim healthy data.  Typical
+values: \code{NULL} for clean datasets, \code{100} for OR / HR
+plots that occasionally show wild estimates.}
+
+\item{trim_fraction}{Numeric in (0, 0.5).  Fraction of observations
+to trim from each tail of each group when trimming triggers.
+Default: \code{0.01} (1\\% from each tail; i.e., the central 98\\%
+of values per group is kept).  Has no effect when
+\code{trim_threshold = NULL}.}
 }
 \value{
 A \code{ggplot2} object.  Has \code{attr(p, "panel_data")}
 set to the long-format \code{data.table} used for plotting (for
-downstream summaries or diagnostic inspection).
+downstream summaries or diagnostic inspection).  When trimming is
+active, also has \code{attr(p, "trim_info")} containing per-group
+diagnostics (\code{n_total}, \code{n_trimmed}, \code{n_flagged},
+\code{raw_mean}, \code{raw_sd}, \code{trimmed_mean},
+\code{trimmed_sd}, \code{lower_bound}, \code{upper_bound}).
 }
 \description{
 Builds a three-panel violin plot (ITT / identified \eqn{\hat H} /

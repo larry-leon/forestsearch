@@ -64,10 +64,30 @@
 #'   \eqn{\hat H^c} panels to replicates where a subgroup was
 #'   identified (\code{any.H == 1}).  Default: \code{TRUE}.  The ITT
 #'   panel always uses all replicates.
+#' @param trim_threshold Numeric or \code{NULL}.  When non-\code{NULL},
+#'   trimming is applied only if any of the three groups has a raw
+#'   mean exceeding this absolute value -- i.e., extreme outliers that
+#'   distort the violin or push annotated mean/SD into scientific
+#'   notation.  When \code{NULL} (default), no trimming is performed
+#'   and behaviour is backward-compatible.  The MRCT analogue
+#'   \code{\link{SGplot_estimates}} uses the same pattern but triggers
+#'   trimming purely on \code{trim_fraction}; this function adds the
+#'   threshold gate so casual use does not trim healthy data.  Typical
+#'   values: \code{NULL} for clean datasets, \code{100} for OR / HR
+#'   plots that occasionally show wild estimates.
+#' @param trim_fraction Numeric in (0, 0.5).  Fraction of observations
+#'   to trim from each tail of each group when trimming triggers.
+#'   Default: \code{0.01} (1\% from each tail; i.e., the central 98\%
+#'   of values per group is kept).  Has no effect when
+#'   \code{trim_threshold = NULL}.
 #'
 #' @return A \code{ggplot2} object.  Has \code{attr(p, "panel_data")}
 #'   set to the long-format \code{data.table} used for plotting (for
-#'   downstream summaries or diagnostic inspection).
+#'   downstream summaries or diagnostic inspection).  When trimming is
+#'   active, also has \code{attr(p, "trim_info")} containing per-group
+#'   diagnostics (\code{n_total}, \code{n_trimmed}, \code{n_flagged},
+#'   \code{raw_mean}, \code{raw_sd}, \code{trimmed_mean},
+#'   \code{trimmed_sd}, \code{lower_bound}, \code{upper_bound}).
 #'
 #' @seealso \code{\link{run_simulation_analysis}} for the simulation
 #'   pipeline, \code{\link{SGplot_estimates}} for the MRCT analogue,
@@ -111,7 +131,9 @@ plot_effect_distribution <- function(
     title             = NULL,
     subtitle          = NULL,
     panel_labels      = NULL,
-    drop_undetected   = TRUE
+    drop_undetected   = TRUE,
+    trim_threshold    = NULL,
+    trim_fraction     = 0.01
 ) {
 
   if (!requireNamespace("ggplot2",    quietly = TRUE)) {
@@ -165,6 +187,93 @@ plot_effect_distribution <- function(
   ))
 
   # ---------------------------------------------------------------------------
+  # Optional per-group trimming (activated only when trim_threshold is set
+  # AND at least one group has |raw_mean| exceeding it).  Mirrors the pattern
+  # in SGplot_estimates() but adds threshold-gating so backward-compatible
+  # default (trim_threshold = NULL) leaves data untouched.
+  # ---------------------------------------------------------------------------
+  trim_info  <- NULL
+  trim_active <- FALSE
+
+  if (!is.null(trim_threshold)) {
+    if (!is.numeric(trim_threshold) || length(trim_threshold) != 1L ||
+        trim_threshold <= 0) {
+      stop("'trim_threshold' must be a positive numeric scalar or NULL.",
+           call. = FALSE)
+    }
+    if (!is.numeric(trim_fraction) || length(trim_fraction) != 1L ||
+        trim_fraction <= 0 || trim_fraction >= 0.5) {
+      stop("'trim_fraction' must be in (0, 0.5).", call. = FALSE)
+    }
+
+    # Decide whether trimming triggers: any group's raw |mean| exceeds threshold
+    raw_means <- vapply(c("itt", "H", "Hc"), function(g) {
+      v <- panel_df$est[panel_df$group == g]
+      v <- v[!is.na(v)]
+      if (length(v) == 0L) NA_real_ else mean(v)
+    }, numeric(1))
+
+    trim_active <- any(!is.na(raw_means) &
+                       abs(raw_means) > trim_threshold)
+
+    if (trim_active) {
+      panel_df[, trimmed := FALSE]
+      trim_info     <- list()
+      total_flagged <- 0L
+
+      for (g in c("itt", "H", "Hc")) {
+        idx        <- which(panel_df$group == g)
+        vals       <- panel_df$est[idx]
+        vals_clean <- vals[!is.na(vals)]
+
+        if (length(vals_clean) < 5L) {
+          trim_info[[g]] <- list(
+            n_total = length(vals), n_trimmed = NA_integer_,
+            n_flagged = 0L,
+            raw_mean = if (length(vals_clean) > 0L) mean(vals_clean) else NA_real_,
+            raw_sd   = if (length(vals_clean) > 1L) stats::sd(vals_clean) else NA_real_,
+            trimmed_mean = NA_real_, trimmed_sd = NA_real_,
+            lower_bound  = NA_real_, upper_bound = NA_real_
+          )
+          next
+        }
+
+        lo <- stats::quantile(vals_clean, trim_fraction,     na.rm = TRUE)
+        hi <- stats::quantile(vals_clean, 1 - trim_fraction, na.rm = TRUE)
+
+        is_extreme <- !is.na(panel_df$est[idx]) &
+          (panel_df$est[idx] < lo | panel_df$est[idx] > hi)
+        panel_df$trimmed[idx[is_extreme]] <- TRUE
+
+        vals_trimmed   <- vals_clean[vals_clean >= lo & vals_clean <= hi]
+        n_flagged      <- sum(is_extreme)
+        total_flagged  <- total_flagged + n_flagged
+
+        trim_info[[g]] <- list(
+          n_total      = length(vals),
+          n_trimmed    = length(vals_trimmed),
+          n_flagged    = n_flagged,
+          raw_mean     = mean(vals_clean),
+          raw_sd       = stats::sd(vals_clean),
+          trimmed_mean = mean(vals_trimmed),
+          trimmed_sd   = stats::sd(vals_trimmed),
+          lower_bound  = as.numeric(lo),
+          upper_bound  = as.numeric(hi)
+        )
+      }
+
+      # Auto-extend subtitle when caller did not supply one
+      if (is.null(subtitle)) {
+        subtitle <- sprintf(
+          "Trimmed mean/SD shown (raw |mean| exceeded %s; %.0f%% symmetric trim per group; %d obs flagged)",
+          format(trim_threshold, big.mark = ","),
+          100 * trim_fraction, total_flagged
+        )
+      }
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # Panel labels
   # ---------------------------------------------------------------------------
   default_labels <- c(
@@ -186,12 +295,26 @@ plot_effect_distribution <- function(
   # x-axis annotations: mean (sd), N per panel
   # ---------------------------------------------------------------------------
   lvls <- levels(panel_df$group)
+  # Map factor levels back to internal keys for trim_info lookup
+  internal_key <- c("itt", "H", "Hc")
+  names(internal_key) <- lvls
+
   annotated <- vapply(lvls, function(g) {
-    v <- panel_df$est[panel_df$group == g]
-    v <- v[!is.na(v)]
-    if (length(v) < 2L) g
-    else sprintf("%s\nMean: %.3f (%.3f),  N = %d",
-                 g, mean(v), stats::sd(v), length(v))
+    key <- internal_key[g]
+
+    if (trim_active && !is.null(trim_info[[key]]) &&
+        !is.na(trim_info[[key]]$trimmed_mean)) {
+      ti <- trim_info[[key]]
+      sprintf("%s\nMean*: %.3f (%.3f),  N = %d  (%d flagged)",
+              g, ti$trimmed_mean, ti$trimmed_sd, ti$n_trimmed,
+              ti$n_flagged)
+    } else {
+      v <- panel_df$est[panel_df$group == g]
+      v <- v[!is.na(v)]
+      if (length(v) < 2L) g
+      else sprintf("%s\nMean: %.3f (%.3f),  N = %d",
+                   g, mean(v), stats::sd(v), length(v))
+    }
   }, character(1))
 
   # ---------------------------------------------------------------------------
@@ -219,8 +342,17 @@ plot_effect_distribution <- function(
   # ---------------------------------------------------------------------------
   # Plot
   # ---------------------------------------------------------------------------
+  # When trimming is active, plot data excludes flagged rows so the violins
+  # are not distorted by extremes; full panel_df is still returned as an
+  # attribute for downstream inspection.
+  plot_df <- if (trim_active) {
+    panel_df[panel_df$trimmed == FALSE, ]
+  } else {
+    panel_df
+  }
+
   p <- ggplot2::ggplot(
-      panel_df,
+      plot_df,
       ggplot2::aes(x = .data$group, y = .data$est, fill = .data$group)
     ) +
     ggplot2::geom_violin(trim = FALSE, alpha = 0.7) +
@@ -241,5 +373,6 @@ plot_effect_distribution <- function(
   }
 
   attr(p, "panel_data") <- panel_df
+  if (trim_active) attr(p, "trim_info") <- trim_info
   p
 }

@@ -503,6 +503,19 @@ build_classification_table <- function(
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
 #'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
 #'   benefit-search analyses (treatment switching).
+#' @param trim_threshold Numeric or \code{NULL}. When the raw mean of
+#'   an estimator's values exceeds this absolute value, that row's
+#'   Avg / SD / Min / Max are recomputed on the central
+#'   \code{1 - 2 * trim_fraction} of estimates and the row's Estimator
+#'   label is suffixed with \code{"(trimmed)"}. A footnote is added to
+#'   the table when any row triggers trimming. Set \code{NULL} to
+#'   disable trimming entirely. Default: \code{1000} (a value typical
+#'   simulation results will never approach unless a small subgroup
+#'   produces a degenerate effect estimate).
+#' @param trim_fraction Numeric in \code{(0, 0.5)}. Fraction of
+#'   estimates to trim from each tail (per row) when trimming
+#'   triggers. Default: \code{0.01} (lower and upper 1\%; central 98\%
+#'   used). Has no effect when \code{trim_threshold = NULL}.
 #'
 #' @return A \code{gt} table object, or \code{NULL} if no estimable
 #'   realizations exist.
@@ -569,7 +582,9 @@ build_estimation_table <- function(
     font_size = 12,
     cde_H = NULL,
     cde_Hc = NULL,
-    subgroup_notation = c("harm", "benefit")
+    subgroup_notation = c("harm", "benefit"),
+    trim_threshold = 1000,
+    trim_fraction = 0.01
 ) {
 
   subgroup_notation <- match.arg(subgroup_notation)
@@ -717,22 +732,65 @@ build_estimation_table <- function(
     )
   }
 
+  # ── Trimming infrastructure ──────────────────────────────────────────────
+  # Mirrors summaryout_mrct() in mrct_simulation.R.  Trimming triggers ONLY
+  # when abs(mean(est)) exceeds trim_threshold for a given row, so default
+  # behaviour on healthy data is unchanged.  An environment is used (not
+  # <<-) so make_est_row() can mutate the flag without tripping CRAN's
+  # global-assignment check.
+  if (!is.null(trim_threshold)) {
+    if (!is.numeric(trim_threshold) || length(trim_threshold) != 1L ||
+        trim_threshold <= 0) {
+      stop("'trim_threshold' must be a positive numeric scalar or NULL.",
+           call. = FALSE)
+    }
+    if (!is.numeric(trim_fraction) || length(trim_fraction) != 1L ||
+        trim_fraction <= 0 || trim_fraction >= 0.5) {
+      stop("'trim_fraction' must be in (0, 0.5).", call. = FALSE)
+    }
+  }
+  trim_env <- new.env(parent = emptyenv())
+  trim_env$trimmed_any <- FALSE
+
   # ── Helper: compute one estimation row ────────────────────────────────────
   # When has_cde is TRUE, produces both b-dagger and b-ddagger bias columns.
+  # Threshold-gated trimming: when abs(raw mean) exceeds trim_threshold the
+  # central (1 - 2 * trim_fraction) of estimates is used for avg / sd / min /
+  # max, the row is flagged in trim_env, and the Estimator label gains a
+  # " (trimmed)" suffix.  When trim_threshold is NULL no trimming occurs.
   make_est_row <- function(estimates, true_val, label, cde_val = NA_real_) {
     est <- estimates[!is.na(estimates)]
     if (length(est) == 0) return(NULL)
+
+    raw_mean <- mean(est)
+
+    is_trimmed <- FALSE
+    if (!is.null(trim_threshold) && length(est) >= 5L &&
+        abs(raw_mean) > trim_threshold) {
+      lo <- stats::quantile(est, trim_fraction,     na.rm = TRUE)
+      hi <- stats::quantile(est, 1 - trim_fraction, na.rm = TRUE)
+      est_trim <- est[est >= lo & est <= hi]
+      if (length(est_trim) >= 3L) {
+        est        <- est_trim
+        is_trimmed <- TRUE
+        trim_env$trimmed_any <- TRUE
+      }
+    }
 
     avg_est  <- mean(est)
     sd_est   <- stats::sd(est)
     min_est  <- min(est)
     max_est  <- max(est)
 
-    # b-dagger: bias relative to marginal (causal) truth
+    # b-dagger: bias relative to marginal (causal) truth.  Bias is computed
+    # from the (possibly trimmed) avg_est so the displayed avg and bias stay
+    # internally consistent.
     b_dagger <- 100 * (avg_est - true_val) / true_val
 
+    row_label <- if (is_trimmed) paste0(label, " (trimmed)") else label
+
     row <- data.frame(
-      Estimator          = label,
+      Estimator          = row_label,
       Avg                = round(avg_est, digits),
       SD                 = round(sd_est, digits),
       Min                = round(min_est, digits),
@@ -925,6 +983,20 @@ build_estimation_table <- function(
   }
   gt_tbl <- gt::tab_footnote(gt_tbl, footnote = footnote_parts)
 
+  # Trim footnote: shown only if any row triggered threshold-gated trimming.
+  if (trim_env$trimmed_any) {
+    pct <- round(trim_fraction * 100)
+    trim_note <- sprintf(
+      paste0("Rows marked '(trimmed)' had raw mean exceeding %s; the ",
+             "Avg / SD / Min / Max shown for those rows are computed on ",
+             "the central %d%% of estimates (lower and upper %d%% excluded ",
+             "per row)."),
+      format(trim_threshold, big.mark = ","),
+      100 - 2 * pct, pct
+    )
+    gt_tbl <- gt::tab_footnote(gt_tbl, footnote = trim_note)
+  }
+
   gt_tbl
 }
 
@@ -964,6 +1036,16 @@ build_estimation_table <- function(
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
 #'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
 #'   benefit-search analyses (treatment switching).
+#' @param trim_threshold Numeric or \code{NULL}. When the raw mean of
+#'   an estimate vector exceeds this absolute value, the narrative
+#'   reports averages and SDs computed on the central
+#'   \code{1 - 2 * trim_fraction} of estimates and adds a closing
+#'   note disclosing the trimming. Set \code{NULL} to disable.
+#'   Default: \code{1000} (matches \code{build_estimation_table}).
+#' @param trim_fraction Numeric in \code{(0, 0.5)}. Fraction of
+#'   estimates to trim from each tail when trimming triggers.
+#'   Default: \code{0.01}.  Has no effect when
+#'   \code{trim_threshold = NULL}.
 #'
 #' @return Invisibly returns the interpretation as a character string.
 #'
@@ -991,7 +1073,9 @@ interpret_estimation_table <- function(
     digits = 2,
     scenario = NULL,
     cat = TRUE,
-    subgroup_notation = c("harm", "benefit")
+    subgroup_notation = c("harm", "benefit"),
+    trim_threshold = 1000,
+    trim_fraction = 0.01
 ) {
 
   subgroup_notation <- match.arg(subgroup_notation)
@@ -1078,6 +1162,36 @@ interpret_estimation_table <- function(
   # ── Compute summary statistics ────────────────────────────────────────────
   fmt <- function(x) round(x, digits)
 
+  # Threshold-gated trimming for the narrative.  Mirrors the pattern in
+  # build_estimation_table(): when an estimate vector's raw mean exceeds
+  # trim_threshold, mean / sd / bias are recomputed on the central
+  # (1 - 2 * trim_fraction) of estimates.  Each of the five blocks below
+  # routes through maybe_trim() so trimming applies uniformly.
+  if (!is.null(trim_threshold)) {
+    if (!is.numeric(trim_threshold) || length(trim_threshold) != 1L ||
+        trim_threshold <= 0) {
+      stop("'trim_threshold' must be a positive numeric scalar or NULL.",
+           call. = FALSE)
+    }
+    if (!is.numeric(trim_fraction) || length(trim_fraction) != 1L ||
+        trim_fraction <= 0 || trim_fraction >= 0.5) {
+      stop("'trim_fraction' must be in (0, 0.5).", call. = FALSE)
+    }
+  }
+  trim_env <- new.env(parent = emptyenv())
+  trim_env$trimmed_any <- FALSE
+
+  maybe_trim <- function(vals) {
+    if (is.null(trim_threshold) || length(vals) < 5L) return(vals)
+    if (abs(mean(vals)) <= trim_threshold) return(vals)
+    lo <- stats::quantile(vals, trim_fraction,     na.rm = TRUE)
+    hi <- stats::quantile(vals, 1 - trim_fraction, na.rm = TRUE)
+    vals_trim <- vals[vals >= lo & vals <= hi]
+    if (length(vals_trim) < 3L) return(vals)
+    trim_env$trimmed_any <- TRUE
+    vals_trim
+  }
+
   avg_size_H  <- round(mean(res_found$size.H, na.rm = TRUE), 0)
   avg_size_Hc <- round(mean(res_found$size.Hc, na.rm = TRUE), 0)
   detect_rate <- round(100 * n_estimable / n_sims, 1)
@@ -1088,7 +1202,7 @@ interpret_estimation_table <- function(
   has_hr_bc <- "hr.H.bc" %in% names(res_found)
 
   if (has_hr_H) {
-    hr_H_vals <- res_found$hr.H.hat[!is.na(res_found$hr.H.hat)]
+    hr_H_vals <- maybe_trim(res_found$hr.H.hat[!is.na(res_found$hr.H.hat)])
     hr_H_avg  <- fmt(mean(hr_H_vals))
     hr_H_sd   <- fmt(stats::sd(hr_H_vals))
     hr_H_bias <- if (!is.na(theta_H_true) && theta_H_true != 0) {
@@ -1096,7 +1210,7 @@ interpret_estimation_table <- function(
     } else NA
   }
   if (has_hr_Hc) {
-    hr_Hc_vals <- res_found$hr.Hc.hat[!is.na(res_found$hr.Hc.hat)]
+    hr_Hc_vals <- maybe_trim(res_found$hr.Hc.hat[!is.na(res_found$hr.Hc.hat)])
     hr_Hc_avg  <- fmt(mean(hr_Hc_vals))
     hr_Hc_sd   <- fmt(stats::sd(hr_Hc_vals))
     hr_Hc_bias <- if (!is.na(theta_Hc_true) && theta_Hc_true != 0) {
@@ -1104,7 +1218,7 @@ interpret_estimation_table <- function(
     } else NA
   }
   if (has_hr_bc) {
-    hr_bc_vals <- res_found$hr.H.bc[!is.na(res_found$hr.H.bc)]
+    hr_bc_vals <- maybe_trim(res_found$hr.H.bc[!is.na(res_found$hr.H.bc)])
     hr_bc_avg  <- fmt(mean(hr_bc_vals))
     hr_bc_bias <- if (!is.na(theta_H_true) && theta_H_true != 0) {
       fmt(100 * (mean(hr_bc_vals) - theta_H_true) / theta_H_true)
@@ -1116,14 +1230,14 @@ interpret_estimation_table <- function(
   has_ahr_Hc <- "ahr.Hc.hat" %in% names(res_found) && !is.na(ahr_Hc_true)
 
   if (has_ahr_H) {
-    ahr_H_vals <- res_found$ahr.H.hat[!is.na(res_found$ahr.H.hat)]
+    ahr_H_vals <- maybe_trim(res_found$ahr.H.hat[!is.na(res_found$ahr.H.hat)])
     ahr_H_avg  <- fmt(mean(ahr_H_vals))
     ahr_H_bias <- if (!is.na(ahr_H_true) && ahr_H_true != 0) {
       fmt(100 * (mean(ahr_H_vals) - ahr_H_true) / ahr_H_true)
     } else NA
   }
   if (has_ahr_Hc) {
-    ahr_Hc_vals <- res_found$ahr.Hc.hat[!is.na(res_found$ahr.Hc.hat)]
+    ahr_Hc_vals <- maybe_trim(res_found$ahr.Hc.hat[!is.na(res_found$ahr.Hc.hat)])
     ahr_Hc_avg  <- fmt(mean(ahr_Hc_vals))
     ahr_Hc_bias <- if (!is.na(ahr_Hc_true) && ahr_Hc_true != 0) {
       fmt(100 * (mean(ahr_Hc_vals) - ahr_Hc_true) / ahr_Hc_true)
@@ -1317,6 +1431,19 @@ interpret_estimation_table <- function(
         "algorithm under this effect size."
       )
     }
+  }
+
+  # Trim disclosure: appended only if any *_vals block triggered trimming.
+  if (trim_env$trimmed_any) {
+    pct_kept <- 100 - 2 * round(trim_fraction * 100)
+    paras[length(paras) + 1] <- sprintf(
+      paste0("*Note*: One or more reported summaries above were computed ",
+             "on the central %d%% of estimates because the raw mean ",
+             "exceeded %s; this avoids unwieldy values driven by a small ",
+             "number of extreme replicates.  The companion table in ",
+             "Section 8.2.3 marks the affected rows with '(trimmed)'."),
+      pct_kept, format(trim_threshold, big.mark = ",")
+    )
   }
 
   txt <- paste(paras, collapse = "\n\n")
