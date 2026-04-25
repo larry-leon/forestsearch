@@ -1,0 +1,232 @@
+---
+title: "Discoverability of scientific papers via topic search"
+subtitle: "Notes from a small empirical experiment"
+author: "Working notes"
+date: today
+date-format: "MMMM YYYY"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    number-sections: true
+    code-fold: true
+    code-tools: true
+    smooth-scroll: true
+    theme: cosmo
+    fontsize: 11pt
+    mainfont: Palatino
+    monofont: "Fira Code"
+    title-block-banner: "#2C3E50"
+    title-block-banner-color: white
+---
+
+## Background
+
+This note records a practical lesson about how scientific papers are
+found via topic search — written up after running a small empirical
+experiment to figure out why a methodologically relevant paper
+(León et al. 2024, *Statistics in Medicine*) failed to surface on
+broad topic queries about its application dataset (ACTG175) and
+core methodological domain (heterogeneous treatment effects).
+
+The experiment is narrow. The lesson generalises.
+
+## The framing question
+
+The right question to ask before a paper is published is *not*
+"what is this paper about?" but rather:
+
+> **What query would a reader who has never heard of me, my method,
+> or this paper run, and would the paper's title, abstract, and
+> keywords match that query well enough to rank in the top ten
+> results?**
+
+These are different questions. The first is about content; the
+second is about *discoverability*. Discoverability is what determines
+whether your paper reaches readers outside its existing citation
+neighbourhood.
+
+## The experiment
+
+The setup. León et al. (2024) is the methodology paper for the
+`forestsearch` R package. It applies the proposed method to two
+public datasets — an oncology trial and the AIDS Clinical Trials
+Group Study 175 (ACTG175) HIV trial. ACTG175 is one of the most
+heavily reused benchmark datasets in the heterogeneous-treatment-
+effect (HTE) and subgroup-identification literatures.
+
+Two topic queries were run, of the kind a reader who had never
+heard of `forestsearch` might naturally use:
+
+1. `ACTG175 differential treatment effects`
+2. `ACTG175 heterogeneous treatment effects`
+
+Result: the León 2024 paper did not appear in the top ten results
+for either query. Several other ACTG175 + HTE papers — Lu/Zhang/
+Zeng (2013), Sun et al. (2024), Lee/Ghosh/Yang (2024), Cui et al.
+(2023), Johnson/Lu/Davidian (2023), and the Xi/Huang/Wang (2026)
+arXiv preprint — surfaced immediately.
+
+A third, name-anchored query was then run as a control:
+
+3. `Leon 2024 forestsearch ACTG175 subgroup consistency bootstrap`
+
+The León paper still did not appear in the top ten, even though the
+query contained the author surname, year, package name, dataset
+name, and two distinguishing methodological keywords. This rules
+out simple keyword failure and points at something structural.
+
+## The empirical finding
+
+Inspecting the paper's title and metadata directly explains both
+results. The paper's title is
+
+> *Exploratory subgroup identification in the heterogeneous Cox
+> model: A relatively simple procedure*
+
+and the author-supplied keywords are: *bootstrap bias-correction,
+censored data, cross-validation, generalized random forests,
+virtual twins.* The abstract refers to the application dataset
+generically as *"a clinical trial in oncology, and HIV"* and never
+uses the string *"ACTG175"* anywhere in the title, abstract, or
+keyword list.
+
+This is the structural answer. Search indexers — Google Scholar,
+Semantic Scholar, and the index used in this experiment — weight
+title, abstract, and author-supplied keywords very heavily, and
+weight full text much less. When the dominant token in a query
+is a string that never appears in the high-signal fields of a
+paper, that paper falls out of the top-ranked results regardless of
+how substantively relevant it is.
+
+The papers that *did* surface — Sun et al. (2024), Lee/Ghosh/Yang
+(2024), and so on — all explicitly name *ACTG175* in their
+abstracts. That single editorial choice is the main difference in
+discoverability.
+
+## Two distinct gaps
+
+The experiment surfaced two different failure modes that are easy
+to conflate:
+
+**A search-strategy gap on the reader's side.** A reader may anchor
+their queries on names and concepts they already know, missing
+papers outside that neighbourhood. This is a fixable user-side
+behaviour: cast a wide net, vary vocabulary, and read primary
+sources before keyword-crawling.
+
+**A discoverability gap on the paper's side.** Even with a
+well-constructed topic query, a paper whose title and abstract
+do not use the community-standard vocabulary will rank poorly.
+This is a fixable author-side property of the paper, but only
+*before* publication.
+
+Both gaps stack. Even after a reader corrects their search
+strategy, the discoverability gap on the paper's side remains.
+
+## Practical heuristics for future drafts
+
+The following are the takeaways that fall out of the experiment.
+
+### Name your datasets explicitly in the abstract
+
+Public benchmark datasets — ACTG175, GBSG, SPRINT, MERIT-HF, ATLAS,
+and so on — are search anchors for the communities that use them.
+A paper that applies its method to one of these datasets but refers
+to it generically ("an HIV trial", "a breast cancer dataset") is
+invisible to anyone searching by dataset name. Putting the exact
+dataset name in the abstract once is a single sentence's worth of
+revision; the discoverability gain is large.
+
+### Use the vocabulary of the community you want to reach
+
+Many statistical methods sit at the intersection of two
+communities that use overlapping but non-identical vocabulary.
+The "subgroup identification" community (Lipkovich, Dmitrienko,
+SIDES, Foster–Taylor–Ruberg) and the "heterogeneous treatment
+effects" community (Athey, Wager, Künzel, X-learner, causal
+forests) overlap substantively but search for papers using
+different terms. Picking one framing for the title is fine, but
+for the abstract and keywords it is worth covering both.
+
+### Treat author-supplied keywords as discoverability real estate
+
+Indexers treat author-supplied keywords as high-signal text
+equivalent to title and abstract. A keyword slot used for a
+generic methodological term ("censored data", "cross-validation")
+that thousands of papers also list is almost wasted. A keyword
+slot used for a community-standard search term that
+topic-searchers actually type ("heterogeneous treatment effects",
+"subgroup identification", "ACTG175") is high-leverage.
+
+### Test your paper against topic search *before* submission
+
+Take three or four topic queries a reader unfamiliar with the
+work might run — for example:
+
+- `subgroup identification survival data bootstrap`
+- `heterogeneous treatment effects Cox model`
+- `exploratory subgroup HIV trial`
+
+— and run them on Google Scholar and Semantic Scholar before
+the title and abstract are locked in. If the paper does not
+appear in the top ten, there is a discoverability gap that will
+not fix itself after publication. This is a five-minute exercise.
+
+### Two-population titles cover both audiences
+
+Titles that name both the methodological contribution and the
+application domain — "Subgroup identification with bootstrap
+bias correction: an application to ACTG175 and an oncology
+trial" — get matched by both methodology-oriented queries and
+application-oriented queries. They are slightly less elegant
+than purely-methodological titles, but the discoverability
+return is substantial.
+
+## The deeper lesson
+
+Scientific publishing has shifted from a world in which readers
+found papers by browsing journal tables of contents to a world
+in which readers find papers via search engines. The conventions
+for titles and abstracts have not fully caught up. Many established
+title conventions favour methodological elegance over searchability.
+
+Authors who think explicitly about how their paper will land on
+a query — not just how it reads — get materially more uptake.
+That is not gaming the system. It is recognising that the index
+has become the primary discovery surface, and that the paper has
+to perform there to reach readers at all.
+
+## What to remember in 30 seconds
+
+The single sentence is this:
+
+> A paper's discoverability is governed almost entirely by what
+> appears in its title, abstract, and keywords — not by what
+> appears in the body — and a paper that does not name its
+> dataset, its community-standard vocabulary, and its key
+> application by their canonical search terms will not be found
+> by readers outside its existing citation neighbourhood, no
+> matter how strong the work itself is.
+
+## Postscript: how this note came to exist
+
+This note was written up after a back-and-forth in which I
+(the AI assistant) was asked to do a literature review of ACTG175
+HTE papers and missed León 2024 — which is, ironically, the
+methodology paper for the very R package the literature review
+was being written for. The user (the package author) initially
+asked simply *why* the paper was not found.
+
+The first response treated the question as a meta-question about
+search strategy and produced an essay rather than running queries.
+The user pushed back, correctly, that the question was empirical
+and could be answered by actually running searches. Doing so
+revealed the title-and-abstract vocabulary gap documented above.
+
+The lesson for me as the assistant: when asked "why didn't your
+search find X", run the search. The answer is empirical, not
+philosophical. The lesson for the user, in their own words: think
+about how the article would appear in searches. Both lessons are
+worth keeping.

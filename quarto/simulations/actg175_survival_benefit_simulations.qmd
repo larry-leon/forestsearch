@@ -27,8 +27,8 @@ knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 # Demonstration run; increase to >= 500 for stable operating
 # characteristics.  Monte Carlo SE for a 50% detection rate is
 # approximately 2.2% at 500 sims and 1.0% at 2500 sims.
-nsims_alt   <- 5000L
-nsims_null  <- 20000L
+nsims_alt   <- 50L
+nsims_null  <- 200L
 
 # These are "production" run projection nsims
 prod_alt  <- 10000L
@@ -111,6 +111,16 @@ dgm_k_treat       <- 1.0             # Main treatment effect multiplier
 dgm_n_super       <- 5000L           # Super-population size for DGM
 dgm_k_inter_init  <- 2.0             # Starting k_inter before calibration
 
+# ── Null-DGM ITT-effect target (optional) ────────────────────────
+# Under model = "null", k_treat scales the AFT log-time treatment
+# coefficient.  k_treat = 1 preserves the fitted ITT effect (the
+# default and the conservative choice).  If null_target_hr is
+# non-NULL, k_treat is solved so the switched-scale ITT HR lands
+# at the requested target -- useful for widening the gap from the
+# c1 threshold when investigating type-I-error in isolation.  See
+# the @sec-dgm-null section for the calculation and caveats.
+null_target_hr    <- NULL   # e.g. 1.0 (no marginal effect) or 1.05
+
 # ── Realistic analysis candidate set ─────────────────────────────
 # Mirrors the binary vignette: a real analyst would NOT know which
 # variables define Q nor where to cut them.  Continuous covariates are
@@ -182,221 +192,19 @@ fs_d1_min              <- 10L    # Minimum events in treatment arm
 fs_maxk                <- 2L     # Maximum number of subgroup-defining variables
 fs_by_risk             <- 6L     # Risk-table interval (months)
 fs_vi_grf_min          <- -0.2   # Minimum GRF variable importance
-fs_use_lasso           <- FALSE   # LASSO pre-screening
-fs_use_grf             <- TRUE   # GRF pre-screening
-fs_is_rct              <- TRUE   # Randomized trial (propensity = 0.5)
 
-# -- Candidate-selection criterion (sg_focus) ---------------------------------
-# `sg_focus` controls how forestsearch() sorts the candidate subgroups that
-# meet the screening threshold, and therefore which one becomes the
-# identified subgroup.  Five options (see ?subgroup_consistency):
-#   "hr"       : primary sort = Pcons desc, secondary = effect size desc,
-#                tertiary = K asc.  Package default.
-#   "maxSG"    : primary sort = N desc (LARGEST candidate first),
-#                secondary = Pcons desc, tertiary = K asc.  Use this when
-#                the goal is to identify the LARGEST benefitting subgroup
-#                among those meeting the consistency threshold.
-#   "minSG"    : primary sort = N asc (smallest candidate first).
-#   "hrMaxSG"  : compound (N desc, effect desc) -- forces stop_threshold = NULL.
-#   "hrMinSG"  : compound (N asc, effect desc) -- forces stop_threshold = NULL.
-#
-# For this ACTG175 survival-benefit study we want to recover the LARGEST
-# subgroup in which ddI monotherapy is superior to ZDV+ddI combination
-# (on the original scale) -- equivalently, the largest subgroup where
-# the SWITCHED treatment is harmful.  We therefore use "maxSG".  Early
-# stopping is valid under "maxSG" (single sort criterion), though
-# stop_threshold is set to NULL throughout this document.
-fs_sg_focus            <- "maxSG"
-
-# -- Continuous-variable detection threshold ---------------------------------
-# is.continuous() classifies a covariate as continuous if it has more than
-# `cont.cutoff` unique values.  The default of 4 distinguishes integer-coded
-# binaries / small-cardinality factors (treated categorically) from genuine
-# continuous covariates (treated with cut-set generation).  Pinned here for
-# documentation; the package default is the same.
-fs_cont_cutoff         <- 4L
-
-# -- Continuous-variable cut strategy ----------------------------------------
-# cut_type controls how candidate cuts are generated for each continuous
-# covariate that forestsearch detects (i.e. any variable with more than
-# fs_cont_cutoff unique values that is passed through confounders.name).
-#
-#   "default" : per continuous variable, get_conf_force() -> cut_var()
-#               generates FOUR candidate cuts:
-#                   var <= mean(var)
-#                   var <= median(var)    (= Q2)
-#                   var <= qlow(var)      (= Q1, 25th percentile)
-#                   var <= qhigh(var)     (= Q3, 75th percentile)
-#               This is the richer strategy and is the package default.
-#
-#   "median"  : per continuous variable, a SINGLE candidate cut:
-#                   var <= median(var)
-#               Use this to stress-test the "truly unknown cuts" regime
-#               when the true cut is not at the median.
-#
-# Honest disclosure for this setup:
-#   The true Q-defining cuts are age > actg_age_cut (~median of arms 1+3)
-#   and preanti <= actg_preanti_cut (~Q3 of arms 1+3).  With cut_type =
-#   "default", BOTH true cuts are present in the candidate set (age at
-#   median, preanti at Q3).  With cut_type = "median", only the age cut
-#   is recoverable; preanti's true Q3 cut is NOT in the candidate set,
-#   forcing forestsearch to approximate Q via the wrong threshold.
-#
-# The default value ("default") is kept here so the simulation evaluates
-# the realistic setting where the analyst uses the richer cut strategy
-# a priori (without knowing the truth).  GRF candidate cuts (use_grf =
-# TRUE) are additionally appended to this set.
-fs_cut_type            <- "default"
-
-# ── Unified ForestSearch parameters ─────────────────────────────
-# Single source of truth for every forestsearch() call in this
-# document.  All three call sites use the same knob bundle:
-#   1. Single-data analysis on observed ACTG175 (@sec-single-data)
-#   2. Single simulated trial verification   (@sec-single-fs)
-#   3. Simulation loop via run_simulation_analysis() (@sec-sims)
-#
-# Column names (outcome.name / event.name / treat.name / id.name)
-# are deliberately OMITTED here -- they differ per call (observed
-# data uses "time_months"/"cens"/"treat", simulated data uses
-# "y_sim"/"event_sim"/"treat_sim") and are supplied at the call
-# site.  run_simulation_analysis() overwrites them automatically
-# from its own outcome_name/event_name/treat_name arguments (see
-# R/run_simulation_analysis.R lines 384--389).
-
-# ── GRF parameters (used by both FS's internal pre-screening
-# AND the standalone GRF analysis below) ─────────────────────
+# ── GRF standalone parameters ───────────────────────────────────
+# These control the GRF-only subgroup analysis (run_grf = TRUE).
 # dmin.grf is on the RMST scale (months after time-unit conversion).
-# The default in forestsearch()/default_grf_params_gen() is 12,
-# calibrated for days (~0.4 months).  After converting ACTG175 times
-# to months, we rescale.
-grf_dmin               <- 2     # min RMST difference (months)
-grf_frac_tau           <- 0.80  # fraction of max event time for horizon
-grf_maxdepth           <- 2L    # max policy tree depth
+# The default in default_grf_params_gen() is dmin.grf = 12, which
+# was calibrated for days (~0.4 months).  After converting ACTG175
+# times to months, this must be rescaled.
+grf_dmin               <- 2    # min RMST difference (months)
+grf_frac_tau           <- 0.80   # fraction of max event time for horizon
+grf_maxdepth           <- 2L     # max policy tree depth
 grf_sg_criterion       <- "mDiff"
-grf_tune               <- FALSE # cross-validated GRF hyperparameter tuning
-                                # Set TRUE to enable tune.parameters = "all"
-
-fs_params <- list(
-  # ── Outcome path (matches forestsearch() formal defaults but
-  # pinned for documentation; survival is the package default) ──
-  outcome_type           = "survival",
-  est.scale              = "hr",         # report effects on HR scale
-
-  # ── Variable screening flags ────────────────────────────────
-  use_lasso              = fs_use_lasso,
-  use_grf                = fs_use_grf,
-  is.RCT                 = fs_is_rct,
-
-  # ── Two-stage consistency (v0.2.0 default: 3-10x speedup) ───
-  use_twostage           = TRUE,
-  twostage_args          = list(),
-
-  # ── Subgroup detection thresholds (Leon et al. 2024, Sec 3) ─
-  hr.threshold           = fs_hr_threshold,          # c1
-  hr.consistency         = fs_hr_consistency,        # c2
-  pconsistency.threshold = fs_pconsistency_thresh,   # bootstrap pi
-
-  # ── Candidate-selection criterion ────────────────────────────
-  # "maxSG" prefers the LARGEST candidate subgroup meeting the
-  # consistency threshold.  See @sec-candidate-selection for the
-  # full rationale and the alternatives.
-  sg_focus               = fs_sg_focus,
-
-  # ── Search-budget controls ───────────────────────────────────
-  # stop_threshold = NULL means "evaluate all candidates up to
-  # max_subgroups_search regardless of how strong the leading
-  # candidate's Pcons is".  This is the right choice for a
-  # simulation study where every replicate should enumerate the
-  # same way.  Compatible with sg_focus = "maxSG"; would be
-  # forced to NULL anyway if sg_focus were "hrMaxSG"/"hrMinSG".
-  stop_threshold         = NULL,
-  max_subgroups_search   = 10L,
-  max.minutes            = Inf,    # no wall-clock truncation
-  minp                   = 0.025,  # legacy lower bound on p-value
-
-  # ── Continuous-variable handling ────────────────────────────
-  # cont.cutoff: is.continuous() unique-value threshold.
-  # cut_type:    candidate-cut generation strategy.  See setup
-  #              comments for the four-cut "default" expansion.
-  cont.cutoff            = fs_cont_cutoff,
-  cut_type               = fs_cut_type,
-
-  # ── Bootstrap + size / event constraints ────────────────────
-  fs.splits              = fs_splits,
-  n.min                  = fs_n_min,
-  d0.min                 = fs_d0_min,
-  d1.min                 = fs_d1_min,
-  maxk                   = fs_maxk,
-  by.risk                = fs_by_risk,
-
-  # ── GRF pre-screening (FS's internal use) ───────────────────
-  # vi.grf.min: minimum GRF variable importance for a covariate
-  # to enter the candidate set.
-  # dmin.grf:   minimum RMST difference (months on this dataset's
-  #             time scale) for a GRF policy-tree node to qualify.
-  #             The package default of 12 is calibrated on days;
-  #             ACTG175 uses months, so we rescale.  Same value as
-  #             the standalone-GRF analysis (grf_dmin) for
-  #             consistency between FS's internal pre-screening
-  #             and the standalone GRF run.
-  # frac.tau:   fraction of max event time used as the RMST horizon.
-  vi.grf.min             = fs_vi_grf_min,
-  dmin.grf               = grf_dmin,
-  frac.tau               = grf_frac_tau,
-
-  # ── GRF tuning (cross-validated hyperparameter selection) ───
-  tune_grf               = grf_tune,
-
-  # ── Reproducibility ─────────────────────────────────────────
-  seedit                 = sim_seed,
-
-  # ── Parallelism (sequential within each forestsearch call;
-  # the outer foreach loop parallelises across replicates) ────
-  parallel_args          = list(
-    plan = "sequential", workers = 1, show_message = FALSE
-  )
-)
-
-# ── fs_run(): thin wrapper used for direct (non-simulation) calls ─
-# Combines fs_params with the per-call column names and any extra
-# overrides (passed through via `...`).  Used by the single-data
-# analysis and single-trial chunks; the simulation loop passes
-# `fs_params` directly to run_simulation_analysis() without going
-# through this helper.
-#
-# Why do.call(): forestsearch() has >40 formal arguments, so named
-# passthrough via list concatenation is cleaner and guarantees
-# the wrapper adds zero implicit defaults of its own.
-fs_run <- function(data,
-                   outcome,
-                   event,
-                   treat,
-                   id        = "id",
-                   details   = TRUE,
-                   quiet     = FALSE,
-                   ...) {
-  # Build the argument list in priority order:
-  #   per-call args (...) > fs_params (canonical knobs)
-  # Then deduplicate by name so do.call() doesn't error on
-  # duplicate bindings ("matched by multiple actual arguments").
-  # duplicated() keeps the FIRST occurrence of each name and marks
-  # subsequent ones as duplicates -- so call_overrides (listed
-  # first) win over fs_params (listed last).
-  call_overrides <- list(...)
-  fixed_args <- list(
-    df.analysis      = data,
-    confounders.name = confounders_analysis,
-    outcome.name     = outcome,
-    event.name       = event,
-    treat.name       = treat,
-    id.name          = id,
-    details          = details,
-    quiet            = quiet
-  )
-  combined <- c(call_overrides, fixed_args, fs_params)
-  combined <- combined[!duplicated(names(combined))]
-  do.call(forestsearch, combined)
-}
+grf_tune               <- FALSE   # cross-validated GRF hyperparameter tuning
+                                   # Set TRUE to enable tune.parameters = "all"
 
 # ── Adjusted Cox formula (used in run_simulation_analysis) ───────
 # Note: treat_sim is the SWITCHED treatment indicator in the
@@ -556,59 +364,6 @@ For your own dataset, we recommend starting with strategy (1)
 where available, falling back to (2), and optionally using (3) as
 a sensitivity analysis.  Whichever approach you choose, document
 the rationale alongside the cutpoint value in your setup chunk.
-
-
-## Candidate Selection: `sg_focus = "maxSG"` {#sec-candidate-selection}
-
-When several candidate subgroups simultaneously meet both the screening
-threshold ($c_1 =$ `r fs_hr_threshold`) and the consistency threshold
-($c_2 =$ `r fs_hr_consistency`), `forestsearch()` must pick one.  That
-choice is governed by `sg_focus`.  Five options are available:
-
-| `sg_focus`  | Primary sort   | Secondary        | Tertiary | Interpretation |
-|-------------|----------------|------------------|----------|-----------------|
-| `"hr"`      | Pcons desc     | effect desc      | K asc    | Package default. Favours *most-consistent* candidate. |
-| `"maxSG"`   | **N desc**     | Pcons desc       | K asc    | **Largest** qualifying candidate. |
-| `"minSG"`   | N asc          | Pcons desc       | K asc    | Smallest qualifying candidate. |
-| `"hrMaxSG"` | N desc         | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
-| `"hrMinSG"` | N asc          | effect desc      | —        | Compound. Forces `stop_threshold = NULL`. |
-
-For the ACTG175 survival-benefit search, the analytic goal is to
-recover the **largest subgroup in which ddI monotherapy is superior to
-the ZDV+ddI combination on the original scale** -- equivalently, the
-largest subgroup for which the SWITCHED treatment (combination = 1) is
-harmful.  This is the population we would, in a real trial, most want
-to describe and quantify.  Once the screening-plus-consistency filter
-has passed, there is no further reason to pick a smaller, tighter
-subgroup; the largest qualifying candidate is the most policy-relevant
-one.
-
-We therefore use `fs_sg_focus <- "maxSG"` throughout this document
-(set in the Quarto setup chunk).  The concrete effect is:
-
-- **Sort is by candidate N (descending)**, with Pcons as tiebreaker.
-  Among candidates that pass screening and consistency, FS keeps the
-  one with the largest $|H|$.
-- **Single sort criterion**, so early stopping remains valid;
-  `stop_threshold` can still be set if desired.  (In this document
-  we leave `stop_threshold` at the package default since `"maxSG"`
-  is compatible with early stopping.)
-
-This choice has two practical consequences that we track throughout
-the operating-characteristics analysis:
-
-1. $\widehat{|H|}$ will typically be closer to $|Q|$ than under the
-   default `sg_focus = "hr"`, which trades size for consistency and
-   tends to return strict subsets of $Q$.
-2. The distribution of identified subgroups across simulations
-   (reported in @sec-results) should concentrate on a small number of
-   definitions close to the true $Q$ anchor, rather than fragmenting
-   into many small tight splits.
-
-The choice is enforced by passing `sg_focus = fs_sg_focus` in the
-unified `fs_params` list, so all three call sites
-(`@sec-single-data`, `@sec-single-fs`, and `@sec-sims`) use the same
-selection criterion.
 
 
 ## Steps for Swapping GBSG with ACTG175 {#sec-swap-steps}
@@ -1093,18 +848,33 @@ the TRUE cuts (age $>$ `r actg_age_cut`, preanti $\le$
 t0 <- proc.time()[3]
 
 fs_actg <- tryCatch(
-  suppressWarnings(
-    fs_run(
-      data    = actg_df,
-      outcome = "time_months",
-      event   = "cens",
-      treat   = "treat",          # SWITCHED: ddI = 1
-      # Per-call override: disable LASSO screening on the observed data
-      # (retained from the original vignette).  Any forestsearch() arg can
-      # be overridden here; fs_run() passes `...` straight through.
-      use_lasso = FALSE
+  suppressWarnings(forestsearch(
+    df.analysis            = actg_df,
+    confounders.name       = confounders_analysis,
+    outcome.name           = "time_months",
+    event.name             = "cens",
+    treat.name             = "treat",          # SWITCHED: ddI = 1
+    id.name                = "id",
+    hr.threshold           = fs_hr_threshold,
+    hr.consistency         = fs_hr_consistency,
+    pconsistency.threshold = fs_pconsistency_thresh,
+    fs.splits              = fs_splits,
+    n.min                  = fs_n_min,
+    d0.min                 = fs_d0_min,
+    d1.min                 = fs_d1_min,
+    maxk                   = fs_maxk,
+    by.risk                = fs_by_risk,
+    vi.grf.min             = fs_vi_grf_min,
+    use_lasso              = FALSE,
+    use_grf                = TRUE,
+    is.RCT                 = TRUE,
+    details                = TRUE,
+    quiet                  = FALSE,
+    seedit                 = sim_seed,
+    parallel_args          = list(
+      plan = "sequential", workers = 1, show_message = FALSE
     )
-  ),
+  )),
   error = function(e) {
     warning("ForestSearch on observed data failed: ", e$message)
     NULL
@@ -1343,12 +1113,34 @@ The diagnostic below verifies that the DGM's implied median event time
 ```{r timescale-check}
 #| code-fold: false
 
-observed_median <- median(dfa$y[dfa$event == 1])
-dgm_median      <- exp(dgm_alt$model_params$mu)
+# ── KM-based median (handles censoring correctly) ────────────────
+# The naive median(dfa$y[dfa$event == 1]) is biased downward because
+# subjects with longer true event times are disproportionately
+# censored and never enter the event == 1 subset.  The Kaplan-Meier
+# estimator accounts for censoring and returns NA when the median is
+# not reached within follow-up.
+sf_obs <- survival::survfit(survival::Surv(y, event) ~ 1, data = dfa)
+km_summary       <- summary(sf_obs)$table
+observed_median  <- km_summary[["median"]]
+dgm_median       <- exp(dgm_alt$model_params$mu)
 
-cat(sprintf("Observed median event time:  %.1f months\n", observed_median))
-cat(sprintf("DGM implied median (exp(mu)): %.1f months\n", dgm_median))
-cat(sprintf("analysis_time:                %.0f months\n", sim_analysis_time))
+if (is.na(observed_median)) {
+  # Median not reached within follow-up — common when censoring is
+  # heavy.  Fall back to the 25th-percentile event time, which is
+  # almost always estimable, and report it as a less-stringent
+  # sanity check.
+  km_quantiles    <- quantile(sf_obs, probs = 0.25)$quantile
+  observed_q25    <- km_quantiles[["25"]]
+  cat(sprintf(
+    "Observed median event time (KM):  not reached within follow-up\n"))
+  cat(sprintf(
+    "Observed 25th percentile (KM):    %.1f months\n", observed_q25))
+} else {
+  cat(sprintf(
+    "Observed median event time (KM):  %.1f months\n", observed_median))
+}
+cat(sprintf("DGM implied median (exp(mu)):     %.1f months\n", dgm_median))
+cat(sprintf("analysis_time:                    %.0f months\n", sim_analysis_time))
 
 if (sim_analysis_time < dgm_median * 0.5) {
   warning("analysis_time is much shorter than DGM median -- ",
@@ -1505,7 +1297,7 @@ timings$dgm_calibrated <- proc.time()[3] - t0
 ```
 
 
-## Step 5: Create Null DGM
+## Step 5: Create Null DGM {#sec-dgm-null}
 
 Under `model = "null"`, the treatment effect is **homogeneous**
 across all patients --- no treatment effect heterogeneity.
@@ -1513,18 +1305,63 @@ Treatment is still beneficial for everyone; there is simply no
 subgroup with a different treatment effect.  Any subgroup
 detected under the null is a false positive.
 
-Note: `k_treat = 1` preserves the fitted ITT treatment effect
-in the null DGM.  For this benefit + adverse survival scenario
-(switched treatment), the switched-scale ITT HR is the reciprocal
-of the original beneficial HR.  If the original HR = 0.84, the
-switched HR = 1/0.84 = 1.19.  This is below the threshold
-(c1 = 1.667), but the gap is narrower than in harm-search
-scenarios.  The resulting FPR reflects realistic operating
-characteristics; the $L_\text{eff}$ calibration procedure
-accounts for this when selecting thresholds.
+By default, `k_treat = 1` preserves the fitted ITT treatment
+effect.  For the benefit-search / switched-treatment setup here,
+the fitted switched-scale ITT HR is the reciprocal of the
+original beneficial HR.  If the original HR = 0.84, the switched
+HR = 1/0.84 = 1.19.  This sits below the threshold (c1 =
+`r fs_hr_threshold`) but the gap is narrower than in
+harm-search scenarios.  The default behaviour (preserved fitted
+ITT effect) is the conservative, realistic choice; the
+$L_\text{eff}$ calibration procedure accounts for this when
+selecting thresholds.
+
+::: {.callout-note title="Optional: widen the gap from c1 with `null_target_hr`"}
+If you want to study type-I-error inflation **in isolation** of
+the proximity to c1, you can target a specific switched-scale
+ITT HR for the null DGM by setting `null_target_hr` in the setup
+chunk.  The code below solves for the `k_treat` value that
+produces the requested target.
+
+The solver is approximate: `k_treat` multiplies the AFT log-time
+treatment coefficient, but the realised Cox HR also depends on
+the censoring distribution and the covariate distribution, so
+the constructed HR will be close to but not exactly equal to
+`null_target_hr`.  After construction we re-check the realised
+ITT HR; if it is materially off, iterate.
+
+This is **not** a different research question -- the topic
+remains differential treatment effects across subgroups.  It is
+simply a way to widen the gap between the marginal ITT HR and
+c1 so that the FPR you measure is driven by search-space
+multiplicity rather than by the marginal signal sitting close to
+the detection threshold.
+
+Setting `null_target_hr = NULL` (the default) preserves the
+fitted ITT effect (`k_treat = 1`).
+:::
 
 ```{r dgm-null}
 t0 <- proc.time()[3]
+
+# ── Solve for k_treat under the optional null_target_hr ──────────
+# The default keeps k_treat = dgm_k_treat (typically 1.0, preserving
+# the fitted ITT effect).  When null_target_hr is non-NULL, we solve:
+#   k_treat_null = log(target_hr_switched) / log(fitted_hr_switched)
+# fitted_hr_switched comes from the alt DGM's overall hazard ratio,
+# which is on the switched scale by construction in this vignette.
+dgm_k_treat_null <- dgm_k_treat
+if (!is.null(null_target_hr)) {
+  fitted_log_hr <- log(dgm_alt$hazard_ratios$overall)
+  if (abs(fitted_log_hr) < 1e-8) {
+    stop("Fitted ITT log-HR is ~0; cannot rescale to a target HR. ",
+         "Leave null_target_hr = NULL.")
+  }
+  dgm_k_treat_null <- log(null_target_hr) / fitted_log_hr
+  message(sprintf(
+    "null_target_hr = %.3f  -->  k_treat (null) = %.3f  (fitted log-HR = %.3f)",
+    null_target_hr, dgm_k_treat_null, fitted_log_hr))
+}
 
 dgm_null <- generate_aft_dgm_flex(
   data            = dfa,
@@ -1536,7 +1373,7 @@ dgm_null <- generate_aft_dgm_flex(
   subgroup_vars   = dgm_subgroup_vars,
   subgroup_cuts   = dgm_subgroup_cuts,
   model           = "null",
-  k_treat         = dgm_k_treat,   # 1.0 = preserve fitted ITT effect
+  k_treat         = dgm_k_treat_null,
   n_super         = dgm_n_super,
   seed            = sim_seed,
   verbose         = TRUE
@@ -1544,10 +1381,104 @@ dgm_null <- generate_aft_dgm_flex(
 dgm_null <- add_compat_aliases(dgm_null)
 
 cat("\n=== ACTG175 Null DGM ===\n")
-cat("  HR(ITT, switched):", round(dgm_null$hazard_ratios$overall, 3), "\n")
-cat("  HR(ITT, original):", round(1 / dgm_null$hazard_ratios$overall, 3), "\n")
+cat("  k_treat used:           ", round(dgm_k_treat_null, 3), "\n")
+if (!is.null(null_target_hr)) {
+  cat("  null_target_hr (target):", round(null_target_hr, 3), "\n")
+}
+cat("  HR(ITT, switched):      ", round(dgm_null$hazard_ratios$overall, 3), "\n")
+cat("  HR(ITT, original):      ", round(1 / dgm_null$hazard_ratios$overall, 3), "\n")
+cat("  c1 threshold:           ", fs_hr_threshold, "\n")
+cat(sprintf("  Gap (c1 - HR_switched):  %.3f\n",
+            fs_hr_threshold - dgm_null$hazard_ratios$overall))
 
 timings$dgm_null <- proc.time()[3] - t0
+```
+
+### Illustrative `k_treat` values: HR(ITT) and gap to c1
+
+To give the reader a concrete sense of how `k_treat` controls the
+marginal ITT effect and therefore the gap from c1, the table below
+constructs three illustrative null DGMs at `k_treat` $\in \{0.5,
+1.0, 1.5\}$ using the same data, factor lists, super-population
+size, and seed as the main `dgm_null` above.  The default
+(`k_treat = 1.0`) preserves the fitted ITT effect; **larger**
+`k_treat` amplifies the marginal benefit, pushing the
+switched-scale HR further above 1 and *narrowing* the gap to c1;
+**smaller** `k_treat` attenuates the marginal effect toward
+HR $\approx 1$ and *widens* the gap.
+
+```{r dgm-null-illustrate}
+#| code-fold: true
+#| code-summary: "Build three illustrative null DGMs and tabulate (click to expand)"
+
+# Three illustrative null DGMs.  These are NOT used in the simulation
+# loop below; the simulation uses `dgm_null` from the previous chunk
+# (constructed with k_treat = dgm_k_treat_null).  The grid here is
+# purely a didactic table so the reader can see how k_treat moves
+# HR(ITT) and the gap to c1.
+k_treat_grid <- c(0.5, 1.0, 1.5)
+
+illust_rows <- lapply(k_treat_grid, function(k) {
+  d <- generate_aft_dgm_flex(
+    data            = dfa,
+    outcome_var     = "y",
+    event_var       = "event",
+    treatment_var   = "treat",
+    continuous_vars = dgm_continuous_vars,
+    factor_vars     = dgm_factor_vars,
+    subgroup_vars   = dgm_subgroup_vars,
+    subgroup_cuts   = dgm_subgroup_cuts,
+    model           = "null",
+    k_treat         = k,
+    n_super         = dgm_n_super,
+    seed            = sim_seed,
+    verbose         = FALSE
+  )
+  d <- add_compat_aliases(d)
+  hr_switched <- as.numeric(d$hazard_ratios$overall)
+  data.frame(
+    k_treat     = k,
+    hr_switched = hr_switched,
+    hr_original = 1 / hr_switched,
+    gap_to_c1   = fs_hr_threshold - hr_switched
+  )
+})
+illust_tbl <- do.call(rbind, illust_rows)
+
+gt::gt(illust_tbl) |>
+  gt::tab_header(
+    title    = "Illustrative null DGMs: HR(ITT) and gap to c1 by k_treat",
+    subtitle = sprintf(
+      "ACTG175 benefit search, switched scale; c1 = %.3f, n_super = %d",
+      fs_hr_threshold, dgm_n_super
+    )
+  ) |>
+  gt::cols_label(
+    k_treat     = "k_treat",
+    hr_switched = "HR(ITT, switched)",
+    hr_original = "HR(ITT, original)",
+    gap_to_c1   = gt::md("Gap (c1 \u2212 HR_switched)")
+  ) |>
+  gt::fmt_number(
+    columns  = c(hr_switched, hr_original, gap_to_c1),
+    decimals = 3
+  ) |>
+  gt::fmt_number(columns = k_treat, decimals = 1) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = k_treat == 1.0)
+  ) |>
+  gt::tab_footnote(
+    footnote = paste0(
+      "k_treat = 1.0 (bold row) preserves the fitted ITT effect; this is ",
+      "the default null DGM. Smaller k_treat attenuates the marginal ",
+      "effect toward HR \u2248 1 (widening the gap to c1); larger k_treat ",
+      "amplifies the effect (narrowing the gap). The realised HR is ",
+      "approximate -- the AFT log-time scaling does not map exactly to ",
+      "the Cox HR, which also depends on the censoring and covariate ",
+      "distributions."
+    )
+  )
 ```
 
 
@@ -1692,14 +1623,33 @@ performance claim.
 t0 <- proc.time()[3]
 
 fs_single <- tryCatch(
-  suppressWarnings(
-    fs_run(
-      data    = sim_data,
-      outcome = "y_sim",
-      event   = "event_sim",
-      treat   = "treat_sim"
+  suppressWarnings(forestsearch(
+    df.analysis            = sim_data,
+    confounders.name       = confounders_analysis,
+    outcome.name           = "y_sim",
+    event.name             = "event_sim",
+    treat.name             = "treat_sim",
+    id.name                = "id",
+    hr.threshold           = fs_hr_threshold,
+    hr.consistency         = fs_hr_consistency,
+    pconsistency.threshold = fs_pconsistency_thresh,
+    fs.splits              = fs_splits,
+    n.min                  = fs_n_min,
+    d0.min                 = fs_d0_min,
+    d1.min                 = fs_d1_min,
+    maxk                   = fs_maxk,
+    by.risk                = fs_by_risk,
+    vi.grf.min             = fs_vi_grf_min,
+    use_lasso              = TRUE,
+    use_grf                = TRUE,
+    is.RCT                 = TRUE,
+    details                = TRUE,
+    quiet                  = FALSE,
+    seedit                 = sim_seed,
+    parallel_args          = list(
+      plan = "sequential", workers = 1, show_message = FALSE
     )
-  ),
+  )),
   error = function(e) {
     warning("ForestSearch failed: ", e$message)
     NULL
@@ -1797,12 +1747,56 @@ cat("Using", n_workers, "parallel workers\n")
 confounders_actg <- confounders_analysis
 
 # ── ForestSearch parameters ───────────────────────────────────
-# fs_params is defined ONCE in the setup chunk (see top of file,
-# section "Unified ForestSearch parameters").  All three FS call
-# sites in this document -- single-data analysis, single-trial
-# verification, and the simulation loop -- consume that same list
-# to guarantee identical knob settings.  Do NOT redefine fs_params
-# here; edit the setup chunk if you need to change it.
+# These are passed to run_simulation_analysis() and forwarded to
+# forestsearch().  The annotations below explain each parameter
+# and when you might change it for your own study.
+fs_params <- list(
+  # Column name mappings — must match simulate_from_dgm() output
+  outcome.name           = "y_sim",
+  event.name             = "event_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+
+  # Variable screening flags
+  use_lasso              = TRUE,    # LASSO pre-screening (recommended)
+  use_grf                = TRUE,    # GRF pre-screening (recommended)
+
+  # Subgroup detection thresholds (see Leon et al. 2024, Section 3)
+  # c1: a candidate subgroup must have HR > hr.threshold to be flagged.
+  # Increase for more conservative detection; decrease for more power.
+  hr.threshold           = fs_hr_threshold,
+  # c2: in each bootstrap replicate, the subgroup HR must exceed this
+  # value.  Typically set to 1.0 (any harm signal).
+  hr.consistency         = fs_hr_consistency,
+  # The proportion of bootstrap replicates in which the subgroup HR
+  # exceeds c2.  The paper default is 0.90.
+  pconsistency.threshold = fs_pconsistency_thresh,
+
+  # Computational and sample-size constraints
+  fs.splits              = fs_splits,    # Bootstrap replicates (400 is default)
+  n.min                  = fs_n_min,     # Minimum subgroup size (both arms)
+  d0.min                 = fs_d0_min,    # Minimum events, control arm
+  d1.min                 = fs_d1_min,    # Minimum events, treatment arm
+  maxk                   = fs_maxk,      # Max subgroup-defining variables
+  by.risk                = fs_by_risk,   # Risk-table granularity (time units)
+  vi.grf.min             = fs_vi_grf_min, # GRF variable importance threshold
+  seedit                 = sim_seed,      # Reproducible split-half consistency
+
+  # Two-stage estimation: after identifying a subgroup, re-estimates
+  # the treatment effect using an independent hold-out sample.
+  # Recommended for bias correction.
+  use_twostage           = TRUE,
+  twostage_args          = list(),
+
+  # GRF tuning (applies to ForestSearch's internal GRF pre-screening)
+  tune_grf               = grf_tune,
+
+  # Inner parallelism: ForestSearch runs sequentially within each
+  # worker.  The outer loop (foreach) parallelises across replicates.
+  parallel_args          = list(
+    plan = "sequential", workers = 1, show_message = FALSE
+  )
+)
 
 # -- GRF standalone parameter overrides ----------------------------------------
 grf_params <- list(
@@ -1920,7 +1914,7 @@ plan(sequential)
 ```
 
 ```{r save-results}
-#| code-fold: false
+#| include: false
 
 if (save_results) {
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
@@ -2039,6 +2033,96 @@ functions, they automatically invert all hazard ratios to the
 **original** scale (HR < 1 = benefit from ZDV+ddI) and apply
 Q/Qc notation.
 
+::: {.callout-note title="Trimming Cox-HR plug-in columns for the estimation tables"}
+The plug-in Cox HR estimates (`hr.H.hat`, `hr.Hc.hat`) can blow up
+in single replicates where the identified subgroup -- typically
+$Q^c$ -- has zero events in one arm.  When that happens the Cox
+coefficient is unbounded and the realised HR is effectively
+$0$ or $\infty$ on the switched scale, which after inversion to
+the benefit scale produces extreme display values that swamp the
+table's `Avg`, `SD`, and `Max` columns even when the AHR-based
+columns (`ahr.H.hat`, `ahr.Hc.hat`) and bias-corrected columns
+(`hr.H.bc`, `hr.Hc.bc`) remain well-behaved.
+
+Because the package's existing trimming infrastructure
+(`SGplot_estimates(trim_fraction = ...)`) is plumbed only into
+the violin plotter and not into `build_estimation_table()`, we
+apply a symmetric quantile-based winsorization to the four Cox-HR
+columns at the vignette level **on the switched scale**, before
+passing the results to the table functions.  AHR columns are
+left untouched.
+
+Set `trim_fraction <- NULL` below to disable; the table will then
+show raw (untrimmed) statistics.  The default of `0.01` clamps
+the bottom and top 1% of values per column.
+:::
+
+```{r oc-alt-trim-setup}
+#| code-fold: true
+#| code-summary: "Trimming helper (click to expand)"
+
+# Symmetric quantile winsorization of Cox-HR plug-in columns.
+# Operates on the SWITCHED scale (the columns as stored in
+# `results_alt` / `results_null` -- inversion to the benefit scale
+# happens inside build_estimation_table()).
+#
+# Returns a copy of `results` with trimmed values and a "trim_log"
+# attribute summarising n_trimmed per column.
+winsorize_hr_columns <- function(results,
+                                 trim_fraction = 0.01,
+                                 cols = c("hr.H.hat", "hr.Hc.hat",
+                                          "hr.H.bc",  "hr.Hc.bc")) {
+  if (is.null(trim_fraction) || trim_fraction <= 0) {
+    return(results)
+  }
+  if (trim_fraction >= 0.5) {
+    stop("trim_fraction must be < 0.5")
+  }
+  out <- as.data.frame(results)
+  trim_log <- data.frame(column = character(0), n_trimmed = integer(0),
+                         lower = numeric(0), upper = numeric(0),
+                         stringsAsFactors = FALSE)
+  for (col in intersect(cols, names(out))) {
+    v <- out[[col]]
+    finite_idx <- is.finite(v)
+    if (sum(finite_idx) < 5L) next
+    lo <- stats::quantile(v[finite_idx], trim_fraction,    na.rm = TRUE)
+    hi <- stats::quantile(v[finite_idx], 1 - trim_fraction, na.rm = TRUE)
+    flag <- finite_idx & (v < lo | v > hi)
+    out[[col]][flag & v < lo] <- lo
+    out[[col]][flag & v > hi] <- hi
+    trim_log <- rbind(trim_log, data.frame(
+      column     = col,
+      n_trimmed  = sum(flag, na.rm = TRUE),
+      lower      = as.numeric(lo),
+      upper      = as.numeric(hi),
+      stringsAsFactors = FALSE
+    ))
+  }
+  attr(out, "trim_log") <- trim_log
+  out
+}
+
+# Apply to both result sets.  The trimmed versions are passed to
+# build_estimation_table() below; format_oc_results() uses the
+# untrimmed versions because it summarises detection / classification
+# (not effect-size summaries).
+trim_fraction        <- 0.01      # 1% symmetric; set NULL to disable
+results_alt_trimmed  <- winsorize_hr_columns(results_alt,  trim_fraction)
+results_null_trimmed <- winsorize_hr_columns(results_null, trim_fraction)
+
+cat("=== Cox-HR winsorization summary (switched scale) ===\n")
+cat(sprintf("  trim_fraction = %s\n",
+            if (is.null(trim_fraction)) "NULL (disabled)"
+            else sprintf("%.3f", trim_fraction)))
+cat("  H1 (alt) trimmed columns:\n")
+if (!is.null(attr(results_alt_trimmed, "trim_log")))
+  print(attr(results_alt_trimmed, "trim_log"), row.names = FALSE)
+cat("  H0 (null) trimmed columns:\n")
+if (!is.null(attr(results_null_trimmed, "trim_log")))
+  print(attr(results_null_trimmed, "trim_log"), row.names = FALSE)
+```
+
 ```{r oc-alt}
 t0 <- proc.time()[3]
 
@@ -2058,7 +2142,7 @@ format_oc_results(
 )
 
 build_estimation_table(
-  results         = results_alt,
+  results         = results_alt_trimmed,
   dgm             = dgm_calibrated,
   analysis_method = "FS",
   subtitle = sprintf(
@@ -2070,7 +2154,7 @@ build_estimation_table(
 )
 
 build_estimation_table(
-  results         = results_alt,
+  results         = results_alt_trimmed,
   dgm             = dgm_calibrated,
   analysis_method = "GRF",
   subtitle = sprintf(
@@ -2089,7 +2173,7 @@ timings$summarize_alt <- proc.time()[3] - t0
 
 ```{r interpret-alt, results="asis"}
 interpret_estimation_table(
-  results_alt, dgm_calibrated,
+  results_alt_trimmed, dgm_calibrated,
   analysis_method = "FS",
   scenario = "alt",
   subgroup_notation = "benefit"
@@ -2116,7 +2200,7 @@ format_oc_results(
 )
 
 build_estimation_table(
-  results         = results_null,
+  results         = results_null_trimmed,
   dgm             = dgm_null,
   analysis_method = "FS",
   subtitle = sprintf(
@@ -2128,7 +2212,7 @@ build_estimation_table(
 )
 
 build_estimation_table(
-  results         = results_null,
+  results         = results_null_trimmed,
   dgm             = dgm_null,
   analysis_method = "GRF",
   subtitle = sprintf(
