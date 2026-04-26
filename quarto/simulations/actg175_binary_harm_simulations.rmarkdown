@@ -18,32 +18,30 @@ library(foreach)
 set.seed(8316951L)
 
 # -- Simulation control --------------------------------------------------------
-nsims_alt   <- 20L
-nsims_null  <- 20L
-n_workers   <- 4L
+nsims_alt   <- 1000L
+nsims_null  <- 1000L
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
 
 # -- FS parameters -------------------------------------------------------------
 c1 <- 1.25           # hr.threshold (OR scale)
 c2 <- 1.0            # hr.consistency
 fs_pconsistency    <- 0.80
-fs_splits          <- 500L
+fs_splits          <- 1000L
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
-fs_d1_min          <- 10L
+fs_d1_min          <- 0L
 fs_maxk            <- 2L
-fs_vi_grf_min      <- -0.2
-fs_dmin_grf        <- 0
+fs_dmin_grf        <- 0.05
 fs_seedit          <- 8316951L
-fs_cont_cutoff     <- 4L
 fs_sg_focus        <- "minSG"
-fs_cut_type        <- "default"
 fs_use_lasso       <- FALSE
 fs_use_grf         <- TRUE
+fs_return_selected_cuts_only <- TRUE
 fs_is_rct          <- TRUE
 
 # -- GRF standalone parameters ------------------------------------------------
-grf_dmin           <- 0.1
+grf_dmin           <- 0.10
 grf_maxdepth       <- 2L
 grf_sg_criterion   <- "mDiff"
 
@@ -58,8 +56,8 @@ diag_keep          <- c("fs_full", "candidate_table")
 diag_keep_first_n  <- 5L
 
 # -- Plot thresholds -----------------------------------------------------------
-sgdist_min_pct_alt  <- 10
-sgdist_min_pct_null <- 5
+sgdist_min_pct_alt  <- 1
+sgdist_min_pct_null <- 1
 sgdist_top_k        <- 10L
 ordist_ylim         <- c(0, 6)
 ```
@@ -192,8 +190,9 @@ fs_single <- forestsearch(
   d1.min = fs_d1_min, hr.threshold = c1, hr.consistency = c2,
   pconsistency.threshold = fs_pconsistency, fs.splits = fs_splits,
   maxk = fs_maxk, sg_focus = fs_sg_focus, use_lasso = fs_use_lasso,
-  use_grf = fs_use_grf, is.RCT = fs_is_rct, vi.grf.min = fs_vi_grf_min,
-  dmin.grf = fs_dmin_grf, cont.cutoff = fs_cont_cutoff,
+  use_grf = fs_use_grf, is.RCT = fs_is_rct, 
+  dmin.grf = fs_dmin_grf, 
+  return_selected_cuts_only = fs_return_selected_cuts_only,
   details = TRUE, quiet = FALSE,
   parallel_args = list(plan = "sequential", workers = 1,
                         show_message = FALSE)
@@ -224,9 +223,8 @@ fs_params <- list(
   effect_measure         = "OR",
   use_lasso              = fs_use_lasso,
   use_grf                = fs_use_grf,
+  return_selected_cuts_only = fs_return_selected_cuts_only,
   use_twostage           = TRUE,
-  cont.cutoff            = fs_cont_cutoff,
-  cut_type               = fs_cut_type,
   hr.threshold           = c1,
   hr.consistency         = c2,
   pconsistency.threshold = fs_pconsistency,
@@ -236,7 +234,6 @@ fs_params <- list(
   d0.min                 = fs_d0_min,
   d1.min                 = fs_d1_min,
   maxk                   = fs_maxk,
-  vi.grf.min             = fs_vi_grf_min,
   dmin.grf               = fs_dmin_grf,
   seedit                 = fs_seedit,
   parallel_args          = list(plan = "sequential", workers = 1,
@@ -335,6 +332,92 @@ cat(sprintf("Completed in %.1f min (%d rows, %d failed)\n",
     t_null / 60, nrow(results_null), n_failed_null))
 ```
 
+# Results {#sec-results}
+
+## Metrics Glossary {#sec-glossary}
+
+Classification metrics follow the definitions in León et al.
+(2024, Section 3).
+
+### Detection
+
+**Found** ($\text{any}(Q)$): proportion of simulations where
+the method identifies *any* harm subgroup
+($\texttt{any.H} = 1$).
+
+- **Under H1** (alternative): $Q$ exists with a differential
+  treatment effect.  $\text{any}(Q)$ is **detection power**.
+- **Under H0** (null): $Q = \emptyset$ and $Q^c$ is the ITT
+  population.  $\text{any}(Q)$ is the **false positive rate
+  (FPR)** for falsely declaring that a harm subgroup exists.
+
+### Classification Under H1
+
+Under the alternative, the true harm subgroup $Q$ exists
+($Q = \{\text{cd40} > 421 \cap \text{wtkg} > 82.3\}$,
+prevalence $\approx$ `r sprintf("%.0f", Q_pct)`%)
+with a genuinely different treatment effect (OR(Q) =
+`r cal_target_or`).  Following León et al. (2024, Section 3),
+define for estimated subgroup $\hat{Q}$:
+
+$$
+\text{sens}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in Q\}},
+\quad
+\text{ppv}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in \hat{Q}\}},
+$$
+
+with analogous measures for the complement $\hat{Q}^c$.
+
+The operating-characteristics tables report these as:
+
+| Table column | León et al. notation | Interpretation |
+|---|---|---|
+| **Sen** | $\text{sens}(\hat{Q})$ | Fraction of true $Q$ captured by $\hat{Q}$ |
+| **Spec** | $\text{sens}(\hat{Q}^c)$ | Fraction of true $Q^c$ correctly in $\hat{Q}^c$ |
+| **PPV** | $\text{ppv}(\hat{Q})$ | Fraction of $\hat{Q}$ truly in $Q$ |
+| **NPV** | $\text{ppv}(\hat{Q}^c)$ | Fraction of $\hat{Q}^c$ truly in $Q^c$ |
+
+Classification metrics are averaged across **all** simulations
+(León et al. 2024, Table 1).  When no subgroup is detected
+($\hat{Q} = \emptyset$), the simulation contributes
+$\text{sens}(\hat{Q}) = 0$ and $\text{ppv}(\hat{Q}) = 0$
+(since no member of $Q$ is captured and no subjects are
+assigned to $\hat{Q}$).  This convention is implemented
+at the source in `run_simulation_analysis()`, matching
+the original `fs.estimates.out()` function used in
+León et al. (2024).
+
+::: {.callout-note}
+## Classification metrics with discovered cuts
+
+Because cuts are discovered from the data in this setup, a
+$\hat{Q}$ that captures "roughly the right region" but with
+slightly shifted boundaries will still receive high sens/PPV.
+Expect these metrics to be lower than under the discretised
+(oracle-cut) setup — the gap quantifies the cost of not knowing
+the true cuts in advance.
+:::
+
+### Classification Under H0
+
+Under the null, $Q = \emptyset$ --- no subgroup with a
+differential treatment effect exists.  The complement $Q^c$
+is the entire ITT population.  Per León et al. (2024,
+Section 3), $\text{sens}(\hat{Q})$ is **undefined** (shown
+as "—" in the table) and $\text{ppv}(\hat{Q}) \equiv 0$.
+For the complement, $\text{sens}(\hat{Q}^c) = |\hat{Q}^c|/N$
+and $\text{ppv}(\hat{Q}^c) = 1$ since $Q^c$ = ITT.
+
+The only operationally meaningful metric under H0 is the
+**detection rate (FPR)**.
+
+### Effect Estimates
+
+All effect estimates are on the adverse scale:
+OR $> 1$ = treatment (ZDV+ddI) increases the adverse outcome
+(non-improvement) = **harm**.  No inversion or treatment
+switching is applied.
+
 # Operating Characteristics {#sec-oc}
 
 ## H1: Detection + Classification
@@ -355,6 +438,56 @@ format_oc_results(
   subgroup_notation = sg_notation
 )
 ```
+
+### True Subgroup Sizes Across Replicates
+
+```{r true-size-summary}
+#| code-fold: true
+
+# One row per replicate-method combination, but sizeH_true is identical
+# across method rows within the same sim.  Deduplicate on sim.
+truth_by_sim <- unique(results_alt[, c("sim", "sizeH_true", "sizeHc_true",
+                                        "propH_true", "propHc_true")])
+
+callout_Q <- sprintf(
+  "|Q|:  mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeH_true),
+  sd(truth_by_sim$sizeH_true),
+  min(truth_by_sim$sizeH_true),
+  max(truth_by_sim$sizeH_true),
+  100 * mean(truth_by_sim$propH_true))
+
+callout_Qc <- sprintf(
+  "|Qc|: mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeHc_true),
+  sd(truth_by_sim$sizeHc_true),
+  min(truth_by_sim$sizeHc_true),
+  max(truth_by_sim$sizeHc_true),
+  100 * mean(truth_by_sim$propHc_true))
+
+cat(sprintf("True subgroup sizes across %d H1 replicates (N = %d each):\n",
+            nrow(truth_by_sim), sim_n))
+cat("  ", callout_Q,  "\n")
+cat("  ", callout_Qc, "\n")
+```
+
+::: {.callout-note title="Reference sizes for the estimation tables below"}
+- **|Q| (true harm subgroup)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeH_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeH_true))`,
+  range `r min(truth_by_sim$sizeH_true)`–`r max(truth_by_sim$sizeH_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propH_true))`).
+- **|Qc| (complement)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeHc_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeHc_true))`,
+  range `r min(truth_by_sim$sizeHc_true)`–`r max(truth_by_sim$sizeHc_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propHc_true))`).
+
+Compare to $\widehat{|H|}$ (the FS-identified subgroup size) reported in
+the row-group labels of the estimation tables below.  A ratio
+$\widehat{|H|} \big/ \overline{|Q|} \approx 1$ indicates the method is
+recovering a subgroup close to the true size; values much smaller
+suggest FS is identifying a strict subset of $Q$; values larger suggest
+FS is absorbing some $Q^c$ subjects into $\hat H$.
+:::
 
 ## H1: Estimation Tables
 
