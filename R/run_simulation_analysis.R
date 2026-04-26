@@ -390,31 +390,17 @@ run_simulation_analysis <- function(
 
   # ── Adverse-outcome auto-coordination ──────────────────────────────────────
   # When the DGM was built with adverse_outcome = TRUE (binary), the
-
-  # interaction was applied on the beneficial (1-Y) scale so that the same
-  # k_inter produces the same heterogeneity regardless of Y coding.  The
-  # analysis pipeline must then also run on the beneficial scale: the
-  # effect estimator inside forestsearch() should flip Y -> 1-Y before
-  # computing OR.  Setting adverse_outcome = FALSE in the FS/GRF params
-  # achieves this (adverse_outcome = FALSE tells the estimator "Y is
-  # beneficial, use as-is" which — after the DGM's internal negation —
-  # is equivalent to the beneficial-outcome analysis).
-  #
-  # This auto-coordination fires only when:
-  #   (a) the DGM carries adverse_outcome = TRUE, AND
-  #   (b) the user did NOT explicitly set adverse_outcome in fs_params.
-  # If the user explicitly sets adverse_outcome in fs_params, that takes
-  # precedence (manual override for advanced use cases).
+  # interaction was applied on the beneficial (1-Y) scale.  The analysis
+  # pipeline must also run on the beneficial scale: adverse_outcome = FALSE
+  # tells the estimator to flip Y -> 1-Y before computing OR.
   if (isTRUE(dgm$adverse_outcome) && is.null(fs_params[["adverse_outcome"]])) {
     fs_params[["adverse_outcome"]] <- FALSE
-    # Also propagate to standalone GRF params (grf_merged) for consistency
     if (is.null(grf_params[["adverse_outcome"]])) {
       grf_merged[["adverse_outcome"]] <- FALSE
     }
     if (show_verbose) {
       message("  [adverse_outcome] DGM built with adverse_outcome=TRUE -> ",
-              "auto-setting adverse_outcome=FALSE in FS/GRF params ",
-              "(analysis runs on beneficial 1-Y scale)")
+              "auto-setting adverse_outcome=FALSE in FS/GRF params")
     }
   }
 

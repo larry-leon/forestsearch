@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # -- Simulation control -------------------------------------------------------
-nsims_alt   <- 1000L
-nsims_null  <- 1000L
+nsims_alt   <- 20L
+nsims_null  <- 20L
 sim_seed    <- 8316951L
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
@@ -70,7 +70,7 @@ sgdist_show_other_null <- FALSE
 # display.  ylim clips the viewport via coord_cartesian (data are NOT dropped;
 # violins, boxplots, and mean/SD annotations use the full dataset).
 # Set NULL to let ggplot2 determine limits automatically.
-ordist_ylim <- c(0, 10)
+ordist_ylim <- c(0, 3)
 
 # -- Production projection targets --------------------------------------------
 prod_alt               <- 5000L
@@ -222,7 +222,7 @@ run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm)
 
 # -- ForestSearch parameters (benefit search thresholds) -----------------------
 fs_or_threshold        <- round(1 / 0.60, 3)   # c1
-fs_or_consistency      <- round(1 / 0.70, 3)   # c2
+fs_or_consistency      <- round(1 / 0.75, 3)   # c2
 fs_pconsistency        <- 0.90
 fs_splits              <- 1000L
 fs_n_min               <- 60L
@@ -322,13 +322,13 @@ fs_cut_type            <- "default"
 #   INCREASES FPR slightly at a given dmin.grf.  Re-calibration is
 #   recommended for production runs; dmin.grf = 0.10 is the current
 #   conservative default carried over from the discretised setting.
-grf_dmin               <- 0.125
+grf_dmin               <- 0.1
 grf_maxdepth           <- 2L
 grf_sg_criterion       <- "mDiff"
 grf_tune               <- FALSE
 
 # -- ForestSearch pipeline flags -----------------------------------------------
-fs_use_lasso           <- TRUE
+fs_use_lasso           <- FALSE
 fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
 
@@ -1021,13 +1021,12 @@ dgm_calibrated <- calibrate_glm_interaction(
 )
 
 cat("\n=== Calibrated ACTG175 Binary DGM ===\n")
-cat("  OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
-    " (adverse scale; beneficial-scale target:", cal_target_or, ")\n")
-cat("  OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  OR(Q) adverse scale:", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
+cat("  OR(Q) benefit scale:", round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3),
+    " (target:", cal_target_or, ")\n")
+cat("  OR(Qc):", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
 cat("  OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
 cat("  k_inter:", dgm_calibrated$model_params$k_inter, "\n")
-cat("  -> Beneficial scale: OR(Q) =",
-    round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
 
 timings$calibrate <- proc.time()[3] - t0
 ```
@@ -1037,10 +1036,13 @@ timings$calibrate <- proc.time()[3] - t0
 ```{r calibration-plot, fig.height=5}
 #| code-fold: true
 #| code-summary: "Calibration-curve ggplot (click to expand)"
-#| fig-cap: "Calibration of k_inter: OR(Q) as a function of the interaction parameter."
+#| fig-cap: "Calibration of k_inter: OR(Q) on the beneficial (1-Y) scale as a function of the interaction parameter. The calibration with `adverse_outcome = TRUE` internally searches on this scale, then applies the selected k_inter to the original adverse Y."
 
+# The calibration searched on the beneficial (1-Y) scale, so we plot
+# that scale here to match.  The final DGM uses the same k_inter on
+# the adverse scale where OR(Q) will be much larger.
 cal_grid <- seq(cal_k_grid_range[1], cal_k_grid_range[2], by = cal_grid_step)
-cal_or_Q <- vapply(cal_grid, function(k) {
+cal_or_Q_benefit <- vapply(cal_grid, function(k) {
   d <- generate_glm_dgm(
     data = actg_df, factor_vars = dgm_factor_vars,
     outcome_var = "y_binary", treatment_var = "treat",
@@ -1049,34 +1051,32 @@ cal_or_Q <- vapply(cal_grid, function(k) {
     k_treat = dgm_k_treat_alt, adverse_outcome = TRUE,
     k_inter = k, n_super = dgm_n_super, seed = sim_seed
   )
-  d$hazard_ratios$harm_subgroup
+  # Invert to beneficial scale: 1 / OR(adverse)
+  1 / d$hazard_ratios$harm_subgroup
 }, numeric(1))
 
-cal_df <- data.frame(k_inter = cal_grid, or_Q = cal_or_Q)
+cal_df <- data.frame(k_inter = cal_grid, or_Q = cal_or_Q_benefit)
 best_k <- dgm_calibrated$model_params$k_inter
-
-# With adverse_outcome = TRUE the DGM reports OR on the adverse Y scale;
-# the calibration target (1/cal_target_or) is shown as the dashed line.
-cal_search_target <- 1 / cal_target_or
+or_Q_benefit_cal <- 1 / dgm_calibrated$hazard_ratios$harm_subgroup
 
 ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
   geom_line(linewidth = 1, colour = "firebrick") +
-  geom_hline(yintercept = cal_search_target, linetype = "dashed",
+  geom_hline(yintercept = cal_target_or, linetype = "dashed",
              colour = "grey50") +
   geom_hline(yintercept = 1.0, linetype = "dotted",
              colour = "grey70") +
   geom_point(
-    data = data.frame(k_inter = best_k,
-                      or_Q = dgm_calibrated$hazard_ratios$harm_subgroup),
+    data = data.frame(k_inter = best_k, or_Q = or_Q_benefit_cal),
     colour = "red", size = 4, shape = 16
   ) +
   labs(
     x = "k_inter",
-    y = "OR(Q) on switched scale",
+    y = "OR(Q) on beneficial (1-Y) scale",
     title = "ACTG175 Binary DGM Calibration",
     subtitle = sprintf(
-      "Best: k_inter = %.2f -> OR(Q) = %.3f (target: %.1f)",
-      best_k, dgm_calibrated$hazard_ratios$harm_subgroup, cal_target_or
+      "Best: k_inter = %.2f -> OR(Q, benefit) = %.3f (target: %.1f) | OR(Q, adverse) = %.3f",
+      best_k, or_Q_benefit_cal, cal_target_or,
+      dgm_calibrated$hazard_ratios$harm_subgroup
     )
   ) +
   theme_minimal(base_size = 12) +
@@ -2404,10 +2404,10 @@ format_oc_results(
   digits_hr = 2,
   title     = "ACTG175 Binary: Identification (Benefit Search, Raw Continuous)",
   subtitle  = sprintf(
-    "n = %d, %d sims, OR(Q) = %.2f, OR(Qc) = %.2f (switched)",
+    "n = %d, %d sims, OR(Q) = %.2f, OR(Qc) = %.2f (benefit scale, original treatment)",
     sim_n_sample, nsims_alt,
-    dgm_calibrated$hazard_ratios$harm_subgroup,
-    dgm_calibrated$hazard_ratios$no_harm_subgroup
+    1 / dgm_calibrated$hazard_ratios$harm_subgroup,
+    1 / dgm_calibrated$hazard_ratios$no_harm_subgroup
   ),
   subgroup_notation = sg_notation
 )
@@ -2710,9 +2710,9 @@ format_oc_results(
   digits   = 2,
   title    = "ACTG175 Binary: Type I Error (Null, Raw Continuous)",
   subtitle = sprintf(
-    "n = %d, %d sims, OR(ITT) = %.2f (switched)",
+    "n = %d, %d sims, OR(ITT) = %.2f (benefit scale)",
     sim_n_sample, nsims_null,
-    dgm_null$hazard_ratios$overall
+    1 / dgm_null$hazard_ratios$overall
   ),
   subgroup_notation = sg_notation
 )

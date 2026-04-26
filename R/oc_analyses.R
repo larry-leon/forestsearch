@@ -792,6 +792,18 @@ format_oc_results <- function(
       }
     }
 
+    # Size column labels — notation-aware (|Q̂| or |Ĥ|)
+    size_label_map <- list(
+      Size_H_mean = sprintf("|%s|", L$sg_hat),
+      Size_H_min  = "Min",
+      Size_H_max  = "Max"
+    )
+    for (col_nm in names(size_label_map)) {
+      if (col_nm %in% names(summary_df)) {
+        label_list[[col_nm]] <- size_label_map[[col_nm]]
+      }
+    }
+
     gt_table <- gt::cols_label(gt_table, .list = label_list)
 
     # Add column spanners
@@ -850,6 +862,18 @@ format_oc_results <- function(
           gt_table,
           label = "Controlled Direct Effects",
           columns = gt::all_of(cde_span_cols)
+        )
+      }
+    }
+
+    if ("all" %in% metrics || "subgroup_size" %in% metrics) {
+      size_span_cols <- intersect(c("Size_H_mean", "Size_H_min", "Size_H_max"),
+                                   names(summary_df))
+      if (length(size_span_cols) > 0) {
+        gt_table <- gt::tab_spanner(
+          gt_table,
+          label = sprintf("Size %s", L$sg_hat),
+          columns = gt::all_of(size_span_cols)
         )
       }
     }
