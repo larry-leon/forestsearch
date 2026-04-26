@@ -66,18 +66,31 @@
 #'   treatment effect.  \code{k_treat} scales the magnitude of
 #'   that homogeneous effect.
 #' @param k_inter Numeric. Direct additive shift on the linear predictor
-#'   for Q members under treatment.  The interpretation depends on
-#'   \code{outcome_type}:
-#'   \describe{
-#'     \item{binary}{Shift on the log-odds scale. Positive increases
-#'       P(Y=1) for Q under treatment.}
-#'     \item{continuous}{Shift on the mean scale (identity link).
-#'       Positive increases \eqn{E(Y)} for Q under treatment.}
-#'     \item{count}{Shift on the log-rate scale. Positive increases
-#'       \eqn{E(Y)} for Q under treatment (multiplicative: rate multiplied
-#'       by \code{exp(k_inter)}).}
-#'   }
+#'   for Q members under treatment.  When \code{adverse_outcome = FALSE}
+#'   (the default), positive values increase \eqn{P(Y=1)} for Q under
+#'   treatment.  When \code{adverse_outcome = TRUE} for binary outcomes,
+#'   the shift is \strong{negated internally} so that positive
+#'   \code{k_inter} consistently means "amplify the treatment--subgroup
+#'   contrast on the \emph{beneficial} (1-Y) scale."
+#'
+#'   This ensures that the \emph{same} \code{k_inter} produces the
+#'   \emph{same} biological heterogeneity regardless of whether Y is
+#'   coded as an adverse or beneficial event.  Without this adjustment,
+#'   flipping Y from beneficial to adverse changes the baseline
+#'   treatment-coefficient sign, and the same \code{target_effect} in
+#'   \code{\link{calibrate_glm_interaction}} can produce vastly
+#'   different interaction strengths (see Details).
+#'
 #'   Default \code{0} (no interaction, equivalent to \code{model = "null"}).
+#' @param adverse_outcome Logical.  If \code{TRUE}, the outcome
+#'   variable represents an \emph{adverse} event (e.g., failure,
+#'   non-improvement) where Y = 1 is clinically \emph{bad}.  For
+#'   binary outcomes this causes \code{k_inter} to be negated
+#'   internally so that positive \code{k_inter} amplifies the
+#'   treatment contrast on the beneficial (1-Y) scale.  Ignored
+#'   for continuous and count outcomes.  Default \code{FALSE}
+#'   (backward compatible: Y = 1 is beneficial or direction is
+#'   irrelevant).
 #' @param n_super Integer. Size of the super-population. Default
 #'   \code{5000L}.
 #' @param seed Integer. Random seed for super-population sampling.
@@ -149,6 +162,7 @@ generate_glm_dgm <- function(
     model           = c("alt", "null"),
     k_treat         = 1,
     k_inter         = 0,
+    adverse_outcome = FALSE,
     n_super         = 5000L,
     seed            = 8316951L,
     verbose         = FALSE
@@ -208,12 +222,13 @@ generate_glm_dgm <- function(
 
   if (verbose) {
     cat("=== generate_glm_dgm() ===\n")
-    cat(sprintf("  outcome_type:   %s\n", outcome_type))
-    cat(sprintf("  effect_measure: %s\n", effect_measure))
-    cat(sprintf("  model:          %s\n", model))
-    cat(sprintf("  k_inter:        %.3f\n", k_inter))
-    cat(sprintf("  k_treat:        %.3f\n", k_treat))
-    cat(sprintf("  n_super:        %d\n", n_super))
+    cat(sprintf("  outcome_type:    %s\n", outcome_type))
+    cat(sprintf("  effect_measure:  %s\n", effect_measure))
+    cat(sprintf("  adverse_outcome: %s\n", adverse_outcome))
+    cat(sprintf("  model:           %s\n", model))
+    cat(sprintf("  k_inter:         %.3f\n", k_inter))
+    cat(sprintf("  k_treat:         %.3f\n", k_treat))
+    cat(sprintf("  n_super:         %d\n", n_super))
     cat(sprintf("  n observations: %d\n", nrow(data)))
   }
 
@@ -317,9 +332,32 @@ generate_glm_dgm <- function(
   #   k_inter < 0: treatment decreases the outcome for Q
   beta_inter <- if (model == "null") 0 else k_inter
 
+  # Adverse-outcome direction correction (binary only).
+  # When Y is adverse (e.g., non-improvement), the fitted beta_treat has the
+
+  # OPPOSITE sign vs a beneficial coding of the same endpoint.  A naive
+  # positive k_inter would then amplify the adverse direction, producing a
+  # much weaker contrast than the same k_inter on the beneficial scale.
+  # Negating beta_inter ensures that positive k_inter consistently amplifies
+  # the treatment contrast on the beneficial (1-Y) scale, making
+  # calibrated DGMs invariant to outcome coding.
+  if (isTRUE(adverse_outcome) && outcome_type == "binary" && beta_inter != 0) {
+    beta_inter <- -beta_inter
+    if (verbose) {
+      cat(sprintf(
+        "  adverse_outcome = TRUE: beta_inter negated to %.4f\n",
+        beta_inter
+      ))
+      cat("  (positive k_inter now amplifies contrast on the beneficial 1-Y scale)\n")
+    }
+  }
+
   if (verbose) {
     cat(sprintf("  Interaction shift (k_inter): %.4f", k_inter))
     if (model == "null") cat(" (null model: forced to 0)")
+    if (isTRUE(adverse_outcome) && outcome_type == "binary" && k_inter != 0) {
+      cat(sprintf(" -> beta_inter applied: %.4f", beta_inter))
+    }
     cat("\n")
     if (k_treat != 1) {
       cat(sprintf("  Treatment scaling (k_treat): %.4f\n", k_treat))
@@ -450,10 +488,11 @@ generate_glm_dgm <- function(
     # Covariate info (factors that survived filtering)
     factor_vars = factor_vars,
 
-    model_type = model,
-    model      = model,       # For downstream null detection
-    n_super    = n_super,
-    seed       = seed
+    model_type      = model,
+    model           = model,       # For downstream null detection
+    adverse_outcome = adverse_outcome,
+    n_super         = n_super,
+    seed            = seed
   )
 
   class(result) <- c("glm_dgm", "list")
@@ -468,6 +507,13 @@ generate_glm_dgm <- function(
         effects$effect_ITT, effect_measure))
     cat(sprintf("  Subgroup prevalence: %.1f%%\n",
         100 * mean(df_super$flag_harm)))
+    if (isTRUE(adverse_outcome) && outcome_type == "binary" &&
+        effect_measure %in% c("OR", "RR")) {
+      cat(sprintf(
+        "  Beneficial-scale equivalent: Effect(Q) = %.4f, Effect(Qc) = %.4f\n",
+        1 / effects$effect_Q, 1 / effects$effect_Qc
+      ))
+    }
   }
 
 

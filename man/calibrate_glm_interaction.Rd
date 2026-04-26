@@ -16,6 +16,7 @@ calibrate_glm_interaction(
   subgroup_vars = NULL,
   subgroup_cuts = NULL,
   k_treat = 1,
+  adverse_outcome = FALSE,
   k_inter_range = c(-10, 10),
   grid_step = 0.05,
   n_super = 5000L,
@@ -33,9 +34,15 @@ calibrate_glm_interaction(
 
 \item{treatment_var}{Character string naming the treatment variable.}
 
-\item{target_effect}{Numeric. Target effect size in Q on the scale
-determined by \code{effect_measure} (e.g., OR = 2.0 for a binary
-outcome).}
+\item{target_effect}{Numeric. Target effect size in Q.  When
+\code{adverse_outcome = FALSE}, this is the target on the
+raw Y scale (e.g., OR = 2.0 means treatment doubles the
+odds of Y = 1 in Q).  When \code{adverse_outcome = TRUE}
+and \code{effect_measure} is a ratio (OR, RR, IRR), the
+target is interpreted on the \emph{beneficial} (1-Y) scale
+and automatically inverted (\code{1 / target_effect}) for
+the grid search, so that \code{target_effect = 2.0} produces
+the same biological heterogeneity regardless of outcome coding.}
 
 \item{outcome_type}{Character. One of \code{"binary"},
 \code{"continuous"}, or \code{"count"}.}
@@ -55,8 +62,14 @@ Default \code{NULL}.}
 \code{\link{generate_glm_dgm}}.  Default \code{1} (preserve fitted
 treatment effect).  Set to \code{0} to zero out the ITT effect.}
 
+\item{adverse_outcome}{Logical.  Passed through to
+\code{\link{generate_glm_dgm}}.  When \code{TRUE} for binary
+outcomes with ratio measures, \code{target_effect} is interpreted
+on the beneficial (1-Y) scale and inverted before searching.
+Default \code{FALSE}.}
+
 \item{k_inter_range}{Numeric vector of length 2. Search range for
-\code{k_inter}. Default \code{c(0, 10)}.}
+\code{k_inter}. Default \code{c(-10, 10)}.}
 
 \item{grid_step}{Numeric. Grid resolution. Default \code{0.05}.}
 
@@ -81,24 +94,37 @@ The function constructs a grid of \code{k_inter} values, calls
 \code{\link{generate_glm_dgm}} for each, and selects the value
 whose subgroup effect is closest to \code{target_effect}.
 
-For binary outcomes with \code{effect_measure = "OR"}, the target
-is on the switched-treatment OR scale (OR > 1 = treatment increases
-the outcome).
+When \code{adverse_outcome = TRUE} for binary outcomes with a ratio
+measure (OR, RR), the target is automatically inverted
+(\code{1 / target_effect}) for the grid search.  This ensures that
+specifying \code{target_effect = 2.0} always means "the treatment
+contrast in Q is equivalent to OR = 2.0 on the beneficial scale,"
+regardless of whether Y is coded as adverse or beneficial.  The
+returned \code{hazard_ratios} are always on the \emph{actual Y
+scale} (i.e., on the adverse scale when Y is adverse).
 }
 \examples{
 \dontrun{
-dgm <- calibrate_glm_interaction(
-  data          = actg_df,
-  factor_vars   = paste0("z", 1:12),
-  outcome_var   = "y_binary",
-  treatment_var = "treat",
-  target_effect = 2.0,
-  outcome_type  = "binary",
-  subgroup_vars = c("z1", "z2"),
-  subgroup_cuts = list(z1 = 1L, z2 = 1L),
-  verbose       = TRUE
+# Beneficial outcome (Y = improvement) -- target OR(Q) = 2.0 on Y scale
+dgm_benefit <- calibrate_glm_interaction(
+  data = actg_df, factor_vars = paste0("z", 1:12),
+  outcome_var = "y_improve", treatment_var = "treat",
+  target_effect = 2.0, outcome_type = "binary",
+  subgroup_vars = c("z1", "z2"), subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  verbose = TRUE
 )
-print(dgm)
+
+# Adverse outcome (Y = non-improvement) -- same biological target
+# target_effect = 2.0 is automatically inverted to 0.5 on the adverse scale
+dgm_adverse <- calibrate_glm_interaction(
+  data = actg_df, factor_vars = paste0("z", 1:12),
+  outcome_var = "y_adverse", treatment_var = "treat",
+  target_effect = 2.0, outcome_type = "binary",
+  adverse_outcome = TRUE,
+  subgroup_vars = c("z1", "z2"), subgroup_cuts = list(z1 = 1L, z2 = 1L),
+  verbose = TRUE
+)
+# Both DGMs produce the same heterogeneity (same k_inter)
 }
 
 }

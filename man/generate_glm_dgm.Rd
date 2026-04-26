@@ -17,6 +17,7 @@ generate_glm_dgm(
   model = c("alt", "null"),
   k_treat = 1,
   k_inter = 0,
+  adverse_outcome = FALSE,
   n_super = 5000L,
   seed = 8316951L,
   verbose = FALSE
@@ -73,18 +74,32 @@ treatment effect.  \code{k_treat} scales the magnitude of
 that homogeneous effect.}
 
 \item{k_inter}{Numeric. Direct additive shift on the linear predictor
-for Q members under treatment.  The interpretation depends on
-\code{outcome_type}:
-\describe{
-\item{binary}{Shift on the log-odds scale. Positive increases
-P(Y=1) for Q under treatment.}
-\item{continuous}{Shift on the mean scale (identity link).
-Positive increases \eqn{E(Y)} for Q under treatment.}
-\item{count}{Shift on the log-rate scale. Positive increases
-\eqn{E(Y)} for Q under treatment (multiplicative: rate multiplied
-by \code{exp(k_inter)}).}
-}
+for Q members under treatment.  When \code{adverse_outcome = FALSE}
+(the default), positive values increase \eqn{P(Y=1)} for Q under
+treatment.  When \code{adverse_outcome = TRUE} for binary outcomes,
+the shift is \strong{negated internally} so that positive
+\code{k_inter} consistently means "amplify the treatment--subgroup
+contrast on the \emph{beneficial} (1-Y) scale."
+
+This ensures that the \emph{same} \code{k_inter} produces the
+\emph{same} biological heterogeneity regardless of whether Y is
+coded as an adverse or beneficial event.  Without this adjustment,
+flipping Y from beneficial to adverse changes the baseline
+treatment-coefficient sign, and the same \code{target_effect} in
+\code{\link{calibrate_glm_interaction}} can produce vastly
+different interaction strengths (see Details).
+
 Default \code{0} (no interaction, equivalent to \code{model = "null"}).}
+
+\item{adverse_outcome}{Logical.  If \code{TRUE}, the outcome
+variable represents an \emph{adverse} event (e.g., failure,
+non-improvement) where Y = 1 is clinically \emph{bad}.  For
+binary outcomes this causes \code{k_inter} to be negated
+internally so that positive \code{k_inter} amplifies the
+treatment contrast on the beneficial (1-Y) scale.  Ignored
+for continuous and count outcomes.  Default \code{FALSE}
+(backward compatible: Y = 1 is beneficial or direction is
+irrelevant).}
 
 \item{n_super}{Integer. Size of the super-population. Default
 \code{5000L}.}

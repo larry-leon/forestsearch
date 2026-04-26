@@ -79,6 +79,14 @@
 #'   Default: \code{0.01} (1\% from each tail; i.e., the central 98\%
 #'   of values per group is kept).  Has no effect when
 #'   \code{trim_threshold = NULL}.
+#' @param ylim Numeric vector of length 2 or \code{NULL}.  Explicit
+#'   y-axis limits as \code{c(lower, upper)} applied via
+#'   \code{\link[ggplot2]{coord_cartesian}} (data are *not* dropped,
+#'   only the viewport is clipped).  Useful when extreme outlier
+#'   estimates stretch the axis beyond the interesting range —
+#'   e.g., \code{ylim = c(0, 4)} for OR benefit-scale plots.
+#'   When \code{NULL} (default), limits are determined automatically
+#'   by \pkg{ggplot2}.
 #'
 #' @return A \code{ggplot2} object.  Has \code{attr(p, "panel_data")}
 #'   set to the long-format \code{data.table} used for plotting (for
@@ -115,11 +123,20 @@
 #'   subgroup_notation = "harm",
 #'   reference_effect  = dgm_alt$hazard_ratios$harm_subgroup
 #' )
+#'
+#' # Clip y-axis to focus on the interesting OR range
+#' p_clipped <- plot_effect_distribution(
+#'   results_alt,
+#'   effect_measure    = "OR",
+#'   subgroup_notation = "benefit",
+#'   reference_effect  = true_or_benefit,
+#'   ylim              = c(0, 4)
+#' )
 #' }
 #'
 #' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline
 #'   scale_x_discrete scale_fill_brewer labs theme_minimal theme
-#'   element_text
+#'   element_text coord_cartesian
 #' @export
 plot_effect_distribution <- function(
     results,
@@ -132,7 +149,8 @@ plot_effect_distribution <- function(
     panel_labels      = NULL,
     drop_undetected   = TRUE,
     trim_threshold    = 1000,
-    trim_fraction     = 0.01
+    trim_fraction     = 0.01,
+    ylim              = NULL
 ) {
 
   if (!requireNamespace("ggplot2",    quietly = TRUE)) {
@@ -369,6 +387,17 @@ plot_effect_distribution <- function(
   if (!is.na(reference_effect)) {
     p <- p + ggplot2::geom_hline(yintercept = reference_effect,
                                  colour = "darkgreen", linetype = "dotted")
+  }
+
+  # ---------------------------------------------------------------------------
+  # Explicit y-axis clipping (coord_cartesian keeps all data for geom calcs)
+  # ---------------------------------------------------------------------------
+  if (!is.null(ylim)) {
+    if (!is.numeric(ylim) || length(ylim) != 2L) {
+      stop("'ylim' must be a numeric vector of length 2, e.g. c(0, 4).",
+           call. = FALSE)
+    }
+    p <- p + ggplot2::coord_cartesian(ylim = ylim)
   }
 
   attr(p, "panel_data") <- panel_df

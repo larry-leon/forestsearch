@@ -152,7 +152,6 @@ unlink("man/glm_cs_fit.Rd")
 devtools::document()
 devtools::check(args = c("--as-cran", "--no-build-vignettes"))
 
-
 # CRAN-level check (stricter; use this before submission)
 devtools::check(cran = TRUE)
 

@@ -15,7 +15,8 @@ plot_effect_distribution(
   panel_labels = NULL,
   drop_undetected = TRUE,
   trim_threshold = 1000,
-  trim_fraction = 0.01
+  trim_fraction = 0.01,
+  ylim = NULL
 )
 }
 \arguments{
@@ -82,6 +83,15 @@ to trim from each tail of each group when trimming triggers.
 Default: \code{0.01} (1\\% from each tail; i.e., the central 98\\%
 of values per group is kept).  Has no effect when
 \code{trim_threshold = NULL}.}
+
+\item{ylim}{Numeric vector of length 2 or \code{NULL}.  Explicit
+y-axis limits as \code{c(lower, upper)} applied via
+\code{\link[ggplot2]{coord_cartesian}} (data are \emph{not} dropped,
+only the viewport is clipped).  Useful when extreme outlier
+estimates stretch the axis beyond the interesting range —
+e.g., \code{ylim = c(0, 4)} for OR benefit-scale plots.
+When \code{NULL} (default), limits are determined automatically
+by \pkg{ggplot2}.}
 }
 \value{
 A \code{ggplot2} object.  Has \code{attr(p, "panel_data")}
@@ -130,6 +140,15 @@ p_surv <- plot_effect_distribution(
   effect_measure    = "HR",
   subgroup_notation = "harm",
   reference_effect  = dgm_alt$hazard_ratios$harm_subgroup
+)
+
+# Clip y-axis to focus on the interesting OR range
+p_clipped <- plot_effect_distribution(
+  results_alt,
+  effect_measure    = "OR",
+  subgroup_notation = "benefit",
+  reference_effect  = true_or_benefit,
+  ylim              = c(0, 4)
 )
 }
 
