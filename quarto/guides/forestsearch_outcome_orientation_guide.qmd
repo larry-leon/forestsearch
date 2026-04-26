@@ -17,6 +17,10 @@ format:
 execute:
   warning: false
   message: false
+vignette: >
+  %\VignetteIndexEntry{ForestSearch Outcome Orientation Reference}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
 ---
 
 ```{r setup}
@@ -879,9 +883,10 @@ fs1 <- suppressWarnings(forestsearch(
 found <- !is.null(fs1) && !is.null(fs1$grp.consistency)
 cat(sprintf("  Subgroup found: %s\n", found))
 if (found) {
-  sg <- names(fs1$grp.consistency$sg.harm$subgroup)
-  cat(sprintf("  Variables: %s\n", paste(sg, collapse = ", ")))
-  cat(sprintf("  Correct: %s\n", all(c("z1", "z2") %in% sg)))
+  sg <- fs1$grp.consistency$sg.harm
+  cat(sprintf("  Variables: %s\n", paste(sg, collapse = " & ")))
+  cat(sprintf("  Correct: %s\n",
+      any(grepl("^z1", sg)) && any(grepl("^z2", sg))))
 }
 ```
 
@@ -920,8 +925,8 @@ fs2 <- suppressWarnings(forestsearch(
 found2 <- !is.null(fs2) && !is.null(fs2$grp.consistency)
 cat(sprintf("  Subgroup found: %s\n", found2))
 if (found2) {
-  sg2 <- names(fs2$grp.consistency$sg.harm$subgroup)
-  cat(sprintf("  Variables: %s\n", paste(sg2, collapse = ", ")))
+  sg2 <- fs2$grp.consistency$sg.harm
+  cat(sprintf("  Variables: %s\n", paste(sg2, collapse = " & ")))
 }
 ```
 
@@ -961,8 +966,8 @@ fs3 <- suppressWarnings(forestsearch(
 found3 <- !is.null(fs3) && !is.null(fs3$grp.consistency)
 cat(sprintf("  Subgroup found: %s\n", found3))
 if (found3) {
-  sg3 <- names(fs3$grp.consistency$sg.harm$subgroup)
-  cat(sprintf("  Variables: %s\n", paste(sg3, collapse = ", ")))
+  sg3 <- fs3$grp.consistency$sg.harm
+  cat(sprintf("  Variables: %s\n", paste(sg3, collapse = " & ")))
 }
 ```
 
@@ -998,8 +1003,8 @@ fs4 <- suppressWarnings(forestsearch(
 found4 <- !is.null(fs4) && !is.null(fs4$grp.consistency)
 cat(sprintf("  Subgroup found: %s\n", found4))
 if (found4) {
-  sg4 <- names(fs4$grp.consistency$sg.harm$subgroup)
-  cat(sprintf("  Variables: %s\n", paste(sg4, collapse = ", ")))
+  sg4 <- fs4$grp.consistency$sg.harm
+  cat(sprintf("  Variables: %s\n", paste(sg4, collapse = " & ")))
 }
 ```
 
