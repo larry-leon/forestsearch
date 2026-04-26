@@ -125,6 +125,10 @@
 #'       complement).}
 #'     \item{tree.cuts}{Named list of GRF policy-tree split points.}
 #'     \item{grf_varimp}{Named numeric vector of GRF variable importances.}
+#'     \item{outcome.name}{Character: name of the outcome column.}
+#'     \item{treat.name}{Character: name of the treatment column.}
+#'     \item{id.name}{Character: name of the subject-identifier column.}
+#'     \item{confounders.name}{Character vector of covariate column names.}
 #'     \item{effect_measure}{Character: the effect measure used.}
 #'     \item{outcome_type}{Character: the outcome type.}
 #'     \item{overdispersion}{Character: the overdispersion correction applied.}
@@ -513,6 +517,10 @@ grf.subg.harm.glm <- function(
         data                = data,
         tree.cuts           = NULL,
         grf_varimp          = vi,
+        outcome.name        = outcome.name,
+        treat.name          = treat.name,
+        id.name             = id.name,
+        confounders.name    = confounders.name,
         effect_measure      = effect_measure,
         outcome_type        = outcome_type,
         overdispersion      = overdispersion,
@@ -558,6 +566,10 @@ grf.subg.harm.glm <- function(
       data                = data,
       tree.cuts           = tree_cuts,
       grf_varimp          = vi,
+      outcome.name        = outcome.name,
+      treat.name          = treat.name,
+      id.name             = id.name,
+      confounders.name    = confounders.name,
       effect_measure      = effect_measure,
       outcome_type        = outcome_type,
       overdispersion      = overdispersion,

@@ -70,7 +70,7 @@ sgdist_show_other_null <- FALSE
 # display.  ylim clips the viewport via coord_cartesian (data are NOT dropped;
 # violins, boxplots, and mean/SD annotations use the full dataset).
 # Set NULL to let ggplot2 determine limits automatically.
-ordist_ylim <- c(0, 3)
+ordist_ylim <- c(0, 4)
 
 # -- Production projection targets --------------------------------------------
 prod_alt               <- 5000L
@@ -111,15 +111,13 @@ actg_preanti_cut <- 744.5
 #      of the original experimental appears as a "harm" subgroup of the
 #      switched-treatment.
 #
-#   2. The binary outcome is encoded on the ADVERSE scale: y_binary = 1
-#      when the patient FAILED to improve (cd420 <= cd40).  This aligns
-#      with the package's binary OR convention where "OR > 1 = harm" on
-#      Y as given (i.e., adverse_outcome = TRUE, the binary default).
+#   2. The binary outcome is encoded on the IMPROVEMENT scale: y_binary = 1
+#      when the patient improved (cd420 > cd40).
 #
 # Under these conventions, OR(Q) > c1 in the analysis means: the switched
-# treatment (ddI) increases the odds of non-improvement in Q, equivalently
-# the original experimental (ZDV+ddI) increases the odds of improvement in
-# Q -- the benefit signal we want.  Thresholds:
+# treatment (ddI) increases the odds of improvement in Q — equivalently
+# ZDV+ddI decreases the odds of improvement in Q — i.e. ZDV+ddI harms
+# in Q.  This is the benefit subgroup of ZDV+ddI.  Thresholds:
 #   c1 = fs_or_threshold    (screening)
 #   c2 = fs_or_consistency  (consistency)
 # After identification, ORs are inverted to the original scale via
@@ -202,11 +200,9 @@ analysis_binary_vars <- c(
 )
 
 # -- Calibration ---------------------------------------------------------------
-# Target OR(Q) = 2.0.  With y_binary on the adverse scale and switched
-# treatment, OR(Q) = 2.0 has the natural reading: "in Q, the experimental
-# treatment (ZDV+ddI) doubles the odds of improvement compared to ddI."
-# (Under the (switched, adverse) and (original, positive) scales the
-# magnitude is the same -- both give 2.0; see Appendix A.3.)
+# Target OR(Q) = 2.0 on the switched scale (ddI = 1): in Q, ddI doubles
+# the odds of improvement compared to ZDV+ddI.  Equivalently, ZDV+ddI
+# has OR(Q) = 1/2.0 = 0.5 (halves improvement) — the benefit signal.
 cal_target_or     <- 2.0
 cal_k_grid_range  <- c(0, 3)
 cal_grid_step     <- 0.05
@@ -221,10 +217,10 @@ run_fs_grf        <- FALSE   # Run FS with GRF pre-screening only
 run_grf           <- TRUE    # Standalone GRF (grf.subg.harm.glm)
 
 # -- ForestSearch parameters (benefit search thresholds) -----------------------
-fs_or_threshold        <- round(1 / 0.60, 3)   # c1
-fs_or_consistency      <- round(1 / 0.75, 3)   # c2
-fs_pconsistency        <- 0.90
-fs_splits              <- 1000L
+fs_or_threshold        <- round(1.25, 3)   # c1
+fs_or_consistency      <- round(1.0, 3)   # c2
+fs_pconsistency        <- 0.80
+fs_splits              <- 500L
 fs_n_min               <- 60L
 fs_d0_min              <- 10L
 fs_d1_min              <- 10L
@@ -369,6 +365,7 @@ fs_run <- function(data,
     hr.consistency   = fs_or_consistency,
     pconsistency.threshold = fs_pconsistency,
     fs.splits        = fs_splits,
+    max_subgroups_search = 15,
     maxk             = fs_maxk,
     sg_focus         = fs_sg_focus,
     use_lasso        = fs_use_lasso,
@@ -387,7 +384,7 @@ fs_run <- function(data,
 }
 
 # -- Reporting -----------------------------------------------------------------
-sg_notation            <- "benefit"
+sg_notation            <- "harm"
 
 # -- Output persistence --------------------------------------------------------
 save_results           <- TRUE
@@ -409,14 +406,14 @@ timings <- list()
 This document extends the ACTG175 benefit-search simulation
 framework from survival outcomes (time-to-event) to a **binary
 endpoint**: whether a patient's CD4 count improved from baseline
-to 20 weeks.  The clinical concept is improvement, but for the
-analysis the outcome is **encoded on the adverse scale** as
-$y\_binary = I(\text{cd420} \leq \text{cd40})$ -- a 1 indicates
-**failure to improve**.  Combined with treatment switching
-(ddI $\to$ `treat = 1`, ZDV+ddI $\to$ `treat = 0`), this aligns
-with the package's harm-search convention: $\text{OR} > c_1$
-in the analysis corresponds to *benefit of the experimental
-treatment* in the identified subgroup.
+to 20 weeks.  The outcome is encoded on the **improvement scale**:
+$y\_binary = I(\text{cd420} > \text{cd40})$, where a 1 indicates
+**improvement**.  Combined with treatment switching
+(ddI $\to$ `treat = 1`, ZDV+ddI $\to$ `treat = 0`),
+$\text{OR} > c_1$ in the analysis means ddI increases the odds
+of improvement in the identified subgroup — equivalently, ZDV+ddI
+*harms* improvement there.  ForestSearch identifies this as a harm
+subgroup; `subgroup_notation = "benefit"` relabels it for display.
 
 A full reference table of effect-measure / outcome-direction
 combinations appears in the [Appendix](#sec-appendix-conventions).
@@ -508,11 +505,10 @@ setting:
 |------|-------|
 | Outcome type | Binary |
 | Native effect measure | OR |
-| Y direction in the data | Adverse (`y_binary = 1` $\Leftrightarrow$ no improvement) |
+| Y direction in the data | Improvement (`y_binary = 1` $\Leftrightarrow$ cd420 > cd40) |
 | Search goal | Benefit (of ZDV+ddI) |
 | Treatment coding | Switched (ddI = 1, ZDV+ddI = 0) |
-| `adverse_outcome` | `TRUE` (binary default; matches Y direction) |
-| What "$\text{OR} > c_1$" means here | switched-treatment increases P(no improvement) in Q $\Leftrightarrow$ ZDV+ddI is beneficial in Q |
+| What "$\text{OR} > c_1$" means here | ddI increases P(improvement) in Q $\Leftrightarrow$ ZDV+ddI harms in Q |
 | `subgroup_notation` | `"benefit"` |
 
 This is one row of the Appendix master table
@@ -719,15 +715,17 @@ actg_df$id <- seq_len(nrow(actg_df))
 actg_df$treat_orig <- ifelse(actg_df$arms == actg_treat_arm, 1L, 0L)
 
 # Switched treatment for benefit search
-actg_df$treat <- 1L - actg_df$treat_orig
+#actg_df$treat <- 1L - actg_df$treat_orig
+
+actg_df$treat <- actg_df$treat_orig
+
 
 # -- Binary outcome: CD4 response at 20 weeks ---------------------------------
-# Encoded on the ADVERSE scale: y_binary = 1 means the patient FAILED to
-# improve (cd420 <= cd40).  Combined with switched treatment, this aligns
-# with the package's harm-search convention so OR(Q) > c1 corresponds to
-# benefit of the original experimental treatment in Q.  See Section 1.1
-# and the Appendix for the full directional convention.
-actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
+# Improvement scale: y_binary = 1 when the patient's CD4 count improved
+# (cd420 > cd40).  With switched treatment (ddI = 1), OR > c1 in Q means
+# ddI increases the odds of improvement — ForestSearch identifies this as
+# the "harm" subgroup; subgroup_notation = "benefit" relabels for display.
+actg_df$y_binary <- as.integer(actg_df$cd420 > actg_df$cd40)
 
 # Remove subjects with missing cd420
 n_before <- nrow(actg_df)
@@ -795,30 +793,25 @@ actg_df$flag_harm_ref <- as.integer(
 )
 
 # -- Summary scalars captured for downstream display ---------------------------
-# (Displayed below via structured callout + gt tables, not cat().)
-# y_binary is encoded on the adverse scale (= no improvement); response rate
-# is therefore 1 - mean(y_binary) so the displayed clinical summary stays in
-# the natural "% improvement" framing.
+# y_binary = improvement: mean(y_binary) is the improvement rate directly.
 n_ex_missing <- n_before - n_after
-resp_overall <- 100 * (1 - mean(actg_df$y_binary))
-resp_ZDV_ddI <- 100 * (1 - mean(actg_df$y_binary[actg_df$treat_orig == 1]))
-resp_ddI     <- 100 * (1 - mean(actg_df$y_binary[actg_df$treat_orig == 0]))
+resp_overall <- 100 * mean(actg_df$y_binary)
+resp_ZDV_ddI <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 1])
+resp_ddI     <- 100 * mean(actg_df$y_binary[actg_df$treat_orig == 0])
 Q_n          <- sum(actg_df$flag_harm_ref)
 Q_N          <- nrow(actg_df)
 Q_prev_pct   <- 100 * mean(actg_df$flag_harm_ref)
 
 # Response-rate 2x2 grid (row = subgroup, col = treatment arm)
-# Same inversion: display % improvement, computed from the adverse-coded
-# y_binary as 1 - mean(y_binary).
 resp_grid <- data.frame(
   Subgroup  = c("Q (age > 34 & preanti \u2264 745)",
                 "Qc (complement)"),
   `ZDV+ddI` = c(
-    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 1])),
-    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 1]))),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 1]),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 1])),
   `ddI`     = c(
-    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 0])),
-    100 * (1 - mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0]))),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 1 & actg_df$treat_orig == 0]),
+    100 * mean(actg_df$y_binary[actg_df$flag_harm_ref == 0 & actg_df$treat_orig == 0])),
   check.names = FALSE
 )
 
@@ -830,8 +823,8 @@ timings$data_prep <- proc.time()[3] - t0
   (ddI, control). N = `r n_before` before exclusion,
   **N = `r Q_N`** after removing `r n_ex_missing` subject(s) with
   missing `cd420`.
-- **Outcome**: binary response, encoded internally as
-  `y_binary = I(cd420 <= cd40)` (adverse scale; see Section 1.1).
+- **Outcome**: binary response,
+  `y_binary = I(cd420 > cd40)` (improvement scale).
   Overall **improvement** rate `r sprintf("%.1f%%", resp_overall)`;
   ZDV+ddI arm `r sprintf("%.1f%%", resp_ZDV_ddI)`; ddI arm
   `r sprintf("%.1f%%", resp_ddI)`.
@@ -949,21 +942,20 @@ columns, which are then used by the analysis step.
 t0 <- proc.time()[3]
 
 dgm_alt_init <- generate_glm_dgm(
-  data            = actg_df,
-  factor_vars     = dgm_factor_vars,
-  outcome_var     = "y_binary",
-  treatment_var   = "treat",
-  outcome_type    = "binary",
-  effect_measure  = "OR",
-  adverse_outcome = TRUE,
-  subgroup_vars   = dgm_subgroup_vars,
-  subgroup_cuts   = dgm_subgroup_cuts,
-  model           = "alt",
-  k_treat         = dgm_k_treat_alt,
-  k_inter         = 0,    # no interaction before calibration
-  n_super         = dgm_n_super,
-  seed            = sim_seed,
-  verbose         = TRUE
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "y_binary",
+  treatment_var = "treat",
+  outcome_type  = "binary",
+  effect_measure = "OR",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "alt",
+  k_treat       = dgm_k_treat_alt,
+  k_inter       = 0,    # no interaction before calibration
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
 )
 
 cat("\n=== Initial ACTG175 Binary DGM ===\n")
@@ -1009,7 +1001,6 @@ dgm_calibrated <- calibrate_glm_interaction(
   target_effect   = cal_target_or,
   outcome_type    = "binary",
   effect_measure  = "OR",
-  adverse_outcome = TRUE,
   subgroup_vars   = dgm_subgroup_vars,
   subgroup_cuts   = dgm_subgroup_cuts,
   k_treat         = dgm_k_treat_alt,
@@ -1021,12 +1012,13 @@ dgm_calibrated <- calibrate_glm_interaction(
 )
 
 cat("\n=== Calibrated ACTG175 Binary DGM ===\n")
-cat("  OR(Q) adverse scale:", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
-cat("  OR(Q) benefit scale:", round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3),
+cat("  OR(Q):  ", round(dgm_calibrated$hazard_ratios$harm_subgroup, 3),
     " (target:", cal_target_or, ")\n")
-cat("  OR(Qc):", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
+cat("  OR(Qc): ", round(dgm_calibrated$hazard_ratios$no_harm_subgroup, 3), "\n")
 cat("  OR(ITT):", round(dgm_calibrated$hazard_ratios$overall, 3), "\n")
 cat("  k_inter:", dgm_calibrated$model_params$k_inter, "\n")
+cat("  -> Original scale: OR(Q) =",
+    round(1 / dgm_calibrated$hazard_ratios$harm_subgroup, 3), "\n")
 
 timings$calibrate <- proc.time()[3] - t0
 ```
@@ -1036,28 +1028,24 @@ timings$calibrate <- proc.time()[3] - t0
 ```{r calibration-plot, fig.height=5}
 #| code-fold: true
 #| code-summary: "Calibration-curve ggplot (click to expand)"
-#| fig-cap: "Calibration of k_inter: OR(Q) on the beneficial (1-Y) scale as a function of the interaction parameter. The calibration with `adverse_outcome = TRUE` internally searches on this scale, then applies the selected k_inter to the original adverse Y."
+#| fig-cap: "Calibration of k_inter: OR(Q) on the improvement scale as a function of the interaction parameter."
 
-# The calibration searched on the beneficial (1-Y) scale, so we plot
-# that scale here to match.  The final DGM uses the same k_inter on
-# the adverse scale where OR(Q) will be much larger.
 cal_grid <- seq(cal_k_grid_range[1], cal_k_grid_range[2], by = cal_grid_step)
-cal_or_Q_benefit <- vapply(cal_grid, function(k) {
+cal_or_Q <- vapply(cal_grid, function(k) {
   d <- generate_glm_dgm(
     data = actg_df, factor_vars = dgm_factor_vars,
     outcome_var = "y_binary", treatment_var = "treat",
     outcome_type = "binary", subgroup_vars = dgm_subgroup_vars,
     subgroup_cuts = dgm_subgroup_cuts, model = "alt",
-    k_treat = dgm_k_treat_alt, adverse_outcome = TRUE,
+    k_treat = dgm_k_treat_alt,
     k_inter = k, n_super = dgm_n_super, seed = sim_seed
   )
-  # Invert to beneficial scale: 1 / OR(adverse)
-  1 / d$hazard_ratios$harm_subgroup
+  d$hazard_ratios$harm_subgroup
 }, numeric(1))
 
-cal_df <- data.frame(k_inter = cal_grid, or_Q = cal_or_Q_benefit)
+cal_df <- data.frame(k_inter = cal_grid, or_Q = cal_or_Q)
 best_k <- dgm_calibrated$model_params$k_inter
-or_Q_benefit_cal <- 1 / dgm_calibrated$hazard_ratios$harm_subgroup
+or_Q_cal <- dgm_calibrated$hazard_ratios$harm_subgroup
 
 ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
   geom_line(linewidth = 1, colour = "firebrick") +
@@ -1066,17 +1054,16 @@ ggplot(cal_df, aes(x = k_inter, y = or_Q)) +
   geom_hline(yintercept = 1.0, linetype = "dotted",
              colour = "grey70") +
   geom_point(
-    data = data.frame(k_inter = best_k, or_Q = or_Q_benefit_cal),
+    data = data.frame(k_inter = best_k, or_Q = or_Q_cal),
     colour = "red", size = 4, shape = 16
   ) +
   labs(
     x = "k_inter",
-    y = "OR(Q) on beneficial (1-Y) scale",
+    y = "OR(Q), switched scale",
     title = "ACTG175 Binary DGM Calibration",
     subtitle = sprintf(
-      "Best: k_inter = %.2f -> OR(Q, benefit) = %.3f (target: %.1f) | OR(Q, adverse) = %.3f",
-      best_k, or_Q_benefit_cal, cal_target_or,
-      dgm_calibrated$hazard_ratios$harm_subgroup
+      "Best: k_inter = %.2f -> OR(Q) = %.3f (target: %.1f)",
+      best_k, or_Q_cal, cal_target_or
     )
   ) +
   theme_minimal(base_size = 12) +
@@ -1116,21 +1103,20 @@ k_treat_grid <- c(0.5, 1.0, 1.5)
 
 illust_rows_alt <- lapply(k_treat_grid, function(k) {
   d <- generate_glm_dgm(
-    data            = actg_df,
-    factor_vars     = dgm_factor_vars,
-    outcome_var     = "y_binary",
-    treatment_var   = "treat",
-    outcome_type    = "binary",
-    effect_measure  = "OR",
-    adverse_outcome = TRUE,
-    subgroup_vars   = dgm_subgroup_vars,
-    subgroup_cuts   = dgm_subgroup_cuts,
-    model           = "alt",
-    k_treat         = k,
-    k_inter         = k_inter_cal,
-    n_super         = dgm_n_super,
-    seed            = sim_seed,
-    verbose         = FALSE
+    data           = actg_df,
+    factor_vars    = dgm_factor_vars,
+    outcome_var    = "y_binary",
+    treatment_var  = "treat",
+    outcome_type   = "binary",
+    effect_measure = "OR",
+    subgroup_vars  = dgm_subgroup_vars,
+    subgroup_cuts  = dgm_subgroup_cuts,
+    model          = "alt",
+    k_treat        = k,
+    k_inter        = k_inter_cal,
+    n_super        = dgm_n_super,
+    seed           = sim_seed,
+    verbose        = FALSE
   )
   or_ITT_switched <- as.numeric(d$hazard_ratios$overall)
   or_Q_switched   <- as.numeric(d$hazard_ratios$harm_subgroup)
@@ -1220,19 +1206,18 @@ hypothesis.
 t0 <- proc.time()[3]
 
 dgm_null <- generate_glm_dgm(
-  data            = actg_df,
-  factor_vars     = dgm_factor_vars,
-  outcome_var     = "y_binary",
-  treatment_var   = "treat",
-  outcome_type    = "binary",
-  adverse_outcome = TRUE,
-  subgroup_vars   = dgm_subgroup_vars,
-  subgroup_cuts   = dgm_subgroup_cuts,
-  model           = "null",
-  k_treat         = dgm_k_treat_null,
-  n_super         = dgm_n_super,
-  seed            = sim_seed,
-  verbose         = TRUE
+  data          = actg_df,
+  factor_vars   = dgm_factor_vars,
+  outcome_var   = "y_binary",
+  treatment_var = "treat",
+  outcome_type  = "binary",
+  subgroup_vars = dgm_subgroup_vars,
+  subgroup_cuts = dgm_subgroup_cuts,
+  model         = "null",
+  k_treat       = dgm_k_treat_null,
+  n_super       = dgm_n_super,
+  seed          = sim_seed,
+  verbose       = TRUE
 )
 
 cat("\n=== ACTG175 Null DGM ===\n")
@@ -1270,20 +1255,19 @@ k_treat_grid <- c(0.5, 1.0, 1.5)
 
 illust_rows <- lapply(k_treat_grid, function(k) {
   d <- generate_glm_dgm(
-    data            = actg_df,
-    factor_vars     = dgm_factor_vars,
-    outcome_var     = "y_binary",
-    treatment_var   = "treat",
-    outcome_type    = "binary",
-    effect_measure  = "OR",
-    adverse_outcome = TRUE,
-    subgroup_vars   = dgm_subgroup_vars,
-    subgroup_cuts   = dgm_subgroup_cuts,
-    model           = "null",
-    k_treat         = k,
-    n_super         = dgm_n_super,
-    seed            = sim_seed,
-    verbose         = FALSE
+    data           = actg_df,
+    factor_vars    = dgm_factor_vars,
+    outcome_var    = "y_binary",
+    treatment_var  = "treat",
+    outcome_type   = "binary",
+    effect_measure = "OR",
+    subgroup_vars  = dgm_subgroup_vars,
+    subgroup_cuts  = dgm_subgroup_cuts,
+    model          = "null",
+    k_treat        = k,
+    n_super        = dgm_n_super,
+    seed           = sim_seed,
+    verbose        = FALSE
   )
   or_switched <- as.numeric(d$hazard_ratios$overall)
   data.frame(
@@ -2404,10 +2388,10 @@ format_oc_results(
   digits_hr = 2,
   title     = "ACTG175 Binary: Identification (Benefit Search, Raw Continuous)",
   subtitle  = sprintf(
-    "n = %d, %d sims, OR(Q) = %.2f, OR(Qc) = %.2f (benefit scale, original treatment)",
+    "n = %d, %d sims, OR(Q) = %.2f, OR(Qc) = %.2f (switched scale)",
     sim_n_sample, nsims_alt,
-    1 / dgm_calibrated$hazard_ratios$harm_subgroup,
-    1 / dgm_calibrated$hazard_ratios$no_harm_subgroup
+    dgm_calibrated$hazard_ratios$harm_subgroup,
+    dgm_calibrated$hazard_ratios$no_harm_subgroup
   ),
   subgroup_notation = sg_notation
 )

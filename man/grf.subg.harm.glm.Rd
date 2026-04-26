@@ -148,6 +148,10 @@ added (\code{0} = in harm/questionable subgroup, \code{1} =
 complement).}
 \item{tree.cuts}{Named list of GRF policy-tree split points.}
 \item{grf_varimp}{Named numeric vector of GRF variable importances.}
+\item{outcome.name}{Character: name of the outcome column.}
+\item{treat.name}{Character: name of the treatment column.}
+\item{id.name}{Character: name of the subject-identifier column.}
+\item{confounders.name}{Character vector of covariate column names.}
 \item{effect_measure}{Character: the effect measure used.}
 \item{outcome_type}{Character: the outcome type.}
 \item{overdispersion}{Character: the overdispersion correction applied.}

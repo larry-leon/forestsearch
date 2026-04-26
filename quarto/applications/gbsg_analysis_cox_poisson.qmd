@@ -94,9 +94,8 @@ theme_set(theme_minimal(base_size = 12))
 #| code-fold: false
 
 # ─── Shared parameters ───────────────────────────────────────────────────
-n_cores <- 120
-n_cores_total <- parallel::detectCores()
-cat("Using", n_cores, "of", n_cores_total, "total cores\n")
+
+n_cores   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
 id.name    <- "id"
@@ -110,22 +109,22 @@ cox_treat.name   <- "hormon"
 fs_hr.threshold            <- 1.25
 fs_hr.consistency          <- 1.0
 fs_pconsistency.threshold  <- 0.80
-fs_stop_threshold          <- 0.80
+fs_stop_threshold          <- 0.90
 fs_maxk                    <- 2
 fs_n.min                   <- 60
-fs_d0.min                  <- 12
-fs_d1.min                  <- 12
-fs_splits                  <- 400
-fs_max_subgroups_search    <- 3
+fs_d0.min                  <- 10
+fs_d1.min                  <- 10
+fs_splits                  <- 1000
+fs_max_subgroups_search    <- 15
 
 # ─── Bootstrap / CV ──────────────────────────────────────────────────────
-NB    <- 50    # Bootstrap iterations (use 500–2000 for production)
-Ksims <- 10    # K-fold CV iterations (use ≥ 50 for production)
+NB    <- 20    # Bootstrap iterations (use 500–2000 for production)
+Ksims <- 5    # K-fold CV iterations (use ≥ 50 for production)
 
 # ─── GRF parameters (shared across Cox and Poisson) ─────────────────────
 grf_tune           <- FALSE  # cross-validated GRF hyperparameter tuning (off by default)
 grf_vi_min         <- -0.2   # GRF variable importance threshold
-grf_dmin_cox       <- 12     # min RMST difference for Cox GRF (months)
+grf_dmin_cox       <- 4     # min RMST difference for Cox GRF (months)
 grf_dmin_pois      <- 0.0    # min CATE difference for Poisson GRF
 grf_maxdepth       <- 2L     # max policy tree depth
 
@@ -264,11 +263,6 @@ suggesting potential harm from hormonal therapy.
 ForestSearch supports parallel processing for computationally intensive
 operations (bootstrap, cross-validation).
 
-```{r parallel-setup}
-cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
-```
-
-
 
 ## Running ForestSearch (Cox)
 
@@ -303,7 +297,7 @@ fs_cox <- forestsearch(
   pconsistency.threshold = fs_pconsistency.threshold,
   stop_threshold = fs_stop_threshold,
   # Search configuration
-  sg_focus = "hr",
+  sg_focus = "maxSG",
   max_subgroups_search = fs_max_subgroups_search,
   use_twostage = TRUE,
   # Factor selection
@@ -685,7 +679,7 @@ fs_pois <- forestsearch(
   pconsistency.threshold = fs_pconsistency.threshold,
   stop_threshold = fs_stop_threshold,
   # Search configuration
-  sg_focus = "hr",
+  sg_focus = "maxSG",
   max_subgroups_search = fs_max_subgroups_search,
   use_twostage = TRUE,
   # Factor selection

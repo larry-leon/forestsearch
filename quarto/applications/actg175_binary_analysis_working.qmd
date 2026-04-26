@@ -1,0 +1,153 @@
+---
+title: "ACTG175 Binary Benefit Search: Single-Data Analysis"
+format: html
+---
+
+```{r setup}
+library(forestsearch)
+library(speff2trial)
+
+set.seed(8316951L)
+```
+
+## Data Preparation
+
+```{r data-prep}
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Original treatment: ZDV+ddI = 1, ddI = 0
+actg_df$treat_orig <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+# Switched treatment for benefit search: ddI = 1, ZDV+ddI = 0
+actg_df$treat <- actg_df$treat_orig
+
+fs_sg_focus <- "minSG"
+
+# Binary outcome: improvement
+actg_df$y_binary_pos <- as.integer(actg_df$cd420 > actg_df$cd40)
+
+actg_df$y_binary_neg <- 1 - actg_df$y_binary_pos
+
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+```
+
+
+## Covariates
+
+```{r covariates}
+# Continuous covariates (raw, analyst does not know true cuts)
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+
+# Binary indicators (as factors)
+bin_vars <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+confounders <- c(cont_vars, bin_vars)
+```
+
+
+```{r fs-run}
+# Thresholds
+# c1 <- round(1 / 0.60, 3)   # hr.threshold
+# c2 <- round(1 / 0.75, 3)   # hr.consistency
+
+c1 <- 1.25
+c2 <- 1.0
+
+cat(sprintf("c1 (threshold) = %.3f, c2 (consistency) = %.3f\n", c1, c2))
+
+fs_result <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders,
+  outcome.name     = "y_binary_neg",
+  event.name       = "y_binary_neg",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  seedit           = 8316951L,
+  n.min            = 60L,
+  d0.min           = 10L,
+  d1.min           = 10L,
+  hr.threshold     = c1,
+  hr.consistency   = c2,
+  pconsistency.threshold = 0.80,
+  fs.splits        = 500L,
+  max_subgroups_search = 15,
+  maxk             = 2L,
+  sg_focus         = fs_sg_focus,
+  use_lasso        = FALSE,
+  use_grf          = TRUE,
+  is.RCT           = TRUE,
+  vi.grf.min       = -0.2,
+  dmin.grf         = 0,
+  cont.cutoff      = 4L,
+  details          = TRUE,
+  quiet            = FALSE,
+  parallel_args    = list(plan = "sequential", workers = 1,
+                          show_message = FALSE)
+)
+
+
+
+
+
+
+```
+
+
+
+```{r fs-results}
+fs_tabs <- sg_tables(fs_result, ndecimals = 3, which_df = "est")
+fs_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r fs-estimates}
+fs_tabs$tab_estimates
+```
+## GRF Standalone
+
+```{r grf-run}
+grf_result <- grf.subg.harm.glm(
+  data             = actg_df,
+  confounders.name = confounders,
+  outcome.name     = "y_binary_pos",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "binary",
+  effect_measure   = "OR",
+  dmin.grf         = 0.1,
+  maxdepth         = 2L,
+  RCT              = TRUE,
+  sg.criterion     = "mDiff",
+  details          = TRUE
+)
+
+cat("\n=== GRF Result ===\n")
+if (!is.null(grf_result$sg.harm.id) && length(grf_result$sg.harm.id) > 0) {
+  cat("Subgroup:", paste(grf_result$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_result$data$treat.recommend == 0
+  cat(sprintf("Size(H): %d,  Size(Hc): %d\n", sum(grf_H), sum(!grf_H)))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+```{r grf-results}
+grf_tabs <- sg_tables(grf_result, ndecimals = 3, which_df = "est")
+
+
+grf_tabs$tab_estimates
+
+fs_tabs$tab_estimates
+
+
+```
+
+
+

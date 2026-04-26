@@ -20,7 +20,10 @@ sg_tables(
 )
 }
 \arguments{
-\item{fs}{ForestSearch results object.}
+\item{fs}{ForestSearch results object, or a \code{grf_glm_result} object
+from \code{\link{grf.subg.harm.glm}}.  When a GRF object is supplied,
+only Table 1 (treatment effect estimates) is produced; Table 2
+(identified subgroups with consistency) returns \code{NULL}.}
 
 \item{which_df}{Character. Which data frame to use ("est" or "testing").}
 

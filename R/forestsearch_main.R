@@ -1250,9 +1250,12 @@ forestsearch <- function(df.analysis,
         # Count data: variance-stabilising log transform (same as
         # grf.subg.harm.glm with grf_count_transform = "log")
         Y_vi <- if (grf_count_transform == "log") log(Y + 0.5) else Y
-      } else {
-        # Binary / continuous: flip for adverse outcomes
+      } else if (outcome_type == "binary") {
+        # Binary: complement (1-Y) so positive CATE = treatment helps
         Y_vi <- if (adverse_outcome) 1L - Y else Y
+      } else {
+        # Continuous: negate (-Y) so positive CATE = treatment helps
+        Y_vi <- if (adverse_outcome) -Y else Y
       }
       cs.forest <- try(suppressWarnings(
         fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951,

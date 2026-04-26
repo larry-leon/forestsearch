@@ -160,6 +160,10 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #' @param effect_a Character. Adjusted effect estimate string (optional).
 #' @param estimator_fn Closure from `make_effect_estimator()`, or NULL.
 #' @param effect_measure Character. Effect measure label (e.g., "RD", "OR").
+#' @param outcome_type Character. One of \code{"binary"}, \code{"continuous"},
+#'   or \code{"count"}.  Controls formatting: binary displays per-arm means
+#'   as percentages (\code{"Rate"}); continuous and count display raw means
+#'   (\code{"Mean"}).  Default \code{"binary"}.
 #' @param N Integer. Total sample size (for percentage calculation).
 #'
 #' @return Character vector of formatted results.
@@ -167,7 +171,8 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
                                  subgroup_name, effect_a = NA,
                                  estimator_fn = NULL,
-                                 effect_measure = "RD", N) {
+                                 effect_measure = "RD",
+                                 outcome_type = "binary", N) {
 
   Y     <- df_sub[[outcome.name]]
   Treat <- df_sub[[treat.name]]
@@ -210,13 +215,24 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
   # Formatted counts
   n_fmt   <- sprintf("%d (%.1f%%)", n_tot, 100 * n_tot / N)
   n1_fmt  <- sprintf("%d (%.1f%%)", n1, 100 * n1 / n_tot)
-  r0_fmt  <- sprintf("%.1f%%", 100 * rate0)
-  r1_fmt  <- sprintf("%.1f%%", 100 * rate1)
+
+  # Per-arm summaries: percentage for binary, raw mean for continuous/count
+  is_proportion <- outcome_type %in% c("binary")
+  if (is_proportion) {
+    r0_fmt <- sprintf("%.1f%%", 100 * rate0)
+    r1_fmt <- sprintf("%.1f%%", 100 * rate1)
+    rd_fmt <- sprintf("%+.1f%%", 100 * (rate1 - rate0))
+  } else {
+    r0_fmt <- sprintf("%.1f", rate0)
+    r1_fmt <- sprintf("%.1f", rate1)
+    rd_fmt <- sprintf("%+.1f", rate1 - rate0)
+  }
 
   if (is.na(effect_a)) {
-    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, effect_str)
+    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, rd_fmt, effect_str)
   } else {
-    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, effect_str, effect_a)
+    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, rd_fmt, effect_str,
+      effect_a)
   }
 }
 
@@ -233,6 +249,11 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
 #' @param treat.name Character. Name of treatment variable.
 #' @param estimator_fn Closure from `make_effect_estimator()`, or NULL.
 #' @param effect_measure Character. Effect measure label (e.g., "RD", "OR").
+#' @param outcome_type Character. One of \code{"binary"}, \code{"continuous"},
+#'   or \code{"count"}.  Controls column labels and formatting: binary uses
+#'   \code{"Rate(C)"}/\code{"Rate(T)"} with percentages; continuous and count
+#'   use \code{"Mean(C)"}/\code{"Mean(T)"} with raw values.
+#'   Default \code{"binary"}.
 #' @param effect_a_1 Character. Adjusted effect for subgroup 1 (optional).
 #' @param effect_a_0 Character. Adjusted effect for subgroup 0 (optional).
 #' @param sg1_name Character. Label for subgroup 1 (treat.recommend == 1).
@@ -245,6 +266,7 @@ SG_tab_estimates_glm <- function(df, SG_flag,
                                  outcome.name, treat.name,
                                  estimator_fn = NULL,
                                  effect_measure = "RD",
+                                 outcome_type = "binary",
                                  effect_a_1 = NA, effect_a_0 = NA,
                                  sg1_name = "Recommend",
                                  sg0_name = "Questionable",
@@ -252,25 +274,25 @@ SG_tab_estimates_glm <- function(df, SG_flag,
   N <- nrow(df)
 
   # Effect label for column header
-  if (effect_measure %in% c("OR", "RR", "IRR")) {
-    eff_label <- paste0(effect_measure, " (95% CI)")
-  } else {
-    eff_label <- paste0(effect_measure, " (95% CI)")
-  }
+  eff_label <- paste0(effect_measure, " (95% CI)")
+
+  # Column labels: Rate/% for binary, Mean for continuous/count
+  is_proportion <- outcome_type %in% c("binary")
+  c_label <- if (is_proportion) "Rate(C)" else "Mean(C)"
+  t_label <- if (is_proportion) "Rate(T)" else "Mean(T)"
 
   if (SG_flag == "ITT") {
     res <- analyze_subgroup_glm(
       df, outcome.name, treat.name,
-      subgroup_name = "ITT",
-      effect_a      = NA,
-      estimator_fn  = estimator_fn,
+      subgroup_name  = "ITT",
+      effect_a       = NA,
+      estimator_fn   = estimator_fn,
       effect_measure = effect_measure,
+      outcome_type   = outcome_type,
       N = N
     )
-    col_names <- c("Subgroup", "n", "n1", "Rate(C)", "Rate(T)", eff_label)
-    if (!is.na(NA)) {
-      # Always 6 columns for ITT
-    }
+    col_names <- c("Subgroup", "n", "n1", c_label, t_label, "Diff",
+                    eff_label)
     names(res) <- col_names
     return(res)
   }
@@ -285,6 +307,7 @@ SG_tab_estimates_glm <- function(df, SG_flag,
     effect_a       = effect_a_0,
     estimator_fn   = estimator_fn,
     effect_measure = effect_measure,
+    outcome_type   = outcome_type,
     N = N
   )
 
@@ -294,15 +317,17 @@ SG_tab_estimates_glm <- function(df, SG_flag,
     effect_a       = effect_a_1,
     estimator_fn   = estimator_fn,
     effect_measure = effect_measure,
+    outcome_type   = outcome_type,
     N = N
   )
 
   res <- rbind(res_0, res_1)
 
   if (is.na(effect_a_1)) {
-    colnames(res) <- c("Subgroup", "n", "n1", "Rate(C)", "Rate(T)", eff_label)
+    colnames(res) <- c("Subgroup", "n", "n1", c_label, t_label, "Diff",
+                        eff_label)
   } else {
-    colnames(res) <- c("Subgroup", "n", "n1", "Rate(C)", "Rate(T)",
+    colnames(res) <- c("Subgroup", "n", "n1", c_label, t_label, "Diff",
                         eff_label, paste0(effect_measure, "*"))
   }
   res
@@ -593,7 +618,10 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' tables: a treatment effect estimates table and an identified subgroups
 #' table, each with fully customizable titles and subtitles.
 #'
-#' @param fs ForestSearch results object.
+#' @param fs ForestSearch results object, or a \code{grf_glm_result} object
+#'   from \code{\link{grf.subg.harm.glm}}.  When a GRF object is supplied,
+#'   only Table 1 (treatment effect estimates) is produced; Table 2
+#'   (identified subgroups with consistency) returns \code{NULL}.
 #' @param which_df Character. Which data frame to use ("est" or "testing").
 #' @param est_title Character or NULL. Main title for the estimates table
 #'   (default: "Treatment Effect Estimates"). Rendered as bold markdown.
@@ -655,6 +683,127 @@ sg_tables <- function(fs,
     stop("Package 'gt' required.")
   }
 
+  # =========================================================================
+  # GRF STANDALONE DISPATCH
+  # =========================================================================
+  # When fs is a grf_glm_result object (from grf.subg.harm.glm), produce
+
+  # Table 1 (ITT + subgroup estimates) only.  Table 2 (candidate
+  # enumeration with Pcons) is FS-specific and returns NULL.
+  if (inherits(fs, "grf_glm_result")) {
+    df <- fs$data
+
+    outcome.name   <- fs$outcome.name
+    treat.name_grf <- fs$treat.name
+    effect_measure <- fs$effect_measure %||% "OR"
+    outcome_type   <- fs$outcome_type %||% "binary"
+    offset.name    <- fs$offset.name
+
+    # GRF stores effect_measure on the link scale (e.g., "log_OR");
+    # SG_tab_estimates_glm and make_effect_estimator expect the display
+    # scale (e.g., "OR").  Convert:
+    em_map <- c(log_OR = "OR", log_RR = "RR", log_IRR = "IRR")
+    if (effect_measure %in% names(em_map)) {
+      effect_measure <- em_map[[effect_measure]]
+    }
+
+    # Build estimator closure
+    estimator_fn_grf <- tryCatch(
+      make_effect_estimator(
+        outcome_type   = outcome_type,
+        treat.name     = treat.name_grf,
+        outcome.name   = outcome.name,
+        offset.name    = offset.name,
+        effect_measure = effect_measure
+      ),
+      error = function(e) NULL
+    )
+
+    # ITT row
+    aa_grf <- SG_tab_estimates_glm(
+      df, SG_flag = "ITT",
+      outcome.name   = outcome.name,
+      treat.name     = treat.name_grf,
+      estimator_fn   = estimator_fn_grf,
+      effect_measure = effect_measure,
+      outcome_type   = outcome_type,
+      est.scale      = "hr"
+    )
+
+    # Subgroup rows
+    bb_grf <- SG_tab_estimates_glm(
+      df, SG_flag = "treat.recommend",
+      outcome.name   = outcome.name,
+      treat.name     = treat.name_grf,
+      estimator_fn   = estimator_fn_grf,
+      effect_measure = effect_measure,
+      outcome_type   = outcome_type,
+      effect_a_1     = hr_1a,
+      effect_a_0     = hr_0a,
+      sg1_name       = "Recommend",
+      sg0_name       = "Questionable",
+      est.scale      = "hr"
+    )
+
+    tab_est_grf <- as.data.frame(rbind(aa_grf, bb_grf))
+
+    tab_estimates_grf <- gt::gt(tab_est_grf, auto_align = TRUE) |>
+      gt::tab_header(
+        title = if (!is.null(est_title)) {
+          gt::md(paste0("**", est_title, "**"))
+        } else {
+          est_caption
+        },
+        subtitle = if (!is.null(est_title)) est_caption
+      ) |>
+      gt::tab_options(
+        table.font.size = gt::px(font_size),
+        heading.title.font.size = gt::px(font_size + 2),
+        heading.subtitle.font.size = gt::px(font_size),
+        column_labels.font.size = gt::px(font_size)
+      )
+
+    # Subgroup definition footnote
+    sg_def_grf <- if (!is.null(fs$sg.harm.id) && length(fs$sg.harm.id) > 0) {
+      paste(fs$sg.harm.id, collapse = " & ")
+    } else {
+      NULL
+    }
+
+    if (!is.null(sg_def_grf) && nzchar(sg_def_grf)) {
+      tab_estimates_grf <- tab_estimates_grf |>
+        gt::tab_footnote(
+          footnote = gt::md(
+            paste0("**Identified subgroup (GRF):** ", sg_def_grf)
+          ),
+          locations = gt::cells_body(
+            columns = 1,
+            rows = grepl("Questionable|H$", tab_est_grf[[1]])
+          )
+        )
+    }
+
+    # CATE footnote (GRF-specific context)
+    if (!is.null(fs$cate_sg)) {
+      tab_estimates_grf <- tab_estimates_grf |>
+        gt::tab_source_note(
+          source_note = gt::md(sprintf(
+            "**GRF CATE:** H&#x302; = %.4f, H&#x302;<sup>c</sup> = %.4f (risk-difference scale)",
+            fs$cate_sg, fs$cate_sgc
+          ))
+        )
+    }
+
+    return(list(
+      tab_estimates = tab_estimates_grf,
+      sg10_out      = NULL
+    ))
+  }
+
+  # =========================================================================
+  # FORESTSEARCH PATH (original code below)
+  # =========================================================================
+
   # Select appropriate dataframe
   if (which_df == "est") df <- fs$df.est
   if (which_df == "testing") df <- fs$df.test
@@ -694,6 +843,7 @@ sg_tables <- function(fs,
       treat.name     = args_fs$treat.name,
       estimator_fn   = estimator_fn_tab,
       effect_measure = effect_measure,
+      outcome_type   = outcome_type,
       est.scale      = args_fs$est.scale
     )
 
@@ -704,6 +854,7 @@ sg_tables <- function(fs,
       treat.name     = args_fs$treat.name,
       estimator_fn   = estimator_fn_tab,
       effect_measure = effect_measure,
+      outcome_type   = outcome_type,
       effect_a_1     = hr_1a,
       effect_a_0     = hr_0a,
       sg1_name       = "Recommend",

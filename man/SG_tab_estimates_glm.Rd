@@ -11,6 +11,7 @@ SG_tab_estimates_glm(
   treat.name,
   estimator_fn = NULL,
   effect_measure = "RD",
+  outcome_type = "binary",
   effect_a_1 = NA,
   effect_a_0 = NA,
   sg1_name = "Recommend",
@@ -31,6 +32,12 @@ the subgroup flag column (e.g., "treat.recommend").}
 \item{estimator_fn}{Closure from \code{make_effect_estimator()}, or NULL.}
 
 \item{effect_measure}{Character. Effect measure label (e.g., "RD", "OR").}
+
+\item{outcome_type}{Character. One of \code{"binary"}, \code{"continuous"},
+or \code{"count"}.  Controls column labels and formatting: binary uses
+\code{"Rate(C)"}/\code{"Rate(T)"} with percentages; continuous and count
+use \code{"Mean(C)"}/\code{"Mean(T)"} with raw values.
+Default \code{"binary"}.}
 
 \item{effect_a_1}{Character. Adjusted effect for subgroup 1 (optional).}
 

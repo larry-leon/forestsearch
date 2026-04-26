@@ -12,6 +12,7 @@ analyze_subgroup_glm(
   effect_a = NA,
   estimator_fn = NULL,
   effect_measure = "RD",
+  outcome_type = "binary",
   N
 )
 }
@@ -29,6 +30,11 @@ analyze_subgroup_glm(
 \item{estimator_fn}{Closure from \code{make_effect_estimator()}, or NULL.}
 
 \item{effect_measure}{Character. Effect measure label (e.g., "RD", "OR").}
+
+\item{outcome_type}{Character. One of \code{"binary"}, \code{"continuous"},
+or \code{"count"}.  Controls formatting: binary displays per-arm means
+as percentages (\code{"Rate"}); continuous and count display raw means
+(\code{"Mean"}).  Default \code{"binary"}.}
 
 \item{N}{Integer. Total sample size (for percentage calculation).}
 }

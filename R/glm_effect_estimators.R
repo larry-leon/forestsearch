@@ -176,6 +176,7 @@ make_effect_estimator <- function(
         outcome.name      = outcome.name,
         adjust_covariates = adjust_covariates,
         ps_adjust_method  = ps_adjust_method,
+        adverse_outcome   = adverse_outcome,
         ...
       )
     },
@@ -802,14 +803,24 @@ make_effect_estimator <- function(
 #' @noRd
 .make_lm_estimator <- function(treat.name, outcome.name,
                                adjust_covariates = NULL,
-                               ps_adjust_method = "none", ...) {
+                               ps_adjust_method = "none",
+                               adverse_outcome = TRUE, ...) {
 
   force(treat.name)
   force(outcome.name)
   force(adjust_covariates)
   force(ps_adjust_method)
+  force(adverse_outcome)
 
   function(data_slice) {
+    # When higher Y = better (adverse_outcome = FALSE), negate Y
+    # so that MD > 0 consistently indicates treatment HARM,
+    # aligning with the survival convention where HR > 1 = harm
+    # and the binary convention where OR > 1 on adverse Y = harm.
+    if (!adverse_outcome) {
+      data_slice[[outcome.name]] <- -data_slice[[outcome.name]]
+    }
+
     n0 <- sum(data_slice[[treat.name]] == 0L, na.rm = TRUE)
     n1 <- sum(data_slice[[treat.name]] == 1L, na.rm = TRUE)
 

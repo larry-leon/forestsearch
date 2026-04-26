@@ -1,0 +1,161 @@
+---
+title: "ACTG175 Continuous Harm Search: Single-Data Analysis"
+format: html
+---
+
+```{r setup}
+library(forestsearch)
+library(speff2trial)
+library(gt)
+
+set.seed(8316951L)
+```
+
+## Data Preparation
+
+```{r data-prep}
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# -- Continuous outcomes -------------------------------------------------------
+# Adverse scale: CD4 decline (higher = worse)
+actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+
+# Beneficial scale: CD4 improvement (higher = better)
+actg_df$y_improve <- actg_df$cd420 - actg_df$cd40
+
+cat(sprintf("N = %d\n", nrow(actg_df)))
+cat(sprintf("Mean CD4 decline (y_decline):    %.1f\n", mean(actg_df$y_decline)))
+cat(sprintf("  ZDV+ddI (T=1): %.1f\n", mean(actg_df$y_decline[actg_df$treat == 1])))
+cat(sprintf("  ddI     (T=0): %.1f\n", mean(actg_df$y_decline[actg_df$treat == 0])))
+cat(sprintf("Mean CD4 improvement (y_improve): %.1f\n", mean(actg_df$y_improve)))
+cat(sprintf("  ZDV+ddI (T=1): %.1f\n", mean(actg_df$y_improve[actg_df$treat == 1])))
+cat(sprintf("  ddI     (T=0): %.1f\n", mean(actg_df$y_improve[actg_df$treat == 0])))
+```
+
+## Covariates
+
+```{r covariates}
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+
+bin_vars <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+confounders <- c(cont_vars, bin_vars)
+```
+
+## ForestSearch (continuous, adverse scale)
+
+FS uses `y_decline` (higher = worse) with `adverse_outcome = TRUE`.
+No outcome flip — MD > c1 means treatment increases CD4 decline = **harm**.
+
+```{r fs-run}
+# Thresholds on the mean-difference scale (CD4 count units)
+c1 <- 10    # screening: MD >= 10
+c2 <- 5     # consistency: MD >= 5
+
+cat(sprintf("c1 (threshold) = %.0f, c2 (consistency) = %.0f\n", c1, c2))
+
+fs_result <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders,
+  outcome.name     = "y_decline",
+  event.name       = "y_decline",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  adverse_outcome  = TRUE,
+  seedit           = 8316951L,
+  n.min            = 60L,
+  d0.min           = 10L,
+  d1.min           = 10L,
+  hr.threshold     = c1,
+  hr.consistency   = c2,
+  pconsistency.threshold = 0.80,
+  fs.splits        = 500L,
+  max_subgroups_search = 15,
+  maxk             = 2L,
+  sg_focus         = "minSG",
+  use_lasso        = FALSE,
+  use_grf          = TRUE,
+  is.RCT           = TRUE,
+  vi.grf.min       = -0.2,
+  dmin.grf         = 0,
+  cont.cutoff      = 4L,
+  details          = TRUE,
+  quiet            = FALSE,
+  parallel_args    = list(plan = "sequential", workers = 1,
+                          show_message = FALSE)
+)
+```
+
+### Identified Subgroups
+
+```{r fs-results}
+fs_tabs <- sg_tables(fs_result, ndecimals = 3, which_df = "est")
+fs_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r fs-estimates}
+fs_tabs$tab_estimates
+```
+
+## GRF Standalone (continuous, beneficial scale)
+
+GRF uses `y_improve` (higher = better) with `adverse_outcome = FALSE` (default).
+CATE < 0 means treatment decreases improvement = **harm**.
+
+```{r grf-run}
+grf_result <- grf.subg.harm.glm(
+  data             = actg_df,
+  confounders.name = confounders,
+  outcome.name     = "y_improve",
+  treat.name       = "treat",
+  id.name          = "id",
+  outcome_type     = "continuous",
+  effect_measure   = "MD",
+  dmin.grf         = 0.1,
+  maxdepth         = 2L,
+  RCT              = TRUE,
+  sg.criterion     = "mDiff",
+  details          = TRUE
+)
+
+cat("\n=== GRF Result ===\n")
+if (!is.null(grf_result$sg.harm.id) && length(grf_result$sg.harm.id) > 0) {
+  cat("Subgroup:", paste(grf_result$sg.harm.id, collapse = " & "), "\n")
+  grf_H <- grf_result$data$treat.recommend == 0
+  cat(sprintf("Size(H): %d,  Size(Hc): %d\n", sum(grf_H), sum(!grf_H)))
+  cat(sprintf("CATE(H):  %.2f (treatment effect on improvement in H)\n",
+      grf_result$cate_sg))
+  cat(sprintf("CATE(Hc): %.2f\n", grf_result$cate_sgc))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+### GRF Treatment Effect Estimates
+
+```{r grf-results}
+grf_tabs <- sg_tables(grf_result, ndecimals = 3, which_df = "est")
+grf_tabs$tab_estimates
+```
+
+## Side-by-Side Comparison
+
+```{r comparison}
+cat("=== FS (adverse Y = CD4 decline, adverse_outcome = TRUE) ===\n")
+fs_tabs$tab_estimates
+
+cat("\n=== GRF (beneficial Y = CD4 improvement, adverse_outcome = FALSE) ===\n")
+grf_tabs$tab_estimates
+```
