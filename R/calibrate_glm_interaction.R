@@ -34,6 +34,13 @@
 #' @param k_treat Numeric. Treatment effect scaling factor passed to
 #'   \code{\link{generate_glm_dgm}}.  Default \code{1} (preserve fitted
 #'   treatment effect).  Set to \code{0} to zero out the ITT effect.
+#' @param adverse_outcome Logical.  When \code{TRUE} for binary outcomes
+#'   with a ratio effect measure (OR, RR), the calibration searches for
+#'   \code{1 / target_effect} on the actual Y scale because
+#'   \code{\link{generate_glm_dgm}} negates \code{k_inter} internally.
+#'   The returned DGM stores \code{adverse_outcome = TRUE} so that
+#'   downstream functions (e.g., \code{\link{run_simulation_analysis}})
+#'   can auto-coordinate the analysis direction.  Default \code{FALSE}.
 #' @param k_inter_range Numeric vector of length 2. Search range for
 #'   \code{k_inter}. Default \code{c(0, 10)}.
 #' @param grid_step Numeric. Grid resolution. Default \code{0.05}.
@@ -100,8 +107,9 @@ calibrate_glm_interaction <- function(
   }
 
   # -- Adverse-outcome target inversion (ratio measures only) ----------------
-  # When adverse_outcome = TRUE and generate_glm_dgm negates beta_inter,
-  # OR(Q) on the adverse scale = 1/target_effect.  Search for that.
+  # When adverse_outcome = TRUE, generate_glm_dgm() negates beta_inter,
+  # producing OR(Q) ≈ 1/target_effect on the actual Y scale.  Search for
+  # that inverted value so the beneficial-scale heterogeneity matches.
   em <- effect_measure %||% switch(outcome_type,
     binary = "OR", continuous = "MD", count = "IRR"
   )
@@ -114,7 +122,7 @@ calibrate_glm_interaction <- function(
         em, target_effect
       ))
       cat(sprintf(
-        "  -> searching for %s(Q) = %.4f on adverse (actual Y) scale\n",
+        "  -> searching for %s(Q) = %.4f on actual Y scale\n",
         em, search_target
       ))
     }
@@ -126,7 +134,9 @@ calibrate_glm_interaction <- function(
   k_grid <- seq(k_inter_range[1], k_inter_range[2], by = grid_step)
 
   if (verbose) {
-    cat(sprintf("Calibrating: grid %.2f to %.2f by %.3f (%d values)\n",
+    cat(sprintf("Calibrating: target %s = %.3f (search target: %.4f)\n",
+        em, target_effect, search_target))
+    cat(sprintf("  Grid: %.2f to %.2f by %.3f (%d values)\n",
         k_inter_range[1], k_inter_range[2], grid_step, length(k_grid)))
   }
 

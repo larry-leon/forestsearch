@@ -390,9 +390,10 @@ run_simulation_analysis <- function(
 
   # ── Adverse-outcome auto-coordination ──────────────────────────────────────
   # When the DGM was built with adverse_outcome = TRUE (binary), the
-  # interaction was applied on the beneficial (1-Y) scale.  The analysis
-  # pipeline must also run on the beneficial scale: adverse_outcome = FALSE
-  # tells the estimator to flip Y -> 1-Y before computing OR.
+  # interaction was negated so that the beneficial-scale heterogeneity
+  # matches the target.  The analysis pipeline must run on the improvement
+  # scale: adverse_outcome = FALSE tells the estimator to flip Y -> 1-Y.
+  # This block is a no-op when dgm$adverse_outcome is FALSE or NULL.
   if (isTRUE(dgm$adverse_outcome) && is.null(fs_params[["adverse_outcome"]])) {
     fs_params[["adverse_outcome"]] <- FALSE
     if (is.null(grf_params[["adverse_outcome"]])) {

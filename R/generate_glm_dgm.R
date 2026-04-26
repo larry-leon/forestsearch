@@ -78,6 +78,14 @@
 #'       by \code{exp(k_inter)}).}
 #'   }
 #'   Default \code{0} (no interaction, equivalent to \code{model = "null"}).
+#' @param adverse_outcome Logical.  If \code{TRUE} and
+#'   \code{outcome_type = "binary"}, the interaction shift
+#'   \code{k_inter} is negated internally so that a positive
+#'   \code{k_inter} consistently amplifies the treatment contrast
+#'   on the beneficial (1 - Y) scale.  The flag is stored in the
+#'   returned object for downstream use by
+#'   \code{\link{calibrate_glm_interaction}} and
+#'   \code{\link{run_simulation_analysis}}.  Default \code{FALSE}.
 #' @param n_super Integer. Size of the super-population. Default
 #'   \code{5000L}.
 #' @param seed Integer. Random seed for super-population sampling.

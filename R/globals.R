@@ -221,6 +221,7 @@ utils::globalVariables(c(
   "sim_id",
   "analysis",
   "trimmed",
+  ".trimmed",
   "aa",
   "sg_hat",
   "ahr.H.true", "ahr.Hc.true",

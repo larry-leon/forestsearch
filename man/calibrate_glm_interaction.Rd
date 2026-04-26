@@ -56,6 +56,14 @@ Default \code{NULL}.}
 \code{\link{generate_glm_dgm}}.  Default \code{1} (preserve fitted
 treatment effect).  Set to \code{0} to zero out the ITT effect.}
 
+\item{adverse_outcome}{Logical.  When \code{TRUE} for binary outcomes
+with a ratio effect measure (OR, RR), the calibration searches for
+\code{1 / target_effect} on the actual Y scale because
+\code{\link{generate_glm_dgm}} negates \code{k_inter} internally.
+The returned DGM stores \code{adverse_outcome = TRUE} so that
+downstream functions (e.g., \code{\link{run_simulation_analysis}})
+can auto-coordinate the analysis direction.  Default \code{FALSE}.}
+
 \item{k_inter_range}{Numeric vector of length 2. Search range for
 \code{k_inter}. Default \code{c(0, 10)}.}
 
