@@ -7,6 +7,7 @@
 calibrate_glm_interaction(
   data,
   factor_vars,
+  continuous_vars = NULL,
   outcome_var,
   treatment_var,
   target_effect,
@@ -29,6 +30,10 @@ calibrate_glm_interaction(
 \code{\link{generate_glm_dgm}}).}
 
 \item{factor_vars}{Character vector of factor variable names.}
+
+\item{continuous_vars}{Character vector of continuous prognostic variable
+names.  Passed through to \code{\link{generate_glm_dgm}}.
+Default \code{NULL}.}
 
 \item{outcome_var}{Character string naming the outcome variable.}
 

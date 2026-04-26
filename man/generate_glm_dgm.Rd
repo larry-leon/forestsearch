@@ -7,6 +7,7 @@
 generate_glm_dgm(
   data,
   factor_vars,
+  continuous_vars = NULL,
   outcome_var,
   treatment_var,
   outcome_type = c("binary", "continuous", "count"),
@@ -29,6 +30,13 @@ generate_glm_dgm(
 \item{factor_vars}{Character vector of factor/categorical variable names
 to include as covariates. These are the candidate confounders for
 ForestSearch (e.g., \code{paste0("z", 1:12)}).}
+
+\item{continuous_vars}{Character vector of continuous variable names
+to include as prognostic covariates in the baseline GLM.  These
+improve the model fit but do not participate in subgroup definition.
+Consistent with \code{\link{generate_aft_dgm_flex}}, which accepts
+both \code{continuous_vars} and \code{factor_vars}.  Default
+\code{NULL} (factor-only model, backward compatible).}
 
 \item{outcome_var}{Character string naming the outcome variable.}
 

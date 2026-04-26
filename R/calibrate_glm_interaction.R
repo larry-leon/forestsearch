@@ -17,6 +17,9 @@
 #' @param data The source data frame (same as passed to
 #'   \code{\link{generate_glm_dgm}}).
 #' @param factor_vars Character vector of factor variable names.
+#' @param continuous_vars Character vector of continuous prognostic variable
+#'   names.  Passed through to \code{\link{generate_glm_dgm}}.
+#'   Default \code{NULL}.
 #' @param outcome_var Character string naming the outcome variable.
 #' @param treatment_var Character string naming the treatment variable.
 #' @param target_effect Numeric. Target effect size in Q on the scale
@@ -83,6 +86,7 @@
 calibrate_glm_interaction <- function(
     data,
     factor_vars,
+    continuous_vars = NULL,
     outcome_var,
     treatment_var,
     target_effect,
@@ -145,6 +149,7 @@ calibrate_glm_interaction <- function(
     dgm_k <- generate_glm_dgm(
       data            = data,
       factor_vars     = factor_vars,
+      continuous_vars = continuous_vars,
       outcome_var     = outcome_var,
       treatment_var   = treatment_var,
       outcome_type    = outcome_type,
@@ -177,6 +182,7 @@ calibrate_glm_interaction <- function(
   dgm_cal <- generate_glm_dgm(
     data            = data,
     factor_vars     = factor_vars,
+    continuous_vars = continuous_vars,
     outcome_var     = outcome_var,
     treatment_var   = treatment_var,
     outcome_type    = outcome_type,

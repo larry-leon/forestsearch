@@ -31,6 +31,12 @@
 #' @param factor_vars Character vector of factor/categorical variable names
 #'   to include as covariates. These are the candidate confounders for
 #'   ForestSearch (e.g., \code{paste0("z", 1:12)}).
+#' @param continuous_vars Character vector of continuous variable names
+#'   to include as prognostic covariates in the baseline GLM.  These
+#'   improve the model fit but do not participate in subgroup definition.
+#'   Consistent with \code{\link{generate_aft_dgm_flex}}, which accepts
+#'   both \code{continuous_vars} and \code{factor_vars}.  Default
+#'   \code{NULL} (factor-only model, backward compatible).
 #' @param outcome_var Character string naming the outcome variable.
 #' @param treatment_var Character string naming the treatment variable
 #'   (must be 0/1 coded).
@@ -147,6 +153,7 @@
 generate_glm_dgm <- function(
     data,
     factor_vars,
+    continuous_vars = NULL,
     outcome_var,
     treatment_var,
     outcome_type    = c("binary", "continuous", "count"),
@@ -183,6 +190,14 @@ generate_glm_dgm <- function(
     all(factor_vars %in% names(data)),
     is.numeric(k_inter), length(k_inter) == 1
   )
+
+  if (!is.null(continuous_vars)) {
+    missing_cv <- setdiff(continuous_vars, names(data))
+    if (length(missing_cv) > 0) {
+      stop("continuous_vars not found in data: ",
+           paste(missing_cv, collapse = ", "))
+    }
+  }
 
   if (outcome_type == "binary") {
     y_vals <- unique(data[[outcome_var]])
@@ -224,6 +239,11 @@ generate_glm_dgm <- function(
     cat(sprintf("  k_treat:        %.3f\n", k_treat))
     cat(sprintf("  n_super:        %d\n", n_super))
     cat(sprintf("  n observations: %d\n", nrow(data)))
+    cat(sprintf("  factor vars:    %d\n", length(factor_vars)))
+    if (!is.null(continuous_vars)) {
+      cat(sprintf("  continuous vars: %d (%s)\n",
+          length(continuous_vars), paste(continuous_vars, collapse = ", ")))
+    }
   }
 
   # -- Ensure factor types ---------------------------------------------------
@@ -290,7 +310,7 @@ generate_glm_dgm <- function(
   # predictor AFTER fitting.  This avoids the non-collapsibility problem
   # in logistic regression where including/excluding covariates changes
   # other coefficient estimates.
-  rhs <- c(treatment_var, factor_vars)
+  rhs <- c(treatment_var, factor_vars, continuous_vars)
   # For count outcomes with offset, include offset in the model.
   # We use the formula approach (offset(log(var))) rather than the
   # offset= argument so that predict() with newdata handles offset
@@ -472,7 +492,8 @@ generate_glm_dgm <- function(
     ),
 
     # Covariate info (factors that survived filtering)
-    factor_vars = factor_vars,
+    factor_vars     = factor_vars,
+    continuous_vars = continuous_vars,
 
     model_type = model,
     model      = model,
