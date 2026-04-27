@@ -24,8 +24,8 @@ execute:
 knitr::opts_chunk$set(comment = "#>", fig.align = "center")
 
 # ─── Simulation control ─────────────────────────────────────────────────
-nsims_alt   <- 100L
-nsims_null  <- 200L
+nsims_alt   <- 1000L
+nsims_null  <- 2000L
 sim_seed    <- 8316951L
 n_workers   <- min(parallel::detectCores(logical = FALSE) - 1L, 12L)
 
@@ -88,16 +88,16 @@ run_grf           <- FALSE
 fs_irr_threshold       <- 1.25
 fs_irr_consistency     <- 1.0
 fs_pconsistency        <- 0.90
-fs_splits              <- 400L
+fs_splits              <- 1000L
 fs_n_min               <- 60L
-fs_d0_min              <- 12L
-fs_d1_min              <- 12L
+fs_d0_min              <- 10L
+fs_d1_min              <- 0L
 fs_maxk                <- 2L
 fs_vi_grf_min          <- -0.2
 fs_seedit              <- 8316951L
 
 # ─── ForestSearch pipeline flags ───────────────────────────────────────
-fs_use_lasso           <- TRUE    # Poisson-LASSO available
+fs_use_lasso           <- FALSE    # Poisson-LASSO available
 fs_use_grf             <- TRUE
 fs_is_rct              <- TRUE
 
