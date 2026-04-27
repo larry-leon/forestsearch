@@ -18,16 +18,16 @@ library(foreach)
 set.seed(8316951L)
 
 # -- Simulation control --------------------------------------------------------
-nsims_alt   <- 50L
-nsims_null  <- 50L
+nsims_alt   <- 5000L
+nsims_null  <- 5000L
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
 
 # -- FS parameters -------------------------------------------------------------
-c1 <- 2.0           # hr.threshold (OR scale)
-c2 <- 2.0            # hr.consistency
+c1 <- 1.25           # hr.threshold (OR scale)
+c2 <- 1.0            # hr.consistency
 fs_pconsistency    <- 0.80
-max_look <- 10
+max_look <- 5
 fs_splits          <- 1000L
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
@@ -92,7 +92,7 @@ fs_params <- list(
   dmin.grf               = fs_dmin_grf,
   is.RCT                 = fs_is_rct,
   seedit                 = fs_seedit,
-  showten_subgroups      = TRUE,
+  showten_subgroups      = FALSE,
   details                = TRUE,
   quiet                  = FALSE,
   parallel_args          = list(plan = "sequential", workers = 1,

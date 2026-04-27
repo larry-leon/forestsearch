@@ -49,7 +49,7 @@ implies null).}
 (useful for programmatic insertion into Rmd via \code{results = "asis"}).}
 
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
-subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 benefit-search analyses (treatment switching).}
 
 \item{trim_threshold}{Numeric or \code{NULL}. When the raw mean of

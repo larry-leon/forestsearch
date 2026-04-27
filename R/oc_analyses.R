@@ -566,7 +566,11 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #' @param digits Integer. Decimal places for proportions. Default: 3
 #' @param digits_hr Integer. Decimal places for hazard ratios. Default: 3
 #' @param title Character. Table title. Default: "Operating Characteristics Summary"
-#' @param subtitle Character. Table subtitle. Default: NULL
+#' @param subtitle Character or \code{NULL}. Table subtitle.  When
+#'   \code{NULL} (default) and a \code{dgm} is provided, an informative
+#'   subtitle is auto-generated showing the number of simulations and
+#'   true effect sizes using notation-aware labels (e.g.,
+#'   \code{"100 sims, OR(H) = 2.00, OR(Hc) = 0.65"}).
 #' @param use_gt Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE
 #' @param effect_measure Character or \code{NULL}.  The effect measure
 #'   used in the simulation (e.g., \code{"HR"}, \code{"OR"}, \code{"MD"}).
@@ -580,7 +584,7 @@ summarize_single_analysis <- function(result, digits = 2, digits_hr = 3) {
 #'   auto-detected from \code{dgm$effect_measure} (unless explicitly
 #'   overridden) and column spanner labels adapt to the outcome type.
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
-#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 #'   benefit-search analyses (treatment switching).
 #'
 #' @return A gt table object (if use_gt = TRUE and gt package available) or data.frame
@@ -631,6 +635,23 @@ format_oc_results <- function(
   # Auto-detect effect_measure from DGM if not explicitly provided
   if (is.null(effect_measure) && !is.null(dgm)) {
     effect_measure <- dgm$effect_measure
+  }
+
+  # Auto-generate subtitle from DGM when not explicitly provided
+  if (is.null(subtitle) && !is.null(dgm)) {
+    n_sims_total <- if (is.data.frame(results)) {
+      length(unique(results$sim))
+    } else {
+      nrow(results)
+    }
+    em_label <- if (!is.null(effect_measure)) effect_measure else "HR"
+    hr_H  <- dgm$hazard_ratios$harm_subgroup
+    hr_Hc <- dgm$hazard_ratios$no_harm_subgroup
+    subtitle <- sprintf(
+      "%d sims, %s(%s) = %.2f, %s(%s) = %.2f",
+      n_sims_total, em_label, L$sg, hr_H,
+      em_label, L$sg_c, hr_Hc
+    )
   }
 
   # Benefit search: invert effects from switched -> original scale
@@ -856,7 +877,7 @@ format_oc_results <- function(
     }
 
     # Rename columns for display using math notation (pure Unicode)
-    # Notation-aware: H/Hc for harm search, Q/Qc for benefit search
+    # Notation-aware: H/Hc for harm search, G/Gc for benefit search
     # Unicode: \u0302 = combining circumflex, \u1D9C = superscript-c,
     #          \u2020 = dagger, \u2021 = double-dagger,
     #          \u03b8 = theta, \u00e2 = a-hat
@@ -904,6 +925,18 @@ format_oc_results <- function(
     for (col_nm in names(cde_label_map)) {
       if (col_nm %in% names(summary_df)) {
         label_list[[col_nm]] <- cde_label_map[[col_nm]]
+      }
+    }
+
+    # Size column labels (notation-aware: avg|Ĥ| for harm, avg|Ĝ| for benefit)
+    size_label_map <- list(
+      Size_H_mean = sprintf("avg|%s|", L$sg_hat),
+      Size_H_min  = sprintf("min|%s|", L$sg_hat),
+      Size_H_max  = sprintf("max|%s|", L$sg_hat)
+    )
+    for (col_nm in names(size_label_map)) {
+      if (col_nm %in% names(summary_df)) {
+        label_list[[col_nm]] <- size_label_map[[col_nm]]
       }
     }
 
@@ -965,6 +998,19 @@ format_oc_results <- function(
           gt_table,
           label = "Controlled Direct Effects",
           columns = gt::all_of(cde_span_cols)
+        )
+      }
+    }
+
+    if ("all" %in% metrics || "subgroup_size" %in% metrics) {
+      size_span_cols <- intersect(c("Size_H_mean", "Size_H_min", "Size_H_max"),
+                                  names(summary_df))
+      if (length(size_span_cols) > 0) {
+        gt_table <- gt::tab_spanner(
+          gt_table,
+          label = sprintf("Identified %s Subgroup Size",
+                          tools::toTitleCase(L$word)),
+          columns = gt::all_of(size_span_cols)
         )
       }
     }

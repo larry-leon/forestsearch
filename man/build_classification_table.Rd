@@ -46,7 +46,7 @@ Default: 0.05.}
 Increase to 14 or 16 for larger display.}
 
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
-subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 benefit-search analyses (treatment switching).}
 }
 \value{

@@ -35,7 +35,11 @@ Default: NULL (all analyses in results)}
 
 \item{title}{Character. Table title. Default: "Operating Characteristics Summary"}
 
-\item{subtitle}{Character. Table subtitle. Default: NULL}
+\item{subtitle}{Character or \code{NULL}. Table subtitle.  When
+\code{NULL} (default) and a \code{dgm} is provided, an informative
+subtitle is auto-generated showing the number of simulations and
+true effect sizes using notation-aware labels (e.g.,
+\code{"100 sims, OR(H) = 2.00, OR(Hc) = 0.65"}).}
 
 \item{use_gt}{Logical. Return gt table if TRUE, data.frame if FALSE. Default: TRUE}
 
@@ -53,7 +57,7 @@ auto-detected from \code{dgm$effect_measure} (unless explicitly
 overridden) and column spanner labels adapt to the outcome type.}
 
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
-subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 benefit-search analyses (treatment switching).}
 }
 \value{

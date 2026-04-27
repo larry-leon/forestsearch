@@ -8,8 +8,8 @@ get_sg_labels(notation = c("harm", "benefit"))
 }
 \arguments{
 \item{notation}{Character. \code{"harm"} (default) uses H/Hc notation
-for detrimental-subgroup searches.  \code{"benefit"} uses Q/Qc notation
-for benefit-subgroup searches (treatment switching).}
+for detrimental-subgroup searches.  \code{"benefit"} uses G/Gc notation
+(G for "good"/"gain") for benefit-subgroup searches.}
 }
 \value{
 A named list with components:
@@ -21,7 +21,7 @@ A named list with components:
 }
 }
 \description{
-Returns Unicode label components for H/Hc (harm search) or Q/Qc (benefit
+Returns Unicode label components for H/Hc (harm search) or G/Gc (benefit
 search) notation.  Used internally by \code{build_classification_table},
 \code{build_estimation_table}, \code{interpret_estimation_table}, and
 \code{format_oc_results} to switch between the two notation systems

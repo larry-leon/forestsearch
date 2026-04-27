@@ -25,7 +25,7 @@ grouping.}
 threshold are shown in bold. Set \code{NULL} to disable. Default: 0.05.}
 
 \item{subgroup_notation}{Character. \code{"harm"} (default) labels
-subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 benefit-search analyses (treatment switching).}
 }
 \value{

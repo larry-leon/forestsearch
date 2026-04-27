@@ -697,8 +697,8 @@ sg_tables <- function(fs,
       sg1_label <- L$sg_hat_c   # Ĥᶜ
     } else {
       # treat.recommend == 1 IS the benefit subgroup
-      sg1_label <- L$sg_hat     # Q̂
-      sg0_label <- L$sg_hat_c   # Q̂ᶜ
+      sg1_label <- L$sg_hat     # Ĝ
+      sg0_label <- L$sg_hat_c   # Ĝᶜ
     }
   } else {
     sg0_label <- "Questionable"
@@ -706,7 +706,7 @@ sg_tables <- function(fs,
   }
 
   # Footnote target row: the "identified" subgroup
-  # harm: sg0 (Ĥ);  benefit: sg1 (Q̂);  default: sg0 (Questionable)
+  # harm: sg0 (Ĥ);  benefit: sg1 (Ĝ);  default: sg0 (Questionable)
   fn_target_label <- if (!is.null(subgroup_notation) &&
                          subgroup_notation == "benefit") {
     sg1_label

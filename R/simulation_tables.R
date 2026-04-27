@@ -12,15 +12,15 @@
 
 #' Get Subgroup Display Labels for Harm or Benefit Notation
 #'
-#' Returns Unicode label components for H/Hc (harm search) or Q/Qc (benefit
+#' Returns Unicode label components for H/Hc (harm search) or G/Gc (benefit
 #' search) notation.  Used internally by \code{build_classification_table},
 #' \code{build_estimation_table}, \code{interpret_estimation_table}, and
 #' \code{format_oc_results} to switch between the two notation systems
 #' described in Leon et al. (2024, Sections 2--4.2).
 #'
 #' @param notation Character. \code{"harm"} (default) uses H/Hc notation
-#'   for detrimental-subgroup searches.  \code{"benefit"} uses Q/Qc notation
-#'   for benefit-subgroup searches (treatment switching).
+#'   for detrimental-subgroup searches.  \code{"benefit"} uses G/Gc notation
+#'   (G for "good"/"gain") for benefit-subgroup searches.
 #'
 #' @return A named list with components:
 #' \describe{
@@ -45,12 +45,12 @@ get_sg_labels <- function(notation = c("harm", "benefit")) {
     )
   } else {
     list(
-      sg       = "Q",
-      sg_c     = "Q\u1D9C",
-      sg_hat   = "Q\u0302",
-      sg_hat_c = "Q\u0302\u1D9C",
-      plain    = "Q",
-      plain_c  = "Qc",
+      sg       = "G",
+      sg_c     = "G\u1D9C",
+      sg_hat   = "\u011C",
+      sg_hat_c = "\u011C\u1D9C",
+      plain    = "G",
+      plain_c  = "Gc",
       word     = "benefit"
     )
   }
@@ -226,7 +226,7 @@ invert_dgm_hrs <- function(dgm, effect_measure = NULL) {
 #' @param font_size Numeric. Font size in pixels for table text. Default: 12.
 #'   Increase to 14 or 16 for larger display.
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
-#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 #'   benefit-search analyses (treatment switching).
 #'
 #' @return A \code{gt} table object.
@@ -501,7 +501,7 @@ build_classification_table <- function(
 #' @param cde_Hc Numeric or \code{NULL}. Controlled direct effect
 #'   for the complement. Auto-detected analogously.
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
-#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 #'   benefit-search analyses (treatment switching).
 #' @param trim_threshold Numeric or \code{NULL}. When the raw mean of
 #'   an estimator's values exceeds this absolute value, that row's
@@ -1054,7 +1054,7 @@ build_estimation_table <- function(
 #'   \code{cat()}. If \code{FALSE}, returns it invisibly as a character string
 #'   (useful for programmatic insertion into Rmd via \code{results = "asis"}).
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
-#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 #'   benefit-search analyses (treatment switching).
 #' @param trim_threshold Numeric or \code{NULL}. When the raw mean of
 #'   an estimate vector exceeds this absolute value, the narrative
@@ -1487,7 +1487,7 @@ interpret_estimation_table <- function(
 #' @param bold_threshold Numeric. Values in \code{any(H)} rows exceeding this
 #'   threshold are shown in bold. Set \code{NULL} to disable. Default: 0.05.
 #' @param subgroup_notation Character. \code{"harm"} (default) labels
-#'   subgroups as H/Hc; \code{"benefit"} labels as Q/Qc for
+#'   subgroups as H/Hc; \code{"benefit"} labels as G/Gc for
 #'   benefit-search analyses (treatment switching).
 #'
 #' @return A \code{gt} table object.
