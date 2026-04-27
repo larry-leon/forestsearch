@@ -240,6 +240,121 @@ compute_ahr <- function(df, subset_indicator = NULL) {
 }
 
 
+#' Compute Marginal Causal Effect from GLM Potential Outcomes
+#'
+#' Computes the marginal (average) treatment effect from individual-level
+#' potential outcomes stored in GLM simulation data.
+#' This is the GLM analogue of \code{\link{compute_ahr}} for survival data.
+#'
+#' For binary outcomes (\code{p0}, \code{p1}):
+#' \itemize{
+#'   \item \code{OR}: \code{odds(mean(p1)) / odds(mean(p0))}
+#'   \item \code{RD}: \code{mean(p1) - mean(p0)}
+#'   \item \code{RR}: \code{mean(p1) / mean(p0)}
+#' }
+#'
+#' For continuous or count outcomes (\code{mu0}, \code{mu1}):
+#' \itemize{
+#'   \item \code{MD}: \code{mean(mu1) - mean(mu0)}
+#'   \item \code{IRR}: \code{mean(mu1) / mean(mu0)}
+#'   \item \code{IRD}: \code{mean(mu1) - mean(mu0)}
+#' }
+#'
+#' @param df Data frame with potential outcome columns (\code{p0}/\code{p1}
+#'   or \code{mu0}/\code{mu1}).
+#' @param subset_indicator Optional logical/integer vector for subsetting.
+#'   If provided, only rows where \code{subset_indicator == 1} are used.
+#' @param effect_measure Character.  One of \code{"OR"}, \code{"RD"},
+#'   \code{"RR"}, \code{"MD"}, \code{"IRR"}, \code{"IRD"}.
+#'   Default \code{"OR"}.
+#'
+#' @return Numeric effect value, or \code{NA_real_} if required columns
+#'   are missing.
+#'
+#' @keywords internal
+#' @export
+compute_aor <- function(df, subset_indicator = NULL,
+                        effect_measure = "OR") {
+
+  has_binary <- all(c("p0", "p1") %in% names(df))
+  has_cont   <- all(c("mu0", "mu1") %in% names(df))
+
+  if (!has_binary && !has_cont) return(NA_real_)
+
+  if (has_binary) {
+    y0 <- df$p0
+    y1 <- df$p1
+  } else {
+    y0 <- df$mu0
+    y1 <- df$mu1
+  }
+
+  if (!is.null(subset_indicator)) {
+    idx <- subset_indicator == 1
+    y0 <- y0[idx]
+    y1 <- y1[idx]
+  }
+
+  if (length(y0) == 0 || all(is.na(y0))) return(NA_real_)
+
+  m0 <- mean(y0, na.rm = TRUE)
+  m1 <- mean(y1, na.rm = TRUE)
+
+  switch(effect_measure,
+    "OR" = (m1 / (1 - m1)) / (m0 / (1 - m0)),
+    "RD" = , "IRD" = , "MD" = m1 - m0,
+    "RR" = , "IRR" = m1 / m0,
+    NA_real_
+  )
+}
+
+
+#' Compute CDE Analogue from GLM Potential Outcomes
+#'
+#' Computes the Controlled Direct Effect analogue for GLM outcomes.
+#' For binary (logit link), this averages the individual-level odds
+#' first, then takes the ratio --- analogous to
+#' \code{mean(exp(theta_1)) / mean(exp(theta_0))} in survival:
+#'
+#' \code{CDE(S) = mean(p1[S]/(1-p1[S])) / mean(p0[S]/(1-p0[S]))}
+#'
+#' This differs from the AOR (\code{odds(mean(p1)) / odds(mean(p0))})
+#' due to Jensen's inequality whenever individual probabilities are
+#' heterogeneous.  For identity-link (MD) and log-link (IRR) outcomes,
+#' CDE equals AOR and this function returns \code{NA_real_}.
+#'
+#' @inheritParams compute_aor
+#'
+#' @return Numeric CDE value (binary OR only), or \code{NA_real_}.
+#'
+#' @keywords internal
+#' @export
+compute_cde_glm <- function(df, subset_indicator = NULL,
+                            effect_measure = "OR") {
+
+  # Only meaningful for binary (logit link)
+  if (!all(c("p0", "p1") %in% names(df))) return(NA_real_)
+  if (!(effect_measure %in% c("OR"))) return(NA_real_)
+
+  p0 <- df$p0
+  p1 <- df$p1
+
+  if (!is.null(subset_indicator)) {
+    idx <- subset_indicator == 1
+    p0 <- p0[idx]
+    p1 <- p1[idx]
+  }
+
+  if (length(p0) == 0 || all(is.na(p0))) return(NA_real_)
+
+  # Individual odds, then average
+  odds0 <- p0 / (1 - p0)
+  odds1 <- p1 / (1 - p1)
+
+  mean(odds1, na.rm = TRUE) / mean(odds0, na.rm = TRUE)
+}
+
+
 #' Compute CDE from theta_0 and theta_1
 #'
 #' Computes Controlled Direct Effect as the ratio of average hazard
@@ -792,18 +907,6 @@ format_oc_results <- function(
       }
     }
 
-    # Size column labels — notation-aware (|Q̂| or |Ĥ|)
-    size_label_map <- list(
-      Size_H_mean = sprintf("|%s|", L$sg_hat),
-      Size_H_min  = "Min",
-      Size_H_max  = "Max"
-    )
-    for (col_nm in names(size_label_map)) {
-      if (col_nm %in% names(summary_df)) {
-        label_list[[col_nm]] <- size_label_map[[col_nm]]
-      }
-    }
-
     gt_table <- gt::cols_label(gt_table, .list = label_list)
 
     # Add column spanners
@@ -862,18 +965,6 @@ format_oc_results <- function(
           gt_table,
           label = "Controlled Direct Effects",
           columns = gt::all_of(cde_span_cols)
-        )
-      }
-    }
-
-    if ("all" %in% metrics || "subgroup_size" %in% metrics) {
-      size_span_cols <- intersect(c("Size_H_mean", "Size_H_min", "Size_H_max"),
-                                   names(summary_df))
-      if (length(size_span_cols) > 0) {
-        gt_table <- gt::tab_spanner(
-          gt_table,
-          label = sprintf("Size %s", L$sg_hat),
-          columns = gt::all_of(size_span_cols)
         )
       }
     }

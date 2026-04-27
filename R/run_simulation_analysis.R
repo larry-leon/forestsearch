@@ -388,23 +388,6 @@ run_simulation_analysis <- function(
   grf_merged$event.name    <- event_name
   grf_merged$treat.name    <- treat_name
 
-  # ── Adverse-outcome auto-coordination ──────────────────────────────────────
-  # When the DGM was built with adverse_outcome = TRUE (binary), the
-  # interaction was negated so that the beneficial-scale heterogeneity
-  # matches the target.  The analysis pipeline must run on the improvement
-  # scale: adverse_outcome = FALSE tells the estimator to flip Y -> 1-Y.
-  # This block is a no-op when dgm$adverse_outcome is FALSE or NULL.
-  if (isTRUE(dgm$adverse_outcome) && is.null(fs_params[["adverse_outcome"]])) {
-    fs_params[["adverse_outcome"]] <- FALSE
-    if (is.null(grf_params[["adverse_outcome"]])) {
-      grf_merged[["adverse_outcome"]] <- FALSE
-    }
-    if (show_verbose) {
-      message("  [adverse_outcome] DGM built with adverse_outcome=TRUE -> ",
-              "auto-setting adverse_outcome=FALSE in FS/GRF params")
-    }
-  }
-
   # ── Run analyses ───────────────────────────────────────────────────────────
   results_list <- list()
   sg_hat_list  <- list()   # per-subject subgroup assignments for concordance
@@ -872,7 +855,7 @@ run_simulation_analysis <- function(
     if (out$size.Hc > 10) out$hr.Hc.hat <- .cox_hr(df[df$sg_hat == 0, ])
   }
 
-  # ── AHR and CDE (survival-only estimands) ────────────────────────────────
+  # ── AHR and CDE (survival) / AOR (GLM) ───────────────────────────────────
   if (!is_glm) {
     if ("loghr_po" %in% names(df)) {
       out$ahr.H.hat  <- compute_ahr(df, df$sg_hat)
@@ -881,6 +864,16 @@ run_simulation_analysis <- function(
     if (all(c("theta_0", "theta_1") %in% names(df))) {
       out$cde.H.hat  <- compute_cde(df, df$sg_hat)
       out$cde.Hc.hat <- compute_cde(df, 1L - df$sg_hat)
+    }
+  } else {
+    # GLM: marginal causal effect from potential outcomes (p0/p1 or mu0/mu1)
+    em <- effect_measure %||% "OR"
+    if (any(c("p0", "mu0") %in% names(df))) {
+      out$ahr.H.hat  <- compute_aor(df, df$sg_hat, em)
+      out$ahr.Hc.hat <- compute_aor(df, 1L - df$sg_hat, em)
+      # CDE analogue (binary OR only)
+      out$cde.H.hat  <- compute_cde_glm(df, df$sg_hat, em)
+      out$cde.Hc.hat <- compute_cde_glm(df, 1L - df$sg_hat, em)
     }
   }
 
@@ -901,6 +894,16 @@ run_simulation_analysis <- function(
     if (is_glm) {
       if (sum(true_H) > 10)  out$hr.H.true  <- .glm_effect(df[true_H, ])
       if (sum(!true_H) > 10) out$hr.Hc.true <- .glm_effect(df[!true_H, ])
+
+      # Marginal causal effect in true subgroup (GLM analogue of AHR)
+      em <- effect_measure %||% "OR"
+      if (any(c("p0", "mu0") %in% names(df))) {
+        out$ahr.H.true  <- compute_aor(df, as.integer(true_H), em)
+        out$ahr.Hc.true <- compute_aor(df, as.integer(!true_H), em)
+        # CDE analogue (binary OR only)
+        out$cde.H.true  <- compute_cde_glm(df, as.integer(true_H), em)
+        out$cde.Hc.true <- compute_cde_glm(df, as.integer(!true_H), em)
+      }
     } else {
       if (sum(true_H) > 10)  out$hr.H.true  <- .cox_hr(df[true_H, ])
       if (sum(!true_H) > 10) out$hr.Hc.true <- .cox_hr(df[!true_H, ])
@@ -1218,7 +1221,7 @@ run_simulation_analysis <- function(
       .cox_hr(grf_data[grf_data$sg_hat == 0, ], o_col, e_col, t_col)
   }
 
-  # AHR / CDE (survival-only)
+  # AHR / CDE (survival) / AOR (GLM)
   if (!is_glm) {
     .merge_sg <- function(base_df, sg_df, cols) {
       if (id_name %in% names(base_df) && id_name %in% names(sg_df))
@@ -1241,6 +1244,28 @@ run_simulation_analysis <- function(
       if (!is.null(m)) {
         out$cde.H.hat  <- compute_cde(m, m$sg_hat)
         out$cde.Hc.hat <- compute_cde(m, 1L - m$sg_hat)
+      }
+    }
+  } else {
+    # GLM: marginal causal effect from potential outcomes
+    po_cols <- intersect(c("p0", "p1", "mu0", "mu1"), names(df))
+    if (length(po_cols) >= 2) {
+      .merge_sg_po <- function(base_df, sg_df, cols) {
+        if (id_name %in% names(base_df) && id_name %in% names(sg_df))
+          merge(base_df[, c(id_name, cols), drop = FALSE],
+                sg_df[, c(id_name, "sg_hat")], by = id_name, all.y = TRUE)
+        else if (nrow(base_df) == nrow(sg_df)) {
+          base_df$sg_hat <- sg_df$sg_hat; base_df
+        } else NULL
+      }
+      m <- .merge_sg_po(df, grf_data, po_cols)
+      if (!is.null(m)) {
+        em <- effect_measure %||% "OR"
+        out$ahr.H.hat  <- compute_aor(m, m$sg_hat, em)
+        out$ahr.Hc.hat <- compute_aor(m, 1L - m$sg_hat, em)
+        # CDE analogue (binary OR only)
+        out$cde.H.hat  <- compute_cde_glm(m, m$sg_hat, em)
+        out$cde.Hc.hat <- compute_cde_glm(m, 1L - m$sg_hat, em)
       }
     }
   }
@@ -1276,6 +1301,16 @@ run_simulation_analysis <- function(
         .glm_effect_grf(df[true_H_df, ], outcome_name, event_name, treat_name)
       if (sum(!true_H_df) > 10) out$hr.Hc.true <-
         .glm_effect_grf(df[!true_H_df, ], outcome_name, event_name, treat_name)
+
+      # Marginal causal effect in true subgroup (GLM analogue of AHR)
+      em <- effect_measure %||% "OR"
+      if (any(c("p0", "mu0") %in% names(df))) {
+        out$ahr.H.true  <- compute_aor(df, as.integer(true_H_df), em)
+        out$ahr.Hc.true <- compute_aor(df, as.integer(!true_H_df), em)
+        # CDE analogue (binary OR only)
+        out$cde.H.true  <- compute_cde_glm(df, as.integer(true_H_df), em)
+        out$cde.Hc.true <- compute_cde_glm(df, as.integer(!true_H_df), em)
+      }
     } else {
       if (sum(true_H_df) > 10)  out$hr.H.true  <-
         .cox_hr(df[true_H_df, ], outcome_name, event_name, treat_name)

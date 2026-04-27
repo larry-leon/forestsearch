@@ -18,23 +18,24 @@ library(foreach)
 set.seed(8316951L)
 
 # -- Simulation control --------------------------------------------------------
-nsims_alt   <- 1000L
-nsims_null  <- 1000L
+nsims_alt   <- 20L
+nsims_null  <- 20L
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
 
 # -- FS parameters -------------------------------------------------------------
-c1 <- 1.25           # hr.threshold (OR scale)
+c1 <- 1.35           # hr.threshold (OR scale)
 c2 <- 1.0            # hr.consistency
-fs_pconsistency    <- 0.80
+fs_pconsistency    <- 0.90
+max_look <- 5
 fs_splits          <- 1000L
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
 fs_d1_min          <- 0L
 fs_maxk            <- 2L
-fs_dmin_grf        <- 0.05
+fs_dmin_grf        <- 0.0
 fs_seedit          <- 8316951L
-fs_sg_focus        <- "minSG"
+fs_sg_focus        <- "hr"
 fs_use_lasso       <- FALSE
 fs_use_grf         <- TRUE
 fs_return_selected_cuts_only <- TRUE
@@ -59,7 +60,49 @@ diag_keep_first_n  <- 5L
 sgdist_min_pct_alt  <- 1
 sgdist_min_pct_null <- 1
 sgdist_top_k        <- 10L
-ordist_ylim         <- c(0, 6)
+ordist_ylim         <- c(0, 3)
+
+# -- Consolidated parameter lists (used for both single-trial and sims) -------
+# fs_params: passed to do.call(forestsearch, ...) for single-trial analyses
+# and to run_simulation_analysis(fs_params = ...) for the simulation loop.
+# run_simulation_analysis() overrides details/quiet internally.
+# conf_force is set after data prep (depends on actg_df factor variables).
+fs_params <- list(
+  outcome.name           = "y_sim",
+  event.name             = "y_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+  outcome_type           = "binary",
+  effect_measure         = "OR",
+  use_lasso              = fs_use_lasso,
+  use_grf                = fs_use_grf,
+  return_selected_cuts_only = fs_return_selected_cuts_only,
+  max_subgroups_search   = max_look,
+  use_twostage           = TRUE,
+  hr.threshold           = c1,
+  hr.consistency         = c2,
+  pconsistency.threshold = fs_pconsistency,
+  sg_focus               = fs_sg_focus,
+  fs.splits              = fs_splits,
+  n.min                  = fs_n_min,
+  d0.min                 = fs_d0_min,
+  d1.min                 = fs_d1_min,
+  maxk                   = fs_maxk,
+  dmin.grf               = fs_dmin_grf,
+  is.RCT                 = fs_is_rct,
+  seedit                 = fs_seedit,
+  showten_subgroups      = TRUE,
+  details                = TRUE,
+  quiet                  = FALSE,
+  parallel_args          = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+)
+
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion
+)
 ```
 
 # Data Preparation {#sec-data}
@@ -82,8 +125,13 @@ actg_df <- actg_df[!is.na(actg_df$cd420), ]
 # -- DGM factor variables -----------------------------------------------------
 # z1, z2: TRUE subgroup Q = {cd40 > 421 & wtkg > 82.3}
 # (from observed-data FS result — see companion analysis document)
-actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 421, 1L, 0L))
-actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 82.3, 1L, 0L))
+
+# actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 421, 1L, 0L))
+# actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 82.3, 1L, 0L))
+
+actg_df$z1  <- as.factor(ifelse(actg_df$age > 34, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= 750, 1L, 0L))
+
 
 # z7-z12: truly binary indicators (no continuous counterpart)
 actg_df$z7  <- as.factor(actg_df$hemo)
@@ -93,13 +141,22 @@ actg_df$z10 <- as.factor(actg_df$race)
 actg_df$z11 <- as.factor(actg_df$gender)
 actg_df$z12 <- as.factor(actg_df$symptom)
 
+actg_df$ar_naive   <- as.factor(ifelse(actg_df$str2 == 0, 1L, 0L))
+actg_df$prior_6mo  <- as.factor(ifelse(actg_df$preanti <= 6 * 30.4375, 1L, 0L))
+
 actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
 
 # -- Analysis covariates (what the analyst sees) -------------------------------
 cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
-bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders <- c(cont_vars, bin_vars)
+
+fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
+
+# Inject conf_force into the consolidated fs_params (defined in setup,
+# but conf_force depends on data-prep factor variables)
+fs_params$conf_force <- fs_conf_force
 
 # -- DGM variable sets ---------------------------------------------------------
 dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
@@ -170,37 +227,60 @@ dgm_null <- generate_glm_dgm(
 
 # Single Trial Sanity Check {#sec-single-trial}
 
-```{r single-trial}
+```{r single-trial-alt}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis (click to expand)"
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 
 df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
-fit_Q  <- glm(y_sim ~ treat_sim,
-              data = df_sim[df_sim$flag_harm == 1, ], family = binomial)
-cat(sprintf("Single trial: N=%d, |Q|=%d, empirical OR(Q)=%.2f (target %.1f)\n",
-    nrow(df_sim), sum(df_sim$flag_harm), exp(coef(fit_Q)["treat_sim"]),
-    cal_target_or))
 
-fs_single <- forestsearch(
-  df.analysis = df_sim, confounders.name = confounders,
-  outcome.name = "y_sim", event.name = "y_sim",
-  treat.name = "treat_sim", id.name = "id",
-  outcome_type = "binary", effect_measure = "OR",
-  seedit = fs_seedit, n.min = fs_n_min, d0.min = fs_d0_min,
-  d1.min = fs_d1_min, hr.threshold = c1, hr.consistency = c2,
-  pconsistency.threshold = fs_pconsistency, fs.splits = fs_splits,
-  maxk = fs_maxk, sg_focus = fs_sg_focus, use_lasso = fs_use_lasso,
-  use_grf = fs_use_grf, is.RCT = fs_is_rct, 
-  dmin.grf = fs_dmin_grf, 
-  return_selected_cuts_only = fs_return_selected_cuts_only,
-  details = TRUE, quiet = FALSE,
-  parallel_args = list(plan = "sequential", workers = 1,
-                        show_message = FALSE)
-)
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
 
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = c1, 
+           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
+           effect_type = "ratio", n_eff = max_look)
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params
+))
+
+if(!is.null(fs_single$sg.harm)){
 fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
 fs_single_tabs$sg10_out
 fs_single_tabs$tab_estimates
+}
+
+```
+
+
+```{r single-trial-null}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
+
+df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 42)
+
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
+
+
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = 1.25, 
+           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
+           effect_type = "ratio", n_eff = max_look)
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params
+))
+
+if(!is.null(fs_single$sg.harm)){
+fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+fs_single_tabs$sg10_out
+fs_single_tabs$tab_estimates
+}
+
 ```
 
 # Full Simulation Study {#sec-sims}
@@ -209,42 +289,11 @@ fs_single_tabs$tab_estimates
 
 ```{r sim-params}
 #| code-fold: true
-#| code-summary: "FS / GRF parameter lists (click to expand)"
+#| code-summary: "Parallel plan setup (click to expand)"
 
 plan(multisession, workers = n_workers)
 cat("Using", n_workers, "parallel workers\n")
-
-fs_params <- list(
-  outcome.name           = "y_sim",
-  event.name             = "y_sim",
-  treat.name             = "treat_sim",
-  id.name                = "id",
-  outcome_type           = "binary",
-  effect_measure         = "OR",
-  use_lasso              = fs_use_lasso,
-  use_grf                = fs_use_grf,
-  return_selected_cuts_only = fs_return_selected_cuts_only,
-  use_twostage           = TRUE,
-  hr.threshold           = c1,
-  hr.consistency         = c2,
-  pconsistency.threshold = fs_pconsistency,
-  sg_focus               = fs_sg_focus,
-  fs.splits              = fs_splits,
-  n.min                  = fs_n_min,
-  d0.min                 = fs_d0_min,
-  d1.min                 = fs_d1_min,
-  maxk                   = fs_maxk,
-  dmin.grf               = fs_dmin_grf,
-  seedit                 = fs_seedit,
-  parallel_args          = list(plan = "sequential", workers = 1,
-                                show_message = FALSE)
-)
-
-grf_params <- list(
-  dmin.grf     = grf_dmin,
-  maxdepth     = grf_maxdepth,
-  sg.criterion = grf_sg_criterion
-)
+cat("fs_params and grf_params defined in setup chunk\n")
 ```
 
 ## H1 Simulations (Calibrated HTE)
@@ -571,6 +620,7 @@ plot_effect_distribution(
 ```{r oc-null}
 format_oc_results(
   results_null,
+  dgm = dgm_null,
   metrics   = c("detection", "classification"),
   digits    = 2,
   title     = "ACTG175 Binary: Type I Error (Null)",

@@ -642,6 +642,11 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #'   (default: 3).
 #' @param include_search_info Logical. Include search metadata table
 #'   (default: TRUE).
+#' @param subgroup_notation Character or \code{NULL}.  When set to
+#'   \code{"harm"} or \code{"benefit"}, overrides the default
+#'   "Recommend"/"Questionable" labels with the Unicode labels from
+#'   \code{\link{get_sg_labels}} (e.g., \enc{Ĥ}{H-hat}/\enc{Ĥᶜ}{H-hat-c}
+#'   for harm).  Default \code{NULL} (use "Recommend"/"Questionable").
 #' @param font_size Numeric. Font size in pixels for table text (default: 12).
 #'
 #' @return List with gt tables for estimates, subgroups, and optionally
@@ -677,7 +682,37 @@ sg_tables <- function(fs,
                       hr_0a = NA,
                       ndecimals = 3,
                       include_search_info = TRUE,
+                      subgroup_notation = NULL,
                       font_size = 12) {
+
+  # -- Subgroup labels from notation ------------------------------------------
+  # Default: "Recommend" / "Questionable".  When subgroup_notation is set,
+  # use get_sg_labels() for consistent Unicode labeling across the package.
+  if (!is.null(subgroup_notation)) {
+    subgroup_notation <- match.arg(subgroup_notation, c("harm", "benefit"))
+    L <- get_sg_labels(subgroup_notation)
+    if (subgroup_notation == "harm") {
+      # treat.recommend == 0 IS the harm subgroup
+      sg0_label <- L$sg_hat     # Ĥ
+      sg1_label <- L$sg_hat_c   # Ĥᶜ
+    } else {
+      # treat.recommend == 1 IS the benefit subgroup
+      sg1_label <- L$sg_hat     # Q̂
+      sg0_label <- L$sg_hat_c   # Q̂ᶜ
+    }
+  } else {
+    sg0_label <- "Questionable"
+    sg1_label <- "Recommend"
+  }
+
+  # Footnote target row: the "identified" subgroup
+  # harm: sg0 (Ĥ);  benefit: sg1 (Q̂);  default: sg0 (Questionable)
+  fn_target_label <- if (!is.null(subgroup_notation) &&
+                         subgroup_notation == "benefit") {
+    sg1_label
+  } else {
+    sg0_label
+  }
 
   if (!requireNamespace("gt", quietly = TRUE)) {
     stop("Package 'gt' required.")
@@ -740,8 +775,8 @@ sg_tables <- function(fs,
       outcome_type   = outcome_type,
       effect_a_1     = hr_1a,
       effect_a_0     = hr_0a,
-      sg1_name       = "Recommend",
-      sg0_name       = "Questionable",
+      sg1_name       = sg1_label,
+      sg0_name       = sg0_label,
       est.scale      = "hr"
     )
 
@@ -771,14 +806,19 @@ sg_tables <- function(fs,
     }
 
     if (!is.null(sg_def_grf) && nzchar(sg_def_grf)) {
+      fn_word <- if (!is.null(subgroup_notation)) {
+        paste0("Identified ", subgroup_notation, " subgroup (GRF)")
+      } else {
+        "Identified subgroup (GRF)"
+      }
       tab_estimates_grf <- tab_estimates_grf |>
         gt::tab_footnote(
           footnote = gt::md(
-            paste0("**Identified subgroup (GRF):** ", sg_def_grf)
+            paste0("**", fn_word, ":** ", sg_def_grf)
           ),
           locations = gt::cells_body(
             columns = 1,
-            rows = grepl("Questionable|H$", tab_est_grf[[1]])
+            rows = tab_est_grf[[1]] == fn_target_label
           )
         )
     }
@@ -857,8 +897,8 @@ sg_tables <- function(fs,
       outcome_type   = outcome_type,
       effect_a_1     = hr_1a,
       effect_a_0     = hr_0a,
-      sg1_name       = "Recommend",
-      sg0_name       = "Questionable",
+      sg1_name       = sg1_label,
+      sg0_name       = sg0_label,
       est.scale      = args_fs$est.scale
     )
 
@@ -869,8 +909,8 @@ sg_tables <- function(fs,
       SG_tab_estimates,
       list(
         df = df,
-        sg0_name = "Questionable",
-        sg1_name = "Recommend",
+        sg0_name = sg0_label,
+        sg1_name = sg1_label,
         hr_1a = hr_1a,
         hr_0a = hr_0a
       )
@@ -914,12 +954,17 @@ sg_tables <- function(fs,
 
   # Add footnote to specific row
   if (!is.null(sg_definition) && nzchar(sg_definition)) {
+    fn_word_fs <- if (!is.null(subgroup_notation)) {
+      paste0("Identified ", subgroup_notation, " subgroup")
+    } else {
+      "Identified subgroup"
+    }
     tab_estimates <- tab_estimates |>
       gt::tab_footnote(
-        footnote = gt::md(paste0("**Identified subgroup** : ", sg_definition)),
+        footnote = gt::md(paste0("**", fn_word_fs, ":** ", sg_definition)),
         locations = gt::cells_body(
-          columns = 1,  # First column (Subgroup name)
-          rows = grepl("Questionable|H$", tab_est[[1]])  # Row with "Questionable" or "H"
+          columns = 1,
+          rows = tab_est[[1]] == fn_target_label
         )
       )
   }

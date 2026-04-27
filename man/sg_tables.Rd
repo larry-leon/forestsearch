@@ -16,6 +16,7 @@ sg_tables(
   hr_0a = NA,
   ndecimals = 3,
   include_search_info = TRUE,
+  subgroup_notation = NULL,
   font_size = 12
 )
 }
@@ -54,6 +55,12 @@ from \code{maxk} (e.g., "Two-factor subgroups (maxk=2)").}
 
 \item{include_search_info}{Logical. Include search metadata table
 (default: TRUE).}
+
+\item{subgroup_notation}{Character or \code{NULL}.  When set to
+\code{"harm"} or \code{"benefit"}, overrides the default
+"Recommend"/"Questionable" labels with the Unicode labels from
+\code{\link{get_sg_labels}} (e.g., \enc{Ĥ}{H-hat}/\enc{Ĥᶜ}{H-hat-c}
+for harm).  Default \code{NULL} (use "Recommend"/"Questionable").}
 
 \item{font_size}{Numeric. Font size in pixels for table text (default: 12).}
 }

@@ -463,7 +463,23 @@ generate_glm_dgm <- function(
     hazard_ratios = list(
       harm_subgroup    = effects$effect_Q,
       no_harm_subgroup = effects$effect_Qc,
-      overall          = effects$effect_ITT
+      overall          = effects$effect_ITT,
+      # Marginal causal effects from potential outcomes (p0/p1 or mu0/mu1).
+      # These are the GLM analogue of AHR = exp(mean(loghr_po)) in survival.
+      # For GLM, the marginal and "primary" effects are identical — both
+      # are computed from averaged potential outcomes.
+      AHR_harm    = effects$effect_Q,
+      AHR_no_harm = effects$effect_Qc,
+      AHR         = effects$effect_ITT,
+      # CDE analogue (binary OR only): mean(individual odds) ratio.
+      # Differs from AOR due to Jensen's inequality.  For non-binary
+      # outcomes, CDE = AOR so these are left as NA.
+      CDE_harm    = .compute_cde_glm(df_super, in_Q, outcome_type,
+                                      effect_measure),
+      CDE_no_harm = .compute_cde_glm(df_super, !in_Q, outcome_type,
+                                      effect_measure),
+      CDE         = .compute_cde_glm(df_super, rep(TRUE, nrow(df_super)),
+                                      outcome_type, effect_measure)
     ),
 
     # GLM metadata
@@ -522,6 +538,26 @@ generate_glm_dgm <- function(
 
 
 # =============================================================================
+# Internal: compute CDE analogue from super-population potential outcomes
+# Only meaningful for binary (OR): mean(odds1) / mean(odds0).
+# Returns NA_real_ for non-binary outcomes.
+# =============================================================================
+
+#' @keywords internal
+.compute_cde_glm <- function(df_super, mask, outcome_type, effect_measure) {
+  if (outcome_type != "binary" || effect_measure != "OR") return(NA_real_)
+  if (!all(c("p0", "p1") %in% names(df_super))) return(NA_real_)
+
+  sub <- df_super[mask, ]
+  if (nrow(sub) == 0) return(NA_real_)
+
+  odds0 <- sub$p0 / (1 - sub$p0)
+  odds1 <- sub$p1 / (1 - sub$p1)
+
+  mean(odds1) / mean(odds0)
+}
+
+
 # Internal: compute true effects from super-population potential outcomes
 # =============================================================================
 

@@ -141,7 +141,6 @@ devtools::check()
 
 devtools::check(args = c("--as-cran", "--no-build-vignettes"))
 
-
 devtools::clean_dll()
 unlink("man/*.Rd")
 unlink("Meta", recursive = TRUE)
