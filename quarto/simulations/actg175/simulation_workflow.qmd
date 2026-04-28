@@ -20,16 +20,23 @@ You only need to do this once per machine.
 
 ## 1.1 Place the clone-config script
 
-Move `clone_config.sh` to the forestsearch package root — the same
-directory that contains `quarto/`, `R/`, `DESCRIPTION`, etc. On
-your Mac, that's:
+Move `clone_config.sh` into `quarto/simulations/` — the directory
+where the simulation framework lives. On your Mac, that's:
 
 ```
-~/Documents/GitHub/forestsearch/clone_config.sh
+~/Documents/GitHub/forestsearch/quarto/simulations/clone_config.sh
 ```
 
 On your Linux (Pop!_OS) machine, the equivalent path under your
 home directory.
+
+::: {.callout-note}
+The script is placed inside `quarto/simulations/` rather than at
+the package root because the package's `.Rbuildignore` already
+excludes the `quarto/` tree (`^quarto$`). This keeps the script
+out of CRAN-bound tarballs without requiring any additional
+ignore rules.
+:::
 
 ## 1.2 Make it executable
 
@@ -38,7 +45,7 @@ In the **RStudio Terminal pane** (the tab next to **Console** and
 make sure you're in the package root, then run:
 
 ```bash
-chmod +x clone_config.sh
+chmod +x quarto/simulations/clone_config.sh
 ```
 
 You'll only see output if something went wrong — silent success is
@@ -49,18 +56,18 @@ normal.
 Test that the script is callable:
 
 ```bash
-./clone_config.sh
+./quarto/simulations/clone_config.sh
 ```
 
 You should see usage instructions:
 
 ```
-Usage: ./clone_config.sh OLD_TOKEN NEW_TOKEN
-Example: ./clone_config.sh hrMaxSG hr
+Usage: ./quarto/simulations/clone_config.sh OLD_TOKEN NEW_TOKEN
+Example: ./quarto/simulations/clone_config.sh hrMaxSG hr
 ```
 
 If you see "permission denied," step 1.2 didn't take — re-run
-`chmod +x clone_config.sh` and try again.
+`chmod +x quarto/simulations/clone_config.sh` and try again.
 
 ::: {.callout-note}
 You'll need to redo `chmod +x` on each new machine, and any time
@@ -173,25 +180,25 @@ From the package root:
 ### Bash (Terminal pane)
 
 ```bash
-./clone_config.sh OLD_TOKEN NEW_TOKEN
+./quarto/simulations/clone_config.sh OLD_TOKEN NEW_TOKEN
 ```
 
 Concrete example: clone `hrMaxSG` config to a new `maxSG` config:
 
 ```bash
-./clone_config.sh hrMaxSG maxSG
+./quarto/simulations/clone_config.sh hrMaxSG maxSG
 ```
 
 ### R (Console)
 
 ```r
-system2("./clone_config.sh", c("hrMaxSG", "maxSG"))
+system2("./quarto/simulations/clone_config.sh", c("hrMaxSG", "maxSG"))
 ```
 
 Or use the R-equivalent of running shell from the console:
 
 ```r
-system("./clone_config.sh hrMaxSG maxSG")
+system("./quarto/simulations/clone_config.sh hrMaxSG maxSG")
 ```
 
 :::
@@ -459,12 +466,12 @@ section if factor cuts change.
 The `sim_<stem>.R` helper wasn't created. Run `clone_config.sh`
 first.
 
-## "permission denied" when running `./clone_config.sh`
+## "permission denied" when running `./quarto/simulations/clone_config.sh`
 
 The execute bit isn't set:
 
 ```bash
-chmod +x clone_config.sh
+chmod +x quarto/simulations/clone_config.sh
 ```
 
 ## "No such file or directory" when running clone_config.sh
@@ -505,7 +512,7 @@ quarto render quarto/simulations/actg175/<stem>.qmd
 |--------|---------|
 | Verify package root (Bash) | `pwd` |
 | Verify package root (R) | `getwd()` |
-| Clone a config | `./clone_config.sh OLD NEW` |
+| Clone a config | `./quarto/simulations/clone_config.sh OLD NEW` |
 | Run a runner (Bash) | `Rscript quarto/simulations/actg175/<stem>.R` |
 | Run a runner (R) | use Background Jobs panel |
 | Render an article (Bash) | `quarto render quarto/simulations/actg175/<stem>.qmd` |
