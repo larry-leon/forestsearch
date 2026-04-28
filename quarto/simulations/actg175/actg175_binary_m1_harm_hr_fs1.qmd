@@ -102,13 +102,11 @@ sgdist_top_k        <- 10L
 ordist_ylim         <- c(0, 3)
 
 # -- Build fs_params from sourced fs1 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs1_params.R.
-# stop_threshold is set here (rather than in fs1_params.R) so the rule
-# is visible in this per-config article.
+# Canonical FS parameter values are defined in _fsparams/fs1_params.R
+# (including stop_threshold, which is returned as NULL when
+# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
 source("_fsparams/fs1_params.R")
 fs_params <- get_fs1_params(sg_focus = fs_sg_focus)
-fs_params$stop_threshold <- 0.90
-
 # Locals re-exposed for the single-trial sanity-check chunks
 c1       <- fs_params$hr.threshold
 max_look <- fs_params$max_subgroups_search

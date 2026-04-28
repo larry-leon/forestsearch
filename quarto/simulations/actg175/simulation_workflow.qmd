@@ -258,29 +258,22 @@ reference to investigate.
 
 :::
 
-## Step 4 — Edit FS parameters (only when needed)
+## Step 4 — Edit FS parameters (only when changing the FS bundle)
 
 Skip this step if you're only changing `sg_focus`. The clone
-script's substitution covered the `fs_sg_focus` parameter
-automatically (also remember to set `stop_threshold = NULL` if
-you're moving to `hrMaxSG` or `hrMinSG`).
+script's substitution covered the `fs_sg_focus` value
+automatically, and the `_fsparams/fs1_params.R` file already
+encodes any `sg_focus`-dependent constraints (e.g., `stop_threshold`
+returns as `NULL` automatically when `sg_focus` is `hrMaxSG` or
+`hrMinSG`). No manual qmd edits needed.
 
-If you're changing the **FS bundle** (e.g., `fs1 → fs2`), open the
-new article (`<stem>.qmd`) and update the FS parameters in the
-section near the top:
-
-```r
-# -- FS parameters (fs1) -----------------------------------------------
-c1 <- 1.25                       # hr.threshold (OR scale)
-c2 <- 1.0                        # hr.consistency
-fs_pconsistency  <- 0.80
-max_look         <- 10
-fs_splits        <- 1000L
-fs_n_min         <- 60L
-# ... etc.
-```
-
-Update the values that differ between `fs1` and `fs2`.
+If you're changing the **FS bundle** (e.g., `fs1 → fs2`), the
+parameter values live in a single shared file. See
+[§4 — Changing FS bundle only](#changing-fs-bundle-only-eg-fs1-fs2)
+for the workflow. The short version: copy
+`_fsparams/fs1_params.R` to `_fsparams/fs2_params.R`, edit the
+values that differ, then update each cloned qmd's `source()` line
+and `get_fs1_params()` call to point at the new file.
 
 ## Step 5 — Render the qmd in `full` mode (builds bundle + HTML)
 
@@ -385,12 +378,15 @@ Cells without bundles are skipped automatically (`strict_bundles
 Quick reference for what `clone_config.sh` handles vs. what you
 must edit by hand.
 
-::: {.callout-note}
-The `clone_config.sh` script currently copies the qmd along with
-two legacy `.R` files (the runner script and `sim_*.R` helper)
-that are no longer used in the qmd-first workflow. After cloning,
-the two `.R` files can be safely deleted. A future script update
-will make this automatic.
+::: {.callout-warning}
+The `clone_config.sh` script currently tries to copy the qmd
+along with two `.R` files (a legacy runner script and `sim_*.R`
+helper) that are no longer part of the qmd-first workflow. If
+you've already deleted those `.R` files (recommended — they're
+unused), the script will fail. A future script update will fix
+this. In the meantime, you can either (a) clone manually with
+`cp <stem>.qmd <new_stem>.qmd` and edit, or (b) run the script
+and ignore the missing-source errors for the `.R` files.
 :::
 
 ## Changing `sg_focus` only (e.g., `hrMaxSG → hr`)
@@ -399,27 +395,53 @@ will make this automatic.
 |------|------------|
 | File renaming | clone_config.sh |
 | `BUNDLE_PATH` in qmd | clone_config.sh |
-| `fs_sg_focus` parameter | clone_config.sh (because token = value) |
+| `fs_sg_focus` value | clone_config.sh (because token = value) |
 | Validation check string | clone_config.sh |
 | Comments and headers | clone_config.sh |
-| `stop_threshold` (must be `NULL` for `hrMaxSG` / `hrMinSG`) | **You** |
+| `stop_threshold` (`sg_focus`-dependent) | `_fsparams/fs1_params.R` (returns NULL automatically for `hrMaxSG`/`hrMinSG`) |
 
-**Action**: run the script, delete the legacy `.R` files, set
-`stop_threshold` if moving to/from `hrMaxSG`/`hrMinSG`, render in
-`full` mode.
+**Action**: run the script, render in `full` mode. No manual qmd
+edits required.
 
 ## Changing FS bundle only (e.g., `fs1 → fs2`)
+
+This is now a two-stage process: define the new bundle once in
+`_fsparams/`, then spawn parallel `sg_focus` qmds.
+
+**Stage A — Define `fs2` (one new file, used by all future qmds):**
+
+```bash
+cd quarto/simulations/actg175/_fsparams/
+cp fs1_params.R fs2_params.R
+# Edit fs2_params.R:
+#   - Rename get_fs1_params -> get_fs2_params
+#   - Update header comment describing what fs2 is for
+#   - Edit the parameter values that distinguish fs2 from fs1
+```
+
+**Stage B — Spawn `sg_focus` qmds for the new bundle:**
+
+For each `sg_focus` you want to compare under `fs2`:
+
+```bash
+# From package root
+./quarto/simulations/clone_config.sh fs1 fs2  # for one focus at a time
+# Then edit the new qmd to update the source() line and function call:
+#   source("_fsparams/fs2_params.R")
+#   fs_params <- get_fs2_params(sg_focus = fs_sg_focus)
+```
 
 | Item | Handled by |
 |------|------------|
 | File renaming | clone_config.sh |
 | `BUNDLE_PATH` in qmd | clone_config.sh |
 | Comments and headers | clone_config.sh |
-| **FS parameter values** | **You** (e.g., `c1`, `fs_pconsistency`, `max_look`, etc.) |
+| `source()` line and function name | **You** (manual edit per qmd) |
+| FS parameter values | already defined once in `fs2_params.R` |
 
-**Action**: run the script, delete the legacy `.R` files, edit FS
-parameter values in the qmd to define what `fs2` means, render in
-`full` mode.
+**Why this is better than the old pattern**: editing `c1` for
+`fs2` is now one edit in `fs2_params.R` instead of N edits across
+N per-config qmds. Drift-free by construction.
 
 ## Changing DGM (e.g., `m1 → m2`)
 
@@ -430,10 +452,9 @@ parameter values in the qmd to define what `fs2` means, render in
 | Comments and headers | clone_config.sh |
 | **DGM-specific parameters** (e.g., `cal_target_or`, factor cuts, `subgroup_cuts`) | **You** |
 
-**Action**: run the script, delete the legacy `.R` files, edit
-DGM parameters carefully. For substantive DGM changes, also
-update the data-prep section if factor cuts change. Render in
-`full` mode.
+**Action**: run the script, edit DGM parameters carefully. For
+substantive DGM changes, also update the data-prep section if
+factor cuts change. Render in `full` mode.
 
 # 5. Troubleshooting {#sec-trouble}
 

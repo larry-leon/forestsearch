@@ -7,10 +7,10 @@
 #   quarto/simulations/actg175/actg175_binary_m1_harm_<focus>_fs1.qmd
 #
 # Provides one function: get_fs1_params(sg_focus, ...)
-#   Returns a list of FS parameters with sg_focus injected.
-#   Note: stop_threshold is NOT set here — the calling qmd must set it
-#   based on its own sg_focus (NULL for hrMaxSG/hrMinSG, 0.90 otherwise).
-#   This is "Approach B": stop_threshold visible in the qmd.
+#   Returns a list of FS parameters with sg_focus injected and
+#   stop_threshold set to 0.90 (or NULL when sg_focus is "hrMaxSG"
+#   or "hrMinSG", a package-level constraint). The calling qmd uses
+#   the returned list directly with no overrides.
 #
 # -----------------------------------------------------------------------------
 # Regime: fs1 — permissive search, broad candidate space, full cut retention.
@@ -23,6 +23,9 @@
 #   return_selected_cuts_only = FALSE  → retain all cut data per call
 #   pconsistency.threshold = 0.80  → moderate consistency requirement
 #   c1 (hr.threshold) = 1.25  → OR scale; modest signal threshold
+#   stop_threshold = 0.90  → early-stopping gate (returned as NULL when
+#                            sg_focus is hrMaxSG or hrMinSG; rule
+#                            applied inside get_fs1_params())
 #
 # To create a sibling bundle "fs2" with different parameter choices:
 #   1. Copy this file to fs2_params.R
@@ -35,11 +38,12 @@
 #' Get FS parameters for the "fs1" bundle
 #'
 #' Returns the FS parameter list used by ACTG175 binary harm simulations
-#' under the "fs1" regime. The calling qmd is responsible for setting
-#' \code{stop_threshold} based on its own \code{sg_focus} (NULL for
-#' \code{hrMaxSG}/\code{hrMinSG}, 0.90 otherwise) and for injecting
-#' \code{conf_force} after data prep defines the necessary factor
-#' variables.
+#' under the "fs1" regime. The bundle's \code{stop_threshold} is set to
+#' 0.90, with one exception: when \code{sg_focus} is \code{"hrMaxSG"} or
+#' \code{"hrMinSG"}, \code{stop_threshold} is returned as \code{NULL}
+#' (a package-level constraint). The calling qmd uses the returned list
+#' directly. The qmd is still responsible for injecting \code{conf_force}
+#' after data prep defines the necessary factor variables.
 #'
 #' @param sg_focus Character. The sg_focus value (e.g., "hr", "hrMaxSG",
 #'   "maxSG"). Injected into the parameter list as-is.
@@ -80,11 +84,15 @@ get_fs1_params <- function(sg_focus,
     hr.threshold              = 1.25,      # OR scale
     hr.consistency            = 1.0,
     pconsistency.threshold    = 0.80,
+    # stop_threshold: 0.90 is the fs1 bundle's value. Package requires
+    # NULL when sg_focus uses neighborhood-based selection (hrMaxSG /
+    # hrMinSG); applied here so qmds can call get_fs1_params() and use
+    # the result directly with no overrides.
+    stop_threshold            = if (sg_focus %in% c("hrMaxSG", "hrMinSG"))
+                                  NULL else 0.90,
 
     # -- Search dispatch -----------------------------------------------------
-    sg_focus                  = sg_focus,  # injected from caller
-    # NOTE: stop_threshold is intentionally NOT set here. Caller sets it
-    # based on its own sg_focus value.
+    sg_focus                  = sg_focus,
 
     # -- Sample-size constraints ---------------------------------------------
     fs.splits                 = 1000L,
