@@ -2,28 +2,79 @@
 % Please edit documentation in R/subgroup_consistency_helpers.R
 \name{sort_subgroups}
 \alias{sort_subgroups}
-\title{Sort Subgroups by Focus}
+\title{Sort Subgroups by Focus (post-consistency)}
 \usage{
-sort_subgroups(result_new, sg_focus)
+sort_subgroups(
+  result_new,
+  sg_focus,
+  effect_neighborhood = 0.1,
+  effect_log_scale = FALSE
+)
 }
 \arguments{
-\item{result_new}{A data.table of subgroup results.}
+\item{result_new}{A data.table of subgroup results with columns
+\code{Pcons}, \code{hr}, \code{N}, \code{K}.}
 
-\item{sg_focus}{Sorting focus: "hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG".}
+\item{sg_focus}{Character. Sorting focus.  One of \code{"hr"},
+\code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.}
+
+\item{effect_neighborhood}{Numeric in \code{[0, 1)}.  Relative
+tolerance defining the effect-size neighborhood for
+\code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate is in the
+neighborhood iff its (natural-scale) effect is at least
+\code{(1 - effect_neighborhood) * max(effect)}.  Default
+\code{0.10} (i.e., within 10\\% of the strongest effect).  Ignored
+for other \code{sg_focus} values.}
+
+\item{effect_log_scale}{Logical.  If \code{TRUE}, the \code{hr}
+column stores log-scale values (log-OR, log-IRR) and is
+exponentiated before applying the neighborhood test.  Default
+\code{FALSE} (Cox stores natural-scale HR).}
 }
 \value{
-A sorted data.table.
+A sorted data.table.  The top row is the selected subgroup
+under \code{sg_focus}; remaining rows are diagnostic.
 }
 \description{
 Sorts a data.table of subgroup results according to the specified focus.
+For \code{"hrMaxSG"} and \code{"hrMinSG"}, candidates are first
+partitioned by whether they fall in the \emph{effect-size neighborhood}
+of the maximum effect, then ranked within the neighborhood by sample
+size.  See Details.
+}
+\details{
+\strong{Sort keys by \code{sg_focus}:}
+\describe{
+\item{\code{"hr"}}{\code{(-Pcons, -hr, K)} -- prefer high consistency
+and large effect.}
+\item{\code{"maxSG"}}{\code{(-N, -Pcons, K)} -- prefer large
+subgroups with high consistency.}
+\item{\code{"minSG"}}{\code{(N, -Pcons, K)} -- prefer small
+subgroups with high consistency.}
+\item{\code{"hrMaxSG"}}{\code{(-in_nbhd, -N, -Pcons, -hr, K)} -- among
+candidates within \code{effect_neighborhood} of the strongest
+effect, prefer the largest sample size.}
+\item{\code{"hrMinSG"}}{\code{(-in_nbhd, N, -Pcons, -hr, K)} -- among
+candidates within \code{effect_neighborhood} of the strongest
+effect, prefer the smallest sample size.}
+}
+
+\code{"hrMaxSG"} and \code{"hrMinSG"} use a \emph{lexicographic with
+tolerance band} rule: effect size is primary, but a small bounded
+relative loss in effect is accepted to optimize sample size.
+Setting \code{effect_neighborhood = 0} reduces these to a strict
+max-effect filter (only candidates tied at the maximum effect
+qualify), with sample size as the tiebreaker.
 }
 \examples{
 \donttest{
 library(data.table)
-dt <- data.table(Pcons = c(0.92, 0.95, 0.88),
-                 hr    = c(1.8, 1.5, 2.1),
-                 N     = c(80, 120, 60),
-                 K     = c(1, 2, 1))
-sort_subgroups(dt, sg_focus = "hr")
+dt <- data.table(Pcons = c(0.92, 0.95, 0.88, 0.90),
+                 hr    = c(2.5,  2.4,  2.3,  2.0),
+                 N     = c(70,   100,  150,  200),
+                 K     = c(1, 2, 1, 2))
+# hrMaxSG with 10\% neighborhood: HR 2.5, 2.4, 2.3 are in-band;
+# among those, N = 150 is largest -> top row is N=150, hr=2.3.
+sort_subgroups(dt, sg_focus = "hrMaxSG", effect_neighborhood = 0.10)
 }
 }

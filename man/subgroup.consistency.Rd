@@ -19,6 +19,7 @@ subgroup.consistency(
   Lsg,
   confs_labels,
   sg_focus = "hr",
+  effect_neighborhood = 0.1,
   stop_Kgroups = 10,
   stop_threshold = NULL,
   showten_subgroups = FALSE,
@@ -67,8 +68,29 @@ Default: 100}
 
 \item{confs_labels}{Character vector mapping factor names to labels.}
 
-\item{sg_focus}{Character. Subgroup selection criterion: "hr", "maxSG",
-or "minSG". Default: "hr"}
+\item{sg_focus}{Character. Subgroup selection criterion. One of:
+\describe{
+\item{\code{"hr"}}{Sort by \eqn{(-Pcons, -hr, K)}; pick top.}
+\item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
+\item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
+\item{\code{"hrMaxSG"}}{Among candidates with effect size within
+\code{effect_neighborhood} of the maximum, pick the one with
+the largest \eqn{N}.}
+\item{\code{"hrMinSG"}}{Among candidates with effect size within
+\code{effect_neighborhood} of the maximum, pick the one with
+the smallest \eqn{N}.}
+}
+Default: \code{"hr"}.}
+
+\item{effect_neighborhood}{Numeric in \code{[0, 1)}.  Relative
+tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate
+is in the \emph{effect-size neighborhood} iff its (natural-scale)
+effect is at least \code{(1 - effect_neighborhood) * max(effect)}.
+Default \code{0.10} (i.e., within 10\\% of the strongest effect).
+For GLM ratio measures (OR, IRR), the neighborhood test is applied
+on the natural scale (after exponentiation of \code{hr}).  Ignored
+when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
+\code{"minSG"}.}
 
 \item{stop_Kgroups}{Integer. Maximum number of candidates to evaluate.
 Default: 10}
@@ -158,7 +180,11 @@ be exponentiated for display in diagnostic output.  Default \code{FALSE}
 \value{
 A list containing:
 \describe{
-\item{out_sg}{Selected subgroup results}
+\item{out_sg}{Selected subgroup results.  When non-\code{NULL},
+contains \code{result} (sorted candidate table; top row is the
+selected subgroup) and \code{pareto_frontier} (data.table of
+non-dominated candidates on (effect, N), both maximized -- a
+post-hoc diagnostic, not used for selection).}
 \item{sg_focus}{Selection criterion used}
 \item{df_flag}{Data frame with treatment recommendations}
 \item{sg.harm}{\strong{Subgroup definition labels} -- character

@@ -52,6 +52,32 @@
   provided for both synthetic 4-confounder settings and the ACTG175
   12-confounder setting.
 
+### Selection Criteria
+
+* `sg_focus = "hrMaxSG"` and `"hrMinSG"` redefined to use
+  effect-size neighborhood selection.  Among candidates whose
+  effect is within `effect_neighborhood` (default 10%) of the
+  maximum effect, `"hrMaxSG"` picks the largest sample size and
+  `"hrMinSG"` picks the smallest.  Setting `effect_neighborhood = 0`
+  reduces these to a strict max-effect filter.  Applies to all
+  outcome types; for GLM ratio measures (OR, IRR), the neighborhood
+  test is on the natural scale.
+
+* New `effect_neighborhood` parameter (default `0.10`) in
+  `forestsearch()` and `subgroup.consistency()`.
+
+* Pareto frontier on (effect, N) -- both maximized -- now attached
+  to consistency results as `out_sg$pareto_frontier`.  Post-hoc
+  diagnostic listing non-dominated alternatives to the selected
+  subgroup; not used for selection.
+
+* New `pareto_frontier_table()` function renders the frontier as a
+  formatted `gt` table or returns it as a `data.table`.  Works
+  uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+  outcomes; effect-column label and scale handling derived from
+  `fs$effect_measure`.  Selected subgroup is marked and optionally
+  highlighted.
+
 ### Other
 
 * Propensity score adjustment for observational studies via stabilized
@@ -66,6 +92,15 @@
 
 * `glm_effect_profile()`: delta-method treatment effect profiles
   across continuous biomarkers with natural cubic spline interactions.
+
+## Breaking Changes (vs. development snapshots of 0.2.0)
+
+* `sg_focus = "hrMaxSG"` / `"hrMinSG"` selection rule changed.
+  Previously these used lexicographic sorts (size primary, effect
+  secondary); now they use effect-size neighborhood selection (see
+  Selection Criteria above).  Results from these focus values will
+  differ from prior development-branch runs.  Single-criterion
+  focus values (`"hr"`, `"maxSG"`, `"minSG"`) are unchanged.
 
 ## Bug Fixes
 

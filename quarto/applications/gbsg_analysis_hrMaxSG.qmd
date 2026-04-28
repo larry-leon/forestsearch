@@ -41,7 +41,13 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 2000
+NB <- 20
+
+# 10-fold CV with multiple iterations
+# Use Ksims >= 50 for production
+Ksims <- 5
+
+fs_sg_focus <- "hrMaxSG"
 
 ```
 
@@ -292,7 +298,7 @@ fs <- forestsearch(
   pconsistency.threshold = 0.90,
   stop_threshold = 0.95,
   # Search configuration
-  sg_focus = "maxSG",
+  sg_focus = fs_sg_focus,
   max_subgroups_search = 10,
   use_twostage = TRUE,
   # Factor selection
@@ -609,9 +615,6 @@ Two approaches are available:
 ## K-Fold Cross-Validation
 
 ```{r kfold-cv}
-# 10-fold CV with multiple iterations
-# Use Ksims >= 50 for production
-Ksims <- 50
 
 t0 <- proc.time()
 

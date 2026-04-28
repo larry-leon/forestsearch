@@ -363,49 +363,249 @@ FS_labels <- function(Qsg, confs_labels) {
 
 
 
-#' Sort Subgroups by Focus
+#' Sort Subgroups by Focus (post-consistency)
 #'
 #' Sorts a data.table of subgroup results according to the specified focus.
+#' For \code{"hrMaxSG"} and \code{"hrMinSG"}, candidates are first
+#' partitioned by whether they fall in the \emph{effect-size neighborhood}
+#' of the maximum effect, then ranked within the neighborhood by sample
+#' size.  See Details.
 #'
-#' @param result_new A data.table of subgroup results.
-#' @param sg_focus Sorting focus: "hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG".
-#' @return A sorted data.table.
+#' @param result_new A data.table of subgroup results with columns
+#'   \code{Pcons}, \code{hr}, \code{N}, \code{K}.
+#' @param sg_focus Character. Sorting focus.  One of \code{"hr"},
+#'   \code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.
+#' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
+#'   tolerance defining the effect-size neighborhood for
+#'   \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate is in the
+#'   neighborhood iff its (natural-scale) effect is at least
+#'   \code{(1 - effect_neighborhood) * max(effect)}.  Default
+#'   \code{0.10} (i.e., within 10\% of the strongest effect).  Ignored
+#'   for other \code{sg_focus} values.
+#' @param effect_log_scale Logical.  If \code{TRUE}, the \code{hr}
+#'   column stores log-scale values (log-OR, log-IRR) and is
+#'   exponentiated before applying the neighborhood test.  Default
+#'   \code{FALSE} (Cox stores natural-scale HR).
+#'
+#' @details
+#' \strong{Sort keys by \code{sg_focus}:}
+#' \describe{
+#'   \item{\code{"hr"}}{\code{(-Pcons, -hr, K)} -- prefer high consistency
+#'     and large effect.}
+#'   \item{\code{"maxSG"}}{\code{(-N, -Pcons, K)} -- prefer large
+#'     subgroups with high consistency.}
+#'   \item{\code{"minSG"}}{\code{(N, -Pcons, K)} -- prefer small
+#'     subgroups with high consistency.}
+#'   \item{\code{"hrMaxSG"}}{\code{(-in_nbhd, -N, -Pcons, -hr, K)} -- among
+#'     candidates within \code{effect_neighborhood} of the strongest
+#'     effect, prefer the largest sample size.}
+#'   \item{\code{"hrMinSG"}}{\code{(-in_nbhd, N, -Pcons, -hr, K)} -- among
+#'     candidates within \code{effect_neighborhood} of the strongest
+#'     effect, prefer the smallest sample size.}
+#' }
+#'
+#' \code{"hrMaxSG"} and \code{"hrMinSG"} use a \emph{lexicographic with
+#' tolerance band} rule: effect size is primary, but a small bounded
+#' relative loss in effect is accepted to optimize sample size.
+#' Setting \code{effect_neighborhood = 0} reduces these to a strict
+#' max-effect filter (only candidates tied at the maximum effect
+#' qualify), with sample size as the tiebreaker.
+#'
+#' @return A sorted data.table.  The top row is the selected subgroup
+#'   under \code{sg_focus}; remaining rows are diagnostic.
+#'
 #' @examples
 #' \donttest{
 #' library(data.table)
-#' dt <- data.table(Pcons = c(0.92, 0.95, 0.88),
-#'                  hr    = c(1.8, 1.5, 2.1),
-#'                  N     = c(80, 120, 60),
-#'                  K     = c(1, 2, 1))
-#' sort_subgroups(dt, sg_focus = "hr")
+#' dt <- data.table(Pcons = c(0.92, 0.95, 0.88, 0.90),
+#'                  hr    = c(2.5,  2.4,  2.3,  2.0),
+#'                  N     = c(70,   100,  150,  200),
+#'                  K     = c(1, 2, 1, 2))
+#' # hrMaxSG with 10% neighborhood: HR 2.5, 2.4, 2.3 are in-band;
+#' # among those, N = 150 is largest -> top row is N=150, hr=2.3.
+#' sort_subgroups(dt, sg_focus = "hrMaxSG", effect_neighborhood = 0.10)
 #' }
 #' @importFrom data.table setorder
 #' @export
-sort_subgroups <- function(result_new, sg_focus) {
-  if (sg_focus == "hr") data.table::setorder(result_new, -Pcons, -hr, K)
-  if (sg_focus == "maxSG") data.table::setorder(result_new, -N, -Pcons, K)
-  if (sg_focus == "hrMaxSG") data.table::setorder(result_new, -N, -hr, K)
-  if (sg_focus == "minSG") data.table::setorder(result_new, N, -Pcons, K)
-  if (sg_focus == "hrMinSG") data.table::setorder(result_new, N, -hr, K)
-  result_new
+sort_subgroups <- function(result_new, sg_focus,
+                           effect_neighborhood = 0.10,
+                           effect_log_scale = FALSE) {
+
+  if (sg_focus == "hr") {
+    data.table::setorder(result_new, -Pcons, -hr, K)
+    return(result_new)
+  }
+  if (sg_focus == "maxSG") {
+    data.table::setorder(result_new, -N, -Pcons, K)
+    return(result_new)
+  }
+  if (sg_focus == "minSG") {
+    data.table::setorder(result_new, N, -Pcons, K)
+    return(result_new)
+  }
+
+  if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+    .validate_effect_neighborhood(effect_neighborhood)
+
+    hr_vec <- as.numeric(result_new$hr)
+    if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
+
+    if (all(is.na(hr_vec))) {
+      data.table::setorder(result_new, -Pcons, -hr, K)
+      return(result_new)
+    }
+
+    hr_max   <- max(hr_vec, na.rm = TRUE)
+    hr_floor <- (1 - effect_neighborhood) * hr_max
+    in_nbhd  <- as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
+
+    N_vec     <- as.numeric(result_new$N)
+    Pcons_vec <- as.numeric(result_new$Pcons)
+    K_vec     <- as.numeric(result_new$K)
+
+    ord <- if (sg_focus == "hrMaxSG") {
+      order(-in_nbhd, -N_vec, -Pcons_vec, -hr_vec, K_vec)
+    } else {
+      order(-in_nbhd,  N_vec, -Pcons_vec, -hr_vec, K_vec)
+    }
+
+    return(result_new[ord, ])
+  }
+
+  stop(sprintf("Unknown sg_focus value: %s", sg_focus))
 }
 
-#' Sort Subgroups by Focus at consistency stage (consistency not available at this point)
+#' Sort Subgroups by Focus (pre-consistency)
 #'
-#' Sorts a data.table of subgroup results according to the specified focus.
+#' Sorts a data.table of candidate subgroups before consistency
+#' evaluation.  Mirrors \code{\link{sort_subgroups}} but operates on the
+#' pre-consistency column convention (\code{HR}, \code{n}, \code{K})
+#' and omits \code{Pcons} tiebreakers (consistency not yet available).
 #'
-#' @param result_new A data.table of subgroup results.
-#' @param sg_focus Sorting focus: "hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG".
+#' @param result_new A data.table of candidate subgroups with columns
+#'   \code{HR}, \code{n}, \code{K}.
+#' @param sg_focus Character. Sorting focus.  One of \code{"hr"},
+#'   \code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.
+#' @param effect_neighborhood Numeric in \code{[0, 1)}.  See
+#'   \code{\link{sort_subgroups}}.  Default \code{0.10}.
+#' @param effect_log_scale Logical.  See \code{\link{sort_subgroups}}.
+#'   Default \code{FALSE}.
+#'
 #' @return A sorted data.table.
 #' @importFrom data.table setorder
 #' @keywords internal
-sort_subgroups_preview <- function(result_new, sg_focus) {
-  if (sg_focus == "hr") data.table::setorder(result_new, -HR, K)
-  if (sg_focus == "maxSG") data.table::setorder(result_new, -n, K)
-  if (sg_focus == "hrMaxSG") data.table::setorder(result_new, -HR, -n, K)
-  if (sg_focus == "minSG") data.table::setorder(result_new, n, K)
-  if (sg_focus == "hrMinSG") data.table::setorder(result_new, -HR, n, K)
-  result_new
+sort_subgroups_preview <- function(result_new, sg_focus,
+                                   effect_neighborhood = 0.10,
+                                   effect_log_scale = FALSE) {
+
+  if (sg_focus == "hr") {
+    data.table::setorder(result_new, -HR, K)
+    return(result_new)
+  }
+  if (sg_focus == "maxSG") {
+    data.table::setorder(result_new, -n, K)
+    return(result_new)
+  }
+  if (sg_focus == "minSG") {
+    data.table::setorder(result_new, n, K)
+    return(result_new)
+  }
+
+  if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+    .validate_effect_neighborhood(effect_neighborhood)
+
+    hr_vec <- as.numeric(result_new$HR)
+    if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
+
+    if (all(is.na(hr_vec))) {
+      data.table::setorder(result_new, -HR, K)
+      return(result_new)
+    }
+
+    hr_max   <- max(hr_vec, na.rm = TRUE)
+    hr_floor <- (1 - effect_neighborhood) * hr_max
+    in_nbhd  <- as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
+
+    n_vec <- as.numeric(result_new$n)
+    K_vec <- as.numeric(result_new$K)
+
+    ord <- if (sg_focus == "hrMaxSG") {
+      order(-in_nbhd, -n_vec, -hr_vec, K_vec)
+    } else {
+      order(-in_nbhd,  n_vec, -hr_vec, K_vec)
+    }
+
+    return(result_new[ord, ])
+  }
+
+  stop(sprintf("Unknown sg_focus value: %s", sg_focus))
+}
+
+# Internal validator for effect_neighborhood -------------------------------
+.validate_effect_neighborhood <- function(x) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || x < 0 || x >= 1) {
+    stop("'effect_neighborhood' must be a single numeric in [0, 1).",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+#' Compute Pareto Frontier on (Effect, N)
+#'
+#' Returns the subset of candidate subgroups that are not dominated on
+#' the two-objective space (effect size, sample size), where both
+#' objectives are maximized.  A candidate \eqn{i} is dominated iff
+#' another candidate \eqn{j} has \eqn{hr_j \ge hr_i} and
+#' \eqn{N_j \ge N_i}, with at least one inequality strict.
+#'
+#' @param result_dt A data.table with numeric columns \code{hr} and
+#'   \code{N}.  Typically the post-consistency result table.
+#' @param effect_log_scale Logical.  If \code{TRUE}, exponentiate
+#'   \code{hr} before comparing (so the dominance test is on the
+#'   natural scale for ratio measures).  Default \code{FALSE}.
+#'
+#' @return A data.table of non-dominated rows, sorted by \code{hr}
+#'   descending.  Returns an empty 0-row data.table if input is empty.
+#'
+#' @details The frontier is intended as a \strong{post-hoc reporting}
+#'   artifact, not a selection criterion.  The selected subgroup
+#'   (under \code{sg_focus}) may or may not appear on the frontier --
+#'   in particular, \code{"hrMinSG"} may select an N-dominated point
+#'   by design (preferring small subgroups).
+#'
+#' @keywords internal
+compute_pareto_frontier <- function(result_dt, effect_log_scale = FALSE) {
+  if (!data.table::is.data.table(result_dt) || nrow(result_dt) == 0L) {
+    return(if (data.table::is.data.table(result_dt)) result_dt[integer(0), ]
+           else data.table::data.table())
+  }
+
+  hr_vec <- as.numeric(result_dt$hr)
+  if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
+  N_vec <- as.numeric(result_dt$N)
+
+  n <- length(hr_vec)
+  is_dominated <- logical(n)
+
+  for (i in seq_len(n)) {
+    if (is.na(hr_vec[i]) || is.na(N_vec[i])) {
+      is_dominated[i] <- TRUE
+      next
+    }
+    for (j in seq_len(n)) {
+      if (i == j) next
+      if (is.na(hr_vec[j]) || is.na(N_vec[j])) next
+      if (hr_vec[j] >= hr_vec[i] && N_vec[j] >= N_vec[i] &&
+          (hr_vec[j] >  hr_vec[i] || N_vec[j] >  N_vec[i])) {
+        is_dominated[i] <- TRUE
+        break
+      }
+    }
+  }
+
+  frontier <- result_dt[!is_dominated, ]
+  if (nrow(frontier) > 1L) data.table::setorder(frontier, -hr)
+  frontier
 }
 
 #' Extract Subgroup Information
@@ -501,8 +701,26 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @param confs_labels Character vector. Human-readable labels.
 #' @param is_glm Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
 #'   plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.
+#' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
+#'   tolerance for \code{"hrMaxSG"}/\code{"hrMinSG"} selection.  See
+#'   \code{\link{sort_subgroups}}.  Default \code{0.10}.
+#' @param effect_log_scale Logical.  If \code{TRUE}, the \code{hr}
+#'   column stores log-scale values and is exponentiated for the
+#'   neighborhood test and for Pareto-frontier dominance.  Default
+#'   \code{FALSE}.
 #'
-#' @return List with results, subgroup definition, labels, flags, and group id.
+#' @return List with elements:
+#'   \describe{
+#'     \item{result}{Sorted candidate table (top row = selected subgroup).}
+#'     \item{pareto_frontier}{Data.table of non-dominated candidates on
+#'       (effect, N), both maximized.  See
+#'       \code{\link{compute_pareto_frontier}}.  May be \code{NULL} if
+#'       computation failed.}
+#'     \item{sg.harm}{Factor-level cut names defining the selected subgroup.}
+#'     \item{sg.harm_label}{Human-readable subgroup labels.}
+#'     \item{df_flag}{Per-subject treatment-recommendation flags.}
+#'     \item{sg.harm.id}{Per-subject subgroup-membership indicator.}
+#'   }
 #'
 #' @importFrom data.table copy
 #' @examples
@@ -518,9 +736,13 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
                                details = FALSE, plot.sg = FALSE,
                                by.risk = 12, confs_labels,
-                               is_glm = FALSE) {
+                               is_glm = FALSE,
+                               effect_neighborhood = 0.10,
+                               effect_log_scale = FALSE) {
 
-  result_new <- sort_subgroups(result_new, sg_focus)
+  result_new <- sort_subgroups(result_new, sg_focus,
+                               effect_neighborhood = effect_neighborhood,
+                               effect_log_scale    = effect_log_scale)
   top_result <- result_new[1, ]
   subgroup_info <- extract_subgroup(df, top_result, index.Z, names.Z, confs_labels)
 
@@ -549,8 +771,19 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
 
   result_out <- data.table::copy(result_new)
 
+  # Pareto frontier on (effect, N), both maximized -- post-hoc diagnostic
+  pareto_frontier <- tryCatch(
+    compute_pareto_frontier(result_out, effect_log_scale = effect_log_scale),
+    error = function(e) {
+      warning("Failed to compute Pareto frontier: ", e$message,
+              call. = FALSE)
+      NULL
+    }
+  )
+
   list(
     result = result_out,
+    pareto_frontier = pareto_frontier,
     sg.harm = subgroup_info$sg.harm,
     sg.harm_label = subgroup_info$sg.harm_label,
     df_flag = subgroup_info$df_flag,

@@ -39,8 +39,28 @@
 #' @param maxk Integer. Maximum number of factors in subgroup. Default: 7
 #' @param Lsg List of subgroup parameters.
 #' @param confs_labels Character vector mapping factor names to labels.
-#' @param sg_focus Character. Subgroup selection criterion: "hr", "maxSG",
-#'   or "minSG". Default: "hr"
+#' @param sg_focus Character. Subgroup selection criterion. One of:
+#'   \describe{
+#'     \item{\code{"hr"}}{Sort by \eqn{(-Pcons, -hr, K)}; pick top.}
+#'     \item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
+#'     \item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
+#'     \item{\code{"hrMaxSG"}}{Among candidates with effect size within
+#'       \code{effect_neighborhood} of the maximum, pick the one with
+#'       the largest \eqn{N}.}
+#'     \item{\code{"hrMinSG"}}{Among candidates with effect size within
+#'       \code{effect_neighborhood} of the maximum, pick the one with
+#'       the smallest \eqn{N}.}
+#'   }
+#'   Default: \code{"hr"}.
+#' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
+#'   tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate
+#'   is in the \emph{effect-size neighborhood} iff its (natural-scale)
+#'   effect is at least \code{(1 - effect_neighborhood) * max(effect)}.
+#'   Default \code{0.10} (i.e., within 10\% of the strongest effect).
+#'   For GLM ratio measures (OR, IRR), the neighborhood test is applied
+#'   on the natural scale (after exponentiation of \code{hr}).  Ignored
+#'   when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
+#'   \code{"minSG"}.
 #' @param stop_Kgroups Integer. Maximum number of candidates to evaluate.
 #'   Default: 10
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
@@ -116,7 +136,11 @@
 #'
 #' @return A list containing:
 #'   \describe{
-#'     \item{out_sg}{Selected subgroup results}
+#'     \item{out_sg}{Selected subgroup results.  When non-\code{NULL},
+#'       contains \code{result} (sorted candidate table; top row is the
+#'       selected subgroup) and \code{pareto_frontier} (data.table of
+#'       non-dominated candidates on (effect, N), both maximized -- a
+#'       post-hoc diagnostic, not used for selection).}
 #'     \item{sg_focus}{Selection criterion used}
 #'     \item{df_flag}{Data frame with treatment recommendations}
 #'     \item{sg.harm}{\strong{Subgroup definition labels} -- character
@@ -217,6 +241,7 @@ subgroup.consistency <- function(df,
                                  Lsg,
                                  confs_labels,
                                  sg_focus = "hr",
+                                 effect_neighborhood = 0.10,
                                  stop_Kgroups = 10,
                                  stop_threshold = NULL,
                                  showten_subgroups = FALSE,
@@ -403,7 +428,9 @@ subgroup.consistency <- function(df,
   }
 
 
-  found.hrs <- sort_subgroups_preview(found.hrs, sg_focus)
+  found.hrs <- sort_subgroups_preview(found.hrs, sg_focus,
+                                      effect_neighborhood = effect_neighborhood,
+                                      effect_log_scale    = effect_log_scale)
 
 
   # Extract index matrix
@@ -806,37 +833,33 @@ subgroup.consistency <- function(df,
   if (any.found > 0) {
     result_new <- data.table::copy(res)
 
-    # Map sg_focus to output type
-    sg_focus_map <- list(
-      hr = "hr",
-      hrMaxSG = "maxSG",
-      maxSG = "maxSG",
-      hrMinSG = "minSG",
-      minSG = "minSG"
-    )
-
-    if (!sg_focus %in% names(sg_focus_map)) {
+    # Validate sg_focus.  Note: hrMaxSG and hrMinSG are passed through
+    # unchanged (no longer collapsed to maxSG/minSG), so that the
+    # neighborhood-based selection in sort_subgroups() is applied.
+    valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG")
+    if (!sg_focus %in% valid_sg_focus) {
       stop(sprintf("Unknown sg_focus value: %s", sg_focus))
     }
 
-    focus_type <- sg_focus_map[[sg_focus]]
     sgdetails <- ifelse(plot.sg, TRUE, FALSE)
 
     out_sg <- tryCatch({
       sg_consistency_out(
         df = df,
         result_new = result_new,
-        sg_focus = focus_type,
+        sg_focus = sg_focus,
         details = sgdetails,
         plot.sg = sgdetails,
         index.Z = index.Z,
         names.Z = names.Z,
         by.risk = by.risk,
         confs_labels = confs_labels,
-        is_glm = !is.null(estimator_fn)
+        is_glm = !is.null(estimator_fn),
+        effect_neighborhood = effect_neighborhood,
+        effect_log_scale    = effect_log_scale
       )
     }, error = function(e) {
-      warning("Error in sg_consistency_out for '", focus_type, "': ", e$message)
+      warning("Error in sg_consistency_out for '", sg_focus, "': ", e$message)
       NULL
     })
 

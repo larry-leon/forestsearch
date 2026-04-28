@@ -2538,7 +2538,7 @@ Attaching package: &#39;future&#39;</code></pre>
 <span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a>  <span class="at">dmin.grf               =</span> fs_dmin_grf,</span>
 <span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>  <span class="at">is.RCT                 =</span> fs_is_rct,</span>
 <span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a>  <span class="at">seedit                 =</span> fs_seedit,</span>
-<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a>  <span class="at">showten_subgroups      =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb9-80"><a href="#cb9-80" aria-hidden="true" tabindex="-1"></a>  <span class="at">showten_subgroups      =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb9-81"><a href="#cb9-81" aria-hidden="true" tabindex="-1"></a>  <span class="at">details                =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb9-82"><a href="#cb9-82" aria-hidden="true" tabindex="-1"></a>  <span class="at">quiet                  =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb9-83"><a href="#cb9-83" aria-hidden="true" tabindex="-1"></a>  <span class="at">parallel_args          =</span> <span class="fu">list</span>(<span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>, <span class="at">workers =</span> <span class="dv">1</span>,</span>
@@ -2930,6 +2930,26 @@ Removed 48 near-duplicate subgroups
 # of unique initial candidates: 169 
 # Restricting to top stop_Kgroups = 10 
 # of candidates to evaluate: 10 
+
+================================================================================ 
+TOP 10 CANDIDATE SUBGROUPS FOR CONSISTENCY EVALUATION
+Sorted by: hrMaxSG 
+================================================================================ 
+
+Rank   OR        N       Events  K    Subgroup Definition
+-------------------------------------------------------------------------------- 
+1      3.068     65      38      2    !{cd40 &lt;= 375} &amp; {symptom}
+2      2.533     82      47      2    !{cd40 &lt;= 349.6} &amp; {symptom}
+3      2.505     89      49      2    !{cd40 &lt;= 337.5} &amp; {symptom}
+4      2.464     141     63      2    !{cd40 &lt;= 375} &amp; {cd40 &lt;= 421}
+5      2.355     209     121     2    !{cd40 &lt;= 375} &amp; !{wtkg &lt;= 75.2}
+6      2.208     218     126     2    !{cd40 &lt;= 375} &amp; !{wtkg &lt;= 74.5}
+7      2.152     158     81      2    !{cd40 &lt;= 375} &amp; {cd80 &lt;= 895.5}
+8      2.148     104     48      2    {karnof &lt;= 90} &amp; !{wtkg &lt;= 82.6}
+9      2.114     118     65      2    !{cd40 &lt;= 375} &amp; !{wtkg &lt;= 82.6}
+10     2.108     275     157     2    !{cd40 &lt;= 375} &amp; !{wtkg &lt;= 69}
+-------------------------------------------------------------------------------- 
+
 Parallel config: workers = 1 , batch_size = 2 
 Batch 1 / 5 : candidates 1 - 2 
 Batch 2 / 5 : candidates 3 - 4 
@@ -2939,7 +2959,7 @@ Batch 5 / 5 : candidates 9 - 10
 Evaluated 10 of 10 candidates (complete) 
 10 subgroups passed consistency threshold
 SG focus = hrMaxSG 
-Seconds and minutes forestsearch overall = 3.225 0.0538 
+Seconds and minutes forestsearch overall = 3.21 0.0535 
 Consistency algorithm used: twostage 
 Subgroup identified: !{cd40 &lt;= 375} &amp; !{wtkg &lt;= 69} </code></pre>
 </div>
@@ -3561,6 +3581,24 @@ Removed 2 near-duplicate subgroups
 # of unique initial candidates: 8 
 # Restricting to top stop_Kgroups = 10 
 # of candidates to evaluate: 8 
+
+================================================================================ 
+TOP 8 CANDIDATE SUBGROUPS FOR CONSISTENCY EVALUATION
+Sorted by: hrMaxSG 
+================================================================================ 
+
+Rank   OR        N       Events  K    Subgroup Definition
+-------------------------------------------------------------------------------- 
+1      2.166     70      26      2    {cd40 &lt;= 421} &amp; !{cd40 &lt;= 396}
+2      1.667     122     34      2    !{age &lt;= 40} &amp; {karnof &lt;= 90}
+3      1.569     94      26      2    !{age &lt;= 40} &amp; {preanti &lt;= 0}
+4      1.509     95      32      2    {symptom} &amp; {wtkg &lt;= 75.2}
+5      1.477     93      31      2    {symptom} &amp; {wtkg &lt;= 74.5}
+6      1.448     95      27      2    !{age &lt;= 40} &amp; {ar_naive == 1}
+7      1.394     95      36      2    {cd40 &lt;= 418} &amp; !{gender}
+8      1.267     99      37      2    {cd40 &lt;= 421} &amp; !{gender}
+-------------------------------------------------------------------------------- 
+
 Parallel config: workers = 1 , batch_size = 2 
 Batch 1 / 4 : candidates 1 - 2 
 Batch 2 / 4 : candidates 3 - 4 
@@ -8241,7 +8279,7 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;H1: %.1f min (%d sims)</span><span class="sc">\n</span><span class="st">&quot;</span>, t_alt <span class="sc">/</span> <span class="dv">60</span>, nsims_alt))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>H1: 14.0 min (1000 sims)</code></pre>
+<pre><code>H1: 13.1 min (1000 sims)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
@@ -8811,7 +8849,7 @@ height: 0px !important;
 <span id="cb93-92"><a href="#cb93-92" aria-hidden="true" tabindex="-1"></a>  <span class="at">dmin.grf               =</span> fs_dmin_grf,</span>
 <span id="cb93-93"><a href="#cb93-93" aria-hidden="true" tabindex="-1"></a>  <span class="at">is.RCT                 =</span> fs_is_rct,</span>
 <span id="cb93-94"><a href="#cb93-94" aria-hidden="true" tabindex="-1"></a>  <span class="at">seedit                 =</span> fs_seedit,</span>
-<span id="cb93-95"><a href="#cb93-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">showten_subgroups      =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb93-95"><a href="#cb93-95" aria-hidden="true" tabindex="-1"></a>  <span class="at">showten_subgroups      =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb93-96"><a href="#cb93-96" aria-hidden="true" tabindex="-1"></a>  <span class="at">details                =</span> <span class="cn">TRUE</span>,</span>
 <span id="cb93-97"><a href="#cb93-97" aria-hidden="true" tabindex="-1"></a>  <span class="at">quiet                  =</span> <span class="cn">FALSE</span>,</span>
 <span id="cb93-98"><a href="#cb93-98" aria-hidden="true" tabindex="-1"></a>  <span class="at">parallel_args          =</span> <span class="fu">list</span>(<span class="at">plan =</span> <span class="st">&quot;sequential&quot;</span>, <span class="at">workers =</span> <span class="dv">1</span>,</span>

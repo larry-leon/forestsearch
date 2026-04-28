@@ -194,8 +194,35 @@
 #' @param hr.consistency Numeric. Legacy name for \code{consistency.threshold}.
 #'   Retained for backward compatibility.  Default 1.0.  When
 #'   \code{consistency.threshold} is provided, \code{hr.consistency} is ignored.
-#' @param sg_focus Character. Subgroup selection focus. One of "hr", "hrMaxSG", "maxSG",
-#'   "hrMinSG", "minSG". Default "hr".
+#' @param sg_focus Character. Subgroup selection focus. One of:
+#'   \describe{
+#'     \item{\code{"hr"}}{Pick the candidate with the highest consistency
+#'       (\code{Pcons}); ties broken by largest effect.}
+#'     \item{\code{"maxSG"}}{Pick the candidate with the largest sample
+#'       size; ties broken by consistency.}
+#'     \item{\code{"minSG"}}{Pick the candidate with the smallest sample
+#'       size; ties broken by consistency.}
+#'     \item{\code{"hrMaxSG"}}{Among candidates with effect size within
+#'       \code{effect_neighborhood} of the maximum, pick the one with
+#'       the \emph{largest} sample size.}
+#'     \item{\code{"hrMinSG"}}{Among candidates with effect size within
+#'       \code{effect_neighborhood} of the maximum, pick the one with
+#'       the \emph{smallest} sample size.}
+#'   }
+#'   Default \code{"hr"}.  See \code{\link{sort_subgroups}} for full sort
+#'   keys and tiebreakers.
+#' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
+#'   tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"} selection.  A
+#'   candidate is in the \emph{effect-size neighborhood} iff its
+#'   (natural-scale) effect is at least
+#'   \code{(1 - effect_neighborhood) * max(effect)}.  Default
+#'   \code{0.10} (within 10\% of the strongest effect).  Setting
+#'   \code{effect_neighborhood = 0} reduces \code{"hrMaxSG"}/
+#'   \code{"hrMinSG"} to a strict max-effect filter (only candidates
+#'   tied at the maximum qualify).  For GLM ratio measures (OR, IRR),
+#'   the neighborhood test is applied on the natural scale.  Ignored
+#'   when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
+#'   \code{"minSG"}.
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
 #'   Early stopping threshold for consistency evaluation. When a candidate
 #'   subgroup's consistency probability (\code{Pcons}) meets or exceeds this
@@ -207,9 +234,9 @@
 #'   stopping, use \code{stop_threshold = NULL}, not a value above 1.
 #'
 #'   Automatically reset to \code{NULL} (with a warning) when
-#'   \code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, as these
-#'   compound criteria require comparing HR \emph{and} size across all
-#'   candidates.
+#'   \code{sg_focus} is \code{"hrMaxSG"} or \code{"hrMinSG"}, because
+#'   neighborhood-based selection requires comparing effect sizes
+#'   across all candidates to determine the in-neighborhood set.
 #' @param fs.splits Integer. Number of splits for consistency evaluation (or maximum
 #'   splits when \code{use_twostage = TRUE}). Default 1000.
 #' @param m1.threshold Numeric. Maximum median survival threshold. Default Inf.
@@ -501,6 +528,7 @@ forestsearch <- function(df.analysis,
                          hr.threshold = 1.25,
                          hr.consistency = 1.0,
                          sg_focus = "hr",
+                         effect_neighborhood = 0.10,
                          fs.splits = 1000,
                          m1.threshold = Inf,
                          pconsistency.threshold = 0.90,
@@ -598,7 +626,8 @@ forestsearch <- function(df.analysis,
       warning(
         "stop_threshold = ", stop_threshold,
         " reset to NULL for sg_focus = '", sg_focus, "'.\n",
-        "Compound selection criteria require evaluating all candidates.\n",
+        "Neighborhood-based selection requires evaluating all candidates ",
+        "to determine the effect-size neighborhood.\n",
         "To suppress this warning, pass stop_threshold = NULL explicitly.",
         call. = FALSE
       )

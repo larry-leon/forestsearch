@@ -14,7 +14,9 @@ sg_consistency_out(
   plot.sg = FALSE,
   by.risk = 12,
   confs_labels,
-  is_glm = FALSE
+  is_glm = FALSE,
+  effect_neighborhood = 0.1,
+  effect_log_scale = FALSE
 )
 }
 \arguments{
@@ -38,9 +40,29 @@ sg_consistency_out(
 
 \item{is_glm}{Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
 plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.}
+
+\item{effect_neighborhood}{Numeric in \code{[0, 1)}.  Relative
+tolerance for \code{"hrMaxSG"}/\code{"hrMinSG"} selection.  See
+\code{\link{sort_subgroups}}.  Default \code{0.10}.}
+
+\item{effect_log_scale}{Logical.  If \code{TRUE}, the \code{hr}
+column stores log-scale values and is exponentiated for the
+neighborhood test and for Pareto-frontier dominance.  Default
+\code{FALSE}.}
 }
 \value{
-List with results, subgroup definition, labels, flags, and group id.
+List with elements:
+\describe{
+\item{result}{Sorted candidate table (top row = selected subgroup).}
+\item{pareto_frontier}{Data.table of non-dominated candidates on
+(effect, N), both maximized.  See
+\code{\link{compute_pareto_frontier}}.  May be \code{NULL} if
+computation failed.}
+\item{sg.harm}{Factor-level cut names defining the selected subgroup.}
+\item{sg.harm_label}{Human-readable subgroup labels.}
+\item{df_flag}{Per-subject treatment-recommendation flags.}
+\item{sg.harm.id}{Per-subject subgroup-membership indicator.}
+}
 }
 \description{
 Returns the top subgroup(s) and recommended treatment flags.

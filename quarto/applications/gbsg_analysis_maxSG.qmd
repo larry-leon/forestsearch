@@ -41,7 +41,13 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 2000
+NB <- 20
+
+# 10-fold CV with multiple iterations
+# Use Ksims >= 50 for production
+Ksims <- 5
+
+fs_sg_focus <- "maxSG"
 
 ```
 
@@ -292,7 +298,7 @@ fs <- forestsearch(
   pconsistency.threshold = 0.90,
   stop_threshold = 0.95,
   # Search configuration
-  sg_focus = "maxSG",
+  sg_focus = fs_sg_focus,
   max_subgroups_search = 10,
   use_twostage = TRUE,
   # Factor selection
@@ -366,7 +372,7 @@ estrogen receptor modulator with limited efficacy in ER-negative tumors.
 ### Selection Diagnostic: Pareto Frontier
 
 Beyond the single subgroup chosen by `sg_focus`, it is often informative to
-inspect the *Pareto frontier* on (HR, N) -- the set of candidate subgroups
+inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
 that are not dominated on both axes simultaneously. A candidate is
 dominated when another candidate has at least as large an effect *and*
 at least as large a sample size, with at least one strict inequality.
@@ -378,31 +384,15 @@ that focus deliberately prefers small subgroups, which can be N-dominated
 by their larger neighbors.
 
 ```{r fs-pareto}
-pareto <- fs$grp.consistency$out_sg$pareto_frontier
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+pareto_frontier_table(fs)
+```
 
-if (!is.null(pareto) && nrow(pareto) > 0) {
-  # Display the M.<k> factor columns alongside key metrics
-  m_cols <- grep("^M\\.", names(pareto), value = TRUE)
-  display_cols <- intersect(
-    c(m_cols, "N", "E", "hr", "Pcons"),
-    names(pareto)
-  )
-
-  as.data.frame(pareto)[, display_cols, drop = FALSE] |>
-    gt::gt() |>
-    gt::tab_header(
-      title = "Pareto frontier on (HR, N)",
-      subtitle = sprintf(
-        "%d non-dominated candidate(s) -- diagnostic only, not used for selection",
-        nrow(pareto)
-      )
-    ) |>
-    gt::fmt_number(columns = "hr",    decimals = 3) |>
-    gt::fmt_number(columns = "Pcons", decimals = 3) |>
-    gt::fmt_number(columns = c("N", "E"), decimals = 0)
-} else {
-  cat("No Pareto frontier available (no subgroups passed consistency).\n")
-}
+```{r fs-pareto-data, eval = FALSE}
+# Programmatic access (effect on natural scale, plus is_selected flag):
+pareto_frontier_table(fs, format = "data.table")
 ```
 
 ### Agreement with GRF
@@ -609,9 +599,6 @@ Two approaches are available:
 ## K-Fold Cross-Validation
 
 ```{r kfold-cv}
-# 10-fold CV with multiple iterations
-# Use Ksims >= 50 for production
-Ksims <- 50
 
 t0 <- proc.time()
 

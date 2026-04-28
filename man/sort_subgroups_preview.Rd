@@ -2,19 +2,35 @@
 % Please edit documentation in R/subgroup_consistency_helpers.R
 \name{sort_subgroups_preview}
 \alias{sort_subgroups_preview}
-\title{Sort Subgroups by Focus at consistency stage (consistency not available at this point)}
+\title{Sort Subgroups by Focus (pre-consistency)}
 \usage{
-sort_subgroups_preview(result_new, sg_focus)
+sort_subgroups_preview(
+  result_new,
+  sg_focus,
+  effect_neighborhood = 0.1,
+  effect_log_scale = FALSE
+)
 }
 \arguments{
-\item{result_new}{A data.table of subgroup results.}
+\item{result_new}{A data.table of candidate subgroups with columns
+\code{HR}, \code{n}, \code{K}.}
 
-\item{sg_focus}{Sorting focus: "hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG".}
+\item{sg_focus}{Character. Sorting focus.  One of \code{"hr"},
+\code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.}
+
+\item{effect_neighborhood}{Numeric in \code{[0, 1)}.  See
+\code{\link{sort_subgroups}}.  Default \code{0.10}.}
+
+\item{effect_log_scale}{Logical.  See \code{\link{sort_subgroups}}.
+Default \code{FALSE}.}
 }
 \value{
 A sorted data.table.
 }
 \description{
-Sorts a data.table of subgroup results according to the specified focus.
+Sorts a data.table of candidate subgroups before consistency
+evaluation.  Mirrors \code{\link{sort_subgroups}} but operates on the
+pre-consistency column convention (\code{HR}, \code{n}, \code{K})
+and omits \code{Pcons} tiebreakers (consistency not yet available).
 }
 \keyword{internal}
