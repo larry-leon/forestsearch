@@ -11,7 +11,7 @@ This document is a step-by-step operations guide. It covers the
 day-to-day workflow of cloning configurations, running simulations,
 rendering articles, and producing summaries.
 
-For framework concepts (naming convention, the four-file pattern,
+For framework concepts (naming convention, the two-file pattern,
 bundle schema, etc.), see `quarto/simulations/README.qmd`.
 
 # 1. One-time setup {#sec-setup}
@@ -260,12 +260,14 @@ reference to investigate.
 
 ## Step 4 — Edit FS parameters (only when needed)
 
-Skip this step if you're only changing `sg_focus`. The script's
-substitution covered the `fs_sg_focus` parameter automatically.
+Skip this step if you're only changing `sg_focus`. The clone
+script's substitution covered the `fs_sg_focus` parameter
+automatically (also remember to set `stop_threshold = NULL` if
+you're moving to `hrMaxSG` or `hrMinSG`).
 
-If you're changing the **FS bundle** (e.g., `fs1 → fs2`), open
-both the runner (`<stem>.R`) and the article (`<stem>.qmd`) and
-update the FS parameters in the section near the top:
+If you're changing the **FS bundle** (e.g., `fs1 → fs2`), open the
+new article (`<stem>.qmd`) and update the FS parameters in the
+section near the top:
 
 ```r
 # -- FS parameters (fs1) -----------------------------------------------
@@ -278,78 +280,22 @@ fs_n_min         <- 60L
 # ... etc.
 ```
 
-Update the values that differ between `fs1` and `fs2`. **Edit the
-same values in both files** (runner and article).
+Update the values that differ between `fs1` and `fs2`.
 
-## Step 5 — Run the new runner
+## Step 5 — Render the qmd in `full` mode (builds bundle + HTML)
 
-This is the slow step (15-30 minutes per config at production N).
-Run as a background job so you can keep working:
+A `full`-mode render runs the simulations inline at production N
+and saves the bundle to disk. The same render also produces the
+article HTML.
 
-### Option A — RStudio Background Jobs panel (recommended for first runs)
-
-1. Click the **Background Jobs** tab (next to Terminal)
-2. Click **Start Background Job**
-3. R script: select the new runner, e.g.,
-   `quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R`
-4. Working directory: set to the forestsearch package root
-5. Click **Start**
-
-You can watch progress in the Background Jobs tab while still
-using the Console.
-
-### Option B — RStudio Terminal pane (for parallel runs across configs)
-
-::: {.panel-tabset}
-
-#### Bash (Terminal pane)
-
-```bash
-Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R
-```
-
-If you want to capture output to a log file as well:
-
-```bash
-Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R \
-  2>&1 | tee quarto/simulations/actg175/logs/run_$(date +%Y%m%d_%H%M%S).log
-```
-
-`tee` writes to the file *and* echoes to the terminal so you can
-watch progress.
-
-#### R (Console)
-
-The Console doesn't run scripts in the background well — for
-production runs always prefer Option A or the Terminal pane.
-
-For a quick test, you can `source()` the script, but the Console
-will be tied up until completion:
+First, set the mode in the qmd's setup chunk:
 
 ```r
-source("quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R")
+sim_mode <- "full"
 ```
 
-:::
-
-::: {.callout-warning}
-Once the script finishes, look for these lines near the bottom of
-the output:
-
-```
-[<config>] Bundle saved to: quarto/simulations/actg175/<config>.rds
-[<config>] Total elapsed: M.M min
-[<config>] Failures: H1 = 0, H0 = 0
-```
-
-If H1 or H0 failures are non-zero, investigate before rendering
-articles.
-:::
-
-## Step 6 — Render the per-config article
-
-Once the bundle exists, the article in `auto` mode picks it up
-and renders via the import path.
+Then render. This is the slow step (15-30 minutes per config at
+production N).
 
 ::: {.panel-tabset}
 
@@ -357,6 +303,13 @@ and renders via the import path.
 
 ```bash
 quarto render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd
+```
+
+If you want to capture render progress to a log file as well:
+
+```bash
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd \
+  2>&1 | tee quarto/simulations/actg175/logs/render_$(date +%Y%m%d_%H%M%S).log
 ```
 
 ### R (Console)
@@ -367,17 +320,32 @@ quarto::quarto_render(
 )
 ```
 
+The Console will be tied up until completion. For long renders,
+the Bash route via the Terminal pane is preferred.
+
 :::
 
-The rendered HTML lands next to the qmd:
+::: {.callout-warning}
+Once the render finishes, look for these lines in the output:
 
 ```
-quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.html
+Bundle saved to: actg175_binary_m1_harm_maxSG_fs1.rds
+  H1: M.M min, N rows, 0 failed
+  H0: M.M min, N rows, 0 failed
 ```
 
-Open it in your browser to verify the OC tables look reasonable.
+If failures are non-zero, investigate before relying on the
+bundle.
+:::
 
-## Step 7 — Update and render the cross-cut summary
+After verifying, switch the mode back to `"auto"` so future
+renders re-read the bundle rather than re-running the simulation:
+
+```r
+sim_mode <- "auto"
+```
+
+## Step 6 — Update and render the cross-cut summary
 
 Edit the summary qmd to extend the level vectors so the new cell
 shows up:
@@ -417,54 +385,57 @@ Cells without bundles are skipped automatically (`strict_bundles
 Quick reference for what `clone_config.sh` handles vs. what you
 must edit by hand.
 
-## Changing `sg_focus` only (e.g., `hrMaxSG → maxSG`)
+::: {.callout-note}
+The `clone_config.sh` script currently copies the qmd along with
+two legacy `.R` files (the runner script and `sim_*.R` helper)
+that are no longer used in the qmd-first workflow. After cloning,
+the two `.R` files can be safely deleted. A future script update
+will make this automatic.
+:::
+
+## Changing `sg_focus` only (e.g., `hrMaxSG → hr`)
 
 | Item | Handled by |
 |------|------------|
 | File renaming | clone_config.sh |
-| Function name in helper | clone_config.sh |
 | `BUNDLE_PATH` in qmd | clone_config.sh |
 | `fs_sg_focus` parameter | clone_config.sh (because token = value) |
 | Validation check string | clone_config.sh |
 | Comments and headers | clone_config.sh |
+| `stop_threshold` (must be `NULL` for `hrMaxSG` / `hrMinSG`) | **You** |
 
-**Action**: just run the script, then run the runner. No manual
-edits required.
+**Action**: run the script, delete the legacy `.R` files, set
+`stop_threshold` if moving to/from `hrMaxSG`/`hrMinSG`, render in
+`full` mode.
 
 ## Changing FS bundle only (e.g., `fs1 → fs2`)
 
 | Item | Handled by |
 |------|------------|
 | File renaming | clone_config.sh |
-| Function name in helper | clone_config.sh |
 | `BUNDLE_PATH` in qmd | clone_config.sh |
 | Comments and headers | clone_config.sh |
-| **FS parameter values** | **You** (e.g., `c1`, `fs_pconsistency`, etc.) |
+| **FS parameter values** | **You** (e.g., `c1`, `fs_pconsistency`, `max_look`, etc.) |
 
-**Action**: run the script, then edit FS parameter values in both
-the runner and the qmd to define what `fs2` means, then run the
-runner.
+**Action**: run the script, delete the legacy `.R` files, edit FS
+parameter values in the qmd to define what `fs2` means, render in
+`full` mode.
 
 ## Changing DGM (e.g., `m1 → m2`)
 
 | Item | Handled by |
 |------|------------|
 | File renaming | clone_config.sh |
-| Function name in helper | clone_config.sh |
 | `BUNDLE_PATH` in qmd | clone_config.sh |
 | Comments and headers | clone_config.sh |
 | **DGM-specific parameters** (e.g., `cal_target_or`, factor cuts, `subgroup_cuts`) | **You** |
 
-**Action**: run the script, then edit DGM parameters carefully in
-both files. For substantive DGM changes, also update the data-prep
-section if factor cuts change.
+**Action**: run the script, delete the legacy `.R` files, edit
+DGM parameters carefully. For substantive DGM changes, also
+update the data-prep section if factor cuts change. Render in
+`full` mode.
 
 # 5. Troubleshooting {#sec-trouble}
-
-## "Helper not found at ..." when running the runner
-
-The `sim_<stem>.R` helper wasn't created. Run `clone_config.sh`
-first.
 
 ## "permission denied" when running `./quarto/simulations/clone_config.sh`
 
@@ -513,9 +484,8 @@ quarto render quarto/simulations/actg175/<stem>.qmd
 | Verify package root (Bash) | `pwd` |
 | Verify package root (R) | `getwd()` |
 | Clone a config | `./quarto/simulations/clone_config.sh OLD NEW` |
-| Run a runner (Bash) | `Rscript quarto/simulations/actg175/<stem>.R` |
-| Run a runner (R) | use Background Jobs panel |
-| Render an article (Bash) | `quarto render quarto/simulations/actg175/<stem>.qmd` |
+| Build a bundle (Bash) | Set `sim_mode <- "full"` in qmd, then `quarto render quarto/simulations/actg175/<stem>.qmd` |
+| Render an article (Bash) | `quarto render quarto/simulations/actg175/<stem>.qmd` (with `sim_mode <- "auto"`) |
 | Render an article (R) | `quarto::quarto_render("...")` |
 | Render the summary | same `quarto render` / `quarto_render` on the summary qmd |
 | Open Terminal pane in RStudio | Tools → Terminal → New Terminal |

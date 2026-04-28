@@ -65,8 +65,8 @@ dir.create(CONFIG_DIR, recursive = TRUE, showWarnings = FALSE)
 # ── 3. Run-scale parameters ─────────────────────────────────────────────────
 # These are the production sample sizes for this configuration.
 # Edit here to scale up/down for a particular run.
-nsims_alt  <- 1000L
-nsims_null <- 1000L
+nsims_alt  <- 10L
+nsims_null <- 10L
 sim_n      <- 1000L
 
 n_workers  <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))

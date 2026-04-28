@@ -9,6 +9,12 @@
 #   sg_focus  : hrMaxSG
 #   FS bundle : fs1
 #
+
+Warning messages:
+  1: stop_threshold = 0.9 reset to NULL for sg_focus = 'hrMaxSG'.
+  Neighborhood-based selection requires evaluating all candidates to determine the effect-size neighborhood.
+  To suppress this warning, pass stop_threshold = NULL explicitly.
+
 # Performs:
 #   1. Data preparation (ACTG175 arms 1 & 3, binary adverse outcome)
 #   2. DGM calibration (H1: target OR(Q) = 2.0; H0: null)
@@ -65,8 +71,8 @@ dir.create(CONFIG_DIR, recursive = TRUE, showWarnings = FALSE)
 # ── 3. Run-scale parameters ─────────────────────────────────────────────────
 # These are the production sample sizes for this configuration.
 # Edit here to scale up/down for a particular run.
-nsims_alt  <- 100L
-nsims_null <- 100L
+nsims_alt  <- 10L
+nsims_null <- 10L
 sim_n      <- 1000L
 
 n_workers  <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))

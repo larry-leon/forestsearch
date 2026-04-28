@@ -42,6 +42,7 @@ suppressPackageStartupMessages({
   library(data.table)
   library(doFuture)
   library(foreach)
+  options(warn = -1)
 })
 
 # ── 2. Configuration ────────────────────────────────────────────────────────
@@ -65,8 +66,8 @@ dir.create(CONFIG_DIR, recursive = TRUE, showWarnings = FALSE)
 # ── 3. Run-scale parameters ─────────────────────────────────────────────────
 # These are the production sample sizes for this configuration.
 # Edit here to scale up/down for a particular run.
-nsims_alt  <- 100L
-nsims_null <- 100L
+nsims_alt  <- 20L
+nsims_null <- 20L
 sim_n      <- 1000L
 
 n_workers  <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
@@ -118,9 +119,9 @@ fs_params <- list(
   dmin.grf                  = fs_dmin_grf,
   is.RCT                    = fs_is_rct,
   seedit                    = fs_seedit,
-  showten_subgroups         = TRUE,
-  details                   = TRUE,
-  quiet                     = FALSE,
+  showten_subgroups         = FALSE,
+  details                   = FALSE,
+  quiet                     = TRUE,
   parallel_args             = list(plan = "sequential", workers = 1,
                                    show_message = FALSE)
 )

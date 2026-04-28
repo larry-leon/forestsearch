@@ -11,13 +11,13 @@ objective = harm, sg_focus = `hrMaxSG`, FS bundle = fs1).
 The article supports three rendering modes, controlled by `sim_mode`
 in the setup chunk:
 
-- **`import`** — load a pre-computed bundle (.rds) produced by the
-  companion runner script `actg175_binary_m1_harm_hrMaxSG_fs1.R`. Fast.
+- **`import`** — load a pre-computed bundle (.rds) produced by
+  a previous render in `full` mode. Fast.
 - **`demo`** — run the simulations inline at small *N* (100 + 100).
   Suitable for self-contained execution by readers who want to
   reproduce the workflow without committing to a full run.
 - **`full`** — run the simulations inline at production *N*
-  (mirrors the runner script: 1000 + 100). Slow.
+  and **save the bundle to disk**. Slow.
 - **`auto`** (default) — `import` if a bundle is present at the
   expected path, otherwise `demo`.
 
@@ -44,7 +44,7 @@ set.seed(8316951L)
 # -- Mode --------------------------------------------------------------------
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
-sim_mode    <- "auto"
+sim_mode    <- "full"
 BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs1.rds"
 
 if (sim_mode == "auto") {
@@ -61,13 +61,13 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
   demo   = 100L,
-  full   = 1000L,
+  full   = 5000L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
   demo   = 100L,
-  full   = 100L
+  full   = 5000L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
@@ -352,11 +352,6 @@ cat("fs_params and grf_params defined in setup chunk\n")
 
 ## H1 Simulations (Calibrated HTE)
 
-The foreach loop below mirrors the H1 loop in
-`sim_actg175_binary_m1_harm_hrMaxSG_fs1.R` (the simulation core called
-by the companion runner script).  Updates should be applied in both
-places.
-
 ```{r run-alt}
 #| eval: !expr sim_mode != "import"
 #| code-fold: true
@@ -442,6 +437,50 @@ cat(sprintf("Completed in %.1f min (%d rows, %d failed)\n",
     t_null / 60, nrow(results_null), n_failed_null))
 ```
 
+## Save Bundle (full mode only)
+
+```{r save-bundle}
+#| eval: !expr sim_mode == "full"
+#| code-fold: true
+#| code-summary: "Bundle assembly + saveRDS (click to expand)"
+
+bundle <- list(
+  meta = list(
+    config_id         = tools::file_path_sans_ext(basename(BUNDLE_PATH)),
+    timestamp         = Sys.time(),
+    n_alt             = nsims_alt,
+    n_null            = nsims_null,
+    sim_n             = sim_n,
+    confounders       = confounders,
+    fs_params         = fs_params,
+    grf_params        = grf_params,
+    diag_keep         = diag_keep,
+    diag_keep_first_n = diag_keep_first_n,
+    t_alt_sec         = unname(t_alt),
+    t_null_sec        = unname(t_null),
+    n_failed_alt      = attr(results_alt,  "n_failed"),
+    n_failed_null     = attr(results_null, "n_failed"),
+    package_version   = as.character(utils::packageVersion("forestsearch")),
+    sessionInfo       = utils::sessionInfo()
+  ),
+  dgm = list(
+    calibrated = dgm_calibrated,
+    null       = dgm_null
+  ),
+  results = list(
+    alt  = results_alt,
+    null = results_null
+  )
+)
+
+saveRDS(bundle, BUNDLE_PATH)
+cat(sprintf("Bundle saved to: %s\n", BUNDLE_PATH))
+cat(sprintf("  H1: %.1f min, %d rows, %d failed\n",
+            t_alt  / 60, nrow(results_alt),  n_failed_alt))
+cat(sprintf("  H0: %.1f min, %d rows, %d failed\n",
+            t_null / 60, nrow(results_null), n_failed_null))
+```
+
 ## Mode Handoff
 
 ```{r mode-handoff}
@@ -476,10 +515,10 @@ if (sim_mode == "import") {
     cat(sprintf("  forestsearch %s\n", bundle$meta$package_version))
   }
   if (!is.null(bundle$meta$config_id) &&
-      bundle$meta$config_id != "actg175_binary_m1_harm_hrMaxSG_fs1") {
+      bundle$meta$config_id != "actg175_binary_m1_harm_hr_fs1") {
     warning(sprintf(
       "Bundle config_id ('%s') does not match this article ('%s').",
-      bundle$meta$config_id, "actg175_binary_m1_harm_hrMaxSG_fs1"
+      bundle$meta$config_id, "actg175_binary_m1_harm_hr_fs1"
     ), call. = FALSE)
   }
 } else {

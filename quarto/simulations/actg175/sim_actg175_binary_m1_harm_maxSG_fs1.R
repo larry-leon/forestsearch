@@ -156,6 +156,7 @@ run_sim_actg175_binary_m1_harm_maxSG_fs1 <- function(
       .errorhandling = "pass",
       .options.future = list(packages = worker_packages, seed = TRUE)
     ) %dofuture% {
+      options(warn = -1)
       future::plan("sequential")
       run_simulation_analysis(
         sim_id           = sim,
@@ -198,6 +199,7 @@ run_sim_actg175_binary_m1_harm_maxSG_fs1 <- function(
       .errorhandling = "pass",
       .options.future = list(packages = worker_packages, seed = TRUE)
     ) %dofuture% {
+      options(warn = -1)
       future::plan("sequential")
       run_simulation_analysis(
         sim_id           = sim,
