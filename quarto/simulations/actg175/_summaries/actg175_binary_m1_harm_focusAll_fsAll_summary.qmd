@@ -1,0 +1,243 @@
+---
+title: "Cross-cut Summary: sg_focus × FS Bundle (ACTG175 Binary, m1)"
+format: html
+---
+
+This article compares operating characteristics across the
+cross-product of **`sg_focus`** and **FS parameter bundle** for a
+fixed study × outcome × DGM × objective combination:
+
+- study : ACTG175
+- outcome : binary
+- DGM : m1 (calibrated GLM, target OR(Q) = 2.0)
+- objective : harm
+- varied : `sg_focus` (e.g., `hr`, `hrMaxSG`, `maxSG`) × FS bundle (`fs*`)
+
+Each cell of the grid corresponds to one bundle file produced by
+its companion runner script. The full intended grid is declared
+below; missing bundles are skipped with a message (set
+`strict_bundles <- TRUE` in setup to error instead).
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Setup, configs, and library loads (click to expand)"
+
+library(forestsearch)
+library(data.table)
+library(gt)
+
+# Base R adds %||% in 4.4; define a fallback for older R.
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+}
+
+# -- Levels to compare ------------------------------------------------------
+# Edit these vectors as bundles become available.  expand.grid() builds
+# the full cross-product; missing bundles are skipped (or error if
+# strict_bundles = TRUE).
+focus_levels   <- c("hr", "hrMaxSG", "maxSG")
+fs_levels      <- c("fs1", "fs2", "fs3")
+strict_bundles <- FALSE
+
+# -- Fixed axes (must match every bundle's config) --------------------------
+fixed_study     <- "actg175"
+fixed_outcome   <- "binary"
+fixed_dgm       <- "m1"
+fixed_objective <- "harm"
+
+# -- Build configs ----------------------------------------------------------
+# Path is relative to this qmd's directory
+# (i.e., quarto/simulations/actg175/_summaries/).
+configs <- expand.grid(
+  focus = focus_levels,
+  fs    = fs_levels,
+  KEEP.OUT.ATTRS   = FALSE,
+  stringsAsFactors = FALSE
+)
+# Sort by focus first, then fs (matches the naming convention).
+configs <- configs[order(
+  match(configs$focus, focus_levels),
+  match(configs$fs,    fs_levels)
+), , drop = FALSE]
+rownames(configs) <- NULL
+configs$config_id <- sprintf(
+  "%s_%s_%s_%s_%s_%s",
+  fixed_study, fixed_outcome, fixed_dgm, fixed_objective,
+  configs$focus, configs$fs
+)
+configs$label       <- sprintf("%s × %s", configs$focus, configs$fs)
+configs$bundle_path <- sprintf("../%s.rds", configs$config_id)
+
+# -- Filter to existing bundles --------------------------------------------
+exists_flag <- vapply(configs$bundle_path, file.exists, logical(1))
+if (!all(exists_flag)) {
+  miss_msg <- sprintf("Missing %d of %d bundles:\n  %s",
+                      sum(!exists_flag), nrow(configs),
+                      paste(configs$config_id[!exists_flag],
+                            collapse = "\n  "))
+  if (strict_bundles) {
+    stop(miss_msg, call. = FALSE)
+  } else {
+    message(miss_msg)
+    configs <- configs[exists_flag, , drop = FALSE]
+  }
+}
+
+if (nrow(configs) == 0L) {
+  stop("No bundles available to compare. Build at least one bundle first.",
+       call. = FALSE)
+}
+
+# -- Display options --------------------------------------------------------
+sg_notation <- "harm"
+
+cat(sprintf("Comparing %d configuration(s):\n", nrow(configs)))
+print(configs[, c("label", "config_id")])
+```
+
+# Load bundles {#sec-load}
+
+```{r load-bundles}
+#| code-fold: true
+#| code-summary: "Bundle loading + validation (click to expand)"
+
+bundles <- setNames(lapply(configs$bundle_path, readRDS), configs$label)
+
+# Soft-validate config_id matches what's declared in `configs`
+for (i in seq_len(nrow(configs))) {
+  meta_id <- bundles[[i]]$meta$config_id
+  if (!is.null(meta_id) && meta_id != configs$config_id[i]) {
+    warning(sprintf(
+      "Bundle '%s' has config_id '%s' but configs declares '%s'.",
+      configs$label[i], meta_id, configs$config_id[i]
+    ), call. = FALSE)
+  }
+}
+```
+
+## Bundle metadata
+
+```{r bundle-metadata}
+#| code-fold: true
+#| code-summary: "Per-bundle metadata table (click to expand)"
+
+meta_dt <- data.table::rbindlist(lapply(seq_along(bundles), function(i) {
+  m <- bundles[[i]]$meta
+  data.frame(
+    label           = configs$label[i],
+    focus           = configs$focus[i],
+    fs              = configs$fs[i],
+    timestamp       = format(m$timestamp     %||% NA),
+    n_alt           = m$n_alt                %||% NA_integer_,
+    n_null          = m$n_null               %||% NA_integer_,
+    sim_n           = m$sim_n                %||% NA_integer_,
+    n_failed_alt    = m$n_failed_alt         %||% NA_integer_,
+    n_failed_null   = m$n_failed_null        %||% NA_integer_,
+    t_alt_min       = round((m$t_alt_sec  %||% NA) / 60, 1),
+    t_null_min      = round((m$t_null_sec %||% NA) / 60, 1),
+    package_version = m$package_version      %||% NA_character_,
+    stringsAsFactors = FALSE
+  )
+}))
+
+gt::gt(meta_dt) |>
+  gt::tab_header(title = "Bundle metadata") |>
+  gt::sub_missing(missing_text = "—")
+```
+
+# Stacked Operating Characteristics (per cell)
+
+For each cell of the focus × fs grid, the bundle's H1 results are
+rendered using the same `format_oc_results()` and
+`build_classification_table()` calls used in the per-config article
+(its Section 6.1 and Section 6.3 equivalents). This preserves the
+familiar tutorial-style layout per cell, stacked vertically for
+visual scan-comparison across configurations.
+
+```{r stacked-oc}
+#| results: asis
+#| code-fold: true
+#| code-summary: "Per-cell rendering loop (click to expand)"
+
+for (i in seq_len(nrow(configs))) {
+  b <- bundles[[i]]
+
+  # Header: focus × fs (in TOC, follows naming-convention order)
+  cat(sprintf("\n## %s × %s\n\n", configs$focus[i], configs$fs[i]))
+
+  if (is.null(b$results$alt) || nrow(b$results$alt) == 0L) {
+    cat("_No H1 results in this bundle._\n\n")
+    next
+  }
+
+  # ── Section 6.1 equivalent: format_oc_results() ────────────────────────
+  oc_tbl <- format_oc_results(
+    b$results$alt,
+    metrics           = c("detection", "classification", "subgroup_size"),
+    digits            = 2,
+    digits_hr         = 2,
+    title             = sprintf("%s × %s — H1 OC",
+                                configs$focus[i], configs$fs[i]),
+    dgm               = b$dgm$calibrated,
+    subgroup_notation = sg_notation
+  )
+  cat(gt::as_raw_html(oc_tbl), "\n\n")
+
+  # ── Section 6.3 equivalent: build_classification_table() ───────────────
+  scenario_alt <- list(
+    H1 = list(
+      results    = b$results$alt,
+      dgm        = b$dgm$calibrated,
+      hypothesis = "alt",
+      n_sample   = b$meta$sim_n,
+      label      = sprintf("%s × %s", configs$focus[i], configs$fs[i])
+    )
+  )
+
+  for (analysis_method in c("FS", "GRF")) {
+    cls_tbl <- build_classification_table(
+      scenario_alt,
+      analyses          = analysis_method,
+      subgroup_notation = sg_notation,
+      title             = sprintf("%s — Classification Under H1",
+                                  analysis_method)
+    )
+    cat(gt::as_raw_html(cls_tbl), "\n\n")
+  }
+}
+```
+
+# Per-config Detail
+
+For deep-dives into any single configuration, see the corresponding
+per-config article.
+
+```{r per-config-pointers}
+#| echo: false
+pointers <- data.frame(
+  label   = configs$label,
+  article = sprintf("../%s.qmd", configs$config_id),
+  bundle  = configs$bundle_path,
+  stringsAsFactors = FALSE
+)
+gt::gt(pointers) |>
+  gt::tab_header(title = "Per-config articles and bundles") |>
+  gt::cols_label(
+    label   = "Config",
+    article = "Per-config article",
+    bundle  = "Bundle (.rds)"
+  )
+```
+
+# Notes
+
+- This article assumes all bundles share the **same DGM truth**
+  (study × outcome × DGM × objective). Cross-cuts that vary the
+  DGM need a different summary template (with per-bundle reference
+  values for target OR, true |Q|, etc.).
+- The per-cell tables here use the same code path as the per-config
+  article's Section 6.1 and Section 6.3 — so each cell is
+  byte-equivalent to that configuration's standalone view.
+- Toggle `strict_bundles <- TRUE` in setup to fail when any cell
+  in the declared grid is missing — useful as a completeness check
+  once all configurations are expected to be built.

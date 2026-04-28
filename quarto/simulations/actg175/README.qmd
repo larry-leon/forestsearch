@@ -1,0 +1,425 @@
+---
+title: "Simulation Framework Guide"
+format: html
+---
+
+This document explains the conventions, file structure, and workflow
+for the simulation studies under `quarto/simulations/`. It is the
+canonical reference for how a single configuration is built,
+executed, and consumed — and how multiple configurations are
+compared.
+
+# Philosophy {#sec-philosophy}
+
+Three ideas shape the design.
+
+**1. Simulation is code; results are artifacts.** Every simulation
+configuration is fully described by a small set of files under
+version control. Running those files produces a single `.rds`
+bundle that contains both the inputs (DGM, parameters) and the
+outputs (per-replicate results). Rendering the article consumes
+the bundle.
+
+**2. Production runs and tutorial articles are separated.** The
+expensive `foreach` loops belong in a script that can run as a
+background job, not inside a `.qmd` whose rendering time should
+stay reasonable. The article either imports the bundle (fast) or
+runs a small inline demo (also fast).
+
+**3. The article remains a self-contained tutorial.** Even when a
+bundle exists, data preparation, DGM calibration, and a single-trial
+sanity check always run inline so the narrative is intact. Only the
+expensive `foreach` loops are skipped in import mode.
+
+# Naming Convention {#sec-naming}
+
+```
+{study}_{outcome}_{dgm}_{objective}_{focus}_{fsparms}.{ext}
+```
+
+| Token       | Examples                              | Notes |
+|-------------|---------------------------------------|-------|
+| `study`     | `actg175`, `gbsg`                     | study source |
+| `outcome`   | `binary`, `survival`, `continuous`, `counts` | outcome type |
+| `dgm`       | `m1`, `m2`                            | data-generating model id |
+| `objective` | `harm`, `benefit`                     | `sg_objective` axis |
+| `focus`     | `hrMaxSG`, `hrMinSG`                  | `sg_focus` criterion |
+| `fsparms`   | `fs1`, `fs2`                          | FS parameter bundle |
+
+Example stem:
+
+```
+actg175_binary_m1_harm_hrMaxSG_fs1
+```
+
+This stem is shared by the per-config article (`.qmd`), runner
+script (`.R`), simulation core (`sim_*.R`), and bundle (`.rds`).
+
+A `simulation_registry.yml` sidecar (optional, future) can map
+each token to its full definition (DGM parameters, FS parameter
+bundle contents, etc.) so the filenames stay short while the
+codes remain self-documenting.
+
+## The "All" sentinel {#sec-all-sentinel}
+
+Cross-cut summaries replace the varied dimension(s) with `All`. The
+sentinel can replace one dimension (single-axis cross-cut) or
+multiple dimensions (multi-axis cross-cut, via
+`expand.grid()` over the relevant level vectors):
+
+| File stem                                              | Varies         | Compares |
+|--------------------------------------------------------|----------------|----------|
+| `actg175_binary_m1_harm_focusAll_fsAll_summary`        | focus × fs     | sg_focus × FS bundle grid |
+| `actg175_binary_m1_harm_hrMaxSG_fsAll_summary`         | `fs*`          | FS bundles (fixed focus) |
+| `actg175_binary_m1_harm_focusAll_fs1_summary`          | `focus`        | sg_focus (fixed FS) |
+| `actg175_binary_mAll_harm_hrMaxSG_fs1_summary`         | `dgm`          | DGMs |
+| `actg175_outcomeAll_m1_harm_hrMaxSG_fs1_summary`       | outcome        | endpoint types |
+| `studyAll_binary_m1_harm_hrMaxSG_fs1_summary`          | study          | studies |
+
+Within-study summaries (those with a fixed `study` token) live in
+the study's own `_summaries/` subdirectory. Cross-study summaries
+(starting with `studyAll_`) live in the top-level
+`quarto/simulations/_summaries/`.
+
+# Directory Layout {#sec-layout}
+
+```
+quarto/simulations/
+  README.qmd                                             ← this file
+  _summaries/                                            ← cross-study cross-cuts (later)
+    studyAll_binary_m1_harm_hrMaxSG_fs1_summary.qmd
+    ...
+  actg175/                                               ← per-study dir
+    _summaries/                                          ← within-study cross-cuts
+      actg175_binary_m1_harm_focusAll_fsAll_summary.qmd
+      ...
+    actg175_binary_m1_harm_hrMaxSG_fs1.qmd               ← per-config article
+    actg175_binary_m1_harm_hrMaxSG_fs1.R                 ← runner script
+    sim_actg175_binary_m1_harm_hrMaxSG_fs1.R             ← simulation core
+    actg175_binary_m1_harm_hrMaxSG_fs1.rds               ← bundle (artifact)
+    actg175_binary_m1_harm_hrMaxSG_fs1.html              ← rendered (preview)
+    actg175_binary_m1_harm_hrMaxSG_fs1_files/            ← Quarto figures
+    logs/                                                ← optional log redirects
+  gbsg/                                                  ← future studies
+    _summaries/
+    ...
+```
+
+# The Four-File Pattern {#sec-four-files}
+
+Every configuration consists of four files sharing a stem.
+
+```
+              ┌──────────────────────────────────────────┐
+              │   sim_<stem>.R   (simulation core)       │
+              │   pure function: H1 + H0 foreach loops   │
+              │   returns bundle (no I/O, no plan)       │
+              └────────────────┬─────────────────────────┘
+                               │ sourced by
+                               ▼
+              ┌──────────────────────────────────────────┐
+              │   <stem>.R       (background runner)     │
+              │   data prep + DGM cal + plan + helper +  │
+              │   saveRDS(<stem>.rds)                    │
+              └────────────────┬─────────────────────────┘
+                               │ produces
+                               ▼
+              ┌──────────────────────────────────────────┐
+              │   <stem>.rds     (bundle / artifact)     │
+              │   meta + dgm + results                   │
+              └────────────────┬─────────────────────────┘
+                               │ consumed by
+                               ▼
+              ┌──────────────────────────────────────────┐
+              │   <stem>.qmd     (per-config article)    │
+              │   tutorial; mode-aware; import or demo   │
+              └──────────────────────────────────────────┘
+```
+
+## `sim_<stem>.R` — simulation core {#sec-helper}
+
+A single function that wraps the H1 and H0 `foreach` loops and
+returns a structured bundle. **Pure**: no I/O, no `future::plan()`
+configuration, no `saveRDS()`. Used by the runner script. Not
+sourced by the article (the article inlines its own loop for
+tutorial transparency).
+
+The loop body in this helper **mirrors** the loop body in the
+companion article. Updates must be applied in both places.
+
+## `<stem>.R` — runner script {#sec-runner}
+
+A standalone script that:
+
+1. Loads packages
+2. Sources the simulation core
+3. Sets the master seed
+4. Defines all FS, GRF, calibration, and diagnostic parameters
+5. Performs data preparation
+6. Calibrates the H1 DGM and constructs the H0 (null) DGM
+7. Configures `future::plan(multisession, workers = ...)`
+8. Calls the simulation core
+9. Augments the returned bundle with run-time metadata
+   (`git_sha`, `run_host`, total elapsed time)
+10. `saveRDS()` to the per-config bundle path
+
+Designed to be invoked via `Rscript` or RStudio's Background Jobs
+panel.
+
+## `<stem>.qmd` — per-config article {#sec-article}
+
+A **self-contained tutorial** for the configuration. Always runs:
+
+- Setup (libraries, parameters)
+- Data preparation
+- DGM calibration (H1) + null construction (H0)
+- Single-trial sanity check (one simulated trial, FS analysis,
+  small tables)
+- Operating-characteristics tables and plots
+
+Conditionally runs (only when `sim_mode != "import"`):
+
+- Parallel plan setup
+- H1 and H0 `foreach` loops (loop body is byte-identical to the
+  helper's body — this is the documented mirroring)
+
+A single mode-handoff chunk routes between import (load bundle)
+and demo/full (use just-computed results), then downstream chunks
+are mode-agnostic.
+
+## `<stem>.rds` — bundle {#sec-bundle}
+
+The artifact produced by the runner script and consumed by the
+article (in import mode) and by cross-cut summaries.
+
+Schema:
+
+```
+list(
+  meta = list(
+    config_id, timestamp, n_alt, n_null, sim_n,
+    run_alt, run_null,
+    confounders, fs_params, grf_params,
+    diag_keep, diag_keep_first_n,
+    t_alt_sec, t_null_sec,
+    n_failed_alt, n_failed_null,
+    package_version, sessionInfo,
+    # appended by runner script:
+    git_sha, run_host, script_path,
+    total_elapsed_sec, master_seed, cal_target_or
+  ),
+  dgm = list(
+    calibrated,    # from calibrate_glm_interaction()
+    null           # from generate_glm_dgm(model = "null")
+  ),
+  results = list(
+    alt,           # data.frame from collect_results(); attr(., "n_failed")
+    null           # data.frame from collect_results(); attr(., "n_failed")
+  )
+)
+```
+
+The DGMs are stored alongside the results so OC tables that take
+`dgm = ...` arguments can be rendered from the bundle alone, with
+no need to re-calibrate.
+
+# The Three Render Modes {#sec-modes}
+
+The per-config article supports three modes via the `sim_mode`
+constant in its setup chunk:
+
+| Mode      | Behavior | When to use |
+|-----------|----------|-------------|
+| `import`  | Load `.rds` bundle; skip `foreach` loops; use bundle's DGM and results for downstream rendering | After running the runner script. Fastest render. |
+| `demo`    | Run small-N inline simulations (default 100 + 100). Self-contained; no bundle needed. | First-time exploration; reader without bundle access. |
+| `full`    | Run production-N inline simulations (mirrors the runner script). Slow. | Reproducibility check without separate runner step. |
+| `auto`    | `import` if `BUNDLE_PATH` exists, else `demo`. | Default. Sensible for most workflows. |
+
+In `import` mode, the freshly-built DGM objects (from the always-
+running calibration chunks) are **overridden** by the bundle's
+DGMs. This guarantees the OC tables reference the same DGM that
+produced the imported results — preventing subtle inconsistencies
+if the user's working DGM-construction code drifts from when the
+bundle was built.
+
+# Cross-cut Summaries {#sec-summaries}
+
+Cross-cut summaries live in two places, depending on what varies:
+
+- **Within-study** summaries (study fixed, other tokens vary):
+  `quarto/simulations/<study>/_summaries/`. Most summaries are
+  this kind, since within-study comparisons are typically the
+  primary analytical target.
+- **Cross-study** summaries (study itself varies — `studyAll_*`):
+  `quarto/simulations/_summaries/`. Defer until needed.
+
+A typical summary article:
+
+1. Declares level vectors for each varied dimension
+   (e.g., `focus_levels`, `fs_levels`)
+2. Builds `configs` via `expand.grid()` over those vectors;
+   constructs `config_id`, `label`, and `bundle_path` per row
+3. Filters to existing bundles (with a `strict_bundles` flag for
+   completeness checks)
+4. Reads each bundle
+5. Validates that `meta$config_id` matches what's declared
+6. Extracts per-config metrics (detection rate, FPR, mean |Ĥ|,
+   median ÔR(Ĥ), Sens/Spec/PPV/NPV)
+7. Renders side-by-side `gt` comparison tables (`groupname_col`
+   on `analysis`; varied dimensions become row identifiers)
+8. Renders comparison plots — for two varied dimensions, typically
+   `x = <primary>, fill = <secondary>` with dodging
+
+To add a configuration to an existing summary, append a level to
+the relevant vector and re-render. Missing cells in the
+`expand.grid` are skipped automatically (or error if
+`strict_bundles <- TRUE`).
+
+The `focusAll_fsAll_summary` template assumes a **shared truth**
+across bundles (same study × outcome × DGM × objective).
+Templates that vary the DGM need per-bundle reference annotations
+(e.g., a target OR per facet rather than a single dashed line).
+
+# Adding a New Configuration {#sec-adding}
+
+A checklist for creating a new configuration. Concretely, for a
+hypothetical `actg175_binary_m1_harm_hrMaxSG_fs2` (a new FS
+parameter bundle in an existing study/outcome/DGM/objective/focus):
+
+1. **Decide the tokens.** Confirm `fs2` is the right name for the
+   new FS bundle. If you're varying multiple dimensions, name them
+   accordingly.
+
+2. **Copy the four-file template** from the closest existing
+   configuration. Don't copy the `.rds` — that's an artifact and
+   will be created by the runner.
+
+   ```bash
+   cd quarto/simulations/actg175/
+   cp actg175_binary_m1_harm_hrMaxSG_fs1.qmd \
+      actg175_binary_m1_harm_hrMaxSG_fs2.qmd
+   cp actg175_binary_m1_harm_hrMaxSG_fs1.R   \
+      actg175_binary_m1_harm_hrMaxSG_fs2.R
+   cp sim_actg175_binary_m1_harm_hrMaxSG_fs1.R \
+      sim_actg175_binary_m1_harm_hrMaxSG_fs2.R
+   ```
+
+3. **Edit the simulation core** (`sim_*.R`):
+   - Rename the function: `run_sim_actg175_binary_m1_harm_hrMaxSG_fs2()`
+   - Update the file-header comment block
+   - Update the default `config_id` argument
+
+4. **Edit the runner script** (`<stem>.R`):
+   - Update `CONFIG_ID`
+   - Update the `source()` path to the new helper
+   - Adjust any FS parameters that distinguish `fs2` from `fs1`
+
+5. **Edit the article** (`<stem>.qmd`):
+   - Update `BUNDLE_PATH` constant
+   - Adjust FS parameter values to match the runner
+   - Update any narrative text that references `fs1`
+
+6. **Run the runner**:
+   ```bash
+   Rscript quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs2.R
+   ```
+
+7. **Render the article in import mode** to verify everything
+   loads and the OC tables look right.
+
+8. **Add to applicable cross-cut summaries.** For a new FS bundle,
+   open `quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd`
+   and append `"fs2"` to `fs_levels`. The next render picks up the
+   new bundle automatically.
+
+## A new study or outcome
+
+If the new configuration introduces a new study or outcome, also:
+
+- Create the study directory if needed:
+  `mkdir -p quarto/simulations/{study}/`
+- Be prepared to adapt the data prep + calibration sections —
+  they're study-specific and can't be copy-pasted from `actg175`.
+
+# Operational Notes {#sec-ops}
+
+## Git tracking
+
+Both `.html` previews (alongside the `.qmd`) and `.rds` bundles
+are tracked in version control. Bundles are deliberately tracked
+because:
+
+- Simulations are expensive to recompute
+- Bundles are part of the reproducibility story (a result tied to
+  a `git_sha`)
+- The pkgdown site can be built from cached bundles without
+  re-running simulations
+
+## CRAN compliance
+
+The entire `quarto/` tree is excluded from the package tarball via
+`^quarto$` in `.Rbuildignore`. None of the simulation infrastructure
+ships to CRAN.
+
+## Parallel plan
+
+Use `multisession` for cross-platform compatibility:
+
+- **Linux**: `multicore` works, but `multisession` works equally
+  well and avoids divergent behavior across platforms.
+- **macOS**: `multicore` silently falls back to `sequential` in
+  RStudio. `multisession` works correctly.
+
+Inside each `foreach` worker, the code calls
+`future::plan("sequential")` to prevent nested parallelism (the
+package's internal subgroup search is not parallelized at this
+layer).
+
+## Logging
+
+Two reasonable patterns:
+
+1. **RStudio Background Jobs panel** — captures stdout/stderr and
+   shows progress in the IDE. No log file. Default for
+   interactive development.
+
+2. **Shell redirection** — for headless / scheduled runs:
+   ```bash
+   Rscript quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.R \
+     > quarto/simulations/actg175/logs/run_$(date +%Y%m%d_%H%M%S).log 2>&1
+   ```
+   The `logs/` directory under each study dir is gitignored
+   by convention.
+
+The runner script does not configure file-based logging itself —
+that decision is left to the caller.
+
+## Reproducibility
+
+Each `foreach` loop uses
+`.options.future = list(seed = TRUE)` for L'Ecuyer-CMRG streams.
+Set the master seed once via `set.seed()` at the top of the
+runner script (and at the top of the article's setup chunk for
+demo/full modes). Re-running with the same seed and the same
+package version produces identical bundles.
+
+The bundle records `package_version` and (when available)
+`git_sha`. Discrepancies between the recorded version and the
+current installed version are a signal to re-run.
+
+# Quick Reference {#sec-quickref}
+
+| Action                                | Command / file |
+|--------------------------------------|----------------|
+| Build a bundle (production)          | `Rscript <stem>.R` |
+| Render per-config article (auto)     | Quarto render `<stem>.qmd` |
+| Force inline demo (small N)          | Set `sim_mode <- "demo"` in qmd setup |
+| Force inline full run (no bundle)    | Set `sim_mode <- "full"` |
+| Compare configs                      | Edit `configs` in summary qmd; render |
+| Inspect a bundle's metadata          | `readRDS("<stem>.rds")$meta` |
+| Re-run a single hypothesis           | Pass `run_alt = FALSE` or `run_null = FALSE` to the helper |
+
+# References {#sec-refs}
+
+- León et al. (2024). *Statistics in Medicine*, doi:[10.1002/sim.10163](https://doi.org/10.1002/sim.10163).
+- Companion vignettes: see the [pkgdown article index](../../docs/articles/).

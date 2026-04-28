@@ -1,0 +1,515 @@
+---
+title: "Simulation Workflow Guide"
+subtitle: "Operating the simulation framework day-to-day"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+---
+
+This document is a step-by-step operations guide. It covers the
+day-to-day workflow of cloning configurations, running simulations,
+rendering articles, and producing summaries.
+
+For framework concepts (naming convention, the four-file pattern,
+bundle schema, etc.), see `quarto/simulations/README.qmd`.
+
+# 1. One-time setup {#sec-setup}
+
+You only need to do this once per machine.
+
+## 1.1 Place the clone-config script
+
+Move `clone_config.sh` to the forestsearch package root — the same
+directory that contains `quarto/`, `R/`, `DESCRIPTION`, etc. On
+your Mac, that's:
+
+```
+~/Documents/GitHub/forestsearch/clone_config.sh
+```
+
+On your Linux (Pop!_OS) machine, the equivalent path under your
+home directory.
+
+## 1.2 Make it executable
+
+In the **RStudio Terminal pane** (the tab next to **Console** and
+**Background Jobs** — see [§2](#sec-terminal) if you don't see it),
+make sure you're in the package root, then run:
+
+```bash
+chmod +x clone_config.sh
+```
+
+You'll only see output if something went wrong — silent success is
+normal.
+
+## 1.3 Verify it runs
+
+Test that the script is callable:
+
+```bash
+./clone_config.sh
+```
+
+You should see usage instructions:
+
+```
+Usage: ./clone_config.sh OLD_TOKEN NEW_TOKEN
+Example: ./clone_config.sh hrMaxSG hr
+```
+
+If you see "permission denied," step 1.2 didn't take — re-run
+`chmod +x clone_config.sh` and try again.
+
+::: {.callout-note}
+You'll need to redo `chmod +x` on each new machine, and any time
+the file is copied via Finder, file sharing, or cloud sync — these
+sometimes strip the execute bit.
+:::
+
+# 2. The RStudio Terminal pane {#sec-terminal}
+
+## 2.1 Where it is
+
+The Terminal pane is a tab in the same window region as the
+**Console** and **Background Jobs**. Look for the tabs:
+
+```
+[ Console ] [ Terminal ] [ Background Jobs ]
+```
+
+If the **Terminal** tab is not visible:
+
+- Menu: **Tools → Terminal → New Terminal**
+- Keyboard: `Shift + Alt + R` (Mac) or `Shift + Alt + T` (Linux)
+
+## 2.2 What it is
+
+A real shell (zsh on Mac, bash on Linux by default) running inside
+RStudio. It opens in your project's working directory by default,
+which is exactly what we want for these scripts.
+
+The Terminal pane is for **shell commands** (lines starting with
+`$` or `Rscript`). The **Console pane** next to it is for **R
+commands** (lines starting with `>`). This guide shows both for
+every step — pick whichever you prefer.
+
+## 2.3 Verify your working directory
+
+Before running anything, check that the Terminal pane is in the
+package root:
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+pwd
+```
+
+Expected output: ends in `/forestsearch` (or wherever your local
+package clone lives).
+
+### R (Console)
+
+```r
+getwd()
+```
+
+Expected output: same — ends in `/forestsearch`.
+
+:::
+
+If either is wrong, fix it:
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+cd ~/Documents/GitHub/forestsearch
+```
+
+### R (Console)
+
+```r
+setwd("~/Documents/GitHub/forestsearch")
+```
+
+:::
+
+::: {.callout-important}
+The Terminal pane and the R Console have **independent** working
+directories. Changing one does not change the other. Verify the
+one you'll actually use.
+:::
+
+# 3. The standard workflow {#sec-workflow}
+
+Six steps to add a new configuration and produce both a per-config
+article and an updated cross-cut summary.
+
+## Step 1 — Decide the new config tokens
+
+Identify what changes from the closest existing config. Most
+common cases:
+
+- **Changing `sg_focus`** (e.g., `hrMaxSG → maxSG`): one token
+  changes; the script handles everything.
+- **Changing FS bundle** (e.g., `fs1 → fs2`): the script handles
+  filenames and references, but you must edit the FS parameter
+  values by hand to reflect what makes `fs2` different from `fs1`.
+- **Changing both** (e.g., `hrMaxSG_fs1 → maxSG_fs2`): run the
+  script twice (once for each token), then edit FS parameters by
+  hand.
+
+## Step 2 — Run the clone script
+
+From the package root:
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+./clone_config.sh OLD_TOKEN NEW_TOKEN
+```
+
+Concrete example: clone `hrMaxSG` config to a new `maxSG` config:
+
+```bash
+./clone_config.sh hrMaxSG maxSG
+```
+
+### R (Console)
+
+```r
+system2("./clone_config.sh", c("hrMaxSG", "maxSG"))
+```
+
+Or use the R-equivalent of running shell from the console:
+
+```r
+system("./clone_config.sh hrMaxSG maxSG")
+```
+
+:::
+
+Expected output (last few lines):
+
+```
+Done.  New files:
+  actg175_binary_m1_harm_maxSG_fs1.qmd
+  actg175_binary_m1_harm_maxSG_fs1.R
+  sim_actg175_binary_m1_harm_maxSG_fs1.R
+
+Next steps:
+  1. Verify the substitutions by opening any of the new files.
+  2. (Optional) Edit FS parameters if 'maxSG' implies different values.
+  3. Run the new runner:
+       Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R
+```
+
+::: {.callout-tip}
+The script refuses to overwrite existing files — if you accidentally
+run the same clone twice, it will fail safely. Delete the prior
+copies first if you really want to redo a clone.
+:::
+
+## Step 3 — Verify the substitutions (always)
+
+Open one of the new files in RStudio and skim it:
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+grep -n "OLD_TOKEN" quarto/simulations/actg175/actg175_binary_m1_harm_NEW_TOKEN_fs1.qmd
+```
+
+(Replace `OLD_TOKEN` with the token you just removed.) If `grep`
+prints nothing, all references were updated correctly.
+
+Concrete example after `hrMaxSG → maxSG`:
+
+```bash
+grep -n "hrMaxSG" quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd
+```
+
+### R (Console)
+
+```r
+file.path("quarto/simulations/actg175",
+          "actg175_binary_m1_harm_maxSG_fs1.qmd") |>
+  readLines() |> grep("hrMaxSG", x = _, value = TRUE)
+```
+
+Empty result = clean. Any printed line indicates a leftover
+reference to investigate.
+
+:::
+
+## Step 4 — Edit FS parameters (only when needed)
+
+Skip this step if you're only changing `sg_focus`. The script's
+substitution covered the `fs_sg_focus` parameter automatically.
+
+If you're changing the **FS bundle** (e.g., `fs1 → fs2`), open
+both the runner (`<stem>.R`) and the article (`<stem>.qmd`) and
+update the FS parameters in the section near the top:
+
+```r
+# -- FS parameters (fs1) -----------------------------------------------
+c1 <- 1.25                       # hr.threshold (OR scale)
+c2 <- 1.0                        # hr.consistency
+fs_pconsistency  <- 0.80
+max_look         <- 10
+fs_splits        <- 1000L
+fs_n_min         <- 60L
+# ... etc.
+```
+
+Update the values that differ between `fs1` and `fs2`. **Edit the
+same values in both files** (runner and article).
+
+## Step 5 — Run the new runner
+
+This is the slow step (15-30 minutes per config at production N).
+Run as a background job so you can keep working:
+
+### Option A — RStudio Background Jobs panel (recommended for first runs)
+
+1. Click the **Background Jobs** tab (next to Terminal)
+2. Click **Start Background Job**
+3. R script: select the new runner, e.g.,
+   `quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R`
+4. Working directory: set to the forestsearch package root
+5. Click **Start**
+
+You can watch progress in the Background Jobs tab while still
+using the Console.
+
+### Option B — RStudio Terminal pane (for parallel runs across configs)
+
+::: {.panel-tabset}
+
+#### Bash (Terminal pane)
+
+```bash
+Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R
+```
+
+If you want to capture output to a log file as well:
+
+```bash
+Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R \
+  2>&1 | tee quarto/simulations/actg175/logs/run_$(date +%Y%m%d_%H%M%S).log
+```
+
+`tee` writes to the file *and* echoes to the terminal so you can
+watch progress.
+
+#### R (Console)
+
+The Console doesn't run scripts in the background well — for
+production runs always prefer Option A or the Terminal pane.
+
+For a quick test, you can `source()` the script, but the Console
+will be tied up until completion:
+
+```r
+source("quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R")
+```
+
+:::
+
+::: {.callout-warning}
+Once the script finishes, look for these lines near the bottom of
+the output:
+
+```
+[<config>] Bundle saved to: quarto/simulations/actg175/<config>.rds
+[<config>] Total elapsed: M.M min
+[<config>] Failures: H1 = 0, H0 = 0
+```
+
+If H1 or H0 failures are non-zero, investigate before rendering
+articles.
+:::
+
+## Step 6 — Render the per-config article
+
+Once the bundle exists, the article in `auto` mode picks it up
+and renders via the import path.
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd
+```
+
+### R (Console)
+
+```r
+quarto::quarto_render(
+  "quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd"
+)
+```
+
+:::
+
+The rendered HTML lands next to the qmd:
+
+```
+quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.html
+```
+
+Open it in your browser to verify the OC tables look reasonable.
+
+## Step 7 — Update and render the cross-cut summary
+
+Edit the summary qmd to extend the level vectors so the new cell
+shows up:
+
+```r
+# In quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd:
+focus_levels <- c("hr", "hrMaxSG", "maxSG")   # <- add new sg_focus levels here
+fs_levels    <- c("fs1", "fs2", "fs3")        # <- add new FS bundle levels here
+```
+
+Then render:
+
+::: {.panel-tabset}
+
+### Bash (Terminal pane)
+
+```bash
+quarto render quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd
+```
+
+### R (Console)
+
+```r
+quarto::quarto_render(
+  "quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd"
+)
+```
+
+:::
+
+Cells with bundles show their full Section 6.1 + 6.3 tables.
+Cells without bundles are skipped automatically (`strict_bundles
+<- FALSE` in the summary's setup chunk).
+
+# 4. What to edit when {#sec-edits}
+
+Quick reference for what `clone_config.sh` handles vs. what you
+must edit by hand.
+
+## Changing `sg_focus` only (e.g., `hrMaxSG → maxSG`)
+
+| Item | Handled by |
+|------|------------|
+| File renaming | clone_config.sh |
+| Function name in helper | clone_config.sh |
+| `BUNDLE_PATH` in qmd | clone_config.sh |
+| `fs_sg_focus` parameter | clone_config.sh (because token = value) |
+| Validation check string | clone_config.sh |
+| Comments and headers | clone_config.sh |
+
+**Action**: just run the script, then run the runner. No manual
+edits required.
+
+## Changing FS bundle only (e.g., `fs1 → fs2`)
+
+| Item | Handled by |
+|------|------------|
+| File renaming | clone_config.sh |
+| Function name in helper | clone_config.sh |
+| `BUNDLE_PATH` in qmd | clone_config.sh |
+| Comments and headers | clone_config.sh |
+| **FS parameter values** | **You** (e.g., `c1`, `fs_pconsistency`, etc.) |
+
+**Action**: run the script, then edit FS parameter values in both
+the runner and the qmd to define what `fs2` means, then run the
+runner.
+
+## Changing DGM (e.g., `m1 → m2`)
+
+| Item | Handled by |
+|------|------------|
+| File renaming | clone_config.sh |
+| Function name in helper | clone_config.sh |
+| `BUNDLE_PATH` in qmd | clone_config.sh |
+| Comments and headers | clone_config.sh |
+| **DGM-specific parameters** (e.g., `cal_target_or`, factor cuts, `subgroup_cuts`) | **You** |
+
+**Action**: run the script, then edit DGM parameters carefully in
+both files. For substantive DGM changes, also update the data-prep
+section if factor cuts change.
+
+# 5. Troubleshooting {#sec-trouble}
+
+## "Helper not found at ..." when running the runner
+
+The `sim_<stem>.R` helper wasn't created. Run `clone_config.sh`
+first.
+
+## "permission denied" when running `./clone_config.sh`
+
+The execute bit isn't set:
+
+```bash
+chmod +x clone_config.sh
+```
+
+## "No such file or directory" when running clone_config.sh
+
+You're not in the package root. Verify with `pwd` (Bash) or
+`getwd()` (R), and `cd` to the right place.
+
+## Bundle config_id warning when rendering the article
+
+Looks like:
+
+```
+Warning: Bundle config_id ('...') does not match this article ('...').
+```
+
+This means the qmd's hardcoded validation string doesn't match the
+bundle. The clone script handles this automatically; if you see it,
+something didn't get substituted. Run:
+
+```bash
+grep -n "OLD_TOKEN" quarto/simulations/actg175/<new_stem>.qmd
+```
+
+to find leftovers.
+
+## Render produces a working but visually broken HTML
+
+Often this is a stale `_files/` directory. Delete it and re-render:
+
+```bash
+rm -rf quarto/simulations/actg175/<stem>_files
+quarto render quarto/simulations/actg175/<stem>.qmd
+```
+
+# 6. Quick reference card {#sec-quickref}
+
+| Action | Command |
+|--------|---------|
+| Verify package root (Bash) | `pwd` |
+| Verify package root (R) | `getwd()` |
+| Clone a config | `./clone_config.sh OLD NEW` |
+| Run a runner (Bash) | `Rscript quarto/simulations/actg175/<stem>.R` |
+| Run a runner (R) | use Background Jobs panel |
+| Render an article (Bash) | `quarto render quarto/simulations/actg175/<stem>.qmd` |
+| Render an article (R) | `quarto::quarto_render("...")` |
+| Render the summary | same `quarto render` / `quarto_render` on the summary qmd |
+| Open Terminal pane in RStudio | Tools → Terminal → New Terminal |
+| Inspect a bundle | `readRDS("...rds")$meta` (R Console) |
