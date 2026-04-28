@@ -6,7 +6,7 @@ format: html
 This article runs the simulation study for configuration
 **`actg175_binary_m1_harm_hr_fs1`** (study = ACTG175,
 outcome = binary, DGM = m1 [calibrated GLM, target OR(Q) = 2.0],
-objective = harm, sg_focus = `hrMaxSG`, FS bundle = fs1).
+objective = harm, sg_focus = `hr`, FS bundle = fs1).
 
 The article supports three rendering modes, controlled by `sim_mode`
 in the setup chunk:
@@ -44,7 +44,7 @@ set.seed(8316951L)
 # -- Mode --------------------------------------------------------------------
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
-sim_mode    <- "full"
+sim_mode    <- "auto"
 BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs1.rds"
 
 if (sim_mode == "auto") {
@@ -61,13 +61,13 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
   demo   = 100L,
-  full   = 5000L,
+  full   = 50L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
   demo   = 100L,
-  full   = 5000L
+  full   = 50L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
@@ -75,23 +75,10 @@ sim_n       <- 1000L
 cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
             sim_mode, nsims_alt, nsims_null, sim_n))
 
-# -- FS parameters -----------------------------------------------------------
-c1 <- 1.25           # hr.threshold (OR scale)
-c2 <- 1.0            # hr.consistency
-fs_pconsistency    <- 0.80
-max_look <- 10
-fs_splits          <- 1000L
-fs_n_min           <- 60L
-fs_d0_min          <- 10L
-fs_d1_min          <- 0L
-fs_maxk            <- 2L
-fs_dmin_grf        <- 0.0
-fs_seedit          <- 8316951L
-fs_sg_focus        <- "hr"
-fs_use_lasso       <- FALSE
-fs_use_grf         <- TRUE
-fs_return_selected_cuts_only <- FALSE
-fs_is_rct          <- TRUE
+# -- FS parameters (sourced from canonical fs1 file) -------------------
+# Canonical fs1 parameter values live in _fsparams/fs1_params.R.
+# Edit there to apply changes uniformly across all sg_focus configs.
+fs_sg_focus <- "hr"
 
 # -- GRF standalone parameters ------------------------------------------------
 grf_dmin           <- 0.10
@@ -114,42 +101,17 @@ sgdist_min_pct_null <- 1
 sgdist_top_k        <- 10L
 ordist_ylim         <- c(0, 3)
 
-# -- Consolidated parameter lists (used for both single-trial and sims) -------
-# fs_params: passed to do.call(forestsearch, ...) for single-trial analyses
-# and to run_simulation_analysis(fs_params = ...) for the simulation loop.
-# run_simulation_analysis() overrides details/quiet internally.
-# conf_force is set after data prep (depends on actg_df factor variables).
-fs_params <- list(
-  outcome.name           = "y_sim",
-  event.name             = "y_sim",
-  treat.name             = "treat_sim",
-  id.name                = "id",
-  outcome_type           = "binary",
-  effect_measure         = "OR",
-  use_lasso              = fs_use_lasso,
-  use_grf                = fs_use_grf,
-  return_selected_cuts_only = fs_return_selected_cuts_only,
-  max_subgroups_search   = max_look,
-  use_twostage           = TRUE,
-  hr.threshold           = c1,
-  hr.consistency         = c2,
-  pconsistency.threshold = fs_pconsistency,
-  stop_threshold         = 0.90,
-  sg_focus               = fs_sg_focus,
-  fs.splits              = fs_splits,
-  n.min                  = fs_n_min,
-  d0.min                 = fs_d0_min,
-  d1.min                 = fs_d1_min,
-  maxk                   = fs_maxk,
-  dmin.grf               = fs_dmin_grf,
-  is.RCT                 = fs_is_rct,
-  seedit                 = fs_seedit,
-  showten_subgroups      = TRUE,
-  details                = TRUE,
-  quiet                  = FALSE,
-  parallel_args          = list(plan = "sequential", workers = 1,
-                                show_message = FALSE)
-)
+# -- Build fs_params from sourced fs1 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs1_params.R.
+# stop_threshold is set here (rather than in fs1_params.R) so the rule
+# is visible in this per-config article.
+source("_fsparams/fs1_params.R")
+fs_params <- get_fs1_params(sg_focus = fs_sg_focus)
+fs_params$stop_threshold <- 0.90
+
+# Locals re-exposed for the single-trial sanity-check chunks
+c1       <- fs_params$hr.threshold
+max_look <- fs_params$max_subgroups_search
 
 grf_params <- list(
   dmin.grf     = grf_dmin,
