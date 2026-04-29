@@ -13,7 +13,8 @@ bootstrap_results(
   H_obs,
   Hc_obs,
   seed = 8316951L,
-  estimator_fn = NULL
+  estimator_fn = NULL,
+  boot_index_mat = NULL
 )
 }
 \arguments{
@@ -47,13 +48,26 @@ bias correction.}
 \code{treat.recommend == 1}) from original sample. Used as reference for
 bias correction.}
 
-\item{seed}{Integer. Random seed for reproducibility. Default 8316951L.}
+\item{seed}{Integer. Random seed for reproducibility. Default 8316951L.
+Only used when \code{boot_index_mat} is \code{NULL}; when an
+explicit index matrix is supplied, it is the source of bootstrap
+row selection and \code{seed} has no effect on bootstrap indices.}
 
 \item{estimator_fn}{Closure or \code{NULL}. Effect-estimator closure from
 \code{\link{make_effect_estimator}} for GLM outcomes.  When \code{NULL}
-(default), the Cox model via \code{cox.formula.boot} is used.
-Must match the seed used in \code{\link{bootstrap_ystar}} to ensure
-bootstrap index alignment.}
+(default), the Cox model via \code{cox.formula.boot} is used.}
+
+\item{boot_index_mat}{Integer matrix or \code{NULL}. Optional
+pre-generated \eqn{B \times N} matrix of bootstrap row indices. When
+supplied, row \eqn{b} is used as the resampling vector for iteration
+\eqn{b} (\code{df_boot_analysis[boot_index_mat[b, ], ]}); the
+per-iteration call to \code{sample.int()} is bypassed. This is the
+path taken by \code{\link{forestsearch_bootstrap_dofuture}}, which
+generates the matrix once on the main process so that the same
+indices drive both the worker's bootstrap data construction and the
+\code{Ystar_mat} count matrix. When \code{NULL} (default), each
+iteration draws its own indices via \code{sample.int()} - retained
+for backward compatibility with direct callers.}
 }
 \value{
 Data.table with one row per bootstrap iteration and columns:

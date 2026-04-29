@@ -248,7 +248,11 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     } else {
       future::plan("sequential")
     }
-    if (exists("Ystar_mat") && object.size(Ystar_mat) > 1e9) {
+    big_objs <- c("Ystar_mat", "boot_index_mat")
+    if (any(vapply(big_objs, function(nm) {
+      exists(nm, inherits = FALSE) &&
+        as.numeric(object.size(get(nm, inherits = FALSE))) > 1e9
+    }, logical(1)))) {
       gc(verbose = FALSE, reset = TRUE)
     }
   }, add = TRUE)
@@ -256,11 +260,26 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   setup_parallel_SGcons(parallel_args)
 
   # =======================================================================
-  # SECTION 7: GENERATE YSTAR MATRIX (BOOTSTRAP INDICATORS)
+  # SECTION 7: GENERATE BOOTSTRAP INDEX MATRIX AND DERIVE YSTAR
   # =======================================================================
+  # The B x N integer matrix `boot_index_mat` is the single source of
+  # truth for bootstrap row indices: it is consumed both by
+  # bootstrap_results() (each iteration uses row b for resampling) and by
+  # the count matrix Ystar_mat (passed to get_dfRes() for the
+  # infinitesimal-jackknife variance estimator).  Generating it once on
+  # the main process replaces a prior contract where two independent
+  # parallel passes (bootstrap_ystar() and bootstrap_results()) had to
+  # produce identical sample.int() outputs by virtue of doFuture's
+  # L'Ecuyer-CMRG seed-derivation - an alignment that was easy to break
+  # silently.
 
   boot_seed <- seed
-  Ystar_mat <- bootstrap_ystar(fs.est$df.est, nb_boots, seed = boot_seed)
+  boot_index_mat <- .make_boot_index_matrix(
+    n        = nrow(fs.est$df.est),
+    nb_boots = nb_boots,
+    seed     = boot_seed
+  )
+  Ystar_mat <- .boot_indices_to_ystar(boot_index_mat)
 
   if (details) {
     cat("Ystar matrix generated should be 'boots x N': ", nrow(Ystar_mat), " x ",
@@ -319,7 +338,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     H_obs = H_obs,
     Hc_obs = Hc_obs,
     seed = boot_seed,
-    estimator_fn = estimator_fn_boot
+    estimator_fn = estimator_fn_boot,
+    boot_index_mat = boot_index_mat
   )
 
   options(warn = old_warn)

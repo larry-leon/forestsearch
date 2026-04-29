@@ -27,11 +27,23 @@
 #'   \code{treat.recommend == 1}) from original sample. Used as reference for
 #'   bias correction.
 #' @param seed Integer. Random seed for reproducibility. Default 8316951L.
+#'   Only used when \code{boot_index_mat} is \code{NULL}; when an
+#'   explicit index matrix is supplied, it is the source of bootstrap
+#'   row selection and \code{seed} has no effect on bootstrap indices.
 #' @param estimator_fn Closure or \code{NULL}. Effect-estimator closure from
 #'   \code{\link{make_effect_estimator}} for GLM outcomes.  When \code{NULL}
 #'   (default), the Cox model via \code{cox.formula.boot} is used.
-#'   Must match the seed used in \code{\link{bootstrap_ystar}} to ensure
-#'   bootstrap index alignment.
+#' @param boot_index_mat Integer matrix or \code{NULL}. Optional
+#'   pre-generated \eqn{B \times N} matrix of bootstrap row indices. When
+#'   supplied, row \eqn{b} is used as the resampling vector for iteration
+#'   \eqn{b} (\code{df_boot_analysis[boot_index_mat[b, ], ]}); the
+#'   per-iteration call to \code{sample.int()} is bypassed. This is the
+#'   path taken by \code{\link{forestsearch_bootstrap_dofuture}}, which
+#'   generates the matrix once on the main process so that the same
+#'   indices drive both the worker's bootstrap data construction and the
+#'   \code{Ystar_mat} count matrix. When \code{NULL} (default), each
+#'   iteration draws its own indices via \code{sample.int()} - retained
+#'   for backward compatibility with direct callers.
 #'
 #' @return Data.table with one row per bootstrap iteration and columns:
 #'   \describe{
@@ -215,7 +227,8 @@
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs,
                               seed = 8316951L,
-                              estimator_fn = NULL) {
+                              estimator_fn = NULL,
+                              boot_index_mat = NULL) {
   # =========================================================================
   # SECTION: INITIALIZE TIMING
   # =========================================================================
@@ -226,8 +239,57 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
   NN <- nrow(df_boot_analysis)
   id0 <- seq_len(NN)
 
-  # Do not modify seed it needs to align with ystar
-  # Setting seed = FALSE to allow for manual control of seeds
+  # =========================================================================
+  # SECTION: VALIDATE OPTIONAL boot_index_mat
+  # =========================================================================
+  # When supplied, the index matrix is the source of truth for bootstrap
+  # row selection; the per-iteration sample.int() call is bypassed and
+  # in_boot <- boot_index_mat[boot, ] is used instead.  This removes the
+  # implicit doFuture-stream alignment with bootstrap_ystar() that the
+  # NULL path relies on.
+  if (!is.null(boot_index_mat)) {
+    if (!is.matrix(boot_index_mat) || !is.numeric(boot_index_mat)) {
+      stop("'boot_index_mat' must be a numeric matrix.", call. = FALSE)
+    }
+    if (nrow(boot_index_mat) != nb_boots) {
+      stop("'boot_index_mat' must have nb_boots rows; got ",
+           nrow(boot_index_mat), " rows for nb_boots = ", nb_boots, ".",
+           call. = FALSE)
+    }
+    if (ncol(boot_index_mat) != NN) {
+      stop("'boot_index_mat' must have nrow(df_boot_analysis) columns; got ",
+           ncol(boot_index_mat), " columns for n = ", NN, ".",
+           call. = FALSE)
+    }
+  }
+
+  # =========================================================================
+  # SECTION: HOIST ITERATION-INVARIANT BOOTSTRAP-FRAME PREPARATION
+  # =========================================================================
+  # The set of columns to drop (`fs.est$confounders.candidate` plus
+  # "treat.recommend") and the analysis-frame projection `dfnew` do not
+  # vary across bootstrap iterations and were previously recomputed B
+  # times inside the foreach worker.  Compute them once here.
+  #
+  # `keep_cols` is a logical vector of column positions, used inside the
+  # worker to subset `df_boot` (which is `df_boot_analysis[in_boot, ]`,
+  # i.e. row-resampled but column-identical).  This replaces a per-
+  # iteration `!(names(df_boot) %in% drop.vars)` lookup with a
+  # precomputed positional index.
+  drop_vars_boot <- c(fs.est$confounders.candidate, "treat.recommend")
+  keep_cols_boot <- !(names(df_boot_analysis) %in% drop_vars_boot)
+  dfnew_predict  <- df_boot_analysis[, keep_cols_boot, drop = FALSE]
+
+  # Pre-extract the forestsearch argument list that each bootstrap
+  # iteration clones and customises.  Holding this in a small named
+  # binding (rather than reading `fs.est$args_call_all` from inside the
+  # worker) prevents doFuture's globals-detection from serialising the
+  # entire `fs.est` object - including `df.est`, `find.grps`, GRF
+  # outputs, and other slots that the worker never reads - to each
+  # parallel worker.  `fs.est` itself is no longer referenced inside
+  # the foreach body after this change.
+  args_FS_template <- fs.est$args_call_all
+
   foreach_results <- suppressWarnings({foreach::foreach(
     boot = seq_len(nb_boots),
     .options.future = list(
@@ -250,10 +312,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
     show3 <- FALSE
     if (show_three) show3 <- (boot <= 3)
-    # Create bootstrap sample
 
-
-    in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    # Source bootstrap row indices: explicit pre-generated matrix when
+    # provided, otherwise fall back to per-iteration sample.int() (legacy
+    # path retained for direct callers of bootstrap_results()).
+    if (!is.null(boot_index_mat)) {
+      in_boot <- boot_index_mat[boot, ]
+    } else {
+      in_boot <- sample.int(NN, size = NN, replace = TRUE)
+    }
     df_boot <- df_boot_analysis[in_boot, ]
     df_boot$id_boot <- seq_len(nrow(df_boot))
 
@@ -267,9 +334,9 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       event_var <- all.vars(cox.formula.boot[[2]])[2]
       treat_var <- all.vars(cox.formula.boot[[3]])[1]
     } else {
-      outcome_var <- fs.est$args_call_all$outcome.name
-      event_var   <- fs.est$args_call_all$event.name
-      treat_var   <- fs.est$args_call_all$treat.name
+      outcome_var <- args_FS_template$outcome.name
+      event_var   <- args_FS_template$event.name
+      treat_var   <- args_FS_template$treat.name
     }
 
     # =================================================================
@@ -360,16 +427,21 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # =================================================================
     # Prepare bootstrap dataframes - drop confounders and treat.recommend
     # =================================================================
-    drop.vars <- c(fs.est$confounders.candidate, "treat.recommend")
-    dfnew <- df_boot_analysis[, !(names(df_boot_analysis) %in% drop.vars)]
-    dfnew_boot <- df_boot[, !(names(df_boot) %in% drop.vars)]
+    # `dfnew_predict` and the column-position vector `keep_cols_boot`
+    # are precomputed before the foreach loop (invariant across
+    # iterations).  Only `dfnew_boot` needs to be built per iteration,
+    # since `df_boot` differs each time.
+    dfnew_boot <- df_boot[, keep_cols_boot, drop = FALSE]
 
     # =================================================================
     # Configure forestsearch arguments for bootstrap
     # =================================================================
-    args_FS_boot <- fs.est$args_call_all
+    # Per-iteration clone of the pre-extracted template; R's copy-on-
+    # modify semantics make the subsequent `args_FS_boot$X <- ...`
+    # mutations local to this worker iteration.
+    args_FS_boot <- args_FS_template
     args_FS_boot$df.analysis <- dfnew_boot
-    args_FS_boot$df.predict <- dfnew
+    args_FS_boot$df.predict <- dfnew_predict
 
     # CATEGORY 1: OUTPUT SUPPRESSION
     args_FS_boot$details <- show3

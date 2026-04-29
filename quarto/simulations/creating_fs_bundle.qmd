@@ -1,0 +1,403 @@
+---
+title: "Creating a New FS Bundle"
+subtitle: "Step-by-step recipe for spawning fs2, fs3, ... from an existing bundle"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+---
+
+This guide walks through creating a new FS parameter bundle (e.g.,
+`fs2`) and propagating it across all existing `sg_focus`
+configurations within a study.
+
+The framework was designed for this to be a small, repeatable
+operation: define the new bundle once, spawn the qmds in one command,
+render each.
+
+::: {.callout-note}
+## Working environment
+
+This guide assumes you're operating on **Mac** for all file
+creation and rendering. New files are committed to GitHub from
+the Mac, then pulled onto Linux machines as needed (e.g., for
+parallel rendering across machines). The shell commands below
+use macOS conventions.
+:::
+
+# Prerequisites {#sec-prereqs}
+
+Before starting, confirm:
+
+- The forestsearch package root is your terminal's working directory.
+- Both helper scripts exist and are executable:
+
+```bash
+ls -la quarto/simulations/clone_config.sh \
+       quarto/simulations/spawn_fs_bundle.sh
+```
+
+  Both should show `-rwx` permission bits. If not, run:
+
+```bash
+chmod +x quarto/simulations/clone_config.sh \
+         quarto/simulations/spawn_fs_bundle.sh
+```
+
+- The current `fs1` bundle has at least one rendered `.rds` file
+  (the simulations that produced it serve as your reference).
+
+# Step 1 — Decide what `fs2` represents {#sec-define}
+
+Before touching any files, decide what makes `fs2` different from
+`fs1`. A clear answer here pays off later when reading
+`fsparams_summary.qmd` and writing papers.
+
+Examples:
+
+- **Constrained search**: `fs2` could narrow `max_subgroups_search`
+  from 10 to 5, tightening the candidate space.
+- **Stricter consistency**: `fs2` could raise `pconsistency.threshold`
+  from 0.80 to 0.90.
+- **Different effect threshold**: `fs2` could move `c1` from 1.25
+  to 1.50 (OR scale).
+- **Different early-stopping aggressiveness**: `fs2` could change
+  `stop_threshold` from 0.90 to 0.95 (when `sg_focus` permits).
+
+Write a one-sentence description of what `fs2` is for. You'll put
+this in the file's header comment in Step 2.
+
+# Step 2 — Create `fs2_params.R` {#sec-create-bundle}
+
+The bundle file is the single source of truth for `fs2`'s parameter
+values. You create it once; the spawn script will then propagate the
+qmds.
+
+## 2.1 Copy the canonical fs1 file as a starting point
+
+```bash
+cd ~/Documents/GitHub/forestsearch
+cp quarto/simulations/actg175/_fsparams/fs1_params.R \
+   quarto/simulations/actg175/_fsparams/fs2_params.R
+```
+
+## 2.2 Edit the new file
+
+Open `quarto/simulations/actg175/_fsparams/fs2_params.R` in
+RStudio and make these four edits:
+
+### Edit 1 — Rename the function
+
+Find every occurrence of `get_fs1_params` and rename to
+`get_fs2_params`:
+
+```r
+# Before
+get_fs1_params <- function(sg_focus, ...) { ... }
+
+# After
+get_fs2_params <- function(sg_focus, ...) { ... }
+```
+
+### Edit 2 — Update the file-level comment block
+
+Update the header comment to describe what `fs2` is for. The
+"Regime:" line is auto-extracted by `fsparams_summary.qmd`, so
+make it informative.
+
+```r
+# Regime: fs2 — <one-line summary of what fs2 is tuned for>.
+#
+# Designed for: <use case>.
+#
+# Differs from fs1 in:
+#   - <parameter A> = <new value> (vs fs1's <old value>)
+#   - <parameter B> = <new value>
+#   - ...
+```
+
+### Edit 3 — Update parameter values
+
+Change only the parameter values that distinguish `fs2` from `fs1`.
+Leave the rest unchanged.
+
+### Edit 4 — Update the roxygen `@title` line if you wish
+
+The roxygen doc above the function should reference `fs2` rather
+than `fs1`. Quick search-and-replace.
+
+## 2.3 Verify
+
+Source the new file in the R Console to confirm it loads cleanly
+and the function returns the expected values:
+
+```r
+source("quarto/simulations/actg175/_fsparams/fs2_params.R")
+get_fs2_params(sg_focus = "hr")
+get_fs2_params(sg_focus = "hrMaxSG")  # confirm stop_threshold = NULL here
+```
+
+If both calls return parameter lists without errors, the bundle is
+ready.
+
+# Step 3 — Spawn the five `*_fs2.qmd` files {#sec-spawn}
+
+One command does the entire propagation:
+
+```bash
+./quarto/simulations/spawn_fs_bundle.sh fs1 fs2
+```
+
+The script will:
+
+1. Verify `_fsparams/fs2_params.R` exists (errors helpfully if not)
+2. Verify the function `get_fs2_params()` is defined inside it
+3. List all `*_fs1.qmd` files it found
+4. Show what it plans to create
+5. Refuse to overwrite any existing `*_fs2.qmd` files
+6. Create each new qmd by copying the `fs1` version and replacing
+   `fs1` → `fs2` throughout (catching `BUNDLE_PATH`, `source()`
+   line, function call, validation strings)
+
+Expected output ends with:
+
+```
+Done. Spawned 5 new qmd(s).
+
+Next steps:
+  ...
+       quarto render quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs2.qmd
+       quarto render quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs2.qmd
+       ...
+```
+
+::: {.callout-tip}
+## Spot-check the spawn
+
+Open one of the new qmds (any will do) and verify:
+
+- `BUNDLE_PATH` line points at `..._fs2.rds`
+- `source()` line points at `_fsparams/fs2_params.R`
+- Function call is `get_fs2_params(...)` not `get_fs1_params(...)`
+- The validation-check string in the mode-handoff chunk references
+  `..._fs2`
+
+The script handles these automatically, but a 30-second visual
+check is cheap insurance.
+:::
+
+# Step 4 — Render each qmd in `full` mode {#sec-render}
+
+This is the slow step. Each qmd takes 15-30 minutes at production
+N. You can run them sequentially or distribute across your
+machines via GitHub once the qmds are committed.
+
+## 4.1 Edit each qmd's setup chunk
+
+In each of the five new `*_fs2.qmd` files, change `sim_mode` to
+`"full"`:
+
+```r
+sim_mode <- "full"
+```
+
+## 4.2 Render
+
+You can render the qmds one at a time, or queue them all up to
+run sequentially overnight (recommended for production runs at
+~2 hours each).
+
+### Single render (interactive, one at a time)
+
+From the Mac terminal:
+
+```bash
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs2.qmd
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs2.qmd
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_hrMinSG_fs2.qmd
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs2.qmd
+quarto render quarto/simulations/actg175/actg175_binary_m1_harm_minSG_fs2.qmd
+```
+
+### Batch render (queued, sequential, overnight)
+
+For five 2-hour renders that's 10 hours of compute. Use
+`render_queue.sh` to run them back-to-back without competing for
+resources, with `caffeinate` to keep the Mac awake:
+
+```bash
+caffeinate -s ./quarto/simulations/render_queue.sh \
+  quarto/simulations/actg175/actg175_binary_m1_harm_*_fs2.qmd
+```
+
+The glob `*_fs2.qmd` picks up all five spawned qmds. Each runs
+to completion before the next starts. A failed render won't
+abort the queue — the script logs the failure and moves on, so
+one bad render at job 1 doesn't waste the rest of the night.
+
+See [§5b of the workflow guide](../simulation_workflow.qmd#step-5b-overnight-batch-runs-multiple-configs-in-sequence)
+for full details on logs, watching progress mid-stream, and
+running detached via `nohup`.
+
+Each render (single or queued) produces:
+
+- A `.rds` bundle (the saved simulation results)
+- A `.html` preview alongside the qmd
+
+## 4.3 Switch back to `auto` mode
+
+After each `full` render completes successfully, switch the qmd
+back to `sim_mode <- "auto"` so future renders use the saved
+bundle (no re-running the simulation).
+
+## 4.4 (Optional) Distributing renders across machines via GitHub
+
+If you want to use your Linux machines to parallelize rendering:
+
+1. On Mac: commit the new qmd files (without bundles) and push to
+   GitHub.
+2. On Linux machine A: pull, render `*_hr_fs2.qmd` and
+   `*_hrMaxSG_fs2.qmd` in `full` mode, commit and push the
+   resulting `.rds` and `.html` files.
+3. On Linux machine B: pull (now seeing the partial work), render
+   the remaining qmds in `full` mode, commit and push.
+4. On Mac: pull to sync.
+
+This works because the qmd is the source-of-truth file (committed
+once on Mac); each machine just produces its share of artifacts.
+
+# Step 5 — Switch back to `auto` mode and back up bundles {#sec-cleanup}
+
+Once all five `fs2` bundles are built:
+
+## 5.1 Confirm `sim_mode <- "auto"` in each new qmd
+
+Belt-and-suspenders check — reduces the chance of an accidental
+re-run during a future render.
+
+## 5.2 Back up the new bundles
+
+```bash
+cd quarto/simulations/actg175
+mv actg175_binary_m1_harm_*_fs2.rds _backups/
+# Then copy back so the originals stay in place for cross-cut consumption:
+cp _backups/actg175_binary_m1_harm_*_fs2.rds .
+```
+
+(Or equivalently: copy first, then move — same result.)
+
+# Step 6 — Update cross-cut summaries {#sec-summaries}
+
+Two summary documents need to know about `fs2`:
+
+## 6.1 The focus-by-fs cross-cut summary
+
+Open
+`quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd`
+and append `"fs2"` to the `fs_levels` vector:
+
+```r
+fs_levels <- c("fs1", "fs2")
+```
+
+Then re-render:
+
+```bash
+quarto render \
+  quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd
+```
+
+## 6.2 The FS parameter summary
+
+This document auto-discovers `fs*_params.R` files, so no edits
+needed — just re-render:
+
+```bash
+quarto render quarto/simulations/actg175/_fsparams/fsparams_summary.qmd
+```
+
+This now shows `fs1` vs `fs2` side-by-side: differences in Section 2,
+all parameters in Section 3 with differing rows highlighted.
+
+# Step 7 — Commit to GitHub {#sec-commit}
+
+Once everything is verified locally:
+
+```bash
+git add quarto/simulations/actg175/_fsparams/fs2_params.R
+git add quarto/simulations/actg175/actg175_binary_m1_harm_*_fs2.qmd
+git add quarto/simulations/actg175/actg175_binary_m1_harm_*_fs2.rds
+git add quarto/simulations/actg175/actg175_binary_m1_harm_*_fs2.html
+git add quarto/simulations/actg175/_summaries/  # if updated
+git add quarto/simulations/actg175/_fsparams/fsparams_summary.html
+
+git commit -m "Add fs2 bundle: <one-line summary of what fs2 is>"
+git push
+```
+
+Now your Linux machines can pull and re-render or compare as needed.
+
+# Quick reference card {#sec-quickref}
+
+| Step | Command |
+|------|---------|
+| Copy fs1 as starting point | `cp _fsparams/fs1_params.R _fsparams/fs2_params.R` |
+| Spawn the 5 qmds | `./quarto/simulations/spawn_fs_bundle.sh fs1 fs2` |
+| Render one qmd in full mode | `quarto render <stem>.qmd` (after editing `sim_mode <- "full"`) |
+| Batch-render all 5 overnight | `caffeinate -s ./quarto/simulations/render_queue.sh quarto/simulations/actg175/*_fs2.qmd` |
+| Verify bundle | `readRDS("<stem>.rds")$meta` (R Console) |
+| Update focus-by-fs summary | Edit `fs_levels`, re-render |
+| Update fsparams summary | Re-render (auto-discovers) |
+| Commit & push | Standard git workflow |
+
+# Troubleshooting {#sec-trouble}
+
+## `spawn_fs_bundle.sh` errors with "bundle definition file not found"
+
+You haven't created `_fsparams/fs2_params.R` yet. The script's
+error message includes the exact `cp` command to use as a
+starting point.
+
+## `spawn_fs_bundle.sh` warns about missing function
+
+The script grep-checks that `_fsparams/fs2_params.R` defines
+`get_fs2_params()`. If you forgot to rename the function from
+`get_fs1_params` to `get_fs2_params` after copying, the warning
+fires and the script asks you to confirm.
+
+## A spawned qmd fails to render with "object 'get_fs2_params' not found"
+
+Same root cause: the function rename was missed in
+`fs2_params.R`. Open the file, rename, save, re-render.
+
+## A spawned qmd fails with config_id mismatch warning
+
+Open the qmd and check the validation-check string (around line
+~518 in the mode-handoff chunk). It should reference `..._fs2`,
+not `..._fs1`. The spawn script handles this automatically; if
+it's wrong, the file token replacement didn't run cleanly.
+
+## Render takes much longer than expected (compared to fs1 timing)
+
+If `fs2`'s `max_subgroups_search` or `stop_threshold` differ from
+`fs1` in ways that expand the search space, longer runtimes are
+expected. Check `fsparams_summary.qmd`'s differences table to see
+what changed.
+
+# Notes on the design {#sec-notes}
+
+This recipe relies on three pieces of infrastructure:
+
+1. **`_fsparams/fs*_params.R`**: the canonical bundle definitions.
+   Each is one file, defining one function. Edit once, propagates
+   on next render of any qmd that uses it.
+2. **`spawn_fs_bundle.sh`**: turns the cross-product
+   "5 sg_focuses × 1 new bundle" into a single command, with
+   safety checks for missing or misnamed bundle files.
+3. **Per-config qmds with no overrides**: each qmd just
+   `source()`s the bundle file and calls the function. No
+   `stop_threshold` overrides, no scattered FS values to keep
+   in sync.
+
+Together these eliminate the cross-file drift that would otherwise
+make adding `fs2` a tedious five-edit chore.

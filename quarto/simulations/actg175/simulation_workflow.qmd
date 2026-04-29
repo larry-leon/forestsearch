@@ -338,6 +338,126 @@ renders re-read the bundle rather than re-running the simulation:
 sim_mode <- "auto"
 ```
 
+## Step 5b — Overnight batch runs (multiple configs in sequence)
+
+When you want to render several qmds back-to-back (typically for
+overnight runs of multiple configurations), use
+`render_queue.sh`. It runs the renders strictly sequentially —
+each gets full machine resources, no two compete for cores —
+and continues past failures so a single bad render doesn't abort
+the whole queue.
+
+### Prepare each qmd
+
+Before launching, set `sim_mode <- "full"` in the setup chunk of
+each qmd you intend to render. The queue itself doesn't change
+modes — that's intentional, so you have explicit control over
+which renders are production-grade.
+
+### Launch the queue
+
+From the package root:
+
+::: {.panel-tabset}
+
+#### Bash (Terminal pane)
+
+```bash
+./quarto/simulations/render_queue.sh \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd
+```
+
+Or with a glob (for example, all `fs2` configs after a spawn):
+
+```bash
+./quarto/simulations/render_queue.sh \
+  quarto/simulations/actg175/actg175_binary_m1_harm_*_fs2.qmd
+```
+
+#### R (Console)
+
+The Console doesn't run shell scripts well as long-running
+processes. For overnight runs, prefer the Terminal pane.
+
+If you're testing the queue with short renders interactively,
+you can call it via:
+
+```r
+system2("./quarto/simulations/render_queue.sh",
+        args = c("quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd",
+                 "quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd"))
+```
+
+:::
+
+### Prevent the Mac from sleeping
+
+Mac laptops sleep when idle, which kills long renders. Use
+`caffeinate` to keep the system awake while the queue runs:
+
+```bash
+caffeinate -s ./quarto/simulations/render_queue.sh \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd
+```
+
+`caffeinate -s` keeps the system from sleeping while the wrapped
+command is running. Lid-closure still won't sleep the machine
+provided it's plugged in.
+
+### Run in the background (disconnect-safe)
+
+If you want to launch and then close your terminal session:
+
+```bash
+nohup caffeinate -s ./quarto/simulations/render_queue.sh \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd \
+  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd \
+  > /dev/null 2>&1 &
+```
+
+Check progress later by tailing the queue log:
+
+```bash
+tail -f quarto/simulations/queue_*.log
+```
+
+### Watch progress mid-stream
+
+Even without `nohup`, you can watch a running queue from a
+second Terminal pane:
+
+```bash
+tail -f quarto/simulations/queue_*.log
+```
+
+### After the queue finishes
+
+The queue produces:
+
+- **Top-level queue log**: `quarto/simulations/queue_<timestamp>.log`
+  with the run summary (which jobs succeeded, which failed, total
+  elapsed).
+- **Per-job logs**: `quarto/simulations/<study>/logs/render_<stem>_<timestamp>.log`
+  with the full Quarto output for each render. Useful if a job
+  failed and you need to diagnose.
+- **Final summary** echoed to terminal listing all succeeded /
+  failed jobs.
+
+Once verified, switch each rendered qmd back to `sim_mode <- "auto"`
+and back up the new bundles to `_backups/`.
+
+::: {.callout-warning}
+The queue does **not** automatically switch `sim_mode` back to
+`"auto"` after rendering. If you launch a second queue for the
+same qmds without doing this manually, they'll re-run the
+simulations from scratch (overwriting the just-built bundles).
+:::
+
 ## Step 6 — Update and render the cross-cut summary
 
 Edit the summary qmd to extend the level vectors so the new cell
@@ -505,7 +625,9 @@ quarto render quarto/simulations/actg175/<stem>.qmd
 | Verify package root (Bash) | `pwd` |
 | Verify package root (R) | `getwd()` |
 | Clone a config | `./quarto/simulations/clone_config.sh OLD NEW` |
+| Spawn an fs bundle across all sg_focus configs | `./quarto/simulations/spawn_fs_bundle.sh fs1 fs2` |
 | Build a bundle (Bash) | Set `sim_mode <- "full"` in qmd, then `quarto render quarto/simulations/actg175/<stem>.qmd` |
+| Build many bundles overnight | `caffeinate -s ./quarto/simulations/render_queue.sh <qmd1> <qmd2> ...` |
 | Render an article (Bash) | `quarto render quarto/simulations/actg175/<stem>.qmd` (with `sim_mode <- "auto"`) |
 | Render an article (R) | `quarto::quarto_render("...")` |
 | Render the summary | same `quarto render` / `quarto_render` on the summary qmd |

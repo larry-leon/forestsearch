@@ -267,6 +267,45 @@ fs_single_tabs$tab_estimates
 
 ```
 
+```{r bootstrap-alt}
+
+t0 <- proc.time()
+fs <- fs_single
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 500,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
+```
+
+```{r bootstrap-summary-alt}
+# Comprehensive summary with diagnostics
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+
+# Display bias-corrected estimates table
+summaries$table
+```
+
+
+
+
 
 ```{r single-trial-null}
 #| code-fold: true
@@ -295,6 +334,45 @@ fs_single_tabs$tab_estimates
 }
 
 ```
+
+
+```{r bootstrap-null}
+
+t0 <- proc.time()
+fs <- fs_single
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 500,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
+```
+
+```{r bootstrap-summary-null}
+# Comprehensive summary with diagnostics
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+
+# Display bias-corrected estimates table
+summaries$table
+```
+
+
 
 # Full Simulation Study {#sec-sims}
 
