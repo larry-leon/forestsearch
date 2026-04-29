@@ -1,4 +1,32 @@
 # =============================================================================
+# Helper: Sync resolved values into args_call_all
+# =============================================================================
+
+#' Sync resolved parameter values into \code{args_call_all}
+#'
+#' For parameters whose values are resolved late in \code{forestsearch()}
+#' (after the initial argument capture in Section 1B), this helper
+#' copies the current value of each named formal from the calling
+#' environment back into \code{args_call_all}.  Centralising this
+#' pattern avoids the historical drift where scattered
+#' \code{args_call_all$X <- X} mirror lines silently fell out of sync
+#' with newly-added formals.
+#'
+#' @param args_call_all The captured argument list to update.
+#' @param env Environment to read values from (typically
+#'   \code{environment()} of the caller).
+#' @param names Character vector of formal names to sync.
+#' @return The updated \code{args_call_all} list.
+#' @noRd
+.sync_args_call_all <- function(args_call_all, env, names) {
+  for (n in names) {
+    args_call_all[[n]] <- get(n, envir = env)
+  }
+  args_call_all
+}
+
+
+# =============================================================================
 # Validation Helper: Outcome / Threshold Consistency
 # =============================================================================
 
@@ -564,30 +592,44 @@ forestsearch <- function(df.analysis,
                          ps_hat = NULL) {
 
   # ===========================================================================
-  # SECTION 1: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
+  # SECTION 1A: RESOLVE FORMAL DEFAULTS BEFORE ARGUMENT CAPTURE
+  # ===========================================================================
+  # Resolve match.arg / default-NULL formals up front so the captured
+  # args_call_all (Section 1B) holds the values that downstream do.call
+  # sites need.  This eliminates the historical pattern of scattered
+  # args_call_all$X <- X mirror lines for these parameters.
+
+  outcome_type        <- match.arg(outcome_type)
+  overdispersion      <- match.arg(overdispersion)
+  grf_count_transform <- match.arg(grf_count_transform)
+
+  if (outcome_type != "survival" && is.null(effect_measure)) {
+    effect_measure <- switch(outcome_type,
+      binary     = "RD",
+      continuous = "MD",
+      count      = "IRR"
+    )
+  }
+
+  if (is.null(adverse_outcome)) {
+    adverse_outcome <- (outcome_type %in% c("binary", "count"))
+  }
+
+  # Threshold aliases: effect.threshold / consistency.threshold are the
+  # preferred names; hr.threshold / hr.consistency are retained for
+  # backward compatibility.  New names take precedence when both are
+  # provided.
+  user_set_threshold   <- !is.null(effect.threshold)      || !missing(hr.threshold)
+  user_set_consistency <- !is.null(consistency.threshold) || !missing(hr.consistency)
+  if (!is.null(effect.threshold))      hr.threshold   <- effect.threshold
+  if (!is.null(consistency.threshold)) hr.consistency <- consistency.threshold
+
+  # ===========================================================================
+  # SECTION 1B: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
   # ===========================================================================
 
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
-
-  # ===========================================================================
-  # SECTION 1B: RESOLVE THRESHOLD PARAMETER ALIASES
-  # ===========================================================================
-  # effect.threshold / consistency.threshold are the preferred names.
-  # hr.threshold / hr.consistency are kept for backward compatibility.
-  # New names take precedence if both are provided.
-
-  user_set_threshold <- !is.null(effect.threshold) || !missing(hr.threshold)
-  user_set_consistency <- !is.null(consistency.threshold) || !missing(hr.consistency)
-
-  if (!is.null(effect.threshold)) {
-    hr.threshold <- effect.threshold
-    args_call_all$hr.threshold <- hr.threshold
-  }
-  if (!is.null(consistency.threshold)) {
-    hr.consistency <- consistency.threshold
-    args_call_all$hr.consistency <- hr.consistency
-  }
 
   # ===========================================================================
   # SECTION 2: VALIDATE INPUTS
@@ -634,7 +676,8 @@ forestsearch <- function(df.analysis,
     }
 
     stop_threshold <- NULL
-    args_call_all$stop_threshold <- NULL
+    args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                         "stop_threshold")
   }
 
   # Validate two-stage parameters
@@ -677,11 +720,6 @@ forestsearch <- function(df.analysis,
     user_set_consistency = user_set_consistency
   )
 
-  # Store resolved value so bootstrap/CV pick up the scalar, not the default vector
-  args_call_all$outcome_type <- outcome_type
-  args_call_all$overdispersion <- overdispersion
-  args_call_all$grf_count_transform <- grf_count_transform
-
   # Resolve adverse_outcome default:
   #   Binary outcomes: TRUE (event = adverse, the clinical trial convention)
   #   Count outcomes:  TRUE (higher count = more events = worse)
@@ -690,7 +728,6 @@ forestsearch <- function(df.analysis,
   if (is.null(adverse_outcome)) {
     adverse_outcome <- (outcome_type %in% c("binary", "count"))
   }
-  args_call_all$adverse_outcome <- adverse_outcome
 
   # Build effect estimator closure for non-survival outcomes
   estimator_fn <- NULL
@@ -708,8 +745,6 @@ forestsearch <- function(df.analysis,
         count      = "IRR"
       )
     }
-    # Store resolved effect_measure
-    args_call_all$effect_measure <- effect_measure
 
     # Validate offset requirement for rate-based measures
     if (effect_measure %in% c("IRR", "IRD") && is.null(offset.name)) {
@@ -905,7 +940,8 @@ forestsearch <- function(df.analysis,
     if (missing(dmin.grf)) {
       dmin.grf <- 0.0
     }
-    args_call_all$dmin.grf <- dmin.grf
+    args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                         "dmin.grf")
   } else {
     # Survival path: print configuration summary
     if (!quiet) {
@@ -989,9 +1025,13 @@ forestsearch <- function(df.analysis,
   if (is.null(ps_method)) {
     ps_method <- if (is.RCT) "none" else "grf"
   }
-  args_call_all$ps_method <- ps_method
+  args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                       "ps_method")
 
-  # Resolve ps_adjust_method
+  # Resolve ps_adjust_method.  NB: the resolved value lives in
+  # ps_adjust_resolved (used downstream alongside the un-overridden
+  # ps_adjust_method), so this mirror remains an explicit override
+  # rather than a .sync_args_call_all() call.
   ps_adjust_method <- match.arg(ps_adjust_method)
   ps_adjust_resolved <- if (ps_method == "none") "none" else ps_adjust_method
   args_call_all$ps_adjust_method <- ps_adjust_resolved
@@ -1020,7 +1060,7 @@ forestsearch <- function(df.analysis,
         treat.name       = treat.name,
         confounders.name = confounders.name,
         method           = ps_method,
-        seed             = if (exists("seedit")) seedit else 8316951L
+        seed             = seedit
       )
       df.analysis <- ps_result$data
       if (details) {
@@ -1043,7 +1083,8 @@ forestsearch <- function(df.analysis,
     }
   }
 
-  args_call_all$adjust_covariates <- adjust_covariates
+  args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                       "adjust_covariates")
 
   # ===========================================================================
   # SECTION 3: INITIALIZE TIMING AND DATA
@@ -1186,7 +1227,8 @@ forestsearch <- function(df.analysis,
   }
 
   # Update args_call_all with resolved event.name for downstream calls
-  args_call_all$event.name <- event.name
+  args_call_all <- .sync_args_call_all(args_call_all, environment(),
+                                       "event.name")
 
   FSdata <- tryCatch(
     do.call(
@@ -1252,8 +1294,7 @@ forestsearch <- function(df.analysis,
   # ===========================================================================
 
   if (!is.null(vi.grf.min)) {
-    X <- as.matrix(df[, FSconfounders.name])
-    X <- apply(X, 2, as.numeric)
+    X <- apply(df[, FSconfounders.name, drop = FALSE], 2, as.numeric)
 
     if (outcome_type == "survival") {
       # Survival path: causal_survival_forest (unchanged)
@@ -1263,13 +1304,13 @@ forestsearch <- function(df.analysis,
       if (!is.RCT) {
         cs.forest <- try(suppressWarnings(
           grf::causal_survival_forest(X, Y, Treat, Event,
-                                       horizon = 0.9 * tau.rmst, seed = 8316951,
+                                       horizon = 0.9 * tau.rmst, seed = seedit,
                                        tune.parameters = tune_arg)
         ), TRUE)
       } else {
         cs.forest <- try(suppressWarnings(
           grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                       horizon = 0.9 * tau.rmst, seed = 8316951,
+                                       horizon = 0.9 * tau.rmst, seed = seedit,
                                        tune.parameters = tune_arg)
         ), TRUE)
       }
@@ -1287,7 +1328,7 @@ forestsearch <- function(df.analysis,
         Y_vi <- if (adverse_outcome) -Y else Y
       }
       cs.forest <- try(suppressWarnings(
-        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = 8316951,
+        fit_causal_forest_glm(X, Y_vi, Treat, is.RCT, seedit = seedit,
                               tune_grf = tune_grf)
       ), TRUE)
     }
@@ -1619,11 +1660,6 @@ forestsearch <- function(df.analysis,
     threshold_config = if (exists("threshold_config")) threshold_config
                        else NULL
   )
-
-  # Return early if FSdata or find.grps failed
-  if (inherits(FSdata, "try-error") || inherits(find.grps, "try-error")) {
-    out <- list(sg.harm = NULL, args_call_all = args_call_all)
-  }
 
   class(out) <- c("forestsearch", "list")
   return(out)

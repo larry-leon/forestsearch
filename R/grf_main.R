@@ -183,8 +183,7 @@ grf.subg.harm.survival <- function(data,
   # ===========================================================================
 
   # Convert confounders to numeric matrix
-  temp_matrix <- as.matrix(data[, confounders.name])
-  X <- apply(temp_matrix, 2, as.numeric)
+  X <- apply(data[, confounders.name, drop = FALSE], 2, as.numeric)
 
   # Extract outcome variables
   Y <- data[, outcome.name]
