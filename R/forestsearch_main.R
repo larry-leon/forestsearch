@@ -627,6 +627,11 @@ forestsearch <- function(df.analysis,
   # ===========================================================================
   # SECTION 1B: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
   # ===========================================================================
+  # Capture formals only (NOT as.list(environment())): Section 1A binds
+  # non-formal locals (user_set_threshold, user_set_consistency) before
+  # this point.  args_call_all flows back to bootstrap / CV consumers
+  # that may reconstruct the call via do.call(forestsearch, args_call_all);
+  # extra entries would error as 'unused argument'.
 
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
@@ -844,13 +849,34 @@ forestsearch <- function(df.analysis,
       }
 
     } else {
-      # Log-scale measures (OR, RR, IRR): convert to log scale
-      if (effect_threshold > 0) {
-        effect_threshold <- log(effect_threshold)
+      # Log-scale measures (OR, RR, IRR): convert to log scale.
+      # Ratio measures are positive by definition; non-positive thresholds
+      # would either fail log() (yielding NaN/-Inf via log(<=0)) or, under
+      # the prior > 0 guard, pass through unchanged and be silently
+      # interpreted downstream as already-log-scale values.  Either path
+      # is a silent wrong-answer, so reject explicitly.
+      if (effect_threshold <= 0) {
+        stop(
+          "effect.threshold = ", effect_threshold,
+          " is invalid for effect_measure = '", effect_measure,
+          "' (ratio scale).  Pass a positive value on the natural ",
+          "ratio scale (e.g., effect.threshold = 1.25 for ",
+          effect_measure, " >= 1.25).",
+          call. = FALSE
+        )
       }
-      if (consistency_threshold > 0) {
-        consistency_threshold <- log(consistency_threshold)
+      if (consistency_threshold <= 0) {
+        stop(
+          "consistency.threshold = ", consistency_threshold,
+          " is invalid for effect_measure = '", effect_measure,
+          "' (ratio scale).  Pass a positive value on the natural ",
+          "ratio scale (e.g., consistency.threshold = 1.0 for ",
+          effect_measure, " >= 1.0 per split).",
+          call. = FALSE
+        )
       }
+      effect_threshold      <- log(effect_threshold)
+      consistency_threshold <- log(consistency_threshold)
     }
 
     # -----------------------------------------------------------------
@@ -1043,6 +1069,21 @@ forestsearch <- function(df.analysis,
       # User-supplied propensity scores
       if (length(ps_hat) != nrow(df.analysis)) {
         stop("ps_hat must have length equal to nrow(df.analysis)", call. = FALSE)
+      }
+      # Reject values that would produce Inf / NaN IPTW weights downstream.
+      # The internal estimate_propensity_scores() path trims; the user-
+      # supplied path bypasses that protection, so guard explicitly.
+      if (anyNA(ps_hat)) {
+        stop("ps_hat contains NA values; remove or impute before passing.",
+             call. = FALSE)
+      }
+      if (any(ps_hat <= 0 | ps_hat >= 1)) {
+        n_bad <- sum(ps_hat <= 0 | ps_hat >= 1)
+        stop("ps_hat must lie strictly in (0, 1); ", n_bad,
+             " value(s) outside this range would produce Inf/NaN weights. ",
+             "Trim or clip ps_hat (e.g., pmin(pmax(ps_hat, 0.01), 0.99)) ",
+             "before passing.",
+             call. = FALSE)
       }
       df.analysis$ps_hat <- ps_hat
       W_vec <- df.analysis[[treat.name]]
@@ -1298,21 +1339,37 @@ forestsearch <- function(df.analysis,
 
     if (outcome_type == "survival") {
       # Survival path: causal_survival_forest (unchanged)
-      tau.rmst <- min(c(max(Y[Treat == 1 & Event == 1]), max(Y[Treat == 0 & Event == 1])))
-      tune_arg <- if (tune_grf) "all" else "none"
+      # Guard against zero events in either arm: max(numeric(0)) is -Inf
+      # (with a warning), which would propagate to horizon = 0.9 * -Inf
+      # and crash causal_survival_forest.  Skip the GRF VI step instead.
+      y_evt_t <- Y[Treat == 1 & Event == 1]
+      y_evt_c <- Y[Treat == 0 & Event == 1]
 
-      if (!is.RCT) {
-        cs.forest <- try(suppressWarnings(
-          grf::causal_survival_forest(X, Y, Treat, Event,
-                                       horizon = 0.9 * tau.rmst, seed = seedit,
-                                       tune.parameters = tune_arg)
-        ), TRUE)
+      if (length(y_evt_t) == 0L || length(y_evt_c) == 0L) {
+        if (!quiet) {
+          message("[forestsearch] Skipping GRF variable-importance screening: ",
+                  "zero events in ",
+                  if (length(y_evt_t) == 0L) "treatment" else "control",
+                  " arm.")
+        }
+        cs.forest <- structure("zero-events", class = "try-error")
       } else {
-        cs.forest <- try(suppressWarnings(
-          grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                       horizon = 0.9 * tau.rmst, seed = seedit,
-                                       tune.parameters = tune_arg)
-        ), TRUE)
+        tau.rmst <- min(max(y_evt_t), max(y_evt_c))
+        tune_arg <- if (tune_grf) "all" else "none"
+
+        if (!is.RCT) {
+          cs.forest <- try(suppressWarnings(
+            grf::causal_survival_forest(X, Y, Treat, Event,
+                                         horizon = 0.9 * tau.rmst, seed = seedit,
+                                         tune.parameters = tune_arg)
+          ), TRUE)
+        } else {
+          cs.forest <- try(suppressWarnings(
+            grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
+                                         horizon = 0.9 * tau.rmst, seed = seedit,
+                                         tune.parameters = tune_arg)
+          ), TRUE)
+        }
       }
     } else {
       # GLM path: causal_forest (no event/horizon)
@@ -1612,10 +1669,28 @@ forestsearch <- function(df.analysis,
       temp <- grp.consistency$df_flag
 
       # Merge to analysis data
+      # Guard: temp$id is the join key (built by extract_subgroup() with the
+      # literal column name "id" by convention).  If id.name != "id" and df
+      # also carries an unrelated column named "id", the merge succeeds but
+      # df$id survives in the output and can confuse downstream consumers.
+      if (id.name != "id" && "id" %in% names(df)) {
+        stop("forestsearch(): `df.analysis` contains a column named 'id' ",
+             "that is distinct from `id.name = \"", id.name, "\"`.  ",
+             "Rename or drop it before calling forestsearch() to avoid an ",
+             "ambiguous merge with internal subgroup-flag tables.",
+             call. = FALSE)
+      }
       df.est_out <- merge(df, temp, by.x = id.name, by.y = "id", all.x = TRUE)
 
       # Return df.predict
       if (!is.null(df.predict)) {
+        if (id.name != "id" && "id" %in% names(df.predict)) {
+          stop("forestsearch(): `df.predict` contains a column named 'id' ",
+               "that is distinct from `id.name = \"", id.name, "\"`.  ",
+               "Rename or drop it before calling forestsearch() to avoid an ",
+               "ambiguous merge with internal subgroup-flag tables.",
+               call. = FALSE)
+        }
         df.predict_out <- merge(df.predict, temp, by.x = id.name, by.y = "id", all.x = TRUE)
       }
 
