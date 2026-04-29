@@ -1,3 +1,60 @@
+#' Collect Bootstrap Foreach Results
+#'
+#' Internal helper that converts the list returned by a foreach loop with
+#' \code{.errorhandling = "pass"} into a single data.table, separating
+#' successful iterations (data.table rows) from failed iterations
+#' (condition objects).
+#'
+#' Implements the convention used in the package's Quarto calibration
+#' suite: \code{vapply(..., inherits, ..., "error")} for error
+#' separation, \code{data.table::rbindlist(..., fill = TRUE)} for
+#' combine, and \code{stop()} with the first error message when every
+#' iteration has failed. Partial failures generate a warning with the
+#' failure count and first error message; the successful rows are
+#' returned.
+#'
+#' @param results List of length \code{nb_boots}, as returned by a
+#'   foreach loop with \code{.errorhandling = "pass"} and no
+#'   \code{.combine} (so each element is either a data.table or a
+#'   condition object).
+#' @param nb_boots Integer. Number of bootstrap iterations attempted.
+#'
+#' @return A data.table containing the rbinded successful iterations.
+#'   When all iterations have failed, this function does not return -
+#'   it raises an error.
+#'
+#' @keywords internal
+#' @noRd
+.collect_bootstrap_results <- function(results, nb_boots) {
+  is_err <- vapply(results, inherits, logical(1), what = "error")
+  n_err  <- sum(is_err)
+
+  if (n_err == nb_boots) {
+    first_err <- results[[which(is_err)[1L]]]
+    stop(
+      "All ", nb_boots, " bootstrap iterations failed. First error:\n  ",
+      conditionMessage(first_err),
+      call. = FALSE
+    )
+  }
+
+  if (n_err > 0L) {
+    first_err <- results[[which(is_err)[1L]]]
+    warning(
+      sprintf(
+        paste0("%d of %d bootstrap iterations failed (%.1f%%); these ",
+               "are dropped from the result.\n  First error: %s"),
+        n_err, nb_boots, 100 * n_err / nb_boots,
+        conditionMessage(first_err)
+      ),
+      call. = FALSE
+    )
+  }
+
+  data.table::rbindlist(results[!is_err], fill = TRUE)
+}
+
+
 #' Bootstrap Results for ForestSearch with Bias Correction
 #'
 #' Runs bootstrap analysis for ForestSearch, fitting Cox models and computing
@@ -221,7 +278,7 @@
 #'
 #' @family bootstrap functions
 #' @importFrom foreach foreach
-#' @importFrom data.table data.table
+#' @importFrom data.table data.table rbindlist
 #' @importFrom doFuture %dofuture%
 #' @export
 bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
@@ -296,7 +353,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       seed = TRUE,
       globals = TRUE
     ),
-    .combine = "rbind",
     .errorhandling = "pass"
   ) %dofuture% {
 
@@ -716,6 +772,18 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     return(dfres)
   }
   })
+
+  # =========================================================================
+  # SECTION: COLLECT FOREACH RESULTS
+  # =========================================================================
+  # `.errorhandling = "pass"` (combined with no `.combine`) causes the
+  # foreach to return a list of length nb_boots in which each element is
+  # either a data.table (success) or a condition object (error).  The
+  # helper separates the two, surfaces the failure count and first error
+  # message via warning() (or stop() on 100% failure), and rbinds the
+  # successes via data.table::rbindlist(..., fill = TRUE).  This mirrors
+  # the convention established in the package's Quarto calibration suite.
+  foreach_results <- .collect_bootstrap_results(foreach_results, nb_boots)
 
   # =========================================================================
   # SECTION: CALCULATE TOTAL BOOTSTRAP TIMING
