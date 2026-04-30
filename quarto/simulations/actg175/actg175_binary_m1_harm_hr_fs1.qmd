@@ -44,7 +44,7 @@ set.seed(8316951L)
 # -- Mode --------------------------------------------------------------------
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
-sim_mode    <- "auto"
+sim_mode    <- "full"
 BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs1.rds"
 
 if (sim_mode == "auto") {
@@ -61,13 +61,13 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
   demo   = 100L,
-  full   = 50L,
+  full   = 5000L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
   demo   = 100L,
-  full   = 50L
+  full   = 5000L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 sim_n       <- 1000L
