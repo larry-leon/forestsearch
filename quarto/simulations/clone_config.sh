@@ -71,12 +71,24 @@ if [ ! -d "$SIM_ROOT" ]; then
 fi
 
 # Find candidate qmds across all study directories whose filename
-# contains _<OLD>_ as a stem token. Exclude any path under _summaries,
-# _fsparams, or _archive.
-mapfile -t CANDIDATES < <(
-  find "$SIM_ROOT" -maxdepth 2 -type f -name "*_${OLD}_*.qmd" \
-    -not -path "*_summaries*" -not -path "*_fsparams*" \
-    -not -path "*_archive*" 2>/dev/null | sort
+# contains _<OLD> as a stem token. Two patterns to consider:
+#   *_<OLD>_*.qmd  — token in the middle (e.g., focus token hrMaxSG)
+#   *_<OLD>.qmd    — token at the end (e.g., bundle token fs1)
+# Exclude any path under _summaries, _fsparams, or _archive.
+# (Uses a read loop instead of mapfile for compatibility with bash 3.2,
+# which is the default on macOS.)
+CANDIDATES=()
+while IFS= read -r line; do
+  CANDIDATES+=("$line")
+done < <(
+  {
+    find "$SIM_ROOT" -maxdepth 2 -type f -name "*_${OLD}_*.qmd" \
+      -not -path "*_summaries*" -not -path "*_fsparams*" \
+      -not -path "*_archive*" 2>/dev/null
+    find "$SIM_ROOT" -maxdepth 2 -type f -name "*_${OLD}.qmd" \
+      -not -path "*_summaries*" -not -path "*_fsparams*" \
+      -not -path "*_archive*" 2>/dev/null
+  } | sort -u
 )
 
 if [ "${#CANDIDATES[@]}" -eq 0 ]; then
@@ -94,7 +106,13 @@ if [ "${#CANDIDATES[@]}" -gt 1 ]; then
 fi
 
 SOURCE_QMD="${CANDIDATES[0]}"
+# Derive target filename. Try middle-token replacement first
+# (_<OLD>_ -> _<NEW>_); if that produced no change, fall back to
+# end-token replacement (_<OLD>.qmd -> _<NEW>.qmd).
 TARGET_QMD="${SOURCE_QMD//_${OLD}_/_${NEW}_}"
+if [ "$TARGET_QMD" = "$SOURCE_QMD" ]; then
+  TARGET_QMD="${SOURCE_QMD//_${OLD}.qmd/_${NEW}.qmd}"
+fi
 
 # ---- Sanity checks -----------------------------------------------------------
 if [ "$SOURCE_QMD" = "$TARGET_QMD" ]; then

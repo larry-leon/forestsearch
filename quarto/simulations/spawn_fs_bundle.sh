@@ -110,7 +110,12 @@ if ! grep -q "^${EXPECTED_FN} <- function" "$NEW_PARAMS_FILE"; then
 fi
 
 # ---- Locate source qmds -----------------------------------------------------
-mapfile -t SOURCE_QMDS < <(
+# (Uses a read loop instead of mapfile for compatibility with bash 3.2,
+# which is the default on macOS.)
+SOURCE_QMDS=()
+while IFS= read -r line; do
+  SOURCE_QMDS+=("$line")
+done < <(
   find "$STUDY_DIR" -maxdepth 1 -type f -name "*_${OLD_BUNDLE}.qmd" \
     2>/dev/null | sort
 )

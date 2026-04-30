@@ -76,7 +76,7 @@ get_fs2_params <- function(sg_focus,
     # -- Search controls -----------------------------------------------------
     use_lasso                 = FALSE,
     use_grf                   = TRUE,
-    return_selected_cuts_only = FALSE,
+    return_selected_cuts_only = TRUE,
     max_subgroups_search      = 5,        # fs2: broad
     use_twostage              = TRUE,
 

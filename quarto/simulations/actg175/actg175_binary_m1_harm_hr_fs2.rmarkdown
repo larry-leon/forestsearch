@@ -1,0 +1,865 @@
+---
+title: "ACTG175 Binary Harm Search: Simulation Study"
+format: html
+---
+
+This article runs the simulation study for configuration
+**`actg175_binary_m1_harm_hr_fs2`** (study = ACTG175,
+outcome = binary, DGM = m1 [calibrated GLM, target OR(Q) = 2.0],
+objective = harm, sg_focus = `hr`, FS bundle = fs2).
+
+The article supports three rendering modes, controlled by `sim_mode`
+in the setup chunk:
+
+- **`import`** — load a pre-computed bundle (.rds) produced by
+  a previous render in `full` mode. Fast.
+- **`demo`** — run the simulations inline at small *N* (100 + 100).
+  Suitable for self-contained execution by readers who want to
+  reproduce the workflow without committing to a full run.
+- **`full`** — run the simulations inline at production *N*
+  and **save the bundle to disk**. Slow.
+- **`auto`** (default) — `import` if a bundle is present at the
+  expected path, otherwise `demo`.
+
+Data preparation, DGM calibration, and a single-trial sanity check
+always run, regardless of mode, so the tutorial narrative remains
+intact. In `import` mode the freshly-built DGM objects are
+overridden with the bundle's versions to keep the OC tables
+consistent with the simulation output they describe.
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Setup and parameters (click to expand)"
+
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(doFuture)
+library(foreach)
+
+set.seed(8316951L)
+
+# -- Mode --------------------------------------------------------------------
+# One of: "import", "demo", "full", "auto".
+# "auto" picks "import" if BUNDLE_PATH exists, else "demo".
+sim_mode    <- "full"
+BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs2.rds"
+
+if (sim_mode == "auto") {
+  sim_mode <- if (file.exists(BUNDLE_PATH)) "import" else "demo"
+}
+if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
+  stop(sprintf("sim_mode = 'import' but no bundle found at '%s'.",
+               BUNDLE_PATH), call. = FALSE)
+}
+
+# -- Simulation control ------------------------------------------------------
+# nsims_* are derived from sim_mode.  Edit the per-mode values here if
+# different reference scales are needed.
+nsims_alt <- switch(sim_mode,
+  import = 0L,            # not used (loaded from bundle)
+  demo   = 10L,
+  full   = 5000L,
+  stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
+)
+nsims_null <- switch(sim_mode,
+  import = 0L,
+  demo   = 10L,
+  full   = 5000L
+)
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+sim_n       <- 1000L
+
+cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
+            sim_mode, nsims_alt, nsims_null, sim_n))
+
+# -- FS parameters (sourced from canonical fs2 file) -------------------
+# Canonical fs2 parameter values live in _fsparams/fs2_params.R.
+# Edit there to apply changes uniformly across all sg_focus configs.
+fs_sg_focus <- "hr"
+
+# -- GRF standalone parameters ------------------------------------------------
+grf_dmin           <- 0.10
+grf_maxdepth       <- 2L
+grf_sg_criterion   <- "mDiff"
+
+# -- Reporting ---------------------------------------------------------------
+sg_notation        <- "harm"
+
+# -- Calibration -------------------------------------------------------------
+cal_target_or      <- 2.0
+
+# -- Diagnostic capture ------------------------------------------------------
+diag_keep          <- c("fs_full", "candidate_table")
+diag_keep_first_n  <- 5L
+
+# -- Plot thresholds ---------------------------------------------------------
+sgdist_min_pct_alt  <- 1
+sgdist_min_pct_null <- 1
+sgdist_top_k        <- 10L
+ordist_ylim         <- c(0, 3)
+
+# -- Build fs_params from sourced fs2 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs2_params.R
+# (including stop_threshold, which is returned as NULL when
+# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
+source("_fsparams/fs2_params.R")
+fs_params <- get_fs2_params(sg_focus = fs_sg_focus)
+# Locals re-exposed for the single-trial sanity-check chunks
+c1       <- fs_params$hr.threshold
+max_look <- fs_params$max_subgroups_search
+
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion
+)
+```
+
+# Data Preparation {#sec-data}
+
+```{r data-prep}
+#| code-fold: true
+#| code-summary: "ACTG175 data prep (click to expand)"
+
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+# Binary outcome: adverse (failure to improve)
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# -- DGM factor variables -----------------------------------------------------
+# z1, z2: TRUE subgroup Q = {cd40 > 421 & wtkg > 82.3}
+# (from observed-data FS result — see companion analysis document)
+
+ actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 375, 1L, 0L))
+ actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 75, 1L, 0L))
+
+#actg_df$z1  <- as.factor(ifelse(actg_df$age > 34, 1L, 0L))
+#actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= 750, 1L, 0L))
+
+
+# z7-z12: truly binary indicators (no continuous counterpart)
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$ar_naive   <- as.factor(ifelse(actg_df$str2 == 0, 1L, 0L))
+actg_df$prior_6mo  <- as.factor(ifelse(actg_df$preanti <= 6 * 30.4375, 1L, 0L))
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+
+# -- Analysis covariates (what the analyst sees) -------------------------------
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+confounders <- c(cont_vars, bin_vars)
+
+fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
+
+# Inject conf_force into the consolidated fs_params (defined in setup,
+# but conf_force depends on data-prep factor variables)
+fs_params$conf_force <- fs_conf_force
+
+# -- DGM variable sets ---------------------------------------------------------
+dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
+dgm_cont_vars     <- cont_vars
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+
+# -- Summary -------------------------------------------------------------------
+Q_n   <- sum(actg_df$flag_harm_ref)
+Q_N   <- nrow(actg_df)
+Q_pct <- 100 * Q_n / Q_N
+
+cat(sprintf("N = %d, Q prevalence = %d / %d (%.1f%%)\n", Q_N, Q_n, Q_N, Q_pct))
+cat(sprintf("Adverse rate: overall=%.1f%%, ZDV+ddI=%.1f%%, ddI=%.1f%%\n",
+    100 * mean(actg_df$y_binary),
+    100 * mean(actg_df$y_binary[actg_df$treat == 1]),
+    100 * mean(actg_df$y_binary[actg_df$treat == 0])))
+```
+
+# DGM Calibration {#sec-calibration}
+
+Target: OR(Q) = `r cal_target_or` on the adverse scale.  The DGM
+includes factor variables (for subgroup definition) and raw continuous
+covariates (for a richer prognostic baseline), consistent with the
+survival `generate_aft_dgm_flex()` design.
+
+```{r calibrate}
+dgm_calibrated <- calibrate_glm_interaction(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  target_effect   = cal_target_or,
+  outcome_type    = "binary",
+  effect_measure  = "OR",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  k_inter_range   = c(0, 3),
+  grid_step       = 0.05,
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+
+cat(sprintf("\n  OR(Q):   %.3f (target: %.1f)\n",
+    dgm_calibrated$hazard_ratios$harm_subgroup, cal_target_or))
+cat(sprintf("  OR(Qc):  %.3f\n", dgm_calibrated$hazard_ratios$no_harm_subgroup))
+cat(sprintf("  OR(ITT): %.3f\n", dgm_calibrated$hazard_ratios$overall))
+```
+
+```{r null-dgm}
+dgm_null <- generate_glm_dgm(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  outcome_type    = "binary",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  model           = "null",
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+```
+
+# Single Trial Sanity Check {#sec-single-trial}
+
+```{r single-trial-alt}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+
+df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
+
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
+
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = c1, 
+           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
+           effect_type = "ratio", n_eff = max_look)
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params
+))
+
+if(!is.null(fs_single$sg.harm)){
+fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+fs_single_tabs$sg10_out
+fs_single_tabs$tab_estimates
+}
+
+```
+
+```{r bootstrap-alt}
+
+t0 <- proc.time()
+fs <- fs_single
+
+if(!is.null(fs$sg.harm)){
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 500,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
+}
+
+
+```
+
+```{r bootstrap-summary-alt}
+# Comprehensive summary with diagnostics
+
+if(!is.null(fs$sg.harm)){
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+
+# Display bias-corrected estimates table
+summaries$table
+}
+```
+
+
+
+
+
+```{r single-trial-null}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
+
+df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 44)
+
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
+
+
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = 1.25, 
+           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
+           effect_type = "ratio", n_eff = max_look)
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params
+))
+
+if(!is.null(fs_single$sg.harm)){
+fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+fs_single_tabs$sg10_out
+fs_single_tabs$tab_estimates
+}
+
+```
+
+
+```{r bootstrap-null}
+
+t0 <- proc.time()
+fs <- fs_single
+
+if(!is.null(fs$sg.harm)){
+
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 500,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
+}
+```
+
+```{r bootstrap-summary-null}
+
+if(!is.null(fs$sg.harm)){
+# Comprehensive summary with diagnostics
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+
+# Display bias-corrected estimates table
+summaries$table
+}
+```
+
+
+
+# Full Simulation Study {#sec-sims}
+
+## Parameter Lists
+
+```{r sim-params}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "Parallel plan setup (click to expand)"
+
+plan(multisession, workers = n_workers)
+cat("Using", n_workers, "parallel workers\n")
+cat("fs_params and grf_params defined in setup chunk\n")
+```
+
+## H1 Simulations (Calibrated HTE)
+
+```{r run-alt}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "H1 simulation loop (click to expand)"
+#| output: false
+
+cat("Running", nsims_alt, "simulations under H1...\n")
+t0 <- proc.time()[3]
+
+results_alt_raw <- foreach(
+  sim = seq_len(nsims_alt),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_calibrated,
+    n_sample         = sim_n,
+    confounders_base = confounders,
+    run_fs           = TRUE,
+    run_fs_grf       = FALSE,
+    run_grf          = TRUE,
+    fs_params        = fs_params,
+    grf_params       = grf_params,
+    keep             = diag_keep,
+    keep_first_n     = diag_keep_first_n,
+    verbose          = FALSE
+  )
+}
+
+t_alt <- proc.time()[3] - t0
+results_alt <- collect_results(results_alt_raw, "H1 alt",
+                               keep_diagnostics = diag_keep_first_n > 0L)
+n_failed_alt <- attr(results_alt, "n_failed")
+
+cat(sprintf("Completed in %.1f min (%d rows, %d failed)\n",
+    t_alt / 60, nrow(results_alt), n_failed_alt))
+```
+
+## H0 Simulations (Null — Homogeneous Effect)
+
+```{r run-null}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "H0 simulation loop (click to expand)"
+#| output: false
+
+cat("Running", nsims_null, "simulations under H0...\n")
+t0 <- proc.time()[3]
+
+results_null_raw <- foreach(
+  sim = seq_len(nsims_null),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_null,
+    n_sample         = sim_n,
+    confounders_base = confounders,
+    run_fs           = TRUE,
+    run_fs_grf       = FALSE,
+    run_grf          = TRUE,
+    fs_params        = fs_params,
+    grf_params       = grf_params,
+    verbose          = FALSE
+  )
+}
+
+t_null <- proc.time()[3] - t0
+results_null <- collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
+
+cat(sprintf("Completed in %.1f min (%d rows, %d failed)\n",
+    t_null / 60, nrow(results_null), n_failed_null))
+```
+
+## Save Bundle (full mode only)
+
+```{r save-bundle}
+#| eval: !expr sim_mode == "full"
+#| code-fold: true
+#| code-summary: "Bundle assembly + saveRDS (click to expand)"
+
+bundle <- list(
+  meta = list(
+    config_id         = tools::file_path_sans_ext(basename(BUNDLE_PATH)),
+    timestamp         = Sys.time(),
+    n_alt             = nsims_alt,
+    n_null            = nsims_null,
+    sim_n             = sim_n,
+    confounders       = confounders,
+    fs_params         = fs_params,
+    grf_params        = grf_params,
+    diag_keep         = diag_keep,
+    diag_keep_first_n = diag_keep_first_n,
+    t_alt_sec         = unname(t_alt),
+    t_null_sec        = unname(t_null),
+    n_failed_alt      = attr(results_alt,  "n_failed"),
+    n_failed_null     = attr(results_null, "n_failed"),
+    package_version   = as.character(utils::packageVersion("forestsearch")),
+    sessionInfo       = utils::sessionInfo()
+  ),
+  dgm = list(
+    calibrated = dgm_calibrated,
+    null       = dgm_null
+  ),
+  results = list(
+    alt  = results_alt,
+    null = results_null
+  )
+)
+
+saveRDS(bundle, BUNDLE_PATH)
+cat(sprintf("Bundle saved to: %s\n", BUNDLE_PATH))
+cat(sprintf("  H1: %.1f min, %d rows, %d failed\n",
+            t_alt  / 60, nrow(results_alt),  n_failed_alt))
+cat(sprintf("  H0: %.1f min, %d rows, %d failed\n",
+            t_null / 60, nrow(results_null), n_failed_null))
+```
+
+## Mode Handoff
+
+```{r mode-handoff}
+#| code-fold: true
+#| code-summary: "Bundle import or sim-result handoff (click to expand)"
+
+if (sim_mode == "import") {
+  bundle <- readRDS(BUNDLE_PATH)
+
+  # Override the freshly-built DGMs with the bundle's versions so that
+  # downstream OC tables match the simulation results they describe.
+  dgm_calibrated <- bundle$dgm$calibrated
+  dgm_null       <- bundle$dgm$null
+
+  results_alt    <- bundle$results$alt
+  results_null   <- bundle$results$null
+  t_alt          <- bundle$meta$t_alt_sec
+  t_null         <- bundle$meta$t_null_sec
+  nsims_alt      <- bundle$meta$n_alt
+  nsims_null     <- bundle$meta$n_null
+  n_failed_alt   <- bundle$meta$n_failed_alt
+  n_failed_null  <- bundle$meta$n_failed_null
+
+  cat(sprintf("Imported bundle: %s\n", BUNDLE_PATH))
+  cat(sprintf("  config_id : %s\n", bundle$meta$config_id))
+  cat(sprintf("  timestamp : %s\n", format(bundle$meta$timestamp)))
+  cat(sprintf("  n_alt     : %d (failed: %d)\n",
+              nsims_alt, n_failed_alt))
+  cat(sprintf("  n_null    : %d (failed: %d)\n",
+              nsims_null, n_failed_null))
+  if (!is.null(bundle$meta$package_version)) {
+    cat(sprintf("  forestsearch %s\n", bundle$meta$package_version))
+  }
+  if (!is.null(bundle$meta$config_id) &&
+      bundle$meta$config_id != "actg175_binary_m1_harm_hr_fs2") {
+    warning(sprintf(
+      "Bundle config_id ('%s') does not match this article ('%s').",
+      bundle$meta$config_id, "actg175_binary_m1_harm_hr_fs2"
+    ), call. = FALSE)
+  }
+} else {
+  cat(sprintf("Inline simulation complete (%s mode).\n", sim_mode))
+}
+```
+
+# Results {#sec-results}
+
+## Metrics Glossary {#sec-glossary}
+
+Classification metrics follow the definitions in León et al.
+(2024, Section 3).
+
+### Detection
+
+**Found** ($\text{any}(Q)$): proportion of simulations where
+the method identifies *any* harm subgroup
+($\texttt{any.H} = 1$).
+
+- **Under H1** (alternative): $Q$ exists with a differential
+  treatment effect.  $\text{any}(Q)$ is **detection power**.
+- **Under H0** (null): $Q = \emptyset$ and $Q^c$ is the ITT
+  population.  $\text{any}(Q)$ is the **false positive rate
+  (FPR)** for falsely declaring that a harm subgroup exists.
+
+### Classification Under H1
+
+Under the alternative, the true harm subgroup $Q$ exists
+($Q = \{\text{cd40} > 421 \cap \text{wtkg} > 82.3\}$,
+prevalence $\approx$ `r sprintf("%.0f", Q_pct)`%)
+with a genuinely different treatment effect (OR(Q) =
+`r cal_target_or`).  Following León et al. (2024, Section 3),
+define for estimated subgroup $\hat{Q}$:
+
+$$
+\text{sens}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in Q\}},
+\quad
+\text{ppv}(\hat{Q}) = \frac{\#\{i \in \hat{Q} \cap Q\}}{\#\{i \in \hat{Q}\}},
+$$
+
+with analogous measures for the complement $\hat{Q}^c$.
+
+The operating-characteristics tables report these as:
+
+| Table column | León et al. notation | Interpretation |
+|---|---|---|
+| **Sen** | $\text{sens}(\hat{Q})$ | Fraction of true $Q$ captured by $\hat{Q}$ |
+| **Spec** | $\text{sens}(\hat{Q}^c)$ | Fraction of true $Q^c$ correctly in $\hat{Q}^c$ |
+| **PPV** | $\text{ppv}(\hat{Q})$ | Fraction of $\hat{Q}$ truly in $Q$ |
+| **NPV** | $\text{ppv}(\hat{Q}^c)$ | Fraction of $\hat{Q}^c$ truly in $Q^c$ |
+
+Classification metrics are averaged across **all** simulations
+(León et al. 2024, Table 1).  When no subgroup is detected
+($\hat{Q} = \emptyset$), the simulation contributes
+$\text{sens}(\hat{Q}) = 0$ and $\text{ppv}(\hat{Q}) = 0$
+(since no member of $Q$ is captured and no subjects are
+assigned to $\hat{Q}$).  This convention is implemented
+at the source in `run_simulation_analysis()`, matching
+the original `fs.estimates.out()` function used in
+León et al. (2024).
+
+::: {.callout-note}
+## Classification metrics with discovered cuts
+
+Because cuts are discovered from the data in this setup, a
+$\hat{Q}$ that captures "roughly the right region" but with
+slightly shifted boundaries will still receive high sens/PPV.
+Expect these metrics to be lower than under the discretised
+(oracle-cut) setup — the gap quantifies the cost of not knowing
+the true cuts in advance.
+:::
+
+### Classification Under H0
+
+Under the null, $Q = \emptyset$ --- no subgroup with a
+differential treatment effect exists.  The complement $Q^c$
+is the entire ITT population.  Per León et al. (2024,
+Section 3), $\text{sens}(\hat{Q})$ is **undefined** (shown
+as "—" in the table) and $\text{ppv}(\hat{Q}) \equiv 0$.
+For the complement, $\text{sens}(\hat{Q}^c) = |\hat{Q}^c|/N$
+and $\text{ppv}(\hat{Q}^c) = 1$ since $Q^c$ = ITT.
+
+The only operationally meaningful metric under H0 is the
+**detection rate (FPR)**.
+
+### Effect Estimates
+
+All effect estimates are on the adverse scale:
+OR $> 1$ = treatment (ZDV+ddI) increases the adverse outcome
+(non-improvement) = **harm**.  No inversion or treatment
+switching is applied.
+
+# Operating Characteristics {#sec-oc}
+
+## H1: Detection + Classification
+
+```{r oc-alt}
+format_oc_results(
+  results_alt,
+  metrics   = c("detection", "classification", "subgroup_size"),
+  digits    = 2,
+  digits_hr = 2,
+  title     = "ACTG175 Binary: Harm Subgroup Identification",
+  dgm = dgm_calibrated,
+  subgroup_notation = sg_notation
+)
+```
+
+### True Subgroup Sizes Across Replicates
+
+```{r true-size-summary}
+#| code-fold: true
+
+# One row per replicate-method combination, but sizeH_true is identical
+# across method rows within the same sim.  Deduplicate on sim.
+truth_by_sim <- unique(results_alt[, c("sim", "sizeH_true", "sizeHc_true",
+                                        "propH_true", "propHc_true")])
+
+callout_Q <- sprintf(
+  "|Q|:  mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeH_true),
+  sd(truth_by_sim$sizeH_true),
+  min(truth_by_sim$sizeH_true),
+  max(truth_by_sim$sizeH_true),
+  100 * mean(truth_by_sim$propH_true))
+
+callout_Qc <- sprintf(
+  "|Qc|: mean = %.1f (SD %.2f),  range = [%d, %d],  prop = %.1f%%",
+  mean(truth_by_sim$sizeHc_true),
+  sd(truth_by_sim$sizeHc_true),
+  min(truth_by_sim$sizeHc_true),
+  max(truth_by_sim$sizeHc_true),
+  100 * mean(truth_by_sim$propHc_true))
+
+cat(sprintf("True subgroup sizes across %d H1 replicates (N = %d each):\n",
+            nrow(truth_by_sim), sim_n))
+cat("  ", callout_Q,  "\n")
+cat("  ", callout_Qc, "\n")
+```
+
+::: {.callout-note title="Reference sizes for the estimation tables below"}
+- **|Q| (true harm subgroup)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeH_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeH_true))`,
+  range `r min(truth_by_sim$sizeH_true)`–`r max(truth_by_sim$sizeH_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propH_true))`).
+- **|Qc| (complement)**: mean `r sprintf("%.1f", mean(truth_by_sim$sizeHc_true))`
+  per trial (SD `r sprintf("%.2f", sd(truth_by_sim$sizeHc_true))`,
+  range `r min(truth_by_sim$sizeHc_true)`–`r max(truth_by_sim$sizeHc_true)`,
+  average proportion `r sprintf("%.1f%%", 100 * mean(truth_by_sim$propHc_true))`).
+
+Compare to $\widehat{|H|}$ (the FS-identified subgroup size) reported in
+the row-group labels of the estimation tables below.  A ratio
+$\widehat{|H|} \big/ \overline{|Q|} \approx 1$ indicates the method is
+recovering a subgroup close to the true size; values much smaller
+suggest FS is identifying a strict subset of $Q$; values larger suggest
+FS is absorbing some $Q^c$ subjects into $\hat H$.
+:::
+
+## H1: Estimation Tables
+
+```{r oc-alt-estimation}
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "FS",
+  subgroup_notation = sg_notation,
+  title           = "FS: Effect Estimates Under H1"
+)
+
+build_estimation_table(
+  results         = results_alt,
+  dgm             = dgm_calibrated,
+  analysis_method = "GRF",
+  subgroup_notation = sg_notation,
+  title           = "GRF: Effect Estimates Under H1"
+)
+```
+
+## H1: Classification Tables
+
+```{r oc-alt-classification}
+scenario_alt <- list(
+  H1 = list(
+    results    = results_alt,
+    dgm        = dgm_calibrated,
+    hypothesis = "alt",
+    n_sample   = sim_n,
+    label      = "ACTG175"
+  )
+)
+
+build_classification_table(
+  scenario_alt,
+  analyses          = "FS",
+  subgroup_notation = sg_notation,
+  title             = "FS: Classification Under H1"
+)
+
+build_classification_table(
+  scenario_alt,
+  analyses          = "GRF",
+  subgroup_notation = sg_notation,
+  title             = "GRF: Classification Under H1"
+)
+```
+
+## H1: Subgroup Distribution
+
+```{r oc-alt-sgdist, fig.width=9, fig.height=6}
+plot_sg_distribution(
+  results_alt[results_alt$analysis == "FS", ],
+  any_col   = "any.H",
+  label_col = "sg.def",
+  min_pct   = sgdist_min_pct_alt,
+  top_k     = sgdist_top_k,
+  title     = "FS: Identified Subgroup Distribution (H1)"
+)
+```
+
+## H1: OR Distribution
+
+```{r oc-alt-ordist, fig.width=9, fig.height=4.5}
+or_Q_true <- dgm_calibrated$hazard_ratios$harm_subgroup
+
+plot_effect_distribution(
+  results           = results_alt,
+  analysis_method   = "FS",
+  effect_measure    = "OR",
+  subgroup_notation = sg_notation,
+  reference_effect  = or_Q_true,
+  ylim              = ordist_ylim,
+  title             = "FS: OR Estimates Across Simulations (H1)"
+)
+```
+
+## H0: Type I Error
+
+```{r oc-null}
+format_oc_results(
+  results_null,
+  dgm = dgm_null,
+  metrics   = c("detection", "classification"),
+  digits    = 2,
+  title     = "ACTG175 Binary: Type I Error (Null)",
+   subgroup_notation = sg_notation
+)
+```
+
+## H0: Estimation Tables
+
+```{r oc-null-estimation}
+build_estimation_table(
+  results         = results_null,
+  dgm             = dgm_null,
+  analysis_method = "FS",
+  subgroup_notation = sg_notation,
+  title           = "FS: Effect Estimates Under H0"
+)
+
+build_estimation_table(
+  results         = results_null,
+  dgm             = dgm_null,
+  analysis_method = "GRF",
+  subgroup_notation = sg_notation,
+  title           = "GRF: Effect Estimates Under H0"
+)
+```
+
+## H0: Subgroup Distribution
+
+```{r oc-null-sgdist, fig.width=9, fig.height=6}
+plot_sg_distribution(
+  results_null[results_null$analysis == "FS", ],
+  any_col   = "any.H",
+  label_col = "sg.def",
+  min_pct   = sgdist_min_pct_null,
+  top_k     = sgdist_top_k,
+  title     = "FS: Identified Subgroup Distribution (H0)"
+)
+```
+
+# Timing
+
+```{r timing}
+cat(sprintf("Mode: %s\n", sim_mode))
+cat(sprintf("H1: %.1f min (%d sims)\n", t_alt / 60, nsims_alt))
+cat(sprintf("H0: %.1f min (%d sims)\n", t_null / 60, nsims_null))
+plan(sequential)
+```
+
