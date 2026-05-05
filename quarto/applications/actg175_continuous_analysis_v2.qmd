@@ -1,0 +1,1083 @@
+---
+title: "ACTG175 Continuous Harm Search: Single-Data Analysis"
+subtitle: "ForestSearch with GLM Mean-Difference Outcome (Dual-Scale Framing)"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# Initialize timing
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Introduction
+
+This vignette demonstrates the **ForestSearch** methodology for exploratory
+subgroup identification with a **continuous outcome on the mean-difference
+(MD) scale**, applied to the ACTG175 trial. It uses the GLM extension of
+ForestSearch (León et al. 2024 *Statistics in Medicine*) and is the
+continuous-outcome counterpart to the Cox/Poisson GBSG vignette.
+
+## Motivation
+
+Many randomized trials have continuous endpoints (biomarker change, scores,
+counts of laboratory values) where the natural treatment-effect contrast is
+the mean difference between arms. ForestSearch identifies subgroups where
+the treatment effect deviates meaningfully from a prespecified threshold,
+with proper accounting for the optimism inherent in data-driven subgroup
+discovery.
+
+## Methodology Overview — Dual-Scale Framing
+
+This analysis applies **two different methods** on **two different scales
+of the same outcome**:
+
+- **Part I — ForestSearch on the adverse scale** (`y_decline = cd40 - cd420`,
+  CD4 decline; higher = worse). With `adverse_outcome = TRUE`, an MD above
+  the screening threshold indicates harm.
+- **Part II — GRF standalone on the beneficial scale**
+  (`y_improve = cd420 - cd40`, CD4 improvement; higher = better). With
+  the default `adverse_outcome = FALSE`, a CATE below the threshold
+  indicates harm (insufficient improvement).
+- **Part III — Cross-method comparison**: per-subject H/Hc agreement
+  between the two analyses, with Cohen's κ.
+
+The two scales are sign-flipped versions of the same outcome, so the ITT
+mean differences are equal in magnitude with opposite signs. Differences in
+identified subgroups reflect the methods (FS exhaustive search vs GRF
+policy tree) and the model class, not the data.
+
+## Trial Background
+
+ACTG175 (Hammer et al. 1996) randomized HIV-positive patients with CD4
+counts of 200–500 per mm³ to four treatment arms. This analysis uses the
+two pure-monotherapy arms:
+
+- **Arm 1**: ZDV + ddI combination therapy (treatment, T = 1)
+- **Arm 3**: ddI monotherapy (control, T = 0)
+
+The outcome is the change in CD4 count from baseline to week 20 (`cd40` →
+`cd420`).
+
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(speff2trial)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(policytree)
+library(doFuture)
+library(future)
+library(patchwork)
+library(forestploter)
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Analysis Parameters
+
+```{r analysis-params}
+#| code-fold: false
+
+# ─── Parallel processing ────────────────────────────────────────────────
+n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+# ─── Reproducibility ────────────────────────────────────────────────────
+analysis_seed <- 8316951L
+set.seed(analysis_seed)
+
+# ─── Confounders ───────────────────────────────────────────────────────
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+confounders.name <- c(cont_vars, bin_vars)
+id.name <- "id"
+
+# ─── Variables (dual-scale framing) ────────────────────────────────────
+treat.name         <- "treat"
+adverse_outcome    <- "y_decline"   # FS adverse-scale outcome
+beneficial_outcome <- "y_improve"   # GRF beneficial-scale outcome
+
+# ─── ForestSearch parameters (continuous, MD scale) ────────────────────
+fs_outcome_type    <- "continuous"
+fs_effect_measure  <- "MD"
+fs_sg_focus        <- "minSG"
+
+# Thresholds in CD4 count units (adverse scale: MD > c1 = harm)
+fs_md_threshold    <- 10    # screening: MD >= 10 indicates harm
+fs_md_consistency  <- 5     # consistency: MD >= 5
+
+fs_pconsistency    <- 0.80
+fs_n_min           <- 60L
+fs_d0_min          <- 10L
+fs_d1_min          <- 10L
+fs_splits          <- 500L
+fs_max_subgroups   <- 15
+fs_maxk            <- 2L
+fs_use_lasso       <- TRUE
+fs_use_grf         <- TRUE
+fs_is_RCT          <- TRUE
+fs_vi_grf_min      <- -0.2
+fs_dmin_grf        <- 0
+fs_cont_cutoff     <- 4L
+
+# ─── GRF standalone parameters (beneficial scale) ──────────────────────
+grf_outcome_type   <- "continuous"
+grf_effect_measure <- "MD"
+grf_dmin_grf       <- 0.1
+grf_maxdepth       <- 2L
+grf_RCT            <- TRUE
+grf_sg_criterion   <- "mDiff"
+grf_tune           <- FALSE
+
+# ─── Bootstrap (gated; demo by default) ────────────────────────────────
+run_bootstrap <- TRUE
+NB <- 20L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
+
+# ─── Cross-Validation (gated; demo by default) ─────────────────────────
+run_cv <- TRUE
+Kfolds_cv <- 10L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_result$df.est).
+                  # Production: 10-fold is standard; consider forestsearch_tenfold()
+                  # with sims = 50-100 for repeated K-fold stability assessment.
+
+# ─── Leave-One-Out CV (gated; demo by default) ─────────────────────────
+# LOO runs forestsearch() once per observation (N folds).  Comparable in
+# cost to K-fold * N/K, but well-tolerated on samples up to ~1000.
+# Set FALSE to skip; toggles independently of run_cv.
+run_loo <- TRUE
+
+# ─── Combined Forest Plot ──────────────────────────────────────────────
+# Capstone visualization that integrates fs_result, fs_bc (if bootstrap),
+# and fs_kfold_result (if CV).  Always rendered; CV/bootstrap annotations
+# appear conditionally on the run_* flags.
+run_forestplot <- TRUE
+```
+
+
+# Data Preparation
+
+## Treatment Assignment
+
+```{r data-treat}
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+```
+
+## Outcome Construction
+
+```{r data-outcomes}
+# Drop subjects missing the week-20 CD4 measurement
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# Adverse scale: CD4 decline (higher = worse)
+actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+
+# Beneficial scale: CD4 improvement (higher = better)
+actg_df$y_improve <- actg_df$cd420 - actg_df$cd40
+
+cat(sprintf("N = %d\n", nrow(actg_df)))
+cat(sprintf("Mean CD4 decline    (y_decline):  %6.1f  [overall]\n",
+            mean(actg_df$y_decline)))
+cat(sprintf("                                  %6.1f  [ZDV+ddI, T=1]\n",
+            mean(actg_df$y_decline[actg_df$treat == 1])))
+cat(sprintf("                                  %6.1f  [ddI,     T=0]\n",
+            mean(actg_df$y_decline[actg_df$treat == 0])))
+cat(sprintf("Mean CD4 improvement (y_improve): %6.1f  [overall]\n",
+            mean(actg_df$y_improve)))
+cat(sprintf("                                  %6.1f  [ZDV+ddI, T=1]\n",
+            mean(actg_df$y_improve[actg_df$treat == 1])))
+cat(sprintf("                                  %6.1f  [ddI,     T=0]\n",
+            mean(actg_df$y_improve[actg_df$treat == 0])))
+```
+
+## Covariates
+
+```{r data-covariates}
+# Coerce binary indicators to factors (analyst does not know true cuts
+# for continuous covariates; ForestSearch handles those internally)
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+cat("Continuous candidates:", paste(cont_vars, collapse = ", "), "\n")
+cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
+```
+
+## Baseline Characteristics
+
+```{r baseline-table}
+create_summary_table(
+  data = actg_df,
+  treat_var = treat.name,
+  table_title = "ACTG175 Baseline Characteristics by Treatment Arm",
+  vars_continuous = cont_vars,
+  vars_categorical = bin_vars,
+  font_size = 12
+)
+```
+
+## ITT Analysis
+
+```{r itt-analysis}
+# Adverse-scale ITT MD (CD4 decline; positive coef = treatment increases decline = harm)
+itt_decline <- lm(y_decline ~ treat, data = actg_df)
+
+# Beneficial-scale ITT MD (CD4 improvement; positive coef = treatment increases improvement = benefit)
+itt_improve <- lm(y_improve ~ treat, data = actg_df)
+
+cat("=== ITT Mean Difference, adverse scale (y_decline) ===\n")
+print(summary(itt_decline)$coefficients["treat", , drop = FALSE])
+
+cat("\n=== ITT Mean Difference, beneficial scale (y_improve) ===\n")
+print(summary(itt_improve)$coefficients["treat", , drop = FALSE])
+
+cat("\nNote: y_decline and y_improve are sign-flipped, so the MD point\n")
+cat("estimates are equal in magnitude with opposite signs.\n")
+```
+
+
+# Part I: ForestSearch (Adverse Scale) {#sec-fs}
+
+## Rationale
+
+ForestSearch operates on the adverse scale (`y_decline`) with
+`adverse_outcome = TRUE`. An MD above `fs_md_threshold` (in CD4 count
+units) indicates the treatment **increases CD4 decline** in that
+subgroup (harm). No outcome flip is applied; the screening threshold is
+on the MD scale directly.
+
+## ForestSearch Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `effect_measure` | `MD` | Mean difference (continuous) |
+| `hr.threshold` | 10 | Screening MD threshold (CD4 count units) |
+| `hr.consistency` | 5 | Consistency MD threshold |
+| `pconsistency.threshold` | 0.80 | Required consistency rate |
+| `maxk` | 2 | Maximum factors per subgroup |
+| `n.min` | 60 | Minimum subgroup size |
+| `d0.min`, `d1.min` | 10 | Minimum sample size per arm |
+| `fs.splits` | 500 | Random 50/50 splits for consistency |
+| `sg_focus` | `minSG` | Smallest valid subgroup |
+
+## Running ForestSearch
+
+```{r forestsearch-fs}
+#| fig-width: 10
+#| fig-height: 7
+
+t0 <- proc.time()
+
+fs_result <- forestsearch(
+  df.analysis      = actg_df,
+  confounders.name = confounders.name,
+  outcome.name     = adverse_outcome,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  # GLM parameters (event.name omitted: forestsearch_main.R:1261-1268
+  # auto-creates a placeholder for continuous outcomes)
+  outcome_type     = fs_outcome_type,
+  effect_measure   = fs_effect_measure,
+  adverse_outcome  = TRUE,
+  seedit           = analysis_seed,
+  # Threshold parameters (MD scale)
+  hr.threshold     = fs_md_threshold,
+  hr.consistency   = fs_md_consistency,
+  pconsistency.threshold = fs_pconsistency,
+  # Search configuration
+  sg_focus         = fs_sg_focus,
+  max_subgroups_search = fs_max_subgroups,
+  use_twostage     = TRUE,
+  # Factor selection
+  use_grf          = fs_use_grf,
+  return_selected_cuts_only = TRUE,
+  use_lasso        = fs_use_lasso,
+  cut_type         = "default",
+  # Subgroup constraints
+  maxk             = fs_maxk,
+  n.min            = fs_n_min,
+  d0.min           = fs_d0_min,
+  d1.min           = fs_d1_min,
+  # Consistency evaluation
+  fs.splits        = fs_splits,
+  # Parallel processing
+  parallel_args    = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  ),
+  # Output options
+  showten_subgroups = TRUE,
+  details          = TRUE,
+  plot.sg          = FALSE,    # KM not applicable; use plot_sg_glm_outcomes()
+  is.RCT           = fs_is_RCT,
+  vi.grf.min       = fs_vi_grf_min,
+  dmin.grf         = fs_dmin_grf,
+  cont.cutoff      = fs_cont_cutoff,
+  tune_grf         = grf_tune,
+  quiet            = FALSE
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$fs <- (proc.time() - t0)["elapsed"]
+
+cat("\nForestSearch (adverse scale) completed in",
+    round(timings$fs, 1), "seconds\n")
+```
+
+
+## Identified Subgroups
+
+```{r fs-results}
+fs_tabs <- sg_tables(fs_result, ndecimals = 3, which_df = "est")
+fs_tabs$sg10_out
+```
+
+## Treatment Effect Estimates
+
+```{r fs-estimates}
+fs_tabs$tab_estimates
+```
+
+## Identified Subgroup Definition
+
+```{r fs-subgroup}
+if (!is.null(fs_result$sg.harm) && length(fs_result$sg.harm) > 0) {
+  cat("Identified subgroup (H, FS adverse):",
+      paste(fs_result$sg.harm, collapse = " & "), "\n")
+  cat("Subgroup size:", sum(fs_result$df.est$treat.recommend == 0),
+      sprintf("(%.1f%% of ITT)\n",
+              100 * mean(fs_result$df.est$treat.recommend == 0)))
+} else {
+  cat("ForestSearch (adverse): no subgroup identified.\n")
+}
+```
+
+## Subgroup Outcome Visualization
+
+```{r fs-glm-plot}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Mean CD4 decline by treatment arm and identified subgroup (FS, adverse scale)"
+
+fs_plot <- plot_sg_glm_outcomes(
+  fs.est         = fs_result,
+  outcome.name   = adverse_outcome,
+  treat.name     = treat.name,
+  effect_measure = fs_effect_measure,
+  outcome_type   = fs_outcome_type,
+  E.name         = "ZDV+ddI",
+  C.name         = "ddI",
+  show_itt       = TRUE,
+  show_effect    = TRUE,
+  verbose        = TRUE
+)
+```
+
+
+## Bootstrap Bias Correction
+
+Bootstrap bias correction adjusts the FS point estimate for the optimism
+inherent in data-driven subgroup identification. The bootstrap pipeline
+auto-detects the `MD` effect column from `fs_result` and produces
+bias-corrected MD estimates with bootstrap distributions and diagnostics.
+
+::: {.callout-note}
+**Demo mode**: `NB = 20` for pressure-testing the pipeline end-to-end.
+Production runs should use `NB = 500–2000`. Set `run_bootstrap = FALSE`
+in the parameters chunk to skip this section entirely.
+:::
+
+```{r fs-bootstrap-run}
+#| eval: !expr run_bootstrap
+
+t0 <- proc.time()
+
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_result,
+  nb_boots = NB,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in", round(timings$bootstrap / 60, 2), "minutes",
+    sprintf("(NB = %d, n_cores = %d)\n", NB, n_cores))
+```
+
+### Bootstrap Summary
+
+```{r fs-bootstrap-summary}
+#| eval: !expr run_bootstrap
+
+# Note: est.scale only affects the legacy HR-flavored caption helper; the
+# MD column (with bias-corrected MD*) is auto-detected from FSsg_tab.
+fs_summaries <- summarize_bootstrap_results(
+  sgharm       = fs_result$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale    = "hr"
+)
+
+fs_summaries$table
+```
+
+### Bootstrap Diagnostics
+
+```{r fs-bootstrap-diagnostics}
+#| eval: !expr run_bootstrap
+
+fs_summaries$diagnostics_table_gt
+```
+
+### Subgroup Agreement
+
+```{r fs-bootstrap-agreement}
+#| eval: !expr run_bootstrap
+
+if (!is.null(fs_summaries$subgroup_summary$original_agreement)) {
+  fs_summaries$subgroup_summary$original_agreement
+}
+```
+
+```{r fs-bootstrap-factors}
+#| eval: !expr run_bootstrap
+
+if (!is.null(fs_summaries$subgroup_summary$factor_presence)) {
+  fs_summaries$subgroup_summary$factor_presence
+}
+```
+
+### Bootstrap Distributions
+
+```{r fs-bootstrap-plots}
+#| eval: !expr run_bootstrap
+#| fig-width: 10
+#| fig-height: 4
+#| fig-cap: "Bootstrap distributions of MD for H (questionable) and Hc (recommend)"
+
+if (!is.null(fs_summaries$plots)) {
+  fs_summaries$plots$H_distribution + fs_summaries$plots$Hc_distribution
+}
+```
+
+
+## Cross-Validation
+
+K-fold cross-validation assesses the **stability** of the FS pipeline by
+re-running ForestSearch on each leave-out fold and comparing the
+identified subgroup to the full-data analysis. Per-fold results are
+aggregated into agreement metrics (sensitivity for H and Hc) and
+finding rates.
+
+::: {.callout-note}
+**Demo mode**: `Kfolds_cv = 10` for pressure-testing the CV pipeline
+end-to-end. Production runs typically use 10-fold CV; for repeated
+K-fold stability assessment, see `forestsearch_tenfold(sims = 50, Kfolds = 10)`.
+Set `run_cv = FALSE` in the parameters chunk to skip this section.
+:::
+
+```{r fs-cv-run}
+#| eval: !expr run_cv
+
+t0 <- proc.time()
+
+fs_kfold_result <- forestsearch_Kfold(
+  fs.est        = fs_result,
+  Kfolds        = Kfolds_cv,
+  seedit        = analysis_seed,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  ),
+  details       = FALSE
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$cv <- (proc.time() - t0)["elapsed"]
+
+cat("\nCross-validation completed in", round(timings$cv / 60, 2), "minutes",
+    sprintf("(Kfolds = %d, n_cores = %d)\n", Kfolds_cv, n_cores))
+```
+
+### CV Summary
+
+```{r fs-cv-summary-text}
+#| eval: !expr run_cv
+
+# One-line summary: finding rate + agreement
+cat(cv_summary_text(fs_kfold_result, est.scale = "hr"), "\n")
+cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
+            100 * fs_kfold_result$prop_SG_found, Kfolds_cv))
+```
+
+### CV Tables
+
+```{r fs-cv-tables}
+#| eval: !expr run_cv
+
+kfold_out <- forestsearch_KfoldOut(fs_kfold_result, outall = TRUE)
+cv_tabs   <- cv_summary_tables(
+  kfold_out,
+  title    = "ACTG175 Cross-Validation Summary (Continuous, MD)",
+  subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs %d-fold (Kf)",
+                     Kfolds_cv),
+  digits   = 3,
+  use_gt   = TRUE
+)
+
+cv_tabs$combined_table
+```
+
+### CV Agreement Metrics
+
+```{r fs-cv-metrics}
+#| eval: !expr run_cv
+
+if (!is.null(cv_tabs$metrics_table)) {
+  cv_tabs$metrics_table
+}
+```
+
+
+## Leave-One-Out Cross-Validation
+
+Leave-one-out (LOO) cross-validation is the limiting case of K-fold CV
+where each observation is held out once. It is the most thorough form
+of CV, eliminating fold-assignment randomness, and is the appropriate
+benchmark when sample size is small enough to make `N` re-fits
+tractable.
+
+::: {.callout-note}
+**Cost**: LOO runs `forestsearch()` once per observation. Toggleable
+independently from K-fold via `run_loo` in the parameters chunk. On
+samples up to roughly 1000 the cost is well-tolerated with parallel
+workers; beyond that, K-fold is preferred.
+:::
+
+```{r fs-loo-run}
+#| eval: !expr run_loo
+
+t0 <- proc.time()
+
+# LOO is triggered by Kfolds = N (the function default behavior at
+# forestsearch_cross_validation.R:109).  We pass it explicitly here for
+# clarity.
+N_loo <- nrow(fs_result$df.est)
+
+fs_loo_result <- forestsearch_Kfold(
+  fs.est        = fs_result,
+  Kfolds        = N_loo,
+  seedit        = analysis_seed,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  ),
+  details       = FALSE
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$loo <- (proc.time() - t0)["elapsed"]
+
+cat("\nLOO completed in", round(timings$loo / 60, 2), "minutes",
+    sprintf("(N folds = %d, n_cores = %d)\n", N_loo, n_cores))
+```
+
+### LOO Summary
+
+```{r fs-loo-summary-text}
+#| eval: !expr run_loo
+
+cat(cv_summary_text(fs_loo_result, est.scale = "hr"), "\n")
+cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
+            100 * fs_loo_result$prop_SG_found, N_loo))
+```
+
+### LOO Tables
+
+The `cv_summary_tables()` helper returns five publication-ready `gt`
+tables. The first is the combined ITT + subgroup view; the next three
+are component estimation tables (ITT, full-analysis subgroup, LOO
+subgroup) that show the underlying treatment-effect estimates with
+confidence intervals.
+
+```{r fs-loo-tables}
+#| eval: !expr run_loo
+
+loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE)
+loo_tabs <- cv_summary_tables(
+  loo_out,
+  title    = "ACTG175 Leave-One-Out CV Summary (Continuous, MD)",
+  subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
+                     N_loo),
+  digits   = 3,
+  use_gt   = TRUE
+)
+```
+
+#### Combined Table (ITT + Subgroup)
+
+```{r fs-loo-tab-combined}
+#| eval: !expr run_loo
+
+loo_tabs$combined_table
+```
+
+#### ITT Estimation Table
+
+```{r fs-loo-tab-itt}
+#| eval: !expr run_loo
+
+if (!is.null(loo_tabs$itt_table)) {
+  loo_tabs$itt_table
+} else {
+  cat("ITT estimation table not available.\n")
+}
+```
+
+#### Subgroup Estimation Table — Full Analysis
+
+```{r fs-loo-tab-original}
+#| eval: !expr run_loo
+
+if (!is.null(loo_tabs$original_table)) {
+  loo_tabs$original_table
+} else {
+  cat("Full-analysis subgroup estimation table not available.\n")
+}
+```
+
+#### Subgroup Estimation Table — LOO
+
+```{r fs-loo-tab-kfold}
+#| eval: !expr run_loo
+
+# Note: cv_summary_tables labels the CV-fold table "K-fold" internally
+# (cv_summary_tables.R:200-218); for LOO this slot holds the per-fold
+# LOO subgroup estimates.
+if (!is.null(loo_tabs$kfold_table)) {
+  loo_tabs$kfold_table
+} else {
+  cat("LOO subgroup estimation table not available.\n")
+}
+```
+
+### LOO Agreement Metrics
+
+```{r fs-loo-metrics}
+#| eval: !expr run_loo
+
+if (!is.null(loo_tabs$metrics_table)) {
+  loo_tabs$metrics_table
+}
+```
+
+
+## Combined Forest Plot
+
+Capstone visualization integrating the FS-identified subgroup with
+bootstrap-bias-corrected MD (when bootstrap was run) and cross-
+validation agreement annotations (when CV was run).
+
+```{r fs-forestplot}
+#| eval: !expr run_forestplot
+#| fig-width: 12
+#| fig-height: 5
+#| fig-cap: "Forest plot of ITT and identified subgroup; MD on the adverse scale (CD4 decline)"
+
+# Build fs_results list dynamically based on what's been computed.
+fs_results_list <- list(fs.est = fs_result)
+
+if (exists("fs_bc")) {
+  fs_results_list$fs_bc <- fs_bc
+}
+# Forest plot accepts one CV source in the fs_kfold slot.  Prefer
+# K-fold; fall back to LOO if K-fold wasn't run but LOO was.
+cv_label_for_plot <- NULL
+if (exists("fs_kfold_result")) {
+  fs_results_list$fs_kfold <- fs_kfold_result
+  cv_label_for_plot <- sprintf("%d-fold CV", Kfolds_cv)
+} else if (exists("fs_loo_result")) {
+  fs_results_list$fs_kfold <- fs_loo_result
+  cv_label_for_plot <- "LOO CV"
+}
+
+# Note: event.name is required by the function signature but is not
+# accessed for continuous outcomes (create_glm_row in
+# plot_subgroup_results_forestplot.R:368-446 does not reference it).
+# Pass treat.name as a placeholder.
+forest_obj <- plot_subgroup_results_forestplot(
+  fs_results     = fs_results_list,
+  df_analysis    = actg_df,
+  outcome.name   = adverse_outcome,
+  event.name     = treat.name,           # placeholder; unused for GLM
+  treat.name     = treat.name,
+  E.name         = "ZDV+ddI",
+  C.name         = "ddI",
+  outcome_type   = fs_outcome_type,
+  effect_measure = fs_effect_measure,
+  xlog           = FALSE,                # MD is identity scale
+  arrow_text     = c("Favors ZDV+ddI", "Favors ddI"),
+  title_text     = "ACTG175 Subgroup Results — Continuous (MD, adverse scale)",
+  show_cv_metrics = !is.null(cv_label_for_plot),
+  cv_source      = "kfold",
+  xlim_method    = "data"
+)
+
+render_forestplot(forest_obj)
+
+if (!is.null(cv_label_for_plot)) {
+  cat(sprintf("\nCV annotations source: %s.\n", cv_label_for_plot))
+}
+```
+
+
+# Part II: GRF Standalone (Beneficial Scale) {#sec-grf}
+
+## Rationale
+
+GRF operates on the beneficial scale (`y_improve`, CD4 improvement) with
+`adverse_outcome = FALSE` (the default). A CATE below the threshold means
+the treatment **decreases improvement** in that subgroup — harm via
+insufficient benefit. This is the natural complement to the FS analysis
+on the adverse scale: same outcome data, opposite encoding, and a
+different model class (causal forest with policy-tree subgroup
+extraction).
+
+## Running GRF
+
+```{r grf-run}
+t0 <- proc.time()
+
+grf_result <- grf.subg.harm.glm(
+  data             = actg_df,
+  confounders.name = confounders.name,
+  outcome.name     = beneficial_outcome,
+  treat.name       = treat.name,
+  id.name          = id.name,
+  outcome_type     = grf_outcome_type,
+  effect_measure   = grf_effect_measure,
+  dmin.grf         = grf_dmin_grf,
+  maxdepth         = grf_maxdepth,
+  RCT              = grf_RCT,
+  sg.criterion     = grf_sg_criterion,
+  details          = TRUE
+)
+
+timings$grf <- (proc.time() - t0)["elapsed"]
+cat("\nGRF (beneficial scale) completed in",
+    round(timings$grf, 1), "seconds\n")
+```
+
+## Policy Trees
+
+```{r grf-trees}
+#| fig-width: 10
+#| fig-height: 4
+#| fig-cap: "Policy trees from GRF (depth 1 and 2)"
+
+if (!is.null(grf_result$trees)) {
+  oldpar <- par(mfrow = c(1, 2))
+  if (length(grf_result$trees) >= 1 && !is.null(grf_result$trees[[1]])) {
+    plot(grf_result$trees[[1]],
+         leaf.labels = c("Control", "Treat"), main = "Depth 1")
+  }
+  if (length(grf_result$trees) >= 2 && !is.null(grf_result$trees[[2]])) {
+    plot(grf_result$trees[[2]],
+         leaf.labels = c("Control", "Treat"), main = "Depth 2")
+  }
+  par(oldpar)
+} else {
+  cat("GRF: no policy trees available.\n")
+}
+```
+
+## Identified Subgroup Definition
+
+```{r grf-subgroup}
+if (!is.null(grf_result$sg.harm.id) && length(grf_result$sg.harm.id) > 0) {
+  grf_H <- grf_result$data$treat.recommend == 0
+  cat("Identified subgroup (H, GRF beneficial):",
+      paste(grf_result$sg.harm.id, collapse = " & "), "\n")
+  cat(sprintf("Subgroup size: %d (%.1f%% of ITT)\n",
+              sum(grf_H), 100 * mean(grf_H)))
+  cat(sprintf("CATE(H):  %6.2f  (treatment effect on improvement, in H)\n",
+              grf_result$cate_sg))
+  cat(sprintf("CATE(Hc): %6.2f\n", grf_result$cate_sgc))
+} else {
+  cat("GRF: no subgroup identified.\n")
+}
+```
+
+## GRF Variable Importance
+
+GRF reports per-covariate variable importance from the causal forest,
+quantifying each covariate's contribution to splitting decisions in the
+treatment-effect estimation. Higher values indicate stronger influence
+on detected heterogeneity. Note this differs from prediction-importance
+in standard random forests; here it reflects relevance to **CATE
+estimation**, not to the marginal outcome.
+
+```{r grf-varimp}
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: "GRF variable importance from the causal forest"
+
+if (!is.null(grf_result$grf_varimp) && length(grf_result$grf_varimp) > 0) {
+  vi <- grf_result$grf_varimp
+  vi_df <- data.frame(
+    variable   = names(vi),
+    importance = unname(vi)
+  )
+  # Order ascending so largest appears at top after coord_flip()
+  vi_df <- vi_df[order(vi_df$importance), ]
+  vi_df$variable <- factor(vi_df$variable, levels = vi_df$variable)
+
+  ggplot(vi_df, aes(x = variable, y = importance)) +
+    geom_col(fill = "steelblue") +
+    coord_flip() +
+    labs(
+      x        = NULL,
+      y        = "GRF variable importance",
+      title    = "GRF Variable Importance",
+      subtitle = "Higher = more influence on treatment-effect heterogeneity"
+    )
+} else {
+  cat("GRF variable importance not available.\n")
+}
+```
+
+## CATE Distribution
+
+Per-subject conditional average treatment effects (CATE) are estimated
+from GRF's double-robust scores: \\( \\widehat{\\tau}_i = \\Gamma_{1,i} - \\Gamma_{0,i} \\),
+where \\( \\Gamma_0 \\) and \\( \\Gamma_1 \\) are the doubly robust outcome
+predictions under control and treatment. On the **beneficial scale**
+(`y_improve`), positive CATE means treatment increases CD4 improvement
+(benefit); negative CATE means the opposite (harm via insufficient
+improvement). The histogram below shows the empirical CATE distribution
+across subjects, colored by GRF-assigned subgroup membership.
+
+```{r grf-cate-distribution}
+#| fig-width: 9
+#| fig-height: 5
+#| fig-cap: "Per-subject CATE distribution from GRF, colored by H / Hc membership"
+
+if (!is.null(grf_result$dr_scores) &&
+    !is.null(grf_result$data$treat.recommend)) {
+
+  cate_per_subject <- grf_result$dr_scores[, 2L] -
+                      grf_result$dr_scores[, 1L]
+  group_label <- ifelse(grf_result$data$treat.recommend == 0,
+                        "H (questionable)",
+                        "H\u1d9c (recommend)")
+  cate_df <- data.frame(
+    cate  = cate_per_subject,
+    group = factor(group_label,
+                   levels = c("H (questionable)", "H\u1d9c (recommend)"))
+  )
+
+  ggplot(cate_df, aes(x = cate, fill = group)) +
+    geom_histogram(alpha = 0.6, position = "identity", bins = 30,
+                   color = "white", linewidth = 0.2) +
+    geom_vline(xintercept = 0, linetype = "dashed", color = "grey30") +
+    geom_vline(xintercept = grf_result$cate_sg,
+               linetype = "dotted", color = "coral", linewidth = 0.8) +
+    geom_vline(xintercept = grf_result$cate_sgc,
+               linetype = "dotted", color = "steelblue", linewidth = 0.8) +
+    scale_fill_manual(values = c(
+      "H (questionable)"     = "coral",
+      "H\u1d9c (recommend)"  = "steelblue"
+    )) +
+    labs(
+      x        = "Per-subject CATE (Y(1) - Y(0)) on improvement scale",
+      y        = "Count",
+      title    = "GRF CATE Distribution",
+      subtitle = paste0("Dotted lines: subgroup-mean CATE(H) = ",
+                        sprintf("%.2f", grf_result$cate_sg),
+                        ", CATE(H\u1d9c) = ",
+                        sprintf("%.2f", grf_result$cate_sgc),
+                        ".  Negative CATE = harm via insufficient improvement."),
+      fill     = "Subgroup"
+    )
+} else {
+  cat("GRF DR-scores or treat.recommend not available.\n")
+}
+```
+
+## Treatment Effect Estimates
+
+```{r grf-estimates}
+grf_tabs <- sg_tables(grf_result, ndecimals = 3, which_df = "est")
+grf_tabs$tab_estimates
+```
+
+## Subgroup Outcome Visualization
+
+```{r grf-glm-plot}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Mean CD4 improvement by treatment arm and identified subgroup (GRF, beneficial scale)"
+
+# plot_sg_glm_outcomes() expects an fs.est-shaped object with df.est and
+# sg.harm.  GRF returns `data` and `sg.harm.id`, so we wrap them in a
+# minimal shim list.  All other arguments are passed explicitly so no
+# auto-detection from the shim is required.
+grf_shim <- list(
+  df.est         = grf_result$data,
+  outcome_type   = grf_result$outcome_type,
+  effect_measure = grf_result$effect_measure,
+  sg.harm        = grf_result$sg.harm.id
+)
+
+grf_plot <- plot_sg_glm_outcomes(
+  fs.est         = grf_shim,
+  outcome.name   = beneficial_outcome,
+  treat.name     = treat.name,
+  effect_measure = grf_effect_measure,
+  outcome_type   = grf_outcome_type,
+  E.name         = "ZDV+ddI",
+  C.name         = "ddI",
+  show_itt       = TRUE,
+  show_effect    = TRUE,
+  verbose        = TRUE
+)
+```
+
+
+# Part III: Cross-Method Comparison {#sec-compare}
+
+The two analyses define H differently:
+
+- FS uses the adverse scale (`y_decline`, `MD > c1` = harm).
+- GRF uses the beneficial scale (`y_improve`, CATE below threshold = harm).
+
+Both classify subjects as H (`treat.recommend == 0`) when they meet their
+respective harm criterion, so per-subject membership is directly
+comparable. The cross-tabulation below reports raw agreement and Cohen's
+κ.
+
+```{r cross-method}
+sg_comparison <- compare_fs_subgroups(
+  fs1     = fs_result,
+  fs2     = grf_result,
+  label1  = "FS (adverse)",
+  label2  = "GRF (beneficial)",
+  id.name = id.name,
+  subgroup_notation = "harm",
+  title   = "FS-Adverse vs GRF-Beneficial: Subgroup Membership"
+)
+
+sg_comparison$table
+```
+
+```{r cross-method-print}
+cat("=== Concordance summary ===\n")
+cat(sprintf("Agreement:    %.1f%%\n",
+            100 * sg_comparison$concordance$agreement))
+if (!is.null(sg_comparison$concordance$kappa)) {
+  cat(sprintf("Cohen's kappa: %.3f\n",
+              sg_comparison$concordance$kappa))
+}
+```
+
+
+# Computational Timing
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+components <- c("ForestSearch (adverse)", "GRF (beneficial)")
+seconds    <- c(timings$fs,             timings$grf)
+
+if (run_bootstrap && !is.null(timings$bootstrap)) {
+  components <- c(components, "Bootstrap (FS)")
+  seconds    <- c(seconds,    timings$bootstrap)
+}
+
+if (run_cv && !is.null(timings$cv)) {
+  components <- c(components, "Cross-Validation (FS)")
+  seconds    <- c(seconds,    timings$cv)
+}
+
+if (run_loo && !is.null(timings$loo)) {
+  components <- c(components, "Leave-One-Out CV (FS)")
+  seconds    <- c(seconds,    timings$loo)
+}
+
+components <- c(components, "Total")
+seconds    <- c(seconds,    timings$total)
+
+timing_df <- data.frame(
+  Analysis = components,
+  Seconds  = unname(seconds),
+  Minutes  = unname(seconds) / 60
+)
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 2) |>
+  cols_label(
+    Analysis = "Component",
+    Seconds  = "Time (sec)",
+    Minutes  = "Time (min)"
+  )
+```
+
+
+# References
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
+
+Hammer SM, Katzenstein DA, Hughes MD, et al. (1996). A trial comparing
+nucleoside monotherapy with combination therapy in HIV-infected adults
+with CD4 cell counts from 200 to 500 per cubic millimeter. AIDS Clinical
+Trials Group Study 175 Study Team. *N Engl J Med*. 335(15):1081-90.
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

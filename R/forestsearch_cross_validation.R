@@ -1066,10 +1066,23 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
         SG_tab_Kfold <- itt_tab
       }
 
-      # Combine tables (GLM columns: Subgroup, n, n1, Rate(C), Rate(T), {EM} (95% CI))
+      # Combine tables.  Column names produced by SG_tab_estimates_glm()
+      # depend on outcome_type and effect_measure:
+      #   Binary:           Subgroup, n, n1, Rate(C), Rate(T), Diff,
+      #                     {effect_measure} (95% CI)
+      #   Continuous/Count: Subgroup, n, n1, Mean(C), Mean(T), Diff,
+      #                     {effect_measure} (95% CI)
+      # Branch the column whitelist on outcome_type (mirrors the
+      # is_proportion logic in summary_utility_functions.R:280) and
+      # include "Diff" so the combined table is complete for every GLM
+      # outcome type.
       tab_all <- NULL
       eff_label <- paste0(effect_measure, " (95% CI)")
-      glm_cols <- c("Subgroup", "n", "n1", "Rate(C)", "Rate(T)", eff_label)
+      is_proportion <- outcome_type %in% c("binary")
+      c_label <- if (is_proportion) "Rate(C)" else "Mean(C)"
+      t_label <- if (is_proportion) "Rate(T)" else "Mean(T)"
+      glm_cols <- c("Subgroup", "n", "n1", c_label, t_label, "Diff",
+                    eff_label)
 
       if (!is.null(itt_tab) && !is.null(SG_tab_original)) {
         # Only select columns that actually exist in the tables

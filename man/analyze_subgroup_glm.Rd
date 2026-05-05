@@ -39,7 +39,16 @@ as percentages (\code{"Rate"}); continuous and count display raw means
 \item{N}{Integer. Total sample size (for percentage calculation).}
 }
 \value{
-Character vector of formatted results.
+One-row data frame of formatted subgroup results.  Column names
+are placeholders (\code{Subgroup}, \code{n}, \code{n1}, \code{rate0},
+\code{rate1}, \code{Diff}, \code{effect}, optionally \code{effect_a})
+and are overwritten by the calling function
+(\code{\link{SG_tab_estimates_glm}}) with the user-facing labels
+(e.g., \code{"Rate(C)"} vs \code{"Mean(C)"}, the effect-measure
+header).  Returning a data frame -- rather than a named character
+vector via \code{c(...)} -- ensures type stability across the ITT
+and subgroup call paths and prevents downstream rendering failures
+in consumers that go through \code{as.data.frame()} (e.g., gt).
 }
 \description{
 GLM counterpart to \code{\link[=analyze_subgroup]{analyze_subgroup()}}.  Computes per-arm outcome

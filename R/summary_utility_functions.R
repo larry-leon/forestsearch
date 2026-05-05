@@ -166,7 +166,16 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #'   (\code{"Mean"}).  Default \code{"binary"}.
 #' @param N Integer. Total sample size (for percentage calculation).
 #'
-#' @return Character vector of formatted results.
+#' @return One-row data frame of formatted subgroup results.  Column names
+#'   are placeholders (\code{Subgroup}, \code{n}, \code{n1}, \code{rate0},
+#'   \code{rate1}, \code{Diff}, \code{effect}, optionally \code{effect_a})
+#'   and are overwritten by the calling function
+#'   (\code{\link{SG_tab_estimates_glm}}) with the user-facing labels
+#'   (e.g., \code{"Rate(C)"} vs \code{"Mean(C)"}, the effect-measure
+#'   header).  Returning a data frame -- rather than a named character
+#'   vector via \code{c(...)} -- ensures type stability across the ITT
+#'   and subgroup call paths and prevents downstream rendering failures
+#'   in consumers that go through \code{as.data.frame()} (e.g., gt).
 #' @keywords internal
 analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
                                  subgroup_name, effect_a = NA,
@@ -228,11 +237,36 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
     rd_fmt <- sprintf("%+.1f", rate1 - rate0)
   }
 
+  # Return a 1-row data frame for type stability across the ITT and
+  # subgroup call paths.  Using c(...) here would produce a named
+  # character vector whose colnames() is NULL, breaking downstream
+  # consumers that rely on column-name introspection (e.g.,
+  # forestsearch_KfoldOut) and producing 1-column "scattered text" when
+  # passed through as.data.frame() (e.g., cv_summary_tables -> gt::gt).
+  # Placeholder column names are overwritten by SG_tab_estimates_glm().
   if (is.na(effect_a)) {
-    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, rd_fmt, effect_str)
+    data.frame(
+      Subgroup = subgroup_name,
+      n        = n_fmt,
+      n1       = n1_fmt,
+      rate0    = r0_fmt,
+      rate1    = r1_fmt,
+      Diff     = rd_fmt,
+      effect   = effect_str,
+      stringsAsFactors = FALSE
+    )
   } else {
-    c(subgroup_name, n_fmt, n1_fmt, r0_fmt, r1_fmt, rd_fmt, effect_str,
-      effect_a)
+    data.frame(
+      Subgroup = subgroup_name,
+      n        = n_fmt,
+      n1       = n1_fmt,
+      rate0    = r0_fmt,
+      rate1    = r1_fmt,
+      Diff     = rd_fmt,
+      effect   = effect_str,
+      effect_a = as.character(effect_a),
+      stringsAsFactors = FALSE
+    )
   }
 }
 
@@ -260,7 +294,14 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
 #' @param sg0_name Character. Label for subgroup 0 (treat.recommend == 0).
 #' @param est.scale Character. Effect scale ("hr" or "1/hr").
 #'
-#' @return Data frame of subgroup summary estimates.
+#' @return Data frame.  One row when \code{SG_flag = "ITT"}; two rows
+#'   (sg0 then sg1) when \code{SG_flag = "treat.recommend"}.  Columns:
+#'   \code{Subgroup}, \code{n}, \code{n1}, \code{Rate(C)} or
+#'   \code{Mean(C)} (binary vs continuous/count), \code{Rate(T)} or
+#'   \code{Mean(T)}, \code{Diff}, and the effect-measure header
+#'   \code{"\{effect_measure\} (95% CI)"}.  When \code{effect_a_*} is
+#'   supplied, an additional \code{"\{effect_measure\}*"} column carries
+#'   the bias-corrected estimate.
 #' @keywords internal
 SG_tab_estimates_glm <- function(df, SG_flag,
                                  outcome.name, treat.name,

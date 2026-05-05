@@ -50,7 +50,14 @@ Default \code{"binary"}.}
 \item{est.scale}{Character. Effect scale ("hr" or "1/hr").}
 }
 \value{
-Data frame of subgroup summary estimates.
+Data frame.  One row when \code{SG_flag = "ITT"}; two rows
+(sg0 then sg1) when \code{SG_flag = "treat.recommend"}.  Columns:
+\code{Subgroup}, \code{n}, \code{n1}, \code{Rate(C)} or
+\code{Mean(C)} (binary vs continuous/count), \code{Rate(T)} or
+\code{Mean(T)}, \code{Diff}, and the effect-measure header
+\code{"\{effect_measure\} (95\% CI)"}.  When \code{effect_a_*} is
+supplied, an additional \code{"\{effect_measure\}*"} column carries
+the bias-corrected estimate.
 }
 \description{
 GLM counterpart to \code{\link[=SG_tab_estimates]{SG_tab_estimates()}}.  Produces a summary data frame
