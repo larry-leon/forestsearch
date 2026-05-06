@@ -16,7 +16,8 @@ SG_tab_estimates_glm(
   effect_a_0 = NA,
   sg1_name = "Recommend",
   sg0_name = "Questionable",
-  est.scale = "hr"
+  est.scale = "hr",
+  digits = 4
 )
 }
 \arguments{
@@ -48,6 +49,11 @@ Default \code{"binary"}.}
 \item{sg0_name}{Character. Label for subgroup 0 (treat.recommend == 0).}
 
 \item{est.scale}{Character. Effect scale ("hr" or "1/hr").}
+
+\item{digits}{Integer. Decimal places for numeric formatting; passed
+through to \code{\link{analyze_subgroup_glm}}.  Default 4 to provide
+round-down headroom for downstream display reformatting (e.g.,
+\code{summarize_bootstrap_results(digits = ...)}).}
 }
 \value{
 Data frame.  One row when \code{SG_flag = "ITT"}; two rows

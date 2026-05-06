@@ -165,6 +165,13 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 #'   as percentages (\code{"Rate"}); continuous and count display raw means
 #'   (\code{"Mean"}).  Default \code{"binary"}.
 #' @param N Integer. Total sample size (for percentage calculation).
+#' @param digits Integer. Number of decimal places for arm-mean / Diff /
+#'   effect-estimate / CI numeric formatting.  Default 4 to provide
+#'   headroom for downstream display reformatting (e.g., via
+#'   \code{summarize_bootstrap_results(digits = ...)}, which can round
+#'   down but cannot recover precision lost at construction).  Note this
+#'   does not affect the count-with-percent-of-total formatting in the
+#'   \code{n} and \code{n1} columns, which remain at 1 decimal.
 #'
 #' @return One-row data frame of formatted subgroup results.  Column names
 #'   are placeholders (\code{Subgroup}, \code{n}, \code{n1}, \code{rate0},
@@ -181,7 +188,8 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
                                  subgroup_name, effect_a = NA,
                                  estimator_fn = NULL,
                                  effect_measure = "RD",
-                                 outcome_type = "binary", N) {
+                                 outcome_type = "binary", N,
+                                 digits = 4) {
 
   Y     <- df_sub[[outcome.name]]
   Treat <- df_sub[[treat.name]]
@@ -194,6 +202,17 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
   # Per-arm outcome summaries
   rate0 <- mean(Y[Treat == 0])
   rate1 <- mean(Y[Treat == 1])
+
+  # Sprintf format strings parameterized by `digits`.  These produce a
+  # uniformly-precise base representation; downstream consumers (e.g.,
+  # summarize_bootstrap_results) can reformat to lower precision via
+  # parse-and-reformat.  Construction-time precision is the ceiling for
+  # what display-time can show — values rounded here cannot be recovered.
+  fmt_val <- paste0("%.", digits, "f")
+  fmt_signed <- paste0("%+.", digits, "f")
+  fmt_pct <- paste0("%.", digits, "f%%")
+  fmt_signed_pct <- paste0("%+.", digits, "f%%")
+  fmt_ci <- paste0(fmt_val, " (", fmt_val, ", ", fmt_val, ")")
 
   # Effect estimate via closure (if provided)
   if (!is.null(estimator_fn)) {
@@ -208,11 +227,10 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
       # Format depends on scale
       if (effect_measure %in% c("OR", "RR", "IRR")) {
         # Log scale: exponentiate for display
-        effect_str <- sprintf("%.2f (%.2f, %.2f)",
-                              exp(est), exp(lower), exp(upper))
+        effect_str <- sprintf(fmt_ci, exp(est), exp(lower), exp(upper))
       } else {
         # Identity scale (RD, IRD, MD)
-        effect_str <- sprintf("%.3f (%.3f, %.3f)", est, lower, upper)
+        effect_str <- sprintf(fmt_ci, est, lower, upper)
       }
     } else {
       effect_str <- "NA"
@@ -228,13 +246,13 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
   # Per-arm summaries: percentage for binary, raw mean for continuous/count
   is_proportion <- outcome_type %in% c("binary")
   if (is_proportion) {
-    r0_fmt <- sprintf("%.1f%%", 100 * rate0)
-    r1_fmt <- sprintf("%.1f%%", 100 * rate1)
-    rd_fmt <- sprintf("%+.1f%%", 100 * (rate1 - rate0))
+    r0_fmt <- sprintf(fmt_pct, 100 * rate0)
+    r1_fmt <- sprintf(fmt_pct, 100 * rate1)
+    rd_fmt <- sprintf(fmt_signed_pct, 100 * (rate1 - rate0))
   } else {
-    r0_fmt <- sprintf("%.1f", rate0)
-    r1_fmt <- sprintf("%.1f", rate1)
-    rd_fmt <- sprintf("%+.1f", rate1 - rate0)
+    r0_fmt <- sprintf(fmt_val, rate0)
+    r1_fmt <- sprintf(fmt_val, rate1)
+    rd_fmt <- sprintf(fmt_signed, rate1 - rate0)
   }
 
   # Return a 1-row data frame for type stability across the ITT and
@@ -293,6 +311,10 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
 #' @param sg1_name Character. Label for subgroup 1 (treat.recommend == 1).
 #' @param sg0_name Character. Label for subgroup 0 (treat.recommend == 0).
 #' @param est.scale Character. Effect scale ("hr" or "1/hr").
+#' @param digits Integer. Decimal places for numeric formatting; passed
+#'   through to \code{\link{analyze_subgroup_glm}}.  Default 4 to provide
+#'   round-down headroom for downstream display reformatting (e.g.,
+#'   \code{summarize_bootstrap_results(digits = ...)}).
 #'
 #' @return Data frame.  One row when \code{SG_flag = "ITT"}; two rows
 #'   (sg0 then sg1) when \code{SG_flag = "treat.recommend"}.  Columns:
@@ -311,7 +333,8 @@ SG_tab_estimates_glm <- function(df, SG_flag,
                                  effect_a_1 = NA, effect_a_0 = NA,
                                  sg1_name = "Recommend",
                                  sg0_name = "Questionable",
-                                 est.scale = "hr") {
+                                 est.scale = "hr",
+                                 digits = 4) {
   N <- nrow(df)
 
   # Effect label for column header
@@ -330,7 +353,8 @@ SG_tab_estimates_glm <- function(df, SG_flag,
       estimator_fn   = estimator_fn,
       effect_measure = effect_measure,
       outcome_type   = outcome_type,
-      N = N
+      N = N,
+      digits = digits
     )
     col_names <- c("Subgroup", "n", "n1", c_label, t_label, "Diff",
                     eff_label)
@@ -349,7 +373,8 @@ SG_tab_estimates_glm <- function(df, SG_flag,
     estimator_fn   = estimator_fn,
     effect_measure = effect_measure,
     outcome_type   = outcome_type,
-    N = N
+    N = N,
+    digits = digits
   )
 
   res_1 <- analyze_subgroup_glm(
@@ -359,7 +384,8 @@ SG_tab_estimates_glm <- function(df, SG_flag,
     estimator_fn   = estimator_fn,
     effect_measure = effect_measure,
     outcome_type   = outcome_type,
-    N = N
+    N = N,
+    digits = digits
   )
 
   res <- rbind(res_0, res_1)

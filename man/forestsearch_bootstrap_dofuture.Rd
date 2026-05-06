@@ -10,7 +10,8 @@ forestsearch_bootstrap_dofuture(
   seed = 8316951L,
   details = FALSE,
   show_three = FALSE,
-  parallel_args = list()
+  parallel_args = list(),
+  digits = 4
 )
 }
 \arguments{

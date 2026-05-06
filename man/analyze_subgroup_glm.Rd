@@ -13,7 +13,8 @@ analyze_subgroup_glm(
   estimator_fn = NULL,
   effect_measure = "RD",
   outcome_type = "binary",
-  N
+  N,
+  digits = 4
 )
 }
 \arguments{
@@ -37,6 +38,14 @@ as percentages (\code{"Rate"}); continuous and count display raw means
 (\code{"Mean"}).  Default \code{"binary"}.}
 
 \item{N}{Integer. Total sample size (for percentage calculation).}
+
+\item{digits}{Integer. Number of decimal places for arm-mean / Diff /
+effect-estimate / CI numeric formatting.  Default 4 to provide
+headroom for downstream display reformatting (e.g., via
+\code{summarize_bootstrap_results(digits = ...)}, which can round
+down but cannot recover precision lost at construction).  Note this
+does not affect the count-with-percent-of-total formatting in the
+\code{n} and \code{n1} columns, which remain at 1 decimal.}
 }
 \value{
 One-row data frame of formatted subgroup results.  Column names

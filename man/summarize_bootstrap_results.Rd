@@ -8,7 +8,8 @@ summarize_bootstrap_results(
   sgharm,
   boot_results,
   create_plots = FALSE,
-  est.scale = "hr"
+  est.scale = "hr",
+  digits = 2
 )
 }
 \arguments{
@@ -24,6 +25,19 @@ summarize_bootstrap_results(
 \item{create_plots}{Logical. Generate diagnostic plots (default: FALSE)}
 
 \item{est.scale}{Character. "hr" or "1/hr" for effect scale}
+
+\item{digits}{Integer or NULL. Decimal places for display formatting of
+numeric columns in the rendered table (per-arm summaries, Diff,
+effect estimate CI, bias-corrected CI).  Default 2.  When set, the
+formatted strings in \code{boot_results$FSsg_tab} are parsed back to
+numeric and re-formatted at the requested precision; this works
+reliably as long as the construction-time precision (default 4
+decimals; controlled by \code{digits} in
+\code{forestsearch_bootstrap_dofuture}) is at least as high as
+\code{digits} requested here.  Set \code{digits = NULL} to display
+the construction-time strings unchanged.  The \code{n} and \code{n1}
+columns are \strong{not} reformatted -- their count-with-percent
+format is preserved as constructed.}
 }
 \value{
 List with components:

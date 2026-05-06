@@ -205,6 +205,9 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
 #'
 #' @param estimates Data frame or data.table of estimates.
 #' @param col_names Character vector of column names for estimate, lower, upper.
+#' @param digits Integer. Decimal places for numeric formatting.  Default 4
+#'   to provide round-down headroom for downstream display reformatting
+#'   (e.g., \code{summarize_bootstrap_results(digits = ...)}).
 #' @return Character string formatted as \"estimate (lower, upper)\".
 #' @examples
 #' \donttest{
@@ -214,9 +217,9 @@ ci_est <- function(x, sd, alpha = 0.025, scale = "hr", est.loghr = TRUE) {
 #' }
 #' @export
 
-format_CI <- function(estimates, col_names) {
+format_CI <- function(estimates, col_names, digits = 4) {
   resH <- estimates[, ..col_names]
-  Hstat <- round(unlist(resH[1, ]), 2)
+  Hstat <- round(unlist(resH[1, ]), digits)
   paste0(Hstat[1], " (", Hstat[2], ",", Hstat[3], ")")
 }
 

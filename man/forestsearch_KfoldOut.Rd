@@ -4,7 +4,7 @@
 \alias{forestsearch_KfoldOut}
 \title{ForestSearch K-Fold Cross-Validation Output Summary}
 \usage{
-forestsearch_KfoldOut(res, details = FALSE, outall = FALSE)
+forestsearch_KfoldOut(res, details = FALSE, outall = FALSE, digits = 4)
 }
 \arguments{
 \item{res}{List. Result object from ForestSearch cross-validation, must contain

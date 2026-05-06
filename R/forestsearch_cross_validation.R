@@ -861,7 +861,8 @@ forestsearch_tenfold <- function(
 #' }
 #' @export
 
-forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
+forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
+                                  digits = 4) {
 
   # ===========================================================================
   # INPUT VALIDATION
@@ -1021,7 +1022,8 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
           estimator_fn   = estimator_fn_cv,
           effect_measure = effect_measure,
           outcome_type   = outcome_type,
-          est.scale      = est.scale
+          est.scale      = est.scale,
+          digits         = digits
         ),
         error = function(e) {
           if (details) cat("GLM ITT table failed:", e$message, "\n")
@@ -1041,7 +1043,8 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
           outcome_type   = outcome_type,
           sg1_name       = sg1.name,
           sg0_name       = sg0.name,
-          est.scale      = est.scale
+          est.scale      = est.scale,
+          digits         = digits
         ),
         error = function(e) {
           if (details) cat("GLM original SG table failed:", e$message, "\n")
@@ -1062,7 +1065,8 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
             outcome_type   = outcome_type,
             sg1_name       = sg1.name,
             sg0_name       = sg0.name,
-            est.scale      = est.scale
+            est.scale      = est.scale,
+            digits         = digits
           ),
           error = function(e) {
             if (details) cat("GLM Kfold SG table failed:", e$message, "\n")

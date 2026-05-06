@@ -138,7 +138,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
                                             seed      = 8316951L,
                                             details = FALSE,
                                             show_three = FALSE,
-                                            parallel_args = list()
+                                            parallel_args = list(),
+                                            digits = 4
 ){
 
   # =======================================================================
@@ -434,27 +435,30 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # SECTION 10: FORMAT CONFIDENCE INTERVALS
   # =======================================================================
 
-  # Format CIs (handling NULL estimates gracefully)
+  # Format CIs (handling NULL estimates gracefully).  digits controls
+  # construction-time precision; downstream display can round down via
+  # summarize_bootstrap_results(digits = ...) but cannot recover precision
+  # rounded away here.
   H_res1 <- if (!is.null(H_estimates)) {
-    format_CI(H_estimates, c("H0", "H0_lower", "H0_upper"))
+    format_CI(H_estimates, c("H0", "H0_lower", "H0_upper"), digits = digits)
   } else {
     "NA (NA, NA)"
   }
 
   H_res2 <- if (!is.null(H_estimates)) {
-    format_CI(H_estimates, c("H2", "H2_lower", "H2_upper"))
+    format_CI(H_estimates, c("H2", "H2_lower", "H2_upper"), digits = digits)
   } else {
     "NA (NA, NA)"
   }
 
   Hc_res1 <- if (!is.null(Hc_estimates)) {
-    format_CI(Hc_estimates, c("H0", "H0_lower", "H0_upper"))
+    format_CI(Hc_estimates, c("H0", "H0_lower", "H0_upper"), digits = digits)
   } else {
     "NA (NA, NA)"
   }
 
   Hc_res2 <- if (!is.null(Hc_estimates)) {
-    format_CI(Hc_estimates, c("H2", "H2_lower", "H2_upper"))
+    format_CI(Hc_estimates, c("H2", "H2_lower", "H2_upper"), digits = digits)
   } else {
     "NA (NA, NA)"
   }
@@ -505,7 +509,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
         effect_a_0     = SG_CIs$H_bc,
         sg1_name       = "Recmnd",
         sg0_name       = "Qstnbl",
-        est.scale      = est.scale
+        est.scale      = est.scale,
+        digits         = digits
       ),
       error = function(e) {
         warning("GLM SG_tab_estimates failed: ", e$message)
