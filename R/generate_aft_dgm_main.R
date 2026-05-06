@@ -212,6 +212,7 @@ generate_aft_dgm_flex <- function(data,
                                   select_censoring = TRUE,
                                   cens_type = "weibull",
                                   cens_params = list(),
+                                  cens_intercept_only = FALSE,
                                   seed = 8316951,
                                   verbose = TRUE,
                                   standardize = FALSE,
@@ -226,9 +227,40 @@ generate_aft_dgm_flex <- function(data,
 
   # When the censoring model will be fitted from data, ensure censoring
   # covariate vectors default to the outcome model vectors if not supplied.
-  # Skipped when select_censoring = FALSE: no covariate processing is needed
-  # for a censoring distribution that will be specified analytically.
-  if (select_censoring) {
+  # The censoring model is fitted in two cases:
+  #   (i)  AIC selection                : select_censoring = TRUE
+  #   (ii) Force-fit                    : select_censoring = FALSE AND
+  #                                       cens_params lacks analytical specs
+  # The analytical path (FALSE + cens_params with mu/tau) does not fit
+  # anything; covariate processing is irrelevant there and is skipped.
+  #
+  # cens_intercept_only = TRUE forcibly clears any covariate vectors so
+  # the censoring formula reduces to ~ 1.  This must run *before* the
+  # inheritance step.
+  if (cens_intercept_only) {
+    if (select_censoring) {
+      stop("cens_intercept_only = TRUE requires select_censoring = FALSE ",
+           "(force-fit mode). For an unconditional model in AIC mode, the ",
+           "comparison already includes Weibull0 / LogNormal0 candidates.",
+           call. = FALSE)
+    }
+    if (!is.null(cens_params$mu) || !is.null(cens_params$tau)) {
+      stop("cens_intercept_only = TRUE is incompatible with analytical ",
+           "cens_params (mu/tau supplied).  Choose one: force-fit ",
+           "intercept-only (cens_params empty), or analytical with ",
+           "explicit mu/tau (cens_intercept_only = FALSE).",
+           call. = FALSE)
+    }
+    factor_vars_cens     <- character(0)
+    continuous_vars_cens <- character(0)
+  }
+
+  # Inheritance (default *_cens to outcome covariates) when fitting.
+  will_fit_cens <- select_censoring ||
+    (cens_type != "uniform" &&
+     is.null(cens_params$mu) && is.null(cens_params$tau))
+
+  if (will_fit_cens && !cens_intercept_only) {
     if (is.null(factor_vars_cens) && is.null(continuous_vars_cens))
       factor_vars_cens <- factor_vars
     if (is.null(continuous_vars_cens))
@@ -294,18 +326,21 @@ generate_aft_dgm_flex <- function(data,
   # ============================================================================
   # Step 7: Prepare Censoring Parameters
   # ============================================================================
-  # select_censoring = TRUE  : fits censoring distribution from observed data
-  #                            via AIC comparison across Weibull / lognormal
-  #                            models (with and without covariates)
-  # select_censoring = FALSE : uses caller-supplied cens_params directly;
-  #                            no model fitting is performed
+  # Three modes (see prepare_censoring_model docstring for details):
+  #   (1) AIC selection : select_censoring = TRUE
+  #   (2) Analytical    : select_censoring = FALSE; cens_params supplies
+  #                       mu+tau (Weibull/LogNormal) or min+max (uniform)
+  #   (3) Force-fit     : select_censoring = FALSE; cens_params empty;
+  #                       formula determined by cens_intercept_only and
+  #                       the *_cens vectors
   cens_result <- prepare_censoring_model(
-    df_work          = df_work,
-    cens_type        = cens_type,
-    cens_params      = cens_params,
-    df_super         = df_super,
-    select_censoring = select_censoring,
-    verbose          = verbose
+    df_work             = df_work,
+    cens_type           = cens_type,
+    cens_params         = cens_params,
+    df_super            = df_super,
+    select_censoring    = select_censoring,
+    cens_intercept_only = cens_intercept_only,
+    verbose             = verbose
   )
   cens_model <- cens_result$cens_model
   df_super   <- cens_result$df_super
