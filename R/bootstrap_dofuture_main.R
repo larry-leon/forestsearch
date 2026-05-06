@@ -488,7 +488,10 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   FSsg_tab <- NULL
 
   if (is_glm) {
-    # GLM summary table using SG_tab_estimates_glm
+    # GLM summary table using SG_tab_estimates_glm.
+    # Note: outcome_type MUST be passed explicitly.  The function defaults
+    # to "binary", which mislabels columns ("Rate(C)/(T)" vs "Mean(C)/(T)")
+    # and percent-formats values for continuous/count outcomes.
     FSsg_tab <- tryCatch(
       SG_tab_estimates_glm(
         df             = fs.est$df.est,
@@ -497,6 +500,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
         treat.name     = args_forestsearch_call$treat.name,
         estimator_fn   = estimator_fn_boot,
         effect_measure = args_forestsearch_call$effect_measure,
+        outcome_type   = outcome_type,
         effect_a_1     = SG_CIs$Hc_bc,
         effect_a_0     = SG_CIs$H_bc,
         sg1_name       = "Recmnd",

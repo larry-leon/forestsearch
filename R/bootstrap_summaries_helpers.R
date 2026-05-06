@@ -65,9 +65,12 @@ format_bootstrap_table <- function(FSsg_tab,
   col_names <- colnames(FSsg_tab)
   labels_list <- list(Subgroup = "Subgroup")
 
-  # Auto-detect GLM vs survival from column names:
-  # GLM tables have "Rate(C)"/"Rate(T)" instead of "m1"/"m0"/"RMST"
-  is_glm_table <- any(grepl("Rate\\(", col_names)) || !any(c("m1", "m0", "RMST") %in% col_names)
+  # Auto-detect GLM vs survival from column names.  GLM tables have
+  # "Rate(C)/Rate(T)" (binary) or "Mean(C)/Mean(T)" (continuous/count)
+  # instead of "m1/m0/RMST" (survival).
+  is_glm_table <- any(grepl("Rate\\(", col_names)) ||
+                  any(grepl("Mean\\(", col_names)) ||
+                  !any(c("m1", "m0", "RMST") %in% col_names)
 
   if ("n" %in% col_names) labels_list$n <- "N"
   if ("n1" %in% col_names) labels_list$n1 <- gt::md("N<sub>T</sub>")
@@ -79,11 +82,16 @@ format_bootstrap_table <- function(FSsg_tab,
     if ("m0" %in% col_names) labels_list$m0 <- gt::md("Med<sub>C</sub>")
     if ("RMST" %in% col_names) labels_list$RMST <- gt::md("RMST<sub>d</sub>")
   } else {
-    # GLM-specific columns
+    # GLM-specific columns: handle both Rate (binary) and Mean (cts/count)
     rate_c <- grep("^Rate\\(C\\)", col_names, value = TRUE)[1]
     rate_t <- grep("^Rate\\(T\\)", col_names, value = TRUE)[1]
     if (!is.na(rate_c)) labels_list[[rate_c]] <- gt::md("Rate<sub>C</sub>")
     if (!is.na(rate_t)) labels_list[[rate_t]] <- gt::md("Rate<sub>T</sub>")
+
+    mean_c <- grep("^Mean\\(C\\)", col_names, value = TRUE)[1]
+    mean_t <- grep("^Mean\\(T\\)", col_names, value = TRUE)[1]
+    if (!is.na(mean_c)) labels_list[[mean_c]] <- gt::md("Mean<sub>C</sub>")
+    if (!is.na(mean_t)) labels_list[[mean_t]] <- gt::md("Mean<sub>T</sub>")
   }
 
   # Handle effect estimate column (HR for survival, IRR/OR/RD/MD for GLM)
@@ -133,10 +141,16 @@ format_bootstrap_table <- function(FSsg_tab,
         gt::tab_spanner(label = "Survival", columns = survival_cols)
     }
   } else {
+    # GLM spanner: "Event Rates" for binary (Rate cols) or "Subgroup Means"
+    # for continuous/count (Mean cols).
     rate_cols <- grep("^Rate\\(", col_names, value = TRUE)
+    mean_cols <- grep("^Mean\\(", col_names, value = TRUE)
     if (length(rate_cols) > 0) {
       tbl <- tbl |>
         gt::tab_spanner(label = "Event Rates", columns = rate_cols)
+    } else if (length(mean_cols) > 0) {
+      tbl <- tbl |>
+        gt::tab_spanner(label = "Subgroup Means", columns = mean_cols)
     }
   }
 

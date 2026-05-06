@@ -1007,7 +1007,11 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
         error = function(e) NULL
       )
 
-      # ITT table
+      # ITT table.
+      # Note: outcome_type MUST be passed explicitly.  SG_tab_estimates_glm()
+      # defaults to "binary", which mislabels columns ("Rate(C)/(T)" vs
+      # "Mean(C)/(T)") and percent-formats values for continuous/count
+      # outcomes.
       itt_tab <- tryCatch(
         SG_tab_estimates_glm(
           df             = as.data.frame(df_CV),
@@ -1016,6 +1020,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
           treat.name     = treat.name,
           estimator_fn   = estimator_fn_cv,
           effect_measure = effect_measure,
+          outcome_type   = outcome_type,
           est.scale      = est.scale
         ),
         error = function(e) {
@@ -1033,6 +1038,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
           treat.name     = treat.name,
           estimator_fn   = estimator_fn_cv,
           effect_measure = effect_measure,
+          outcome_type   = outcome_type,
           sg1_name       = sg1.name,
           sg0_name       = sg0.name,
           est.scale      = est.scale
@@ -1053,6 +1059,7 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE) {
             treat.name     = treat.name,
             estimator_fn   = estimator_fn_cv,
             effect_measure = effect_measure,
+            outcome_type   = outcome_type,
             sg1_name       = sg1.name,
             sg0_name       = sg0.name,
             est.scale      = est.scale
