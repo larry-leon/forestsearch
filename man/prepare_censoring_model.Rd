@@ -10,6 +10,7 @@ prepare_censoring_model(
   cens_params,
   df_super,
   select_censoring = TRUE,
+  cens_intercept_only = FALSE,
   verbose = TRUE
 )
 }
@@ -23,12 +24,40 @@ prepare_censoring_model(
 \item{df_super}{Super-population data frame; receives
 \code{lin_pred_cens_0} and \code{lin_pred_cens_1} columns.}
 
-\item{select_censoring}{Logical. If \code{TRUE} (default), fits the
-censoring distribution from observed data using AIC-based \code{survreg}
-model comparison. If \code{FALSE}, uses \code{cens_params} directly with
-no model fitting. See \code{\link{generate_aft_dgm_flex}} for the required
-\code{cens_params} structure under each combination of
-\code{select_censoring} and \code{cens_type}.}
+\item{select_censoring}{Logical. Selects among three censoring modes:
+\describe{
+\item{AIC selection}{\code{select_censoring = TRUE} (default): fits
+the censoring distribution from observed data via AIC comparison
+among four \code{survreg} candidates -- Weibull and LogNormal,
+each with covariates and intercept-only.}
+\item{Analytical}{\code{select_censoring = FALSE} \emph{and}
+\code{cens_params} supplies the required analytical parameters
+(\code{mu}+\code{tau} for Weibull/LogNormal; \code{min}+\code{max}
+for uniform with optional defaulting): no fitting; uses
+\code{cens_params} directly; covariate contribution is zero.}
+\item{Force-fit}{\code{select_censoring = FALSE} \emph{and}
+\code{cens_params} does \strong{not} supply analytical parameters
+(Weibull/LogNormal only): fits the chosen distribution with formula
+determined by \code{cens_intercept_only} and the censoring covariate
+vectors -- no AIC arbitration, no fallback to intercept-only.}
+}}
+
+\item{cens_intercept_only}{Logical. Only honored in force-fit mode
+(\code{select_censoring = FALSE} with empty \code{cens_params}).
+If \code{TRUE}, fits \code{Surv(y, 1 - event) ~ 1} (no treat, no
+covariates).  If \code{FALSE} (default), formula is determined by
+the censoring covariate vectors:
+\itemize{
+\item Both \code{*_cens = NULL} (default): inherit from outcome model;
+formula is \code{~ treat + zcens_<outcome covariates>}.
+\item Both \code{*_cens = character(0)}: treat-only; formula is
+\code{~ treat}.
+\item One or both \code{*_cens} non-empty: formula is
+\code{~ treat + zcens_<supplied covariates>}.
+}
+Setting \code{cens_intercept_only = TRUE} with
+\code{select_censoring = TRUE} or with analytical \code{cens_params}
+raises an error.}
 
 \item{verbose}{Logical. If \code{TRUE} (default), prints the censoring
 model comparison table and recommendation. Set to \code{FALSE} to

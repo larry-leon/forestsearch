@@ -24,6 +24,7 @@ generate_aft_dgm_flex(
   select_censoring = TRUE,
   cens_type = "weibull",
   cens_params = list(),
+  cens_intercept_only = FALSE,
   seed = 8316951,
   verbose = TRUE,
   standardize = FALSE,

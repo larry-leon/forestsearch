@@ -1,0 +1,816 @@
+---
+title: "Generating AFT-Based Data with `generate_aft_dgm_flex()`"
+subtitle: "Walkthrough of the GBSG-Anchored DGM, with Emphasis on the Censoring Model"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+    html-math-method: mathjax
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# Introduction
+
+`generate_aft_dgm_flex()` builds an accelerated failure time (AFT) data
+generating mechanism (DGM) anchored on a user-supplied dataset, with
+flexible specification of (a) the **outcome model**, (b) **subgroup**
+structure, and (c) the **censoring model**. The resulting object can be
+passed directly to `simulate_from_dgm()` to produce simulated trials.
+
+This vignette walks through the full function with **special emphasis on
+the censoring API**, which is the part most relevant when calibrating
+realistic simulation studies. All examples use the GBSG breast cancer
+dataset shipped with the `survival` package.
+
+## Why a separate vignette on censoring
+
+The censoring model in the DGM is often the part that gets misconfigured
+in simulation studies — usually because the function exposes more
+flexibility than is immediately obvious. Four points worth knowing up
+front:
+
+1. The censoring covariates are **specified separately** from the
+   outcome covariates, via `continuous_vars_cens` and `factor_vars_cens`.
+2. **Mode 1 — AIC selection** (`select_censoring = TRUE`, the default):
+   chooses the best of four `survreg` candidates (Weibull and lognormal,
+   each with covariates and intercept-only). AIC may drop covariates
+   even when supplied.
+3. **Mode 2 — Analytical** (`select_censoring = FALSE` with
+   `cens_params = list(mu, tau, ...)`): user supplies the parameters
+   directly; no fitting; intercept-only by construction.
+4. **Mode 3 — Force-fit** (`select_censoring = FALSE` with
+   `cens_params = list()`): the chosen distribution is fitted to the
+   data with formula determined by `*_cens` vectors and the
+   `cens_intercept_only` flag. No AIC arbitration. Covers four formula
+   cases: inherit from outcome, custom, treat-only, and intercept-only.
+
+Each mode is illustrated below with executable GBSG examples.
+
+
+# Setup
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(ggplot2)
+library(gt)
+library(patchwork)
+library(dplyr)
+
+theme_set(theme_minimal(base_size = 12))
+
+# GBSG dataset
+data("gbsg", package = "survival")
+
+# Convert follow-up time from days to months.  GBSG ships with rfstime
+# in days; the entire vignette runs on the months scale.  30.4375 =
+# 365.25 / 12 = average number of days per month.
+gbsg$rfstime <- gbsg$rfstime / 30.4375
+
+str(gbsg)
+```
+
+The GBSG dataset has `r nrow(gbsg)` patients with breast cancer, follow-up
+time (`rfstime`, **converted to months**), event indicator (`status`),
+treatment (`hormon`), and
+several baseline covariates: continuous `age`, `size`, `nodes`, `pgr`, `er`;
+factor/categorical `meno`, `grade`.
+
+
+# Function Anatomy
+
+`generate_aft_dgm_flex()` performs eight numbered steps internally
+(see `generate_aft_dgm_main.R:238-313`). The high-level flow:
+
+| Step | Purpose | Helper |
+|------|---------|--------|
+| 1 | Input validation | `validate_inputs()` |
+| 2 | Working dataset construction; centering/standardization; **`zcens_*` covariate columns for censoring model** | `prepare_working_dataset()` |
+| 3 | Subgroup definition via flexible cutpoint specs | `define_subgroups()` |
+| 4 | Fit Weibull AFT outcome model (with optional spline) | `fit_aft_model()` |
+| 5 | Generate super-population with counterfactual linear predictors | `generate_super_population()` |
+| 6 | Compute true HR / AHR / CDE on the super-population | `calculate_hazard_ratios()` |
+| 7 | **Build censoring model and append `lin_pred_cens_*` to super-population** | `prepare_censoring_model()` |
+| 8 | Assemble `aft_dgm_flex` object | `assemble_results()` |
+
+Steps 4–6 govern the outcome side; **step 7** is where censoring is
+configured. Step 2 separately processes censoring covariates into
+columns prefixed `zcens_` so they can be used independently of the
+outcome covariates in step 7.
+
+
+# Outcome Model: A Minimal GBSG Example
+
+Before turning to censoring, here is a minimal end-to-end DGM call
+using all-default censoring (covariates inherited from the outcome
+model, AIC-selected distribution).
+
+```{r dgm-minimal}
+dgm_min <- generate_aft_dgm_flex(
+  data            = gbsg,
+  outcome_var     = "rfstime",
+  event_var       = "status",
+  treatment_var   = "hormon",
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars     = "meno",
+  model           = "null",
+  verbose         = TRUE
+)
+
+class(dgm_min)
+names(dgm_min)
+```
+
+The returned object has class `"aft_dgm_flex"` and contains the
+super-population (`df_super`), the fitted outcome and censoring model
+parameters (`model_params`), the subgroup definition (`subgroup_info`),
+and DGM-truth quantities (`hazard_ratios`).
+
+A quick look at the censoring sub-list:
+
+```{r dgm-minimal-cens}
+str(dgm_min$model_params$censoring)
+```
+
+`mu` is the log-scale intercept, `tau` is the scale, `gamma` is the
+covariate-coefficient vector (named, `survreg` convention), and `type`
+is the chosen distribution (`"weibull"` or `"lognormal"`).
+
+The super-population stores per-subject **counterfactual** linear
+predictors for the censoring model — covariates only, intercept
+excluded:
+
+```{r dgm-minimal-linpred}
+head(dgm_min$df_super[, c("treat", "lin_pred_cens_0", "lin_pred_cens_1")])
+```
+
+This separation matters: `simulate_from_dgm()` reconstructs the full
+log-censoring time as
+
+$$
+\log C \;=\; \mu_c \;+\; \delta \;+\; \tau_c\, \epsilon \;+\; \gamma_c'\, X
+$$
+
+where the intercept $\mu_c$ is added exactly once and the covariate
+contribution $\gamma_c'\, X$ is taken from `lin_pred_cens_*`. Storing
+the full linear predictor (intercept included) here would double-count
+$\mu_c$ — a class of bug the helper goes to some lengths to avoid
+(see comment block at `generate_aft_dgm_helpers.R:186-202`).
+
+
+# Subgroup Specification
+
+Subgroup specification is orthogonal to censoring; covered briefly here
+so all examples below have a defined subgroup. `subgroup_cuts` accepts
+multiple flexible forms — quantile-based, range, greater-than,
+multi-category, or a custom function (see
+`generate_aft_dgm_main.R:79-129` for the full grammar).
+
+A simple two-variable subgroup definition for use throughout the rest
+of the vignette:
+
+```{r subgroup-spec}
+sg_spec <- list(
+  subgroup_vars = c("nodes", "er"),
+  subgroup_cuts = list(
+    nodes = list(type = "greater", quantile = 0.75),  # nodes > 75th percentile
+    er    = 20                                         # er <= 20 (default = "lower")
+  )
+)
+```
+
+This defines the harm subgroup as patients with **high node count** AND
+**low ER expression**.
+
+
+# The Censoring Model — In Depth
+
+## Three-Mode Design
+
+Censoring configuration is governed by **two arguments together** —
+`select_censoring` and `cens_params`:
+
+```
+                    ┌──────────────────────────┐
+                    │  prepare_censoring_model │
+                    └──────────────────────────┘
+                                │
+            ┌───────────────────┴────────────────────┐
+            │                                        │
+   select_censoring = TRUE              select_censoring = FALSE
+   (Mode 1: AIC selection)              ┌───────────┴────────────┐
+            │                           │                        │
+   AIC over 4 survreg fits   cens_params has mu+tau    cens_params empty
+   (Weibull/LogNormal,       (Mode 2: Analytical)      (Mode 3: Force-Fit)
+    with/without covs)                  │                        │
+            │                  Use mu/tau directly     Fit cens_type with
+   Best by AIC wins;            no fitting,             formula determined
+   covariates may be            no covariates            by *_cens vectors
+   dropped silently                                      and the new
+                                                         cens_intercept_only
+                                                         flag (no AIC)
+```
+
+The mode is unambiguous from the argument combination — there is no
+hidden coupling. The first part of this section describes the
+covariate API shared across Modes 1 and 3; subsequent subsections
+describe each mode in turn.
+
+## Censoring Covariate API
+
+Two function arguments specify censoring covariates independently of
+the outcome covariates:
+
+```r
+continuous_vars_cens = NULL,   # continuous covariates for the censoring model
+factor_vars_cens     = NULL,   # factor covariates for the censoring model
+```
+
+When the censoring model will be fitted (Mode 1 or Mode 3), and both
+arguments are `NULL`, the censoring covariates inherit from the outcome
+model (`generate_aft_dgm_main.R`, inheritance block). To use a different
+set, supply explicit vectors. To use **no covariates**, pass empty
+character vectors (`character(0)`).
+
+`prepare_working_dataset()` materializes these as `zcens_*` columns
+(`generate_aft_dgm_helpers.R:324-331`), and `prepare_censoring_model()`
+picks them up via `grep("^zcens_", ...)`.
+
+## Mode 1: AIC-Based Selection
+
+When `select_censoring = TRUE` (the default), four `survreg` models are
+fit and compared:
+
+| Model name | Distribution | Formula |
+|------------|--------------|---------|
+| `Weibull`    | Weibull   | `~ treat + zcens_*` |
+| `LogNormal`  | lognormal | `~ treat + zcens_*` |
+| `Weibull0`   | Weibull   | `~ 1` (true intercept-only) |
+| `LogNormal0` | lognormal | `~ 1` (true intercept-only) |
+
+The best by AIC wins. **AIC arbitrates whether covariates are included
+at all** — even if you supply `*_cens` arguments, an intercept-only
+model can still be selected if AIC favors it. The five worked examples
+below show this happens often.
+
+If you need covariates retained regardless of AIC, use **Mode 3**.
+
+## Mode 2: Analytical
+
+When `select_censoring = FALSE` and `cens_params` supplies the analytical
+parameters, no fitting happens. The user supplies either:
+
+- `cens_type = "uniform"` with `cens_params = list(min = ..., max = ...)`
+- `cens_type = "weibull"` (or `"lognormal"`) with
+  `cens_params = list(mu = ..., tau = ..., type = "weibull")`
+
+There is no covariate dependence: `lin_pred_cens_*` is set to 0 for all
+subjects. The intercept-only model is structurally forced. Useful for
+sensitivity analyses where censoring should be varied without re-fitting.
+
+## Mode 3: Force-Fit
+
+When `select_censoring = FALSE` and `cens_params = list()` (empty), the
+chosen `cens_type` is fitted to the data — no AIC arbitration, no
+fallback to intercept-only. The formula is determined by the new
+`cens_intercept_only` argument and the censoring covariate vectors:
+
+| Input | Fitted formula |
+|---|---|
+| `*_cens = NULL` (default) | `~ treat + zcens_<outcome covariates>` (inherit) |
+| `*_cens = c("var1", ...)` | `~ treat + zcens_var1 + ...` (custom) |
+| `*_cens = character(0)` | `~ treat` (treat-only) |
+| `cens_intercept_only = TRUE` | `~ 1` (intercept-only); overrides `*_cens` |
+
+The mapping is deliberately parallel to Mode 1: when other covariates
+are present, `treat` is implicit; only `cens_intercept_only = TRUE`
+removes it. This means you should never list `"treat"` in `*_cens` —
+doing so would double-count.
+
+Mode 3 is the answer when you need either (a) covariates retained that
+AIC would have dropped, or (b) a fitted intercept-only model where the
+data determine `mu` and `tau` without you having to supply them
+analytically.
+
+
+# Worked Examples
+
+The vignette presents nine examples organized into three groups:
+
+- **Examples 1–4** — Mode 1 (AIC selection) with various covariate sets
+- **Example 5** — Mode 2 (analytical Weibull)
+- **Examples 6–9** — Mode 3 (force-fit) covering all four formula cases
+
+Each example calls `generate_aft_dgm_flex()` with a different censoring
+specification, reports the resulting censoring model, simulates one
+trial via `simulate_from_dgm()`, and shows the resulting censoring
+distribution.
+
+A small helper for the per-example summary:
+
+```{r helper-summarize}
+#| code-fold: false
+
+summarize_cens_example <- function(dgm, sim_data, label) {
+  # Censoring model parameters
+  cens <- dgm$model_params$censoring
+  cat("\n=== ", label, " ===\n", sep = "")
+  cat(sprintf("Distribution     : %s\n", cens$type))
+  cat(sprintf("mu  (log-scale)  : %.4f\n", cens$mu %||% NA))
+  cat(sprintf("tau (scale)      : %.4f\n", cens$tau %||% NA))
+  if (!is.null(cens$gamma) && length(cens$gamma) > 0) {
+    cat("Covariate effects (gamma):\n")
+    print(round(cens$gamma, 4))
+  } else {
+    cat("Covariate effects: none (intercept-only)\n")
+  }
+
+  # Empirical censoring rate in the simulated trial.
+  # simulate_from_dgm() outputs the event indicator as 'event_sim'
+  # (see simulate_from_dgm.R:258).
+  cens_rate <- 1 - mean(sim_data$event_sim)
+  cat(sprintf("\nEmpirical censoring rate (sim, n = %d): %.1f%%\n",
+              nrow(sim_data), 100 * cens_rate))
+  invisible(NULL)
+}
+
+# Null-coalescing helper for tidy printing of NULL fields
+`%||%` <- function(a, b) if (!is.null(a)) a else b
+```
+
+A reusable plot of censoring KM:
+
+```{r helper-plot-cens-km}
+#| code-fold: false
+
+plot_cens_km <- function(sim_data, title_text) {
+  # Reverse the event indicator: censoring is the "event" of interest.
+  # simulate_from_dgm() outputs 'y_sim' (observed time) and 'event_sim'
+  # (event indicator); see simulate_from_dgm.R:257-258.
+  fit <- survival::survfit(
+    Surv(y_sim, 1 - event_sim) ~ treat_sim,
+    data = sim_data
+  )
+  km_df <- data.frame(
+    time   = fit$time,
+    surv   = fit$surv,
+    strata = rep(names(fit$strata), fit$strata)
+  )
+  ggplot(km_df, aes(x = time, y = surv, color = strata)) +
+    geom_step(linewidth = 0.8) +
+    scale_color_manual(values = c("treat_sim=0" = "steelblue",
+                                  "treat_sim=1" = "coral"),
+                       labels = c("Control", "Treatment")) +
+    labs(
+      x     = "Time",
+      y     = "Censoring-free probability",
+      color = "Arm",
+      title = title_text,
+      subtitle = "KM of censoring time (event indicator reversed)"
+    ) +
+    ylim(0, 1)
+}
+```
+
+Common arguments shared across all examples:
+
+```{r common-args}
+#| code-fold: false
+
+common_args <- list(
+  data            = gbsg,
+  outcome_var     = "rfstime",
+  event_var       = "status",
+  treatment_var   = "hormon",
+  continuous_vars = c("age", "size", "nodes", "pgr", "er"),
+  factor_vars     = "meno",
+  subgroup_vars   = sg_spec$subgroup_vars,
+  subgroup_cuts   = sg_spec$subgroup_cuts,
+  model           = "null",
+  k_treat         = 1,
+  k_inter         = 1,
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = FALSE
+)
+
+sim_n     <- 600L
+sim_seed  <- 1L
+analysis_t <- 60   # months; GBSG rfstime is in months
+```
+
+
+## Example 1 — Default: Censoring Covariates Inherit from Outcome
+
+Both `*_cens` arguments left as their `NULL` defaults. The censoring
+formula uses `treat + age + size + nodes + pgr + er + meno` — exactly
+the outcome covariate set.
+
+```{r ex1-fit}
+dgm1 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring = TRUE,
+  cens_type        = "weibull"
+)))
+
+sim1 <- simulate_from_dgm(dgm1, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm1, sim1, "Example 1: Default (inherit)")
+```
+
+```{r ex1-plot}
+#| fig-cap: "Example 1 — Censoring KM by treatment arm"
+plot_cens_km(sim1, "Example 1: Default (inherit covariates)")
+```
+
+
+## Example 2 — Subset of Censoring Covariates
+
+`continuous_vars_cens` and `factor_vars_cens` supplied explicitly to
+restrict the censoring model to a smaller subset.
+
+```{r ex2-fit}
+dgm2 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring     = TRUE,
+  cens_type            = "weibull",
+  continuous_vars_cens = c("age", "nodes"),
+  factor_vars_cens     = character(0)
+)))
+
+sim2 <- simulate_from_dgm(dgm2, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm2, sim2, "Example 2: Subset (age, nodes only)")
+```
+
+```{r ex2-plot}
+#| fig-cap: "Example 2 — Censoring KM by treatment arm"
+plot_cens_km(sim2, "Example 2: Subset (age, nodes)")
+```
+
+
+## Example 3 — Treatment-Only (No Covariates)
+
+Both `*_cens` arguments set to empty character vectors. The Weibull and
+lognormal models with treatment only (`Weibull0`, `LogNormal0`) are
+identical to the with-covariate models in this configuration; AIC will
+typically pick whichever has lower scale-parameter complexity.
+
+```{r ex3-fit}
+dgm3 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring     = TRUE,
+  cens_type            = "weibull",
+  continuous_vars_cens = character(0),
+  factor_vars_cens     = character(0)
+)))
+
+sim3 <- simulate_from_dgm(dgm3, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm3, sim3, "Example 3: Treatment-only")
+```
+
+```{r ex3-plot}
+#| fig-cap: "Example 3 — Censoring KM by treatment arm"
+plot_cens_km(sim3, "Example 3: Treatment-only (no covariates)")
+```
+
+
+## Example 4 — Censoring Covariates Different from Outcome
+
+A useful pattern when the analyst has external knowledge about which
+variables drive loss-to-follow-up vs which drive the outcome. Here
+the outcome model uses the standard continuous prognostics; the
+censoring model uses only `meno` (factor) and `grade` (treated as
+continuous for simplicity).
+
+```{r ex4-fit}
+dgm4 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring     = TRUE,
+  cens_type            = "weibull",
+  continuous_vars_cens = "grade",
+  factor_vars_cens     = "meno"
+)))
+
+sim4 <- simulate_from_dgm(dgm4, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm4, sim4,
+                       "Example 4: Censoring on (meno, grade) only")
+```
+
+```{r ex4-plot}
+#| fig-cap: "Example 4 — Censoring KM by treatment arm"
+plot_cens_km(sim4, "Example 4: Different from outcome (meno, grade)")
+```
+
+
+## Example 5 — Analytical Weibull
+
+`select_censoring = FALSE` with a user-supplied Weibull. No fitting
+happens; the censoring distribution is exactly what the caller
+specifies. Useful for sensitivity analyses where you want to vary the
+censoring rate without re-fitting.
+
+```{r ex5-fit}
+dgm5 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring = FALSE,
+  cens_type        = "weibull",
+  cens_params      = list(
+    mu   = log(80),     # log-scale location: median ~ 80 months
+    tau  = 0.7,         # scale parameter
+    type = "weibull"
+  )
+)))
+
+sim5 <- simulate_from_dgm(dgm5, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm5, sim5, "Example 5: Analytical Weibull")
+```
+
+```{r ex5-plot}
+#| fig-cap: "Example 5 — Censoring KM by treatment arm"
+plot_cens_km(sim5, "Example 5: Analytical Weibull (mu = log(80), tau = 0.7)")
+```
+
+
+## Example 6 — Force-Fit, Inherited from Outcome
+
+Mode 3 with covariates inherited from the outcome model. Same set as
+Example 1 (Mode 1), but here the covariates are **retained regardless of
+AIC**. Direct apples-to-apples comparison: where Example 1 typically
+dropped covariates, Example 6 keeps them.
+
+```{r ex6-fit}
+dgm6 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring    = FALSE,    # Mode 3
+  cens_type           = "weibull",
+  cens_params         = list()    # empty -> force-fit
+)))
+
+sim6 <- simulate_from_dgm(dgm6, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm6, sim6, "Example 6: Force-fit, inherited covariates")
+```
+
+```{r ex6-plot}
+#| fig-cap: "Example 6 — Censoring KM by treatment arm"
+plot_cens_km(sim6, "Example 6: Force-fit, inherited covariates")
+```
+
+
+## Example 7 — Force-Fit, Custom Covariates
+
+Mode 3 with a custom covariate set that differs from the outcome model.
+Same covariate choice as Example 4 — but here, again, the covariates
+are kept regardless of AIC.
+
+```{r ex7-fit}
+dgm7 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring     = FALSE,
+  cens_type            = "weibull",
+  cens_params          = list(),
+  continuous_vars_cens = "grade",
+  factor_vars_cens     = "meno"
+)))
+
+sim7 <- simulate_from_dgm(dgm7, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm7, sim7,
+                       "Example 7: Force-fit, custom (meno, grade)")
+```
+
+```{r ex7-plot}
+#| fig-cap: "Example 7 — Censoring KM by treatment arm"
+plot_cens_km(sim7, "Example 7: Force-fit, custom (meno, grade)")
+```
+
+
+## Example 8 — Force-Fit, Treat-Only
+
+Mode 3 with `*_cens = character(0)` — explicitly empty covariate
+vectors. The fitted formula is `Surv(y, 1 - event) ~ treat`: the data
+determine `mu` and `tau`; the only modeled covariate is treatment.
+
+This is the "treat-only" companion to Example 9's intercept-only fit.
+
+```{r ex8-fit}
+dgm8 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring     = FALSE,
+  cens_type            = "weibull",
+  cens_params          = list(),
+  continuous_vars_cens = character(0),
+  factor_vars_cens     = character(0)
+)))
+
+sim8 <- simulate_from_dgm(dgm8, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm8, sim8, "Example 8: Force-fit, treat-only")
+```
+
+```{r ex8-plot}
+#| fig-cap: "Example 8 — Censoring KM by treatment arm"
+plot_cens_km(sim8, "Example 8: Force-fit, treat-only")
+```
+
+
+## Example 9 — Force-Fit, Intercept-Only
+
+Mode 3 with `cens_intercept_only = TRUE`. The fitted formula is
+`Surv(y, 1 - event) ~ 1`: the data determine `mu` and `tau`; no
+covariates, not even treatment, enter the censoring model.
+
+This differs from Example 5 (Mode 2 analytical) where the user supplies
+`mu` and `tau` directly. Example 9's `mu` and `tau` are estimated.
+
+```{r ex9-fit}
+dgm9 <- do.call(generate_aft_dgm_flex, c(common_args, list(
+  select_censoring    = FALSE,
+  cens_type           = "weibull",
+  cens_params         = list(),
+  cens_intercept_only = TRUE
+)))
+
+sim9 <- simulate_from_dgm(dgm9, n = sim_n, seed = sim_seed,
+                          analysis_time = analysis_t)
+
+summarize_cens_example(dgm9, sim9, "Example 9: Force-fit, intercept-only")
+```
+
+```{r ex9-plot}
+#| fig-cap: "Example 9 — Censoring KM by treatment arm"
+plot_cens_km(sim9, "Example 9: Force-fit, intercept-only")
+```
+
+
+## Cross-Example Comparison
+
+Side-by-side empirical censoring rates from the nine simulated trials:
+
+```{r ex-comparison}
+comparison_df <- data.frame(
+  Example      = c("1: AIC, inherit",
+                   "2: AIC, subset (age, nodes)",
+                   "3: AIC, treat-only input",
+                   "4: AIC, different (meno, grade)",
+                   "5: Analytical Weibull",
+                   "6: Force-fit, inherit",
+                   "7: Force-fit, custom (meno, grade)",
+                   "8: Force-fit, treat-only",
+                   "9: Force-fit, intercept-only"),
+  Mode         = c("AIC", "AIC", "AIC", "AIC",
+                   "Analytical",
+                   "Force-fit", "Force-fit", "Force-fit", "Force-fit"),
+  Distribution = c(dgm1$model_params$censoring$type,
+                   dgm2$model_params$censoring$type,
+                   dgm3$model_params$censoring$type,
+                   dgm4$model_params$censoring$type,
+                   dgm5$model_params$censoring$type,
+                   dgm6$model_params$censoring$type,
+                   dgm7$model_params$censoring$type,
+                   dgm8$model_params$censoring$type,
+                   dgm9$model_params$censoring$type),
+  N_covariates = c(length(dgm1$model_params$censoring$gamma %||% character(0)),
+                   length(dgm2$model_params$censoring$gamma %||% character(0)),
+                   length(dgm3$model_params$censoring$gamma %||% character(0)),
+                   length(dgm4$model_params$censoring$gamma %||% character(0)),
+                   length(dgm5$model_params$censoring$gamma %||% character(0)),
+                   length(dgm6$model_params$censoring$gamma %||% character(0)),
+                   length(dgm7$model_params$censoring$gamma %||% character(0)),
+                   length(dgm8$model_params$censoring$gamma %||% character(0)),
+                   length(dgm9$model_params$censoring$gamma %||% character(0))),
+  Cens_rate    = c(1 - mean(sim1$event_sim),
+                   1 - mean(sim2$event_sim),
+                   1 - mean(sim3$event_sim),
+                   1 - mean(sim4$event_sim),
+                   1 - mean(sim5$event_sim),
+                   1 - mean(sim6$event_sim),
+                   1 - mean(sim7$event_sim),
+                   1 - mean(sim8$event_sim),
+                   1 - mean(sim9$event_sim))
+)
+
+gt::gt(comparison_df) |>
+  gt::tab_header(
+    title    = gt::md("**Censoring Specification — Cross-Example Summary**"),
+    subtitle = "Nine censoring configurations on the GBSG DGM, across all three modes"
+  ) |>
+  gt::fmt_percent(columns = "Cens_rate", decimals = 1) |>
+  gt::cols_label(
+    Mode         = "Mode",
+    Distribution = "Selected dist.",
+    N_covariates = "# cov. effects",
+    Cens_rate    = "Empirical cens. rate"
+  )
+```
+
+Reading guide for the comparison table:
+
+- The `# cov. effects` count for AIC examples (1–4) reflects what AIC
+  selected — typically zero, because the `Weibull0` / `LogNormal0`
+  (intercept-only) candidates often win.
+- For force-fit examples (6–9), the count is determined by the user's
+  formula choice, not by AIC.
+- Examples 1 and 6 share the same covariate set on input; the difference
+  in `# cov. effects` shows what AIC dropped vs. what force-fit retained.
+- Examples 5 (analytical) and 9 (force-fit intercept-only) both yield
+  zero covariate effects but reach there differently: 5 from
+  user-supplied `mu`/`tau`, 9 from a fitted `~ 1` model.
+
+
+# Diagnostics: `check_censoring_dgm()`
+
+For any `aft_dgm_flex` object, `check_censoring_dgm()` compares the
+observed censoring distribution in the source data against the
+censoring distribution generated by `simulate_from_dgm()`. Useful for
+catching time-scale mismatches and other configuration issues.
+
+```{r check-cens}
+diag1 <- check_censoring_dgm(sim1, dgm = dgm1, verbose = TRUE)
+
+cat("\nFlags raised:\n")
+if (length(diag1$flags) > 0) {
+  cat(paste("  -", diag1$flags), sep = "\n")
+} else {
+  cat("  (none)\n")
+}
+```
+
+The diagnostic compares overall and per-arm censoring rates and KM
+medians, flagging discrepancies above the configured tolerances
+(default 10 percentage points for rates, 25% relative for medians).
+
+
+# Limitations
+
+A few items worth being aware of when using the censoring API:
+
+- **AIC arbitration in Mode 1.** When `select_censoring = TRUE`, AIC
+  decides whether covariates enter the model. Even if you supply
+  `continuous_vars_cens` / `factor_vars_cens`, the intercept-only fits
+  (`Weibull0` / `LogNormal0`) compete in the comparison and may win,
+  silently dropping the covariate effects. **Use Mode 3 (force-fit)
+  when covariate retention is required regardless of AIC.**
+
+- **Distribution choice is constrained to two families.** The four AIC
+  candidates (Mode 1) and the force-fit choice (Mode 3) both cover
+  Weibull and lognormal only. Other AFT-family distributions
+  (log-logistic, generalized gamma) are not included.
+
+- **Covariate effects on censoring are mean-only.** The fitted
+  censoring scale parameter is a single $\tau_c$; covariates affect
+  the location $\mu_c + \gamma_c'\, X$ but not the scale.
+
+- **Mode 2 (analytical) is intercept-only by structural choice.** When
+  `select_censoring = FALSE` and `cens_params` supplies `mu`/`tau`
+  directly, there is no API for also supplying covariate coefficients —
+  `lin_pred_cens_*` are always zero in this path. If you need covariates
+  with no fitting, the workaround is to fit them upstream and pass `mu`
+  via the analytical path while accepting that gamma is fixed at zero.
+  In most cases Mode 3 with `cens_intercept_only = FALSE` is the
+  cleaner alternative.
+
+
+# References
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
+
+Kalbfleisch, J.D. and Prentice, R.L. (2002). *The Statistical Analysis
+of Failure Time Data* (2nd ed.). Wiley.
+
+Schumacher M, Bastert G, Bojar H, et al. (1994). Randomized 2 × 2 trial
+evaluating hormonal treatment and the duration of chemotherapy in
+node-positive breast cancer patients. German Breast Cancer Study Group.
+*J Clin Oncol*. 12(10):2086-93.
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
