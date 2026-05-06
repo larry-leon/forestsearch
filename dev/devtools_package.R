@@ -149,6 +149,10 @@ unlink("Meta", recursive = TRUE)
 
 devtools::document()
 
+devtools::install(dependencies = FALSE)
+
+
+
 unlink("man/glm_cs_fit.Rd")
 devtools::document()
 devtools::check(args = c("--as-cran", "--no-build-vignettes"))
