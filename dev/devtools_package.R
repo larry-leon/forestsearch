@@ -152,7 +152,6 @@ devtools::document()
 devtools::install(dependencies = FALSE)
 
 
-
 unlink("man/glm_cs_fit.Rd")
 devtools::document()
 

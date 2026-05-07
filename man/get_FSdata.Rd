@@ -14,6 +14,7 @@ get_FSdata(
   conf_force = NULL,
   conf.cont_medians = NULL,
   conf.cont_medians_force = NULL,
+  conf.cont_jcuts = NULL,
   replace_med_grf = TRUE,
   defaultcut_names = NULL,
   cut_type = "default",
@@ -43,6 +44,19 @@ get_FSdata(
 \item{conf.cont_medians}{Character vector of continuous confounders to cut at median.}
 
 \item{conf.cont_medians_force}{Character vector of additional continuous confounders to force median cut.}
+
+\item{conf.cont_jcuts}{Named list of integers (>= 2), one per
+continuous confounder for which J-quantile cuts are desired.  For a
+variable \code{X} listed as \code{X = J}, the default cut set
+(\code{cut_var()}: mean, median, Q1, Q3) is replaced by J - 1
+binary cut points at the (k/J)-th quantiles of X for
+\code{k = 1, ..., J - 1}, defining J non-overlapping intervals
+\deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)].}
+Variables not listed here retain default behaviour.  J-quantile
+cuts are unconditional (not filtered by LASSO), matching
+\code{defaultcut_names} semantics.  Names must be in
+\code{confounders.name} and must not overlap with
+\code{defaultcut_names} or \code{conf.cont_medians_force}.}
 
 \item{replace_med_grf}{Logical. If TRUE, removes median cuts that overlap with GRF cuts.}
 
