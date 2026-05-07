@@ -206,6 +206,17 @@
 #' @param cont.cutoff Integer. Cutoff for continuous vs categorical. Default 4.
 #' @param conf.cont_medians Named numeric vector. Median values for continuous variables (optional).
 #' @param conf.cont_medians_force Named numeric vector. Forced median values (optional).
+#' @param conf.cont_jcuts Named integer list (each value >= 2). Per-variable
+#'   J-quantile cut override for continuous covariates: for an entry
+#'   \code{X = J}, the default cut set for X is replaced by J - 1 binary
+#'   cut points at the (k/J)-th quantiles of X (k = 1, ..., J - 1),
+#'   defining J non-overlapping intervals.  Names must be in
+#'   \code{confounders.name} and must not overlap with
+#'   \code{defaultcut_names} or \code{conf.cont_medians_force}.  J-cut
+#'   variables bypass LASSO filtering, matching \code{defaultcut_names}
+#'   semantics.  Variables not listed retain default behaviour.
+#'   Forwarded to \code{\link{get_FSdata}} via \code{filter_call_args()};
+#'   see there for full semantics.
 #' @param n.min Integer. Minimum subgroup size. Default 60.
 #' @param effect.threshold Numeric or NULL. Screening threshold for candidate
 #'   subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio
@@ -550,6 +561,7 @@ forestsearch <- function(df.analysis,
                          cont.cutoff = 4,
                          conf.cont_medians = NULL,
                          conf.cont_medians_force = NULL,
+                         conf.cont_jcuts = NULL,
                          n.min = 60,
                          effect.threshold = NULL,
                          consistency.threshold = NULL,
@@ -1138,6 +1150,14 @@ forestsearch <- function(df.analysis,
 
   if (details && !is.null(conf_force)) {
     cat("Forced confounders:", paste(conf_force, collapse = ", "), "\n")
+  }
+
+  if (details && length(conf.cont_jcuts) > 0L) {
+    cat("J-quantile cuts:",
+        paste0(names(conf.cont_jcuts),
+               " (J=", unlist(conf.cont_jcuts), ")",
+               collapse = ", "),
+        "\n")
   }
 
   # ===========================================================================
