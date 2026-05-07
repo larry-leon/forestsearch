@@ -299,7 +299,7 @@ fs <- forestsearch(
   stop_threshold = 0.95,
   # Search configuration
   sg_focus = fs_sg_focus,
-  max_subgroups_search = 10,
+  max_subgroups_search = 20,
   use_twostage = TRUE,
   # Factor selection
   use_grf = TRUE,
@@ -308,6 +308,7 @@ fs <- forestsearch(
   return_selected_cuts_only = TRUE,
   use_lasso = TRUE,
   cut_type = "default",
+  conf.cont_jcuts  = list(er = 11, pgr = 11), 
   # Subgroup constraints
   maxk = 2,
   n.min = 60,
