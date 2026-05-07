@@ -28,6 +28,13 @@ timings <- list()
 t_vignette_start <- proc.time()
 ```
 
+# To-do
+
+- Extend FS to cut continuous factors in *J* non-overlapping intervals (e.g., J = 12 to allow for fuller exploration)
+- Save results
+- Outcome construction and BL in table (not scattered sprintf)
+- Clean up scattered printing
+
 
 # Introduction
 
@@ -47,6 +54,18 @@ with proper accounting for the optimism inherent in data-driven subgroup
 discovery.
 
 ## Methodology Overview — Dual-Scale Framing
+
+::: {.callout-note}
+**ForestSearch vs GRF**: The forestsearch methodology was developed for 
+survival data where the outcome is generally the timing to an adverse outcome 
+and thresholds (e.g., indicative of harm) were defined accordingly.  In contrast, 
+GRF evaluates survival data in terms of RMST where thresholds are defined 
+as ``benefit in favor of control``.  The dual-scale framing is simply a matter of
+aliging the threshold directions (for harm) to the forestsearch and GRF 
+interpretations.
+:::
+
+
 
 This analysis applies **two different methods** on **two different scales
 of the same outcome**:
@@ -159,7 +178,7 @@ grf_tune           <- FALSE
 
 # ─── Bootstrap (gated; demo by default) ────────────────────────────────
 run_bootstrap <- TRUE
-NB <- 20L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
+NB <- 100L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
 
 # ─── Cross-Validation (gated; demo by default) ─────────────────────────
 run_cv <- TRUE
@@ -172,6 +191,19 @@ Kfolds_cv <- 10L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_resu
 # cost to K-fold * N/K, but well-tolerated on samples up to ~1000.
 # Set FALSE to skip; toggles independently of run_cv.
 run_loo <- FALSE
+
+# ─── Numeric Precision ─────────────────────────────────────────────────
+# Two-stage precision control (Reading-C design):
+# - construction_digits: upstream sprintf precision in the bootstrap and
+#   CV table builders. Acts as a CEILING for downstream display: values
+#   rounded here cannot be recovered later. Default 4 provides headroom.
+# - display_digits: precision rendered in user-facing tables.
+#   summarize_bootstrap_results() parses construction-time strings and
+#   reformats at this precision, which must be <= construction_digits.
+#   sg_tables() applies it via ndecimals; cv_summary_tables() applies
+#   it via digits.
+construction_digits <- 2L
+display_digits      <- 2L
 
 # ─── Combined Forest Plot ──────────────────────────────────────────────
 # Capstone visualization that integrates fs_result, fs_bc (if bootstrap),
@@ -206,19 +238,7 @@ actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
 # Beneficial scale: CD4 improvement (higher = better)
 actg_df$y_improve <- actg_df$cd420 - actg_df$cd40
 
-cat(sprintf("N = %d\n", nrow(actg_df)))
-cat(sprintf("Mean CD4 decline    (y_decline):  %6.1f  [overall]\n",
-            mean(actg_df$y_decline)))
-cat(sprintf("                                  %6.1f  [ZDV+ddI, T=1]\n",
-            mean(actg_df$y_decline[actg_df$treat == 1])))
-cat(sprintf("                                  %6.1f  [ddI,     T=0]\n",
-            mean(actg_df$y_decline[actg_df$treat == 0])))
-cat(sprintf("Mean CD4 improvement (y_improve): %6.1f  [overall]\n",
-            mean(actg_df$y_improve)))
-cat(sprintf("                                  %6.1f  [ZDV+ddI, T=1]\n",
-            mean(actg_df$y_improve[actg_df$treat == 1])))
-cat(sprintf("                                  %6.1f  [ddI,     T=0]\n",
-            mean(actg_df$y_improve[actg_df$treat == 0])))
+outcome_vars <- c("y_decline","y_improve")
 ```
 
 ## Covariates
@@ -238,8 +258,8 @@ cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
 create_summary_table(
   data = actg_df,
   treat_var = treat.name,
-  table_title = "ACTG175 Baseline Characteristics by Treatment Arm",
-  vars_continuous = cont_vars,
+  table_title = "ACTG175 Baseline Characteristics and Outcomes by Treatment Arm",
+  vars_continuous = c(outcome_vars,cont_vars),
   vars_categorical = bin_vars,
   font_size = 12
 )
@@ -358,7 +378,7 @@ cat("\nForestSearch (adverse scale) completed in",
 ## Identified Subgroups
 
 ```{r fs-results}
-fs_tabs <- sg_tables(fs_result, ndecimals = 3, which_df = "est")
+fs_tabs <- sg_tables(fs_result, ndecimals = display_digits, which_df = "est")
 fs_tabs$sg10_out
 ```
 
@@ -427,6 +447,7 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   nb_boots = NB,
   show_three = FALSE,
   details = FALSE,
+  digits = construction_digits,
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
@@ -452,7 +473,8 @@ fs_summaries <- summarize_bootstrap_results(
   sgharm       = fs_result$sg.harm,
   boot_results = fs_bc,
   create_plots = TRUE,
-  est.scale    = "hr"
+  est.scale    = "hr",
+  digits       = display_digits
 )
 
 fs_summaries$table
@@ -553,13 +575,14 @@ cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
 ```{r fs-cv-tables}
 #| eval: !expr run_cv
 
-kfold_out <- forestsearch_KfoldOut(fs_kfold_result, outall = TRUE)
+kfold_out <- forestsearch_KfoldOut(fs_kfold_result, outall = TRUE,
+                                   digits = construction_digits)
 cv_tabs   <- cv_summary_tables(
   kfold_out,
   title    = "ACTG175 Cross-Validation Summary (Continuous, MD)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs %d-fold (Kf)",
                      Kfolds_cv),
-  digits   = 3,
+  digits   = display_digits,
   use_gt   = TRUE
 )
 
@@ -642,13 +665,14 @@ confidence intervals.
 ```{r fs-loo-tables}
 #| eval: !expr run_loo
 
-loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE)
+loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
+                                  digits = construction_digits)
 loo_tabs <- cv_summary_tables(
   loo_out,
   title    = "ACTG175 Leave-One-Out CV Summary (Continuous, MD)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
                      N_loo),
-  digits   = 3,
+  digits   = display_digits,
   use_gt   = TRUE
 )
 ```
@@ -946,7 +970,7 @@ if (!is.null(grf_result$dr_scores) &&
 ## Treatment Effect Estimates
 
 ```{r grf-estimates}
-grf_tabs <- sg_tables(grf_result, ndecimals = 3, which_df = "est")
+grf_tabs <- sg_tables(grf_result, ndecimals = display_digits, which_df = "est")
 grf_tabs$tab_estimates
 ```
 
