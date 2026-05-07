@@ -13,6 +13,18 @@
 #' @param conf_force Character vector of forced cut expressions.
 #' @param conf.cont_medians Character vector of continuous confounders to cut at median.
 #' @param conf.cont_medians_force Character vector of additional continuous confounders to force median cut.
+#' @param conf.cont_jcuts Named list of integers (>= 2), one per
+#'   continuous confounder for which J-quantile cuts are desired.  For a
+#'   variable \code{X} listed as \code{X = J}, the default cut set
+#'   (\code{cut_var()}: mean, median, Q1, Q3) is replaced by J - 1
+#'   binary cut points at the (k/J)-th quantiles of X for
+#'   \code{k = 1, ..., J - 1}, defining J non-overlapping intervals
+#'   \deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)].}
+#'   Variables not listed here retain default behaviour.  J-quantile
+#'   cuts are unconditional (not filtered by LASSO), matching
+#'   \code{defaultcut_names} semantics.  Names must be in
+#'   \code{confounders.name} and must not overlap with
+#'   \code{defaultcut_names} or \code{conf.cont_medians_force}.
 #' @param replace_med_grf Logical. If TRUE, removes median cuts that overlap with GRF cuts.
 #' @param defaultcut_names Character vector of confounders to force default cuts.
 #' @param cut_type Character. "default" or "median" for cut strategy.
@@ -54,6 +66,7 @@
 
 get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,confounders.name,
                        cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
+                       conf.cont_jcuts = NULL,
                        replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                        outcome.name = "tte", event.name = "event", details=TRUE,
                        outcome_type = "survival", offset.name = NULL){
@@ -155,6 +168,53 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       call. = FALSE)
   }
 
+  # Validate conf.cont_jcuts (per-variable J-quantile cut override).
+  # Caught here so any structural problems are flagged before the cut
+  # machinery starts running and producing partial results.
+  if (!is.null(conf.cont_jcuts) && length(conf.cont_jcuts) > 0L) {
+    if (!is.list(conf.cont_jcuts) || is.null(names(conf.cont_jcuts)) ||
+        any(!nzchar(names(conf.cont_jcuts)))) {
+      stop("'conf.cont_jcuts' must be a NAMED list, e.g. list(X8 = 10).",
+           call. = FALSE)
+    }
+    jcut_names <- names(conf.cont_jcuts)
+    not_in_conf <- setdiff(jcut_names, confounders.name)
+    if (length(not_in_conf) > 0L) {
+      stop(sprintf(
+        "conf.cont_jcuts names not in confounders.name: %s.",
+        paste(shQuote(not_in_conf), collapse = ", ")),
+        call. = FALSE)
+    }
+    bad_J <- vapply(conf.cont_jcuts, function(j) {
+      !is.numeric(j) || length(j) != 1L || is.na(j) ||
+        j != as.integer(j) || j < 2L
+    }, logical(1L))
+    if (any(bad_J)) {
+      stop(sprintf(
+        "conf.cont_jcuts: each value must be a single integer >= 2.  Bad entries: %s.",
+        paste(shQuote(jcut_names[bad_J]), collapse = ", ")),
+        call. = FALSE)
+    }
+    if (!is.null(defaultcut_names)) {
+      overlap <- intersect(jcut_names, defaultcut_names)
+      if (length(overlap) > 0L) {
+        stop(sprintf(
+          "Variables appear in both 'conf.cont_jcuts' and 'defaultcut_names': %s.  These are mutually exclusive.",
+          paste(shQuote(overlap), collapse = ", ")),
+          call. = FALSE)
+      }
+    }
+    if (!is.null(conf.cont_medians_force)) {
+      overlap <- intersect(jcut_names, conf.cont_medians_force)
+      if (length(overlap) > 0L) {
+        stop(sprintf(
+          "Variables appear in both 'conf.cont_jcuts' and 'conf.cont_medians_force': %s.  These are mutually exclusive.",
+          paste(shQuote(overlap), collapse = ", ")),
+          call. = FALSE)
+      }
+    }
+  }
+
   # Default cuts forced per defaultcut_names
   if(!is.null(defaultcut_names)){
     conf_force_default <- get_conf_force(df = df.FS, conf.force.names = defaultcut_names, cont.cutoff = cont.cutoff)
@@ -205,6 +265,36 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   if(is.null(conf.cont_medians) & is.null(conf.cont_medians_force) & sum(flag_continuous) > 0){
     conf.cont_medians <- confounders.name[flag_continuous]
   }
+
+  # J-quantile cut overrides (conf.cont_jcuts).  These are unconditional
+  # (not filtered by LASSO, matching defaultcut_names semantics) and
+  # REPLACE the default cut set for the named variables.  The names are
+  # stripped from conf.cont_medians here so that the default/median/lasso
+  # branches below skip those variables entirely.  Validation upstream
+  # has already enforced no overlap with defaultcut_names or
+  # conf.cont_medians_force.
+  if (!is.null(conf.cont_jcuts) && length(conf.cont_jcuts) > 0L) {
+    jcut_names <- names(conf.cont_jcuts)
+    conf_force_jq <- get_conf_force_jq(
+      df = df.FS,
+      conf_jcuts = conf.cont_jcuts,
+      cont.cutoff = cont.cutoff
+    )
+    if (length(conf_force_jq) > 0L) {
+      conf_force <- c(conf_force, conf_force_jq)
+    }
+    if (!is.null(conf.cont_medians)) {
+      conf.cont_medians <- setdiff(conf.cont_medians, jcut_names)
+      if (length(conf.cont_medians) == 0L) conf.cont_medians <- NULL
+    }
+    if (details) {
+      cat("J-quantile cuts applied to:",
+          paste0(jcut_names, " (J=", unlist(conf.cont_jcuts), ")",
+                 collapse = ", "),
+          "\n")
+    }
+  }
+
   lassokeep <- NULL
   lassoomit <- NULL
   if(use_lasso){

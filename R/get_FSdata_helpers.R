@@ -33,6 +33,22 @@ qlow <- function(x) c(quantile(x,0.25))
 
 qhigh <- function(x) c(quantile(x,0.75))
 
+#' k-th J-Quantile
+#'
+#' Returns the (k/J)-th quantile of a numeric vector.  Used by
+#' \code{cut_var_jq()} to emit deferred cut expressions of the form
+#' \code{"X <= qj(X, k, J)"}, which are then resolved to literal
+#' numerics by \code{process_conf_force_expr()}.
+#'
+#' @param x A numeric vector.
+#' @param k Integer in \code{1, ..., J - 1L}.  Index of the cut point.
+#' @param J Integer >= 2.  Total number of intervals.
+#' @return Numeric value of the (k/J)-th quantile of \code{x}.
+#' @importFrom stats quantile
+#' @keywords internal
+
+qj <- function(x, k, J) c(quantile(x, probs = k / J, na.rm = TRUE))
+
 # For continuous variables in conf_force_names
 # setup for mean, median, qlow, and qhigh
 
@@ -54,6 +70,36 @@ cut_var <- function(x){
   qhx <- paste0("qhigh(",x,")")
   d <- paste0(x," <= ",qhx)
   return(c(a,b,c,d))
+}
+
+#' Generate J-quantile cut expressions for a continuous variable
+#'
+#' For a continuous variable, returns \code{J - 1} cut expressions of the
+#' form \code{"X <= qj(X, k, J)"} for \code{k = 1, ..., J - 1}.  Together
+#' with the open intervals at the extremes, these define \code{J}
+#' non-overlapping intervals
+#' \deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)]}
+#' where \eqn{c_k} is the (k/J)-th quantile of X.
+#'
+#' Expressions are emitted in deferred form (with literal \code{qj(...)}
+#' calls inside the string) so that they are correctly recomputed when
+#' the same expression is processed against a different data subset
+#' (e.g., a bootstrap replicate).  They are subsequently resolved to
+#' literal numerics by \code{process_conf_force_expr()}.
+#'
+#' @param x Character.  Variable name.
+#' @param J Integer >= 2.  Number of intervals (so \code{J - 1} cut
+#'   points are emitted).
+#' @return Character vector of \code{J - 1} cut expressions.
+#' @keywords internal
+
+cut_var_jq <- function(x, J) {
+  J <- as.integer(J)
+  if (length(J) != 1L || is.na(J) || J < 2L) {
+    stop("cut_var_jq: J must be a single integer >= 2.", call. = FALSE)
+  }
+  ks <- seq_len(J - 1L)
+  paste0(x, " <= qj(", x, ", ", ks, ", ", J, ")")
 }
 
 #' Get forced cut expressions for variables
@@ -92,6 +138,63 @@ get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
   }
   # Flatten to character vector if needed
   unlist(res)
+}
+
+#' Get J-quantile cut expressions for variables
+#'
+#' For each named variable in \code{conf_jcuts}, returns \code{J - 1}
+#' deferred cut expressions of the form \code{"X <= qj(X, k, J)"} via
+#' \code{cut_var_jq()}.  Variables that are not continuous (per
+#' \code{cont.cutoff}) are skipped with a warning.  This is the
+#' \code{cut_var_jq}/J-quantile analog of \code{get_conf_force()}.
+#'
+#' Conflicts with other forced-cut mechanisms (\code{defaultcut_names},
+#' \code{conf.cont_medians_force}) are validated upstream by
+#' \code{get_FSdata()}; this helper performs only structural checks.
+#'
+#' @param df Data frame.
+#' @param conf_jcuts Named list of integers >= 2.  Each name is a
+#'   continuous-variable column in \code{df}; each value is the number
+#'   of intervals \code{J} for that variable.
+#' @param cont.cutoff Integer.  Cutoff for continuous determination
+#'   (passed through to \code{is.continuous()}).
+#' @return Character vector of cut expressions (length
+#'   \code{sum(J_v - 1)} over continuous \code{v}), or
+#'   \code{character(0)} if none.
+#' @examples
+#' df <- data.frame(age = c(45, 60, 35, 50, 70, 25, 80, 55))
+#' get_conf_force_jq(df, conf_jcuts = list(age = 5))
+#' @export
+
+get_conf_force_jq <- function(df, conf_jcuts, cont.cutoff = 4) {
+  if (!is.data.frame(df)) stop("df must be a data.frame.", call. = FALSE)
+  if (is.null(conf_jcuts) || length(conf_jcuts) == 0L) return(character(0))
+  if (!is.list(conf_jcuts) || is.null(names(conf_jcuts)) ||
+      any(!nzchar(names(conf_jcuts)))) {
+    stop("conf_jcuts must be a NAMED list, e.g. list(X8 = 10).",
+         call. = FALSE)
+  }
+  res <- list()
+  for (name in names(conf_jcuts)) {
+    if (!name %in% names(df)) {
+      warning(sprintf(
+        "Variable '%s' not found in data frame. Skipping.", name),
+        call. = FALSE)
+      next
+    }
+    var_data <- df[[name]]
+    flag_cont <- is.continuous(var_data, cutoff = cont.cutoff)
+    if (flag_cont != 1) {
+      warning(sprintf(
+        "Variable '%s' is not continuous (cont.cutoff = %d). Skipping J-quantile cuts.",
+        name, cont.cutoff), call. = FALSE)
+      next
+    }
+    J <- conf_jcuts[[name]]
+    res[[name]] <- cut_var_jq(x = name, J = J)
+  }
+  out <- unlist(res, use.names = FALSE)
+  if (is.null(out)) character(0) else out
 }
 
 #' LASSO selection for Cox model
@@ -253,6 +356,24 @@ filter_by_lassokeep <- function(x, lassokeep) {
 #' @export
 
 process_conf_force_expr <- function(expr, df) {
+  # Try the 3-arg qj() pattern first.
+  # Examples: "X8 <= qj(X8, 1, 10)"
+  pattern_qj <- "^\\s*([a-zA-Z0-9_.]+)\\s*<=\\s*qj\\(\\s*([a-zA-Z0-9_.]+)\\s*,\\s*([0-9]+)\\s*,\\s*([0-9]+)\\s*\\)\\s*$"
+  m_qj <- regexec(pattern_qj, expr)
+  matches_qj <- regmatches(expr, m_qj)[[1]]
+  if (length(matches_qj) > 0) {
+    var <- matches_qj[2]
+    arg <- matches_qj[3]
+    k <- as.integer(matches_qj[4])
+    J <- as.integer(matches_qj[5])
+    if (!(var %in% colnames(df)) || !(arg %in% colnames(df))) return(expr)
+    if (is.na(k) || is.na(J) || J < 2L || k < 1L || k >= J) return(expr)
+    col_vals <- df[[arg]]
+    if (is.factor(col_vals)) col_vals <- as.numeric(as.character(col_vals))
+    val <- round(quantile(col_vals, probs = k / J, na.rm = TRUE), 1)
+    return(paste0(var, " <= ", val))
+  }
+
   # Match pattern: variable <= function(variable)
   # Examples: "age <= mean(age)", "size <= qlow(size)"
   pattern <- "^\\s*([a-zA-Z0-9_.]+)\\s*<=\\s*([a-zA-Z]+)\\(([^)]+)\\)\\s*$"
