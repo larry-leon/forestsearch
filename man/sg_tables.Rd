@@ -51,7 +51,12 @@ from \code{maxk} (e.g., "Two-factor subgroups (maxk=2)").}
 \item{hr_0a}{Character. Adjusted HR for subgroup 0 (optional).}
 
 \item{ndecimals}{Integer. Number of decimals for formatted numbers
-(default: 3).}
+(default: 3).  Controls precision in both \code{sg10_out}
+(formatted via \code{gt::fmt_number}) and \code{tab_estimates}
+(threaded as \code{digits} to \code{\link{SG_tab_estimates_glm}}
+for arm summaries, Diff, effect-estimate CI, and bias-corrected
+CI).  GLM and GRF-GLM paths only; the survival path uses its own
+formatting in \code{\link{SG_tab_estimates}}.}
 
 \item{include_search_info}{Logical. Include search metadata table
 (default: TRUE).}

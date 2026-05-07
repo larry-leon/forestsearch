@@ -843,6 +843,13 @@ forestsearch_tenfold <- function(
 #' @param details Logical. Print details during execution (default: FALSE).
 #' @param outall Logical. If TRUE, returns all summary tables; if FALSE, returns
 #'   only metrics (default: FALSE).
+#' @param digits Integer. Decimal places for construction-time numeric
+#'   formatting in the per-fold summary tables built when
+#'   \code{outall = TRUE} (arm summaries, Diff, effect-estimate CI).
+#'   Default 4 to provide round-down headroom for downstream display
+#'   reformatting (e.g., \code{\link{cv_summary_tables}(digits = ...)}).
+#'   Threaded through \code{\link{SG_tab_estimates_glm}} for GLM
+#'   outcomes.  Ignored when \code{outall = FALSE}.
 #'
 #' @return If \code{outall=FALSE}, a list with \code{sens_metrics_original} and
 #'   \code{find_metrics}. If \code{outall=TRUE}, a list with summary tables and metrics.

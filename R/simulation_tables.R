@@ -311,8 +311,8 @@ build_classification_table <- function(
     # ── Section header label ────────────────────────────────────────────────
     # Use get_dgm_hr() for compatibility with both gbsg_dgm and aft_dgm_flex
     if (hyp == "null") {
-      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
-      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, 2)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), digits)
+      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, digits)
       section_label <- sprintf(
         "%s Null: N=%d, theta(ITT) = %s",
         lab, n, hr_itt
@@ -323,10 +323,10 @@ build_classification_table <- function(
       prop_sg <- if (length(harm_col) > 0) {
         round(100 * mean(df_s[[harm_col[1]]], na.rm = TRUE), 0)
       } else { NA_integer_ }
-      hr_sg  <- round(get_dgm_hr(dgm, "hr_H"), 2)
-      hr_sgc <- round(get_dgm_hr(dgm, "hr_Hc"), 2)
-      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), 2)
-      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, 2)
+      hr_sg  <- round(get_dgm_hr(dgm, "hr_H"), digits)
+      hr_sgc <- round(get_dgm_hr(dgm, "hr_Hc"), digits)
+      hr_itt <- round(get_dgm_hr(dgm, "hr_overall"), digits)
+      if (is.na(hr_itt)) hr_itt <- round(dgm$hr_causal, digits)
       section_label <- sprintf(
         "%s Alt: N=%d, p_%s=%d%%, theta(%s)=%s, theta(%s)=%s, theta(ITT)=%s",
         lab, n, L$plain, prop_sg, L$plain, hr_sg,
@@ -716,21 +716,21 @@ build_estimation_table <- function(
   # Row-group header builders using paper notation
   build_sg_label <- function(n_est, avg_sz, theta_true, cde_val) {
     cde_part <- if (!is.na(cde_val)) {
-      sprintf(", \u03b8\u2021(%s) = %s", L$sg, round(cde_val, 2))
+      sprintf(", \u03b8\u2021(%s) = %s", L$sg, round(cde_val, digits))
     } else ""
     sprintf(
       "%s: %d estimable, avg |%s| = %d, \u03b8\u2020(%s) = %s%s",
-      sg, n_est, sg, avg_sz, L$sg, round(theta_true, 2), cde_part
+      sg, n_est, sg, avg_sz, L$sg, round(theta_true, digits), cde_part
     )
   }
 
   build_sgc_label <- function(avg_sz_sgc, theta_true, cde_val) {
     cde_part <- if (!is.na(cde_val)) {
-      sprintf(", \u03b8\u2021(%s) = %s", L$sg_c, round(cde_val, 2))
+      sprintf(", \u03b8\u2021(%s) = %s", L$sg_c, round(cde_val, digits))
     } else ""
     sprintf(
       "%s: avg |%s| = %d, \u03b8\u2020(%s) = %s%s",
-      sgc, sgc, avg_sz_sgc, L$sg_c, round(theta_true, 2), cde_part
+      sgc, sgc, avg_sz_sgc, L$sg_c, round(theta_true, digits), cde_part
     )
   }
 

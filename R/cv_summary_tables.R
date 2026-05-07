@@ -247,7 +247,7 @@ cv_summary_tables <- function(
         title = gt::md("**Cross-Validation Metrics**"),
         subtitle = "Agreement and subgroup finding rates (%)"
       ) |>
-      gt::fmt_number(columns = "Value", decimals = 1) |>
+      gt::fmt_number(columns = "Value", decimals = digits) |>
       gt::cols_label(
         Metric = "Metric",
         Value = "Value (%)"

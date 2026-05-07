@@ -46,6 +46,14 @@
 #'     \item \code{show_message}: Logical. Show parallel setup messages
 #'   }
 #'   If empty list, inherits settings from original forestsearch call.
+#' @param digits Integer. Decimal places for construction-time numeric
+#'   formatting in \code{FSsg_tab} (arm summaries, Diff, effect-estimate
+#'   CI, bias-corrected CI).  Default 4 to provide round-down headroom
+#'   for downstream display reformatting (e.g.,
+#'   \code{\link{summarize_bootstrap_results}(digits = ...)}, which can
+#'   round down but cannot recover precision lost at construction).
+#'   Threaded through \code{\link{format_CI}} and
+#'   \code{\link{SG_tab_estimates_glm}}.
 #'
 #' @return An \code{fs_bootstrap} object (a list with class
 #'   \code{c("fs_bootstrap", "list")}) containing:

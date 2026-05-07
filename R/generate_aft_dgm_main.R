@@ -58,6 +58,22 @@
 #'       or treatment dependence): \code{lin_pred_cens_0 = lin_pred_cens_1 = mu}.}
 #'   }
 #'   Default \code{list()}.
+#' @param cens_intercept_only Logical. Honored only in force-fit mode
+#'   (\code{select_censoring = FALSE} with empty \code{cens_params}).  If
+#'   \code{TRUE}, fits \code{Surv(y, 1 - event) ~ 1} with no treat or
+#'   covariate dependence.  If \code{FALSE} (default), the censoring
+#'   formula is determined by the censoring covariate vectors:
+#'   \itemize{
+#'     \item Both \code{*_cens = NULL} (default): inherit from outcome
+#'           model; formula is \code{~ treat + zcens_<outcome covariates>}.
+#'     \item Both \code{*_cens = character(0)}: treat-only; formula is
+#'           \code{~ treat}.
+#'     \item One or both \code{*_cens} non-empty: formula is
+#'           \code{~ treat + zcens_<supplied covariates>}.
+#'   }
+#'   Setting \code{cens_intercept_only = TRUE} with
+#'   \code{select_censoring = TRUE} or with analytical \code{cens_params}
+#'   (mu, tau supplied) raises an error.
 #' @param seed Integer random seed for reproducibility. Default is 8316951
 #' @param verbose Logical indicating whether to print diagnostic information during
 #'   execution. Default is TRUE

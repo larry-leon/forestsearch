@@ -15,6 +15,14 @@ elements: \code{cv_args}, \code{sg_analysis}, \code{sg0.name}, \code{sg1.name},
 
 \item{outall}{Logical. If TRUE, returns all summary tables; if FALSE, returns
 only metrics (default: FALSE).}
+
+\item{digits}{Integer. Decimal places for construction-time numeric
+formatting in the per-fold summary tables built when
+\code{outall = TRUE} (arm summaries, Diff, effect-estimate CI).
+Default 4 to provide round-down headroom for downstream display
+reformatting (e.g., \code{\link{cv_summary_tables}(digits = ...)}).
+Threaded through \code{\link{SG_tab_estimates_glm}} for GLM
+outcomes.  Ignored when \code{outall = FALSE}.}
 }
 \value{
 If \code{outall=FALSE}, a list with \code{sens_metrics_original} and

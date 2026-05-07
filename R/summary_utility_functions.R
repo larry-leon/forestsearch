@@ -706,7 +706,12 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' @param hr_1a Character. Adjusted HR for subgroup 1 (optional).
 #' @param hr_0a Character. Adjusted HR for subgroup 0 (optional).
 #' @param ndecimals Integer. Number of decimals for formatted numbers
-#'   (default: 3).
+#'   (default: 3).  Controls precision in both \code{sg10_out}
+#'   (formatted via \code{gt::fmt_number}) and \code{tab_estimates}
+#'   (threaded as \code{digits} to \code{\link{SG_tab_estimates_glm}}
+#'   for arm summaries, Diff, effect-estimate CI, and bias-corrected
+#'   CI).  GLM and GRF-GLM paths only; the survival path uses its own
+#'   formatting in \code{\link{SG_tab_estimates}}.
 #' @param include_search_info Logical. Include search metadata table
 #'   (default: TRUE).
 #' @param subgroup_notation Character or \code{NULL}.  When set to
@@ -829,7 +834,8 @@ sg_tables <- function(fs,
       estimator_fn   = estimator_fn_grf,
       effect_measure = effect_measure,
       outcome_type   = outcome_type,
-      est.scale      = "hr"
+      est.scale      = "hr",
+      digits         = ndecimals
     )
 
     # Subgroup rows
@@ -844,7 +850,8 @@ sg_tables <- function(fs,
       effect_a_0     = hr_0a,
       sg1_name       = sg1_label,
       sg0_name       = sg0_label,
-      est.scale      = "hr"
+      est.scale      = "hr",
+      digits         = ndecimals
     )
 
     tab_est_grf <- as.data.frame(rbind(aa_grf, bb_grf))
@@ -951,7 +958,8 @@ sg_tables <- function(fs,
       estimator_fn   = estimator_fn_tab,
       effect_measure = effect_measure,
       outcome_type   = outcome_type,
-      est.scale      = args_fs$est.scale
+      est.scale      = args_fs$est.scale,
+      digits         = ndecimals
     )
 
     # Subgroup estimates
@@ -966,7 +974,8 @@ sg_tables <- function(fs,
       effect_a_0     = hr_0a,
       sg1_name       = sg1_label,
       sg0_name       = sg0_label,
-      est.scale      = args_fs$est.scale
+      est.scale      = args_fs$est.scale,
+      digits         = ndecimals
     )
 
   } else {
