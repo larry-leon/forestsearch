@@ -206,12 +206,12 @@
 #' @param cont.cutoff Integer. Cutoff for continuous vs categorical. Default 4.
 #' @param conf.cont_medians Named numeric vector. Median values for continuous variables (optional).
 #' @param conf.cont_medians_force Named numeric vector. Forced median values (optional).
-#' @param conf.cont_jcuts Named integer list (each value >= 2). Per-variable
+#' @param conf.cont_jcuts Named integer list (each value >= 1). Per-variable
 #'   J-quantile cut override for continuous covariates: for an entry
-#'   \code{X = J}, the default cut set for X is replaced by J - 1 binary
-#'   cut points at the (k/J)-th quantiles of X (k = 1, ..., J - 1),
-#'   defining J non-overlapping intervals.  Names must be in
-#'   \code{confounders.name} and must not overlap with
+#'   \code{X = J}, the default cut set for X is replaced by \code{J}
+#'   binary cut points at the (k/(J+1))-th quantiles of X
+#'   (k = 1, ..., J), defining J+1 non-overlapping intervals.  Names
+#'   must be in \code{confounders.name} and must not overlap with
 #'   \code{defaultcut_names} or \code{conf.cont_medians_force}.  J-cut
 #'   variables bypass LASSO filtering, matching \code{defaultcut_names}
 #'   semantics.  Variables not listed retain default behaviour.

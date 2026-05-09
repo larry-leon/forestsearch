@@ -41,8 +41,13 @@ qhigh <- function(x) c(quantile(x,0.75))
 #' numerics by \code{process_conf_force_expr()}.
 #'
 #' @param x A numeric vector.
-#' @param k Integer in \code{1, ..., J - 1L}.  Index of the cut point.
-#' @param J Integer >= 2.  Total number of intervals.
+#' @param k Integer in \code{1, ..., J - 1L}.  Index of the cut point
+#'   (where \code{J} here is the third argument to \code{qj()}, not the
+#'   user-facing \code{conf.cont_jcuts} value -- see \code{cut_var_jq()}
+#'   for how these relate).
+#' @param J Integer >= 2.  Total number of intervals implied by the
+#'   probability \code{k/J}.  In the cut expressions emitted by
+#'   \code{cut_var_jq(x, J_user)}, this argument is \code{J_user + 1}.
 #' @return Numeric value of the (k/J)-th quantile of \code{x}.
 #' @importFrom stats quantile
 #' @keywords internal
@@ -74,12 +79,16 @@ cut_var <- function(x){
 
 #' Generate J-quantile cut expressions for a continuous variable
 #'
-#' For a continuous variable, returns \code{J - 1} cut expressions of the
-#' form \code{"X <= qj(X, k, J)"} for \code{k = 1, ..., J - 1}.  Together
-#' with the open intervals at the extremes, these define \code{J}
+#' For a continuous variable, returns \code{J} cut expressions of the
+#' form \code{"X <= qj(X, k, J + 1)"} for \code{k = 1, ..., J}.  These
+#' \code{J} cut points are placed at the (k/(J+1))-th empirical
+#' quantiles of X and partition its range into \code{J + 1}
 #' non-overlapping intervals
-#' \deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)]}
-#' where \eqn{c_k} is the (k/J)-th quantile of X.
+#' \deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_J, \max(X)]}
+#' where \eqn{c_k} is the (k/(J+1))-th quantile of X.  Note the cut
+#' expressions themselves are nested half-spaces (each is a subset of
+#' the next); ForestSearch consumes them as binary candidate factors
+#' and combines them via intersection during the search.
 #'
 #' Expressions are emitted in deferred form (with literal \code{qj(...)}
 #' calls inside the string) so that they are correctly recomputed when
@@ -88,18 +97,20 @@ cut_var <- function(x){
 #' literal numerics by \code{process_conf_force_expr()}.
 #'
 #' @param x Character.  Variable name.
-#' @param J Integer >= 2.  Number of intervals (so \code{J - 1} cut
-#'   points are emitted).
-#' @return Character vector of \code{J - 1} cut expressions.
+#' @param J Integer >= 1.  Number of binary cut expressions to emit.
+#'   The resulting partition has \code{J + 1} non-overlapping intervals.
+#'   Cuts are placed at the (k/(J+1))-th empirical quantiles for
+#'   \code{k = 1, ..., J} (no cut at the boundaries).
+#' @return Character vector of \code{J} cut expressions.
 #' @keywords internal
 
 cut_var_jq <- function(x, J) {
   J <- as.integer(J)
-  if (length(J) != 1L || is.na(J) || J < 2L) {
-    stop("cut_var_jq: J must be a single integer >= 2.", call. = FALSE)
+  if (length(J) != 1L || is.na(J) || J < 1L) {
+    stop("cut_var_jq: J must be a single positive integer.", call. = FALSE)
   }
-  ks <- seq_len(J - 1L)
-  paste0(x, " <= qj(", x, ", ", ks, ", ", J, ")")
+  ks <- seq_len(J)
+  paste0(x, " <= qj(", x, ", ", ks, ", ", J + 1L, ")")
 }
 
 #' Get forced cut expressions for variables
@@ -142,9 +153,9 @@ get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
 
 #' Get J-quantile cut expressions for variables
 #'
-#' For each named variable in \code{conf_jcuts}, returns \code{J - 1}
-#' deferred cut expressions of the form \code{"X <= qj(X, k, J)"} via
-#' \code{cut_var_jq()}.  Variables that are not continuous (per
+#' For each named variable in \code{conf_jcuts}, returns \code{J}
+#' deferred cut expressions of the form \code{"X <= qj(X, k, J + 1)"}
+#' via \code{cut_var_jq()}.  Variables that are not continuous (per
 #' \code{cont.cutoff}) are skipped with a warning.  This is the
 #' \code{cut_var_jq}/J-quantile analog of \code{get_conf_force()}.
 #'
@@ -153,16 +164,19 @@ get_conf_force <- function(df, conf.force.names, cont.cutoff = 4) {
 #' \code{get_FSdata()}; this helper performs only structural checks.
 #'
 #' @param df Data frame.
-#' @param conf_jcuts Named list of integers >= 2.  Each name is a
-#'   continuous-variable column in \code{df}; each value is the number
-#'   of intervals \code{J} for that variable.
+#' @param conf_jcuts Named list of positive integers.  Each name is a
+#'   continuous-variable column in \code{df}; each value \code{J} is
+#'   the number of binary cut expressions to emit for that variable.
+#'   The cuts are placed at the (k/(J+1))-th empirical quantiles for
+#'   \code{k = 1, ..., J}, partitioning the variable's range into
+#'   \code{J + 1} non-overlapping intervals.
 #' @param cont.cutoff Integer.  Cutoff for continuous determination
 #'   (passed through to \code{is.continuous()}).
-#' @return Character vector of cut expressions (length
-#'   \code{sum(J_v - 1)} over continuous \code{v}), or
-#'   \code{character(0)} if none.
+#' @return Character vector of cut expressions (length \code{sum(J_v)}
+#'   over continuous \code{v}), or \code{character(0)} if none.
 #' @examples
 #' df <- data.frame(age = c(45, 60, 35, 50, 70, 25, 80, 55))
+#' # 5 binary cuts at the 1/6, 2/6, ..., 5/6 quantiles of age:
 #' get_conf_force_jq(df, conf_jcuts = list(age = 5))
 #' @export
 

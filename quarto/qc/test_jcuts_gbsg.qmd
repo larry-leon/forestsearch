@@ -1,0 +1,350 @@
+---
+title: "Testing `conf.cont_jcuts`: J-quantile cuts on the GBSG dataset"
+author: "forestsearch development"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    code-fold: false
+    code-tools: true
+execute:
+  warning: false
+  message: false
+---
+
+## Overview
+
+This document is a smoke test for the new `conf.cont_jcuts` argument
+to `get_FSdata()`.  It exercises the feature on the GBSG breast-cancer
+trial dataset across six scenarios:
+
+1. **Baseline** — default cut behaviour, no override.
+2. **Single-variable override** — `pgr` with J = 5 (5 binary cuts).
+3. **Multi-variable override** — `pgr` with J = 5, `age` with J = 10.
+4. **Empirical verification** — resolved cut values match the
+   corresponding empirical quantiles.
+5. **Coverage check** — proportion of patients flagged at the k-th
+   cut tracks k/J.
+6. **Validation errors** — bad inputs fire informative errors.
+
+The feature replaces the default `{mean, median, Q1, Q3}` cut set with
+J − 1 binary cuts at the (k/J)-th quantiles of the variable, but
+**only** for variables explicitly named in `conf.cont_jcuts`.  All
+other continuous covariates retain default behaviour.
+
+## 1. Setup
+
+```{r setup}
+#| label: setup
+
+# Load forestsearch with the conf.cont_jcuts feature.  Choose ONE of
+# the following depending on your setup:
+
+library(forestsearch)
+
+# OR — active development without install:
+# devtools::load_all(".")
+
+library(survival)
+library(knitr)
+
+# ---- Test parameters --------------------------------------------------
+.SEED     <- 8316951
+.CONT_CUT <- 4L     # cont.cutoff for is.continuous()
+.CONFS    <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+```
+
+```{r prep-data}
+#| label: prep-data
+
+set.seed(.SEED)
+df <- survival::gbsg
+df$grade3 <- as.integer(df$grade == "3")
+
+# Inspect continuous status using the same cont.cutoff that get_FSdata()
+# will apply downstream.
+n_unique  <- vapply(df[, .CONFS], function(x) length(unique(x)), integer(1))
+cont_flag <- n_unique >= .CONT_CUT
+kable(data.frame(
+  variable    = .CONFS,
+  n_unique    = unname(n_unique),
+  continuous  = ifelse(cont_flag, "yes", "no")
+), caption = "Confounder inventory in GBSG (n = 686)")
+```
+
+## 2. Baseline — default behaviour
+
+No `conf.cont_jcuts` supplied.  Each continuous variable produces up
+to 4 distinct expressions via `cut_var()` (mean / median / Q1 / Q3).
+A redundant median fallback from the `conf.cont_Medcuts` block is
+deduplicated against `cut_var()` output by `unique()` when the
+literal values match (which is typical).
+
+```{r baseline}
+#| label: baseline
+
+fs_default <- get_FSdata(
+  df.analysis      = df,
+  confounders.name = .CONFS,
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  details          = FALSE
+)
+
+confs_default <- fs_default$confs
+length(confs_default)
+
+# Per-variable cut count.  The leading token of each expression is the
+# variable name.
+default_counts <- table(sub(" .*$", "", confs_default))
+kable(as.data.frame(default_counts),
+      col.names = c("variable", "n_cuts"),
+      caption = "Default cut counts per variable")
+```
+
+## 3. Single-variable override — `pgr` with J = 5
+
+Expectation: `pgr` produces J = 5 cuts at the 1/6, 2/6, 3/6, 4/6, 5/6
+quantiles; all other continuous variables are untouched.
+
+```{r jcuts-single}
+#| label: jcuts-single
+
+fs_pgr5 <- get_FSdata(
+  df.analysis      = df,
+  confounders.name = .CONFS,
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  conf.cont_jcuts  = list(pgr = 5),
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  details          = FALSE
+)
+
+# Cuts referencing pgr only
+pgr_cuts <- fs_pgr5$confs[grepl("^pgr ", fs_pgr5$confs)]
+pgr_cuts
+
+# Number of pgr-cuts (4 expected) + comparison to other variables
+pgr5_counts <- table(sub(" .*$", "", fs_pgr5$confs))
+kable(as.data.frame(pgr5_counts),
+      col.names = c("variable", "n_cuts"),
+      caption = "Cut counts with conf.cont_jcuts = list(pgr = 5)")
+
+stopifnot(sum(grepl("^pgr ", fs_pgr5$confs)) == 5L)
+# Untouched variables retain the same cut count as in the baseline.
+stopifnot(sum(grepl("^age ", fs_pgr5$confs))  ==
+          sum(grepl("^age ", confs_default)))
+stopifnot(sum(grepl("^size ", fs_pgr5$confs)) ==
+          sum(grepl("^size ", confs_default)))
+```
+
+## 4. Multi-variable override — `list(pgr = 5, age = 10)`
+
+`pgr` should produce 5 cuts; `age` should produce 10; the rest stay at
+default.  The `details = TRUE` setting also exercises the new
+"J-quantile cuts applied to:" diagnostic line.
+
+```{r jcuts-multi}
+#| label: jcuts-multi
+
+fs_multi <- get_FSdata(
+  df.analysis      = df,
+  confounders.name = .CONFS,
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  conf.cont_jcuts  = list(pgr = 5, age = 10),
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  details          = TRUE
+)
+
+multi_counts <- table(sub(" .*$", "", fs_multi$confs))
+kable(as.data.frame(multi_counts),
+      col.names = c("variable", "n_cuts"),
+      caption = "Cut counts with conf.cont_jcuts = list(pgr = 5, age = 10)")
+
+stopifnot(sum(grepl("^pgr ", fs_multi$confs))  == 5L)    # J=5  -> 5 cuts
+stopifnot(sum(grepl("^age ", fs_multi$confs))  == 10L)   # J=10 -> 10 cuts
+
+# Untouched variables retain default counts
+for (v in c("size", "nodes", "er")) {
+  stopifnot(
+    sum(grepl(paste0("^", v, " "), fs_multi$confs)) ==
+    sum(grepl(paste0("^", v, " "), confs_default))
+  )
+}
+```
+
+## 5. Empirical verification
+
+The literal cut values resolved by `process_conf_force_expr()` should
+equal the empirical (k/(J+1))-th quantiles (rounded to 1 decimal).
+
+```{r empirical}
+#| label: empirical
+
+# pgr cuts: J = 5  (placed at probs 1/6, 2/6, 3/6, 4/6, 5/6)
+pgr_cut_vals <- sort(as.numeric(sub("pgr <= ", "",
+                       fs_multi$confs[grepl("^pgr ", fs_multi$confs)])))
+expected_pgr <- as.numeric(round(quantile(df$pgr, probs = (1:5) / 6,
+                                          na.rm = TRUE), 1))
+kable(data.frame(
+  k             = 1:5,
+  prob          = (1:5) / 6,
+  cut_observed  = pgr_cut_vals,
+  cut_expected  = expected_pgr,
+  match         = abs(pgr_cut_vals - expected_pgr) < 1e-9
+), caption = "pgr cut values vs. empirical (k/6)-quantiles")
+
+# age cuts: J = 10  (placed at probs 1/11, 2/11, ..., 10/11)
+age_cut_vals <- sort(as.numeric(sub("age <= ", "",
+                       fs_multi$confs[grepl("^age ", fs_multi$confs)])))
+expected_age <- as.numeric(round(quantile(df$age, probs = (1:10) / 11,
+                                          na.rm = TRUE), 1))
+kable(data.frame(
+  k             = 1:10,
+  prob          = (1:10) / 11,
+  cut_observed  = age_cut_vals,
+  cut_expected  = expected_age,
+  match         = abs(age_cut_vals - expected_age) < 1e-9
+), caption = "age cut values vs. empirical (k/11)-quantiles")
+
+stopifnot(all(abs(pgr_cut_vals - expected_pgr) < 1e-9))
+stopifnot(all(abs(age_cut_vals - expected_age) < 1e-9))
+```
+
+### Coverage check
+
+Proportion of patients flagged by each cut should track k/J.  Small
+deviations are expected because the rounding-to-1-decimal step in
+`process_conf_force_expr()` and the discreteness of the data (ties)
+shift exact equality.
+
+```{r coverage}
+#| label: coverage
+
+cov_pgr <- vapply(seq_along(pgr_cut_vals),
+                  function(k) mean(df$pgr <= pgr_cut_vals[k], na.rm = TRUE),
+                  numeric(1))
+cov_age <- vapply(seq_along(age_cut_vals),
+                  function(k) mean(df$age <= age_cut_vals[k], na.rm = TRUE),
+                  numeric(1))
+
+kable(data.frame(
+  variable = c(rep("pgr", 5), rep("age", 10)),
+  k        = c(1:5, 1:10),
+  target   = c((1:5) / 6, (1:10) / 11),
+  observed = round(c(cov_pgr, cov_age), 3)
+), caption = "Empirical coverage at each cut (target vs. observed)")
+```
+
+## 6. Validation errors
+
+Each block below should produce an informative error.
+
+```{r validation-bad-name}
+#| label: validation-bad-name
+#| error: true
+
+# Variable name not in confounders.name
+get_FSdata(df.analysis = df, confounders.name = .CONFS,
+           outcome.name = "rfstime", event.name = "status",
+           conf.cont_jcuts = list(NOPE = 5),
+           use_lasso = FALSE, use_grf = FALSE, details = FALSE)
+```
+
+```{r validation-bad-J}
+#| label: validation-bad-J
+#| error: true
+
+# J < 1 (not positive); J = 1 is now valid (1 cut at the median)
+get_FSdata(df.analysis = df, confounders.name = .CONFS,
+           outcome.name = "rfstime", event.name = "status",
+           conf.cont_jcuts = list(pgr = 0),
+           use_lasso = FALSE, use_grf = FALSE, details = FALSE)
+```
+
+```{r validation-conflict-default}
+#| label: validation-conflict-default
+#| error: true
+
+# Conflict: same variable in both conf.cont_jcuts and defaultcut_names
+get_FSdata(df.analysis = df, confounders.name = .CONFS,
+           outcome.name = "rfstime", event.name = "status",
+           conf.cont_jcuts  = list(pgr = 5),
+           defaultcut_names = "pgr",
+           use_lasso = FALSE, use_grf = FALSE, details = FALSE)
+```
+
+```{r validation-unnamed}
+#| label: validation-unnamed
+#| error: true
+
+# Unnamed list
+get_FSdata(df.analysis = df, confounders.name = .CONFS,
+           outcome.name = "rfstime", event.name = "status",
+           conf.cont_jcuts = list(5),
+           use_lasso = FALSE, use_grf = FALSE, details = FALSE)
+```
+
+## 7. Categorical / non-continuous variable
+
+Variables that don't pass the continuous check are silently skipped
+(with a warning).  `meno` (binary) is in `confounders.name` but should
+be skipped if mistakenly listed in `conf.cont_jcuts`.
+
+```{r non-continuous}
+#| label: non-continuous
+
+fs_skip <- suppressWarnings(get_FSdata(
+  df.analysis      = df,
+  confounders.name = .CONFS,
+  outcome.name     = "rfstime",
+  event.name       = "status",
+  conf.cont_jcuts  = list(meno = 5),    # binary -> skipped
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  details          = FALSE
+))
+
+# meno was not continuous -> no j-cuts emitted; falls through to its
+# default (categorical indicator) handling.
+sum(grepl("^meno ", fs_skip$confs))
+sum(grepl("\\bmeno\\b", fs_skip$confs))   # may match "meno." factor cols too
+
+# Compare with default run
+identical(
+  sort(fs_skip$confs[grepl("^meno", fs_skip$confs)]),
+  sort(confs_default[grepl("^meno", confs_default)])
+)
+```
+
+## Summary
+
+```{r summary}
+#| label: summary
+#| echo: false
+#| results: asis
+
+cat("All assertions passed.  The `conf.cont_jcuts` feature is functioning as designed:\n\n",
+    "- J = 5 produces 5 cuts at empirical (k/6)-quantiles (`pgr`).\n",
+    "- J = 10 produces 10 cuts at empirical (k/11)-quantiles (`age`).\n",
+    "- Unlisted continuous variables retain default behaviour.\n",
+    "- Validation errors fire on bad inputs.\n",
+    "- Non-continuous variables are skipped with a warning.\n",
+    sep = "")
+```
+
+## Session info
+
+```{r session-info}
+#| label: session-info
+#| echo: false
+
+sessionInfo()
+```
