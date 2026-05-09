@@ -4,9 +4,9 @@ format: html
 ---
 
 This article runs the simulation study for configuration
-**`actg175_binary_m1_harm_hr_fs2`** (study = ACTG175,
+**`actg175_binary_m1_harm_hrMinSG_fs2`** (study = ACTG175,
 outcome = binary, DGM = m1 [calibrated GLM, target OR(Q) = 2.0],
-objective = harm, sg_focus = `hr`, FS bundle = fs2).
+objective = harm, sg_focus = `hrMinSG`, FS bundle = fs2).
 
 The article supports three rendering modes, controlled by `sim_mode`
 in the setup chunk:
@@ -44,7 +44,9 @@ set.seed(8316951L)
 # -- Mode --------------------------------------------------------------------
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
+
 sim_mode    <- "full"
+
 BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs2.rds"
 
 if (sim_mode == "auto") {
@@ -60,17 +62,17 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 # different reference scales are needed.
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
-  demo   = 10L,
-  full   = 5000L,
+  demo   = 20L,
+  full   = 1000L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
-  demo   = 10L,
-  full   = 5000L
+  demo   = 20L,
+  full   = 1000L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
-sim_n       <- 1000L
+sim_n       <- 700L
 
 cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
             sim_mode, nsims_alt, nsims_null, sim_n))
@@ -78,6 +80,7 @@ cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
 # -- FS parameters (sourced from canonical fs2 file) -------------------
 # Canonical fs2 parameter values live in _fsparams/fs2_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
+
 fs_sg_focus <- "hr"
 
 # -- GRF standalone parameters ------------------------------------------------
@@ -96,10 +99,10 @@ diag_keep          <- c("fs_full", "candidate_table")
 diag_keep_first_n  <- 5L
 
 # -- Plot thresholds ---------------------------------------------------------
-sgdist_min_pct_alt  <- 1
-sgdist_min_pct_null <- 1
+sgdist_min_pct_alt  <- 0
+sgdist_min_pct_null <- 0
 sgdist_top_k        <- 10L
-ordist_ylim         <- c(0, 3)
+ordist_ylim         <- c(0, 4)
 
 # -- Build fs_params from sourced fs2 bundle ---------------------------
 # Canonical FS parameter values are defined in _fsparams/fs2_params.R
@@ -161,15 +164,23 @@ actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
 
 # -- Analysis covariates (what the analyst sees) -------------------------------
 cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
-bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo","z1","z2")
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders <- c(cont_vars, bin_vars)
 
-fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
+#fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
+
+fs_conf_force <- c("ar_naive == 1","prior_6mo == 1","z1 ==1", "z2 ==1")
+
+#fs_conf.cont_jcuts  = list(cd40 = 10, wtkg = 10)
 
 # Inject conf_force into the consolidated fs_params (defined in setup,
 # but conf_force depends on data-prep factor variables)
+
 fs_params$conf_force <- fs_conf_force
+
+#fs_params$conf.cont_jcuts <- fs_conf.cont_jcuts
+
 
 # -- DGM variable sets ---------------------------------------------------------
 dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
@@ -250,7 +261,7 @@ itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = c1, 
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = c1, 
            n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
            effect_type = "ratio", n_eff = max_look)
 
@@ -275,7 +286,7 @@ fs <- fs_single
 if(!is.null(fs$sg.harm)){
 fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
-  nb_boots = 500,
+  nb_boots = 300,
   show_three = FALSE,
   details = FALSE,
   parallel_args = list(
@@ -326,7 +337,7 @@ itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
 
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 60, c1 = 1.25, 
+fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = 1.25, 
            n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
            effect_type = "ratio", n_eff = max_look)
 
@@ -353,7 +364,7 @@ if(!is.null(fs$sg.harm)){
 
 fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
-  nb_boots = 500,
+  nb_boots = 300,
   show_three = FALSE,
   details = FALSE,
   parallel_args = list(
@@ -386,8 +397,6 @@ summaries <- summarize_bootstrap_results(
 summaries$table
 }
 ```
-
-
 
 # Full Simulation Study {#sec-sims}
 
@@ -568,10 +577,10 @@ if (sim_mode == "import") {
     cat(sprintf("  forestsearch %s\n", bundle$meta$package_version))
   }
   if (!is.null(bundle$meta$config_id) &&
-      bundle$meta$config_id != "actg175_binary_m1_harm_hr_fs2") {
+      bundle$meta$config_id != "actg175_binary_m1_harm_hrMinSG_fs2") {
     warning(sprintf(
       "Bundle config_id ('%s') does not match this article ('%s').",
-      bundle$meta$config_id, "actg175_binary_m1_harm_hr_fs2"
+      bundle$meta$config_id, "actg175_binary_m1_harm_hrMinSG_fs2"
     ), call. = FALSE)
   }
 } else {
