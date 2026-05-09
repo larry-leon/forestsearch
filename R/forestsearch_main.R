@@ -27,6 +27,40 @@
 
 
 # =============================================================================
+# Default Worker Count for parallel_args
+# =============================================================================
+
+#' Compute the default worker count for \code{parallel_args}
+#'
+#' Returns \code{floor(0.80 * N)} where \code{N} is the number of
+#' physical (non-hyperthreaded) cores, with a floor of 1 worker.
+#' When the environment variable \code{_R_CHECK_LIMIT_CORES_} is
+#' set (as during \code{R CMD check}), the result is capped at 2
+#' to comply with CRAN policy.  When \code{detectCores(logical =
+#' FALSE)} returns \code{NA} (some non-x86 platforms), falls back
+#' to assuming 2 cores.
+#'
+#' This helper is used as the default value for
+#' \code{parallel_args$workers} in \code{forestsearch()} and
+#' related entry points; users can override at the call site.
+#'
+#' @return Positive integer worker count.
+#' @noRd
+.default_parallel_workers <- function() {
+  n_phys <- parallel::detectCores(logical = FALSE)
+  if (length(n_phys) != 1L || is.na(n_phys) || n_phys < 1L) n_phys <- 2L
+
+  cran_cap <- isTRUE(as.logical(
+    Sys.getenv("_R_CHECK_LIMIT_CORES_", "FALSE")))
+  if (cran_cap) {
+    return(min(2L, as.integer(n_phys)))
+  }
+
+  max(1L, as.integer(floor(0.80 * n_phys)))
+}
+
+
+# =============================================================================
 # Validation Helper: Outcome / Threshold Consistency
 # =============================================================================
 
@@ -177,10 +211,21 @@
 #' @param confounders.name Character vector. Names of candidate subgroup-defining variables.
 #' @param parallel_args List. Parallel processing configuration:
 #'   \describe{
-#'     \item{plan}{Character. One of "multisession", "multicore", "callr", "sequential"}
-#'     \item{workers}{Integer. Number of parallel workers}
-#'     \item{show_message}{Logical. Show parallel setup messages}
+#'     \item{plan}{Character. One of \code{"multisession"} (default;
+#'       cross-platform, reuses workers across calls), \code{"multicore"}
+#'       (Linux/macOS only, fastest startup but fails in RStudio interactive
+#'       sessions), \code{"callr"} (slower per-call, fully isolated R
+#'       processes), or \code{"sequential"} (no parallelism).}
+#'     \item{workers}{Integer. Number of parallel workers.  Default:
+#'       \code{floor(0.80 * N)} where \code{N} is the number of physical
+#'       (non-hyperthreaded) cores, capped to 2 when
+#'       \code{_R_CHECK_LIMIT_CORES_} is set (e.g., during \code{R CMD
+#'       check}).  On a 4-core laptop the default is 3 workers; on a
+#'       16-core workstation it is 12.}
+#'     \item{show_message}{Logical. Show parallel setup messages.}
 #'   }
+#'   To disable parallelism entirely, pass
+#'   \code{parallel_args = list(plan = "sequential")}.
 #' @param df.predict Data frame. Prediction dataset (optional).
 #' @param df.test Data frame. Test dataset (optional).
 #' @param is.RCT Logical. Is this a randomized controlled trial? Default TRUE.
@@ -192,7 +237,7 @@
 #' @param grf_cuts List. Custom GRF cut points (optional).
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
-#' @param dmin.grf Integer. Minimum events for GRF. Default 4.
+#' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
 #' @param frac.tau Numeric. Fraction of tau for RMST. Default 0.8.
 #' @param return_selected_cuts_only Logical. If TRUE (default), GRF returns only cuts from the
 #'   tree depth that identified the selected subgroup meeting `dmin.grf`. If FALSE
@@ -546,7 +591,9 @@ forestsearch <- function(df.analysis,
                          potentialOutcome.name = NULL,
                          flag_harm.name = NULL,
                          confounders.name = NULL,
-                         parallel_args = list(plan = "callr", workers = 6, show_message = TRUE),
+                         parallel_args = list(plan = "multisession",
+                                              workers = .default_parallel_workers(),
+                                              show_message = TRUE),
                          df.predict = NULL,
                          df.test = NULL,
                          is.RCT = TRUE,
@@ -558,7 +605,7 @@ forestsearch <- function(df.analysis,
                          grf_cuts = NULL,
                          max_n_confounders = 1000,
                          grf_depth = 2,
-                         dmin.grf = 4,
+                         dmin.grf = 0.0,
                          frac.tau = 0.8,
                          return_selected_cuts_only = TRUE,
                          conf_force = NULL,

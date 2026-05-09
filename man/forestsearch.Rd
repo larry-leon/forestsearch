@@ -13,7 +13,8 @@ forestsearch(
   potentialOutcome.name = NULL,
   flag_harm.name = NULL,
   confounders.name = NULL,
-  parallel_args = list(plan = "callr", workers = 6, show_message = TRUE),
+  parallel_args = list(plan = "multisession", workers = .default_parallel_workers(),
+    show_message = TRUE),
   df.predict = NULL,
   df.test = NULL,
   is.RCT = TRUE,
@@ -25,7 +26,7 @@ forestsearch(
   grf_cuts = NULL,
   max_n_confounders = 1000,
   grf_depth = 2,
-  dmin.grf = 4,
+  dmin.grf = 0,
   frac.tau = 0.8,
   return_selected_cuts_only = TRUE,
   conf_force = NULL,
@@ -95,10 +96,21 @@ forestsearch(
 
 \item{parallel_args}{List. Parallel processing configuration:
 \describe{
-\item{plan}{Character. One of "multisession", "multicore", "callr", "sequential"}
-\item{workers}{Integer. Number of parallel workers}
-\item{show_message}{Logical. Show parallel setup messages}
-}}
+\item{plan}{Character. One of \code{"multisession"} (default;
+cross-platform, reuses workers across calls), \code{"multicore"}
+(Linux/macOS only, fastest startup but fails in RStudio interactive
+sessions), \code{"callr"} (slower per-call, fully isolated R
+processes), or \code{"sequential"} (no parallelism).}
+\item{workers}{Integer. Number of parallel workers.  Default:
+\code{floor(0.80 * N)} where \code{N} is the number of physical
+(non-hyperthreaded) cores, capped to 2 when
+\code{_R_CHECK_LIMIT_CORES_} is set (e.g., during \code{R CMD
+      check}).  On a 4-core laptop the default is 3 workers; on a
+16-core workstation it is 12.}
+\item{show_message}{Logical. Show parallel setup messages.}
+}
+To disable parallelism entirely, pass
+\code{parallel_args = list(plan = "sequential")}.}
 
 \item{df.predict}{Data frame. Prediction dataset (optional).}
 
@@ -122,7 +134,7 @@ forestsearch(
 
 \item{grf_depth}{Integer. GRF tree depth. Default 2.}
 
-\item{dmin.grf}{Integer. Minimum events for GRF. Default 4.}
+\item{dmin.grf}{Numeric. Minimum events for GRF. Default 0.0.}
 
 \item{frac.tau}{Numeric. Fraction of tau for RMST. Default 0.8.}
 
