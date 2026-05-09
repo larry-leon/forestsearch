@@ -77,19 +77,19 @@ get_fs2_params <- function(sg_focus,
     use_lasso                 = FALSE,
     use_grf                   = TRUE,
     return_selected_cuts_only = TRUE,
-    max_subgroups_search      = 5,        # fs2: broad
+    max_subgroups_search      = 30,        # fs2: broad
     use_twostage              = TRUE,
 
     # -- Effect-size thresholds ----------------------------------------------
     hr.threshold              = 1.25,      # OR scale
     hr.consistency            = 1.0,
-    pconsistency.threshold    = 0.80,
+    pconsistency.threshold    = 0.90,
     # stop_threshold: 0.90 is the fs2 bundle's value. Package requires
     # NULL when sg_focus uses neighborhood-based selection (hrMaxSG /
     # hrMinSG); applied here so qmds can call get_fs2_params() and use
     # the result directly with no overrides.
     stop_threshold            = if (sg_focus %in% c("hrMaxSG", "hrMinSG"))
-                                  NULL else 0.90,
+                                  NULL else 0.95,
 
     # -- Search dispatch -----------------------------------------------------
     sg_focus                  = sg_focus,
