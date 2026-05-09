@@ -661,6 +661,37 @@ forestsearch <- function(df.analysis,
   # SECTION 2: VALIDATE INPUTS
   # ===========================================================================
 
+  # Validate selection-related arguments up front, so parameter conflicts
+  # (e.g., selection_rule = "pareto" with sg_focus = "hr", an unknown
+  # sg_focus value, or effect_neighborhood out of range) are reported
+  # immediately rather than after data preparation, factor selection, and
+  # consistency evaluation have run.  The same validators are also called
+  # inside sort_subgroups() / sort_subgroups_preview() / subgroup.consistency()
+  # as defense-in-depth (those functions are exported and may be invoked
+  # directly).
+
+  # 1. sg_focus must be one of the known values.  Hoisted here so that
+  #    .validate_selection_rule() below sees an already-validated sg_focus.
+  valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG")
+  if (!is.character(sg_focus) || length(sg_focus) != 1L ||
+      !sg_focus %in% valid_sg_focus) {
+    stop(sprintf(
+      "'sg_focus' must be one of: %s.  Got: %s.",
+      paste(shQuote(valid_sg_focus), collapse = ", "),
+      if (is.character(sg_focus) && length(sg_focus) == 1L)
+        shQuote(sg_focus) else "<invalid>"),
+      call. = FALSE)
+  }
+
+  # 2. selection_rule / sg_focus / effect_neighborhood compatibility.
+  .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
+
+  # 3. effect_neighborhood range -- only meaningful for hrMaxSG / hrMinSG
+  #    (matches the existing conditional pattern in sort_subgroups()).
+  if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+    .validate_effect_neighborhood(effect_neighborhood)
+  }
+
   # Validate parallel arguments
   if (length(parallel_args) > 0) {
     allowed_plans <- c("multisession", "multicore", "callr", "sequential")
@@ -680,6 +711,20 @@ forestsearch <- function(df.analysis,
       n_workers <- 1
     } else {
       n_workers <- min(n_workers, max_cores)
+    }
+
+    # Hoisted from subgroup.consistency() so an invalid batch_size errors
+    # before any data preparation runs.  NULL means "use default downstream";
+    # the original validator (still in place as defense-in-depth) is invoked
+    # only when the value is actually consumed.
+    if (!is.null(parallel_args$batch_size) &&
+        (!is.numeric(parallel_args$batch_size) ||
+         length(parallel_args$batch_size) != 1L ||
+         is.na(parallel_args$batch_size) ||
+         parallel_args$batch_size < 1 ||
+         parallel_args$batch_size != as.integer(parallel_args$batch_size))) {
+      stop("parallel_args$batch_size must be a positive integer.",
+           call. = FALSE)
     }
   }
 
