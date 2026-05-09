@@ -45,13 +45,13 @@ get_FSdata(
 
 \item{conf.cont_medians_force}{Character vector of additional continuous confounders to force median cut.}
 
-\item{conf.cont_jcuts}{Named list of integers (>= 2), one per
+\item{conf.cont_jcuts}{Named list of positive integers, one per
 continuous confounder for which J-quantile cuts are desired.  For a
 variable \code{X} listed as \code{X = J}, the default cut set
-(\code{cut_var()}: mean, median, Q1, Q3) is replaced by J - 1
-binary cut points at the (k/J)-th quantiles of X for
-\code{k = 1, ..., J - 1}, defining J non-overlapping intervals
-\deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)].}
+(\code{cut_var()}: mean, median, Q1, Q3) is replaced by \code{J}
+binary cut points at the (k/(J+1))-th quantiles of X for
+\code{k = 1, ..., J}, defining J+1 non-overlapping intervals
+\deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_J, \max(X)].}
 Variables not listed here retain default behaviour.  J-quantile
 cuts are unconditional (not filtered by LASSO), matching
 \code{defaultcut_names} semantics.  Names must be in

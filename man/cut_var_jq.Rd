@@ -9,19 +9,25 @@ cut_var_jq(x, J)
 \arguments{
 \item{x}{Character.  Variable name.}
 
-\item{J}{Integer >= 2.  Number of intervals (so \code{J - 1} cut
-points are emitted).}
+\item{J}{Integer >= 1.  Number of binary cut expressions to emit.
+The resulting partition has \code{J + 1} non-overlapping intervals.
+Cuts are placed at the (k/(J+1))-th empirical quantiles for
+\code{k = 1, ..., J} (no cut at the boundaries).}
 }
 \value{
-Character vector of \code{J - 1} cut expressions.
+Character vector of \code{J} cut expressions.
 }
 \description{
-For a continuous variable, returns \code{J - 1} cut expressions of the
-form \code{"X <= qj(X, k, J)"} for \code{k = 1, ..., J - 1}.  Together
-with the open intervals at the extremes, these define \code{J}
+For a continuous variable, returns \code{J} cut expressions of the
+form \code{"X <= qj(X, k, J + 1)"} for \code{k = 1, ..., J}.  These
+\code{J} cut points are placed at the (k/(J+1))-th empirical
+quantiles of X and partition its range into \code{J + 1}
 non-overlapping intervals
-\deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_{J-1}, \max(X)]}
-where \eqn{c_k} is the (k/J)-th quantile of X.
+\deqn{[\min(X), c_1),\ [c_1, c_2),\ \ldots,\ [c_J, \max(X)]}
+where \eqn{c_k} is the (k/(J+1))-th quantile of X.  Note the cut
+expressions themselves are nested half-spaces (each is a subset of
+the next); ForestSearch consumes them as binary candidate factors
+and combines them via intersection during the search.
 }
 \details{
 Expressions are emitted in deferred form (with literal \code{qj(...)}

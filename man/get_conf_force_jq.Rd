@@ -9,22 +9,24 @@ get_conf_force_jq(df, conf_jcuts, cont.cutoff = 4)
 \arguments{
 \item{df}{Data frame.}
 
-\item{conf_jcuts}{Named list of integers >= 2.  Each name is a
-continuous-variable column in \code{df}; each value is the number
-of intervals \code{J} for that variable.}
+\item{conf_jcuts}{Named list of positive integers.  Each name is a
+continuous-variable column in \code{df}; each value \code{J} is
+the number of binary cut expressions to emit for that variable.
+The cuts are placed at the (k/(J+1))-th empirical quantiles for
+\code{k = 1, ..., J}, partitioning the variable's range into
+\code{J + 1} non-overlapping intervals.}
 
 \item{cont.cutoff}{Integer.  Cutoff for continuous determination
 (passed through to \code{is.continuous()}).}
 }
 \value{
-Character vector of cut expressions (length
-\code{sum(J_v - 1)} over continuous \code{v}), or
-\code{character(0)} if none.
+Character vector of cut expressions (length \code{sum(J_v)}
+over continuous \code{v}), or \code{character(0)} if none.
 }
 \description{
-For each named variable in \code{conf_jcuts}, returns \code{J - 1}
-deferred cut expressions of the form \code{"X <= qj(X, k, J)"} via
-\code{cut_var_jq()}.  Variables that are not continuous (per
+For each named variable in \code{conf_jcuts}, returns \code{J}
+deferred cut expressions of the form \code{"X <= qj(X, k, J + 1)"}
+via \code{cut_var_jq()}.  Variables that are not continuous (per
 \code{cont.cutoff}) are skipped with a warning.  This is the
 \code{cut_var_jq}/J-quantile analog of \code{get_conf_force()}.
 }
@@ -35,5 +37,6 @@ Conflicts with other forced-cut mechanisms (\code{defaultcut_names},
 }
 \examples{
 df <- data.frame(age = c(45, 60, 35, 50, 70, 25, 80, 55))
+# 5 binary cuts at the 1/6, 2/6, ..., 5/6 quantiles of age:
 get_conf_force_jq(df, conf_jcuts = list(age = 5))
 }

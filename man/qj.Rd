@@ -9,9 +9,14 @@ qj(x, k, J)
 \arguments{
 \item{x}{A numeric vector.}
 
-\item{k}{Integer in \code{1, ..., J - 1L}.  Index of the cut point.}
+\item{k}{Integer in \code{1, ..., J - 1L}.  Index of the cut point
+(where \code{J} here is the third argument to \code{qj()}, not the
+user-facing \code{conf.cont_jcuts} value -- see \code{cut_var_jq()}
+for how these relate).}
 
-\item{J}{Integer >= 2.  Total number of intervals.}
+\item{J}{Integer >= 2.  Total number of intervals implied by the
+probability \code{k/J}.  In the cut expressions emitted by
+\code{cut_var_jq(x, J_user)}, this argument is \code{J_user + 1}.}
 }
 \value{
 Numeric value of the (k/J)-th quantile of \code{x}.
