@@ -82,7 +82,7 @@ cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
 # Edit there to apply changes uniformly across all sg_focus configs.
 
 fs_sg_focus <- "hrMinSG"
-fs_selection_rule <- "pareto"
+fs_selection_rule <- "neighborhood"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
@@ -168,7 +168,7 @@ actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
 
 # -- Analysis covariates (what the analyst sees) -------------------------------
 cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
-bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo","z1","z2")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders <- c(cont_vars, bin_vars)
 
