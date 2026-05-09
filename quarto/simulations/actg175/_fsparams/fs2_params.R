@@ -77,7 +77,7 @@ get_fs2_params <- function(sg_focus,
     use_lasso                 = FALSE,
     use_grf                   = TRUE,
     return_selected_cuts_only = TRUE,
-    max_subgroups_search      = 20,        # fs2: broad
+    max_subgroups_search      = 30,        # fs2: broad
     use_twostage              = TRUE,
 
     # -- Effect-size thresholds ----------------------------------------------

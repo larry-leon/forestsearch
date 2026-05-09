@@ -198,3 +198,29 @@ fs <- forestsearch(
 pareto_frontier_table(fs)
 
 
+fs <- forestsearch(
+  df.analysis            = df.analysis,
+  confounders.name       = confounders.name,
+  outcome.name           = "time_months",
+  treat.name             = "hormon",
+  event.name             = "status",
+  id.name                = "id",
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.90,
+  use_grf = FALSE,
+  sg_focus               = "maxSG",
+  selection_rule         = "neighborhood",        # <-- new argument
+  max_subgroups_search = 20,
+  conf.cont_jcuts        = list(er = 10, pgr = 10),
+  maxk                   = 2,
+  n.min                  = 60,
+  d0.min                 = 10,
+  d1.min                 = 10,
+  fs.splits              = 1000,
+  details                = TRUE
+)
+
+pareto_frontier_table(fs)
+
+
