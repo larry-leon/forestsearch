@@ -15,6 +15,7 @@ sg_consistency_out(
   by.risk = 12,
   confs_labels,
   is_glm = FALSE,
+  selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
   effect_log_scale = FALSE
 )
@@ -40,6 +41,10 @@ sg_consistency_out(
 
 \item{is_glm}{Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
 plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.}
+
+\item{selection_rule}{Character. Rule defining the candidate
+inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  See
+\code{\link{sort_subgroups}}.  Default \code{"neighborhood"}.}
 
 \item{effect_neighborhood}{Numeric in \code{[0, 1)}.  Relative
 tolerance for \code{"hrMaxSG"}/\code{"hrMinSG"} selection.  See

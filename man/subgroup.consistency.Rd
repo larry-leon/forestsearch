@@ -19,6 +19,7 @@ subgroup.consistency(
   Lsg,
   confs_labels,
   sg_focus = "hr",
+  selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
   stop_Kgroups = 10,
   stop_threshold = NULL,
@@ -82,6 +83,15 @@ the smallest \eqn{N}.}
 }
 Default: \code{"hr"}.}
 
+\item{selection_rule}{Character. Rule defining the candidate
+inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
+\code{"neighborhood"} (default; current behaviour),
+\code{"pareto"} (2D Pareto-non-dominated set in (effect, N)),
+or \code{"both"} (intersection of the two).  Forwarded to
+\code{\link{sort_subgroups_preview}} (pre-consistency triage)
+and \code{\link{sort_subgroups}} (post-consistency selection).
+Must be \code{"neighborhood"} for other \code{sg_focus} values.}
+
 \item{effect_neighborhood}{Numeric in \code{[0, 1)}.  Relative
 tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate
 is in the \emph{effect-size neighborhood} iff its (natural-scale)
@@ -90,7 +100,8 @@ Default \code{0.10} (i.e., within 10\\% of the strongest effect).
 For GLM ratio measures (OR, IRR), the neighborhood test is applied
 on the natural scale (after exponentiation of \code{hr}).  Ignored
 when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
-\code{"minSG"}.}
+\code{"minSG"}.  When \code{selection_rule = "pareto"}, must be
+left at its default (the rule does not consult it).}
 
 \item{stop_Kgroups}{Integer. Maximum number of candidates to evaluate.
 Default: 10}

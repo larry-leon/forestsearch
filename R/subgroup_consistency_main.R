@@ -52,6 +52,14 @@
 #'       the smallest \eqn{N}.}
 #'   }
 #'   Default: \code{"hr"}.
+#' @param selection_rule Character. Rule defining the candidate
+#'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
+#'   \code{"neighborhood"} (default; current behaviour),
+#'   \code{"pareto"} (2D Pareto-non-dominated set in (effect, N)),
+#'   or \code{"both"} (intersection of the two).  Forwarded to
+#'   \code{\link{sort_subgroups_preview}} (pre-consistency triage)
+#'   and \code{\link{sort_subgroups}} (post-consistency selection).
+#'   Must be \code{"neighborhood"} for other \code{sg_focus} values.
 #' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
 #'   tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate
 #'   is in the \emph{effect-size neighborhood} iff its (natural-scale)
@@ -60,7 +68,8 @@
 #'   For GLM ratio measures (OR, IRR), the neighborhood test is applied
 #'   on the natural scale (after exponentiation of \code{hr}).  Ignored
 #'   when \code{sg_focus} is \code{"hr"}, \code{"maxSG"}, or
-#'   \code{"minSG"}.
+#'   \code{"minSG"}.  When \code{selection_rule = "pareto"}, must be
+#'   left at its default (the rule does not consult it).
 #' @param stop_Kgroups Integer. Maximum number of candidates to evaluate.
 #'   Default: 10
 #' @param stop_threshold Numeric in \code{[0, 1]} or \code{NULL}.
@@ -241,6 +250,7 @@ subgroup.consistency <- function(df,
                                  Lsg,
                                  confs_labels,
                                  sg_focus = "hr",
+                                 selection_rule = "neighborhood",
                                  effect_neighborhood = 0.10,
                                  stop_Kgroups = 10,
                                  stop_threshold = NULL,
@@ -429,6 +439,7 @@ subgroup.consistency <- function(df,
 
 
   found.hrs <- sort_subgroups_preview(found.hrs, sg_focus,
+                                      selection_rule      = selection_rule,
                                       effect_neighborhood = effect_neighborhood,
                                       effect_log_scale    = effect_log_scale)
 
@@ -855,6 +866,7 @@ subgroup.consistency <- function(df,
         by.risk = by.risk,
         confs_labels = confs_labels,
         is_glm = !is.null(estimator_fn),
+        selection_rule      = selection_rule,
         effect_neighborhood = effect_neighborhood,
         effect_log_scale    = effect_log_scale
       )

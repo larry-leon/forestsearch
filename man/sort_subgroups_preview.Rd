@@ -7,6 +7,7 @@
 sort_subgroups_preview(
   result_new,
   sg_focus,
+  selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
   effect_log_scale = FALSE
 )
@@ -17,6 +18,9 @@ sort_subgroups_preview(
 
 \item{sg_focus}{Character. Sorting focus.  One of \code{"hr"},
 \code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.}
+
+\item{selection_rule}{Character. See \code{\link{sort_subgroups}}.
+Default \code{"neighborhood"}.}
 
 \item{effect_neighborhood}{Numeric in \code{[0, 1)}.  See
 \code{\link{sort_subgroups}}.  Default \code{0.10}.}

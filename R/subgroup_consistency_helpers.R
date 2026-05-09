@@ -367,24 +367,43 @@ FS_labels <- function(Qsg, confs_labels) {
 #'
 #' Sorts a data.table of subgroup results according to the specified focus.
 #' For \code{"hrMaxSG"} and \code{"hrMinSG"}, candidates are first
-#' partitioned by whether they fall in the \emph{effect-size neighborhood}
-#' of the maximum effect, then ranked within the neighborhood by sample
-#' size.  See Details.
+#' partitioned into a \emph{candidate inclusion set} (the "band"), then
+#' ranked within the band by sample size.  The \code{selection_rule}
+#' argument controls how the band is defined:
+#' \itemize{
+#'   \item \code{"neighborhood"} -- 1D effect-size band (default; legacy
+#'     behaviour): a candidate is in-band iff its effect is within
+#'     \code{effect_neighborhood} of the maximum.
+#'   \item \code{"pareto"} -- 2D Pareto-non-dominated set in
+#'     (effect, N) space: a candidate is in-band iff no other candidate
+#'     has both a larger effect and a larger N.
+#'   \item \code{"both"} -- intersection of the two: a candidate is
+#'     in-band iff it satisfies the neighborhood test \emph{and} is
+#'     Pareto-non-dominated.
+#' }
+#' See Details.
 #'
 #' @param result_new A data.table of subgroup results with columns
 #'   \code{Pcons}, \code{hr}, \code{N}, \code{K}.
 #' @param sg_focus Character. Sorting focus.  One of \code{"hr"},
 #'   \code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.
+#' @param selection_rule Character. Rule defining the candidate
+#'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
+#'   \code{"neighborhood"} (default; current behaviour),
+#'   \code{"pareto"}, or \code{"both"}.  Must be \code{"neighborhood"}
+#'   for other \code{sg_focus} values.
 #' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
 #'   tolerance defining the effect-size neighborhood for
 #'   \code{"hrMaxSG"} and \code{"hrMinSG"}.  A candidate is in the
 #'   neighborhood iff its (natural-scale) effect is at least
 #'   \code{(1 - effect_neighborhood) * max(effect)}.  Default
-#'   \code{0.10} (i.e., within 10\% of the strongest effect).  Ignored
-#'   for other \code{sg_focus} values.
+#'   \code{0.10} (i.e., within 10\% of the strongest effect).  Used by
+#'   \code{selection_rule} \code{"neighborhood"} and \code{"both"};
+#'   ignored by \code{"pareto"} (and rejected if non-default with
+#'   \code{"pareto"}).
 #' @param effect_log_scale Logical.  If \code{TRUE}, the \code{hr}
 #'   column stores log-scale values (log-OR, log-IRR) and is
-#'   exponentiated before applying the neighborhood test.  Default
+#'   exponentiated before applying the inclusion test.  Default
 #'   \code{FALSE} (Cox stores natural-scale HR).
 #'
 #' @details
@@ -396,20 +415,35 @@ FS_labels <- function(Qsg, confs_labels) {
 #'     subgroups with high consistency.}
 #'   \item{\code{"minSG"}}{\code{(N, -Pcons, K)} -- prefer small
 #'     subgroups with high consistency.}
-#'   \item{\code{"hrMaxSG"}}{\code{(-in_nbhd, -N, -Pcons, -hr, K)} -- among
-#'     candidates within \code{effect_neighborhood} of the strongest
-#'     effect, prefer the largest sample size.}
-#'   \item{\code{"hrMinSG"}}{\code{(-in_nbhd, N, -Pcons, -hr, K)} -- among
-#'     candidates within \code{effect_neighborhood} of the strongest
-#'     effect, prefer the smallest sample size.}
+#'   \item{\code{"hrMaxSG"}}{\code{(-in_band, -N, -Pcons, -hr, K)} -- among
+#'     candidates in the inclusion band defined by \code{selection_rule},
+#'     prefer the largest sample size.}
+#'   \item{\code{"hrMinSG"}}{\code{(-in_band, N, -Pcons, -hr, K)} -- among
+#'     candidates in the inclusion band defined by \code{selection_rule},
+#'     prefer the smallest sample size.}
 #' }
 #'
 #' \code{"hrMaxSG"} and \code{"hrMinSG"} use a \emph{lexicographic with
-#' tolerance band} rule: effect size is primary, but a small bounded
-#' relative loss in effect is accepted to optimize sample size.
-#' Setting \code{effect_neighborhood = 0} reduces these to a strict
-#' max-effect filter (only candidates tied at the maximum effect
-#' qualify), with sample size as the tiebreaker.
+#' candidate band} rule: effect size is primary, but a bounded set of
+#' candidates near (or trading off against) the maximum is accepted to
+#' optimize sample size.
+#'
+#' \strong{Selection rules:}
+#' \describe{
+#'   \item{\code{"neighborhood"}}{1D \eqn{\varepsilon}-band on the effect
+#'     scale: \code{in_band = (hr >= (1 - effect_neighborhood) * max(hr))}.
+#'     Setting \code{effect_neighborhood = 0} reduces this to a strict
+#'     max-effect filter.  This is the legacy behaviour.}
+#'   \item{\code{"pareto"}}{2D Pareto-non-dominated set: a candidate is
+#'     in-band iff no other candidate has both \code{hr_j >= hr_i} and
+#'     \code{N_j >= N_i} with at least one strict inequality.  Reuses
+#'     the same dominance computation as \code{compute_pareto_frontier()}.
+#'     Removes the \code{effect_neighborhood} tuning parameter from the
+#'     selection criterion.}
+#'   \item{\code{"both"}}{Intersection: in-band iff in the
+#'     \eqn{\varepsilon}-band \emph{and} Pareto-non-dominated.  Strictest
+#'     of the three.}
+#' }
 #'
 #' @return A sorted data.table.  The top row is the selected subgroup
 #'   under \code{sg_focus}; remaining rows are diagnostic.
@@ -424,12 +458,19 @@ FS_labels <- function(Qsg, confs_labels) {
 #' # hrMaxSG with 10% neighborhood: HR 2.5, 2.4, 2.3 are in-band;
 #' # among those, N = 150 is largest -> top row is N=150, hr=2.3.
 #' sort_subgroups(dt, sg_focus = "hrMaxSG", effect_neighborhood = 0.10)
+#'
+#' # Same data with selection_rule = "pareto": the dominance set in
+#' # (hr, N) is used instead of the 1D effect band.
+#' sort_subgroups(dt, sg_focus = "hrMaxSG", selection_rule = "pareto")
 #' }
 #' @importFrom data.table setorder
 #' @export
 sort_subgroups <- function(result_new, sg_focus,
+                           selection_rule = "neighborhood",
                            effect_neighborhood = 0.10,
                            effect_log_scale = FALSE) {
+
+  .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
   if (sg_focus == "hr") {
     data.table::setorder(result_new, -Pcons, -hr, K)
@@ -445,7 +486,6 @@ sort_subgroups <- function(result_new, sg_focus,
   }
 
   if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
-    .validate_effect_neighborhood(effect_neighborhood)
 
     hr_vec <- as.numeric(result_new$hr)
     if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
@@ -455,18 +495,21 @@ sort_subgroups <- function(result_new, sg_focus,
       return(result_new)
     }
 
-    hr_max   <- max(hr_vec, na.rm = TRUE)
-    hr_floor <- (1 - effect_neighborhood) * hr_max
-    in_nbhd  <- as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
-
     N_vec     <- as.numeric(result_new$N)
     Pcons_vec <- as.numeric(result_new$Pcons)
     K_vec     <- as.numeric(result_new$K)
 
+    in_band <- .compute_inclusion_band(
+      hr_vec              = hr_vec,
+      n_vec               = N_vec,
+      selection_rule      = selection_rule,
+      effect_neighborhood = effect_neighborhood
+    )
+
     ord <- if (sg_focus == "hrMaxSG") {
-      order(-in_nbhd, -N_vec, -Pcons_vec, -hr_vec, K_vec)
+      order(-in_band, -N_vec, -Pcons_vec, -hr_vec, K_vec)
     } else {
-      order(-in_nbhd,  N_vec, -Pcons_vec, -hr_vec, K_vec)
+      order(-in_band,  N_vec, -Pcons_vec, -hr_vec, K_vec)
     }
 
     return(result_new[ord, ])
@@ -486,6 +529,8 @@ sort_subgroups <- function(result_new, sg_focus,
 #'   \code{HR}, \code{n}, \code{K}.
 #' @param sg_focus Character. Sorting focus.  One of \code{"hr"},
 #'   \code{"maxSG"}, \code{"hrMaxSG"}, \code{"minSG"}, \code{"hrMinSG"}.
+#' @param selection_rule Character. See \code{\link{sort_subgroups}}.
+#'   Default \code{"neighborhood"}.
 #' @param effect_neighborhood Numeric in \code{[0, 1)}.  See
 #'   \code{\link{sort_subgroups}}.  Default \code{0.10}.
 #' @param effect_log_scale Logical.  See \code{\link{sort_subgroups}}.
@@ -495,8 +540,11 @@ sort_subgroups <- function(result_new, sg_focus,
 #' @importFrom data.table setorder
 #' @keywords internal
 sort_subgroups_preview <- function(result_new, sg_focus,
+                                   selection_rule = "neighborhood",
                                    effect_neighborhood = 0.10,
                                    effect_log_scale = FALSE) {
+
+  .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
 
   if (sg_focus == "hr") {
     data.table::setorder(result_new, -HR, K)
@@ -512,7 +560,6 @@ sort_subgroups_preview <- function(result_new, sg_focus,
   }
 
   if (sg_focus %in% c("hrMaxSG", "hrMinSG")) {
-    .validate_effect_neighborhood(effect_neighborhood)
 
     hr_vec <- as.numeric(result_new$HR)
     if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
@@ -522,17 +569,20 @@ sort_subgroups_preview <- function(result_new, sg_focus,
       return(result_new)
     }
 
-    hr_max   <- max(hr_vec, na.rm = TRUE)
-    hr_floor <- (1 - effect_neighborhood) * hr_max
-    in_nbhd  <- as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
-
     n_vec <- as.numeric(result_new$n)
     K_vec <- as.numeric(result_new$K)
 
+    in_band <- .compute_inclusion_band(
+      hr_vec              = hr_vec,
+      n_vec               = n_vec,
+      selection_rule      = selection_rule,
+      effect_neighborhood = effect_neighborhood
+    )
+
     ord <- if (sg_focus == "hrMaxSG") {
-      order(-in_nbhd, -n_vec, -hr_vec, K_vec)
+      order(-in_band, -n_vec, -hr_vec, K_vec)
     } else {
-      order(-in_nbhd,  n_vec, -hr_vec, K_vec)
+      order(-in_band,  n_vec, -hr_vec, K_vec)
     }
 
     return(result_new[ord, ])
@@ -548,6 +598,76 @@ sort_subgroups_preview <- function(result_new, sg_focus,
          call. = FALSE)
   }
   invisible(TRUE)
+}
+
+# Internal validator for selection_rule ------------------------------------
+# Shared by sort_subgroups() and sort_subgroups_preview().
+# Enforces:
+#   1. selection_rule must be one of c("neighborhood", "pareto", "both").
+#   2. selection_rule != "neighborhood" only valid for sg_focus in
+#      {"hrMaxSG", "hrMinSG"}.
+#   3. selection_rule == "pareto" forbids non-default effect_neighborhood
+#      (since the rule does not consult it).
+
+.SELECTION_RULES <- c("neighborhood", "pareto", "both")
+.EFFECT_NEIGHBORHOOD_DEFAULT <- 0.10
+
+.validate_selection_rule <- function(selection_rule, sg_focus,
+                                     effect_neighborhood) {
+  if (!is.character(selection_rule) || length(selection_rule) != 1L ||
+      !selection_rule %in% .SELECTION_RULES) {
+    stop(sprintf(
+      "'selection_rule' must be one of: %s.",
+      paste(shQuote(.SELECTION_RULES), collapse = ", ")),
+      call. = FALSE)
+  }
+  if (selection_rule != "neighborhood" &&
+      !sg_focus %in% c("hrMaxSG", "hrMinSG")) {
+    stop(sprintf(
+      "'selection_rule = \"%s\"' is only meaningful for sg_focus in {\"hrMaxSG\", \"hrMinSG\"}; got sg_focus = \"%s\".",
+      selection_rule, sg_focus),
+      call. = FALSE)
+  }
+  if (selection_rule == "pareto" &&
+      !isTRUE(all.equal(effect_neighborhood,
+                        .EFFECT_NEIGHBORHOOD_DEFAULT))) {
+    stop(sprintf(
+      "'selection_rule = \"pareto\"' does not consult 'effect_neighborhood', but a non-default value (%g) was supplied.  Use 'selection_rule = \"both\"' if you want both criteria, or leave 'effect_neighborhood' at its default (%g).",
+      effect_neighborhood, .EFFECT_NEIGHBORHOOD_DEFAULT),
+      call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# Shared inclusion-band computation ----------------------------------------
+# Used by both sort_subgroups() (post-consistency: hr / N columns) and
+# sort_subgroups_preview() (pre-consistency: HR / n columns).  Vector-
+# based to avoid a column-name dependency.  Returns an integer 0/1
+# indicator vector (1 = in candidate band) of length length(hr_vec).
+# The validator is assumed to have already enforced selection_rule
+# consistency.
+
+.compute_inclusion_band <- function(hr_vec, n_vec, selection_rule,
+                                    effect_neighborhood) {
+  n <- length(hr_vec)
+  in_nbhd <- if (selection_rule %in% c("neighborhood", "both")) {
+    .validate_effect_neighborhood(effect_neighborhood)
+    hr_max   <- max(hr_vec, na.rm = TRUE)
+    hr_floor <- (1 - effect_neighborhood) * hr_max
+    as.integer(!is.na(hr_vec) & hr_vec >= hr_floor)
+  } else {
+    rep(1L, n)
+  }
+  in_pareto <- if (selection_rule %in% c("pareto", "both")) {
+    dominated <- .pareto_dominated_xy(hr_vec, n_vec)
+    as.integer(!dominated)
+  } else {
+    rep(1L, n)
+  }
+  # AND-combination: candidate is in-band only if both criteria are
+  # satisfied.  For pure rules one of the two vectors is all 1s, so the
+  # product reduces to the active rule's indicator.
+  in_nbhd * in_pareto
 }
 
 #' Compute Pareto Frontier on (Effect, N)
@@ -580,32 +700,70 @@ compute_pareto_frontier <- function(result_dt, effect_log_scale = FALSE) {
            else data.table::data.table())
   }
 
+  is_dominated <- pareto_dominated_flags(result_dt,
+                                         effect_log_scale = effect_log_scale)
+  frontier <- result_dt[!is_dominated, ]
+  if (nrow(frontier) > 1L) data.table::setorder(frontier, -hr)
+  frontier
+}
+
+#' Pareto Dominance Flags
+#'
+#' Internal helper.  For each row of \code{result_dt}, returns
+#' \code{TRUE} if the row is dominated in (\code{hr}, \code{N}) space
+#' (both maximized) by another row, and \code{FALSE} otherwise.  Rows
+#' with \code{NA} \code{hr} or \code{N} are flagged as dominated.
+#'
+#' Used by both \code{compute_pareto_frontier()} (which filters by
+#' the negation of this vector) and the \code{selection_rule = "pareto"}
+#' branches of \code{sort_subgroups()} / \code{sort_subgroups_preview()}
+#' (which use it as an inclusion indicator).
+#'
+#' @param result_dt Data.table of candidate subgroups with columns
+#'   \code{hr} and \code{N}.
+#' @param effect_log_scale Logical.  If \code{TRUE}, \code{hr} is
+#'   exponentiated before comparison.
+#'
+#' @return Logical vector of length \code{nrow(result_dt)}.
+#' @keywords internal
+
+pareto_dominated_flags <- function(result_dt, effect_log_scale = FALSE) {
+  if (!data.table::is.data.table(result_dt) || nrow(result_dt) == 0L) {
+    return(logical(0))
+  }
   hr_vec <- as.numeric(result_dt$hr)
   if (isTRUE(effect_log_scale)) hr_vec <- exp(hr_vec)
   N_vec <- as.numeric(result_dt$N)
+  .pareto_dominated_xy(hr_vec, N_vec)
+}
 
-  n <- length(hr_vec)
+# Vector-based core: O(n^2) dominance loop on two maximized vectors.
+# Used by pareto_dominated_flags() (post-consistency, hr / N) and
+# .compute_inclusion_band() (which both consistency stages call,
+# passing the appropriate effect / size vectors regardless of the
+# data.table column-name convention).
+
+.pareto_dominated_xy <- function(x_vec, y_vec) {
+  stopifnot(length(x_vec) == length(y_vec))
+  n <- length(x_vec)
   is_dominated <- logical(n)
-
+  if (n == 0L) return(is_dominated)
   for (i in seq_len(n)) {
-    if (is.na(hr_vec[i]) || is.na(N_vec[i])) {
+    if (is.na(x_vec[i]) || is.na(y_vec[i])) {
       is_dominated[i] <- TRUE
       next
     }
     for (j in seq_len(n)) {
       if (i == j) next
-      if (is.na(hr_vec[j]) || is.na(N_vec[j])) next
-      if (hr_vec[j] >= hr_vec[i] && N_vec[j] >= N_vec[i] &&
-          (hr_vec[j] >  hr_vec[i] || N_vec[j] >  N_vec[i])) {
+      if (is.na(x_vec[j]) || is.na(y_vec[j])) next
+      if (x_vec[j] >= x_vec[i] && y_vec[j] >= y_vec[i] &&
+          (x_vec[j] >  x_vec[i] || y_vec[j] >  y_vec[i])) {
         is_dominated[i] <- TRUE
         break
       }
     }
   }
-
-  frontier <- result_dt[!is_dominated, ]
-  if (nrow(frontier) > 1L) data.table::setorder(frontier, -hr)
-  frontier
+  is_dominated
 }
 
 #' Extract Subgroup Information
@@ -701,6 +859,9 @@ plot_subgroup <- function(df.sub, df.subC, by.risk, confs_labels, this.1_label, 
 #' @param confs_labels Character vector. Human-readable labels.
 #' @param is_glm Logical. If \code{TRUE}, suppresses Kaplan-Meier survival
 #'   plots (which are not meaningful for GLM outcomes).  Default \code{FALSE}.
+#' @param selection_rule Character. Rule defining the candidate
+#'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  See
+#'   \code{\link{sort_subgroups}}.  Default \code{"neighborhood"}.
 #' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
 #'   tolerance for \code{"hrMaxSG"}/\code{"hrMinSG"} selection.  See
 #'   \code{\link{sort_subgroups}}.  Default \code{0.10}.
@@ -737,10 +898,12 @@ sg_consistency_out <- function(df, result_new, sg_focus, index.Z, names.Z,
                                details = FALSE, plot.sg = FALSE,
                                by.risk = 12, confs_labels,
                                is_glm = FALSE,
+                               selection_rule = "neighborhood",
                                effect_neighborhood = 0.10,
                                effect_log_scale = FALSE) {
 
   result_new <- sort_subgroups(result_new, sg_focus,
+                               selection_rule      = selection_rule,
                                effect_neighborhood = effect_neighborhood,
                                effect_log_scale    = effect_log_scale)
   top_result <- result_new[1, ]

@@ -250,6 +250,14 @@
 #'   }
 #'   Default \code{"hr"}.  See \code{\link{sort_subgroups}} for full sort
 #'   keys and tiebreakers.
+#' @param selection_rule Character. Rule defining the candidate
+#'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
+#'   \code{"neighborhood"} (default; current behaviour),
+#'   \code{"pareto"} (2D Pareto-non-dominated set in (effect, N)),
+#'   or \code{"both"} (intersection of the two).  Forwarded to
+#'   \code{\link{sort_subgroups}} via \code{filter_call_args()};
+#'   see there for full semantics.  Must be \code{"neighborhood"} for
+#'   other \code{sg_focus} values.
 #' @param effect_neighborhood Numeric in \code{[0, 1)}.  Relative
 #'   tolerance for \code{"hrMaxSG"} and \code{"hrMinSG"} selection.  A
 #'   candidate is in the \emph{effect-size neighborhood} iff its
@@ -568,6 +576,7 @@ forestsearch <- function(df.analysis,
                          hr.threshold = 1.25,
                          hr.consistency = 1.0,
                          sg_focus = "hr",
+                         selection_rule = "neighborhood",
                          effect_neighborhood = 0.10,
                          fs.splits = 1000,
                          m1.threshold = Inf,
