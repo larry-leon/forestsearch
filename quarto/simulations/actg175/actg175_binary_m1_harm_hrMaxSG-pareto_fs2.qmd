@@ -47,7 +47,7 @@ set.seed(8316951L)
 
 sim_mode    <- "full"
 
-BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs2.rds"
+BUNDLE_PATH <- "actg175_binary_m1_harm_hrMaxSG-pareto_fs2.rds"
 
 if (sim_mode == "auto") {
   sim_mode <- if (file.exists(BUNDLE_PATH)) "import" else "demo"
@@ -81,8 +81,8 @@ cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
 # Canonical fs2 parameter values live in _fsparams/fs2_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
-fs_sg_focus <- "hr"
-fs_selection_rule <- "neighborhood"
+fs_sg_focus <- "hrMaxSG"
+fs_selection_rule <- "pareto"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both

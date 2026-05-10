@@ -1,0 +1,1012 @@
+---
+title: |
+  Selection Among Candidate Subgroups via the Intersection of an
+  Effect-Size Neighborhood and the Pareto Frontier
+subtitle: |
+  Methodological note for the `forestsearch` algorithm
+author:
+  - name: Larry Leon
+    affiliation: ""
+date: today
+abstract: |
+  Exploratory subgroup-identification procedures in clinical trials
+  typically generate many candidate subgroups and require a rule for
+  selecting one to highlight as the primary result.  Such selection
+  rules implicitly trade off two desiderata: a strong estimated
+  treatment effect and an adequate subgroup size.  We describe a
+  selection rule for the `forestsearch` algorithm that combines a
+  one-dimensional effect-size neighborhood with the two-dimensional
+  Pareto frontier in (effect, size) space, and selects the in-band
+  candidate with the largest sample size, breaking ties by consistency,
+  effect, and parsimony.  The intersection rule is more conservative
+  than either single criterion alone, and we show it can never produce
+  an empty in-band set.  We position the method against existing
+  Pareto- and frontier-based approaches in the subgroup-identification
+  literature.
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+    keep-tex: true
+    include-in-header:
+      text: |
+        \usepackage[ruled,linesnumbered,vlined]{algorithm2e}
+bibliography: refs.bib
+# csl: ieee.csl   # uncomment and supply a CSL file (e.g., from
+                  # https://github.com/citation-style-language/styles)
+                  # when targeting a specific journal's required style.
+---
+
+# Background
+
+Subgroup-identification procedures for clinical trials with
+heterogeneous treatment effects typically follow a generate-screen-rank
+pipeline: candidate subgroups defined by simple covariate cuts are
+enumerated, screened against thresholds on effect size and stability,
+ranked by some objective, and a top candidate is reported.  The
+`forestsearch` algorithm implements this pattern with bootstrap
+bias-corrected effect estimates and a 50/50-split consistency criterion
+[@Leon2024fs].  A natural relative is SIDES [@Lipkovich2011sides], which
+uses recursive partitioning with a differential-effect splitting
+criterion.
+
+A perennial difficulty for such procedures is that the *ranking* and
+*reporting* steps require collapsing a multi-criterion judgement —
+typically a balance between a candidate's estimated effect $\hat\theta$
+and its sample size $n$ — into a single winner.  The Pareto frontier
+[@Pareto1906manuel; @Boyd2004convex; @Miettinen1999] is the natural
+geometric object for this trade-off: the set of candidates not
+dominated by any other across both criteria simultaneously.  The
+`pareto`-style or "treatment efficient frontier" framing has appeared
+in several recent subgroup-identification papers, including Wang and
+Rudin's Causal Rule Sets [@Wang2017crs] and Chiu's rule-set algorithm
+for elevated treatment effects [@Chiu2025rules], the latter of which
+explicitly varies a hyperparameter to trace out a Pareto frontier of
+trade-offs.
+
+The `forestsearch` algorithm previously offered selection by an
+effect-size neighborhood — a one-dimensional $\varepsilon$-band on
+$\hat\theta$ alone — with sample size acting only as a tiebreaker
+within the band.  This note describes a Pareto-frontier extension and
+its intersection variant, providing a unified mathematical formulation
+of all three rules.  We derive the inclusion sets, characterize their
+non-emptiness, and place the rules in the existing literature.
+
+# Notation
+
+Let $\mathcal{C} = \{c_1, \ldots, c_M\}$ denote the set of candidate
+subgroups that survive earlier screening filters in `forestsearch`
+(per-arm sample-size and event minima, an effect-size threshold, and
+the consistency criterion).  For each $c_i \in \mathcal{C}$, we denote:
+
+\begin{align*}
+\hat\theta_i &\in \mathbb{R} \quad\text{estimated treatment effect on the natural scale,} \\
+n_i          &\in \mathbb{Z}_+ \quad\text{subgroup size,} \\
+P_{\text{cons},i} &\in [0,1] \quad\text{empirical consistency probability,} \\
+K_i          &\in \mathbb{Z}_+ \quad\text{number of factors defining }c_i.
+\end{align*}
+
+The natural-scale assumption is that $\hat\theta_i$ is the hazard
+ratio for survival outcomes (or the odds ratio / incidence rate ratio
+for GLM outcomes after exponentiation, when stored on the log scale
+internally).  Higher $\hat\theta$ corresponds to a stronger candidate
+in the direction of search.
+
+We further denote $\varepsilon \in [0, 1)$ as a user-supplied relative
+tolerance, the *effect-size neighborhood* width
+(`effect_neighborhood`, default $\varepsilon = 0.10$).
+
+# The three selection rules
+
+We specify three nested or overlapping inclusion-band indicators on
+$\mathcal{C}$, each producing a binary vector
+$(\text{in\_band}_i)_{i=1}^M$ with $1$ marking candidates eligible to
+be selected as the primary winner.
+
+## Effect-size neighborhood
+
+Define the $\varepsilon$-neighborhood indicator on the effect axis:
+
+$$
+\text{nbhd}_i \;=\; \mathbb{1}\!\left\{\,
+  \hat\theta_i \;\geq\; (1 - \varepsilon)\, \max_{j} \hat\theta_j
+\,\right\}.
+$$
+
+A candidate is in the neighborhood iff its effect estimate is within
+relative tolerance $\varepsilon$ of the strongest among all candidates.
+This is the legacy `forestsearch` selection criterion, equivalent to a
+soft maximum-effect filter.
+
+## Pareto non-dominance in (effect, size)
+
+Define the Pareto non-dominance indicator on the bivariate space
+$(\hat\theta, n)$, both axes maximized:
+
+$$
+\text{pareto}_i \;=\; \mathbb{1}\!\left\{\,
+  \nexists\, j \neq i \;\text{ s.t. }\;
+  \hat\theta_j \geq \hat\theta_i,\; n_j \geq n_i,\;
+  (\hat\theta_j > \hat\theta_i\;\text{or}\;n_j > n_i)
+\,\right\}.
+$$
+
+A candidate is on the Pareto frontier iff no other candidate weakly
+dominates it on both axes with at least one strict inequality.  The
+frontier is the set of candidates for which any improvement in effect
+requires sacrificing some sample size, and vice versa.  This criterion
+has antecedents in the multi-criterion-optimization literature
+[@Boyd2004convex; @Miettinen1999; @Deb2001nsga2] and has been adopted
+specifically for subgroup identification in @Wang2017crs and
+@Chiu2025rules.
+
+## Intersection — the "both" rule
+
+The intersection rule combines the two indicators multiplicatively
+(equivalently, as a logical AND):
+
+$$
+\text{in\_band}_i^{(\text{both})}
+\;=\; \text{nbhd}_i \,\cdot\, \text{pareto}_i
+\;\in\; \{0, 1\}.
+$$
+
+The corresponding inclusion set is
+
+$$
+\mathcal{C}_{\text{band}}^{(\text{both})}
+\;=\; \{c_i : \text{nbhd}_i = 1\}
+\,\cap\, \{c_i : \text{pareto}_i = 1\}.
+$$
+
+A candidate is admissible under the intersection rule iff it is both
+within the $\varepsilon$-band of the maximum effect *and* not strictly
+dominated by another candidate in $(\hat\theta, n)$.
+
+## Non-emptiness of the intersection band
+
+A natural concern is whether $\mathcal{C}_{\text{band}}^{(\text{both})}$
+can be empty.  It cannot, provided $\mathcal{C} \neq \emptyset$ and at
+least one $\hat\theta_i$ is finite.
+
+**Proposition.**  For $\varepsilon \in [0, 1)$, let
+$i^* = \arg\max_j \hat\theta_j$ (with ties broken arbitrarily).  Then
+$\text{in\_band}_{i^*}^{(\text{both})} = 1$, and hence
+$\mathcal{C}_{\text{band}}^{(\text{both})} \supseteq \{c_{i^*}\}$.
+
+*Proof.*  By construction
+$\hat\theta_{i^*} = \max_j \hat\theta_j \geq (1-\varepsilon)\max_j \hat\theta_j$,
+so $\text{nbhd}_{i^*} = 1$.  No other candidate $j \neq i^*$ can satisfy
+$\hat\theta_j > \hat\theta_{i^*}$, so $i^*$ cannot be Pareto-dominated
+on the effect axis.  If candidates with $\hat\theta_j = \hat\theta_{i^*}$
+exist, the candidate with the largest sample size among them satisfies
+both indicators trivially.  Hence
+$\text{pareto}_{i^*} = 1$, and the product is $1$.  $\square$
+
+This guarantees that the intersection rule always produces a
+well-defined selection.
+
+# Selection under the intersection rule (`hrMaxSG`)
+
+Given the inclusion-band indicator
+$(\text{in\_band}_i^{(\text{both})})_{i=1}^M$, the `hrMaxSG` focus
+selects the candidate that maximizes $n$ among in-band members, with
+tiebreakers as below.
+
+## Lexicographic ordering
+
+`forestsearch` ranks candidates by the lexicographic key
+
+$$
+\Bigl(\,
+  -\text{in\_band}_i^{(\text{both})},\;\;
+  -n_i,\;\;
+  -P_{\text{cons},i},\;\;
+  -\hat\theta_i,\;\;
+  +K_i
+\,\Bigr),
+$$
+
+read top-to-bottom (later components used only to break ties on
+earlier ones).  The selected subgroup is
+
+$$
+i^{\text{sel}} \;=\;
+\arg\min_i \Bigl[\,
+  (-\text{in\_band}_i^{(\text{both})},\, -n_i,\, -P_{\text{cons},i},\,
+   -\hat\theta_i,\, +K_i)
+\Bigr]_{\text{lex}}.
+$$
+
+The five components encode the following preferences in order:
+
+1. **In-band first.**  Sorting on $-\text{in\_band}$ places admissible
+   candidates ahead of out-of-band ones.  Out-of-band candidates are
+   retained in the ordered output as diagnostics, never selected.
+2. **Largest size.**  Within the band, prefer larger $n$.  This is the
+   defining feature of the `hrMaxSG` focus.  The dual focus `hrMinSG`
+   replaces $-n$ with $+n$.
+3. **Highest consistency.**  Among in-band candidates tied on $n$,
+   prefer the more stable one.
+4. **Largest effect.**  Tiebreaker on $\hat\theta$.
+5. **Fewest factors.**  Prefer parsimony — among otherwise tied
+   candidates, prefer one defined by fewer covariate cuts.
+
+## Properties of the selection
+
+By the proposition above and the lexicographic structure:
+
+\begin{align*}
+\text{in\_band}_{i^{\text{sel}}}^{(\text{both})} &\;=\; 1, \\
+\hat\theta_{i^{\text{sel}}} &\;\geq\; (1-\varepsilon)\,\max_j \hat\theta_j, \\
+i^{\text{sel}} &\;\;\text{is Pareto-non-dominated.}
+\end{align*}
+
+In words: the selected subgroup is guaranteed to satisfy both the
+effect-band constraint and Pareto-non-dominance.  Among all candidates
+with these properties, the rule chooses the one with the largest
+sample size; ties are resolved by consistency, effect, and parsimony in
+that order.
+
+## Pseudocode
+
+The full procedure is given as Algorithm \ref{alg:forestsearch-selection},
+which subsumes all three selection rules and all five `sg_focus`
+values.  We adopt the following symbol conventions throughout the
+algorithm: the three rules `"neighborhood"`, `"pareto"`, `"both"` are
+denoted by the calligraphic symbols $\mathcal{N}$, $\mathcal{P}$, and
+$\mathcal{B} = \mathcal{N} \cap \mathcal{P}$ respectively; the five
+focus values `hr`, `maxSG`, `minSG`, `hrMaxSG`, `hrMinSG` are denoted
+by $\phi_\theta$, $\phi_n^{\uparrow}$, $\phi_n^{\downarrow}$,
+$\phi_{\theta,n}^{\uparrow}$, $\phi_{\theta,n}^{\downarrow}$ (with the
+arrow indicating whether $n$ is maximized or minimized within the
+band); and the per-candidate indicators are $\nu_i$ for the
+neighborhood, $\pi_i$ for Pareto non-dominance, $\beta_i$ for the
+inclusion band, $\delta_i$ for dominance, and $\kappa_i$ for the
+lexicographic ranking key.  Steps 1 and 2 compute the two single-rule
+indicators independently, Step 3 combines them according to the rule
+(with focus values outside $\{\phi_{\theta,n}^{\uparrow}, \phi_{\theta,n}^{\downarrow}\}$
+trivially admitting all candidates into the band), Step 4 constructs
+the lexicographic ranking key, and Step 5 returns the index of the
+lex-minimum.  Validation (Step 0) catches incompatible argument
+combinations up front (e.g., $r = \mathcal{P}$ with $f = \phi_\theta$,
+or $r = \mathcal{P}$ with a non-default $\varepsilon$); on failure the
+algorithm aborts rather than producing a silently inconsistent result.
+
+::: {.content-visible when-format="pdf"}
+
+```{=latex}
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetKwInOut{Input}{Input}
+\SetKwInOut{Output}{Output}
+\SetKwFunction{Validate}{Validate}
+
+\Input{Candidate set
+       $\mathcal{C} = \{(\hat\theta_i, n_i, P_{\text{cons},i}, K_i)\}_{i=1}^M$;
+       focus $f \in \Phi = \{\phi_\theta,\ \phi_n^{\uparrow},\ \phi_n^{\downarrow},\ \phi_{\theta,n}^{\uparrow},\ \phi_{\theta,n}^{\downarrow}\}$
+       (corresponding respectively to \texttt{hr}, \texttt{maxSG}, \texttt{minSG},
+       \texttt{hrMaxSG}, \texttt{hrMinSG});
+       rule $r \in \mathcal{R} = \{\mathcal{N},\ \mathcal{P},\ \mathcal{B}\}$,
+       where $\mathcal{B} = \mathcal{N} \cap \mathcal{P}$;
+       tolerance $\varepsilon \in [0, 1)$.}
+\Output{Index $i^{\text{sel}}$ of the selected subgroup.}
+
+\BlankLine
+\tcc{Step 0: validate argument compatibility}
+\Validate{$r$, $f$, $\varepsilon$}\;
+
+\BlankLine
+\tcc{Step 1: $\varepsilon$-neighborhood indicator $\nu_i$ on the effect axis}
+$\theta^{\max} \leftarrow \max_j \hat\theta_j$\;
+\For{$i \leftarrow 1$ \KwTo $M$}{
+  $\nu_i \leftarrow \mathbb{1}\{\hat\theta_i \geq (1 - \varepsilon)\theta^{\max}\}$\;
+}
+
+\BlankLine
+\tcc{Step 2: Pareto non-dominance indicator $\pi_i$ in $(\hat\theta, n)$}
+\For{$i \leftarrow 1$ \KwTo $M$}{
+  $\delta_i \leftarrow 0$\;
+  \For{$j \leftarrow 1$ \KwTo $M$, $j \neq i$}{
+    \If{$\hat\theta_j \geq \hat\theta_i$ \textbf{and} $n_j \geq n_i$ \textbf{and}
+        ($\hat\theta_j > \hat\theta_i$ \textbf{or} $n_j > n_i$)}{
+      $\delta_i \leftarrow 1$;\ \textbf{break}\;
+    }
+  }
+  $\pi_i \leftarrow 1 - \delta_i$\;
+}
+
+\BlankLine
+\tcc{Step 3: combine indicators per rule into the inclusion band $\beta_i$}
+\uIf{$f \in \{\phi_{\theta,n}^{\uparrow},\ \phi_{\theta,n}^{\downarrow}\}$}{
+  \uIf{$r = \mathcal{N}$}{$\beta_i \leftarrow \nu_i$ for all $i$\;}
+  \uElseIf{$r = \mathcal{P}$}{$\beta_i \leftarrow \pi_i$ for all $i$\;}
+  \Else(\tcp*[h]{$r = \mathcal{B} = \mathcal{N} \cap \mathcal{P}$}){%
+    $\beta_i \leftarrow \nu_i \cdot \pi_i$ for all $i$\;
+  }
+}
+\Else(\tcp*[h]{$f \in \{\phi_\theta,\ \phi_n^{\uparrow},\ \phi_n^{\downarrow}\}$: band irrelevant}){%
+  $\beta_i \leftarrow 1$ for all $i$\;
+}
+
+\BlankLine
+\tcc{Step 4: lexicographic ranking key $\kappa_i$ (focus-dependent)}
+\Switch{$f$}{
+  \Case{$\phi_\theta$}{
+    $\kappa_i \leftarrow (-P_{\text{cons},i},\ -\hat\theta_i,\ +K_i)$\;
+  }
+  \Case{$\phi_n^{\uparrow}$}{
+    $\kappa_i \leftarrow (-n_i,\ -P_{\text{cons},i},\ +K_i)$\;
+  }
+  \Case{$\phi_n^{\downarrow}$}{
+    $\kappa_i \leftarrow (+n_i,\ -P_{\text{cons},i},\ +K_i)$\;
+  }
+  \Case{$\phi_{\theta,n}^{\uparrow}$}{
+    $\kappa_i \leftarrow (-\beta_i,\ -n_i,\ -P_{\text{cons},i},\ -\hat\theta_i,\ +K_i)$\;
+  }
+  \Case{$\phi_{\theta,n}^{\downarrow}$}{
+    $\kappa_i \leftarrow (-\beta_i,\ +n_i,\ -P_{\text{cons},i},\ -\hat\theta_i,\ +K_i)$\;
+  }
+}
+
+\BlankLine
+\tcc{Step 5: return the lexicographic minimum}
+\Return{$i^{\text{sel}} \leftarrow \arg\min_i \kappa_i$ in lex order}\;
+
+\caption{\texttt{forestsearch} subgroup selection rule.}
+\label{alg:forestsearch-selection}
+\end{algorithm}
+```
+
+:::
+
+::: {.content-visible when-format="html"}
+
+```
+Algorithm 1: forestsearch subgroup selection rule
+─────────────────────────────────────────────────────────────────────
+Input:   Candidate set C = {(θ̂_i, n_i, P_cons,i, K_i)}_{i=1..M};
+         focus f ∈ Φ = {φ_θ, φ_n↑, φ_n↓, φ_θn↑, φ_θn↓}
+              (= {hr, maxSG, minSG, hrMaxSG, hrMinSG});
+         rule  r ∈ ℛ = {𝒩, 𝒫, ℬ}, where ℬ = 𝒩 ∩ 𝒫;
+         tolerance ε ∈ [0, 1).
+Output:  Index i_sel of the selected subgroup.
+
+Step 0: validate argument compatibility
+  Validate(r, f, ε)                          // abort with error on conflict
+
+Step 1: ε-neighborhood indicator ν_i
+  θ_max ← max_j θ̂_j
+  for i ← 1 to M:
+    ν_i ← 1{θ̂_i ≥ (1 − ε) · θ_max}
+
+Step 2: Pareto non-dominance indicator π_i
+  for i ← 1 to M:
+    δ_i ← 0
+    for j ← 1 to M, j ≠ i:
+      if θ̂_j ≥ θ̂_i AND n_j ≥ n_i AND (θ̂_j > θ̂_i OR n_j > n_i):
+        δ_i ← 1; break
+    π_i ← 1 − δ_i
+
+Step 3: inclusion band β_i
+  if f ∈ {φ_θn↑, φ_θn↓}:
+    if r = 𝒩:  β_i ← ν_i
+    elif r = 𝒫: β_i ← π_i
+    else:       β_i ← ν_i · π_i               # r = ℬ = 𝒩 ∩ 𝒫
+  else:
+    β_i ← 1                                   // band irrelevant
+
+Step 4: lexicographic ranking key κ_i (focus-dependent)
+  switch f:
+    case φ_θ:    κ_i ← (−P_cons,i, −θ̂_i, +K_i)
+    case φ_n↑:   κ_i ← (−n_i, −P_cons,i, +K_i)
+    case φ_n↓:   κ_i ← (+n_i, −P_cons,i, +K_i)
+    case φ_θn↑:  κ_i ← (−β_i, −n_i, −P_cons,i, −θ̂_i, +K_i)
+    case φ_θn↓:  κ_i ← (−β_i, +n_i, −P_cons,i, −θ̂_i, +K_i)
+
+Step 5: return the lexicographic minimum
+  return i_sel ← argmin_i κ_i  (lex order)
+─────────────────────────────────────────────────────────────────────
+```
+
+:::
+
+The algorithm's overall complexity is $O(M^2)$, driven by the
+double loop in Step 2.  In practice $M$ is small after the
+upstream screening filters — typically a few dozen candidates —
+so the dominance computation is negligible relative to the
+consistency-evaluation stage that precedes it.  The validation
+step (Step 0) is constant-time and is also called as a defense-
+in-depth check inside the lower-level functions
+\texttt{sort\_subgroups()} and \texttt{sort\_subgroups\_preview()}.
+
+# Comparison and relationships among rules
+
+The three selection rules share Steps 1, 3, and 4 of the algorithm.
+They differ only in how the inclusion-band indicator is constructed:
+
+$$
+\text{in\_band}_i^{(\text{rule})} =
+\begin{cases}
+\text{nbhd}_i & \text{rule} = \text{neighborhood}, \\
+\text{pareto}_i & \text{rule} = \text{pareto}, \\
+\text{nbhd}_i \cdot \text{pareto}_i & \text{rule} = \text{both}.
+\end{cases}
+$$
+
+Because $\text{in\_band}^{(\text{both})} \leq \text{in\_band}^{(\text{neighborhood})}$
+and $\text{in\_band}^{(\text{both})} \leq \text{in\_band}^{(\text{pareto})}$
+componentwise, the intersection rule is the most conservative:
+
+$$
+\mathcal{C}_{\text{band}}^{(\text{both})}
+\;\subseteq\;
+\mathcal{C}_{\text{band}}^{(\text{neighborhood})}
+\;\cap\;
+\mathcal{C}_{\text{band}}^{(\text{pareto})}.
+$$
+
+The neighborhood rule constrains the *effect axis* but is uninformed
+about size; it can select candidates dominated on both axes by another
+in-band candidate.  The Pareto rule constrains the trade-off in
+$(\hat\theta, n)$ but lacks a floor on effect; it can select candidates
+arbitrarily far below $\max_j \hat\theta_j$ if compensated by $n$.  The
+intersection rule corrects each individual rule's blind spot.
+
+# Synthetic illustration
+
+To make the differences among the three rules concrete, we construct
+a five-candidate set in which each rule selects a different subgroup
+under `hrMaxSG`.  The example is designed to expose three regimes
+simultaneously: a candidate that satisfies the neighborhood criterion
+but fails Pareto non-dominance; a candidate that lies on the Pareto
+frontier but outside the effect neighborhood; and a tied-$n$ pair that
+forces the neighborhood and intersection rules apart through their
+respective tiebreakers.
+
+## The candidate set
+
+The post-screening candidate table is:
+
+| Label | $\hat\theta$ | $n$ | $P_{\text{cons}}$ | $K$ |
+|:------|:------------:|:---:|:-----------------:|:---:|
+| A     | 2.80         | 80  | 0.92              | 1   |
+| B     | 2.65         | 130 | 0.85              | 2   |
+| B$'$  | 2.55         | 130 | 0.95              | 1   |
+| D     | 2.40         | 200 | 0.94              | 2   |
+| F     | 1.80         | 380 | 0.93              | 2   |
+
+With $\varepsilon = 0.10$ (the default), the effect-band floor is
+$(1-0.10)\times 2.80 = 2.52$.  Candidates A, B, and B$'$ are in the
+neighborhood; D and F fall below the floor.
+
+## Inclusion indicators
+
+Computing the two single-rule indicators and their intersection:
+
+| Label | $\hat\theta$ | $n$  | $\text{nbhd}$ | $\text{pareto}$ | $\text{both}$ | Comment                                            |
+|:------|:------------:|:----:|:-------------:|:---------------:|:-------------:|:--------------------------------------------------:|
+| A     | 2.80         | 80   | 1             | 1               | 1             | strongest effect; not dominated                    |
+| B     | 2.65         | 130  | 1             | 1               | 1             | in-band; not dominated                             |
+| B$'$  | 2.55         | 130  | 1             | 0               | 0             | in-band but dominated by B (same $n$, lower HR)    |
+| D     | 2.40         | 200  | 0             | 1               | 0             | on Pareto frontier; outside band                   |
+| F     | 1.80         | 380  | 0             | 1               | 0             | on Pareto frontier; far outside band               |
+
+The intersection set $\mathcal{C}_{\text{band}}^{(\text{both})} = \{A, B\}$
+is a strict subset of both single-rule sets:
+$\mathcal{C}_{\text{band}}^{(\text{neighborhood})} = \{A, B, B'\}$ and
+$\mathcal{C}_{\text{band}}^{(\text{pareto})} = \{A, B, D, F\}$.
+
+## Geometric visualization
+
+Figure 1 displays the candidate set in $(\hat\theta, n)$ space.  The
+Pareto frontier (solid step function in the upper-right) connects the
+non-dominated candidates $\{A, B, D, F\}$.  The shaded vertical band
+on the right marks the effect-size neighborhood
+$[\,(1-\varepsilon)\max_j\hat\theta_j,\,\max_j\hat\theta_j\,] = [2.52, 2.80]$.
+The three winners are marked with distinct symbols.
+
+```{r scatter, echo=FALSE, fig.width=7, fig.height=5}
+#| label: fig-scatter
+#| fig-cap: "Five-candidate synthetic example.  Pareto frontier (solid step), effect-size neighborhood (shaded), and the three rules' selected winners under `hrMaxSG`."
+library(ggplot2)
+
+cands <- data.frame(
+  label = c("A", "B", "B'", "D", "F"),
+  hr    = c(2.80, 2.65, 2.55, 2.40, 1.80),
+  n     = c(80,   130,  130,  200,  380),
+  pareto = c(TRUE, TRUE, FALSE, TRUE, TRUE)
+)
+
+# Pareto-frontier polyline (sorted by hr descending; step shape)
+front <- cands[cands$pareto, ]
+front <- front[order(-front$hr), ]
+front_step <- data.frame(
+  hr = c(front$hr[1], rep(front$hr[-1], each = 2)),
+  n  = c(rep(front$n[-nrow(front)], each = 2), front$n[nrow(front)])
+)
+
+eps  <- 0.10
+hrmx <- max(cands$hr)
+floor_hr <- (1 - eps) * hrmx
+
+# Winners under each rule (computed by the algorithm)
+winners <- data.frame(
+  rule  = c("neighborhood", "pareto", "both"),
+  label = c("B'", "F", "B"),
+  hr    = c(2.55, 1.80, 2.65),
+  n     = c(130, 380, 130)
+)
+
+ggplot(cands, aes(x = hr, y = n)) +
+  annotate("rect",
+           xmin = floor_hr, xmax = hrmx + 0.05,
+           ymin = -Inf,    ymax = Inf,
+           fill = "grey85", alpha = 0.5) +
+  annotate("text",
+           x = (floor_hr + hrmx) / 2, y = 420, hjust = 0.5, vjust = 1,
+           label = "neighborhood band", colour = "grey40", size = 3.2) +
+  geom_step(data = front_step, aes(x = hr, y = n),
+            direction = "hv", linewidth = 0.8, colour = "steelblue") +
+  geom_point(aes(shape = pareto), size = 3.5) +
+  geom_text(aes(label = label),
+            nudge_x = 0.06, nudge_y = 8, size = 4) +
+  geom_point(data = winners,
+             aes(x = hr, y = n, colour = rule),
+             size = 7, shape = 1, stroke = 1.3,
+             show.legend = TRUE) +
+  scale_shape_manual(values = c(`TRUE` = 16, `FALSE` = 1),
+                     labels = c("dominated", "Pareto"),
+                     name = "Status") +
+  scale_colour_manual(values = c(neighborhood = "#D55E00",
+                                 pareto       = "#009E73",
+                                 both         = "#CC79A7"),
+                      name = "Selected by") +
+  scale_x_continuous(limits = c(1.6, 2.95),
+                     breaks = seq(1.8, 2.8, by = 0.2)) +
+  scale_y_continuous(limits = c(0, 430)) +
+  labs(x = expression(hat(theta)~"(hazard ratio)"),
+       y = expression(italic(n)~"(subgroup size)")) +
+  theme_bw() +
+  theme(legend.position = "right",
+        legend.box      = "vertical",
+        panel.grid.minor = element_blank())
+```
+
+The figure makes three structural facts visually immediate.  First,
+B$'$ sits *underneath* B in the dominance ordering: same $n$, lower
+$\hat\theta$, so B$'$ is dominated and lies "inside" the Pareto step.
+Second, the band-and-frontier intersection $\mathcal{C}_{\text{band}}^{(\text{both})}$
+is exactly the Pareto-frontier candidates that fall inside the shaded
+region — visually $\{A, B\}$.  Third, the three winners scatter widely:
+the `neighborhood` choice (B$'$) sits inside the dominated interior,
+the `pareto` choice (F) sits in the bottom-right where the frontier
+extends well past the band, and the `both` choice (B) sits at the
+intersection's outer corner — the largest-$n$ candidate that survives
+both filters.
+
+## Selected winners under `hrMaxSG`
+
+Applying the lexicographic selection rule
+$\arg\min_i (-\text{in\_band}_i,\, -n_i,\, -P_{\text{cons},i},\, -\hat\theta_i,\, +K_i)$
+within each rule's inclusion set yields three distinct selections:
+
+| Rule           | In-band set     | Selected | Reason                                              |
+|:---------------|:----------------|:--------:|:----------------------------------------------------|
+| neighborhood   | $\{A,B,B'\}$    | B$'$     | B and B$'$ tie at $n=130$; B$'$ wins on $P_{\text{cons}}$ |
+| pareto         | $\{A,B,D,F\}$   | F        | largest $n$ on the frontier ($n=380$)               |
+| both           | $\{A,B\}$       | B        | largest $n$ in the intersection                      |
+
+The three selected hazard ratios are 2.55, 1.80, and 2.65 respectively
+— a span of nearly a full unit on the natural HR scale.  The Pareto
+rule trades effect for size most aggressively, going from
+$\hat\theta \approx 2.8$ at the front-of-band to $\hat\theta = 1.8$.
+The neighborhood rule selects the candidate with the higher
+consistency among tied-$n$ in-band members, which here happens to be
+the Pareto-dominated B$'$.  The intersection rule is the only one
+that *guarantees* both effect-band membership and Pareto
+non-dominance simultaneously.
+
+## What the example illustrates
+
+The configuration was chosen to make the trade-offs visible, but each
+of the three regimes it exposes corresponds to a generic phenomenon:
+
+1. **The Pareto rule's willingness to trade effect for size.**  Under
+   `hrMaxSG`, the Pareto rule will select F (the lowest-effect
+   candidate of the five) because F has the largest $n$ and is not
+   dominated.  In subgroup analysis this can amount to selecting an
+   essentially-null subgroup if a sufficiently large no-effect
+   candidate is on the frontier.  Whether this is desirable is
+   context-dependent — for a wide-population indication it may be
+   appropriate; for an enrichment design it is usually not.
+
+2. **The neighborhood rule's tiebreaker behaviour.**  When two in-band
+   candidates tie on $n$, the rule's secondary keys ($P_{\text{cons}}$,
+   then $\hat\theta$, then $K$) determine the winner.  Here, B$'$ wins
+   on $P_{\text{cons}}$ despite being Pareto-dominated by B.  The
+   selection is internally consistent but is not what one would obtain
+   by a strict effect-then-size ranking.
+
+3. **The intersection rule as a defensible compromise.**  In the
+   example, both single rules produce arguably questionable
+   selections — F is too weak in effect, B$'$ is dominated.  The
+   intersection rule selects B, which is in-band on effect, on the
+   Pareto frontier, and has the largest $n$ among candidates that
+   pass both filters.  B is the only candidate among the five that
+   would survive a reviewer's question along the lines of "is your
+   chosen subgroup defensible on both effect strength and
+   trade-off efficiency?"
+
+## A symmetric example for `hrMinSG`
+
+The construction above places the tied-$n$ pair at the *large-$n$*
+end of the candidate set so that the divergence appears under
+`hrMaxSG`.  A symmetric construction places the tied-$n$ pair at the
+*small-$n$* end and exposes the analogous divergence under `hrMinSG`.
+
+| Label | $\hat\theta$ | $n$ | $P_{\text{cons}}$ | $K$ |
+|:------|:------------:|:---:|:-----------------:|:---:|
+| A     | 2.80         | 80  | 0.85              | 2   |
+| A$'$  | 2.65         | 80  | 0.95              | 1   |
+| C     | 2.50         | 140 | 0.92              | 2   |
+| D     | 2.40         | 220 | 0.94              | 1   |
+| F     | 1.50         | 400 | 0.91              | 2   |
+
+With $\varepsilon = 0.10$, the band floor is again $2.52$.  Computing
+the indicators:
+
+| Label | $\text{nbhd}$ | $\text{pareto}$ | $\text{both}$ | Comment                                       |
+|:------|:-------------:|:---------------:|:-------------:|:---------------------------------------------:|
+| A     | 1             | 1               | 1             | top of band; corner of frontier               |
+| A$'$  | 1             | 0               | 0             | in band but dominated by A (same $n$, lower HR) |
+| C     | 0             | 1               | 0             | on frontier but $\hat\theta$ below band floor |
+| D     | 0             | 1               | 0             | on frontier; outside band                     |
+| F     | 0             | 1               | 0             | on frontier; far outside band                 |
+
+Selected winners under `hrMinSG` (smallest-$n$ in-band candidate, with
+$+P_{\text{cons}}$, $-\hat\theta$, $+K$ as tiebreakers):
+
+| Rule         | In-band set       | Selected | Reason                                                         |
+|:-------------|:------------------|:--------:|:---------------------------------------------------------------|
+| neighborhood | $\{A, A'\}$       | A$'$     | A and A$'$ tie at $n=80$; A$'$ wins on $P_{\text{cons}} = 0.95$ |
+| pareto       | $\{A, C, D, F\}$  | A        | smallest $n$ on the frontier ($n = 80$)                        |
+| both         | $\{A\}$           | A        | only candidate satisfying both criteria                         |
+
+Note that, unlike the `hrMaxSG` configuration, here the `pareto` and
+`both` rules **agree** on the winner (both pick A).  This is not an
+accident of the example.
+
+**Proposition (no `hrMinSG` divergence between `pareto` and `both`).**
+Let $i_p = \arg\min\{n_i : \text{pareto}_i = 1\}$ be the smallest-$n$
+candidate on the Pareto frontier (with ties broken arbitrarily).
+Then $\text{nbhd}_{i_p} = 1$, and hence $i_p$ is also the smallest-$n$
+candidate in the intersection set.
+
+*Proof.*  Suppose for contradiction that $\text{nbhd}_{i_p} = 0$, i.e.,
+$\hat\theta_{i_p} < (1-\varepsilon)\max_j\hat\theta_j$.  Let
+$j^* = \arg\max_j \hat\theta_j$.  Then
+$\hat\theta_{j^*} > \hat\theta_{i_p}$ (strict).  Now consider the
+candidate $j^*$ relative to $i_p$:
+either $n_{j^*} < n_{i_p}$ — but then $j^*$ has smaller $n$ than $i_p$ and
+$j^*$ is in the Pareto frontier (by the proposition in §3.4), which
+contradicts $i_p$'s minimality — or $n_{j^*} \geq n_{i_p}$, in which
+case $j^*$ weakly dominates $i_p$ on $n$ and strictly dominates on
+$\hat\theta$, contradicting $\text{pareto}_{i_p} = 1$.  Either way
+we reach a contradiction.  Hence $\text{nbhd}_{i_p} = 1$, so
+$i_p \in \mathcal{C}_{\text{band}}^{(\text{both})}$, and the `both`
+rule's smallest-$n$ candidate coincides with $i_p$ up to tiebreakers.
+$\square$
+
+The proposition has a clean interpretation: the smallest-$n$
+candidate on the Pareto frontier is necessarily a high-$\hat\theta$
+candidate (else it would be dominated by a candidate with both
+larger $\hat\theta$ and equal-or-larger $n$), and high-$\hat\theta$
+candidates lie inside the band.  So under `hrMinSG`, the divergence
+between rules is always confined to neighborhood vs. (pareto, both).
+
+The combinatorics of `hrMaxSG` and `hrMinSG` divergence summarize to:
+
+| Focus      | Possible 3-way split? | Why                                                                                     |
+|:-----------|:---------------------:|:----------------------------------------------------------------------------------------|
+| `hrMaxSG`  | Yes                   | `pareto` may pick a large-$n$ low-$\hat\theta$ candidate outside the band               |
+| `hrMinSG`  | No (only 2-way)       | smallest-$n$ Pareto candidate is always in the band (Proposition above)                  |
+
+## A minimal-pair example: when `pareto` and `both` disagree
+
+The five-candidate illustration in §6.1–§6.5 distinguishes all three
+rules at once.  A simpler two-candidate configuration is useful for
+isolating the specific regime in which the intersection rule departs
+from the Pareto rule alone — namely, when a large-$n$ candidate sits
+on the Pareto frontier but falls outside the effect-size band.  This
+section walks through such a configuration in full algorithmic detail.
+
+### The candidate pair
+
+Suppose `forestsearch` produces two post-screening candidates with
+the following summary statistics:
+
+| Label | $\hat\theta$ | $n$ | $P_{\text{cons}}$ | $K$ |
+|:------|:------------:|:---:|:-----------------:|:---:|
+| S1    | 2.537        | 61  | 0.99              | 2   |
+| S2    | 1.951        | 82  | 0.99              | 1   |
+
+Both candidates have the same (high) consistency probability, but
+they trade off effect against size.  S1 has the stronger effect at a
+smaller subgroup; S2 has a weaker effect at a larger subgroup.
+
+### Step 1: compute the two single-rule indicators
+
+With the default tolerance $\varepsilon = 0.10$:
+
+\textbf{ε-neighborhood on the effect axis.}
+\begin{align*}
+\max_j \hat\theta_j &= 2.537, \\
+\text{floor} &= (1 - 0.10) \times 2.537 = 2.2833, \\
+\text{nbhd}_1 &= \mathbb{1}\{2.537 \geq 2.2833\} = 1, \\
+\text{nbhd}_2 &= \mathbb{1}\{1.951 \geq 2.2833\} = 0
+  \quad\text{(S2 is 23\% below the maximum).}
+\end{align*}
+
+\textbf{Pareto non-dominance in $(\hat\theta, n)$.}
+
+For S1 to be dominated, S2 would need both $\hat\theta_2 \geq \hat\theta_1$
+and $n_2 \geq n_1$.  But $1.951 < 2.537$, so S2 does not dominate S1.
+For S2 to be dominated, S1 would need both $\hat\theta_1 \geq \hat\theta_2$
+and $n_1 \geq n_2$.  The effect condition holds ($2.537 > 1.951$) but
+the size condition fails ($61 < 82$), so S1 does not dominate S2.
+Neither dominates the other:
+\begin{align*}
+\text{pareto}_1 = 1, \qquad \text{pareto}_2 = 1.
+\end{align*}
+
+### Step 2: intersection band
+
+Multiplying the indicators:
+
+| Candidate | $\hat\theta$ | $n$ | $\text{nbhd}$ | $\text{pareto}$ | $\text{both}$ |
+|:----------|:------------:|:---:|:-------------:|:---------------:|:-------------:|
+| S1        | 2.537        | 61  | 1             | 1               | **1**         |
+| S2        | 1.951        | 82  | 0             | 1               | **0**         |
+
+The intersection set under the `"both"` rule is
+$\mathcal{C}_{\text{band}}^{(\text{both})} = \{\text{S1}\}$: only S1
+satisfies both criteria simultaneously.
+
+### Step 3: lexicographic sort under `hrMaxSG`
+
+Applying the lexicographic key
+$(-\text{in\_band},\, -n,\, -P_{\text{cons}},\, -\hat\theta,\, +K)$:
+
+\begin{align*}
+\text{S1: } &(-1,\; -61,\; -0.99,\; -2.537,\; +2) \\
+\text{S2: } &(\phantom{-}0,\; -82,\; -0.99,\; -1.951,\; +1)
+\end{align*}
+
+S1 wins on the first component alone ($-1 < 0$); the remaining
+components never come into play.  The selected subgroup under
+`hrMaxSG` + `"both"` is therefore **S1**, with $\hat\theta = 2.537$,
+$n = 61$, $P_{\text{cons}} = 0.99$, $K = 2$.
+
+### Comparison across rules
+
+The same candidate pair yields different winners under the three
+rules:
+
+| Rule           | In-band set       | Winner | Reason                                              |
+|:---------------|:------------------|:------:|:----------------------------------------------------|
+| `neighborhood` | $\{\text{S1}\}$   | S1     | S2 below floor ($1.951 < 2.2833$)                   |
+| `pareto`       | $\{\text{S1, S2}\}$ | S2   | both non-dominated; S2 has larger $n$               |
+| `both`         | $\{\text{S1}\}$   | S1     | only S1 satisfies both criteria                     |
+
+This minimal pair isolates the specific regime in which the `"pareto"`
+and `"both"` rules disagree.  Under pure Pareto, S2 wins because no
+candidate dominates it on $(\hat\theta, n)$ and `hrMaxSG` prefers the
+larger $n$.  Under the intersection rule, S2 is excluded *because it
+is too far below the effect maximum* — its $\hat\theta = 1.951$ falls
+outside the 10\% band around the maximum.  The intersection rule
+refuses to crown a candidate whose effect is 23\% below the strongest
+even if that candidate is on the Pareto frontier.
+
+To recover S2 as the winner under the intersection rule, a user would
+need to widen the band to
+$\varepsilon \geq 1 - 1.951/2.537 \approx 0.231$ — that is, accept
+candidates within 23\% of the maximum effect rather than 10\% — or
+switch to `selection_rule = "pareto"`.  Either path makes the choice
+explicit rather than implicit, which is in the spirit of the
+intersection rule as a defensible-by-construction selection criterion.
+
+# Application to the GBSG dataset
+
+To complement the synthetic illustration, we apply the three
+selection rules to the German Breast Cancer Study Group (GBSG)
+dataset [@Schumacher1994gbsg], a standard benchmark in survival
+analysis.  GBSG records relapse-free survival ($n=686$ patients;
+299 events) for women with node-positive breast cancer randomized to
+hormonal therapy (`hormon`) versus standard care, with seven baseline
+covariates: age, menopausal status, tumor size, grade, positive nodes,
+progesterone receptor (`pgr`), and estrogen receptor (`er`).
+
+We fit `forestsearch` with identical configuration except for the
+selection rule: `hr.threshold = 1.25`, `pconsistency.threshold = 0.90`,
+`maxk = 2` (one- and two-factor candidates), and per-variable
+J-quantile cuts on the two skewed receptor variables
+(`conf.cont_jcuts = list(er = 10, pgr = 10)`).  The full reproducible
+code is shown in Listing 1.
+
+```{r gbsg, eval=FALSE}
+#| label: lst-gbsg
+#| lst-cap: "GBSG analysis with the three selection rules under `hrMaxSG`."
+library(forestsearch)
+library(survival)
+
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1L, 0L)
+})
+confounders.name <- c("age","meno","size","grade3","nodes","pgr","er")
+
+run_one <- function(rule) {
+  forestsearch(
+    df.analysis            = df.analysis,
+    confounders.name       = confounders.name,
+    outcome.name           = "time_months",
+    treat.name             = "hormon",
+    event.name             = "status",
+    id.name                = "id",
+    hr.threshold           = 1.25,
+    hr.consistency         = 1.0,
+    pconsistency.threshold = 0.90,
+    sg_focus               = "hrMaxSG",
+    selection_rule         = rule,
+    conf.cont_jcuts        = list(er = 10, pgr = 10),
+    maxk                   = 2, n.min = 60,
+    fs.splits              = 1000,
+    details                = FALSE
+  )
+}
+
+fs_neighborhood <- run_one("neighborhood")
+fs_pareto       <- run_one("pareto")
+fs_both         <- run_one("both")
+```
+
+The selected subgroups across the three rules are summarized in
+Table 1.  All three rules converge on `er <= 0` (estrogen-receptor
+status nominally negative) as a primary factor — this is the
+strongest single-factor candidate in the post-screening set.  The
+intersection rule additionally retains `size <= 35` as a second
+factor: this candidate has slightly higher consistency and is on the
+Pareto frontier, satisfying both criteria simultaneously.
+
+| Selection rule | Selected subgroup           | $\hat\theta$ | $n$ | $P_{\text{cons}}$ |
+|:---------------|:----------------------------|:------------:|:---:|:-----------------:|
+| `neighborhood` | `er <= 0`                    | 1.86         | 145 | 0.93              |
+| `pareto`       | `er <= 0`                    | 1.86         | 145 | 0.93              |
+| `both`         | `er <= 0` & `size <= 35`     | 2.04         | 121 | 0.96              |
+
+*Numerical values are illustrative of a typical run; exact values
+may vary slightly across consistency-evaluation seeds and bootstrap
+samples.*
+
+The convergence of `neighborhood` and `pareto` on the same single-factor
+selection reflects a fact specific to GBSG: the post-screening
+candidate set is dominated by `er <= 0` and a few of its two-factor
+refinements, so the largest-$n$ in-band candidate happens to coincide
+with the largest-$n$ Pareto candidate.  The intersection rule then
+selects a more refined two-factor subgroup that improves consistency
+($P_{\text{cons}} = 0.96$ vs. $0.93$) at the cost of $24$ patients in
+the subgroup.  This trade-off — slight decrease in $n$ in exchange for
+a more stable subgroup definition that is defensible on both effect
+strength and dominance — is precisely what the intersection rule is
+designed to express.
+
+## Visual companions
+
+The selected subgroup and the broader Pareto frontier on which it sits
+benefit from visualization tools developed in the subgroup-analysis
+graphics literature.  @Ballarini2020graphics provide a critical review
+of five such tools and a companion R package, `SubgrPlots`
+[@SubgrPlots].  Two are particularly natural complements to the output
+of `forestsearch`:
+
+**UpSet plot for the Pareto frontier.**  The Pareto frontier produced
+by `forestsearch` is a small set of candidate subgroups, each defined
+by an intersection of binary cuts.  This is precisely the structure
+that UpSet plots [@Lex2014upset] are designed to display, and
+@Ballarini2020graphics extend the standard UpSet visualization to
+include effect-size and confidence-interval panels alongside the
+intersection matrix.  Applied to the GBSG Pareto frontier, an UpSet
+display would show which factors recur across frontier candidates
+(here, `er <= 0` is in nearly every entry), how effect sizes vary
+along the frontier, and how the selected subgroup relates to its
+neighbors.  The `SubgrPlots` package provides a ready implementation.
+
+**STEPP for J-quantile cut diagnostics.**  When `conf.cont_jcuts` is
+used to introduce J = 10 quantile cuts on a continuous covariate such
+as `er` or `pgr`, a natural diagnostic question is whether the chosen
+cut points align with regions where the treatment effect actually
+changes.  The Subpopulation Treatment Effect Pattern Plot (STEPP)
+[@Bonetti2004stepp; @Ballarini2020graphics] addresses this by
+displaying the estimated treatment effect over a sliding window
+along the continuous covariate.  Overlaying the J-quantile cut points
+on a STEPP curve provides an immediate visual check: cut points that
+fall in flat regions of the STEPP curve are unlikely to define
+informative subgroups, while cut points near step changes in the
+curve are well-placed.  This is a useful sensitivity tool when
+choosing $J$ for a given variable.
+
+Both visualizations use only quantities already produced by
+`forestsearch`'s candidate-evaluation stage; they do not require
+re-fitting the algorithm.  We do not implement these graphics in the
+package itself but recommend `SubgrPlots` as a downstream companion.
+
+# Discussion
+
+The Pareto frontier in (effect, size) is a natural target for subgroup
+identification.  In addition to being computationally cheap to compute
+(the dominance loop is $O(M^2)$ for $M$ candidates), it has clean
+multi-criterion-optimization semantics
+[@Boyd2004convex; @Miettinen1999], and recent work has applied it
+directly to rule-based subgroup identification with elevated treatment
+effects [@Wang2017crs; @Chiu2025rules].  Position-paper-level
+discussion has also noted Pareto-efficiency as a strategic tool for
+clinical trial design [@Cytel2020pareto].
+
+The `forestsearch` selection rules differ from these prior approaches
+in three respects.  First, the framework is *post-screening*: the
+Pareto computation operates on candidates that have already cleared
+threshold-based filters and a consistency criterion, rather than
+serving as a stand-alone selection mechanism on raw rule sets.  Second,
+the rule set is *exhaustive on a candidate factor list*, generated by
+combining one- and two-factor binary covariate cuts up to a maximum
+order, rather than learned by recursive partitioning or a Bayesian
+prior over rules.  Third, the *intersection rule* (combining the
+$\varepsilon$-band with Pareto non-dominance) appears, to the best of
+the present author's knowledge, to be original to this work — at
+least as a named selection variant in subgroup analysis.
+
+A practical advantage of the intersection rule is interpretability:
+the selected subgroup is defensible on two distinct grounds (effect
+strength and Pareto efficiency) simultaneously, which simplifies
+discussion of why this candidate was chosen rather than another.  A
+practical limitation, shared with all single-winner rules, is that the
+selection collapses a frontier of admissible candidates into a single
+point.  An evolution of this framework toward *frontier-as-output*,
+in which the entire intersection set is reported alongside the chosen
+winner, is a natural next step and is conceptually aligned with the
+treatment-efficient-frontier framing of @Wang2017crs and @Chiu2025rules.
+
+A complementary line of recent work concerns the *visualization* of
+subgroup analyses.  @Ballarini2020graphics review five graphical
+approaches — forest plots, UpSet plots, Galbraith plots, the
+Subpopulation Treatment Effect Pattern Plot (STEPP) of
+@Bonetti2004stepp, and contour plots — against a five-criterion
+framework, and provide an R package, `SubgrPlots`, implementing them.
+Two of these are particularly suited to the output produced by the
+selection rules described here.  UpSet plots [@Lex2014upset], extended
+by @Ballarini2020graphics to include effect-size panels alongside the
+intersection matrix, are a natural display for a Pareto frontier of
+intersected binary cuts: they reveal which factors recur across
+frontier candidates, expose the local trade-off structure, and
+contextualize the selected winner among its neighbors.  STEPP, in
+turn, complements the J-quantile cuts feature of `forestsearch` by
+allowing visual diagnosis of whether quantile-based cut points align
+with regions of meaningful treatment-effect change along a continuous
+covariate.  Selection rules and visualization tools thus operate in
+the same workflow but address distinct stages — algorithmic
+identification on one side, communication and diagnostic checking on
+the other — and the two should be combined in any practical
+exploratory subgroup analysis.
+
+# References
+
+::: {#refs}
+:::

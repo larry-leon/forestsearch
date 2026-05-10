@@ -47,7 +47,7 @@ set.seed(8316951L)
 
 sim_mode    <- "full"
 
-BUNDLE_PATH <- "actg175_binary_m1_harm_hr_fs2.rds"
+BUNDLE_PATH <- "actg175_binary_m1_harm_hrMaxSG-both_fs3.rds"
 
 if (sim_mode == "auto") {
   sim_mode <- if (file.exists(BUNDLE_PATH)) "import" else "demo"
@@ -62,13 +62,13 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 # different reference scales are needed.
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
-  demo   = 20L,
+  demo   = 10L,
   full   = 1000L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
-  demo   = 20L,
+  demo   = 10L,
   full   = 1000L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
@@ -81,8 +81,8 @@ cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
 # Canonical fs2 parameter values live in _fsparams/fs2_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
-fs_sg_focus <- "hr"
-fs_selection_rule <- "neighborhood"
+fs_sg_focus <- "hrMaxSG"
+fs_selection_rule <- "both"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
@@ -112,8 +112,8 @@ ordist_ylim         <- c(0, 4)
 # Canonical FS parameter values are defined in _fsparams/fs2_params.R
 # (including stop_threshold, which is returned as NULL when
 # fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
-source("_fsparams/fs2_params.R")
-fs_params <- get_fs2_params(sg_focus = fs_sg_focus)
+source("_fsparams/fs3_params.R")
+fs_params <- get_fs3_params(sg_focus = fs_sg_focus)
 # Locals re-exposed for the single-trial sanity-check chunks
 c1       <- fs_params$hr.threshold
 max_look <- fs_params$max_subgroups_search
@@ -270,9 +270,13 @@ fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 
            n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
            effect_type = "ratio", n_eff = max_look)
 
+fs_single_params <- fs_params
+fs_single_params$details <- TRUE
+fs_single_params$showten_subgroups <- TRUE
+
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
-  fs_params
+  fs_single_params
 ))
 
 if(!is.null(fs_single$sg.harm)){

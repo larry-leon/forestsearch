@@ -41,13 +41,15 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 2000
+NB <- 20
 
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
 Ksims <- 3
 
-fs_sg_focus <- "maxSG"
+fs_sg_focus <- "hrMaxSG"
+
+fs_selection_rule <- "pareto"
 
 ```
 
@@ -299,6 +301,7 @@ fs <- forestsearch(
   stop_threshold = 0.95,
   # Search configuration
   sg_focus = fs_sg_focus,
+  selection_rule = fs_selection_rule,
   max_subgroups_search = 20,
   use_twostage = TRUE,
   # Factor selection
