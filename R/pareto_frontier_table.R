@@ -61,6 +61,36 @@
 #' not appear on the frontier -- that focus deliberately prefers small
 #' subgroups, which are typically N-dominated.
 #'
+#' \strong{Optional confidence intervals.}  When \code{add_cis = TRUE},
+#' three CI columns are added to the table.  All three are computed
+#' post-hoc by \code{\link{compute_frontier_cis}} and do not modify the
+#' \code{fs} object.
+#' \itemize{
+#'   \item \code{Naive 95\% CI} -- full-sample Wald CI from a Cox or
+#'     GLM refit on each frontier member's data.  Ignores
+#'     subgroup-search selection; anti-conservative by construction.
+#'   \item \code{Split ~ 95\% CI} -- subsample-derived approximation,
+#'     computed from the empirical SD of averaged half-sample effects
+#'     across \code{n_splits} random 50/50 splits.
+#'   \item \code{FSBC ~ 95\% CI} -- bias-corrected interval following
+#'     the bootstrap algorithm of \cite{Leon2024fs} (eq 7, 9) but
+#'     treating the selected subgroup as fixed across splits.  The
+#'     cell shows \code{est (lcl, ucl)} where \code{est} is the
+#'     bias-corrected effect estimate \eqn{2\hat\beta - \bar{\tilde\beta}}.
+#'     A trailing dagger marks rows where the bias-corrected variance
+#'     was non-positive (CI computed with \eqn{V} clipped to 0).
+#' }
+#' See \code{\link{compute_frontier_cis}} for the algebra.
+#'
+#' @param add_cis Logical.  If \code{TRUE}, compute and display naive
+#'   and split-derived 95\% CIs for each frontier member.  Default
+#'   \code{FALSE} (backward-compatible).
+#' @param n_splits Integer.  Number of 50/50 splits per frontier member
+#'   for the split-derived CI.  Used only when \code{add_cis = TRUE}.
+#'   Default \code{1000L}.
+#' @param ci_seed Integer or \code{NULL}.  Seed for split-derived CI
+#'   reproducibility.  Default \code{NULL}.
+#'
 #' @examples
 #' \dontrun{
 #' # Survival example
@@ -68,12 +98,14 @@
 #' fs <- forestsearch(gbsg, ...)
 #' pareto_frontier_table(fs)                       # gt table
 #' pareto_frontier_table(fs, format = "data.table") # raw frontier
+#' pareto_frontier_table(fs, add_cis = TRUE)       # with CIs
 #'
 #' # Programmatic use: how many alternatives are on the frontier?
 #' nrow(pareto_frontier_table(fs, format = "data.table"))
 #' }
 #'
 #' @seealso \code{\link{compute_pareto_frontier}},
+#'   \code{\link{compute_frontier_cis}},
 #'   \code{\link{sort_subgroups}}, \code{\link{forestsearch}}.
 #' @importFrom data.table is.data.table copy setnames data.table
 #' @export
@@ -82,7 +114,10 @@ pareto_frontier_table <- function(fs,
                                   digits_effect = 3L,
                                   digits_pcons  = 3L,
                                   include_factor_columns = TRUE,
-                                  highlight_selected = TRUE) {
+                                  highlight_selected = TRUE,
+                                  add_cis  = FALSE,
+                                  n_splits = 1000L,
+                                  ci_seed  = NULL) {
 
   format <- match.arg(format)
 
@@ -123,13 +158,79 @@ pareto_frontier_table <- function(fs,
     data.table::setnames(ft, "hr", effect_measure)
   }
 
+  # --- 4b. Optional confidence intervals -------------------------------
+  ci_cols <- character(0)
+  if (isTRUE(add_cis)) {
+    ci_dt <- tryCatch(
+      compute_frontier_cis(fs, n_splits = n_splits, seed = ci_seed),
+      error = function(e) {
+        warning("compute_frontier_cis() failed: ", conditionMessage(e),
+                call. = FALSE)
+        NULL
+      })
+    if (!is.null(ci_dt) && data.table::is.data.table(ci_dt) &&
+        nrow(ci_dt) > 0L) {
+      # Defensive: not every ci_dt build will contain the FSBC columns
+      # (e.g. if a future release strips them).  Only request what exists.
+      ci_cols_want <- intersect(
+        c("m", "naive_lcl", "naive_ucl",
+          "split_lcl", "split_ucl",
+          "fsbc_estimate", "fsbc_lcl", "fsbc_ucl", "fsbc_var_pos"),
+        names(ci_dt))
+      ft <- merge(
+        ft,
+        ci_dt[, ci_cols_want, with = FALSE],
+        by = "m", all.x = TRUE, sort = FALSE
+      )
+      # Pre-format the CI strings on the natural scale.  Width is fixed
+      # at digits_effect for both bounds so columns align visually.
+      fmt <- function(x) {
+        if (is.na(x)) "NA" else
+          formatC(x, format = "f", digits = digits_effect)
+      }
+      ft[["Naive 95% CI"]] <- vapply(seq_len(nrow(ft)), function(k) {
+        if (is.na(ft$naive_lcl[k]) || is.na(ft$naive_ucl[k])) "NA"
+        else sprintf("(%s, %s)",
+                     fmt(ft$naive_lcl[k]), fmt(ft$naive_ucl[k]))
+      }, character(1))
+      ft[["Split ~ 95% CI"]] <- vapply(seq_len(nrow(ft)), function(k) {
+        if (is.na(ft$split_lcl[k]) || is.na(ft$split_ucl[k])) "NA"
+        else sprintf("(%s, %s)",
+                     fmt(ft$split_lcl[k]), fmt(ft$split_ucl[k]))
+      }, character(1))
+      ci_cols <- c("Naive 95% CI", "Split ~ 95% CI")
+
+      # FSBC-mimic column: show "est (lcl, ucl)" so the bias-corrected
+      # estimate appears alongside its interval.  Tilde signals
+      # "approximation; not full FSBC".  Flag degenerate-variance rows
+      # with a trailing dagger.
+      if (all(c("fsbc_estimate", "fsbc_lcl",
+                "fsbc_ucl", "fsbc_var_pos") %in% names(ft))) {
+        ft[["FSBC ~ 95% CI"]] <- vapply(seq_len(nrow(ft)), function(k) {
+          if (is.na(ft$fsbc_estimate[k]) ||
+              is.na(ft$fsbc_lcl[k]) ||
+              is.na(ft$fsbc_ucl[k])) {
+            return("NA")
+          }
+          flag <- if (isFALSE(ft$fsbc_var_pos[k])) " \u2020" else ""
+          sprintf("%s (%s, %s)%s",
+                  fmt(ft$fsbc_estimate[k]),
+                  fmt(ft$fsbc_lcl[k]),
+                  fmt(ft$fsbc_ucl[k]),
+                  flag)
+        }, character(1))
+        ci_cols <- c(ci_cols, "FSBC ~ 95% CI")
+      }
+    }
+  }
+
   # --- 5. Choose display columns ---------------------------------------
   m_cols <- grep("^M\\.", names(ft), value = TRUE)
   if (!include_factor_columns) m_cols <- character(0)
 
   metric_cols <- intersect(c("N", "E", effect_measure, "Pcons", "K"),
                            names(ft))
-  display_cols <- c("is_selected", m_cols, metric_cols)
+  display_cols <- c("is_selected", m_cols, metric_cols, ci_cols)
   display_cols <- intersect(display_cols, names(ft))
 
   ft <- ft[, display_cols, with = FALSE]
@@ -228,6 +329,39 @@ pareto_frontier_table <- function(fs,
 
   # Right-align the marker column
   tbl <- gt::cols_align(tbl, align = "center", columns = "Selected")
+
+  # --- CI spanner: group the three CI columns under "95% CIs" --------------
+  # Use only the CI columns that exist in ft_display; relabel each to a
+  # short approach tag and group them under a single spanner header.
+  ci_label_map <- c(
+    "Naive 95% CI"   = "Naive",
+    "Split ~ 95% CI" = "Split ~",
+    "FSBC ~ 95% CI"  = "FSBC ~"
+  )
+  ci_cols_present <- intersect(names(ci_label_map), names(ft_display))
+  if (length(ci_cols_present) > 0L) {
+    short_labels <- as.list(ci_label_map[ci_cols_present])
+    names(short_labels) <- ci_cols_present
+    tbl <- gt::cols_label(tbl, .list = short_labels)
+    tbl <- gt::cols_align(tbl, align = "center",
+                          columns = ci_cols_present)
+    tbl <- gt::tab_spanner(tbl,
+                           label   = "95% CIs",
+                           columns = ci_cols_present)
+    # Dagger footnote anchored to FSBC subcolumn (only if present)
+    if ("FSBC ~ 95% CI" %in% ci_cols_present) {
+      tbl <- gt::tab_footnote(
+        tbl,
+        footnote  = paste0(
+          "\u2020 marks rows where the bias-corrected variance was ",
+          "non-positive (Monte-Carlo correction in eq. 9 of Le\u00f3n ",
+          "et al. 2024 exceeded the IJ term).  The CI is computed with ",
+          "V clipped to 0 and should be interpreted as degenerate."
+        ),
+        locations = gt::cells_column_labels(columns = "FSBC ~ 95% CI")
+      )
+    }
+  }
 
   # Highlight the selected row
   if (isTRUE(highlight_selected) && any(is_selected_vec)) {
