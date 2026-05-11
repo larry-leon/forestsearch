@@ -179,7 +179,7 @@ variable selection, subgroup search, and consistency evaluation
 
 Each bootstrap iteration modifies ForestSearch arguments to:
 \itemize{
-\item \strong{Suppress output}: \code{details}, \code{showten_subgroups},
+\item \strong{Suppress output}: \code{details}, \code{show_candidate_summary},
 \code{plot.sg}, \code{plot.grf} all set to \code{FALSE}
 \item \strong{Force re-selection}: \code{grf_res} and \code{grf_cuts} set to \code{NULL}
 \item \strong{Prevent nested parallel}: \code{parallel_args$plan = "sequential"},

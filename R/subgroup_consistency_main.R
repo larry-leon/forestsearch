@@ -97,16 +97,15 @@
 #'   completes, so some additional candidates beyond the first meeting the
 #'   threshold may be evaluated. Use a smaller \code{batch_size} in
 #'   \code{parallel_args} for finer-grained early stopping.
-#' @param show_candidate_summary Logical. If \code{TRUE}, prints a
-#'   post-consistency summary table of all passing candidates after
-#'   selection.  Columns: Rank, HR, N, E, K, Pcons, Frontier flag,
-#'   InBand flag (when \code{selection_rule} uses one), Selected flag,
-#'   and Subgroup definition.  The footer reports evaluated /
-#'   passed counts so the reader can see how the consistency filter
-#'   operated relative to the top-\code{max_subgroups_search}
-#'   candidates that were evaluated.  Pcons is shown only for
-#'   passing candidates (the consistency evaluator returns NULL
-#'   for non-passing ones).  Default: FALSE.
+#' @param show_candidate_summary Logical. If \code{TRUE}, prints two
+#'   diagnostic tables: a \strong{pre-consistency} candidate preview
+#'   (all top-\code{stop_Kgroups} candidates entering consistency
+#'   evaluation, with Frontier and InBand flags) and a
+#'   \strong{post-consistency} summary (passing candidates only, with
+#'   Pcons, Frontier, InBand, and Selected flags).  The two views
+#'   together make the rule's filter visible end-to-end.  Pcons is
+#'   shown only for passing candidates (the consistency evaluator
+#'   returns NULL for non-passing ones).  Default: FALSE.
 #' @param pconsistency.digits Integer. Decimal places for consistency
 #'   proportion. Default: 2
 #' @param seed Integer. Random seed for reproducible consistency splits.
@@ -470,6 +469,26 @@ subgroup.consistency <- function(df,
     if (!is.null(stop_threshold)) {
       cat("# Early stop threshold:", stop_threshold, "\n")
     }
+  }
+
+  # ===========================================================================
+  # SECTION 5b: PRE-CONSISTENCY CANDIDATE PREVIEW
+  # ===========================================================================
+  # Shows the candidates that will be evaluated for consistency, in their
+  # preview-sort order.  Companion to Section 10b (post-consistency
+  # summary).  Both views are gated on the same flag.
+  if (isTRUE(show_candidate_summary) && details) {
+    print_candidate_preview(
+      found.hrs           = found.hrs,
+      index.Z             = index.Z,
+      names.Z             = names.Z,
+      confs_labels        = confs_labels,
+      sg_focus            = sg_focus,
+      selection_rule      = selection_rule,
+      effect_neighborhood = effect_neighborhood,
+      effect_log_scale    = effect_log_scale,
+      effect_label        = effect_label
+    )
   }
 
   # ===========================================================================

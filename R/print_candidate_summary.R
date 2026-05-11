@@ -190,3 +190,165 @@ print_candidate_summary <- function(out_sg,
   cat(bar, "\n\n", sep = "")
   invisible(NULL)
 }
+
+
+# ============================================================================
+# Pre-consistency preview printer
+# ============================================================================
+# Prints all candidates that are about to be evaluated for consistency,
+# in their preview-sort order (the same order used to apply the
+# stop_Kgroups cutoff).  Called from subgroup.consistency() when
+# show_candidate_summary = TRUE, BEFORE consistency runs.
+# ----------------------------------------------------------------------------
+
+#' Print a pre-consistency candidate preview table (internal)
+#'
+#' Plain-text preview of the candidates that will be evaluated for
+#' consistency, in their preview-sort order.  Same column conventions
+#' as \code{\link{print_candidate_summary}} but without Pcons or
+#' Selected (which are not yet known).  Frontier and InBand flags are
+#' computed pre-consistency from the candidate HR / N values.
+#'
+#' Use this together with \code{print_candidate_summary()} to give the
+#' reader two views: which candidates went IN to consistency (this
+#' function) and which came OUT (the summary).  The two views together
+#' make the rule's filter visible end-to-end.
+#'
+#' @param found.hrs A data.table of candidates after preview sorting
+#'   and \code{stop_Kgroups} trimming.  Must contain columns
+#'   \code{HR}, \code{n}, \code{E}, \code{K}.
+#' @param index.Z Matrix or data.table of factor indicators (rows
+#'   align with \code{found.hrs}).
+#' @param names.Z Character vector of factor column names.
+#' @param confs_labels Named character vector for human-readable cut
+#'   labels (passed to \code{FS_labels()}).
+#' @param sg_focus,selection_rule,effect_neighborhood,effect_log_scale
+#'   See \code{\link{print_candidate_summary}}.
+#' @param effect_label Character; column label (e.g. \code{"HR"}).
+#' @param max_width Integer; total table width.  Default \code{NULL} = auto.
+#'
+#' @keywords internal
+#' @noRd
+print_candidate_preview <- function(found.hrs,
+                                    index.Z,
+                                    names.Z,
+                                    confs_labels,
+                                    sg_focus,
+                                    selection_rule,
+                                    effect_neighborhood,
+                                    effect_log_scale = FALSE,
+                                    effect_label     = "HR",
+                                    max_width        = NULL) {
+  if (is.null(found.hrs) || nrow(found.hrs) == 0L) {
+    cat("\nNo candidates to preview.\n")
+    return(invisible(NULL))
+  }
+
+  n <- nrow(found.hrs)
+
+  # Natural-scale effect
+  hr_raw <- as.numeric(found.hrs$HR)
+  hr_nat <- if (isTRUE(effect_log_scale)) exp(hr_raw) else hr_raw
+
+  N_vec <- as.integer(found.hrs$n)
+  E_vec <- as.integer(found.hrs$E)
+  K_vec <- as.integer(found.hrs$K)
+
+  # Build subgroup-definition strings from index.Z and names.Z
+  cuts_str <- character(n)
+  for (i in seq_len(n)) {
+    idx_i <- as.numeric(unlist(index.Z[i, ]))
+    factors_i <- names.Z[idx_i == 1]
+    labels_i <- vapply(factors_i, FS_labels, character(1),
+                       confs_labels = confs_labels,
+                       USE.NAMES = FALSE)
+    cuts_str[i] <- if (length(labels_i) == 0L) "(empty)"
+                   else paste(labels_i, collapse = " & ")
+  }
+
+  # In-band flag (pre-consistency, computed from HR vector of preview set)
+  band_used <- sg_focus %in% c("hrMaxSG", "hrMinSG") &&
+               selection_rule %in% c("neighborhood", "both")
+  in_band <- if (band_used) {
+    hr_max  <- max(hr_nat, na.rm = TRUE)
+    floor_v <- (1 - effect_neighborhood) * hr_max
+    hr_nat >= floor_v
+  } else {
+    rep(NA, n)
+  }
+
+  # Frontier flag (pre-consistency, computed from HR-N joint dominance)
+  is_frontier <- !.pareto_dominated_xy(hr_nat, as.numeric(N_vec))
+
+  # Column-width plumbing (mirrors print_candidate_summary)
+  rank_strs  <- formatC(seq_len(n), format = "d", width = 4)
+  hr_strs    <- formatC(hr_nat,     format = "f", digits = 3, width = 6)
+  N_strs     <- formatC(N_vec,      format = "d", width = 5)
+  E_strs     <- formatC(E_vec,      format = "d", width = 4)
+  K_strs     <- formatC(K_vec,      format = "d", width = 3)
+  center_flag <- function(b, width) {
+    out <- character(length(b))
+    for (i in seq_along(b)) {
+      ch <- if (is.na(b[i])) "." else if (isTRUE(b[i]) | b[i] == TRUE) "*" else "-"
+      left  <- floor((width - 1) / 2)
+      right <- width - 1 - left
+      out[i] <- paste0(strrep(" ", left), ch, strrep(" ", right))
+    }
+    out
+  }
+  fr_w <- 5L; band_w <- 6L
+  fr_strs   <- center_flag(is_frontier, fr_w)
+  band_strs <- if (band_used) center_flag(in_band, band_w) else NULL
+
+  width_lim <- if (is.null(max_width)) 110L else max_width
+  fixed_total <- 4 + max(6L, nchar(effect_label)) + 5 + 4 + 3 + fr_w +
+                 (if (band_used) band_w else 0) +
+                 2 * (6 + if (band_used) 1 else 0)
+  cuts_w <- max(20L, width_lim - fixed_total - 4L)
+  cuts_disp <- vapply(cuts_str, function(s) {
+    if (nchar(s) > cuts_w) paste0(substr(s, 1L, cuts_w - 3L), "...") else s
+  }, character(1))
+
+  # Banner + header + body + footer
+  rule_str <- sprintf("sg_focus = %s, selection_rule = %s",
+                      shQuote(sg_focus, type = "cmd"),
+                      shQuote(selection_rule, type = "cmd"))
+  bar  <- paste(rep("=", width_lim), collapse = "")
+  thin <- paste(rep("-", width_lim), collapse = "")
+  cat("\n", bar, "\n", sep = "")
+  cat("CANDIDATE EVALUATION PREVIEW (pre-consistency) (", rule_str, ")\n",
+      sep = "")
+  cat(bar, "\n", sep = "")
+  hdr_parts <- c(
+    formatC("Rank",         width = 4,  flag = "-"),
+    formatC(effect_label,   width = max(6L, nchar(effect_label)), flag = "-"),
+    formatC("N",            width = 5,  flag = "-"),
+    formatC("E",            width = 4,  flag = "-"),
+    formatC("K",            width = 3,  flag = "-"),
+    formatC("Front",        width = 5,  flag = "-"),
+    if (band_used) formatC("InBand", width = 6, flag = "-"),
+    "Subgroup"
+  )
+  cat(paste(hdr_parts, collapse = "  "), "\n", sep = "")
+  cat(thin, "\n", sep = "")
+  for (k in seq_len(n)) {
+    row_parts <- c(
+      rank_strs[k], hr_strs[k], N_strs[k], E_strs[k], K_strs[k],
+      fr_strs[k],
+      if (band_used) band_strs[k],
+      cuts_disp[k]
+    )
+    cat(paste(row_parts, collapse = "  "), "\n", sep = "")
+  }
+  cat(thin, "\n", sep = "")
+  n_front <- sum(is_frontier)
+  n_band  <- if (band_used) sum(in_band, na.rm = TRUE) else NA_integer_
+  footer <- sprintf(
+    "To evaluate: %d   On frontier: %d%s",
+    n, n_front,
+    if (band_used) sprintf("   In band: %d", n_band) else ""
+  )
+  cat(footer, "\n", sep = "")
+  cat(bar, "\n\n", sep = "")
+  invisible(NULL)
+}

@@ -579,10 +579,24 @@ sort_subgroups_preview <- function(result_new, sg_focus,
       effect_neighborhood = effect_neighborhood
     )
 
+    # Frontier-preserving preview sort:
+    # Include `-on_frontier` as a lex axis between `-in_band` and `-N`
+    # so the full Pareto frontier (on (effect, N)) is guaranteed
+    # inclusion in the top-`stop_Kgroups` candidates that go to
+    # consistency.  Without this, restrictive rules like
+    # `selection_rule = "both"` can crowd low-N frontier members out
+    # of the top-K by filling slots with higher-N dominated
+    # candidates (see issue documented in NEWS).
+    # NB: this affects only candidate FILTERING for consistency
+    # evaluation -- the post-consistency winner is still chosen by
+    # sort_subgroups() (unchanged), so selection semantics are
+    # preserved.
+    on_frontier <- as.integer(!.pareto_dominated_xy(hr_vec, n_vec))
+
     ord <- if (sg_focus == "hrMaxSG") {
-      order(-in_band, -n_vec, -hr_vec, K_vec)
+      order(-in_band, -on_frontier, -n_vec, -hr_vec, K_vec)
     } else {
-      order(-in_band,  n_vec, -hr_vec, K_vec)
+      order(-in_band, -on_frontier,  n_vec, -hr_vec, K_vec)
     }
 
     return(result_new[ord, ])

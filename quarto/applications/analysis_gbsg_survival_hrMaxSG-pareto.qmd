@@ -56,7 +56,7 @@ n_cores       <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
 # Bootstrap iterations: 500-2000 for production; reduced here for vignette
-NB <- 500
+NB <- 50
 ```
 
 ## GRF parameters
@@ -106,7 +106,7 @@ fs_params <- list(
     # Consistency evaluation
   fs.splits = 1000L,
   # Output options
-  showten_subgroups = TRUE,
+  show_candidate_summary = TRUE,
   details           = TRUE,
   plot.sg           = TRUE
 )
@@ -482,8 +482,10 @@ pareto_frontier_table(
   ci_table      = ci_tab,
   digits_effect = frontier_params$digits_effect,
   digits_pcons  = frontier_params$digits_pcons,
-  digits_ci     = frontier_params$digits_ci
+  digits_ci     = frontier_params$digits_ci,
+  include_dominated= TRUE
 )
+
 ```
 
 
