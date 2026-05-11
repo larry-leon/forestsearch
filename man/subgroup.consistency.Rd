@@ -23,7 +23,7 @@ subgroup.consistency(
   effect_neighborhood = 0.1,
   stop_Kgroups = 10,
   stop_threshold = NULL,
-  showten_subgroups = FALSE,
+  show_candidate_summary = FALSE,
   pconsistency.digits = 2,
   seed = 8316951,
   checking = FALSE,
@@ -132,10 +132,16 @@ completes, so some additional candidates beyond the first meeting the
 threshold may be evaluated. Use a smaller \code{batch_size} in
 \code{parallel_args} for finer-grained early stopping.}
 
-\item{showten_subgroups}{Logical. If TRUE, prints up to 10 candidate
-subgroups after sorting by sg_focus, showing their rank, HR, sample size,
-events, and factor definitions. Useful for reviewing which candidates
-will be evaluated for consistency. Default: FALSE}
+\item{show_candidate_summary}{Logical. If \code{TRUE}, prints a
+post-consistency summary table of all passing candidates after
+selection.  Columns: Rank, HR, N, E, K, Pcons, Frontier flag,
+InBand flag (when \code{selection_rule} uses one), Selected flag,
+and Subgroup definition.  The footer reports evaluated /
+passed counts so the reader can see how the consistency filter
+operated relative to the top-\code{max_subgroups_search}
+candidates that were evaluated.  Pcons is shown only for
+passing candidates (the consistency evaluator returns NULL
+for non-passing ones).  Default: FALSE.}
 
 \item{pconsistency.digits}{Integer. Decimal places for consistency
 proportion. Default: 2}
@@ -264,7 +270,7 @@ result <- subgroup.consistency(
   df = trial_data,
   hr.subgroups = candidates,
   sg_focus = "hr",
-  showten_subgroups = TRUE,  # Display candidates
+  show_candidate_summary = TRUE,  # Post-consistency summary
   n.splits = 400
 )
 
@@ -274,7 +280,7 @@ result <- subgroup.consistency(
   hr.subgroups = candidates,
   sg_focus = "hr",
   stop_threshold = 0.95,
-  showten_subgroups = TRUE,
+  show_candidate_summary = TRUE,
   parallel_args = list(
     plan = "multisession",
     workers = 6,

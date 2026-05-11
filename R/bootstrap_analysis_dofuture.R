@@ -192,7 +192,7 @@
 #' @section Bootstrap Configuration:
 #' Each bootstrap iteration modifies ForestSearch arguments to:
 #' \itemize{
-#'   \item \strong{Suppress output}: \code{details}, \code{showten_subgroups},
+#'   \item \strong{Suppress output}: \code{details}, \code{show_candidate_summary},
 #'     \code{plot.sg}, \code{plot.grf} all set to \code{FALSE}
 #'   \item \strong{Force re-selection}: \code{grf_res} and \code{grf_cuts} set to \code{NULL}
 #'   \item \strong{Prevent nested parallel}: \code{parallel_args$plan = "sequential"},
@@ -501,7 +501,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
     # CATEGORY 1: OUTPUT SUPPRESSION
     args_FS_boot$details <- show3
-    args_FS_boot$showten_subgroups <- FALSE
+    args_FS_boot$show_candidate_summary <- FALSE
     args_FS_boot$plot.sg <- FALSE
     args_FS_boot$plot.grf <- FALSE
     args_FS_boot$quiet <- TRUE

@@ -422,7 +422,7 @@ mrct_region_sims <- function(
           sg_focus = sg_focus,
           conf_force = conf_force,
           maxk = maxk,
-          showten_subgroups = verbose_fs,
+          show_candidate_summary = verbose_fs,
           details = verbose_fs,
           plot.sg = FALSE,
           parallel_args = list(plan = "sequential")

@@ -10,6 +10,7 @@ pareto_frontier_table(
   digits_effect = 3L,
   digits_pcons = 3L,
   digits_ci = 2L,
+  include_dominated = FALSE,
   include_factor_columns = TRUE,
   highlight_selected = TRUE,
   ci_table = NULL
@@ -34,6 +35,15 @@ Default \code{3}.}
 columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
 Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
 to 3 if you need tighter precision.}
+
+\item{include_dominated}{Logical.  If \code{FALSE} (default), the
+table shows only the Pareto-non-dominated subgroups (the
+frontier).  If \code{TRUE}, the table shows \strong{all} passing
+candidates -- frontier members AND dominated candidates -- with
+additional columns indicating frontier membership and band
+eligibility (when the selection rule uses one).  This is the
+"rich post-consistency view" that complements the in-flight
+summary printed by \code{forestsearch(show_candidate_summary = TRUE)}.}
 
 \item{include_factor_columns}{Logical.  If \code{TRUE} (default),
 include the \code{M.<factor>} columns identifying each subgroup's

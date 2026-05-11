@@ -50,7 +50,7 @@ forestsearch(
   m1.threshold = Inf,
   pconsistency.threshold = 0.9,
   stop_threshold = 0.95,
-  showten_subgroups = FALSE,
+  show_candidate_summary = FALSE,
   d0.min = 10,
   d1.min = 10,
   max.minutes = 3,
@@ -254,7 +254,11 @@ Automatically reset to \code{NULL} (with a warning) when
 neighborhood-based selection requires comparing effect sizes
 across all candidates to determine the in-neighborhood set.}
 
-\item{showten_subgroups}{Logical. Show top 10 subgroups. Default FALSE.}
+\item{show_candidate_summary}{Logical. If \code{TRUE}, prints a
+post-consistency summary table of all passing candidates with
+Frontier/InBand/Selected flags.  See
+\code{\link{subgroup.consistency}} for details.  Default
+\code{FALSE}.}
 
 \item{d0.min}{Integer. Minimum per-arm filter for candidate subgroups.
 For \code{"survival"} and \code{"binary"} outcomes, this is the minimum

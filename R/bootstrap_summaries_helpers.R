@@ -61,9 +61,14 @@ format_bootstrap_table <- function(FSsg_tab,
     )
   }
 
-  # Column labels configuration
+  # Column labels configuration.
+  # Every entry is guarded by a column-name check, so the labels list
+  # only contains keys that exist in FSsg_tab.  This protects
+  # gt::cols_label() against degraded upstream tables that may be
+  # missing one or more expected columns.
   col_names <- colnames(FSsg_tab)
-  labels_list <- list(Subgroup = "Subgroup")
+  labels_list <- list()
+  if ("Subgroup" %in% col_names) labels_list$Subgroup <- "Subgroup"
 
   # Auto-detect GLM vs survival from column names.  GLM tables have
   # "Rate(C)/Rate(T)" (binary) or "Mean(C)/Mean(T)" (continuous/count)
