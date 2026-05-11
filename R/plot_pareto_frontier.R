@@ -103,11 +103,19 @@ plot_pareto_frontier <- function(fs,
   step_dt <- data.table::copy(ft[, c("hr", "N"), with = FALSE])
   data.table::setorder(step_dt, -hr)
 
-  # Optional split CI merge
+  # Optional split CI merge.
+  # NB: frontier$m on some fs objects is character (legacy artifact of
+  # do.call(rbind, ...) coercion in subgroup.consistency); ci_table$m is
+  # always integer.  Coerce both to integer here to avoid a
+  # bmerge() join-type-mismatch error.
   if (!is.null(ci_table) && data.table::is.data.table(ci_table) &&
       nrow(ci_table) > 0L) {
-    ft <- merge(ft, ci_table[, c("m", "split_lcl", "split_ucl"),
-                             with = FALSE],
+    ft_local <- ft
+    ft_local[["m"]] <- suppressWarnings(as.integer(ft_local[["m"]]))
+    ci_local <- ci_table[, c("m", "split_lcl", "split_ucl"),
+                         with = FALSE]
+    ci_local[["m"]] <- suppressWarnings(as.integer(ci_local[["m"]]))
+    ft <- merge(ft_local, ci_local,
                 by = "m", all.x = TRUE, sort = FALSE)
   } else {
     ft[["split_lcl"]] <- NA_real_

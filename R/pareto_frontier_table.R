@@ -182,9 +182,16 @@ pareto_frontier_table <- function(fs,
           "split_lcl", "split_ucl",
           "fsbc_estimate", "fsbc_lcl", "fsbc_ucl"),
         names(ci_table))
+      # Coerce both join keys to integer.  frontier$m on some fs objects
+      # is character (legacy artifact of do.call(rbind, ...) coercion in
+      # subgroup.consistency); ci_table$m is always integer.  Without
+      # this coercion the join errors with a type-mismatch.
+      ft[["m"]] <- suppressWarnings(as.integer(ft[["m"]]))
+      ci_local <- ci_table[, ci_cols_want, with = FALSE]
+      ci_local[["m"]] <- suppressWarnings(as.integer(ci_local[["m"]]))
       ft <- merge(
         ft,
-        ci_table[, ci_cols_want, with = FALSE],
+        ci_local,
         by = "m", all.x = TRUE, sort = FALSE
       )
       # Pre-format the CI strings on the natural scale.  Width is fixed
