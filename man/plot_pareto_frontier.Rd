@@ -10,7 +10,9 @@ plot_pareto_frontier(
   show_band = FALSE,
   effect_neighborhood = NULL,
   label_members = TRUE,
-  point_size = 3
+  point_size = 3,
+  xlim = NULL,
+  xlim_trim = FALSE
 )
 }
 \arguments{
@@ -34,6 +36,17 @@ member with its short cut description.  Default \code{TRUE}.}
 
 \item{point_size}{Numeric.  Size of frontier-member points.
 Default \code{3}.}
+
+\item{xlim}{Optional numeric vector of length 2 controlling the
+x-axis range, e.g.\ \code{c(0.5, 3)}.  By default the axis
+auto-expands to include split-CI bars when supplied, which can
+make individual points look crowded.  Pass an explicit
+\code{xlim} (or use \code{xlim_trim = TRUE}) to zoom in.}
+
+\item{xlim_trim}{Logical.  If \code{TRUE} (and \code{xlim} is
+\code{NULL}), the x-axis is trimmed to the range of frontier
+point estimates with a small padding, ignoring CI bars.
+Default \code{FALSE}.}
 }
 \value{
 A \code{ggplot} object.

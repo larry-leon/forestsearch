@@ -9,6 +9,7 @@ pareto_frontier_table(
   format = c("gt", "data.table"),
   digits_effect = 3L,
   digits_pcons = 3L,
+  digits_ci = 2L,
   include_factor_columns = TRUE,
   highlight_selected = TRUE,
   ci_table = NULL
@@ -28,6 +29,11 @@ Default \code{3}.}
 
 \item{digits_pcons}{Integer.  Decimal places for \code{Pcons}.
 Default \code{3}.}
+
+\item{digits_ci}{Integer.  Decimal places used for the three CI
+columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
+Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
+to 3 if you need tighter precision.}
 
 \item{include_factor_columns}{Logical.  If \code{TRUE} (default),
 include the \code{M.<factor>} columns identifying each subgroup's

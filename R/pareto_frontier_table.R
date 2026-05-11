@@ -25,6 +25,10 @@
 #'   Default \code{3}.
 #' @param digits_pcons Integer.  Decimal places for \code{Pcons}.
 #'   Default \code{3}.
+#' @param digits_ci Integer.  Decimal places used for the three CI
+#'   columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
+#'   Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
+#'   to 3 if you need tighter precision.
 #' @param include_factor_columns Logical.  If \code{TRUE} (default),
 #'   include the \code{M.<factor>} columns identifying each subgroup's
 #'   defining cuts.  If \code{FALSE}, show only summary metrics.
@@ -118,6 +122,7 @@ pareto_frontier_table <- function(fs,
                                   format = c("gt", "data.table"),
                                   digits_effect = 3L,
                                   digits_pcons  = 3L,
+                                  digits_ci     = 2L,
                                   include_factor_columns = TRUE,
                                   highlight_selected = TRUE,
                                   ci_table = NULL) {
@@ -195,10 +200,10 @@ pareto_frontier_table <- function(fs,
         by = "m", all.x = TRUE, sort = FALSE
       )
       # Pre-format the CI strings on the natural scale.  Width is fixed
-      # at digits_effect for both bounds so columns align visually.
+      # at digits_ci for both bounds so columns align visually.
       fmt <- function(x) {
         if (is.na(x)) "NA" else
-          formatC(x, format = "f", digits = digits_effect)
+          formatC(x, format = "f", digits = digits_ci)
       }
       if (all(c("naive_lcl", "naive_ucl") %in% names(ft))) {
         ft[["Naive 95% CI"]] <- vapply(seq_len(nrow(ft)), function(k) {
@@ -218,9 +223,15 @@ pareto_frontier_table <- function(fs,
       }
       # FSBC-mimic column: show "est (lcl, ucl)" so the bias-corrected
       # estimate appears alongside its interval.  Tilde signals
-      # "approximation; not full FSBC".
+      # "approximation; not full FSBC".  The point estimate uses
+      # digits_effect (matching the HR column), while the bounds use
+      # digits_ci (matching the other CI cells).
       if (all(c("fsbc_estimate", "fsbc_lcl",
                 "fsbc_ucl") %in% names(ft))) {
+        fmt_pt <- function(x) {
+          if (is.na(x)) "NA" else
+            formatC(x, format = "f", digits = digits_effect)
+        }
         ft[["FSBC ~ 95% CI"]] <- vapply(seq_len(nrow(ft)), function(k) {
           if (is.na(ft$fsbc_estimate[k]) ||
               is.na(ft$fsbc_lcl[k]) ||
@@ -228,7 +239,7 @@ pareto_frontier_table <- function(fs,
             return("NA")
           }
           sprintf("%s (%s, %s)",
-                  fmt(ft$fsbc_estimate[k]),
+                  fmt_pt(ft$fsbc_estimate[k]),
                   fmt(ft$fsbc_lcl[k]),
                   fmt(ft$fsbc_ucl[k]))
         }, character(1))

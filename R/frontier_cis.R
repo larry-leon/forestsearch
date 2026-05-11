@@ -165,26 +165,37 @@ compute_frontier_cis <- function(fs,
   for (k in seq_len(nrow(frontier))) {
     row_k <- frontier[k, ]
 
-    # Cuts for this frontier member: M.* values, excluding empty/NA
+    # Cuts for this frontier member: M.* values, excluding empty/NA.
+    # Each cut is a human-readable label like "{er <= 0}" -- NOT a column
+    # name on df.est.  Strip the outer braces and evaluate the resulting
+    # expression ("er <= 0") against df.est to recover per-subject
+    # membership.  This handles simple inequalities ("{er <= 0}"),
+    # compound cuts ("{age <= 47} & !{age <= 30}"), and any other syntax
+    # the package emits in human-label form.
     cuts <- unlist(row_k[, m_cols, with = FALSE], use.names = FALSE)
     cuts <- cuts[!is.na(cuts) & nzchar(cuts)]
 
-    # Identify the subgroup on df.est:
-    # each cut name is itself a binary column on df.est
     keep <- rep(TRUE, nrow(df.est))
-    missing_cuts <- character(0)
-    for (c_name in cuts) {
-      if (!c_name %in% names(df.est)) {
-        missing_cuts <- c(missing_cuts, c_name)
+    bad_cuts <- character(0)
+    for (c_label in cuts) {
+      # Strip outer braces.  For compound labels with embedded braces
+      # (e.g. "{a} & !{b}") we replace each "{...}" with just its
+      # contents -- the operators (& | !) remain.
+      expr_text <- gsub("[{}]", "", c_label)
+      mask <- tryCatch(
+        eval(parse(text = expr_text), envir = df.est),
+        error = function(e) NULL)
+      if (is.null(mask) || length(mask) != nrow(df.est)) {
+        bad_cuts <- c(bad_cuts, c_label)
         next
       }
-      col <- df.est[[c_name]]
-      keep <- keep & !is.na(col) & col == 1L
+      mask <- as.logical(mask)
+      keep <- keep & !is.na(mask) & mask
     }
-    if (length(missing_cuts) > 0L) {
+    if (length(bad_cuts) > 0L) {
       warning(sprintf(
-        "compute_frontier_cis(): frontier row %d references cut(s) not found on df.est: %s. Returning NA for this row.",
-        k, paste(missing_cuts, collapse = ", ")), call. = FALSE)
+        "compute_frontier_cis(): frontier row %d could not evaluate cut(s) on df.est: %s. Returning NA for this row.",
+        k, paste(bad_cuts, collapse = "; ")), call. = FALSE)
       out[[k]] <- .empty_ci_row(row_k)
       next
     }
@@ -197,13 +208,42 @@ compute_frontier_cis <- function(fs,
     }
 
     # --- 2a. Naive (full-sample) CI ---------------------------------------
-    full <- est_fn(sub)
-    if (!isTRUE(full$converged) || is.na(full$estimate) || is.na(full$se)) {
-      out[[k]] <- .empty_ci_row(row_k)
-      next
+    # For survival outcomes we use the robust (sandwich) SE to match the
+    # CI reported by sg_tables() / cox_summary(), which the rest of the
+    # package treats as the canonical Naive CI.  For GLM outcomes we fall
+    # back to make_effect_estimator()'s default SE.
+    naive_est_se <- NA_real_
+    naive_se     <- NA_real_
+    if (outcome_type == "survival") {
+      cox_res <- tryCatch({
+        fit <- survival::coxph(
+          survival::Surv(sub[[outcome.name]], sub[[event.name]]) ~
+            sub[[treat.name]],
+          robust = TRUE, model = FALSE, x = FALSE, y = FALSE
+        )
+        list(
+          estimate  = as.numeric(stats::coef(fit))[1],
+          se        = sqrt(stats::vcov(fit)[1, 1]),
+          converged = TRUE
+        )
+      },
+      error = function(e) list(estimate = NA_real_, se = NA_real_, converged = FALSE)
+      )
+      if (!isTRUE(cox_res$converged) ||
+          is.na(cox_res$estimate) || is.na(cox_res$se)) {
+        out[[k]] <- .empty_ci_row(row_k); next
+      }
+      naive_est_se <- cox_res$estimate
+      naive_se     <- cox_res$se
+    } else {
+      full <- est_fn(sub)
+      if (!isTRUE(full$converged) ||
+          is.na(full$estimate) || is.na(full$se)) {
+        out[[k]] <- .empty_ci_row(row_k); next
+      }
+      naive_est_se <- full$estimate
+      naive_se     <- full$se
     }
-    naive_est_se <- full$estimate       # SE scale (log for ratio measures)
-    naive_se     <- full$se
     naive_lcl_se <- naive_est_se - z_crit * naive_se
     naive_ucl_se <- naive_est_se + z_crit * naive_se
 

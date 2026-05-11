@@ -70,14 +70,24 @@ frontier_member_flags <- function(fs) {
     labels[k] <- if (length(cuts) == 0L) "<empty>" else
                  paste(cuts, collapse = " & ")
 
+    # Each cut is a human-readable label like "{er <= 0}".  Strip outer
+    # braces and evaluate against df.est (see compute_frontier_cis for
+    # rationale).  Rows whose cuts fail to evaluate get a column of all
+    # zeros so downstream sums are unaffected.
     keep <- rep(TRUE, n_subj)
-    missing_any <- FALSE
-    for (c_name in cuts) {
-      if (!c_name %in% names(df.est)) { missing_any <- TRUE; break }
-      col <- df.est[[c_name]]
-      keep <- keep & !is.na(col) & col == 1L
+    fail_any <- FALSE
+    for (c_label in cuts) {
+      expr_text <- gsub("[{}]", "", c_label)
+      mask <- tryCatch(
+        eval(parse(text = expr_text), envir = df.est),
+        error = function(e) NULL)
+      if (is.null(mask) || length(mask) != n_subj) {
+        fail_any <- TRUE; break
+      }
+      mask <- as.logical(mask)
+      keep <- keep & !is.na(mask) & mask
     }
-    if (!missing_any) flags_mat[keep, k] <- 1L
+    if (!fail_any) flags_mat[keep, k] <- 1L
   }
 
   selected_m <- tryCatch(

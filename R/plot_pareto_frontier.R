@@ -54,13 +54,25 @@
 #' @importFrom ggplot2 ggplot aes geom_step geom_point geom_text
 #'             geom_errorbarh annotate labs theme_bw theme
 #'             scale_colour_manual element_blank
+#' @param xlim Optional numeric vector of length 2 controlling the
+#'   x-axis range, e.g.\ \code{c(0.5, 3)}.  By default the axis
+#'   auto-expands to include split-CI bars when supplied, which can
+#'   make individual points look crowded.  Pass an explicit
+#'   \code{xlim} (or use \code{xlim_trim = TRUE}) to zoom in.
+#' @param xlim_trim Logical.  If \code{TRUE} (and \code{xlim} is
+#'   \code{NULL}), the x-axis is trimmed to the range of frontier
+#'   point estimates with a small padding, ignoring CI bars.
+#'   Default \code{FALSE}.
+#'
 #' @export
 plot_pareto_frontier <- function(fs,
                                  ci_table          = NULL,
                                  show_band         = FALSE,
                                  effect_neighborhood = NULL,
                                  label_members     = TRUE,
-                                 point_size        = 3) {
+                                 point_size        = 3,
+                                 xlim              = NULL,
+                                 xlim_trim         = FALSE) {
 
   out_sg   <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
   frontier <- tryCatch(out_sg$pareto_frontier,    error = function(e) NULL)
@@ -169,6 +181,24 @@ plot_pareto_frontier <- function(fs,
       nudge_y = max(ft$N) * 0.03,
       size = 3.2, colour = "grey20"
     )
+  }
+
+  # Resolve x-axis range.
+  #   - If user supplied xlim, honor it.
+  #   - Else if xlim_trim, zoom to the range of point estimates
+  #     (ignoring CI bars) plus a small padding.
+  #   - Else: let ggplot auto-expand (default).
+  if (!is.null(xlim)) {
+    if (!is.numeric(xlim) || length(xlim) != 2L) {
+      warning("xlim must be a numeric vector of length 2; ignoring.",
+              call. = FALSE)
+    } else {
+      p <- p + ggplot2::coord_cartesian(xlim = xlim)
+    }
+  } else if (isTRUE(xlim_trim)) {
+    rng <- range(ft$hr, na.rm = TRUE)
+    pad <- 0.05 * diff(rng)
+    p <- p + ggplot2::coord_cartesian(xlim = c(rng[1] - pad, rng[2] + pad))
   }
 
   # Optional effect-neighborhood band

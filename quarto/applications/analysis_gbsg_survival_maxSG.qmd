@@ -396,22 +396,22 @@ by their larger neighbors.
 ci_tab <- compute_frontier_cis(fs, n_splits = 1000, seed = 1)
 
 # 2. Plot, with split-derived CI bars overlaid; same intervals as the table
-p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE)
+p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE, xlim = c(1.0,3.0))
 print(p)
 
 # 3. Render the table. Pass the same ci_tab so the table and plot
 #    show identical intervals.
-pareto_frontier_table(fs, ci_table = ci_tab)
+pareto_frontier_table(fs, ci_table = ci_tab, digits_effect = 2L, digits_pcons = 2L, digits_ci = 2L)
 ```
 
 
-```{r fs-pareto-data, eval = FALSE}
+```{r fs-pareto-data, eval = TRUE}
 # Programmatic access — two paths.
 
 # (a) Frontier table with pre-formatted CI strings, one row per frontier
 #     member. The CI columns ("Naive 95% CI", "Split ~ 95% CI",
 #     "FSBC ~ 95% CI") are character strings like "(1.45, 2.87)".
-pareto_frontier_table(fs, ci_table = ci_tab, format = "data.table")
+pareto_frontier_table(fs, ci_table = ci_tab, format = "data.table", digits_ci = 2L, digits_effect = 2L, digits_pcons =2L)
 
 # (b) Raw numeric CIs in a separate keyed data.table. Same content as (a)
 #     but each bound is a numeric column (naive_lcl, naive_ucl, split_lcl,
