@@ -26,14 +26,23 @@
 #'   formatted \pkg{gt} table or \code{"data.table"} for a plain
 #'   \code{data.table} with effect on the natural scale and an
 #'   \code{is_selected} flag.
-#' @param digits_effect Integer.  Decimal places for the effect column.
-#'   Default \code{3}.
-#' @param digits_pcons Integer.  Decimal places for \code{Pcons}.
-#'   Default \code{3}.
-#' @param digits_ci Integer.  Decimal places used for the three CI
-#'   columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
-#'   Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
-#'   to 3 if you need tighter precision.
+#' @param digits Integer.  Master decimal-places setting that drives
+#'   all three column-specific defaults (\code{digits_effect},
+#'   \code{digits_pcons}, \code{digits_ci}) when those are left at
+#'   their defaults.  Default \code{2L}.  Pass \code{digits = 3L} for
+#'   a tighter-precision view; pass per-column overrides below for
+#'   asymmetric formatting (e.g. \code{digits_effect = 3L} with
+#'   \code{digits_ci = 2L}).
+#' @param digits_effect Integer or \code{NULL}.  Decimal places for
+#'   the effect column.  When \code{NULL} (default), inherits from
+#'   \code{digits}.  Pass an explicit integer to override.
+#' @param digits_pcons Integer or \code{NULL}.  Decimal places for
+#'   \code{Pcons}.  When \code{NULL} (default), inherits from
+#'   \code{digits}.  Pass an explicit integer to override.
+#' @param digits_ci Integer or \code{NULL}.  Decimal places used for
+#'   the three CI columns (Naive, Split, FSBC) when \code{ci_table} is
+#'   supplied.  When \code{NULL} (default), inherits from
+#'   \code{digits}.  Pass an explicit integer to override.
 #' @param include_dominated Logical.  If \code{FALSE} (default), the
 #'   table shows only the Pareto-non-dominated subgroups (the
 #'   frontier).  If \code{TRUE}, the table shows \strong{all} passing
@@ -133,15 +142,24 @@
 #' @export
 pareto_frontier_table <- function(fs,
                                   format = c("gt", "data.table"),
-                                  digits_effect = 3L,
-                                  digits_pcons  = 3L,
-                                  digits_ci     = 2L,
+                                  digits        = 2L,
+                                  digits_effect = NULL,
+                                  digits_pcons  = NULL,
+                                  digits_ci     = NULL,
                                   include_dominated = FALSE,
                                   include_factor_columns = TRUE,
                                   highlight_selected = TRUE,
                                   ci_table = NULL) {
 
   format <- match.arg(format)
+
+  # Resolve per-column digits: explicit per-column args override the
+  # master `digits`.  NULL means "use the master."  Backwards-compat
+  # behavior for callers who used the old per-column args is preserved
+  # exactly: they continue to work, just by-name now instead of by-default.
+  if (is.null(digits_effect)) digits_effect <- digits
+  if (is.null(digits_pcons))  digits_pcons  <- digits
+  if (is.null(digits_ci))     digits_ci     <- digits
 
   # --- 1. Locate the frontier (or full passing set) on the fs object ---
   out_sg <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
@@ -414,18 +432,46 @@ pareto_frontier_table <- function(fs,
       title    = sprintf("Pareto frontier on (%s, N)", effect_measure),
       subtitle = subtitle
     ) |>
-    gt::cols_label(Selected = "")
+    gt::cols_label(Selected = "S")
 
-  # Relabel flag columns and center-align them
+  # Footnote for the Selected (S) column.  Always applies since the
+  # column is always present in the gt path.
+  tbl <- gt::tab_footnote(
+    tbl,
+    footnote  = "S: selected subgroup (winner of the configured selection rule).",
+    locations = gt::cells_column_labels(columns = "Selected")
+  )
+
+  # Relabel flag columns (OF/IB), center-align, and attach footnotes
+  # defining each abbreviation.
   if ("on_frontier" %in% names(ft_display)) {
     tbl <- tbl |>
-      gt::cols_label(on_frontier = "Frontier") |>
-      gt::cols_align(align = "center", columns = "on_frontier")
+      gt::cols_label(on_frontier = "OF") |>
+      gt::cols_align(align = "center", columns = "on_frontier") |>
+      gt::tab_footnote(
+        footnote  = "OF: on Pareto frontier (non-dominated on (effect, N)).",
+        locations = gt::cells_column_labels(columns = "on_frontier")
+      )
   }
   if ("in_band" %in% names(ft_display)) {
     tbl <- tbl |>
-      gt::cols_label(in_band = "InBand") |>
-      gt::cols_align(align = "center", columns = "in_band")
+      gt::cols_label(in_band = "IB") |>
+      gt::cols_align(align = "center", columns = "in_band") |>
+      gt::tab_footnote(
+        footnote  = "IB: in effect-size neighborhood band.",
+        locations = gt::cells_column_labels(columns = "in_band")
+      )
+  }
+
+  # Pcons -> P with footnote (Pcons is always present when the
+  # candidate has passed consistency).
+  if ("Pcons" %in% names(ft_display)) {
+    tbl <- tbl |>
+      gt::cols_label(Pcons = "P") |>
+      gt::tab_footnote(
+        footnote  = "P: Pcons (consistency probability).",
+        locations = gt::cells_column_labels(columns = "Pcons")
+      )
   }
 
   # Numeric formatting (only for columns that exist)
