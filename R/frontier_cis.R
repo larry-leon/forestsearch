@@ -1,3 +1,7 @@
+# Silence R CMD check NOTE for non-standard evaluation in data.table.
+# The bare `m` symbol below is a data.table column name, not a global.
+utils::globalVariables(c("m"))
+
 #' Compute Naive and Split-Derived 95% CIs for Pareto Frontier Members
 #'
 #' For each candidate subgroup on \code{fs$grp.consistency$out_sg$pareto_frontier},

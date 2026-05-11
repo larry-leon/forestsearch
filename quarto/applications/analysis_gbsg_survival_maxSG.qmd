@@ -396,7 +396,7 @@ by their larger neighbors.
 ci_tab <- compute_frontier_cis(fs, n_splits = 1000, seed = 1)
 
 # 2. Plot, with split-derived CI bars overlaid; same intervals as the table
-p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE, xlim = c(1.0,3.0))
+p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE, xlim = c(1.25,3.0))
 print(p)
 
 # 3. Render the table. Pass the same ci_tab so the table and plot
@@ -405,7 +405,7 @@ pareto_frontier_table(fs, ci_table = ci_tab, digits_effect = 2L, digits_pcons = 
 ```
 
 
-```{r fs-pareto-data, eval = TRUE}
+```{r fs-pareto-data, eval = FALSE}
 # Programmatic access — two paths.
 
 # (a) Frontier table with pre-formatted CI strings, one row per frontier

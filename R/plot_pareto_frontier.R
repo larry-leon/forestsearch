@@ -1,3 +1,8 @@
+# Silence R CMD check NOTE for non-standard evaluation.  The bare
+# symbols below are ggplot2 aes() column references and a data.table
+# i-expression filter, not globals.
+utils::globalVariables(c("is_selected", "split_lcl", "split_ucl", "label"))
+
 #' Plot the Pareto Frontier of Candidate Subgroups
 #'
 #' Produces a 2D scatter of candidate subgroups in (effect, N) space,
