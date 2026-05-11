@@ -10,7 +10,8 @@ pareto_frontier_table(
   digits_effect = 3L,
   digits_pcons = 3L,
   include_factor_columns = TRUE,
-  highlight_selected = TRUE
+  highlight_selected = TRUE,
+  ci_table = NULL
 )
 }
 \arguments{
@@ -35,6 +36,13 @@ defining cuts.  If \code{FALSE}, show only summary metrics.}
 \item{highlight_selected}{Logical.  If \code{TRUE} (default), the
 selected subgroup row is highlighted in the \pkg{gt} table.
 Ignored when \code{format = "data.table"}.}
+
+\item{ci_table}{Optional data.table of frontier CIs from
+\code{\link{compute_frontier_cis}}.  When supplied, three CI
+columns are merged into the table; when \code{NULL} (default),
+no CI columns are shown.  This function does not run any
+computation on \code{ci_table} -- it simply displays the bounds
+already computed.}
 }
 \value{
 Depending on \code{format}:
@@ -81,21 +89,51 @@ This is robust to sorting and outcome-type differences.
 \strong{For \code{sg_focus = "hrMinSG"}}, the selected subgroup may
 not appear on the frontier -- that focus deliberately prefers small
 subgroups, which are typically N-dominated.
+
+\strong{Optional confidence intervals.}  When \code{ci_table} is
+supplied (the data.table returned by
+\code{\link{compute_frontier_cis}}), three CI columns are added to
+the table.  All three CIs are computed by
+\code{\link{compute_frontier_cis}}; this function only displays
+what is passed in.  Pass the same \code{ci_table} to
+\code{\link{plot_pareto_frontier}} for consistent display across
+table and plot.
+\itemize{
+\item \code{Naive 95\% CI} -- full-sample Wald CI from a Cox or
+GLM refit on each frontier member's data.  Ignores
+subgroup-search selection; anti-conservative by construction.
+\item \code{Split ~ 95\% CI} -- subsample-derived approximation,
+computed from the empirical SD of averaged half-sample effects
+across the splits used by \code{compute_frontier_cis}.
+\item \code{FSBC ~ 95\% CI} -- bias-corrected interval following
+the bootstrap algorithm of \cite{Leon2024fs} (eq 7) but
+treating the selected subgroup as fixed across half-jackknife
+replicates.  The cell shows \code{est (lcl, ucl)} where
+\code{est} is the bias-corrected effect estimate
+\eqn{2\hat\beta - \overline{\hat\beta^{(h)}}}.
+}
+See \code{\link{compute_frontier_cis}} for the algebra.
 }
 \examples{
 \dontrun{
 # Survival example
 data(gbsg, package = "survival")
 fs <- forestsearch(gbsg, ...)
-pareto_frontier_table(fs)                       # gt table
-pareto_frontier_table(fs, format = "data.table") # raw frontier
 
-# Programmatic use: how many alternatives are on the frontier?
-nrow(pareto_frontier_table(fs, format = "data.table"))
+# Basic table (no CIs)
+pareto_frontier_table(fs)
+pareto_frontier_table(fs, format = "data.table")
+
+# With CIs (compute once, display anywhere)
+ci_tab <- compute_frontier_cis(fs, n_splits = 1000, seed = 1)
+pareto_frontier_table(fs, ci_table = ci_tab)
+plot_pareto_frontier(fs,   ci_table = ci_tab)  # same intervals
 }
 
 }
 \seealso{
 \code{\link{compute_pareto_frontier}},
+\code{\link{compute_frontier_cis}},
+\code{\link{plot_pareto_frontier}},
 \code{\link{sort_subgroups}}, \code{\link{forestsearch}}.
 }

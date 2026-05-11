@@ -8,63 +8,56 @@
 #'     refit on the subgroup's data.  This is the textbook CI that ignores
 #'     the multiple-testing / subgroup-search context.  Anti-conservative
 #'     by construction.
-#'   \item \strong{Split CI}: a 95\% interval derived from the variance of
-#'     averaged half-sample effect estimates over \code{n_splits} random
-#'     50/50 splits.  For each split, the per-half effects are averaged,
-#'     and the empirical SD of those averaged values (computed on the log
-#'     scale for ratio measures) approximates the SE of the full-sample
-#'     estimate.  See \dQuote{Details — Why averaged halves work} below.
-#'   \item \strong{FSBC-mimic CI}: a bias-corrected interval based on the
-#'     bootstrap bias-correction algorithm of \cite{Leon2024fs} (eq 7
-#'     and 9) with the \eqn{\eta_b^*(\hat H_b^*)} term zeroed out
-#'     (treating the selected subgroup as fixed across splits).  Each
-#'     averaged-halves estimator \eqn{\tilde\beta_s} plays the role of a
-#'     bootstrap replicate; the bias correction is
-#'     \eqn{\hat\beta^{\mathrm{FSBC}} = \hat\beta - (1/S)\sum_s \eta_s
-#'     = 2\hat\beta - \bar{\tilde\beta}}, and the variance is the
-#'     infinitesimal-jackknife formula based on the realized
-#'     half-assignment matrix.  See \dQuote{Details — FSBC-mimic
-#'     interpretation} below.
+#'   \item \strong{Split CI}: a 95\% interval centered at the full-sample
+#'     estimate, with SE estimated by the empirical standard deviation of
+#'     the \eqn{2S} individual half-sample effect estimates produced by
+#'     \code{n_splits} random 50/50 splits.  This is a half-jackknife SE
+#'     (\cite{Shao1996}).  Naming: the \eqn{\sim} in column labels marks
+#'     this as a resampling-derived approximation, not a model-based CI.
+#'   \item \strong{FSBC-mimic CI}: a bias-corrected interval inspired by
+#'     the bootstrap bias-correction algorithm of \cite{Leon2024fs}
+#'     (eq 7), with the selection-on-bootstrap-data term
+#'     \eqn{\eta_b^*(\hat H_b^*)} zeroed out (the selected subgroup is
+#'     treated as fixed across half-jackknife replicates).  The
+#'     bias-corrected estimate is
+#'     \eqn{\hat\beta^{\mathrm{FSBC}} = 2\hat\beta - \overline{\hat\beta^{(h)}}}
+#'     where \eqn{\overline{\hat\beta^{(h)}}} is the mean of the
+#'     \eqn{2S} half-sample estimates; the SE is the same
+#'     half-jackknife SE as for the Split CI.  See
+#'     \dQuote{Details — FSBC-mimic interpretation} below.
 #' }
 #'
-#' Both CIs are computed post-hoc on the returned \code{forestsearch}
+#' All three CIs are computed post-hoc on the returned \code{forestsearch}
 #' object; this function does not modify any internal state.
 #'
-#' @section Details — Why averaged halves \enquote{work}:
-#' Let \eqn{\hat\theta^{(s,1)}} and \eqn{\hat\theta^{(s,2)}} be the
-#' per-half effect estimates on disjoint random halves of the data, each
-#' having variance \eqn{\approx 2\sigma^2} (relative to a full-sample
-#' estimate's \eqn{\sigma^2}).  The averaged value
-#' \eqn{\tilde\theta^{(s)} = \tfrac{1}{2}(\hat\theta^{(s,1)} + \hat\theta^{(s,2)})}
-#' has variance \eqn{\tfrac{1}{4}(2\sigma^2 + 2\sigma^2) = \sigma^2},
-#' since the two halves are disjoint and approximately independent.  Thus
-#' \eqn{\mathrm{sd}\{\tilde\theta^{(s)}\}} approximates the SE of the
-#' full-sample estimator without requiring an explicit \eqn{\sqrt{2}}
-#' correction.
+#' @section Details — Half-jackknife SE:
+#' For each of \code{n_splits} random 50/50 splits we fit the effect model
+#' separately on each half, obtaining \eqn{2S} per-half estimates
+#' \eqn{\{\hat\beta^{(s,h)} : s=1,\ldots,S; h=1,2\}}.  The half-jackknife
+#' SE estimator is
+#' \deqn{\widehat{\mathrm{SE}} = \mathrm{sd}\bigl\{\hat\beta^{(s,h)}\bigr\},}
+#' i.e., the plain empirical SD of the \eqn{2S} estimates.  No
+#' \eqn{\sqrt{2}} correction is applied: simulation studies confirm that
+#' this estimator's CI achieves nominal coverage in a no-selection
+#' setting (see the package's pressure-test script).  Earlier versions
+#' of this function used the average \eqn{(\hat\beta^{(s,1)} +
+#' \hat\beta^{(s,2)})/2} per split; that approach is invalid because
+#' the two halves are complementary and their average is nearly
+#' constant.
 #'
 #' @section Details — FSBC-mimic interpretation:
 #' The FSBC-mimic CI is a \emph{quick approximation} to the bootstrap
-#' bias-corrected estimator of \cite{Leon2024fs}.  Substituting splits
-#' \eqn{s=1,\ldots,S} for bootstrap replicates \eqn{b=1,\ldots,B}, and
-#' treating the selected subgroup \eqn{\hat H} as fixed (i.e., omitting
-#' the \eqn{\eta_b^*(\hat H_b^*) = \hat\beta_b^*(\hat H_b^*) - \hat\beta(\hat H_b^*)}
-#' term that captures variability in FS selection on the bootstrap
-#' data):
-#' \deqn{\hat\beta^{\mathrm{FSBC}}(\hat H) = \hat\beta(\hat H) - \frac{1}{S}\sum_s \eta_s}
-#' where \eqn{\eta_s = \tilde\beta_s - \hat\beta(\hat H)}.  This collapses
-#' to \eqn{2\hat\beta(\hat H) - \bar{\tilde\beta}}.  The IJ variance
-#' (\cite{Leon2024fs} eq 9) with the same omission reduces to
-#' \deqn{\widetilde V = \sum_{i=1}^{n_\mathrm{sub}} \tilde c_i^2,
-#' \quad \tilde c_i = \frac{1}{S}\sum_s (K_{si} - \bar K_i)(\bar{\tilde\beta} - \tilde\beta_s),}
-#' \deqn{\hat V = \widetilde V - (n_\mathrm{sub}/S)\,\widetilde\sigma^2,
-#' \quad \widetilde\sigma^2 = \frac{1}{S}\sum_s (\bar{\tilde\beta} - \tilde\beta_s)^2.}
-#' Here \eqn{K_{si} \in \{0,1\}} indicates subject \eqn{i}'s half
-#' assignment in split \eqn{s}.  When \eqn{\hat V \le 0} (which can
-#' happen because of Monte Carlo bias correction in a low-replicate
-#' regime), the CI is reported with \eqn{V_\mathrm{used} = 0} — the
-#' result is degenerate but informative as a flag.  The
-#' \code{fsbc_var_pos} column indicates whether the bias-corrected
-#' variance was positive.
+#' bias-corrected estimator of \cite{Leon2024fs}.  Substituting the
+#' \eqn{2S} per-half estimates for bootstrap replicates, and treating
+#' the selected subgroup \eqn{\hat H} as fixed (i.e., omitting the
+#' \eqn{\eta_b^*(\hat H_b^*) = \hat\beta_b^*(\hat H_b^*) -
+#' \hat\beta(\hat H_b^*)} term that captures variability in FS selection
+#' on the bootstrap data), the bias-corrected estimator from paper
+#' eq (7) collapses to
+#' \deqn{\hat\beta^{\mathrm{FSBC}}(\hat H) = \hat\beta(\hat H) -
+#' \frac{1}{2S}\sum_{s,h}\bigl[\hat\beta^{(s,h)} - \hat\beta(\hat H)\bigr]
+#' = 2\hat\beta(\hat H) - \overline{\hat\beta^{(h)}}.}
+#' The SE is the same half-jackknife SE as for the Split CI.
 #'
 #' The FSBC-mimic CI is \emph{not} a full FSBC CI: it omits the
 #' selection-on-bootstrap-data variance.  Use this column as a quick
@@ -86,17 +79,14 @@
 #'     \item{\code{m}}{Candidate id (matches \code{pareto_frontier$m}).}
 #'     \item{\code{estimate}}{Refit effect estimate on the natural scale.}
 #'     \item{\code{naive_lcl}, \code{naive_ucl}}{Naive Wald CI bounds.}
-#'     \item{\code{split_sd}}{Empirical SD of averaged-half effects on
-#'       the SE scale (log for ratio measures, natural for differences).}
+#'     \item{\code{split_sd}}{Half-jackknife SE estimate: empirical SD of
+#'       the \eqn{2S} per-half effect estimates on the SE scale (log for
+#'       ratio measures, natural for differences).}
 #'     \item{\code{split_lcl}, \code{split_ucl}}{Split-derived CI bounds.}
 #'     \item{\code{fsbc_estimate}}{Bias-corrected effect estimate on the
-#'       natural scale (\eqn{2\hat\beta - \bar{\tilde\beta}} on the SE
-#'       scale, then back-transformed).}
+#'       natural scale (\eqn{2\hat\beta - \overline{\hat\beta^{(h)}}} on
+#'       the SE scale, then back-transformed).}
 #'     \item{\code{fsbc_lcl}, \code{fsbc_ucl}}{FSBC-mimic CI bounds.}
-#'     \item{\code{fsbc_var_pos}}{Logical; \code{TRUE} when the
-#'       bias-corrected variance \eqn{\hat V} was positive.  When
-#'       \code{FALSE}, the CI is degenerate (\eqn{V} clipped to 0) and
-#'       should be interpreted cautiously.}
 #'     \item{\code{n_valid_splits}}{Number of splits that produced valid
 #'       per-half estimates.}
 #'   }
@@ -217,14 +207,18 @@ compute_frontier_cis <- function(fs,
     naive_lcl_se <- naive_est_se - z_crit * naive_se
     naive_ucl_se <- naive_est_se + z_crit * naive_se
 
-    # --- 2b. Split-derived CI: per-split averaged halves ------------------
-    # We collect TWO things per valid split:
-    #   averaged[s] = (theta_hat_h1 + theta_hat_h2) / 2     (averaged-half estimator)
-    #   K_list[[s]] = logical vector of length n_sub indicating half-1 membership
-    # The K_list is needed for the FSBC-mimic IJ variance (Section 2c).
-    averaged <- numeric(0L)
-    K_list   <- vector("list", n_splits)
-    n_valid  <- 0L
+    # --- 2b. Per-split half estimates -------------------------------------
+    # The pressure-test revealed that AVERAGED halves
+    # (theta_h1 + theta_h2) / 2 have near-zero variance: the two halves are
+    # complementary, so for a near-linear statistic their sum is ~ 2*theta_full
+    # by construction and the average is ~ theta_full regardless of split.
+    #
+    # The correct approach is the half-jackknife of Shao (1996): collect the
+    # 2*S individual half-estimates and use their empirical SD directly as
+    # the SE of the full-sample estimator.  No averaging, no sqrt(2)
+    # correction, no IJ formula.
+    half_estimates <- numeric(0L)
+    n_valid_splits <- 0L
     for (s in seq_len(n_splits)) {
       in1 <- sample(c(TRUE, FALSE), n_sub, replace = TRUE,
                     prob = c(0.5, 0.5))
@@ -235,55 +229,30 @@ compute_frontier_cis <- function(fs,
       r2 <- est_fn(h2)
       if (!isTRUE(r1$converged) || !isTRUE(r2$converged)) next
       if (is.na(r1$estimate) || is.na(r2$estimate)) next
-      n_valid <- n_valid + 1L
-      averaged[n_valid] <- (r1$estimate + r2$estimate) / 2
-      K_list[[n_valid]] <- as.integer(in1)
+      n_valid_splits <- n_valid_splits + 1L
+      half_estimates <- c(half_estimates, r1$estimate, r2$estimate)
     }
 
-    if (length(averaged) < 10L) {
-      split_sd <- NA_real_
+    # --- 2c. Compute Split CI and FSBC-mimic CI ---------------------------
+    # Both rely on sd(half_estimates) as a half-jackknife SE estimate.
+    # Bias-corrected estimator follows eq 7 of Leon et al. 2024 with the
+    # eta(H_b*) selection term zeroed out:
+    #   beta_FSBC = beta_hat - (1/(2S)) sum_h (beta_h - beta_hat)
+    #             = 2 * beta_hat - mean(half_estimates).
+    if (length(half_estimates) < 10L) {
+      split_sd     <- NA_real_
       split_lcl_se <- NA_real_
       split_ucl_se <- NA_real_
-    } else {
-      split_sd     <- stats::sd(averaged)
-      split_lcl_se <- naive_est_se - z_crit * split_sd
-      split_ucl_se <- naive_est_se + z_crit * split_sd
-    }
-
-    # --- 2c. FSBC-mimic CI: bias-corrected + IJ-style variance ------------
-    # Treats each averaged-half estimator tilde_beta_s as a "split-bootstrap"
-    # replicate; eta_s = tilde_beta_s - beta_hat (the per-split bias term);
-    # the bias-correction follows paper eq (7) with the eta(H_b*) term
-    # zeroed out (H is treated as fixed across splits):
-    #   beta_FSBC = beta_hat - mean(eta_s) = 2*beta_hat - mean(tilde_beta_s)
-    # Variance is the paper's IJ formula (eq 9) with the same omission:
-    #   c_tilde_i = mean_s (K_si - mean_s K_si) * (mean(tilde) - tilde_s)
-    #   V_tilde   = sum_i c_tilde_i^2
-    #   V_hat     = V_tilde - (n_sub / S) * mean_s ((mean(tilde) - tilde_s)^2)
-    # All quantities on the SE scale (log for ratio measures, natural for
-    # difference measures); back-transformed in Section 2d below.
-    if (length(averaged) < 10L) {
       fsbc_est_se  <- NA_real_
       fsbc_lcl_se  <- NA_real_
       fsbc_ucl_se  <- NA_real_
-      fsbc_var_pos <- NA
     } else {
-      K_mat <- do.call(rbind, K_list[seq_len(n_valid)])  # n_valid x n_sub
-      mean_tilde <- mean(averaged)
-      r_vec      <- mean_tilde - averaged                # length n_valid
-      Kbar       <- colMeans(K_mat)                      # length n_sub
-      # Per-subject covariance: c_i = (1/S) sum_s (K_si - Kbar_i) * r_s
-      Kc         <- sweep(K_mat, 2L, Kbar, FUN = "-")    # n_valid x n_sub centered
-      c_vec      <- as.numeric(crossprod(Kc, r_vec)) / n_valid  # length n_sub
-      V_tilde    <- sum(c_vec * c_vec)
-      sigma2_S   <- mean(r_vec * r_vec)
-      V_hat      <- V_tilde - (n_sub / n_valid) * sigma2_S
-      fsbc_var_pos <- isTRUE(V_hat > 0)
-      V_use      <- max(V_hat, 0)
-      fsbc_se    <- sqrt(V_use)
-      fsbc_est_se <- 2 * naive_est_se - mean_tilde
-      fsbc_lcl_se <- fsbc_est_se - z_crit * fsbc_se
-      fsbc_ucl_se <- fsbc_est_se + z_crit * fsbc_se
+      split_sd     <- stats::sd(half_estimates)
+      split_lcl_se <- naive_est_se - z_crit * split_sd
+      split_ucl_se <- naive_est_se + z_crit * split_sd
+      fsbc_est_se  <- 2 * naive_est_se - mean(half_estimates)
+      fsbc_lcl_se  <- fsbc_est_se - z_crit * split_sd
+      fsbc_ucl_se  <- fsbc_est_se + z_crit * split_sd
     }
 
     # --- 2d. Back-transform to natural scale for display ------------------
@@ -318,20 +287,18 @@ compute_frontier_cis <- function(fs,
       fsbc_estimate  = fsbc_est_nat,
       fsbc_lcl       = fsbc_lcl_nat,
       fsbc_ucl       = fsbc_ucl_nat,
-      fsbc_var_pos   = fsbc_var_pos,
-      n_valid_splits = n_valid
+      n_valid_splits = n_valid_splits
     )
 
     if (verbose) {
       cat(sprintf(
         paste0("  Frontier row %d/%d (m=%d): naive (%.3f, %.3f), ",
-               "split (%.3f, %.3f), FSBC est %.3f (%.3f, %.3f) [var_pos=%s], ",
-               "n_valid=%d\n"),
+               "split (%.3f, %.3f), FSBC est %.3f (%.3f, %.3f), n_valid=%d\n"),
         k, nrow(frontier), as.integer(row_k$m),
         naive_lcl_nat, naive_ucl_nat,
         split_lcl_nat, split_ucl_nat,
         fsbc_est_nat, fsbc_lcl_nat, fsbc_ucl_nat,
-        as.character(fsbc_var_pos), n_valid))
+        n_valid_splits))
     }
   }
 
@@ -357,7 +324,6 @@ compute_frontier_cis <- function(fs,
     fsbc_estimate  = NA_real_,
     fsbc_lcl       = NA_real_,
     fsbc_ucl       = NA_real_,
-    fsbc_var_pos   = NA,
     n_valid_splits = 0L
   )
 }

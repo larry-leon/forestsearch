@@ -391,13 +391,35 @@ by their larger neighbors.
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
 # outcomes -- effect column label and scale derived from fs$effect_measure.
-pareto_frontier_table(fs)
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG)
+ci_tab <- compute_frontier_cis(fs, n_splits = 1000, seed = 1)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table
+p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(fs, ci_table = ci_tab)
 ```
 
+
 ```{r fs-pareto-data, eval = FALSE}
-# Programmatic access (effect on natural scale, plus is_selected flag):
-pareto_frontier_table(fs, format = "data.table")
+# Programmatic access — two paths.
+
+# (a) Frontier table with pre-formatted CI strings, one row per frontier
+#     member. The CI columns ("Naive 95% CI", "Split ~ 95% CI",
+#     "FSBC ~ 95% CI") are character strings like "(1.45, 2.87)".
+pareto_frontier_table(fs, ci_table = ci_tab, format = "data.table")
+
+# (b) Raw numeric CIs in a separate keyed data.table. Same content as (a)
+#     but each bound is a numeric column (naive_lcl, naive_ucl, split_lcl,
+#     split_ucl, fsbc_estimate, fsbc_lcl, fsbc_ucl, plus split_sd and
+#     n_valid_splits). This is what step 1 of fs-pareto produced.
+ci_tab
 ```
+
 
 ### Agreement with GRF
 
