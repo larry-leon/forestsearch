@@ -77,7 +77,7 @@ get_fs2_params <- function(sg_focus,
     use_lasso                 = FALSE,
     use_grf                   = TRUE,
     return_selected_cuts_only = TRUE,
-    max_subgroups_search      = 30,        # fs2: broad
+    max_subgroups_search      = 20,        # fs2: broad
     use_twostage              = TRUE,
 
     # -- Effect-size thresholds ----------------------------------------------
@@ -93,11 +93,13 @@ get_fs2_params <- function(sg_focus,
 
     # -- Search dispatch -----------------------------------------------------
     sg_focus                  = sg_focus,
+    conf_force             = c("ar_naive == 1","prior_6mo == 1"),
+    conf.cont_jcuts        = list(cd40 = 15, wtkg = 15),
 
     # -- Sample-size constraints ---------------------------------------------
     fs.splits                 = 1000L,
     # Assuming potential subgroup is at least 10% of the sample size
-    n.min                     = 100L,
+    n.min                     = 60L,
     d0.min                    = 10L,
     d1.min                    = 0L,
     maxk                      = 2L,
@@ -108,7 +110,6 @@ get_fs2_params <- function(sg_focus,
     seedit                    = seedit,
 
     # -- Output / verbosity --------------------------------------------------
-    showten_subgroups         = TRUE,
     details                   = TRUE,
     quiet                     = FALSE,
 

@@ -62,13 +62,13 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 # different reference scales are needed.
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
-  demo   = 20L,
+  demo   = 100L,
   full   = 1000L,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
-  demo   = 20L,
+  demo   = 100L,
   full   = 1000L
 )
 n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
@@ -172,19 +172,6 @@ bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders <- c(cont_vars, bin_vars)
 
-fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
-
-#fs_conf_force <- c("ar_naive == 1","prior_6mo == 1","z1 ==1", "z2 ==1")
-
-fs_conf.cont_jcuts  = list(cd40 = 10, wtkg = 10)
-
-# Inject conf_force into the consolidated fs_params (defined in setup,
-# but conf_force depends on data-prep factor variables)
-
-fs_params$conf_force <- fs_conf_force
-
-fs_params$conf.cont_jcuts <- fs_conf.cont_jcuts
-
 fs_params$selection_rule <- fs_selection_rule
 
 # -- DGM variable sets ---------------------------------------------------------
@@ -279,9 +266,12 @@ itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
+fs_params_single <- fs_params
+fs_params_single$show_candidate_summary <- TRUE 
+
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
-  fs_params
+  fs_params_single
 ))
 
 if(!is.null(fs_single$sg.harm)){
@@ -323,22 +313,7 @@ summaries <- summarize_bootstrap_results(
 )
 # Display bias-corrected estimates table
 summaries$table
-}
-```
-## Selection Diagnostic: Pareto Frontier
-Beyond the single subgroup chosen by `sg_focus`, it is often informative to
-inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
-that are not dominated on both axes simultaneously. A candidate is
-dominated when another candidate has at least as large an effect *and*
-at least as large a sample size, with at least one strict inequality.
-The frontier is a post-hoc diagnostic that lists genuine trade-off
-alternatives to the selected subgroup; it does **not** affect selection.
 
-For `"hrMinSG"` the selected subgroup may not appear on the frontier --
-that focus deliberately prefers small subgroups, which can be N-dominated
-by their larger neighbors.
-
-```{r fs-pareto}
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
 # outcomes -- effect column label and scale derived from fs$effect_measure.
@@ -369,17 +344,11 @@ pareto_frontier_table(
   digits_pcons  = frontier_params$digits_pcons,
   digits_ci     = frontier_params$digits_ci
 )
-```
-## Selection Narrative
 
-`explain_pareto_selection()` produces a verbal account of why the selected
-subgroup wins on the configured lexicographic criterion relative to the
-other non-dominated candidates.  It is descriptive (reads the frontier and
-config off `fs`), not algorithmic, and weaves the selected subgroup's Naive
-95% CI into the selected-candidate paragraph when `ci_table` is supplied.
 
-```{r fs-pareto-explain, results = "asis"}
 cat(explain_pareto_selection(fs, ci_table = ci_tab))
+}
+
 ```
 
 
@@ -407,9 +376,13 @@ itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
+fs_params_single <- fs_params
+fs_params_single$show_candidate_summary <- TRUE 
+
+
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
-  fs_params
+  fs_params_single
 ))
 
 if(!is.null(fs_single$sg.harm)){
@@ -451,22 +424,6 @@ summaries <- summarize_bootstrap_results(
 )
 # Display bias-corrected estimates table
 summaries$table
-}
-```
-## Selection Diagnostic: Pareto Frontier
-Beyond the single subgroup chosen by `sg_focus`, it is often informative to
-inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
-that are not dominated on both axes simultaneously. A candidate is
-dominated when another candidate has at least as large an effect *and*
-at least as large a sample size, with at least one strict inequality.
-The frontier is a post-hoc diagnostic that lists genuine trade-off
-alternatives to the selected subgroup; it does **not** affect selection.
-
-For `"hrMinSG"` the selected subgroup may not appear on the frontier --
-that focus deliberately prefers small subgroups, which can be N-dominated
-by their larger neighbors.
-
-```{r fs-pareto}
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
 # outcomes -- effect column label and scale derived from fs$effect_measure.
@@ -497,17 +454,9 @@ pareto_frontier_table(
   digits_pcons  = frontier_params$digits_pcons,
   digits_ci     = frontier_params$digits_ci
 )
-```
-## Selection Narrative
-
-`explain_pareto_selection()` produces a verbal account of why the selected
-subgroup wins on the configured lexicographic criterion relative to the
-other non-dominated candidates.  It is descriptive (reads the frontier and
-config off `fs`), not algorithmic, and weaves the selected subgroup's Naive
-95% CI into the selected-candidate paragraph when `ci_table` is supplied.
-
-```{r fs-pareto-explain, results = "asis"}
 cat(explain_pareto_selection(fs, ci_table = ci_tab))
+}
+
 ```
 
 
