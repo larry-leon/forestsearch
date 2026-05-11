@@ -40,8 +40,8 @@ Cross-validation defaults to **off** because it is the most expensive
 part of the document.  Set the flags below to `TRUE` to enable.
 
 ```{r cv-flags}
-run_cv_kfold <- FALSE   # K-fold CV (forestsearch_tenfold + summarize_cv_results)
-run_cv_oob   <- FALSE   # Leave-one-out CV (forestsearch_Kfold)
+run_cv_kfold <- TRUE   # K-fold CV (forestsearch_tenfold + summarize_cv_results)
+run_cv_oob   <- TRUE   # Leave-one-out CV (forestsearch_Kfold)
 # K-fold CV: number of repeated 10-fold partitions
 # Use Ksims >= 50 for production
 Ksims <- 50
@@ -56,7 +56,7 @@ n_cores       <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
 # Bootstrap iterations: 500-2000 for production; reduced here for vignette
-NB <- 50
+NB <- 1000
 ```
 
 ## GRF parameters

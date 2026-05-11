@@ -7,9 +7,10 @@
 pareto_frontier_table(
   fs,
   format = c("gt", "data.table"),
-  digits_effect = 3L,
-  digits_pcons = 3L,
-  digits_ci = 2L,
+  digits = 2L,
+  digits_effect = NULL,
+  digits_pcons = NULL,
+  digits_ci = NULL,
   include_dominated = FALSE,
   include_factor_columns = TRUE,
   highlight_selected = TRUE,
@@ -25,16 +26,26 @@ formatted \pkg{gt} table or \code{"data.table"} for a plain
 \code{data.table} with effect on the natural scale and an
 \code{is_selected} flag.}
 
-\item{digits_effect}{Integer.  Decimal places for the effect column.
-Default \code{3}.}
+\item{digits}{Integer.  Master decimal-places setting that drives
+all three column-specific defaults (\code{digits_effect},
+\code{digits_pcons}, \code{digits_ci}) when those are left at
+their defaults.  Default \code{2L}.  Pass \code{digits = 3L} for
+a tighter-precision view; pass per-column overrides below for
+asymmetric formatting (e.g. \code{digits_effect = 3L} with
+\code{digits_ci = 2L}).}
 
-\item{digits_pcons}{Integer.  Decimal places for \code{Pcons}.
-Default \code{3}.}
+\item{digits_effect}{Integer or \code{NULL}.  Decimal places for
+the effect column.  When \code{NULL} (default), inherits from
+\code{digits}.  Pass an explicit integer to override.}
 
-\item{digits_ci}{Integer.  Decimal places used for the three CI
-columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
-Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
-to 3 if you need tighter precision.}
+\item{digits_pcons}{Integer or \code{NULL}.  Decimal places for
+\code{Pcons}.  When \code{NULL} (default), inherits from
+\code{digits}.  Pass an explicit integer to override.}
+
+\item{digits_ci}{Integer or \code{NULL}.  Decimal places used for
+the three CI columns (Naive, Split, FSBC) when \code{ci_table} is
+supplied.  When \code{NULL} (default), inherits from
+\code{digits}.  Pass an explicit integer to override.}
 
 \item{include_dominated}{Logical.  If \code{FALSE} (default), the
 table shows only the Pareto-non-dominated subgroups (the
