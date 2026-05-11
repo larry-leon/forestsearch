@@ -28,29 +28,120 @@ timings <- list()
 t_vignette_start <- proc.time()
 ```
 
-## Parallel Processing Configuration
+# Analysis Configuration
 
-ForestSearch supports parallel processing for computationally intensive
-operations (bootstrap, cross-validation).
+All tunable parameters for this vignette are defined here in one place,
+so that GRF, ForestSearch, frontier-CI, bootstrap, and cross-validation
+settings are not scattered through the document.
+
+## Run-time flags
+
+Cross-validation defaults to **off** because it is the most expensive
+part of the document.  Set the flags below to `TRUE` to enable.
+
+```{r cv-flags}
+run_cv_kfold <- FALSE   # K-fold CV (forestsearch_tenfold + summarize_cv_results)
+run_cv_oob   <- FALSE   # Leave-one-out CV (forestsearch_Kfold)
+```
+
+## Parallel processing & iteration counts
 
 ```{r parallel-setup}
-# Detect available cores (limited to 2 cores for CRAN checks)
+# Detect available cores
 n_cores_total <- parallel::detectCores()
-n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+n_cores       <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
-# Number of bootstrap iterations
-# Use 500-2000 for production; reduced here for vignette
-NB <- 20
+# Bootstrap iterations: 500-2000 for production; reduced here for vignette
+NB <- 500
 
-# 10-fold CV with multiple iterations
+# K-fold CV: number of repeated 10-fold partitions
 # Use Ksims >= 50 for production
-Ksims <- 3
+Ksims <- 5
+```
 
-fs_sg_focus <- "hrMaxSG"
+## GRF parameters
 
-fs_selection_rule <- "pareto"
+Used by the preliminary GRF analysis.  Note that `dmin.grf` and
+`frac.tau` differ between the GRF standalone analysis and the
+GRF candidate-selection inside ForestSearch (see `fs_params`).
 
+```{r grf-params}
+grf_params <- list(
+  maxdepth                  = 2L,
+  n.min                     = 60L,
+  dmin.grf                  = 12L,
+  frac.tau                  = 0.60,
+  details                   = TRUE,
+  return_selected_cuts_only = FALSE
+)
+```
+
+## ForestSearch parameters
+
+```{r fs-params}
+fs_params <- list(
+  # Threshold parameters (per León et al. 2024)
+  hr.threshold           = 1.25,
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.90,
+  stop_threshold         = 0.95,
+  # Search configuration
+  sg_focus               = "hrMaxSG",
+  selection_rule         = "pareto",
+  max_subgroups_search   = 20L,
+  use_twostage           = TRUE,
+  # Factor selection
+  use_grf                   = TRUE,
+  dmin.grf                  = 4L,
+  frac.tau                  = 0.80,
+  return_selected_cuts_only = TRUE,
+  use_lasso                 = TRUE,
+  cut_type                  = "default",
+  conf.cont_jcuts           = list(er = 10, pgr = 10),
+  # Subgroup constraints
+  maxk   = 2L,
+  n.min  = 60L,
+  d0.min = 10L,
+  d1.min = 10L,
+    # Consistency evaluation
+  fs.splits = 1000L,
+  # Output options
+  showten_subgroups = TRUE,
+  details           = TRUE,
+  plot.sg           = TRUE
+)
+```
+
+## Frontier-CI and table-display parameters
+
+Used by `compute_frontier_cis()`, `plot_pareto_frontier()`, and
+`pareto_frontier_table()` in the Pareto frontier diagnostic.
+
+```{r frontier-params}
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
+```
+
+## CV-result placeholders
+
+Initialised to `NULL` so downstream references (forest plot, timing
+summary) work whether or not the CV steps actually run.
+
+```{r cv-placeholders}
+fs_kfold       <- NULL
+fs_OOB         <- NULL
+cv_diag        <- NULL
+metrics_tables <- NULL
+tables         <- NULL
+timings$kfold  <- NA_real_
+timings$oob    <- NA_real_
 ```
 
 
@@ -206,20 +297,19 @@ effect heterogeneity and identify candidate factors.
 ```{r grf-analysis}
 t0 <- proc.time()
 
-grf_est <- grf.subg.harm.survival(
-  data = df.analysis,
-  confounders.name = confounders.name,
-  outcome.name = outcome.name,
-  event.name = event.name,
-  id.name = id.name,
-  treat.name = treat.name,
-  maxdepth = 2,
-  n.min = 60,
-  dmin.grf = 12,
-  frac.tau = 0.60,
-  details = TRUE,
-  return_selected_cuts_only = FALSE
-)
+# Fixed args (data + names) come from the analysis context; tunable
+# parameters come from grf_params in the Analysis Configuration.
+grf_est <- do.call(grf.subg.harm.survival, c(
+  list(
+    data             = df.analysis,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    event.name       = event.name,
+    id.name          = id.name,
+    treat.name       = treat.name
+  ),
+  grf_params
+))
 
 timings$grf <- (proc.time() - t0)["elapsed"]
 ```
@@ -287,49 +377,26 @@ neighborhood test is applied on the natural scale.
 
 t0 <- proc.time()
 
-fs <- forestsearch(
-  df.analysis,
-  confounders.name = confounders.name,
-  outcome.name = outcome.name,
-  treat.name = treat.name,
-  event.name = event.name,
-  id.name = id.name,
-  # Threshold parameters (per León et al. 2024)
-  hr.threshold = 1.25,
-  hr.consistency = 1.0,
-  pconsistency.threshold = 0.90,
-  stop_threshold = 0.95,
-  # Search configuration
-  sg_focus = fs_sg_focus,
-  selection_rule = fs_selection_rule,
-  max_subgroups_search = 20,
-  use_twostage = TRUE,
-  # Factor selection
-  use_grf = TRUE,
-  dmin.grf = 4,
-  frac.tau = 0.80,
-  return_selected_cuts_only = TRUE,
-  use_lasso = TRUE,
-  cut_type = "default",
-  conf.cont_jcuts  = list(er = 10, pgr = 10), 
-  # Subgroup constraints
-  maxk = 2,
-  n.min = 60,
-  d0.min = 10,
-  d1.min = 10,
-  # Consistency evaluation
-  fs.splits = 1000,
-  # Parallel processing
-  parallel_args = list(
-    plan = "multisession",
-    workers = n_cores,
-    show_message = TRUE
+# Fixed args (data + names) come from the analysis context.  All tunable
+# thresholds, search settings, and selection options come from fs_params
+# in the Analysis Configuration.  parallel_args depends on n_cores so it
+# is built here rather than stored in fs_params.
+fs <- do.call(forestsearch, c(
+  list(
+    df.analysis      = df.analysis,
+    confounders.name = confounders.name,
+    outcome.name     = outcome.name,
+    treat.name       = treat.name,
+    event.name       = event.name,
+    id.name          = id.name,
+    parallel_args    = list(
+      plan         = "multisession",
+      workers      = n_cores,
+      show_message = TRUE
+    )
   ),
-  # Output options
-  showten_subgroups = TRUE,
-  details = TRUE,
-  plot.sg = TRUE
-)
+  fs_params
+))
 
 plan("sequential")
 timings$forestsearch <- (proc.time() - t0)["elapsed"]
@@ -392,16 +459,45 @@ by their larger neighbors.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
 # outcomes -- effect column label and scale derived from fs$effect_measure.
 
-# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG)
-ci_tab <- compute_frontier_cis(fs, n_splits = 1000, seed = 1)
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
 
-# 2. Plot, with split-derived CI bars overlaid; same intervals as the table
-p <- plot_pareto_frontier(fs, ci_table = ci_tab, show_band = TRUE, xlim = c(1.25,3.0))
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
 print(p)
 
 # 3. Render the table. Pass the same ci_tab so the table and plot
 #    show identical intervals.
-pareto_frontier_table(fs, ci_table = ci_tab, digits_effect = 2L, digits_pcons = 2L, digits_ci = 2L)
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+```
+
+
+### Selection Narrative
+
+`explain_pareto_selection()` produces a verbal account of why the selected
+subgroup wins on the configured lexicographic criterion relative to the
+other non-dominated candidates.  It is descriptive (reads the frontier and
+config off `fs`), not algorithmic, and weaves the selected subgroup's Naive
+95% CI into the selected-candidate paragraph when `ci_table` is supplied.
+
+```{r fs-pareto-explain, results = "asis"}
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
 ```
 
 
@@ -411,7 +507,14 @@ pareto_frontier_table(fs, ci_table = ci_tab, digits_effect = 2L, digits_pcons = 
 # (a) Frontier table with pre-formatted CI strings, one row per frontier
 #     member. The CI columns ("Naive 95% CI", "Split ~ 95% CI",
 #     "FSBC ~ 95% CI") are character strings like "(1.45, 2.87)".
-pareto_frontier_table(fs, ci_table = ci_tab, format = "data.table", digits_ci = 2L, digits_effect = 2L, digits_pcons =2L)
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  format        = "data.table",
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
 
 # (b) Raw numeric CIs in a separate keyed data.table. Same content as (a)
 #     but each bound is a numeric column (naive_lcl, naive_ucl, split_lcl,
@@ -624,7 +727,11 @@ Two approaches are available:
 
 ## K-Fold Cross-Validation
 
-```{r kfold-cv}
+```{r cv-kfold-skip-note, eval = !run_cv_kfold, results = "asis"}
+cat("> **K-fold CV skipped.** Set `run_cv_kfold <- TRUE` in the Analysis Configuration to enable. The forest plot below will omit kfold CV metrics.\n")
+```
+
+```{r kfold-cv, eval = run_cv_kfold}
 
 t0 <- proc.time()
 
@@ -655,7 +762,7 @@ pipeline identify across resamples, which GRF cuts drove those
 identifications, when identification failed what was the proximate
 cause, and how confidently were the successful identifications made.
 
-```{r cv-diagnostics-run}
+```{r cv-diagnostics-run, eval = run_cv_kfold}
 cv_diag <- summarize_cv_results(
   cv_output         = fs_kfold,
   original_sg       = fs$sg.harm,
@@ -671,7 +778,7 @@ single dominant subgroup with high share indicates the pipeline
 converges on a stable selection; a long tail suggests selection is
 sensitive to the particular training split.
 
-```{r cv-identification}
+```{r cv-identification, eval = run_cv_kfold}
 cv_diag$identification_summary
 ```
 
@@ -682,7 +789,7 @@ it.  Comparison against the identification summary reveals whether
 GRF's upstream discovery is stable (a dominant cut shared across
 folds) or noisy (a long tail of one-off cuts).
 
-```{r cv-grf-cut}
+```{r cv-grf-cut, eval = run_cv_kfold}
 cv_diag$grf_cut_summary
 ```
 
@@ -695,7 +802,7 @@ but none met `pconsistency.threshold`).  The former argues for
 relaxing the GRF upstream; the latter for relaxing the consistency
 threshold or reviewing candidate quality.
 
-```{r cv-no-subgroup}
+```{r cv-no-subgroup, eval = run_cv_kfold}
 cv_diag$no_subgroup_decomposition
 ```
 
@@ -706,7 +813,7 @@ shows where the selected candidate's consistency probability
 the `[0.85, 0.95)` bin are marginal; those concentrated at or near
 1.0 are robust.
 
-```{r cv-pcons}
+```{r cv-pcons, eval = run_cv_kfold}
 cv_diag$pconsistency_distribution
 ```
 
@@ -718,7 +825,7 @@ selected subgroup (`training_fs_hr`, optimistically biased — for
 diagnostic comparison only), and candidate count
 (`n_candidates_evaluated`).
 
-```{r cv-fold-numeric}
+```{r cv-fold-numeric, eval = run_cv_kfold}
 cv_diag$fold_numeric_summary
 ```
 
@@ -726,7 +833,7 @@ cv_diag$fold_numeric_summary
 fold reproduce the original full-data subgroup exactly, share a
 factor with it, or match its GRF cut?
 
-```{r cv-original-agreement}
+```{r cv-original-agreement, eval = run_cv_kfold}
 cv_diag$original_agreement
 ```
 
@@ -735,8 +842,11 @@ cv_diag$original_agreement
 
 N-fold CV (leave-one-out):
 
-```{r oob-cv}
-#| eval: true
+```{r cv-oob-skip-note, eval = !run_cv_oob, results = "asis"}
+cat("> **OOB (leave-one-out) CV skipped.** Set `run_cv_oob <- TRUE` in the Analysis Configuration to enable. This is the most expensive component of the document (~20-30 min on GBSG).\n")
+```
+
+```{r oob-cv, eval = run_cv_oob}
 
 t0 <- proc.time()
 
@@ -810,14 +920,15 @@ my_theme <- create_forest_theme(base_size = 24,
   footnote_fontsize = 17, cv_fontsize = 22)
 
 
-# Create forest plot
-# Include fs_kfold and fs_OOB if available for CV metrics
+# Create forest plot.  fs_kfold / fs_OOB enter only when the
+# corresponding CV step ran; otherwise NULL omits them from the
+# plot's CV metrics columns.
 result <- plot_subgroup_results_forestplot(
   fs_results = list(
-    fs.est = fs,
-    fs_bc = fs_bc,
-    fs_OOB = NULL,
-    fs_kfold = fs_kfold
+    fs.est   = fs,
+    fs_bc    = fs_bc,
+    fs_OOB   = if (run_cv_oob)   fs_OOB   else NULL,
+    fs_kfold = if (run_cv_kfold) fs_kfold else NULL
   ),
   df_analysis = df.analysis,
   subgroup_list = subgroups,
