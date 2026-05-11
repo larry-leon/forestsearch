@@ -97,10 +97,16 @@
 #'   completes, so some additional candidates beyond the first meeting the
 #'   threshold may be evaluated. Use a smaller \code{batch_size} in
 #'   \code{parallel_args} for finer-grained early stopping.
-#' @param showten_subgroups Logical. If TRUE, prints up to 10 candidate
-#'   subgroups after sorting by sg_focus, showing their rank, HR, sample size,
-#'   events, and factor definitions. Useful for reviewing which candidates
-#'   will be evaluated for consistency. Default: FALSE
+#' @param show_candidate_summary Logical. If \code{TRUE}, prints a
+#'   post-consistency summary table of all passing candidates after
+#'   selection.  Columns: Rank, HR, N, E, K, Pcons, Frontier flag,
+#'   InBand flag (when \code{selection_rule} uses one), Selected flag,
+#'   and Subgroup definition.  The footer reports evaluated /
+#'   passed counts so the reader can see how the consistency filter
+#'   operated relative to the top-\code{max_subgroups_search}
+#'   candidates that were evaluated.  Pcons is shown only for
+#'   passing candidates (the consistency evaluator returns NULL
+#'   for non-passing ones).  Default: FALSE.
 #' @param pconsistency.digits Integer. Decimal places for consistency
 #'   proportion. Default: 2
 #' @param seed Integer. Random seed for reproducible consistency splits.
@@ -211,7 +217,7 @@
 #'   df = trial_data,
 #'   hr.subgroups = candidates,
 #'   sg_focus = "hr",
-#'   showten_subgroups = TRUE,  # Display candidates
+#'   show_candidate_summary = TRUE,  # Post-consistency summary
 #'   n.splits = 400
 #' )
 #'
@@ -221,7 +227,7 @@
 #'   hr.subgroups = candidates,
 #'   sg_focus = "hr",
 #'   stop_threshold = 0.95,
-#'   showten_subgroups = TRUE,
+#'   show_candidate_summary = TRUE,
 #'   parallel_args = list(
 #'     plan = "multisession",
 #'     workers = 6,
@@ -254,7 +260,7 @@ subgroup.consistency <- function(df,
                                  effect_neighborhood = 0.10,
                                  stop_Kgroups = 10,
                                  stop_threshold = NULL,
-                                 showten_subgroups = FALSE,
+                                 show_candidate_summary = FALSE,
                                  pconsistency.digits = 2,
                                  seed = 8316951,
                                  checking = FALSE,
@@ -464,58 +470,6 @@ subgroup.consistency <- function(df,
     if (!is.null(stop_threshold)) {
       cat("# Early stop threshold:", stop_threshold, "\n")
     }
-  }
-
-  # ===========================================================================
-  # SECTION 5b: DISPLAY TOP CANDIDATE SUBGROUPS (if showten_subgroups = TRUE)
-  # ===========================================================================
-  if (showten_subgroups && details) {
-    n_show <- min(10, n_candidates)
-    cat("\n")
-    cat(paste(rep("=", 80), collapse = ""), "\n")
-    cat("TOP", n_show, "CANDIDATE SUBGROUPS FOR CONSISTENCY EVALUATION\n")
-    cat("Sorted by:", sg_focus, "\n")
-    cat(paste(rep("=", 80), collapse = ""), "\n\n")
-    # Print header
-    cat(sprintf("%-5s  %-8s  %-6s  %-6s  %-3s  %s\n",
-                "Rank", effect_label, "N", "Events", "K", "Subgroup Definition"))
-    cat(paste(rep("-", 80), collapse = ""), "\n")
-
-
-    for (i in seq_len(n_show)) {
-      # Extract subgroup info
-      hr_i <- found.hrs$HR[i]
-      # For GLM ratio measures, HR column stores log-scale values;
-      # exponentiate to display on the natural scale (consistent with
-      # how Cox displays natural-scale HR, not log-HR).
-      hr_display <- if (effect_log_scale) exp(hr_i) else hr_i
-      n_i <- found.hrs$n[i]
-      e_i <- found.hrs$E[i]
-      # Get factor names for this subgroup (e.g., "q1.1", "q3.0", "q5.1")
-      index_i <- as.numeric(unlist(index.Z[i, ]))
-      factors_i <- names.Z[index_i == 1]
-      k_i <- length(factors_i)
-
-      # Convert factor codes to labels using FS_labels()
-      factors_labels <- vapply(factors_i, FS_labels,
-                               character(1),
-                               confs_labels = confs_labels,
-                               USE.NAMES = FALSE)
-
-      # Format factors string (truncate if too long)
-      factors_str <- paste(factors_labels, collapse = " & ")
-      if (nchar(factors_str) > 45) {
-        factors_str <- paste0(substr(factors_str, 1, 42), "...")
-      }
-      # Print row
-      cat(sprintf("%-5d  %-8.3f  %-6d  %-6d  %-3d  %s\n",
-                  i, hr_display, n_i, e_i, k_i, factors_str))
-    }
-    cat(paste(rep("-", 80), collapse = ""), "\n")
-    if (n_candidates > 10) {
-      cat("... and", n_candidates - 10, "more candidates\n")
-    }
-    cat("\n")
   }
 
   # ===========================================================================
@@ -882,6 +836,25 @@ subgroup.consistency <- function(df,
     }
 
     if (details) cat("SG focus =", sg_focus, "\n")
+  }
+
+  # ===========================================================================
+  # SECTION 10b: PRINT POST-CONSISTENCY CANDIDATE SUMMARY
+  # ===========================================================================
+  # Replaces the legacy pre-consistency "TOP 10" preview (removed above).
+  # Shows up to max_subgroups_search (= n_candidates) evaluated candidates,
+  # but only those that passed consistency have rows in out_sg$result.
+  # Frontier / band / selected flags are derived from out_sg.
+  if (isTRUE(show_candidate_summary) && details) {
+    print_candidate_summary(
+      out_sg              = out_sg,
+      n_evaluated         = n_evaluated,
+      sg_focus            = sg_focus,
+      selection_rule      = selection_rule,
+      effect_neighborhood = effect_neighborhood,
+      effect_log_scale    = effect_log_scale,
+      effect_label        = effect_label
+    )
   }
 
   # ===========================================================================

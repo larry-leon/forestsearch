@@ -1,3 +1,8 @@
+# Internal NULL-coalesce; declared locally so this file doesn't depend
+# on a package-level export.  (data.table has no equivalent; rlang has
+# one but we don't import rlang.)
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0L) b else a
+
 #' Format Pareto Frontier of Candidate Subgroups
 #'
 #' Renders the post-hoc Pareto frontier on (effect, N) -- both maximized
@@ -29,6 +34,14 @@
 #'   columns (Naive, Split, FSBC) when \code{ci_table} is supplied.
 #'   Default \code{2}.  CIs typically read more cleanly at 2 dp; raise
 #'   to 3 if you need tighter precision.
+#' @param include_dominated Logical.  If \code{FALSE} (default), the
+#'   table shows only the Pareto-non-dominated subgroups (the
+#'   frontier).  If \code{TRUE}, the table shows \strong{all} passing
+#'   candidates -- frontier members AND dominated candidates -- with
+#'   additional columns indicating frontier membership and band
+#'   eligibility (when the selection rule uses one).  This is the
+#'   "rich post-consistency view" that complements the in-flight
+#'   summary printed by \code{forestsearch(show_candidate_summary = TRUE)}.
 #' @param include_factor_columns Logical.  If \code{TRUE} (default),
 #'   include the \code{M.<factor>} columns identifying each subgroup's
 #'   defining cuts.  If \code{FALSE}, show only summary metrics.
@@ -123,24 +136,55 @@ pareto_frontier_table <- function(fs,
                                   digits_effect = 3L,
                                   digits_pcons  = 3L,
                                   digits_ci     = 2L,
+                                  include_dominated = FALSE,
                                   include_factor_columns = TRUE,
                                   highlight_selected = TRUE,
                                   ci_table = NULL) {
 
   format <- match.arg(format)
 
-  # --- 1. Locate the frontier on the fs object -------------------------
-  out_sg   <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
-  frontier <- tryCatch(out_sg$pareto_frontier,    error = function(e) NULL)
+  # --- 1. Locate the frontier (or full passing set) on the fs object ---
+  out_sg <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
+  if (is.null(out_sg)) {
+    message("No subgroup-consistency output available on this forestsearch object.")
+    return(.empty_pareto_return(format))
+  }
 
-  if (is.null(out_sg) || is.null(frontier)) {
-    message("No Pareto frontier available on this forestsearch object.")
+  # Source table: full passing set if include_dominated, else just the frontier
+  if (isTRUE(include_dominated)) {
+    src <- tryCatch(out_sg$result, error = function(e) NULL)
+    src_label <- "passing candidates"
+  } else {
+    src <- tryCatch(out_sg$pareto_frontier, error = function(e) NULL)
+    src_label <- "Pareto frontier"
+  }
+
+  if (is.null(src)) {
+    message(sprintf("No %s available on this forestsearch object.", src_label))
     return(.empty_pareto_return(format))
   }
-  if (!data.table::is.data.table(frontier) || nrow(frontier) == 0L) {
-    message("Pareto frontier is empty (no subgroups passed consistency).")
+  if (!data.table::is.data.table(src) || nrow(src) == 0L) {
+    message(sprintf("%s is empty (no subgroups passed consistency).",
+                    tools::toTitleCase(src_label)))
     return(.empty_pareto_return(format))
   }
+
+  # Frontier-membership lookup (only meaningful when include_dominated = TRUE)
+  frontier <- tryCatch(out_sg$pareto_frontier, error = function(e) NULL)
+  frontier_m <- if (!is.null(frontier) && data.table::is.data.table(frontier) &&
+                    nrow(frontier) > 0L && "m" %in% names(frontier)) {
+    as.integer(frontier$m)
+  } else {
+    integer(0)
+  }
+
+  # Selection-rule + band parameters (for in_band flag in include_dominated mode)
+  args_call <- fs$args_call_all %||% list()
+  sg_focus_v       <- args_call$sg_focus %||% "hr"
+  selection_rule_v <- args_call$selection_rule %||% "neighborhood"
+  effect_nbhd_v    <- args_call$effect_neighborhood %||% 0.10
+  band_used <- sg_focus_v %in% c("hrMaxSG", "hrMinSG") &&
+               selection_rule_v %in% c("neighborhood", "both")
 
   # --- 2. Resolve effect-measure label and scale -----------------------
   effect_measure <- if (!is.null(fs$effect_measure)) fs$effect_measure
@@ -153,10 +197,27 @@ pareto_frontier_table <- function(fs,
     error = function(e) NA_integer_
   )
 
-  ft <- data.table::copy(frontier)
+  ft <- data.table::copy(src)
   ft_m <- if ("m" %in% names(ft)) as.integer(ft[["m"]]) else NA_integer_
   is_selected_vec <- !is.na(selected_m) & !is.na(ft_m) & ft_m == selected_m
   ft[["is_selected"]] <- is_selected_vec
+
+  # Add on_frontier and in_band flags for the include_dominated view
+  if (isTRUE(include_dominated)) {
+    ft[["on_frontier"]] <- !is.na(ft_m) & ft_m %in% frontier_m
+    if (band_used) {
+      # Use natural-scale effect for the band threshold
+      hr_nat_for_band <- if (effect_log_scale && "hr" %in% names(ft)) {
+        exp(as.numeric(ft$hr))
+      } else if ("hr" %in% names(ft)) {
+        as.numeric(ft$hr)
+      } else {
+        rep(NA_real_, nrow(ft))
+      }
+      floor_v <- (1 - effect_nbhd_v) * max(hr_nat_for_band, na.rm = TRUE)
+      ft[["in_band"]] <- hr_nat_for_band >= floor_v
+    }
+  }
 
   # --- 4. Convert effect to natural scale, rename column ---------------
   if (effect_log_scale && "hr" %in% names(ft)) {
@@ -254,7 +315,10 @@ pareto_frontier_table <- function(fs,
 
   metric_cols <- intersect(c("N", "E", effect_measure, "Pcons", "K"),
                            names(ft))
-  display_cols <- c("is_selected", m_cols, metric_cols, ci_cols)
+  # Flag columns are added when include_dominated = TRUE (they exist on ft
+  # only in that branch)
+  flag_cols <- intersect(c("on_frontier", "in_band"), names(ft))
+  display_cols <- c("is_selected", m_cols, metric_cols, flag_cols, ci_cols)
   display_cols <- intersect(display_cols, names(ft))
 
   ft <- ft[, display_cols, with = FALSE]
@@ -316,6 +380,21 @@ pareto_frontier_table <- function(fs,
   if ("is_selected" %in% names(ft_display)) {
     ft_display[["is_selected"]] <- NULL
   }
+
+  # Convert on_frontier / in_band logical columns to star markers for gt.
+  # Logical columns are kept as-is in the data.table format (handled
+  # upstream); only the gt rendering path converts them.
+  if ("on_frontier" %in% names(ft_display)) {
+    ft_display[["on_frontier"]] <- ifelse(
+      isTRUE(ft_display[["on_frontier"]]) | ft_display[["on_frontier"]],
+      "\u2605", "")
+  }
+  if ("in_band" %in% names(ft_display)) {
+    ft_display[["in_band"]] <- ifelse(
+      is.na(ft_display[["in_band"]]), "",
+      ifelse(ft_display[["in_band"]], "\u2605", ""))
+  }
+
   ft_display <- cbind(Selected = selected_marker,
                       as.data.frame(ft_display))
 
@@ -336,6 +415,18 @@ pareto_frontier_table <- function(fs,
       subtitle = subtitle
     ) |>
     gt::cols_label(Selected = "")
+
+  # Relabel flag columns and center-align them
+  if ("on_frontier" %in% names(ft_display)) {
+    tbl <- tbl |>
+      gt::cols_label(on_frontier = "Frontier") |>
+      gt::cols_align(align = "center", columns = "on_frontier")
+  }
+  if ("in_band" %in% names(ft_display)) {
+    tbl <- tbl |>
+      gt::cols_label(in_band = "InBand") |>
+      gt::cols_align(align = "center", columns = "in_band")
+  }
 
   # Numeric formatting (only for columns that exist)
   if (effect_measure %in% names(ft_display)) {

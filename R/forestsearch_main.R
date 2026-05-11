@@ -333,7 +333,11 @@
 #'   splits when \code{use_twostage = TRUE}). Default 1000.
 #' @param m1.threshold Numeric. Maximum median survival threshold. Default Inf.
 #' @param pconsistency.threshold Numeric. Minimum consistency proportion. Default 0.90.
-#' @param showten_subgroups Logical. Show top 10 subgroups. Default FALSE.
+#' @param show_candidate_summary Logical. If \code{TRUE}, prints a
+#'   post-consistency summary table of all passing candidates with
+#'   Frontier/InBand/Selected flags.  See
+#'   \code{\link{subgroup.consistency}} for details.  Default
+#'   \code{FALSE}.
 #' @param d0.min Integer. Minimum per-arm filter for candidate subgroups.
 #'   For \code{"survival"} and \code{"binary"} outcomes, this is the minimum
 #'   number of events in the control arm (for binary, events are Y = 1).
@@ -629,7 +633,7 @@ forestsearch <- function(df.analysis,
                          m1.threshold = Inf,
                          pconsistency.threshold = 0.90,
                          stop_threshold = 0.95,
-                         showten_subgroups = FALSE,
+                         show_candidate_summary = FALSE,
                          d0.min = 10,
                          d1.min = 10,
                          max.minutes = 3,
