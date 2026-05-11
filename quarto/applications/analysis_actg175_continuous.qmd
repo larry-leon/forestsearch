@@ -148,6 +148,8 @@ beneficial_outcome <- "y_improve"   # GRF beneficial-scale outcome
 fs_outcome_type    <- "continuous"
 fs_effect_measure  <- "MD"
 fs_sg_focus        <- "minSG"
+fs_selection_rule  <- "neighborhood"   # currently only used by hrMaxSG/hrMinSG;
+                                       # set explicitly for forward compatibility
 
 # Thresholds in CD4 count units (adverse scale: MD > c1 = harm)
 fs_md_threshold    <- 10    # screening: MD >= 10 indicates harm
@@ -166,6 +168,21 @@ fs_is_RCT          <- TRUE
 fs_vi_grf_min      <- -0.2
 fs_dmin_grf        <- 0
 fs_cont_cutoff     <- 4L
+
+# ─── Pareto-frontier diagnostic parameters ──────────────────────────────
+# Drives compute_frontier_cis(), plot_pareto_frontier(),
+# pareto_frontier_table(), and explain_pareto_selection() in the
+# post-hoc selection diagnostic section.
+# NB: with sg_focus = "minSG" the selection rule chooses the smallest-N
+# passing candidate, which is NEVER on the Pareto frontier (the frontier
+# maximizes both effect and N).  The frontier is therefore shown here as a
+# post-hoc diagnostic of the candidate trade-off space, not as the criterion.
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = NULL,       # auto (continuous MD has no natural bounds)
+  digits        = 2L
+)
 
 # ─── GRF standalone parameters (beneficial scale) ──────────────────────
 grf_outcome_type   <- "continuous"
@@ -335,6 +352,7 @@ fs_result <- forestsearch(
   pconsistency.threshold = fs_pconsistency,
   # Search configuration
   sg_focus         = fs_sg_focus,
+  selection_rule   = fs_selection_rule,
   max_subgroups_search = fs_max_subgroups,
   use_twostage     = TRUE,
   # Factor selection
@@ -356,7 +374,7 @@ fs_result <- forestsearch(
     show_message = TRUE
   ),
   # Output options
-  showten_subgroups = TRUE,
+  show_candidate_summary = TRUE,
   details          = TRUE,
   plot.sg          = FALSE,    # KM not applicable; use plot_sg_glm_outcomes()
   is.RCT           = fs_is_RCT,
@@ -421,6 +439,101 @@ fs_plot <- plot_sg_glm_outcomes(
   show_effect    = TRUE,
   verbose        = TRUE
 )
+```
+
+
+## Selection Diagnostic: Pareto Frontier
+
+Post-hoc diagnostic showing all passing candidates on the (MD, N) plane.
+
+::: {.callout-note}
+**Context for `sg_focus = "minSG"`.** Under `minSG`, the rule selects
+the *smallest-N* passing candidate.  The Pareto frontier (computed on
+*both* effect AND N maximized) shows the opposite trade-off corner — it
+identifies the candidates that achieve high effect at large N.  The
+selected subgroup will therefore typically NOT appear on the frontier;
+this is by design.  The frontier is shown here as a diagnostic of the
+candidate trade-off space, not as the selection criterion.
+:::
+
+```{r fs-pareto}
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes — effect-column label and scale derived from
+# fs_result$effect_measure.
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs_result,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p_pareto <- plot_pareto_frontier(
+  fs_result,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p_pareto)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot show
+#    identical intervals.
+pareto_frontier_table(
+  fs_result,
+  ci_table = ci_tab,
+  digits   = frontier_params$digits
+)
+```
+
+
+### Selection Narrative
+
+`explain_pareto_selection()` describes the chosen subgroup relative to
+the non-dominated alternatives on the frontier.  Under `minSG` the
+narrative reads differently from the `hrMaxSG` case (where the winner
+is a frontier member): here it explains that the winner sits below the
+frontier on N, and the "losers" are the larger-N candidates that the
+rule passed over.
+
+```{r fs-pareto-explain, results = "asis"}
+cat(explain_pareto_selection(fs_result, ci_table = ci_tab))
+```
+
+
+```{r fs-pareto-data, eval = FALSE}
+# Programmatic access — two paths.
+
+# (a) Frontier table with pre-formatted CI strings, one row per frontier
+#     member.  CI columns ("Naive 95% CI", "Split ~ 95% CI",
+#     "FSBC ~ 95% CI") are character strings like "(1.45, 2.87)".
+pareto_frontier_table(
+  fs_result,
+  ci_table = ci_tab,
+  format   = "data.table",
+  digits   = frontier_params$digits
+)
+
+# (b) Rich post-consistency view: ALL passing candidates (not just the
+#     frontier), with on_frontier and (where applicable) in_band flag
+#     columns added.  Provides programmatic access to the same content
+#     as the in-flight summary printed by forestsearch().
+pareto_frontier_table(
+  fs_result,
+  ci_table          = ci_tab,
+  include_dominated = TRUE,
+  format            = "data.table",
+  digits            = frontier_params$digits
+)
+
+# (c) Raw numeric CIs: keyed data.table with one row per frontier
+#     member.  Same content as (a) but each bound is a numeric column
+#     (naive_lcl, naive_ucl, split_lcl, split_ucl, fsbc_estimate,
+#     fsbc_lcl, fsbc_ucl, plus split_sd and n_valid_splits).  This is
+#     what step 1 of fs-pareto produced.
+ci_tab
 ```
 
 
