@@ -45,7 +45,7 @@ set.seed(8316951L)
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
-sim_mode    <- "full"
+sim_mode    <- "demo"
 
 BUNDLE_PATH <- "actg175_binary_m1_harm_hrMaxSG-both_fs2.rds"
 
@@ -256,19 +256,28 @@ dgm_null <- generate_glm_dgm(
 
 # Single Trial Sanity Check {#sec-single-trial}
 
-```{r single-trial-alt}
+```{r single-trial-alt-sim}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
+```
+
+
+```{r single-trial-alt-analysis}
 #| code-fold: true
 #| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 
-df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
-
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
-
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = c1, 
-           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
-           effect_type = "ratio", n_eff = max_look)
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
@@ -280,10 +289,6 @@ fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
 fs_single_tabs$sg10_out
 fs_single_tabs$tab_estimates
 }
-
-```
-
-```{r bootstrap-alt}
 
 t0 <- proc.time()
 fs <- fs_single
@@ -307,11 +312,6 @@ timings <- (proc.time() - t0)["elapsed"]
 cat("\nBootstrap completed in",
     round(timings / 60, 1), "minutes\n")
 }
-
-
-```
-
-```{r bootstrap-summary-alt}
 # Comprehensive summary with diagnostics
 
 if(!is.null(fs$sg.harm)){
@@ -321,30 +321,91 @@ summaries <- summarize_bootstrap_results(
   create_plots = TRUE,
   est.scale = "hr"
 )
-
 # Display bias-corrected estimates table
 summaries$table
 }
 ```
+## Selection Diagnostic: Pareto Frontier
+Beyond the single subgroup chosen by `sg_focus`, it is often informative to
+inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
+that are not dominated on both axes simultaneously. A candidate is
+dominated when another candidate has at least as large an effect *and*
+at least as large a sample size, with at least one strict inequality.
+The frontier is a post-hoc diagnostic that lists genuine trade-off
+alternatives to the selected subgroup; it does **not** affect selection.
+
+For `"hrMinSG"` the selected subgroup may not appear on the frontier --
+that focus deliberately prefers small subgroups, which can be N-dominated
+by their larger neighbors.
+
+```{r fs-pareto}
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+```
+## Selection Narrative
+
+`explain_pareto_selection()` produces a verbal account of why the selected
+subgroup wins on the configured lexicographic criterion relative to the
+other non-dominated candidates.  It is descriptive (reads the frontier and
+config off `fs`), not algorithmic, and weaves the selected subgroup's Naive
+95% CI into the selected-candidate paragraph when `ci_table` is supplied.
+
+```{r fs-pareto-explain, results = "asis"}
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
+```
 
 
-
-
-
-```{r single-trial-null}
+```{r single-trial-null-sim}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
-
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 44)
+```
+
+
+```{r single-trial-null-analysis}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
 
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
-
-
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = 1.25, 
-           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
-           effect_type = "ratio", n_eff = max_look)
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
@@ -357,16 +418,10 @@ fs_single_tabs$sg10_out
 fs_single_tabs$tab_estimates
 }
 
-```
-
-
-```{r bootstrap-null}
-
 t0 <- proc.time()
 fs <- fs_single
 
 if(!is.null(fs$sg.harm)){
-
 fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
   nb_boots = 300,
@@ -385,23 +440,76 @@ timings <- (proc.time() - t0)["elapsed"]
 cat("\nBootstrap completed in",
     round(timings / 60, 1), "minutes\n")
 }
-```
-
-```{r bootstrap-summary-null}
+# Comprehensive summary with diagnostics
 
 if(!is.null(fs$sg.harm)){
-# Comprehensive summary with diagnostics
 summaries <- summarize_bootstrap_results(
   sgharm = fs$sg.harm,
   boot_results = fs_bc,
   create_plots = TRUE,
   est.scale = "hr"
 )
-
 # Display bias-corrected estimates table
 summaries$table
 }
 ```
+## Selection Diagnostic: Pareto Frontier
+Beyond the single subgroup chosen by `sg_focus`, it is often informative to
+inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
+that are not dominated on both axes simultaneously. A candidate is
+dominated when another candidate has at least as large an effect *and*
+at least as large a sample size, with at least one strict inequality.
+The frontier is a post-hoc diagnostic that lists genuine trade-off
+alternatives to the selected subgroup; it does **not** affect selection.
+
+For `"hrMinSG"` the selected subgroup may not appear on the frontier --
+that focus deliberately prefers small subgroups, which can be N-dominated
+by their larger neighbors.
+
+```{r fs-pareto}
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+```
+## Selection Narrative
+
+`explain_pareto_selection()` produces a verbal account of why the selected
+subgroup wins on the configured lexicographic criterion relative to the
+other non-dominated candidates.  It is descriptive (reads the frontier and
+config off `fs`), not algorithmic, and weaves the selected subgroup's Naive
+95% CI into the selected-candidate paragraph when `ci_table` is supplied.
+
+```{r fs-pareto-explain, results = "asis"}
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
+```
+
 
 # Full Simulation Study {#sec-sims}
 
