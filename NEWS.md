@@ -66,17 +66,110 @@
 * New `effect_neighborhood` parameter (default `0.10`) in
   `forestsearch()` and `subgroup.consistency()`.
 
-* Pareto frontier on (effect, N) -- both maximized -- now attached
-  to consistency results as `out_sg$pareto_frontier`.  Post-hoc
-  diagnostic listing non-dominated alternatives to the selected
-  subgroup; not used for selection.
+* New `selection_rule` parameter (default `"neighborhood"`) controls
+  the candidate-inclusion logic for `"hrMaxSG"` / `"hrMinSG"`.  One of:
+    - `"neighborhood"`: within `effect_neighborhood` of the maximum
+      effect (the legacy v0.2.0 behavior).
+    - `"pareto"`: Pareto-non-dominated set on (effect, N), both
+      maximized.
+    - `"both"`: intersection of `"neighborhood"` and `"pareto"`.
+  Must be `"neighborhood"` for single-criterion focus values
+  (`"hr"`, `"maxSG"`, `"minSG"`).
 
-* New `pareto_frontier_table()` function renders the frontier as a
-  formatted `gt` table or returns it as a `data.table`.  Works
-  uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
-  outcomes; effect-column label and scale handling derived from
-  `fs$effect_measure`.  Selected subgroup is marked and optionally
-  highlighted.
+* GLM-natural `sg_focus` vocabulary added as aliases for the existing
+  Cox-flavored names:
+    - `"eff"`      is an alias for `"hr"`
+    - `"effMaxSG"` is an alias for `"hrMaxSG"`
+    - `"effMinSG"` is an alias for `"hrMinSG"`
+  Both vocabularies produce identical results.  The `"eff*"` forms
+  read more naturally in GLM contexts (continuous MD, binary OR/RR/RD,
+  count IRR) where there is no hazard ratio.  Old code using the
+  `"hr*"` forms continues to work without changes.
+
+* New canonical threshold names `effect.threshold` and
+  `consistency.threshold` in `forestsearch()`.  The legacy
+  `hr.threshold` and `hr.consistency` continue to work; the new
+  names take precedence when both are provided.  Like the
+  `sg_focus` aliases, the new names read more naturally in GLM
+  contexts.
+
+* Frontier-preserving preview sort.  The candidate triage that
+  determines which subgroups enter consistency evaluation now
+  guarantees that the full Pareto frontier appears in the top-K
+  candidates, regardless of `selection_rule`.  Previously,
+  restrictive rules such as `selection_rule = "both"` could crowd
+  low-N frontier members out of the top-K by filling slots with
+  higher-N dominated candidates, producing different post-consistency
+  diagnostics across rules even on the same data.  Affects candidate
+  *filtering* only; the post-consistency winner selection in
+  `sort_subgroups()` is unchanged, so the selected subgroup is
+  unaffected.
+
+### Dual-View Candidate Diagnostic
+
+* `forestsearch()` and `subgroup.consistency()` accept
+  `show_candidate_summary = TRUE` to print two diagnostic tables
+  during a run:
+    - **Pre-consistency preview**: all candidates entering
+      consistency evaluation, with Frontier and InBand flags
+      computed from the candidate HR/N values.
+    - **Post-consistency summary**: passing candidates with Pcons,
+      Frontier, InBand, and Selected flags.
+  Together the two views make the rule's filter visible end-to-end.
+  Column headers use abbreviated forms (`P` for Pcons, `OF` for
+  on-frontier, `IB` for in-band, `S` for selected) with a legend
+  printed below each table.
+
+### Pareto-Frontier Diagnostic Suite
+
+* `pareto_frontier_table()` renders the frontier as a formatted
+  `gt` table or returns it as a `data.table`.  Works uniformly for
+  survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD) outcomes;
+  effect-column label and scale handling derived from
+  `fs$effect_measure`.  Selected subgroup is marked with a ★ and
+  optionally highlighted.  The `include_dominated = TRUE` option
+  extends the view to all passing candidates (not just the
+  frontier), with `on_frontier` and `in_band` flag columns.
+
+* `plot_pareto_frontier()` renders the frontier as a `ggplot`
+  scatter with optional ε-band shading and split-derived CI bars.
+  Shared style conventions across all frontier plots (theme_bw,
+  steelblue step polyline, `#D55E00` highlight for the selected
+  point).
+
+* `plot_pareto_combined()` composes multiple `forestsearch` fits
+  onto a single Pareto plot when their consistency-passing sets
+  are identical.  Each selected subgroup is annotated with one
+  or more `S1: <combo_label>` markers naming the configuration(s)
+  that picked it; multiple combos picking the same subgroup yield
+  stacked multi-line labels.  Returns `NULL` with a clear warning
+  when the equality precondition fails (same row count, same
+  subgroup-definition set, hr/N/E/K agreement within tolerance);
+  the side-by-side panel composition is the natural alternative.
+
+* `compute_frontier_cis()` computes three CIs per frontier member:
+  a naive CI (model-based or robust SE), a half-jackknife split CI
+  (Shao 1996), and an FSBC-mimic CI.  Pluggable into the table and
+  plot functions via `ci_table = ...`.
+
+* `explain_pareto_selection()` produces a verbal account of why the
+  selected subgroup wins on the configured lexicographic criterion
+  relative to other non-dominated candidates.  Format and verbosity
+  configurable; supports markdown rendering via `results = "asis"`
+  in Quarto chunks.
+
+* `frontier_member_flags()` returns a per-subject membership matrix
+  indicating which frontier subgroups each subject belongs to;
+  useful for downstream within-frontier comparisons.
+
+* `compare_selection_rules()` wrapper runs `forestsearch()` across
+  multiple `(sg_focus, selection_rule)` tuple combinations with all
+  other parameters held fixed.  Captures each run's stdout, builds
+  per-combo Pareto plots, composes them via `patchwork`
+  side-by-side, and auto-builds a `plot_pareto_combined()` view
+  when the passing sets match.  Returns a structured
+  `forestsearch_comparison` object with per-combo fs, ci_tab, plot,
+  console, and diagnostics slots.
 
 ### Other
 
@@ -93,14 +186,27 @@
 * `glm_effect_profile()`: delta-method treatment effect profiles
   across continuous biomarkers with natural cubic spline interactions.
 
-## Breaking Changes (vs. development snapshots of 0.2.0)
+## Breaking Changes (vs. v0.1.0)
 
-* `sg_focus = "hrMaxSG"` / `"hrMinSG"` selection rule changed.
+* **`sg_focus = "hrMaxSG"` / `"hrMinSG"` selection rule changed.**
   Previously these used lexicographic sorts (size primary, effect
   secondary); now they use effect-size neighborhood selection (see
-  Selection Criteria above).  Results from these focus values will
-  differ from prior development-branch runs.  Single-criterion
-  focus values (`"hr"`, `"maxSG"`, `"minSG"`) are unchanged.
+  *Selection Criteria* above).  Results from these focus values will
+  differ from v0.1.0 runs on the same data.  Single-criterion focus
+  values (`"hr"`, `"maxSG"`, `"minSG"`) are unchanged.
+
+* **`showten_subgroups` argument removed.**  Renamed to
+  `show_candidate_summary`.  The old name no longer works; callers
+  passing `showten_subgroups = TRUE` will see an
+  `unused argument` error.  The replacement triggers two
+  diagnostic views (preview + summary) rather than the legacy fixed
+  "top 10" display; see *Dual-View Candidate Diagnostic* above.
+
+* **`pareto_frontier_table()` `digits` default lowered.**  Master
+  `digits` argument now defaults to `2L` (was `3L`).  Per-column
+  overrides (`digits_effect`, `digits_pcons`, `digits_ci`) inherit
+  from the master when not explicitly set.  Rendered tables are more
+  compact; pass `digits = 3L` to recover the prior precision.
 
 ## Bug Fixes
 
@@ -130,6 +236,22 @@
 * Fixed `merge(by = "id")` ignoring `id.name` parameter in
   `forestsearch()` output.
 
+* Fixed `geom_errorbarh(height = 0, ...)` deprecation warning under
+  `ggplot2 >= 3.5` in `plot_pareto_frontier()` and
+  `plot_pareto_combined()`.  Replaced with `geom_linerange()` which
+  produces an identical visual without the warning.
+
+* Fixed non-ASCII characters in `plot_pareto_combined.R` for R CMD
+  check compliance: em-dashes in user-visible string literals
+  replaced with ASCII hyphens; ε and ≥ glyphs replaced with R
+  unicode escapes (`\u03b5`, `\u2265`).  Plot output is unchanged.
+
+* Fixed bare `<<-` assignment leakage inside nested
+  `capture.output()` / `tryCatch()` in `compare_selection_rules()`.
+  Replaced with an explicit holder environment; the prior pattern
+  could silently write to the global environment under certain
+  R session configurations.
+
 ## Internal
 
 * `fit_causal_forest()` and `fit_causal_forest_glm()` accept
@@ -142,6 +264,29 @@
 * Cross-validation extended to handle GLM parameters and propensity
   score re-estimation.
 
+* New internal helper `.normalize_sg_focus()` in
+  `forestsearch_helpers.R` translates the `"eff*"` vocabulary to
+  the canonical `"hr*"` form at entry to `forestsearch()` and
+  `subgroup.consistency()`.  Downstream code is keyed on the
+  canonical form; the aliases are purely user-facing.
+
+* New internal helper `extract_candidate_diagnostics()` in
+  `compare_selection_rules.R` slices the `CANDIDATE EVALUATION
+  PREVIEW` and `CANDIDATE EVALUATION SUMMARY` blocks out of
+  captured forestsearch stdout for focused presentation.
+
+* Pareto frontier on (effect, N) -- both maximized -- attached to
+  consistency results as `out_sg$pareto_frontier`.  Post-hoc
+  diagnostic listing non-dominated alternatives to the selected
+  subgroup; not used for selection.
+
+* `Pcons` excluded from the value-tolerance check in
+  `plot_pareto_combined()`'s equality precondition.  Pcons can
+  legitimately drift across rules because the preview-sort change
+  alters queue order and therefore the random-split state each
+  candidate consumes; equality is keyed on subgroup definitions
+  and hr/N/E/K only.
+
 ## References
 
 * Dandl, S., Haslinger, C., Hothorn, T., Seibold, H., Sverdrup, E.,
@@ -151,6 +296,9 @@
 
 * Rehill, P. (2025). How do applied researchers use the causal forest?
   A methodological review. *International Statistical Review*.
+
+* Shao, J. (1996). Bootstrap model selection. *Journal of the
+  American Statistical Association*, 91(434), 655-665.
 
 # forestsearch 0.1.0
 

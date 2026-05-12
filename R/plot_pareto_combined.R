@@ -8,7 +8,8 @@
 # ----------------------------------------------------------------------------
 
 # Silence R CMD check NOTE for ggplot2 NSE column references.
-utils::globalVariables(c("hr_nat", "N", "is_selected_any", "label_text"))
+utils::globalVariables(c("hr_nat", "N", "is_selected_any", "label_text",
+                         ".def_key"))
 
 #' Combined Pareto-Frontier Plot Across Configurations Sharing a Passing Set
 #'
@@ -251,14 +252,32 @@ plot_pareto_combined <- function(fs_list,
   # Build a flag column for the legend/annotations (any combo selected this point)
   all_passing$is_selected_any <- all_passing$.def_key %in% unique_selected
 
-  # Determine the effective sg_focus / selection_rule / band ε from the
+  # Determine the effective sg_focus / selection_rule / band epsilon from the
   # first fit's args_call_all (passing-set equality across combos was
   # already verified, so the band threshold is the same regardless of
   # which combo's settings we read).  For band drawing the relevant
   # questions are: is the band axis applicable (sg_focus = hrMaxSG/hrMinSG),
   # and what's the neighborhood width?
   args_1 <- fs_list[[1L]]$args_call_all %||% list()
-  sg_focus_1 <- args_1$sg_focus %||% "hr"
+  # Prefer fs$sg_focus (always set to the canonical form by
+  # forestsearch()); fall back to args_call_all$sg_focus (may carry
+  # the user's raw input under older forestsearch builds) and
+  # normalize defensively.  This belt-and-braces approach makes the
+  # band check robust to both the legacy "hr*" vocabulary and the
+  # GLM-natural "eff*" aliases, regardless of which forestsearch
+  # version produced the fs object.
+  sg_focus_1 <- fs_list[[1L]]$sg_focus %||% args_1$sg_focus %||% "hr"
+  if (exists(".normalize_sg_focus", mode = "function")) {
+    sg_focus_1 <- .normalize_sg_focus(sg_focus_1)
+  } else {
+    # Inline fallback for callers running this file in isolation
+    # (smoke tests, examples) without forestsearch_helpers.R sourced.
+    sg_focus_1 <- switch(sg_focus_1,
+                         effMaxSG = "hrMaxSG",
+                         effMinSG = "hrMinSG",
+                         eff      = "hr",
+                         sg_focus_1)
+  }
   eps_val <- args_1$effect_neighborhood %||% 0.10
   band_applies <- isTRUE(show_band) &&
                   sg_focus_1 %in% c("hrMaxSG", "hrMinSG")
@@ -347,20 +366,20 @@ plot_pareto_combined <- function(fs_list,
 
   # Title note: when all combos pick the same subgroup, say so
   agreement_note <- if (length(unique_selected) == 1L) {
-    sprintf(" — all %d configurations agreed on the same subgroup", n_combos)
+    sprintf(" - all %d configurations agreed on the same subgroup", n_combos)
   } else {
-    sprintf(" — %d configurations, %d distinct winners",
+    sprintf(" - %d configurations, %d distinct winners",
             n_combos, length(unique_selected))
   }
 
   band_note <- if (band_applies) {
-    sprintf("; ε-band shading shows %s ≥ %.3g (%.0f%% neighborhood)",
+    sprintf("; \u03b5-band shading shows %s \u2265 %.3g (%.0f%% neighborhood)",
             effect_label, floor_v, 100 * eps_val)
   } else ""
 
   p <- p +
     ggplot2::labs(
-      title    = "Pareto frontier on (effect, N) — combined view",
+      title    = "Pareto frontier on (effect, N) - combined view",
       subtitle = sprintf("Passing set is identical across %d configurations%s%s",
                          n_combos, agreement_note, band_note),
       x = effect_label,

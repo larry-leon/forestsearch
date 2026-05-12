@@ -194,21 +194,26 @@ Retained for backward compatibility.  Default 1.0.  When
 
 \item{sg_focus}{Character. Subgroup selection focus. One of:
 \describe{
-\item{\code{"hr"}}{Pick the candidate with the highest consistency
-(\code{Pcons}); ties broken by largest effect.}
+\item{\code{"hr"} (or \code{"eff"})}{Pick the candidate with the
+highest consistency (\code{Pcons}); ties broken by largest
+effect.}
 \item{\code{"maxSG"}}{Pick the candidate with the largest sample
 size; ties broken by consistency.}
 \item{\code{"minSG"}}{Pick the candidate with the smallest sample
 size; ties broken by consistency.}
-\item{\code{"hrMaxSG"}}{Among candidates with effect size within
-\code{effect_neighborhood} of the maximum, pick the one with
-the \emph{largest} sample size.}
-\item{\code{"hrMinSG"}}{Among candidates with effect size within
-\code{effect_neighborhood} of the maximum, pick the one with
-the \emph{smallest} sample size.}
+\item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
+with effect size within \code{effect_neighborhood} of the
+maximum, pick the one with the \emph{largest} sample size.}
+\item{\code{"hrMinSG"} (or \code{"effMinSG"})}{Among candidates
+with effect size within \code{effect_neighborhood} of the
+maximum, pick the one with the \emph{smallest} sample size.}
 }
-Default \code{"hr"}.  See \code{\link{sort_subgroups}} for full sort
-keys and tiebreakers.}
+Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
+\code{"hr*"} forms and read more naturally in GLM contexts
+(continuous MD, binary OR/RR/RD, count IRR) where there is no
+hazard ratio.  Both vocabularies produce identical results; pick
+whichever fits the outcome type.  See \code{\link{sort_subgroups}}
+for full sort keys and tiebreakers.}
 
 \item{selection_rule}{Character. Rule defining the candidate
 inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of

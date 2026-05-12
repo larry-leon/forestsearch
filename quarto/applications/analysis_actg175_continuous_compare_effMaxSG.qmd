@@ -1,6 +1,6 @@
 ---
 title: "ACTG175 (Continuous): Comparing Selection Rules"
-subtitle: "hrMaxSG with selection_rule ∈ {pareto, both}"
+subtitle: "effMaxSG with selection_rule ∈ {pareto, both}"
 format: html
 ---
 
@@ -136,9 +136,19 @@ frontier_params <- list(
 The two axes varied by the wrapper.  Tuple semantics: paired
 element-by-element.
 
+::: {.callout-note}
+**`sg_focus = "effMaxSG"` notation.**  The `"eff*"` names
+(`"eff"`, `"effMaxSG"`, `"effMinSG"`) are GLM-natural aliases for
+the legacy Cox-flavored names (`"hr"`, `"hrMaxSG"`, `"hrMinSG"`).
+Both vocabularies produce identical results.  The `"eff*"` forms
+read more naturally for continuous (MD), binary (OR/RR/RD), and
+count (IRR) outcomes where there is no hazard ratio.  Old code
+using `"hrMaxSG"` continues to work without changes.
+:::
+
 ```{r comparison-axes}
-sg_focus_vec       <- c("hrMaxSG", "hrMaxSG")
-selection_rule_vec <- c("pareto",  "both")
+sg_focus_vec       <- c("effMaxSG", "effMaxSG")
+selection_rule_vec <- c("pareto",   "both")
 
 # Pretty labels used in plot titles, list names, and prose
 combo_labels       <- paste(sg_focus_vec, selection_rule_vec, sep = " / ")
@@ -257,8 +267,8 @@ comparison <- compare_selection_rules(
   effect_measure   = fs_effect_measure,
   adverse_outcome  = TRUE,
   seedit           = analysis_seed,
-  hr.threshold     = fs_md_threshold,
-  hr.consistency   = fs_md_consistency,
+  effect.threshold       = fs_md_threshold,
+  consistency.threshold  = fs_md_consistency,
   pconsistency.threshold = fs_pconsistency,
   max_subgroups_search = fs_max_subgroups,
   use_twostage     = TRUE,
@@ -576,4 +586,3 @@ gt(timing_df) |>
 León LA, Ye J, Zhao H. *A Bootstrap Framework for Subgroup
 Identification in Randomized Clinical Trials with Bias Correction.*
 Statistics in Medicine. 2024.  [doi:10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
-

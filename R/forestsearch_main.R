@@ -749,6 +749,15 @@ forestsearch <- function(df.analysis,
         shQuote(sg_focus_user) else "<invalid>"),
       call. = FALSE)
   }
+  # Sync the normalized sg_focus back into args_call_all (captured at
+  # line 714 from the raw formals, BEFORE normalization).  Downstream
+  # consumers -- plot_pareto_combined() in particular reads
+  # fs$args_call_all$sg_focus to decide whether to draw the
+  # effect-neighborhood band -- expect the canonical "hr*" form here.
+  # Without this line, passing sg_focus = "effMaxSG" would store
+  # "effMaxSG" in args_call_all and downstream feature checks against
+  # c("hrMaxSG", "hrMinSG") would silently fall through to "no band".
+  args_call_all$sg_focus <- sg_focus
 
   # 2. selection_rule / sg_focus / effect_neighborhood compatibility.
   .validate_selection_rule(selection_rule, sg_focus, effect_neighborhood)
