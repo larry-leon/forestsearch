@@ -76,10 +76,28 @@ installed.}
 \item{\code{plot_combined}}{A single \code{ggplot} composing all
 configurations onto one Pareto plot, with each winner labeled
 \code{S1: <combo_label>}, \code{S2: <combo_label>}, etc.
-Returned only when the passing sets are identical across all
-successful configurations (see
-\code{\link{plot_pareto_combined}} for the equality
-criterion); \code{NULL} otherwise.}
+Returned only when ALL successful configurations share an
+identical passing set (see \code{\link{plot_pareto_combined}}
+for the equality criterion); \code{NULL} otherwise.  See
+\code{plot_combined_subsets} below for the per-subset
+fallback when some -- but not all -- configurations match.}
+\item{\code{plot_combined_subsets}}{Named list of \code{ggplot}
+objects, one per equivalence class of configurations sharing
+an identical passing set.  Only groups of size \eqn{\ge 2}
+are included (a singleton group has no peer to combine
+with).  Names are derived from the shared \code{sg_focus}
+when constant within a group (e.g., \code{"effMaxSG"}); from
+the concatenated combo labels otherwise.  When all valid
+combos share one passing set this list contains exactly one
+element, equal to \code{plot_combined}.  The list is empty
+when no two combos match.}
+\item{\code{combined_skip_reason}}{Character scalar or
+\code{NULL}.  When \code{plot_combined} is \code{NULL}
+because the equality precondition failed, this captures the
+specific reason -- size mismatch, definition-set mismatch,
+or value drift on a named column -- as a single string.
+\code{NULL} when the combined plot was built or when fewer
+than two fits succeeded.}
 \item{\code{console}}{Named list of character vectors -- the
 captured stdout from each forestsearch run (full output).}
 \item{\code{diagnostics}}{Named list of per-combo slices of the

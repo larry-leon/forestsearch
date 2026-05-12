@@ -200,10 +200,21 @@ extract_candidate_diagnostics <- function(captured) {
 #'     \item{\code{plot_combined}}{A single \code{ggplot} composing all
 #'       configurations onto one Pareto plot, with each winner labeled
 #'       \code{S1: <combo_label>}, \code{S2: <combo_label>}, etc.
-#'       Returned only when the passing sets are identical across all
-#'       successful configurations (see
-#'       \code{\link{plot_pareto_combined}} for the equality
-#'       criterion); \code{NULL} otherwise.}
+#'       Returned only when ALL successful configurations share an
+#'       identical passing set (see \code{\link{plot_pareto_combined}}
+#'       for the equality criterion); \code{NULL} otherwise.  See
+#'       \code{plot_combined_subsets} below for the per-subset
+#'       fallback when some -- but not all -- configurations match.}
+#'     \item{\code{plot_combined_subsets}}{Named list of \code{ggplot}
+#'       objects, one per equivalence class of configurations sharing
+#'       an identical passing set.  Only groups of size \eqn{\ge 2}
+#'       are included (a singleton group has no peer to combine
+#'       with).  Names are derived from the shared \code{sg_focus}
+#'       when constant within a group (e.g., \code{"effMaxSG"}); from
+#'       the concatenated combo labels otherwise.  When all valid
+#'       combos share one passing set this list contains exactly one
+#'       element, equal to \code{plot_combined}.  The list is empty
+#'       when no two combos match.}
 #'     \item{\code{combined_skip_reason}}{Character scalar or
 #'       \code{NULL}.  When \code{plot_combined} is \code{NULL}
 #'       because the equality precondition failed, this captures the
@@ -426,36 +437,135 @@ compare_selection_rules <- function(df.analysis,
     cat("Note: package 'patchwork' not installed; returning individual plots without side-by-side composition.\n")
   }
 
-  # --- 3b. Combined plot (when passing sets are identical) ---------------
-  # plot_pareto_combined() verifies the equality precondition internally
-  # and returns NULL with a warning if it fails.  Capture the warning
-  # message so the wrapper can surface the SPECIFIC failure reason --
-  # the previous generic "passing sets differ" message left the user
-  # guessing about which clause (size / definitions / values) tripped.
-  plot_combined <- NULL
-  combined_warn <- NULL
+  # --- 3b. Combined plot(s) by matching passing-set group ---------------
+  #
+  # plot_pareto_combined() requires combos to share an identical passing
+  # set (same subgroup definitions, same hr/N/E/K values).  The first
+  # version of this wrapper passed ALL valid combos at once: if even one
+  # disagreed, no combined plot was built.  That all-or-nothing behavior
+  # missed cases where natural subsets DO agree.  For example, the
+  # comparison vignette with
+  #
+  #     sg_focus       = c("effMaxSG", "effMaxSG", "effMinSG", "effMinSG")
+  #     selection_rule = c("pareto",   "both",     "pareto",   "both")
+  #
+  # produces matching passing sets within each sg_focus value (combos
+  # 1+2 agree; combos 3+4 agree) but not across them (the preview-sort
+  # order under effMaxSG vs effMinSG drives different random-split
+  # seeds, which can push borderline candidates over or under the
+  # pconsistency threshold).
+  #
+  # Strategy: compute a passing-set signature for each valid fs object,
+  # group combos by signature, then build one combined plot per group
+  # of size >= 2.  Populate the backward-compatible $plot_combined slot
+  # iff there's a single group covering all valid combos.
+  plot_combined         <- NULL
+  plot_combined_subsets <- list()
+  combined_warn         <- NULL
   valid_idx <- which(!vapply(fs_list, is.null, logical(1)))
+
   if (length(valid_idx) >= 2L && exists("plot_pareto_combined", mode = "function")) {
-    plot_combined <- tryCatch(
-      withCallingHandlers(
-        plot_pareto_combined(
-          fs_list       = fs_list[valid_idx],
-          combo_labels  = combo_labels[valid_idx],
-          ci_table_list = ci_list[valid_idx],
-          show_band     = show_band,
-          xlim          = plot_xlim,
-          verbose       = TRUE
+
+    # Compute a signature per valid fs: the sorted-collapsed
+    # subgroup-definition set.  Two fs objects with identical
+    # signatures share an identical passing set (modulo value drift,
+    # which plot_pareto_combined() also checks but is typically zero
+    # across rules on the same data).
+    sig_for_fs <- function(fs) {
+      out_sg <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
+      if (is.null(out_sg) || is.null(out_sg$result) ||
+          nrow(out_sg$result) == 0L) return(NA_character_)
+      res <- out_sg$result
+      m_cols <- grep("^M\\.", names(res), value = TRUE)
+      keys <- vapply(seq_len(nrow(res)), function(i) {
+        v <- unlist(res[i, m_cols, with = FALSE], use.names = FALSE)
+        v <- v[!is.na(v) & nzchar(v)]
+        if (length(v) == 0L) "(empty)" else paste(sort(v), collapse = " & ")
+      }, character(1))
+      paste(sort(keys), collapse = " | ")
+    }
+    sigs <- vapply(fs_list[valid_idx], sig_for_fs, character(1))
+
+    # Group valid combo indices by signature.
+    groups <- split(valid_idx, sigs)
+    # Drop singleton groups (combined plot needs >= 2 combos).
+    groups <- groups[lengths(groups) >= 2L]
+
+    # Build a combined plot per group.  Use the first combo's
+    # sg_focus + selection_rule as the group's natural label,
+    # falling back to combo labels otherwise.
+    for (g in seq_along(groups)) {
+      idx <- groups[[g]]
+      group_warn <- NULL
+      group_plot <- tryCatch(
+        withCallingHandlers(
+          plot_pareto_combined(
+            fs_list       = fs_list[idx],
+            combo_labels  = combo_labels[idx],
+            ci_table_list = ci_list[idx],
+            show_band     = show_band,
+            xlim          = plot_xlim,
+            verbose       = TRUE
+          ),
+          warning = function(w) {
+            group_warn <<- conditionMessage(w)
+            invokeRestart("muffleWarning")
+          }
         ),
-        warning = function(w) {
-          combined_warn <<- conditionMessage(w)
-          invokeRestart("muffleWarning")
+        error = function(e) NULL
+      )
+      if (!is.null(group_plot)) {
+        # Label this group by the shared sg_focus, when constant; else
+        # by the concatenated combo labels.
+        sg_in_group <- unique(sg_focus[idx])
+        group_label <- if (length(sg_in_group) == 1L) {
+          sg_in_group
+        } else {
+          paste(combo_labels[idx], collapse = " + ")
         }
-      ),
-      error = function(e) NULL
-    )
+        plot_combined_subsets[[group_label]] <- group_plot
+      } else if (!is.null(group_warn)) {
+        # A group that signature-matched but plot_pareto_combined()
+        # still rejected (e.g. value drift inside matching definitions).
+        # Surface the most recent such reason via combined_warn.
+        combined_warn <- group_warn
+      }
+    }
+
+    # Backward-compatible: $plot_combined is set when ALL valid combos
+    # share one signature (i.e., exactly one group, covering everything).
+    if (length(groups) == 1L && length(groups[[1L]]) == length(valid_idx)) {
+      plot_combined <- plot_combined_subsets[[1L]]
+    } else if (length(groups) == 0L) {
+      # No group of size >= 2; report a useful reason.
+      if (is.null(combined_warn)) {
+        combined_warn <- sprintf(
+          "All %d valid configurations have distinct passing sets; no two combos can be combined.",
+          length(valid_idx))
+      }
+    } else {
+      # Multiple matching subsets, but no single group covers all combos.
+      sizes <- vapply(groups, length, integer(1))
+      combined_warn <- sprintf(
+        paste0("Passing sets fall into %d matching group(s) of sizes %s; ",
+               "no single combined plot covers all %d configurations.  ",
+               "See $plot_combined_subsets for per-group plots."),
+        length(groups), paste(sizes, collapse = ", "), length(valid_idx))
+    }
+
     if (verbose) {
+      n_subsets <- length(plot_combined_subsets)
       if (!is.null(plot_combined)) {
-        cat("Combined plot built (passing sets match across configurations).\n")
+        cat("Combined plot built (all", length(valid_idx),
+            "configurations share one passing set).\n")
+      } else if (n_subsets > 0L) {
+        cat(sprintf(
+          "Combined plot built per matching subset (%d subset%s: %s).\n",
+          n_subsets, if (n_subsets == 1L) "" else "s",
+          paste(names(plot_combined_subsets), collapse = ", ")))
+        if (!is.null(combined_warn)) {
+          cat("  ", combined_warn, "\n", sep = "")
+        }
       } else if (!is.null(combined_warn)) {
         cat("Combined plot skipped:\n  ", combined_warn, "\n", sep = "")
       } else {
@@ -479,6 +589,7 @@ compare_selection_rules <- function(df.analysis,
     plots         = plot_list,
     plot_grid     = plot_grid,
     plot_combined = plot_combined,
+    plot_combined_subsets = plot_combined_subsets,
     combined_skip_reason = combined_warn,  # NULL if combined built or never attempted
     console       = console_list,
     diagnostics   = diagnostics_list,
@@ -517,16 +628,22 @@ print.forestsearch_comparison <- function(x, ...) {
   cat(sprintf("CIs computed:    %d / %d\n", n_ci, nrow(x$combos)))
   cat(sprintf("Diagnostics:     PREVIEW found %d / %d; SUMMARY found %d / %d\n",
               n_prev, nrow(x$combos), n_sumb, nrow(x$combos)))
+  n_subsets <- if (is.null(x$plot_combined_subsets)) 0L
+               else length(x$plot_combined_subsets)
   cat(sprintf("Combined plot:   %s\n",
-              if (!is.null(x$plot_combined)) "yes (passing sets match)"
+              if (!is.null(x$plot_combined)) "yes (all configurations share one passing set)"
+              else if (n_subsets > 0L)
+                sprintf("per-subset only (%d matching subset%s: %s)",
+                        n_subsets,
+                        if (n_subsets == 1L) "" else "s",
+                        paste(names(x$plot_combined_subsets), collapse = ", "))
               else "no (see combined_skip_reason)"))
-  if (is.null(x$plot_combined) && !is.null(x$combined_skip_reason)) {
-    # Wrap long messages for readability
+  if (!is.null(x$combined_skip_reason)) {
     msg <- x$combined_skip_reason
-    cat("  reason: ", msg, "\n", sep = "")
+    cat("  note:   ", msg, "\n", sep = "")
   }
   cat("\nAccess the contents via x$fs, x$ci_tab, x$plots, x$plot_grid,\n",
-      "  x$plot_combined, x$diagnostics, x$console.\n", sep = "")
+      "  x$plot_combined, x$plot_combined_subsets, x$diagnostics, x$console.\n", sep = "")
   cat("Show PREVIEW + SUMMARY for combo i:    cat(x$diagnostics[[i]]$preview,\n",
       "                                          x$diagnostics[[i]]$summary,\n",
       "                                          sep = \"\\n\\n\")\n", sep = "")

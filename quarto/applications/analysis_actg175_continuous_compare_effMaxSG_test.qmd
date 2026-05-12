@@ -395,13 +395,17 @@ print(comparison$plot_grid)
 ```
 
 
-## Combined Plot (when passing sets match)
+## Combined Plot(s) by Matching Passing-Set Group
 
-When the two configurations produce the same passing set, the combined
-plot below labels each selected subgroup with one or more `S<i>:`
-markers naming the configuration(s) that picked it. When the sets
-differ, this returns `NULL` and the side-by-side view above is the
-appropriate alternative.
+`compare_selection_rules()` groups configurations by their
+post-consistency passing set.  When all configurations share one
+passing set, a single combined plot is built (`comparison$plot_combined`).
+When configurations fall into two or more matching groups -- e.g. all
+`effMaxSG` runs agree, all `effMinSG` runs agree, but the two
+`sg_focus` values disagree on which candidates pass -- a combined plot
+is built per group and stored in `comparison$plot_combined_subsets`.
+Each group's plot labels its selected subgroups with `S<i>:` markers
+identifying the configuration(s) that picked them.
 
 ```{r plot-combined}
 #| fig-width: 10
@@ -409,7 +413,18 @@ appropriate alternative.
 #| fig-cap: "Combined Pareto frontier with S1/S2 winner annotations"
 
 if (!is.null(comparison$plot_combined)) {
+  cat("All configurations share one passing set; single combined plot:\n\n")
   print(comparison$plot_combined)
+} else if (length(comparison$plot_combined_subsets) > 0L) {
+  cat(sprintf("Passing sets fall into %d matching group(s); one combined plot per group:\n\n",
+              length(comparison$plot_combined_subsets)))
+  for (nm in names(comparison$plot_combined_subsets)) {
+    cat(sprintf("Group: %s\n", nm))
+    print(comparison$plot_combined_subsets[[nm]])
+  }
+  if (!is.null(comparison$combined_skip_reason)) {
+    cat("\nNote: ", comparison$combined_skip_reason, "\n", sep = "")
+  }
 } else {
   cat("**No combined plot.**\n\n")
   if (!is.null(comparison$combined_skip_reason)) {
@@ -502,7 +517,9 @@ comparison$plots[[1]]
 comparison$plot_grid
 
 # Combined plot (when passing sets match), and the reason if skipped:
-comparison$plot_combined             # ggplot or NULL
+comparison$plot_combined             # ggplot or NULL (all combos match)
+comparison$plot_combined_subsets     # named list of ggplots, one per
+                                     # matching subset of size >= 2
 comparison$combined_skip_reason      # character or NULL
 
 # Console output (full captured stdout, one character per line):
