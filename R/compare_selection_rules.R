@@ -204,6 +204,13 @@ extract_candidate_diagnostics <- function(captured) {
 #'       successful configurations (see
 #'       \code{\link{plot_pareto_combined}} for the equality
 #'       criterion); \code{NULL} otherwise.}
+#'     \item{\code{combined_skip_reason}}{Character scalar or
+#'       \code{NULL}.  When \code{plot_combined} is \code{NULL}
+#'       because the equality precondition failed, this captures the
+#'       specific reason -- size mismatch, definition-set mismatch,
+#'       or value drift on a named column -- as a single string.
+#'       \code{NULL} when the combined plot was built or when fewer
+#'       than two fits succeeded.}
 #'     \item{\code{console}}{Named list of character vectors -- the
 #'       captured stdout from each forestsearch run (full output).}
 #'     \item{\code{diagnostics}}{Named list of per-combo slices of the
@@ -421,28 +428,38 @@ compare_selection_rules <- function(df.analysis,
 
   # --- 3b. Combined plot (when passing sets are identical) ---------------
   # plot_pareto_combined() verifies the equality precondition internally
-  # and returns NULL with a warning if it fails.  We pass verbose = FALSE
-  # so the failure mode is silent here; the side-by-side plot serves as
-  # the natural fallback when the combined view isn't meaningful.
+  # and returns NULL with a warning if it fails.  Capture the warning
+  # message so the wrapper can surface the SPECIFIC failure reason --
+  # the previous generic "passing sets differ" message left the user
+  # guessing about which clause (size / definitions / values) tripped.
   plot_combined <- NULL
+  combined_warn <- NULL
   valid_idx <- which(!vapply(fs_list, is.null, logical(1)))
   if (length(valid_idx) >= 2L && exists("plot_pareto_combined", mode = "function")) {
     plot_combined <- tryCatch(
-      plot_pareto_combined(
-        fs_list       = fs_list[valid_idx],
-        combo_labels  = combo_labels[valid_idx],
-        ci_table_list = ci_list[valid_idx],
-        show_band     = show_band,
-        xlim          = plot_xlim,
-        verbose       = FALSE
+      withCallingHandlers(
+        plot_pareto_combined(
+          fs_list       = fs_list[valid_idx],
+          combo_labels  = combo_labels[valid_idx],
+          ci_table_list = ci_list[valid_idx],
+          show_band     = show_band,
+          xlim          = plot_xlim,
+          verbose       = TRUE
+        ),
+        warning = function(w) {
+          combined_warn <<- conditionMessage(w)
+          invokeRestart("muffleWarning")
+        }
       ),
       error = function(e) NULL
     )
     if (verbose) {
       if (!is.null(plot_combined)) {
         cat("Combined plot built (passing sets match across configurations).\n")
+      } else if (!is.null(combined_warn)) {
+        cat("Combined plot skipped:\n  ", combined_warn, "\n", sep = "")
       } else {
-        cat("Combined plot skipped (passing sets differ; side-by-side is the relevant view).\n")
+        cat("Combined plot skipped (no diagnostic captured).\n")
       }
     }
   }
@@ -462,6 +479,7 @@ compare_selection_rules <- function(df.analysis,
     plots         = plot_list,
     plot_grid     = plot_grid,
     plot_combined = plot_combined,
+    combined_skip_reason = combined_warn,  # NULL if combined built or never attempted
     console       = console_list,
     diagnostics   = diagnostics_list,
     errors        = error_list
@@ -501,7 +519,12 @@ print.forestsearch_comparison <- function(x, ...) {
               n_prev, nrow(x$combos), n_sumb, nrow(x$combos)))
   cat(sprintf("Combined plot:   %s\n",
               if (!is.null(x$plot_combined)) "yes (passing sets match)"
-              else "no (passing sets differ, or N < 2 successful fits)"))
+              else "no (see combined_skip_reason)"))
+  if (is.null(x$plot_combined) && !is.null(x$combined_skip_reason)) {
+    # Wrap long messages for readability
+    msg <- x$combined_skip_reason
+    cat("  reason: ", msg, "\n", sep = "")
+  }
   cat("\nAccess the contents via x$fs, x$ci_tab, x$plots, x$plot_grid,\n",
       "  x$plot_combined, x$diagnostics, x$console.\n", sep = "")
   cat("Show PREVIEW + SUMMARY for combo i:    cat(x$diagnostics[[i]]$preview,\n",
