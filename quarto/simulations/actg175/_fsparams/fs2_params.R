@@ -94,7 +94,7 @@ get_fs2_params <- function(sg_focus,
     # -- Search dispatch -----------------------------------------------------
     sg_focus                  = sg_focus,
     conf_force             = c("ar_naive == 1","prior_6mo == 1"),
-    conf.cont_jcuts        = list(cd40 = 15, wtkg = 15),
+    conf.cont_jcuts        = list(cd40 = 10, wtkg = 10),
 
     # -- Sample-size constraints ---------------------------------------------
     fs.splits                 = 1000L,

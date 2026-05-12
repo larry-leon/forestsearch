@@ -109,7 +109,7 @@ fs_or_consistency  <- 1.0   # consistency: OR >= 1.0 (nominal harm)
 
 # Binary OR estimates near the threshold are noisier than continuous MD;
 # slightly relaxed pconsistency (matches the single-data binary template).
-fs_pconsistency    <- 0.80
+fs_pconsistency    <- 0.90
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
 fs_d1_min          <- 10L
@@ -134,6 +134,24 @@ frontier_params <- list(
   xlim          = NULL,
   digits        = 2L
 )
+
+# ─── Output directory for saved artifacts ───────────────────────────────
+# .rds bundles (tidy selected-subgroups + full comparison object) are
+# written by the "Selected Subgroups" section below.  Resolved relative
+# to *this qmd's directory*, not the caller's getwd() -- so the path is
+# the same whether the chunk is rendered by Quarto or executed
+# interactively from a different working directory.  Created if it
+# doesn't exist.  Matches the calibration-suite convention.
+#
+# Resolution: knitr::current_input(dir = TRUE) returns the full path
+# of the input document during a render; NULL otherwise.  When NULL
+# (e.g., interactive chunk execution), fall back to getwd(), which
+# matches Quarto's behavior of cd'ing to the qmd's directory before
+# rendering chunks.
+qmd_input  <- knitr::current_input(dir = TRUE)
+qmd_dir    <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
+output_dir <- file.path(qmd_dir, "_data")
+dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 ```
 
 
@@ -558,6 +576,60 @@ comparison$diagnostics[[1]]$full     # entire captured stdout (single string)
 
 # Errors (NULL if combo succeeded):
 comparison$errors[[1]]
+```
+
+
+# Selected Subgroups (Tidy Summary)
+
+`extract_selected_subgroups()` reduces the per-combo results to a tidy
+one-row-per-configuration data.frame.  Saved to disk below so a separate
+post-hoc document can `rbind()` this analysis's summary with a continuous
+or count analysis's summary into a single side-by-side table.
+
+```{r selected-subgroups-tidy}
+selected_tidy <- extract_selected_subgroups(comparison,
+                                            analysis_label = "binary")
+selected_tidy
+```
+
+```{r selected-subgroups-gt}
+#| eval: !expr requireNamespace("gt", quietly = TRUE)
+
+# Compact gt rendering: drop columns that are uniform within an analysis
+# (outcome_type, effect_measure) and the error column (NA on success).
+disp_cols <- setdiff(
+  names(selected_tidy),
+  c("outcome_type", "effect_measure", "error", "analysis")
+)
+gt::gt(selected_tidy[, disp_cols, drop = FALSE]) |>
+  gt::tab_header(
+    title    = "Selected Subgroups Across Configurations",
+    subtitle = sprintf("Binary outcome (effect = %s)",
+                       unique(stats::na.omit(selected_tidy$effect_measure)))
+  ) |>
+  gt::fmt_number(columns = c("effect", "Pcons"), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+```{r save-comparison-artifact}
+#| code-fold: false
+
+# Persist both (a) the tidy selected-subgroups summary -- compact, easy
+# to read across documents -- and (b) the full comparison object for
+# anyone who needs to drill into per-combo plots, CIs, or captured
+# diagnostics in the post-hoc document.
+# Destination is `output_dir` (defined in the analysis-params chunk at
+# the top of this document).
+saveRDS(selected_tidy,
+        file = file.path(output_dir, "selected_subgroups_binary.rds"))
+saveRDS(comparison,
+        file = file.path(output_dir, "comparison_binary.rds"))
+
+cat("Output directory: ", normalizePath(output_dir), "\n", sep = "")
+cat("Saved tidy summary:        selected_subgroups_binary.rds\n")
+cat("Saved full comparison:     comparison_binary.rds\n")
+cat(sprintf("(tidy rows: %d; comparison combos: %d)\n",
+            nrow(selected_tidy), nrow(comparison$combos)))
 ```
 
 

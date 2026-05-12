@@ -392,9 +392,21 @@ plot_pareto_combined <- function(fs_list,
       plot.title.position = "plot"
     )
 
+  # Resolve x-axis range.
+  #   - If user supplied xlim, honor it.
+  #   - Else: for ratio-scale measures (OR/RR/IRR) where wide split-CI
+  #     tails routinely dwarf the point-estimate range, trim to the
+  #     range of point estimates plus a small padding.  For identity
+  #     scales (HR/MD/RD/IRD), let ggplot auto-expand (current default).
   if (!is.null(xlim)) {
     if (is.numeric(xlim) && length(xlim) == 2L) {
       p <- p + ggplot2::coord_cartesian(xlim = xlim)
+    }
+  } else if (isTRUE(effect_log_scale)) {
+    rng <- range(all_passing$hr_nat, na.rm = TRUE)
+    if (all(is.finite(rng)) && diff(rng) > 0) {
+      pad <- 0.05 * diff(rng)
+      p <- p + ggplot2::coord_cartesian(xlim = c(rng[1] - pad, rng[2] + pad))
     }
   }
 

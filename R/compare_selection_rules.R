@@ -111,6 +111,205 @@ extract_candidate_diagnostics <- function(captured) {
 }
 
 
+# ============================================================================
+# extract_selected_subgroups() -- tidy summary of winner per combo
+# ============================================================================
+# Reduces a `forestsearch_comparison` object to a one-row-per-combo
+# data.frame summarizing each configuration's selected subgroup.  The
+# selection is `fs$sg.harm` (the top row of `out_sg$result` per
+# `sort_subgroups()`); supporting columns come from the same row.
+#
+# Designed for post-hoc summarization across analyses -- e.g. combining
+# the continuous-outcome and binary-outcome comparison vignettes into a
+# single side-by-side table.  Save each comparison's tidy summary with
+# `saveRDS()` from the vignette, then load and `rbind()` them in a
+# separate document.
+#
+# The function is robust to combos that failed (sg.harm = NULL or
+# missing fs) and to mixed effect measures across combos (the
+# effect-measure label is recorded per row, not assumed).
+
+#' Tidy summary of selected subgroups across a comparison run
+#'
+#' Reduces a \code{forestsearch_comparison} object to a tidy
+#' data.frame with one row per combo, summarizing each configuration's
+#' selected subgroup.  Intended for post-hoc aggregation across
+#' analyses (e.g.\ side-by-side summary of a continuous-outcome
+#' comparison and a binary-outcome comparison in a single document).
+#'
+#' @param x A \code{forestsearch_comparison} object as returned by
+#'   \code{\link{compare_selection_rules}}.
+#' @param analysis_label Optional character scalar identifying the
+#'   parent analysis (e.g.\ \code{"continuous"} or \code{"binary"}).
+#'   When supplied, it appears as the first column.  Useful when
+#'   row-binding tidy summaries from multiple analyses.
+#'
+#' @return A \code{data.frame} with columns:
+#'   \describe{
+#'     \item{\code{analysis}}{If \code{analysis_label} is supplied;
+#'       otherwise omitted.}
+#'     \item{\code{combo}}{Integer index, \code{1..n_combos}.}
+#'     \item{\code{combo_label}}{Pretty label (e.g.\
+#'       \code{"effMaxSG / pareto"}).}
+#'     \item{\code{sg_focus}, \code{selection_rule}}{The two
+#'       comparison axes.}
+#'     \item{\code{outcome_type}, \code{effect_measure}}{Recorded
+#'       per row from \code{fs$outcome_type} /
+#'       \code{fs$effect_measure}, so mixed-effect-measure runs
+#'       remain comparable.}
+#'     \item{\code{subgroup}}{Selected subgroup definition --
+#'       \code{NA_character_} if no subgroup was identified;
+#'       otherwise \code{paste(fs$sg.harm, collapse = " & ")}.}
+#'     \item{\code{N_H}, \code{N_Hc}}{Sample sizes in the harm
+#'       subgroup H (\code{treat.recommend == 0}) and its complement
+#'       Hc.}
+#'     \item{\code{effect}}{The winner's effect estimate on the
+#'       natural scale (\eqn{\exp} applied to the stored
+#'       \code{hr} column for ratio-scale measures
+#'       \code{OR}/\code{RR}/\code{IRR}; passed through otherwise).}
+#'     \item{\code{Pcons}}{The winner's consistency probability.}
+#'     \item{\code{K}}{Number of factors in the winner's
+#'       subgroup definition.}
+#'     \item{\code{n_passed}}{Number of candidates that passed
+#'       consistency (= \code{nrow(out_sg$result)}).}
+#'     \item{\code{on_frontier}}{Logical -- did the selected
+#'       subgroup lie on the Pareto frontier?  \code{NA} when the
+#'       frontier is unavailable.}
+#'     \item{\code{error}}{The error message for failed combos
+#'       (\code{NA_character_} on success).}
+#'   }
+#'
+#' @examples
+#' \dontrun{
+#' cmp_cont <- compare_selection_rules(...)   # continuous analysis
+#' cmp_bin  <- compare_selection_rules(...)   # binary analysis
+#'
+#' tidy_cont <- extract_selected_subgroups(cmp_cont, analysis_label = "continuous")
+#' tidy_bin  <- extract_selected_subgroups(cmp_bin,  analysis_label = "binary")
+#'
+#' all_selected <- rbind(tidy_cont, tidy_bin)
+#' saveRDS(all_selected, "selected_subgroups_all.rds")
+#' }
+#'
+#' @export
+extract_selected_subgroups <- function(x, analysis_label = NULL) {
+  if (!inherits(x, "forestsearch_comparison")) {
+    stop("`x` must be a forestsearch_comparison object as returned ",
+         "by compare_selection_rules().", call. = FALSE)
+  }
+
+  # Local null-coalesce to avoid depending on a sibling-file export
+  # when this file is source()d standalone from a vignette.
+  `%||%` <- function(a, b) if (is.null(a) || length(a) == 0L) b else a
+
+  n_combos <- nrow(x$combos)
+  if (is.null(n_combos) || n_combos == 0L) {
+    return(data.frame())  # empty comparison
+  }
+
+  rows <- lapply(seq_len(n_combos), function(i) {
+    # Bounds-safe accessors.  A correctly-built forestsearch_comparison
+    # has $fs and $errors of length n_combos, but defensive indexing
+    # makes this function robust to:
+    #   (a) Older installed-package versions with different list-sizing
+    #       behavior than the source-of-truth here;
+    #   (b) Hand-built or partially-assembled comparison objects from
+    #       user code that bypasses compare_selection_rules();
+    #   (c) Future internal changes that filter slot lengths.
+    safe_get <- function(slot, idx) {
+      if (is.null(slot) || idx > length(slot)) NULL else slot[[idx]]
+    }
+    fs   <- safe_get(x$fs,     i)
+    err  <- safe_get(x$errors, i)
+    lbl  <- if (i <= length(x$combos$label))          x$combos$label[i]          else NA_character_
+    sgf  <- if (i <= length(x$combos$sg_focus))       x$combos$sg_focus[i]       else NA_character_
+    rule <- if (i <= length(x$combos$selection_rule)) x$combos$selection_rule[i] else NA_character_
+
+    # Defaults for missing / failed combos
+    out <- data.frame(
+      combo          = i,
+      combo_label    = lbl,
+      sg_focus       = sgf,
+      selection_rule = rule,
+      outcome_type   = NA_character_,
+      effect_measure = NA_character_,
+      subgroup       = NA_character_,
+      N_H            = NA_integer_,
+      N_Hc           = NA_integer_,
+      effect         = NA_real_,
+      Pcons          = NA_real_,
+      K              = NA_integer_,
+      n_passed       = NA_integer_,
+      on_frontier    = NA,
+      error          = if (is.null(err)) NA_character_ else as.character(err),
+      stringsAsFactors = FALSE
+    )
+
+    if (is.null(fs)) return(out)
+
+    # Outcome/effect type
+    out$outcome_type   <- fs$outcome_type   %||% NA_character_
+    out$effect_measure <- fs$effect_measure %||% NA_character_
+
+    # If no subgroup was identified, keep NA fields except defaults set above
+    if (is.null(fs$sg.harm) || length(fs$sg.harm) == 0L) {
+      out$subgroup <- NA_character_
+      # We can still report Hc/H sizes if df.est is present (all in Hc).
+      if (!is.null(fs$df.est) && "treat.recommend" %in% names(fs$df.est)) {
+        out$N_H  <- as.integer(sum(fs$df.est$treat.recommend == 0L, na.rm = TRUE))
+        out$N_Hc <- as.integer(sum(fs$df.est$treat.recommend == 1L, na.rm = TRUE))
+      }
+      return(out)
+    }
+
+    # Selected subgroup definition
+    out$subgroup <- paste(fs$sg.harm, collapse = " & ")
+
+    # H/Hc sizes from df.est
+    if (!is.null(fs$df.est) && "treat.recommend" %in% names(fs$df.est)) {
+      out$N_H  <- as.integer(sum(fs$df.est$treat.recommend == 0L, na.rm = TRUE))
+      out$N_Hc <- as.integer(sum(fs$df.est$treat.recommend == 1L, na.rm = TRUE))
+    }
+
+    # Effect, Pcons, K, on_frontier from out_sg$result (top row = winner)
+    out_sg <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
+    if (!is.null(out_sg) && !is.null(out_sg$result) &&
+        nrow(out_sg$result) > 0L) {
+      res <- out_sg$result
+      out$n_passed <- nrow(res)
+      win <- res[1L, ]                # sort_subgroups places winner at row 1
+      hr_raw <- as.numeric(win$hr)
+      out$effect <- if (out$effect_measure %in% c("OR", "RR", "IRR")) {
+        exp(hr_raw)
+      } else {
+        hr_raw
+      }
+      out$Pcons <- as.numeric(win$Pcons)
+      out$K     <- as.integer(win$K)
+      # Frontier membership
+      fr <- out_sg$pareto_frontier
+      out$on_frontier <- if (!is.null(fr) && nrow(fr) > 0L) {
+        as.integer(win$m) %in% as.integer(fr$m)
+      } else {
+        NA
+      }
+    }
+    out
+  })
+
+  result <- do.call(rbind, rows)
+
+  if (!is.null(analysis_label)) {
+    result <- cbind(
+      analysis = rep(as.character(analysis_label), nrow(result)),
+      result,
+      stringsAsFactors = FALSE
+    )
+  }
+  result
+}
+
+
 #' Compare forestsearch Runs Across Selection-Rule Combinations
 #'
 #' Runs \code{\link{forestsearch}} once per combination of

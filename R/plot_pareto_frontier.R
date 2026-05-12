@@ -64,10 +64,16 @@ utils::globalVariables(c("is_selected", "split_lcl", "split_ucl", "label"))
 #'   auto-expands to include split-CI bars when supplied, which can
 #'   make individual points look crowded.  Pass an explicit
 #'   \code{xlim} (or use \code{xlim_trim = TRUE}) to zoom in.
-#' @param xlim_trim Logical.  If \code{TRUE} (and \code{xlim} is
-#'   \code{NULL}), the x-axis is trimmed to the range of frontier
-#'   point estimates with a small padding, ignoring CI bars.
-#'   Default \code{FALSE}.
+#' @param xlim_trim Logical or \code{NULL}.  If \code{TRUE} (and
+#'   \code{xlim} is \code{NULL}), the x-axis is trimmed to the range
+#'   of frontier point estimates with a small padding, ignoring CI
+#'   bars.  If \code{NULL} (default), auto-decides: \code{TRUE} when
+#'   the effect measure is on a ratio (log) scale (\code{"OR"},
+#'   \code{"RR"}, \code{"IRR"}), where wide split-CI tails on the
+#'   natural scale routinely dwarf the point-estimate range and
+#'   force the axis to span orders of magnitude; \code{FALSE}
+#'   otherwise.  Pass \code{TRUE} or \code{FALSE} explicitly to
+#'   override the auto behavior.
 #'
 #' @export
 plot_pareto_frontier <- function(fs,
@@ -77,7 +83,7 @@ plot_pareto_frontier <- function(fs,
                                  label_members     = TRUE,
                                  point_size        = 3,
                                  xlim              = NULL,
-                                 xlim_trim         = FALSE) {
+                                 xlim_trim         = NULL) {
 
   out_sg   <- tryCatch(fs$grp.consistency$out_sg, error = function(e) NULL)
   frontier <- tryCatch(out_sg$pareto_frontier,    error = function(e) NULL)
@@ -192,9 +198,16 @@ plot_pareto_frontier <- function(fs,
 
   # Resolve x-axis range.
   #   - If user supplied xlim, honor it.
-  #   - Else if xlim_trim, zoom to the range of point estimates
-  #     (ignoring CI bars) plus a small padding.
-  #   - Else: let ggplot auto-expand (default).
+  #   - Else: decide xlim_trim.  When xlim_trim is NULL (default),
+  #     auto-enable for ratio-scale measures (OR/RR/IRR) where wide
+  #     split-CI tails on the natural scale routinely dwarf the
+  #     point-estimate range.  Explicit TRUE/FALSE overrides.
+  #   - If xlim_trim ends up TRUE, zoom to the range of point
+  #     estimates (ignoring CI bars) plus a small padding.
+  #   - Else: let ggplot auto-expand (default for non-ratio).
+  if (is.null(xlim_trim)) {
+    xlim_trim <- is_log_scale
+  }
   if (!is.null(xlim)) {
     if (!is.numeric(xlim) || length(xlim) != 2L) {
       warning("xlim must be a numeric vector of length 2; ignoring.",

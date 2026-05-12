@@ -1,0 +1,423 @@
+---
+title: "ACTG175: Cross-Analysis Subgroup Summary"
+subtitle: "Selected subgroups across continuous (MD) and binary (OR) outcomes"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+
+# Introduction
+
+This document loads the saved `selected_subgroups_<analysis>.rds`
+bundles produced by the per-outcome selection-rule comparison vignettes
+and renders a single side-by-side summary across all
+`(sg_focus, selection_rule)` configurations and both outcome scales.
+
+The expected source files (relative to this document's `_data/`
+directory) are:
+
+| File                                  | Produced by                                       |
+|---------------------------------------|---------------------------------------------------|
+| `selected_subgroups_continuous.rds`   | `analysis_actg175_continuous_compare_all.qmd`     |
+| `selected_subgroups_binary.rds`       | `analysis_actg175_binary_compare_all.qmd`         |
+| `comparison_continuous.rds`           | (full object, optional drill-down)                |
+| `comparison_binary.rds`               | (full object, optional drill-down)                |
+
+If a tidy file is missing, the section that depends on it reports the
+gap and skips its content; the rest of the document still renders.
+
+
+# Setup
+
+## Packages
+
+```{r load-packages}
+suppressPackageStartupMessages({
+  library(forestsearch)   # for compare_fs_subgroups() in the drill-down
+  library(data.table)
+  library(gt)
+})
+```
+
+## Input Directory
+
+```{r input-dir}
+#| code-fold: false
+
+# Resolved relative to *this qmd's directory*, not the caller's getwd().
+# Matches the convention used by the comparison vignettes: artifacts
+# are saved into <qmd-dir>/_data/ and this post-hoc document reads from
+# the same place.  Override `input_dir` here if your two comparison
+# qmds rendered into a different directory.
+qmd_input  <- knitr::current_input(dir = TRUE)
+qmd_dir    <- if (is.null(qmd_input)) getwd() else dirname(qmd_input)
+input_dir  <- file.path(qmd_dir, "_data")
+
+cat("Input directory: ", normalizePath(input_dir, mustWork = FALSE), "\n",
+    sep = "")
+```
+
+## Load Tidy Summaries
+
+```{r load-tidy}
+# Helper: load an .rds if it exists, NULL otherwise.  Reports which
+# files were found / missing so the reader sees the state explicitly.
+load_if_exists <- function(path, label) {
+  if (file.exists(path)) {
+    obj <- readRDS(path)
+    cat(sprintf("  [OK]      %-40s  (%d rows)\n", basename(path), nrow(obj)))
+    obj
+  } else {
+    cat(sprintf("  [MISSING] %-40s  -- skipped\n", basename(path)))
+    NULL
+  }
+}
+
+cat("Loading tidy selected-subgroup summaries:\n")
+tidy_cont <- load_if_exists(
+  file.path(input_dir, "selected_subgroups_continuous.rds"),
+  "continuous")
+tidy_bin  <- load_if_exists(
+  file.path(input_dir, "selected_subgroups_binary.rds"),
+  "binary")
+
+# Stack what's available.  rbind() works because both data.frames have
+# identical column schemas (per extract_selected_subgroups() contract).
+tidy_all <- do.call(rbind,
+                    Filter(Negate(is.null), list(tidy_cont, tidy_bin)))
+
+if (is.null(tidy_all) || nrow(tidy_all) == 0L) {
+  stop("No tidy summaries found in '", input_dir, "'.  Render the ",
+       "comparison vignettes first.")
+}
+
+cat(sprintf("\nCombined tidy table: %d rows across %d analyses (%s).\n",
+            nrow(tidy_all),
+            length(unique(tidy_all$analysis)),
+            paste(unique(tidy_all$analysis), collapse = ", ")))
+```
+
+
+# Selected Subgroups Across Analyses
+
+The headline table.  One row per `(analysis, sg_focus, selection_rule)`
+configuration, with the selected subgroup definition, sample sizes, and
+the effect estimate on the natural scale.
+
+::: {.callout-note}
+The `effect` column is on each analysis's natural scale (MD for
+continuous, OR for binary -- check the `effect_measure` column).
+Magnitudes are not directly comparable across analyses; this table is
+for **side-by-side inspection of which subgroup each configuration
+selected**, not for effect-size comparison.
+:::
+
+```{r headline-table}
+# Order rows so configurations group together across analyses:
+# all "effMaxSG / pareto" rows adjacent, etc.
+tidy_all <- tidy_all[order(tidy_all$combo_label,
+                           tidy_all$analysis), , drop = FALSE]
+
+# Add a per-row effect-with-measure label so visual comparison across
+# rows doesn't accidentally mix scales.
+tidy_disp <- tidy_all
+tidy_disp$effect_fmt <- ifelse(
+  is.na(tidy_disp$effect),
+  NA_character_,
+  sprintf("%.3f (%s)", tidy_disp$effect, tidy_disp$effect_measure)
+)
+
+show_cols <- c("analysis", "combo_label", "sg_focus", "selection_rule",
+               "subgroup", "N_H", "N_Hc", "effect_fmt",
+               "Pcons", "K", "on_frontier", "n_passed")
+
+gt::gt(tidy_disp[, show_cols, drop = FALSE], groupname_col = "combo_label") |>
+  gt::tab_header(
+    title    = "Selected Subgroups Across Analyses and Configurations",
+    subtitle = sprintf("ACTG175: %s",
+                       paste(unique(tidy_all$analysis), collapse = " vs "))
+  ) |>
+  gt::cols_label(
+    analysis       = "Analysis",
+    sg_focus       = "sg_focus",
+    selection_rule = "Rule",
+    subgroup       = "Selected subgroup",
+    N_H            = "N(H)",
+    N_Hc           = "N(H\u1d9c)",
+    effect_fmt     = "Effect (measure)",
+    Pcons          = "Pcons",
+    K              = "K",
+    on_frontier    = "Frontier?",
+    n_passed       = "Passed"
+  ) |>
+  gt::fmt_number(columns = c("Pcons"), decimals = 3) |>
+  gt::sub_missing(missing_text = "\u2014")
+```
+
+
+# Cross-Analysis Agreement
+
+Does a given `(sg_focus, selection_rule)` configuration select the
+*same* subgroup definition under both outcome scales?  This is a
+sanity check on the **selection rule itself**: a rule that produces
+wildly different winners under closely-related outcome encodings (here
+CD4 decline vs the indicator of no improvement) is less stable than
+one that produces similar winners.
+
+```{r agreement-by-config}
+# Cast wide: one row per combo_label, columns = analyses, value = subgroup
+configs <- unique(tidy_all$combo_label)
+analyses <- unique(tidy_all$analysis)
+
+wide <- data.frame(
+  combo_label = configs,
+  stringsAsFactors = FALSE
+)
+for (a in analyses) {
+  col_sub <- sprintf("subgroup_%s", a)
+  col_NH  <- sprintf("N_H_%s",     a)
+  col_eff <- sprintf("effect_%s",  a)
+  for (i in seq_along(configs)) {
+    row <- tidy_all[tidy_all$combo_label == configs[i] &
+                    tidy_all$analysis    == a, , drop = FALSE]
+    wide[i, col_sub] <- if (nrow(row) > 0L) row$subgroup[1L] else NA_character_
+    wide[i, col_NH]  <- if (nrow(row) > 0L) row$N_H[1L]      else NA_integer_
+    wide[i, col_eff] <- if (nrow(row) > 0L) {
+      sprintf("%.3f (%s)", row$effect[1L], row$effect_measure[1L])
+    } else {
+      NA_character_
+    }
+  }
+}
+
+# Same-subgroup flag (only meaningful when both analyses have a row)
+if (length(analyses) == 2L) {
+  s1 <- wide[[sprintf("subgroup_%s", analyses[1L])]]
+  s2 <- wide[[sprintf("subgroup_%s", analyses[2L])]]
+  wide$same_subgroup <- ifelse(
+    is.na(s1) | is.na(s2), NA, s1 == s2
+  )
+}
+
+gt::gt(wide) |>
+  gt::tab_header(
+    title    = "Same Configuration, Different Outcomes",
+    subtitle = "Does each (sg_focus, selection_rule) cell pick the same subgroup definition under both outcome scales?"
+  ) |>
+  gt::sub_missing(missing_text = "\u2014")
+
+if ("same_subgroup" %in% names(wide)) {
+  agreed <- sum(wide$same_subgroup, na.rm = TRUE)
+  total  <- sum(!is.na(wide$same_subgroup))
+  cat(sprintf("\nExact-match agreement across analyses: %d / %d configurations (%.0f%%).\n",
+              agreed, total, 100 * agreed / max(1L, total)))
+}
+```
+
+
+# Per-Subject Agreement (Optional Drill-Down)
+
+The tidy summaries above compare **subgroup definitions** as strings.
+A finer check: for a given configuration, do the two analyses classify
+the *same subjects* into H?
+
+This requires the full `comparison_<analysis>.rds` bundles (not just
+the tidy summaries) because per-subject membership lives in
+`comparison$fs[[i]]$df.est$treat.recommend`.  The section below runs
+only if both bundles are available.
+
+```{r load-full-bundles}
+cmp_cont <- if (file.exists(file.path(input_dir, "comparison_continuous.rds"))) {
+  readRDS(file.path(input_dir, "comparison_continuous.rds"))
+} else NULL
+cmp_bin  <- if (file.exists(file.path(input_dir, "comparison_binary.rds"))) {
+  readRDS(file.path(input_dir, "comparison_binary.rds"))
+} else NULL
+
+have_full <- !is.null(cmp_cont) && !is.null(cmp_bin)
+if (!have_full) {
+  cat("Skipping per-subject agreement: ",
+      if (is.null(cmp_cont)) "comparison_continuous.rds " else "",
+      if (is.null(cmp_bin))  "comparison_binary.rds "     else "",
+      "not available.\n", sep = "")
+}
+```
+
+```{r per-subject-agreement, eval = !is.null(cmp_cont) && !is.null(cmp_bin)}
+# Local null-coalesce so this chunk doesn't depend on R >= 4.4 (where
+# %||% became base) or on a package internal.
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0L) b else a
+
+# Compute Cohen's kappa between H/Hc assignments for each shared
+# combo_label.  Requires both bundles to have at least one common
+# configuration AND for both fs objects to have produced a subgroup.
+
+common_combos <- intersect(cmp_cont$combos$label, cmp_bin$combos$label)
+
+if (length(common_combos) == 0L) {
+  cat("No shared (sg_focus, selection_rule) configurations between the two analyses.\n")
+} else {
+  agreement_rows <- lapply(common_combos, function(lbl) {
+    i_cont <- which(cmp_cont$combos$label == lbl)[1L]
+    i_bin  <- which(cmp_bin$combos$label  == lbl)[1L]
+    fs_c   <- cmp_cont$fs[[i_cont]]
+    fs_b   <- cmp_bin$fs[[i_bin]]
+
+    # Skip combos where either side has no subgroup
+    if (is.null(fs_c) || is.null(fs_b) ||
+        is.null(fs_c$sg.harm) || length(fs_c$sg.harm) == 0L ||
+        is.null(fs_b$sg.harm) || length(fs_b$sg.harm) == 0L) {
+      return(data.frame(
+        combo_label = lbl,
+        n_subjects  = NA_integer_,
+        agreement   = NA_real_,
+        kappa       = NA_real_,
+        H_both      = NA_integer_,
+        H_cont_only = NA_integer_,
+        H_bin_only  = NA_integer_,
+        Hc_both     = NA_integer_,
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    cmp_pair <- tryCatch(
+      compare_fs_subgroups(
+        fs1     = fs_c,
+        fs2     = fs_b,
+        label1  = "continuous",
+        label2  = "binary",
+        id.name = "id",
+        subgroup_notation = "harm",
+        title   = sprintf("Continuous vs Binary: %s", lbl)
+      ),
+      error = function(e) NULL
+    )
+
+    if (is.null(cmp_pair)) {
+      return(data.frame(
+        combo_label = lbl,
+        n_subjects  = NA_integer_,
+        agreement   = NA_real_,
+        kappa       = NA_real_,
+        H_both      = NA_integer_,
+        H_cont_only = NA_integer_,
+        H_bin_only  = NA_integer_,
+        Hc_both     = NA_integer_,
+        stringsAsFactors = FALSE
+      ))
+    }
+
+    # Extract cell counts from the 2x2 cross-tab (H/Hc x H/Hc)
+    cnc <- cmp_pair$concordance
+    data.frame(
+      combo_label = lbl,
+      n_subjects  = as.integer(cnc$n_total %||% NA_integer_),
+      agreement   = as.numeric(cnc$agreement %||% NA_real_),
+      kappa       = as.numeric(cnc$kappa     %||% NA_real_),
+      H_both      = as.integer(cnc$H_both    %||% NA_integer_),
+      H_cont_only = as.integer(cnc$H_only1   %||% NA_integer_),
+      H_bin_only  = as.integer(cnc$H_only2   %||% NA_integer_),
+      Hc_both     = as.integer(cnc$Hc_both   %||% NA_integer_),
+      stringsAsFactors = FALSE
+    )
+  })
+
+  agreement_tab <- do.call(rbind, agreement_rows)
+
+  gt::gt(agreement_tab) |>
+    gt::tab_header(
+      title    = "Per-Subject Agreement: Continuous vs Binary",
+      subtitle = "Cohen's kappa for H/H\u1d9c classification across the two outcome scales"
+    ) |>
+    gt::cols_label(
+      combo_label = "Configuration",
+      n_subjects  = "N",
+      agreement   = "Agreement",
+      kappa       = "\u03ba",
+      H_both      = "H \u2229 H",
+      H_cont_only = "H (cont only)",
+      H_bin_only  = "H (bin only)",
+      Hc_both     = "H\u1d9c \u2229 H\u1d9c"
+    ) |>
+    gt::fmt_number(columns = c("agreement", "kappa"), decimals = 3) |>
+    gt::sub_missing(missing_text = "\u2014")
+}
+```
+
+::: {.callout-note}
+**Interpreting kappa**: \u03ba = 1 is perfect agreement; \u03ba = 0 is
+chance-level; values above 0.6 are typically called "substantial" and
+above 0.8 "almost perfect".  Low \u03ba with high agreement happens
+when both analyses classify most subjects into H\u1d9c (recommend) --
+the marginal imbalance inflates raw agreement but kappa adjusts for
+it.
+:::
+
+
+# Stability Diagnostics
+
+Two stability views derived directly from the tidy table.
+
+## Configurations Where No Subgroup Was Selected
+
+Rows where the analysis ran but yielded no winner (`subgroup` is NA).
+Often a sign that the consistency threshold was too strict for the
+candidate pool, or that the selection rule's queue was ordered
+unfavorably (see the SUMMARY banner of the source rendering for the
+specific reason).
+
+```{r no-subgroup}
+no_sub <- tidy_all[is.na(tidy_all$subgroup), , drop = FALSE]
+if (nrow(no_sub) == 0L) {
+  cat("All configurations selected a subgroup.\n")
+} else {
+  gt::gt(no_sub[, c("analysis", "combo_label", "sg_focus", "selection_rule",
+                    "n_passed", "error"), drop = FALSE]) |>
+    gt::tab_header(
+      title = sprintf("Configurations with no selected subgroup (%d of %d rows)",
+                      nrow(no_sub), nrow(tidy_all))
+    ) |>
+    gt::sub_missing(missing_text = "\u2014")
+}
+```
+
+## Frontier Membership
+
+Did the selected subgroup lie on the Pareto frontier?  Under
+`selection_rule = "both"` and `"pareto"` this is always TRUE by
+construction; under `"neighborhood"` it can be FALSE (the rule picks
+in-band largest-N regardless of dominance).
+
+```{r frontier-membership}
+fr_tab <- tidy_all[, c("analysis", "combo_label", "sg_focus",
+                       "selection_rule", "on_frontier"), drop = FALSE]
+gt::gt(fr_tab) |>
+  gt::tab_header(title = "Selected subgroup on Pareto frontier?") |>
+  gt::sub_missing(missing_text = "\u2014")
+```
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
