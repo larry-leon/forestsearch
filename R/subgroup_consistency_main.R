@@ -781,6 +781,23 @@ subgroup.consistency <- function(df,
   if (any.found == 0) {
     if (details) cat("No subgroups found meeting consistency threshold\n")
 
+    # Emit the SUMMARY banner even in the zero-passed case so the
+    # downstream display (e.g., comparison vignette) shows a real
+    # post-consistency summary block rather than "(not available)".
+    # print_candidate_summary() handles out_sg = NULL: it emits the
+    # banner, the Evaluated/Passed=0 line, and the closing bar.
+    if (isTRUE(show_candidate_summary) && details) {
+      print_candidate_summary(
+        out_sg              = NULL,
+        n_evaluated         = n_evaluated,
+        sg_focus            = sg_focus,
+        selection_rule      = selection_rule,
+        effect_neighborhood = effect_neighborhood,
+        effect_log_scale    = effect_log_scale,
+        effect_label        = effect_label
+      )
+    }
+
     return(list(
       out_sg = NULL,
       sg_focus = sg_focus,

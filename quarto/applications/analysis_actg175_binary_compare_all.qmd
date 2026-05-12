@@ -1,0 +1,591 @@
+---
+title: "ACTG175 (Binary): Comparing Selection Rules"
+subtitle: "OR-scale comparison across sg_focus × selection_rule cells"
+format: html
+---
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Setup (click to expand)"
+
+# Initialize timing
+t_doc_start <- proc.time()
+timings <- list()
+```
+
+
+# Introduction
+
+This vignette compares the selection diagnostic side-by-side across two
+choices of `selection_rule`, holding all other ForestSearch parameters
+fixed.  It uses the package's
+[`compare_selection_rules()`](../R/compare_selection_rules.R) wrapper to
+run `forestsearch()` once per combination and bundle the per-combo
+diagnostics for inspection.
+
+The structure is:
+
+1. **Data setup + ITT** — identical to the single-rule analyses.
+2. **Comparison run** — one call to `compare_selection_rules()` that
+   handles the loop, captures each run's
+   `CANDIDATE EVALUATION PREVIEW` + `CANDIDATE EVALUATION SUMMARY`
+   banners, builds the Pareto-frontier plots, and computes split-derived
+   CIs.
+3. **Per-combo diagnostics** — replay of captured console output,
+   individual frontier plot/table/narrative for each combination.
+4. **Side-by-side composition** — patchwork-composed plot panel
+   for direct visual comparison.
+
+Bootstrap, cross-validation, and the combined forest plot are
+**deliberately omitted** so the document stays focused on the
+*selection mechanism* and the comparison reads as a tight diagnostic
+of the rule axis alone.
+
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+suppressPackageStartupMessages({
+  library(forestsearch)
+  library(speff2trial)       # ACTG175 dataset
+  library(data.table)
+  library(ggplot2)
+  library(gt)
+  library(future)
+  library(patchwork)         # for side-by-side plot composition
+})
+
+# Source the comparison wrapper.  When this graduates into the package
+# (copy compare_selection_rules.R into R/ and run devtools::document()),
+# this source() line can be removed.
+#source("compare_selection_rules.R")
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+```
+
+
+## Analysis Parameters
+
+All ForestSearch parameters are defined here once and reused for both
+combinations.  The two axes of variation are `sg_focus` and
+`selection_rule`, which the wrapper handles directly.
+
+```{r analysis-params}
+#| code-fold: false
+
+# ─── Parallel processing ────────────────────────────────────────────────
+n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+# ─── Reproducibility ────────────────────────────────────────────────────
+analysis_seed <- 8316951L
+set.seed(analysis_seed)
+
+# ─── Confounders ───────────────────────────────────────────────────────
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+confounders.name <- c(cont_vars, bin_vars)
+id.name <- "id"
+
+# ─── Variables (dual-scale framing) ────────────────────────────────────
+treat.name         <- "treat"
+adverse_outcome    <- "y_binary_neg"   # FS adverse-scale outcome
+beneficial_outcome <- "y_binary_pos"   # GRF beneficial-scale outcome
+
+# ─── ForestSearch parameters (binary, OR scale) ────────────────────────
+fs_outcome_type    <- "binary"
+fs_effect_measure  <- "OR"
+
+# NOTE: fs_sg_focus and fs_selection_rule are NOT defined here.
+# They live in the `comparison-axes` chunk below as the two axes the
+# wrapper varies.  All OTHER ForestSearch parameters are fixed across
+# the comparison.
+
+# Thresholds on the OR scale (adverse scale: OR > c1 = harm)
+fs_or_threshold    <- 1.25  # screening: OR >= 1.25 indicates harm
+fs_or_consistency  <- 1.0   # consistency: OR >= 1.0 (nominal harm)
+
+# Binary OR estimates near the threshold are noisier than continuous MD;
+# slightly relaxed pconsistency (matches the single-data binary template).
+fs_pconsistency    <- 0.80
+fs_n_min           <- 60L
+fs_d0_min          <- 10L
+fs_d1_min          <- 10L
+fs_splits          <- 500L
+
+fs_max_subgroups   <- 30
+
+fs_maxk            <- 2L
+fs_use_lasso       <- TRUE
+fs_use_grf         <- TRUE
+fs_is_RCT          <- TRUE
+fs_vi_grf_min      <- -0.2
+fs_dmin_grf        <- 0
+fs_cont_cutoff     <- 4L
+
+# ─── Pareto-frontier diagnostic parameters ──────────────────────────────
+# For OR (ratio-scale), the effect axis is auto-rendered on log scale
+# by plot_pareto_frontier(); leave xlim = NULL for auto bounds.
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = NULL,
+  digits        = 2L
+)
+```
+
+
+## Comparison Axes
+
+The two axes varied by the wrapper.  Tuple semantics: paired
+element-by-element.
+
+::: {.callout-note}
+**`sg_focus = "effMaxSG"` notation.**  The `"eff*"` names
+(`"eff"`, `"effMaxSG"`, `"effMinSG"`) are GLM-natural aliases for
+the legacy Cox-flavored names (`"hr"`, `"hrMaxSG"`, `"hrMinSG"`).
+Both vocabularies produce identical results.  The `"eff*"` forms
+read more naturally for continuous (MD), binary (OR/RR/RD), and
+count (IRR) outcomes where there is no hazard ratio.  Old code
+using `"hrMaxSG"` continues to work without changes.
+:::
+
+```{r comparison-axes}
+sg_focus_vec       <- c("effMaxSG", "effMaxSG", "effMinSG", "effMinSG", "eff", "maxSG","minSG")
+selection_rule_vec <- c("pareto",   "both", "pareto", "both", "neighborhood", "neighborhood", "neighborhood")
+
+# Pretty labels used in plot titles, list names, and prose
+combo_labels       <- paste(sg_focus_vec, selection_rule_vec, sep = " / ")
+n_combos           <- length(sg_focus_vec)
+
+cat("Combinations to be run:\n")
+print(data.frame(
+  combo          = seq_len(n_combos),
+  sg_focus       = sg_focus_vec,
+  selection_rule = selection_rule_vec,
+  label          = combo_labels
+))
+```
+
+
+# Data Preparation
+
+## Treatment Assignment
+
+```{r data-treat}
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+```
+
+
+## Outcome Construction
+
+```{r data-outcomes}
+# Drop subjects missing the week-20 CD4 measurement
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# Beneficial scale: CD4 improvement indicator (1 = improved, higher = better)
+actg_df$y_binary_pos <- as.integer(actg_df$cd420 > actg_df$cd40)
+
+# Adverse scale: NO improvement indicator (1 = did not improve, higher = worse)
+actg_df$y_binary_neg <- 1L - actg_df$y_binary_pos
+
+outcome_vars <- c("y_binary_neg", "y_binary_pos")
+```
+
+
+## Covariates
+
+```{r data-covariates}
+# Coerce binary indicators to factors (analyst does not know true cuts
+# for continuous covariates; ForestSearch handles those internally)
+for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+
+cat("Continuous candidates:", paste(cont_vars, collapse = ", "), "\n")
+cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
+cat("Analysis N:", nrow(actg_df), "\n")
+```
+
+
+## Baseline Characteristics
+
+```{r baseline-table}
+create_summary_table(
+  data             = actg_df,
+  treat_var        = treat.name,
+  table_title      = "ACTG175 Baseline Characteristics and Outcomes by Treatment Arm",
+  vars_continuous  = c(outcome_vars, cont_vars),
+  vars_categorical = bin_vars,
+  font_size        = 12
+)
+```
+
+
+## ITT Analysis
+
+```{r itt-analysis}
+# Adverse-scale ITT OR (y_binary_neg = no improvement; OR > 1 = treatment
+# increases the odds of no improvement = harm).
+itt_neg <- glm(y_binary_neg ~ treat, data = actg_df, family = binomial)
+
+# Helper to print log-OR, OR, 95% CI, p-value
+print_or <- function(fit, label) {
+  beta  <- coef(fit)["treat"]
+  se    <- summary(fit)$coefficients["treat", "Std. Error"]
+  z     <- beta / se
+  p     <- 2 * pnorm(-abs(z))
+  or    <- exp(beta)
+  ci_lo <- exp(beta - qnorm(0.975) * se)
+  ci_hi <- exp(beta + qnorm(0.975) * se)
+  cat(sprintf("=== ITT Odds Ratio, %s ===\n", label))
+  cat(sprintf("  log-OR (treat): %7.4f  (SE %.4f)\n", beta, se))
+  cat(sprintf("  OR:             %6.3f  (95%% CI: %.3f, %.3f)\n",
+              or, ci_lo, ci_hi))
+  cat(sprintf("  p-value:        %.4f\n", p))
+}
+
+print_or(itt_neg, "adverse scale (y_binary_neg)")
+```
+
+
+# Selection-Rule Comparison
+
+## Running `compare_selection_rules()`
+
+One call to the wrapper runs `forestsearch()` for each
+`(sg_focus, selection_rule)` combination with all other parameters
+held fixed, and bundles the per-combo diagnostics into a single
+object.
+
+```{r run-comparison}
+#| message: false
+#| warning: false
+
+t0 <- proc.time()
+
+comparison <- compare_selection_rules(
+  df.analysis      = actg_df,
+  sg_focus         = sg_focus_vec,
+  selection_rule   = selection_rule_vec,
+  combo_labels     = combo_labels,
+
+  # Wrapper-specific controls
+  compute_cis      = TRUE,
+  n_splits         = frontier_params$n_splits,
+  ci_seed          = frontier_params$seed,
+  plot_xlim        = frontier_params$xlim,
+  show_band        = TRUE,
+  verbose          = TRUE,
+
+  # All other ForestSearch arguments — pass-through via ... .
+  # These match the single-data binary analysis 1-for-1 except for
+  # sg_focus and selection_rule (which the wrapper supplies).
+  confounders.name = confounders.name,
+  outcome.name     = adverse_outcome,
+  event.name       = adverse_outcome,   # binary: outcome IS the event
+  treat.name       = treat.name,
+  id.name          = id.name,
+  outcome_type     = fs_outcome_type,
+  effect_measure   = fs_effect_measure,
+  adverse_outcome  = TRUE,
+  seedit           = analysis_seed,
+  effect.threshold       = fs_or_threshold,
+  consistency.threshold  = fs_or_consistency,
+  pconsistency.threshold = fs_pconsistency,
+  max_subgroups_search = fs_max_subgroups,
+  use_twostage     = TRUE,
+  conf.cont_jcuts  = list(cd40 = 10, wtkg = 10),
+  use_grf          = fs_use_grf,
+  return_selected_cuts_only = TRUE,
+  use_lasso        = fs_use_lasso,
+  cut_type         = "default",
+  maxk             = fs_maxk,
+  n.min            = fs_n_min,
+  d0.min           = fs_d0_min,
+  d1.min           = fs_d1_min,
+  fs.splits        = fs_splits,
+  parallel_args    = list(
+    plan         = "multisession",
+    workers      = n_cores,
+    show_message = TRUE
+  ),
+  show_candidate_summary = TRUE,
+  details          = TRUE,
+  plot.sg          = FALSE,
+  is.RCT           = fs_is_RCT,
+  vi.grf.min       = fs_vi_grf_min,
+  dmin.grf         = fs_dmin_grf,
+  cont.cutoff      = fs_cont_cutoff,
+  tune_grf         = FALSE,
+  quiet            = FALSE
+)
+
+plan("sequential"); invisible(gc(verbose = FALSE))
+timings$compare <- (proc.time() - t0)["elapsed"]
+
+cat("\nComparison completed in",
+    round(timings$compare / 60, 1), "minutes\n")
+```
+
+
+## Comparison Summary
+
+```{r comparison-summary}
+print(comparison)
+```
+
+
+# Per-Combo Diagnostics
+
+## Captured Console Output
+
+The wrapper captured the in-flight diagnostic output from each
+`forestsearch()` call.  Each combination's two diagnostic banners --
+the `CANDIDATE EVALUATION PREVIEW` (pre-consistency; all candidates
+entering evaluation) and the `CANDIDATE EVALUATION SUMMARY`
+(post-consistency; passing candidates with
+Pcons / Frontier / InBand / Selected flags) -- are shown below as the
+primary view.  The full captured output (GRF preview, Cox-LASSO
+selection, filtering summary, parallel-config messages, post-run
+timings, etc.) is folded into a collapsible block for readers who want
+the complete context.
+
+```{r console-loop, results = "asis"}
+# Loop over all combos.  This replaces the previous two hardcoded
+# sub-sections so the document handles n_combos > 2 correctly
+# (e.g. effMaxSG/pareto, effMaxSG/both, effMinSG/pareto, effMinSG/both).
+for (i in seq_len(n_combos)) {
+  cat(sprintf("\n### %s\n\n", combo_labels[i]))
+
+  diag <- comparison$diagnostics[[i]]
+
+  cat("**Pre-consistency preview:**\n\n")
+  if (!is.na(diag$preview)) {
+    cat("```\n", diag$preview, "\n```\n\n", sep = "")
+  } else {
+    cat("_(not available)_\n\n")
+  }
+
+  cat("**Post-consistency summary:**\n\n")
+  if (!is.na(diag$summary)) {
+    cat("```\n", diag$summary, "\n```\n\n", sep = "")
+  } else {
+    cat("_(not available)_\n\n")
+  }
+
+  cat("<details><summary>Full forestsearch output (expand)</summary>\n\n```\n")
+  cat(comparison$console[[i]], sep = "\n")
+  cat("\n```\n\n</details>\n\n")
+}
+```
+
+
+## Pareto-Frontier Plots
+
+Each combination produces its own Pareto frontier on (OR, N).  The
+plot for each combo is shown individually below, then composed
+side-by-side via `patchwork` for direct visual comparison.  For OR
+(ratio-scale), the effect axis is auto-rendered on log scale by
+`plot_pareto_frontier()`.
+
+### Individual Panels
+
+```{r plot-combo-loop, results = "asis"}
+#| fig-width: 8
+#| fig-height: 5
+
+# One panel per combo (replaces the previous two hardcoded chunks so the
+# document handles n_combos > 2 correctly).
+for (i in seq_len(n_combos)) {
+  cat(sprintf("\n#### %s\n\n", combo_labels[i]))
+  print(comparison$plots[[i]])
+  cat("\n\n")
+}
+```
+
+
+### Side-by-Side Composition
+
+```{r plot-side-by-side}
+#| fig-width: 14
+#| fig-height: 6
+#| fig-cap: "Pareto frontier across selection rules (side-by-side)"
+
+print(comparison$plot_grid)
+```
+
+
+## Combined Plot(s) by Matching Passing-Set Group
+
+`compare_selection_rules()` groups configurations by their
+post-consistency passing set.  When all configurations share one
+passing set, a single combined plot is built (`comparison$plot_combined`).
+When configurations fall into two or more matching groups -- e.g. all
+`effMaxSG` runs agree, all `effMinSG` runs agree, but the two
+`sg_focus` values disagree on which candidates pass -- a combined plot
+is built per group and stored in `comparison$plot_combined_subsets`.
+Each group's plot labels its selected subgroups with `S<i>:` markers
+identifying the configuration(s) that picked them.
+
+```{r plot-combined}
+#| fig-width: 10
+#| fig-height: 6
+#| fig-cap: "Combined Pareto frontier with S1/S2 winner annotations"
+
+if (!is.null(comparison$plot_combined)) {
+  cat("All configurations share one passing set; single combined plot:\n\n")
+  print(comparison$plot_combined)
+} else if (length(comparison$plot_combined_subsets) > 0L) {
+  cat(sprintf("Passing sets fall into %d matching group(s); one combined plot per group:\n\n",
+              length(comparison$plot_combined_subsets)))
+  for (nm in names(comparison$plot_combined_subsets)) {
+    cat(sprintf("Group: %s\n", nm))
+    print(comparison$plot_combined_subsets[[nm]])
+  }
+  if (!is.null(comparison$combined_skip_reason)) {
+    cat("\nNote: ", comparison$combined_skip_reason, "\n", sep = "")
+  }
+} else {
+  cat("**No combined plot.**\n\n")
+  if (!is.null(comparison$combined_skip_reason)) {
+    cat("Reason:  ", comparison$combined_skip_reason, "\n\n", sep = "")
+  }
+  cat("See the side-by-side composition above as the alternative view.\n")
+}
+```
+
+
+## Frontier Tables
+
+Per-combination Pareto-frontier table with split-derived and FSBC
+CIs.  Selected subgroup is highlighted with ★.
+
+```{r table-combo-loop, results = "asis"}
+for (i in seq_len(n_combos)) {
+  cat(sprintf("\n### `%s`\n\n", combo_labels[i]))
+  tbl <- pareto_frontier_table(
+    comparison$fs[[i]],
+    ci_table = comparison$ci_tab[[i]],
+    digits   = frontier_params$digits
+  )
+  print(tbl)
+  cat("\n\n")
+}
+```
+
+
+## Selection Narratives
+
+`explain_pareto_selection()` produces a verbal account of why the
+selected subgroup wins on the configured lexicographic criterion
+relative to the other non-dominated candidates.  Reading the two
+narratives together highlights which axis of the lex key the two
+rules tie-broke on differently.
+
+```{r explain-loop, results = "asis"}
+for (i in seq_len(n_combos)) {
+  cat(sprintf("\n### `%s`\n\n", combo_labels[i]))
+  cat(explain_pareto_selection(
+    comparison$fs[[i]],
+    ci_table = comparison$ci_tab[[i]],
+    digits   = frontier_params$digits
+  ))
+  cat("\n\n")
+}
+```
+
+
+# Rich Post-Consistency View
+
+The `include_dominated = TRUE` argument to `pareto_frontier_table()`
+shows **all** passing candidates (not just the frontier), with
+`on_frontier` and `in_band` flag columns added.  This is the
+post-hoc analog of the `CANDIDATE EVALUATION SUMMARY` banner printed
+during the run.
+
+```{r dominated-loop, results = "asis"}
+for (i in seq_len(n_combos)) {
+  cat(sprintf("\n### `%s`\n\n", combo_labels[i]))
+  tbl <- pareto_frontier_table(
+    comparison$fs[[i]],
+    ci_table          = comparison$ci_tab[[i]],
+    include_dominated = TRUE,
+    digits            = frontier_params$digits
+  )
+  print(tbl)
+  cat("\n\n")
+}
+```
+
+
+# Programmatic Access (Reference)
+
+```{r programmatic, eval = FALSE}
+# Each combination's full fs object is available for downstream use.
+# Index with [[i]] where i runs from 1 to n_combos; see comparison$combos
+# for the (sg_focus, selection_rule, label) tuple at each index.
+comparison$combos                    # data.frame: per-combo configuration
+comparison$fs[[1]]                   # fs object for combo 1
+
+# CI tables (data.tables, one per combo):
+comparison$ci_tab[[1]]
+
+# Plot objects (ggplot, one per combo):
+comparison$plots[[1]]
+
+# Side-by-side panel (single patchwork object):
+comparison$plot_grid
+
+# Combined plot (when passing sets match), and the reason if skipped:
+comparison$plot_combined             # ggplot or NULL (all combos match)
+comparison$plot_combined_subsets     # named list of ggplots, one per
+                                     # matching subset of size >= 2
+comparison$combined_skip_reason      # character or NULL
+
+# Console output (full captured stdout, one character per line):
+comparison$console[[1]]
+
+# Diagnostics (filtered slices: preview, summary, full):
+comparison$diagnostics[[1]]$preview  # PREVIEW block as single string
+comparison$diagnostics[[1]]$summary  # SUMMARY block as single string
+comparison$diagnostics[[1]]$full     # entire captured stdout (single string)
+
+# Errors (NULL if combo succeeded):
+comparison$errors[[1]]
+```
+
+
+# Computational Timing
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_doc_start)["elapsed"]
+
+timing_df <- data.frame(
+  Component = c(sprintf("Comparison run (%d combos)", n_combos),
+                "Total document"),
+  Seconds   = c(timings$compare, timings$total)
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1) |>
+  cols_label(
+    Component = "Component",
+    Seconds   = "Time (sec)",
+    Minutes   = "Time (min)"
+  )
+```
+
+
+# References
+
+León LA, Ye J, Zhao H. *A Bootstrap Framework for Subgroup
+Identification in Randomized Clinical Trials with Bias Correction.*
+Statistics in Medicine. 2024.  [doi:10.1002/sim.10163](https://doi.org/10.1002/sim.10163)

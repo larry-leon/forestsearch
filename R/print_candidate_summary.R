@@ -49,10 +49,30 @@ print_candidate_summary <- function(out_sg,
                                     effect_log_scale = FALSE,
                                     effect_label     = "HR",
                                     max_width        = NULL) {
+  # ---------------------------------------------------------------------------
+  # Always emit the SUMMARY banner, even in the zero-passed case.
+  # Downstream tooling (extract_candidate_diagnostics() in
+  # compare_selection_rules.R) keys on the banner phrase to slice the
+  # captured stdout into the "post-consistency summary" block.  Without
+  # the banner, a legitimate "no candidates passed" outcome renders as
+  # "(not available)" in the comparison vignette, which mis-suggests
+  # that the call never reached the summary step.
+  # ---------------------------------------------------------------------------
+  width_lim <- if (!is.null(max_width)) max_width else 110L
+  bar       <- paste(rep("=", width_lim), collapse = "")
+  rule_str  <- sprintf("sg_focus = %s, selection_rule = %s",
+                       shQuote(sg_focus,        type = "cmd"),
+                       shQuote(selection_rule,  type = "cmd"))
+  cat("\n", bar, "\n", sep = "")
+  cat("CANDIDATE EVALUATION SUMMARY  (", rule_str, ")\n", sep = "")
+  cat(bar, "\n", sep = "")
+
+  # Empty-result branch: emit a compact diagnostic body and return.
   if (is.null(out_sg) || is.null(out_sg$result) ||
       nrow(out_sg$result) == 0L) {
-    cat("\nNo candidates passed the consistency threshold.\n")
-    cat(sprintf("Evaluated: %d  Passed: 0\n", n_evaluated))
+    cat(sprintf("Evaluated: %d   Passed: 0\n", n_evaluated))
+    cat("No candidates met the consistency threshold.\n")
+    cat(bar, "\n", sep = "")
     return(invisible(NULL))
   }
 
@@ -143,15 +163,8 @@ print_candidate_summary <- function(out_sg,
     if (nchar(s) > cuts_w) paste0(substr(s, 1L, cuts_w - 3L), "...") else s
   }, character(1))
 
-  # Banner ------------------------------------------------------------------
-  rule_str <- sprintf("sg_focus = %s, selection_rule = %s",
-                      shQuote(sg_focus, type = "cmd"),
-                      shQuote(selection_rule, type = "cmd"))
-  bar <- paste(rep("=", width_lim), collapse = "")
+  # Table separators (banner already emitted at top of function)
   thin <- paste(rep("-", width_lim), collapse = "")
-  cat("\n", bar, "\n", sep = "")
-  cat("CANDIDATE EVALUATION SUMMARY  (", rule_str, ")\n", sep = "")
-  cat(bar, "\n", sep = "")
 
   # Header row
   hdr_parts <- c(

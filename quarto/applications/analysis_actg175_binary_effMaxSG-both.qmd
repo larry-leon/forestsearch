@@ -1,6 +1,6 @@
 ---
-title: "ACTG175 Continuous Harm Search: Single-Data Analysis"
-subtitle: "ForestSearch with GLM Mean-Difference Outcome (Dual-Scale Framing)"
+title: "ACTG175 Binary Harm Search: Single-Data Analysis"
+subtitle: "ForestSearch with GLM Odds-Ratio Outcome (Dual-Scale Framing)"
 author: "Larry F. León"
 date: today
 format:
@@ -28,6 +28,7 @@ timings <- list()
 t_vignette_start <- proc.time()
 ```
 
+
 # To-do
 
 - Extend FS to cut continuous factors in *J* non-overlapping intervals (e.g., J = 12 to allow for fuller exploration)
@@ -39,16 +40,16 @@ t_vignette_start <- proc.time()
 # Introduction
 
 This vignette demonstrates the **ForestSearch** methodology for exploratory
-subgroup identification with a **continuous outcome on the mean-difference
-(MD) scale**, applied to the ACTG175 trial. It uses the GLM extension of
+subgroup identification with a **binary outcome on the odds-ratio
+(OR) scale**, applied to the ACTG175 trial. It uses the GLM extension of
 ForestSearch (León et al. 2024 *Statistics in Medicine*) and is the
-continuous-outcome counterpart to the Cox/Poisson GBSG vignette.
+binary-outcome counterpart to the continuous-outcome vignette.
 
 ## Motivation
 
-Many randomized trials have continuous endpoints (biomarker change, scores,
-counts of laboratory values) where the natural treatment-effect contrast is
-the mean difference between arms. ForestSearch identifies subgroups where
+Many randomized trials have binary endpoints (response, improvement,
+event-by-time-point indicators) where the natural treatment-effect contrast
+is the odds ratio between arms. ForestSearch identifies subgroups where
 the treatment effect deviates meaningfully from a prespecified threshold,
 with proper accounting for the optimism inherent in data-driven subgroup
 discovery.
@@ -59,31 +60,33 @@ discovery.
 **ForestSearch vs GRF**: The forestsearch methodology was developed for 
 survival data where the outcome is generally the timing to an adverse outcome 
 and thresholds (e.g., indicative of harm) were defined accordingly.  In contrast, 
-GRF evaluates survival data in terms of RMST where thresholds are defined 
+GRF evaluates data in terms of benefit where thresholds are defined 
 as ``benefit in favor of control``.  The dual-scale framing is simply a matter of
-aliging the threshold directions (for harm) to the forestsearch and GRF 
+aligning the threshold directions (for harm) to the forestsearch and GRF 
 interpretations.
 :::
 
 
 
 This analysis applies **two different methods** on **two different scales
-of the same outcome**:
+of the same binary outcome**:
 
-- **Part I — ForestSearch on the adverse scale** (`y_decline = cd40 - cd420`,
-  CD4 decline; higher = worse). With `adverse_outcome = TRUE`, an MD above
-  the screening threshold indicates harm.
+- **Part I — ForestSearch on the adverse scale** (`y_binary_neg = 1 - y_binary_pos`,
+  indicator of NO CD4 improvement; 1 = worse). With
+  `adverse_outcome = TRUE`, an OR above the screening threshold indicates
+  harm (the treatment increases the odds of no improvement).
 - **Part II — GRF standalone on the beneficial scale**
-  (`y_improve = cd420 - cd40`, CD4 improvement; higher = better). With
-  the default `adverse_outcome = FALSE`, a CATE below the threshold
-  indicates harm (insufficient improvement).
+  (`y_binary_pos = I(cd420 > cd40)`, indicator of CD4 improvement;
+  1 = better). With the default `adverse_outcome = FALSE`, a CATE below
+  the threshold indicates harm (insufficient improvement).
 - **Part III — Cross-method comparison**: per-subject H/Hc agreement
   between the two analyses, with Cohen's κ.
 
-The two scales are sign-flipped versions of the same outcome, so the ITT
-mean differences are equal in magnitude with opposite signs. Differences in
-identified subgroups reflect the methods (FS exhaustive search vs GRF
-policy tree) and the model class, not the data.
+The two scales are sign-flipped versions of the same binary outcome
+(`y_binary_neg = 1 - y_binary_pos`), so the ITT log-odds-ratios are
+equal in magnitude with opposite signs. Differences in identified
+subgroups reflect the methods (FS exhaustive search vs GRF policy tree)
+and the model class, not the data.
 
 ## Trial Background
 
@@ -141,23 +144,23 @@ id.name <- "id"
 
 # ─── Variables (dual-scale framing) ────────────────────────────────────
 treat.name         <- "treat"
-adverse_outcome    <- "y_decline"   # FS adverse-scale outcome
-beneficial_outcome <- "y_improve"   # GRF beneficial-scale outcome
+adverse_outcome    <- "y_binary_neg"   # FS adverse-scale outcome
+beneficial_outcome <- "y_binary_pos"   # GRF beneficial-scale outcome
 
-# ─── ForestSearch parameters (continuous, MD scale) ────────────────────
-fs_outcome_type    <- "continuous"
-fs_effect_measure  <- "MD"
+# ─── ForestSearch parameters (binary, OR scale) ────────────────────────
+fs_outcome_type    <- "binary"
+fs_effect_measure  <- "OR"
 
 fs_sg_focus        <- "effMaxSG"   # GLM-natural alias for "hrMaxSG" (see
                                    # NEWS for the effect-vocabulary aliases)
 fs_selection_rule  <- "both"   # candidate inclusion: neighborhood ∩ Pareto
                                # (only used by effMaxSG / effMinSG focus)
 
-# Thresholds in CD4 count units (adverse scale: MD > c1 = harm)
-fs_md_threshold    <- 10    # screening: MD >= 10 indicates harm
-fs_md_consistency  <- 5     # consistency: MD >= 5
+# Thresholds on the OR scale (adverse scale: OR > c1 = harm)
+fs_or_threshold    <- 1.25  # screening: OR >= 1.25 indicates harm
+fs_or_consistency  <- 1.0   # consistency: OR >= 1.0 (nominal harm)
 
-fs_pconsistency    <- 0.90
+fs_pconsistency    <- 0.80
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
 fs_d1_min          <- 10L
@@ -181,17 +184,21 @@ fs_cont_cutoff     <- 4L
 # on (effect, N).  The selected subgroup is typically a frontier member.
 # The frontier is shown here both as the selection criterion AND as a
 # diagnostic of the candidate trade-off space.
+# For OR (ratio-scale), the effect axis is auto-rendered on log scale
+# by plot_pareto_frontier(); leave xlim = NULL for auto bounds.
 frontier_params <- list(
   n_splits      = 1000L,
   seed          = 1L,
-  xlim          = NULL,       # auto (continuous MD has no natural bounds)
+  xlim          = c(0.35,10),       # auto (OR auto-detected as ratio scale)
   digits        = 2L
 )
 
 # ─── GRF standalone parameters (beneficial scale) ──────────────────────
-grf_outcome_type   <- "continuous"
-grf_effect_measure <- "MD"
-grf_dmin_grf       <- 0.1
+grf_outcome_type   <- "binary"
+grf_effect_measure <- "OR"
+grf_dmin_grf       <- 0.1    # on the RD scale for binary outcomes
+                             # (e.g., 0.10 = 10 percentage-point absolute
+                             # difference in event rates)
 grf_maxdepth       <- 2L
 grf_RCT            <- TRUE
 grf_sg_criterion   <- "mDiff"
@@ -199,7 +206,7 @@ grf_tune           <- FALSE
 
 # ─── Bootstrap (gated; demo by default) ────────────────────────────────
 run_bootstrap <- TRUE
-NB <- 500L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
+NB <- 20L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
 
 # ─── Cross-Validation (gated; demo by default) ─────────────────────────
 run_cv <- TRUE
@@ -253,13 +260,13 @@ actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
 # Drop subjects missing the week-20 CD4 measurement
 actg_df <- actg_df[!is.na(actg_df$cd420), ]
 
-# Adverse scale: CD4 decline (higher = worse)
-actg_df$y_decline <- actg_df$cd40 - actg_df$cd420
+# Beneficial scale: CD4 improvement indicator (1 = improved, higher = better)
+actg_df$y_binary_pos <- as.integer(actg_df$cd420 > actg_df$cd40)
 
-# Beneficial scale: CD4 improvement (higher = better)
-actg_df$y_improve <- actg_df$cd420 - actg_df$cd40
+# Adverse scale: NO improvement indicator (1 = did not improve, higher = worse)
+actg_df$y_binary_neg <- 1L - actg_df$y_binary_pos
 
-outcome_vars <- c("y_decline","y_improve")
+outcome_vars <- c("y_binary_neg", "y_binary_pos")
 ```
 
 ## Covariates
@@ -289,20 +296,37 @@ create_summary_table(
 ## ITT Analysis
 
 ```{r itt-analysis}
-# Adverse-scale ITT MD (CD4 decline; positive coef = treatment increases decline = harm)
-itt_decline <- lm(y_decline ~ treat, data = actg_df)
+# Adverse-scale ITT OR (y_binary_neg = no improvement; OR > 1 = treatment
+# increases the odds of no improvement = harm)
+itt_neg <- glm(y_binary_neg ~ treat, data = actg_df, family = binomial)
 
-# Beneficial-scale ITT MD (CD4 improvement; positive coef = treatment increases improvement = benefit)
-itt_improve <- lm(y_improve ~ treat, data = actg_df)
+# Beneficial-scale ITT OR (y_binary_pos = improvement; OR > 1 = treatment
+# increases the odds of improvement = benefit)
+itt_pos <- glm(y_binary_pos ~ treat, data = actg_df, family = binomial)
 
-cat("=== ITT Mean Difference, adverse scale (y_decline) ===\n")
-print(summary(itt_decline)$coefficients["treat", , drop = FALSE])
+# Helper to print OR / log-OR / 95% CI / p-value
+print_or <- function(fit, label) {
+  beta  <- coef(fit)["treat"]
+  se    <- summary(fit)$coefficients["treat", "Std. Error"]
+  z     <- beta / se
+  p     <- 2 * pnorm(-abs(z))
+  or    <- exp(beta)
+  ci_lo <- exp(beta - qnorm(0.975) * se)
+  ci_hi <- exp(beta + qnorm(0.975) * se)
+  cat(sprintf("=== ITT Odds Ratio, %s ===\n", label))
+  cat(sprintf("  log-OR (treat): %7.4f  (SE %.4f)\n", beta, se))
+  cat(sprintf("  OR:             %6.3f  (95%% CI: %.3f, %.3f)\n",
+              or, ci_lo, ci_hi))
+  cat(sprintf("  p-value:        %.4f\n", p))
+}
 
-cat("\n=== ITT Mean Difference, beneficial scale (y_improve) ===\n")
-print(summary(itt_improve)$coefficients["treat", , drop = FALSE])
+print_or(itt_neg, "adverse scale (y_binary_neg)")
+cat("\n")
+print_or(itt_pos, "beneficial scale (y_binary_pos)")
 
-cat("\nNote: y_decline and y_improve are sign-flipped, so the MD point\n")
-cat("estimates are equal in magnitude with opposite signs.\n")
+cat("\nNote: y_binary_neg = 1 - y_binary_pos, so the two log-ORs are\n")
+cat("equal in magnitude with opposite signs (likewise the two ORs are\n")
+cat("reciprocals of each other).\n")
 ```
 
 
@@ -310,11 +334,11 @@ cat("estimates are equal in magnitude with opposite signs.\n")
 
 ## Rationale
 
-ForestSearch operates on the adverse scale (`y_decline`) with
-`adverse_outcome = TRUE`. An MD above `fs_md_threshold` (in CD4 count
-units) indicates the treatment **increases CD4 decline** in that
-subgroup (harm). No outcome flip is applied; the screening threshold is
-on the MD scale directly.
+ForestSearch operates on the adverse scale (`y_binary_neg`, indicator of
+NO improvement) with `adverse_outcome = TRUE`. An OR above
+`fs_or_threshold` indicates the treatment **increases the odds of
+no improvement** in that subgroup (harm). No outcome flip is applied;
+the screening threshold is on the OR scale directly.
 
 ## ForestSearch Parameters
 
@@ -335,10 +359,10 @@ list of aliases.
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| `effect_measure` | `MD` | Mean difference (continuous) |
-| `effect.threshold` | 10 | Screening MD threshold (CD4 count units) |
-| `consistency.threshold` | 5 | Per-split consistency MD threshold |
-| `pconsistency.threshold` | 0.90 | Required consistency rate across splits |
+| `effect_measure` | `OR` | Odds ratio (binary) |
+| `effect.threshold` | 1.25 | Screening OR threshold (adverse scale) |
+| `consistency.threshold` | 1.0 | Per-split consistency OR threshold |
+| `pconsistency.threshold` | 0.80 | Required consistency rate across splits |
 | `maxk` | 2 | Maximum factors per subgroup |
 | `n.min` | 60 | Minimum subgroup size |
 | `d0.min`, `d1.min` | 10 | Minimum sample size per arm |
@@ -358,17 +382,17 @@ fs_result <- forestsearch(
   df.analysis      = actg_df,
   confounders.name = confounders.name,
   outcome.name     = adverse_outcome,
+  event.name       = adverse_outcome,    # binary: outcome IS the event
   treat.name       = treat.name,
   id.name          = id.name,
-  # GLM parameters (event.name omitted: forestsearch_main.R:1261-1268
-  # auto-creates a placeholder for continuous outcomes)
+  # GLM parameters
   outcome_type     = fs_outcome_type,
   effect_measure   = fs_effect_measure,
   adverse_outcome  = TRUE,
   seedit           = analysis_seed,
-  # Threshold parameters (MD scale)
-  effect.threshold       = fs_md_threshold,
-  consistency.threshold  = fs_md_consistency,
+  # Threshold parameters (OR scale)
+  effect.threshold       = fs_or_threshold,
+  consistency.threshold  = fs_or_consistency,
   pconsistency.threshold = fs_pconsistency,
   # Search configuration
   sg_focus         = fs_sg_focus,
@@ -446,7 +470,7 @@ if (!is.null(fs_result$sg.harm) && length(fs_result$sg.harm) > 0) {
 ```{r fs-glm-plot}
 #| fig-width: 10
 #| fig-height: 7
-#| fig-cap: "Mean CD4 decline by treatment arm and identified subgroup (FS, adverse scale)"
+#| fig-cap: "Rate of no improvement by treatment arm and identified subgroup (FS, adverse scale)"
 
 fs_plot <- plot_sg_glm_outcomes(
   fs.est         = fs_result,
@@ -465,7 +489,7 @@ fs_plot <- plot_sg_glm_outcomes(
 
 ## Selection Diagnostic: Pareto Frontier
 
-Post-hoc diagnostic showing all passing candidates on the (MD, N) plane.
+Post-hoc diagnostic showing all passing candidates on the (OR, N) plane.
 
 ::: {.callout-note}
 **Context for `sg_focus = "effMaxSG"` with `selection_rule = "both"`.**
@@ -479,13 +503,19 @@ and the frontier plot serves both as the selection geometry AND as a
 diagnostic showing the alternatives the rule considered (and ruled
 out).  Compare this to the comparison vignette, which shows what
 happens when `selection_rule` is varied with all else fixed.
+
+For OR outcomes the effect axis is auto-rendered on log scale by
+`plot_pareto_frontier()` and `pareto_frontier_table()` (auto-detected
+from `fs_result$effect_measure`); the rendered values are on the
+natural OR scale.
 :::
 
 ```{r fs-pareto}
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
 # outcomes — effect-column label and scale derived from
-# fs_result$effect_measure.
+# fs_result$effect_measure.  For OR, the effect column is exponentiated
+# for display and the band test is on the natural OR scale.
 
 # 1. Compute the CIs once (this is the expensive step, ~1-3 min).
 #    Parameters come from frontier_params in the Analysis Configuration.
@@ -566,8 +596,8 @@ ci_tab
 
 Bootstrap bias correction adjusts the FS point estimate for the optimism
 inherent in data-driven subgroup identification. The bootstrap pipeline
-auto-detects the `MD` effect column from `fs_result` and produces
-bias-corrected MD estimates with bootstrap distributions and diagnostics.
+auto-detects the `OR` effect column from `fs_result` and produces
+bias-corrected OR estimates with bootstrap distributions and diagnostics.
 
 ::: {.callout-note}
 **Demo mode**: `NB = 20` for pressure-testing the pipeline end-to-end.
@@ -606,7 +636,7 @@ cat("\nBootstrap completed in", round(timings$bootstrap / 60, 2), "minutes",
 #| eval: !expr run_bootstrap
 
 # Note: est.scale only affects the legacy HR-flavored caption helper; the
-# MD column (with bias-corrected MD*) is auto-detected from FSsg_tab.
+# OR column (with bias-corrected OR*) is auto-detected from FSsg_tab.
 fs_summaries <- summarize_bootstrap_results(
   sgharm       = fs_result$sg.harm,
   boot_results = fs_bc,
@@ -650,7 +680,7 @@ if (!is.null(fs_summaries$subgroup_summary$factor_presence)) {
 #| eval: !expr run_bootstrap
 #| fig-width: 10
 #| fig-height: 4
-#| fig-cap: "Bootstrap distributions of MD for H (questionable) and Hc (recommend)"
+#| fig-cap: "Bootstrap distributions of OR for H (questionable) and Hc (recommend)"
 
 if (!is.null(fs_summaries$plots)) {
   fs_summaries$plots$H_distribution + fs_summaries$plots$Hc_distribution
@@ -717,7 +747,7 @@ kfold_out <- forestsearch_KfoldOut(fs_kfold_result, outall = TRUE,
                                    digits = construction_digits)
 cv_tabs   <- cv_summary_tables(
   kfold_out,
-  title    = "ACTG175 Cross-Validation Summary (Continuous, MD)",
+  title    = "ACTG175 Cross-Validation Summary (Binary, OR)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs %d-fold (Kf)",
                      Kfolds_cv),
   digits   = display_digits,
@@ -807,7 +837,7 @@ loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
                                   digits = construction_digits)
 loo_tabs <- cv_summary_tables(
   loo_out,
-  title    = "ACTG175 Leave-One-Out CV Summary (Continuous, MD)",
+  title    = "ACTG175 Leave-One-Out CV Summary (Binary, OR)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
                      N_loo),
   digits   = display_digits,
@@ -883,7 +913,7 @@ validation agreement annotations (when CV was run).
 #| eval: !expr run_forestplot
 #| fig-width: 12
 #| fig-height: 5
-#| fig-cap: "Forest plot of ITT and identified subgroup; MD on the adverse scale (CD4 decline)"
+#| fig-cap: "Forest plot of ITT and identified subgroup; OR on the adverse scale (no improvement)"
 
 # Build fs_results list dynamically based on what's been computed.
 fs_results_list <- list(fs.est = fs_result)
@@ -902,23 +932,21 @@ if (exists("fs_kfold_result")) {
   cv_label_for_plot <- "LOO CV"
 }
 
-# Note: event.name is required by the function signature but is not
-# accessed for continuous outcomes (create_glm_row in
-# plot_subgroup_results_forestplot.R:368-446 does not reference it).
-# Pass treat.name as a placeholder.
+# For binary outcomes, event.name = outcome.name (the binary indicator is
+# its own event).  xlog = TRUE for OR (ratio scale, log axis).
 forest_obj <- plot_subgroup_results_forestplot(
   fs_results     = fs_results_list,
   df_analysis    = actg_df,
   outcome.name   = adverse_outcome,
-  event.name     = treat.name,           # placeholder; unused for GLM
+  event.name     = adverse_outcome,
   treat.name     = treat.name,
   E.name         = "ZDV+ddI",
   C.name         = "ddI",
   outcome_type   = fs_outcome_type,
   effect_measure = fs_effect_measure,
-  xlog           = FALSE,                # MD is identity scale
+  xlog           = TRUE,                 # OR is ratio scale -> log axis
   arrow_text     = c("Favors ZDV+ddI", "Favors ddI"),
-  title_text     = "ACTG175 Subgroup Results — Continuous (MD, adverse scale)",
+  title_text     = "ACTG175 Subgroup Results — Binary (OR, adverse scale)",
   show_cv_metrics = !is.null(cv_label_for_plot),
   cv_source      = "kfold",
   xlim_method    = "data"
@@ -936,13 +964,23 @@ if (!is.null(cv_label_for_plot)) {
 
 ## Rationale
 
-GRF operates on the beneficial scale (`y_improve`, CD4 improvement) with
-`adverse_outcome = FALSE` (the default). A CATE below the threshold means
-the treatment **decreases improvement** in that subgroup — harm via
-insufficient benefit. This is the natural complement to the FS analysis
-on the adverse scale: same outcome data, opposite encoding, and a
-different model class (causal forest with policy-tree subgroup
-extraction).
+GRF operates on the beneficial scale (`y_binary_pos`, indicator of CD4
+improvement) with `adverse_outcome = FALSE` (the default). A negative
+CATE means the treatment **decreases the probability of improvement** in
+that subgroup — harm via insufficient benefit. This is the natural
+complement to the FS analysis on the adverse scale: same outcome data,
+opposite encoding, and a different model class (causal forest with
+policy-tree subgroup extraction).
+
+For binary outcomes the per-subject CATE from `grf::causal_forest()` is
+on the **risk-difference (RD) scale**: \\(\\widehat{\\tau}_i =
+\\hat{P}(Y_i=1 \\mid T=1, X_i) - \\hat{P}(Y_i=1 \\mid T=0, X_i)\\),
+bounded in \\([-1, 1]\\).  The `dmin.grf` threshold is interpreted on
+this same RD scale (e.g., `dmin.grf = 0.10` requires at least a 10
+percentage-point absolute difference in event rates).  The effect-measure
+label `"OR"` controls how the FS-side estimation and reporting step
+renders the subgroup contrast; the GRF CATE itself remains on the RD
+scale internally.
 
 ## Running GRF
 
@@ -1001,9 +1039,9 @@ if (!is.null(grf_result$sg.harm.id) && length(grf_result$sg.harm.id) > 0) {
       paste(grf_result$sg.harm.id, collapse = " & "), "\n")
   cat(sprintf("Subgroup size: %d (%.1f%% of ITT)\n",
               sum(grf_H), 100 * mean(grf_H)))
-  cat(sprintf("CATE(H):  %6.2f  (treatment effect on improvement, in H)\n",
+  cat(sprintf("CATE(H):  %+6.3f  (RD: P(improve|T=1) - P(improve|T=0) in H)\n",
               grf_result$cate_sg))
-  cat(sprintf("CATE(Hc): %6.2f\n", grf_result$cate_sgc))
+  cat(sprintf("CATE(Hc): %+6.3f\n", grf_result$cate_sgc))
 } else {
   cat("GRF: no subgroup identified.\n")
 }
@@ -1052,11 +1090,14 @@ if (!is.null(grf_result$grf_varimp) && length(grf_result$grf_varimp) > 0) {
 Per-subject conditional average treatment effects (CATE) are estimated
 from GRF's double-robust scores: \\( \\widehat{\\tau}_i = \\Gamma_{1,i} - \\Gamma_{0,i} \\),
 where \\( \\Gamma_0 \\) and \\( \\Gamma_1 \\) are the doubly robust outcome
-predictions under control and treatment. On the **beneficial scale**
-(`y_improve`), positive CATE means treatment increases CD4 improvement
-(benefit); negative CATE means the opposite (harm via insufficient
+predictions under control and treatment. For binary outcomes the CATE
+is on the **risk-difference (RD) scale**: positive CATE means the
+treatment increases the probability of improvement (benefit); negative
+CATE means it decreases the probability (harm via insufficient
 improvement). The histogram below shows the empirical CATE distribution
-across subjects, colored by GRF-assigned subgroup membership.
+across subjects, colored by GRF-assigned subgroup membership. Bounded in
+\\([-1, 1]\\) in principle, though typical CATE magnitudes are smaller
+(±0.1 to ±0.3 absolute probability difference).
 
 ```{r grf-cate-distribution}
 #| fig-width: 9
@@ -1090,13 +1131,13 @@ if (!is.null(grf_result$dr_scores) &&
       "H\u1d9c (recommend)"  = "steelblue"
     )) +
     labs(
-      x        = "Per-subject CATE (Y(1) - Y(0)) on improvement scale",
+      x        = "Per-subject CATE: P(Y=1|T=1) - P(Y=1|T=0)  (RD scale)",
       y        = "Count",
       title    = "GRF CATE Distribution",
       subtitle = paste0("Dotted lines: subgroup-mean CATE(H) = ",
-                        sprintf("%.2f", grf_result$cate_sg),
+                        sprintf("%+.3f", grf_result$cate_sg),
                         ", CATE(H\u1d9c) = ",
-                        sprintf("%.2f", grf_result$cate_sgc),
+                        sprintf("%+.3f", grf_result$cate_sgc),
                         ".  Negative CATE = harm via insufficient improvement."),
       fill     = "Subgroup"
     )
@@ -1117,7 +1158,7 @@ grf_tabs$tab_estimates
 ```{r grf-glm-plot}
 #| fig-width: 10
 #| fig-height: 7
-#| fig-cap: "Mean CD4 improvement by treatment arm and identified subgroup (GRF, beneficial scale)"
+#| fig-cap: "Rate of CD4 improvement by treatment arm and identified subgroup (GRF, beneficial scale)"
 
 # plot_sg_glm_outcomes() expects an fs.est-shaped object with df.est and
 # sg.harm.  GRF returns `data` and `sg.harm.id`, so we wrap them in a
@@ -1149,8 +1190,8 @@ grf_plot <- plot_sg_glm_outcomes(
 
 The two analyses define H differently:
 
-- FS uses the adverse scale (`y_decline`, `MD > c1` = harm).
-- GRF uses the beneficial scale (`y_improve`, CATE below threshold = harm).
+- FS uses the adverse scale (`y_binary_neg`, `OR > c1` = harm).
+- GRF uses the beneficial scale (`y_binary_pos`, CATE below 0 = harm).
 
 Both classify subjects as H (`treat.recommend == 0`) when they meet their
 respective harm criterion, so per-subject membership is directly
@@ -1243,4 +1284,3 @@ Trials Group Study 175 Study Team. *N Engl J Med*. 335(15):1081-90.
 ```{r session-info}
 sessionInfo()
 ```
-
