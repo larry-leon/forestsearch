@@ -148,7 +148,7 @@ beneficial_outcome <- "y_improve"   # GRF beneficial-scale outcome
 fs_outcome_type    <- "continuous"
 fs_effect_measure  <- "MD"
 
-fs_sg_focus        <- "minSG"
+fs_sg_focus        <- "hr"
 fs_selection_rule  <- "neighborhood"   # currently only used by hrMaxSG/hrMinSG;
                                        # set explicitly for forward compatibility
 
@@ -161,7 +161,7 @@ fs_n_min           <- 60L
 fs_d0_min          <- 10L
 fs_d1_min          <- 10L
 fs_splits          <- 500L
-fs_max_subgroups   <- 10
+fs_max_subgroups   <- 20
 fs_maxk            <- 2L
 fs_use_lasso       <- TRUE
 fs_use_grf         <- TRUE
@@ -196,11 +196,11 @@ grf_tune           <- FALSE
 
 # ─── Bootstrap (gated; demo by default) ────────────────────────────────
 run_bootstrap <- TRUE
-NB <- 100L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
+NB <- 500L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
 
 # ─── Cross-Validation (gated; demo by default) ─────────────────────────
 run_cv <- TRUE
-Kfolds_cv <- 10L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_result$df.est).
+Kfolds_cv <- 50L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_result$df.est).
                   # Production: 10-fold is standard; consider forestsearch_tenfold()
                   # with sims = 50-100 for repeated K-fold stability assessment.
 
@@ -208,7 +208,7 @@ Kfolds_cv <- 10L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_resu
 # LOO runs forestsearch() once per observation (N folds).  Comparable in
 # cost to K-fold * N/K, but well-tolerated on samples up to ~1000.
 # Set FALSE to skip; toggles independently of run_cv.
-run_loo <- FALSE
+run_loo <- TRUE
 
 # ─── Numeric Precision ─────────────────────────────────────────────────
 # Two-stage precision control (Reading-C design):
