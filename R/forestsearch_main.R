@@ -280,21 +280,26 @@
 #'   \code{consistency.threshold} is provided, \code{hr.consistency} is ignored.
 #' @param sg_focus Character. Subgroup selection focus. One of:
 #'   \describe{
-#'     \item{\code{"hr"}}{Pick the candidate with the highest consistency
-#'       (\code{Pcons}); ties broken by largest effect.}
+#'     \item{\code{"hr"} (or \code{"eff"})}{Pick the candidate with the
+#'       highest consistency (\code{Pcons}); ties broken by largest
+#'       effect.}
 #'     \item{\code{"maxSG"}}{Pick the candidate with the largest sample
 #'       size; ties broken by consistency.}
 #'     \item{\code{"minSG"}}{Pick the candidate with the smallest sample
 #'       size; ties broken by consistency.}
-#'     \item{\code{"hrMaxSG"}}{Among candidates with effect size within
-#'       \code{effect_neighborhood} of the maximum, pick the one with
-#'       the \emph{largest} sample size.}
-#'     \item{\code{"hrMinSG"}}{Among candidates with effect size within
-#'       \code{effect_neighborhood} of the maximum, pick the one with
-#'       the \emph{smallest} sample size.}
+#'     \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
+#'       with effect size within \code{effect_neighborhood} of the
+#'       maximum, pick the one with the \emph{largest} sample size.}
+#'     \item{\code{"hrMinSG"} (or \code{"effMinSG"})}{Among candidates
+#'       with effect size within \code{effect_neighborhood} of the
+#'       maximum, pick the one with the \emph{smallest} sample size.}
 #'   }
-#'   Default \code{"hr"}.  See \code{\link{sort_subgroups}} for full sort
-#'   keys and tiebreakers.
+#'   Default \code{"hr"}.  The \code{"eff*"} forms are aliases for the
+#'   \code{"hr*"} forms and read more naturally in GLM contexts
+#'   (continuous MD, binary OR/RR/RD, count IRR) where there is no
+#'   hazard ratio.  Both vocabularies produce identical results; pick
+#'   whichever fits the outcome type.  See \code{\link{sort_subgroups}}
+#'   for full sort keys and tiebreakers.
 #' @param selection_rule Character. Rule defining the candidate
 #'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
 #'   \code{"neighborhood"} (default; current behaviour),
@@ -723,14 +728,25 @@ forestsearch <- function(df.analysis,
 
   # 1. sg_focus must be one of the known values.  Hoisted here so that
   #    .validate_selection_rule() below sees an already-validated sg_focus.
+  #
+  # First normalize the GLM-natural vocabulary (effMaxSG/effMinSG/eff) to
+  # the canonical internal form (hrMaxSG/hrMinSG/hr).  The two
+  # vocabularies are interchangeable at the user-facing API; internals
+  # are keyed on the canonical names so all downstream code is unchanged.
+  # Unrecognized values pass through and are reported by the whitelist
+  # check below.
+  sg_focus_user <- sg_focus                       # save for error message
+  sg_focus      <- .normalize_sg_focus(sg_focus)
   valid_sg_focus <- c("hr", "hrMaxSG", "maxSG", "hrMinSG", "minSG")
+  valid_sg_focus_user <- c(valid_sg_focus,
+                           "eff", "effMaxSG", "effMinSG")
   if (!is.character(sg_focus) || length(sg_focus) != 1L ||
       !sg_focus %in% valid_sg_focus) {
     stop(sprintf(
       "'sg_focus' must be one of: %s.  Got: %s.",
-      paste(shQuote(valid_sg_focus), collapse = ", "),
-      if (is.character(sg_focus) && length(sg_focus) == 1L)
-        shQuote(sg_focus) else "<invalid>"),
+      paste(shQuote(valid_sg_focus_user), collapse = ", "),
+      if (is.character(sg_focus_user) && length(sg_focus_user) == 1L)
+        shQuote(sg_focus_user) else "<invalid>"),
       call. = FALSE)
   }
 

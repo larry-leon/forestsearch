@@ -735,3 +735,58 @@ reset_workers <- function(workers   = NULL,
 
   invisible(list(previous = prev_class, current = new_plan))
 }
+
+
+# ============================================================================
+# .normalize_sg_focus() -- internal vocabulary alias
+# ============================================================================
+# The package's `sg_focus` argument originally used a Cox / hazard-ratio
+# vocabulary ("hr", "hrMaxSG", "hrMinSG") that pre-dates the GLM extension
+# (continuous MD, binary OR/RR/RD, count IRR).  The GLM-natural vocabulary
+# uses "eff*" prefixes -- "effMaxSG", "effMinSG", "eff" -- which read
+# correctly regardless of effect measure.
+#
+# Both vocabularies are accepted throughout the user-facing API; this
+# helper translates the new names to the canonical internal "hr*" form
+# at entry points so that downstream code (which is keyed on the
+# canonical form) needs no changes.
+#
+# Aliases (case-sensitive, matches `match.arg` conventions):
+#   "effMaxSG" -> "hrMaxSG"
+#   "effMinSG" -> "hrMinSG"
+#   "eff"      -> "hr"
+#   "maxSG"    -> "maxSG"   (unchanged; pre-existing alias for hrMaxSG)
+#   "minSG"    -> "minSG"   (unchanged; pre-existing alias for hrMinSG)
+# Any other value is returned unchanged so the downstream whitelist
+# check produces its usual error message.
+# ----------------------------------------------------------------------------
+
+#' Translate the new effect-vocabulary `sg_focus` aliases to canonical form
+#'
+#' Accepts the GLM-natural vocabulary (\code{"effMaxSG"},
+#' \code{"effMinSG"}, \code{"eff"}) and translates to the canonical
+#' Cox-flavored internal names (\code{"hrMaxSG"}, \code{"hrMinSG"},
+#' \code{"hr"}).  Unrecognized values pass through unchanged so the
+#' caller's own whitelist check fires.
+#'
+#' This is an internal helper.  User code does not call it directly;
+#' \code{\link{forestsearch}} and \code{\link{subgroup.consistency}}
+#' invoke it on entry.
+#'
+#' @param sg_focus Character scalar.
+#'
+#' @return Character scalar in canonical form.
+#'
+#' @keywords internal
+#' @noRd
+.normalize_sg_focus <- function(sg_focus) {
+  if (!is.character(sg_focus) || length(sg_focus) != 1L) {
+    return(sg_focus)  # downstream whitelist will reject
+  }
+  switch(sg_focus,
+    effMaxSG = "hrMaxSG",
+    effMinSG = "hrMinSG",
+    eff      = "hr",
+    sg_focus
+  )
+}

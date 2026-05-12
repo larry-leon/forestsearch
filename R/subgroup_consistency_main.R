@@ -41,17 +41,21 @@
 #' @param confs_labels Character vector mapping factor names to labels.
 #' @param sg_focus Character. Subgroup selection criterion. One of:
 #'   \describe{
-#'     \item{\code{"hr"}}{Sort by \eqn{(-Pcons, -hr, K)}; pick top.}
+#'     \item{\code{"hr"} (or \code{"eff"})}{Sort by
+#'       \eqn{(-Pcons, -hr, K)}; pick top.}
 #'     \item{\code{"maxSG"}}{Sort by \eqn{(-N, -Pcons, K)}; pick top.}
 #'     \item{\code{"minSG"}}{Sort by \eqn{(N, -Pcons, K)}; pick top.}
-#'     \item{\code{"hrMaxSG"}}{Among candidates with effect size within
-#'       \code{effect_neighborhood} of the maximum, pick the one with
-#'       the largest \eqn{N}.}
-#'     \item{\code{"hrMinSG"}}{Among candidates with effect size within
-#'       \code{effect_neighborhood} of the maximum, pick the one with
-#'       the smallest \eqn{N}.}
+#'     \item{\code{"hrMaxSG"} (or \code{"effMaxSG"})}{Among candidates
+#'       with effect size within \code{effect_neighborhood} of the
+#'       maximum, pick the one with the largest \eqn{N}.}
+#'     \item{\code{"hrMinSG"} (or \code{"effMinSG"})}{Among candidates
+#'       with effect size within \code{effect_neighborhood} of the
+#'       maximum, pick the one with the smallest \eqn{N}.}
 #'   }
-#'   Default: \code{"hr"}.
+#'   Default: \code{"hr"}.  The \code{"eff*"} forms are aliases for
+#'   the \code{"hr*"} forms and read more naturally in GLM contexts
+#'   (continuous MD, binary OR/RR/RD, count IRR).  Both vocabularies
+#'   produce identical results.
 #' @param selection_rule Character. Rule defining the candidate
 #'   inclusion set for \code{"hrMaxSG"} / \code{"hrMinSG"}.  One of
 #'   \code{"neighborhood"} (default; current behaviour),
@@ -274,6 +278,14 @@ subgroup.consistency <- function(df,
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
   # ===========================================================================
+
+  # Accept the GLM-natural vocabulary (effMaxSG / effMinSG / eff) alongside
+  # the canonical Cox-flavored names (hrMaxSG / hrMinSG / hr).  Normalize
+  # at the entry point so all downstream code -- including the early-stop
+  # batching at Section 8, sort_subgroups_preview() / sort_subgroups() in
+  # the helpers, and the result-building in Section 10 -- sees the
+  # canonical form.
+  sg_focus <- .normalize_sg_focus(sg_focus)
 
   if (!is.data.frame(df) || nrow(df) == 0) {
     stop("df must be a non-empty data frame")
