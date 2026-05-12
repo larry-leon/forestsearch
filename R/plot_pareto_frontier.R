@@ -170,12 +170,14 @@ plot_pareto_frontier <- function(fs,
     ggplot2::theme(panel.grid.minor = ggplot2::element_blank(),
                    legend.position  = "right")
 
-  # Optional split CI error bars
+  # Optional split CI error bars.
+  # geom_linerange() with y=, xmin=, xmax= replaces the deprecated
+  # geom_errorbarh(height = 0, ...) pattern (ggplot2 >= 3.5).
   if (any(!is.na(ft$split_lcl))) {
-    p <- p + ggplot2::geom_errorbarh(
+    p <- p + ggplot2::geom_linerange(
       data = ft[!is.na(split_lcl) & !is.na(split_ucl)],
       ggplot2::aes(xmin = split_lcl, xmax = split_ucl, y = N),
-      height = 0, alpha = 0.5, colour = "grey40",
+      alpha = 0.5, colour = "grey40",
       inherit.aes = FALSE
     )
   }

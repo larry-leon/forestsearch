@@ -12,6 +12,105 @@
 # Silence R CMD check NOTE for the inline data.table column reference.
 utils::globalVariables(c("m"))
 
+
+# ============================================================================
+# extract_candidate_diagnostics() -- internal helper
+# ============================================================================
+# Slice forestsearch()'s captured stdout into the PREVIEW and SUMMARY
+# blocks so the comparison qmd (or any downstream caller) can present
+# just the diagnostic tables as the main display, with the full
+# captured output kept accessible as a collapsible / on-demand view.
+#
+# Banner format (defined by print_candidate_preview / print_candidate_summary):
+#
+#   ====================== ... (line of '=')
+#   CANDIDATE EVALUATION PREVIEW (pre-consistency) (...)
+#   ====================== ... (line of '=')
+#   ... body ...
+#   ====================== ... (line of '=')
+#
+#   ====================== ... (line of '=')
+#   CANDIDATE EVALUATION SUMMARY  (...)
+#   ====================== ... (line of '=')
+#   ... body ...
+#   ====================== ... (line of '=')
+#
+# A block is delimited by THREE '=' lines: the top, the post-banner
+# divider, and the bottom.  We slice from the FIRST '=' line of the
+# header to the THIRD '=' line, inclusive, so the user sees the full
+# framed block.
+# ----------------------------------------------------------------------------
+
+#' Slice the PREVIEW and SUMMARY blocks out of captured forestsearch stdout
+#'
+#' Internal helper used by \code{\link{compare_selection_rules}} to
+#' populate the per-combo \code{diagnostics} slot.  Identifies the
+#' \code{CANDIDATE EVALUATION PREVIEW (pre-consistency)} and
+#' \code{CANDIDATE EVALUATION SUMMARY} blocks in a captured-output
+#' character vector and returns them as separate strings, alongside
+#' the full original.
+#'
+#' If a block is not found (e.g.\ \code{show_candidate_summary = FALSE}
+#' was passed, or the run errored before reaching that block) the
+#' corresponding element is \code{NA_character_}.
+#'
+#' @param captured Character vector as returned by
+#'   \code{\link{capture.output}}.  One element per line.
+#'
+#' @return A list with character-scalar fields \code{preview},
+#'   \code{summary}, and \code{full}.  The first two are NA when the
+#'   block is absent; \code{full} always has the original text.
+#'
+#' @keywords internal
+#' @noRd
+extract_candidate_diagnostics <- function(captured) {
+  if (is.null(captured) || length(captured) == 0L) {
+    return(list(preview = NA_character_,
+                summary = NA_character_,
+                full    = ""))
+  }
+
+  # Find the header lines.  Use fixed = TRUE so the banner phrase is
+  # treated literally (not regex), and trimws() to be tolerant of any
+  # leading/trailing whitespace that might creep in via different cat()
+  # call sites.
+  ix_preview_hdr <- which(grepl(
+    "CANDIDATE EVALUATION PREVIEW", captured, fixed = TRUE))
+  ix_summary_hdr <- which(grepl(
+    "CANDIDATE EVALUATION SUMMARY", captured, fixed = TRUE))
+
+  # Bar separator: a line of one or more '=' characters (no other
+  # printable content).
+  is_bar <- grepl("^=+\\s*$", captured)
+  bar_ix <- which(is_bar)
+
+  slice_block <- function(hdr_line) {
+    # The first bar above the header is the block-open bar; we want
+    # the three-bar window: open / under-header / close.
+    if (length(hdr_line) == 0L) return(NA_character_)
+    hdr_line <- hdr_line[1L]
+    bars_before <- bar_ix[bar_ix < hdr_line]
+    bars_after  <- bar_ix[bar_ix > hdr_line]
+    if (length(bars_before) < 1L || length(bars_after) < 2L) {
+      # Not enough bars to bound the block; fall back to including
+      # everything from the header to the next bar (or end).
+      start_ix <- hdr_line
+      end_ix   <- if (length(bars_after) >= 1L) bars_after[1L] else length(captured)
+    } else {
+      start_ix <- max(bars_before)        # bar immediately above header
+      end_ix   <- bars_after[2L]          # second bar after header = closing bar
+    }
+    paste(captured[start_ix:end_ix], collapse = "\n")
+  }
+
+  list(
+    preview = slice_block(ix_preview_hdr),
+    summary = slice_block(ix_summary_hdr),
+    full    = paste(captured, collapse = "\n")
+  )
+}
+
+
 #' Compare forestsearch Runs Across Selection-Rule Combinations
 #'
 #' Runs \code{\link{forestsearch}} once per combination of
@@ -98,8 +197,29 @@ utils::globalVariables(c("m"))
 #'     \item{\code{plot_grid}}{A single \pkg{patchwork} object placing
 #'       the plots side by side, or \code{NULL} if patchwork isn't
 #'       installed.}
+#'     \item{\code{plot_combined}}{A single \code{ggplot} composing all
+#'       configurations onto one Pareto plot, with each winner labeled
+#'       \code{S1: <combo_label>}, \code{S2: <combo_label>}, etc.
+#'       Returned only when the passing sets are identical across all
+#'       successful configurations (see
+#'       \code{\link{plot_pareto_combined}} for the equality
+#'       criterion); \code{NULL} otherwise.}
 #'     \item{\code{console}}{Named list of character vectors -- the
-#'       captured stdout from each forestsearch run.}
+#'       captured stdout from each forestsearch run (full output).}
+#'     \item{\code{diagnostics}}{Named list of per-combo slices of the
+#'       captured output: each element is a list with character-scalar
+#'       fields \code{preview} (the \code{CANDIDATE EVALUATION
+#'       PREVIEW} block), \code{summary} (the \code{CANDIDATE
+#'       EVALUATION SUMMARY} block), and \code{full} (the entire
+#'       captured stdout, same content as \code{console[[i]]}
+#'       collapsed to a single string).  \code{preview} and
+#'       \code{summary} are \code{NA_character_} when the corresponding
+#'       banner is absent (e.g.\ \code{show_candidate_summary} was
+#'       \code{FALSE}, or the run errored before reaching it).  This
+#'       slice is what a comparison document should display as the
+#'       primary diagnostic; \code{full} (or \code{console[[i]]})
+#'       remains available for an expandable / on-demand view of the
+#'       complete run output.}
 #'     \item{\code{errors}}{Named list of error messages (or NULL) for
 #'       combos that failed.}
 #'   }
@@ -138,6 +258,7 @@ utils::globalVariables(c("m"))
 #'
 #' @seealso \code{\link{forestsearch}},
 #'   \code{\link{plot_pareto_frontier}},
+#'   \code{\link{plot_pareto_combined}},
 #'   \code{\link{pareto_frontier_table}},
 #'   \code{\link{explain_pareto_selection}},
 #'   \code{\link{compute_frontier_cis}}.
@@ -192,11 +313,12 @@ compare_selection_rules <- function(df.analysis,
   }
 
   # --- 2. Loop combinations -----------------------------------------------
-  fs_list      <- vector("list", n_combos); names(fs_list)      <- combo_labels
-  ci_list      <- vector("list", n_combos); names(ci_list)      <- combo_labels
-  plot_list    <- vector("list", n_combos); names(plot_list)    <- combo_labels
-  console_list <- vector("list", n_combos); names(console_list) <- combo_labels
-  error_list   <- vector("list", n_combos); names(error_list)   <- combo_labels
+  fs_list          <- vector("list", n_combos); names(fs_list)          <- combo_labels
+  ci_list          <- vector("list", n_combos); names(ci_list)          <- combo_labels
+  plot_list        <- vector("list", n_combos); names(plot_list)        <- combo_labels
+  console_list     <- vector("list", n_combos); names(console_list)     <- combo_labels
+  diagnostics_list <- vector("list", n_combos); names(diagnostics_list) <- combo_labels
+  error_list       <- vector("list", n_combos); names(error_list)       <- combo_labels
 
   for (k in seq_len(n_combos)) {
     label_k <- combo_labels[k]
@@ -240,9 +362,10 @@ compare_selection_rules <- function(df.analysis,
     fs_k  <- holder$fs
     err_k <- holder$error
 
-    fs_list[[k]]      <- fs_k
-    console_list[[k]] <- captured
-    error_list[[k]]   <- err_k
+    fs_list[[k]]          <- fs_k
+    console_list[[k]]     <- captured
+    diagnostics_list[[k]] <- extract_candidate_diagnostics(captured)
+    error_list[[k]]       <- err_k
 
     if (is.null(fs_k)) {
       if (verbose) cat(sprintf("    failed: %s\n",
@@ -296,6 +419,34 @@ compare_selection_rules <- function(df.analysis,
     cat("Note: package 'patchwork' not installed; returning individual plots without side-by-side composition.\n")
   }
 
+  # --- 3b. Combined plot (when passing sets are identical) ---------------
+  # plot_pareto_combined() verifies the equality precondition internally
+  # and returns NULL with a warning if it fails.  We pass verbose = FALSE
+  # so the failure mode is silent here; the side-by-side plot serves as
+  # the natural fallback when the combined view isn't meaningful.
+  plot_combined <- NULL
+  valid_idx <- which(!vapply(fs_list, is.null, logical(1)))
+  if (length(valid_idx) >= 2L && exists("plot_pareto_combined", mode = "function")) {
+    plot_combined <- tryCatch(
+      plot_pareto_combined(
+        fs_list       = fs_list[valid_idx],
+        combo_labels  = combo_labels[valid_idx],
+        ci_table_list = ci_list[valid_idx],
+        show_band     = show_band,
+        xlim          = plot_xlim,
+        verbose       = FALSE
+      ),
+      error = function(e) NULL
+    )
+    if (verbose) {
+      if (!is.null(plot_combined)) {
+        cat("Combined plot built (passing sets match across configurations).\n")
+      } else {
+        cat("Combined plot skipped (passing sets differ; side-by-side is the relevant view).\n")
+      }
+    }
+  }
+
   # --- 4. Assemble return -------------------------------------------------
   combos_df <- data.frame(
     sg_focus       = sg_focus,
@@ -305,13 +456,15 @@ compare_selection_rules <- function(df.analysis,
   )
 
   out <- list(
-    combos     = combos_df,
-    fs         = fs_list,
-    ci_tab     = ci_list,
-    plots      = plot_list,
-    plot_grid  = plot_grid,
-    console    = console_list,
-    errors     = error_list
+    combos        = combos_df,
+    fs            = fs_list,
+    ci_tab        = ci_list,
+    plots         = plot_list,
+    plot_grid     = plot_grid,
+    plot_combined = plot_combined,
+    console       = console_list,
+    diagnostics   = diagnostics_list,
+    errors        = error_list
   )
   class(out) <- c("forestsearch_comparison", "list")
   out
@@ -335,11 +488,27 @@ print.forestsearch_comparison <- function(x, ...) {
   n_ok    <- sum(!vapply(x$fs,     is.null, logical(1)))
   n_plots <- sum(!vapply(x$plots,  is.null, logical(1)))
   n_ci    <- sum(!vapply(x$ci_tab, is.null, logical(1)))
+  n_prev  <- sum(vapply(x$diagnostics,
+                        function(d) !is.null(d) && !is.na(d$preview),
+                        logical(1)))
+  n_sumb  <- sum(vapply(x$diagnostics,
+                        function(d) !is.null(d) && !is.na(d$summary),
+                        logical(1)))
   cat(sprintf("Successful fits: %d / %d\n", n_ok, nrow(x$combos)))
   cat(sprintf("Plots built:     %d / %d\n", n_plots, nrow(x$combos)))
   cat(sprintf("CIs computed:    %d / %d\n", n_ci, nrow(x$combos)))
-  cat("\nAccess the contents via x$fs, x$ci_tab, x$plots, x$plot_grid, x$console.\n")
-  cat("Replay diagnostic output for combo i:  cat(x$console[[i]])\n")
+  cat(sprintf("Diagnostics:     PREVIEW found %d / %d; SUMMARY found %d / %d\n",
+              n_prev, nrow(x$combos), n_sumb, nrow(x$combos)))
+  cat(sprintf("Combined plot:   %s\n",
+              if (!is.null(x$plot_combined)) "yes (passing sets match)"
+              else "no (passing sets differ, or N < 2 successful fits)"))
+  cat("\nAccess the contents via x$fs, x$ci_tab, x$plots, x$plot_grid,\n",
+      "  x$plot_combined, x$diagnostics, x$console.\n", sep = "")
+  cat("Show PREVIEW + SUMMARY for combo i:    cat(x$diagnostics[[i]]$preview,\n",
+      "                                          x$diagnostics[[i]]$summary,\n",
+      "                                          sep = \"\\n\\n\")\n", sep = "")
+  cat("Full captured output for combo i:      cat(x$console[[i]], sep = \"\\n\")\n")
   cat("View side-by-side plot:                print(x$plot_grid)\n")
+  cat("View combined plot (if available):     print(x$plot_combined)\n")
   invisible(x)
 }

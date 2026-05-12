@@ -73,8 +73,29 @@ combination.}
 \item{\code{plot_grid}}{A single \pkg{patchwork} object placing
 the plots side by side, or \code{NULL} if patchwork isn't
 installed.}
+\item{\code{plot_combined}}{A single \code{ggplot} composing all
+configurations onto one Pareto plot, with each winner labeled
+\code{S1: <combo_label>}, \code{S2: <combo_label>}, etc.
+Returned only when the passing sets are identical across all
+successful configurations (see
+\code{\link{plot_pareto_combined}} for the equality
+criterion); \code{NULL} otherwise.}
 \item{\code{console}}{Named list of character vectors -- the
-captured stdout from each forestsearch run.}
+captured stdout from each forestsearch run (full output).}
+\item{\code{diagnostics}}{Named list of per-combo slices of the
+captured output: each element is a list with character-scalar
+fields \code{preview} (the \code{CANDIDATE EVALUATION
+      PREVIEW} block), \code{summary} (the \code{CANDIDATE
+      EVALUATION SUMMARY} block), and \code{full} (the entire
+captured stdout, same content as \code{console[[i]]}
+collapsed to a single string).  \code{preview} and
+\code{summary} are \code{NA_character_} when the corresponding
+banner is absent (e.g.\ \code{show_candidate_summary} was
+\code{FALSE}, or the run errored before reaching it).  This
+slice is what a comparison document should display as the
+primary diagnostic; \code{full} (or \code{console[[i]]})
+remains available for an expandable / on-demand view of the
+complete run output.}
 \item{\code{errors}}{Named list of error messages (or NULL) for
 combos that failed.}
 }
@@ -162,6 +183,7 @@ explain_pareto_selection(out$fs[[2]], ci_table = out$ci_tab[[2]])
 \seealso{
 \code{\link{forestsearch}},
 \code{\link{plot_pareto_frontier}},
+\code{\link{plot_pareto_combined}},
 \code{\link{pareto_frontier_table}},
 \code{\link{explain_pareto_selection}},
 \code{\link{compute_frontier_cis}}.
