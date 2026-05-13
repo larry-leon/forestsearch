@@ -9,19 +9,63 @@ format: html
 # Defined here (before prose) so the article-header citation below
 # can refer to it via an inline `r` expression.  The main setup chunk
 # (further down) reuses the same BUNDLE_PATH / CONFIG_ID variables.
-BUNDLE_PATH <- "actg175_binary_m1_harm_minSG_fs2.rds"
-CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
+sim_n <- 700
+
+scenario <- c("actg175_binary_m1_harm")
+
+fs_sg_focus <- "minSG"
+
+# Default = "neighborhood" compatible with all sg_focus options
+# but not pareto or both
+
+fs_selection_rule <- "neighborhood"
+
+# -- Build fs_params from sourced fs2 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs2_params.R
+# (including stop_threshold, which is returned as NULL when
+# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
+
+fs_tag <- "fs2"
+
+source(sprintf("_fsparams/%s_params.R", fs_tag))
+fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
+
+
+# -- Mode --------------------------------------------------------------------
+# One of: "import", "demo", "full", "auto".
+# "auto" picks "import" if BUNDLE_PATH exists, else "demo".
+
+sim_mode    <- "demo"
+sims_demo <- 20
+sims_full <- 1000
+
+sims <- sims_demo
+if(sim_mode == "full") sims <- sims_full
+
+BUNDLE_PATH <- sprintf(
+  "%s_%s_%s_%s_n%d_sims%d.rds",
+  scenario, fs_tag, fs_sg_focus, fs_selection_rule, sim_n, sims 
+)
+
+CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
 # -- FS parameters (sourced from canonical fs2 file) -------------------
 # Canonical fs2 parameter values live in _fsparams/fs2_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
-fs_sg_focus <- "minSG"
-fs_selection_rule <- "neighborhood"
 
-# Default = "neighborhood" compatible with all sg_focus options
-# but not pareto or both
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
+
+
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 
 ```
 
@@ -64,11 +108,6 @@ library(foreach)
 
 set.seed(8316951L)
 
-# -- Mode --------------------------------------------------------------------
-# One of: "import", "demo", "full", "auto".
-# "auto" picks "import" if BUNDLE_PATH exists, else "demo".
-
-sim_mode    <- "full"
 
 # NB: BUNDLE_PATH and CONFIG_ID are defined in the `config-id` chunk
 # at the top of the document so they can be referenced inline in the
@@ -87,17 +126,15 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 # different reference scales are needed.
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
-  demo   = 20L,
-  full   = 1000L,
+  demo   = sims_demo,
+  full   = sims_full,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
-  demo   = 20L,
-  full   = 1000L
+  demo   = sims_demo,
+  full   = sims_full
 )
-n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
-sim_n       <- 700L
 
 cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
             sim_mode, nsims_alt, nsims_null, sim_n))
@@ -124,12 +161,6 @@ sgdist_min_pct_null <- 0
 sgdist_top_k        <- 10L
 ordist_ylim         <- c(0, 4)
 
-# -- Build fs_params from sourced fs2 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs2_params.R
-# (including stop_threshold, which is returned as NULL when
-# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
-source("_fsparams/fs2_params.R")
-fs_params <- get_fs2_params(sg_focus = fs_sg_focus)
 # Locals re-exposed for the single-trial sanity-check chunks
 c1       <- fs_params$hr.threshold
 max_look <- fs_params$max_subgroups_search
@@ -267,14 +298,6 @@ df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
 #| code-fold: true
 #| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 
-frontier_params <- list(
-  n_splits      = 1000L,
-  seed          = 1L,
-  xlim          = c(1.25, 3.0),
-  digits_effect = 2L,
-  digits_pcons  = 2L,
-  digits_ci     = 2L
-)
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))

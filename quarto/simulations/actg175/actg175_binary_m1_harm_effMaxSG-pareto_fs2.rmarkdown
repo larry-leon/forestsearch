@@ -14,12 +14,12 @@ sim_n <- 700
 
 scenario <- c("actg175_binary_m1_harm")
 
-fs_sg_focus <- "eff"
+fs_sg_focus <- "effMaxSG"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
 
-fs_selection_rule <- "neighborhood"
+fs_selection_rule <- "pareto"
 
 # -- Build fs_params from sourced fs2 bundle ---------------------------
 # Canonical FS parameter values are defined in _fsparams/fs2_params.R
@@ -970,3 +970,4 @@ cat(sprintf("H1: %.1f min (%d sims)\n", t_alt / 60, nsims_alt))
 cat(sprintf("H0: %.1f min (%d sims)\n", t_null / 60, nsims_null))
 plan(sequential)
 ```
+

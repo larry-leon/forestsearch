@@ -3,10 +3,77 @@ title: "ACTG175 Binary Harm Search: Simulation Study"
 format: html
 ---
 
+```{r config-id}
+#| include: false
+
+# Defined here (before prose) so the article-header citation below
+# can refer to it via an inline `r` expression.  The main setup chunk
+# (further down) reuses the same BUNDLE_PATH / CONFIG_ID variables.
+
+sim_n <- 700
+
+scenario <- c("actg175_binary_m1_harm")
+
+fs_sg_focus <- "maxSG"
+
+# Default = "neighborhood" compatible with all sg_focus options
+# but not pareto or both
+
+fs_selection_rule <- "neighborhood"
+
+# -- Build fs_params from sourced fs2 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs2_params.R
+# (including stop_threshold, which is returned as NULL when
+# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
+
+fs_tag <- "fs2"
+
+source(sprintf("_fsparams/%s_params.R", fs_tag))
+fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
+
+
+# -- Mode --------------------------------------------------------------------
+# One of: "import", "demo", "full", "auto".
+# "auto" picks "import" if BUNDLE_PATH exists, else "demo".
+
+sim_mode    <- "demo"
+sims_demo <- 20
+sims_full <- 1000
+
+sims <- sims_demo
+if(sim_mode == "full") sims <- sims_full
+
+BUNDLE_PATH <- sprintf(
+  "%s_%s_%s_%s_n%d_sims%d.rds",
+  scenario, fs_tag, fs_sg_focus, fs_selection_rule, sim_n, sims 
+)
+
+CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
+
+# -- FS parameters (sourced from canonical fs2 file) -------------------
+# Canonical fs2 parameter values live in _fsparams/fs2_params.R.
+# Edit there to apply changes uniformly across all sg_focus configs.
+
+
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
+
+
+n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+```
+
 This article runs the simulation study for configuration
-**`actg175_binary_m1_harm_hrMinSG_fs2`** (study = ACTG175,
-outcome = binary, DGM = m1 [calibrated GLM, target OR(Q) = 2.0],
-objective = harm, sg_focus = `hrMinSG`, FS bundle = fs2).
+**`` `r CONFIG_ID` ``** (study = ACTG175, outcome = binary,
+DGM = m1 [calibrated GLM, target OR(Q) = 2.0], objective = harm,
+FS bundle = fs2).  See `BUNDLE_PATH` in the setup chunk for the
+exact bundle file used.
 
 The article supports three rendering modes, controlled by `sim_mode`
 in the setup chunk:
@@ -41,13 +108,10 @@ library(foreach)
 
 set.seed(8316951L)
 
-# -- Mode --------------------------------------------------------------------
-# One of: "import", "demo", "full", "auto".
-# "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
-sim_mode    <- "full"
-
-BUNDLE_PATH <- "actg175_binary_m1_harm_maxSG_fs2.rds"
+# NB: BUNDLE_PATH and CONFIG_ID are defined in the `config-id` chunk
+# at the top of the document so they can be referenced inline in the
+# article-header prose.  Reused here without re-definition.
 
 if (sim_mode == "auto") {
   sim_mode <- if (file.exists(BUNDLE_PATH)) "import" else "demo"
@@ -62,30 +126,19 @@ if (sim_mode == "import" && !file.exists(BUNDLE_PATH)) {
 # different reference scales are needed.
 nsims_alt <- switch(sim_mode,
   import = 0L,            # not used (loaded from bundle)
-  demo   = 20L,
-  full   = 1000L,
+  demo   = sims_demo,
+  full   = sims_full,
   stop(sprintf("Unknown sim_mode: '%s'", sim_mode))
 )
 nsims_null <- switch(sim_mode,
   import = 0L,
-  demo   = 20L,
-  full   = 1000L
+  demo   = sims_demo,
+  full   = sims_full
 )
-n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
-sim_n       <- 700L
 
 cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
             sim_mode, nsims_alt, nsims_null, sim_n))
 
-# -- FS parameters (sourced from canonical fs2 file) -------------------
-# Canonical fs2 parameter values live in _fsparams/fs2_params.R.
-# Edit there to apply changes uniformly across all sg_focus configs.
-
-fs_sg_focus <- "maxSG"
-fs_selection_rule <- "neighborhood"
-
-# Default = "neighborhood" compatible with all sg_focus options
-# but not pareto or both
 
 # -- GRF standalone parameters ------------------------------------------------
 grf_dmin           <- 0.10
@@ -108,12 +161,6 @@ sgdist_min_pct_null <- 0
 sgdist_top_k        <- 10L
 ordist_ylim         <- c(0, 4)
 
-# -- Build fs_params from sourced fs2 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs2_params.R
-# (including stop_threshold, which is returned as NULL when
-# fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
-source("_fsparams/fs2_params.R")
-fs_params <- get_fs2_params(sg_focus = fs_sg_focus)
 # Locals re-exposed for the single-trial sanity-check chunks
 c1       <- fs_params$hr.threshold
 max_look <- fs_params$max_subgroups_search
@@ -143,15 +190,12 @@ actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
 actg_df <- actg_df[!is.na(actg_df$cd420), ]
 
 # -- DGM factor variables -----------------------------------------------------
-# z1, z2: TRUE subgroup Q = {cd40 > 421 & wtkg > 82.3}
+# z1, z2: TRUE subgroup Q = {cd40 > 390 & wtkg > 81.2}
+# Note that binary and continuous analyses are similar in identified subgroups
 # (from observed-data FS result — see companion analysis document)
 
- actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 375, 1L, 0L))
- actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 75, 1L, 0L))
-
-#actg_df$z1  <- as.factor(ifelse(actg_df$age > 34, 1L, 0L))
-#actg_df$z2  <- as.factor(ifelse(actg_df$preanti <= 750, 1L, 0L))
-
+ actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 390, 1L, 0L))
+ actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 80, 1L, 0L))
 
 # z7-z12: truly binary indicators (no continuous counterpart)
 actg_df$z7  <- as.factor(actg_df$hemo)
@@ -171,19 +215,6 @@ cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
 bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 confounders <- c(cont_vars, bin_vars)
-
-fs_conf_force <- c("ar_naive == 1","prior_6mo == 1")
-
-#fs_conf_force <- c("ar_naive == 1","prior_6mo == 1","z1 ==1", "z2 ==1")
-
-fs_conf.cont_jcuts  = list(cd40 = 10, wtkg = 10)
-
-# Inject conf_force into the consolidated fs_params (defined in setup,
-# but conf_force depends on data-prep factor variables)
-
-fs_params$conf_force <- fs_conf_force
-
-fs_params$conf.cont_jcuts <- fs_conf.cont_jcuts
 
 fs_params$selection_rule <- fs_selection_rule
 
@@ -256,23 +287,27 @@ dgm_null <- generate_glm_dgm(
 
 # Single Trial Sanity Check {#sec-single-trial}
 
-```{r single-trial-alt}
+```{r single-trial-alt-sim}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
+```
+
+
+```{r single-trial-alt-analysis}
 #| code-fold: true
 #| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 
-df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
-
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = c1, 
-           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
-           effect_type = "ratio", n_eff = max_look)
+fs_params_single <- fs_params
+fs_params_single$show_candidate_summary <- TRUE 
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
-  fs_params
+  fs_params_single
 ))
 
 if(!is.null(fs_single$sg.harm)){
@@ -280,10 +315,6 @@ fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
 fs_single_tabs$sg10_out
 fs_single_tabs$tab_estimates
 }
-
-```
-
-```{r bootstrap-alt}
 
 t0 <- proc.time()
 fs <- fs_single
@@ -307,11 +338,6 @@ timings <- (proc.time() - t0)["elapsed"]
 cat("\nBootstrap completed in",
     round(timings / 60, 1), "minutes\n")
 }
-
-
-```
-
-```{r bootstrap-summary-alt}
 # Comprehensive summary with diagnostics
 
 if(!is.null(fs$sg.harm)){
@@ -321,34 +347,78 @@ summaries <- summarize_bootstrap_results(
   create_plots = TRUE,
   est.scale = "hr"
 )
-
 # Display bias-corrected estimates table
 summaries$table
+
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+
+
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
 }
+
 ```
 
 
-
-
-
-```{r single-trial-null}
+```{r single-trial-null-sim}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
-
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 44)
+```
+
+
+```{r single-trial-null-analysis}
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+
+frontier_params <- list(
+  n_splits      = 1000L,
+  seed          = 1L,
+  xlim          = c(1.25, 3.0),
+  digits_effect = 2L,
+  digits_pcons  = 2L,
+  digits_ci     = 2L
+)
 
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
+fs_params_single <- fs_params
+fs_params_single$show_candidate_summary <- TRUE 
 
-fpr_c1 <- fpr_approx(effect_true = itt_OR, p_event = itt_event, n_min = 100, c1 = 1.25, 
-           n_confounders_cont = length(cont_vars), n_confounders_bin = length(bin_vars),
-           effect_type = "ratio", n_eff = max_look)
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
-  fs_params
+  fs_params_single
 ))
 
 if(!is.null(fs_single$sg.harm)){
@@ -357,16 +427,10 @@ fs_single_tabs$sg10_out
 fs_single_tabs$tab_estimates
 }
 
-```
-
-
-```{r bootstrap-null}
-
 t0 <- proc.time()
 fs <- fs_single
 
 if(!is.null(fs$sg.harm)){
-
 fs_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs,
   nb_boots = 300,
@@ -385,23 +449,53 @@ timings <- (proc.time() - t0)["elapsed"]
 cat("\nBootstrap completed in",
     round(timings / 60, 1), "minutes\n")
 }
-```
-
-```{r bootstrap-summary-null}
+# Comprehensive summary with diagnostics
 
 if(!is.null(fs$sg.harm)){
-# Comprehensive summary with diagnostics
 summaries <- summarize_bootstrap_results(
   sgharm = fs$sg.harm,
   boot_results = fs_bc,
   create_plots = TRUE,
   est.scale = "hr"
 )
-
 # Display bias-corrected estimates table
 summaries$table
+
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
+
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
 }
+
 ```
+
 
 # Full Simulation Study {#sec-sims}
 
@@ -513,7 +607,7 @@ cat(sprintf("Completed in %.1f min (%d rows, %d failed)\n",
 
 bundle <- list(
   meta = list(
-    config_id         = tools::file_path_sans_ext(basename(BUNDLE_PATH)),
+    config_id         = CONFIG_ID,
     timestamp         = Sys.time(),
     n_alt             = nsims_alt,
     n_null            = nsims_null,
@@ -582,10 +676,10 @@ if (sim_mode == "import") {
     cat(sprintf("  forestsearch %s\n", bundle$meta$package_version))
   }
   if (!is.null(bundle$meta$config_id) &&
-      bundle$meta$config_id != "actg175_binary_m1_harm_hrMinSG_fs2") {
+      bundle$meta$config_id != CONFIG_ID) {
     warning(sprintf(
       "Bundle config_id ('%s') does not match this article ('%s').",
-      bundle$meta$config_id, "actg175_binary_m1_harm_hrMinSG_fs2"
+      bundle$meta$config_id, CONFIG_ID
     ), call. = FALSE)
   }
 } else {
