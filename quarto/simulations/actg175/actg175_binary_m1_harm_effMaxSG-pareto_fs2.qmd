@@ -9,7 +9,7 @@ format: html
 # Defined here (before prose) so the article-header citation below
 # can refer to it via an inline `r` expression.  The main setup chunk
 # (further down) reuses the same BUNDLE_PATH / CONFIG_ID variables.
-BUNDLE_PATH <- "actg175_binary_m1_harm_minSG_fs2.rds"
+BUNDLE_PATH <- "actg175_binary_m1_harm_effMaxSG-pareto_fs2.rds"
 CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
 
@@ -17,8 +17,8 @@ CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 # Canonical fs2 parameter values live in _fsparams/fs2_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
-fs_sg_focus <- "minSG"
-fs_selection_rule <- "neighborhood"
+fs_sg_focus <- "effMaxSG"
+fs_selection_rule <- "pareto"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
