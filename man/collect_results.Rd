@@ -14,7 +14,7 @@ collect_results(
 }
 \arguments{
 \item{raw_list}{List returned by \code{foreach(...,
-  .errorhandling = "pass")}.  Each element is either a data frame,
+.errorhandling = "pass")}.  Each element is either a data frame,
 data.table, or row-bindable object (success) or a condition
 object (failure).}
 

@@ -14,12 +14,12 @@ sim_n <- 700
 
 scenario <- c("actg175_binary_m1_harm")
 
-fs_sg_focus <- "minSG"
+fs_sg_focus <- "effMinSG"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
 
-fs_selection_rule <- "neighborhood"
+fs_selection_rule <- "both"
 
 # -- Build fs_params from sourced fs2 bundle ---------------------------
 # Canonical FS parameter values are defined in _fsparams/fs2_params.R
@@ -36,7 +36,7 @@ fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
-sim_mode <- "full"
+sim_mode <- "demo"
 sims_demo <- 20
 sims_full <- 1000
 

@@ -160,7 +160,7 @@ fs_selection_rule  <- "both"   # candidate inclusion: neighborhood ∩ Pareto
 fs_or_threshold    <- 1.25  # screening: OR >= 1.25 indicates harm
 fs_or_consistency  <- 1.0   # consistency: OR >= 1.0 (nominal harm)
 
-fs_pconsistency    <- 0.80
+fs_pconsistency    <- 0.90
 fs_n_min           <- 60L
 fs_d0_min          <- 10L
 fs_d1_min          <- 10L
@@ -210,7 +210,7 @@ NB <- 20L     # PRESSURE-TEST DEMO. Set to 500-2000 for production.
 
 # ─── Cross-Validation (gated; demo by default) ─────────────────────────
 run_cv <- TRUE
-Kfolds_cv <- 10L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_result$df.est).
+Kfolds_cv <- 3L  # PRESSURE-TEST DEMO. 10-fold CV. For LOO, set to nrow(fs_result$df.est).
                   # Production: 10-fold is standard; consider forestsearch_tenfold()
                   # with sims = 50-100 for repeated K-fold stability assessment.
 
