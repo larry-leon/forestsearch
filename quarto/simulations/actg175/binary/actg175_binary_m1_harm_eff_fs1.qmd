@@ -14,19 +14,19 @@ sim_n <- 700
 
 scenario <- c("actg175_binary_m1_harm")
 
-fs_sg_focus <- "minSG"
+fs_sg_focus <- "eff"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
 
 fs_selection_rule <- "neighborhood"
 
-# -- Build fs_params from sourced fs2 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs2_params.R
+# -- Build fs_params from sourced fs1 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs1_params.R
 # (including stop_threshold, which is returned as NULL when
 # fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
 
-fs_tag <- "fs2"
+fs_tag <- "fs1"
 
 source(sprintf("_fsparams/%s_params.R", fs_tag))
 fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
@@ -50,8 +50,8 @@ BUNDLE_PATH <- sprintf(
 
 CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
-# -- FS parameters (sourced from canonical fs2 file) -------------------
-# Canonical fs2 parameter values live in _fsparams/fs2_params.R.
+# -- FS parameters (sourced from canonical fs1 file) -------------------
+# Canonical fs1 parameter values live in _fsparams/fs1_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
 
@@ -72,7 +72,7 @@ n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 This article runs the simulation study for configuration
 **`` `r CONFIG_ID` ``** (study = ACTG175, outcome = binary,
 DGM = m1 [calibrated GLM, target OR(Q) = 2.0], objective = harm,
-FS bundle = fs2).  See `BUNDLE_PATH` in the setup chunk for the
+FS bundle = fs1).  See `BUNDLE_PATH` in the setup chunk for the
 exact bundle file used.
 
 The article supports three rendering modes, controlled by `sim_mode`

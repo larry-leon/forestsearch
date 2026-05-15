@@ -19,7 +19,7 @@
 # harm subgroups; tolerates a higher false positive rate as the cost.
 #
 # Key choices:
-#   max_subgroups_search = 10  → broad candidate space (vs. fs2's 5)
+#   max_subgroups_search = 10  → broad candidate space (vs. fs1's 5)
 #   return_selected_cuts_only = FALSE  → retain all cut data per call
 #   pconsistency.threshold = 0.80  → moderate consistency requirement
 #   c1 (hr.threshold) = 1.25  → OR scale; modest signal threshold
@@ -27,12 +27,12 @@
 #                            sg_focus is hrMaxSG or hrMinSG; rule
 #                            applied inside get_fs1_params())
 #
-# To create a sibling bundle "fs2" with different parameter choices:
-#   1. Copy this file to fs2_params.R
-#   2. Rename the function to get_fs2_params()
+# To create a sibling bundle "fs1" with different parameter choices:
+#   1. Copy this file to fs1_params.R
+#   2. Rename the function to get_fs1_params()
 #   3. Edit the values that differ
 #   4. Update the regime description above
-#   5. Use clone_config.sh fs1 fs2 to spawn the parallel sg_focus qmds
+#   5. Use clone_config.sh fs1 fs1 to spawn the parallel sg_focus qmds
 # =============================================================================
 
 #' Get FS parameters for the "fs1" bundle
@@ -74,28 +74,31 @@ get_fs1_params <- function(sg_focus,
     effect_measure            = "OR",
 
     # -- Search controls -----------------------------------------------------
-    use_lasso                 = FALSE,
+    use_lasso                 = TRUE,
     use_grf                   = TRUE,
-    return_selected_cuts_only = FALSE,
+    return_selected_cuts_only = TRUE,
     max_subgroups_search      = 10,        # fs1: broad
     use_twostage              = TRUE,
 
     # -- Effect-size thresholds ----------------------------------------------
     hr.threshold              = 1.25,      # OR scale
     hr.consistency            = 1.0,
-    pconsistency.threshold    = 0.80,
+    pconsistency.threshold    = 0.90,
     # stop_threshold: 0.90 is the fs1 bundle's value. Package requires
     # NULL when sg_focus uses neighborhood-based selection (hrMaxSG /
     # hrMinSG); applied here so qmds can call get_fs1_params() and use
     # the result directly with no overrides.
     stop_threshold            = if (sg_focus %in% c("hrMaxSG", "hrMinSG"))
-                                  NULL else 0.90,
+                                  NULL else 0.95,
 
     # -- Search dispatch -----------------------------------------------------
     sg_focus                  = sg_focus,
+    conf_force             = c("ar_naive == 1","prior_6mo == 1"),
+    conf.cont_jcuts        = list(cd40 = 10, wtkg = 10),
 
     # -- Sample-size constraints ---------------------------------------------
     fs.splits                 = 1000L,
+    # Assuming potential subgroup is at least 10% of the sample size
     n.min                     = 60L,
     d0.min                    = 10L,
     d1.min                    = 0L,
@@ -107,7 +110,6 @@ get_fs1_params <- function(sg_focus,
     seedit                    = seedit,
 
     # -- Output / verbosity --------------------------------------------------
-    showten_subgroups         = TRUE,
     details                   = TRUE,
     quiet                     = FALSE,
 
