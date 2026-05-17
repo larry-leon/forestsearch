@@ -77,13 +77,13 @@ get_fs4_params <- function(sg_focus,
     use_lasso                 = FALSE,
     use_grf                   = TRUE,
     return_selected_cuts_only = FALSE,
-    max_subgroups_search      = 10,        # fs4: broad
+    max_subgroups_search      = 50,        # fs4: broad
     use_twostage              = TRUE,
 
     # -- Effect-size thresholds ----------------------------------------------
-    hr.threshold              = 1.25,      # OR scale
-    hr.consistency            = 1.25,
-    pconsistency.threshold    = 0.90,
+    hr.threshold              = 1.5,      # OR scale
+    hr.consistency            = 1.0,
+    pconsistency.threshold    = 0.80,
     # stop_threshold: 0.90 is the fs4 bundle's value. Package requires
     # NULL when sg_focus uses neighborhood-based selection (hrMaxSG /
     # hrMinSG); applied here so qmds can call get_fs4_params() and use
@@ -94,12 +94,12 @@ get_fs4_params <- function(sg_focus,
     # -- Search dispatch -----------------------------------------------------
     sg_focus                  = sg_focus,
     conf_force             = c("ar_naive == 1","prior_6mo == 1"),
-    conf.cont_jcuts        = list(cd40 = 6, wtkg = 6, preanti = 6),
+    conf.cont_jcuts        = list(cd40 = 12, wtkg = 12, preanti =12),
 
     # -- Sample-size constraints ---------------------------------------------
     fs.splits                 = 1000L,
     # Assuming potential subgroup is at least 10% of the sample size
-    n.min                     = 60L,
+    n.min                     = 100L,
     d0.min                    = 10L,
     d1.min                    = 0L,
     maxk                      = 2L,

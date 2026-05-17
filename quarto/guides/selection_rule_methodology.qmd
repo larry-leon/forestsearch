@@ -643,6 +643,130 @@ switch to `selection_rule = "pareto"`.  Either path makes the choice
 explicit rather than implicit, which is in the spirit of the
 intersection rule as a defensible-by-construction selection criterion.
 
+## The `eff`, `maxSG`, and `minSG` focuses
+
+The illustrations of §6.1–§6.7 all employ the band-aware focuses
+`hrMaxSG` and `hrMinSG`, in which `selection_rule` constructs an
+inclusion-band indicator $(\text{in\_band}_i)_{i=1}^M$ that constrains
+the candidate pool before the size-based ordering takes effect.  The
+remaining `sg_focus` values — `"eff"` (alias for `"hr"`), `"maxSG"`,
+and `"minSG"` — do not consult an inclusion band: their sort keys
+operate directly on $(P_{\text{cons}}, \hat\theta, K)$ or on
+$(n, P_{\text{cons}}, K)$.  We describe their behaviour briefly and
+apply them to the five-candidate set of §6.1 for comparison.
+
+### Sort keys
+
+The lexicographic key used by each focus is summarized below.  For
+the three non-band-aware focuses, `selection_rule` and
+`effect_neighborhood` are not consulted at all; the package validator
+enforces that `selection_rule` be left at its default
+(`"neighborhood"`) whenever `sg_focus` is `"eff"`, `"hr"`, `"maxSG"`,
+or `"minSG"`, and a non-default value triggers an error at entry.
+For the band-aware focuses, `effect_neighborhood` is consulted only
+when `selection_rule` is `"neighborhood"` or `"both"`; under
+`selection_rule = "pareto"` it must be left at its default.
+
+| Focus                       | Lexicographic key                                                                  | Consults `selection_rule`? |
+|:----------------------------|:-----------------------------------------------------------------------------------|:--------------------------:|
+| `"eff"` (alias `"hr"`)       | $(-P_{\text{cons}},\, -\hat\theta,\, +K)$                                          | No                         |
+| `"maxSG"`                    | $(-n,\, -P_{\text{cons}},\, +K)$                                                   | No                         |
+| `"minSG"`                    | $(+n,\, -P_{\text{cons}},\, +K)$                                                   | No                         |
+| `"hrMaxSG"`                  | $(-\text{in\_band},\, -n,\, -P_{\text{cons}},\, -\hat\theta,\, +K)$                | Yes (band-aware)           |
+| `"hrMinSG"`                  | $(-\text{in\_band},\, +n,\, -P_{\text{cons}},\, -\hat\theta,\, +K)$                | Yes (band-aware)           |
+
+The GLM-natural aliases `"effMaxSG"` and `"effMinSG"` are translated
+to `"hrMaxSG"` and `"hrMinSG"` on entry and behave identically.
+
+### A note on the `eff` ordering
+
+The name `"eff"` (effect-focused) is sometimes read as implying that
+the winner is the candidate with the largest effect, with consistency
+acting as a tiebreaker.  The actual sort order is the reverse:
+$P_{\text{cons}}$ is the primary key and $\hat\theta$ acts only as a
+tiebreaker.  The design rationale is that a candidate with marginally
+larger effect but markedly lower consistency is less reproducible
+than one with marginally smaller effect and higher consistency, and
+the chosen ordering reflects that preference.
+
+For users who genuinely want a strict effect-first ranking, the
+closest existing behaviour is `"hrMaxSG"` with
+`effect_neighborhood = 0`: this restricts the in-band set to the
+unique max-effect candidate(s) on the effect axis, and only among
+those candidates is consistency or any other criterion consulted.
+
+### Application to the five-candidate set
+
+Reusing the candidate table of §6.1,
+
+| Label | $\hat\theta$ | $n$ | $P_{\text{cons}}$ | $K$ |
+|:------|:------------:|:---:|:-----------------:|:---:|
+| A     | 2.80         | 80  | 0.92              | 1   |
+| B     | 2.65         | 130 | 0.85              | 2   |
+| B$'$  | 2.55         | 130 | 0.95              | 1   |
+| D     | 2.40         | 200 | 0.94              | 2   |
+| F     | 1.80         | 380 | 0.93              | 2   |
+
+and applying each of the three non-band-aware sort keys produces:
+
+| Focus      | Selected | $\hat\theta$ | $n$ | $P_{\text{cons}}$ | Reason                                                  |
+|:-----------|:--------:|:------------:|:---:|:-----------------:|:--------------------------------------------------------|
+| `"eff"`    | B$'$     | 2.55         | 130 | 0.95              | highest $P_{\text{cons}}$ in the set                    |
+| `"maxSG"`  | F        | 1.80         | 380 | 0.93              | largest $n$; no effect filter                           |
+| `"minSG"`  | A        | 2.80         | 80  | 0.92              | smallest $n$; no effect filter                          |
+
+Three observations are worth highlighting in light of the §6.4
+results under `hrMaxSG`.
+
+1. **The `"eff"` winner is B$'$, not A.**  A has the strongest
+   effect ($\hat\theta = 2.80$) but only the fourth-highest
+   $P_{\text{cons}}$, while B$'$ has a weaker effect
+   ($\hat\theta = 2.55$) and the highest $P_{\text{cons}}$.  Under
+   the (incorrect) effect-first reading of `"eff"` the winner would
+   be A; under the actual `"eff"` ordering the winner is B$'$.  This
+   is the band-free analogue of the §6.4 phenomenon in which the
+   `neighborhood` rule under `hrMaxSG` selected B$'$ as a tied-$n$
+   tiebreaker, except that here the selection is driven purely by
+   $P_{\text{cons}}$ on the unfiltered candidate set.
+
+2. **The `"maxSG"` winner is F, the same as the `pareto` rule under
+   `hrMaxSG`.**  Both focuses select the largest subgroup without an
+   effect floor; the only difference is that `"maxSG"` does not even
+   require Pareto non-dominance.  In this example F happens to lie
+   on the Pareto frontier, so the two coincide; in general `"maxSG"`
+   may select a dominated candidate that `"hrMaxSG"` paired with
+   `selection_rule = "pareto"` would exclude.
+
+3. **The `"minSG"` winner is A, the strongest-effect candidate.**
+   This is not coincidence: smaller subgroups tend to be defined by
+   more restrictive (higher-$K$ or more selective) cuts and so often
+   exhibit larger effects.  `"minSG"` is therefore frequently the
+   most aggressive enrichment focus available in the package and is
+   useful as a diagnostic for the upper bound on effect strength
+   accessible to the candidate set.
+
+### When to use each focus
+
+The five focuses correspond to distinct downstream questions:
+
+* `"hrMaxSG"` is the default and is appropriate when the goal is to
+  highlight the widely-applicable subgroup with a defensibly strong
+  effect.
+* `"hrMinSG"` is its enrichment dual: the narrowest subgroup with a
+  defensibly strong effect.
+* `"eff"` / `"hr"` selects the most stable candidate regardless of
+  size, with effect as a secondary criterion.
+* `"maxSG"` is primarily a diagnostic focus: it shows what an
+  unconstrained size maximization picks when effect strength is
+  ignored entirely.
+* `"minSG"` is similarly diagnostic on the enrichment end.
+
+In production reporting one of the two band-aware focuses
+(`"hrMaxSG"` or `"hrMinSG"`) is almost always the appropriate
+choice; the non-band-aware focuses are most useful as side-by-side
+comparators against the primary selection, helping to characterize
+the candidate set as a whole.
+
 # Application to the GBSG dataset
 
 To complement the synthetic illustration, we apply the three
