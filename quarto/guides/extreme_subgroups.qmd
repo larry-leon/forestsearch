@@ -28,7 +28,7 @@ execute:
 
 # Number of uniform-DGM simulated trials — the primary result quantity
 # Set to >= 1000 for publication-quality results
-n_sims_uniform <- 100L  
+n_sims_uniform <- 10000L  
 ```
 
 # Overview
@@ -96,24 +96,7 @@ artificial ones:
 | **random40, random60** | **Randomly sampled** | **~40, ~60** |
 
 The `random*` subgroups are the key benchmark.  They are constructed by
-randomly sampling approximately 20% of subjects and taking the first 15,
-20, 40, and 60 patients:
-
-```r
-set.seed(8316951)
-sg_ran <- rbinom(nrow(df_analysis), size = 1, prob = 0.2)
-temp   <- cumsum(sg_ran)
-
-sg_ran15            <- sg_ran
-sg_ran15[temp > 15] <- 0   # first 15 selected subjects
-df_analysis$random15 <- sg_ran15
-
-sg_ran40            <- sg_ran
-sg_ran40[temp > 40] <- 0
-df_analysis$random40 <- sg_ran40
-```
-
-These subgroups have no clinical meaning whatsoever — their true HR
+randomly sampling (15, 20, 40, and 60 patients).  Such subgroups have no clinical meaning whatsoever — their true HR
 equals the ITT HR of 0.70.  Any extreme result they produce is purely
 a function of their small size and sampling variability.
 
@@ -190,33 +173,30 @@ patients' characteristics).
 ## Setting: Uniform Treatment Effect
 
 The DGM is built from a real trial dataset using `generate_aft_dgm_flex()`
-with a single-knot spline biomarker model.  The key feature is that the
-true log hazard ratio is **constant across all biomarker values**:
+with `model = "null"`.  The fitted Weibull AFT treatment coefficient is
+then rescaled via `k_treat`, with the multiplier calibrated by `uniroot`
+so that the **average hazard ratio (AHR)** matches a chosen target.
+Under `model = "null"` the AHR equals the patient-level individual HR,
+so calibrating the AHR fixes the true HR for every patient.  The key
+feature of the resulting DGM is that the true log hazard ratio is
+**constant across all patients**:
 
 $$
-\psi^0(z) = \log(\text{HR}_{\text{true}}) \quad \text{for all } z.
+\psi^0(\mathbf{L}) = \log(\text{HR}_{\text{true}}) \quad \text{for all } \mathbf{L}.
 $$
 
-In the examples below the true overall HR is 0.70 (a moderate benefit).
+In the examples below the target AHR is 0.70 (a moderate benefit).
 Every subgroup — regardless of how it is defined — shares this same
-underlying HR.  There is no subgroup effect; any
-apparent finding is a false positive.
+underlying HR.  There is no subgroup effect; any apparent finding is
+a false positive.
 
-The spline parameterisation is specified via `log.hrs = log(c(hr0, hr_k, hr_z))`,
-where `hr0`, `hr_k`, `hr_z` are the true HRs at biomarker values 0,
-the knot `k`, and an upper anchor `zeta`, respectively.  Under the uniform
-scenario all three are set to the same value:
-
-```r
-log.hrs <- log(c(0.70, 0.70, 0.70))  # uniform HR = 0.70 everywhere
-dgm     <- get_dgm_stratified(
-  df        = df_analysis,
-  knot      = 40,
-  kappa     = 50,
-  hrs       = c(0.70, 0.70, 0.70),
-  strata_tte = "strataNew"
-)
-```
+The calibration is performed in Part I via the helper function
+`calibrate_k_treat()`, the natural sibling of the package's
+`calibrate_k_inter()` (which targets the harm-subgroup HR under
+`model = "alt"`) and `calibrate_cens_adjust()` (which targets the
+censoring rate).  See the **Appendix: DGM with Heterogeneous Treatment
+Effects** for a contrasting setup where one subgroup has a different
+treatment effect than the rest of the population.
 
 ## Installation
 
@@ -331,7 +311,7 @@ km_median  <- summary(km_overall)$table[["median"]]
 
 cat("N =", nrow(gbsg), "  Events:", sum(gbsg$status),
     sprintf("(%.0f%%)", 100 * mean(gbsg$status)), "\n")
-cat("Median follow-up, naive (months):",
+cat("Median follow-up, (months):",
     round(median(gbsg$time_months), 1), "\n")
 cat("Median event time, KM (months)  :",
     if (is.na(km_median)) "not reached" else round(km_median, 1), "\n")
@@ -396,8 +376,14 @@ observed event times via `survival::survreg()`:
 
 $$
 \log T_i = \mu + \mathbf{x}_i^\top \boldsymbol{\beta} + \tau \, \varepsilon_i,
-\qquad \varepsilon_i \sim \mathrm{Gumbel}(0, 1).
+\qquad \varepsilon_i \sim \text{Extreme Value}.
 $$
+
+(Standard *minimum* extreme-value distribution with density
+$f_\varepsilon(x) = \exp(x - e^x)$ — generated in the package via
+`log(rexp(n_super))`.  See the companion vignettes
+**treatment_effect_definitions.Rmd** and **biomarker_effects.Rmd** for
+the AFT–Cox parameterisation linkage.)
 
 The linear predictor includes treatment, the user-specified
 `continuous_vars` and `factor_vars`, and — when `model = "alt"` — a
@@ -498,12 +484,65 @@ reproduce the censoring pattern of the source data.
 
 **Note.** The DGM built here has a uniform treatment effect — no embedded subgroup. For a contrasting example with a true HTE (a harm subgroup defined by ER-low & pre-menopausal status), see the **Appendix: DGM with Heterogeneous Treatment Effects** at the end of this document.
 
+### Calibrating `k_treat` to a target AHR
+
+`generate_aft_dgm_flex()` fits a Weibull AFT to the source data and uses
+the *fitted* treatment coefficient as the simulation truth.  With
+`k_treat = 1` (default), the resulting hazard ratio summaries are
+whatever the GBSG fit happens to produce — not exactly-specified targets.
+
+To set the true treatment effect to **exactly HR = 0.70**, we rescale
+the fitted treatment coefficient via `k_treat`, with the multiplier
+chosen by `uniroot` so that a target summary of the DGM hits 0.70.  The
+package function `calibrate_k_treat()` performs this calibration; it is
+the natural sibling of `calibrate_k_inter()` (which calibrates the
+harm-subgroup HR under `model = "alt"`) and `calibrate_cens_adjust()`
+(which calibrates the censoring rate).  All three follow the same
+`uniroot`-based pattern.
+
+**Which target?** `calibrate_k_treat()` can target either of two HR
+summaries computed on the super-population of potential outcomes:
+
+- `dgm$hazard_ratios$overall` — the **marginal Cox HR** from a
+  no-covariate Cox fit on stacked potential outcomes (default,
+  `use_ahr = FALSE`)
+- `dgm$hazard_ratios$AHR` — the **average hazard ratio**,
+  $\exp(\overline{\log\text{HR}_{\text{p.o.}}})$ across the
+  super-population (`use_ahr = TRUE`)
+
+Under `model = "null"` (uniform effect) the AHR equals the
+patient-level individual HR — the same number for every subject.  The
+**marginal Cox HR** is attenuated toward 1 relative to the AHR because
+the Cox model is non-collapsible: a no-covariate fit on heterogeneous
+covariate distributions does not recover the patient-level HR.
+
+The simulation analyses below fit Cox models *stratified by `grade`*,
+which is closer to a covariate-adjusted fit than to a marginal fit.
+Under proportional hazards (which the Weibull AFT satisfies), a
+sufficiently-adjusted Cox model estimates the patient-level HR — i.e.,
+the AHR — not the attenuated marginal HR.  We therefore calibrate
+against the AHR (`use_ahr = TRUE`) so that the median across simulations
+of the stratified Cox HR estimate tracks 0.70 closely.  Calibrating
+against `hazard_ratios$overall` instead would force the marginal Cox
+HR to 0.70 and pull the simulation median below 0.70 by the same
+non-collapsibility shift.
+
+See `?calibrate_k_treat` for full documentation.
+
+### Build the DGM (calibrated `k_treat`)
+
+The full argument list to `generate_aft_dgm_flex()` is laid out as a
+single named list `base_args_uniform`.  This list is then used twice —
+once inside `calibrate_k_treat()` to find the right `k_treat`, and once
+to build the final calibrated DGM — so every knob of the constructor
+appears exactly once.
+
 ```{r build-dgm}
 .t_dgm_start <- Sys.time()
 
-set.seed(99)
-
-dgm_uniform <- generate_aft_dgm_flex(
+# ── All arguments to generate_aft_dgm_flex() except k_treat ───────────────
+# k_treat is the calibration parameter; everything else is fixed up front.
+base_args_uniform <- list(
   # ── Required: source data & outcome ─────────────────────────────────────
   data                = gbsg,
   continuous_vars     = c("age", "size", "nodes", "pgr", "er"),
@@ -517,7 +556,6 @@ dgm_uniform <- generate_aft_dgm_flex(
   model               = "null",                                 # uniform HR throughout
   subgroup_vars       = NULL,                                   # default — no embedded HTE
   subgroup_cuts       = NULL,                                   # default
-  k_treat             = 1,                                      # default
   k_inter             = 1,                                      # default (irrelevant under "null")
   spline_spec         = NULL,                                   # default
   set_beta_spec       = list(set_var = NULL, beta_var = NULL),  # default
@@ -535,21 +573,56 @@ dgm_uniform <- generate_aft_dgm_flex(
   verbose             = FALSE
 )
 
+# ── Step 1: calibrate k_treat so that the AHR is exactly 0.70 ─────────────
+# We calibrate to the AHR (average hazard ratio over the super-population),
+# not the marginal Cox HR, because the simulation analyses below fit a Cox
+# model stratified by `grade` — and under Cox non-collapsibility the
+# marginal Cox HR on fully-observed potential outcomes is attenuated toward
+# 1 relative to both the AHR and the stratified Cox HR.  Calibrating to the
+# AHR makes the simulation median HR track 0.70 closely; calibrating to the
+# marginal Cox HR (`use_ahr = FALSE`, the default) would pull the simulation
+# median below 0.70.  See `?calibrate_k_treat` for both options.
+k_treat_uniform <- calibrate_k_treat(
+  target_hr_overall = 0.70,
+  base_args         = base_args_uniform,
+  k_treat_range     = c(-5, 5),
+  tol               = 1e-6,
+  use_ahr           = TRUE,
+  verbose           = TRUE
+)
+
+# ── Step 2: build the DGM with the calibrated k_treat ─────────────────────
+dgm_uniform <- do.call(
+  generate_aft_dgm_flex,
+  c(base_args_uniform, list(k_treat = k_treat_uniform))
+)
+
 t_dgm <- as.numeric(difftime(Sys.time(), .t_dgm_start, units = "secs"))
 
-cat("Uniform DGM  |  true overall HR:",
-    round(dgm_uniform$hazard_ratios$overall, 3),
-    " |  implied median event time:",
-    round(exp(dgm_uniform$model_params$mu), 1), "months\n")
+cat("Uniform DGM (AHR-calibrated)\n",
+    "  k_treat calibrated to       : ", round(k_treat_uniform, 4), "\n",
+    "  AHR (target 0.70)           : ",
+    round(dgm_uniform$hazard_ratios$AHR, 4), "\n",
+    "  marginal Cox HR (attenuated): ",
+    round(dgm_uniform$hazard_ratios$overall, 4), "\n",
+    "  implied median event T      : ",
+    round(exp(dgm_uniform$model_params$mu), 1), " months\n", sep = "")
 ```
 
 ```{r dgm-summary}
-# Key DGM outputs
+# Key DGM outputs.
+#
+# Terminology note: dgm$hazard_ratios$overall is the *marginal* Cox HR
+# from a no-covariate fit on stacked potential outcomes — not the
+# "true HR" in the patient-level sense.  Under Cox non-collapsibility
+# it is attenuated toward 1 relative to the AHR (which equals the
+# patient-level individual HR under model = "null").  See Section 3.3.1
+# and the companion vignette `treatment_effect_definitions.Rmd`.
 cat("=== Uniform DGM Summary ===\n")
 cat("Time scale          : months\n")
 cat("Implied median T    : exp(mu) =",
     round(exp(dgm_uniform$model_params$mu), 1), "months\n")
-cat("True HR (overall)   :",
+cat("Marginal HR         :",
     round(dgm_uniform$hazard_ratios$overall, 3), "\n")
 cat("Causal AHR          :",
     round(dgm_uniform$hazard_ratios$AHR, 3), "\n")
@@ -779,6 +852,17 @@ cat("flag_harm range    :", paste(range(sim_data$flag_harm), collapse = "–"),
     "  (always 0 under the uniform DGM)\n")
 ```
 
+**Cox specification — marginal here, stratified in Part IV.**  The
+single-trial sanity check below fits an *unstratified* Cox model
+(`treat_sim` only).  This deliberately matches the no-covariate fit
+behind `dgm_uniform$hazard_ratios$overall` (the marginal HR reported
+above), so that the observed and DGM-implied HRs are directly
+comparable.  The full simulation loop in Part IV uses a *stratified*
+Cox model (`treat_sim + strata(grade)`), which under Cox
+non-collapsibility recovers a quantity closer to the AHR / patient-level
+true HR — i.e., 0.70 — and which reflects how the user's analysis plan
+specifies the primary subgroup analysis.
+
 ```{r trial-cox}
 # Fit overall Cox model on this single simulated trial
 cox_all <- coxph(Surv(y_sim, event_sim) ~ treat_sim, data = sim_data)
@@ -786,7 +870,7 @@ hr_obs  <- exp(coef(cox_all))
 ci_obs  <- exp(confint(cox_all))
 
 cat("Single-trial Cox analysis (one realisation):\n")
-cat("  True overall HR   :",
+cat("  Marginal HR (DGM) :",
     round(dgm_uniform$hazard_ratios$overall, 3), "\n")
 cat("  Observed HR       :", round(hr_obs, 3), "\n")
 cat("  95% CI            : (",
@@ -836,7 +920,7 @@ $$
   \quad \text{for all } \mathbf{L}.
 $$
 
-With true overall HR = 0.70, every subgroup — regardless of how it is
+With true HR = 0.70, every subgroup — regardless of how it is
 defined — shares this same underlying HR.  Any apparent subgroup finding
 in the analysis below is, by construction, a false positive.
 
@@ -1803,18 +1887,24 @@ dgm_hte <- generate_aft_dgm_flex(
 ```
 
 ```{r hte-summary}
+# Terminology: dgm_hte$hazard_ratios$harm_subgroup,
+# $no_harm_subgroup, and $overall are all *marginal* Cox HRs from
+# no-covariate fits on the corresponding potential-outcomes subsets.
+# Under Cox non-collapsibility these are attenuated toward 1 relative
+# to the corresponding AHRs (which equal the patient-level individual
+# HRs within each subgroup).  See Section 3.3.1.
 cat("=== HTE DGM Summary ===\n")
-cat("Time scale          : months\n")
-cat("Implied median T    : exp(mu) =",
+cat("Time scale            : months\n")
+cat("Implied median T      : exp(mu) =",
     round(exp(dgm_hte$model_params$mu), 1), "months\n")
-cat("Subgroup proportion :", round(dgm_hte$subgroup_info$proportion, 3), "\n")
-cat("True HR (harm)      :",
+cat("Subgroup proportion   :", round(dgm_hte$subgroup_info$proportion, 3), "\n")
+cat("Marginal HR (harm)    :",
     round(dgm_hte$hazard_ratios$harm_subgroup, 3), "\n")
-cat("True HR (no harm)   :",
+cat("Marginal HR (no harm) :",
     round(dgm_hte$hazard_ratios$no_harm_subgroup, 3), "\n")
-cat("True HR (overall)   :",
+cat("Marginal HR (overall) :",
     round(dgm_hte$hazard_ratios$overall, 3), "\n")
-cat("Censoring type      :",
+cat("Censoring type        :",
     dgm_hte$model_params$censoring$type, "\n")
 ```
 
@@ -1889,7 +1979,7 @@ results_hte <- data.frame(
   N           = c(nrow(sim_hte),
                   sum(sim_hte$flag_harm == 1),
                   sum(sim_hte$flag_harm == 0)),
-  True_HR     = round(c(dgm_hte$hazard_ratios$overall,
+  Marginal_HR = round(c(dgm_hte$hazard_ratios$overall,
                         dgm_hte$hazard_ratios$harm_subgroup,
                         dgm_hte$hazard_ratios$no_harm_subgroup), 3),
   Observed_HR = round(exp(c(coef(cox_all_hte),
@@ -1931,6 +2021,8 @@ methods (such as `forestsearch()`): we know the true harm subgroup by
 construction and can measure whether the method recovers it.
 
 ---
+
+
 
 
 # Session Information

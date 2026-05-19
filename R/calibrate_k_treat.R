@@ -87,6 +87,7 @@
 #'   \code{\link{calibrate_cens_adjust}},
 #'   \code{\link{generate_aft_dgm_flex}}
 #' @importFrom stats uniroot
+#' @importFrom utils modifyList
 #' @export
 calibrate_k_treat <- function(target_hr_overall,
                               base_args,
@@ -119,12 +120,17 @@ calibrate_k_treat <- function(target_hr_overall,
 
   # ---------------------------------------------------------------------------
   # Objective:  realised HR (or AHR) minus target
+  #
+  # NB: modifyList() (not c()) — base_args may already carry `verbose`,
+  # and we want to *override* it during calibration rather than create a
+  # duplicate argument that do.call() would reject.
   # ---------------------------------------------------------------------------
   objective <- function(k_val) {
-    dgm <- do.call(
-      generate_aft_dgm_flex,
-      c(base_args, list(k_treat = k_val, verbose = FALSE))
+    args_call <- utils::modifyList(
+      base_args,
+      list(k_treat = k_val, verbose = FALSE)
     )
+    dgm <- do.call(generate_aft_dgm_flex, args_call)
     if (use_ahr) {
       dgm$hazard_ratios$AHR     - target_hr_overall
     } else {
@@ -167,10 +173,11 @@ calibrate_k_treat <- function(target_hr_overall,
   k_treat <- result$root
 
   if (verbose) {
-    dgm_verify <- do.call(
-      generate_aft_dgm_flex,
-      c(base_args, list(k_treat = k_treat, verbose = FALSE))
+    args_verify <- utils::modifyList(
+      base_args,
+      list(k_treat = k_treat, verbose = FALSE)
     )
+    dgm_verify <- do.call(generate_aft_dgm_flex, args_verify)
     achieved <- if (use_ahr) {
       dgm_verify$hazard_ratios$AHR
     } else {
