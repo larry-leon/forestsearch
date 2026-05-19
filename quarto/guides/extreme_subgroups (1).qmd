@@ -61,14 +61,13 @@ The vignette is organised as a complete, self-contained workflow:
    in each pre-defined subgroup.
 
 3. **Characterising the distribution of extreme results** — for each
-   subgroup, summarising how variable the Cox HR estimate is across
-   simulations (the empirical 99% interval, or "ECI" — defined in
-   Section 1.3 below) and how large the upper confidence bound UB(HR)
-   can become by chance alone.  Random benchmark
+   subgroup, summarising how variable the HR point estimate is across
+   simulations (the empirical 99% CI, or ECI) and how large the upper
+   confidence bound UB(HR) can become by chance alone.  Random benchmark
    subgroups (`random15`, `random20`, `random40`, `random60`) with no
    clinical meaning serve as calibration anchors, making explicit that
-   clinical subgroups of the same size can exhibit distributional patterns
-   similar to (meaningless) random groupings.
+   clinical subgroups of the same size are statistically indistinguishable
+   from meaningless random groupings.
 
 All examples use the GBSG breast cancer dataset (`survival::gbsg`).
 
@@ -117,68 +116,49 @@ These subgroups have no clinical meaning whatsoever — their true HR
 equals the ITT HR of 0.70.  Any extreme result they produce is purely
 a function of their small size and sampling variability.
 
+---
+
+## Six Analysis Variants
+
+For each simulated trial and each subgroup, six Cox model specifications
+are fitted, covering the range of approaches one might encounter in
+practice:
+
+| Label | Model specification |
+|:------|:--------------------|
+| `sR` | Stratified by original randomisation factors |
+| `none` | Unstratified |
+| `sX` | Stratified by ECOG status |
+| `sBM*` | Stratified by biomarker above/below optimal cutpoint |
+| `sX+sR` | Stratified by ECOG and randomisation factors |
+| `X+O+sR` | Covariate-adjusted (ECOG, age, sex) + stratified |
+
+---
 
 ## Summary Statistics Across Simulations
 
-For each subgroup, each simulated trial produces two per-trial values:
-the **Cox HR point estimate** (stratified by `grade`) and the
-**upper bound of the 95% confidence interval, UB(HR)**.  Across the
-`r n_sims_uniform` simulated trials these per-trial values form an
-empirical distribution for each subgroup.  All downstream summaries —
-the results table and every forest panel — operate on this empirical
-distribution.
+For each subgroup and analysis, two quantities are accumulated across all
+simulated trials:
 
-### 99% empirical confidence interval (ECI)
+**HR point estimate distribution.** Reported as median and the 1st–99th
+percentile interval (the "empirical 99% confidence interval" or ECI).
+Under truth, the median should be close to 0.70 for every subgroup.
+The spread of the ECI reflects how variable the estimate is — wider for
+smaller subgroups.
 
-The **99% ECI** is the **1st–99th percentile range** of the per-trial
-values accumulated across all simulated trials — computed separately for
-the Cox HR and for UB(HR).  It is a description of how much these
-quantities vary from one synthetic trial to the next under the same
-DGM.
+**Upper confidence bound UB(HR).** The one-sided 97.5% upper bound of
+the Cox 95% confidence interval.  Two key thresholds are tracked:
+- `UB(HR) < 1.0`: the upper bound excludes no treatment effect (nominally
+  "significant" benefit).
+- `HR < 0.80`: the point estimate alone looks like a meaningful benefit
+  (at the ITT threshold level).
 
-The 99% ECI is **not** a confidence interval in the inferential sense.
-A standard confidence interval is built from a single sample and is
-designed to cover the unknown true parameter with a stated probability.
-The ECI here is a different object: the true parameter is fixed and
-known by construction (true HR = 0.70 everywhere), and what is being
-summarised is the empirical spread of *estimates* across repeated
-trials drawn from the DGM.  It answers "how variable is this estimator
-in repeated draws?", not "what range of parameter values is consistent
-with the data?".  The terminology ("empirical confidence interval") is
-chosen to evoke the visual similarity to a forest-plot CI line — point
-in the middle, whiskers spanning the range — not equivalence of
-meaning.
-
-### Six summary statistics (table + forest panels)
-
-The results table and the forest-panel annotation columns report the
-same six summary statistics for each subgroup.
-
-**For the Cox HR point-estimate distribution:**
-
-- **`Pr(HR<0.5)`** — fraction of simulated trials whose point estimate
-  is below 0.5.  Measures how often the HR alone looks like an extreme
-  benefit by chance.
-- **`Pr(HR>1.0)`** — fraction of simulated trials whose point estimate
-  is above 1.0.  Measures how often the estimate lands on the wrong
-  side of no effect.
-- **`mHR`** — unconditional median of the HR point estimate across all
-  simulated trials.  Under the uniform DGM (true HR = 0.70) `mHR`
-  should track 0.70 for every subgroup, confirming the Cox model is
-  unbiased.
-
-**For the upper 95% confidence bound UB(HR):**
-
-- **`Pr(UB>=2)`** — fraction of simulated trials whose upper bound is
-  at or above 2.0.  Measures how often a forest-plot row looks alarming
-  to a safety reviewer at a moderately-strict threshold.
-- **`Pr(UB>=3)`** — same, at a stricter threshold.
-- **`mUB`** — unconditional median of the upper bound across all
-  simulated trials.
-
-The forest plots in the Results section visualise the median + 99% ECI
-graphically; the annotation columns and the results table give the
-same six summary statistics as numbers.
+Under the null of a uniform HR = 0.70 with no subgroup effects, `UB(HR) < 1.0`
+should occur approximately 95% of the time for the full ITT — it simply
+reflects power to detect the overall benefit.  For subgroups, the rate
+falls with sample size, but the distribution of UB(HR) *among those
+trials where UB(HR) ≥ 1* reveals how extreme a false non-significance
+result can look.
 
 ---
 
@@ -321,55 +301,12 @@ data(gbsg, package = "survival")
 gbsg$time_months <- gbsg$rfstime / 30.4375
 gbsg$treat        <- gbsg$hormon
 
-# Kaplan–Meier median event time.  The naive median over events only —
-# median(time[event == 1]) — is biased downward in the presence of
-# censoring, since the KM curve accounts for the at-risk set at each
-# event time.  If the KM curve does not cross 0.5 the median is
-# returned as NA (event time "not reached").
-km_overall <- survfit(Surv(time_months, status) ~ 1, data = gbsg)
-km_median  <- summary(km_overall)$table[["median"]]
-
 cat("N =", nrow(gbsg), "  Events:", sum(gbsg$status),
     sprintf("(%.0f%%)", 100 * mean(gbsg$status)), "\n")
-cat("Median follow-up, naive (months):",
+cat("Median follow-up (months):",
     round(median(gbsg$time_months), 1), "\n")
-cat("Median event time, KM (months)  :",
-    if (is.na(km_median)) "not reached" else round(km_median, 1), "\n")
-```
-
-## Baseline characteristics
-
-The table below summarises the cohort by treatment arm for the
-variables used later to define subgroups in Part IV: the continuous
-covariates (`age`, `size`, `nodes`, `pgr`, `er`), tumour `grade`, and
-menopausal status (`meno`).  This is the source data — the
-super-population in the DGM is sampled from it, so any baseline
-imbalance carries through.
-
-```{r baseline-table}
-create_summary_table(
-  data             = gbsg,
-  treat_var        = "treat",
-  vars_continuous  = c("age", "size", "nodes", "pgr", "er"),
-  vars_categorical = c("grade"),
-  vars_binary      = c("meno"),
-  var_labels       = list(
-    age   = "Age (years)",
-    size  = "Tumour size (mm)",
-    nodes = "Positive lymph nodes",
-    pgr   = "Progesterone receptor (fmol)",
-    er    = "Estrogen receptor (fmol)",
-    grade = "Tumour grade (1 / 2 / 3)",
-    meno  = "Post-menopausal"
-  ),
-  digits         = 1,
-  show_pvalue    = TRUE,
-  show_smd       = TRUE,
-  show_missing   = TRUE,
-  table_title    = "GBSG baseline characteristics — variables used to define subgroups",
-  table_subtitle = paste0("Source: survival::gbsg  |  N = ", nrow(gbsg)),
-  compact_mode   = TRUE
-)
+cat("Median event time (months):",
+    round(median(gbsg$time_months[gbsg$status == 1]), 1), "\n")
 ```
 
 ---
@@ -381,85 +318,6 @@ treatment has a genuine, uniform benefit — so that any subgroup finding is
 definitionally a false positive.  This section constructs that DGM from the
 GBSG data using `generate_aft_dgm_flex()` with `model = "null"` (uniform
 treatment effect throughout; no embedded harm subgroup).
-
-## How `generate_aft_dgm_flex()` works
-
-The function fits **two parametric models** to the source data — one
-for the event times, one for the censoring times — and uses them
-jointly to build a "super population" from which all later synthetic
-trials are drawn.
-
-### Outcome model — Weibull AFT
-
-A Weibull accelerated failure time (AFT) model is fitted to the
-observed event times via `survival::survreg()`:
-
-$$
-\log T_i = \mu + \mathbf{x}_i^\top \boldsymbol{\beta} + \tau \, \varepsilon_i,
-\qquad \varepsilon_i \sim \mathrm{Gumbel}(0, 1).
-$$
-
-The linear predictor includes treatment, the user-specified
-`continuous_vars` and `factor_vars`, and — when `model = "alt"` — a
-treatment-by-subgroup interaction term.  The treatment coefficient
-and the interaction coefficient can be rescaled before sampling via
-the `k_treat` and `k_inter` arguments, allowing the marginal
-treatment effect and HTE strength to be set independently of the
-fitted values.  Under `model = "null"` the interaction is removed
-entirely, producing a uniform treatment effect across all patients.
-
-### Censoring model — AFT with AIC selection (default)
-
-With `select_censoring = TRUE` (the default), the censoring
-distribution is fitted *symmetrically* by reversing the event
-indicator: censored observations become the "event" of interest in
-the reversed survival problem.  The function fits **four candidate
-AFT models** to these reversed data and picks the best by AIC:
-
-| Candidate    | Distribution | Covariates                       |
-|:-------------|:-------------|:---------------------------------|
-| `Weibull`    | Weibull      | `treat` + censoring covariates   |
-| `LogNormal`  | Log-normal   | `treat` + censoring covariates   |
-| `Weibull0`   | Weibull      | intercept only                   |
-| `LogNormal0` | Log-normal   | intercept only                   |
-
-The censoring covariates default to the outcome model's covariates,
-which can be overridden via `continuous_vars_cens` / `factor_vars_cens`.
-The intercept-only candidates (`*0`) guard against overfitting when
-the censoring process is genuinely unrelated to baseline covariates —
-in that case AIC will favour them.  The selected model's parameters
-are stored in `dgm$model_params$censoring` (`mu`, `tau`, `gamma`, and
-`type`).
-
-Alternative censoring-model modes (set `select_censoring = FALSE`):
-
-- **Analytical**: supply `cens_params$mu` and `cens_params$tau`
-  directly — no model is fitted.
-- **Force-fit**: leave `cens_params` empty — a single AFT model is
-  fitted with the user-specified family (`cens_type`) and formula
-  (`cens_intercept_only` toggles between intercept-only and
-  covariate-adjusted).
-
-### Super-population construction
-
-Once both models are in hand, the function draws `n_super` rows from
-the source data with replacement, attaches per-row linear predictors
-for both outcome and censoring under each treatment counterfactual,
-and returns the result as `dgm$df_super`.  Downstream,
-`simulate_from_dgm()` samples trials from this super population
-without re-fitting anything — each call is a fast row-sampling step
-followed by quantile-transform draws from the fitted distributions.
-
-### Marginal censoring rate is not yet calibrated
-
-Even with the AIC-selected censoring model, the interaction between
-the fitted censoring distribution and the administrative cutoff
-`analysis_time` shifts the *realised* censoring rate in simulated
-trials away from the observed rate in the source data.  Part II
-addresses this directly: `check_censoring_dgm()` diagnoses the
-discrepancy, and `calibrate_cens_adjust()` finds a log-scale shift
-(`cens_adjust`) that aligns the simulated censoring rate (or KM
-median censoring time) with the observed value.
 
 ## Why time-scale consistency matters first
 
@@ -474,11 +332,9 @@ After building the DGM, this quick check catches the problem:
 
 ```{r timescale-check}
 # exp(mu) is the implied median event time on the DGM time scale.
-# It should be close to the KM-based observed median event time.
-# We use the KM estimator (computed in Section 2 as km_median) rather
-# than the naive median over events, which is biased by censoring.
-cat("Observed median event time, KM (months):",
-    if (is.na(km_median)) "not reached" else round(km_median, 1), "\n")
+# It should be close to the observed median event time in months.
+cat("Observed median event time (months):",
+    round(median(gbsg$time_months[gbsg$status == 1]), 1), "\n")
 cat("(After building dgm_uniform, exp(dgm_uniform$model_params$mu) should be similar.)\n")
 ```
 
@@ -802,27 +658,29 @@ cat("  95% CI            : (",
 ## The Core Question
 
 Parts I–III established how to build a uniform DGM and generate synthetic
-trials from it.  We now use those tools of `forestsearch` to answer the
-question this vignette is built around: **when many subgroups are
-examined in a trial with a perfectly uniform treatment benefit, how
-extreme can a standard Cox subgroup analysis look by chance alone?**
+trials from it.  We now use those tools of `forestsearch`: **when many subgroups are examined
+in a trial with a perfectly uniform treatment benefit, how extreme can a
+standard Cox analysis look by chance alone?**
 
-We generate `r n_sims_uniform` synthetic trials from `dgm_uniform` and
-fit a Cox model (stratified by `grade`) in each pre-defined subgroup of
-every trial.  For each subgroup we accumulate the per-trial HR estimate
-and the upper 95% confidence bound.  The resulting empirical
-distributions are summarised using the six statistics defined in
-Section 1.3 (Summary Statistics Across Simulations) — `Pr(HR<0.5)`,
-`Pr(HR>1.0)`, `mHR`, `Pr(UB>=2)`, `Pr(UB>=3)`, `mUB` — and visualised
-as median + 99% ECI ranges in the forest panels.  As discussed in
-Section 1.3, the 99% ECI describes empirical spread across simulated
-trials; it is not a confidence interval in the inferential sense.
+We generate `r n_sims_uniform` synthetic trials from the uniform DGM and fit a
+stratified Cox model in each pre-defined subgroup in every trial.  Two
+output statistics are accumulated:
+
+- The **HR point estimate distribution** across trials — summarised as
+  the median and the 1st–99th percentile interval (the empirical 99%
+  confidence interval, ECI).  The median should track 0.70 for every
+  subgroup; the width of the ECI reveals how noisy a single-trial
+  estimate is.
+
+- The **upper confidence bound UB(HR)** — the upper end of the Cox 95%
+  CI.  We track `Pr(UB < 1.0)` (power to show nominal benefit) and the
+  conditional distribution of UB(HR) *given* UB ≥ 1 (how extreme a
+  "failure to show benefit" looks in the worst-case trial).
 
 The `random*` subgroups (no clinical basis, same true HR as everyone
-else) serve as calibration anchors: any clinical subgroup of the same N
-has an identical chance distribution, so clinical rationale provides no
-statistical protection against the extreme results that small samples
-naturally produce.
+else) serve as calibration anchors.  Any clinical subgroup of the same N
+has an identical chance distribution — the clinical rationale for the
+grouping provides no statistical protection.
 
 ---
 
@@ -992,16 +850,28 @@ of the spread in those clinical findings is attributable to noise alone.
 
 ---
 
-## Summary Statistics
+## Summary Statistics Across `r n_sims_uniform` Simulations
 
 For each subgroup the primary analysis — Cox model stratified by the
 randomisation factor (`grade`) — is fitted in every simulated trial.
-The accumulated per-trial HR estimates and 95% upper bounds are
-summarised using the six statistics defined in Section 1.3 (Summary
-Statistics Across Simulations): `Pr(HR<0.5)`, `Pr(HR>1.0)`, `mHR`,
-`Pr(UB>=2)`, `Pr(UB>=3)`, and `mUB`.  The Results section below
-presents these in tabular form and visualises the underlying
-distributions as median + 99% ECI ranges in the forest panels.
+Two quantities are accumulated:
+
+**HR point estimate distribution.** Reported as median and the 1st–99th
+percentile interval (the *empirical 99% confidence interval*, ECI). Under
+truth, the median should be close to 0.70 for every subgroup. The spread
+of the ECI reflects how variable the estimate is — wider for smaller
+subgroups.
+
+**Upper confidence bound UB(HR).** The upper end of the Cox 95%
+confidence interval. Two thresholds are tracked:
+
+- **`Pr(UB < 1.0)`**: the proportion of trials in which the upper bound
+  excludes no treatment effect, i.e., the subgroup shows a nominally
+  significant benefit. For the full ITT this should be close to the
+  trial power (~95%); for small subgroups it falls substantially.
+- **Conditional distribution of UB(HR) given UB ≥ 1**: when the upper
+  bound *fails* to exclude no effect, how large does it become? This is
+  what a safety reviewer sees in the worst-case trial for that subgroup.
 
 ---
 
