@@ -21,10 +21,12 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Whisker endpoints (lo / hi) that fall outside `xlim` are kept rather than
 # dropped, so the visible whisker reaches the axis boundary instead of
-# disappearing entirely.  This is implemented via `oob = scales::oob_keep`
-# on the CI panel's x-scale; coord_cartesian(clip = "on") then clips the
-# rendered geom at the panel edge.  Use `clip_marker = "arrow"` to add a
-# directional arrowhead at the boundary on clipped rows.
+# disappearing entirely.  This is implemented via an identity-style `oob =`
+# handler on the CI panel's x-scale (equivalent to `scales::oob_keep`,
+# inlined to avoid a direct `scales` dependency); coord_cartesian(clip =
+# "on") then clips the rendered geom at the panel edge.  Use
+# `clip_marker = "arrow"` to add a directional arrowhead at the boundary on
+# clipped rows.
 #
 # Usage
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,7 +115,6 @@
 #'   annotation_logticks
 #' @importFrom patchwork wrap_plots plot_annotation plot_layout
 #' @importFrom grid arrow unit
-#' @importFrom scales oob_keep
 #' @export
 gg_forest <- function(
     subgroups,
@@ -244,18 +245,22 @@ gg_forest <- function(
     )
 
   # ── 2. CI PANEL ─────────────────────────────────────────────────────────────
-  # Build scale.  `oob = scales::oob_keep` preserves out-of-range data instead
-  # of converting to NA — this is the fix for the previous "point-only" bug
-  # where a whisker disappeared entirely if lo < xlim[1] or hi > xlim[2].
-  # coord_cartesian(clip = "on") below handles the visual clipping at the
-  # panel edge.
+  # Build scale.  `oob = function(x, ...) x` (an identity-style out-of-bounds
+  # handler) preserves out-of-range data instead of converting it to NA — this
+  # is the fix for the previous "point-only" bug where a whisker disappeared
+  # entirely if lo < xlim[1] or hi > xlim[2].  coord_cartesian(clip = "on")
+  # below handles the visual clipping at the panel edge.  This identity is
+  # equivalent to `scales::oob_keep`; inlined here to avoid adding `scales`
+  # as a direct package dependency.
+  .oob_keep_inline <- function(x, ...) x
+
   if (xlog) {
     x_scale <- ggplot2::scale_x_log10(
       limits = xlim,
       breaks = ticks_at,
       labels = tick_labels,
       expand = c(0, 0),
-      oob    = scales::oob_keep
+      oob    = .oob_keep_inline
     )
   } else {
     x_scale <- ggplot2::scale_x_continuous(
@@ -263,7 +268,7 @@ gg_forest <- function(
       breaks = ticks_at,
       labels = tick_labels,
       expand = c(0, 0),
-      oob    = scales::oob_keep
+      oob    = .oob_keep_inline
     )
   }
 

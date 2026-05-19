@@ -28,7 +28,7 @@ execute:
 
 # Number of null-DGM simulated trials — the primary result quantity
 # Set to >= 1000 for publication-quality results
-n_sims_null <- 10000L  
+n_sims_null <- 200L  
 ```
 
 # Overview
@@ -836,39 +836,6 @@ cat("Calibrated cens_adjust:", round(cal_null$cens_adjust, 4),
     " | Target censoring rate:", round(cal_null$ref_value, 3), "\n")
 ```
 
-### Parallel backend
-
-The simulation loop below is embarrassingly parallel — every iteration
-is independent and uses iteration-local seeds (`seed = ss` for
-`simulate_from_dgm()`, `set.seed(ss + 1e6L)` for the random subgroup
-re-draw) — so bit-for-bit reproducibility is preserved regardless of
-execution order.  We use `doFuture` with a `multisession` plan (portable
-across Windows / macOS / Linux) and target **at least 90% of available
-cores**, so a 5,000-sim run scales close to the number of physical
-cores available.
-
-```{r parallel-setup}
-#| message: false
-
-library(future)
-library(doFuture)
-library(foreach)
-
-# Target at least 90% of available cores; ceiling() guarantees the
-# 90% floor on machines where 0.9 * cores is non-integer.
-.t_par_start  <- Sys.time()
-n_cores_total <- future::availableCores()
-n_workers     <- max(1L, ceiling(0.90 * n_cores_total))
-
-future::plan(future::multisession, workers = n_workers)
-t_par_setup   <- as.numeric(difftime(Sys.time(), .t_par_start, units = "secs"))
-
-cat(sprintf(
-  "Parallel plan: multisession with %d workers (%.0f%% of %d available cores).\n",
-  n_workers, 100 * n_workers / n_cores_total, n_cores_total
-))
-```
-
 ```{r null-sims}
 .t_sims_start <- Sys.time()
 
@@ -888,20 +855,12 @@ cox_sR <- function(data) {
   c(ci["exp(coef)"], ci["upper .95"])
 }
 
-# ── Parallel simulation loop ──────────────────────────────────────────────
-# Each iteration is independent and self-seeded.  `.options.future`:
-#   seed = NULL     → declare we manage RNG ourselves (suppresses
-#                     warnings; per-iteration set.seed() calls below
-#                     guarantee bit-for-bit reproducibility)
-#   packages = ...  → load survival + forestsearch on each worker
-#                     (multisession workers start with a clean session)
-sim_results <- foreach::foreach(
-  ss = seq_len(n_sims_null),
-  .options.future = list(
-    seed     = NULL,
-    packages = c("forestsearch", "survival")
-  )
-) %dofuture% {
+# Storage: HR point estimates and upper 95% confidence bounds
+sim_hrs <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+sim_ubs <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+sim_ns  <- matrix(NA_real_, n_sims_null, n_sg, dimnames = list(NULL, sg_names))
+
+for (ss in seq_len(n_sims_null)) {
 
   df_s <- simulate_from_dgm(
     dgm           = dgm_null,
@@ -915,6 +874,7 @@ sim_results <- foreach::foreach(
 
   # Make quantile cut-points available as scalar variables in the eval
   # environment so expressions like "size <= size_med" resolve correctly.
+  # Expose scalar cut-points as columns so subset expressions resolve.
   df_s$age_med  <- age_med
   df_s$size_med <- size_med
   df_s$nodes_q3 <- nodes_q3
@@ -922,6 +882,9 @@ sim_results <- foreach::foreach(
   df_s$er_cut   <- er_cut
 
   # Regenerate random benchmark subgroups for this simulated trial.
+  # Random subgroups are re-sampled each iteration: their purpose is to
+  # benchmark the variability of a subgroup of a given size with no true
+  # treatment effect heterogeneity — exactly what each simulated trial provides.
   set.seed(ss + 1e6L)
   n_s   <- nrow(df_s)
   r_idx <- sample.int(n_s, min(60L, n_s), replace = FALSE)
@@ -930,42 +893,26 @@ sim_results <- foreach::foreach(
   df_s$random20 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(20L, length(r_idx)))])
   df_s$random15 <- as.integer(seq_len(n_s) %in% r_idx[seq_len(min(15L, length(r_idx)))])
 
-  # Per-iteration storage: length-n_sg numerics, recombined to matrices below
-  hr_row <- rep(NA_real_, n_sg)
-  ub_row <- rep(NA_real_, n_sg)
-  n_row  <- rep(NA_real_, n_sg)
-
   for (gg in seq_len(n_sg)) {
     df_sg <- tryCatch(
       subset(df_s, eval(parse(text = sg_ids[[gg]]))),
       error = function(e) NULL
     )
     if (is.null(df_sg) || nrow(df_sg) < 5) next
-    n_row[gg]  <- nrow(df_sg)
-    r          <- cox_sR(df_sg)
-    hr_row[gg] <- r[1]
-    ub_row[gg] <- r[2]
+    sim_ns[ss, gg] <- nrow(df_sg)
+    r <- cox_sR(df_sg)
+    sim_hrs[ss, gg] <- r[1]
+    sim_ubs[ss, gg] <- r[2]
   }
-
-  list(hr = hr_row, ub = ub_row, n = n_row)
 }
 
-# ── Recombine per-iteration results into the three matrices ──────────────
-sim_hrs <- do.call(rbind, lapply(sim_results, `[[`, "hr"))
-sim_ubs <- do.call(rbind, lapply(sim_results, `[[`, "ub"))
-sim_ns  <- do.call(rbind, lapply(sim_results, `[[`, "n"))
-colnames(sim_hrs) <- sg_names
-colnames(sim_ubs) <- sg_names
-colnames(sim_ns)  <- sg_names
-
-# Release workers (memory hygiene; not strictly required but good citizenship)
-future::plan(future::sequential)
-
-cat("Simulations completed:", n_sims_null,
-    " |  Parallel workers used:", n_workers, "\n")
+cat("Simulations completed:", n_sims_null, "\n")
 
 t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
 ```
+
+---
+
 
 ---
 
@@ -1534,17 +1481,15 @@ fmt_time <- function(s) {
   else                                sprintf("%.2f hr", s / 3600)
 }
 
-# Projected total time for a future budget = one-time costs + linear sim cost.
-# Per-trial cost is the *parallel* per-trial cost (wall-clock / n_sims), so
-# projections assume the same parallel plan is used.
+# Projected total time for a future budget = one-time costs + linear sim cost
 proj_for <- function(n_target) fmt_time(t_dgm + t_cal + n_target * t_per_trial)
 
 timing_df <- data.frame(
   Step = c(
     "DGM construction (generate_aft_dgm_flex)",
     "Censoring calibration (calibrate_cens_adjust)",
-    sprintf("Simulation loop (%d trials \u00d7 %d subgroups, %d workers)",
-            n_sims_null, length(subgroups), n_workers),
+    sprintf("Simulation loop (%d trials \u00d7 %d subgroups)",
+            n_sims_null, length(subgroups)),
     "Total"
   ),
   Elapsed = c(fmt_time(t_dgm),
@@ -1559,13 +1504,12 @@ timing_df <- data.frame(
 
 knitr::kable(timing_df,
              align   = c("l", "r", "r"),
-             caption = sprintf(
-               "Timing for n_sims_null = %d, parallel across %d of %d cores.",
-               n_sims_null, n_workers, n_cores_total))
+             caption = sprintf("Timing for n_sims_null = %d on this machine.",
+                               n_sims_null))
 
 cat(sprintf(
-  "\nThroughput: %.1f trials/sec (wall-clock, %d workers)  |  Projected total time:  1,000 sims \u2192 %s    \u2502    5,000 sims \u2192 %s\n",
-  trials_per_s, n_workers, proj_for(1000), proj_for(5000)
+  "\nThroughput: %.1f trials/sec  |  Projected total time:  1,000 sims \u2192 %s    \u2502    5,000 sims \u2192 %s\n",
+  trials_per_s, proj_for(1000), proj_for(5000)
 ))
 ```
 
@@ -1575,4 +1519,3 @@ cat(sprintf(
 ```{r session-info}
 sessionInfo()
 ```
-
