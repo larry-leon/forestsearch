@@ -58,7 +58,7 @@ CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 frontier_params <- list(
   n_splits      = 1000L,
   seed          = 1L,
-  xlim          = c(1.25, 3.0),
+  xlim          = c(1.0, 5.0),
   digits_effect = 2L,
   digits_pcons  = 2L,
   digits_ci     = 2L
@@ -348,7 +348,7 @@ summaries <- summarize_bootstrap_results(
   est.scale = "hr"
 )
 # Display bias-corrected estimates table
-summaries$table
+print(summaries$table)
 
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
@@ -373,13 +373,13 @@ print(p)
 
 # 3. Render the table. Pass the same ci_tab so the table and plot
 #    show identical intervals.
-pareto_frontier_table(
+print(pareto_frontier_table(
   fs,
   ci_table      = ci_tab,
   digits_effect = frontier_params$digits_effect,
   digits_pcons  = frontier_params$digits_pcons,
   digits_ci     = frontier_params$digits_ci
-)
+))
 
 
 cat(explain_pareto_selection(fs, ci_table = ci_tab))
@@ -459,7 +459,7 @@ summaries <- summarize_bootstrap_results(
   est.scale = "hr"
 )
 # Display bias-corrected estimates table
-summaries$table
+print(summaries$table)
 
 # Formatted gt table; selected subgroup is highlighted and marked with ★.
 # Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
@@ -484,13 +484,13 @@ print(p)
 
 # 3. Render the table. Pass the same ci_tab so the table and plot
 #    show identical intervals.
-pareto_frontier_table(
+print(pareto_frontier_table(
   fs,
   ci_table      = ci_tab,
   digits_effect = frontier_params$digits_effect,
   digits_pcons  = frontier_params$digits_pcons,
   digits_ci     = frontier_params$digits_ci
-)
+))
 cat(explain_pareto_selection(fs, ci_table = ci_tab))
 }
 
