@@ -17,6 +17,15 @@
 #
 #     row_height_in = fig.height / n_rows   (no hidden scaling)
 #
+# Out-of-range whisker handling
+# ─────────────────────────────────────────────────────────────────────────────
+# Whisker endpoints (lo / hi) that fall outside `xlim` are kept rather than
+# dropped, so the visible whisker reaches the axis boundary instead of
+# disappearing entirely.  This is implemented via `oob = scales::oob_keep`
+# on the CI panel's x-scale; coord_cartesian(clip = "on") then clips the
+# rendered geom at the panel edge.  Use `clip_marker = "arrow"` to add a
+# directional arrowhead at the boundary on clipped rows.
+#
 # Usage
 # ─────────────────────────────────────────────────────────────────────────────
 # p <- gg_forest(
@@ -81,6 +90,11 @@
 #'   c(label, ci, annot_1, annot_2, …). Default: c(3.5, 5, rep(1, n_annot)).
 #' @param row_expand Numeric. Extra space above and below row range on y-axis,
 #'   in row units (default 0.6).
+#' @param clip_marker Character. How to mark whiskers whose 1st or 99th
+#'   percentile falls outside `xlim`.  One of `"none"` (default — the whisker
+#'   simply reaches the axis edge) or `"arrow"` (a small arrowhead is drawn at
+#'   the clipped boundary, pointing outward, indicating the distribution
+#'   extends beyond the visible range).
 #'
 #' @return A patchwork object. Render with `print()` or `plot()`.
 #'   Control dimensions entirely via knitr chunk options `fig.width` /
@@ -98,6 +112,8 @@
 #'   element_blank element_text element_line margin coord_cartesian
 #'   annotation_logticks
 #' @importFrom patchwork wrap_plots plot_annotation plot_layout
+#' @importFrom grid arrow unit
+#' @importFrom scales oob_keep
 #' @export
 gg_forest <- function(
     subgroups,
@@ -126,12 +142,14 @@ gg_forest <- function(
     point_shape   = 21,
     base_size     = 11,
     widths        = NULL,
-    row_expand    = 0.6
+    row_expand    = 0.6,
+    clip_marker   = c("none", "arrow")
 ) {
 
   # ── Input validation ───────────────────────────────────────────────────────
   n <- length(subgroups)
   stopifnot(length(est) == n, length(lo) == n, length(hi) == n)
+  clip_marker <- match.arg(clip_marker)
 
   if (!is.null(cat_vec))    stopifnot(length(cat_vec) == n)
   if (!is.null(annot))      lapply(annot, function(v) stopifnot(length(v) == n))
@@ -226,20 +244,26 @@ gg_forest <- function(
     )
 
   # ── 2. CI PANEL ─────────────────────────────────────────────────────────────
-  # Build scale
+  # Build scale.  `oob = scales::oob_keep` preserves out-of-range data instead
+  # of converting to NA — this is the fix for the previous "point-only" bug
+  # where a whisker disappeared entirely if lo < xlim[1] or hi > xlim[2].
+  # coord_cartesian(clip = "on") below handles the visual clipping at the
+  # panel edge.
   if (xlog) {
     x_scale <- ggplot2::scale_x_log10(
       limits = xlim,
       breaks = ticks_at,
       labels = tick_labels,
-      expand = c(0, 0)
+      expand = c(0, 0),
+      oob    = scales::oob_keep
     )
   } else {
     x_scale <- ggplot2::scale_x_continuous(
       limits = xlim,
       breaks = ticks_at,
       labels = tick_labels,
-      expand = c(0, 0)
+      expand = c(0, 0),
+      oob    = scales::oob_keep
     )
   }
 
@@ -268,7 +292,68 @@ gg_forest <- function(
       ggplot2::aes(x = lo, xend = hi, yend = subgroup, colour = row_col),
       linewidth = line_size,
       lineend   = "round"
-    ) +
+    )
+
+  # ── Optional arrowheads for clipped whiskers ──────────────────────────────
+  # When clip_marker == "arrow", mark rows whose 1st or 99th percentile falls
+  # outside the visible range with a small arrowhead at the boundary, pointing
+  # outward.  Implemented as an additional thin geom_segment overlaid on the
+  # existing whisker; the arrow shaft lies just inside the panel so the
+  # arrowhead is fully visible under coord_cartesian(clip = "on").
+  if (clip_marker == "arrow" && !is.null(xlim)) {
+
+    clip_lo_idx <- which(!is.na(df$lo) & df$lo < xlim[1])
+    clip_hi_idx <- which(!is.na(df$hi) & df$hi > xlim[2])
+
+    # Arrow shaft positions in data space.  For log scale use a multiplicative
+    # offset; for linear use an additive fraction of the axis range.  Keeps
+    # the shaft inside the panel so clip = "on" doesn't truncate the head.
+    if (xlog) {
+      arrow_inset <- 1.18                    # multiplicative
+      x_lo_tail   <- xlim[1] * arrow_inset
+      x_lo_tip    <- xlim[1] * 1.01          # tip just inside left edge
+      x_hi_tail   <- xlim[2] / arrow_inset
+      x_hi_tip    <- xlim[2] / 1.01          # tip just inside right edge
+    } else {
+      rng         <- diff(xlim)
+      x_lo_tail   <- xlim[1] + 0.06 * rng
+      x_lo_tip    <- xlim[1] + 0.005 * rng
+      x_hi_tail   <- xlim[2] - 0.06 * rng
+      x_hi_tip    <- xlim[2] - 0.005 * rng
+    }
+
+    arrow_spec <- grid::arrow(
+      length = grid::unit(0.07, "inches"),
+      type   = "closed",
+      ends   = "last"
+    )
+
+    if (length(clip_lo_idx) > 0) {
+      p_ci <- p_ci + ggplot2::geom_segment(
+        data = df[clip_lo_idx, , drop = FALSE],
+        ggplot2::aes(y = subgroup, yend = subgroup, colour = row_col),
+        x         = x_lo_tail,
+        xend      = x_lo_tip,
+        linewidth = line_size,
+        arrow     = arrow_spec,
+        lineend   = "round"
+      )
+    }
+
+    if (length(clip_hi_idx) > 0) {
+      p_ci <- p_ci + ggplot2::geom_segment(
+        data = df[clip_hi_idx, , drop = FALSE],
+        ggplot2::aes(y = subgroup, yend = subgroup, colour = row_col),
+        x         = x_hi_tail,
+        xend      = x_hi_tip,
+        linewidth = line_size,
+        arrow     = arrow_spec,
+        lineend   = "round"
+      )
+    }
+  }
+
+  p_ci <- p_ci +
     # Point estimates
     ggplot2::geom_point(
       ggplot2::aes(x = est, fill = row_col),

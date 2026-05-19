@@ -611,8 +611,6 @@ Every subgroup — regardless of how it is defined — shares this same
 underlying HR. 
 
 ```{r null-dgm}
-.t_dgm_start <- Sys.time()
-
 set.seed(99)
 
 dgm_null <- generate_aft_dgm_flex(
@@ -628,8 +626,6 @@ dgm_null <- generate_aft_dgm_flex(
   seed            = 99,
   verbose         = FALSE
 )
-
-t_dgm <- as.numeric(difftime(Sys.time(), .t_dgm_start, units = "secs"))
 
 cat("Null DGM  |  true overall HR:",
     round(dgm_null$hazard_ratios$overall, 3),
@@ -817,8 +813,6 @@ confidence interval. Two thresholds are tracked:
 ## Simulation Loop
 
 ```{r null-calibrate}
-.t_cal_start <- Sys.time()
-
 cal_null <- calibrate_cens_adjust(
   dgm           = dgm_null,
   target        = "rate",
@@ -829,16 +823,11 @@ cal_null <- calibrate_cens_adjust(
   n_eval        = 1500,
   verbose       = FALSE
 )
-
-t_cal <- as.numeric(difftime(Sys.time(), .t_cal_start, units = "secs"))
-
 cat("Calibrated cens_adjust:", round(cal_null$cens_adjust, 4),
     " | Target censoring rate:", round(cal_null$ref_value, 3), "\n")
 ```
 
 ```{r null-sims}
-.t_sims_start <- Sys.time()
-
 sg_names <- sapply(subgroups, `[[`, "name")
 sg_ids   <- sapply(subgroups, `[[`, "id")
 n_sg     <- length(subgroups)
@@ -907,65 +896,6 @@ for (ss in seq_len(n_sims_null)) {
 }
 
 cat("Simulations completed:", n_sims_null, "\n")
-
-t_sims <- as.numeric(difftime(Sys.time(), .t_sims_start, units = "secs"))
-```
-
----
-
-### Timing summary
-
-Wall-clock time for each computational stage and a projection for larger
-simulation budgets.  The simulation loop dominates and scales linearly
-in `n_sims_null`; the DGM and censoring-calibration steps are one-time
-costs that don't change with replicate count.
-
-```{r timing-summary}
-#| echo: false
-
-# Per-trial breakdown and projections
-t_total       <- t_dgm + t_cal + t_sims
-t_per_trial   <- t_sims / n_sims_null
-trials_per_s  <- if (t_per_trial > 0) 1 / t_per_trial else NA_real_
-
-fmt_time <- function(s) {
-  if (is.na(s) || !is.finite(s))      "-"
-  else if (s < 1)                     sprintf("%.0f ms", s * 1000)
-  else if (s < 60)                    sprintf("%.2f sec", s)
-  else if (s < 3600)                  sprintf("%.1f min", s / 60)
-  else                                sprintf("%.2f hr", s / 3600)
-}
-
-# Projected total time for a future budget = one-time costs + linear sim cost
-proj_for <- function(n_target) fmt_time(t_dgm + t_cal + n_target * t_per_trial)
-
-timing_df <- data.frame(
-  Step = c(
-    "DGM construction (generate_aft_dgm_flex)",
-    "Censoring calibration (calibrate_cens_adjust)",
-    sprintf("Simulation loop (%d trials \u00d7 %d subgroups)",
-            n_sims_null, length(subgroups)),
-    "Total"
-  ),
-  Elapsed = c(fmt_time(t_dgm),
-              fmt_time(t_cal),
-              fmt_time(t_sims),
-              fmt_time(t_total)),
-  `Per trial` = c("\u2014", "\u2014",
-                  fmt_time(t_per_trial), "\u2014"),
-  check.names = FALSE,
-  stringsAsFactors = FALSE
-)
-
-knitr::kable(timing_df,
-             align   = c("l", "r", "r"),
-             caption = sprintf("Timing for n_sims_null = %d on this machine.",
-                               n_sims_null))
-
-cat(sprintf(
-  "\nThroughput: %.1f trials/sec  |  Projected total time:  1,000 sims \u2192 %s    \u2502    5,000 sims \u2192 %s\n",
-  trials_per_s, proj_for(1000), proj_for(5000)
-))
 ```
 
 ---
@@ -1161,8 +1091,7 @@ gg_forest(
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2)
 )
 ```
 
@@ -1205,8 +1134,7 @@ gg_forest(
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2)
 )
 ```
 
@@ -1266,8 +1194,7 @@ gg_forest(
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.5),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2, 1.5)
 )
 ```
 
@@ -1325,8 +1252,7 @@ gg_forest(
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1)
 )
 ```
 
@@ -1379,18 +1305,41 @@ cat(sprintf(
 sg_hr  <- sg_names[include_highrisk][ord_highrisk]
 cat_hr <- cat_ok[include_highrisk][ord_highrisk]
 
+# Pull the raw 1st / median / 99th percentile triples for the included rows.
+est_raw <- ub_q[include_highrisk, 2][ord_highrisk]
+lo_raw  <- ub_q[include_highrisk, 1][ord_highrisk]
+hi_raw  <- ub_q[include_highrisk, 3][ord_highrisk]
+
+# Clamp whisker endpoints to xlim.  Without this, ggplot2's scale_x_*(limits)
+# converts out-of-range values to NA and drops the *entire* linerange — the
+# point still draws, leaving a misleading "point-only" row when the 1st or
+# 99th percentile falls outside the axis.  The tail probabilities in the
+# UB>=2 / UB>=3 columns already carry the truncated-tail information, so no
+# information is lost by clipping the visual whisker.
+xlim_ub <- c(0.30, 9.0)
+lo_clip <- pmax(lo_raw, xlim_ub[1])
+hi_clip <- pmin(hi_raw, xlim_ub[2])
+
+# Flag rows where clipping occurred so the reader can tell visible-edge
+# whiskers from genuinely-short ones.  Appended to mUB as a small arrow.
+clip_lo <- !is.na(lo_raw) & lo_raw < xlim_ub[1]
+clip_hi <- !is.na(hi_raw) & hi_raw > xlim_ub[2]
+mub_lab <- mub_uncond[include_highrisk][ord_highrisk]
+mub_lab <- ifelse(clip_hi, paste0(mub_lab, "\u2192"), mub_lab)   # right arrow
+mub_lab <- ifelse(clip_lo, paste0("\u2190", mub_lab), mub_lab)   # left arrow
+
 gg_forest(
   subgroups   = sg_hr,
-  est         = ub_q[include_highrisk, 2][ord_highrisk],
-  lo          = ub_q[include_highrisk, 1][ord_highrisk],
-  hi          = ub_q[include_highrisk, 3][ord_highrisk],
+  est         = est_raw,
+  lo          = lo_clip,
+  hi          = hi_clip,
   cat_vec     = cat_hr,
   cat_colours = cat_cols,
   annot       = list(
     "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
     "UB>=2"  = paste0(round(100 * pr_ub_ge2[include_highrisk][ord_highrisk], 1), "%"),
     "UB>=3"  = paste0(round(100 * pr_ub_ge3[include_highrisk][ord_highrisk], 1), "%"),
-    "mUB"    = mub_uncond[include_highrisk][ord_highrisk]
+    "mUB"    = mub_lab
   ),
   ref_line    = 1.00,
   vert_lines  = 0.70,
@@ -1398,7 +1347,7 @@ gg_forest(
   ref_lty     = "dotted",
   vert_col    = "firebrick",
   vert_lty    = "dashed",
-  xlim        = c(0.30, 9.0),
+  xlim        = xlim_ub,
   ticks_at    = c(0.40, 0.70, 1.00, 1.50, 2.50, 4.00, 8.00),
   xlog        = TRUE,
   xlab        = "Upper Bound of 95% CI  [UB(HR)]",
@@ -1406,14 +1355,13 @@ gg_forest(
     "Filter: Pr(UB(HR) >= 2.0) >= ", round(100 * pr_thresh_highrisk), "%  |  ",
     "ITT included for comparison  |  ",
     n_sims_null, " simulated trials  |  ",
-    "Arrowheads mark whiskers extending beyond the axis  |  ",
+    "Whiskers clipped at axis limits (arrow in mUB column)  |  ",
     "Dotted: UB = 1.0;  Dashed: true HR = 0.70"
   ),
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.2)
 )
 ```
 
@@ -1448,18 +1396,39 @@ mhr_uncond <- ifelse(
   as.character(round(hr_q[, 2], 2))
 )
 
+# Pull raw quantiles for the included rows.
+est_raw_hr <- hr_q[include_highrisk, 2][ord_highrisk]
+lo_raw_hr  <- hr_q[include_highrisk, 1][ord_highrisk]
+hi_raw_hr  <- hr_q[include_highrisk, 3][ord_highrisk]
+
+# Clamp whisker endpoints to xlim — same reasoning as in ub-forest-highrisk:
+# without this, percentiles outside the axis become NA and the entire
+# linerange is dropped, leaving a misleading "point-only" row.  Especially
+# severe for very small subgroups (random15, random20) whose 1st percentile
+# falls well below xlim[1] and 99th percentile well above xlim[2].
+xlim_hr <- c(0.15, 3.5)
+lo_clip_hr <- pmax(lo_raw_hr, xlim_hr[1])
+hi_clip_hr <- pmin(hi_raw_hr, xlim_hr[2])
+
+# Mark clipped rows with arrows in the mHR column.
+clip_lo_hr <- !is.na(lo_raw_hr) & lo_raw_hr < xlim_hr[1]
+clip_hi_hr <- !is.na(hi_raw_hr) & hi_raw_hr > xlim_hr[2]
+mhr_lab <- mhr_uncond[include_highrisk][ord_highrisk]
+mhr_lab <- ifelse(clip_hi_hr, paste0(mhr_lab, "\u2192"), mhr_lab)
+mhr_lab <- ifelse(clip_lo_hr, paste0("\u2190", mhr_lab), mhr_lab)
+
 gg_forest(
   subgroups   = sg_names[include_highrisk][ord_highrisk],
-  est         = hr_q[include_highrisk, 2][ord_highrisk],
-  lo          = hr_q[include_highrisk, 1][ord_highrisk],
-  hi          = hr_q[include_highrisk, 3][ord_highrisk],
+  est         = est_raw_hr,
+  lo          = lo_clip_hr,
+  hi          = hi_clip_hr,
   cat_vec     = cat_ok[include_highrisk][ord_highrisk],
   cat_colours = cat_cols,
   annot       = list(
     "N"      = as.character(mean_n[include_highrisk][ord_highrisk]),
     "HR<0.5" = paste0(round(100 * pr_hr_lt050[include_highrisk][ord_highrisk], 1), "%"),
     "HR>1.0" = paste0(round(100 * pr_hr_gt1[include_highrisk][ord_highrisk], 1), "%"),
-    "mHR"    = mhr_uncond[include_highrisk][ord_highrisk]
+    "mHR"    = mhr_lab
   ),
   ref_line    = 0.70,
   vert_lines  = 1.00,
@@ -1467,21 +1436,20 @@ gg_forest(
   ref_lty     = "dashed",
   vert_col    = "grey55",
   vert_lty    = "dotted",
-  xlim        = c(0.15, 3.5),
+  xlim        = xlim_hr,
   ticks_at    = c(0.20, 0.35, 0.50, 0.70, 1.00, 1.50, 2.50),
   xlog        = TRUE,
   xlab        = "Hazard Ratio (Cox, stratified by grade)",
   footnote    = paste0(
     "Same subgroups and ordering as the UB(HR) panel above  |  ",
     n_sims_null, " simulated trials  |  ",
-    "Arrowheads mark whiskers extending beyond the axis  |  ",
+    "Whiskers clipped at axis limits (arrow in mHR column)  |  ",
     "Dashed: true HR = 0.70;  Dotted: HR = 1.0"
   ),
   point_size  = fp_point_size,
   line_size   = fp_line_size,
   base_size   = fp_base_size,
-  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.1),
-  clip_marker = "arrow"
+  widths      = c(3.5, 5, 1.1, 1.2, 1.2, 1.2)
 )
 ```
 

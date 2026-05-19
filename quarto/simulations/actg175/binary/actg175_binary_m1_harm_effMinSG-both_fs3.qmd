@@ -14,19 +14,19 @@ sim_n <- 700
 
 scenario <- c("actg175_binary_m1_harm")
 
-fs_sg_focus <- "eff"
+fs_sg_focus <- "effMinSG"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
 
-fs_selection_rule <- "neighborhood"
+fs_selection_rule <- "both"
 
-# -- Build fs_params from sourced fs4 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs4_params.R
+# -- Build fs_params from sourced fs3 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs3_params.R
 # (including stop_threshold, which is returned as NULL when
 # fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
 
-fs_tag <- "fs4"
+fs_tag <- "fs3"
 
 source(sprintf("_fsparams/%s_params.R", fs_tag))
 fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
@@ -50,8 +50,8 @@ BUNDLE_PATH <- sprintf(
 
 CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
-# -- FS parameters (sourced from canonical fs4 file) -------------------
-# Canonical fs4 parameter values live in _fsparams/fs4_params.R.
+# -- FS parameters (sourced from canonical fs3 file) -------------------
+# Canonical fs3 parameter values live in _fsparams/fs3_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
 
@@ -72,7 +72,7 @@ n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 This article runs the simulation study for configuration
 **`` `r CONFIG_ID` ``** (study = ACTG175, outcome = binary,
 DGM = m1 [calibrated GLM, target OR(Q) = 2.0], objective = harm,
-FS bundle = fs4).  See `BUNDLE_PATH` in the setup chunk for the
+FS bundle = fs3).  See `BUNDLE_PATH` in the setup chunk for the
 exact bundle file used.
 
 The article supports three rendering modes, controlled by `sim_mode`
@@ -390,14 +390,14 @@ cat(explain_pareto_selection(fs, ci_table = ci_tab))
 
 ```{r single-trial-null-sim}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
 df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 44)
 ```
 
 
 ```{r single-trial-null-analysis}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
 
 frontier_params <- list(
   n_splits      = 1000L,
@@ -970,4 +970,3 @@ cat(sprintf("H1: %.1f min (%d sims)\n", t_alt / 60, nsims_alt))
 cat(sprintf("H0: %.1f min (%d sims)\n", t_null / 60, nsims_null))
 plan(sequential)
 ```
-

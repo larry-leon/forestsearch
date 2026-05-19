@@ -31,7 +31,8 @@ gg_forest(
   point_shape = 21,
   base_size = 11,
   widths = NULL,
-  row_expand = 0.6
+  row_expand = 0.6,
+  clip_marker = c("none", "arrow")
 )
 }
 \arguments{
@@ -96,6 +97,12 @@ c(label, ci, annot_1, annot_2, …). Default: c(3.5, 5, rep(1, n_annot)).}
 
 \item{row_expand}{Numeric. Extra space above and below row range on y-axis,
 in row units (default 0.6).}
+
+\item{clip_marker}{Character. How to mark whiskers whose 1st or 99th
+percentile falls outside \code{xlim}.  One of \code{"none"} (default — the whisker
+simply reaches the axis edge) or \code{"arrow"} (a small arrowhead is drawn at
+the clipped boundary, pointing outward, indicating the distribution
+extends beyond the visible range).}
 }
 \value{
 A patchwork object. Render with \code{print()} or \code{plot()}.

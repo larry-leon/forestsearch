@@ -27,18 +27,6 @@ library(data.table)
 library(gt)
 
 
-# -- Source exploratory utilities ------------------------------------------
-# These plotting utilities live outside the forestsearch package (under
-# quarto/_utils/) and are sourced directly.  Adjust the relative depth
-# if this document is moved within the quarto/ tree.
-util_dir <- "../../../../_utils"
-source(file.path(util_dir, "plot_oc_metrics.R"))
-source(file.path(util_dir, "plot_oc_metrics_3d.R"))
-source(file.path(util_dir, "compute_oc_score.R"))
-source(file.path(util_dir, "compute_oc_pareto_flag.R"))
-source(file.path(util_dir, "compute_oc_score_grid.R"))
-source(file.path(util_dir, "consensus_top_k.R"))
-
 
 # -- Fixed axes (must match every bundle's config) --------------------------
 fixed_study     <- "actg175"
@@ -80,8 +68,12 @@ focus_levels   <- c("eff_neighborhood",
                     "maxSG_neighborhood","effMaxSG_neighborhood","effMaxSG_pareto","effMaxSG_both",
                     "minSG_neighborhood","effMinSG_neighborhood","effMinSG_pareto","effMinSG_both"
                     )
-fs_levels      <- c("fs1","fs2","fs3","fs4","fs5","fs6")
+fs_levels      <- c("fs3","fs4","fs5")
 strict_bundles <- FALSE
+
+
+
+
 
 # -- Build configs ----------------------------------------------------------
 # Path is relative to this qmd's directory
@@ -432,282 +424,57 @@ if (n_trimmed_cells > 0L) {
 g
 ```
 
-```{r augment-display-dt}
+# H1 Classification (grouped across configurations) {#sec-classification}
+
+`build_classification_table()` accepts a list of scenarios and
+renders one row group per scenario, producing a single combined
+table per analysis method. This puts every configuration's
+classification metrics side-by-side — the natural view for
+comparing sensitivity, specificity, PPV, and NPV across `sg_focus`
+criteria.
+
+```{r build-scenario-list}
 #| code-fold: true
-#| code-summary: "Augment display_dt with Pareto-frontier flag and composite score (click to expand)"
+#| code-summary: "Build the scenario list passed to build_classification_table() (click to expand)"
 
-# Pareto frontier on {Detection, Sen, Spec}, all higher-is-better.
-# PPV and NPV remain in display_dt as descriptive columns alongside,
-# available for use as plot aesthetics or for inclusion in summary
-# tables but not contributing to dominance evaluation.
-display_dt <- compute_oc_pareto_flag(
-  display_dt,
-  metrics  = c("Detection", "Sen", "Spec"),
-  flag_col = "pareto_frontier"
-)
-
-# Composite scalar score -- linear-weighted convex combination of the
-# same three metrics.  Auto-normalised weights.  Default weights here
-# are (1.5, 1, 1.75): the "benefit-protection" weighting, which gives
-# Spec the largest weight.  Rationale: in the harm-subgroup framing
-# of forestsearch, high Spec on the harm class corresponds to low
-# false-positive harm calls -- equivalently, high Sen for the
-# complementary benefit recommendation Hc.  Weighting Spec above Sen
-# therefore reflects the operational goal of capturing as many true
-# beneficiaries as possible in the treatment recommendation.  See
-# the "Robustness across weightings" section below for a sensitivity
-# analysis across alternative weight choices.
-display_dt <- compute_oc_score(
-  display_dt,
-  method    = "linear",
-  metrics   = c("Detection", "Sen", "Spec"),
-  weights   = c(1.5, 1, 1.75),
-  score_col = "S"
-)
-
-n_frontier <- sum(display_dt$pareto_frontier, na.rm = TRUE)
-cat(sprintf(
-  "Pareto frontier: %d of %d configurations are non-dominated on {Detection, Sen, Spec}.\n",
-  n_frontier, nrow(display_dt)
-))
-```
-
-## Graphical views
-
-The unified OC table presents many metrics for many configurations
-in a dense form.  The plots below are complementary low-resolution
-views: each maps three or four of the same columns onto a single
-visual so that cross-configuration patterns are easier to scan.
-Both views use the `display_dt` table built above, so any change in
-the trimming rule or in the focus / fs grid flows through here
-automatically.  The plotting code lives in
-`quarto/_utils/plot_oc_metrics.R` and
-`quarto/_utils/plot_oc_metrics_3d.R` and is intentionally outside
-the forestsearch package.
-
-### 2D bubble: Spec × NPV × Detection (defaults)
-
-```{r oc-bubble-default}
-#| code-fold: true
-#| code-summary: "2D bubble: Spec × NPV with Detection as bubble size"
-#| fig-width: 9
-#| fig-height: 5.5
-plot_oc_metrics(
-  display_dt,
-  size_limits = c(0, 1),
-  title       = "OC summary: Spec × NPV (bubble size = Detection)",
-  subtitle    = "Color = focus × fs configuration; shape = analysis (FS / GRF)"
+# One scenario per (focus, fs) cell. The scenario name becomes the row
+# group label in the gt output.
+scenarios_alt <- setNames(
+  lapply(seq_len(nrow(configs)), function(i) {
+    b <- bundles[[i]]
+    list(
+      results    = b$results$alt,
+      dgm        = b$dgm$calibrated,
+      hypothesis = "alt",
+      n_sample   = b$meta$sim_n,
+      label      = sprintf("%s × %s", configs$focus[i], configs$fs[i])
+    )
+  }),
+  paste(configs$focus, configs$fs, sep = "_")
 )
 ```
 
-### 2D bubble: alternative axes (effect-size view)
+## FS classification
 
-```{r oc-bubble-alt}
-#| code-fold: true
-#| code-summary: "2D bubble: Sen × PPV with ÔR(Ĥ) as bubble size"
-#| fig-width: 9
-#| fig-height: 5.5
-plot_oc_metrics(
-  display_dt,
-  x        = "Sen",
-  y        = "PPV",
-  z        = "OR_H_hat",
-  title    = "Effect-size view: Sen × PPV (bubble size = ÔR(Ĥ))",
-  subtitle = "Useful for spotting configurations that combine effect strength with classification accuracy"
+```{r class-fs}
+build_classification_table(
+  scenarios_alt,
+  analyses          = "FS",
+  subgroup_notation = sg_notation,
+  title             = "FS — H1 Classification (grouped by sg_focus × fs)"
 )
 ```
 
-### Pareto frontier overlay
+## GRF classification
 
-A configuration is **on the Pareto frontier** when no other
-configuration matches it on every one of {Detection, Sen, Spec} and
-strictly beats it on at least one.  Frontier configurations
-represent defensible operating points: any non-frontier
-configuration is dominated by at least one frontier configuration
-simultaneously on all three axes.  PPV and NPV are not part of the
-dominance evaluation but are shown alongside in the frontier table
-below as descriptive columns.
-
-The bubble plot below uses the same axes as the default view but
-highlights frontier points (full opacity, thicker stroke) and dims
-dominated points (reduced opacity).
-
-```{r oc-bubble-pareto}
-#| code-fold: true
-#| code-summary: "2D bubble with Pareto-frontier highlighting"
-#| fig-width: 9
-#| fig-height: 5.5
-plot_oc_metrics(
-  display_dt,
-  pareto_col  = "pareto_frontier",
-  size_limits = c(0, 1),
-  title       = "Pareto frontier on {Detection, Sen, Spec} -- frontier in solid, dominated dimmed",
-  subtitle    = "Axes: Spec (x), NPV (y); bubble size = Detection.  Frontier is computed on {Detection, Sen, Spec}, not on the plotted axes."
+```{r class-grf}
+build_classification_table(
+  scenarios_alt,
+  analyses          = "GRF",
+  subgroup_notation = sg_notation,
+  title             = "GRF — H1 Classification (grouped by sg_focus × fs)"
 )
 ```
-
-The table below lists the frontier configurations with all five
-classification metrics shown.  PPV and NPV appear here as
-descriptive columns -- they did not influence frontier membership
-but help characterise each defensible operating point.
-
-```{r oc-pareto-frontier-table}
-#| code-fold: true
-#| code-summary: "Frontier configurations with descriptive PPV/NPV alongside"
-
-frontier_cols <- c("group", "Analysis", "N_sims",
-                   "Detection", "Sen", "Spec", "PPV", "NPV", "S")
-frontier_dt <- display_dt[
-  display_dt$pareto_frontier %in% TRUE,
-  ..frontier_cols
-]
-data.table::setorder(frontier_dt, -S)
-
-gt::gt(frontier_dt) |>
-  gt::tab_header(
-    title    = "Pareto-frontier configurations",
-    subtitle = "Frontier defined on {Detection, Sen, Spec} (bold).  PPV, NPV, S shown alongside as descriptive columns; rows sorted by S descending."
-  ) |>
-  gt::tab_spanner(label = "Frontier metrics",
-                  columns = c(Detection, Sen, Spec)) |>
-  gt::tab_spanner(label = "Descriptive",
-                  columns = c(PPV, NPV, S)) |>
-  gt::cols_label(
-    Analysis  = "Analysis",
-    N_sims    = "N",
-    Detection = "Detect",
-    Sen       = "Sen",
-    Spec      = "Spec",
-    PPV       = "PPV",
-    NPV       = "NPV",
-    S         = "S (linear; w = 1.5, 1, 1.75)"
-  ) |>
-  gt::fmt_number(columns = c(Detection, Sen, Spec, PPV, NPV, S), decimals = 3) |>
-  gt::sub_missing(missing_text = "—")
-```
-
-#### Robustness across weightings
-
-The single composite score above uses the benefit-protection
-weighting `(1.5, 1, 1.75)` -- a deliberate but ultimately
-subjective choice.  The chunks below repeat the scoring under four
-alternative weightings (equal, Spec-emphasis, Detection-emphasis,
-Sen-emphasis) and identify the configurations that rank in the
-top-K under **every** weighting.  These are the configurations
-whose preference is robust to the weighting choice; a
-configuration whose rank swings sharply across weightings is an
-artefact of the weights rather than a defensible operating point.
-
-```{r oc-score-grid}
-#| code-fold: true
-#| code-summary: "Compute scores across the default weight grid + consensus top-K"
-
-# Augment with one score column per weighting in the default grid.
-# Adds S_equal, S_bp_default, S_spec_emphasis, S_detect_emphasis, S_sen_emphasis.
-display_dt <- compute_oc_score_grid(display_dt)
-
-# Identify configurations top-5 under EVERY weighting.
-score_cols_grid <- paste0("S_", c("equal", "bp_default", "spec_emphasis",
-                                  "detect_emphasis", "sen_emphasis"))
-display_dt <- consensus_top_k(
-  display_dt,
-  score_cols = score_cols_grid,
-  k          = 5L,
-  flag_col   = "consensus_top5"
-)
-
-cat(sprintf(
-  "Consensus top-5: %d configuration(s) rank in the top-5 under all %d weightings.\n",
-  sum(display_dt$consensus_top5, na.rm = TRUE),
-  length(score_cols_grid)
-))
-cat(sprintf(
-  "Pareto frontier AND consensus top-5: %d configuration(s).\n",
-  sum(display_dt$pareto_frontier & display_dt$consensus_top5, na.rm = TRUE)
-))
-```
-
-The table below shows the consensus top-5 configurations (top-5
-under all five weightings) with one score column per weighting,
-ordered by the benefit-protection score.  The `Pareto`
-column indicates whether the configuration also lies on the Pareto
-frontier of {Detection, Sen, Spec} -- configurations that pass
-both filters are robustly preferred *and* not dominated on any
-single classification axis.
-
-```{r oc-consensus-table}
-#| code-fold: true
-#| code-summary: "Consensus top-5 configurations with all grid scores"
-
-consensus_cols <- c("group", "Analysis",
-                    "Detection", "Sen", "Spec",
-                    "pareto_frontier",
-                    "S_equal", "S_bp_default", "S_spec_emphasis",
-                    "S_detect_emphasis", "S_sen_emphasis")
-consensus_dt <- display_dt[
-  display_dt$consensus_top5 %in% TRUE,
-  ..consensus_cols
-]
-data.table::setorder(consensus_dt, -S_bp_default)
-
-# Rename the logical flag for nicer display
-data.table::setnames(consensus_dt, "pareto_frontier", "Pareto")
-
-gt::gt(consensus_dt) |>
-  gt::tab_header(
-    title    = "Consensus top-5 across all five weightings",
-    subtitle = "Configurations top-5 under {equal, bp_default, spec_emphasis, detect_emphasis, sen_emphasis}.  'Pareto' flags also-on-frontier on {Detection, Sen, Spec}."
-  ) |>
-  gt::tab_spanner(label = "Classification metrics",
-                  columns = c(Detection, Sen, Spec)) |>
-  gt::tab_spanner(label = "Scores by weighting",
-                  columns = c(S_equal, S_bp_default, S_spec_emphasis,
-                              S_detect_emphasis, S_sen_emphasis)) |>
-  gt::cols_label(
-    Analysis          = "Analysis",
-    Detection         = "Detect",
-    Sen               = "Sen",
-    Spec              = "Spec",
-    Pareto            = "Pareto",
-    S_equal           = "equal",
-    S_bp_default      = "bp_default",
-    S_spec_emphasis   = "spec_emph",
-    S_detect_emphasis = "detect_emph",
-    S_sen_emphasis    = "sen_emph"
-  ) |>
-  gt::fmt_number(columns = c(Detection, Sen, Spec),
-                 decimals = 3) |>
-  gt::fmt_number(columns = c(S_equal, S_bp_default, S_spec_emphasis,
-                              S_detect_emphasis, S_sen_emphasis),
-                 decimals = 3) |>
-  gt::sub_missing(missing_text = "—")
-```
-
-The default weight grid is defined in `compute_oc_score_grid.R`
-(see `.OC_WEIGHT_GRID_DEFAULT`); pass a custom `weight_grid`
-argument to explore a different set of weightings.  Adjust the
-top-K cutoff via the `k` argument of `consensus_top_k()` for a
-stricter (e.g.\ `k = 3`) or looser (e.g.\ `k = 8`) consensus.
-
-### 3D interactive view (rotate to disambiguate depth)
-
-The plot below is an HTML widget rendered by plotly; rotation,
-zoom, and per-point hover are all interactive.  Static screenshots
-of 3D scatter plots are routinely misleading because perspective
-alone does not resolve depth, so the intended use is to rotate
-the view in the rendered HTML.  This chunk does not produce
-output in PDF; for PDF reports, use the 2D bubble views above.
-
-```{r oc-scatter3d}
-#| code-fold: true
-#| code-summary: "3D scatter: Spec × NPV × Detection (interactive)"
-plot_oc_metrics_3d(
-  display_dt,
-  title = "OC summary: Spec × NPV × Detection (rotate to read depth)"
-)
-```
-
-
 
 # Per-config Detail
 

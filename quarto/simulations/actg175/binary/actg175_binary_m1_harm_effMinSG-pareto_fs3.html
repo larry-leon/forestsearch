@@ -2891,7 +2891,7 @@ Candidate factors: 55
 Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 6105 
 Per-arm events criteria: control &gt;= 10, treatment &gt;= 0
 Sample size criteria: n &gt;= 60 
-Subgroup search completed in 0.15 minutes
+Subgroup search completed in 0.16 minutes
 
 --- Filtering Summary ---
   Combinations evaluated: 6105 
@@ -2908,8 +2908,8 @@ Found 467 subgroup candidate(s)
 # of candidate subgroups (meeting all criteria) = 467 
 Removed 80 near-duplicate subgroups
 # of unique initial candidates: 387 
-# Restricting to top stop_Kgroups = 40 
-# of candidates to evaluate: 40 
+# Restricting to top stop_Kgroups = 50 
+# of candidates to evaluate: 50 
 
 ==============================================================================================================
 CANDIDATE EVALUATION PREVIEW (pre-consistency) (sg_focus = &quot;hrMinSG&quot;, selection_rule = &quot;pareto&quot;)
@@ -2956,34 +2956,49 @@ Rank  OR      N      E     K    OF  Subgroup
   38   2.337     70    34    2  -   !{wtkg &lt;= 84.8232} &amp; !{age &lt;= 35.6}
   39   2.010     70    43    2  -   !{homo} &amp; !{wtkg &lt;= 76}
   40   2.000     70    36    2  -   !{wtkg &lt;= 86.6} &amp; !{cd40 &lt;= 300}
+  41   1.568     70    45    2  -   !{age &lt;= 30} &amp; !{cd40 &lt;= 459.5}
+  42   1.613     71    30    2  -   {race} &amp; {wtkg &lt;= 68}
+  43   1.500     71    35    2  -   !{wtkg &lt;= 74.9} &amp; {wtkg &lt;= 78.0192}
+  44   1.320     71    29    2  -   {preanti &lt;= 85} &amp; !{cd80 &lt;= 1163.2}
+  45   3.054     72    39    2  -   !{wtkg &lt;= 84.8232} &amp; !{cd80 &lt;= 890}
+  46   1.289     72    33    2  -   !{wtkg &lt;= 76} &amp; {age &lt;= 30}
+  47   1.285     72    24    2  -   {drugs} &amp; {cd40 &lt;= 426}
+  48   2.492     73    40    2  -   !{wtkg &lt;= 84.8232} &amp; !{preanti &lt;= 0}
+  49   1.719     73    26    2  -   !{wtkg &lt;= 86.6} &amp; !{race}
+  50   1.408     73    26    2  -   {drugs} &amp; !{wtkg &lt;= 65.2}
 --------------------------------------------------------------------------------------------------------------
-To evaluate: 40   On frontier: 17
+To evaluate: 50   On frontier: 17
 Legend: OF = on Pareto frontier.
 ==============================================================================================================
 
 Parallel config: workers = 1 , batch_size = 2 
-Batch 1 / 20 : candidates 1 - 2 
-Batch 2 / 20 : candidates 3 - 4 
-Batch 3 / 20 : candidates 5 - 6 
-Batch 4 / 20 : candidates 7 - 8 
-Batch 5 / 20 : candidates 9 - 10 
-Batch 6 / 20 : candidates 11 - 12 
-Batch 7 / 20 : candidates 13 - 14 
-Batch 8 / 20 : candidates 15 - 16 
-Batch 9 / 20 : candidates 17 - 18 
-Batch 10 / 20 : candidates 19 - 20 
-Batch 11 / 20 : candidates 21 - 22 
-Batch 12 / 20 : candidates 23 - 24 
-Batch 13 / 20 : candidates 25 - 26 
-Batch 14 / 20 : candidates 27 - 28 
-Batch 15 / 20 : candidates 29 - 30 
-Batch 16 / 20 : candidates 31 - 32 
-Batch 17 / 20 : candidates 33 - 34 
-Batch 18 / 20 : candidates 35 - 36 
-Batch 19 / 20 : candidates 37 - 38 
-Batch 20 / 20 : candidates 39 - 40 
-Evaluated 40 of 40 candidates (complete) 
-16 subgroups passed consistency threshold
+Batch 1 / 25 : candidates 1 - 2 
+Batch 2 / 25 : candidates 3 - 4 
+Batch 3 / 25 : candidates 5 - 6 
+Batch 4 / 25 : candidates 7 - 8 
+Batch 5 / 25 : candidates 9 - 10 
+Batch 6 / 25 : candidates 11 - 12 
+Batch 7 / 25 : candidates 13 - 14 
+Batch 8 / 25 : candidates 15 - 16 
+Batch 9 / 25 : candidates 17 - 18 
+Batch 10 / 25 : candidates 19 - 20 
+Batch 11 / 25 : candidates 21 - 22 
+Batch 12 / 25 : candidates 23 - 24 
+Batch 13 / 25 : candidates 25 - 26 
+Batch 14 / 25 : candidates 27 - 28 
+Batch 15 / 25 : candidates 29 - 30 
+Batch 16 / 25 : candidates 31 - 32 
+Batch 17 / 25 : candidates 33 - 34 
+Batch 18 / 25 : candidates 35 - 36 
+Batch 19 / 25 : candidates 37 - 38 
+Batch 20 / 25 : candidates 39 - 40 
+Batch 21 / 25 : candidates 41 - 42 
+Batch 22 / 25 : candidates 43 - 44 
+Batch 23 / 25 : candidates 45 - 46 
+Batch 24 / 25 : candidates 47 - 48 
+Batch 25 / 25 : candidates 49 - 50 
+Evaluated 50 of 50 candidates (complete) 
+18 subgroups passed consistency threshold
 SG focus = hrMinSG 
 
 ==============================================================================================================
@@ -3007,12 +3022,14 @@ Rank  OR      N      E     K    P      OF  S  Subgroup
   14   2.714     66    33    2  0.940  -   -  !{wtkg &lt;= 86.6} &amp; !{cd80 &lt;= 890}
   15   2.352     68    29    2  1.000  -   -  {preanti &lt;= 387.3} &amp; !{prior_6mo == 1}
   16   2.337     70    34    2  0.910  -   -  !{wtkg &lt;= 84.8232} &amp; !{age &lt;= 35.6}
+  17   3.054     72    39    2  0.960  -   -  !{wtkg &lt;= 84.8232} &amp; !{cd80 &lt;= 890}
+  18   2.492     73    40    2  0.930  -   -  !{wtkg &lt;= 84.8232} &amp; !{preanti &lt;= 0}
 --------------------------------------------------------------------------------------------------------------
-Evaluated: 40   Passed: 16   On frontier: 11   Selected: m=1
+Evaluated: 50   Passed: 18   On frontier: 11   Selected: m=1
 Legend: P = Pcons (consistency probability); OF = on Pareto frontier; S = selected.
 ==============================================================================================================
 
-Seconds and minutes forestsearch overall = 30.56 0.5093 
+Seconds and minutes forestsearch overall = 35.579 0.593 
 Consistency algorithm used: twostage 
 Subgroup identified: !{wtkg &lt;= 86.6} &amp; {cd40 &lt;= 459.5} </code></pre>
 </div>
@@ -3025,20 +3042,20 @@ Subgroup identified: !{wtkg &lt;= 86.6} &amp; {cd40 &lt;= 459.5} </code></pre>
 <span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output-display">
-<div id="txubbdjwuo" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
-<style>#txubbdjwuo table {
+<div id="ojbkqxbsap" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#ojbkqxbsap table {
 font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 -webkit-font-smoothing: antialiased;
 -moz-osx-font-smoothing: grayscale;
 }
-#txubbdjwuo thead, #txubbdjwuo tbody, #txubbdjwuo tfoot, #txubbdjwuo tr, #txubbdjwuo td, #txubbdjwuo th {
+#ojbkqxbsap thead, #ojbkqxbsap tbody, #ojbkqxbsap tfoot, #ojbkqxbsap tr, #ojbkqxbsap td, #ojbkqxbsap th {
 border-style: none;
 }
-#txubbdjwuo p {
+#ojbkqxbsap p {
 margin: 0;
 padding: 0;
 }
-#txubbdjwuo .gt_table {
+#ojbkqxbsap .gt_table {
 display: table;
 border-collapse: collapse;
 line-height: normal;
@@ -3063,11 +3080,11 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#txubbdjwuo .gt_caption {
+#ojbkqxbsap .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#txubbdjwuo .gt_title {
+#ojbkqxbsap .gt_title {
 color: #333333;
 font-size: 14px;
 font-weight: initial;
@@ -3078,7 +3095,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#txubbdjwuo .gt_subtitle {
+#ojbkqxbsap .gt_subtitle {
 color: #333333;
 font-size: 12px;
 font-weight: initial;
@@ -3089,7 +3106,7 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#txubbdjwuo .gt_heading {
+#ojbkqxbsap .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -3100,12 +3117,12 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#txubbdjwuo .gt_bottom_border {
+#ojbkqxbsap .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#txubbdjwuo .gt_col_headings {
+#ojbkqxbsap .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -3119,7 +3136,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#txubbdjwuo .gt_col_heading {
+#ojbkqxbsap .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 12px;
@@ -3138,7 +3155,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#txubbdjwuo .gt_column_spanner_outer {
+#ojbkqxbsap .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 12px;
@@ -3149,13 +3166,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#txubbdjwuo .gt_column_spanner_outer:first-child {
+#ojbkqxbsap .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#txubbdjwuo .gt_column_spanner_outer:last-child {
+#ojbkqxbsap .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#txubbdjwuo .gt_column_spanner {
+#ojbkqxbsap .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -3166,10 +3183,10 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#txubbdjwuo .gt_spanner_row {
+#ojbkqxbsap .gt_spanner_row {
 border-bottom-style: hidden;
 }
-#txubbdjwuo .gt_group_heading {
+#ojbkqxbsap .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3194,7 +3211,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#txubbdjwuo .gt_empty_group_heading {
+#ojbkqxbsap .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -3208,13 +3225,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#txubbdjwuo .gt_from_md > :first-child {
+#ojbkqxbsap .gt_from_md > :first-child {
 margin-top: 0;
 }
-#txubbdjwuo .gt_from_md > :last-child {
+#ojbkqxbsap .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#txubbdjwuo .gt_row {
+#ojbkqxbsap .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3232,7 +3249,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#txubbdjwuo .gt_stub {
+#ojbkqxbsap .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -3244,7 +3261,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#txubbdjwuo .gt_stub_row_group {
+#ojbkqxbsap .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -3257,13 +3274,13 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#txubbdjwuo .gt_row_group_first td {
+#ojbkqxbsap .gt_row_group_first td {
 border-top-width: 2px;
 }
-#txubbdjwuo .gt_row_group_first th {
+#ojbkqxbsap .gt_row_group_first th {
 border-top-width: 2px;
 }
-#txubbdjwuo .gt_summary_row {
+#ojbkqxbsap .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -3272,14 +3289,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#txubbdjwuo .gt_first_summary_row {
+#ojbkqxbsap .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#txubbdjwuo .gt_first_summary_row.thick {
+#ojbkqxbsap .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#txubbdjwuo .gt_last_summary_row {
+#ojbkqxbsap .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3288,7 +3305,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#txubbdjwuo .gt_grand_summary_row {
+#ojbkqxbsap .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -3297,7 +3314,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#txubbdjwuo .gt_first_grand_summary_row {
+#ojbkqxbsap .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3306,7 +3323,7 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#txubbdjwuo .gt_last_grand_summary_row_top {
+#ojbkqxbsap .gt_last_grand_summary_row_top {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -3315,10 +3332,10 @@ border-bottom-style: double;
 border-bottom-width: 6px;
 border-bottom-color: #D3D3D3;
 }
-#txubbdjwuo .gt_striped {
+#ojbkqxbsap .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#txubbdjwuo .gt_table_body {
+#ojbkqxbsap .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -3326,7 +3343,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#txubbdjwuo .gt_footnotes {
+#ojbkqxbsap .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -3339,7 +3356,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#txubbdjwuo .gt_footnote {
+#ojbkqxbsap .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-top: 4px;
@@ -3347,7 +3364,7 @@ padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#txubbdjwuo .gt_sourcenotes {
+#ojbkqxbsap .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -3360,64 +3377,64 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#txubbdjwuo .gt_sourcenote {
+#ojbkqxbsap .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#txubbdjwuo .gt_left {
+#ojbkqxbsap .gt_left {
 text-align: left;
 }
-#txubbdjwuo .gt_center {
+#ojbkqxbsap .gt_center {
 text-align: center;
 }
-#txubbdjwuo .gt_right {
+#ojbkqxbsap .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#txubbdjwuo .gt_font_normal {
+#ojbkqxbsap .gt_font_normal {
 font-weight: normal;
 }
-#txubbdjwuo .gt_font_bold {
+#ojbkqxbsap .gt_font_bold {
 font-weight: bold;
 }
-#txubbdjwuo .gt_font_italic {
+#ojbkqxbsap .gt_font_italic {
 font-style: italic;
 }
-#txubbdjwuo .gt_super {
+#ojbkqxbsap .gt_super {
 font-size: 65%;
 }
-#txubbdjwuo .gt_footnote_marks {
+#ojbkqxbsap .gt_footnote_marks {
 font-size: 75%;
 vertical-align: 0.4em;
 position: initial;
 }
-#txubbdjwuo .gt_asterisk {
+#ojbkqxbsap .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#txubbdjwuo .gt_indent_1 {
+#ojbkqxbsap .gt_indent_1 {
 text-indent: 5px;
 }
-#txubbdjwuo .gt_indent_2 {
+#ojbkqxbsap .gt_indent_2 {
 text-indent: 10px;
 }
-#txubbdjwuo .gt_indent_3 {
+#ojbkqxbsap .gt_indent_3 {
 text-indent: 15px;
 }
-#txubbdjwuo .gt_indent_4 {
+#ojbkqxbsap .gt_indent_4 {
 text-indent: 20px;
 }
-#txubbdjwuo .gt_indent_5 {
+#ojbkqxbsap .gt_indent_5 {
 text-indent: 25px;
 }
-#txubbdjwuo .katex-display {
+#ojbkqxbsap .katex-display {
 display: inline-flex !important;
 margin-bottom: 0.75em !important;
 }
-#txubbdjwuo div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
+#ojbkqxbsap div.Reactable > div.rt-table > div.rt-thead > div.rt-tr.rt-tr-group-header > div.rt-th-group:after {
 height: 0px !important;
 }
 </style>
@@ -3535,7 +3552,7 @@ height: 0px !important;
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Bootstrap completed in 4.8 minutes</code></pre>
+Bootstrap completed in 5.2 minutes</code></pre>
 </div>
 <details class="code-fold">
 <summary>Single simulated trial + FS analysis alt (click to expand)</summary>
@@ -3605,9 +3622,9 @@ BOOTSTRAP SUCCESS METRICS:
 TIMING ANALYSIS:
 -------------------------------------------------------------
 Overall:
-  Total bootstrap time:          4.77 minutes (0.08 hours)
+  Total bootstrap time:          5.16 minutes (0.09 hours)
   Average per iteration:         0.02 min (1.0 sec)
-  Projected for 1000 boots:      15.89 min (0.26 hrs)</code></pre>
+  Projected for 1000 boots:      17.19 min (0.29 hrs)</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in Ops.factor(symptom): &#39;!&#39; not meaningful for factors</code></pre>
@@ -3783,7 +3800,7 @@ Candidate factors: 54
 Number of possible configurations (&lt;= maxk): maxk = 2 , # combinations = 5886 
 Per-arm events criteria: control &gt;= 10, treatment &gt;= 0
 Sample size criteria: n &gt;= 60 
-Subgroup search completed in 0.14 minutes
+Subgroup search completed in 0.15 minutes
 
 --- Filtering Summary ---
   Combinations evaluated: 5886 
@@ -3800,7 +3817,7 @@ Found 22 subgroup candidate(s)
 # of candidate subgroups (meeting all criteria) = 22 
 Removed 1 near-duplicate subgroups
 # of unique initial candidates: 21 
-# Restricting to top stop_Kgroups = 40 
+# Restricting to top stop_Kgroups = 50 
 # of candidates to evaluate: 21 
 
 ==============================================================================================================
@@ -3855,7 +3872,7 @@ CANDIDATE EVALUATION SUMMARY  (sg_focus = &quot;hrMinSG&quot;, selection_rule = 
 Evaluated: 21   Passed: 0
 No candidates met the consistency threshold.
 ==============================================================================================================
-Seconds and minutes forestsearch overall = 12.123 0.202 
+Seconds and minutes forestsearch overall = 12.564 0.2094 
 Consistency algorithm used: twostage </code></pre>
 </div>
 <details class="code-fold">
@@ -4086,7 +4103,7 @@ Consistency algorithm used: twostage </code></pre>
 <span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>            t_alt  <span class="sc">/</span> <span class="dv">60</span>, <span class="fu">nrow</span>(results_alt),  n_failed_alt))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>  H1: 11.7 min, 2000 rows, 0 failed</code></pre>
+<pre><code>  H1: 12.9 min, 2000 rows, 0 failed</code></pre>
 </div>
 <details class="code-fold">
 <summary>Bundle assembly + saveRDS (click to expand)</summary>
@@ -4094,7 +4111,7 @@ Consistency algorithm used: twostage </code></pre>
 <span id="cb95-2"><a href="#cb95-2" aria-hidden="true" tabindex="-1"></a>            t_null <span class="sc">/</span> <span class="dv">60</span>, <span class="fu">nrow</span>(results_null), n_failed_null))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>  H0: 9.0 min, 2000 rows, 0 failed</code></pre>
+<pre><code>  H0: 9.9 min, 2000 rows, 0 failed</code></pre>
 </div>
 </div>
 </section>
@@ -8256,14 +8273,14 @@ height: 0px !important;
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb118"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb118-1"><a href="#cb118-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;H1: %.1f min (%d sims)</span><span class="sc">\n</span><span class="st">&quot;</span>, t_alt <span class="sc">/</span> <span class="dv">60</span>, nsims_alt))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>H1: 11.7 min (1000 sims)</code></pre>
+<pre><code>H1: 12.9 min (1000 sims)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb120"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb120-1"><a href="#cb120-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">sprintf</span>(<span class="st">&quot;H0: %.1f min (%d sims)</span><span class="sc">\n</span><span class="st">&quot;</span>, t_null <span class="sc">/</span> <span class="dv">60</span>, nsims_null))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>H0: 9.0 min (1000 sims)</code></pre>
+<pre><code>H0: 9.9 min (1000 sims)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
