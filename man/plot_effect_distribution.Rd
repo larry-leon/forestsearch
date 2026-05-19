@@ -58,8 +58,8 @@ Default: \code{NULL}.}
 \item{panel_labels}{Named character vector with names \code{"itt"},
 \code{"H"}, \code{"Hc"} and the display labels for each violin.
 Default: \code{c(itt = "ITT", H = "Identified H-hat",
-Hc = "Identified Hc-hat")}.  When \code{subgroup_notation =
-"benefit"}, the default \code{Hc} label is adjusted to
+  Hc = "Identified Hc-hat")}.  When \code{subgroup_notation =
+  "benefit"}, the default \code{Hc} label is adjusted to
 \code{"Identified Hc-hat (benefit)"}.}
 
 \item{drop_undetected}{Logical.  Restrict the \eqn{\hat H} and
