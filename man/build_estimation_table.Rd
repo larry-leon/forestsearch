@@ -65,7 +65,7 @@ Avg / SD / Min / Max are recomputed on the central
 \code{1 - 2 * trim_fraction} of estimates, and a small footnote
 marker is placed on the row's Avg cell. The Estimator label is
 left unchanged so the Unicode notation (e.g., \eqn{\hat\theta(\hat
-  Q)}) renders normally; only the Avg cell carries the trim
+Q)}) renders normally; only the Avg cell carries the trim
 indicator. Set \code{NULL} to disable trimming entirely. Default:
 \code{1000} (a value typical simulation results will never
 approach unless a small subgroup produces a degenerate effect

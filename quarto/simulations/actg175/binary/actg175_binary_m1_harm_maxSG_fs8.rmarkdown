@@ -14,19 +14,19 @@ sim_n <- 700
 
 scenario <- c("actg175_binary_m1_harm")
 
-fs_sg_focus <- "effMinSG"
+fs_sg_focus <- "maxSG"
 
 # Default = "neighborhood" compatible with all sg_focus options
 # but not pareto or both
 
-fs_selection_rule <- "both"
+fs_selection_rule <- "neighborhood"
 
-# -- Build fs_params from sourced fs3 bundle ---------------------------
-# Canonical FS parameter values are defined in _fsparams/fs3_params.R
+# -- Build fs_params from sourced fs8 bundle ---------------------------
+# Canonical FS parameter values are defined in _fsparams/fs8_params.R
 # (including stop_threshold, which is returned as NULL when
 # fs_sg_focus is hrMaxSG or hrMinSG per package constraint).
 
-fs_tag <- "fs3"
+fs_tag <- "fs8"
 
 source(sprintf("_fsparams/%s_params.R", fs_tag))
 fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
@@ -37,8 +37,7 @@ fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
 sim_mode <- "full"
-
-sims_demo <- 10
+sims_demo <- 20
 sims_full <- 1000
 
 sims <- sims_demo
@@ -51,15 +50,15 @@ BUNDLE_PATH <- sprintf(
 
 CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
-# -- FS parameters (sourced from canonical fs3 file) -------------------
-# Canonical fs3 parameter values live in _fsparams/fs3_params.R.
+# -- FS parameters (sourced from canonical fs8 file) -------------------
+# Canonical fs8 parameter values live in _fsparams/fs8_params.R.
 # Edit there to apply changes uniformly across all sg_focus configs.
 
 
 frontier_params <- list(
   n_splits      = 1000L,
   seed          = 1L,
-  xlim          = c(1.0, 5.0),
+  xlim          = c(1.25, 3.0),
   digits_effect = 2L,
   digits_pcons  = 2L,
   digits_ci     = 2L
@@ -73,7 +72,7 @@ n_workers   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
 This article runs the simulation study for configuration
 **`` `r CONFIG_ID` ``** (study = ACTG175, outcome = binary,
 DGM = m1 [calibrated GLM, target OR(Q) = 2.0], objective = harm,
-FS bundle = fs3).  See `BUNDLE_PATH` in the setup chunk for the
+FS bundle = fs8).  See `BUNDLE_PATH` in the setup chunk for the
 exact bundle file used.
 
 The article supports three rendering modes, controlled by `sim_mode`
@@ -311,117 +310,94 @@ fs_single <- do.call(forestsearch, c(
   fs_params_single
 ))
 
-if (!is.null(fs_single$sg.harm)) {
-  fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+if(!is.null(fs_single$sg.harm)){
+fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+fs_single_tabs$sg10_out
+fs_single_tabs$tab_estimates
 }
 
 t0 <- proc.time()
 fs <- fs_single
 
-if (!is.null(fs$sg.harm)) {
-  fs_bc <- forestsearch_bootstrap_dofuture(
-    fs.est = fs,
-    nb_boots = 500,
-    show_three = FALSE,
-    details = FALSE,
-    parallel_args = list(
-      plan = "multisession",
-      workers = n_workers,
-      show_message = TRUE
-    )
+if(!is.null(fs$sg.harm)){
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 300,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
   )
+)
 
-  plan("sequential")
-  timings <- (proc.time() - t0)["elapsed"]
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
 
-  cat("\nBootstrap completed in",
-      round(timings / 60, 1), "minutes\n")
-
-  # Comprehensive summary with diagnostics.  All variables built here are
-  # rendered by the small downstream chunks (single-trial-alt-render-*),
-  # which exist solely so each gt table is the last (and only) expression
-  # of its chunk -- the only way knitr's auto-print reliably emits raw
-  # HTML for a gt_tbl object.
-  summaries <- summarize_bootstrap_results(
-    sgharm = fs$sg.harm,
-    boot_results = fs_bc,
-    create_plots = TRUE,
-    est.scale = "hr"
-  )
-
-  ci_tab <- compute_frontier_cis(
-    fs,
-    n_splits = frontier_params$n_splits,
-    seed     = frontier_params$seed
-  )
-
-  # Plot rendered inline here -- the graphics-device path is independent
-  # of knitr's stdout capture, so print(p) works inside the if-block.
-  p <- plot_pareto_frontier(
-    fs,
-    ci_table  = ci_tab,
-    show_band = TRUE,
-    xlim      = frontier_params$xlim
-  )
-  print(p)
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
 }
-```
+# Comprehensive summary with diagnostics
 
-```{r single-trial-alt-render-sg10}
-#| echo: false
-# Render sg10 candidate-summary table.  If fs_single$sg.harm is NULL the
-# if-block returns invisible(NULL) and nothing is emitted.
-if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
-```
+if(!is.null(fs$sg.harm)){
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+# Display bias-corrected estimates table
+summaries$table
 
-```{r single-trial-alt-render-tab-estimates}
-#| echo: false
-# Render the formatted estimates table (gt).
-if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
-```
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
 
-```{r single-trial-alt-render-bootstrap-table}
-#| echo: false
-# Render the bias-corrected bootstrap-results table (gt).
-if (!is.null(fs$sg.harm)) summaries$table
-```
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
 
-```{r single-trial-alt-render-pareto-table}
-#| echo: false
-# Render the Pareto frontier table.  pareto_frontier_table() may return
-# a gt_tbl (normal case), a data.table (fallback when gt is missing), or
-# NULL (no consistency output).  All three behave correctly via auto-print.
-if (!is.null(fs$sg.harm)) {
-  pareto_frontier_table(
-    fs,
-    ci_table      = ci_tab,
-    digits_effect = frontier_params$digits_effect,
-    digits_pcons  = frontier_params$digits_pcons,
-    digits_ci     = frontier_params$digits_ci
-  )
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+
+
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
 }
-```
 
-```{r single-trial-alt-render-explain}
-#| echo: false
-#| results: asis
-# Markdown explanation -- results: asis allows cat() output to flow through
-# as markdown rather than being captured into a <pre> block.  Safe here
-# because the explanation is intentional markdown.
-if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
 ```
 
 
 ```{r single-trial-null-sim}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
-df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 8316951)
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 44)
 ```
 
 
 ```{r single-trial-null-analysis}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
 
 frontier_params <- list(
   n_splits      = 1000L,
@@ -445,91 +421,79 @@ fs_single <- do.call(forestsearch, c(
   fs_params_single
 ))
 
-if (!is.null(fs_single$sg.harm)) {
-  fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+if(!is.null(fs_single$sg.harm)){
+fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+fs_single_tabs$sg10_out
+fs_single_tabs$tab_estimates
 }
 
 t0 <- proc.time()
 fs <- fs_single
 
-# Under the null DGM, the FS analysis typically produces no harm subgroup,
-# so the entire bootstrap-and-rendering pathway below is a no-op.  The
-# six-chunk structure (compute + 5 render) is kept symmetric with the
-# alt-analysis section so the document scaffolding is uniform.
-if (!is.null(fs$sg.harm)) {
-  fs_bc <- forestsearch_bootstrap_dofuture(
-    fs.est = fs,
-    nb_boots = 500,
-    show_three = FALSE,
-    details = FALSE,
-    parallel_args = list(
-      plan = "multisession",
-      workers = n_workers,
-      show_message = TRUE
-    )
+if(!is.null(fs$sg.harm)){
+fs_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs,
+  nb_boots = 300,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
   )
+)
 
-  plan("sequential")
-  timings <- (proc.time() - t0)["elapsed"]
+plan("sequential")
+timings <- (proc.time() - t0)["elapsed"]
 
-  cat("\nBootstrap completed in",
-      round(timings / 60, 1), "minutes\n")
-
-  summaries <- summarize_bootstrap_results(
-    sgharm = fs$sg.harm,
-    boot_results = fs_bc,
-    create_plots = TRUE,
-    est.scale = "hr"
-  )
-
-  ci_tab <- compute_frontier_cis(
-    fs,
-    n_splits = frontier_params$n_splits,
-    seed     = frontier_params$seed
-  )
-
-  p <- plot_pareto_frontier(
-    fs,
-    ci_table  = ci_tab,
-    show_band = TRUE,
-    xlim      = frontier_params$xlim
-  )
-  print(p)
+cat("\nBootstrap completed in",
+    round(timings / 60, 1), "minutes\n")
 }
-```
+# Comprehensive summary with diagnostics
 
-```{r single-trial-null-render-sg10}
-#| echo: false
-if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
-```
+if(!is.null(fs$sg.harm)){
+summaries <- summarize_bootstrap_results(
+  sgharm = fs$sg.harm,
+  boot_results = fs_bc,
+  create_plots = TRUE,
+  est.scale = "hr"
+)
+# Display bias-corrected estimates table
+summaries$table
 
-```{r single-trial-null-render-tab-estimates}
-#| echo: false
-if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
-```
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
 
-```{r single-trial-null-render-bootstrap-table}
-#| echo: false
-if (!is.null(fs$sg.harm)) summaries$table
-```
+# 1. Compute the CIs once (this is the expensive step, ~1-3 min on GBSG).
+#    Parameters come from frontier_params in the Analysis Configuration.
+ci_tab <- compute_frontier_cis(
+  fs,
+  n_splits = frontier_params$n_splits,
+  seed     = frontier_params$seed
+)
 
-```{r single-trial-null-render-pareto-table}
-#| echo: false
-if (!is.null(fs$sg.harm)) {
-  pareto_frontier_table(
-    fs,
-    ci_table      = ci_tab,
-    digits_effect = frontier_params$digits_effect,
-    digits_pcons  = frontier_params$digits_pcons,
-    digits_ci     = frontier_params$digits_ci
-  )
+# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
+p <- plot_pareto_frontier(
+  fs,
+  ci_table  = ci_tab,
+  show_band = TRUE,
+  xlim      = frontier_params$xlim
+)
+print(p)
+
+# 3. Render the table. Pass the same ci_tab so the table and plot
+#    show identical intervals.
+pareto_frontier_table(
+  fs,
+  ci_table      = ci_tab,
+  digits_effect = frontier_params$digits_effect,
+  digits_pcons  = frontier_params$digits_pcons,
+  digits_ci     = frontier_params$digits_ci
+)
+cat(explain_pareto_selection(fs, ci_table = ci_tab))
 }
-```
 
-```{r single-trial-null-render-explain}
-#| echo: false
-#| results: asis
-if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
 ```
 
 
@@ -1006,3 +970,4 @@ cat(sprintf("H1: %.1f min (%d sims)\n", t_alt / 60, nsims_alt))
 cat(sprintf("H0: %.1f min (%d sims)\n", t_null / 60, nsims_null))
 plan(sequential)
 ```
+
