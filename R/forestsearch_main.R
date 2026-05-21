@@ -1298,51 +1298,46 @@ forestsearch <- function(df.analysis,
   if (use_grf && (is.null(grf_res) || is.null(grf_res$tree.cuts))) {
 
     grf_res <- tryCatch({
+      # Argument-list construction is delegated to the internal builders
+      # in R/grf_args.R so the public extract_grf_args() and the call
+      # site here cannot drift.
       if (outcome_type == "survival") {
-        # Survival path: causal_survival_forest (unchanged)
-        grf.subg.harm.survival(
-          data = df.analysis,
-          confounders.name = confounders.name,
-          outcome.name = outcome.name,
-          event.name = event.name,
-          id.name = id.name,
-          treat.name = treat.name,
-          frac.tau = frac.tau,
-          n.min = n.min,
-          dmin.grf = dmin.grf,
-          RCT = is.RCT,
-          details = FALSE,
-          maxdepth = grf_depth,
-          seedit = seedit,
+        surv_args <- .build_grf_survival_args(
+          data                      = df.analysis,
+          confounders.name          = confounders.name,
+          outcome.name              = outcome.name,
+          event.name                = event.name,
+          id.name                   = id.name,
+          treat.name                = treat.name,
+          frac.tau                  = frac.tau,
+          n.min                     = n.min,
+          dmin.grf                  = dmin.grf,
+          is.RCT                    = is.RCT,
+          grf_depth                 = grf_depth,
+          seedit                    = seedit,
           return_selected_cuts_only = return_selected_cuts_only
         )
+        do.call(grf.subg.harm.survival, surv_args)
       } else {
-        # GLM path: causal_forest (no event/horizon)
-        # Map forestsearch outcome_type to grf.subg.harm.glm outcome_type
-        grf_glm_args <- list(
-          data = df.analysis,
-          confounders.name = confounders.name,
-          outcome.name = outcome.name,
-          treat.name = treat.name,
-          id.name = id.name,
-          outcome_type = if (outcome_type == "count") "count" else
-                         if (outcome_type == "binary") "binary" else "continuous",
-          n.min = n.min,
-          dmin.grf = dmin.grf,
-          RCT = is.RCT,
-          details = FALSE,
-          maxdepth = grf_depth,
-          seedit = seedit,
+        glm_args <- .build_grf_glm_args(
+          data                      = df.analysis,
+          confounders.name          = confounders.name,
+          outcome.name              = outcome.name,
+          treat.name                = treat.name,
+          id.name                   = id.name,
+          outcome_type              = outcome_type,
+          n.min                     = n.min,
+          dmin.grf                  = dmin.grf,
+          is.RCT                    = is.RCT,
+          grf_depth                 = grf_depth,
+          seedit                    = seedit,
           return_selected_cuts_only = return_selected_cuts_only,
-          adverse_outcome = adverse_outcome
+          adverse_outcome           = adverse_outcome,
+          offset.name               = offset.name,
+          overdispersion            = overdispersion,
+          grf_count_transform       = grf_count_transform
         )
-        # Count-specific parameters
-        if (outcome_type == "count") {
-          grf_glm_args$offset.name         <- offset.name
-          grf_glm_args$overdispersion      <- overdispersion
-          grf_glm_args$grf_count_transform <- grf_count_transform
-        }
-        do.call(grf.subg.harm.glm, grf_glm_args)
+        do.call(grf.subg.harm.glm, glm_args)
       }
     },
       error = function(e) {
