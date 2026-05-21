@@ -667,6 +667,20 @@ create_bootstrap_diagnostic_plots <- function(results,
     return(NULL)
   }
 
+  # Multiplicative effect measures live on the log scale in the bootstrap
+  # results, so the observed/bias-corrected vertical lines need log().
+  # Additive measures (MD, RD) are already on the identity scale and must
+  # NOT be log-transformed -- log(MD) on a negative MD produces NaN and
+  # warnings (the symptom that motivated this fix).
+  is_log_scale <- toupper(effect_label) %in% c("HR", "OR", "RR", "IRR")
+
+  scale_xintercept <- function(x) if (is_log_scale) log(x) else x
+  x_axis_label     <- if (is_log_scale) {
+    paste0("Log ", effect_label, " (bias-corrected)")
+  } else {
+    paste0(effect_label, " (bias-corrected)")
+  }
+
   plots <- list()
 
   # Plot 1: Bootstrap distribution of bias-corrected estimates H
@@ -677,7 +691,8 @@ create_bootstrap_diagnostic_plots <- function(results,
       p1 <- ggplot2::ggplot(valid_H, ggplot2::aes(x = .data$H_biasadj_2)) +
         ggplot2::geom_histogram(bins = 30, fill = "#4472C4", alpha = 0.7, color = "white") +
         ggplot2::geom_vline(
-          xintercept = c(log(H_estimates$H2), log(H_estimates$H0)),
+          xintercept = c(scale_xintercept(H_estimates$H2),
+                         scale_xintercept(H_estimates$H0)),
           color = c("green", "red"),
           linetype = "dashed",
           linewidth = 1
@@ -685,7 +700,7 @@ create_bootstrap_diagnostic_plots <- function(results,
         ggplot2::labs(
           title = "Bootstrap Distribution: Subgroup H",
           subtitle = "Green = bias-corrected, Red = observed",
-          x = paste0("Log ", effect_label, " (bias-corrected)"),
+          x = x_axis_label,
           y = "Frequency"
         ) +
         ggplot2::theme_minimal() +
@@ -706,7 +721,8 @@ create_bootstrap_diagnostic_plots <- function(results,
       p2 <- ggplot2::ggplot(valid_Hc, ggplot2::aes(x = .data$Hc_biasadj_2)) +
         ggplot2::geom_histogram(bins = 30, fill = "#70AD47", alpha = 0.7, color = "white") +
         ggplot2::geom_vline(
-          xintercept = c(log(Hc_estimates$H2), log(Hc_estimates$H0)),
+          xintercept = c(scale_xintercept(Hc_estimates$H2),
+                         scale_xintercept(Hc_estimates$H0)),
           color = c("green", "red"),
           linetype = "dashed",
           linewidth = 1
@@ -714,7 +730,7 @@ create_bootstrap_diagnostic_plots <- function(results,
         ggplot2::labs(
           title = "Bootstrap Distribution: Subgroup Hc",
           subtitle = "Green = bias-corrected, Red = observed",
-          x = paste0("Log ", effect_label, " (bias-corrected)"),
+          x = x_axis_label,
           y = "Frequency"
         ) +
         ggplot2::theme_minimal() +

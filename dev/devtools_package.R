@@ -147,6 +147,9 @@ unlink("Meta", recursive = TRUE)
 
 # Restart R session (Ctrl+Shift+F10 in RStudio), then:
 
+.rs.restartR()
+
+
 devtools::document()
 
 devtools::install(dependencies = FALSE)
