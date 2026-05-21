@@ -1,7 +1,10 @@
 ---
 title: "Cross-cut Summary: sg_focus × FS Bundle (ACTG175 Binary, m1)"
-format: html
+format:
+  html:
+    embed-resources: true
 ---
+
 
 This article compares operating characteristics across the
 cross-product of **`sg_focus`** and **FS parameter bundle** for a
@@ -76,6 +79,9 @@ if (!exists("%||%", mode = "function")) {
 # Edit these vectors as bundles become available.  expand.grid() builds
 # the full cross-product; missing bundles are skipped (or error if
 # strict_bundles = TRUE).
+# Note: fs7 is same as fs3 except use_twostage = FALSE
+# They are generally same
+
 focus_levels   <- c("eff_neighborhood",
                     "maxSG_neighborhood","effMaxSG_neighborhood","effMaxSG_pareto","effMaxSG_both",
                     "minSG_neighborhood","effMinSG_neighborhood","effMinSG_pareto","effMinSG_both"

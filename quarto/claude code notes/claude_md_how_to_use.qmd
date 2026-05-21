@@ -1,0 +1,459 @@
+---
+title: "Using CLAUDE.md with the forestsearch Repository"
+subtitle: "A step-by-step guide for getting Claude Code to honour the project rules we developed in chat"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    theme: cosmo
+---
+
+# What is `CLAUDE.md`?
+
+`CLAUDE.md` is a Markdown file that lives at the root of a repository
+and contains standing instructions for Claude Code. Every time you
+start a session in that repository, Claude Code reads this file and
+treats its contents as if you had pasted them into the conversation
+yourself.
+
+Think of it as: "I am tired of re-stating the same rules at the start
+of every conversation. Just put them in this file and the assistant
+will always know."
+
+The file does three things for you:
+
+1. **Encodes the strict session rules we developed in our chats**
+   (source-of-truth discipline, no opportunistic fixes, ask before
+   destructive operations, etc.) so they apply automatically.
+2. **Documents project conventions** (file layout, roxygen style, the
+   `base_args` API pattern, the AHR-vs-marginal-HR vocabulary) so
+   you do not have to re-explain them each session.
+3. **Establishes safety guardrails** (do not commit without approval,
+   do not run long simulations without warning, do not bump
+   DESCRIPTION versions silently) so the assistant cannot
+   accidentally do something disruptive.
+
+The file I have prepared for `forestsearch` does all three. It is
+based directly on the rules and conventions that emerged from our
+chat sessions over the past few months.
+
+---
+
+# Where to put it
+
+The file goes at the **root of your `forestsearch` working tree** —
+the same directory that contains `DESCRIPTION`, `NAMESPACE`, `R/`,
+`vignettes/`, etc.
+
+```
+forestsearch/
+├── CLAUDE.md              ← here
+├── DESCRIPTION
+├── NAMESPACE
+├── R/
+├── vignettes/
+├── tests/
+└── ...
+```
+
+Not in `R/`, not in `vignettes/`, not in a subdirectory — root level.
+Claude Code looks for `CLAUDE.md` in the working directory you launch
+it from, walking up the directory tree if it does not find one there.
+
+---
+
+# Installing it: three steps
+
+## Step 1 — Download the file
+
+Use the `CLAUDE.md` artifact I provided alongside this document. Save
+it to your machine — for instance, to your Downloads folder.
+
+## Step 2 — Move it into the repository root
+
+From a terminal:
+
+```bash
+cd ~/path/to/forestsearch     # adjust to your actual path
+mv ~/Downloads/CLAUDE.md .
+```
+
+Or with a file-manager GUI: drag and drop into the `forestsearch`
+folder.
+
+Verify it landed in the right place:
+
+```bash
+ls -la CLAUDE.md
+```
+
+You should see the file listed at the root.
+
+## Step 3 — Commit it (recommended)
+
+```bash
+git add CLAUDE.md
+git commit -m "Add CLAUDE.md with project rules for Claude Code"
+```
+
+This way the rules travel with the repository. If you ever work from
+a different machine, the rules are already there. If a collaborator
+joins, they get the same conventions.
+
+If you would rather try the file out before committing, that is fine
+— just be aware that uncommitted files can be accidentally deleted
+by `git clean -fd` or similar operations.
+
+---
+
+# How to use it: from zero to a working session
+
+The rest of this document is a worked example. I will walk you
+through starting a session, doing one of the kinds of tasks we did
+in chat, and pointing out where `CLAUDE.md` is silently doing the
+work.
+
+## Starting your first session
+
+Open a terminal. Navigate to the repository:
+
+```bash
+cd ~/forestsearch
+```
+
+Launch Claude Code:
+
+```bash
+claude
+```
+
+You will see a prompt. The assistant has already read `CLAUDE.md` —
+you do not need to mention it. A good first message is:
+
+> *Confirm what branch I am on, summarise recent commits, and
+> describe any uncommitted changes. Do not change anything yet.*
+
+The assistant will run:
+
+- `git status` — to see uncommitted changes
+- `git log -10 --oneline` — to see recent commits
+- `git branch --show-current` — to confirm the branch
+
+And report back in plain language. You now have shared context.
+
+**Why this matters.** In the chat sessions, the first thing I had to
+do was figure out which version of which file we were working from.
+With `CLAUDE.md` and a clean git status, that question is settled
+before the conversation even begins.
+
+## A worked example: adding `calibrate_k_treat()` to the package
+
+This is the same task we did in our most recent chat session, but
+now in Claude Code with the rules in place.
+
+### Your prompt
+
+> *I want to add a new exported function `calibrate_k_treat()` to
+> the package. It should mirror the style of `calibrate_k_inter()`
+> in `R/sim_aft_gbsg.R`. The function calibrates `k_treat` via
+> `uniroot` so that the DGM's AHR (or marginal HR, controlled by a
+> `use_ahr` flag) hits a target value. Please draft the function,
+> write a smoke test, document the package, and confirm everything
+> installs cleanly.*
+
+### What Claude Code will do (with `CLAUDE.md` in place)
+
+1. **Read `R/sim_aft_gbsg.R`** to learn `calibrate_k_inter()`'s
+   style — roxygen format, parameter names, error messages,
+   diagnostic output. (Rule 4: "Match the roxygen style of existing
+   siblings.")
+
+2. **Read `R/generate_aft_dgm_main.R`** to see the full signature of
+   the constructor it will be wrapping. (Rule 4: "Functions
+   wrapping `generate_aft_dgm_flex()` should accept a `base_args`
+   named list.")
+
+3. **Propose the new file path**: `R/calibrate_k_treat.R`. (Rule 4:
+   "Functions live in `R/<name>.R`, one major exported function per
+   file.") Ask for permission to create it.
+
+4. **Draft the function** with the conventions encoded:
+   - `base_args` parameter pattern, not `...`
+   - `utils::modifyList()` for overrides, not `c()` (Rule 4: the
+     specific duplicate-argument-error guidance we developed)
+   - `verbose` flag emitting `message()` not `cat()`
+   - `stopifnot()` for input validation
+   - `warning()` if `base_args$seed` is `NULL`
+   - Full roxygen including `@importFrom stats uniroot` and
+     `@importFrom utils modifyList`
+
+5. **Write `tests/testthat/test-calibrate_k_treat.R`** with a smoke
+   test that builds a small GBSG DGM and confirms the calibrated
+   function converges. (Rule 8: "For new exported functions,
+   propose a smoke test that confirms the function runs end-to-end
+   on a small example.")
+
+6. **Run `Rscript -e 'devtools::document()'`** to regenerate the
+   NAMESPACE entries for the new export. Wait for permission first
+   if the install takes longer than ~30s. (Rule 9: "Do not run any
+   operation that exceeds ~30 seconds of wall time without warning
+   me first.")
+
+7. **Run `Rscript -e 'devtools::install(quiet = TRUE)'`** to install
+   the package locally with the new function.
+
+8. **Run the smoke test** and report the calibrated `k_treat` value
+   plus the achieved AHR and the target.
+
+9. **Stop and ask** before committing. (Rule 7: "Propose commit
+   messages but do not commit without explicit approval.")
+
+This is roughly one Claude Code turn. In our chat sessions it took
+five or six turns plus the back-and-forth of you running the smoke
+test yourself.
+
+### What the assistant will *not* do
+
+- It will not "improve" `calibrate_k_inter()` while it has the file
+  open. (Rule 2.)
+- It will not bump the version in `DESCRIPTION`. (Rule 9.)
+- It will not commit or push. (Rule 7.)
+- It will not run a long simulation to "verify" beyond the smoke
+  test. (Rule 9.)
+- It will not silently fix any unrelated warnings it notices in
+  related files. (Rule 2.)
+
+These all came up as friction points in our chat sessions. The rules
+encode the resolution we settled on.
+
+---
+
+# Three more worked examples
+
+## Example A — Render and diagnose
+
+Your prompt:
+
+> *Render `vignettes/extreme_subgroups.qmd` and report any warnings
+> or errors. Pay particular attention to the `build-dgm` chunk
+> output and confirm the calibrated AHR matches 0.70 in the
+> rendered HTML.*
+
+What happens:
+
+1. The assistant runs `quarto render vignettes/extreme_subgroups.qmd`.
+2. Reads the resulting HTML directly off disk.
+3. Greps for `cell-output-error` and `cell-output-stderr` blocks.
+   (Rule 6: "After rendering, check the resulting HTML for
+   `cell-output-error` and `cell-output-stderr` blocks and report
+   any warnings or errors before declaring success.")
+4. Extracts the calibration diagnostic text from the `build-dgm`
+   chunk's output.
+5. Reports findings.
+
+If anything failed, the assistant has the actual stderr in hand and
+can propose a fix in the same turn.
+
+## Example B — Diagnose an unexpected number
+
+Your prompt:
+
+> *The mHR for the ITT row in the simulation results is 0.64, but
+> the calibration reports overall HR = 0.70. Diagnose.*
+
+What happens:
+
+1. The assistant reads the relevant qmd chunks to understand what
+   `dgm_uniform$hazard_ratios$overall`, `$AHR`, and the simulation
+   Cox spec actually are.
+2. Notices the distinction between marginal Cox HR and AHR (Rule 5
+   makes this an explicit project concept, so the assistant will
+   spot it).
+3. Writes a short probe script that builds the DGM, prints both HR
+   summaries, and simulates 100 trials to compare the stratified
+   Cox HR median.
+4. Runs the probe.
+5. Reports the three numbers and explains the gap as Cox
+   non-collapsibility.
+6. Proposes the fix: `use_ahr = TRUE` in the
+   `calibrate_k_treat()` call. (Rule 5: "Calibration targets the
+   AHR by default because the simulation Cox is
+   stratified-by-grade.")
+
+You see the diagnosis with actual numbers, not handwaving. This is
+the loop that took us several chat turns to work through.
+
+## Example C — Iterating on a table layout
+
+Your prompt:
+
+> *The "All Parameters" table in `fsparams_summary.qmd` is too wide
+> and the columns look mis-aligned in the rendered HTML. Please
+> render it, look at the output, and suggest improvements. Apply
+> them and iterate with me.*
+
+What happens:
+
+1. The assistant renders `fsparams_summary.qmd`.
+2. Reads the resulting HTML and identifies the layout issues (column
+   count, value formatting, missing alignment).
+3. Proposes 3–4 concrete improvements as a numbered list with a
+   recommendation. (Rule 3: "When proposing multiple options,
+   present them as a short numbered list with a clear
+   recommendation.")
+4. You pick which to apply.
+5. The assistant applies them and re-renders.
+6. You react. Loop until satisfied.
+
+This loop in chat took us four uploads of HTML files and four
+rounds of patching. With Claude Code it is one continuous
+conversation.
+
+---
+
+# What to do if something goes wrong
+
+## Claude Code did something I did not want
+
+Use git to revert. If you committed before the session:
+
+```bash
+git status                       # see what was touched
+git diff                         # see the changes
+git restore <file>               # revert specific file
+git restore .                    # revert all uncommitted changes
+```
+
+If you did *not* commit before the session, the safety net is
+weaker. This is why I strongly recommend a clean `git status` before
+launching `claude`.
+
+## Claude Code seems confused about which file to edit
+
+`CLAUDE.md` Rule 1 should prevent this, but if it slips:
+
+> *Stop. State which file you are about to edit, with the full path
+> from the repo root. Confirm the version you are reading is the
+> on-disk version, not a stale view from earlier in this session.*
+
+This forces the assistant to re-anchor.
+
+## A command is taking forever
+
+Cancel with Ctrl-C. The assistant will report what was canceled.
+Then ask it to break the task into smaller pieces. (Rule 9 should
+prevent this happening unprompted, but if you ask for a long
+simulation directly, the rule does not block you.)
+
+## The assistant disagreed with you
+
+`CLAUDE.md` Rule 3 says honest disagreement is welcome. If the
+assistant pushes back on a proposed change, take it seriously —
+that exchange is doing real work. Ask for the reasoning. If you
+still want to proceed, you can, but consider whether the objection
+identified a real issue.
+
+## You want to override the rules for one session
+
+You can. Just say so:
+
+> *For this session only, please ignore Rule 7 and commit changes
+> directly without asking. I am doing a bulk cleanup and approving
+> every commit individually is too slow.*
+
+The assistant will acknowledge and adjust. The rules are guidance,
+not a straitjacket.
+
+---
+
+# Editing the rules over time
+
+`CLAUDE.md` is not set in stone. As you work with Claude Code you
+will discover new conventions you want encoded — or rules that turn
+out to be annoying in practice.
+
+Edit the file directly. Commit the changes. The next session will
+pick up the new rules.
+
+Good triggers for updates:
+
+- You found yourself re-stating the same instruction at the start of
+  three different sessions. Encode it.
+- The assistant did something disruptive that a rule would have
+  prevented. Add the rule.
+- A convention you set up months ago no longer applies. Remove or
+  update it.
+
+Treat `CLAUDE.md` like any other piece of project documentation: a
+living artifact that gets refined as the project evolves.
+
+---
+
+# A minimal session checklist
+
+Print this and tape it next to your terminal, at least for the
+first few sessions:
+
+1. **Working directory clean.** `git status` shows no uncommitted
+   changes, or only changes you are aware of.
+2. **Branch correct.** `git branch --show-current` is what you
+   expect.
+3. **Launch.** `cd ~/forestsearch && claude`.
+4. **First message: orient.** "Confirm branch, recent commits, any
+   uncommitted changes. Do not change anything yet."
+5. **State your goal clearly.** "I want to do X. The acceptance
+   criterion is Y."
+6. **Review permission prompts.** Read what is being asked before
+   approving.
+7. **Stop and commit at logical milestones.** Use git as your save
+   point.
+8. **End the session deliberately.** Ctrl-D or `exit`.
+
+Five sessions of this and it will feel automatic.
+
+---
+
+# Frequently asked questions
+
+**Do I have to have `CLAUDE.md` to use Claude Code?**
+
+No. Claude Code works without it — but you will end up restating
+the same rules at the start of every session. The file is a
+convenience.
+
+**Does `CLAUDE.md` apply to the web chat too?**
+
+No. The web chat does not read this file. The rules in `CLAUDE.md`
+parallel the strict session rules we developed in our chat
+sessions, but they are encoded specifically for Claude Code.
+
+**Can I have different `CLAUDE.md` files for different projects?**
+
+Yes. Each repository has its own. The conventions for
+`forestsearch` (R package, Quarto vignettes, AHR vocabulary) are
+different from what you might want for, say, a Python data-analysis
+project.
+
+**What if I want one rule to apply everywhere I use Claude Code?**
+
+There is a separate user-level configuration file (consult the
+official docs at [claude.com/claude-code](https://claude.com/claude-code)
+for the exact path on your operating system). Rules placed there
+apply to every session regardless of repository. `CLAUDE.md` is for
+project-specific rules.
+
+**Will Claude Code respect every rule perfectly?**
+
+Mostly, yes. Occasionally a rule and a specific instruction will be
+in tension, and the assistant will use judgement. If it does the
+wrong thing, point it out — and consider whether the rule needs to
+be sharpened.
+
+**Can I share `CLAUDE.md` with other contributors to the package?**
+
+Yes, and you should. That is one of the reasons to commit it to the
+repository. Anyone who clones the repo and uses Claude Code gets
+the same conventions automatically.

@@ -1,0 +1,498 @@
+---
+title: "FS Parameter Bundles: Comparison and Differences"
+subtitle: "Side-by-side view of fs1, fs2, ... regimes"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+---
+
+This document loads every `fs*_params.R` file in this directory and
+renders two views of the parameter values:
+
+- **Section 2 — Differences only**: the compact view. One row per
+  parameter that varies across the bundles. Best for "what's
+  different between fs1 and fs2?"
+- **Section 3 — All parameters**: the comprehensive view. Every
+  parameter, with cells that differ across bundles highlighted.
+  Best for an audit-trail / one-page reference.
+
+The document auto-discovers `fs*_params.R` files. Add a new bundle
+by dropping `fs2_params.R` into this directory and re-rendering.
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Setup, discovery, and parameter loading (click to expand)"
+
+library(data.table)
+library(dplyr)
+library(gt)
+
+# Base R adds %||% in 4.4; define a fallback for older R.
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+}
+
+# -- Auto-discover fs*_params.R files ---------------------------------------
+# Files are sourced from the current working directory of this qmd
+# (i.e., quarto/simulations/<study>/_fsparams/). Each must define a
+# function get_fsN_params(sg_focus, ...).
+fs_files <- list.files(pattern = "^fs[0-9]+_params\\.R$",
+                       full.names = FALSE)
+
+if (length(fs_files) == 0L) {
+  stop("No fs*_params.R files found in this directory.", call. = FALSE)
+}
+
+# Extract bundle names (e.g., "fs1", "fs2") from filenames
+fs_names <- sub("_params\\.R$", "", fs_files)
+names(fs_files) <- fs_names
+
+cat(sprintf("Discovered %d FS bundle(s): %s\n",
+            length(fs_files), paste(fs_names, collapse = ", ")))
+```
+
+```{r load-bundles}
+#| code-fold: true
+#| code-summary: "Source each file, call its function, capture parameters (click to expand)"
+
+# We call each bundle's function with TWO sg_focus values to surface any
+# sg_focus-dependent parameters (e.g., stop_threshold returns NULL for
+# hrMaxSG/hrMinSG and 0.90 otherwise). Choosing one of each:
+#   - "hr"      -> the early-stopping branch
+#   - "hrMaxSG" -> the neighborhood-criterion branch
+sg_focus_probes <- c(early_stopping = "hr", neighborhood = "hrMaxSG")
+
+# Source each file in a fresh environment so functions don't collide
+load_bundle <- function(file, fs_name) {
+  env <- new.env()
+  source(file, local = env)
+  fn_name <- paste0("get_", fs_name, "_params")
+  if (!exists(fn_name, envir = env, inherits = FALSE)) {
+    stop(sprintf("File %s does not define function %s().",
+                 file, fn_name), call. = FALSE)
+  }
+  fn <- get(fn_name, envir = env)
+  # Call with each sg_focus probe; return as named list of parameter lists
+  lapply(sg_focus_probes, function(sf) fn(sg_focus = sf))
+}
+
+bundles <- mapply(load_bundle,
+                  file    = fs_files,
+                  fs_name = fs_names,
+                  SIMPLIFY = FALSE)
+# bundles[[fs_name]][[probe_name]] is a parameter list
+
+# Extract regime descriptions from each file's header comment
+extract_regime_description <- function(file) {
+  lines <- readLines(file, warn = FALSE)
+  # Find lines starting with "# Regime:" and capture until next blank
+  # comment line (a line that is just "#" with optional spaces)
+  start <- grep("^#\\s+Regime:", lines)
+  if (length(start) == 0L) return(NA_character_)
+  start <- start[1]
+  end <- start
+  for (i in (start + 1):length(lines)) {
+    if (!grepl("^#", lines[i])) break
+    if (grepl("^#\\s*$", lines[i])) break
+    end <- i
+  }
+  desc <- paste(sub("^#\\s?", "", lines[start:end]), collapse = "\n")
+  desc
+}
+
+regime_descriptions <- vapply(fs_files, extract_regime_description,
+                              character(1))
+```
+
+# 1. Regime Descriptions {#sec-regimes}
+
+What each FS bundle is designed for. Pulled from the header comment
+block of each `fs*_params.R` file.
+
+```{r regime-descriptions}
+#| results: asis
+for (i in seq_along(fs_names)) {
+  cat(sprintf("\n## %s\n\n", fs_names[i]))
+  if (is.na(regime_descriptions[i])) {
+    cat("_No `Regime:` line found in header comment._\n")
+  } else {
+    cat("```\n", regime_descriptions[i], "\n```\n", sep = "")
+  }
+}
+```
+
+```{r build-comparison-data}
+#| code-fold: true
+#| code-summary: "Build the wide comparison table (click to expand)"
+
+# Collect all parameter names across all bundles. We use the
+# "early_stopping" probe as the canonical view (so stop_threshold
+# appears as 0.90 rather than NULL).
+canonical_probe <- "early_stopping"
+
+format_value <- function(x) {
+  if (is.null(x)) return("NULL")
+  if (is.list(x)) {
+    # parallel_args / conf.cont_jcuts are lists — render compactly as
+    # "key=val, key=val".  The "list(...)" wrapper is dropped for
+    # display readability; the values still parse unambiguously.
+    parts <- vapply(seq_along(x),
+                    function(i) sprintf("%s=%s",
+                                        names(x)[i],
+                                        format_value(x[[i]])),
+                    character(1))
+    return(paste(parts, collapse = ", "))
+  }
+  if (length(x) > 1L) return(paste0("c(",
+                                    paste(vapply(x, format_value,
+                                                 character(1)),
+                                          collapse = ", "),
+                                    ")"))
+  if (is.character(x)) return(sprintf('"%s"', x))
+  if (is.logical(x))   return(if (x) "TRUE" else "FALSE")
+  format(x)
+}
+
+# Get the union of parameter names, in the order they appear in the
+# first bundle (with any extra params from later bundles appended)
+param_order <- character(0)
+for (fs_name in fs_names) {
+  pl <- bundles[[fs_name]][[canonical_probe]]
+  param_order <- union(param_order, names(pl))
+}
+
+# Build a data.table: one row per parameter, one column per bundle.
+# Use data.table::set() rather than `[[<-` to avoid the shallow-copy
+# warning that base-R column assignment on a data.table triggers.
+wide_dt <- data.table::data.table(parameter = param_order)
+for (fs_name in fs_names) {
+  pl <- bundles[[fs_name]][[canonical_probe]]
+  data.table::set(
+    wide_dt,
+    j     = fs_name,
+    value = vapply(param_order,
+                   function(p) format_value(pl[[p]]),
+                   character(1))
+  )
+}
+
+# Add a "differs" flag: TRUE if any pair of bundle values differs
+if (length(fs_names) >= 2L) {
+  wide_dt[, differs := apply(.SD, 1, function(row) length(unique(row)) > 1L),
+          .SDcols = fs_names]
+} else {
+  wide_dt[, differs := FALSE]
+}
+
+# Also add a note column for parameters with sg_focus-dependent values
+# (i.e., those that differ between the two probes within a bundle)
+note_for <- function(p) {
+  notes <- character(0)
+  for (fs_name in fs_names) {
+    val_a <- bundles[[fs_name]][["early_stopping"]][[p]]
+    val_b <- bundles[[fs_name]][["neighborhood"]][[p]]
+    if (!identical(val_a, val_b)) {
+      notes <- c(notes, sprintf(
+        "%s: %s for hr/maxSG/minSG; %s for hrMaxSG/hrMinSG",
+        fs_name, format_value(val_a), format_value(val_b)
+      ))
+    }
+  }
+  if (length(notes) == 0L) "" else paste(notes, collapse = "; ")
+}
+wide_dt[, sg_focus_dependent := vapply(parameter, note_for, character(1))]
+
+# -- Helpers for cell-level "odd-one-out" highlighting in the diffs table --
+#
+# For each row, identify which bundle columns hold a value different from
+# the row's *mode* (most common value).  These are the cells the reader's
+# eye most needs to find; they get a soft fill in the rendered table.
+#
+# Tie-breaking: if multiple values tie for most-common, the first-encountered
+# is treated as the mode (so highlighting biases toward the lower-indexed
+# bundles being "normal").  In practice this matters only for 50/50 splits.
+row_mode <- function(values) {
+  tab <- table(values)
+  names(tab)[which.max(tab)]
+}
+
+# Returns, for one row of the diffs table, a logical vector over fs_names:
+# TRUE = cell value differs from the row's mode.
+row_odd_mask <- function(row_values) {
+  mode_val <- row_mode(row_values)
+  row_values != mode_val
+}
+```
+
+# 2. Differences Only {#sec-diffs}
+
+The compact view: only parameters whose value differs across at
+least one pair of bundles.
+
+```{r diffs-only}
+diffs_dt <- wide_dt[differs == TRUE]
+
+if (nrow(diffs_dt) == 0L) {
+  cat("**All bundles share identical parameter values.**\n\n",
+      "(This is expected when only one bundle is defined, or when ",
+      "two bundles happen to be identical.)")
+} else {
+  # -- Per-cell highlighting: identify odd-one-out cells row-by-row ---------
+  # For each parameter row, mark cells whose value differs from the row's
+  # mode.  These are the cells worth visually flagging; same-as-mode cells
+  # stay un-styled so they recede.
+  #
+  # odd_cells_long is a list with one entry per row of diffs_dt, each
+  # entry a character vector of the *column names* (bundle ids) flagged
+  # odd for that row.
+  odd_cells_long <- lapply(seq_len(nrow(diffs_dt)), function(i) {
+    row_vals <- unlist(diffs_dt[i, fs_names, with = FALSE], use.names = FALSE)
+    mask     <- row_odd_mask(row_vals)
+    fs_names[mask]
+  })
+
+  # -- Detect cell value types for alignment --------------------------------
+  # Right-align numeric-looking columns, center logicals, left-align the
+  # rest.  Detection is per-column on the formatted character values, so
+  # we don't have to track the original R types.
+  is_numeric_str  <- function(v) all(grepl("^-?[0-9]+(\\.[0-9]+)?$", v))
+  is_logical_str  <- function(v) all(v %in% c("TRUE", "FALSE"))
+
+  num_cols  <- fs_names[vapply(fs_names,
+                               function(c) is_numeric_str(diffs_dt[[c]]),
+                               logical(1))]
+  log_cols  <- fs_names[vapply(fs_names,
+                               function(c) is_logical_str(diffs_dt[[c]]),
+                               logical(1))]
+  text_cols <- setdiff(fs_names, c(num_cols, log_cols))
+
+  tbl <- diffs_dt[, .SD, .SDcols = c("parameter", fs_names)] |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = "Parameters that differ across FS bundles",
+      subtitle = sprintf(
+        "%d of %d parameters vary; highlighted cells differ from the row's most-common value",
+        nrow(diffs_dt), nrow(wide_dt)
+      )
+    ) |>
+    gt::cols_label(parameter = "Parameter") |>
+    # Per-type alignment
+    gt::cols_align(align = "left",   columns = parameter) |>
+    gt::cols_align(align = "right",  columns = dplyr::all_of(num_cols))  |>
+    gt::cols_align(align = "center", columns = dplyr::all_of(log_cols))  |>
+    gt::cols_align(align = "left",   columns = dplyr::all_of(text_cols)) |>
+    # Parameter column bold
+    gt::tab_style(
+      style    = gt::cell_text(weight = "bold"),
+      locations = gt::cells_body(columns = parameter)
+    ) |>
+    # Tighter padding & monospace data cells so the wide rows breathe
+    gt::tab_options(
+      table.font.size            = gt::px(13),
+      data_row.padding           = gt::px(4),
+      heading.title.font.size    = gt::px(15),
+      heading.subtitle.font.size = gt::px(12),
+      column_labels.font.weight  = "bold"
+    ) |>
+    gt::tab_style(
+      style     = gt::cell_text(font = gt::google_font("JetBrains Mono")),
+      locations = gt::cells_body(columns = dplyr::all_of(fs_names))
+    )
+
+  # -- Apply the odd-one-out highlight, one row at a time -------------------
+  # cells_body() can take rows + columns simultaneously; the loop is over
+  # rows because each row's "odd" column set is different.
+  for (i in seq_along(odd_cells_long)) {
+    odd_cols <- odd_cells_long[[i]]
+    if (length(odd_cols) == 0L) next
+    tbl <- tbl |>
+      gt::tab_style(
+        style     = list(
+          gt::cell_fill(color = "#fff3cd"),     # soft amber
+          gt::cell_text(weight = "bold")
+        ),
+        locations = gt::cells_body(
+          columns = dplyr::all_of(odd_cols),
+          rows    = i
+        )
+      )
+  }
+
+  tbl
+}
+```
+
+# 3. All Parameters {#sec-all}
+
+The comprehensive view: every parameter, grouped into thematic
+categories.  Rows where values differ across bundles are filled in
+soft amber and the individual cells that deviate from the row's most
+common value are highlighted with bolder amber so the eye can find
+"what changed" within a long row.  Rows that are uniform across all
+bundles are left un-styled and recede visually.
+
+Parameters that vary by `sg_focus` *within* a bundle (currently
+`stop_threshold` and `sg_focus` itself) are flagged in a footnote
+beneath the table rather than in a per-row column — the rule is the
+same for every bundle, so repeating it 8 times across the row added
+no information.
+
+```{r all-params}
+# -- Category assignment for row grouping ----------------------------------
+# Each of the 29 parameters falls into one of seven thematic groups.
+# Unknown parameters (added in future bundles) fall into "Other" so the
+# table still renders rather than failing.
+param_category <- function(p) {
+  if (p %in% c("outcome.name", "event.name", "treat.name", "id.name",
+               "outcome_type", "effect_measure"))
+    return("Outcome / data binding")
+  if (p %in% c("use_lasso", "use_grf", "return_selected_cuts_only",
+               "max_subgroups_search", "use_twostage"))
+    return("Method switches")
+  if (p %in% c("hr.threshold", "hr.consistency", "pconsistency.threshold",
+               "stop_threshold", "sg_focus"))
+    return("FS thresholds & criteria")
+  if (p %in% c("conf_force", "conf.cont_jcuts"))
+    return("Confounder configuration")
+  if (p %in% c("fs.splits", "n.min", "d0.min", "d1.min", "maxk"))
+    return("Splits & subgroup-size constraints")
+  if (p %in% c("dmin.grf"))
+    return("GRF")
+  if (p %in% c("is.RCT", "seedit", "details", "quiet", "parallel_args"))
+    return("Run controls")
+  "Other"
+}
+
+# Preserve the natural category order (declared in param_category logic).
+category_order <- c(
+  "Outcome / data binding",
+  "Method switches",
+  "FS thresholds & criteria",
+  "Confounder configuration",
+  "Splits & subgroup-size constraints",
+  "GRF",
+  "Run controls",
+  "Other"
+)
+
+# -- Build display data ----------------------------------------------------
+# Drop sg_focus_dependent (now a footnote) and differs (signal carried by
+# row fill).  Keep parameter + 8 bundle columns + a hidden category for
+# row grouping.
+display_dt <- wide_dt[, .SD, .SDcols = c("parameter", fs_names, "differs")]
+display_dt[, category := vapply(parameter, param_category, character(1))]
+display_dt[, category := factor(category, levels = category_order)]
+data.table::setorder(display_dt, category)
+
+# -- Per-cell odd-one-out for rows that differ -----------------------------
+# Same logic as the diffs table.  Cells whose value matches the row mode
+# get only the row-level amber fill; cells that deviate get the brighter
+# amber + bold treatment.
+differing_rows <- which(display_dt$differs)
+odd_cells_per_row <- lapply(differing_rows, function(i) {
+  row_vals <- unlist(display_dt[i, fs_names, with = FALSE], use.names = FALSE)
+  mask     <- row_odd_mask(row_vals)
+  fs_names[mask]
+})
+names(odd_cells_per_row) <- as.character(differing_rows)
+
+# -- Per-column alignment by type ------------------------------------------
+is_numeric_str  <- function(v) all(grepl("^-?[0-9]+(\\.[0-9]+)?$", v))
+is_logical_str  <- function(v) all(v %in% c("TRUE", "FALSE"))
+num_cols  <- fs_names[vapply(fs_names,
+                             function(c) is_numeric_str(display_dt[[c]]),
+                             logical(1))]
+log_cols  <- fs_names[vapply(fs_names,
+                             function(c) is_logical_str(display_dt[[c]]),
+                             logical(1))]
+text_cols <- setdiff(fs_names, c(num_cols, log_cols))
+
+# -- Build the gt table ----------------------------------------------------
+tbl <- display_dt |>
+  gt::gt(
+    rowname_col  = "parameter",
+    groupname_col = "category"
+  ) |>
+  gt::cols_hide(columns = differs) |>
+  gt::tab_header(
+    title    = "All FS parameters",
+    subtitle = sprintf(
+      "%d parameters across %d bundle(s); row fill = differs across bundles, cell highlight = differs from row's most-common value",
+      nrow(display_dt), length(fs_names)
+    )
+  ) |>
+  gt::cols_align(align = "right",  columns = dplyr::all_of(num_cols))  |>
+  gt::cols_align(align = "center", columns = dplyr::all_of(log_cols))  |>
+  gt::cols_align(align = "left",   columns = dplyr::all_of(text_cols)) |>
+  gt::tab_options(
+    table.font.size            = gt::px(13),
+    data_row.padding           = gt::px(3),
+    row_group.font.weight      = "bold",
+    row_group.background.color = "#f0f0f0",
+    heading.title.font.size    = gt::px(15),
+    heading.subtitle.font.size = gt::px(12),
+    column_labels.font.weight  = "bold",
+    stub.font.weight           = "bold"
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_text(font = gt::google_font("JetBrains Mono")),
+    locations = gt::cells_body(columns = dplyr::all_of(fs_names))
+  ) |>
+  # Row-level soft amber on every differing row (recedes; signals "this
+  # row has variability without yet saying where").
+  gt::tab_style(
+    style     = gt::cell_fill(color = "#fff8e1"),
+    locations = gt::cells_body(rows = differing_rows)
+  ) |>
+  # Footnote tying the "sg_focus dependent" rule to its two affected
+  # parameters.  This replaces the column we removed.
+  gt::tab_source_note(
+    source_note = gt::md(
+      "**`sg_focus`-dependent values** (within each bundle): `stop_threshold` is `0.95` when `sg_focus` is one of `\"hr\"`, `\"maxSG\"`, `\"minSG\"` and `NULL` when `sg_focus` is `\"hrMaxSG\"` or `\"hrMinSG\"` (early stopping is incompatible with neighborhood-based selection).  The `sg_focus` parameter itself takes the value passed in.  All other parameters are invariant in `sg_focus`."
+    )
+  )
+
+# -- Apply the brighter per-cell highlight on the odd-one-out cells --------
+# Loop over differing rows and style each cell individually.  This goes
+# *after* the row-level fill so it visually wins (gt resolves later
+# tab_style() calls on top).
+for (i in seq_along(differing_rows)) {
+  row_idx  <- differing_rows[i]
+  odd_cols <- odd_cells_per_row[[i]]
+  if (length(odd_cols) == 0L) next
+  tbl <- tbl |>
+    gt::tab_style(
+      style     = list(
+        gt::cell_fill(color = "#ffd54f"),     # brighter amber
+        gt::cell_text(weight = "bold")
+      ),
+      locations = gt::cells_body(
+        columns = dplyr::all_of(odd_cols),
+        rows    = row_idx
+      )
+    )
+}
+
+tbl
+```
+
+# 4. Notes {#sec-notes}
+
+- **`sg_focus`-dependent parameters** vary by `sg_focus` within a
+  single bundle. The most important example is `stop_threshold`,
+  which the package requires to be `NULL` when `sg_focus` is
+  `"hrMaxSG"` or `"hrMinSG"` (neighborhood-based selection is
+  incompatible with early stopping). The `fs*_params.R` function
+  applies this rule internally, and Section 3 documents it as a
+  footnote under the All Parameters table.
+- **Probe values used**: this article calls each bundle's function
+  with `sg_focus = "hr"` (early-stopping branch, used for the
+  display values in Sections 2-3) and `sg_focus = "hrMaxSG"`
+  (neighborhood branch, used to detect `sg_focus`-dependent
+  parameters). Other `sg_focus` values produce identical results
+  to one of these two branches.
+- **To add a new bundle**: drop `fsN_params.R` into this directory
+  with a function `get_fsN_params()` and re-render. The article
+  picks it up automatically.

@@ -2259,7 +2259,16 @@ background: #2C3E50;
   <li><a href="#step-3-verify-the-substitutions-always" id="toc-step-3-verify-the-substitutions-always" class="nav-link" data-scroll-target="#step-3-verify-the-substitutions-always"><span class="header-section-number">3.3</span> Step 3 — Verify the substitutions (always)</a></li>
   <li><a href="#step-4-edit-fs-parameters-only-when-changing-the-fs-bundle" id="toc-step-4-edit-fs-parameters-only-when-changing-the-fs-bundle" class="nav-link" data-scroll-target="#step-4-edit-fs-parameters-only-when-changing-the-fs-bundle"><span class="header-section-number">3.4</span> Step 4 — Edit FS parameters (only when changing the FS bundle)</a></li>
   <li><a href="#step-5-render-the-qmd-in-full-mode-builds-bundle-html" id="toc-step-5-render-the-qmd-in-full-mode-builds-bundle-html" class="nav-link" data-scroll-target="#step-5-render-the-qmd-in-full-mode-builds-bundle-html"><span class="header-section-number">3.5</span> Step 5 — Render the qmd in <code>full</code> mode (builds bundle + HTML)</a></li>
-  <li><a href="#step-6-update-and-render-the-cross-cut-summary" id="toc-step-6-update-and-render-the-cross-cut-summary" class="nav-link" data-scroll-target="#step-6-update-and-render-the-cross-cut-summary"><span class="header-section-number">3.6</span> Step 6 — Update and render the cross-cut summary</a></li>
+  <li><a href="#step-5b-overnight-batch-runs-multiple-configs-in-sequence" id="toc-step-5b-overnight-batch-runs-multiple-configs-in-sequence" class="nav-link" data-scroll-target="#step-5b-overnight-batch-runs-multiple-configs-in-sequence"><span class="header-section-number">3.6</span> Step 5b — Overnight batch runs (multiple configs in sequence)</a>
+  <ul class="collapse">
+  <li><a href="#prepare-each-qmd" id="toc-prepare-each-qmd" class="nav-link" data-scroll-target="#prepare-each-qmd"><span class="header-section-number">3.6.1</span> Prepare each qmd</a></li>
+  <li><a href="#launch-the-queue" id="toc-launch-the-queue" class="nav-link" data-scroll-target="#launch-the-queue"><span class="header-section-number">3.6.2</span> Launch the queue</a></li>
+  <li><a href="#prevent-the-mac-from-sleeping" id="toc-prevent-the-mac-from-sleeping" class="nav-link" data-scroll-target="#prevent-the-mac-from-sleeping"><span class="header-section-number">3.6.3</span> Prevent the Mac from sleeping</a></li>
+  <li><a href="#run-in-the-background-disconnect-safe" id="toc-run-in-the-background-disconnect-safe" class="nav-link" data-scroll-target="#run-in-the-background-disconnect-safe"><span class="header-section-number">3.6.4</span> Run in the background (disconnect-safe)</a></li>
+  <li><a href="#watch-progress-mid-stream" id="toc-watch-progress-mid-stream" class="nav-link" data-scroll-target="#watch-progress-mid-stream"><span class="header-section-number">3.6.5</span> Watch progress mid-stream</a></li>
+  <li><a href="#after-the-queue-finishes" id="toc-after-the-queue-finishes" class="nav-link" data-scroll-target="#after-the-queue-finishes"><span class="header-section-number">3.6.6</span> After the queue finishes</a></li>
+  </ul></li>
+  <li><a href="#step-6-update-and-render-the-cross-cut-summary" id="toc-step-6-update-and-render-the-cross-cut-summary" class="nav-link" data-scroll-target="#step-6-update-and-render-the-cross-cut-summary"><span class="header-section-number">3.7</span> Step 6 — Update and render the cross-cut summary</a></li>
   </ul></li>
   <li><a href="#sec-edits" id="toc-sec-edits" class="nav-link" data-scroll-target="#sec-edits"><span class="header-section-number">4</span> 4. What to edit when</a>
   <ul class="collapse">
@@ -2523,23 +2532,104 @@ Warning
 <p>After verifying, switch the mode back to <code>&quot;auto&quot;</code> so future renders re-read the bundle rather than re-running the simulation:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>sim_mode <span class="ot">&lt;-</span> <span class="st">&quot;auto&quot;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="step-6-update-and-render-the-cross-cut-summary" class="level2" data-number="3.6">
-<h2 data-number="3.6" class="anchored" data-anchor-id="step-6-update-and-render-the-cross-cut-summary"><span class="header-section-number">3.6</span> Step 6 — Update and render the cross-cut summary</h2>
-<p>Edit the summary qmd to extend the level vectors so the new cell shows up:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># In quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd:</span></span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>focus_levels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;hr&quot;</span>, <span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>)   <span class="co"># &lt;- add new sg_focus levels here</span></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>fs_levels    <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;fs1&quot;</span>, <span class="st">&quot;fs2&quot;</span>, <span class="st">&quot;fs3&quot;</span>)        <span class="co"># &lt;- add new FS bundle levels here</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Then render:</p>
+<section id="step-5b-overnight-batch-runs-multiple-configs-in-sequence" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="step-5b-overnight-batch-runs-multiple-configs-in-sequence"><span class="header-section-number">3.6</span> Step 5b — Overnight batch runs (multiple configs in sequence)</h2>
+<p>When you want to render several qmds back-to-back (typically for overnight runs of multiple configurations), use <code>render_queue.sh</code>. It runs the renders strictly sequentially — each gets full machine resources, no two compete for cores — and continues past failures so a single bad render doesn’t abort the whole queue.</p>
+<section id="prepare-each-qmd" class="level3" data-number="3.6.1">
+<h3 data-number="3.6.1" class="anchored" data-anchor-id="prepare-each-qmd"><span class="header-section-number">3.6.1</span> Prepare each qmd</h3>
+<p>Before launching, set <code>sim_mode &lt;- &quot;full&quot;</code> in the setup chunk of each qmd you intend to render. The queue itself doesn’t change modes — that’s intentional, so you have explicit control over which renders are production-grade.</p>
+</section>
+<section id="launch-the-queue" class="level3" data-number="3.6.2">
+<h3 data-number="3.6.2" class="anchored" data-anchor-id="launch-the-queue"><span class="header-section-number">3.6.2</span> Launch the queue</h3>
+<p>From the package root:</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-6-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-1" role="tab" aria-controls="tabset-6-1" aria-selected="true" href>Bash (Terminal pane)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-6-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-2" role="tab" aria-controls="tabset-6-2" aria-selected="false" href>R (Console)</a></li></ul>
 <div class="tab-content">
 <div id="tabset-6-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-6-1-tab">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/render_queue.sh</span> <span class="dt">\</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Or with a glob (for example, all <code>fs2</code> configs after a spawn):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/render_queue.sh</span> <span class="dt">\</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_<span class="pp">*</span>_fs2.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div id="tabset-6-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-6-2-tab">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd&quot;</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The Console doesn’t run shell scripts well as long-running processes. For overnight runs, prefer the Terminal pane.</p>
+<p>If you’re testing the queue with short renders interactively, you can call it via:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">system2</span>(<span class="st">&quot;./quarto/simulations/render_queue.sh&quot;</span>,</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>        <span class="at">args =</span> <span class="fu">c</span>(<span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd&quot;</span>,</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>                 <span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd&quot;</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div>
+</div>
+</section>
+<section id="prevent-the-mac-from-sleeping" class="level3" data-number="3.6.3">
+<h3 data-number="3.6.3" class="anchored" data-anchor-id="prevent-the-mac-from-sleeping"><span class="header-section-number">3.6.3</span> Prevent the Mac from sleeping</h3>
+<p>Mac laptops sleep when idle, which kills long renders. Use <code>caffeinate</code> to keep the system awake while the queue runs:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="ex">caffeinate</span> <span class="at">-s</span> ./quarto/simulations/render_queue.sh <span class="dt">\</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>caffeinate -s</code> keeps the system from sleeping while the wrapped command is running. Lid-closure still won’t sleep the machine provided it’s plugged in.</p>
+</section>
+<section id="run-in-the-background-disconnect-safe" class="level3" data-number="3.6.4">
+<h3 data-number="3.6.4" class="anchored" data-anchor-id="run-in-the-background-disconnect-safe"><span class="header-section-number">3.6.4</span> Run in the background (disconnect-safe)</h3>
+<p>If you want to launch and then close your terminal session:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">nohup</span> caffeinate <span class="at">-s</span> ./quarto/simulations/render_queue.sh <span class="dt">\</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> /dev/null <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">&amp;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Check progress later by tailing the queue log:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span> <span class="at">-f</span> quarto/simulations/queue_<span class="pp">*</span>.log</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="watch-progress-mid-stream" class="level3" data-number="3.6.5">
+<h3 data-number="3.6.5" class="anchored" data-anchor-id="watch-progress-mid-stream"><span class="header-section-number">3.6.5</span> Watch progress mid-stream</h3>
+<p>Even without <code>nohup</code>, you can watch a running queue from a second Terminal pane:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span> <span class="at">-f</span> quarto/simulations/queue_<span class="pp">*</span>.log</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="after-the-queue-finishes" class="level3" data-number="3.6.6">
+<h3 data-number="3.6.6" class="anchored" data-anchor-id="after-the-queue-finishes"><span class="header-section-number">3.6.6</span> After the queue finishes</h3>
+<p>The queue produces:</p>
+<ul>
+<li><strong>Top-level queue log</strong>: <code>quarto/simulations/queue_&lt;timestamp&gt;.log</code> with the run summary (which jobs succeeded, which failed, total elapsed).</li>
+<li><strong>Per-job logs</strong>: <code>quarto/simulations/&lt;study&gt;/logs/render_&lt;stem&gt;_&lt;timestamp&gt;.log</code> with the full Quarto output for each render. Useful if a job failed and you need to diagnose.</li>
+<li><strong>Final summary</strong> echoed to terminal listing all succeeded / failed jobs.</li>
+</ul>
+<p>Once verified, switch each rendered qmd back to <code>sim_mode &lt;- &quot;auto&quot;</code> and back up the new bundles to <code>_backups/</code>.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Warning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The queue does <strong>not</strong> automatically switch <code>sim_mode</code> back to <code>&quot;auto&quot;</code> after rendering. If you launch a second queue for the same qmds without doing this manually, they’ll re-run the simulations from scratch (overwriting the just-built bundles).</p>
+</div>
+</div>
+</section>
+</section>
+<section id="step-6-update-and-render-the-cross-cut-summary" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="step-6-update-and-render-the-cross-cut-summary"><span class="header-section-number">3.7</span> Step 6 — Update and render the cross-cut summary</h2>
+<p>Edit the summary qmd to extend the level vectors so the new cell shows up:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># In quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd:</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>focus_levels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;hr&quot;</span>, <span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>)   <span class="co"># &lt;- add new sg_focus levels here</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>fs_levels    <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;fs1&quot;</span>, <span class="st">&quot;fs2&quot;</span>, <span class="st">&quot;fs3&quot;</span>)        <span class="co"># &lt;- add new FS bundle levels here</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then render:</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-7-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-1" role="tab" aria-controls="tabset-7-1" aria-selected="true" href>Bash (Terminal pane)</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-7-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-2" role="tab" aria-controls="tabset-7-2" aria-selected="false" href>R (Console)</a></li></ul>
+<div class="tab-content">
+<div id="tabset-7-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-7-1-tab">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div id="tabset-7-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-7-2-tab">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd&quot;</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </div>
 </div>
@@ -2608,19 +2698,19 @@ Warning
 <h2 data-number="4.2" class="anchored" data-anchor-id="changing-fs-bundle-only-e.g.-fs1-fs2"><span class="header-section-number">4.2</span> Changing FS bundle only (e.g., <code>fs1 → fs2</code>)</h2>
 <p>This is now a two-stage process: define the new bundle once in <code>_fsparams/</code>, then spawn parallel <code>sg_focus</code> qmds.</p>
 <p><strong>Stage A — Define <code>fs2</code> (one new file, used by all future qmds):</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> quarto/simulations/actg175/_fsparams/</span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> fs1_params.R fs2_params.R</span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit fs2_params.R:</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Rename get_fs1_params -&gt; get_fs2_params</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Update header comment describing what fs2 is for</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Edit the parameter values that distinguish fs2 from fs1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> quarto/simulations/actg175/_fsparams/</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> fs1_params.R fs2_params.R</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit fs2_params.R:</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Rename get_fs1_params -&gt; get_fs2_params</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Update header comment describing what fs2 is for</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Edit the parameter values that distinguish fs2 from fs1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><strong>Stage B — Spawn <code>sg_focus</code> qmds for the new bundle:</strong></p>
 <p>For each <code>sg_focus</code> you want to compare under <code>fs2</code>:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># From package root</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> fs1 fs2  <span class="co"># for one focus at a time</span></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Then edit the new qmd to update the source() line and function call:</span></span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   source(&quot;_fsparams/fs2_params.R&quot;)</span></span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   fs_params &lt;- get_fs2_params(sg_focus = fs_sg_focus)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># From package root</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> fs1 fs2  <span class="co"># for one focus at a time</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Then edit the new qmd to update the source() line and function call:</span></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   source(&quot;_fsparams/fs2_params.R&quot;)</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="co">#   fs_params &lt;- get_fs2_params(sg_focus = fs_sg_focus)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -2693,7 +2783,7 @@ Warning
 <section id="permission-denied-when-running-.quartosimulationsclone_config.sh" class="level2" data-number="5.1">
 <h2 data-number="5.1" class="anchored" data-anchor-id="permission-denied-when-running-.quartosimulationsclone_config.sh"><span class="header-section-number">5.1</span> “permission denied” when running <code>./quarto/simulations/clone_config.sh</code></h2>
 <p>The execute bit isn’t set:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="no-such-file-or-directory-when-running-clone_config.sh" class="level2" data-number="5.2">
 <h2 data-number="5.2" class="anchored" data-anchor-id="no-such-file-or-directory-when-running-clone_config.sh"><span class="header-section-number">5.2</span> “No such file or directory” when running clone_config.sh</h2>
@@ -2704,14 +2794,14 @@ Warning
 <p>Looks like:</p>
 <pre><code>Warning: Bundle config_id (&#39;...&#39;) does not match this article (&#39;...&#39;).</code></pre>
 <p>This means the qmd’s hardcoded validation string doesn’t match the bundle. The clone script handles this automatically; if you see it, something didn’t get substituted. Run:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/<span class="op">&lt;</span>new_stem<span class="op">&gt;</span>.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/<span class="op">&lt;</span>new_stem<span class="op">&gt;</span>.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>to find leftovers.</p>
 </section>
 <section id="render-produces-a-working-but-visually-broken-html" class="level2" data-number="5.4">
 <h2 data-number="5.4" class="anchored" data-anchor-id="render-produces-a-working-but-visually-broken-html"><span class="header-section-number">5.4</span> Render produces a working but visually broken HTML</h2>
 <p>Often this is a stale <code>_files/</code> directory. Delete it and re-render:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>_files</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb39"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>_files</span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>.qmd</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 </section>
 <section id="sec-quickref" class="level1" data-number="6">
@@ -2741,8 +2831,16 @@ Warning
 <td><code>./quarto/simulations/clone_config.sh OLD NEW</code></td>
 </tr>
 <tr class="even">
+<td>Spawn an fs bundle across all sg_focus configs</td>
+<td><code>./quarto/simulations/spawn_fs_bundle.sh fs1 fs2</code></td>
+</tr>
+<tr class="odd">
 <td>Build a bundle (Bash)</td>
 <td>Set <code>sim_mode &lt;- &quot;full&quot;</code> in qmd, then <code>quarto render quarto/simulations/actg175/&lt;stem&gt;.qmd</code></td>
+</tr>
+<tr class="even">
+<td>Build many bundles overnight</td>
+<td><code>caffeinate -s ./quarto/simulations/render_queue.sh &lt;qmd1&gt; &lt;qmd2&gt; ...</code></td>
 </tr>
 <tr class="odd">
 <td>Render an article (Bash)</td>
@@ -3228,519 +3326,641 @@ Warning
     }
   });
   </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> &quot;Simulation Workflow Guide&quot;</span></span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> &quot;Operating the simulation framework day-to-day&quot;</span></span>
-<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
-<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
-<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
-<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
-<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>This document is a step-by-step operations guide. It covers the</span>
-<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>day-to-day workflow of cloning configurations, running simulations,</span>
-<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>rendering articles, and producing summaries.</span>
-<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>For framework concepts (naming convention, the two-file pattern,</span>
-<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>bundle schema, etc.), see <span class="in">`quarto/simulations/README.qmd`</span>.</span>
-<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a><span class="fu"># 1. One-time setup {#sec-setup}</span></span>
-<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>You only need to do this once per machine.</span>
-<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.1 Place the clone-config script</span></span>
-<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a>Move <span class="in">`clone_config.sh`</span> into <span class="in">`quarto/simulations/`</span> — the directory</span>
-<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a>where the simulation framework lives. On your Mac, that&#39;s:</span>
-<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a><span class="in">~/Documents/GitHub/forestsearch/quarto/simulations/clone_config.sh</span></span>
-<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a>On your Linux (Pop!_OS) machine, the equivalent path under your</span>
-<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a>home directory.</span>
-<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a>The script is placed inside <span class="in">`quarto/simulations/`</span> rather than at</span>
-<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a>the package root because the package&#39;s <span class="in">`.Rbuildignore`</span> already</span>
-<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a>excludes the <span class="in">`quarto/`</span> tree (<span class="in">`^quarto$`</span>). This keeps the script</span>
-<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a>out of CRAN-bound tarballs without requiring any additional</span>
-<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>ignore rules.</span>
-<span id="cb33-39"><a href="#cb33-39" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-40"><a href="#cb33-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-41"><a href="#cb33-41" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.2 Make it executable</span></span>
-<span id="cb33-42"><a href="#cb33-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-43"><a href="#cb33-43" aria-hidden="true" tabindex="-1"></a>In the **RStudio Terminal pane** (the tab next to **Console** and</span>
-<span id="cb33-44"><a href="#cb33-44" aria-hidden="true" tabindex="-1"></a>**Background Jobs** — see <span class="co">[</span><span class="ot">§2</span><span class="co">](#sec-terminal)</span> if you don&#39;t see it),</span>
-<span id="cb33-45"><a href="#cb33-45" aria-hidden="true" tabindex="-1"></a>make sure you&#39;re in the package root, then run:</span>
-<span id="cb33-46"><a href="#cb33-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-47"><a href="#cb33-47" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-48"><a href="#cb33-48" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span>
-<span id="cb33-49"><a href="#cb33-49" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-50"><a href="#cb33-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-51"><a href="#cb33-51" aria-hidden="true" tabindex="-1"></a>You&#39;ll only see output if something went wrong — silent success is</span>
-<span id="cb33-52"><a href="#cb33-52" aria-hidden="true" tabindex="-1"></a>normal.</span>
-<span id="cb33-53"><a href="#cb33-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-54"><a href="#cb33-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.3 Verify it runs</span></span>
-<span id="cb33-55"><a href="#cb33-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-56"><a href="#cb33-56" aria-hidden="true" tabindex="-1"></a>Test that the script is callable:</span>
-<span id="cb33-57"><a href="#cb33-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-58"><a href="#cb33-58" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-59"><a href="#cb33-59" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span></span>
-<span id="cb33-60"><a href="#cb33-60" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-61"><a href="#cb33-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-62"><a href="#cb33-62" aria-hidden="true" tabindex="-1"></a>You should see usage instructions:</span>
-<span id="cb33-63"><a href="#cb33-63" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-64"><a href="#cb33-64" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-65"><a href="#cb33-65" aria-hidden="true" tabindex="-1"></a><span class="in">Usage: ./quarto/simulations/clone_config.sh OLD_TOKEN NEW_TOKEN</span></span>
-<span id="cb33-66"><a href="#cb33-66" aria-hidden="true" tabindex="-1"></a><span class="in">Example: ./quarto/simulations/clone_config.sh hrMaxSG hr</span></span>
-<span id="cb33-67"><a href="#cb33-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-68"><a href="#cb33-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-69"><a href="#cb33-69" aria-hidden="true" tabindex="-1"></a>If you see &quot;permission denied,&quot; step 1.2 didn&#39;t take — re-run</span>
-<span id="cb33-70"><a href="#cb33-70" aria-hidden="true" tabindex="-1"></a><span class="in">`chmod +x quarto/simulations/clone_config.sh`</span> and try again.</span>
-<span id="cb33-71"><a href="#cb33-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-72"><a href="#cb33-72" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb33-73"><a href="#cb33-73" aria-hidden="true" tabindex="-1"></a>You&#39;ll need to redo <span class="in">`chmod +x`</span> on each new machine, and any time</span>
-<span id="cb33-74"><a href="#cb33-74" aria-hidden="true" tabindex="-1"></a>the file is copied via Finder, file sharing, or cloud sync — these</span>
-<span id="cb33-75"><a href="#cb33-75" aria-hidden="true" tabindex="-1"></a>sometimes strip the execute bit.</span>
-<span id="cb33-76"><a href="#cb33-76" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-77"><a href="#cb33-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-78"><a href="#cb33-78" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2. The RStudio Terminal pane {#sec-terminal}</span></span>
-<span id="cb33-79"><a href="#cb33-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-80"><a href="#cb33-80" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Where it is</span></span>
-<span id="cb33-81"><a href="#cb33-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-82"><a href="#cb33-82" aria-hidden="true" tabindex="-1"></a>The Terminal pane is a tab in the same window region as the</span>
-<span id="cb33-83"><a href="#cb33-83" aria-hidden="true" tabindex="-1"></a>**Console** and **Background Jobs**. Look for the tabs:</span>
-<span id="cb33-84"><a href="#cb33-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-85"><a href="#cb33-85" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-86"><a href="#cb33-86" aria-hidden="true" tabindex="-1"></a><span class="in">[ Console ] [ Terminal ] [ Background Jobs ]</span></span>
-<span id="cb33-87"><a href="#cb33-87" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-88"><a href="#cb33-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-89"><a href="#cb33-89" aria-hidden="true" tabindex="-1"></a>If the **Terminal** tab is not visible:</span>
-<span id="cb33-90"><a href="#cb33-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-91"><a href="#cb33-91" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Menu: **Tools → Terminal → New Terminal**</span>
-<span id="cb33-92"><a href="#cb33-92" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Keyboard: <span class="in">`Shift + Alt + R`</span> (Mac) or <span class="in">`Shift + Alt + T`</span> (Linux)</span>
-<span id="cb33-93"><a href="#cb33-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-94"><a href="#cb33-94" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 What it is</span></span>
-<span id="cb33-95"><a href="#cb33-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-96"><a href="#cb33-96" aria-hidden="true" tabindex="-1"></a>A real shell (zsh on Mac, bash on Linux by default) running inside</span>
-<span id="cb33-97"><a href="#cb33-97" aria-hidden="true" tabindex="-1"></a>RStudio. It opens in your project&#39;s working directory by default,</span>
-<span id="cb33-98"><a href="#cb33-98" aria-hidden="true" tabindex="-1"></a>which is exactly what we want for these scripts.</span>
-<span id="cb33-99"><a href="#cb33-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-100"><a href="#cb33-100" aria-hidden="true" tabindex="-1"></a>The Terminal pane is for **shell commands** (lines starting with</span>
-<span id="cb33-101"><a href="#cb33-101" aria-hidden="true" tabindex="-1"></a><span class="in">`$`</span> or <span class="in">`Rscript`</span>). The **Console pane** next to it is for **R</span>
-<span id="cb33-102"><a href="#cb33-102" aria-hidden="true" tabindex="-1"></a>commands** (lines starting with <span class="in">`&gt;`</span>). This guide shows both for</span>
-<span id="cb33-103"><a href="#cb33-103" aria-hidden="true" tabindex="-1"></a>every step — pick whichever you prefer.</span>
-<span id="cb33-104"><a href="#cb33-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-105"><a href="#cb33-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.3 Verify your working directory</span></span>
-<span id="cb33-106"><a href="#cb33-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-107"><a href="#cb33-107" aria-hidden="true" tabindex="-1"></a>Before running anything, check that the Terminal pane is in the</span>
-<span id="cb33-108"><a href="#cb33-108" aria-hidden="true" tabindex="-1"></a>package root:</span>
-<span id="cb33-109"><a href="#cb33-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-110"><a href="#cb33-110" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-111"><a href="#cb33-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-112"><a href="#cb33-112" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-113"><a href="#cb33-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-114"><a href="#cb33-114" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-115"><a href="#cb33-115" aria-hidden="true" tabindex="-1"></a><span class="bu">pwd</span></span>
-<span id="cb33-116"><a href="#cb33-116" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-117"><a href="#cb33-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-118"><a href="#cb33-118" aria-hidden="true" tabindex="-1"></a>Expected output: ends in <span class="in">`/forestsearch`</span> (or wherever your local</span>
-<span id="cb33-119"><a href="#cb33-119" aria-hidden="true" tabindex="-1"></a>package clone lives).</span>
-<span id="cb33-120"><a href="#cb33-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-121"><a href="#cb33-121" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-122"><a href="#cb33-122" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-123"><a href="#cb33-123" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-124"><a href="#cb33-124" aria-hidden="true" tabindex="-1"></a><span class="fu">getwd</span>()</span>
-<span id="cb33-125"><a href="#cb33-125" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-126"><a href="#cb33-126" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-127"><a href="#cb33-127" aria-hidden="true" tabindex="-1"></a>Expected output: same — ends in <span class="in">`/forestsearch`</span>.</span>
-<span id="cb33-128"><a href="#cb33-128" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-129"><a href="#cb33-129" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-130"><a href="#cb33-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-131"><a href="#cb33-131" aria-hidden="true" tabindex="-1"></a>If either is wrong, fix it:</span>
-<span id="cb33-132"><a href="#cb33-132" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-133"><a href="#cb33-133" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-134"><a href="#cb33-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-135"><a href="#cb33-135" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-136"><a href="#cb33-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-137"><a href="#cb33-137" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-138"><a href="#cb33-138" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Documents/GitHub/forestsearch</span>
-<span id="cb33-139"><a href="#cb33-139" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-140"><a href="#cb33-140" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-141"><a href="#cb33-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-142"><a href="#cb33-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-143"><a href="#cb33-143" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-144"><a href="#cb33-144" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;~/Documents/GitHub/forestsearch&quot;</span>)</span>
-<span id="cb33-145"><a href="#cb33-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-146"><a href="#cb33-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-147"><a href="#cb33-147" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-148"><a href="#cb33-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-149"><a href="#cb33-149" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb33-150"><a href="#cb33-150" aria-hidden="true" tabindex="-1"></a>The Terminal pane and the R Console have **independent** working</span>
-<span id="cb33-151"><a href="#cb33-151" aria-hidden="true" tabindex="-1"></a>directories. Changing one does not change the other. Verify the</span>
-<span id="cb33-152"><a href="#cb33-152" aria-hidden="true" tabindex="-1"></a>one you&#39;ll actually use.</span>
-<span id="cb33-153"><a href="#cb33-153" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-154"><a href="#cb33-154" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-155"><a href="#cb33-155" aria-hidden="true" tabindex="-1"></a><span class="fu"># 3. The standard workflow {#sec-workflow}</span></span>
-<span id="cb33-156"><a href="#cb33-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-157"><a href="#cb33-157" aria-hidden="true" tabindex="-1"></a>Six steps to add a new configuration and produce both a per-config</span>
-<span id="cb33-158"><a href="#cb33-158" aria-hidden="true" tabindex="-1"></a>article and an updated cross-cut summary.</span>
-<span id="cb33-159"><a href="#cb33-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-160"><a href="#cb33-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 1 — Decide the new config tokens</span></span>
-<span id="cb33-161"><a href="#cb33-161" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-162"><a href="#cb33-162" aria-hidden="true" tabindex="-1"></a>Identify what changes from the closest existing config. Most</span>
-<span id="cb33-163"><a href="#cb33-163" aria-hidden="true" tabindex="-1"></a>common cases:</span>
-<span id="cb33-164"><a href="#cb33-164" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-165"><a href="#cb33-165" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing `sg_focus`** (e.g., <span class="in">`hrMaxSG → maxSG`</span>): one token</span>
-<span id="cb33-166"><a href="#cb33-166" aria-hidden="true" tabindex="-1"></a>  changes; the script handles everything.</span>
-<span id="cb33-167"><a href="#cb33-167" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing FS bundle** (e.g., <span class="in">`fs1 → fs2`</span>): the script handles</span>
-<span id="cb33-168"><a href="#cb33-168" aria-hidden="true" tabindex="-1"></a>  filenames and references, but you must edit the FS parameter</span>
-<span id="cb33-169"><a href="#cb33-169" aria-hidden="true" tabindex="-1"></a>  values by hand to reflect what makes <span class="in">`fs2`</span> different from <span class="in">`fs1`</span>.</span>
-<span id="cb33-170"><a href="#cb33-170" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing both** (e.g., <span class="in">`hrMaxSG_fs1 → maxSG_fs2`</span>): run the</span>
-<span id="cb33-171"><a href="#cb33-171" aria-hidden="true" tabindex="-1"></a>  script twice (once for each token), then edit FS parameters by</span>
-<span id="cb33-172"><a href="#cb33-172" aria-hidden="true" tabindex="-1"></a>  hand.</span>
-<span id="cb33-173"><a href="#cb33-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-174"><a href="#cb33-174" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 2 — Run the clone script</span></span>
-<span id="cb33-175"><a href="#cb33-175" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-176"><a href="#cb33-176" aria-hidden="true" tabindex="-1"></a>From the package root:</span>
-<span id="cb33-177"><a href="#cb33-177" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-178"><a href="#cb33-178" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-179"><a href="#cb33-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-180"><a href="#cb33-180" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-181"><a href="#cb33-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-182"><a href="#cb33-182" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-183"><a href="#cb33-183" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> OLD_TOKEN NEW_TOKEN</span>
-<span id="cb33-184"><a href="#cb33-184" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-185"><a href="#cb33-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-186"><a href="#cb33-186" aria-hidden="true" tabindex="-1"></a>Concrete example: clone <span class="in">`hrMaxSG`</span> config to a new <span class="in">`maxSG`</span> config:</span>
-<span id="cb33-187"><a href="#cb33-187" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-188"><a href="#cb33-188" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-189"><a href="#cb33-189" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> hrMaxSG maxSG</span>
-<span id="cb33-190"><a href="#cb33-190" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-191"><a href="#cb33-191" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-192"><a href="#cb33-192" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-193"><a href="#cb33-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-194"><a href="#cb33-194" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-195"><a href="#cb33-195" aria-hidden="true" tabindex="-1"></a><span class="fu">system2</span>(<span class="st">&quot;./quarto/simulations/clone_config.sh&quot;</span>, <span class="fu">c</span>(<span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>))</span>
-<span id="cb33-196"><a href="#cb33-196" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-197"><a href="#cb33-197" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-198"><a href="#cb33-198" aria-hidden="true" tabindex="-1"></a>Or use the R-equivalent of running shell from the console:</span>
-<span id="cb33-199"><a href="#cb33-199" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-200"><a href="#cb33-200" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-201"><a href="#cb33-201" aria-hidden="true" tabindex="-1"></a><span class="fu">system</span>(<span class="st">&quot;./quarto/simulations/clone_config.sh hrMaxSG maxSG&quot;</span>)</span>
-<span id="cb33-202"><a href="#cb33-202" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-203"><a href="#cb33-203" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-204"><a href="#cb33-204" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-205"><a href="#cb33-205" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-206"><a href="#cb33-206" aria-hidden="true" tabindex="-1"></a>Expected output (last few lines):</span>
-<span id="cb33-207"><a href="#cb33-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-208"><a href="#cb33-208" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-209"><a href="#cb33-209" aria-hidden="true" tabindex="-1"></a><span class="in">Done.  New files:</span></span>
-<span id="cb33-210"><a href="#cb33-210" aria-hidden="true" tabindex="-1"></a><span class="in">  actg175_binary_m1_harm_maxSG_fs1.qmd</span></span>
-<span id="cb33-211"><a href="#cb33-211" aria-hidden="true" tabindex="-1"></a><span class="in">  actg175_binary_m1_harm_maxSG_fs1.R</span></span>
-<span id="cb33-212"><a href="#cb33-212" aria-hidden="true" tabindex="-1"></a><span class="in">  sim_actg175_binary_m1_harm_maxSG_fs1.R</span></span>
-<span id="cb33-213"><a href="#cb33-213" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-214"><a href="#cb33-214" aria-hidden="true" tabindex="-1"></a><span class="in">Next steps:</span></span>
-<span id="cb33-215"><a href="#cb33-215" aria-hidden="true" tabindex="-1"></a><span class="in">  1. Verify the substitutions by opening any of the new files.</span></span>
-<span id="cb33-216"><a href="#cb33-216" aria-hidden="true" tabindex="-1"></a><span class="in">  2. (Optional) Edit FS parameters if &#39;maxSG&#39; implies different values.</span></span>
-<span id="cb33-217"><a href="#cb33-217" aria-hidden="true" tabindex="-1"></a><span class="in">  3. Run the new runner:</span></span>
-<span id="cb33-218"><a href="#cb33-218" aria-hidden="true" tabindex="-1"></a><span class="in">       Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R</span></span>
-<span id="cb33-219"><a href="#cb33-219" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-220"><a href="#cb33-220" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-221"><a href="#cb33-221" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb33-222"><a href="#cb33-222" aria-hidden="true" tabindex="-1"></a>The script refuses to overwrite existing files — if you accidentally</span>
-<span id="cb33-223"><a href="#cb33-223" aria-hidden="true" tabindex="-1"></a>run the same clone twice, it will fail safely. Delete the prior</span>
-<span id="cb33-224"><a href="#cb33-224" aria-hidden="true" tabindex="-1"></a>copies first if you really want to redo a clone.</span>
-<span id="cb33-225"><a href="#cb33-225" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-226"><a href="#cb33-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-227"><a href="#cb33-227" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 3 — Verify the substitutions (always)</span></span>
-<span id="cb33-228"><a href="#cb33-228" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-229"><a href="#cb33-229" aria-hidden="true" tabindex="-1"></a>Open one of the new files in RStudio and skim it:</span>
-<span id="cb33-230"><a href="#cb33-230" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-231"><a href="#cb33-231" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-232"><a href="#cb33-232" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-233"><a href="#cb33-233" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-234"><a href="#cb33-234" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-235"><a href="#cb33-235" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-236"><a href="#cb33-236" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/actg175_binary_m1_harm_NEW_TOKEN_fs1.qmd</span>
-<span id="cb33-237"><a href="#cb33-237" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-238"><a href="#cb33-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-239"><a href="#cb33-239" aria-hidden="true" tabindex="-1"></a>(Replace <span class="in">`OLD_TOKEN`</span> with the token you just removed.) If <span class="in">`grep`</span></span>
-<span id="cb33-240"><a href="#cb33-240" aria-hidden="true" tabindex="-1"></a>prints nothing, all references were updated correctly.</span>
-<span id="cb33-241"><a href="#cb33-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-242"><a href="#cb33-242" aria-hidden="true" tabindex="-1"></a>Concrete example after <span class="in">`hrMaxSG → maxSG`</span>:</span>
-<span id="cb33-243"><a href="#cb33-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-244"><a href="#cb33-244" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-245"><a href="#cb33-245" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;hrMaxSG&quot;</span> quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
-<span id="cb33-246"><a href="#cb33-246" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-247"><a href="#cb33-247" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-248"><a href="#cb33-248" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-249"><a href="#cb33-249" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-250"><a href="#cb33-250" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-251"><a href="#cb33-251" aria-hidden="true" tabindex="-1"></a><span class="fu">file.path</span>(<span class="st">&quot;quarto/simulations/actg175&quot;</span>,</span>
-<span id="cb33-252"><a href="#cb33-252" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;actg175_binary_m1_harm_maxSG_fs1.qmd&quot;</span>) <span class="sc">|&gt;</span></span>
-<span id="cb33-253"><a href="#cb33-253" aria-hidden="true" tabindex="-1"></a>  <span class="fu">readLines</span>() <span class="sc">|&gt;</span> <span class="fu">grep</span>(<span class="st">&quot;hrMaxSG&quot;</span>, <span class="at">x =</span> _, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb33-254"><a href="#cb33-254" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-255"><a href="#cb33-255" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-256"><a href="#cb33-256" aria-hidden="true" tabindex="-1"></a>Empty result = clean. Any printed line indicates a leftover</span>
-<span id="cb33-257"><a href="#cb33-257" aria-hidden="true" tabindex="-1"></a>reference to investigate.</span>
-<span id="cb33-258"><a href="#cb33-258" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-259"><a href="#cb33-259" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-260"><a href="#cb33-260" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-261"><a href="#cb33-261" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 4 — Edit FS parameters (only when changing the FS bundle)</span></span>
-<span id="cb33-262"><a href="#cb33-262" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-263"><a href="#cb33-263" aria-hidden="true" tabindex="-1"></a>Skip this step if you&#39;re only changing <span class="in">`sg_focus`</span>. The clone</span>
-<span id="cb33-264"><a href="#cb33-264" aria-hidden="true" tabindex="-1"></a>script&#39;s substitution covered the <span class="in">`fs_sg_focus`</span> value</span>
-<span id="cb33-265"><a href="#cb33-265" aria-hidden="true" tabindex="-1"></a>automatically, and the <span class="in">`_fsparams/fs1_params.R`</span> file already</span>
-<span id="cb33-266"><a href="#cb33-266" aria-hidden="true" tabindex="-1"></a>encodes any <span class="in">`sg_focus`</span>-dependent constraints (e.g., <span class="in">`stop_threshold`</span></span>
-<span id="cb33-267"><a href="#cb33-267" aria-hidden="true" tabindex="-1"></a>returns as <span class="in">`NULL`</span> automatically when <span class="in">`sg_focus`</span> is <span class="in">`hrMaxSG`</span> or</span>
-<span id="cb33-268"><a href="#cb33-268" aria-hidden="true" tabindex="-1"></a><span class="in">`hrMinSG`</span>). No manual qmd edits needed.</span>
-<span id="cb33-269"><a href="#cb33-269" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-270"><a href="#cb33-270" aria-hidden="true" tabindex="-1"></a>If you&#39;re changing the **FS bundle** (e.g., <span class="in">`fs1 → fs2`</span>), the</span>
-<span id="cb33-271"><a href="#cb33-271" aria-hidden="true" tabindex="-1"></a>parameter values live in a single shared file. See</span>
-<span id="cb33-272"><a href="#cb33-272" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">§4 — Changing FS bundle only</span><span class="co">](#changing-fs-bundle-only-eg-fs1-fs2)</span></span>
-<span id="cb33-273"><a href="#cb33-273" aria-hidden="true" tabindex="-1"></a>for the workflow. The short version: copy</span>
-<span id="cb33-274"><a href="#cb33-274" aria-hidden="true" tabindex="-1"></a><span class="in">`_fsparams/fs1_params.R`</span> to <span class="in">`_fsparams/fs2_params.R`</span>, edit the</span>
-<span id="cb33-275"><a href="#cb33-275" aria-hidden="true" tabindex="-1"></a>values that differ, then update each cloned qmd&#39;s <span class="in">`source()`</span> line</span>
-<span id="cb33-276"><a href="#cb33-276" aria-hidden="true" tabindex="-1"></a>and <span class="in">`get_fs1_params()`</span> call to point at the new file.</span>
-<span id="cb33-277"><a href="#cb33-277" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-278"><a href="#cb33-278" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 5 — Render the qmd in `full` mode (builds bundle + HTML)</span></span>
-<span id="cb33-279"><a href="#cb33-279" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-280"><a href="#cb33-280" aria-hidden="true" tabindex="-1"></a>A <span class="in">`full`</span>-mode render runs the simulations inline at production N</span>
-<span id="cb33-281"><a href="#cb33-281" aria-hidden="true" tabindex="-1"></a>and saves the bundle to disk. The same render also produces the</span>
-<span id="cb33-282"><a href="#cb33-282" aria-hidden="true" tabindex="-1"></a>article HTML.</span>
-<span id="cb33-283"><a href="#cb33-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-284"><a href="#cb33-284" aria-hidden="true" tabindex="-1"></a>First, set the mode in the qmd&#39;s setup chunk:</span>
-<span id="cb33-285"><a href="#cb33-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-286"><a href="#cb33-286" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-287"><a href="#cb33-287" aria-hidden="true" tabindex="-1"></a>sim_mode <span class="ot">&lt;-</span> <span class="st">&quot;full&quot;</span></span>
-<span id="cb33-288"><a href="#cb33-288" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-289"><a href="#cb33-289" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-290"><a href="#cb33-290" aria-hidden="true" tabindex="-1"></a>Then render. This is the slow step (15-30 minutes per config at</span>
-<span id="cb33-291"><a href="#cb33-291" aria-hidden="true" tabindex="-1"></a>production N).</span>
-<span id="cb33-292"><a href="#cb33-292" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-293"><a href="#cb33-293" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-294"><a href="#cb33-294" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-295"><a href="#cb33-295" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-296"><a href="#cb33-296" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-297"><a href="#cb33-297" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-298"><a href="#cb33-298" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
-<span id="cb33-299"><a href="#cb33-299" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-300"><a href="#cb33-300" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-301"><a href="#cb33-301" aria-hidden="true" tabindex="-1"></a>If you want to capture render progress to a log file as well:</span>
-<span id="cb33-302"><a href="#cb33-302" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-303"><a href="#cb33-303" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-304"><a href="#cb33-304" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd <span class="dt">\</span></span>
-<span id="cb33-305"><a href="#cb33-305" aria-hidden="true" tabindex="-1"></a>  <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">|</span> <span class="fu">tee</span> quarto/simulations/actg175/logs/render_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M%S<span class="va">)</span>.log</span>
-<span id="cb33-306"><a href="#cb33-306" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-307"><a href="#cb33-307" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-308"><a href="#cb33-308" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-309"><a href="#cb33-309" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-310"><a href="#cb33-310" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-311"><a href="#cb33-311" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
-<span id="cb33-312"><a href="#cb33-312" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd&quot;</span></span>
-<span id="cb33-313"><a href="#cb33-313" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb33-314"><a href="#cb33-314" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-315"><a href="#cb33-315" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-316"><a href="#cb33-316" aria-hidden="true" tabindex="-1"></a>The Console will be tied up until completion. For long renders,</span>
-<span id="cb33-317"><a href="#cb33-317" aria-hidden="true" tabindex="-1"></a>the Bash route via the Terminal pane is preferred.</span>
-<span id="cb33-318"><a href="#cb33-318" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-319"><a href="#cb33-319" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-320"><a href="#cb33-320" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-321"><a href="#cb33-321" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb33-322"><a href="#cb33-322" aria-hidden="true" tabindex="-1"></a>Once the render finishes, look for these lines in the output:</span>
-<span id="cb33-323"><a href="#cb33-323" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-324"><a href="#cb33-324" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-325"><a href="#cb33-325" aria-hidden="true" tabindex="-1"></a><span class="in">Bundle saved to: actg175_binary_m1_harm_maxSG_fs1.rds</span></span>
-<span id="cb33-326"><a href="#cb33-326" aria-hidden="true" tabindex="-1"></a><span class="in">  H1: M.M min, N rows, 0 failed</span></span>
-<span id="cb33-327"><a href="#cb33-327" aria-hidden="true" tabindex="-1"></a><span class="in">  H0: M.M min, N rows, 0 failed</span></span>
-<span id="cb33-328"><a href="#cb33-328" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-329"><a href="#cb33-329" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-330"><a href="#cb33-330" aria-hidden="true" tabindex="-1"></a>If failures are non-zero, investigate before relying on the</span>
-<span id="cb33-331"><a href="#cb33-331" aria-hidden="true" tabindex="-1"></a>bundle.</span>
-<span id="cb33-332"><a href="#cb33-332" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-333"><a href="#cb33-333" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-334"><a href="#cb33-334" aria-hidden="true" tabindex="-1"></a>After verifying, switch the mode back to <span class="in">`&quot;auto&quot;`</span> so future</span>
-<span id="cb33-335"><a href="#cb33-335" aria-hidden="true" tabindex="-1"></a>renders re-read the bundle rather than re-running the simulation:</span>
-<span id="cb33-336"><a href="#cb33-336" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-337"><a href="#cb33-337" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-338"><a href="#cb33-338" aria-hidden="true" tabindex="-1"></a>sim_mode <span class="ot">&lt;-</span> <span class="st">&quot;auto&quot;</span></span>
-<span id="cb33-339"><a href="#cb33-339" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-340"><a href="#cb33-340" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-341"><a href="#cb33-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 6 — Update and render the cross-cut summary</span></span>
-<span id="cb33-342"><a href="#cb33-342" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-343"><a href="#cb33-343" aria-hidden="true" tabindex="-1"></a>Edit the summary qmd to extend the level vectors so the new cell</span>
-<span id="cb33-344"><a href="#cb33-344" aria-hidden="true" tabindex="-1"></a>shows up:</span>
-<span id="cb33-345"><a href="#cb33-345" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-346"><a href="#cb33-346" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-347"><a href="#cb33-347" aria-hidden="true" tabindex="-1"></a><span class="co"># In quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd:</span></span>
-<span id="cb33-348"><a href="#cb33-348" aria-hidden="true" tabindex="-1"></a>focus_levels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;hr&quot;</span>, <span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>)   <span class="co"># &lt;- add new sg_focus levels here</span></span>
-<span id="cb33-349"><a href="#cb33-349" aria-hidden="true" tabindex="-1"></a>fs_levels    <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;fs1&quot;</span>, <span class="st">&quot;fs2&quot;</span>, <span class="st">&quot;fs3&quot;</span>)        <span class="co"># &lt;- add new FS bundle levels here</span></span>
-<span id="cb33-350"><a href="#cb33-350" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-351"><a href="#cb33-351" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-352"><a href="#cb33-352" aria-hidden="true" tabindex="-1"></a>Then render:</span>
-<span id="cb33-353"><a href="#cb33-353" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-354"><a href="#cb33-354" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
-<span id="cb33-355"><a href="#cb33-355" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-356"><a href="#cb33-356" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
-<span id="cb33-357"><a href="#cb33-357" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-358"><a href="#cb33-358" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-359"><a href="#cb33-359" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd</span>
-<span id="cb33-360"><a href="#cb33-360" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-361"><a href="#cb33-361" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-362"><a href="#cb33-362" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
-<span id="cb33-363"><a href="#cb33-363" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-364"><a href="#cb33-364" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
-<span id="cb33-365"><a href="#cb33-365" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
-<span id="cb33-366"><a href="#cb33-366" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd&quot;</span></span>
-<span id="cb33-367"><a href="#cb33-367" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb33-368"><a href="#cb33-368" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-369"><a href="#cb33-369" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-370"><a href="#cb33-370" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-371"><a href="#cb33-371" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-372"><a href="#cb33-372" aria-hidden="true" tabindex="-1"></a>Cells with bundles show their full Section 6.1 + 6.3 tables.</span>
-<span id="cb33-373"><a href="#cb33-373" aria-hidden="true" tabindex="-1"></a>Cells without bundles are skipped automatically (`strict_bundles</span>
-<span id="cb33-374"><a href="#cb33-374" aria-hidden="true" tabindex="-1"></a>&lt;- FALSE` in the summary&#39;s setup chunk).</span>
-<span id="cb33-375"><a href="#cb33-375" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-376"><a href="#cb33-376" aria-hidden="true" tabindex="-1"></a><span class="fu"># 4. What to edit when {#sec-edits}</span></span>
-<span id="cb33-377"><a href="#cb33-377" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-378"><a href="#cb33-378" aria-hidden="true" tabindex="-1"></a>Quick reference for what <span class="in">`clone_config.sh`</span> handles vs. what you</span>
-<span id="cb33-379"><a href="#cb33-379" aria-hidden="true" tabindex="-1"></a>must edit by hand.</span>
-<span id="cb33-380"><a href="#cb33-380" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-381"><a href="#cb33-381" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb33-382"><a href="#cb33-382" aria-hidden="true" tabindex="-1"></a>The <span class="in">`clone_config.sh`</span> script currently tries to copy the qmd</span>
-<span id="cb33-383"><a href="#cb33-383" aria-hidden="true" tabindex="-1"></a>along with two <span class="in">`.R`</span> files (a legacy runner script and <span class="in">`sim_*.R`</span></span>
-<span id="cb33-384"><a href="#cb33-384" aria-hidden="true" tabindex="-1"></a>helper) that are no longer part of the qmd-first workflow. If</span>
-<span id="cb33-385"><a href="#cb33-385" aria-hidden="true" tabindex="-1"></a>you&#39;ve already deleted those <span class="in">`.R`</span> files (recommended — they&#39;re</span>
-<span id="cb33-386"><a href="#cb33-386" aria-hidden="true" tabindex="-1"></a>unused), the script will fail. A future script update will fix</span>
-<span id="cb33-387"><a href="#cb33-387" aria-hidden="true" tabindex="-1"></a>this. In the meantime, you can either (a) clone manually with</span>
-<span id="cb33-388"><a href="#cb33-388" aria-hidden="true" tabindex="-1"></a><span class="in">`cp &lt;stem&gt;.qmd &lt;new_stem&gt;.qmd`</span> and edit, or (b) run the script</span>
-<span id="cb33-389"><a href="#cb33-389" aria-hidden="true" tabindex="-1"></a>and ignore the missing-source errors for the <span class="in">`.R`</span> files.</span>
-<span id="cb33-390"><a href="#cb33-390" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb33-391"><a href="#cb33-391" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-392"><a href="#cb33-392" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing `sg_focus` only (e.g., `hrMaxSG → hr`)</span></span>
-<span id="cb33-393"><a href="#cb33-393" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-394"><a href="#cb33-394" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
-<span id="cb33-395"><a href="#cb33-395" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
-<span id="cb33-396"><a href="#cb33-396" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-397"><a href="#cb33-397" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-398"><a href="#cb33-398" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`fs_sg_focus`</span> value <span class="pp">|</span> clone_config.sh (because token = value) <span class="pp">|</span></span>
-<span id="cb33-399"><a href="#cb33-399" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Validation check string <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-400"><a href="#cb33-400" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-401"><a href="#cb33-401" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`stop_threshold`</span> (<span class="in">`sg_focus`</span>-dependent) <span class="pp">|</span> <span class="in">`_fsparams/fs1_params.R`</span> (returns NULL automatically for <span class="in">`hrMaxSG`</span>/<span class="in">`hrMinSG`</span>) <span class="pp">|</span></span>
-<span id="cb33-402"><a href="#cb33-402" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-403"><a href="#cb33-403" aria-hidden="true" tabindex="-1"></a>**Action**: run the script, render in <span class="in">`full`</span> mode. No manual qmd</span>
-<span id="cb33-404"><a href="#cb33-404" aria-hidden="true" tabindex="-1"></a>edits required.</span>
-<span id="cb33-405"><a href="#cb33-405" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-406"><a href="#cb33-406" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing FS bundle only (e.g., `fs1 → fs2`)</span></span>
-<span id="cb33-407"><a href="#cb33-407" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-408"><a href="#cb33-408" aria-hidden="true" tabindex="-1"></a>This is now a two-stage process: define the new bundle once in</span>
-<span id="cb33-409"><a href="#cb33-409" aria-hidden="true" tabindex="-1"></a><span class="in">`_fsparams/`</span>, then spawn parallel <span class="in">`sg_focus`</span> qmds.</span>
-<span id="cb33-410"><a href="#cb33-410" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-411"><a href="#cb33-411" aria-hidden="true" tabindex="-1"></a>**Stage A — Define `fs2` (one new file, used by all future qmds):**</span>
-<span id="cb33-412"><a href="#cb33-412" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-413"><a href="#cb33-413" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-414"><a href="#cb33-414" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> quarto/simulations/actg175/_fsparams/</span>
-<span id="cb33-415"><a href="#cb33-415" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> fs1_params.R fs2_params.R</span>
-<span id="cb33-416"><a href="#cb33-416" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit fs2_params.R:</span></span>
-<span id="cb33-417"><a href="#cb33-417" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Rename get_fs1_params -&gt; get_fs2_params</span></span>
-<span id="cb33-418"><a href="#cb33-418" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Update header comment describing what fs2 is for</span></span>
-<span id="cb33-419"><a href="#cb33-419" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Edit the parameter values that distinguish fs2 from fs1</span></span>
-<span id="cb33-420"><a href="#cb33-420" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-421"><a href="#cb33-421" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-422"><a href="#cb33-422" aria-hidden="true" tabindex="-1"></a>**Stage B — Spawn `sg_focus` qmds for the new bundle:**</span>
-<span id="cb33-423"><a href="#cb33-423" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-424"><a href="#cb33-424" aria-hidden="true" tabindex="-1"></a>For each <span class="in">`sg_focus`</span> you want to compare under <span class="in">`fs2`</span>:</span>
-<span id="cb33-425"><a href="#cb33-425" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-426"><a href="#cb33-426" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-427"><a href="#cb33-427" aria-hidden="true" tabindex="-1"></a><span class="co"># From package root</span></span>
-<span id="cb33-428"><a href="#cb33-428" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> fs1 fs2  <span class="co"># for one focus at a time</span></span>
-<span id="cb33-429"><a href="#cb33-429" aria-hidden="true" tabindex="-1"></a><span class="co"># Then edit the new qmd to update the source() line and function call:</span></span>
-<span id="cb33-430"><a href="#cb33-430" aria-hidden="true" tabindex="-1"></a><span class="co">#   source(&quot;_fsparams/fs2_params.R&quot;)</span></span>
-<span id="cb33-431"><a href="#cb33-431" aria-hidden="true" tabindex="-1"></a><span class="co">#   fs_params &lt;- get_fs2_params(sg_focus = fs_sg_focus)</span></span>
-<span id="cb33-432"><a href="#cb33-432" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-433"><a href="#cb33-433" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-434"><a href="#cb33-434" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
-<span id="cb33-435"><a href="#cb33-435" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
-<span id="cb33-436"><a href="#cb33-436" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-437"><a href="#cb33-437" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-438"><a href="#cb33-438" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-439"><a href="#cb33-439" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`source()`</span> line and function name <span class="pp">|</span> **You** (manual edit per qmd) <span class="pp">|</span></span>
-<span id="cb33-440"><a href="#cb33-440" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FS parameter values <span class="pp">|</span> already defined once in <span class="in">`fs2_params.R`</span> <span class="pp">|</span></span>
-<span id="cb33-441"><a href="#cb33-441" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-442"><a href="#cb33-442" aria-hidden="true" tabindex="-1"></a>**Why this is better than the old pattern**: editing <span class="in">`c1`</span> for</span>
-<span id="cb33-443"><a href="#cb33-443" aria-hidden="true" tabindex="-1"></a><span class="in">`fs2`</span> is now one edit in <span class="in">`fs2_params.R`</span> instead of N edits across</span>
-<span id="cb33-444"><a href="#cb33-444" aria-hidden="true" tabindex="-1"></a>N per-config qmds. Drift-free by construction.</span>
-<span id="cb33-445"><a href="#cb33-445" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-446"><a href="#cb33-446" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing DGM (e.g., `m1 → m2`)</span></span>
-<span id="cb33-447"><a href="#cb33-447" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-448"><a href="#cb33-448" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
-<span id="cb33-449"><a href="#cb33-449" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
-<span id="cb33-450"><a href="#cb33-450" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-451"><a href="#cb33-451" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-452"><a href="#cb33-452" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
-<span id="cb33-453"><a href="#cb33-453" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **DGM-specific parameters** (e.g., `cal_target_or`, factor cuts, `subgroup_cuts`) | **You** <span class="pp">|</span></span>
-<span id="cb33-454"><a href="#cb33-454" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-455"><a href="#cb33-455" aria-hidden="true" tabindex="-1"></a>**Action**: run the script, edit DGM parameters carefully. For</span>
-<span id="cb33-456"><a href="#cb33-456" aria-hidden="true" tabindex="-1"></a>substantive DGM changes, also update the data-prep section if</span>
-<span id="cb33-457"><a href="#cb33-457" aria-hidden="true" tabindex="-1"></a>factor cuts change. Render in <span class="in">`full`</span> mode.</span>
-<span id="cb33-458"><a href="#cb33-458" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-459"><a href="#cb33-459" aria-hidden="true" tabindex="-1"></a><span class="fu"># 5. Troubleshooting {#sec-trouble}</span></span>
-<span id="cb33-460"><a href="#cb33-460" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-461"><a href="#cb33-461" aria-hidden="true" tabindex="-1"></a><span class="fu">## &quot;permission denied&quot; when running `./quarto/simulations/clone_config.sh`</span></span>
-<span id="cb33-462"><a href="#cb33-462" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-463"><a href="#cb33-463" aria-hidden="true" tabindex="-1"></a>The execute bit isn&#39;t set:</span>
-<span id="cb33-464"><a href="#cb33-464" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-465"><a href="#cb33-465" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-466"><a href="#cb33-466" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span>
-<span id="cb33-467"><a href="#cb33-467" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-468"><a href="#cb33-468" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-469"><a href="#cb33-469" aria-hidden="true" tabindex="-1"></a><span class="fu">## &quot;No such file or directory&quot; when running clone_config.sh</span></span>
-<span id="cb33-470"><a href="#cb33-470" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-471"><a href="#cb33-471" aria-hidden="true" tabindex="-1"></a>You&#39;re not in the package root. Verify with <span class="in">`pwd`</span> (Bash) or</span>
-<span id="cb33-472"><a href="#cb33-472" aria-hidden="true" tabindex="-1"></a><span class="in">`getwd()`</span> (R), and <span class="in">`cd`</span> to the right place.</span>
-<span id="cb33-473"><a href="#cb33-473" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-474"><a href="#cb33-474" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bundle config_id warning when rendering the article</span></span>
-<span id="cb33-475"><a href="#cb33-475" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-476"><a href="#cb33-476" aria-hidden="true" tabindex="-1"></a>Looks like:</span>
-<span id="cb33-477"><a href="#cb33-477" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-478"><a href="#cb33-478" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-479"><a href="#cb33-479" aria-hidden="true" tabindex="-1"></a><span class="in">Warning: Bundle config_id (&#39;...&#39;) does not match this article (&#39;...&#39;).</span></span>
-<span id="cb33-480"><a href="#cb33-480" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-481"><a href="#cb33-481" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-482"><a href="#cb33-482" aria-hidden="true" tabindex="-1"></a>This means the qmd&#39;s hardcoded validation string doesn&#39;t match the</span>
-<span id="cb33-483"><a href="#cb33-483" aria-hidden="true" tabindex="-1"></a>bundle. The clone script handles this automatically; if you see it,</span>
-<span id="cb33-484"><a href="#cb33-484" aria-hidden="true" tabindex="-1"></a>something didn&#39;t get substituted. Run:</span>
-<span id="cb33-485"><a href="#cb33-485" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-486"><a href="#cb33-486" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-487"><a href="#cb33-487" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/<span class="op">&lt;</span>new_stem<span class="op">&gt;</span>.qmd</span>
-<span id="cb33-488"><a href="#cb33-488" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-489"><a href="#cb33-489" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-490"><a href="#cb33-490" aria-hidden="true" tabindex="-1"></a>to find leftovers.</span>
-<span id="cb33-491"><a href="#cb33-491" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-492"><a href="#cb33-492" aria-hidden="true" tabindex="-1"></a><span class="fu">## Render produces a working but visually broken HTML</span></span>
-<span id="cb33-493"><a href="#cb33-493" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-494"><a href="#cb33-494" aria-hidden="true" tabindex="-1"></a>Often this is a stale <span class="in">`_files/`</span> directory. Delete it and re-render:</span>
-<span id="cb33-495"><a href="#cb33-495" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-496"><a href="#cb33-496" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
-<span id="cb33-497"><a href="#cb33-497" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>_files</span>
-<span id="cb33-498"><a href="#cb33-498" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>.qmd</span>
-<span id="cb33-499"><a href="#cb33-499" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb33-500"><a href="#cb33-500" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-501"><a href="#cb33-501" aria-hidden="true" tabindex="-1"></a><span class="fu"># 6. Quick reference card {#sec-quickref}</span></span>
-<span id="cb33-502"><a href="#cb33-502" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb33-503"><a href="#cb33-503" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Action <span class="pp">|</span> Command <span class="pp">|</span></span>
-<span id="cb33-504"><a href="#cb33-504" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|---------|</span></span>
-<span id="cb33-505"><a href="#cb33-505" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Verify package root (Bash) <span class="pp">|</span> <span class="in">`pwd`</span> <span class="pp">|</span></span>
-<span id="cb33-506"><a href="#cb33-506" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Verify package root (R) <span class="pp">|</span> <span class="in">`getwd()`</span> <span class="pp">|</span></span>
-<span id="cb33-507"><a href="#cb33-507" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Clone a config <span class="pp">|</span> <span class="in">`./quarto/simulations/clone_config.sh OLD NEW`</span> <span class="pp">|</span></span>
-<span id="cb33-508"><a href="#cb33-508" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Build a bundle (Bash) <span class="pp">|</span> Set <span class="in">`sim_mode &lt;- &quot;full&quot;`</span> in qmd, then <span class="in">`quarto render quarto/simulations/actg175/&lt;stem&gt;.qmd`</span> <span class="pp">|</span></span>
-<span id="cb33-509"><a href="#cb33-509" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render an article (Bash) <span class="pp">|</span> <span class="in">`quarto render quarto/simulations/actg175/&lt;stem&gt;.qmd`</span> (with <span class="in">`sim_mode &lt;- &quot;auto&quot;`</span>) <span class="pp">|</span></span>
-<span id="cb33-510"><a href="#cb33-510" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render an article (R) <span class="pp">|</span> <span class="in">`quarto::quarto_render(&quot;...&quot;)`</span> <span class="pp">|</span></span>
-<span id="cb33-511"><a href="#cb33-511" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render the summary <span class="pp">|</span> same <span class="in">`quarto render`</span> / <span class="in">`quarto_render`</span> on the summary qmd <span class="pp">|</span></span>
-<span id="cb33-512"><a href="#cb33-512" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Open Terminal pane in RStudio <span class="pp">|</span> Tools → Terminal → New Terminal <span class="pp">|</span></span>
-<span id="cb33-513"><a href="#cb33-513" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Inspect a bundle <span class="pp">|</span> <span class="in">`readRDS(&quot;...rds&quot;)$meta`</span> (R Console) <span class="pp">|</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb40" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> &quot;Simulation Workflow Guide&quot;</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> &quot;Operating the simulation framework day-to-day&quot;</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a><span class="co">    toc-depth: 3</span></span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a>This document is a step-by-step operations guide. It covers the</span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>day-to-day workflow of cloning configurations, running simulations,</span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>rendering articles, and producing summaries.</span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>For framework concepts (naming convention, the two-file pattern,</span>
+<span id="cb40-15"><a href="#cb40-15" aria-hidden="true" tabindex="-1"></a>bundle schema, etc.), see <span class="in">`quarto/simulations/README.qmd`</span>.</span>
+<span id="cb40-16"><a href="#cb40-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-17"><a href="#cb40-17" aria-hidden="true" tabindex="-1"></a><span class="fu"># 1. One-time setup {#sec-setup}</span></span>
+<span id="cb40-18"><a href="#cb40-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-19"><a href="#cb40-19" aria-hidden="true" tabindex="-1"></a>You only need to do this once per machine.</span>
+<span id="cb40-20"><a href="#cb40-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-21"><a href="#cb40-21" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.1 Place the clone-config script</span></span>
+<span id="cb40-22"><a href="#cb40-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-23"><a href="#cb40-23" aria-hidden="true" tabindex="-1"></a>Move <span class="in">`clone_config.sh`</span> into <span class="in">`quarto/simulations/`</span> — the directory</span>
+<span id="cb40-24"><a href="#cb40-24" aria-hidden="true" tabindex="-1"></a>where the simulation framework lives. On your Mac, that&#39;s:</span>
+<span id="cb40-25"><a href="#cb40-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-26"><a href="#cb40-26" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-27"><a href="#cb40-27" aria-hidden="true" tabindex="-1"></a><span class="in">~/Documents/GitHub/forestsearch/quarto/simulations/clone_config.sh</span></span>
+<span id="cb40-28"><a href="#cb40-28" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-29"><a href="#cb40-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-30"><a href="#cb40-30" aria-hidden="true" tabindex="-1"></a>On your Linux (Pop!_OS) machine, the equivalent path under your</span>
+<span id="cb40-31"><a href="#cb40-31" aria-hidden="true" tabindex="-1"></a>home directory.</span>
+<span id="cb40-32"><a href="#cb40-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-33"><a href="#cb40-33" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb40-34"><a href="#cb40-34" aria-hidden="true" tabindex="-1"></a>The script is placed inside <span class="in">`quarto/simulations/`</span> rather than at</span>
+<span id="cb40-35"><a href="#cb40-35" aria-hidden="true" tabindex="-1"></a>the package root because the package&#39;s <span class="in">`.Rbuildignore`</span> already</span>
+<span id="cb40-36"><a href="#cb40-36" aria-hidden="true" tabindex="-1"></a>excludes the <span class="in">`quarto/`</span> tree (<span class="in">`^quarto$`</span>). This keeps the script</span>
+<span id="cb40-37"><a href="#cb40-37" aria-hidden="true" tabindex="-1"></a>out of CRAN-bound tarballs without requiring any additional</span>
+<span id="cb40-38"><a href="#cb40-38" aria-hidden="true" tabindex="-1"></a>ignore rules.</span>
+<span id="cb40-39"><a href="#cb40-39" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-40"><a href="#cb40-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-41"><a href="#cb40-41" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.2 Make it executable</span></span>
+<span id="cb40-42"><a href="#cb40-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-43"><a href="#cb40-43" aria-hidden="true" tabindex="-1"></a>In the **RStudio Terminal pane** (the tab next to **Console** and</span>
+<span id="cb40-44"><a href="#cb40-44" aria-hidden="true" tabindex="-1"></a>**Background Jobs** — see <span class="co">[</span><span class="ot">§2</span><span class="co">](#sec-terminal)</span> if you don&#39;t see it),</span>
+<span id="cb40-45"><a href="#cb40-45" aria-hidden="true" tabindex="-1"></a>make sure you&#39;re in the package root, then run:</span>
+<span id="cb40-46"><a href="#cb40-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-47"><a href="#cb40-47" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-48"><a href="#cb40-48" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span>
+<span id="cb40-49"><a href="#cb40-49" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-50"><a href="#cb40-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-51"><a href="#cb40-51" aria-hidden="true" tabindex="-1"></a>You&#39;ll only see output if something went wrong — silent success is</span>
+<span id="cb40-52"><a href="#cb40-52" aria-hidden="true" tabindex="-1"></a>normal.</span>
+<span id="cb40-53"><a href="#cb40-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-54"><a href="#cb40-54" aria-hidden="true" tabindex="-1"></a><span class="fu">## 1.3 Verify it runs</span></span>
+<span id="cb40-55"><a href="#cb40-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-56"><a href="#cb40-56" aria-hidden="true" tabindex="-1"></a>Test that the script is callable:</span>
+<span id="cb40-57"><a href="#cb40-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-58"><a href="#cb40-58" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-59"><a href="#cb40-59" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span></span>
+<span id="cb40-60"><a href="#cb40-60" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-61"><a href="#cb40-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-62"><a href="#cb40-62" aria-hidden="true" tabindex="-1"></a>You should see usage instructions:</span>
+<span id="cb40-63"><a href="#cb40-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-64"><a href="#cb40-64" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-65"><a href="#cb40-65" aria-hidden="true" tabindex="-1"></a><span class="in">Usage: ./quarto/simulations/clone_config.sh OLD_TOKEN NEW_TOKEN</span></span>
+<span id="cb40-66"><a href="#cb40-66" aria-hidden="true" tabindex="-1"></a><span class="in">Example: ./quarto/simulations/clone_config.sh hrMaxSG hr</span></span>
+<span id="cb40-67"><a href="#cb40-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-68"><a href="#cb40-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-69"><a href="#cb40-69" aria-hidden="true" tabindex="-1"></a>If you see &quot;permission denied,&quot; step 1.2 didn&#39;t take — re-run</span>
+<span id="cb40-70"><a href="#cb40-70" aria-hidden="true" tabindex="-1"></a><span class="in">`chmod +x quarto/simulations/clone_config.sh`</span> and try again.</span>
+<span id="cb40-71"><a href="#cb40-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-72"><a href="#cb40-72" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb40-73"><a href="#cb40-73" aria-hidden="true" tabindex="-1"></a>You&#39;ll need to redo <span class="in">`chmod +x`</span> on each new machine, and any time</span>
+<span id="cb40-74"><a href="#cb40-74" aria-hidden="true" tabindex="-1"></a>the file is copied via Finder, file sharing, or cloud sync — these</span>
+<span id="cb40-75"><a href="#cb40-75" aria-hidden="true" tabindex="-1"></a>sometimes strip the execute bit.</span>
+<span id="cb40-76"><a href="#cb40-76" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-77"><a href="#cb40-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-78"><a href="#cb40-78" aria-hidden="true" tabindex="-1"></a><span class="fu"># 2. The RStudio Terminal pane {#sec-terminal}</span></span>
+<span id="cb40-79"><a href="#cb40-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-80"><a href="#cb40-80" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.1 Where it is</span></span>
+<span id="cb40-81"><a href="#cb40-81" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-82"><a href="#cb40-82" aria-hidden="true" tabindex="-1"></a>The Terminal pane is a tab in the same window region as the</span>
+<span id="cb40-83"><a href="#cb40-83" aria-hidden="true" tabindex="-1"></a>**Console** and **Background Jobs**. Look for the tabs:</span>
+<span id="cb40-84"><a href="#cb40-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-85"><a href="#cb40-85" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-86"><a href="#cb40-86" aria-hidden="true" tabindex="-1"></a><span class="in">[ Console ] [ Terminal ] [ Background Jobs ]</span></span>
+<span id="cb40-87"><a href="#cb40-87" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-88"><a href="#cb40-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-89"><a href="#cb40-89" aria-hidden="true" tabindex="-1"></a>If the **Terminal** tab is not visible:</span>
+<span id="cb40-90"><a href="#cb40-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-91"><a href="#cb40-91" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Menu: **Tools → Terminal → New Terminal**</span>
+<span id="cb40-92"><a href="#cb40-92" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Keyboard: <span class="in">`Shift + Alt + R`</span> (Mac) or <span class="in">`Shift + Alt + T`</span> (Linux)</span>
+<span id="cb40-93"><a href="#cb40-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-94"><a href="#cb40-94" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.2 What it is</span></span>
+<span id="cb40-95"><a href="#cb40-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-96"><a href="#cb40-96" aria-hidden="true" tabindex="-1"></a>A real shell (zsh on Mac, bash on Linux by default) running inside</span>
+<span id="cb40-97"><a href="#cb40-97" aria-hidden="true" tabindex="-1"></a>RStudio. It opens in your project&#39;s working directory by default,</span>
+<span id="cb40-98"><a href="#cb40-98" aria-hidden="true" tabindex="-1"></a>which is exactly what we want for these scripts.</span>
+<span id="cb40-99"><a href="#cb40-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-100"><a href="#cb40-100" aria-hidden="true" tabindex="-1"></a>The Terminal pane is for **shell commands** (lines starting with</span>
+<span id="cb40-101"><a href="#cb40-101" aria-hidden="true" tabindex="-1"></a><span class="in">`$`</span> or <span class="in">`Rscript`</span>). The **Console pane** next to it is for **R</span>
+<span id="cb40-102"><a href="#cb40-102" aria-hidden="true" tabindex="-1"></a>commands** (lines starting with <span class="in">`&gt;`</span>). This guide shows both for</span>
+<span id="cb40-103"><a href="#cb40-103" aria-hidden="true" tabindex="-1"></a>every step — pick whichever you prefer.</span>
+<span id="cb40-104"><a href="#cb40-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-105"><a href="#cb40-105" aria-hidden="true" tabindex="-1"></a><span class="fu">## 2.3 Verify your working directory</span></span>
+<span id="cb40-106"><a href="#cb40-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-107"><a href="#cb40-107" aria-hidden="true" tabindex="-1"></a>Before running anything, check that the Terminal pane is in the</span>
+<span id="cb40-108"><a href="#cb40-108" aria-hidden="true" tabindex="-1"></a>package root:</span>
+<span id="cb40-109"><a href="#cb40-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-110"><a href="#cb40-110" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-111"><a href="#cb40-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-112"><a href="#cb40-112" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-113"><a href="#cb40-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-114"><a href="#cb40-114" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-115"><a href="#cb40-115" aria-hidden="true" tabindex="-1"></a><span class="bu">pwd</span></span>
+<span id="cb40-116"><a href="#cb40-116" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-117"><a href="#cb40-117" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-118"><a href="#cb40-118" aria-hidden="true" tabindex="-1"></a>Expected output: ends in <span class="in">`/forestsearch`</span> (or wherever your local</span>
+<span id="cb40-119"><a href="#cb40-119" aria-hidden="true" tabindex="-1"></a>package clone lives).</span>
+<span id="cb40-120"><a href="#cb40-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-121"><a href="#cb40-121" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-122"><a href="#cb40-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-123"><a href="#cb40-123" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-124"><a href="#cb40-124" aria-hidden="true" tabindex="-1"></a><span class="fu">getwd</span>()</span>
+<span id="cb40-125"><a href="#cb40-125" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-126"><a href="#cb40-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-127"><a href="#cb40-127" aria-hidden="true" tabindex="-1"></a>Expected output: same — ends in <span class="in">`/forestsearch`</span>.</span>
+<span id="cb40-128"><a href="#cb40-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-129"><a href="#cb40-129" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-130"><a href="#cb40-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-131"><a href="#cb40-131" aria-hidden="true" tabindex="-1"></a>If either is wrong, fix it:</span>
+<span id="cb40-132"><a href="#cb40-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-133"><a href="#cb40-133" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-134"><a href="#cb40-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-135"><a href="#cb40-135" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-136"><a href="#cb40-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-137"><a href="#cb40-137" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-138"><a href="#cb40-138" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/Documents/GitHub/forestsearch</span>
+<span id="cb40-139"><a href="#cb40-139" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-140"><a href="#cb40-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-141"><a href="#cb40-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-142"><a href="#cb40-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-143"><a href="#cb40-143" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-144"><a href="#cb40-144" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">&quot;~/Documents/GitHub/forestsearch&quot;</span>)</span>
+<span id="cb40-145"><a href="#cb40-145" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-146"><a href="#cb40-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-147"><a href="#cb40-147" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-148"><a href="#cb40-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-149"><a href="#cb40-149" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb40-150"><a href="#cb40-150" aria-hidden="true" tabindex="-1"></a>The Terminal pane and the R Console have **independent** working</span>
+<span id="cb40-151"><a href="#cb40-151" aria-hidden="true" tabindex="-1"></a>directories. Changing one does not change the other. Verify the</span>
+<span id="cb40-152"><a href="#cb40-152" aria-hidden="true" tabindex="-1"></a>one you&#39;ll actually use.</span>
+<span id="cb40-153"><a href="#cb40-153" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-154"><a href="#cb40-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-155"><a href="#cb40-155" aria-hidden="true" tabindex="-1"></a><span class="fu"># 3. The standard workflow {#sec-workflow}</span></span>
+<span id="cb40-156"><a href="#cb40-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-157"><a href="#cb40-157" aria-hidden="true" tabindex="-1"></a>Six steps to add a new configuration and produce both a per-config</span>
+<span id="cb40-158"><a href="#cb40-158" aria-hidden="true" tabindex="-1"></a>article and an updated cross-cut summary.</span>
+<span id="cb40-159"><a href="#cb40-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-160"><a href="#cb40-160" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 1 — Decide the new config tokens</span></span>
+<span id="cb40-161"><a href="#cb40-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-162"><a href="#cb40-162" aria-hidden="true" tabindex="-1"></a>Identify what changes from the closest existing config. Most</span>
+<span id="cb40-163"><a href="#cb40-163" aria-hidden="true" tabindex="-1"></a>common cases:</span>
+<span id="cb40-164"><a href="#cb40-164" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-165"><a href="#cb40-165" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing `sg_focus`** (e.g., <span class="in">`hrMaxSG → maxSG`</span>): one token</span>
+<span id="cb40-166"><a href="#cb40-166" aria-hidden="true" tabindex="-1"></a>  changes; the script handles everything.</span>
+<span id="cb40-167"><a href="#cb40-167" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing FS bundle** (e.g., <span class="in">`fs1 → fs2`</span>): the script handles</span>
+<span id="cb40-168"><a href="#cb40-168" aria-hidden="true" tabindex="-1"></a>  filenames and references, but you must edit the FS parameter</span>
+<span id="cb40-169"><a href="#cb40-169" aria-hidden="true" tabindex="-1"></a>  values by hand to reflect what makes <span class="in">`fs2`</span> different from <span class="in">`fs1`</span>.</span>
+<span id="cb40-170"><a href="#cb40-170" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Changing both** (e.g., <span class="in">`hrMaxSG_fs1 → maxSG_fs2`</span>): run the</span>
+<span id="cb40-171"><a href="#cb40-171" aria-hidden="true" tabindex="-1"></a>  script twice (once for each token), then edit FS parameters by</span>
+<span id="cb40-172"><a href="#cb40-172" aria-hidden="true" tabindex="-1"></a>  hand.</span>
+<span id="cb40-173"><a href="#cb40-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-174"><a href="#cb40-174" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 2 — Run the clone script</span></span>
+<span id="cb40-175"><a href="#cb40-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-176"><a href="#cb40-176" aria-hidden="true" tabindex="-1"></a>From the package root:</span>
+<span id="cb40-177"><a href="#cb40-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-178"><a href="#cb40-178" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-179"><a href="#cb40-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-180"><a href="#cb40-180" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-181"><a href="#cb40-181" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-182"><a href="#cb40-182" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-183"><a href="#cb40-183" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> OLD_TOKEN NEW_TOKEN</span>
+<span id="cb40-184"><a href="#cb40-184" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-185"><a href="#cb40-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-186"><a href="#cb40-186" aria-hidden="true" tabindex="-1"></a>Concrete example: clone <span class="in">`hrMaxSG`</span> config to a new <span class="in">`maxSG`</span> config:</span>
+<span id="cb40-187"><a href="#cb40-187" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-188"><a href="#cb40-188" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-189"><a href="#cb40-189" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> hrMaxSG maxSG</span>
+<span id="cb40-190"><a href="#cb40-190" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-191"><a href="#cb40-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-192"><a href="#cb40-192" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-193"><a href="#cb40-193" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-194"><a href="#cb40-194" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-195"><a href="#cb40-195" aria-hidden="true" tabindex="-1"></a><span class="fu">system2</span>(<span class="st">&quot;./quarto/simulations/clone_config.sh&quot;</span>, <span class="fu">c</span>(<span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>))</span>
+<span id="cb40-196"><a href="#cb40-196" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-197"><a href="#cb40-197" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-198"><a href="#cb40-198" aria-hidden="true" tabindex="-1"></a>Or use the R-equivalent of running shell from the console:</span>
+<span id="cb40-199"><a href="#cb40-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-200"><a href="#cb40-200" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-201"><a href="#cb40-201" aria-hidden="true" tabindex="-1"></a><span class="fu">system</span>(<span class="st">&quot;./quarto/simulations/clone_config.sh hrMaxSG maxSG&quot;</span>)</span>
+<span id="cb40-202"><a href="#cb40-202" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-203"><a href="#cb40-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-204"><a href="#cb40-204" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-205"><a href="#cb40-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-206"><a href="#cb40-206" aria-hidden="true" tabindex="-1"></a>Expected output (last few lines):</span>
+<span id="cb40-207"><a href="#cb40-207" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-208"><a href="#cb40-208" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-209"><a href="#cb40-209" aria-hidden="true" tabindex="-1"></a><span class="in">Done.  New files:</span></span>
+<span id="cb40-210"><a href="#cb40-210" aria-hidden="true" tabindex="-1"></a><span class="in">  actg175_binary_m1_harm_maxSG_fs1.qmd</span></span>
+<span id="cb40-211"><a href="#cb40-211" aria-hidden="true" tabindex="-1"></a><span class="in">  actg175_binary_m1_harm_maxSG_fs1.R</span></span>
+<span id="cb40-212"><a href="#cb40-212" aria-hidden="true" tabindex="-1"></a><span class="in">  sim_actg175_binary_m1_harm_maxSG_fs1.R</span></span>
+<span id="cb40-213"><a href="#cb40-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-214"><a href="#cb40-214" aria-hidden="true" tabindex="-1"></a><span class="in">Next steps:</span></span>
+<span id="cb40-215"><a href="#cb40-215" aria-hidden="true" tabindex="-1"></a><span class="in">  1. Verify the substitutions by opening any of the new files.</span></span>
+<span id="cb40-216"><a href="#cb40-216" aria-hidden="true" tabindex="-1"></a><span class="in">  2. (Optional) Edit FS parameters if &#39;maxSG&#39; implies different values.</span></span>
+<span id="cb40-217"><a href="#cb40-217" aria-hidden="true" tabindex="-1"></a><span class="in">  3. Run the new runner:</span></span>
+<span id="cb40-218"><a href="#cb40-218" aria-hidden="true" tabindex="-1"></a><span class="in">       Rscript quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.R</span></span>
+<span id="cb40-219"><a href="#cb40-219" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-220"><a href="#cb40-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-221"><a href="#cb40-221" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb40-222"><a href="#cb40-222" aria-hidden="true" tabindex="-1"></a>The script refuses to overwrite existing files — if you accidentally</span>
+<span id="cb40-223"><a href="#cb40-223" aria-hidden="true" tabindex="-1"></a>run the same clone twice, it will fail safely. Delete the prior</span>
+<span id="cb40-224"><a href="#cb40-224" aria-hidden="true" tabindex="-1"></a>copies first if you really want to redo a clone.</span>
+<span id="cb40-225"><a href="#cb40-225" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-226"><a href="#cb40-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-227"><a href="#cb40-227" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 3 — Verify the substitutions (always)</span></span>
+<span id="cb40-228"><a href="#cb40-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-229"><a href="#cb40-229" aria-hidden="true" tabindex="-1"></a>Open one of the new files in RStudio and skim it:</span>
+<span id="cb40-230"><a href="#cb40-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-231"><a href="#cb40-231" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-232"><a href="#cb40-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-233"><a href="#cb40-233" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-234"><a href="#cb40-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-235"><a href="#cb40-235" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-236"><a href="#cb40-236" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/actg175_binary_m1_harm_NEW_TOKEN_fs1.qmd</span>
+<span id="cb40-237"><a href="#cb40-237" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-238"><a href="#cb40-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-239"><a href="#cb40-239" aria-hidden="true" tabindex="-1"></a>(Replace <span class="in">`OLD_TOKEN`</span> with the token you just removed.) If <span class="in">`grep`</span></span>
+<span id="cb40-240"><a href="#cb40-240" aria-hidden="true" tabindex="-1"></a>prints nothing, all references were updated correctly.</span>
+<span id="cb40-241"><a href="#cb40-241" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-242"><a href="#cb40-242" aria-hidden="true" tabindex="-1"></a>Concrete example after <span class="in">`hrMaxSG → maxSG`</span>:</span>
+<span id="cb40-243"><a href="#cb40-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-244"><a href="#cb40-244" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-245"><a href="#cb40-245" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;hrMaxSG&quot;</span> quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
+<span id="cb40-246"><a href="#cb40-246" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-247"><a href="#cb40-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-248"><a href="#cb40-248" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-249"><a href="#cb40-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-250"><a href="#cb40-250" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-251"><a href="#cb40-251" aria-hidden="true" tabindex="-1"></a><span class="fu">file.path</span>(<span class="st">&quot;quarto/simulations/actg175&quot;</span>,</span>
+<span id="cb40-252"><a href="#cb40-252" aria-hidden="true" tabindex="-1"></a>          <span class="st">&quot;actg175_binary_m1_harm_maxSG_fs1.qmd&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb40-253"><a href="#cb40-253" aria-hidden="true" tabindex="-1"></a>  <span class="fu">readLines</span>() <span class="sc">|&gt;</span> <span class="fu">grep</span>(<span class="st">&quot;hrMaxSG&quot;</span>, <span class="at">x =</span> _, <span class="at">value =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb40-254"><a href="#cb40-254" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-255"><a href="#cb40-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-256"><a href="#cb40-256" aria-hidden="true" tabindex="-1"></a>Empty result = clean. Any printed line indicates a leftover</span>
+<span id="cb40-257"><a href="#cb40-257" aria-hidden="true" tabindex="-1"></a>reference to investigate.</span>
+<span id="cb40-258"><a href="#cb40-258" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-259"><a href="#cb40-259" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-260"><a href="#cb40-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-261"><a href="#cb40-261" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 4 — Edit FS parameters (only when changing the FS bundle)</span></span>
+<span id="cb40-262"><a href="#cb40-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-263"><a href="#cb40-263" aria-hidden="true" tabindex="-1"></a>Skip this step if you&#39;re only changing <span class="in">`sg_focus`</span>. The clone</span>
+<span id="cb40-264"><a href="#cb40-264" aria-hidden="true" tabindex="-1"></a>script&#39;s substitution covered the <span class="in">`fs_sg_focus`</span> value</span>
+<span id="cb40-265"><a href="#cb40-265" aria-hidden="true" tabindex="-1"></a>automatically, and the <span class="in">`_fsparams/fs1_params.R`</span> file already</span>
+<span id="cb40-266"><a href="#cb40-266" aria-hidden="true" tabindex="-1"></a>encodes any <span class="in">`sg_focus`</span>-dependent constraints (e.g., <span class="in">`stop_threshold`</span></span>
+<span id="cb40-267"><a href="#cb40-267" aria-hidden="true" tabindex="-1"></a>returns as <span class="in">`NULL`</span> automatically when <span class="in">`sg_focus`</span> is <span class="in">`hrMaxSG`</span> or</span>
+<span id="cb40-268"><a href="#cb40-268" aria-hidden="true" tabindex="-1"></a><span class="in">`hrMinSG`</span>). No manual qmd edits needed.</span>
+<span id="cb40-269"><a href="#cb40-269" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-270"><a href="#cb40-270" aria-hidden="true" tabindex="-1"></a>If you&#39;re changing the **FS bundle** (e.g., <span class="in">`fs1 → fs2`</span>), the</span>
+<span id="cb40-271"><a href="#cb40-271" aria-hidden="true" tabindex="-1"></a>parameter values live in a single shared file. See</span>
+<span id="cb40-272"><a href="#cb40-272" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">§4 — Changing FS bundle only</span><span class="co">](#changing-fs-bundle-only-eg-fs1-fs2)</span></span>
+<span id="cb40-273"><a href="#cb40-273" aria-hidden="true" tabindex="-1"></a>for the workflow. The short version: copy</span>
+<span id="cb40-274"><a href="#cb40-274" aria-hidden="true" tabindex="-1"></a><span class="in">`_fsparams/fs1_params.R`</span> to <span class="in">`_fsparams/fs2_params.R`</span>, edit the</span>
+<span id="cb40-275"><a href="#cb40-275" aria-hidden="true" tabindex="-1"></a>values that differ, then update each cloned qmd&#39;s <span class="in">`source()`</span> line</span>
+<span id="cb40-276"><a href="#cb40-276" aria-hidden="true" tabindex="-1"></a>and <span class="in">`get_fs1_params()`</span> call to point at the new file.</span>
+<span id="cb40-277"><a href="#cb40-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-278"><a href="#cb40-278" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 5 — Render the qmd in `full` mode (builds bundle + HTML)</span></span>
+<span id="cb40-279"><a href="#cb40-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-280"><a href="#cb40-280" aria-hidden="true" tabindex="-1"></a>A <span class="in">`full`</span>-mode render runs the simulations inline at production N</span>
+<span id="cb40-281"><a href="#cb40-281" aria-hidden="true" tabindex="-1"></a>and saves the bundle to disk. The same render also produces the</span>
+<span id="cb40-282"><a href="#cb40-282" aria-hidden="true" tabindex="-1"></a>article HTML.</span>
+<span id="cb40-283"><a href="#cb40-283" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-284"><a href="#cb40-284" aria-hidden="true" tabindex="-1"></a>First, set the mode in the qmd&#39;s setup chunk:</span>
+<span id="cb40-285"><a href="#cb40-285" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-286"><a href="#cb40-286" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-287"><a href="#cb40-287" aria-hidden="true" tabindex="-1"></a>sim_mode <span class="ot">&lt;-</span> <span class="st">&quot;full&quot;</span></span>
+<span id="cb40-288"><a href="#cb40-288" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-289"><a href="#cb40-289" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-290"><a href="#cb40-290" aria-hidden="true" tabindex="-1"></a>Then render. This is the slow step (15-30 minutes per config at</span>
+<span id="cb40-291"><a href="#cb40-291" aria-hidden="true" tabindex="-1"></a>production N).</span>
+<span id="cb40-292"><a href="#cb40-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-293"><a href="#cb40-293" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-294"><a href="#cb40-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-295"><a href="#cb40-295" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-296"><a href="#cb40-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-297"><a href="#cb40-297" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-298"><a href="#cb40-298" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
+<span id="cb40-299"><a href="#cb40-299" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-300"><a href="#cb40-300" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-301"><a href="#cb40-301" aria-hidden="true" tabindex="-1"></a>If you want to capture render progress to a log file as well:</span>
+<span id="cb40-302"><a href="#cb40-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-303"><a href="#cb40-303" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-304"><a href="#cb40-304" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-305"><a href="#cb40-305" aria-hidden="true" tabindex="-1"></a>  <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">|</span> <span class="fu">tee</span> quarto/simulations/actg175/logs/render_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M%S<span class="va">)</span>.log</span>
+<span id="cb40-306"><a href="#cb40-306" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-307"><a href="#cb40-307" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-308"><a href="#cb40-308" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-309"><a href="#cb40-309" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-310"><a href="#cb40-310" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-311"><a href="#cb40-311" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
+<span id="cb40-312"><a href="#cb40-312" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd&quot;</span></span>
+<span id="cb40-313"><a href="#cb40-313" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb40-314"><a href="#cb40-314" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-315"><a href="#cb40-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-316"><a href="#cb40-316" aria-hidden="true" tabindex="-1"></a>The Console will be tied up until completion. For long renders,</span>
+<span id="cb40-317"><a href="#cb40-317" aria-hidden="true" tabindex="-1"></a>the Bash route via the Terminal pane is preferred.</span>
+<span id="cb40-318"><a href="#cb40-318" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-319"><a href="#cb40-319" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-320"><a href="#cb40-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-321"><a href="#cb40-321" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb40-322"><a href="#cb40-322" aria-hidden="true" tabindex="-1"></a>Once the render finishes, look for these lines in the output:</span>
+<span id="cb40-323"><a href="#cb40-323" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-324"><a href="#cb40-324" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-325"><a href="#cb40-325" aria-hidden="true" tabindex="-1"></a><span class="in">Bundle saved to: actg175_binary_m1_harm_maxSG_fs1.rds</span></span>
+<span id="cb40-326"><a href="#cb40-326" aria-hidden="true" tabindex="-1"></a><span class="in">  H1: M.M min, N rows, 0 failed</span></span>
+<span id="cb40-327"><a href="#cb40-327" aria-hidden="true" tabindex="-1"></a><span class="in">  H0: M.M min, N rows, 0 failed</span></span>
+<span id="cb40-328"><a href="#cb40-328" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-329"><a href="#cb40-329" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-330"><a href="#cb40-330" aria-hidden="true" tabindex="-1"></a>If failures are non-zero, investigate before relying on the</span>
+<span id="cb40-331"><a href="#cb40-331" aria-hidden="true" tabindex="-1"></a>bundle.</span>
+<span id="cb40-332"><a href="#cb40-332" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-333"><a href="#cb40-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-334"><a href="#cb40-334" aria-hidden="true" tabindex="-1"></a>After verifying, switch the mode back to <span class="in">`&quot;auto&quot;`</span> so future</span>
+<span id="cb40-335"><a href="#cb40-335" aria-hidden="true" tabindex="-1"></a>renders re-read the bundle rather than re-running the simulation:</span>
+<span id="cb40-336"><a href="#cb40-336" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-337"><a href="#cb40-337" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-338"><a href="#cb40-338" aria-hidden="true" tabindex="-1"></a>sim_mode <span class="ot">&lt;-</span> <span class="st">&quot;auto&quot;</span></span>
+<span id="cb40-339"><a href="#cb40-339" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-340"><a href="#cb40-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-341"><a href="#cb40-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 5b — Overnight batch runs (multiple configs in sequence)</span></span>
+<span id="cb40-342"><a href="#cb40-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-343"><a href="#cb40-343" aria-hidden="true" tabindex="-1"></a>When you want to render several qmds back-to-back (typically for</span>
+<span id="cb40-344"><a href="#cb40-344" aria-hidden="true" tabindex="-1"></a>overnight runs of multiple configurations), use</span>
+<span id="cb40-345"><a href="#cb40-345" aria-hidden="true" tabindex="-1"></a><span class="in">`render_queue.sh`</span>. It runs the renders strictly sequentially —</span>
+<span id="cb40-346"><a href="#cb40-346" aria-hidden="true" tabindex="-1"></a>each gets full machine resources, no two compete for cores —</span>
+<span id="cb40-347"><a href="#cb40-347" aria-hidden="true" tabindex="-1"></a>and continues past failures so a single bad render doesn&#39;t abort</span>
+<span id="cb40-348"><a href="#cb40-348" aria-hidden="true" tabindex="-1"></a>the whole queue.</span>
+<span id="cb40-349"><a href="#cb40-349" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-350"><a href="#cb40-350" aria-hidden="true" tabindex="-1"></a><span class="fu">### Prepare each qmd</span></span>
+<span id="cb40-351"><a href="#cb40-351" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-352"><a href="#cb40-352" aria-hidden="true" tabindex="-1"></a>Before launching, set <span class="in">`sim_mode &lt;- &quot;full&quot;`</span> in the setup chunk of</span>
+<span id="cb40-353"><a href="#cb40-353" aria-hidden="true" tabindex="-1"></a>each qmd you intend to render. The queue itself doesn&#39;t change</span>
+<span id="cb40-354"><a href="#cb40-354" aria-hidden="true" tabindex="-1"></a>modes — that&#39;s intentional, so you have explicit control over</span>
+<span id="cb40-355"><a href="#cb40-355" aria-hidden="true" tabindex="-1"></a>which renders are production-grade.</span>
+<span id="cb40-356"><a href="#cb40-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-357"><a href="#cb40-357" aria-hidden="true" tabindex="-1"></a><span class="fu">### Launch the queue</span></span>
+<span id="cb40-358"><a href="#cb40-358" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-359"><a href="#cb40-359" aria-hidden="true" tabindex="-1"></a>From the package root:</span>
+<span id="cb40-360"><a href="#cb40-360" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-361"><a href="#cb40-361" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-362"><a href="#cb40-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-363"><a href="#cb40-363" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Bash (Terminal pane)</span></span>
+<span id="cb40-364"><a href="#cb40-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-365"><a href="#cb40-365" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-366"><a href="#cb40-366" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/render_queue.sh</span> <span class="dt">\</span></span>
+<span id="cb40-367"><a href="#cb40-367" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-368"><a href="#cb40-368" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-369"><a href="#cb40-369" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
+<span id="cb40-370"><a href="#cb40-370" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-371"><a href="#cb40-371" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-372"><a href="#cb40-372" aria-hidden="true" tabindex="-1"></a>Or with a glob (for example, all <span class="in">`fs2`</span> configs after a spawn):</span>
+<span id="cb40-373"><a href="#cb40-373" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-374"><a href="#cb40-374" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-375"><a href="#cb40-375" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/render_queue.sh</span> <span class="dt">\</span></span>
+<span id="cb40-376"><a href="#cb40-376" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_<span class="pp">*</span>_fs2.qmd</span>
+<span id="cb40-377"><a href="#cb40-377" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-378"><a href="#cb40-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-379"><a href="#cb40-379" aria-hidden="true" tabindex="-1"></a><span class="fu">#### R (Console)</span></span>
+<span id="cb40-380"><a href="#cb40-380" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-381"><a href="#cb40-381" aria-hidden="true" tabindex="-1"></a>The Console doesn&#39;t run shell scripts well as long-running</span>
+<span id="cb40-382"><a href="#cb40-382" aria-hidden="true" tabindex="-1"></a>processes. For overnight runs, prefer the Terminal pane.</span>
+<span id="cb40-383"><a href="#cb40-383" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-384"><a href="#cb40-384" aria-hidden="true" tabindex="-1"></a>If you&#39;re testing the queue with short renders interactively,</span>
+<span id="cb40-385"><a href="#cb40-385" aria-hidden="true" tabindex="-1"></a>you can call it via:</span>
+<span id="cb40-386"><a href="#cb40-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-387"><a href="#cb40-387" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-388"><a href="#cb40-388" aria-hidden="true" tabindex="-1"></a><span class="fu">system2</span>(<span class="st">&quot;./quarto/simulations/render_queue.sh&quot;</span>,</span>
+<span id="cb40-389"><a href="#cb40-389" aria-hidden="true" tabindex="-1"></a>        <span class="at">args =</span> <span class="fu">c</span>(<span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd&quot;</span>,</span>
+<span id="cb40-390"><a href="#cb40-390" aria-hidden="true" tabindex="-1"></a>                 <span class="st">&quot;quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd&quot;</span>))</span>
+<span id="cb40-391"><a href="#cb40-391" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-392"><a href="#cb40-392" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-393"><a href="#cb40-393" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-394"><a href="#cb40-394" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-395"><a href="#cb40-395" aria-hidden="true" tabindex="-1"></a><span class="fu">### Prevent the Mac from sleeping</span></span>
+<span id="cb40-396"><a href="#cb40-396" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-397"><a href="#cb40-397" aria-hidden="true" tabindex="-1"></a>Mac laptops sleep when idle, which kills long renders. Use</span>
+<span id="cb40-398"><a href="#cb40-398" aria-hidden="true" tabindex="-1"></a><span class="in">`caffeinate`</span> to keep the system awake while the queue runs:</span>
+<span id="cb40-399"><a href="#cb40-399" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-400"><a href="#cb40-400" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-401"><a href="#cb40-401" aria-hidden="true" tabindex="-1"></a><span class="ex">caffeinate</span> <span class="at">-s</span> ./quarto/simulations/render_queue.sh <span class="dt">\</span></span>
+<span id="cb40-402"><a href="#cb40-402" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-403"><a href="#cb40-403" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-404"><a href="#cb40-404" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd</span>
+<span id="cb40-405"><a href="#cb40-405" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-406"><a href="#cb40-406" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-407"><a href="#cb40-407" aria-hidden="true" tabindex="-1"></a><span class="in">`caffeinate -s`</span> keeps the system from sleeping while the wrapped</span>
+<span id="cb40-408"><a href="#cb40-408" aria-hidden="true" tabindex="-1"></a>command is running. Lid-closure still won&#39;t sleep the machine</span>
+<span id="cb40-409"><a href="#cb40-409" aria-hidden="true" tabindex="-1"></a>provided it&#39;s plugged in.</span>
+<span id="cb40-410"><a href="#cb40-410" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-411"><a href="#cb40-411" aria-hidden="true" tabindex="-1"></a><span class="fu">### Run in the background (disconnect-safe)</span></span>
+<span id="cb40-412"><a href="#cb40-412" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-413"><a href="#cb40-413" aria-hidden="true" tabindex="-1"></a>If you want to launch and then close your terminal session:</span>
+<span id="cb40-414"><a href="#cb40-414" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-415"><a href="#cb40-415" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-416"><a href="#cb40-416" aria-hidden="true" tabindex="-1"></a><span class="fu">nohup</span> caffeinate <span class="at">-s</span> ./quarto/simulations/render_queue.sh <span class="dt">\</span></span>
+<span id="cb40-417"><a href="#cb40-417" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hr_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-418"><a href="#cb40-418" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_hrMaxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-419"><a href="#cb40-419" aria-hidden="true" tabindex="-1"></a>  quarto/simulations/actg175/actg175_binary_m1_harm_maxSG_fs1.qmd <span class="dt">\</span></span>
+<span id="cb40-420"><a href="#cb40-420" aria-hidden="true" tabindex="-1"></a>  <span class="op">&gt;</span> /dev/null <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">&amp;</span></span>
+<span id="cb40-421"><a href="#cb40-421" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-422"><a href="#cb40-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-423"><a href="#cb40-423" aria-hidden="true" tabindex="-1"></a>Check progress later by tailing the queue log:</span>
+<span id="cb40-424"><a href="#cb40-424" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-425"><a href="#cb40-425" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-426"><a href="#cb40-426" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span> <span class="at">-f</span> quarto/simulations/queue_<span class="pp">*</span>.log</span>
+<span id="cb40-427"><a href="#cb40-427" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-428"><a href="#cb40-428" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-429"><a href="#cb40-429" aria-hidden="true" tabindex="-1"></a><span class="fu">### Watch progress mid-stream</span></span>
+<span id="cb40-430"><a href="#cb40-430" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-431"><a href="#cb40-431" aria-hidden="true" tabindex="-1"></a>Even without <span class="in">`nohup`</span>, you can watch a running queue from a</span>
+<span id="cb40-432"><a href="#cb40-432" aria-hidden="true" tabindex="-1"></a>second Terminal pane:</span>
+<span id="cb40-433"><a href="#cb40-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-434"><a href="#cb40-434" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-435"><a href="#cb40-435" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span> <span class="at">-f</span> quarto/simulations/queue_<span class="pp">*</span>.log</span>
+<span id="cb40-436"><a href="#cb40-436" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-437"><a href="#cb40-437" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-438"><a href="#cb40-438" aria-hidden="true" tabindex="-1"></a><span class="fu">### After the queue finishes</span></span>
+<span id="cb40-439"><a href="#cb40-439" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-440"><a href="#cb40-440" aria-hidden="true" tabindex="-1"></a>The queue produces:</span>
+<span id="cb40-441"><a href="#cb40-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-442"><a href="#cb40-442" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Top-level queue log**: <span class="in">`quarto/simulations/queue_&lt;timestamp&gt;.log`</span></span>
+<span id="cb40-443"><a href="#cb40-443" aria-hidden="true" tabindex="-1"></a>  with the run summary (which jobs succeeded, which failed, total</span>
+<span id="cb40-444"><a href="#cb40-444" aria-hidden="true" tabindex="-1"></a>  elapsed).</span>
+<span id="cb40-445"><a href="#cb40-445" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Per-job logs**: <span class="in">`quarto/simulations/&lt;study&gt;/logs/render_&lt;stem&gt;_&lt;timestamp&gt;.log`</span></span>
+<span id="cb40-446"><a href="#cb40-446" aria-hidden="true" tabindex="-1"></a>  with the full Quarto output for each render. Useful if a job</span>
+<span id="cb40-447"><a href="#cb40-447" aria-hidden="true" tabindex="-1"></a>  failed and you need to diagnose.</span>
+<span id="cb40-448"><a href="#cb40-448" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Final summary** echoed to terminal listing all succeeded /</span>
+<span id="cb40-449"><a href="#cb40-449" aria-hidden="true" tabindex="-1"></a>  failed jobs.</span>
+<span id="cb40-450"><a href="#cb40-450" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-451"><a href="#cb40-451" aria-hidden="true" tabindex="-1"></a>Once verified, switch each rendered qmd back to <span class="in">`sim_mode &lt;- &quot;auto&quot;`</span></span>
+<span id="cb40-452"><a href="#cb40-452" aria-hidden="true" tabindex="-1"></a>and back up the new bundles to <span class="in">`_backups/`</span>.</span>
+<span id="cb40-453"><a href="#cb40-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-454"><a href="#cb40-454" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb40-455"><a href="#cb40-455" aria-hidden="true" tabindex="-1"></a>The queue does **not** automatically switch <span class="in">`sim_mode`</span> back to</span>
+<span id="cb40-456"><a href="#cb40-456" aria-hidden="true" tabindex="-1"></a><span class="in">`&quot;auto&quot;`</span> after rendering. If you launch a second queue for the</span>
+<span id="cb40-457"><a href="#cb40-457" aria-hidden="true" tabindex="-1"></a>same qmds without doing this manually, they&#39;ll re-run the</span>
+<span id="cb40-458"><a href="#cb40-458" aria-hidden="true" tabindex="-1"></a>simulations from scratch (overwriting the just-built bundles).</span>
+<span id="cb40-459"><a href="#cb40-459" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-460"><a href="#cb40-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-461"><a href="#cb40-461" aria-hidden="true" tabindex="-1"></a><span class="fu">## Step 6 — Update and render the cross-cut summary</span></span>
+<span id="cb40-462"><a href="#cb40-462" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-463"><a href="#cb40-463" aria-hidden="true" tabindex="-1"></a>Edit the summary qmd to extend the level vectors so the new cell</span>
+<span id="cb40-464"><a href="#cb40-464" aria-hidden="true" tabindex="-1"></a>shows up:</span>
+<span id="cb40-465"><a href="#cb40-465" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-466"><a href="#cb40-466" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-467"><a href="#cb40-467" aria-hidden="true" tabindex="-1"></a><span class="co"># In quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd:</span></span>
+<span id="cb40-468"><a href="#cb40-468" aria-hidden="true" tabindex="-1"></a>focus_levels <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;hr&quot;</span>, <span class="st">&quot;hrMaxSG&quot;</span>, <span class="st">&quot;maxSG&quot;</span>)   <span class="co"># &lt;- add new sg_focus levels here</span></span>
+<span id="cb40-469"><a href="#cb40-469" aria-hidden="true" tabindex="-1"></a>fs_levels    <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&quot;fs1&quot;</span>, <span class="st">&quot;fs2&quot;</span>, <span class="st">&quot;fs3&quot;</span>)        <span class="co"># &lt;- add new FS bundle levels here</span></span>
+<span id="cb40-470"><a href="#cb40-470" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-471"><a href="#cb40-471" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-472"><a href="#cb40-472" aria-hidden="true" tabindex="-1"></a>Then render:</span>
+<span id="cb40-473"><a href="#cb40-473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-474"><a href="#cb40-474" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb40-475"><a href="#cb40-475" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-476"><a href="#cb40-476" aria-hidden="true" tabindex="-1"></a><span class="fu">### Bash (Terminal pane)</span></span>
+<span id="cb40-477"><a href="#cb40-477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-478"><a href="#cb40-478" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-479"><a href="#cb40-479" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd</span>
+<span id="cb40-480"><a href="#cb40-480" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-481"><a href="#cb40-481" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-482"><a href="#cb40-482" aria-hidden="true" tabindex="-1"></a><span class="fu">### R (Console)</span></span>
+<span id="cb40-483"><a href="#cb40-483" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-484"><a href="#cb40-484" aria-hidden="true" tabindex="-1"></a><span class="in">```r</span></span>
+<span id="cb40-485"><a href="#cb40-485" aria-hidden="true" tabindex="-1"></a>quarto<span class="sc">::</span><span class="fu">quarto_render</span>(</span>
+<span id="cb40-486"><a href="#cb40-486" aria-hidden="true" tabindex="-1"></a>  <span class="st">&quot;quarto/simulations/actg175/_summaries/actg175_binary_m1_harm_focusAll_fsAll_summary.qmd&quot;</span></span>
+<span id="cb40-487"><a href="#cb40-487" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb40-488"><a href="#cb40-488" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-489"><a href="#cb40-489" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-490"><a href="#cb40-490" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-491"><a href="#cb40-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-492"><a href="#cb40-492" aria-hidden="true" tabindex="-1"></a>Cells with bundles show their full Section 6.1 + 6.3 tables.</span>
+<span id="cb40-493"><a href="#cb40-493" aria-hidden="true" tabindex="-1"></a>Cells without bundles are skipped automatically (`strict_bundles</span>
+<span id="cb40-494"><a href="#cb40-494" aria-hidden="true" tabindex="-1"></a>&lt;- FALSE` in the summary&#39;s setup chunk).</span>
+<span id="cb40-495"><a href="#cb40-495" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-496"><a href="#cb40-496" aria-hidden="true" tabindex="-1"></a><span class="fu"># 4. What to edit when {#sec-edits}</span></span>
+<span id="cb40-497"><a href="#cb40-497" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-498"><a href="#cb40-498" aria-hidden="true" tabindex="-1"></a>Quick reference for what <span class="in">`clone_config.sh`</span> handles vs. what you</span>
+<span id="cb40-499"><a href="#cb40-499" aria-hidden="true" tabindex="-1"></a>must edit by hand.</span>
+<span id="cb40-500"><a href="#cb40-500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-501"><a href="#cb40-501" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb40-502"><a href="#cb40-502" aria-hidden="true" tabindex="-1"></a>The <span class="in">`clone_config.sh`</span> script currently tries to copy the qmd</span>
+<span id="cb40-503"><a href="#cb40-503" aria-hidden="true" tabindex="-1"></a>along with two <span class="in">`.R`</span> files (a legacy runner script and <span class="in">`sim_*.R`</span></span>
+<span id="cb40-504"><a href="#cb40-504" aria-hidden="true" tabindex="-1"></a>helper) that are no longer part of the qmd-first workflow. If</span>
+<span id="cb40-505"><a href="#cb40-505" aria-hidden="true" tabindex="-1"></a>you&#39;ve already deleted those <span class="in">`.R`</span> files (recommended — they&#39;re</span>
+<span id="cb40-506"><a href="#cb40-506" aria-hidden="true" tabindex="-1"></a>unused), the script will fail. A future script update will fix</span>
+<span id="cb40-507"><a href="#cb40-507" aria-hidden="true" tabindex="-1"></a>this. In the meantime, you can either (a) clone manually with</span>
+<span id="cb40-508"><a href="#cb40-508" aria-hidden="true" tabindex="-1"></a><span class="in">`cp &lt;stem&gt;.qmd &lt;new_stem&gt;.qmd`</span> and edit, or (b) run the script</span>
+<span id="cb40-509"><a href="#cb40-509" aria-hidden="true" tabindex="-1"></a>and ignore the missing-source errors for the <span class="in">`.R`</span> files.</span>
+<span id="cb40-510"><a href="#cb40-510" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb40-511"><a href="#cb40-511" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-512"><a href="#cb40-512" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing `sg_focus` only (e.g., `hrMaxSG → hr`)</span></span>
+<span id="cb40-513"><a href="#cb40-513" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-514"><a href="#cb40-514" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
+<span id="cb40-515"><a href="#cb40-515" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
+<span id="cb40-516"><a href="#cb40-516" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-517"><a href="#cb40-517" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-518"><a href="#cb40-518" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`fs_sg_focus`</span> value <span class="pp">|</span> clone_config.sh (because token = value) <span class="pp">|</span></span>
+<span id="cb40-519"><a href="#cb40-519" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Validation check string <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-520"><a href="#cb40-520" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-521"><a href="#cb40-521" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`stop_threshold`</span> (<span class="in">`sg_focus`</span>-dependent) <span class="pp">|</span> <span class="in">`_fsparams/fs1_params.R`</span> (returns NULL automatically for <span class="in">`hrMaxSG`</span>/<span class="in">`hrMinSG`</span>) <span class="pp">|</span></span>
+<span id="cb40-522"><a href="#cb40-522" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-523"><a href="#cb40-523" aria-hidden="true" tabindex="-1"></a>**Action**: run the script, render in <span class="in">`full`</span> mode. No manual qmd</span>
+<span id="cb40-524"><a href="#cb40-524" aria-hidden="true" tabindex="-1"></a>edits required.</span>
+<span id="cb40-525"><a href="#cb40-525" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-526"><a href="#cb40-526" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing FS bundle only (e.g., `fs1 → fs2`)</span></span>
+<span id="cb40-527"><a href="#cb40-527" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-528"><a href="#cb40-528" aria-hidden="true" tabindex="-1"></a>This is now a two-stage process: define the new bundle once in</span>
+<span id="cb40-529"><a href="#cb40-529" aria-hidden="true" tabindex="-1"></a><span class="in">`_fsparams/`</span>, then spawn parallel <span class="in">`sg_focus`</span> qmds.</span>
+<span id="cb40-530"><a href="#cb40-530" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-531"><a href="#cb40-531" aria-hidden="true" tabindex="-1"></a>**Stage A — Define `fs2` (one new file, used by all future qmds):**</span>
+<span id="cb40-532"><a href="#cb40-532" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-533"><a href="#cb40-533" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-534"><a href="#cb40-534" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> quarto/simulations/actg175/_fsparams/</span>
+<span id="cb40-535"><a href="#cb40-535" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> fs1_params.R fs2_params.R</span>
+<span id="cb40-536"><a href="#cb40-536" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit fs2_params.R:</span></span>
+<span id="cb40-537"><a href="#cb40-537" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Rename get_fs1_params -&gt; get_fs2_params</span></span>
+<span id="cb40-538"><a href="#cb40-538" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Update header comment describing what fs2 is for</span></span>
+<span id="cb40-539"><a href="#cb40-539" aria-hidden="true" tabindex="-1"></a><span class="co">#   - Edit the parameter values that distinguish fs2 from fs1</span></span>
+<span id="cb40-540"><a href="#cb40-540" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-541"><a href="#cb40-541" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-542"><a href="#cb40-542" aria-hidden="true" tabindex="-1"></a>**Stage B — Spawn `sg_focus` qmds for the new bundle:**</span>
+<span id="cb40-543"><a href="#cb40-543" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-544"><a href="#cb40-544" aria-hidden="true" tabindex="-1"></a>For each <span class="in">`sg_focus`</span> you want to compare under <span class="in">`fs2`</span>:</span>
+<span id="cb40-545"><a href="#cb40-545" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-546"><a href="#cb40-546" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-547"><a href="#cb40-547" aria-hidden="true" tabindex="-1"></a><span class="co"># From package root</span></span>
+<span id="cb40-548"><a href="#cb40-548" aria-hidden="true" tabindex="-1"></a><span class="ex">./quarto/simulations/clone_config.sh</span> fs1 fs2  <span class="co"># for one focus at a time</span></span>
+<span id="cb40-549"><a href="#cb40-549" aria-hidden="true" tabindex="-1"></a><span class="co"># Then edit the new qmd to update the source() line and function call:</span></span>
+<span id="cb40-550"><a href="#cb40-550" aria-hidden="true" tabindex="-1"></a><span class="co">#   source(&quot;_fsparams/fs2_params.R&quot;)</span></span>
+<span id="cb40-551"><a href="#cb40-551" aria-hidden="true" tabindex="-1"></a><span class="co">#   fs_params &lt;- get_fs2_params(sg_focus = fs_sg_focus)</span></span>
+<span id="cb40-552"><a href="#cb40-552" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-553"><a href="#cb40-553" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-554"><a href="#cb40-554" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
+<span id="cb40-555"><a href="#cb40-555" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
+<span id="cb40-556"><a href="#cb40-556" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-557"><a href="#cb40-557" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-558"><a href="#cb40-558" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-559"><a href="#cb40-559" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`source()`</span> line and function name <span class="pp">|</span> **You** (manual edit per qmd) <span class="pp">|</span></span>
+<span id="cb40-560"><a href="#cb40-560" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> FS parameter values <span class="pp">|</span> already defined once in <span class="in">`fs2_params.R`</span> <span class="pp">|</span></span>
+<span id="cb40-561"><a href="#cb40-561" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-562"><a href="#cb40-562" aria-hidden="true" tabindex="-1"></a>**Why this is better than the old pattern**: editing <span class="in">`c1`</span> for</span>
+<span id="cb40-563"><a href="#cb40-563" aria-hidden="true" tabindex="-1"></a><span class="in">`fs2`</span> is now one edit in <span class="in">`fs2_params.R`</span> instead of N edits across</span>
+<span id="cb40-564"><a href="#cb40-564" aria-hidden="true" tabindex="-1"></a>N per-config qmds. Drift-free by construction.</span>
+<span id="cb40-565"><a href="#cb40-565" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-566"><a href="#cb40-566" aria-hidden="true" tabindex="-1"></a><span class="fu">## Changing DGM (e.g., `m1 → m2`)</span></span>
+<span id="cb40-567"><a href="#cb40-567" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-568"><a href="#cb40-568" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Item <span class="pp">|</span> Handled by <span class="pp">|</span></span>
+<span id="cb40-569"><a href="#cb40-569" aria-hidden="true" tabindex="-1"></a><span class="pp">|------|------------|</span></span>
+<span id="cb40-570"><a href="#cb40-570" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> File renaming <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-571"><a href="#cb40-571" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`BUNDLE_PATH`</span> in qmd <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-572"><a href="#cb40-572" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Comments and headers <span class="pp">|</span> clone_config.sh <span class="pp">|</span></span>
+<span id="cb40-573"><a href="#cb40-573" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> **DGM-specific parameters** (e.g., `cal_target_or`, factor cuts, `subgroup_cuts`) | **You** <span class="pp">|</span></span>
+<span id="cb40-574"><a href="#cb40-574" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-575"><a href="#cb40-575" aria-hidden="true" tabindex="-1"></a>**Action**: run the script, edit DGM parameters carefully. For</span>
+<span id="cb40-576"><a href="#cb40-576" aria-hidden="true" tabindex="-1"></a>substantive DGM changes, also update the data-prep section if</span>
+<span id="cb40-577"><a href="#cb40-577" aria-hidden="true" tabindex="-1"></a>factor cuts change. Render in <span class="in">`full`</span> mode.</span>
+<span id="cb40-578"><a href="#cb40-578" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-579"><a href="#cb40-579" aria-hidden="true" tabindex="-1"></a><span class="fu"># 5. Troubleshooting {#sec-trouble}</span></span>
+<span id="cb40-580"><a href="#cb40-580" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-581"><a href="#cb40-581" aria-hidden="true" tabindex="-1"></a><span class="fu">## &quot;permission denied&quot; when running `./quarto/simulations/clone_config.sh`</span></span>
+<span id="cb40-582"><a href="#cb40-582" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-583"><a href="#cb40-583" aria-hidden="true" tabindex="-1"></a>The execute bit isn&#39;t set:</span>
+<span id="cb40-584"><a href="#cb40-584" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-585"><a href="#cb40-585" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-586"><a href="#cb40-586" aria-hidden="true" tabindex="-1"></a><span class="fu">chmod</span> +x quarto/simulations/clone_config.sh</span>
+<span id="cb40-587"><a href="#cb40-587" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-588"><a href="#cb40-588" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-589"><a href="#cb40-589" aria-hidden="true" tabindex="-1"></a><span class="fu">## &quot;No such file or directory&quot; when running clone_config.sh</span></span>
+<span id="cb40-590"><a href="#cb40-590" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-591"><a href="#cb40-591" aria-hidden="true" tabindex="-1"></a>You&#39;re not in the package root. Verify with <span class="in">`pwd`</span> (Bash) or</span>
+<span id="cb40-592"><a href="#cb40-592" aria-hidden="true" tabindex="-1"></a><span class="in">`getwd()`</span> (R), and <span class="in">`cd`</span> to the right place.</span>
+<span id="cb40-593"><a href="#cb40-593" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-594"><a href="#cb40-594" aria-hidden="true" tabindex="-1"></a><span class="fu">## Bundle config_id warning when rendering the article</span></span>
+<span id="cb40-595"><a href="#cb40-595" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-596"><a href="#cb40-596" aria-hidden="true" tabindex="-1"></a>Looks like:</span>
+<span id="cb40-597"><a href="#cb40-597" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-598"><a href="#cb40-598" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-599"><a href="#cb40-599" aria-hidden="true" tabindex="-1"></a><span class="in">Warning: Bundle config_id (&#39;...&#39;) does not match this article (&#39;...&#39;).</span></span>
+<span id="cb40-600"><a href="#cb40-600" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-601"><a href="#cb40-601" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-602"><a href="#cb40-602" aria-hidden="true" tabindex="-1"></a>This means the qmd&#39;s hardcoded validation string doesn&#39;t match the</span>
+<span id="cb40-603"><a href="#cb40-603" aria-hidden="true" tabindex="-1"></a>bundle. The clone script handles this automatically; if you see it,</span>
+<span id="cb40-604"><a href="#cb40-604" aria-hidden="true" tabindex="-1"></a>something didn&#39;t get substituted. Run:</span>
+<span id="cb40-605"><a href="#cb40-605" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-606"><a href="#cb40-606" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-607"><a href="#cb40-607" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-n</span> <span class="st">&quot;OLD_TOKEN&quot;</span> quarto/simulations/actg175/<span class="op">&lt;</span>new_stem<span class="op">&gt;</span>.qmd</span>
+<span id="cb40-608"><a href="#cb40-608" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-609"><a href="#cb40-609" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-610"><a href="#cb40-610" aria-hidden="true" tabindex="-1"></a>to find leftovers.</span>
+<span id="cb40-611"><a href="#cb40-611" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-612"><a href="#cb40-612" aria-hidden="true" tabindex="-1"></a><span class="fu">## Render produces a working but visually broken HTML</span></span>
+<span id="cb40-613"><a href="#cb40-613" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-614"><a href="#cb40-614" aria-hidden="true" tabindex="-1"></a>Often this is a stale <span class="in">`_files/`</span> directory. Delete it and re-render:</span>
+<span id="cb40-615"><a href="#cb40-615" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-616"><a href="#cb40-616" aria-hidden="true" tabindex="-1"></a><span class="in">```bash</span></span>
+<span id="cb40-617"><a href="#cb40-617" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>_files</span>
+<span id="cb40-618"><a href="#cb40-618" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render quarto/simulations/actg175/<span class="op">&lt;</span>stem<span class="op">&gt;</span>.qmd</span>
+<span id="cb40-619"><a href="#cb40-619" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb40-620"><a href="#cb40-620" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-621"><a href="#cb40-621" aria-hidden="true" tabindex="-1"></a><span class="fu"># 6. Quick reference card {#sec-quickref}</span></span>
+<span id="cb40-622"><a href="#cb40-622" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-623"><a href="#cb40-623" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Action <span class="pp">|</span> Command <span class="pp">|</span></span>
+<span id="cb40-624"><a href="#cb40-624" aria-hidden="true" tabindex="-1"></a><span class="pp">|--------|---------|</span></span>
+<span id="cb40-625"><a href="#cb40-625" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Verify package root (Bash) <span class="pp">|</span> <span class="in">`pwd`</span> <span class="pp">|</span></span>
+<span id="cb40-626"><a href="#cb40-626" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Verify package root (R) <span class="pp">|</span> <span class="in">`getwd()`</span> <span class="pp">|</span></span>
+<span id="cb40-627"><a href="#cb40-627" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Clone a config <span class="pp">|</span> <span class="in">`./quarto/simulations/clone_config.sh OLD NEW`</span> <span class="pp">|</span></span>
+<span id="cb40-628"><a href="#cb40-628" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Spawn an fs bundle across all sg_focus configs <span class="pp">|</span> <span class="in">`./quarto/simulations/spawn_fs_bundle.sh fs1 fs2`</span> <span class="pp">|</span></span>
+<span id="cb40-629"><a href="#cb40-629" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Build a bundle (Bash) <span class="pp">|</span> Set <span class="in">`sim_mode &lt;- &quot;full&quot;`</span> in qmd, then <span class="in">`quarto render quarto/simulations/actg175/&lt;stem&gt;.qmd`</span> <span class="pp">|</span></span>
+<span id="cb40-630"><a href="#cb40-630" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Build many bundles overnight <span class="pp">|</span> <span class="in">`caffeinate -s ./quarto/simulations/render_queue.sh &lt;qmd1&gt; &lt;qmd2&gt; ...`</span> <span class="pp">|</span></span>
+<span id="cb40-631"><a href="#cb40-631" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render an article (Bash) <span class="pp">|</span> <span class="in">`quarto render quarto/simulations/actg175/&lt;stem&gt;.qmd`</span> (with <span class="in">`sim_mode &lt;- &quot;auto&quot;`</span>) <span class="pp">|</span></span>
+<span id="cb40-632"><a href="#cb40-632" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render an article (R) <span class="pp">|</span> <span class="in">`quarto::quarto_render(&quot;...&quot;)`</span> <span class="pp">|</span></span>
+<span id="cb40-633"><a href="#cb40-633" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Render the summary <span class="pp">|</span> same <span class="in">`quarto render`</span> / <span class="in">`quarto_render`</span> on the summary qmd <span class="pp">|</span></span>
+<span id="cb40-634"><a href="#cb40-634" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Open Terminal pane in RStudio <span class="pp">|</span> Tools → Terminal → New Terminal <span class="pp">|</span></span>
+<span id="cb40-635"><a href="#cb40-635" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Inspect a bundle <span class="pp">|</span> <span class="in">`readRDS(&quot;...rds&quot;)$meta`</span> (R Console) <span class="pp">|</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 

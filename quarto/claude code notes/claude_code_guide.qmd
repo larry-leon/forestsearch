@@ -1,0 +1,526 @@
+---
+title: "Working with Claude Code: A Practical Guide"
+subtitle: "Anchored to the forestsearch package workflow"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    theme: cosmo
+---
+
+# What Claude Code is, and isn't
+
+Claude Code is an AI assistant that runs in your terminal — not in a
+web browser.  Unlike the web chat at claude.ai, Claude Code has
+direct, controlled access to your local filesystem, your installed
+software (R, git, quarto, devtools), and your network.  This means
+the assistant can do things like edit `R/calibrate_k_treat.R`
+in place, run `Rscript -e "devtools::install()"` and watch the output,
+render `extreme_subgroups.qmd` and read the resulting HTML for
+warnings — all without you copying anything back and forth.
+
+What it is **not**: a magic black box.  Claude Code asks permission
+before doing anything that touches your files or runs external
+commands.  You stay in control of every consequential step.  It is
+also not a replacement for understanding the work — it accelerates
+your judgement, it does not substitute for it.
+
+The single biggest mental shift from the web chat is this: in chat,
+the assistant gives you code that *you* run; in Claude Code, the
+assistant runs the code itself.  That collapses many of the loops
+we have been doing manually (you render, you paste the error, I
+diagnose, you patch, you re-render) into a single conversational
+turn.
+
+---
+
+# One-time setup
+
+## Install Claude Code
+
+Visit [claude.com/claude-code](https://claude.com/claude-code) and
+follow the installation instructions for your operating system.  On
+macOS this is typically a single command via Homebrew; on Windows
+and Linux there are equivalent installers.  After installation you
+will have a `claude` command available in your terminal.
+
+Confirm the install:
+
+```bash
+claude --version
+```
+
+You will be prompted to sign in on first use; this happens in your
+browser and authenticates the CLI to your Anthropic account.
+
+## Verify the local toolchain
+
+Claude Code uses whatever is installed on your machine.  For the
+`forestsearch` workflow, that means:
+
+```bash
+R --version          # R itself (>= 4.4 recommended)
+Rscript --version    # the non-interactive R runner
+quarto --version     # Quarto for vignettes
+git --version        # for branch operations
+```
+
+All four should report versions.  If any are missing, install them
+through your usual channel (homebrew, apt, the official installers)
+before starting a Claude Code session.
+
+Inside R itself you will want `devtools`, `pak`, and the standard
+tidyverse — but if these are not installed, Claude Code can install
+them for you on demand when needed.
+
+---
+
+# Starting a session
+
+Open a terminal, navigate to your `forestsearch` working tree, and
+launch:
+
+```bash
+cd ~/path/to/forestsearch
+claude
+```
+
+You are now in an interactive Claude Code session, and the assistant
+already knows it is running inside the `forestsearch` repository.
+It can see the directory tree, read any file, and (with permission)
+run any command.
+
+The first message you send sets the tone.  A good opener for our
+kind of work would be something like:
+
+> *I am working on the forestsearch package, currently on the
+> feature/glm-extension branch.  Please confirm the branch and give
+> me a brief summary of recent commits and any uncommitted changes.
+> I will then describe what I want to do.*
+
+The assistant will run `git status`, `git log -10 --oneline`, and
+report back.  You now have shared context.
+
+---
+
+# How turns work in Claude Code
+
+Each turn is structured the same way as our chat conversations:
+you describe what you want, the assistant proposes a plan or asks
+for clarification, and then it executes — except "execute" here
+means running real commands on your machine.
+
+Three things happen at every consequential step:
+
+1. **Plan.** The assistant tells you what it is about to do.
+2. **Permission prompt.** Before any file edit or command execution,
+   you are asked to approve.  You can approve once, approve always
+   for a given pattern (e.g.\ "always allow `Rscript -e ...`"), or
+   deny.
+3. **Output.** You see the actual command output — stdout, stderr,
+   exit code — exactly as you would if you had typed the command
+   yourself.
+
+This is the critical difference from the web chat.  In chat, I
+write code, you paste it into your terminal, the output stays on
+your screen, you paste it back to me.  In Claude Code, all of that
+collapses: the assistant writes the command, you approve, the
+output is visible to both of us, and the next turn picks up from
+the actual state of your machine.
+
+---
+
+# Walk-through: a session like the ones we have done
+
+The rest of this document is anchored to specific turns we have
+done together in the web chat.  For each one I show what the
+session would look like in Claude Code instead.
+
+## Scenario 1 — Add `calibrate_k_treat()` to the package
+
+This is the work we did in the most recent vignette session.  In
+web chat it took multiple turns: I wrote the function, you copied
+it to your local file, you tried to render, you hit the
+`verbose = FALSE` duplicate-arg bug, you pasted the traceback, I
+fixed it, you re-rendered, it worked.
+
+In Claude Code:
+
+**You.**
+> I want to add a new package function `calibrate_k_treat()` that
+> calibrates `k_treat` to a target AHR via uniroot on
+> `generate_aft_dgm_flex()`.  It should mirror the style of
+> `calibrate_k_inter()`.  Please draft the function, save it to
+> `R/calibrate_k_treat.R`, document with roxygen, and verify by
+> sourcing the file and calling it with a small example.
+
+**Assistant** (in one turn):
+
+1. Reads `R/calibrate_k_inter.R` to match style and house conventions
+2. Drafts `R/calibrate_k_treat.R`
+3. Asks permission to write the file
+4. After writing, runs `Rscript -e 'devtools::document()'`
+5. Runs a smoke test:
+   ```r
+   Rscript -e '
+     devtools::load_all()
+     library(survival); data(gbsg); gbsg$tm <- gbsg$rfstime / 30.4375
+     k <- calibrate_k_treat(0.70,
+                            base_args = list(data = gbsg,
+                                             continuous_vars = c("age","size"),
+                                             factor_vars = "meno",
+                                             outcome_var = "tm",
+                                             event_var = "status",
+                                             treatment_var = "hormon",
+                                             model = "null",
+                                             n_super = 2000, seed = 99,
+                                             verbose = FALSE),
+                            verbose = TRUE)
+     cat(sprintf("calibrated k_treat = %.4f\\n", k))
+   '
+   ```
+6. Sees the `verbose = FALSE` duplicate-arg error in stderr
+7. **Diagnoses on the spot**, edits the function to use
+   `utils::modifyList()` instead of `c()`
+8. Re-runs the smoke test
+9. Confirms convergence
+
+What you saw in web chat as four turns becomes one Claude Code
+turn.  The `verbose` bug is caught before it ever reaches you.
+
+## Scenario 2 — Render and review the vignette
+
+Web-chat version: you render locally, save the HTML, upload to me,
+I extract content with Python regex, comment on what looks wrong,
+you patch and re-render.
+
+Claude Code version:
+
+**You.**
+> Please render `extreme_subgroups.qmd` and check the resulting HTML
+> for any warnings or errors.  Look particularly at the build-dgm
+> chunk output and the forest plots in Part IV.
+
+**Assistant.**
+
+1. Runs `quarto render extreme_subgroups.qmd` and watches stderr
+2. Reads the resulting HTML directly (file already on disk)
+3. Greps for `<div class="cell-output cell-output-stderr">` blocks
+4. Reports findings:
+   > Two warnings, one error.  Warning 1: data.table shallow-copy
+   > in `build-comparison-data`.  Warning 2: ggplot fixed-aspect
+   > with explicit fig.height.  Error: ... etc.
+5. Proposes fixes
+
+You can also ask the assistant to compare two renders:
+
+> Render extreme_subgroups.qmd with the AHR calibration on, then
+> save the HTML as `out_ahr.html`.  Then switch to use_ahr = FALSE
+> in the build-dgm chunk, render again, save as `out_marginal.html`,
+> and compare the mHR for the ITT row between the two.  Restore the
+> original chunk when done.
+
+The assistant edits, renders, edits back, and reads both HTMLs to
+extract the relevant table cells.
+
+## Scenario 3 — Diagnose a calibration issue
+
+Web-chat version: you noticed mHR was 0.64 instead of 0.70, you
+attached two HTMLs, I extracted table contents via Python and
+diagnosed Cox non-collapsibility.
+
+Claude Code version:
+
+**You.**
+> I am seeing simulation median HR around 0.64 even though the DGM
+> calibration reports overall HR = 0.70.  Diagnose.
+
+**Assistant.**
+
+1. Reads the relevant qmd chunks to understand the calibration target
+   and the simulation analysis
+2. Runs an exploratory script:
+   ```r
+   Rscript -e '
+     library(forestsearch); library(survival); library(data.table)
+     data(gbsg); gbsg$tm <- gbsg$rfstime / 30.4375
+     dgm <- generate_aft_dgm_flex(... matching the qmd setup ...)
+     cat("overall (marginal Cox):", dgm$hazard_ratios$overall, "\\n")
+     cat("AHR:                   ", dgm$hazard_ratios$AHR, "\\n")
+     # Simulate a few trials and check the stratified Cox HR
+     hrs <- replicate(100, {
+       d <- simulate_from_dgm(dgm, n = 700, ...)
+       fit <- coxph(Surv(y_sim, event_sim) ~ treat_sim + strata(grade),
+                    data = d)
+       exp(coef(fit))
+     })
+     cat("median simulation HR:  ", median(hrs), "\\n")
+   '
+   ```
+3. Reports the three numbers and explains the gap (non-collapsibility)
+4. Proposes the fix (`use_ahr = TRUE`)
+5. With your permission, edits the qmd and re-renders
+
+The whole diagnostic loop happens without you having to write or
+run anything yourself.
+
+## Scenario 4 — Pull a branch from GitHub
+
+If you want to work against a fresh state — say, comparing your
+local working tree against `main` after a teammate's push:
+
+**You.**
+> Fetch the latest from origin, show me the diff between my current
+> feature/glm-extension and origin/main on R/, and summarise what
+> changed.
+
+**Assistant.**
+
+```bash
+git fetch origin
+git diff origin/main..feature/glm-extension -- R/ | head -200
+```
+
+Reads the diff, summarises in plain language.  Useful when you
+have been deep in a branch and need to remember what is different
+from the trunk before merging.
+
+You can also clone a fresh copy elsewhere for safety:
+
+> Clone the repo to `/tmp/forestsearch-clean`, check out
+> `feature/glm-extension`, and install the package from there with
+> `devtools::install("/tmp/forestsearch-clean")`.  Do not touch my
+> current working tree.
+
+## Scenario 5 — Iterate on a styling change
+
+Web-chat version: you note the All Parameters table looks
+mis-aligned, I extract the rendered HTML, propose 4 changes,
+you confirm, I write code, you copy-paste into qmd, you re-render,
+you upload the new HTML, I check.
+
+Claude Code version:
+
+**You.**
+> The "All Parameters" table in fsparams_summary.html looks
+> mis-aligned.  Please render the current qmd, look at the table,
+> and suggest improvements.  Iterate with me until I am happy.
+
+**Assistant.**
+
+1. Renders, reads the HTML, identifies issues
+2. Proposes changes, asks which to apply
+3. Applies them, re-renders, shows you the relevant table contents
+4. You react, the assistant iterates
+5. Final HTML is sitting on your disk, embed-resources already on
+
+The render-paste-extract-react loop becomes a tight conversation.
+
+---
+
+# Useful commands and patterns
+
+## Common turns and how to phrase them
+
+| Goal | Phrasing |
+|:---|:---|
+| Start oriented | "Confirm the current branch and any uncommitted changes" |
+| Add a function | "Add `R/<name>.R` with [signature/behavior] mirroring `<sibling function>`; document and smoke-test" |
+| Find a function | "Where is `<function_name>()` defined? Show me its signature and roxygen header" |
+| Render a vignette | "Render `<file>.qmd`. Report any warnings or errors" |
+| Compare two states | "Render once with `<setting A>`, save HTML, then with `<setting B>`, and compare `<specific output>`" |
+| Branch ops | "Show me the diff between this branch and `<other>` for `R/`" |
+| Test a hypothesis | "Test whether [hypothesis] by running a small probe script" |
+| Clean up | "Stash my uncommitted changes, render the qmd against `main`, then unstash" |
+
+The pattern: state the *goal* and let the assistant choose the
+commands.  You do not need to remember exact R or git syntax.
+
+## Permission management
+
+Three levels:
+
+- **Approve once.** Default.  Each command requires a yes.
+- **Approve session.** Approves a pattern (e.g.\ all `Rscript -e ...`
+  calls) for the rest of this session.  Speeds up tight loops.
+- **Approve always.** Persists across sessions.  Reserve for genuinely
+  safe operations like `git status` and read-only file viewing.
+
+If something feels suspicious, deny it and ask the assistant to
+explain.  You can always fall back to per-command approval.
+
+## Project rules and the CLAUDE.md file
+
+Claude Code reads a file called `CLAUDE.md` at the root of your
+working tree, if one exists, and treats its contents as standing
+instructions for that project.  This is how you encode the rules
+we developed in our chat sessions.  For example:
+
+```markdown
+# CLAUDE.md — forestsearch project rules
+
+## Source of truth
+- The most recent version uploaded in conversation, or the file at
+  the path I explicitly cite, is the source of truth.  Do not
+  pre-emptively re-read from project knowledge unless I ask.
+- Always state which version you are building on before any edit.
+
+## Scope discipline
+- Modify only what is explicitly requested.  No opportunistic fixes
+  or cleanups while doing other work.  Flag side-issues separately
+  instead of silently fixing them.
+
+## Before file revisions
+- Read the current contents of any file before editing it.
+- After any successful str_replace, re-read before further edits to
+  the same file — the previous view is stale.
+
+## Style preferences
+- Provide source files for functions under discussion as
+  downloadable artifacts.
+- When in doubt about a deletion, ask first.
+
+## R / package conventions
+- Functions go in `R/<name>.R`, one major function per file.
+- Match the roxygen style of existing siblings.
+- Use the `base_args` named-list pattern for functions wrapping
+  `generate_aft_dgm_flex()`.
+```
+
+The assistant honours these on every turn within that project,
+without you having to re-state them.  This is the equivalent of
+the "Strict Session Rules" we developed in chat — except now they
+persist across sessions instead of being re-derived each time.
+
+## Tight feedback loops
+
+The biggest win from Claude Code is in tight iteration loops.  A
+typical "tune a table layout" cycle:
+
+```
+You: The table is too wide.
+A:   *edits gt::tab_options, renders, reads HTML*
+     Done. The table now fits in 1100px.  Want me to also reduce
+     the font for the numeric columns?
+You: Yes, but only for the numerics.
+A:   *edits, renders, reads HTML*
+     Done. The numeric font is now 12px, others stay at 13.
+```
+
+Three turns of conversation, three rendered HTMLs, no copying.
+
+---
+
+# Things to avoid
+
+A few rough edges worth knowing about up front.
+
+**Do not let the assistant run open-ended package installs without
+review.** `install.packages(...)` on a long dependency chain can be
+slow and occasionally pull in surprising versions.  When the
+assistant proposes installing something new, ask why and approve
+deliberately.
+
+**Long-running R scripts block the conversation.** If you ask for a
+20,000-iteration simulation, the assistant will run it and wait.
+Better to run those in a separate terminal yourself, save results
+to disk, and then ask the assistant to analyse the saved output.
+The assistant is good at "20-second probes for diagnosis," less
+good at "overnight simulation runs."
+
+**The assistant can edit files.** Real changes, real diffs, real
+consequences.  Commit before any non-trivial session so you can
+`git restore` if something goes sideways.  A clean git status at
+the start of a session is your safety net.
+
+**Authentication for private repos.** If your `forestsearch` clone
+is private or uses a non-default SSH key, make sure git operations
+work in your terminal *before* starting the Claude Code session.
+The assistant uses your existing git credentials; it does not
+manage them.
+
+---
+
+# A worked example: porting our most recent session
+
+Suppose you want to do what we did last time — add
+`calibrate_k_treat()` to the package, switch the vignette to AHR
+calibration, fix the data.table warning, and improve the
+fsparams_summary tables — but in Claude Code instead of web chat.
+
+A plausible session:
+
+```
+$ cd ~/forestsearch
+$ claude
+```
+
+> Confirm branch and recent commits.
+
+(Assistant runs `git status` and `git log -10 --oneline`, reports.)
+
+> Add `R/calibrate_k_treat.R` per the spec we discussed.  Mirror
+> `calibrate_k_inter()` style.  Document, install, smoke-test
+> against a small GBSG example to confirm convergence on AHR =
+> 0.70.
+
+(Assistant drafts, asks permission, writes, runs document + install
++ smoke test.  Reports k_treat value and convergence diagnostic.)
+
+> Now update `extreme_subgroups.qmd` to use the new function.
+> Change the calibration to target AHR rather than overall HR.
+> Update the prose in Sections 1.4 and 3.3.1 to explain
+> non-collapsibility.  Render when done and check the mHR for the
+> ITT row matches 0.70.
+
+(Assistant edits, renders, reads HTML, reports ITT mHR.)
+
+> Good.  Now look at fsparams_summary.qmd.  The "All Parameters"
+> table is mis-aligned.  Suggest improvements, apply the best two.
+
+(Assistant renders, inspects, proposes changes, applies, re-renders.)
+
+> Commit everything with a sensible message.
+
+(Assistant proposes a commit message, asks permission, commits.)
+
+What took a week of chat turns becomes an afternoon.  The cost is
+that you give up some of the explicit "let me see this code before
+you run it" review that chat enforces by default.  The permission
+prompts replace that review — but they are less thorough than
+hand-pasting code into your terminal.
+
+For high-stakes changes (e.g.\ touching exported package
+functions), I recommend a blended workflow: discuss the design in
+web chat with full review, then implement and verify in Claude
+Code with tight loops.  That preserves the strengths of both
+modes.
+
+---
+
+# A short troubleshooting list
+
+| Symptom | Likely fix |
+|:---|:---|
+| `claude: command not found` after install | Restart your shell, or `source ~/.zshrc`/`~/.bashrc` |
+| Assistant cannot see a file | Check that you launched `claude` from the right directory |
+| Rscript hangs on installation | Cancel, install the package manually with `pak::pak(...)`, restart session |
+| Render works in terminal but fails in Claude Code | Usually a working-directory issue; ask the assistant to `getwd()` and confirm |
+| Git operations fail | Check your terminal git credentials first; the assistant does not manage them |
+| Assistant gets stuck on a long task | Cancel with Ctrl-C; ask it to do the same task in smaller pieces |
+
+---
+
+# Further reading
+
+- [claude.com/claude-code](https://claude.com/claude-code) — official
+  documentation, installation, and updates
+- The CLAUDE.md convention is documented in the official docs;
+  copy and adapt the example above to your project
+- For very long-running or batch workflows, consider combining
+  Claude Code with separate background processes you manage in
+  another terminal — Claude Code is most powerful in the
+  interactive feedback loop, not for unattended runs
