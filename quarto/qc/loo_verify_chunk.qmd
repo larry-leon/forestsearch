@@ -1,0 +1,64 @@
+### LOO Verification (one-off robustness check)
+
+This chunk independently replicates the LOO procedure subject-by-subject
+and compares against `fs_loo_result`. It runs only when `run_loo` is
+`TRUE` and an `fs_loo_result` is available.  Helper file: `verify_loo.R`.
+
+To spot-check rather than run all `N_loo` subjects, set
+`loo_verify_subjects` to a numeric vector (e.g. `1:25`).  Leave it as
+`NULL` to verify every subject (~doubles the LOO cost; one-off only).
+
+```{r fs-loo-verify}
+#| eval: !expr run_loo
+#| cache: false
+
+# Spot-check or full verification?
+loo_verify_subjects <- NULL   # NULL = all subjects; e.g. 1:25 for a sample
+
+t0 <- proc.time()
+
+if (!file.exists("verify_loo.R")) {
+  warning("verify_loo.R not found in the working directory; ",
+          "skipping LOO verification.")
+} else {
+  source("verify_loo.R")
+
+  loo_check <- verify_loo(
+    fs             = fs_result,
+    fs_kfold       = fs_loo_result,         # reuse the LOO already computed
+    kfold_subjects = loo_verify_subjects,
+    seedit         = analysis_seed,
+    verbose        = FALSE                  # tables rendered below instead
+  )
+
+  timings$loo_verify <- (proc.time() - t0)["elapsed"]
+
+  cat("LOO verification completed in",
+      round(timings$loo_verify / 60, 2), "minutes",
+      sprintf("(%d subject(s) checked).\n",
+              nrow(loo_check$per_subject)))
+
+  knitr::kable(
+    loo_check$summary,
+    caption = "LOO verification: per-subject agreement between manual replication and forestsearch_Kfold().",
+    col.names = c("Metric", "Value")
+  )
+
+  if (nrow(loo_check$disagreements) > 0L) {
+    cat("\n**Disagreements detected — investigate before reporting LOO results:**\n\n")
+    knitr::kable(
+      loo_check$disagreements[, c("subject_idx", "subject_id",
+                                  "manual_recommend", "kfold_recommend",
+                                  "manual_sg")],
+      caption = "Subjects where manual LOO and forestsearch_Kfold() disagree.",
+      col.names = c("Row", "Subject ID",
+                    "Manual: treat.recommend",
+                    "K-fold: treat.recommend",
+                    "Manual training-fold subgroup")
+    )
+  } else {
+    cat("\nAll subjects agree — `forestsearch_Kfold(Kfolds = N_loo)` ",
+        "implements the LOO procedure as expected.\n", sep = "")
+  }
+}
+```
