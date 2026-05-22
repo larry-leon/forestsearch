@@ -1,5 +1,49 @@
+# Quarto render artifacts (regenerated on each render)
 /.quarto/
+*_cache/
+*_files/
 **/*.quarto_ipynb
+
+# OS junk
+.DS_Store
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# Legacy directory
 /legacy/
 
+# Machine-local: large render outputs and simulation results.
+#
+# As of 2026-05-21, simulation .rds bundles and large rendered .html
+# reports are stored on /media/larryleon/bigstorage/forestsearch_sims/
+# on the Linux machine only.  They are NOT shared across machines via
+# git -- the data volume (several GB) is too large.  Other machines
+# should re-render documents locally or fetch outputs out-of-band.
+#
+# Specifically, all .rds files larger than ~100 KB and all .html files
+# larger than ~1 MB are excluded.  Small .rds parameter files
+# (e.g., selected_subgroups_*.rds at <1 KB) remain tracked because
+# they're effectively source code.
+
+# Simulation result bundles
+simulations/**/*.rds
+_data/**/*.rds
+applications/**/_data/comparison_*.rds
+
+# Large rendered reports
+simulations/**/*.html
+applications/**/*.html
+calibration/**/*.html
+guides/**/*.html
+grf/**/*.html
+methodology/**/*.html
+qc/**/*.html
+resampling/**/*.html
+notes_miscelaneous/**/*.html
+_output/*.html
+
+# Machine-local private analyses (existing rule)
 applications/private_analysis/
