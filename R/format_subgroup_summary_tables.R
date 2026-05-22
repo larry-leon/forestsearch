@@ -406,9 +406,7 @@ format_subgroup_summary_tables <- function(subgroup_summary, nb_boots) {
 #' If all factors have percentages below \code{min_percent}, both table elements
 #' will be NULL.
 #'
-#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style
-#'   cell_fill cell_text cells_body cells_column_labels tab_footnote
-#'   tab_source_note md
+#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style cell_fill cell_text cells_body cells_column_labels tab_footnote tab_source_note md
 #' @importFrom dplyr group_by summarise mutate arrange n row_number select
 #'
 #' @keywords internal

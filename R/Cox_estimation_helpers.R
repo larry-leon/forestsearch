@@ -106,7 +106,7 @@ fit_cox_models <- function(df, formula) {
 
 #' Estimate Subgroup Effect via Estimator Closure
 #'
-#' GLM counterpart to [get_Cox_sg()].  Calls the pre-built estimator closure
+#' GLM counterpart to \code{\link{get_Cox_sg}}.  Calls the pre-built estimator closure
 #' on a data slice and returns `est_obs` and `se_obs` in the same format
 #' that `get_Cox_sg()` returns.
 #'
@@ -132,7 +132,7 @@ fit_subgroup_effect <- function(df_sg, estimator_fn) {
 
 #' Fit Effect Models for Both Subgroups (GLM path)
 #'
-#' GLM counterpart to [fit_cox_models()].  Calls the estimator closure on
+#' GLM counterpart to \code{\link{fit_cox_models}}.  Calls the estimator closure on
 #' H (treat.recommend == 0) and Hc (treat.recommend == 1) subgroups.
 #'
 #' @param df Data frame with a `treat.recommend` column.

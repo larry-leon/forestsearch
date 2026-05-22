@@ -60,7 +60,7 @@ and subgroup call paths and prevents downstream rendering failures
 in consumers that go through \code{as.data.frame()} (e.g., gt).
 }
 \description{
-GLM counterpart to \code{\link[=analyze_subgroup]{analyze_subgroup()}}.  Computes per-arm outcome
+GLM counterpart to \code{\link{analyze_subgroup}}.  Computes per-arm outcome
 rates, sample sizes, and the treatment effect estimate (RD, OR, etc.)
 using the estimator closure.
 }

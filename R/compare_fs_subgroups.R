@@ -67,9 +67,7 @@ utils::globalVariables("group")
 #'   label1 = "Method A", label2 = "Method B")
 #' }
 #'
-#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number
-#'   tab_source_note tab_footnote tab_style cell_text cells_body
-#'   cells_column_labels
+#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_source_note tab_footnote tab_style cell_text cells_body cells_column_labels
 #' @export
 compare_fs_subgroups <- function(
     fs1,

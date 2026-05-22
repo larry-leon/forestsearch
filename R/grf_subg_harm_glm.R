@@ -624,8 +624,7 @@ grf.subg.harm.glm <- function(
 #'
 #' @seealso \code{\link{grf.subg.harm.glm}}
 #'
-#' @importFrom stats glm binomial poisson quasipoisson gaussian coef vcov
-#'   qnorm complete.cases as.formula
+#' @importFrom stats glm binomial poisson quasipoisson gaussian coef vcov qnorm complete.cases as.formula
 #' @export
 create_glm_row <- function(
     df,

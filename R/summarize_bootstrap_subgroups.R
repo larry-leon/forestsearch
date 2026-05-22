@@ -64,8 +64,7 @@
 #' data.table::fwrite(subg$factor_freq, "factor_freq.csv")
 #' }
 #'
-#' @importFrom data.table data.table .N setnames setcolorder copy as.data.table
-#'   rbindlist
+#' @importFrom data.table data.table .N setnames setcolorder copy as.data.table rbindlist
 #' @importFrom stats median sd quantile
 #' @export
 summarize_bootstrap_subgroups <- function(results,

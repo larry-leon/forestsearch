@@ -128,8 +128,7 @@
 #'
 #' @export
 #' @importFrom splines ns
-#' @importFrom stats glm coef vcov qnorm quantile binomial poisson gaussian
-#'   as.formula predict
+#' @importFrom stats glm coef vcov qnorm quantile binomial poisson gaussian as.formula predict
 #' @importFrom graphics plot lines abline axis text legend par box
 glm_cs_fit <- function(df,
                        outcome_name = "event",

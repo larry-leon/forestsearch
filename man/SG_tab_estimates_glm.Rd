@@ -66,7 +66,7 @@ supplied, an additional \code{"\{effect_measure\}*"} column carries
 the bias-corrected estimate.
 }
 \description{
-GLM counterpart to \code{\link[=SG_tab_estimates]{SG_tab_estimates()}}.  Produces a summary data frame
+GLM counterpart to \code{\link{SG_tab_estimates}}.  Produces a summary data frame
 with per-arm outcome rates and the GLM effect estimate for each subgroup.
 }
 \keyword{internal}

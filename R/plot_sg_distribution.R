@@ -94,9 +94,7 @@
 #' fig_h <- sgdist_fig_height(attr(p, "n_bars"))
 #' }
 #'
-#' @importFrom ggplot2 ggplot aes geom_col geom_text coord_flip
-#'   scale_y_continuous expansion labs theme_minimal theme element_text
-#'   element_blank annotate xlim ylim theme_void
+#' @importFrom ggplot2 ggplot aes geom_col geom_text coord_flip scale_y_continuous expansion labs theme_minimal theme element_text element_blank annotate xlim ylim theme_void
 #' @export
 plot_sg_distribution <- function(results,
                                  min_pct              = 5,

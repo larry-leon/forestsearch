@@ -267,8 +267,7 @@ invert_dgm_hrs <- function(dgm, effect_measure = NULL) {
 #'   \code{\link{summarize_simulation_results}}
 #'
 #' @importFrom data.table as.data.table rbindlist
-#' @importFrom gt gt tab_header cols_hide cols_label tab_style cell_text
-#'   tab_options px cells_body cells_row_groups
+#' @importFrom gt gt tab_header cols_hide cols_label tab_style cell_text tab_options px cells_body cells_row_groups
 #' @export
 build_classification_table <- function(
     scenario_results,
@@ -570,8 +569,7 @@ build_classification_table <- function(
 #'
 #' @importFrom data.table as.data.table rbindlist
 #' @importFrom stats sd
-#' @importFrom gt gt tab_header cols_label tab_style cell_text tab_options px
-#'   cells_body cells_row_groups tab_footnote cells_column_labels
+#' @importFrom gt gt tab_header cols_label tab_style cell_text tab_options px cells_body cells_row_groups tab_footnote cells_column_labels
 #' @export
 build_estimation_table <- function(
     results,
@@ -1504,8 +1502,7 @@ interpret_estimation_table <- function(
 #' render_reference_table(ref, title = "Reference Results")
 #' }
 #'
-#' @importFrom gt gt tab_header cols_label tab_style cell_text tab_options px
-#'   cells_body cells_row_groups
+#' @importFrom gt gt tab_header cols_label tab_style cell_text tab_options px cells_body cells_row_groups
 #' @export
 render_reference_table <- function(
     ref_df,

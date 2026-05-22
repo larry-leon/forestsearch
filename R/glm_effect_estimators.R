@@ -85,8 +85,7 @@
 #'   ps_adjust_method = "iptw")
 #' }
 #'
-#' @importFrom stats glm binomial poisson predict as.formula update vcov coef
-#'   weighted.mean lm
+#' @importFrom stats glm binomial poisson predict as.formula update vcov coef weighted.mean lm
 #' @importFrom survival coxph Surv
 #' @export
 make_effect_estimator <- function(

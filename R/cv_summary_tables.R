@@ -48,8 +48,7 @@
 #'
 #' @seealso \code{\link{cv_metrics_tables}} for formatting \code{forestsearch_tenfold()} results
 #'
-#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style
-#'   cell_text cells_column_labels tab_footnote cells_body tab_options md px
+#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style cell_text cells_column_labels tab_footnote cells_body tab_options md px
 #' @export
 cv_summary_tables <- function(
     kfold_out,
@@ -336,8 +335,7 @@ cv_summary_tables <- function(
 #'
 #' @seealso \code{\link{cv_summary_tables}} for formatting \code{forestsearch_KfoldOut(outall=TRUE)} results
 #'
-#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style
-#'   cell_text cells_column_labels tab_footnote cells_body tab_options
+#' @importFrom gt gt tab_header tab_spanner cols_label fmt_number tab_style cell_text cells_column_labels tab_footnote cells_body tab_options
 #' @export
 cv_metrics_tables <- function(
     cv_result,

@@ -77,10 +77,7 @@
 #' print(result)
 #' }
 #'
-#' @importFrom ggplot2 ggplot aes geom_col geom_point geom_segment
-#'   geom_text geom_hline labs theme theme_minimal element_text
-#'   element_blank scale_fill_manual scale_colour_manual
-#'   coord_cartesian facet_wrap position_dodge
+#' @importFrom ggplot2 ggplot aes geom_col geom_point geom_segment geom_text geom_hline labs theme theme_minimal element_text element_blank scale_fill_manual scale_colour_manual coord_cartesian facet_wrap position_dodge
 #' @export
 plot_sg_glm_outcomes <- function(
     fs.est,

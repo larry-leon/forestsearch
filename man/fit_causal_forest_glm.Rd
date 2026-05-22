@@ -27,6 +27,6 @@ Causal forest object.
 \description{
 Fits a GRF causal forest for binary or continuous outcomes using
 \code{\link[grf:causal_forest]{grf::causal_forest()}}.  This is the GLM counterpart to
-\code{\link[=fit_causal_forest]{fit_causal_forest()}}, which uses \code{causal_survival_forest}.
+\code{\link{fit_causal_forest}}, which uses \code{causal_survival_forest}.
 }
 \keyword{internal}

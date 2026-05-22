@@ -108,11 +108,7 @@
 #' # e.g. 20 rows -> fig.height = 20 * 0.45 + 1.5 = 10.5
 #' }
 #'
-#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text
-#'   geom_vline scale_x_log10 scale_x_continuous scale_y_discrete
-#'   scale_colour_identity scale_fill_identity labs theme theme_minimal
-#'   element_blank element_text element_line margin coord_cartesian
-#'   annotation_logticks
+#' @importFrom ggplot2 ggplot aes geom_segment geom_point geom_text geom_vline scale_x_log10 scale_x_continuous scale_y_discrete scale_colour_identity scale_fill_identity labs theme theme_minimal element_blank element_text element_line margin coord_cartesian annotation_logticks
 #' @importFrom patchwork wrap_plots plot_annotation plot_layout
 #' @importFrom grid arrow unit
 #' @export

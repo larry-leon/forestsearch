@@ -15,7 +15,7 @@ fit_effect_models(df, estimator_fn)
 List with \code{H_obs}, \code{seH_obs}, \code{Hc_obs}, \code{seHc_obs}.
 }
 \description{
-GLM counterpart to \code{\link[=fit_cox_models]{fit_cox_models()}}.  Calls the estimator closure on
+GLM counterpart to \code{\link{fit_cox_models}}.  Calls the estimator closure on
 H (treat.recommend == 0) and Hc (treat.recommend == 1) subgroups.
 }
 \keyword{internal}

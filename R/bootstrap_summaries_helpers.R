@@ -15,8 +15,7 @@
 #'
 #' @return A gt table object
 #'
-#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md
-#'   cols_label tab_style cell_fill cell_text cells_body cells_column_labels
+#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md cols_label tab_style cell_fill cell_text cells_body cells_column_labels
 #' @importFrom dplyr all_of
 #' @examples
 #' \dontrun{
@@ -402,8 +401,7 @@ create_timing_summary_table <- function(overall_timing,
 #' @param boot_success_rate Numeric. Proportion of successful bootstraps
 #'
 #' @return A gt table object
-#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md
-#'   cols_label tab_style cell_fill cell_text
+#' @importFrom gt gt tab_header tab_spanner tab_footnote tab_source_note md cols_label tab_style cell_fill cell_text
 #' @keywords internal
 format_bootstrap_timing_table <- function(timing_list, nb_boots, boot_success_rate) {
 
@@ -508,8 +506,7 @@ format_bootstrap_timing_table <- function(timing_list, nb_boots, boot_success_ra
 #' @param Hc_estimates List. Hc subgroup estimates
 #'
 #' @return A gt table object
-#' @importFrom gt gt tab_header tab_footnote tab_source_note md cols_label
-#'   tab_style cell_fill cell_text cells_body cells_column_labels
+#' @importFrom gt gt tab_header tab_footnote tab_source_note md cols_label tab_style cell_fill cell_text cells_body cells_column_labels
 #' @keywords internal
 format_bootstrap_diagnostics_table <- function(diagnostics,
                                                nb_boots,
@@ -653,8 +650,7 @@ format_bootstrap_diagnostics_table <- function(diagnostics,
 #' @param overall_timing List with overall timing information (optional)
 #'
 #' @return List of ggplot2 objects
-#' @importFrom ggplot2 ggplot aes geom_histogram geom_vline labs theme_minimal
-#'   theme element_text
+#' @importFrom ggplot2 ggplot aes geom_histogram geom_vline labs theme_minimal theme element_text
 #' @importFrom rlang .data
 #' @keywords internal
 create_bootstrap_diagnostic_plots <- function(results,

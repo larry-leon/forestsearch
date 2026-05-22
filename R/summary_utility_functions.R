@@ -149,7 +149,7 @@ format_results <- function(subgroup_name, n, n_treat, d, m1, m0, drmst, hr, hr_a
 
 #' Analyze subgroup for GLM outcomes
 #'
-#' GLM counterpart to [analyze_subgroup()].  Computes per-arm outcome
+#' GLM counterpart to \code{\link{analyze_subgroup}}.  Computes per-arm outcome
 #' rates, sample sizes, and the treatment effect estimate (RD, OR, etc.)
 #' using the estimator closure.
 #'
@@ -291,7 +291,7 @@ analyze_subgroup_glm <- function(df_sub, outcome.name, treat.name,
 
 #' Subgroup Summary Table for GLM Outcomes
 #'
-#' GLM counterpart to [SG_tab_estimates()].  Produces a summary data frame
+#' GLM counterpart to \code{\link{SG_tab_estimates}}.  Produces a summary data frame
 #' with per-arm outcome rates and the GLM effect estimate for each subgroup.
 #'
 #' @param df Data frame with a `treat.recommend` column (or ITT).
@@ -724,8 +724,7 @@ filter_call_args <- function(source_args, target_func, override_args = NULL) {
 #' @return List with gt tables for estimates, subgroups, and optionally
 #'   search info.
 #'
-#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note
-#'   tab_options md px
+#' @importFrom gt gt fmt_number tab_header tab_spanner tab_source_note tab_options md px
 #' @examples
 #' \dontrun{
 #' library(survival)

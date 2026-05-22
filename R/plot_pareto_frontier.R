@@ -56,9 +56,7 @@ utils::globalVariables(c("is_selected", "split_lcl", "split_ucl", "label"))
 #'   \code{\link{compute_frontier_cis}}, \code{\link{frontier_member_flags}}.
 #'
 #' @importFrom data.table is.data.table copy setorder
-#' @importFrom ggplot2 ggplot aes geom_step geom_point geom_text
-#'             geom_errorbarh annotate labs theme_bw theme
-#'             scale_colour_manual element_blank
+#' @importFrom ggplot2 ggplot aes geom_step geom_point geom_text geom_errorbarh annotate labs theme_bw theme scale_colour_manual element_blank
 #' @param xlim Optional numeric vector of length 2 controlling the
 #'   x-axis range, e.g.\ \code{c(0.5, 3)}.  By default the axis
 #'   auto-expands to include split-CI bars when supplied, which can

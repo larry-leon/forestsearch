@@ -134,9 +134,7 @@
 #' )
 #' }
 #'
-#' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline
-#'   scale_x_discrete scale_fill_brewer labs theme_minimal theme
-#'   element_text coord_cartesian
+#' @importFrom ggplot2 ggplot aes geom_violin geom_boxplot geom_hline scale_x_discrete scale_fill_brewer labs theme_minimal theme element_text coord_cartesian
 #' @export
 plot_effect_distribution <- function(
     results,

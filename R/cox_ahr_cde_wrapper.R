@@ -99,8 +99,7 @@
 #'
 #' @importFrom survival coxph Surv
 #' @importFrom splines ns
-#' @importFrom graphics par plot points lines polygon abline legend hist
-#'   rug axis text
+#' @importFrom graphics par plot points lines polygon abline legend hist rug axis text
 #' @importFrom grDevices rgb dev.copy dev.off pdf
 #' @importFrom stats density quantile sd median
 #' @export

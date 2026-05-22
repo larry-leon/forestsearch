@@ -73,8 +73,7 @@
 #'   \code{\link{grf.subg.harm.glm}} for GRF-based subgroup identification.
 #'
 #' @importFrom splines ns
-#' @importFrom stats coef vcov qnorm quantile glm binomial poisson gaussian
-#'   quasipoisson model.matrix as.formula update complete.cases
+#' @importFrom stats coef vcov qnorm quantile glm binomial poisson gaussian quasipoisson model.matrix as.formula update complete.cases
 #' @importFrom graphics plot lines abline
 #' @export
 glm_effect_profile <- function(

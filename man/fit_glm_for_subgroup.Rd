@@ -12,7 +12,7 @@ cleaned vectors.}
 
 \item{id.x}{Integer vector.  1 = subject in this subgroup, 0 = not.}
 
-\item{estimator_fn}{Closure from \code{\link[=make_effect_estimator]{make_effect_estimator()}}.}
+\item{estimator_fn}{Closure from \code{\link{make_effect_estimator}}.}
 }
 \value{
 A list with components \code{hr}, \code{lower}, \code{upper}, \code{med0}, \code{med1},
@@ -21,7 +21,7 @@ or \code{NULL} on failure.
 \description{
 Subsets the analysis data frame to the candidate subgroup and calls the
 pre-built estimator closure.  Returns a list compatible with
-\code{\link[=create_result_row]{create_result_row()}} so the downstream pipeline is unchanged.
+\code{\link{create_result_row}} so the downstream pipeline is unchanged.
 }
 \details{
 For binary outcomes with \code{effect_measure = "RD"}, the \code{hr} slot contains

@@ -100,7 +100,7 @@ fit_causal_forest <- function(X, Y, W, D, tau.rmst, RCT, seedit,
 #'
 #' Fits a GRF causal forest for binary or continuous outcomes using
 #' [grf::causal_forest()].  This is the GLM counterpart to
-#' [fit_causal_forest()], which uses `causal_survival_forest`.
+#' \code{\link{fit_causal_forest}}, which uses `causal_survival_forest`.
 #'
 #' @param X Numeric matrix. Covariates.
 #' @param Y Numeric vector. Outcome (binary 0/1 or continuous).

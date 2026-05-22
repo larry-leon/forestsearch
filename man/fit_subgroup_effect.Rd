@@ -15,7 +15,7 @@ fit_subgroup_effect(df_sg, estimator_fn)
 List with \code{est_obs} (effect estimate) and \code{se_obs} (standard error).
 }
 \description{
-GLM counterpart to \code{\link[=get_Cox_sg]{get_Cox_sg()}}.  Calls the pre-built estimator closure
+GLM counterpart to \code{\link{get_Cox_sg}}.  Calls the pre-built estimator closure
 on a data slice and returns \code{est_obs} and \code{se_obs} in the same format
 that \code{get_Cox_sg()} returns.
 }

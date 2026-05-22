@@ -710,7 +710,7 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
 #'
 #' Subsets the analysis data frame to the candidate subgroup and calls the
 #' pre-built estimator closure.  Returns a list compatible with
-#' [create_result_row()] so the downstream pipeline is unchanged.
+#' \code{\link{create_result_row}} so the downstream pipeline is unchanged.
 #'
 #' For binary outcomes with `effect_measure = "RD"`, the `hr` slot contains
 #' the risk difference (not a hazard ratio) -- the name is retained for
@@ -720,7 +720,7 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
 #' @param df_clean Data frame.  The analysis data, row-aligned with the
 #'   cleaned vectors.
 #' @param id.x Integer vector.  1 = subject in this subgroup, 0 = not.
-#' @param estimator_fn Closure from [make_effect_estimator()].
+#' @param estimator_fn Closure from \code{\link{make_effect_estimator}}.
 #'
 #' @return A list with components `hr`, `lower`, `upper`, `med0`, `med1`,
 #'   or `NULL` on failure.
