@@ -182,10 +182,15 @@ compute_frontier_cis <- function(fs,
     keep <- rep(TRUE, nrow(df.est))
     bad_cuts <- character(0)
     for (c_label in cuts) {
-      # Strip outer braces.  For compound labels with embedded braces
-      # (e.g. "{a} & !{b}") we replace each "{...}" with just its
-      # contents -- the operators (& | !) remain.
-      expr_text <- gsub("[{}]", "", c_label)
+      # Translate the human-readable label into an evaluable expression.
+      # See .label_to_expr() in forestsearch_helpers.R for the rules; the
+      # helper errors loudly on malformed labels rather than silently
+      # mangling them, and produces operationally correct complements
+      # for both numeric comparisons and binary factor identifiers
+      # (the old gsub-based path mishandled the latter, producing an
+      # Ops.factor warning plus an all-NA mask that silently zeroed
+      # out the subgroup).
+      expr_text <- .label_to_expr(c_label)
       mask <- tryCatch(
         eval(parse(text = expr_text), envir = df.est),
         error = function(e) NULL)

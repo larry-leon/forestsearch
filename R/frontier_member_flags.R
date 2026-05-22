@@ -70,14 +70,15 @@ frontier_member_flags <- function(fs) {
     labels[k] <- if (length(cuts) == 0L) "<empty>" else
                  paste(cuts, collapse = " & ")
 
-    # Each cut is a human-readable label like "{er <= 0}".  Strip outer
-    # braces and evaluate against df.est (see compute_frontier_cis for
-    # rationale).  Rows whose cuts fail to evaluate get a column of all
-    # zeros so downstream sums are unaffected.
+    # Each cut is a human-readable label like "{er <= 0}".  Translate to
+    # an evaluable expression via .label_to_expr() (see
+    # forestsearch_helpers.R) and evaluate against df.est.  Rows whose
+    # cuts fail to evaluate get a column of all zeros so downstream sums
+    # are unaffected.
     keep <- rep(TRUE, n_subj)
     fail_any <- FALSE
     for (c_label in cuts) {
-      expr_text <- gsub("[{}]", "", c_label)
+      expr_text <- .label_to_expr(c_label)
       mask <- tryCatch(
         eval(parse(text = expr_text), envir = df.est),
         error = function(e) NULL)

@@ -206,6 +206,100 @@ evaluate_comparison <- function(expr, df) {
 }
 
 
+#' Translate a Subgroup Label into an Evaluable Expression String
+#'
+#' Internal helper used by \code{compute_frontier_cis()} and
+#' \code{compute_frontier_member_flags()} to turn the human-readable
+#' subgroup-cut labels produced by \code{FS_labels()} into expression
+#' strings safe to pass to \code{eval(parse(text = .))} against the
+#' analysis data frame.
+#'
+#' Input is a single \code{c_label} of one of two recognised forms:
+#' \itemize{
+#'   \item \code{"\{<expr>\}"}      -- subgroup member  (action = 1)
+#'   \item \code{"!\{<expr>\}"}     -- subgroup complement (action = 0)
+#' }
+#' The \code{<expr>} inside the braces is either a comparison
+#' (\code{"wtkg <= 86.6"}) or a bare identifier naming a binary
+#' indicator factor (\code{"symptom"}).
+#'
+#' Translation rules:
+#' \itemize{
+#'   \item \code{"\{<cmp>\}"}    -> \code{"<cmp>"}
+#'   \item \code{"!\{<cmp>\}"}   -> \code{"!(<cmp>)"} (parenthesised so '!'
+#'                                   binds to the whole comparison rather
+#'                                   than to the left operand alone)
+#'   \item \code{"\{<id>\}"}     -> \code{"<id> == 1"}
+#'   \item \code{"!\{<id>\}"}    -> \code{"<id> == 0"} (the operationally
+#'                                   correct complement of a binary 0/1
+#'                                   indicator factor; \code{!factor} is
+#'                                   not well-defined in base R and emits
+#'                                   the \code{Ops.factor} warning while
+#'                                   silently producing an all-NA mask)
+#' }
+#'
+#' Malformed input -- non-character, NA, empty string, missing braces,
+#' empty braces, or a bare-name path whose content is not a valid R
+#' identifier -- raises a loud \code{stop()}.  Subgroup labels are
+#' load-bearing for inferential output, so any deviation from the
+#' expected forms must surface as an error rather than degrade silently
+#' to a wrong-but-quiet result.
+#'
+#' @param c_label Character scalar.  A single cut label from a frontier
+#'   row's \code{m_cols} entries.
+#'
+#' @return Character scalar suitable for \code{eval(parse(text = .))}
+#'   against the analysis data frame.
+#'
+#' @keywords internal
+#' @noRd
+.label_to_expr <- function(c_label) {
+  # Hard validation: helper input must be a single non-NA non-empty string.
+  if (!is.character(c_label) || length(c_label) != 1L ||
+      is.na(c_label) || nchar(c_label) == 0L) {
+    stop(".label_to_expr(): 'c_label' must be a single non-empty character ",
+         "string; got: ",
+         paste(utils::capture.output(utils::str(c_label)), collapse = " "),
+         call. = FALSE)
+  }
+
+  # Detect leading "!" (complement marker) and extract the inner content
+  # of {...}.  The full label must match one of the two recognised forms;
+  # anything else is a malformed label and we error loudly rather than
+  # silently mangling it.
+  negate <- startsWith(c_label, "!")
+  if (negate) {
+    m <- regmatches(c_label, regexec("^!\\{(.+)\\}$", c_label))[[1L]]
+  } else {
+    m <- regmatches(c_label, regexec("^\\{(.+)\\}$",  c_label))[[1L]]
+  }
+  if (length(m) != 2L || nchar(m[2L]) == 0L) {
+    stop(".label_to_expr(): unrecognised subgroup label form: '", c_label,
+         "'. Expected '{<expr>}' or '!{<expr>}' (FS_labels() output).",
+         call. = FALSE)
+  }
+  inner <- m[2L]
+
+  # Bare column name (no comparison operator) => factor-equality semantics.
+  is_bare <- !grepl("[<>=!]", inner)
+  if (is_bare) {
+    # Inner must look like a single R identifier; reject anything weirder
+    # (e.g. embedded spaces or operators we missed) so labels can't quietly
+    # become wrong code.
+    if (!grepl("^[.A-Za-z_][.A-Za-z0-9_]*$", inner)) {
+      stop(".label_to_expr(): bare-name label '", c_label,
+           "' does not contain a valid R identifier (got: '", inner, "').",
+           call. = FALSE)
+    }
+    return(if (negate) paste0(inner, " == 0") else paste0(inner, " == 1"))
+  }
+
+  # Comparison form: wrap in parens when negating so '!' binds to the
+  # whole comparison rather than to the left operand.
+  if (negate) paste0("!(", inner, ")") else inner
+}
+
+
 # =============================================================================
 # PARAMETER HELPERS
 # =============================================================================

@@ -36,7 +36,7 @@ fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
-sim_mode <- "demo"
+sim_mode <- "full"
 
 sims_demo <- 10
 sims_full <- 1000
@@ -306,7 +306,10 @@ itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
 fs_params_single <- fs_params
+
 fs_params_single$show_candidate_summary <- TRUE 
+fs_params_single$parallel_args$plan <- "multisession"
+fs_params_single$parallel_args$workers <- 60
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
@@ -423,8 +426,7 @@ if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
 # "LOO skipped" note can gate on a plain identifier rather than the
 # expression !run_loo, which trips Quarto's YAML validator
 # (it parses `!expr !run_loo` as a string, not the expected tagged form).
-fs_result <- fs
-run_loo   <- !is.null(fs_result$sg.harm)
+run_loo   <- !is.null(fs$sg.harm)
 skip_loo  <- !run_loo
 ```
 
@@ -436,10 +438,10 @@ t0 <- proc.time()
 # LOO is triggered by Kfolds = N (the function default behavior at
 # forestsearch_cross_validation.R:109).  We pass it explicitly here for
 # clarity.
-N_loo <- nrow(fs_result$df.est)
+N_loo <- nrow(fs$df.est)
 
 fs_loo_result <- forestsearch_Kfold(
-  fs.est        = fs_result,
+  fs.est        = fs,
   Kfolds        = N_loo,
   seedit        = analysis_seed,
   parallel_args = list(
@@ -459,8 +461,7 @@ cat("\nLOO completed in", round(timings$loo / 60, 2), "minutes",
 
 ```{r fs-loo-skipped-note}
 #| eval: !expr skip_loo
-#| echo: false
-#| results: asis
+
 cat("> **LOO skipped.** No harm subgroup was identified in the ",
     "full-analysis FS run (`fs$sg.harm` is `NULL`), so leave-one-out ",
     "cross-validation has nothing to evaluate.\n", sep = "")
@@ -473,7 +474,7 @@ cat("> **LOO skipped.** No harm subgroup was identified in the ",
 
 cat(cv_summary_text(fs_loo_result, est.scale = "hr"), "\n")
 cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
-            100 * fs_loo_result$prop_SG_found, N_loo))
+            fs_loo_result$prop_SG_found, N_loo))
 ```
 
 ### LOO Tables
@@ -488,38 +489,27 @@ confidence intervals.
 #| eval: !expr run_loo
 
 loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
-                                  digits = construction_digits)
+                                  digits = 2)
 loo_tabs <- cv_summary_tables(
   loo_out,
   title    = "ACTG175 Leave-One-Out CV Summary (Binary, OR)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
                      N_loo),
-  digits   = display_digits,
+  digits   = 2,
   use_gt   = TRUE
 )
 ```
 
 ```{r fs-loo-tables-render}
-#| eval: !expr run_loo
 #| echo: false
-#| results: asis
-# Render each gt table in the list returned by cv_summary_tables().
-# Mirrors the bootstrap-table rendering pattern used above
-# (single-trial-alt-render-bootstrap-table) where the gt object sits as
-# the last expression of its chunk.  Here cv_summary_tables() returns a
-# *list* of tables, so we walk it explicitly and print each via
-# htmltools::tagList(gt::as_raw_html(.)) -- gt's own knitr method
-# only auto-prints when the gt_tbl is the chunk's final expression.
-for (nm in names(loo_tabs)) {
-  tbl <- loo_tabs[[nm]]
-  if (inherits(tbl, "gt_tbl")) {
-    cat(gt::as_raw_html(tbl), "\n\n")
-  } else if (inherits(tbl, c("data.frame", "data.table"))) {
-    # Fallback path if cv_summary_tables() returned a non-gt object
-    print(knitr::kable(tbl, caption = nm))
-    cat("\n\n")
-  }
-}
+# Render the LOO CV-summary table (gt).  Same auto-print pattern as
+# single-trial-alt-render-bootstrap-table -- the gt object is the
+# last (and only) expression of the chunk, which is the only path
+# that reliably triggers knit_print.gt_tbl in Quarto.
+# Guarded by run_loo: when LOO was skipped, the if-block returns
+# invisible(NULL) and `loo_tabs` is never referenced (short-circuit),
+# so it's safe even though loo_tabs is undefined in that case.
+if (run_loo) loo_tabs$combined_table
 ```
 
 
@@ -532,24 +522,17 @@ df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 8316951)
 
 ```{r single-trial-null-analysis}
 #| code-fold: true
-#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
-
-frontier_params <- list(
-  n_splits      = 1000L,
-  seed          = 1L,
-  xlim          = c(1.25, 3.0),
-  digits_effect = 2L,
-  digits_pcons  = 2L,
-  digits_ci     = 2L
-)
+#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
 
 itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
 itt_OR <- exp(coef(itt_fit)["treat_sim"])
 itt_event <- with(df_sim,mean(y_sim))
 
 fs_params_single <- fs_params
-fs_params_single$show_candidate_summary <- TRUE 
 
+fs_params_single$show_candidate_summary <- TRUE 
+fs_params_single$parallel_args$plan <- "multisession"
+fs_params_single$parallel_args$workers <- 60
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
@@ -563,10 +546,6 @@ if (!is.null(fs_single$sg.harm)) {
 t0 <- proc.time()
 fs <- fs_single
 
-# Under the null DGM, the FS analysis typically produces no harm subgroup,
-# so the entire bootstrap-and-rendering pathway below is a no-op.  The
-# six-chunk structure (compute + 5 render) is kept symmetric with the
-# alt-analysis section so the document scaffolding is uniform.
 if (!is.null(fs$sg.harm)) {
   fs_bc <- forestsearch_bootstrap_dofuture(
     fs.est = fs,
@@ -579,26 +558,33 @@ if (!is.null(fs$sg.harm)) {
       show_message = TRUE
     )
   )
-
+  
   plan("sequential")
   timings <- (proc.time() - t0)["elapsed"]
-
+  
   cat("\nBootstrap completed in",
       round(timings / 60, 1), "minutes\n")
-
+  
+  # Comprehensive summary with diagnostics.  All variables built here are
+  # rendered by the small downstream chunks (single-trial-null-render-*),
+  # which exist solely so each gt table is the last (and only) expression
+  # of its chunk -- the only way knitr's auto-print reliably emits raw
+  # HTML for a gt_tbl object.
   summaries <- summarize_bootstrap_results(
     sgharm = fs$sg.harm,
     boot_results = fs_bc,
     create_plots = TRUE,
     est.scale = "hr"
   )
-
+  
   ci_tab <- compute_frontier_cis(
     fs,
     n_splits = frontier_params$n_splits,
     seed     = frontier_params$seed
   )
-
+  
+  # Plot rendered inline here -- the graphics-device path is independent
+  # of knitr's stdout capture, so print(p) works inside the if-block.
   p <- plot_pareto_frontier(
     fs,
     ci_table  = ci_tab,
@@ -611,21 +597,28 @@ if (!is.null(fs$sg.harm)) {
 
 ```{r single-trial-null-render-sg10}
 #| echo: false
+# Render sg10 candidate-summary table.  If fs_single$sg.harm is NULL the
+# if-block returns invisible(NULL) and nothing is emitted.
 if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
 ```
 
 ```{r single-trial-null-render-tab-estimates}
 #| echo: false
+# Render the formatted estimates table (gt).
 if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
 ```
 
 ```{r single-trial-null-render-bootstrap-table}
 #| echo: false
+# Render the bias-corrected bootstrap-results table (gt).
 if (!is.null(fs$sg.harm)) summaries$table
 ```
 
 ```{r single-trial-null-render-pareto-table}
 #| echo: false
+# Render the Pareto frontier table.  pareto_frontier_table() may return
+# a gt_tbl (normal case), a data.table (fallback when gt is missing), or
+# NULL (no consistency output).  All three behave correctly via auto-print.
 if (!is.null(fs$sg.harm)) {
   pareto_frontier_table(
     fs,
@@ -640,18 +633,27 @@ if (!is.null(fs$sg.harm)) {
 ```{r single-trial-null-render-explain}
 #| echo: false
 #| results: asis
+# Markdown explanation -- results: asis allows cat() output to flow through
+# as markdown rather than being captured into a <pre> block.  Safe here
+# because the explanation is intentional markdown.
 if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
 ```
 
-
 ```{r fs-loo-setup-null}
-# See fs-loo-setup above for rationale.  Mirrored for the null branch.
-fs_result <- fs
-run_loo   <- !is.null(fs_result$sg.harm)
+# Define run_loo BEFORE the LOO run chunk so its #| eval: directive can
+# reference it.  Chunk options are evaluated before the chunk body, so
+# run_loo must already exist in the global env when knitr resolves the
+# next chunk's options.
+#
+# skip_loo is the explicit negation -- defined here so the downstream
+# "LOO skipped" note can gate on a plain identifier rather than the
+# expression !run_loo, which trips Quarto's YAML validator
+# (it parses `!expr !run_loo` as a string, not the expected tagged form).
+run_loo   <- !is.null(fs$sg.harm)
 skip_loo  <- !run_loo
 ```
 
-```{r fs-loo-run-null}
+```{r fs-loo-run}
 #| eval: !expr run_loo
 
 t0 <- proc.time()
@@ -659,10 +661,10 @@ t0 <- proc.time()
 # LOO is triggered by Kfolds = N (the function default behavior at
 # forestsearch_cross_validation.R:109).  We pass it explicitly here for
 # clarity.
-N_loo <- nrow(fs_result$df.est)
+N_loo <- nrow(fs$df.est)
 
 fs_loo_result <- forestsearch_Kfold(
-  fs.est        = fs_result,
+  fs.est        = fs,
   Kfolds        = N_loo,
   seedit        = analysis_seed,
   parallel_args = list(
@@ -682,12 +684,10 @@ cat("\nLOO completed in", round(timings$loo / 60, 2), "minutes",
 
 ```{r fs-loo-skipped-note-null}
 #| eval: !expr skip_loo
-#| echo: false
-#| results: asis
+
 cat("> **LOO skipped.** No harm subgroup was identified in the ",
-    "full-analysis FS run under the null DGM (`fs$sg.harm` is `NULL`), ",
-    "so leave-one-out cross-validation has nothing to evaluate.  This ",
-    "is the expected behavior under the null.\n", sep = "")
+    "full-analysis FS run (`fs$sg.harm` is `NULL`), so leave-one-out ",
+    "cross-validation has nothing to evaluate.\n", sep = "")
 ```
 
 ### LOO Summary
@@ -697,7 +697,7 @@ cat("> **LOO skipped.** No harm subgroup was identified in the ",
 
 cat(cv_summary_text(fs_loo_result, est.scale = "hr"), "\n")
 cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
-            100 * fs_loo_result$prop_SG_found, N_loo))
+            fs_loo_result$prop_SG_found, N_loo))
 ```
 
 ### LOO Tables
@@ -705,42 +705,35 @@ cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
 The `cv_summary_tables()` helper returns five publication-ready `gt`
 tables. The first is the combined ITT + subgroup view; the next three
 are component estimation tables (ITT, full-analysis subgroup, LOO
-subgroup) that show the underlying treatment-effect estimates with
+                                 subgroup) that show the underlying treatment-effect estimates with
 confidence intervals.
 
 ```{r fs-loo-tables-null}
 #| eval: !expr run_loo
 
 loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
-                                  digits = construction_digits)
+                                  digits = 2)
 loo_tabs <- cv_summary_tables(
   loo_out,
   title    = "ACTG175 Leave-One-Out CV Summary (Binary, OR)",
   subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
                      N_loo),
-  digits   = display_digits,
+  digits   = 2,
   use_gt   = TRUE
 )
 ```
 
-```{r fs-loo-tables-null-render}
-#| eval: !expr run_loo
+```{r fs-loo-tables-render-null}
 #| echo: false
-#| results: asis
-# See fs-loo-tables-render above for rationale.  Same pattern, mirrored
-# for the null branch.
-for (nm in names(loo_tabs)) {
-  tbl <- loo_tabs[[nm]]
-  if (inherits(tbl, "gt_tbl")) {
-    cat(gt::as_raw_html(tbl), "\n\n")
-  } else if (inherits(tbl, c("data.frame", "data.table"))) {
-    print(knitr::kable(tbl, caption = nm))
-    cat("\n\n")
-  }
-}
+# Render the LOO CV-summary table (gt).  Same auto-print pattern as
+# single-trial-null-render-bootstrap-table -- the gt object is the
+# last (and only) expression of the chunk, which is the only path
+# that reliably triggers knit_print.gt_tbl in Quarto.
+# Guarded by run_loo: when LOO was skipped, the if-block returns
+# invisible(NULL) and `loo_tabs` is never referenced (short-circuit),
+# so it's safe even though loo_tabs is undefined in that case.
+if (run_loo) loo_tabs$combined_table
 ```
-
-
 
 
 # Full Simulation Study {#sec-sims}
