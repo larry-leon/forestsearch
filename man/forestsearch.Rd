@@ -136,7 +136,18 @@ To disable parallelism entirely, pass
 
 \item{dmin.grf}{Numeric. Minimum events for GRF. Default 0.0.}
 
-\item{frac.tau}{Numeric. Fraction of tau for RMST. Default 0.8.}
+\item{frac.tau}{Numeric in (0, 1]. Multiplier on the GRF time horizon
+passed to \code{grf::causal_survival_forest()}. The effective
+horizon is
+\code{frac.tau * min(max(Y[treated, event]), max(Y[control, event]))},
+i.e. \code{frac.tau} times the smaller of the two arm-specific
+maximum event times.  Values < 1 truncate the horizon inward of
+that maximum (the conservative choice when events are sparse near
+the tail).  Applies to both the GRF variable-importance
+pre-screen inside \code{forestsearch()} and the downstream call to
+\code{\link{grf.subg.harm.survival}}.  Used only when
+\code{outcome_type = "survival"}; ignored for GLM outcomes
+(binary, continuous, count).  Default 0.8.}
 
 \item{return_selected_cuts_only}{Logical. If TRUE (default), GRF returns only cuts from the
 tree depth that identified the selected subgroup meeting \code{dmin.grf}. If FALSE

@@ -4,7 +4,7 @@
 \name{forestsearch-package}
 \alias{forestsearch-package}
 \alias{forestsearch-imports}
-\title{forestsearch: Exploratory Subgroup Identification in Clinical Trials with Survival Endpoints}
+\title{forestsearch: Exploratory Subgroup Identification with Survival and GLM Outcomes}
 \description{
 Implements advanced statistical methods for exploratory subgroup identification in clinical trials. Provides tools for identifying patient subgroups with differential treatment effects using machine learning approaches including Generalized Random Forests ('GRF'), LASSO regularization, and exhaustive combinatorial search algorithms. Supports survival endpoints (Cox proportional hazards), binary outcomes (log odds ratio, log relative risk, risk difference), continuous outcomes (mean difference), and count / rate outcomes (log incidence rate ratio via Poisson, quasi-Poisson, or negative-binomial GLMs with optional person-time offset). Features bootstrap bias correction using infinitesimal jackknife methods to address selection bias in post-hoc analyses. Designed for clinical researchers conducting exploratory subgroup analyses in randomized controlled trials, particularly for multi-regional clinical trials ('MRCT') requiring regional consistency evaluation. Methods are described in Leon et al. (2024) \doi{10.1002/sim.10163}.
 }

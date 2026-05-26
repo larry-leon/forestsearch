@@ -238,7 +238,18 @@
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
-#' @param frac.tau Numeric. Fraction of tau for RMST. Default 0.8.
+#' @param frac.tau Numeric in (0, 1]. Multiplier on the GRF time horizon
+#'   passed to \code{grf::causal_survival_forest()}. The effective
+#'   horizon is
+#'   \code{frac.tau * min(max(Y[treated, event]), max(Y[control, event]))},
+#'   i.e. \code{frac.tau} times the smaller of the two arm-specific
+#'   maximum event times.  Values < 1 truncate the horizon inward of
+#'   that maximum (the conservative choice when events are sparse near
+#'   the tail).  Applies to both the GRF variable-importance
+#'   pre-screen inside \code{forestsearch()} and the downstream call to
+#'   \code{\link{grf.subg.harm.survival}}.  Used only when
+#'   \code{outcome_type = "survival"}; ignored for GLM outcomes
+#'   (binary, continuous, count).  Default 0.8.
 #' @param return_selected_cuts_only Logical. If TRUE (default), GRF returns only cuts from the
 #'   tree depth that identified the selected subgroup meeting `dmin.grf`. If FALSE
 #'   returns all cuts from all fitted trees (depths 1 through `grf_depth`).
@@ -712,6 +723,37 @@ forestsearch <- function(df.analysis,
 
   args_names <- names(formals())
   args_call_all <- mget(args_names, envir = environment())
+
+  # ===========================================================================
+  # SECTION 1C: DEFENSIVE EARLY EXITS (shape guards)
+  # ===========================================================================
+  # Reject degenerate inputs before any heavy computation.  These cases
+  # produce phantom output (or segfault inside compiled dependencies such
+  # as glmnet's coxnet_exp on zero-row matrices) if allowed to proceed.
+  #
+  # Shape mirrors the get_FSdata-failure early return below (line ~1437):
+  # list(sg.harm = NULL, args_call_all = ..., error_log = list(...)).
+  # Downstream consumers (CV, bootstrap) inspect $sg.harm == NULL plus
+  # $args_call_all to reconstruct calls, so the same shape works here.
+
+  # Zero-row input.  glmnet::cv.glmnet -> coxnet_exp() segfaults on a
+  # zero-row design matrix on Linux (the Fortran routine dereferences a
+  # null pointer); macOS happens to mask this via different allocator
+  # behaviour but the bug is present on both.  Catch it here.
+  if (!is.data.frame(df.analysis) || nrow(df.analysis) == 0L) {
+    if (!quiet) {
+      warning("df.analysis has zero rows; returning early without ",
+              "running the subgroup search.", call. = FALSE)
+    }
+    return(list(
+      sg.harm       = NULL,
+      args_call_all = args_call_all,
+      error_log     = list(
+        stage   = "input_validation",
+        message = "df.analysis has zero rows; no subgroup search performed."
+      )
+    ))
+  }
 
   # ===========================================================================
   # SECTION 2: VALIDATE INPUTS
@@ -1485,7 +1527,7 @@ forestsearch <- function(df.analysis,
     if (outcome_type == "survival") {
       # Survival path: causal_survival_forest (unchanged)
       # Guard against zero events in either arm: max(numeric(0)) is -Inf
-      # (with a warning), which would propagate to horizon = 0.9 * -Inf
+      # (with a warning), which would propagate to horizon = frac.tau * -Inf
       # and crash causal_survival_forest.  Skip the GRF VI step instead.
       y_evt_t <- Y[Treat == 1 & Event == 1]
       y_evt_c <- Y[Treat == 0 & Event == 1]
@@ -1505,13 +1547,13 @@ forestsearch <- function(df.analysis,
         if (!is.RCT) {
           cs.forest <- try(suppressWarnings(
             grf::causal_survival_forest(X, Y, Treat, Event,
-                                         horizon = 0.9 * tau.rmst, seed = seedit,
+                                         horizon = frac.tau * tau.rmst, seed = seedit,
                                          tune.parameters = tune_arg)
           ), TRUE)
         } else {
           cs.forest <- try(suppressWarnings(
             grf::causal_survival_forest(X, Y, Treat, Event, W.hat = 0.5,
-                                         horizon = 0.9 * tau.rmst, seed = seedit,
+                                         horizon = frac.tau * tau.rmst, seed = seedit,
                                          tune.parameters = tune_arg)
           ), TRUE)
         }
