@@ -36,7 +36,7 @@ fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
 # One of: "import", "demo", "full", "auto".
 # "auto" picks "import" if BUNDLE_PATH exists, else "demo".
 
-sim_mode <- "demo"
+sim_mode <- "full"
 
 sims_demo <- 10
 sims_full <- 1000
@@ -44,10 +44,27 @@ sims_full <- 1000
 sims <- sims_demo
 if(sim_mode == "full") sims <- sims_full
 
-BUNDLE_PATH <- sprintf(
-  "%s_%s_%s_%s_n%d_sims%d.rds",
-  scenario, fs_tag, fs_sg_focus, fs_selection_rule, sim_n, sims 
+BUNDLE_PATH <- file.path(
+  "/media/larryleon/bigstorage/forestsearch_sims/quarto/simulations/actg175/binary",
+  sprintf("%s_%s_%s_%s_n%d_sims%d.rds",
+          scenario, fs_tag, fs_sg_focus, fs_selection_rule, sim_n, sims)
 )
+
+# -- Hard-stop: confirm the bigstorage output directory exists ---------
+# BUNDLE_PATH points to a machine-local location on the Linux box.  If
+# this render is happening on a different machine (e.g. the Mac), the
+# directory does not exist and we should fail immediately rather than
+# wasting an hour of simulation only to fail at saveRDS().
+.bundle_dir <- dirname(BUNDLE_PATH)
+if (!dir.exists(.bundle_dir)) {
+  stop(
+    "Bundle output directory does not exist:\n  ", .bundle_dir, "\n",
+    "This qmd writes outputs to a machine-local location on the Linux\n",
+    "workstation.  If you are rendering on another machine, edit\n",
+    "BUNDLE_PATH (line ~47) to point to a directory that exists.",
+    call. = FALSE
+  )
+}
 
 CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
 
@@ -316,7 +333,7 @@ fs_params_single <- fs_params
 
 fs_params_single$show_candidate_summary <- TRUE 
 fs_params_single$parallel_args$plan <- "multisession"
-fs_params_single$parallel_args$workers <- 60
+fs_params_single$parallel_args$workers <- n_workers
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
@@ -539,7 +556,7 @@ fs_params_single <- fs_params
 
 fs_params_single$show_candidate_summary <- TRUE 
 fs_params_single$parallel_args$plan <- "multisession"
-fs_params_single$parallel_args$workers <- 60
+fs_params_single$parallel_args$workers <- n_workers
 
 fs_single <- do.call(forestsearch, c(
   list(df.analysis = df_sim, confounders.name = confounders),
