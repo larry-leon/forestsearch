@@ -7,6 +7,17 @@
 default_sim_params()
 }
 \description{
-Default ForestSearch parameters (general)
+Returns the default \code{fs_params} list used by
+\code{run_simulation_analysis()}.  The \code{parallel_args} entry
+defaults to \code{list(plan = "sequential")} because
+\code{run_simulation_analysis()} is designed to be called inside a
+\code{foreach() \%dofuture\%} loop (one replicate per worker).  Running
+the inner \code{forestsearch()} multisession in that context produces
+nested parallelism: each outer worker tries to spawn its own pool of
+inner workers, which \code{parallelly} rejects with a 300\\%-load hard
+limit error.  Users who call \code{run_simulation_analysis()} once at
+the top level (i.e., not inside \code{\%dofuture\%}) can opt back into
+multisession by passing
+\code{fs_params = list(parallel_args = list(plan = "multisession", workers = N))}.
 }
 \keyword{internal}

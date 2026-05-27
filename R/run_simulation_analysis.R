@@ -29,6 +29,20 @@ if (!exists("%||%", inherits = FALSE))
 
 
 #' Default ForestSearch parameters (general)
+#'
+#' Returns the default \code{fs_params} list used by
+#' \code{run_simulation_analysis()}.  The \code{parallel_args} entry
+#' defaults to \code{list(plan = "sequential")} because
+#' \code{run_simulation_analysis()} is designed to be called inside a
+#' \code{foreach() \%dofuture\%} loop (one replicate per worker).  Running
+#' the inner \code{forestsearch()} multisession in that context produces
+#' nested parallelism: each outer worker tries to spawn its own pool of
+#' inner workers, which \code{parallelly} rejects with a 300\%-load hard
+#' limit error.  Users who call \code{run_simulation_analysis()} once at
+#' the top level (i.e., not inside \code{\%dofuture\%}) can opt back into
+#' multisession by passing
+#' \code{fs_params = list(parallel_args = list(plan = "multisession", workers = N))}.
+#'
 #' @keywords internal
 default_sim_params <- function() {
   list(
@@ -50,7 +64,10 @@ default_sim_params <- function() {
     by.risk                  = 12,
     vi.grf.min               = -0.2,
     use_twostage             = FALSE,
-    twostage_args            = list()
+    twostage_args            = list(),
+    # Run inner forestsearch() sequentially by default.  See function
+    # documentation above for rationale (nested-parallelism avoidance).
+    parallel_args            = list(plan = "sequential")
   )
 }
 
@@ -116,7 +133,10 @@ default_grf_params_gen <- function() {
 #' @param run_fs_grf Logical. Run ForestSearch (LASSO + GRF). Default
 #'   \code{TRUE}.
 #' @param run_grf Logical. Run standalone GRF. Default \code{TRUE}.
-#' @param fs_params Named list of ForestSearch parameter overrides.
+#' @param fs_params Named list of ForestSearch parameter overrides.  Any
+#'   element of \code{default_sim_params()} can be overridden, including
+#'   \code{parallel_args} (see \emph{Parallel Processing} section below).
+#'   Passing \code{NULL} or an empty list uses defaults throughout.
 #' @param grf_params Named list of GRF parameter overrides.
 #' @param cox_formula Optional Cox formula for unadjusted ITT.
 #' @param cox_formula_adj Optional adjusted Cox formula.
@@ -205,15 +225,43 @@ default_grf_params_gen <- function() {
 #' identification in v0.1.x.  Passing these as top-level arguments will
 #' result in them being silently ignored.
 #'
+#' @section Parallel Processing:
+#' \code{run_simulation_analysis()} is designed to be called inside a
+#' \code{foreach() \%dofuture\%} loop (one replicate per worker).  In
+#' that idiom, \emph{outer} parallelism is provided by \code{\%dofuture\%}
+#' (one replicate per worker) and the \emph{inner} \code{forestsearch()}
+#' call should run sequentially within each worker.  Running both layers
+#' multisession produces nested parallelism: each outer worker tries to
+#' spawn its own pool of inner workers, which \code{parallelly} rejects
+#' with a 300\%-load hard-limit error.
+#'
+#' To prevent this, \code{default_sim_params()} sets
+#' \code{parallel_args = list(plan = "sequential")} as the default for
+#' the inner \code{forestsearch()} call.  Users who call
+#' \code{run_simulation_analysis()} once at the top level (e.g., for
+#' interactive debugging) and want the inner pipeline to run in parallel
+#' can opt back in by passing
+#' \code{fs_params = list(parallel_args = list(plan = "multisession", workers = N))}.
+#'
 #' @importFrom data.table data.table rbindlist
 #' @importFrom survival coxph Surv
 #' @importFrom stats rnorm
 #' @examples
 #' \dontrun{
 #' dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
-#' results <- run_simulation_analysis(dgm, nsim = 5,
-#'   parallel_args = list(plan = "sequential"))
-#' summarize_simulation_results(results)
+#'
+#' # Inner forestsearch() runs sequentially by default; safe for both
+#' # interactive use and embedding inside foreach() %dofuture% loops.
+#' result <- run_simulation_analysis(sim_id = 1, dgm = dgm, n_sample = 500)
+#'
+#' # Opt back into inner multisession for a one-off top-level call:
+#' result <- run_simulation_analysis(
+#'   sim_id    = 1,
+#'   dgm       = dgm,
+#'   n_sample  = 500,
+#'   fs_params = list(parallel_args = list(plan = "multisession",
+#'                                         workers = 4))
+#' )
 #' }
 #' @export
 run_simulation_analysis <- function(

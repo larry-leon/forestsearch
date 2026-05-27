@@ -1,0 +1,1452 @@
+---
+title: "Exploratory Subgroup Identification with ForestSearch"
+subtitle: "German Breast Cancer Study Group (GBSG) Analysis: Cox and Poisson Rate Model Comparison"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# Initialize timing
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+
+# Introduction
+
+This vignette demonstrates the **ForestSearch** methodology for exploratory
+subgroup identification in survival analysis, as described in
+León et al. (2024) *Statistics in Medicine*.
+
+## Motivation
+
+In clinical trials, particularly oncology, subgroup analyses are essential for:
+
+- Evaluating treatment effect consistency across patient populations
+- Identifying subgroups where treatment may be detrimental (harm)
+- Characterizing subgroups with enhanced benefit
+- Informing regulatory decisions and clinical practice
+
+While prespecified subgroups provide stronger evidence, important subgroups
+based on patient characteristics may not be anticipated. ForestSearch provides
+a principled approach to **exploratory** subgroup identification with proper
+statistical inference.
+
+## Methodology Overview
+
+ForestSearch identifies subgroups through:
+
+1. **Candidate factor selection**: Using LASSO and/or Generalized Random Forests (GRF)
+2. **Exhaustive subgroup search**: Evaluating all combinations up to `maxk` factors
+3. **Consistency-based selection**: Applying splitting consistency criteria
+4. **Bootstrap bias correction**: Adjusting for selection-induced optimism
+5. **Cross-validation**: Assessing algorithm stability
+
+The key innovation is the **splitting consistency criterion**: a subgroup is
+considered "consistent with harm" if, when randomly split 50/50 many times,
+both halves consistently show hazard ratios ≥ 1.0 (for example if 1.0
+represents a meaningful "harm threshold").
+
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(policytree)
+library(doFuture)
+
+# Optional packages for enhanced output
+library(patchwork)
+library(weightedsurv)
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Analysis Parameters
+
+```{r analysis-params}
+#| code-fold: false
+
+# ─── Shared parameters ───────────────────────────────────────────────────
+
+n_cores   <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id.name    <- "id"
+
+# ─── Cox parameters ──────────────────────────────────────────────────────
+cox_outcome.name <- "time_months"
+cox_event.name   <- "status"
+cox_treat.name   <- "hormon"
+
+# ─── ForestSearch tuning (shared across Cox and Poisson) ─────────────────
+fs_hr.threshold            <- 1.25
+fs_hr.consistency          <- 1.0
+fs_pconsistency.threshold  <- 0.80
+fs_stop_threshold          <- 0.90
+fs_maxk                    <- 2
+fs_n.min                   <- 60
+fs_d0.min                  <- 10
+fs_d1.min                  <- 10
+fs_splits                  <- 1000
+fs_max_subgroups_search    <- 15
+
+# ─── Bootstrap / CV ──────────────────────────────────────────────────────
+NB    <- 1000    # Bootstrap iterations (use 500–2000 for production)
+Ksims <- 50    # K-fold CV iterations (use ≥ 50 for production)
+
+# ─── GRF parameters (shared across Cox and Poisson) ─────────────────────
+grf_tune           <- FALSE  # cross-validated GRF hyperparameter tuning (off by default)
+grf_vi_min         <- -0.2   # GRF variable importance threshold
+grf_dmin_cox       <- 4     # min RMST difference for Cox GRF (months)
+grf_dmin_pois      <- 0.0    # min CATE difference for Poisson GRF
+grf_maxdepth       <- 2L     # max policy tree depth
+
+# ─── Poisson-specific parameters ─────────────────────────────────────────
+pois_outcome.name   <- "status"         # event indicator (0/1 count)
+pois_offset.name    <- "time_months"    # person-time offset
+pois_treat.name     <- "hormon"
+pois_effect_measure <- "IRR"
+```
+
+
+# Data: German Breast Cancer Study Group Trial
+
+## Study Background
+
+The GBSG trial evaluated hormonal treatment (tamoxifen) versus chemotherapy
+in node-positive breast cancer patients. Key characteristics:
+
+- **Sample size**: N = 686
+- **Outcome**: Recurrence-free survival time
+- **Censoring rate**: ~56%
+- **Treatment**: Hormonal therapy (tamoxifen) vs. chemotherapy
+
+## Data Preparation
+
+```{r data-setup}
+# Load GBSG data (included in forestsearch package)
+df.analysis <- gbsg
+
+# Prepare analysis variables
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+  treat <- hormon
+})
+
+# Display data structure
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[cox_event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[cox_event.name]])))
+cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
+```
+
+## Baseline Characteristics
+
+```{r baseline-table}
+create_summary_table(
+  data                  = df.analysis,                                       # required
+  treat_var             = cox_treat.name,                                    # default "treat"
+  vars_continuous       = c("age", "nodes", "size", "er", "pgr"),            # default NULL
+  vars_categorical      = c("grade", "meno"),                                # default NULL
+  vars_binary           = NULL,                                              # default NULL
+  var_labels            = NULL,                                              # default NULL
+  digits                = 1,                                                 # default 1
+  show_pvalue           = TRUE,                                              # default TRUE
+  show_smd              = TRUE,                                              # default TRUE
+  show_missing          = TRUE,                                              # default TRUE
+  table_title           = "GBSG Baseline Characteristics by Treatment Arm",  # default "Baseline Characteristics by Treatment Arm"
+  table_subtitle        = NULL,                                              # default NULL
+  source_note           = NULL,                                              # default NULL
+  font_size             = 12,                                                # default 12
+  header_font_size      = 14,                                                # default 14
+  footnote_font_size    = 10,                                                # default 10
+  use_alternating_rows  = TRUE,                                              # default TRUE
+  stripe_color          = "#f9f9f9",                                         # default "#f9f9f9"
+  indent_size           = 20,                                                # default 20
+  highlight_pval        = 0.05,                                              # default 0.05
+  highlight_smd         = 0.2,                                               # default 0.2
+  highlight_color       = "#fff3cd",                                         # default "#fff3cd"
+  compact_mode          = FALSE,                                             # default FALSE
+  column_width_var      = 200,                                               # default 200
+  column_width_stats    = 120,                                               # default 120
+  show_column_borders   = FALSE                                              # default FALSE
+)
+```
+
+## Kaplan-Meier Analysis (ITT Population)
+
+```{r km-itt}
+#| fig-width: 8
+#| fig-height: 5
+
+# Prepare counting process data for KM plot
+dfcount <- df_counting(
+  df = df.analysis,
+  by.risk = 6,
+  tte.name = cox_outcome.name,
+  event.name = cox_event.name,
+  treat.name = cox_treat.name
+)
+
+# Plot with confidence intervals and log-rank test
+plot_weighted_km(
+  dfcount,
+  conf.int = TRUE,
+  show.logrank = TRUE,
+  ymax = 1.05,
+  xmed.fraction = 0.775,
+  ymed.offset = 0.125
+)
+```
+
+The ITT Cox hazard ratio estimate is approximately 0.69 (95% CI: 0.54, 0.89),
+suggesting an overall benefit for hormonal therapy.
+
+
+# Preliminary Analysis: Generalized Random Forests
+
+Before running ForestSearch, we can use GRF to explore potential treatment
+effect heterogeneity and identify candidate factors.
+
+```{r grf-analysis}
+t0 <- proc.time()
+
+# All grf.subg.harm.survival() parameters shown with their default values.
+# Required: data, confounders.name, outcome.name, event.name, id.name, treat.name.
+grf_est <- grf.subg.harm.survival(
+  data                      = df.analysis,         # required
+  confounders.name          = confounders.name,    # required
+  outcome.name              = cox_outcome.name,    # required
+  event.name                = cox_event.name,      # required
+  id.name                   = id.name,             # required
+  treat.name                = cox_treat.name,      # required
+  frac.tau                  = 0.6,                 # default 1.0; max follow-up fraction
+  n.min                     = fs_n.min,            # default 60; min subgroup size
+  dmin.grf                  = grf_dmin_cox,        # default 0.0; min RMST diff (months)
+  RCT                       = TRUE,                # default TRUE
+  details                   = TRUE,                # default FALSE
+  sg.criterion              = "mDiff",             # default "mDiff"; or "Nsg"
+  maxdepth                  = grf_maxdepth,        # default 2; max policy tree depth (<=3)
+  seedit                    = 8316951,             # default 8316951
+  return_selected_cuts_only = FALSE,               # default FALSE
+  tune_grf                  = grf_tune             # default FALSE; CV hyperparameter tuning
+)
+
+timings$grf <- (proc.time() - t0)["elapsed"]
+```
+
+```{r grf-trees}
+#| fig-width: 10
+#| fig-height: 4
+
+# Display policy trees
+# leaf1 = recommend control, leaf2 = recommend treatment
+oldpar <- par(mfrow = c(1, 2))
+plot(grf_est$tree1, leaf.labels = c("Control", "Treat"), main = "Depth 1")
+plot(grf_est$tree2, leaf.labels = c("Control", "Treat"), main = "Depth 2")
+par(oldpar)
+```
+
+GRF identifies estrogen receptor status (ER) as a key factor, with ER ≤ 0
+suggesting potential harm from hormonal therapy.
+
+
+# Part I: Cox Proportional Hazards Analysis {#sec-cox}
+
+
+## Parallel Processing Configuration
+
+ForestSearch supports parallel processing for computationally intensive
+operations (bootstrap, cross-validation).
+
+
+## Running ForestSearch (Cox)
+
+ForestSearch performs an exhaustive search over candidate subgroup combinations
+with up to `maxk` factors. Key parameters:
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `hr.threshold` | 1.25 | Minimum HR for consistency evaluation |
+| `hr.consistency` | 1.0 | Minimum consistency rate for candidates |
+| `pconsistency.threshold` | 0.90 | Required consistency for selection |
+| `maxk` | 2 | Maximum factors in subgroup definition |
+| `n.min` | 60 | Minimum subgroup sample size |
+| `d0.min`, `d1.min` | 12 | Minimum events per treatment arm |
+
+```{r forestsearch-cox}
+#| fig-width: 10
+#| fig-height: 7
+
+t0 <- proc.time()
+
+# All forestsearch() parameters shown with their default values.
+# Comments indicate the package default; the value used here may differ.
+fs_cox <- forestsearch(
+  df.analysis                = df.analysis,                  # required
+
+  # ─── Variable names ─────────────────────────────────────────────────────
+  outcome.name               = cox_outcome.name,             # default "tte"
+  event.name                 = cox_event.name,               # default "event"
+  treat.name                 = cox_treat.name,               # default "treat"
+  id.name                    = id.name,                      # default "id"
+  potentialOutcome.name      = NULL,                         # default NULL
+  flag_harm.name             = NULL,                         # default NULL
+  confounders.name           = confounders.name,             # default NULL
+
+  # ─── Parallel processing ────────────────────────────────────────────────
+  parallel_args              = list(plan = "multisession",
+                                    workers = n_cores,
+                                    show_message = TRUE),    # default plan="multisession"
+
+  # ─── Prediction / RCT flag ──────────────────────────────────────────────
+  df.predict                 = NULL,                         # default NULL
+  df.test                    = NULL,                         # default NULL
+  is.RCT                     = TRUE,                         # default TRUE
+  seedit                     = 8316951,                      # default 8316951
+  est.scale                  = "hr",                         # default "hr"
+
+  # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
+  use_lasso                  = TRUE,                         # default TRUE
+  use_grf                    = TRUE,                         # default TRUE
+  grf_res                    = NULL,                         # default NULL; pass cached GRF result
+  grf_cuts                   = NULL,                         # default NULL
+  max_n_confounders          = 1000,                         # default 1000
+  grf_depth                  = 2,                            # default 2
+  dmin.grf                   = 0.0,                          # default 0.0
+  frac.tau                   = 0.8,                          # default 0.8
+  return_selected_cuts_only  = TRUE,                         # default TRUE
+  vi.grf.min                 = grf_vi_min,                   # default -0.2; GRF VI threshold
+  tune_grf                   = grf_tune,                     # default FALSE
+
+  # ─── Cuts / discretization ──────────────────────────────────────────────
+  conf_force                 = NULL,                         # default NULL
+  defaultcut_names           = NULL,                         # default NULL
+  cut_type                   = "default",                    # default "default"
+  exclude_cuts               = NULL,                         # default NULL
+  replace_med_grf            = FALSE,                        # default FALSE
+  cont.cutoff                = 4,                            # default 4
+  conf.cont_medians          = NULL,                         # default NULL
+  conf.cont_medians_force    = NULL,                         # default NULL
+  conf.cont_jcuts            = NULL,                         # default NULL
+
+  # ─── Subgroup constraints ───────────────────────────────────────────────
+  n.min                      = fs_n.min,                     # default 60; min subgroup size
+  d0.min                     = fs_d0.min,                    # default 10; min events arm 0
+  d1.min                     = fs_d1.min,                    # default 10; min events arm 1
+  maxk                       = fs_maxk,                      # default 2; max factors per SG
+  max_subgroups_search       = fs_max_subgroups_search,      # default 10
+  max.minutes                = 3,                            # default 3; per-stage timeout
+
+  # ─── Thresholds (preferred names take precedence if both supplied) ─────
+  effect.threshold           = NULL,                         # default NULL; alias for hr.threshold
+  consistency.threshold      = NULL,                         # default NULL; alias for hr.consistency
+  hr.threshold               = fs_hr.threshold,              # default 1.25; screening threshold
+  hr.consistency             = fs_hr.consistency,            # default 1.0; consistency threshold
+
+  # ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────
+  sg_focus                   = "maxSG",                      # default "hr"; "hr"/"eff", "maxSG", "minSG", "hrMaxSG"/"effMaxSG", "hrMinSG"/"effMinSG"
+  selection_rule             = "neighborhood",               # default "neighborhood"; or "pareto", "both" (only for hrMaxSG/hrMinSG)
+  effect_neighborhood        = 0.10,                         # default 0.10; tol for hrMaxSG/hrMinSG
+
+  # ─── Consistency evaluation ─────────────────────────────────────────────
+  fs.splits                  = fs_splits,                    # default 1000; split-half repeats
+  m1.threshold               = Inf,                          # default Inf
+  pconsistency.threshold     = fs_pconsistency.threshold,    # default 0.90
+  stop_threshold             = fs_stop_threshold,            # default 0.95; early-stop consistency
+
+  # ─── Two-stage consistency ──────────────────────────────────────────────
+  use_twostage               = TRUE,                         # default TRUE
+  twostage_args              = list(),                       # default list()
+
+  # ─── GLM outcome support (survival here; see Poisson chunk for GLM use)
+  outcome_type               = "survival",                   # default "survival"; or "binary", "continuous", "count"
+  effect_measure             = NULL,                         # default NULL; auto-set from outcome_type
+  offset.name                = NULL,                         # default NULL; required for count
+  adverse_outcome            = NULL,                         # default NULL; auto-set
+  overdispersion             = "none",                       # default "none"; or "quasi", "negbin"
+  grf_count_transform        = "log",                        # default "log"; or "identity"
+
+  # ─── Propensity-score adjustment (observational analyses) ───────────────
+  ps_method                  = NULL,                         # default NULL
+  ps_adjust_method           = "none",                       # default "none"; or "iptw", "dr_gcomp"
+  ps_hat                     = NULL,                         # default NULL
+
+  # ─── Output / diagnostics ───────────────────────────────────────────────
+  show_candidate_summary     = TRUE,                         # default FALSE; pre-/post-consistency previews
+  minp                       = 0.025,                        # default 0.025
+  details                    = TRUE,                         # default FALSE
+  quiet                      = FALSE,                        # default FALSE
+  by.risk                    = 12,                           # default 12
+  plot.sg                    = TRUE,                         # default FALSE; KM plots for SG
+  plot.grf                   = FALSE                         # default FALSE
+)
+
+plan("sequential")
+timings$cox_fs <- (proc.time() - t0)["elapsed"]
+
+cat("\nForestSearch (Cox) completed in",
+    round(timings$cox_fs, 1), "seconds\n")
+```
+
+
+
+## Cox Results
+
+### Identified Subgroups
+
+```{r cox-results}
+# All sg_tables() parameters shown with their default values.
+cox_tabs <- sg_tables(
+  fs                  = fs_cox,                              # required
+  which_df            = "est",                               # default "est"
+  est_title           = "Treatment Effect Estimates",        # default "Treatment Effect Estimates"
+  est_caption         = "Training data estimates",           # default "Training data estimates"
+  sg_title            = "Identified Subgroups",              # default "Identified Subgroups"
+  sg_subtitle         = NULL,                                # default NULL
+  potentialOutcome.name = NULL,                              # default NULL
+  hr_1a               = NA,                                  # default NA
+  hr_0a               = NA,                                  # default NA
+  ndecimals           = 3,                                   # default 3
+  include_search_info = TRUE,                                # default TRUE
+  subgroup_notation   = NULL,                                # default NULL; or "harm", "benefit"
+  font_size           = 12                                   # default 12
+)
+
+# Display top subgroups meeting criteria
+cox_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r cox-estimates}
+cox_tabs$tab_estimates
+```
+
+### Identified Subgroup Definition
+
+```{r cox-subgroup}
+cat("Identified subgroup (H):", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_cox$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_cox$df.est$treat.recommend == 0)))
+```
+
+ForestSearch identifies **Estrogen ≤ 0** (ER-negative) as the subgroup with
+potential harm. This is biologically plausible: tamoxifen is a selective
+estrogen receptor modulator with limited efficacy in ER-negative tumors.
+
+
+## Cox Bootstrap Bias Correction
+
+```{r cox-bootstrap}
+t0 <- proc.time()
+
+# All forestsearch_bootstrap_dofuture() parameters shown with their defaults.
+fs_cox_bc <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_cox,                                    # required
+  nb_boots      = NB,                                        # required (use 500-2000 for production)
+  seed          = 8316951L,                                  # default 8316951L
+  details       = FALSE,                                     # default FALSE
+  show_three    = FALSE,                                     # default FALSE
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = TRUE),                 # default list()
+  digits        = 4                                          # default 4
+)
+
+plan("sequential")
+timings$cox_bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nBootstrap completed in",
+    round(timings$cox_bootstrap / 60, 1), "minutes\n")
+```
+
+### Bootstrap Summary
+
+```{r cox-bootstrap-summary}
+# All summarize_bootstrap_results() parameters shown with their defaults.
+cox_summaries <- summarize_bootstrap_results(
+  sgharm       = fs_cox$sg.harm,                             # required
+  boot_results = fs_cox_bc,                                  # required
+  create_plots = TRUE,                                       # default FALSE
+  est.scale    = "hr",                                       # default "hr"
+  digits       = 2                                           # default 2
+)
+
+cox_summaries$table
+```
+
+### Kaplan-Meier by Identified Subgroups
+
+```{r cox-km-subgroups}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Kaplan-Meier survival curves by identified subgroup (Cox analysis)"
+
+# All plot_sg_weighted_km() parameters shown with their defaults.
+km_result_cox <- plot_sg_weighted_km(
+  fs.est         = fs_cox,                                   # required
+  fs_bc          = fs_cox_bc,                                # default NULL
+  outcome.name   = cox_outcome.name,                         # default "Y"
+  event.name     = cox_event.name,                           # default "Event"
+  treat.name     = cox_treat.name,                           # default "Treat"
+  by.risk        = 12,                                       # default NULL
+  sg0_name       = NULL,                                     # default NULL
+  sg1_name       = NULL,                                     # default NULL
+  conf.int       = TRUE,                                     # default TRUE
+  show.logrank   = FALSE,                                    # default TRUE
+  show.cox       = FALSE,                                    # default TRUE
+  show.cox.bc    = TRUE,                                     # default TRUE
+  put.legend.lr  = "topleft",                                # default "topleft"
+  ymax           = 1.05,                                     # default 1.05
+  xmed.fraction  = 0.65,                                     # default 0.65
+  hr_bc_position = "topright",                               # default "bottomright"
+  hr_bc_cex      = 0.725,                                    # default 0.725
+  title          = NULL,                                     # default NULL
+  verbose        = FALSE                                     # default FALSE
+)
+```
+
+::: {.callout-note}
+`r figure_note(km_result_cox, prefix = "**Note:** ", include_definition = TRUE, include_hr_explanation = TRUE, custom_text = "Medians [95% CI] for arms are un-adjusted.")`
+:::
+
+
+### Event Count Summary
+
+```{r cox-event-summary}
+# All summarize_bootstrap_events() parameters shown with their defaults.
+event_summary_cox <- summarize_bootstrap_events(
+  boot_results = fs_cox_bc,                                  # required
+  threshold    = 15                                          # default 5
+)
+```
+
+### Bootstrap Diagnostics
+
+```{r cox-bootstrap-diagnostics}
+cox_summaries$diagnostics_table_gt
+```
+
+### Subgroup Agreement
+
+```{r cox-subgroup-agreement}
+if (!is.null(cox_summaries$subgroup_summary$original_agreement)) {
+  cox_summaries$subgroup_summary$original_agreement
+}
+
+if (!is.null(cox_summaries$subgroup_summary$factor_presence)) {
+  cox_summaries$subgroup_summary$factor_presence
+}
+```
+
+### Bootstrap Distributions
+
+```{r cox-bootstrap-plots}
+#| fig-width: 10
+#| fig-height: 4
+
+if (!is.null(cox_summaries$plots)) {
+  cox_summaries$plots$H_distribution + cox_summaries$plots$Hc_distribution
+}
+```
+
+
+## Cox Cross-Validation
+
+### K-Fold Cross-Validation
+
+```{r cox-kfold-cv}
+t0 <- proc.time()
+
+# All forestsearch_tenfold() parameters shown with their defaults.
+fs_cox_kfold <- forestsearch_tenfold(
+  fs.est        = fs_cox,                                    # required
+  sims          = Ksims,                                     # required (use >=50 for production)
+  Kfolds        = 10,                                        # default 10
+  details       = FALSE,                                     # default TRUE
+  seed          = 8316951L,                                  # default 8316951L
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = FALSE),                # default plan="multisession", workers=6
+  keep_resCV    = FALSE                                      # default FALSE
+)
+
+plan("sequential")
+timings$cox_kfold <- (proc.time() - t0)["elapsed"]
+
+# All cv_metrics_tables() parameters shown with their defaults.
+cox_metrics <- cv_metrics_tables(
+  cv_result        = fs_cox_kfold,                           # required
+  sg_definition    = NULL,                                   # default NULL
+  title            = "Cross-Validation Metrics",             # default "Cross-Validation Metrics"
+  show_percentages = TRUE,                                   # default TRUE
+  digits           = 1,                                      # default 1
+  include_raw      = FALSE,                                  # default FALSE
+  table_style      = "combined",                             # default "combined"; or "separate", "minimal"
+  use_gt           = TRUE                                    # default TRUE
+)
+cox_metrics
+```
+
+### Out-of-Bag (N-Fold) Cross-Validation
+
+```{r cox-oob-cv}
+#| eval: true
+
+t0 <- proc.time()
+
+# All forestsearch_Kfold() parameters shown with their defaults.
+fs_cox_OOB <- forestsearch_Kfold(
+  fs.est        = fs_cox,                                    # required
+  Kfolds        = round(nrow(df.analysis) / 100, 0),         # default nrow(fs.est$df.est)  (LOO)
+  seedit        = 8316951L,                                  # default 8316951L
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = TRUE),                 # default plan="multisession", workers=6
+  sg0.name      = "Not recommend",                           # default "Not recommend"
+  sg1.name      = "Recommend",                               # default "Recommend"
+  details       = FALSE                                      # default FALSE
+)
+
+plan("sequential")
+timings$cox_oob <- (proc.time() - t0)["elapsed"]
+
+# All forestsearch_KfoldOut() parameters shown with their defaults.
+cv_cox_out <- forestsearch_KfoldOut(
+  res     = fs_cox_OOB,                                      # required
+  details = FALSE,                                           # default FALSE
+  outall  = TRUE,                                            # default FALSE
+  digits  = 4                                                # default 4
+)
+
+# All cv_summary_tables() parameters shown with their defaults.
+cox_cv_tables <- cv_summary_tables(
+  kfold_out    = cv_cox_out,                                 # required
+  title        = "Cross-Validation Summary",                 # default "Cross-Validation Summary"
+  subtitle     = NULL,                                       # default NULL
+  show_metrics = TRUE,                                       # default TRUE
+  digits       = 3,                                          # default 3
+  font_size    = 12,                                         # default 12
+  use_gt       = TRUE                                        # default TRUE
+)
+cox_cv_tables$combined_table
+cox_cv_tables$metrics_table
+```
+
+
+## Cox Forest Plot
+
+```{r cox-forest-plot}
+#| fig-width: 18
+#| fig-height: 12
+#| fig-cap: "Subgroup forest plot (Cox PH analysis)"
+
+subgroups <- list(
+  age_gt65 = list(
+    subset_expr = "age > 65",
+    name = "Age > 65",
+    type = "reference"
+  ),
+  age_le65 = list(
+    subset_expr = "age <= 65",
+    name = "Age <= 65",
+    type = "reference"
+  ),
+  pgr_positive = list(
+    subset_expr = "pgr > 0",
+    name = "PgR > 0",
+    type = "reference"
+  ),
+  pgr_negative = list(
+    subset_expr = "pgr <= 0",
+    name = "PgR <= 0",
+    type = "reference"
+  )
+)
+
+# All create_forest_theme() parameters shown with their defaults.
+my_theme <- create_forest_theme(
+  base_size         = 24,                                    # default 10
+  scale             = 1.0,                                   # default 1.0
+  row_padding       = NULL,                                  # default NULL
+  ci_pch            = 15,                                    # default 15
+  ci_lwd            = NULL,                                  # default NULL
+  ci_Theight        = NULL,                                  # default NULL
+  ci_col            = "black",                               # default "black"
+  header_fontsize   = NULL,                                  # default NULL (auto)
+  body_fontsize     = NULL,                                  # default NULL (auto)
+  footnote_fontsize = 17,                                    # default NULL
+  footnote_col      = "darkcyan",                            # default "darkcyan"
+  title_fontsize    = NULL,                                  # default NULL
+  cv_fontsize       = 22,                                    # default NULL
+  cv_col            = "gray30",                              # default "gray30"
+  refline_lwd       = NULL,                                  # default NULL
+  refline_lty       = "dashed",                              # default "dashed"
+  refline_col       = "gray30",                              # default "gray30"
+  vertline_lwd      = NULL,                                  # default NULL
+  vertline_lty      = "dashed",                              # default "dashed"
+  vertline_col      = "gray20",                              # default "gray20"
+  arrow_type        = "closed",                              # default "closed"
+  arrow_col         = "black",                               # default "black"
+  summary_fill      = "black",                               # default "black"
+  summary_col       = "black"                                # default "black"
+)
+
+# All plot_subgroup_results_forestplot() parameters shown with their defaults.
+result_cox <- plot_subgroup_results_forestplot(
+  fs_results        = list(fs.est   = fs_cox,
+                           fs_bc    = fs_cox_bc,
+                           fs_OOB   = NULL,
+                           fs_kfold = fs_cox_kfold),         # required
+  df_analysis       = df.analysis,                           # required
+  subgroup_list     = subgroups,                             # default NULL
+  outcome.name      = cox_outcome.name,                      # required
+  event.name        = cox_event.name,                        # required
+  treat.name        = cox_treat.name,                        # required
+  E.name            = "Hormonal",                            # default "Experimental"
+  C.name            = "Chemo",                               # default "Control"
+  est.scale         = "hr",                                  # default "hr"
+  xlog              = TRUE,                                  # default TRUE
+  title_text        = NULL,                                  # default NULL
+  arrow_text        = c("Favors Experimental", "Favors Control"),  # default same
+  footnote_text     = c("Eg 80% of training found SG: 70% of B (+) also B in CV testing"),  # default same
+  xlim              = c(0.25, 1.5),                          # default c(0.25, 1.5)
+  ticks_at          = c(0.25, 0.70, 1.0, 1.5),               # default c(0.25, 0.70, 1.0, 1.5)
+  show_cv_metrics   = TRUE,                                  # default TRUE
+  cv_source         = "auto",                                # default "auto"; or "kfold", "oob", "both"
+  posthoc_colors    = c("powderblue", "beige"),              # default same
+  reference_colors  = c("yellow", "powderblue"),             # default same
+  ci_column_spaces  = 25,                                    # default 20
+  conf.level        = 0.95,                                  # default 0.95
+  theme             = my_theme,                              # default NULL
+  outcome_type      = NULL,                                  # default NULL; auto-detect
+  effect_measure    = NULL,                                  # default NULL; auto-detect
+  offset.name       = NULL,                                  # default NULL
+  extreme_ci_cap    = 1.5,                                   # default 1.5
+  xlim_method       = "clinical"                             # default "clinical"; or "data"
+)
+
+render_forestplot(
+  x       = result_cox,                                      # required
+  newpage = TRUE                                             # default TRUE
+)
+```
+
+
+### KM Difference Plots: ITT and Subgroups
+
+```{r cox-km-diffs}
+#| fig-width: 8
+#| fig-height: 6
+
+ref_sgs <- list(
+  age_young = list(subset_expr = "age < 65", color = "brown"),
+  age_old = list(subset_expr = "age >= 65", color = "orange")
+)
+
+# All plot_km_band_forestsearch() parameters shown with their defaults.
+plot_km_band_forestsearch(
+  df             = df.analysis,                              # required
+  fs.est         = fs_cox,                                   # default NULL
+  sg_cols        = NULL,                                     # default NULL
+  sg_labels      = NULL,                                     # default NULL
+  sg_colors      = NULL,                                     # default NULL
+  itt_color      = "azure3",                                 # default "azure3"
+  outcome.name   = cox_outcome.name,                         # default "tte"
+  event.name     = cox_event.name,                           # default "event"
+  treat.name     = cox_treat.name,                           # default "treat"
+  xlabel         = "Time",                                   # default "Time"
+  ylabel         = "Survival differences",                   # default "Survival differences"
+  yseq_length    = 5,                                        # default 5
+  draws_band     = 20,                                       # default 1000 (lower for speed)
+  tau_add        = NULL,                                     # default NULL
+  by_risk        = 6,                                        # default 6
+  risk_cex       = 0.75,                                     # default 0.75
+  risk_delta     = 0.035,                                    # default 0.035
+  risk_pad       = 0.015,                                    # default 0.015
+  ymax_pad       = 0.11,                                     # default 0.11
+  show_legend    = TRUE,                                     # default TRUE
+  legend_pos     = "topleft",                                # default "topleft"
+  legend_cex     = 0.75,                                     # default 0.75
+  ref_subgroups  = ref_sgs,                                  # default NULL
+  verbose        = FALSE                                     # default FALSE
+)
+```
+
+
+# Part II: Poisson Rate Model Analysis {#sec-poisson}
+
+## Rationale
+
+The Poisson regression model with an offset for person-time provides an
+alternative to the Cox PH model for estimating treatment effects on the
+event rate scale (incidence rate ratio, IRR). Under an exponential
+survival assumption, the Poisson IRR is approximately equal to the Cox HR.
+
+This section applies ForestSearch with `outcome_type = "count"` and
+`effect_measure = "IRR"` to the GBSG data, treating each patient's
+binary event indicator (`status`) as a count (0 or 1) and
+`log(time_months)` as the offset. This is the standard piecewise
+exponential model approximation with a single interval per patient.
+
+Comparing the Poisson and Cox analyses serves two purposes:
+
+1. **Validation**: If both models identify the same subgroup with similar
+   effect sizes, this strengthens confidence in the findings.
+2. **GLM pipeline verification**: Demonstrates that the ForestSearch GLM
+   extension produces coherent results on real clinical trial data.
+
+
+## ITT Poisson Model
+
+```{r pois-itt}
+# Verify the Poisson approximation at the ITT level
+cox_itt <- coxph(
+  Surv(time_months, status) ~ hormon,
+  data = df.analysis
+)
+pois_itt <- glm(
+  status ~ hormon,
+  family = poisson(),
+  offset = log(pmax(time_months, 1e-6)),
+  data = df.analysis
+)
+
+cat("ITT Cox  HR:      ", sprintf("%.4f", exp(coef(cox_itt))), "\n")
+cat("ITT Poisson IRR:  ", sprintf("%.4f", exp(coef(pois_itt)[["hormon"]])), "\n")
+cat("Absolute diff:    ",
+    sprintf("%.4f", abs(exp(coef(cox_itt)) - exp(coef(pois_itt)[["hormon"]]))),
+    "\n")
+```
+
+
+## Running ForestSearch (Poisson)
+
+The Poisson analysis uses `outcome_type = "count"` with `effect_measure = "IRR"`
+and `offset.name = "time_months"`. Screening and consistency thresholds are
+set identically to the Cox analysis so that any differences in results
+reflect the model, not tuning.
+
+```{r forestsearch-poisson}
+#| fig-width: 10
+#| fig-height: 7
+
+t0 <- proc.time()
+
+# All forestsearch() parameters shown with their default values.
+# This call exercises the GLM (Poisson rate) pipeline: outcome_type = "count",
+# effect_measure = "IRR", and offset.name = "time_months".
+# event.name is not needed for count outcomes; forestsearch() creates an
+# internal placeholder when the event column is absent.
+fs_pois <- forestsearch(
+  df.analysis                = df.analysis,                  # required
+
+  # ─── Variable names ─────────────────────────────────────────────────────
+  outcome.name               = pois_outcome.name,            # default "tte"
+  event.name                 = "event",                      # default "event"; placeholder used for count
+  treat.name                 = pois_treat.name,              # default "treat"
+  id.name                    = id.name,                      # default "id"
+  potentialOutcome.name      = NULL,                         # default NULL
+  flag_harm.name             = NULL,                         # default NULL
+  confounders.name           = confounders.name,             # default NULL
+
+  # ─── Parallel processing ────────────────────────────────────────────────
+  parallel_args              = list(plan = "multisession",
+                                    workers = n_cores,
+                                    show_message = TRUE),    # default plan="multisession"
+
+  # ─── Prediction / RCT flag ──────────────────────────────────────────────
+  df.predict                 = NULL,                         # default NULL
+  df.test                    = NULL,                         # default NULL
+  is.RCT                     = TRUE,                         # default TRUE
+  seedit                     = 8316951,                      # default 8316951
+  est.scale                  = "hr",                         # default "hr"
+
+  # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
+  use_lasso                  = TRUE,                         # default TRUE
+  use_grf                    = TRUE,                         # default TRUE
+  grf_res                    = NULL,                         # default NULL
+  grf_cuts                   = NULL,                         # default NULL
+  max_n_confounders          = 1000,                         # default 1000
+  grf_depth                  = 2,                            # default 2
+  dmin.grf                   = 0.0,                          # default 0.0
+  frac.tau                   = 0.8,                          # default 0.8
+  return_selected_cuts_only  = TRUE,                         # default TRUE
+  vi.grf.min                 = grf_vi_min,                   # default -0.2
+  tune_grf                   = grf_tune,                     # default FALSE
+
+  # ─── Cuts / discretization ──────────────────────────────────────────────
+  conf_force                 = NULL,                         # default NULL
+  defaultcut_names           = NULL,                         # default NULL
+  cut_type                   = "default",                    # default "default"
+  exclude_cuts               = NULL,                         # default NULL
+  replace_med_grf            = FALSE,                        # default FALSE
+  cont.cutoff                = 4,                            # default 4
+  conf.cont_medians          = NULL,                         # default NULL
+  conf.cont_medians_force    = NULL,                         # default NULL
+  conf.cont_jcuts            = NULL,                         # default NULL
+
+  # ─── Subgroup constraints ───────────────────────────────────────────────
+  n.min                      = fs_n.min,                     # default 60
+  d0.min                     = fs_d0.min,                    # default 10; reinterpreted for binary
+  d1.min                     = fs_d1.min,                    # default 10
+  maxk                       = fs_maxk,                      # default 2
+  max_subgroups_search       = fs_max_subgroups_search,      # default 10
+  max.minutes                = 3,                            # default 3
+
+  # ─── Thresholds ─────────────────────────────────────────────────────────
+  effect.threshold           = NULL,                         # default NULL
+  consistency.threshold      = NULL,                         # default NULL
+  hr.threshold               = fs_hr.threshold,              # default 1.25; ratio scale (IRR)
+  hr.consistency             = fs_hr.consistency,            # default 1.0
+
+  # ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────
+  sg_focus                   = "maxSG",                      # default "hr"
+  selection_rule             = "neighborhood",               # default "neighborhood"
+  effect_neighborhood        = 0.10,                         # default 0.10
+
+  # ─── Consistency evaluation ─────────────────────────────────────────────
+  fs.splits                  = fs_splits,                    # default 1000
+  m1.threshold               = Inf,                          # default Inf
+  pconsistency.threshold     = fs_pconsistency.threshold,    # default 0.90
+  stop_threshold             = fs_stop_threshold,            # default 0.95
+
+  # ─── Two-stage consistency ──────────────────────────────────────────────
+  use_twostage               = TRUE,                         # default TRUE
+  twostage_args              = list(),                       # default list()
+
+  # ─── GLM outcome support (count / Poisson) ──────────────────────────────
+  outcome_type               = "count",                      # default "survival"
+  effect_measure             = pois_effect_measure,          # default NULL -> "IRR" for count
+  offset.name                = pois_offset.name,             # default NULL; required for count
+  adverse_outcome            = NULL,                         # default NULL -> TRUE for binary/count
+  overdispersion             = "none",                       # default "none"; or "quasi", "negbin"
+  grf_count_transform        = "log",                        # default "log"; or "identity"
+
+  # ─── Propensity-score adjustment ────────────────────────────────────────
+  ps_method                  = NULL,                         # default NULL
+  ps_adjust_method           = "none",                       # default "none"
+  ps_hat                     = NULL,                         # default NULL
+
+  # ─── Output / diagnostics ───────────────────────────────────────────────
+  show_candidate_summary     = TRUE,                         # default FALSE
+  minp                       = 0.025,                        # default 0.025
+  details                    = TRUE,                         # default FALSE
+  quiet                      = FALSE,                        # default FALSE
+  by.risk                    = 12,                           # default 12
+  plot.sg                    = FALSE,                        # default FALSE; KM not applicable -> use plot_sg_glm_outcomes()
+  plot.grf                   = FALSE                         # default FALSE
+)
+
+plan("sequential")
+timings$pois_fs <- (proc.time() - t0)["elapsed"]
+
+cat("\nForestSearch (Poisson) completed in",
+    round(timings$pois_fs, 1), "seconds\n")
+```
+
+
+## Poisson Results
+
+### Identified Subgroups
+
+```{r pois-results}
+# All sg_tables() parameters shown with their default values.
+pois_tabs <- sg_tables(
+  fs                    = fs_pois,                           # required
+  which_df              = "est",                             # default "est"
+  est_title             = "Treatment Effect Estimates",      # default "Treatment Effect Estimates"
+  est_caption           = "Training data estimates",         # default "Training data estimates"
+  sg_title              = "Identified Subgroups",            # default "Identified Subgroups"
+  sg_subtitle           = NULL,                              # default NULL
+  potentialOutcome.name = NULL,                              # default NULL
+  hr_1a                 = NA,                                # default NA
+  hr_0a                 = NA,                                # default NA
+  ndecimals             = 3,                                 # default 3
+  include_search_info   = TRUE,                              # default TRUE
+  subgroup_notation     = NULL,                              # default NULL
+  font_size             = 12                                 # default 12
+)
+
+pois_tabs$sg10_out
+```
+
+### Treatment Effect Estimates
+
+```{r pois-estimates}
+pois_tabs$tab_estimates
+```
+
+### Identified Subgroup Definition
+
+```{r pois-subgroup}
+cat("Identified subgroup (H):",
+    paste(fs_pois$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_pois$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_pois$df.est$treat.recommend == 0)))
+```
+
+### Subgroup Event Rates
+
+```{r pois-glm-plot}
+#| fig-width: 10
+#| fig-height: 7
+#| fig-cap: "Event rates by treatment arm and identified subgroup (Poisson analysis)"
+
+# All plot_sg_glm_outcomes() parameters shown with their defaults.
+pois_plot <- plot_sg_glm_outcomes(
+  fs.est         = fs_pois,                                  # required
+  fs_bc          = NULL,                                     # default NULL
+  outcome.name   = pois_outcome.name,                        # required
+  treat.name     = pois_treat.name,                          # required
+  offset.name    = pois_offset.name,                         # default NULL
+  effect_measure = pois_effect_measure,                      # default NULL; auto-detect
+  outcome_type   = "count",                                  # default NULL; auto-detect
+  sg0_name       = "Questionable",                           # default "Questionable"
+  sg1_name       = "Recommend",                              # default "Recommend"
+  E.name         = "Hormonal",                               # default "Treatment"
+  C.name         = "Chemo",                                  # default "Control"
+  bar_colors     = c("steelblue", "coral"),                  # default same
+  show_effect    = TRUE,                                     # default TRUE
+  show_bc        = TRUE,                                     # default TRUE
+  show_itt       = TRUE,                                     # default TRUE
+  conf.level     = 0.95,                                     # default 0.95
+  title          = NULL,                                     # default NULL
+  subtitle       = NULL,                                     # default NULL
+  verbose        = TRUE                                      # default FALSE
+)
+```
+
+
+## Poisson Bootstrap Bias Correction
+
+```{r pois-bootstrap}
+t0 <- proc.time()
+
+# All forestsearch_bootstrap_dofuture() parameters shown with their defaults.
+fs_pois_bc <- forestsearch_bootstrap_dofuture(
+  fs.est        = fs_pois,                                   # required
+  nb_boots      = NB,                                        # required
+  seed          = 8316951L,                                  # default 8316951L
+  details       = FALSE,                                     # default FALSE
+  show_three    = FALSE,                                     # default FALSE
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = TRUE),                 # default list()
+  digits        = 4                                          # default 4
+)
+
+plan("sequential")
+timings$pois_bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nPoisson bootstrap completed in",
+    round(timings$pois_bootstrap / 60, 1), "minutes\n")
+```
+
+### Bootstrap Summary
+
+```{r pois-bootstrap-summary}
+# All summarize_bootstrap_results() parameters shown with their defaults.
+pois_summaries <- summarize_bootstrap_results(
+  sgharm       = fs_pois$sg.harm,                            # required
+  boot_results = fs_pois_bc,                                 # required
+  create_plots = TRUE,                                       # default FALSE
+  est.scale    = "hr",                                       # default "hr" (IRR is on the same ratio scale)
+  digits       = 2                                           # default 2
+)
+
+pois_summaries$table
+```
+
+### Bootstrap Diagnostics
+
+```{r pois-bootstrap-diagnostics}
+pois_summaries$diagnostics_table_gt
+```
+
+
+## Poisson Cross-Validation
+
+### K-Fold Cross-Validation
+
+```{r pois-kfold-cv}
+t0 <- proc.time()
+
+# All forestsearch_tenfold() parameters shown with their defaults.
+# GLM threading (outcome_type, effect_measure, offset.name) flows through
+# fs_pois$args_call_all to each training-fold forestsearch() call.
+fs_pois_kfold <- forestsearch_tenfold(
+  fs.est        = fs_pois,                                   # required
+  sims          = Ksims,                                     # required (use >=50 for production)
+  Kfolds        = 10,                                        # default 10
+  details       = FALSE,                                     # default TRUE
+  seed          = 8316951L,                                  # default 8316951L
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = FALSE),                # default plan="multisession", workers=6
+  keep_resCV    = FALSE                                      # default FALSE
+)
+
+plan("sequential")
+timings$pois_kfold <- (proc.time() - t0)["elapsed"]
+
+# All cv_metrics_tables() parameters shown with their defaults.
+pois_metrics <- cv_metrics_tables(
+  cv_result        = fs_pois_kfold,                          # required
+  sg_definition    = NULL,                                   # default NULL
+  title            = "Cross-Validation Metrics",             # default "Cross-Validation Metrics"
+  show_percentages = TRUE,                                   # default TRUE
+  digits           = 1,                                      # default 1
+  include_raw      = FALSE,                                  # default FALSE
+  table_style      = "combined",                             # default "combined"; or "separate", "minimal"
+  use_gt           = TRUE                                    # default TRUE
+)
+pois_metrics
+```
+
+### Out-of-Bag (N-Fold) Cross-Validation
+
+```{r pois-oob-cv}
+#| eval: true
+
+t0 <- proc.time()
+
+# All forestsearch_Kfold() parameters shown with their defaults.
+fs_pois_OOB <- forestsearch_Kfold(
+  fs.est        = fs_pois,                                   # required
+  Kfolds        = round(nrow(df.analysis) / 100, 0),         # default nrow(fs.est$df.est) (LOO)
+  seedit        = 8316951L,                                  # default 8316951L
+  parallel_args = list(plan = "multisession",
+                       workers = n_cores,
+                       show_message = TRUE),                 # default plan="multisession", workers=6
+  sg0.name      = "Not recommend",                           # default "Not recommend"
+  sg1.name      = "Recommend",                               # default "Recommend"
+  details       = FALSE                                      # default FALSE
+)
+
+plan("sequential")
+timings$pois_oob <- (proc.time() - t0)["elapsed"]
+
+# All forestsearch_KfoldOut() parameters shown with their defaults.
+cv_pois_out <- forestsearch_KfoldOut(
+  res     = fs_pois_OOB,                                     # required
+  details = FALSE,                                           # default FALSE
+  outall  = TRUE,                                            # default FALSE
+  digits  = 4                                                # default 4
+)
+
+# All cv_summary_tables() parameters shown with their defaults.
+pois_cv_tables <- cv_summary_tables(
+  kfold_out    = cv_pois_out,                                # required
+  title        = "Cross-Validation Summary",                 # default "Cross-Validation Summary"
+  subtitle     = NULL,                                       # default NULL
+  show_metrics = TRUE,                                       # default TRUE
+  digits       = 3,                                          # default 3
+  font_size    = 12,                                         # default 12
+  use_gt       = TRUE                                        # default TRUE
+)
+pois_cv_tables$combined_table
+pois_cv_tables$metrics_table
+```
+
+
+## Poisson Forest Plot
+
+```{r pois-forest-plot}
+#| fig-width: 18
+#| fig-height: 12
+#| fig-cap: "Subgroup forest plot (Poisson rate model)"
+
+# All plot_subgroup_results_forestplot() parameters shown with their defaults.
+result_pois <- plot_subgroup_results_forestplot(
+  fs_results        = list(fs.est   = fs_pois,
+                           fs_bc    = fs_pois_bc,
+                           fs_OOB   = NULL,
+                           fs_kfold = fs_pois_kfold),        # required
+  df_analysis       = df.analysis,                           # required
+  subgroup_list     = subgroups,                             # default NULL
+  outcome.name      = pois_outcome.name,                     # required
+  event.name        = pois_outcome.name,                     # required (for count, same column)
+  treat.name        = pois_treat.name,                       # required
+  E.name            = "Hormonal",                            # default "Experimental"
+  C.name            = "Chemo",                               # default "Control"
+  est.scale         = "hr",                                  # default "hr"
+  xlog              = TRUE,                                  # default TRUE
+  title_text        = NULL,                                  # default NULL
+  arrow_text        = c("Favors Experimental", "Favors Control"),  # default same
+  footnote_text     = c("Eg 80% of training found SG: 70% of B (+) also B in CV testing"),  # default same
+  xlim              = c(0.25, 1.5),                          # default c(0.25, 1.5)
+  ticks_at          = c(0.25, 0.70, 1.0, 1.5),               # default c(0.25, 0.70, 1.0, 1.5)
+  show_cv_metrics   = TRUE,                                  # default TRUE
+  cv_source         = "auto",                                # default "auto"
+  posthoc_colors    = c("powderblue", "beige"),              # default same
+  reference_colors  = c("yellow", "powderblue"),             # default same
+  ci_column_spaces  = 25,                                    # default 20
+  conf.level        = 0.95,                                  # default 0.95
+  theme             = my_theme,                              # default NULL
+  outcome_type      = NULL,                                  # default NULL; auto-detect
+  effect_measure    = NULL,                                  # default NULL; auto-detect
+  offset.name       = NULL,                                  # default NULL
+  extreme_ci_cap    = 1.5,                                   # default 1.5
+  xlim_method       = "clinical"                             # default "clinical"
+)
+
+render_forestplot(
+  x       = result_pois,                                     # required
+  newpage = TRUE                                             # default TRUE
+)
+```
+
+
+# Part III: Cox vs. Poisson Comparison {#sec-comparison}
+
+## Subgroup Membership Concordance
+
+```{r compare-subgroups}
+# All compare_fs_subgroups() parameters shown with their defaults.
+sg_compare <- compare_fs_subgroups(
+  fs1               = fs_cox,                                # required
+  fs2               = fs_pois,                               # required
+  label1            = "Cox PH (HR)",                         # default "Analysis 1"
+  label2            = "Poisson (IRR)",                       # default "Analysis 2"
+  id.name           = id.name,                               # default NULL
+  sg0_label         = "H (Questionable)",                    # default NULL; from notation
+  sg1_label         = "H\u1d9c (Recommend)",                 # default NULL; from notation
+  subgroup_notation = "harm",                                # default "harm"; or "benefit"
+  title             = "Subgroup Membership Concordance",     # default "Subgroup Membership Comparison"
+  subtitle          = NULL,                                  # default NULL
+  font_size         = 13                                     # default 12
+)
+
+sg_compare$table
+```
+
+```{r compare-concordance-detail}
+cat("Concordance statistics:\n")
+cat("  Agreement:", sprintf("%.1f%%", 100 * sg_compare$concordance$agreement), "\n")
+cat("  Cohen's kappa:", sprintf("%.3f", sg_compare$concordance$kappa), "\n")
+cat("  Concordant:", sg_compare$concordance$n_agree,
+    "/ Discordant:", sg_compare$concordance$n_disagree,
+    "/ Total:", sg_compare$concordance$n_total, "\n")
+```
+
+
+## Effect Estimate Comparison
+
+```{r compare-effects}
+# Build comparison table
+# Extract subgroup effect from the consistency result.
+# Cox:     result$hr stores NATURAL-scale HR (no exponentiation needed)
+# Poisson: result$hr stores LOG-scale IRR   (exponentiate for display)
+.safe_effect <- function(fs_obj, idx = 1, exponentiate = FALSE) {
+  tryCatch({
+    val <- fs_obj$grp.consistency$out_sg$result$hr[idx]
+    if (exponentiate) exp(val) else val
+  }, error = function(e) NA_real_)
+}
+
+# Direct model fits for H and Hc (avoids ambiguity about stored scale)
+cox_H_idx  <- fs_cox$df.est$treat.recommend == 0
+pois_H_idx <- fs_pois$df.est$treat.recommend == 0
+
+# Cox: H and Hc
+cox_H_hr <- tryCatch(
+  exp(coef(coxph(Surv(time_months, status) ~ hormon,
+                 data = df.analysis[cox_H_idx, ]))),
+  error = function(e) NA_real_
+)
+cox_Hc_hr <- tryCatch(
+  exp(coef(coxph(Surv(time_months, status) ~ hormon,
+                 data = df.analysis[!cox_H_idx, ]))),
+  error = function(e) NA_real_
+)
+
+# Poisson: H and Hc
+pois_H_irr <- tryCatch(
+  exp(coef(glm(status ~ hormon, family = poisson(),
+               offset = log(pmax(time_months, 1e-6)),
+               data = df.analysis[pois_H_idx, ]))[["hormon"]]),
+  error = function(e) NA_real_
+)
+pois_Hc_irr <- tryCatch(
+  exp(coef(glm(status ~ hormon, family = poisson(),
+               offset = log(pmax(time_months, 1e-6)),
+               data = df.analysis[!pois_H_idx, ]))[["hormon"]]),
+  error = function(e) NA_real_
+)
+
+compare_df <- data.frame(
+  Estimand = c("ITT", "H (unadjusted)", "H^c (unadjusted)"),
+  Cox_HR = c(exp(coef(cox_itt)), cox_H_hr, cox_Hc_hr),
+  Poisson_IRR = c(exp(coef(pois_itt)[["hormon"]]), pois_H_irr, pois_Hc_irr)
+)
+
+compare_df$Absolute_Diff <- abs(compare_df$Cox_HR - compare_df$Poisson_IRR)
+
+gt(compare_df) |>
+  tab_header(
+    title = "Cox HR vs. Poisson IRR Comparison",
+    subtitle = "GBSG: ForestSearch-identified subgroups"
+  ) |>
+  fmt_number(columns = c(Cox_HR, Poisson_IRR, Absolute_Diff), decimals = 4) |>
+  cols_label(
+    Estimand = "Population",
+    Cox_HR = "Cox HR",
+    Poisson_IRR = "Poisson IRR",
+    Absolute_Diff = "|Difference|"
+  )
+```
+
+
+## Interpretation
+
+Under the proportional hazards assumption with a single follow-up interval
+per patient, the Poisson rate model is the piecewise exponential
+approximation to Cox regression, and the IRR converges to the HR. Any
+differences between the two analyses arise from:
+
+1. **GRF screening path**: The Cox analysis uses `causal_survival_forest`,
+   while the Poisson analysis uses `causal_forest` on a
+   variance-stabilised $\log(Y + 0.5)$ transform. Different screening
+   can yield different candidate factors.
+
+2. **Consistency evaluation**: The Cox path uses `coxph()` within each
+   split-half; the Poisson path uses `glm(family = poisson(), offset = ...)`.
+   Small-sample behaviour may differ.
+
+3. **Threshold interpretation**: The screening threshold (1.25) and
+   consistency threshold (1.0) are on the ratio scale for both HR and
+   IRR, so they are directly comparable.
+
+When the two analyses agree on subgroup membership, this provides
+**model-robustness evidence**: the finding is not an artifact of the
+Cox proportional hazards assumption.
+
+
+# Summary and Interpretation
+
+## Key Findings
+
+```{r summary-findings}
+cat(strrep("=", 60), "\n")
+cat("FORESTSEARCH ANALYSIS SUMMARY\n")
+cat(strrep("=", 60), "\n\n")
+
+cat("Dataset: GBSG (N =", nrow(df.analysis), ")\n")
+cat("Outcome: Recurrence-free survival\n\n")
+
+cat("ITT Analysis:\n")
+cat("  Cox HR:      ", sprintf("%.4f", exp(coef(cox_itt))), "\n")
+cat("  Poisson IRR: ", sprintf("%.4f", exp(coef(pois_itt)[["hormon"]])), "\n\n")
+
+cat("Cox Identified Subgroup (H):\n")
+cat("  Definition:", paste(fs_cox$sg.harm, collapse = " & "), "\n")
+cat("  Size:", sum(fs_cox$df.est$treat.recommend == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(fs_cox$df.est$treat.recommend == 0)))
+
+cat("\nPoisson Identified Subgroup (H):\n")
+cat("  Definition:", paste(fs_pois$sg.harm, collapse = " & "), "\n")
+cat("  Size:", sum(fs_pois$df.est$treat.recommend == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(fs_pois$df.est$treat.recommend == 0)))
+```
+
+## Clinical Interpretation
+
+The ForestSearch analysis identifies **estrogen receptor-negative (ER ≤ 0)**
+patients as a subgroup with potential lack of benefit from hormonal therapy.
+
+**Biological plausibility**: Tamoxifen is a selective estrogen receptor
+modulator. Its efficacy depends on ER expression. The finding that ER-negative
+patients may not benefit is consistent with:
+
+- Mechanistic understanding of tamoxifen action
+- Meta-analyses showing no tamoxifen benefit in ER-negative breast cancer
+- Clinical guidelines recommending tamoxifen primarily for ER-positive tumors
+
+**Caveats**:
+
+1. This is an **exploratory** analysis requiring independent validation
+2. The bias-corrected estimates have wider confidence intervals
+3. Cross-validation metrics should be evaluated for algorithm stability
+
+## Computational Timing
+
+```{r timing-summary}
+timings$total <- (proc.time() - t_vignette_start)["elapsed"]
+
+timing_df <- data.frame(
+  Analysis = c(
+    "GRF Screening",
+    "ForestSearch (Cox)", "Bootstrap (Cox)",
+    "K-Fold CV (Cox)", "OOB CV (Cox)",
+    "ForestSearch (Poisson)", "Bootstrap (Poisson)",
+    "K-Fold CV (Poisson)", "OOB CV (Poisson)",
+    "Total"
+  ),
+  Seconds = c(
+    timings$grf,
+    timings$cox_fs, timings$cox_bootstrap,
+    timings$cox_kfold, timings$cox_oob,
+    timings$pois_fs, timings$pois_bootstrap,
+    timings$pois_kfold, timings$pois_oob,
+    timings$total
+  )
+)
+timing_df$Minutes <- timing_df$Seconds / 60
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing") |>
+  fmt_number(columns = c(Seconds, Minutes), decimals = 1) |>
+  cols_label(
+    Analysis = "Component",
+    Seconds = "Time (sec)",
+    Minutes = "Time (min)"
+  )
+```
+
+
+# References
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
+"Exploratory subgroup identification in the heterogeneous Cox model:
+A relatively simple procedure." *Statistics in Medicine*.
+DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

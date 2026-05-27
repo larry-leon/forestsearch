@@ -748,12 +748,32 @@ plot_weighted_km(dfcount, conf.int = TRUE, show.logrank = TRUE,
 
 ```{r summary-table}
 create_summary_table(
-  data = sim_data, 
-  treat_var = "treat_sim", 
-  table_title = "Characteristics by Treatment Arm",
-  vars_continuous = c("z1", "z2", "size", "z3", "z4", "z5"),
-  vars_categorical = c("flag_harm", "grade3"),
-  font_size = 14
+  data                  = sim_data,                                          # required
+  treat_var             = "treat_sim",                                       # default "treat"
+  vars_continuous       = c("z1", "z2", "size", "z3", "z4", "z5"),           # default NULL
+  vars_categorical      = c("flag_harm", "grade3"),                          # default NULL
+  vars_binary           = NULL,                                              # default NULL
+  var_labels            = NULL,                                              # default NULL
+  digits                = 1,                                                 # default 1
+  show_pvalue           = TRUE,                                              # default TRUE
+  show_smd              = TRUE,                                              # default TRUE
+  show_missing          = TRUE,                                              # default TRUE
+  table_title           = "Characteristics by Treatment Arm",                # default "Baseline Characteristics by Treatment Arm"
+  table_subtitle        = NULL,                                              # default NULL
+  source_note           = NULL,                                              # default NULL
+  font_size             = 14,                                                # default 12
+  header_font_size      = 14,                                                # default 14
+  footnote_font_size    = 10,                                                # default 10
+  use_alternating_rows  = TRUE,                                              # default TRUE
+  stripe_color          = "#f9f9f9",                                         # default "#f9f9f9"
+  indent_size           = 20,                                                # default 20
+  highlight_pval        = 0.05,                                              # default 0.05
+  highlight_smd         = 0.2,                                               # default 0.2
+  highlight_color       = "#fff3cd",                                         # default "#fff3cd"
+  compact_mode          = FALSE,                                             # default FALSE
+  column_width_var      = 200,                                               # default 200
+  column_width_stats    = 120,                                               # default 120
+  show_column_borders   = FALSE                                              # default FALSE
 )
 ```
 
@@ -814,7 +834,17 @@ fs_params <- list(
   vi.grf.min = -0.2,
   # NEW: Two-stage algorithm option
   use_twostage = TRUE,      # Set TRUE for faster exploratory analysis
-  twostage_args = list()     # Optional tuning parameters
+  twostage_args = list(),    # Optional tuning parameters
+  # Run inner forestsearch() sequentially.  This is the default set by
+  # default_sim_params() (as of forestsearch v0.2.0) -- restated here so
+  # the safety pattern is visible to readers of the vignette.  The outer
+  # foreach() %dofuture% block provides parallelism across simulations;
+  # the inner forestsearch() therefore runs single-threaded inside each
+  # worker.  Overriding this back to multisession would re-introduce
+  # nested parallelism (parallelly's 300%-load hard limit) and is rarely
+  # what you want inside a foreach() loop.  See
+  # ?run_simulation_analysis for details ("Parallel Processing" section).
+  parallel_args = list(plan = "sequential")
 )
 
 
@@ -860,22 +890,35 @@ results_alt <- foreach(
     seed = TRUE
   )
 ) %dofuture% {
+  # All run_simulation_analysis() parameters shown with their default values.
   run_simulation_analysis(
-    sim_id = sim,
-    dgm = dgm_calibrated,
-    n_sample = sim_config_alt$n_sample,
-    analysis_time = sim_config_alt$analysis_time,
-    cens_adjust = sim_config_alt$cens_adjust,
-    confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
-    n_add_noise = 0L,
-    run_fs = TRUE,
-    run_fs_grf = FALSE,
-    run_grf = TRUE,
-    fs_params = fs_params,
-    verbose = TRUE,
-    debug = FALSE,
-    verbose_n = 1  # Only print first 1 simulations
+    sim_id           = sim,                                                  # required
+    dgm              = dgm_calibrated,                                       # required
+    n_sample         = sim_config_alt$n_sample,                              # required
+    analysis_time    = sim_config_alt$analysis_time,                         # default Inf
+    cens_adjust      = sim_config_alt$cens_adjust,                           # default 0
+    max_follow       = NULL,                                                 # default NULL; DEPRECATED -> analysis_time
+    muC_adj          = NULL,                                                 # default NULL; DEPRECATED -> cens_adjust
+    confounders_base = confounders_base,                                     # default c("v1",...,"v7")
+    n_add_noise      = 0L,                                                   # default 0L
+    outcome_name     = "y_sim",                                              # default "y_sim"
+    event_name       = "event_sim",                                          # default "event_sim"
+    treat_name       = "treat_sim",                                          # default "treat_sim"
+    harm_col         = "flag_harm",                                          # default "flag_harm"
+    run_fs           = TRUE,                                                 # default TRUE
+    run_fs_grf       = FALSE,                                                # default TRUE
+    run_grf          = TRUE,                                                 # default TRUE
+    fs_params        = fs_params,                                            # default list()
+    grf_params       = list(),                                               # default list()
+    cox_formula      = NULL,                                                 # default NULL
+    cox_formula_adj  = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,  # default NULL
+    n_sims_total     = NULL,                                                 # default NULL
+    seed_base        = 8316951L,                                             # default 8316951L
+    verbose          = TRUE,                                                 # default FALSE
+    verbose_n        = 1,                                                    # default NULL; print first N sims
+    debug            = FALSE,                                                # default FALSE
+    keep             = character(0),                                         # default character(0); or "fs_full","df.est","candidate_table","grf_full"
+    keep_first_n     = Inf                                                   # default Inf
   )
 }
 
@@ -905,22 +948,35 @@ results_null <- foreach(
   )
 ) %dofuture% {
   
+  # All run_simulation_analysis() parameters shown with their default values.
   run_simulation_analysis(
-    sim_id = sim,
-    dgm = dgm_null,
-    n_sample = sim_config_null$n_sample,
-    analysis_time = sim_config_null$analysis_time,
-    cens_adjust = sim_config_null$cens_adjust,
-    confounders_base = confounders_base,
-    cox_formula_adj = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,
-    n_add_noise = 0L,
-    run_fs = TRUE,
-    run_fs_grf = FALSE,
-    run_grf = TRUE,
-    fs_params = fs_params,
-    verbose = TRUE,
-    verbose_n = 1  # Only print first 1 simulations
-
+    sim_id           = sim,                                                  # required
+    dgm              = dgm_null,                                             # required
+    n_sample         = sim_config_null$n_sample,                             # required
+    analysis_time    = sim_config_null$analysis_time,                        # default Inf
+    cens_adjust      = sim_config_null$cens_adjust,                          # default 0
+    max_follow       = NULL,                                                 # default NULL; DEPRECATED -> analysis_time
+    muC_adj          = NULL,                                                 # default NULL; DEPRECATED -> cens_adjust
+    confounders_base = confounders_base,                                     # default c("v1",...,"v7")
+    n_add_noise      = 0L,                                                   # default 0L
+    outcome_name     = "y_sim",                                              # default "y_sim"
+    event_name       = "event_sim",                                          # default "event_sim"
+    treat_name       = "treat_sim",                                          # default "treat_sim"
+    harm_col         = "flag_harm",                                          # default "flag_harm"
+    run_fs           = TRUE,                                                 # default TRUE
+    run_fs_grf       = FALSE,                                                # default TRUE
+    run_grf          = TRUE,                                                 # default TRUE
+    fs_params        = fs_params,                                            # default list()
+    grf_params       = list(),                                               # default list()
+    cox_formula      = NULL,                                                 # default NULL
+    cox_formula_adj  = survival::Surv(y_sim, event_sim) ~ treat_sim + z1 + z2 + z3,  # default NULL
+    n_sims_total     = NULL,                                                 # default NULL
+    seed_base        = 8316951L,                                             # default 8316951L
+    verbose          = TRUE,                                                 # default FALSE
+    verbose_n        = 1,                                                    # default NULL; print first N sims
+    debug            = FALSE,                                                # default FALSE
+    keep             = character(0),                                         # default character(0); or "fs_full","df.est","candidate_table","grf_full"
+    keep_first_n     = Inf                                                   # default Inf
   )
 }
 
@@ -1699,7 +1755,11 @@ results <- foreach(
       hr.threshold = 1.25, 
       fs.splits = 300, 
       maxk = 2,
-      use_twostage = FALSE  # Set TRUE for faster analysis
+      use_twostage = FALSE,  # Set TRUE for faster analysis
+      # Restating the v0.2.0 default for clarity in this %dofuture%
+      # context.  See the main fs_params block above and
+      # ?run_simulation_analysis ("Parallel Processing" section).
+      parallel_args = list(plan = "sequential")
     )
   )
 }
@@ -2725,6 +2785,19 @@ Note that exact replication requires the same DGM calibration, censoring
 rate, and random seeds. The vignette's reduced simulation count
 (`n_sims = 1000`) will show higher Monte Carlo variability than the
 published 20,000-simulation results.
+
+
+# Cleanup
+
+Reset the parallel backend to sequential and release worker resources.
+Required by the package's worker-lifecycle convention -- every
+parallel-to-sequential transition should hand workers back to the OS
+before the next operation (or before the vignette terminates).
+
+```{r cleanup, eval=TRUE}
+future::plan("sequential")
+gc(verbose = FALSE)
+```
 
 
 # Session Info

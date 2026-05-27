@@ -935,12 +935,107 @@ helps mitigate false discovery when analyses include baseline factors that
 are completely random noise.
 
 ```r
-# LASSO is enabled by default
+# All forestsearch() parameters shown with their default values.
+# LASSO is enabled by default; this snippet contrasts use_lasso = TRUE
+# with use_grf = FALSE.
 result <- forestsearch(
-  df.analysis = data,
-  use_lasso = TRUE,
-  use_grf = FALSE,
-  ...
+  df.analysis                = data,                         # required
+
+  # ─── Variable names ─────────────────────────────────────────────────────
+  outcome.name               = "tte",                        # default "tte"
+  event.name                 = "event",                      # default "event"
+  treat.name                 = "treat",                      # default "treat"
+  id.name                    = "id",                         # default "id"
+  potentialOutcome.name      = NULL,                         # default NULL
+  flag_harm.name             = NULL,                         # default NULL
+  confounders.name           = NULL,                         # default NULL
+
+  # ─── Parallel processing ────────────────────────────────────────────────
+  parallel_args              = list(plan = "multisession",
+                                    workers = 6,
+                                    show_message = TRUE),    # default plan="multisession"
+
+  # ─── Prediction / RCT flag ──────────────────────────────────────────────
+  df.predict                 = NULL,                         # default NULL
+  df.test                    = NULL,                         # default NULL
+  is.RCT                     = TRUE,                         # default TRUE
+  seedit                     = 8316951,                      # default 8316951
+  est.scale                  = "hr",                         # default "hr"
+
+  # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
+  use_lasso                  = TRUE,                         # default TRUE  <-- FOCAL
+  use_grf                    = FALSE,                        # default TRUE  <-- FOCAL
+  grf_res                    = NULL,                         # default NULL
+  grf_cuts                   = NULL,                         # default NULL
+  max_n_confounders          = 1000,                         # default 1000
+  grf_depth                  = 2,                            # default 2
+  dmin.grf                   = 0.0,                          # default 0.0
+  frac.tau                   = 0.8,                          # default 0.8
+  return_selected_cuts_only  = TRUE,                         # default TRUE
+  vi.grf.min                 = -0.2,                         # default -0.2
+  tune_grf                   = FALSE,                        # default FALSE
+
+  # ─── Cuts / discretization ──────────────────────────────────────────────
+  conf_force                 = NULL,                         # default NULL
+  defaultcut_names           = NULL,                         # default NULL
+  cut_type                   = "default",                    # default "default"
+  exclude_cuts               = NULL,                         # default NULL
+  replace_med_grf            = FALSE,                        # default FALSE
+  cont.cutoff                = 4,                            # default 4
+  conf.cont_medians          = NULL,                         # default NULL
+  conf.cont_medians_force    = NULL,                         # default NULL
+  conf.cont_jcuts            = NULL,                         # default NULL
+
+  # ─── Subgroup constraints ───────────────────────────────────────────────
+  n.min                      = 60,                           # default 60
+  d0.min                     = 10,                           # default 10
+  d1.min                     = 10,                           # default 10
+  maxk                       = 2,                            # default 2
+  max_subgroups_search       = 10,                           # default 10
+  max.minutes                = 3,                            # default 3
+
+  # ─── Thresholds ─────────────────────────────────────────────────────────
+  effect.threshold           = NULL,                         # default NULL
+  consistency.threshold      = NULL,                         # default NULL
+  hr.threshold               = 1.25,                         # default 1.25
+  hr.consistency             = 1.0,                          # default 1.0
+
+  # ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────
+  sg_focus                   = "hr",                         # default "hr"
+  selection_rule             = "neighborhood",               # default "neighborhood"
+  effect_neighborhood        = 0.10,                         # default 0.10
+
+  # ─── Consistency evaluation ─────────────────────────────────────────────
+  fs.splits                  = 1000,                         # default 1000
+  m1.threshold               = Inf,                          # default Inf
+  pconsistency.threshold     = 0.90,                         # default 0.90
+  stop_threshold             = 0.95,                         # default 0.95
+
+  # ─── Two-stage consistency ──────────────────────────────────────────────
+  use_twostage               = TRUE,                         # default TRUE
+  twostage_args              = list(),                       # default list()
+
+  # ─── GLM outcome support ────────────────────────────────────────────────
+  outcome_type               = "survival",                   # default "survival"
+  effect_measure             = NULL,                         # default NULL
+  offset.name                = NULL,                         # default NULL
+  adverse_outcome            = NULL,                         # default NULL
+  overdispersion             = "none",                       # default "none"
+  grf_count_transform        = "log",                        # default "log"
+
+  # ─── Propensity-score adjustment ────────────────────────────────────────
+  ps_method                  = NULL,                         # default NULL
+  ps_adjust_method           = "none",                       # default "none"
+  ps_hat                     = NULL,                         # default NULL
+
+  # ─── Output / diagnostics ───────────────────────────────────────────────
+  show_candidate_summary     = FALSE,                        # default FALSE
+  minp                       = 0.025,                        # default 0.025
+  details                    = FALSE,                        # default FALSE
+  quiet                      = FALSE,                        # default FALSE
+  by.risk                    = 12,                           # default 12
+  plot.sg                    = FALSE,                        # default FALSE
+  plot.grf                   = FALSE                         # default FALSE
 )
 ```
 
@@ -952,12 +1047,106 @@ GRF is used for identifying candidate factors (binary splits) rather than as
 the primary identification procedure.
 
 ```r
-# Enable both LASSO and GRF
+# All forestsearch() parameters shown with their default values.
+# Enable both LASSO and GRF (the package default for variable selection).
 result <- forestsearch(
-  df.analysis = data,
-  use_lasso = TRUE,
-  use_grf = TRUE,
-  ...
+  df.analysis                = data,                         # required
+
+  # ─── Variable names ─────────────────────────────────────────────────────
+  outcome.name               = "tte",                        # default "tte"
+  event.name                 = "event",                      # default "event"
+  treat.name                 = "treat",                      # default "treat"
+  id.name                    = "id",                         # default "id"
+  potentialOutcome.name      = NULL,                         # default NULL
+  flag_harm.name             = NULL,                         # default NULL
+  confounders.name           = NULL,                         # default NULL
+
+  # ─── Parallel processing ────────────────────────────────────────────────
+  parallel_args              = list(plan = "multisession",
+                                    workers = 6,
+                                    show_message = TRUE),    # default plan="multisession"
+
+  # ─── Prediction / RCT flag ──────────────────────────────────────────────
+  df.predict                 = NULL,                         # default NULL
+  df.test                    = NULL,                         # default NULL
+  is.RCT                     = TRUE,                         # default TRUE
+  seedit                     = 8316951,                      # default 8316951
+  est.scale                  = "hr",                         # default "hr"
+
+  # ─── Factor selection: LASSO + GRF ──────────────────────────────────────
+  use_lasso                  = TRUE,                         # default TRUE  <-- FOCAL
+  use_grf                    = TRUE,                         # default TRUE  <-- FOCAL
+  grf_res                    = NULL,                         # default NULL
+  grf_cuts                   = NULL,                         # default NULL
+  max_n_confounders          = 1000,                         # default 1000
+  grf_depth                  = 2,                            # default 2
+  dmin.grf                   = 0.0,                          # default 0.0
+  frac.tau                   = 0.8,                          # default 0.8
+  return_selected_cuts_only  = TRUE,                         # default TRUE
+  vi.grf.min                 = -0.2,                         # default -0.2
+  tune_grf                   = FALSE,                        # default FALSE
+
+  # ─── Cuts / discretization ──────────────────────────────────────────────
+  conf_force                 = NULL,                         # default NULL
+  defaultcut_names           = NULL,                         # default NULL
+  cut_type                   = "default",                    # default "default"
+  exclude_cuts               = NULL,                         # default NULL
+  replace_med_grf            = FALSE,                        # default FALSE
+  cont.cutoff                = 4,                            # default 4
+  conf.cont_medians          = NULL,                         # default NULL
+  conf.cont_medians_force    = NULL,                         # default NULL
+  conf.cont_jcuts            = NULL,                         # default NULL
+
+  # ─── Subgroup constraints ───────────────────────────────────────────────
+  n.min                      = 60,                           # default 60
+  d0.min                     = 10,                           # default 10
+  d1.min                     = 10,                           # default 10
+  maxk                       = 2,                            # default 2
+  max_subgroups_search       = 10,                           # default 10
+  max.minutes                = 3,                            # default 3
+
+  # ─── Thresholds ─────────────────────────────────────────────────────────
+  effect.threshold           = NULL,                         # default NULL
+  consistency.threshold      = NULL,                         # default NULL
+  hr.threshold               = 1.25,                         # default 1.25
+  hr.consistency             = 1.0,                          # default 1.0
+
+  # ─── Selection (sg_focus / Pareto neighborhood) ─────────────────────────
+  sg_focus                   = "hr",                         # default "hr"
+  selection_rule             = "neighborhood",               # default "neighborhood"
+  effect_neighborhood        = 0.10,                         # default 0.10
+
+  # ─── Consistency evaluation ─────────────────────────────────────────────
+  fs.splits                  = 1000,                         # default 1000
+  m1.threshold               = Inf,                          # default Inf
+  pconsistency.threshold     = 0.90,                         # default 0.90
+  stop_threshold             = 0.95,                         # default 0.95
+
+  # ─── Two-stage consistency ──────────────────────────────────────────────
+  use_twostage               = TRUE,                         # default TRUE
+  twostage_args              = list(),                       # default list()
+
+  # ─── GLM outcome support ────────────────────────────────────────────────
+  outcome_type               = "survival",                   # default "survival"
+  effect_measure             = NULL,                         # default NULL
+  offset.name                = NULL,                         # default NULL
+  adverse_outcome            = NULL,                         # default NULL
+  overdispersion             = "none",                       # default "none"
+  grf_count_transform        = "log",                        # default "log"
+
+  # ─── Propensity-score adjustment ────────────────────────────────────────
+  ps_method                  = NULL,                         # default NULL
+  ps_adjust_method           = "none",                       # default "none"
+  ps_hat                     = NULL,                         # default NULL
+
+  # ─── Output / diagnostics ───────────────────────────────────────────────
+  show_candidate_summary     = FALSE,                        # default FALSE
+  minp                       = 0.025,                        # default 0.025
+  details                    = FALSE,                        # default FALSE
+  quiet                      = FALSE,                        # default FALSE
+  by.risk                    = 12,                           # default 12
+  plot.sg                    = FALSE,                        # default FALSE
+  plot.grf                   = FALSE                         # default FALSE
 )
 ```
 

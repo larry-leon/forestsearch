@@ -305,11 +305,29 @@ if (!requireNamespace("survival", quietly = TRUE)) stop("Package 'survival' is r
   }
 
   # Fit LASSO with cross-validation
-  cvfit <- glmnet::cv.glmnet(x, y, family = glm_family, alpha = 1,
-                             offset = offset_vec)
+  # For family = "cox", pass cox.ties = "efron" to (i) align tie-handling with
+  # survival::coxph (which is what downstream HR estimation uses), and
+  # (ii) silence the glmnet v5.0 -> v5.1 default-change transition warning.
+  # Argument is no-op for other families; only built for cox to keep intent
+  # explicit and to avoid passing it through if glmnet ever tightens its API.
+  glmnet_extra <- if (identical(glm_family, "cox")) {
+    list(cox.ties = "efron")
+  } else {
+    list()
+  }
+  cvfit <- do.call(
+    glmnet::cv.glmnet,
+    c(list(x = x, y = y, family = glm_family, alpha = 1,
+           offset = offset_vec),
+      glmnet_extra)
+  )
   lambda_min <- cvfit$lambda.min
-  fit <- glmnet::glmnet(x, y, family = glm_family, alpha = 1,
-                        lambda = lambda_min, offset = offset_vec)
+  fit <- do.call(
+    glmnet::glmnet,
+    c(list(x = x, y = y, family = glm_family, alpha = 1,
+           lambda = lambda_min, offset = offset_vec),
+      glmnet_extra)
+  )
 
   # Extract coefficients at lambda.min
   coefs <- as.vector(coef(fit))

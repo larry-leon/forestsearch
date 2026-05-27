@@ -82,7 +82,10 @@ Default \code{"y_sim"}.}
 
 \item{run_grf}{Logical. Run standalone GRF. Default \code{TRUE}.}
 
-\item{fs_params}{Named list of ForestSearch parameter overrides.}
+\item{fs_params}{Named list of ForestSearch parameter overrides.  Any
+element of \code{default_sim_params()} can be overridden, including
+\code{parallel_args} (see \emph{Parallel Processing} section below).
+Passing \code{NULL} or an empty list uses defaults throughout.}
 
 \item{grf_params}{Named list of GRF parameter overrides.}
 
@@ -188,12 +191,42 @@ identification in v0.1.x.  Passing these as top-level arguments will
 result in them being silently ignored.
 }
 
+\section{Parallel Processing}{
+
+\code{run_simulation_analysis()} is designed to be called inside a
+\code{foreach() \%dofuture\%} loop (one replicate per worker).  In
+that idiom, \emph{outer} parallelism is provided by \code{\%dofuture\%}
+(one replicate per worker) and the \emph{inner} \code{forestsearch()}
+call should run sequentially within each worker.  Running both layers
+multisession produces nested parallelism: each outer worker tries to
+spawn its own pool of inner workers, which \code{parallelly} rejects
+with a 300\\%-load hard-limit error.
+
+To prevent this, \code{default_sim_params()} sets
+\code{parallel_args = list(plan = "sequential")} as the default for
+the inner \code{forestsearch()} call.  Users who call
+\code{run_simulation_analysis()} once at the top level (e.g., for
+interactive debugging) and want the inner pipeline to run in parallel
+can opt back in by passing
+\code{fs_params = list(parallel_args = list(plan = "multisession", workers = N))}.
+}
+
 \examples{
 \dontrun{
 dgm <- setup_gbsg_dgm(model = "null", verbose = FALSE)
-results <- run_simulation_analysis(dgm, nsim = 5,
-  parallel_args = list(plan = "sequential"))
-summarize_simulation_results(results)
+
+# Inner forestsearch() runs sequentially by default; safe for both
+# interactive use and embedding inside foreach() \%dofuture\% loops.
+result <- run_simulation_analysis(sim_id = 1, dgm = dgm, n_sample = 500)
+
+# Opt back into inner multisession for a one-off top-level call:
+result <- run_simulation_analysis(
+  sim_id    = 1,
+  dgm       = dgm,
+  n_sample  = 500,
+  fs_params = list(parallel_args = list(plan = "multisession",
+                                        workers = 4))
+)
 }
 }
 \seealso{
