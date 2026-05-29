@@ -1,20 +1,17 @@
 # File: R/dina_subgroup_bootstrap.R
 # Part of the forestsearch package.
 #
-# Selection-adjusted bootstrap inference for dina_subgroup().
-#
-# For each of n_boot bootstrap resamples of the original data frame:
-#   1. Refit DINA via dina()
-#   2. Re-run dina_subgroup() on that fit
-#   3. Record (covariate, direction, threshold, n_subgroup, mean_tau_hat)
-#
-# Aggregate per-iteration results into a non-parametric bootstrap
-# distribution.  The percentile CI on mean_tau_hat is selection-adjusted
-# because each bootstrap iteration re-runs the full search procedure,
-# allowing different (covariate, direction, threshold) selections to
-# contribute to the distribution.  If the procedure is unstable (the
-# chosen subgroup varies substantially across bootstrap samples), the
-# resulting CI is appropriately wide.
+# Bootstrap inference for the subgroup discovered by dina_subgroup().
+# Reports two conditional-on-signature effect CIs for the original-data
+# subgroup S*:
+#   (1) DINA effect_ci -- percentile CI on a*'beta_b with a* fixed from
+#       S* (the BLP-analog); and
+#   (2) within-subgroup standard-model CI -- a plain Cox/GLM treatment
+#       contrast refit within the fixed signature on each resample
+#       (see dina_subgroup_refit()).
+# Neither CI adjusts for the data-driven selection of the signature;
+# selection stability is summarized separately by selection_frequency.
+# Full design rationale is in the exported function's roxygen below.
 
 
 # ---------------------------------------------------------------------------
