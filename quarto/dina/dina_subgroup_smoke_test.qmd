@@ -1,0 +1,535 @@
+---
+title: "DINA Subgroup Smoke Test — Threshold Search Across All Four Families"
+subtitle: "End-to-end pipeline check for dina_subgroup() with variance propagation from both dina() (sandwich) and dina_bagged() (IJ)"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+---
+
+# Purpose
+
+Smoke-test `forestsearch::dina_subgroup()` end-to-end across all four
+response families.  The function bridges DINA's continuous per-patient
+HTE estimate $\hat\tau(x_i)$ with forestsearch's interpretable
+threshold-based subgroup framework: for each candidate covariate `x_j`
+and threshold `q`, it computes the subgroup-mean $\hat\tau$ and returns
+the *largest* subgroup whose mean meets the harm threshold `m_diff`.
+Variance is propagated through the linear-functional identity
+$\widehat{\mathrm{Var}}(\bar{\hat\tau}_S) = a_S^\top \mathrm{vcov}(\mathrm{fit}) a_S$,
+which automatically tracks the variance source — sandwich for `"dina"`,
+infinitesimal jackknife for `"dina_bagged"`.
+
+For each family we:
+
+1. Generate a single synthetic dataset with a **deliberately strong
+   linear treatment contrast** $\tau(x) = \beta_0 + \beta_1 x_1$ so that
+   a harm subgroup at one end of $x_1$ genuinely exists.
+2. Fit plain `dina()` (sandwich variance) on the data.
+3. Call `dina_subgroup(fit_sandwich, ...)` with a realistic `m_diff`,
+   asserting structural and mathematical correctness of the returned
+   `"dina_subgroup"` object.
+4. Fit `dina_bagged()` (IJ variance) on the same data with
+   `parallel = "bags"`.
+5. Call `dina_subgroup(fit_ij, ...)` and assert the IJ-variance path
+   gives a similar subgroup and a sensible Wald CI.
+6. Negative control: call `dina_subgroup` with an impossibly large
+   `m_diff` and assert `found == FALSE`.
+
+Assertions accumulate via the standard `.tc()` helper; a gt
+pass/fail summary is rendered at the bottom.
+
+---
+
+# Setup
+
+```{r setup}
+library(forestsearch)
+library(data.table)
+library(gt)
+
+set.seed(20260528)
+
+SMOKE <- list(
+  n                = 800L,
+  d                = 5L,
+  n_bags           = 200L,
+  n_folds_per_bag  = 2L,
+  plain_n_folds    = 2L,
+  parallel         = "bags",     # "bags" or "none"
+  n_workers_frac   = 0.9,
+  n_workers        = NULL,
+  n_min            = 60L,
+  alpha            = 0.05,
+  cox_T0           = 1.0
+)
+
+# Treatment-effect contrast: large beta_1, others zero.  With X ~ U[-1,1]:
+#   tau(x) = beta_0 + beta_1 * x_1
+# so for x_1 sufficiently negative, tau(x) is well below beta_0; for x_1
+# sufficiently positive, tau(x) is well above.  This gives the search a
+# genuine signal to find on x_1.
+BETA_TRUE <- c(0.40, 1.20, 0.00, 0.00, 0.00, 0.00)
+stopifnot(length(BETA_TRUE) == SMOKE$d + 1L)
+
+# Family-specific m_diff values, chosen as ~50% of the maximum tau(x)
+# expected on the right tail (x_1 -> 1):  beta_0 + beta_1 * 1 = 1.60.
+# Using 0.80 puts the threshold squarely within the harm-tail region so a
+# right-direction subgroup on x_1 is recoverable.
+M_DIFF_BY_FAMILY <- c(
+  gaussian = 0.80,
+  binomial = 0.80,   # natural-parameter (log-OR) scale
+  poisson  = 0.80,   # natural-parameter (log-IRR) scale
+  cox      = 0.80    # natural-parameter (log-HR) scale
+)
+```
+
+## `.tc()` accumulating helper
+
+```{r tc-helper}
+.tc_env <- new.env(parent = emptyenv())
+.tc_env$rows <- list()
+
+.tc <- function(label, condition, family, details = "") {
+  passed <- isTRUE(tryCatch(condition, error = function(e) FALSE))
+  msg <- if (!passed && nzchar(details)) details
+         else if (!passed) "condition FALSE or errored"
+         else ""
+  .tc_env$rows[[length(.tc_env$rows) + 1L]] <- data.table(
+    family  = family,
+    label   = label,
+    status  = if (passed) "PASS" else "FAIL",
+    details = msg
+  )
+  invisible(passed)
+}
+
+.tc_table <- function() {
+  if (length(.tc_env$rows) == 0L) {
+    return(data.table(family = character(), label = character(),
+                      status = character(), details = character()))
+  }
+  rbindlist(.tc_env$rows)
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## Parallel plan setup
+
+```{r plan-setup}
+if (SMOKE$parallel == "bags") {
+  total_cores <- parallelly::availableCores()
+  n_workers <- if (is.null(SMOKE$n_workers)) {
+    max(1L, as.integer(floor(SMOKE$n_workers_frac * total_cores)))
+  } else {
+    as.integer(SMOKE$n_workers)
+  }
+  future::plan(future::multisession, workers = n_workers)
+  message(sprintf(
+    "Parallel plan: %d workers (%.0f%% of %d available cores)",
+    n_workers, 100 * n_workers / total_cores, total_cores
+  ))
+} else {
+  future::plan("sequential")
+  message("Parallel plan: sequential")
+}
+```
+
+# Data simulation
+
+Same general DGM as the other DINA smoke tests, with $\beta_1 = 1.20$
+to make the heterogeneity strong enough that a subgroup at the high-$x_1$
+end is genuinely detectable.
+
+```{r data-helpers}
+simulate_dina_data <- function(family, n, d, beta_true, cox_T0 = 1.0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x  <- stats::plogis(0.3 * X[, 1])
+  W    <- stats::rbinom(n, 1L, e_x)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]
+  tau_x <- as.numeric(beta_true[1L] + X %*% beta_true[-1L])
+  eta_w <- mu_x + W * tau_x
+
+  out <- list(X = X, W = W, beta_true = beta_true, eta_w = eta_w,
+              tau_x_true = tau_x)
+
+  out$Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      time   <- pmin(t_event, t_censor)
+      status <- as.integer(t_event <= t_censor)
+      data.frame(time = time, status = status)
+    }
+  )
+  out
+}
+
+# Pack a single family's matrix-form data into a data frame for the
+# wrapper API (dina(), dina_bagged(), dina_subgroup()).
+build_df <- function(dat, family) {
+  if (family == "cox") {
+    cbind(
+      data.frame(time = dat$Y$time, status = dat$Y$status, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  } else {
+    cbind(
+      data.frame(y = dat$Y, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  }
+}
+```
+
+## Per-family test runner
+
+The runner exercises `dina_subgroup()` against both the sandwich-variance
+and IJ-variance fits and stores everything needed for downstream
+diagnostic tables.
+
+```{r runner}
+run_subgroup_family_tests <- function(family) {
+  m_diff <- M_DIFF_BY_FAMILY[[family]]
+
+  dat <- simulate_dina_data(
+    family    = family,
+    n         = SMOKE$n,
+    d         = SMOKE$d,
+    beta_true = BETA_TRUE,
+    cox_T0    = SMOKE$cox_T0
+  )
+  df_fam       <- build_df(dat, family)
+  outcome_col  <- if (family == "cox") "time" else "y"
+  status_col   <- if (family == "cox") "status" else NULL
+  covariates_v <- colnames(dat$X)
+
+  cens_type   <- if (family == "cox") "uniform" else NULL
+  cens_params <- if (family == "cox") list(T0 = SMOKE$cox_T0) else list()
+
+  # ---- Plain DINA (sandwich variance) -------------------------------------
+  fit_sandwich <- tryCatch(
+    dina(df = df_fam, outcome = outcome_col, treatment = "w",
+         covariates = covariates_v, family = family, status = status_col,
+         n_folds = SMOKE$plain_n_folds,
+         cens_type = cens_type, cens_params = cens_params,
+         seed = 20260528L),
+    error = function(e) NULL
+  )
+  .tc("dina() completes without error", !is.null(fit_sandwich), family)
+
+  # ---- Bagged DINA (IJ variance) ------------------------------------------
+  fit_ij <- tryCatch(
+    dina_bagged(df = df_fam, outcome = outcome_col, treatment = "w",
+                covariates = covariates_v, family = family, status = status_col,
+                n_bags = SMOKE$n_bags,
+                n_folds_per_bag = SMOKE$n_folds_per_bag,
+                parallel = SMOKE$parallel,
+                cens_type = cens_type, cens_params = cens_params,
+                seed = 20260528L, verbose = FALSE),
+    error = function(e) NULL
+  )
+  .tc("dina_bagged() completes without error", !is.null(fit_ij), family)
+
+  # ---- Subgroup search on sandwich fit ------------------------------------
+  sg_sand <- if (!is.null(fit_sandwich)) {
+    tryCatch(
+      dina_subgroup(fit = fit_sandwich, df = df_fam,
+                    covariates = covariates_v,
+                    m_diff = m_diff, n_min = SMOKE$n_min,
+                    alpha = SMOKE$alpha),
+      error = function(e) {
+        attr(e, "details") <- conditionMessage(e)
+        e
+      }
+    )
+  } else NULL
+  sand_ok <- !is.null(sg_sand) && !inherits(sg_sand, "error")
+  .tc("dina_subgroup() on sandwich fit completes without error", sand_ok, family,
+      details = if (!sand_ok && inherits(sg_sand, "error")) attr(sg_sand, "details") else "")
+
+  # ---- Subgroup search on IJ-bagged fit -----------------------------------
+  sg_ij <- if (!is.null(fit_ij)) {
+    tryCatch(
+      dina_subgroup(fit = fit_ij, df = df_fam,
+                    covariates = covariates_v,
+                    m_diff = m_diff, n_min = SMOKE$n_min,
+                    alpha = SMOKE$alpha),
+      error = function(e) {
+        attr(e, "details") <- conditionMessage(e)
+        e
+      }
+    )
+  } else NULL
+  ij_ok <- !is.null(sg_ij) && !inherits(sg_ij, "error")
+  .tc("dina_subgroup() on IJ-bagged fit completes without error", ij_ok, family,
+      details = if (!ij_ok && inherits(sg_ij, "error")) attr(sg_ij, "details") else "")
+
+  # ---- Structural assertions on the sandwich result -----------------------
+  if (sand_ok) {
+    .tc("Sandwich subgroup: returns object of class 'dina_subgroup'",
+        inherits(sg_sand, "dina_subgroup"), family)
+    .tc("Sandwich subgroup: 'found' field present and logical",
+        is.logical(sg_sand$found) && length(sg_sand$found) == 1L, family)
+    .tc("Sandwich subgroup: n_candidates_searched > 0",
+        is.numeric(sg_sand$n_candidates_searched) &&
+          sg_sand$n_candidates_searched > 0L, family)
+    .tc("Sandwich subgroup: print() runs without error",
+        !inherits(tryCatch(utils::capture.output(print(sg_sand)),
+                           error = function(e) e), "error"), family)
+
+    if (isTRUE(sg_sand$found)) {
+      # Math sanity: the returned subgroup satisfies its own constraints
+      .tc("Sandwich subgroup: chosen mean_tau_hat >= m_diff",
+          sg_sand$mean_tau_hat >= m_diff - 1e-10, family,
+          details = sprintf("mean = %.3f, m_diff = %.3f",
+                            sg_sand$mean_tau_hat, m_diff))
+      .tc("Sandwich subgroup: chosen n_subgroup >= n_min",
+          sg_sand$n_subgroup >= SMOKE$n_min, family,
+          details = sprintf("n = %d, n_min = %d",
+                            sg_sand$n_subgroup, SMOKE$n_min))
+      .tc("Sandwich subgroup: SE is positive and finite",
+          is.finite(sg_sand$se_mean_tau_hat) &&
+            sg_sand$se_mean_tau_hat > 0, family)
+      .tc("Sandwich subgroup: CI lower <= mean <= CI upper",
+          sg_sand$ci[["lower"]] <= sg_sand$mean_tau_hat &&
+            sg_sand$mean_tau_hat <= sg_sand$ci[["upper"]], family)
+      .tc("Sandwich subgroup: mask is logical of length n",
+          is.logical(sg_sand$mask) && length(sg_sand$mask) == SMOKE$n &&
+            sum(sg_sand$mask) == sg_sand$n_subgroup, family)
+      .tc("Sandwich subgroup: chosen covariate is among input covariates",
+          sg_sand$covariate %in% covariates_v, family)
+      .tc("Sandwich subgroup: threshold within range of chosen covariate",
+          {
+            v <- df_fam[[sg_sand$covariate]]
+            sg_sand$threshold >= min(v) && sg_sand$threshold <= max(v)
+          }, family)
+    } else {
+      .tc(sprintf("Sandwich subgroup: NOT found at m_diff = %.2f (informational)",
+                  m_diff),
+          TRUE, family,
+          details = "No qualifying subgroup; subsequent IJ check independent.")
+    }
+  }
+
+  # ---- Structural assertions on the IJ result -----------------------------
+  if (ij_ok) {
+    .tc("IJ subgroup: returns object of class 'dina_subgroup'",
+        inherits(sg_ij, "dina_subgroup"), family)
+    if (isTRUE(sg_ij$found)) {
+      .tc("IJ subgroup: chosen mean_tau_hat >= m_diff",
+          sg_ij$mean_tau_hat >= m_diff - 1e-10, family,
+          details = sprintf("mean = %.3f, m_diff = %.3f",
+                            sg_ij$mean_tau_hat, m_diff))
+      .tc("IJ subgroup: SE is non-negative and finite",
+          is.finite(sg_ij$se_mean_tau_hat) &&
+            sg_ij$se_mean_tau_hat >= 0, family)
+      .tc("IJ subgroup: CI lower <= mean <= CI upper",
+          sg_ij$ci[["lower"]] <= sg_ij$mean_tau_hat &&
+            sg_ij$mean_tau_hat <= sg_ij$ci[["upper"]], family)
+    }
+  }
+
+  # ---- Cross-fit agreement: both search results pick the same covariate ---
+  # (Same data, same m_diff, slightly different coefficient estimates between
+  #  sandwich and IJ paths.  The chosen covariate should typically agree.)
+  if (sand_ok && ij_ok && isTRUE(sg_sand$found) && isTRUE(sg_ij$found)) {
+    .tc("Sandwich and IJ subgroup searches pick the same covariate",
+        sg_sand$covariate == sg_ij$covariate, family,
+        details = sprintf("sandwich = %s, ij = %s",
+                          sg_sand$covariate, sg_ij$covariate))
+  }
+
+  # ---- Negative control: impossibly large m_diff => found == FALSE --------
+  if (!is.null(fit_sandwich)) {
+    sg_null <- tryCatch(
+      dina_subgroup(fit = fit_sandwich, df = df_fam,
+                    covariates = covariates_v,
+                    m_diff = 100, n_min = SMOKE$n_min,
+                    alpha = SMOKE$alpha),
+      error = function(e) NULL
+    )
+    .tc("Negative control: large m_diff returns found == FALSE",
+        !is.null(sg_null) && isFALSE(sg_null$found), family,
+        details = if (!is.null(sg_null))
+          sprintf("found = %s", as.character(sg_null$found))
+        else "errored")
+  }
+
+  list(
+    family       = family,
+    m_diff       = m_diff,
+    sg_sandwich  = sg_sand,
+    sg_ij        = sg_ij,
+    fit_sandwich = fit_sandwich,
+    fit_ij       = fit_ij
+  )
+}
+
+# Per-family gt table comparing the two subgroup-search results
+family_subgroup_gt <- function(res, family) {
+
+  pull <- function(sg, field) {
+    if (is.null(sg) || inherits(sg, "error")) return(NA)
+    val <- sg[[field]]
+    if (is.null(val)) NA else val
+  }
+
+  fmt_ci <- function(sg) {
+    if (is.null(sg) || inherits(sg, "error") || !isTRUE(sg$found)) return("—")
+    sprintf("[%.3f, %.3f]", sg$ci[["lower"]], sg$ci[["upper"]])
+  }
+
+  rows <- data.table(
+    Field = c("Found?", "Covariate", "Direction", "Threshold",
+              "n_subgroup", "mean_tau_hat", "SE", "Wald CI",
+              "Candidates searched", "Candidates qualifying"),
+    `Sandwich (dina)` = c(
+      as.character(pull(res$sg_sandwich, "found")),
+      as.character(pull(res$sg_sandwich, "covariate") %||% "—"),
+      as.character(pull(res$sg_sandwich, "direction") %||% "—"),
+      sprintf("%.3f", pull(res$sg_sandwich, "threshold")),
+      sprintf("%d",   pull(res$sg_sandwich, "n_subgroup")),
+      sprintf("%.3f", pull(res$sg_sandwich, "mean_tau_hat")),
+      sprintf("%.3f", pull(res$sg_sandwich, "se_mean_tau_hat")),
+      fmt_ci(res$sg_sandwich),
+      sprintf("%d",   pull(res$sg_sandwich, "n_candidates_searched")),
+      sprintf("%d",   pull(res$sg_sandwich, "n_candidates_qualifying"))
+    ),
+    `IJ (dina_bagged)` = c(
+      as.character(pull(res$sg_ij, "found")),
+      as.character(pull(res$sg_ij, "covariate") %||% "—"),
+      as.character(pull(res$sg_ij, "direction") %||% "—"),
+      sprintf("%.3f", pull(res$sg_ij, "threshold")),
+      sprintf("%d",   pull(res$sg_ij, "n_subgroup")),
+      sprintf("%.3f", pull(res$sg_ij, "mean_tau_hat")),
+      sprintf("%.3f", pull(res$sg_ij, "se_mean_tau_hat")),
+      fmt_ci(res$sg_ij),
+      sprintf("%d",   pull(res$sg_ij, "n_candidates_searched")),
+      sprintf("%d",   pull(res$sg_ij, "n_candidates_qualifying"))
+    )
+  )
+
+  rows |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = sprintf("%s family — dina_subgroup() results",
+                         tools::toTitleCase(family)),
+      subtitle = sprintf("m_diff = %.2f; harm direction = positive tau on the natural-parameter scale",
+                         res$m_diff)
+    ) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::tab_source_note(
+      source_note = gt::md(
+        "*True heterogeneity is on `x1` only (β₁ = 1.20); a right-direction
+         subgroup at high x1 is the expected discovery.*"
+      )
+    )
+}
+```
+
+---
+
+# Gaussian family
+
+```{r family-gaussian}
+res_gauss <- run_subgroup_family_tests("gaussian")
+family_subgroup_gt(res_gauss, "gaussian")
+```
+
+---
+
+# Binomial family
+
+```{r family-binomial}
+res_binom <- run_subgroup_family_tests("binomial")
+family_subgroup_gt(res_binom, "binomial")
+```
+
+---
+
+# Poisson family
+
+```{r family-poisson}
+res_pois <- run_subgroup_family_tests("poisson")
+family_subgroup_gt(res_pois, "poisson")
+```
+
+---
+
+# Cox family
+
+```{r family-cox}
+res_cox <- run_subgroup_family_tests("cox")
+family_subgroup_gt(res_cox, "cox")
+```
+
+```{r plan-teardown}
+future::plan("sequential")
+gc(verbose = FALSE)
+```
+
+---
+
+# Summary
+
+```{r summary}
+results_tab <- .tc_table()
+n_total <- nrow(results_tab)
+n_pass  <- results_tab[status == "PASS", .N]
+n_fail  <- n_total - n_pass
+
+subtitle_text <- sprintf(
+  "%d / %d assertions passed (%d failures)", n_pass, n_total, n_fail
+)
+
+results_tab |>
+  gt::gt(groupname_col = "family") |>
+  gt::tab_header(
+    title    = gt::md("**DINA subgroup smoke-test summary**"),
+    subtitle = subtitle_text
+  ) |>
+  gt::cols_label(
+    label   = "Assertion",
+    status  = "Status",
+    details = "Details"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4f4dd"),
+    locations = gt::cells_body(rows = status == "PASS")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#f9d4d4"),
+    locations = gt::cells_body(rows = status == "FAIL")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

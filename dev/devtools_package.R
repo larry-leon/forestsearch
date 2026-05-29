@@ -153,6 +153,9 @@ unlink("Meta", recursive = TRUE)
 devtools::document()
 
 
+devtools::check_man()
+
+
 devtools::install(dependencies = FALSE)
 
 

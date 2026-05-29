@@ -1,0 +1,602 @@
+---
+title: "DINA Survival Analysis (Cox and Poisson + Offset) — GBSG"
+subtitle: "DINA analogs to the ForestSearch GBSG analysis, with Cox–Poisson alignment"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+timings <- list()
+t_doc_start <- proc.time()
+```
+
+# Introduction
+
+This vignette is the DINA analog of `gbsg_survival_cox_poisson.qmd`.
+It applies the **DINA** (Doubly-robust Iterative Neyman-Orthogonal)
+estimator to the German Breast Cancer Study Group trial, in two
+parallel branches:
+
+1. **DINA Cox** — partial-likelihood DINA, mirroring the
+   ForestSearch Cox analysis.
+2. **DINA Poisson + offset** — Poisson rate-model DINA with
+   $\log(\text{time})$ as offset, mirroring the ForestSearch
+   IRR analysis.
+
+The Cox model is exact under the partial-likelihood / proportional
+hazards assumption; the Poisson + offset model is an approximation
+that is exact under a piecewise-constant hazard. Where the two
+models give nearly the same answer, the proportional-hazards
+assumption looks defensible; where they disagree, that's a flag.
+
+The full inference toolkit applied to each branch:
+
+* Cross-fit point estimation via `dina()`
+* Threshold-search harm subgroup identification via
+  `dina_subgroup()` with sandwich-variance Wald CI
+* Selection-adjusted bootstrap percentile CI on the fixed-subgroup
+  linear functional via `dina_subgroup_bootstrap()`
+* Stability diagnostics: selection-frequency table,
+  `n_subgroup_ci`, `threshold_ci`
+
+The final section assesses **Cox–Poisson alignment**: do the two
+DINA branches discover the same subgroup, with concordant effect
+estimates?
+
+The intent here is to mirror the FS doc's analysis flow on the same
+data with the same parameter conventions, *not* to repeat all of the
+FS doc's downstream artifacts (CV, KM by subgroup, forest plots).
+Those exist in the FS doc; this document focuses on the DINA
+inference pipeline and the Cox–Poisson comparison.
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(doFuture)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Analysis Parameters
+
+```{r analysis-params}
+#| code-fold: false
+
+# ─── Shared parameters ───────────────────────────────────────────────────
+n_cores         <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+confounders     <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id_col          <- "id"
+treat_col       <- "hormon"
+
+# ─── DINA outcome columns ────────────────────────────────────────────────
+cox_outcome     <- "time_months"
+cox_status      <- "status"
+
+pois_outcome    <- "status"          # event count (0/1)
+pois_offset     <- "time_months_log" # precomputed log offset
+
+# ─── DINA tuning ─────────────────────────────────────────────────────────
+dina_n_folds    <- 2L                # cross-fitting folds inside each DINA fit
+dina_seed       <- 8316951L
+
+# ─── Harm threshold (natural-parameter scale: log-HR for Cox,
+#     log-IRR for Poisson; same value since the ratio threshold is the same)
+m_diff          <- log(1.25)         # = 0.2231; matches FS hr.threshold = 1.25
+n_min           <- 60L               # matches FS n.min
+
+# ─── Bootstrap ───────────────────────────────────────────────────────────
+NB              <- 500L              # bootstrap iterations (use 1000+ for production)
+boot_seed       <- 8316951L
+
+# ─── Confidence level ────────────────────────────────────────────────────
+alpha           <- 0.05
+```
+
+# Data: German Breast Cancer Study Group Trial
+
+```{r data-setup}
+df.analysis <- gbsg
+
+df.analysis <- within(df.analysis, {
+  id              <- seq_len(nrow(df.analysis))
+  time_months     <- rfstime / 30.4375
+  time_months_log <- log(pmax(time_months, 1e-6))
+  grade3          <- as.integer(ifelse(grade == "3", 1, 0))
+})
+
+cat("Sample size:    ", nrow(df.analysis), "\n")
+cat("Events:         ", sum(df.analysis[[cox_status]]),
+    sprintf(" (%.1f%%)\n",
+            100 * mean(df.analysis[[cox_status]])))
+cat("Covariates:     ", paste(confounders, collapse = ", "), "\n")
+cat("Cox outcome:    ", cox_outcome, "(+ status: ", cox_status, ")\n", sep = "")
+cat("Poisson outcome:", pois_outcome, "(offset: ", pois_offset, ")\n", sep = "")
+```
+
+# ITT Sanity Check: Cox vs. Poisson + Offset
+
+Quick verification that the Poisson + offset approximation lines up
+with Cox at the ITT level before running the DINA branches.
+
+```{r itt-sanity}
+cox_itt <- survival::coxph(
+  survival::Surv(time_months, status) ~ hormon,
+  data = df.analysis
+)
+pois_itt <- stats::glm(
+  status ~ hormon,
+  family = stats::poisson(),
+  offset = df.analysis$time_months_log,
+  data = df.analysis
+)
+
+itt_table <- data.table(
+  Quantity = c("Cox  HR",
+               "Poisson IRR",
+               "Absolute difference"),
+  Value    = c(
+    sprintf("%.4f", exp(stats::coef(cox_itt))),
+    sprintf("%.4f", exp(stats::coef(pois_itt)[["hormon"]])),
+    sprintf("%.4f", abs(exp(stats::coef(cox_itt)) -
+                        exp(stats::coef(pois_itt)[["hormon"]])))
+  )
+)
+
+itt_table |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = "ITT-level Cox vs. Poisson + offset",
+    subtitle = "Sanity check before subgroup search"
+  )
+```
+
+# Part I: DINA Cox Analysis
+
+## Fit cross-fit DINA Cox model
+
+```{r dina-cox-fit}
+t0 <- proc.time()
+
+fit_dina_cox <- dina(
+  df         = df.analysis,
+  outcome    = cox_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "cox",
+  status     = cox_status,
+  n_folds    = dina_n_folds,
+  seed       = dina_seed
+)
+
+timings$dina_cox_fit <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Cox fit completed in",
+    round(timings$dina_cox_fit, 1), "seconds\n")
+```
+
+## Subgroup search (sandwich Wald CI)
+
+`m_diff = log(1.25) ≈ 0.223` on the log-HR scale corresponds to the
+HR ≥ 1.25 screening threshold used by ForestSearch.
+
+```{r dina-cox-subgroup}
+sg_cox <- dina_subgroup(
+  fit        = fit_dina_cox,
+  df         = df.analysis,
+  covariates = confounders,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha
+)
+
+print(sg_cox)
+```
+
+## Selection-adjusted bootstrap inference
+
+```{r dina-cox-bootstrap}
+t0 <- proc.time()
+
+future::plan(future::multisession, workers = n_cores)
+
+bs_cox <- dina_subgroup_bootstrap(
+  df         = df.analysis,
+  outcome    = cox_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "cox",
+  status     = cox_status,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha,
+  n_boot     = NB,
+  parallel   = "boots",
+  n_folds    = dina_n_folds,
+  seed       = boot_seed
+)
+
+future::plan("sequential")
+gc(verbose = FALSE)
+
+timings$dina_cox_boot <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Cox bootstrap completed in",
+    round(timings$dina_cox_boot / 60, 2), "minutes\n")
+```
+
+```{r dina-cox-bootstrap-print}
+print(bs_cox)
+```
+
+# Part II: DINA Poisson + Offset Analysis
+
+The Poisson + offset model approximates the Cox model under
+proportional hazards. Estimands on the log-rate scale are
+interpreted analogously to log-HR for Cox.
+
+## Fit cross-fit DINA Poisson + offset model
+
+```{r dina-pois-fit}
+t0 <- proc.time()
+
+# NOTE on offset argument naming: if dina() expects `offset.name` rather
+# than `offset` for the column-name interface, rename the argument here.
+fit_dina_pois <- dina(
+  df         = df.analysis,
+  outcome    = pois_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "poisson",
+  offset     = pois_offset,
+  n_folds    = dina_n_folds,
+  seed       = dina_seed
+)
+
+timings$dina_pois_fit <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Poisson fit completed in",
+    round(timings$dina_pois_fit, 1), "seconds\n")
+```
+
+## Subgroup search
+
+`m_diff = log(1.25)` on the log-IRR scale — same value as Cox, since
+the ratio threshold (1.25) is conceptually the same target.
+
+```{r dina-pois-subgroup}
+sg_pois <- dina_subgroup(
+  fit        = fit_dina_pois,
+  df         = df.analysis,
+  covariates = confounders,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha
+)
+
+print(sg_pois)
+```
+
+## Selection-adjusted bootstrap inference
+
+```{r dina-pois-bootstrap}
+t0 <- proc.time()
+
+future::plan(future::multisession, workers = n_cores)
+
+bs_pois <- dina_subgroup_bootstrap(
+  df         = df.analysis,
+  outcome    = pois_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "poisson",
+  offset     = pois_offset,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha,
+  n_boot     = NB,
+  parallel   = "boots",
+  n_folds    = dina_n_folds,
+  seed       = boot_seed
+)
+
+future::plan("sequential")
+gc(verbose = FALSE)
+
+timings$dina_pois_boot <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Poisson bootstrap completed in",
+    round(timings$dina_pois_boot / 60, 2), "minutes\n")
+```
+
+```{r dina-pois-bootstrap-print}
+print(bs_pois)
+```
+
+# Part III: DINA Cox vs. DINA Poisson Alignment
+
+## Helper functions
+
+```{r alignment-helpers}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Helper to format a (covariate, direction, threshold) signature
+fmt_signature <- function(sg) {
+  if (!isTRUE(sg$found)) return("—")
+  cmp <- if (sg$direction == "left") "<=" else ">="
+  sprintf("%s %s %.3f", sg$covariate, cmp, sg$threshold)
+}
+
+# Helper to format a CI on the ratio scale (exponentiated)
+fmt_ratio_ci <- function(ci, digits = 3L) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.*f, %.*f]",
+          digits, exp(ci[["lower"]]),
+          digits, exp(ci[["upper"]]))
+}
+
+# Helper to format a CI on the log scale (raw)
+fmt_log_ci <- function(ci, digits = 3L) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.*f, %.*f]",
+          digits, ci[["lower"]],
+          digits, ci[["upper"]])
+}
+
+# Helper to format an integer CI (n_subgroup)
+fmt_int_ci <- function(ci) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.0f, %.0f]", ci[["lower"]], ci[["upper"]])
+}
+
+# Helper: top selection frequency line
+fmt_top_selections <- function(bs, k = 3L) {
+  if (is.null(bs$selection_frequency) || bs$n_boot_found == 0L) return("—")
+  sel_long <- as.data.frame(bs$selection_frequency,
+                            stringsAsFactors = FALSE)
+  sel_long <- sel_long[sel_long$Freq > 0L, , drop = FALSE]
+  sel_long <- sel_long[order(-sel_long$Freq), , drop = FALSE]
+  top <- head(sel_long, k)
+  paste(sprintf("%s (%s): %d/%d (%.0f%%)",
+                top$covariate, top$direction, top$Freq,
+                bs$n_boot_found,
+                100 * top$Freq / bs$n_boot_found),
+        collapse = "; ")
+}
+
+# Defensive Wald-CI extractor from a dina_subgroup result.
+# Tries several plausible field-name conventions before falling back
+# to (NA, NA).  Adjust as needed once the actual field names are
+# confirmed.
+extract_wald_ci <- function(sg) {
+  na_ci <- c(lower = NA_real_, upper = NA_real_)
+  if (!isTRUE(sg$found)) return(na_ci)
+
+  # Common length-2 vector field names
+  vec_candidates <- c("mean_tau_ci", "wald_ci", "ci")
+  for (cand in vec_candidates) {
+    if (cand %in% names(sg) && length(sg[[cand]]) == 2L) {
+      v <- as.numeric(sg[[cand]])
+      return(c(lower = v[1L], upper = v[2L]))
+    }
+  }
+
+  # Common paired scalar field names
+  pair_candidates <- list(
+    c("mean_tau_ci_lower", "mean_tau_ci_upper"),
+    c("mean_tau_ci_lo",    "mean_tau_ci_hi"),
+    c("ci_lower",          "ci_upper"),
+    c("lower",             "upper")
+  )
+  for (cand in pair_candidates) {
+    if (all(cand %in% names(sg))) {
+      return(c(lower = as.numeric(sg[[cand[1L]]]),
+               upper = as.numeric(sg[[cand[2L]]])))
+    }
+  }
+
+  na_ci
+}
+```
+
+## Side-by-side summary table
+
+```{r alignment-table}
+# Pull common pieces
+pt_cox  <- bs_cox$point
+pt_pois <- bs_pois$point
+
+# Extract Wald CIs defensively (try multiple field-name conventions)
+wald_cox  <- extract_wald_ci(pt_cox)
+wald_pois <- extract_wald_ci(pt_pois)
+
+# Build the comparison rows.  Log-scale rows are the natural DINA
+# output; ratio-scale rows are the exponentiated interpretation (HR
+# for Cox, IRR for Poisson).
+align_tbl <- data.table(
+  Field = c(
+    "Discovered subgroup signature",
+    "n_subgroup",
+    "Bootstrap found / total",
+    "Bootstrap failed",
+    "Modal-match iters / found",
+    "Point: mean tau-hat (log scale)",
+    "Point: exp(mean tau-hat) (ratio scale)",
+    "Sandwich Wald CI (log scale)",
+    "Sandwich Wald CI (ratio scale)",
+    "Bootstrap effect CI (log scale)",
+    "Bootstrap effect CI (ratio scale)",
+    "n_subgroup CI (modal-match)",
+    "Threshold CI (modal-match)",
+    "Top (covariate, direction) selections"
+  ),
+  `DINA Cox (HR)` = c(
+    fmt_signature(pt_cox),
+    sprintf("%d / %d", pt_cox$n_subgroup %||% NA, pt_cox$n_total %||% NA),
+    sprintf("%d / %d", bs_cox$n_boot_found, bs_cox$n_boot),
+    sprintf("%d", bs_cox$n_boot_failed),
+    if (!is.na(bs_cox$n_modal_match))
+      sprintf("%d / %d", bs_cox$n_modal_match, bs_cox$n_boot_found)
+    else "—",
+    sprintf("%.3f", pt_cox$mean_tau_hat %||% NA_real_),
+    sprintf("%.3f", exp(pt_cox$mean_tau_hat %||% NA_real_)),
+    fmt_log_ci(wald_cox),
+    fmt_ratio_ci(wald_cox),
+    fmt_log_ci(bs_cox$effect_ci),
+    fmt_ratio_ci(bs_cox$effect_ci),
+    fmt_int_ci(bs_cox$n_subgroup_ci),
+    fmt_log_ci(bs_cox$threshold_ci),
+    fmt_top_selections(bs_cox)
+  ),
+  `DINA Poisson + offset (IRR)` = c(
+    fmt_signature(pt_pois),
+    sprintf("%d / %d", pt_pois$n_subgroup %||% NA, pt_pois$n_total %||% NA),
+    sprintf("%d / %d", bs_pois$n_boot_found, bs_pois$n_boot),
+    sprintf("%d", bs_pois$n_boot_failed),
+    if (!is.na(bs_pois$n_modal_match))
+      sprintf("%d / %d", bs_pois$n_modal_match, bs_pois$n_boot_found)
+    else "—",
+    sprintf("%.3f", pt_pois$mean_tau_hat %||% NA_real_),
+    sprintf("%.3f", exp(pt_pois$mean_tau_hat %||% NA_real_)),
+    fmt_log_ci(wald_pois),
+    fmt_ratio_ci(wald_pois),
+    fmt_log_ci(bs_pois$effect_ci),
+    fmt_ratio_ci(bs_pois$effect_ci),
+    fmt_int_ci(bs_pois$n_subgroup_ci),
+    fmt_log_ci(bs_pois$threshold_ci),
+    fmt_top_selections(bs_pois)
+  )
+)
+
+align_tbl |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = gt::md("**DINA Cox vs. DINA Poisson + offset — alignment summary**"),
+    subtitle = sprintf("m_diff = log(1.25) = %.3f;  n_boot = %d;  %d cross-fitting folds",
+                       m_diff, NB, dina_n_folds)
+  ) |>
+  gt::tab_source_note(
+    source_note = gt::md(
+      "*Sandwich Wald CIs are from `dina_subgroup()` on the original data
+       (asymptotic-normal, sandwich variance).  Bootstrap effect CIs are
+       percentile CIs on `a*'beta_b` with `a*` fixed from the original-data
+       subgroup, via `dina_subgroup_bootstrap()`.  If Sandwich CI rows
+       display '—', the field-name conventions in `extract_wald_ci()` need
+       updating to match this DINA build.*"
+    )
+  )
+```
+
+## Subgroup membership concordance
+
+How many patients are jointly classified as "in the harm subgroup"
+by each branch? If the proportional-hazards assumption is defensible,
+the two branches should partition patients similarly.
+
+```{r alignment-membership}
+mask_cox  <- if (isTRUE(pt_cox$found))  pt_cox$mask  else rep(FALSE, nrow(df.analysis))
+mask_pois <- if (isTRUE(pt_pois$found)) pt_pois$mask else rep(FALSE, nrow(df.analysis))
+
+concord_tab <- table(
+  `DINA Cox`     = factor(mask_cox,
+                          levels = c(TRUE, FALSE),
+                          labels = c("In Cox H", "In Cox H^c")),
+  `DINA Poisson` = factor(mask_pois,
+                          levels = c(TRUE, FALSE),
+                          labels = c("In Pois H", "In Pois H^c"))
+)
+
+agree_n   <- concord_tab[1, 1] + concord_tab[2, 2]
+agree_pct <- 100 * agree_n / sum(concord_tab)
+
+# Cohen's kappa (no external package: hand-compute from the 2x2 table)
+n      <- sum(concord_tab)
+p_obs  <- agree_n / n
+p_cox  <- sum(concord_tab[1, ]) / n
+p_pois <- sum(concord_tab[, 1]) / n
+p_exp  <- p_cox * p_pois + (1 - p_cox) * (1 - p_pois)
+kappa  <- (p_obs - p_exp) / (1 - p_exp)
+
+concord_df <- as.data.frame.matrix(concord_tab)
+concord_df$.row <- rownames(concord_df)
+setDT(concord_df)
+setcolorder(concord_df, c(".row", setdiff(names(concord_df), ".row")))
+setnames(concord_df, ".row", " ")
+
+concord_df |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = "Subgroup membership concordance",
+    subtitle = sprintf("Agreement: %d / %d (%.1f%%);  Cohen's kappa = %.3f",
+                       agree_n, n, agree_pct, kappa)
+  )
+```
+
+## Discussion: Cox–Poisson alignment
+
+The natural reading of this table:
+
+* If the **discovered subgroup signature is identical** across
+  branches (same covariate, same direction, similar threshold) and
+  the **bootstrap effect CIs overlap heavily** on the ratio scale,
+  the Poisson + offset approximation is tracking the Cox analysis
+  closely on this dataset.
+* If signatures **differ** but membership concordance is still high
+  and agreement is mostly on the larger complement subgroup, the
+  procedures are picking up the same underlying signal at slightly
+  different boundaries.
+* If signatures differ **and** membership concordance is low, that's
+  a flag — either the proportional-hazards assumption is shaky for
+  the harm subgroup or one branch has selected an unstable boundary.
+  Read the selection-frequency rows together with the threshold CIs
+  to localize which.
+
+# Timings
+
+```{r timings-table}
+tim_df <- data.table(
+  Step       = c("DINA Cox fit",
+                 "DINA Cox bootstrap",
+                 "DINA Poisson fit",
+                 "DINA Poisson bootstrap",
+                 "Total"),
+  `Time (s)` = c(
+    sprintf("%.1f", timings$dina_cox_fit),
+    sprintf("%.1f", timings$dina_cox_boot),
+    sprintf("%.1f", timings$dina_pois_fit),
+    sprintf("%.1f", timings$dina_pois_boot),
+    sprintf("%.1f", (proc.time() - t_doc_start)[["elapsed"]])
+  )
+)
+
+tim_df |>
+  gt::gt() |>
+  gt::tab_header(title = "Timing summary")
+```
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```

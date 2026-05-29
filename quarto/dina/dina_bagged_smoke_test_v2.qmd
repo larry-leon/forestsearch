@@ -1,0 +1,527 @@
+---
+title: "DINA Bagged Smoke Test — IJ Variance Across All Four Families"
+subtitle: "End-to-end pipeline check for dina_bagged() with parallel = \"bags\"; sanity comparisons against plain dina() sandwich variance"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose
+
+Smoke-test `forestsearch::dina_bagged()` end-to-end across all four
+response families, exercising both the data-frame wrapper API and the
+`parallel = "bags"` branch backed by `%dofuture%`.  The bagged
+estimator's reason for existing is the infinitesimal-jackknife (IJ)
+variance, so this document doubles as a test of the IJ machinery and a
+sanity comparison against the sandwich variance returned by plain
+`dina()`.
+
+For each family we:
+
+1. Generate a single synthetic dataset with a known linear treatment
+   contrast $\tau(x) = \beta_0 + x'\beta$ (same DGM as the plain smoke
+   test, for direct comparability).
+2. Fit `dina_bagged()` via the df-based wrapper API with `n_bags = 200L`,
+   2-fold cross-fitting per bag, and `parallel = "bags"` (dispatched via
+   `foreach::foreach() %dofuture% { ... }` against whatever
+   `future::plan()` is active for this document).
+3. Fit plain `dina()` on the same data with 2-fold cross-fitting
+   (no bagging).
+4. Run structural assertions on the bagged object: S3 class hierarchy,
+   coefficient and variance-matrix shapes, all three bagged variance
+   estimators (`vcov_ij_raw`, `vcov_ij_corrected`, `vcov_boot`)
+   well-formed.
+5. Run sanity assertions: bagged point estimates close to plain
+   estimates; IJ SEs in the same ballpark as sandwich SEs; bagged
+   $|\hat\beta - \beta_\text{true}|$ within tolerance and within
+   `z_tol` SE units of truth.
+
+With `n_bags = 200L` and `n/B = 2.5`, the PSD-projection branch is
+unlikely to fire — by design, since the previous low-`n_bags` run had
+already exercised it.  See the smoke-test history for the regime where
+clipping was actively tested.
+
+---
+
+# Setup
+
+```{r setup}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+
+set.seed(20260528)
+
+# ---- Tunable parameters -----------------------------------------------------
+SMOKE <- list(
+  n                   = 500L,
+  d                   = 5L,
+  n_bags              = 200L,
+  n_folds_per_bag     = 2L,
+  parallel            = "bags",   # "bags" or "none"; uses %dofuture%
+  n_workers_frac      = 0.9,      # fraction of availableCores() to use
+  n_workers           = NULL,     # explicit override; NULL => uses n_workers_frac
+  plain_n_folds       = 2L,
+  coef_tol            = 0.50,   # loose; bagging with B=50 is noisy
+  z_tol               = 4.0,
+  bagged_vs_plain_tol = 0.50,   # |bagged - plain| max difference
+  se_ratio_lo         = 0.3,    # IJ_SE / sandwich_SE lower bound
+  se_ratio_hi         = 5.0,    # IJ_SE / sandwich_SE upper bound
+  cox_T0              = 1.0,
+  n_predict           = 30L
+)
+
+BETA_TRUE <- c(0.30, 0.50, -0.30, 0.20, 0.00, 0.00)
+stopifnot(length(BETA_TRUE) == SMOKE$d + 1L)
+```
+
+## `.tc()` accumulating helper
+
+```{r tc-helper}
+.tc_env <- new.env(parent = emptyenv())
+.tc_env$rows <- list()
+
+.tc <- function(label, condition, family, details = "") {
+  passed <- isTRUE(tryCatch(condition, error = function(e) FALSE))
+  msg <- if (!passed && nzchar(details)) details
+         else if (!passed) "condition FALSE or errored"
+         else ""
+  .tc_env$rows[[length(.tc_env$rows) + 1L]] <- data.table(
+    family  = family,
+    label   = label,
+    status  = if (passed) "PASS" else "FAIL",
+    details = msg
+  )
+  invisible(passed)
+}
+
+.tc_table <- function() {
+  if (length(.tc_env$rows) == 0L) {
+    return(data.table(family = character(), label = character(),
+                      status = character(), details = character()))
+  }
+  rbindlist(.tc_env$rows)
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## Parallel plan setup
+
+When `SMOKE$parallel == "bags"`, `dina_bagged()` dispatches each bag to a
+worker via `foreach::foreach() %dofuture% { ... }`.
+
+The number of workers defaults to a *fraction* of the available cores,
+controlled by `SMOKE$n_workers_frac` (`0.9` = 90%).  This leaves headroom
+for the main R process and avoids hitting R's default 128-connection
+ceiling on high-core-count machines (PSOCK workers each consume one
+connection; the limit can be raised via R's `--max-connections=N`
+command-line option).  Set `SMOKE$n_workers` to an explicit integer to
+override the fraction-based calculation.
+
+Workers run from the *installed* package — `devtools::install()` (not
+just `devtools::load_all()`) is required after any code edit to
+`dina_bagged.R` for the parallel branch to see the new code.
+
+```{r plan-setup}
+if (SMOKE$parallel == "bags") {
+  total_cores <- parallelly::availableCores()
+  n_workers <- if (is.null(SMOKE$n_workers)) {
+    max(1L, as.integer(floor(SMOKE$n_workers_frac * total_cores)))
+  } else {
+    as.integer(SMOKE$n_workers)
+  }
+  future::plan(future::multisession, workers = n_workers)
+  message(sprintf(
+    "Parallel plan: %d workers (%.0f%% of %d available cores)",
+    n_workers, 100 * n_workers / total_cores, total_cores
+  ))
+} else {
+  future::plan("sequential")
+  message("Parallel plan: sequential")
+}
+```
+
+# Data simulation
+
+Same DGM as the plain smoke test: $X \sim \mathrm{Unif}[-1,1]^d$,
+$e(x) = \mathrm{logit}^{-1}(0.3 x_1)$, $\mu(x) = 0.2 x_1 - 0.1 x_2$,
+$\tau(x) = \beta_0 + x'\beta$, $\eta_w(x) = \mu(x) + w \tau(x)$.
+
+```{r data-helpers}
+simulate_dina_data <- function(family, n, d, beta_true, cox_T0 = 1.0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x  <- stats::plogis(0.3 * X[, 1])
+  W    <- stats::rbinom(n, 1L, e_x)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]
+  tau_x <- as.numeric(beta_true[1L] + X %*% beta_true[-1L])
+  eta_w <- mu_x + W * tau_x
+
+  out <- list(X = X, W = W, beta_true = beta_true, eta_w = eta_w)
+
+  out$Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      time   <- pmin(t_event, t_censor)
+      status <- as.integer(t_event <= t_censor)
+      data.frame(time = time, status = status)
+    }
+  )
+  out
+}
+```
+
+## Per-family test runner
+
+```{r runner}
+run_bagged_family_tests <- function(family) {
+
+  dat <- simulate_dina_data(
+    family    = family,
+    n         = SMOKE$n,
+    d         = SMOKE$d,
+    beta_true = BETA_TRUE,
+    cox_T0    = SMOKE$cox_T0
+  )
+
+  # Build a single data frame so we can exercise the df-based wrapper API
+  # (`dina_bagged()` / `dina()`) rather than the matrix-based low-level
+  # functions.  Column names: `y` for non-Cox outcome, `time` and `status`
+  # for Cox, `w` for treatment, plus the covariate columns from dat$X.
+  df_fam <- if (family == "cox") {
+    cbind(
+      data.frame(time = dat$Y$time, status = dat$Y$status, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  } else {
+    cbind(
+      data.frame(y = dat$Y, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  }
+  outcome_col  <- if (family == "cox") "time" else "y"
+  status_col   <- if (family == "cox") "status" else NULL
+  covariates_v <- colnames(dat$X)
+
+  cens_type   <- if (family == "cox") "uniform" else NULL
+  cens_params <- if (family == "cox") list(T0 = SMOKE$cox_T0) else list()
+
+  # ---- Bagged DINA via wrapper, exercising parallel = "bags" --------------
+  bag <- tryCatch(
+    dina_bagged(
+      df                = df_fam,
+      outcome           = outcome_col,
+      treatment         = "w",
+      covariates        = covariates_v,
+      family            = family,
+      status            = status_col,
+      n_bags            = SMOKE$n_bags,
+      n_folds_per_bag   = SMOKE$n_folds_per_bag,
+      parallel          = SMOKE$parallel,
+      cens_type         = cens_type,
+      cens_params       = cens_params,
+      seed              = 20260528L,
+      verbose           = FALSE
+    ),
+    error = function(e) {
+      attr(e, "details") <- conditionMessage(e)
+      e
+    }
+  )
+  bag_ok <- !inherits(bag, "error")
+  .tc("dina_bagged() completes without error", bag_ok, family,
+      details = if (!bag_ok) attr(bag, "details") else "")
+  if (!bag_ok) bag <- structure(list(), class = "dina_bagged_failed")
+
+  # ---- Plain DINA on same data via wrapper (for sandwich-SE comparison) ---
+  plain <- tryCatch(
+    dina(
+      df           = df_fam,
+      outcome      = outcome_col,
+      treatment    = "w",
+      covariates   = covariates_v,
+      family       = family,
+      status       = status_col,
+      n_folds      = SMOKE$plain_n_folds,
+      cens_type    = cens_type,
+      cens_params  = cens_params,
+      seed         = 20260528L
+    ),
+    error = function(e) NULL
+  )
+  plain_ok <- !is.null(plain)
+  .tc("plain dina() runs on same data", plain_ok, family)
+
+  # ---- S3 structure of bagged fit -----------------------------------------
+  .tc("returns object inheriting from 'dina_bagged' and 'dina'",
+      inherits(bag, "dina_bagged") && inherits(bag, "dina"), family)
+
+  cfs <- tryCatch(stats::coef(bag), error = function(e) NULL)
+  .tc("coef() returns numeric vector of length d+1",
+      is.numeric(cfs) && length(cfs) == SMOKE$d + 1L, family,
+      details = if (!is.null(cfs)) sprintf("length = %d", length(cfs)) else "")
+  .tc("all coefficients finite",
+      !is.null(cfs) && all(is.finite(cfs)), family)
+
+  V <- tryCatch(stats::vcov(bag), error = function(e) NULL)
+  .tc("vcov() returns matrix of shape (d+1) x (d+1)",
+      is.matrix(V) && all(dim(V) == c(SMOKE$d + 1L, SMOKE$d + 1L)), family)
+  .tc("vcov diagonal non-negative and finite",
+      !is.null(V) && all(diag(V) >= 0) && all(is.finite(diag(V))), family)
+
+  se_ij <- if (!is.null(V)) sqrt(diag(V)) else rep(NA_real_, SMOKE$d + 1L)
+  .tc("all IJ SEs strictly positive",
+      all(se_ij > 0, na.rm = TRUE) && all(is.finite(se_ij)), family)
+
+  ci <- tryCatch(stats::confint(bag), error = function(e) NULL)
+  .tc("confint() returns matrix of shape (d+1) x 2",
+      is.matrix(ci) && all(dim(ci) == c(SMOKE$d + 1L, 2L)), family)
+  .tc("CI lower bound <= upper bound",
+      !is.null(ci) && all(ci[, 1L] <= ci[, 2L]), family)
+
+  X_new <- matrix(stats::runif(SMOKE$n_predict * SMOKE$d, -1, 1),
+                  SMOKE$n_predict, SMOKE$d)
+  pred <- tryCatch(stats::predict(bag, newdata = X_new), error = function(e) NULL)
+  .tc("predict() returns numeric vector of length n_predict",
+      is.numeric(pred) && length(pred) == SMOKE$n_predict, family)
+  .tc("predict() values all finite",
+      !is.null(pred) && all(is.finite(pred)), family)
+
+  smry <- tryCatch(summary(bag), error = function(e) NULL)
+  .tc("summary() returns 'summary.dina' object (via inheritance)",
+      inherits(smry, "summary.dina"), family)
+
+  .tc("print.dina_bagged() runs without error",
+      !inherits(tryCatch(utils::capture.output(print(bag)),
+                         error = function(e) e), "error"), family)
+
+  # ---- Bagged-specific structure -------------------------------------------
+  .tc("bag_coefficients is matrix with shape n_bags_used x (d+1)",
+      is.matrix(bag$bag_coefficients) &&
+        ncol(bag$bag_coefficients) == SMOKE$d + 1L &&
+        nrow(bag$bag_coefficients) >= 1L, family)
+  .tc("bag_inclusion is matrix with shape n x n_bags_used",
+      is.matrix(bag$bag_inclusion) &&
+        nrow(bag$bag_inclusion) == SMOKE$n &&
+        ncol(bag$bag_inclusion) == nrow(bag$bag_coefficients), family)
+  .tc("vcov_ij_raw and vcov_ij_corrected and vcov_boot all matrices",
+      is.matrix(bag$vcov_ij_raw) &&
+        is.matrix(bag$vcov_ij_corrected) &&
+        is.matrix(bag$vcov_boot), family)
+  .tc("vcov_ij_raw shape (d+1) x (d+1)",
+      all(dim(bag$vcov_ij_raw) == c(SMOKE$d + 1L, SMOKE$d + 1L)), family)
+
+  # ---- All three variance estimators sane ----------------------------------
+  se_raw  <- sqrt(diag(bag$vcov_ij_raw))
+  se_corr <- sqrt(pmax(diag(bag$vcov_ij_corrected), 0))
+  se_boot <- sqrt(diag(bag$vcov_boot))
+  .tc("vcov_ij_raw diagonal non-negative and finite",
+      all(diag(bag$vcov_ij_raw) >= 0) && all(is.finite(diag(bag$vcov_ij_raw))),
+      family)
+  .tc("vcov_boot diagonal positive and finite",
+      all(diag(bag$vcov_boot) > 0) && all(is.finite(diag(bag$vcov_boot))),
+      family)
+  .tc("raw IJ SEs >= corrected IJ SEs (correction subtracts (n/B) V_boot)",
+      all(se_raw + 1e-10 >= se_corr), family,
+      details = sprintf("max corr-raw = %.4f", max(se_corr - se_raw)))
+
+  # ---- Truth comparison ----------------------------------------------------
+  cmp_idx <- if (family == "cox") 2L:(SMOKE$d + 1L) else seq_len(SMOKE$d + 1L)
+
+  if (!is.null(cfs)) {
+    beta_dev <- max(abs(cfs[cmp_idx] - BETA_TRUE[cmp_idx]))
+    .tc("Bagged: max |beta_hat - beta_true| within tolerance",
+        beta_dev < SMOKE$coef_tol, family,
+        details = sprintf("max dev = %.3f (tol %.2f)", beta_dev, SMOKE$coef_tol))
+
+    z_dev <- abs(cfs[cmp_idx] - BETA_TRUE[cmp_idx]) /
+      pmax(se_ij[cmp_idx], .Machine$double.eps)
+    .tc("Bagged: all |beta_hat - beta_true| / IJ_SE within z_tol",
+        all(z_dev < SMOKE$z_tol), family,
+        details = sprintf("max z = %.2f (tol %.1f)", max(z_dev), SMOKE$z_tol))
+  }
+
+  # ---- Sanity vs plain DINA -----------------------------------------------
+  if (plain_ok && !is.null(cfs)) {
+    plain_cfs <- stats::coef(plain)
+    plain_V   <- stats::vcov(plain)
+    se_sand   <- sqrt(diag(plain_V))
+
+    coef_diff <- max(abs(cfs - plain_cfs))
+    .tc("Bagged vs plain DINA: max |bagged - plain| within tolerance",
+        coef_diff < SMOKE$bagged_vs_plain_tol, family,
+        details = sprintf("max diff = %.3f (tol %.2f)",
+                          coef_diff, SMOKE$bagged_vs_plain_tol))
+
+    # IJ SE vs sandwich SE — same ballpark check
+    se_ratio <- se_ij / pmax(se_sand, .Machine$double.eps)
+    .tc("IJ SE / sandwich SE in plausible range",
+        all(se_ratio >= SMOKE$se_ratio_lo & se_ratio <= SMOKE$se_ratio_hi),
+        family,
+        details = sprintf("range = [%.2f, %.2f] (allowed [%.1f, %.1f])",
+                          min(se_ratio), max(se_ratio),
+                          SMOKE$se_ratio_lo, SMOKE$se_ratio_hi))
+  }
+
+  list(bag = bag, plain = plain, dat = dat,
+       cfs = cfs, se_ij = se_ij,
+       se_raw = se_raw, se_corr = se_corr, se_boot = se_boot,
+       plain_cfs = if (plain_ok) stats::coef(plain) else NULL,
+       se_sand   = if (plain_ok) sqrt(diag(stats::vcov(plain))) else NULL)
+}
+
+# Per-family comparison gt: bagged vs plain, with all bagged variance SEs
+family_variance_gt <- function(res, family) {
+  p <- SMOKE$d + 1L
+  rep_na <- function() rep(NA_real_, p)
+
+  tab <- data.table(
+    Coefficient = c("(Intercept)", paste0("x", seq_len(SMOKE$d))),
+    Truth       = BETA_TRUE,
+    Bagged      = as.numeric(res$cfs    %||% rep_na()),
+    Plain       = as.numeric(res$plain_cfs %||% rep_na()),
+    SE_IJ_raw   = as.numeric(res$se_raw  %||% rep_na()),
+    SE_IJ_corr  = as.numeric(res$se_corr %||% rep_na()),
+    SE_boot     = as.numeric(res$se_boot %||% rep_na()),
+    SE_sand     = as.numeric(res$se_sand %||% rep_na())
+  )
+
+  tab[, `Bagged - Truth` := Bagged - Truth]
+  tab[, `IJ/Sand ratio`  := SE_IJ_corr / SE_sand]
+
+  num_cols <- c("Truth", "Bagged", "Plain", "SE_IJ_raw", "SE_IJ_corr",
+                "SE_boot", "SE_sand", "Bagged - Truth", "IJ/Sand ratio")
+
+  tab |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = sprintf("%s family — bagged DINA with three variance estimators",
+                         tools::toTitleCase(family)),
+      subtitle = sprintf("n_bags = %d, %d-fold cross-fitting per bag; plain dina() shown for SE comparison",
+                         SMOKE$n_bags, SMOKE$n_folds_per_bag)
+    ) |>
+    gt::fmt_number(columns = num_cols, decimals = 3) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::cols_label(
+      SE_IJ_raw  = "SE (IJ raw)",
+      SE_IJ_corr = "SE (IJ corrected)",
+      SE_boot    = "SE (bootstrap)",
+      SE_sand    = "SE (sandwich)"
+    )
+}
+```
+
+---
+
+# Gaussian family
+
+```{r family-gaussian}
+res_gauss <- run_bagged_family_tests("gaussian")
+family_variance_gt(res_gauss, "gaussian")
+```
+
+---
+
+# Binomial family
+
+```{r family-binomial}
+res_binom <- run_bagged_family_tests("binomial")
+family_variance_gt(res_binom, "binomial")
+```
+
+---
+
+# Poisson family
+
+```{r family-poisson}
+res_pois <- run_bagged_family_tests("poisson")
+family_variance_gt(res_pois, "poisson")
+```
+
+---
+
+# Cox family
+
+Note: Cox intercept is identified by DINA (it appears explicitly in the
+linear predictor `nu(x) + (W - a(x)) * tau(x)`), so the Cox intercept *is*
+estimated and compared to truth here — unlike the naive-comparison smoke
+test where the naive estimator absorbed it into the baseline hazard.
+
+```{r family-cox}
+res_cox <- run_bagged_family_tests("cox")
+family_variance_gt(res_cox, "cox")
+```
+
+```{r plan-teardown}
+# Reset the future plan and reclaim worker memory before any subsequent
+# parallel-to-sequential work in this session.
+future::plan("sequential")
+gc(verbose = FALSE)
+```
+
+---
+
+# Summary
+
+```{r summary}
+results_tab <- .tc_table()
+n_total <- nrow(results_tab)
+n_pass  <- results_tab[status == "PASS", .N]
+n_fail  <- n_total - n_pass
+
+subtitle_text <- sprintf(
+  "%d / %d assertions passed (%d failures)", n_pass, n_total, n_fail
+)
+
+results_tab |>
+  gt::gt(groupname_col = "family") |>
+  gt::tab_header(
+    title    = gt::md("**Bagged DINA smoke-test summary**"),
+    subtitle = subtitle_text
+  ) |>
+  gt::cols_label(
+    label   = "Assertion",
+    status  = "Status",
+    details = "Details"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4f4dd"),
+    locations = gt::cells_body(rows = status == "PASS")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#f9d4d4"),
+    locations = gt::cells_body(rows = status == "FAIL")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

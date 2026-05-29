@@ -1,0 +1,446 @@
+---
+title: "DINA Smoke Test — All Four Families"
+subtitle: "End-to-end pipeline check with sanity comparisons against naive separate-arms estimators"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: true
+  message: true
+---
+
+# Purpose
+
+Smoke-test `forestsearch::dina_fit()` end-to-end across all four response
+families (Gaussian, binomial, Poisson, Cox). This is **not** a calibration
+or Monte Carlo study — a single synthetic dataset is generated per family
+with a known linear treatment-effect contrast $\tau(x) = \beta_0 + x'\beta$,
+the DINA estimator is fit, and a battery of assertions confirms:
+
+1. The pipeline runs without error.
+2. The returned object has the expected S3 structure (`coef`, `vcov`,
+   `predict`, `confint`, `summary`).
+3. Point estimates land within a loose tolerance of the truth.
+4. Confidence-interval geometry is sane (lower ≤ upper, finite, positive
+   SE).
+5. DINA agrees in broad terms with a **naive separate-arms estimator**
+   (fit one GLM/Cox per treatment arm, take the coefficient difference).
+
+Assertions accumulate via a `.tc()` helper so every check runs regardless
+of upstream failures; a gt pass/fail table is rendered at the bottom.
+
+---
+
+# Setup
+
+```{r setup}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+
+set.seed(20260528)
+
+# ---- Tunable parameters -----------------------------------------------------
+SMOKE <- list(
+  n            = 800L,    # observations per family
+  d            = 5L,      # covariates
+  n_folds      = 2L,      # DINA cross-fitting folds (paper default)
+  coef_tol     = 0.40,    # max |beta_hat - beta_true|, loose smoke margin
+  z_tol        = 4.0,     # |beta_hat - beta_true| / SE, loose smoke margin
+  cox_T0       = 1.0,     # Cox: uniform censoring upper bound
+  n_predict    = 50L      # rows for predict() shape check
+)
+
+# Known truth: tau(x) = BETA_TRUE[1] + x %*% BETA_TRUE[-1]
+# Length d+1; small effects to keep all four families well-conditioned.
+BETA_TRUE <- c(0.30, 0.50, -0.30, 0.20, 0.00, 0.00)
+stopifnot(length(BETA_TRUE) == SMOKE$d + 1L)
+```
+
+## `.tc()` accumulating helper
+
+```{r tc-helper}
+.tc_env <- new.env(parent = emptyenv())
+.tc_env$rows <- list()
+
+#' Record one test outcome
+.tc <- function(label, condition, family, details = "") {
+  passed <- isTRUE(tryCatch(condition, error = function(e) FALSE))
+  if (!passed && nzchar(details)) {
+    msg <- details
+  } else if (!passed) {
+    msg <- "condition FALSE or errored"
+  } else {
+    msg <- ""
+  }
+  .tc_env$rows[[length(.tc_env$rows) + 1L]] <- data.table(
+    family  = family,
+    label   = label,
+    status  = if (passed) "PASS" else "FAIL",
+    details = msg
+  )
+  invisible(passed)
+}
+
+.tc_table <- function() {
+  if (length(.tc_env$rows) == 0L) {
+    return(data.table(family = character(), label = character(),
+                      status = character(), details = character()))
+  }
+  rbindlist(.tc_env$rows)
+}
+```
+
+# Data simulation and naive baseline
+
+For all four families we use the same covariate/treatment-assignment
+structure and a benign linear prognostic effect, varying only how the
+linear predictor maps to the response distribution.
+
+- $X \sim \mathrm{Unif}[-1, 1]^d$
+- Mild confounding: $e(x) = \mathrm{logit}^{-1}(0.3 \, x_1)$
+- $\mu(x) = 0.2 \, x_1 - 0.1 \, x_2$  (prognostic, no treatment)
+- $\tau(x) = \beta_0 + x' \beta$  (linear, per Proposition 1)
+- $\eta_w(x) = \mu(x) + w \, \tau(x)$, for $w \in \{0, 1\}$
+
+The naive baseline fits separate GLMs (or `coxph`) on each treatment arm
+and reports the coefficient difference, i.e., the "SE-learner" of Gao &
+Hastie (2025, Section 5).
+
+```{r data-helpers}
+simulate_dina_data <- function(family, n, d, beta_true, cox_T0 = 1.0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x  <- stats::plogis(0.3 * X[, 1])
+  W    <- stats::rbinom(n, 1L, e_x)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]
+  tau_x <- as.numeric(beta_true[1L] + X %*% beta_true[-1L])
+  eta_w <- mu_x + W * tau_x
+
+  out <- list(X = X, W = W, beta_true = beta_true, eta_w = eta_w)
+
+  out$Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      # Constant baseline hazard => T ~ Exponential(rate = exp(eta_w))
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      time   <- pmin(t_event, t_censor)
+      status <- as.integer(t_event <= t_censor)
+      data.frame(time = time, status = status)
+    }
+  )
+  out
+}
+
+# Naive separate-arms estimator: returns coefficients aligned with DINA's
+# (Intercept, x1, ..., xd) ordering. For Cox the intercept is not
+# identified (absorbed into the baseline hazard), so the first element
+# is NA and we compare slope coefficients only.
+fit_naive <- function(dat, family) {
+  X <- dat$X
+  W <- dat$W
+
+  if (family == "cox") {
+    Y   <- dat$Y
+    df0 <- data.frame(X[W == 0L, , drop = FALSE],
+                      time = Y$time[W == 0L],
+                      status = Y$status[W == 0L])
+    df1 <- data.frame(X[W == 1L, , drop = FALSE],
+                      time = Y$time[W == 1L],
+                      status = Y$status[W == 1L])
+    rhs  <- paste(colnames(X), collapse = " + ")
+    fmla <- stats::as.formula(paste("survival::Surv(time, status) ~", rhs))
+    fit0 <- survival::coxph(fmla, data = df0)
+    fit1 <- survival::coxph(fmla, data = df1)
+    c(`(Intercept)` = NA_real_, stats::coef(fit1) - stats::coef(fit0))
+  } else {
+    Y <- dat$Y
+    glm_fam <- switch(family,
+      gaussian = stats::gaussian(),
+      binomial = stats::binomial(),
+      poisson  = stats::poisson()
+    )
+    df0 <- data.frame(X[W == 0L, , drop = FALSE], .y = Y[W == 0L])
+    df1 <- data.frame(X[W == 1L, , drop = FALSE], .y = Y[W == 1L])
+    rhs  <- paste(colnames(X), collapse = " + ")
+    fmla <- stats::as.formula(paste(".y ~", rhs))
+    fit0 <- stats::glm(fmla, data = df0, family = glm_fam)
+    fit1 <- stats::glm(fmla, data = df1, family = glm_fam)
+    stats::coef(fit1) - stats::coef(fit0)
+  }
+}
+```
+
+## Per-family test runner
+
+```{r runner}
+run_family_tests <- function(family) {
+
+  dat <- simulate_dina_data(
+    family    = family,
+    n         = SMOKE$n,
+    d         = SMOKE$d,
+    beta_true = BETA_TRUE,
+    cox_T0    = SMOKE$cox_T0
+  )
+
+  cens_type   <- if (family == "cox") "uniform" else NULL
+  cens_params <- if (family == "cox") list(T0 = SMOKE$cox_T0) else list()
+
+  fit <- tryCatch(
+    dina_fit(
+      X = dat$X, Y = dat$Y, W = dat$W,
+      family       = family,
+      n_folds      = SMOKE$n_folds,
+      cens_type    = cens_type,
+      cens_params  = cens_params,
+      seed         = 20260528L
+    ),
+    error = function(e) {
+      attr(e, "details") <- conditionMessage(e)
+      e
+    }
+  )
+  fit_ok <- !inherits(fit, "error")
+
+  .tc("dina_fit() completes without error", fit_ok, family,
+      details = if (!fit_ok) attr(fit, "details") else "")
+
+  # If the core fit errored, every downstream assertion records a failure
+  # rather than aborting the document. We push placeholder fit = list().
+  if (!fit_ok) fit <- structure(list(), class = "dina_failed")
+
+  .tc("returns object of class 'dina'", inherits(fit, "dina"), family)
+
+  cfs <- tryCatch(stats::coef(fit), error = function(e) NULL)
+  .tc("coef() returns numeric vector of length d+1",
+      is.numeric(cfs) && length(cfs) == SMOKE$d + 1L,
+      family,
+      details = if (!is.null(cfs)) sprintf("length = %d", length(cfs)) else "")
+  .tc("all coefficients finite",
+      !is.null(cfs) && all(is.finite(cfs)), family)
+
+  V <- tryCatch(stats::vcov(fit), error = function(e) NULL)
+  .tc("vcov() returns matrix of shape (d+1) x (d+1)",
+      is.matrix(V) && all(dim(V) == c(SMOKE$d + 1L, SMOKE$d + 1L)), family)
+  .tc("vcov diagonal non-negative and finite",
+      !is.null(V) && all(diag(V) >= 0) && all(is.finite(diag(V))), family)
+
+  se <- if (!is.null(V)) sqrt(diag(V)) else rep(NA_real_, SMOKE$d + 1L)
+  .tc("all SEs strictly positive",
+      all(se > 0, na.rm = TRUE) && all(is.finite(se)), family)
+
+  ci <- tryCatch(stats::confint(fit), error = function(e) NULL)
+  .tc("confint() returns matrix of shape (d+1) x 2",
+      is.matrix(ci) && all(dim(ci) == c(SMOKE$d + 1L, 2L)), family)
+  .tc("CI lower bound <= upper bound for every coefficient",
+      !is.null(ci) && all(ci[, 1L] <= ci[, 2L]), family)
+
+  X_new <- matrix(stats::runif(SMOKE$n_predict * SMOKE$d, -1, 1),
+                  SMOKE$n_predict, SMOKE$d)
+  pred <- tryCatch(stats::predict(fit, newdata = X_new), error = function(e) NULL)
+  .tc("predict() returns numeric vector of length n_predict",
+      is.numeric(pred) && length(pred) == SMOKE$n_predict, family)
+  .tc("predict() values all finite",
+      !is.null(pred) && all(is.finite(pred)), family)
+
+  smry <- tryCatch(summary(fit), error = function(e) NULL)
+  .tc("summary() returns object of class 'summary.dina'",
+      inherits(smry, "summary.dina"), family)
+
+  # ---- Truth comparison (Cox: skip intercept, not identified) ---------------
+  cmp_idx <- if (family == "cox") 2L:(SMOKE$d + 1L) else seq_len(SMOKE$d + 1L)
+
+  if (!is.null(cfs)) {
+    beta_dev <- max(abs(cfs[cmp_idx] - BETA_TRUE[cmp_idx]))
+    .tc("DINA: max |beta_hat - beta_true| within tolerance",
+        beta_dev < SMOKE$coef_tol, family,
+        details = sprintf("max dev = %.3f (tol %.2f)", beta_dev, SMOKE$coef_tol))
+
+    if (!is.null(V)) {
+      z_dev <- abs(cfs[cmp_idx] - BETA_TRUE[cmp_idx]) /
+        pmax(sqrt(diag(V))[cmp_idx], .Machine$double.eps)
+      .tc("DINA: all |beta_hat - beta_true| / SE within z_tol",
+          all(z_dev < SMOKE$z_tol), family,
+          details = sprintf("max z = %.2f (tol %.1f)", max(z_dev), SMOKE$z_tol))
+    }
+  }
+
+  # ---- Sanity vs naive separate-arms ----------------------------------------
+  naive <- tryCatch(fit_naive(dat, family), error = function(e) NULL)
+  if (!is.null(naive) && !is.null(cfs)) {
+    naive_dev <- max(abs(naive[cmp_idx] - BETA_TRUE[cmp_idx]))
+    .tc("Naive separate-arms: max |beta_naive - beta_true| within tolerance",
+        naive_dev < SMOKE$coef_tol * 1.5, family,
+        details = sprintf("max dev = %.3f", naive_dev))
+
+    cross_dev <- max(abs(cfs[cmp_idx] - naive[cmp_idx]))
+    .tc("DINA and naive estimators in same ballpark (max diff < 1.0)",
+        cross_dev < 1.0, family,
+        details = sprintf("max diff = %.3f", cross_dev))
+  }
+
+  list(fit = fit, dat = dat, naive = naive, cfs = cfs, se = se,
+       fit_ok = fit_ok)
+}
+
+# Helper: per-family comparison gt table (DINA vs naive vs truth)
+family_comparison_gt <- function(res, family) {
+  cfs   <- res$cfs %||% rep(NA_real_, SMOKE$d + 1L)
+  se    <- res$se
+  naive <- res$naive %||% rep(NA_real_, SMOKE$d + 1L)
+
+  tab <- data.table(
+    Coefficient = c("(Intercept)", paste0("x", seq_len(SMOKE$d))),
+    Truth       = BETA_TRUE,
+    DINA        = as.numeric(cfs),
+    DINA_SE     = se,
+    Naive       = as.numeric(naive),
+    `DINA - Truth`  = as.numeric(cfs)   - BETA_TRUE,
+    `Naive - Truth` = as.numeric(naive) - BETA_TRUE
+  )
+
+  tab |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = sprintf("%s family — coefficient comparison",
+                         tools::toTitleCase(family)),
+      subtitle = "DINA estimator vs. naive separate-arms vs. truth"
+    ) |>
+    gt::fmt_number(
+      columns = c("Truth", "DINA", "DINA_SE", "Naive",
+                  "DINA - Truth", "Naive - Truth"),
+      decimals = 3
+    ) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::tab_source_note(
+      source_note = if (family == "cox")
+        gt::md("*Cox intercept is not identified (absorbed into baseline hazard); intercept row reports NA for the naive estimator.*")
+      else
+        ""
+    )
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+---
+
+# Gaussian family
+
+Mean-difference (CATE) setting. The Gaussian path uses the Section 3.2
+simplification $a(x) = e(x)$, $\nu(x) = E[Y \mid X = x]$, so the
+nuisance step fits a single GLM for $\nu$ rather than separate
+$\eta_0, \eta_1$.
+
+```{r family-gaussian}
+res_gauss <- run_family_tests("gaussian")
+family_comparison_gt(res_gauss, "gaussian")
+```
+
+---
+
+# Binomial family
+
+Log-odds-ratio scale. DINA uses separate within-arm logistic GLMs for
+$\eta_0, \eta_1$, with the variance functions $V_w(x) = \mu_w(x)(1 -
+\mu_w(x))$ entering the modified propensity $a(x)$ per Eq. (12).
+
+```{r family-binomial}
+res_binom <- run_family_tests("binomial")
+family_comparison_gt(res_binom, "binomial")
+```
+
+---
+
+# Poisson family
+
+Log mean-ratio (IRR) scale. DINA uses separate within-arm Poisson GLMs
+for $\eta_0, \eta_1$, with $V_w(x) = \mu_w(x) = \exp(\eta_w(x))$ in $a(x)$.
+
+```{r family-poisson}
+res_pois <- run_family_tests("poisson")
+family_comparison_gt(res_pois, "poisson")
+```
+
+---
+
+# Cox family
+
+Log hazard-ratio scale, with right-censoring. Per Eq. (18) of Gao & Hastie
+(2025), the modified propensity $a(x)$ uses per-arm not-censoring
+probabilities $P(C \ge Y \mid W = w, X = x)$ instead of the exponential-family
+variance functions. Here we declare uniform censoring on $[0, T_0]$ with
+$T_0$ matching the data-generation horizon, so DINA computes the
+not-censoring probability via the integration-by-parts identity
+$\int F_Y(t) f_C(t) \, dt$ on a 500-point time grid.
+
+The Cox intercept is not identified (absorbed into the baseline hazard);
+coefficient comparisons skip the intercept row.
+
+```{r family-cox}
+res_cox <- run_family_tests("cox")
+family_comparison_gt(res_cox, "cox")
+```
+
+---
+
+# Summary
+
+```{r summary}
+results_tab <- .tc_table()
+n_total <- nrow(results_tab)
+n_pass  <- results_tab[status == "PASS", .N]
+n_fail  <- n_total - n_pass
+
+subtitle_text <- sprintf(
+  "%d / %d assertions passed (%d failures)", n_pass, n_total, n_fail
+)
+
+results_tab |>
+  gt::gt(groupname_col = "family") |>
+  gt::tab_header(
+    title    = gt::md("**DINA smoke-test summary**"),
+    subtitle = subtitle_text
+  ) |>
+  gt::cols_label(
+    label   = "Assertion",
+    status  = "Status",
+    details = "Details"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4f4dd"),
+    locations = gt::cells_body(rows = status == "PASS")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#f9d4d4"),
+    locations = gt::cells_body(rows = status == "FAIL")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

@@ -1,0 +1,559 @@
+---
+title: "DINA Subgroup Bootstrap Smoke Test — Selection-Adjusted Inference Across All Four Families"
+subtitle: "End-to-end pipeline check for dina_subgroup_bootstrap() with structural and math-sanity assertions"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose
+
+Smoke-test `forestsearch::dina_subgroup_bootstrap()` end-to-end across
+all four response families.  The function provides three complementary
+inference outputs for the harm subgroup discovered by `dina_subgroup()`:
+
+* **Effect CI** on the fixed-subgroup linear functional
+  $a^{*\top}\hat\beta_b$, where $a^* = (1, \bar x_{S^*})$ is held
+  *fixed* from the original-data subgroup and $\hat\beta_b$ is each
+  bootstrap iteration's DINA coefficient vector.  This is the
+  bootstrap analog of `dina_subgroup()`'s sandwich Wald CI, with
+  width reflecting sampling variance of $\hat\beta$.  See
+  `dina_inference_design_notes.md`, Section 4, for the rationale
+  for this choice over a naive bootstrap of `mean_tau_hat`.
+* **Structural stability CIs** on $n_{\text{subgroup}}$ and the
+  threshold $q$, restricted to bootstrap iterations that selected the
+  same `(covariate, direction)` as the original-data subgroup.
+* **Selection-frequency diagnostic** counting how often each
+  `(covariate, direction)` was selected.
+
+This document validates that the function:
+
+1. Runs without error across all four families with `parallel = "boots"`.
+2. Returns the expected `"dina_subgroup_bootstrap"` object with all
+   new fields (`effect_ci`, `effect_dist`, `n_subgroup_ci`,
+   `threshold_ci`, `n_modal_match`) present and well-typed.
+3. Produces an effect CI with non-degenerate width — the headline
+   correctness check that the previous `mean_tau_ci` would have
+   failed by clustering tightly at `m_diff`.
+4. Populates the selection-frequency and stability diagnostics
+   correctly.
+5. Handles the "no subgroup found" path cleanly via a negative-control
+   call with an impossibly large `m_diff`.
+
+Same DGM as the subgroup smoke test (strong β₁ = 1.20 signal on `x1`)
+so a real harm subgroup exists for the bootstrap to discover.  This is
+not a Monte Carlo simulation — single seed per family, single resampling
+scheme, single set of parameters.  Coverage and bias studies belong in
+a separate document.
+
+---
+
+# Setup
+
+```{r setup}
+library(forestsearch)
+library(data.table)
+library(gt)
+
+set.seed(20260528)
+
+SMOKE <- list(
+  n                = 800L,
+  d                = 5L,
+  n_boot           = 100L,     # bootstrap iterations
+  n_folds          = 2L,       # cross-fitting folds inside each DINA fit
+  parallel         = "boots",  # "boots" or "none"
+  n_workers_frac   = 0.9,
+  n_workers        = NULL,
+  n_min            = 60L,
+  alpha            = 0.05,
+  cox_T0           = 1.0
+)
+
+# Strong heterogeneity on x1 only, others zero.
+BETA_TRUE <- c(0.40, 1.20, 0.00, 0.00, 0.00, 0.00)
+stopifnot(length(BETA_TRUE) == SMOKE$d + 1L)
+
+# Family-specific m_diff values: positioned to detect the right-tail
+# harm subgroup on x1.
+M_DIFF_BY_FAMILY <- c(
+  gaussian = 0.80,
+  binomial = 0.80,
+  poisson  = 0.80,
+  cox      = 0.80
+)
+```
+
+## `.tc()` accumulating helper
+
+```{r tc-helper}
+.tc_env <- new.env(parent = emptyenv())
+.tc_env$rows <- list()
+
+.tc <- function(label, condition, family, details = "") {
+  passed <- isTRUE(tryCatch(condition, error = function(e) FALSE))
+  msg <- if (!passed && nzchar(details)) details
+         else if (!passed) "condition FALSE or errored"
+         else ""
+  .tc_env$rows[[length(.tc_env$rows) + 1L]] <- data.table(
+    family  = family,
+    label   = label,
+    status  = if (passed) "PASS" else "FAIL",
+    details = msg
+  )
+  invisible(passed)
+}
+
+.tc_table <- function() {
+  if (length(.tc_env$rows) == 0L) {
+    return(data.table(family = character(), label = character(),
+                      status = character(), details = character()))
+  }
+  rbindlist(.tc_env$rows)
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## Parallel plan setup
+
+```{r plan-setup}
+if (SMOKE$parallel == "boots") {
+  total_cores <- parallelly::availableCores()
+  n_workers <- if (is.null(SMOKE$n_workers)) {
+    max(1L, as.integer(floor(SMOKE$n_workers_frac * total_cores)))
+  } else {
+    as.integer(SMOKE$n_workers)
+  }
+  future::plan(future::multisession, workers = n_workers)
+  message(sprintf(
+    "Parallel plan: %d workers (%.0f%% of %d available cores)",
+    n_workers, 100 * n_workers / total_cores, total_cores
+  ))
+} else {
+  future::plan("sequential")
+  message("Parallel plan: sequential")
+}
+```
+
+# Data simulation
+
+Same DGM as `dina_subgroup_smoke_test.qmd`: $X \sim \mathrm{Unif}[-1, 1]^d$,
+mild propensity confounding via $e(x) = \mathrm{logit}^{-1}(0.3 x_1)$,
+prognostic effect $\mu(x) = 0.2 x_1 - 0.1 x_2$, and a deliberately
+strong treatment-effect heterogeneity $\tau(x) = 0.40 + 1.20 x_1$ so a
+right-tail subgroup on `x1` is the expected discovery.
+
+```{r data-helpers}
+simulate_dina_data <- function(family, n, d, beta_true, cox_T0 = 1.0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x  <- stats::plogis(0.3 * X[, 1])
+  W    <- stats::rbinom(n, 1L, e_x)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]
+  tau_x <- as.numeric(beta_true[1L] + X %*% beta_true[-1L])
+  eta_w <- mu_x + W * tau_x
+
+  out <- list(X = X, W = W, beta_true = beta_true, eta_w = eta_w,
+              tau_x_true = tau_x)
+
+  out$Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      time   <- pmin(t_event, t_censor)
+      status <- as.integer(t_event <= t_censor)
+      data.frame(time = time, status = status)
+    }
+  )
+  out
+}
+
+build_df <- function(dat, family) {
+  if (family == "cox") {
+    cbind(
+      data.frame(time = dat$Y$time, status = dat$Y$status, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  } else {
+    cbind(
+      data.frame(y = dat$Y, w = dat$W),
+      as.data.frame(dat$X)
+    )
+  }
+}
+```
+
+## Per-family test runner
+
+```{r runner}
+run_bootstrap_family_tests <- function(family) {
+  m_diff <- M_DIFF_BY_FAMILY[[family]]
+
+  dat <- simulate_dina_data(
+    family    = family,
+    n         = SMOKE$n,
+    d         = SMOKE$d,
+    beta_true = BETA_TRUE,
+    cox_T0    = SMOKE$cox_T0
+  )
+  df_fam       <- build_df(dat, family)
+  outcome_col  <- if (family == "cox") "time" else "y"
+  status_col   <- if (family == "cox") "status" else NULL
+  covariates_v <- colnames(dat$X)
+
+  cens_type   <- if (family == "cox") "uniform" else NULL
+  cens_params <- if (family == "cox") list(T0 = SMOKE$cox_T0) else list()
+
+  # ---- Main bootstrap call ------------------------------------------------
+  bs <- tryCatch(
+    dina_subgroup_bootstrap(
+      df          = df_fam,
+      outcome     = outcome_col,
+      treatment   = "w",
+      covariates  = covariates_v,
+      family      = family,
+      status      = status_col,
+      m_diff      = m_diff,
+      n_min       = SMOKE$n_min,
+      alpha       = SMOKE$alpha,
+      n_boot      = SMOKE$n_boot,
+      parallel    = SMOKE$parallel,
+      n_folds     = SMOKE$n_folds,
+      cens_type   = cens_type,
+      cens_params = cens_params,
+      seed        = 20260528L,
+      verbose     = FALSE
+    ),
+    error = function(e) {
+      attr(e, "details") <- conditionMessage(e)
+      e
+    }
+  )
+  bs_ok <- !inherits(bs, "error")
+  .tc("dina_subgroup_bootstrap() completes without error", bs_ok, family,
+      details = if (!bs_ok) attr(bs, "details") else "")
+  if (!bs_ok) bs <- structure(list(), class = "dina_subgroup_bootstrap_failed")
+
+  # ---- Structural assertions ---------------------------------------------
+  .tc("returns object of class 'dina_subgroup_bootstrap'",
+      inherits(bs, "dina_subgroup_bootstrap"), family)
+  .tc("point is a 'dina_subgroup' object",
+      inherits(bs$point, "dina_subgroup"), family)
+  .tc("boot_results is a data.frame with n_boot rows",
+      is.data.frame(bs$boot_results) &&
+        nrow(bs$boot_results) == SMOKE$n_boot, family,
+      details = if (is.data.frame(bs$boot_results))
+        sprintf("nrow = %d, n_boot = %d",
+                nrow(bs$boot_results), SMOKE$n_boot) else "")
+  .tc("boot_results has expected columns",
+      all(c("found", "covariate", "direction", "threshold",
+            "n_subgroup", "mean_tau_hat", "failed") %in%
+          names(bs$boot_results)), family)
+  .tc("effect_ci is named length-2 numeric (lower, upper)",
+      is.numeric(bs$effect_ci) && length(bs$effect_ci) == 2L &&
+        identical(names(bs$effect_ci), c("lower", "upper")), family)
+  .tc("n_subgroup_ci is named length-2 numeric (lower, upper)",
+      is.numeric(bs$n_subgroup_ci) && length(bs$n_subgroup_ci) == 2L &&
+        identical(names(bs$n_subgroup_ci), c("lower", "upper")), family)
+  .tc("threshold_ci is named length-2 numeric (lower, upper)",
+      is.numeric(bs$threshold_ci) && length(bs$threshold_ci) == 2L &&
+        identical(names(bs$threshold_ci), c("lower", "upper")), family)
+  .tc("effect_dist has length n_boot",
+      length(bs$effect_dist) == SMOKE$n_boot, family,
+      details = sprintf("len = %d, n_boot = %d",
+                        length(bs$effect_dist), SMOKE$n_boot))
+  .tc("n_boot_found + n_boot_not_found + n_boot_failed equals n_boot",
+      {
+        n_nf <- sum(!is.na(bs$boot_results$found) &
+                    !bs$boot_results$found)
+        bs$n_boot_found + n_nf + bs$n_boot_failed == SMOKE$n_boot
+      },
+      family,
+      details = sprintf("found = %d, failed = %d, total = %d",
+                        bs$n_boot_found, bs$n_boot_failed, SMOKE$n_boot))
+  .tc("print() runs without error",
+      !inherits(tryCatch(utils::capture.output(print(bs)),
+                         error = function(e) e), "error"), family)
+
+  # ---- Math sanity (when point estimate found something) -----------------
+  if (isTRUE(bs$point$found)) {
+    n_fit <- SMOKE$n_boot - bs$n_boot_failed
+    if (n_fit >= 2L) {
+      # Structural assertions on effect_ci
+      .tc("effect_ci lower endpoint <= upper endpoint",
+          bs$effect_ci[["lower"]] <= bs$effect_ci[["upper"]], family,
+          details = sprintf("[%.3f, %.3f]",
+                            bs$effect_ci[["lower"]],
+                            bs$effect_ci[["upper"]]))
+      .tc("effect_ci endpoints finite",
+          all(is.finite(bs$effect_ci)), family)
+      .tc("effect_dist has at least 2 finite values",
+          sum(is.finite(bs$effect_dist)) >= 2L, family)
+      # The percentile CI must contain the median of effect_dist
+      .tc("effect_ci contains median(effect_dist)",
+          {
+            med <- stats::median(bs$effect_dist, na.rm = TRUE)
+            bs$effect_ci[["lower"]] <= med &&
+              med <= bs$effect_ci[["upper"]]
+          }, family)
+      # CI width should be meaningful (this is the headline test the
+      # previous mean_tau_ci would have failed by clustering at m_diff).
+      # 0.05 is a conservative floor; widths in the smoke test are
+      # typically O(0.1-0.5).
+      .tc("effect_ci width is non-degenerate (> 0.05)",
+          (bs$effect_ci[["upper"]] - bs$effect_ci[["lower"]]) > 0.05,
+          family,
+          details = sprintf("width = %.4f",
+                            bs$effect_ci[["upper"]] - bs$effect_ci[["lower"]]))
+    }
+
+    if (!is.na(bs$n_modal_match) && bs$n_modal_match >= 2L) {
+      .tc("n_subgroup_ci endpoints finite when n_modal_match >= 2",
+          all(is.finite(bs$n_subgroup_ci)), family)
+      .tc("threshold_ci endpoints finite when n_modal_match >= 2",
+          all(is.finite(bs$threshold_ci)), family)
+      .tc("n_subgroup_ci lower endpoint <= upper endpoint",
+          bs$n_subgroup_ci[["lower"]] <= bs$n_subgroup_ci[["upper"]],
+          family)
+      .tc("threshold_ci lower endpoint <= upper endpoint",
+          bs$threshold_ci[["lower"]] <= bs$threshold_ci[["upper"]],
+          family)
+    }
+  } else {
+    .tc(sprintf("Point: NOT found at m_diff = %.2f (informational)", m_diff),
+        TRUE, family,
+        details = "No qualifying subgroup on original data.")
+  }
+
+  # ---- Selection-frequency diagnostic ------------------------------------
+  if (bs$n_boot_found > 0L) {
+    .tc("selection_frequency is non-NULL when at least one iter found",
+        !is.null(bs$selection_frequency), family)
+    .tc("selection_frequency entries sum to n_boot_found",
+        sum(bs$selection_frequency) == bs$n_boot_found, family,
+        details = sprintf("sum = %d, n_boot_found = %d",
+                          sum(bs$selection_frequency), bs$n_boot_found))
+  }
+
+  # ---- Negative control: impossibly large m_diff -> no iters found -------
+  bs_null <- tryCatch(
+    dina_subgroup_bootstrap(
+      df = df_fam, outcome = outcome_col, treatment = "w",
+      covariates = covariates_v, family = family, status = status_col,
+      m_diff = 100, n_min = SMOKE$n_min,
+      n_boot = 20L,                        # smaller for speed; same negative result
+      parallel = SMOKE$parallel,
+      n_folds = SMOKE$n_folds,
+      cens_type = cens_type, cens_params = cens_params,
+      seed = 20260528L
+    ),
+    error = function(e) NULL
+  )
+  .tc("Negative control: large m_diff -> n_boot_found == 0",
+      !is.null(bs_null) && bs_null$n_boot_found == 0L, family,
+      details = if (!is.null(bs_null))
+        sprintf("n_boot_found = %d", bs_null$n_boot_found)
+      else "errored")
+  .tc("Negative control: effect_ci is (NA, NA) when point not found",
+      !is.null(bs_null) && all(is.na(bs_null$effect_ci)), family)
+  .tc("Negative control: selection_frequency is NULL when nothing found",
+      !is.null(bs_null) && is.null(bs_null$selection_frequency), family)
+
+  list(family = family, m_diff = m_diff, bs = bs, bs_null = bs_null)
+}
+
+# Per-family gt table: point estimate, effect CI (fixed-subgroup),
+# stability CIs (n_subgroup, threshold), and top selection frequencies
+family_bootstrap_gt <- function(res, family) {
+  bs <- res$bs
+
+  pt_signature <- if (isTRUE(bs$point$found)) {
+    cmp <- if (bs$point$direction == "left") "<=" else ">="
+    sprintf("%s %s %.3f", bs$point$covariate, cmp, bs$point$threshold)
+  } else "—"
+
+  effect_str <- if (all(is.finite(bs$effect_ci))) {
+    sprintf("[%.3f, %.3f]",
+            bs$effect_ci[["lower"]], bs$effect_ci[["upper"]])
+  } else "—"
+
+  n_sg_str <- if (all(is.finite(bs$n_subgroup_ci))) {
+    sprintf("[%.0f, %.0f]",
+            bs$n_subgroup_ci[["lower"]], bs$n_subgroup_ci[["upper"]])
+  } else "—"
+
+  thr_str <- if (all(is.finite(bs$threshold_ci))) {
+    sprintf("[%.3f, %.3f]",
+            bs$threshold_ci[["lower"]], bs$threshold_ci[["upper"]])
+  } else "—"
+
+  modal_match_str <- if (!is.na(bs$n_modal_match))
+    sprintf("%d / %d", bs$n_modal_match, bs$n_boot_found)
+  else "—"
+
+  # Top 3 selection frequencies, if any
+  sel_str <- if (!is.null(bs$selection_frequency) && bs$n_boot_found > 0L) {
+    sel_long <- as.data.frame(bs$selection_frequency,
+                              stringsAsFactors = FALSE)
+    sel_long <- sel_long[sel_long$Freq > 0L, , drop = FALSE]
+    sel_long <- sel_long[order(-sel_long$Freq), , drop = FALSE]
+    top3 <- head(sel_long, 3L)
+    paste(
+      sprintf("%s (%s): %d/%d (%.0f%%)",
+              top3$covariate, top3$direction, top3$Freq,
+              bs$n_boot_found,
+              100 * top3$Freq / bs$n_boot_found),
+      collapse = "; "
+    )
+  } else "—"
+
+  rows <- data.table(
+    Field = c("m_diff",
+              "Point signature",
+              "Point mean_tau_hat",
+              "Bootstrap found / total",
+              "Bootstrap failed",
+              "Effect CI (fixed-subgroup)",
+              "n_subgroup CI (modal-match)",
+              "Threshold CI (modal-match)",
+              "Modal-match iters / found",
+              "Top selections (cov, dir)"),
+    Value = c(
+      sprintf("%.2f", res$m_diff),
+      pt_signature,
+      sprintf("%.3f", bs$point$mean_tau_hat %||% NA_real_),
+      sprintf("%d / %d", bs$n_boot_found, bs$n_boot),
+      sprintf("%d", bs$n_boot_failed),
+      effect_str,
+      n_sg_str,
+      thr_str,
+      modal_match_str,
+      sel_str
+    )
+  )
+
+  rows |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = sprintf("%s family — dina_subgroup_bootstrap() results",
+                         tools::toTitleCase(family)),
+      subtitle = sprintf("n_boot = %d; %d-fold CV per per-iteration DINA fit",
+                         SMOKE$n_boot, SMOKE$n_folds)
+    ) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::tab_source_note(
+      source_note = gt::md(
+        "*True heterogeneity is on `x1` only (β₁ = 1.20).  Effect CI is the
+         bootstrap percentile of `a*'beta_b` with `a*` fixed from the
+         original-data subgroup; stability CIs are over bootstrap-selected
+         subgroups matching the modal (covariate, direction).*"
+      )
+    )
+}
+```
+
+---
+
+# Gaussian family
+
+```{r family-gaussian}
+res_gauss <- run_bootstrap_family_tests("gaussian")
+family_bootstrap_gt(res_gauss, "gaussian")
+```
+
+---
+
+# Binomial family
+
+```{r family-binomial}
+res_binom <- run_bootstrap_family_tests("binomial")
+family_bootstrap_gt(res_binom, "binomial")
+```
+
+---
+
+# Poisson family
+
+```{r family-poisson}
+res_pois <- run_bootstrap_family_tests("poisson")
+family_bootstrap_gt(res_pois, "poisson")
+```
+
+---
+
+# Cox family
+
+```{r family-cox}
+res_cox <- run_bootstrap_family_tests("cox")
+family_bootstrap_gt(res_cox, "cox")
+```
+
+```{r plan-teardown}
+future::plan("sequential")
+gc(verbose = FALSE)
+```
+
+---
+
+# Summary
+
+```{r summary}
+results_tab <- .tc_table()
+n_total <- nrow(results_tab)
+n_pass  <- results_tab[status == "PASS", .N]
+n_fail  <- n_total - n_pass
+
+subtitle_text <- sprintf(
+  "%d / %d assertions passed (%d failures)", n_pass, n_total, n_fail
+)
+
+results_tab |>
+  gt::gt(groupname_col = "family") |>
+  gt::tab_header(
+    title    = gt::md("**DINA subgroup bootstrap smoke-test summary**"),
+    subtitle = subtitle_text
+  ) |>
+  gt::cols_label(
+    label   = "Assertion",
+    status  = "Status",
+    details = "Details"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4f4dd"),
+    locations = gt::cells_body(rows = status == "PASS")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#f9d4d4"),
+    locations = gt::cells_body(rows = status == "FAIL")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

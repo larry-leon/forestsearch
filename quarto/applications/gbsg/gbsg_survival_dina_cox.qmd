@@ -1,0 +1,582 @@
+---
+title: "DINA Cox Survival Analysis — GBSG"
+subtitle: "DINA analog to the ForestSearch GBSG Cox analysis"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+timings <- list()
+t_doc_start <- proc.time()
+```
+
+# Introduction
+
+This vignette is the DINA analog of the *Cox* branch of
+`gbsg_survival_cox_poisson.qmd`. It applies the **DINA**
+(Doubly-robust Iterative Neyman-Orthogonal) estimator to the
+German Breast Cancer Study Group trial via the partial-likelihood
+Cox extension.
+
+The full inference toolkit applied here:
+
+* Cross-fit point estimation via `dina()` (sandwich variance).
+* Threshold-search harm subgroup identification via
+  `dina_subgroup()` with sandwich-variance Wald CI.
+* Selection-adjusted bootstrap percentile CI on the fixed-subgroup
+  linear functional via `dina_subgroup_bootstrap()`.
+* Stability diagnostics: selection-frequency table,
+  `n_subgroup_ci`, `threshold_ci`.
+
+The intent is to mirror the FS doc's Cox-analysis flow on the same
+data with the same parameter conventions, *not* to repeat the FS
+doc's downstream artifacts (CV, KM by subgroup, forest plots). Those
+exist in the FS doc; this document focuses on the DINA inference
+pipeline.
+
+## Deferred: Poisson + offset analog
+
+The FS doc also runs a **Poisson + offset** branch as the natural
+exponential-family approximation to Cox. The analogous DINA branch
+requires offset support in `dina_fit()`, which is not yet
+implemented — `dina_fit()`'s Poisson family treats `Y` as raw counts
+without person-time adjustment. Extending `dina_fit()` to accept an
+`offset = ` argument is a well-scoped enhancement (offset slicing
+through cross-fitting, baseline GLM fits, and step-2; the math is
+clean because the treatment-effect contrast is invariant under a
+shared offset). It's deferred to a future session.
+
+The ITT-level Cox-vs-Poisson sanity check below uses plain
+`survival::coxph()` and `stats::glm()` (no DINA) and is still
+informative as a *population-level* diagnostic of the
+proportional-hazards approximation, even though the subgroup-level
+DINA Poisson + offset analysis awaits the extension.
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(doFuture)
+
+theme_set(theme_minimal(base_size = 12))
+```
+
+## Analysis Parameters
+
+```{r analysis-params}
+#| code-fold: false
+
+# ─── Shared parameters ───────────────────────────────────────────────────
+n_cores         <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+confounders     <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+id_col          <- "id"
+treat_col       <- "hormon"
+
+# ─── DINA Cox outcome columns ────────────────────────────────────────────
+cox_outcome     <- "time_months"
+cox_status      <- "status"
+
+# ─── DINA tuning ─────────────────────────────────────────────────────────
+dina_n_folds    <- 2L
+dina_seed       <- 8316951L
+
+# ─── Harm threshold (natural-parameter scale: log-HR for Cox) ────────────
+# DINA's Cox target is log-HR (the natural parameter of the partial-
+# likelihood model), NOT risk difference.  So m_diff is on the log-HR
+# scale.  First-pass exploration uses 0.0 -- "any harm signal", HR >= 1.0.
+# For clinically-meaningful harm matching the FS hr.threshold = 1.25,
+# use log(1.25) approx 0.2231 in a follow-up run.
+m_diff          <- 0.0
+n_min           <- 60L               # matches FS n.min
+
+# ─── Bootstrap ───────────────────────────────────────────────────────────
+NB              <- 500L              # bootstrap iterations (use 1000+ for production)
+boot_seed       <- 8316951L
+
+# ─── Confidence level ────────────────────────────────────────────────────
+alpha           <- 0.05
+```
+
+# Data: German Breast Cancer Study Group Trial
+
+```{r data-setup}
+df.analysis <- gbsg
+
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- as.integer(ifelse(grade == "3", 1, 0))
+})
+
+cat("Sample size:    ", nrow(df.analysis), "\n")
+cat("Events:         ", sum(df.analysis[[cox_status]]),
+    sprintf(" (%.1f%%)\n",
+            100 * mean(df.analysis[[cox_status]])))
+cat("Covariates:     ", paste(confounders, collapse = ", "), "\n")
+cat("Cox outcome:    ", cox_outcome, "(+ status: ", cox_status, ")\n", sep = "")
+```
+
+# ITT-Level Cox vs. Poisson + Offset Sanity Check
+
+A *population-level* sanity check that the Poisson + offset
+approximation lines up with Cox at the ITT level on this dataset.
+This uses plain `survival::coxph()` and `stats::glm()` (no DINA),
+so it does not depend on the deferred DINA offset extension. The
+purpose is to flag any gross mismatch at the population level that
+would already cast doubt on a downstream Cox-vs-Poisson alignment
+analysis at the subgroup level.
+
+```{r itt-sanity}
+df.analysis$time_months_log <- log(pmax(df.analysis$time_months, 1e-6))
+
+cox_itt <- survival::coxph(
+  survival::Surv(time_months, status) ~ hormon,
+  data = df.analysis
+)
+pois_itt <- stats::glm(
+  status ~ hormon,
+  family = stats::poisson(),
+  offset = df.analysis$time_months_log,
+  data = df.analysis
+)
+
+itt_table <- data.table(
+  Quantity = c("Cox  HR",
+               "Poisson IRR",
+               "Absolute difference"),
+  Value    = c(
+    sprintf("%.4f", exp(stats::coef(cox_itt))),
+    sprintf("%.4f", exp(stats::coef(pois_itt)[["hormon"]])),
+    sprintf("%.4f", abs(exp(stats::coef(cox_itt)) -
+                        exp(stats::coef(pois_itt)[["hormon"]])))
+  )
+)
+
+itt_table |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = "ITT-level Cox vs. Poisson + offset",
+    subtitle = "Population-level proportional-hazards sanity check"
+  )
+```
+
+# DINA Cox Analysis
+
+## Fit cross-fit DINA Cox model
+
+```{r dina-cox-fit}
+t0 <- proc.time()
+
+fit_dina_cox <- dina(
+  df         = df.analysis,
+  outcome    = cox_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "cox",
+  status     = cox_status,
+  n_folds    = dina_n_folds,
+  seed       = dina_seed
+)
+
+timings$dina_cox_fit <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Cox fit completed in",
+    round(timings$dina_cox_fit, 1), "seconds\n")
+```
+
+## Subgroup search (sandwich Wald CI)
+
+### Scale: log-HR for Cox
+
+DINA targets the natural-parameter contrast
+$\tau(x) = \beta_0 + x^\top \beta_{1:d}$, which lies on the
+natural-parameter scale of the family. The interpretation
+therefore differs across families:
+
+| Family | Natural-parameter scale | Interpretation of $\tau(x)$ |
+|---|---|---|
+| Gaussian | mean | mean difference (i.e., "risk difference" in the colloquial sense) |
+| Binomial | logit | log odds ratio |
+| Poisson | log rate | log incidence rate ratio |
+| Cox | log hazard | log hazard ratio |
+
+For the Cox family, the natural parameter is the log hazard (the
+linear predictor of the partial-likelihood model), so `m_diff` is
+on the **log-HR scale** — not a risk difference. The "DIfference in
+NAtural parameters" name is precise: it's a difference of *natural
+parameters*, and what those parameters mean depends on the family's
+GLM link.
+
+### Threshold: 0.0 as a permissive first pass
+
+`m_diff = 0.0` asks for "the largest subgroup with mean
+log-HR $\geq 0$", equivalently HR $\geq 1.0$ — any indication of
+harm at all, regardless of magnitude. For clinically-meaningful
+harm matching the FS `hr.threshold = 1.25`, use
+$\log(1.25) \approx 0.223$ in a follow-up run.
+
+Two practical notes about what to expect at this permissive
+threshold:
+
+1. **The discovered subgroup may differ from the FS finding.** A
+   more permissive threshold often picks up *larger* subgroups
+   (since more of the population satisfies the weaker harm
+   condition), and may also surface a *different covariate* if
+   small effects accumulate across a big subgroup. The FS Cox
+   finding (Estrogen $\leq 0$ with HR $\approx 1.5$) should still
+   be visible if it's real, but the threshold-search optimization
+   may prefer a different cut at the lower threshold.
+
+2. **Selection stability may drop.** With $m_{\text{diff}}$ near
+   zero, multiple covariates can satisfy the harm condition on
+   bootstrap replicates, so `selection_frequency` may be more
+   diffuse and `n_modal_match` smaller than at a stricter
+   threshold. The `effect_ci` interpretation stays clean — it is a
+   percentile CI on a fixed-subgroup linear functional regardless
+   of threshold — but the stability diagnostics
+   (`n_subgroup_ci`, `threshold_ci`) may look noisier.
+
+Both behaviors are expected and informative; they are what makes
+$m_{\text{diff}} = 0.0$ a useful first-pass exploration.
+
+### Direction
+
+`direction = "both"` allows either tail of any covariate. The FS
+Cox analysis discovered Estrogen $\leq 0$ (a *left*-direction
+subgroup on `er`), so we expect DINA to surface something in that
+neighborhood.
+
+```{r dina-cox-subgroup}
+sg_cox <- dina_subgroup(
+  fit        = fit_dina_cox,
+  df         = df.analysis,
+  covariates = confounders,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha
+)
+
+print(sg_cox)
+
+# Gate the downstream bootstrap and summary on whether a subgroup was
+# found.  The bootstrap targets the fixed-subgroup linear functional
+# a*' beta with a* derived from the original-data subgroup, so it is
+# undefined when no subgroup is identified.
+run_boot <- isTRUE(sg_cox$found)
+timings$dina_cox_boot <- NA_real_   # placeholder; overwritten if bootstrap runs
+
+if (run_boot) {
+  cat("\nSubgroup identified -- bootstrap inference will run below.\n")
+} else {
+  cat("\nNo subgroup met the criteria at m_diff =", m_diff,
+      ", n_min =", n_min, ".\n",
+      "Bootstrap inference will be skipped.\n", sep = "")
+}
+```
+
+## Selection-adjusted bootstrap inference
+
+The bootstrap targets the fixed-subgroup linear functional
+$a^{*\top} \beta$, where $a^* = (1, \bar{x}_{S^*})$ is fixed from
+the original-data subgroup $S^*$. If `dina_subgroup()` did not
+identify a subgroup, $a^*$ is undefined and the bootstrap is
+skipped; the chunks below are evaluated conditionally on
+`run_boot`.
+
+```{r dina-cox-bootstrap}
+#| eval: !expr run_boot
+t0 <- proc.time()
+
+future::plan(future::multisession, workers = n_cores)
+
+bs_cox <- dina_subgroup_bootstrap(
+  df         = df.analysis,
+  outcome    = cox_outcome,
+  treatment  = treat_col,
+  covariates = confounders,
+  family     = "cox",
+  status     = cox_status,
+  m_diff     = m_diff,
+  n_min      = n_min,
+  direction  = "both",
+  alpha      = alpha,
+  n_boot     = NB,
+  parallel   = "boots",
+  n_folds    = dina_n_folds,
+  seed       = boot_seed
+)
+
+future::plan("sequential")
+gc(verbose = FALSE)
+
+timings$dina_cox_boot <- (proc.time() - t0)[["elapsed"]]
+cat("DINA Cox bootstrap completed in",
+    round(timings$dina_cox_boot / 60, 2), "minutes\n")
+```
+
+```{r dina-cox-bootstrap-print}
+#| eval: !expr run_boot
+print(bs_cox)
+```
+
+## Summary table
+
+```{r dina-cox-summary-helpers}
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+fmt_signature <- function(sg) {
+  if (!isTRUE(sg$found)) return("—")
+  cmp <- if (sg$direction == "left") "<=" else ">="
+  sprintf("%s %s %.3f", sg$covariate, cmp, sg$threshold)
+}
+
+fmt_ratio_ci <- function(ci, digits = 3L) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.*f, %.*f]",
+          digits, exp(ci[["lower"]]),
+          digits, exp(ci[["upper"]]))
+}
+
+fmt_log_ci <- function(ci, digits = 3L) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.*f, %.*f]",
+          digits, ci[["lower"]],
+          digits, ci[["upper"]])
+}
+
+fmt_int_ci <- function(ci) {
+  if (any(!is.finite(ci))) return("—")
+  sprintf("[%.0f, %.0f]", ci[["lower"]], ci[["upper"]])
+}
+
+fmt_top_selections <- function(bs, k = 3L) {
+  if (is.null(bs$selection_frequency) || bs$n_boot_found == 0L) return("—")
+  sel_long <- as.data.frame(bs$selection_frequency,
+                            stringsAsFactors = FALSE)
+  sel_long <- sel_long[sel_long$Freq > 0L, , drop = FALSE]
+  sel_long <- sel_long[order(-sel_long$Freq), , drop = FALSE]
+  top <- head(sel_long, k)
+  paste(sprintf("%s (%s): %d/%d (%.0f%%)",
+                top$covariate, top$direction, top$Freq,
+                bs$n_boot_found,
+                100 * top$Freq / bs$n_boot_found),
+        collapse = "; ")
+}
+
+# Defensive Wald-CI extractor from a dina_subgroup result.
+# Tries several plausible field-name conventions before falling back to NA.
+extract_wald_ci <- function(sg) {
+  na_ci <- c(lower = NA_real_, upper = NA_real_)
+  if (!isTRUE(sg$found)) return(na_ci)
+  vec_candidates <- c("mean_tau_ci", "wald_ci", "ci")
+  for (cand in vec_candidates) {
+    if (cand %in% names(sg) && length(sg[[cand]]) == 2L) {
+      v <- as.numeric(sg[[cand]])
+      return(c(lower = v[1L], upper = v[2L]))
+    }
+  }
+  pair_candidates <- list(
+    c("mean_tau_ci_lower", "mean_tau_ci_upper"),
+    c("mean_tau_ci_lo",    "mean_tau_ci_hi"),
+    c("ci_lower",          "ci_upper"),
+    c("lower",             "upper")
+  )
+  for (cand in pair_candidates) {
+    if (all(cand %in% names(sg))) {
+      return(c(lower = as.numeric(sg[[cand[1L]]]),
+               upper = as.numeric(sg[[cand[2L]]])))
+    }
+  }
+  na_ci
+}
+```
+
+```{r dina-cox-summary-table}
+#| eval: !expr run_boot
+pt_cox   <- bs_cox$point
+wald_cox <- extract_wald_ci(pt_cox)
+
+summary_tbl <- data.table(
+  Field = c(
+    "Discovered subgroup signature",
+    "n_subgroup",
+    "Bootstrap found / total",
+    "Bootstrap failed",
+    "Modal-match iters / found",
+    "Point: mean tau-hat (log-HR)",
+    "Point: exp(mean tau-hat) (HR)",
+    "Sandwich Wald CI (log-HR)",
+    "Sandwich Wald CI (HR)",
+    "Bootstrap effect CI (log-HR)",
+    "Bootstrap effect CI (HR)",
+    "n_subgroup CI (modal-match)",
+    "Threshold CI (modal-match)",
+    "Top (covariate, direction) selections"
+  ),
+  Value = c(
+    fmt_signature(pt_cox),
+    sprintf("%d / %d", pt_cox$n_subgroup %||% NA, pt_cox$n_total %||% NA),
+    sprintf("%d / %d", bs_cox$n_boot_found, bs_cox$n_boot),
+    sprintf("%d", bs_cox$n_boot_failed),
+    if (!is.na(bs_cox$n_modal_match))
+      sprintf("%d / %d", bs_cox$n_modal_match, bs_cox$n_boot_found)
+    else "—",
+    sprintf("%.3f", pt_cox$mean_tau_hat %||% NA_real_),
+    sprintf("%.3f", exp(pt_cox$mean_tau_hat %||% NA_real_)),
+    fmt_log_ci(wald_cox),
+    fmt_ratio_ci(wald_cox),
+    fmt_log_ci(bs_cox$effect_ci),
+    fmt_ratio_ci(bs_cox$effect_ci),
+    fmt_int_ci(bs_cox$n_subgroup_ci),
+    fmt_log_ci(bs_cox$threshold_ci),
+    fmt_top_selections(bs_cox)
+  )
+)
+
+summary_tbl |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = gt::md("**DINA Cox analysis — summary**"),
+    subtitle = sprintf("m_diff = %.3f (permissive first pass; log-HR scale);  n_boot = %d;  %d cross-fitting folds",
+                       m_diff, NB, dina_n_folds)
+  ) |>
+  gt::tab_source_note(
+    source_note = gt::md(
+      "*Sandwich Wald CI is from `dina_subgroup()` on the original data.
+       Bootstrap effect CI is the percentile CI on `a*'beta_b` with `a*`
+       fixed from the original-data subgroup, via
+       `dina_subgroup_bootstrap()`.  If Sandwich CI rows display '—', the
+       field-name conventions in `extract_wald_ci()` need updating to match
+       this DINA build.*"
+    )
+  )
+```
+
+```{r dina-cox-no-subgroup}
+#| eval: !expr !run_boot
+no_sg_tbl <- data.table(
+  Field = c(
+    "Subgroup found",
+    "m_diff (log-HR scale)",
+    "exp(m_diff) (HR scale)",
+    "n_min",
+    "direction",
+    "Covariates searched",
+    "n",
+    "Note"
+  ),
+  Value = c(
+    "No",
+    sprintf("%.3f", m_diff),
+    sprintf("%.3f", exp(m_diff)),
+    sprintf("%d", n_min),
+    "both",
+    paste(confounders, collapse = ", "),
+    sprintf("%d (events: %d)",
+            nrow(df.analysis),
+            sum(df.analysis[[cox_status]])),
+    paste0("Bootstrap inference skipped because the fixed-subgroup ",
+           "linear functional is undefined when no subgroup is ",
+           "identified.")
+  )
+)
+
+no_sg_tbl |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = gt::md("**DINA Cox analysis -- no subgroup identified**"),
+    subtitle = sprintf("m_diff = %.3f (log-HR);  n_min = %d;  cross-fitting folds = %d",
+                       m_diff, n_min, dina_n_folds)
+  ) |>
+  gt::tab_source_note(
+    source_note = gt::md(
+      "*To get a stable result on data where no harm subgroup exists,
+       consider (i) loosening the search constraints (smaller `n_min`,
+       different `direction`), (ii) checking the ITT-level diagnostic
+       above for whether the overall effect direction is consistent
+       with harm at all, or (iii) re-running on a different covariate
+       set.*"
+    )
+  )
+```
+
+# Future Work: DINA Poisson + Offset Extension
+
+The FS doc's Cox-vs-Poisson alignment analysis is the natural
+next deliverable here. It requires:
+
+1. **Extend `dina_fit()` with an `offset` argument.** Pass the
+   offset vector to `.dina_one_pass()`, slice it by train/test
+   indices, and forward to:
+   * `.dina_fit_baselines_glm()` — include the offset in the
+     within-arm `stats::glm()` calls so the returned
+     `eta0_fn` / `eta1_fn` predict on the offset-inclusive
+     linear-predictor scale.
+   * `.dina_step2_glm()` — already passes `offset = nu_a$nu`
+     to `stats::glm.fit()`; if step 1 incorporates the offset
+     into `nu`, step 2 needs no further change.
+2. **Forward `offset` through the wrappers** `dina()`,
+   `dina_bagged()`, and `dina_subgroup_bootstrap()` as a
+   pass-through argument.
+3. **Add a Poisson + offset family** to the
+   `dina_subgroup_bootstrap_smoke_test.qmd` rotation. Synthetic
+   data with person-time exposure, log offset.
+4. **Re-render this document with the Poisson + offset branch
+   restored** and a Part III Cox-Poisson alignment section
+   mirroring the FS doc.
+
+The treatment-effect contrast $\tau(x) = \eta_1(x) - \eta_0(x)$ is
+invariant under a shared offset added to both arms, so DINA's
+estimand is unchanged; only the nuisance fits and step-2 likelihood
+need the offset. Bias-correction would not be needed beyond what
+cross-fitting already handles.
+
+# Timings
+
+```{r timings-table}
+fmt_secs <- function(x) {
+  if (is.null(x) || !is.finite(x)) "—" else sprintf("%.1f", x)
+}
+
+tim_df <- data.table(
+  Step       = c("DINA Cox fit",
+                 "DINA Cox bootstrap",
+                 "Total"),
+  `Time (s)` = c(
+    fmt_secs(timings$dina_cox_fit),
+    fmt_secs(timings$dina_cox_boot),
+    fmt_secs((proc.time() - t_doc_start)[["elapsed"]])
+  )
+)
+
+tim_df |>
+  gt::gt() |>
+  gt::tab_header(title = "Timing summary")
+```
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
