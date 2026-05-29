@@ -171,33 +171,56 @@ dina_bootstrap_cis <- function(df,
                                B          = 100L,
                                level      = 0.95) {
 
-  # Coerce to data.table so the row-indexing idiom below is unambiguous
-  # regardless of whether the caller supplied a data.frame, tibble, or
-  # data.table.
-  dt <- data.table::as.data.table(df)
-  n  <- nrow(dt)
+  # `forestsearch::dina()` -> `.dina_extract_from_df()` uses base-R
+  # data.frame indexing idioms (`df[, cols]`, `df[, cols, drop = FALSE]`)
+  # that misbehave on data.table inputs (the third arg is interpreted as
+  # `by =`).  Coerce to a plain data.frame up-front so all internal row
+  # resamples below are also data.frames.
+  df <- as.data.frame(df)
+  n  <- nrow(df)
   p  <- length(covariates) + 1L                    # +1 for intercept
   out_names <- c("(Intercept)", covariates)
 
   boot_betas <- matrix(NA_real_, nrow = B, ncol = p,
                        dimnames = list(NULL, out_names))
 
+  # Track failures so the bootstrap is resilient to single bad resamples
+  # (e.g., a resample with insufficient treatment-arm balance) while
+  # still surfacing the cause loudly if many or all fits fail.
+  n_err   <- 0L
+  err_msg <- NULL
+
   for (b in seq_len(B)) {
-    idx <- sample.int(n, size = n, replace = TRUE)
+    idx  <- sample.int(n, size = n, replace = TRUE)
+    df_b <- df[idx, , drop = FALSE]
     fit_b <- tryCatch(
       forestsearch::dina(
-        df         = dt[idx],
+        df         = df_b,
         outcome    = outcome,
         treatment  = treatment,
         covariates = covariates,
         family     = "gaussian"
       ),
-      error = function(e) NULL
+      error = function(e) {
+        n_err   <<- n_err + 1L
+        if (is.null(err_msg)) err_msg <<- conditionMessage(e)
+        NULL
+      }
     )
     if (!is.null(fit_b)) {
       cf <- stats::coef(fit_b)
       boot_betas[b, names(cf)] <- as.numeric(cf)
     }
+  }
+
+  if (n_err == B) {
+    stop(sprintf(
+      "dina_bootstrap_cis(): all %d bootstrap fits failed. First error: %s",
+      B, err_msg), call. = FALSE)
+  } else if (n_err > 0L) {
+    warning(sprintf(
+      "dina_bootstrap_cis(): %d of %d bootstrap fits failed. First error: %s",
+      n_err, B, err_msg), call. = FALSE)
   }
 
   alpha <- 1 - level
@@ -332,6 +355,10 @@ results <- forestsearch::collect_results(
   raw_list = raw_results,
   label    = "DINA Table 2 sim"
 )
+
+# collect_results() returns a data.frame; coerce to data.table so the
+# downstream `[, .(...), by = .()]` idioms dispatch correctly.
+results <- data.table::as.data.table(results)
 
 t_run <- (proc.time() - t_run_start)["elapsed"]
 cat(sprintf("Completed %d trials in %.1f minutes (%.1f s / trial avg).\n",
