@@ -366,7 +366,27 @@ $a^{*\top} \beta$, where $a^* = (1, \bar{x}_{S^*})$ is fixed from
 the original-data subgroup $S^*$. If `dina_subgroup()` did not
 identify a subgroup, $a^*$ is undefined and the bootstrap is
 skipped; the chunks below are evaluated conditionally on
-`run_boot`.
+`run_boot`. The upstream `fit_dina_cox` and `sg_cox` are passed
+directly to `dina_subgroup_bootstrap()` via its `fit` and `sg`
+arguments, so the original-data point estimate is reused rather
+than recomputed --- guaranteeing it matches the subgroup search
+above exactly.
+
+With `refit = TRUE`, the bootstrap additionally reports the
+**standard within-subgroup Cox model** --- a plain `coxph()`
+comparing the treatment arms inside the discovered signature
+$\{\texttt{nodes} \ge 12\}$. This is the conventional
+clinical-trial estimate of the treatment hazard ratio in the
+subgroup, distinct from the DINA BLP-analog $a^{*\top}\beta$
+(a projection of the cross-fitted CATE surface); the two coincide
+only under correct linearity. Its bootstrap CI refits the same plain
+Cox model within the *fixed* signature on each resample, so it is
+conditional on the discovered signature in exactly the way the DINA
+`effect_ci` is. Neither interval adjusts for the data-driven
+selection of the signature --- a selection-adjusted (de-biased)
+interval would require the more involved bias-corrected bootstrap of
+Le&oacute;n et al. (2024, Section 3.2), not attempted here; selection
+*stability* is instead summarized by the selection-frequency rows.
 
 ```{r dina-cox-bootstrap}
 #| eval: !expr run_boot
@@ -388,7 +408,13 @@ bs_cox <- dina_subgroup_bootstrap(
   n_boot     = NB,
   parallel   = "boots",
   n_folds    = dina_n_folds,
-  seed       = boot_seed
+  seed       = boot_seed,
+  fit        = fit_dina_cox,   # reuse upstream fit (no internal refit)
+  sg         = sg_cox,         # reuse upstream subgroup -> point estimate identical
+  refit             = TRUE,    # also fit the standard within-subgroup Cox model
+  refit_confounders = "none",  # unadjusted; NULL = DINA covariates minus subgroup factor;
+                               #   or a character vector of column names
+  refit_strata      = NULL     # e.g. c("var") for Cox strata() terms
 )
 
 future::plan("sequential")
@@ -488,12 +514,12 @@ summary_tbl <- data.table(
     "Bootstrap found / total",
     "Bootstrap failed",
     "Modal-match iters / found",
-    "Point: mean tau-hat (log-HR)",
-    "Point: exp(mean tau-hat) (HR)",
-    "Sandwich Wald CI (log-HR)",
-    "Sandwich Wald CI (HR)",
-    "Bootstrap effect CI (log-HR)",
-    "Bootstrap effect CI (HR)",
+    "DINA point: mean tau-hat (log-HR)",
+    "DINA point: exp(mean tau-hat) (HR)",
+    "DINA Sandwich Wald CI (log-HR)",
+    "DINA Sandwich Wald CI (HR)",
+    "DINA bootstrap effect CI (log-HR)",
+    "DINA bootstrap effect CI (HR)",
     "n_subgroup CI (modal-match)",
     "Threshold CI (modal-match)",
     "Top (covariate, direction) selections"
@@ -518,6 +544,53 @@ summary_tbl <- data.table(
   )
 )
 
+# ---- Within-subgroup standard Cox model -------------------------------
+# bs_cox$refit is a dina_subgroup_refit object (the plain Cox model fit
+# within the discovered signature); bs_cox$refit_effect_ci is its
+# bootstrap percentile CI, refit within the SAME fixed signature on each
+# resample.  This is the clinically interpretable treatment HR, distinct
+# from the DINA BLP-analog above.  Both are conditional on the signature.
+rf_cox <- bs_cox$refit
+refit_rows <- if (!is.null(rf_cox)) {
+  adj <- if (length(rf_cox$confounders_used) == 0L) "unadjusted"
+         else paste(rf_cox$confounders_used, collapse = ", ")
+  strata_note <- if (length(rf_cox$strata_used) > 0L)
+    sprintf("; strata: %s", paste(rf_cox$strata_used, collapse = ", "))
+  else ""
+  data.table(
+    Field = c(
+      "Within-subgroup model",
+      "Within-subgroup Cox: events (trt / ctrl)",
+      "Within-subgroup Cox point (log-HR)",
+      "Within-subgroup Cox point (HR)",
+      "Within-subgroup Cox Wald CI (log-HR)",
+      "Within-subgroup Cox Wald CI (HR)",
+      "Within-subgroup Cox bootstrap CI (log-HR)",
+      "Within-subgroup Cox bootstrap CI (HR)"
+    ),
+    Value = c(
+      sprintf("standard Cox within %s (%s%s)",
+              rf_cox$signature, adj, strata_note),
+      sprintf("%d (%d / %d)", rf_cox$n_events %||% NA_integer_,
+              rf_cox$n_events_treated %||% NA_integer_,
+              rf_cox$n_events_control %||% NA_integer_),
+      sprintf("%.3f", rf_cox$effect),
+      sprintf("%.3f", exp(rf_cox$effect)),
+      fmt_log_ci(rf_cox$ci),
+      fmt_ratio_ci(rf_cox$ci),
+      fmt_log_ci(bs_cox$refit_effect_ci),
+      fmt_ratio_ci(bs_cox$refit_effect_ci)
+    )
+  )
+} else {
+  data.table(
+    Field = "Within-subgroup standard model",
+    Value = "— (refit disabled or unavailable)"
+  )
+}
+
+summary_tbl <- rbind(summary_tbl, refit_rows)
+
 summary_tbl |>
   gt::gt() |>
   gt::tab_header(
@@ -527,11 +600,18 @@ summary_tbl |>
   ) |>
   gt::tab_source_note(
     source_note = gt::md(
-      "*Sandwich Wald CI is from `dina_subgroup()` on the original data.
-       Bootstrap effect CI is the percentile CI on `a*'beta_b` with `a*`
-       fixed from the original-data subgroup, via
-       `dina_subgroup_bootstrap()`.  If Sandwich CI rows display '—', the
-       field-name conventions in `extract_wald_ci()` need updating to match
+      "*Two treatment-effect estimates for the discovered subgroup, on the
+       log-HR scale. **DINA** rows are the BLP-analog `a*'beta` (a
+       projection of the cross-fitted CATE surface): Sandwich Wald CI from
+       `dina_subgroup()`, bootstrap percentile CI on `a*'beta_b` with `a*`
+       fixed from the original subgroup. **Within-subgroup Cox** rows are a
+       standard `coxph()` comparing arms inside the discovered signature ---
+       the conventional clinical estimate --- with its own Wald CI and a
+       bootstrap percentile CI refit within the same fixed signature on each
+       resample. The two coincide only under correct linearity. Both CIs are
+       conditional on the discovered signature treated as pre-specified;
+       neither adjusts for signature selection. If Sandwich CI rows display
+       '—', update the field-name conventions in `extract_wald_ci()` to match
        this DINA build.*"
     )
   )

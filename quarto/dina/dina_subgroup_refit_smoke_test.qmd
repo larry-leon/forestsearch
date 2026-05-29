@@ -1,0 +1,644 @@
+---
+title: "DINA Within-Subgroup Standard-Model Smoke Test"
+subtitle: "End-to-end check of dina_subgroup_refit() and the within-subgroup bootstrap CI across all four families"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose
+
+Smoke-test the *standard within-subgroup treatment-effect model* that
+complements DINA's BLP-analog effect:
+
+* `forestsearch::dina_subgroup_refit()` --- fits a plain Cox model (Cox
+  family) or GLM (otherwise) comparing the treatment arms inside a
+  subgroup discovered by `dina_subgroup()`, with optional confounders
+  and Cox stratification.
+* `forestsearch::dina_subgroup_bootstrap(refit = TRUE)` --- reports that
+  standard model on the original data and bootstraps it within the
+  *fixed* discovered signature, giving a within-signature percentile CI
+  directly comparable to the DINA `effect_ci`.
+
+The DGM uses a deliberately strong treatment-effect contrast on `x1`
+($\beta_1 = 1.2$) so a harm subgroup at high `x1` genuinely exists and
+the within-subgroup treatment effect is reliably positive (harm) on the
+natural-parameter scale (log-HR / log-OR / log-IRR / MD).
+
+This is a structural + math-sanity smoke test on a single seed per
+family --- not a Monte Carlo coverage study. Assertions accumulate via
+the standard `.tc()` helper; a gt pass/fail summary renders at the
+bottom.
+
+Key checks per family:
+
+1. `dina_subgroup_refit()` runs, returns a well-formed
+   `"dina_subgroup_refit"` object, with a positive SE, ordered CI, and
+   the correct effect scale / ratio flag.
+2. The three `confounders` modes resolve correctly: `"none"`
+   (unadjusted), `NULL` (DINA covariates minus the subgroup factor),
+   explicit vector.
+3. Cox stratification works (Cox family); `strata` errors for non-Cox
+   families (negative control).
+4. Supplying the subgroup covariate as an explicit confounder warns.
+5. The bootstrap reports `refit`, `refit_effect_ci`, `refit_effect_dist`
+   consistently, the point refit matches a standalone
+   `dina_subgroup_refit()` call, and `refit = FALSE` suppresses them.
+
+---
+
+# Setup
+
+```{r setup}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+
+set.seed(20260529)
+
+SMOKE <- list(
+  n               = 800L,
+  d               = 5L,
+  n_boot          = 60L,        # small; this is a smoke test, not a study
+  n_folds         = 2L,
+  parallel        = "boots",    # "boots" or "none"
+  n_workers_frac  = 0.9,
+  n_workers       = NULL,
+  n_min           = 60L,
+  alpha           = 0.05,
+  cox_T0          = 1.0
+)
+
+# Strong heterogeneity on x1 only; harm subgroup lives at high x1.
+BETA_TRUE <- c(0.40, 1.20, 0.00, 0.00, 0.00, 0.00)
+stopifnot(length(BETA_TRUE) == SMOKE$d + 1L)
+
+# m_diff positioned in the right tail so a right-direction subgroup on x1
+# is the expected discovery (same convention as the other DINA smoke
+# tests).
+M_DIFF_BY_FAMILY <- c(
+  gaussian = 0.80,
+  binomial = 0.80,
+  poisson  = 0.80,
+  cox      = 0.80
+)
+```
+
+## `.tc()` accumulating helper
+
+```{r tc-helper}
+.tc_env <- new.env(parent = emptyenv())
+.tc_env$rows <- list()
+
+.tc <- function(label, condition, family, details = "") {
+  passed <- isTRUE(tryCatch(condition, error = function(e) FALSE))
+  msg <- if (!passed && nzchar(details)) details
+         else if (!passed) "condition FALSE or errored"
+         else ""
+  .tc_env$rows[[length(.tc_env$rows) + 1L]] <- data.table(
+    family  = family,
+    label   = label,
+    status  = if (passed) "PASS" else "FAIL",
+    details = msg
+  )
+  invisible(passed)
+}
+
+.tc_table <- function() {
+  if (length(.tc_env$rows) == 0L) {
+    return(data.table(family = character(), label = character(),
+                      status = character(), details = character()))
+  }
+  rbindlist(.tc_env$rows)
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Did evaluating `expr` raise a warning matching `pattern`?
+gave_warning <- function(expr, pattern) {
+  w <- FALSE
+  withCallingHandlers(
+    tryCatch(force(expr), error = function(e) NULL),
+    warning = function(cnd) {
+      if (grepl(pattern, conditionMessage(cnd))) w <<- TRUE
+      invokeRestart("muffleWarning")
+    }
+  )
+  w
+}
+
+# Did evaluating `expr` raise an error?
+gave_error <- function(expr) {
+  inherits(tryCatch(force(expr), error = function(e) e), "error")
+}
+```
+
+## Parallel plan setup
+
+```{r plan-setup}
+if (SMOKE$parallel == "boots") {
+  total_cores <- parallelly::availableCores()
+  n_workers <- if (is.null(SMOKE$n_workers)) {
+    max(1L, as.integer(floor(SMOKE$n_workers_frac * total_cores)))
+  } else {
+    as.integer(SMOKE$n_workers)
+  }
+  future::plan(future::multisession, workers = n_workers)
+  message(sprintf(
+    "Parallel plan: %d workers (%.0f%% of %d available cores)",
+    n_workers, 100 * n_workers / total_cores, total_cores
+  ))
+} else {
+  future::plan("sequential")
+  message("Parallel plan: sequential")
+}
+```
+
+# Data simulation
+
+Same DGM as the other DINA smoke tests, with a discrete `site` column
+added so Cox stratification can be exercised.
+
+```{r data-helpers}
+simulate_dina_data <- function(family, n, d, beta_true, cox_T0 = 1.0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x  <- stats::plogis(0.3 * X[, 1])
+  W    <- stats::rbinom(n, 1L, e_x)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]
+  tau_x <- as.numeric(beta_true[1L] + X %*% beta_true[-1L])
+  eta_w <- mu_x + W * tau_x
+
+  out <- list(X = X, W = W, beta_true = beta_true, eta_w = eta_w,
+              tau_x_true = tau_x)
+
+  out$Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      time   <- pmin(t_event, t_censor)
+      status <- as.integer(t_event <= t_censor)
+      data.frame(time = time, status = status)
+    }
+  )
+  out
+}
+
+build_df <- function(dat, family) {
+  site <- factor(sample(c("A", "B"), nrow(dat$X), replace = TRUE))
+  if (family == "cox") {
+    cbind(
+      data.frame(time = dat$Y$time, status = dat$Y$status,
+                 w = dat$W, site = site),
+      as.data.frame(dat$X)
+    )
+  } else {
+    cbind(
+      data.frame(y = dat$Y, w = dat$W, site = site),
+      as.data.frame(dat$X)
+    )
+  }
+}
+```
+
+## Per-family runner
+
+```{r runner}
+run_refit_family_tests <- function(family) {
+  m_diff <- M_DIFF_BY_FAMILY[[family]]
+
+  dat <- simulate_dina_data(
+    family = family, n = SMOKE$n, d = SMOKE$d,
+    beta_true = BETA_TRUE, cox_T0 = SMOKE$cox_T0
+  )
+  df_fam       <- build_df(dat, family)
+  outcome_col  <- if (family == "cox") "time" else "y"
+  status_col   <- if (family == "cox") "status" else NULL
+  covariates_v <- colnames(dat$X)
+
+  cens_type   <- if (family == "cox") "uniform" else NULL
+  cens_params <- if (family == "cox") list(T0 = SMOKE$cox_T0) else list()
+
+  # ---- Upstream DINA fit + subgroup ---------------------------------------
+  fit <- tryCatch(
+    dina(df = df_fam, outcome = outcome_col, treatment = "w",
+         covariates = covariates_v, family = family, status = status_col,
+         n_folds = SMOKE$n_folds, cens_type = cens_type,
+         cens_params = cens_params, seed = 20260529L),
+    error = function(e) NULL
+  )
+  .tc("dina() completes", !is.null(fit), family)
+
+  sg <- if (!is.null(fit)) {
+    tryCatch(
+      dina_subgroup(fit = fit, df = df_fam, covariates = covariates_v,
+                    m_diff = m_diff, n_min = SMOKE$n_min, alpha = SMOKE$alpha),
+      error = function(e) NULL
+    )
+  } else NULL
+  .tc("dina_subgroup() completes", !is.null(sg), family)
+  found <- !is.null(sg) && isTRUE(sg$found)
+  .tc("dina_subgroup() found a subgroup at m_diff", found, family,
+      details = sprintf("found = %s", if (is.null(sg)) "NULL"
+                        else as.character(sg$found)))
+
+  scale_expected <- switch(family,
+    cox = "log-HR", binomial = "log-OR",
+    poisson = "log-IRR", gaussian = "MD")
+  ratio_expected <- family != "gaussian"
+
+  rf_none <- NULL
+
+  if (found) {
+    # ---- (1) Unadjusted refit (default) -----------------------------------
+    rf_none <- tryCatch(
+      dina_subgroup_refit(
+        sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+        covariates = covariates_v, status = status_col,
+        confounders = "none", alpha = SMOKE$alpha
+      ),
+      error = function(e) {
+        attr(e, "details") <- conditionMessage(e); e
+      }
+    )
+    ok <- !inherits(rf_none, "error")
+    .tc("dina_subgroup_refit() (unadjusted) completes", ok, family,
+        details = if (!ok) attr(rf_none, "details") else "")
+
+    if (ok) {
+      .tc("returns object of class 'dina_subgroup_refit'",
+          inherits(rf_none, "dina_subgroup_refit"), family)
+      .tc("effect is finite", is.finite(rf_none$effect), family)
+      .tc("SE is positive and finite",
+          is.finite(rf_none$se) && rf_none$se > 0, family)
+      .tc("Wald CI ordered (lower <= effect <= upper)",
+          rf_none$ci[["lower"]] <= rf_none$effect &&
+            rf_none$effect <= rf_none$ci[["upper"]], family)
+      .tc("effect_scale matches family",
+          identical(rf_none$effect_scale, scale_expected), family,
+          details = sprintf("got %s, expected %s",
+                            rf_none$effect_scale, scale_expected))
+      .tc("ratio_scale matches family",
+          identical(rf_none$ratio_scale, ratio_expected), family)
+      .tc("unadjusted: confounders_used is empty",
+          length(rf_none$confounders_used) == 0L, family)
+      .tc("both arms non-empty in subgroup",
+          rf_none$n_treated > 0L && rf_none$n_control > 0L, family,
+          details = sprintf("trt %d, ctrl %d",
+                            rf_none$n_treated, rf_none$n_control))
+      .tc("n_subgroup matches sg$n_subgroup",
+          identical(as.integer(rf_none$n_subgroup),
+                    as.integer(sg$n_subgroup)), family)
+      if (family == "cox") {
+        .tc("Cox: event counts present and consistent",
+            is.finite(rf_none$n_events) &&
+              rf_none$n_events ==
+                rf_none$n_events_treated + rf_none$n_events_control,
+            family)
+      } else {
+        .tc("non-Cox: event counts are NA",
+            is.na(rf_none$n_events), family)
+      }
+      # Directional sanity: harm subgroup at high x1 => positive effect.
+      .tc("effect has expected (harm) sign: > 0",
+          rf_none$effect > 0, family,
+          details = sprintf("effect = %.3f", rf_none$effect))
+      .tc("print() runs without error",
+          !inherits(tryCatch(utils::capture.output(print(rf_none)),
+                             error = function(e) e), "error"), family)
+    }
+
+    # ---- (2) Auto confounders (NULL) --------------------------------------
+    rf_auto <- tryCatch(
+      dina_subgroup_refit(
+        sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+        covariates = covariates_v, status = status_col,
+        confounders = NULL, alpha = SMOKE$alpha
+      ),
+      error = function(e) NULL
+    )
+    .tc("auto-confounders (NULL) completes", !is.null(rf_auto), family)
+    if (!is.null(rf_auto)) {
+      expected_auto <- setdiff(covariates_v, sg$covariate)
+      .tc("auto confounders == DINA covariates minus subgroup factor",
+          setequal(rf_auto$confounders_used, expected_auto), family,
+          details = sprintf("used {%s}; expected {%s}",
+                            paste(rf_auto$confounders_used, collapse = ","),
+                            paste(expected_auto, collapse = ",")))
+    }
+
+    # ---- (3) Explicit confounders -----------------------------------------
+    expl <- setdiff(covariates_v, sg$covariate)[1:2]
+    rf_expl <- tryCatch(
+      dina_subgroup_refit(
+        sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+        covariates = covariates_v, status = status_col,
+        confounders = expl, alpha = SMOKE$alpha
+      ),
+      error = function(e) NULL
+    )
+    .tc("explicit confounders completes", !is.null(rf_expl), family)
+    if (!is.null(rf_expl)) {
+      .tc("explicit confounders_used == specified set",
+          setequal(rf_expl$confounders_used, expl), family)
+    }
+
+    # ---- (4) Warning when subgroup covariate is an explicit confounder ----
+    .tc("warns when explicit confounders include the subgroup covariate",
+        gave_warning(
+          dina_subgroup_refit(
+            sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+            covariates = covariates_v, status = status_col,
+            confounders = c(sg$covariate, expl[1]), alpha = SMOKE$alpha
+          ),
+          pattern = "subgroup-defining covariate"
+        ), family)
+
+    # ---- (5) Strata: works for Cox, errors otherwise ----------------------
+    if (family == "cox") {
+      rf_strata <- tryCatch(
+        dina_subgroup_refit(
+          sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+          covariates = covariates_v, status = status_col,
+          strata = "site", confounders = "none", alpha = SMOKE$alpha
+        ),
+        error = function(e) NULL
+      )
+      .tc("Cox: strata = 'site' completes", !is.null(rf_strata), family)
+      if (!is.null(rf_strata)) {
+        .tc("Cox: strata_used records the strata column",
+            setequal(rf_strata$strata_used, "site"), family)
+        .tc("Cox: stratified effect finite and SE positive",
+            is.finite(rf_strata$effect) && rf_strata$se > 0, family)
+      }
+    } else {
+      .tc("non-Cox: strata raises an error (negative control)",
+          gave_error(
+            dina_subgroup_refit(
+              sg = sg, df = df_fam, treatment = "w", outcome = outcome_col,
+              covariates = covariates_v, status = status_col,
+              strata = "site", confounders = "none", alpha = SMOKE$alpha
+            )
+          ), family)
+    }
+  }
+
+  # ---- (6) Negative control: refit on a not-found subgroup errors ---------
+  sg_null <- if (!is.null(fit)) {
+    tryCatch(
+      dina_subgroup(fit = fit, df = df_fam, covariates = covariates_v,
+                    m_diff = 100, n_min = SMOKE$n_min, alpha = SMOKE$alpha),
+      error = function(e) NULL
+    )
+  } else NULL
+  if (!is.null(sg_null)) {
+    .tc("refit on a not-found subgroup raises an error (negative control)",
+        gave_error(
+          dina_subgroup_refit(
+            sg = sg_null, df = df_fam, treatment = "w", outcome = outcome_col,
+            covariates = covariates_v, status = status_col
+          )
+        ), family)
+  }
+
+  # ---- (7) Bootstrap integration ----------------------------------------
+  bs <- if (found) {
+    tryCatch(
+      dina_subgroup_bootstrap(
+        df = df_fam, outcome = outcome_col, treatment = "w",
+        covariates = covariates_v, family = family, status = status_col,
+        m_diff = m_diff, n_min = SMOKE$n_min, alpha = SMOKE$alpha,
+        n_boot = SMOKE$n_boot, parallel = SMOKE$parallel,
+        n_folds = SMOKE$n_folds, cens_type = cens_type,
+        cens_params = cens_params, seed = 20260529L,
+        fit = fit, sg = sg,
+        refit = TRUE, refit_confounders = "none", refit_strata = NULL
+      ),
+      error = function(e) {
+        attr(e, "details") <- conditionMessage(e); e
+      }
+    )
+  } else NULL
+  bs_ok <- !is.null(bs) && !inherits(bs, "error")
+  .tc("dina_subgroup_bootstrap(refit = TRUE) completes", bs_ok, family,
+      details = if (!is.null(bs) && inherits(bs, "error"))
+        attr(bs, "details") else "")
+
+  if (bs_ok) {
+    .tc("bs$refit is a 'dina_subgroup_refit' object",
+        inherits(bs$refit, "dina_subgroup_refit"), family)
+    .tc("bs$refit_effect_ci is named length-2 numeric (lower, upper)",
+        is.numeric(bs$refit_effect_ci) &&
+          identical(names(bs$refit_effect_ci), c("lower", "upper")), family)
+    .tc("bs$refit_effect_dist has length n_boot",
+        length(bs$refit_effect_dist) == SMOKE$n_boot, family)
+
+    # Point refit inside the bootstrap matches a standalone refit call.
+    if (!is.null(rf_none) && !inherits(rf_none, "error") &&
+        inherits(bs$refit, "dina_subgroup_refit")) {
+      .tc("bootstrap point refit == standalone dina_subgroup_refit()",
+          isTRUE(all.equal(bs$refit$effect, rf_none$effect)), family,
+          details = sprintf("boot %.5f vs standalone %.5f",
+                            bs$refit$effect, rf_none$effect))
+    }
+
+    refit_finite <- bs$refit_effect_dist[is.finite(bs$refit_effect_dist)]
+    if (length(refit_finite) >= 2L) {
+      .tc("refit bootstrap CI ordered and finite",
+          all(is.finite(bs$refit_effect_ci)) &&
+            bs$refit_effect_ci[["lower"]] <= bs$refit_effect_ci[["upper"]],
+          family,
+          details = sprintf("[%.3f, %.3f]",
+                            bs$refit_effect_ci[["lower"]],
+                            bs$refit_effect_ci[["upper"]]))
+    }
+  }
+
+  # ---- (8) refit = FALSE suppresses the within-subgroup outputs ----------
+  bs_no <- if (found) {
+    tryCatch(
+      dina_subgroup_bootstrap(
+        df = df_fam, outcome = outcome_col, treatment = "w",
+        covariates = covariates_v, family = family, status = status_col,
+        m_diff = m_diff, n_min = SMOKE$n_min, alpha = SMOKE$alpha,
+        n_boot = 20L, parallel = SMOKE$parallel,
+        n_folds = SMOKE$n_folds, cens_type = cens_type,
+        cens_params = cens_params, seed = 20260529L,
+        fit = fit, sg = sg, refit = FALSE
+      ),
+      error = function(e) NULL
+    )
+  } else NULL
+  if (!is.null(bs_no)) {
+    .tc("refit = FALSE: bs$refit is NULL",
+        is.null(bs_no$refit), family)
+    .tc("refit = FALSE: refit_effect_ci is (NA, NA)",
+        all(is.na(bs_no$refit_effect_ci)), family)
+  }
+
+  list(family = family, m_diff = m_diff, sg = sg, rf_none = rf_none, bs = bs)
+}
+
+# Per-family gt: DINA effect vs within-subgroup standard-model effect
+family_refit_gt <- function(res, family) {
+  sg <- res$sg
+  rf <- res$rf_none
+  bs <- res$bs
+
+  fmt_ci <- function(ci) {
+    if (is.null(ci) || any(!is.finite(ci))) return("—")
+    sprintf("[%.3f, %.3f]", ci[["lower"]], ci[["upper"]])
+  }
+
+  sig <- if (!is.null(sg) && isTRUE(sg$found)) {
+    cmp <- if (sg$direction == "left") "<=" else ">="
+    sprintf("%s %s %.3f", sg$covariate, cmp, sg$threshold)
+  } else "—"
+
+  dina_eff   <- if (!is.null(sg) && isTRUE(sg$found))
+    sprintf("%.3f", sg$mean_tau_hat) else "—"
+  refit_eff  <- if (!is.null(rf) && !inherits(rf, "error"))
+    sprintf("%.3f", rf$effect) else "—"
+  refit_wald <- if (!is.null(rf) && !inherits(rf, "error"))
+    fmt_ci(rf$ci) else "—"
+  refit_boot <- if (!is.null(bs) && !inherits(bs, "error"))
+    fmt_ci(bs$refit_effect_ci) else "—"
+
+  scale_lab <- switch(family, cox = "log-HR", binomial = "log-OR",
+                      poisson = "log-IRR", gaussian = "MD")
+
+  rows <- data.table(
+    Field = c(
+      "Signature",
+      sprintf("DINA effect (%s)", scale_lab),
+      sprintf("Within-subgroup standard effect (%s)", scale_lab),
+      "Within-subgroup Wald CI",
+      "Within-subgroup bootstrap CI"
+    ),
+    Value = c(sig, dina_eff, refit_eff, refit_wald, refit_boot)
+  )
+
+  rows |>
+    gt::gt() |>
+    gt::tab_header(
+      title    = sprintf("%s family — DINA vs within-subgroup standard model",
+                         tools::toTitleCase(family)),
+      subtitle = sprintf("m_diff = %.2f; n_boot = %d", res$m_diff, SMOKE$n_boot)
+    ) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::tab_source_note(
+      source_note = gt::md(
+        "*Both effects are on the natural-parameter scale. The DINA effect
+         is the BLP-analog; the within-subgroup standard effect is a plain
+         Cox/GLM contrast inside the signature. Both CIs are conditional on
+         the discovered signature.*"
+      )
+    )
+}
+```
+
+---
+
+# Gaussian family
+
+```{r family-gaussian}
+res_gauss <- run_refit_family_tests("gaussian")
+family_refit_gt(res_gauss, "gaussian")
+```
+
+---
+
+# Binomial family
+
+```{r family-binomial}
+res_binom <- run_refit_family_tests("binomial")
+family_refit_gt(res_binom, "binomial")
+```
+
+---
+
+# Poisson family
+
+```{r family-poisson}
+res_pois <- run_refit_family_tests("poisson")
+family_refit_gt(res_pois, "poisson")
+```
+
+---
+
+# Cox family
+
+```{r family-cox}
+res_cox <- run_refit_family_tests("cox")
+family_refit_gt(res_cox, "cox")
+```
+
+```{r plan-teardown}
+future::plan("sequential")
+gc(verbose = FALSE)
+```
+
+---
+
+# Summary
+
+```{r summary}
+results_tab <- .tc_table()
+n_total <- nrow(results_tab)
+n_pass  <- results_tab[status == "PASS", .N]
+n_fail  <- n_total - n_pass
+
+subtitle_text <- sprintf(
+  "%d / %d assertions passed (%d failures)", n_pass, n_total, n_fail
+)
+
+results_tab |>
+  gt::gt(groupname_col = "family") |>
+  gt::tab_header(
+    title    = gt::md("**DINA within-subgroup standard-model smoke-test summary**"),
+    subtitle = subtitle_text
+  ) |>
+  gt::cols_label(
+    label   = "Assertion",
+    status  = "Status",
+    details = "Details"
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#d4f4dd"),
+    locations = gt::cells_body(rows = status == "PASS")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_fill(color = "#f9d4d4"),
+    locations = gt::cells_body(rows = status == "FAIL")
+  ) |>
+  gt::tab_style(
+    style    = gt::cell_text(weight = "bold"),
+    locations = gt::cells_row_groups()
+  ) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```
