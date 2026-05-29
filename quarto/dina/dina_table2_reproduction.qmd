@@ -260,6 +260,19 @@ run_one_trial <- function(trial_id, dgm, sim, true_beta, x_names) {
 
   df <- generate_dina_gaussian(n = sim$n_sample, dgm = dgm, seed = NULL)
 
+  # Full-sample point estimate (the beta-hat that the bootstrap CIs are
+  # built around; needed for the empirical-SE diagnostic).  Coerce to
+  # data.frame because forestsearch::dina() uses base-R data.frame
+  # indexing internally; see comment in dina_bootstrap_cis().
+  fit_full      <- forestsearch::dina(
+    df         = as.data.frame(df),
+    outcome    = "Y",
+    treatment  = "treat",
+    covariates = x_names,
+    family     = "gaussian"
+  )
+  beta_hat_full <- stats::coef(fit_full)
+
   boot <- dina_bootstrap_cis(
     df         = df,
     outcome    = "Y",
@@ -269,6 +282,11 @@ run_one_trial <- function(trial_id, dgm, sim, true_beta, x_names) {
     level      = sim$level
   )
 
+  # Per-coefficient within-trial bootstrap SE (the SD of the B bootstrap
+  # beta-hats around their mean).  This is what an honest bootstrap
+  # variance estimator returns for each coefficient.
+  boot_se <- apply(boot$boot_betas, 2L, stats::sd, na.rm = TRUE)
+
   # Build a long-format result: one row per (coefficient, CI method).
   make_rows <- function(ci_mat, method) {
     coef_names <- rownames(ci_mat)
@@ -276,6 +294,8 @@ run_one_trial <- function(trial_id, dgm, sim, true_beta, x_names) {
       trial    = trial_id,
       coef     = coef_names,
       method   = method,
+      beta_hat = beta_hat_full[coef_names],
+      boot_se  = boot_se[coef_names],
       lower    = ci_mat[, "lower"],
       upper    = ci_mat[, "upper"],
       width    = ci_mat[, "upper"] - ci_mat[, "lower"],
@@ -439,7 +459,70 @@ gt::gt(summary_wide) |>
   )))
 ```
 
-# Diagnostics {#sec-diagnostics}
+# SE diagnostic: empirical vs. bootstrap SE {#sec-se-diag}
+
+If the bootstrap is honest, the mean within-trial bootstrap SE should
+match the empirical SE (the SD of the per-trial point estimates across
+the 100 trials). The paper-implied SE comes from inverting Table 2's
+width: $\text{SE} \approx \text{width} / (2 \cdot 1.96)$.
+
+```{r se-diagnostic}
+# Use percentile rows only.  beta_hat and boot_se are identical across
+# CI methods within a trial; deduplicating avoids double-counting.
+se_compare <- results[
+  method == "percentile",
+  .(empirical_se   = stats::sd(beta_hat,  na.rm = TRUE),
+    mean_boot_se   = mean(boot_se,        na.rm = TRUE),
+    mean_point_est = mean(beta_hat,       na.rm = TRUE),
+    truth          = truth[1]),
+  by = coef
+]
+
+# Paper-implied SE: invert the normal-CI width formula
+z <- stats::qnorm(0.975)
+se_compare <- merge(se_compare, PAPER_REF, by = "coef", all.x = TRUE)
+se_compare[, paper_implied_se := wid_ref / (2 * z)]
+
+# Order rows as in the paper
+row_order <- c("X1", "X2", "X3", "X4", "X5", "(Intercept)")
+se_compare <- se_compare[match(row_order, coef)]
+
+se_compare <- se_compare[
+  , .(coef, truth, mean_point_est,
+      empirical_se, mean_boot_se, paper_implied_se)
+]
+
+gt::gt(se_compare) |>
+  gt::tab_header(
+    title    = gt::md("**SE diagnostic: empirical vs. bootstrap vs. paper-implied**"),
+    subtitle = gt::md(paste0(
+      "Empirical SE = sd(\u03b2-hat) across ", SIM$n_trials,
+      " trials. Mean bootstrap SE = mean across trials of the ",
+      "within-trial sd of ", SIM$n_boot, " bootstrap \u03b2-hats. ",
+      "Paper-implied SE = Table 2 width / (2 \u00d7 1.96)."
+    ))
+  ) |>
+  gt::cols_label(
+    coef             = "Coefficient",
+    truth            = "True \u03b2",
+    mean_point_est   = "Mean \u03b2\u0302",
+    empirical_se     = "Empirical SE",
+    mean_boot_se     = "Mean bootstrap SE",
+    paper_implied_se = "Paper-implied SE"
+  ) |>
+  gt::fmt_number(columns = c(truth, mean_point_est,
+                             empirical_se, mean_boot_se,
+                             paper_implied_se),
+                 decimals = 3) |>
+  gt::tab_source_note(gt::md(paste0(
+    "If **empirical \u2248 mean bootstrap**, the bootstrap variance ",
+    "estimator is unbiased for the estimator's true sampling variance. ",
+    "If **both \u003c paper-implied**, the estimator itself is less ",
+    "variable in this implementation than in the paper's runs."
+  )))
+```
+
+
 
 Distribution of coverage and width across trials, to surface any
 trial-level outliers that the averaged table conceals.
