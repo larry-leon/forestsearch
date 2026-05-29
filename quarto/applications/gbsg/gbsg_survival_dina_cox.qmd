@@ -35,6 +35,10 @@ Cox extension.
 The full inference toolkit applied here:
 
 * Cross-fit point estimation via `dina()` (sandwich variance).
+* Per-covariate linear-projection coefficient table — the DINA
+  parametric analog of the best linear projection (BLP) reported
+  in Cui et al. (2023, *JRSS-B* 85:179–211) Table 5. See the
+  Appendix for the methodological background.
 * Threshold-search harm subgroup identification via
   `dina_subgroup()` with sandwich-variance Wald CI.
 * Selection-adjusted bootstrap percentile CI on the fixed-subgroup
@@ -204,6 +208,65 @@ cat("DINA Cox fit completed in",
     round(timings$dina_cox_fit, 1), "seconds\n")
 ```
 
+## Linear projection of the CATE (BLP analog)
+
+DINA's coefficient table on the log-HR scale, paired with
+sandwich-variance Wald CIs, is the parametric counterpart of the
+best linear projection (BLP) reported by Cui et al. (2023)
+Table 5. Under linearity of the CATE in the chosen covariates,
+the DINA β coincides asymptotically with the BLP β; under
+non-linearity, the DINA β is the parametric MLE under a
+(potentially misspecified) linear model while the BLP β is the
+L²-best linear approximation. The two should agree closely in
+practice; see Appendix A for the detailed methodological
+comparison.
+
+The table below reports per-covariate β̂ with 95% Wald CIs on
+both the log-HR (natural-parameter) scale and the exponentiated
+HR scale.
+
+```{r dina-cox-blp-table}
+coef_dina <- stats::coef(fit_dina_cox)
+se_dina   <- sqrt(diag(stats::vcov(fit_dina_cox)))
+z_975     <- stats::qnorm(0.975)
+
+ci_lo_log <- coef_dina - z_975 * se_dina
+ci_hi_log <- coef_dina + z_975 * se_dina
+
+blp_tbl <- data.table(
+  Covariate            = names(coef_dina),
+  `beta-hat (log-HR)`  = sprintf("%.3f", coef_dina),
+  `Std. Error`         = sprintf("%.3f", se_dina),
+  `95% Wald CI (log-HR)` = sprintf("[%.3f, %.3f]",
+                                    ci_lo_log, ci_hi_log),
+  `exp(beta-hat) (HR)` = sprintf("%.3f", exp(coef_dina)),
+  `95% Wald CI (HR)`   = sprintf("[%.3f, %.3f]",
+                                  exp(ci_lo_log), exp(ci_hi_log))
+)
+
+blp_tbl |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = gt::md("**DINA coefficient table -- parametric BLP analog**"),
+    subtitle = gt::md(sprintf(
+      "Per-covariate linear-projection coefficients on the log-HR scale;
+       n = %d, %d cross-fitting folds, sandwich variance",
+      nrow(df.analysis), dina_n_folds))
+  ) |>
+  gt::tab_source_note(
+    source_note = gt::md(
+      "*Coefficients are the DINA estimate of the linear functional
+       tau(x) = beta_0 + x' beta on the log-HR scale, where the natural
+       parameter for Cox PH is the log hazard. Under linearity these
+       correspond asymptotically to the Cui et al. (2023) Table 5 best
+       linear projection coefficients (Semenova & Chernozhukov 2021).
+       Wald CIs use the cross-fit sandwich variance from `vcov(fit_dina_cox)`,
+       which reduces to the Cox partial-likelihood information variance for
+       the Cox family.*"
+    )
+  )
+```
+
 ## Subgroup search (sandwich Wald CI)
 
 ### Scale: log-HR for Cox
@@ -283,7 +346,8 @@ print(sg_cox)
 # found.  The bootstrap targets the fixed-subgroup linear functional
 # a*' beta with a* derived from the original-data subgroup, so it is
 # undefined when no subgroup is identified.
-run_boot <- isTRUE(sg_cox$found)
+run_boot    <- isTRUE(sg_cox$found)
+run_no_boot <- !run_boot            # complement, used by the no-subgroup chunk
 timings$dina_cox_boot <- NA_real_   # placeholder; overwritten if bootstrap runs
 
 if (run_boot) {
@@ -474,7 +538,7 @@ summary_tbl |>
 ```
 
 ```{r dina-cox-no-subgroup}
-#| eval: !expr !run_boot
+#| eval: !expr run_no_boot
 no_sg_tbl <- data.table(
   Field = c(
     "Subgroup found",
@@ -551,6 +615,243 @@ invariant under a shared offset added to both arms, so DINA's
 estimand is unchanged; only the nuisance fits and step-2 likelihood
 need the offset. Bias-correction would not be needed beyond what
 cross-fitting already handles.
+
+# Appendix A: Linear projections of the CATE, and extensions of the threshold search
+
+This appendix collects the methodological background for the DINA
+coefficient table reported above and discusses how the covariate-
+thresholding subgroup search (`dina_subgroup()`) compares to and
+complements the linear-projection view. It also discusses a
+proposed depth-2 extension of the threshold search.
+
+## A.1 Background: best linear projection (BLP) of Cui et al.
+
+Cui, Kosorok, Sverdrup, Wager & Zhu (2023, *JRSS-B* 85:179–211)
+develop *causal survival forests* (CSF) and report two
+complementary outputs from a fitted forest:
+
+1. **Pointwise CATE estimates** $\hat\tau(X_i)$ — a non-parametric
+   estimate of the treatment-effect contrast for each patient.
+   Their Table 4 shows these for ten patients with HC3-style SEs.
+2. **Best linear projection (BLP)** — a low-dimensional linear
+   summary of the CATE, motivated by Semenova & Chernozhukov
+   (2021, *Econometrics J* 24:264–289). Their Table 5 reports
+   these.
+
+The BLP estimand (Cui et al. eq. 26) is
+
+$$\{\beta_0^*,\, \beta^*\}\;=\;\arg\min_{\beta_0,\,\beta}\;
+\mathbb{E}\big[\big(\tau(X_i) - \beta_0 - A_i\beta\big)^2\big],$$
+
+where $A_i$ is a user-chosen low-dimensional subset of the
+covariates used in fitting the forest. The BLP is the L²-best
+linear approximation to the (possibly non-linear) CATE function
+$\tau(\cdot)$, projected onto the linear span of $A_i$.
+
+CSF's implementation of BLP follows three steps:
+
+1. Construct doubly-robust scores
+   $\hat\Gamma_i = \hat\tau(X_i) + \psi_{\hat\tau(X_i)}(\,\cdot\,) / [\hat e(X_i)(1 - \hat e(X_i))]$
+   where $\hat\tau(X_i)$ are CSF estimates and $\psi$ is the
+   doubly-robust score function (Cui et al. eq. 11).
+2. Run linear regression of $\hat\Gamma_i$ on $A_i$.
+3. Compute HC3 robust standard errors (MacKinnon & White 1985,
+   *J Econometrics* 29:305–325).
+
+The motivation: pointwise non-parametric inference on $\tau(x)$ is
+fundamentally difficult — intervals are often very wide, and
+undersmoothing is hard to verify in practice. Linear projections
+give a low-dimensional summary that admits robust inference under
+nuisance-rate conditions.
+
+## A.2 DINA's β̂ as a parametric BLP
+
+DINA targets the linear functional
+$\tau(x) = \beta_0 + x^\top \beta_{1:d}$ directly as a parametric
+model. When the true CATE is linear in the chosen covariates, the
+DINA estimand coincides with the BLP estimand exactly:
+
+* **CSF + BLP**: estimate $\tau(\cdot)$ non-parametrically, then
+  project onto the linear span of $A_i$.
+* **DINA**: assume the linear form upfront, estimate via
+  cross-fitted GLM/Cox step 2.
+
+Asymptotically, with cross-fitting and good nuisance rates, both
+target the same population coefficient under linearity. When the
+true CATE is non-linear, BLP gives the L²-best linear approximation
+while DINA's coefficient is the parametric MLE under a (potentially
+misspecified) linear model. In practice the two should agree
+closely.
+
+The DINA coefficient table presented above —
+`coef(fit_dina_cox)` paired with `sqrt(diag(vcov(fit_dina_cox)))` —
+is therefore the parametric counterpart of Cui et al.'s Table 5.
+The Wald CIs are constructed from DINA's sandwich variance for the
+GLM step 2, or the Cox partial-likelihood information variance for
+the Cox step 2; these correspond closely to the HC3 SEs used by
+Cui et al.
+
+## A.3 BLP vs. covariate-threshold search
+
+The BLP/coefficient view (Table 5 / DINA coefficient table) and
+the threshold-search view (`dina_subgroup()`) answer fundamentally
+different questions:
+
+| | BLP / DINA coefficient table | `dina_subgroup` (threshold search) |
+|---|---|---|
+| Output form | One coefficient per covariate | A single (covariate, direction, threshold) signature |
+| Estimand | $\arg\min E[(\tau(X) - \beta_0 - A\beta)^2]$ | $\arg\max\{n_S : \bar{\tau}_S \ge m_{\text{diff}}\}$ |
+| Granularity | All covariates simultaneously | One covariate, picked by maximization |
+| Inference | HC3 / sandwich CI on each coefficient | Wald CI on within-subgroup mean; bootstrap percentile CI |
+| Selection adjustment | Not needed | Required (selected subgroup → fixed-subgroup bootstrap) |
+| Behavior under null | Reports small/noisy coefficients | May fail to identify a subgroup |
+| Clinical use | Predictive-biomarker hypothesis generation | Actionable decision rule |
+| Robustness to non-linearity | Best linear approximation regardless | Aligned with sharp threshold structure |
+
+**Where they agree.** If one covariate dominates the heterogeneity
+(say, a sharp threshold on `er`), the BLP shows a large coefficient
+on `er` and `dina_subgroup` picks a threshold on `er`.
+
+**Where they diverge:**
+
+* Genuinely *multivariate* heterogeneity (older + ER-negative +
+  node-positive jointly drive harm): BLP captures the joint linear
+  story; univariate `dina_subgroup` may miss the structure (and is
+  the motivation for the depth-2 extension below).
+* Sharply *thresholded* heterogeneity in a single biomarker: the
+  BLP averages over the threshold and reports a damped coefficient;
+  `dina_subgroup` aligns with the true structure.
+
+The two views are **complementary**, not competing. A complete
+analysis reports both, as this document does.
+
+## A.4 Multi-projection support
+
+Cui et al.'s Table 5 shows two columns: an "all covariates"
+projection and an "age only" projection from the same fitted CSF.
+The BLP framework supports this by separating two stages:
+
+1. **CATE estimation** — fit forest with rich covariates for good
+   nuisance estimation.
+2. **CATE summary** — project the resulting $\hat\tau(\cdot)$ onto
+   any chosen $A_i$ for interpretation.
+
+The same forest fit supports many BLP summaries by varying $A_i$.
+DINA conflates these — the covariate set in `dina_fit()` IS the
+projection set, so getting an "age only" projection requires
+refitting DINA. This is not necessarily wrong (the parametric
+linear assumption is over the chosen covariate set), but it is
+less flexible than CSF + BLP when multiple projections are of
+interest.
+
+A future enhancement could add `dina_project(fit, df, A)` that
+takes a fitted full-covariate DINA and projects $\hat\beta$ onto a
+subset $A$ via an appropriate linear transformation — supporting
+multi-projection workflows like CSF + BLP does.
+
+## A.5 Toward depth-2 covariate thresholding
+
+The current `dina_subgroup()` searches over single-covariate
+thresholds — a *depth-1* cut. A natural extension is *depth-2*:
+search over pairs of covariate thresholds, yielding subgroups
+defined by conjunctions like
+"$\text{ER} \le 0$ AND $\text{age} \ge 50$". This is structurally
+analogous to `policytree::policy_tree(depth = 2)` (Athey & Wager
+2021) and to CAPITAL's constrained tree search at depth $d$
+(Wang et al. 2021, arXiv:2110.05636).
+
+### A.5.1 Computational scaling
+
+Naive depth-2 search over $p$ covariates, two directions per
+covariate, and $n$ candidate thresholds per covariate is
+$O(p^2 \cdot 4 \cdot n^2)$. For the GBSG analysis
+($p = 7$, $n = 686$) this is roughly 92M candidate evaluations
+versus ~9.6K for depth-1 — a 10,000× increase. Substantial but
+feasible with thoughtful caching: within-subgroup sums (numerator
+and denominator of $\bar{\tau}_S$) can be updated incrementally
+across nested thresholds, reducing the dominant cost. With
+$n_{\min}$ as a hard floor and explicit early-termination when the
+size constraint is violated, the effective search space is much
+smaller.
+
+### A.5.2 Inferential scaling
+
+The current fixed-subgroup bootstrap target generalizes naturally
+to depth-2:
+
+* For a depth-2 subgroup $S^*$ defined by
+  $(j_1, d_1, q_1, j_2, d_2, q_2)$, the linear functional is still
+  $a^{*\top}\beta$ with $a^* = (1, \bar{x}_{S^*})$.
+* The bootstrap iterates as before: refit DINA on resample, run
+  depth-2 search, compute $a^{*\top}\beta_b$.
+* `selection_frequency` records covariate-pair $(j_1, j_2)$ tuples
+  rather than single covariates.
+* `threshold_ci` becomes 2-dimensional (marginal CIs on $q_1$ and
+  $q_2$ restricted to modal-pair iterations).
+* The modal-match restriction is on the pair $(j_1, j_2)$.
+
+So the inferential framework scales without conceptual change.
+
+### A.5.3 Search-space and statistical considerations
+
+1. **Search space definition.** Three reasonable options:
+   * **AND-conjunction only** — recommended starting point.
+     Patients satisfying both constraints. Most interpretable.
+     Symmetric in the two covariates.
+   * **OR-disjunction** — patients satisfying either constraint.
+     Less interpretable; a different estimand (the union rather
+     than the intersection).
+   * **Full depth-2 tree** — outer split + per-leaf inner splits.
+     Richest expressive class but least interpretable. Closest to
+     `policy_tree(depth = 2)`.
+2. **Multiplicity.** Depth-2 search has substantially more
+   selection-induced optimism than depth-1. The fixed-subgroup
+   bootstrap correctly accounts for this for the *effect CI*, but
+   the bias of $\overline{\hat\tau}_{S^*}$ as an estimator of the
+   *population mean within* $S^*$ grows with depth. This is the
+   territory where the forestsearch-style two-bias-term correction
+   (Section 6 of the theory notes) becomes more relevant.
+3. **Sample-size requirements.** Small samples like GBSG
+   (~300 events) probably do not support reliable depth-2
+   identification — the $n_{\min}$ constraint becomes binding for
+   most candidate cuts. Depth-2 is recommended for $n \ge 2000$
+   with adequate event counts (say, $\ge 500$ events).
+
+### A.5.4 Implementation effort
+
+The bootstrap infrastructure scales without changes; the main code
+change is the search loop within `dina_subgroup()` itself and a
+matching update inside `dina_subgroup_bootstrap()`. A `max_depth`
+argument with default `1L` keeps backward compatibility. Estimated
+effort: one to two focused development sessions to add the
+AND-conjunction search, including tests for the new search-space
+mode.
+
+### A.5.5 Comparison with existing depth-2 methods
+
+* **CAPITAL** (Wang, Cai, Zeng, Song & Kosorok 2021): constrained
+  policy tree search at depth $d$. Closest existing comparator —
+  CAPITAL's optimization target is "largest subgroup with mean
+  effect $\ge$ threshold", identical in spirit to `dina_subgroup`,
+  with a tree-search solver rather than an exhaustive grid.
+* **`policytree::policy_tree(depth = 2)`** (Athey & Wager 2021,
+  *Econometrica* 89:133–161): doubly-robust empirical welfare
+  maximization over depth-2 trees. Different optimization target
+  (welfare maximization vs. constrained subgroup search) but the
+  same structural form.
+
+A depth-2 `dina_subgroup` would sit between these:
+constrained-subgroup semantics (matching CAPITAL and the v0.1.0 FS
+work), with the simpler AND-conjunction form for interpretability.
+
+### A.5.6 Recommended priority
+
+Deferred to v0.3.0 alongside the offset extension. The
+interpretability gain for clinical applications is real — a depth-2
+conjunction is closer to how clinicians think about biomarker
+profiles than a depth-1 cut — but the inferential framework
+benefits from being battle-tested at depth-1 first. Once the v0.2.0
+release is stable, depth-2 is a natural next addition.
 
 # Timings
 
