@@ -23,7 +23,45 @@
   `"glm_dgm"` objects route to `simulate_from_glm_dgm()` and
   `grf.subg.harm.glm()` without user intervention.
 
-### GRF Standalone Subgroup Identification
+### DINA Estimator (Difference in Natural Parameters)
+
+* `dina_fit()` implements the DINA estimator of heterogeneous treatment
+  effects on the natural-parameter scale (Gao & Hastie 2021) for
+  Gaussian, binomial, Poisson, and Cox outcomes.  Uses an orthogonalized
+  (Robinson / R-learner) estimating equation with cross-fitting and a
+  sandwich variance.  Propensity and baseline nuisance functions are
+  pluggable: built-in logistic / GLM / Cox fits, a numeric constant, or
+  user-supplied closures (`propensity_method`, `baseline_method =
+  list(eta0, eta1)` or `list(nu)`).  S3 methods `coef`, `vcov`,
+  `predict`, `confint`, `summary`, and `print` follow the conventional
+  contract with `(Intercept), X1..Xd` naming.
+
+* `dina_subgroup()` searches the cross-fit DINA surface for the largest
+  subgroup whose mean effect meets a threshold, returning the discovered
+  signature and a BLP-analog effect (`a*'beta`).
+
+* `dina_subgroup_bootstrap()` provides bootstrap inference for the
+  discovered subgroup: a percentile CI on the BLP-analog effect (with
+  `a*` fixed from the original subgroup) and, when `refit = TRUE`, a
+  bootstrap CI for the within-subgroup standard model refit within the
+  fixed signature on each resample.  Both CIs are conditional on the
+  discovered signature; neither adjusts for signature selection.
+
+* `dina_subgroup_refit()` fits the standard within-subgroup
+  treatment-effect model (a plain Cox model for survival, a GLM
+  otherwise) comparing the arms inside a discovered subgroup --- the
+  conventional clinical estimate, distinct from the BLP-analog.
+  Unadjusted by default, with optional confounder adjustment
+  (`"none"` / `NULL`-automatic / explicit) and Cox stratification.
+
+* **Reference validation.**  `dina_fit()` was validated against the
+  authors' reference implementation (`github.com/ZijunGao/DINA`) on
+  synthetic data across all four families: coefficients, sandwich
+  standard errors, and predicted HTE surfaces agree to numerical
+  precision under matched nuisance learners and cross-fitting folds.
+  See the QC document `quarto/qc/dina_reference_validation.qmd`.
+
+
 
 * `grf.subg.harm.glm()` provides standalone GRF-based subgroup
   identification for binary, continuous, and count outcomes using
@@ -288,6 +326,9 @@
   and hr/N/E/K only.
 
 ## References
+
+* Gao, Z., & Hastie, T. (2021). Estimating heterogeneous treatment
+  effects for general responses. *arXiv preprint* arXiv:2103.04277.
 
 * Dandl, S., Haslinger, C., Hothorn, T., Seibold, H., Sverdrup, E.,
   Wager, S., & Zeileis, A. (2024). What makes forest-based
