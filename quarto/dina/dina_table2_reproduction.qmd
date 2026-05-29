@@ -1,0 +1,455 @@
+---
+title: "DINA Table 2 Reproduction: Gaussian, n = 1024"
+author: "forestsearch contributors"
+date: today
+format:
+  html:
+    code-fold: false
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+vignette: >
+  %\VignetteIndexEntry{DINA Table 2 Reproduction: Gaussian, n = 1024}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Goal {#sec-goal}
+
+Reproduce the **first block of Table 2** in the Supplementary Materials of
+Gao and Hastie (2025) for the **DINA** method only:
+
+> Coverage and width of 95% confidence intervals for Gaussian responses,
+> sample size 1024, propensity score estimated by logistic regression,
+> baseline natural-parameter functions by linear regression, 100 bootstrap
+> CI samples per trial, averaged over 100 trials.
+
+Paper reference values (DINA row, n = 1024):
+
+| Coefficient | β₁ | β₂ | β₃ | β₄ | β₅ | β₀ |
+|---|---|---|---|---|---|---|
+| **Coverage** | 0.97 | 0.96 | 0.93 | 0.95 | 0.93 | 0.98 |
+| **Width** | 1.48 | 1.49 | 1.38 | 1.35 | 1.34 | 0.789 |
+
+The user-facing `dina()` already implements Algorithm 1 with the right
+defaults for this row (`propensity_method = "logistic"`,
+`baseline_method = NULL`, `cross_fitting = TRUE`, `n_folds = 2L`). This
+document supplies the data-generating mechanism, the bootstrap CI wrapper,
+and the simulation driver, then summarises results against the paper.
+
+# Setup {#sec-setup}
+
+```{r setup}
+#| message: false
+#| warning: false
+
+library(forestsearch)
+library(data.table)
+library(doFuture)
+library(future)
+library(gt)
+```
+
+# Parameters {#sec-params}
+
+All tunable parameters live in this single chunk. The DGM hyperparameters
+are taken verbatim from `simulation_setting.xlsx` (Gao & Hastie supplement),
+sheet `GLM`, column `Gaussian`.
+
+```{r params}
+# --- Data-generating mechanism (Gao & Hastie supp., sheet 'GLM', Gaussian)
+DGM <- list(
+  d         = 5L,
+  alpha     = c(0.5, 0.5, 0.5, 0,   0),     # nuisance natural-parameter
+  beta      = c(0.8, 0.7, 0.6, 0,   0),     # the DINA target
+  theta     = c(1,  -1,   0,   0,   0),     # propensity coefficients
+  delta     = 2,                            # x_1 * x_2 interaction strength
+  sigma2    = 4                             # outcome residual variance
+)
+
+# True target for coverage assessment: tau(x) = beta_0 + sum_j beta_j * x_j.
+# The DGM has no intercept in tau and no x_1*x_2 interaction in tau (it
+# cancels between eta_1 and eta_0).
+TRUE_BETA <- c("(Intercept)" = 0,
+               X1 = 0.8, X2 = 0.7, X3 = 0.6, X4 = 0, X5 = 0)
+
+# --- Simulation configuration
+SIM <- list(
+  n_sample  = 1024L,         # paper Table 2 first block
+  n_trials  = 100L,          # paper averages over 100 trials
+  n_boot    = 100L,          # paper uses 100 bootstrap samples
+  level     = 0.95,
+  n_workers = 20L,           # adjust to local machine
+  seed_base = 20260528L
+)
+
+# Paper reference values (DINA, n = 1024) for the comparison table
+PAPER_REF <- data.table::data.table(
+  coef     = c("X1", "X2", "X3", "X4", "X5", "(Intercept)"),
+  cov_ref  = c(0.97, 0.96, 0.93, 0.95, 0.93, 0.98),
+  wid_ref  = c(1.48, 1.49, 1.38, 1.35, 1.34, 0.789)
+)
+```
+
+# Helper: data-generating mechanism {#sec-dgm}
+
+A small inline DGM for the Gao & Hastie Gaussian setting. Kept local to the
+document; if it proves useful elsewhere it can later be promoted to a
+package function with full roxygen documentation.
+
+```{r dgm-helper}
+#' Generate one Gaussian dataset from the Gao & Hastie (2025) DGM
+#'
+#' @param n integer; sample size.
+#' @param dgm list with components `d`, `alpha`, `beta`, `theta`, `delta`,
+#'   `sigma2`.
+#' @param seed optional integer seed; passed to `set.seed()` if supplied.
+#'
+#' @return `data.table` with columns `X1, ..., Xd, treat, Y`.
+#'
+#' @keywords internal
+generate_dina_gaussian <- function(n, dgm, seed = NULL) {
+
+  if (!is.null(seed)) set.seed(seed)
+
+  d <- dgm$d
+  X <- matrix(stats::runif(n * d, min = -1, max = 1), nrow = n, ncol = d)
+  colnames(X) <- paste0("X", seq_len(d))
+
+  # Propensity: e(x) = sigmoid(x' theta), W | X ~ Bernoulli(e(x))
+  lin_e <- as.numeric(X %*% dgm$theta)
+  e_x   <- 1 / (1 + exp(-lin_e))
+  W     <- stats::rbinom(n, size = 1L, prob = e_x)
+
+  # Natural parameter functions: eta_w(x) = x' alpha_w + delta * x_1 * x_2,
+  # where alpha_1 = alpha + beta.  The interaction is present in BOTH
+  # arms, so the true DINA tau(x) = x' beta (no intercept, no interaction).
+  inter <- dgm$delta * X[, 1] * X[, 2]
+  eta0  <- as.numeric(X %*% dgm$alpha) + inter
+  eta1  <- as.numeric(X %*% (dgm$alpha + dgm$beta)) + inter
+  eta_W <- ifelse(W == 1L, eta1, eta0)
+
+  # Gaussian outcome with sigma^2 = 4
+  eps <- stats::rnorm(n, mean = 0, sd = sqrt(dgm$sigma2))
+  Y   <- eta_W + eps
+
+  # Build the data.table explicitly to avoid any matrix-expansion
+  # ambiguity in `data.table::data.table(X, ...)` with a matrix X.
+  dt <- data.table::as.data.table(X)
+  dt$treat <- W
+  dt$Y     <- Y
+  dt
+}
+```
+
+# Helper: bootstrap CIs from a single dataset {#sec-bootstrap}
+
+```{r boot-helper}
+#' Nonparametric bootstrap CIs for a single DINA fit
+#'
+#' Resamples rows with replacement `B` times, refits `dina()` on each
+#' resample, and returns both percentile and normal-approximation
+#' `level`-CIs for every coefficient.
+#'
+#' @param df data.frame containing the outcome, treatment and covariate
+#'   columns named consistently with `outcome`, `treatment`, `covariates`.
+#' @param outcome,treatment,covariates character; column names.
+#' @param B integer number of bootstrap samples.
+#' @param level confidence level (default 0.95).
+#'
+#' @return a list with elements
+#'   * `boot_betas`: B-by-(d+1) matrix of bootstrap coefficient estimates;
+#'   * `percentile_ci`: (d+1)-by-2 matrix of percentile CIs;
+#'   * `normal_ci`: (d+1)-by-2 matrix of mean +/- z * sd CIs.
+#'
+#' @keywords internal
+dina_bootstrap_cis <- function(df,
+                               outcome    = "Y",
+                               treatment  = "treat",
+                               covariates,
+                               B          = 100L,
+                               level      = 0.95) {
+
+  # Coerce to data.table so the row-indexing idiom below is unambiguous
+  # regardless of whether the caller supplied a data.frame, tibble, or
+  # data.table.
+  dt <- data.table::as.data.table(df)
+  n  <- nrow(dt)
+  p  <- length(covariates) + 1L                    # +1 for intercept
+  out_names <- c("(Intercept)", covariates)
+
+  boot_betas <- matrix(NA_real_, nrow = B, ncol = p,
+                       dimnames = list(NULL, out_names))
+
+  for (b in seq_len(B)) {
+    idx <- sample.int(n, size = n, replace = TRUE)
+    fit_b <- tryCatch(
+      forestsearch::dina(
+        df         = dt[idx],
+        outcome    = outcome,
+        treatment  = treatment,
+        covariates = covariates,
+        family     = "gaussian"
+      ),
+      error = function(e) NULL
+    )
+    if (!is.null(fit_b)) {
+      cf <- stats::coef(fit_b)
+      boot_betas[b, names(cf)] <- as.numeric(cf)
+    }
+  }
+
+  alpha <- 1 - level
+  qs    <- c(alpha / 2, 1 - alpha / 2)
+
+  percentile_ci <- t(apply(boot_betas, 2L, stats::quantile,
+                           probs = qs, na.rm = TRUE))
+  colnames(percentile_ci) <- c("lower", "upper")
+
+  boot_means <- colMeans(boot_betas, na.rm = TRUE)
+  boot_sds   <- apply(boot_betas, 2L, stats::sd, na.rm = TRUE)
+  z          <- stats::qnorm(1 - alpha / 2)
+  normal_ci  <- cbind(
+    lower = boot_means - z * boot_sds,
+    upper = boot_means + z * boot_sds
+  )
+
+  list(
+    boot_betas    = boot_betas,
+    percentile_ci = percentile_ci,
+    normal_ci     = normal_ci
+  )
+}
+```
+
+# Helper: one simulation trial {#sec-trial}
+
+```{r trial-helper}
+#' Run one trial of the Table-2 simulation
+#'
+#' Generates a fresh dataset, fits `dina()` on the full sample (for the
+#' point estimate), runs `B` bootstrap CIs, and returns a long-format
+#' data.table with one row per coefficient and per CI method.
+#'
+#' @keywords internal
+run_one_trial <- function(trial_id, dgm, sim, true_beta, x_names) {
+
+  df <- generate_dina_gaussian(n = sim$n_sample, dgm = dgm, seed = NULL)
+
+  boot <- dina_bootstrap_cis(
+    df         = df,
+    outcome    = "Y",
+    treatment  = "treat",
+    covariates = x_names,
+    B          = sim$n_boot,
+    level      = sim$level
+  )
+
+  # Build a long-format result: one row per (coefficient, CI method).
+  make_rows <- function(ci_mat, method) {
+    coef_names <- rownames(ci_mat)
+    data.table::data.table(
+      trial    = trial_id,
+      coef     = coef_names,
+      method   = method,
+      lower    = ci_mat[, "lower"],
+      upper    = ci_mat[, "upper"],
+      width    = ci_mat[, "upper"] - ci_mat[, "lower"],
+      truth    = true_beta[coef_names],
+      covered  = (true_beta[coef_names] >= ci_mat[, "lower"]) &
+                 (true_beta[coef_names] <= ci_mat[, "upper"])
+    )
+  }
+
+  rbind(
+    make_rows(boot$percentile_ci, "percentile"),
+    make_rows(boot$normal_ci,     "normal")
+  )
+}
+```
+
+# Sanity check: single trial {#sec-sanity}
+
+Before launching the full simulation, run one trial and verify the
+machinery returns sensible numbers.
+
+```{r sanity}
+x_names <- paste0("X", seq_len(DGM$d))
+
+t0 <- proc.time()
+sanity_res <- run_one_trial(
+  trial_id  = 0L,
+  dgm       = DGM,
+  sim       = SIM,
+  true_beta = TRUE_BETA,
+  x_names   = x_names
+)
+t_sanity <- (proc.time() - t0)["elapsed"]
+
+cat(sprintf("Sanity trial completed in %.2f seconds.\n", t_sanity))
+print(sanity_res)
+```
+
+A typical trial should take a few seconds. Total expected runtime for
+`SIM$n_trials` trials with `SIM$n_workers` parallel workers is roughly
+`SIM$n_trials / SIM$n_workers * t_sanity` seconds.
+
+# Simulation driver {#sec-driver}
+
+Parallelize over trials. Each worker generates its own data and runs `B`
+bootstrap reps internally. Errors are captured and surfaced by
+`forestsearch::collect_results()`.
+
+```{r run-sim}
+#| message: false
+
+future::plan(future::multisession, workers = SIM$n_workers)
+
+t_run_start <- proc.time()
+
+raw_results <- foreach::foreach(
+  trial = seq_len(SIM$n_trials),
+  .options.future = list(seed = SIM$seed_base)
+) %dofuture% {
+  tryCatch(
+    run_one_trial(
+      trial_id  = trial,
+      dgm       = DGM,
+      sim       = SIM,
+      true_beta = TRUE_BETA,
+      x_names   = x_names
+    ),
+    error = function(e) e
+  )
+}
+
+# Return parallel resources before downstream sequential work.
+future::plan("sequential")
+invisible(gc())
+
+results <- forestsearch::collect_results(
+  raw_list = raw_results,
+  label    = "DINA Table 2 sim"
+)
+
+t_run <- (proc.time() - t_run_start)["elapsed"]
+cat(sprintf("Completed %d trials in %.1f minutes (%.1f s / trial avg).\n",
+            SIM$n_trials, t_run / 60, t_run / SIM$n_trials))
+```
+
+# Results summary {#sec-summary}
+
+Compute mean coverage and mean width per coefficient and per CI method,
+then assemble the comparison table against the paper.
+
+```{r summarise}
+summary_dt <- results[
+  , .(coverage = mean(covered, na.rm = TRUE),
+      width    = mean(width,   na.rm = TRUE)),
+  by = .(coef, method)
+]
+
+# Reshape to wide format: one row per coefficient, columns for each method.
+summary_wide <- data.table::dcast(
+  summary_dt,
+  coef ~ method,
+  value.var = c("coverage", "width")
+)
+
+# Join the paper reference values
+summary_wide <- merge(summary_wide, PAPER_REF, by = "coef", all.x = TRUE)
+
+# Order rows as in the paper: X1, X2, X3, X4, X5, (Intercept)
+row_order <- c("X1", "X2", "X3", "X4", "X5", "(Intercept)")
+summary_wide <- summary_wide[match(row_order, coef)]
+
+# Add the true beta column
+summary_wide[, truth := TRUE_BETA[coef]]
+
+# Reorder columns for display
+summary_wide <- summary_wide[
+  , .(coef, truth,
+      coverage_percentile, width_percentile,
+      coverage_normal,     width_normal,
+      cov_ref, wid_ref)
+]
+```
+
+```{r summary-table}
+gt::gt(summary_wide) |>
+  gt::tab_header(
+    title    = gt::md("**DINA Table 2 Reproduction: Gaussian, n = 1024**"),
+    subtitle = gt::md(
+      sprintf("Averaged over %d trials, %d bootstrap reps per trial",
+              SIM$n_trials, SIM$n_boot)
+    )
+  ) |>
+  gt::cols_label(
+    coef                = "Coefficient",
+    truth               = "True \u03b2",
+    coverage_percentile = "Coverage",
+    width_percentile    = "Width",
+    coverage_normal     = "Coverage",
+    width_normal        = "Width",
+    cov_ref             = "Coverage",
+    wid_ref             = "Width"
+  ) |>
+  gt::tab_spanner(label = "Percentile CI (this run)",
+                  columns = c(coverage_percentile, width_percentile)) |>
+  gt::tab_spanner(label = "Normal CI (this run)",
+                  columns = c(coverage_normal, width_normal)) |>
+  gt::tab_spanner(label = "Paper Table 2 (DINA)",
+                  columns = c(cov_ref, wid_ref)) |>
+  gt::fmt_number(columns = c(truth,
+                             coverage_percentile, coverage_normal, cov_ref),
+                 decimals = 2) |>
+  gt::fmt_number(columns = c(width_percentile, width_normal, wid_ref),
+                 decimals = 3) |>
+  gt::tab_source_note(gt::md(paste0(
+    "Paper reference: Gao and Hastie (2025), *Biometrics* 81(4): ujaf162, ",
+    "Supplementary Materials Table 2 (Gaussian responses, n = 1024)."
+  )))
+```
+
+# Diagnostics {#sec-diagnostics}
+
+Distribution of coverage and width across trials, to surface any
+trial-level outliers that the averaged table conceals.
+
+```{r diagnostics}
+diag_dt <- results[
+  , .(coverage_per_trial = mean(covered, na.rm = TRUE),
+      width_per_trial    = mean(width,   na.rm = TRUE)),
+  by = .(trial, method)
+]
+
+diag_summary <- diag_dt[
+  , .(min_cov  = min(coverage_per_trial),
+      max_cov  = max(coverage_per_trial),
+      sd_cov   = stats::sd(coverage_per_trial),
+      mean_wid = mean(width_per_trial),
+      sd_wid   = stats::sd(width_per_trial)),
+  by = method
+]
+
+gt::gt(diag_summary) |>
+  gt::tab_header(
+    title = gt::md("**Per-trial coverage and width spread**")
+  ) |>
+  gt::fmt_number(columns = c(min_cov, max_cov, sd_cov,
+                             mean_wid, sd_wid),
+                 decimals = 3)
+```
+
+# Session info {#sec-session}
+
+```{r session-info}
+sessionInfo()
+```
+
+# References {#sec-references}
+
+Gao Z, Hastie T (2025). "Estimating heterogeneous treatment effects for
+general responses." *Biometrics* 81(4): ujaf162.
+[doi:10.1093/biomtc/ujaf162](https://doi.org/10.1093/biomtc/ujaf162).
