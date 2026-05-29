@@ -1,0 +1,334 @@
+---
+title: "DINA at a Glance: What It Targets and How It Estimates It"
+author: "forestsearch contributors"
+date: today
+format:
+  html:
+    code-fold: false
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+vignette: >
+  %\VignetteIndexEntry{DINA at a Glance: What It Targets and How It Estimates It}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Why this document exists
+
+A first read of the DINA implementation can be confusing. The `dina()`
+fit returns the coefficients of a GLM that has
+
+- a numeric offset $\hat\nu(X)$,
+- a "covariate" of the form $(W - \hat a(X)) \cdot X$,
+- and no explicit treatment-vs-control contrast in the output.
+
+Visually, that machinery resembles a *prognostic* model for the outcome
+rather than a CATE-style direct difference of fitted potential outcomes.
+This guide unpacks what DINA actually targets according to
+Gao and Hastie (2025) [@gao2025dina], and why the GLM-looking step is in
+fact a contrast estimator. Notation and numbered equations follow the
+main article exactly.
+
+# The setup
+
+For each unit $i = 1, \ldots, n$, drawn i.i.d. from a super-population,
+we have:
+
+- a covariate vector $X \in \mathbb{R}^d$ with distribution $\mathbb{P}_X$,
+- a binary treatment indicator $W \in \{0, 1\}$ with propensity score
+  $e(x) := \mathbb{P}(W = 1 \mid X = x)$,
+- two potential outcomes $Y(0), Y(1)$, of which we observe
+  $Y = Y(W)$ (the consistency assumption, with unconfoundedness implicit).
+
+# What is the estimand?
+
+DINA is short for **DIfference in NAtural parameters**.
+The shape of the estimand depends on the response type, but in every
+case it is a *contrast of the potential outcomes on the natural
+parameter scale* --- not a contrast of conditional means in general.
+
+```{r estimand-table, echo=FALSE, message=FALSE}
+suppressPackageStartupMessages({
+  library(gt)
+  library(data.table)
+})
+
+est_dt <- data.table::data.table(
+  response = c("Gaussian", "Bernoulli", "Poisson", "Cox (survival)"),
+  link     = c("identity",
+               "logit",
+               "log",
+               "log (of the tilting function in the PH model)"),
+  target   = c(
+    "E[Y(1)\u2223x] \u2212 E[Y(0)\u2223x]   (= CATE)",
+    "logit P(Y(1)=1\u2223x) \u2212 logit P(Y(0)=1\u2223x)   (= log conditional odds ratio)",
+    "log E[Y(1)\u2223x] \u2212 log E[Y(0)\u2223x]   (= log conditional mean ratio)",
+    "log \u03bb\u2081(y\u2223x) \u2212 log \u03bb\u2080(y\u2223x)   (= log hazard ratio)"
+  ),
+  eqref    = c("Eq. (4)", "Eq. (5)", "Eq. (6)", "Eq. (7)")
+)
+
+gt::gt(est_dt) |>
+  gt::tab_header(
+    title    = gt::md("**The DINA estimand by response type**"),
+    subtitle = gt::md(paste0(
+      "Source: Gao and Hastie (2025), Eqs. 4\u20137. In every case the ",
+      "estimand is a contrast of potential outcomes, but only for ",
+      "Gaussian responses does it coincide with CATE."
+    ))
+  ) |>
+  gt::cols_label(
+    response = "Response type",
+    link     = "Canonical link  g(\u00b7)",
+    target   = "DINA  \u03c4(x)",
+    eqref    = "Paper"
+  )
+```
+
+The unifying way to read the table: let $g$ be the canonical link
+function for the response family, and write
+$\eta_w(x) := g(\mathbb{E}[Y(w) \mid X = x])$ (with a tilting-function
+analogue for the Cox model). The DINA estimand is uniformly
+
+$$
+\tau(x) \;=\; \eta_1(x) - \eta_0(x),
+$$
+
+which is **always a potential-outcomes contrast** --- just measured on
+the natural-parameter scale rather than the response scale. For
+Gaussian responses $\eta_w(x) = \mathbb{E}[Y(w) \mid X = x]$, so DINA
+coincides with CATE; for everything else it does not.
+
+The paper argues this is the more practically useful scale: log
+odds ratios and log hazard ratios are what clinicians actually report;
+covariate effects on the natural-parameter scale are unconstrained by
+support restrictions and tend to be simpler functions of $x$ than
+their conditional-mean counterparts (see Figure 1 of the main paper,
+Tranexamic acid / Glasgow score example).
+
+# Robinson's reparametrization, recalled
+
+The DINA estimator is a natural-parameter generalization of Robinson's
+[-@robinson1988] method for CATE, also known as the R-learner
+[@nie2021quasioracle]. We briefly recall the Gaussian construction
+because everything that follows is its lift to general exponential
+families.
+
+For Gaussian potential outcomes with $\eta_w(x) =
+\mathbb{E}[Y(w) \mid x]$, Robinson rewrote the additive-error model
+
+$$
+Y = \eta_W(X) + \varepsilon, \quad \mathbb{E}[\varepsilon \mid X] = 0,
+$$
+
+as
+
+$$
+Y \;=\; \underbrace{m(X)}_{\text{marginal mean}}
+      \;+\; \underbrace{\{W - e(X)\}}_{\text{residualized treatment}}
+            \cdot \tau(X) \;+\; \varepsilon,
+\qquad \text{(Eq.\,10)}
+$$
+
+where $m(x) := (1-e(x))\eta_0(x) + e(x)\eta_1(x)$ is the marginal mean.
+This algebraic identity is exact, not an approximation. Given any
+nuisance estimators $\hat m, \hat e$, the R-learner plugs them in and
+estimates $\tau(x)$ by least squares, which is locally insensitive to
+the nuisance errors.
+
+The pedagogical point: the residualized treatment $\{W - e(X)\}$ is
+what makes the score for $\tau$ Neyman-orthogonal to perturbations of
+the marginal mean and the propensity. It does the work of
+*differencing* the potential outcomes inside the optimization, even
+though we never explicitly form $\hat\eta_1(x) - \hat\eta_0(x)$.
+
+# The DINA reparametrization
+
+For a working exponential-family model
+
+$$
+f_w(y \mid x) \;=\; \kappa(y) \exp\!\bigl\{ y\,\eta_w(x) - \psi(\eta_w(x)) \bigr\},
+\qquad w \in \{0,1\}, \quad \text{(Eq.\,11)}
+$$
+
+Gao and Hastie introduce a **modified propensity** $a(x)$ and a
+**baseline** $\nu(x)$ analogous to Robinson's $e(x)$ and $m(x)$:
+
+$$
+a(x) \;=\; \frac{e(x)\,V_1(x)}{e(x)\,V_1(x) \;+\; \{1 - e(x)\}\,V_0(x)},
+\qquad
+\nu(x) \;=\; a(x)\,\eta_1(x) \;+\; \{1 - a(x)\}\,\eta_0(x),
+\qquad \text{(Eq.\,12)}
+$$
+
+where $V_w(x) = \mathrm{d}\mu/\mathrm{d}\eta(\eta_w(x)) = \psi''(\eta_w(x))$ is the
+conditional response variance under treatment $w$. The crucial
+algebraic identity, verified by direct substitution, is
+
+$$
+\eta_w(x) \;=\; \nu(x) \;+\; \bigl\{ w - a(x) \bigr\}\,\tau(x),
+\qquad w \in \{0,1\}, \quad \text{(Eq.\,13)}
+$$
+
+so the natural parameter of either arm decomposes additively into the
+baseline plus the residualized treatment times the DINA effect.
+
+Three observations on $a(x)$:
+
+1. **It reduces to the propensity in the Gaussian case.** For
+   $\text{Gaussian}(\sigma^2)$ responses, $V_0(x) = V_1(x) = \sigma^2$ for
+   all $x$, so $a(x) = e(x)$ exactly. DINA for Gaussian responses
+   coincides numerically with the R-learner; the paper notes this
+   explicitly in the simulation section.
+2. **For non-Gaussian responses it inflates beyond the propensity
+   when the treated arm has higher response variance at $x$.** From
+   the decomposition $\mathrm{logit}\,a(x) = \mathrm{logit}\,e(x) + \log V_1(x)/V_0(x)$ (Eq.\ 16
+   of the paper), $a(x)$ exceeds $e(x)$ exactly when $V_1(x) > V_0(x)$.
+   The intuition is that high-variance arms carry less information
+   per unit, so the weighting compensates.
+3. **It is a Neyman-orthogonal weight.** The supplementary material
+   (Section 3.1.1) shows that $a(x)$ is precisely the weight that makes
+   the score for $\tau$ derived from Eq.\ (13) coincide with the Neyman
+   orthogonal score obtained via Newey's concentrating-out approach
+   [@newey1994]. Other plausible weights (e.g., the propensity itself,
+   which is what the "direct extension" of the R-learner uses) do not
+   have this property when the response is non-Gaussian.
+
+# The estimator (Algorithm 1)
+
+With Eq.\ (13) in hand, the DINA estimator follows the
+two-step plug-in pattern made standard by Chernozhukov et al.
+[-@chernozhukov2018dml]:
+
+1. **Estimate nuisance functions on fold 1.**
+   - Estimate $\hat e(x)$ by any classifier returning probabilities (logistic regression, gradient boosting, etc.).
+   - Estimate $\hat\eta_0(x)$ and $\hat\eta_1(x)$ by separate GLMs fit on the control and treatment subsets respectively.
+   - Construct $\hat a(x)$ and $\hat\nu(x)$ by plugging the above into Eq.\ (12).
+2. **Estimate $\tau$ on fold 2 by maximum likelihood.** Under the
+   working assumption that $\tau$ is linear in $x$,
+   $\tau(x) = x^\top \beta$, maximize
+   $$
+   \ell(\beta;\hat a, \hat\nu)
+   \;=\; \frac{1}{n_{\text{test}}} \sum_{i \in \text{fold 2}}
+       \Bigl[
+         Y_i\bigl(\hat\nu(X_i) + \{W_i - \hat a(X_i)\}\,X_i^\top \beta\bigr)
+         \;-\; \psi\bigl(\hat\nu(X_i) + \{W_i - \hat a(X_i)\}\,X_i^\top \beta\bigr)
+       \Bigr]
+   \qquad \text{(Eq.\,14)}
+   $$
+   over $\beta$. This is a standard GLM in the appropriate exponential
+   family with **offset $\hat\nu(X_i)$** and **design row
+   $\{W_i - \hat a(X_i)\}\,X_i$**. In R, this is one call to `glm.fit`
+   with `intercept = FALSE` and the right family/link.
+3. **Swap and average.** Refit with the role of the two folds
+   reversed; output the average of the two $\hat\beta$ estimates.
+
+# Why this isn't a prognostic model
+
+This is the crux of the confusion the implementation can create.
+
+Look again at Eq.\ (14). The GLM in step 2 has the *form* of a
+prognostic model for $Y$: an offset, a design matrix, a likelihood.
+But notice what plays each role:
+
+- The **offset** $\hat\nu(X_i)$ is a *mixture* of the arm-specific
+  natural parameters, weighted by $\hat a(x)$. It is not
+  $\mathbb{E}[Y \mid X = x]$ in the marginal sense; it is the
+  intermediate scaffolding that allows Eq.\ (13) to identify $\tau$
+  cleanly.
+- The **effective covariate** for each unit is not $X_i$ but
+  $\{W_i - \hat a(X_i)\}\,X_i$. The factor $\{W_i - \hat a(X_i)\}$ flips
+  sign with the treatment assignment. Maximizing the likelihood with
+  respect to $\beta$ is therefore *exactly* asking how the natural
+  parameter of $Y$ changes with the residualized treatment indicator,
+  unit by unit. That is a contrast --- it is just that the contrast is
+  encoded structurally into the design matrix rather than appearing
+  as an explicit "$\hat\eta_1 - \hat\eta_0$" subtraction.
+
+A useful sanity check: if there were no treatment effect ($\tau \equiv 0$),
+then the maximizer of Eq.\ (14) over $\beta$ is $\beta = 0$, and the
+fitted natural parameter for every unit is exactly $\hat\nu(X_i)$. So
+$\hat\nu$ alone explains the outcome, and $\beta$ "lights up" only to
+the extent that the residualized treatment carries information about
+$Y$ beyond $\hat\nu$. That is the operational definition of a
+contrast.
+
+The same logic applies under the rephrasing that drops the exponential
+family. The supplement (Section 3.1.1) shows that under canonical
+link $g$, the DINA estimator returns the difference of *transformed
+conditional expectations*
+
+$$
+\hat\tau(x) \;\to\;
+   g\bigl(\mathbb{E}[Y(1) \mid X = x]\bigr)
+   \;-\; g\bigl(\mathbb{E}[Y(0) \mid X = x]\bigr)
+$$
+
+as $n \to \infty$, even when the exponential family working model is
+misspecified, provided $\tau(x) = x^\top\beta$ is correctly specified.
+
+# Theoretical guarantee in one line
+
+Proposition 1 of the main paper says: if the nuisance estimators
+$\hat a, \hat\nu$ converge at rate $O(c_n)$ in $L^2$, then
+$\|\hat\beta - \beta\|_2 = \tilde O(c_n^2 + n^{-1/2})$. Equivalently,
+nuisance estimates need only be accurate to within $o(n^{-1/4})$ in
+$L^2$ for $\hat\beta$ to be $\sqrt{n}$-consistent. This is the same
+"second-order robustness" property that underlies double/debiased ML
+[@chernozhukov2018dml] and the R-learner. Efficiency holds when the
+exponential-family working model is correctly specified.
+
+The Cox extension (Proposition 2 of the main paper, with full-likelihood
+counterpart in the supplement) inherits a slightly weaker version of
+the same guarantee under the proportional-hazards model and Assumption
+2 (random censoring conditional on $(W, X)$).
+
+# Cox model in two paragraphs
+
+For survival outcomes, $\eta_w(x)$ becomes the log of the tilting
+function in the proportional-hazards model
+$\lambda_w(y \mid x) = \lambda(y) \exp(\eta_w(x))$, and $\tau(x) =
+\eta_1(x) - \eta_0(x)$ is the log hazard ratio. The modified propensity
+gains a censoring-probability correction:
+
+$$
+a(x) \;=\;
+   \frac{e(x)\,\mathbb{P}(C \ge Y \mid W = 1, X = x)}
+        {e(x)\,\mathbb{P}(C \ge Y \mid W = 1, X = x) +
+         \{1 - e(x)\}\,\mathbb{P}(C \ge Y \mid W = 0, X = x)},
+\qquad \text{(Eq.\,18)}
+$$
+
+so units more likely to be observed (less likely to be censored) carry
+proportionally more weight. The step-2 fit is a standard Cox partial
+likelihood with offset $\hat\nu$ and residualized covariate
+$\{W - \hat a(X)\}\,X$ --- structurally identical to the
+exponential-family case. In the limiting cases of no censoring or no
+treatment effect, $a(x)$ reduces back to $e(x)$ exactly (supplementary
+material, Section 2.2).
+
+# Where this lives in the codebase
+
+The `forestsearch::dina()` data-frame wrapper and `dina_fit()` matrix
+interface implement Algorithm 1 directly: the nuisance step is in
+`.dina_fit_propensity()` plus `.dina_fit_baselines_glm()` (or
+`...cox`); the step-2 GLM is `.dina_step2_glm()` (or
+`.dina_step2_cox()`); the cross-fitting averaging happens at the
+top of `dina_fit()`. Reading those functions side-by-side with
+Eqs.\ (12)\u2013(14) above is the fastest way to ground the
+implementation in the paper.
+
+# References {.unnumbered}
+
+Gao Z, Hastie T (2025). "Estimating heterogeneous treatment effects for general responses." *Biometrics* 81(4): ujaf162. [doi:10.1093/biomtc/ujaf162](https://doi.org/10.1093/biomtc/ujaf162).
+
+Robinson PM (1988). "Root-N-consistent semiparametric regression." *Econometrica* 56(4): 931--954.
+
+Nie X, Wager S (2021). "Quasi-oracle estimation of heterogeneous treatment effects." *Biometrika* 108(2): 299--319.
+
+Chernozhukov V, Chetverikov D, Demirer M, et al. (2018). "Double/debiased machine learning for treatment and structural parameters." *Econometrics Journal* 21(1): C1--C68.
+
+Newey WK (1994). "The asymptotic variance of semiparametric estimators." *Econometrica* 62(6): 1349--1382.
+
