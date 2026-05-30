@@ -24,6 +24,10 @@ forestsearch(
   use_grf = TRUE,
   grf_res = NULL,
   grf_cuts = NULL,
+  use_dina = FALSE,
+  dina_res = NULL,
+  dina_cuts = NULL,
+  dina_args = list(),
   max_n_confounders = 1000,
   grf_depth = 2,
   dmin.grf = 0,
@@ -129,6 +133,31 @@ To disable parallelism entirely, pass
 \item{grf_res}{GRF results object (optional, for reuse).}
 
 \item{grf_cuts}{List. Custom GRF cut points (optional).}
+
+\item{use_dina}{Logical. Generate additional screening-stage candidate
+cuts from a DINA per-covariate Pareto frontier, fed into
+\code{\link{get_FSdata}} alongside the GRF cuts. Default FALSE
+(opt-in); existing behaviour is unchanged when FALSE.}
+
+\item{dina_res}{A fitted DINA object (optional, for reuse). When NULL
+and \code{use_dina = TRUE}, a DINA model is fit at the screening
+stage.}
+
+\item{dina_cuts}{Character vector of pre-supplied DINA cut expressions
+(optional). When supplied, the DINA fit / frontier step is skipped
+and these are used directly.}
+
+\item{dina_args}{Named list of DINA tuning options, all optional.
+Recognised keys: \code{family} (defaults to the mapping from
+\code{outcome_type}: survival -> cox, binary -> binomial,
+continuous -> gaussian, count -> poisson), \code{seed} (defaults to
+\code{seedit}), and the fit-only keys \code{n_folds},
+\code{cens_type}, \code{cens_params} (passed to \code{\link{dina}}
+only when set); plus the frontier keys forwarded to
+\code{\link{dina_frontier}}: \code{scope} (default \code{"wide"}),
+\code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
+call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
+and \code{digits}. Unknown keys raise an error.}
 
 \item{max_n_confounders}{Integer. Maximum confounders to consider. Default 1000.}
 

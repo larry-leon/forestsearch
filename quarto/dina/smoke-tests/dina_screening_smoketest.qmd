@@ -1,0 +1,236 @@
+---
+title: "Smoke test: DINA screening in forestsearch() (use_dina)"
+format:
+  html:
+    embed-resources: true
+    toc: true
+execute:
+  warning: true
+  message: false
+---
+
+This living doc exercises the Phase-2 `use_dina` integration end to end on
+synthetic data, across **all three outcome families** that map to a DINA fit:
+survival (cox), binary (binomial), and continuous (gaussian). Each family runs
+the same battery of checks via the canonical `.tc()` helper, and the results are
+rendered as a `gt` summary at the end.
+
+The DINA path is isolated with `use_grf = FALSE` and `use_lasso = FALSE`, so the
+candidate pool is just median cuts plus the DINA per-covariate frontier cuts and
+the test needs no `grf`/`glmnet`. Runs are sequential and deliberately light
+(`maxk = 2`, reduced `fs.splits`, `max.minutes = 1`); the DINA cuts are produced
+during screening, before the consistency search, so the assertions do not depend
+on a subgroup actually being found.
+
+```{r}
+#| label: setup
+library(forestsearch)
+
+# --- .tc() accumulator -----------------------------------------------------
+TC <- local({
+  rows <- list()
+  add <- function(check, result, note = "") {
+    rows[[length(rows) + 1L]] <<- data.frame(
+      check = check, result = result, note = note, stringsAsFactors = FALSE)
+    invisible()
+  }
+  list(
+    tc   = function(check, cond, note = "")
+      add(check, if (isTRUE(cond)) "PASS" else "FAIL", note),
+    skip = function(check, note = "") add(check, "SKIP", note),
+    table = function() do.call(rbind, rows)
+  )
+})
+.tc   <- TC$tc
+.skip <- TC$skip
+
+ok     <- function(x) !inherits(x, "error")
+errmsg <- function(x) if (inherits(x, "error")) conditionMessage(x) else ""
+varof  <- function(cuts) sub(" .*", "", cuts)     # "x1 <= 0.3" -> "x1"
+```
+
+```{r}
+#| label: dgm
+# All DGMs share a known harmful subgroup at x1 > 0.3 (treatment worsens the
+# outcome there). x2/x3 are weak prognostic; x4/x5 are noise.
+.mkX <- function(n) matrix(runif(n * 5, -1, 1), n, 5,
+                           dimnames = list(NULL, paste0("x", 1:5)))
+
+make_surv <- function(n = 400L, seed = 101L) {
+  set.seed(seed); X <- .mkX(n); treat <- rbinom(n, 1, 0.5)
+  harm <- as.integer(X[, "x1"] > 0.3)
+  rate <- 0.08 * exp(0.4 * X[, "x2"] - 0.3 * X[, "x3"] +
+                       treat * (-0.4 + 1.2 * harm))
+  tt <- rexp(n, rate); cc <- rexp(n, 0.02)
+  data.frame(id = seq_len(n), y = pmin(tt, cc),
+             d = as.integer(tt <= cc), treat = treat, X)
+}
+
+make_bin <- function(n = 400L, seed = 303L) {
+  set.seed(seed); X <- .mkX(n); treat <- rbinom(n, 1, 0.5)
+  harm <- as.integer(X[, "x1"] > 0.3)
+  p <- plogis(0.3 * X[, "x2"] - 0.2 * X[, "x3"] +
+                treat * (-0.4 + 1.2 * harm))
+  data.frame(id = seq_len(n), y = rbinom(n, 1, p), treat = treat, X)
+}
+
+make_cont <- function(n = 400L, seed = 202L) {
+  set.seed(seed); X <- .mkX(n); treat <- rbinom(n, 1, 0.5)
+  harm <- as.integer(X[, "x1"] > 0.3)
+  y <- 0.5 * X[, "x2"] + treat * (-0.3 + 1.0 * harm) + rnorm(n)
+  data.frame(id = seq_len(n), y = y, treat = treat, X)
+}
+
+dsurv <- make_surv(); dbin <- make_bin(); dcont <- make_cont()
+confs <- paste0("x", 1:5)
+```
+
+```{r}
+#| label: battery
+# One battery of checks, run per outcome family.  harm_m_diff is on the family's
+# natural-parameter (link) scale: log-HR / log-OR for ratio families, mean
+# difference for gaussian.
+battery <- function(label, df, outcome_type, expected_family, harm_m_diff,
+                    event.name = "y") {
+  base <- list(
+    df.analysis = df, outcome.name = "y", event.name = event.name,
+    treat.name = "treat", id.name = "id", confounders.name = confs,
+    outcome_type = outcome_type, use_lasso = FALSE, use_grf = FALSE,
+    parallel_args = list(plan = "sequential"),
+    maxk = 2, fs.splits = 100, max.minutes = 1, details = FALSE)
+  run <- function(extra = list())
+    tryCatch(do.call(forestsearch, modifyList(base, extra)),
+             error = function(e) e)
+  p <- function(s) paste0(label, ": ", s)
+
+  # Backward compatibility
+  f0 <- run(list(use_dina = FALSE))
+  .tc(p("use_dina=FALSE runs"), ok(f0), errmsg(f0))
+  .tc(p("use_dina=FALSE leaves dina_cuts NULL"), ok(f0) && is.null(f0$dina_cuts))
+
+  # Core DINA screening
+  f1 <- run(list(use_dina = TRUE)); dc <- if (ok(f1)) f1$dina_cuts else NULL
+  .tc(p("use_dina=TRUE runs"), ok(f1), errmsg(f1))
+  .tc(p("dina_cuts non-empty character"), is.character(dc) && length(dc) >= 1L)
+  .tc(p("dina_cuts canonical 'var <= value'"),
+      length(dc) >= 1L && all(grepl("^x[1-5] <= -?[0-9.]+$", dc)))
+  .tc(p("dina_cuts reference real confounders"),
+      length(dc) >= 1L && all(varof(dc) %in% confs))
+  .tc(p("dina_cuts span >1 covariate"),
+      length(dc) >= 1L && length(unique(varof(dc))) > 1L)
+  .tc(p("dina_res family mapped correctly"),
+      ok(f1) && inherits(f1$dina_res, "dina") &&
+        identical(f1$dina_res$family, expected_family))
+
+  # dina_args caps
+  fc <- run(list(use_dina = TRUE,
+                 dina_args = list(max_subgroups = 3L, max_per_covariate = 1L)))
+  dcc <- if (ok(fc)) fc$dina_cuts else NULL
+  .tc(p("max_subgroups caps total (<= 3)"), ok(fc) && length(dcc) <= 3L)
+  .tc(p("max_per_covariate respected (<= 1)"),
+      ok(fc) && (length(dcc) == 0L || all(table(varof(dcc)) <= 1L)))
+
+  # Harm-gated scope
+  fh <- run(list(use_dina = TRUE,
+                 dina_args = list(scope = "harm", m_diff = harm_m_diff)))
+  .tc(p("scope='harm' runs"), ok(fh), errmsg(fh))
+  .tc(p("scope='harm' returns character dina_cuts"),
+      ok(fh) && is.character(fh$dina_cuts))
+
+  # Pre-supplied cuts skip the fit
+  fp <- run(list(use_dina = TRUE, dina_cuts = c("x1 <= 0.3")))
+  .tc(p("pre-supplied dina_cuts used verbatim"),
+      ok(fp) && identical(fp$dina_cuts, "x1 <= 0.3"))
+  .tc(p("pre-supplied => dina_res NULL"), ok(fp) && is.null(fp$dina_res))
+
+  invisible(NULL)
+}
+```
+
+## Survival (cox)
+
+```{r}
+#| label: survival
+battery("survival", dsurv, "survival", "cox", log(1.25), event.name = "d")
+```
+
+## Binary (binomial)
+
+```{r}
+#| label: binary
+battery("binary", dbin, "binary", "binomial", log(1.25), event.name = "y")
+```
+
+## Continuous (gaussian)
+
+```{r}
+#| label: continuous
+# Continuous has no event column; forestsearch() placeholders the (absent) one.
+battery("continuous", dcont, "continuous", "gaussian", 0.2, event.name = "event")
+```
+
+## Screening diagnostics (`details = TRUE`)
+
+```{r}
+#| label: details
+cap <- capture.output(
+  tryCatch(forestsearch(
+    df.analysis = dsurv, outcome.name = "y", event.name = "d",
+    treat.name = "treat", id.name = "id", confounders.name = confs,
+    outcome_type = "survival", use_lasso = FALSE, use_grf = FALSE,
+    parallel_args = list(plan = "sequential"),
+    maxk = 2, fs.splits = 100, max.minutes = 1,
+    use_dina = TRUE, details = TRUE),
+    error = function(e) e))
+.tc("details: 'DINA cuts identified' line printed",
+    any(grepl("DINA cuts identified", cap)))
+```
+
+## Coexistence with GRF (only if `grf` is installed)
+
+```{r}
+#| label: grf-coexist
+if (requireNamespace("grf", quietly = TRUE)) {
+  fg <- tryCatch(forestsearch(
+    df.analysis = dsurv, outcome.name = "y", event.name = "d",
+    treat.name = "treat", id.name = "id", confounders.name = confs,
+    outcome_type = "survival", use_lasso = FALSE, use_grf = TRUE,
+    parallel_args = list(plan = "sequential"),
+    maxk = 2, fs.splits = 100, max.minutes = 1, use_dina = TRUE),
+    error = function(e) e)
+  .tc("GRF + DINA run together", ok(fg), errmsg(fg))
+  .tc("both grf_cuts and dina_cuts populated",
+      ok(fg) && length(fg$grf_cuts) >= 1L && length(fg$dina_cuts) >= 1L)
+} else {
+  .skip("GRF + DINA run together", "grf not installed")
+  .skip("both grf_cuts and dina_cuts populated", "grf not installed")
+}
+```
+
+## Summary
+
+```{r}
+#| label: summary
+res <- TC$table()
+n_pass <- sum(res$result == "PASS")
+n_fail <- sum(res$result == "FAIL")
+n_skip <- sum(res$result == "SKIP")
+cat(sprintf("PASS: %d   FAIL: %d   SKIP: %d\n", n_pass, n_fail, n_skip))
+
+if (requireNamespace("gt", quietly = TRUE)) {
+  library(gt)
+  gt(res) |>
+    tab_header(title = gt::md("**DINA screening smoke test**"),
+               subtitle = gt::md(sprintf("%d pass / %d fail / %d skip",
+                                         n_pass, n_fail, n_skip))) |>
+    cols_label(check = "Check", result = "Result", note = "Note") |>
+    tab_style(style = cell_fill(color = "#d9f2d9"),
+              locations = cells_body(rows = result == "PASS")) |>
+    tab_style(style = cell_fill(color = "#ffd6d6"),
+              locations = cells_body(rows = result == "FAIL")) |>
+    tab_style(style = cell_fill(color = "#fff2cc"),
+              locations = cells_body(rows = result == "SKIP"))
+} else {
+  knitr::kable(res)
+}
+```

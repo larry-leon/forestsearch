@@ -884,3 +884,90 @@ reset_workers <- function(workers   = NULL,
     sg_focus
   )
 }
+
+
+# =============================================================================
+# DINA screening-stage helpers (Phase 2: use_dina)
+# =============================================================================
+
+#' Map a forestsearch outcome_type to a DINA family
+#'
+#' @param outcome_type One of "survival", "binary", "continuous", "count".
+#' @return The corresponding DINA family string.
+#' @noRd
+.map_dina_family <- function(outcome_type) {
+  switch(outcome_type,
+    survival   = "cox",
+    binary     = "binomial",
+    continuous = "gaussian",
+    count      = "poisson",
+    stop(".map_dina_family(): unrecognised outcome_type '", outcome_type, "'.")
+  )
+}
+
+#' Resolve and validate the \code{dina_args} list for \code{forestsearch()}
+#'
+#' Fills defaults (several inherited from the enclosing \code{forestsearch()}
+#' call) and rejects unknown keys with a loud error.  Splits the result into
+#' the keys destined for \code{dina()} (the fit) and those destined for
+#' \code{dina_frontier()} (the extraction).
+#'
+#' @param dina_args User-supplied list (possibly empty).
+#' @param outcome_type forestsearch outcome_type, for the family default.
+#' @param n_min_default forestsearch \code{n.min}, the default frontier
+#'   \code{n_min}.
+#' @param seed_default forestsearch \code{seedit}, the default DINA seed.
+#' @return A list with elements \code{fit} (named list of \code{dina()}
+#'   arguments) and \code{frontier} (named list of \code{dina_frontier()}
+#'   arguments).
+#' @noRd
+.resolve_dina_args <- function(dina_args, outcome_type, n_min_default,
+                               seed_default) {
+  if (is.null(dina_args)) dina_args <- list()
+  if (!is.list(dina_args)) {
+    stop("`dina_args` must be a list.", call. = FALSE)
+  }
+  fit_keys      <- c("family", "seed", "n_folds", "cens_type", "cens_params")
+  frontier_keys <- c("scope", "m_diff", "n_min", "direction",
+                      "max_per_covariate", "max_subgroups", "digits")
+  recognised    <- c(fit_keys, frontier_keys)
+
+  nms <- names(dina_args)
+  if (length(dina_args) > 0L && (is.null(nms) || any(nms == ""))) {
+    stop("`dina_args` must be a fully named list.", call. = FALSE)
+  }
+  unknown <- setdiff(nms, recognised)
+  if (length(unknown) > 0L) {
+    stop("`dina_args` has unrecognised key(s): ",
+         paste(shQuote(unknown), collapse = ", "),
+         ".  Recognised keys: ",
+         paste(shQuote(recognised), collapse = ", "), ".",
+         call. = FALSE)
+  }
+
+  get_arg <- function(key, default) if (key %in% nms) dina_args[[key]] else default
+
+  # Fit arguments: family + seed always set; the remaining fit keys are
+  # forwarded to dina() ONLY when the user supplied them, so dina()'s own
+  # defaults otherwise apply (no silently invented values).
+  fit <- list(
+    family = get_arg("family", .map_dina_family(outcome_type)),
+    seed   = get_arg("seed", seed_default)
+  )
+  for (k in c("n_folds", "cens_type", "cens_params")) {
+    if (k %in% nms) fit[[k]] <- dina_args[[k]]
+  }
+
+  # Frontier arguments: explicit defaults, n_min inherits forestsearch n.min.
+  frontier <- list(
+    scope             = get_arg("scope", "wide"),
+    m_diff            = get_arg("m_diff", NULL),
+    n_min             = get_arg("n_min", n_min_default),
+    direction         = get_arg("direction", "both"),
+    max_per_covariate = get_arg("max_per_covariate", 3L),
+    max_subgroups     = get_arg("max_subgroups", 10L),
+    digits            = get_arg("digits", 3L)
+  )
+
+  list(fit = fit, frontier = frontier)
+}

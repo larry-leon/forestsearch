@@ -8,6 +8,8 @@
 #' @param use_lasso Logical. Whether to use LASSO for dimension reduction.
 #' @param use_grf Logical. Whether to use GRF cuts.
 #' @param grf_cuts Character vector of GRF cut expressions.
+#' @param dina_cuts Character vector of DINA cut expressions (optional),
+#'   merged into the candidate pool exactly like \code{grf_cuts}.
 #' @param confounders.name Character vector of confounder variable names.
 #' @param cont.cutoff Integer. Cutoff for continuous variable determination.
 #' @param conf_force Character vector of forced cut expressions.
@@ -67,6 +69,7 @@
 get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts = NULL ,confounders.name,
                        cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
                        conf.cont_jcuts = NULL,
+                       dina_cuts = NULL,
                        replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                        outcome.name = "tte", event.name = "event", details=TRUE,
                        outcome_type = "survival", offset.name = NULL){
@@ -480,6 +483,19 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       cat("Factors included per GRF (not in lasso)",c(confs[!which_both]),"\n")
     }
   }
+  # DINA cuts: merged into the candidate pool exactly like GRF cuts -- keep
+  # only those not already represented in confs (substring match), then
+  # union-dedup.  dina_cuts are already canonical "var <= value" expressions.
+  if(length(dina_cuts) > 0){
+    if(details) cat('Factors per DINA:', c(dina_cuts), '\n')
+    if(length(confs) > 0){
+      flag_omit <- sapply(dina_cuts, function(cut) any(sapply(confs, function(x) grepl(x, cut))))
+      dina_cuts_keep <- dina_cuts[!flag_omit]
+    } else {
+      dina_cuts_keep <- dina_cuts
+    }
+    confs <- unique(c(confs, dina_cuts_keep))
+  }
   conf_forceNew <- vapply(
     conf_force,
     process_conf_force_expr,
@@ -503,6 +519,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
     sources <- c(
       sprintf("GRF cuts (%d)",
               if (use_grf) length(grf_cuts) else 0L),
+      sprintf("DINA cuts (%d)",           length(dina_cuts)),
       sprintf("LASSO selected (%d)",
               if (use_lasso) length(lassokeep) else 0L),
       sprintf("conf_force (%d)",          length(conf_force)),

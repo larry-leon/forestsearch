@@ -15,6 +15,7 @@ get_FSdata(
   conf.cont_medians = NULL,
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
+  dina_cuts = NULL,
   replace_med_grf = TRUE,
   defaultcut_names = NULL,
   cut_type = "default",
@@ -57,6 +58,9 @@ cuts are unconditional (not filtered by LASSO), matching
 \code{defaultcut_names} semantics.  Names must be in
 \code{confounders.name} and must not overlap with
 \code{defaultcut_names} or \code{conf.cont_medians_force}.}
+
+\item{dina_cuts}{Character vector of DINA cut expressions (optional),
+merged into the candidate pool exactly like \code{grf_cuts}.}
 
 \item{replace_med_grf}{Logical. If TRUE, removes median cuts that overlap with GRF cuts.}
 

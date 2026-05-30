@@ -235,6 +235,27 @@
 #' @param use_grf Logical. Use GRF for variable importance. Default TRUE.
 #' @param grf_res GRF results object (optional, for reuse).
 #' @param grf_cuts List. Custom GRF cut points (optional).
+#' @param use_dina Logical. Generate additional screening-stage candidate
+#'   cuts from a DINA per-covariate Pareto frontier, fed into
+#'   \code{\link{get_FSdata}} alongside the GRF cuts. Default FALSE
+#'   (opt-in); existing behaviour is unchanged when FALSE.
+#' @param dina_res A fitted DINA object (optional, for reuse). When NULL
+#'   and \code{use_dina = TRUE}, a DINA model is fit at the screening
+#'   stage.
+#' @param dina_cuts Character vector of pre-supplied DINA cut expressions
+#'   (optional). When supplied, the DINA fit / frontier step is skipped
+#'   and these are used directly.
+#' @param dina_args Named list of DINA tuning options, all optional.
+#'   Recognised keys: \code{family} (defaults to the mapping from
+#'   \code{outcome_type}: survival -> cox, binary -> binomial,
+#'   continuous -> gaussian, count -> poisson), \code{seed} (defaults to
+#'   \code{seedit}), and the fit-only keys \code{n_folds},
+#'   \code{cens_type}, \code{cens_params} (passed to \code{\link{dina}}
+#'   only when set); plus the frontier keys forwarded to
+#'   \code{\link{dina_frontier}}: \code{scope} (default \code{"wide"}),
+#'   \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
+#'   call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
+#'   and \code{digits}. Unknown keys raise an error.
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
@@ -623,6 +644,10 @@ forestsearch <- function(df.analysis,
                          use_grf = TRUE,
                          grf_res = NULL,
                          grf_cuts = NULL,
+                         use_dina = FALSE,
+                         dina_res = NULL,
+                         dina_cuts = NULL,
+                         dina_args = list(),
                          max_n_confounders = 1000,
                          grf_depth = 2,
                          dmin.grf = 0.0,
@@ -1435,6 +1460,55 @@ forestsearch <- function(df.analysis,
   }
 
   # ===========================================================================
+  # SECTION 3B: DINA CUT GENERATION (if use_dina = TRUE)
+  # ===========================================================================
+  # Mirrors SECTION 3A: fit a DINA model on the analysis data and extract a
+  # per-covariate Pareto frontier as additional screening-stage candidate
+  # cuts ("x1 <= 0.5"), merged into the candidate pool by get_FSdata()
+  # exactly as the GRF cuts are.  These are candidates, not forced
+  # selections; the consistency stage remains the gatekeeper.
+
+  if (use_dina && is.null(dina_cuts)) {
+
+    dina_cuts <- tryCatch({
+      da <- .resolve_dina_args(dina_args, outcome_type,
+                               n_min_default = n.min,
+                               seed_default  = seedit)
+
+      if (is.null(dina_res)) {
+        # Cox requires a status column; GLM families do not.
+        status_arg <- if (identical(da$fit$family, "cox")) event.name else NULL
+        fit_call <- c(
+          list(df = df.analysis, outcome = outcome.name,
+               treatment = treat.name, covariates = confounders.name,
+               status = status_arg),
+          da$fit
+        )
+        dina_res <- do.call(dina, fit_call)
+      }
+
+      fr <- do.call(dina_frontier,
+                    c(list(fit = dina_res, df = df.analysis,
+                           covariates = confounders.name),
+                      da$frontier))
+      fr$cut_expr
+    },
+      error = function(e) {
+        warning("DINA analysis failed: ", e$message)
+        return(NULL)
+      }
+    )
+
+    if (details) {
+      n_dc <- length(dina_cuts)
+      cat("DINA cuts identified:", n_dc, "\n")
+      if (n_dc > 0) {
+        cat("  Cuts:", paste(dina_cuts, collapse = ", "), "\n")
+      }
+    }
+  }
+
+  # ===========================================================================
   # SECTION 4: DATA PREPARATION (get_FSdata)
   # ===========================================================================
 
@@ -1465,6 +1539,7 @@ forestsearch <- function(df.analysis,
         args_call_all,
         get_FSdata,
         list(df.analysis = df.analysis, grf_cuts = grf_cuts,
+             dina_cuts = dina_cuts,
              details = FALSE)
       )
     ),
@@ -1909,6 +1984,8 @@ forestsearch <- function(df.analysis,
     sg_focus = sg_focus,
     sg.harm = sg.harm,
     grf_cuts = grf_cuts,
+    dina_res = dina_res,
+    dina_cuts = dina_cuts,
     prop_maxk = prop_maxk,
     max_sg_est = max_sg_est,
     grf_plot = grf_plot,
