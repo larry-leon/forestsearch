@@ -14,6 +14,8 @@ dina_subgroup_bootstrap(
   m_diff,
   n_min = 60L,
   direction = c("both", "left", "right"),
+  sg_focus = "maxSG",
+  effect_neighborhood = 0.1,
   alpha = 0.05,
   n_boot = 200L,
   parallel = c("none", "boots"),
@@ -50,6 +52,16 @@ the event indicator column name.}
 \item{n_min}{positive integer; minimum subgroup size.  Default \code{60L}.}
 
 \item{direction}{one of \code{"both"} (default), \code{"left"}, \code{"right"}.}
+
+\item{sg_focus}{character; subgroup selection criterion, forwarded to
+\code{dina_subgroup()} for both the original-data point estimate and every
+bootstrap iteration.  One of \code{"maxSG"} (default), \code{"minSG"}, \code{"eff"},
+\code{"effMaxSG"}, \code{"effMinSG"} (canonical \code{"hr"}, \code{"hrMaxSG"},
+\code{"hrMinSG"} also accepted).  See \code{\link[=dina_subgroup]{dina_subgroup()}}.}
+
+\item{effect_neighborhood}{numeric in \verb{[0, 1)}; relative tolerance for
+the \code{"effMaxSG"} / \code{"effMinSG"} effect band, forwarded to
+\code{dina_subgroup()}.  Default \code{0.10}.  Ignored for the non-band foci.}
 
 \item{alpha}{confidence level for the percentile CI.  Default \code{0.05}
 (percentile endpoints at the \code{alpha/2} and \code{1 - alpha/2} quantiles).}
@@ -156,7 +168,8 @@ search rule) and is retained for diagnostic transparency
 rather than as a meaningful effect estimate.}
 \item{n_boot, n_boot_found, n_boot_failed}{convergence
 diagnostics.}
-\item{alpha, m_diff, n_min, family}{echoed inputs.}
+\item{alpha, m_diff, n_min, sg_focus, effect_neighborhood,
+family}{echoed inputs.}
 \item{call}{the matched call.}
 }
 }
@@ -198,14 +211,18 @@ upstream fit on whether a subgroup qualifies.
 \section{Why the bootstrap target is the \emph{fixed-subgroup} effect}{
 
 A naive bootstrap of \code{dina_subgroup()}'s \code{mean_tau_hat} is
-uninformative.  The search rule selects the \emph{largest} subgroup
-whose mean tau-hat exceeds \code{m_diff}, so the chosen subgroup lies
-at the boundary by construction: adding one more patient would
-push the mean below \code{m_diff}.  Each bootstrap iteration's
-selected subgroup is similarly pinned, so the bootstrap
+uninformative.  Under the default \code{sg_focus = "maxSG"} the search
+selects the \emph{largest} subgroup whose mean tau-hat exceeds \code{m_diff},
+so the chosen subgroup lies at the boundary by construction: adding
+one more patient would push the mean below \code{m_diff}.  Each bootstrap
+iteration's selected subgroup is similarly pinned, so the bootstrap
 distribution of \code{mean_tau_hat} clusters tightly above \code{m_diff}
 and the resulting CI quantifies threshold-grid granularity
-rather than effect uncertainty.  The fixed-subgroup linear
+rather than effect uncertainty.  (Under the band foci
+\code{"effMaxSG"} / \code{"effMinSG"} the per-iteration subgroup is instead
+anchored to the maximum effect rather than the \code{m_diff} boundary,
+but the same caveat applies: \code{mean_tau_hat} is a selection-pinned
+quantity, not an effect estimate.)  The fixed-subgroup linear
 functional \verb{a*^T beta_b} instead targets the clinically
 meaningful estimand "treatment effect for patients whose
 covariates lie in the discovered subgroup".  Because DINA's

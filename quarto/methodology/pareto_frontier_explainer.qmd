@@ -1,0 +1,346 @@
+---
+title: "The Pareto frontier in forestsearch subgroup selection"
+subtitle: "How `selection_rule` shapes the candidate inclusion band for `sg_focus = \"effMaxSG\"`/`\"effMinSG\"`"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose
+
+`forestsearch()` (and, since v0.2.0, `dina_subgroup()`) selects among the
+qualifying candidate subgroups using `sg_focus`. For the effect-anchored
+foci `"effMaxSG"`/`"effMinSG"` (canonical `"hrMaxSG"`/`"hrMinSG"`), the
+selection is *not* "take the candidate with the largest effect." Instead
+the candidates are first partitioned into a **candidate inclusion band**,
+and then ranked within that band by sample size. The `selection_rule`
+argument controls how the band is drawn:
+
+* `"neighborhood"` --- a one-dimensional effect band (default).
+* `"pareto"` --- the two-dimensional Pareto-non-dominated set in
+  (effect, $N$) space.
+* `"both"` --- the intersection of the two (strictest).
+
+This note explains how the **Pareto frontier** operates: what
+"dominated" means, how the frontier becomes the `in_pareto` indicator,
+how it combines with the neighborhood band, and how the resulting
+`in_band` flag feeds the final selection sort. The single computation
+shared by every path is `.compute_inclusion_band()`, called by both
+`sort_subgroups()` (final, post-consistency selection) and
+`sort_subgroups_preview()` (pre-consistency triage).
+
+# Setup
+
+```{r setup}
+library(data.table)
+library(ggplot2)
+library(gt)
+
+# Loaded for the validation section; the figure itself is self-contained.
+have_fs <- requireNamespace("forestsearch", quietly = TRUE)
+
+EFFECT_NEIGHBORHOOD <- 0.10   # the package default
+```
+
+# The dominance rule
+
+Both objectives --- effect size and sample size --- are *maximized*. A
+candidate $i$ is **dominated** if some other candidate $j$ is at least as
+good on both axes and strictly better on at least one:
+
+$$
+\text{dominated}(i) \;\Longleftrightarrow\;
+\exists\, j \neq i:\;
+\mathrm{hr}_j \ge \mathrm{hr}_i \;\wedge\; N_j \ge N_i
+\;\wedge\; (\mathrm{hr}_j > \mathrm{hr}_i \;\vee\; N_j > N_i).
+$$
+
+The **Pareto frontier** is the set of non-dominated candidates --- the
+upper-right boundary of the cloud. The package implements this as an
+$O(n^2)$ scan in `.pareto_dominated_xy()`; candidates with a missing
+effect or size are treated as dominated. The function below is a
+faithful mirror of that internal helper, kept local so this document
+renders without the package; the validation section confirms the two
+agree.
+
+```{r dominance}
+# Mirror of forestsearch internal .pareto_dominated_xy(): both axes maximized.
+dominated_xy <- function(x, y) {
+  n <- length(x)
+  dom <- logical(n)
+  for (i in seq_len(n)) {
+    if (is.na(x[i]) || is.na(y[i])) { dom[i] <- TRUE; next }
+    for (j in seq_len(n)) {
+      if (i == j) next
+      if (is.na(x[j]) || is.na(y[j])) next
+      if (x[j] >= x[i] && y[j] >= y[i] && (x[j] > x[i] || y[j] > y[i])) {
+        dom[i] <- TRUE
+        break
+      }
+    }
+  }
+  dom
+}
+```
+
+# How the band is formed
+
+`.compute_inclusion_band()` builds two indicators and multiplies them:
+
+```r
+in_nbhd   <- (hr >= (1 - effect_neighborhood) * max(hr))   # 1-D effect band
+in_pareto <- !dominated_xy(hr, N)                          # 2-D frontier
+in_band   <- in_nbhd * in_pareto
+```
+
+Each `selection_rule` switches the two components on or off:
+
+| `selection_rule` | `in_nbhd` | `in_pareto` | `in_band` is |
+|---|---|---|---|
+| `"neighborhood"` | active | all ones | the effect band only |
+| `"pareto"` | all ones | active | the frontier only |
+| `"both"` | active | active | their intersection |
+
+For ratio measures stored on the log scale (GLM OR/IRR), `hr` is
+exponentiated before either test so the comparison is on the natural
+scale; Cox HR is already natural. The neighborhood floor is a *relative*
+tolerance: with `effect_neighborhood = 0.10` a candidate is in-band iff
+its effect is within 10% of the strongest effect among the survivors.
+Setting it to `0` collapses the band to a strict max-effect filter.
+
+# A worked candidate set
+
+Five candidates that have already passed the consistency stage and the
+effect threshold. Effect on the natural (HR) scale, size $N$:
+
+```{r candidates}
+cands <- data.table(
+  id = c("A", "B", "C", "E", "F"),
+  hr = c(2.50, 2.40, 2.30, 2.35, 2.00),
+  N  = c(70L,  100L, 150L, 90L,  200L)
+)
+
+hr_max  <- max(cands$hr)
+hr_floor <- (1 - EFFECT_NEIGHBORHOOD) * hr_max
+
+cands[, in_nbhd     := hr >= hr_floor]
+cands[, dominated   := dominated_xy(hr, N)]
+cands[, on_frontier := !dominated]
+cands[, in_both     := in_nbhd & on_frontier]
+cands[, status      := fifelse(!in_nbhd, "neither (below floor)",
+                        fifelse(in_both,  "both rules",
+                                          "neighborhood only"))]
+
+# effMaxSG within the "both" band: largest N among in-band-both candidates.
+sel_id <- cands[in_both == TRUE][order(-N)][1L, id]
+cands[, selected := id == sel_id]
+
+cands[, .(id, hr, N, in_nbhd, on_frontier, in_both, selected)]
+```
+
+With `hr_max = 2.5`, the floor is `r round(hr_floor, 3)`. So:
+
+* `A`, `B`, `C` are in the effect band **and** on the frontier --- in-band
+  under every rule.
+* `E` (HR 2.35, $N$ 90) is in the effect band but **dominated by `B`**
+  (HR 2.40 $\ge$ 2.35 and $N$ 100 $\ge$ 90), so `"pareto"`/`"both"`
+  exclude it while `"neighborhood"` keeps it.
+* `F` (HR 2.00, $N$ 200) is on the frontier (largest $N$) but **below the
+  floor**, so `"neighborhood"`/`"both"` exclude it while `"pareto"`
+  keeps it --- this is the over-extension guard that the effect band
+  provides and the bare frontier does not.
+
+# The figure
+
+```{r}
+#| label: fig-frontier
+#| fig-width: 7.2
+#| fig-height: 4.6
+#| fig-cap: "Candidate subgroups in the (effect, N) plane. The shaded region is the effect neighborhood band (HR at least the dashed floor); the dashed line traces the Pareto frontier. Colour encodes which selection_rule keeps each candidate. C is selected by effMaxSG (largest N in the band)."
+
+pal <- c("both rules"           = "#1D9E75",
+         "neighborhood only"    = "#EF9F27",
+         "neither (below floor)" = "#888780")
+
+frontier <- cands[on_frontier == TRUE][order(hr)]
+
+# per-point label offsets so the letters sit clear of points/lines
+labs <- data.table(
+  id = c("A", "B", "C", "E", "F"),
+  lx = c(2.50, 2.435, 2.30, 2.35, 2.00),
+  ly = c(63,   108,   166,  79,   210))
+
+ggplot(cands, aes(hr, N)) +
+  annotate("rect", xmin = hr_floor, xmax = Inf, ymin = -Inf, ymax = Inf,
+           fill = "#378ADD", alpha = 0.10) +
+  geom_vline(xintercept = hr_floor, linetype = "dashed",
+             colour = "#185FA5", linewidth = 0.4) +
+  geom_line(data = frontier, aes(hr, N), linetype = "dashed",
+            colour = "#888780", linewidth = 0.5) +
+  geom_point(data = cands[selected == TRUE], aes(hr, N),
+             shape = 21, size = 9, stroke = 1.3,
+             colour = "#0F6E56", fill = NA) +
+  geom_point(aes(colour = status), size = 3.6) +
+  geom_text(data = labs, aes(lx, ly, label = id),
+            size = 4, fontface = "bold") +
+  annotate("text", x = hr_floor + 0.015, y = 219,
+           label = sprintf("HR >= %.2f  (within %.0f%% of max)",
+                           hr_floor, 100 * EFFECT_NEIGHBORHOOD),
+           hjust = 0, vjust = 1, size = 3.1, colour = "#185FA5") +
+  scale_colour_manual(values = pal, name = "in_band under") +
+  scale_x_continuous(limits = c(1.9, 2.62)) +
+  scale_y_continuous(limits = c(45, 222)) +
+  labs(x = "effect (HR)", y = "subgroup size N") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        panel.grid.minor = element_blank())
+```
+
+Reading the figure: `"neighborhood"` keeps the whole shaded strip
+$\{A, B, C, E\}$; `"both"` additionally drops `E` because it sits
+*inside* the frontier (another point beats it on both axes); `"pareto"`
+alone would keep `F` (top-left, on the frontier) despite its weak
+effect. The selection then maximizes $N$ within the kept set.
+
+# From inclusion to selection
+
+`sort_subgroups()` orders the candidates by a five-key lexicographic
+sort and takes the top row. For `"hrMaxSG"` the key is
+
+$$
+(-\,\texttt{in\_band},\; -N,\; -\texttt{Pcons},\; -\texttt{hr},\; K),
+$$
+
+so: in-band candidates first; then the largest $N$; then higher
+consistency; then higher effect; then fewer factors. `"hrMinSG"` is
+identical except $N$ is minimized. Only `in_band` depends on
+`selection_rule` --- the sort itself is fixed.
+
+For the worked set, every rule that keeps `C` selects it (largest $N$ in
+the band), so the **top pick is `C`** under `"neighborhood"` and
+`"both"` alike; the rules differ only in whether `E` carries an in-band
+flag in the diagnostic table.
+
+## Where the rules genuinely diverge
+
+The top selection differs only in a narrow corner: when two candidates
+**tie on the maximum band $N$**, because the sort breaks $N$-ties by
+consistency *before* effect, whereas Pareto dominance looks only at
+(effect, $N$).
+
+```{r corner}
+corner <- data.table(
+  id    = c("T", "D"),
+  Pcons = c(0.95, 0.80),
+  hr    = c(2.30, 2.45),
+  N     = c(150L, 150L),
+  K     = c(1L,   1L)
+)
+corner[]
+```
+
+`D` dominates `T` (equal $N$, higher HR). Under `"neighborhood"` both are
+in-band, they tie on $N$, and the consistency tier keeps the
+higher-`Pcons` candidate `T`. Under `"both"`, `T` is off the frontier and
+excluded, so the higher-effect `D` is selected.
+
+```{r corner-eval}
+if (have_fs) {
+  top_pick <- function(rule) {
+    s <- forestsearch::sort_subgroups(
+      data.table::copy(corner), "hrMaxSG",
+      selection_rule = rule, effect_neighborhood = EFFECT_NEIGHBORHOOD)
+    s$id[1L]
+  }
+  data.table(selection_rule = c("neighborhood", "both"),
+             top_pick = vapply(c("neighborhood", "both"), top_pick, character(1)))
+} else {
+  cat("forestsearch not installed; expected: neighborhood -> T, both -> D.\n")
+}
+```
+
+So `"both"` refuses to settle on a point another candidate beats on both
+axes, even when it won the consistency tie; `"neighborhood"` will keep
+the higher-consistency point.
+
+# Validation against the package
+
+Confirm the local frontier and band computations agree with the
+shipped internals, and that `compute_pareto_frontier()` returns the
+expected non-dominated rows.
+
+```{r validate}
+if (have_fs) {
+  .ok <- function(lbl, cond)
+    cat(if (isTRUE(cond)) "PASS" else "FAIL", "-", lbl, "\n")
+
+  dt_hn <- cands[, .(hr, N)]
+
+  pkg_dom <- forestsearch:::pareto_dominated_flags(dt_hn)
+  .ok("dominated flags match .pareto_dominated_xy mirror",
+      identical(pkg_dom, cands$dominated))
+
+  pkg_nbhd <- forestsearch:::.compute_inclusion_band(
+    cands$hr, cands$N, "neighborhood", EFFECT_NEIGHBORHOOD)
+  .ok("neighborhood band matches",
+      identical(as.logical(pkg_nbhd), cands$in_nbhd))
+
+  pkg_both <- forestsearch:::.compute_inclusion_band(
+    cands$hr, cands$N, "both", EFFECT_NEIGHBORHOOD)
+  .ok("both band matches in_nbhd & on_frontier",
+      identical(as.logical(pkg_both), cands$in_both))
+
+  fr <- forestsearch:::compute_pareto_frontier(dt_hn)
+  .ok("compute_pareto_frontier returns the non-dominated set",
+      setequal(fr$hr, cands[on_frontier == TRUE, hr]))
+} else {
+  cat("forestsearch not installed; validation skipped.\n")
+}
+```
+
+# Practical guidance
+
+* `"neighborhood"` (default) asks only "is the effect close to the
+  best?" then maximizes $N$. It can keep a high-consistency candidate
+  that another point beats on both effect and size.
+* `"pareto"` removes the `effect_neighborhood` tuning parameter
+  entirely and selects on the (effect, $N$) trade-off alone --- but
+  without the effect floor it will admit large-$N$, weak-effect points
+  (like `F`) that the band is designed to exclude.
+* `"both"` is the conservative choice: it keeps the effect floor *and*
+  refuses dominated points. The in-band set under `"both"` is always a
+  subset of the one under `"neighborhood"`.
+
+The frontier here is an inclusion filter, not a stand-alone selection
+criterion: the chosen subgroup still comes from the five-key sort, and
+under `"hrMinSG"` the selected point may deliberately be $N$-dominated
+(small subgroups are preferred). For a post-hoc *reporting* view of the
+frontier independent of `sg_focus`, use `compute_pareto_frontier()` /
+`pareto_frontier_table()`.
+
+## Relationship to `dina_subgroup()`
+
+The DINA `effMaxSG`/`effMinSG` foci reuse the same
+`.compute_inclusion_band()` core, but only with
+`selection_rule = "neighborhood"` --- DINA's univariate threshold
+candidates form a simple effect-versus-size trade-off where the 1-D band
+suffices. The `"pareto"`/`"both"` frontier variants are forestsearch-only
+today; extending them to DINA would be a deliberate addition.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

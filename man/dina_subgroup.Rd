@@ -11,6 +11,9 @@ dina_subgroup(
   m_diff,
   n_min = 60L,
   direction = c("both", "left", "right"),
+  sg_focus = "maxSG",
+  selection_rule = "neighborhood",
+  effect_neighborhood = 0.1,
   alpha = 0.05
 )
 }
@@ -36,6 +39,28 @@ Default \code{60L}, matching the convention in GRF and \code{forestsearch()}.}
 For each covariate \code{x_j} controls whether to search subgroups of
 the form \code{x_j <= q} (left), \code{x_j >= q} (right), or both.}
 
+\item{sg_focus}{character; subgroup selection criterion applied to the
+qualifying candidates.  One of \code{"maxSG"} (default), \code{"minSG"},
+\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}.  The canonical forms \code{"hr"},
+\code{"hrMaxSG"}, \code{"hrMinSG"} (used internally by \code{\link[=forestsearch]{forestsearch()}}) are
+also accepted.  See Description for the semantics of each.}
+
+\item{selection_rule}{character; rule defining the candidate inclusion
+band for \code{"effMaxSG"} / \code{"effMinSG"}.  One of \code{"neighborhood"}
+(default; 1-D effect band), \code{"pareto"} (2-D non-dominated frontier
+in (effect, N)), or \code{"both"} (intersection).  Must be
+\code{"neighborhood"} for the other foci.  Forwarded unchanged to the
+shared band computation, so semantics match \code{\link[=forestsearch]{forestsearch()}}.}
+
+\item{effect_neighborhood}{numeric in \verb{[0, 1)}; relative tolerance for
+the effect band.  A candidate is in the neighborhood iff its
+(natural-scale) effect is at least
+\code{(1 - effect_neighborhood) * max(effect)} over the qualifying set.
+Default \code{0.10} (within 10\% of the strongest effect).  Consulted by
+\code{selection_rule = "neighborhood"} and \code{"both"}; ignored by
+\code{"pareto"} (and must be left at its default there) and for
+\code{"maxSG"}, \code{"minSG"}, \code{"eff"}.}
+
 \item{alpha}{confidence level for the Wald interval on the
 subgroup-mean tau-hat.  Default \code{0.05}.}
 }
@@ -56,7 +81,8 @@ subgroup -- not selection-adjusted).}
 Wald 1 - alpha CI.}
 \item{mask}{logical vector of length \code{nrow(df)} marking which
 rows are in the chosen subgroup.}
-\item{m_diff, n_min, alpha, family}{the inputs / fit family,
+\item{m_diff, n_min, sg_focus, selection_rule,
+effect_neighborhood, alpha, family}{the inputs / fit family,
 echoed for reproducibility.}
 \item{n_total}{\code{nrow(df)}.}
 \item{n_candidates_searched}{total number of \verb{(j, dir, q)}
@@ -69,11 +95,12 @@ both the size and \code{m_diff} constraints.}
 \description{
 Given a fitted DINA object (\code{"dina"} or \code{"dina_bagged"}) and a data
 frame containing the covariates the model was fit on, search over
-(covariate, threshold, direction) candidates for the \emph{largest}
-subgroup whose mean per-patient HTE estimate exceeds the harm
-threshold \code{m_diff}.  This is the simplest bridge between DINA's
-continuous estimator \eqn{\hat\tau(x) = \hat\beta_0 + x'\hat\beta}
-and forestsearch's interpretable signature framework.
+(covariate, threshold, direction) candidates for subgroups whose mean
+per-patient HTE estimate meets the harm threshold \code{m_diff}, then select
+one according to \code{sg_focus} (default \code{"maxSG"}: the largest qualifying
+subgroup).  This is the simplest bridge between DINA's continuous
+estimator \eqn{\hat\tau(x) = \hat\beta_0 + x'\hat\beta} and
+forestsearch's interpretable signature framework.
 }
 \details{
 For each covariate \code{x_j} in \code{covariates}, the search visits the
@@ -87,8 +114,27 @@ subgroup must satisfy:
 \item mean per-patient tau-hat over \code{S} \verb{>= m_diff}.
 }
 
-Among all qualifying candidates, the largest subgroup is returned;
-ties on size are broken by the most extreme mean tau-hat.
+Among the qualifying candidates, \code{sg_focus} selects the returned
+subgroup, mirroring \code{\link[=forestsearch]{forestsearch()}}'s selection vocabulary:
+\itemize{
+\item \code{"maxSG"} (default) -- largest qualifying subgroup (legacy
+behaviour; size ties broken by the most extreme mean tau-hat).
+\item \code{"minSG"} -- smallest qualifying subgroup.
+\item \code{"eff"} -- most extreme effect, ignoring size.
+\item \code{"effMaxSG"} -- largest subgroup in the candidate inclusion band
+(see \code{selection_rule}).
+\item \code{"effMinSG"} -- smallest subgroup in the inclusion band.
+The \code{"eff*"} band foci reuse the inclusion-band logic shared with
+\code{\link[=sort_subgroups]{sort_subgroups()}}; for ratio families (binomial, poisson, cox) the
+band is applied on the natural (exponentiated) effect scale.
+\code{selection_rule} defines the band, exactly as in \code{\link[=forestsearch]{forestsearch()}}:
+\code{"neighborhood"} (1-D effect band within \code{effect_neighborhood} of the
+maximum qualifying effect), \code{"pareto"} (the 2-D non-dominated frontier
+in (effect, N) space), or \code{"both"} (their intersection).  DINA's
+univariate (covariate, threshold, direction) candidates populate the
+(effect, N) plane just as forestsearch's signatures do, so the
+frontier is defined analogously.
+}
 
 The variance of the subgroup-mean tau-hat is computed as
 \deqn{\widehat{\mathrm{Var}}(\bar{\hat\tau}_S) =
@@ -130,9 +176,20 @@ sg <- dina_subgroup(fit, df_demo,
                     m_diff = 0.5, n_min = 60L)
 sg
 
+# Tighter subgroup via the effect-neighborhood band:
+dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
+              m_diff = 0.5, n_min = 60L, sg_focus = "effMaxSG")
+
+# Frontier-aware selection (2-D non-dominated set in (effect, N)):
+dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
+              m_diff = 0.5, n_min = 60L, sg_focus = "effMaxSG",
+              selection_rule = "both")
+
 }
 \seealso{
 \code{\link[=dina_fit]{dina_fit()}} / \code{\link[=dina]{dina()}} for the underlying estimator;
 \code{\link[=dina_fit_bagged]{dina_fit_bagged()}} / \code{\link[=dina_bagged]{dina_bagged()}} for the bagged variant whose
-IJ variance propagates through the subgroup-mean SE here.
+IJ variance propagates through the subgroup-mean SE here;
+\code{\link[=sort_subgroups]{sort_subgroups()}} and \code{\link[=forestsearch]{forestsearch()}} for the selection
+vocabulary mirrored by \code{sg_focus}.
 }

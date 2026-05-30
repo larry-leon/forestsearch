@@ -1,0 +1,612 @@
+---
+title: "DINA Subgroup Signature-Identification: Simulation Study"
+subtitle: "How accurately does dina_subgroup() recover a known treatment-effect subgroup signature?"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-tools: true
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+# Purpose
+
+`dina_subgroup()` discovers a harm subgroup by a **univariate threshold
+search**: each candidate signature is $\{x_j \le q\}$ (left) or
+$\{x_j \ge q\}$ (right) for a single covariate $x_j$, and the function
+returns the *largest* subgroup whose subgroup-mean $\hat\tau$ reaches the
+harm threshold `m_diff`. This study asks: when a treatment-effect
+subgroup with a **known** single-covariate threshold structure truly
+exists, how well does `dina_subgroup()` recover it?
+
+Because the search is univariate, "recovering the signature" decomposes
+into three questions, scored separately:
+
+1. **Covariate** — does it select the covariate that actually drives the
+   effect ($x_1$ here)?
+2. **Direction** — does it pick the correct tail (right, i.e.
+   $\{x_1 \ge \cdot\}$)?
+3. **Threshold / region** — is the discovered cut, and the resulting
+   subgroup membership, close to the truth?
+
+A subtle but important property is examined explicitly: because
+`dina_subgroup()` returns the *largest* subgroup whose **mean**
+$\hat\tau$ exceeds `m_diff`, the discovered threshold is the point where
+the *running* mean effect crosses `m_diff` — which in general differs
+from the true structural cut and depends on `m_diff` relative to the
+effect size. So covariate and direction are the clean "right axis"
+metrics; threshold recovery is characterised (and swept over `m_diff`)
+rather than assumed exact.
+
+The data-generating mechanism follows the DINA smoke test (covariates
+$\sim U[-1,1]$, logistic propensity, Cox outcome via
+`rexp(rate = exp(eta))` with uniform censoring), **modified** to inject a
+genuine threshold subgroup so there is a ground truth to score against.
+A **null arm** (no treatment-effect heterogeneity) measures the
+false-discovery rate — the study assesses both detecting a real subgroup
+and not hallucinating one.
+
+> This is a Monte Carlo study, not a pass/fail smoke test. It reports
+> rates and error summaries; reduce `N_REPS` for a quick run.
+
+---
+
+# Configuration
+
+```{r setup}
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(doFuture)
+
+CONFIG <- list(
+  # Monte Carlo
+  n_reps      = 300L,         # replications per cell (reduce for a quick run)
+  base_seed   = 20260530L,
+
+  # design
+  d           = 5L,           # number of covariates x1..xd
+  n_levels    = c(500L, 1000L, 2000L),
+  tau_in      = c(moderate = 0.8, strong = 1.3),  # harm log-effect inside S
+  tau_out     = 0.0,          # effect outside S (no effect)
+  true_cov    = "x1",         # covariate that defines the true subgroup
+  true_dir    = "right",      # S = { x1 >= cut }
+  true_cut    = 0.30,         # true threshold (P(x1 >= 0.30) ~ 0.35)
+
+  # dina_subgroup search
+  family      = "cox",        # primary family (code is family-general)
+  m_diff      = 0.50,         # primary harm threshold (< tau_in so S is detectable)
+  m_diff_grid = c(0.30, 0.50, 0.70),  # sensitivity sweep
+  n_min       = 60L,
+  n_folds     = 2L,
+  alpha       = 0.05,
+  cox_T0      = 1.5,          # uniform-censoring upper bound (DGM and dina match)
+
+  # threshold-recovery tolerance (for a "close enough" rate)
+  thr_tol     = 0.10,
+
+  # parallel
+  parallel       = "reps",    # "reps" or "none"
+  n_workers_frac = 0.9,
+  n_workers      = NULL
+)
+
+stopifnot(CONFIG$true_cov %in% paste0("x", seq_len(CONFIG$d)))
+# m_diff must sit below the in-subgroup effect for the subgroup to qualify.
+stopifnot(all(CONFIG$m_diff < CONFIG$tau_in))
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+```
+
+## Parallel plan
+
+```{r plan-setup}
+if (CONFIG$parallel == "reps") {
+  total_cores <- parallelly::availableCores()
+  n_workers <- if (is.null(CONFIG$n_workers)) {
+    max(1L, as.integer(floor(CONFIG$n_workers_frac * total_cores)))
+  } else as.integer(CONFIG$n_workers)
+  future::plan(future::multisession, workers = n_workers)
+  message(sprintf("Parallel plan: %d workers of %d cores", n_workers, total_cores))
+} else {
+  future::plan("sequential")
+  message("Parallel plan: sequential")
+}
+```
+
+---
+
+# Data-generating mechanism
+
+A genuine threshold subgroup is injected via a **step** in the
+treatment effect: inside $S = \{x_1 \ge c\}$ the effect is `tau_in`
+(harm), outside it is `tau_out` ($\approx 0$). For the null arm both are
+zero, so no subgroup exists. Everything else (propensity, baseline,
+censoring) matches the smoke test.
+
+```{r dgm}
+# Simulate one data set with a known threshold subgroup on `true_cov`.
+#   tau(x) = tau_out + (tau_in - tau_out) * 1{ x[true_cov] (dir) cut }
+simulate_threshold_data <- function(n, d, tau_in, tau_out, true_cov, true_dir,
+                                    true_cut, family, cox_T0) {
+  X <- matrix(stats::runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+
+  e_x <- stats::plogis(0.3 * X[, 1])
+  W   <- stats::rbinom(n, 1L, e_x)
+
+  in_S <- if (true_dir == "left") X[, true_cov] <= true_cut
+          else X[, true_cov] >= true_cut
+  tau_x <- tau_out + (tau_in - tau_out) * as.numeric(in_S)
+
+  mu_x  <- 0.2 * X[, 1] - 0.1 * X[, 2]   # prognostic baseline
+  eta_w <- mu_x + W * tau_x
+
+  Y <- switch(
+    family,
+    gaussian = as.numeric(eta_w + stats::rnorm(n)),
+    binomial = stats::rbinom(n, 1L, stats::plogis(eta_w)),
+    poisson  = stats::rpois(n, exp(pmin(eta_w, 5))),
+    cox = {
+      t_event  <- stats::rexp(n, rate = exp(eta_w))
+      t_censor <- stats::runif(n, 0, cox_T0)
+      data.frame(time = pmin(t_event, t_censor),
+                 status = as.integer(t_event <= t_censor))
+    }
+  )
+
+  if (family == "cox") {
+    df <- cbind(data.frame(time = Y$time, status = Y$status, w = W),
+                as.data.frame(X))
+  } else {
+    df <- cbind(data.frame(y = Y, w = W), as.data.frame(X))
+  }
+  list(df = df, in_S = in_S)
+}
+```
+
+---
+
+# Scoring a single replication
+
+Each replication yields one fit; these pure functions turn the fitted
+`dina_subgroup` object into per-replication metrics. They are
+deterministic given their inputs and are unit-tested below.
+
+```{r scoring}
+# Recovery of the discovered subgroup mask vs the true membership.
+mask_recovery <- function(disc_mask, true_mask) {
+  tp <- sum(disc_mask & true_mask)
+  fp <- sum(disc_mask & !true_mask)
+  fn <- sum(!disc_mask & true_mask)
+  tn <- sum(!disc_mask & !true_mask)
+  safe <- function(num, den) if (den > 0) num / den else NA_real_
+  list(
+    sensitivity = safe(tp, tp + fn),    # recall: true members captured
+    specificity = safe(tn, tn + fp),
+    ppv         = safe(tp, tp + fp),    # precision
+    jaccard     = safe(tp, tp + fp + fn)
+  )
+}
+
+# Score one replication.  `truth` carries the scenario ground truth;
+# `is_null` scenarios have no subgroup, so only detection is scored.
+score_replication <- function(sg, df, truth, thr_tol) {
+  found <- !is.null(sg) && isTRUE(sg$found)
+
+  out <- data.table(
+    found              = found,
+    covariate_correct  = NA, direction_correct = NA, signature_correct = NA,
+    threshold          = NA_real_, threshold_error = NA_real_,
+    threshold_close    = NA,
+    n_subgroup         = if (found) as.integer(sg$n_subgroup) else NA_integer_,
+    mean_tau_hat       = if (found) as.numeric(sg$mean_tau_hat) else NA_real_,
+    sensitivity        = NA_real_, specificity = NA_real_,
+    ppv                = NA_real_, jaccard     = NA_real_
+  )
+
+  if (isTRUE(truth$is_null)) return(out)   # null arm: detection only
+
+  if (found) {
+    cov_ok <- identical(sg$covariate, truth$covariate)
+    dir_ok <- identical(sg$direction, truth$direction)
+    out[, covariate_correct := cov_ok]
+    out[, direction_correct := dir_ok]
+    out[, signature_correct := cov_ok && dir_ok]
+    out[, threshold := as.numeric(sg$threshold)]
+    if (cov_ok && dir_ok) {
+      out[, threshold_error := as.numeric(sg$threshold) - truth$threshold]
+      out[, threshold_close := abs(out$threshold_error) <= thr_tol]
+    }
+    true_mask <- if (truth$direction == "left")
+      df[[truth$covariate]] <= truth$threshold
+    else df[[truth$covariate]] >= truth$threshold
+    rec <- mask_recovery(as.logical(sg$mask), true_mask)
+    out[, sensitivity := rec$sensitivity]
+    out[, specificity := rec$specificity]
+    out[, ppv         := rec$ppv]
+    out[, jaccard     := rec$jaccard]
+  } else {
+    out[, c("covariate_correct", "direction_correct",
+            "signature_correct") := FALSE]
+  }
+  out
+}
+```
+
+## Unit tests for the scoring logic
+
+```{r scoring-tests}
+.ok <- function(label, cond) cat(if (isTRUE(cond)) "PASS" else "FAIL", "-", label, "\n")
+
+# mask_recovery on a perfect match
+tm <- c(rep(TRUE, 30), rep(FALSE, 70))
+r_perfect <- mask_recovery(tm, tm)
+.ok("perfect mask: sensitivity = 1", isTRUE(all.equal(r_perfect$sensitivity, 1)))
+.ok("perfect mask: specificity = 1", isTRUE(all.equal(r_perfect$specificity, 1)))
+.ok("perfect mask: jaccard = 1",     isTRUE(all.equal(r_perfect$jaccard, 1)))
+
+# half-overlap: discovered shifted to include 15 extra non-members, drop 15 members
+dm <- c(rep(TRUE, 15), rep(FALSE, 15), rep(TRUE, 15), rep(FALSE, 55))
+r_half <- mask_recovery(dm, tm)
+.ok("partial overlap: sensitivity in (0,1)",
+    r_half$sensitivity > 0 && r_half$sensitivity < 1)
+.ok("partial overlap: jaccard < sensitivity",
+    r_half$jaccard < r_half$sensitivity)
+
+# score_replication on a mock 'found & correct' subgroup
+mock_df <- data.frame(x1 = seq(-1, 1, length.out = 100))
+mock_sg <- list(found = TRUE, covariate = "x1", direction = "right",
+                threshold = 0.30, n_subgroup = sum(mock_df$x1 >= 0.30),
+                mean_tau_hat = 0.9, mask = mock_df$x1 >= 0.30)
+truth1 <- list(is_null = FALSE, covariate = "x1", direction = "right",
+               threshold = 0.30)
+s1 <- score_replication(mock_sg, mock_df, truth1, thr_tol = 0.10)
+.ok("mock correct: signature_correct TRUE", isTRUE(s1$signature_correct))
+.ok("mock correct: threshold_error ~ 0", isTRUE(abs(s1$threshold_error) < 1e-9))
+.ok("mock correct: sensitivity = 1 (mask == true)",
+    isTRUE(all.equal(s1$sensitivity, 1)))
+
+# score_replication on a mock 'wrong covariate'
+mock_sg2 <- modifyList(mock_sg, list(covariate = "x3"))
+s2 <- score_replication(mock_sg2, mock_df, truth1, thr_tol = 0.10)
+.ok("mock wrong cov: covariate_correct FALSE", isFALSE(s2$covariate_correct))
+.ok("mock wrong cov: signature_correct FALSE", isFALSE(s2$signature_correct))
+
+# score_replication on a 'not found'
+s0 <- score_replication(list(found = FALSE), mock_df, truth1, thr_tol = 0.10)
+.ok("not found: found FALSE", isFALSE(s0$found))
+.ok("not found: signature_correct FALSE", isFALSE(s0$signature_correct))
+
+# null scenario: only detection scored
+s_null <- score_replication(mock_sg, mock_df,
+                            list(is_null = TRUE), thr_tol = 0.10)
+.ok("null arm: signature_correct stays NA", is.na(s_null$signature_correct))
+.ok("null arm: found recorded", isTRUE(s_null$found))
+```
+
+---
+
+# One replication end-to-end
+
+```{r one-rep}
+# Run a single replication: simulate -> dina() -> dina_subgroup() -> score.
+run_one_rep <- function(scenario, rep_id, cfg) {
+  seed <- cfg$base_seed + scenario$scenario_id * 100000L + rep_id
+  set.seed(seed)
+
+  fam <- cfg$family
+  sim <- simulate_threshold_data(
+    n = scenario$n, d = cfg$d,
+    tau_in = scenario$tau_in, tau_out = cfg$tau_out,
+    true_cov = cfg$true_cov, true_dir = cfg$true_dir, true_cut = cfg$true_cut,
+    family = fam, cox_T0 = cfg$cox_T0
+  )
+  df <- sim$df
+  covariates_v <- paste0("x", seq_len(cfg$d))
+  outcome_col  <- if (fam == "cox") "time" else "y"
+  status_col   <- if (fam == "cox") "status" else NULL
+  cens_type    <- if (fam == "cox") "uniform" else NULL
+  cens_params  <- if (fam == "cox") list(T0 = cfg$cox_T0) else list()
+
+  fit <- tryCatch(
+    dina(df = df, outcome = outcome_col, treatment = "w",
+         covariates = covariates_v, family = fam, status = status_col,
+         n_folds = cfg$n_folds, cens_type = cens_type,
+         cens_params = cens_params, seed = seed),
+    error = function(e) NULL)
+
+  sg <- if (!is.null(fit)) tryCatch(
+    dina_subgroup(fit = fit, df = df, covariates = covariates_v,
+                  m_diff = scenario$m_diff, n_min = cfg$n_min,
+                  direction = "both", alpha = cfg$alpha),
+    error = function(e) NULL) else NULL
+
+  truth <- list(is_null = isTRUE(scenario$is_null),
+                covariate = cfg$true_cov, direction = cfg$true_dir,
+                threshold = cfg$true_cut)
+  row <- score_replication(sg, df, truth, cfg$thr_tol)
+
+  cbind(data.table(
+    scenario_id = scenario$scenario_id, label = scenario$label,
+    n = scenario$n, tau_in = scenario$tau_in, m_diff = scenario$m_diff,
+    is_null = isTRUE(scenario$is_null), rep_id = rep_id,
+    fit_ok = !is.null(fit)
+  ), row)
+}
+```
+
+---
+
+# Run the study
+
+The main grid crosses sample size with effect strength; a null arm
+(`tau_in = 0`) is added at each sample size for the false-discovery rate.
+
+```{r build-scenarios}
+# Main grid: n x effect strength (non-null)
+main <- CJ(n = CONFIG$n_levels, eff = names(CONFIG$tau_in))
+main[, tau_in := CONFIG$tau_in[eff]]
+main[, label := sprintf("n=%d, %s (tau_in=%.1f)", n, eff, tau_in)]
+main[, is_null := FALSE]
+main[, m_diff := CONFIG$m_diff]
+
+# Null arm: no heterogeneity, one per sample size
+nullarm <- data.table(n = CONFIG$n_levels, eff = "null",
+                       tau_in = 0.0,
+                       label = sprintf("n=%d, NULL (no effect)", CONFIG$n_levels),
+                       is_null = TRUE, m_diff = CONFIG$m_diff)
+
+scenarios <- rbind(main[, .(n, eff, tau_in, label, is_null, m_diff)], nullarm)
+scenarios[, scenario_id := .I]
+scenarios[]
+```
+
+```{r run-main}
+run_grid <- function(scenarios, cfg) {
+  grid <- scenarios[rep(seq_len(.N), each = cfg$n_reps)]
+  grid[, rep_id := rep(seq_len(cfg$n_reps), times = nrow(scenarios))]
+
+  if (cfg$parallel == "reps") {
+    res_list <- foreach::foreach(
+      i = seq_len(nrow(grid)),
+      .options.future = list(
+        seed = TRUE,
+        packages = c("forestsearch", "survival", "data.table"))
+    ) %dofuture% {
+      run_one_rep(as.list(grid[i]), grid$rep_id[i], cfg)
+    }
+  } else {
+    res_list <- lapply(seq_len(nrow(grid)), function(i)
+      run_one_rep(as.list(grid[i]), grid$rep_id[i], cfg))
+  }
+  rbindlist(res_list, fill = TRUE)
+}
+
+t0 <- proc.time()
+results <- run_grid(scenarios, CONFIG)
+elapsed_min <- (proc.time() - t0)[["elapsed"]] / 60
+message(sprintf("Study completed in %.1f minutes (%d fits).",
+                elapsed_min, nrow(results)))
+```
+
+---
+
+# Results
+
+## Detection and signature accuracy (non-null cells)
+
+```{r agg-main}
+agg <- results[is_null == FALSE, .(
+  n_reps          = .N,
+  fit_ok_rate     = mean(fit_ok),
+  detection_rate  = mean(found),
+  covariate_hit   = mean(covariate_correct[found], na.rm = TRUE),
+  direction_hit   = mean(direction_correct[found], na.rm = TRUE),
+  signature_hit   = mean(signature_correct[found], na.rm = TRUE),
+  sensitivity     = mean(sensitivity, na.rm = TRUE),
+  specificity     = mean(specificity, na.rm = TRUE),
+  jaccard         = mean(jaccard, na.rm = TRUE)
+), by = .(label, n, tau_in)][order(n, tau_in)]
+
+agg |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**Signature-identification accuracy**"),
+    subtitle = sprintf("Cox family; true S = {%s >= %.2f}; m_diff = %.2f; %d reps/cell",
+                       CONFIG$true_cov, CONFIG$true_cut, CONFIG$m_diff, CONFIG$n_reps)) |>
+  gt::fmt_number(columns = c(fit_ok_rate, detection_rate, covariate_hit,
+                             direction_hit, signature_hit, sensitivity,
+                             specificity, jaccard), decimals = 3) |>
+  gt::cols_label(
+    label = "Scenario", n = "n", tau_in = "tau_in",
+    n_reps = "reps", fit_ok_rate = "fit OK", detection_rate = "detected",
+    covariate_hit = "cov hit", direction_hit = "dir hit",
+    signature_hit = "signature hit", sensitivity = "sens",
+    specificity = "spec", jaccard = "Jaccard") |>
+  gt::tab_source_note(gt::md(
+    "*`detected` = P(subgroup found). `cov hit` / `dir hit` /
+     `signature hit` are conditional on a subgroup being found. `sens` /
+     `spec` / `Jaccard` compare discovered membership to the true subgroup
+     mask (averaged over all reps; not-found reps contribute 0 via NA
+     handling only where applicable).*")) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+## Threshold recovery (signature-correct reps)
+
+The discovered threshold is the running-mean crossing of `m_diff`, not
+necessarily the true cut. This table characterises it.
+
+```{r agg-threshold}
+thr <- results[is_null == FALSE & signature_correct == TRUE, .(
+  n_reps         = .N,
+  thr_mean       = mean(threshold, na.rm = TRUE),
+  thr_bias       = mean(threshold_error, na.rm = TRUE),
+  thr_rmse       = sqrt(mean(threshold_error^2, na.rm = TRUE)),
+  within_tol     = mean(threshold_close, na.rm = TRUE)
+), by = .(label, n, tau_in)][order(n, tau_in)]
+
+thr |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**Threshold recovery (signature-correct reps)**"),
+    subtitle = sprintf("true cut = %.2f; tolerance = +/- %.2f",
+                       CONFIG$true_cut, CONFIG$thr_tol)) |>
+  gt::fmt_number(columns = c(thr_mean, thr_bias, thr_rmse, within_tol),
+                 decimals = 3) |>
+  gt::cols_label(
+    label = "Scenario", n = "n", tau_in = "tau_in", n_reps = "reps",
+    thr_mean = "mean thr", thr_bias = "bias", thr_rmse = "RMSE",
+    within_tol = "within tol") |>
+  gt::tab_source_note(gt::md(
+    sprintf("*`bias` = E[discovered threshold - %.2f]. A negative bias
+     means the discovered cut sits below the true cut --- the
+     largest-qualifying rule extends the subgroup down-tail until the
+     running mean effect falls to m_diff.*", CONFIG$true_cut))) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+## False-discovery rate (null arm)
+
+```{r agg-null}
+fdr <- results[is_null == TRUE, .(
+  n_reps        = .N,
+  fit_ok_rate   = mean(fit_ok),
+  false_discovery_rate = mean(found)
+), by = .(n)][order(n)]
+
+fdr |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**False-discovery rate (null: no treatment-effect heterogeneity)**"),
+    subtitle = sprintf("m_diff = %.2f; %d reps/cell", CONFIG$m_diff, CONFIG$n_reps)) |>
+  gt::fmt_number(columns = c(fit_ok_rate, false_discovery_rate), decimals = 3) |>
+  gt::cols_label(n = "n", n_reps = "reps", fit_ok_rate = "fit OK",
+                 false_discovery_rate = "false-discovery rate") |>
+  gt::tab_source_note(gt::md(
+    "*Under no effect, any discovered subgroup is a false positive. A low
+     rate indicates the m_diff threshold guards against spurious
+     signatures; a high rate indicates the threshold is too permissive
+     for this sample size.*")) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+---
+
+# `m_diff` sensitivity
+
+`m_diff` governs both detection and where the discovered threshold lands.
+This sweep holds the design fixed at the largest sample size and strong
+effect, varying only `m_diff`.
+
+```{r m-diff-sweep}
+sweep_n   <- max(CONFIG$n_levels)
+sweep_tau <- CONFIG$tau_in[["strong"]]
+
+sweep_scen <- data.table(
+  n = sweep_n, eff = "strong", tau_in = sweep_tau,
+  label = sprintf("m_diff=%.2f", CONFIG$m_diff_grid),
+  is_null = FALSE, m_diff = CONFIG$m_diff_grid)
+sweep_scen[, scenario_id := 1000L + .I]
+
+sweep_results <- run_grid(sweep_scen, CONFIG)
+
+sweep_agg <- sweep_results[, .(
+  detection_rate = mean(found),
+  signature_hit  = mean(signature_correct[found], na.rm = TRUE),
+  thr_mean       = mean(threshold[signature_correct == TRUE], na.rm = TRUE),
+  thr_bias       = mean(threshold_error[signature_correct == TRUE], na.rm = TRUE),
+  sensitivity    = mean(sensitivity, na.rm = TRUE),
+  specificity    = mean(specificity, na.rm = TRUE)
+), by = .(m_diff)][order(m_diff)]
+
+sweep_agg |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**m_diff sensitivity**"),
+    subtitle = sprintf("n = %d, tau_in = %.1f, true cut = %.2f",
+                       sweep_n, sweep_tau, CONFIG$true_cut)) |>
+  gt::fmt_number(columns = c(detection_rate, signature_hit, thr_mean,
+                             thr_bias, sensitivity, specificity), decimals = 3) |>
+  gt::cols_label(
+    m_diff = "m_diff", detection_rate = "detected",
+    signature_hit = "signature hit", thr_mean = "mean thr",
+    thr_bias = "thr bias", sensitivity = "sens", specificity = "spec") |>
+  gt::tab_source_note(gt::md(
+    "*As m_diff rises toward tau_in, the discovered threshold tightens
+     toward the true cut (bias toward 0) and specificity rises, but
+     detection can fall if m_diff approaches or exceeds the in-subgroup
+     effect. As m_diff falls, the subgroup extends down-tail (negative
+     threshold bias) and sensitivity rises at the cost of specificity.*")) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+```{r plan-teardown}
+future::plan("sequential")
+gc(verbose = FALSE)
+```
+
+---
+
+# Interpretation
+
+```{r interpretation, echo=FALSE, results='asis'}
+# Pull a few headline numbers for the narrative (guarded for empty cells).
+big_strong <- agg[n == max(n) & tau_in == CONFIG$tau_in[["strong"]]]
+small_mod  <- agg[n == min(n) & tau_in == CONFIG$tau_in[["moderate"]]]
+max_fdr    <- if (nrow(fdr)) max(fdr$false_discovery_rate) else NA_real_
+
+cat(sprintf("
+At the strongest signal (n = %d, tau_in = %.1f), `dina_subgroup()`
+detected a subgroup in %.0f%% of replications and, among those,
+selected the correct covariate %.0f%% of the time and the correct
+(covariate, direction) signature %.0f%% of the time. At the weakest
+cell examined (n = %d, moderate effect), detection was %.0f%% with a
+%.0f%% signature-hit rate. Across the null arm the false-discovery rate
+peaked at %.0f%%.
+",
+  big_strong$n, big_strong$tau_in,
+  100 * big_strong$detection_rate,
+  100 * big_strong$covariate_hit,
+  100 * big_strong$signature_hit,
+  small_mod$n, 100 * small_mod$detection_rate, 100 * small_mod$signature_hit,
+  100 * max_fdr))
+```
+
+Key takeaways the tables support:
+
+* **Axis recovery vs threshold recovery are different things.** Selecting
+  the right covariate and direction (the "which variable, which tail"
+  question) is the cleaner target; the exact threshold is governed by the
+  largest-qualifying rule and the `m_diff`/effect-size relationship, so it
+  is best read through the threshold-bias and subgroup-recovery
+  (sensitivity/specificity) columns rather than expected to equal the true
+  cut.
+* **The largest-qualifying rule biases the threshold down-tail.** When
+  `m_diff` is well below the in-subgroup effect, the discovered subgroup
+  extends past the true cut (negative threshold bias, high sensitivity,
+  lower specificity); raising `m_diff` toward the effect size tightens it.
+* **The null arm is the honesty check.** It quantifies how often a
+  signature is reported when none exists, isolating the role of `m_diff`
+  as a guard.
+
+This study isolates `dina_subgroup()`'s discovery behaviour on the
+original data. It does not address *inference* after selection — the
+conditional-on-signature CIs and the (deferred) selection-adjusted,
+bias-corrected bootstrap are separate questions handled elsewhere in the
+package.
+
+# Session information
+
+```{r session-info}
+sessionInfo()
+```

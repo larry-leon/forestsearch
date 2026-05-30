@@ -53,14 +53,18 @@
 #'
 #' @section Why the bootstrap target is the *fixed-subgroup* effect:
 #' A naive bootstrap of `dina_subgroup()`'s `mean_tau_hat` is
-#' uninformative.  The search rule selects the *largest* subgroup
-#' whose mean tau-hat exceeds `m_diff`, so the chosen subgroup lies
-#' at the boundary by construction: adding one more patient would
-#' push the mean below `m_diff`.  Each bootstrap iteration's
-#' selected subgroup is similarly pinned, so the bootstrap
+#' uninformative.  Under the default `sg_focus = "maxSG"` the search
+#' selects the *largest* subgroup whose mean tau-hat exceeds `m_diff`,
+#' so the chosen subgroup lies at the boundary by construction: adding
+#' one more patient would push the mean below `m_diff`.  Each bootstrap
+#' iteration's selected subgroup is similarly pinned, so the bootstrap
 #' distribution of `mean_tau_hat` clusters tightly above `m_diff`
 #' and the resulting CI quantifies threshold-grid granularity
-#' rather than effect uncertainty.  The fixed-subgroup linear
+#' rather than effect uncertainty.  (Under the band foci
+#' `"effMaxSG"` / `"effMinSG"` the per-iteration subgroup is instead
+#' anchored to the maximum effect rather than the `m_diff` boundary,
+#' but the same caveat applies: `mean_tau_hat` is a selection-pinned
+#' quantity, not an effect estimate.)  The fixed-subgroup linear
 #' functional `a*^T beta_b` instead targets the clinically
 #' meaningful estimand "treatment effect for patients whose
 #' covariates lie in the discovered subgroup".  Because DINA's
@@ -114,6 +118,14 @@
 #' @param m_diff scalar harm threshold on the natural-parameter scale.
 #' @param n_min positive integer; minimum subgroup size.  Default `60L`.
 #' @param direction one of `"both"` (default), `"left"`, `"right"`.
+#' @param sg_focus character; subgroup selection criterion, forwarded to
+#'   `dina_subgroup()` for both the original-data point estimate and every
+#'   bootstrap iteration.  One of `"maxSG"` (default), `"minSG"`, `"eff"`,
+#'   `"effMaxSG"`, `"effMinSG"` (canonical `"hr"`, `"hrMaxSG"`,
+#'   `"hrMinSG"` also accepted).  See [dina_subgroup()].
+#' @param effect_neighborhood numeric in `[0, 1)`; relative tolerance for
+#'   the `"effMaxSG"` / `"effMinSG"` effect band, forwarded to
+#'   `dina_subgroup()`.  Default `0.10`.  Ignored for the non-band foci.
 #' @param alpha confidence level for the percentile CI.  Default `0.05`
 #'   (percentile endpoints at the `alpha/2` and `1 - alpha/2` quantiles).
 #' @param n_boot positive integer; number of bootstrap iterations.
@@ -208,7 +220,8 @@
 #'       rather than as a meaningful effect estimate.}
 #'     \item{n_boot, n_boot_found, n_boot_failed}{convergence
 #'       diagnostics.}
-#'     \item{alpha, m_diff, n_min, family}{echoed inputs.}
+#'     \item{alpha, m_diff, n_min, sg_focus, effect_neighborhood,
+#'       family}{echoed inputs.}
 #'     \item{call}{the matched call.}
 #'   }
 #'
@@ -255,6 +268,8 @@ dina_subgroup_bootstrap <- function(df,
                                     m_diff,
                                     n_min = 60L,
                                     direction = c("both", "left", "right"),
+                                    sg_focus = "maxSG",
+                                    effect_neighborhood = 0.10,
                                     alpha = 0.05,
                                     n_boot = 200L,
                                     parallel = c("none", "boots"),
@@ -289,6 +304,19 @@ dina_subgroup_bootstrap <- function(df,
       alpha <= 0 || alpha >= 1) {
     stop("`alpha` must be a single numeric in (0, 1).")
   }
+
+  # Normalize the GLM-natural sg_focus vocabulary to the canonical form
+  # (matches dina_subgroup()), then whitelist.  The per-iteration search
+  # and the original-data point estimate both use the canonical value.
+  sg_focus <- .normalize_sg_focus(sg_focus)
+  valid_sg_focus <- c("hr", "maxSG", "minSG", "hrMaxSG", "hrMinSG")
+  if (!is.character(sg_focus) || length(sg_focus) != 1L ||
+      !sg_focus %in% valid_sg_focus) {
+    stop("`sg_focus` must be one of \"maxSG\", \"minSG\", \"eff\", ",
+         "\"effMaxSG\", \"effMinSG\" (canonical forms \"hr\", ",
+         "\"hrMaxSG\", \"hrMinSG\" are also accepted).")
+  }
+  .validate_effect_neighborhood(effect_neighborhood)
 
   if (parallel == "boots") {
     n_workers <- future::nbrOfWorkers()
@@ -363,6 +391,20 @@ dina_subgroup_bootstrap <- function(df,
       stop("`sg$family` (", sg$family, ") does not match the `family` ",
            "argument (", family, ").")
     }
+    # The supplied point estimate must have used the same selection rule
+    # the per-iteration search will use, or the original-data and
+    # bootstrap subgroups would be defined by different criteria.
+    if (!is.null(sg$sg_focus) && !identical(sg$sg_focus, sg_focus)) {
+      stop("`sg$sg_focus` (", sg$sg_focus, ") does not match the resolved ",
+           "`sg_focus` (", sg_focus, ").")
+    }
+    if (sg_focus %in% c("hrMaxSG", "hrMinSG") &&
+        !is.null(sg$effect_neighborhood) &&
+        !isTRUE(all.equal(sg$effect_neighborhood, effect_neighborhood))) {
+      stop("`sg$effect_neighborhood` (", format(sg$effect_neighborhood),
+           ") does not match the `effect_neighborhood` argument (",
+           format(effect_neighborhood), ").")
+    }
     sg_point <- sg
   } else if (!is.null(fit)) {
     if (!inherits(fit, "dina")) {
@@ -376,7 +418,8 @@ dina_subgroup_bootstrap <- function(df,
     sg_point <- dina_subgroup(
       fit = fit, df = df, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, alpha = alpha
+      direction = direction, sg_focus = sg_focus,
+      effect_neighborhood = effect_neighborhood, alpha = alpha
     )
   } else {
     fit_point <- do.call(dina, c(
@@ -388,7 +431,8 @@ dina_subgroup_bootstrap <- function(df,
     sg_point <- dina_subgroup(
       fit = fit_point, df = df, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, alpha = alpha
+      direction = direction, sg_focus = sg_focus,
+      effect_neighborhood = effect_neighborhood, alpha = alpha
     )
   }
 
@@ -453,6 +497,7 @@ dina_subgroup_bootstrap <- function(df,
         df = df, outcome = outcome, treatment = treatment,
         covariates = covariates, family = family, status = status,
         m_diff = m_diff, n_min = n_min, direction = direction,
+        sg_focus = sg_focus, effect_neighborhood = effect_neighborhood,
         alpha = alpha, dina_args = dina_args,
         refit = do_refit, refit_signature = refit_signature,
         refit_confounders = refit_conf_used, refit_strata = refit_strata
@@ -469,6 +514,7 @@ dina_subgroup_bootstrap <- function(df,
         df = df, outcome = outcome, treatment = treatment,
         covariates = covariates, family = family, status = status,
         m_diff = m_diff, n_min = n_min, direction = direction,
+        sg_focus = sg_focus, effect_neighborhood = effect_neighborhood,
         alpha = alpha, dina_args = dina_args,
         refit = do_refit, refit_signature = refit_signature,
         refit_confounders = refit_conf_used, refit_strata = refit_strata
@@ -622,6 +668,8 @@ dina_subgroup_bootstrap <- function(df,
     alpha                = alpha,
     m_diff               = m_diff,
     n_min                = n_min,
+    sg_focus             = sg_focus,
+    effect_neighborhood  = effect_neighborhood,
     family               = family,
     call                 = call
   )
@@ -652,7 +700,9 @@ dina_subgroup_bootstrap <- function(df,
 #' @noRd
 .dina_safe_one_bootstrap <- function(idx, df, outcome, treatment, covariates,
                                      family, status,
-                                     m_diff, n_min, direction, alpha,
+                                     m_diff, n_min, direction,
+                                     sg_focus = "maxSG",
+                                     effect_neighborhood = 0.10, alpha,
                                      dina_args,
                                      refit = FALSE, refit_signature = NULL,
                                      refit_confounders = character(0),
@@ -674,7 +724,8 @@ dina_subgroup_bootstrap <- function(df,
     sg_b <- dina_subgroup(
       fit = fit_b, df = df_b, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, alpha = alpha
+      direction = direction, sg_focus = sg_focus,
+      effect_neighborhood = effect_neighborhood, alpha = alpha
     )
     list(beta = beta_b, sg_b = sg_b, failed = FALSE, message = "")
   }, error = function(e) {
@@ -770,6 +821,23 @@ print.dina_subgroup_bootstrap <- function(x,
                                           ...) {
   cat("Bootstrap inference for dina_subgroup()\n")
   cat("  Family:           ", x$family, "\n", sep = "")
+  sgf <- if (is.null(x$sg_focus)) "maxSG" else x$sg_focus
+  focus_label <- switch(
+    sgf,
+    hr      = "eff (most extreme effect)",
+    maxSG   = "maxSG (largest qualifying subgroup)",
+    minSG   = "minSG (smallest qualifying subgroup)",
+    hrMaxSG = "effMaxSG (largest within effect band)",
+    hrMinSG = "effMinSG (smallest within effect band)",
+    sgf
+  )
+  cat("  Focus:            ", focus_label, "\n", sep = "")
+  if (isTRUE(sgf %in% c("hrMaxSG", "hrMinSG"))) {
+    en <- if (is.null(x$effect_neighborhood)) 0.10 else x$effect_neighborhood
+    cat("  Effect band:      within ",
+        format(100 * en, digits = digits),
+        "% of the maximum qualifying effect\n", sep = "")
+  }
   cat("  m_diff:           ", format(x$m_diff, digits = digits), "\n", sep = "")
   cat("  n_min:            ", x$n_min, "\n", sep = "")
   cat("  Bootstrap iters:  ", x$n_boot_found, " found / ",
