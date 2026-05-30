@@ -45,6 +45,10 @@ The full inference toolkit applied here:
   linear functional via `dina_subgroup_bootstrap()`.
 * Stability diagnostics: selection-frequency table,
   `n_subgroup_ci`, `threshold_ci`.
+* Feeding DINA's per-covariate Pareto frontier into
+  `forestsearch()` as screening candidates, via `dina_frontier()`
+  and the `use_dina` gate (see *DINA Screening Candidates for
+  ForestSearch*).
 
 The intent is to mirror the FS doc's Cox-analysis flow on the same
 data with the same parameter conventions, *not* to repeat the FS
@@ -665,6 +669,203 @@ no_sg_tbl |>
   )
 ```
 
+# DINA Screening Candidates for ForestSearch
+
+The Cox DINA fit above does double duty. Beyond the BLP and the
+single-subgroup views, its **per-covariate Pareto frontier** can seed
+`forestsearch()`'s screening stage as candidate cuts — the DINA analog
+of GRF tree cuts, gated by `use_dina`. The cuts are *candidates*, not
+forced selections: `forestsearch()` composes them (up to `maxk`) and the
+consistency stage remains the gatekeeper.
+
+::: {.callout-note}
+## `dina_args` is selection-agnostic
+
+The screening path uses `dina_frontier()`, which returns the *entire*
+per-covariate Pareto frontier. It does **not** use `forestsearch()`'s
+`sg_focus` or `selection_rule`: those control how a *single* subgroup is
+*selected* (in the consistency stage, and in `dina_subgroup()`), whereas
+screening emits the whole frontier as a candidate net. Accordingly
+`dina_args` recognises only the DINA **fit** keys (`family`, `seed`,
+`n_folds`, `cens_type`, `cens_params`) and the **frontier** keys
+(`scope`, `m_diff`, `n_min`, `direction`, `max_per_covariate`,
+`max_subgroups`, `digits`); `sg_focus`/`selection_rule` are not among
+them and raise an "unrecognised key" error if passed.
+:::
+
+## Per-covariate Pareto frontier (`dina_frontier`)
+
+`dina_frontier()` reuses the fitted `fit_dina_cox` and returns, for each
+covariate, the non-dominated (effect, size) cuts rendered as forestsearch
+cut expressions. `scope = "wide"` casts a broad net (every candidate with
+size $\ge$ `n_min`); the `effect` column is on the natural HR scale for
+the Cox family. (`scope = "harm"` with `m_diff` would instead gate to the
+harm tail on the log-HR scale — the same `m_diff` used by
+`dina_subgroup()` above.)
+
+```{r dina-frontier}
+t0 <- proc.time()
+
+frontier <- dina_frontier(
+  fit        = fit_dina_cox,
+  df         = df.analysis,
+  covariates = confounders,
+  scope      = "wide",
+  n_min      = n_min,          # mirrors forestsearch n.min
+  direction  = "both"
+)                              # caps default to max_per_covariate = 3, max_subgroups = 10
+
+timings$dina_frontier <- (proc.time() - t0)[["elapsed"]]
+
+frontier |>
+  gt::gt() |>
+  gt::fmt_number(columns = c(threshold, mean_tau_hat, effect), decimals = 3) |>
+  gt::cols_label(
+    covariate = "Covariate", direction = "Dir", threshold = "Cutpoint",
+    n_subgroup = "n", mean_tau_hat = "log-HR", effect = "HR",
+    cut_expr = "Cut expression"
+  ) |>
+  gt::tab_header(
+    title    = "DINA per-covariate Pareto frontier",
+    subtitle = sprintf(
+      "%d cuts across %d covariate(s); n_frontier = %d, n_qualifying = %d (scope = wide)",
+      nrow(frontier), length(unique(frontier$covariate)),
+      attr(frontier, "n_frontier"), attr(frontier, "n_qualifying"))
+  )
+```
+
+The `cut_expr` column is exactly what feeds `forestsearch()`.
+
+## How the candidates populate the screening pool (`get_FSdata`)
+
+`get_FSdata()` builds the candidate cut pool the consistency search ranges
+over. Calling it with and without `dina_cuts` shows precisely what DINA
+contributes: the frontier cuts are merged into the pool alongside the
+default median/categorical cuts, deduplicated against cuts already present.
+
+```{r dina-screening-pool}
+t0 <- proc.time()
+
+fsdata_args <- list(
+  df.analysis = df.analysis, use_lasso = FALSE, use_grf = FALSE,
+  confounders.name = confounders, outcome.name = cox_outcome,
+  event.name = cox_status, outcome_type = "survival", details = FALSE
+)
+
+pool_base <- do.call(get_FSdata, c(fsdata_args, list(dina_cuts = NULL)))$confs
+pool_dina <- do.call(get_FSdata,
+                     c(fsdata_args, list(dina_cuts = frontier$cut_expr)))$confs
+
+timings$dina_screening_pool <- (proc.time() - t0)[["elapsed"]]
+
+added <- setdiff(pool_dina, pool_base)
+
+data.table(
+  Quantity = c("Pool size — base (median + categorical cuts)",
+               "Pool size — with DINA screening",
+               "Net DINA-added cuts",
+               "DINA-added cut expressions"),
+  Value    = c(as.character(length(pool_base)),
+               as.character(length(pool_dina)),
+               as.character(length(added)),
+               if (length(added)) paste(added, collapse = "; ") else "(none — all already present)")
+) |>
+  gt::gt() |>
+  gt::tab_header(
+    title    = "DINA candidates populating the get_FSdata() pool",
+    subtitle = "use_grf = FALSE, use_lasso = FALSE: pool = median/categorical cuts + DINA frontier cuts"
+  )
+```
+
+## End-to-end via `forestsearch(use_dina = TRUE)`
+
+Two equivalent ways to drive this from `forestsearch()` itself. Runs are
+kept light (`use_grf = FALSE`, sequential) because the point here is the
+screening candidates, not the consistency search.
+
+**Turnkey — `forestsearch()` fits DINA internally.** With `use_dina = TRUE`
+and no `dina_res`, `forestsearch()` fits its own DINA model at the
+screening stage (family mapped from `outcome_type`). Here `dina_args`
+passes the same `seed`/`n_folds` as `fit_dina_cox`, so the internal fit
+reproduces the standalone frontier.
+
+```{r fs-use-dina-internal}
+t0 <- proc.time()
+
+fs_dina_int <- forestsearch(
+  df.analysis      = df.analysis,
+  outcome.name     = cox_outcome,
+  event.name       = cox_status,
+  treat.name       = treat_col,
+  id.name          = id_col,
+  confounders.name = confounders,
+  outcome_type     = "survival",
+  is.RCT           = TRUE,
+  n.min            = n_min,
+  use_lasso        = FALSE,
+  use_grf          = TRUE,
+  use_dina         = TRUE,                      # DINA fit happens inside forestsearch()
+  dina_args        = list(seed = dina_seed, n_folds = dina_n_folds,
+                          scope = "wide", n_min = n_min),
+  parallel_args    = list(plan = "sequential"),
+  maxk             = 2,
+  fs.splits        = 1000,
+  details          = TRUE
+)
+
+timings$fs_use_dina_internal <- (proc.time() - t0)[["elapsed"]]
+
+cat("dina_cuts injected:", length(fs_dina_int$dina_cuts), "\n")
+cat("internal dina_res class:",
+    paste(class(fs_dina_int$dina_res), collapse = "/"), "\n")
+cat("matches standalone frontier:",
+    identical(sort(fs_dina_int$dina_cuts), sort(frontier$cut_expr)), "\n")
+fs_dina_int$dina_cuts
+```
+
+**Reuse — supply the fit via `dina_res`.** Passing `dina_res = fit_dina_cox`
+skips the internal refit and reuses the model already fitted above. The
+injected cuts are identical; the saving is the DINA fit time (compare the
+two rows in the Timings table).
+
+```{r fs-use-dina-reuse}
+t0 <- proc.time()
+
+fs_dina_reuse <- forestsearch(
+  df.analysis      = df.analysis,
+  outcome.name     = cox_outcome,
+  event.name       = cox_status,
+  treat.name       = treat_col,
+  id.name          = id_col,
+  confounders.name = confounders,
+  outcome_type     = "survival",
+  is.RCT           = TRUE,
+  n.min            = n_min,
+  use_lasso        = FALSE,
+  use_grf          = FALSE,
+  use_dina         = TRUE,
+  dina_res         = fit_dina_cox,              # reuse the fit; no refit
+  dina_args        = list(scope = "wide", n_min = n_min),
+  parallel_args    = list(plan = "sequential"),
+  maxk             = 2,
+  fs.splits        = 200,
+  details          = FALSE
+)
+
+timings$fs_use_dina_reuse <- (proc.time() - t0)[["elapsed"]]
+
+cat("dina_cuts injected:", length(fs_dina_reuse$dina_cuts), "\n")
+cat("dina_res is the supplied fit (not refit):",
+    identical(fs_dina_reuse$dina_res, fit_dina_cox), "\n")
+cat("identical cuts to the internal-fit path:",
+    identical(sort(fs_dina_reuse$dina_cuts), sort(fs_dina_int$dina_cuts)), "\n")
+```
+
+In both paths the injected `dina_cuts` are merged into the screening
+candidate pool shown above and then handed to the consistency search
+exactly like GRF cuts — candidates for, not commitments to, the final
+subgroup.
+
 # Future Work: DINA Poisson + Offset Extension
 
 The FS doc's Cox-vs-Poisson alignment analysis is the natural
@@ -943,10 +1144,18 @@ fmt_secs <- function(x) {
 tim_df <- data.table(
   Step       = c("DINA Cox fit",
                  "DINA Cox bootstrap",
+                 "DINA frontier",
+                 "Screening pool (get_FSdata)",
+                 "ForestSearch (use_dina, internal fit)",
+                 "ForestSearch (use_dina, reuse fit)",
                  "Total"),
   `Time (s)` = c(
     fmt_secs(timings$dina_cox_fit),
     fmt_secs(timings$dina_cox_boot),
+    fmt_secs(timings$dina_frontier),
+    fmt_secs(timings$dina_screening_pool),
+    fmt_secs(timings$fs_use_dina_internal),
+    fmt_secs(timings$fs_use_dina_reuse),
     fmt_secs((proc.time() - t_doc_start)[["elapsed"]])
   )
 )
