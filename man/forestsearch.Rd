@@ -28,6 +28,7 @@ forestsearch(
   dina_res = NULL,
   dina_cuts = NULL,
   dina_args = list(),
+  subgroup_method = c("consistency", "dina"),
   max_n_confounders = 1000,
   grf_depth = 2,
   dmin.grf = 0,
@@ -65,7 +66,7 @@ forestsearch(
   by.risk = 12,
   plot.sg = FALSE,
   plot.grf = FALSE,
-  max_subgroups_search = 10,
+  max_subgroups_search = 30,
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
@@ -158,6 +159,20 @@ only when set); plus the frontier keys forwarded to
 \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
 call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
 and \code{digits}. Unknown keys raise an error.}
+
+\item{subgroup_method}{Character, one of \code{"consistency"} (default)
+or \code{"dina"}. \code{"consistency"} is the standard ForestSearch
+pipeline (GRF/LASSO screening then the consistency search).
+\code{"dina"} delegates subgroup \emph{selection} to
+\code{\link{dina_subgroup}} and bypasses GRF, LASSO and the consistency
+search: a DINA model is fit, a single subgroup is selected using this
+call's \code{sg_focus} / \code{selection_rule} /
+\code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, and
+that subgroup is returned as \code{sg.harm}. \code{dina_args} supplies
+only the DINA \emph{fit} tuning in this mode (frontier keys are
+ignored). The existing bootstrap de-biasing applies unchanged,
+re-fitting and re-selecting DINA on each replicate. Currently depth-1
+(single covariate).}
 
 \item{max_n_confounders}{Integer. Maximum confounders to consider. Default 1000.}
 
@@ -340,7 +355,12 @@ Default FALSE.}
 
 \item{plot.grf}{Logical. Plot GRF results. Default FALSE.}
 
-\item{max_subgroups_search}{Integer. Maximum subgroups to evaluate. Default 10.}
+\item{max_subgroups_search}{Integer. Maximum subgroups to evaluate.
+Default 30.  For \code{sg_focus} in \code{"effMaxSG"} / \code{"effMinSG"} (equivalently
+\code{"hrMaxSG"} / \code{"hrMinSG"}), the subgroup that is optimal under the
+criterion can sit further down the ranked candidate list, so the
+candidate pool should be broad: keep \code{max_subgroups_search >= 30} (a
+smaller value may miss the optimal subgroup).}
 
 \item{vi.grf.min}{Numeric. Minimum GRF variable importance. Default -0.2.}
 

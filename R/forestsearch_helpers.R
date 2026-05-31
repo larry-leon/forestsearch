@@ -971,3 +971,86 @@ reset_workers <- function(workers   = NULL,
 
   list(fit = fit, frontier = frontier)
 }
+
+
+#' DINA-selection mode for forestsearch (subgroup_method = "dina")
+#'
+#' Fits a DINA model and delegates subgroup selection to
+#' \code{dina_subgroup()}, bypassing GRF/LASSO/consistency.  Returns the
+#' selected subgroup as a forestsearch cut label plus the membership
+#' (\code{treat.recommend}) tables the estimation/bootstrap machinery
+#' consumes.  Selection criteria come from the enclosing forestsearch()
+#' call; \code{dina_args} supplies only the DINA fit tuning.
+#'
+#' @return A list with \code{found}, \code{sg.harm} (label vector or NULL),
+#'   \code{grp.consistency} (a consistency-shaped list), \code{dina_res},
+#'   and \code{df.est}/\code{df.predict}/\code{df.test} carrying
+#'   \code{treat.recommend} (0 = selected subgroup).
+#' @noRd
+.forestsearch_dina_select <- function(df, df.predict, df.test,
+                                      confounders.name, outcome.name, event.name,
+                                      treat.name, id.name, outcome_type,
+                                      hr.threshold, n.min, sg_focus,
+                                      selection_rule, effect_neighborhood,
+                                      dina_args, dina_res, seedit, details) {
+  da <- .resolve_dina_args(dina_args, outcome_type,
+                           n_min_default = n.min, seed_default = seedit)
+
+  # Fit DINA unless a fit was supplied.
+  if (is.null(dina_res)) {
+    status_arg <- if (identical(da$fit$family, "cox")) event.name else NULL
+    fit_call <- c(list(df = df, outcome = outcome.name, treatment = treat.name,
+                       covariates = confounders.name, status = status_arg),
+                  da$fit)
+    dina_res <- do.call(dina, fit_call)
+  }
+
+  # Harm floor on the link scale: log(hr.threshold) for ratio families
+  # (cox/binomial/poisson), identity (mean difference) for gaussian.
+  m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
+            else log(hr.threshold)
+
+  sg <- dina_subgroup(
+    fit                 = dina_res,
+    df                  = df,
+    covariates          = confounders.name,
+    m_diff              = m_diff,
+    n_min               = n.min,
+    sg_focus            = sg_focus,
+    selection_rule      = selection_rule,
+    effect_neighborhood = effect_neighborhood
+  )
+
+  if (!isTRUE(sg$found)) {
+    return(list(found = FALSE, sg.harm = NULL, grp.consistency = NULL,
+                dina_res = dina_res, df.est = df,
+                df.predict = df.predict, df.test = df.test))
+  }
+
+  # Cut label: direction "left" => harm subgroup {x <= q}; "right" => {x >= q}.
+  op      <- if (identical(sg$direction, "left")) "<=" else ">="
+  sg.harm <- sprintf("{%s %s %s}", sg$covariate, op, as.character(sg$threshold))
+
+  # Membership via the standard label evaluator (treat.recommend == 0 = harm).
+  df.est         <- get_dfpred(df, sg.harm, version = 2)
+  df.predict_out <- if (!is.null(df.predict)) get_dfpred(df.predict, sg.harm, version = 2) else NULL
+  df.test_out    <- if (!is.null(df.test))    get_dfpred(df.test,    sg.harm, version = 2) else NULL
+
+  id_vals <- if (id.name %in% names(df)) df[[id.name]]
+             else if ("id" %in% names(df)) df[["id"]]
+             else seq_len(nrow(df))
+  df_flag <- data.frame(id = id_vals,
+                        treat.recommend = df.est$treat.recommend)
+
+  grp.consistency <- list(
+    out_sg     = sg,
+    sg.harm    = sg.harm,
+    sg.harm.id = as.integer(df.est$treat.recommend == 0L),
+    df_flag    = df_flag,
+    algorithm  = "dina"
+  )
+
+  list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
+       dina_res = dina_res, df.est = df.est,
+       df.predict = df.predict_out, df.test = df.test_out)
+}

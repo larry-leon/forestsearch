@@ -169,6 +169,19 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     stop("fs.est$df.est must be a non-empty data frame")
   }
 
+  # No identified subgroup => nothing to bias-correct.  Fail loudly here
+  # rather than deeper in fit_cox_models()/fit_effect_models(), where the
+  # absent 'treat.recommend' column surfaces as a cryptic
+  # "object 'treat.recommend' not found".
+  if (is.null(fs.est$sg.harm) || length(fs.est$sg.harm) == 0L ||
+      !"treat.recommend" %in% names(fs.est$df.est)) {
+    stop("forestsearch_bootstrap_dofuture(): no subgroup was identified ",
+         "(fs.est$sg.harm is empty, or fs.est$df.est has no 'treat.recommend' ",
+         "column), so there is nothing to bias-correct.  The bootstrap ",
+         "requires an identified subgroup -- check fs.est$sg.harm before ",
+         "calling.", call. = FALSE)
+  }
+
   # Validate nb_boots
   if (!is.numeric(nb_boots) || length(nb_boots) != 1 || nb_boots < 1) {
     stop("nb_boots must be a positive integer")

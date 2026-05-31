@@ -256,6 +256,19 @@
 #'   \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
 #'   call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
 #'   and \code{digits}. Unknown keys raise an error.
+#' @param subgroup_method Character, one of \code{"consistency"} (default)
+#'   or \code{"dina"}. \code{"consistency"} is the standard ForestSearch
+#'   pipeline (GRF/LASSO screening then the consistency search).
+#'   \code{"dina"} delegates subgroup \emph{selection} to
+#'   \code{\link{dina_subgroup}} and bypasses GRF, LASSO and the consistency
+#'   search: a DINA model is fit, a single subgroup is selected using this
+#'   call's \code{sg_focus} / \code{selection_rule} /
+#'   \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, and
+#'   that subgroup is returned as \code{sg.harm}. \code{dina_args} supplies
+#'   only the DINA \emph{fit} tuning in this mode (frontier keys are
+#'   ignored). The existing bootstrap de-biasing applies unchanged,
+#'   re-fitting and re-selecting DINA on each replicate. Currently depth-1
+#'   (single covariate).
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
@@ -400,7 +413,12 @@
 #' @param by.risk Integer. Risk table interval. Default 12.
 #' @param plot.sg Logical. Plot subgroup survival curves. Default FALSE.
 #' @param plot.grf Logical. Plot GRF results. Default FALSE.
-#' @param max_subgroups_search Integer. Maximum subgroups to evaluate. Default 10.
+#' @param max_subgroups_search Integer. Maximum subgroups to evaluate.
+#'   Default 30.  For `sg_focus` in `"effMaxSG"` / `"effMinSG"` (equivalently
+#'   `"hrMaxSG"` / `"hrMinSG"`), the subgroup that is optimal under the
+#'   criterion can sit further down the ranked candidate list, so the
+#'   candidate pool should be broad: keep `max_subgroups_search >= 30` (a
+#'   smaller value may miss the optimal subgroup).
 #' @param vi.grf.min Numeric. Minimum GRF variable importance. Default -0.2.
 #' @param use_twostage Logical. Use two-stage sequential consistency algorithm for
 #'   improved performance. Default FALSE for backward compatibility. When TRUE,
@@ -648,6 +666,7 @@ forestsearch <- function(df.analysis,
                          dina_res = NULL,
                          dina_cuts = NULL,
                          dina_args = list(),
+                         subgroup_method = c("consistency", "dina"),
                          max_n_confounders = 1000,
                          grf_depth = 2,
                          dmin.grf = 0.0,
@@ -685,7 +704,7 @@ forestsearch <- function(df.analysis,
                          by.risk = 12,
                          plot.sg = FALSE,
                          plot.grf = FALSE,
-                         max_subgroups_search = 10,
+                         max_subgroups_search = 30,
                          vi.grf.min = -0.2,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,
@@ -715,6 +734,7 @@ forestsearch <- function(df.analysis,
   outcome_type        <- match.arg(outcome_type)
   overdispersion      <- match.arg(overdispersion)
   grf_count_transform <- match.arg(grf_count_transform)
+  subgroup_method     <- match.arg(subgroup_method)
 
   if (outcome_type != "survival" && is.null(effect_measure)) {
     effect_measure <- switch(outcome_type,
@@ -1349,12 +1369,84 @@ forestsearch <- function(df.analysis,
     cat("Forced confounders:", paste(conf_force, collapse = ", "), "\n")
   }
 
+  # Advisory note: for the effect-band foci, the criterion-optimal subgroup
+  # can rank below a small candidate cap, so a broad pool is recommended.
+  if (details &&
+      .normalize_sg_focus(sg_focus) %in% c("hrMaxSG", "hrMinSG") &&
+      max_subgroups_search < 30) {
+    cat("Note: sg_focus = '", sg_focus, "' with max_subgroups_search = ",
+        max_subgroups_search,
+        ". For effMaxSG/effMinSG the optimal subgroup may rank below the cap; ",
+        "increasing max_subgroups_search to >= 30 may be necessary.\n",
+        sep = "")
+  }
+
   if (details && length(conf.cont_jcuts) > 0L) {
     cat("J-quantile cuts:",
         paste0(names(conf.cont_jcuts),
                " (J=", unlist(conf.cont_jcuts), ")",
                collapse = ", "),
         "\n")
+  }
+
+  # ===========================================================================
+  # SECTION 3-DINA: DINA-SELECTION MODE (subgroup_method = "dina")
+  # ===========================================================================
+  # Delegate subgroup *selection* to dina_subgroup(), bypassing GRF, LASSO and
+  # the consistency search.  The selected subgroup is returned as sg.harm and
+  # consumed by the existing (label / treat.recommend-based) estimation and
+  # bootstrap machinery.  Selection criteria are inherited from this call's
+  # sg_focus / selection_rule / effect_neighborhood / n.min / hr.threshold;
+  # dina_args supplies only the DINA fit tuning.
+  if (subgroup_method == "dina") {
+    dsel <- .forestsearch_dina_select(
+      df = df, df.predict = df.predict, df.test = df.test,
+      confounders.name = confounders.name, outcome.name = outcome.name,
+      event.name = event.name, treat.name = treat.name, id.name = id.name,
+      outcome_type = outcome_type, hr.threshold = hr.threshold, n.min = n.min,
+      sg_focus = sg_focus, selection_rule = selection_rule,
+      effect_neighborhood = effect_neighborhood, dina_args = dina_args,
+      dina_res = dina_res, seedit = seedit, details = details)
+
+    t.min_all <- (proc.time()[3] - t.start_all) / 60
+
+    if (details) {
+      if (isTRUE(dsel$found)) {
+        cat("DINA-selected subgroup:",
+            paste(dsel$sg.harm, collapse = " & "), "\n")
+      } else {
+        cat("DINA selection: no subgroup met the criteria\n")
+      }
+    }
+
+    out <- list(
+      grp.consistency       = dsel$grp.consistency,
+      find.grps             = NULL,
+      confounders.candidate = confounders.name,
+      confounders.evaluated = confounders.name,
+      df.est                = dsel$df.est,
+      df.predict            = dsel$df.predict,
+      df.test               = dsel$df.test,
+      minutes_all           = t.min_all,
+      grf_res               = NULL,
+      sg_focus              = sg_focus,
+      sg.harm               = dsel$sg.harm,
+      grf_cuts              = NULL,
+      dina_res              = dsel$dina_res,
+      dina_cuts             = NULL,
+      prop_maxk             = NA_real_,
+      max_sg_est            = NA_real_,
+      grf_plot              = NULL,
+      args_call_all         = args_call_all,
+      consistency_algorithm = "dina",
+      outcome_type          = outcome_type,
+      effect_measure        = effect_measure,
+      threshold_config      = if (exists("threshold_config")) threshold_config
+                              else NULL,
+      subgroup_method       = "dina"
+    )
+    class(out) <- c("forestsearch", "list")
+    return(out)
   }
 
   # ===========================================================================

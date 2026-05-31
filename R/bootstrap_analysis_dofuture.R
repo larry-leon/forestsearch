@@ -509,6 +509,13 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     # CATEGORY 2: VARIABLE RE-SELECTION
     args_FS_boot$grf_res <- NULL
     args_FS_boot$grf_cuts <- NULL
+    # DINA inputs must also be nulled so each replicate re-fits DINA and
+    # re-runs its selection from scratch -- otherwise a supplied/cached DINA
+    # fit (use_dina screening or subgroup_method = "dina") would be reused on
+    # every resample, defeating the selection-adjustment the bootstrap exists
+    # to provide.
+    args_FS_boot$dina_res <- NULL
+    args_FS_boot$dina_cuts <- NULL
 
     # CATEGORY 3: SEQUENTIAL EXECUTION
     args_FS_boot$parallel_args$plan <- "sequential"

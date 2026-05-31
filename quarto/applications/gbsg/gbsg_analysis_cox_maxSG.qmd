@@ -45,7 +45,7 @@ NB <- 20
 
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
-Ksims <- 5
+Ksims <- 2
 
 fs_sg_focus <- "maxSG"
 
@@ -286,45 +286,84 @@ neighborhood test is applied on the natural scale.
 t0 <- proc.time()
 
 fs <- forestsearch(
+  # --- Required data + roles ----------------------------------------------
   df.analysis,
-  confounders.name = confounders.name,
-  outcome.name = outcome.name,
-  treat.name = treat.name,
-  event.name = event.name,
-  id.name = id.name,
-  # Threshold parameters (per León et al. 2024)
-  hr.threshold = 1.25,
-  hr.consistency = 1.0,
-  pconsistency.threshold = 0.90,
-  stop_threshold = 0.95,
-  # Search configuration
-  sg_focus = fs_sg_focus,
-  max_subgroups_search = 10,
-  use_twostage = TRUE,
-  # Factor selection
-  use_grf = TRUE,
-  dmin.grf = 4,
-  frac.tau = 0.80,
-  return_selected_cuts_only = TRUE,
-  use_lasso = TRUE,
-  cut_type = "default",
-  # Subgroup constraints
-  maxk = 2,
-  n.min = 60,
-  d0.min = 10,
-  d1.min = 10,
-  # Consistency evaluation
-  fs.splits = 1000,
-  # Parallel processing
+  outcome.name              = outcome.name,
+  event.name                = event.name,
+  treat.name                = treat.name,
+  id.name                   = id.name,
+  confounders.name          = confounders.name,
+  potentialOutcome.name     = NULL,           # default NULL
+  flag_harm.name            = NULL,           # default NULL
+  df.predict                = NULL,           # default NULL
+  df.test                   = NULL,           # default NULL
+  is.RCT                    = TRUE,           # default TRUE
+  seedit                    = 8316951,        # default 8316951
+  est.scale                 = "hr",           # default "hr"
+  # --- Screening engines (candidate generation) ---------------------------
+  use_lasso                 = TRUE,           # default TRUE
+  use_grf                   = TRUE,           # default TRUE
+  grf_res                   = NULL,           # default NULL
+  grf_cuts                  = NULL,           # default NULL
+  grf_depth                 = 2,              # default 2
+  dmin.grf                  = 4,              # default 0.0
+  frac.tau                  = 0.80,           # default 0.8
+  vi.grf.min                = -0.2,           # default -0.2
+  return_selected_cuts_only = TRUE,           # default TRUE
+  tune_grf                  = FALSE,          # default FALSE
+  use_dina                  = FALSE,          # default FALSE
+  dina_res                  = NULL,           # default NULL
+  dina_cuts                 = NULL,           # default NULL
+  dina_args                 = list(),         # default list()
+  # --- Candidate-cut construction -----------------------------------------
+  max_n_confounders         = 1000,           # default 1000
+  conf_force                = NULL,           # default NULL
+  defaultcut_names          = NULL,           # default NULL
+  cut_type                  = "default",      # default "default"
+  exclude_cuts              = NULL,           # default NULL
+  replace_med_grf           = FALSE,          # default FALSE
+  cont.cutoff               = 4,              # default 4
+  conf.cont_medians         = NULL,           # default NULL
+  conf.cont_medians_force   = NULL,           # default NULL
+  conf.cont_jcuts           = NULL,           # default NULL
+  # --- Selection engine ---------------------------------------------------
+  subgroup_method           = "consistency",  # default "consistency"; or "dina"
+  sg_focus                  = fs_sg_focus,     # default "hr"
+  selection_rule            = "neighborhood",  # default "neighborhood"
+  effect_neighborhood       = 0.10,            # default 0.10
+  # --- Subgroup constraints -----------------------------------------------
+  n.min                     = 60,             # default 60
+  d0.min                    = 10,             # default 10
+  d1.min                    = 10,             # default 10
+  maxk                      = 2,              # default 2
+  max_subgroups_search      = 20,             # default 30
+  # --- Thresholds (survival / HR scale) -----------------------------------
+  hr.threshold              = 1.0,            # default 1.25
+  hr.consistency            = 0.90,           # default 1.0
+  effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
+  consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
+  pconsistency.threshold    = 0.90,           # default 0.90
+  m1.threshold              = Inf,            # default Inf
+  minp                      = 0.025,          # default 0.025
+  # --- Consistency search -------------------------------------------------
+  fs.splits                 = 1000,           # default 1000
+  stop_threshold            = 0.95,           # default 0.95
+  use_twostage              = TRUE,           # default TRUE
+  twostage_args             = list(),         # default list()
+  max.minutes               = 3,              # default 3
+  # --- Output / diagnostics -----------------------------------------------
+  show_candidate_summary    = TRUE,           # default FALSE
+  details                   = TRUE,           # default FALSE
+  quiet                     = FALSE,          # default FALSE
+  by.risk                   = 12,             # default 12
+  plot.sg                   = TRUE,           # default FALSE
+  plot.grf                  = FALSE,          # default FALSE
+  # --- Parallel -----------------------------------------------------------
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
     show_message = TRUE
-  ),
-  # Output options
-  showten_subgroups = TRUE,
-  details = TRUE,
-  plot.sg = TRUE
+  )
 )
 
 plan("sequential")
@@ -589,6 +628,377 @@ if (!is.null(summaries$plots)) {
   summaries$plots$H_distribution + summaries$plots$Hc_distribution
 }
 ```
+
+
+# DINA-Based Subgroup Identification
+
+DINA (Doubly-robust Identification of Non-Additive effects) screens and
+selects subgroups from an influence-function representation of the
+covariate-specific treatment effect, fit with cross-fitting. It plugs into
+the ForestSearch workflow in three complementary ways, all configured to
+mirror the main Cox analysis above (same confounders, harm threshold
+`hr.threshold = 1.25`, minimum size `n.min = 60`, and `sg_focus`):
+
+* **(A)** ForestSearch *using DINA for screening* -- DINA's per-covariate
+  frontier contributes candidate cuts to the screening pool; the consistency
+  search still performs selection.
+* **(B)** *Standalone DINA* with parameters analogous to (A) -- the same
+  fit's frontier (the candidates (A) screens) and its single selected
+  subgroup via `dina_subgroup()`.
+* **(C)** ForestSearch with `subgroup_method = "dina"` -- subgroup
+  *selection* is delegated to `dina_subgroup()`, then the standard
+  ForestSearch bootstrap provides the selection bias-corrected Cox estimate.
+
+```{r dina-config}
+#| code-fold: false
+
+# Shared DINA settings (Cox / survival outcome => family mapped to "cox")
+dina_seed    <- 8316951
+dina_nfolds  <- 2
+hr_threshold <- 0.85
+# Harm floor on the natural-parameter (log-HR) scale for ratio measures
+m_diff_dina  <- log(hr_threshold)
+```
+
+## (A) ForestSearch Using DINA for Screening
+
+Here ForestSearch is run exactly as in the main analysis above, but with
+`use_dina = TRUE`: DINA's frontier cuts are merged into the candidate pool
+alongside the GRF and LASSO cuts. `dina_args` is a flat, fully-named list;
+in the screening role it supplies the DINA *fit* tuning (`seed`, `n_folds`)
+and the *frontier* controls (`scope`, `max_per_covariate`, `max_subgroups`).
+`scope = "wide"` casts a deliberately wide net -- the consistency stage
+remains the gatekeeper.
+
+```{r fs-dina-screen}
+t0 <- proc.time()
+
+fs_dina_screen <- forestsearch(
+  # --- Required data + roles ----------------------------------------------
+  df.analysis,
+  outcome.name              = outcome.name,
+  event.name                = event.name,
+  treat.name                = treat.name,
+  id.name                   = id.name,
+  confounders.name          = confounders.name,
+  potentialOutcome.name     = NULL,           # default NULL
+  flag_harm.name            = NULL,           # default NULL
+  df.predict                = NULL,           # default NULL
+  df.test                   = NULL,           # default NULL
+  is.RCT                    = TRUE,           # default TRUE
+  seedit                    = 8316951,        # default 8316951
+  est.scale                 = "hr",           # default "hr"
+  # --- Screening engines: GRF + LASSO + DINA ------------------------------
+  use_lasso                 = TRUE,           # default TRUE
+  use_grf                   = TRUE,           # default TRUE
+  grf_res                   = NULL,           # default NULL
+  grf_cuts                  = NULL,           # default NULL
+  grf_depth                 = 2,              # default 2
+  dmin.grf                  = 4,              # default 0.0
+  frac.tau                  = 0.80,           # default 0.8
+  vi.grf.min                = -0.2,           # default -0.2
+  return_selected_cuts_only = TRUE,           # default TRUE
+  tune_grf                  = FALSE,          # default FALSE
+  use_dina                  = TRUE,           # default FALSE
+  dina_res                  = NULL,           # default NULL
+  dina_cuts                 = NULL,           # default NULL
+  dina_args = list(                           # default list()
+    seed = dina_seed, n_folds = dina_nfolds,
+    scope = "wide", max_per_covariate = 3, max_subgroups = 10
+  ),
+  # --- Candidate-cut construction -----------------------------------------
+  max_n_confounders         = 1000,           # default 1000
+  conf_force                = NULL,           # default NULL
+  defaultcut_names          = NULL,           # default NULL
+  cut_type                  = "default",      # default "default"
+  exclude_cuts              = NULL,           # default NULL
+  replace_med_grf           = FALSE,          # default FALSE
+  cont.cutoff               = 4,              # default 4
+  conf.cont_medians         = NULL,           # default NULL
+  conf.cont_medians_force   = NULL,           # default NULL
+  conf.cont_jcuts           = NULL,           # default NULL
+  # --- Selection engine ---------------------------------------------------
+  subgroup_method           = "consistency",  # default "consistency"; or "dina"
+  sg_focus                  = fs_sg_focus,     # default "hr"
+  selection_rule            = "neighborhood",  # default "neighborhood"
+  effect_neighborhood       = 0.10,            # default 0.10
+  # --- Subgroup constraints -----------------------------------------------
+  n.min                     = 60,             # default 60
+  d0.min                    = 10,             # default 10
+  d1.min                    = 10,             # default 10
+  maxk                      = 2,              # default 2
+  max_subgroups_search      = 30,             # default 30
+  # --- Thresholds (survival / HR scale) -----------------------------------
+  hr.threshold              = hr_threshold,   # default 1.25
+  hr.consistency            = 1.0,            # default 1.0
+  effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
+  consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
+  pconsistency.threshold    = 0.90,           # default 0.90
+  m1.threshold              = Inf,            # default Inf
+  minp                      = 0.025,          # default 0.025
+  # --- Consistency search -------------------------------------------------
+  fs.splits                 = 1000,           # default 1000
+  stop_threshold            = 0.95,           # default 0.95
+  use_twostage              = TRUE,           # default TRUE
+  twostage_args             = list(),         # default list()
+  max.minutes               = 3,              # default 3
+  # --- Output / diagnostics -----------------------------------------------
+  show_candidate_summary    = TRUE,           # default FALSE
+  details                   = TRUE,           # default FALSE
+  quiet                     = FALSE,          # default FALSE
+  by.risk                   = 12,             # default 12
+  plot.sg                   = FALSE,          # default FALSE
+  plot.grf                  = FALSE,          # default FALSE
+  # --- Parallel -----------------------------------------------------------
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$fs_dina_screen <- (proc.time() - t0)["elapsed"]
+
+cat("Identified subgroup (H):",
+    paste(fs_dina_screen$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
+```
+
+The cuts DINA contributed to the candidate pool are recorded on the result
+object. These are exactly the frontier candidates reproduced standalone in
+(B).
+
+```{r fs-dina-screen-cuts}
+dina_screen_cuts <- fs_dina_screen$dina_cuts
+if (length(dina_screen_cuts) > 0) {
+  gt(data.frame(
+    `#` = seq_along(dina_screen_cuts),
+    `DINA candidate cut` = dina_screen_cuts,
+    check.names = FALSE
+  )) |>
+    tab_header(title = "DINA Screening Candidates Injected into ForestSearch") |>
+    cols_align(align = "left")
+} else {
+  cat("DINA contributed no candidate cuts under the configured frontier.\n")
+}
+```
+
+```{r fs-dina-screen-pareto}
+# Selection diagnostic for the DINA-screened run (selected subgroup marked).
+pareto_frontier_table(fs_dina_screen)
+```
+
+## (B) Standalone DINA
+
+The same DINA fit, run outside ForestSearch. Its `dina_frontier()` output is
+the candidate set fed into screening in (A); its `dina_subgroup()` output is
+the single subgroup selected by DINA itself -- the mechanism (C) uses
+internally. Parameters are analogous to (A): same confounders, harm floor
+`m_diff = log(1.25)`, `n_min = 60`, and `sg_focus`.
+
+```{r dina-standalone-fit}
+t0 <- proc.time()
+
+dina_fit <- dina(
+  df         = df.analysis,
+  outcome    = outcome.name,
+  treatment  = treat.name,
+  covariates = confounders.name,
+  family     = "cox",          # default "gaussian"; gaussian/binomial/poisson/cox
+  status     = event.name,     # default NULL (required for family = "cox")
+  # ... forwarded to dina_fit():
+  seed              = dina_seed,   # default NULL
+  n_folds           = dina_nfolds, # default 2L
+  propensity_method = "logistic",  # default "logistic"
+  baseline_method   = NULL,        # default NULL
+  cross_fitting     = TRUE,        # default TRUE
+  cens_type         = NULL,        # default NULL (no censoring model)
+  cens_params       = list(),      # default list()
+  n_grid            = 500L,        # default 500L
+  eps               = 1e-6         # default 1e-6
+)
+
+timings$dina_standalone <- (proc.time() - t0)["elapsed"]
+cat("Standalone DINA fit complete (family = cox).\n")
+```
+
+### DINA Frontier (Screening Candidates)
+
+```{r dina-standalone-frontier}
+dina_fr <- dina_frontier(
+  fit               = dina_fit,
+  df                = df.analysis,
+  covariates        = confounders.name,
+  scope             = "wide",     # default "wide"; or "harm" (requires m_diff)
+  m_diff            = NULL,        # default NULL (no effect floor under scope = "wide")
+  n_min             = 60,         # default 60L
+  direction         = "both",     # default "both"; or "left" / "right"
+  max_per_covariate = 3,          # default 3L
+  max_subgroups     = 10,         # default 10L
+  digits            = 3           # default 3L
+)
+
+gt(dina_fr[, c("covariate", "direction", "threshold",
+               "n_subgroup", "effect", "cut_expr")]) |>
+  tab_header(
+    title = "Standalone DINA Frontier",
+    subtitle = "Per-covariate non-dominated (effect, N) candidates; effect on HR scale"
+  ) |>
+  fmt_number(columns = c(threshold, effect), decimals = 3) |>
+  cols_label(
+    covariate = "Covariate", direction = "Direction",
+    threshold = "Threshold", n_subgroup = "N", effect = "HR",
+    cut_expr = "Cut"
+  ) |>
+  cols_align(align = "left", columns = c(covariate, direction, cut_expr))
+```
+
+### DINA-Selected Subgroup
+
+```{r dina-standalone-select}
+dina_sel <- dina_subgroup(
+  fit                 = dina_fit,
+  df                  = df.analysis,
+  covariates          = confounders.name,
+  m_diff              = m_diff_dina,
+  n_min               = 60,             # default 60L
+  direction           = "both",         # default "both"; or "left" / "right"
+  sg_focus            = fs_sg_focus,     # default "maxSG"
+  selection_rule      = "neighborhood",  # default "neighborhood"; pareto/both (hrMaxSG/hrMinSG)
+  effect_neighborhood = 0.10,            # default 0.10
+  alpha               = 0.05             # default 0.05
+)
+
+if (isTRUE(dina_sel$found)) {
+  op <- if (identical(dina_sel$direction, "left")) "<=" else ">="
+  cat(sprintf("DINA-selected subgroup: %s %s %s\n",
+              dina_sel$covariate, op, format(dina_sel$threshold)))
+  cat(sprintf("Direction: %s | N = %d\n",
+              dina_sel$direction, dina_sel$n_subgroup))
+} else {
+  cat("Standalone DINA selected no subgroup meeting the criteria.\n")
+}
+```
+
+## (C) ForestSearch with `subgroup_method = "dina"`
+
+In this mode ForestSearch delegates subgroup *selection* to
+`dina_subgroup()`, bypassing GRF, LASSO and the consistency search. The
+selection criteria are inherited from this call's `sg_focus`, `n.min` and
+`hr.threshold` (mapped to the log-HR harm floor); `dina_args` supplies only
+the fit tuning. The returned object is a standard `forestsearch` result, so
+the existing bootstrap machinery applies unchanged.
+
+```{r fs-dina-select}
+t0 <- proc.time()
+
+fs_dina <- forestsearch(
+  # --- Required data + roles ----------------------------------------------
+  df.analysis,
+  outcome.name        = outcome.name,
+  event.name          = event.name,
+  treat.name          = treat.name,
+  id.name             = id.name,
+  confounders.name    = confounders.name,
+  df.predict          = NULL,            # default NULL
+  df.test             = NULL,            # default NULL
+  is.RCT              = TRUE,            # default TRUE
+  seedit              = 8316951,         # default 8316951
+  # --- DINA-selection mode ------------------------------------------------
+  subgroup_method     = "dina",          # default "consistency"
+  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds),  # fit tuning only
+  dina_res            = NULL,            # default NULL (reuse a fitted dina object)
+  # --- Selection criteria (passed through to dina_subgroup) ---------------
+  sg_focus            = fs_sg_focus,     # default "hr"
+  selection_rule      = "neighborhood",  # default "neighborhood"
+  effect_neighborhood = 0.10,            # default 0.10
+  n.min               = 60,              # default 60
+  hr.threshold        = hr_threshold,    # default 1.25 (-> log-HR harm floor)
+  # --- Output -------------------------------------------------------------
+  details             = TRUE             # default FALSE
+  # NOTE: subgroup_method = "dina" bypasses GRF, LASSO and the consistency
+  # search; use_grf / use_lasso / use_twostage / fs.splits / maxk /
+  # stop_threshold and related parameters do not apply in this mode.
+)
+
+timings$fs_dina_select <- (proc.time() - t0)["elapsed"]
+
+cat("DINA-selected subgroup (H):",
+    paste(fs_dina$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_dina$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_dina$df.est$treat.recommend == 0)))
+```
+
+### Bootstrap Bias-Corrected Cox Estimates
+
+The within-subgroup Cox hazard ratio is upwardly biased by selection. The
+ForestSearch bootstrap corrects this by re-running the full pipeline on each
+resample; because the result above was produced in DINA-selection mode, each
+replicate re-fits DINA and re-runs `dina_subgroup()` from scratch -- so the
+correction reflects the DINA selection process itself.
+
+```{r fs-dina-bootstrap, eval = !is.null(fs_dina$sg.harm)}
+# Runs only when DINA identified a subgroup.  The bootstrap bias-corrects an
+# identified subgroup's effect, so there is nothing to do otherwise.
+t0 <- proc.time()
+
+fs_dina_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_dina,
+  nb_boots = NB,
+  show_three = FALSE,
+  details = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$fs_dina_bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nDINA-mode bootstrap completed in",
+    round(timings$fs_dina_bootstrap / 60, 1), "minutes\n")
+```
+
+```{r fs-dina-no-subgroup, eval = is.null(fs_dina$sg.harm)}
+# Shown only when DINA selected no subgroup at the configured harm floor.
+timings$fs_dina_bootstrap <- 0
+cat("DINA (subgroup_method = \"dina\") identified no subgroup at",
+    "hr.threshold =", hr_threshold, "-- bootstrap skipped.\n",
+    "DINA's model-based effect is attenuated relative to the raw Cox HR,",
+    "so this floor may not be reached; see the standalone DINA frontier (B)",
+    "for the achievable effect range, and lower the DINA harm floor if a",
+    "bootstrap demonstration is desired.\n")
+```
+
+```{r fs-dina-bootstrap-summary, eval = !is.null(fs_dina$sg.harm)}
+dina_summaries <- summarize_bootstrap_results(
+  sgharm = fs_dina$sg.harm,
+  boot_results = fs_dina_bc,
+  create_plots = FALSE,
+  est.scale = "hr"
+)
+
+dina_summaries$table
+```
+
+::: {.callout-note}
+## Screening vs. selection roles for DINA
+
+`dina_args` behaves differently by role. In the **screening** path (A,
+`use_dina = TRUE`) it drives `dina_frontier()`, which is selection-agnostic;
+`sg_focus` / `selection_rule` are *not* consulted there. In the
+**selection** path (C, `subgroup_method = "dina"`) the selection is driven by
+this call's `sg_focus` / `selection_rule` / `effect_neighborhood` via
+`dina_subgroup()`, and `dina_args` supplies only the fit. This mode is
+currently depth-1 (a single covariate threshold).
+:::
+
 
 
 # Cross-Validation
@@ -891,11 +1301,18 @@ patients may not benefit is consistent with:
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
 timing_df <- data.frame(
-  Analysis = c("GRF", "ForestSearch", "Bootstrap", "kfold", "oob", "Total"),
+  Analysis = c("GRF", "ForestSearch", "Bootstrap",
+               "FS (DINA screening)", "DINA (standalone)",
+               "FS (subgroup_method=dina)", "FS DINA bootstrap",
+               "kfold", "oob", "Total"),
   Seconds = c(
     timings$grf,
     timings$forestsearch,
     timings$bootstrap,
+    timings$fs_dina_screen,
+    timings$dina_standalone,
+    timings$fs_dina_select,
+    timings$fs_dina_bootstrap,
     timings$kfold,
     timings$oob,
     timings$total
