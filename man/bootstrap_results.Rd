@@ -58,6 +58,15 @@ row selection and \code{seed} has no effect on bootstrap indices.}
 \code{\link{make_effect_estimator}} for GLM outcomes.  When \code{NULL}
 (default), the Cox model via \code{cox.formula.boot} is used.}
 
+\item{effect_measure}{Character or \code{NULL}. Effect-measure label for
+GLM outcomes (e.g. "OR", "RR", "IRR", "MD", "RD", "IRD"), threaded from
+the bootstrap entry.  Controls the scale of the per-resample
+subgroup-effect diagnostic (\code{hr_sg}) for DINA-selected subgroups:
+ratio measures ("OR", "RR", "IRR") and survival report it on the ratio
+scale, while identity measures ("MD", "RD", "IRD") report it on the
+difference scale.  \code{NULL} (default) applies the ratio (survival)
+convention.}
+
 \item{boot_index_mat}{Integer matrix or \code{NULL}. Optional
 pre-generated \eqn{B \times N} matrix of bootstrap row indices. When
 supplied, row \eqn{b} is used as the resampling vector for iteration

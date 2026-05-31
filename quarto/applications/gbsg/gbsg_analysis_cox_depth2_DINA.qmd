@@ -1,0 +1,683 @@
+---
+title: "Depth-2 Subgroup Identification with DINA and ForestSearch"
+subtitle: "German Breast Cancer Study Group (GBSG) Analysis -- AND-Conjunctions of Two Covariates"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+
+# Initialize timing
+timings <- list()
+t_vignette_start <- proc.time()
+```
+
+## Parallel Processing Configuration
+
+ForestSearch supports parallel processing for the bootstrap. The depth-2
+search is only modestly more expensive than depth-1 (the candidate count
+grows by roughly `choose(K, 2) * (2 * length(grid_probs))^2`), so the same
+configuration applies.
+
+```{r parallel-setup}
+# Detect available cores (capped for routine rendering / CRAN checks)
+n_cores_total <- parallel::detectCores()
+n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
+
+# Number of bootstrap iterations.
+# Use 500-2000 for production; reduced here for the vignette.
+NB <- 20
+
+# ---------------------------------------------------------------------------
+# Depth-2 controls.  max_depth = 2L lets a selected subgroup be an
+# AND-conjunction of two distinct covariates; grid_probs is the per-covariate
+# quantile grid used to enumerate the conjunction thresholds.  Setting
+# max_depth = 1L reproduces the classic single-covariate behaviour exactly.
+# ---------------------------------------------------------------------------
+dina_max_depth  <- 2L
+dina_grid_probs <- seq(0.1, 0.9, by = 0.1)   # interior deciles (default)
+
+# ---------------------------------------------------------------------------
+# Per-analysis identification parameters (tune each analysis independently).
+#   sg_focus      : which candidate subgroup the selection step chooses
+#   hr_threshold  : harm/benefit floor on the HR scale
+#   hr_consistency: minimum consistency rate (consistency search only)
+# ---------------------------------------------------------------------------
+
+# (A) ForestSearch + DINA screening (consistency search selects; DINA only
+#     contributes candidate cuts -- here, a depth-2 conjunction's components)
+dina_screen_sg_focus             <- "effMaxSG"
+dina_screen_hr_threshold         <- 0.90
+dina_screen_hr_consistency       <- 0.80
+dina_screen_max_subgroups_search <- 30
+# Screening cut set: FALSE => full DINA frontier; TRUE => only the single
+# dina_subgroup()-selected subgroup (a conjunction at max_depth = 2), whose
+# component cuts are injected into the screening pool.
+dina_screen_selected_only        <- TRUE
+
+# (B) Standalone DINA and (C) ForestSearch subgroup_method = "dina".  (B) and
+# (C) share these so the standalone selection and the DINA-selection pipeline
+# match.
+fs_dina_sg_focus     <- "effMaxSG"
+fs_dina_hr_threshold <- 0.80
+```
+
+
+
+# Introduction
+
+This document is a companion to the main GBSG ForestSearch analysis. It
+exercises the **depth-2** extension of the DINA subgroup engine end-to-end,
+in the three ways DINA plugs into the ForestSearch workflow, using the same
+data, confounders and selection focus as the depth-1 analysis.
+
+A *depth-1* subgroup is a single covariate threshold, e.g. `{nodes >= 12}`.
+A *depth-2* subgroup is an **AND-conjunction of two distinct covariates**,
+e.g. `{grade3 >= 1 & pgr <= 32.5}`. Depth-2 is opt-in via `max_depth = 2L`
+and is constructed so that a conjunction is selected only when it strictly
+outranks every single-covariate candidate under the configured `sg_focus`;
+with `max_depth = 1L` the behaviour is byte-identical to the classic engine.
+
+The three modes demonstrated:
+
+* **(A)** ForestSearch *using DINA for screening* (`use_dina = TRUE`,
+  `dina_args$max_depth = 2`) -- DINA's selected conjunction contributes its
+  component cuts to the candidate pool; the consistency search still selects.
+* **(B)** *Standalone DINA* at depth 2 -- `dina_subgroup(max_depth = 2)`
+  returns a conjunction, and `dina_subgroup_bootstrap(max_depth = 2)`
+  provides per-component threshold stability and a cut-set selection
+  frequency.
+* **(C)** ForestSearch with `subgroup_method = "dina"` and
+  `dina_args$max_depth = 2` -- selection is delegated to the depth-2
+  `dina_subgroup()`, then the standard ForestSearch bootstrap produces the
+  selection bias-corrected Cox estimate and the per-resample stability
+  diagnostics (now populated for DINA mode and depth-aware).
+
+
+
+# Setup
+
+## Load Required Packages
+
+```{r load-packages}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(gt)
+library(grf)
+library(doFuture)
+
+# Set ggplot theme
+theme_set(theme_minimal(base_size = 12))
+```
+
+
+# Data: German Breast Cancer Study Group Trial
+
+```{r data-setup}
+# Load GBSG data (included in the forestsearch package)
+df.analysis <- gbsg
+
+# Prepare analysis variables
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+  treat <- hormon
+})
+
+# Define variable roles
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
+```
+
+
+# DINA Depth-2 Configuration
+
+```{r dina-config}
+#| code-fold: false
+
+# Shared DINA *fit* settings (Cox / survival outcome => family mapped to "cox").
+dina_seed   <- 8316951
+dina_nfolds <- 2
+
+# Harm/benefit floor on the natural-parameter (log-HR) scale for ratio
+# measures; (B) and (C) use this floor.
+m_diff_dina <- log(fs_dina_hr_threshold)
+
+cat("max_depth:  ", dina_max_depth, "\n")
+cat("grid_probs: ", paste(dina_grid_probs, collapse = ", "), "\n")
+cat("sg_focus:   ", fs_dina_sg_focus, "\n")
+cat("Harm floor: m_diff =", round(m_diff_dina, 4),
+    sprintf("(hr.threshold = %.2f)\n", fs_dina_hr_threshold))
+```
+
+
+# (A) ForestSearch Using DINA for Screening (Depth-2)
+
+ForestSearch is run exactly as in the main analysis, but with
+`use_dina = TRUE` and `dina_args$max_depth = 2`. With
+`dina_args$selected_only = TRUE`, DINA contributes the single subgroup it
+would select -- here a depth-2 conjunction -- by injecting that conjunction's
+**component cuts** into the candidate pool. The consistency search remains the
+gatekeeper and composes cuts on its own, so the final subgroup may be a single
+factor or a conjunction depending on what survives consistency selection.
+
+```{r fs-dina-screen}
+t0 <- proc.time()
+
+fs_dina_screen <- forestsearch(
+  # --- Required data + roles ----------------------------------------------
+  df.analysis,
+  outcome.name              = outcome.name,
+  event.name                = event.name,
+  treat.name                = treat.name,
+  id.name                   = id.name,
+  confounders.name          = confounders.name,
+  is.RCT                    = TRUE,
+  seedit                    = 8316951,
+  est.scale                 = "hr",
+  # --- Screening engines: GRF + LASSO + DINA ------------------------------
+  use_lasso                 = TRUE,
+  use_grf                   = TRUE,
+  grf_depth                 = 2,
+  dmin.grf                  = 4,
+  frac.tau                  = 0.80,
+  return_selected_cuts_only = TRUE,
+  use_dina                  = TRUE,
+  dina_args = list(
+    seed = dina_seed, n_folds = dina_nfolds,
+    scope = "wide", max_per_covariate = 3, max_subgroups = 10,
+    selected_only = dina_screen_selected_only,
+    max_depth     = dina_max_depth,      # depth-2 screening
+    grid_probs    = dina_grid_probs
+  ),
+  # --- Selection engine ---------------------------------------------------
+  subgroup_method           = "consistency",
+  sg_focus                  = dina_screen_sg_focus,
+  selection_rule            = "neighborhood",
+  effect_neighborhood       = 0.10,
+  # --- Subgroup constraints -----------------------------------------------
+  n.min                     = 60,
+  maxk                      = 2,
+  max_subgroups_search      = dina_screen_max_subgroups_search,
+  # --- Thresholds (survival / HR scale) -----------------------------------
+  hr.threshold              = dina_screen_hr_threshold,
+  hr.consistency            = dina_screen_hr_consistency,
+  pconsistency.threshold    = 0.90,
+  # --- Output / diagnostics -----------------------------------------------
+  show_candidate_summary    = TRUE,
+  details                   = TRUE,
+  quiet                     = FALSE,
+  by.risk                   = 12,
+  # --- Parallel -----------------------------------------------------------
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$fs_dina_screen <- (proc.time() - t0)["elapsed"]
+
+cat("Final subgroup (consistency-selected):",
+    paste(fs_dina_screen$sg.harm, collapse = " & "), "\n")
+if (!is.null(fs_dina_screen$sg.harm)) {
+  cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
+      sprintf("(%.1f%% of ITT)\n",
+              100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
+}
+```
+
+The cuts DINA contributed to the candidate pool are recorded on the result
+object. At `max_depth = 2` the selected DINA subgroup is a conjunction, so its
+two component cuts appear here -- these are the candidates the consistency
+search may then re-compose.
+
+```{r fs-dina-screen-cuts}
+dina_screen_cuts <- fs_dina_screen$dina_cuts
+if (length(dina_screen_cuts) > 0) {
+  gt(data.frame(
+    `#` = seq_along(dina_screen_cuts),
+    `DINA candidate cut` = dina_screen_cuts,
+    check.names = FALSE
+  )) |>
+    tab_header(
+      title = "Depth-2 DINA Screening Candidates Injected into ForestSearch",
+      subtitle = "Component cuts of DINA's selected conjunction"
+    ) |>
+    cols_align(align = "left")
+} else {
+  cat("DINA contributed no candidate cuts under the configured frontier.\n")
+}
+```
+
+```{r fs-dina-screen-pareto}
+# Selection diagnostic for the DINA-screened run (selected subgroup marked).
+pareto_frontier_table(fs_dina_screen)
+```
+
+
+# (B) Standalone DINA (Depth-2)
+
+The same DINA fit run outside ForestSearch. Its `dina_frontier()` output is
+the per-covariate candidate set; `dina_subgroup(max_depth = 2)` returns the
+single best subgroup, now allowed to be a two-covariate conjunction; and
+`dina_subgroup_bootstrap(max_depth = 2)` provides depth-aware stability
+diagnostics.
+
+```{r dina-standalone-fit}
+t0 <- proc.time()
+
+dina_fit <- dina(
+  df         = df.analysis,
+  outcome    = outcome.name,
+  treatment  = treat.name,
+  covariates = confounders.name,
+  family     = "cox",
+  status     = event.name,
+  seed       = dina_seed,
+  n_folds    = dina_nfolds
+)
+
+timings$dina_standalone <- (proc.time() - t0)["elapsed"]
+cat("Standalone DINA fit complete (family = cox).\n")
+```
+
+## DINA Frontier (Per-Covariate Candidates)
+
+```{r dina-standalone-frontier}
+dina_fr <- dina_frontier(
+  fit               = dina_fit,
+  df                = df.analysis,
+  covariates        = confounders.name,
+  scope             = "wide",
+  n_min             = 60,
+  max_per_covariate = 3,
+  max_subgroups     = 10,
+  digits            = 3
+)
+
+gt(dina_fr[, c("covariate", "direction", "threshold",
+               "n_subgroup", "effect", "cut_expr")]) |>
+  tab_header(
+    title = "Standalone DINA Frontier",
+    subtitle = "Per-covariate non-dominated (effect, N) candidates; effect on HR scale"
+  ) |>
+  fmt_number(columns = c(threshold, effect), decimals = 3) |>
+  cols_label(
+    covariate = "Covariate", direction = "Direction",
+    threshold = "Threshold", n_subgroup = "N", effect = "HR",
+    cut_expr = "Cut"
+  ) |>
+  cols_align(align = "left", columns = c(covariate, direction, cut_expr))
+```
+
+## DINA-Selected Subgroup (Depth-2 Conjunction)
+
+`dina_subgroup(max_depth = 2)` ranks the full-resolution single-covariate
+candidates together with the gridded distinct-covariate conjunctions and
+returns whichever wins under `sg_focus`. A conjunction is reported only when
+it strictly outranks every singleton.
+
+```{r dina-standalone-select}
+dina_sel2 <- dina_subgroup(
+  fit                 = dina_fit,
+  df                  = df.analysis,
+  covariates          = confounders.name,
+  m_diff              = m_diff_dina,
+  n_min               = 60,
+  direction           = "both",
+  max_depth           = dina_max_depth,    # depth-2
+  grid_probs          = dina_grid_probs,
+  sg_focus            = fs_dina_sg_focus,
+  selection_rule      = "neighborhood",
+  effect_neighborhood = 0.10,
+  alpha               = 0.05
+)
+
+if (isTRUE(dina_sel2$found)) {
+  cat(sprintf("DINA-selected subgroup (depth %d): %s\n",
+              dina_sel2$depth, dina_sel2$label))
+  cat(sprintf("N = %d  |  mean tau-hat = %.3f\n",
+              dina_sel2$n_subgroup, dina_sel2$mean_tau_hat))
+} else {
+  cat("Standalone DINA selected no subgroup meeting the criteria.\n")
+}
+```
+
+When the selection is a conjunction, `covariate` / `direction` / `threshold`
+are length-2 vectors -- one entry per component cut.
+
+```{r dina-standalone-components, eval = isTRUE(dina_sel2$found)}
+op_comp <- ifelse(dina_sel2$direction == "left", "<=", ">=")
+gt(data.frame(
+  Component = seq_along(dina_sel2$covariate),
+  Covariate = dina_sel2$covariate,
+  Direction = dina_sel2$direction,
+  Operator  = op_comp,
+  Threshold = dina_sel2$threshold,
+  check.names = FALSE
+)) |>
+  tab_header(
+    title = "Component Cuts of the DINA-Selected Subgroup",
+    subtitle = sprintf("Depth %d: AND-conjunction membership = intersection of components",
+                       dina_sel2$depth)
+  ) |>
+  fmt_number(columns = Threshold, decimals = 3) |>
+  cols_align(align = "left", columns = c(Covariate, Direction, Operator))
+```
+
+## Standalone DINA Bootstrap (Depth-2 Stability)
+
+`dina_subgroup_bootstrap(max_depth = 2)` resamples the DINA selection. For a
+conjunction it reports the bootstrap **threshold CI per component covariate**
+(the two thresholds are not on a common scale) and a **cut-set selection
+frequency** keyed by a canonical, threshold-independent key
+(e.g. `"grade3 >= & pgr <="`). The within-subgroup standard-model refit is
+currently depth-1 only and is therefore disabled here.
+
+```{r dina-standalone-bootstrap, eval = isTRUE(dina_sel2$found)}
+t0 <- proc.time()
+
+dina_boot2 <- dina_subgroup_bootstrap(
+  df          = df.analysis,
+  outcome     = outcome.name,
+  treatment   = treat.name,
+  covariates  = confounders.name,
+  family      = "cox",
+  status      = event.name,
+  m_diff      = m_diff_dina,
+  n_min       = 60L,
+  max_depth   = dina_max_depth,    # follows dina_sel2 (depth-2)
+  grid_probs  = dina_grid_probs,
+  sg_focus    = fs_dina_sg_focus,
+  n_boot      = NB,
+  seed        = dina_seed,
+  fit         = dina_fit,          # pin the point estimate to dina_sel2
+  sg          = dina_sel2,
+  refit       = FALSE              # depth-2 refit deferred
+)
+
+timings$dina_boot2 <- (proc.time() - t0)["elapsed"]
+
+# Full text summary (effect CI, per-component threshold CIs, cut-set frequency)
+print(dina_boot2)
+```
+
+Per-component threshold stability, rendered as a table:
+
+```{r dina-boot2-threshold-ci, eval = isTRUE(dina_sel2$found)}
+tci <- dina_boot2$threshold_ci
+if (is.matrix(tci)) {
+  tci_df <- data.frame(Covariate = rownames(tci),
+                       Lower = tci[, "lower"], Upper = tci[, "upper"],
+                       check.names = FALSE)
+} else {
+  tci_df <- data.frame(Covariate = dina_sel2$covariate[1],
+                       Lower = tci[["lower"]], Upper = tci[["upper"]],
+                       check.names = FALSE)
+}
+gt(tci_df) |>
+  tab_header(
+    title = sprintf("Bootstrap Threshold CIs (%.0f%% percentile)",
+                    100 * (1 - dina_boot2$alpha)),
+    subtitle = sprintf("Restricted to the %d resamples matching the modal cut-set",
+                       dina_boot2$n_modal_match)
+  ) |>
+  fmt_number(columns = c(Lower, Upper), decimals = 3) |>
+  cols_align(align = "left", columns = Covariate)
+```
+
+Cut-set selection frequency across resamples (the depth-aware generalization
+of the single-covariate frequency table):
+
+```{r dina-boot2-selfreq, eval = isTRUE(dina_sel2$found)}
+sf <- dina_boot2$selection_frequency
+if (!is.null(sf) && length(sf) > 0) {
+  sf_df <- as.data.frame(sf, stringsAsFactors = FALSE)
+  names(sf_df) <- c("Cut-set", "Count")
+  sf_df <- sf_df[order(-sf_df$Count), , drop = FALSE]
+  sf_df$Percent <- round(100 * sf_df$Count / dina_boot2$n_boot_found, 1)
+  gt(utils::head(sf_df, 8)) |>
+    tab_header(title = "Cut-set Selection Frequency Across Bootstraps") |>
+    cols_align(align = "left", columns = `Cut-set`)
+} else {
+  cat("No found-resample selections to tabulate.\n")
+}
+```
+
+
+# (C) ForestSearch with `subgroup_method = "dina"` (Depth-2)
+
+ForestSearch delegates *selection* to the depth-2 `dina_subgroup()`,
+bypassing GRF, LASSO and the consistency search. The returned object is a
+standard `forestsearch` result, so the existing bootstrap machinery applies
+unchanged -- the bias correction reflects the depth-2 DINA selection process.
+
+```{r fs-dina-select}
+t0 <- proc.time()
+
+fs_dina2 <- forestsearch(
+  df.analysis,
+  outcome.name        = outcome.name,
+  event.name          = event.name,
+  treat.name          = treat.name,
+  id.name             = id.name,
+  confounders.name    = confounders.name,
+  df.predict          = df.analysis,        # original data for bias correction
+  is.RCT              = TRUE,
+  seedit              = 8316951,
+  # --- DINA-selection mode (depth-2) --------------------------------------
+  subgroup_method     = "dina",
+  dina_args           = list(
+    seed = dina_seed, n_folds = dina_nfolds,
+    max_depth  = dina_max_depth,            # depth-2 selection
+    grid_probs = dina_grid_probs
+  ),
+  # --- Selection criteria (passed through to dina_subgroup) ---------------
+  sg_focus            = fs_dina_sg_focus,
+  selection_rule      = "neighborhood",
+  effect_neighborhood = 0.10,
+  n.min               = 60,
+  hr.threshold        = fs_dina_hr_threshold,  # -> log-HR harm floor
+  details             = TRUE
+)
+
+timings$fs_dina_select <- (proc.time() - t0)["elapsed"]
+
+cat("DINA-selected subgroup (H):",
+    paste(fs_dina2$sg.harm, collapse = " & "), "\n")
+if (!is.null(fs_dina2$sg.harm)) {
+  cat("Number of component factors:", length(fs_dina2$sg.harm), "\n")
+  cat("Subgroup size:", sum(fs_dina2$df.est$treat.recommend == 0),
+      sprintf("(%.1f%% of ITT)\n",
+              100 * mean(fs_dina2$df.est$treat.recommend == 0)))
+}
+```
+
+## Bootstrap Bias-Corrected Cox Estimates
+
+Each replicate re-fits DINA and re-runs the depth-2 `dina_subgroup()` from
+scratch, so the correction reflects the depth-2 selection. The bias-corrected
+estimate is membership-based, hence identical in form whether the selected
+subgroup is a single cut or a conjunction.
+
+```{r fs-dina-bootstrap, eval = !is.null(fs_dina2$sg.harm)}
+t0 <- proc.time()
+
+fs_dina2_bc <- forestsearch_bootstrap_dofuture(
+  fs.est     = fs_dina2,
+  nb_boots   = NB,
+  show_three = FALSE,
+  details    = FALSE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$fs_dina_bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("DINA-mode depth-2 bootstrap completed in",
+    round(timings$fs_dina_bootstrap / 60, 1), "minutes\n")
+```
+
+```{r fs-dina-no-subgroup, eval = is.null(fs_dina2$sg.harm)}
+timings$fs_dina_bootstrap <- 0
+cat("DINA (subgroup_method = \"dina\", max_depth = 2) identified no subgroup",
+    "at hr.threshold =", fs_dina_hr_threshold, "-- bootstrap skipped.\n",
+    "Lower the harm floor (raise the benefit) or widen grid_probs if a",
+    "bootstrap demonstration is desired.\n")
+```
+
+```{r fs-dina-bootstrap-summary, eval = !is.null(fs_dina2$sg.harm)}
+dina2_summaries <- summarize_bootstrap_results(
+  sgharm       = fs_dina2$sg.harm,
+  boot_results = fs_dina2_bc,
+  create_plots = FALSE,
+  est.scale    = "hr"
+)
+
+dina2_summaries$table
+```
+
+## Depth-2 Stability Diagnostics
+
+In DINA-selection mode the per-resample stability diagnostics
+(`K_sg`, `N_sg`, `M.1`, `M.2`, ...) are populated directly from the selected
+subgroup, so `summarize_bootstrap_subgroups()` is non-blank and depth-aware:
+a depth-2 selection fills both `M.1` and `M.2`, and conjunctions appear in the
+agreement table as `factor & factor`.
+
+```{r fs-dina-Ksg, eval = !is.null(fs_dina2$sg.harm)}
+boot_dt <- data.table::as.data.table(fs_dina2_bc$results)
+k_tab <- table(K_sg = boot_dt$K_sg, useNA = "ifany")
+gt(as.data.frame(k_tab, stringsAsFactors = FALSE)) |>
+  tab_header(
+    title = "Per-resample Subgroup Depth (K_sg)",
+    subtitle = "Number of component factors re-selected per bootstrap resample"
+  ) |>
+  cols_label(K_sg = "K_sg (factors)", Freq = "Resamples") |>
+  cols_align(align = "left")
+```
+
+```{r fs-dina-subgroup-stability, eval = !is.null(fs_dina2$sg.harm)}
+dina2_sbs <- summarize_bootstrap_subgroups(
+  results     = fs_dina2_bc$results,
+  nb_boots    = NB,
+  original_sg = fs_dina2$sg.harm,
+  maxk        = 2L
+)
+
+# Factor-position frequencies (M.1, M.2) -- previously blank in DINA mode.
+if (!is.null(dina2_sbs$factor_freq) && nrow(dina2_sbs$factor_freq) > 0) {
+  gt(utils::head(as.data.frame(dina2_sbs$factor_freq), 12)) |>
+    tab_header(
+      title = "Factor-Position Frequencies Across Bootstraps",
+      subtitle = "DINA-mode depth-2 diagnostics (M.1 / M.2 now populated)"
+    ) |>
+    cols_align(align = "left")
+} else {
+  cat("No factor-frequency rows to display.\n")
+}
+```
+
+```{r fs-dina-subgroup-agreement, eval = !is.null(fs_dina2$sg.harm)}
+# Subgroup-level agreement: depth-2 conjunctions appear as "factor & factor".
+if (!is.null(dina2_sbs$agreement) && nrow(dina2_sbs$agreement) > 0) {
+  gt(utils::head(as.data.frame(dina2_sbs$agreement), 10)) |>
+    tab_header(
+      title = "Bootstrap Subgroup Agreement",
+      subtitle = "Canonical cut-sets re-selected across resamples (sorted, collapsed)"
+    ) |>
+    cols_align(align = "left")
+} else {
+  cat("No subgroup-agreement rows to display.\n")
+}
+```
+
+::: {.callout-note}
+## Depth-2 notes
+
+* **Where conjunctions can arise.** In modes (B) and (C) `dina_subgroup()`
+  *selects* the conjunction directly. In mode (A) DINA only *screens*: it
+  injects the conjunction's component cuts, and the consistency search decides
+  the final subgroup (which may differ from DINA's conjunction).
+* **`max_depth = 1L` is exact legacy behaviour.** Depth-2 only changes the
+  result when a conjunction strictly outranks every single-covariate
+  candidate under `sg_focus`.
+* **GLM outcomes.** The same depth-2 path applies to binary (`OR`, `RD`),
+  count (`IRR`, `IRD`) and continuous (`MD`) outcomes via
+  `outcome_type` / `effect_measure`; the per-resample subgroup effect is
+  reported on the ratio scale for `OR`/`RR`/`IRR` and on the identity scale
+  for `MD`/`RD`/`IRD`.
+* **Refit.** The within-subgroup standard-model refit in
+  `dina_subgroup_bootstrap()` is currently depth-1 only; it is auto-disabled
+  (with a message) for conjunctions.
+:::
+
+
+# Computational Timing
+
+```{r timing-table}
+timing_df <- data.frame(
+  Step = c("Standalone DINA fit",
+           "Standalone DINA depth-2 bootstrap",
+           "(A) ForestSearch + DINA screening",
+           "(C) ForestSearch subgroup_method = dina",
+           "(C) DINA-mode depth-2 bootstrap"),
+  Minutes = c(
+    timings$dina_standalone,
+    if (!is.null(timings$dina_boot2)) timings$dina_boot2 else NA_real_,
+    timings$fs_dina_screen,
+    timings$fs_dina_select,
+    if (!is.null(timings$fs_dina_bootstrap)) timings$fs_dina_bootstrap else NA_real_
+  ) / 60,
+  check.names = FALSE
+)
+
+gt(timing_df) |>
+  tab_header(title = "Computational Timing",
+             subtitle = sprintf("Total: %.1f minutes",
+                                 (proc.time() - t_vignette_start)["elapsed"] / 60)) |>
+  fmt_number(columns = Minutes, decimals = 2) |>
+  cols_align(align = "left", columns = Step)
+```
+
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
