@@ -14,6 +14,8 @@ dina_subgroup_bootstrap(
   m_diff,
   n_min = 60L,
   direction = c("both", "left", "right"),
+  max_depth = 1L,
+  grid_probs = seq(0.1, 0.9, by = 0.1),
   sg_focus = "maxSG",
   effect_neighborhood = 0.1,
   alpha = 0.05,
@@ -52,6 +54,17 @@ the event indicator column name.}
 \item{n_min}{positive integer; minimum subgroup size.  Default \code{60L}.}
 
 \item{direction}{one of \code{"both"} (default), \code{"left"}, \code{"right"}.}
+
+\item{max_depth}{integer, \code{1L} (default) or \code{2L}, forwarded to
+\code{dina_subgroup()} for both the point estimate and every bootstrap
+iteration.  \code{2L} allows the selected subgroup to be an AND-conjunction
+of two covariates; see \code{\link[=dina_subgroup]{dina_subgroup()}}.  When \code{sg} is supplied, the
+per-iteration search follows the depth of \code{sg} (its \code{max_depth}).}
+
+\item{grid_probs}{numeric vector of probabilities in \verb{[0, 1]}; the
+per-covariate quantile grid for depth-2 pair thresholds, forwarded to
+\code{dina_subgroup()}.  Only consulted when the effective depth is \code{2}.
+Default interior deciles \code{seq(0.1, 0.9, 0.1)}.}
 
 \item{sg_focus}{character; subgroup selection criterion, forwarded to
 \code{dina_subgroup()} for both the original-data point estimate and every
@@ -147,25 +160,34 @@ was not performed.}
 \item{refit_effect_dist}{numeric vector of length \code{n_boot} of
 per-iteration within-signature standard-model treatment
 effects (\code{NA} where not computed or the fit failed).}
-\item{n_subgroup_ci, threshold_ci}{named length-2 numeric
-vectors giving percentile CIs for the structural quantities
-of bootstrap-selected subgroups, restricted to iterations
-that selected the same \verb{(covariate, direction)} as the
-original-data subgroup.  Subgroup-size and boundary-location
-stability diagnostics.}
-\item{n_modal_match}{integer; number of bootstrap iterations
-whose selection matched the original-data
-\verb{(covariate, direction)}.  Denominator for the stability CIs.}
-\item{selection_frequency}{a \code{table} of
-\verb{(covariate, direction)} selection counts across found
-iterations.  Covariate-selection stability diagnostic.}
+\item{n_subgroup_ci}{named length-2 numeric vector; percentile CI
+for the bootstrap-selected subgroup size, restricted to
+iterations matching the original-data \strong{cut-set} (same
+covariate(s) and direction(s), via a threshold-independent key).}
+\item{threshold_ci}{boundary-location stability, restricted to the
+same matched iterations.  For a single-covariate subgroup, a
+named length-2 numeric vector.  For a depth-2 conjunction, a
+matrix with one row per covariate (rownames = covariate) and
+columns \code{lower}/\code{upper}, since the two thresholds are not
+comparable on a common scale.}
+\item{n_modal_match}{integer; number of bootstrap iterations whose
+selection matched the original-data cut-set key.  Denominator for
+the stability CIs.}
+\item{selection_frequency}{a one-dimensional \code{table} of canonical
+cut-set keys (e.g. \code{"nodes >="}, or \code{"age >= & nodes >="} for a
+conjunction) across found iterations.  The structural-selection
+stability diagnostic, generalizing the depth-1
+\verb{(covariate, direction)} table.}
 \item{boot_results}{data frame with one row per bootstrap
-iteration; columns \code{found}, \code{covariate}, \code{direction},
-\code{threshold}, \code{n_subgroup}, \code{mean_tau_hat}, \code{failed}.  The
-\code{mean_tau_hat} column records the bootstrap-selected
-subgroup's boundary value (pinned near \code{m_diff} by the
-search rule) and is retained for diagnostic transparency
-rather than as a meaningful effect estimate.}
+iteration; columns \code{found}, \code{key} (canonical cut-set key),
+\code{depth} (1 or 2), \code{n_subgroup}, \code{mean_tau_hat}, \code{failed}, plus
+back-compatible \code{covariate}, \code{direction}, \code{threshold} columns
+(the scalar cut for single-covariate selections, \code{NA} for depth-2
+conjunctions -- whose per-iteration cuts are summarized by \code{key}).
+The \code{mean_tau_hat} column records the bootstrap-selected
+subgroup's boundary value (pinned near \code{m_diff} by the search
+rule) and is retained for diagnostic transparency rather than as
+a meaningful effect estimate.}
 \item{n_boot, n_boot_found, n_boot_failed}{convergence
 diagnostics.}
 \item{alpha, m_diff, n_min, sg_focus, effect_neighborhood,
@@ -189,12 +211,13 @@ bootstrap analog of the Wald CI returned by
 \code{dina_subgroup()} -- conditional on the discovered subgroup
 definition, with width reflecting sampling variance of
 \code{beta-hat}.
-\item \strong{Stability CIs} on the bootstrap-selected \code{n_subgroup} and
-\code{threshold}, restricted to iterations that selected the same
-\verb{(covariate, direction)} as the original-data subgroup.
-\item A \strong{selection-frequency table} counting how often each
-\verb{(covariate, direction)} was chosen.  The covariate-selection
-stability diagnostic.
+\item \strong{Stability CIs} on the bootstrap-selected \code{n_subgroup} and the
+cut threshold(s), restricted to iterations that selected the same
+cut-set (covariate(s) and direction(s)) as the original-data
+subgroup.  For a depth-2 conjunction the threshold CI is reported
+per covariate.
+\item A \strong{selection-frequency table} counting how often each cut-set
+was chosen.  The structural-selection stability diagnostic.
 }
 
 Each bootstrap iteration calls \code{dina()} (single-pass, sandwich

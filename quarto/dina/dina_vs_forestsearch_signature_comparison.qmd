@@ -83,7 +83,7 @@ library(foreach)
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 100L,         # replications per cell (scale up for production)
+  nsims       = 1000L,         # replications per cell (scale up for production)
   base_seed   = 20260530L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -391,7 +391,6 @@ run_one_rep <- function(scenario, rep_id, cfg) {
       use_grf          = cfg$fs_use_grf,
       use_lasso        = cfg$fs_use_lasso,
       use_dina         = cfg$fs_use_dina,
-      dina_args         = list(selected_only = TRUE),
       use_twostage     = TRUE,
       is.RCT           = TRUE,
       details          = FALSE,

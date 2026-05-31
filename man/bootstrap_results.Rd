@@ -14,6 +14,7 @@ bootstrap_results(
   Hc_obs,
   seed = 8316951L,
   estimator_fn = NULL,
+  effect_measure = NULL,
   boot_index_mat = NULL
 )
 }

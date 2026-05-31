@@ -10,6 +10,17 @@
 # and the simplest analog of forestsearch's "largest subgroup with
 # consistency" rule.
 #
+# With max_depth = 2 the candidate set is extended to AND-conjunctions
+# of two single-covariate thresholds (distinct covariates), e.g.
+# {nodes >= q1 & age >= q2}.  Because DINA's tau-hat is linear in X, the
+# mean tau-hat over any region is a subset-and-average, so a depth-2
+# conjunction is scored exactly like a depth-1 cut (intersection mask,
+# same m_diff / n_min gates, same sg_focus ranking).  Depth-1 singletons
+# remain full-resolution (all unique thresholds); depth-2 pairs are
+# generated over a per-covariate quantile grid for tractability, and the
+# two are ranked jointly so a pair is selected only when it outranks
+# every singleton.
+#
 # Variance for the subgroup-mean is a quadratic form in the DINA
 # coefficient covariance.  For a fixed subgroup S with covariate-mean
 # vector x_bar_S, the subgroup-mean tau-hat is a linear functional of
@@ -73,6 +84,22 @@
 #' (effect, N) plane just as forestsearch's signatures do, so the
 #' frontier is defined analogously.
 #'
+#' @section Depth-2 conjunctions:
+#' With `max_depth = 2` the candidate set is extended to AND-conjunctions
+#' of two thresholds on *distinct* covariates, e.g.
+#' `nodes >= q1 & age >= q2`.  Because tau-hat is linear in X, the mean
+#' over the intersection mask is scored exactly like a depth-1 cut, so
+#' the `m_diff`, `n_min`, and `sg_focus` machinery is unchanged.  To stay
+#' tractable, depth-2 pairs are generated over a per-covariate quantile
+#' grid (`grid_probs`) rather than every unique value, while depth-1
+#' singletons retain full resolution.  Singletons and pairs are ranked
+#' *jointly* under `sg_focus`, so a depth-2 conjunction is returned only
+#' when it outranks every depth-1 candidate; otherwise the depth-1
+#' selection is recovered exactly.  When the selected subgroup is a
+#' conjunction, `covariate`, `direction`, and `threshold` are
+#' length-2 vectors and `labels` holds the two `{var op q}` factors in
+#' the form consumed by [get_dfpred()].
+#'
 #' The variance of the subgroup-mean tau-hat is computed as
 #' \deqn{\widehat{\mathrm{Var}}(\bar{\hat\tau}_S) =
 #'        a_S^\top \widehat{\mathrm{Var}}(\hat\beta) a_S,}
@@ -88,7 +115,8 @@
 #' will undercover when the search space is large.  Use this CI for
 #' descriptive reporting; for hypothesis testing against `m_diff`,
 #' a selection-adjusted interval via bootstrap of the full search
-#' procedure is required.
+#' procedure is required.  The undercoverage is more pronounced with
+#' `max_depth = 2L`, whose candidate space is substantially larger.
 #'
 #' @param fit a fitted DINA object of class `"dina"` or
 #'   `"dina_bagged"`, as returned by [dina_fit()], [dina_fit_bagged()],
@@ -105,6 +133,18 @@
 #' @param direction one of `"both"` (default), `"left"`, or `"right"`.
 #'   For each covariate `x_j` controls whether to search subgroups of
 #'   the form `x_j <= q` (left), `x_j >= q` (right), or both.
+#' @param max_depth integer, `1L` (default) or `2L`.  `1L` searches
+#'   single-covariate cuts only (the legacy behaviour).  `2L` additionally
+#'   searches AND-conjunctions of two distinct covariates and ranks them
+#'   jointly with the single-covariate cuts; see the *Depth-2
+#'   conjunctions* section.
+#' @param grid_probs numeric vector of probabilities in `[0, 1]` giving
+#'   the per-covariate quantile grid used to generate depth-2 pair
+#'   thresholds.  Only consulted when `max_depth = 2L`.  Default interior
+#'   deciles `seq(0.1, 0.9, 0.1)`.  A finer grid recovers more of the
+#'   exhaustive pair space at higher cost; covariates with fewer unique
+#'   values than `length(grid_probs)` are searched at their unique values
+#'   instead.
 #' @param sg_focus character; subgroup selection criterion applied to the
 #'   qualifying candidates.  One of `"maxSG"` (default), `"minSG"`,
 #'   `"eff"`, `"effMaxSG"`, `"effMinSG"`.  The canonical forms `"hr"`,
@@ -132,8 +172,16 @@
 #'     \item{found}{logical; `TRUE` if any candidate satisfied
 #'       `m_diff` and `n_min`, otherwise `FALSE`.  When `FALSE`, the
 #'       subgroup-specific components below are `NULL`.}
-#'     \item{covariate, direction, threshold}{the chosen
-#'       `(x_j, dir, q)` triple.}
+#'     \item{covariate, direction, threshold}{the chosen cut(s).  Length
+#'       1 for a single-covariate subgroup; length 2 (one entry per
+#'       covariate) when `max_depth = 2L` selects a conjunction.}
+#'     \item{labels}{character vector of the chosen `{var op q}` factor
+#'       label(s), in the form consumed by [get_dfpred()] (AND-composed).
+#'       Length matches `covariate`.}
+#'     \item{label}{a single combined display string, e.g.
+#'       `"{nodes >= 10 & age >= 60}"`.}
+#'     \item{depth}{integer; number of covariates in the selected
+#'       subgroup (`1` or `2`).}
 #'     \item{n_subgroup}{integer size of the chosen subgroup.}
 #'     \item{mean_tau_hat}{scalar subgroup-mean tau-hat.}
 #'     \item{se_mean_tau_hat}{Wald standard error, computed as
@@ -144,8 +192,8 @@
 #'     \item{mask}{logical vector of length `nrow(df)` marking which
 #'       rows are in the chosen subgroup.}
 #'     \item{m_diff, n_min, sg_focus, selection_rule,
-#'       effect_neighborhood, alpha, family}{the inputs / fit family,
-#'       echoed for reproducibility.}
+#'       effect_neighborhood, alpha, family, max_depth}{the inputs / fit
+#'       family, echoed for reproducibility.}
 #'     \item{n_total}{`nrow(df)`.}
 #'     \item{n_candidates_searched}{total number of `(j, dir, q)`
 #'       triples evaluated.}
@@ -190,11 +238,17 @@
 #'               m_diff = 0.5, n_min = 60L, sg_focus = "effMaxSG",
 #'               selection_rule = "both")
 #'
+#' # Depth-2: allow AND-conjunctions of two covariates.
+#' dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
+#'               m_diff = 0.5, n_min = 60L, max_depth = 2L)
+#'
 #' @export
 dina_subgroup <- function(fit, df, covariates,
                           m_diff,
                           n_min = 60L,
                           direction = c("both", "left", "right"),
+                          max_depth = 1L,
+                          grid_probs = seq(0.1, 0.9, by = 0.1),
                           sg_focus = "maxSG",
                           selection_rule = "neighborhood",
                           effect_neighborhood = 0.10,
@@ -211,6 +265,16 @@ dina_subgroup <- function(fit, df, covariates,
   n_min <- as.integer(n_min)
   if (length(n_min) != 1L || is.na(n_min) || n_min < 1L) {
     stop("`n_min` must be a single positive integer.")
+  }
+  max_depth <- as.integer(max_depth)
+  if (length(max_depth) != 1L || is.na(max_depth) ||
+      !max_depth %in% c(1L, 2L)) {
+    stop("`max_depth` must be 1 or 2.")
+  }
+  if (max_depth == 2L &&
+      (!is.numeric(grid_probs) || length(grid_probs) < 1L ||
+       anyNA(grid_probs) || any(grid_probs < 0) || any(grid_probs > 1))) {
+    stop("`grid_probs` must be a numeric vector in [0, 1] with no NAs.")
   }
   if (length(alpha) != 1L || !is.numeric(alpha) ||
       alpha <= 0 || alpha >= 1) {
@@ -259,16 +323,48 @@ dina_subgroup <- function(fit, df, covariates,
   # Per-patient tau-hat
   tau_hat <- as.numeric(beta[1L] + X %*% beta[-1L])
 
-  # Collect the qualifying candidate cloud (size >= n_min AND mean
-  # tau-hat >= m_diff).  Shared with dina_frontier() so both define
-  # "qualifying candidate" identically.  The full set is required so the
-  # effect band (sg_focus %in% c("hrMaxSG", "hrMinSG")) can be anchored
-  # to the maximum effect over all qualifying candidates.
+  # ---- Collect candidates -------------------------------------------------
+  # Depth-1 singletons at full resolution (all unique thresholds), shared
+  # with dina_frontier() so both define "qualifying candidate" identically.
   cl <- .dina_collect_candidates(X = X, tau_hat = tau_hat,
                                  covariates = covariates, m_diff = m_diff,
                                  n_min = n_min, direction = direction)
-  n_searched   <- cl$n_searched
-  n_qualifying <- cl$n_qualifying
+
+  # Unified candidate representation: every candidate carries up to two
+  # (covariate index, direction, threshold) slots.  Singletons leave the
+  # second slot NA; depth-2 conjunctions fill both.  Parallel vectors keep
+  # ranking cheap and only the winner's cut set is materialised.
+  cand_j1   <- cl$j
+  cand_dir1 <- cl$direction
+  cand_q1   <- cl$threshold
+  cand_j2   <- rep(NA_integer_,   length(cand_j1))
+  cand_dir2 <- rep(NA_character_, length(cand_j1))
+  cand_q2   <- rep(NA_real_,      length(cand_j1))
+  cand_n    <- cl$n_subgroup
+  cand_tau  <- cl$mean_tau
+  n_searched <- cl$n_searched
+
+  if (max_depth == 2L) {
+    # Depth-2 pairs over the per-covariate quantile grid (distinct
+    # covariates only), appended AFTER the singletons so the insertion
+    # index `idx` preserves the depth-1 tiebreak order: when no pair
+    # outranks the singletons, selection is identical to max_depth = 1.
+    cl2 <- .dina_collect_candidates_depth2(
+      X = X, tau_hat = tau_hat, covariates = covariates, m_diff = m_diff,
+      n_min = n_min, direction = direction, grid_probs = grid_probs
+    )
+    cand_j1    <- c(cand_j1,   cl2$j1)
+    cand_dir1  <- c(cand_dir1, cl2$dir1)
+    cand_q1    <- c(cand_q1,   cl2$q1)
+    cand_j2    <- c(cand_j2,   cl2$j2)
+    cand_dir2  <- c(cand_dir2, cl2$dir2)
+    cand_q2    <- c(cand_q2,   cl2$q2)
+    cand_n     <- c(cand_n,    cl2$n_subgroup)
+    cand_tau   <- c(cand_tau,  cl2$mean_tau)
+    n_searched <- n_searched + cl2$n_searched
+  }
+
+  n_qualifying <- length(cand_n)
 
   if (n_qualifying == 0L) {
     out <- list(
@@ -276,6 +372,9 @@ dina_subgroup <- function(fit, df, covariates,
       covariate               = NULL,
       direction               = NULL,
       threshold               = NULL,
+      labels                  = NULL,
+      label                   = NULL,
+      depth                   = NULL,
       n_subgroup              = NULL,
       mean_tau_hat            = NULL,
       se_mean_tau_hat         = NULL,
@@ -288,6 +387,7 @@ dina_subgroup <- function(fit, df, covariates,
       effect_neighborhood     = effect_neighborhood,
       alpha                   = alpha,
       family                  = fit$family,
+      max_depth               = max_depth,
       n_total                 = n,
       n_candidates_searched   = n_searched,
       n_candidates_qualifying = n_qualifying,
@@ -297,19 +397,13 @@ dina_subgroup <- function(fit, df, covariates,
     return(out)
   }
 
-  # Trim preallocated vectors to the qualifying candidates.
-  cand_j   <- cl$j
-  cand_dir <- cl$direction
-  cand_q   <- cl$threshold
-  cand_n   <- cl$n_subgroup
-  cand_tau <- cl$mean_tau
-
   # Effect on the natural scale for the band / ordering (ratio families
   # are exponentiated; the transform is monotone, so the ordering of the
-  # non-band foci is unaffected).  `idx` is insertion order (covariate,
-  # then left/right, then ascending threshold), used as the final
-  # tiebreak so the default "maxSG" reproduces the legacy running-best
-  # selection exactly.
+  # non-band foci is unaffected).  `idx` is insertion order (depth-1
+  # singletons first -- covariate, then left/right, then ascending
+  # threshold -- followed by depth-2 pairs), used as the final tiebreak so
+  # the default "maxSG" reproduces the legacy running-best selection
+  # exactly when no conjunction outranks the singletons.
   eff <- if (effect_log_scale) exp(cand_tau) else cand_tau
   idx <- seq_along(cand_tau)
 
@@ -339,40 +433,61 @@ dina_subgroup <- function(fit, df, covariates,
   )
 
   w <- ord[1L]
-  best <- list(
-    covariate  = covariates[cand_j[w]],
-    direction  = cand_dir[w],
-    threshold  = cand_q[w],
-    n_subgroup = cand_n[w],
-    mean_tau   = cand_tau[w]
-  )
-  x_win     <- X[, cand_j[w]]
-  best$mask <- if (best$direction == "left") {
-    x_win <= best$threshold
-  } else {
-    x_win >= best$threshold
+
+  # Reconstruct the winning cut set (1 or 2 cuts), build the AND mask, and
+  # render the {var op q} factor label(s) consumed by get_dfpred().
+  win_j   <- c(cand_j1[w],   cand_j2[w])
+  win_dir <- c(cand_dir1[w], cand_dir2[w])
+  win_q   <- c(cand_q1[w],   cand_q2[w])
+  keep    <- !is.na(win_j)
+  win_j   <- win_j[keep]
+  win_dir <- win_dir[keep]
+  win_q   <- win_q[keep]
+  depth_sel <- length(win_j)
+
+  mask <- rep(TRUE, n)
+  for (t in seq_len(depth_sel)) {
+    x_t  <- X[, win_j[t]]
+    m_t  <- if (win_dir[t] == "left") x_t <= win_q[t] else x_t >= win_q[t]
+    mask <- mask & m_t
   }
 
+  win_cov    <- covariates[win_j]
+  win_op     <- ifelse(win_dir == "left", "<=", ">=")
+  win_labels <- paste0("{", win_cov, " ", win_op, " ", win_q, "}")
+  win_label  <- paste0("{",
+                       paste0(win_cov, " ", win_op, " ", win_q,
+                              collapse = " & "),
+                       "}")
+
+  n_sub_sel    <- cand_n[w]
+  mean_tau_sel <- cand_tau[w]
+
   # Variance of the subgroup-mean tau-hat (link scale, as reported).
-  x_bar_S <- colMeans(X[best$mask, , drop = FALSE])
+  # The delta-method form is agnostic to how the mask was built, so a
+  # depth-2 conjunction propagates through identically to a depth-1 cut.
+  x_bar_S <- colMeans(X[mask, , drop = FALSE])
   a       <- c(1, x_bar_S)
   var_mt  <- as.numeric(t(a) %*% V %*% a)
   se_mt   <- sqrt(max(var_mt, 0))
 
   z_crit <- stats::qnorm(1 - alpha / 2)
-  ci_lo  <- best$mean_tau - z_crit * se_mt
-  ci_hi  <- best$mean_tau + z_crit * se_mt
+  ci_lo  <- mean_tau_sel - z_crit * se_mt
+  ci_hi  <- mean_tau_sel + z_crit * se_mt
 
   out <- list(
     found                   = TRUE,
-    covariate               = best$covariate,
-    direction               = best$direction,
-    threshold               = best$threshold,
-    n_subgroup              = best$n_subgroup,
-    mean_tau_hat            = best$mean_tau,
+    covariate               = win_cov,
+    direction               = win_dir,
+    threshold               = win_q,
+    labels                  = win_labels,
+    label                   = win_label,
+    depth                   = depth_sel,
+    n_subgroup              = n_sub_sel,
+    mean_tau_hat            = mean_tau_sel,
     se_mean_tau_hat         = se_mt,
     ci                      = c(lower = ci_lo, upper = ci_hi),
-    mask                    = best$mask,
+    mask                    = mask,
     m_diff                  = m_diff,
     n_min                   = n_min,
     sg_focus                = sg_focus,
@@ -380,6 +495,7 @@ dina_subgroup <- function(fit, df, covariates,
     effect_neighborhood     = effect_neighborhood,
     alpha                   = alpha,
     family                  = fit$family,
+    max_depth               = max_depth,
     n_total                 = n,
     n_candidates_searched   = n_searched,
     n_candidates_qualifying = n_qualifying,
@@ -523,6 +639,153 @@ dina_subgroup <- function(fit, df, covariates,
 
 
 # ---------------------------------------------------------------------------
+# Internal helper: collect qualifying depth-2 (pair) candidates
+# ---------------------------------------------------------------------------
+
+#' Collect qualifying two-covariate AND-conjunction candidates.
+#'
+#' The depth-2 analog of \code{.dina_collect_candidates()}.  For every
+#' pair of \emph{distinct} covariates \code{(j1 < j2)} and every
+#' combination of (direction, threshold) drawn from a per-covariate
+#' quantile grid, forms the intersection mask and keeps the conjunction
+#' when its subgroup has size \code{>= n_min} and mean tau-hat
+#' \code{>= m_diff}.  Because tau-hat is linear in X, the conjunction's
+#' mean is just \code{mean(tau_hat[mask1 & mask2])}, scored identically to
+#' a depth-1 cut.
+#'
+#' The quantile grid (rather than every unique value, as in the depth-1
+#' collector) bounds the pair count: depth-1 pairs over all unique values
+#' would be \eqn{O((K N)^2)} and intractable at forestsearch scale.  A
+#' covariate with no more unique values than \code{length(grid_probs)} is
+#' searched at its unique values instead, so low-cardinality covariates
+#' lose no resolution.  At the limit \code{grid_probs} equal to all sample
+#' quantiles, the search becomes the fully exhaustive pair enumeration.
+#'
+#' @param X numeric covariate matrix (rows = subjects).
+#' @param tau_hat numeric per-subject tau-hat (length \code{nrow(X)}).
+#' @param covariates character column names, aligned with \code{X}.
+#' @param m_diff scalar effect floor on the link (tau) scale; may be
+#'   \code{-Inf}.
+#' @param n_min positive integer minimum subgroup size.
+#' @param direction one of \code{"both"}, \code{"left"}, \code{"right"};
+#'   applied independently to each covariate in the pair.
+#' @param grid_probs numeric vector of probabilities in \code{[0, 1]}
+#'   defining the per-covariate quantile grid of candidate thresholds.
+#'
+#' @return A list with vectors \code{j1}, \code{dir1}, \code{q1},
+#'   \code{j2}, \code{dir2}, \code{q2}, \code{n_subgroup},
+#'   \code{mean_tau} (link scale), each of length \code{n_qualifying},
+#'   plus scalars \code{n_searched} and \code{n_qualifying}.  Pairs are in
+#'   insertion order (j1, then j2, then dir1/q1, then dir2/q2).  Returns
+#'   zero-length vectors when \code{ncol(X) < 2}.
+#'
+#' @noRd
+.dina_collect_candidates_depth2 <- function(X, tau_hat, covariates, m_diff,
+                                            n_min, direction, grid_probs) {
+  d <- ncol(X)
+  empty <- list(
+    j1 = integer(0), dir1 = character(0), q1 = numeric(0),
+    j2 = integer(0), dir2 = character(0), q2 = numeric(0),
+    n_subgroup = integer(0), mean_tau = numeric(0),
+    n_searched = 0L, n_qualifying = 0L
+  )
+  if (d < 2L) {
+    return(empty)
+  }
+
+  dirs_to_try <- if (direction == "both") c("left", "right") else direction
+
+  # Per-covariate threshold grid: sorted unique sample quantiles at
+  # grid_probs, falling back to the unique values for low-cardinality
+  # covariates (so they are searched exhaustively rather than collapsed).
+  grids <- lapply(seq_len(d), function(j) {
+    u <- sort(unique(X[, j]))
+    if (length(u) <= length(grid_probs)) {
+      u
+    } else {
+      sort(unique(as.numeric(
+        stats::quantile(X[, j], probs = grid_probs, names = FALSE,
+                        type = 7)
+      )))
+    }
+  })
+
+  # Upper bound on the number of (j1, dir1, q1, j2, dir2, q2) candidates.
+  nd <- length(dirs_to_try)
+  n_cand_max <- 0L
+  for (j1 in seq_len(d - 1L)) {
+    for (j2 in (j1 + 1L):d) {
+      n_cand_max <- n_cand_max +
+        nd * length(grids[[j1]]) * nd * length(grids[[j2]])
+    }
+  }
+
+  cand_j1   <- integer(n_cand_max)
+  cand_dir1 <- character(n_cand_max)
+  cand_q1   <- numeric(n_cand_max)
+  cand_j2   <- integer(n_cand_max)
+  cand_dir2 <- character(n_cand_max)
+  cand_q2   <- numeric(n_cand_max)
+  cand_n    <- integer(n_cand_max)
+  cand_tau  <- numeric(n_cand_max)
+
+  n_searched   <- 0L
+  n_qualifying <- 0L
+
+  for (j1 in seq_len(d - 1L)) {
+    x1 <- X[, j1]
+    g1 <- grids[[j1]]
+    for (j2 in (j1 + 1L):d) {
+      x2 <- X[, j2]
+      g2 <- grids[[j2]]
+      for (dir1 in dirs_to_try) {
+        for (q1 in g1) {
+          mask1 <- if (dir1 == "left") x1 <= q1 else x1 >= q1
+          for (dir2 in dirs_to_try) {
+            for (q2 in g2) {
+              n_searched <- n_searched + 1L
+              mask2 <- if (dir2 == "left") x2 <= q2 else x2 >= q2
+              mask  <- mask1 & mask2
+              n_S   <- sum(mask)
+
+              if (n_S < n_min) next
+
+              mean_tau <- mean(tau_hat[mask])
+              if (mean_tau < m_diff) next
+
+              n_qualifying <- n_qualifying + 1L
+              cand_j1[n_qualifying]   <- j1
+              cand_dir1[n_qualifying] <- dir1
+              cand_q1[n_qualifying]   <- q1
+              cand_j2[n_qualifying]   <- j2
+              cand_dir2[n_qualifying] <- dir2
+              cand_q2[n_qualifying]   <- q2
+              cand_n[n_qualifying]    <- n_S
+              cand_tau[n_qualifying]  <- mean_tau
+            }
+          }
+        }
+      }
+    }
+  }
+
+  keep <- seq_len(n_qualifying)
+  list(
+    j1           = cand_j1[keep],
+    dir1         = cand_dir1[keep],
+    q1           = cand_q1[keep],
+    j2           = cand_j2[keep],
+    dir2         = cand_dir2[keep],
+    q2           = cand_q2[keep],
+    n_subgroup   = cand_n[keep],
+    mean_tau     = cand_tau[keep],
+    n_searched   = n_searched,
+    n_qualifying = n_qualifying
+  )
+}
+
+
+# ---------------------------------------------------------------------------
 # S3 methods
 # ---------------------------------------------------------------------------
 
@@ -580,9 +843,10 @@ print.dina_subgroup <- function(x,
     return(invisible(x))
   }
 
-  cmp <- if (x$direction == "left") "<=" else ">="
-  cat("\n  Signature:   ", x$covariate, " ", cmp, " ",
-      format(x$threshold, digits = digits), "\n", sep = "")
+  ops <- ifelse(x$direction == "left", "<=", ">=")
+  sig <- paste0(x$covariate, " ", ops, " ",
+                format(x$threshold, digits = digits))
+  cat("\n  Signature:   ", paste(sig, collapse = " & "), "\n", sep = "")
   cat("  Subgroup n:  ", x$n_subgroup, " / ", x$n_total,
       " (", format(100 * x$n_subgroup / x$n_total, digits = 3L),
       "%)\n", sep = "")

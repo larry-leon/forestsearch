@@ -376,6 +376,7 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
     Hc_obs = Hc_obs,
     seed = boot_seed,
     estimator_fn = estimator_fn_boot,
+    effect_measure = args_forestsearch_call$effect_measure,
     boot_index_mat = boot_index_mat
   )
 

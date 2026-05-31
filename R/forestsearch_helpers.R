@@ -931,9 +931,11 @@ reset_workers <- function(workers   = NULL,
   frontier_keys <- c("scope", "m_diff", "n_min", "direction",
                       "max_per_covariate", "max_subgroups", "digits")
   # screening-behavior keys: control HOW use_dina screening turns the DINA
-  # fit into candidate cuts (frontier vs. single selected cut).  Not passed
-  # to dina() or dina_frontier(); consumed directly by forestsearch().
-  behavior_keys <- c("selected_only")
+  # fit into candidate cuts (frontier vs. single selected cut) and how deep
+  # the selected-cut search runs.  Not passed to dina() or dina_frontier();
+  # max_depth / grid_probs are forwarded to dina_subgroup() at the selection
+  # sites, selected_only is consumed directly by forestsearch().
+  behavior_keys <- c("selected_only", "max_depth", "grid_probs")
   recognised    <- c(fit_keys, frontier_keys, behavior_keys)
 
   nms <- names(dina_args)
@@ -963,6 +965,24 @@ reset_workers <- function(workers   = NULL,
          call. = FALSE)
   }
 
+  # max_depth / grid_probs: forwarded to dina_subgroup() at the selected-cut
+  # and subgroup_method = "dina" sites.  Default max_depth = 1L preserves the
+  # depth-1 (single-covariate) screening behaviour exactly; max_depth = 2L
+  # lets the selected cut be an AND-conjunction of two covariates, whose
+  # component cuts are then composed by the consistency search as usual.
+  max_depth <- get_arg("max_depth", 1L)
+  max_depth <- suppressWarnings(as.integer(max_depth))
+  if (length(max_depth) != 1L || is.na(max_depth) ||
+      !max_depth %in% c(1L, 2L)) {
+    stop("`dina_args$max_depth` must be 1 or 2.", call. = FALSE)
+  }
+  grid_probs <- get_arg("grid_probs", seq(0.1, 0.9, by = 0.1))
+  if (!is.numeric(grid_probs) || length(grid_probs) < 1L ||
+      anyNA(grid_probs) || any(grid_probs < 0) || any(grid_probs > 1)) {
+    stop("`dina_args$grid_probs` must be a numeric vector in [0, 1] ",
+         "with no NAs.", call. = FALSE)
+  }
+
   # Fit arguments: family + seed always set; the remaining fit keys are
   # forwarded to dina() ONLY when the user supplied them, so dina()'s own
   # defaults otherwise apply (no silently invented values).
@@ -985,7 +1005,8 @@ reset_workers <- function(workers   = NULL,
     digits            = get_arg("digits", 3L)
   )
 
-  list(fit = fit, frontier = frontier, selected_only = selected_only)
+  list(fit = fit, frontier = frontier, selected_only = selected_only,
+       select = list(max_depth = max_depth, grid_probs = grid_probs))
 }
 
 
@@ -1072,6 +1093,8 @@ reset_workers <- function(workers   = NULL,
     covariates          = confounders.name,
     m_diff              = m_diff,
     n_min               = n.min,
+    max_depth           = da$select$max_depth,
+    grid_probs          = da$select$grid_probs,
     sg_focus            = sg_focus,
     selection_rule      = selection_rule,
     effect_neighborhood = effect_neighborhood
@@ -1085,10 +1108,12 @@ reset_workers <- function(workers   = NULL,
              if (!is.null(sg$n_candidates_qualifying)) sg$n_candidates_qualifying else NA)
     )
     if (isTRUE(sg$found)) {
-      op_d <- if (identical(sg$direction, "left")) "<=" else ">="
+      op_d    <- ifelse(sg$direction == "left", "<=", ">=")
+      sel_lbl <- paste(sprintf("{%s %s %s}", sg$covariate, op_d,
+                               format(sg$threshold)),
+                       collapse = " & ")
       lines2 <- c(lines2,
-                  paste0("  SELECTED: ",
-                         sprintf("{%s %s %s}", sg$covariate, op_d, format(sg$threshold)),
+                  paste0("  SELECTED: ", sel_lbl,
                          sprintf("  (n = %d, mean tau-hat = %.4f)",
                                  sg$n_subgroup, sg$mean_tau_hat)))
     } else {
@@ -1104,9 +1129,13 @@ reset_workers <- function(workers   = NULL,
                 df.predict = df.predict, df.test = df.test))
   }
 
-  # Cut label: direction "left" => harm subgroup {x <= q}; "right" => {x >= q}.
-  op      <- if (identical(sg$direction, "left")) "<=" else ">="
-  sg.harm <- sprintf("{%s %s %s}", sg$covariate, op, as.character(sg$threshold))
+  # Cut label(s): direction "left" => {x <= q}, "right" => {x >= q}.  For a
+  # depth-2 conjunction sg$covariate/direction/threshold are length-2, so
+  # sg.harm becomes a two-element label vector that get_dfpred() AND-composes
+  # -- the same representation a 2-factor consistency subgroup uses.
+  op      <- ifelse(sg$direction == "left", "<=", ">=")
+  sg.harm <- sprintf("{%s %s %s}", sg$covariate, op,
+                     as.character(sg$threshold))
 
   # Membership via the standard label evaluator (treat.recommend == 0 = harm).
   df.est         <- get_dfpred(df, sg.harm, version = 2)

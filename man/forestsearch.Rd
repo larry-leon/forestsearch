@@ -158,13 +158,19 @@ only when set); plus the frontier keys forwarded to
 \code{\link{dina_frontier}}: \code{scope} (default \code{"wide"}),
 \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
 call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
-and \code{digits}; plus the screening-behavior key \code{selected_only}
-(default \code{TRUE}, matching GRF's \code{return_selected_cuts_only}).
-When \code{TRUE} (the default), \code{use_dina} screening contributes the
-single cut chosen by \code{\link{dina_subgroup}} -- using this call's
-\code{sg_focus} / \code{selection_rule} / \code{effect_neighborhood} /
-\code{n.min} / \code{hr.threshold}, i.e. the same cut
-\code{subgroup_method = "dina"} would select. Set \code{FALSE} to
+and \code{digits}; plus the screening-behavior keys \code{selected_only}
+(default \code{TRUE}, matching GRF's \code{return_selected_cuts_only}),
+\code{max_depth} (\code{1L} default, or \code{2L} to let the selected
+cut be an AND-conjunction of two covariates), and \code{grid_probs}
+(the per-covariate quantile grid for depth-2 pair thresholds; default
+interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
+to \code{\link{dina_subgroup}} and apply to both the selected-cut
+screening and \code{subgroup_method = "dina"}.
+When \code{selected_only = TRUE} (the default), \code{use_dina} screening
+contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
+this call's \code{sg_focus} / \code{selection_rule} /
+\code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
+same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 contribute the full frontier candidate set instead. Unknown keys raise
 an error.}
 

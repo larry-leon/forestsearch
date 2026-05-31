@@ -285,6 +285,7 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
                               nb_boots, show_three, H_obs, Hc_obs,
                               seed = 8316951L,
                               estimator_fn = NULL,
+                              effect_measure = NULL,
                               boot_index_mat = NULL) {
   # =========================================================================
   # SECTION: INITIALIZE TIMING
@@ -737,6 +738,59 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         if (actual_k >= 5) M.5 <- first_row[["M.5"]]
         if (actual_k >= 6) M.6 <- first_row[["M.6"]]
         if (actual_k >= 7) M.7 <- first_row[["M.7"]]
+      }
+    }
+
+    # DINA-selection mode runs no consistency search, so it produces no
+    # `grp.consistency$out_sg$result` table and the per-resample stability
+    # diagnostics above stay NA.  Populate them directly from the
+    # DINA-selected subgroup so the factor-frequency, subgroup-size, and
+    # subgroup-agreement summaries are non-blank in DINA mode.  This is
+    # depth-agnostic: a single-covariate selection fills M.1; a depth-2
+    # conjunction fills M.1 and M.2.  The bias-corrected effect estimates
+    # (H_biasadj_*) are unaffected -- they are membership-based and were
+    # already computed above for both depths.
+    if (!inherits(run_bootstrap, "try-error") &&
+        is.null(run_bootstrap$grp.consistency$out_sg$result) &&
+        !is.null(run_bootstrap$sg.harm) &&
+        length(run_bootstrap$sg.harm) > 0L) {
+
+      sgh  <- as.character(run_bootstrap$sg.harm)
+      K_sg <- length(sgh)
+
+      # Factor labels in canonical (sorted) order, matching the sort+collapse
+      # convention summarize_bootstrap_subgroups() uses for subgroup identity.
+      sgh_sorted <- sort(sgh)
+      if (K_sg >= 1L) M.1 <- sgh_sorted[1L]
+      if (K_sg >= 2L) M.2 <- sgh_sorted[2L]
+      if (K_sg >= 3L) M.3 <- sgh_sorted[3L]
+      if (K_sg >= 4L) M.4 <- sgh_sorted[4L]
+      if (K_sg >= 5L) M.5 <- sgh_sorted[5L]
+      if (K_sg >= 6L) M.6 <- sgh_sorted[6L]
+      if (K_sg >= 7L) M.7 <- sgh_sorted[7L]
+
+      # Subgroup size / events on the BOOTSTRAP analysis sample (the resample
+      # on which the subgroup was selected), mirroring consistency-mode N/E.
+      df_sg_boot <- subset(dfboot_PredBoot, treat.recommend == 0)
+      N_sg <- nrow(df_sg_boot)
+      E_sg <- if (!is_glm_boot)
+                sum(df_sg_boot[[event_var]], na.rm = TRUE) else nrow(df_sg_boot)
+
+      # Per-resample subgroup effect, mirroring the consistency-mode `hr`
+      # column.  Hstar_star is the within-subgroup treatment effect of H* on
+      # the bootstrap sample, computed in the bias-correction block above on
+      # the estimator's natural scale: log scale for ratio measures, identity
+      # scale for difference measures.  Ratio families (survival HR; GLM
+      # OR / RR / IRR) are exponentiated to the ratio scale to match
+      # consistency-mode `hr`; identity-scale GLM measures (MD / RD / IRD)
+      # are reported as-is.  `effect_measure` is threaded from the bootstrap
+      # entry; for survival it is NULL and the ratio branch always applies.
+      if (exists("Hstar_star") && length(Hstar_star) == 1L &&
+          is.finite(Hstar_star)) {
+        ratio_scale <- (!is_glm_boot) ||
+          (!is.null(effect_measure) &&
+             effect_measure %in% c("OR", "RR", "IRR", "HR"))
+        hr_sg <- if (ratio_scale) exp(Hstar_star) else Hstar_star
       }
     }
 

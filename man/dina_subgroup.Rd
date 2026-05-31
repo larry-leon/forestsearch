@@ -11,6 +11,8 @@ dina_subgroup(
   m_diff,
   n_min = 60L,
   direction = c("both", "left", "right"),
+  max_depth = 1L,
+  grid_probs = seq(0.1, 0.9, by = 0.1),
   sg_focus = "maxSG",
   selection_rule = "neighborhood",
   effect_neighborhood = 0.1,
@@ -38,6 +40,20 @@ Default \code{60L}, matching the convention in GRF and \code{forestsearch()}.}
 \item{direction}{one of \code{"both"} (default), \code{"left"}, or \code{"right"}.
 For each covariate \code{x_j} controls whether to search subgroups of
 the form \code{x_j <= q} (left), \code{x_j >= q} (right), or both.}
+
+\item{max_depth}{integer, \code{1L} (default) or \code{2L}.  \code{1L} searches
+single-covariate cuts only (the legacy behaviour).  \code{2L} additionally
+searches AND-conjunctions of two distinct covariates and ranks them
+jointly with the single-covariate cuts; see the \emph{Depth-2
+conjunctions} section.}
+
+\item{grid_probs}{numeric vector of probabilities in \verb{[0, 1]} giving
+the per-covariate quantile grid used to generate depth-2 pair
+thresholds.  Only consulted when \code{max_depth = 2L}.  Default interior
+deciles \code{seq(0.1, 0.9, 0.1)}.  A finer grid recovers more of the
+exhaustive pair space at higher cost; covariates with fewer unique
+values than \code{length(grid_probs)} are searched at their unique values
+instead.}
 
 \item{sg_focus}{character; subgroup selection criterion applied to the
 qualifying candidates.  One of \code{"maxSG"} (default), \code{"minSG"},
@@ -70,8 +86,16 @@ An object of class \code{"dina_subgroup"}, a list with components:
 \item{found}{logical; \code{TRUE} if any candidate satisfied
 \code{m_diff} and \code{n_min}, otherwise \code{FALSE}.  When \code{FALSE}, the
 subgroup-specific components below are \code{NULL}.}
-\item{covariate, direction, threshold}{the chosen
-\verb{(x_j, dir, q)} triple.}
+\item{covariate, direction, threshold}{the chosen cut(s).  Length
+1 for a single-covariate subgroup; length 2 (one entry per
+covariate) when \code{max_depth = 2L} selects a conjunction.}
+\item{labels}{character vector of the chosen \verb{\{var op q\}} factor
+label(s), in the form consumed by \code{\link[=get_dfpred]{get_dfpred()}} (AND-composed).
+Length matches \code{covariate}.}
+\item{label}{a single combined display string, e.g.
+\code{"{nodes >= 10 & age >= 60}"}.}
+\item{depth}{integer; number of covariates in the selected
+subgroup (\code{1} or \code{2}).}
 \item{n_subgroup}{integer size of the chosen subgroup.}
 \item{mean_tau_hat}{scalar subgroup-mean tau-hat.}
 \item{se_mean_tau_hat}{Wald standard error, computed as
@@ -82,8 +106,8 @@ Wald 1 - alpha CI.}
 \item{mask}{logical vector of length \code{nrow(df)} marking which
 rows are in the chosen subgroup.}
 \item{m_diff, n_min, sg_focus, selection_rule,
-effect_neighborhood, alpha, family}{the inputs / fit family,
-echoed for reproducibility.}
+effect_neighborhood, alpha, family, max_depth}{the inputs / fit
+family, echoed for reproducibility.}
 \item{n_total}{\code{nrow(df)}.}
 \item{n_candidates_searched}{total number of \verb{(j, dir, q)}
 triples evaluated.}
@@ -135,6 +159,23 @@ univariate (covariate, threshold, direction) candidates populate the
 (effect, N) plane just as forestsearch's signatures do, so the
 frontier is defined analogously.
 }
+}
+\section{Depth-2 conjunctions}{
+
+With \code{max_depth = 2} the candidate set is extended to AND-conjunctions
+of two thresholds on \emph{distinct} covariates, e.g.
+\code{nodes >= q1 & age >= q2}.  Because tau-hat is linear in X, the mean
+over the intersection mask is scored exactly like a depth-1 cut, so
+the \code{m_diff}, \code{n_min}, and \code{sg_focus} machinery is unchanged.  To stay
+tractable, depth-2 pairs are generated over a per-covariate quantile
+grid (\code{grid_probs}) rather than every unique value, while depth-1
+singletons retain full resolution.  Singletons and pairs are ranked
+\emph{jointly} under \code{sg_focus}, so a depth-2 conjunction is returned only
+when it outranks every depth-1 candidate; otherwise the depth-1
+selection is recovered exactly.  When the selected subgroup is a
+conjunction, \code{covariate}, \code{direction}, and \code{threshold} are
+length-2 vectors and \code{labels} holds the two \verb{\{var op q\}} factors in
+the form consumed by \code{\link[=get_dfpred]{get_dfpred()}}.
 
 The variance of the subgroup-mean tau-hat is computed as
 \deqn{\widehat{\mathrm{Var}}(\bar{\hat\tau}_S) =
@@ -144,6 +185,7 @@ with \eqn{a_S = (1, \bar{x}_S^\top)} and
 The variance source therefore tracks the fit class: sandwich for
 \code{"dina"} and infinitesimal jackknife for \code{"dina_bagged"}.
 }
+
 \section{Inference caveat}{
 
 The returned Wald confidence interval is \emph{conditional on the
@@ -152,7 +194,8 @@ It does not adjust for the selection across the candidate set and
 will undercover when the search space is large.  Use this CI for
 descriptive reporting; for hypothesis testing against \code{m_diff},
 a selection-adjusted interval via bootstrap of the full search
-procedure is required.
+procedure is required.  The undercoverage is more pronounced with
+\code{max_depth = 2L}, whose candidate space is substantially larger.
 }
 
 \examples{
@@ -184,6 +227,10 @@ dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
 dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
               m_diff = 0.5, n_min = 60L, sg_focus = "effMaxSG",
               selection_rule = "both")
+
+# Depth-2: allow AND-conjunctions of two covariates.
+dina_subgroup(fit, df_demo, covariates = c("x1", "x2", "x3"),
+              m_diff = 0.5, n_min = 60L, max_depth = 2L)
 
 }
 \seealso{
