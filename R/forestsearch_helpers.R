@@ -930,7 +930,11 @@ reset_workers <- function(workers   = NULL,
   fit_keys      <- c("family", "seed", "n_folds", "cens_type", "cens_params")
   frontier_keys <- c("scope", "m_diff", "n_min", "direction",
                       "max_per_covariate", "max_subgroups", "digits")
-  recognised    <- c(fit_keys, frontier_keys)
+  # screening-behavior keys: control HOW use_dina screening turns the DINA
+  # fit into candidate cuts (frontier vs. single selected cut).  Not passed
+  # to dina() or dina_frontier(); consumed directly by forestsearch().
+  behavior_keys <- c("selected_only")
+  recognised    <- c(fit_keys, frontier_keys, behavior_keys)
 
   nms <- names(dina_args)
   if (length(dina_args) > 0L && (is.null(nms) || any(nms == ""))) {
@@ -946,6 +950,16 @@ reset_workers <- function(workers   = NULL,
   }
 
   get_arg <- function(key, default) if (key %in% nms) dina_args[[key]] else default
+
+  # selected_only: when TRUE, use_dina screening contributes the SINGLE cut
+  # dina_subgroup() selects (using forestsearch's own sg_focus /
+  # selection_rule / etc.) instead of the full dina_frontier() candidate set.
+  selected_only <- get_arg("selected_only", FALSE)
+  if (!is.logical(selected_only) || length(selected_only) != 1L ||
+      is.na(selected_only)) {
+    stop("`dina_args$selected_only` must be a single TRUE/FALSE.",
+         call. = FALSE)
+  }
 
   # Fit arguments: family + seed always set; the remaining fit keys are
   # forwarded to dina() ONLY when the user supplied them, so dina()'s own
@@ -969,7 +983,7 @@ reset_workers <- function(workers   = NULL,
     digits            = get_arg("digits", 3L)
   )
 
-  list(fit = fit, frontier = frontier)
+  list(fit = fit, frontier = frontier, selected_only = selected_only)
 }
 
 

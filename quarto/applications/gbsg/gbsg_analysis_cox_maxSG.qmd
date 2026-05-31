@@ -78,12 +78,15 @@ dina_screen_sg_focus             <- "effMaxSG"
 dina_screen_hr_threshold         <- 0.9
 dina_screen_hr_consistency       <- 0.8
 dina_screen_max_subgroups_search <- 30
+# Screening cut set: FALSE => full DINA frontier; TRUE => only the single
+# dina_subgroup()-selected cut (uses dina_screen_sg_focus / selection_rule).
+dina_screen_selected_only        <- TRUE
 
 # (C) ForestSearch subgroup_method = "dina" (DINA performs selection; the
 #     consistency search is bypassed, so hr_consistency does not apply here).
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
-fs_dina_hr_threshold <- 0.70
+fs_dina_hr_threshold <- 0.80
 ```
 
 
@@ -704,7 +707,11 @@ alongside the GRF and LASSO cuts. `dina_args` is a flat, fully-named list;
 in the screening role it supplies the DINA *fit* tuning (`seed`, `n_folds`)
 and the *frontier* controls (`scope`, `max_per_covariate`, `max_subgroups`).
 `scope = "wide"` casts a deliberately wide net -- the consistency stage
-remains the gatekeeper.
+remains the gatekeeper. Setting `dina_args$selected_only = TRUE` (default
+`FALSE`) instead contributes the single cut `dina_subgroup()` would select
+-- using this call's `sg_focus` / `selection_rule` / `effect_neighborhood` /
+`hr.threshold`, i.e. the same cut `subgroup_method = "dina"` (C) chooses --
+rather than the full frontier, when the frontier adds too many candidates.
 
 ```{r fs-dina-screen}
 t0 <- proc.time()
@@ -740,7 +747,8 @@ fs_dina_screen <- forestsearch(
   dina_cuts                 = NULL,           # default NULL
   dina_args = list(                           # default list()
     seed = dina_seed, n_folds = dina_nfolds,
-    scope = "wide", max_per_covariate = 3, max_subgroups = 10
+    scope = "wide", max_per_covariate = 3, max_subgroups = 10,
+    selected_only = dina_screen_selected_only # set in setup chunk
   ),
   # --- Candidate-cut construction -----------------------------------------
   max_n_confounders         = 1000,           # default 1000
@@ -1031,12 +1039,16 @@ dina_summaries$table
 ## Screening vs. selection roles for DINA
 
 `dina_args` behaves differently by role. In the **screening** path (A,
-`use_dina = TRUE`) it drives `dina_frontier()`, which is selection-agnostic;
-`sg_focus` / `selection_rule` are *not* consulted there. In the
-**selection** path (C, `subgroup_method = "dina"`) the selection is driven by
-this call's `sg_focus` / `selection_rule` / `effect_neighborhood` via
-`dina_subgroup()`, and `dina_args` supplies only the fit. This mode is
-currently depth-1 (a single covariate threshold).
+`use_dina = TRUE`) it drives `dina_frontier()`, which is selection-agnostic
+by default; `sg_focus` / `selection_rule` are *not* consulted there. The one
+exception is `dina_args$selected_only = TRUE`: the screening path then calls
+`dina_subgroup()` and contributes only its selected cut, so it *does* consult
+this call's `sg_focus` / `selection_rule` / `effect_neighborhood` -- yielding
+the same cut the selection path (C) would choose. In the **selection** path
+(C, `subgroup_method = "dina"`) the selection is always driven by this call's
+`sg_focus` / `selection_rule` / `effect_neighborhood` via `dina_subgroup()`,
+and `dina_args` supplies only the fit. This mode is currently depth-1 (a
+single covariate threshold).
 :::
 
 

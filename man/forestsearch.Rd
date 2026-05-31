@@ -158,7 +158,13 @@ only when set); plus the frontier keys forwarded to
 \code{\link{dina_frontier}}: \code{scope} (default \code{"wide"}),
 \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
 call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
-and \code{digits}. Unknown keys raise an error.}
+and \code{digits}; plus the screening-behavior key \code{selected_only}
+(default \code{FALSE}). When \code{selected_only = TRUE}, \code{use_dina}
+screening contributes the single cut chosen by \code{\link{dina_subgroup}}
+-- using this call's \code{sg_focus} / \code{selection_rule} /
+\code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
+same cut \code{subgroup_method = "dina"} would select -- instead of the
+full frontier candidate set. Unknown keys raise an error.}
 
 \item{subgroup_method}{Character, one of \code{"consistency"} (default)
 or \code{"dina"}. \code{"consistency"} is the standard ForestSearch

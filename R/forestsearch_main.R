@@ -255,7 +255,13 @@
 #'   \code{\link{dina_frontier}}: \code{scope} (default \code{"wide"}),
 #'   \code{m_diff}, \code{n_min} (defaults to the \code{n.min} of this
 #'   call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
-#'   and \code{digits}. Unknown keys raise an error.
+#'   and \code{digits}; plus the screening-behavior key \code{selected_only}
+#'   (default \code{FALSE}). When \code{selected_only = TRUE}, \code{use_dina}
+#'   screening contributes the single cut chosen by \code{\link{dina_subgroup}}
+#'   -- using this call's \code{sg_focus} / \code{selection_rule} /
+#'   \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, i.e. the
+#'   same cut \code{subgroup_method = "dina"} would select -- instead of the
+#'   full frontier candidate set. Unknown keys raise an error.
 #' @param subgroup_method Character, one of \code{"consistency"} (default)
 #'   or \code{"dina"}. \code{"consistency"} is the standard ForestSearch
 #'   pipeline (GRF/LASSO screening then the consistency search).
@@ -1583,7 +1589,35 @@ forestsearch <- function(df.analysis,
                     c(list(fit = dina_res, df = df.analysis,
                            covariates = confounders.name),
                       da$frontier))
-      fr$cut_expr
+
+      if (isTRUE(da$selected_only)) {
+        # Selected-cut screening: contribute the SINGLE cut dina_subgroup()
+        # selects, using forestsearch's own selection criteria (so this
+        # matches what subgroup_method = "dina" would choose).  m_diff is the
+        # harm floor on the link scale: log(hr.threshold) for ratio families
+        # (cox/binomial/poisson), identity for gaussian.
+        m_diff_sel <- if (identical(da$fit$family, "gaussian")) hr.threshold
+                      else log(hr.threshold)
+        sgsel <- dina_subgroup(
+          fit                 = dina_res,
+          df                  = df.analysis,
+          covariates          = confounders.name,
+          m_diff              = m_diff_sel,
+          n_min               = n.min,
+          sg_focus            = sg_focus,
+          selection_rule      = selection_rule,
+          effect_neighborhood = effect_neighborhood
+        )
+        if (isTRUE(sgsel$found)) {
+          op_sel <- if (identical(sgsel$direction, "left")) "<=" else ">="
+          paste0(sgsel$covariate, " ", op_sel,
+                 " ", signif(sgsel$threshold, da$frontier$digits))
+        } else {
+          character(0)
+        }
+      } else {
+        fr$cut_expr
+      }
     },
       error = function(e) {
         warning("DINA analysis failed: ", e$message)
@@ -1592,7 +1626,13 @@ forestsearch <- function(df.analysis,
     )
 
     if (details) {
+      da_mode <- .resolve_dina_args(dina_args, outcome_type,
+                                    n_min_default = n.min, seed_default = seedit)
+      mode_lbl <- if (isTRUE(da_mode$selected_only))
+                    "selected cut (dina_subgroup, forestsearch criteria)"
+                  else "frontier candidates"
       n_dc <- length(dina_cuts)
+      cat("DINA screening mode:", mode_lbl, "\n")
       cat("DINA cuts identified:", n_dc, "\n")
       if (n_dc > 0) {
         cat("  Cuts:", paste(dina_cuts, collapse = ", "), "\n")
