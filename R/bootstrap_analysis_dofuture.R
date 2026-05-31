@@ -333,7 +333,21 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
   # i.e. row-resampled but column-identical).  This replaces a per-
   # iteration `!(names(df_boot) %in% drop.vars)` lookup with a
   # precomputed positional index.
-  drop_vars_boot <- c(fs.est$confounders.candidate, "treat.recommend")
+  # In the consistency/GRF/LASSO path, `confounders.candidate` are derived
+  # cut-columns that forestsearch() rebuilds internally on each resample, so
+  # they are dropped here and regenerated.  In DINA-selection mode, however,
+  # the per-resample re-run calls dina() with `covariates = confounders.name`
+  # and extracts those RAW covariate columns directly from the data frame --
+  # dropping them makes .dina_extract_X_from_df() stop with "Column(s) not
+  # found", which try() swallows, yielding 0 subgroups on every resample.  So
+  # keep the covariate columns when the re-run is DINA-mode.
+  .sm <- fs.est$args_call_all$subgroup_method
+  if (is.null(.sm)) .sm <- "consistency"
+  if (identical(.sm, "dina")) {
+    drop_vars_boot <- "treat.recommend"
+  } else {
+    drop_vars_boot <- c(fs.est$confounders.candidate, "treat.recommend")
+  }
   keep_cols_boot <- !(names(df_boot_analysis) %in% drop_vars_boot)
   dfnew_predict  <- df_boot_analysis[, keep_cols_boot, drop = FALSE]
 
@@ -500,11 +514,15 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
     args_FS_boot$df.predict <- dfnew_predict
 
     # CATEGORY 1: OUTPUT SUPPRESSION
+    # show3 is TRUE only for the first 3 iterations (when show_three = TRUE).
+    # On those iterations we let the inner forestsearch() print its details;
+    # quiet must therefore NOT be forced TRUE, otherwise it overrides
+    # details = show3 and show_three appears to do nothing.
     args_FS_boot$details <- show3
     args_FS_boot$show_candidate_summary <- FALSE
     args_FS_boot$plot.sg <- FALSE
     args_FS_boot$plot.grf <- FALSE
-    args_FS_boot$quiet <- TRUE
+    args_FS_boot$quiet <- !show3
 
     # CATEGORY 2: VARIABLE RE-SELECTION
     args_FS_boot$grf_res <- NULL
@@ -545,10 +563,17 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       df_PredBoot <- run_bootstrap$df.predict
       dfboot_PredBoot <- run_bootstrap$df.est
 
-      # Extract search metrics
-      max_sg_est <- as.numeric(run_bootstrap$find.grps$max_sg_est)
-      max_count <- run_bootstrap$find.grps$max_count
-      L <- run_bootstrap$find.grps$L
+      # Extract search metrics.  DINA-selection mode sets find.grps = NULL
+      # (there is no consistency search), so guard each access: a bare
+      # run_bootstrap$find.grps$max_sg_est would yield NULL -> as.numeric(NULL)
+      # is numeric(0) (length 0), which makes the data.table() row construction
+      # below error with "differing number of rows", and .errorhandling="pass"
+      # then silently drops the entire (valid) found iteration.
+      fg <- run_bootstrap$find.grps
+      max_sg_est <- if (!is.null(fg) && !is.null(fg$max_sg_est))
+                      as.numeric(fg$max_sg_est) else NA_real_
+      max_count  <- if (!is.null(fg) && !is.null(fg$max_count)) fg$max_count else NA_real_
+      L          <- if (!is.null(fg) && !is.null(fg$L)) fg$L else NA_real_
 
       # Extract the identified subgroup
 
@@ -623,6 +648,17 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
       # Bias correction method 2: Double correction
       H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+
+      # Diagnostic (first 3 iterations when show_three = TRUE): expose the
+      # individual Cox terms so an NA in H_biasadj_2 can be localised rather
+      # than silently recorded as a non-success.
+      if (isTRUE(show3)) {
+        message(sprintf(paste0(
+          "  [boot %d] bias inputs: H_obs=%s  H_star=%s  Hstar_obs=%s  ",
+          "Hstar_star=%s  =>  H_biasadj_2=%s"),
+          boot, format(H_obs), format(H_star), format(Hstar_obs),
+          format(Hstar_star), format(H_biasadj_2)))
+      }
 
       # ==============================================================
       # Compute bias corrections for subgroup H^c (complement/recommend)
@@ -753,11 +789,17 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
 
       # CONSISTENCY RESULTS FROM TOP SUBGROUP
       Pcons = Pcons,
-      # any_found: integer 0/1, TRUE iff a subgroup was identified in
-      # this iteration (equivalent to !is.na(Pcons)).  Mirrors the CV
-      # fold_summary$any_found convention so cross-API diagnostics can
-      # use the same column name.  Added in v0.2.0.
-      any_found = as.integer(!is.na(Pcons)),
+      # any_found: integer 0/1, TRUE iff a subgroup was identified in this
+      # iteration.  Derived from the mode-agnostic identification signal
+      # (run_bootstrap$sg.harm non-NULL) rather than !is.na(Pcons): DINA-
+      # selection mode leaves Pcons NA (no consistency search) even when a
+      # subgroup was identified, so a Pcons-based flag mis-reports DINA runs
+      # as "no subgroups".
+      any_found = as.integer(
+        !inherits(run_bootstrap, "try-error") &&
+        !is.null(run_bootstrap$sg.harm) &&
+        length(run_bootstrap$sg.harm) > 0L
+      ),
       hr_sg = hr_sg,
       N_sg = N_sg,
       E_sg = E_sg,

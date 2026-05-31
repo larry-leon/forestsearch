@@ -98,11 +98,18 @@ summarize_bootstrap_subgroups <- function(results,
   # Make a copy to avoid modifying the original
   results <- data.table::copy(results)
 
-  # Filter to successful iterations (where subgroup was found)
-  if ("Pcons" %in% names(results)) {
+  # Filter to successful iterations (where a subgroup was found).  Prefer the
+  # mode-agnostic `any_found` flag (set by both the consistency and DINA
+  # paths); fall back to `Pcons` for result objects predating `any_found`.
+  # Keying solely on `Pcons` mis-reports DINA-mode runs as "no subgroups",
+  # since DINA selection bypasses the consistency search and leaves Pcons NA
+  # even when subgroups were identified.
+  if ("any_found" %in% names(results)) {
+    sg_found <- results[results$any_found == 1L & !is.na(results$any_found), ]
+  } else if ("Pcons" %in% names(results)) {
     sg_found <- results[!is.na(results$Pcons), ]
   } else {
-    warning("Column 'Pcons' not found in results")
+    warning("Neither 'any_found' nor 'Pcons' found in results")
     sg_found <- results
   }
 

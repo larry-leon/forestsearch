@@ -837,7 +837,12 @@ dina_frontier <- function(fit, df, covariates,
     dom <- .pareto_dominated_xy(cc$effect, cc$n_subgroup)
     ff  <- cc[!dom, , drop = FALSE]
     ff  <- ff[order(-ff$effect, -ff$n_subgroup), , drop = FALSE]
-    ff$cut_expr <- paste0(ff$covariate, " <= ", signif(ff$threshold, digits))
+    # Render the cut from each row's OWN direction: "left" => x <= q (low
+    # values are the subgroup), "right" => x >= q (high values).  Hardcoding
+    # "<=" here mislabels "right" candidates and makes cut_expr contradict
+    # both the direction column and the label dina_subgroup() selects.
+    op <- ifelse(ff$direction == "left", "<=", ">=")
+    ff$cut_expr <- paste0(ff$covariate, " ", op, " ", signif(ff$threshold, digits))
     ff[!duplicated(ff$cut_expr), , drop = FALSE]
   })
 

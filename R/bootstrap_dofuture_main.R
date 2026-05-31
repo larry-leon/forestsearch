@@ -321,28 +321,43 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
 
   if (details) {
     cat("\nForestSearch parameters for bootstrap iterations:\n")
+    sm <- args_forestsearch_call$subgroup_method
+    if (is.null(sm)) sm <- "consistency"
+    cat("  - subgroup_method:", sm, "\n")
     cat("  - sg_focus:", args_forestsearch_call$sg_focus, "\n")
-    cat("  - maxk:", args_forestsearch_call$maxk, "\n")
-    cat("  - fs.splits:", args_forestsearch_call$fs.splits, "\n")
-    cat("  - max_subgroups_search:", args_forestsearch_call$max_subgroups_search, "\n")
-    cat("  - hr.threshold:", args_forestsearch_call$hr.threshold, "\n")
-    cat("  - hr.consistency:", args_forestsearch_call$hr.consistency, "\n")
-    cat("  - pconsistency.threshold:", args_forestsearch_call$pconsistency.threshold, "\n")
-    cat("  - n.min:", args_forestsearch_call$n.min, "\n")
-    cat("  - use_twostage:", args_forestsearch_call$use_twostage, "\n")
-    if (isTRUE(args_forestsearch_call$use_twostage) &&
-        length(args_forestsearch_call$twostage_args) > 0) {
-      cat("  - twostage_args:\n")
-      cat("      n.splits.screen:", args_forestsearch_call$twostage_args$n.splits.screen, "\n")
-      cat("      batch.size:", args_forestsearch_call$twostage_args$batch.size, "\n")
+    if (identical(sm, "dina")) {
+      # DINA-selection mode bypasses GRF / LASSO / the consistency search;
+      # only the selection knobs below are operative.
+      cat("  - hr.threshold:", args_forestsearch_call$hr.threshold, "\n")
+      cat("  - n.min:", args_forestsearch_call$n.min, "\n")
+      cat("  - selection_rule:", args_forestsearch_call$selection_rule, "\n")
+      cat("  - effect_neighborhood:", args_forestsearch_call$effect_neighborhood, "\n")
+      cat("  Bootstrap-specific overrides:\n")
+      cat("  - dina_res / dina_cuts: NULL (forces DINA re-fit + re-selection)\n")
+      cat("  - GRF / LASSO / consistency search: bypassed in DINA mode\n")
+    } else {
+      cat("  - maxk:", args_forestsearch_call$maxk, "\n")
+      cat("  - fs.splits:", args_forestsearch_call$fs.splits, "\n")
+      cat("  - max_subgroups_search:", args_forestsearch_call$max_subgroups_search, "\n")
+      cat("  - hr.threshold:", args_forestsearch_call$hr.threshold, "\n")
+      cat("  - hr.consistency:", args_forestsearch_call$hr.consistency, "\n")
+      cat("  - pconsistency.threshold:", args_forestsearch_call$pconsistency.threshold, "\n")
+      cat("  - n.min:", args_forestsearch_call$n.min, "\n")
+      cat("  - use_twostage:", args_forestsearch_call$use_twostage, "\n")
+      if (isTRUE(args_forestsearch_call$use_twostage) &&
+          length(args_forestsearch_call$twostage_args) > 0) {
+        cat("  - twostage_args:\n")
+        cat("      n.splits.screen:", args_forestsearch_call$twostage_args$n.splits.screen, "\n")
+        cat("      batch.size:", args_forestsearch_call$twostage_args$batch.size, "\n")
+      }
+      cat("  - use_lasso:", args_forestsearch_call$use_lasso, "\n")
+      cat("  - use_grf:", args_forestsearch_call$use_grf, "\n")
+      cat("  Bootstrap-specific overrides:\n")
+      cat("  - grf_res: NULL (forces re-selection)\n")
+      cat("  - grf_cuts: NULL (forces re-selection)\n")
     }
-    cat("  - use_lasso:", args_forestsearch_call$use_lasso, "\n")
-    cat("  - use_grf:", args_forestsearch_call$use_grf, "\n")
-    cat("  Bootstrap-specific overrides:\n")
-    cat("  - grf_res: NULL (forces re-selection)\n")
-    cat("  - grf_cuts: NULL (forces re-selection)\n")
     cat("  - parallel_args: sequential (prevents nested parallelism)\n")
-    cat("  - details: FALSE (suppressed in workers)\n")
+    cat("  - details: per-iteration (show_three -> first 3 only)\n")
     cat("  - plot.sg: FALSE\n")
     cat("  - plot.grf: FALSE\n")
   }
@@ -369,6 +384,50 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # =======================================================================
   # SECTION 9: POST-PROCESSING AND CONFIDENCE INTERVALS
   # =======================================================================
+
+  # Zero-success guard: bias correction is only computed for resamples that
+  # re-identified a subgroup (run_bootstrap$sg.harm non-NULL).  If NO resample
+  # did, every *_biasadj_* is NA and the variance/CI machinery has nothing to
+  # work with (get_targetEst() would return NaN).  Report this explicitly as a
+  # partial result rather than emitting a NaN-filled table.  This is most
+  # likely a configuration signal (e.g. an effect floor the resamples never
+  # clear), not a numerical failure.
+  n_success <- sum(!is.na(results$H_biasadj_2))
+  if (isTRUE(details)) {
+    message(sprintf(
+      "[bootstrap] results: nrow=%d, class=%s, H_biasadj_2 type=%s, n_success=%d",
+      nrow(results), paste(class(results), collapse = "/"),
+      typeof(results$H_biasadj_2), n_success))
+    message("[bootstrap] H_biasadj_2 (first up to 6): ",
+            paste(utils::head(format(results$H_biasadj_2), 6), collapse = ", "))
+    message("[bootstrap] any_found sum = ",
+            if ("any_found" %in% names(results)) sum(results$any_found, na.rm = TRUE) else "NA")
+  }
+  if (n_success == 0L) {
+    warning("No bootstrap resample re-identified a subgroup (0/", nb_boots,
+            " succeeded), so no bias-corrected estimates could be computed. ",
+            "This usually means the selection criteria (e.g. the effect/HR ",
+            "floor) are not reached on resampled data -- inspect details = TRUE ",
+            "output and consider relaxing the floor. Returning partial results ",
+            "without confidence intervals.", call. = FALSE)
+    out <- list(
+      results = results,
+      SG_CIs = NULL,
+      FSsg_tab = NULL,
+      Ystar_mat = Ystar_mat,
+      H_estimates = NULL,
+      Hc_estimates = NULL,
+      nb_boots       = nb_boots,
+      boot_success_rate = 0,
+      original_sg    = fs.est$sg.harm,
+      outcome_type   = if (is_glm) outcome_type else "survival",
+      effect_measure = if (is_glm) args_forestsearch_call$effect_measure
+                       else "HR",
+      est.scale      = args_forestsearch_call$est.scale
+    )
+    class(out) <- c("fs_bootstrap", "list")
+    return(out)
+  }
 
   est.scale <- args_forestsearch_call$est.scale
 

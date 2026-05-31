@@ -1147,7 +1147,7 @@ forestsearch <- function(df.analysis,
                                  effect_measure, consist_nat)
     }
 
-    if (!quiet) {
+    if (!quiet && subgroup_method != "dina") {
     message(sprintf(paste0(
       "\n[forestsearch] Subgroup Identification Configuration\n",
       "  Outcome type:   %s\n",
@@ -1199,7 +1199,7 @@ forestsearch <- function(df.analysis,
                                          "dmin.grf")
   } else {
     # Survival path: print configuration summary
-    if (!quiet) {
+    if (!quiet && subgroup_method != "dina") {
     message(sprintf(paste0(
       "\n[forestsearch] Subgroup Identification Configuration\n",
       "  Outcome type:   survival (Cox PH)\n",
@@ -1257,7 +1257,7 @@ forestsearch <- function(df.analysis,
     event.name           = event.name,
     treat.name           = treat.name,
     offset.name          = offset.name,
-    quiet                = !details || quiet
+    quiet                = !details || quiet || subgroup_method == "dina"
   )
 
   # ===========================================================================

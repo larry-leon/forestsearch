@@ -60,6 +60,31 @@ format_bootstrap_table <- function(FSsg_tab,
     )
   }
 
+  # Robustness: forestsearch_bootstrap_dofuture() returns a partial result
+  # with FSsg_tab = NULL when it cannot compute H/Hc estimates -- e.g. when
+  # resample selection is too unstable to yield bias-corrected effects (a
+  # documented early-return, not an error).  The coercion above turns that
+  # into a 0-column frame, after which the column logic below (FSsg_tab[[1]],
+  # cols_label, ...) would raise a cryptic "subscript out of bounds".
+  # Return an informative placeholder gt instead so summarize_bootstrap_results()
+  # and downstream consumers (vignettes) degrade gracefully.
+  if (ncol(FSsg_tab) == 0L || nrow(FSsg_tab) == 0L) {
+    placeholder <- data.frame(
+      Result = paste0(
+        "No bias-corrected estimates available: the bootstrap did not ",
+        "produce H/Hc effects (resample selection was too unstable, or no ",
+        "resample reproduced an identified subgroup)."
+      ),
+      stringsAsFactors = FALSE
+    )
+    return(
+      gt::gt(placeholder) |>
+        gt::tab_header(title = title, subtitle = subtitle) |>
+        gt::cols_label(Result = "") |>
+        gt::cols_align(align = "left")
+    )
+  }
+
   # Column labels configuration.
   # Every entry is guarded by a column-name check, so the labels list
   # only contains keys that exist in FSsg_tab.  This protects

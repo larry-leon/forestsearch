@@ -1010,6 +1010,46 @@ reset_workers <- function(workers   = NULL,
   m_diff <- if (identical(da$fit$family, "gaussian")) hr.threshold
             else log(hr.threshold)
 
+  if (isTRUE(details)) {
+    lines <- c(
+      "",
+      "[forestsearch] DINA selection (subgroup_method = \"dina\")",
+      paste0("  Family:              ", da$fit$family),
+      paste0("  sg_focus:            ", sg_focus),
+      paste0("  selection_rule:      ", selection_rule),
+      paste0("  effect_neighborhood: ", effect_neighborhood),
+      paste0("  Harm floor:          ", sprintf("m_diff = %.4f", m_diff),
+             if (!identical(da$fit$family, "gaussian"))
+               sprintf("  (hr.threshold = %.4g)", hr.threshold) else ""),
+      paste0("  n.min:               ", n.min)
+    )
+
+    # DINA frontier: the per-covariate candidate cuts under consideration.
+    fr <- tryCatch(
+      dina_frontier(fit = dina_res, df = df, covariates = confounders.name,
+                    scope = "wide", n_min = n.min),
+      error = function(e) {
+        lines <<- c(lines, paste0("  (frontier unavailable: ",
+                                  conditionMessage(e), ")"))
+        NULL
+      }
+    )
+    if (!is.null(fr) && nrow(fr) > 0L) {
+      lines <- c(lines, "  DINA frontier candidates (per-covariate non-dominated):")
+      fr_show <- fr[, intersect(c("covariate", "direction", "threshold",
+                                  "n_subgroup", "effect", "cut_expr"),
+                                names(fr)), drop = FALSE]
+      lines <- c(lines,
+                 paste0("    ",
+                        utils::capture.output(print(fr_show, row.names = FALSE))))
+    } else if (!is.null(fr)) {
+      lines <- c(lines, "  DINA frontier: no candidates met the size constraint.")
+    }
+    # Single message() call: stderr is forwarded by doFuture workers, whereas
+    # cat() (stdout) is captured by the future and never reaches the document.
+    message(paste(lines, collapse = "\n"))
+  }
+
   sg <- dina_subgroup(
     fit                 = dina_res,
     df                  = df,
@@ -1020,6 +1060,27 @@ reset_workers <- function(workers   = NULL,
     selection_rule      = selection_rule,
     effect_neighborhood = effect_neighborhood
   )
+
+  if (isTRUE(details)) {
+    lines2 <- c(
+      paste0("  Candidates searched:  ",
+             if (!is.null(sg$n_candidates_searched)) sg$n_candidates_searched else NA),
+      paste0("  Candidates qualifying (>= floor, >= n.min): ",
+             if (!is.null(sg$n_candidates_qualifying)) sg$n_candidates_qualifying else NA)
+    )
+    if (isTRUE(sg$found)) {
+      op_d <- if (identical(sg$direction, "left")) "<=" else ">="
+      lines2 <- c(lines2,
+                  paste0("  SELECTED: ",
+                         sprintf("{%s %s %s}", sg$covariate, op_d, format(sg$threshold)),
+                         sprintf("  (n = %d, mean tau-hat = %.4f)",
+                                 sg$n_subgroup, sg$mean_tau_hat)))
+    } else {
+      lines2 <- c(lines2,
+                  "  SELECTED: none -- no candidate met the harm floor and size constraint.")
+    }
+    message(paste(lines2, collapse = "\n"))
+  }
 
   if (!isTRUE(sg$found)) {
     return(list(found = FALSE, sg.harm = NULL, grp.consistency = NULL,

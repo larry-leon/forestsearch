@@ -339,18 +339,24 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
   }
   # Implement correction
   if (cov_method != "nocorrect") {
-    varhat <- N * mean(cov_i^2)
+    # na.rm/trim here for parity with termc (below) and the nocorrect branch.
+    # cov_i carries NA whenever a resample produced no usable estimate (e.g.
+    # a resample that did not reproduce an identified subgroup), so without
+    # na.rm varhat becomes NA and the comparison below errors with
+    # "missing value where TRUE/FALSE needed".
+    varhat <- N * mean(cov_i^2, na.rm = TRUE, trim = cov_trim)
     seH <- sqrt(varhat)
     # Denominator in cov_i is B.eval:
     B.eval <- sum(!is.na(xc))
     # correction
     nb_ratio <- N / (B.eval^2)
     termc <- nb_ratio * B.eval * mean(xc^2, na.rm = TRUE, trim = cov_trim)
-    if (varhat <= termc) {
+    # Guard against a degenerate variance (e.g. all-NA cov_i, B.eval == 0):
+    # fall back to the uncorrected variance rather than erroring in `if`.
+    if (is.na(varhat) || is.na(termc) || varhat <= termc) {
       varhat_new <- varhat
       seH_new <- sqrt(varhat)
-    }
-    if (varhat > termc) {
+    } else {
       varhat_new <- varhat - termc
       seH_new <- sqrt(varhat_new)
     }
