@@ -84,7 +84,6 @@ dina_screen_max_subgroups_search <- 30
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
 fs_dina_hr_threshold <- 0.70
-fs_dina_hr_consistency <- 0.70 # this is not necessary
 ```
 
 
@@ -954,7 +953,6 @@ fs_dina <- forestsearch(
   effect_neighborhood = 0.10,            # default 0.10
   n.min               = 60,              # default 60
   hr.threshold        = fs_dina_hr_threshold,  # set in setup chunk (-> log-HR floor)
-  hr.consistency       = fs_dina_hr_consistency,
   # --- Output -------------------------------------------------------------
   details             = TRUE             # default FALSE
   # NOTE: subgroup_method = "dina" bypasses GRF, LASSO and the consistency
@@ -988,16 +986,14 @@ t0 <- proc.time()
 # visible and errors surface in order (helpful while validating DINA-mode
 # bootstrap). Switch plan back to "multisession" for production speed.
 
-n_cores_dina <- 1
-
 fs_dina_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs_dina,
   nb_boots = NB,
-  show_three = TRUE,
+  show_three = FALSE,
   details = TRUE,
   parallel_args = list(
-    plan = "sequential",
-    workers = n_cores_dina,
+    plan = "multisession",
+    workers = n_cores,
     show_message = TRUE
   )
 )

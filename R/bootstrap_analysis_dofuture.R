@@ -649,17 +649,6 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       # Bias correction method 2: Double correction
       H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
 
-      # Diagnostic (first 3 iterations when show_three = TRUE): expose the
-      # individual Cox terms so an NA in H_biasadj_2 can be localised rather
-      # than silently recorded as a non-success.
-      if (isTRUE(show3)) {
-        message(sprintf(paste0(
-          "  [boot %d] bias inputs: H_obs=%s  H_star=%s  Hstar_obs=%s  ",
-          "Hstar_star=%s  =>  H_biasadj_2=%s"),
-          boot, format(H_obs), format(H_star), format(Hstar_obs),
-          format(Hstar_star), format(H_biasadj_2)))
-      }
-
       # ==============================================================
       # Compute bias corrections for subgroup H^c (complement/recommend)
       # ==============================================================

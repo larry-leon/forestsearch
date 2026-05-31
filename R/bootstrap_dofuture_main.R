@@ -393,16 +393,6 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   # likely a configuration signal (e.g. an effect floor the resamples never
   # clear), not a numerical failure.
   n_success <- sum(!is.na(results$H_biasadj_2))
-  if (isTRUE(details)) {
-    message(sprintf(
-      "[bootstrap] results: nrow=%d, class=%s, H_biasadj_2 type=%s, n_success=%d",
-      nrow(results), paste(class(results), collapse = "/"),
-      typeof(results$H_biasadj_2), n_success))
-    message("[bootstrap] H_biasadj_2 (first up to 6): ",
-            paste(utils::head(format(results$H_biasadj_2), 6), collapse = ", "))
-    message("[bootstrap] any_found sum = ",
-            if ("any_found" %in% names(results)) sum(results$any_found, na.rm = TRUE) else "NA")
-  }
   if (n_success == 0L) {
     warning("No bootstrap resample re-identified a subgroup (0/", nb_boots,
             " succeeded), so no bias-corrected estimates could be computed. ",
