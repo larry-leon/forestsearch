@@ -951,10 +951,12 @@ reset_workers <- function(workers   = NULL,
 
   get_arg <- function(key, default) if (key %in% nms) dina_args[[key]] else default
 
-  # selected_only: when TRUE, use_dina screening contributes the SINGLE cut
+  # selected_only: when TRUE (the default, matching GRF's
+  # return_selected_cuts_only), use_dina screening contributes the SINGLE cut
   # dina_subgroup() selects (using forestsearch's own sg_focus /
-  # selection_rule / etc.) instead of the full dina_frontier() candidate set.
-  selected_only <- get_arg("selected_only", FALSE)
+  # selection_rule / etc.); set FALSE to contribute the full dina_frontier()
+  # candidate set instead.
+  selected_only <- get_arg("selected_only", TRUE)
   if (!is.logical(selected_only) || length(selected_only) != 1L ||
       is.na(selected_only)) {
     stop("`dina_args$selected_only` must be a single TRUE/FALSE.",
