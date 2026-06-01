@@ -125,7 +125,7 @@ library(foreach)
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 20L,          # replications per cell (scale up for production)
+  nsims       = 100L,          # replications per cell (scale up for production)
   base_seed   = 20260531L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -143,8 +143,8 @@ CONFIG <- list(
   cox_T0      = 1.5,           # uniform-censoring upper bound (DGM and fits match)
 
   # ---- matched harm thresholds (natural scale) ----
-  effect_threshold = 1.25,
-  m_diff           = log(1.25),
+  effect_threshold = 1.75,
+  m_diff           = log(1.75),
 
   # ---- forestsearch knobs ----
   fs_maxk            = 1L,     # single-factor hypothesis space (matched to truth)
