@@ -63,7 +63,7 @@ dina_grid_probs <- seq(0.1, 0.9, by = 0.1)   # interior deciles (default)
 
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts -- here, a depth-2 conjunction's components)
-dina_screen_sg_focus             <- "effMaxSG"
+dina_screen_sg_focus             <- "eff"
 dina_screen_hr_threshold         <- 0.90
 dina_screen_hr_consistency       <- 0.80
 dina_screen_max_subgroups_search <- 30
@@ -75,7 +75,7 @@ dina_screen_selected_only        <- TRUE
 # (B) Standalone DINA and (C) ForestSearch subgroup_method = "dina".  (B) and
 # (C) share these so the standalone selection and the DINA-selection pipeline
 # match.
-fs_dina_sg_focus     <- "effMaxSG"
+fs_dina_sg_focus     <- "eff"
 fs_dina_hr_threshold <- 0.80
 ```
 
