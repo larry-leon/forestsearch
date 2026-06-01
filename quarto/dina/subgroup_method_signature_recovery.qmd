@@ -1,6 +1,6 @@
 ---
-title: "forestsearch() vs dina_subgroup(): Signature-Identification Comparison (Two-Factor)"
-subtitle: "Matched harm-subgroup recovery on a two-factor conjunction DGM (depth-2 / maxk = 2)"
+title: "Subgroup-Method Signature Recovery (Single-Factor)"
+subtitle: "Matched harm-subgroup recovery for FS-consistency, FS-grf, and standalone DINA on a single-factor DGM (depth-1 / maxk = 1)"
 author: "forestsearch v0.2.0"
 date: today
 format:
@@ -20,34 +20,33 @@ execute:
 
 # Purpose
 
-The companion document studies a DGM whose true signature is a **single
-covariate threshold** -- ideal for the univariate `dina_subgroup()` search and
-for `forestsearch(maxk = 1)`. This document studies the **two-factor analog**:
-the true harm subgroup is an **AND-conjunction of two covariates**, and both
-identifiers are given the matching hypothesis space:
+This document studies a DGM whose true signature is a **single covariate
+threshold** -- the ideal case for the univariate `dina_subgroup()` search and
+for `forestsearch(maxk = 1)`. (The companion document
+`subgroup_method_signature_recovery_2factor.qmd` studies the two-factor
+analog, where the truth is an AND-conjunction of two covariates.)  Each
+identifier is given the matching single-factor hypothesis space:
 
-* `forestsearch(maxk = 2)` --- allowed to combine up to two factors.
-* `dina_subgroup(max_depth = 2)` --- allowed to select a two-covariate
-  conjunction (the depth-2 extension), not just a univariate threshold.
+* `forestsearch(maxk = 1)` --- a single-factor subgroup.
+* `dina_subgroup(max_depth = 1)` --- a univariate threshold.
+* `forestsearch(subgroup_method = "grf", grf_depth = 1)` --- a single
+  policy-tree split.
 
-As before, each is run under **two selection rules** so the selection rule ---
-not the search --- is isolated:
+The consistency and DINA arms are run under **two selection rules** so the
+selection rule --- not the search --- is isolated:
 
 * **`effMaxSG`**: among candidates whose effect is within
   `effect_neighborhood` of the maximum qualifying effect, take the largest.
-* **`maxSG`**: the legacy largest-qualifying rule (largest subgroup with
-  contrast $\ge$ threshold).
+* **`eff`**: the max-effect rule (largest qualifying effect).
 
-Both methods are run on the **same simulated data** each replication and scored
-against the **same** ground-truth conjunction. The DGM mirrors the single-factor
-setup: covariates $\sim U[-1,1]$, logistic propensity, Cox outcome via
-`rexp(rate = exp(eta))` with uniform censoring, and a true harm subgroup
+All methods are run on the **same simulated data** each replication and scored
+against the **same** ground-truth subgroup. The DGM is: covariates
+$\sim U[-1,1]$, logistic propensity, Cox outcome via `rexp(rate = exp(eta))`
+with uniform censoring, and a true harm subgroup
 
-$$S = \{x_1 \ge c_1 \ \text{and}\ x_2 \le c_2\}$$
+$$S = \{x_1 \ge c_1\}$$
 
-(treatment increases the hazard inside $S$). The conjunction uses **mixed
-directions** ($x_1$ from the right, $x_2$ from the left) to exercise
-mixed-direction depth-2 selection.
+(treatment increases the hazard inside $S$).
 
 ## Matched thresholds (harm study)
 
@@ -63,29 +62,54 @@ $\ge$ 1.25 (HR)" means the same number for both.
 
 ## Fairness: the `maxk` / `max_depth` knob
 
-The true signature is **two factors**. Here both methods are given the
-two-factor hypothesis space (`fs_maxk = 2L`, `dina_max_depth = 2L`), so the
-comparison is like-for-like against the conjunction truth. Setting either back
-to 1 reproduces the single-factor restriction of the companion study and shows
-the cost of under-fitting a genuine two-factor signature.
+The true signature is **one factor**. Each method is given the single-factor
+hypothesis space (`fs_maxk = 1L`, `dina_max_depth = 1L`, `grf_depth = 1L`), so
+the comparison is like-for-like against the univariate truth. This is the
+setting most favorable to DINA's univariate search; the two-factor companion
+study shows what happens when the truth is a genuine conjunction.
 
-## Multiple selection foci for **both** methods
+## Multiple selection foci for the consistency and DINA arms
 
 `dina_subgroup()` separates an expensive cross-fitted `dina()` fit from a cheap
-threshold/conjunction search, so `dina_foci = c("effMaxSG", "maxSG")` reuses one
-fit and scores it under each rule. `forestsearch()` cannot reuse a single fit
-this way --- its GRF/LASSO screening and consistency search are not separable
-from selection through the public API --- so `fs_foci = c("effMaxSG", "maxSG")`
+threshold search, so `dina_foci = c("eff", "effMaxSG")` reuses one fit and
+scores it under each rule. `forestsearch()` cannot reuse a single fit this way
+--- its GRF/LASSO screening and consistency search are not separable from
+selection through the public API --- so `fs_foci = c("eff", "effMaxSG")`
 **re-runs `forestsearch()` once per focus**. (The packaged interactive analog is
-`compare_selection_rules(sg_focus = c("effMaxSG","maxSG"),
+`compare_selection_rules(sg_focus = c("eff","effMaxSG"),
 selection_rule = c("neighborhood","neighborhood"))`, which likewise loops the
 search; `sort_subgroups_preview()` is the internal selection sorter that a future
-re-selection helper could build on.)
+re-selection helper could build on.)  The FS-grf arm does not use `sg_focus`, so
+it is a single run, not a per-focus loop.
 
 > This is a Monte Carlo study. `forestsearch()` is far heavier per replication
-> than `dina_subgroup()`, and running it under two foci doubles that cost
-> (`maxk = 2` widens the candidate set further). Keep `nsims` modest and scale up
-> on a multi-core machine.
+> than `dina_subgroup()`, and running it under two foci plus the FS-grf arm
+> multiplies that cost. Keep `nsims` modest and scale up on a multi-core
+> machine; the per-method timing tables report where the time goes.
+
+## A third arm: `forestsearch(subgroup_method = "grf")`
+
+Alongside the consistency-search FS arm and standalone DINA, the study includes
+a **GRF-selection** arm: `forestsearch(subgroup_method = "grf")`, which delegates
+subgroup selection to a GRF causal-survival-forest policy tree. Two things make
+it a single arm rather than a per-focus family:
+
+* **GRF does not use `sg_focus`.** It selects the harm leaf from the policy
+  tree under `dmin.grf` / `grf_depth`, not the effect-neighborhood
+  (`effMaxSG` / `eff`) rule the consistency and DINA arms vary. So there is one
+  `FS-grf` row per replication, not one per focus.
+* **`grf_depth = 1` matches the single-factor truth.** A depth-1 policy tree
+  is a single split, so the GRF subgroup here is one box `{x op c}` -- directly
+  comparable to a depth-1 DINA cut and a `maxk = 1` consistency subgroup. (The
+  `forestsearch()` default is `grf_depth = 2`; we set it to 1 here to match the
+  univariate truth, exactly as `maxk` and `max_depth` are set to 1.)
+
+Because GRF membership is taken from the policy tree, the membership-based
+recovery metrics (sensitivity, specificity, Jaccard) are always well defined.
+At `grf_depth = 1` the subgroup is a single conjunction, so the text-parsing
+metrics (`cov-set hit`, `sig correct`, `mean #factors`) apply directly; the
+scoring still falls back to `NA` for any union, but a depth-1 tree does not
+produce one.
 
 ---
 
@@ -110,11 +134,11 @@ CONFIG <- list(
   tau_in      = c(moderate = 0.9, strong = 1.4),  # harm log-HR inside S
   tau_out     = 0.0,
 
-  # ---- true two-factor conjunction signature ----
-  #   S = { x1 >= 0  AND  x2 <= 0 }  (mixed directions)
-  true_covs = c("x1", "x2"),
-  true_dirs = c("right", "left"),
-  true_cuts = c(0.0, 0.0),
+  # ---- true single-factor signature ----
+  #   S = { x1 >= 0 }  (single covariate threshold; the ideal DINA case)
+  true_covs = c("x1"),
+  true_dirs = c("right"),
+  true_cuts = c(0.0),
 
   cox_T0      = 1.5,           # uniform-censoring upper bound (DGM and fits match)
 
@@ -123,7 +147,7 @@ CONFIG <- list(
   m_diff           = log(1.25),
 
   # ---- forestsearch knobs ----
-  fs_maxk            = 2L,     # two-factor hypothesis space (matched to truth)
+  fs_maxk            = 1L,     # single-factor hypothesis space (matched to truth)
   fs_foci            = c("eff", "effMaxSG"),  # NEW: both selection rules
   fs_eff_neighbor    = 0.10,
   fs_selection_rule  = "neighborhood",
@@ -149,11 +173,22 @@ CONFIG <- list(
   #        ),
   # use defaults
   fs_dina_args = list(),
+
+  # ---- FS-grf knobs (subgroup_method = "grf"): GRF policy-tree selection.
+  #   GRF selects via the policy tree / dmin.grf, NOT the sg_focus
+  #   effect-neighborhood rule, so FS-grf is a SINGLE run per replication
+  #   (one row, method "FS-grf"), not a per-focus loop.  grf_depth = 2 is the
+  #   matched to the single-factor truth (grf_depth = 1).
+  fs_grf_enable   = TRUE,
+  fs_grf_depth    = 1L,        # GRF tree depth (single-split, matched to truth)
+  fs_grf_dmin     = 0.0,       # min subgroup mean-difference (HR/log scale)
+  fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
+
   # ---- dina_subgroup knobs ----
   dina_n_folds   = 2L,
   dina_n_min     = 60L,
   dina_alpha     = 0.05,
-  dina_max_depth = 2L,                          # depth-2 conjunction selection
+  dina_max_depth = 1L,                          # depth-1 single-covariate selection
   dina_grid_probs = seq(0.1, 0.9, by = 0.1),    # per-covariate threshold grid
   dina_foci      = c("eff", "effMaxSG"),
   dina_eff_neighbor = 0.10,
@@ -166,9 +201,9 @@ CONFIG <- list(
 
 stopifnot(abs(exp(CONFIG$m_diff) - CONFIG$effect_threshold) < 1e-8)
 stopifnot(CONFIG$fs_maxk %in% c(1L, 2L), CONFIG$dina_max_depth %in% c(1L, 2L))
-stopifnot(length(CONFIG$true_covs) == 2L,
-          length(CONFIG$true_dirs) == 2L,
-          length(CONFIG$true_cuts) == 2L)
+stopifnot(length(CONFIG$true_covs) == 1L,
+          length(CONFIG$true_dirs) == 1L,
+          length(CONFIG$true_cuts) == 1L)
 stopifnot(all(CONFIG$fs_foci %in%
               c("maxSG","minSG","eff","effMaxSG","effMinSG")))
 stopifnot(all(CONFIG$dina_foci %in%
@@ -200,12 +235,13 @@ timings <- list()
 
 # Data-generating mechanism
 
-A genuine two-factor harm subgroup via a step in the treatment effect:
-$\tau(x) = \tau_{\text{in}}$ (harm) inside the conjunction
-$S = \{x_1 \ge c_1 \ \text{and}\ x_2 \le c_2\}$, and $\tau_{\text{out}} = 0$
-outside. For the null arm both are zero. The data frame carries the true
-membership column `flag_harm` for scoring but does not expose the cuts to either
-method.
+A single-factor harm subgroup via a step in the treatment effect:
+$\tau(x) = \tau_{\text{in}}$ (harm) inside $S = \{x_1 \ge c_1\}$, and
+$\tau_{\text{out}} = 0$ outside. For the null arm both are zero. The data frame
+carries the true membership column `flag_harm` for scoring but does not expose
+the cut to any method. (The `simulate_conjunction_cox()` helper is general over
+the number of true factors; a length-1 truth produces this single-factor
+region.)
 
 ```{r dgm}
 simulate_conjunction_cox <- function(n, d, tau_in, tau_out,
@@ -272,7 +308,8 @@ empty_row <- function(method) data.table(
   n_subgroup = NA_integer_, n_factors = NA_integer_,
   te_1 = NA_real_, te_2 = NA_real_,
   sensitivity = NA_real_, specificity = NA_real_, ppv = NA_real_,
-  npv = NA_real_, jaccard = NA_real_, sg_def = NA_character_
+  npv = NA_real_, jaccard = NA_real_, sg_def = NA_character_,
+  fit_seconds = NA_real_
 )
 
 # When nothing is found and the cell is non-null: everyone predicted Hc.
@@ -323,14 +360,31 @@ score_fs <- function(fs, df, truth, method_label = "FS") {
 
   sg_txt <- paste(sg[!is.na(sg)], collapse = " & ")
   out[, sg_def := sg_txt]
-  out[, n_factors := sum(!is.na(sg))]
-  if (!truth$is_null) {
-    out[, covariate_set_hit := .covset_in_text(sg_txt, truth$covariates)]
-    # Signed-axis recovery for forestsearch, parsed from the cut labels
-    # (negations flip the direction).  NA if any label is unparseable.
-    fs_axes <- .parse_fs_axes(sg_txt)
-    out[, signature_correct := if (length(fs_axes) == 1L && is.na(fs_axes[1]))
-          NA else setequal(fs_axes, paste(truth$covariates, truth$directions))]
+
+  # A GRF union of leaves is carried as a single disjunctive definition string
+  # "(a & b) | (c & d)".  Membership-based metrics (sens/spec/ppv/Jaccard) are
+  # always valid because they read treat.recommend, but the text-parsing
+  # metrics (n_factors, covariate_set_hit, signature_correct) do not have a
+  # clean single-conjunction meaning for a union, so flag them NA rather than
+  # mis-parse the disjunction.
+  is_disjunction <- length(sg) == 1L && grepl("|", sg, fixed = TRUE)
+
+  if (is_disjunction) {
+    out[, n_factors := NA_integer_]
+    if (!truth$is_null) {
+      out[, covariate_set_hit := NA]
+      out[, signature_correct := NA]
+    }
+  } else {
+    out[, n_factors := sum(!is.na(sg))]
+    if (!truth$is_null) {
+      out[, covariate_set_hit := .covset_in_text(sg_txt, truth$covariates)]
+      # Signed-axis recovery for forestsearch, parsed from the cut labels
+      # (negations flip the direction).  NA if any label is unparseable.
+      fs_axes <- .parse_fs_axes(sg_txt)
+      out[, signature_correct := if (length(fs_axes) == 1L && is.na(fs_axes[1]))
+            NA else setequal(fs_axes, paste(truth$covariates, truth$directions))]
+    }
   }
 
   df_est <- tryCatch(fs$df.est, error = function(e) NULL)
@@ -476,6 +530,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
   # Unlike DINA, the screening + consistency search is not cached across
   # foci, so each focus is a separate forestsearch() call.
   fs_rows <- lapply(cfg$fs_foci, function(focus) {
+    .t0 <- proc.time()[3]
     fs <- tryCatch(
       suppressWarnings(forestsearch(
         df.analysis      = df,
@@ -511,18 +566,67 @@ run_one_rep <- function(scenario, rep_id, cfg) {
                                 show_message = FALSE)
       )),
       error = function(e) NULL)
-    score_fs(fs, df, truth, method_label = sprintf("FS-%s", focus))
+    .sec <- proc.time()[3] - .t0
+    r <- score_fs(fs, df, truth, method_label = sprintf("FS-%s", focus))
+    r[, fit_seconds := .sec]
+    r
   })
 
+  # ---- forestsearch GRF-selection mode (subgroup_method = "grf") ----------
+  # GRF selects the subgroup from its policy tree (depth-2 by default), NOT via
+  # the sg_focus effect-neighborhood rule, so this is a SINGLE run per
+  # replication labelled "FS-grf" -- not a per-focus loop.  Configured by the
+  # call's GRF arguments (grf_depth / dmin.grf / frac.tau); use_lasso/use_dina
+  # are irrelevant in this mode (selection bypasses screening).
+  grf_rows <- if (isTRUE(cfg$fs_grf_enable)) {
+    .t0 <- proc.time()[3]
+    fs_grf <- tryCatch(
+      suppressWarnings(forestsearch(
+        df.analysis      = df,
+        confounders.name = covariates_v,
+        outcome.name     = "y_sim",
+        event.name       = "event_sim",
+        treat.name       = "treat_sim",
+        id.name          = "id",
+        est.scale        = "hr",
+        subgroup_method  = "grf",
+        effect.threshold = cfg$effect_threshold,
+        grf_depth        = cfg$fs_grf_depth,
+        dmin.grf         = cfg$fs_grf_dmin,
+        frac.tau         = cfg$fs_grf_fractau,
+        n.min            = cfg$fs_n_min,
+        use_grf          = FALSE,   # selection IS GRF; no separate screening
+        use_lasso        = FALSE,
+        is.RCT           = TRUE,
+        details          = FALSE,
+        quiet            = TRUE,
+        seedit           = cfg$fs_seedit,
+        parallel_args    = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+      )),
+      error = function(e) NULL)
+    .sec <- proc.time()[3] - .t0
+    r <- score_fs(fs_grf, df, truth, method_label = "FS-grf")
+    r[, fit_seconds := .sec]
+    list(r)
+  } else list()
+
   # ---- dina_subgroup: one fit, scored under each focus (depth-2) ---------
+  # Time the shared dina() fit once and the per-focus selection separately.
+  # The per-row fit_seconds is (shared fit / n_foci) + that focus's selection,
+  # so summing the DINA rows recovers the true one-fit-many-selections cost.
+  .t_fit <- proc.time()[3]
   dfit <- tryCatch(
     dina(df = df, outcome = "y_sim", treatment = "treat_sim",
          covariates = covariates_v, family = "cox", status = "event_sim",
          n_folds = cfg$dina_n_folds, cens_type = "uniform",
          cens_params = list(T0 = cfg$cox_T0), seed = seed),
     error = function(e) NULL)
+  .fit_sec   <- proc.time()[3] - .t_fit
+  .fit_share <- .fit_sec / max(1L, length(cfg$dina_foci))
 
   dina_rows <- lapply(cfg$dina_foci, function(focus) {
+    .t0 <- proc.time()[3]
     dsg <- if (!is.null(dfit)) tryCatch(
       dina_subgroup(fit = dfit, df = df, covariates = covariates_v,
                     m_diff = cfg$m_diff, n_min = cfg$dina_n_min,
@@ -533,7 +637,10 @@ run_one_rep <- function(scenario, rep_id, cfg) {
                     effect_neighborhood = cfg$dina_eff_neighbor,
                     alpha = cfg$dina_alpha),
       error = function(e) NULL) else NULL
-    score_dina(dsg, df, truth, method_label = sprintf("DINA-%s", focus))
+    .sec <- (proc.time()[3] - .t0) + .fit_share
+    r <- score_dina(dsg, df, truth, method_label = sprintf("DINA-%s", focus))
+    r[, fit_seconds := .sec]
+    r
   })
 
   scen_cols <- data.table(
@@ -541,7 +648,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
     n = scenario$n, tau_in = scenario$tau_in, is_null = isTRUE(scenario$is_null),
     fs_maxk = cfg$fs_maxk, dina_max_depth = cfg$dina_max_depth, rep_id = rep_id,
     n_true_S = sum(df[["flag_harm"]] == 1L))
-  method_rows <- c(fs_rows, dina_rows)
+  method_rows <- c(fs_rows, grf_rows, dina_rows)
   rbindlist(lapply(method_rows, function(r) cbind(scen_cols, r)))
 }
 ```
@@ -606,10 +713,9 @@ if (CONFIG$parallel == "sims") {
 
 ## True subgroup size
 
-The true subgroup is the conjunction $S = \{x_1 \ge 0 \ \text{and}\ x_2 \le 0\}$
-with $x_1, x_2 \sim U[-1,1]$ independent, so each subject is in $S$ with
-probability $P(x_1 \ge 0)\,P(x_2 \le 0) = 0.5 \times 0.5 = 0.25$ and
-$|S| \sim \text{Binomial}(n, 0.25)$.
+The true subgroup is $S = \{x_1 \ge 0\}$ with $x_1 \sim U[-1,1]$, so each
+subject is in $S$ with probability $P(x_1 \ge 0) = 0.5$ and
+$|S| \sim \text{Binomial}(n, 0.5)$.
 
 ```{r true-S-size}
 marg_p <- function(dir, cut) if (dir == "left") (cut - (-1)) / 2 else (1 - cut) / 2
@@ -631,8 +737,8 @@ trueS_summary <- trueS[, .(
 trueS_summary |>
   gt::gt() |>
   gt::tab_header(
-    title = gt::md("**True subgroup size:** $S = \\{x_1 \\ge 0 \\ \\text{and}\\ x_2 \\le 0\\}$"),
-    subtitle = sprintf("independent U[-1,1]; |S| ~ Binomial(n, %.2f)", true_p)) |>
+    title = gt::md("**True subgroup size:** $S = \\{x_1 \\ge 0\\}$"),
+    subtitle = sprintf("x1 ~ U[-1,1]; |S| ~ Binomial(n, %.2f)", true_p)) |>
   gt::fmt_number(columns = c(expected_p, mean_frac), decimals = 3) |>
   gt::fmt_number(columns = c(expected_n, mean_n_true_S, sd_n_true_S),
                  decimals = 1) |>
@@ -641,8 +747,8 @@ trueS_summary |>
                  min_n_true_S = "min |S|", max_n_true_S = "max |S|",
                  mean_frac = "mean |S|/n") |>
   gt::tab_source_note(gt::md(
-    "*`|S|` is random across replications. A method recovering the conjunction
-     should report a discovered size near `mean |S|`; a size near `n`
+    "*`|S|` is random across replications. A method recovering the true
+     subgroup should report a discovered size near `mean |S|`; a size near `n`
      indicates the subgroup was extended well beyond the truth.*")) |>
   gt::tab_options(table.font.size = 12)
 ```
@@ -673,7 +779,7 @@ agg |>
   gt::tab_header(
     title = gt::md("**Two-factor signature identification: forestsearch vs dina_subgroup**"),
     subtitle = sprintf(
-      "Cox; true S = {x1 >= 0 & x2 <= 0}; HR threshold = %.2f; maxk = %d / max_depth = %d; %d sims/cell",
+      "Cox; true S = {x1 >= 0}; HR threshold = %.2f; maxk = %d / max_depth = %d; %d sims/cell",
       CONFIG$effect_threshold, CONFIG$fs_maxk, CONFIG$dina_max_depth, CONFIG$nsims)) |>
   gt::fmt_number(columns = c(detection_rate, covariate_set_hit, signature_correct,
                              sensitivity, specificity, ppv, jaccard,
@@ -691,42 +797,39 @@ agg |>
      axes directly, and forestsearch's cut labels are parsed (negations flip
      the direction); an em-dash means no found replications (or an unparseable
      label). `sens`/`spec`/`Jaccard` compare discovered membership to the true
-     conjunction mask. `mean #factors` should sit near 2 when the two-factor
-     truth is recovered.*")) |>
+     true subgroup mask. `mean #factors` should sit near 1 when the
+     single-factor truth is recovered.*")) |>
   gt::tab_options(table.font.size = 12)
 ```
 
 ## Signature axis recovery and threshold bias (dina_subgroup; axis-correct reps)
 
-For `dina_subgroup()` the conjunction axes are explicit, so among replications
-that recover the exact `(covariate, direction)` axes we can report per-component
-threshold bias against the true cuts $(c_1, c_2) = (0, 0)$.
+For `dina_subgroup()` the axis is explicit, so among replications that recover
+the exact `(covariate, direction)` axis we can report threshold bias against the
+true cut $c_1 = 0$.
 
 ```{r agg-threshold}
 thr <- results[startsWith(method, "DINA") & is_null == FALSE &
                  signature_correct == TRUE, .(
   n_axis_correct = .N,
-  bias_x1 = mean(te_1, na.rm = TRUE), rmse_x1 = sqrt(mean(te_1^2, na.rm = TRUE)),
-  bias_x2 = mean(te_2, na.rm = TRUE), rmse_x2 = sqrt(mean(te_2^2, na.rm = TRUE))
+  bias_x1 = mean(te_1, na.rm = TRUE), rmse_x1 = sqrt(mean(te_1^2, na.rm = TRUE))
 ), by = .(label, n, tau_in, method)][order(n, tau_in, method)]
 
 if (nrow(thr)) {
   thr |>
     gt::gt() |>
     gt::tab_header(
-      title = gt::md("**dina_subgroup conjunction-threshold recovery, by selection rule**"),
-      subtitle = sprintf("true cuts (x1, x2) = (%.2f, %.2f); m_diff = %.3f",
-                         CONFIG$true_cuts[1], CONFIG$true_cuts[2], CONFIG$m_diff)) |>
-    gt::fmt_number(columns = c(bias_x1, rmse_x1, bias_x2, rmse_x2), decimals = 3) |>
+      title = gt::md("**dina_subgroup threshold recovery, by selection rule**"),
+      subtitle = sprintf("true cut x1 = %.2f; m_diff = %.3f",
+                         CONFIG$true_cuts[1], CONFIG$m_diff)) |>
+    gt::fmt_number(columns = c(bias_x1, rmse_x1), decimals = 3) |>
     gt::cols_label(label = "Scenario", n = "n", tau_in = "tau_in",
                    method = "focus", n_axis_correct = "axis-correct reps",
-                   bias_x1 = "bias x1", rmse_x1 = "RMSE x1",
-                   bias_x2 = "bias x2", rmse_x2 = "RMSE x2") |>
+                   bias_x1 = "bias x1", rmse_x1 = "RMSE x1") |>
     gt::tab_source_note(gt::md(
-      "*Among reps recovering both axes, `effMaxSG`'s effect-neighborhood band
-       anchors each component cut near the truth (small bias), while `maxSG`'s
-       largest-qualifying rule pushes the cuts outward (larger, typically
-       negative-for-`>=` / positive-for-`<=` bias) as it extends membership.*")) |>
+      "*Among reps recovering the axis, `effMaxSG`'s effect-neighborhood band
+       anchors the cut near the truth (small bias), while the max-effect rule
+       (`eff`) can push the cut outward as it chases the largest effect.*")) |>
     gt::tab_options(table.font.size = 12)
 } else cat("No axis-correct DINA reps to summarise.\n")
 ```
@@ -750,9 +853,8 @@ fdr |>
                  false_discovery_rate = "false-discovery rate") |>
   gt::tab_source_note(gt::md(
     "*Under no heterogeneity any discovered subgroup is a false positive. The
-     larger two-factor hypothesis space (`maxk = 2` / `max_depth = 2`) can raise
-     the false-discovery rate relative to the single-factor study; the harm
-     thresholds remain the guard.*")) |>
+     single-factor hypothesis space (`maxk = 1` / `max_depth = 1`) keeps the
+     candidate space small; the harm thresholds remain the guard.*")) |>
   gt::tab_options(table.font.size = 12)
 ```
 
@@ -769,76 +871,112 @@ gc(verbose = FALSE)
 fmt_pct <- function(x) if (length(x) && is.finite(x)) sprintf("%.0f%%", 100 * x) else "NA"
 getm <- function(dt, m) { r <- dt[method == m]; if (nrow(r)) r else dt[0] }
 cell <- agg[n == max(n) & tau_in == CONFIG$tau_in[["strong"]]]
-fs_ef <- getm(cell, "FS-effMaxSG"); fs_mx <- getm(cell, "FS-maxSG")
-dn_ef <- getm(cell, "DINA-effMaxSG"); dn_mx <- getm(cell, "DINA-maxSG")
+dn_ef <- getm(cell, "DINA-effMaxSG"); dn_e <- getm(cell, "DINA-eff")
+fs_ef <- getm(cell, "FS-effMaxSG");   fs_e <- getm(cell, "FS-eff")
+grf   <- getm(cell, "FS-grf")
 
 cat(sprintf("
-At the strongest signal (n = %d, tau_in = %.1f, maxk = max_depth = 2):
+At the strongest signal (n = %d, tau_in = %.1f, maxk = max_depth = grf_depth = 1):
 
-* **dina_subgroup (effMaxSG, depth-2)** detected in %s, recovered the exact
-  {x1, x2} covariate set in %s of detections, signature axes in %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
-* **dina_subgroup (maxSG, depth-2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
-* **forestsearch (effMaxSG, maxk=2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, mean #factors %s.
-* **forestsearch (maxSG, maxk=2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
+* **DINA (effMaxSG)** detected in %s, recovered the {x1} covariate in %s of
+  detections, sensitivity %s, specificity %s, |S-hat|/n %s.
+* **DINA (eff)** detected in %s, cov-set hit %s, sensitivity %s, specificity %s.
+* **FS-consistency (effMaxSG)** detected in %s, cov-set hit %s, sensitivity %s,
+  specificity %s.
+* **FS-consistency (eff)** detected in %s, cov-set hit %s, sensitivity %s,
+  specificity %s.
+* **FS-grf** detected in %s, cov-set hit %s, sensitivity %s, specificity %s.
 
-For each method the only thing that changes between its two rows is the
-selection rule. The effect-neighborhood band (`effMaxSG`) anchors selection to
-the maximum qualifying effect and recovers the conjunction tightly; the
-largest-qualifying rule (`maxSG`) extends membership outward, raising
-sensitivity and lowering specificity.
+This is the single-factor case, the most favourable setting for DINA's
+univariate search. All three engines target the same one-covariate truth; the
+consistency and DINA arms additionally vary the selection rule (`effMaxSG` vs
+`eff`), while FS-grf selects via its policy tree.
 ",
   max(CONFIG$n_levels), CONFIG$tau_in[["strong"]],
   fmt_pct(dn_ef$detection_rate), fmt_pct(dn_ef$covariate_set_hit),
-  fmt_pct(dn_ef$signature_correct), fmt_pct(dn_ef$sensitivity),
-  fmt_pct(dn_ef$specificity), fmt_pct(dn_ef$mean_sg_frac),
-  fmt_pct(dn_mx$detection_rate), fmt_pct(dn_mx$covariate_set_hit),
-  fmt_pct(dn_mx$sensitivity), fmt_pct(dn_mx$specificity), fmt_pct(dn_mx$mean_sg_frac),
+  fmt_pct(dn_ef$sensitivity), fmt_pct(dn_ef$specificity), fmt_pct(dn_ef$mean_sg_frac),
+  fmt_pct(dn_e$detection_rate), fmt_pct(dn_e$covariate_set_hit),
+  fmt_pct(dn_e$sensitivity), fmt_pct(dn_e$specificity),
   fmt_pct(fs_ef$detection_rate), fmt_pct(fs_ef$covariate_set_hit),
   fmt_pct(fs_ef$sensitivity), fmt_pct(fs_ef$specificity),
-  sprintf("%.2f", fs_ef$mean_n_factors %||% NA_real_),
-  fmt_pct(fs_mx$detection_rate), fmt_pct(fs_mx$covariate_set_hit),
-  fmt_pct(fs_mx$sensitivity), fmt_pct(fs_mx$specificity), fmt_pct(fs_mx$mean_sg_frac)))
+  fmt_pct(fs_e$detection_rate), fmt_pct(fs_e$covariate_set_hit),
+  fmt_pct(fs_e$sensitivity), fmt_pct(fs_e$specificity),
+  fmt_pct(grf$detection_rate), fmt_pct(grf$covariate_set_hit),
+  fmt_pct(grf$sensitivity), fmt_pct(grf$specificity)))
 ```
 
 Points the tables support:
 
-* **Matched hypothesis space.** With `fs_maxk = 2` and `dina_max_depth = 2`,
-  both methods can express the two-factor truth, so differences reflect the
-  search and selection rule rather than an under-specified model. Re-running
-  with depth/`maxk` = 1 reproduces the single-factor restriction and shows the
-  cost of under-fitting a genuine conjunction (`cov-set hit` collapses because a
-  single factor can never match a two-covariate set).
-* **Selection rule, not search, drives the size --- for both methods.** Each
-  method appears twice, differing only in `sg_focus`. `effMaxSG` tightens the
-  subgroup toward the true conjunction (higher specificity, `|S-hat|/n` near the
-  true 0.25); `maxSG` extends it (higher sensitivity, lower specificity). The
-  `*-effMaxSG` vs `*-maxSG` pairs isolate this exactly.
-* **Multi-focus parity, with a cost caveat.** `dina_foci` reuses one cross-fitted
-  `dina()` fit across foci (cheap). `fs_foci` re-runs `forestsearch()` per focus,
-  because the screening + consistency search is not separable from selection
-  through the public API. The packaged interactive analog is
-  `compare_selection_rules(sg_focus = c("effMaxSG","maxSG"),
-  selection_rule = c("neighborhood","neighborhood"))`.
-* **Depth-2 threshold recovery.** For `dina_subgroup()`, among reps that recover
-  both axes, per-component bias against $(c_1, c_2) = (0, 0)$ is reported in the
-  threshold table; `effMaxSG` keeps both component cuts near the truth.
+* **Matched hypothesis space.** With `fs_maxk = 1`, `dina_max_depth = 1`, and
+  `grf_depth = 1`, every engine targets the single-covariate truth, so
+  differences reflect the search and selection rule rather than an
+  under-specified model. This is the ideal case for DINA's univariate search;
+  the two-factor companion shows the cost when the truth is a genuine
+  conjunction.
+* **Selection rule, not search, drives the size.** For the consistency and DINA
+  arms, `effMaxSG` tightens the subgroup toward the truth (higher specificity,
+  `|S-hat|/n` near the true 0.5), while the max-effect rule `eff` chases the
+  largest effect. The `*-effMaxSG` vs `*-eff` pairs isolate this.
+* **FS-grf is a single arm.** GRF selects via its depth-1 policy tree (no
+  `sg_focus`), so it appears once. Its membership-based metrics are directly
+  comparable to the other single-factor subgroups.
+* **Multi-focus cost.** `dina_foci` reuses one cross-fitted `dina()` fit across
+  foci (cheap); `fs_foci` re-runs `forestsearch()` per focus. The per-method
+  timing tables quantify this directly.
+* **Threshold recovery.** For `dina_subgroup()`, among reps recovering the axis,
+  bias against $c_1 = 0$ is reported in the threshold table; `effMaxSG` keeps
+  the cut near the truth.
 
-This study isolates **discovery** behaviour on a two-factor truth. It does not
-address post-selection inference (the conditional-on-signature CIs and the
+This study isolates **discovery** behaviour on a single-factor truth. It does
+not address post-selection inference (the conditional-on-signature CIs and the
 selection-adjusted bootstrap), which are separate questions.
 
 # Timing
+
+## Time per method
+
+How the study's wall-clock time divides across the methods. Each method's
+per-call elapsed time is recorded inside `run_one_rep()`; because replications
+run concurrently across workers under a parallel plan, the raw sum of per-call
+times is total *compute*, not elapsed time. To report real time, that compute
+is expressed as a **share** and applied to the measured wall-clock for the run
+(`timings$study`), so the `wall-clock min` column sums to the actual elapsed
+study time. (Under `parallel = "none"` the share and the raw compute coincide.)
+
+```{r timing-per-method}
+method_time <- results[, .(compute_min = sum(fit_seconds, na.rm = TRUE) / 60),
+                        by = .(method)]
+method_time[, share := compute_min / sum(compute_min)]
+# Apportion the real elapsed wall-clock (timings$study, in seconds) by share.
+method_time[, wall_min := share * (timings$study / 60)]
+method_time <- method_time[order(-share)]
+
+method_time[, .(method, share, wall_min)] |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**Time per method**"),
+    subtitle = sprintf("study wall-clock = %.2f min, apportioned by compute share",
+                       timings$study / 60)) |>
+  gt::fmt_percent(columns = share, decimals = 1) |>
+  gt::fmt_number(columns = wall_min, decimals = 2) |>
+  gt::cols_label(method = "method", share = "share of compute",
+                 wall_min = "wall-clock min") |>
+  gt::tab_source_note(gt::md(
+    "*`share of compute` is the method's fraction of total fit/selection time;
+     `wall-clock min` applies that share to the measured study wall-clock, so
+     the column sums to the real elapsed time. DINA's shared `dina()` fit is
+     split across its foci.*")) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+## Overall timing
 
 ```{r timing}
 timings$total <- Reduce(`+`, timings)
 data.frame(Step = names(timings),
            Minutes = round(unlist(timings) / 60, 2)) |>
   gt::gt() |>
-  gt::tab_header(title = "Computation timing") |>
+  gt::tab_header(title = "Computation timing (wall-clock)") |>
   gt::tab_style(style = gt::cell_text(weight = "bold"),
                 locations = gt::cells_body(rows = Step == "total"))
 ```

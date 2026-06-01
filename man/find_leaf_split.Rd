@@ -2,7 +2,7 @@
 % Please edit documentation in R/grf_helpers.R
 \name{find_leaf_split}
 \alias{find_leaf_split}
-\title{Find the split that leads to a specific leaf node}
+\title{Find the split that leads to a specific leaf node (deprecated)}
 \usage{
 find_leaf_split(tree, leaf_node)
 }
@@ -12,14 +12,25 @@ find_leaf_split(tree, leaf_node)
 \item{leaf_node}{Integer. Leaf node identifier}
 }
 \value{
-Character string with split expression or NULL
+Character string with a single split expression, or NULL.
 }
 \description{
-Identifies the split point that creates a given leaf node
+\strong{Deprecated.}
+
+Returns only the single split immediately above \code{leaf_node}, rendered as
+\code{"var <= value"}.  This is \strong{not} a correct subgroup definition for a leaf
+below depth 1: it drops the rest of the root-to-leaf path and mis-renders
+right-turns (which are \code{>}, not \code{<=}).  Use the path-based
+\code{.grf_build_subgroup_definition()} instead, which
+\code{grf.subg.harm.survival()} now calls internally.  Retained (exported) only
+for backward compatibility; it is no longer used inside the package and
+will be removed in a future release.
 }
 \examples{
 \dontrun{
-# find_leaf_split() is called internally by grf.subg.harm.survival().
-# See grf.subg.harm.survival() for the standard entry point.
+# Deprecated; grf.subg.harm.survival() builds the full path internally.
 }
+}
+\seealso{
+\code{\link{grf.subg.harm.survival}} for the standard entry point.
 }

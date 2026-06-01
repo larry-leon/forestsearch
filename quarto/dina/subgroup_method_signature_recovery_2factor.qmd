@@ -1,6 +1,6 @@
 ---
-title: "forestsearch() vs dina_subgroup(): Signature-Identification Comparison (Two-Factor)"
-subtitle: "Matched harm-subgroup recovery on a two-factor conjunction DGM (depth-2 / maxk = 2)"
+title: "Subgroup-Method Signature Recovery (Two-Factor)"
+subtitle: "Matched harm-subgroup recovery for FS-consistency, FS-grf, and standalone DINA on a two-factor conjunction DGM (depth-2 / maxk = 2)"
 author: "forestsearch v0.2.0"
 date: today
 format:
@@ -87,6 +87,30 @@ re-selection helper could build on.)
 > (`maxk = 2` widens the candidate set further). Keep `nsims` modest and scale up
 > on a multi-core machine.
 
+## A third arm: `forestsearch(subgroup_method = "grf")`
+
+Alongside the consistency-search FS arm and standalone DINA, the study includes
+a **GRF-selection** arm: `forestsearch(subgroup_method = "grf")`, which delegates
+subgroup selection to a GRF causal-survival-forest policy tree. Two things make
+it a single arm rather than a per-focus family:
+
+* **GRF does not use `sg_focus`.** It selects the harm leaf from the policy
+  tree under `dmin.grf` / `grf_depth`, not the effect-neighborhood
+  (`effMaxSG` / `eff`) rule the consistency and DINA arms vary. So there is one
+  `FS-grf` row per replication, not one per focus.
+* **`grf_depth = 2` is the `forestsearch()` default** and matches the
+  two-factor truth, so GRF can express the conjunction. GRF *partitions*
+  rather than selecting a single box, so its harm region may be a single
+  leaf (a conjunction) or a union of leaves (a disjunction); the scoring
+  handles both (see below).
+
+Because GRF membership is taken from the policy tree, the membership-based
+recovery metrics (sensitivity, specificity, Jaccard) are always well defined.
+The text-parsing metrics (`cov-set hit`, `sig correct`, `mean #factors`) apply
+cleanly only to a single-conjunction subgroup; when GRF returns a **union** of
+leaves they are reported as `NA` rather than mis-parsed, since a union has no
+single signed-axis signature.
+
 ---
 
 # Configuration
@@ -149,6 +173,17 @@ CONFIG <- list(
   #        ),
   # use defaults
   fs_dina_args = list(),
+
+  # ---- FS-grf knobs (subgroup_method = "grf"): GRF policy-tree selection.
+  #   GRF selects via the policy tree / dmin.grf, NOT the sg_focus
+  #   effect-neighborhood rule, so FS-grf is a SINGLE run per replication
+  #   (one row, method "FS-grf"), not a per-focus loop.  grf_depth = 2 is the
+  #   forestsearch() default and matches the two-factor truth.
+  fs_grf_enable   = TRUE,
+  fs_grf_depth    = 2L,        # GRF tree depth (forestsearch() default)
+  fs_grf_dmin     = 0.0,       # min subgroup mean-difference (HR/log scale)
+  fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
+
   # ---- dina_subgroup knobs ----
   dina_n_folds   = 2L,
   dina_n_min     = 60L,
@@ -272,7 +307,8 @@ empty_row <- function(method) data.table(
   n_subgroup = NA_integer_, n_factors = NA_integer_,
   te_1 = NA_real_, te_2 = NA_real_,
   sensitivity = NA_real_, specificity = NA_real_, ppv = NA_real_,
-  npv = NA_real_, jaccard = NA_real_, sg_def = NA_character_
+  npv = NA_real_, jaccard = NA_real_, sg_def = NA_character_,
+  fit_seconds = NA_real_
 )
 
 # When nothing is found and the cell is non-null: everyone predicted Hc.
@@ -323,14 +359,31 @@ score_fs <- function(fs, df, truth, method_label = "FS") {
 
   sg_txt <- paste(sg[!is.na(sg)], collapse = " & ")
   out[, sg_def := sg_txt]
-  out[, n_factors := sum(!is.na(sg))]
-  if (!truth$is_null) {
-    out[, covariate_set_hit := .covset_in_text(sg_txt, truth$covariates)]
-    # Signed-axis recovery for forestsearch, parsed from the cut labels
-    # (negations flip the direction).  NA if any label is unparseable.
-    fs_axes <- .parse_fs_axes(sg_txt)
-    out[, signature_correct := if (length(fs_axes) == 1L && is.na(fs_axes[1]))
-          NA else setequal(fs_axes, paste(truth$covariates, truth$directions))]
+
+  # A GRF union of leaves is carried as a single disjunctive definition string
+  # "(a & b) | (c & d)".  Membership-based metrics (sens/spec/ppv/Jaccard) are
+  # always valid because they read treat.recommend, but the text-parsing
+  # metrics (n_factors, covariate_set_hit, signature_correct) do not have a
+  # clean single-conjunction meaning for a union, so flag them NA rather than
+  # mis-parse the disjunction.
+  is_disjunction <- length(sg) == 1L && grepl("|", sg, fixed = TRUE)
+
+  if (is_disjunction) {
+    out[, n_factors := NA_integer_]
+    if (!truth$is_null) {
+      out[, covariate_set_hit := NA]
+      out[, signature_correct := NA]
+    }
+  } else {
+    out[, n_factors := sum(!is.na(sg))]
+    if (!truth$is_null) {
+      out[, covariate_set_hit := .covset_in_text(sg_txt, truth$covariates)]
+      # Signed-axis recovery for forestsearch, parsed from the cut labels
+      # (negations flip the direction).  NA if any label is unparseable.
+      fs_axes <- .parse_fs_axes(sg_txt)
+      out[, signature_correct := if (length(fs_axes) == 1L && is.na(fs_axes[1]))
+            NA else setequal(fs_axes, paste(truth$covariates, truth$directions))]
+    }
   }
 
   df_est <- tryCatch(fs$df.est, error = function(e) NULL)
@@ -476,6 +529,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
   # Unlike DINA, the screening + consistency search is not cached across
   # foci, so each focus is a separate forestsearch() call.
   fs_rows <- lapply(cfg$fs_foci, function(focus) {
+    .t0 <- proc.time()[3]
     fs <- tryCatch(
       suppressWarnings(forestsearch(
         df.analysis      = df,
@@ -511,18 +565,67 @@ run_one_rep <- function(scenario, rep_id, cfg) {
                                 show_message = FALSE)
       )),
       error = function(e) NULL)
-    score_fs(fs, df, truth, method_label = sprintf("FS-%s", focus))
+    .sec <- proc.time()[3] - .t0
+    r <- score_fs(fs, df, truth, method_label = sprintf("FS-%s", focus))
+    r[, fit_seconds := .sec]
+    r
   })
 
+  # ---- forestsearch GRF-selection mode (subgroup_method = "grf") ----------
+  # GRF selects the subgroup from its policy tree (depth-2 by default), NOT via
+  # the sg_focus effect-neighborhood rule, so this is a SINGLE run per
+  # replication labelled "FS-grf" -- not a per-focus loop.  Configured by the
+  # call's GRF arguments (grf_depth / dmin.grf / frac.tau); use_lasso/use_dina
+  # are irrelevant in this mode (selection bypasses screening).
+  grf_rows <- if (isTRUE(cfg$fs_grf_enable)) {
+    .t0 <- proc.time()[3]
+    fs_grf <- tryCatch(
+      suppressWarnings(forestsearch(
+        df.analysis      = df,
+        confounders.name = covariates_v,
+        outcome.name     = "y_sim",
+        event.name       = "event_sim",
+        treat.name       = "treat_sim",
+        id.name          = "id",
+        est.scale        = "hr",
+        subgroup_method  = "grf",
+        effect.threshold = cfg$effect_threshold,
+        grf_depth        = cfg$fs_grf_depth,
+        dmin.grf         = cfg$fs_grf_dmin,
+        frac.tau         = cfg$fs_grf_fractau,
+        n.min            = cfg$fs_n_min,
+        use_grf          = FALSE,   # selection IS GRF; no separate screening
+        use_lasso        = FALSE,
+        is.RCT           = TRUE,
+        details          = FALSE,
+        quiet            = TRUE,
+        seedit           = cfg$fs_seedit,
+        parallel_args    = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+      )),
+      error = function(e) NULL)
+    .sec <- proc.time()[3] - .t0
+    r <- score_fs(fs_grf, df, truth, method_label = "FS-grf")
+    r[, fit_seconds := .sec]
+    list(r)
+  } else list()
+
   # ---- dina_subgroup: one fit, scored under each focus (depth-2) ---------
+  # Time the shared dina() fit once and the per-focus selection separately.
+  # The per-row fit_seconds is (shared fit / n_foci) + that focus's selection,
+  # so summing the DINA rows recovers the true one-fit-many-selections cost.
+  .t_fit <- proc.time()[3]
   dfit <- tryCatch(
     dina(df = df, outcome = "y_sim", treatment = "treat_sim",
          covariates = covariates_v, family = "cox", status = "event_sim",
          n_folds = cfg$dina_n_folds, cens_type = "uniform",
          cens_params = list(T0 = cfg$cox_T0), seed = seed),
     error = function(e) NULL)
+  .fit_sec   <- proc.time()[3] - .t_fit
+  .fit_share <- .fit_sec / max(1L, length(cfg$dina_foci))
 
   dina_rows <- lapply(cfg$dina_foci, function(focus) {
+    .t0 <- proc.time()[3]
     dsg <- if (!is.null(dfit)) tryCatch(
       dina_subgroup(fit = dfit, df = df, covariates = covariates_v,
                     m_diff = cfg$m_diff, n_min = cfg$dina_n_min,
@@ -533,7 +636,10 @@ run_one_rep <- function(scenario, rep_id, cfg) {
                     effect_neighborhood = cfg$dina_eff_neighbor,
                     alpha = cfg$dina_alpha),
       error = function(e) NULL) else NULL
-    score_dina(dsg, df, truth, method_label = sprintf("DINA-%s", focus))
+    .sec <- (proc.time()[3] - .t0) + .fit_share
+    r <- score_dina(dsg, df, truth, method_label = sprintf("DINA-%s", focus))
+    r[, fit_seconds := .sec]
+    r
   })
 
   scen_cols <- data.table(
@@ -541,7 +647,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
     n = scenario$n, tau_in = scenario$tau_in, is_null = isTRUE(scenario$is_null),
     fs_maxk = cfg$fs_maxk, dina_max_depth = cfg$dina_max_depth, rep_id = rep_id,
     n_true_S = sum(df[["flag_harm"]] == 1L))
-  method_rows <- c(fs_rows, dina_rows)
+  method_rows <- c(fs_rows, grf_rows, dina_rows)
   rbindlist(lapply(method_rows, function(r) cbind(scen_cols, r)))
 }
 ```
@@ -833,12 +939,50 @@ selection-adjusted bootstrap), which are separate questions.
 
 # Timing
 
+## Time per method
+
+How the study's wall-clock time divides across the methods. Each method's
+per-call elapsed time is recorded inside `run_one_rep()`; because replications
+run concurrently across workers under a parallel plan, the raw sum of per-call
+times is total *compute*, not elapsed time. To report real time, that compute
+is expressed as a **share** and applied to the measured wall-clock for the run
+(`timings$study`), so the `wall-clock min` column sums to the actual elapsed
+study time. (Under `parallel = "none"` the share and the raw compute coincide.)
+
+```{r timing-per-method}
+method_time <- results[, .(compute_min = sum(fit_seconds, na.rm = TRUE) / 60),
+                        by = .(method)]
+method_time[, share := compute_min / sum(compute_min)]
+# Apportion the real elapsed wall-clock (timings$study, in seconds) by share.
+method_time[, wall_min := share * (timings$study / 60)]
+method_time <- method_time[order(-share)]
+
+method_time[, .(method, share, wall_min)] |>
+  gt::gt() |>
+  gt::tab_header(
+    title = gt::md("**Time per method**"),
+    subtitle = sprintf("study wall-clock = %.2f min, apportioned by compute share",
+                       timings$study / 60)) |>
+  gt::fmt_percent(columns = share, decimals = 1) |>
+  gt::fmt_number(columns = wall_min, decimals = 2) |>
+  gt::cols_label(method = "method", share = "share of compute",
+                 wall_min = "wall-clock min") |>
+  gt::tab_source_note(gt::md(
+    "*`share of compute` is the method's fraction of total fit/selection time;
+     `wall-clock min` applies that share to the measured study wall-clock, so
+     the column sums to the real elapsed time. DINA's shared `dina()` fit is
+     split across its foci.*")) |>
+  gt::tab_options(table.font.size = 12)
+```
+
+## Overall timing
+
 ```{r timing}
 timings$total <- Reduce(`+`, timings)
 data.frame(Step = names(timings),
            Minutes = round(unlist(timings) / 60, 2)) |>
   gt::gt() |>
-  gt::tab_header(title = "Computation timing") |>
+  gt::tab_header(title = "Computation timing (wall-clock)") |>
   gt::tab_style(style = gt::cell_text(weight = "bold"),
                 locations = gt::cells_body(rows = Step == "total"))
 ```
