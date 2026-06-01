@@ -264,8 +264,19 @@ grf.subg.harm.survival <- function(data,
   # Select the tree that identified the best subgroup
   selected_tree <- trees[[best_subgroup$depth]]
 
-  # Find the specific split that defines the subgroup
-  sg_harm_id <- find_leaf_split(selected_tree, best_subgroup$leaf.node)
+  # Find the decision rule that defines the subgroup.  The survival subgroup
+  # is a SINGLE leaf (best_subgroup$leaf.node), so its definition is the full
+  # root-to-leaf conjunction with correct per-split directions.  The earlier
+  # find_leaf_split() returned only the single split immediately above the
+  # leaf, which silently dropped the rest of the path and mis-rendered
+  # right-turns as "<=" -- producing a definition that did not match the
+  # subgroup GRF actually selected.  .grf_build_subgroup_definition() builds
+  # the correct path; sg.harm.id is the bare cut-expression vector (directions
+  # included), back-compatible in shape with the old single-leaf output.
+  sg_def     <- .grf_build_subgroup_definition(selected_tree,
+                                               best_subgroup$leaf.node)
+  sg_harm_id <- if (!is.null(sg_def$labels))
+                  gsub("^\\{|\\}$", "", sg_def$labels) else sg_def$definition
 
   # Extract cuts based on return_selected_cuts_only setting
   if (config$return_selected_cuts_only) {
@@ -292,6 +303,9 @@ grf.subg.harm.survival <- function(data,
     values = values,
     config = config
   )
+  # Structured subgroup definition (path-based, direction-correct; possibly a
+  # disjunction) for downstream membership evaluation on new data.
+  result$sg_def <- sg_def
 
   return(result)
 }

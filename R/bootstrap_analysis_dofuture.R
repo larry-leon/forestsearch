@@ -352,7 +352,11 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
   # keep the covariate columns when the re-run is DINA-mode.
   .sm <- fs.est$args_call_all$subgroup_method
   if (is.null(.sm)) .sm <- "consistency"
-  if (identical(.sm, "dina")) {
+  if (.sm %in% c("dina", "grf")) {
+    # DINA- and GRF-selection modes re-fit their model (dina() / GRF forest)
+    # on each resample from the confounder columns, so those columns must be
+    # retained on the per-resample data.  Only the consistency search rebuilds
+    # its own factor encoding and therefore drops the raw confounders.
     drop_vars_boot <- "treat.recommend"
   } else {
     drop_vars_boot <- c(fs.est$confounders.candidate, "treat.recommend")
@@ -764,18 +768,28 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         length(run_bootstrap$sg.harm) > 0L) {
 
       sgh  <- as.character(run_bootstrap$sg.harm)
-      K_sg <- length(sgh)
 
-      # Factor labels in canonical (sorted) order, matching the sort+collapse
-      # convention summarize_bootstrap_subgroups() uses for subgroup identity.
-      sgh_sorted <- sort(sgh)
-      if (K_sg >= 1L) M.1 <- sgh_sorted[1L]
-      if (K_sg >= 2L) M.2 <- sgh_sorted[2L]
-      if (K_sg >= 3L) M.3 <- sgh_sorted[3L]
-      if (K_sg >= 4L) M.4 <- sgh_sorted[4L]
-      if (K_sg >= 5L) M.5 <- sgh_sorted[5L]
-      if (K_sg >= 6L) M.6 <- sgh_sorted[6L]
-      if (K_sg >= 7L) M.7 <- sgh_sorted[7L]
+      # A GRF union of leaves is carried as a single disjunctive definition
+      # string "(a & b) | (c & d)", which is not a flat factor vector.  Flag it
+      # rather than miscount it as one factor: K_sg = NA, M.1 = the definition.
+      is_disjunction <- length(sgh) == 1L && grepl("|", sgh, fixed = TRUE)
+
+      if (is_disjunction) {
+        K_sg <- NA_integer_
+        M.1  <- sgh[1L]
+      } else {
+        K_sg <- length(sgh)
+        # Factor labels in canonical (sorted) order, matching the sort+collapse
+        # convention summarize_bootstrap_subgroups() uses for subgroup identity.
+        sgh_sorted <- sort(sgh)
+        if (K_sg >= 1L) M.1 <- sgh_sorted[1L]
+        if (K_sg >= 2L) M.2 <- sgh_sorted[2L]
+        if (K_sg >= 3L) M.3 <- sgh_sorted[3L]
+        if (K_sg >= 4L) M.4 <- sgh_sorted[4L]
+        if (K_sg >= 5L) M.5 <- sgh_sorted[5L]
+        if (K_sg >= 6L) M.6 <- sgh_sorted[6L]
+        if (K_sg >= 7L) M.7 <- sgh_sorted[7L]
+      }
 
       # Subgroup size / events on the BOOTSTRAP analysis sample (the resample
       # on which the subgroup was selected), mirroring consistency-mode N/E.

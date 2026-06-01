@@ -537,10 +537,23 @@ grf.subg.harm.glm <- function(
   # ---------------------------------------------------------------------------
   # Extract tree cuts and subgroup definition
   # ---------------------------------------------------------------------------
-  tree_cuts <- .extract_tree_cuts(trees[[best$depth]], X, confounders.name)
-  sg_harm_id <- .build_sg_harm_id(
-    trees[[best$depth]], confounders.name, data
-  )
+  # The GLM subgroup is the set of action-1 (recommend-control) leaves, which
+  # can span MORE THAN ONE leaf -- a union of axis-aligned boxes.  Build the
+  # exact root-to-leaf rule for each such leaf, with correct directions, via
+  # .grf_build_subgroup_definition(); the result is a disjunction of
+  # conjunctions when the subgroup spans multiple leaves.  The earlier
+  # .build_sg_harm_id() emitted every internal-node split as "<=", ignoring
+  # path and direction, so its definition did not match the subgroup GRF
+  # actually selected.
+  best_tree    <- trees[[best$depth]]
+  best_node_id <- predict(best_tree, X, type = "node.id")
+  harm_leaves  <- sort(unique(best_node_id[best$sg_idx]))
+  tree_cuts    <- .extract_tree_cuts(best_tree, X, confounders.name)
+  sg_def       <- .grf_build_subgroup_definition(best_tree, harm_leaves)
+  # sg.harm.id: component-label vector for a single conjunction (back-compatible
+  # shape), or the disjunctive definition string for a multi-leaf union.
+  sg_harm_id   <- if (!is.null(sg_def$labels))
+                    gsub("^\\{|\\}$", "", sg_def$labels) else sg_def$definition
 
   data$treat.recommend <- ifelse(seq_len(n) %in% best$sg_idx, 0L, 1L)
 
@@ -563,6 +576,7 @@ grf.subg.harm.glm <- function(
   structure(
     list(
       sg.harm.id          = sg_harm_id,
+      sg_def              = sg_def,
       data                = data,
       tree.cuts           = tree_cuts,
       grf_varimp          = vi,
@@ -821,23 +835,10 @@ create_glm_row <- function(
 }
 
 
-# Build sg.harm.id character vector from policy tree splits
-#' @noRd
-.build_sg_harm_id <- function(tree, confounders.name, data) {
-  if (is.null(tree)) return(NULL)
-  tryCatch({
-    nodes <- tree$nodes
-    parts <- character(0)
-    for (nd in nodes) {
-      if (!is.null(nd$split_variable) && !is.null(nd$split_value)) {
-        var_name <- confounders.name[nd$split_variable]
-        cut_val  <- nd$split_value
-        parts    <- c(parts, sprintf("%s <= %.4g", var_name, cut_val))
-      }
-    }
-    unique(parts)
-  }, error = function(e) NULL)
-}
+# Superseded by .grf_build_subgroup_definition() in grf_subgroup_labels.R,
+# which builds the correct root-to-leaf rule(s) with proper directions
+# (the former .build_sg_harm_id() emitted every node split as "<=", ignoring
+# path and direction).  Removed in this release.
 
 
 # Resolve GLM family for create_glm_row()

@@ -92,6 +92,32 @@ get_dfpred <- function(df.predict, sg.harm, version = 1) {
   df.pred <- df.predict
   labels <- if (!is.null(names(sg.harm))) unname(sg.harm) else sg.harm
 
+  # GRF union-of-leaves subgroups are carried as a single disjunctive
+  # definition string, e.g. "(x1 > 0 & x2 <= 1) | (x1 <= 0 & x3 > 0)", which
+  # is NOT an AND-composed factor vector.  Detect that form and evaluate it as
+  # a disjunction of conjunctions (each conjunction an AND of "var op value"
+  # comparisons) so membership matches the GRF policy tree.  All other inputs
+  # fall through to the standard AND-composition below.
+  if (length(labels) == 1L && grepl("|", labels, fixed = TRUE)) {
+    conj_strings <- strsplit(labels, "\\s*\\|\\s*")[[1]]
+    in_any <- rep(FALSE, nrow(df.pred))
+    for (cs in conj_strings) {
+      cs_clean <- gsub("^\\s*\\(|\\)\\s*$", "", cs)          # strip parens
+      comps    <- strsplit(cs_clean, "\\s*&\\s*")[[1]]
+      in_cj    <- rep(TRUE, nrow(df.pred))
+      for (cmp in comps) {
+        cmp_clean  <- gsub("^!?\\{(.*)\\}$", "\\1", trimws(cmp))
+        is_negated <- grepl("^!", trimws(cmp))
+        member     <- evaluate_comparison(cmp_clean, df.pred)
+        if (is_negated) member <- !member
+        in_cj <- in_cj & member
+      }
+      in_any <- in_any | in_cj
+    }
+    df.pred$treat.recommend <- ifelse(in_any, 0L, 1L)
+    return(df.pred)
+  }
+
   # Build membership indicator for each factor
   in_harm <- rep(TRUE, nrow(df.pred))
 
@@ -1158,5 +1184,175 @@ reset_workers <- function(workers   = NULL,
 
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        dina_res = dina_res, df.est = df.est,
+       df.predict = df.predict_out, df.test = df.test_out)
+}
+
+
+#' GRF-selection mode for forestsearch (subgroup_method = "grf")
+#'
+#' Delegates subgroup *selection* to the GRF subgroup-identification routine
+#' (\code{grf.subg.harm.survival()} for survival, \code{grf.subg.harm.glm()}
+#' for GLM outcomes), bypassing the LASSO/DINA screening and the consistency
+#' search.  This is the GRF analogue of \code{\link{.forestsearch_dina_select}}:
+#' the policy-tree harm leaf is returned as a forestsearch cut-label vector
+#' plus the membership (\code{treat.recommend}) tables that the
+#' estimation/bootstrap machinery consumes.
+#'
+#' The GRF run is configured from the enclosing \code{forestsearch()} call's
+#' existing GRF arguments (\code{frac.tau}, \code{dmin.grf}, \code{grf_depth},
+#' \code{is.RCT}, \code{seedit}, and the GLM extras), built through the same
+#' \code{.build_grf_survival_args()} / \code{.build_grf_glm_args()} helpers the
+#' screening path uses, so a GRF-selection run is identical to the GRF screening
+#' fit -- only the consumption differs.  \code{return_selected_cuts_only} is
+#' forced to \code{TRUE} here: the selected harm leaf is the subgroup, so the
+#' single root-to-leaf cut set (not the full per-depth cut pool) is what defines
+#' it.
+#'
+#' GRF emits each split as a \code{"var <= value"} expression, and a depth-d
+#' harm leaf is the AND-intersection of its d ancestor splits, so
+#' \code{grf_res$sg.harm.id} is a length-d character vector that maps directly
+#' onto a d-element forestsearch label vector (wrapped in braces for
+#' \code{get_dfpred()}).  Membership is then re-derived from those labels via
+#' \code{get_dfpred()}, exactly as the DINA path does, which makes it apply
+#' cleanly to \code{df.predict}/\code{df.test} and is verified to reproduce
+#' GRF's own tree-node assignment.
+#'
+#' @return A list with \code{found}, \code{sg.harm} (label vector or NULL),
+#'   \code{grp.consistency} (a consistency-shaped list), \code{grf_res} (the
+#'   raw GRF result object), and \code{df.est}/\code{df.predict}/\code{df.test}
+#'   carrying \code{treat.recommend} (0 = selected subgroup).
+#' @noRd
+.forestsearch_grf_select <- function(df, df.predict, df.test,
+                                     confounders.name, outcome.name,
+                                     event.name, treat.name, id.name,
+                                     outcome_type, n.min,
+                                     frac.tau, dmin.grf, grf_depth, is.RCT,
+                                     adverse_outcome = FALSE,
+                                     offset.name = NULL,
+                                     overdispersion = "none",
+                                     grf_count_transform = "log",
+                                     grf_res = NULL, seedit = 8316951L,
+                                     details = FALSE) {
+
+  # Fit GRF unless a fit was supplied.  Build args through the same helpers the
+  # screening path uses so the GRF-selection fit cannot drift from GRF
+  # screening.  return_selected_cuts_only = TRUE: the harm leaf IS the subgroup.
+  if (is.null(grf_res)) {
+    if (identical(outcome_type, "survival")) {
+      surv_args <- .build_grf_survival_args(
+        data                      = df,
+        confounders.name          = confounders.name,
+        outcome.name              = outcome.name,
+        event.name                = event.name,
+        id.name                   = id.name,
+        treat.name                = treat.name,
+        frac.tau                  = frac.tau,
+        n.min                     = n.min,
+        dmin.grf                  = dmin.grf,
+        is.RCT                    = is.RCT,
+        grf_depth                 = grf_depth,
+        seedit                    = seedit,
+        return_selected_cuts_only = TRUE
+      )
+      grf_res <- do.call(grf.subg.harm.survival, surv_args)
+    } else {
+      glm_args <- .build_grf_glm_args(
+        data                      = df,
+        confounders.name          = confounders.name,
+        outcome.name              = outcome.name,
+        treat.name                = treat.name,
+        id.name                   = id.name,
+        outcome_type              = outcome_type,
+        n.min                     = n.min,
+        dmin.grf                  = dmin.grf,
+        is.RCT                    = is.RCT,
+        grf_depth                 = grf_depth,
+        seedit                    = seedit,
+        return_selected_cuts_only = TRUE,
+        adverse_outcome           = adverse_outcome,
+        offset.name               = offset.name,
+        overdispersion            = overdispersion,
+        grf_count_transform       = grf_count_transform
+      )
+      grf_res <- do.call(grf.subg.harm.glm, glm_args)
+    }
+  }
+
+  # Structured, path-based subgroup definition (correct directions; a
+  # disjunction of conjunctions when the GRF subgroup spans multiple leaves).
+  # Built inside grf.subg.harm.* and returned as $sg_def.  Membership is
+  # derived from this definition via .grf_evaluate_subgroup(), which reproduces
+  # predict(tree, X) exactly and applies cleanly to df.predict / df.test.
+  sg_def <- grf_res$sg_def
+  found  <- !is.null(grf_res) && !inherits(grf_res, "try-error") &&
+            !is.null(sg_def) && length(sg_def$conjunctions) > 0L
+
+  if (isTRUE(details)) {
+    lines <- c(
+      "",
+      "[forestsearch] GRF selection (subgroup_method = \"grf\")",
+      paste0("  Outcome type:   ", outcome_type),
+      paste0("  grf_depth:      ", grf_depth),
+      paste0("  dmin.grf:       ", dmin.grf),
+      paste0("  frac.tau:       ", frac.tau),
+      paste0("  n.min:          ", n.min)
+    )
+    if (found) {
+      lines <- c(lines,
+                 paste0("  SELECTED (depth ",
+                        if (!is.null(grf_res$selected_depth))
+                          grf_res$selected_depth
+                        else if (!is.null(grf_res$best_depth))
+                          grf_res$best_depth else NA,
+                        if (isTRUE(sg_def$is_disjunction))
+                          ", union of leaves" else "",
+                        "): ", sg_def$definition))
+    } else {
+      lines <- c(lines, "  SELECTED: none -- GRF identified no harm subgroup.")
+    }
+    message(paste(lines, collapse = "\n"))
+  }
+
+  if (!found) {
+    return(list(found = FALSE, sg.harm = NULL, grp.consistency = NULL,
+                grf_res = grf_res, df.est = df,
+                df.predict = df.predict, df.test = df.test))
+  }
+
+  # sg.harm representation:
+  #   * single conjunction -> brace-label vector ("{var op val}"), the same
+  #     AND-composed representation a DINA/consistency subgroup uses;
+  #   * union of leaves     -> a single disjunctive definition string
+  #     "(a & b) | (c & d)", which get_dfpred() cannot evaluate, so membership
+  #     for ALL cases is computed from the structured definition instead.
+  sg.harm <- if (!is.null(sg_def$labels)) sg_def$labels else sg_def$definition
+
+  # Membership from the structured definition (reproduces predict(tree, X);
+  # valid on df / df.predict / df.test).
+  tr_est  <- .grf_evaluate_subgroup(sg_def, df)
+  df.est  <- df; df.est$treat.recommend <- tr_est
+  df.predict_out <- if (!is.null(df.predict)) {
+    o <- df.predict; o$treat.recommend <- .grf_evaluate_subgroup(sg_def, df.predict); o
+  } else NULL
+  df.test_out <- if (!is.null(df.test)) {
+    o <- df.test; o$treat.recommend <- .grf_evaluate_subgroup(sg_def, df.test); o
+  } else NULL
+
+  id_vals <- if (id.name %in% names(df)) df[[id.name]]
+             else if ("id" %in% names(df)) df[["id"]]
+             else seq_len(nrow(df))
+  df_flag <- data.frame(id = id_vals,
+                        treat.recommend = df.est$treat.recommend)
+
+  grp.consistency <- list(
+    out_sg     = grf_res,
+    sg.harm    = sg.harm,
+    sg.harm.id = as.integer(df.est$treat.recommend == 0L),
+    df_flag    = df_flag,
+    algorithm  = "grf"
+  )
+
+  list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
+       grf_res = grf_res, df.est = df.est,
        df.predict = df.predict_out, df.test = df.test_out)
 }

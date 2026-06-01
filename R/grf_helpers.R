@@ -301,21 +301,36 @@ extract_tree_cuts <- function(tree) {
   ))
 }
 
-#' Find the split that leads to a specific leaf node
+#' Find the split that leads to a specific leaf node (deprecated)
 #'
-#' Identifies the split point that creates a given leaf node
+#' @description
+#' \strong{Deprecated.}
+#'
+#' Returns only the single split immediately above `leaf_node`, rendered as
+#' `"var <= value"`.  This is **not** a correct subgroup definition for a leaf
+#' below depth 1: it drops the rest of the root-to-leaf path and mis-renders
+#' right-turns (which are `>`, not `<=`).  Use the path-based
+#' `.grf_build_subgroup_definition()` instead, which
+#' `grf.subg.harm.survival()` now calls internally.  Retained (exported) only
+#' for backward compatibility; it is no longer used inside the package and
+#' will be removed in a future release.
 #'
 #' @param tree Policy tree object
 #' @param leaf_node Integer. Leaf node identifier
-#' @return Character string with split expression or NULL
+#' @return Character string with a single split expression, or NULL.
+#' @seealso \code{\link{grf.subg.harm.survival}} for the standard entry point.
 #' @examples
 #' \dontrun{
-#' # find_leaf_split() is called internally by grf.subg.harm.survival().
-#' # See grf.subg.harm.survival() for the standard entry point.
+#' # Deprecated; grf.subg.harm.survival() builds the full path internally.
 #' }
 #' @export
 
 find_leaf_split <- function(tree, leaf_node) {
+  .Deprecated("grf.subg.harm.survival",
+              msg = paste0("'find_leaf_split()' is deprecated: it returns only ",
+                           "one split above a leaf and mis-renders right-turns. ",
+                           "GRF subgroup definitions are now built from the full ",
+                           "root-to-leaf path inside grf.subg.harm.survival()."))
   grf_names <- tree$columns
   tnodes <- tree$nodes
 

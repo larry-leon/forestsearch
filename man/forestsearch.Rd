@@ -28,7 +28,7 @@ forestsearch(
   dina_res = NULL,
   dina_cuts = NULL,
   dina_args = list(),
-  subgroup_method = c("consistency", "dina"),
+  subgroup_method = c("consistency", "dina", "grf"),
   max_n_confounders = 1000,
   grf_depth = 2,
   dmin.grf = 0,
@@ -174,9 +174,9 @@ same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 contribute the full frontier candidate set instead. Unknown keys raise
 an error.}
 
-\item{subgroup_method}{Character, one of \code{"consistency"} (default)
-or \code{"dina"}. \code{"consistency"} is the standard ForestSearch
-pipeline (GRF/LASSO screening then the consistency search).
+\item{subgroup_method}{Character, one of \code{"consistency"} (default),
+\code{"dina"}, or \code{"grf"}. \code{"consistency"} is the standard
+ForestSearch pipeline (GRF/LASSO screening then the consistency search).
 \code{"dina"} delegates subgroup \emph{selection} to
 \code{\link{dina_subgroup}} and bypasses GRF, LASSO and the consistency
 search: a DINA model is fit, a single subgroup is selected using this
@@ -184,9 +184,20 @@ call's \code{sg_focus} / \code{selection_rule} /
 \code{effect_neighborhood} / \code{n.min} / \code{hr.threshold}, and
 that subgroup is returned as \code{sg.harm}. \code{dina_args} supplies
 only the DINA \emph{fit} tuning in this mode (frontier keys are
-ignored). The existing bootstrap de-biasing applies unchanged,
-re-fitting and re-selecting DINA on each replicate. Currently depth-1
-(single covariate).}
+ignored). \code{"grf"} is the GRF analogue: it delegates selection to the
+GRF subgroup-identification routine
+(\code{\link{grf.subg.harm.survival}} for survival,
+\code{\link{grf.subg.harm.glm}} for GLM outcomes), again bypassing LASSO,
+DINA and the consistency search, and returns the policy-tree harm leaf as
+\code{sg.harm}. GRF-selection mode is configured from this call's existing
+GRF arguments (\code{frac.tau}, \code{dmin.grf}, \code{grf_depth},
+\code{is.RCT}, \code{seedit}, and the GLM extras) -- there is no separate
+argument list -- so it uses the same settings GRF screening would. For
+both \code{"dina"} and \code{"grf"}, the existing bootstrap de-biasing
+applies unchanged, re-fitting and re-selecting on each replicate. The
+selected subgroup may be a single covariate or, where the method's depth
+allows (DINA \code{max_depth = 2}; GRF \code{grf_depth >= 2}), an
+AND-conjunction.}
 
 \item{max_n_confounders}{Integer. Maximum confounders to consider. Default 1000.}
 
