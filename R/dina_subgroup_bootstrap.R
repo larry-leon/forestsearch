@@ -33,13 +33,12 @@
 #'     `dina_subgroup()` -- conditional on the discovered subgroup
 #'     definition, with width reflecting sampling variance of
 #'     `beta-hat`.
-#'   * **Stability CIs** on the bootstrap-selected `n_subgroup` and the
-#'     cut threshold(s), restricted to iterations that selected the same
-#'     cut-set (covariate(s) and direction(s)) as the original-data
-#'     subgroup.  For a depth-2 conjunction the threshold CI is reported
-#'     per covariate.
-#'   * A **selection-frequency table** counting how often each cut-set
-#'     was chosen.  The structural-selection stability diagnostic.
+#'   * **Stability CIs** on the bootstrap-selected `n_subgroup` and
+#'     `threshold`, restricted to iterations that selected the same
+#'     `(covariate, direction)` as the original-data subgroup.
+#'   * A **selection-frequency table** counting how often each
+#'     `(covariate, direction)` was chosen.  The covariate-selection
+#'     stability diagnostic.
 #'
 #' Each bootstrap iteration calls `dina()` (single-pass, sandwich
 #' variance) under the hood, not `dina_bagged()`.
@@ -117,17 +116,15 @@
 #' @param status character(1) or `NULL`; for `family = "cox"` only,
 #'   the event indicator column name.
 #' @param m_diff scalar harm threshold on the natural-parameter scale.
-#' @param n_min positive integer; minimum subgroup size.  Default `60L`.
+#' @param n_min positive integer, or `NULL`; minimum subgroup size.  Default
+#'   `60L`.  Passing `n_min = NULL` opts into the sample-size-adaptive floor
+#'   `max(60, ceiling(n_min.frac * nrow(df)))`, matching [dina_subgroup()].
+#'   When supplying a pre-computed `sg`, use the same `n_min` (or `n_min.frac`)
+#'   it was found with, since the resolved value must match `sg$n_min`.
+#' @param n_min.frac numeric in (0, 1); fraction of `nrow(df)` used for the
+#'   adaptive `n_min` floor when `n_min = NULL`.  Default `0.10`.  Ignored when
+#'   `n_min` is supplied.
 #' @param direction one of `"both"` (default), `"left"`, `"right"`.
-#' @param max_depth integer, `1L` (default) or `2L`, forwarded to
-#'   `dina_subgroup()` for both the point estimate and every bootstrap
-#'   iteration.  `2L` allows the selected subgroup to be an AND-conjunction
-#'   of two covariates; see [dina_subgroup()].  When `sg` is supplied, the
-#'   per-iteration search follows the depth of `sg` (its `max_depth`).
-#' @param grid_probs numeric vector of probabilities in `[0, 1]`; the
-#'   per-covariate quantile grid for depth-2 pair thresholds, forwarded to
-#'   `dina_subgroup()`.  Only consulted when the effective depth is `2`.
-#'   Default interior deciles `seq(0.1, 0.9, 0.1)`.
 #' @param sg_focus character; subgroup selection criterion, forwarded to
 #'   `dina_subgroup()` for both the original-data point estimate and every
 #'   bootstrap iteration.  One of `"maxSG"` (default), `"minSG"`, `"eff"`,
@@ -209,34 +206,25 @@
 #'     \item{refit_effect_dist}{numeric vector of length `n_boot` of
 #'       per-iteration within-signature standard-model treatment
 #'       effects (`NA` where not computed or the fit failed).}
-#'     \item{n_subgroup_ci}{named length-2 numeric vector; percentile CI
-#'       for the bootstrap-selected subgroup size, restricted to
-#'       iterations matching the original-data **cut-set** (same
-#'       covariate(s) and direction(s), via a threshold-independent key).}
-#'     \item{threshold_ci}{boundary-location stability, restricted to the
-#'       same matched iterations.  For a single-covariate subgroup, a
-#'       named length-2 numeric vector.  For a depth-2 conjunction, a
-#'       matrix with one row per covariate (rownames = covariate) and
-#'       columns `lower`/`upper`, since the two thresholds are not
-#'       comparable on a common scale.}
-#'     \item{n_modal_match}{integer; number of bootstrap iterations whose
-#'       selection matched the original-data cut-set key.  Denominator for
-#'       the stability CIs.}
-#'     \item{selection_frequency}{a one-dimensional `table` of canonical
-#'       cut-set keys (e.g. `"nodes >="`, or `"age >= & nodes >="` for a
-#'       conjunction) across found iterations.  The structural-selection
-#'       stability diagnostic, generalizing the depth-1
-#'       `(covariate, direction)` table.}
+#'     \item{n_subgroup_ci, threshold_ci}{named length-2 numeric
+#'       vectors giving percentile CIs for the structural quantities
+#'       of bootstrap-selected subgroups, restricted to iterations
+#'       that selected the same `(covariate, direction)` as the
+#'       original-data subgroup.  Subgroup-size and boundary-location
+#'       stability diagnostics.}
+#'     \item{n_modal_match}{integer; number of bootstrap iterations
+#'       whose selection matched the original-data
+#'       `(covariate, direction)`.  Denominator for the stability CIs.}
+#'     \item{selection_frequency}{a `table` of
+#'       `(covariate, direction)` selection counts across found
+#'       iterations.  Covariate-selection stability diagnostic.}
 #'     \item{boot_results}{data frame with one row per bootstrap
-#'       iteration; columns `found`, `key` (canonical cut-set key),
-#'       `depth` (1 or 2), `n_subgroup`, `mean_tau_hat`, `failed`, plus
-#'       back-compatible `covariate`, `direction`, `threshold` columns
-#'       (the scalar cut for single-covariate selections, `NA` for depth-2
-#'       conjunctions -- whose per-iteration cuts are summarized by `key`).
-#'       The `mean_tau_hat` column records the bootstrap-selected
-#'       subgroup's boundary value (pinned near `m_diff` by the search
-#'       rule) and is retained for diagnostic transparency rather than as
-#'       a meaningful effect estimate.}
+#'       iteration; columns `found`, `covariate`, `direction`,
+#'       `threshold`, `n_subgroup`, `mean_tau_hat`, `failed`.  The
+#'       `mean_tau_hat` column records the bootstrap-selected
+#'       subgroup's boundary value (pinned near `m_diff` by the
+#'       search rule) and is retained for diagnostic transparency
+#'       rather than as a meaningful effect estimate.}
 #'     \item{n_boot, n_boot_found, n_boot_failed}{convergence
 #'       diagnostics.}
 #'     \item{alpha, m_diff, n_min, sg_focus, effect_neighborhood,
@@ -286,9 +274,8 @@ dina_subgroup_bootstrap <- function(df,
                                     status = NULL,
                                     m_diff,
                                     n_min = 60L,
+                                    n_min.frac = 0.10,
                                     direction = c("both", "left", "right"),
-                                    max_depth = 1L,
-                                    grid_probs = seq(0.1, 0.9, by = 0.1),
                                     sg_focus = "maxSG",
                                     effect_neighborhood = 0.10,
                                     alpha = 0.05,
@@ -326,6 +313,29 @@ dina_subgroup_bootstrap <- function(df,
     stop("`alpha` must be a single numeric in (0, 1).")
   }
 
+  # Resolve the sample-size-adaptive floor when n_min = NULL, mirroring
+  # dina_subgroup(): at least 60, and at least n_min.frac of nrow(df).  Done
+  # before the sg-consistency check below so a NULL here resolves to the same
+  # integer dina_subgroup() stored on `sg` (provided the same n_min.frac and
+  # df), and the sg$n_min match check passes.  A supplied n_min is used as-is.
+  if (is.null(n_min)) {
+    if (!is.numeric(n_min.frac) || length(n_min.frac) != 1L ||
+        is.na(n_min.frac) || n_min.frac <= 0 || n_min.frac >= 1) {
+      stop("`n_min.frac` must be a single number in (0, 1).")
+    }
+    n_min <- max(60L, as.integer(ceiling(n_min.frac * nrow(df))))
+    if (isTRUE(verbose)) {
+      message(sprintf(
+        "n_min = NULL -> resolved to %d  (max(60, ceiling(%.3g * %d))).",
+        n_min, n_min.frac, nrow(df)))
+    }
+  } else {
+    n_min <- as.integer(n_min)
+    if (length(n_min) != 1L || is.na(n_min) || n_min < 1L) {
+      stop("`n_min` must be a single positive integer, or NULL.")
+    }
+  }
+
   # Normalize the GLM-natural sg_focus vocabulary to the canonical form
   # (matches dina_subgroup()), then whitelist.  The per-iteration search
   # and the original-data point estimate both use the canonical value.
@@ -338,17 +348,6 @@ dina_subgroup_bootstrap <- function(df,
          "\"hrMaxSG\", \"hrMinSG\" are also accepted).")
   }
   .validate_effect_neighborhood(effect_neighborhood)
-
-  max_depth <- as.integer(max_depth)
-  if (length(max_depth) != 1L || is.na(max_depth) ||
-      !max_depth %in% c(1L, 2L)) {
-    stop("`max_depth` must be 1 or 2.")
-  }
-  if (max_depth == 2L &&
-      (!is.numeric(grid_probs) || length(grid_probs) < 1L ||
-       anyNA(grid_probs) || any(grid_probs < 0) || any(grid_probs > 1))) {
-    stop("`grid_probs` must be a numeric vector in [0, 1] with no NAs.")
-  }
 
   if (parallel == "boots") {
     n_workers <- future::nbrOfWorkers()
@@ -450,8 +449,7 @@ dina_subgroup_bootstrap <- function(df,
     sg_point <- dina_subgroup(
       fit = fit, df = df, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, max_depth = max_depth, grid_probs = grid_probs,
-      sg_focus = sg_focus,
+      direction = direction, sg_focus = sg_focus,
       effect_neighborhood = effect_neighborhood, alpha = alpha
     )
   } else {
@@ -464,21 +462,10 @@ dina_subgroup_bootstrap <- function(df,
     sg_point <- dina_subgroup(
       fit = fit_point, df = df, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, max_depth = max_depth, grid_probs = grid_probs,
-      sg_focus = sg_focus,
+      direction = direction, sg_focus = sg_focus,
       effect_neighborhood = effect_neighborhood, alpha = alpha
     )
   }
-
-  # Per-iteration selection must use the same depth as the point estimate.
-  # When `sg` was supplied it may have been computed at max_depth = 2, so
-  # follow its depth; otherwise the point estimate above used `max_depth`.
-  # `grid_probs` is not stored on the subgroup object, so it always comes
-  # from the argument (default deciles).
-  sel_max_depth <- if (!is.null(sg_point$max_depth))
-                     as.integer(sg_point$max_depth) else max_depth
-  sel_grid_probs <- grid_probs
-  sg_is_depth2   <- isTRUE(sg_point$found) && length(sg_point$covariate) > 1L
 
   # ---- Within-subgroup standard-model point estimate --------------------
   # The DINA effect above is the BLP-analog a*^T beta.  Clinical reporting
@@ -490,13 +477,6 @@ dina_subgroup_bootstrap <- function(df,
   # signature -- coherent with, and directly comparable to, the DINA
   # effect_ci.  Neither CI is selection-adjusted.
   do_refit          <- isTRUE(refit) && isTRUE(sg_point$found)
-  if (do_refit && sg_is_depth2) {
-    warning("`refit = TRUE` is not yet supported for depth-2 (conjunction) ",
-            "subgroups; skipping the within-subgroup standard-model refit. ",
-            "The DINA effect_ci and stability diagnostics are unaffected.",
-            call. = FALSE)
-    do_refit <- FALSE
-  }
   refit_point       <- NULL
   refit_conf_used   <- character(0)
   refit_signature   <- NULL
@@ -548,7 +528,6 @@ dina_subgroup_bootstrap <- function(df,
         df = df, outcome = outcome, treatment = treatment,
         covariates = covariates, family = family, status = status,
         m_diff = m_diff, n_min = n_min, direction = direction,
-        max_depth = sel_max_depth, grid_probs = sel_grid_probs,
         sg_focus = sg_focus, effect_neighborhood = effect_neighborhood,
         alpha = alpha, dina_args = dina_args,
         refit = do_refit, refit_signature = refit_signature,
@@ -566,7 +545,6 @@ dina_subgroup_bootstrap <- function(df,
         df = df, outcome = outcome, treatment = treatment,
         covariates = covariates, family = family, status = status,
         m_diff = m_diff, n_min = n_min, direction = direction,
-        max_depth = sel_max_depth, grid_probs = sel_grid_probs,
         sg_focus = sg_focus, effect_neighborhood = effect_neighborhood,
         alpha = alpha, dina_args = dina_args,
         refit = do_refit, refit_signature = refit_signature,
@@ -581,43 +559,18 @@ dina_subgroup_bootstrap <- function(df,
   # linear functional a*^T beta_b -- is computed separately below using
   # each iteration's full coefficient vector and the FIXED a* from the
   # original-data subgroup.
-  #
-  # Each iteration's selected cut(s) are carried in `boot_cuts` (a list of
-  # covariate/direction/threshold vectors, length 1 for a single cut, 2 for
-  # a conjunction), with a scalar canonical `key` for structural matching.
-  boot_cuts <- lapply(boot_list, function(r) {
-    if (is.null(r$cuts)) {
-      list(covariate = character(0), direction = character(0),
-           threshold = numeric(0))
-    } else r$cuts
-  })
-
   boot_df <- data.frame(
     found        = vapply(boot_list, function(r) {
                     if (is.na(r$found)) NA else as.logical(r$found)
                    }, logical(1L)),
-    key          = vapply(boot_list, function(r) {
-                    if (is.null(r$key)) NA_character_ else r$key
-                   }, character(1L)),
-    depth        = vapply(boot_list, function(r) {
-                    if (is.null(r$depth)) NA_integer_ else as.integer(r$depth)
-                   }, integer(1L)),
-    n_subgroup   = vapply(boot_list, `[[`, integer(1L), "n_subgroup"),
-    mean_tau_hat = vapply(boot_list, `[[`, numeric(1L), "mean_tau_hat"),
-    failed       = vapply(boot_list, `[[`, logical(1L), "failed"),
+    covariate    = vapply(boot_list, `[[`, character(1L), "covariate"),
+    direction    = vapply(boot_list, `[[`, character(1L), "direction"),
+    threshold    = vapply(boot_list, `[[`, numeric(1L),   "threshold"),
+    n_subgroup   = vapply(boot_list, `[[`, integer(1L),   "n_subgroup"),
+    mean_tau_hat = vapply(boot_list, `[[`, numeric(1L),   "mean_tau_hat"),
+    failed       = vapply(boot_list, `[[`, logical(1L),   "failed"),
     stringsAsFactors = FALSE
   )
-  # Back-compatible scalar cut columns: populated for single-covariate
-  # selections (identical to the legacy depth-1 output); NA for depth-2
-  # conjunctions, whose cuts live in `key` and `boot_cuts`.
-  boot_df$covariate <- vapply(boot_cuts, function(c)
-    if (length(c$covariate) == 1L) c$covariate else NA_character_,
-    character(1L))
-  boot_df$direction <- vapply(boot_cuts, function(c)
-    if (length(c$direction) == 1L) c$direction else NA_character_,
-    character(1L))
-  boot_df$threshold <- vapply(boot_cuts, function(c)
-    if (length(c$threshold) == 1L) c$threshold else NA_real_, numeric(1L))
 
   n_boot_failed <- sum(boot_df$failed)
   fit_mask      <- !boot_df$failed
@@ -677,24 +630,17 @@ dina_subgroup_bootstrap <- function(df,
   }
 
   # ---- Stability CIs on subgroup structure ------------------------------
-  # Restricted to iterations that selected the SAME structural cut-set as
-  # the original-data subgroup -- same covariate(s) and direction(s),
-  # regardless of thresholds -- via the canonical key.  This generalizes
-  # the depth-1 "(covariate, direction)" match to conjunctions.  Threshold
-  # CIs are reported per component (one per covariate in the matched
-  # cut-set), since thresholds on different covariates are not comparable;
-  # for a single-covariate subgroup this is the usual length-2 CI.
-  key_point <- if (isTRUE(sg_point$found))
-                 .dina_cutset_key(sg_point$covariate, sg_point$direction)
-               else NA_character_
-
+  # n_subgroup and threshold are restricted to iterations that selected
+  # the SAME (covariate, direction) as the original-data subgroup, since
+  # thresholds on different covariates are not comparable.
   n_subgroup_ci <- c(lower = NA_real_, upper = NA_real_)
   threshold_ci  <- c(lower = NA_real_, upper = NA_real_)
   n_modal_match <- NA_integer_
 
   if (isTRUE(sg_point$found) && n_boot_found > 0L) {
-    modal_match <- found_mask & !is.na(boot_df$key) &
-      boot_df$key == key_point
+    modal_match <- found_mask &
+      boot_df$covariate == sg_point$covariate &
+      boot_df$direction == sg_point$direction
     n_modal_match <- as.integer(sum(modal_match))
 
     if (n_modal_match >= 2L) {
@@ -705,35 +651,21 @@ dina_subgroup_bootstrap <- function(df,
       )
       n_subgroup_ci <- c(lower = n_sg_qs[1L], upper = n_sg_qs[2L])
 
-      # Align each matched iteration's thresholds to the point subgroup's
-      # covariates (matched iterations share the same covariate set, so the
-      # match() never misses).
-      covs_pt <- sg_point$covariate
-      matched <- which(modal_match)
-      thr_mat <- matrix(NA_real_, nrow = length(matched),
-                        ncol = length(covs_pt))
-      for (r in seq_along(matched)) {
-        cc <- boot_cuts[[matched[r]]]
-        thr_mat[r, ] <- cc$threshold[match(covs_pt, cc$covariate)]
-      }
-      per_comp <- t(vapply(seq_len(ncol(thr_mat)), function(j) {
-        stats::quantile(thr_mat[, j], probs = c(alpha / 2, 1 - alpha / 2),
-                        names = FALSE, na.rm = TRUE)
-      }, numeric(2L)))
-      if (length(covs_pt) == 1L) {
-        threshold_ci <- c(lower = per_comp[1L, 1L], upper = per_comp[1L, 2L])
-      } else {
-        dimnames(per_comp) <- list(covs_pt, c("lower", "upper"))
-        threshold_ci <- per_comp
-      }
+      thr_qs <- stats::quantile(
+        boot_df$threshold[modal_match],
+        probs = c(alpha / 2, 1 - alpha / 2),
+        names = FALSE, na.rm = TRUE
+      )
+      threshold_ci <- c(lower = thr_qs[1L], upper = thr_qs[2L])
     }
   }
 
   # ---- Selection-frequency diagnostic -----------------------------------
-  # Counts of the canonical cut-set key across found iterations -- the
-  # depth-agnostic generalization of the (covariate, direction) table.
   selection_frequency <- if (n_boot_found > 0L) {
-    table(selection = boot_df$key[found_mask])
+    table(
+      covariate = boot_df$covariate[found_mask],
+      direction = boot_df$direction[found_mask]
+    )
   } else {
     NULL
   }
@@ -778,28 +710,6 @@ dina_subgroup_bootstrap <- function(df,
 
 
 # ---------------------------------------------------------------------------
-# Internal helper: canonical cut-set key for selection stability
-# ---------------------------------------------------------------------------
-
-#' Canonical, threshold-independent key for a (possibly multi-covariate)
-#' subgroup selection.
-#'
-#' Two selections share a key iff they use the same set of covariates with
-#' the same per-covariate directions, regardless of thresholds (which are
-#' the quantity whose stability is being measured) and regardless of cut
-#' order.  Depth-1 keys look like \code{"nodes >="}; depth-2 keys like
-#' \code{"age >= & nodes >="} (component cuts sorted for order-independence).
-#' Returns \code{NA_character_} for an empty selection.
-#'
-#' @noRd
-.dina_cutset_key <- function(covariate, direction) {
-  if (length(covariate) == 0L) return(NA_character_)
-  op <- ifelse(direction == "left", "<=", ">=")
-  paste(sort(paste0(covariate, " ", op)), collapse = " & ")
-}
-
-
-# ---------------------------------------------------------------------------
 # Internal helper: one bootstrap iteration with error handling
 # ---------------------------------------------------------------------------
 
@@ -822,8 +732,6 @@ dina_subgroup_bootstrap <- function(df,
 .dina_safe_one_bootstrap <- function(idx, df, outcome, treatment, covariates,
                                      family, status,
                                      m_diff, n_min, direction,
-                                     max_depth = 1L,
-                                     grid_probs = seq(0.1, 0.9, by = 0.1),
                                      sg_focus = "maxSG",
                                      effect_neighborhood = 0.10, alpha,
                                      dina_args,
@@ -847,8 +755,7 @@ dina_subgroup_bootstrap <- function(df,
     sg_b <- dina_subgroup(
       fit = fit_b, df = df_b, covariates = covariates,
       m_diff = m_diff, n_min = n_min,
-      direction = direction, max_depth = max_depth, grid_probs = grid_probs,
-      sg_focus = sg_focus,
+      direction = direction, sg_focus = sg_focus,
       effect_neighborhood = effect_neighborhood, alpha = alpha
     )
     list(beta = beta_b, sg_b = sg_b, failed = FALSE, message = "")
@@ -886,11 +793,9 @@ dina_subgroup_bootstrap <- function(df,
     list(
       beta         = dina_part$beta,
       found        = TRUE,
-      cuts         = list(covariate = sg_b$covariate,
-                          direction = sg_b$direction,
-                          threshold = as.numeric(sg_b$threshold)),
-      key          = .dina_cutset_key(sg_b$covariate, sg_b$direction),
-      depth        = length(sg_b$covariate),
+      covariate    = sg_b$covariate,
+      direction    = sg_b$direction,
+      threshold    = as.numeric(sg_b$threshold),
       n_subgroup   = as.integer(sg_b$n_subgroup),
       mean_tau_hat = as.numeric(sg_b$mean_tau_hat),
       refit_effect = refit_effect,
@@ -901,10 +806,9 @@ dina_subgroup_bootstrap <- function(df,
     list(
       beta         = dina_part$beta,
       found        = FALSE,
-      cuts         = list(covariate = character(0), direction = character(0),
-                          threshold = numeric(0)),
-      key          = NA_character_,
-      depth        = NA_integer_,
+      covariate    = NA_character_,
+      direction    = NA_character_,
+      threshold    = NA_real_,
       n_subgroup   = NA_integer_,
       mean_tau_hat = NA_real_,
       refit_effect = refit_effect,
@@ -915,10 +819,9 @@ dina_subgroup_bootstrap <- function(df,
     list(
       beta         = na_beta,
       found        = NA,
-      cuts         = list(covariate = character(0), direction = character(0),
-                          threshold = numeric(0)),
-      key          = NA_character_,
-      depth        = NA_integer_,
+      covariate    = NA_character_,
+      direction    = NA_character_,
+      threshold    = NA_real_,
       n_subgroup   = NA_integer_,
       mean_tau_hat = NA_real_,
       refit_effect = refit_effect,
@@ -975,11 +878,9 @@ print.dina_subgroup_bootstrap <- function(x,
 
   cat("\nPoint estimate (original data):\n")
   if (isTRUE(x$point$found)) {
-    ops <- ifelse(x$point$direction == "left", "<=", ">=")
-    sig <- paste(paste0(x$point$covariate, " ", ops, " ",
-                        format(x$point$threshold, digits = digits)),
-                 collapse = " & ")
-    cat("  Signature:    ", sig, "\n", sep = "")
+    cmp <- if (x$point$direction == "left") "<=" else ">="
+    cat("  Signature:    ", x$point$covariate, " ", cmp, " ",
+        format(x$point$threshold, digits = digits), "\n", sep = "")
     cat("  n_subgroup:   ", x$point$n_subgroup, " / ",
         x$point$n_total, "\n", sep = "")
     cat("  mean tau-hat: ", format(x$point$mean_tau_hat, digits = digits),
@@ -1033,22 +934,13 @@ print.dina_subgroup_bootstrap <- function(x,
   if (!is.na(x$n_modal_match) && x$n_modal_match >= 2L) {
     cat("\nStructural stability CIs (", ci_pct,
         " pct percentile, ", x$n_modal_match,
-        " iterations matching the modal cut-set):\n", sep = "")
+        " iterations matching the modal (covariate, direction)):\n", sep = "")
     cat("  n_subgroup:   [",
         format(x$n_subgroup_ci[["lower"]], digits = digits), ", ",
         format(x$n_subgroup_ci[["upper"]], digits = digits), "]\n", sep = "")
-    tci <- x$threshold_ci
-    if (is.matrix(tci)) {
-      for (k in seq_len(nrow(tci))) {
-        cat("  threshold[", rownames(tci)[k], "]: [",
-            format(tci[k, "lower"], digits = digits), ", ",
-            format(tci[k, "upper"], digits = digits), "]\n", sep = "")
-      }
-    } else {
-      cat("  threshold:    [",
-          format(tci[["lower"]], digits = digits), ", ",
-          format(tci[["upper"]], digits = digits), "]\n", sep = "")
-    }
+    cat("  threshold:    [",
+        format(x$threshold_ci[["lower"]], digits = digits), ", ",
+        format(x$threshold_ci[["upper"]], digits = digits), "]\n", sep = "")
   }
 
   if (!is.null(x$selection_frequency)) {
@@ -1057,16 +949,16 @@ print.dina_subgroup_bootstrap <- function(x,
     sel_long <- sel_long[sel_long$Freq > 0L, , drop = FALSE]
     sel_long <- sel_long[order(-sel_long$Freq), , drop = FALSE]
     n_show <- min(max_select, nrow(sel_long))
-    cat("\nTop ", n_show,
-        " subgroup selections across found iterations:\n", sep = "")
+    cat("\nTop ", n_show, " (covariate, direction) selections across found iterations:\n",
+        sep = "")
     for (i in seq_len(n_show)) {
-      cat(sprintf("  %s:  %d of %d  (%.0f pct)\n",
-                  sel_long$selection[i],
+      cat(sprintf("  %s (%s):  %d of %d  (%.0f pct)\n",
+                  sel_long$covariate[i], sel_long$direction[i],
                   sel_long$Freq[i], x$n_boot_found,
                   100 * sel_long$Freq[i] / x$n_boot_found))
     }
     if (nrow(sel_long) > n_show) {
-      cat(sprintf("  ... %d more selections.\n",
+      cat(sprintf("  ... %d more (covariate, direction) combinations.\n",
                   nrow(sel_long) - n_show))
     }
   }

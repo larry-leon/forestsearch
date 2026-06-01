@@ -128,7 +128,16 @@
 #' @param m_diff scalar harm threshold on the natural-parameter scale
 #'   of `fit$family`.  Subgroups are kept only if their mean tau-hat
 #'   meets or exceeds this value.
-#' @param n_min positive integer; minimum subgroup size.
+#' @param n_min positive integer, or `NULL`; minimum subgroup size. Default
+#'   `60L`. Supplying a value (or omitting it) uses that fixed floor. Passing
+#'   `n_min = NULL` opts into a sample-size-adaptive floor
+#'   `max(60, ceiling(n_min.frac * n))`, where `n = nrow(df)` -- at least 60,
+#'   and at least `n_min.frac` of `n`. The resolved integer is stored on the
+#'   returned object (`$n_min`), so [dina_subgroup_bootstrap()] and
+#'   [dina_subgroup_refit()] inherit it.
+#' @param n_min.frac numeric in (0, 1); fraction of `nrow(df)` used for the
+#'   adaptive `n_min` floor when `n_min = NULL`. Default `0.10`. Ignored when
+#'   `n_min` is supplied.
 #'   Default `60L`, matching the convention in GRF and `forestsearch()`.
 #' @param direction one of `"both"` (default), `"left"`, or `"right"`.
 #'   For each covariate `x_j` controls whether to search subgroups of
@@ -246,6 +255,7 @@
 dina_subgroup <- function(fit, df, covariates,
                           m_diff,
                           n_min = 60L,
+                          n_min.frac = 0.10,
                           direction = c("both", "left", "right"),
                           max_depth = 1L,
                           grid_probs = seq(0.1, 0.9, by = 0.1),
@@ -262,9 +272,18 @@ dina_subgroup <- function(fit, df, covariates,
     stop("`m_diff` must be a single finite numeric value.")
   }
   direction <- match.arg(direction)
-  n_min <- as.integer(n_min)
-  if (length(n_min) != 1L || is.na(n_min) || n_min < 1L) {
-    stop("`n_min` must be a single positive integer.")
+  # n_min may be NULL to opt into the sample-size-adaptive floor (resolved
+  # below, once n = nrow(X) is known).  A supplied value is validated now.
+  if (!is.null(n_min)) {
+    n_min <- as.integer(n_min)
+    if (length(n_min) != 1L || is.na(n_min) || n_min < 1L) {
+      stop("`n_min` must be a single positive integer, or NULL.")
+    }
+  } else {
+    if (!is.numeric(n_min.frac) || length(n_min.frac) != 1L ||
+        is.na(n_min.frac) || n_min.frac <= 0 || n_min.frac >= 1) {
+      stop("`n_min.frac` must be a single number in (0, 1).")
+    }
   }
   max_depth <- as.integer(max_depth)
   if (length(max_depth) != 1L || is.na(max_depth) ||
@@ -308,6 +327,14 @@ dina_subgroup <- function(fit, df, covariates,
   X <- .dina_extract_X_from_df(df, covariates)
   n <- nrow(X)
   d <- ncol(X)
+
+  # Resolve the sample-size-adaptive floor when n_min = NULL: at least 60, and
+  # at least n_min.frac of the sample size n.  Backward compatible -- a supplied
+  # n_min is used as-is.  The resolved integer is stored on the returned object
+  # (sg$n_min), so dina_subgroup_bootstrap()/dina_subgroup_refit() inherit it.
+  if (is.null(n_min)) {
+    n_min <- max(60L, as.integer(ceiling(n_min.frac * n)))
+  }
 
   if (n_min > n) {
     stop("`n_min` (", n_min, ") exceeds nrow(df) (", n, ").")

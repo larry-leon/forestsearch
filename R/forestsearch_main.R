@@ -332,7 +332,18 @@
 #'   semantics.  Variables not listed retain default behaviour.
 #'   Forwarded to \code{\link{get_FSdata}} via \code{filter_call_args()};
 #'   see there for full semantics.
-#' @param n.min Integer. Minimum subgroup size. Default 60.
+#' @param n.min Integer or \code{NULL}. Minimum subgroup size. Default 60.
+#'   Supplying a value (or omitting the argument) uses that fixed floor, as in
+#'   prior versions. Passing \code{n.min = NULL} opts into a sample-size-adaptive
+#'   floor \code{max(60, ceiling(n.min.frac * N))}, where \code{N} is the
+#'   analysis sample size -- at least 60, and at least \code{n.min.frac} of
+#'   \code{N}. Growing the minimum subgroup size with \code{N} curbs false
+#'   discovery from very small subgroups in large samples. The resolved integer
+#'   is used everywhere downstream (screening, DINA, GRF, the consistency
+#'   search, and the bootstrap).
+#' @param n.min.frac Numeric in (0, 1). Fraction of the analysis sample size
+#'   used for the adaptive \code{n.min} floor when \code{n.min = NULL}. Default
+#'   0.10. Ignored when \code{n.min} is supplied.
 #' @param effect.threshold Numeric or NULL. Screening threshold for candidate
 #'   subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio
 #'   scale (e.g., 1.5 means OR >= 1.5).  For identity-scale measures
@@ -707,6 +718,7 @@ forestsearch <- function(df.analysis,
                          conf.cont_medians_force = NULL,
                          conf.cont_jcuts = NULL,
                          n.min = 60,
+                         n.min.frac = 0.10,
                          effect.threshold = NULL,
                          consistency.threshold = NULL,
                          hr.threshold = 1.25,
@@ -781,6 +793,42 @@ forestsearch <- function(df.analysis,
   user_set_consistency <- !is.null(consistency.threshold) || !missing(hr.consistency)
   if (!is.null(effect.threshold))      hr.threshold   <- effect.threshold
   if (!is.null(consistency.threshold)) hr.consistency <- consistency.threshold
+
+  # ===========================================================================
+  # SECTION 1A2: RESOLVE ADAPTIVE n.min (opt-in via n.min = NULL)
+  # ===========================================================================
+  # Backward compatible: the default n.min = 60 is unchanged when supplied or
+  # omitted.  Passing n.min = NULL opts into a sample-size-adaptive floor
+  #   n.min <- max(60, ceiling(n.min.frac * N))
+  # i.e. at least 60, and at least n.min.frac of the analysis sample size N.
+  # This grows the minimum subgroup size with N to curb false discovery from
+  # tiny subgroups in large samples.  Resolved here (before the args_call_all
+  # capture below) so the integer value propagates to screening, DINA, GRF,
+  # the consistency search, and the per-resample bootstrap, and is reported
+  # in their n.min logging.  Guarded on a valid, non-empty df.analysis so the
+  # zero-row early-exit path is unaffected.
+  if (is.null(n.min)) {
+    if (!is.data.frame(df.analysis) || nrow(df.analysis) == 0L) {
+      n.min <- 60L   # degenerate input; zero-row guard below handles the exit
+    } else {
+      if (!is.numeric(n.min.frac) || length(n.min.frac) != 1L ||
+          is.na(n.min.frac) || n.min.frac <= 0 || n.min.frac >= 1) {
+        stop("n.min.frac must be a single number in (0, 1).", call. = FALSE)
+      }
+      N_analysis <- nrow(df.analysis)
+      n.min <- max(60L, as.integer(ceiling(n.min.frac * N_analysis)))
+      if (n.min >= N_analysis) {
+        stop(sprintf(paste0("Adaptive n.min (%d) is >= the analysis sample ",
+                            "size (%d); lower n.min.frac or set n.min ",
+                            "explicitly."), n.min, N_analysis), call. = FALSE)
+      }
+      if (!quiet) {
+        message(sprintf(
+          "n.min = NULL -> resolved to %d  (max(60, ceiling(%.3g * %d))).",
+          n.min, n.min.frac, N_analysis))
+      }
+    }
+  }
 
   # ===========================================================================
   # SECTION 1B: CAPTURE ALL ARGUMENTS FOR REPRODUCIBILITY
