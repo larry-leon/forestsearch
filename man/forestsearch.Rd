@@ -44,6 +44,7 @@ forestsearch(
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
   n.min = 60,
+  n.min.frac = 0.1,
   effect.threshold = NULL,
   consistency.threshold = NULL,
   hr.threshold = 1.25,
@@ -251,7 +252,19 @@ semantics.  Variables not listed retain default behaviour.
 Forwarded to \code{\link{get_FSdata}} via \code{filter_call_args()};
 see there for full semantics.}
 
-\item{n.min}{Integer. Minimum subgroup size. Default 60.}
+\item{n.min}{Integer or \code{NULL}. Minimum subgroup size. Default 60.
+Supplying a value (or omitting the argument) uses that fixed floor, as in
+prior versions. Passing \code{n.min = NULL} opts into a sample-size-adaptive
+floor \code{max(60, ceiling(n.min.frac * N))}, where \code{N} is the
+analysis sample size -- at least 60, and at least \code{n.min.frac} of
+\code{N}. Growing the minimum subgroup size with \code{N} curbs false
+discovery from very small subgroups in large samples. The resolved integer
+is used everywhere downstream (screening, DINA, GRF, the consistency
+search, and the bootstrap).}
+
+\item{n.min.frac}{Numeric in (0, 1). Fraction of the analysis sample size
+used for the adaptive \code{n.min} floor when \code{n.min = NULL}. Default
+0.10. Ignored when \code{n.min} is supplied.}
 
 \item{effect.threshold}{Numeric or NULL. Screening threshold for candidate
 subgroups.  For ratio-scale measures (OR, RR, IRR, HR): on the ratio

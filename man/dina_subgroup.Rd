@@ -10,6 +10,7 @@ dina_subgroup(
   covariates,
   m_diff,
   n_min = 60L,
+  n_min.frac = 0.1,
   direction = c("both", "left", "right"),
   max_depth = 1L,
   grid_probs = seq(0.1, 0.9, by = 0.1),
@@ -34,7 +35,17 @@ over.  All must be numeric.}
 of \code{fit$family}.  Subgroups are kept only if their mean tau-hat
 meets or exceeds this value.}
 
-\item{n_min}{positive integer; minimum subgroup size.
+\item{n_min}{positive integer, or \code{NULL}; minimum subgroup size. Default
+\code{60L}. Supplying a value (or omitting it) uses that fixed floor. Passing
+\code{n_min = NULL} opts into a sample-size-adaptive floor
+\code{max(60, ceiling(n_min.frac * n))}, where \code{n = nrow(df)} -- at least 60,
+and at least \code{n_min.frac} of \code{n}. The resolved integer is stored on the
+returned object (\verb{$n_min}), so \code{\link[=dina_subgroup_bootstrap]{dina_subgroup_bootstrap()}} and
+\code{\link[=dina_subgroup_refit]{dina_subgroup_refit()}} inherit it.}
+
+\item{n_min.frac}{numeric in (0, 1); fraction of \code{nrow(df)} used for the
+adaptive \code{n_min} floor when \code{n_min = NULL}. Default \code{0.10}. Ignored when
+\code{n_min} is supplied.
 Default \code{60L}, matching the convention in GRF and \code{forestsearch()}.}
 
 \item{direction}{one of \code{"both"} (default), \code{"left"}, or \code{"right"}.
