@@ -2514,7 +2514,7 @@ window.Quarto = {
 <span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>CONFIG <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Monte Carlo</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">nsims       =</span> <span class="dv">100</span>L,          <span class="co"># replications per cell (scale up for production)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">nsims       =</span> <span class="dv">1000</span>L,          <span class="co"># replications per cell (scale up for production)</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_seed   =</span> <span class="dv">20260531</span>L,</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># design grid (forestsearch is expensive; keep modest)</span></span>
@@ -2540,7 +2540,7 @@ window.Quarto = {
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_foci            =</span> <span class="fu">c</span>(<span class="st">&quot;eff&quot;</span>, <span class="st">&quot;effMaxSG&quot;</span>),  <span class="co"># NEW: both selection rules</span></span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_eff_neighbor    =</span> <span class="fl">0.10</span>,</span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_selection_rule  =</span> <span class="st">&quot;neighborhood&quot;</span>,</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_consistency     =</span> <span class="fl">1.0</span>,</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_consistency     =</span> <span class="fl">1.5</span>,</span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_pconsistency    =</span> <span class="fl">0.90</span>,</span>
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_subgroup_method  =</span> <span class="st">&quot;consistency&quot;</span>,</span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_splits          =</span> <span class="dv">500</span>L,</span>
@@ -3664,31 +3664,31 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n">500</td>
 <td class="gt_row gt_right" headers="expected_p">0.500</td>
 <td class="gt_row gt_right" headers="expected_n">250.0</td>
-<td class="gt_row gt_right" headers="mean_n_true_S">248.9</td>
-<td class="gt_row gt_right" headers="sd_n_true_S">11.0</td>
-<td class="gt_row gt_right" headers="min_n_true_S">218</td>
-<td class="gt_row gt_right" headers="max_n_true_S">272</td>
-<td class="gt_row gt_right" headers="mean_frac">0.498</td>
+<td class="gt_row gt_right" headers="mean_n_true_S">249.7</td>
+<td class="gt_row gt_right" headers="sd_n_true_S">11.2</td>
+<td class="gt_row gt_right" headers="min_n_true_S">211</td>
+<td class="gt_row gt_right" headers="max_n_true_S">282</td>
+<td class="gt_row gt_right" headers="mean_frac">0.499</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_right" headers="n">750</td>
 <td class="gt_row gt_right" headers="expected_p">0.500</td>
 <td class="gt_row gt_right" headers="expected_n">375.0</td>
-<td class="gt_row gt_right" headers="mean_n_true_S">375.7</td>
-<td class="gt_row gt_right" headers="sd_n_true_S">13.9</td>
-<td class="gt_row gt_right" headers="min_n_true_S">343</td>
-<td class="gt_row gt_right" headers="max_n_true_S">411</td>
-<td class="gt_row gt_right" headers="mean_frac">0.501</td>
+<td class="gt_row gt_right" headers="mean_n_true_S">375.2</td>
+<td class="gt_row gt_right" headers="sd_n_true_S">13.6</td>
+<td class="gt_row gt_right" headers="min_n_true_S">322</td>
+<td class="gt_row gt_right" headers="max_n_true_S">419</td>
+<td class="gt_row gt_right" headers="mean_frac">0.500</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_right" headers="n">1000</td>
 <td class="gt_row gt_right" headers="expected_p">0.500</td>
 <td class="gt_row gt_right" headers="expected_n">500.0</td>
-<td class="gt_row gt_right" headers="mean_n_true_S">500.7</td>
-<td class="gt_row gt_right" headers="sd_n_true_S">16.0</td>
-<td class="gt_row gt_right" headers="min_n_true_S">456</td>
-<td class="gt_row gt_right" headers="max_n_true_S">537</td>
-<td class="gt_row gt_right" headers="mean_frac">0.501</td>
+<td class="gt_row gt_right" headers="mean_n_true_S">499.8</td>
+<td class="gt_row gt_right" headers="sd_n_true_S">16.1</td>
+<td class="gt_row gt_right" headers="min_n_true_S">441</td>
+<td class="gt_row gt_right" headers="max_n_true_S">556</td>
+<td class="gt_row gt_right" headers="mean_frac">0.500</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_sourcenotes odd">
@@ -4156,7 +4156,7 @@ height: 0px !important;
 <td colspan="12" class="gt_heading gt_title gt_font_normal"><strong>Two-factor signature identification: forestsearch vs dina_subgroup</strong></td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Cox; true S = {x1 &gt;= 0}; HR threshold = 1.75; maxk = 1 / max_depth = 1; 100 sims/cell</td>
+<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Cox; true S = {x1 &gt;= 0}; HR threshold = 1.75; maxk = 1 / max_depth = 1; 1000 sims/cell</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="n" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" scope="col">n</th>
@@ -4181,13 +4181,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  n">500</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=500, moderate (tau_in=0.9)  method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.990</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.899</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.899</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.239</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.988</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.944</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.238</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.992</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.893</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.893</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.237</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.987</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.942</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.236</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.126</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
@@ -4195,42 +4195,42 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  n">500</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=500, moderate (tau_in=0.9)  method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.990</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.889</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.889</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.525</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.992</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.894</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.894</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.517</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.964</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.935</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.516</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.282</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.939</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.507</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.279</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  n">500</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=500, moderate (tau_in=0.9)  method">FS-eff</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.990</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.879</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.879</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.617</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.961</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.924</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.604</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.329</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.954</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.905</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.901</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.654</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.966</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.900</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.641</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.360</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  n">500</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=500, moderate (tau_in=0.9)  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.990</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.909</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.909</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.750</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.942</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.925</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.719</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.406</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">0.956</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.925</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.925</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.774</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.943</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.896</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.741</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.434</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4238,13 +4238,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=500, moderate (tau_in=0.9)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.650</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.650</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.974</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.415</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.660</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.652</td>
-<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.778</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  covariate_set_hit">0.647</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  signature_correct">0.641</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  sensitivity">0.973</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  specificity">0.421</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  ppv">0.666</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  jaccard">0.657</td>
+<td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_sg_frac">0.776</td>
 <td class="gt_row gt_right" headers="n=500, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="gt_group_heading_row odd">
@@ -4255,13 +4255,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=500, strong (tau_in=1.4)  method">DINA-eff</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.990</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.990</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.248</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.998</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.994</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.996</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.996</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.247</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.999</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.998</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.247</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.124</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.123</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
@@ -4269,13 +4269,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=500, strong (tau_in=1.4)  method">DINA-effMaxSG</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.990</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.990</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.454</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.997</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.994</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.454</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.227</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.996</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.996</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.450</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.999</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.998</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.450</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.225</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4285,11 +4285,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.990</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.990</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.670</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.995</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.993</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.667</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.335</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.681</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.996</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.994</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.679</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.341</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
@@ -4297,13 +4297,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=500, strong (tau_in=1.4)  method">FS-effMaxSG</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.784</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.987</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.997</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.997</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.810</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.988</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.988</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.772</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.396</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.799</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.410</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4311,13 +4311,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=500, strong (tau_in=1.4)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.730</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.730</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.988</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.446</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.680</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.677</td>
-<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.770</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  covariate_set_hit">0.769</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  signature_correct">0.768</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  sensitivity">0.991</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  specificity">0.470</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  ppv">0.693</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  jaccard">0.690</td>
+<td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_sg_frac">0.760</td>
 <td class="gt_row gt_right" headers="n=500, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="gt_group_heading_row odd">
@@ -4327,56 +4327,56 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  n">750</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=750, moderate (tau_in=0.9)  method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.950</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.950</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.205</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.995</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.976</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.205</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.105</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">0.998</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.966</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.966</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.204</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.996</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.982</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.204</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.104</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  n">750</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=750, moderate (tau_in=0.9)  method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.940</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.940</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">0.998</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.965</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.965</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.509</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.982</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.971</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.504</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.264</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.988</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.981</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.506</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.261</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  n">750</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=750, moderate (tau_in=0.9)  method">FS-eff</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.900</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.900</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.588</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.977</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.948</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.581</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.305</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">0.985</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.937</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.937</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.631</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.983</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.953</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.626</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.329</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  n">750</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=750, moderate (tau_in=0.9)  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.910</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.910</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.795</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.942</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.936</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.763</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.426</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">0.984</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.954</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.954</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.818</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.961</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.941</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.792</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.436</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4384,13 +4384,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=750, moderate (tau_in=0.9)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.650</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.650</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.980</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.413</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.662</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.657</td>
-<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.784</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  covariate_set_hit">0.681</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  signature_correct">0.677</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  sensitivity">0.982</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  specificity">0.422</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  ppv">0.670</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  jaccard">0.664</td>
+<td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_sg_frac">0.780</td>
 <td class="gt_row gt_right" headers="n=750, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="gt_group_heading_row odd">
@@ -4403,10 +4403,10 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.203</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.205</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.203</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.205</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.102</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
@@ -4417,10 +4417,10 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.409</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.410</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">1.000</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.409</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.410</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.205</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
@@ -4429,13 +4429,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=750, strong (tau_in=1.4)  method">FS-eff</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.700</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">0.995</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">0.995</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.684</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">0.999</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.999</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.699</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.352</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.997</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.683</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.342</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
@@ -4443,13 +4443,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=750, strong (tau_in=1.4)  method">FS-effMaxSG</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.820</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">0.994</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.995</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.814</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.414</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">0.998</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">0.998</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.811</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">0.993</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.993</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.805</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.409</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4457,13 +4457,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=750, strong (tau_in=1.4)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">0.850</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">0.850</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.997</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">0.523</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.720</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.718</td>
-<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.738</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  covariate_set_hit">0.805</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  signature_correct">0.804</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  sensitivity">0.996</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  specificity">0.473</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  ppv">0.696</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  jaccard">0.695</td>
+<td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_sg_frac">0.761</td>
 <td class="gt_row gt_right" headers="n=750, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="gt_group_heading_row odd">
@@ -4474,12 +4474,12 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=1000, moderate (tau_in=0.9)  method">DINA-eff</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.204</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.985</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.985</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.205</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.998</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.992</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.204</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.993</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.205</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.103</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
@@ -4488,41 +4488,41 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=1000, moderate (tau_in=0.9)  method">DINA-effMaxSG</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.499</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.992</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.991</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.497</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.254</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.984</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.984</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.519</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.994</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.992</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.518</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.263</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  n">1000</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=1000, moderate (tau_in=0.9)  method">FS-eff</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">1.000</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">0.996</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.970</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.970</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.613</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.994</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.986</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.611</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.310</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.654</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.992</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.980</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.652</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.333</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  n">1000</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=1000, moderate (tau_in=0.9)  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.861</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.980</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.977</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.847</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.441</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">0.996</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.982</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.982</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.855</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.969</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.965</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.831</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.445</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4530,13 +4530,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  tau_in">0.9</td>
 <td class="gt_row gt_left" headers="n=1000, moderate (tau_in=0.9)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.760</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.760</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.989</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.501</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.713</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.709</td>
-<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.744</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  covariate_set_hit">0.731</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  signature_correct">0.726</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  sensitivity">0.988</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  specificity">0.436</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  ppv">0.680</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  jaccard">0.676</td>
+<td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_sg_frac">0.776</td>
 <td class="gt_row gt_right" headers="n=1000, moderate (tau_in=0.9)  mean_n_factors">1.000</td>
 </tr>
 <tr class="gt_group_heading_row odd">
@@ -4549,10 +4549,10 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.202</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.203</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.202</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.203</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.101</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
@@ -4563,11 +4563,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.412</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.409</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.412</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.206</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.409</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.204</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4577,11 +4577,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.690</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.697</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.690</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.345</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.697</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.348</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="odd">
@@ -4591,11 +4591,11 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  detection_rate">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">1.000</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.817</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">0.995</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">0.995</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.812</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.411</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.841</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">0.993</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">0.993</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.834</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.424</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 <tr class="even">
@@ -4603,13 +4603,13 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  tau_in">1.4</td>
 <td class="gt_row gt_left" headers="n=1000, strong (tau_in=1.4)  method">FS-grf</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  detection_rate">1.000</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">0.830</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">0.820</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.996</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">0.495</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">0.707</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.705</td>
-<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.751</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  covariate_set_hit">0.836</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  signature_correct">0.835</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  sensitivity">0.997</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  specificity">0.497</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  ppv">0.709</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  jaccard">0.708</td>
+<td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_sg_frac">0.749</td>
 <td class="gt_row gt_right" headers="n=1000, strong (tau_in=1.4)  mean_n_factors">1.000</td>
 </tr>
 </tbody><tfoot>
@@ -5076,52 +5076,52 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n">500</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">89</td>
-<td class="gt_row gt_right" headers="bias_x1">0.746</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.747</td>
+<td class="gt_row gt_right" headers="n_axis_correct">886</td>
+<td class="gt_row gt_right" headers="bias_x1">0.748</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.748</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=500, moderate (tau_in=0.9)</td>
 <td class="gt_row gt_right" headers="n">500</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">88</td>
-<td class="gt_row gt_right" headers="bias_x1">0.447</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.461</td>
+<td class="gt_row gt_right" headers="n_axis_correct">887</td>
+<td class="gt_row gt_right" headers="bias_x1">0.458</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.473</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="label">n=500, strong (tau_in=1.4)</td>
 <td class="gt_row gt_right" headers="n">500</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">99</td>
-<td class="gt_row gt_right" headers="bias_x1">0.748</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.749</td>
+<td class="gt_row gt_right" headers="n_axis_correct">996</td>
+<td class="gt_row gt_right" headers="bias_x1">0.752</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.753</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=500, strong (tau_in=1.4)</td>
 <td class="gt_row gt_right" headers="n">500</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">99</td>
-<td class="gt_row gt_right" headers="bias_x1">0.541</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.548</td>
+<td class="gt_row gt_right" headers="n_axis_correct">996</td>
+<td class="gt_row gt_right" headers="bias_x1">0.548</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.553</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="label">n=750, moderate (tau_in=0.9)</td>
 <td class="gt_row gt_right" headers="n">750</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">95</td>
-<td class="gt_row gt_right" headers="bias_x1">0.791</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.791</td>
+<td class="gt_row gt_right" headers="n_axis_correct">964</td>
+<td class="gt_row gt_right" headers="bias_x1">0.793</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.793</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=750, moderate (tau_in=0.9)</td>
 <td class="gt_row gt_right" headers="n">750</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">94</td>
+<td class="gt_row gt_right" headers="n_axis_correct">963</td>
 <td class="gt_row gt_right" headers="bias_x1">0.482</td>
 <td class="gt_row gt_right" headers="rmse_x1">0.494</td>
 </tr>
@@ -5130,54 +5130,54 @@ height: 0px !important;
 <td class="gt_row gt_right" headers="n">750</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">100</td>
-<td class="gt_row gt_right" headers="bias_x1">0.797</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.798</td>
+<td class="gt_row gt_right" headers="n_axis_correct">1000</td>
+<td class="gt_row gt_right" headers="bias_x1">0.795</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.795</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=750, strong (tau_in=1.4)</td>
 <td class="gt_row gt_right" headers="n">750</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">100</td>
-<td class="gt_row gt_right" headers="bias_x1">0.593</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.596</td>
+<td class="gt_row gt_right" headers="n_axis_correct">1000</td>
+<td class="gt_row gt_right" headers="bias_x1">0.589</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.592</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="label">n=1000, moderate (tau_in=0.9)</td>
 <td class="gt_row gt_right" headers="n">1000</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">98</td>
-<td class="gt_row gt_right" headers="bias_x1">0.800</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.800</td>
+<td class="gt_row gt_right" headers="n_axis_correct">985</td>
+<td class="gt_row gt_right" headers="bias_x1">0.795</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.795</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=1000, moderate (tau_in=0.9)</td>
 <td class="gt_row gt_right" headers="n">1000</td>
 <td class="gt_row gt_right" headers="tau_in">0.9</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">98</td>
-<td class="gt_row gt_right" headers="bias_x1">0.502</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.506</td>
+<td class="gt_row gt_right" headers="n_axis_correct">984</td>
+<td class="gt_row gt_right" headers="bias_x1">0.478</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.488</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="label">n=1000, strong (tau_in=1.4)</td>
 <td class="gt_row gt_right" headers="n">1000</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="n_axis_correct">100</td>
-<td class="gt_row gt_right" headers="bias_x1">0.800</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.800</td>
+<td class="gt_row gt_right" headers="n_axis_correct">1000</td>
+<td class="gt_row gt_right" headers="bias_x1">0.798</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.798</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="label">n=1000, strong (tau_in=1.4)</td>
 <td class="gt_row gt_right" headers="n">1000</td>
 <td class="gt_row gt_right" headers="tau_in">1.4</td>
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="n_axis_correct">100</td>
-<td class="gt_row gt_right" headers="bias_x1">0.587</td>
-<td class="gt_row gt_right" headers="rmse_x1">0.589</td>
+<td class="gt_row gt_right" headers="n_axis_correct">1000</td>
+<td class="gt_row gt_right" headers="bias_x1">0.590</td>
+<td class="gt_row gt_right" headers="rmse_x1">0.592</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_sourcenotes odd">
@@ -5620,7 +5620,7 @@ height: 0px !important;
 <td colspan="2" class="gt_heading gt_title gt_font_normal"><strong>False-discovery rate (null: no heterogeneity)</strong></td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">HR threshold = 1.75; maxk = 1 / max_depth = 1; 100 sims/cell</td>
+<td colspan="2" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">HR threshold = 1.75; maxk = 1 / max_depth = 1; 1000 sims/cell</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="method" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">method</th>
@@ -5633,69 +5633,69 @@ height: 0px !important;
 </tr>
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="500  method">DINA-eff</td>
-<td class="gt_row gt_right" headers="500  false_discovery_rate">0.130</td>
+<td class="gt_row gt_right" headers="500  false_discovery_rate">0.123</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="500  method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="500  false_discovery_rate">0.130</td>
+<td class="gt_row gt_right" headers="500  false_discovery_rate">0.123</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="500  method">FS-eff</td>
-<td class="gt_row gt_right" headers="500  false_discovery_rate">0.230</td>
+<td class="gt_row gt_right" headers="500  false_discovery_rate">0.026</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="500  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="500  false_discovery_rate">0.230</td>
+<td class="gt_row gt_right" headers="500  false_discovery_rate">0.024</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="500  method">FS-grf</td>
-<td class="gt_row gt_right" headers="500  false_discovery_rate">0.970</td>
+<td class="gt_row gt_right" headers="500  false_discovery_rate">0.958</td>
 </tr>
 <tr class="gt_group_heading_row odd">
 <th colspan="2" id="750" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">750</th>
 </tr>
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="750  method">DINA-eff</td>
-<td class="gt_row gt_right" headers="750  false_discovery_rate">0.020</td>
+<td class="gt_row gt_right" headers="750  false_discovery_rate">0.029</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="750  method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="750  false_discovery_rate">0.020</td>
+<td class="gt_row gt_right" headers="750  false_discovery_rate">0.029</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="750  method">FS-eff</td>
-<td class="gt_row gt_right" headers="750  false_discovery_rate">0.150</td>
+<td class="gt_row gt_right" headers="750  false_discovery_rate">0.014</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="750  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="750  false_discovery_rate">0.160</td>
+<td class="gt_row gt_right" headers="750  false_discovery_rate">0.013</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="750  method">FS-grf</td>
-<td class="gt_row gt_right" headers="750  false_discovery_rate">0.990</td>
+<td class="gt_row gt_right" headers="750  false_discovery_rate">0.971</td>
 </tr>
 <tr class="gt_group_heading_row odd">
 <th colspan="2" id="1000" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">1000</th>
 </tr>
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="1000  method">DINA-eff</td>
-<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.010</td>
+<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.011</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="1000  method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.010</td>
+<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.011</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="1000  method">FS-eff</td>
-<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.100</td>
+<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.006</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="1000  method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.100</td>
+<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.006</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="1000  method">FS-grf</td>
-<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.990</td>
+<td class="gt_row gt_right" headers="1000  false_discovery_rate">0.981</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_sourcenotes odd">
@@ -5716,8 +5716,8 @@ height: 0px !important;
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code>          used  (Mb) gc trigger  (Mb) max used  (Mb)
-Ncells 2651074 141.6    4720507 252.2  4720507 252.2
-Vcells 4851591  37.1   10146329  77.5 10146329  77.5</code></pre>
+Ncells 2694975 144.0    4720450 252.1  4720450 252.1
+Vcells 5690365  43.5   12255594  93.6 12245713  93.5</code></pre>
 </div>
 </div>
 <hr>
@@ -5727,11 +5727,11 @@ Vcells 4851591  37.1   10146329  77.5 10146329  77.5</code></pre>
 <h1 data-number="8"><span class="header-section-number">8</span> Interpretation</h1>
 <p>At the strongest signal (n = 1000, tau_in = 1.4, maxk = max_depth = grf_depth = 1):</p>
 <ul>
-<li><strong>DINA (effMaxSG)</strong> detected in 100%, recovered the {x1} covariate in 100% of detections, sensitivity 41%, specificity 100%, |S-hat|/n 21%.</li>
+<li><strong>DINA (effMaxSG)</strong> detected in 100%, recovered the {x1} covariate in 100% of detections, sensitivity 41%, specificity 100%, |S-hat|/n 20%.</li>
 <li><strong>DINA (eff)</strong> detected in 100%, cov-set hit 100%, sensitivity 20%, specificity 100%.</li>
-<li><strong>FS-consistency (effMaxSG)</strong> detected in 100%, cov-set hit 100%, sensitivity 82%, specificity 100%.</li>
-<li><strong>FS-consistency (eff)</strong> detected in 100%, cov-set hit 100%, sensitivity 69%, specificity 100%.</li>
-<li><strong>FS-grf</strong> detected in 100%, cov-set hit 83%, sensitivity 100%, specificity 50%.</li>
+<li><strong>FS-consistency (effMaxSG)</strong> detected in 100%, cov-set hit 100%, sensitivity 84%, specificity 99%.</li>
+<li><strong>FS-consistency (eff)</strong> detected in 100%, cov-set hit 100%, sensitivity 70%, specificity 100%.</li>
+<li><strong>FS-grf</strong> detected in 100%, cov-set hit 84%, sensitivity 100%, specificity 50%.</li>
 </ul>
 <p>This is the single-factor case, the most favourable setting for DINA’s univariate search. All three engines target the same one-covariate truth; the consistency and DINA arms additionally vary the selection rule (<code>effMaxSG</code> vs <code>eff</code>), while FS-grf selects via its policy tree.</p>
 <p>Points the tables support:</p>
@@ -6180,7 +6180,7 @@ height: 0px !important;
 <td colspan="3" class="gt_heading gt_title gt_font_normal"><strong>Time per method</strong></td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">study wall-clock = 4.06 min, apportioned by compute share</td>
+<td colspan="3" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">study wall-clock = 44.33 min, apportioned by compute share</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="method" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">method</th>
@@ -6191,28 +6191,28 @@ height: 0px !important;
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="method">FS-effMaxSG</td>
-<td class="gt_row gt_right" headers="share">55.0%</td>
-<td class="gt_row gt_right" headers="wall_min">2.23</td>
+<td class="gt_row gt_right" headers="share">63.5%</td>
+<td class="gt_row gt_right" headers="wall_min">28.13</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="method">FS-eff</td>
-<td class="gt_row gt_right" headers="share">36.9%</td>
-<td class="gt_row gt_right" headers="wall_min">1.50</td>
+<td class="gt_row gt_right" headers="share">30.0%</td>
+<td class="gt_row gt_right" headers="wall_min">13.28</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="method">FS-grf</td>
-<td class="gt_row gt_right" headers="share">5.9%</td>
-<td class="gt_row gt_right" headers="wall_min">0.24</td>
+<td class="gt_row gt_right" headers="share">4.7%</td>
+<td class="gt_row gt_right" headers="wall_min">2.09</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="method">DINA-eff</td>
-<td class="gt_row gt_right" headers="share">1.2%</td>
-<td class="gt_row gt_right" headers="wall_min">0.05</td>
+<td class="gt_row gt_right" headers="share">1.0%</td>
+<td class="gt_row gt_right" headers="wall_min">0.44</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="method">DINA-effMaxSG</td>
-<td class="gt_row gt_right" headers="share">1.0%</td>
-<td class="gt_row gt_right" headers="wall_min">0.04</td>
+<td class="gt_row gt_right" headers="share">0.9%</td>
+<td class="gt_row gt_right" headers="wall_min">0.39</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_sourcenotes odd">
@@ -6650,11 +6650,11 @@ height: 0px !important;
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Step">study</td>
-<td class="gt_row gt_right" headers="Minutes">4.06</td>
+<td class="gt_row gt_right" headers="Minutes">44.33</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Step" style="font-weight: bold">total</td>
-<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">4.06</td>
+<td class="gt_row gt_right" headers="Minutes" style="font-weight: bold">44.33</td>
 </tr>
 </tbody>
 </table>
@@ -7311,7 +7311,7 @@ loaded via a namespace (and not attached):
 <span id="cb51-125"><a href="#cb51-125" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb51-126"><a href="#cb51-126" aria-hidden="true" tabindex="-1"></a>CONFIG <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
 <span id="cb51-127"><a href="#cb51-127" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Monte Carlo</span></span>
-<span id="cb51-128"><a href="#cb51-128" aria-hidden="true" tabindex="-1"></a>  <span class="at">nsims       =</span> <span class="dv">100</span>L,          <span class="co"># replications per cell (scale up for production)</span></span>
+<span id="cb51-128"><a href="#cb51-128" aria-hidden="true" tabindex="-1"></a>  <span class="at">nsims       =</span> <span class="dv">1000</span>L,          <span class="co"># replications per cell (scale up for production)</span></span>
 <span id="cb51-129"><a href="#cb51-129" aria-hidden="true" tabindex="-1"></a>  <span class="at">base_seed   =</span> <span class="dv">20260531</span>L,</span>
 <span id="cb51-130"><a href="#cb51-130" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb51-131"><a href="#cb51-131" aria-hidden="true" tabindex="-1"></a>  <span class="co"># design grid (forestsearch is expensive; keep modest)</span></span>
@@ -7337,7 +7337,7 @@ loaded via a namespace (and not attached):
 <span id="cb51-151"><a href="#cb51-151" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_foci            =</span> <span class="fu">c</span>(<span class="st">&quot;eff&quot;</span>, <span class="st">&quot;effMaxSG&quot;</span>),  <span class="co"># NEW: both selection rules</span></span>
 <span id="cb51-152"><a href="#cb51-152" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_eff_neighbor    =</span> <span class="fl">0.10</span>,</span>
 <span id="cb51-153"><a href="#cb51-153" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_selection_rule  =</span> <span class="st">&quot;neighborhood&quot;</span>,</span>
-<span id="cb51-154"><a href="#cb51-154" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_consistency     =</span> <span class="fl">1.0</span>,</span>
+<span id="cb51-154"><a href="#cb51-154" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_consistency     =</span> <span class="fl">1.5</span>,</span>
 <span id="cb51-155"><a href="#cb51-155" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_pconsistency    =</span> <span class="fl">0.90</span>,</span>
 <span id="cb51-156"><a href="#cb51-156" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_subgroup_method  =</span> <span class="st">&quot;consistency&quot;</span>,</span>
 <span id="cb51-157"><a href="#cb51-157" aria-hidden="true" tabindex="-1"></a>  <span class="at">fs_splits          =</span> <span class="dv">500</span>L,</span>
