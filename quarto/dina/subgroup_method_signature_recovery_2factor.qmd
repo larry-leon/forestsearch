@@ -1,6 +1,6 @@
 ---
 title: "Subgroup-Method Signature Recovery (Two-Factor)"
-subtitle: "Matched harm-subgroup recovery for FS-consistency, FS-grf, and standalone DINA on a two-factor conjunction DGM (depth-2 / maxk = 2)"
+subtitle: "Matched harm-subgroup recovery for FS-consistency, FS-grf (tree and frontier), and standalone DINA on a two-factor conjunction DGM (depth-2 / maxk = 2)"
 author: "forestsearch v0.2.0"
 date: today
 format:
@@ -87,29 +87,52 @@ re-selection helper could build on.)
 > (`maxk = 2` widens the candidate set further). Keep `nsims` modest and scale up
 > on a multi-core machine.
 
-## A third arm: `forestsearch(subgroup_method = "grf")`
+## GRF arms: `forestsearch(subgroup_method = "grf")` (tree and frontier)
 
 Alongside the consistency-search FS arm and standalone DINA, the study includes
-a **GRF-selection** arm: `forestsearch(subgroup_method = "grf")`, which delegates
-subgroup selection to a GRF causal-survival-forest policy tree. Two things make
-it a single arm rather than a per-focus family:
+**two GRF-selection arms**, both via `forestsearch(subgroup_method = "grf")` on
+the same causal-survival-forest doubly-robust scores, differing only in how the
+subgroup is selected from those scores:
 
-* **GRF does not use `sg_focus`.** It selects the harm leaf from the policy
-  tree under `dmin.grf` / `grf_depth`, not the effect-neighborhood
-  (`effMaxSG` / `eff`) rule the consistency and DINA arms vary. So there is one
-  `FS-grf` row per replication, not one per focus.
-* **`grf_depth = 2` is the `forestsearch()` default** and matches the
-  two-factor truth, so GRF can express the conjunction. GRF *partitions*
-  rather than selecting a single box, so its harm region may be a single
-  leaf (a conjunction) or a union of leaves (a disjunction); the scoring
-  handles both (see below).
+* **`FS-grf-tree`** (`grf_selection = "tree"`, the default) selects via the GRF
+  policy tree under `dmin.grf` / `grf_depth`. At `grf_depth = 2` the tree
+  *partitions*, so its harm region may be a single leaf (a conjunction) or a
+  union of leaves (a disjunction).
+* **`FS-grf-frontier`** (`grf_selection = "frontier"`, experimental) selects
+  from the Pareto frontier of (harm-effect, size) on the same scores. With
+  `grf_depth = 2` the candidate pool is single-covariate thresholds **plus
+  depth-2 covariate-pair conjunctions**, and selection uses the **effMaxSG**
+  rule (largest within `effect_neighborhood` of the max harm-effect). The
+  selected subgroup is always a single conjunction (never a union). Only the
+  effMaxSG variant is run here.
 
-Because GRF membership is taken from the policy tree, the membership-based
+Neither arm varies a rule across rows (the tree ignores `sg_focus`; the frontier
+fixes effMaxSG), so each contributes one row per replication. Comparing them
+isolates the selection step alone -- policy tree vs Pareto frontier -- holding
+the forest fit fixed, on a truth (`x1 >= 0 & x2 <= 0`) that genuinely needs two
+factors.
+
+Because GRF membership is taken from the selected subgroup, the membership-based
 recovery metrics (sensitivity, specificity, Jaccard) are always well defined.
 The text-parsing metrics (`cov-set hit`, `sig correct`, `mean #factors`) apply
-cleanly only to a single-conjunction subgroup; when GRF returns a **union** of
-leaves they are reported as `NA` rather than mis-parsed, since a union has no
-single signed-axis signature.
+cleanly to a single conjunction; when the tree arm returns a **union** of leaves
+they are reported as `NA` (a union has no single signed-axis signature). The
+frontier arm is always a single conjunction, so those metrics always apply to it.
+
+> **Scale note (important).** For survival outcomes the GRF arms operate on the
+> **RMST-difference** scale, not hazard ratios. The causal survival forest's
+> doubly-robust scores estimate a difference in restricted mean survival time at
+> the horizon `frac.tau * tau`, so the GRF harm-eligibility threshold
+> `dmin.grf` and the frontier's `effect_neighborhood` band are in **time
+> units**, whereas the FS-consistency and DINA arms threshold on **HR**
+> (`effect.threshold = 1.25`, `m_diff = log(1.25)`). These are different scales.
+> With `dmin.grf = 0` (used here) the GRF eligibility floor degenerates to "any
+> positive RMST harm," which is scale-free and so comparable across arms; a
+> *positive* `dmin.grf` would **not** be directly comparable to the HR
+> threshold. Likewise, because RMST-difference and HR do not rank subgroups
+> identically (especially under non-proportional hazards), the GRF arms may
+> select a different "most harmful" subgroup than the HR-based arms even on
+> identical data.
 
 ---
 
@@ -125,7 +148,7 @@ library(foreach)
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 100L,          # replications per cell (scale up for production)
+  nsims       = 1000L,          # replications per cell (scale up for production)
   base_seed   = 20260531L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -180,6 +203,7 @@ CONFIG <- list(
   #   (one row, method "FS-grf"), not a per-focus loop.  grf_depth = 2 is the
   #   forestsearch() default and matches the two-factor truth.
   fs_grf_enable   = TRUE,
+  fs_grf_frontier = TRUE,      # also run GRF frontier-selection (effMaxSG)
   fs_grf_depth    = 2L,        # GRF tree depth (forestsearch() default)
   fs_grf_dmin     = 0.0,       # min subgroup mean-difference (HR/log scale)
   fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
@@ -605,7 +629,50 @@ run_one_rep <- function(scenario, rep_id, cfg) {
       )),
       error = function(e) NULL)
     .sec <- proc.time()[3] - .t0
-    r <- score_fs(fs_grf, df, truth, method_label = "FS-grf")
+    r <- score_fs(fs_grf, df, truth, method_label = "FS-grf-tree")
+    r[, fit_seconds := .sec]
+    list(r)
+  } else list()
+
+  # ---- forestsearch GRF FRONTIER selection (grf_selection = "frontier") ----
+  # Same GRF doubly-robust scores, but selection bypasses the policy tree: the
+  # Pareto frontier of (harm-effect, size) is taken (single thresholds plus
+  # depth-2 covariate-pair conjunctions, since grf_depth = 2) and one subgroup
+  # is chosen under the effMaxSG rule (sg_focus = "effMaxSG", relative
+  # effect_neighborhood).  Single run per replication labelled "FS-grf-frontier"
+  # (experimental mode).  The frontier subgroup is always a single conjunction.
+  grf_fr_rows <- if (isTRUE(cfg$fs_grf_enable) && isTRUE(cfg$fs_grf_frontier)) {
+    .t0 <- proc.time()[3]
+    fs_grf_fr <- tryCatch(
+      suppressWarnings(forestsearch(
+        df.analysis         = df,
+        confounders.name    = covariates_v,
+        outcome.name        = "y_sim",
+        event.name          = "event_sim",
+        treat.name          = "treat_sim",
+        id.name             = "id",
+        est.scale           = "hr",
+        subgroup_method     = "grf",
+        grf_selection       = "frontier",
+        sg_focus            = "effMaxSG",
+        effect_neighborhood = cfg$fs_eff_neighbor,
+        effect.threshold    = cfg$effect_threshold,
+        grf_depth           = cfg$fs_grf_depth,
+        dmin.grf            = cfg$fs_grf_dmin,
+        frac.tau            = cfg$fs_grf_fractau,
+        n.min               = cfg$fs_n_min,
+        use_grf             = FALSE,
+        use_lasso           = FALSE,
+        is.RCT              = TRUE,
+        details             = FALSE,
+        quiet               = TRUE,
+        seedit              = cfg$fs_seedit,
+        parallel_args       = list(plan = "sequential", workers = 1,
+                                   show_message = FALSE)
+      )),
+      error = function(e) NULL)
+    .sec <- proc.time()[3] - .t0
+    r <- score_fs(fs_grf_fr, df, truth, method_label = "FS-grf-frontier")
     r[, fit_seconds := .sec]
     list(r)
   } else list()
@@ -647,7 +714,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
     n = scenario$n, tau_in = scenario$tau_in, is_null = isTRUE(scenario$is_null),
     fs_maxk = cfg$fs_maxk, dina_max_depth = cfg$dina_max_depth, rep_id = rep_id,
     n_true_S = sum(df[["flag_harm"]] == 1L))
-  method_rows <- c(fs_rows, grf_rows, dina_rows)
+  method_rows <- c(fs_rows, grf_rows, grf_fr_rows, dina_rows)
   rbindlist(lapply(method_rows, function(r) cbind(scen_cols, r)))
 }
 ```
@@ -875,63 +942,66 @@ gc(verbose = FALSE)
 fmt_pct <- function(x) if (length(x) && is.finite(x)) sprintf("%.0f%%", 100 * x) else "NA"
 getm <- function(dt, m) { r <- dt[method == m]; if (nrow(r)) r else dt[0] }
 cell <- agg[n == max(n) & tau_in == CONFIG$tau_in[["strong"]]]
-fs_ef <- getm(cell, "FS-effMaxSG"); fs_mx <- getm(cell, "FS-maxSG")
-dn_ef <- getm(cell, "DINA-effMaxSG"); dn_mx <- getm(cell, "DINA-maxSG")
+dn_ef <- getm(cell, "DINA-effMaxSG"); dn_e <- getm(cell, "DINA-eff")
+fs_ef <- getm(cell, "FS-effMaxSG");   fs_e <- getm(cell, "FS-eff")
+grf   <- getm(cell, "FS-grf-tree"); grf_fr <- getm(cell, "FS-grf-frontier")
 
 cat(sprintf("
-At the strongest signal (n = %d, tau_in = %.1f, maxk = max_depth = 2):
+At the strongest signal (n = %d, tau_in = %.1f, maxk = max_depth = grf_depth = 2):
 
-* **dina_subgroup (effMaxSG, depth-2)** detected in %s, recovered the exact
-  {x1, x2} covariate set in %s of detections, signature axes in %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
-* **dina_subgroup (maxSG, depth-2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
-* **forestsearch (effMaxSG, maxk=2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, mean #factors %s.
-* **forestsearch (maxSG, maxk=2)** detected in %s, cov-set hit %s,
-  sensitivity %s, specificity %s, |S-hat|/n %s.
+* **DINA (effMaxSG, depth-2)** detected in %s, recovered the exact {x1, x2}
+  covariate set in %s of detections, sensitivity %s, specificity %s, |S-hat|/n %s.
+* **DINA (eff, depth-2)** detected in %s, cov-set hit %s, sensitivity %s,
+  specificity %s.
+* **FS-consistency (effMaxSG, maxk=2)** detected in %s, cov-set hit %s,
+  sensitivity %s, specificity %s.
+* **FS-consistency (eff, maxk=2)** detected in %s, cov-set hit %s, sensitivity %s,
+  specificity %s.
+* **FS-grf-tree** detected in %s, cov-set hit %s, sensitivity %s, specificity %s.
+* **FS-grf-frontier (effMaxSG)** detected in %s, cov-set hit %s, sensitivity %s,
+  specificity %s.
 
-For each method the only thing that changes between its two rows is the
-selection rule. The effect-neighborhood band (`effMaxSG`) anchors selection to
-the maximum qualifying effect and recovers the conjunction tightly; the
-largest-qualifying rule (`maxSG`) extends membership outward, raising
-sensitivity and lowering specificity.
+All engines target the same two-factor conjunction truth. The consistency and
+DINA arms vary the selection rule (`effMaxSG` vs `eff`); the two GRF arms differ
+in how they select from the same doubly-robust scores (policy tree vs Pareto
+frontier under effMaxSG).
 ",
   max(CONFIG$n_levels), CONFIG$tau_in[["strong"]],
   fmt_pct(dn_ef$detection_rate), fmt_pct(dn_ef$covariate_set_hit),
-  fmt_pct(dn_ef$signature_correct), fmt_pct(dn_ef$sensitivity),
-  fmt_pct(dn_ef$specificity), fmt_pct(dn_ef$mean_sg_frac),
-  fmt_pct(dn_mx$detection_rate), fmt_pct(dn_mx$covariate_set_hit),
-  fmt_pct(dn_mx$sensitivity), fmt_pct(dn_mx$specificity), fmt_pct(dn_mx$mean_sg_frac),
+  fmt_pct(dn_ef$sensitivity), fmt_pct(dn_ef$specificity), fmt_pct(dn_ef$mean_sg_frac),
+  fmt_pct(dn_e$detection_rate), fmt_pct(dn_e$covariate_set_hit),
+  fmt_pct(dn_e$sensitivity), fmt_pct(dn_e$specificity),
   fmt_pct(fs_ef$detection_rate), fmt_pct(fs_ef$covariate_set_hit),
   fmt_pct(fs_ef$sensitivity), fmt_pct(fs_ef$specificity),
-  sprintf("%.2f", fs_ef$mean_n_factors %||% NA_real_),
-  fmt_pct(fs_mx$detection_rate), fmt_pct(fs_mx$covariate_set_hit),
-  fmt_pct(fs_mx$sensitivity), fmt_pct(fs_mx$specificity), fmt_pct(fs_mx$mean_sg_frac)))
+  fmt_pct(fs_e$detection_rate), fmt_pct(fs_e$covariate_set_hit),
+  fmt_pct(fs_e$sensitivity), fmt_pct(fs_e$specificity),
+  fmt_pct(grf$detection_rate), fmt_pct(grf$covariate_set_hit),
+  fmt_pct(grf$sensitivity), fmt_pct(grf$specificity),
+  fmt_pct(grf_fr$detection_rate), fmt_pct(grf_fr$covariate_set_hit),
+  fmt_pct(grf_fr$sensitivity), fmt_pct(grf_fr$specificity)))
 ```
 
 Points the tables support:
 
-* **Matched hypothesis space.** With `fs_maxk = 2` and `dina_max_depth = 2`,
-  both methods can express the two-factor truth, so differences reflect the
-  search and selection rule rather than an under-specified model. Re-running
-  with depth/`maxk` = 1 reproduces the single-factor restriction and shows the
-  cost of under-fitting a genuine conjunction (`cov-set hit` collapses because a
-  single factor can never match a two-covariate set).
-* **Selection rule, not search, drives the size --- for both methods.** Each
-  method appears twice, differing only in `sg_focus`. `effMaxSG` tightens the
-  subgroup toward the true conjunction (higher specificity, `|S-hat|/n` near the
-  true 0.25); `maxSG` extends it (higher sensitivity, lower specificity). The
-  `*-effMaxSG` vs `*-maxSG` pairs isolate this exactly.
-* **Multi-focus parity, with a cost caveat.** `dina_foci` reuses one cross-fitted
-  `dina()` fit across foci (cheap). `fs_foci` re-runs `forestsearch()` per focus,
-  because the screening + consistency search is not separable from selection
-  through the public API. The packaged interactive analog is
-  `compare_selection_rules(sg_focus = c("effMaxSG","maxSG"),
-  selection_rule = c("neighborhood","neighborhood"))`.
-* **Depth-2 threshold recovery.** For `dina_subgroup()`, among reps that recover
-  both axes, per-component bias against $(c_1, c_2) = (0, 0)$ is reported in the
-  threshold table; `effMaxSG` keeps both component cuts near the truth.
+* **Matched hypothesis space.** With `fs_maxk = 2`, `dina_max_depth = 2`, and
+  `grf_depth = 2`, every engine can express the two-factor truth, so differences
+  reflect the search and selection rule rather than an under-specified model.
+  The single-factor companion shows the converse case.
+* **Selection rule, not search, drives the size.** For the consistency and DINA
+  arms, `effMaxSG` tightens the subgroup toward the true conjunction (higher
+  specificity, `|S-hat|/n` near the true 0.25), while `eff` chases the largest
+  effect. The `*-effMaxSG` vs `*-eff` pairs isolate this.
+* **Two GRF arms on the same scores.** `FS-grf-tree` selects via the depth-2
+  policy tree (which may return a union of leaves); `FS-grf-frontier` selects a
+  single conjunction from the Pareto frontier of the same scores under effMaxSG.
+  Comparing them isolates the selection step (tree vs frontier) holding the
+  forest fit fixed.
+* **Multi-focus cost.** `dina_foci` reuses one cross-fitted `dina()` fit across
+  foci (cheap); `fs_foci` re-runs `forestsearch()` per focus, and each GRF arm
+  fits its own forest. The per-method timing tables quantify this.
+* **Depth-2 threshold recovery.** For `dina_subgroup()`, among reps recovering
+  both axes, per-component bias against $(c_1, c_2) = (0, 0)$ is in the threshold
+  table; `effMaxSG` keeps both component cuts near the truth.
 
 This study isolates **discovery** behaviour on a two-factor truth. It does not
 address post-selection inference (the conditional-on-signature CIs and the
