@@ -116,7 +116,7 @@ Two things make each a single arm rather than a per-focus family:
 Comparing `FS-grf-tree` with `FS-grf-frontier` isolates the selection step alone
 (policy tree vs Pareto frontier) holding the forest fit fixed. Because GRF
 membership is taken from the selected subgroup, the membership-based recovery
-metrics (sensitivity, specificity, Jaccard) are always well defined; at depth 1
+metrics (sensitivity, specificity, PPV, NPV) are always well defined; at depth 1
 both subgroups are single conjunctions, so the text-parsing metrics
 (`cov-set hit`, `sig correct`, `mean #factors`) apply directly.
 
@@ -144,8 +144,17 @@ library(forestsearch)
 library(survival)
 library(data.table)
 library(gt)
+library(ggplot2)
 library(doFuture)
 library(foreach)
+
+# Exploratory graphics utilities (not part of the package).  Adjust the
+# relative depth if this document is rendered from a different location.
+.util_dir <- "_utils"
+if (!dir.exists(.util_dir)) .util_dir <- file.path("..", "..", "_utils")
+source(file.path(.util_dir, "signature_recovery_display.R"))
+source(file.path(.util_dir, "plot_oc_metrics.R"))
+source(file.path(.util_dir, "compute_oc_pareto_flag.R"))
 
 CONFIG <- list(
   # Monte Carlo
@@ -308,7 +317,7 @@ simulate_conjunction_cox <- function(n, d, tau_in, tau_out,
 
 Both methods may return a multi-factor rule, so both are scored on
 **method-agnostic** quantities: detection, membership recovery vs the true mask
-(sensitivity / specificity / PPV / Jaccard), the number of factors returned, and
+(sensitivity / specificity / PPV / NPV), the number of factors returned, and
 two signature-identity flags --- whether the discovered rule uses exactly the
 true **covariate set** (`covariate_set_hit`) and exactly the true
 **(covariate, direction)** axes (`signature_correct`). For `dina_subgroup()`,
@@ -387,7 +396,7 @@ score_fs <- function(fs, df, truth, method_label = "FS") {
   out[, sg_def := sg_txt]
 
   # A GRF union of leaves is carried as a single disjunctive definition string
-  # "(a & b) | (c & d)".  Membership-based metrics (sens/spec/ppv/Jaccard) are
+  # "(a & b) | (c & d)".  Membership-based metrics (sens/spec/ppv/npv) are
   # always valid because they read treat.recommend, but the text-parsing
   # metrics (n_factors, covariate_set_hit, signature_correct) do not have a
   # clean single-conjunction meaning for a union, so flag them NA rather than
@@ -835,7 +844,7 @@ agg <- results[is_null == FALSE, .(
   sensitivity       = mean(sensitivity, na.rm = TRUE),
   specificity       = mean(specificity, na.rm = TRUE),
   ppv               = mean(ppv, na.rm = TRUE),
-  jaccard           = mean(jaccard, na.rm = TRUE),
+  npv               = mean(npv, na.rm = TRUE),
   mean_sg_frac      = mean((n_subgroup / n)[found], na.rm = TRUE),
   mean_n_factors    = mean(n_factors[found], na.rm = TRUE)
 ), by = .(label, n, tau_in, method)][order(n, tau_in, method)]
@@ -848,13 +857,13 @@ agg |>
       "Cox; true S = {x1 >= 0}; HR threshold = %.2f; maxk = %d / max_depth = %d; %d sims/cell",
       CONFIG$effect_threshold, CONFIG$fs_maxk, CONFIG$dina_max_depth, CONFIG$nsims)) |>
   gt::fmt_number(columns = c(detection_rate, covariate_set_hit, signature_correct,
-                             sensitivity, specificity, ppv, jaccard,
+                             sensitivity, specificity, ppv, npv,
                              mean_sg_frac, mean_n_factors), decimals = 3) |>
   gt::sub_missing(columns = gt::everything(), missing_text = "\u2014") |>
   gt::cols_label(method = "method", detection_rate = "detected",
                  covariate_set_hit = "cov-set hit", signature_correct = "sig correct",
                  sensitivity = "sens", specificity = "spec", ppv = "ppv",
-                 jaccard = "Jaccard", mean_sg_frac = "|S-hat|/n",
+                 npv = "npv", mean_sg_frac = "|S-hat|/n",
                  mean_n_factors = "mean #factors", n = "n", tau_in = "tau_in") |>
   gt::tab_source_note(gt::md(
     "*`cov-set hit` = P(discovered rule uses exactly {x1, x2} | found).
@@ -862,7 +871,7 @@ agg |>
      found). It is computed for **both** methods: `dina_subgroup` exposes the
      axes directly, and forestsearch's cut labels are parsed (negations flip
      the direction); an em-dash means no found replications (or an unparseable
-     label). `sens`/`spec`/`Jaccard` compare discovered membership to the true
+     label). `sens`/`spec`/`ppv`/`npv` compare discovered membership to the
      true subgroup mask. `mean #factors` should sit near 1 when the
      single-factor truth is recovered.*")) |>
   gt::tab_options(table.font.size = 12)
@@ -922,6 +931,91 @@ fdr |>
      single-factor hypothesis space (`maxk = 1` / `max_depth = 1`) keeps the
      candidate space small; the harm thresholds remain the guard.*")) |>
   gt::tab_options(table.font.size = 12)
+```
+
+# Graphical summary
+
+The displays below reuse the operating-characteristic bubble vocabulary from
+the `binary_m1_harm` summary (`plot_oc_metrics()` / `compute_oc_pareto_flag()`
+in `quarto/_utils/`). The signature-recovery aggregates are reshaped onto that
+convention by `sigrec_to_display()` (and `sigrec_fdr_to_display()` for the null
+arm), so color = method (`group`), shape = method family (`Analysis`:
+FS-consistency / FS-grf / DINA), and the chosen metrics map onto the x / y / size
+axes. All metrics are higher-is-better except `|S-hat|/n`, which is read against
+the true subgroup fraction (0.5 here), not maximised.
+
+```{r gfx-reshape}
+display_dt <- sigrec_to_display(agg)
+# Pareto frontier over the three recovery axes that matter here, all
+# higher-is-better.  (|S-hat|/n is excluded: it is a target-matching metric,
+# not higher-better, so it does not belong in a dominance calculation.)
+display_dt <- compute_oc_pareto_flag(
+  display_dt, metrics = c("Sen", "Spec", "CovHit"))
+fdr_dt <- sigrec_fdr_to_display(fdr)
+```
+
+## Sensitivity × specificity (bubble size = covariate-set hit)
+
+The single most informative view: where each method lands in
+sensitivity/specificity space, with bubble size showing how often it recovered
+the true covariate set. A method that recovers the signature *correctly* sits
+toward the top-right (high sensitivity **and** high specificity) with a large
+bubble; a method that over-extends sits low-right (high sensitivity, low
+specificity).
+
+```{r gfx-sens-spec, fig.width = 9, fig.height = 4.8}
+plot_oc_metrics(
+  display_dt[display_dt$tau_in == max(display_dt$tau_in), ],
+  x = "Sen", y = "Spec", z = "CovHit",
+  size_limits = c(0, 1),
+  pareto_col  = "pareto_frontier",
+  title    = "Signature recovery: sensitivity \u00d7 specificity (bubble = cov-set hit)",
+  subtitle = sprintf("Strong signal (tau_in = %.1f), n = %d; frontier on {Sen, Spec, CovHit} in solid",
+                     max(display_dt$tau_in), max(display_dt$n)))
+```
+
+## Subgroup-size accuracy (`|S-hat|/n` vs the truth)
+
+The size view exposes over-extension that the sensitivity/specificity bubble can
+hide. The dashed line is the true subgroup fraction; points to its right have
+discovered a subgroup *larger* than the truth (membership extended beyond the
+true region), points on the line have matched its size.
+
+```{r gfx-size, fig.width = 9, fig.height = 5}
+true_frac <- 0.5  # true |S|/n for S = {x1 >= 0}
+ggplot(display_dt,
+       aes(x = Shat_frac, y = group, colour = group, shape = Analysis)) +
+  geom_vline(xintercept = true_frac, linetype = "dashed",
+             colour = "grey40") +
+  geom_point(size = 3) +
+  facet_grid(. ~ paste0("n = ", n) + paste0("tau = ", tau_in)) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "|S-hat| / n  (dashed = true 0.5)", y = NULL,
+       title = "Discovered subgroup size vs. the truth",
+       subtitle = "Points right of the dashed line over-extend beyond the true subgroup") +
+  theme_bw() +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+## False-discovery rate (null arm)
+
+The FDR story is categorical -- a couple of methods near 1, the rest near 0 --
+so a bar panel reads better than a bubble. Each method's false-discovery rate
+under no heterogeneity, by sample size; the dashed line marks a nominal 0.05
+reference.
+
+```{r gfx-fdr, fig.width = 9, fig.height = 5}
+ggplot(fdr_dt,
+       aes(x = FDR, y = reorder(group, FDR), fill = Analysis)) +
+  geom_col(width = 0.7) +
+  geom_vline(xintercept = 0.05, linetype = "dashed", colour = "grey40") +
+  facet_wrap(~ paste0("n = ", n), nrow = 1) +
+  scale_x_continuous(limits = c(0, 1)) +
+  labs(x = "false-discovery rate (null)", y = NULL,
+       title = "False-discovery rate under no heterogeneity",
+       subtitle = "Dashed line = 0.05 reference; GRF arms inflate severely at dmin.grf = 0") +
+  theme_bw() +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
 ```
 
 ```{r plan-teardown}
@@ -1003,6 +1097,90 @@ Points the tables support:
 This study isolates **discovery** behaviour on a single-factor truth. It does
 not address post-selection inference (the conditional-on-signature CIs and the
 selection-adjusted bootstrap), which are separate questions.
+
+# Graphical summary
+
+The tables above are reshaped onto the operating-characteristic display
+convention used by the cross-cut simulation articles
+(`_utils/plot_oc_metrics.R`), so the same bubble-chart and Pareto-frontier
+machinery applies. `sigrec_to_display()` renames the per-method metrics to the
+`Detection / Sen / Spec / PPV` convention, maps `method` to color and the method
+*family* (FS-consistency / FS-grf / DINA) to shape, and carries the
+recovery-specific metrics (`CovHit`, `SigCorrect`, `Shat_frac`)
+alongside.
+
+```{r gfx-display-dt}
+display_dt <- sigrec_to_display(agg)
+# Pareto frontier on the recovery-relevant axes (all higher-is-better):
+# sensitivity, specificity, and covariate-set hit.  A method is on the frontier
+# if no other matches it on all three and beats it on at least one.
+display_dt <- compute_oc_pareto_flag(
+  display_dt, metrics = c("Sen", "Spec", "CovHit"))
+```
+
+## Sensitivity x specificity (bubble size = covariate-set hit)
+
+The single most informative view: the x-axis is sensitivity, the y-axis is
+specificity, and bubble size is the covariate-set hit rate. A method that
+recovers the truth tightly sits in the upper-right with a large bubble; a method
+that over-extends (captures the harmed plus much of the unharmed) drifts toward
+high sensitivity but low specificity, with a smaller bubble. Faceted by `n`;
+color = method, shape = method family.
+
+```{r gfx-sen-spec, fig.width=10, fig.height=4.2}
+plot_oc_metrics(
+  display_dt,
+  x = "Sen", y = "Spec", z = "CovHit",
+  size_limits = c(0, 1),
+  title    = "Signature recovery: sensitivity x specificity (bubble size = cov-set hit)",
+  subtitle = "Color = method; shape = family (FS-consistency / FS-grf / DINA). Upper-right with a large bubble = tight recovery."
+) + ggplot2::facet_wrap(~ n, labeller = ggplot2::labeller(n = function(v) paste0("n = ", v)))
+```
+
+## Pareto frontier on {sensitivity, specificity, cov-set hit}
+
+The same axes, highlighting the Pareto frontier (solid, thicker stroke) and
+dimming dominated methods. The frontier picks out the defensible operating
+points across the three recovery axes simultaneously.
+
+```{r gfx-pareto, fig.width=10, fig.height=4.2}
+plot_oc_metrics(
+  display_dt,
+  x = "Sen", y = "Spec", z = "CovHit",
+  pareto_col  = "pareto_frontier",
+  size_limits = c(0, 1),
+  title    = "Pareto frontier on {Sen, Spec, cov-set hit} -- frontier solid, dominated dimmed",
+  subtitle = "Frontier computed on the three recovery axes, not on the two plotted axes alone."
+) + ggplot2::facet_wrap(~ n, labeller = ggplot2::labeller(n = function(v) paste0("n = ", v)))
+```
+
+## Subgroup-size accuracy
+
+Discovered subgroup size as a fraction of `n` (`Shat_frac`), against the true
+proportion (dashed line). This exposes over-extension as a *size* failure: a
+method whose point sits well above the true fraction is flagging more subjects
+as harmed than the truth contains, even if its sensitivity looks high.
+
+```{r gfx-size, fig.width=9, fig.height=4.5}
+# True |S|/n for S = {x1 >= 0} with x1 ~ U[-1, 1] is 0.5.  Use a CONFIG override
+# if present, else default to 0.5 (this single-factor DGM).
+true_frac <- if (!is.null(CONFIG$true_frac)) CONFIG$true_frac else 0.5
+ggplot2::ggplot(
+  display_dt,
+  ggplot2::aes(x = Shat_frac, y = reorder(method, Shat_frac),
+               color = group, shape = Analysis)) +
+  ggplot2::geom_vline(xintercept = true_frac, linetype = "dashed",
+                      color = "grey40") +
+  ggplot2::geom_point(size = 3) +
+  ggplot2::facet_wrap(~ n, labeller = ggplot2::labeller(n = function(v) paste0("n = ", v))) +
+  ggplot2::labs(
+    x = "|S-hat| / n  (discovered subgroup size as fraction of n)",
+    y = NULL, color = "method", shape = "family",
+    title = "Subgroup-size accuracy vs. the true fraction (dashed)",
+    subtitle = sprintf("True |S|/n = %.2f. Points far to the right over-extend the subgroup.", true_frac)) +
+  ggplot2::theme_bw(base_size = 11) +
+  ggplot2::theme(legend.position = "right")
+```
 
 # Timing
 
