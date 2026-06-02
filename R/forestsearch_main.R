@@ -296,6 +296,15 @@
 #'   AND-conjunction.
 #' @param max_n_confounders Integer. Maximum confounders to consider. Default 1000.
 #' @param grf_depth Integer. GRF tree depth. Default 2.
+#' @param grf_selection Character, one of \code{"tree"} (default) or
+#'   \code{"frontier"}, used only when \code{subgroup_method = "grf"}.
+#'   \code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
+#'   \strong{experimental} alternative that selects from the Pareto frontier of
+#'   the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
+#'   frontier rule is taken from \code{sg_focus} (\code{"hr"}/\code{"eff"},
+#'   \code{"hrMaxSG"}/\code{"effMaxSG"}, or \code{"maxSG"}) and the relative
+#'   band from \code{effect_neighborhood}. Provided for comparison; the tree is
+#'   the recommended default.
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
 #' @param frac.tau Numeric in (0, 1]. Multiplier on the GRF time horizon
 #'   passed to \code{grf::causal_survival_forest()}. The effective
@@ -705,6 +714,7 @@ forestsearch <- function(df.analysis,
                          subgroup_method = c("consistency", "dina", "grf"),
                          max_n_confounders = 1000,
                          grf_depth = 2,
+                         grf_selection = c("tree", "frontier"),
                          dmin.grf = 0.0,
                          frac.tau = 0.8,
                          return_selected_cuts_only = TRUE,
@@ -1534,6 +1544,14 @@ forestsearch <- function(df.analysis,
   # the GLM extras); there is no separate grf_args list, mirroring how GRF
   # screening is configured.
   if (subgroup_method == "grf") {
+    grf_selection <- match.arg(grf_selection)
+    # In frontier mode the selection rule comes from sg_focus (which the tree
+    # path ignores).  Map the canonical sg_focus forms to the frontier rule;
+    # anything else falls back to the robust default (effMaxSG).
+    .sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
+    frontier_rule <- switch(as.character(.sgf),
+                            hr = "eff", hrMaxSG = "effMaxSG", maxSG = "maxSG",
+                            "effMaxSG")
     gsel <- .forestsearch_grf_select(
       df = df, df.predict = df.predict, df.test = df.test,
       confounders.name = confounders.name, outcome.name = outcome.name,
@@ -1543,7 +1561,9 @@ forestsearch <- function(df.analysis,
       is.RCT = is.RCT, adverse_outcome = adverse_outcome,
       offset.name = offset.name, overdispersion = overdispersion,
       grf_count_transform = grf_count_transform,
-      grf_res = grf_res, seedit = seedit, details = details)
+      grf_res = grf_res, seedit = seedit,
+      grf_selection = grf_selection, frontier_rule = frontier_rule,
+      effect_neighborhood = effect_neighborhood, details = details)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 

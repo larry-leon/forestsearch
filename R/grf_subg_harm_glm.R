@@ -109,6 +109,21 @@
 #'   parameters remain at their defaults, preserving existing behavior.
 #'   Most impactful for observational data where nuisance models benefit
 #'   from tuning; defaults are near-optimal for RCTs (Dandl et al., 2024).
+#' @param grf_selection Character, one of \code{"tree"} (default) or
+#'   \code{"frontier"}. \code{"tree"} uses the GRF policy tree (standard
+#'   behavior). \code{"frontier"} is an \strong{experimental} alternative that,
+#'   on the same doubly-robust scores, enumerates single-covariate thresholds
+#'   (and depth-2 covariate-pair conjunctions when \code{maxdepth >= 2}), takes
+#'   the Pareto frontier of (harm-effect, size), and selects one subgroup under
+#'   \code{frontier_rule}. The selected subgroup is always a single conjunction
+#'   (never the disjunctive union the tree path can return). Provided for
+#'   comparison and exploration, not as a recommended default.
+#' @param frontier_rule Character, one of \code{"effMaxSG"} (default),
+#'   \code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
+#'   \code{grf_selection = "frontier"}. See \code{\link{grf.subg.harm.survival}}.
+#' @param effect_neighborhood Numeric in (0, 1); relative neighborhood for the
+#'   \code{"effMaxSG"} rule. Default 0.10. Used only when
+#'   \code{grf_selection = "frontier"}.
 #' @param details Logical. Print GRF diagnostic information. Default: \code{FALSE}.
 #' @param verbose Logical. Print progress messages. Default: \code{FALSE}.
 #'
@@ -284,6 +299,9 @@ grf.subg.harm.glm <- function(
     return_selected_cuts_only = FALSE,
     adverse_outcome     = FALSE,
     tune_grf            = FALSE,
+    grf_selection       = c("tree", "frontier"),
+    frontier_rule       = c("effMaxSG", "eff", "maxSG"),
+    effect_neighborhood = 0.10,
     details             = FALSE,
     verbose             = FALSE
 ) {
@@ -295,6 +313,8 @@ grf.subg.harm.glm <- function(
   overdispersion      <- match.arg(overdispersion)
   sg.criterion        <- match.arg(sg.criterion)
   grf_count_transform <- match.arg(grf_count_transform)
+  grf_selection       <- match.arg(grf_selection)
+  frontier_rule       <- match.arg(frontier_rule)
 
   # Default effect_measure by outcome type
   if (is.null(effect_measure)) {
@@ -464,6 +484,73 @@ grf.subg.harm.glm <- function(
       stop("double_robust_scores() failed: ", e$message)
     }
   )
+
+  # ---------------------------------------------------------------------------
+  # FRONTIER SELECTION (grf_selection = "frontier")
+  # ---------------------------------------------------------------------------
+  # Alternative to the policy tree: enumerate threshold (and depth-2 pair)
+  # candidates on the SAME DR scores, take the Pareto frontier, select under
+  # frontier_rule.  dr_scores columns are [control (Gamma_0), treated (Gamma_1)];
+  # the frontier's harm-effect = mean(control) - mean(treated) matches the tree
+  # path's score = -CATE convention.  When adverse_outcome = TRUE the Y-flip was
+  # applied before causal_forest(), so dr_scores are already harm-oriented and
+  # need no special handling here.  grf_selection = "tree" skips this entirely.
+  if (identical(grf_selection, "frontier")) {
+    cand <- .grf_dr_candidates(X, dr_scores, n_min = n.min)
+    if (maxdepth >= 2L) {
+      cand2 <- .grf_dr_candidates_d2(X, dr_scores, n_min = n.min)
+      cand  <- if (is.null(cand)) cand2
+               else if (is.null(cand2)) cand else rbind(cand, cand2)
+    }
+    sel <- .grf_frontier_select(cand, dmin = dmin.grf, rule = frontier_rule,
+                                nbhd = effect_neighborhood)
+    if (is.null(sel)) {
+      if (verbose || details)
+        message("[grf.subg.harm.glm] frontier: no eligible subgroup.")
+      data$treat.recommend <- 1L
+      return(structure(
+        list(sg.harm.id = NULL,
+             sg_def = list(conjunctions = list(), labels = NULL,
+                           definition = NA_character_, is_disjunction = FALSE),
+             data = data, tree.cuts = NULL, grf_varimp = vi,
+             outcome.name = outcome.name, treat.name = treat.name,
+             id.name = id.name, confounders.name = confounders.name,
+             effect_measure = effect_measure, outcome_type = outcome_type,
+             overdispersion = overdispersion, offset.name = offset.name,
+             grf_count_transform = grf_count_transform,
+             grf_y_transform = grf_y_transform,
+             return_selected_cuts_only = return_selected_cuts_only,
+             adverse_outcome = adverse_outcome, selection = "frontier"),
+        class = "grf_glm_result"))
+    }
+    sg_def     <- .grf_sg_def_from_candidate(sel)
+    sg_harm_id <- if (!is.null(sg_def$labels))
+                    gsub("^\\{|\\}$", "", sg_def$labels) else sg_def$definition
+    data$treat.recommend <- .grf_evaluate_subgroup(sg_def, data)
+    if (verbose || details) {
+      message(sprintf(paste0("[grf.subg.harm.glm] frontier rule=%s dmin=%.3g ",
+                             "selected: %s (effect=%.4f, size=%d)"),
+                      frontier_rule, dmin.grf, sg_def$definition,
+                      sel$effect, sel$size))
+    }
+    return(structure(
+      list(sg.harm.id = sg_harm_id, sg_def = sg_def, data = data,
+           tree.cuts = NULL, grf_varimp = vi,
+           outcome.name = outcome.name, treat.name = treat.name,
+           id.name = id.name, confounders.name = confounders.name,
+           effect_measure = effect_measure, outcome_type = outcome_type,
+           overdispersion = overdispersion, offset.name = offset.name,
+           grf_count_transform = grf_count_transform,
+           grf_y_transform = grf_y_transform,
+           return_selected_cuts_only = return_selected_cuts_only,
+           adverse_outcome = adverse_outcome,
+           trees = NULL, dr_scores = dr_scores, cs_forest = cs_forest,
+           cate_sg = -sel$effect, cate_sgc = NA_real_,
+           best_depth = if (is.na(sel$v2)) 1L else 2L,
+           selection = "frontier",
+           frontier = .grf_mark_frontier(cand)),
+      class = "grf_glm_result"))
+  }
 
   trees  <- vector("list", maxdepth)
   values <- vector("list", maxdepth)

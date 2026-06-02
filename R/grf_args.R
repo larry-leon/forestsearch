@@ -37,7 +37,10 @@
                                 adverse_outcome,
                                 offset.name         = NULL,
                                 overdispersion      = "none",
-                                grf_count_transform = "log") {
+                                grf_count_transform = "log",
+                                grf_selection       = "tree",
+                                frontier_rule       = "effMaxSG",
+                                effect_neighborhood = 0.10) {
 
   # Map forestsearch outcome_type to the grf.subg.harm.glm vocabulary
   ot_grf <- if (outcome_type == "count")       "count"
@@ -58,7 +61,10 @@
     maxdepth                  = grf_depth,
     seedit                    = seedit,
     return_selected_cuts_only = return_selected_cuts_only,
-    adverse_outcome           = adverse_outcome
+    adverse_outcome           = adverse_outcome,
+    grf_selection             = grf_selection,
+    frontier_rule             = frontier_rule,
+    effect_neighborhood       = effect_neighborhood
   )
 
   # Count-specific parameters
@@ -87,7 +93,10 @@
                                      is.RCT,
                                      grf_depth,
                                      seedit,
-                                     return_selected_cuts_only) {
+                                     return_selected_cuts_only,
+                                     grf_selection = "tree",
+                                     frontier_rule = "effMaxSG",
+                                     effect_neighborhood = 0.10) {
   list(
     data                      = data,
     confounders.name          = confounders.name,
@@ -102,7 +111,10 @@
     details                   = FALSE,
     maxdepth                  = grf_depth,
     seedit                    = seedit,
-    return_selected_cuts_only = return_selected_cuts_only
+    return_selected_cuts_only = return_selected_cuts_only,
+    grf_selection             = grf_selection,
+    frontier_rule             = frontier_rule,
+    effect_neighborhood       = effect_neighborhood
   )
 }
 

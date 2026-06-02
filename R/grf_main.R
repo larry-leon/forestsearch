@@ -25,6 +25,25 @@
 #' @param tune_grf Logical. If \code{TRUE}, enables cross-validated
 #'   hyperparameter tuning via \code{tune.parameters = "all"} in the
 #'   causal survival forest. Default \code{FALSE}.
+#' @param grf_selection Character, one of \code{"tree"} (default) or
+#'   \code{"frontier"}. \code{"tree"} uses the GRF policy tree (standard
+#'   behavior). \code{"frontier"} is an \strong{experimental} alternative that,
+#'   on the same doubly-robust scores, enumerates single-covariate thresholds
+#'   (and depth-2 covariate-pair conjunctions when \code{maxdepth >= 2}), takes
+#'   the Pareto frontier of (harm-effect, size), and selects one subgroup under
+#'   \code{frontier_rule}. The selected subgroup is always a single conjunction.
+#'   In small benchmarks the policy tree matched or beat the frontier on harm
+#'   recovery, so \code{"frontier"} is provided for comparison and exploration,
+#'   not as a recommended default.
+#' @param frontier_rule Character, one of \code{"effMaxSG"} (default),
+#'   \code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
+#'   \code{grf_selection = "frontier"}. \code{"eff"} takes the maximum
+#'   harm-effect candidate; \code{"effMaxSG"} the largest within
+#'   \code{effect_neighborhood} (relative) of the max harm-effect; \code{"maxSG"}
+#'   the largest eligible candidate.
+#' @param effect_neighborhood Numeric in (0, 1); relative neighborhood for the
+#'   \code{"effMaxSG"} rule. Default 0.10. Used only when
+#'   \code{grf_selection = "frontier"}.
 #'
 #' @return A list with GRF results, including:
 #'   \item{data}{Original data with added treatment recommendation flags}
@@ -138,7 +157,13 @@ grf.subg.harm.survival <- function(data,
                                    maxdepth = 2,
                                    seedit = 8316951,
                                    return_selected_cuts_only = FALSE,
-                                   tune_grf = FALSE) {
+                                   tune_grf = FALSE,
+                                   grf_selection = c("tree", "frontier"),
+                                   frontier_rule = c("effMaxSG", "eff", "maxSG"),
+                                   effect_neighborhood = 0.10) {
+
+  grf_selection <- match.arg(grf_selection)
+  frontier_rule <- match.arg(frontier_rule)
 
   # ===========================================================================
   # SECTION: INPUT VALIDATION
@@ -176,6 +201,10 @@ grf.subg.harm.survival <- function(data,
 
   # Add return_selected_cuts_only to config for downstream functions
   config$return_selected_cuts_only <- return_selected_cuts_only
+  # Frontier-mode settings (selection = "frontier"); inert for the tree path.
+  config$selection           <- grf_selection
+  config$frontier_rule       <- frontier_rule
+  config$effect_neighborhood <- effect_neighborhood
 
   # ===========================================================================
   # SECTION: DATA PREPARATION
@@ -222,6 +251,62 @@ grf.subg.harm.survival <- function(data,
 
   # Maximum sample size (used to exclude full population as subgroup)
   n.max <- length(Y)
+
+  # ===========================================================================
+  # SECTION: FRONTIER SELECTION (selection = "frontier")
+  # Purpose: alternative to the policy tree -- enumerate threshold (and depth-2
+  #   pair) candidates on the SAME DR scores, take the Pareto frontier, select
+  #   under frontier_rule.  Default selection = "tree" skips this entirely.
+  # ===========================================================================
+  if (identical(config$selection, "frontier")) {
+    cand <- .grf_dr_candidates(X, dr.scores, n_min = config$n.min)
+    if (config$maxdepth >= 2L) {
+      cand2 <- .grf_dr_candidates_d2(X, dr.scores, n_min = config$n.min)
+      cand  <- if (is.null(cand)) cand2
+               else if (is.null(cand2)) cand else rbind(cand, cand2)
+    }
+    sel <- .grf_frontier_select(cand, dmin = config$dmin.grf,
+                                rule = config$frontier_rule,
+                                nbhd = config$effect_neighborhood)
+    if (is.null(sel)) {
+      if (details) print_grf_details(config, NULL, NULL, NULL)
+      nullres <- create_null_result(data, NULL, NULL, config)
+      nullres$sg_def    <- list(conjunctions = list(), labels = NULL,
+                                definition = NA_character_,
+                                is_disjunction = FALSE)
+      nullres$selection <- "frontier"
+      return(nullres)
+    }
+    sg_def     <- .grf_sg_def_from_candidate(sel)
+    sg_harm_id <- if (!is.null(sg_def$labels))
+                    gsub("^\\{|\\}$", "", sg_def$labels) else sg_def$definition
+    # Membership from the structured definition (reproduces the candidate's S).
+    tr_rec <- .grf_evaluate_subgroup(sg_def, data)
+    data$treat.recommend <- tr_rec
+    if (details) {
+      message(sprintf(paste0("[grf frontier] rule=%s  dmin=%.3g  ",
+                             "selected: %s  (effect=%.3f, size=%d)"),
+                      config$frontier_rule, config$dmin.grf,
+                      sg_def$definition, sel$effect, sel$size))
+    }
+    result <- list(
+      data           = data,
+      grf.gsub       = list(leaf.node = NA, depth = if (is.na(sel$v2)) 1L else 2L,
+                            effect = sel$effect, Nsg = sel$size),
+      sg.harm.id     = sg_harm_id,
+      sg_def         = sg_def,
+      tree           = NULL,
+      tau.rmst       = config$tau.rmst,
+      dmin.grf       = config$dmin.grf,
+      frac.tau       = config$frac.tau,
+      maxdepth       = config$maxdepth,
+      n.min          = config$n.min,
+      selected_depth = if (is.na(sel$v2)) 1L else 2L,
+      selection      = "frontier",
+      frontier       = .grf_mark_frontier(cand)
+    )
+    return(result)
+  }
 
   # Fit policy trees and compute metrics
   tree_results <- fit_policy_trees(X, data, dr.scores, config$maxdepth, config$n.min)

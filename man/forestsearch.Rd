@@ -31,6 +31,7 @@ forestsearch(
   subgroup_method = c("consistency", "dina", "grf"),
   max_n_confounders = 1000,
   grf_depth = 2,
+  grf_selection = c("tree", "frontier"),
   dmin.grf = 0,
   frac.tau = 0.8,
   return_selected_cuts_only = TRUE,
@@ -203,6 +204,16 @@ AND-conjunction.}
 \item{max_n_confounders}{Integer. Maximum confounders to consider. Default 1000.}
 
 \item{grf_depth}{Integer. GRF tree depth. Default 2.}
+
+\item{grf_selection}{Character, one of \code{"tree"} (default) or
+\code{"frontier"}, used only when \code{subgroup_method = "grf"}.
+\code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
+\strong{experimental} alternative that selects from the Pareto frontier of
+the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
+frontier rule is taken from \code{sg_focus} (\code{"hr"}/\code{"eff"},
+\code{"hrMaxSG"}/\code{"effMaxSG"}, or \code{"maxSG"}) and the relative
+band from \code{effect_neighborhood}. Provided for comparison; the tree is
+the recommended default.}
 
 \item{dmin.grf}{Numeric. Minimum events for GRF. Default 0.0.}
 

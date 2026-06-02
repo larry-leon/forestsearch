@@ -1232,6 +1232,9 @@ reset_workers <- function(workers   = NULL,
                                      overdispersion = "none",
                                      grf_count_transform = "log",
                                      grf_res = NULL, seedit = 8316951L,
+                                     grf_selection = "tree",
+                                     frontier_rule = "effMaxSG",
+                                     effect_neighborhood = 0.10,
                                      details = FALSE) {
 
   # Fit GRF unless a fit was supplied.  Build args through the same helpers the
@@ -1252,7 +1255,10 @@ reset_workers <- function(workers   = NULL,
         is.RCT                    = is.RCT,
         grf_depth                 = grf_depth,
         seedit                    = seedit,
-        return_selected_cuts_only = TRUE
+        return_selected_cuts_only = TRUE,
+        grf_selection             = grf_selection,
+        frontier_rule             = frontier_rule,
+        effect_neighborhood       = effect_neighborhood
       )
       grf_res <- do.call(grf.subg.harm.survival, surv_args)
     } else {
@@ -1272,7 +1278,10 @@ reset_workers <- function(workers   = NULL,
         adverse_outcome           = adverse_outcome,
         offset.name               = offset.name,
         overdispersion            = overdispersion,
-        grf_count_transform       = grf_count_transform
+        grf_count_transform       = grf_count_transform,
+        grf_selection             = grf_selection,
+        frontier_rule             = frontier_rule,
+        effect_neighborhood       = effect_neighborhood
       )
       grf_res <- do.call(grf.subg.harm.glm, glm_args)
     }

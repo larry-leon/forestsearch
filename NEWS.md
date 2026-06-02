@@ -2,6 +2,30 @@
 
 ## New Features
 
+### GRF frontier selection (experimental)
+
+* New `grf_selection` argument (one of `"tree"` (default) or `"frontier"`) for
+  the GRF subgroup routines `grf.subg.harm.survival()` and
+  `grf.subg.harm.glm()`, and for `forestsearch(subgroup_method = "grf")`.
+  `"tree"` is the standard policy-tree selection and is unchanged.
+
+* `grf_selection = "frontier"` is an experimental alternative that consumes the
+  same doubly-robust scores as the policy tree but selects differently: it
+  enumerates single-covariate thresholds (and depth-2 covariate-pair
+  conjunctions when `grf_depth >= 2`), scores each candidate subgroup by its
+  doubly-robust harm-effect and size, takes the Pareto frontier, and selects one
+  subgroup under `frontier_rule` (`"effMaxSG"` (default), `"eff"`, or
+  `"maxSG"`), with `effect_neighborhood` giving the relative band for
+  `"effMaxSG"`. The selected subgroup is always a single conjunction. Within
+  `forestsearch()`, the frontier rule is taken from `sg_focus` (which the tree
+  path ignores). Implemented for survival and GLM outcomes; membership flows
+  through the existing estimation and bootstrap machinery unchanged.
+
+* This mode is provided for comparison and exploration. In internal benchmarks
+  the GRF policy tree matched or outperformed the frontier on harm recovery
+  (the tree's global value objective aligns well with isolating harm), so the
+  tree remains the recommended default.
+
 ### GLM Extension
 
 * Subgroup identification for binary, continuous, and count outcomes
@@ -89,35 +113,6 @@
   absolute difference in event rates).  Calibration documents are
   provided for both synthetic 4-confounder settings and the ACTG175
   12-confounder setting.
-
-### Subgroup-Method Selection Modes
-
-* New `subgroup_method` argument in `forestsearch()`, one of
-  `"consistency"` (default), `"dina"`, or `"grf"`.  `"consistency"` is
-  the standard pipeline (GRF/LASSO screening then the consistency
-  search).  `"dina"` and `"grf"` delegate subgroup *selection* to
-  `dina_subgroup()` and the GRF subgroup-identification routines
-  respectively, bypassing the consistency search, and return the
-  selected subgroup as `sg.harm` for the existing membership-based
-  estimation and bootstrap machinery to consume.
-
-* `subgroup_method = "grf"` uses `grf.subg.harm.survival()` (survival)
-  or `grf.subg.harm.glm()` (GLM) for selection, configured from the
-  call's existing GRF arguments (`grf_depth`, `dmin.grf`, `frac.tau`,
-  `is.RCT`, `seedit`, and the GLM extras) -- no separate argument list,
-  so it uses the same settings GRF screening would.  The selected
-  policy-tree subgroup is returned as `sg.harm`: a brace-label vector
-  for a single-leaf conjunction, or a disjunctive definition string
-  (a union of axis-aligned boxes) when the subgroup spans multiple
-  leaves.  The bootstrap bias-correction and per-resample diagnostics
-  apply unchanged (re-fitting and re-selecting GRF on each resample).
-
-* `subgroup_method = "dina"` selection mode is now documented:
-  `dina_args` supplies the DINA *fit* tuning (`seed`, `n_folds`,
-  `cens_type`, `cens_params`) plus the depth controls (`max_depth`,
-  `grid_probs`); selection uses the call's `sg_focus` /
-  `selection_rule` / `effect_neighborhood` / `n.min` /
-  `effect.threshold`.
 
 ### Selection Criteria
 
@@ -277,31 +272,6 @@
 
 ## Bug Fixes
 
-* **Fixed incorrect GRF subgroup *definitions* (`sg.harm.id`) at
-  `grf_depth >= 2`.**  Both label builders produced a textual subgroup
-  definition that did not match the subgroup GRF actually selected
-  (`treat.recommend`) whenever a decision path turned right (`>`) or the
-  subgroup spanned more than one policy-tree leaf:
-    - survival (`grf.subg.harm.survival()`, via `find_leaf_split()`)
-      emitted only the single split immediately above one leaf, dropping
-      the rest of the root-to-leaf path;
-    - GLM (`grf.subg.harm.glm()`, via `.build_sg_harm_id()`) emitted
-      every internal-node split as `<=`, ignoring path and direction.
-  Definitions are now built from the exact root-to-leaf decision path(s)
-  with correct per-split directions (`<=` for left, `>` for right),
-  yielding a single conjunction for a one-leaf subgroup or a disjunction
-  of conjunctions (a union of boxes) for a multi-leaf subgroup.
-  Thresholds are formatted to full double precision so the rendered
-  definition reproduces membership exactly.  GRF's `treat.recommend`
-  membership was always correct; only the printed/parsed definition was
-  affected, and only at depth >= 2 with right-turns or multi-leaf
-  subgroups -- so analyses scoring on membership (CATE, sensitivity vs a
-  true mask) were unaffected, while any analysis parsing `sg.harm.id`
-  text could have been wrong.  `get_dfpred()` now also recognises a
-  disjunctive definition string and evaluates it as a union of
-  conjunctions, so downstream membership (including cross-validation and
-  the bootstrap) is correct for union subgroups.
-
 * Fixed `grf.subg.harm.glm()` ignoring `adverse_outcome`: the Y-flip
   before `causal_forest()` was accepted but never applied, causing the
   policy tree to identify the complement of the true subgroup in
@@ -345,27 +315,6 @@
   R session configurations.
 
 ## Internal
-
-* New file `grf_subgroup_labels.R` with the path-based GRF subgroup
-  definition machinery: `.grf_build_subgroup_definition()` (root-to-leaf
-  rule(s) with correct directions; a disjunction for multi-leaf
-  subgroups), `.grf_evaluate_subgroup()` (membership = OR over
-  conjunctions, AND within; reproduces `predict(tree, X)` and applies to
-  new data), and supporting helpers `.grf_parent_map()`,
-  `.grf_leaf_conjunction()`, `.grf_simplify_conjunction()` (drops
-  dominated same-variable same-direction cuts).  Both
-  `grf.subg.harm.survival()` and `grf.subg.harm.glm()` now build
-  `sg.harm.id` through this and carry a structured `sg_def` on the
-  result.  The former `find_leaf_split()` and `.build_sg_harm_id()` are
-  superseded.
-
-* New internal helper `.forestsearch_grf_select()` in
-  `forestsearch_helpers.R` implements `subgroup_method = "grf"`, the GRF
-  analogue of `.forestsearch_dina_select()`: it builds GRF arguments via
-  the existing `.build_grf_survival_args()` / `.build_grf_glm_args()`
-  helpers, derives membership from the structured `sg_def`, and returns
-  the consistency-shaped list the estimation/bootstrap machinery
-  consumes.
 
 * `fit_causal_forest()` and `fit_causal_forest_glm()` accept
   `tune_grf` and pass `tune.parameters` to `grf::causal_forest()`

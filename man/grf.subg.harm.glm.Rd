@@ -26,6 +26,9 @@ grf.subg.harm.glm(
   return_selected_cuts_only = FALSE,
   adverse_outcome = FALSE,
   tune_grf = FALSE,
+  grf_selection = c("tree", "frontier"),
+  frontier_rule = c("effMaxSG", "eff", "maxSG"),
+  effect_neighborhood = 0.1,
   details = FALSE,
   verbose = FALSE
 )
@@ -129,6 +132,24 @@ hyperparameter tuning for the causal forest via
 parameters remain at their defaults, preserving existing behavior.
 Most impactful for observational data where nuisance models benefit
 from tuning; defaults are near-optimal for RCTs (Dandl et al., 2024).}
+
+\item{grf_selection}{Character, one of \code{"tree"} (default) or
+\code{"frontier"}. \code{"tree"} uses the GRF policy tree (standard
+behavior). \code{"frontier"} is an \strong{experimental} alternative that,
+on the same doubly-robust scores, enumerates single-covariate thresholds
+(and depth-2 covariate-pair conjunctions when \code{maxdepth >= 2}), takes
+the Pareto frontier of (harm-effect, size), and selects one subgroup under
+\code{frontier_rule}. The selected subgroup is always a single conjunction
+(never the disjunctive union the tree path can return). Provided for
+comparison and exploration, not as a recommended default.}
+
+\item{frontier_rule}{Character, one of \code{"effMaxSG"} (default),
+\code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
+\code{grf_selection = "frontier"}. See \code{\link{grf.subg.harm.survival}}.}
+
+\item{effect_neighborhood}{Numeric in (0, 1); relative neighborhood for the
+\code{"effMaxSG"} rule. Default 0.10. Used only when
+\code{grf_selection = "frontier"}.}
 
 \item{details}{Logical. Print GRF diagnostic information. Default: \code{FALSE}.}
 

@@ -232,3 +232,143 @@
   }
   ifelse(in_any, 0L, 1L)
 }
+
+
+# =============================================================================
+# GRF doubly-robust-score Pareto frontier (selection = "frontier")
+# =============================================================================
+# An alternative to the policy tree that consumes the SAME doubly-robust score
+# matrix.  It enumerates single-covariate thresholds (depth 1) and, when
+# grf_depth >= 2, covariate-pair conjunctions (depth 2), scores each candidate
+# subgroup S by its DR harm-effect (mean(control[S]) - mean(treated[S])) and
+# size, takes the Pareto frontier, and selects one subgroup under a rule
+# (effMaxSG / eff / maxSG).  The selected subgroup is always a single
+# conjunction, so it maps directly onto the standard sg_def structure.
+#
+# Sign convention matches the tree path: dr columns are per-action value
+# estimates (higher = better outcome); diff = control - treated > 0 means
+# treatment harms S.  dmin is the harm-eligibility threshold (== dmin.grf).
+# =============================================================================
+
+#' Enumerate single-covariate DR-score candidates
+#' @noRd
+.grf_dr_candidates <- function(X, dr, grid_probs = seq(0.1, 0.9, 0.1),
+                               n_min = 60L) {
+  ctrl <- dr[, 1L]; trt <- dr[, 2L]; n <- nrow(X); cn <- colnames(X)
+  out <- list(); k <- 0L
+  for (j in seq_len(ncol(X))) {
+    xj <- X[, j]
+    cuts <- unique(stats::quantile(xj, probs = grid_probs, names = FALSE,
+                                   type = 7))
+    for (cc in cuts) for (dir in c("left", "right")) {
+      S <- if (dir == "left") xj <= cc else xj > cc
+      nS <- sum(S)
+      if (nS < n_min || nS > n - 1L) next
+      k <- k + 1L
+      out[[k]] <- data.frame(
+        v1 = cn[j], d1 = dir, c1 = as.numeric(cc),
+        v2 = NA_character_, d2 = NA_character_, c2 = NA_real_,
+        effect = mean(ctrl[S]) - mean(trt[S]), size = nS,
+        stringsAsFactors = FALSE)
+    }
+  }
+  if (!k) return(NULL)
+  do.call(rbind, out)
+}
+
+#' Enumerate depth-2 covariate-pair DR-score candidates
+#' @noRd
+.grf_dr_candidates_d2 <- function(X, dr, grid_probs = seq(0.2, 0.8, 0.2),
+                                  n_min = 60L) {
+  ctrl <- dr[, 1L]; trt <- dr[, 2L]; n <- nrow(X); p <- ncol(X); cn <- colnames(X)
+  conds <- vector("list", p)
+  for (j in seq_len(p)) {
+    xj <- X[, j]
+    cuts <- unique(stats::quantile(xj, probs = grid_probs, names = FALSE,
+                                   type = 7))
+    cl <- list()
+    for (cc in cuts) for (dir in c("left", "right"))
+      cl[[length(cl) + 1L]] <- list(cov = cn[j], dir = dir, cut = cc,
+                                    v = if (dir == "left") xj <= cc else xj > cc)
+    conds[[j]] <- cl
+  }
+  out <- list(); k <- 0L
+  if (p >= 2L) for (j in seq_len(p - 1L)) for (jj in (j + 1L):p) {
+    for (a in conds[[j]]) for (b in conds[[jj]]) {
+      S <- a$v & b$v; nS <- sum(S)
+      if (nS < n_min || nS > n - 1L) next
+      k <- k + 1L
+      out[[k]] <- data.frame(
+        v1 = a$cov, d1 = a$dir, c1 = as.numeric(a$cut),
+        v2 = b$cov, d2 = b$dir, c2 = as.numeric(b$cut),
+        effect = mean(ctrl[S]) - mean(trt[S]), size = nS,
+        stringsAsFactors = FALSE)
+    }
+  }
+  if (!k) return(NULL)
+  do.call(rbind, out)
+}
+
+#' Mark the Pareto frontier on (effect maximize, size maximize)
+#' @noRd
+.grf_mark_frontier <- function(cand) {
+  ord <- order(-cand$effect, -cand$size)
+  cand <- cand[ord, , drop = FALSE]
+  best_size <- -Inf; on <- logical(nrow(cand))
+  for (i in seq_len(nrow(cand))) {
+    if (cand$size[i] > best_size) { on[i] <- TRUE; best_size <- cand$size[i] }
+  }
+  cand$on_frontier <- on
+  cand
+}
+
+#' Select one frontier subgroup under a rule (harm side: effect >= dmin)
+#'
+#' @param rule "effMaxSG" (largest within a relative neighborhood of the max
+#'   harm-effect), "eff" (max harm-effect), or "maxSG" (largest eligible).
+#' @param nbhd relative neighborhood for effMaxSG: keep candidates with
+#'   effect >= (1 - nbhd) * max-eligible-effect, then take the largest.
+#' @return one-row data.frame (the selected candidate), or NULL.
+#' @noRd
+.grf_frontier_select <- function(cand, dmin, rule = "effMaxSG", nbhd = 0.10) {
+  if (is.null(cand) || !nrow(cand)) return(NULL)
+  elig <- cand[cand$effect >= dmin, , drop = FALSE]
+  if (!nrow(elig)) return(NULL)
+  emax <- max(elig$effect)
+  if (rule == "maxSG") {
+    elig[which.max(elig$size), , drop = FALSE]
+  } else if (rule == "eff") {
+    elig[which.max(elig$effect), , drop = FALSE]
+  } else { # effMaxSG
+    band <- elig[elig$effect >= emax * (1 - nbhd), , drop = FALSE]
+    band[which.max(band$size), , drop = FALSE]
+  }
+}
+
+#' Build the standard sg_def structure from a selected frontier candidate
+#'
+#' A frontier subgroup is a single conjunction (one or two cuts), so this
+#' returns the same shape as \code{.grf_build_subgroup_definition()} for a
+#' one-leaf subgroup: a labels vector, a definition string, conjunctions list,
+#' and is_disjunction = FALSE.
+#' @noRd
+.grf_sg_def_from_candidate <- function(cand_row, digits = 17L) {
+  comps <- list(data.frame(
+    variable = cand_row$v1,
+    op       = if (cand_row$d1 == "left") "<=" else ">",
+    value    = as.numeric(cand_row$c1), stringsAsFactors = FALSE))
+  if (!is.na(cand_row$v2)) {
+    comps[[2L]] <- data.frame(
+      variable = cand_row$v2,
+      op       = if (cand_row$d2 == "left") "<=" else ">",
+      value    = as.numeric(cand_row$c2), stringsAsFactors = FALSE)
+  }
+  cj <- do.call(rbind, comps)
+  cj <- .grf_simplify_conjunction(cj)
+  parts <- sprintf("%s %s %s", cj$variable, cj$op,
+                   formatC(cj$value, format = "g", digits = digits))
+  list(conjunctions   = list(cj),
+       labels         = .grf_conjunction_labels(cj, digits = digits),
+       definition     = paste(parts, collapse = " & "),
+       is_disjunction = FALSE)
+}
