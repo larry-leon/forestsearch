@@ -1,0 +1,232 @@
+---
+title: "Embedded vs. standalone equivalence: DINA and GRF selection"
+subtitle: "Verifying that forestsearch(subgroup_method = ...) reproduces the standalone selection functions across sg_focus / selection_rule / frontier_rule"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+`forestsearch()` can delegate subgroup *selection* to either `dina_subgroup()`
+(`subgroup_method = "dina"`) or the GRF routines (`subgroup_method = "grf"`).
+This document verifies, on synthetic data, that the **embedded** path reproduces
+the **standalone** function exactly --- the discovered subgroup membership is
+byte-identical --- across every selection-rule combination, for DINA and for the
+GRF frontier (survival and binary GLM).
+
+The check is membership identity: the standalone subgroup mask versus the
+embedded `treat.recommend == 0` (harm) indicator, on the same data and the same
+fit/seed. Two practical alignment requirements emerged and are baked into the
+calls below:
+
+* **DINA:** `forestsearch()` takes `effect.threshold` (a hazard ratio / ratio)
+  and derives the link-scale floor `m_diff = log(effect.threshold)` for ratio
+  families (identity for gaussian). A standalone `dina_subgroup()` takes `m_diff`
+  directly, so to match you pass `m_diff = log(effect.threshold)`. Both paths must
+  share the same `dina()` fit.
+* **GRF (binary/count):** `forestsearch()` defaults `adverse_outcome = NULL`,
+  which resolves to **`TRUE`** for binary and count outcomes (higher outcome =
+  adverse). A standalone `grf.subg.harm.glm()` comparison must therefore pass
+  `adverse_outcome = TRUE` to match the embedded orientation; passing `FALSE`
+  flips the harm direction and the masks will (correctly) disagree.
+
+Valid `selection_rule` values are `neighborhood`, `pareto`, `both`; `both` is
+only meaningful for `effMaxSG` / `effMinSG`. Both paths enforce this identically.
+
+```{r setup}
+library(forestsearch)
+library(survival)
+library(data.table)
+
+SEED  <- 8316951L
+NMIN  <- 60L
+
+# PASS/FAIL accumulator (smoke-test style, no testthat).
+.results <- list()
+.tc <- function(pass, msg) {
+  .results[[length(.results) + 1L]] <<-
+    data.table(check = msg, status = if (isTRUE(pass)) "PASS" else "FAIL")
+  invisible(NULL)
+}
+mask_int <- function(x) as.integer(as.logical(x))
+```
+
+## DINA: embedded vs. standalone, all valid (sg_focus x selection_rule)
+
+A synthetic Cox DGM with a genuine harm subgroup `S = {x1 > 0}`. One shared
+`dina()` fit is passed to both paths (via `dina_res`) so the cross-fitted
+tau-hat is identical; the embedded path receives `effect.threshold = HR` and the
+standalone path the matched `m_diff = log(HR)`.
+
+```{r dina-check}
+set.seed(5)
+n <- 1200L
+X <- matrix(runif(n * 5, -1, 1), n, 5); colnames(X) <- paste0("x", 1:5)
+W <- rbinom(n, 1, 0.5)
+tau <- ifelse(X[, 1] > 0, 1.5, -0.3)
+te  <- rexp(n, exp(0.1 * X[, 2] + W * tau)); tc <- runif(n, 0, 1.6)
+d_dina <- data.frame(tm = pmin(te, tc), status = as.integer(te <= tc),
+                     hormon = W, as.data.frame(X), id = seq_len(n))
+covs <- paste0("x", 1:5)
+HR <- 1.10
+
+dfit <- dina(df = d_dina, outcome = "tm", treatment = "hormon",
+             covariates = covs, family = "cox", status = "status",
+             n_folds = 2L, cens_type = "uniform",
+             cens_params = list(T0 = 60), seed = SEED)
+
+dina_args <- list(family = "cox", seed = SEED, n_folds = 2L,
+                  cens_type = "uniform", cens_params = list(T0 = 60),
+                  max_depth = 1L, grid_probs = seq(0.1, 0.9, by = 0.1))
+
+# Valid combinations: neighborhood for all; both only for effMaxSG / effMinSG.
+dina_combos <- list(
+  c("eff", "neighborhood"),
+  c("effMaxSG", "neighborhood"), c("effMaxSG", "both"),
+  c("effMinSG", "neighborhood"), c("effMinSG", "both"),
+  c("maxSG", "neighborhood"),
+  c("minSG", "neighborhood"))
+
+dina_tbl <- rbindlist(lapply(dina_combos, function(cb) {
+  foc <- cb[1]; rule <- cb[2]
+  sg <- dina_subgroup(
+    fit = dfit, df = d_dina, covariates = covs, m_diff = log(HR), n_min = NMIN,
+    max_depth = 1L, grid_probs = seq(0.1, 0.9, by = 0.1),
+    sg_focus = foc, selection_rule = rule, effect_neighborhood = 0.10)
+  fs <- forestsearch(
+    df.analysis = d_dina, outcome.name = "tm", event.name = "status",
+    treat.name = "hormon", id.name = "id", confounders.name = covs,
+    df.predict = d_dina, subgroup_method = "dina", sg_focus = foc,
+    selection_rule = rule, effect_neighborhood = 0.10, effect.threshold = HR,
+    n.min = NMIN, dina_args = dina_args, dina_res = dfit, use_grf = FALSE,
+    use_lasso = FALSE, is.RCT = TRUE, seedit = SEED, details = FALSE,
+    quiet = TRUE,
+    parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE))
+  sm <- mask_int(sg$mask); em <- mask_int(fs$df.est$treat.recommend == 0)
+  identical_masks <- identical(sm, em)
+  .tc(identical_masks, sprintf("DINA %s / %s", foc, rule))
+  data.table(sg_focus = foc, selection_rule = rule,
+             standalone_n = sum(sm), embedded_n = sum(em),
+             identical = identical_masks)
+}))
+knitr::kable(dina_tbl, caption = "DINA: standalone dina_subgroup() vs embedded forestsearch(); membership identity.")
+```
+
+## GRF survival: embedded vs. standalone, all five frontier rules
+
+The GRF frontier maps `sg_focus -> frontier_rule` inside `forestsearch()`; the
+standalone `grf.subg.harm.survival()` takes `frontier_rule` directly. Both fit
+the causal survival forest with the same `seedit`, so the forests are identical.
+
+```{r grf-surv-check}
+set.seed(21)
+n <- 900L
+X <- matrix(runif(n * 5, -1, 1), n, 5); colnames(X) <- paste0("x", 1:5)
+W <- rbinom(n, 1, 0.5)
+tau <- ifelse(X[, 1] > 0.2, 1.4, -0.2)
+te  <- rexp(n, exp(0.1 * X[, 2] + W * tau)); tc <- runif(n, 0, 1.6)
+d_surv <- data.frame(time = pmin(te, tc), status = as.integer(te <= tc),
+                     trt = W, as.data.frame(X), id = seq_len(n))
+DEPTH <- 2L; NB <- 0.20
+rules <- c("eff", "effMaxSG", "effMinSG", "maxSG", "minSG")
+
+grf_surv_tbl <- rbindlist(lapply(rules, function(r) {
+  a <- forestsearch:::.build_grf_survival_args(
+    data = d_surv, confounders.name = covs, outcome.name = "time",
+    event.name = "status", id.name = "id", treat.name = "trt",
+    frac.tau = 0.80, n.min = NMIN, dmin.grf = 0.0, is.RCT = TRUE,
+    grf_depth = DEPTH, seedit = SEED, return_selected_cuts_only = TRUE,
+    grf_selection = "frontier", frontier_rule = r, effect_neighborhood = NB)
+  std <- do.call(grf.subg.harm.survival, a)
+  sm  <- mask_int(std$data$treat.recommend == 0)
+  fs <- forestsearch(
+    df.analysis = d_surv, outcome.name = "time", event.name = "status",
+    treat.name = "trt", id.name = "id", confounders.name = covs,
+    df.predict = d_surv, subgroup_method = "grf", grf_selection = "frontier",
+    sg_focus = r, effect_neighborhood = NB, grf_depth = DEPTH, dmin.grf = 0.0,
+    frac.tau = 0.80, n.min = NMIN, use_grf = FALSE, use_lasso = FALSE,
+    is.RCT = TRUE, seedit = SEED, details = FALSE, quiet = TRUE,
+    parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE))
+  em <- mask_int(fs$df.est$treat.recommend == 0)
+  identical_masks <- identical(sm, em)
+  .tc(identical_masks, sprintf("GRF survival %s", r))
+  data.table(frontier_rule = r, standalone_n = sum(sm), embedded_n = sum(em),
+             identical = identical_masks)
+}))
+knitr::kable(grf_surv_tbl, caption = "GRF survival: standalone grf.subg.harm.survival() vs embedded forestsearch().")
+```
+
+## GRF binary GLM: embedded vs. standalone (adverse_outcome matched)
+
+For binary outcomes the embedded default `adverse_outcome = NULL` resolves to
+`TRUE`, so the standalone call sets `adverse_outcome = TRUE` to match.
+
+```{r grf-glm-check}
+set.seed(23)
+n <- 1600L
+X <- matrix(runif(n * 5, -1, 1), n, 5); colnames(X) <- paste0("x", 1:5)
+W <- rbinom(n, 1, 0.5)
+inH <- (X[, 1] > 0 & X[, 2] > 0)
+Yb  <- rbinom(n, 1, plogis(-0.2 + 0.1 * X[, 1] + W * ifelse(inH, 1.8, -0.5)))
+d_bin <- data.frame(Y = Yb, trt = W, as.data.frame(X), id = seq_len(n))
+
+grf_glm_tbl <- rbindlist(lapply(rules, function(r) {
+  a <- forestsearch:::.build_grf_glm_args(
+    data = d_bin, confounders.name = covs, outcome.name = "Y",
+    treat.name = "trt", id.name = "id", outcome_type = "binary", n.min = NMIN,
+    dmin.grf = 0.0, is.RCT = TRUE, grf_depth = DEPTH, seedit = SEED,
+    return_selected_cuts_only = TRUE, adverse_outcome = TRUE,
+    grf_selection = "frontier", frontier_rule = r, effect_neighborhood = NB)
+  std <- do.call(grf.subg.harm.glm, a)
+  sm  <- mask_int(std$data$treat.recommend == 0)
+  fs <- forestsearch(
+    df.analysis = d_bin, outcome.name = "Y", treat.name = "trt", id.name = "id",
+    confounders.name = covs, df.predict = d_bin, outcome_type = "binary",
+    effect_measure = "OR", subgroup_method = "grf", grf_selection = "frontier",
+    sg_focus = r, effect_neighborhood = NB, grf_depth = DEPTH, dmin.grf = 0.0,
+    n.min = NMIN, use_grf = FALSE, use_lasso = FALSE, is.RCT = TRUE,
+    seedit = SEED, details = FALSE, quiet = TRUE,
+    parallel_args = list(plan = "sequential", workers = 1, show_message = FALSE))
+  em <- mask_int(fs$df.est$treat.recommend == 0)
+  identical_masks <- identical(sm, em)
+  .tc(identical_masks, sprintf("GRF binary %s", r))
+  data.table(frontier_rule = r, standalone_n = sum(sm), embedded_n = sum(em),
+             identical = identical_masks)
+}))
+knitr::kable(grf_glm_tbl, caption = "GRF binary GLM: standalone grf.subg.harm.glm() vs embedded forestsearch() (adverse_outcome = TRUE).")
+```
+
+## Summary
+
+```{r summary}
+summary_tbl <- rbindlist(.results)
+n_pass <- sum(summary_tbl$status == "PASS")
+n_fail <- sum(summary_tbl$status == "FAIL")
+knitr::kable(summary_tbl,
+  caption = sprintf("All equivalence checks: %d PASS, %d FAIL.", n_pass, n_fail))
+```
+
+`r if (exists("summary_tbl")) sprintf("**%d of %d checks passed.**", sum(summary_tbl$status == "PASS"), nrow(summary_tbl))`
+
+## Notes
+
+* **Equivalence is exact, not approximate.** With matched fit/seed and the two
+  alignment requirements above (DINA `m_diff = log(effect.threshold)`; GRF
+  binary/count `adverse_outcome = TRUE`), the embedded and standalone paths
+  return byte-identical membership.
+* **Threshold label precision.** The embedded DINA path formats the selected
+  threshold into its `sg.harm` label at 17 significant digits, so membership
+  recomputed from the label round-trips exactly to the standalone `sg$mask`. A
+  lower-precision format would flip subjects sitting exactly on a selected cut.
+* **GRF tree mode** ignores `sg_focus` (it selects via `dmin.grf` / `grf_depth`),
+  so there is no `(sg_focus x rule)` grid to align there; only the threading of
+  `dmin.grf` / `grf_depth` matters, and the tree path is unchanged from the
+  pre-frontier implementation.

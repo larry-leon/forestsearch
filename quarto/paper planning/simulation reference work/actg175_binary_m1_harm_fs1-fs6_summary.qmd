@@ -1,0 +1,767 @@
+---
+title: "Cross-cut Summary: sg_focus × FS Bundle (ACTG175 Binary, m1)"
+format:
+  html:
+    embed-resources: true
+---
+
+
+This article compares operating characteristics across the
+cross-product of **`sg_focus`** and **FS parameter bundle** for a
+fixed study × outcome × DGM × objective combination:
+
+- study : ACTG175
+- outcome : binary
+- DGM : m1 (calibrated GLM, target OR(Q) = 2.0)
+- objective : harm
+- varied : `sg_focus` (e.g., `hr`, `hrMaxSG`, `maxSG`) × FS bundle (`fs*`)
+
+Each cell of the grid corresponds to one bundle file produced by
+its companion runner script. The full intended grid is declared
+below; missing bundles are skipped with a message (set
+`strict_bundles <- TRUE` in setup to error instead).
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Setup, configs, and library loads (click to expand)"
+
+library(forestsearch)
+library(data.table)
+library(gt)
+
+
+# -- Source exploratory utilities ------------------------------------------
+# These plotting utilities live outside the forestsearch package (under
+# quarto/_utils/) and are sourced directly.  Adjust the relative depth
+# if this document is moved within the quarto/ tree.
+util_dir <- "../../../../_utils"
+source(file.path(util_dir, "plot_oc_metrics.R"))
+source(file.path(util_dir, "plot_oc_metrics_3d.R"))
+source(file.path(util_dir, "compute_oc_score.R"))
+source(file.path(util_dir, "compute_oc_pareto_flag.R"))
+source(file.path(util_dir, "compute_oc_score_grid.R"))
+source(file.path(util_dir, "consensus_top_k.R"))
+
+
+# -- Fixed axes (must match every bundle's config) --------------------------
+fixed_study     <- "actg175"
+fixed_outcome   <- "binary"
+fixed_dgm       <- "m1"
+fixed_objective <- "harm"
+fixed_n         <- 700L     # per-replicate sample size  -> "n{N}"     slot
+fixed_sims      <- 1000L    # number of simulation reps  -> "sims{NS}" slot
+
+
+# bundle_dir <- "../"
+# list.files(bundle_dir, pattern = "\\.rds$")
+# prefix <- sprintf("^%s_%s_%s_%s_.*\\.rds$",
+#                   fixed_study, fixed_outcome, fixed_dgm, fixed_objective)
+# list.files(bundle_dir, pattern = prefix, full.names = TRUE)
+# # 
+# [10] "..//actg175_binary_m1_harm_fs2_eff_neighborhood_n700_sims1000.rds"     
+# [11] "..//actg175_binary_m1_harm_fs2_effMaxSG_both_n700_sims1000.rds"        
+# [12] "..//actg175_binary_m1_harm_fs2_effMaxSG_neighborhood_n700_sims1000.rds"
+# [13] "..//actg175_binary_m1_harm_fs2_effMaxSG_pareto_n700_sims1000.rds"      
+# [14] "..//actg175_binary_m1_harm_fs2_effMinSG_both_n700_sims1000.rds"        
+# [15] "..//actg175_binary_m1_harm_fs2_effMinSG_neighborhood_n700_sims1000.rds"
+# [16] "..//actg175_binary_m1_harm_fs2_effMinSG_pareto_n700_sims1000.rds"      
+# [17] "..//actg175_binary_m1_harm_fs2_maxSG_neighborhood_n700_sims1000.rds"   
+# [18] "..//actg175_binary_m1_harm_fs2_minSG_neighborhood_n700_sims1000.rds"   
+
+
+# → only actg175_binary_m1_harm_* bundles, full paths
+# Base R adds %||% in 4.4; define a fallback for older R.
+if (!exists("%||%", mode = "function")) {
+  `%||%` <- function(x, y) if (is.null(x)) y else x
+}
+
+# -- Levels to compare ------------------------------------------------------
+# Edit these vectors as bundles become available.  expand.grid() builds
+# the full cross-product; missing bundles are skipped (or error if
+# strict_bundles = TRUE).
+# Note: fs7 is same as fs3 except use_twostage = FALSE
+# They are generally same
+
+focus_levels   <- c("eff_neighborhood",
+                    "maxSG_neighborhood","effMaxSG_neighborhood","effMaxSG_pareto","effMaxSG_both",
+                    "minSG_neighborhood","effMinSG_neighborhood","effMinSG_pareto","effMinSG_both"
+                    )
+fs_levels      <- c("fs1","fs2","fs3","fs4","fs5","fs6")
+strict_bundles <- FALSE
+
+# -- Build configs ----------------------------------------------------------
+# Path is relative to this qmd's directory
+# (i.e., quarto/simulations/actg175/_summaries/).
+configs <- expand.grid(
+  focus = focus_levels,
+  fs    = fs_levels,
+  KEEP.OUT.ATTRS   = FALSE,
+  stringsAsFactors = FALSE
+)
+# Sort by focus first, then fs (matches the naming convention).
+configs <- configs[order(
+  match(configs$focus, focus_levels),
+  match(configs$fs,    fs_levels)
+), , drop = FALSE]
+rownames(configs) <- NULL
+configs$config_id <- sprintf(
+  "%s_%s_%s_%s_%s_%s_n%d_sims%d",
+  fixed_study, fixed_outcome, fixed_dgm, fixed_objective, configs$fs,
+  configs$focus, 
+  fixed_n, fixed_sims
+)
+configs$label       <- sprintf("%s × %s", configs$focus, configs$fs)
+configs$bundle_path <- sprintf("../%s.rds", configs$config_id)
+
+# -- Filter to existing bundles --------------------------------------------
+exists_flag <- vapply(configs$bundle_path, file.exists, logical(1))
+if (!all(exists_flag)) {
+  miss_msg <- sprintf("Missing %d of %d bundles:\n  %s",
+                      sum(!exists_flag), nrow(configs),
+                      paste(configs$config_id[!exists_flag],
+                            collapse = "\n  "))
+  if (strict_bundles) {
+    stop(miss_msg, call. = FALSE)
+  } else {
+    message(miss_msg)
+    configs <- configs[exists_flag, , drop = FALSE]
+  }
+}
+
+if (nrow(configs) == 0L) {
+  stop("No bundles available to compare. Build at least one bundle first.",
+       call. = FALSE)
+}
+
+# -- Display options --------------------------------------------------------
+sg_notation <- "harm"
+
+# -- Conditional trimming for OR estimates ---------------------------------
+# When the |mean - median| / |median| ratio exceeds or_trim_threshold for
+# a given OR estimate (computed across replicates with detection), the
+# raw mean is being pulled by extreme values. In that case we report a
+# trimmed mean instead. Cells where the rule does not trigger keep the
+# raw mean (preserving the standard "on average" interpretation).
+#
+# Set or_trim_threshold = Inf to disable conditional trimming entirely.
+or_trim_threshold <- 0.20    # 20% gap between mean and median triggers trim
+or_trim           <- 0.05    # 5% trimmed mean from each tail when triggered
+
+cat(sprintf("Comparing %d configuration(s):\n", nrow(configs)))
+print(configs[, c("label", "config_id")])
+```
+
+# Load bundles {#sec-load}
+
+```{r load-bundles}
+#| code-fold: true
+#| code-summary: "Bundle loading + validation (click to expand)"
+
+bundles <- setNames(lapply(configs$bundle_path, readRDS), configs$label)
+
+# Soft-validate config_id matches what's declared in `configs`
+for (i in seq_len(nrow(configs))) {
+  meta_id <- bundles[[i]]$meta$config_id
+  if (!is.null(meta_id) && meta_id != configs$config_id[i]) {
+    warning(sprintf(
+      "Bundle '%s' has config_id '%s' but configs declares '%s'.",
+      configs$label[i], meta_id, configs$config_id[i]
+    ), call. = FALSE)
+  }
+}
+```
+
+## Bundle metadata
+
+```{r bundle-metadata}
+#| code-fold: true
+#| code-summary: "Per-bundle metadata table (click to expand)"
+
+meta_dt <- data.table::rbindlist(lapply(seq_along(bundles), function(i) {
+  m <- bundles[[i]]$meta
+  data.frame(
+    label           = configs$label[i],
+    focus           = configs$focus[i],
+    fs              = configs$fs[i],
+    timestamp       = format(m$timestamp     %||% NA),
+    n_alt           = m$n_alt                %||% NA_integer_,
+    n_null          = m$n_null               %||% NA_integer_,
+    sim_n           = m$sim_n                %||% NA_integer_,
+    n_failed_alt    = m$n_failed_alt         %||% NA_integer_,
+    n_failed_null   = m$n_failed_null        %||% NA_integer_,
+    t_alt_min       = round((m$t_alt_sec  %||% NA) / 60, 1),
+    t_null_min      = round((m$t_null_sec %||% NA) / 60, 1),
+    package_version = m$package_version      %||% NA_character_,
+    stringsAsFactors = FALSE
+  )
+}))
+
+gt::gt(meta_dt) |>
+  gt::tab_header(title = "Bundle metadata") |>
+  gt::sub_missing(missing_text = "—")
+```
+
+# Unified H1 Operating Characteristics
+
+A single combined table with one row per (config × analysis method).
+FS rows are grouped by `sg_focus × fs` so detection, classification,
+and effect estimates can be compared across `sg_focus` criteria.
+
+GRF does not depend on `sg_focus` (its results are invariant across
+the focus criteria), so a single GRF row is shown at the end of the
+table under its own group rather than redundantly within each focus
+group.
+
+The DGM truth (target OR, true subgroup, prevalence) is fixed across
+all configurations and shown once in the table subtitle, rather than
+repeated per cell.
+
+```{r unified-oc-data}
+#| code-fold: true
+#| code-summary: "Compute per-(config × analysis) H1 OC metrics (click to expand)"
+
+# DGM truth values are fixed across configs (all share m1).
+# Use the first available bundle's calibrated DGM as the reference.
+ref_dgm <- bundles[[1]]$dgm$calibrated
+or_target_H  <- ref_dgm$hazard_ratios$harm_subgroup
+or_target_Hc <- ref_dgm$hazard_ratios$no_harm_subgroup
+or_target_ITT <- ref_dgm$hazard_ratios$overall
+
+# -- Helper: conditional trimmed mean ----------------------------------------
+# Returns a list with the chosen mean (raw or trimmed) and a flag
+# indicating whether trimming was applied. The rule is the mean-vs-median
+# ratio: if |mean - median| / |median| exceeds the threshold, the mean
+# is being pulled by extreme values and we report a trimmed mean.
+# Otherwise the raw mean is returned (preserving "on average" reading).
+cond_trim_mean <- function(x,
+                           threshold = or_trim_threshold,
+                           trim      = or_trim,
+                           na.rm     = TRUE) {
+  x_clean <- if (na.rm) x[!is.na(x)] else x
+  if (length(x_clean) == 0L) {
+    return(list(value = NA_real_, trimmed = FALSE))
+  }
+  mu  <- mean(x_clean)
+  med <- stats::median(x_clean)
+  # Avoid division by zero / sign issues; require a meaningful median
+  if (is.na(med) || med == 0 || !is.finite(med)) {
+    return(list(value = mu, trimmed = FALSE))
+  }
+  if (abs(mu - med) / abs(med) > threshold) {
+    list(value = mean(x_clean, trim = trim), trimmed = TRUE)
+  } else {
+    list(value = mu, trimmed = FALSE)
+  }
+}
+
+# Compute the same summary statistics format_oc_results() does, but
+# combined across all configurations into one long data.frame.
+oc_rows <- data.table::rbindlist(lapply(seq_len(nrow(configs)), function(i) {
+  b <- bundles[[i]]
+  res <- b$results$alt
+  if (is.null(res) || nrow(res) == 0L) return(NULL)
+  dt <- data.table::as.data.table(res)
+
+  per_analysis <- lapply(unique(dt$analysis), function(a) {
+    r       <- dt[analysis == a]
+    r_found <- r[any.H == 1L]
+    n_sims  <- length(unique(r$sim))
+
+    # Conditional trimming applied to the three OR estimates
+    or_h_hat   <- if (nrow(r_found)) cond_trim_mean(r_found$hr.H.hat)  else list(value = NA_real_, trimmed = FALSE)
+    or_hc_hat  <- if (nrow(r_found)) cond_trim_mean(r_found$hr.Hc.hat) else list(value = NA_real_, trimmed = FALSE)
+    or_itt     <- cond_trim_mean(r$hr.itt)
+
+    list(
+      group              = sprintf("%s × %s", configs$focus[i], configs$fs[i]),
+      Analysis           = a,
+      N_sims             = n_sims,
+      Detection          = mean(r$any.H == 1L, na.rm = TRUE),
+      Sen                = mean(r$sens, na.rm = TRUE),
+      Spec               = mean(r$spec, na.rm = TRUE),
+      PPV                = mean(r$ppv, na.rm = TRUE),
+      NPV                = mean(r$npv, na.rm = TRUE),
+      OR_H_hat           = or_h_hat$value,
+      OR_H_trimmed       = or_h_hat$trimmed,
+      OR_Hc_hat          = or_hc_hat$value,
+      OR_Hc_trimmed      = or_hc_hat$trimmed,
+      OR_ITT             = or_itt$value,
+      OR_ITT_trimmed     = or_itt$trimmed,
+      Size_H_mean        = if (nrow(r_found)) mean(r_found$size.H, na.rm = TRUE) else NA_real_,
+      Size_H_min         = if (nrow(r_found)) min(r_found$size.H,  na.rm = TRUE) else NA_integer_,
+      Size_H_max         = if (nrow(r_found)) max(r_found$size.H,  na.rm = TRUE) else NA_integer_
+    )
+  })
+  data.table::rbindlist(per_analysis)
+}))
+
+# Replace NaN (from mean of all-NA) with NA for clean display.
+# Skip logical columns (the *_trimmed flags).
+for (col in names(oc_rows)) {
+  if (is.numeric(oc_rows[[col]])) {
+    oc_rows[is.nan(get(col)), (col) := NA]
+  }
+}
+
+# Combined trim-flag column for compact display
+oc_rows[, Trim := {
+  flags <- character(.N)
+  for (i in seq_len(.N)) {
+    parts <- character(0)
+    if (isTRUE(OR_H_trimmed[i]))   parts <- c(parts, "H")
+    if (isTRUE(OR_Hc_trimmed[i]))  parts <- c(parts, "Hᶜ")
+    if (isTRUE(OR_ITT_trimmed[i])) parts <- c(parts, "ITT")
+    flags[i] <- if (length(parts)) paste(parts, collapse = ",") else ""
+  }
+  flags
+}]
+
+# Order: by configs row order (focus × fs), then analysis (FS, GRF)
+oc_rows[, group := factor(group,
+                          levels = sprintf("%s × %s",
+                                           configs$focus, configs$fs))]
+data.table::setorder(oc_rows, group, Analysis)
+
+# -- Collapse redundant GRF rows -----------------------------------------
+# GRF does not depend on sg_focus, so its results are identical across
+# the focus groups. We collapse the redundant rows into a single GRF
+# row at the end of the table, displayed under its own group.
+#
+# Sanity check: warn if GRF metrics actually differ across focus groups,
+# which would suggest a bundle inconsistency rather than a true GRF
+# invariance.
+grf_rows <- oc_rows[Analysis == "GRF"]
+if (nrow(grf_rows) > 1L) {
+  metric_cols <- c("Detection", "Sen", "Spec", "PPV", "NPV",
+                   "OR_H_hat", "OR_Hc_hat", "OR_ITT",
+                   "Size_H_mean", "Size_H_min", "Size_H_max")
+  # Check (within tolerance for floating point)
+  inconsistent <- vapply(metric_cols, function(col) {
+    vals <- grf_rows[[col]]
+    vals <- vals[!is.na(vals)]
+    if (length(vals) <= 1L) return(FALSE)
+    diff_range <- max(vals) - min(vals)
+    # Tolerance: 1e-8 absolute or 1e-6 relative to median
+    abs_med <- abs(stats::median(vals))
+    diff_range > max(1e-8, 1e-6 * abs_med)
+  }, logical(1))
+  if (any(inconsistent)) {
+    warning(sprintf(
+      "GRF rows differ across focus groups in column(s): %s. Collapsing anyway using the first focus group's values; investigate if unexpected.",
+      paste(names(which(inconsistent)), collapse = ", ")
+    ), call. = FALSE)
+  }
+}
+
+# Keep one GRF row (relabel its group), drop the rest, append at end
+if (nrow(grf_rows) > 0L) {
+  one_grf <- grf_rows[1L]
+  one_grf[, group := "GRF (sg_focus-invariant)"]
+  oc_rows <- rbind(
+    oc_rows[Analysis != "GRF"],
+    one_grf
+  )
+  # Re-establish factor levels so the GRF group sorts to the end
+  fs_grp_levels <- sprintf("%s × %s", configs$focus, configs$fs)
+  oc_rows[, group := factor(group,
+                            levels = c(fs_grp_levels,
+                                       "GRF (sg_focus-invariant)"))]
+  data.table::setorder(oc_rows, group, Analysis)
+}
+
+# How many cells got trimmed (used to decide whether to expose Trim col)
+n_trimmed_cells <- sum(oc_rows$Trim != "")
+```
+
+```{r unified-oc-table}
+# Build subtitle: include trim rule wording only if any cells got trimmed.
+oc_subtitle <- sprintf(
+  "Truth (m1): OR(Q) = %.2f, OR(Qc) = %.2f, OR(ITT) = %.2f — same across all configs",
+  or_target_H, or_target_Hc, or_target_ITT
+)
+if (n_trimmed_cells > 0L) {
+  oc_subtitle <- paste0(
+    oc_subtitle,
+    sprintf(
+      ". OR estimates are raw means; cells where |mean − median|/|median| > %.0f%% report a %.0f%% trimmed mean instead (flagged in Trim column).",
+      100 * or_trim_threshold, 100 * or_trim
+    )
+  )
+}
+
+# Drop the per-OR boolean trim flags from display; the combined Trim
+# column is the user-facing flag.
+display_dt <- oc_rows[, !c("OR_H_trimmed", "OR_Hc_trimmed", "OR_ITT_trimmed")]
+
+# If no cell needed trimming, drop the Trim column too (no signal to surface)
+if (n_trimmed_cells == 0L) {
+  display_dt[, Trim := NULL]
+}
+
+g <- display_dt |>
+  gt::gt(groupname_col = "group") |>
+  gt::tab_header(
+    title    = "H1 Operating Characteristics — focus × fs comparison",
+    subtitle = oc_subtitle
+  ) |>
+  gt::cols_label(
+    Analysis    = "Analysis",
+    N_sims      = "N",
+    Detection   = "Detect",
+    Sen         = "Sen",
+    Spec        = "Spec",
+    PPV         = "PPV",
+    NPV         = "NPV",
+    OR_H_hat    = "ÔR(Ĥ)",
+    OR_Hc_hat   = "ÔR(Ĥᶜ)",
+    OR_ITT      = "ÔR(ITT)",
+    Size_H_mean = "|Ĥ| mean",
+    Size_H_min  = "min",
+    Size_H_max  = "max"
+  ) |>
+  gt::tab_spanner(label = "Detection / Classification",
+                  columns = c(Detection, Sen, Spec, PPV, NPV)) |>
+  gt::tab_spanner(label = "Effect estimates",
+                  columns = c(OR_H_hat, OR_Hc_hat, OR_ITT)) |>
+  gt::tab_spanner(label = "Subgroup size |Ĥ|",
+                  columns = c(Size_H_mean, Size_H_min, Size_H_max)) |>
+  gt::fmt_number(columns = c(Detection, Sen, Spec, PPV, NPV), decimals = 3) |>
+  gt::fmt_number(columns = c(OR_H_hat, OR_Hc_hat, OR_ITT), decimals = 2) |>
+  gt::fmt_number(columns = Size_H_mean, decimals = 1) |>
+  gt::fmt_number(columns = c(Size_H_min, Size_H_max), decimals = 0) |>
+  gt::sub_missing(missing_text = "—")
+
+if (n_trimmed_cells > 0L) {
+  g <- g |> gt::cols_label(Trim = "Trim")
+}
+
+g
+```
+
+```{r augment-display-dt}
+#| code-fold: true
+#| code-summary: "Augment display_dt with Pareto-frontier flag and composite score (click to expand)"
+
+# Pareto frontier on {Detection, Sen, Spec}, all higher-is-better.
+# PPV and NPV remain in display_dt as descriptive columns alongside,
+# available for use as plot aesthetics or for inclusion in summary
+# tables but not contributing to dominance evaluation.
+display_dt <- compute_oc_pareto_flag(
+  display_dt,
+  metrics  = c("Detection", "Sen", "Spec"),
+  flag_col = "pareto_frontier"
+)
+
+# Composite scalar score -- linear-weighted convex combination of the
+# same three metrics.  Auto-normalised weights.  Default weights here
+# are (1.5, 1, 1.75): the "benefit-protection" weighting, which gives
+# Spec the largest weight.  Rationale: in the harm-subgroup framing
+# of forestsearch, high Spec on the harm class corresponds to low
+# false-positive harm calls -- equivalently, high Sen for the
+# complementary benefit recommendation Hc.  Weighting Spec above Sen
+# therefore reflects the operational goal of capturing as many true
+# beneficiaries as possible in the treatment recommendation.  See
+# the "Robustness across weightings" section below for a sensitivity
+# analysis across alternative weight choices.
+display_dt <- compute_oc_score(
+  display_dt,
+  method    = "linear",
+  metrics   = c("Detection", "Sen", "Spec"),
+  weights   = c(1.5, 1, 1.75),
+  score_col = "S"
+)
+
+n_frontier <- sum(display_dt$pareto_frontier, na.rm = TRUE)
+cat(sprintf(
+  "Pareto frontier: %d of %d configurations are non-dominated on {Detection, Sen, Spec}.\n",
+  n_frontier, nrow(display_dt)
+))
+```
+
+## Graphical views
+
+The unified OC table presents many metrics for many configurations
+in a dense form.  The plots below are complementary low-resolution
+views: each maps three or four of the same columns onto a single
+visual so that cross-configuration patterns are easier to scan.
+Both views use the `display_dt` table built above, so any change in
+the trimming rule or in the focus / fs grid flows through here
+automatically.  The plotting code lives in
+`quarto/_utils/plot_oc_metrics.R` and
+`quarto/_utils/plot_oc_metrics_3d.R` and is intentionally outside
+the forestsearch package.
+
+### 2D bubble: Spec × NPV × Detection (defaults)
+
+```{r oc-bubble-default}
+#| code-fold: true
+#| code-summary: "2D bubble: Spec × NPV with Detection as bubble size"
+#| fig-width: 9
+#| fig-height: 5.5
+plot_oc_metrics(
+  display_dt,
+  size_limits = c(0, 1),
+  title       = "OC summary: Spec × NPV (bubble size = Detection)",
+  subtitle    = "Color = focus × fs configuration; shape = analysis (FS / GRF)"
+)
+```
+
+### 2D bubble: alternative axes (effect-size view)
+
+```{r oc-bubble-alt}
+#| code-fold: true
+#| code-summary: "2D bubble: Sen × PPV with ÔR(Ĥ) as bubble size"
+#| fig-width: 9
+#| fig-height: 5.5
+plot_oc_metrics(
+  display_dt,
+  x        = "Sen",
+  y        = "PPV",
+  z        = "OR_H_hat",
+  title    = "Effect-size view: Sen × PPV (bubble size = ÔR(Ĥ))",
+  subtitle = "Useful for spotting configurations that combine effect strength with classification accuracy"
+)
+```
+
+### Pareto frontier overlay
+
+A configuration is **on the Pareto frontier** when no other
+configuration matches it on every one of {Detection, Sen, Spec} and
+strictly beats it on at least one.  Frontier configurations
+represent defensible operating points: any non-frontier
+configuration is dominated by at least one frontier configuration
+simultaneously on all three axes.  PPV and NPV are not part of the
+dominance evaluation but are shown alongside in the frontier table
+below as descriptive columns.
+
+The bubble plot below uses the same axes as the default view but
+highlights frontier points (full opacity, thicker stroke) and dims
+dominated points (reduced opacity).
+
+```{r oc-bubble-pareto}
+#| code-fold: true
+#| code-summary: "2D bubble with Pareto-frontier highlighting"
+#| fig-width: 9
+#| fig-height: 5.5
+plot_oc_metrics(
+  display_dt,
+  pareto_col  = "pareto_frontier",
+  size_limits = c(0, 1),
+  title       = "Pareto frontier on {Detection, Sen, Spec} -- frontier in solid, dominated dimmed",
+  subtitle    = "Axes: Spec (x), NPV (y); bubble size = Detection.  Frontier is computed on {Detection, Sen, Spec}, not on the plotted axes."
+)
+```
+
+The table below lists the frontier configurations with all five
+classification metrics shown.  PPV and NPV appear here as
+descriptive columns -- they did not influence frontier membership
+but help characterise each defensible operating point.
+
+```{r oc-pareto-frontier-table}
+#| code-fold: true
+#| code-summary: "Frontier configurations with descriptive PPV/NPV alongside"
+
+frontier_cols <- c("group", "Analysis", "N_sims",
+                   "Detection", "Sen", "Spec", "PPV", "NPV", "S")
+frontier_dt <- display_dt[
+  display_dt$pareto_frontier %in% TRUE,
+  ..frontier_cols
+]
+data.table::setorder(frontier_dt, -S)
+
+gt::gt(frontier_dt) |>
+  gt::tab_header(
+    title    = "Pareto-frontier configurations",
+    subtitle = "Frontier defined on {Detection, Sen, Spec} (bold).  PPV, NPV, S shown alongside as descriptive columns; rows sorted by S descending."
+  ) |>
+  gt::tab_spanner(label = "Frontier metrics",
+                  columns = c(Detection, Sen, Spec)) |>
+  gt::tab_spanner(label = "Descriptive",
+                  columns = c(PPV, NPV, S)) |>
+  gt::cols_label(
+    Analysis  = "Analysis",
+    N_sims    = "N",
+    Detection = "Detect",
+    Sen       = "Sen",
+    Spec      = "Spec",
+    PPV       = "PPV",
+    NPV       = "NPV",
+    S         = "S (linear; w = 1.5, 1, 1.75)"
+  ) |>
+  gt::fmt_number(columns = c(Detection, Sen, Spec, PPV, NPV, S), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+#### Robustness across weightings
+
+The single composite score above uses the benefit-protection
+weighting `(1.5, 1, 1.75)` -- a deliberate but ultimately
+subjective choice.  The chunks below repeat the scoring under four
+alternative weightings (equal, Spec-emphasis, Detection-emphasis,
+Sen-emphasis) and identify the configurations that rank in the
+top-K under **every** weighting.  These are the configurations
+whose preference is robust to the weighting choice; a
+configuration whose rank swings sharply across weightings is an
+artefact of the weights rather than a defensible operating point.
+
+```{r oc-score-grid}
+#| code-fold: true
+#| code-summary: "Compute scores across the default weight grid + consensus top-K"
+
+# Augment with one score column per weighting in the default grid.
+# Adds S_equal, S_bp_default, S_spec_emphasis, S_detect_emphasis, S_sen_emphasis.
+display_dt <- compute_oc_score_grid(display_dt)
+
+# Identify configurations top-5 under EVERY weighting.
+score_cols_grid <- paste0("S_", c("equal", "bp_default", "spec_emphasis",
+                                  "detect_emphasis", "sen_emphasis"))
+display_dt <- consensus_top_k(
+  display_dt,
+  score_cols = score_cols_grid,
+  k          = 5L,
+  flag_col   = "consensus_top5"
+)
+
+cat(sprintf(
+  "Consensus top-5: %d configuration(s) rank in the top-5 under all %d weightings.\n",
+  sum(display_dt$consensus_top5, na.rm = TRUE),
+  length(score_cols_grid)
+))
+cat(sprintf(
+  "Pareto frontier AND consensus top-5: %d configuration(s).\n",
+  sum(display_dt$pareto_frontier & display_dt$consensus_top5, na.rm = TRUE)
+))
+```
+
+The table below shows the consensus top-5 configurations (top-5
+under all five weightings) with one score column per weighting,
+ordered by the benefit-protection score.  The `Pareto`
+column indicates whether the configuration also lies on the Pareto
+frontier of {Detection, Sen, Spec} -- configurations that pass
+both filters are robustly preferred *and* not dominated on any
+single classification axis.
+
+```{r oc-consensus-table}
+#| code-fold: true
+#| code-summary: "Consensus top-5 configurations with all grid scores"
+
+consensus_cols <- c("group", "Analysis",
+                    "Detection", "Sen", "Spec",
+                    "pareto_frontier",
+                    "S_equal", "S_bp_default", "S_spec_emphasis",
+                    "S_detect_emphasis", "S_sen_emphasis")
+consensus_dt <- display_dt[
+  display_dt$consensus_top5 %in% TRUE,
+  ..consensus_cols
+]
+data.table::setorder(consensus_dt, -S_bp_default)
+
+# Rename the logical flag for nicer display
+data.table::setnames(consensus_dt, "pareto_frontier", "Pareto")
+
+gt::gt(consensus_dt) |>
+  gt::tab_header(
+    title    = "Consensus top-5 across all five weightings",
+    subtitle = "Configurations top-5 under {equal, bp_default, spec_emphasis, detect_emphasis, sen_emphasis}.  'Pareto' flags also-on-frontier on {Detection, Sen, Spec}."
+  ) |>
+  gt::tab_spanner(label = "Classification metrics",
+                  columns = c(Detection, Sen, Spec)) |>
+  gt::tab_spanner(label = "Scores by weighting",
+                  columns = c(S_equal, S_bp_default, S_spec_emphasis,
+                              S_detect_emphasis, S_sen_emphasis)) |>
+  gt::cols_label(
+    Analysis          = "Analysis",
+    Detection         = "Detect",
+    Sen               = "Sen",
+    Spec              = "Spec",
+    Pareto            = "Pareto",
+    S_equal           = "equal",
+    S_bp_default      = "bp_default",
+    S_spec_emphasis   = "spec_emph",
+    S_detect_emphasis = "detect_emph",
+    S_sen_emphasis    = "sen_emph"
+  ) |>
+  gt::fmt_number(columns = c(Detection, Sen, Spec),
+                 decimals = 3) |>
+  gt::fmt_number(columns = c(S_equal, S_bp_default, S_spec_emphasis,
+                              S_detect_emphasis, S_sen_emphasis),
+                 decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+The default weight grid is defined in `compute_oc_score_grid.R`
+(see `.OC_WEIGHT_GRID_DEFAULT`); pass a custom `weight_grid`
+argument to explore a different set of weightings.  Adjust the
+top-K cutoff via the `k` argument of `consensus_top_k()` for a
+stricter (e.g.\ `k = 3`) or looser (e.g.\ `k = 8`) consensus.
+
+### 3D interactive view (rotate to disambiguate depth)
+
+The plot below is an HTML widget rendered by plotly; rotation,
+zoom, and per-point hover are all interactive.  Static screenshots
+of 3D scatter plots are routinely misleading because perspective
+alone does not resolve depth, so the intended use is to rotate
+the view in the rendered HTML.  This chunk does not produce
+output in PDF; for PDF reports, use the 2D bubble views above.
+
+```{r oc-scatter3d}
+#| code-fold: true
+#| code-summary: "3D scatter: Spec × NPV × Detection (interactive)"
+plot_oc_metrics_3d(
+  display_dt,
+  title = "OC summary: Spec × NPV × Detection (rotate to read depth)"
+)
+```
+
+
+
+# Per-config Detail
+
+For deep-dives into any single configuration, see the corresponding
+per-config article.
+
+```{r per-config-pointers}
+#| echo: false
+pointers <- data.frame(
+  label   = configs$label,
+  article = sprintf("../%s.qmd", configs$config_id),
+  bundle  = configs$bundle_path,
+  stringsAsFactors = FALSE
+)
+gt::gt(pointers) |>
+  gt::tab_header(title = "Per-config articles and bundles") |>
+  gt::cols_label(
+    label   = "Config",
+    article = "Per-config article",
+    bundle  = "Bundle (.rds)"
+  )
+```
+
+# Notes
+
+- This article assumes all bundles share the **same DGM truth**
+  (study × outcome × DGM × objective). Cross-cuts that vary the
+  DGM need a different summary template (with per-bundle reference
+  values for target OR, true |Q|, etc.).
+- The unified H1 OC table reports raw means (`mean(...)`) for each
+  OR estimate by default — preserving the standard "on average"
+  interpretation. When the |mean − median|/|median| ratio for a
+  given OR exceeds `or_trim_threshold` (default 0.20), the raw
+  mean is being pulled by extreme values; in those cells the
+  table reports a trimmed mean (default 5% from each tail) and
+  flags the row in the **Trim** column. The threshold and trim
+  level are configurable in the setup chunk; the **Trim** column
+  is hidden entirely when no cell needed trimming.
+- **GRF rows are collapsed**: GRF does not depend on `sg_focus`,
+  so its results are identical across the five focus groups. The
+  table shows GRF once, at the end, under its own group. A
+  consistency check warns if the GRF rows actually differ across
+  focus groups (which would indicate a bundle issue rather than
+  true invariance).
+- The grouped classification tables (one per analysis method) use
+  `build_classification_table()` with all configurations passed as
+  scenarios in a single call — producing one table per analysis
+  method with row groups per `sg_focus × fs` cell.
+- Toggle `strict_bundles <- TRUE` in setup to fail when any cell
+  in the declared grid is missing — useful as a completeness check
+  once all configurations are expected to be built.
