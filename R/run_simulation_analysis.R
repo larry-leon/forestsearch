@@ -91,6 +91,106 @@ default_grf_params_gen <- function() {
 
 
 # =============================================================================
+# Internal: generalized-method dispatch helpers
+# =============================================================================
+
+#' NULL-preserving list merge
+#'
+#' Like \code{utils::modifyList()}, but an entry in \code{over} whose value is
+#' \code{NULL} \emph{sets} the corresponding element of \code{base} to an
+#' explicit \code{NULL} (kept in the list) rather than deleting it.  Required
+#' so that an explicit \code{n.min = NULL} survives the parameter merges and
+#' reaches \code{forestsearch()}, where it triggers the sample-size-adaptive
+#' minimum-size rule; ordinary \code{modifyList()} would strip it and silently
+#' fall back to the formal default.
+#' @keywords internal
+#' @noRd
+.modify_keep_null <- function(base, over) {
+  for (nm in names(over)) base[nm] <- over[nm]
+  base
+}
+
+#' Expand a canonical method label into forestsearch() overrides
+#'
+#' Parses a \code{"<engine>-<focus>"} label (e.g. \code{"fs-effMaxSG"},
+#' \code{"dina-eff"}, \code{"grf-tree"}) into a list of \code{forestsearch()}
+#' argument overrides.  The engine token names the \emph{selector}; every arm
+#' is ultimately run through \code{forestsearch()}, which supplies the shared
+#' post-selection inference, so no "FS" component appears in the label.
+#' @keywords internal
+#' @noRd
+.expand_method_label <- function(label) {
+  parts <- strsplit(label, "-", fixed = TRUE)[[1L]]
+  if (length(parts) < 2L) {
+    stop(sprintf(
+      "Cannot parse method label '%s'; expected '<engine>-<focus>' (e.g. 'fs-effMaxSG').",
+      label), call. = FALSE)
+  }
+  engine <- parts[1L]
+  focus  <- paste(parts[-1L], collapse = "-")
+  over   <- list(selection_rule = "neighborhood")
+  if (identical(engine, "fs")) {
+    over$subgroup_method <- "consistency"
+    over$sg_focus        <- focus
+    over$use_grf         <- TRUE
+    over$use_dina        <- TRUE
+    over$use_lasso       <- FALSE
+    over["n.min"]        <- list(NULL)   # explicit NULL -> adaptive rule
+  } else if (identical(engine, "dina")) {
+    over$subgroup_method <- "dina"
+    over$sg_focus        <- focus
+  } else if (identical(engine, "grf")) {
+    over$subgroup_method <- "grf"
+    if (identical(focus, "tree")) {
+      over$grf_selection <- "tree"
+    } else {
+      over$grf_selection <- "frontier"
+      over$sg_focus      <- focus
+    }
+  } else {
+    stop(sprintf(
+      "Unknown engine '%s' in method label '%s'; expected 'fs', 'dina', or 'grf'.",
+      engine, label), call. = FALSE)
+  }
+  over
+}
+
+#' Normalize the `methods` argument to a named list of override lists
+#'
+#' Accepts either a character vector of canonical labels (expanded via
+#' \code{.expand_method_label()}) or a pre-built named list of
+#' \code{forestsearch()} override lists, returning a named list keyed by arm
+#' label.  Returns \code{NULL} unchanged.
+#' @keywords internal
+#' @noRd
+.normalize_methods <- function(methods) {
+  if (is.null(methods)) return(NULL)
+  if (is.character(methods)) {
+    if (anyNA(methods) || any(!nzchar(methods))) {
+      stop("All entries of a character 'methods' vector must be non-empty labels.",
+           call. = FALSE)
+    }
+    specs <- lapply(methods, .expand_method_label)
+    names(specs) <- methods
+    return(specs)
+  }
+  if (is.list(methods)) {
+    nm <- names(methods)
+    if (is.null(nm) || any(!nzchar(nm))) {
+      stop("When 'methods' is a list, every element must be named with its arm label.",
+           call. = FALSE)
+    }
+    if (anyDuplicated(nm)) {
+      stop("Duplicate arm labels in 'methods': ",
+           paste(unique(nm[duplicated(nm)]), collapse = ", "), ".", call. = FALSE)
+    }
+    return(methods)
+  }
+  stop("'methods' must be NULL, a character vector of labels, or a named list of override lists.",
+       call. = FALSE)
+}
+
+# =============================================================================
 # Main function
 # =============================================================================
 
@@ -133,6 +233,30 @@ default_grf_params_gen <- function() {
 #' @param run_fs_grf Logical. Run ForestSearch (LASSO + GRF). Default
 #'   \code{TRUE}.
 #' @param run_grf Logical. Run standalone GRF. Default \code{TRUE}.
+#' @param methods Optional specification of analysis arms that generalizes the
+#'   \code{run_fs} / \code{run_fs_grf} / \code{run_grf} booleans.  When
+#'   non-\code{NULL} the booleans are ignored and \strong{every} arm is run via
+#'   \code{forestsearch()} (through \code{.run_fs_analysis_gen()}), so all arms
+#'   --- including \code{dina-*} and \code{grf-*} --- inherit the bias-corrected
+#'   post-selection inference.  Two forms are accepted:
+#'   \itemize{
+#'     \item A character vector of canonical \code{"<engine>-<focus>"} labels,
+#'       e.g. \code{c("fs-effMaxSG", "dina-effMaxSG", "grf-tree")}, expanded
+#'       internally to per-arm \code{forestsearch()} overrides.  Engines are
+#'       \code{"fs"} (\code{subgroup_method = "consistency"}), \code{"dina"},
+#'       and \code{"grf"} (\code{grf_selection = "frontier"}, or \code{"tree"}
+#'       for the \code{grf-tree} label).  Defaults applied during expansion:
+#'       \code{selection_rule = "neighborhood"}; for \code{fs-*} arms
+#'       \code{use_grf = TRUE}, \code{use_dina = TRUE}, \code{use_lasso = FALSE},
+#'       and \code{n.min = NULL} (the sample-size-adaptive rule).
+#'     \item A named list of explicit \code{forestsearch()} argument-override
+#'       lists, label = name, e.g.
+#'       \code{list("fs-effMaxSG" = list(subgroup_method = "consistency", sg_focus = "effMaxSG", use_grf = TRUE, use_dina = TRUE, use_lasso = FALSE), "grf-tree" = list(subgroup_method = "grf", grf_selection = "tree"))}.
+#'   }
+#'   Each arm's overrides are merged on top of \code{default_sim_params()}
+#'   overlaid with \code{fs_params}; per-arm overrides take precedence.  The
+#'   merge preserves an explicit \code{n.min = NULL}.  Default \code{NULL}
+#'   preserves the legacy boolean behavior.
 #' @param fs_params Named list of ForestSearch parameter overrides.  Any
 #'   element of \code{default_sim_params()} can be overridden, including
 #'   \code{parallel_args} (see \emph{Parallel Processing} section below).
@@ -282,6 +406,7 @@ run_simulation_analysis <- function(
     run_fs           = TRUE,
     run_fs_grf       = TRUE,
     run_grf          = TRUE,
+    methods          = NULL,
     fs_params        = list(),
     grf_params       = list(),
     cox_formula      = NULL,
@@ -440,8 +565,18 @@ run_simulation_analysis <- function(
   results_list <- list()
   sg_hat_list  <- list()   # per-subject subgroup assignments for concordance
 
+  # Generalized method dispatch.  When `methods` is supplied it takes over
+  # from the run_fs / run_fs_grf / run_grf booleans, and every arm -- fs-*,
+  # dina-*, grf-* -- is executed through forestsearch() so all share the
+  # bias-corrected post-selection inference.
+  method_specs <- .normalize_methods(methods)
+
   if (show_verbose) {
-    to_run <- c(if (run_fs) "FS", if (run_fs_grf) "FSlg", if (run_grf) "GRF")
+    to_run <- if (is.null(method_specs)) {
+      c(if (run_fs) "FS", if (run_fs_grf) "FSlg", if (run_grf) "GRF")
+    } else {
+      names(method_specs)
+    }
     message(sprintf("\n[3] Running: %s", paste(to_run, collapse = ", ")))
   }
 
@@ -450,7 +585,7 @@ run_simulation_analysis <- function(
   # whichever keepers were requested for that method.
   diagnostics_list <- list()
 
-  if (run_fs) {
+  if (is.null(method_specs) && run_fs) {
     fs_p <- modifyList(
       modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = FALSE)),
       fs_params
@@ -475,7 +610,7 @@ run_simulation_analysis <- function(
     results_list[["FS"]] <- cbind(df_pop, fs_out)
   }
 
-  if (run_fs_grf) {
+  if (is.null(method_specs) && run_fs_grf) {
     fs_p <- modifyList(
       modifyList(fs_defaults, list(use_lasso = TRUE, use_grf = TRUE)),
       fs_params
@@ -499,7 +634,7 @@ run_simulation_analysis <- function(
     results_list[["FSlg"]] <- cbind(df_pop, fslg_out)
   }
 
-  if (run_grf) {
+  if (is.null(method_specs) && run_grf) {
     # Resolve id_name from merged GRF params (falls back to "id")
     id_name_resolved <- grf_merged$id.name %||% "id"
     # Effective names for estimation (see FS sync comment above)
@@ -528,8 +663,48 @@ run_simulation_analysis <- function(
     results_list[["GRF"]] <- cbind(df_pop, grf_out)
   }
 
+  # ── Generalized method dispatch (methods != NULL) ────────────────────────
+  # Each arm is run via forestsearch() through .run_fs_analysis_gen(), with
+  # subgroup_method / grf_selection / sg_focus / screening knobs set per arm.
+  # The arm label names the selector ("dina-effMaxSG", "grf-tree", ...);
+  # forestsearch() is the shared inference backbone and is absent from labels.
+  if (!is.null(method_specs)) {
+    for (arm_label in names(method_specs)) {
+      # Precedence: default_sim_params() -> fs_params -> per-arm overrides.
+      # .modify_keep_null() preserves an explicit n.min = NULL so the
+      # sample-size-adaptive rule reaches forestsearch().
+      fs_p <- .modify_keep_null(
+        .modify_keep_null(fs_defaults, fs_params),
+        method_specs[[arm_label]]
+      )
+      arm_out <- .run_fs_analysis_gen(
+        data = sim_data, confounders_name = confounders_name,
+        params = fs_p, dgm = dgm,
+        cox_formula = cox_formula, cox_formula_adj = cox_formula_adj,
+        outcome_name = outcome_name, event_name = event_name,
+        treat_name = treat_name, harm_col = harm_col,
+        label = arm_label, verbose = show_verbose,
+        keep = if (keep_this_sim) keep else character(0)
+      )
+      sg_hat_list[[arm_label]] <- attr(arm_out, "sg_hat")
+      if (keep_this_sim) {
+        keepers <- attr(arm_out, "keepers")
+        if (!is.null(keepers)) diagnostics_list[[arm_label]] <- keepers
+      }
+      attr(arm_out, "sg_hat")  <- NULL
+      attr(arm_out, "keepers") <- NULL
+      results_list[[arm_label]] <- cbind(df_pop, arm_out)
+    }
+  }
+
   if (length(results_list) == 0) {
-    warning("No analyses were run. Check run_fs / run_fs_grf / run_grf.")
+    warning(
+      "No analyses were run. ",
+      if (is.null(method_specs))
+        "Check run_fs / run_fs_grf / run_grf."
+      else
+        "Check the 'methods' specification."
+    )
     return(NULL)
   }
 
@@ -635,7 +810,11 @@ run_simulation_analysis <- function(
     exclude       = fs_internal_args,
     warn_unknown  = FALSE  # silent drop matches legacy behavior
   )
-  fs_args <- utils::modifyList(fs_args, user_fs_args)
+  # NULL-preserving merge (not modifyList): an explicit n.min = NULL in
+  # `params` must survive to forestsearch() so the sample-size-adaptive rule
+  # fires; modifyList() would strip it and silently revert to the formal
+  # default.  Affects both the legacy boolean path and the methods path.
+  fs_args <- .modify_keep_null(fs_args, user_fs_args)
 
   fs_args$quiet <- TRUE
   fs_result <- tryCatch(
