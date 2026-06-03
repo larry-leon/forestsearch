@@ -1161,7 +1161,7 @@ reset_workers <- function(workers   = NULL,
   # -- the same representation a 2-factor consistency subgroup uses.
   op      <- ifelse(sg$direction == "left", "<=", ">=")
   sg.harm <- sprintf("{%s %s %s}", sg$covariate, op,
-                     as.character(sg$threshold))
+                     formatC(sg$threshold, format = "g", digits = 17))
 
   # Membership via the standard label evaluator (treat.recommend == 0 = harm).
   df.est         <- get_dfpred(df, sg.harm, version = 2)
