@@ -301,8 +301,9 @@
 #'   \code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
 #'   \strong{experimental} alternative that selects from the Pareto frontier of
 #'   the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
-#'   frontier rule is taken from \code{sg_focus} (\code{"hr"}/\code{"eff"},
-#'   \code{"hrMaxSG"}/\code{"effMaxSG"}, or \code{"maxSG"}) and the relative
+#'   frontier rule is taken from \code{sg_focus} -- all five values map through
+#'   (\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxSG"},
+#'   \code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
 #'   band from \code{effect_neighborhood}. Provided for comparison; the tree is
 #'   the recommended default.
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
@@ -1546,11 +1547,12 @@ forestsearch <- function(df.analysis,
   if (subgroup_method == "grf") {
     grf_selection <- match.arg(grf_selection)
     # In frontier mode the selection rule comes from sg_focus (which the tree
-    # path ignores).  Map the canonical sg_focus forms to the frontier rule;
-    # anything else falls back to the robust default (effMaxSG).
+    # path ignores).  All five sg_focus values map to the aligned frontier rule;
+    # an unrecognized value falls back to the robust default (effMaxSG).
     .sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
     frontier_rule <- switch(as.character(.sgf),
-                            hr = "eff", hrMaxSG = "effMaxSG", maxSG = "maxSG",
+                            hr = "eff", hrMaxSG = "effMaxSG", hrMinSG = "effMinSG",
+                            maxSG = "maxSG", minSG = "minSG",
                             "effMaxSG")
     gsel <- .forestsearch_grf_select(
       df = df, df.predict = df.predict, df.test = df.test,

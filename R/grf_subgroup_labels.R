@@ -324,10 +324,15 @@
 
 #' Select one frontier subgroup under a rule (harm side: effect >= dmin)
 #'
-#' @param rule "effMaxSG" (largest within a relative neighborhood of the max
-#'   harm-effect), "eff" (max harm-effect), or "maxSG" (largest eligible).
-#' @param nbhd relative neighborhood for effMaxSG: keep candidates with
-#'   effect >= (1 - nbhd) * max-eligible-effect, then take the largest.
+#' @param rule one of \code{"effMaxSG"} (default), \code{"eff"}, \code{"maxSG"},
+#'   \code{"minSG"}, \code{"effMinSG"}; semantics match \code{dina_subgroup()}'s
+#'   \code{sg_focus}.  \code{"eff"} = max harm-effect; \code{"maxSG"}/\code{"minSG"}
+#'   = largest/smallest eligible (effect >= dmin); \code{"effMaxSG"}/
+#'   \code{"effMinSG"} = largest/smallest within a relative neighborhood of the
+#'   max harm-effect.
+#' @param nbhd relative neighborhood for the \code{eff*SG} rules: keep candidates
+#'   with effect >= (1 - nbhd) * max-eligible-effect, then take the
+#'   largest/smallest.
 #' @return one-row data.frame (the selected candidate), or NULL.
 #' @noRd
 .grf_frontier_select <- function(cand, dmin, rule = "effMaxSG", nbhd = 0.10) {
@@ -337,11 +342,17 @@
   emax <- max(elig$effect)
   if (rule == "maxSG") {
     elig[which.max(elig$size), , drop = FALSE]
+  } else if (rule == "minSG") {
+    elig[which.min(elig$size), , drop = FALSE]
   } else if (rule == "eff") {
     elig[which.max(elig$effect), , drop = FALSE]
-  } else { # effMaxSG
+  } else { # effMaxSG / effMinSG: restrict to the near-max-effect band first
     band <- elig[elig$effect >= emax * (1 - nbhd), , drop = FALSE]
-    band[which.max(band$size), , drop = FALSE]
+    if (rule == "effMinSG") {
+      band[which.min(band$size), , drop = FALSE]
+    } else { # effMaxSG (default)
+      band[which.max(band$size), , drop = FALSE]
+    }
   }
 }
 

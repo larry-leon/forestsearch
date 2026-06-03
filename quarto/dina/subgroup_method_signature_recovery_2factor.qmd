@@ -158,7 +158,7 @@ source(file.path(.util_dir, "compute_oc_pareto_flag.R"))
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 1000L,          # replications per cell (scale up for production)
+  nsims       = 20L,          # replications per cell (scale up for production)
   base_seed   = 20260531L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -181,13 +181,13 @@ CONFIG <- list(
 
   # ---- forestsearch knobs ----
   fs_maxk            = 2L,     # two-factor hypothesis space (matched to truth)
-  fs_foci            = c("eff", "effMaxSG"),  # NEW: both selection rules
+  fs_foci            = c("eff", "effMaxSG", "effMinSG"),  # NEW: both selection rules
   fs_eff_neighbor    = 0.10,
   fs_selection_rule  = "neighborhood",
   fs_consistency     = 1.5,
   fs_pconsistency    = 0.90,
   fs_subgroup_method  = "consistency",
-  fs_splits          = 500L,
+  fs_splits          = 1000L,
   fs_n_min           = NULL,
   fs_d0_min          = 10L,
   fs_d1_min          = 10L,
@@ -215,7 +215,14 @@ CONFIG <- list(
   fs_grf_enable   = TRUE,
   fs_grf_frontier = TRUE,      # also run GRF frontier-selection (effMaxSG)
   fs_grf_depth    = 2L,        # GRF tree depth (forestsearch() default)
-  fs_grf_dmin     = 0.0,       # min subgroup mean-difference (HR/log scale)
+  # Three independent dmin.grf knobs, one per GRF use (all on the RMST /
+  # time-unit scale for survival -- NOT the HR scale; see the scale note in
+  # the GRF-arms section).  All default to 0.0, reproducing prior behavior;
+  # raise a single one to calibrate that use (e.g. the frontier's FDR)
+  # without moving the others.
+  fs_grf_screen_dmin   = 0.0,  # screening cut-generation (FS-eff / FS-effMaxSG)
+  fs_grf_tree_dmin     = 0.50,  # GRF policy-tree selection  (FS-grf-tree)
+  fs_grf_frontier_dmin = 0.50,  # GRF frontier selection     (FS-grf-frontier)
   fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
 
   # ---- dina_subgroup knobs ----
@@ -322,6 +329,48 @@ true **covariate set** (`covariate_set_hit`) and exactly the true
 **(covariate, direction)** axes (`signature_correct`). For `dina_subgroup()`,
 where the axes are explicit, per-component threshold bias is also reported when
 the axes are correct.
+
+## Classification metrics under HTEs (H1)
+
+Under the alternative the true harm subgroup $S$ exists
+($S = \{x_1 \ge 0 \cap x_2 \le 0\}$, prevalence $\approx 25\%$) with a genuinely
+different treatment effect. Following León et al. (2024, Section 3), define for
+the estimated subgroup $\hat{S}$:
+
+$$
+\text{sens}(\hat{S}) = \frac{\#\{i \in \hat{S} \cap S\}}{\#\{i \in S\}},
+\qquad
+\text{ppv}(\hat{S}) = \frac{\#\{i \in \hat{S} \cap S\}}{\#\{i \in \hat{S}\}},
+$$
+
+with the analogous measures for the complement $\hat{S}^c$ (the subgroup
+predicted *not* to be harmed --- here, the benefiting/neutral region). The
+operating-characteristic columns report:
+
+| Column | León et al. notation | Interpretation |
+|---|---|---|
+| **sens** | $\text{sens}(\hat{S})$ | Fraction of true $S$ captured by $\hat{S}$ |
+| **spec** | $\text{sens}(\hat{S}^c)$ | Fraction of true $S^c$ correctly in $\hat{S}^c$ |
+| **ppv** | $\text{ppv}(\hat{S})$ | Fraction of $\hat{S}$ truly in $S$ |
+| **npv** | $\text{ppv}(\hat{S}^c)$ | Fraction of $\hat{S}^c$ truly in $S^c$ |
+
+So **sens / ppv** characterise the accuracy of the *identified* harm subgroup
+$\hat{S}$, while **spec / npv** characterise the accuracy of its *complement*
+$\hat{S}^c$ --- the region declared to benefit. Classification metrics are
+averaged across **all** non-null replications (León et al. 2024, Table 1); when
+no subgroup is detected ($\hat{S} = \emptyset$), everyone is assigned to
+$\hat{S}^c$, so that replication contributes $\text{sens}(\hat{S}) = 0$ and
+$\text{ppv}(\hat{S}) = 0$.
+
+::: {.callout-note}
+## Discovered cuts vs oracle cuts
+
+Because the cuts are discovered from the data, an $\hat{S}$ that captures
+"roughly the right region" with slightly shifted boundaries still earns high
+sens/ppv. Expect these metrics to be somewhat lower than under an oracle-cut
+(known-threshold) setup; the gap is the cost of not knowing the true cuts in
+advance.
+:::
 
 ```{r scoring}
 mask_recovery <- function(disc_mask, true_mask) {
@@ -586,6 +635,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         d1.min           = cfg$fs_d1_min,
         maxk             = cfg$fs_maxk,
         vi.grf.min       = cfg$fs_vi_grf_min,
+        dmin.grf         = cfg$fs_grf_screen_dmin,
         use_grf          = cfg$fs_use_grf,
         use_lasso        = cfg$fs_use_lasso,
         use_dina         = cfg$fs_use_dina,
@@ -625,7 +675,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         subgroup_method  = "grf",
         effect.threshold = cfg$effect_threshold,
         grf_depth        = cfg$fs_grf_depth,
-        dmin.grf         = cfg$fs_grf_dmin,
+        dmin.grf         = cfg$fs_grf_tree_dmin,
         frac.tau         = cfg$fs_grf_fractau,
         n.min            = cfg$fs_n_min,
         use_grf          = FALSE,   # selection IS GRF; no separate screening
@@ -668,7 +718,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         effect_neighborhood = cfg$fs_eff_neighbor,
         effect.threshold    = cfg$effect_threshold,
         grf_depth           = cfg$fs_grf_depth,
-        dmin.grf            = cfg$fs_grf_dmin,
+        dmin.grf            = cfg$fs_grf_frontier_dmin,
         frac.tau            = cfg$fs_grf_fractau,
         n.min               = cfg$fs_n_min,
         use_grf             = FALSE,
@@ -877,6 +927,151 @@ agg |>
      true conjunction mask. `mean #factors` should sit near 2 when the
      two-factor truth is recovered.*")) |>
   gt::tab_options(table.font.size = 12)
+```
+
+## Top methods by classification priority
+
+The two rankings below summarise, **per `(n, tau_in)` cell**, the three methods
+that best serve a stated classification priority. Each uses a composite score
+equal to the mean of three operating characteristics (all higher-is-better, all
+on `[0, 1]`), so the score is itself in `[0, 1]` and directly comparable across
+methods. The wrapper is deliberately simple and transparent: an equal-weight
+mean of the chosen columns, ranked descending, top-`k` returned.
+
+```{r top-methods-wrapper}
+# Rank methods within each (n, tau_in) cell by an equal-weight composite of the
+# chosen higher-is-better columns. Returns the top-k rows per cell with the
+# component metrics and the composite score.
+#
+#   agg     : the per-method aggregate (one row per label/n/tau_in/method)
+#   metrics : character vector of columns to combine (all in [0,1], higher better)
+#   k       : number of methods to return per cell
+top_methods <- function(agg, metrics, k = 3L) {
+  stopifnot(all(metrics %in% names(agg)))
+  d <- data.table::copy(data.table::as.data.table(agg))
+  # composite = mean of the chosen metrics; NA in any component -> NA composite
+  # (a method that cannot be scored on a priority column is not ranked for it).
+  d[, score := rowMeans(as.matrix(.SD), na.rm = FALSE), .SDcols = metrics]
+  d <- d[!is.na(score)]
+  d[, rank := frank(-score, ties.method = "min"), by = .(n, tau_in)]
+  d <- d[rank <= k][order(n, tau_in, rank)]
+  keep <- c("n", "tau_in", "method", metrics, "score", "rank")
+  d[, ..keep]
+}
+
+# gt renderer for a top_methods() result.
+render_top <- function(tab, metrics, title, subtitle) {
+  gt::gt(tab, groupname_col = NULL) |>
+    gt::tab_header(title = gt::md(title), subtitle = subtitle) |>
+    gt::fmt_number(columns = c(metrics, "score"), decimals = 3) |>
+    gt::cols_label(method = "method", score = "composite", rank = "rank",
+                   n = "n", tau_in = "tau_in") |>
+    gt::tab_options(table.font.size = 12)
+}
+
+# Summarise which methods appear most CONSISTENTLY in the top-k across the
+# (n, tau_in) cells, for a given metric priority.  "Consistency" = number of
+# cells in which the method lands in the top-k, out of the cells where it was
+# *eligible* to be ranked (non-NA composite -- so a method undefined in a cell
+# is not penalised as if it had been beaten there).  Ranked by appearance
+# count (desc), tie-broken by mean rank (asc, nearer the top is better), then
+# by mean composite (desc).
+#
+#   agg     : the per-method aggregate (one row per label/n/tau_in/method)
+#   metrics : the priority columns (same as passed to top_methods)
+#   k       : top-k definition of "appears" (default 3)
+#   top_n   : how many consistent methods to return (default 2)
+consistency_summary <- function(agg, metrics, k = 3L, top_n = 2L) {
+  d <- data.table::copy(data.table::as.data.table(agg))
+  d[, score := rowMeans(as.matrix(.SD), na.rm = FALSE), .SDcols = metrics]
+  d <- d[!is.na(score)]                                  # eligible rows only
+  d[, rank := data.table::frank(-score, ties.method = "min"), by = .(n, tau_in)]
+  d[, in_topk := rank <= k]
+  summ <- d[, .(
+    cells_eligible = .N,
+    cells_in_topk  = sum(in_topk),
+    mean_rank      = mean(rank),
+    mean_composite = mean(score)
+  ), by = method]
+  summ[, appears_frac := cells_in_topk / cells_eligible]
+  data.table::setorder(summ, -cells_in_topk, mean_rank, -mean_composite)
+  summ[seq_len(min(top_n, .N))]
+}
+
+# gt renderer for a consistency_summary() result.
+render_consistency <- function(tab, title, subtitle) {
+  gt::gt(tab, groupname_col = NULL) |>
+    gt::tab_header(title = gt::md(title), subtitle = subtitle) |>
+    gt::fmt_number(columns = c("mean_rank", "mean_composite", "appears_frac"),
+                   decimals = 3) |>
+    gt::cols_label(method = "method", cells_eligible = "cells eligible",
+                   cells_in_topk = "cells in top-k", appears_frac = "appear rate",
+                   mean_rank = "mean rank", mean_composite = "mean composite") |>
+    gt::cols_move_to_end(columns = c("mean_rank", "mean_composite")) |>
+    gt::tab_options(table.font.size = 12)
+}
+```
+
+### (B) Priority on the complement $\hat{S}^c$ (the benefiting subgroup)
+
+When the decision of interest is *who to keep on treatment* --- i.e. accuracy of
+the complement $\hat{S}^c$ --- the relevant operating characteristics are
+**detection** (`detected`), **specificity** (`spec` $= \text{sens}(\hat{S}^c)$),
+and **negative predictive value** (`npv` $= \text{ppv}(\hat{S}^c)$). The top
+three methods per cell by the equal-weight composite of these three:
+
+```{r top-complement}
+top_B <- top_methods(agg, metrics = c("detection_rate", "specificity", "npv"),
+                     k = 3L)
+render_top(
+  top_B, metrics = c("detection_rate", "specificity", "npv"),
+  title = "**Top 3 methods --- complement (benefit) priority**",
+  subtitle = "Composite = mean(detected, spec, npv); higher is better")
+```
+
+### (C) Priority on the identified subgroup $\hat{S}$ (the harmed subgroup)
+
+When the decision of interest is *who to flag as harmed* --- accuracy of the
+identified subgroup $\hat{S}$ --- the relevant characteristics are
+**detection** (`detected`), **sensitivity** (`sens` $= \text{sens}(\hat{S})$),
+and **positive predictive value** (`ppv` $= \text{ppv}(\hat{S})$). The top three
+methods per cell:
+
+```{r top-subgroup}
+top_C <- top_methods(agg, metrics = c("detection_rate", "sensitivity", "ppv"),
+                     k = 3L)
+render_top(
+  top_C, metrics = c("detection_rate", "sensitivity", "ppv"),
+  title = "**Top 3 methods --- identified-subgroup priority**",
+  subtitle = "Composite = mean(detected, sens, ppv); higher is better")
+```
+
+## Most consistent methods across cells
+
+The per-cell rankings above let a method win different cells. The two tables
+here summarise which methods appear **most consistently** in the top 3 across
+all `(n, tau_in)` cells, for each priority. Consistency is the number of cells
+in which a method lands in the top 3, out of the cells where it was *eligible*
+to be ranked (a method with an undefined metric in a cell is not counted
+against it there). Ties are broken by mean rank (nearer the top is better) then
+mean composite. The two most consistent methods per priority:
+
+```{r consistent-complement}
+cons_B <- consistency_summary(
+  agg, metrics = c("detection_rate", "specificity", "npv"), k = 3L, top_n = 2L)
+render_consistency(
+  cons_B,
+  title = "**Most consistent --- complement (benefit) priority**",
+  subtitle = "Appears in top 3 most often across (n, tau_in); priority = detected, spec, npv")
+```
+
+```{r consistent-subgroup}
+cons_C <- consistency_summary(
+  agg, metrics = c("detection_rate", "sensitivity", "ppv"), k = 3L, top_n = 2L)
+render_consistency(
+  cons_C,
+  title = "**Most consistent --- identified-subgroup priority**",
+  subtitle = "Appears in top 3 most often across (n, tau_in); priority = detected, sens, ppv")
 ```
 
 ## Signature axis recovery and threshold bias (dina_subgroup; axis-correct reps)

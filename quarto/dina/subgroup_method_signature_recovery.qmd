@@ -150,7 +150,7 @@ library(foreach)
 
 # Exploratory graphics utilities (not part of the package).  Adjust the
 # relative depth if this document is rendered from a different location.
-.util_dir <- "_utils"
+.util_dir <- "../_utils"
 if (!dir.exists(.util_dir)) .util_dir <- file.path("..", "..", "_utils")
 source(file.path(.util_dir, "signature_recovery_display.R"))
 source(file.path(.util_dir, "plot_oc_metrics.R"))
@@ -158,7 +158,7 @@ source(file.path(.util_dir, "compute_oc_pareto_flag.R"))
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 1000L,          # replications per cell (scale up for production)
+  nsims       = 200L,          # replications per cell (scale up for production)
   base_seed   = 20260531L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -215,7 +215,14 @@ CONFIG <- list(
   fs_grf_enable   = TRUE,
   fs_grf_frontier = TRUE,      # also run GRF frontier-selection (effMaxSG)
   fs_grf_depth    = 1L,        # GRF tree depth (single-split, matched to truth)
-  fs_grf_dmin     = 0.0,       # min subgroup mean-difference (HR/log scale)
+  # Three independent dmin.grf knobs, one per GRF use (all on the RMST /
+  # time-unit scale for survival -- NOT the HR scale; see the scale note in
+  # the GRF-arms section).  All default to 0.0, reproducing prior behavior;
+  # raise a single one to calibrate that use (e.g. the frontier's FDR)
+  # without moving the others.
+  fs_grf_screen_dmin   = 0.0,  # screening cut-generation (FS-eff / FS-effMaxSG)
+  fs_grf_tree_dmin     = 0.4,  # GRF policy-tree selection  (FS-grf-tree)
+  fs_grf_frontier_dmin = 0.4,  # GRF frontier selection     (FS-grf-frontier)
   fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
 
   # ---- dina_subgroup knobs ----
@@ -587,6 +594,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         d1.min           = cfg$fs_d1_min,
         maxk             = cfg$fs_maxk,
         vi.grf.min       = cfg$fs_vi_grf_min,
+        dmin.grf         = cfg$fs_grf_screen_dmin,
         use_grf          = cfg$fs_use_grf,
         use_lasso        = cfg$fs_use_lasso,
         use_dina         = cfg$fs_use_dina,
@@ -626,7 +634,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         subgroup_method  = "grf",
         effect.threshold = cfg$effect_threshold,
         grf_depth        = cfg$fs_grf_depth,
-        dmin.grf         = cfg$fs_grf_dmin,
+        dmin.grf         = cfg$fs_grf_tree_dmin,
         frac.tau         = cfg$fs_grf_fractau,
         n.min            = cfg$fs_n_min,
         use_grf          = FALSE,   # selection IS GRF; no separate screening
@@ -667,7 +675,7 @@ run_one_rep <- function(scenario, rep_id, cfg) {
         effect_neighborhood = cfg$fs_eff_neighbor,
         effect.threshold    = cfg$effect_threshold,
         grf_depth           = cfg$fs_grf_depth,
-        dmin.grf            = cfg$fs_grf_dmin,
+        dmin.grf            = cfg$fs_grf_frontier_dmin,
         frac.tau            = cfg$fs_grf_fractau,
         n.min               = cfg$fs_n_min,
         use_grf             = FALSE,
@@ -1161,7 +1169,7 @@ proportion (dashed line). This exposes over-extension as a *size* failure: a
 method whose point sits well above the true fraction is flagging more subjects
 as harmed than the truth contains, even if its sensitivity looks high.
 
-```{r gfx-size, fig.width=9, fig.height=4.5}
+```{r gfx-sizeb, fig.width=9, fig.height=4.5}
 # True |S|/n for S = {x1 >= 0} with x1 ~ U[-1, 1] is 0.5.  Use a CONFIG override
 # if present, else default to 0.5 (this single-factor DGM).
 true_frac <- if (!is.null(CONFIG$true_frac)) CONFIG$true_frac else 0.5

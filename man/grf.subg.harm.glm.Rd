@@ -27,7 +27,7 @@ grf.subg.harm.glm(
   adverse_outcome = FALSE,
   tune_grf = FALSE,
   grf_selection = c("tree", "frontier"),
-  frontier_rule = c("effMaxSG", "eff", "maxSG"),
+  frontier_rule = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
   effect_neighborhood = 0.1,
   details = FALSE,
   verbose = FALSE
@@ -144,11 +144,12 @@ the Pareto frontier of (harm-effect, size), and selects one subgroup under
 comparison and exploration, not as a recommended default.}
 
 \item{frontier_rule}{Character, one of \code{"effMaxSG"} (default),
-\code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
-\code{grf_selection = "frontier"}. See \code{\link{grf.subg.harm.survival}}.}
+\code{"eff"}, \code{"maxSG"}, \code{"minSG"}, or \code{"effMinSG"}; the rule
+applied to the frontier when \code{grf_selection = "frontier"}. See
+\code{\link{grf.subg.harm.survival}}.}
 
 \item{effect_neighborhood}{Numeric in (0, 1); relative neighborhood for the
-\code{"effMaxSG"} rule. Default 0.10. Used only when
+\code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 \code{grf_selection = "frontier"}.}
 
 \item{details}{Logical. Print GRF diagnostic information. Default: \code{FALSE}.}

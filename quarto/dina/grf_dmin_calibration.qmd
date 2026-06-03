@@ -1,0 +1,398 @@
+---
+title: "Calibrating `dmin.grf` for GRF subgroup selection"
+subtitle: "A continuous-outcome (difference-in-means) calibration study, in sigma units, for the GRF tree and frontier selection arms"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+`dmin.grf` is the harm-eligibility threshold for GRF subgroup selection: a
+candidate subgroup `S` is eligible only if its doubly-robust effect estimate
+(`mean(control) - mean(treated)`) exceeds `dmin.grf`. With `dmin.grf = 0`, *any*
+positive estimated harm qualifies, and -- because selection maximises a noisy
+quantity over many candidate cuts -- the null-arm false-discovery rate runs near
+1 and *worsens* with `n`. A positive `dmin.grf` is the lever for controlling it.
+
+There is no closed-form value. The closest theoretical framing is the
+constrained-policy-tree literature (Cai, Lu et al., *Stat Med* 2022, "CAPITAL"),
+which uses the same `policytree` machinery with a pre-specified threshold
+**delta** equal in role to `dmin.grf`, defined as the *minimum clinically
+meaningful mean contrast* in the selected subgroup -- on the outcome's natural
+scale (restricted mean survival time for survival). That literature treats the
+threshold as an a-priori clinical input and *varies it*, reporting sensitivity;
+it does not derive it from the null sampling distribution. So calibration, not
+derivation, is the defensible route, and that is what this study does.
+
+**Why continuous outcomes first.** The threshold is fundamentally a difference
+in means on the outcome scale. The continuous / identity case is the most
+transparent: the causal-forest doubly-robust score is an estimate of the
+per-subject treatment effect *in outcome units*, so a `dmin.grf` reported in
+**units of the residual SD (sigma)** is a standardized mean contrast -- a
+Cohen's-d-like quantity that translates *approximately* to the other scales
+(RMST difference for survival, risk difference for binary, rate difference for
+count), since each is a mean contrast on its own scale. The continuous study
+therefore gives a starting region and -- more durably -- the *scaling behaviour*
+of the false-discovery-controlling floor with `n` and with the candidate-pool
+size. It is a start, not a transplantable constant; see the caveats at the end.
+
+> **Scale note.** For survival, `dmin.grf` is on the RMST (time-unit) scale, not
+> the hazard-ratio scale. The continuous study expresses `dmin.grf` in sigma
+> units; mapping to a survival study requires multiplying by the RMST-difference
+> SD, and the bridge is approximate (good for small effects / locally-linear
+> links, weaker for large effects or skewed baselines).
+
+```{r setup}
+library(forestsearch)
+library(data.table)
+library(ggplot2)
+library(grf)
+library(policytree)
+library(future)
+library(foreach)
+library(doFuture)
+
+# Graphics utilities (shared OC-bubble vocabulary), resolved whether rendering
+# from the package root or from within quarto/<subdir>/.
+.util_dir <- "../_utils"
+if (!dir.exists(.util_dir)) .util_dir <- file.path("..", "..", "_utils")
+
+registerDoFuture()
+
+CONFIG <- list(
+  # Monte Carlo
+  nsims      = 500L,                       # replications per (regime, n, dmin) cell
+  base_seed  = 20260601L,
+  d          = 5L,                         # covariate dimension
+  sigma      = 1.0,                        # residual SD; dmin.grf reported in these units
+
+  # Design grids
+  n_levels   = c(500L, 1000L, 2000L),      # sample sizes (exposes 1/sqrt(n) scaling)
+  dmin_grid  = seq(0.0, 0.8, by = 0.1),    # dmin.grf in sigma units
+  delta_true = 1.0,                        # planted standardized harm in S (signal regime)
+  run_signal = TRUE,                       # FALSE = null arm only (FDR); skips the
+                                           # signal/power regime, ~halving runtime
+                                           # (the signal regime is the costlier half)
+
+  # GRF selection settings
+  grf_selection_arms = c("tree", "frontier"),
+  grf_depth  = 1L,                         # candidate depth (1 = single split / threshold)
+  sg_focus   = "effMaxSG",
+  eff_neighbor = 0.10,
+  frac_tau   = 0.80,                       # unused for continuous; kept for parity
+  n_min      = 60L,
+
+  # Parallel
+  workers    = floor(0.9*max(1L, future::availableCores() - 1L)),
+  plan       = "multisession"
+)
+
+# True harm subgroup: S = {x1 > 0}, true |S|/n ~ 0.5.
+S_fun     <- function(X) X[, 1] > 0
+TRUE_FRAC <- 0.5
+```
+
+## Data-generating model
+
+Continuous outcome, `Y = 0.3 * x1 + A * C(X) + eps`, with `eps ~ N(0, sigma^2)`.
+In the **signal** regime the treatment *lowers* `Y` by `delta_true * sigma` on
+`S = {x1 > 0}` (harm = treated do worse); outside `S` there is no effect. In the
+**null** regime `C(X) = 0` everywhere. We run with `adverse_outcome = FALSE`
+(higher `Y` = better), so the GRF harm side -- the most-negative-CATE region --
+is exactly `S`.
+
+```{r dgm}
+gen_data <- function(n, d, sigma, delta, S_fun = NULL) {
+  X <- matrix(runif(n * d, -1, 1), n, d)
+  colnames(X) <- paste0("x", seq_len(d))
+  A <- rbinom(n, 1, 0.5)
+  inS <- if (is.null(S_fun)) rep(FALSE, n) else S_fun(X)
+  # delta is in sigma units; harm = treated lower Y by delta*sigma on S.
+  C <- ifelse(inS, -delta * sigma, 0)
+  Y <- 0.3 * X[, 1] + A * C + rnorm(n, 0, sigma)
+  data.table(Y = Y, trt = A, as.data.table(X), id = seq_len(n),
+             inS = inS)
+}
+```
+
+## One run: fit a GRF arm at a given `dmin.grf`, score recovery
+
+```{r one-run}
+# Returns one row: found + membership-based recovery vs the true mask.
+fit_and_score <- function(dt, covs, sel, dmin, cfg) {
+  df <- as.data.frame(dt[, c("Y", "trt", covs, "id"), with = FALSE])
+  fs <- tryCatch(
+    suppressWarnings(forestsearch(
+      df.analysis      = df,
+      outcome.name     = "Y",
+      treat.name       = "trt",
+      id.name          = "id",
+      confounders.name = covs,
+      df.predict       = df,
+      outcome_type     = "continuous",
+      effect_measure   = "MD",
+      adverse_outcome  = FALSE,
+      subgroup_method  = "grf",
+      grf_selection    = sel,
+      sg_focus         = cfg$sg_focus,
+      effect_neighborhood = cfg$eff_neighbor,
+      grf_depth        = cfg$grf_depth,
+      dmin.grf         = dmin,
+      n.min            = cfg$n_min,
+      is.RCT           = TRUE,
+      seedit           = 8316951L,
+      details          = FALSE,
+      quiet            = TRUE,
+      parallel_args    = list(plan = "sequential", workers = 1,
+                              show_message = FALSE)
+    )),
+    error = function(e) NULL)
+
+  truth <- dt$inS
+  found <- !is.null(fs) && !is.null(fs$sg.harm) &&
+           length(fs$sg.harm) > 0 && any(fs$df.est$treat.recommend == 0)
+  if (!found) {
+    return(data.table(found = FALSE, sens = NA_real_, spec = NA_real_,
+                      ppv = NA_real_, npv = NA_real_, frac = NA_real_,
+                      cov_hit = NA))
+  }
+  mask <- fs$df.est$treat.recommend == 0
+  tp <- sum(mask & truth); fp <- sum(mask & !truth)
+  fn <- sum(!mask & truth); tn <- sum(!mask & !truth)
+  safe <- function(a, b) if (b > 0) a / b else NA_real_
+  # cov_hit: did the discovered rule use exactly {x1}?  (depth-1 single factor)
+  vars <- unique(unlist(regmatches(fs$sg.harm,
+            gregexpr("x[0-9]+", fs$sg.harm))))
+  cov_hit <- length(vars) == 1L && identical(vars, "x1")
+  data.table(found = TRUE,
+             sens = safe(tp, tp + fn), spec = safe(tn, tn + fp),
+             ppv  = safe(tp, tp + fp), npv  = safe(tn, tn + fn),
+             frac = mean(mask), cov_hit = cov_hit)
+}
+```
+
+## Sweep: regimes x n x dmin.grf x selection arm
+
+The sweep runs live on every render: `nsims x |n| x |dmin| x 2 arms` forest fits
+per regime, in parallel via `doFuture`. All tunable knobs live in the `CONFIG`
+list in the `setup` chunk at the top of this document -- adjust `nsims`,
+`n_levels`, `dmin_grid`, `delta_true`, and the parallel `workers`/`plan` there.
+
+```{r sweep}
+future::plan(CONFIG$plan, workers = CONFIG$workers)
+on.exit({ future::plan("sequential"); gc(verbose = FALSE) }, add = TRUE)
+
+covs    <- paste0("x", seq_len(CONFIG$d))
+regimes <- if (isTRUE(CONFIG$run_signal)) c("null", "signal") else "null"
+
+# Run each regime separately so wall-clock time can be attributed per regime
+# (the signal/power regime is the costlier half).  timings collects elapsed
+# seconds; res accumulates the rows.
+.t_start <- proc.time()[["elapsed"]]
+res_list <- vector("list", length(regimes))
+timings  <- data.table(regime = regimes, wall_sec = NA_real_, n_fits = NA_integer_)
+
+for (rg in regimes) {
+  grid <- CJ(n   = CONFIG$n_levels,
+             dmin = CONFIG$dmin_grid,
+             sel  = CONFIG$grf_selection_arms,
+             sim  = seq_len(CONFIG$nsims))
+  .t0 <- proc.time()[["elapsed"]]
+  rr <- foreach(i = seq_len(nrow(grid)), .combine = rbind,
+                .options.future = list(seed = TRUE)) %dofuture% {
+    row <- grid[i]
+    set.seed(CONFIG$base_seed + row$sim +
+             1000L * match(rg, c("null", "signal")) +
+             7L * match(row$n, CONFIG$n_levels))
+    delta <- if (rg == "signal") CONFIG$delta_true else 0
+    Sf    <- if (rg == "signal") S_fun else NULL
+    dt    <- gen_data(row$n, CONFIG$d, CONFIG$sigma, delta, Sf)
+    out   <- fit_and_score(dt, covs, row$sel, row$dmin, CONFIG)
+    cbind(data.table(regime = rg), row[, .(n, dmin, sel, sim)], out)
+  }
+  .elapsed <- proc.time()[["elapsed"]] - .t0
+  timings[regime == rg, `:=`(wall_sec = .elapsed, n_fits = nrow(grid))]
+  res_list[[match(rg, regimes)]] <- as.data.table(rr)
+}
+res            <- rbindlist(res_list)
+total_wall_sec <- proc.time()[["elapsed"]] - .t_start
+future::plan("sequential"); gc(verbose = FALSE)
+```
+
+## Wall-clock timing
+
+Total elapsed time for the sweep, and the split by regime. The `signal`
+(power) regime is typically the costlier half -- there is a real subgroup to
+locate and process, whereas under the `null` GRF more often selects nothing.
+Set `run_signal = FALSE` in `CONFIG` (top of document) to run the null arm only
+and skip the power calculation.
+
+```{r timing}
+n_workers <- tryCatch(future::nbrOfWorkers(), error = function(e) NA_integer_)
+timing_tbl <- copy(timings)
+timing_tbl[, `:=`(
+  wall_min  = round(wall_sec / 60, 2),
+  sec_per_fit = round(wall_sec / n_fits, 3))]
+timing_tbl <- rbind(
+  timing_tbl[, .(regime, n_fits, wall_min, sec_per_fit)],
+  data.table(regime = "TOTAL", n_fits = sum(timing_tbl$n_fits),
+             wall_min = round(total_wall_sec / 60, 2),
+             sec_per_fit = round(total_wall_sec / sum(timing_tbl$n_fits), 3)))
+knitr::kable(
+  timing_tbl,
+  col.names = c("regime", "# fits", "wall (min)", "sec / fit"),
+  caption = sprintf(
+    "Sweep wall-clock time (workers = %s, plan = %s, nsims = %d). 'signal' is the power regime; set run_signal = FALSE to skip it.",
+    n_workers, CONFIG$plan, CONFIG$nsims))
+```
+
+
+## Operating-characteristic curves
+
+The two curves that define the calibration: null-arm **false-discovery rate**
+vs `dmin.grf` (how high the floor must be to control false discovery) and
+signal-arm **power** and **size accuracy** vs `dmin.grf` (the cost). The smallest
+`dmin.grf` bringing the null FDR to a chosen target -- with acceptable
+signal-arm power -- is the calibrated value, *for that `n` and candidate pool*.
+
+## Detailed results
+
+The full per-cell aggregate over the `nsims` replications: for the `null`
+regime, `fdr` is the false-discovery rate (any discovery is a false positive);
+for the `signal` regime, `power` is the detection rate and the remaining columns
+describe the recovered subgroup (`cov_hit`, `sens`, `spec`, `ppv`, `npv`, and
+`frac` = |S-hat|/n). One row per (regime, n, dmin.grf, arm). This table always
+renders; the plots that follow are summaries of it.
+
+```{r aggregate}
+agg <- res[, .(
+  found_rate = mean(found),                       # fdr (null) / power (signal)
+  cov_hit    = mean(cov_hit[found], na.rm = TRUE),
+  sens       = mean(sens, na.rm = TRUE),
+  spec       = mean(spec, na.rm = TRUE),
+  ppv        = mean(ppv,  na.rm = TRUE),
+  npv        = mean(npv,  na.rm = TRUE),
+  frac       = mean(frac, na.rm = TRUE)
+), by = .(regime, n, dmin, sel)][order(regime, sel, n, dmin)]
+# fdr and power are the same statistic (found_rate) in their respective
+# regimes; expose both names for readability downstream.
+agg[, fdr   := fifelse(regime == "null",   found_rate, NA_real_)]
+agg[, power := fifelse(regime == "signal", found_rate, NA_real_)]
+
+knitr::kable(
+  agg[, .(regime, n, dmin, sel,
+          found_rate = round(found_rate, 3),
+          cov_hit = round(cov_hit, 3), sens = round(sens, 3),
+          spec = round(spec, 3), ppv = round(ppv, 3), npv = round(npv, 3),
+          frac = round(frac, 3))],
+  col.names = c("regime", "n", "dmin", "arm", "found/FDR/power",
+                "cov-hit", "sens", "spec", "ppv", "npv", "|S-hat|/n"),
+  caption = sprintf(
+    "Per-cell operating characteristics over %d replications (nsims). 'found/FDR/power' = mean found (= FDR under null, = power under signal).",
+    CONFIG$nsims))
+```
+
+## Operating-characteristic curves
+
+The two curves that define the calibration: null-arm **false-discovery rate**
+vs `dmin.grf` (how high the floor must be to control false discovery) and
+signal-arm **power** and **size accuracy** vs `dmin.grf` (the cost). The smallest
+`dmin.grf` bringing the null FDR to a chosen target -- with acceptable
+signal-arm power -- is the calibrated value, *for that `n` and candidate pool*.
+
+```{r curves}
+# Null-arm FDR vs dmin, by n and arm
+ggplot(agg[regime == "null"],
+       aes(x = dmin, y = fdr, colour = factor(n), linetype = sel)) +
+  geom_hline(yintercept = c(0.05, 0.10), linetype = "dotted", colour = "grey50") +
+  geom_line() + geom_point(size = 1.6) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "dmin.grf (sigma units)", y = "false-discovery rate (null)",
+       colour = "n", linetype = "arm",
+       title = "Null-arm FDR vs dmin.grf",
+       subtitle = "Dotted = 0.05 / 0.10 targets; the FDR-controlling floor shrinks as n grows") +
+  theme_bw() + theme(legend.position = "bottom")
+```
+
+```{r curves-power, eval = CONFIG$run_signal}
+# Signal-arm power vs dmin, by n and arm
+ggplot(agg[regime == "signal"],
+       aes(x = dmin, y = power, colour = factor(n), linetype = sel)) +
+  geom_vline(xintercept = CONFIG$delta_true, linetype = "dashed", colour = "grey40") +
+  geom_line() + geom_point(size = 1.6) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "dmin.grf (sigma units)", y = "power (signal)",
+       colour = "n", linetype = "arm",
+       title = "Signal-arm power vs dmin.grf",
+       subtitle = sprintf("Dashed = true planted effect (%.1f sigma); power falls as the floor approaches the truth",
+                          CONFIG$delta_true)) +
+  theme_bw() + theme(legend.position = "bottom")
+```
+
+```{r curves-size, eval = CONFIG$run_signal}
+# Signal-arm size accuracy: |S-hat|/n vs dmin, against the true fraction
+ggplot(agg[regime == "signal"],
+       aes(x = dmin, y = frac, colour = factor(n), linetype = sel)) +
+  geom_hline(yintercept = TRUE_FRAC, linetype = "dashed", colour = "grey40") +
+  geom_line() + geom_point(size = 1.6) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(x = "dmin.grf (sigma units)", y = "|S-hat| / n (signal)",
+       colour = "n", linetype = "arm",
+       title = "Discovered subgroup size vs dmin.grf",
+       subtitle = sprintf("Dashed = true |S|/n (%.2f)", TRUE_FRAC)) +
+  theme_bw() + theme(legend.position = "bottom")
+```
+
+## Calibrated floor
+
+For each `n` and arm, the smallest `dmin.grf` on the grid that brings the
+null-arm FDR at or below the target, with the signal-arm power it costs there.
+
+```{r calibrated}
+target_fdr <- 0.10
+null_agg <- agg[regime == "null"]
+calib <- null_agg[fdr <= target_fdr][order(dmin),
+                   .(dmin_star = dmin[1]), by = .(n, sel)]
+if (isTRUE(CONFIG$run_signal)) {
+  sig_agg <- agg[regime == "signal"]
+  calib <- merge(calib, sig_agg[, .(n, sel, dmin, power)],
+                 by.x = c("n", "sel", "dmin_star"),
+                 by.y = c("n", "sel", "dmin"), all.x = TRUE)
+  setnames(calib, "power", "power_at_dmin_star")
+} else {
+  calib[, power_at_dmin_star := NA_real_]  # signal regime not run
+}
+calib[order(sel, n)]
+```
+
+## Caveats and how to extend
+
+* **Calibration, not derivation.** The "calibrated floor" is empirical and
+  conditional on the DGM, `n`, the covariate grid, and the candidate pool. It is
+  a sensitivity result, not a universal constant.
+
+* **`n`-dependence is real.** The doubly-robust effect estimator's null SD shrinks
+  like `1/sqrt(m)` for a subgroup of size `m`, so a *fixed* `dmin.grf` gets more
+  permissive as `n` grows -- visible as the FDR curve shifting left with `n`. The
+  durable output of this study is the *shape* (how the FDR-controlling floor moves
+  with `n` and pool size), more than any single value.
+
+* **Cross-scale translation is approximate.** A `dmin.grf` in sigma units maps to
+  an RMST difference / risk difference / rate difference by multiplying through
+  the relevant scale's SD. This is reasonable for small effects and locally-linear
+  links and degrades otherwise. Treat the continuous result as a starting region,
+  then confirm with a survival sweep (swap `gen_data` for a survival DGM and
+  `outcome_type = "survival"`, `dmin.grf` then in RMST time units).
+
+* **Post-selection inference remains the real guard.** `dmin.grf` is a pre-filter;
+  the selection-adjusted bootstrap is the honest inferential statement about a
+  discovered subgroup. A well-calibrated `dmin.grf` reduces spurious discovery but
+  does not replace the bootstrap.

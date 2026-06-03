@@ -22,7 +22,7 @@ grf.subg.harm.survival(
   return_selected_cuts_only = FALSE,
   tune_grf = FALSE,
   grf_selection = c("tree", "frontier"),
-  frontier_rule = c("effMaxSG", "eff", "maxSG"),
+  frontier_rule = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
   effect_neighborhood = 0.1
 )
 }
@@ -75,14 +75,16 @@ recovery, so \code{"frontier"} is provided for comparison and exploration,
 not as a recommended default.}
 
 \item{frontier_rule}{Character, one of \code{"effMaxSG"} (default),
-\code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
-\code{grf_selection = "frontier"}. \code{"eff"} takes the maximum
-harm-effect candidate; \code{"effMaxSG"} the largest within
-\code{effect_neighborhood} (relative) of the max harm-effect; \code{"maxSG"}
-the largest eligible candidate.}
+\code{"eff"}, \code{"maxSG"}, \code{"minSG"}, or \code{"effMinSG"}; the rule
+applied to the frontier when \code{grf_selection = "frontier"}. Semantics
+match \code{dina_subgroup()}'s \code{sg_focus}: \code{"eff"} takes the
+maximum harm-effect candidate; \code{"maxSG"}/\code{"minSG"} the
+largest/smallest eligible candidate (effect >= \code{dmin.grf});
+\code{"effMaxSG"}/\code{"effMinSG"} the largest/smallest candidate within
+\code{effect_neighborhood} (relative) of the max harm-effect.}
 
 \item{effect_neighborhood}{Numeric in (0, 1); relative neighborhood for the
-\code{"effMaxSG"} rule. Default 0.10. Used only when
+\code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 \code{grf_selection = "frontier"}.}
 }
 \value{

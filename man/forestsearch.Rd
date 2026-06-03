@@ -210,8 +210,9 @@ AND-conjunction.}
 \code{"tree"} selects via the GRF policy tree. \code{"frontier"} is an
 \strong{experimental} alternative that selects from the Pareto frontier of
 the doubly-robust scores (see \code{\link{grf.subg.harm.survival}}); the
-frontier rule is taken from \code{sg_focus} (\code{"hr"}/\code{"eff"},
-\code{"hrMaxSG"}/\code{"effMaxSG"}, or \code{"maxSG"}) and the relative
+frontier rule is taken from \code{sg_focus} -- all five values map through
+(\code{"eff"}, \code{"effMaxSG"}, \code{"effMinSG"}, \code{"maxSG"},
+\code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
 band from \code{effect_neighborhood}. Provided for comparison; the tree is
 the recommended default.}
 

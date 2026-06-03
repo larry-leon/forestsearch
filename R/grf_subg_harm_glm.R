@@ -119,10 +119,11 @@
 #'   (never the disjunctive union the tree path can return). Provided for
 #'   comparison and exploration, not as a recommended default.
 #' @param frontier_rule Character, one of \code{"effMaxSG"} (default),
-#'   \code{"eff"}, or \code{"maxSG"}; the rule applied to the frontier when
-#'   \code{grf_selection = "frontier"}. See \code{\link{grf.subg.harm.survival}}.
+#'   \code{"eff"}, \code{"maxSG"}, \code{"minSG"}, or \code{"effMinSG"}; the rule
+#'   applied to the frontier when \code{grf_selection = "frontier"}. See
+#'   \code{\link{grf.subg.harm.survival}}.
 #' @param effect_neighborhood Numeric in (0, 1); relative neighborhood for the
-#'   \code{"effMaxSG"} rule. Default 0.10. Used only when
+#'   \code{"effMaxSG"} / \code{"effMinSG"} rules. Default 0.10. Used only when
 #'   \code{grf_selection = "frontier"}.
 #' @param details Logical. Print GRF diagnostic information. Default: \code{FALSE}.
 #' @param verbose Logical. Print progress messages. Default: \code{FALSE}.
@@ -300,7 +301,7 @@ grf.subg.harm.glm <- function(
     adverse_outcome     = FALSE,
     tune_grf            = FALSE,
     grf_selection       = c("tree", "frontier"),
-    frontier_rule       = c("effMaxSG", "eff", "maxSG"),
+    frontier_rule       = c("effMaxSG", "eff", "maxSG", "minSG", "effMinSG"),
     effect_neighborhood = 0.10,
     details             = FALSE,
     verbose             = FALSE
