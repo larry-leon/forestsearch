@@ -39,13 +39,32 @@ For the entire duration of this chat:
 - Do NOT overwrite my edits silently. If your change conflicts with
   something I wrote, flag it and ask.
 
-## 4. When in doubt
+## 4. Ask for files instead of guessing
+
+If answering, verifying, or revising something requires the **actual
+contents** of a file you have not been shown in this chat — a sourced
+params bundle (e.g. `_fsparams/*.R`), a helper, a config, a data
+definition, a function body — **STOP and ask me to provide that file**
+before proceeding.
+
+- Do **NOT** infer, guess, or reason from the *assumed* contents of a
+  file you have not seen. This applies even when you believe you can
+  predict what the file contains.
+- A correct-looking answer built on a guessed file is worse than a
+  one-line request for the file: guessing file contents has repeatedly
+  cost hours of rework and failed renders.
+- If the file *has* already appeared in this chat, Rule 1 governs — use
+  the most recent in-chat version; do not re-fetch or guess.
+- "I need to see `X` before I can verify this" is always an acceptable
+  and preferred response.
+
+## 5. When in doubt
 
 Ask. Always ask before searching project knowledge for a file we've
 already worked on. The cost of one clarifying question is trivial; the
 cost of reverting an hour of edits is not.
 
-## 5. Correction phrase
+## 6. Correction phrase
 
 If I say:
 
@@ -62,6 +81,6 @@ Then immediately:
 
 ## Confirmation required
 
-In your first response, list these five rules in one sentence each, then
+In your first response, list these six rules in one sentence each, then
 proceed with my actual request. This confirmation is non-negotiable for
 this session.

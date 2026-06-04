@@ -822,9 +822,15 @@ run_simulation_analysis <- function(
     error = function(e) { warning(label, " failed: ", e$message); NULL }
   )
 
-  has_result <- !is.null(fs_result) &&
-    !is.null(fs_result$grp.consistency$out_sg$result) &&
-    nrow(fs_result$grp.consistency$out_sg$result) > 0
+  has_result <- !is.null(fs_result) && (
+    (!is.null(fs_result$grp.consistency$out_sg$result) &&
+       nrow(fs_result$grp.consistency$out_sg$result) > 0) ||
+    # GRF / DINA modes carry the selected subgroup in sg.harm and the
+    # membership in df.est$treat.recommend; grp.consistency$out_sg$result is
+    # NULL for them, so recognize the sg.harm shape too.
+    (!is.null(fs_result$sg.harm) && length(fs_result$sg.harm) > 0L &&
+       !all(is.na(fs_result$sg.harm)))
+  )
 
   # Effective names for estimation: honour fs_params overrides.
   # Critical for Poisson+offset (IRR) where fs_params sets
@@ -995,7 +1001,14 @@ run_simulation_analysis <- function(
     )
   }
 
-  if (is.null(fs_res) || nrow(fs_res) == 0) {
+  # A subgroup is "found" when the consistency result table has rows OR the
+  # engine returned a treat.recommend assignment with harm members (GRF / DINA
+  # modes, where fs_res is NULL but membership lives in fs_full$df.est).
+  .has_treat_rec <- !is.null(fs_full) && !is.null(fs_full$df.est) &&
+    "treat.recommend" %in% names(fs_full$df.est) &&
+    any(fs_full$df.est$treat.recommend == 0L, na.rm = TRUE)
+
+  if ((is.null(fs_res) || nrow(fs_res) == 0) && !.has_treat_rec) {
     out$hr.Hc.hat <- out$hr.itt
     out$size.H  <- 0L
     out$size.Hc <- nrow(df)

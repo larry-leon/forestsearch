@@ -1,0 +1,385 @@
+---
+title: "FDR calibration: `fs-effMaxSG` with `selection_rule = \"both\"`"
+subtitle: "Null-DGM false-discovery rate vs the screening / consistency effect thresholds (ACTG175 binary, OR scale)"
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    code-summary: "Show code"
+    df-print: paged
+    embed-resources: true
+    theme: cosmo
+execute:
+  warning: false
+  message: false
+---
+
+## Purpose
+
+This study calibrates the **false-discovery rate (FDR)** of the consistency
+engine under `sg_focus = "effMaxSG"` and `selection_rule = "both"` --- the
+`fs-effMaxSG` arm of the ACTG175 binary multi-method study --- by sweeping the
+**screening effect threshold** and the **per-split consistency threshold**.
+
+`fs-effMaxSG/both` declares a harm subgroup only when a candidate (i) clears the
+screening floor `effect.threshold` (an odds ratio), and (ii) is *consistent*:
+its effect exceeds `consistency.threshold` in at least `pconsistency.threshold`
+of the bootstrap splits, and the candidate survives the `"both"` inclusion band
+(effect-neighborhood **and** Pareto frontier). Under a **null** data-generating
+model --- homogeneous treatment effect, no true harm subgroup --- *any* declared
+subgroup is a false discovery. So, under the null,
+
+$$
+\text{FDR} \;=\; \Pr(\text{declare a harm subgroup} \mid \text{null})
+           \;=\; \mathbb{E}\!\left[\texttt{any.H}\right].
+$$
+
+**Why only the null.** FDR depends only on the null regime; the alternative
+("power") regime is the costlier half of a full operating-characteristic study
+and is not needed here. This document runs the null DGM only.
+
+**What is swept.** The two effect-magnitude thresholds are the drivers (the
+consistency *rate* `pconsistency.threshold` is held fixed at a defensible
+0.90 --- nothing below 0.7 would be reassuring as a notion of "consistency"):
+
+* `effect.threshold` over `seq(1, 2, 0.25)` (OR scale: 1.00, 1.25, 1.50, 1.75, 2.00);
+* `consistency.threshold = k * effect.threshold`, for `k in {0.8, 1.0}`.
+
+The output is FDR vs `effect.threshold`, by `k` and `n`, plus the smallest
+`effect.threshold` (per `k`, `n`) that brings FDR at or below the target.
+
+> **Runtime note.** Unlike a GRF sweep, each cell here runs the full consistency
+> search (bootstrap splits), so the grid is heavy:
+> `length(n) * length(eff) * length(k) * nsims` fits. Start with a small
+> `nsims` (e.g. 25--50) in `CONFIG` to smoke-test the pipeline, then scale up.
+
+## Setup
+
+```{r setup}
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(ggplot2)
+library(future)
+library(foreach)
+library(doFuture)
+
+registerDoFuture()
+
+# Resolve the fs-params bundle whether rendering from the package root or a
+# quarto/<subdir>/ location.
+.fs_tag    <- "fs3"
+.fs_cands  <- c(sprintf("_fsparams/%s_params.R", .fs_tag),
+                sprintf("../_fsparams/%s_params.R", .fs_tag),
+                sprintf("../../_fsparams/%s_params.R", .fs_tag))
+.fs_path   <- .fs_cands[file.exists(.fs_cands)][1L]
+if (is.na(.fs_path)) stop("Could not locate _fsparams/", .fs_tag, "_params.R")
+source(.fs_path)
+
+CONFIG <- list(
+  # Monte Carlo
+  nsims      = 500L,                         # replications per (n, eff, k) cell
+  seed_base  = 8316951L,                     # run_simulation_analysis: data seed = seed_base + sim
+
+  # Design grid
+  n_levels   = c(700L, 1400L),               # sim_n (ACTG175 arm sizes) and 2x to expose n-drift
+  effect_threshold_grid = seq(1.0, 2.0, by = 0.25),  # screening OR floor (the sweep)
+  k_grid     = c(0.8, 1.0),                  # consistency.threshold = k * effect.threshold
+
+  # Held fixed (effect/consistency thresholds are the drivers; see Purpose)
+  pconsistency        = 0.90,                # consistency rate (>= 0.7 only)
+  sg_focus            = "effMaxSG",
+  selection_rule      = "both",
+  effect_neighborhood = 0.10,
+
+  # Calibration target
+  target_fdr = 0.10,
+
+  # Parallel (outer MC loop; the inner forestsearch run stays SEQUENTIAL to
+  # avoid nested-parallelism collapse)
+  workers    = floor(0.95 * max(1L, parallel::detectCores(logical = FALSE))),
+  plan       = "multisession"
+)
+
+# fs base params: the canonical fs3 bundle, focus = effMaxSG.  Per-cell the
+# thresholds below are overridden in fit_and_score(); everything else (id /
+# treat / outcome names, confounder forcing, continuous cut counts, fs.splits,
+# is.RCT, etc.) is inherited from the bundle so the arm matches the vignette.
+fs_params <- get(sprintf("get_%s_params", .fs_tag))(sg_focus = CONFIG$sg_focus)
+
+# Single-arm spec: fs-effMaxSG, consistency engine, selection_rule = "both".
+# Mirrors make_methods()'s fs branch (subgroup_method, sg_focus, selection_rule,
+# dmin.grf screening floor) exactly.
+fs_spec <- list(
+  "fs-effMaxSG" = list(
+    subgroup_method = "consistency",
+    sg_focus        = "effMaxSG",
+    selection_rule  = "both",
+    dmin.grf        = 0.0
+  )
+)
+```
+
+## ACTG175 data and null DGM
+
+Reproduces the vignette's data preparation and builds the **null** GLM DGM
+(`model = "null"`: homogeneous effect, no harm subgroup) on the same covariates.
+
+```{r data-prep}
+#| code-summary: "ACTG175 data prep + null DGM (click to expand)"
+
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+# Binary outcome: adverse (failure to improve)
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# -- DGM factor variables -----------------------------------------------------
+actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 390, 1L, 0L))
+actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 80, 1L, 0L))
+
+# z7-z12: truly binary indicators (no continuous counterpart)
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$ar_naive   <- as.integer(ifelse(actg_df$str2 == 0, 1L, 0L))
+actg_df$prior_6mo  <- as.integer(ifelse(actg_df$preanti <= 6 * 30.4375, 1L, 0L))
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+
+# -- Analysis covariates (what the analyst sees) -------------------------------
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom", "ar_naive", "prior_6mo")
+for (v in bin_vars) actg_df[[v]] <- as.integer(actg_df[[v]])
+confounders <- c(cont_vars, bin_vars)
+
+# -- DGM variable sets ---------------------------------------------------------
+dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
+dgm_cont_vars     <- cont_vars
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+
+# -- Null DGM (homogeneous effect; no harm subgroup) ---------------------------
+dgm_null <- generate_glm_dgm(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  outcome_type    = "binary",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  model           = "null",
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = FALSE
+)
+
+# Carry the run-time objects into CONFIG so the worker closure is self-contained.
+CONFIG$fs_params   <- fs_params
+CONFIG$fs_spec     <- fs_spec
+CONFIG$dgm_null    <- dgm_null
+CONFIG$confounders <- confounders
+
+cat(sprintf("Null DGM built on N = %d ACTG175 subjects; confounders = %d.\n",
+            nrow(actg_df), length(confounders)))
+```
+
+## One run: fit `fs-effMaxSG/both` at a given `(effect_threshold, k)`, score detection
+
+Each call runs the arm through `run_simulation_analysis()` --- the same code
+path the vignette uses --- and reads the per-method detection flag `any.H`.
+Under the null, `any.H == TRUE` is a false discovery. Because
+`run_simulation_analysis()` seeds the data generation as `seed_base + sim_id`
+(independent of `fs_params`), reusing `sim_id` across the threshold grid means a
+given `(n, sim)` cell is evaluated on the **same** null dataset at every
+`(effect_threshold, k)` --- a paired design that sharpens the FDR curves.
+
+```{r one-run}
+fit_and_score <- function(eff_thr, k, n, sim, cfg) {
+  fp <- cfg$fs_params
+  # the swept thresholds (set both the preferred names and the hr.* aliases)
+  fp$effect.threshold       <- eff_thr
+  fp$hr.threshold           <- eff_thr
+  fp$consistency.threshold  <- k * eff_thr
+  fp$hr.consistency         <- k * eff_thr
+  fp$pconsistency.threshold <- cfg$pconsistency
+  fp$selection_rule         <- cfg$selection_rule
+  fp$effect_neighborhood    <- cfg$effect_neighborhood
+  # critical: keep the inner forestsearch run sequential inside %dofuture%
+  fp$parallel_args$plan     <- "sequential"
+  fp$parallel_args$workers  <- 1L
+
+  res <- tryCatch(
+    run_simulation_analysis(
+      sim_id           = sim,
+      dgm              = cfg$dgm_null,
+      n_sample         = n,
+      confounders_base = cfg$confounders,
+      methods          = cfg$fs_spec,
+      fs_params        = fp,
+      seed_base        = cfg$seed_base,
+      verbose          = FALSE
+    ),
+    error = function(e) NULL)
+
+  if (is.null(res) || nrow(res) == 0L) {
+    return(data.table(found = NA, err = TRUE))
+  }
+  anyH <- if ("any.H" %in% names(res))
+            suppressWarnings(as.logical(res$any.H[1L])) else NA
+  data.table(found = isTRUE(anyH), err = FALSE)
+}
+```
+
+## Sweep: `n` x `effect_threshold` x `k` (null only)
+
+```{r sweep}
+future::plan(CONFIG$plan, workers = CONFIG$workers)
+on.exit({ future::plan("sequential"); gc(verbose = FALSE) }, add = TRUE)
+
+grid <- CJ(n   = CONFIG$n_levels,
+           eff = CONFIG$effect_threshold_grid,
+           k   = CONFIG$k_grid,
+           sim = seq_len(CONFIG$nsims))
+
+.t0 <- proc.time()[["elapsed"]]
+res_rows <- foreach(
+  i = seq_len(nrow(grid)),
+  .combine = rbind,
+  .options.future = list(
+    seed     = TRUE,
+    packages = c("forestsearch", "data.table", "future")
+  )
+) %dofuture% {
+  future::plan("sequential")
+  row <- grid[i]
+  out <- fit_and_score(row$eff, row$k, row$n, row$sim, CONFIG)
+  cbind(row[, .(n, eff, k, sim)], out)
+}
+total_wall_sec <- proc.time()[["elapsed"]] - .t0
+future::plan("sequential"); gc(verbose = FALSE)
+
+res <- as.data.table(res_rows)
+```
+
+## Wall-clock timing
+
+```{r timing}
+data.table(
+  n_cells       = nrow(grid),
+  nsims         = CONFIG$nsims,
+  wall_min      = round(total_wall_sec / 60, 2),
+  wall_hr       = round(total_wall_sec / 3600, 3),
+  failed_runs   = res[, sum(err, na.rm = TRUE)]
+)
+```
+
+## FDR table (per cell)
+
+`found_rate` is the false-discovery rate: the fraction of null replicates in
+which `fs-effMaxSG/both` declared a harm subgroup. `fdr_se` is the binomial
+standard error over the successful replications.
+
+```{r aggregate}
+agg <- res[, {
+  m <- sum(!is.na(found))
+  p <- mean(found, na.rm = TRUE)
+  .(n_ok   = m,
+    n_fail = sum(is.na(found)),
+    fdr    = p,
+    fdr_se = if (m > 0L) sqrt(p * (1 - p) / m) else NA_real_)
+}, by = .(n, k, eff)][order(n, k, eff)]
+
+knitr::kable(
+  agg[, .(n, k, eff,
+          fdr    = round(fdr, 3),
+          fdr_se = round(fdr_se, 3),
+          n_ok, n_fail)],
+  col.names = c("n", "k", "effect.threshold", "FDR", "SE", "n (ok)", "n (fail)"),
+  caption = sprintf(
+    "Null-DGM false-discovery rate for fs-effMaxSG/both over %d replications per cell (pconsistency = %.2f).",
+    CONFIG$nsims, CONFIG$pconsistency))
+```
+
+## False-discovery-rate curve
+
+FDR vs the screening `effect.threshold`, by the consistency multiplier `k` and
+sample size `n`. Dotted lines mark the 0.05 / 0.10 targets; error bars are
++/- 1 binomial SE.
+
+```{r curves}
+ggplot(agg, aes(x = eff, y = fdr,
+                colour = factor(n), linetype = factor(k), shape = factor(k))) +
+  geom_hline(yintercept = c(0.05, 0.10), linetype = "dotted", colour = "grey50") +
+  geom_errorbar(aes(ymin = pmax(0, fdr - fdr_se), ymax = pmin(1, fdr + fdr_se)),
+                width = 0.03, alpha = 0.35) +
+  geom_line() +
+  geom_point(size = 2.1) +
+  scale_y_continuous(limits = c(0, 1)) +
+  scale_x_continuous(breaks = CONFIG$effect_threshold_grid) +
+  labs(x = "effect.threshold (screening OR)",
+       y = "false-discovery rate (null)",
+       colour = "n", linetype = "k = cons/eff", shape = "k = cons/eff",
+       title = "Null-arm FDR vs effect.threshold",
+       subtitle = sprintf(
+         "fs-effMaxSG, selection_rule = \"both\", pconsistency = %.2f; dotted = 0.05 / 0.10 targets",
+         CONFIG$pconsistency)) +
+  theme_bw() + theme(legend.position = "bottom")
+```
+
+## Calibrated threshold
+
+For each `(n, k)`, the smallest `effect.threshold` on the grid that brings the
+null FDR at or below the target, with the FDR achieved there.
+
+```{r calibrated}
+target_fdr <- CONFIG$target_fdr
+calib <- agg[fdr <= target_fdr][order(eff),
+              .(eff_star = eff[1L], fdr_at_star = round(fdr[1L], 3)),
+              by = .(n, k)][order(n, k)]
+
+if (nrow(calib) == 0L) {
+  cat(sprintf("No (n, k) cell reached FDR <= %.2f on this grid; widen effect_threshold_grid upward.\n",
+              target_fdr))
+} else {
+  knitr::kable(
+    calib,
+    col.names = c("n", "k", "effect.threshold*", "FDR at *"),
+    caption = sprintf("Smallest effect.threshold holding null FDR <= %.2f, per (n, k).",
+                      target_fdr))
+}
+```
+
+## Caveats
+
+* **Calibration, not derivation.** The calibrated `effect.threshold` is
+  empirical and conditional on this null DGM, the ACTG175 covariate set, `n`,
+  the candidate pool, and `pconsistency.threshold = 0.90`. It is a sensitivity
+  result, not a universal constant.
+
+* **Two coupled levers.** `effect.threshold` (screening) and
+  `consistency.threshold = k * effect.threshold` (per-split floor) move together
+  here; the `k` contrast isolates how much the per-split floor tightens FDR
+  beyond screening alone. `pconsistency.threshold` is held fixed by design.
+
+* **`n`-dependence is expected.** A fixed threshold becomes more permissive as
+  `n` grows (sampling noise in candidate effects shrinks), so the FDR curve can
+  shift with `n`; the durable output is the *shape*, not a single value.
+
+* **Post-selection inference still applies.** A calibrated `effect.threshold`
+  reduces spurious discovery but does not replace the selection-adjusted
+  bootstrap, which remains the honest inferential statement about any discovered
+  subgroup.
