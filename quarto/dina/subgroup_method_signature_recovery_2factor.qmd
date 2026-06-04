@@ -158,7 +158,7 @@ source(file.path(.util_dir, "compute_oc_pareto_flag.R"))
 
 CONFIG <- list(
   # Monte Carlo
-  nsims       = 100L,          # replications per cell (scale up for production)
+  nsims       = 1000L,          # replications per cell (scale up for production)
   base_seed   = 20260531L,
 
   # design grid (forestsearch is expensive; keep modest)
@@ -221,9 +221,9 @@ CONFIG <- list(
   # raise a single one to calibrate that use (e.g. the frontier's FDR)
   # without moving the others.
   fs_grf_screen_dmin   = 0.0,  # screening cut-generation (FS-eff / FS-effMaxSG)
-  fs_grf_tree_dmin     = 0.30,  # GRF policy-tree selection  (FS-grf-tree)
-  fs_grf_frontier_dmin = 0.30,  # GRF frontier selection     (FS-grf-frontier)
-  fs_grf_fractau  = 0.80,      # GRF time-horizon multiplier (survival)
+  fs_grf_tree_dmin     = 0.35,  # GRF policy-tree selection  (FS-grf-tree)
+  fs_grf_frontier_dmin = 0.35,  # GRF frontier selection     (FS-grf-frontier)
+  fs_grf_fractau  = 0.60,      # GRF time-horizon multiplier (survival)
 
   # ---- dina_subgroup knobs ----
   dina_n_folds   = 2L,
