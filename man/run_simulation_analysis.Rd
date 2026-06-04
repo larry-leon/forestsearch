@@ -21,6 +21,7 @@ run_simulation_analysis(
   run_fs = TRUE,
   run_fs_grf = TRUE,
   run_grf = TRUE,
+  methods = NULL,
   fs_params = list(),
   grf_params = list(),
   cox_formula = NULL,
@@ -81,6 +82,31 @@ Default \code{"y_sim"}.}
 \code{TRUE}.}
 
 \item{run_grf}{Logical. Run standalone GRF. Default \code{TRUE}.}
+
+\item{methods}{Optional specification of analysis arms that generalizes the
+\code{run_fs} / \code{run_fs_grf} / \code{run_grf} booleans.  When
+non-\code{NULL} the booleans are ignored and \strong{every} arm is run via
+\code{forestsearch()} (through \code{.run_fs_analysis_gen()}), so all arms
+--- including \code{dina-*} and \code{grf-*} --- inherit the bias-corrected
+post-selection inference.  Two forms are accepted:
+\itemize{
+\item A character vector of canonical \code{"<engine>-<focus>"} labels,
+e.g. \code{c("fs-effMaxSG", "dina-effMaxSG", "grf-tree")}, expanded
+internally to per-arm \code{forestsearch()} overrides.  Engines are
+\code{"fs"} (\code{subgroup_method = "consistency"}), \code{"dina"},
+and \code{"grf"} (\code{grf_selection = "frontier"}, or \code{"tree"}
+for the \code{grf-tree} label).  Defaults applied during expansion:
+\code{selection_rule = "neighborhood"}; for \code{fs-*} arms
+\code{use_grf = TRUE}, \code{use_dina = TRUE}, \code{use_lasso = FALSE},
+and \code{n.min = NULL} (the sample-size-adaptive rule).
+\item A named list of explicit \code{forestsearch()} argument-override
+lists, label = name, e.g.
+\code{list("fs-effMaxSG" = list(subgroup_method = "consistency", sg_focus = "effMaxSG", use_grf = TRUE, use_dina = TRUE, use_lasso = FALSE), "grf-tree" = list(subgroup_method = "grf", grf_selection = "tree"))}.
+}
+Each arm's overrides are merged on top of \code{default_sim_params()}
+overlaid with \code{fs_params}; per-arm overrides take precedence.  The
+merge preserves an explicit \code{n.min = NULL}.  Default \code{NULL}
+preserves the legacy boolean behavior.}
 
 \item{fs_params}{Named list of ForestSearch parameter overrides.  Any
 element of \code{default_sim_params()} can be overridden, including

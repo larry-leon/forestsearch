@@ -1,0 +1,836 @@
+---
+title: "ACTG175 Binary Harm Search: Multi-Engine Simulation Study"
+subtitle: |
+  Seven selection arms (fs / dina / grf x eff / effMaxSG, plus grf-tree)
+  through the `forestsearch()` post-selection-inference backbone
+author: "forestsearch v0.2.0"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    embed-resources: true
+    theme: cosmo
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r config-id}
+#| include: false
+
+# ─────────────────────────────────────────────────────────────────────────
+# RUN CONTROL — edit these to drive the document.
+# ─────────────────────────────────────────────────────────────────────────
+# sim_mode:  "demo"   small nsims, runs inline (self-test of the methods path)
+#            "full"   production nsims, writes a bundle
+#            "import" reload a previously-saved bundle (no simulation)
+#            "auto"   import if BUNDLE_PATH exists, else demo
+sim_mode  <- "demo"
+
+sims_demo <- 10L
+sims_full <- 1000L
+sim_n     <- 700L
+
+# ─────────────────────────────────────────────────────────────────────────
+# METHODS — the seven comparison arms.
+# ─────────────────────────────────────────────────────────────────────────
+# Each "<engine>-<focus>" label names the *selector*; every arm is executed
+# through forestsearch(), which supplies the shared bias-corrected
+# post-selection inference, so no "FS" appears in any label.
+#
+#   fs-*    consistency search; GRF + DINA used as *screening* into the pool
+#           (use_grf = TRUE, use_dina = TRUE, use_lasso = FALSE by default)
+#   dina-*  DINA is the *selector*
+#   grf-*   GRF frontier (grf-eff / grf-effMaxSG) or policy tree (grf-tree)
+#
+# This is the character-vector form of run_simulation_analysis(methods = ).
+# For per-arm control (e.g. flipping the fs screening knobs) switch to the
+# named-list form documented in ?run_simulation_analysis.
+
+# METHODS <- c(
+#   "fs-eff",   "fs-effMaxSG",
+#   "dina-eff", "dina-effMaxSG",
+#   "grf-eff",  "grf-effMaxSG",
+#   "grf-tree"
+# )
+
+
+METHODS <- c(
+  "fs-eff",   
+  "grf-tree"
+)
+
+
+# Arm used for the single-trial / subgroup / effect-distribution displays.
+# Must be a member of METHODS; falls back to the first arm if the named one
+# isn't being run, so editing METHODS never breaks the display chunks.
+FLAGSHIP_ARM <- "fs-effMaxSG"
+if (!FLAGSHIP_ARM %in% METHODS) {
+  warning(sprintf("FLAGSHIP_ARM '%s' not in METHODS; using '%s' instead.",
+                  FLAGSHIP_ARM, METHODS[1L]))
+  FLAGSHIP_ARM <- METHODS[1L]
+}
+
+# ─────────────────────────────────────────────────────────────────────────
+# BUNDLE PATH — machine-local output for "full"/"import" modes.
+# Edit to a directory that exists on the rendering machine.
+# ─────────────────────────────────────────────────────────────────────────
+scenario    <- "actg175_binary_m1_harm"
+BUNDLE_DIR  <- "_bundles"
+BUNDLE_PATH <- file.path(
+  BUNDLE_DIR,
+  sprintf("%s_methods_n%d_sims%d.rds", scenario, sim_n,
+          if (sim_mode == "full") sims_full else sims_demo)
+)
+CONFIG_ID   <- tools::file_path_sans_ext(basename(BUNDLE_PATH))
+
+if (sim_mode %in% c("full", "import") && !dir.exists(BUNDLE_DIR)) {
+  dir.create(BUNDLE_DIR, recursive = TRUE, showWarnings = FALSE)
+}
+```
+
+# Overview
+
+This document is the **master per-config template** for ACTG175 harm-subgroup
+operating-characteristic studies, built on the generalized `methods` interface
+of `run_simulation_analysis()`. A single Monte Carlo loop runs all seven arms
+in `METHODS` on the *same* simulated data each replication, so every contrast
+is within-replication.
+
+The design isolates two questions the León et al. (2024) precursor could not
+address jointly:
+
+1. **Selection focus.** Within the consistency ensemble, how do `eff`
+   (stability-first), `effMaxSG` (broad, band-aware), and the engine-direct
+   selectors trade off detection, the sensitivity/specificity/PPV/NPV quartet,
+   bias, and realized subgroup size?
+2. **Engine choice under a common inference backbone.** Because `dina-*` and
+   `grf-*` are run *through* `forestsearch()`, they inherit the bias-corrected
+   bootstrap + jackknife post-selection inference their native implementations
+   lack. The arms therefore differ only in *who selects the subgroup*, with the
+   inference layer held fixed — a within-engine comparison rather than a
+   cross-method one.
+
+All operating characteristics use the León et al. (2024) Table 1 conventions:
+the true marginal effect is denoted $\theta^\dagger(\cdot)$ on the
+natural-parameter scale (here the **odds ratio** for the binary adverse
+outcome), detection is $\mathrm{any}(\cdot)$, and the classification quartet
+$\{\text{sens}(\hat H), \text{ppv}(\hat H), \text{sens}(\hat H^c),
+\text{ppv}(\hat H^c)\}$ is averaged **unconditionally** (a replication with no
+detected subgroup contributes sens $= 0$, ppv $= 0$ for $\hat H$ and
+spec $= 1$, npv $= 1$ for $\hat H^c$).
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Libraries, base FS parameters, notation, helpers (click to expand)"
+
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(doFuture)
+library(foreach)
+
+set.seed(8316951L)
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Tidy a cut-string for DISPLAY only (rounds full-precision thresholds to
+# `digits` significant figures and collapses ragged whitespace; integer cuts
+# untouched).  Does NOT alter the stored sg.def used for evaluation.
+tidy_sg_def <- function(s, digits = 4L) {
+  if (length(s) != 1L || is.na(s) || !nzchar(s)) return(s)
+  s <- gsub("[[:space:]]+", " ", s)
+  m <- gregexpr("-?[0-9]+\\.[0-9]+", s)[[1L]]
+  if (m[1L] == -1L) return(s)
+  L <- attr(m, "match.length")
+  for (i in rev(seq_along(m))) {
+    num <- as.numeric(substr(s, m[i], m[i] + L[i] - 1L))
+    rep <- sub("\\.$", "", formatC(signif(num, digits), format = "fg", flag = "#"))
+    s <- paste0(substr(s, 1L, m[i] - 1L), rep, substr(s, m[i] + L[i], nchar(s)))
+  }
+  s
+}
+
+# -- Shared _utils (cross-method comparison plots) ---------------------------
+# Locate quarto/_utils by walking up from the render directory, so this file
+# works at any nesting depth (e.g. simulations/actg175/binary_methods/).
+.find_dir_upwards <- function(target, start = ".", max_up = 7L) {
+  d <- normalizePath(start, winslash = "/", mustWork = FALSE)
+  for (i in seq_len(max_up)) {
+    cand <- file.path(d, target)
+    if (dir.exists(cand)) return(cand)
+    parent <- dirname(d)
+    if (identical(parent, d)) break          # reached filesystem root
+    d <- parent
+  }
+  stop(sprintf("Could not locate '%s' within %d levels above '%s'.",
+               target, max_up, normalizePath(start, mustWork = FALSE)),
+       call. = FALSE)
+}
+.util_dir <- .find_dir_upwards("_utils")
+source(file.path(.util_dir, "plot_oc_metrics.R"))
+source(file.path(.util_dir, "compute_oc_pareto_flag.R"))
+source(file.path(.util_dir, "compute_oc_score.R"))
+
+# ===========================================================================
+# BASE FORESTSEARCH PARAMETERS  (specified here, not sourced from _fsparams)
+# ---------------------------------------------------------------------------
+# Rationale: the `methods` interface collapses the former per-sg_focus qmd
+# fleet into this single document, so the external bundle's reason to exist
+# (keeping sibling qmds in sync) no longer applies.  These are the SHARED
+# base; per-arm engine / focus / screening overrides are injected by the
+# `methods` expander and take precedence (default_sim_params() -> fs_params
+# -> per-arm overrides).  Revise values here.
+#
+# stop_threshold = NULL is the cross-focus-safe choice: the band-aware focuses
+# (effMaxSG) require NULL, and for `eff` it simply disables early stopping.
+# ===========================================================================
+fs_base <- list(
+  # -- Identifiers (match simulate_from_glm_dgm() output) --------------------
+  outcome.name           = "y_sim",
+  event.name             = "y_sim",
+  treat.name             = "treat_sim",
+  id.name                = "id",
+
+  # -- Outcome typing (binary adverse outcome -> odds ratio) -----------------
+  outcome_type           = "binary",
+  effect_measure         = "OR",
+
+  # -- Effect-size / stability thresholds ------------------------------------
+  hr.threshold           = 1.25,     # OR scale; modest harm signal
+  hr.consistency         = 1.0,
+  pconsistency.threshold = 0.90,
+  stop_threshold         = NULL,     # cross-focus-safe (see header)
+
+  # -- Candidate construction ------------------------------------------------
+  conf.cont_jcuts        = list(cd40 = 10, wtkg = 10),  # quantile cuts
+  conf_force             = c("ar_naive == 1", "prior_6mo == 1"),
+  maxk                   = 2L,       # up to two-factor conjunctions
+  fs.splits              = 1000L,
+
+  # -- Sample-size constraints -----------------------------------------------
+  # n.min = NULL -> sample-size-adaptive rule (reaches forestsearch() as NULL
+  # via the methods path's NULL-preserving merge).  Set an integer to override.
+  n.min                  = NULL,
+  d0.min                 = 10L,
+  d1.min                 = 10L,
+
+  # -- GRF screening defaults (fs-* arms; vi.grf.min is the SCREENING knob) ---
+  # dmin.grf is deliberately NOT set here: it is a SELECTION floor and is set
+  # per-arm in make_methods() (screen / tree / frontier), see setup below.
+  use_grf                = TRUE,
+  use_dina               = TRUE,
+  use_lasso              = FALSE,
+  vi.grf.min             = -0.2,
+
+  # -- RCT / seed ------------------------------------------------------------
+  is.RCT                 = TRUE,
+  seedit                 = 8316951L,
+
+  # -- Inner-loop parallel plan (forced sequential; avoids nested parallelism)
+  parallel_args          = list(plan = "sequential", workers = 1,
+                                show_message = FALSE)
+)
+
+# -- Reporting / calibration -------------------------------------------------
+sg_notation    <- "harm"     # H / Ĥ (harm) notation in OC tables
+cal_target_or  <- 2.0        # target OR(Q) on the adverse scale
+
+# -- Diagnostic capture ------------------------------------------------------
+diag_keep         <- c("fs_full", "candidate_table")
+diag_keep_first_n <- 5L
+
+# -- Plot thresholds ---------------------------------------------------------
+sgdist_min_pct_alt  <- 0
+sgdist_min_pct_null <- 0
+sgdist_top_k        <- 10L
+ordist_ylim         <- c(0, 4)
+
+# -- nsims from sim_mode -----------------------------------------------------
+if (sim_mode == "auto")
+  sim_mode <- if (file.exists(BUNDLE_PATH)) "import" else "demo"
+if (sim_mode == "import" && !file.exists(BUNDLE_PATH))
+  stop(sprintf("sim_mode = 'import' but no bundle at '%s'.", BUNDLE_PATH),
+       call. = FALSE)
+
+nsims_alt <- switch(sim_mode, import = 0L, demo = sims_demo, full = sims_full,
+                    stop(sprintf("Unknown sim_mode: '%s'", sim_mode)))
+nsims_null <- switch(sim_mode, import = 0L, demo = sims_demo, full = sims_full)
+
+cat(sprintf("sim_mode = %s | nsims_alt = %d | nsims_null = %d | sim_n = %d\n",
+            sim_mode, nsims_alt, nsims_null, sim_n))
+cat("Arms:", paste(METHODS, collapse = ", "), "\n")
+
+# ===========================================================================
+# GRF SELECTION KNOBS  (dmin.grf is a SELECTION floor, not screening)
+# ---------------------------------------------------------------------------
+# Following subgroup_method_signature_recovery_2factor.qmd, dmin.grf is split
+# by GRF *use* into three independent knobs.  dmin.grf is consumed in
+# select_best_subgroup() as the harm-eligibility floor (diff >= dmin.grf), so
+# it bites only where GRF is the *selector* (grf-* arms); for fs-* arms GRF is
+# a screening input governed by vi.grf.min and dmin.grf is inert.
+#
+# SCALE NOTE: the signature-recovery vignette is a SURVIVAL DGM, where its
+# 0.30 floor is on the RMST / time scale.  This template is BINARY (OR), so
+# the GRF DR scores are on a risk-difference scale and 0.30 does NOT transfer.
+# The selection floors below are placeholders on the binary DR-score scale and
+# MUST be calibrated for this outcome; 0.0 reproduces the permissive
+# "any positive harm" baseline.  Raise tree / frontier to control GRF-arm FDR.
+# ===========================================================================
+grf_depth          <- 2L
+grf_screen_dmin    <- 0.0   # GRF screening into consistency engine (fs-* arms)
+grf_tree_dmin      <- 0.0   # GRF policy-tree SELECTION   (grf-tree)   [TEST: permissive baseline]
+grf_frontier_dmin  <- 0.0   # GRF frontier SELECTION (grf-eff/grf-effMaxSG) [TEST: permissive baseline]
+
+# Build the named-list `methods` spec from the canonical labels.  The GRF
+# selection arms disable separate screening (use_grf = use_lasso = FALSE:
+# "selection IS GRF") and carry grf_depth + their own dmin.grf.  fs-* arms
+# keep GRF + DINA screening and use grf_screen_dmin.  n.min is inherited from
+# fs_base (NULL -> adaptive); not set per arm.
+make_methods <- function(labels) {
+  spec <- list()
+  for (lbl in labels) {
+    parts  <- strsplit(lbl, "-", fixed = TRUE)[[1L]]
+    engine <- parts[1L]
+    focus  <- paste(parts[-1L], collapse = "-")
+    if (engine == "fs") {
+      spec[[lbl]] <- list(
+        subgroup_method = "consistency", sg_focus = focus,
+        selection_rule  = "neighborhood",
+        use_grf = TRUE, use_dina = TRUE, use_lasso = FALSE,
+        dmin.grf = grf_screen_dmin
+      )
+    } else if (engine == "dina") {
+      spec[[lbl]] <- list(
+        subgroup_method = "dina", sg_focus = focus,
+        selection_rule  = "neighborhood"
+      )
+    } else if (engine == "grf") {
+      if (identical(focus, "tree")) {
+        spec[[lbl]] <- list(
+          subgroup_method = "grf", grf_selection = "tree",
+          grf_depth = grf_depth, dmin.grf = grf_tree_dmin,
+          use_grf = FALSE, use_lasso = FALSE
+        )
+      } else {
+        spec[[lbl]] <- list(
+          subgroup_method = "grf", grf_selection = "frontier",
+          sg_focus = focus, grf_depth = grf_depth, dmin.grf = grf_frontier_dmin,
+          use_grf = FALSE, use_lasso = FALSE
+        )
+      }
+    } else {
+      stop(sprintf("Unknown engine in label '%s'.", lbl), call. = FALSE)
+    }
+  }
+  spec
+}
+METHODS_SPEC <- make_methods(METHODS)
+
+# ===========================================================================
+# Label -> method-family bridge for the _utils comparison panel.
+# The shared _utils key off the OLD labels (^FS-grf, ^FS-eff, ^DINA); these
+# new "<engine>-<focus>" labels need their own mapping.  Kept HERE rather than
+# editing the shared _utils file.
+# ===========================================================================
+method_family <- function(label) {
+  fam <- rep("other", length(label))
+  fam[grepl("^fs-",   label)] <- "FS-consistency"
+  fam[grepl("^grf-",  label)] <- "FS-grf"
+  fam[grepl("^dina-", label)] <- "DINA"
+  factor(fam, levels = c("FS-consistency", "FS-grf", "DINA", "other"))
+}
+
+# Build a plot_oc_metrics()-ready display table directly from a
+# run_simulation_analysis() result, applying the León unconditional-averaging
+# convention.  One row per arm (`analysis` column).
+oc_agg_from_results <- function(res) {
+  dt <- data.table::as.data.table(res)
+  dt[, `:=`(
+    sens_u = ifelse(is.na(sens) & any.H == 0, 0, sens),
+    ppv_u  = ifelse(is.na(ppv)  & any.H == 0, 0, ppv),
+    spec_u = ifelse(is.na(spec) & any.H == 0, 1, spec),
+    npv_u  = ifelse(is.na(npv)  & any.H == 0, 1, npv)
+  )]
+  agg <- dt[, .(
+    Detection = mean(any.H,  na.rm = TRUE),
+    Sen       = mean(sens_u, na.rm = TRUE),
+    Spec      = mean(spec_u, na.rm = TRUE),
+    PPV       = mean(ppv_u,  na.rm = TRUE),
+    NPV       = mean(npv_u,  na.rm = TRUE)
+  ), by = .(group = analysis)]
+  agg[, Analysis := method_family(group)]
+  agg[]
+}
+
+timings <- list()
+```
+
+# Data Preparation {#sec-data}
+
+ACTG175 (`speff2trial::ACTG175`): the experimental arm is ZDV+ddI (`arms == 1`)
+versus the ddI control (`arms == 3`); no treatment switching. The adverse binary
+outcome is failure to improve CD4 (`cd420 <= cd40`). The embedded true harm
+subgroup is $Q = \{\text{cd40} > 390 \,\cap\, \text{wtkg} > 80\}$.
+
+```{r data-prep}
+#| code-fold: true
+#| code-summary: "ACTG175 data prep (click to expand)"
+
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id    <- seq_len(nrow(actg_df))
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+# Binary adverse outcome: failure to improve CD4 from baseline
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# DGM factor variables.  True subgroup Q = {cd40 > 390 & wtkg > 80}.
+actg_df$z1 <- as.factor(ifelse(actg_df$cd40 > 390, 1L, 0L))
+actg_df$z2 <- as.factor(ifelse(actg_df$wtkg > 80,  1L, 0L))
+
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$ar_naive  <- as.integer(ifelse(actg_df$str2 == 0, 1L, 0L))
+actg_df$prior_6mo <- as.integer(ifelse(actg_df$preanti <= 6 * 30.4375, 1L, 0L))
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+
+# Analysis covariates (what the analyst sees)
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom",
+               "ar_naive", "prior_6mo")
+# Binary confounders kept NUMERIC 0/1: DINA requires numeric covariates and
+# the GRF policy-tree emits numeric cut-strings (e.g. "symptom <= 0") that are
+# invalid for factors.  z7-z12 (created above) stay factors for the DGM.
+for (v in bin_vars) actg_df[[v]] <- as.integer(actg_df[[v]])
+confounders <- c(cont_vars, bin_vars)
+
+# DGM variable sets
+dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
+dgm_cont_vars     <- cont_vars
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+
+Q_n <- sum(actg_df$flag_harm_ref); Q_N <- nrow(actg_df)
+Q_pct <- 100 * Q_n / Q_N
+cat(sprintf("N = %d, Q prevalence = %d / %d (%.1f%%)\n", Q_N, Q_n, Q_N, Q_pct))
+cat(sprintf("Adverse rate: overall=%.1f%%, ZDV+ddI=%.1f%%, ddI=%.1f%%\n",
+    100 * mean(actg_df$y_binary),
+    100 * mean(actg_df$y_binary[actg_df$treat == 1]),
+    100 * mean(actg_df$y_binary[actg_df$treat == 0])))
+```
+
+# DGM Calibration {#sec-calibration}
+
+The alternative DGM is calibrated to a target $\theta^\dagger(Q) =$ OR(Q) $=$
+`r cal_target_or` on the adverse scale; the null DGM embeds a homogeneous effect.
+
+```{r calibrate}
+#| eval: !expr sim_mode != "import"
+
+dgm_calibrated <- calibrate_glm_interaction(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  target_effect   = cal_target_or,
+  outcome_type    = "binary",
+  effect_measure  = "OR",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  k_inter_range   = c(0, 3),
+  grid_step       = 0.05,
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+
+dgm_null <- generate_glm_dgm(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  outcome_type    = "binary",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  model           = "null",
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+
+cat(sprintf("\n  theta-dagger(Q):   %.3f (target OR = %.1f)\n",
+    dgm_calibrated$hazard_ratios$harm_subgroup, cal_target_or))
+cat(sprintf("  theta-dagger(Qc):  %.3f\n",
+    dgm_calibrated$hazard_ratios$no_harm_subgroup))
+cat(sprintf("  theta-dagger(ITT): %.3f\n",
+    dgm_calibrated$hazard_ratios$overall))
+```
+
+# Single-Trial Sanity Check {#sec-single-trial}
+
+One simulated trial under H1, analyzed with the flagship arm
+(`fs-effMaxSG`: GRF + DINA screening into the consistency search, broad
+band-aware selection) to confirm the pipeline before the Monte Carlo loop.
+
+```{r single-trial}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "Single simulated trial + flagship FS analysis (click to expand)"
+
+df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
+
+# Flagship arm overrides, applied to the shared base.
+fs_flag <- utils::modifyList(
+  fs_base,
+  list(subgroup_method = "consistency", sg_focus = "effMaxSG",
+       selection_rule = "neighborhood")
+)
+
+# Filter to valid forestsearch() formals (the MC path does this internally
+# via filter_valid_args(); the manual single-trial call must do it too).
+fs_formals <- names(formals(forestsearch))
+call_args <- c(
+  list(df.analysis = df_sim, confounders.name = confounders,
+       details = FALSE, plot.sg = FALSE, quiet = TRUE),
+  fs_flag[intersect(names(fs_flag), fs_formals)]
+)
+call_args$outcome.name <- "y_sim"
+call_args$event.name   <- "y_sim"
+
+fs_single <- tryCatch(
+  do.call(forestsearch, call_args),
+  error = function(e) { message("single-trial FS failed: ", e$message); NULL }
+)
+
+if (!is.null(fs_single) && !is.null(fs_single$sg.harm)) {
+  cat("Flagship single-trial selected subgroup:\n  ",
+      paste(fs_single$sg.harm, collapse = " & "), "\n")
+} else {
+  cat("Flagship single-trial: no harm subgroup identified on this draw.\n")
+}
+```
+
+# Monte Carlo Study {#sec-mc}
+
+Each replication simulates a trial and runs all seven `METHODS` arms on it
+through `run_simulation_analysis(methods = METHODS_SPEC)`. Arms are tagged in the
+`analysis` column by their label; `fs_base` supplies the shared parameters and
+the per-arm overrides take precedence.
+
+The loops run in parallel across simulations via `multisession` workers
+(`n_workers`), while each `forestsearch()` call stays single-threaded
+(`fs_base$parallel_args`) to avoid nested-parallelism failures.
+
+```{r parallel-setup}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "Worker pool (click to expand)"
+
+# Use 90% of physical cores so the cap adapts per machine (Linux box vs Mac).
+# Outer = multisession across simulations; inner forestsearch() forced
+# sequential via parallel_args, with the in-worker plan("sequential") as the
+# nested guard.
+n_workers <- max(1L, ceiling(0.9 * parallel::detectCores(logical = FALSE)))
+future::plan(future::multisession, workers = n_workers)
+cat(sprintf("Parallel backend: multisession, %d workers\n", n_workers))
+```
+
+```{r run-alt}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "H1 simulation loop (click to expand)"
+#| output: false
+
+t0 <- proc.time()[3]
+results_alt_raw <- foreach(
+  sim = seq_len(nsims_alt),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_calibrated,
+    n_sample         = sim_n,
+    confounders_base = confounders,
+    methods          = METHODS_SPEC,
+    fs_params        = fs_base,
+    keep             = diag_keep,
+    keep_first_n     = diag_keep_first_n,
+    verbose          = FALSE
+  )
+}
+t_alt <- proc.time()[3] - t0
+results_alt <- forestsearch:::collect_results(results_alt_raw, "H1 alt")
+n_failed_alt <- attr(results_alt, "n_failed")
+timings$sims_alt <- t_alt
+cat(sprintf("H1 done in %.1f min (%d rows, %d failed)\n",
+            t_alt / 60, nrow(results_alt), n_failed_alt))
+```
+
+```{r run-null}
+#| eval: !expr sim_mode != "import"
+#| code-fold: true
+#| code-summary: "H0 simulation loop (click to expand)"
+#| output: false
+
+t0 <- proc.time()[3]
+results_null_raw <- foreach(
+  sim = seq_len(nsims_null),
+  .errorhandling = "pass",
+  .options.future = list(
+    packages = c("forestsearch", "survival", "data.table", "future"),
+    seed = TRUE
+  )
+) %dofuture% {
+  future::plan("sequential")
+  run_simulation_analysis(
+    sim_id           = sim,
+    dgm              = dgm_null,
+    n_sample         = sim_n,
+    confounders_base = confounders,
+    methods          = METHODS_SPEC,
+    fs_params        = fs_base,
+    verbose          = FALSE
+  )
+}
+t_null <- proc.time()[3] - t0
+results_null <- forestsearch:::collect_results(results_null_raw, "H0 null")
+n_failed_null <- attr(results_null, "n_failed")
+timings$sims_null <- t_null
+cat(sprintf("H0 done in %.1f min (%d rows, %d failed)\n",
+            t_null / 60, nrow(results_null), n_failed_null))
+
+# Tear down the worker pool at the parallel -> sequential transition.
+future::plan("sequential"); invisible(gc())
+```
+
+```{r save-bundle}
+#| eval: !expr sim_mode == "full"
+#| code-fold: true
+#| code-summary: "Bundle assembly + saveRDS (click to expand)"
+
+bundle <- list(
+  meta = list(
+    config_id       = CONFIG_ID, timestamp = Sys.time(),
+    methods         = METHODS,   fs_base   = fs_base,
+    n_alt = nsims_alt, n_null = nsims_null, sim_n = sim_n,
+    confounders = confounders,
+    t_alt_sec = unname(t_alt), t_null_sec = unname(t_null),
+    n_failed_alt = n_failed_alt, n_failed_null = n_failed_null,
+    package_version = as.character(utils::packageVersion("forestsearch")),
+    sessionInfo = utils::sessionInfo()
+  ),
+  dgm     = list(calibrated = dgm_calibrated, null = dgm_null),
+  results = list(alt = results_alt, null = results_null)
+)
+saveRDS(bundle, BUNDLE_PATH)
+cat(sprintf("Bundle saved: %s\n", BUNDLE_PATH))
+```
+
+```{r mode-handoff}
+#| code-fold: true
+#| code-summary: "Bundle import / handoff (click to expand)"
+
+if (sim_mode == "import") {
+  bundle         <- readRDS(BUNDLE_PATH)
+  dgm_calibrated <- bundle$dgm$calibrated
+  dgm_null       <- bundle$dgm$null
+  results_alt    <- bundle$results$alt
+  results_null   <- bundle$results$null
+  t_alt          <- bundle$meta$t_alt_sec
+  t_null         <- bundle$meta$t_null_sec
+  nsims_alt      <- bundle$meta$n_alt
+  nsims_null     <- bundle$meta$n_null
+  timings$sims_alt  <- t_alt
+  timings$sims_null <- t_null
+  cat(sprintf("Imported bundle: %s (%d H1, %d H0)\n",
+              CONFIG_ID, nsims_alt, nsims_null))
+  if (!is.null(bundle$meta$config_id) && bundle$meta$config_id != CONFIG_ID)
+    warning(sprintf("Bundle config_id '%s' != article '%s'.",
+                    bundle$meta$config_id, CONFIG_ID), call. = FALSE)
+} else {
+  cat(sprintf("Inline simulation complete (%s mode).\n", sim_mode))
+}
+```
+
+# Results: H1 (Alternative) {#sec-results-alt}
+
+## Detection, Classification, Subgroup Size — All Arms
+
+```{r oc-alt}
+format_oc_results(
+  results_alt,
+  metrics           = c("detection", "classification", "subgroup_size"),
+  digits            = 2, digits_hr = 2,
+  dgm               = dgm_calibrated,
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Binary (H1): All Arms"
+)
+```
+
+## True Subgroup Sizes Across Replicates
+
+```{r true-size-summary}
+#| code-fold: true
+
+truth_by_sim <- unique(results_alt[, c("sim", "sizeH_true", "sizeHc_true",
+                                        "propH_true", "propHc_true")])
+cat(sprintf("True subgroup sizes across %d H1 replicates (N = %d each):\n",
+            nrow(truth_by_sim), sim_n))
+cat(sprintf("  |Q|:  mean = %.1f (SD %.2f), range = [%d, %d], prop = %.1f%%\n",
+    mean(truth_by_sim$sizeH_true), sd(truth_by_sim$sizeH_true),
+    min(truth_by_sim$sizeH_true), max(truth_by_sim$sizeH_true),
+    100 * mean(truth_by_sim$propH_true)))
+```
+
+## Per-Arm Estimation Tables (bias on the OR scale)
+
+```{r oc-alt-estimation, results='asis'}
+# build_estimation_table() returns a gt object (or NULL); inside a loop it
+# must be rendered via gt::as_raw_html() + cat() (auto-print does not fire).
+for (m in METHODS) {
+  tbl <- build_estimation_table(
+    results           = results_alt,
+    dgm               = dgm_calibrated,
+    analysis_method   = m,
+    subgroup_notation = sg_notation,
+    title             = sprintf("%s: Effect Estimates Under H1", m)
+  )
+  if (!is.null(tbl)) cat(gt::as_raw_html(tbl), "\n\n")
+  else cat(sprintf("*%s: no estimable subgroup effects under H1.*\n\n", m))
+}
+```
+
+## Per-Arm Classification Tables
+
+```{r oc-alt-classification, results='asis'}
+scenario_alt <- list(
+  H1 = list(results = results_alt, dgm = dgm_calibrated,
+            hypothesis = "alt", n_sample = sim_n, label = "ACTG175")
+)
+for (m in METHODS) {
+  tbl <- build_classification_table(
+    scenario_alt,
+    analyses          = m,
+    subgroup_notation = sg_notation,
+    title             = sprintf("%s: Classification Under H1", m)
+  )
+  if (!is.null(tbl)) cat(gt::as_raw_html(tbl), "\n\n")
+  else cat(sprintf("*%s: no estimable classification under H1.*\n\n", m))
+}
+```
+
+## Cross-Arm Comparison Panel
+
+The bubble chart places each arm in (Spec, NPV) space with detection encoded as
+point size, colored by arm and shaped by engine family. Spec/NPV characterize
+the *complement* $\hat H^c$ — the region declared to benefit — so the
+upper-right corner is the protect-the-beneficiaries optimum.
+
+```{r oc-alt-bubble, fig.width=8, fig.height=5.5}
+oc_disp_alt <- oc_agg_from_results(results_alt)
+oc_disp_alt <- compute_oc_pareto_flag(oc_disp_alt, metrics = c("Spec", "NPV"))
+print(
+  plot_oc_metrics(
+    oc_disp_alt, x = "Spec", y = "NPV", z = "Detection",
+    color_by = "group", shape_by = "Analysis",
+    pareto_col = "pareto_frontier",
+    title = "ACTG175 Binary (H1): arms in (Spec, NPV) space"
+  )
+)
+```
+
+## Subgroup & Effect Distributions (flagship arm)
+
+```{r oc-alt-sgdist, fig.width=9, fig.height=6}
+flag_rows_alt <- results_alt[results_alt$analysis == FLAGSHIP_ARM, ]
+if (nrow(flag_rows_alt) == 0L || sum(flag_rows_alt$any.H, na.rm = TRUE) == 0L) {
+  cat(sprintf("*No detected subgroups for flagship arm `%s` under H1; ",
+              FLAGSHIP_ARM),
+      "subgroup/effect distributions skipped.*\n")
+} else {
+  flag_rows_alt[["sg.def"]] <- vapply(flag_rows_alt[["sg.def"]],
+                                       tidy_sg_def, character(1), USE.NAMES = FALSE)
+  print(plot_sg_distribution(
+    flag_rows_alt,
+    any_col = "any.H", label_col = "sg.def",
+    min_pct = sgdist_min_pct_alt, top_k = sgdist_top_k,
+    title = sprintf("%s: Identified Subgroup Distribution (H1)", FLAGSHIP_ARM)
+  ))
+  print(plot_effect_distribution(
+    results           = results_alt,
+    analysis_method   = FLAGSHIP_ARM,
+    effect_measure    = "OR",
+    subgroup_notation = sg_notation,
+    reference_effect  = dgm_calibrated$hazard_ratios$harm_subgroup,
+    ylim              = ordist_ylim,
+    title             = sprintf("%s: OR Estimates Across Simulations (H1)",
+                                FLAGSHIP_ARM)
+  ))
+}
+```
+
+# Results: H0 (Null) — Type I Error {#sec-results-null}
+
+```{r oc-null}
+format_oc_results(
+  results_null,
+  metrics           = c("detection", "classification"),
+  digits            = 2,
+  dgm               = dgm_null,
+  subgroup_notation = sg_notation,
+  title             = "ACTG175 Binary (H0): Type I Error, All Arms"
+)
+```
+
+```{r oc-null-bubble, fig.width=8, fig.height=5.5}
+oc_disp_null <- oc_agg_from_results(results_null)
+print(
+  plot_oc_metrics(
+    oc_disp_null, x = "Spec", y = "Detection", z = "Detection",
+    color_by = "group", shape_by = "Analysis",
+    title = "ACTG175 Binary (H0): false-positive (Detection) by arm"
+  )
+)
+```
+
+# Timing Summary {#sec-timing}
+
+```{r timing}
+#| echo: false
+timing_dt <- data.frame(
+  Stage   = c("Simulations H1", "Simulations H0"),
+  Seconds = c(timings$sims_alt %||% NA_real_, timings$sims_null %||% NA_real_)
+)
+timing_dt$Minutes <- timing_dt$Seconds / 60
+gt::gt(timing_dt) |>
+  gt::tab_header(title = "Computational Timing") |>
+  gt::fmt_number(columns = c(Seconds, Minutes), decimals = 2) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+# Session Information
+
+```{r session-info}
+sessionInfo()
+```
