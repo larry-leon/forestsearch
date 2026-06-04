@@ -21,13 +21,13 @@ scenario <- "actg175_binary_m1_harm"
 sim_n    <- 700
 
 ## -- Simulation mode, replicate counts, master seed --------------------------
-sim_mode  <- "demo"          # "import" | "demo" | "full" | "auto"
+sim_mode  <- "full"          # "import" | "demo" | "full" | "auto"
 sims_demo <- 100
 sims_full <- 1000
 seed_base <- 8316951L         # master RNG seed (applied via set.seed in setup)
 analysis_seed <- seed_base    # RNG seed for the single-trial LOO / Kfold deep-dive
                               # (forestsearch_Kfold seedit=); defaults to the master seed
-run_single_trial <- TRUE      # FALSE skips the single-trial alt/null deep-dives
+run_single_trial <- FALSE      # FALSE skips the single-trial alt/null deep-dives
                               # (sim + bootstrap + LOO + Pareto) for fast dev
                               # iteration; keep TRUE for a full production run where
                               # the worked examples matter.  Tip: set to

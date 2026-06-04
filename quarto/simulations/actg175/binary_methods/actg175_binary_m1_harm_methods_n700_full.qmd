@@ -21,8 +21,8 @@ scenario <- "actg175_binary_m1_harm"
 sim_n    <- 700
 
 ## -- Simulation mode, replicate counts, master seed --------------------------
-sim_mode  <- "demo"          # "import" | "demo" | "full" | "auto"
-sims_demo <- 100
+sim_mode  <- "full"          # "import" | "demo" | "full" | "auto"
+sims_demo <- 20
 sims_full <- 1000
 seed_base <- 8316951L         # master RNG seed (applied via set.seed in setup)
 analysis_seed <- seed_base    # RNG seed for the single-trial LOO / Kfold deep-dive
@@ -156,6 +156,7 @@ make_methods <- function(labels) {
       } else {
         spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "frontier",
                             sg_focus = focus, grf_depth = grf_depth,
+                            selection_rule = .rule_for(focus),
                             dmin.grf = grf_frontier_dmin,
                             effect_neighborhood = effect_neighborhood,
                             use_grf = FALSE, use_lasso = FALSE)
@@ -1831,4 +1832,3 @@ The DINA `effMaxSG`/`effMinSG` foci reuse the same
 candidates form a simple effect-versus-size trade-off where the 1-D band
 suffices. The `"pareto"`/`"both"` frontier variants are forestsearch-only
 today; extending them to DINA would be a deliberate addition.
-
