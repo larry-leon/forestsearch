@@ -170,17 +170,18 @@ returned candidate factors with coarsening off vs on.
 
 ```{r end-to-end}
 #| warning: false
-synth_actg$y_sim     <- rbinom(n, 1, 0.3)
-synth_actg$treat_sim <- rbinom(n, 1, 0.5)
+synth_actg$y_sim <- rbinom(n, 1, 0.3)
 
 covs <- c("age", "wtkg", "cd40", "cd80", "karnof", "preanti",
           "hemo", "homo", "drugs", "race", "gender", "symptom",
           "ar_naive", "prior_6mo")
 
+# get_FSdata() builds the candidate-cut pool; it takes outcome/event names but
+# NOT a treatment argument (treatment enters later, in forestsearch()).
 fs_args <- list(
   df.analysis      = synth_actg,
   confounders.name = covs,
-  outcome.name     = "y_sim", event.name = "y_sim", treat.name = "treat_sim",
+  outcome.name     = "y_sim", event.name = "y_sim",
   outcome_type     = "binary",
   use_lasso        = FALSE,
   use_grf          = TRUE,

@@ -16,6 +16,8 @@ get_FSdata(
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
   dina_cuts = NULL,
+  collapse_cuts = FALSE,
+  collapse_cuts_args = list(),
   replace_med_grf = TRUE,
   defaultcut_names = NULL,
   cut_type = "default",
@@ -61,6 +63,20 @@ cuts are unconditional (not filtered by LASSO), matching
 
 \item{dina_cuts}{Character vector of DINA cut expressions (optional),
 merged into the candidate pool exactly like \code{grf_cuts}.}
+
+\item{collapse_cuts}{Logical.  If TRUE, collapse near-redundant continuous
+candidate cuts after the full pool is assembled and resolved to literal
+numerics.  Cuts on the same variable and operator whose thresholds lie
+within a per-variable standard-error band are merged to a single
+rounded-centroid threshold, subject to a membership safety check; see
+\code{\link{collapse_redundant_cuts}}.  Categorical, indicator, bare-name
+and equality cuts are untouched.  Default FALSE (no coarsening; fully
+backward-compatible).}
+
+\item{collapse_cuts_args}{List of overrides for the coarsening, merged onto
+the defaults \code{list(c = 1.0, tol = 0.05, digits = 0L)}: \code{c} is the
+band multiplier (\code{band = c * sd(x)/sqrt(n)}), \code{tol} the
+membership safety tolerance (fraction of n when < 1, absolute count when= 1), and \code{digits} the rounding for the representative threshold.Ignored when \code{collapse_cuts = FALSE}.}
 
 \item{replace_med_grf}{Logical. If TRUE, removes median cuts that overlap with GRF cuts.}
 

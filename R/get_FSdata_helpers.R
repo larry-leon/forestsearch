@@ -502,6 +502,185 @@ is_flag_drop <- function(thiscut, confounders.name, df) {
 }
 
 
+#' Round half away from zero
+#'
+#' Base R \code{round()} uses round-half-to-even ("banker's rounding"), so
+#' \code{round(0.5) == 0} and \code{round(74.5) == 74}.  Cut coarsening rounds
+#' representative thresholds half *up* (away from zero) so that, e.g., a cluster
+#' centroid of 74.5 maps to 75, matching the intuitive "nearest integer" rule.
+#'
+#' @param x Numeric vector.
+#' @param digits Integer.  Number of decimal places.
+#' @return Numeric vector rounded half away from zero.
+#' @keywords internal
+
+collapse_cuts_round <- function(x, digits = 0L) {
+  f <- 10^as.integer(digits)
+  sign(x) * floor(abs(x) * f + 0.5) / f
+}
+
+#' Format a numeric threshold for a cut expression
+#'
+#' Renders a (already-rounded) numeric threshold as a clean string with no
+#' trailing zeros or floating-point noise, for use in "var <= value" cut
+#' expressions.  Integer-valued thresholds print without a decimal point.
+#'
+#' @param v Numeric scalar.
+#' @param digits Integer.  Decimal places used during rounding.
+#' @return Character scalar.
+#' @keywords internal
+
+collapse_cuts_fmt <- function(v, digits = 0L) {
+  s <- formatC(v, format = "f", digits = max(0L, as.integer(digits)))
+  if (as.integer(digits) > 0L) {
+    s <- sub("0+$", "", s)
+    s <- sub("\\.$", "", s)
+  }
+  trimws(s)
+}
+
+#' Collapse near-redundant continuous candidate cuts
+#'
+#' Continuous covariates can generate many candidate threshold cuts that are
+#' practically redundant -- e.g. "age <= 35.7" and "age <= 35", or
+#' "wtkg <= 75.2" and "wtkg <= 74.5" -- because the candidate pool unions
+#' quantile cuts, GRF / DINA splits, and calibrated-DGM cuts at different
+#' precisions.  This helper merges such near-duplicates to a single
+#' representative threshold, leaving categorical and indicator cuts untouched.
+#'
+#' For each (variable, operator) group of continuous-variable cuts, distinct
+#' thresholds are single-linkage clustered using a per-variable band
+#' \code{band = c_band * sd(x) / sqrt(n)} (the standard error of the variable:
+#' thresholds finer than ~1 SE are not statistically resolvable).  Each cluster
+#' collapses to one representative, the cluster mean rounded half-up to
+#' \code{digits} places (see \code{collapse_cuts_round()}).  Rounding alone can
+#' also merge singletons that round to the same value (e.g. 75.2 and 74.5 both
+#' round to 75 at \code{digits = 0}); de-duplication then drops the duplicate.
+#'
+#' Safety check: a cluster is collapsed only if replacing each member threshold
+#' by the representative changes subgroup membership for no more than
+#' \code{safety_tol} subjects (a fraction of n when \code{safety_tol < 1}, an
+#' absolute count when \code{safety_tol >= 1}).  Clusters that would move more
+#' than that are kept unchanged, so coarsening never silently redefines a
+#' candidate subgroup by more than the tolerance.
+#'
+#' Cut expressions that are categorical, indicator-valued (fewer than
+#' \code{cont.cutoff} unique values), bare variable names, or equality tests
+#' (\code{==}) pass through unchanged.
+#'
+#' @param cuts Character vector of candidate cut expressions, e.g.
+#'   \code{"age <= 35.7"}, \code{"wtkg >= 87.2"}, \code{"gender"}.
+#' @param df Data frame supplying the covariate columns, used for sd(x), the
+#'   sample size n, and the membership safety check.
+#' @param confounders.name Character vector of confounder names (currently
+#'   informational; variable identity is parsed from each cut expression).
+#' @param c_band Numeric >= 0.  Band multiplier; \code{band = c_band *
+#'   sd(x) / sqrt(n)}.  Larger values merge more aggressively.  Default 1.
+#' @param safety_tol Numeric > 0.  Membership safety tolerance: a fraction of
+#'   n when < 1, an absolute subject count when >= 1.  Default 0.05.
+#' @param digits Integer >= 0.  Decimal places for the representative
+#'   threshold.  Default 0 (nearest integer).  Raise for variables measured on
+#'   a sub-unit scale.
+#' @param cont.cutoff Integer.  A variable with at least this many unique values
+#'   is treated as continuous (see \code{is.continuous()}).  Default 4.
+#' @param details Logical.  If TRUE, print a per-cluster collapse report.
+#' @return Character vector of de-duplicated cut expressions (length <= input).
+#' @keywords internal
+
+collapse_redundant_cuts <- function(cuts, df, confounders.name = NULL,
+                                    c_band = 1.0, safety_tol = 0.05,
+                                    digits = 0L, cont.cutoff = 4,
+                                    details = FALSE) {
+  if (length(cuts) == 0L) return(cuts)
+  n <- nrow(df)
+  if (is.null(n) || n == 0L) return(unique(cuts))
+
+  pat <- "^\\s*([A-Za-z0-9_.]+)\\s*(<=|>=|<|>)\\s*(-?[0-9.]+([eE][-+]?[0-9]+)?)\\s*$"
+  ops <- list("<=" = function(a, b) a <= b,
+              ">=" = function(a, b) a >= b,
+              "<"  = function(a, b) a <  b,
+              ">"  = function(a, b) a >  b)
+
+  # Parse each cut: classify as coarsenable (continuous numeric threshold) or
+  # passthrough (categorical / indicator / bare name / equality test).
+  mm     <- regmatches(cuts, regexec(pat, cuts))
+  is_num <- vapply(mm, function(z) length(z) > 0L, logical(1))
+  var_of <- vapply(seq_along(cuts),
+                   function(i) if (is_num[i]) mm[[i]][2L] else NA_character_,
+                   character(1))
+  op_of  <- vapply(seq_along(cuts),
+                   function(i) if (is_num[i]) mm[[i]][3L] else NA_character_,
+                   character(1))
+  val_of <- vapply(seq_along(cuts),
+                   function(i) if (is_num[i]) as.numeric(mm[[i]][4L]) else NA_real_,
+                   numeric(1))
+
+  # Restrict coarsening to continuous variables present in df.
+  coarsen <- is_num & !is.na(var_of) & var_of %in% names(df)
+  for (i in which(coarsen)) {
+    if (is.continuous(df[[var_of[i]]], cutoff = cont.cutoff) != 1L) {
+      coarsen[i] <- FALSE
+    }
+  }
+
+  out          <- cuts   # default: every cut unchanged
+  safety_bound <- if (safety_tol < 1) ceiling(safety_tol * n) else as.integer(safety_tol)
+  report       <- character(0)
+
+  grp_key <- paste(var_of, op_of, sep = "\r")   # group by (variable, operator)
+  for (key in unique(grp_key[coarsen])) {
+    idx  <- which(coarsen & grp_key == key)
+    v    <- var_of[idx[1L]]
+    op   <- op_of[idx[1L]]
+    x    <- df[[v]]
+    sdx  <- stats::sd(x, na.rm = TRUE)
+    band <- if (is.finite(sdx) && sdx > 0) c_band * sdx / sqrt(n) else 0
+    opf  <- ops[[op]]
+
+    vals  <- sort(unique(val_of[idx]))
+    cl_id <- if (length(vals) == 1L) 1L
+             else cumsum(c(1L, as.integer(diff(vals) > band)))
+
+    for (cid in unique(cl_id)) {
+      members <- vals[cl_id == cid]
+      rep_val <- collapse_cuts_round(mean(members), digits)
+      mr      <- opf(x, rep_val)
+      flips   <- max(vapply(members,
+                            function(vv) sum(opf(x, vv) != mr, na.rm = TRUE),
+                            numeric(1)))
+      changed <- (length(members) > 1L) ||
+                 !isTRUE(all.equal(rep_val, members[1L]))
+      if (flips <= safety_bound) {
+        rep_str <- paste0(v, " ", op, " ", collapse_cuts_fmt(rep_val, digits))
+        for (vv in members) {
+          hit <- idx[abs(val_of[idx] - vv) < .Machine$double.eps^0.5]
+          out[hit] <- rep_str
+        }
+        if (changed) {
+          report <- c(report, sprintf(
+            "  %s %s {%s} -> %s  (%d subj moved)",
+            v, op, paste(format(members), collapse = ", "), rep_str, flips))
+        }
+      } else {
+        report <- c(report, sprintf(
+          "  SAFETY-BLOCKED %s %s {%s} -> %s  (%d > %d subj); kept unchanged",
+          v, op, paste(format(members), collapse = ", "),
+          collapse_cuts_fmt(rep_val, digits), flips, safety_bound))
+      }
+    }
+  }
+
+  collapsed <- out[!duplicated(out)]
+  if (isTRUE(details)) {
+    cat(sprintf(
+      "\nCut coarsening: %d -> %d candidates  (c=%.3g, safety_tol=%.3g, digits=%d)\n",
+      length(cuts), length(collapsed), c_band, safety_tol, as.integer(digits)))
+    if (length(report) > 0L) cat(paste(report, collapse = "\n"), "\n")
+  }
+  collapsed
+}
+
+
 #' Disjunctive (dummy) coding for factor columns
 #'
 #' @param df Data frame with factor variables.

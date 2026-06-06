@@ -10,6 +10,20 @@
 #' @param grf_cuts Character vector of GRF cut expressions.
 #' @param dina_cuts Character vector of DINA cut expressions (optional),
 #'   merged into the candidate pool exactly like \code{grf_cuts}.
+#' @param collapse_cuts Logical.  If TRUE, collapse near-redundant continuous
+#'   candidate cuts after the full pool is assembled and resolved to literal
+#'   numerics.  Cuts on the same variable and operator whose thresholds lie
+#'   within a per-variable standard-error band are merged to a single
+#'   rounded-centroid threshold, subject to a membership safety check; see
+#'   \code{\link{collapse_redundant_cuts}}.  Categorical, indicator, bare-name
+#'   and equality cuts are untouched.  Default FALSE (no coarsening; fully
+#'   backward-compatible).
+#' @param collapse_cuts_args List of overrides for the coarsening, merged onto
+#'   the defaults \code{list(c = 1.0, tol = 0.05, digits = 0L)}: \code{c} is the
+#'   band multiplier (\code{band = c * sd(x)/sqrt(n)}), \code{tol} the
+#'   membership safety tolerance (fraction of n when < 1, absolute count when
+#'   >= 1), and \code{digits} the rounding for the representative threshold.
+#'   Ignored when \code{collapse_cuts = FALSE}.
 #' @param confounders.name Character vector of confounder variable names.
 #' @param cont.cutoff Integer. Cutoff for continuous variable determination.
 #' @param conf_force Character vector of forced cut expressions.
@@ -70,6 +84,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
                        cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
                        conf.cont_jcuts = NULL,
                        dina_cuts = NULL,
+                       collapse_cuts = FALSE, collapse_cuts_args = list(),
                        replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                        outcome.name = "tte", event.name = "event", details=TRUE,
                        outcome_type = "survival", offset.name = NULL){
@@ -510,6 +525,27 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       to_exclude <- grepl(exclude_cuts[ee],confs)
       confs <- confs[!to_exclude]
     }
+  }
+  # Collapse near-redundant continuous candidate cuts (opt-in).  Cuts on the
+  # same variable+operator whose thresholds lie within a per-variable standard-
+  # error band (collapse_cuts_args$c * sd(x)/sqrt(n)) are treated as practically
+  # redundant and merged to a single rounded-centroid threshold, subject to a
+  # membership safety check.  Operates on the fully-resolved literal-numeric
+  # candidate pool; categorical / indicator / bare-name cuts are untouched.
+  # Off by default (collapse_cuts = FALSE) -> fully backward-compatible.
+  if (isTRUE(collapse_cuts) && length(confs) > 0L) {
+    .cca <- utils::modifyList(
+      list(c = 1.0, tol = 0.05, digits = 0L), collapse_cuts_args)
+    confs <- collapse_redundant_cuts(
+      cuts             = confs,
+      df               = df.FS,
+      confounders.name = confounders.name,
+      c_band           = .cca$c,
+      safety_tol       = .cca$tol,
+      digits           = .cca$digits,
+      cont.cutoff      = cont.cutoff,
+      details          = details
+    )
   }
   n_confs<-length(confs)
   if (n_confs == 0) {

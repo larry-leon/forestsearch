@@ -1,0 +1,1314 @@
+---
+title: "ACTG175 Binary Harm Search: Single-Trial Sanity Check (Alt + Null)"
+format: html
+---
+
+```{r config-id}
+#| include: false
+
+# ===========================================================================
+#  PARAMETERS  --  single source of truth for this document.
+#  Every tunable knob lives in THIS block.  Nothing tunable is defined in the
+#  setup or data-prep chunks (or anywhere else); they only CONSUME these
+#  values.  The DERIVED section below builds everything from them; do not edit
+#  it.  This chunk runs first and is `include: false`, so CONFIG_ID is
+#  available to the inline prose; the visible echoes of these
+#  settings are printed by the setup chunk.
+# ===========================================================================
+
+## -- Scenario & sample size --------------------------------------------------
+scenario <- "actg175_binary_m1c_harm"
+sim_n    <- 1000
+
+## -- Master seed -------------------------------------------------------------
+seed_base <- 8316951L         # master RNG seed (applied via set.seed in setup)
+analysis_seed <- seed_base    # RNG seed for the single-trial LOO / Kfold deep-dive
+                              # (forestsearch_Kfold seedit=); defaults to the master seed
+run_single_trial <- TRUE      # FALSE skips the single-trial alt/null deep-dives
+                              # (sim + bootstrap + LOO + Pareto) for fast dev
+                              # iteration; keep TRUE -- this document IS the
+                              # single-trial sanity check (alt + null only).
+
+## -- Forestsearch base config ------------------------------------------------
+fs_tag            <- "fs3b"    # _fsparams/<fs_tag>_params.R supplies the base bundle
+fs_sg_focus       <- "effMaxSG"
+fs_selection_rule <- "both"   # "neighborhood" | "pareto" | "both"; eff focus
+                              # auto-reverts to "neighborhood" (see DERIVED)
+
+## -- Forestsearch effect / consistency thresholds (override fs3) -------------
+# The search is most sensitive to these; they override whatever fs3 sets.
+fs_effect_threshold       <- 1.25   # SCREENING:   candidate subgroup OR must exceed
+fs_consistency_threshold  <- 1.0   # CONSISTENCY: each bootstrap split OR must exceed
+fs_pconsistency_threshold <- 0.90   # CONS. RATE:  fraction of splits that must hold
+
+## -- Methods set & flagship arm ----------------------------------------------
+# Any subset of <engine>-<focus>, engine in {fs, dina, grf}, focus in
+# {eff, effMaxSG, effMinSG}, plus the special "grf-tree".
+METHODS <- c(
+  "fs-eff",   "fs-effMaxSG", "fs-effMinSG",
+  "dina-eff", "dina-effMaxSG", "dina-effMinSG",
+  "grf-eff",  "grf-effMaxSG", "grf-effMinSG",
+  "grf-tree"
+)
+FLAGSHIP_ARM <- "fs-effMaxSG"   # arm spotlighted in the per-arm distribution
+                                # displays (subgroup-cut + OR distribution, H1/H0)
+                                # and recorded in the bundle meta.  The comparison
+                                # tables (detection/classification/estimation)
+                                # remain all-methods.  Must be a full <engine>-<focus>
+                                # arm in METHODS.
+
+## -- Depth / fairness (every engine searches the same 2-factor space) --------
+grf_depth           <- 2L
+dina_max_depth      <- 2L
+dina_grid_probs     <- seq(0.1, 0.9, by = 0.1)
+effect_neighborhood <- 0.10   # frontier / neighborhood selection band
+
+## -- GRF SELECTION floors for the forestsearch-routed grf-* arms -------------
+# dmin.grf is a SELECTION floor (not screening); 0.0 is permissive, raise to
+# calibrate.  Binary-OR DR-score scale.
+grf_screen_dmin   <- 0.0      # fs-* arms (screening floor)
+grf_tree_dmin     <- 0.10     # grf-tree
+grf_frontier_dmin <- 0.10     # grf-eff / grf-effMaxSG / grf-effMinSG (frontier)
+
+## -- Standalone GRF parameters (legacy standalone GRF; recorded in meta) -----
+grf_dmin         <- 0.10
+grf_maxdepth     <- 2L
+grf_sg_criterion <- "mDiff"
+
+## -- Calibration -------------------------------------------------------------
+cal_target_or <- 2.0          # target marginal OR in the harm subgroup Q
+
+## -- Reporting / display -----------------------------------------------------
+sg_notation     <- "harm"
+display_digits  <- 3
+frontier_params <- list(
+  n_splits = 1000L, seed = 1L, xlim = c(1.0, 5.0),
+  digits_effect = 2L, digits_pcons = 2L, digits_ci = 2L
+)
+
+## -- Subgroup- / effect-distribution plot thresholds -------------------------
+sgdist_min_pct_alt  <- 0
+sgdist_min_pct_null <- 0
+sgdist_top_k        <- 20L
+ordist_ylim         <- c(0, 4)
+
+## -- Diagnostic capture ------------------------------------------------------
+diag_keep         <- c("fs_full", "candidate_table")
+diag_keep_first_n <- 5L
+
+## -- Parallel ----------------------------------------------------------------
+worker_fraction <- 0.95       # fraction of PHYSICAL cores for the MC outer loop
+
+# ===========================================================================
+#  DERIVED  --  built from the PARAMETERS above.  Do not edit.
+# ===========================================================================
+
+n_workers <- max(1L, floor(worker_fraction * parallel::detectCores(logical = FALSE)))
+
+## fs_params: source the canonical fs3 bundle, then apply the visible overrides.
+## Both the preferred names (effect.threshold/consistency.threshold) and the
+## hr.* aliases are set so any code reading either stays in sync.
+source(sprintf("_fsparams/%s_params.R", fs_tag))
+fs_params <- get(sprintf("get_%s_params", fs_tag))(sg_focus = fs_sg_focus)
+fs_params$effect.threshold       <- fs_effect_threshold
+fs_params$hr.threshold           <- fs_effect_threshold
+fs_params$consistency.threshold  <- fs_consistency_threshold
+fs_params$hr.consistency         <- fs_consistency_threshold
+fs_params$pconsistency.threshold <- fs_pconsistency_threshold
+# selection_rule "pareto"/"both" require a directional focus; the eff base
+# focus supports "neighborhood" only (forestsearch errors otherwise).  Mirrors
+# the .rule_for() guard used per-arm below.  Governs the flagship deep-dive.
+fs_params$selection_rule <-
+  if (fs_sg_focus %in% c("effMaxSG", "effMinSG")) fs_selection_rule else "neighborhood"
+
+## Methods spec: every arm runs THROUGH forestsearch(), tagged "<engine>-<focus>".
+## fs_params is the SHARED base; make_methods supplies per-arm overrides.  The
+## grf-* arms are forestsearch's GRF policy-tree / frontier selector (NOT the
+## legacy standalone grf.subg.harm.glm).
+make_methods <- function(labels) {
+  spec <- list()
+  .rule_for <- function(focus) {
+    if (focus %in% c("effMaxSG", "effMinSG")) fs_selection_rule else "neighborhood"
+  }
+  for (lbl in labels) {
+    parts  <- strsplit(lbl, "-", fixed = TRUE)[[1L]]
+    engine <- parts[1L]; focus <- paste(parts[-1L], collapse = "-")
+    if (engine == "fs") {
+      spec[[lbl]] <- list(subgroup_method = "consistency", sg_focus = focus,
+                          selection_rule = .rule_for(focus),
+                          dmin.grf = grf_screen_dmin)
+    } else if (engine == "dina") {
+      spec[[lbl]] <- list(subgroup_method = "dina", sg_focus = focus,
+                          selection_rule = .rule_for(focus),
+                          effect_neighborhood = effect_neighborhood,
+                          dina_args = list(max_depth = dina_max_depth,
+                                           grid_probs = dina_grid_probs))
+    } else if (engine == "grf") {
+      if (identical(focus, "tree")) {
+        spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "tree",
+                            grf_depth = grf_depth, dmin.grf = grf_tree_dmin,
+                            use_grf = FALSE, use_lasso = FALSE)
+      } else {
+        spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "frontier",
+                            sg_focus = focus, grf_depth = grf_depth,
+                            selection_rule = .rule_for(focus),
+                            dmin.grf = grf_frontier_dmin,
+                            effect_neighborhood = effect_neighborhood,
+                            use_grf = FALSE, use_lasso = FALSE)
+      }
+    } else stop(sprintf("Unknown engine in label '%s'.", lbl), call. = FALSE)
+  }
+  spec
+}
+METHODS_SPEC <- make_methods(METHODS)
+
+## Flagship must be one of METHODS.  Hard-error on an invalid value rather than
+## silently falling back to METHODS[1L] -- a bad FLAGSHIP_ARM otherwise masks itself.
+if (!FLAGSHIP_ARM %in% METHODS) {
+  stop(sprintf(
+    "FLAGSHIP_ARM = '%s' is not one of METHODS (%s).\n  Use a full '<engine>-<focus>' arm name, e.g. 'fs-effMaxSG'.",
+    FLAGSHIP_ARM, paste(METHODS, collapse = ", ")),
+    call. = FALSE)
+}
+
+## Fairness self-check: every engine must search the SAME depth.
+.fs_maxk <- if (!is.null(fs_params$maxk)) fs_params$maxk else 2L
+if (.fs_maxk != dina_max_depth || grf_depth != dina_max_depth) {
+  warning(sprintf(
+    paste0("Depth fairness mismatch: fs maxk = %s, grf_depth = %d, ",
+           "dina max_depth = %d.  Engines are searching different spaces; ",
+           "set them equal for a fair comparison."),
+    .fs_maxk, grf_depth, dina_max_depth), call. = FALSE)
+}
+
+## Config id (single-trial document; no bundle is written).
+CONFIG_ID <- sprintf("%s_%s_n%d_single-simtrial", scenario, fs_tag, sim_n)
+```
+
+This article runs the **single-trial sanity check** for configuration
+**`` `r CONFIG_ID` ``** (study = ACTG175, outcome = binary,
+DGM = m1 [calibrated GLM, target OR(Q) = 2.0], objective = harm,
+FS bundle = `r fs_tag`).  It is a trimmed version of the full
+multi-method study: it keeps data preparation, DGM calibration, and the
+single-trial deep-dives under the alternative (H1) and the null (H0) --
+each running every method through `forestsearch()` once on one simulated
+trial, with the bootstrap, LOO cross-validation, and Pareto worked
+examples -- and omits the Monte-Carlo simulation study, the operating-
+characteristics tables, and all bundle saving.
+
+Data preparation, DGM calibration, and both single-trial deep-dives run
+unconditionally; nothing is written to disk.
+
+```{r setup}
+#| code-fold: true
+#| code-summary: "Libraries, derived locals, echoes (all parameters are in the config-id block)"
+
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(future)
+library(doFuture)
+library(foreach)
+
+# ALL tunable parameters live in the `config-id` block at the top of the
+# document (single source of truth).  This chunk only loads libraries, sets the
+# seed, echoes the active settings, and builds a few locals consumed by later
+# chunks.
+
+set.seed(seed_base)
+
+# This trimmed document runs ONLY the single-trial deep-dives (no Monte-Carlo
+# study and no bundle).  sim_mode / nsims_* are defined here purely so the
+# Timing Summary subtitle can report them; they drive no computation.
+sim_mode   <- "single-trial"
+nsims_alt  <- 0L
+nsims_null <- 0L
+
+# -- Echo active settings ----------------------------------------------------
+cat(sprintf("mode = single-trial (alt + null) | sim_n = %d\n", sim_n))
+cat(sprintf(
+  "FS thresholds -> screening OR >= %.2f | consistency OR >= %.2f | rate >= %.0f%%\n",
+  fs_effect_threshold, fs_consistency_threshold, 100 * fs_pconsistency_threshold))
+
+# DINA harm floor (m_diff): the dina-* arms set no threshold of their own, so
+# they inherit fs_effect_threshold via fs_params.  Inside forestsearch the DINA
+# selector maps that screening threshold to the link scale -- log() for ratio
+# measures (OR/HR/IRR), identity for difference measures (MD/RD/IRD).  The
+# package's own scale test is used so this echo matches what dina_subgroup()
+# actually clears.  All three dina-* arms share this floor; they differ only in
+# sg_focus / selection_rule / effect_neighborhood.
+.dina_identity <- forestsearch:::is_identity_scale(fs_params$effect_measure)
+dina_m_diff    <- if (.dina_identity) fs_effect_threshold else log(fs_effect_threshold)
+cat(sprintf(
+  "DINA harm floor -> m_diff = %.4f  (link scale; %s)\n",
+  dina_m_diff,
+  if (.dina_identity)
+    sprintf("identity = %.4g for %s", fs_effect_threshold, fs_params$effect_measure)
+  else
+    sprintf("log(%.2f) for %s", fs_effect_threshold, fs_params$effect_measure)))
+
+# -- Derived locals consumed by later chunks ---------------------------------
+grf_params <- list(
+  dmin.grf     = grf_dmin,
+  maxdepth     = grf_maxdepth,
+  sg.criterion = grf_sg_criterion
+)
+
+# Re-exposed for the single-trial sanity-check chunks.
+c1       <- fs_params$hr.threshold
+max_look <- fs_params$max_subgroups_search
+
+# Display helper: tidy a cut-string for DISPLAY only (rounds full-precision
+# numeric thresholds to `digits` significant figures; collapses whitespace,
+# leaves integer cuts untouched).  Used by the subgroup-distribution renders.
+tidy_sg_def <- function(s, digits = 4L) {
+  if (length(s) != 1L || is.na(s) || !nzchar(s)) return(s)
+  s <- gsub("[[:space:]]+", " ", s)
+  m <- gregexpr("-?[0-9]+\\.[0-9]+", s)[[1L]]
+  if (m[1L] == -1L) return(s)
+  L <- attr(m, "match.length")
+  for (i in rev(seq_along(m))) {
+    num <- as.numeric(substr(s, m[i], m[i] + L[i] - 1L))
+    rep <- sub("\\.$", "", formatC(signif(num, digits), format = "fg", flag = "#"))
+    s <- paste0(substr(s, 1L, m[i] - 1L), rep, substr(s, m[i] + L[i], nchar(s)))
+  }
+  s
+}
+
+# Document-level timing accumulator; each major chunk populates its slot, and
+# the bottom-of-document Timing Summary renders the collated values ("—" if unset).
+timings <- list()
+```
+
+```{r pareto-prep}
+#| include: false
+
+library(data.table)
+library(ggplot2)
+library(gt)
+
+# Loaded for the validation section; the figure itself is self-contained.
+have_fs <- requireNamespace("forestsearch", quietly = TRUE)
+
+EFFECT_NEIGHBORHOOD <- 0.10   # the package default
+
+# Mirror of forestsearch internal .pareto_dominated_xy(): both axes maximized.
+dominated_xy <- function(x, y) {
+  n <- length(x)
+  dom <- logical(n)
+  for (i in seq_len(n)) {
+    if (is.na(x[i]) || is.na(y[i])) { dom[i] <- TRUE; next }
+    for (j in seq_len(n)) {
+      if (i == j) next
+      if (is.na(x[j]) || is.na(y[j])) next
+      if (x[j] >= x[i] && y[j] >= y[i] && (x[j] > x[i] || y[j] > y[i])) {
+        dom[i] <- TRUE
+        break
+      }
+    }
+  }
+  dom
+}
+```
+
+# Purpose
+
+`forestsearch()` (and, since v0.2.0, `dina_subgroup()`) selects among the
+qualifying candidate subgroups using `sg_focus`. For the effect-anchored
+foci `"effMaxSG"`/`"effMinSG"` (canonical `"hrMaxSG"`/`"hrMinSG"`), the
+selection is *not* "take the candidate with the largest effect." Instead
+the candidates are first partitioned into a **candidate inclusion band**,
+and then ranked within that band by sample size. The `selection_rule`
+argument controls how the band is drawn:
+
+* `"neighborhood"` --- a one-dimensional effect band (default).
+* `"pareto"` --- the two-dimensional Pareto-non-dominated set in
+  (effect, $N$) space.
+* `"both"` --- the intersection of the two (strictest).
+
+This note explains how the **Pareto frontier** operates: what
+"dominated" means, how the frontier becomes the `in_pareto` indicator,
+how it combines with the neighborhood band, and how the resulting
+`in_band` flag feeds the final selection sort. The single computation
+shared by every path is `.compute_inclusion_band()`, called by both
+`sort_subgroups()` (final, post-consistency selection) and
+`sort_subgroups_preview()` (pre-consistency triage).
+
+# A worked candidate set
+
+Five candidates that have already passed the consistency stage and the
+effect threshold. Effect on the natural (HR) scale, size $N$:
+
+```{r candidates}
+cands <- data.table(
+  id = c("A", "B", "C", "E", "F"),
+  hr = c(2.50, 2.40, 2.30, 2.35, 2.00),
+  N  = c(70L,  100L, 150L, 90L,  200L)
+)
+
+hr_max  <- max(cands$hr)
+hr_floor <- (1 - EFFECT_NEIGHBORHOOD) * hr_max
+
+cands[, in_nbhd     := hr >= hr_floor]
+cands[, dominated   := dominated_xy(hr, N)]
+cands[, on_frontier := !dominated]
+cands[, in_both     := in_nbhd & on_frontier]
+cands[, status      := fifelse(!in_nbhd, "neither (below floor)",
+                        fifelse(in_both,  "both rules",
+                                          "neighborhood only"))]
+
+# effMaxSG within the "both" band: largest N among in-band-both candidates.
+sel_id <- cands[in_both == TRUE][order(-N)][1L, id]
+cands[, selected := id == sel_id]
+
+cands[, .(id, hr, N, in_nbhd, on_frontier, in_both, selected)]
+```
+
+With `hr_max = 2.5`, the floor is `r round(hr_floor, 3)`. So:
+
+* `A`, `B`, `C` are in the effect band **and** on the frontier --- in-band
+  under every rule.
+* `E` (HR 2.35, $N$ 90) is in the effect band but **dominated by `B`**
+  (HR 2.40 $\ge$ 2.35 and $N$ 100 $\ge$ 90), so `"pareto"`/`"both"`
+  exclude it while `"neighborhood"` keeps it.
+* `F` (HR 2.00, $N$ 200) is on the frontier (largest $N$) but **below the
+  floor**, so `"neighborhood"`/`"both"` exclude it while `"pareto"`
+  keeps it --- this is the over-extension guard that the effect band
+  provides and the bare frontier does not.
+
+# The figure
+
+```{r}
+#| label: fig-frontier
+#| fig-width: 7.2
+#| fig-height: 4.6
+#| fig-cap: "Candidate subgroups in the (effect, N) plane. The shaded region is the effect neighborhood band (HR at least the dashed floor); the dashed line traces the Pareto frontier. Colour encodes which selection_rule keeps each candidate. C is selected by effMaxSG (largest N in the band)."
+
+pal <- c("both rules"           = "#1D9E75",
+         "neighborhood only"    = "#EF9F27",
+         "neither (below floor)" = "#888780")
+
+frontier <- cands[on_frontier == TRUE][order(hr)]
+
+# per-point label offsets so the letters sit clear of points/lines
+labs <- data.table(
+  id = c("A", "B", "C", "E", "F"),
+  lx = c(2.50, 2.435, 2.30, 2.35, 2.00),
+  ly = c(63,   108,   166,  79,   210))
+
+ggplot(cands, aes(hr, N)) +
+  annotate("rect", xmin = hr_floor, xmax = Inf, ymin = -Inf, ymax = Inf,
+           fill = "#378ADD", alpha = 0.10) +
+  geom_vline(xintercept = hr_floor, linetype = "dashed",
+             colour = "#185FA5", linewidth = 0.4) +
+  geom_line(data = frontier, aes(hr, N), linetype = "dashed",
+            colour = "#888780", linewidth = 0.5) +
+  geom_point(data = cands[selected == TRUE], aes(hr, N),
+             shape = 21, size = 9, stroke = 1.3,
+             colour = "#0F6E56", fill = NA) +
+  geom_point(aes(colour = status), size = 3.6) +
+  geom_text(data = labs, aes(lx, ly, label = id),
+            size = 4, fontface = "bold") +
+  annotate("text", x = hr_floor + 0.015, y = 219,
+           label = sprintf("HR >= %.2f  (within %.0f%% of max)",
+                           hr_floor, 100 * EFFECT_NEIGHBORHOOD),
+           hjust = 0, vjust = 1, size = 3.1, colour = "#185FA5") +
+  scale_colour_manual(values = pal, name = "in_band under") +
+  scale_x_continuous(limits = c(1.9, 2.62)) +
+  scale_y_continuous(limits = c(45, 222)) +
+  labs(x = "effect (HR)", y = "subgroup size N") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "right",
+        panel.grid.minor = element_blank())
+```
+
+Reading the figure: `"neighborhood"` keeps the whole shaded strip
+$\{A, B, C, E\}$; `"both"` additionally drops `E` because it sits
+*inside* the frontier (another point beats it on both axes); `"pareto"`
+alone would keep `F` (top-left, on the frontier) despite its weak
+effect. The selection then maximizes $N$ within the kept set.
+
+
+# Data Preparation {#sec-data}
+
+```{r data-prep}
+#| code-fold: true
+#| code-summary: "ACTG175 data prep (click to expand)"
+
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id <- seq_len(nrow(actg_df))
+
+# Treatment: ZDV+ddI = 1, ddI = 0 (NO switching)
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+
+# Binary outcome: adverse (failure to improve)
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# -- DGM factor variables -----------------------------------------------------
+# Note that binary and continuous analyses are similar in identified subgroups
+# (from observed-data FS result — see companion analysis document)
+
+ actg_df$z1  <- as.factor(ifelse(actg_df$cd40 > 390, 1L, 0L))
+ actg_df$z2  <- as.factor(ifelse(actg_df$wtkg > 80, 1L, 0L))
+
+# z7-z12: truly binary indicators (no continuous counterpart)
+actg_df$z7  <- as.factor(actg_df$hemo)
+actg_df$z8  <- as.factor(actg_df$homo)
+actg_df$z9  <- as.factor(actg_df$drugs)
+actg_df$z10 <- as.factor(actg_df$race)
+actg_df$z11 <- as.factor(actg_df$gender)
+actg_df$z12 <- as.factor(actg_df$symptom)
+
+actg_df$ar_naive   <- as.integer(ifelse(actg_df$str2 == 0, 1L, 0L))
+actg_df$prior_6mo  <- as.integer(ifelse(actg_df$preanti <= 6 * 30.4375, 1L, 0L))
+
+actg_df$flag_harm_ref <- as.integer(actg_df$z1 == 1 & actg_df$z2 == 1)
+
+# -- Analysis covariates (what the analyst sees) -------------------------------
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom","ar_naive","prior_6mo")
+# Binary confounders kept NUMERIC 0/1: the forestsearch-routed dina-* arms
+# require numeric covariates, and grf-* cut-strings (e.g. "symptom <= 0") must
+# be numeric to evaluate.  z7-z12 (created above) stay factors for the DGM.
+for (v in bin_vars) actg_df[[v]] <- as.integer(actg_df[[v]])
+confounders <- c(cont_vars, bin_vars)
+
+
+# -- DGM variable sets ---------------------------------------------------------
+dgm_factor_vars   <- c("z1", "z2", paste0("z", 7:12))
+dgm_cont_vars     <- cont_vars
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+
+# -- Summary -------------------------------------------------------------------
+Q_n   <- sum(actg_df$flag_harm_ref)
+Q_N   <- nrow(actg_df)
+Q_pct <- 100 * Q_n / Q_N
+
+cat(sprintf("N = %d, Q prevalence = %d / %d (%.1f%%)\n", Q_N, Q_n, Q_N, Q_pct))
+cat(sprintf("Adverse rate: overall=%.1f%%, ZDV+ddI=%.1f%%, ddI=%.1f%%\n",
+    100 * mean(actg_df$y_binary),
+    100 * mean(actg_df$y_binary[actg_df$treat == 1]),
+    100 * mean(actg_df$y_binary[actg_df$treat == 0])))
+```
+
+# DGM Calibration {#sec-calibration}
+
+Target: OR(Q) = `r cal_target_or` on the adverse scale.  The DGM
+includes factor variables (for subgroup definition) and raw continuous
+covariates (for a richer prognostic baseline), consistent with the
+survival `generate_aft_dgm_flex()` design.
+
+```{r calibrate}
+dgm_calibrated <- calibrate_glm_interaction(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  target_effect   = cal_target_or,
+  outcome_type    = "binary",
+  effect_measure  = "OR",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  k_inter_range   = c(0, 3),
+  grid_step       = 0.05,
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+
+cat(sprintf("\n  OR(Q):   %.3f (target: %.1f)\n",
+    dgm_calibrated$hazard_ratios$harm_subgroup, cal_target_or))
+cat(sprintf("  OR(Qc):  %.3f\n", dgm_calibrated$hazard_ratios$no_harm_subgroup))
+cat(sprintf("  OR(ITT): %.3f\n", dgm_calibrated$hazard_ratios$overall))
+```
+
+::: {.callout-note title="True harm subgroup Q — definition and calibrated effect"}
+**Definition.** The data-generating harm subgroup is
+$Q = \{\,\texttt{cd40} > 390 \;\text{and}\; \texttt{wtkg} > 80\,\}$,
+encoded by the DGM markers `z1` ($\texttt{cd40} > 390$) and `z2`
+($\texttt{wtkg} > 80$); a subject belongs to $Q$ only when **both** hold.
+
+**Prevalence.** `r Q_n` of `r Q_N` subjects (`r sprintf("%.1f", Q_pct)`%) lie in $Q$.
+
+**Calibrated treatment effect** (adverse odds-ratio scale):
+
+- $\operatorname{OR}(Q) =$ `r sprintf("%.3f", dgm_calibrated$hazard_ratios$harm_subgroup)` (target `r sprintf("%.1f", cal_target_or)`)
+- $\operatorname{OR}(Q^{c}) =$ `r sprintf("%.3f", dgm_calibrated$hazard_ratios$no_harm_subgroup)`
+- $\operatorname{OR}(\text{ITT}) =$ `r sprintf("%.3f", dgm_calibrated$hazard_ratios$overall)`
+
+Under the harm orientation, $Q$ is the region where the experimental arm
+*raises* the adverse-event odds; $Q^{c}$ and the ITT population are calibrated
+to be near-null by construction.
+:::
+
+```{r null-dgm}
+dgm_null <- generate_glm_dgm(
+  data            = actg_df,
+  factor_vars     = dgm_factor_vars,
+  continuous_vars = dgm_cont_vars,
+  outcome_var     = "y_binary",
+  treatment_var   = "treat",
+  outcome_type    = "binary",
+  subgroup_vars   = dgm_subgroup_vars,
+  subgroup_cuts   = dgm_subgroup_cuts,
+  model           = "null",
+  n_super         = 5000L,
+  seed            = 8316951L,
+  verbose         = TRUE
+)
+```
+
+# Single Trial Sanity Check {#sec-single-trial}
+
+```{r single-trial-alt-sim}
+#| eval: !expr run_single_trial
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+df_sim <- simulate_from_glm_dgm(dgm_calibrated, n = sim_n, seed = 42)
+```
+
+
+```{r single-trial-alt-analysis}
+#| eval: !expr run_single_trial
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis alt (click to expand)"
+
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
+
+fs_params_single <- fs_params
+
+fs_params_single$show_candidate_summary <- TRUE 
+fs_params_single$parallel_args$plan <- "multisession"
+fs_params_single$parallel_args$workers <- n_workers
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params_single
+))
+
+if (!is.null(fs_single$sg.harm)) {
+  fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+}
+
+t0 <- proc.time()
+fs <- fs_single
+
+if (!is.null(fs$sg.harm)) {
+  fs_bc <- forestsearch_bootstrap_dofuture(
+    fs.est = fs,
+    nb_boots = 500,
+    show_three = FALSE,
+    details = FALSE,
+    parallel_args = list(
+      plan = "multisession",
+      workers = n_workers,
+      show_message = TRUE
+    )
+  )
+
+  plan("sequential")
+  timings$bootstrap_alt <- as.numeric((proc.time() - t0)["elapsed"])
+
+  cat("\nBootstrap completed in",
+      round(timings$bootstrap_alt / 60, 1), "minutes\n")
+
+  # Comprehensive summary with diagnostics.  All variables built here are
+  # rendered by the small downstream chunks (single-trial-alt-render-*),
+  # which exist solely so each gt table is the last (and only) expression
+  # of its chunk -- the only way knitr's auto-print reliably emits raw
+  # HTML for a gt_tbl object.
+  summaries <- summarize_bootstrap_results(
+    sgharm = fs$sg.harm,
+    boot_results = fs_bc,
+    create_plots = TRUE,
+    est.scale = "hr"
+  )
+
+  ci_tab <- compute_frontier_cis(
+    fs,
+    n_splits = frontier_params$n_splits,
+    seed     = frontier_params$seed
+  )
+
+  # Plot rendered inline here -- the graphics-device path is independent
+  # of knitr's stdout capture, so print(p) works inside the if-block.
+  p <- plot_pareto_frontier(
+    fs,
+    ci_table  = ci_tab,
+    show_band = TRUE,
+    xlim      = frontier_params$xlim
+  )
+  print(p)
+}
+```
+
+```{r single-trial-alt-render-sg10}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render sg10 candidate-summary table.  If fs_single$sg.harm is NULL the
+# if-block returns invisible(NULL) and nothing is emitted.
+if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
+```
+
+```{r single-trial-alt-render-tab-estimates}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the formatted estimates table (gt).
+if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
+```
+
+```{r single-trial-alt-render-bootstrap-table}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the bias-corrected bootstrap-results table (gt).
+if (!is.null(fs$sg.harm)) summaries$table
+```
+
+```{r single-trial-alt-render-pareto-table}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the Pareto frontier table.  pareto_frontier_table() may return
+# a gt_tbl (normal case), a data.table (fallback when gt is missing), or
+# NULL (no consistency output).  All three behave correctly via auto-print.
+if (!is.null(fs$sg.harm)) {
+  pareto_frontier_table(
+    fs,
+    ci_table      = ci_tab,
+    digits_effect = frontier_params$digits_effect,
+    digits_pcons  = frontier_params$digits_pcons,
+    digits_ci     = frontier_params$digits_ci
+  )
+}
+```
+
+```{r single-trial-alt-render-explain}
+#| eval: !expr run_single_trial
+#| echo: false
+#| results: asis
+# Markdown explanation -- results: asis allows cat() output to flow through
+# as markdown rather than being captured into a <pre> block.  Safe here
+# because the explanation is intentional markdown.
+if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
+```
+
+```{r fs-loo-setup}
+#| eval: !expr run_single_trial
+# Define run_loo BEFORE the LOO run chunk so its #| eval: directive can
+# reference it.  Chunk options are evaluated before the chunk body, so
+# run_loo must already exist in the global env when knitr resolves the
+# next chunk's options.
+#
+# skip_loo is the explicit negation -- defined here so the downstream
+# "LOO skipped" note can gate on a plain identifier rather than the
+# expression !run_loo, which trips Quarto's YAML validator
+# (it parses `!expr !run_loo` as a string, not the expected tagged form).
+run_loo   <- !is.null(fs$sg.harm)
+skip_loo  <- !run_loo
+```
+
+```{r fs-loo-run}
+#| eval: !expr run_single_trial && run_loo
+
+t0 <- proc.time()
+
+# LOO is triggered by Kfolds = N (the function default behavior at
+# forestsearch_cross_validation.R:109).  We pass it explicitly here for
+# clarity.
+N_loo <- nrow(fs$df.est)
+
+fs_loo_result <- forestsearch_Kfold(
+  fs.est        = fs,
+  Kfolds        = N_loo,
+  seedit        = analysis_seed,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  ),
+  details       = FALSE
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$loo_alt <- as.numeric((proc.time() - t0)["elapsed"])
+
+cat("\nLOO completed in", round(timings$loo_alt / 60, 2), "minutes",
+    sprintf("(N folds = %d, n_workers = %d)\n", N_loo, n_workers))
+```
+
+```{r fs-loo-skipped-note}
+#| eval: !expr run_single_trial && skip_loo
+
+cat("> **LOO skipped.** No harm subgroup was identified in the ",
+    "full-analysis FS run (`fs$sg.harm` is `NULL`), so leave-one-out ",
+    "cross-validation has nothing to evaluate.\n", sep = "")
+```
+
+### LOO Summary
+
+```{r fs-loo-summary-text}
+#| eval: !expr run_single_trial && run_loo
+
+cat(cv_summary_text(fs_loo_result, est.scale = "hr"), "\n")
+cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
+            fs_loo_result$prop_SG_found, N_loo))
+```
+
+### LOO Tables
+
+The `cv_summary_tables()` helper returns five publication-ready `gt`
+tables. The first is the combined ITT + subgroup view; the next three
+are component estimation tables (ITT, full-analysis subgroup, LOO
+subgroup) that show the underlying treatment-effect estimates with
+confidence intervals.
+
+```{r fs-loo-tables}
+#| eval: !expr run_single_trial && run_loo
+
+loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
+                                  digits = 2)
+loo_tabs <- cv_summary_tables(
+  loo_out,
+  title    = "ACTG175 Leave-One-Out CV Summary (Binary, OR)",
+  subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
+                     N_loo),
+  digits   = 2,
+  use_gt   = TRUE
+)
+```
+
+```{r fs-loo-tables-render}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the LOO CV-summary table (gt).  Same auto-print pattern as
+# single-trial-alt-render-bootstrap-table -- the gt object is the
+# last (and only) expression of the chunk, which is the only path
+# that reliably triggers knit_print.gt_tbl in Quarto.
+# Guarded by run_loo: when LOO was skipped, the if-block returns
+# invisible(NULL) and `loo_tabs` is never referenced (short-circuit),
+# so it's safe even though loo_tabs is undefined in that case.
+if (run_loo) loo_tabs$combined_table
+```
+
+
+```{r single-trial-null-sim}
+#| eval: !expr run_single_trial
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis Null (click to expand)"
+df_sim <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = 8316951)
+```
+
+
+```{r single-trial-null-analysis}
+#| eval: !expr run_single_trial
+#| code-fold: true
+#| code-summary: "Single simulated trial + FS analysis null (click to expand)"
+
+itt_fit <- glm(y_sim ~ treat_sim, family = "binomial", data = df_sim)
+itt_OR <- exp(coef(itt_fit)["treat_sim"])
+itt_event <- with(df_sim,mean(y_sim))
+
+fs_params_single <- fs_params
+
+fs_params_single$show_candidate_summary <- TRUE 
+fs_params_single$parallel_args$plan <- "multisession"
+fs_params_single$parallel_args$workers <- n_workers
+
+fs_single <- do.call(forestsearch, c(
+  list(df.analysis = df_sim, confounders.name = confounders),
+  fs_params_single
+))
+
+if (!is.null(fs_single$sg.harm)) {
+  fs_single_tabs <- sg_tables(fs_single, ndecimals = 3)
+}
+
+t0 <- proc.time()
+fs <- fs_single
+
+if (!is.null(fs$sg.harm)) {
+  fs_bc <- forestsearch_bootstrap_dofuture(
+    fs.est = fs,
+    nb_boots = 500,
+    show_three = FALSE,
+    details = FALSE,
+    parallel_args = list(
+      plan = "multisession",
+      workers = n_workers,
+      show_message = TRUE
+    )
+  )
+  
+  plan("sequential")
+  timings$bootstrap_null <- as.numeric((proc.time() - t0)["elapsed"])
+  
+  cat("\nBootstrap completed in",
+      round(timings$bootstrap_null / 60, 1), "minutes\n")
+  
+  # Comprehensive summary with diagnostics.  All variables built here are
+  # rendered by the small downstream chunks (single-trial-null-render-*),
+  # which exist solely so each gt table is the last (and only) expression
+  # of its chunk -- the only way knitr's auto-print reliably emits raw
+  # HTML for a gt_tbl object.
+  summaries <- summarize_bootstrap_results(
+    sgharm = fs$sg.harm,
+    boot_results = fs_bc,
+    create_plots = TRUE,
+    est.scale = "hr"
+  )
+  
+  ci_tab <- compute_frontier_cis(
+    fs,
+    n_splits = frontier_params$n_splits,
+    seed     = frontier_params$seed
+  )
+  
+  # Plot rendered inline here -- the graphics-device path is independent
+  # of knitr's stdout capture, so print(p) works inside the if-block.
+  p <- plot_pareto_frontier(
+    fs,
+    ci_table  = ci_tab,
+    show_band = TRUE,
+    xlim      = frontier_params$xlim
+  )
+  print(p)
+}
+```
+
+```{r single-trial-null-render-sg10}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render sg10 candidate-summary table.  If fs_single$sg.harm is NULL the
+# if-block returns invisible(NULL) and nothing is emitted.
+if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
+```
+
+```{r single-trial-null-render-tab-estimates}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the formatted estimates table (gt).
+if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
+```
+
+```{r single-trial-null-render-bootstrap-table}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the bias-corrected bootstrap-results table (gt).
+if (!is.null(fs$sg.harm)) summaries$table
+```
+
+```{r single-trial-null-render-pareto-table}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the Pareto frontier table.  pareto_frontier_table() may return
+# a gt_tbl (normal case), a data.table (fallback when gt is missing), or
+# NULL (no consistency output).  All three behave correctly via auto-print.
+if (!is.null(fs$sg.harm)) {
+  pareto_frontier_table(
+    fs,
+    ci_table      = ci_tab,
+    digits_effect = frontier_params$digits_effect,
+    digits_pcons  = frontier_params$digits_pcons,
+    digits_ci     = frontier_params$digits_ci
+  )
+}
+```
+
+```{r single-trial-null-render-explain}
+#| eval: !expr run_single_trial
+#| echo: false
+#| results: asis
+# Markdown explanation -- results: asis allows cat() output to flow through
+# as markdown rather than being captured into a <pre> block.  Safe here
+# because the explanation is intentional markdown.
+if (!is.null(fs$sg.harm)) cat(explain_pareto_selection(fs, ci_table = ci_tab))
+```
+
+```{r fs-loo-setup-null}
+#| eval: !expr run_single_trial
+# Define run_loo BEFORE the LOO run chunk so its #| eval: directive can
+# reference it.  Chunk options are evaluated before the chunk body, so
+# run_loo must already exist in the global env when knitr resolves the
+# next chunk's options.
+#
+# skip_loo is the explicit negation -- defined here so the downstream
+# "LOO skipped" note can gate on a plain identifier rather than the
+# expression !run_loo, which trips Quarto's YAML validator
+# (it parses `!expr !run_loo` as a string, not the expected tagged form).
+run_loo   <- !is.null(fs$sg.harm)
+skip_loo  <- !run_loo
+```
+
+```{r fs-loo-run-null}
+#| eval: !expr run_single_trial && run_loo
+
+t0 <- proc.time()
+
+# LOO is triggered by Kfolds = N (the function default behavior at
+# forestsearch_cross_validation.R:109).  We pass it explicitly here for
+# clarity.
+N_loo <- nrow(fs$df.est)
+
+fs_loo_result <- forestsearch_Kfold(
+  fs.est        = fs,
+  Kfolds        = N_loo,
+  seedit        = analysis_seed,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_workers,
+    show_message = TRUE
+  ),
+  details       = FALSE
+)
+
+plan("sequential"); gc(verbose = FALSE)
+timings$loo_null <- as.numeric((proc.time() - t0)["elapsed"])
+
+cat("\nLOO completed in", round(timings$loo_null / 60, 2), "minutes",
+    sprintf("(N folds = %d, n_workers = %d)\n", N_loo, n_workers))
+```
+
+```{r fs-loo-skipped-note-null}
+#| eval: !expr run_single_trial && skip_loo
+
+cat("> **LOO skipped.** No harm subgroup was identified in the ",
+    "full-analysis FS run (`fs$sg.harm` is `NULL`), so leave-one-out ",
+    "cross-validation has nothing to evaluate.\n", sep = "")
+```
+
+### LOO Summary
+
+```{r fs-loo-summary-text-null}
+#| eval: !expr run_single_trial && run_loo
+
+cat(cv_summary_text(fs_loo_result, est.scale = "hr"), "\n")
+cat(sprintf("Subgroup found in %.0f%% of %d folds.\n",
+            fs_loo_result$prop_SG_found, N_loo))
+```
+
+### LOO Tables
+
+The `cv_summary_tables()` helper returns five publication-ready `gt`
+tables. The first is the combined ITT + subgroup view; the next three
+are component estimation tables (ITT, full-analysis subgroup, LOO
+                                 subgroup) that show the underlying treatment-effect estimates with
+confidence intervals.
+
+```{r fs-loo-tables-null}
+#| eval: !expr run_single_trial && run_loo
+
+loo_out  <- forestsearch_KfoldOut(fs_loo_result, outall = TRUE,
+                                  digits = 2)
+loo_tabs <- cv_summary_tables(
+  loo_out,
+  title    = "ACTG175 Leave-One-Out CV Summary (Binary, OR)",
+  subtitle = sprintf("ITT and Subgroup Estimates: Full Analysis (FA) vs LOO (N=%d)",
+                     N_loo),
+  digits   = 2,
+  use_gt   = TRUE
+)
+```
+
+```{r fs-loo-tables-render-null}
+#| eval: !expr run_single_trial
+#| echo: false
+# Render the LOO CV-summary table (gt).  Same auto-print pattern as
+# single-trial-null-render-bootstrap-table -- the gt object is the
+# last (and only) expression of the chunk, which is the only path
+# that reliably triggers knit_print.gt_tbl in Quarto.
+# Guarded by run_loo: when LOO was skipped, the if-block returns
+# invisible(NULL) and `loo_tabs` is never referenced (short-circuit),
+# so it's safe even though loo_tabs is undefined in that case.
+if (run_loo) loo_tabs$combined_table
+```
+
+
+# Timing Summary
+
+```{r timing}
+#| echo: false
+
+# Comprehensive timing summary: aggregates bootstrap, LOO, and
+# simulation-loop wall-clock times across H1 and H0 branches.  Any slot
+# left unset (e.g. when fs$sg.harm is NULL and the bootstrap was
+# skipped, or when run_loo = FALSE) is rendered as "—" in the table.
+#
+# In sim_mode == "import", t_alt/t_null are restored from the bundle's
+# meta block (see mode-handoff chunk); bootstrap and LOO timings come
+# from the current session's computation chunks.
+
+# Defensive: timings list should exist from the setup chunk; create
+# empty if for some reason it doesn't (e.g. caller skipping setup).
+if (!exists("timings", inherits = FALSE) || !is.list(timings)) {
+  timings <- list()
+}
+
+# Convert a stored seconds value to minutes; return NA when not set.
+.timing_min <- function(slot) {
+  v <- timings[[slot]]
+  if (is.null(v) || !is.numeric(v) || length(v) == 0L || is.na(v)) {
+    return(NA_real_)
+  }
+  as.numeric(v) / 60
+}
+
+sim_alt_min  <- if (exists("t_alt",  inherits = FALSE) &&
+                    is.numeric(t_alt))  t_alt  / 60 else NA_real_
+sim_null_min <- if (exists("t_null", inherits = FALSE) &&
+                    is.numeric(t_null)) t_null / 60 else NA_real_
+
+# Per-branch component breakdown
+bs_alt  <- .timing_min("bootstrap_alt")
+loo_alt <- .timing_min("loo_alt")
+bs_nul  <- .timing_min("bootstrap_null")
+loo_nul <- .timing_min("loo_null")
+
+subtotal_alt  <- sum(c(bs_alt,  loo_alt,  sim_alt_min),  na.rm = TRUE)
+subtotal_null <- sum(c(bs_nul,  loo_nul,  sim_null_min), na.rm = TRUE)
+grand_total   <- subtotal_alt + subtotal_null
+
+timing_dt <- data.frame(
+  Component  = c("Bootstrap (single-trial)",
+                 "LOO cross-validation",
+                 "Simulation loop",
+                 "Subtotal"),
+  H1         = c(bs_alt,  loo_alt,  sim_alt_min,  subtotal_alt),
+  H0         = c(bs_nul,  loo_nul,  sim_null_min, subtotal_null),
+  stringsAsFactors = FALSE
+)
+
+timing_gt <- gt::gt(timing_dt) |>
+  gt::tab_header(
+    title    = "Timing Summary (wall-clock minutes)",
+    subtitle = sprintf(
+      "Mode = %s; nsims_alt = %d, nsims_null = %d; total runtime = %.2f min (%.2f hr)",
+      sim_mode, nsims_alt, nsims_null,
+      grand_total, grand_total / 60)
+  ) |>
+  gt::cols_label(
+    Component = "Component",
+    H1        = "H1 (alt)",
+    H0        = "H0 (null)"
+  ) |>
+  gt::fmt_number(columns = c("H1", "H0"), decimals = 2) |>
+  gt::sub_missing(columns = c("H1", "H0"), missing_text = "—") |>
+  gt::tab_style(
+    style     = gt::cell_text(weight = "bold"),
+    locations = gt::cells_body(rows = Component == "Subtotal")
+  ) |>
+  gt::tab_style(
+    style     = gt::cell_borders(sides = "top", weight = gt::px(2)),
+    locations = gt::cells_body(rows = Component == "Subtotal")
+  ) |>
+  gt::tab_source_note(
+    sprintf("Subtotals sum the three components per branch; '—' indicates a section that did not run (e.g. no harm subgroup identified, or run_loo = FALSE).")
+  )
+
+# Reset parallel plan before emitting the table (side-effect call
+# placed first so the gt object is the final expression -- this is the
+# only path knitr auto-prints reliably for gt_tbl).
+plan(sequential)
+
+timing_gt
+```
+
+# Appendix: The Pareto frontier in subgroup selection
+
+# The dominance rule
+
+Both objectives --- effect size and sample size --- are *maximized*. A
+candidate $i$ is **dominated** if some other candidate $j$ is at least as
+good on both axes and strictly better on at least one:
+
+$$
+\text{dominated}(i) \;\Longleftrightarrow\;
+\exists\, j \neq i:\;
+\mathrm{hr}_j \ge \mathrm{hr}_i \;\wedge\; N_j \ge N_i
+\;\wedge\; (\mathrm{hr}_j > \mathrm{hr}_i \;\vee\; N_j > N_i).
+$$
+
+The **Pareto frontier** is the set of non-dominated candidates --- the
+upper-right boundary of the cloud. The package implements this as an
+$O(n^2)$ scan in `.pareto_dominated_xy()`; candidates with a missing
+effect or size are treated as dominated. The function below is a
+faithful mirror of that internal helper, kept local so this document
+renders without the package; the validation section confirms the two
+agree.
+
+```{r dominance}
+# Mirror of forestsearch internal .pareto_dominated_xy(): both axes maximized.
+dominated_xy <- function(x, y) {
+  n <- length(x)
+  dom <- logical(n)
+  for (i in seq_len(n)) {
+    if (is.na(x[i]) || is.na(y[i])) { dom[i] <- TRUE; next }
+    for (j in seq_len(n)) {
+      if (i == j) next
+      if (is.na(x[j]) || is.na(y[j])) next
+      if (x[j] >= x[i] && y[j] >= y[i] && (x[j] > x[i] || y[j] > y[i])) {
+        dom[i] <- TRUE
+        break
+      }
+    }
+  }
+  dom
+}
+```
+
+# How the band is formed
+
+`.compute_inclusion_band()` builds two indicators and multiplies them:
+
+```r
+in_nbhd   <- (hr >= (1 - effect_neighborhood) * max(hr))   # 1-D effect band
+in_pareto <- !dominated_xy(hr, N)                          # 2-D frontier
+in_band   <- in_nbhd * in_pareto
+```
+
+Each `selection_rule` switches the two components on or off:
+
+| `selection_rule` | `in_nbhd` | `in_pareto` | `in_band` is |
+|---|---|---|---|
+| `"neighborhood"` | active | all ones | the effect band only |
+| `"pareto"` | all ones | active | the frontier only |
+| `"both"` | active | active | their intersection |
+
+For ratio measures stored on the log scale (GLM OR/IRR), `hr` is
+exponentiated before either test so the comparison is on the natural
+scale; Cox HR is already natural. The neighborhood floor is a *relative*
+tolerance: with `effect_neighborhood = 0.10` a candidate is in-band iff
+its effect is within 10% of the strongest effect among the survivors.
+Setting it to `0` collapses the band to a strict max-effect filter.
+
+# From inclusion to selection
+
+`sort_subgroups()` orders the candidates by a five-key lexicographic
+sort and takes the top row. For `"hrMaxSG"` the key is
+
+$$
+(-\,\texttt{in\_band},\; -N,\; -\texttt{Pcons},\; -\texttt{hr},\; K),
+$$
+
+so: in-band candidates first; then the largest $N$; then higher
+consistency; then higher effect; then fewer factors. `"hrMinSG"` is
+identical except $N$ is minimized. Only `in_band` depends on
+`selection_rule` --- the sort itself is fixed.
+
+For the worked set, every rule that keeps `C` selects it (largest $N$ in
+the band), so the **top pick is `C`** under `"neighborhood"` and
+`"both"` alike; the rules differ only in whether `E` carries an in-band
+flag in the diagnostic table.
+
+## Where the rules genuinely diverge
+
+The top selection differs only in a narrow corner: when two candidates
+**tie on the maximum band $N$**, because the sort breaks $N$-ties by
+consistency *before* effect, whereas Pareto dominance looks only at
+(effect, $N$).
+
+```{r corner}
+corner <- data.table(
+  id    = c("T", "D"),
+  Pcons = c(0.95, 0.80),
+  hr    = c(2.30, 2.45),
+  N     = c(150L, 150L),
+  K     = c(1L,   1L)
+)
+corner[]
+```
+
+`D` dominates `T` (equal $N$, higher HR). Under `"neighborhood"` both are
+in-band, they tie on $N$, and the consistency tier keeps the
+higher-`Pcons` candidate `T`. Under `"both"`, `T` is off the frontier and
+excluded, so the higher-effect `D` is selected.
+
+```{r corner-eval}
+if (have_fs) {
+  top_pick <- function(rule) {
+    s <- forestsearch::sort_subgroups(
+      data.table::copy(corner), "hrMaxSG",
+      selection_rule = rule, effect_neighborhood = EFFECT_NEIGHBORHOOD)
+    s$id[1L]
+  }
+  data.table(selection_rule = c("neighborhood", "both"),
+             top_pick = vapply(c("neighborhood", "both"), top_pick, character(1)))
+} else {
+  cat("forestsearch not installed; expected: neighborhood -> T, both -> D.\n")
+}
+```
+
+So `"both"` refuses to settle on a point another candidate beats on both
+axes, even when it won the consistency tie; `"neighborhood"` will keep
+the higher-consistency point.
+
+# Validation against the package
+
+Confirm the local frontier and band computations agree with the
+shipped internals, and that `compute_pareto_frontier()` returns the
+expected non-dominated rows.
+
+```{r validate}
+if (have_fs) {
+  .ok <- function(lbl, cond)
+    cat(if (isTRUE(cond)) "PASS" else "FAIL", "-", lbl, "\n")
+
+  dt_hn <- cands[, .(hr, N)]
+
+  pkg_dom <- forestsearch:::pareto_dominated_flags(dt_hn)
+  .ok("dominated flags match .pareto_dominated_xy mirror",
+      identical(pkg_dom, cands$dominated))
+
+  pkg_nbhd <- forestsearch:::.compute_inclusion_band(
+    cands$hr, cands$N, "neighborhood", EFFECT_NEIGHBORHOOD)
+  .ok("neighborhood band matches",
+      identical(as.logical(pkg_nbhd), cands$in_nbhd))
+
+  pkg_both <- forestsearch:::.compute_inclusion_band(
+    cands$hr, cands$N, "both", EFFECT_NEIGHBORHOOD)
+  .ok("both band matches in_nbhd & on_frontier",
+      identical(as.logical(pkg_both), cands$in_both))
+
+  fr <- forestsearch:::compute_pareto_frontier(dt_hn)
+  .ok("compute_pareto_frontier returns the non-dominated set",
+      setequal(fr$hr, cands[on_frontier == TRUE, hr]))
+} else {
+  cat("forestsearch not installed; validation skipped.\n")
+}
+```
+
+# Practical guidance
+
+* `"neighborhood"` (default) asks only "is the effect close to the
+  best?" then maximizes $N$. It can keep a high-consistency candidate
+  that another point beats on both effect and size.
+* `"pareto"` removes the `effect_neighborhood` tuning parameter
+  entirely and selects on the (effect, $N$) trade-off alone --- but
+  without the effect floor it will admit large-$N$, weak-effect points
+  (like `F`) that the band is designed to exclude.
+* `"both"` is the conservative choice: it keeps the effect floor *and*
+  refuses dominated points. The in-band set under `"both"` is always a
+  subset of the one under `"neighborhood"`.
+
+The frontier here is an inclusion filter, not a stand-alone selection
+criterion: the chosen subgroup still comes from the five-key sort, and
+under `"hrMinSG"` the selected point may deliberately be $N$-dominated
+(small subgroups are preferred). For a post-hoc *reporting* view of the
+frontier independent of `sg_focus`, use `compute_pareto_frontier()` /
+`pareto_frontier_table()`.
+
+## Relationship to `dina_subgroup()`
+
+The DINA `effMaxSG`/`effMinSG` foci reuse the same
+`.compute_inclusion_band()` core, but only with
+`selection_rule = "neighborhood"` --- DINA's univariate threshold
+candidates form a simple effect-versus-size trade-off where the 1-D band
+suffices. The `"pareto"`/`"both"` frontier variants are forestsearch-only
+today; extending them to DINA would be a deliberate addition.
+

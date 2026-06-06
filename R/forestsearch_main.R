@@ -342,6 +342,19 @@
 #'   semantics.  Variables not listed retain default behaviour.
 #'   Forwarded to \code{\link{get_FSdata}} via \code{filter_call_args()};
 #'   see there for full semantics.
+#' @param collapse_cuts Logical.  If TRUE, collapse near-redundant continuous
+#'   candidate cuts before the search.  Continuous covariates can generate many
+#'   thresholds that are practically redundant (e.g. \code{"age <= 35.7"} and
+#'   \code{"age <= 35"}); when enabled, cuts on the same variable and operator
+#'   within a per-variable standard-error band are merged to a single
+#'   rounded-centroid threshold, subject to a membership safety check.
+#'   Forwarded to \code{\link{get_FSdata}}; see \code{\link{collapse_redundant_cuts}}
+#'   for the algorithm.  Default FALSE (fully backward-compatible).
+#' @param collapse_cuts_args List of overrides merged onto the defaults
+#'   \code{list(c = 1.0, tol = 0.05, digits = 0L)}: band multiplier \code{c}
+#'   (\code{band = c * sd(x)/sqrt(n)}), membership safety tolerance \code{tol}
+#'   (fraction of n when < 1, absolute count when >= 1), and representative
+#'   rounding \code{digits}.  Ignored when \code{collapse_cuts = FALSE}.
 #' @param n.min Integer or \code{NULL}. Minimum subgroup size. Default 60.
 #'   Supplying a value (or omitting the argument) uses that fixed floor, as in
 #'   prior versions. Passing \code{n.min = NULL} opts into a sample-size-adaptive
@@ -728,6 +741,8 @@ forestsearch <- function(df.analysis,
                          conf.cont_medians = NULL,
                          conf.cont_medians_force = NULL,
                          conf.cont_jcuts = NULL,
+                         collapse_cuts = FALSE,
+                         collapse_cuts_args = list(),
                          n.min = 60,
                          n.min.frac = 0.10,
                          effect.threshold = NULL,
@@ -1679,17 +1694,20 @@ forestsearch <- function(df.analysis,
       }
 
       if (details) {
-        # Concise GRF summary: subgroup found + cuts
+        # Concise GRF summary: subgroup found + cuts.  tidy_cut_display() is
+        # display-only (collapses padding, rounds thresholds to integer to match
+        # collapse_cuts); the underlying grf_cuts / sg.harm.id are unchanged.
         grf_sg <- grf_res$sg.harm.id
         if (!is.null(grf_sg) && length(grf_sg) > 0 &&
             !all(is.na(grf_sg)) && !all(grf_sg == "")) {
-          cat("GRF subgroup:", paste(grf_sg, collapse = " & "), "\n")
+          cat("GRF subgroup:",
+              tidy_cut_display(paste(grf_sg, collapse = " & ")), "\n")
         } else {
           cat("GRF: no subgroup identified\n")
         }
         cat("GRF cuts identified:", length(grf_cuts), "\n")
         if (length(grf_cuts) > 0) {
-          cat("  Cuts:", paste(grf_cuts, collapse = ", "), "\n")
+          cat("  Cuts:", paste(tidy_cut_display(grf_cuts), collapse = ", "), "\n")
         }
       }
 

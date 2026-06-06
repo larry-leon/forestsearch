@@ -44,6 +44,8 @@ forestsearch(
   conf.cont_medians = NULL,
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
+  collapse_cuts = FALSE,
+  collapse_cuts_args = list(),
   n.min = 60,
   n.min.frac = 0.1,
   effect.threshold = NULL,
@@ -263,6 +265,21 @@ variables bypass LASSO filtering, matching \code{defaultcut_names}
 semantics.  Variables not listed retain default behaviour.
 Forwarded to \code{\link{get_FSdata}} via \code{filter_call_args()};
 see there for full semantics.}
+
+\item{collapse_cuts}{Logical.  If TRUE, collapse near-redundant continuous
+candidate cuts before the search.  Continuous covariates can generate many
+thresholds that are practically redundant (e.g. \code{"age <= 35.7"} and
+\code{"age <= 35"}); when enabled, cuts on the same variable and operator
+within a per-variable standard-error band are merged to a single
+rounded-centroid threshold, subject to a membership safety check.
+Forwarded to \code{\link{get_FSdata}}; see \code{\link{collapse_redundant_cuts}}
+for the algorithm.  Default FALSE (fully backward-compatible).}
+
+\item{collapse_cuts_args}{List of overrides merged onto the defaults
+\code{list(c = 1.0, tol = 0.05, digits = 0L)}: band multiplier \code{c}
+(\code{band = c * sd(x)/sqrt(n)}), membership safety tolerance \code{tol}
+(fraction of n when < 1, absolute count when >= 1), and representative
+rounding \code{digits}.  Ignored when \code{collapse_cuts = FALSE}.}
 
 \item{n.min}{Integer or \code{NULL}. Minimum subgroup size. Default 60.
 Supplying a value (or omitting the argument) uses that fixed floor, as in
