@@ -1,0 +1,212 @@
+---
+title: "Collapsing Near-Redundant Continuous Cuts: Synthetic ACTG175 Demo"
+format: html
+---
+
+```{r setup}
+#| include: false
+
+# ===========================================================================
+#  PARAMETERS  --  single source of truth for this demo.
+# ===========================================================================
+
+## -- Synthetic data ----------------------------------------------------------
+demo_n    <- 1000L          # synthetic sample size (band scales as sd/sqrt(n))
+demo_seed <- 8316951L
+
+## -- Coarsening knobs to demonstrate -----------------------------------------
+# band = c * sd(x) / sqrt(n);  representative = round-half-up(mean(cluster), digits);
+# a cluster collapses only if <= tol subjects change membership (tol < 1 = fraction
+# of n, tol >= 1 = absolute count).  These are the collapse_cuts_args defaults plus
+# a small sweep on c so the band's effect is visible.
+collapse_default <- list(c = 1.0, tol = 0.05, digits = 0L)
+collapse_sweep_c <- c(1.0, 2.0, 3.0)
+
+library(forestsearch)
+
+# Internal helper (not exported); triple-colon per package convention.
+collapse_fn <- forestsearch:::collapse_redundant_cuts
+```
+
+This demo shows how the opt-in cut-coarsening behaves on a candidate pool that
+mimics the ACTG175 binary-harm run. Coarsening is governed by
+`collapse_cuts = TRUE` and `collapse_cuts_args` in `forestsearch()` /
+`get_FSdata()`; the engine is `forestsearch:::collapse_redundant_cuts()`.
+
+# Synthetic ACTG175-like covariates
+
+The synthetic generator reproduces the *marginal scale* of the real covariates
+(means / sds), which is all the coarsening band depends on: `band = c · sd(x) / √n`.
+Binary indicators get two levels (so they are never coarsened).
+
+```{r synth-data}
+set.seed(demo_seed)
+n <- demo_n
+
+synth_actg <- data.frame(
+  # -- continuous (coarsenable; >= 4 unique values) --------------------------
+  age     = round(rnorm(n, 35.0,   8.7)),
+  wtkg    = round(rnorm(n, 75.0,  13.3), 1),
+  cd40    = round(pmax(rnorm(n, 350,  120), 0)),
+  cd80    = round(pmax(rnorm(n, 986,  480), 0)),
+  karnof  = sample(c(70, 80, 90, 100), n, replace = TRUE,
+                   prob = c(.03, .07, .45, .45)),
+  preanti = round(pmax(rnorm(n, 380,  470), 0)),
+  # -- binary indicators (pass through untouched) ---------------------------
+  hemo = rbinom(n, 1, .08), homo = rbinom(n, 1, .66),
+  drugs = rbinom(n, 1, .13), race = rbinom(n, 1, .29),
+  gender = rbinom(n, 1, .82), symptom = rbinom(n, 1, .17),
+  ar_naive = rbinom(n, 1, .54), prior_6mo = rbinom(n, 1, .50)
+)
+
+knitr::kable(
+  data.frame(
+    variable = c("age", "wtkg", "cd40", "cd80", "karnof", "preanti"),
+    sd       = round(sapply(synth_actg[c("age","wtkg","cd40","cd80","karnof","preanti")],
+                            sd), 2),
+    `band (c=1)` = round(sapply(synth_actg[c("age","wtkg","cd40","cd80","karnof","preanti")],
+                                function(x) sd(x) / sqrt(n)), 3),
+    check.names = FALSE
+  ),
+  caption = "Per-variable standard-error band at c = 1 (the merge resolution)."
+)
+```
+
+# The candidate pool from the attached run
+
+These are the exact 44 candidate factors printed by the ACTG175 run, including
+the J-quantile `cd40`/`preanti` cuts, the full-precision GRF/DGM cuts
+(`wtkg <= 79.8336`), the DINA cut (`wtkg >= 87.2`), and the bare categorical
+factors.
+
+```{r candidate-pool}
+candidate_cuts <- c(
+  "cd40 <= 320",    "wtkg <= 79.8336", "wtkg >= 87.2",   "cd40 <= 202.8",
+  "cd40 <= 239",    "cd40 <= 269.5",   "cd40 <= 295",    "cd40 <= 321",
+  "cd40 <= 353.9",  "cd40 <= 384",     "cd40 <= 415",    "cd40 <= 450",
+  "cd40 <= 504",    "preanti <= 0",    "preanti <= 39",  "preanti <= 203.9",
+  "preanti <= 406", "preanti <= 676",  "preanti <= 872", "preanti <= 1049",
+  "age <= 35.7",    "age <= 35",       "age <= 30",      "age <= 40",
+  "wtkg <= 75.2",   "wtkg <= 74.5",    "wtkg <= 66.7",   "wtkg <= 82.6",
+  "karnof <= 95.1", "karnof <= 90",    "cd80 <= 956.1",  "cd80 <= 895.5",
+  "cd80 <= 639",    "cd80 <= 1170",    "hemo",           "homo",
+  "drugs",          "race",            "gender",         "symptom",
+  "ar_naive",       "prior_6mo",       "ar_naive == 1"
+)
+length(candidate_cuts)
+```
+
+# Coarsening at the default (`c = 1`, `tol = 0.05`, `digits = 0`)
+
+```{r collapse-default}
+collapsed <- collapse_fn(
+  cuts             = candidate_cuts,
+  df               = synth_actg,
+  c_band           = collapse_default$c,
+  safety_tol       = collapse_default$tol,
+  digits           = collapse_default$digits,
+  details          = TRUE   # prints the per-cluster collapse report
+)
+```
+
+```{r collapse-default-side-by-side}
+maxlen <- max(length(candidate_cuts), length(collapsed))
+pad    <- function(x, k) c(x, rep("", k - length(x)))
+knitr::kable(
+  data.frame(
+    `before (44)`            = pad(candidate_cuts, maxlen),
+    `after  (collapsed)`     = pad(collapsed,       maxlen),
+    check.names = FALSE
+  ),
+  caption = sprintf("Before vs after: %d -> %d candidate factors.",
+                    length(candidate_cuts), length(collapsed))
+)
+```
+
+Two things are happening, and the attached examples exercise both:
+
+- **Rounding then de-duplication.** `wtkg <= 75.2` and `wtkg <= 74.5` are more
+  than one standard-error apart, so the band does *not* cluster them — but at
+  `digits = 0` both round to `wtkg <= 75`, and the duplicate is dropped. Full
+  precision cuts are also cleaned up (`wtkg <= 79.8336 -> wtkg <= 80`,
+  `cd40 <= 202.8 -> cd40 <= 203`, `karnof <= 95.1 -> karnof <= 95`).
+- **Band clustering.** `cd40 <= 320` and `cd40 <= 321` sit inside the `cd40`
+  band (~3-4 cells at `c = 1`), so they cluster and collapse to a single
+  rounded-centroid threshold.
+
+Binary indicators (`gender`, `hemo`, …) and equality tests (`ar_naive == 1`)
+are never coarsened.
+
+# Effect of the band multiplier `c`
+
+`age <= 35.7` and `age <= 35` round to *different* integers (36 and 35), so
+rounding alone leaves them distinct. They only merge once `c` widens the band
+past their 0.7-year gap.
+
+```{r collapse-sweep}
+sweep <- lapply(collapse_sweep_c, function(cc) {
+  collapse_fn(candidate_cuts, synth_actg,
+              c_band = cc, safety_tol = collapse_default$tol,
+              digits = collapse_default$digits, details = FALSE)
+})
+knitr::kable(
+  data.frame(
+    c                 = collapse_sweep_c,
+    `n_candidates`    = vapply(sweep, length, integer(1)),
+    `age cuts kept`   = vapply(sweep, function(s)
+      paste(grep("^age", s, value = TRUE), collapse = "; "), character(1)),
+    check.names = FALSE
+  ),
+  caption = "Raising c merges the age pair (35.7, 35) once the band exceeds their gap."
+)
+```
+
+# Integration check through `get_FSdata()`
+
+The same coarsening runs inside the package when `collapse_cuts = TRUE`. Here we
+drive `get_FSdata()` directly with J-quantile cuts plus supplied GRF/DINA cuts
+(no LASSO/GRF fitting, so the candidate pool is deterministic), and compare the
+returned candidate factors with coarsening off vs on.
+
+```{r end-to-end}
+#| warning: false
+synth_actg$y_sim     <- rbinom(n, 1, 0.3)
+synth_actg$treat_sim <- rbinom(n, 1, 0.5)
+
+covs <- c("age", "wtkg", "cd40", "cd80", "karnof", "preanti",
+          "hemo", "homo", "drugs", "race", "gender", "symptom",
+          "ar_naive", "prior_6mo")
+
+fs_args <- list(
+  df.analysis      = synth_actg,
+  confounders.name = covs,
+  outcome.name     = "y_sim", event.name = "y_sim", treat.name = "treat_sim",
+  outcome_type     = "binary",
+  use_lasso        = FALSE,
+  use_grf          = TRUE,
+  grf_cuts         = c("cd40 <= 320", "gender <= 0", "wtkg <= 79.8336"),
+  dina_cuts        = "wtkg >= 87.2",
+  conf.cont_jcuts  = list(cd40 = 10, preanti = 10),
+  details          = FALSE
+)
+
+fs_off <- do.call(get_FSdata, c(fs_args, list(collapse_cuts = FALSE)))
+fs_on  <- do.call(get_FSdata,
+                  c(fs_args, list(collapse_cuts = TRUE,
+                                  collapse_cuts_args = collapse_default)))
+
+cat(sprintf("Candidate factors  off: %d   on: %d\n",
+            length(fs_off$confs), length(fs_on$confs)))
+```
+
+```{r end-to-end-tables}
+maxlen <- max(length(fs_off$confs), length(fs_on$confs))
+knitr::kable(
+  data.frame(
+    `collapse_cuts = FALSE` = pad(sort(fs_off$confs), maxlen),
+    `collapse_cuts = TRUE`  = pad(sort(fs_on$confs),  maxlen),
+    check.names = FALSE
+  ),
+  caption = "get_FSdata() candidate factors: coarsening off vs on."
+)
+```
