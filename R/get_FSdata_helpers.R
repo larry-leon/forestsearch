@@ -539,6 +539,52 @@ collapse_cuts_fmt <- function(v, digits = 0L) {
   trimws(s)
 }
 
+#' Tidy a cut / subgroup expression for display
+#'
+#' Display-only cleanup for diagnostic printing of cut and subgroup-definition
+#' strings.  Collapses runs of whitespace to single spaces (so padded GRF
+#' definitions like \code{"cd40 <=                320"} render cleanly) and
+#' rounds each post-operator numeric threshold half-up to \code{digits} places
+#' (matching the \code{collapse_cuts} representative rounding, e.g.
+#' \code{"wtkg > 79.833600000000004"} -> \code{"wtkg > 80"} at \code{digits = 0}).
+#'
+#' Only numbers that follow a comparison operator (\code{<=}, \code{>=},
+#' \code{==}, \code{<}, \code{>}) are rounded, so integers embedded in variable
+#' names (\code{cd40}, \code{prior_6mo}) are never altered.  This function does
+#' NOT touch the canonical, membership-exact labels used in the search; it is
+#' intended only for the diagnostic strings passed to \code{cat()}.
+#'
+#' @param s Character vector of expressions, e.g.
+#'   \code{"cd40 <=    320 & wtkg > 79.8336"}.
+#' @param digits Integer >= 0.  Rounding for embedded thresholds.  Default 0
+#'   (nearest integer), matching the \code{collapse_cuts} default.
+#' @return Character vector, tidied for display (same length as \code{s}).
+#' @keywords internal
+
+tidy_cut_display <- function(s, digits = 0L) {
+  if (length(s) == 0L) return(s)
+  pat <- "(<=|>=|==|<|>)\\s*(-?[0-9.]+([eE][-+]?[0-9]+)?)"
+  vapply(s, function(x) {
+    if (is.na(x) || !nzchar(x)) return(x)
+    x <- gsub("[[:space:]]+", " ", x)            # collapse padding
+    m <- gregexpr(pat, x, perl = TRUE)[[1L]]
+    if (m[1L] == -1L) return(trimws(x))
+    L <- attr(m, "match.length")
+    for (i in rev(seq_along(m))) {               # right-to-left: positions stay valid
+      tok <- substr(x, m[i], m[i] + L[i] - 1L)
+      gp  <- regmatches(tok, regexec(
+        "^(<=|>=|==|<|>)\\s*(-?[0-9.]+([eE][-+]?[0-9]+)?)$", tok))[[1L]]
+      if (length(gp) < 3L) next
+      num <- suppressWarnings(as.numeric(gp[3L]))
+      if (is.na(num)) next
+      rep <- paste0(gp[2L], " ",
+                    collapse_cuts_fmt(collapse_cuts_round(num, digits), digits))
+      x <- paste0(substr(x, 1L, m[i] - 1L), rep, substr(x, m[i] + L[i], nchar(x)))
+    }
+    trimws(x)
+  }, character(1), USE.NAMES = FALSE)
+}
+
 #' Collapse near-redundant continuous candidate cuts
 #'
 #' Continuous covariates can generate many candidate threshold cuts that are
