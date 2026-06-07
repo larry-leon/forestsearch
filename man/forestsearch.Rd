@@ -44,7 +44,7 @@ forestsearch(
   conf.cont_medians = NULL,
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
-  collapse_cuts = FALSE,
+  collapse_cuts = TRUE,
   collapse_cuts_args = list(),
   n.min = 60,
   n.min.frac = 0.1,
@@ -273,7 +273,8 @@ thresholds that are practically redundant (e.g. \code{"age <= 35.7"} and
 within a per-variable standard-error band are merged to a single
 rounded-centroid threshold, subject to a membership safety check.
 Forwarded to \code{\link{get_FSdata}}; see \code{\link{collapse_redundant_cuts}}
-for the algorithm.  Default FALSE (fully backward-compatible).}
+for the algorithm.  Default TRUE.  Pass \code{collapse_cuts = FALSE} to
+recover the un-coarsened candidate pool used by earlier package versions.}
 
 \item{collapse_cuts_args}{List of overrides merged onto the defaults
 \code{list(c = 1.0, tol = 0.05, digits = 0L)}: band multiplier \code{c}

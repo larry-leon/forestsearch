@@ -16,8 +16,9 @@
 #'   within a per-variable standard-error band are merged to a single
 #'   rounded-centroid threshold, subject to a membership safety check; see
 #'   \code{\link{collapse_redundant_cuts}}.  Categorical, indicator, bare-name
-#'   and equality cuts are untouched.  Default FALSE (no coarsening; fully
-#'   backward-compatible).
+#'   and equality cuts are untouched.  Default TRUE; pass
+#'   \code{collapse_cuts = FALSE} to recover the un-coarsened candidate pool
+#'   used by earlier package versions.
 #' @param collapse_cuts_args List of overrides for the coarsening, merged onto
 #'   the defaults \code{list(c = 1.0, tol = 0.05, digits = 0L)}: \code{c} is the
 #'   band multiplier (\code{band = c * sd(x)/sqrt(n)}), \code{tol} the
@@ -84,7 +85,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
                        cont.cutoff = 4,conf_force = NULL, conf.cont_medians = NULL, conf.cont_medians_force = NULL,
                        conf.cont_jcuts = NULL,
                        dina_cuts = NULL,
-                       collapse_cuts = FALSE, collapse_cuts_args = list(),
+                       collapse_cuts = TRUE, collapse_cuts_args = list(),
                        replace_med_grf = TRUE, defaultcut_names = NULL, cut_type = "default", exclude_cuts = NULL,
                        outcome.name = "tte", event.name = "event", details=TRUE,
                        outcome_type = "survival", offset.name = NULL){
@@ -532,7 +533,8 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   # redundant and merged to a single rounded-centroid threshold, subject to a
   # membership safety check.  Operates on the fully-resolved literal-numeric
   # candidate pool; categorical / indicator / bare-name cuts are untouched.
-  # Off by default (collapse_cuts = FALSE) -> fully backward-compatible.
+  # On by default (collapse_cuts = TRUE); pass collapse_cuts = FALSE to recover
+  # the un-coarsened candidate pool used by earlier package versions.
   if (isTRUE(collapse_cuts) && length(confs) > 0L) {
     .cca <- utils::modifyList(
       list(c = 1.0, tol = 0.05, digits = 0L), collapse_cuts_args)

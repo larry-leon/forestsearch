@@ -16,7 +16,7 @@ get_FSdata(
   conf.cont_medians_force = NULL,
   conf.cont_jcuts = NULL,
   dina_cuts = NULL,
-  collapse_cuts = FALSE,
+  collapse_cuts = TRUE,
   collapse_cuts_args = list(),
   replace_med_grf = TRUE,
   defaultcut_names = NULL,
@@ -70,8 +70,9 @@ numerics.  Cuts on the same variable and operator whose thresholds lie
 within a per-variable standard-error band are merged to a single
 rounded-centroid threshold, subject to a membership safety check; see
 \code{\link{collapse_redundant_cuts}}.  Categorical, indicator, bare-name
-and equality cuts are untouched.  Default FALSE (no coarsening; fully
-backward-compatible).}
+and equality cuts are untouched.  Default TRUE; pass
+\code{collapse_cuts = FALSE} to recover the un-coarsened candidate pool
+used by earlier package versions.}
 
 \item{collapse_cuts_args}{List of overrides for the coarsening, merged onto
 the defaults \code{list(c = 1.0, tol = 0.05, digits = 0L)}: \code{c} is the
