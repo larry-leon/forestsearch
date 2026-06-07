@@ -738,6 +738,64 @@ if (!is.null(fs_single$sg.harm)) fs_single_tabs$sg10_out
 if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
 ```
 
+```{r single-trial-alt-manual-adjust-check}
+#| eval: !expr run_single_trial
+#| code-fold: true
+#| code-summary: "Manual check: does the reported subgroup OR reflect cd40/wtkg adjustment? (click to expand)"
+# Independent verification that the reported subgroup OR is on the COVARIATE-
+# ADJUSTED scale.  We re-fit the within-subgroup treatment effect by hand --
+# once unadjusted (y ~ treat) and once adjusted (y ~ treat + adjust_covariates)
+# -- straight from glm(), and compare both to forestsearch's reported estimate.
+# In an RCT the two manual fits still differ (the OR is non-collapsible), so the
+# reported value matching the ADJUSTED fit is the signal that adjustment is live.
+if (!is.null(fs$sg.harm) && !is.null(fs$df.est)) {
+  .oc  <- fs$args_call_all$outcome.name
+  .tr  <- fs$args_call_all$treat.name
+  .adj <- fs$args_call_all$adjust_covariates
+  if (is.null(.oc)) .oc <- "y_sim"
+  if (is.null(.tr)) .tr <- "treat_sim"
+
+  # Harm subgroup H = the "questionable" arm (treat.recommend == 0).
+  dH <- fs$df.est[fs$df.est$treat.recommend == 0, , drop = FALSE]
+
+  .or <- function(rhs) {
+    f <- stats::as.formula(paste0(.oc, " ~ ", rhs))
+    fit <- try(stats::glm(f, family = stats::binomial(), data = dH), silent = TRUE)
+    if (inherits(fit, "try-error")) return(NA_real_)
+    exp(stats::coef(fit)[[.tr]])
+  }
+
+  or_unadj    <- .or(.tr)
+  or_adj      <- if (length(.adj)) .or(paste(c(.tr, .adj), collapse = " + ")) else NA_real_
+  # forestsearch's stored subgroup estimate (log-scale for GLM ratio measures).
+  or_reported <- if (!is.null(fs$max_sg_est)) exp(fs$max_sg_est) else NA_real_
+
+  cat(sprintf("Discovered subgroup : %s  (n = %d)\n",
+              paste(fs$sg.harm, collapse = " & "), nrow(dH)))
+  cat(sprintf("adjust_covariates   : %s\n",
+              if (length(.adj)) paste(.adj, collapse = ", ") else "NULL"))
+  cat(sprintf("  manual OR  unadjusted  [%s ~ %s]            : %.3f\n",
+              .oc, .tr, or_unadj))
+  cat(sprintf("  manual OR  adjusted    [%s ~ %s + %s] : %.3f\n",
+              .oc, .tr, paste(.adj, collapse = " + "), or_adj))
+  cat(sprintf("  forestsearch reported subgroup OR           : %.3f\n", or_reported))
+
+  if (!is.na(or_adj) && !is.na(or_reported)) {
+    d_adj   <- abs(or_reported - or_adj)
+    d_unadj <- abs(or_reported - or_unadj)
+    cat(sprintf("\n  |reported - adjusted|   = %.4f\n", d_adj))
+    cat(sprintf("  |reported - unadjusted| = %.4f\n", d_unadj))
+    cat(if (d_adj <= d_unadj)
+          "  >>> reported tracks the ADJUSTED fit -> cd40/wtkg adjustment IS active.\n"
+        else
+          "  >>> reported tracks the UNADJUSTED fit -> adjustment NOT reflected; investigate.\n")
+  }
+} else {
+  cat("No subgroup discovered in the alt trial; manual check skipped.\n")
+}
+```
+
+
 ```{r single-trial-alt-render-bootstrap-table}
 #| eval: !expr run_single_trial
 #| echo: false

@@ -174,6 +174,14 @@ forestsearch_Kfold <- function(
     get_names <- unique(c(get_names, offset.name))
   }
 
+  # Carry covariate-adjustment columns into the CV base data even when they are
+  # NOT in the candidate pool (confounders.name), so the adjusted outcome model
+  # can be re-fit on the held-out predictions.  Empty when adjust_covariates is
+  # NULL (unadjusted -> unchanged).
+  .adj_cols <- .fs_adjust_vars(fs_args$adjust_covariates)
+  .adj_cols <- .adj_cols[.adj_cols %in% names(fs.est$df.est)]
+  if (length(.adj_cols)) get_names <- unique(c(get_names, .adj_cols))
+
   # Prepare analysis data
   dfa <- fs.est$df.est[, c(get_names, "treat.recommend")]
   names(dfa)[names(dfa) == "treat.recommend"] <- "treat.recommend.original"
@@ -223,6 +231,13 @@ forestsearch_Kfold <- function(
 
   if(details) print_cv_params(cv_args)
 
+  # Covariate-adjustment columns to carry into the CV prediction frame, so the
+  # downstream CV summary tables can fit the SAME adjusted outcome model used in
+  # the main analysis.  .fs_adjust_vars() unwraps strata()/pspline() to bare
+  # column names; returns character(0) when adjust_covariates is NULL, in which
+  # case the carried column set is unchanged (unadjusted behaviour preserved).
+  cv_adjust_cols <- .fs_adjust_vars(cv_args$adjust_covariates)
+
   # ===========================================================================
   # SECTION 6: RUN CROSS-VALIDATION (PARALLEL)
   # ===========================================================================
@@ -265,11 +280,16 @@ forestsearch_Kfold <- function(
       df.test$treat.recommend <- 1.0
     }
 
-    # Return standardized columns
+    # Return standardized columns (plus any covariate-adjustment columns, so
+    # the CV summary tables can re-fit the adjusted outcome model).  Coerce to
+    # data.frame first to avoid data.table character-vector NSE on column
+    # selection.
+    keep_cols <- unique(c(id.name, outcome.name, event.name, treat.name,
+                          "treat.recommend", "treat.recommend.original",
+                          "cvindex", "sg1", "sg2",
+                          intersect(cv_adjust_cols, names(df.test))))
     data.table::data.table(
-      df.test[, c(id.name, outcome.name, event.name, treat.name,
-                  "treat.recommend", "treat.recommend.original",
-                  "cvindex", "sg1", "sg2")]
+      as.data.frame(df.test)[, keep_cols, drop = FALSE]
     )
   }
 })
@@ -548,6 +568,14 @@ forestsearch_tenfold <- function(
     get_names <- unique(c(get_names, offset.name))
   }
 
+  # Carry covariate-adjustment columns into the CV base data even when they are
+  # NOT in the candidate pool (confounders.name), so the adjusted outcome model
+  # can be re-fit on the held-out predictions.  Empty when adjust_covariates is
+  # NULL (unadjusted -> unchanged).
+  .adj_cols <- .fs_adjust_vars(fs_args$adjust_covariates)
+  .adj_cols <- .adj_cols[.adj_cols %in% names(fs.est$df.est)]
+  if (length(.adj_cols)) get_names <- unique(c(get_names, .adj_cols))
+
   # Prepare base data
   dfa <- fs.est$df.est[, c(get_names, "treat.recommend")]
   names(dfa)[names(dfa) == "treat.recommend"] <- "treat.recommend.original"
@@ -706,9 +734,12 @@ forestsearch_tenfold <- function(
         grf_cuts_list[[cv_index]] <- NA_character_
       }
 
-      resCV_list[[cv_index]] <- df.test[, c(id.name, outcome.name, event.name, treat.name,
-                                            "treat.recommend", "treat.recommend.original",
-                                            "cvindex", "sg1", "sg2")]
+      .keep <- unique(c(id.name, outcome.name, event.name, treat.name,
+                        "treat.recommend", "treat.recommend.original",
+                        "cvindex", "sg1", "sg2",
+                        intersect(.fs_adjust_vars(cv_args$adjust_covariates),
+                                  names(df.test))))
+      resCV_list[[cv_index]] <- as.data.frame(df.test)[, .keep, drop = FALSE]
     }
 
     resCV <- do.call(rbind, resCV_list)
