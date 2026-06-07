@@ -531,10 +531,12 @@
 #'   model stratified by \code{x1}, whereas \code{adjust_covariates = "x1"}
 #'   includes \code{x1} as a linear covariate.  The referenced raw columns
 #'   must be present in \code{df.analysis}; they are carried into the
-#'   internal scoring frame automatically.  Currently applies to the
-#'   survival (Cox) consistency path only; the candidate-search ranking and
-#'   GLM outcome paths are unaffected.  Default \code{NULL} (treatment-only,
-#'   unadjusted -- the previous behaviour).
+#'   internal scoring frame automatically.  Applies to the survival (Cox)
+#'   consistency path and to GLM outcomes (the effect-estimator closure
+#'   adds the terms to the outcome model, e.g. logistic for binary/OR).
+#'   The candidate-search ranking is adjusted on both paths.  Mutually
+#'   exclusive with \code{ps_method != "none"}.  Default \code{NULL}
+#'   (treatment-only, unadjusted -- the previous behaviour).
 #' @param ps_method Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
@@ -1105,13 +1107,14 @@ forestsearch <- function(df.analysis,
 
     # Build the estimator closure
     estimator_fn <- make_effect_estimator(
-      outcome_type    = outcome_type,
-      treat.name      = treat.name,
-      outcome.name    = outcome.name,
-      event.name      = if (outcome_type == "survival") event.name else NULL,
-      offset.name     = offset.name,
-      effect_measure  = effect_measure,
-      adverse_outcome = adverse_outcome
+      outcome_type      = outcome_type,
+      treat.name        = treat.name,
+      outcome.name      = outcome.name,
+      event.name        = if (outcome_type == "survival") event.name else NULL,
+      offset.name       = offset.name,
+      effect_measure    = effect_measure,
+      adverse_outcome   = adverse_outcome,
+      adjust_covariates = adjust_covariates
     )
 
     # Resolve screening and consistency thresholds from effect_measure.
