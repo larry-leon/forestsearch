@@ -816,11 +816,12 @@ sg_tables <- function(fs,
     # Build estimator closure
     estimator_fn_grf <- tryCatch(
       make_effect_estimator(
-        outcome_type   = outcome_type,
-        treat.name     = treat.name_grf,
-        outcome.name   = outcome.name,
-        offset.name    = offset.name,
-        effect_measure = effect_measure
+        outcome_type      = outcome_type,
+        treat.name        = treat.name_grf,
+        outcome.name      = outcome.name,
+        offset.name       = offset.name,
+        effect_measure    = effect_measure,
+        adjust_covariates = fs$args_call_all$adjust_covariates
       ),
       error = function(e) NULL
     )
@@ -940,11 +941,12 @@ sg_tables <- function(fs,
     # Build estimator closure for the table
     estimator_fn_tab <- tryCatch(
       make_effect_estimator(
-        outcome_type   = outcome_type,
-        treat.name     = args_fs$treat.name,
-        outcome.name   = args_fs$outcome.name,
-        offset.name    = args_fs$offset.name,
-        effect_measure = effect_measure
+        outcome_type      = outcome_type,
+        treat.name        = args_fs$treat.name,
+        outcome.name      = args_fs$outcome.name,
+        offset.name       = args_fs$offset.name,
+        effect_measure    = effect_measure,
+        adjust_covariates = args_fs$adjust_covariates
       ),
       error = function(e) NULL
     )

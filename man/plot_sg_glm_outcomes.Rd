@@ -14,6 +14,7 @@ plot_sg_glm_outcomes(
   offset.name = NULL,
   effect_measure = NULL,
   outcome_type = NULL,
+  adjust_covariates = NULL,
   sg0_name = "Questionable",
   sg1_name = "Recommend",
   E.name = "Treatment",
@@ -53,6 +54,13 @@ Auto-detected from \code{fs.est$effect_measure} if \code{NULL}.}
 \item{outcome_type}{Character or \code{NULL}. One of \code{"binary"},
 \code{"continuous"}.  Auto-detected from \code{fs.est$outcome_type}
 if \code{NULL}.}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Baseline
+covariates to adjust the plotted effect model for, matching the
+adjustment used during search/estimation.  When \code{NULL}, resolved
+from \code{fs.est$args_call_all$adjust_covariates} so the plot reflects
+the same (adjusted or unadjusted) scale as the fit.  Columns must be
+present in \code{fs.est$df.est}.}
 
 \item{sg0_name}{Character. Label for H subgroup (treat.recommend == 0).
 Default: \code{"Questionable"}.}

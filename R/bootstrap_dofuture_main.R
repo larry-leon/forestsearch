@@ -221,12 +221,13 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   if (is_glm) {
     # GLM path: build the estimator closure from saved arguments
     estimator_fn_boot <- make_effect_estimator(
-      outcome_type   = outcome_type,
-      treat.name     = args_forestsearch_call$treat.name,
-      outcome.name   = args_forestsearch_call$outcome.name,
-      event.name     = NULL,
-      offset.name    = args_forestsearch_call$offset.name,
-      effect_measure = args_forestsearch_call$effect_measure
+      outcome_type      = outcome_type,
+      treat.name        = args_forestsearch_call$treat.name,
+      outcome.name      = args_forestsearch_call$outcome.name,
+      event.name        = NULL,
+      offset.name       = args_forestsearch_call$offset.name,
+      effect_measure    = args_forestsearch_call$effect_measure,
+      adjust_covariates = args_forestsearch_call$adjust_covariates
     )
   } else {
     # Survival path: build Cox formula.  Covariate adjustment (incl. strata())

@@ -1006,11 +1006,12 @@ forestsearch_KfoldOut <- function(res, details = FALSE, outall = FALSE,
       # Build estimator closure for the table
       estimator_fn_cv <- tryCatch(
         make_effect_estimator(
-          outcome_type   = outcome_type,
-          treat.name     = treat.name,
-          outcome.name   = outcome.name,
-          offset.name    = offset.name,
-          effect_measure = effect_measure
+          outcome_type      = outcome_type,
+          treat.name        = treat.name,
+          outcome.name      = outcome.name,
+          offset.name       = offset.name,
+          effect_measure    = effect_measure,
+          adjust_covariates = res$cv_args$adjust_covariates
         ),
         error = function(e) NULL
       )

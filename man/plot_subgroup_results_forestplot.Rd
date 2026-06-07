@@ -30,6 +30,7 @@ plot_subgroup_results_forestplot(
   outcome_type = NULL,
   effect_measure = NULL,
   offset.name = NULL,
+  adjust_covariates = NULL,
   extreme_ci_cap = 1.5,
   xlim_method = c("clinical", "data")
 )
@@ -121,6 +122,12 @@ outcomes (e.g., \code{"OR"}, \code{"RR"}, \code{"IRR"}, \code{"RD"},
 
 \item{offset.name}{Character or \code{NULL}. Follow-up time column for
 rate-based measures (IRR, IRD).}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Baseline
+covariates to adjust the GLM-row effect models for, matching the
+adjustment used during search/estimation.  When \code{NULL}, resolved
+from \code{fs_results$fs.est$args_call_all$adjust_covariates} so the
+forest-plot CIs share the fit's scale.  Applies to GLM rows only.}
 
 \item{extreme_ci_cap}{Numeric. Multiplier for outlier-resistant axis
 limits when \code{xlim_method = "data"}.  If the most extreme CI bound

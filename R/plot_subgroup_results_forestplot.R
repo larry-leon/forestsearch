@@ -73,6 +73,11 @@
 #'   \code{fs_results$fs.est$effect_measure} if \code{NULL}.
 #' @param offset.name Character or \code{NULL}. Follow-up time column for
 #'   rate-based measures (IRR, IRD).
+#' @param adjust_covariates Character vector or \code{NULL}. Baseline
+#'   covariates to adjust the GLM-row effect models for, matching the
+#'   adjustment used during search/estimation.  When \code{NULL}, resolved
+#'   from \code{fs_results$fs.est$args_call_all$adjust_covariates} so the
+#'   forest-plot CIs share the fit's scale.  Applies to GLM rows only.
 #' @param extreme_ci_cap Numeric. Multiplier for outlier-resistant axis
 #'   limits when \code{xlim_method = "data"}.  If the most extreme CI bound
 #'   exceeds twice the second-most extreme, the axis limit is capped at
@@ -206,6 +211,7 @@ plot_subgroup_results_forestplot <- function(
     outcome_type = NULL,
     effect_measure = NULL,
     offset.name = NULL,
+    adjust_covariates = NULL,
     extreme_ci_cap = 1.5,
     xlim_method = c("clinical", "data")
 ) {
@@ -283,6 +289,14 @@ plot_subgroup_results_forestplot <- function(
   if (is.null(offset.name) && !is.null(fs.est) &&
       !is.null(fs.est$args_call_all$offset.name)) {
     offset.name <- fs.est$args_call_all$offset.name
+  }
+
+  # Adjustment terms for the GLM rows: match the search/estimate adjustment so
+  # the forest-plot CIs are on the same scale as the reported estimate.
+  # Resolved from the call record unless the caller overrides explicitly.
+  if (is.null(adjust_covariates) && !is.null(fs.est) &&
+      !is.null(fs.est$args_call_all$adjust_covariates)) {
+    adjust_covariates <- fs.est$args_call_all$adjust_covariates
   }
 
   is_glm <- outcome_type != "survival"
@@ -411,6 +425,7 @@ plot_subgroup_results_forestplot <- function(
       outcome.name   = outcome.name,
       offset.name    = offset.name,
       effect_measure = effect_measure,
+      adjust_covariates = adjust_covariates,
       ps_adjust_method = "none"
     )
 

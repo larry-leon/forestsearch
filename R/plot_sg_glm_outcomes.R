@@ -37,6 +37,12 @@
 #' @param outcome_type Character or \code{NULL}. One of \code{"binary"},
 #'   \code{"continuous"}.  Auto-detected from \code{fs.est$outcome_type}
 #'   if \code{NULL}.
+#' @param adjust_covariates Character vector or \code{NULL}. Baseline
+#'   covariates to adjust the plotted effect model for, matching the
+#'   adjustment used during search/estimation.  When \code{NULL}, resolved
+#'   from \code{fs.est$args_call_all$adjust_covariates} so the plot reflects
+#'   the same (adjusted or unadjusted) scale as the fit.  Columns must be
+#'   present in \code{fs.est$df.est}.
 #' @param sg0_name Character. Label for H subgroup (treat.recommend == 0).
 #'   Default: \code{"Questionable"}.
 #' @param sg1_name Character. Label for Hc subgroup (treat.recommend == 1).
@@ -87,6 +93,7 @@ plot_sg_glm_outcomes <- function(
     offset.name = NULL,
     effect_measure = NULL,
     outcome_type = NULL,
+    adjust_covariates = NULL,
     sg0_name = "Questionable",
     sg1_name = "Recommend",
     E.name = "Treatment",
@@ -142,6 +149,14 @@ plot_sg_glm_outcomes <- function(
 
   if (is.null(offset.name) && !is.null(fs.est$args_call_all$offset.name)) {
     offset.name <- fs.est$args_call_all$offset.name
+  }
+
+  # Adjustment terms: use the same covariates the search/estimate used, so the
+  # plotted effect matches the (adjusted) estimate.  Resolved from the call
+  # record unless the caller overrides explicitly.
+  if (is.null(adjust_covariates) &&
+      !is.null(fs.est$args_call_all$adjust_covariates)) {
+    adjust_covariates <- fs.est$args_call_all$adjust_covariates
   }
 
   is_log_scale <- effect_measure %in% c("OR", "RR", "IRR")
@@ -238,6 +253,7 @@ plot_sg_glm_outcomes <- function(
       outcome.name = outcome.name,
       offset.name = offset.name,
       effect_measure = effect_measure,
+      adjust_covariates = adjust_covariates,
       ps_adjust_method = "none"
     )
 
