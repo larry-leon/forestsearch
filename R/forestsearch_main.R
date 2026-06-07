@@ -2075,7 +2075,8 @@ forestsearch <- function(df.analysis,
       df.fs[[.av]] <- df[[.av]]
     }
     if (details) {
-      cat("  Covariate adjustment (Cox): ",
+      .adj_model <- if (identical(outcome_type, "survival")) "Cox" else "GLM"
+      cat("  Covariate adjustment (", .adj_model, "): ",
           paste(.fs_adjust_terms(adjust_covariates), collapse = " + "), "\n",
           sep = "")
     }
