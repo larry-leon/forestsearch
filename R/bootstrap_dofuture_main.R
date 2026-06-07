@@ -229,7 +229,10 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
       effect_measure = args_forestsearch_call$effect_measure
     )
   } else {
-    # Survival path: build Cox formula (unchanged)
+    # Survival path: build Cox formula.  Covariate adjustment (incl. strata())
+    # flows through from the forestsearch call via filter_call_args, so the
+    # post-selection bootstrap is estimated on the same adjusted scale as the
+    # search and consistency phases.
     cox.formula.boot <- do.call(
       build_cox_formula,
       filter_call_args(args_forestsearch_call, build_cox_formula)
@@ -246,7 +249,8 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   } else {
     # Survival: use Cox (unchanged)
     # Note: Identified subgroups meet minimum size/event requirements
-    effect_fits <- fit_cox_models(fs.est$df.est, cox.formula.boot)
+    effect_fits <- fit_cox_models(fs.est$df.est, cox.formula.boot,
+                                  treat.name = args_forestsearch_call$treat.name)
   }
   H_obs    <- effect_fits$H_obs
   seH_obs  <- effect_fits$seH_obs

@@ -523,6 +523,18 @@
 #'   behavior.  Applies to both internal GRF pre-screening and
 #'   standalone GRF analysis when passed through
 #'   \code{run_simulation_analysis()}.
+#' @param adjust_covariates Character vector or \code{NULL}. Additional terms
+#'   used to adjust the Cox model that scores survival subgroups during
+#'   consistency evaluation.  Terms are appended verbatim to the model
+#'   right-hand side after the treatment term, so survival modelling helpers
+#'   may be used directly: \code{adjust_covariates = "strata(x1)"} fits a
+#'   model stratified by \code{x1}, whereas \code{adjust_covariates = "x1"}
+#'   includes \code{x1} as a linear covariate.  The referenced raw columns
+#'   must be present in \code{df.analysis}; they are carried into the
+#'   internal scoring frame automatically.  Currently applies to the
+#'   survival (Cox) consistency path only; the candidate-search ranking and
+#'   GLM outcome paths are unaffected.  Default \code{NULL} (treatment-only,
+#'   unadjusted -- the previous behaviour).
 #' @param ps_method Character or \code{NULL}. Propensity score estimation
 #'   method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or
 #'   \code{"none"}.  Default: \code{"none"} for RCT, \code{"grf"} for
@@ -782,6 +794,8 @@ forestsearch <- function(df.analysis,
                          overdispersion = c("none", "quasi", "negbin"),
                          grf_count_transform = c("log", "identity"),
                          tune_grf = FALSE,
+                         # Covariate adjustment for subgroup evaluation (Cox)
+                         adjust_covariates = NULL,
                          # Propensity score adjustment
                          ps_method = NULL,
                          ps_adjust_method = c("none", "iptw", "dr_gcomp"),
@@ -1391,7 +1405,18 @@ forestsearch <- function(df.analysis,
   ps_adjust_resolved <- if (ps_method == "none") "none" else ps_adjust_method
   args_call_all$ps_adjust_method <- ps_adjust_resolved
 
-  adjust_covariates <- NULL
+  # Regression/strata covariate adjustment (adjust_covariates) and
+  # propensity-score adjustment are mutually exclusive for now: the PS branch
+  # below rebuilds the GLM estimator closure around ps_adjust_method only and
+  # does not also fold in regression covariates.  Guard rather than silently
+  # drop the user's adjust_covariates.  (Do NOT reset adjust_covariates here;
+  # it is a user-facing formal that must flow to df.fs re-attachment and the
+  # consistency engine.)
+  if (!is.null(adjust_covariates) && ps_method != "none") {
+    stop("adjust_covariates cannot be combined with ps_method != 'none'. ",
+         "Regression/strata adjustment and propensity-score adjustment are ",
+         "mutually exclusive; choose one.", call. = FALSE)
+  }
 
   if (ps_method != "none") {
     if (!is.null(ps_hat)) {
@@ -2022,6 +2047,37 @@ forestsearch <- function(df.analysis,
     }
   }
 
+  # Covariate adjustment (Cox / survival path): carry the *raw* columns
+  # referenced by adjust_covariates onto df.fs so the adjusted scoring
+  # formula resolves inside the consistency engine.  df.fs otherwise keeps
+  # only Y/Event/Treat/id plus dummied candidate factors, and strata()/
+  # pspline() terms need the original (un-dichotomised) column.  The split
+  # frames built downstream are row subsets of df.fs and inherit these.
+  if (!is.null(adjust_covariates)) {
+    adj_vars <- .fs_adjust_vars(adjust_covariates)
+    reserved <- c("Y", "Event", "Treat", "id")
+    bad_reserved <- intersect(adj_vars, reserved)
+    if (length(bad_reserved) > 0L) {
+      stop("adjust_covariates may not reference reserved column name(s): ",
+           paste(bad_reserved, collapse = ", "),
+           call. = FALSE)
+    }
+    missing_adj <- setdiff(adj_vars, names(df))
+    if (length(missing_adj) > 0L) {
+      stop("adjust_covariates references column(s) not in the analysis data: ",
+           paste(missing_adj, collapse = ", "),
+           call. = FALSE)
+    }
+    for (.av in adj_vars) {
+      df.fs[[.av]] <- df[[.av]]
+    }
+    if (details) {
+      cat("  Covariate adjustment (Cox): ",
+          paste(.fs_adjust_terms(adjust_covariates), collapse = " + "), "\n",
+          sep = "")
+    }
+  }
+
 
   search_overrides <- list(
         Y = Y,
@@ -2046,6 +2102,15 @@ forestsearch <- function(df.analysis,
     search_overrides$effect_threshold <- effect_threshold
     search_overrides$effect_measure <- effect_measure
     search_overrides$outcome_type <- outcome_type
+  }
+
+  # Survival covariate adjustment: pass the adjustment terms and a frame that
+  # carries the raw covariate columns (df.fs, row-aligned with Y/Event/Treat/Z)
+  # so the candidate-search Cox scorer can adjust consistently with the
+  # consistency engine.  NULL on the GLM path (handled above).
+  if (is.null(estimator_fn) && !is.null(adjust_covariates)) {
+    search_overrides$adjust_covariates <- adjust_covariates
+    search_overrides$df_analysis <- df.fs
   }
 
   # Merge and filter arguments
@@ -2136,7 +2201,9 @@ forestsearch <- function(df.analysis,
       stop_Kgroups = max_subgroups_search,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
-      twostage_args = twostage_args
+      twostage_args = twostage_args,
+      # Covariate adjustment for Cox subgroup scoring (NULL on GLM path)
+      adjust_covariates = if (is.null(estimator_fn)) adjust_covariates else NULL
     )
 
     # Only pass GLM closure params when active (non-NULL).

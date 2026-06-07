@@ -447,7 +447,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitH_star <- get_Cox_sg(
         df_sg = df_H,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        treat.name = treat_var
       )
     } else {
       fitH_star <- fit_subgroup_effect(df_H, estimator_fn)
@@ -475,7 +476,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       fitHc_star <- get_Cox_sg(
         df_sg = df_Hc,
         cox.formula = cox.formula.boot,
-        est.loghr = TRUE
+        est.loghr = TRUE,
+        treat.name = treat_var
       )
     } else {
       fitHc_star <- fit_subgroup_effect(df_Hc, estimator_fn)
@@ -635,7 +637,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         fitHstar_obs <- get_Cox_sg(
           df_sg = df_Hstar,
           cox.formula = cox.formula.boot,
-          est.loghr = TRUE
+          est.loghr = TRUE,
+          treat.name = treat_var
         )
       } else {
         fitHstar_obs <- fit_subgroup_effect(df_Hstar, estimator_fn)
@@ -647,7 +650,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         fitHstar_star <- get_Cox_sg(
           df_sg = subset(dfboot_PredBoot, treat.recommend == 0),
           cox.formula = cox.formula.boot,
-          est.loghr = TRUE
+          est.loghr = TRUE,
+          treat.name = treat_var
         )
       } else {
         fitHstar_star <- fit_subgroup_effect(
@@ -671,7 +675,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         fitHcstar_obs <- get_Cox_sg(
           df_sg = df_Hcstar,
           cox.formula = cox.formula.boot,
-          est.loghr = TRUE
+          est.loghr = TRUE,
+          treat.name = treat_var
         )
       } else {
         fitHcstar_obs <- fit_subgroup_effect(df_Hcstar, estimator_fn)
@@ -683,7 +688,8 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
         fitHcstar_star <- get_Cox_sg(
           df_sg = subset(dfboot_PredBoot, treat.recommend == 1),
           cox.formula = cox.formula.boot,
-          est.loghr = TRUE
+          est.loghr = TRUE,
+          treat.name = treat_var
         )
       } else {
         fitHcstar_star <- fit_subgroup_effect(

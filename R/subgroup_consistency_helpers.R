@@ -162,8 +162,16 @@ early_stop_decision <- function(n_success, n_total, threshold,
 #'
 #' @param df data.frame or data.table with Y, Event, Treat columns.
 #' @param cox_init Numeric. Initial value for coefficient (default 0).
+#'   Ignored when `adjust_covariates` is supplied (the default coxph
+#'   starting values are used so the init length matches the number of
+#'   model coefficients).
+#' @param adjust_covariates Character vector or `NULL`. Additional terms
+#'   appended to the model right-hand side after `Treat`.  Terms are pasted
+#'   verbatim, so `"strata(x1)"` produces a stratified Cox model.  The
+#'   referenced columns must be present in `df`.  `NULL` (default) fits the
+#'   unadjusted `Surv(Y, Event) ~ Treat` model.
 #'
-#' @return Numeric. Estimated hazard ratio, or NA if model fails.
+#' @return Numeric. Estimated hazard ratio for `Treat`, or NA if model fails.
 #'
 #' @examples
 #' \donttest{
@@ -177,28 +185,36 @@ early_stop_decision <- function(n_success, n_total, threshold,
 #' }
 #' @importFrom survival coxph Surv
 #' @export
-get_split_hr_fast <- function(df, cox_init = 0) {
+get_split_hr_fast <- function(df, cox_init = 0, adjust_covariates = NULL) {
   if (nrow(df) < 2 || sum(df$Event) < 2) {
     return(NA_real_)
   }
 
+  adj <- .fs_adjust_terms(adjust_covariates)
+  if (length(adj) > 0L) {
+    fmla <- stats::reformulate(c("Treat", adj), response = "survival::Surv(Y, Event)")
+  } else {
+    fmla <- survival::Surv(Y, Event) ~ Treat
+  }
+
+  # coxph treats `init = NULL` as a length-0 init (an error), so the init
+  # argument is omitted entirely on the adjusted path; the scalar warm-start
+  # only applies to the single-coefficient treatment-only model.
+  fit_args <- list(
+    formula = fmla, data = df,
+    robust = FALSE, model = FALSE, x = FALSE, y = FALSE
+  )
+  if (length(adj) == 0L) fit_args$init <- cox_init
+
   fit <- tryCatch(
-    suppressWarnings(
-      survival::coxph(
-        survival::Surv(Y, Event) ~ Treat,
-        data = df,
-        init = cox_init,
-        robust = FALSE,
-        model = FALSE,
-        x = FALSE,
-        y = FALSE
-      )
-    ),
+    suppressWarnings(do.call(survival::coxph, fit_args)),
     error = function(e) NULL
   )
 
   if (is.null(fit)) return(NA_real_)
-  return(exp(fit$coefficients[1]))
+  cf <- fit$coefficients
+  beta <- if ("Treat" %in% names(cf)) cf[["Treat"]] else cf[1]
+  return(exp(beta))
 }
 
 
@@ -216,6 +232,10 @@ get_split_hr_fast <- function(df, cox_init = 0) {
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms (e.g. \code{"strata(x1)"}) passed to
+#'   \code{\link{get_split_hr_fast}} on the survival path.  Ignored on the
+#'   GLM path.  Default \code{NULL} (unadjusted).
 #'
 #' @return Numeric. 1 if both splits meet threshold, 0 if not, NA if error.
 #'
@@ -233,7 +253,8 @@ get_split_hr_fast <- function(df, cox_init = 0) {
 #' @export
 run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0,
                                          estimator_fn = NULL,
-                                         consistency_threshold = NULL) {
+                                         consistency_threshold = NULL,
+                                         adjust_covariates = NULL) {
 
   in.split1 <- tryCatch({
     sample(c(TRUE, FALSE), N.x, replace = TRUE, prob = c(0.5, 0.5))
@@ -280,8 +301,8 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
     return(NA_real_)
   }
 
-  hr.split1 <- get_split_hr_fast(df.x.split1, cox_init)
-  hr.split2 <- get_split_hr_fast(df.x.split2, cox_init)
+  hr.split1 <- get_split_hr_fast(df.x.split1, cox_init, adjust_covariates = adjust_covariates)
+  hr.split2 <- get_split_hr_fast(df.x.split2, cox_init, adjust_covariates = adjust_covariates)
 
   if (!is.na(hr.split1) && !is.na(hr.split2)) {
     as.numeric(hr.split1 > hr.consistency && hr.split2 > hr.consistency)
@@ -1064,6 +1085,10 @@ remove_redundant_subgroups <- function(found.hrs) {
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms (e.g. \code{"strata(x1)"}) used when scoring survival
+#'   subgroups.  Referenced columns must be present in \code{df}.  Ignored
+#'   on the GLM path.  Default \code{NULL} (unadjusted).
 #'
 #' @return Named numeric vector with consistency results, or NULL if criteria
 #'   not met.
@@ -1093,7 +1118,8 @@ evaluate_subgroup_consistency <- function(
     confs_labels,
     details = FALSE,
     estimator_fn = NULL,
-    consistency_threshold = NULL
+    consistency_threshold = NULL,
+    adjust_covariates = NULL
 ) {
 
   # -------------------------------------------------------------------------
@@ -1178,7 +1204,8 @@ evaluate_subgroup_consistency <- function(
     flag.consistency[i] <- run_single_consistency_split(
       df.x, N.x, hr.consistency, cox_init,
       estimator_fn = estimator_fn,
-      consistency_threshold = consistency_threshold
+      consistency_threshold = consistency_threshold,
+      adjust_covariates = adjust_covariates
     )
   }
 
@@ -1282,6 +1309,10 @@ evaluate_subgroup_consistency <- function(
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms (e.g. \code{"strata(x1)"}) used when scoring survival
+#'   subgroups.  Referenced columns must be present in \code{df}.  Ignored
+#'   on the GLM path.  Default \code{NULL} (unadjusted).
 #'
 #' @return Named numeric vector with consistency results, or NULL if not met.
 #'
@@ -1316,7 +1347,8 @@ evaluate_consistency_twostage <- function(
     conf.level = 0.95,
     min.valid.screen = 10,
     estimator_fn = NULL,
-    consistency_threshold = NULL
+    consistency_threshold = NULL,
+    adjust_covariates = NULL
 ) {
 
   # ===========================================================================
@@ -1346,22 +1378,28 @@ evaluate_consistency_twostage <- function(
 
   .get_split_hr_fast <- function(df_split, cox_initial = NULL) {
     if (nrow(df_split) < 2 || sum(df_split$Event) < 2) return(NA_real_)
+    adj <- .fs_adjust_terms(adjust_covariates)
+    if (length(adj) > 0L) {
+      fmla <- stats::reformulate(c("Treat", adj),
+                                 response = "survival::Surv(Y, Event)")
+    } else {
+      fmla <- survival::Surv(Y, Event) ~ Treat
+    }
+    fit_args <- list(
+      formula = fmla, data = df_split,
+      robust = FALSE, model = FALSE, x = FALSE, y = FALSE
+    )
+    # `init = NULL` is an error in coxph; only pass the scalar warm-start
+    # for the single-coefficient treatment-only model.
+    if (length(adj) == 0L) fit_args$init <- cox_initial
     fit <- tryCatch(
-      suppressWarnings(
-        survival::coxph(
-          survival::Surv(Y, Event) ~ Treat,
-          data = df_split,
-          init = cox_initial,
-          robust = FALSE,
-          model = FALSE,
-          x = FALSE,
-          y = FALSE
-        )
-      ),
+      suppressWarnings(do.call(survival::coxph, fit_args)),
       error = function(e) NULL
     )
     if (is.null(fit)) return(NA_real_)
-    return(exp(fit$coefficients[1]))
+    cf <- fit$coefficients
+    beta <- if ("Treat" %in% names(cf)) cf[["Treat"]] else cf[1]
+    return(exp(beta))
   }
 
   .run_single_consistency_split <- function(df.x, N.x, hr.cons, cox_init,

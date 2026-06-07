@@ -72,7 +72,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
                             df_analysis = NULL,
                             effect_threshold = NULL,
                             effect_measure = NULL,
-                            outcome_type = NULL) {
+                            outcome_type = NULL,
+                            adjust_covariates = NULL) {
 
   # =========================================================================
   # SECTION 1: DATA PREPARATION AND VALIDATION
@@ -88,9 +89,12 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
   n <- length(yy)
   L <- ncol(zz)
 
-  # For GLM path: align df_analysis with the NA-cleaned vectors
+  # For GLM path: align df_analysis with the NA-cleaned vectors.  Also built
+  # for the survival path when adjust_covariates is supplied, so the adjusted
+  # Cox scorer can source the raw covariate columns.
   df_clean <- NULL
-  if (!is.null(estimator_fn) && !is.null(df_analysis)) {
+  if ((!is.null(estimator_fn) || !is.null(adjust_covariates)) &&
+      !is.null(df_analysis)) {
     complete_rows <- stats::complete.cases(cbind(Y, Event, Treat, Z))
     df_clean <- df_analysis[complete_rows, , drop = FALSE]
     if (nrow(df_clean) != n) {
@@ -136,7 +140,8 @@ subgroup.search <- function(Y, Event, Treat, ID = NULL, Z,
     maxk = maxk, L = L,
     estimator_fn = estimator_fn,
     df_clean = df_clean,
-    outcome_type = outcome_type
+    outcome_type = outcome_type,
+    adjust_covariates = adjust_covariates
   )
 
   # Reset to sequential plan
@@ -218,7 +223,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
                                          maxk, L,
                                          estimator_fn = NULL,
                                          df_clean = NULL,
-                                         outcome_type = NULL) {
+                                         outcome_type = NULL,
+                                         adjust_covariates = NULL) {
 
   tot_counts <- combo_info$max_count
 
@@ -240,7 +246,8 @@ search_combinations_parallel <- function(yy, dd, tt, zz, combo_info,
       kk = kk,
       estimator_fn = estimator_fn,
       df_clean = df_clean,
-      outcome_type = outcome_type
+      outcome_type = outcome_type,
+      adjust_covariates = adjust_covariates
     )
   })
 
@@ -525,7 +532,8 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
                                              minp, rmin, kk,
                                              estimator_fn = NULL,
                                              df_clean = NULL,
-                                             outcome_type = NULL) {
+                                             outcome_type = NULL,
+                                             adjust_covariates = NULL) {
 
   # Extract selected factors
   selected_cols <- which(covs.in == 1)
@@ -620,7 +628,9 @@ evaluate_combination_with_status <- function(covs.in, yy, dd, tt, zz,
   }
 
   # Status 5: Fit Cox model
-  cox_result <- fit_cox_for_subgroup(yy, dd, tt, id.x)
+  cox_result <- fit_cox_for_subgroup(yy, dd, tt, id.x,
+                                     df_clean = df_clean,
+                                     adjust_covariates = adjust_covariates)
   if (is.null(cox_result)) {
     return(list(status = 5L, result = NULL))
   }
@@ -672,23 +682,54 @@ meets_event_criteria <- function(event_counts, d0.min, d1.min) {
 
 #' Fit Cox Model for Subgroup
 #'
+#' @param yy,dd,tt,id.x Numeric vectors: outcome, event, treatment, and the
+#'   subgroup membership indicator (1 = in subgroup).
+#' @param df_clean Data frame or `NULL`. Cleaned analysis frame row-aligned
+#'   with the vectors, used only to source raw `adjust_covariates` columns.
+#' @param adjust_covariates Character vector or `NULL`. Additional Cox terms
+#'   (e.g. `"strata(x1)"`) appended after `Treat`.  `NULL` (default) fits the
+#'   treatment-only model.
 #' @keywords internal
 #' @importFrom survival coxph Surv survfit
-fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
+fit_cox_for_subgroup <- function(yy, dd, tt, id.x, df_clean = NULL,
+                                 adjust_covariates = NULL) {
+
+  adj <- .fs_adjust_terms(adjust_covariates)
 
   # Create subgroup data
   data.x <- data.table::data.table(Y = yy, E = dd, Treat = tt, id.x = id.x)
+
+  # Attach raw adjustment columns (row-aligned with the vectors) when present
+  rhs <- "Treat"
+  if (length(adj) > 0L && !is.null(df_clean)) {
+    adj_vars <- intersect(.fs_adjust_vars(adjust_covariates), names(df_clean))
+    if (length(adj_vars) > 0L) {
+      adj_cols <- as.data.frame(df_clean)[, adj_vars, drop = FALSE]
+      data.x <- cbind(data.x, adj_cols)
+    }
+    rhs <- paste(c("Treat", adj), collapse = " + ")
+  }
+
   df.x <- data.x[id.x == 1]
 
-  # Fit Cox model
+  # Fit Cox model (treatment-only or adjusted)
+  cox_fmla <- stats::as.formula(paste0("survival::Surv(Y, E) ~ ", rhs))
   hr.cox <- try(
-    summary(survival::coxph(survival::Surv(Y, E) ~ Treat, data = df.x, robust = FALSE))$conf.int,
+    summary(survival::coxph(cox_fmla, data = df.x, robust = FALSE))$conf.int,
     silent = TRUE
   )
 
   if (inherits(hr.cox, "try-error")) return(NULL)
 
-  # Get median survival times
+  # Extract the treatment row.  conf.int is a matrix with one row per
+  # coefficient; the adjusted fit has several, so index by name.
+  if (is.null(dim(hr.cox))) {
+    hr.cox <- matrix(hr.cox, nrow = 1L,
+                     dimnames = list("Treat", names(hr.cox)))
+  }
+  trow <- if ("Treat" %in% rownames(hr.cox)) hr.cox["Treat", ] else hr.cox[1, ]
+
+  # Get median survival times (descriptive; treatment-only by design)
   meds <- try(
     summary(survival::survfit(survival::Surv(Y, E) ~ Treat, data = df.x))$table[, "median"],
     silent = TRUE
@@ -697,9 +738,9 @@ fit_cox_for_subgroup <- function(yy, dd, tt, id.x) {
   if (inherits(meds, "try-error")) return(NULL)
 
   list(
-    hr = hr.cox[1],
-    lower = hr.cox[3],
-    upper = hr.cox[4],
+    hr = trow[1],
+    lower = trow[3],
+    upper = trow[4],
     med0 = meds[1],
     med1 = meds[2]
   )

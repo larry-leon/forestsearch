@@ -122,6 +122,12 @@
 #'   (uses Cox model).
 #' @param consistency_threshold Numeric or \code{NULL}. Threshold for GLM
 #'   consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms used when scoring survival subgroups during consistency
+#'   evaluation, e.g. \code{"strata(x1)"} for a stratified model or
+#'   \code{"x2"} for linear adjustment.  Referenced columns must be present
+#'   in \code{df}.  Ignored on the GLM path.  Default \code{NULL}
+#'   (treatment-only, unadjusted).
 #' @param effect_label Character. Column label for the effect measure in
 #'   diagnostic output (e.g., candidate subgroup table).  Default \code{"HR"}.
 #'   Set automatically by \code{\link{forestsearch}} to the resolved
@@ -273,7 +279,8 @@ subgroup.consistency <- function(df,
                                  estimator_fn = NULL,
                                  consistency_threshold = NULL,
                                  effect_label = "HR",
-                                 effect_log_scale = FALSE) {
+                                 effect_log_scale = FALSE,
+                                 adjust_covariates = NULL) {
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -571,7 +578,8 @@ subgroup.consistency <- function(df,
           conf.level = ts_params$conf.level,
           min.valid.screen = ts_params$min.valid.screen,
           estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          consistency_threshold = consistency_threshold,
+          adjust_covariates = adjust_covariates
         )
       } else {
         results_list[[m]] <- evaluate_subgroup_consistency(
@@ -588,7 +596,8 @@ subgroup.consistency <- function(df,
           confs_labels = confs_labels,
           details = details,
           estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          consistency_threshold = consistency_threshold,
+          adjust_covariates = adjust_covariates
         )
       }
 
@@ -679,7 +688,8 @@ subgroup.consistency <- function(df,
           conf.level = ts_params$conf.level,
           min.valid.screen = ts_params$min.valid.screen,
           estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          consistency_threshold = consistency_threshold,
+          adjust_covariates = adjust_covariates
         )
       }
     } else {
@@ -698,7 +708,8 @@ subgroup.consistency <- function(df,
           confs_labels = confs_labels,
           details = FALSE,
           estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold
+          consistency_threshold = consistency_threshold,
+          adjust_covariates = adjust_covariates
         )
       }
     }

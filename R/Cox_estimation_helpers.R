@@ -9,6 +9,12 @@
 #'   fitting a new model. Default NULL
 #' @param cox.formula Cox model formula.
 #' @param est.loghr Logical. Is estimate on log(HR) scale?
+#' @param treat.name Character or `NULL`. Name of the treatment term whose
+#'   coefficient is the effect of interest.  When the formula is adjusted
+#'   for covariates the fit has multiple coefficients; supplying
+#'   `treat.name` extracts only that term's estimate and SE.  `NULL`
+#'   (default) preserves the historical behaviour of returning every
+#'   coefficient (correct for the treatment-only formula).
 #' @return List with estimate and standard error.
 #' @examples
 #' \dontrun{
@@ -24,7 +30,8 @@
 #' }
 #' @importFrom survival coxph
 #' @export
-get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1)) {
+get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1),
+                       treat.name = NULL) {
 
   # Validate inputs (keep your existing validation)
   names_tocheck <- all.vars(cox.formula)
@@ -34,14 +41,31 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1
     stop("df_sg dataset NOT contain cox.formula variables")
   }
 
-  # Fit model
-  fit <- suppressWarnings(
-    coxph(cox.formula, data = df_sg, model = FALSE, x = FALSE, y = FALSE, robust = TRUE, init = cox_initial)
+  # Fit model.  When the formula is adjusted (more than the treatment term),
+  # a scalar `init` would be the wrong length for coxph; since `init = NULL`
+  # is itself an error, the argument is omitted in that case so coxph uses
+  # its default starting values.
+  n_terms <- length(attr(stats::terms(cox.formula), "term.labels"))
+  fit_args <- list(
+    formula = cox.formula, data = df_sg,
+    model = FALSE, x = FALSE, y = FALSE, robust = TRUE
   )
+  if (n_terms <= 1L) fit_args$init <- cox_initial
+  fit <- suppressWarnings(do.call(coxph, fit_args))
 
   # OPTIMIZATION: Call summary() once, cache result
   fit_sum <- summary(fit)
   coef_matrix <- fit_sum$coefficients
+
+  # Restrict to the treatment coefficient when requested.  Adjusted models
+  # carry multiple rows; without this the returned est/se would be vectors.
+  if (!is.null(treat.name)) {
+    if (!treat.name %in% rownames(coef_matrix)) {
+      stop("treat.name '", treat.name, "' not among fitted Cox coefficients: ",
+           paste(rownames(coef_matrix), collapse = ", "))
+    }
+    coef_matrix <- coef_matrix[treat.name, , drop = FALSE]
+  }
 
   # Extract coefficients
   bhat <- coef_matrix[, "coef"]
@@ -61,19 +85,80 @@ get_Cox_sg <- function(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1
 
 #' Build Cox Model Formula
 #'
-#' Constructs a Cox model formula from variable names.
+#' Constructs a Cox model formula from variable names, optionally adjusted
+#' for additional covariates.
 #'
 #' @param outcome.name Character. Name of outcome variable.
 #' @param event.name Character. Name of event indicator variable.
 #' @param treat.name Character. Name of treatment variable.
-#' @return An R formula object for Cox regression.
+#' @param adjust_covariates Character vector or `NULL`. Additional model terms
+#'   appended to the right-hand side after the treatment term.  Terms are
+#'   pasted verbatim, so survival modelling functions such as `strata()` and
+#'   `pspline()` may be used directly, e.g. `adjust_covariates = "strata(x1)"`
+#'   produces a stratified Cox model rather than including `x1` as a linear
+#'   covariate.  `NULL` (default) reproduces the unadjusted, treatment-only
+#'   formula.
+#' @return An R formula object for Cox regression.  When `adjust_covariates`
+#'   is supplied, the treatment term is always placed first on the
+#'   right-hand side.
 #' @examples
 #' build_cox_formula("time_months", "event", "treat")
+#' build_cox_formula("time_months", "event", "treat",
+#'                   adjust_covariates = c("strata(site)", "age"))
 #' @export
 
-build_cox_formula <- function(outcome.name, event.name, treat.name) {
-  sf <- paste0("Surv(", outcome.name, ",", event.name, ") ~ ", treat.name)
+build_cox_formula <- function(outcome.name, event.name, treat.name,
+                              adjust_covariates = NULL) {
+  rhs <- treat.name
+  adj <- .fs_adjust_terms(adjust_covariates)
+  if (length(adj) > 0L) {
+    rhs <- paste(c(treat.name, adj), collapse = " + ")
+  }
+  sf <- paste0("Surv(", outcome.name, ",", event.name, ") ~ ", rhs)
   as.formula(sf)
+}
+
+
+#' Normalise Adjustment Terms
+#'
+#' Coerces an `adjust_covariates` argument (character vector or list of
+#' single-element character strings) into a plain character vector of model
+#' terms, dropping `NULL`/empty entries.  Used wherever an adjusted Cox
+#' right-hand side is assembled.
+#'
+#' @param adjust_covariates Character vector, list, or `NULL`.
+#' @return Character vector of terms (possibly length zero).
+#' @keywords internal
+#' @noRd
+.fs_adjust_terms <- function(adjust_covariates) {
+  if (is.null(adjust_covariates)) return(character(0))
+  terms <- unlist(adjust_covariates, use.names = FALSE)
+  terms <- terms[!is.na(terms)]
+  terms <- trimws(as.character(terms))
+  terms[nzchar(terms)]
+}
+
+
+#' Extract Bare Variable Names From Adjustment Terms
+#'
+#' Returns the underlying column names referenced by a set of adjustment
+#' terms, unwrapping survival modelling helpers.  For example,
+#' `"strata(x1)"` yields `"x1"` and `"pspline(x3, df = 4)"` yields `"x3"`.
+#' Used to determine which raw columns must be carried into the internal
+#' scoring frame so that the adjusted formula resolves.
+#'
+#' @param adjust_covariates Character vector, list, or `NULL`.
+#' @return Character vector of unique variable names (possibly length zero).
+#' @keywords internal
+#' @noRd
+.fs_adjust_vars <- function(adjust_covariates) {
+  terms <- .fs_adjust_terms(adjust_covariates)
+  if (length(terms) == 0L) return(character(0))
+  vars <- tryCatch(
+    all.vars(stats::reformulate(terms)),
+    error = function(e) character(0)
+  )
+  unique(vars)
 }
 
 #' Fit Cox Models for Subgroups
@@ -82,6 +167,10 @@ build_cox_formula <- function(outcome.name, event.name, treat.name) {
 #'
 #' @param df Data frame.
 #' @param formula Cox model formula.
+#' @param treat.name Character or `NULL`. Passed to \code{\link{get_Cox_sg}}
+#'   to extract the treatment coefficient by name when \code{formula} is
+#'   adjusted for covariates.  `NULL` (default) preserves the treatment-only
+#'   behaviour.
 #' @return List with HR and SE for each subgroup.
 #' @examples
 #' \dontrun{
@@ -97,9 +186,11 @@ build_cox_formula <- function(outcome.name, event.name, treat.name) {
 #' }
 #' @export
 
-fit_cox_models <- function(df, formula) {
-  fitH <- get_Cox_sg(df_sg = subset(df, treat.recommend == 0), cox.formula = formula)
-  fitHc <- get_Cox_sg(df_sg = subset(df, treat.recommend == 1), cox.formula = formula)
+fit_cox_models <- function(df, formula, treat.name = NULL) {
+  fitH <- get_Cox_sg(df_sg = subset(df, treat.recommend == 0), cox.formula = formula,
+                     treat.name = treat.name)
+  fitHc <- get_Cox_sg(df_sg = subset(df, treat.recommend == 1), cox.formula = formula,
+                      treat.name = treat.name)
   list(H_obs = fitH$est_obs, seH_obs = fitH$se_obs, Hc_obs = fitHc$est_obs, seHc_obs = fitHc$se_obs)
 }
 
