@@ -4,7 +4,13 @@
 \alias{get_Cox_sg}
 \title{Fit Cox Model for Subgroup}
 \usage{
-get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1))
+get_Cox_sg(
+  df_sg,
+  cox.formula,
+  est.loghr = TRUE,
+  cox_initial = log(1),
+  treat.name = NULL
+)
 }
 \arguments{
 \item{df_sg}{Data frame for subgroup.}
@@ -15,6 +21,13 @@ get_Cox_sg(df_sg, cox.formula, est.loghr = TRUE, cox_initial = log(1))
 
 \item{cox_initial}{Optional pre-fitted Cox model object to use instead of
 fitting a new model. Default NULL}
+
+\item{treat.name}{Character or \code{NULL}. Name of the treatment term whose
+coefficient is the effect of interest.  When the formula is adjusted
+for covariates the fit has multiple coefficients; supplying
+\code{treat.name} extracts only that term's estimate and SE.  \code{NULL}
+(default) preserves the historical behaviour of returning every
+coefficient (correct for the treatment-only formula).}
 }
 \value{
 List with estimate and standard error.

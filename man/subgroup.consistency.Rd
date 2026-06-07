@@ -33,7 +33,8 @@ subgroup.consistency(
   estimator_fn = NULL,
   consistency_threshold = NULL,
   effect_label = "HR",
-  effect_log_scale = FALSE
+  effect_log_scale = FALSE,
+  adjust_covariates = NULL
 )
 }
 \arguments{
@@ -196,6 +197,13 @@ Set automatically by \code{\link{forestsearch}} to the resolved
 \code{hr.subgroups} stores log-scale values (log-OR, log-IRR) and will
 be exponentiated for display in diagnostic output.  Default \code{FALSE}
 (Cox stores natural-scale HR).}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox
+model terms used when scoring survival subgroups during consistency
+evaluation, e.g. \code{"strata(x1)"} for a stratified model or
+\code{"x2"} for linear adjustment.  Referenced columns must be present
+in \code{df}.  Ignored on the GLM path.  Default \code{NULL}
+(treatment-only, unadjusted).}
 }
 \value{
 A list containing:

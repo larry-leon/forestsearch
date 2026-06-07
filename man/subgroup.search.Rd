@@ -24,7 +24,8 @@ subgroup.search(
   df_analysis = NULL,
   effect_threshold = NULL,
   effect_measure = NULL,
-  outcome_type = NULL
+  outcome_type = NULL,
+  adjust_covariates = NULL
 )
 }
 \arguments{

@@ -4,12 +4,17 @@
 \alias{fit_cox_models}
 \title{Fit Cox Models for Subgroups}
 \usage{
-fit_cox_models(df, formula)
+fit_cox_models(df, formula, treat.name = NULL)
 }
 \arguments{
 \item{df}{Data frame.}
 
 \item{formula}{Cox model formula.}
+
+\item{treat.name}{Character or \code{NULL}. Passed to \code{\link{get_Cox_sg}}
+to extract the treatment coefficient by name when \code{formula} is
+adjusted for covariates.  \code{NULL} (default) preserves the treatment-only
+behaviour.}
 }
 \value{
 List with HR and SE for each subgroup.

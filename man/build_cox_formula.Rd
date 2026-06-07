@@ -4,7 +4,12 @@
 \alias{build_cox_formula}
 \title{Build Cox Model Formula}
 \usage{
-build_cox_formula(outcome.name, event.name, treat.name)
+build_cox_formula(
+  outcome.name,
+  event.name,
+  treat.name,
+  adjust_covariates = NULL
+)
 }
 \arguments{
 \item{outcome.name}{Character. Name of outcome variable.}
@@ -12,13 +17,26 @@ build_cox_formula(outcome.name, event.name, treat.name)
 \item{event.name}{Character. Name of event indicator variable.}
 
 \item{treat.name}{Character. Name of treatment variable.}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional model terms
+appended to the right-hand side after the treatment term.  Terms are
+pasted verbatim, so survival modelling functions such as \code{strata()} and
+\code{pspline()} may be used directly, e.g. \code{adjust_covariates = "strata(x1)"}
+produces a stratified Cox model rather than including \code{x1} as a linear
+covariate.  \code{NULL} (default) reproduces the unadjusted, treatment-only
+formula.}
 }
 \value{
-An R formula object for Cox regression.
+An R formula object for Cox regression.  When \code{adjust_covariates}
+is supplied, the treatment term is always placed first on the
+right-hand side.
 }
 \description{
-Constructs a Cox model formula from variable names.
+Constructs a Cox model formula from variable names, optionally adjusted
+for additional covariates.
 }
 \examples{
 build_cox_formula("time_months", "event", "treat")
+build_cox_formula("time_months", "event", "treat",
+                  adjust_covariates = c("strata(site)", "age"))
 }

@@ -19,7 +19,8 @@ evaluate_combination_with_status(
   kk,
   estimator_fn = NULL,
   df_clean = NULL,
-  outcome_type = NULL
+  outcome_type = NULL,
+  adjust_covariates = NULL
 )
 }
 \arguments{

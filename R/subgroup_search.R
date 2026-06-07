@@ -43,6 +43,11 @@
 #'   d0.min/d1.min interpretation: events per arm for binary/survival,
 #'   ignored for continuous.  Default \code{NULL} (inferred from
 #'   \code{estimator_fn} presence).
+#' @param adjust_covariates Character vector or \code{NULL}. Additional Cox
+#'   model terms (e.g. \code{"strata(x1)"} or \code{"x2"}) used to adjust the
+#'   candidate-search Cox scorer on the survival path.  Referenced columns are
+#'   sourced from \code{df_analysis}.  Ignored on the GLM path.  Default
+#'   \code{NULL} (treatment-only).
 #'
 #' @return List with found subgroups, maximum HR, search time, configuration info,
 #'   and filtering statistics.
@@ -511,6 +516,8 @@ extract_idx_flagredundancy <- function(x, rmin) {
 #' @param minp Numeric. Minimum prevalence.
 #' @param rmin Integer. Minimum size reduction.
 #' @param kk Integer. Combination index.
+#' @param adjust_covariates Character vector or \code{NULL}. Cox adjustment
+#'   terms passed to \code{fit_cox_for_subgroup} on the survival path.
 #'
 #' @return List with:
 #'   \describe{

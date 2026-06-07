@@ -18,7 +18,8 @@ evaluate_subgroup_consistency(
   confs_labels,
   details = FALSE,
   estimator_fn = NULL,
-  consistency_threshold = NULL
+  consistency_threshold = NULL,
+  adjust_covariates = NULL
 )
 }
 \arguments{
@@ -53,6 +54,11 @@ consistency.}
 
 \item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
 consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox
+model terms (e.g. \code{"strata(x1)"}) used when scoring survival
+subgroups.  Referenced columns must be present in \code{df}.  Ignored
+on the GLM path.  Default \code{NULL} (unadjusted).}
 }
 \value{
 Named numeric vector with consistency results, or NULL if criteria

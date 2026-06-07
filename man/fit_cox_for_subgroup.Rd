@@ -4,7 +4,25 @@
 \alias{fit_cox_for_subgroup}
 \title{Fit Cox Model for Subgroup}
 \usage{
-fit_cox_for_subgroup(yy, dd, tt, id.x)
+fit_cox_for_subgroup(
+  yy,
+  dd,
+  tt,
+  id.x,
+  df_clean = NULL,
+  adjust_covariates = NULL
+)
+}
+\arguments{
+\item{yy, dd, tt, id.x}{Numeric vectors: outcome, event, treatment, and the
+subgroup membership indicator (1 = in subgroup).}
+
+\item{df_clean}{Data frame or \code{NULL}. Cleaned analysis frame row-aligned
+with the vectors, used only to source raw \code{adjust_covariates} columns.}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox terms
+(e.g. \code{"strata(x1)"}) appended after \code{Treat}.  \code{NULL} (default) fits the
+treatment-only model.}
 }
 \description{
 Fit Cox Model for Subgroup

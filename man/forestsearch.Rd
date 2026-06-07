@@ -81,6 +81,7 @@ forestsearch(
   overdispersion = c("none", "quasi", "negbin"),
   grf_count_transform = c("log", "identity"),
   tune_grf = FALSE,
+  adjust_covariates = NULL,
   ps_method = NULL,
   ps_adjust_method = c("none", "iptw", "dr_gcomp"),
   ps_hat = NULL
@@ -483,6 +484,19 @@ GRF parameters remain at their defaults, preserving existing
 behavior.  Applies to both internal GRF pre-screening and
 standalone GRF analysis when passed through
 \code{run_simulation_analysis()}.}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional terms
+used to adjust the Cox model that scores survival subgroups during
+consistency evaluation.  Terms are appended verbatim to the model
+right-hand side after the treatment term, so survival modelling helpers
+may be used directly: \code{adjust_covariates = "strata(x1)"} fits a
+model stratified by \code{x1}, whereas \code{adjust_covariates = "x1"}
+includes \code{x1} as a linear covariate.  The referenced raw columns
+must be present in \code{df.analysis}; they are carried into the
+internal scoring frame automatically.  Currently applies to the
+survival (Cox) consistency path only; the candidate-search ranking and
+GLM outcome paths are unaffected.  Default \code{NULL} (treatment-only,
+unadjusted -- the previous behaviour).}
 
 \item{ps_method}{Character or \code{NULL}. Propensity score estimation
 method: \code{"grf"}, \code{"lasso"}, \code{"logistic"}, or

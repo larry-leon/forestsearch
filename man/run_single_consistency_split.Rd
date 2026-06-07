@@ -10,7 +10,8 @@ run_single_consistency_split(
   hr.consistency,
   cox_init = 0,
   estimator_fn = NULL,
-  consistency_threshold = NULL
+  consistency_threshold = NULL,
+  adjust_covariates = NULL
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ run_single_consistency_split(
 
 \item{consistency_threshold}{Numeric or \code{NULL}. Threshold for GLM
 consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Additional Cox
+model terms (e.g. \code{"strata(x1)"}) passed to
+\code{\link{get_split_hr_fast}} on the survival path.  Ignored on the
+GLM path.  Default \code{NULL} (unadjusted).}
 }
 \value{
 Numeric. 1 if both splits meet threshold, 0 if not, NA if error.
