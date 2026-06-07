@@ -77,7 +77,9 @@ used by earlier package versions.}
 \item{collapse_cuts_args}{List of overrides for the coarsening, merged onto
 the defaults \code{list(c = 1.0, tol = 0.05, digits = 0L)}: \code{c} is the
 band multiplier (\code{band = c * sd(x)/sqrt(n)}), \code{tol} the
-membership safety tolerance (fraction of n when < 1, absolute count when= 1), and \code{digits} the rounding for the representative threshold.Ignored when \code{collapse_cuts = FALSE}.}
+membership safety tolerance (fraction of n when < 1, absolute count
+when >= 1), and \code{digits} the rounding for the representative threshold.
+Ignored when \code{collapse_cuts = FALSE}.}
 
 \item{replace_med_grf}{Logical. If TRUE, removes median cuts that overlap with GRF cuts.}
 

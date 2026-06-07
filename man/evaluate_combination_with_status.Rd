@@ -49,6 +49,9 @@ evaluate_combination_with_status(
 \item{rmin}{Integer. Minimum size reduction.}
 
 \item{kk}{Integer. Combination index.}
+
+\item{adjust_covariates}{Character vector or \code{NULL}. Cox adjustment
+terms passed to \code{fit_cox_for_subgroup} on the survival path.}
 }
 \value{
 List with:
