@@ -54,6 +54,7 @@ fs_pconsistency_threshold <- 0.90   # CONS. RATE:  fraction of splits that must 
 # treatment log-OR.  Set NULL for the unadjusted model.
 fs_adjust_covariates <- c("cd40", "wtkg")
 
+fs_consistency_method <- c("resample")
 
 ## -- Methods set & flagship arm ----------------------------------------------
 # Any subset of <engine>-<focus>, engine in {fs, dina, grf}, focus in
@@ -130,6 +131,7 @@ fs_params$hr.threshold           <- fs_effect_threshold
 fs_params$consistency.threshold  <- fs_consistency_threshold
 fs_params$hr.consistency         <- fs_consistency_threshold
 fs_params$pconsistency.threshold <- fs_pconsistency_threshold
+fs_params$consistency_method     <- fs_consistency_method
 # selection_rule "pareto"/"both" require a directional focus; the eff base
 # focus supports "neighborhood" only (forestsearch errors otherwise).  Mirrors
 # the .rule_for() guard used per-arm below.  Governs the flagship deep-dive.
