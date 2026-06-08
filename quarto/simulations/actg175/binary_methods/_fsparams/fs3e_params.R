@@ -80,6 +80,7 @@ get_fs3e_params <- function(sg_focus,
     return_selected_cuts_only = TRUE,
     max_subgroups_search      = 10,        # fs3: broad
     use_twostage              = TRUE,
+    consistency_method = "resample",
 
     # -- Effect-size thresholds ----------------------------------------------
     hr.threshold              = 1.25,      # OR scale

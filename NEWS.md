@@ -2,30 +2,6 @@
 
 ## New Features
 
-### GRF frontier selection (experimental)
-
-* New `grf_selection` argument (one of `"tree"` (default) or `"frontier"`) for
-  the GRF subgroup routines `grf.subg.harm.survival()` and
-  `grf.subg.harm.glm()`, and for `forestsearch(subgroup_method = "grf")`.
-  `"tree"` is the standard policy-tree selection and is unchanged.
-
-* `grf_selection = "frontier"` is an experimental alternative that consumes the
-  same doubly-robust scores as the policy tree but selects differently: it
-  enumerates single-covariate thresholds (and depth-2 covariate-pair
-  conjunctions when `grf_depth >= 2`), scores each candidate subgroup by its
-  doubly-robust harm-effect and size, takes the Pareto frontier, and selects one
-  subgroup under `frontier_rule` (`"effMaxSG"` (default), `"eff"`, or
-  `"maxSG"`), with `effect_neighborhood` giving the relative band for
-  `"effMaxSG"`. The selected subgroup is always a single conjunction. Within
-  `forestsearch()`, the frontier rule is taken from `sg_focus` (which the tree
-  path ignores). Implemented for survival and GLM outcomes; membership flows
-  through the existing estimation and bootstrap machinery unchanged.
-
-* This mode is provided for comparison and exploration. In internal benchmarks
-  the GRF policy tree matched or outperformed the frontier on harm recovery
-  (the tree's global value objective aligns well with isolating harm), so the
-  tree remains the recommended default.
-
 ### GLM Extension
 
 * Subgroup identification for binary, continuous, and count outcomes
@@ -47,45 +23,37 @@
   `"glm_dgm"` objects route to `simulate_from_glm_dgm()` and
   `grf.subg.harm.glm()` without user intervention.
 
-### DINA Estimator (Difference in Natural Parameters)
+### Consistency Resampling Approximation
 
-* `dina_fit()` implements the DINA estimator of heterogeneous treatment
-  effects on the natural-parameter scale (Gao & Hastie 2021) for
-  Gaussian, binomial, Poisson, and Cox outcomes.  Uses an orthogonalized
-  (Robinson / R-learner) estimating equation with cross-fitting and a
-  sandwich variance.  Propensity and baseline nuisance functions are
-  pluggable: built-in logistic / GLM / Cox fits, a numeric constant, or
-  user-supplied closures (`propensity_method`, `baseline_method =
-  list(eta0, eta1)` or `list(nu)`).  S3 methods `coef`, `vcov`,
-  `predict`, `confint`, `summary`, and `print` follow the conventional
-  contract with `(Intercept), X1..Xd` naming.
+* New `consistency_method` parameter in `forestsearch()` and
+  `subgroup.consistency()`.  `"split"` (default) runs the original
+  repeated 50/50 split-and-refit consistency calculation and is
+  byte-identical to prior behavior; `"resample"` replaces it with a
+  multiplier (influence-function) approximation that returns the rate
+  from a single subgroup fit.  Each candidate's half-split treatment
+  effects are represented as `beta_hat +/- D`, where `D` is a
+  multiplier sum of the per-subject treatment `dfbeta` contributions,
+  giving the closed form `2 * Phi((beta_hat - c) / sigma_D) - 1` with
+  `sigma_D` the robust (sandwich) SE of the treatment coefficient and
+  `c` the consistency threshold on the comparison scale.
 
-* `dina_subgroup()` searches the cross-fit DINA surface for the largest
-  subgroup whose mean effect meets a threshold, returning the discovered
-  signature and a BLP-analog effect (`a*'beta`).
+* The `"resample"` path applies to the Cox (survival) outcome and to
+  GLM outcomes whose effect is a single model coefficient (OR, RR, RD,
+  MD, IRR).  Configurations it cannot represent that way --- IRD,
+  propensity-adjusted effects, or a non-convergent fit on a given
+  candidate --- fall back to literal splitting automatically, so a
+  consistency rate is always produced.  When `use_twostage = TRUE`,
+  `"resample"` bypasses the two-stage split screening entirely.
 
-* `dina_subgroup_bootstrap()` provides bootstrap inference for the
-  discovered subgroup: a percentile CI on the BLP-analog effect (with
-  `a*` fixed from the original subgroup) and, when `refit = TRUE`, a
-  bootstrap CI for the within-subgroup standard model refit within the
-  fixed signature on each resample.  Both CIs are conditional on the
-  discovered signature; neither adjusts for signature selection.
+* The method propagates through the bootstrap automatically (each
+  resample iteration inherits `consistency_method`), where the saving
+  compounds because the inner `forestsearch()` runs sequentially.
 
-* `dina_subgroup_refit()` fits the standard within-subgroup
-  treatment-effect model (a plain Cox model for survival, a GLM
-  otherwise) comparing the arms inside a discovered subgroup --- the
-  conventional clinical estimate, distinct from the BLP-analog.
-  Unadjusted by default, with optional confounder adjustment
-  (`"none"` / `NULL`-automatic / explicit) and Cox stratification.
+* New exported `consistency_resample()` (Cox + GLM rate from a single
+  fit) and `consistency_resample_compare()` (validates the
+  approximation against literal splitting on the survival path).
 
-* **Reference validation.**  `dina_fit()` was validated against the
-  authors' reference implementation (`github.com/ZijunGao/DINA`) on
-  synthetic data across all four families: coefficients, sandwich
-  standard errors, and predicted HTE surfaces agree to numerical
-  precision under matched nuisance learners and cross-fitting folds.
-  See the QC document `quarto/qc/dina_reference_validation.qmd`.
-
-
+### GRF Standalone Subgroup Identification
 
 * `grf.subg.harm.glm()` provides standalone GRF-based subgroup
   identification for binary, continuous, and count outcomes using
@@ -349,10 +317,16 @@
   candidate consumes; equality is keyed on subgroup definitions
   and hr/N/E/K only.
 
-## References
+* GLM consistency resampling is wired through an explicit
+  `glm_resample_spec` threaded from `forestsearch()` to the
+  consistency evaluators (rather than introspecting the estimator
+  closure).  `consistency_resample()` gained a `comparison_threshold`
+  argument so the engine passes the already-resolved comparison-scale
+  threshold without a second log-transform.  New internal helpers
+  `.glm_resample_supported()` and `.consistency_via_splits()` gate the
+  supported measures and provide the shared split fallback.
 
-* Gao, Z., & Hastie, T. (2021). Estimating heterogeneous treatment
-  effects for general responses. *arXiv preprint* arXiv:2103.04277.
+## References
 
 * Dandl, S., Haslinger, C., Hothorn, T., Seibold, H., Sverdrup, E.,
   Wager, S., & Zeileis, A. (2024). What makes forest-based

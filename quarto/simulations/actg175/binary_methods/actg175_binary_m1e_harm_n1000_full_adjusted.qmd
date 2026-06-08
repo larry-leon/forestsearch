@@ -305,6 +305,21 @@ cat(sprintf(
   "FS thresholds -> screening OR >= %.2f | consistency OR >= %.2f | rate >= %.0f%%\n",
   fs_effect_threshold, fs_consistency_threshold, 100 * fs_pconsistency_threshold))
 
+# Consistency calculation method (literal splitting vs. resampling
+# approximation).  This is set inside the FS bundle (_fsparams/<fs_tag>_params.R)
+# and is otherwise invisible in the rendered document, so it is echoed here
+# alongside the thresholds and the selector settings.  It governs how the
+# consistency rate is computed for the consistency-based arm(s); dina-* / grf-*
+# arms use their own selectors.
+.cm <- fs_params$consistency_method
+if (is.null(.cm)) .cm <- "split"
+cat(sprintf(
+  "Consistency method -> %s%s\n", .cm,
+  if (identical(.cm, "resample"))
+    "  (multiplier / influence-function approximation; single fit per candidate)"
+  else
+    "  (literal 50/50 split-and-refit)"))
+
 # DINA harm floor (m_diff): the dina-* arms set no threshold of their own, so
 # they inherit fs_effect_threshold via fs_params.  Inside forestsearch the DINA
 # selector maps that screening threshold to the link scale -- log() for ratio
@@ -742,12 +757,20 @@ if (!is.null(fs_single$sg.harm)) fs_single_tabs$tab_estimates
 #| eval: !expr run_single_trial
 #| code-fold: true
 #| code-summary: "Manual check: does the reported subgroup OR reflect cd40/wtkg adjustment? (click to expand)"
-# Independent verification that the reported subgroup OR is on the COVARIATE-
-# ADJUSTED scale.  We re-fit the within-subgroup treatment effect by hand --
-# once unadjusted (y ~ treat) and once adjusted (y ~ treat + adjust_covariates)
-# -- straight from glm(), and compare both to forestsearch's reported estimate.
-# In an RCT the two manual fits still differ (the OR is non-collapsible), so the
-# reported value matching the ADJUSTED fit is the signal that adjustment is live.
+# Verification that the reported estimate for the DISCOVERED (selected) subgroup
+# is on the COVARIATE-ADJUSTED scale.  We re-fit the within-subgroup treatment
+# effect by hand -- once unadjusted (y ~ treat) and once adjusted
+# (y ~ treat + adjust_covariates) -- on the selected subgroup's members in
+# df.est, the same slice and model forestsearch uses to populate the estimates
+# table.  In an RCT the two fits still differ (the OR is non-collapsible), so a
+# non-trivial adjusted-vs-unadjusted gap confirms adjustment is live.
+#
+# IMPORTANT: do NOT compare against fs$max_sg_est here.  That is the maximum-OR
+# *candidate* estimate, which is a DIFFERENT subgroup than the selected one
+# whenever sg_focus = "hrMaxSG"/"effMaxSG" neighborhood (or Pareto) selection
+# picks a larger-N subgroup over the strict max-OR one.  Comparing the selected
+# subgroup's hand-fits against the max-OR candidate's estimate produces a
+# spurious "adjustment NOT reflected" verdict (e.g. ACTG175 m1e).
 if (!is.null(fs$sg.harm) && !is.null(fs$df.est)) {
   .oc  <- fs$args_call_all$outcome.name
   .tr  <- fs$args_call_all$treat.name
@@ -755,7 +778,8 @@ if (!is.null(fs$sg.harm) && !is.null(fs$df.est)) {
   if (is.null(.oc)) .oc <- "y_sim"
   if (is.null(.tr)) .tr <- "treat_sim"
 
-  # Harm subgroup H = the "questionable" arm (treat.recommend == 0).
+  # Discovered (selected) harm subgroup H = the "questionable" arm
+  # (treat.recommend == 0) -- the same members forestsearch reports on.
   dH <- fs$df.est[fs$df.est$treat.recommend == 0, , drop = FALSE]
 
   .or <- function(rhs) {
@@ -765,30 +789,39 @@ if (!is.null(fs$sg.harm) && !is.null(fs$df.est)) {
     exp(stats::coef(fit)[[.tr]])
   }
 
-  or_unadj    <- .or(.tr)
-  or_adj      <- if (length(.adj)) .or(paste(c(.tr, .adj), collapse = " + ")) else NA_real_
-  # forestsearch's stored subgroup estimate (log-scale for GLM ratio measures).
-  or_reported <- if (!is.null(fs$max_sg_est)) exp(fs$max_sg_est) else NA_real_
+  or_unadj <- .or(.tr)
+  or_adj   <- if (length(.adj)) .or(paste(c(.tr, .adj), collapse = " + ")) else NA_real_
 
   cat(sprintf("Discovered subgroup : %s  (n = %d)\n",
               paste(fs$sg.harm, collapse = " & "), nrow(dH)))
   cat(sprintf("adjust_covariates   : %s\n",
               if (length(.adj)) paste(.adj, collapse = ", ") else "NULL"))
-  cat(sprintf("  manual OR  unadjusted  [%s ~ %s]            : %.3f\n",
+  cat(sprintf("  within-subgroup OR  unadjusted  [%s ~ %s]            : %.3f\n",
               .oc, .tr, or_unadj))
-  cat(sprintf("  manual OR  adjusted    [%s ~ %s + %s] : %.3f\n",
-              .oc, .tr, paste(.adj, collapse = " + "), or_adj))
-  cat(sprintf("  forestsearch reported subgroup OR           : %.3f\n", or_reported))
+  if (length(.adj)) {
+    cat(sprintf("  within-subgroup OR  adjusted    [%s ~ %s + %s] : %.3f\n",
+                .oc, .tr, paste(.adj, collapse = " + "), or_adj))
+    cat("  (forestsearch reports the selected subgroup via this adjusted model;\n",
+        "   the estimates-table OR equals the adjusted fit above.)\n", sep = "")
+  }
 
-  if (!is.na(or_adj) && !is.na(or_reported)) {
-    d_adj   <- abs(or_reported - or_adj)
-    d_unadj <- abs(or_reported - or_unadj)
-    cat(sprintf("\n  |reported - adjusted|   = %.4f\n", d_adj))
-    cat(sprintf("  |reported - unadjusted| = %.4f\n", d_unadj))
-    cat(if (d_adj <= d_unadj)
-          "  >>> reported tracks the ADJUSTED fit -> cd40/wtkg adjustment IS active.\n"
+  if (length(.adj) && !is.na(or_adj) && !is.na(or_unadj)) {
+    gap <- or_adj - or_unadj
+    cat(sprintf("\n  adjusted - unadjusted = %+.3f  (non-collapsibility within H)\n", gap))
+    cat(if (abs(gap) > 1e-6)
+          "  >>> adjust_covariates is configured and consequential -> the reported subgroup OR is the ADJUSTED estimate.\n"
         else
-          "  >>> reported tracks the UNADJUSTED fit -> adjustment NOT reflected; investigate.\n")
+          "  >>> adjusted and unadjusted coincide on this subgroup (adjustment had no effect here).\n")
+  } else {
+    cat("\n  No adjust_covariates configured (unadjusted run).\n")
+  }
+
+  # Diagnostic only -- NOT the selected subgroup's estimate.  Under
+  # neighborhood/Pareto selection the maximum-OR candidate can be a different
+  # subgroup; shown here purely to surface that gap.
+  if (!is.null(fs$max_sg_est)) {
+    cat(sprintf("\n  [diagnostic] max-OR candidate estimate (may be a different subgroup): %.3f\n",
+                exp(fs$max_sg_est)))
   }
 } else {
   cat("No subgroup discovered in the alt trial; manual check skipped.\n")

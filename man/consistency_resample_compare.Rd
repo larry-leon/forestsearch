@@ -24,7 +24,9 @@ consistency_resample_compare(
 \item{hr.consistency}{Numeric; survival HR consistency threshold (also the
 default GLM threshold when \code{consistency_threshold} is \code{NULL}). Default 1.0.}
 
-\item{R_true}{Integer; number of literal random splits.}
+\item{R_true}{Integer; number of literal random splits used for the truth.}
+
+\item{draws}{Integer; multiplier draws for the Monte Carlo path.}
 
 \item{multiplier}{Character; \code{"rademacher"} (default), \code{"normal"},
 \code{"poisson"}.}
@@ -37,8 +39,6 @@ names.}
 \item{adjust_covariates}{Character vector or \code{NULL}; adjustment terms.}
 
 \item{seed}{Integer or \code{NULL}; RNG seed for the Monte Carlo draws.}
-
-\item{R_true, draws}{Integers controlling the truth loop and approximation.}
 }
 \value{
 One-row data.frame with \code{n}, \code{d}, \code{beta_hat}, \code{sigma_D},

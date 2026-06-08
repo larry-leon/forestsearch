@@ -365,8 +365,7 @@ consistency_resample <- function(df, hr.consistency = 1.0,
 #' GLM paths use the standalone GLM validator.
 #'
 #' @inheritParams consistency_resample
-#' @param R_true Integer; number of literal random splits.
-#' @param R_true,draws Integers controlling the truth loop and approximation.
+#' @param R_true Integer; number of literal random splits used for the truth.
 #'
 #' @return One-row data.frame with `n`, `d`, `beta_hat`, `sigma_D`,
 #'   `rate_true`, `valid_true`, `rate_closed`, `rate_mc`, `err_closed`,

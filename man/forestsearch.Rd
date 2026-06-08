@@ -74,7 +74,7 @@ forestsearch(
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
-  consistency_method = "split",
+  consistency_method = c("split", "resample"),
   outcome_type = c("survival", "binary", "continuous", "count"),
   effect_measure = NULL,
   offset.name = NULL,
@@ -452,10 +452,13 @@ is automatically calculated to provide ~2.5 SE margin.}
 
 \item{consistency_method}{Character. \code{"split"} (default) runs the
 literal repeated 50/50 split-and-refit consistency calculation;
-\code{"resample"} uses the score-residual multiplier approximation
-(\code{\link{consistency_resample}}), returning the rate from a single
-subgroup fit. The \code{"resample"} path currently applies to the Cox
-(survival) outcome only; GLM outcomes fall back to \code{"split"}. When
+\code{"resample"} uses the multiplier (influence-function / \code{dfbeta})
+approximation (\code{\link{consistency_resample}}), returning the rate from
+a single subgroup fit. The \code{"resample"} path applies to the Cox
+(survival) outcome and to GLM outcomes whose effect is a single model
+coefficient (OR, RR, RD, MD, IRR); configurations it cannot represent that
+way (IRD, propensity-adjusted effects, or a non-convergent fit on a given
+candidate) fall back to \code{"split"} automatically. When
 \code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
 split screening entirely (the rate is computed directly).}
 

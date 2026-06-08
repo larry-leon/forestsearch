@@ -61,6 +61,15 @@ consistency evaluation.  Default \code{NULL} (uses \code{hr.consistency}).}
 model terms (e.g. \code{"strata(x1)"}) used when scoring survival
 subgroups.  Referenced columns must be present in \code{df}.  Ignored
 on the GLM path.  Default \code{NULL} (unadjusted).}
+
+\item{consistency_method}{Character. \code{"split"} (default) or
+\code{"resample"}; see \code{\link{subgroup.consistency}}.  When
+\code{"resample"} yields an unsupported/non-convergent rate the evaluator
+falls back to literal splitting for that subgroup.}
+
+\item{glm_resample_spec}{List or \code{NULL}. GLM resampling specification
+threaded from \code{\link{forestsearch}}; see
+\code{\link{subgroup.consistency}}.  \code{NULL} on the survival path.}
 }
 \value{
 Named numeric vector with consistency results, or NULL if criteria
