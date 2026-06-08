@@ -494,6 +494,14 @@
 #'     \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
+#' @param consistency_method Character. \code{"split"} (default) runs the
+#'   literal repeated 50/50 split-and-refit consistency calculation;
+#'   \code{"resample"} uses the score-residual multiplier approximation
+#'   (\code{\link{consistency_resample}}), returning the rate from a single
+#'   subgroup fit. The \code{"resample"} path currently applies to the Cox
+#'   (survival) outcome only; GLM outcomes fall back to \code{"split"}. When
+#'   \code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
+#'   split screening entirely (the rate is computed directly).
 #' @param outcome_type Character. One of \code{"survival"} (default),
 #'   \code{"binary"}, \code{"continuous"}, or \code{"count"}.
 #' @param effect_measure Character or \code{NULL}. Effect measure for GLM
@@ -787,6 +795,7 @@ forestsearch <- function(df.analysis,
                          # NEW: Two-stage consistency parameters
                          use_twostage = TRUE,
                          twostage_args = list(),
+                         consistency_method = "split",
                          # NEW: GLM outcome support
                          outcome_type = c("survival", "binary", "continuous",
                                           "count"),
@@ -2206,6 +2215,7 @@ forestsearch <- function(df.analysis,
       # NEW: Pass two-stage parameters
       use_twostage = use_twostage,
       twostage_args = twostage_args,
+      consistency_method = consistency_method,
       # Covariate adjustment for Cox subgroup scoring (NULL on GLM path)
       adjust_covariates = if (is.null(estimator_fn)) adjust_covariates else NULL
     )
@@ -2226,6 +2236,22 @@ forestsearch <- function(df.analysis,
       consistency_overrides$effect_label <- effect_measure
       consistency_overrides$effect_log_scale <-
         effect_measure %in% c("OR", "RR", "IRR")
+      # Resampling-approximation spec for consistency_method = "resample".
+      # consistency_threshold is already on the comparison scale (log for
+      # ratio measures, identity for identity measures), so it is passed as
+      # comparison_threshold to avoid a second log-transform. adjust_covariates
+      # is carried here because the GLM adjustment lives inside estimator_fn and
+      # is otherwise NULL on the consistency path.
+      consistency_overrides$glm_resample_spec <- list(
+        outcome_type         = outcome_type,
+        effect_measure       = effect_measure,
+        treat.name           = treat.name,
+        outcome.name         = outcome.name,
+        offset.name          = offset.name,
+        adjust_covariates    = adjust_covariates,
+        adverse_outcome      = adverse_outcome,
+        comparison_threshold = consistency_threshold
+      )
     }
 
     # Run subgroup consistency analysis with error handling

@@ -34,7 +34,9 @@ subgroup.consistency(
   consistency_threshold = NULL,
   effect_label = "HR",
   effect_log_scale = FALSE,
-  adjust_covariates = NULL
+  adjust_covariates = NULL,
+  consistency_method = c("split", "resample"),
+  glm_resample_spec = NULL
 )
 }
 \arguments{
@@ -204,6 +206,15 @@ evaluation, e.g. \code{"strata(x1)"} for a stratified model or
 \code{"x2"} for linear adjustment.  Referenced columns must be present
 in \code{df}.  Ignored on the GLM path.  Default \code{NULL}
 (treatment-only, unadjusted).}
+
+\item{glm_resample_spec}{List or \code{NULL}. GLM resampling specification
+threaded from \code{\link{forestsearch}} when
+\code{consistency_method = "resample"} on a GLM outcome: components
+\code{outcome_type}, \code{effect_measure}, \code{treat.name},
+\code{outcome.name}, \code{offset.name}, \code{adjust_covariates},
+\code{adverse_outcome}, and \code{comparison_threshold} (the consistency
+threshold already on the comparison scale, i.e. \code{log(threshold)} for
+ratio measures).  \code{NULL} on the survival path.}
 }
 \value{
 A list containing:

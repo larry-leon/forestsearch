@@ -74,6 +74,7 @@ forestsearch(
   vi.grf.min = -0.2,
   use_twostage = TRUE,
   twostage_args = list(),
+  consistency_method = "split",
   outcome_type = c("survival", "binary", "continuous", "count"),
   effect_measure = NULL,
   offset.name = NULL,
@@ -448,6 +449,15 @@ is automatically calculated to provide ~2.5 SE margin.}
 \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 }}
+
+\item{consistency_method}{Character. \code{"split"} (default) runs the
+literal repeated 50/50 split-and-refit consistency calculation;
+\code{"resample"} uses the score-residual multiplier approximation
+(\code{\link{consistency_resample}}), returning the rate from a single
+subgroup fit. The \code{"resample"} path currently applies to the Cox
+(survival) outcome only; GLM outcomes fall back to \code{"split"}. When
+\code{use_twostage = TRUE}, \code{"resample"} bypasses the two-stage
+split screening entirely (the rate is computed directly).}
 
 \item{outcome_type}{Character. One of \code{"survival"} (default),
 \code{"binary"}, \code{"continuous"}, or \code{"count"}.}

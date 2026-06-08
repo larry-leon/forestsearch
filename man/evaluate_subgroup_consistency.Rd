@@ -19,7 +19,9 @@ evaluate_subgroup_consistency(
   details = FALSE,
   estimator_fn = NULL,
   consistency_threshold = NULL,
-  adjust_covariates = NULL
+  adjust_covariates = NULL,
+  consistency_method = "split",
+  glm_resample_spec = NULL
 )
 }
 \arguments{

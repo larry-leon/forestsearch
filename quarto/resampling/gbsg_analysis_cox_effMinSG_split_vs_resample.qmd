@@ -1,0 +1,299 @@
+---
+title: "ForestSearch Consistency: Split vs. Resample"
+subtitle: "GBSG Cox analysis (effMinSG) — same engine, two consistency methods"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    number-sections: true
+    code-fold: true
+    code-summary: "Show code"
+    theme: cosmo
+execute:
+  warning: true
+  message: true
+---
+
+```{r setup}
+#| include: false
+knitr::opts_chunk$set(comment = "#>", fig.align = "center")
+```
+
+# Purpose
+
+A minimal comparison of the two consistency-calculation methods now exposed by
+`forestsearch()` via `consistency_method`, holding everything else fixed:
+
+* **`"split"`** — the original repeated 50/50 split-and-refit consistency rate.
+* **`"resample"`** — the score-residual multiplier approximation
+  (`consistency_resample()`), which returns the rate from a single subgroup fit.
+
+This is the GBSG Cox (survival) analysis trimmed to only the parts needed for
+the comparison: data preparation, the `forestsearch()` call, and the
+post-selection bootstrap bias correction. The two runs
+share the same `seedit`, screening engines, and thresholds, so the candidate
+set is identical — only the consistency step differs. Both use
+`use_twostage = TRUE`; under `"resample"` the two-stage split screening is
+bypassed (the rate is computed directly), so the flag is exercised in the
+configuration where the question of "does resample fit within two-stage?"
+actually arises.
+
+```{r config}
+#| code-fold: false
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(grf)
+library(policytree)
+library(future)
+library(doFuture)
+
+n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+# Identification parameters (mirror the effMinSG analysis)
+fs_sg_focus             <- "effMinSG"
+fs_hr_threshold         <- 1.0
+fs_hr_consistency       <- 0.90
+fs_max_subgroups_search <- 30
+```
+
+# Data
+
+```{r data-setup}
+#| code-fold: false
+df.analysis <- gbsg
+df.analysis <- within(df.analysis, {
+  id          <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3      <- ifelse(grade == "3", 1, 0)
+  treat       <- hormon
+})
+
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name   <- "status"
+id.name      <- "id"
+treat.name   <- "hormon"
+
+cat("N =", nrow(df.analysis),
+    "| Events =", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
+```
+
+# Run forestsearch under each consistency method
+
+The identical call is wrapped in a function parameterised only by
+`consistency_method`. Display/verbosity arguments are quieted; everything that
+affects candidate generation and selection is held fixed.
+
+```{r run-both}
+#| code-fold: false
+run_fs <- function(method) {
+  t0 <- proc.time()
+  fs <- forestsearch(
+    df.analysis,
+    outcome.name              = outcome.name,
+    event.name                = event.name,
+    treat.name                = treat.name,
+    id.name                   = id.name,
+    confounders.name          = confounders.name,
+    is.RCT                    = TRUE,
+    seedit                    = 8316951,
+    est.scale                 = "hr",
+    # screening engines (shared -> identical candidate set across methods)
+    use_lasso                 = TRUE,
+    use_grf                   = TRUE,
+    grf_depth                 = 2,
+    dmin.grf                  = 4,
+    frac.tau                  = 0.80,
+    return_selected_cuts_only = TRUE,
+    # selection engine
+    subgroup_method           = "consistency",
+    sg_focus                  = fs_sg_focus,
+    selection_rule            = "neighborhood",
+    effect_neighborhood       = 0.10,
+    # subgroup constraints
+    n.min                     = 60,
+    d0.min                    = 10,
+    d1.min                    = 10,
+    maxk                      = 2,
+    max_subgroups_search      = fs_max_subgroups_search,
+    # thresholds
+    hr.threshold              = fs_hr_threshold,
+    hr.consistency            = fs_hr_consistency,
+    pconsistency.threshold    = 0.90,
+    m1.threshold              = Inf,
+    minp                      = 0.025,
+    # consistency search
+    fs.splits                 = 1000,
+    stop_threshold            = 0.95,
+    use_twostage              = TRUE,
+    # >>> the only thing that varies between the two runs <<<
+    consistency_method        = method,
+    # output (quieted for the comparison)
+    show_candidate_summary    = FALSE,
+    details                   = FALSE,
+    quiet                     = TRUE,
+    plot.sg                   = FALSE,
+    plot.grf                  = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_cores,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  list(fs = fs, elapsed = unname((proc.time() - t0)["elapsed"]))
+}
+
+res_split    <- run_fs("split")
+res_resample <- run_fs("resample")
+```
+
+# Comparison
+
+```{r compare}
+#| code-fold: false
+summ <- function(tag, r) {
+  fs <- r$fs
+  sg   <- if (is.null(fs$sg.harm)) "(none)" else paste(fs$sg.harm, collapse = " & ")
+  size <- if (!is.null(fs$df.est)) sum(fs$df.est$treat.recommend == 0) else NA_integer_
+  data.frame(method = tag, subgroup = sg, size = size,
+             elapsed_sec = round(r$elapsed, 2))
+}
+
+cmp <- rbind(summ("split", res_split), summ("resample", res_resample))
+cmp |>
+  gt() |>
+  tab_header(title = "Selected subgroup: split vs. resample") |>
+  tab_source_note("Same seedit, screening, and thresholds; only consistency_method differs.")
+
+cat("\nIdentical selected subgroup? ",
+    identical(res_split$fs$sg.harm, res_resample$fs$sg.harm), "\n")
+```
+
+## Consistency rates per candidate
+
+The per-candidate consistency table for each method. The selected subgroup's
+`Pcons` should agree to within the approximation error documented for the
+resampling method (≈0.01 on GBSG).
+
+```{r tables}
+#| code-fold: false
+cat("=== split ===\n")
+sg_tables(res_split$fs,    ndecimals = 3, which_df = "est")$sg10_out
+
+cat("=== resample ===\n")
+sg_tables(res_resample$fs, ndecimals = 3, which_df = "est")$sg10_out
+```
+
+## Treatment-effect estimates
+
+```{r estimates}
+#| code-fold: false
+cat("=== split ===\n")
+sg_tables(res_split$fs,    ndecimals = 3, which_df = "est")$tab_estimates
+
+cat("=== resample ===\n")
+sg_tables(res_resample$fs, ndecimals = 3, which_df = "est")$tab_estimates
+```
+
+# Bootstrap post-selection (bias correction)
+
+Cox estimates from a *selected* subgroup are upwardly biased: the subgroup was
+chosen precisely because it showed an extreme effect. The bootstrap re-runs the
+entire selection on each resample and applies bias correction with
+infinitesimal-jackknife variance.
+
+The key point for this comparison: `forestsearch_bootstrap_dofuture()` re-runs
+`forestsearch()` from the fitted object's stored call (`fs$args_call_all`), and
+`consistency_method` is part of that call. So it propagates into every
+resample automatically — the split-bootstrap re-selects with literal splitting,
+the resample-bootstrap with the approximation. This is where the per-subgroup
+resample saving compounds: the consistency step runs `nb_boots` times, once
+inside each bootstrap re-fit.
+
+```{r bootstrap-run}
+#| code-fold: false
+NB <- 1000   # production: 500-2000
+
+run_boot <- function(fs_obj) {
+  t0 <- proc.time()
+  bc <- forestsearch_bootstrap_dofuture(
+    fs.est        = fs_obj,
+    nb_boots      = NB,
+    show_three    = FALSE,
+    details       = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_cores,
+                         show_message = FALSE)
+  )
+  plan("sequential")
+  list(bc = bc, elapsed = unname((proc.time() - t0)["elapsed"]))
+}
+
+boot_split    <- run_boot(res_split$fs)
+boot_resample <- run_boot(res_resample$fs)
+```
+
+## Bias-corrected estimates
+
+The bias-corrected estimate table for the selected subgroup (Ĥ) and its
+complement (Ĥᶜ) under each consistency method. Because both methods selected the
+same subgroup, the corrected estimates should agree up to bootstrap Monte-Carlo
+error (and the small consistency-rate approximation, which only affects which
+subgroup each *resample* re-selects).
+
+```{r bootstrap-summary}
+#| code-fold: false
+sum_split <- summarize_bootstrap_results(
+  sgharm = res_split$fs$sg.harm, boot_results = boot_split$bc,
+  create_plots = FALSE, est.scale = "hr")
+sum_resample <- summarize_bootstrap_results(
+  sgharm = res_resample$fs$sg.harm, boot_results = boot_resample$bc,
+  create_plots = FALSE, est.scale = "hr")
+
+cat("=== split: bias-corrected ===\n")
+sum_split$table
+
+cat("=== resample: bias-corrected ===\n")
+sum_resample$table
+```
+
+## Bootstrap timing
+
+```{r bootstrap-timing}
+#| code-fold: false
+data.frame(
+  method        = c("split", "resample"),
+  nb_boots      = NB,
+  bootstrap_sec = round(c(boot_split$elapsed, boot_resample$elapsed), 1)
+) |>
+  gt() |>
+  tab_header(title = "Bootstrap wall-clock") |>
+  tab_source_note(paste(
+    "Each resample re-runs the whole forestsearch() (candidate generation +",
+    "consistency); only the consistency step differs between the two methods."))
+```
+
+# Notes
+
+* **`use_twostage` interaction.** Both runs set `use_twostage = TRUE`. Under
+  `"split"` the two-stage Stage-1 screen + Stage-2 Wilson-CI early stopping
+  governs how many of the up-to-`fs.splits` splits are drawn per candidate.
+  Under `"resample"` there are no splits to stop early, so the two-stage path
+  is bypassed and the rate is returned from a single fit — `use_twostage` and
+  `twostage_args` have no effect on that path.
+* **Timing.** The elapsed times above are for the *whole* `forestsearch()`
+  call, which is dominated by the shared candidate generation (GRF/LASSO) and,
+  under split, already trimmed by two-stage early stopping. The consistency
+  step itself is ~3 orders of magnitude cheaper under resample (measured
+  separately on the Ĥ subgroup); that per-subgroup saving compounds inside the
+  bootstrap and cross-validation layers rather than in this single call.
+* **Scope.** `consistency_method = "resample"` currently applies to the Cox
+  (survival) path; GLM/binary outcomes fall back to `"split"`.
+* **Bootstrap propagation.** The post-selection bootstrap inherits
+  `consistency_method` from `fs$args_call_all`, so no extra wiring is needed:
+  passing `res_split$fs` vs `res_resample$fs` is the only difference between the
+  two bootstrap runs. The consistency step executes `nb_boots` times, so this is
+  the layer where the resample saving accumulates.
+```

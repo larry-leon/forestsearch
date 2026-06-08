@@ -128,6 +128,14 @@
 #'   \code{"x2"} for linear adjustment.  Referenced columns must be present
 #'   in \code{df}.  Ignored on the GLM path.  Default \code{NULL}
 #'   (treatment-only, unadjusted).
+#' @param glm_resample_spec List or \code{NULL}. GLM resampling specification
+#'   threaded from \code{\link{forestsearch}} when
+#'   \code{consistency_method = "resample"} on a GLM outcome: components
+#'   \code{outcome_type}, \code{effect_measure}, \code{treat.name},
+#'   \code{outcome.name}, \code{offset.name}, \code{adjust_covariates},
+#'   \code{adverse_outcome}, and \code{comparison_threshold} (the consistency
+#'   threshold already on the comparison scale, i.e. \code{log(threshold)} for
+#'   ratio measures).  \code{NULL} on the survival path.
 #' @param effect_label Character. Column label for the effect measure in
 #'   diagnostic output (e.g., candidate subgroup table).  Default \code{"HR"}.
 #'   Set automatically by \code{\link{forestsearch}} to the resolved
@@ -280,7 +288,9 @@ subgroup.consistency <- function(df,
                                  consistency_threshold = NULL,
                                  effect_label = "HR",
                                  effect_log_scale = FALSE,
-                                 adjust_covariates = NULL) {
+                                 adjust_covariates = NULL,
+                                 consistency_method = c("split", "resample"),
+                                 glm_resample_spec = NULL) {
 
   # ===========================================================================
   # SECTION 1: INPUT VALIDATION
@@ -293,6 +303,24 @@ subgroup.consistency <- function(df,
   # the helpers, and the result-building in Section 10 -- sees the
   # canonical form.
   sg_focus <- .normalize_sg_focus(sg_focus)
+
+  # Consistency calculation method: literal splitting vs. resampling
+  # approximation. 'resample' covers the Cox (survival) path and the GLM path
+  # (when forestsearch supplies a glm_resample_spec for a supported measure);
+  # a missing consistency_resample() or an unspecified GLM path fall back to
+  # 'split'.
+  consistency_method <- match.arg(consistency_method)
+  if (identical(consistency_method, "resample")) {
+    if (!exists("consistency_resample", mode = "function")) {
+      warning("consistency_resample() not found; using 'split'. Install or ",
+              "source consistency_resample.R to enable the approximation.")
+      consistency_method <- "split"
+    } else if (!is.null(estimator_fn) && is.null(glm_resample_spec)) {
+      warning("consistency_method = 'resample' on the GLM (estimator_fn) path ",
+              "requires a glm_resample_spec; using 'split'.")
+      consistency_method <- "split"
+    }
+  }
 
   if (!is.data.frame(df) || nrow(df) == 0) {
     stop("df must be a non-empty data frame")
@@ -579,7 +607,9 @@ subgroup.consistency <- function(df,
           min.valid.screen = ts_params$min.valid.screen,
           estimator_fn = estimator_fn,
           consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates
+          adjust_covariates = adjust_covariates,
+          consistency_method = consistency_method,
+          glm_resample_spec = glm_resample_spec
         )
       } else {
         results_list[[m]] <- evaluate_subgroup_consistency(
@@ -597,7 +627,9 @@ subgroup.consistency <- function(df,
           details = details,
           estimator_fn = estimator_fn,
           consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates
+          adjust_covariates = adjust_covariates,
+          consistency_method = consistency_method,
+          glm_resample_spec = glm_resample_spec
         )
       }
 
@@ -689,7 +721,9 @@ subgroup.consistency <- function(df,
           min.valid.screen = ts_params$min.valid.screen,
           estimator_fn = estimator_fn,
           consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates
+          adjust_covariates = adjust_covariates,
+          consistency_method = consistency_method,
+          glm_resample_spec = glm_resample_spec
         )
       }
     } else {
@@ -709,7 +743,9 @@ subgroup.consistency <- function(df,
           details = FALSE,
           estimator_fn = estimator_fn,
           consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates
+          adjust_covariates = adjust_covariates,
+          consistency_method = consistency_method,
+          glm_resample_spec = glm_resample_spec
         )
       }
     }

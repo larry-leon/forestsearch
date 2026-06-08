@@ -1,0 +1,168 @@
+---
+title: "GBSG: splitting-consistency vs. resampling approximation"
+subtitle: "Forest Search consistency step, original (direct split) and new (resampling)"
+format:
+  html:
+    toc: true
+    code-fold: false
+    df-print: paged
+execute:
+  warning: false
+  message: false
+---
+
+```{r setup}
+# --- knobs (all in one place) ---------------------------------------------
+R_true        <- 2000      # literal random splits for the "direct" rate
+draws         <- 8000      # multiplier draws for the resampling approximation
+hr.consistency<- 1.0       # consistency threshold c2 (HR scale)
+hr.screen     <- 1.25      # screening threshold c1 (context only here)
+seed          <- 7
+
+library(survival)          # gbsg data + coxph
+# forestsearch provides run_single_consistency_split(); consistency_resample()
+# is the new file. Load whichever way you have them:
+if (!exists("run_single_consistency_split")) suppressMessages(library(forestsearch))
+if (!exists("consistency_resample")) source("consistency_resample.R")
+library(gt)
+```
+
+## Data
+
+`survival::gbsg` (German Breast Cancer Study Group). Outcome = recurrence-free
+survival in months; treatment = hormonal therapy (`hormon`). Columns are mapped
+to the `Y` / `Event` / `Treat` names the forestsearch consistency engine expects.
+
+```{r data}
+df <- within(gbsg, {
+  Y     <- rfstime / 30.4375
+  Event <- status
+  Treat <- hormon
+})
+```
+
+## The paper's Ĥ subgroup: Estrogen (`er`) ≤ 0
+
+León et al. (2024) identify `Ĥ = {er <= 0}` with $\hat\theta(\hat H)=1.95$ and a
+**reported consistency rate of 95.1%**. We recompute that rate two ways:
+
+* **direct** — `run_single_consistency_split()` looped `R_true` times (the
+  original 50/50-split-and-refit calculation);
+* **resampling** — `consistency_resample()` (one Cox fit + multiplier
+  representation of the split pair).
+
+```{r hhat}
+sub_H <- df[df$er <= 0, c("Y", "Event", "Treat")]
+
+cmp_H <- consistency_resample_compare(
+  sub_H, hr.consistency = hr.consistency,
+  R_true = R_true, draws = draws, seed = seed
+)
+cmp_H
+# Expected (base-R Breslow check): HR ~ 1.95, n = 82, d = 45,
+#   rate_true ~ 0.95 (paper: 0.951),  rate_closed ~ 0.96,  rate_mc ~ 0.96.
+# coxph (Efron ties) will land within rounding of these.
+```
+
+The direct rate reproduces the paper's 95.1%; the closed-form and multiplier
+approximations agree to within ~1 percentage point.
+
+## Candidate sweep
+
+The selection step only cares whether a candidate clears the 90% consistency
+bar, so what matters is that the approximation *ranks* candidates like the
+direct rate. Below, a handful of single-factor GBSG subgroups (one harm-direction
+candidate, the rest benefit-direction).
+
+```{r sweep}
+df$age_hi   <- as.integer(df$age   > median(df$age))
+df$nodes_hi <- as.integer(df$nodes > median(df$nodes))
+df$pgr_lo   <- as.integer(df$pgr  <= median(df$pgr))
+df$size_hi  <- as.integer(df$size  > median(df$size))
+
+cands <- list(
+  "er<=0"     = df$er <= 0,
+  "grade==3"  = df$grade == 3,
+  "meno==1"   = df$meno == 1,
+  "nodes>med" = df$nodes_hi == 1,
+  "pgr<=med"  = df$pgr_lo == 1,
+  "size>med"  = df$size_hi == 1,
+  "age>med"   = df$age_hi == 1
+)
+
+sweep <- do.call(rbind, lapply(names(cands), function(nm) {
+  s <- df[cands[[nm]], c("Y", "Event", "Treat")]
+  out <- consistency_resample_compare(
+    s, hr.consistency = hr.consistency,
+    R_true = R_true, draws = draws, seed = seed
+  )
+  data.frame(subgroup = nm, out)
+}))
+
+sweep |>
+  gt() |>
+  fmt_number(c(beta_hat, sigma_D, rate_true, rate_closed, rate_mc,
+               err_closed, err_mc), decimals = 3) |>
+  tab_header(title = "GBSG consistency: direct split vs. resampling approximation")
+```
+
+Benefit-direction candidates (HR < 1) read ~0 under both methods; only the harm
+subgroup `er<=0` is consistent. Selection ranking is preserved.
+
+## A `method` flag (application level)
+
+A single entry point that dispatches between the original direct splitting and
+the new approximation. This is the pattern that would live inside the engine
+(see note below); here it wraps the two paths for one subgroup.
+
+```{r flag}
+consistency_rate <- function(df.x, hr.consistency = 1.0,
+                             method = c("split", "resample"),
+                             R = 2000, draws = 8000, seed = 7,
+                             adjust_covariates = NULL) {
+  method <- match.arg(method)
+  if (method == "resample") {
+    consistency_resample(
+      df.x, hr.consistency = hr.consistency, method = "closed",
+      draws = draws, adjust_covariates = adjust_covariates, seed = seed
+    )$rate_closed
+  } else {
+    set.seed(seed)
+    res <- vapply(seq_len(R), function(r) run_single_consistency_split(
+      df.x = df.x, N.x = nrow(df.x), hr.consistency = hr.consistency,
+      adjust_covariates = adjust_covariates), numeric(1))
+    mean(res, na.rm = TRUE)
+  }
+}
+
+c(split    = consistency_rate(sub_H, method = "split",    R = R_true, seed = seed),
+  resample = consistency_rate(sub_H, method = "resample", draws = draws, seed = seed))
+```
+
+## Timing
+
+```{r timing}
+t_split <- system.time(
+  consistency_rate(sub_H, method = "split", R = R_true, seed = seed)
+)["elapsed"]
+t_resamp <- system.time(
+  consistency_rate(sub_H, method = "resample", draws = draws, seed = seed)
+)["elapsed"]
+data.frame(method = c("split", "resample"),
+           elapsed_sec = c(unname(t_split), unname(t_resamp)),
+           speedup = c(1, round(t_split / t_resamp, 1)))
+```
+
+## Notes
+
+* This doc isolates the **consistency step**; it is not the full FS candidate
+  generation / GRF-lasso screening / selection pipeline.
+* Adjusted version: pass `adjust_covariates = "age"` (etc.) to both
+  `consistency_resample_compare()` and `consistency_rate()`.
+* **Core-engine flag (not yet added).** The natural home is a
+  `consistency_method = c("split","resample")` argument on
+  `subgroup.consistency()` that flows into `evaluate_subgroup_consistency()`,
+  swapping the per-candidate `run_single_consistency_split()` loop for a single
+  `consistency_resample()` call. That is a change to the core consistency files
+  and is intentionally left out of this prototype.
+```

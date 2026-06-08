@@ -313,6 +313,57 @@ run_single_consistency_split <- function(df.x, N.x, hr.consistency, cox_init = 0
 
 
 # =============================================================================
+# RESAMPLE-PATH HELPERS (shared by single-stage and two-stage evaluators)
+# =============================================================================
+
+#' Can the GLM resampling approximation represent this effect measure?
+#'
+#' The resampling approximation requires the treatment effect to be a single
+#' model coefficient with a well-defined influence function. That holds for
+#' OR/RR (logistic / log-binomial), RD (identity-link binomial), MD (OLS), and
+#' IRR (Poisson with offset). It does not hold for IRD (a delta-method rate
+#' difference) or propensity-adjusted (IPTW / G-computation) effects, for which
+#' the caller falls back to literal splitting.
+#'
+#' @param spec List; the `glm_resample_spec` threaded from [forestsearch()].
+#' @return Logical scalar.
+#' @keywords internal
+.glm_resample_supported <- function(spec) {
+  if (is.null(spec) || is.null(spec$effect_measure)) return(FALSE)
+  spec$effect_measure %in% c("OR", "RR", "RD", "MD", "IRR")
+}
+
+#' Consistency proportion via literal splitting (single-stage)
+#'
+#' Runs `n.splits` Bernoulli splits through [run_single_consistency_split()]
+#' and returns the rounded proportion of consistent splits, or `NA_real_` when
+#' too few valid splits are obtained. Survival and GLM (`estimator_fn`) paths.
+#'
+#' @keywords internal
+.consistency_via_splits <- function(df.x, N.x, n.splits, hr.consistency,
+                                    cox_init, estimator_fn,
+                                    consistency_threshold, adjust_covariates,
+                                    pconsistency.digits, m = NA, details = FALSE) {
+  flag.consistency <- numeric(n.splits)
+  for (i in seq_len(n.splits)) {
+    flag.consistency[i] <- run_single_consistency_split(
+      df.x, N.x, hr.consistency, cox_init,
+      estimator_fn = estimator_fn,
+      consistency_threshold = consistency_threshold,
+      adjust_covariates = adjust_covariates
+    )
+  }
+  n_valid <- sum(!is.na(flag.consistency))
+  if (n_valid < 10) {
+    if (details) cat("Subgroup ", m, ": too few valid splits (", n_valid, ")\n", sep = "")
+    return(NA_real_)
+  }
+  tryCatch(round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits),
+           error = function(e) NA_real_)
+}
+
+
+# =============================================================================
 # LABEL HELPERS
 # =============================================================================
 
@@ -1119,7 +1170,9 @@ evaluate_subgroup_consistency <- function(
     details = FALSE,
     estimator_fn = NULL,
     consistency_threshold = NULL,
-    adjust_covariates = NULL
+    adjust_covariates = NULL,
+    consistency_method = "split",
+    glm_resample_spec = NULL
 ) {
 
   # -------------------------------------------------------------------------
@@ -1198,36 +1251,49 @@ evaluate_subgroup_consistency <- function(
   # SECTION 5: RUN CONSISTENCY SPLITS
   # -------------------------------------------------------------------------
 
-  flag.consistency <- numeric(n.splits)
-
-  for (i in seq_len(n.splits)) {
-    flag.consistency[i] <- run_single_consistency_split(
-      df.x, N.x, hr.consistency, cox_init,
-      estimator_fn = estimator_fn,
-      consistency_threshold = consistency_threshold,
-      adjust_covariates = adjust_covariates
+  if (identical(consistency_method, "resample") && is.null(estimator_fn)) {
+    # Survival resampling approximation: one subgroup fit, no repeated splits.
+    rr <- consistency_resample(
+      df.x, hr.consistency = hr.consistency, method = "closed",
+      adjust_covariates = adjust_covariates, cox_init = cox_init
     )
-  }
-
-  # -------------------------------------------------------------------------
-  # SECTION 6: CALCULATE CONSISTENCY PROPORTION
-  # -------------------------------------------------------------------------
-
-  n_valid <- sum(!is.na(flag.consistency))
-
-  if (n_valid < 10) {
-    if (details) cat("Subgroup ", m, ": too few valid splits (", n_valid, ")\n", sep = "")
-    return(NULL)
-  }
-
-  p.consistency <- tryCatch({
-    round(mean(flag.consistency, na.rm = TRUE), pconsistency.digits)
-  }, error = function(e) {
-    return(NA_real_)
-  })
-
-  if (is.na(p.consistency)) {
-    return(NULL)
+    p.consistency <- round(rr$rate_closed, pconsistency.digits)
+    if (is.na(p.consistency)) {
+      return(NULL)
+    }
+  } else if (identical(consistency_method, "resample") &&
+             !is.null(estimator_fn) && !is.null(glm_resample_spec) &&
+             .glm_resample_supported(glm_resample_spec)) {
+    # GLM resampling approximation. comparison_threshold is already on the
+    # comparison scale (log for ratio, identity for identity), matching what
+    # the splitter compares against, so no further transform is applied.
+    rr <- consistency_resample(
+      df.x, method = "closed",
+      outcome_type         = glm_resample_spec$outcome_type,
+      effect_measure       = glm_resample_spec$effect_measure,
+      comparison_threshold = glm_resample_spec$comparison_threshold,
+      treat.name           = glm_resample_spec$treat.name,
+      outcome.name         = glm_resample_spec$outcome.name,
+      offset.name          = glm_resample_spec$offset.name,
+      adjust_covariates    = glm_resample_spec$adjust_covariates,
+      adverse_outcome      = glm_resample_spec$adverse_outcome
+    )
+    p.consistency <- round(rr$rate_closed, pconsistency.digits)
+    if (is.na(p.consistency)) {
+      # Unsupported configuration (e.g. non-convergent identity-link binomial):
+      # fall back to literal splitting rather than dropping the subgroup.
+      p.consistency <- .consistency_via_splits(
+        df.x, N.x, n.splits, hr.consistency, cox_init, estimator_fn,
+        consistency_threshold, adjust_covariates, pconsistency.digits,
+        m, details)
+      if (is.na(p.consistency)) return(NULL)
+    }
+  } else {
+    p.consistency <- .consistency_via_splits(
+      df.x, N.x, n.splits, hr.consistency, cox_init, estimator_fn,
+      consistency_threshold, adjust_covariates, pconsistency.digits,
+      m, details)
+    if (is.na(p.consistency)) return(NULL)
   }
 
   # -------------------------------------------------------------------------
@@ -1348,7 +1414,9 @@ evaluate_consistency_twostage <- function(
     min.valid.screen = 10,
     estimator_fn = NULL,
     consistency_threshold = NULL,
-    adjust_covariates = NULL
+    adjust_covariates = NULL,
+    consistency_method = "split",
+    glm_resample_spec = NULL
 ) {
 
   # ===========================================================================
@@ -1525,6 +1593,65 @@ evaluate_consistency_twostage <- function(
       )
       fit0$coefficients[1]
     }, error = function(e) 0)
+  }
+
+  # ---------------------------------------------------------------------------
+  # Resample short-circuit: the two-stage split machinery exists only to limit
+  # the number of refits via early stopping; the resampling approximation
+  # returns the rate from a single fit, so Stage 1/2 are bypassed entirely.
+  # Survival path always; GLM path when a resample spec is supplied for a
+  # supported measure. An unsupported/non-convergent GLM configuration falls
+  # through to the Stage 1/2 splitting below.
+  # ---------------------------------------------------------------------------
+  cox_resample <- identical(consistency_method, "resample") && is.null(estimator_fn)
+  glm_resample <- identical(consistency_method, "resample") &&
+                  !is.null(estimator_fn) && !is.null(glm_resample_spec) &&
+                  .glm_resample_supported(glm_resample_spec)
+
+  if (cox_resample || glm_resample) {
+    rr <- if (cox_resample) {
+      consistency_resample(
+        df.x, hr.consistency = hr.consistency, method = "closed",
+        adjust_covariates = adjust_covariates, cox_init = cox_init)
+    } else {
+      consistency_resample(
+        df.x, method = "closed",
+        outcome_type         = glm_resample_spec$outcome_type,
+        effect_measure       = glm_resample_spec$effect_measure,
+        comparison_threshold = glm_resample_spec$comparison_threshold,
+        treat.name           = glm_resample_spec$treat.name,
+        outcome.name         = glm_resample_spec$outcome.name,
+        offset.name          = glm_resample_spec$offset.name,
+        adjust_covariates    = glm_resample_spec$adjust_covariates,
+        adverse_outcome      = glm_resample_spec$adverse_outcome)
+    }
+    p.consistency <- round(rr$rate_closed, pconsistency.digits)
+
+    # GLM with an NA rate = unsupported/non-convergent -> fall through to splits.
+    glm_unsupported <- glm_resample && is.na(p.consistency)
+    if (!glm_unsupported) {
+      if (is.na(p.consistency) || p.consistency < pconsistency.threshold) {
+        if (details) {
+          cat("Subgroup ", m, ": resample Pcons=",
+              ifelse(is.na(p.consistency), NA, p.consistency),
+              " (threshold ", pconsistency.threshold, ")\n", sep = "")
+        }
+        return(NULL)
+      }
+      k <- length(this.m)
+      covsm <- rep("M", maxk)
+      mindex <- seq_len(maxk)
+      Mnames <- paste(covsm, mindex, sep = ".")
+      mfound <- matrix(rep("", maxk))
+      mfound[seq_len(k)] <- this.m_label
+      resultk <- c(p.consistency, found.hrs$HR[m], found.hrs$n[m],
+                   found.hrs$E[m], found.hrs$grp[m], m, k, mfound)
+      names(resultk) <- c("Pcons", "hr", "N", "E", "g", "m", "K", Mnames)
+      if (details) {
+        cat("Subgroup ", m, ": PASSED via resample (Pcons=", p.consistency, ")\n", sep = "")
+      }
+      return(resultk)
+    }
   }
 
   # ---------------------------------------------------------------------------

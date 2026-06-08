@@ -24,7 +24,9 @@ evaluate_consistency_twostage(
   min.valid.screen = 10,
   estimator_fn = NULL,
   consistency_threshold = NULL,
-  adjust_covariates = NULL
+  adjust_covariates = NULL,
+  consistency_method = "split",
+  glm_resample_spec = NULL
 )
 }
 \arguments{
