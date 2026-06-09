@@ -1,0 +1,331 @@
+---
+title: "ForestSearch de-biased gate — minimal test case (ACTG175 binary)"
+format: html
+---
+
+```{r setup}
+#| include: false
+# ---------------------------------------------------------------------------
+# Minimal, self-contained example of the INTEGRATED Tier-2 de-biased gate:
+# forestsearch(..., debias_gate = TRUE) flags whether the selected harm
+# subgroup's fast de-biased estimate is still consistent with harm, and we
+# validate that flag against the full (Tier-1) bootstrap on one simulated trial.
+#
+# All knobs live in THIS chunk.  Results run live (no caching).  Requires only
+# the installed forestsearch package (with the debias_gate feature) plus
+# speff2trial (for ACTG175) and future.
+# ---------------------------------------------------------------------------
+suppressPackageStartupMessages({
+  library(forestsearch)
+  library(future)
+})
+
+## -- knobs -------------------------------------------------------------------
+sim_n        <- 700L          # simulated trial size
+cal_target_or<- 2.0           # true OR in the harm subgroup Q = {cd40>390 & wtkg>80}
+alt_seed     <- 42L           # simulated alt trial seed
+null_seed    <- 8316952L      # simulated null trial seed
+dgm_seed     <- 8316952L      # DGM calibration seed
+
+fs_effect_threshold       <- 1.25   # screening OR
+fs_consistency_threshold  <- 1.0    # per-split OR
+fs_pconsistency_threshold <- 0.90   # consistency rate
+fs_sg_focus               <- "effMaxSG"
+fs_selection_rule         <- "both"
+effect_neighborhood       <- 0.10
+fs_adjust_covariates      <- c("cd40", "wtkg")
+
+gate_type  <- "point"   # "point" or "ci"
+gate_t     <- 1.0       # near-null gate on the OR scale
+gate_draws <- 3000L
+
+nb_boots   <- 200L      # Tier-1 bootstrap iterations (reduce for speed)
+run_tier1  <- TRUE     # FALSE: skip the full-bootstrap comparison (gate-only,
+                        #        fast CI-style check); the gate still runs in-fit
+run_null   <- TRUE      # also check the gate rejects under the null
+display_digits <- 3
+
+set.seed(dgm_seed)
+n_workers <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+
+.fmt_ci <- function(e, l, u, d = display_digits)
+  sprintf("%.*f (%.*f, %.*f)", d, e, d, l, d, u)
+```
+
+## Data and data-generating model
+
+```{r data}
+#| code-fold: true
+#| code-summary: "ACTG175 prep + DGM calibration"
+# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
+actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+actg_df$id    <- seq_len(nrow(actg_df))
+actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+actg_df$y_binary <- as.integer(actg_df$cd420 <= actg_df$cd40)   # adverse = no improvement
+actg_df <- actg_df[!is.na(actg_df$cd420), ]
+
+# DGM markers for the true harm subgroup Q = {cd40 > 390 & wtkg > 80}
+actg_df$z1 <- as.factor(ifelse(actg_df$cd40 > 390, 1L, 0L))
+actg_df$z2 <- as.factor(ifelse(actg_df$wtkg > 80,  1L, 0L))
+actg_df$ar_naive  <- as.integer(actg_df$str2 == 0)
+actg_df$prior_6mo <- as.integer(actg_df$preanti <= 6 * 30.4375)
+
+cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom", "ar_naive", "prior_6mo")
+for (v in bin_vars) actg_df[[v]] <- as.integer(actg_df[[v]])
+confounders <- c(cont_vars, bin_vars)
+
+dgm_factor_vars   <- c("z1", "z2")
+dgm_subgroup_vars <- c("z1", "z2")
+dgm_subgroup_cuts <- list(z1 = 1L, z2 = 1L)
+
+# Alternative DGM: OR(Q) calibrated to cal_target_or; ITT / Qc near-null.
+dgm_alt <- calibrate_glm_interaction(
+  data = actg_df, factor_vars = dgm_factor_vars, continuous_vars = cont_vars,
+  outcome_var = "y_binary", treatment_var = "treat",
+  target_effect = cal_target_or, outcome_type = "binary", effect_measure = "OR",
+  subgroup_vars = dgm_subgroup_vars, subgroup_cuts = dgm_subgroup_cuts,
+  k_inter_range = c(0, 3), grid_step = 0.05, n_super = 5000L,
+  seed = dgm_seed, verbose = FALSE)
+
+# Null DGM: homogeneous (no interaction).
+dgm_null <- generate_glm_dgm(
+  data = actg_df, factor_vars = dgm_factor_vars, continuous_vars = cont_vars,
+  outcome_var = "y_binary", treatment_var = "treat", outcome_type = "binary",
+  subgroup_vars = dgm_subgroup_vars, subgroup_cuts = dgm_subgroup_cuts,
+  model = "null", n_super = 5000L, seed = dgm_seed, verbose = FALSE)
+
+cat(sprintf("DGM OR(Q) = %.3f  OR(Qc) = %.3f  OR(ITT) = %.3f\n",
+    dgm_alt$hazard_ratios$harm_subgroup,
+    dgm_alt$hazard_ratios$no_harm_subgroup,
+    dgm_alt$hazard_ratios$overall))
+```
+
+The data-generating harm subgroup is $Q = \{\texttt{cd40} > 390 \text{ and } \texttt{wtkg} > 80\}$,
+calibrated to OR $\approx$ `r sprintf("%.1f", cal_target_or)`; $Q^c$ and ITT are near-null.
+
+## One alternative trial: fit with the integrated gate
+
+```{r fit-gate}
+df_sim <- simulate_from_glm_dgm(dgm_alt, n = sim_n, seed = alt_seed)
+
+fs <- forestsearch(
+  df.analysis = df_sim, confounders.name = confounders,
+  outcome.name = "y_sim", treat.name = "treat_sim",
+  outcome_type = "binary", effect_measure = "OR",
+  hr.threshold = fs_effect_threshold, hr.consistency = fs_consistency_threshold,
+  pconsistency.threshold = fs_pconsistency_threshold,
+  sg_focus = fs_sg_focus, selection_rule = fs_selection_rule,
+  effect_neighborhood = effect_neighborhood, maxk = 2L, n.min = 60,
+  adjust_covariates = fs_adjust_covariates,
+  consistency_method = "resample",
+  debias_gate = TRUE,
+  debias_gate_args = list(gate = gate_type, t_gate = gate_t, draws = gate_draws),
+  parallel_args = list(plan = "multisession", workers = n_workers, show_message = FALSE),
+  details = FALSE, quiet = TRUE)
+plan("sequential")
+```
+
+```{r gate-report}
+#| echo: false
+#| results: asis
+g <- fs$debias_gate
+if (is.null(fs$sg.harm)) {
+  cat("_No harm subgroup was selected in this trial._\n")
+} else if (is.null(g)) {
+  cat("_The gate did not run (check consistency_method = \"resample\" and debias_gate = TRUE)._\n")
+} else {
+  cat(sprintf("**Selected harm subgroup:** `%s` (n = %d)\n\n",
+              paste(fs$sg.harm, collapse = " & "), g$n_selected))
+  cat(sprintf("**`harm_flag_debiased` = %s** ", fs$harm_flag_debiased))
+  cat(sprintf("(de-biased %s %.3f %s gate %.2f)\n\n",
+              g$measure, g$debiased$est,
+              if (gate_type == "point") "vs" else "lower-bound vs", g$gate$t_gate))
+  cat(sprintf("Selection bias %.4f (log scale); bootstrap selection rate %.2f; ",
+              g$selection_bias, g$selection_rate))
+  cat(sprintf("gate compute time %.2f s.\n", g$timing_seconds))
+}
+```
+
+## Gate checks (internal consistency)
+
+These validate the **wiring** and the **sound (full-space) family** by construction.
+They assert nothing about the flag outcome on a single simulated trial — only that the
+gate ran on the resample path, that its naive estimate reproduces an independent adjusted
+refit on the selected subgroup (a scale check needing no bootstrap), that the candidate
+family is the full enumerated space rather than the screened survivors, and that the
+correction is finite and moves toward the null. A hard failure stops the render.
+
+```{r checks}
+#| echo: false
+#| results: asis
+g <- fs$debias_gate
+if (is.null(fs$sg.harm)) {
+  cat("_No subgroup selected in this trial; gate checks not applicable._\n")
+} else if (is.null(g)) {
+  cat("_Gate did not run; cannot perform checks (see report above)._\n")
+} else {
+  chk <- list()
+  add <- function(name, pass, detail) {
+    res <- if (isTRUE(pass)) "PASS" else if (isFALSE(pass)) "FAIL" else "SKIP"
+    chk[[length(chk) + 1L]] <<- data.frame(check = name, result = res,
+                                           detail = detail, stringsAsFactors = FALSE)
+  }
+
+  # (1) Gate engaged on the resample path (no silent fallback).
+  add("gate engaged", !is.null(g) && !is.null(fs$harm_flag_debiased),
+      "fs$debias_gate and harm_flag_debiased populated")
+
+  # (2) Naive estimate == independent adjusted refit on the selected subgroup,
+  #     on the effect (OR) scale.  Direct scale/wiring check; no bootstrap needed.
+  sgid <- fs$grp.consistency$sg.harm.id
+  if (!is.null(sgid) && length(sgid) == nrow(df_sim)) {
+    dsg  <- df_sim[sgid == 1, , drop = FALSE]
+    form <- stats::as.formula(paste("y_sim ~ treat_sim",
+              if (length(fs_adjust_covariates))
+                paste("+", paste(fs_adjust_covariates, collapse = " + ")) else ""))
+    or_ref <- tryCatch(
+      exp(stats::coef(stats::glm(form, family = stats::binomial(), data = dsg))[["treat_sim"]]),
+      error = function(e) NA_real_)
+    add("naive == independent refit",
+        is.finite(or_ref) && abs(log(or_ref) - log(g$naive$est)) < 1e-3,
+        sprintf("gate naive OR %.4f vs independent refit %.4f", g$naive$est, or_ref))
+  } else {
+    add("naive == independent refit", NA, "subgroup membership not row-aligned; skipped")
+  }
+
+  # (3) Family is the FULL enumerated space, not the screened survivors.
+  n_surv <- tryCatch(nrow(fs$find.grps$out.found$hr.subgroups),
+                     error = function(e) NA_integer_)
+  add("family >= survivors", if (is.na(n_surv)) NA else g$n_family >= n_surv,
+      sprintf("n_family = %d; screened survivors = %s%s", g$n_family,
+              if (is.na(n_surv)) "NA" else n_surv,
+              if (!is.na(n_surv) && g$n_family > n_surv) " (full space confirmed)"
+              else if (!is.na(n_surv) && g$n_family == n_surv) " (equal -- verify enumeration)"
+              else ""))
+
+  # (4) Finiteness and bounds.
+  add("estimates finite",
+      all(is.finite(c(g$naive$est, g$debiased$est, g$selection_bias))),
+      sprintf("naive %.3f, de-biased %.3f, sel.bias %.4f",
+              g$naive$est, g$debiased$est, g$selection_bias))
+  add("selection_rate in [0,1]",
+      is.finite(g$selection_rate) && g$selection_rate >= 0 && g$selection_rate <= 1,
+      sprintf("selection_rate = %.3f", g$selection_rate))
+
+  # (5) Correction direction: de-bias shrinks a harm estimate toward the null.
+  null_val <- if (g$measure %in% c("OR", "RR", "IRR")) 1 else 0
+  dir_ok <- if (g$naive$est > null_val) g$debiased$est <= g$naive$est * 1.001 else TRUE
+  add("correction toward null", dir_ok,
+      sprintf("de-biased %.3f %s naive %.3f", g$debiased$est,
+              if (dir_ok) "<=" else ">", g$naive$est))
+
+  tab <- do.call(rbind, chk)
+  cat(knitr::kable(tab, row.names = FALSE), sep = "\n"); cat("\n\n")
+
+  if (any(tab$result == "FAIL"))
+    stop("Gate internal-consistency check(s) failed: ",
+         paste(tab$check[tab$result == "FAIL"], collapse = "; "), call. = FALSE)
+}
+```
+
+## Validation against the full (Tier-1) bootstrap
+
+```{r tier1}
+#| echo: false
+#| results: asis
+if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
+  t0 <- proc.time()
+  fs_bc <- forestsearch_bootstrap_dofuture(
+    fs.est = fs, nb_boots = nb_boots, show_three = FALSE, details = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_workers, show_message = FALSE))
+  plan("sequential")
+  t_tier1 <- as.numeric((proc.time() - t0)["elapsed"])
+
+  .fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
+  H0  <- .fl(fs_bc$H_estimates, "H0");  H0l <- .fl(fs_bc$H_estimates, "H0_lower"); H0u <- .fl(fs_bc$H_estimates, "H0_upper")
+  H2  <- .fl(fs_bc$H_estimates, "H2");  H2l <- .fl(fs_bc$H_estimates, "H2_lower"); H2u <- .fl(fs_bc$H_estimates, "H2_upper")
+  g   <- fs$debias_gate
+
+  comp <- data.frame(
+    quantity = c("naive OR (95% CI)", "de-biased OR (95% CI)"),
+    `Tier 2 (gate)` = c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+                        .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
+    `Tier 1 (bootstrap)` = c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u)),
+    check.names = FALSE)
+  cat(knitr::kable(comp, row.names = FALSE), sep = "\n"); cat("\n\n")
+
+  # Scale cross-check: the gate's naive OR and the bootstrap's naive H0 are the
+  # same quantity computed two ways; they should agree up to rounding.
+  if (is.finite(H0) && is.finite(g$naive$est)) {
+    scale_ok <- abs(log(g$naive$est) - log(H0)) < 1e-2
+    cat(sprintf("Scale cross-check (naive gate vs bootstrap H0): **%s** (%.4f vs %.4f).\n\n",
+                if (scale_ok) "PASS" else "FAIL", g$naive$est, H0))
+  }
+
+  cat(sprintf("Timing: Tier 1 (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s -> **%.0fx** faster.\n",
+              nb_boots, t_tier1, t_tier1 / 60, g$timing_seconds,
+              if (g$timing_seconds > 0) t_tier1 / g$timing_seconds else NA))
+  cat("\nThe naive-OR row is a scale sanity check; agreement on the de-biased row validates ",
+      "Tier 2 against Tier 1. The gate's de-biased CI is approximate (subgroup robust SE) ",
+      "and narrower than the Tier-1 infinitesimal-jackknife CI.\n", sep = "")
+} else if (!is.null(fs$sg.harm)) {
+  cat(sprintf("_Tier-1 bootstrap comparison skipped (`run_tier1 = FALSE`). The gate ran in-fit in %.2f s; ",
+              fs$debias_gate$timing_seconds))
+  cat(sprintf("de-biased %s = %.3f, `harm_flag_debiased` = %s._\n",
+              fs$debias_gate$measure, fs$debias_gate$debiased$est, fs$harm_flag_debiased))
+}
+```
+
+## Null trial: the gate should reject
+
+```{r null-check}
+#| echo: false
+#| results: asis
+#| eval: !expr run_null
+df_null <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = null_seed)
+fs0 <- forestsearch(
+  df.analysis = df_null, confounders.name = confounders,
+  outcome.name = "y_sim", treat.name = "treat_sim",
+  outcome_type = "binary", effect_measure = "OR",
+  hr.threshold = fs_effect_threshold, hr.consistency = fs_consistency_threshold,
+  pconsistency.threshold = fs_pconsistency_threshold,
+  sg_focus = fs_sg_focus, selection_rule = fs_selection_rule,
+  effect_neighborhood = effect_neighborhood, maxk = 2L, n.min = 60,
+  adjust_covariates = fs_adjust_covariates, consistency_method = "resample",
+  debias_gate = TRUE,
+  debias_gate_args = list(gate = gate_type, t_gate = gate_t, draws = gate_draws),
+  parallel_args = list(plan = "multisession", workers = n_workers, show_message = FALSE),
+  details = FALSE, quiet = TRUE)
+plan("sequential")
+
+if (is.null(fs0$sg.harm)) {
+  cat("No subgroup selected under the null (the search itself found nothing).\n")
+} else {
+  g0 <- fs0$debias_gate
+  cat(sprintf("Null trial selected `%s`; naive OR %.3f -> de-biased %.3f -> **harm_flag_debiased = %s**.\n",
+              paste(fs0$sg.harm, collapse = " & "), g0$naive$est, g0$debiased$est,
+              fs0$harm_flag_debiased))
+  cat("\nUnder the null the de-biased estimate should collapse toward the ITT effect and fail the gate.\n")
+}
+```
+
+## What this example checks
+
+This is the ongoing smoke test for the integrated gate. The **Gate checks** section
+asserts the wiring and the full-space family by construction (gate engaged, naive estimate
+reproduces an independent adjusted refit, family larger than the screened survivors,
+correction finite and toward the null) and stops the render on a hard failure. A passing
+run shows, on the
+alternative trial, that `forestsearch(debias_gate = TRUE)` selects the true harm subgroup,
+that `harm_flag_debiased` is `TRUE`, that the gate's naive OR matches the bootstrap's naive
+OR (scale check) and its de-biased OR tracks the bootstrap's bias-corrected OR (the
+Tier-2-vs-Tier-1 validation), and that the gate is markedly faster than the full bootstrap.
+Under the null trial, the de-biased estimate collapses toward the ITT effect and
+`harm_flag_debiased` is `FALSE` (or no subgroup is selected) — the false-discovery
+mitigation the gate is designed to provide.
+
+Set `run_tier1 <- FALSE` for a fast gate-only run (a CI-style check): the gate still runs
+inside the fit and reports `harm_flag_debiased`, but the multi-minute bootstrap comparison
+is skipped. Keep `run_tier1 <- TRUE` for the full Tier-2-vs-Tier-1 validation, and
+`run_null` toggles the null-trial check independently.

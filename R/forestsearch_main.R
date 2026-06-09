@@ -494,6 +494,18 @@
 #'     \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
+#' @param debias_gate Logical.  When \code{TRUE} and \code{consistency_method =
+#'   "resample"} on the GLM path, compute a fast multiplier-bootstrap de-biased
+#'   estimate of the selected subgroup and flag whether it remains consistent
+#'   with harm.  This is a Tier-2 approximation of the full bootstrap
+#'   bias-correction (\code{\link{forestsearch_bootstrap_dofuture}}) and does not
+#'   replace it.  Default \code{FALSE}.
+#' @param debias_gate_args List of optional gate controls: \code{t_gate}
+#'   (effect-scale gate; near-null default \code{1} for ratio measures, \code{0}
+#'   for differences -- set near the null, not at the screen), \code{gate}
+#'   (\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
+#'   rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
+#'   \code{multiplier} (default \code{"poisson"}), and \code{seed}.
 #' @param consistency_method Character. \code{"split"} (default) runs the
 #'   literal repeated 50/50 split-and-refit consistency calculation;
 #'   \code{"resample"} uses the multiplier (influence-function / \code{dfbeta})
@@ -593,6 +605,15 @@
 #'     \item{max_sg_est}{Maximum subgroup HR estimate}
 #'     \item{grf_plot}{GRF plot object (if plot.grf = TRUE)}
 #'     \item{args_call_all}{All arguments for reproducibility}
+#'     \item{debias_gate}{Tier-2 de-biased gate result, or \code{NULL} when the
+#'       gate did not run.  See \code{\link{fs_debias_gate}} for fields
+#'       (\code{naive}, \code{debiased}, \code{selection_bias}, \code{gate},
+#'       \code{harm_flag}, \code{timing_seconds}).  The de-biased CI is
+#'       approximate (subgroup robust SE) and narrower than the Tier-1
+#'       infinitesimal-jackknife CI.}
+#'     \item{harm_flag_debiased}{Logical.  \code{TRUE} when the selected
+#'       subgroup's de-biased estimate is still consistent with harm; \code{NA}
+#'       when the gate did not run.}
 #'   }
 #'
 #' @section Field naming collision with GRF results:
@@ -813,7 +834,10 @@ forestsearch <- function(df.analysis,
                          # Propensity score adjustment
                          ps_method = NULL,
                          ps_adjust_method = c("none", "iptw", "dr_gcomp"),
-                         ps_hat = NULL) {
+                         ps_hat = NULL,
+                         # Tier-2 de-biased gate (optional; GLM resample path)
+                         debias_gate = FALSE,
+                         debias_gate_args = list()) {
 
   # ===========================================================================
   # SECTION 1A: RESOLVE FORMAL DEFAULTS BEFORE ARGUMENT CAPTURE
@@ -2378,6 +2402,81 @@ forestsearch <- function(df.analysis,
   } # End has_subgroups
 
   # ===========================================================================
+  # SECTION 9B: TIER-2 DE-BIASED GATE (optional)
+  # ===========================================================================
+  # Fast multiplier-bootstrap approximation of the bootstrap bias-corrected
+  # effect for the selected subgroup, with a near-null "consistent with harm"
+  # flag.  The selection-bias term must mirror the FULL search optimism, so the
+  # candidate family here is the SAME full enumerated space the search optimized
+  # over (all <= maxk cut combinations of Z), re-applying the screen on each
+  # multiplier draw -- NOT just the post-screening survivors in hr.subgroups
+  # (which would capture only selection-stage, not screening-stage, optimism).
+  # Per-candidate dfbeta is re-derived via the consistency engine's own pieces
+  # (~seconds; a future ledger from the search makes this zero-refit).  Scope:
+  # GLM (estimator_fn) on the resample consistency path.  Default off.
+  debias_gate_out <- NULL
+  if (isTRUE(debias_gate) && !is.null(sg.harm) &&
+      consistency_method == "resample" && !is.null(estimator_fn) &&
+      !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)) {
+
+    .g_dg <- function(a, b) if (is.null(a)) b else a
+
+    debias_gate_out <- tryCatch({
+      # Full candidate space: enumerate all <= maxk combinations of the cut
+      # matrix Z with the search's OWN helpers, so the family is identical to
+      # the space subgroup.search() ranked over (faithful to the Tier-1 search).
+      L_dg     <- ncol(Z)
+      combo_dg <- generate_combination_indices(L_dg, maxk)
+      tot_dg   <- calculate_max_combinations(L_dg, maxk)
+      fam <- list()
+      for (kk in seq_len(tot_dg)) {
+        covs.in <- get_covs_in(
+          kk, maxk, L_dg,
+          combo_dg$counts_1, combo_dg$indices_1,
+          combo_dg$counts_2, combo_dg$indices_2,
+          combo_dg$counts_3, combo_dg$indices_3)
+        k_sel <- sum(covs.in)
+        if (k_sel < 1L || k_sel > maxk) next
+        mem <- which(get_subgroup_membership(Z, covs.in))
+        if (length(mem) >= n.min)
+          fam[[paste(colnames(Z)[covs.in == 1], collapse = " & ")]] <- mem
+      }
+
+      gspec <- list(outcome_type = outcome_type, effect_measure = effect_measure,
+                    treat.name = treat.name, outcome.name = outcome.name,
+                    event.name = event.name, offset.name = offset.name,
+                    adjust_covariates = adjust_covariates,
+                    adverse_outcome = adverse_outcome)
+
+      fs_debias_gate(
+        df = df.fs, candidates = fam, spec = gspec,
+        selected_members = which(grp.consistency$sg.harm.id == 1),
+        c_screen      = effect_threshold,      # comparison scale (log for ratio)
+        c_consistency = consistency_threshold, # comparison scale
+        p_star        = pconsistency.threshold,
+        t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
+        gate          = .g_dg(debias_gate_args$gate,        "point"),
+        reselection   = .g_dg(debias_gate_args$reselection, "maxcons"),
+        effect_neighborhood = effect_neighborhood,
+        draws         = .g_dg(debias_gate_args$draws,       2000L),
+        multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
+        seed          = .g_dg(debias_gate_args$seed,        seedit))
+    }, error = function(e) {
+      warning("debias_gate failed: ", conditionMessage(e)); NULL
+    })
+
+    if (!quiet && !is.null(debias_gate_out) &&
+        !is.na(debias_gate_out$harm_flag)) {
+      cat(sprintf("De-biased gate: %s = %.3f (gate %s %.2f) -> %s\n",
+                  .g_dg(debias_gate_out$measure, "effect"),
+                  debias_gate_out$debiased$est, debias_gate_out$gate$type,
+                  debias_gate_out$gate$t_gate,
+                  if (debias_gate_out$harm_flag) "consistent with harm"
+                  else "not flagged"))
+    }
+  }
+
+  # ===========================================================================
   # SECTION 10: COMPILE AND RETURN OUTPUT
   # ===========================================================================
 
@@ -2393,6 +2492,10 @@ forestsearch <- function(df.analysis,
     grf_res = grf_res,
     sg_focus = sg_focus,
     sg.harm = sg.harm,
+    # Tier-2 de-biased gate (NULL unless debias_gate = TRUE)
+    debias_gate = debias_gate_out,
+    harm_flag_debiased = if (!is.null(debias_gate_out)) debias_gate_out$harm_flag
+                         else NA,
     grf_cuts = grf_cuts,
     dina_res = dina_res,
     dina_cuts = dina_cuts,
