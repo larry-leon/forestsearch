@@ -527,12 +527,15 @@ weights), or \code{"dr_gcomp"} (IPS covariate).}
 \item{ps_hat}{Numeric vector or \code{NULL}. User-supplied propensity
 scores.  Must have length equal to \code{nrow(df.analysis)}.}
 
-\item{debias_gate}{Logical.  When \code{TRUE} and \code{consistency_method =
-"resample"} on the GLM path, compute a fast multiplier-bootstrap de-biased
-estimate of the selected subgroup and flag whether it remains consistent
-with harm.  This is a Tier-2 approximation of the full bootstrap
-bias-correction (\code{\link{forestsearch_bootstrap_dofuture}}) and does not
-replace it.  Default \code{FALSE}.}
+\item{debias_gate}{Logical.  When \code{TRUE}, compute a fast
+multiplier-bootstrap de-biased estimate of the selected subgroup and flag
+whether it remains consistent with harm.  Supported on the GLM
+resample-consistency path (\code{consistency_method = "resample"} with a
+GLM effect) and on the survival/Cox path (\code{outcome_type = "survival"}),
+where it runs as a fast standalone approximation under the default
+split-consistency search.  This is a Tier-2 approximation of the full
+bootstrap bias-correction (\code{\link{forestsearch_bootstrap_dofuture}})
+and does not replace it.  Default \code{FALSE}.}
 
 \item{debias_gate_args}{List of optional gate controls: \code{t_gate}
 (effect-scale gate; near-null default \code{1} for ratio measures, \code{0}

@@ -2488,6 +2488,7 @@ forestsearch <- function(df.analysis,
         effect_neighborhood = effect_neighborhood,
         draws         = .g_dg(debias_gate_args$draws,       2000L),
         multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
+        include_complement = .g_dg(debias_gate_args$include_complement, TRUE),
         seed          = .g_dg(debias_gate_args$seed,        seedit))
     }, error = function(e) {
       warning("debias_gate failed: ", conditionMessage(e)); NULL

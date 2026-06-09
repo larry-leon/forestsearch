@@ -41,11 +41,7 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 20
-
-# 10-fold CV with multiple iterations
-# Use Ksims >= 50 for production
-Ksims <- 2
+NB <- 500
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -54,6 +50,11 @@ Ksims <- 2
 # ---------------------------------------------------------------------------
 run_cv  <- FALSE    # K-Fold cross-validation (kfold-cv + diagnostics)
 run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
+# 10-fold CV with multiple iterations
+# Use Ksims >= 50 for production
+Ksims <- 50
+
+
 
 # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
 # whether or not these run (skipped analyses report NA).
@@ -71,7 +72,7 @@ fs_sg_focus              <- "effMinSG"
 fs_hr_threshold          <- 1.0
 fs_hr_consistency        <- 0.90
 fs_max_subgroups_search  <- 30
-
+fs_consistency_method    <- "resample"
 # Tier-2 de-biased gate: a fast multiplier-bootstrap approximation of the
 # bootstrap bias-correction, computed inside the fit and compared to the full
 # bootstrap below.  On the survival path it runs as a standalone approximation
@@ -391,6 +392,7 @@ fs <- forestsearch(
   effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
   consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
   pconsistency.threshold    = 0.90,           # default 0.90
+  consistency_method        = fs_consistency_method,
   m1.threshold              = Inf,            # default Inf
   minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------

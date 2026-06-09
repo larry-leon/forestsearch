@@ -154,11 +154,20 @@
 #' @param effect_neighborhood Band for the `eff*SG` re-selection rules.
 #' @param draws,multiplier,seed Multiplier-bootstrap controls. `multiplier`
 #'   defaults to `"poisson"` (mimics the nonparametric bootstrap).
+#' @param include_complement Logical.  When `TRUE`, also de-bias the complement
+#'   subgroup (everyone not in the selected subgroup).  The complement is not
+#'   selected independently -- its bias is induced by selecting the subgroup --
+#'   so on each multiplier draw the complement of the re-selected winner is
+#'   tracked and de-biased with the complement's own influence.  Complements are
+#'   fit only for candidates that win across draws (plus the selected one), so
+#'   the extra cost is small.  Default `FALSE`.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, the `gate` settings, `harm_flag`, family/subgroup sizes,
 #'   and `timing_seconds`. The de-biased CI uses the subgroup's robust SE and is
-#'   narrower than the Tier-1 infinitesimal-jackknife CI.
+#'   narrower than the Tier-1 infinitesimal-jackknife CI.  When
+#'   `include_complement = TRUE`, a `complement` element carries the complement
+#'   subgroup's `naive`/`debiased` estimates and bias terms in the same form.
 #' @keywords internal
 fs_debias_gate <- function(df, candidates, spec, selected_members,
                            c_screen, c_consistency = 0, p_star = 0.90,
@@ -168,6 +177,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
                            effect_neighborhood = 0.10,
                            draws = 2000L,
                            multiplier = c("poisson", "gaussian", "rademacher"),
+                           include_complement = FALSE,
                            seed = NULL) {
   gate <- match.arg(gate); reselection <- match.arg(reselection)
   multiplier <- match.arg(multiplier)
@@ -200,6 +210,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
 
   B <- asm$B; bh <- asm$beta_hat; sdv <- asm$sigma_D; sz <- asm$sizes
   log_scale <- asm$log_scale
+  to_eff    <- function(x) if (log_scale) exp(x) else x
   z      <- stats::qnorm((1 + p_star) / 2)
   z975   <- stats::qnorm(0.975)
   t_g    <- pmax(c_screen, c_consistency + z * sdv)
@@ -209,13 +220,14 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   P  <- crossprod(B, Xi)                 # S x draws : D_g(b)
   beta_star <- bh + P
   sel_bias <- rep(NA_real_, draws)
+  winner   <- rep(NA_integer_, draws)    # which candidate won on draw b
   for (b in seq_len(draws)) {
     bs <- beta_star[, b]
     pass <- which(bs >= t_g)
     if (!length(pass)) next
     s <- .fs_dg_select(bs, (bs - c_consistency) / sdv, sz, pass, reselection,
                        effect_neighborhood)
-    if (!is.na(s)) sel_bias[b] <- P[s, b]
+    if (!is.na(s)) { sel_bias[b] <- P[s, b]; winner[b] <- s }
   }
   timing <- as.numeric((proc.time() - t0)["elapsed"])
 
@@ -226,10 +238,62 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   beta_deb   <- beta_naive - selection_bias - (if (is.finite(fixed_bias)) fixed_bias else 0)
   se <- sdv[sel]
 
-  to_eff   <- function(x) if (log_scale) exp(x) else x
   gate_cmp <- if (log_scale) log(t_gate) else t_gate
   ci_lo_1s <- beta_deb - stats::qnorm(0.95) * se
   flag <- if (gate == "point") (beta_deb >= gate_cmp) else (ci_lo_1s >= gate_cmp)
+
+  # ---------------------------------------------------------------------------
+  # Complement subgroup (optional).  The complement is induced by the selection,
+  # not chosen independently, so its bias is the perturbation of the complement
+  # of the re-selected winner on each draw.  Fit complements only for candidates
+  # that win across draws (plus the selected one) to keep the cost small.
+  # ---------------------------------------------------------------------------
+  complement <- NULL
+  if (isTRUE(include_complement)) {
+    kept   <- candidates[asm$keep]              # aligns with asm columns
+    Ncol   <- length(asm$names)
+    Nall   <- nrow(df)
+    winset <- sort(unique(c(winner[!is.na(winner)], sel)))
+    Bc   <- matrix(0, Nall, Ncol)
+    bh_c <- rep(NA_real_, Ncol); sdv_c <- rep(NA_real_, Ncol)
+    for (w in winset) {
+      comp_idx <- setdiff(seq_len(Nall), kept[[w]])
+      if (length(comp_idx) < 6L) next
+      pcc <- tryCatch(.fs_dg_pieces(df[comp_idx, , drop = FALSE], spec),
+                      error = function(e) NULL)
+      if (is.null(pcc) || length(pcc$dfbeta) != length(comp_idx)) next
+      Bc[comp_idx, w] <- pcc$dfbeta
+      bh_c[w] <- pcc$beta_hat; sdv_c[w] <- pcc$sigma_D
+    }
+    Pc <- crossprod(Bc, Xi)                      # Ncol x draws : D_{complement}(b)
+    ok <- which(!is.na(winner))
+    selb_c <- rep(NA_real_, draws)
+    if (length(ok)) {
+      vals <- Pc[cbind(winner[ok], ok)]
+      vals[is.na(bh_c[winner[ok]])] <- NA_real_  # winner's complement not fit
+      selb_c[ok] <- vals
+    }
+    selbias_c <- mean(selb_c, na.rm = TRUE)
+    fixed_c   <- mean(Pc[sel, ])
+    bnc       <- bh_c[sel]
+    if (is.finite(bnc)) {
+      bdc <- bnc - (if (is.finite(selbias_c)) selbias_c else 0) -
+                   (if (is.finite(fixed_c)) fixed_c else 0)
+      sec <- sdv_c[sel]
+      complement <- list(
+        naive    = list(est = to_eff(bnc),
+                        lower = to_eff(bnc - z975 * sec),
+                        upper = to_eff(bnc + z975 * sec)),
+        debiased = list(est = to_eff(bdc),
+                        lower = to_eff(bdc - z975 * sec),
+                        upper = to_eff(bdc + z975 * sec),
+                        lower_1s = to_eff(bdc - stats::qnorm(0.95) * sec)),
+        selection_bias = selbias_c, fixed_bias = fixed_c,
+        n = Nall - sz[sel])
+    } else {
+      complement <- list(note = "complement subgroup could not be fit")
+    }
+  }
 
   list(
     selected_index = sel, selected_label = asm$names[sel],
@@ -243,6 +307,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
                     lower_1s = to_eff(ci_lo_1s)),
     selection_bias = selection_bias, fixed_bias = fixed_bias,
     selection_rate = selection_rate,
+    complement = complement,
     gate = gate_meta, harm_flag = isTRUE(flag),
     n_family = length(asm$names), n_selected = sz[sel],
     timing_seconds = timing)

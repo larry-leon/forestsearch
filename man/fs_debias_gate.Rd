@@ -18,6 +18,7 @@ fs_debias_gate(
   effect_neighborhood = 0.1,
   draws = 2000L,
   multiplier = c("poisson", "gaussian", "rademacher"),
+  include_complement = FALSE,
   seed = NULL
 )
 }
@@ -55,13 +56,23 @@ screen, since the correction over-shrinks true effects.}
 
 \item{draws, multiplier, seed}{Multiplier-bootstrap controls. \code{multiplier}
 defaults to \code{"poisson"} (mimics the nonparametric bootstrap).}
+
+\item{include_complement}{Logical.  When \code{TRUE}, also de-bias the complement
+subgroup (everyone not in the selected subgroup).  The complement is not
+selected independently -- its bias is induced by selecting the subgroup --
+so on each multiplier draw the complement of the re-selected winner is
+tracked and de-biased with the complement's own influence.  Complements are
+fit only for candidates that win across draws (plus the selected one), so
+the extra cost is small.  Default \code{FALSE}.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
 (effect scale, with approximate 95\% CIs), \code{selection_bias}, \code{fixed_bias},
 \code{selection_rate}, the \code{gate} settings, \code{harm_flag}, family/subgroup sizes,
 and \code{timing_seconds}. The de-biased CI uses the subgroup's robust SE and is
-narrower than the Tier-1 infinitesimal-jackknife CI.
+narrower than the Tier-1 infinitesimal-jackknife CI.  When
+\code{include_complement = TRUE}, a \code{complement} element carries the complement
+subgroup's \code{naive}/\code{debiased} estimates and bias terms in the same form.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap
