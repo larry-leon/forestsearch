@@ -20,6 +20,13 @@
 #   selection bias = mean_b D_{H*_b}(b)        (winner's curse of the re-selected
 #                                               candidate on draw b)
 #   de-biased beta = beta_hat(H-hat) - selection_bias - mean_b D_{H-hat}(b)
+#
+# Variance: infinitesimal jackknife (Leon et al. 2024, Eq. VInfJ_bc), computed
+# from the same draws -- the centered multipliers play the role of the bootstrap
+# multiplicities (K*_bi - Kbar*_i) and the per-draw residual is
+#   r_b = (selection_bias + fixed_bias) - D_{H*_b}(b) - D_{H-hat}(b).
+# This is the leading-order analogue of the Tier-1 IJ variance; with
+# ci_method = "wald" the gate falls back to the subgroup robust SE.
 # =============================================================================
 
 
@@ -124,6 +131,54 @@
 }
 
 
+#' Infinitesimal-jackknife variance of the de-biased (bagged) estimate
+#'
+#' Implements Leon et al. (2024) Eq. (VInfJ)/(VInfJ_bc) in multiplier form.
+#' The multiplier matrix `Xi` supplies the centered bootstrap multiplicities
+#' \eqn{K^*_{bi} - \bar K^*_i}, and `r` is the per-draw residual
+#' \eqn{r_b = \hat\beta(\widehat H) - \eta^*_b(\widehat H^*_b) - \eta^*_b(\widehat H) - \hat\beta^*(\widehat H)},
+#' i.e. `(selection_bias + fixed_bias) - D_{H*_b}(b) - D_{H}(b)`, evaluated only
+#' on the draws in `ok` that produced a re-selected winner.
+#'
+#' @param Xi `N x draws` multiplier matrix (one column per draw).
+#' @param r Length-`draws` residual vector (`NA` where no winner).
+#' @param ok Integer indices of usable draws.
+#' @return List with `tilde_V` (raw IJ), `hat_V` (Wager 2014 bias-corrected),
+#'   and `B_ok` (number of usable draws).
+#' @keywords internal
+.fs_dg_ij_var <- function(Xi, r, ok) {
+  if (length(ok) < 2L)
+    return(list(tilde_V = NA_real_, hat_V = NA_real_, B_ok = length(ok)))
+  Xk  <- Xi[, ok, drop = FALSE]            # N x B_ok
+  rb  <- r[ok]
+  Bok <- length(ok)
+  Xc  <- Xk - rowMeans(Xk)                 # centered multiplicities over used draws
+  cov_i   <- as.numeric(Xc %*% rb) / Bok   # cov_i = (1/B) sum_b (K* - Kbar) r_b
+  tilde_V <- sum(cov_i^2)
+  hat_V   <- tilde_V - (nrow(Xi) / Bok) * mean(rb^2)
+  list(tilde_V = tilde_V, hat_V = hat_V, B_ok = Bok)
+}
+
+
+#' Resolve a de-biased SE from the IJ variance, with graceful fallback
+#'
+#' Prefers the bias-corrected IJ variance; if it is non-positive (too few
+#' draws), falls back to the raw IJ variance, then to the subgroup robust SE.
+#'
+#' @param ij Output of [.fs_dg_ij_var()].
+#' @param se_fallback Robust subgroup SE (`sigma_D`) used as last resort.
+#' @return List with `se`, `var`, and `source`
+#'   (`"ij"`, `"ij_raw"`, or `"wald_fallback"`).
+#' @keywords internal
+.fs_dg_se_from_ij <- function(ij, se_fallback) {
+  if (is.finite(ij$hat_V) && ij$hat_V > 0)
+    return(list(se = sqrt(ij$hat_V), var = ij$hat_V, source = "ij"))
+  if (is.finite(ij$tilde_V) && ij$tilde_V > 0)
+    return(list(se = sqrt(ij$tilde_V), var = ij$tilde_V, source = "ij_raw"))
+  list(se = se_fallback, var = se_fallback^2, source = "wald_fallback")
+}
+
+
 #' Fast de-biased gate for a selected forestsearch subgroup
 #'
 #' Computes a multiplier-bootstrap approximation of the bootstrap
@@ -161,13 +216,20 @@
 #'   tracked and de-biased with the complement's own influence.  Complements are
 #'   fit only for candidates that win across draws (plus the selected one), so
 #'   the extra cost is small.  Default `FALSE`.
+#' @param ci_method `"ij"` (default) bases the **de-biased** CI on the
+#'   infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
+#'   from the same multiplier draws -- the leading-order analogue of the Tier-1
+#'   interval.  `"wald"` uses the subgroup robust SE (`sigma_D`).  The naive CI
+#'   always uses the robust SE.
 #' @return List with the selected index/label, `naive` and `debiased` estimates
 #'   (effect scale, with approximate 95% CIs), `selection_bias`, `fixed_bias`,
 #'   `selection_rate`, the `gate` settings, `harm_flag`, family/subgroup sizes,
-#'   and `timing_seconds`. The de-biased CI uses the subgroup's robust SE and is
-#'   narrower than the Tier-1 infinitesimal-jackknife CI.  When
-#'   `include_complement = TRUE`, a `complement` element carries the complement
-#'   subgroup's `naive`/`debiased` estimates and bias terms in the same form.
+#'   and `timing_seconds`. The `debiased` element carries `se_ij`, `se_wald`,
+#'   `var_ij`, and `ij_source`; its CI uses the IJ SE under the default
+#'   `ci_method = "ij"` (the Tier-1 analogue) and the robust SE under `"wald"`.
+#'   When `include_complement = TRUE`, a `complement` element carries the
+#'   complement subgroup's `naive`/`debiased` estimates and bias terms in the
+#'   same form, including its own IJ variance.
 #' @keywords internal
 fs_debias_gate <- function(df, candidates, spec, selected_members,
                            c_screen, c_consistency = 0, p_star = 0.90,
@@ -178,9 +240,10 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
                            draws = 2000L,
                            multiplier = c("poisson", "gaussian", "rademacher"),
                            include_complement = FALSE,
+                           ci_method = c("ij", "wald"),
                            seed = NULL) {
   gate <- match.arg(gate); reselection <- match.arg(reselection)
-  multiplier <- match.arg(multiplier)
+  multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
   if (!is.null(seed)) set.seed(seed)
   df <- as.data.frame(df)
   if (!length(candidates)) candidates <- list()
@@ -234,9 +297,17 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   selection_rate <- mean(!is.na(sel_bias))
   selection_bias <- mean(sel_bias, na.rm = TRUE)
   fixed_bias     <- mean(P[sel, ])
+  fb             <- if (is.finite(fixed_bias)) fixed_bias else 0
   beta_naive <- bh[sel]
-  beta_deb   <- beta_naive - selection_bias - (if (is.finite(fixed_bias)) fixed_bias else 0)
-  se <- sdv[sel]
+  beta_deb   <- beta_naive - selection_bias - fb
+  se_wald    <- sdv[sel]
+
+  # Infinitesimal-jackknife variance of the de-biased estimate (Eq. VInfJ_bc),
+  # from the same draws: r_b = (selection_bias + fixed_bias) - D_{H*_b}(b) - D_H(b).
+  r_H   <- (selection_bias + fb) - sel_bias - P[sel, ]
+  ijH   <- .fs_dg_ij_var(Xi, r_H, which(is.finite(sel_bias)))
+  se_ij <- .fs_dg_se_from_ij(ijH, se_wald)
+  se    <- if (ci_method == "ij") se_ij$se else se_wald
 
   gate_cmp <- if (log_scale) log(t_gate) else t_gate
   ci_lo_1s <- beta_deb - stats::qnorm(0.95) * se
@@ -277,17 +348,25 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
     fixed_c   <- mean(Pc[sel, ])
     bnc       <- bh_c[sel]
     if (is.finite(bnc)) {
-      bdc <- bnc - (if (is.finite(selbias_c)) selbias_c else 0) -
-                   (if (is.finite(fixed_c)) fixed_c else 0)
+      sbc <- if (is.finite(selbias_c)) selbias_c else 0
+      fcc <- if (is.finite(fixed_c)) fixed_c else 0
+      bdc <- bnc - sbc - fcc
       sec <- sdv_c[sel]
+      r_c   <- (sbc + fcc) - selb_c - Pc[sel, ]
+      ijC   <- .fs_dg_ij_var(Xi, r_c, which(is.finite(selb_c)))
+      se_ijc <- .fs_dg_se_from_ij(ijC, sec)
+      sec_used <- if (ci_method == "ij") se_ijc$se else sec
       complement <- list(
         naive    = list(est = to_eff(bnc),
                         lower = to_eff(bnc - z975 * sec),
                         upper = to_eff(bnc + z975 * sec)),
         debiased = list(est = to_eff(bdc),
-                        lower = to_eff(bdc - z975 * sec),
-                        upper = to_eff(bdc + z975 * sec),
-                        lower_1s = to_eff(bdc - stats::qnorm(0.95) * sec)),
+                        lower = to_eff(bdc - z975 * sec_used),
+                        upper = to_eff(bdc + z975 * sec_used),
+                        lower_1s = to_eff(bdc - stats::qnorm(0.95) * sec_used),
+                        se = sec_used, se_ij = se_ijc$se, se_wald = sec,
+                        var_ij = se_ijc$var, ij_source = se_ijc$source,
+                        ij_draws = ijC$B_ok),
         selection_bias = selbias_c, fixed_bias = fixed_c,
         n = Nall - sz[sel])
     } else {
@@ -298,13 +377,17 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   list(
     selected_index = sel, selected_label = asm$names[sel],
     measure = spec$effect_measure, log_scale = log_scale,
+    ci_method = ci_method,
     naive    = list(est = to_eff(beta_naive),
-                    lower = to_eff(beta_naive - z975 * se),
-                    upper = to_eff(beta_naive + z975 * se)),
+                    lower = to_eff(beta_naive - z975 * se_wald),
+                    upper = to_eff(beta_naive + z975 * se_wald)),
     debiased = list(est = to_eff(beta_deb),
                     lower = to_eff(beta_deb - z975 * se),
                     upper = to_eff(beta_deb + z975 * se),
-                    lower_1s = to_eff(ci_lo_1s)),
+                    lower_1s = to_eff(ci_lo_1s),
+                    se = se, se_ij = se_ij$se, se_wald = se_wald,
+                    var_ij = se_ij$var, ij_source = se_ij$source,
+                    ij_draws = ijH$B_ok),
     selection_bias = selection_bias, fixed_bias = fixed_bias,
     selection_rate = selection_rate,
     complement = complement,

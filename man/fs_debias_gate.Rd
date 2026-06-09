@@ -19,6 +19,7 @@ fs_debias_gate(
   draws = 2000L,
   multiplier = c("poisson", "gaussian", "rademacher"),
   include_complement = FALSE,
+  ci_method = c("ij", "wald"),
   seed = NULL
 )
 }
@@ -64,15 +65,23 @@ so on each multiplier draw the complement of the re-selected winner is
 tracked and de-biased with the complement's own influence.  Complements are
 fit only for candidates that win across draws (plus the selected one), so
 the extra cost is small.  Default \code{FALSE}.}
+
+\item{ci_method}{\code{"ij"} (default) bases the \strong{de-biased} CI on the
+infinitesimal-jackknife variance (Leon et al. 2024, Eq. VInfJ_bc), computed
+from the same multiplier draws -- the leading-order analogue of the Tier-1
+interval.  \code{"wald"} uses the subgroup robust SE (\code{sigma_D}).  The naive CI
+always uses the robust SE.}
 }
 \value{
 List with the selected index/label, \code{naive} and \code{debiased} estimates
 (effect scale, with approximate 95\% CIs), \code{selection_bias}, \code{fixed_bias},
 \code{selection_rate}, the \code{gate} settings, \code{harm_flag}, family/subgroup sizes,
-and \code{timing_seconds}. The de-biased CI uses the subgroup's robust SE and is
-narrower than the Tier-1 infinitesimal-jackknife CI.  When
-\code{include_complement = TRUE}, a \code{complement} element carries the complement
-subgroup's \code{naive}/\code{debiased} estimates and bias terms in the same form.
+and \code{timing_seconds}. The \code{debiased} element carries \code{se_ij}, \code{se_wald},
+\code{var_ij}, and \code{ij_source}; its CI uses the IJ SE under the default
+\code{ci_method = "ij"} (the Tier-1 analogue) and the robust SE under \code{"wald"}.
+When \code{include_complement = TRUE}, a \code{complement} element carries the
+complement subgroup's \code{naive}/\code{debiased} estimates and bias terms in the
+same form, including its own IJ variance.
 }
 \description{
 Computes a multiplier-bootstrap approximation of the bootstrap

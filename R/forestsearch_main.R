@@ -508,7 +508,10 @@
 #'   for differences -- set near the null, not at the screen), \code{gate}
 #'   (\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
 #'   rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
-#'   \code{multiplier} (default \code{"poisson"}), and \code{seed}.
+#'   \code{multiplier} (default \code{"poisson"}), \code{include_complement}
+#'   (default \code{TRUE}), \code{ci_method} (\code{"ij"} default -- de-biased CI
+#'   from the infinitesimal-jackknife variance, the Tier-1 analogue -- or
+#'   \code{"wald"} for the subgroup robust SE), and \code{seed}.
 #' @param consistency_method Character. \code{"split"} (default) runs the
 #'   literal repeated 50/50 split-and-refit consistency calculation;
 #'   \code{"resample"} uses the multiplier (influence-function / \code{dfbeta})
@@ -2489,6 +2492,7 @@ forestsearch <- function(df.analysis,
         draws         = .g_dg(debias_gate_args$draws,       2000L),
         multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
         include_complement = .g_dg(debias_gate_args$include_complement, TRUE),
+        ci_method     = .g_dg(debias_gate_args$ci_method,   "ij"),
         seed          = .g_dg(debias_gate_args$seed,        seedit))
     }, error = function(e) {
       warning("debias_gate failed: ", conditionMessage(e)); NULL

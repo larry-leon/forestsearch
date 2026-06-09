@@ -542,7 +542,10 @@ and does not replace it.  Default \code{FALSE}.}
 for differences -- set near the null, not at the screen), \code{gate}
 (\code{"point"} or \code{"ci"}), \code{reselection} (bootstrap re-selection
 rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
-\code{multiplier} (default \code{"poisson"}), and \code{seed}.}
+\code{multiplier} (default \code{"poisson"}), \code{include_complement}
+(default \code{TRUE}), \code{ci_method} (\code{"ij"} default -- de-biased CI
+from the infinitesimal-jackknife variance, the Tier-1 analogue -- or
+\code{"wald"} for the subgroup robust SE), and \code{seed}.}
 }
 \value{
 A list of class "forestsearch" containing:
