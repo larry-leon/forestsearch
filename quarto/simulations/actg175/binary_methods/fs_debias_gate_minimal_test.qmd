@@ -4,7 +4,7 @@ format: html
 ---
 
 ```{r setup}
-#| include: false
+#| include: true
 # ---------------------------------------------------------------------------
 # Minimal, self-contained example of the INTEGRATED Tier-2 de-biased gate:
 # forestsearch(..., debias_gate = TRUE) flags whether the selected harm
@@ -24,7 +24,7 @@ suppressPackageStartupMessages({
 sim_n        <- 700L          # simulated trial size
 cal_target_or<- 2.0           # true OR in the harm subgroup Q = {cd40>390 & wtkg>80}
 alt_seed     <- 42L           # simulated alt trial seed
-null_seed    <- 8316952L      # simulated null trial seed
+null_seed    <- 43L      # simulated null trial seed
 dgm_seed     <- 8316952L      # DGM calibration seed
 
 fs_effect_threshold       <- 1.25   # screening OR
@@ -307,6 +307,57 @@ if (is.null(fs0$sg.harm)) {
               paste(fs0$sg.harm, collapse = " & "), g0$naive$est, g0$debiased$est,
               fs0$harm_flag_debiased))
   cat("\nUnder the null the de-biased estimate should collapse toward the ITT effect and fail the gate.\n")
+}
+```
+
+
+## Validation against the full (Tier-1) bootstrap
+
+```{r tier1-null}
+#| echo: false
+#| results: asis
+
+fs <- fs0
+if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
+  t0 <- proc.time()
+  fs_bc <- forestsearch_bootstrap_dofuture(
+    fs.est = fs, nb_boots = nb_boots, show_three = FALSE, details = FALSE,
+    parallel_args = list(plan = "multisession", workers = n_workers, show_message = FALSE))
+  plan("sequential")
+  t_tier1 <- as.numeric((proc.time() - t0)["elapsed"])
+
+  .fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
+  H0  <- .fl(fs_bc$H_estimates, "H0");  H0l <- .fl(fs_bc$H_estimates, "H0_lower"); H0u <- .fl(fs_bc$H_estimates, "H0_upper")
+  H2  <- .fl(fs_bc$H_estimates, "H2");  H2l <- .fl(fs_bc$H_estimates, "H2_lower"); H2u <- .fl(fs_bc$H_estimates, "H2_upper")
+  g   <- fs$debias_gate
+
+  comp <- data.frame(
+    quantity = c("naive OR (95% CI)", "de-biased OR (95% CI)"),
+    `Tier 2 (gate)` = c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+                        .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
+    `Tier 1 (bootstrap)` = c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u)),
+    check.names = FALSE)
+  cat(knitr::kable(comp, row.names = FALSE), sep = "\n"); cat("\n\n")
+
+  # Scale cross-check: the gate's naive OR and the bootstrap's naive H0 are the
+  # same quantity computed two ways; they should agree up to rounding.
+  if (is.finite(H0) && is.finite(g$naive$est)) {
+    scale_ok <- abs(log(g$naive$est) - log(H0)) < 1e-2
+    cat(sprintf("Scale cross-check (naive gate vs bootstrap H0): **%s** (%.4f vs %.4f).\n\n",
+                if (scale_ok) "PASS" else "FAIL", g$naive$est, H0))
+  }
+
+  cat(sprintf("Timing: Tier 1 (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s -> **%.0fx** faster.\n",
+              nb_boots, t_tier1, t_tier1 / 60, g$timing_seconds,
+              if (g$timing_seconds > 0) t_tier1 / g$timing_seconds else NA))
+  cat("\nThe naive-OR row is a scale sanity check; agreement on the de-biased row validates ",
+      "Tier 2 against Tier 1. The gate's de-biased CI is approximate (subgroup robust SE) ",
+      "and narrower than the Tier-1 infinitesimal-jackknife CI.\n", sep = "")
+} else if (!is.null(fs$sg.harm)) {
+  cat(sprintf("_Tier-1 bootstrap comparison skipped (`run_tier1 = FALSE`). The gate ran in-fit in %.2f s; ",
+              fs$debias_gate$timing_seconds))
+  cat(sprintf("de-biased %s = %.3f, `harm_flag_debiased` = %s._\n",
+              fs$debias_gate$measure, fs$debias_gate$debiased$est, fs$harm_flag_debiased))
 }
 ```
 
