@@ -230,6 +230,7 @@ record_replicate <- function(sim_id) {
       treat.name      = treat_name,   id.name    = id_name,
       flag_harm.name  = harm_col,     confounders.name = confs,
       is.RCT          = TRUE,         seedit = seed_base + sim_id,
+      quiet           = TRUE,         # suppress the "De-biased gate: HR = ... -> ..." cat()
       use_lasso       = use_lasso,    use_grf = use_grf,
       sg_focus        = sg_focus,
       consistency_method = consistency_method,
@@ -339,6 +340,7 @@ if (run_smoke) {
 # separation or an unstable small-B IJ) are dropped so a single blow-up cannot
 # dominate a mean.
 .cover <- function(target, lo, hi) {
+  target <- rep_len(target, length(lo))   # recycle scalar targets (CDE/marginal) to n reps
   ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
   if (!any(ok)) return(NA_real_)
   mean(target[ok] >= lo[ok] & target[ok] <= hi[ok])
@@ -438,7 +440,7 @@ The cleanest test of the leading-order correspondence: both tiers correct the
 *same* selected $\hat H$ on the *same* data, so per-replicate differences isolate
 the `dfbeta` linearisation. Reported on the log-effect scale.
 
-```{r paired-panel}
+```{r paired-panel, results='asis'}
 if (run_smoke && !is.null(results)) {
   rd <- results[results$detected == 1, , drop = FALSE]
 
@@ -472,12 +474,12 @@ if (run_smoke && !is.null(results)) {
     sub <- paste(vapply(parts, function(p)
       sprintf("%s: %d reps, corr %.3f", sub("  .*", "", p$tab$Block[1]), p$n, p$corr),
       character(1)), collapse = "  \u00b7  ")
-    print(
+    cat(as_raw_html(
       gt(tab, groupname_col = "Block") |>
         tab_header(title = "Tier-2 \u2212 Tier-1 (log scale)", subtitle = sub) |>
         cols_label(mean_d = "Mean \u0394", sd_d = "SD \u0394") |>
         fmt_number(columns = c(mean_d, sd_d), decimals = 4)
-    )
+    ))
 
     pts <- do.call(rbind, lapply(parts, `[[`, "pts"))
     p <- ggplot(pts, aes(x = t1, y = t2)) +
