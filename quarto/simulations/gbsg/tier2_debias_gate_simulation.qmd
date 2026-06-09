@@ -69,8 +69,8 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 200L       # simulated trials                (prod: 1000 -> 20000)
-nb_boots     <- 500L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
+nb_boots     <- 20L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -99,8 +99,8 @@ use_lasso          <- FALSE
 use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
-fs_conf_force      <- c("z3 == 1")
-fs_conf.cont_jcuts <- list(z1 = 10)
+fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
+fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous)
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
 outcome_name   <- "y_sim"
@@ -108,14 +108,15 @@ event_name     <- "event_sim"
 treat_name     <- "treat_sim"
 id_name        <- "id"
 harm_col       <- "flag_harm"
-# GBSG covariate candidates (intersected with the simulated columns at run time)
-confounders_base <- c("z1", "z2", "z3", "z4", "z5", "size", "grade3")
+# Raw GBSG covariate candidates (as in a real analysis): forestsearch discovers
+# its own cuts. Continuous -> er, age, pgr, nodes, size; categorical -> meno (0/1),
+# grade (1/2/3). The pre-dichotomized z1..z5 are NOT used. The true harm subgroup
+# (er <= 25th pct & meno == 0) must be re-discovered from these raw variables.
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 
 # ── Reproducibility / parallelism ──────────────────────────────────────────
 seed_base  <- 8316951L
-n_workers  <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
-fs_conf_force      <- c("z3 == 1")
-fs_conf.cont_jcuts <- list(z1 = 10)
+n_workers  <- max(1L, min(parallel::detectCores(logical = FALSE) - 1L, n_sims))
 z975       <- qnorm(0.975)
 
 cat(sprintf("Smoke test: n_sims=%d, nb_boots=%d, gate_draws=%d, workers=%d\n",
@@ -159,6 +160,8 @@ outer loop already parallelises across trials.
 
 ```{r recorder}
 # Cox HR + delta-method 95% CI on a subset (for the per-replicate oracle).
+# Guards against separation: non-finite coef/SE (the "coefficient may be
+# infinite" case) returns a clean NA triple rather than Inf/NaN bounds.
 .cox_hr_ci <- function(df) {
   if (sum(df[[event_name]]) < 5L || length(unique(df[[treat_name]])) < 2L)
     return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
@@ -166,8 +169,29 @@ outer loop already parallelises across trials.
     sprintf("survival::Surv(%s, %s) ~ %s", outcome_name, event_name, treat_name))
   fit <- tryCatch(survival::coxph(fml, data = df), error = function(e) NULL)
   if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
-  b <- unname(stats::coef(fit)[1]); se <- sqrt(diag(stats::vcov(fit))[1])
+  b  <- unname(stats::coef(fit)[1])
+  v  <- suppressWarnings(diag(stats::vcov(fit))[1])
+  se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
+  if (!is.finite(b) || !is.finite(se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
   c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se))
+}
+
+# Classification of the identified subgroup against the true harm flag.
+# sg_hat is grp.consistency$sg.harm.id: a per-subject 0/1 vector, length
+# nrow(df), aligned to the input rows (clean on the consistency result; the
+# GRF-object naming collision does not apply here).
+.classify <- function(sg_hat, truth) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(truth)) return(out)
+  sg_hat <- as.integer(sg_hat); truth <- as.integer(truth)
+  tp <- sum(sg_hat == 1 & truth == 1); fp <- sum(sg_hat == 1 & truth == 0)
+  fn <- sum(sg_hat == 0 & truth == 1); tn <- sum(sg_hat == 0 & truth == 0)
+  out["sens"] <- if (tp + fn > 0) tp / (tp + fn) else NA_real_
+  out["spec"] <- if (tn + fp > 0) tn / (tn + fp) else NA_real_
+  out["ppv"]  <- if (tp + fp > 0) tp / (tp + fp) else NA_real_
+  out["npv"]  <- if (tn + fn > 0) tn / (tn + fn) else NA_real_
+  out
 }
 
 # One all-NA record (returned on failure so the loop never aborts a cell).
@@ -182,6 +206,8 @@ outer loop already parallelises across trials.
   t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA,
   t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
   t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
+  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
   stringsAsFactors = FALSE)
 
 record_replicate <- function(sim_id) {
@@ -230,6 +256,8 @@ record_replicate <- function(sim_id) {
 
   rec$label <- g$selected_label %||% NA_character_
   rec$n_sel <- g$n_selected      %||% NA_integer_
+  rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+  rec$ij_source    <- g$debiased$ij_source %||% NA_character_
   rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
   rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
   rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
@@ -242,6 +270,11 @@ record_replicate <- function(sim_id) {
     rec$t2_Hc_hi  <- g$complement$debiased$upper
     rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
   }
+
+  # ---- Classification of Ĥ against the true harm flag ----------------------
+  cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
+  rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
+  rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
 
   # ---- Tier-1 bootstrap (inherits resample via fs.est$args_call_all) -------
   t1_t0 <- proc.time()[3]
@@ -302,15 +335,28 @@ if (run_smoke) {
 # Estimation / coverage table (León Table 2 layout + Tier-2)
 
 ```{r estimation-table}
-# Coverage of a target by a per-replicate [lo, hi] interval.
-.cover <- function(target, lo, hi) mean(target >= lo & target <= hi, na.rm = TRUE)
-# Percent relative bias of an estimate vs a (scalar or per-replicate) target.
-.pbias <- function(est, target) 100 * mean((est - target) / target, na.rm = TRUE)
+# All summaries are finite-only: non-finite estimates/bounds (e.g. from Cox
+# separation or an unstable small-B IJ) are dropped so a single blow-up cannot
+# dominate a mean.
+.cover <- function(target, lo, hi) {
+  ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
+  if (!any(ok)) return(NA_real_)
+  mean(target[ok] >= lo[ok] & target[ok] <= hi[ok])
+}
+.pbias <- function(est, target) {
+  d <- (est - target) / target; d <- d[is.finite(d)]
+  if (!length(d)) return(NA_real_)
+  100 * mean(d)
+}
 # HR-scale SD implied by log-scale CI bounds (uniform across estimators).
 .sd_hat <- function(est, lo, hi) {
   se_log <- (log(hi) - log(lo)) / (2 * z975)
-  mean(est * se_log, na.rm = TRUE)
+  v <- est * se_log; v <- v[is.finite(v)]
+  if (!length(v)) return(NA_real_)
+  mean(v)
 }
+.mfin <- function(x) { x <- x[is.finite(x)]; if (length(x)) mean(x) else NA_real_ }
+.sdfin <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1L) sd(x) else NA_real_ }
 
 # Build one block (H or Hc): four estimator rows against three targets.
 build_block <- function(r, suffix, tgt_cde, tgt_marg) {
@@ -321,12 +367,15 @@ build_block <- function(r, suffix, tgt_cde, tgt_marg) {
     e  <- r[[paste0(k, "_", suffix, "_est")]]
     lo <- r[[paste0(k, "_", suffix, "_lo")]]
     hi <- r[[paste0(k, "_", suffix, "_hi")]]
+    len <- hi - lo; len <- len[is.finite(len)]
     data.frame(
       Estimator = lab,
-      Avg     = mean(e, na.rm = TRUE),
-      SD      = sd(e, na.rm = TRUE),
+      n       = sum(is.finite(e)),
+      Avg     = .mfin(e),
+      SD      = .sdfin(e),
       SD_hat  = .sd_hat(e, lo, hi),
-      Length  = mean(hi - lo, na.rm = TRUE),
+      Len_med = if (length(len)) stats::median(len) else NA_real_,
+      Length  = if (length(len)) mean(len) else NA_real_,
       b_oracle = .pbias(e, or_est),
       b_cde    = .pbias(e, tgt_cde),
       b_marg   = .pbias(e, tgt_marg),
@@ -348,16 +397,22 @@ if (run_smoke && !is.null(results)) {
   )
 
   det_rate <- mean(results$detected, na.rm = TRUE)
+  # Classification + decision + IJ-stability diagnostics (over detected reps).
+  cls <- sprintf("sens %.2f \u00b7 spec %.2f \u00b7 PPV %.2f \u00b7 NPV %.2f",
+                 .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
+  harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
+  ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
 
   gt(est_tab, groupname_col = "Block") |>
     tab_header(
       title = "Tier-2 de-biased gate vs Tier-1 bootstrap: estimation & coverage",
       subtitle = sprintf("M1 smoke test \u00b7 n=%d, %d sims, B=%d, draws=%d \u00b7 resample identification",
                          n_sample, n_sims, nb_boots, gate_draws)) |>
-    fmt_number(columns = c(Avg, SD, SD_hat, Length), decimals = 2) |>
+    fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
     cols_label(
+      n = "n", Len_med = "Len(med)",
       SD_hat = md("$\\widehat{\\text{SD}}$"),
       b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
       b_marg = md("$b^{\\dagger}$"),
@@ -366,12 +421,13 @@ if (run_smoke && !is.null(results)) {
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
-      "Detection (harm-subgroup identified) rate: **%.0f%%** of %d sims. Summaries over detected replicates.",
-      100 * det_rate, n_sims))) |>
+      "Detection rate **%.0f%%** of %d sims; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
+      100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
     tab_footnote(footnote = md(paste(
       "Targets: $b^{\\text{oracle}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
       "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",
       "$b^{\\dagger}$ vs marginal subgroup HR $\\theta^{\\dagger}$.",
+      "`Len(med)` = median CI length (robust to blow-ups); `Length` = mean.",
       "Tier-1 = `H2` (León Eq.7, both bias sources); Tier-2 = de-biased gate, IJ interval.")))
 }
 ```
@@ -384,39 +440,54 @@ the `dfbeta` linearisation. Reported on the log-effect scale.
 
 ```{r paired-panel}
 if (run_smoke && !is.null(results)) {
-  paired <- results[results$detected == 1 &
-                      is.finite(results$t1_H_est) & is.finite(results$t2_H_est), ,
-                    drop = FALSE]
+  rd <- results[results$detected == 1, , drop = FALSE]
 
-  if (nrow(paired) >= 2L) {
-    d_point <- log(paired$t2_H_est) - log(paired$t1_H_est)
-    d_lo    <- log(paired$t2_H_lo)  - log(paired$t1_H_lo)
-    d_hi    <- log(paired$t2_H_hi)  - log(paired$t1_H_hi)
+  # Per-block log-scale agreement (Tier-2 - Tier-1) on point estimate and bounds.
+  agree_block <- function(suffix) {
+    e1 <- rd[[paste0("t1_", suffix, "_est")]]; e2 <- rd[[paste0("t2_", suffix, "_est")]]
+    l1 <- rd[[paste0("t1_", suffix, "_lo")]];  l2 <- rd[[paste0("t2_", suffix, "_lo")]]
+    u1 <- rd[[paste0("t1_", suffix, "_hi")]];  u2 <- rd[[paste0("t2_", suffix, "_hi")]]
+    ok <- is.finite(e1) & is.finite(e2)
+    if (sum(ok) < 2L) return(NULL)
+    dpt <- log(e2[ok]) - log(e1[ok])
+    dlo <- log(l2[ok]) - log(l1[ok]); dhi <- log(u2[ok]) - log(u1[ok])
+    list(
+      tab = data.frame(
+        Block = if (suffix == "H") "Harm \u0124" else "Complement \u0124\u1d9c",
+        Quantity = c("log point", "log CI lower", "log CI upper"),
+        mean_d = c(mean(dpt), .mfin(dlo), .mfin(dhi)),
+        sd_d   = c(sd(dpt),   .sdfin(dlo), .sdfin(dhi)),
+        stringsAsFactors = FALSE),
+      n = sum(ok), corr = suppressWarnings(cor(log(e1[ok]), log(e2[ok]))),
+      pts = data.frame(block = if (suffix == "H") "Harm \u0124" else "Complement \u0124\u1d9c",
+                       t1 = e1[ok], t2 = e2[ok])
+    )
+  }
 
-    agree <- data.frame(
-      Quantity = c("log point estimate", "log CI lower", "log CI upper"),
-      mean_d   = c(mean(d_point), mean(d_lo, na.rm = TRUE), mean(d_hi, na.rm = TRUE)),
-      sd_d     = c(sd(d_point),   sd(d_lo, na.rm = TRUE),   sd(d_hi, na.rm = TRUE)),
-      stringsAsFactors = FALSE)
+  aH <- agree_block("H"); aHc <- agree_block("Hc")
+  parts <- Filter(Negate(is.null), list(aH, aHc))
 
+  if (length(parts)) {
+    tab <- do.call(rbind, lapply(parts, `[[`, "tab"))
+    sub <- paste(vapply(parts, function(p)
+      sprintf("%s: %d reps, corr %.3f", sub("  .*", "", p$tab$Block[1]), p$n, p$corr),
+      character(1)), collapse = "  \u00b7  ")
     print(
-      gt(agree) |>
-        tab_header(title = "Tier-2 \u2212 Tier-1 (log scale)",
-                   subtitle = sprintf("%d paired replicates \u00b7 point-estimate correlation = %.3f",
-                                      nrow(paired), cor(log(paired$t1_H_est), log(paired$t2_H_est)))) |>
+      gt(tab, groupname_col = "Block") |>
+        tab_header(title = "Tier-2 \u2212 Tier-1 (log scale)", subtitle = sub) |>
         cols_label(mean_d = "Mean \u0394", sd_d = "SD \u0394") |>
         fmt_number(columns = c(mean_d, sd_d), decimals = 4)
     )
 
-    rng <- range(c(paired$t1_H_est, paired$t2_H_est), na.rm = TRUE)
-    p <- ggplot(paired, aes(x = t1_H_est, y = t2_H_est)) +
+    pts <- do.call(rbind, lapply(parts, `[[`, "pts"))
+    p <- ggplot(pts, aes(x = t1, y = t2)) +
       geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
       geom_point(size = 2, alpha = 0.8) +
-      scale_x_log10(limits = rng) + scale_y_log10(limits = rng) +
-      coord_equal() +
-      labs(x = expression("Tier-1  "*hat(theta)^"*"*(hat(H))),
-           y = expression("Tier-2  "*tilde(theta)*(hat(H))),
-           title = "Per-replicate de-biased point estimates (H)") +
+      scale_x_log10() + scale_y_log10() + coord_equal() +
+      facet_wrap(~ block, scales = "free") +
+      labs(x = expression("Tier-1  "*hat(theta)^"*"),
+           y = expression("Tier-2  "*tilde(theta)),
+           title = "Per-replicate de-biased point estimates") +
       theme_minimal(base_size = 12)
     print(p)
   } else {
