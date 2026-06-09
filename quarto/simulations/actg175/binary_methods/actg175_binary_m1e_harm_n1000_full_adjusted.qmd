@@ -24,7 +24,7 @@ sim_n    <- 1000L
 
 sim_mode  <- "full"          # "import" | "demo" | "full" | "auto"
 
-sims_demo <- 100L
+sims_demo <- 20L
 sims_full <- 1000L
 seed_base <- 8316951L         # master RNG seed (applied via set.seed in setup)
 analysis_seed <- seed_base    # RNG seed for the single-trial LOO / Kfold deep-dive
@@ -92,6 +92,19 @@ grf_sg_criterion <- "mDiff"
 
 ## -- Calibration -------------------------------------------------------------
 cal_target_or <- 2.0          # target marginal OR in the harm subgroup Q
+
+## -- Search-level FDR calibration (diagnostic) -------------------------------
+# Family-level multiplier-bootstrap approximation of the search-level any(H)
+# false-discovery rate under H0 (companion to the resampling-theory note's
+# candidate-family union).  Gauges / calibrates the screening and consistency
+# thresholds against a TARGET search-level FDR without re-running the null Monte
+# Carlo loop.  Self-contained: requires fdr_family_multiplier.R and
+# fdr_calibration.R on the path (set options(fdr_src_dir = "<dir>") if they are
+# not beside this .qmd).
+run_fdr_calibration <- TRUE   # FALSE skips the FDR-calibration section
+fdr_calib_nsims     <- 30L    # null trials averaged for the family-variability view
+fdr_calib_draws     <- 3000L  # multiplier draws per candidate family
+fdr_calib_seed      <- 8316951L
 
 ## -- Reporting / display -----------------------------------------------------
 sg_notation     <- "harm"
@@ -1667,6 +1680,150 @@ if (nrow(flag_null) == 0L || sum(flag_null$any.H, na.rm = TRUE) == 0L) {
   ))
 }
 ```
+
+# Search-level FDR calibration {#sec-fdr-calibration}
+
+The FS arms detect a harm subgroup under H0 at a rate of roughly 0.44 (the
+`Found` column of the null operating characteristics above), even though the
+thresholds (`c_screen = log(1.25)`, `c_consistency = log(1.0)`, `p* = 0.90`) were
+chosen so that the *per-candidate* type-I is about 5%. The gap is multiplicity:
+the search flags harm when *any* of the ~1,378 overlapping two-factor candidates
+clears the rule, and that union over a correlated family is the object the
+per-candidate calibration never controlled.
+
+This section approximates that search-level rate directly with a family-level
+multiplier bootstrap (companion to the resampling-theory note). For one null
+trial it assembles the candidate family, re-derives each candidate's treatment
+`dfbeta` through the same consistency engine the search uses, and propagates a
+single multiplier vector to every candidate at once, so candidate overlap is
+respected exactly; the family false-discovery probability is the fraction of
+draws in which any candidate is flagged. The candidate space is rebuilt from the
+analysis confounders — six continuous covariates cut at q1/median/q3 (both sides)
+plus the binary factors — which reproduces the search's $L = 52$ single factors
+and $1{,}378$ two-factor combinations. Two views are reported: a single
+representative null trial, and an average over `r fdr_calib_nsims` null trials
+that also reflects variability in how the candidate family is formed.
+
+```{r fdr-calib-setup}
+#| include: false
+.fdr_files <- c("fdr_family_multiplier.R", "fdr_calibration.R")
+.fdr_dir   <- getOption("fdr_src_dir", ".")
+.fdr_ok    <- all(file.exists(file.path(.fdr_dir, .fdr_files)))
+if (.fdr_ok) invisible(lapply(file.path(.fdr_dir, .fdr_files), source))
+run_fdr_calib_eval <- isTRUE(run_fdr_calibration) && isTRUE(.fdr_ok)
+
+# Factor family reproducing the search candidate space: continuous covariates
+# cut at q1/median/q3 (both sides), binaries both levels.  unique() collapses
+# tied quantiles (e.g. karnof), matching the search's redundant-cut handling.
+.fdr_factors_from_conf <- function(df, cont = cont_vars, bin = bin_vars) {
+  f <- list()
+  for (v in cont) {
+    qs   <- unique(stats::quantile(df[[v]], c(.25, .5, .75), na.rm = TRUE, names = FALSE))
+    labs <- c("q1", "med", "q3")[seq_along(qs)]
+    for (k in seq_along(qs)) {
+      f[[sprintf("%s<=%s", v, labs[k])]] <- df[[v]] <= qs[k]
+      f[[sprintf("%s>%s",  v, labs[k])]] <- df[[v]] >  qs[k]
+    }
+  }
+  for (v in bin) {
+    f[[sprintf("%s=1", v)]] <- df[[v]] == 1
+    f[[sprintf("%s=0", v)]] <- df[[v]] == 0
+  }
+  f
+}
+
+# One null trial -> family-FDR threshold sweep.  beta_null is the simulated
+# trial's ITT log-OR (the uniform-effect null centre); the influence matrix is
+# built with the SAME adjusted logistic the search uses (y ~ treat + adjust).
+.fdr_calib_one_null <- function(seed, grid) {
+  df    <- simulate_from_glm_dgm(dgm_null, n = sim_n, seed = seed)
+  facs  <- .fdr_factors_from_conf(df)
+  cands <- enumerate_candidates(df, facs, maxk = .fs_maxk, min_n = 60L,
+                                min_events_per_arm = 10L,
+                                treat.name = "treat_sim", outcome.name = "y_sim")
+  spec  <- list(outcome_type = "binary", effect_measure = "OR",
+                treat.name = "treat_sim", outcome.name = "y_sim",
+                offset.name = NULL, adjust_covariates = fs_adjust_covariates,
+                adverse_outcome = TRUE)
+  infl  <- build_influence_matrix(df, cands, spec)
+  itt   <- as.numeric(stats::coef(glm(y_sim ~ treat_sim, family = binomial(), data = df))[["treat_sim"]])
+  tab   <- calibrate_fdr_grid(infl, beta_null = itt, grid = grid,
+                              draws = fdr_calib_draws, seed = seed)
+  tab$n_usable  <- infl$n_usable
+  tab$itt_logor <- itt
+  tab
+}
+
+# Sweep: base setting (this document's thresholds) plus tighter screening / p*.
+fdr_grid <- expand.grid(c_screen = log(c(fs_effect_threshold, 1.5, 1.75)),
+                        p_star   = c(fs_pconsistency_threshold, 0.95, 0.975),
+                        KEEP.OUT.ATTRS = FALSE)
+fdr_grid$c_consistency <- log(fs_consistency_threshold)
+```
+
+```{r fdr-calib-single}
+#| echo: false
+#| results: asis
+if (!run_fdr_calib_eval) {
+  cat(if (!isTRUE(run_fdr_calibration))
+        "_FDR calibration skipped (`run_fdr_calibration = FALSE`)._\n"
+      else
+        paste0("_FDR calibration skipped: place `fdr_family_multiplier.R` and ",
+               "`fdr_calibration.R` beside this document, or set ",
+               "`options(fdr_src_dir = \"<dir>\")`._\n"))
+} else {
+  t1 <- .fdr_calib_one_null(fdr_calib_seed, fdr_grid)
+  t1$OR_screen <- round(exp(t1$c_screen), 2)
+  cat(sprintf("\n**Single null trial** (seed %d): %d usable candidates, ITT OR = %.2f.\n\n",
+              fdr_calib_seed, t1$n_usable[1], exp(t1$itt_logor[1])))
+  cat(knitr::kable(
+        t1[order(t1$OR_screen, t1$p_star),
+           c("OR_screen", "p_star", "fdr", "union_indep", "e_flagged")],
+        digits = 3, row.names = FALSE,
+        col.names = c("OR screen", "p★", "family FDR", "indep. bound", "E[# flagged]")),
+      sep = "\n")
+  cat("\n")
+}
+```
+
+The row at `OR screen = 1.25`, `p★ = 0.90` is this document's current setting; its
+`family FDR` is the predicted search-level any(H) rate, to be read against the
+≈0.44 observed in the null simulations above. Reading across the sweep shows
+which threshold change buys the most control.
+
+```{r fdr-calib-averaged}
+#| echo: false
+#| results: asis
+if (run_fdr_calib_eval) {
+  seeds   <- fdr_calib_seed + seq_len(fdr_calib_nsims)
+  tabs    <- lapply(seeds, .fdr_calib_one_null, grid = fdr_grid)
+  fdr_mat <- do.call(rbind, lapply(tabs, function(t) t$fdr))   # nsims x grid rows
+  agg <- data.frame(
+    OR_screen = round(exp(fdr_grid$c_screen), 2),
+    p_star    = fdr_grid$p_star,
+    fdr_mean  = colMeans(fdr_mat),
+    fdr_se    = apply(fdr_mat, 2, stats::sd) / sqrt(nrow(fdr_mat)))
+  n_usable_avg <- mean(vapply(tabs, function(t) t$n_usable[1], numeric(1)))
+  cat(sprintf("\n**Averaged over %d null trials** (mean usable candidates %.0f):\n\n",
+              fdr_calib_nsims, n_usable_avg))
+  cat(knitr::kable(
+        agg[order(agg$OR_screen, agg$p_star), c("OR_screen", "p_star", "fdr_mean", "fdr_se")],
+        digits = 3, row.names = FALSE,
+        col.names = c("OR screen", "p★", "mean family FDR", "SE")),
+      sep = "\n")
+  cat("\n")
+}
+```
+
+The averaged view smooths over the trial-to-trial formation of the candidate
+family. In the binary/OR null the *consistency level* `p★` is the binding lever:
+raising it (a stricter one-sided confidence that the subgroup clears the harm
+threshold) drives the family FDR down far faster than raising the screening OR,
+because for most candidates the consistency requirement
+`c_consistency + z·sigma_D` exceeds `c_screen` and is what actually binds. To
+target a given search-level FDR, tighten `fs_pconsistency_threshold` first. This
+diagnostic conditions on the formed candidate family and the FS/consistency arm;
+the `dina-*` and `grf-*` arms use different selectors and are not covered.
 
 # Timing Summary
 

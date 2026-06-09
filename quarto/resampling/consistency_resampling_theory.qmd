@@ -1,0 +1,736 @@
+---
+title: "A Resampling Representation of the Splitting-Consistency Criterion for Harm-Subgroup Identification"
+subtitle: "From the Cox Model to General Responses via Natural Parameters"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+    fig-cap-location: bottom
+bibliography: references.bib
+---
+
+> **Status.** Working theory note for `forestsearch`. Detailed by design; intended
+> to be revised and shortened into an article. Worked Cox and GLM derivations
+> appear first (Sections 3–4), then a single general estimation schema (Section 5)
+> that subsumes both via the natural-parameter scale of @gao2025.
+
+# Introduction {#sec-intro}
+
+`forestsearch` identifies *harm subgroups* in randomized trials by an exhaustive
+search over candidate subgroups, retaining those whose estimated treatment
+effect is both large and **internally consistent** [@leon2024]. Consistency is
+operationalized by repeated sample splitting: a candidate subgroup is split many
+times into two random halves, the treatment effect is re-estimated on each half,
+and the subgroup is credited each time *both* halves exhibit harm beyond a
+threshold. The fraction of consistent splits — the *consistency rate* — must
+exceed a cutoff (commonly $0.90$) for the subgroup to be flagged.
+
+The criterion is intuitive and empirically effective, but as defined it is (i)
+*computationally expensive*, requiring on the order of $10^3$ refits per
+candidate, and (ii) *statistically opaque*: it is not obvious what population
+quantity the consistency rate estimates, nor how the $0.90$ cutoff relates to
+familiar inferential statements.
+
+This note develops a first-order **resampling representation** of the criterion
+with four consequences:
+
+1. **A closed form.** The consistency rate is, to leading order,
+   $$
+   p_{\mathrm{cons}} \;\approx\; \max\!\Big\{0,\; 2\,\Phi\!\big((\hat\beta - c)/\sigma_D\big) - 1\Big\},
+   $$ {#eq-closed}
+   where $\hat\beta$ is the subgroup treatment coefficient, $c$ the harm
+   threshold on the same scale, $\sigma_D$ the subgroup's robust (sandwich)
+   standard error, and $\Phi$ the standard normal CDF. No splitting or refitting
+   is required; a single subgroup fit suffices.
+
+2. **A multiplier-bootstrap reading.** The repeated split is a special case of a
+   multiplier (wild) bootstrap of the subgroup estimating function. The
+   $50/50$ split corresponds to *Rademacher* multipliers; Gaussian multipliers
+   recover the score/estimating-function resampling of
+   @linweiying1993, @parzenweiying1994 and @jinyingwei2001; centered-Poisson
+   multipliers recover the weird/wild survival bootstrap of @dobler2017. All
+   share the limit in @eq-closed.
+
+3. **A unified scale.** The representation holds verbatim for the Cox model and
+   for generalized linear models because in every case $\hat\beta$ estimates a
+   **difference in natural parameters** (DINA) in the sense of @gao2025 — log
+   hazard ratio, log odds ratio, log incidence-rate ratio, or mean difference —
+   and the per-subject influence contributions are the model's `dfbeta` values.
+
+4. **A calibration.** The $0.90$ cutoff is equivalent to requiring the subgroup
+   effect to exceed the harm threshold by $1.645$ robust standard errors, i.e.
+   to a one-sided $95\%$ lower confidence bound lying above the threshold
+   (@sec-calibration).
+
+The theoretical content is the representation itself: it places an exploratory
+heuristic on the same influence-function / multiplier-bootstrap footing as
+classical robust survival and GLM inference, and ties the `forestsearch`
+*consistency* engine to the *DINA* estimand of @gao2025 already used by the
+package's DINA engine.
+
+# The splitting-consistency criterion {#sec-criterion}
+
+Fix a candidate subgroup $S$ with $n_S$ subjects. Let $\theta_S$ denote the
+treatment effect for $S$ on a chosen scale (made precise in @sec-schema), and let
+$\hat\beta = \hat\beta_S$ be its estimate from a working model fit on $S$
+(treatment-only or covariate-adjusted). Write $c$ for the *harm threshold* on the
+same scale, oriented so that **harm corresponds to $\hat\beta > c$** (for a
+hazard or odds ratio, $c = \log(\text{ratio threshold})$, e.g. $c = \log 1 = 0$;
+for a mean or risk difference, $c$ is the difference threshold directly).
+
+The criterion, as implemented, is:
+
+> Draw an independent fair coin $Z_i \sim \mathrm{Bernoulli}(1/2)$ for each
+> subject $i \in S$. Let $A = \{i : Z_i = 1\}$ and $B = S \setminus A$ be the two
+> halves. Refit the working model on each half to obtain $\hat\beta^{(A)}$ and
+> $\hat\beta^{(B)}$. Call the split **consistent** if $\hat\beta^{(A)} > c$ and
+> $\hat\beta^{(B)} > c$. Repeating over many splits, the consistency rate
+> $p_{\mathrm{cons}}$ is the proportion of consistent splits; $S$ is flagged if
+> $p_{\mathrm{cons}} \ge p^\star$ (e.g. $0.90$).
+
+(Practical implementations impose minimum-size and minimum-event guards on each
+half and may use early stopping; these do not change the leading-order analysis
+and are discussed in @sec-practice.)
+
+The object of this note is the map $(\hat\beta, S) \mapsto p_{\mathrm{cons}}$.
+
+## Relationship to León et al. (2024), Equation (3) {#sec-leon-eq3}
+
+The closed form @eq-closed is not a departure from the original criterion: it is
+the conditional kernel *inside* the identification probability that @leon2024 use
+to calibrate the thresholds. In their large-sample Cox approximation the two
+half-split log-hazard-ratio estimators are represented as independent normals,
+$W_1, W_2 \stackrel{\text{iid}}{\sim} N(\beta,\, 8/d)$, with $d$ the subgroup
+event count, and the probability of *identifying* a subgroup with underlying
+log-hazard ratio $\beta$ is their Equation (3),
+$$
+p(c_1, c_2;\, d, \beta) \;=\; \Pr\!\big(W_1+W_2 \ge 2\log c_1,\ \min(W_1,W_2) \ge \log c_2\big),
+$$ {#eq-leon3}
+where $c_1 = 1.25$ is the screening threshold and $c_2 = 1.0$ the consistency
+threshold. Equation (@eq-leon3) is evaluated by two-dimensional numerical
+integration and drives the choice of $(c_1, c_2)$ and the power / type-I
+approximations.
+
+Rotate the half-estimators into their average and half-difference,
+$$
+S := \tfrac12 (W_1 + W_2), \qquad D := \tfrac12 (W_1 - W_2).
+$$ {#eq-reparam}
+For independent normals of common variance these are themselves independent,
+$S \sim N(\beta,\, 4/d)$ and $D \sim N(0,\, 4/d)$, with two readings: $S =
+\hat\beta_s$ is the **full-subgroup** estimate and $\operatorname{Var}(S)=4/d$ its
+sampling variance, while $D$ is the **split perturbation** with the *same*
+variance $\operatorname{Var}(D) = 4/d = \operatorname{Var}(\hat\beta_s)$. That the
+split perturbation shares the standard error of the full-subgroup estimate is
+precisely the identity @eq-sigma-d, here already built into the $8/d$-versus-$4/d$
+scaling of (@eq-leon3).
+
+In these coordinates the screening event is $S \ge \log c_1$ and the consistency
+event is $\min(W_1,W_2) = S - |D| \ge \log c_2$, i.e. $|D| \le S - \log c_2$.
+Because $S \perp D$, (@eq-leon3) factorizes over the screened region as
+$$
+p(c_1, c_2;\, d, \beta) \;=\; \int_{\log c_1}^{\infty}
+  \underbrace{\Big[\,2\Phi\!\Big(\tfrac{s - \log c_2}{\sqrt{4/d}}\Big) - 1\,\Big]}_{\textstyle \text{consistency rate at } \hat\beta = s}
+  \; \varphi\!\big(s;\, \beta,\, 4/d\big)\, ds .
+$$ {#eq-bridge}
+The bracketed factor is exactly the closed form @eq-closed evaluated at
+$\hat\beta = s$ (with $c = \log c_2$ and $\sigma_D = \sqrt{4/d}$). Thus **the
+consistency rate @eq-closed is the integrand of León's identification
+probability**: (@eq-leon3) multiplies it by the screening restriction $S \ge \log
+c_1$ and marginalizes it over the sampling density of the subgroup estimate. The
+present note isolates that inner factor and conditions on the *observed* estimate
+$\hat\beta$ — which is what the per-candidate consistency rate of @leon2024 (their
+Step 3(c)) actually computes — whereas (@eq-leon3) is the marginal, design-level
+quantity used for threshold calibration.
+
+## An influence-function form of the identification probability {#sec-if-design}
+
+Equation (@eq-bridge) exposes the only model-specific ingredient in León's
+identification probability: the variance $4/d$. That value is the large-sample
+Cox variance of a treatment-only log-hazard ratio under 1:1 randomization with
+$d$ events and *homogeneous* within-subgroup risk-set contributions. Replacing it
+with the influence-function (sandwich) variance $\sigma_D^2 = \sum_i \mathrm{db}_i^2$
+of @eq-sigma-d gives a design probability that keeps the structure of (@eq-leon3)
+but applies verbatim beyond that setting:
+$$
+p_{\mathrm{IF}}(c_1, c_2;\, \sigma_D^2, \beta) \;=\; \int_{\log c_1}^{\infty}
+  \Big[\,2\Phi\!\Big(\tfrac{s - \log c_2}{\sigma_D}\Big) - 1\,\Big]\,
+  \varphi\!\big(s;\, \beta,\, \sigma_D^2\big)\, ds .
+$$ {#eq-if-design}
+When $\sigma_D^2 = 4/d$ this reduces exactly to (@eq-leon3). For a
+covariate-adjusted Cox model, unequal allocation, or heterogeneous risk sets,
+$\sigma_D^2$ is the robust variance of the adjusted coefficient; for a GLM outcome
+it is the dfbeta variance of the natural-parameter (DINA-scale) coefficient of
+@sec-glm (log-OR, log-IRR, or mean difference). A single quantity — the
+influence-function variance of the subgroup effect — thus carries León's power /
+type-I machinery from the Cox model to the general-response schema of @sec-schema,
+and since $\sigma_D^2$ is read from one fitted model, (@eq-if-design) is as cheap
+to evaluate as (@eq-leon3).
+
+For **power**, (@eq-if-design) is evaluated at the true subgroup's $\beta =
+\log\theta^\dagger(H)$ and its $\sigma_D^2$; for the **per-candidate type-I rate**,
+at the null value (e.g. $\beta = \log\theta^\dagger(\mathrm{ITT}) \le 0$ under a
+uniformly beneficial treatment). Both are single-subgroup probabilities, and for
+power — where the target $H$ is one specific subgroup — that is the right object.
+
+**False discovery is a different and harder object, and the variance substitution
+alone does not resolve it.** The search flags a subgroup when *any* of the $S$
+overlapping candidates passes screening and consistency (or selects the
+maximally-consistent one), so the search-level false-discovery probability is a
+union over a strongly correlated family,
+$$
+\Pr\!\Big(\textstyle\bigcup_{g=1}^{S}
+   \big\{\hat\beta_g \ge \log c_1,\ |D_g| \le \hat\beta_g - \log c_2\big\}\ \Big|\ H_0\Big),
+$$ {#eq-fdr}
+not a single-subgroup probability. A per-candidate calculation such as
+(@eq-leon3) or (@eq-if-design) necessarily under-states (@eq-fdr) because it omits
+the multiplicity and the overlap among candidates — the practical reason
+search-level false discovery has resisted approximation from the per-subgroup
+formula.
+
+The influence-function representation is, however, exactly what (@eq-fdr)
+requires, because it supplies the *joint* law that (@eq-leon3) cannot. Each
+candidate satisfies $\hat\beta_g - \beta_g \approx \sum_i \mathrm{db}_{g,i}$ and has
+a split perturbation $D_g = \sum_i G_i\,\mathrm{db}_{g,i}$ driven by the **same**
+multiplier vector $G$, so the cross-candidate covariances
+$\operatorname{Cov}(\hat\beta_g, \hat\beta_{g'}) = \sum_i \mathrm{db}_{g,i}\,\mathrm{db}_{g',i}$
+follow from the shared $N \times S$ influence matrix. This makes (@eq-fdr)
+approximable by a **multiplier bootstrap over the whole candidate family**: draw
+one $G^{(b)}$, propagate it to every candidate's $(\hat\beta_g,\, D_g^{(b)})$
+through the influence matrix, apply the screening-and-consistency rule to each,
+and record whether any candidate passes (or what the selection rule returns); the
+empirical frequency over draws estimates (@eq-fdr) with the correct correlation
+structure, at the cost of one pass over the influence matrix per draw rather than
+a re-fit. That is a development beyond a variance swap and a natural next step —
+but the per-candidate revision (@eq-if-design) and the family-level extension
+share the same ingredient, the per-subject influence contributions.
+
+# The Cox survival case {#sec-cox}
+
+We first treat the time-to-event setting in full, then mirror it for GLMs in
+@sec-glm and unify in @sec-schema.
+
+## Model and estimator
+
+On subgroup $S$, observations are $(Y_i^c, \Delta_i, Z_i^{\mathrm{trt}}, X_i)$,
+with $Y_i^c$ the observed time, $\Delta_i$ the event indicator,
+$Z_i^{\mathrm{trt}} \in \{0,1\}$ treatment, and $X_i$ optional adjustment
+covariates. Under proportional hazards [@cox1972],
+$$
+\lambda_i(t) \;=\; \lambda_0(t)\,\exp\!\big(\beta\, Z_i^{\mathrm{trt}} + \gamma^\top X_i\big),
+$$
+the estimand is the subgroup **log hazard ratio** $\theta_S = \beta$, estimated
+by the partial-likelihood maximizer $\hat\beta$ solving the score equation
+$$
+U(\beta,\hat\gamma) \;=\; \sum_{i \in S} U_i(\hat\beta,\hat\gamma) \;=\; 0,
+$$ {#eq-coxscore}
+where $U_i$ is subject $i$'s contribution to the partial-likelihood score for
+the treatment coefficient (after profiling the baseline hazard and, if present,
+the nuisance coefficient $\gamma$).
+
+## Per-subject influence (dfbeta)
+
+Let $\mathcal{I}$ be the observed partial-likelihood information for $\beta$. The
+infinitesimal-jackknife / case-deletion influence of subject $i$ on $\hat\beta$
+is the **dfbeta**
+$$
+\mathrm{db}_i \;\equiv\; \mathcal{I}^{-1} U_i(\hat\beta,\hat\gamma)
+\;\approx\; \hat\beta - \hat\beta_{(-i)},
+$$ {#eq-coxdfbeta}
+returned directly by `residuals(coxph_fit, type = "dfbeta")` (treatment column).
+These are the building blocks of the @linwei1989 robust ("sandwich") variance:
+$$
+\widehat{\mathrm{Var}}_{\mathrm{rob}}(\hat\beta) \;=\; \sum_{i \in S} \mathrm{db}_i^2 .
+$$ {#eq-coxrobvar}
+
+## The split, linearized
+
+Encode a split by inclusion indicators $Z_i \in \{0,1\}$ and write the
+half-sample estimator $\hat\beta^{(A)}$ as the solution of the *weighted* score
+$\sum_{i} Z_i\, U_i(\beta) = 0$. A first-order expansion about $\hat\beta$, using
+$\sum_i Z_i\,\dot U_i \approx \tfrac12 \sum_i \dot U_i = -\tfrac12 \mathcal{I}$
+(each half carries about half the information), gives
+$$
+\hat\beta^{(A)} - \hat\beta
+\;\approx\; \mathcal{I}^{-1}\!\!\sum_{i \in S} \big(Z_i - \tfrac12\big) U_i(\hat\beta)
+\;=\; \sum_{i \in S} G_i\, \mathrm{db}_i \;=:\; D,
+\qquad G_i := 2Z_i - 1 .
+$$ {#eq-coxlin}
+Here we used $\sum_i U_i(\hat\beta) = 0$ from @eq-coxscore, so only the *centered*
+indicators $Z_i - \tfrac12 = G_i/2$ survive, and $\mathcal{I}^{-1}U_i = \mathrm{db}_i$.
+The complementary half $B$ uses indicators $1 - Z_i$, i.e. multipliers $-G_i$, so
+$$
+\hat\beta^{(B)} - \hat\beta \;\approx\; -\,D .
+$$ {#eq-coxmirror}
+
+**The two halves are mirror images of the full-sample estimate**, perturbed by
+the same $D$. The $G_i = 2Z_i - 1 \in \{-1,+1\}$ are independent **Rademacher**
+multipliers (mean $0$, variance $1$): the fair-coin split *is* a Rademacher
+multiplier bootstrap of the subgroup score.
+
+## Consistency event and closed form
+
+Because $\hat\beta^{(A)} \approx \hat\beta + D$ and $\hat\beta^{(B)} \approx
+\hat\beta - D$ (relabeling the sign of $D$ is immaterial), both halves exceed $c$
+iff the smaller one does:
+$$
+\{\hat\beta^{(A)} > c\} \cap \{\hat\beta^{(B)} > c\}
+\;\Longleftrightarrow\;
+\hat\beta - |D| > c
+\;\Longleftrightarrow\;
+|D| < \hat\beta - c .
+$$ {#eq-event}
+The split perturbation $D = \sum_i G_i\,\mathrm{db}_i$ is a sum of $n_S$
+independent mean-zero terms with
+$$
+\sigma_D^2 \;:=\; \mathrm{Var}(D \mid \text{data}) \;=\; \sum_{i \in S} \mathrm{db}_i^2
+\;=\; \widehat{\mathrm{Var}}_{\mathrm{rob}}(\hat\beta),
+$$ {#eq-sigma-d}
+so by @eq-coxrobvar **the standard deviation of the split perturbation equals the
+robust standard error of $\hat\beta$.** A central limit theorem in $n_S$ gives
+$D \mid \text{data} \approx \mathcal{N}(0, \sigma_D^2)$, and @eq-event yields the
+closed form
+
+::: {.callout-note appearance="simple"}
+**Proposition 1 (closed-form consistency rate).**
+Under the linearization @eq-coxlin and asymptotic normality of $D$,
+$$
+p_{\mathrm{cons}}
+\;=\; \Pr\big(|D| < \hat\beta - c\big)
+\;\approx\; \max\!\Big\{0,\; 2\,\Phi\!\big((\hat\beta - c)/\sigma_D\big) - 1\Big\}.
+$$
+:::
+
+*Proof sketch.* For $\hat\beta > c$, $\Pr(|D| < \hat\beta - c) =
+\Phi(\tfrac{\hat\beta-c}{\sigma_D}) - \Phi(-\tfrac{\hat\beta-c}{\sigma_D}) =
+2\Phi(\tfrac{\hat\beta-c}{\sigma_D}) - 1$; for $\hat\beta \le c$ the probability
+is $0$. $\square$
+
+A Monte Carlo version draws multiplier vectors $G^{(b)}$, forms $D^{(b)} =
+\sum_i G_i^{(b)}\mathrm{db}_i$, and averages $\mathbf 1\{|D^{(b)}| < \hat\beta -
+c\}$; @eq-closed is its analytic limit and the two agree to simulation error.
+
+## Relationship to existing survival resampling
+
+@eq-coxlin is exactly the **resampled estimating function** of
+@parzenweiying1994 and the **perturbed minimand** of @jinyingwei2001 specialized
+to the Cox score, and the Gaussian-multiplier instance is the martingale-residual
+simulation of @linweiying1993. The role of $\sum_i \mathrm{db}_i^2$ as the
+sampling variance of $\hat\beta$ is the robust-variance result of @linwei1989.
+What is specific here is the *direction of use*: rather than resampling to obtain
+a confidence region for $\hat\beta$, we read off the probability that a
+$50/50$-split pair *both* lands on the harm side of $c$ — and recognize this as a
+tail functional of the same multiplier-bootstrap law.
+
+# The generalized linear model case {#sec-glm}
+
+The GLM development is the exact analogue, with the partial-likelihood score
+replaced by the GLM score and `dfbeta` computed from the GLM fit.
+
+## Models and estimands
+
+On $S$, fit a working GLM $g\big(\mathbb E[Y_i \mid Z_i^{\mathrm{trt}}, X_i]\big)
+= \beta Z_i^{\mathrm{trt}} + \gamma^\top X_i$ with link $g$ matched to the effect
+measure:
+
+| Response | Model / link | $\hat\beta$ estimates | Scale of $c$ |
+|---|---|---|---|
+| binary | logistic ($\mathrm{logit}$) | log odds ratio | $\log(\text{OR})$ |
+| binary | log-binomial / mod. Poisson | log relative risk | $\log(\text{RR})$ |
+| binary | identity-binomial | risk difference | identity |
+| continuous | linear (identity) | mean difference | identity |
+| count / rate | Poisson + $\log$-offset | log incidence-rate ratio | $\log(\text{IRR})$ |
+
+: GLM working models and the scale of the harm threshold $c$. {#tbl-glm}
+
+For the canonical-link families the score contribution for $\beta$ is
+$$
+U_i(\beta,\gamma) \;=\; Z_i^{\mathrm{trt}}\big(Y_i - \mu_i\big),
+\qquad \mu_i = g^{-1}\!\big(\beta Z_i^{\mathrm{trt}} + \gamma^\top X_i\big),
+$$ {#eq-glmscore}
+and the Fisher information is $\mathcal{I} = \mathbf{X}^\top \mathbf{W}
+\mathbf{X}$ with weights $\mathbf{W}$. The case-deletion influence is the GLM
+**dfbeta**
+$$
+\mathrm{db}_i \;\approx\; \big(\mathbf{X}^\top \mathbf{W}\mathbf{X}\big)^{-1}_{\,\beta\beta\text{-row}}\,
+x_i\,(Y_i - \mu_i),
+$$ {#eq-glmdfbeta}
+the treatment column of `stats::dfbeta(glm_fit)`, with $\sum_i \mathrm{db}_i^2$
+the Huber–White [@white1980] / infinitesimal-jackknife [@efron1982] robust
+variance of $\hat\beta$.
+
+## The split, linearized
+
+The derivation of @sec-cox transfers without change: the half-sample GLM
+coefficient solves $\sum_i Z_i U_i(\beta) = 0$, and the identical first-order
+expansion (using $\sum_i U_i(\hat\beta)=0$ and $\sum_i Z_i \dot U_i \approx
+\tfrac12 \mathcal I$) gives
+$$
+\hat\beta^{(A)} - \hat\beta \;\approx\; \sum_{i\in S} G_i\,\mathrm{db}_i = D,
+\qquad
+\hat\beta^{(B)} - \hat\beta \;\approx\; -D,
+\qquad
+\sigma_D^2 = \sum_{i\in S}\mathrm{db}_i^2 .
+$$ {#eq-glmlin}
+Proposition 1 therefore holds verbatim, with $c$ taken from @tbl-glm
+($c=\log(\text{threshold})$ for ratio measures, $c=\text{threshold}$ for identity
+measures). The linear (mean-difference) case is essentially exact rather than
+first-order, since ordinary least squares is linear in $Y$ and the half-sample
+coefficient is an exact linear functional of the responses; the
+logistic/Poisson cases are first-order as in Cox.
+
+## When the representation does not apply
+
+The argument requires $\hat\beta$ to be a *single coefficient* of a converged
+working model with a well-defined influence function. It therefore does **not**
+cover (i) the incidence-rate *difference* (a delta-method contrast, not a
+coefficient), (ii) effects defined through propensity weighting or
+G-computation, where the estimand is not a single fitted coefficient, and (iii)
+non-convergent fits (e.g. separation in identity-link binomial). In these cases
+the closed form is unavailable and one falls back to literal splitting
+(@sec-practice).
+
+# A general estimation schema via natural parameters {#sec-schema}
+
+Sections 3–4 are two instances of one structure. We now state it abstractly,
+using the **difference-in-natural-parameters (DINA)** estimand of @gao2025 as the
+unifying scale, and show why the same resampling representation governs both.
+
+## DINA as the common scale
+
+@gao2025 argue that for general responses the natural object of heterogeneous
+treatment-effect analysis is not the difference in conditional means (CATE) but
+the **difference in natural parameters**,
+$$
+\tau(x) \;=\; \eta_1(x) - \eta_0(x), \qquad \eta_w(x) = g\big(\mathbb E[Y(w)\mid X=x]\big),
+$$ {#eq-dina}
+where $g$ is the canonical link of the response's exponential family (Gaussian,
+Bernoulli, Poisson) or the log-hazard transform for the Cox model. Concretely,
+DINA is the **mean difference** (Gaussian), the **log odds ratio** (Bernoulli),
+the **log incidence-rate ratio** (Poisson), and the **log hazard ratio** (Cox).
+These are precisely the four effect measures of @tbl-glm together with the Cox
+case of @sec-cox.
+
+Two properties of @eq-dina motivate doing subgroup consistency on this scale.
+First, natural parameters are unconstrained on $\mathbb R$, so covariate effects
+on the treatment effect are modeled without the support constraints that distort
+risk differences. Second — the CRASH-3 illustration of @gao2025 — heterogeneity
+is often *simpler* (closer to linear) on the natural-parameter scale than on the
+mean / risk-difference scale, so a subgroup of constant DINA is a more natural
+target than a subgroup of constant risk difference.
+
+## The schema
+
+For a candidate subgroup $S$, take the indicator basis $z(x)=\mathbf 1\{x\in S\}$
+in the @gao2025 representation $\tau(x)=z(x)^\top\beta$, so that $\beta_S$ is the
+subgroup's (constant) DINA. The schema has three ingredients:
+
+1. **Estimand.** $\theta_S = \beta_S$, the subgroup DINA on the natural-parameter
+   scale (@eq-dina).
+
+2. **Estimator.** Any asymptotically linear estimator $\hat\beta_S$ of $\beta_S$
+   with computable per-subject influence contributions $\mathrm{db}_i$ such that
+   $\hat\beta_S - \beta_S \approx \sum_{i\in S}\mathrm{db}_i$ and
+   $\sum_i \mathrm{db}_i^2 \to \mathrm{Var}(\hat\beta_S)$.
+
+3. **Consistency map.** The $50/50$ split perturbs $\hat\beta_S$ by
+   $D=\sum_i G_i\,\mathrm{db}_i$ with Rademacher $G_i$, giving the half-sample
+   mirror pair $\hat\beta_S \pm D$ and the closed-form rate of Proposition 1,
+   $$
+   p_{\mathrm{cons}} \approx \max\{0,\,2\Phi((\hat\beta_S - c)/\sigma_D)-1\},
+   \qquad \sigma_D = \Big(\textstyle\sum_i \mathrm{db}_i^2\Big)^{1/2}.
+   $$
+
+The Cox and GLM cases differ *only* in ingredient 2 — the link $g$, the
+likelihood (partial vs full), and how $\mathrm{db}_i$ is computed (score
+residuals vs `dfbeta`). Ingredients 1 and 3 are identical, which is why
+Proposition 1 is stated once and specialized twice.
+
+## Choice of estimator within the schema
+
+The schema is agnostic to *which* DINA estimator occupies ingredient 2.
+
+* **Working-model coefficient (current `forestsearch`).** The within-subgroup
+  partial-likelihood / GLM coefficient, optionally covariate-adjusted. Here
+  $\mathrm{db}_i$ is exactly the model `dfbeta`, and the development of
+  Sections 3–4 applies directly. This is the estimator behind the closed form
+  used in the package.
+
+* **Orthogonalized DINA-learner (@gao2025).** The R-learner-style
+  [@robinson1988; @niewager2021] estimator that plugs cross-fitted nuisance
+  functions $\hat a(x)$ (a variance-weighted propensity) and $\hat\nu(x)$ (a
+  natural-parameter baseline) into a one-parameter likelihood for $\beta_S$. By
+  Neyman orthogonality the influence of the nuisance estimates is
+  asymptotically negligible, so $\hat\beta_S$ is again asymptotically linear and
+  the schema applies with $\mathrm{db}_i$ replaced by the *orthogonalized*
+  influence contributions. This is the natural route to a consistency rate that
+  is robust to confounding in observational data, and it connects the package's
+  *consistency* engine to its *DINA* engine on a common footing.
+
+* **Quasi-likelihood.** @gao2025 note the DINA construction extends to
+  quasi-likelihoods (mean–variance specifications) for overdispersion; the
+  schema inherits this, with $\mathrm{db}_i$ from the quasi-score.
+
+In all three, the consistency rate is the same tail functional of a
+multiplier-bootstrap law; only the influence contributions change.
+
+# Multiplier-bootstrap equivalences {#sec-multiplier}
+
+The closed form depends on the multiplier law only through its first two moments
+($\mathbb E G_i = 0$, $\mathrm{Var}\,G_i = 1$). Three choices coincide in the
+limit @eq-closed:
+
+| Multiplier $G_i$ | Distribution | Recovers |
+|---|---|---|
+| $2Z_i - 1$, $Z_i\sim\mathrm{Ber}(1/2)$ | Rademacher $\pm 1$ | the literal $50/50$ split |
+| $G_i \sim \mathcal N(0,1)$ | Gaussian | score/estimating-function resampling [@linweiying1993; @parzenweiying1994; @jinyingwei2001] |
+| $G_i \sim \mathrm{Pois}(1) - 1$ | centered Poisson | weird/wild survival bootstrap [@dobler2017] |
+
+: Multiplier laws giving the same limiting consistency rate. {#tbl-mult}
+
+Thus the León *et al.* split, Lin-type Gaussian resampling, and the
+Dobler–Beyersmann–Pauly weird bootstrap are three coordinates on one object: a
+multiplier (exchangeably weighted) bootstrap of the subgroup estimating function
+[@praestgaardwellner1993]. The split is distinguished only by being the *finite*
+Rademacher member that the original algorithm realizes by literal subsetting. The
+closed form is the common Gaussian-limit value; the Monte Carlo rate under any of
+the three laws converges to it.
+
+# Calibration and interpretation {#sec-calibration}
+
+Inverting Proposition 1 gives the cutoff calibration. The subgroup passes the
+consistency screen at level $p^\star$ iff
+$$
+2\Phi\!\big((\hat\beta - c)/\sigma_D\big) - 1 \ge p^\star
+\;\Longleftrightarrow\;
+\frac{\hat\beta - c}{\sigma_D} \;\ge\; z_{(1+p^\star)/2},
+$$ {#eq-calib}
+i.e.
+$$
+\hat\beta - z_{(1+p^\star)/2}\,\sigma_D \;\ge\; c .
+$$ {#eq-calib2}
+
+::: {.callout-note appearance="simple"}
+**Corollary (confidence-bound reading).**
+The consistency screen at level $p^\star$ is exactly the requirement that the
+*one-sided $(1+p^\star)/2$ robust lower confidence bound* for the subgroup effect
+lie above the harm threshold $c$.
+:::
+
+For the default $p^\star = 0.90$, $(1+p^\star)/2 = 0.95$ and $z_{0.95}=1.645$:
+**a $90\%$ consistency rate is equivalent to the subgroup effect exceeding the
+harm threshold by at least $1.645$ robust standard errors** — a one-sided $95\%$
+lower bound above threshold. This turns an opaque cutoff into a transparent
+inferential statement and exposes the screen's operating characteristics: it is a
+$z$-test of $H_0: \beta_S \le c$ at one-sided level $1-(1+p^\star)/2$, evaluated
+with the robust (split-matched) standard error $\sigma_D$.
+
+Two practical reads follow. First, the screen tightens with subgroup size only
+through $\sigma_D$; small subgroups have large $\sigma_D$ and must show a larger
+$\hat\beta - c$ to pass. Second, choosing $p^\star$ is choosing a one-sided
+confidence level, which can be set to a target false-positive rate rather than by
+convention.
+
+# Numerical validation {#sec-validation}
+
+The closed form has been checked against the literal split on real and simulated
+data.
+
+* **Cox / GBSG.** On the published GBSG harm subgroup
+  ($\hat\beta$ corresponding to $\mathrm{HR}=1.95$), the literal-split
+  consistency rate ($0.951$) is reproduced by @eq-closed to the third decimal,
+  and the candidate ranking is preserved across the search.
+
+* **GLM grids.** Across simulated odds-ratio, mean-difference and
+  incidence-rate-ratio scenarios (unadjusted and covariate-adjusted), the mean
+  absolute error of @eq-closed against the literal split is $\approx 0.02$ (OR),
+  $\approx 0.003$ (MD; near-exact, per the OLS linearity above), and
+  $\approx 0.003$ (IRR), with the largest discrepancies in the small-$n_S$,
+  intermediate-rate regime where the normal approximation to $D$ is weakest.
+
+* **Applied (ACTG175 binary/OR).** Re-running a full search under literal
+  splitting and under the closed form selects the identical subgroup with
+  per-candidate rates agreeing to the displayed precision.
+
+The error pattern matches the theory: exact in the linear case, first-order
+elsewhere, and degrading where $n_S$ is small enough that $D$ is not yet
+Gaussian.
+
+An illustrative computation (not evaluated here) from a fitted model:
+
+```r
+# Cox
+db <- residuals(coxph_fit, type = "dfbeta")[, "treat"]
+beta <- coef(coxph_fit)[["treat"]]; sigma_D <- sqrt(sum(db^2))
+c_thr <- log(1)  # HR > 1 = harm
+p_cons <- max(0, 2 * pnorm((beta - c_thr) / sigma_D) - 1)
+
+# GLM (e.g. logistic / log-OR)
+db <- stats::dfbeta(glm_fit)[, "treat"]
+beta <- coef(glm_fit)[["treat"]]; sigma_D <- sqrt(sum(db^2))
+c_thr <- log(1)  # OR > 1 = harm
+p_cons <- max(0, 2 * pnorm((beta - c_thr) / sigma_D) - 1)
+```
+
+# Practical considerations {#sec-practice}
+
+**Minimum-size and event guards.** Implementations require each half to meet
+minimum sample-size and event counts; these truncate the multiplier support
+slightly but do not alter the leading-order law. They mainly matter in the
+small-$n_S$ regime where the approximation is already loosest.
+
+**Early stopping / two-stage screening.** The literal algorithm's two-stage
+early stopping exists only to *limit the number of refits*; the closed form
+needs none, so when the resampling representation is used the two-stage machinery
+is bypassed and the rate is read from a single fit.
+
+**Fallback.** When ingredient 2 is unavailable (incidence-rate difference,
+propensity/G-computation effects, or a non-convergent candidate fit;
+@sec-glm), the implementation reverts to literal splitting for that candidate, so
+a rate is always produced.
+
+**Across-candidate stopping.** A separate early-stop that halts the candidate
+loop once a sufficiently consistent subgroup is found is orthogonal to the
+within-candidate computation and is unaffected.
+
+**Cost.** The representation replaces $O(10^3)$ refits per candidate by one fit
+plus an $O(n_S)$ reduction. The wall-clock benefit is masked when candidate
+evaluation is already parallelized, but compounds inside resampling procedures
+(e.g. the post-selection bootstrap) where each replicate re-runs the search
+sequentially.
+
+# Discussion {#sec-discussion}
+
+The splitting-consistency criterion of @leon2024 was introduced as an
+exploratory device. The representation here shows it is, to first order, a
+recognizable statistical object — a multiplier-bootstrap tail probability of the
+subgroup estimating function — with a closed form @eq-closed, a robust-SE scale
+@eq-sigma-d, and a confidence-bound calibration @eq-calib2. The same statement
+covers the Cox model and generalized linear models because both estimate a
+difference in natural parameters in the sense of @gao2025; the response type
+enters only through the link and the influence contributions.
+
+Several threads follow. The schema's ingredient 2 invites the orthogonalized
+DINA-learner as a confounding-robust estimator for observational settings,
+unifying the package's consistency and DINA engines. The multiplier
+equivalences (@tbl-mult) suggest that the choice of resampling law is a modeling
+convenience rather than a substantive one, and that variance-stabilizing or
+studentized multipliers might sharpen the small-$n_S$ approximation. Finally, the
+confidence-bound reading of the cutoff (@sec-calibration) makes the screen's
+false-positive behavior explicit and, in principle, calibratable to a target
+rate rather than to convention.
+
+The main limitations are the leading-order nature of the expansion (exact only in
+the linear/MD case) and its reliance on a single-coefficient, converged estimator;
+both are visible in the small-$n_S$ tail of the validation and are handled in
+practice by the literal-split fallback.
+
+# Appendix: A family-level FDR routine (prototype) {#sec-appendix-fdr}
+
+This appendix gives a runnable prototype of the family-level false-discovery
+calculation of @sec-if-design (Equation @eq-fdr): a multiplier bootstrap over the
+*whole* candidate family that reuses the per-subject influence contributions
+rather than refitting on simulated null data. The same code is provided as the
+standalone script `fdr_family_multiplier.R`, which adds a self-contained
+simulated-null demonstration (`run_fdr_family_demo()`); the version below carries
+condensed comments.
+
+The inputs are an $N \times S$ influence matrix $\mathbf{B}$ (column $g$ is
+candidate $g$'s treatment-coefficient `dfbeta`, zero for subjects outside $g$),
+the observed candidate estimates, and the screening/consistency thresholds. A
+candidate is flagged when $\hat\beta_g \ge t_g$ with $t_g =
+\max(c_{\mathrm{screen}},\, c_{\mathrm{cons}} + z\,\sigma_{D,g})$ and
+$z = \Phi^{-1}((1+p^\star)/2)$. Per draw, one shared multiplier vector is
+propagated to *all* candidates through $\mathbf{B}$ (a single matrix product), so
+candidate overlap — the cross-candidate correlation $\sum_i \mathrm{db}_{g,i}
+\mathrm{db}_{g',i}$ — is respected exactly; the family discovery probability is the
+fraction of draws in which any candidate is flagged.
+
+```r
+# Mean-zero, unit-variance multipliers (Rademacher = the 50/50 split).
+.draw_multipliers <- function(n, draws, type = c("rademacher", "gaussian", "poisson")) {
+  type <- match.arg(type)
+  g <- switch(type,
+    rademacher = sample(c(-1, 1), n * draws, replace = TRUE),
+    gaussian   = stats::rnorm(n * draws),
+    poisson    = stats::rpois(n * draws, 1) - 1)   # centred Poisson: mean 0, var 1
+  matrix(g, nrow = n, ncol = draws)
+}
+
+# Build the N x S influence matrix: column g = candidate g's treatment dfbeta,
+# placed at its members' rows, zero elsewhere.  candidates[[g]] = list(idx, dfbeta).
+assemble_influence <- function(candidates, N) {
+  B <- matrix(0, nrow = N, ncol = length(candidates))
+  for (g in seq_along(candidates)) {
+    cg <- candidates[[g]]
+    B[cg$idx, g] <- cg$dfbeta
+  }
+  B
+}
+
+# Family-level false-discovery (type-I) probability by multiplier bootstrap.
+# Flag rule (per candidate): beta*_g >= t_g, with the family centred at beta_null
+# (uniform-benefit / boundary null) for the type-I calculation.
+fdr_family_multiplier <- function(influence, beta_hat, sigma_D = NULL,
+                                  c_screen, c_consistency = 0, p_star = 0.90,
+                                  beta_null = 0, center = c("null", "observed"),
+                                  draws = 2000L,
+                                  multiplier = c("rademacher", "gaussian", "poisson"),
+                                  seed = NULL) {
+  center <- match.arg(center); multiplier <- match.arg(multiplier)
+  if (!is.null(seed)) set.seed(seed)
+  influence <- as.matrix(influence); N <- nrow(influence); S <- ncol(influence)
+  if (is.null(sigma_D)) sigma_D <- sqrt(colSums(influence^2))
+  if (length(beta_null) == 1L) beta_null <- rep(beta_null, S)
+
+  z   <- stats::qnorm((1 + p_star) / 2)
+  t_g <- pmax(c_screen, c_consistency + z * sigma_D)        # per-candidate flag threshold
+  centre <- if (center == "null") beta_null else beta_hat
+
+  Xi <- .draw_multipliers(N, draws, multiplier)             # N x draws
+  P  <- crossprod(influence, Xi)                            # S x draws : one matvec, all candidates
+  beta_star <- centre + P                                   # recycles `centre`/`t_g` down columns
+  num_flag  <- colSums(beta_star >= t_g)
+
+  marginal <- stats::pnorm((t_g - beta_null) / sigma_D, lower.tail = FALSE)
+  list(fdr                = mean(num_flag > 0L),            # search-level false-discovery prob
+       e_num_flagged      = mean(num_flag),
+       marginal           = marginal,                       # per-candidate (independent) probs
+       union_independent  = 1 - prod(1 - marginal),         # independence bound, for contrast
+       thresholds         = t_g,
+       n_observed_flagged = sum(beta_hat >= t_g))
+}
+```
+
+Wiring it to a fitted search: for each candidate subgroup, collect its member row
+indices and the treatment-coefficient `dfbeta` (Cox: `residuals(fit, type =
+"dfbeta")[, treat]`; GLM: `stats::dfbeta(fit)[, treat]`), then call the routine.
+
+```r
+candidates <- lapply(fs_candidates, function(cg)
+  list(idx = cg$member_rows, dfbeta = cg$treat_dfbeta))
+B   <- assemble_influence(candidates, N = nrow(analysis_data))
+out <- fdr_family_multiplier(
+  influence = B, beta_hat = vapply(fs_candidates, `[[`, numeric(1), "beta"),
+  c_screen = log(1.25), c_consistency = log(1.0), p_star = 0.90,
+  beta_null = log(itt_or), draws = 4000, multiplier = "rademacher")
+out$fdr               # search-level false-discovery probability
+out$union_independent # naive independence bound (for contrast)
+```
+
+On a simulated null with a homogeneous protective effect (no harm subgroup), the
+routine returns a family false-discovery probability well above any single
+candidate's marginal — the multiplicity that the per-candidate probability
+(@eq-leon3) misses — yet below the independence union bound, since overlapping
+candidates are positively correlated and false flags cluster rather than
+multiply. This is the natural next step toward replacing the per-candidate
+type-I/FDR approximation with one that accounts for the full search.
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
