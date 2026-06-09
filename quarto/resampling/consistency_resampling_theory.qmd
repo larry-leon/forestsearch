@@ -37,7 +37,7 @@ quantity the consistency rate estimates, nor how the $0.90$ cutoff relates to
 familiar inferential statements.
 
 This note develops a first-order **resampling representation** of the criterion
-with four consequences:
+with five consequences:
 
 1. **A closed form.** The consistency rate is, to leading order,
    $$
@@ -69,10 +69,11 @@ with four consequences:
 
 5. **A post-selection correction.** Applied to the *selection* step rather than to
    one candidate, the same shared-multiplier apparatus yields a fast, refit-free
-   de-biasing of the identified subgroup and its complement — a Tier-2
-   approximation of the post-selection bootstrap of @leon2024 that reuses the
-   per-candidate influence instead of re-running the search per resample
-   (@sec-debias).
+   de-biasing of the identified subgroup and its complement. To first order it
+   equals the post-selection bootstrap correction of @leon2024 (their Eq. 7) — both
+   the bias-corrected point estimate and its infinitesimal-jackknife interval —
+   with each resample refit replaced by its `dfbeta` approximation, so the search
+   is never re-run per resample (@sec-debias).
 
 The theoretical content is the representation itself: it places an exploratory
 heuristic on the same influence-function / multiplier-bootstrap footing as
@@ -611,6 +612,90 @@ centered-Poisson multipliers $G_i=\mathrm{Pois}(1)-1$ — the resampling-multipl
 law of the nonparametric bootstrap (@tbl-mult) — @eq-reselect mimics León's
 resample-and-re-search step itself.
 
+## Why one multiplier draw stands in for a bootstrap re-search
+
+The step that can look like sleight of hand is @eq-reselect: Tier-1 *re-runs the
+entire search* on each resample, whereas Tier-2 applies the selection rule to a
+vector of arithmetic perturbations. Here is why the second reproduces the first.
+
+**One resample is one reweighting.** A nonparametric bootstrap resample does not
+manufacture new subjects; it draws the original $N$ with replacement, so its only
+effect is to give subject $i$ an integer *multiplicity* $K^{*}_{bi}$ — the number
+of times $i$ landed in resample $b$, with $\sum_i K^{*}_{bi}=N$. Re-fitting
+candidate $g$ on that resample means solving its score equation with each member
+weighted by $K^{*}_{bi}$ rather than $1$,
+$$
+\sum_{i\in g} K^{*}_{bi}\,U_i(\beta)=0 \;\Longrightarrow\; \hat\beta^{*}_b(g),
+$$
+so the *entire* randomness of "what the search sees on resample $b$" is carried by
+the single weight vector $K^{*}_{b\cdot}$.
+
+**A re-fit is a dot product — the dfbeta.** We never solve that equation again.
+The treatment `dfbeta` $\mathrm{db}_{g,i}$ is, by definition, the first-order
+change in $\hat\beta(g)$ from up-weighting subject $i$ by one unit (its empirical
+influence). So the resampled estimate moves, to first order, by the weighted sum
+of its members' influences:
+$$
+\hat\beta^{*}_b(g)-\hat\beta(g)
+=\sum_{i\in g}\big(K^{*}_{bi}-1\big)\,\mathrm{db}_{g,i}+o_p(1)
+=D_g(b),
+$$ {#eq-linlemma}
+which is exactly @eq-perturb with the multiplier $G_i(b)=K^{*}_{bi}-1$. Only the
+*centered* weight $K^{*}_{bi}-1$ appears: at the fitted $\hat\beta(g)$ the scores
+sum to zero, $\sum_{i\in g}U_i(\hat\beta)=0$, so the unit baseline contributes
+nothing — the same cancellation that produced @eq-coxlin. The expensive nonlinear
+refit on each of $R$ resamples thus collapses to one dot product per candidate per
+draw.
+
+**Why the *same* vector must hit every candidate.** This is the crux, and it is
+what makes re-*selection* — not merely re-estimation — faithful. In a real
+resample there is *one* draw of the data, hence *one* multiplicity vector, and
+*every* candidate is re-fit against it. Two candidates that share members see the
+*same* multiplicities on those shared subjects, so their resampled estimates move
+together. Tier-2 reproduces this by drawing one multiplier vector
+$\mathbf G^{(b)}$ per draw and broadcasting it to all candidates (@eq-perturb),
+which is precisely why the perturbations carry the candidates' true overlap
+covariance (@eq-cov).
+
+The reason this matters is that selection is a *competition*: the rule names the
+winner by comparing candidates, so which subgroup wins on draw $b$ turns on
+*differences* $D_g(b)-D_{g'}(b)$, never on one candidate in isolation. Take two
+nearly identical candidates differing by a handful of subjects. Under a shared
+vector,
+$$
+D_g(b)-D_{g'}(b)=\sum_i G_i(b)\big(\mathrm{db}_{g,i}\mathbf 1\{i\in g\}-\mathrm{db}_{g',i}\mathbf 1\{i\in g'\}\big),
+$$
+and the shared members cancel, leaving a *small* difference driven only by the few
+subjects that distinguish them — so the winner flips between the two only when the
+data genuinely favour one, exactly as in the bootstrap. Had we drawn an
+*independent* perturbation for each candidate, these two would wander apart and
+trade places far too often, inventing selection variability the real bootstrap
+never produces and corrupting the bias estimate. The shared multiplier vector is
+therefore not a convenience; it is what encodes "one resample, seen by every
+candidate at once."
+
+**Why centered Poisson is the literal bootstrap weight.** How often does subject
+$i$ appear in a size-$N$ with-replacement resample? $K^{*}_{bi}\sim
+\mathrm{Binomial}(N,1/N)\to\mathrm{Poisson}(1)$, so $K^{*}_{bi}-1\to
+\mathrm{Poisson}(1)-1$: mean $0$, variance $1$. That is exactly the engine's
+default `poisson` multiplier (@tbl-mult). The Tier-2 draw is thus not merely *a*
+mean-zero, unit-variance surrogate for the bootstrap — with centered-Poisson
+weights it *is* the asymptotic law of the bootstrap's own multiplicities, and
+@eq-linlemma is the infinitesimal-jackknife linearization of Efron's
+nonparametric bootstrap [@efron2014]. Rademacher or Gaussian multipliers share the
+first two moments and give the same leading-order correction (the wild-bootstrap
+family), but Poisson is the one that mirrors resampling itself.
+
+**Why the winner's perturbation is positive — the curse, mechanically.** On draw
+$b$ the rule favours candidates with a large perturbed effect
+$\hat\beta_g+D_g(b)$, so conditional on $\hat H^{*}_b=g$ the winner's $D_g(b)$ is
+drawn from the *upper* part of its distribution — a maximum-type order statistic
+over the competing candidates. Hence $\mathbb E\,D_{\hat H^{*}_b}(b)>0$: selection
+systematically rewards favourable noise, and that expected favourable noise *is*
+the optimism. Averaging $D_{\hat H^{*}_b}(b)$ across draws (@eq-biasterms)
+estimates it — and because the shared draws reproduce the joint law over which the
+maximum is taken, the estimate is the one Tier-1's re-search would produce.
+
 ## The de-biased estimator
 
 On each draw the re-selected winner carries a perturbation $D_{\hat H^{*}_b}(b)$.
@@ -630,20 +715,115 @@ $$
 \;-\; \widehat{\mathrm{bias}}_{\mathrm{fix}} .
 $$ {#eq-debiased}
 The first term is the winner's curse — the expected perturbation of *whatever
-wins*. The second is a finite-draw recentering: $\mathbb E\,D_{\hat H}=0$ for any
-fixed subgroup under centered multipliers, so $\widehat{\mathrm{bias}}_{\mathrm{fix}}\to0$,
-but subtracting the observed subgroup's realized mean perturbation over the *same*
-draws cancels the Monte-Carlo noise it shares with the winner term. To leading
-order $\tilde\beta_{\hat H}\approx\hat\beta_{\hat H}-\mathbb E\,[D_{\hat H^{*}_b}]$,
-the multiplier-bootstrap analogue of the León Eq. 7 correction; the empirical
-agreement of the two (@sec-validation) is the check that the linearization
-@eq-perturb suffices.
+wins*. The second is the leading-order image of León's *second* bias term,
+$\eta^{*}_b(\hat H)=\hat\beta^{*}_b(\hat H)-\hat\beta(\hat H)$ — the
+bootstrap-minus-observed discrepancy evaluated at the *fixed* observed subgroup.
+Its expectation is zero under centered multipliers ($\mathbb E\,D_{\hat H}=0$),
+but it is not discarded as noise: @leon2024 retain it deliberately — it is exactly
+the term the optimism correction of @harrell1996 omits — and it supplies the
+per-draw residual that drives the variance estimate of @sec-debias-ij. The exact
+correspondence of @eq-debiased to the @leon2024 bootstrap correction is
+established next.
 
 Selection enters only through @eq-reselect; the ingredients $\mathbf B$,
 $\sigma_{D,\bullet}$ and $t_g$ are the ones the per-candidate screen (@eq-closed)
 and the family routine (@sec-appendix-fdr) already use. De-biasing is thus a
 *third* use of a single $N\times S$ influence matrix: the per-candidate tail
 (screen), the family union (false discovery), and now the post-selection bias.
+
+## Exact correspondence to the León (2024) correction {#sec-debias-corr}
+
+@leon2024 correct the selection bias on the coefficient scale with the bootstrap
+estimator (their Eq. 7),
+$$
+\hat\beta^{*}(\hat H)=\hat\beta(\hat H)-\frac1B\sum_{b=1}^{B}\big(\eta^{*}_b(\hat H^{*}_b)+\eta^{*}_b(\hat H)\big),
+\qquad \eta^{*}_b(g)=\hat\beta^{*}_b(g)-\hat\beta(g),
+$$ {#eq-leon7}
+and the complement $\hat\beta^{*}(\hat H^{c})$ identically from
+$\eta^{*}_b(\hat H^{c*}_b)+\eta^{*}_b(\hat H^{c})$. Each $\eta^{*}_b(g)$ is a
+*same-subgroup* discrepancy — bootstrap minus observed at one fixed $g$ — so the
+linearization @eq-linlemma applies term by term, $\eta^{*}_b(g)=D_g(b)$.
+Substituting,
+$$
+\hat\beta^{*}(\hat H)
+=\hat\beta(\hat H)-\frac1B\sum_b D_{\hat H^{*}_b}(b)-\frac1B\sum_b D_{\hat H}(b)
+=\hat\beta_{\hat H}-\widehat{\mathrm{bias}}_{\mathrm{sel}}-\widehat{\mathrm{bias}}_{\mathrm{fix}}
+=\tilde\beta_{\hat H},
+$$
+which is @eq-debiased exactly; the complement reduces to @eq-debiased-c the same
+way.
+
+::: {.callout-note appearance="simple"}
+**The Tier-2 point estimator is the León (2024) Eq. 7 correction, linearized.**
+For both $\hat H$ and $\hat H^{c}$, @eq-debiased equals @eq-leon7 to first order,
+the only approximation being the dfbeta expansion @eq-linlemma — the same
+expansion already validated for the consistency rate @eq-closed (exact for
+linear/MD outcomes, loosest in the small-$n_S$ tail). Tier-2 is therefore not a
+heuristic that *resembles* the bootstrap correction; it is that correction with
+each resample refit replaced by its influence approximation.
+:::
+
+One consequence is worth stating. The selection map $\mathcal S$ enters @eq-leon7
+and @eq-debiased *identically* — both condition on the same re-selected
+$\hat H^{*}_b$ — so any non-smoothness of $\mathcal S$ (ties or near-ties in the
+rule) affects Tier-1 and Tier-2 in the same way and is **not** a source of
+disagreement between them. The Tier-1–Tier-2 gap is governed solely by
+@eq-linlemma; the validity of the bootstrap correction itself is inherited from
+@leon2024.
+
+## Interval: the infinitesimal-jackknife variance {#sec-debias-ij}
+
+@leon2024 estimate the variance of the bias-corrected estimator by viewing
+@eq-leon7 as a *bagged* estimator and applying the infinitesimal jackknife
+[@efron2014; @wagerhastie2014]: an observation that, resampled more often, swings
+the estimate more is more influential, and the variance is the sum over
+observations of those squared influences. With $\bar K^{*}_i=B^{-1}\sum_b
+K^{*}_{bi}$ and the per-draw residual
+$r_b=\hat\beta(\hat H)-\eta^{*}_b(\hat H^{*}_b)-\eta^{*}_b(\hat H)-\hat\beta^{*}(\hat H)$,
+their estimate is
+$$
+\tilde V=\sum_{i=1}^{N}\widetilde{\mathrm{cov}}_i^{\,2},\quad
+\widetilde{\mathrm{cov}}_i=\frac1B\sum_b\big(K^{*}_{bi}-\bar K^{*}_i\big)\,r_b,
+\qquad
+\hat V=\tilde V-\frac{N}{B}\,\tilde\sigma_B^2,\quad
+\tilde\sigma_B^2=\frac1B\sum_b r_b^2,
+$$ {#eq-ij}
+where the $\hat V$ form removes the upward Monte-Carlo bias of $\tilde V$ at finite
+$B$ [@wagerhastie2014].
+
+The same multiplier draws already deliver this — no second pass. The centered
+multiplicity $K^{*}_{bi}-\bar K^{*}_i$ is the row-centered multiplier
+$G_i(b)-\bar G_i$, and by @eq-linlemma and @eq-debiased the residual is the
+centered per-draw bias,
+$$
+r_b=\big(\widehat{\mathrm{bias}}_{\mathrm{sel}}+\widehat{\mathrm{bias}}_{\mathrm{fix}}\big)
+-D_{\hat H^{*}_b}(b)-D_{\hat H}(b),
+$$
+built from the columns of $\mathbf P=\mathbf B^{\top}\boldsymbol\Xi$ already computed
+for the point estimate ($D_{\hat H^{*}_b}(b)=\mathbf P[\hat H^{*}_b,b]$,
+$D_{\hat H}(b)=\mathbf P[\hat H,b]$). Writing $\tilde{\boldsymbol\Xi}=
+\boldsymbol\Xi-\operatorname{rowmean}\boldsymbol\Xi$ over the draws that produced a
+winner,
+$$
+\widetilde{\mathrm{cov}}=\tfrac1B\,\tilde{\boldsymbol\Xi}\,\mathbf r,\qquad
+\tilde V=\lVert\widetilde{\mathrm{cov}}\rVert^2,\qquad
+\hat V=\tilde V-\tfrac{N}{B}\,\overline{r^2},
+$$ {#eq-ijmult}
+and the de-biased interval is $\tilde\beta_{\hat H}\pm z\,\sqrt{\hat V}$
+(exponentiated for ratios), with $\sqrt{\tilde V}$ and finally the subgroup
+$\sigma_{D,\hat H}$ as fallbacks if $\hat V\le0$ at small $B$.
+
+Two points of intuition. First, $\hat V$ is generally **larger** than the naive
+subgroup variance $\sigma^2_{D,\hat H}$: the latter measures only the sampling
+noise of one fixed subgroup's estimate, whereas $\hat V$ also carries the
+variability of *which subgroup was selected* — the same selection randomness the
+point correction removes from the mean. The de-biased IJ interval is consequently
+wider than the bare robust-SE interval and aligns with Tier-1 (the GBSG analysis
+of @sec-validation shows IJ SE $\approx0.48$ against robust SE $\approx0.36$ on the
+log-HR scale). Second, because @eq-ijmult is read from the same draws as the point
+estimate, the interval is automatically *consistent* with the bias it reports: it
+is the leading-order image of the Tier-1 interval, just as @eq-debiased is the
+leading-order image of the Tier-1 point correction.
 
 ## A confidence gate for harm
 
@@ -654,8 +834,10 @@ $t_{\mathrm{gate}}$ (on the effect scale; $1$ for ratios, $0$ for differences):
 * **point gate:** flag harm iff $\tilde\beta_{\hat H} \ge \log t_{\mathrm{gate}}$
   (ratio measures) or $\ge t_{\mathrm{gate}}$ (differences);
 * **CI gate:** flag iff the one-sided lower bound
-  $\tilde\beta_{\hat H} - z_{0.95}\,\sigma_{D,\hat H} \ge \log t_{\mathrm{gate}}$ —
-  the post-correction analogue of the confidence-bound reading of @sec-calibration.
+  $\tilde\beta_{\hat H} - z_{0.95}\,\sqrt{\hat V} \ge \log t_{\mathrm{gate}}$ —
+  the post-correction analogue of the confidence-bound reading of @sec-calibration,
+  using the de-biased interval of @sec-debias-ij (or the robust
+  $\sigma_{D,\hat H}$ when `ci_method = "wald"`).
 
 The gate sits at the **null**, not at the screening threshold $c_{\mathrm{screen}}$.
 The correction @eq-debiased has already removed the optimism the screen admitted;
@@ -685,7 +867,10 @@ changes with the winner, its influence is needed for every candidate that ever
 wins; the winning set is small, so only those complements are fit (plus the
 observed $\hat H^{c}$). For a benefit-leaning complement the de-biased estimate
 moves *up* toward the null — the mirror image of the harm subgroup's downward
-correction.
+correction. Its interval follows @eq-ijmult with the complement residual
+$r^{c}_b=(\widehat{\mathrm{bias}}^{\,c}_{\mathrm{sel}}+\widehat{\mathrm{bias}}^{\,c}_{\mathrm{fix}})
+-D_{(\hat H^{*}_b)^{c}}(b)-D_{\hat H^{c}}(b)$ and the same multiplier matrix
+$\boldsymbol\Xi$.
 
 ## Which family the bias term must range over
 
@@ -729,6 +914,14 @@ for (b in seq_len(draws)) {
 selection_bias <- mean(sel_bias, na.rm = TRUE)
 fixed_bias     <- mean(P[sel, ])
 beta_debiased  <- beta_hat[sel] - selection_bias - fixed_bias
+
+# Infinitesimal-jackknife variance (Leon 2024 Eq. VInfJ_bc) from the same draws.
+ok    <- which(!is.na(sel_bias))                     # draws with a re-selected winner
+r     <- (selection_bias + fixed_bias) - sel_bias - P[sel, ]   # per-draw residual
+Xc    <- Xi[, ok] - rowMeans(Xi[, ok])               # centered multiplicities
+covi  <- as.numeric(Xc %*% r[ok]) / length(ok)       # cov_i, i = 1..N
+V_hat <- sum(covi^2) - (N / length(ok)) * mean(r[ok]^2)
+ci_debiased <- beta_debiased + c(-1, 1) * qnorm(0.975) * sqrt(max(V_hat, 0))
 
 # Complement: fit only the winning candidates' complements, then read P_c[winner, ].
 winset <- sort(unique(c(winner[winner > 0L], sel)))
@@ -788,6 +981,14 @@ data.
   The selection-bias direction is the diagnostic: positive for the harm subgroup
   (shrinking it toward the null) and negative for the induced complement
   (@sec-debias).
+
+* **Interval (Tier-2 vs Tier-1, GBSG/Cox).** With the de-biased CI set to the
+  infinitesimal-jackknife variance @eq-ijmult, the gate's interval carries the
+  selection variability the bare subgroup SE omits (IJ SE $\approx 0.48$ vs robust
+  SE $\approx 0.36$ on the log-HR scale) and aligns with the full bootstrap:
+  de-biased HR $1.81\,(0.71,\,4.67)$ for the gate against $1.93\,(0.88,\,4.24)$
+  for Tier-1, the IJ interval modestly the wider — the conservative direction for
+  a screen — and most so at small $n_S$, where @eq-linlemma is loosest.
 
 The error pattern matches the theory: exact in the linear case, first-order
 elsewhere, and degrading where $n_S$ is small enough that $D$ is not yet
@@ -863,11 +1064,11 @@ false-discovery probability (@sec-if-design), and the post-selection de-biasing 
 the identified subgroup and its complement (@sec-debias) — so the full
 identify-screen-select-correct workflow runs from a single set of per-candidate
 `dfbeta` values without any refitting. The de-biasing inherits the same
-leading-order caveat: it is a first-order multiplier approximation of the
-post-selection bootstrap of @leon2024, accurate where the per-subgroup
-linearization is (and weakest in the small-$n_S$ tail), so it is positioned as a
-fast in-fit gate rather than as a replacement for the full bootstrap at final
-reporting.
+leading-order caveat: to first order it reproduces the @leon2024 post-selection
+bootstrap correction (their Eq. 7) — point estimate and infinitesimal-jackknife
+interval alike — accurate where the per-subgroup linearization is (and weakest in
+the small-$n_S$ tail), so it is positioned as a fast in-fit gate rather than as a
+replacement for the full bootstrap at final reporting.
 
 The main limitations are the leading-order nature of the expansion (exact only in
 the linear/MD case) and its reliance on a single-coefficient, converged estimator;
