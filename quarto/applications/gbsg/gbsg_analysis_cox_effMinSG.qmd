@@ -55,7 +55,6 @@ run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
 Ksims <- 50
 
 
-
 # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
 # whether or not these run (skipped analyses report NA).
 timings$kfold <- NA_real_
@@ -585,7 +584,8 @@ its selection-bias term mirrors the same search optimism the full bootstrap
 corrects — without re-running the search per resample. The table below compares
 the gate (computed inside the fit) against the full bootstrap from the previous
 section. The naive-HR row is a scale sanity check; agreement on the de-biased
-row is the Tier-2-vs-Tier-1 validation.
+row is the Tier-2-vs-Tier-1 validation. The gate de-biases both the selected
+subgroup and its complement, so both appear in the comparison and the table below.
 
 ```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
 #| echo: false
@@ -599,14 +599,28 @@ if (is.null(g)) {
   H0  <- fl(fs_bc$H_estimates, "H0"); H0l <- fl(fs_bc$H_estimates, "H0_lower"); H0u <- fl(fs_bc$H_estimates, "H0_upper")
   H2  <- fl(fs_bc$H_estimates, "H2"); H2l <- fl(fs_bc$H_estimates, "H2_lower"); H2u <- fl(fs_bc$H_estimates, "H2_upper")
 
-  comp <- data.frame(
-    quantity = c("naive HR (95% CI)", "de-biased HR (95% CI)"),
-    `Tier 2 (gate)` = c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
-                        fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
-    `Tier 1 (bootstrap)` = c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u)),
-    check.names = FALSE)
+  # Complement: Tier-2 from g$complement (include_complement = TRUE), Tier-1 from
+  # the bootstrap's Hc_estimates.
+  cc  <- g$complement
+  has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
+  Hc0 <- fl(fs_bc$Hc_estimates, "H0"); Hc0l <- fl(fs_bc$Hc_estimates, "H0_lower"); Hc0u <- fl(fs_bc$Hc_estimates, "H0_upper")
+  Hc2 <- fl(fs_bc$Hc_estimates, "H2"); Hc2l <- fl(fs_bc$Hc_estimates, "H2_lower"); Hc2u <- fl(fs_bc$Hc_estimates, "H2_upper")
+
+  q  <- c("naive HR (95% CI)", "de-biased HR (95% CI)")
+  t2 <- c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+          fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
+  t1 <- c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u))
+  if (has_cc) {
+    q  <- c(q, "complement naive HR (95% CI)", "complement de-biased HR (95% CI)")
+    t2 <- c(t2, fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
+                fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
+    t1 <- c(t1, fmt_ci(Hc0, Hc0l, Hc0u), fmt_ci(Hc2, Hc2l, Hc2u))
+  }
+  comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
+                     `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
-        caption = sprintf("Selected subgroup: %s", paste(fs$sg.harm, collapse = " & "))),
+        caption = sprintf("Selected subgroup: %s%s", paste(fs$sg.harm, collapse = " & "),
+                          if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
   # Scale cross-check: the gate's naive HR and the bootstrap's naive H0 are the
@@ -633,6 +647,9 @@ if (is.null(g)) {
               fs$harm_flag_debiased, g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias))
+  if (has_cc)
+    cat(sprintf("Complement (n = %d): naive HR %.3f -> de-biased %.3f (selection bias %.4f, log-HR).\n",
+                cc$n, cc$naive$est, cc$debiased$est, cc$selection_bias))
 }
 ```
 
@@ -640,6 +657,15 @@ if (is.null(g)) {
 #| echo: false
 #| results: asis
 cat("_No harm subgroup was selected, so the de-biased gate comparison does not apply._\n")
+```
+
+The same bias-corrected estimates table, rebuilt from the Tier-2 gate object. The
+descriptive columns and naive effect are tier-independent (inherited from the
+bootstrap result used as a template); the bias-corrected column carries the gate's
+de-biased estimate for **both** the selected subgroup and its complement.
+
+```{r debias-gate-table, eval = !is.null(fs$sg.harm) && !is.null(fs$debias_gate)}
+gate_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
 ```
 
 ## Kaplan-Meier by Identified Subgroups

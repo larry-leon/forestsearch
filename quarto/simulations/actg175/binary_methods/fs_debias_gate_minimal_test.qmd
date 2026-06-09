@@ -144,6 +144,10 @@ if (is.null(fs$sg.harm)) {
   cat(sprintf("Selection bias %.4f (log scale); bootstrap selection rate %.2f; ",
               g$selection_bias, g$selection_rate))
   cat(sprintf("gate compute time %.2f s.\n", g$timing_seconds))
+  cc <- g$complement
+  if (!is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est))
+    cat(sprintf("\n**Complement** (n = %d): naive %s %.3f -> de-biased %.3f (selection bias %.4f).\n",
+                cc$n, g$measure, cc$naive$est, cc$debiased$est, cc$selection_bias))
 }
 ```
 
@@ -178,15 +182,17 @@ if (is.null(fs$sg.harm)) {
 
   # (2) Naive estimate == independent adjusted refit on the selected subgroup,
   #     on the effect (OR) scale.  Direct scale/wiring check; no bootstrap needed.
-  sgid <- fs$grp.consistency$sg.harm.id
-  if (!is.null(sgid) && length(sgid) == nrow(df_sim)) {
-    dsg  <- df_sim[sgid == 1, , drop = FALSE]
-    form <- stats::as.formula(paste("y_sim ~ treat_sim",
-              if (length(fs_adjust_covariates))
-                paste("+", paste(fs_adjust_covariates, collapse = " + ")) else ""))
-    or_ref <- tryCatch(
-      exp(stats::coef(stats::glm(form, family = stats::binomial(), data = dsg))[["treat_sim"]]),
-      error = function(e) NA_real_)
+  sgid    <- fs$grp.consistency$sg.harm.id
+  aligned <- !is.null(sgid) && length(sgid) == nrow(df_sim)
+  form    <- stats::as.formula(paste("y_sim ~ treat_sim",
+               if (length(fs_adjust_covariates))
+                 paste("+", paste(fs_adjust_covariates, collapse = " + ")) else ""))
+  refit_or <- function(rows) tryCatch(
+    exp(stats::coef(stats::glm(form, family = stats::binomial(),
+                               data = df_sim[rows, , drop = FALSE]))[["treat_sim"]]),
+    error = function(e) NA_real_)
+  if (aligned) {
+    or_ref <- refit_or(sgid == 1)
     add("naive == independent refit",
         is.finite(or_ref) && abs(log(or_ref) - log(g$naive$est)) < 1e-3,
         sprintf("gate naive OR %.4f vs independent refit %.4f", g$naive$est, or_ref))
@@ -220,6 +226,27 @@ if (is.null(fs$sg.harm)) {
       sprintf("de-biased %.3f %s naive %.3f", g$debiased$est,
               if (dir_ok) "<=" else ">", g$naive$est))
 
+  # (6) Complement: naive == independent refit on the complement, and the
+  #     de-biased estimate is present and finite (include_complement = TRUE).
+  cc <- g$complement
+  if (!is.null(cc) && !is.null(cc$naive) && is.finite(cc$naive$est)) {
+    if (aligned) {
+      or_c <- refit_or(sgid == 0)
+      add("complement naive == refit",
+          is.finite(or_c) && abs(log(or_c) - log(cc$naive$est)) < 1e-3,
+          sprintf("complement naive OR %.4f vs refit %.4f", cc$naive$est, or_c))
+    } else {
+      add("complement naive == refit", NA, "membership not row-aligned; skipped")
+    }
+    add("complement de-biased finite",
+        !is.null(cc$debiased) && is.finite(cc$debiased$est),
+        if (!is.null(cc$debiased))
+          sprintf("complement naive %.3f -> de-biased %.3f", cc$naive$est, cc$debiased$est)
+        else "complement de-biased missing")
+  } else {
+    add("complement de-biased", NA, "complement not computed (include_complement = FALSE?)")
+  }
+
   tab <- do.call(rbind, chk)
   cat(knitr::kable(tab, row.names = FALSE), sep = "\n"); cat("\n\n")
 
@@ -247,12 +274,23 @@ if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
   H2  <- .fl(fs_bc$H_estimates, "H2");  H2l <- .fl(fs_bc$H_estimates, "H2_lower"); H2u <- .fl(fs_bc$H_estimates, "H2_upper")
   g   <- fs$debias_gate
 
-  comp <- data.frame(
-    quantity = c("naive OR (95% CI)", "de-biased OR (95% CI)"),
-    `Tier 2 (gate)` = c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
-                        .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
-    `Tier 1 (bootstrap)` = c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u)),
-    check.names = FALSE)
+  cc  <- g$complement
+  has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
+  Hc0 <- .fl(fs_bc$Hc_estimates, "H0"); Hc0l <- .fl(fs_bc$Hc_estimates, "H0_lower"); Hc0u <- .fl(fs_bc$Hc_estimates, "H0_upper")
+  Hc2 <- .fl(fs_bc$Hc_estimates, "H2"); Hc2l <- .fl(fs_bc$Hc_estimates, "H2_lower"); Hc2u <- .fl(fs_bc$Hc_estimates, "H2_upper")
+
+  q  <- c("naive OR (95% CI)", "de-biased OR (95% CI)")
+  t2 <- c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+          .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
+  t1 <- c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u))
+  if (has_cc) {
+    q  <- c(q, "complement naive OR (95% CI)", "complement de-biased OR (95% CI)")
+    t2 <- c(t2, .fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
+                .fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
+    t1 <- c(t1, .fmt_ci(Hc0, Hc0l, Hc0u), .fmt_ci(Hc2, Hc2l, Hc2u))
+  }
+  comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
+                     `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE), sep = "\n"); cat("\n\n")
 
   # Scale cross-check: the gate's naive OR and the bootstrap's naive H0 are the
@@ -331,12 +369,23 @@ if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
   H2  <- .fl(fs_bc$H_estimates, "H2");  H2l <- .fl(fs_bc$H_estimates, "H2_lower"); H2u <- .fl(fs_bc$H_estimates, "H2_upper")
   g   <- fs$debias_gate
 
-  comp <- data.frame(
-    quantity = c("naive OR (95% CI)", "de-biased OR (95% CI)"),
-    `Tier 2 (gate)` = c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
-                        .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
-    `Tier 1 (bootstrap)` = c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u)),
-    check.names = FALSE)
+  cc  <- g$complement
+  has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
+  Hc0 <- .fl(fs_bc$Hc_estimates, "H0"); Hc0l <- .fl(fs_bc$Hc_estimates, "H0_lower"); Hc0u <- .fl(fs_bc$Hc_estimates, "H0_upper")
+  Hc2 <- .fl(fs_bc$Hc_estimates, "H2"); Hc2l <- .fl(fs_bc$Hc_estimates, "H2_lower"); Hc2u <- .fl(fs_bc$Hc_estimates, "H2_upper")
+
+  q  <- c("naive OR (95% CI)", "de-biased OR (95% CI)")
+  t2 <- c(.fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+          .fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
+  t1 <- c(.fmt_ci(H0, H0l, H0u), .fmt_ci(H2, H2l, H2u))
+  if (has_cc) {
+    q  <- c(q, "complement naive OR (95% CI)", "complement de-biased OR (95% CI)")
+    t2 <- c(t2, .fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
+                .fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
+    t1 <- c(t1, .fmt_ci(Hc0, Hc0l, Hc0u), .fmt_ci(Hc2, Hc2l, Hc2u))
+  }
+  comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
+                     `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE), sep = "\n"); cat("\n\n")
 
   # Scale cross-check: the gate's naive OR and the bootstrap's naive H0 are the

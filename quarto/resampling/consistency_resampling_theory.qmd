@@ -67,6 +67,13 @@ with four consequences:
    to a one-sided $95\%$ lower confidence bound lying above the threshold
    (@sec-calibration).
 
+5. **A post-selection correction.** Applied to the *selection* step rather than to
+   one candidate, the same shared-multiplier apparatus yields a fast, refit-free
+   de-biasing of the identified subgroup and its complement — a Tier-2
+   approximation of the post-selection bootstrap of @leon2024 that reuses the
+   per-candidate influence instead of re-running the search per resample
+   (@sec-debias).
+
 The theoretical content is the representation itself: it places an exploratory
 heuristic on the same influence-function / multiplier-bootstrap footing as
 classical robust survival and GLM inference, and ties the `forestsearch`
@@ -535,6 +542,222 @@ $\hat\beta - c$ to pass. Second, choosing $p^\star$ is choosing a one-sided
 confidence level, which can be set to a target false-positive rate rather than by
 convention.
 
+# Post-selection de-biasing: the Tier-2 gate {#sec-debias}
+
+The sections above treat one candidate at a time: given $\hat\beta_S$ and
+$\sigma_D$, the closed form @eq-closed says whether $S$ *passes* the consistency
+screen. Identification does not stop at screening — it **selects** one subgroup
+$\hat H$ from the passers (largest effect, largest consistent subgroup, an
+effect-neighborhood size rule, …). Selection makes the reported
+$\hat\beta_{\hat H}$ optimistically biased: the same data both *chose* $\hat H$
+and *estimate* its effect, so $\hat\beta_{\hat H}$ overstates harm. This is the
+winner's curse of subgroup search. This section develops a fast, refit-free
+correction that reuses exactly the influence apparatus of @sec-if-design.
+
+## The winner's curse and the Tier-1 bootstrap
+
+Write $\mathcal S$ for the **selection map**: given the candidate estimates
+$\hat\beta_\bullet=(\hat\beta_1,\dots,\hat\beta_S)$ and robust standard errors
+$\sigma_{D,\bullet}$, it returns the chosen subgroup,
+$$
+\hat H \;=\; \mathcal S(\hat\beta_\bullet)
+\;=\; \operatorname*{rule}\big\{\, g : \hat\beta_g \ge t_g \,\big\},\qquad
+t_g \;=\; \max\!\big(c_{\mathrm{screen}},\; c_{\mathrm{cons}} + z\,\sigma_{D,g}\big),
+$$ {#eq-selop}
+where $z=\Phi^{-1}\!\big((1+p^\star)/2\big)$ turns the consistency screen into the
+confidence-bound test of @sec-calibration — the $t_g$ are exactly the
+per-candidate thresholds of the appendix routine (@sec-appendix-fdr) — and
+$\operatorname{rule}$ is the `sg_focus` tie-break among the admitted candidates.
+The reported effect is the naive $\hat\beta_{\hat H}$.
+
+@leon2024 correct the selection bias with a **nonparametric bootstrap** that
+repeats the *entire* pipeline — enumerate, screen, select — on each of $R$
+resamples, re-selecting a subgroup $\hat H^{*}_r$ and estimating it, then forming
+a bias-corrected effect (their Eq. 7) from the resampling distribution. This is
+exact to bootstrap accuracy but costs $R$ full searches; at $R\in[500,2000]$,
+with a search that already fits every candidate, it dominates the analysis. Call
+it the **Tier-1** correction.
+
+## A multiplier-bootstrap selection distribution
+
+The Tier-2 correction replaces the $R$ searches with one pass of the *same*
+multiplier bootstrap used for the family-level routine of @sec-if-design. Recall
+the per-candidate linearization behind @eq-closed: with the treatment `dfbeta`
+$\mathrm{db}_{g,i}$,
+$$
+\hat\beta_g^{*}(b) \;=\; \hat\beta_g + D_g(b),\qquad
+D_g(b) \;=\; \sum_{i\in g} G_i(b)\,\mathrm{db}_{g,i}
+\;=\; \big(\mathbf B^{\top}\mathbf G^{(b)}\big)_g ,
+$$ {#eq-perturb}
+where $\mathbf B$ is the $N\times S$ influence matrix (column $g$ holds
+$\mathrm{db}_{g,\cdot}$ at $g$'s members, zero elsewhere) and $\mathbf G^{(b)}$ is
+one draw of mean-zero, unit-variance multipliers. The **single shared** vector
+$\mathbf G^{(b)}$ is propagated to all candidates at once, so the perturbations
+inherit the candidates' joint covariance,
+$$
+\operatorname{Cov}\!\big(D_g, D_{g'}\big)
+\;=\; \sum_i \mathrm{db}_{g,i}\,\mathrm{db}_{g',i}
+\;=\; (\mathbf B^{\top}\mathbf B)_{gg'} ,
+$$ {#eq-cov}
+i.e. the overlap correlation between candidates is reproduced exactly
+(@sec-if-design). This is what makes *re-selection* faithful:
+$\hat\beta^{*}_\bullet(b)$ is, to first order, a draw from the joint law the
+nonparametric bootstrap samples, so applying the selection map to it,
+$$
+\hat H^{*}_b \;=\; \mathcal S\big(\hat\beta^{*}_\bullet(b)\big),
+$$ {#eq-reselect}
+reproduces the bootstrap's selection distribution with no refitting. With
+centered-Poisson multipliers $G_i=\mathrm{Pois}(1)-1$ — the resampling-multiplicity
+law of the nonparametric bootstrap (@tbl-mult) — @eq-reselect mimics León's
+resample-and-re-search step itself.
+
+## The de-biased estimator
+
+On each draw the re-selected winner carries a perturbation $D_{\hat H^{*}_b}(b)$.
+Because $\hat H^{*}_b$ is chosen to have a large $\hat\beta^{*}=\hat\beta+D$, this
+perturbation is positive on average: it is the noise the selection rewarded.
+Averaging it estimates the selection optimism, alongside a same-draws term for the
+observed subgroup,
+$$
+\widehat{\mathrm{bias}}_{\mathrm{sel}} \;=\; \frac1B\sum_{b=1}^{B} D_{\hat H^{*}_b}(b),
+\qquad
+\widehat{\mathrm{bias}}_{\mathrm{fix}} \;=\; \frac1B\sum_{b=1}^{B} D_{\hat H}(b),
+$$ {#eq-biasterms}
+and the **de-biased estimate** of the selected subgroup is
+$$
+\tilde\beta_{\hat H} \;=\; \hat\beta_{\hat H}
+\;-\; \widehat{\mathrm{bias}}_{\mathrm{sel}}
+\;-\; \widehat{\mathrm{bias}}_{\mathrm{fix}} .
+$$ {#eq-debiased}
+The first term is the winner's curse — the expected perturbation of *whatever
+wins*. The second is a finite-draw recentering: $\mathbb E\,D_{\hat H}=0$ for any
+fixed subgroup under centered multipliers, so $\widehat{\mathrm{bias}}_{\mathrm{fix}}\to0$,
+but subtracting the observed subgroup's realized mean perturbation over the *same*
+draws cancels the Monte-Carlo noise it shares with the winner term. To leading
+order $\tilde\beta_{\hat H}\approx\hat\beta_{\hat H}-\mathbb E\,[D_{\hat H^{*}_b}]$,
+the multiplier-bootstrap analogue of the León Eq. 7 correction; the empirical
+agreement of the two (@sec-validation) is the check that the linearization
+@eq-perturb suffices.
+
+Selection enters only through @eq-reselect; the ingredients $\mathbf B$,
+$\sigma_{D,\bullet}$ and $t_g$ are the ones the per-candidate screen (@eq-closed)
+and the family routine (@sec-appendix-fdr) already use. De-biasing is thus a
+*third* use of a single $N\times S$ influence matrix: the per-candidate tail
+(screen), the family union (false discovery), and now the post-selection bias.
+
+## A confidence gate for harm
+
+Identification asks a yes/no question — does the *corrected* effect still indicate
+harm? — so $\tilde\beta_{\hat H}$ is compared to a near-null gate
+$t_{\mathrm{gate}}$ (on the effect scale; $1$ for ratios, $0$ for differences):
+
+* **point gate:** flag harm iff $\tilde\beta_{\hat H} \ge \log t_{\mathrm{gate}}$
+  (ratio measures) or $\ge t_{\mathrm{gate}}$ (differences);
+* **CI gate:** flag iff the one-sided lower bound
+  $\tilde\beta_{\hat H} - z_{0.95}\,\sigma_{D,\hat H} \ge \log t_{\mathrm{gate}}$ —
+  the post-correction analogue of the confidence-bound reading of @sec-calibration.
+
+The gate sits at the **null**, not at the screening threshold $c_{\mathrm{screen}}$.
+The correction @eq-debiased has already removed the optimism the screen admitted;
+re-testing the de-biased estimate against the screen would penalize the same
+effect twice and reject genuine harm.
+
+## The complement subgroup
+
+Identification also reports the **complement** $\hat H^{c}$ (subjects not
+selected). The complement is not chosen on its own merits — it is whatever remains
+once $\hat H$ is carved out — so its bias is *induced* by the selection of $\hat H$
+and runs the opposite way: choosing $\hat H$ to look maximally harmful makes
+$\hat H^{c}$ look optimistically benign. The same machinery handles it once the
+bookkeeping is right. On draw $b$ the relevant complement is the complement of the
+*re-selected* winner, $(\hat H^{*}_b)^{c}$, carrying its own influence,
+$$
+\widehat{\mathrm{bias}}^{\,c}_{\mathrm{sel}}
+\;=\; \frac1B\sum_b D_{(\hat H^{*}_b)^{c}}(b),
+\qquad
+\tilde\beta_{\hat H^{c}} \;=\; \hat\beta_{\hat H^{c}}
+\;-\; \widehat{\mathrm{bias}}^{\,c}_{\mathrm{sel}}
+\;-\; \widehat{\mathrm{bias}}^{\,c}_{\mathrm{fix}} ,
+$$ {#eq-debiased-c}
+with $D_{(\hat H^{*}_b)^{c}}(b)=\sum_{i\notin \hat H^{*}_b} G_i(b)\,\mathrm{db}^{c}_{i}$
+the treatment `dfbeta` of the complement's *own* fit. Because the complement
+changes with the winner, its influence is needed for every candidate that ever
+wins; the winning set is small, so only those complements are fit (plus the
+observed $\hat H^{c}$). For a benefit-leaning complement the de-biased estimate
+moves *up* toward the null — the mirror image of the harm subgroup's downward
+correction.
+
+## Which family the bias term must range over
+
+Selection optimism has two sources: the **screen** (admitting candidates whose
+effect crossed $c_{\mathrm{screen}}$) and the **rule** (choosing among the
+admitted). Tier-1 captures both, because each resample re-runs
+enumerate$\to$screen$\to$select. For Tier-2 to match, the re-selection
+@eq-reselect must range over the **full enumerated candidate space** — every
+$\le\texttt{maxk}$ cut combination the search could form — re-applying the screen
+$\{g:\hat\beta^{*}_g(b)\ge t_g\}$ on each draw. Restricting $\mathbf B$ to the
+post-screen *survivors* would capture only the rule's optimism and omit the
+screen's, under-correcting the bias. The family for @eq-debiased is therefore the
+same family the search enumerated, assembled from the binarized cut matrix with the
+search's own combination machinery — not the handful of subgroups that survived
+screening.
+
+## Computation
+
+The arithmetic is one matrix product $\mathbf P=\mathbf B^{\top}\boldsymbol\Xi$
+($S\times\texttt{draws}$), giving every candidate's perturbation on every draw,
+followed by a `draws`-length loop that screens, selects, and reads off
+$\mathbf P[\hat H^{*}_b,b]$.
+
+```r
+# B : N x S influence matrix (column g = candidate g's treatment dfbeta at its
+#     members, zero elsewhere) -- the same object assembled for the FDR routine.
+Xi <- .draw_multipliers(N, draws, "poisson")        # N x draws ; mimics the np bootstrap
+P  <- crossprod(B, Xi)                               # S x draws : D_g(b) for all g, b
+beta_star <- beta_hat + P                            # perturbed candidate estimates
+
+t_g <- pmax(c_screen, c_consistency + qnorm((1 + p_star) / 2) * sigma_D)
+sel <- match(observed_label, candidate_names)        # the selected subgroup's column
+winner <- integer(draws); sel_bias <- rep(NA_real_, draws)
+for (b in seq_len(draws)) {
+  bs   <- beta_star[, b]
+  pass <- which(bs >= t_g)                           # re-screen on this draw
+  if (!length(pass)) next
+  s <- reselect(bs, sigma_D, sizes, pass, rule)      # apply sg_focus among passers
+  winner[b] <- s; sel_bias[b] <- P[s, b]             # winner's perturbation
+}
+selection_bias <- mean(sel_bias, na.rm = TRUE)
+fixed_bias     <- mean(P[sel, ])
+beta_debiased  <- beta_hat[sel] - selection_bias - fixed_bias
+
+# Complement: fit only the winning candidates' complements, then read P_c[winner, ].
+winset <- sort(unique(c(winner[winner > 0L], sel)))
+Bc <- matrix(0, N, length(candidate_names))
+for (w in winset) Bc[-members[[w]], w] <- complement_dfbeta(w)   # the complement's own fit
+Pc <- crossprod(Bc, Xi)
+ok <- which(winner > 0L)
+selection_bias_c <- mean(Pc[cbind(winner[ok], ok)], na.rm = TRUE)
+beta_debiased_c  <- beta_hat_c[sel] - selection_bias_c - mean(Pc[sel, ])
+```
+
+Per-candidate influence comes from one fit each — Cox
+`residuals(fit, type = "dfbeta")[, treat]`, GLM `stats::dfbeta(fit)[, treat]` —
+with $\sigma_{D,g}=\sqrt{\sum_i \mathrm{db}_{g,i}^2}$, the very quantities @eq-closed
+needs. The cost is one fit per candidate plus $O(S\cdot\texttt{draws})$ arithmetic,
+against $R$ full searches for Tier-1; the complement adds fits only for the few
+winning candidates. The multiplier loop runs in well under a second on the
+examples below, a one-to-two-order-of-magnitude saving over the bootstrap, which
+the gate is intended to *screen* rather than replace.
+
+::: {.callout-note appearance="simple"}
+**Two tiers, one influence matrix.** Tier-2 is a fast approximation of Tier-1, not
+a substitute: it reuses the per-candidate `dfbeta` to estimate the selection
+optimism in closed multiplier form, and is best used as an in-fit gate, with the
+full bootstrap reserved for final reporting. Both read the selected subgroup's
+naive effect identically (a scale check that should match exactly); they differ
+only in the bias-corrected value and its interval.
+:::
+
 # Numerical validation {#sec-validation}
 
 The closed form has been checked against the literal split on real and simulated
@@ -555,6 +778,16 @@ data.
 * **Applied (ACTG175 binary/OR).** Re-running a full search under literal
   splitting and under the closed form selects the identical subgroup with
   per-candidate rates agreeing to the displayed precision.
+
+* **Post-selection de-biasing (Tier-2 vs Tier-1).** On the minimal ACTG175/OR
+  example the gate's de-biased odds ratio ($\approx 2.91$) tracks the full
+  bootstrap's bias-corrected value ($\approx 2.60$), while the naive estimate
+  matches it exactly (the scale check of @eq-debiased), and the de-biased
+  complement moves the opposite way, up toward the null ($0.59 \to 0.63$). The
+  multiplier loop runs in well under a second against minutes for the bootstrap.
+  The selection-bias direction is the diagnostic: positive for the harm subgroup
+  (shrinking it toward the null) and negative for the induced complement
+  (@sec-debias).
 
 The error pattern matches the theory: exact in the linear case, first-order
 elsewhere, and degrading where $n_S$ is small enough that $D$ is not yet
@@ -623,6 +856,18 @@ studentized multipliers might sharpen the small-$n_S$ approximation. Finally, th
 confidence-bound reading of the cutoff (@sec-calibration) makes the screen's
 false-positive behavior explicit and, in principle, calibratable to a target
 rate rather than to convention.
+
+A further consequence is that one $N\times S$ influence matrix now serves three
+purposes — the per-candidate consistency screen (@eq-closed), the family-level
+false-discovery probability (@sec-if-design), and the post-selection de-biasing of
+the identified subgroup and its complement (@sec-debias) — so the full
+identify-screen-select-correct workflow runs from a single set of per-candidate
+`dfbeta` values without any refitting. The de-biasing inherits the same
+leading-order caveat: it is a first-order multiplier approximation of the
+post-selection bootstrap of @leon2024, accurate where the per-subgroup
+linearization is (and weakest in the small-$n_S$ tail), so it is positioned as a
+fast in-fit gate rather than as a replacement for the full bootstrap at final
+reporting.
 
 The main limitations are the leading-order nature of the expansion (exact only in
 the linear/MD case) and its reliance on a single-coefficient, converged estimator;
