@@ -94,7 +94,7 @@ fs_splits          <- 400L         # moot under "resample" (closed-form, not lit
 maxk               <- 2L
 n_min              <- 60L
 d0_min             <- 12L
-d1_min             <- 12L
+d1_min             <- 0L
 use_lasso          <- FALSE
 use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
@@ -116,7 +116,7 @@ confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 
 # ── Reproducibility / parallelism ──────────────────────────────────────────
 seed_base  <- 8316951L
-n_workers  <- max(1L, min(parallel::detectCores(logical = FALSE) - 1L, n_sims))
+n_workers  <- ceiling(0.95*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
 z975       <- qnorm(0.975)
 
 cat(sprintf("Smoke test: n_sims=%d, nb_boots=%d, gate_draws=%d, workers=%d\n",
@@ -483,7 +483,7 @@ if (run_smoke && !is.null(results)) {
     p <- ggplot(pts, aes(x = t1, y = t2)) +
       geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "grey50") +
       geom_point(size = 2, alpha = 0.8) +
-      scale_x_log10() + scale_y_log10() + coord_equal() +
+      scale_x_log10() + scale_y_log10() +
       facet_wrap(~ block, scales = "free") +
       labs(x = expression("Tier-1  "*hat(theta)^"*"),
            y = expression("Tier-2  "*tilde(theta)),
