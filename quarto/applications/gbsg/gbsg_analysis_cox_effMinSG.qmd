@@ -584,7 +584,9 @@ its selection-bias term mirrors the same search optimism the full bootstrap
 corrects — without re-running the search per resample. The table below compares
 the gate (computed inside the fit) against the full bootstrap from the previous
 section. The naive-HR row is a scale sanity check; agreement on the de-biased
-row is the Tier-2-vs-Tier-1 validation. The gate de-biases both the selected
+row is the Tier-2-vs-Tier-1 validation. By default the de-biased CI uses the same
+infinitesimal-jackknife variance as the full bootstrap (the `ci_method = 'ij'` default),
+so the de-biased row compares both point estimate and interval like-for-like. The gate de-biases both the selected
 subgroup and its complement, so both appear in the comparison and the table below.
 
 ```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
@@ -647,6 +649,10 @@ if (is.null(g)) {
               fs$harm_flag_debiased, g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias))
+  if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
+                if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
+                g$debiased$se_ij, g$debiased$se_wald))
   if (has_cc)
     cat(sprintf("Complement (n = %d): naive HR %.3f -> de-biased %.3f (selection bias %.4f, log-HR).\n",
                 cc$n, cc$naive$est, cc$debiased$est, cc$selection_bias))

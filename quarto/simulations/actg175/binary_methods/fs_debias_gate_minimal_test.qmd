@@ -39,7 +39,7 @@ gate_type  <- "point"   # "point" or "ci"
 gate_t     <- 1.0       # near-null gate on the OR scale
 gate_draws <- 3000L
 
-nb_boots   <- 200L      # Tier-1 bootstrap iterations (reduce for speed)
+nb_boots   <- 500L      # Tier-1 bootstrap iterations (reduce for speed)
 run_tier1  <- TRUE     # FALSE: skip the full-bootstrap comparison (gate-only,
                         #        fast CI-style check); the gate still runs in-fit
 run_null   <- TRUE      # also check the gate rejects under the null
@@ -141,6 +141,10 @@ if (is.null(fs$sg.harm)) {
   cat(sprintf("(de-biased %s %.3f %s gate %.2f)\n\n",
               g$measure, g$debiased$est,
               if (gate_type == "point") "vs" else "lower-bound vs", g$gate$t_gate))
+  if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f).\n\n",
+                if (identical(g$ci_method, "ij")) "infinitesimal jackknife" else "robust SE",
+                g$debiased$se_ij, g$debiased$se_wald))
   cat(sprintf("Selection bias %.4f (log scale); bootstrap selection rate %.2f; ",
               g$selection_bias, g$selection_rate))
   cat(sprintf("gate compute time %.2f s.\n", g$timing_seconds))
@@ -247,6 +251,19 @@ if (is.null(fs$sg.harm)) {
     add("complement de-biased", NA, "complement not computed (include_complement = FALSE?)")
   }
 
+  # (7) IJ variance engaged: the de-biased CI uses the infinitesimal-jackknife
+  #     variance (the Tier-1 analogue), not a Wald fallback.
+  if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij)) {
+    src <- if (is.null(g$debiased$ij_source)) "NA" else g$debiased$ij_source
+    add("IJ variance engaged",
+        identical(g$ci_method, "ij") && src %in% c("ij", "ij_raw"),
+        sprintf("ci_method = %s; ij_source = %s; IJ SE %.3f vs robust SE %.3f",
+                g$ci_method, src, g$debiased$se_ij, g$debiased$se_wald))
+  } else {
+    add("IJ variance engaged", FALSE,
+        "ci_method/se_ij absent -- reinstall the package for the IJ-variance CI")
+  }
+
   tab <- do.call(rbind, chk)
   cat(knitr::kable(tab, row.names = FALSE), sep = "\n"); cat("\n\n")
 
@@ -305,8 +322,9 @@ if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
               nb_boots, t_tier1, t_tier1 / 60, g$timing_seconds,
               if (g$timing_seconds > 0) t_tier1 / g$timing_seconds else NA))
   cat("\nThe naive-OR row is a scale sanity check; agreement on the de-biased row validates ",
-      "Tier 2 against Tier 1. The gate's de-biased CI is approximate (subgroup robust SE) ",
-      "and narrower than the Tier-1 infinitesimal-jackknife CI.\n", sep = "")
+      "Tier 2 against Tier 1. By default the de-biased CI uses the same infinitesimal- ",
+      "jackknife variance as Tier 1 (the ci_method='ij' default), so the de-biased row ",
+      "is a like-for-like CI comparison; set ci_method='wald' for the robust SE.\n", sep = "")
 } else if (!is.null(fs$sg.harm)) {
   cat(sprintf("_Tier-1 bootstrap comparison skipped (`run_tier1 = FALSE`). The gate ran in-fit in %.2f s; ",
               fs$debias_gate$timing_seconds))
@@ -400,8 +418,9 @@ if (!is.null(fs$sg.harm) && isTRUE(run_tier1)) {
               nb_boots, t_tier1, t_tier1 / 60, g$timing_seconds,
               if (g$timing_seconds > 0) t_tier1 / g$timing_seconds else NA))
   cat("\nThe naive-OR row is a scale sanity check; agreement on the de-biased row validates ",
-      "Tier 2 against Tier 1. The gate's de-biased CI is approximate (subgroup robust SE) ",
-      "and narrower than the Tier-1 infinitesimal-jackknife CI.\n", sep = "")
+      "Tier 2 against Tier 1. By default the de-biased CI uses the same infinitesimal- ",
+      "jackknife variance as Tier 1 (the ci_method='ij' default), so the de-biased row ",
+      "is a like-for-like CI comparison; set ci_method='wald' for the robust SE.\n", sep = "")
 } else if (!is.null(fs$sg.harm)) {
   cat(sprintf("_Tier-1 bootstrap comparison skipped (`run_tier1 = FALSE`). The gate ran in-fit in %.2f s; ",
               fs$debias_gate$timing_seconds))
