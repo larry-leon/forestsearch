@@ -72,6 +72,13 @@ fs_hr_threshold          <- 1.0
 fs_hr_consistency        <- 0.90
 fs_max_subgroups_search  <- 30
 
+# Tier-2 de-biased gate: a fast multiplier-bootstrap approximation of the
+# bootstrap bias-correction, computed inside the fit and compared to the full
+# bootstrap below.  On the survival path it runs as a standalone approximation
+# under the default split-consistency search (it re-derives Cox dfbeta itself).
+run_debias_gate <- TRUE     # add debias_gate = TRUE to the forestsearch call
+gate_draws      <- 2000L    # multiplier-bootstrap draws for the gate
+
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts)
 dina_screen_sg_focus             <- "effMaxSG"
@@ -369,6 +376,9 @@ fs <- forestsearch(
   sg_focus                  = fs_sg_focus,         # set in setup chunk
   selection_rule            = "neighborhood",  # default "neighborhood"
   effect_neighborhood       = 0.10,            # default 0.10
+  # --- Tier-2 de-biased gate ----------------------------------------------
+  debias_gate               = run_debias_gate,           # set in setup chunk
+  debias_gate_args          = list(draws = gate_draws),  # set in setup chunk
   # --- Subgroup constraints -----------------------------------------------
   n.min                     = 60,             # default 60
   d0.min                    = 10,             # default 10
@@ -562,6 +572,72 @@ summaries <- summarize_bootstrap_results(
 
 # Display bias-corrected estimates table
 summaries$table
+```
+
+## Fast de-biased gate vs. full bootstrap
+
+The Tier-2 de-biased gate is a fast multiplier-bootstrap approximation of the
+bootstrap bias-correction. It reuses per-candidate Cox influence (`dfbeta`) over
+the **full** enumerated candidate space and re-selects under multiplier draws, so
+its selection-bias term mirrors the same search optimism the full bootstrap
+corrects — without re-running the search per resample. The table below compares
+the gate (computed inside the fit) against the full bootstrap from the previous
+section. The naive-HR row is a scale sanity check; agreement on the de-biased
+row is the Tier-2-vs-Tier-1 validation.
+
+```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
+#| echo: false
+#| results: asis
+g <- fs$debias_gate
+if (is.null(g)) {
+  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+} else {
+  fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
+  fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
+  H0  <- fl(fs_bc$H_estimates, "H0"); H0l <- fl(fs_bc$H_estimates, "H0_lower"); H0u <- fl(fs_bc$H_estimates, "H0_upper")
+  H2  <- fl(fs_bc$H_estimates, "H2"); H2l <- fl(fs_bc$H_estimates, "H2_lower"); H2u <- fl(fs_bc$H_estimates, "H2_upper")
+
+  comp <- data.frame(
+    quantity = c("naive HR (95% CI)", "de-biased HR (95% CI)"),
+    `Tier 2 (gate)` = c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+                        fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper)),
+    `Tier 1 (bootstrap)` = c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u)),
+    check.names = FALSE)
+  cat(knitr::kable(comp, row.names = FALSE,
+        caption = sprintf("Selected subgroup: %s", paste(fs$sg.harm, collapse = " & "))),
+      sep = "\n"); cat("\n\n")
+
+  # Scale cross-check: the gate's naive HR and the bootstrap's naive H0 are the
+  # same quantity (raw subgroup HR) computed two ways; they should agree.
+  if (is.finite(H0) && is.finite(g$naive$est)) {
+    scale_ok <- abs(log(g$naive$est) - log(H0)) < 1e-2
+    cat(sprintf("Scale cross-check (naive gate vs bootstrap H0): **%s** (%.3f vs %.3f).\n\n",
+                if (scale_ok) "PASS" else "CHECK", g$naive$est, H0))
+  }
+
+  # Family is the full enumerated space, not the screened survivors.
+  n_surv <- tryCatch(nrow(fs$find.grps$out.found$hr.subgroups), error = function(e) NA_integer_)
+  cat(sprintf("Candidate family: %d (full <= maxk space)%s.\n\n", g$n_family,
+              if (!is.na(n_surv)) sprintf("; screened survivors = %d", n_surv) else ""))
+
+  boot_s <- as.numeric(timings$bootstrap)
+  cat(sprintf("Timing: Tier 1 bootstrap (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s",
+              NB, boot_s, boot_s / 60, g$timing_seconds))
+  if (is.finite(boot_s) && g$timing_seconds > 0)
+    cat(sprintf(" -> **%.0fx** faster (multiplier loop only; the full bootstrap scales with `NB`, the gate does not)", boot_s / g$timing_seconds))
+  cat(".\n\n")
+
+  cat(sprintf("Gate `harm_flag_debiased` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
+              fs$harm_flag_debiased, g$debiased$est,
+              if (g$gate$type == "point") "vs" else "lower-bound vs",
+              g$gate$t_gate, g$selection_bias))
+}
+```
+
+```{r debias-gate-no-subgroup, eval = is.null(fs$sg.harm)}
+#| echo: false
+#| results: asis
+cat("_No harm subgroup was selected, so the de-biased gate comparison does not apply._\n")
 ```
 
 ## Kaplan-Meier by Identified Subgroups

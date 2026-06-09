@@ -494,12 +494,15 @@
 #'     \item{conf.level}{Numeric. Confidence level for early stopping. Default 0.95.}
 #'     \item{min.valid.screen}{Integer. Minimum valid Stage 1 splits. Default 10.}
 #'   }
-#' @param debias_gate Logical.  When \code{TRUE} and \code{consistency_method =
-#'   "resample"} on the GLM path, compute a fast multiplier-bootstrap de-biased
-#'   estimate of the selected subgroup and flag whether it remains consistent
-#'   with harm.  This is a Tier-2 approximation of the full bootstrap
-#'   bias-correction (\code{\link{forestsearch_bootstrap_dofuture}}) and does not
-#'   replace it.  Default \code{FALSE}.
+#' @param debias_gate Logical.  When \code{TRUE}, compute a fast
+#'   multiplier-bootstrap de-biased estimate of the selected subgroup and flag
+#'   whether it remains consistent with harm.  Supported on the GLM
+#'   resample-consistency path (\code{consistency_method = "resample"} with a
+#'   GLM effect) and on the survival/Cox path (\code{outcome_type = "survival"}),
+#'   where it runs as a fast standalone approximation under the default
+#'   split-consistency search.  This is a Tier-2 approximation of the full
+#'   bootstrap bias-correction (\code{\link{forestsearch_bootstrap_dofuture}})
+#'   and does not replace it.  Default \code{FALSE}.
 #' @param debias_gate_args List of optional gate controls: \code{t_gate}
 #'   (effect-scale gate; near-null default \code{1} for ratio measures, \code{0}
 #'   for differences -- set near the null, not at the screen), \code{gate}
@@ -2412,11 +2415,19 @@ forestsearch <- function(df.analysis,
   # multiplier draw -- NOT just the post-screening survivors in hr.subgroups
   # (which would capture only selection-stage, not screening-stage, optimism).
   # Per-candidate dfbeta is re-derived via the consistency engine's own pieces
-  # (~seconds; a future ledger from the search makes this zero-refit).  Scope:
-  # GLM (estimator_fn) on the resample consistency path.  Default off.
+  # (~seconds; a future ledger from the search makes this zero-refit).
+  #
+  # Two paths are supported: the GLM resample-consistency path (estimator_fn
+  # non-NULL, consistency_method = "resample"), and the survival/Cox path
+  # (estimator_fn NULL, outcome_type = "survival").  On the Cox path the gate is
+  # a fast standalone approximation -- it re-derives Cox dfbeta and re-selects
+  # over the family itself, so it does not require resample consistency and runs
+  # under the default split-consistency search.  Default off.
   debias_gate_out <- NULL
+  .dg_glm_ok <- consistency_method == "resample" && !is.null(estimator_fn)
+  .dg_cox_ok <- outcome_type == "survival" && is.null(estimator_fn)
   if (isTRUE(debias_gate) && !is.null(sg.harm) &&
-      consistency_method == "resample" && !is.null(estimator_fn) &&
+      (.dg_glm_ok || .dg_cox_ok) &&
       !is.null(grp.consistency) && !is.null(grp.consistency$sg.harm.id)) {
 
     .g_dg <- function(a, b) if (is.null(a)) b else a
@@ -2442,17 +2453,34 @@ forestsearch <- function(df.analysis,
           fam[[paste(colnames(Z)[covs.in == 1], collapse = " & ")]] <- mem
       }
 
-      gspec <- list(outcome_type = outcome_type, effect_measure = effect_measure,
-                    treat.name = treat.name, outcome.name = outcome.name,
-                    event.name = event.name, offset.name = offset.name,
-                    adjust_covariates = adjust_covariates,
-                    adverse_outcome = adverse_outcome)
+      # Spec + comparison-scale thresholds differ by path.  Survival uses the
+      # internal df.fs column names (Y/Event/Treat) and log-HR thresholds; GLM
+      # uses the user-facing names and the already-log effect/consistency
+      # thresholds.  Cox dispatch happens inside the engine via outcome_type.
+      if (.dg_cox_ok) {
+        adj_dg <- intersect(adjust_covariates, names(df.fs))  # only if present
+        gspec <- list(outcome_type = "survival", effect_measure = "HR",
+                      treat.name = "Treat", outcome.name = "Y",
+                      event.name = "Event", offset.name = NULL,
+                      adjust_covariates = if (length(adj_dg)) adj_dg else NULL,
+                      adverse_outcome = TRUE)
+        c_screen_dg      <- log(hr.threshold)
+        c_consistency_dg <- log(max(hr.consistency, 1e-3))
+      } else {
+        gspec <- list(outcome_type = outcome_type, effect_measure = effect_measure,
+                      treat.name = treat.name, outcome.name = outcome.name,
+                      event.name = event.name, offset.name = offset.name,
+                      adjust_covariates = adjust_covariates,
+                      adverse_outcome = adverse_outcome)
+        c_screen_dg      <- effect_threshold      # comparison scale (log for ratio)
+        c_consistency_dg <- consistency_threshold # comparison scale
+      }
 
       fs_debias_gate(
         df = df.fs, candidates = fam, spec = gspec,
         selected_members = which(grp.consistency$sg.harm.id == 1),
-        c_screen      = effect_threshold,      # comparison scale (log for ratio)
-        c_consistency = consistency_threshold, # comparison scale
+        c_screen      = c_screen_dg,
+        c_consistency = c_consistency_dg,
         p_star        = pconsistency.threshold,
         t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
         gate          = .g_dg(debias_gate_args$gate,        "point"),
