@@ -129,6 +129,7 @@ n_min              <- 60L
 d0_min             <- 12L
 d1_min             <- 0L
 use_lasso          <- TRUE
+use_dina           <- TRUE
 use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
@@ -283,6 +284,7 @@ record_replicate <- function(sim_id) {
     consistency = list(
       consistency_method = consistency_method,
       use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina,
       conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
       fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
     dina = dina_args,
