@@ -106,14 +106,14 @@ fs_grf_selection   <- "frontier"      # only if fs_subgroup_method == "grf": "tr
 fs_grf_depth       <- 2L              # GRF depth (screening + GRF selection)
 fs_dmin_grf        <- 4               # GRF DR-score screening floor
 fs_dina_args       <- list()          # extra args forwarded to DINA selection
-# Tier-2 gate (main analysis): restrict the re-selection family to candidates
-# competitive on the method's NATIVE statistic -- DINA tau-hat or GRF DR-score
-# (NULL = off / full family).  Ignored for "consistency" (its maxcons
-# re-selection already matches the search).  When fs_subgroup_method is "grf" or
-# "dina", matching this band to effect_neighborhood keeps the gate's
-# neighbourhood aligned with the engine's own selection band and curbs the
-# over-correction the full-family gate can show on a large depth-2 family.
-fs_family_native_nbhd <- 0.10
+# Tier-2 gate (main analysis): the gate's re-selection family for "dina"/"grf" is
+# restricted to candidates competitive on the method's NATIVE statistic (DINA
+# tau-hat / GRF DR-score).  NULL = use the recommended default, which matches the
+# band to effect_neighborhood automatically (the band the engine selects within);
+# give a number in (0, 1) to set the band explicitly, or >= 1 to de-bias against
+# the full family.  Ignored for "consistency" (its maxcons re-selection already
+# matches the search).
+fs_family_native_nbhd <- NULL
 
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts)
@@ -130,12 +130,12 @@ dina_screen_selected_only        <- TRUE
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
 fs_dina_hr_threshold <- 0.90
-# Tier-2 gate: restrict the DINA re-selection family to candidates competitive on
-# DINA's native tau-hat (NULL = off / full family).  DINA selects on tau-hat but
-# the gate re-selects on Cox effect, so over a large depth-2 family the full-family
-# gate over-corrects relative to the bootstrap; matching this band to
-# effect_neighborhood makes the gate's neighbourhood mirror DINA's own selection.
-fs_dina_family_native_nbhd <- 0.10
+# Tier-2 gate: the DINA re-selection family is restricted to candidates competitive
+# on DINA's native tau-hat.  NULL = recommended default (matches effect_neighborhood
+# automatically); set a number in (0, 1) for an explicit band, or >= 1 for the full
+# family.  Note: this only tunes candidate competition -- the gate holds the forest
+# fixed, so the full bootstrap stays the reference for DINA regardless.
+fs_dina_family_native_nbhd <- NULL
 
 # (D) ForestSearch subgroup_method = "grf" (GRF performs selection via a causal
 #     forest policy tree or DR-score frontier; the consistency search, LASSO and
@@ -145,11 +145,13 @@ fs_grf_demo_selection     <- "frontier"  # "frontier" | "tree"
 fs_grf_demo_depth         <- 2L          # GRF tree / DR-pair depth
 fs_grf_demo_dmin          <- 0.0         # DR-score harm floor (0 = permissive default)
 fs_grf_sg_focus           <- "effMaxSG"  # -> GRF frontier/tree selection rule
-# Tier-2 gate: restrict the GRF re-selection family to candidates competitive on
-# GRF's native DR-score (NULL = off / full family).  GRF selects on the RMST-based
-# DR-score but the gate re-selects on Cox effect; matching this band to
-# effect_neighborhood keeps the gate's neighbourhood aligned with GRF's selection.
-fs_grf_family_native_nbhd <- 0.10
+# Tier-2 gate: the GRF re-selection family is restricted to candidates competitive
+# on GRF's native (RMST-based) DR-score.  NULL = recommended default (matches
+# effect_neighborhood automatically); set a number in (0, 1) for an explicit band,
+# or >= 1 for the full family.  Note: this only tunes candidate competition -- the
+# gate holds the forest fixed, so the full bootstrap stays the reference for GRF
+# regardless (a dominant DR-score winner can collapse the family to 1).
+fs_grf_family_native_nbhd <- NULL
 ```
 
 
@@ -710,7 +712,8 @@ if (is.null(g)) {
               if (fs_subgroup_method %in% c("dina", "grf"))
                 sprintf(" (a Cox-effect proxy for the %s; native-family band = %s)",
                         if (identical(fs_subgroup_method, "dina")) "DINA tau-hat" else "GRF DR-score",
-                        if (is.null(fs_family_native_nbhd)) "off (full family)"
+                        if (is.null(fs_family_native_nbhd)) "default (matched to effect_neighborhood)"
+                        else if (fs_family_native_nbhd >= 1) "off (full family)"
                         else sprintf("%.2f", fs_family_native_nbhd))
               else " (matches the consistency search statistic)"))
 
@@ -1238,13 +1241,16 @@ consistency method. DINA selects on its survival-forest **tau-hat**, but the gat
 can only re-select on the perturbed **Cox** effect; over a large depth-2 candidate
 family the gate's winner's-curse term can therefore exceed the bootstrap's and
 over-correct the selected subgroup. To keep the gate's re-selection neighbourhood
-close to DINA's own selection band, this fit sets
-`family_native_neighborhood = fs_dina_family_native_nbhd` — restricting the gate
-family to candidates competitive on tau-hat (set it to `NULL` in the setup chunk
-to de-bias against the full family and see the unrestricted behaviour). The
-complement is the induced residual rather than a max-over-family selection, so it
-agrees across tiers regardless. Treat the full bootstrap as the reference for
-DINA and the gate as a fast, conservative check.
+close to DINA's own selection band, the gate by default restricts that family to
+candidates competitive on DINA's native tau-hat, matching the band to
+`effect_neighborhood` (the recommended default, used here via
+`fs_dina_family_native_nbhd <- NULL`; set an explicit number for a different band,
+or `>= 1` to de-bias against the full unrestricted family). The complement is the
+induced residual rather than a max-over-family selection, so it agrees across
+tiers regardless. This band tunes only the *candidate-competition* part of the
+bias -- the gate holds the survival forest fixed, so the forest-refit optimism is
+invisible to it; treat the full bootstrap as the reference for DINA and the gate
+as a fast, conservative check.
 
 ```{r fs-dina-debias-gate-comparison, eval = !is.null(fs_dina$sg.harm)}
 #| echo: false
@@ -1292,7 +1298,8 @@ if (is.null(g)) {
               g$gate$t_gate, g$selection_bias, g$n_family))
   cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for DINA's tau-hat); native-family band = %s.\n",
               if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
-              if (is.null(fs_dina_family_native_nbhd)) "off (full family)"
+              if (is.null(fs_dina_family_native_nbhd)) "default (matched to effect_neighborhood)"
+              else if (fs_dina_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to tau-hat-competitive candidates)",
                            fs_dina_family_native_nbhd)))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
@@ -1452,13 +1459,19 @@ the gate can only re-select on the perturbed **Cox** effect; the additive RMST
 scale and the multiplicative hazard scale need not rank candidates the same way,
 so over a large candidate family the gate's winner's-curse term can exceed the
 bootstrap's and over-correct the selected subgroup. To keep the gate's
-re-selection neighbourhood close to GRF's own selection band, this fit sets
-`family_native_neighborhood = fs_grf_family_native_nbhd` -- restricting the gate
-family to candidates competitive on the DR-score (set it to `NULL` in the setup
-chunk to de-bias against the full family). The complement is the induced residual
-rather than a max-over-family selection, so it agrees across tiers regardless.
-Treat the full bootstrap as the reference for GRF and the gate as a fast,
-conservative check.
+re-selection neighbourhood close to GRF's own selection band, the gate by default
+restricts that family to candidates competitive on GRF's native DR-score, matching
+the band to `effect_neighborhood` (the recommended default, used here via
+`fs_grf_family_native_nbhd <- NULL`; set an explicit number for a different band,
+or `>= 1` to de-bias against the full family). The complement is the induced
+residual rather than a max-over-family selection, so it agrees across tiers
+regardless. Two caveats specific to GRF: a *dominant* DR-score winner can collapse
+the restricted family to a single candidate (`candidate family = 1` in the note
+below), in which case the gate removes only the gate-threshold optimism; and,
+more fundamentally, the band tunes only the *candidate-competition* part of the
+bias -- the gate holds the causal forest fixed, so the forest-refit optimism that
+the bootstrap captures is invisible to it. Treat the full bootstrap as the
+reference for GRF and the gate as a fast, conservative check.
 
 ```{r fs-grf-debias-gate-comparison, eval = !is.null(fs_grf$sg.harm)}
 #| echo: false
@@ -1506,7 +1519,8 @@ if (is.null(g)) {
               g$gate$t_gate, g$selection_bias, g$n_family))
   cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for GRF's DR-score); native-family band = %s.\n",
               if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
-              if (is.null(fs_grf_family_native_nbhd)) "off (full family)"
+              if (is.null(fs_grf_family_native_nbhd)) "default (matched to effect_neighborhood)"
+              else if (fs_grf_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to DR-score-competitive candidates)",
                            fs_grf_family_native_nbhd)))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))

@@ -41,16 +41,16 @@
 #' within a band of the best native statistic makes the gate's re-selection
 #' neighbourhood mirror the one the bootstrap actually explores.
 #'
-#' Opt-in: `neighborhood = NULL` (the default everywhere) returns `tab`
-#' unchanged, so existing behaviour is preserved exactly.  The consistency
-#' method does not call this -- its gate re-selection (`maxcons`) already
-#' matches the search statistic.
+#' The DINA and GRF gate branches default the band to `effect_neighborhood` (the
+#' band those engines select within); a value `>= 1` (or `NULL`) disables the
+#' restriction and returns `tab` unchanged.  The consistency method does not call
+#' this -- its gate re-selection (`maxcons`) already matches the search statistic.
 #'
 #' @param tab Candidate table (rows = candidates).
 #' @param stat Numeric native statistic aligned to `tab` rows (harm = high).
 #' @param neighborhood Multiplicative band in `[0, 1)` on the natural-effect
 #'   scale: keep `e >= (1 - neighborhood) * max(e)`, with `e = exp(stat)` when
-#'   `log_scale = TRUE`.  `NULL` disables the restriction.
+#'   `log_scale = TRUE`.  `NULL` or a value `>= 1` disables the restriction.
 #' @param log_scale Logical; exponentiate `stat` before banding (ratio scales,
 #'   e.g. DINA log-HR tau-hat).  GRF DR scores are additive (`FALSE`).
 #' @return The retained subset of `tab` (always at least the best row); `tab`
