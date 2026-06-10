@@ -264,7 +264,16 @@
 #'   (the per-covariate quantile grid for depth-2 pair thresholds; default
 #'   interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
 #'   to \code{\link{dina_subgroup}} and apply to both the selected-cut
-#'   screening and \code{subgroup_method = "dina"}.
+#'   screening and \code{subgroup_method = "dina"}; plus \code{select_statistic}
+#'   (\code{"dina"} default, or \code{"effect"}), which controls how the
+#'   winner is chosen from DINA's qualifying family under
+#'   \code{subgroup_method = "dina"}.  \code{"dina"} ranks on DINA's native
+#'   subgroup-mean tau-hat (unchanged legacy behaviour); \code{"effect"} ranks
+#'   on the inferential effect measure (Cox HR for survival; the resolved GLM
+#'   effect otherwise), scored with the same per-candidate estimator the
+#'   Tier-2 de-biased gate uses, so the realized selection is the exact event
+#'   the gate de-biases (and the gate's native-family restriction follows the
+#'   effect rather than tau-hat).
 #'   When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 #'   contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 #'   this call's \code{sg_focus} / \code{selection_rule} /
@@ -1594,7 +1603,11 @@ forestsearch <- function(df.analysis,
       outcome_type = outcome_type, hr.threshold = hr.threshold, n.min = n.min,
       sg_focus = sg_focus, selection_rule = selection_rule,
       effect_neighborhood = effect_neighborhood, dina_args = dina_args,
-      dina_res = dina_res, seedit = seedit, details = details)
+      dina_res = dina_res, seedit = seedit, details = details,
+      effect_measure = effect_measure, offset.name = offset.name,
+      adjust_covariates = adjust_covariates,
+      adverse_outcome = if (identical(outcome_type, "survival")) TRUE
+                        else adverse_outcome)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 
@@ -1654,15 +1667,21 @@ forestsearch <- function(df.analysis,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .dg_df)
-      # Restrict the gate family to candidates competitive on DINA's native
-      # tau-hat, so the Cox-effect re-selection mirrors DINA's selection
-      # neighbourhood instead of the full family.  Default: match
-      # effect_neighborhood (the band DINA selects within).  Set
+      # Restrict the gate family to candidates competitive on the SAME statistic
+      # that selected the winner, so the re-selection mirrors DINA's selection
+      # neighbourhood instead of the full family.  With select_statistic =
+      # "effect", DINA selected on the inferential effect, so restrict on the
+      # per-candidate effect (`sel_effect`, attached by the select wrapper);
+      # otherwise restrict on DINA's native tau-hat.  Default neighbourhood:
+      # match effect_neighborhood (the band DINA selects within).  Set
       # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
       .dg_nbhd <- debias_gate_args$family_native_neighborhood
       if (is.null(.dg_nbhd)) .dg_nbhd <- effect_neighborhood
+      .dg_stat <- if (identical(dsel$select_statistic, "effect") &&
+                      "sel_effect" %in% names(dsel$candidates))
+                    dsel$candidates$sel_effect else dsel$candidates$tau_hat
       .dg_tab  <- .fs_dg_restrict_native(
-        dsel$candidates, dsel$candidates$tau_hat,
+        dsel$candidates, .dg_stat,
         neighborhood = .dg_nbhd,
         log_scale = .dg_em %in% c("HR", "OR", "IRR"))
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,

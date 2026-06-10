@@ -961,7 +961,8 @@ reset_workers <- function(workers   = NULL,
   # the selected-cut search runs.  Not passed to dina() or dina_frontier();
   # max_depth / grid_probs are forwarded to dina_subgroup() at the selection
   # sites, selected_only is consumed directly by forestsearch().
-  behavior_keys <- c("selected_only", "max_depth", "grid_probs")
+  behavior_keys <- c("selected_only", "max_depth", "grid_probs",
+                     "select_statistic")
   recognised    <- c(fit_keys, frontier_keys, behavior_keys)
 
   nms <- names(dina_args)
@@ -1010,6 +1011,19 @@ reset_workers <- function(workers   = NULL,
          "with no NAs.", call. = FALSE)
   }
 
+  # select_statistic: which statistic ranks the qualifying candidate family.
+  # "dina" (default) ranks on DINA's native subgroup-mean tau-hat -- the
+  # legacy behaviour, unchanged.  "effect" ranks on the inferential effect
+  # measure (Cox HR for survival; OR/MD/IRR under the GLM extension), computed
+  # with the SAME per-candidate estimator the Tier-2 de-biased gate uses, so
+  # the realized selection is the exact event the gate then de-biases.
+  select_statistic <- get_arg("select_statistic", "dina")
+  if (!is.character(select_statistic) || length(select_statistic) != 1L ||
+      !select_statistic %in% c("dina", "effect")) {
+    stop("`dina_args$select_statistic` must be \"dina\" or \"effect\".",
+         call. = FALSE)
+  }
+
   # Fit arguments: family + seed always set; the remaining fit keys are
   # forwarded to dina() ONLY when the user supplied them, so dina()'s own
   # defaults otherwise apply (no silently invented values).
@@ -1033,7 +1047,123 @@ reset_workers <- function(workers   = NULL,
   )
 
   list(fit = fit, frontier = frontier, selected_only = selected_only,
-       select = list(max_depth = max_depth, grid_probs = grid_probs))
+       select = list(max_depth = max_depth, grid_probs = grid_probs,
+                     select_statistic = select_statistic))
+}
+
+
+#' Re-rank DINA's qualifying family on the inferential effect measure
+#'
+#' Replaces DINA's native tau-hat winner with the candidate that maximises the
+#' effect measure the Tier-2 gate de-biases (Cox HR for survival; the resolved
+#' GLM effect otherwise), scored with the gate's own per-candidate estimator
+#' (`.fs_dg_pieces`) so the realized selection is the exact event the gate
+#' corrects.  Ranking honours the same `sg_focus` / `selection_rule` /
+#' `effect_neighborhood` band logic as `dina_subgroup()`.  Returns `sg` with the
+#' winner fields overwritten and a `sel_effect` (link-scale) column attached to
+#' `sg$candidates`; if no candidate is scorable it returns `sg` unchanged.
+#'
+#' @keywords internal
+#' @noRd
+.dina_reselect_on_effect <- function(sg, df, outcome_type, effect_measure,
+                                     treat.name, outcome.name, event.name,
+                                     offset.name, adjust_covariates,
+                                     adverse_outcome, sg_focus,
+                                     selection_rule, effect_neighborhood) {
+  tab <- sg$candidates
+  if (is.null(tab) || !nrow(tab)) return(sg)
+
+  # Effect measure / spec, mirroring the DINA Tier-2 gate branch: survival uses
+  # "HR" on the log scale; GLM uses the resolved effect_measure.
+  em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+  adv  <- if (identical(outcome_type, "survival")) TRUE else adverse_outcome
+  spec <- .fs_dg_spec(outcome_type, em, treat.name, outcome.name, event.name,
+                      offset.name, adjust_covariates, adverse_outcome = adv,
+                      df = df)
+
+  # Per-candidate effect on the SAME statistic the gate uses (.fs_dg_pieces),
+  # row-aligned to `tab`; skip rows with < 6 members exactly as the gate does.
+  nr        <- nrow(tab)
+  eff_link  <- rep(NA_real_, nr)
+  sz        <- rep(NA_integer_, nr)
+  log_scale <- TRUE
+  for (i in seq_len(nr)) {
+    op1   <- if (identical(as.character(tab$d1[i]), "left")) "<=" else ">="
+    comps <- list(data.frame(variable = as.character(tab$v1[i]), op = op1,
+                             value = as.numeric(tab$c1[i]),
+                             stringsAsFactors = FALSE))
+    if (!is.na(tab$v2[i])) {
+      op2 <- if (identical(as.character(tab$d2[i]), "left")) "<=" else ">="
+      comps[[2L]] <- data.frame(variable = as.character(tab$v2[i]), op = op2,
+                                value = as.numeric(tab$c2[i]),
+                                stringsAsFactors = FALSE)
+    }
+    cj  <- do.call(rbind, comps)
+    mem <- tryCatch(.fs_dg_members_from_conj(df, cj),
+                    error = function(e) integer(0))
+    if (length(mem) < 6L) next
+    pc <- tryCatch(.fs_dg_pieces(df[mem, , drop = FALSE], spec),
+                   error = function(e) NULL)
+    if (is.null(pc) || !is.finite(pc$beta_hat)) next
+    eff_link[i] <- pc$beta_hat
+    sz[i]       <- length(mem)
+    log_scale   <- isTRUE(pc$log_scale)
+  }
+  sg$candidates$sel_effect <- eff_link  # link scale; consumed by the gate branch
+
+  ok <- which(is.finite(eff_link) & !is.na(sz))
+  if (!length(ok)) return(sg)           # nothing scorable -> keep native winner
+
+  # Natural-scale effect for ordering / band (ratio families exponentiated; the
+  # monotone transform leaves non-band foci unaffected).  Match dina_subgroup()'s
+  # canonical sg_focus and its order() switch, with row index as a stable
+  # insertion-order tiebreak.
+  sgf <- .normalize_sg_focus(sg_focus)
+  eff <- if (log_scale) exp(eff_link) else eff_link
+  ord <- switch(
+    sgf,
+    maxSG   = ok[order(-sz[ok], -eff[ok], ok)],
+    minSG   = ok[order( sz[ok], -eff[ok], ok)],
+    hr      = ok[order(-eff[ok], ok)],
+    hrMaxSG = {
+      band <- .compute_inclusion_band(hr_vec = eff[ok], n_vec = sz[ok],
+                                      selection_rule = selection_rule,
+                                      effect_neighborhood = effect_neighborhood)
+      ok[order(-band, -sz[ok], -eff[ok], ok)]
+    },
+    hrMinSG = {
+      band <- .compute_inclusion_band(hr_vec = eff[ok], n_vec = sz[ok],
+                                      selection_rule = selection_rule,
+                                      effect_neighborhood = effect_neighborhood)
+      ok[order(-band, sz[ok], -eff[ok], ok)]
+    },
+    ok[order(-eff[ok], ok)]             # fallback: plain effect argmax
+  )
+  w <- ord[1L]
+
+  # Overwrite the winner fields from the winning candidate row, rebuild the AND
+  # mask so the stored out_sg is internally consistent.  The caller builds
+  # sg.harm / membership from sg$covariate/direction/threshold.
+  win_v <- c(as.character(tab$v1[w]), as.character(tab$v2[w]))
+  win_d <- c(as.character(tab$d1[w]), as.character(tab$d2[w]))
+  win_c <- c(as.numeric(tab$c1[w]),  as.numeric(tab$c2[w]))
+  keep  <- !is.na(win_v)
+  sg$covariate  <- win_v[keep]
+  sg$direction  <- win_d[keep]
+  sg$threshold  <- win_c[keep]
+  sg$depth      <- sum(keep)
+  sg$n_subgroup <- sz[w]
+  if ("tau_hat" %in% names(tab)) sg$mean_tau_hat <- as.numeric(tab$tau_hat[w])
+
+  mask <- rep(TRUE, nrow(df))
+  for (t in seq_len(sg$depth)) {
+    x_t <- df[[sg$covariate[t]]]
+    mask <- mask & (if (identical(sg$direction[t], "left"))
+      x_t <= sg$threshold[t] else x_t >= sg$threshold[t])
+  }
+  sg$mask <- mask
+  sg$select_statistic <- "effect"
+  sg
 }
 
 
@@ -1056,7 +1186,10 @@ reset_workers <- function(workers   = NULL,
                                       treat.name, id.name, outcome_type,
                                       hr.threshold, n.min, sg_focus,
                                       selection_rule, effect_neighborhood,
-                                      dina_args, dina_res, seedit, details) {
+                                      dina_args, dina_res, seedit, details,
+                                      effect_measure = NULL, offset.name = NULL,
+                                      adjust_covariates = NULL,
+                                      adverse_outcome = TRUE) {
   da <- .resolve_dina_args(dina_args, outcome_type,
                            n_min_default = n.min, seed_default = seedit)
 
@@ -1127,6 +1260,24 @@ reset_workers <- function(workers   = NULL,
     effect_neighborhood = effect_neighborhood
   )
 
+  # Effect-based re-selection (dina_args$select_statistic = "effect"): re-rank
+  # DINA's qualifying family on the inferential effect measure the Tier-2 gate
+  # de-biases, overriding the native tau-hat winner.  The default "dina" path
+  # leaves `sg` untouched.  Any failure falls back to the native winner.
+  if (identical(da$select$select_statistic, "effect") && isTRUE(sg$found) &&
+      !is.null(sg$candidates) && nrow(sg$candidates) > 0L) {
+    sg <- tryCatch(
+      .dina_reselect_on_effect(
+        sg = sg, df = df, outcome_type = outcome_type,
+        effect_measure = effect_measure, treat.name = treat.name,
+        outcome.name = outcome.name, event.name = event.name,
+        offset.name = offset.name, adjust_covariates = adjust_covariates,
+        adverse_outcome = adverse_outcome, sg_focus = sg_focus,
+        selection_rule = selection_rule,
+        effect_neighborhood = effect_neighborhood),
+      error = function(e) sg)
+  }
+
   if (isTRUE(details)) {
     lines2 <- c(
       paste0("  Candidates searched:  ",
@@ -1186,7 +1337,8 @@ reset_workers <- function(workers   = NULL,
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        dina_res = dina_res, df.est = df.est,
        df.predict = df.predict_out, df.test = df.test_out,
-       candidates = sg$candidates)   # qualifying family for the Tier-2 gate
+       candidates = sg$candidates,    # qualifying family for the Tier-2 gate
+       select_statistic = da$select$select_statistic)
 }
 
 
