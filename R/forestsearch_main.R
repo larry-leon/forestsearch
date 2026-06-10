@@ -1624,17 +1624,21 @@ forestsearch <- function(df.analysis,
     if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
         !is.null(dsel$grp.consistency) &&
         !is.null(dsel$grp.consistency$sg.harm.id)) {
-      .dg_df    <- dsel$df.est
-      .dg_spec  <- .fs_dg_spec(
-        outcome_type, effect_measure, treat.name, outcome.name, event.name,
+      .dg_df   <- dsel$df.est
+      # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
+      # GLM -> resolved effect_measure with the precomputed comparison-scale
+      # threshold (effect_measure is NULL for survival, so do NOT test it).
+      .dg_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+      .dg_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
+                  else effect_threshold
+      .dg_spec <- .fs_dg_spec(
+        outcome_type, .dg_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .dg_df)
-      .dg_cscr  <- if (effect_measure %in% c("MD", "RD", "IRD"))
-                     hr.threshold else log(hr.threshold)
-      .dg_fam   <- .fs_dg_family_from_table(.dg_df, dsel$candidates,
-                                            op_right = ">=", n_min = n.min)
+      .dg_fam  <- .fs_dg_family_from_table(.dg_df, dsel$candidates,
+                                           op_right = ">=", n_min = n.min)
       out$debias_gate <- .fs_apply_debias_gate(
         df = .dg_df, candidates = .dg_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
@@ -1730,14 +1734,18 @@ forestsearch <- function(df.analysis,
     if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
         !is.null(gsel$grp.consistency$sg.harm.id)) {
       .dg_df   <- gsel$df.est
+      # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
+      # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
+      # survival, so never test it directly.
+      .dg_em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+      .dg_cscr <- if (identical(outcome_type, "survival")) log(hr.threshold)
+                  else effect_threshold
       .dg_spec <- .fs_dg_spec(
-        outcome_type, effect_measure, treat.name, outcome.name, event.name,
+        outcome_type, .dg_em, treat.name, outcome.name, event.name,
         offset.name, adjust_covariates,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .dg_df)
-      .dg_cscr <- if (effect_measure %in% c("MD", "RD", "IRD"))
-                    hr.threshold else log(hr.threshold)
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, gsel$candidates,
                                            op_right = ">", n_min = n.min)
       out$debias_gate <- .fs_apply_debias_gate(
