@@ -118,7 +118,7 @@
 .grf_conjunction_labels <- function(cj, digits = 17L) {
   if (nrow(cj) == 0L) return(character(0))
   sprintf("{%s %s %s}", cj$variable, cj$op,
-          formatC(cj$value, format = "g", digits = digits))
+          formatC(cj$value, format = "g", digits = digits, width = 1L))
 }
 
 
@@ -170,7 +170,7 @@
 
   conj_strings <- vapply(conjunctions, function(cj) {
     parts <- sprintf("%s %s %s", cj$variable, cj$op,
-                     formatC(cj$value, format = "g", digits = digits))
+                     formatC(cj$value, format = "g", digits = digits, width = 1L))
     paste(parts, collapse = " & ")
   }, character(1))
 
@@ -377,7 +377,7 @@
   cj <- do.call(rbind, comps)
   cj <- .grf_simplify_conjunction(cj)
   parts <- sprintf("%s %s %s", cj$variable, cj$op,
-                   formatC(cj$value, format = "g", digits = digits))
+                   formatC(cj$value, format = "g", digits = digits, width = 1L))
   list(conjunctions   = list(cj),
        labels         = .grf_conjunction_labels(cj, digits = digits),
        definition     = paste(parts, collapse = " & "),

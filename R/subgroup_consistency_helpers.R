@@ -1159,6 +1159,75 @@ remove_redundant_subgroups <- function(found.hrs) {
 #'   confounders.name = c("age", "meno", "size", "grade3", "nodes", "pgr", "er"),
 #'   outcome.name = "rfstime", treat.name = "hormon", event.name = "status")
 #' }
+#' Build the consistency evaluation closure in a clean environment
+#'
+#' The parallel consistency search applies a per-candidate closure via
+#' `future_lapply`.  If that closure is defined inside `subgroup.consistency()`,
+#' its environment is the whole enclosing frame, which can hold non-exportable
+#' references (e.g. a screening forest's `externalptr`, or a large precomputed
+#' object); `future` then fails to serialize it to the workers
+#' ("non-exportable reference (externalptr) in ...future.FUN").  These factory
+#' functions are defined at package scope, so the closure they return captures
+#' only the small, exportable arguments passed here -- nothing from the caller's
+#' frame.
+#'
+#' @return A function of one argument `m` (the candidate index).
+#' @keywords internal
+#' @noRd
+.make_eval_subgroup_consistency <- function(index.Z, names.Z, df, found.hrs,
+                                            n.splits, hr.consistency,
+                                            pconsistency.threshold,
+                                            pconsistency.digits, maxk, confs_labels,
+                                            estimator_fn, consistency_threshold,
+                                            adjust_covariates, consistency_method,
+                                            glm_resample_spec) {
+  function(m) {
+    evaluate_subgroup_consistency(
+      m = m, index.Z = index.Z, names.Z = names.Z, df = df,
+      found.hrs = found.hrs, n.splits = n.splits,
+      hr.consistency = hr.consistency,
+      pconsistency.threshold = pconsistency.threshold,
+      pconsistency.digits = pconsistency.digits, maxk = maxk,
+      confs_labels = confs_labels, details = FALSE,
+      estimator_fn = estimator_fn,
+      consistency_threshold = consistency_threshold,
+      adjust_covariates = adjust_covariates,
+      consistency_method = consistency_method,
+      glm_resample_spec = glm_resample_spec
+    )
+  }
+}
+
+#' Two-stage variant of the clean-environment consistency evaluation factory
+#' @keywords internal
+#' @noRd
+.make_eval_consistency_twostage <- function(index.Z, names.Z, df, found.hrs,
+                                            hr.consistency, pconsistency.threshold,
+                                            pconsistency.digits, maxk, confs_labels,
+                                            n.splits.screen, screen.threshold,
+                                            n.splits.max, batch.size, conf.level,
+                                            min.valid.screen, estimator_fn,
+                                            consistency_threshold, adjust_covariates,
+                                            consistency_method, glm_resample_spec) {
+  function(m) {
+    evaluate_consistency_twostage(
+      m = m, index.Z = index.Z, names.Z = names.Z, df = df,
+      found.hrs = found.hrs, hr.consistency = hr.consistency,
+      pconsistency.threshold = pconsistency.threshold,
+      pconsistency.digits = pconsistency.digits, maxk = maxk,
+      confs_labels = confs_labels, details = FALSE,
+      n.splits.screen = n.splits.screen, screen.threshold = screen.threshold,
+      n.splits.max = n.splits.max, batch.size = batch.size,
+      conf.level = conf.level, min.valid.screen = min.valid.screen,
+      estimator_fn = estimator_fn,
+      consistency_threshold = consistency_threshold,
+      adjust_covariates = adjust_covariates,
+      consistency_method = consistency_method,
+      glm_resample_spec = glm_resample_spec
+    )
+  }
+}
+
 #' @importFrom data.table data.table
 #' @importFrom survival coxph Surv
 #' @export

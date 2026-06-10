@@ -548,15 +548,20 @@ rule, default \code{"maxcons"}), \code{draws} (default \code{2000}),
 (default \code{TRUE}), \code{ci_method} (\code{"ij"} default -- de-biased CI
 from the infinitesimal-jackknife variance, the Tier-1 analogue -- or
 \code{"wald"} for the subgroup robust SE), \code{seed}, and
-\code{family_native_neighborhood} (\code{NULL} default).  The last applies
-only to \code{subgroup_method = "dina"} and \code{"grf"}: when set to a
-value in \code{[0, 1)} it restricts the gate's re-selection family to
-candidates within that multiplicative band of the best \emph{native}
-statistic (DINA subgroup-mean tau-hat; GRF doubly-robust score), so the
-Cox/GLM-effect re-selection mirrors the method's own selection neighbourhood
-rather than ranging over the full candidate family.  This reduces the
-over-correction that can occur for DINA/GRF when their native ranking
-diverges from the Cox/GLM effect.  Ignored by \code{"consistency"}, whose
+\code{family_native_neighborhood}.  The last applies
+only to \code{subgroup_method = "dina"} and \code{"grf"}: a value in
+\code{[0, 1)} restricts the gate's re-selection family to candidates within
+that multiplicative band of the best \emph{native} statistic (DINA
+subgroup-mean tau-hat; GRF doubly-robust score), so the Cox/GLM-effect
+re-selection mirrors the method's own selection neighbourhood rather than
+ranging over the full candidate family -- curbing the over-correction that
+can occur when the native ranking diverges from the Cox/GLM effect.  It
+\strong{defaults to \code{effect_neighborhood}} (matching the band DINA/GRF
+select within, the recommended setting); pass a value \code{>= 1} to disable
+the restriction and de-bias against the full enumerated family.  Note this
+tunes only the candidate-competition part of the bias: the gate holds the
+forest fixed, so for DINA/GRF the full bootstrap remains the reference
+regardless of this value.  Ignored by \code{"consistency"}, whose
 \code{maxcons} re-selection already matches its search statistic.}
 }
 \value{

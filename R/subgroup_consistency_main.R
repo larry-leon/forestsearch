@@ -705,56 +705,40 @@ subgroup.consistency <- function(df,
           ", batch_size =", batch_size_parallel, "\n")
     }
 
-    # Create evaluation function closure
+    # Create evaluation function closure via a package-scope factory so its
+    # environment captures ONLY these small, exportable arguments -- not the
+    # whole subgroup.consistency() frame (which may hold a non-exportable
+    # externalptr, e.g. a screening forest, that breaks future serialization).
     if (use_twostage) {
-      eval_fun <- function(m) {
-        evaluate_consistency_twostage(
-          m = m,
-          index.Z = index.Z,
-          names.Z = names.Z,
-          df = df,
-          found.hrs = found.hrs,
-          hr.consistency = hr.consistency,
-          pconsistency.threshold = pconsistency.threshold,
-          pconsistency.digits = pconsistency.digits,
-          maxk = maxk,
-          confs_labels = confs_labels,
-          details = FALSE,
-          n.splits.screen = ts_params$n.splits.screen,
-          screen.threshold = ts_params$screen.threshold,
-          n.splits.max = n.splits,
-          batch.size = ts_params$batch.size,
-          conf.level = ts_params$conf.level,
-          min.valid.screen = ts_params$min.valid.screen,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates,
-          consistency_method = consistency_method,
-          glm_resample_spec = glm_resample_spec
-        )
-      }
+      eval_fun <- .make_eval_consistency_twostage(
+        index.Z = index.Z, names.Z = names.Z, df = df, found.hrs = found.hrs,
+        hr.consistency = hr.consistency,
+        pconsistency.threshold = pconsistency.threshold,
+        pconsistency.digits = pconsistency.digits, maxk = maxk,
+        confs_labels = confs_labels,
+        n.splits.screen = ts_params$n.splits.screen,
+        screen.threshold = ts_params$screen.threshold,
+        n.splits.max = n.splits, batch.size = ts_params$batch.size,
+        conf.level = ts_params$conf.level,
+        min.valid.screen = ts_params$min.valid.screen,
+        estimator_fn = estimator_fn,
+        consistency_threshold = consistency_threshold,
+        adjust_covariates = adjust_covariates,
+        consistency_method = consistency_method,
+        glm_resample_spec = glm_resample_spec
+      )
     } else {
-      eval_fun <- function(m) {
-        evaluate_subgroup_consistency(
-          m = m,
-          index.Z = index.Z,
-          names.Z = names.Z,
-          df = df,
-          found.hrs = found.hrs,
-          n.splits = n.splits,
-          hr.consistency = hr.consistency,
-          pconsistency.threshold = pconsistency.threshold,
-          pconsistency.digits = pconsistency.digits,
-          maxk = maxk,
-          confs_labels = confs_labels,
-          details = FALSE,
-          estimator_fn = estimator_fn,
-          consistency_threshold = consistency_threshold,
-          adjust_covariates = adjust_covariates,
-          consistency_method = consistency_method,
-          glm_resample_spec = glm_resample_spec
-        )
-      }
+      eval_fun <- .make_eval_subgroup_consistency(
+        index.Z = index.Z, names.Z = names.Z, df = df, found.hrs = found.hrs,
+        n.splits = n.splits, hr.consistency = hr.consistency,
+        pconsistency.threshold = pconsistency.threshold,
+        pconsistency.digits = pconsistency.digits, maxk = maxk,
+        confs_labels = confs_labels, estimator_fn = estimator_fn,
+        consistency_threshold = consistency_threshold,
+        adjust_covariates = adjust_covariates,
+        consistency_method = consistency_method,
+        glm_resample_spec = glm_resample_spec
+      )
     }
 
     # Process in batches
