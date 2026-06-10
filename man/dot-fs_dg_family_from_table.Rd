@@ -2,13 +2,12 @@
 % Please edit documentation in R/fs_debias_gate_methods.R
 \name{.fs_dg_family_from_table}
 \alias{.fs_dg_family_from_table}
-\title{Build a gate candidate family (named list of row-index vectors) from a
-uniform candidate table.}
+\title{Build candidate-membership lists from a (v1,d1,c1,v2,d2,c2) table}
 \usage{
 .fs_dg_family_from_table(df, tab, op_right = ">=", n_min = 1L, digits = 17L)
 }
 \arguments{
-\item{df}{Analysis data frame the memberships are evaluated on.}
+\item{df}{Analysis data frame (for membership evaluation).}
 
 \item{tab}{Data frame with columns \code{v1}, \code{d1}, \code{c1}, \code{v2}, \code{d2}, \code{c2}.}
 
@@ -23,7 +22,6 @@ or \code{">"} (GRF).}
 Named list of integer row-index vectors (one per candidate).
 }
 \description{
-Build a gate candidate family (named list of row-index vectors) from a
-uniform candidate table.
+Build candidate-membership lists from a (v1,d1,c1,v2,d2,c2) table
 }
 \keyword{internal}

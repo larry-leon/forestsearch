@@ -106,6 +106,14 @@ fs_grf_selection   <- "frontier"      # only if fs_subgroup_method == "grf": "tr
 fs_grf_depth       <- 2L              # GRF depth (screening + GRF selection)
 fs_dmin_grf        <- 4               # GRF DR-score screening floor
 fs_dina_args       <- list()          # extra args forwarded to DINA selection
+# Tier-2 gate (main analysis): restrict the re-selection family to candidates
+# competitive on the method's NATIVE statistic -- DINA tau-hat or GRF DR-score
+# (NULL = off / full family).  Ignored for "consistency" (its maxcons
+# re-selection already matches the search).  When fs_subgroup_method is "grf" or
+# "dina", matching this band to effect_neighborhood keeps the gate's
+# neighbourhood aligned with the engine's own selection band and curbs the
+# over-correction the full-family gate can show on a large depth-2 family.
+fs_family_native_nbhd <- 0.10
 
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts)
@@ -122,6 +130,26 @@ dina_screen_selected_only        <- TRUE
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
 fs_dina_hr_threshold <- 0.90
+# Tier-2 gate: restrict the DINA re-selection family to candidates competitive on
+# DINA's native tau-hat (NULL = off / full family).  DINA selects on tau-hat but
+# the gate re-selects on Cox effect, so over a large depth-2 family the full-family
+# gate over-corrects relative to the bootstrap; matching this band to
+# effect_neighborhood makes the gate's neighbourhood mirror DINA's own selection.
+fs_dina_family_native_nbhd <- 0.10
+
+# (D) ForestSearch subgroup_method = "grf" (GRF performs selection via a causal
+#     forest policy tree or DR-score frontier; the consistency search, LASSO and
+#     DINA are bypassed).  Dedicated demo: always runs GRF regardless of
+#     fs_subgroup_method, mirroring the standalone DINA selection (C).
+fs_grf_demo_selection     <- "frontier"  # "frontier" | "tree"
+fs_grf_demo_depth         <- 2L          # GRF tree / DR-pair depth
+fs_grf_demo_dmin          <- 0.0         # DR-score harm floor (0 = permissive default)
+fs_grf_sg_focus           <- "effMaxSG"  # -> GRF frontier/tree selection rule
+# Tier-2 gate: restrict the GRF re-selection family to candidates competitive on
+# GRF's native DR-score (NULL = off / full family).  GRF selects on the RMST-based
+# DR-score but the gate re-selects on Cox effect; matching this band to
+# effect_neighborhood keeps the gate's neighbourhood aligned with GRF's selection.
+fs_grf_family_native_nbhd <- 0.10
 ```
 
 
@@ -414,7 +442,8 @@ fs <- forestsearch(
   effect_neighborhood       = 0.10,            # default 0.10
   # --- Tier-2 de-biased gate ----------------------------------------------
   debias_gate               = run_debias_gate,           # set in setup chunk
-  debias_gate_args          = list(draws = gate_draws),  # set in setup chunk
+  debias_gate_args          = list(draws = gate_draws,
+                                   family_native_neighborhood = fs_family_native_nbhd),
   # --- Subgroup constraints -----------------------------------------------
   n.min                     = 60,             # default 60
   d0.min                    = 10,             # default 10
@@ -675,6 +704,15 @@ if (is.null(g)) {
   n_surv <- tryCatch(nrow(fs$find.grps$out.found$hr.subgroups), error = function(e) NA_integer_)
   cat(sprintf("Candidate family: %d (full <= maxk space)%s.\n\n", g$n_family,
               if (!is.na(n_surv)) sprintf("; screened survivors = %d", n_surv) else ""))
+
+  cat(sprintf("Re-selection rule = `%s`%s.\n\n",
+              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (fs_subgroup_method %in% c("dina", "grf"))
+                sprintf(" (a Cox-effect proxy for the %s; native-family band = %s)",
+                        if (identical(fs_subgroup_method, "dina")) "DINA tau-hat" else "GRF DR-score",
+                        if (is.null(fs_family_native_nbhd)) "off (full family)"
+                        else sprintf("%.2f", fs_family_native_nbhd))
+              else " (matches the consistency search statistic)"))
 
   boot_s <- as.numeric(timings$bootstrap)
   cat(sprintf("Timing: Tier 1 bootstrap (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s",
@@ -1112,7 +1150,8 @@ fs_dina <- forestsearch(
   hr.threshold        = fs_dina_hr_threshold,  # set in setup chunk (-> log-HR floor)
   # --- Tier-2 de-biased gate ----------------------------------------------
   debias_gate         = run_debias_gate,           # set in setup chunk
-  debias_gate_args    = list(draws = gate_draws),  # set in setup chunk
+  debias_gate_args    = list(draws = gate_draws,
+                             family_native_neighborhood = fs_dina_family_native_nbhd),
   # --- Output -------------------------------------------------------------
   details             = TRUE             # default FALSE
   # NOTE: subgroup_method = "dina" bypasses GRF, LASSO and the consistency
@@ -1192,7 +1231,20 @@ dina_summaries$table
 The same Tier-2-vs-Tier-1 comparison as the main analysis, for the
 DINA-selection fit. The gate de-biases against DINA's **own** qualifying
 candidate family (re-running nothing), while the bootstrap above re-runs DINA on
-every resample; agreement on the de-biased row validates Tier-2 against Tier-1.
+every resample.
+
+For DINA the two tiers are **not** expected to agree as tightly as for the
+consistency method. DINA selects on its survival-forest **tau-hat**, but the gate
+can only re-select on the perturbed **Cox** effect; over a large depth-2 candidate
+family the gate's winner's-curse term can therefore exceed the bootstrap's and
+over-correct the selected subgroup. To keep the gate's re-selection neighbourhood
+close to DINA's own selection band, this fit sets
+`family_native_neighborhood = fs_dina_family_native_nbhd` — restricting the gate
+family to candidates competitive on tau-hat (set it to `NULL` in the setup chunk
+to de-bias against the full family and see the unrestricted behaviour). The
+complement is the induced residual rather than a max-over-family selection, so it
+agrees across tiers regardless. Treat the full bootstrap as the reference for
+DINA and the gate as a fast, conservative check.
 
 ```{r fs-dina-debias-gate-comparison, eval = !is.null(fs_dina$sg.harm)}
 #| echo: false
@@ -1238,6 +1290,11 @@ if (is.null(g)) {
               isTRUE(g$harm_flag), g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias, g$n_family))
+  cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for DINA's tau-hat); native-family band = %s.\n",
+              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (is.null(fs_dina_family_native_nbhd)) "off (full family)"
+              else sprintf("%.2f (restricted to tau-hat-competitive candidates)",
+                           fs_dina_family_native_nbhd)))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
     cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
@@ -1269,6 +1326,215 @@ always driven by this call's `sg_focus` / `selection_rule` /
 `effect_neighborhood` via `dina_subgroup()`, and `dina_args` supplies only
 the fit. This mode is currently depth-1 (a
 single covariate threshold).
+:::
+
+
+
+## (D) ForestSearch with `subgroup_method = "grf"`
+
+In this mode ForestSearch delegates subgroup *selection* to GRF -- a causal-forest
+policy tree (`grf_selection = "tree"`) or the doubly-robust-score frontier
+(`"frontier"`) -- bypassing LASSO, DINA and the consistency search. The selection
+criteria are inherited from this call's `sg_focus` (mapped to the GRF frontier/tree
+rule), `n.min`, `grf_depth`, `grf_selection` and the DR-score harm floor
+`dmin.grf`. The returned object is a standard `forestsearch` result, so the
+existing bootstrap machinery applies unchanged.
+
+```{r fs-grf-select}
+t0 <- proc.time()
+
+fs_grf <- forestsearch(
+  # --- Required data + roles ----------------------------------------------
+  df.analysis,
+  outcome.name        = outcome.name,
+  event.name          = event.name,
+  treat.name          = treat.name,
+  id.name             = id.name,
+  confounders.name    = confounders.name,
+  df.predict          = NULL,            # default NULL
+  df.test             = NULL,            # default NULL
+  is.RCT              = TRUE,            # default TRUE
+  seedit              = 8316951,         # default 8316951 (also seeds the forest)
+  # --- GRF-selection mode -------------------------------------------------
+  subgroup_method     = "grf",           # default "consistency"
+  grf_selection       = fs_grf_demo_selection,  # set in setup chunk ("tree" | "frontier")
+  grf_depth           = fs_grf_demo_depth,      # set in setup chunk (tree / DR-pair depth)
+  dmin.grf            = fs_grf_demo_dmin,        # set in setup chunk (DR-score harm floor)
+  frac.tau            = 0.8,             # default 0.8 (RMST truncation fraction)
+  grf_res             = NULL,            # default NULL (reuse a fitted forest)
+  # --- Selection criteria -------------------------------------------------
+  sg_focus            = fs_grf_sg_focus,  # set in setup chunk (-> GRF frontier/tree rule)
+  selection_rule      = "neighborhood",  # default "neighborhood"
+  effect_neighborhood = 0.10,            # default 0.10
+  n.min               = 60,              # default 60
+  # --- Tier-2 de-biased gate ----------------------------------------------
+  debias_gate         = run_debias_gate,           # set in setup chunk
+  debias_gate_args    = list(draws = gate_draws,
+                             family_native_neighborhood = fs_grf_family_native_nbhd),
+  # --- Output -------------------------------------------------------------
+  details             = TRUE             # default FALSE
+  # NOTE: subgroup_method = "grf" bypasses LASSO, DINA and the consistency
+  # search; use_lasso / use_dina / use_twostage / fs.splits / maxk /
+  # hr.threshold / pconsistency.threshold do not apply in this mode.
+)
+
+timings$fs_grf_select <- (proc.time() - t0)["elapsed"]
+
+cat("GRF-selected subgroup (H):",
+    paste(fs_grf$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_grf$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_grf$df.est$treat.recommend == 0)))
+```
+
+### Bootstrap Bias-Corrected Cox Estimates
+
+The within-subgroup Cox hazard ratio is upwardly biased by selection. The
+ForestSearch bootstrap corrects this by re-running the full pipeline on each
+resample; because the result above was produced in GRF-selection mode, each
+replicate re-fits the causal forest and re-runs GRF selection from scratch -- so
+the correction reflects the GRF selection process itself.
+
+```{r fs-grf-bootstrap, eval = !is.null(fs_grf$sg.harm)}
+# Runs only when GRF identified a subgroup.  The bootstrap bias-corrects an
+# identified subgroup's effect, so there is nothing to do otherwise.
+t0 <- proc.time()
+
+fs_grf_bc <- forestsearch_bootstrap_dofuture(
+  fs.est = fs_grf,
+  nb_boots = NB,
+  show_three = FALSE,
+  details = TRUE,
+  parallel_args = list(
+    plan = "multisession",
+    workers = n_cores,
+    show_message = TRUE
+  )
+)
+
+plan("sequential")
+timings$fs_grf_bootstrap <- (proc.time() - t0)["elapsed"]
+
+cat("\nGRF-mode bootstrap completed in",
+    round(timings$fs_grf_bootstrap / 60, 1), "minutes\n")
+```
+
+```{r fs-grf-no-subgroup, eval = is.null(fs_grf$sg.harm)}
+# Shown only when GRF selected no subgroup at the configured DR-score floor.
+timings$fs_grf_bootstrap <- 0
+cat("GRF (subgroup_method = \"grf\") identified no subgroup at",
+    "dmin.grf =", fs_grf_demo_dmin, "-- bootstrap skipped.\n",
+    "Lower the DR-score floor (dmin.grf) or switch grf_selection /",
+    "grf_depth if a bootstrap demonstration is desired.\n")
+```
+
+```{r fs-grf-bootstrap-summary, eval = !is.null(fs_grf$sg.harm)}
+grf_summaries <- summarize_bootstrap_results(
+  sgharm = fs_grf$sg.harm,
+  boot_results = fs_grf_bc,
+  create_plots = FALSE,
+  est.scale = "hr"
+)
+
+grf_summaries$table
+```
+
+#### Tier-2 de-biased gate (counterpart to the Tier-1 bootstrap)
+
+The same Tier-2-vs-Tier-1 comparison as the main analysis, for the
+GRF-selection fit. The gate de-biases against GRF's **own** DR-score candidate
+family (re-running nothing), while the bootstrap above re-runs GRF on every
+resample.
+
+As with DINA, the two tiers are **not** expected to agree as tightly as for the
+consistency method. GRF selects on its **doubly-robust (RMST-based) score**, but
+the gate can only re-select on the perturbed **Cox** effect; the additive RMST
+scale and the multiplicative hazard scale need not rank candidates the same way,
+so over a large candidate family the gate's winner's-curse term can exceed the
+bootstrap's and over-correct the selected subgroup. To keep the gate's
+re-selection neighbourhood close to GRF's own selection band, this fit sets
+`family_native_neighborhood = fs_grf_family_native_nbhd` -- restricting the gate
+family to candidates competitive on the DR-score (set it to `NULL` in the setup
+chunk to de-bias against the full family). The complement is the induced residual
+rather than a max-over-family selection, so it agrees across tiers regardless.
+Treat the full bootstrap as the reference for GRF and the gate as a fast,
+conservative check.
+
+```{r fs-grf-debias-gate-comparison, eval = !is.null(fs_grf$sg.harm)}
+#| echo: false
+#| results: asis
+g <- fs_grf$debias_gate
+if (is.null(g)) {
+  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
+} else {
+  fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
+  fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
+  H0 <- fl(fs_grf_bc$H_estimates, "H0"); H0l <- fl(fs_grf_bc$H_estimates, "H0_lower"); H0u <- fl(fs_grf_bc$H_estimates, "H0_upper")
+  H2 <- fl(fs_grf_bc$H_estimates, "H2"); H2l <- fl(fs_grf_bc$H_estimates, "H2_lower"); H2u <- fl(fs_grf_bc$H_estimates, "H2_upper")
+  cc <- g$complement
+  has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
+  q  <- c("naive HR (95% CI)", "de-biased HR (95% CI)")
+  t2 <- c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
+          fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
+  t1 <- c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u))
+  if (has_cc) {
+    Hc0 <- fl(fs_grf_bc$Hc_estimates, "H0"); Hc0l <- fl(fs_grf_bc$Hc_estimates, "H0_lower"); Hc0u <- fl(fs_grf_bc$Hc_estimates, "H0_upper")
+    Hc2 <- fl(fs_grf_bc$Hc_estimates, "H2"); Hc2l <- fl(fs_grf_bc$Hc_estimates, "H2_lower"); Hc2u <- fl(fs_grf_bc$Hc_estimates, "H2_upper")
+    q  <- c(q, "complement naive HR (95% CI)", "complement de-biased HR (95% CI)")
+    t2 <- c(t2, fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
+                fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
+    t1 <- c(t1, fmt_ci(Hc0, Hc0l, Hc0u), fmt_ci(Hc2, Hc2l, Hc2u))
+  }
+  comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
+                     `Tier 1 (bootstrap)` = t1, check.names = FALSE)
+  cat(knitr::kable(comp, row.names = FALSE,
+        caption = sprintf("GRF-selected subgroup: %s%s",
+                          paste(fs_grf$sg.harm, collapse = " & "),
+                          if (has_cc) " (complement = remaining subjects)" else "")),
+      sep = "\n"); cat("\n\n")
+
+  boot_s <- as.numeric(timings$fs_grf_bootstrap)
+  cat(sprintf("Timing: Tier 1 bootstrap (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s",
+              NB, boot_s, boot_s / 60, g$timing_seconds))
+  if (is.finite(boot_s) && g$timing_seconds > 0)
+    cat(sprintf(" -> **%.0fx** faster (the bootstrap scales with `NB`, the gate does not)",
+                boot_s / g$timing_seconds))
+  cat(".\n\n")
+  cat(sprintf("Gate harm flag = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR); candidate family = %d.\n",
+              isTRUE(g$harm_flag), g$debiased$est,
+              if (g$gate$type == "point") "vs" else "lower-bound vs",
+              g$gate$t_gate, g$selection_bias, g$n_family))
+  cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for GRF's DR-score); native-family band = %s.\n",
+              if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
+              if (is.null(fs_grf_family_native_nbhd)) "off (full family)"
+              else sprintf("%.2f (restricted to DR-score-competitive candidates)",
+                           fs_grf_family_native_nbhd)))
+  if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
+                if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
+                g$debiased$se_ij, g$debiased$se_wald))
+}
+```
+
+The Tier-1 bias-corrected table above, rebuilt from the Tier-2 gate object (the
+descriptive columns and naive effect are tier-independent; the bias-corrected
+column carries the gate's de-biased estimate for the subgroup and its complement).
+
+```{r fs-grf-debias-gate-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$debias_gate)}
+gate_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits = 2)
+```
+
+::: {.callout-note}
+## Selection statistic vs. the gate's re-selection (GRF)
+
+GRF ranks candidates by the **doubly-robust score** (RMST-based for survival),
+while the Tier-2 gate re-selects on the perturbed **Cox** effect. The two scales
+(additive RMST vs. multiplicative hazard) need not agree, so the gate is a
+*proxy* for GRF's selection -- the same approximation noted for DINA's tau-hat.
+`family_native_neighborhood` restricts the gate family to DR-score-competitive
+candidates to keep that proxy close to GRF's actual selection neighbourhood; the
+full bootstrap remains the reference because it re-runs the DR-score selection
+itself.
 :::
 
 
