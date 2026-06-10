@@ -16,6 +16,7 @@ fs_debias_gate(
   gate = c("point", "ci"),
   reselection = c("maxcons", "maxeff", "maxSG", "minSG", "effMaxSG", "effMinSG"),
   effect_neighborhood = 0.1,
+  selection_rule = c("neighborhood", "pareto", "both"),
   draws = 2000L,
   multiplier = c("poisson", "gaussian", "rademacher"),
   include_complement = FALSE,

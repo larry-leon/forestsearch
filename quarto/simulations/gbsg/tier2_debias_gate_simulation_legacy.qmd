@@ -69,15 +69,15 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 1000L       # simulated trials                (prod: 1000 -> 20000)
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
+nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
-  c(n_sims = 1000L,  nb_boots = 100L),
+  c(n_sims = 100L,  nb_boots = 50L),
   c(n_sims = 1000L,  nb_boots = 300L),
   c(n_sims = 1000L, nb_boots = 500L)
 )
@@ -580,4 +580,3 @@ if (run_smoke && !is.null(results)) {
 ```{r session-info}
 sessionInfo()
 ```
-

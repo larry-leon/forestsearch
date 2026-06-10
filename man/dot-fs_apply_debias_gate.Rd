@@ -14,6 +14,7 @@
   p_star,
   effect_neighborhood,
   reselection_default,
+  selection_rule_default = "neighborhood",
   debias_gate_args = list(),
   seedit = NULL
 )

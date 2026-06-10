@@ -2,12 +2,23 @@
 % Please edit documentation in R/fs_debias_gate_methods.R
 \name{.fs_dg_reselection_from_focus}
 \alias{.fs_dg_reselection_from_focus}
-\title{Map \code{sg_focus} to the gate's effect-based re-selection rule.}
+\title{Map \code{sg_focus} to the gate's re-selection rule, faithfully per engine.}
 \usage{
-.fs_dg_reselection_from_focus(sg_focus)
+.fs_dg_reselection_from_focus(sg_focus, engine = c("effect", "consistency"))
+}
+\arguments{
+\item{sg_focus}{The search focus (\code{"eff"}, \code{"maxSG"}, \code{"effMaxSG"}, ...).}
+
+\item{engine}{\code{"consistency"} (so \code{"hr"} -> \code{"maxcons"}) or \code{"effect"}
+(DINA/GRF; \code{"hr"} -> \code{"maxeff"}).}
 }
 \description{
-Consistency uses \code{"maxcons"} (consistency-rate optimum); DINA/GRF select by
-effect/size, so \code{"eff"} maps to \code{"maxeff"} and the *SG foci pass through.
+The gate must re-select under the same rule the search used.  The only rule
+that differs by engine is the \code{"hr"}/\code{"eff"} focus: the consistency search
+ranks by consistency rate, whose gate analog is \code{"maxcons"}; DINA/GRF rank by
+effect, whose analog is \code{"maxeff"}.  Every other focus maps identically
+(\code{maxSG}/\code{minSG} pass through; \code{hrMaxSG}/\code{hrMinSG} -> the size-within-effect-
+neighborhood rules \code{effMaxSG}/\code{effMinSG}).  This makes \code{sg_focus} the single
+source of truth, so callers never need to specify \code{reselection} by hand.
 }
 \keyword{internal}

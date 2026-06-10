@@ -4,9 +4,29 @@
 \alias{.fs_dg_select}
 \title{Apply a selection rule among passing candidates on one draw}
 \usage{
-.fs_dg_select(beta, zcons, sizes, passers, rule, nbhd)
+.fs_dg_select(
+  beta,
+  zcons,
+  sizes,
+  passers,
+  rule,
+  nbhd,
+  selection_rule = "neighborhood",
+  log_scale = TRUE
+)
 }
 \description{
-Apply a selection rule among passing candidates on one draw
+For the size-within-band rules (\code{effMaxSG}/\code{effMinSG}) the inclusion band is
+built to match the search's \code{selection_rule}:
+\itemize{
+\item \code{"neighborhood"} - effect within \code{nbhd} of the max, on the NATURAL effect
+scale and multiplicative (\code{eff >= (1 - nbhd) * max(eff)}), matching
+\code{sort_subgroups()} exactly (G3);
+\item \code{"pareto"} - the 2-D non-dominated set in (effect, size), via the same
+dominance core the search uses (\code{.pareto_dominated_xy()}) (G2);
+\item \code{"both"} - the intersection of the two.
+\code{beta} is on the working scale (log for ratio measures); \code{log_scale} controls
+the conversion to the natural effect for the band.
+}
 }
 \keyword{internal}

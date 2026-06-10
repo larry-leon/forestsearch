@@ -114,18 +114,40 @@
 
 
 #' Apply a selection rule among passing candidates on one draw
+#'
+#' For the size-within-band rules (`effMaxSG`/`effMinSG`) the inclusion band is
+#' built to match the search's `selection_rule`:
+#'   * `"neighborhood"` - effect within `nbhd` of the max, on the NATURAL effect
+#'     scale and multiplicative (`eff >= (1 - nbhd) * max(eff)`), matching
+#'     `sort_subgroups()` exactly (G3);
+#'   * `"pareto"` - the 2-D non-dominated set in (effect, size), via the same
+#'     dominance core the search uses (`.pareto_dominated_xy()`) (G2);
+#'   * `"both"` - the intersection of the two.
+#' `beta` is on the working scale (log for ratio measures); `log_scale` controls
+#' the conversion to the natural effect for the band.
 #' @keywords internal
-.fs_dg_select <- function(beta, zcons, sizes, passers, rule, nbhd) {
+.fs_dg_select <- function(beta, zcons, sizes, passers, rule, nbhd,
+                          selection_rule = "neighborhood", log_scale = TRUE) {
   if (!length(passers)) return(NA_integer_)
+  .inband <- function() {
+    eff <- if (log_scale) exp(beta[passers]) else beta[passers]  # natural effect
+    sz  <- sizes[passers]
+    nb  <- eff >= (1 - nbhd) * max(eff)                          # multiplicative band
+    ib <- switch(selection_rule,
+      neighborhood = nb,
+      pareto       = !.pareto_dominated_xy(eff, sz),
+      both         = nb & !.pareto_dominated_xy(eff, sz),
+      nb)
+    if (!any(ib)) ib <- rep(TRUE, length(passers))              # safety: never empty
+    passers[ib]
+  }
   pick <- switch(rule,
     maxcons  = passers[which.max(zcons[passers])],
     maxeff   = passers[which.max(beta[passers])],
     maxSG    = passers[which.max(sizes[passers])],
     minSG    = passers[which.min(sizes[passers])],
-    effMaxSG = { b <- passers[beta[passers] >= max(beta[passers]) - nbhd]
-                 b[which.max(sizes[b])] },
-    effMinSG = { b <- passers[beta[passers] >= max(beta[passers]) - nbhd]
-                 b[which.min(sizes[b])] },
+    effMaxSG = { b <- .inband(); b[which.max(sizes[b])] },
+    effMinSG = { b <- .inband(); b[which.min(sizes[b])] },
     stop("unknown reselection rule: ", rule))
   as.integer(pick)
 }
@@ -237,12 +259,14 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
                            reselection = c("maxcons", "maxeff", "maxSG",
                                            "minSG", "effMaxSG", "effMinSG"),
                            effect_neighborhood = 0.10,
+                           selection_rule = c("neighborhood", "pareto", "both"),
                            draws = 2000L,
                            multiplier = c("poisson", "gaussian", "rademacher"),
                            include_complement = FALSE,
                            ci_method = c("ij", "wald"),
                            seed = NULL) {
   gate <- match.arg(gate); reselection <- match.arg(reselection)
+  selection_rule <- match.arg(selection_rule)
   multiplier <- match.arg(multiplier); ci_method <- match.arg(ci_method)
   if (!is.null(seed)) set.seed(seed)
   df <- as.data.frame(df)
@@ -263,6 +287,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
   sel <- match(sel_lab, asm$names)
 
   gate_meta <- list(t_gate = t_gate, type = gate, reselection = reselection,
+                    selection_rule = selection_rule,
                     multiplier = multiplier, draws = as.integer(draws))
   if (is.na(sel)) {
     return(list(selected_index = NA_integer_, selected_label = sel_lab,
@@ -289,7 +314,7 @@ fs_debias_gate <- function(df, candidates, spec, selected_members,
     pass <- which(bs >= t_g)
     if (!length(pass)) next
     s <- .fs_dg_select(bs, (bs - c_consistency) / sdv, sz, pass, reselection,
-                       effect_neighborhood)
+                       effect_neighborhood, selection_rule, log_scale)
     if (!is.na(s)) { sel_bias[b] <- P[s, b]; winner[b] <- s }
   }
   timing <- as.numeric((proc.time() - t0)["elapsed"])

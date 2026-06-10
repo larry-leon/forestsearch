@@ -1645,7 +1645,8 @@ forestsearch <- function(df.analysis,
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
         p_star = pconsistency.threshold,
         effect_neighborhood = effect_neighborhood,
-        reselection_default = .fs_dg_reselection_from_focus(sg_focus),
+        reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
+        selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
 
@@ -1754,7 +1755,8 @@ forestsearch <- function(df.analysis,
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
         p_star = pconsistency.threshold,
         effect_neighborhood = effect_neighborhood,
-        reselection_default = .fs_dg_reselection_from_focus(sg_focus),
+        reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
+        selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
 
@@ -2554,8 +2556,11 @@ forestsearch <- function(df.analysis,
         p_star        = pconsistency.threshold,
         t_gate        = debias_gate_args$t_gate,            # NULL -> near-null default
         gate          = .g_dg(debias_gate_args$gate,        "point"),
-        reselection   = .g_dg(debias_gate_args$reselection, "maxcons"),
+        reselection   = .g_dg(debias_gate_args$reselection,
+                              .fs_dg_reselection_from_focus(sg_focus,
+                                                            engine = "consistency")),
         effect_neighborhood = effect_neighborhood,
+        selection_rule = .g_dg(debias_gate_args$selection_rule, selection_rule),
         draws         = .g_dg(debias_gate_args$draws,       2000L),
         multiplier    = .g_dg(debias_gate_args$multiplier,  "poisson"),
         include_complement = .g_dg(debias_gate_args$include_complement, TRUE),

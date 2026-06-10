@@ -69,23 +69,36 @@
   fam
 }
 
-#' Map `sg_focus` to the gate's effect-based re-selection rule.
+#' Map `sg_focus` to the gate's re-selection rule, faithfully per engine.
 #'
-#' Consistency uses `"maxcons"` (consistency-rate optimum); DINA/GRF select by
-#' effect/size, so `"eff"` maps to `"maxeff"` and the *SG foci pass through.
+#' The gate must re-select under the same rule the search used.  The only rule
+#' that differs by engine is the `"hr"`/`"eff"` focus: the consistency search
+#' ranks by consistency rate, whose gate analog is `"maxcons"`; DINA/GRF rank by
+#' effect, whose analog is `"maxeff"`.  Every other focus maps identically
+#' (`maxSG`/`minSG` pass through; `hrMaxSG`/`hrMinSG` -> the size-within-effect-
+#' neighborhood rules `effMaxSG`/`effMinSG`).  This makes `sg_focus` the single
+#' source of truth, so callers never need to specify `reselection` by hand.
+#'
+#' @param sg_focus The search focus (`"eff"`, `"maxSG"`, `"effMaxSG"`, ...).
+#' @param engine `"consistency"` (so `"hr"` -> `"maxcons"`) or `"effect"`
+#'   (DINA/GRF; `"hr"` -> `"maxeff"`).
 #' @keywords internal
-.fs_dg_reselection_from_focus <- function(sg_focus) {
+.fs_dg_reselection_from_focus <- function(sg_focus,
+                                          engine = c("effect", "consistency")) {
+  engine  <- match.arg(engine)
+  hr_rule <- if (identical(engine, "consistency")) "maxcons" else "maxeff"
   sgf <- tryCatch(.normalize_sg_focus(sg_focus), error = function(e) sg_focus)
   switch(as.character(sgf),
-         hr       = "maxeff",
+         hr       = hr_rule,
          hrMaxSG  = "effMaxSG",
          hrMinSG  = "effMinSG",
          maxSG    = "maxSG",
          minSG    = "minSG",
+         maxcons  = "maxcons",
          maxeff   = "maxeff",
          effMaxSG = "effMaxSG",
          effMinSG = "effMinSG",
-         "maxeff")
+         hr_rule)
 }
 
 #' Apply the Tier-2 de-biased gate with forestsearch's defaulting rules.
@@ -101,6 +114,7 @@
 .fs_apply_debias_gate <- function(df, candidates, selected_members, spec,
                                   c_screen, c_consistency, p_star,
                                   effect_neighborhood, reselection_default,
+                                  selection_rule_default = "neighborhood",
                                   debias_gate_args = list(), seedit = NULL) {
   .g <- function(a, b) if (is.null(a)) b else a
   if (is.null(debias_gate_args)) debias_gate_args <- list()
@@ -117,6 +131,7 @@
       gate             = .g(debias_gate_args$gate,        "point"),
       reselection      = .g(debias_gate_args$reselection, reselection_default),
       effect_neighborhood = effect_neighborhood,
+      selection_rule   = .g(debias_gate_args$selection_rule, selection_rule_default),
       draws            = .g(debias_gate_args$draws,       2000L),
       multiplier       = .g(debias_gate_args$multiplier,  "poisson"),
       include_complement = .g(debias_gate_args$include_complement, TRUE),

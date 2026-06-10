@@ -5,6 +5,7 @@ author: "Larry León"
 date: today
 format:
   html:
+    embed-resources: true
     toc: true
     toc-depth: 3
     number-sections: true
@@ -46,9 +47,18 @@ the controlled direct effect $\theta^{\ddagger}$ (CDE), and the marginal subgrou
 hazard ratio $\theta^{\dagger}$. The output is the León Table-2-layout
 estimation/coverage table with a Tier-2 block (no Tier-1 row).
 
-The search runs under `consistency_method = "resample"` and `sg_focus = "eff"`;
-the gate re-selects with `reselection = "maxcons"`, which reproduces the
-`sg_focus = "eff"` rule (highest consistency rate).
+The **subgroup-identification engine is selectable** via `subgroup_method`
+(`"consistency"`, `"dina"`, or `"grf"`, with `grf_selection` for the GRF mode):
+the oracle, the truth targets, and the classification metric are all
+method-agnostic, so the same harness characterizes any engine. The gate
+de-biases each method against **its own** candidate family, and the re-selection
+rule is derived automatically from `sg_focus` so it always matches the rule the
+engine actually used: the consistency search ranks by consistency rate
+(`eff` $\to$ `maxcons`), DINA/GRF rank by effect (`eff` $\to$ `maxeff`), and
+`maxSG`/`minSG`/`effMaxSG`/`effMinSG` map through identically. No separate
+re-selection knob is needed. **Detection** is judged on the identified subgroup itself
+(`fs.est$sg.harm`), independent of whether the gate produced a CI; gate
+availability is reported separately.
 
 # Setup — all knobs {#sec-setup}
 
@@ -74,6 +84,20 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # Scale-up scenarios for the timing projection (Tier-2 cost is ~linear in n_sims). Edit freely.
 proj_scenarios <- c(1000L, 5000L, 20000L)
 
+# ── Subgroup-identification method ─────────────────────────────────────────
+# The estimation/coverage targets, oracle, and classification are all
+# method-agnostic, so this document characterizes ANY selection engine:
+#   "consistency" - the consistency search (resample identification);
+#   "dina"        - DINA selection (de-biased over DINA's qualifying family);
+#   "grf"         - GRF selection (DR-candidate frontier family; tree or frontier).
+# The Tier-2 gate now runs for all three (each de-biased against its OWN
+# candidate family, with re-selection matching the method's selection rule).
+subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
+grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+dmin.grf        <- 0.0             # GRF DR-score screening floor
+dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
 target_hr_harm  <- 2.0    # calibrate k_inter to this Cox HR in the harm subgroup
@@ -85,8 +109,18 @@ n_super         <- 5000L
 # ── Search configuration (León tuning; resample identification) ────────────
 consistency_method <- "resample"   # decided: resample identification (the new default)
 sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by effect
-gate_reselection   <- "maxcons"    # mirrors sg_focus = "eff" for a faithful comparison
-hr_threshold       <- 1.25
+# Inclusion-band rule for the effMaxSG/effMinSG foci (inert for eff/maxSG/minSG):
+#   "neighborhood" = effect within (1-eps) of the max (multiplicative, natural scale);
+#   "pareto"       = 2-D non-dominated set in (effect, size);
+#   "both"         = neighborhood AND pareto.  The gate de-biases under the SAME rule.
+selection_rule     <- "neighborhood"   # "neighborhood" | "pareto" | "both"
+# Gate re-selection rule is NO LONGER specified here.  forestsearch() derives it
+# from sg_focus, faithfully per engine: the consistency search ranks by
+# consistency rate (eff/hr -> "maxcons"), DINA/GRF rank by effect (eff/hr ->
+# "maxeff"), and maxSG/minSG/effMaxSG/effMinSG map through identically.  So
+# sg_focus is the single source of truth; to override, pass `reselection =`
+# inside debias_gate_args below (advanced use only).
+hr_threshold       <- 1.0
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
@@ -118,7 +152,9 @@ seed_base  <- 8316951L
 n_workers  <- ceiling(0.95*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
 z975       <- qnorm(0.975)
 
-cat(sprintf("Tier-2 standalone: n_sims=%d, gate_draws=%d, workers=%d\n",
+cat(sprintf("Tier-2 standalone: method=%s%s, n_sims=%d, gate_draws=%d, workers=%d\n",
+            subgroup_method,
+            if (identical(subgroup_method, "grf")) paste0("/", grf_selection) else "",
             n_sims, gate_draws, n_workers))
 ```
 
@@ -194,7 +230,7 @@ parallelises across trials.
 
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
-  sim_id = sim_id, detected = 0L, n_sel = NA_integer_,
+  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
   label = NA_character_, t2_secs = NA_real_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
@@ -218,57 +254,77 @@ record_replicate <- function(sim_id) {
   confs <- intersect(confounders_base, names(df))
 
   # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
-  t2_t0 <- proc.time()[3]
-  fs.est <- tryCatch(
-    forestsearch(
-      df.analysis     = df,
-      outcome.name    = outcome_name, event.name = event_name,
-      treat.name      = treat_name,   id.name    = id_name,
-      flag_harm.name  = harm_col,     confounders.name = confs,
-      is.RCT          = TRUE,         seedit = seed_base + sim_id,
-      quiet           = TRUE,         # suppress the "De-biased gate: HR = ... -> ..." cat()
-      use_lasso       = use_lasso,    use_grf = use_grf,
-      sg_focus        = sg_focus,
+  # Args common to every method, plus a method-specific block.  Consistency-only
+  # tuning (LASSO/two-stage/forced cuts/maxk) is NOT forwarded to DINA/GRF, which
+  # have their own candidate enumeration; all methods search the same confs.
+  base_args <- list(
+    df.analysis     = df,
+    outcome.name    = outcome_name, event.name = event_name,
+    treat.name      = treat_name,   id.name    = id_name,
+    flag_harm.name  = harm_col,     confounders.name = confs,
+    is.RCT          = TRUE,         seedit = seed_base + sim_id,
+    quiet           = TRUE,         # suppress the "De-biased gate: ..." cat()
+    sg_focus        = sg_focus,
+    subgroup_method = subgroup_method,
+    hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
+    pconsistency.threshold = pconsistency, n.min = n_min,
+    selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
+    parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
+    debias_gate     = TRUE,
+    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+                            include_complement = TRUE)  # reselection derived from sg_focus
+  )
+  method_args <- switch(
+    subgroup_method,
+    consistency = list(
       consistency_method = consistency_method,
-      conf_force          = fs_conf_force,
-     conf.cont_jcuts      = fs_conf.cont_jcuts,
-      hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
-      pconsistency.threshold = pconsistency, fs.splits = fs_splits,
-      maxk = maxk, n.min = n_min, d0.min = d0_min, d1.min = d1_min,
-      use_twostage    = use_twostage,
-      parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
-      debias_gate     = TRUE,
-      debias_gate_args = list(ci_method = "ij", draws = gate_draws,
-                              reselection = gate_reselection,
-                              include_complement = TRUE)
-    ),
-    error = function(e) NULL)
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = dina_args,
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf),
+    stop("unknown subgroup_method: ", subgroup_method)
+  )
+
+  t2_t0 <- proc.time()[3]
+  fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
+                     error = function(e) NULL)
   rec$t2_secs <- proc.time()[3] - t2_t0
   if (is.null(fs.est)) return(rec)
 
-  g <- fs.est$debias_gate
-  found <- !is.null(fs.est$sg.harm) && !is.null(g)
+  # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
+  # whether the Tier-2 gate produced a CI; gate availability is tracked
+  # separately in gate_ok so a gate failure never masks a true detection.
+  g     <- fs.est$debias_gate
+  found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (!found) return(rec)
+  rec$gate_ok <- as.integer(!is.null(g))
 
-  rec$label <- g$selected_label %||% NA_character_
-  rec$n_sel <- g$n_selected      %||% NA_integer_
-  rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
-  rec$ij_source    <- g$debiased$ij_source %||% NA_character_
-  rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
-  rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
-  rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
-  if (is.list(g$complement) && !is.null(g$complement$debiased)) {
-    rec$nv_Hc_est <- g$complement$naive$est
-    rec$nv_Hc_lo  <- g$complement$naive$lower
-    rec$nv_Hc_hi  <- g$complement$naive$upper
-    rec$t2_Hc_est <- g$complement$debiased$est
-    rec$t2_Hc_lo  <- g$complement$debiased$lower
-    rec$t2_Hc_hi  <- g$complement$debiased$upper
-    rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected      %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source    <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$nv_Hc_lo  <- g$complement$naive$lower
+      rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
   }
 
   # ---- Classification of Ĥ against the true harm flag ----------------------
+  # grp.consistency$sg.harm.id is a per-subject 0/1 vector (length nrow(df),
+  # aligned to input rows) populated by ALL selectors -- consistency, DINA, and
+  # GRF -- so the classification metric is identical across methods.
   cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
   rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
   rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
@@ -427,12 +483,16 @@ if (run_smoke && !is.null(results)) {
                  .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
   harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
   ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
+  gate_rate <- mean(rH$gate_ok, na.rm = TRUE)      # gate produced a CI | detected
+  method_lab <- sprintf("%s%s identification", subgroup_method,
+                        if (identical(subgroup_method, "grf"))
+                          paste0("/", grf_selection) else "")
 
   gt(est_tab, groupname_col = "Block") |>
     tab_header(
       title = "Tier-2 de-biased gate: estimation & coverage",
-      subtitle = sprintf("M1 \u00b7 n=%d, %d sims, draws=%d \u00b7 resample identification",
-                         n_sample, n_sims, gate_draws)) |>
+      subtitle = sprintf("M1 \u00b7 n=%d, %d sims, draws=%d \u00b7 %s",
+                         n_sample, n_sims, gate_draws, method_lab)) |>
     fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
     fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
@@ -446,8 +506,8 @@ if (run_smoke && !is.null(results)) {
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
-      "Detection rate **%.0f%%** of %d sims; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
-      100 * det_rate, n_sims, 100 * harm_rate, 100 * ij_ok, cls))) |>
+      "Detection rate **%.0f%%** of %d sims; gate produced a CI in **%.0f%%** of detected reps; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
+      100 * det_rate, n_sims, 100 * gate_rate, 100 * harm_rate, 100 * ij_ok, cls))) |>
     tab_footnote(footnote = md(paste(
       "Targets: $b^{\\text{oracle}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
       "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",
