@@ -29,10 +29,54 @@
   which(.grf_evaluate_subgroup(def, df) == 0L)
 }
 
-#' Build a gate candidate family (named list of row-index vectors) from a
-#' uniform candidate table.
+#' Restrict a candidate table to rows competitive on a method's native ranking
+#' statistic (DINA tau-hat, GRF doubly-robust score)
 #'
-#' @param df Analysis data frame the memberships are evaluated on.
+#' The Tier-2 gate re-selects winners on each multiplier draw by perturbed
+#' Cox/GLM effect.  DINA and GRF, however, select on their own statistic
+#' (subgroup-mean tau-hat / mean DR score), so over a large family the
+#' Cox-effect re-selection explores candidates the native rule would never
+#' reach, inflating the selection-bias term relative to the full bootstrap
+#' (which re-runs the native selection).  Limiting the family to candidates
+#' within a band of the best native statistic makes the gate's re-selection
+#' neighbourhood mirror the one the bootstrap actually explores.
+#'
+#' Opt-in: `neighborhood = NULL` (the default everywhere) returns `tab`
+#' unchanged, so existing behaviour is preserved exactly.  The consistency
+#' method does not call this -- its gate re-selection (`maxcons`) already
+#' matches the search statistic.
+#'
+#' @param tab Candidate table (rows = candidates).
+#' @param stat Numeric native statistic aligned to `tab` rows (harm = high).
+#' @param neighborhood Multiplicative band in `[0, 1)` on the natural-effect
+#'   scale: keep `e >= (1 - neighborhood) * max(e)`, with `e = exp(stat)` when
+#'   `log_scale = TRUE`.  `NULL` disables the restriction.
+#' @param log_scale Logical; exponentiate `stat` before banding (ratio scales,
+#'   e.g. DINA log-HR tau-hat).  GRF DR scores are additive (`FALSE`).
+#' @return The retained subset of `tab` (always at least the best row); `tab`
+#'   unchanged when disabled, mis-sized, or when no positive harm-side maximum
+#'   exists.
+#' @keywords internal
+#' @noRd
+.fs_dg_restrict_native <- function(tab, stat, neighborhood = NULL,
+                                   log_scale = FALSE) {
+  if (is.null(neighborhood) || !is.finite(neighborhood) ||
+      neighborhood < 0 || neighborhood >= 1 ||
+      is.null(stat) || is.null(tab) || !nrow(tab)) return(tab)
+  s <- suppressWarnings(as.numeric(stat))
+  if (length(s) != nrow(tab) || !any(is.finite(s))) return(tab)
+  e  <- if (isTRUE(log_scale)) exp(s) else s
+  mx <- suppressWarnings(max(e[is.finite(e)]))
+  if (!is.finite(mx) || mx <= 0) return(tab)            # no harm-side band
+  keep <- is.finite(e) & e >= (1 - neighborhood) * mx
+  keep[which.max(replace(e, !is.finite(e), -Inf))] <- TRUE  # always keep best
+  out <- tab[keep, , drop = FALSE]
+  if (nrow(out)) out else tab
+}
+
+#' Build candidate-membership lists from a (v1,d1,c1,v2,d2,c2) table
+#'
+#' @param df Analysis data frame (for membership evaluation).
 #' @param tab Data frame with columns `v1`, `d1`, `c1`, `v2`, `d2`, `c2`.
 #' @param op_right Operator used when direction is not `"left"`: `">="` (DINA)
 #'   or `">"` (GRF).

@@ -533,6 +533,7 @@ dina_subgroup <- function(fit, df, covariates,
     candidates              = data.frame(
       v1 = covariates[cand_j1], d1 = cand_dir1, c1 = cand_q1,
       v2 = covariates[cand_j2], d2 = cand_dir2, c2 = cand_q2,
+      tau_hat = cand_tau,   # native DINA ranking statistic (subgroup-mean tau-hat)
       stringsAsFactors = FALSE),
     call                    = match.call()
   )
