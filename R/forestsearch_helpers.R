@@ -1184,7 +1184,8 @@ reset_workers <- function(workers   = NULL,
 
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        dina_res = dina_res, df.est = df.est,
-       df.predict = df.predict_out, df.test = df.test_out)
+       df.predict = df.predict_out, df.test = df.test_out,
+       candidates = sg$candidates)   # qualifying family for the Tier-2 gate
 }
 
 
@@ -1363,5 +1364,6 @@ reset_workers <- function(workers   = NULL,
 
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        grf_res = grf_res, df.est = df.est,
-       df.predict = df.predict_out, df.test = df.test_out)
+       df.predict = df.predict_out, df.test = df.test_out,
+       candidates = grf_res$candidates)   # DR-candidate family for the Tier-2 gate
 }

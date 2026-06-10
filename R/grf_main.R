@@ -255,6 +255,18 @@ grf.subg.harm.survival <- function(data,
   # Maximum sample size (used to exclude full population as subgroup)
   n.max <- length(Y)
 
+  # DR-score candidate family (depth-1 + depth-2) in (v1,d1,c1,v2,d2,c2) form,
+  # exposed so the Tier-2 de-biased gate can re-select over the SAME family GRF
+  # ranks (frontier) or, under the policy tree, over the cut-defined universe.
+  .dg_candidates <- tryCatch({
+    cc <- .grf_dr_candidates(X, dr.scores, n_min = config$n.min)
+    if (config$maxdepth >= 2L) {
+      cc2 <- .grf_dr_candidates_d2(X, dr.scores, n_min = config$n.min)
+      cc  <- if (is.null(cc)) cc2 else if (is.null(cc2)) cc else rbind(cc, cc2)
+    }
+    cc
+  }, error = function(e) NULL)
+
   # ===========================================================================
   # SECTION: FRONTIER SELECTION (selection = "frontier")
   # Purpose: alternative to the policy tree -- enumerate threshold (and depth-2
@@ -306,7 +318,8 @@ grf.subg.harm.survival <- function(data,
       n.min          = config$n.min,
       selected_depth = if (is.na(sel$v2)) 1L else 2L,
       selection      = "frontier",
-      frontier       = .grf_mark_frontier(cand)
+      frontier       = .grf_mark_frontier(cand),
+      candidates     = .dg_candidates
     )
     return(result)
   }
@@ -394,6 +407,7 @@ grf.subg.harm.survival <- function(data,
   # Structured subgroup definition (path-based, direction-correct; possibly a
   # disjunction) for downstream membership evaluation on new data.
   result$sg_def <- sg_def
+  result$candidates <- .dg_candidates   # DR-candidate family for the Tier-2 gate
 
   return(result)
 }

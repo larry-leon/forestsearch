@@ -1616,6 +1616,35 @@ forestsearch <- function(df.analysis,
                               else NULL,
       subgroup_method       = "dina"
     )
+
+    # SECTION 9B (DINA): Tier-2 de-biased gate over DINA's OWN candidate family
+    # (approach (i)).  Re-selection matches the DINA focus rule via sg_focus.
+    # Defensive: any failure leaves out$debias_gate NULL; DINA output unaffected.
+    out$debias_gate <- NULL
+    if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
+        !is.null(dsel$grp.consistency) &&
+        !is.null(dsel$grp.consistency$sg.harm.id)) {
+      .dg_df    <- dsel$df.est
+      .dg_spec  <- .fs_dg_spec(
+        outcome_type, effect_measure, treat.name, outcome.name, event.name,
+        offset.name, adjust_covariates,
+        adverse_outcome = if (identical(outcome_type, "survival")) TRUE
+                          else adverse_outcome,
+        df = .dg_df)
+      .dg_cscr  <- if (effect_measure %in% c("MD", "RD", "IRD"))
+                     hr.threshold else log(hr.threshold)
+      .dg_fam   <- .fs_dg_family_from_table(.dg_df, dsel$candidates,
+                                            op_right = ">=", n_min = n.min)
+      out$debias_gate <- .fs_apply_debias_gate(
+        df = .dg_df, candidates = .dg_fam,
+        selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
+        spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
+        p_star = pconsistency.threshold,
+        effect_neighborhood = effect_neighborhood,
+        reselection_default = .fs_dg_reselection_from_focus(sg_focus),
+        debias_gate_args = debias_gate_args, seedit = seedit)
+    }
+
     class(out) <- c("forestsearch", "list")
     return(out)
   }
@@ -1691,6 +1720,36 @@ forestsearch <- function(df.analysis,
                               else NULL,
       subgroup_method       = "grf"
     )
+
+    # SECTION 9B (GRF): Tier-2 de-biased gate over GRF's OWN DR-candidate family
+    # (approach (i)).  Frontier ranks this family directly; the policy tree uses
+    # it as the cut-defined universe.  Re-selection matches sg_focus.  GRF cut
+    # operator for non-"left" is ">" (matches .grf_sg_def_from_candidate).
+    # Defensive: any failure leaves out$debias_gate NULL; GRF output unaffected.
+    out$debias_gate <- NULL
+    if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
+        !is.null(gsel$grp.consistency$sg.harm.id)) {
+      .dg_df   <- gsel$df.est
+      .dg_spec <- .fs_dg_spec(
+        outcome_type, effect_measure, treat.name, outcome.name, event.name,
+        offset.name, adjust_covariates,
+        adverse_outcome = if (identical(outcome_type, "survival")) TRUE
+                          else adverse_outcome,
+        df = .dg_df)
+      .dg_cscr <- if (effect_measure %in% c("MD", "RD", "IRD"))
+                    hr.threshold else log(hr.threshold)
+      .dg_fam  <- .fs_dg_family_from_table(.dg_df, gsel$candidates,
+                                           op_right = ">", n_min = n.min)
+      out$debias_gate <- .fs_apply_debias_gate(
+        df = .dg_df, candidates = .dg_fam,
+        selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
+        spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
+        p_star = pconsistency.threshold,
+        effect_neighborhood = effect_neighborhood,
+        reselection_default = .fs_dg_reselection_from_focus(sg_focus),
+        debias_gate_args = debias_gate_args, seedit = seedit)
+    }
+
     class(out) <- c("forestsearch", "list")
     return(out)
   }

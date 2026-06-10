@@ -526,6 +526,13 @@ dina_subgroup <- function(fit, df, covariates,
     n_total                 = n,
     n_candidates_searched   = n_searched,
     n_candidates_qualifying = n_qualifying,
+    # Qualifying candidate family (the set the focus rule ranked over), in the
+    # uniform (v1,d1,c1,v2,d2,c2) form consumed by .fs_dg_family_from_table().
+    # X columns are in `covariates` order, so covariates[cand_j*] names them.
+    candidates              = data.frame(
+      v1 = covariates[cand_j1], d1 = cand_dir1, c1 = cand_q1,
+      v2 = covariates[cand_j2], d2 = cand_dir2, c2 = cand_q2,
+      stringsAsFactors = FALSE),
     call                    = match.call()
   )
   class(out) <- "dina_subgroup"
