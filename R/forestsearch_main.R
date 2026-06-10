@@ -257,8 +257,10 @@
 #'   call), \code{direction}, \code{max_per_covariate}, \code{max_subgroups},
 #'   and \code{digits}; plus the screening-behavior keys \code{selected_only}
 #'   (default \code{TRUE}, matching GRF's \code{return_selected_cuts_only}),
-#'   \code{max_depth} (\code{1L} default, or \code{2L} to let the selected
-#'   cut be an AND-conjunction of two covariates), and \code{grid_probs}
+#'   \code{max_depth} (\code{2L} default -- aligning DINA with \code{maxk = 2}
+#'   and \code{grf_depth = 2} so the selected cut may be an AND-conjunction of
+#'   two covariates; set \code{1L} for single-covariate cuts only), and
+#'   \code{grid_probs}
 #'   (the per-covariate quantile grid for depth-2 pair thresholds; default
 #'   interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
 #'   to \code{\link{dina_subgroup}} and apply to both the selected-cut

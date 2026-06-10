@@ -236,6 +236,7 @@ parallelises across trials.
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  n_harm = NA_integer_,
   label = NA_character_, t2_secs = NA_real_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
@@ -334,6 +335,9 @@ record_replicate <- function(sim_id) {
   cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
   rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
   rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
+  # Identified-subgroup size |Ĥ| from the per-subject flag (all detected reps,
+  # independent of whether the gate produced a CI) -- feeds avg(Ĥ).
+  rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
 
   # ---- Oracle: refit on the TRUE harm subgroup of this trial ---------------
   oH  <- .cox_hr_ci(df[df[[harm_col]] == 1, , drop = FALSE])
@@ -490,6 +494,18 @@ if (run_smoke && !is.null(results)) {
   harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
   ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
   gate_rate <- mean(rH$gate_ok, na.rm = TRUE)      # gate produced a CI | detected
+  avg_size  <- .mfin(rH$n_harm)                    # average |Ĥ| over detected reps
+  # Estimable-realization note: the n column is near-constant, so summarize it
+  # as the common per-cell count plus any exceptions, and drop the column.
+  n_common <- as.integer(names(sort(table(est_tab$n), decreasing = TRUE))[1])
+  exc <- est_tab[est_tab$n != n_common, , drop = FALSE]
+  n_note <- if (!nrow(exc))
+    sprintf("Estimable realizations: %d per cell.", n_common)
+  else sprintf("Estimable realizations: %d per cell (except %s).", n_common,
+               paste(sprintf("%s in %s: %d", exc$Estimator,
+                             sub("^.*\\s", "", exc$Block), exc$n),
+                     collapse = "; "))
+  est_tab$n <- NULL
   method_lab <- sprintf("%s%s identification", subgroup_method,
                         if (identical(subgroup_method, "grf"))
                           paste0("/", grf_selection) else "")
@@ -503,7 +519,7 @@ if (run_smoke && !is.null(results)) {
     fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
     fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
     cols_label(
-      n = "n", Len_med = "Len(med)",
+      Len_med = "Len(med)",
       SD_hat = md("$\\widehat{\\text{SD}}$"),
       b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
       b_marg = md("$b^{\\dagger}$"),
@@ -512,8 +528,9 @@ if (run_smoke && !is.null(results)) {
     tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
     tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
     tab_footnote(footnote = md(sprintf(
-      "Detection rate **%.0f%%** of %d sims; gate produced a CI in **%.0f%%** of detected reps; gate flags harm in **%.0f%%** of detected reps; IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s. Summaries finite-only over detected reps; `n` = finite reps contributing.",
-      100 * det_rate, n_sims, 100 * gate_rate, 100 * harm_rate, 100 * ij_ok, cls))) |>
+      "Detection rate **%.0f%%** of %d sims (the search identified a subgroup \u0124). Among those detected reps: the gate produced a CI in **%.0f%%**, and the Tier-2 de-biased estimate still cleared the harm gate in **%.0f%%** (i.e. apparent harm survived bias correction); IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s; avg(\u0124) size **%.0f** (%.0f%% of n=%d). %s",
+      100 * det_rate, n_sims, 100 * gate_rate, 100 * harm_rate, 100 * ij_ok, cls,
+      avg_size, 100 * avg_size / n_sample, n_sample, n_note))) |>
     tab_footnote(footnote = md(paste(
       "Targets: $b^{\\text{oracle}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
       "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",

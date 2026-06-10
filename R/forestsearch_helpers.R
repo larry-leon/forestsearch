@@ -992,11 +992,12 @@ reset_workers <- function(workers   = NULL,
   }
 
   # max_depth / grid_probs: forwarded to dina_subgroup() at the selected-cut
-  # and subgroup_method = "dina" sites.  Default max_depth = 1L preserves the
-  # depth-1 (single-covariate) screening behaviour exactly; max_depth = 2L
-  # lets the selected cut be an AND-conjunction of two covariates, whose
-  # component cuts are then composed by the consistency search as usual.
-  max_depth <- get_arg("max_depth", 1L)
+  # and subgroup_method = "dina" sites.  Default max_depth = 2L aligns DINA with
+  # the consistency search (maxk = 2) and GRF (grf_depth = 2): the selected cut
+  # may be an AND-conjunction of two covariates, whose component cuts are then
+  # composed by the consistency search as usual.  Set 1L for depth-1
+  # (single-covariate) candidates only.
+  max_depth <- get_arg("max_depth", 2L)
   max_depth <- suppressWarnings(as.integer(max_depth))
   if (length(max_depth) != 1L || is.na(max_depth) ||
       !max_depth %in% c(1L, 2L)) {

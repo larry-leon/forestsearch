@@ -142,7 +142,8 @@
 #' @param direction one of `"both"` (default), `"left"`, or `"right"`.
 #'   For each covariate `x_j` controls whether to search subgroups of
 #'   the form `x_j <= q` (left), `x_j >= q` (right), or both.
-#' @param max_depth integer, `1L` (default) or `2L`.  `1L` searches
+#' @param max_depth integer, `1L` or `2L` (default `2L`, aligning with the
+#'   consistency search `maxk = 2` and GRF `grf_depth = 2`).  `1L` searches
 #'   single-covariate cuts only (the legacy behaviour).  `2L` additionally
 #'   searches AND-conjunctions of two distinct covariates and ranks them
 #'   jointly with the single-covariate cuts; see the *Depth-2
@@ -257,7 +258,7 @@ dina_subgroup <- function(fit, df, covariates,
                           n_min = 60L,
                           n_min.frac = 0.10,
                           direction = c("both", "left", "right"),
-                          max_depth = 1L,
+                          max_depth = 2L,
                           grid_probs = seq(0.1, 0.9, by = 0.1),
                           sg_focus = "maxSG",
                           selection_rule = "neighborhood",
