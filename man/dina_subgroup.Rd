@@ -12,7 +12,7 @@ dina_subgroup(
   n_min = 60L,
   n_min.frac = 0.1,
   direction = c("both", "left", "right"),
-  max_depth = 1L,
+  max_depth = 2L,
   grid_probs = seq(0.1, 0.9, by = 0.1),
   sg_focus = "maxSG",
   selection_rule = "neighborhood",
@@ -52,7 +52,8 @@ Default \code{60L}, matching the convention in GRF and \code{forestsearch()}.}
 For each covariate \code{x_j} controls whether to search subgroups of
 the form \code{x_j <= q} (left), \code{x_j >= q} (right), or both.}
 
-\item{max_depth}{integer, \code{1L} (default) or \code{2L}.  \code{1L} searches
+\item{max_depth}{integer, \code{1L} or \code{2L} (default \code{2L}, aligning with the
+consistency search \code{maxk = 2} and GRF \code{grf_depth = 2}).  \code{1L} searches
 single-covariate cuts only (the legacy behaviour).  \code{2L} additionally
 searches AND-conjunctions of two distinct covariates and ranks them
 jointly with the single-covariate cuts; see the \emph{Depth-2
