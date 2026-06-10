@@ -75,6 +75,13 @@ gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 
+# Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
+proj_scenarios <- list(
+  c(n_sims = 1000L,  nb_boots = 100L),
+  c(n_sims = 1000L,  nb_boots = 300L),
+  c(n_sims = 20000L, nb_boots = 300L)
+)
+
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
 target_hr_harm  <- 2.0    # calibrate k_inter to this Cox HR in the harm subgroup
@@ -170,7 +177,7 @@ outer loop already parallelises across trials.
   fit <- tryCatch(survival::coxph(fml, data = df), error = function(e) NULL)
   if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
   b  <- unname(stats::coef(fit)[1])
-  v  <- suppressWarnings(diag(stats::vcov(fit))[1])
+  v  <- unname(suppressWarnings(diag(stats::vcov(fit))[1]))  # unname: else lo/hi inherit coef name -> oH["lo"] = NA
   se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
   if (!is.finite(b) || !is.finite(se))
     return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
@@ -330,6 +337,62 @@ if (run_smoke) {
   cat(sprintf("Mean wall-clock: Tier-2 gate %.3f s vs Tier-1 bootstrap %.2f s (B=%d).\n",
               mean(results$t2_secs, na.rm = TRUE),
               mean(results$t1_secs, na.rm = TRUE), nb_boots))
+}
+```
+
+# Timing and scale-up projection
+
+Tier-2 cost per replicate is essentially fixed (one fit + the multiplier draws,
+independent of `nb_boots`); Tier-1 cost scales **linearly** with `nb_boots`
+(it re-runs the whole search once per bootstrap). The projection below uses the
+measured per-replicate times, assumes Tier-1 runs only on detected replicates,
+and divides by the worker count for an idealized wall-clock.
+
+```{r timing-projection}
+if (run_smoke && !is.null(results)) {
+  t2_mean  <- mean(results$t2_secs, na.rm = TRUE)              # forestsearch + gate, per rep
+  t1_mean  <- mean(results$t1_secs, na.rm = TRUE)              # bootstrap, per (detected) rep
+  per_boot <- t1_mean / nb_boots                               # cost of one bootstrap re-search
+  det_rate <- mean(results$detected, na.rm = TRUE)
+
+  fmt_hm <- function(sec) {
+    h <- floor(sec / 3600); m <- round((sec - 3600 * h) / 60)
+    if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
+  }
+  # Per-rep totals and wall-clock under the same n_workers used here.
+  proj_row <- function(ns, B) {
+    t1_rep   <- per_boot * B
+    cpu_sec  <- ns * (t2_mean + det_rate * t1_rep)             # Tier-2 all reps; Tier-1 detected only
+    wall_id  <- cpu_sec / n_workers                            # idealized (perfect parallelism)
+    data.frame(n_sims = ns, B = B,
+               t2_rep_s = round(t2_mean, 1), t1_rep_s = round(t1_rep, 0),
+               cpu_hours = round(cpu_sec / 3600, 1),
+               wall_ideal = fmt_hm(wall_id),
+               wall_real_1.3x = fmt_hm(1.3 * wall_id),
+               stringsAsFactors = FALSE)
+  }
+  cur <- proj_row(n_sims, nb_boots)
+  scn <- do.call(rbind, lapply(proj_scenarios,
+                               function(s) proj_row(s[["n_sims"]], s[["nb_boots"]])))
+  tab <- rbind(cbind(Scenario = "current run", cur),
+               cbind(Scenario = "projection",  scn))
+
+  cat(sprintf(
+    "Current run: %d reps in %.0f s on %d workers. Per rep: Tier-2 %.1f s, Tier-1 %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
+    n_sims, elapsed, n_workers, t2_mean, t1_mean, nb_boots, per_boot, 100 * det_rate))
+
+  gt(tab) |>
+    tab_header(title = "Wall-clock projection",
+               subtitle = sprintf("Measured on this run \u00b7 %d workers \u00b7 detection %.0f%%",
+                                  n_workers, 100 * det_rate)) |>
+    cols_label(n_sims = "sims", B = "boots", t2_rep_s = "Tier-2/rep (s)",
+               t1_rep_s = "Tier-1/rep (s)", cpu_hours = "CPU-hours",
+               wall_ideal = "wall (ideal)", wall_real_1.3x = "wall (~1.3\u00d7)") |>
+    tab_footnote(footnote = md(paste(
+      "Tier-2/rep is fixed; Tier-1/rep = (per-bootstrap cost) \u00d7 boots.",
+      "CPU-hours = sims \u00d7 (Tier-2/rep + detection \u00d7 Tier-1/rep).",
+      "`wall (ideal)` divides by workers assuming perfect parallelism;",
+      "`~1.3\u00d7` adds a rule-of-thumb overhead (pool spin-up, memory contention at high worker counts).")))
 }
 ```
 
