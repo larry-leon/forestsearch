@@ -1650,6 +1650,8 @@ forestsearch <- function(df.analysis,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
 
+    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
+      isTRUE(out$debias_gate$harm_flag) else NA
     class(out) <- c("forestsearch", "list")
     return(out)
   }
@@ -1760,6 +1762,8 @@ forestsearch <- function(df.analysis,
         debias_gate_args = debias_gate_args, seedit = seedit)
     }
 
+    out$harm_flag_debiased <- if (!is.null(out$debias_gate))
+      isTRUE(out$debias_gate$harm_flag) else NA
     class(out) <- c("forestsearch", "list")
     return(out)
   }
