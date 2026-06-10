@@ -411,8 +411,8 @@ fs <- forestsearch(
   seedit                    = 8316951,        # default 8316951
   est.scale                 = "hr",           # default "hr"
   # --- Screening engines (candidate generation) ---------------------------
-  use_lasso                 = TRUE,           # default TRUE
-  use_grf                   = TRUE,           # default TRUE
+  use_lasso                 = FALSE,           # default TRUE
+  use_grf                   = FALSE,           # default TRUE
   grf_res                   = NULL,           # default NULL
   grf_cuts                  = NULL,           # default NULL
   grf_depth                 = fs_grf_depth,   # set in setup chunk (default 2)
@@ -427,7 +427,7 @@ fs <- forestsearch(
   dina_args                 = fs_dina_args,    # set in setup chunk (DINA selection)
   # --- Candidate-cut construction -----------------------------------------
   max_n_confounders         = 1000,           # default 1000
-  conf_force                = NULL,           # default NULL
+  conf_force                = c("meno == 0"),           # default NULL
   defaultcut_names          = NULL,           # default NULL
   cut_type                  = "default",      # default "default"
   exclude_cuts              = NULL,           # default NULL
@@ -435,7 +435,7 @@ fs <- forestsearch(
   cont.cutoff               = 4,              # default 4
   conf.cont_medians         = NULL,           # default NULL
   conf.cont_medians_force   = NULL,           # default NULL
-  conf.cont_jcuts           = NULL,           # default NULL
+  conf.cont_jcuts           = list(er = 5),  # default NULL
   # --- Selection engine ---------------------------------------------------
   subgroup_method           = fs_subgroup_method,  # set in setup chunk: consistency | dina | grf
   grf_selection             = fs_grf_selection,    # set in setup chunk (used when subgroup_method = "grf")
