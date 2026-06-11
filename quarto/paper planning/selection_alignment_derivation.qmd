@@ -54,6 +54,62 @@ $D_g(b)=(\mathbf B_{\mathrm{eff}}^{\top}\boldsymbol\Xi)_{gb}=:P_{gb}$, and with 
 weights $G_i(b)\to\mathrm{Poisson}(1)-1$ this is the infinitesimal-jackknife linearization of the
 nonparametric bootstrap [@efron2014].
 
+## What the multipliers are {#sec-multipliers}
+
+The multiplicity $K^{*}_{bi}$ in @eq-perturb is the count of subject $i$ in resample $b$: draw
+$N$ subjects with replacement from the $N$ observed, and $K^{*}_{bi}$ records how many times
+subject $i$ is drawn. The full vector
+$\mathbf K^{*}_b=(K^{*}_{b1},\dots,K^{*}_{bN})\sim\mathrm{Multinomial}(N;1/N,\dots,1/N)$ *is* the
+resample — to refit a model one needs only the counts, not which physical copies were drawn.
+Marginally each $K^{*}_{bi}\sim\mathrm{Binomial}(N,1/N)\to\mathrm{Poisson}(1)$, so a given subject
+is omitted ($K=0$) with probability $\approx e^{-1}=0.37$, appears once with probability
+$\approx 0.37$, twice with $\approx 0.18$, and so on.
+
+**Refit = reweight.** For an estimator with additive score contributions (any GLM), fitting on
+the resample solves the reweighted estimating equation
+$$
+\sum_{i\in g}K^{*}_{bi}\,\psi_i(\beta;g)=0,
+$$ {#eq-reweight}
+each subject's score scaled by its count — duplicating a row is identical to doubling its score
+weight, so the resampled fit equals the original fit reweighted by $\mathbf K^{*}_b$, with no row
+duplication. (For the Cox partial likelihood the contributions are not independent across the
+shared risk sets, so @eq-reweight is not literally exact; the first-order expansion @eq-perturb
+still holds through the estimator's influence function, which is the dfbeta — the one
+approximation Tier-2 makes.)
+
+**Only the centered weight enters.** Because $\sum_{i\in g}\psi_i(\hat\beta(g);g)=0$ defines
+$\hat\beta(g)$, the weighted score decomposes as
+$\sum_i K^{*}_{bi}\psi_i=\sum_i(K^{*}_{bi}-1)\psi_i$: the baseline count of one reproduces the
+original fit and contributes nothing, and only the deviation $G_i(b)=K^{*}_{bi}-1$ perturbs the
+estimate. Solving the linearized equation returns @eq-perturb,
+$\hat\beta^{*}_b(g)-\hat\beta(g)\approx\sum_{i\in g}G_i(b)\,\mathrm{db}_{g,i}$. Thus $G_i(b)=-1$
+marks a subject dropped from the resample, $G_i(b)=+1$ a subject appearing twice, and the
+estimate's perturbation is these over/under-representations dotted with the dfbetas.
+Asymptotically $\mathbb E\,G_i(b)=0$ and $\mathrm{Var}\,G_i(b)=1$ — the mean-zero, unit-variance
+property that makes the resulting variance the infinitesimal jackknife.
+
+**The weight law is interchangeable.** Once only $G_i(b)$ enters, and linearly, the integer
+multinomial counts may be replaced by any mean-one random weights with the same first-order
+behavior — the multiplier (wild) bootstrap. Standard choices are the integer Multinomial counts
+(the literal nonparametric bootstrap); iid $\mathrm{Poisson}(1)$ counts (which drop the
+$\sum_i K^{*}_{bi}=N$ constraint and are what the centered-Poisson default of @eq-perturb
+linearizes — the infinitesimal jackknife of the bootstrap, @efron2014); Rademacher weights
+$G_i(b)\in\{-1,+1\}$ with probability $\tfrac12$; Gaussian $G_i(b)\sim N(0,1)$; or Dirichlet
+weights (the Bayesian bootstrap). All are mean-zero, unit-variance and agree to first order. The
+Rademacher case is the in/out indicator of a single 50/50 data split, so the multiplier bootstrap
+with Rademacher weights is an averaged, repeated version of the train/test split underlying the
+splitting-consistency criterion — the same foundation the consistency screen and the Tier-2 gate
+share.
+
+**One vector, every candidate.** Since $D_g(b)=\sum_{i\in g}G_i(b)\,\mathrm{db}_{g,i}$ uses the
+*same* draw $G_\bullet(b)$ for every candidate $g$, a single weight vector perturbs all $S$
+candidates on resample $b$; candidates sharing members are moved by the same weights and so
+acquire exactly the correlations a real resample would induce — the faithful selection
+competition the gate needs (@sec-tier2). Stacking draws as the columns of $\boldsymbol\Xi$ and the
+dfbetas as $\mathbf B_{\mathrm{eff}}$, the whole computation is the one product
+$\mathbf P=\mathbf B_{\mathrm{eff}}^{\top}\boldsymbol\Xi$: the data enter only through
+$\mathbf B_{\mathrm{eff}}$ (fixed), and all the randomness lives in $\boldsymbol\Xi$.
+
 # The selection map and León's correction {#sec-leon}
 
 A subgroup-identification procedure returns $\widehat H\in\mathcal F$ by applying a rule
