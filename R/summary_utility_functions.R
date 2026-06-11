@@ -924,6 +924,24 @@ sg_tables <- function(fs,
 
   args_fs <- fs$args_call_all
 
+  # -- No-subgroup / empty-data guard -----------------------------------------
+  # When forestsearch() identifies no harm subgroup, fs$sg.harm is NULL and the
+  # selected data frame (fs$df.est / fs$df.test) is returned as NULL.  Without
+  # this guard the survival path below would pass a NULL data frame into
+  # SG_tab_estimates() -> analyze_subgroup() -> km_summary() ->
+  # survival::Surv(), which fails with the opaque message "Time variable is not
+  # numeric".  Return empty tables with an informative warning instead.
+  if (is.null(df)) {
+    reason <- if (is.null(fs$sg.harm)) {
+      "no harm subgroup was identified (fs$sg.harm is NULL)"
+    } else {
+      sprintf("the requested data frame is NULL (which_df = \"%s\")", which_df)
+    }
+    warning(sprintf("sg_tables(): %s; returning empty tables.", reason),
+            call. = FALSE)
+    return(list(tab_estimates = NULL, sg10_out = NULL))
+  }
+
   # Detect GLM outcome
   outcome_type <- args_fs$outcome_type
   if (is.null(outcome_type) || length(outcome_type) > 1L) outcome_type <- "survival"

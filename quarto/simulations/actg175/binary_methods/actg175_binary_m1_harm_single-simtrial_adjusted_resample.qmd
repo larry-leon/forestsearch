@@ -100,6 +100,13 @@ dina_max_depth      <- 2L
 dina_grid_probs     <- seq(0.1, 0.9, by = 0.1)
 effect_neighborhood <- 0.10   # frontier / neighborhood selection band
 
+## -- Effect selector: re-rank the engine's OWN candidate family on the -------
+## inferential GLM effect (OR) -- the statistic the Tier-2 gate de-biases --
+## instead of the engine's native score.  Applies to the dina-* and grf
+## frontier arms only (grf-tree has no enumerated family, so it is a no-op).
+fs_dina_select_statistic <- "effect"  # dina-* arms: "dina" (native tau-hat) | "effect" (OR re-rank)
+fs_grf_select_statistic  <- "effect"    # grf frontier arms: "dr" (native DR-score) | "effect" (OR re-rank)
+
 ## -- GRF SELECTION floors for the forestsearch-routed grf-* arms -------------
 # dmin.grf is a SELECTION floor (not screening); 0.0 is permissive, raise to
 # calibrate.  Binary-OR DR-score scale.
@@ -195,7 +202,8 @@ make_methods <- function(labels) {
                           selection_rule = .rule_for(focus),
                           effect_neighborhood = effect_neighborhood,
                           dina_args = list(max_depth = dina_max_depth,
-                                           grid_probs = dina_grid_probs))
+                                           grid_probs = dina_grid_probs,
+                                           select_statistic = fs_dina_select_statistic))
     } else if (engine == "grf") {
       if (identical(focus, "tree")) {
         spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "tree",
@@ -203,6 +211,7 @@ make_methods <- function(labels) {
                             use_grf = FALSE, use_lasso = FALSE)
       } else {
         spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "frontier",
+                            grf_select_statistic = fs_grf_select_statistic,
                             sg_focus = focus, grf_depth = grf_depth,
                             selection_rule = .rule_for(focus),
                             dmin.grf = grf_frontier_dmin,

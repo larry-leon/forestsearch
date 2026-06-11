@@ -1342,6 +1342,76 @@ reset_workers <- function(workers   = NULL,
 }
 
 
+#' Re-rank GRF's DR-candidate frontier on the inferential effect measure
+#'
+#' The GRF analogue of \code{.dina_reselect_on_effect()}, for
+#' \code{grf_selection = "frontier"}.  Re-scores the DR-candidate family
+#' (\code{grf_res$candidates}) on the effect measure the Tier-2 gate de-biases
+#' (Cox HR for survival; the resolved GLM effect otherwise), using the gate's
+#' own per-candidate estimator (\code{.fs_dg_pieces}), then re-selects the winner
+#' with GRF's own \code{.grf_frontier_select()} logic on those Cox-HR scores
+#' (harm floor HR >= 1).  The winning row is turned back into the standard
+#' \code{sg_def} via \code{.grf_sg_def_from_candidate()}, so all downstream
+#' membership/labelling is unchanged.  Attaches a \code{sel_effect} (link-scale)
+#' column to \code{grf_res$candidates}; on any failure to score/select it returns
+#' \code{grf_res} unchanged.  Tree-mode selection has no enumerated family to
+#' rank, so the caller applies this only in frontier mode.
+#'
+#' @keywords internal
+#' @noRd
+.grf_reselect_on_effect <- function(grf_res, df, outcome_type, effect_measure,
+                                    treat.name, outcome.name, event.name,
+                                    offset.name, adjust_covariates,
+                                    adverse_outcome, frontier_rule,
+                                    effect_neighborhood) {
+  cand <- grf_res$candidates
+  if (is.null(cand) || !nrow(cand)) return(grf_res)
+
+  em   <- if (identical(outcome_type, "survival")) "HR" else effect_measure
+  adv  <- if (identical(outcome_type, "survival")) TRUE else adverse_outcome
+  spec <- .fs_dg_spec(outcome_type, em, treat.name, outcome.name, event.name,
+                      offset.name, adjust_covariates, adverse_outcome = adv,
+                      df = df)
+
+  # Per-candidate effect on the SAME statistic the gate uses, with GRF-native
+  # membership (sg_def -> .grf_evaluate_subgroup); skip < 6-member candidates.
+  nr        <- nrow(cand)
+  eff_link  <- rep(NA_real_, nr)
+  log_scale <- TRUE
+  for (i in seq_len(nr)) {
+    sgd_i <- tryCatch(.grf_sg_def_from_candidate(cand[i, , drop = FALSE]),
+                      error = function(e) NULL)
+    if (is.null(sgd_i)) next
+    mem <- tryCatch(which(.grf_evaluate_subgroup(sgd_i, df) == 0L),
+                    error = function(e) integer(0))
+    if (length(mem) < 6L) next
+    pc <- tryCatch(.fs_dg_pieces(df[mem, , drop = FALSE], spec),
+                   error = function(e) NULL)
+    if (is.null(pc) || !is.finite(pc$beta_hat)) next
+    eff_link[i] <- pc$beta_hat
+    log_scale   <- isTRUE(pc$log_scale)
+  }
+  grf_res$candidates$sel_effect <- eff_link  # link scale; consumed by gate branch
+  if (!any(is.finite(eff_link))) return(grf_res)  # nothing scorable -> keep native
+
+  # Re-select via GRF's own frontier logic, scoring on the natural-scale effect
+  # with an HR-harm floor (>= 1) -- the ratio analogue of dmin.grf on the
+  # additive DR scale.
+  cand_hr <- grf_res$candidates
+  cand_hr$effect <- if (log_scale) exp(eff_link) else eff_link
+  cand_hr <- cand_hr[is.finite(cand_hr$effect), , drop = FALSE]
+  win <- tryCatch(
+    .grf_frontier_select(cand_hr, dmin = 1, rule = frontier_rule,
+                         nbhd = effect_neighborhood),
+    error = function(e) NULL)
+  if (is.null(win) || !nrow(win)) return(grf_res)  # no HR-harm winner -> keep native
+
+  grf_res$sg_def <- .grf_sg_def_from_candidate(win)
+  grf_res$select_statistic <- "effect"
+  grf_res
+}
+
+
 #' GRF-selection mode for forestsearch (subgroup_method = "grf")
 #'
 #' Delegates subgroup *selection* to the GRF subgroup-identification routine
@@ -1389,7 +1459,10 @@ reset_workers <- function(workers   = NULL,
                                      grf_selection = "tree",
                                      frontier_rule = "effMaxSG",
                                      effect_neighborhood = 0.10,
-                                     details = FALSE) {
+                                     details = FALSE,
+                                     grf_select_statistic = "dr",
+                                     effect_measure = NULL,
+                                     adjust_covariates = NULL) {
 
   # Fit GRF unless a fit was supplied.  Build args through the same helpers the
   # screening path uses so the GRF-selection fit cannot drift from GRF
@@ -1439,6 +1512,31 @@ reset_workers <- function(workers   = NULL,
       )
       grf_res <- do.call(grf.subg.harm.glm, glm_args)
     }
+  }
+
+  # Effect-based re-selection (grf_select_statistic = "effect"): re-rank GRF's
+  # DR-candidate frontier on the inferential effect the Tier-2 gate de-biases,
+  # overriding the native DR-score winner.  Frontier-only: tree-mode selection
+  # is the policy-tree leaf, which has no enumerated family to rank, so the leaf
+  # stands.  Default "dr" leaves grf_res untouched.  Failures fall back to native.
+  if (identical(grf_select_statistic, "effect") &&
+      identical(grf_selection, "frontier") &&
+      !is.null(grf_res) && !inherits(grf_res, "try-error") &&
+      !is.null(grf_res$candidates) && nrow(grf_res$candidates) > 0L) {
+    grf_res <- tryCatch(
+      .grf_reselect_on_effect(
+        grf_res = grf_res, df = df, outcome_type = outcome_type,
+        effect_measure = effect_measure, treat.name = treat.name,
+        outcome.name = outcome.name, event.name = event.name,
+        offset.name = offset.name, adjust_covariates = adjust_covariates,
+        adverse_outcome = adverse_outcome, frontier_rule = frontier_rule,
+        effect_neighborhood = effect_neighborhood),
+      error = function(e) grf_res)
+  } else if (identical(grf_select_statistic, "effect") &&
+             identical(grf_selection, "tree") && isTRUE(details)) {
+    message("[forestsearch] grf_select_statistic = \"effect\" is ignored for ",
+            "grf_selection = \"tree\" (the policy-tree leaf is the selection); ",
+            "use grf_selection = \"frontier\" for effect-based re-ranking.")
   }
 
   # Structured, path-based subgroup definition (correct directions; a
@@ -1518,5 +1616,6 @@ reset_workers <- function(workers   = NULL,
   list(found = TRUE, sg.harm = sg.harm, grp.consistency = grp.consistency,
        grf_res = grf_res, df.est = df.est,
        df.predict = df.predict_out, df.test = df.test_out,
-       candidates = grf_res$candidates)   # DR-candidate family for the Tier-2 gate
+       candidates = grf_res$candidates,   # DR-candidate family for the Tier-2 gate
+       select_statistic = grf_select_statistic)
 }

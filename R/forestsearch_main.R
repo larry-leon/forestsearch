@@ -317,6 +317,17 @@
 #'   \code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
 #'   band from \code{effect_neighborhood}. Provided for comparison; the tree is
 #'   the recommended default.
+#' @param grf_select_statistic Character, one of \code{"dr"} (default) or
+#'   \code{"effect"}, used only when \code{subgroup_method = "grf"} and
+#'   \code{grf_selection = "frontier"}.  \code{"dr"} selects the frontier winner
+#'   on GRF's native doubly-robust score (legacy behaviour).  \code{"effect"}
+#'   re-ranks the same DR-candidate frontier on the inferential effect measure
+#'   (Cox HR for survival; the resolved GLM effect otherwise), scored with the
+#'   same per-candidate estimator the Tier-2 de-biased gate uses, so the realized
+#'   selection is the exact event the gate de-biases (and the gate's
+#'   native-family restriction follows the effect rather than the DR score).
+#'   Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
+#'   selection, with no enumerated family to rank).
 #' @param dmin.grf Numeric. Minimum events for GRF. Default 0.0.
 #' @param frac.tau Numeric in (0, 1]. Multiplier on the GRF time horizon
 #'   passed to \code{grf::causal_survival_forest()}. The effective
@@ -808,6 +819,7 @@ forestsearch <- function(df.analysis,
                          max_n_confounders = 1000,
                          grf_depth = 2,
                          grf_selection = c("tree", "frontier"),
+                         grf_select_statistic = c("dr", "effect"),
                          dmin.grf = 0.0,
                          frac.tau = 0.8,
                          return_selected_cuts_only = TRUE,
@@ -1716,6 +1728,7 @@ forestsearch <- function(df.analysis,
   # screening is configured.
   if (subgroup_method == "grf") {
     grf_selection <- match.arg(grf_selection)
+    grf_select_statistic <- match.arg(grf_select_statistic)
     # In frontier mode the selection rule comes from sg_focus (which the tree
     # path ignores).  All five sg_focus values map to the aligned frontier rule;
     # an unrecognized value falls back to the robust default (effMaxSG).
@@ -1735,7 +1748,9 @@ forestsearch <- function(df.analysis,
       grf_count_transform = grf_count_transform,
       grf_res = grf_res, seedit = seedit,
       grf_selection = grf_selection, frontier_rule = frontier_rule,
-      effect_neighborhood = effect_neighborhood, details = details)
+      effect_neighborhood = effect_neighborhood, details = details,
+      grf_select_statistic = grf_select_statistic,
+      effect_measure = effect_measure, adjust_covariates = adjust_covariates)
 
     t.min_all <- (proc.time()[3] - t.start_all) / 60
 
@@ -1796,17 +1811,23 @@ forestsearch <- function(df.analysis,
         adverse_outcome = if (identical(outcome_type, "survival")) TRUE
                           else adverse_outcome,
         df = .dg_df)
-      # Restrict the gate family to candidates competitive on GRF's native
-      # doubly-robust score (additive scale), the analogue of the DINA tau-hat
-      # restriction.  Default: match effect_neighborhood (the band GRF's frontier
-      # selects within).  Set debias_gate_args$family_native_neighborhood >= 1 to
-      # disable (full family).
+      # Restrict the gate family to candidates competitive on the SAME statistic
+      # that selected the winner.  With grf_select_statistic = "effect" (frontier
+      # mode), restrict on the per-candidate effect (`sel_effect`, link scale,
+      # attached by the select wrapper); otherwise restrict on GRF's native
+      # doubly-robust score (additive scale).  Default: match effect_neighborhood
+      # (the band GRF's frontier selects within).  Set
+      # debias_gate_args$family_native_neighborhood >= 1 to disable (full family).
       .dg_nbhd <- debias_gate_args$family_native_neighborhood
       if (is.null(.dg_nbhd)) .dg_nbhd <- effect_neighborhood
+      .dg_eff_sel <- identical(gsel$select_statistic, "effect") &&
+                     "sel_effect" %in% names(gsel$candidates)
+      .dg_stat    <- if (.dg_eff_sel) gsel$candidates$sel_effect
+                     else gsel$candidates$effect
       .dg_tab  <- .fs_dg_restrict_native(
-        gsel$candidates, gsel$candidates$effect,
+        gsel$candidates, .dg_stat,
         neighborhood = .dg_nbhd,
-        log_scale = FALSE)
+        log_scale = if (.dg_eff_sel) .dg_em %in% c("HR", "OR", "IRR") else FALSE)
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
                                            op_right = ">", n_min = n.min)
       out$debias_gate <- .fs_apply_debias_gate(

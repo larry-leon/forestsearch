@@ -612,7 +612,10 @@ tidy_cut_display <- function(s, digits = 0L) {
 #'
 #' Cut expressions that are categorical, indicator-valued (fewer than
 #' \code{cont.cutoff} unique values), bare variable names, or equality tests
-#' (\code{==}) pass through unchanged.
+#' (\code{==}) pass through unchanged.  Cuts listed in \code{protect} are also
+#' passed through verbatim: they are model-identified screening candidates
+#' (e.g. GRF/DINA cuts) rather than points on a default continuous grid, so
+#' coarsening them would defeat the purpose of the screening engine.
 #'
 #' @param cuts Character vector of candidate cut expressions, e.g.
 #'   \code{"age <= 35.7"}, \code{"wtkg >= 87.2"}, \code{"gender"}.
@@ -630,13 +633,17 @@ tidy_cut_display <- function(s, digits = 0L) {
 #' @param cont.cutoff Integer.  A variable with at least this many unique values
 #'   is treated as continuous (see \code{is.continuous()}).  Default 4.
 #' @param details Logical.  If TRUE, print a per-cluster collapse report.
+#' @param protect Character vector of cut expressions to exempt from
+#'   coarsening (matched verbatim against \code{cuts}).  Intended for
+#'   screening-engine candidates (GRF/DINA) that should survive the collapse
+#'   intact.  Default \code{character(0)} (collapse everything eligible).
 #' @return Character vector of de-duplicated cut expressions (length <= input).
 #' @keywords internal
 
 collapse_redundant_cuts <- function(cuts, df, confounders.name = NULL,
                                     c_band = 1.0, safety_tol = 0.05,
                                     digits = 0L, cont.cutoff = 4,
-                                    details = FALSE) {
+                                    details = FALSE, protect = character(0)) {
   if (length(cuts) == 0L) return(cuts)
   n <- nrow(df)
   if (is.null(n) || n == 0L) return(unique(cuts))
@@ -668,6 +675,9 @@ collapse_redundant_cuts <- function(cuts, df, confounders.name = NULL,
       coarsen[i] <- FALSE
     }
   }
+
+  # Exempt screening-engine candidates (GRF/DINA): these pass through verbatim.
+  if (length(protect) > 0L) coarsen <- coarsen & !(cuts %in% protect)
 
   out          <- cuts   # default: every cut unchanged
   safety_bound <- if (safety_tol < 1) ceiling(safety_tol * n) else as.integer(safety_tol)

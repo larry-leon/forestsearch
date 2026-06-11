@@ -46,12 +46,12 @@ operations (bootstrap, cross-validation).
 ```{r parallel-setup}
 # Detect available cores (limited to 2 cores for CRAN checks)
 n_cores_total <- parallel::detectCores()
-n_cores <- max(1L, floor(0.95 * parallel::detectCores(logical = FALSE)))
+n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 500
+NB <- 20
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -103,9 +103,17 @@ gate_draws      <- 2000L    # multiplier-bootstrap draws for the gate
 # ---------------------------------------------------------------------------
 fs_subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 fs_grf_selection   <- "frontier"      # only if fs_subgroup_method == "grf": "tree" | "frontier"
+fs_grf_select_statistic <- "effect"       # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect".
+                                      #   "dr"     = native DR-score frontier winner;
+                                      #   "effect" = re-rank the DR frontier on the inferential Cox HR (the
+                                      #              statistic the Tier-2 gate de-biases).  No-op for the policy tree.
 fs_grf_depth       <- 2L              # GRF depth (screening + GRF selection)
 fs_dmin_grf        <- 4               # GRF DR-score screening floor
 fs_dina_args       <- list()          # extra args forwarded to DINA selection
+fs_dina_select_statistic <- "effect"    # only if subgroup_method=="dina": "dina" | "effect".
+                                      #   "dina"   = native DINA tau-hat winner;
+                                      #   "effect" = re-rank the DINA family on the inferential Cox HR (the
+                                      #              statistic the Tier-2 gate de-biases).
 # Tier-2 gate (main analysis): the gate's re-selection family for "dina"/"grf" is
 # restricted to candidates competitive on the method's NATIVE statistic (DINA
 # tau-hat / GRF DR-score).  NULL = use the recommended default, which matches the
@@ -412,7 +420,7 @@ fs <- forestsearch(
   est.scale                 = "hr",           # default "hr"
   # --- Screening engines (candidate generation) ---------------------------
   use_lasso                 = FALSE,           # default TRUE
-  use_grf                   = FALSE,           # default TRUE
+  use_grf                   = TRUE,           # default TRUE
   grf_res                   = NULL,           # default NULL
   grf_cuts                  = NULL,           # default NULL
   grf_depth                 = fs_grf_depth,   # set in setup chunk (default 2)
@@ -424,10 +432,11 @@ fs <- forestsearch(
   use_dina                  = FALSE,          # default FALSE
   dina_res                  = NULL,           # default NULL
   dina_cuts                 = NULL,           # default NULL
-  dina_args                 = fs_dina_args,    # set in setup chunk (DINA selection)
+  dina_args                 = modifyList(fs_dina_args,
+                                          list(select_statistic = fs_dina_select_statistic)),  # setup chunk
   # --- Candidate-cut construction -----------------------------------------
   max_n_confounders         = 1000,           # default 1000
-  conf_force                = c("meno == 0"),           # default NULL
+  conf_force                = NULL,           # default NULL
   defaultcut_names          = NULL,           # default NULL
   cut_type                  = "default",      # default "default"
   exclude_cuts              = NULL,           # default NULL
@@ -435,10 +444,11 @@ fs <- forestsearch(
   cont.cutoff               = 4,              # default 4
   conf.cont_medians         = NULL,           # default NULL
   conf.cont_medians_force   = NULL,           # default NULL
-  conf.cont_jcuts           = list(er = 5),  # default NULL
+  conf.cont_jcuts           = list(er = 10),           # default NULL
   # --- Selection engine ---------------------------------------------------
   subgroup_method           = fs_subgroup_method,  # set in setup chunk: consistency | dina | grf
   grf_selection             = fs_grf_selection,    # set in setup chunk (used when subgroup_method = "grf")
+  grf_select_statistic      = fs_grf_select_statistic,  # set in setup chunk (frontier only)
   sg_focus                  = fs_sg_focus,         # set in setup chunk
   selection_rule            = "neighborhood",  # default "neighborhood"
   effect_neighborhood       = 0.10,            # default 0.10
@@ -451,7 +461,7 @@ fs <- forestsearch(
   d0.min                    = 10,             # default 10
   d1.min                    = 10,             # default 10
   maxk                      = 2,              # default 2
-  max_subgroups_search      = fs_max_subgroups_search,  # set in setup chunk
+  max_subgroups_search      = 50,  # set in setup chunk
   # --- Thresholds (survival / HR scale) -----------------------------------
   hr.threshold              = fs_hr_threshold,    # set in setup chunk
   hr.consistency            = fs_hr_consistency,  # set in setup chunk
@@ -1143,7 +1153,8 @@ fs_dina <- forestsearch(
   seedit              = 8316951,         # default 8316951
   # --- DINA-selection mode ------------------------------------------------
   subgroup_method     = "dina",          # default "consistency"
-  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds),  # fit tuning only
+  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds,
+                             select_statistic = fs_dina_select_statistic),  # fit tuning + setup-chunk selector
   dina_res            = NULL,            # default NULL (reuse a fitted dina object)
   # --- Selection criteria (passed through to dina_subgroup) ---------------
   sg_focus            = fs_dina_sg_focus,  # set in setup chunk
@@ -1365,6 +1376,7 @@ fs_grf <- forestsearch(
   # --- GRF-selection mode -------------------------------------------------
   subgroup_method     = "grf",           # default "consistency"
   grf_selection       = fs_grf_demo_selection,  # set in setup chunk ("tree" | "frontier")
+  grf_select_statistic = fs_grf_select_statistic,  # set in setup chunk (frontier only)
   grf_depth           = fs_grf_demo_depth,      # set in setup chunk (tree / DR-pair depth)
   dmin.grf            = fs_grf_demo_dmin,        # set in setup chunk (DR-score harm floor)
   frac.tau            = 0.8,             # default 0.8 (RMST truncation fraction)

@@ -32,6 +32,7 @@ forestsearch(
   max_n_confounders = 1000,
   grf_depth = 2,
   grf_selection = c("tree", "frontier"),
+  grf_select_statistic = c("dr", "effect"),
   dmin.grf = 0,
   frac.tau = 0.8,
   return_selected_cuts_only = TRUE,
@@ -175,7 +176,16 @@ two covariates; set \code{1L} for single-covariate cuts only), and
 (the per-covariate quantile grid for depth-2 pair thresholds; default
 interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
 to \code{\link{dina_subgroup}} and apply to both the selected-cut
-screening and \code{subgroup_method = "dina"}.
+screening and \code{subgroup_method = "dina"}; plus \code{select_statistic}
+(\code{"dina"} default, or \code{"effect"}), which controls how the
+winner is chosen from DINA's qualifying family under
+\code{subgroup_method = "dina"}.  \code{"dina"} ranks on DINA's native
+subgroup-mean tau-hat (unchanged legacy behaviour); \code{"effect"} ranks
+on the inferential effect measure (Cox HR for survival; the resolved GLM
+effect otherwise), scored with the same per-candidate estimator the
+Tier-2 de-biased gate uses, so the realized selection is the exact event
+the gate de-biases (and the gate's native-family restriction follows the
+effect rather than tau-hat).
 When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 this call's \code{sg_focus} / \code{selection_rule} /
@@ -223,6 +233,18 @@ frontier rule is taken from \code{sg_focus} -- all five values map through
 \code{"minSG"}), aligned with \code{dina_subgroup()} -- and the relative
 band from \code{effect_neighborhood}. Provided for comparison; the tree is
 the recommended default.}
+
+\item{grf_select_statistic}{Character, one of \code{"dr"} (default) or
+\code{"effect"}, used only when \code{subgroup_method = "grf"} and
+\code{grf_selection = "frontier"}.  \code{"dr"} selects the frontier winner
+on GRF's native doubly-robust score (legacy behaviour).  \code{"effect"}
+re-ranks the same DR-candidate frontier on the inferential effect measure
+(Cox HR for survival; the resolved GLM effect otherwise), scored with the
+same per-candidate estimator the Tier-2 de-biased gate uses, so the realized
+selection is the exact event the gate de-biases (and the gate's
+native-family restriction follows the effect rather than the DR score).
+Ignored for \code{grf_selection = "tree"} (the policy-tree leaf is the
+selection, with no enumerated family to rank).}
 
 \item{dmin.grf}{Numeric. Minimum events for GRF. Default 0.0.}
 

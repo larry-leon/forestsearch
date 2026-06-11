@@ -12,7 +12,8 @@ collapse_redundant_cuts(
   safety_tol = 0.05,
   digits = 0L,
   cont.cutoff = 4,
-  details = FALSE
+  details = FALSE,
+  protect = character(0)
 )
 }
 \arguments{
@@ -39,6 +40,11 @@ a sub-unit scale.}
 is treated as continuous (see \code{is.continuous()}).  Default 4.}
 
 \item{details}{Logical.  If TRUE, print a per-cluster collapse report.}
+
+\item{protect}{Character vector of cut expressions to exempt from
+coarsening (matched verbatim against \code{cuts}).  Intended for
+screening-engine candidates (GRF/DINA) that should survive the collapse
+intact.  Default \code{character(0)} (collapse everything eligible).}
 }
 \value{
 Character vector of de-duplicated cut expressions (length <= input).
@@ -70,6 +76,9 @@ candidate subgroup by more than the tolerance.
 
 Cut expressions that are categorical, indicator-valued (fewer than
 \code{cont.cutoff} unique values), bare variable names, or equality tests
-(\code{==}) pass through unchanged.
+(\code{==}) pass through unchanged.  Cuts listed in \code{protect} are also
+passed through verbatim: they are model-identified screening candidates
+(e.g. GRF/DINA cuts) rather than points on a default continuous grid, so
+coarsening them would defeat the purpose of the screening engine.
 }
 \keyword{internal}

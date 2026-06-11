@@ -159,6 +159,10 @@ devtools::check_man()
 devtools::install(dependencies = FALSE)
 
 
+library(forestsearch)
+help(forestsearch)
+
+
 devtools::install()
 
 

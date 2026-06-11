@@ -479,6 +479,11 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   confs <- c(conf.categorical, conf.cont_Medcuts)
   # At this stage, these are confs per Lasso (GRF step is next)
   if(use_lasso) confs_lasso <- confs
+  # Screening-engine cuts (GRF/DINA) retained in the candidate pool.  Tracked
+  # here so they can be protected from the near-redundant collapse below: they
+  # are model-identified candidates, not points on the default continuous grid.
+  grf_cuts_keep  <- character(0)
+  dina_cuts_keep <- character(0)
   # Factors included per GRF not in confs_lasso
   if(use_grf){
     if(details) cat('Initial GRF cuts included', grf_cuts, '\n')
@@ -546,7 +551,8 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       safety_tol       = .cca$tol,
       digits           = .cca$digits,
       cont.cutoff      = cont.cutoff,
-      details          = details
+      details          = details,
+      protect          = unique(c(grf_cuts_keep, dina_cuts_keep))
     )
   }
   n_confs<-length(confs)
