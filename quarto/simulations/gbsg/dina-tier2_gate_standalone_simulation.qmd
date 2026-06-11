@@ -129,7 +129,7 @@ selection_rule     <- "neighborhood"   # "neighborhood" | "pareto" | "both"
 # "maxeff"), and maxSG/minSG/effMaxSG/effMinSG map through identically.  So
 # sg_focus is the single source of truth; to override, pass `reselection =`
 # inside debias_gate_args below (advanced use only).
-hr_threshold       <- 1.0         # different target under DINA (not Cox based)
+hr_threshold       <- 1.25         # different target under DINA (not Cox based)
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
@@ -143,7 +143,7 @@ use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE
 use_twostage       <- TRUE
 
 fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
-fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous
+fs_conf.cont_jcuts <- list(er = 20)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous
 
 # fs_conf_force <- NULL
 # fs_conf.cont_jcuts <- NULL
@@ -297,8 +297,8 @@ record_replicate <- function(sim_id) {
       use_dina = use_dina,
       conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
       fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
-    dina = list(dina_args = modifyList(dina_args,
-                                       list(select_statistic = dina_select_statistic))),
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
     grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
                 dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
     stop("unknown subgroup_method: ", subgroup_method)

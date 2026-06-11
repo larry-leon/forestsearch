@@ -28,6 +28,7 @@ forestsearch(
   dina_res = NULL,
   dina_cuts = NULL,
   dina_args = list(),
+  dina_select_statistic = c("dina", "effect"),
   subgroup_method = c("consistency", "dina", "grf"),
   max_n_confounders = 1000,
   grf_depth = 2,
@@ -176,16 +177,10 @@ two covariates; set \code{1L} for single-covariate cuts only), and
 (the per-covariate quantile grid for depth-2 pair thresholds; default
 interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
 to \code{\link{dina_subgroup}} and apply to both the selected-cut
-screening and \code{subgroup_method = "dina"}; plus \code{select_statistic}
-(\code{"dina"} default, or \code{"effect"}), which controls how the
-winner is chosen from DINA's qualifying family under
-\code{subgroup_method = "dina"}.  \code{"dina"} ranks on DINA's native
-subgroup-mean tau-hat (unchanged legacy behaviour); \code{"effect"} ranks
-on the inferential effect measure (Cox HR for survival; the resolved GLM
-effect otherwise), scored with the same per-candidate estimator the
-Tier-2 de-biased gate uses, so the realized selection is the exact event
-the gate de-biases (and the gate's native-family restriction follows the
-effect rather than tau-hat).
+screening and \code{subgroup_method = "dina"}.  (The selector statistic
+formerly accepted here as \code{select_statistic} is now the top-level
+\code{dina_select_statistic} argument; a value supplied inside
+\code{dina_args} is deprecated and overridden with a warning.)
 When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 this call's \code{sg_focus} / \code{selection_rule} /
@@ -193,6 +188,17 @@ this call's \code{sg_focus} / \code{selection_rule} /
 same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 contribute the full frontier candidate set instead. Unknown keys raise
 an error.}
+
+\item{dina_select_statistic}{Character, one of \code{"dina"} (default) or
+\code{"effect"}, used only when \code{subgroup_method = "dina"}.  The DINA
+analogue of \code{grf_select_statistic}.  \code{"dina"} ranks DINA's
+qualifying family on its native subgroup-mean tau-hat (unchanged legacy
+behaviour).  \code{"effect"} re-ranks the same family on the inferential
+effect measure (Cox HR for survival; the resolved GLM effect otherwise),
+scored with the same per-candidate estimator the Tier-2 de-biased gate
+uses, so the realized selection is the exact event the gate de-biases (and
+the gate's native-family restriction follows the effect rather than
+tau-hat).}
 
 \item{subgroup_method}{Character, one of \code{"consistency"} (default),
 \code{"dina"}, or \code{"grf"}. \code{"consistency"} is the standard

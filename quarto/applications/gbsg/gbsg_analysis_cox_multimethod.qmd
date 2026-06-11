@@ -51,7 +51,7 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 20
+NB <- 500
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -432,8 +432,7 @@ fs <- forestsearch(
   use_dina                  = FALSE,          # default FALSE
   dina_res                  = NULL,           # default NULL
   dina_cuts                 = NULL,           # default NULL
-  dina_args                 = modifyList(fs_dina_args,
-                                          list(select_statistic = fs_dina_select_statistic)),  # setup chunk
+  dina_args                 = fs_dina_args,   # extra DINA tuning (setup chunk)
   # --- Candidate-cut construction -----------------------------------------
   max_n_confounders         = 1000,           # default 1000
   conf_force                = NULL,           # default NULL
@@ -449,6 +448,7 @@ fs <- forestsearch(
   subgroup_method           = fs_subgroup_method,  # set in setup chunk: consistency | dina | grf
   grf_selection             = fs_grf_selection,    # set in setup chunk (used when subgroup_method = "grf")
   grf_select_statistic      = fs_grf_select_statistic,  # set in setup chunk (frontier only)
+  dina_select_statistic     = fs_dina_select_statistic,  # set in setup chunk (used when subgroup_method = "dina")
   sg_focus                  = fs_sg_focus,         # set in setup chunk
   selection_rule            = "neighborhood",  # default "neighborhood"
   effect_neighborhood       = 0.10,            # default 0.10
@@ -1153,8 +1153,8 @@ fs_dina <- forestsearch(
   seedit              = 8316951,         # default 8316951
   # --- DINA-selection mode ------------------------------------------------
   subgroup_method     = "dina",          # default "consistency"
-  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds,
-                             select_statistic = fs_dina_select_statistic),  # fit tuning + setup-chunk selector
+  dina_args           = list(seed = dina_seed, n_folds = dina_nfolds),  # fit tuning only
+  dina_select_statistic = fs_dina_select_statistic,  # setup-chunk selector (top-level)
   dina_res            = NULL,            # default NULL (reuse a fitted dina object)
   # --- Selection criteria (passed through to dina_subgroup) ---------------
   sg_focus            = fs_dina_sg_focus,  # set in setup chunk
