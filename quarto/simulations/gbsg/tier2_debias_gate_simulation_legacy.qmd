@@ -70,6 +70,9 @@ library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
 n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
+diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
+                          # worker's forestsearch() error (otherwise swallowed by the inner
+                          # tryCatch).  Set FALSE for a real run.
 nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
@@ -90,10 +93,28 @@ analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
 n_super         <- 5000L
 
+# ── Subgroup-identification method ─────────────────────────────────────────
+# The Tier-1 bootstrap (H2, León Eq.7) is defined for the consistency search,
+# so the Tier-1-vs-Tier-2 comparison is produced only when subgroup_method ==
+# "consistency".  DINA/GRF run the SAME identification + Tier-2 gate machinery
+# (each de-biased against its own candidate family) but skip Tier-1: the doc
+# degrades cleanly to a Tier-2-only characterization for those engines.
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
+grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+dmin.grf        <- 0.0             # GRF DR-score screening floor
+dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
+
 # ── Search configuration (León tuning; resample identification) ────────────
 consistency_method <- "resample"   # decided: resample identification (the new default)
 sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by effect
-gate_reselection   <- "maxcons"    # mirrors sg_focus = "eff" for a faithful comparison
+# Gate re-selection is no longer set explicitly: forestsearch() derives it from
+# sg_focus (consistency + "eff" -> "maxcons"), reproducing the legacy explicit
+# value while staying faithful per engine.  Override via `reselection =` in
+# debias_gate_args (advanced use only).
+selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
 hr_threshold       <- 1.25
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
@@ -103,6 +124,7 @@ n_min              <- 60L
 d0_min             <- 12L
 d1_min             <- 0L
 use_lasso          <- FALSE
+use_dina           <- FALSE
 use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
@@ -126,7 +148,9 @@ seed_base  <- 8316951L
 n_workers  <- ceiling(0.95*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
 z975       <- qnorm(0.975)
 
-cat(sprintf("Smoke test: n_sims=%d, nb_boots=%d, gate_draws=%d, workers=%d\n",
+cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%d, gate_draws=%d, workers=%d\n",
+            subgroup_method,
+            if (identical(subgroup_method, "grf")) paste0("/", grf_selection) else "",
             n_sims, nb_boots, gate_draws, n_workers))
 ```
 
@@ -203,7 +227,8 @@ outer loop already parallelises across trials.
 
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
-  sim_id = sim_id, detected = 0L, n_sel = NA_integer_,
+  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  n_harm = NA_integer_,
   label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
@@ -229,76 +254,106 @@ record_replicate <- function(sim_id) {
   confs <- intersect(confounders_base, names(df))
 
   # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
-  t2_t0 <- proc.time()[3]
-  fs.est <- tryCatch(
-    forestsearch(
-      df.analysis     = df,
-      outcome.name    = outcome_name, event.name = event_name,
-      treat.name      = treat_name,   id.name    = id_name,
-      flag_harm.name  = harm_col,     confounders.name = confs,
-      is.RCT          = TRUE,         seedit = seed_base + sim_id,
-      quiet           = TRUE,         # suppress the "De-biased gate: HR = ... -> ..." cat()
-      use_lasso       = use_lasso,    use_grf = use_grf,
-      sg_focus        = sg_focus,
+  # Args common to every method, plus a method-specific block.  Consistency-only
+  # tuning (LASSO/two-stage/forced cuts/maxk) is NOT forwarded to DINA/GRF, which
+  # have their own candidate enumeration; all methods search the same confs.
+  base_args <- list(
+    df.analysis     = df,
+    outcome.name    = outcome_name, event.name = event_name,
+    treat.name      = treat_name,   id.name    = id_name,
+    flag_harm.name  = harm_col,     confounders.name = confs,
+    is.RCT          = TRUE,         seedit = seed_base + sim_id,
+    quiet           = TRUE,         # suppress the "De-biased gate: ..." cat()
+    sg_focus        = sg_focus,
+    subgroup_method = subgroup_method,
+    hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
+    pconsistency.threshold = pconsistency, n.min = n_min,
+    selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
+    parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
+    debias_gate     = TRUE,
+    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+                            include_complement = TRUE)  # reselection derived from sg_focus
+  )
+  method_args <- switch(
+    subgroup_method,
+    consistency = list(
       consistency_method = consistency_method,
-      conf_force          = fs_conf_force,
-     conf.cont_jcuts      = fs_conf.cont_jcuts,
-      hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
-      pconsistency.threshold = pconsistency, fs.splits = fs_splits,
-      maxk = maxk, n.min = n_min, d0.min = d0_min, d1.min = d1_min,
-      use_twostage    = use_twostage,
-      parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
-      debias_gate     = TRUE,
-      debias_gate_args = list(ci_method = "ij", draws = gate_draws,
-                              reselection = gate_reselection,
-                              include_complement = TRUE)
-    ),
-    error = function(e) NULL)
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina,
+      conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
+    stop("unknown subgroup_method: ", subgroup_method)
+  )
+
+  t2_t0 <- proc.time()[3]
+  fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
+                     error = function(e) {
+                       if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
+                         warning(sprintf("FS-ERR sim %d: %s", sim_id,
+                                         conditionMessage(e)), call. = FALSE)
+                       NULL
+                     })
   rec$t2_secs <- proc.time()[3] - t2_t0
   if (is.null(fs.est)) return(rec)
 
-  g <- fs.est$debias_gate
-  found <- !is.null(fs.est$sg.harm) && !is.null(g)
+  # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
+  # whether the Tier-2 gate produced a CI; gate availability is tracked
+  # separately in gate_ok so a gate failure never masks a true detection.
+  g     <- fs.est$debias_gate
+  found <- !is.null(fs.est$sg.harm)
   rec$detected <- as.integer(found)
   if (!found) return(rec)
+  rec$gate_ok <- as.integer(!is.null(g))
 
-  rec$label <- g$selected_label %||% NA_character_
-  rec$n_sel <- g$n_selected      %||% NA_integer_
-  rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
-  rec$ij_source    <- g$debiased$ij_source %||% NA_character_
-  rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
-  rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
-  rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
-  if (is.list(g$complement) && !is.null(g$complement$debiased)) {
-    rec$nv_Hc_est <- g$complement$naive$est
-    rec$nv_Hc_lo  <- g$complement$naive$lower
-    rec$nv_Hc_hi  <- g$complement$naive$upper
-    rec$t2_Hc_est <- g$complement$debiased$est
-    rec$t2_Hc_lo  <- g$complement$debiased$lower
-    rec$t2_Hc_hi  <- g$complement$debiased$upper
-    rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected      %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source    <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$nv_Hc_lo  <- g$complement$naive$lower
+      rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
   }
 
   # ---- Classification of Ĥ against the true harm flag ----------------------
   cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
   rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
   rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
+  rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
 
-  # ---- Tier-1 bootstrap (inherits resample via fs.est$args_call_all) -------
-  t1_t0 <- proc.time()[3]
-  boot <- tryCatch(
-    forestsearch_bootstrap_dofuture(
-      fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
-      parallel_args = list(plan = "sequential")),
-    error = function(e) NULL)
-  rec$t1_secs <- proc.time()[3] - t1_t0
-  if (!is.null(boot) && !is.null(boot$H_estimates)) {
-    he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
-    rec$t1_H_est <- he$H2; rec$t1_H_lo <- he$H2_lower; rec$t1_H_hi <- he$H2_upper
-  }
-  if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
-    hce <- boot$Hc_estimates
-    rec$t1_Hc_est <- hce$H2; rec$t1_Hc_lo <- hce$H2_lower; rec$t1_Hc_hi <- hce$H2_upper
+  # ---- Tier-1 bootstrap (consistency only; H2 = León Eq.7) -----------------
+  # H2 is defined for the consistency search, so the Tier-1-vs-Tier-2 comparison
+  # is produced only for that engine; DINA/GRF leave t1_* as NA (Tier-2-only).
+  # Inherits resample identification via fs.est$args_call_all.
+  if (identical(subgroup_method, "consistency")) {
+    t1_t0 <- proc.time()[3]
+    boot <- tryCatch(
+      forestsearch_bootstrap_dofuture(
+        fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
+        parallel_args = list(plan = "sequential")),
+      error = function(e) NULL)
+    rec$t1_secs <- proc.time()[3] - t1_t0
+    if (!is.null(boot) && !is.null(boot$H_estimates)) {
+      he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
+      rec$t1_H_est <- he$H2; rec$t1_H_lo <- he$H2_lower; rec$t1_H_hi <- he$H2_upper
+    }
+    if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
+      hce <- boot$Hc_estimates
+      rec$t1_Hc_est <- hce$H2; rec$t1_Hc_lo <- hce$H2_lower; rec$t1_Hc_hi <- hce$H2_upper
+    }
   }
 
   # ---- Oracle: refit on the TRUE harm subgroup of this trial ---------------
@@ -321,7 +376,8 @@ if (run_smoke) {
 
   t_all <- proc.time()[3]
   results <- foreach(
-    s = seq_len(n_sims), .combine = rbind, .errorhandling = "remove",
+    s = seq_len(if (isTRUE(diag_mode)) min(n_sims, 5L) else n_sims),
+    .combine = rbind, .errorhandling = "remove",
     .options.future = list(packages = c("forestsearch", "survival", "data.table"),
                            seed = TRUE)
   ) %dofuture% {
