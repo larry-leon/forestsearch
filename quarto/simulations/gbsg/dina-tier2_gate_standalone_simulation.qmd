@@ -94,9 +94,14 @@ proj_scenarios <- c(1000L, 5000L, 20000L)
 # candidate family, with re-selection matching the method's selection rule).
 subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
 grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "dr"   # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect"
+                               #   "effect" re-ranks the DR frontier on the inferential effect the gate
+                               #   de-biases; no-op for the policy tree.
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
 dmin.grf        <- 0.0             # GRF DR-score screening floor
 dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "dina"    # only if subgroup_method=="dina": "dina" (native tau-hat) | "effect"
+                                   #   "effect" re-ranks the DINA family on the inferential effect the gate de-biases.
 
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
@@ -288,9 +293,9 @@ record_replicate <- function(sim_id) {
       use_dina = use_dina,
       conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
       fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
-    dina = dina_args,
+    dina = modifyList(dina_args, list(select_statistic = dina_select_statistic)),
     grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
-                dmin.grf = dmin.grf),
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
     stop("unknown subgroup_method: ", subgroup_method)
   )
 
