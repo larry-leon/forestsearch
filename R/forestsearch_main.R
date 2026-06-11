@@ -1666,6 +1666,7 @@ forestsearch <- function(df.analysis,
     if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
         !is.null(dsel$grp.consistency) &&
         !is.null(dsel$grp.consistency$sg.harm.id)) {
+      out$debias_gate <- tryCatch({
       .dg_df   <- dsel$df.est
       # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
       # GLM -> resolved effect_measure with the precomputed comparison-scale
@@ -1698,7 +1699,7 @@ forestsearch <- function(df.analysis,
         log_scale = .dg_em %in% c("HR", "OR", "IRR"))
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
                                            op_right = ">=", n_min = n.min)
-      out$debias_gate <- .fs_apply_debias_gate(
+      .fs_apply_debias_gate(
         df = .dg_df, candidates = .dg_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
@@ -1707,6 +1708,9 @@ forestsearch <- function(df.analysis,
         reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
+      }, error = function(e) {
+        warning("debias_gate failed: ", conditionMessage(e)); NULL
+      })
     }
 
     out$harm_flag_debiased <- if (!is.null(out$debias_gate))
@@ -1798,6 +1802,7 @@ forestsearch <- function(df.analysis,
     out$debias_gate <- NULL
     if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
         !is.null(gsel$grp.consistency$sg.harm.id)) {
+      out$debias_gate <- tryCatch({
       .dg_df   <- gsel$df.est
       # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
       # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
@@ -1830,7 +1835,7 @@ forestsearch <- function(df.analysis,
         log_scale = if (.dg_eff_sel) .dg_em %in% c("HR", "OR", "IRR") else FALSE)
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
                                            op_right = ">", n_min = n.min)
-      out$debias_gate <- .fs_apply_debias_gate(
+      .fs_apply_debias_gate(
         df = .dg_df, candidates = .dg_fam,
         selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
@@ -1839,6 +1844,9 @@ forestsearch <- function(df.analysis,
         reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
+      }, error = function(e) {
+        warning("debias_gate failed: ", conditionMessage(e)); NULL
+      })
     }
 
     out$harm_flag_debiased <- if (!is.null(out$debias_gate))
