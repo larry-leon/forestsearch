@@ -1,0 +1,548 @@
+---
+title: "Draft sections — the target of inference, and forest search as a fixed family"
+subtitle: "Sections 1–2 for: procedure-agnostic post-selection inference for identified subgroups"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+bibliography: references.bib
+---
+
+<!-- TODO references.bib: add Cui, Kosorok, Sverdrup, Wager & Zhu (2023, JRSS-B),
+     "Estimating heterogeneous treatment effects with right-censored data via causal
+     survival forests" — needed for the RMST / horizon-survival-probability claim in
+     the "What modern identifiers target instead" subsection. Currently cited by name
+     with the existing GRF keys only. -->
+
+> **Drafting status.** First full draft of the paper's two opening sections.
+> Section @sec-target is the introduction's framing core (the remaining
+> introduction elements from the hand-off — the expanded Harrell contrast and the
+> conditional-on-family scope statement — can be folded in around it).
+> Section @sec-fs-family is the expository instance that precedes the general
+> theory. Forward references to sections not yet drafted (the León correction,
+> selection-criterion alignment, scope) are written as plain text with paper-spine
+> numbers; convert to `@sec-` cross-references once those sections exist.
+
+# The goal: post-selection inference for the standard trial analysis {#sec-target}
+
+## Identified subgroups and the winner's curse {#sec-winners-curse}
+
+Randomized trials are designed and powered to estimate an overall treatment
+effect, yet some of their most consequential questions are subgroup questions:
+is there an identifiable set of patients in whom the treatment is harmful, or in
+whom an apparently inert treatment works? When such a subgroup is *identified
+from the trial data* rather than prespecified, the act of identification
+contaminates the estimate. A subgroup chosen because its estimated effect is
+extreme has, by construction, an effect estimate biased toward extremity — the
+winner's curse of subgroup search — and a confidence interval computed as if the
+subgroup had been prespecified under-covers [@leon2024]. Post-selection
+inference is the repair: a point estimate purged of the optimism that selection
+injected, and an interval that carries the variability of the selection itself.
+
+## The target of inference: the standard Cox and GLM analyses {#sec-standard-target}
+
+A post-selection method is defined as much by *what* it makes inference about as
+by how. We take the target to be, *for better or worse*, the **standard
+analysis**: the treatment effect that would be reported had the subgroup been
+prespecified. For a time-to-event outcome this is the partial-likelihood
+coefficient — the log hazard ratio — of a within-subgroup Cox
+proportional-hazards model [@cox1972]; for binary, count, and continuous
+outcomes it is the within-subgroup GLM treatment coefficient: the log odds
+ratio, the log incidence-rate ratio, the mean difference. Writing
+$g \subseteq \{1,\dots,N\}$ for a candidate subgroup and $\beta(g)$ for the
+population coefficient of the trial's working model restricted to $g$, the
+reportable object is $\hat\beta(\widehat H)$ — the standard-analysis estimate
+evaluated at the identified subgroup $\widehat H$ — and the inferential goal is
+a de-biased estimate of $\beta(\widehat H)$ with an interval that is valid in
+the presence of the selection that produced $\widehat H$.
+
+This commitment is deliberate, and it is not a claim of causal optimality.
+Hazard ratios are non-collapsible; odds ratios share the property; a working
+model is a working model. The case for the standard analysis is institutional
+and pragmatic: it is the inferential currency of randomized trials — the scale
+on which they are designed, monitored, reported in primary publications, and
+read by regulators and clinicians. A flagged subgroup must ultimately support a
+claim of the form *"had this subgroup been prespecified, its analysis would have
+shown this effect, with this precision."* The claim is stated in the trial's
+currency, so the inference must be delivered in it. "For better or worse" is
+meant exactly: this paper provides valid post-selection inference for the
+estimand trials actually report, not an argument that this estimand is the
+ideal causal summary.
+
+The second half of the commitment is *interpretable membership*. Take a
+patient's baseline covariates to be $x = (x_1, x_2)$ (case example case carried through @sec-fs-family). The
+subgroups considered here are defined by explicit thresholds on those
+covariates: "$X_1 \le c_1$ and $X_2 > c_2$" -- a criterion a clinician can evaluate 
+from the two measurements alone, without a fitted model in hand.
+Contrast with a score-thresholded set $\{x : \hat\tau(x) > t\}$, where $\hat\tau$ is
+an estimated covariate-conditional treatment-effect surface and $t$ a cutoff. As
+an estimation device this may be excellent, but its *membership rule is the
+model*: to decide whether the same patient $(x_1, x_2)$ belongs, one evaluates
+the fitted surface $\hat\tau(x_1, x_2)$ and compares it to $t$, and the boundary
+is whatever level set $\hat\tau$ traces in the $(x_1, x_2)$ plane — in general a
+curved, data-dependent region with no closed-form description, not a rectangle
+of interpretable cutoffs. That surface $\hat\tau(x)$ is exactly the
+covariate-conditional effect the modern subgroup identifiers of @sec-ml-targets
+estimate, which is why their natural output is a model-defined set rather than an
+interpretable rule — and, as the next subsection develops, why the estimand they
+target departs from the standard analysis. The reportable unit throughout is the
+triple (interpretable definition, standard-analysis effect, valid post-selection
+interval).
+
+## What modern identifiers target instead {#sec-ml-targets}
+
+The machine-learning literature on heterogeneous treatment effects supplies
+powerful subgroup *identifiers*, but they are built around different estimands
+than the one above — a point that matters because it determines what their
+selection statistics are.
+
+Generalized random forests and causal forests
+[@wagerathey2018; @atheytibshiraniwager2019] estimate conditional average
+treatment effects on the difference-in-means scale; their survival extension,
+causal survival forests, targets differences in restricted mean survival time,
+or in survival probability at a fixed horizon — not the Cox log hazard ratio.
+The difference-in-natural-parameters (DINA) framework of @gao2025 targets the
+*causal contrast of natural parameters*,
+$\tau(x) = \eta_1(x) - \eta_0(x)$ — a per-patient log odds ratio, log rate
+ratio, mean difference, or log hazard ratio contrast — estimated with
+orthogonalized, cross-fitted machinery in the R-learner tradition
+[@robinson1988; @niewager2021; @chernozhukov2018], and it proposes subgroups by
+ranking the subgroup mean $\bar{\hat\tau}_g$ of the fitted per-patient effects.
+The DINA scale coincides with the standard analysis's scale — a coincidence
+this paper will exploit — but the estimand and the selection statistic do not:
+a covariate-conditional causal contrast averaged over a subgroup is not the
+within-subgroup fitted coefficient of the trial's working model, either as a
+population quantity or, what matters most for selection, as a random object
+under resampling. Virtual twins [@foster2011] and modified-covariate methods
+[@tian2014] likewise rank model-derived individual scores.
+
+None of this is a criticism. These are arguably better causal estimands and
+certainly strong discovery engines. The difficulty is downstream. When a
+subgroup is *selected* by ranking one statistic but *reported* through another
+— the standard analysis — the selection event and the reported quantity live on
+different probabilistic objects, and post-selection inference for the report
+must either model the selection that was actually performed or align the
+selection with the report. The resolution developed later in the paper (the
+alignment section, spine §5) is the second: such procedures are treated as
+*candidate generators*, and their selection is re-ranked on the inferential
+effect. For the present section the point is the framing itself: the goal of
+inference is the standard analysis, and the identification machinery — whatever
+it is — is in service of that goal.
+
+## This paper {#sec-this-paper}
+
+Our starting point is the post-selection correction of @leon2024 for forest
+search under the Cox model: a bootstrap de-biased estimate that subtracts the
+average of *two* resampling discrepancies — the discrepancy at the
+*re-selected* subgroup of each resample, which is the selection optimism in the
+lineage of @harrell1996, and the discrepancy at the *observed* selected
+subgroup, the estimator's own finite-sample bias there, a term the Harrell
+correction omits — together with an infinitesimal-jackknife variance
+[@efron2014; @wagerhastie2014] that treats the corrected estimate as a bagged
+estimator. This paper generalizes that construction along three axes: from
+forest search to any identification procedure whose selection is, or is
+re-ranked to be, a functional of the per-candidate standard-analysis effects;
+from the Cox model to the GLM family on the natural-parameter scale; and from a
+literal bootstrap re-run of the search to a fast, refit-free
+multiplier-resampling computation that reproduces the bootstrap correction —
+point estimate and interval — to first order, conditional on the candidate
+family. Section @sec-fs-family develops the structural property that makes all
+three possible, in the simplest instance that exhibits it.
+
+::: {.callout-note appearance="simple"}
+**Drafting note — placement of DINA (remove before submission).** As drafted,
+DINA enters @sec-ml-targets only as a *contrast* estimand; the full DINA
+casting (the natural-parameter scale as the unifying estimand layer, with
+$\beta(g)$ recognized as the subgroup's constant DINA under the indicator
+basis) is held for the estimand-layer section (spine §2), and the
+candidate-generator/alignment treatment for spine §5. Rationale and the
+alternative are discussed in the drafting note at the end of @sec-fs-family.
+:::
+
+# Forest search as a fixed candidate family {#sec-fs-family}
+
+Forest search [@leon2024] is an exhaustive identification procedure: enumerate
+an interpretable family of candidate subgroups, evaluate each with the trial's
+own analysis, screen on effect size and internal replicability, and select
+among the survivors. We present it here in its simplest non-trivial instance —
+two continuous baseline covariates — because this instance isolates, without
+clutter, the structural property the rest of the paper rides on: the candidate
+family is **fixed**, and consequently a bootstrap of the *entire search*
+collapses, to first order, into a re-ranking of jointly perturbed
+standard-analysis coefficients.
+
+## The candidate family from two covariates {#sec-family-construction}
+
+Let $X_1$ and $X_2$ be two continuous baseline covariates.^[We say *baseline
+covariates*; the package interface, following @leon2024, calls the candidate
+subgroup-defining variables *confounders* (`confounders.name`).] For each,
+place a grid of candidate cut points,
+$c_{1,1} < \cdots < c_{1,k_1}$ for $X_1$ and
+$c_{2,1} < \cdots < c_{2,k_2}$ for $X_2$, at prespecified locations of the
+observed distribution — the package's default cut set for a continuous
+covariate is the mean, median, and quartiles ($k_j = 4$), and a $J$-quantile
+grid placing $k_j$ cuts at the $m/(k_j+1)$ empirical quantiles,
+$m = 1,\dots,k_j$, is the general alternative. Each cut point defines the two
+one-sided conditions it can generate, so the base set of subgroup-defining
+conditions is
+$$
+\mathcal B \;=\; \big\{\, \mathbf 1\{X_j \le c\},\; \mathbf 1\{X_j > c\}
+\;:\; c \in \mathcal C_j,\; j = 1,2 \,\big\},
+\qquad |\mathcal B| \;=\; L \;=\; 2\,(k_1 + k_2),
+$$ {#eq-base}
+and the **candidate family** is every conjunction of at most two distinct
+conditions,
+$$
+\mathcal F \;=\;
+\big\{\, B \;:\; B \in \mathcal B \,\big\}
+\;\cup\;
+\big\{\, B \wedge B' \;:\; B, B' \in \mathcal B,\; B \neq B' \,\big\},
+\qquad
+|\mathcal F| \;\le\; L + \binom{L}{2}.
+$$ {#eq-family}
+Its members read as clinical criteria: one-sided sets $\{X_1 \le c\}$; corners
+$\{X_1 \le c,\, X_2 > c'\}$; and, from two cuts on the same covariate, intervals
+$\{c < X_1 \le c'\}$. The bound in @eq-family is not attained — empty
+intersections (the two sides of one cut) and candidates failing minimum
+subgroup-size and minimum-event guards are dropped — and with the default four
+cuts per covariate, $L = 16$ and $|\mathcal F| \le 136$. The construction
+generalizes verbatim to conjunctions of up to $\texttt{maxk}$ conditions,
+$|\mathcal F| \le \sum_{k \le \texttt{maxk}} \binom{L}{k}$; two suffice for
+this section.
+
+The property to register is what $\mathcal F$ does *not* depend on. The family
+is determined by the covariate cut grids alone — before any outcome model is
+fit, before treatment assignment is consulted. It does not depend on outcomes,
+on fitted effects, or on any learned surface. Throughout the paper, *fixed
+family* means precisely this: the list of subgroup definitions @eq-family is
+one fixed object, and any resampling of the data re-evaluates the *same* list
+rather than generating a new one. (Cut locations computed from observed
+covariate quantiles are held fixed under all resampling in this paper; the
+family is the list of definitions so formed.)
+
+## The per-candidate standard analysis {#sec-percand}
+
+Each candidate receives the trial's own analysis. For $g \in \mathcal F$, fit
+the working model to the members of $g$: under proportional hazards,
+$\lambda_i(t) = \lambda_{0,g}(t)\,\exp\{\beta(g)\,A_i\}$ for $i \in g$, with
+$A_i \in \{0,1\}$ the randomized treatment; for a GLM outcome,
+$g_{\mathrm{link}}\big(\mathbb E[Y_i \mid A_i]\big) = \alpha_g + \beta(g)\,A_i$
+— optionally covariate-adjusted in either case. The estimate $\hat\beta(g)$
+solves the within-subgroup score equation
+$\sum_{i \in g} \psi_i(\beta; g) = 0$, and the per-subject empirical influence
+is the dfbeta
+$$
+\mathrm{db}_{g,i} \;=\; \mathcal I_g^{-1}\,\psi_i\big(\hat\beta(g);\, g\big)
+\;\approx\; \hat\beta(g) - \hat\beta_{(-i)}(g),
+\qquad
+\sum_{i \in g} \mathrm{db}_{g,i} = 0,
+$$ {#eq-dfbeta}
+with $\mathcal I_g$ the within-subgroup observed information. The sum of
+squared influences,
+$\sigma_{D,g}^2 = \sum_{i \in g} \mathrm{db}_{g,i}^2$, is the robust
+(sandwich / infinitesimal-jackknife) variance of $\hat\beta(g)$
+[@linwei1989; @white1980; @efron1982]. Orientation is fixed once: harm
+corresponds to $\beta > c$ on the model's own scale, with $c$ the log of a
+ratio threshold for ratio measures and the threshold itself for a mean
+difference.
+
+## The splitting-consistency screen {#sec-consistency}
+
+A candidate is admitted not on the size of its estimate alone but on the
+*internal replicability* of that estimate. The criterion of @leon2024 is a
+repeated random split: divide $g$ into two halves by independent fair coins,
+refit the working model on each half, and call the split **consistent** if both
+half-estimates exceed the consistency threshold $c_{\mathrm{cons}}$; over many
+splits, the consistency rate $p_{\mathrm{cons}}(g)$ is the fraction of
+consistent splits, and $g$ is admitted if
+$p_{\mathrm{cons}}(g) \ge p^\star$ (default $0.90$) alongside the screening
+requirement $\hat\beta(g) \ge c_{\mathrm{screen}}$ on the full fit (defaults
+$c_{\mathrm{screen}} = \log 1.25$, $c_{\mathrm{cons}} = \log 1.0$).
+
+As defined the criterion costs on the order of $10^3$ refits per candidate and
+is statistically opaque; a first-order analysis removes both objections. Encode
+a split by inclusion indicators $Z_i \in \{0,1\}$ and expand the half-sample
+score about $\hat\beta(g)$ (each half carries half the information): the two
+half-estimates form a mirror pair around the full fit,
+$$
+\hat\beta^{(A)}(g) - \hat\beta(g) \;\approx\; \sum_{i \in g} G_i\,\mathrm{db}_{g,i}
+\;=:\; D_g,
+\qquad
+\hat\beta^{(B)}(g) - \hat\beta(g) \;\approx\; -\,D_g,
+\qquad
+G_i = 2Z_i - 1,
+$$ {#eq-mirror}
+so the fair-coin split *is* a Rademacher multiplier bootstrap of the subgroup
+estimating function, and the split perturbation $D_g$ has conditional variance
+exactly $\sigma_{D,g}^2$, the robust variance of $\hat\beta(g)$. From this one
+object follow the consistency screen's two readings, both derived in
+@sec-appendix-multiplier: a *closed form* for the consistency rate, computed
+without any splitting, and a *calibration* that makes admission at level
+$p^\star$ exactly the requirement that the one-sided $(1+p^\star)/2$ robust lower
+confidence bound for $\hat\beta(g)$ clear the threshold — for the default
+$p^\star = 0.90$, that the effect exceed $c_{\mathrm{cons}}$ by $1.645$ robust
+standard errors. The criterion is then evaluated by literal splitting or,
+equivalently, by the multiplier resampling it linearizes to (the package's
+`resample` method); that appendix also places the fair-coin split alongside its
+score- and bootstrap-resampling cousins, the simplest instance of the apparatus
+the post-selection correction reuses.
+
+What carries forward to the bridge of @sec-bridge is the structural reading:
+**per candidate, the estimate and its consistency screen are functionals of one
+fitted model — its coefficient $\hat\beta(g)$ and its influence values
+$\{\mathrm{db}_{g,i}\}$.**
+
+## Selection {#sec-selection}
+
+Admission is per candidate; identification *selects*. Collecting the screen and
+the calibrated consistency requirement into per-candidate thresholds
+$t_g = \max\big(c_{\mathrm{screen}},\; c_{\mathrm{cons}} +
+z_{(1+p^\star)/2}\,\sigma_{D,g}\big)$, the procedure applies a deterministic
+rule to the candidate effects — among the admitted
+$\{g : \hat\beta(g) \ge t_g\}$, take the largest effect, or the most consistent
+candidate, with subgroup size breaking ties — which we write as a **selection
+map** acting on the vector of candidate effects:
+$$
+\widehat H \;=\; \mathcal S\big(\{\hat\beta(g) : g \in \mathcal F\}\big).
+$$ {#eq-selmap}
+The particular rule matters less than its two structural properties: $\mathcal
+S$ is deterministic given the candidate effects (with the $\sigma_{D,g}$
+entering only through the fixed thresholds $t_g$), and it **ranks on the
+inferential effect** — the same $\hat\beta(g)$ the report is about. The naive
+report $\hat\beta(\widehat H)$ is then optimistically biased: $\widehat H$ was
+chosen for the extremity of the very quantity being reported.
+
+## The bridge: a fixed family turns re-selection into resampling arithmetic {#sec-bridge}
+
+The de-biasing of @leon2024 is a bootstrap of the *search*: each resample
+re-runs enumerate–screen–select, so the resampling distribution carries not
+just re-estimation of a fixed subgroup but **re-selection** — on each resample
+a possibly different winner. The question this subsection answers is how the
+multiplier resampling already introduced — the same object underlying the
+consistency screen and the textbook bootstrap of a single Cox or GLM
+coefficient — captures that re-selection aspect. The answer is the fixed
+family, in four steps.
+
+**(i) One resample is one weight vector.** A nonparametric bootstrap resample
+does not manufacture new subjects: it assigns subject $i$ a multiplicity
+$K^{*}_{bi}$ (its count in resample $b$, $\sum_i K^{*}_{bi} = N$), and
+refitting candidate $g$ on the resample means solving its score equation with
+each member's contribution weighted by $K^{*}_{bi}$. Because the unweighted
+scores sum to zero at $\hat\beta(g)$, only the *centered* weights
+$G_i(b) = K^{*}_{bi} - 1$ perturb the solution, and to first order the refit is
+a dot product with the influence values:
+$$
+\hat\beta^{*}_b(g) - \hat\beta(g)
+\;=\; \sum_{i \in g} \big(K^{*}_{bi} - 1\big)\,\mathrm{db}_{g,i} + o_p\!\big(n_g^{-1/2}\big)
+\;=:\; D_g(b).
+$$ {#eq-boot}
+This is the same object as the split perturbation in @eq-mirror under a
+different weight law — centered multiplicities in place of Rademacher signs.
+Both laws are mean-zero with unit variance, and with centered-Poisson weights
+($K^{*}_{bi} \to \mathrm{Poisson}(1)$, the bootstrap's own multiplicity law)
+@eq-boot is the infinitesimal-jackknife linearization of the nonparametric
+bootstrap [@efron2014]. The consistency screen and the bootstrap of a Cox/GLM
+coefficient are one resampling object under two multiplier laws.
+
+**(ii) With the family fixed, re-running the search is re-applying the rule.**
+Now bootstrap the search itself, and ask what a resample can change. The family
+cannot change: $\mathcal F$ is the same fixed list of definitions
+(@sec-family-construction), so the candidates evaluated on resample $b$ are the
+candidates evaluated on the original data. The per-candidate analyses change
+only through the weights — that is, through @eq-boot. The rule is the same
+deterministic map $\mathcal S$. Therefore "re-run the entire search on resample
+$b$" collapses, to first order, into "re-apply the rule to the perturbed
+effects":
+$$
+\widehat H^{*}_b \;=\;
+\mathcal S\big(\{\hat\beta(g) + D_g(b) \;:\; g \in \mathcal F\}\big),
+$$ {#eq-reselect}
+with the thresholds $t_g$ held at their observed values. This is the
+re-selection aspect, captured: the bootstrap does not merely re-estimate the
+chosen subgroup, it re-*chooses* — and @eq-reselect says that over a fixed
+family, re-choosing is a deterministic functional of exactly the quantities the
+single-subgroup bootstrap already controls. Selection introduces no new
+approximation: the only expansion anywhere is @eq-boot, the same dfbeta
+linearization that underwrites the consistency screen @eq-closed.
+
+**(iii) One shared vector makes the competition honest.** Selection is a
+competition: the winner of draw $b$ is decided by comparisons among candidates,
+hence by *differences* $D_g(b) - D_{g'}(b)$, never by one candidate in
+isolation. In a real resample there is one draw of the data, and every
+candidate is re-fit against the same multiplicities; the arithmetic mirrors
+this by broadcasting a **single** multiplier vector to all candidates on each
+draw, which endows the perturbations with the candidates' true overlap
+covariance,
+$$
+\operatorname{Cov}\big(D_g(b),\, D_{g'}(b) \,\big|\, \text{data}\big)
+\;=\; \sum_i \mathrm{db}_{g,i}\,\mathrm{db}_{g',i}.
+$$ {#eq-overlap}
+Two nearly identical candidates are pushed by the same weights on their shared
+members, which cancel in the difference, so the winner flips between them only
+on draws that genuinely favour one — exactly the bootstrap's behaviour.
+(Independent per-candidate perturbations would let near-duplicates trade places
+far too often, manufacturing selection variability the bootstrap never
+produces.) Computationally, everything is one matrix product: stacking the
+influence columns into $\mathbf B_{\mathrm{eff}} \in \mathbb R^{N \times S}$
+and the multiplier draws into $\boldsymbol\Xi \in \mathbb R^{N \times B}$, the
+product $\mathbf P = \mathbf B_{\mathrm{eff}}^{\top}\boldsymbol\Xi$ holds every
+candidate's perturbation on every draw — the data enter only through
+$\mathbf B_{\mathrm{eff}}$, the randomness only through $\boldsymbol\Xi$.
+
+**(iv) What this buys, and what to call it.** On each draw the re-selected
+winner carries its own perturbation $D_{\widehat H^{*}_b}(b)$; because the rule
+rewards large perturbed effects, the winner's perturbation is positive on
+average, and that average *is* the selection optimism — subtracting it,
+together with the same-draws term at the observed $\widehat H$, is exactly the
+two-term León correction, developed with its infinitesimal-jackknife interval
+in the correction section (spine §§3–4). The point of the present section is
+structural, and it is the sense of *procedure-agnostic* in our title: nothing
+in steps (i)–(iii) used how $\mathcal F$ was constructed or why $\mathcal S$
+ranks as it does. The construction requires precisely two things — a **fixed**
+family of subgroup definitions, each carrying its standard analysis
+$\big(\hat\beta(g), \{\mathrm{db}_{g,i}\}\big)$, and a selection that is a
+**functional of those candidate effects**, @eq-selmap. Forest search satisfies
+both natively, which is why it is the clean first instance; any identifier that
+can be expressed in this form inherits the identical post-selection machinery,
+whatever generated its candidates. Identifiers that rank on a *different*
+statistic (a fitted per-patient effect, a doubly-robust score) or whose family
+is *regenerated* by each resample do not satisfy the conditions as stated;
+bringing them under the template — by re-ranking their qualifying candidates on
+the inferential effect, conditional on the proposed family — is the subject of
+the alignment and scope sections (spine §§5–6).
+
+::: {.callout-note appearance="simple"}
+**Drafting note — the DINA-casting question (remove before submission).**
+Decision drafted: the DINA casting is *held off*, and this section runs
+entirely on the standard-analysis coefficient and its dfbeta. Rationale:
+(a) the bridge's punchline — selection as a functional of the per-candidate
+standard analyses over a fixed family — *is* the procedure-agnostic template,
+and stating it without DINA vocabulary keeps the template's two requirements
+visible, which is what the alignment section then shows DINA/GRF violating
+natively; (b) introducing $\tau(x)$ and $\bar{\hat\tau}_g$ here would put two
+effect notions on the page before the reader needs them, and the worked
+winner-flip example lands harder when the native statistic arrives as the new
+object; (c) the unifying service DINA does perform — one natural-parameter
+scale across Cox/logistic/Poisson/Gaussian, with $\beta(g)$ recognized as the
+subgroup's constant DINA under the indicator basis — belongs to the
+estimand-layer section (spine §2), where it is the point rather than a
+digression. If the alternative is preferred, the natural insertion is a short
+paragraph after @eq-dfbeta noting that $\beta(g)$ is the subgroup DINA of
+@gao2025 (indicator basis), with the alignment caveat deferred; that variant
+can be produced on request.
+:::
+
+<!-- =====================================================================
+     APPENDICES  (currently one; will move to the true end of the paper
+     as the main sections between the bridge and here are drafted)
+===================================================================== -->
+
+# Appendix: The splitting-consistency screen as the simplest multiplier resampling {#sec-appendix-multiplier}
+
+This appendix works out the splitting-consistency screen of @sec-consistency as
+the simplest instance of the multiplier resampling the main text uses for
+post-selection correction. The structure is the same in both: perturb the
+candidate's fitted effect by a mean-zero, unit-variance multiplier vector and
+read off a functional of the result. Only the question differs — here, whether a
+single candidate replicates under a $50/50$ split; in @sec-bridge, which
+candidate is re-selected under one shared perturbation and how much selection
+inflates its effect. Reading the screen this way is the cleanest entry point to
+the apparatus, which is why it is collected here rather than carried through the
+main argument.
+
+## From the fair-coin split to the closed form {#sec-am-closed}
+
+Start from the linearized split of @eq-mirror: the two half-sample estimates are
+a mirror pair $\hat\beta(g) \pm D_g$ about the full fit, with split perturbation
+$D_g = \sum_{i \in g} G_i\,\mathrm{db}_{g,i}$ and Rademacher multipliers
+$G_i = 2Z_i - 1 \in \{-1, +1\}$. Because $\hat\beta^{(A)}(g) \approx \hat\beta(g)
++ D_g$ and $\hat\beta^{(B)}(g) \approx \hat\beta(g) - D_g$, both halves exceed
+$c_{\mathrm{cons}}$ exactly when the smaller does,
+$$
+\{\hat\beta^{(A)}(g) > c_{\mathrm{cons}}\} \cap
+\{\hat\beta^{(B)}(g) > c_{\mathrm{cons}}\}
+\;\Longleftrightarrow\;
+|D_g| < \hat\beta(g) - c_{\mathrm{cons}} .
+$$ {#eq-am-event}
+The split perturbation is a sum of $n_g$ independent mean-zero terms with
+conditional variance
+$\sigma_{D,g}^2 = \sum_{i \in g} \mathrm{db}_{g,i}^2$ — the robust variance of
+$\hat\beta(g)$ — so a central limit theorem in $n_g$ gives
+$D_g \mid \text{data} \approx \mathcal N(0, \sigma_{D,g}^2)$ and hence the closed
+form for the consistency rate,
+$$
+p_{\mathrm{cons}}(g) \;=\; \Pr\big(|D_g| < \hat\beta(g) - c_{\mathrm{cons}}\big)
+\;\approx\;
+\max\Big\{0,\; 2\,\Phi\big(\big(\hat\beta(g) - c_{\mathrm{cons}}\big)/\sigma_{D,g}\big) - 1\Big\} .
+$$ {#eq-closed}
+For $\hat\beta(g) > c_{\mathrm{cons}}$ the two-sided probability is
+$2\Phi\big((\hat\beta(g) - c_{\mathrm{cons}})/\sigma_{D,g}\big) - 1$; for
+$\hat\beta(g) \le c_{\mathrm{cons}}$ it is zero. No splitting or refitting
+enters: a single subgroup fit, supplying $\hat\beta(g)$ and
+$\{\mathrm{db}_{g,i}\}$, determines the rate, and a Monte Carlo version that
+draws multiplier vectors and averages
+$\mathbf 1\{|D_g| < \hat\beta(g) - c_{\mathrm{cons}}\}$ converges to it.
+
+## Calibration: the consistency cutoff as a confidence bound {#sec-am-calib}
+
+Inverting @eq-closed turns the opaque cutoff $p^\star$ into a confidence
+statement. The candidate passes the screen at level $p^\star$ iff
+$2\Phi\big((\hat\beta(g) - c_{\mathrm{cons}})/\sigma_{D,g}\big) - 1 \ge p^\star$,
+i.e. $(\hat\beta(g) - c_{\mathrm{cons}})/\sigma_{D,g} \ge z_{(1+p^\star)/2}$, i.e.
+$$
+\hat\beta(g) \;-\; z_{(1+p^\star)/2}\,\sigma_{D,g} \;\ge\; c_{\mathrm{cons}} .
+$$ {#eq-calib}
+The consistency screen at level $p^\star$ is therefore exactly the requirement
+that the one-sided $(1+p^\star)/2$ robust lower confidence bound for the subgroup
+effect lie above the harm threshold. For the default $p^\star = 0.90$,
+$(1+p^\star)/2 = 0.95$ and $z_{0.95} = 1.645$: a $90\%$ consistency rate is a
+subgroup effect exceeding $c_{\mathrm{cons}}$ by $1.645$ robust standard errors.
+The screen is thus a one-sided $z$-test of $H_0 : \beta(g) \le c_{\mathrm{cons}}$
+evaluated with the split-matched robust standard error $\sigma_{D,g}$, and
+$p^\star$ is a choice of one-sided confidence level rather than a convention —
+the screen tightens with subgroup size only through $\sigma_{D,g}$, so small
+subgroups must show a larger $\hat\beta(g) - c_{\mathrm{cons}}$ to pass.
+
+## One apparatus, three multiplier laws {#sec-am-laws}
+
+The closed form depends on the multiplier law only through its first two moments,
+$\mathbb E\,G_i = 0$ and $\operatorname{Var} G_i = 1$. Three standard choices
+therefore share the limit @eq-closed:
+
+| Multiplier $G_i$ | Distribution | Recovers |
+|---|---|---|
+| $2Z_i - 1$, $Z_i \sim \mathrm{Ber}(1/2)$ | Rademacher $\pm 1$ | the literal $50/50$ split |
+| $G_i \sim \mathcal N(0,1)$ | Gaussian | score / estimating-function resampling [@linweiying1993; @parzenweiying1994; @jinyingwei2001] |
+| $G_i \sim \mathrm{Pois}(1) - 1$ | centered Poisson | the weird / wild survival bootstrap [@dobler2017], and the asymptotic multiplicity law of the nonparametric bootstrap |
+
+: Multiplier laws giving the same limiting consistency rate. {#tbl-am-mult}
+
+The fair-coin split, Gaussian score resampling, and the weird bootstrap are thus
+three coordinates on one object — a multiplier bootstrap of the subgroup
+estimating function. The split is the finite Rademacher member the original
+algorithm realizes by literal subsetting; the centered-Poisson member is the one
+the post-selection correction of @sec-bridge uses, because a subject's count in a
+size-$N$ with-replacement resample is
+$\mathrm{Binomial}(N, 1/N) \to \mathrm{Poisson}(1)$, so its centered multiplicity
+is exactly $\mathrm{Pois}(1) - 1$.
+
+## The segue to post-selection re-selection {#sec-am-segue}
+
+The screen and the post-selection correction ask different questions of the same
+apparatus. The screen is a *per-candidate* yes/no: under a $50/50$ split, does
+the effect replicate on both halves? Its answer is the tail functional @eq-closed
+of a single candidate's perturbation. The correction of @sec-bridge is a
+*competition* among candidates: under one shared perturbation broadcast to the
+whole family, which candidate is re-selected, and by how much does selection
+inflate its effect? Its answer is a maximum-type functional over the family. The
+move from the first to the second is the move from one candidate to many under a
+shared multiplier vector — from a per-candidate tail to an order statistic — and
+the centered-Poisson member is what makes that re-selection mimic the
+nonparametric bootstrap's own resampling. The consistency screen is, in this
+sense, the one-candidate, yes/no warm-up for the many-candidate, how-much
+machinery the paper builds.
