@@ -77,6 +77,10 @@ library(future)
 
 # ── Counts (the only knobs to change for production) ───────────────────────
 n_sims       <- 1000L     # simulated trials        (Tier-2 scales cheaply: try 20000)
+diag_mode    <- FALSE    # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
+                         # worker's forestsearch() error (otherwise swallowed by the inner
+                         # tryCatch), so parallel-only failures become visible.  Set FALSE
+                         # for a real run.
 gate_draws   <- 2000L     # Tier-2 multiplier draws (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -93,10 +97,15 @@ proj_scenarios <- c(1000L, 5000L, 20000L)
 # The Tier-2 gate now runs for all three (each de-biased against its OWN
 # candidate family, with re-selection matching the method's selection rule).
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
-grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect"
+                               #   "effect" re-ranks the DR frontier on the inferential effect the gate
+                               #   de-biases; no-op for the policy tree.
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
 dmin.grf        <- 0.0             # GRF DR-score screening floor
 dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "effect"    # only if subgroup_method=="dina": "dina" (native tau-hat) | "effect"
+                                   #   "effect" re-ranks the DINA family on the inferential effect the gate de-biases.
 
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
@@ -126,15 +135,15 @@ pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
 maxk               <- 2L
 n_min              <- 60L
-d0_min             <- 12L
-d1_min             <- 0L
-use_lasso          <- TRUE
-use_dina           <- TRUE
-use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
+d0_min             <- 10L
+d1_min             <- 10L
+use_lasso          <- FALSE
+use_dina           <- FALSE
+use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
 fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
-fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous
+fs_conf.cont_jcuts <- list(er = 20)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous
 
 # fs_conf_force <- NULL
 # fs_conf.cont_jcuts <- NULL
@@ -288,15 +297,21 @@ record_replicate <- function(sim_id) {
       use_dina = use_dina,
       conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
       fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
-    dina = dina_args,
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
     grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
-                dmin.grf = dmin.grf),
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
     stop("unknown subgroup_method: ", subgroup_method)
   )
 
   t2_t0 <- proc.time()[3]
   fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
-                     error = function(e) NULL)
+                     error = function(e) {
+                       if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
+                         warning(sprintf("FS-ERR sim %d: %s", sim_id,
+                                         conditionMessage(e)), call. = FALSE)
+                       NULL
+                     })
   rec$t2_secs <- proc.time()[3] - t2_t0
   if (is.null(fs.est)) return(rec)
 
@@ -359,7 +374,8 @@ if (run_smoke) {
 
   t_all <- proc.time()[3]
   results <- foreach(
-    s = seq_len(n_sims), .combine = rbind, .errorhandling = "remove",
+    s = seq_len(if (isTRUE(diag_mode)) min(n_sims, 5L) else n_sims),
+    .combine = rbind, .errorhandling = "remove",
     .options.future = list(packages = c("forestsearch", "survival", "data.table"),
                            seed = TRUE)
   ) %dofuture% {

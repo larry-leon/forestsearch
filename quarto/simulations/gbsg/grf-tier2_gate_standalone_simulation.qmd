@@ -96,7 +96,7 @@ proj_scenarios <- c(1000L, 5000L, 20000L)
 #   "grf"         - GRF selection (DR-candidate frontier family; tree or frontier).
 # The Tier-2 gate now runs for all three (each de-biased against its OWN
 # candidate family, with re-selection matching the method's selection rule).
-subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect"
                                #   "effect" re-ranks the DR frontier on the inferential effect the gate
@@ -129,7 +129,7 @@ selection_rule     <- "neighborhood"   # "neighborhood" | "pareto" | "both"
 # "maxeff"), and maxSG/minSG/effMaxSG/effMinSG map through identically.  So
 # sg_focus is the single source of truth; to override, pass `reselection =`
 # inside debias_gate_args below (advanced use only).
-hr_threshold       <- 1.25         # different target under DINA (not Cox based)
+hr_threshold       <- 1.0         # different target under DINA (not Cox based)
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
