@@ -264,16 +264,10 @@
 #'   (the per-covariate quantile grid for depth-2 pair thresholds; default
 #'   interior deciles).  \code{max_depth} / \code{grid_probs} are forwarded
 #'   to \code{\link{dina_subgroup}} and apply to both the selected-cut
-#'   screening and \code{subgroup_method = "dina"}; plus \code{select_statistic}
-#'   (\code{"dina"} default, or \code{"effect"}), which controls how the
-#'   winner is chosen from DINA's qualifying family under
-#'   \code{subgroup_method = "dina"}.  \code{"dina"} ranks on DINA's native
-#'   subgroup-mean tau-hat (unchanged legacy behaviour); \code{"effect"} ranks
-#'   on the inferential effect measure (Cox HR for survival; the resolved GLM
-#'   effect otherwise), scored with the same per-candidate estimator the
-#'   Tier-2 de-biased gate uses, so the realized selection is the exact event
-#'   the gate de-biases (and the gate's native-family restriction follows the
-#'   effect rather than tau-hat).
+#'   screening and \code{subgroup_method = "dina"}.  (The selector statistic
+#'   formerly accepted here as \code{select_statistic} is now the top-level
+#'   \code{dina_select_statistic} argument; a value supplied inside
+#'   \code{dina_args} is deprecated and overridden with a warning.)
 #'   When \code{selected_only = TRUE} (the default), \code{use_dina} screening
 #'   contributes the cut(s) chosen by \code{\link{dina_subgroup}} -- using
 #'   this call's \code{sg_focus} / \code{selection_rule} /
@@ -281,6 +275,16 @@
 #'   same cut \code{subgroup_method = "dina"} would select. Set \code{FALSE} to
 #'   contribute the full frontier candidate set instead. Unknown keys raise
 #'   an error.
+#' @param dina_select_statistic Character, one of \code{"dina"} (default) or
+#'   \code{"effect"}, used only when \code{subgroup_method = "dina"}.  The DINA
+#'   analogue of \code{grf_select_statistic}.  \code{"dina"} ranks DINA's
+#'   qualifying family on its native subgroup-mean tau-hat (unchanged legacy
+#'   behaviour).  \code{"effect"} re-ranks the same family on the inferential
+#'   effect measure (Cox HR for survival; the resolved GLM effect otherwise),
+#'   scored with the same per-candidate estimator the Tier-2 de-biased gate
+#'   uses, so the realized selection is the exact event the gate de-biases (and
+#'   the gate's native-family restriction follows the effect rather than
+#'   tau-hat).
 #' @param subgroup_method Character, one of \code{"consistency"} (default),
 #'   \code{"dina"}, or \code{"grf"}. \code{"consistency"} is the standard
 #'   ForestSearch pipeline (GRF/LASSO screening then the consistency search).
@@ -815,6 +819,7 @@ forestsearch <- function(df.analysis,
                          dina_res = NULL,
                          dina_cuts = NULL,
                          dina_args = list(),
+                         dina_select_statistic = c("dina", "effect"),
                          subgroup_method = c("consistency", "dina", "grf"),
                          max_n_confounders = 1000,
                          grf_depth = 2,
@@ -896,6 +901,25 @@ forestsearch <- function(df.analysis,
   grf_count_transform <- match.arg(grf_count_transform)
   subgroup_method     <- match.arg(subgroup_method)
   consistency_method  <- match.arg(consistency_method)
+
+  # DINA's selector statistic is a first-class argument, mirroring
+  # `grf_select_statistic`.  It is normalized here and injected as the canonical
+  # value into `dina_args`, which `.resolve_dina_args()` reads, so every
+  # downstream DINA site sees a single source of truth.  A value supplied the
+  # old way (inside `dina_args$select_statistic`) is deprecated: it is honoured
+  # for one cycle but overridden by the top-level argument, with a warning.
+  dina_select_statistic <- match.arg(dina_select_statistic)
+  if (is.null(dina_args)) dina_args <- list()
+  if (!is.list(dina_args)) {
+    stop("`dina_args` must be a list.", call. = FALSE)
+  }
+  if (!is.null(dina_args[["select_statistic"]]) &&
+      !identical(dina_args[["select_statistic"]], dina_select_statistic)) {
+    warning("`dina_args$select_statistic` is deprecated; use the top-level ",
+            "`dina_select_statistic` argument (mirrors `grf_select_statistic`)",
+            ".  The top-level value is used.", call. = FALSE)
+  }
+  dina_args[["select_statistic"]] <- dina_select_statistic
 
   if (outcome_type != "survival" && is.null(effect_measure)) {
     effect_measure <- switch(outcome_type,
@@ -1666,7 +1690,6 @@ forestsearch <- function(df.analysis,
     if (isTRUE(debias_gate) && isTRUE(dsel$found) &&
         !is.null(dsel$grp.consistency) &&
         !is.null(dsel$grp.consistency$sg.harm.id)) {
-      out$debias_gate <- tryCatch({
       .dg_df   <- dsel$df.est
       # Mirror SECTION 9B: survival -> effect_measure "HR" on log scale;
       # GLM -> resolved effect_measure with the precomputed comparison-scale
@@ -1699,7 +1722,7 @@ forestsearch <- function(df.analysis,
         log_scale = .dg_em %in% c("HR", "OR", "IRR"))
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
                                            op_right = ">=", n_min = n.min)
-      .fs_apply_debias_gate(
+      out$debias_gate <- .fs_apply_debias_gate(
         df = .dg_df, candidates = .dg_fam,
         selected_members = which(dsel$grp.consistency$sg.harm.id == 1L),
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
@@ -1708,9 +1731,6 @@ forestsearch <- function(df.analysis,
         reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
-      }, error = function(e) {
-        warning("debias_gate failed: ", conditionMessage(e)); NULL
-      })
     }
 
     out$harm_flag_debiased <- if (!is.null(out$debias_gate))
@@ -1802,7 +1822,6 @@ forestsearch <- function(df.analysis,
     out$debias_gate <- NULL
     if (isTRUE(debias_gate) && !is.null(gsel$grp.consistency) &&
         !is.null(gsel$grp.consistency$sg.harm.id)) {
-      out$debias_gate <- tryCatch({
       .dg_df   <- gsel$df.est
       # Mirror SECTION 9B (see DINA branch): survival uses "HR"/log(hr.threshold);
       # GLM uses effect_measure/effect_threshold.  effect_measure is NULL for
@@ -1835,7 +1854,7 @@ forestsearch <- function(df.analysis,
         log_scale = if (.dg_eff_sel) .dg_em %in% c("HR", "OR", "IRR") else FALSE)
       .dg_fam  <- .fs_dg_family_from_table(.dg_df, .dg_tab,
                                            op_right = ">", n_min = n.min)
-      .fs_apply_debias_gate(
+      out$debias_gate <- .fs_apply_debias_gate(
         df = .dg_df, candidates = .dg_fam,
         selected_members = which(gsel$grp.consistency$sg.harm.id == 1L),
         spec = .dg_spec, c_screen = .dg_cscr, c_consistency = 0,
@@ -1844,9 +1863,6 @@ forestsearch <- function(df.analysis,
         reselection_default = .fs_dg_reselection_from_focus(sg_focus, engine = "effect"),
         selection_rule_default = selection_rule,
         debias_gate_args = debias_gate_args, seedit = seedit)
-      }, error = function(e) {
-        warning("debias_gate failed: ", conditionMessage(e)); NULL
-      })
     }
 
     out$harm_flag_debiased <- if (!is.null(out$debias_gate))
