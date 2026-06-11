@@ -52,7 +52,10 @@ fs_pconsistency_threshold <- 0.90   # CONS. RATE:  fraction of splits that must 
 # candidate search and consistency.  Binary/OR path: the effect-estimator fits
 # a logistic model  y ~ treat + <fs_adjust_covariates>  and reports the
 # treatment log-OR.  Set NULL for the unadjusted model.
-fs_adjust_covariates <- c("cd40", "wtkg")
+
+#fs_adjust_covariates <- c("cd40", "wtkg")
+
+fs_adjust_covariates <- NULL
 
 fs_consistency_method <- c("resample")
 
@@ -186,9 +189,9 @@ make_methods <- function(labels) {
       spec[[lbl]] <- list(subgroup_method = "dina", sg_focus = focus,
                           selection_rule = .rule_for(focus),
                           effect_neighborhood = effect_neighborhood,
+                          dina_select_statistic = fs_dina_select_statistic,
                           dina_args = list(max_depth = dina_max_depth,
-                                           grid_probs = dina_grid_probs,
-                                           select_statistic = fs_dina_select_statistic))
+                                           grid_probs = dina_grid_probs))
     } else if (engine == "grf") {
       if (identical(focus, "tree")) {
         spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "tree",

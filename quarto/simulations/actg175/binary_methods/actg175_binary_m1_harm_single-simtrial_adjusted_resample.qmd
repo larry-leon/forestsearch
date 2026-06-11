@@ -21,7 +21,7 @@ scenario <- "actg175_binary_m1c_harm_adjusted_resample"
 sim_n    <- 1000
 
 ## -- Master seed -------------------------------------------------------------
-seed_base <- 8316951L         # master RNG seed (applied via set.seed in setup)
+seed_base <- 8316952L         # master RNG seed (applied via set.seed in setup)
 analysis_seed <- seed_base    # RNG seed for the single-trial LOO / Kfold deep-dive
                               # (forestsearch_Kfold seedit=); defaults to the master seed
 run_single_trial <- TRUE      # FALSE skips the single-trial alt/null deep-dives
@@ -46,7 +46,10 @@ fs_pconsistency_threshold <- 0.90   # CONS. RATE:  fraction of splits that must 
 # candidate search and consistency.  Binary/OR path: the effect-estimator fits
 # a logistic model  y ~ treat + <fs_adjust_covariates>  and reports the
 # treatment log-OR.  Set NULL for the unadjusted model.
-fs_adjust_covariates <- c("cd40", "wtkg")
+#fs_adjust_covariates <- c("cd40", "wtkg")
+
+fs_adjust_covariates <- NULL
+
 
 ## -- Consistency calculation method (split vs. resampling) -------------------
 # "split"    -- literal repeated 50/50 split-and-refit consistency (original).
@@ -104,6 +107,7 @@ effect_neighborhood <- 0.10   # frontier / neighborhood selection band
 ## inferential GLM effect (OR) -- the statistic the Tier-2 gate de-biases --
 ## instead of the engine's native score.  Applies to the dina-* and grf
 ## frontier arms only (grf-tree has no enumerated family, so it is a no-op).
+
 fs_dina_select_statistic <- "effect"  # dina-* arms: "dina" (native tau-hat) | "effect" (OR re-rank)
 fs_grf_select_statistic  <- "effect"    # grf frontier arms: "dr" (native DR-score) | "effect" (OR re-rank)
 
@@ -201,9 +205,9 @@ make_methods <- function(labels) {
       spec[[lbl]] <- list(subgroup_method = "dina", sg_focus = focus,
                           selection_rule = .rule_for(focus),
                           effect_neighborhood = effect_neighborhood,
+                          dina_select_statistic = fs_dina_select_statistic,
                           dina_args = list(max_depth = dina_max_depth,
-                                           grid_probs = dina_grid_probs,
-                                           select_statistic = fs_dina_select_statistic))
+                                           grid_probs = dina_grid_probs))
     } else if (engine == "grf") {
       if (identical(focus, "tree")) {
         spec[[lbl]] <- list(subgroup_method = "grf", grf_selection = "tree",
@@ -823,6 +827,7 @@ search-level false-discovery rate; because it over-shrinks true effects, the gat
 is set near the null (OR > 1), not at the screening threshold.
 
 ```{r debias-gate-setup}
+#| eval: !expr run_single_trial
 #| include: false
 .dg_files <- c("fdr_family_multiplier.R", "fdr_calibration.R", "fdr_debias_gate.R")
 .dg_dir   <- getOption("fdr_src_dir", ".")
@@ -849,6 +854,7 @@ run_debias_gate_eval <- isTRUE(run_debias_gate) && isTRUE(.dg_ok) && !is.null(fs
 ```
 
 ```{r debias-gate-test}
+#| eval: !expr run_single_trial
 #| echo: false
 #| results: asis
 # Wrapped in local() so chunk-internal names (cands, spec, infl, ...) never leak
