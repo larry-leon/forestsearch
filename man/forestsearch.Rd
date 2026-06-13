@@ -120,7 +120,7 @@ processes), or \code{"sequential"} (no parallelism).}
 \code{floor(0.80 * N)} where \code{N} is the number of physical
 (non-hyperthreaded) cores, capped to 2 when
 \code{_R_CHECK_LIMIT_CORES_} is set (e.g., during \code{R CMD
-      check}).  On a 4-core laptop the default is 3 workers; on a
+    check}).  On a 4-core laptop the default is 3 workers; on a
 16-core workstation it is 12.}
 \item{show_message}{Logical. Show parallel setup messages.}
 }
