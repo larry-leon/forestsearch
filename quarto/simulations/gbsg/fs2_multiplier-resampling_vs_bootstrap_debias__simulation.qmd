@@ -72,11 +72,11 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 30L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -105,7 +105,7 @@ n_super         <- 5000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
@@ -134,7 +134,7 @@ use_dina           <- FALSE
 use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
-fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
+fs_conf_force      <- c("meno == 0", "er <= 0", "pgr <= 0")   # premenopausal (raw analog of z3 == 1)
 fs_conf.cont_jcuts <- list(er = 10)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous)
 
 # ── Column names emitted by simulate_from_dgm() ────────────────────────────
