@@ -660,11 +660,25 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       }
       Hstar_star <- fitHstar_star$est_obs
 
-      # Bias correction method 1: Simple optimism correction
-      H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
-
-      # Bias correction method 2: Double correction
-      H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+      # Bias corrections for subgroup H (harm/questionable).
+      # Guard against non-finite per-resample subgroup fits: a (near-)separated
+      # resample subgroup, or an arm with no events, can yield an infinite or
+      # NaN within-subgroup coefficient.  fit_subgroup_effect() maps NULL/NA/NaN
+      # to NA but lets Inf through, and get_Cox_sg() does not sanitize at all;
+      # an Inf here would propagate through mean(., na.rm = TRUE) downstream
+      # (which does NOT drop Inf) into the de-biased estimate and then abort the
+      # CI in ci_est().  Treat any non-finite constituent as a failed draw (NA)
+      # so na.rm drops it from the bias average and the IJ variance.  When all
+      # constituents are finite (the normal case) the result is unchanged.
+      if (all(is.finite(c(H_obs, H_star, Hstar_star, Hstar_obs)))) {
+        # Method 1: Simple optimism correction
+        H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
+        # Method 2: Double correction
+        H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+      } else {
+        H_biasadj_1 <- NA_real_
+        H_biasadj_2 <- NA_real_
+      }
 
       # ==============================================================
       # Compute bias corrections for subgroup H^c (complement/recommend)
@@ -698,9 +712,14 @@ bootstrap_results <- function(fs.est, df_boot_analysis, cox.formula.boot,
       }
       Hcstar_star <- fitHcstar_star$est_obs
 
-      # Apply same correction methods for H^c
-      Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
-      Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
+      # Apply same correction methods for H^c, with the same non-finite guard.
+      if (all(is.finite(c(Hc_obs, Hc_star, Hcstar_star, Hcstar_obs)))) {
+        Hc_biasadj_1 <- Hc_obs - (Hcstar_star - Hcstar_obs)
+        Hc_biasadj_2 <- 2 * Hc_obs - (Hc_star + Hcstar_star - Hcstar_obs)
+      } else {
+        Hc_biasadj_1 <- NA_real_
+        Hc_biasadj_2 <- NA_real_
+      }
     }
 
     # =================================================================

@@ -388,6 +388,31 @@ forestsearch_bootstrap_dofuture <- function(fs.est,
   options(warn = old_warn)
 
   # =======================================================================
+  # SECTION 8.1: RE-ALIGN IJ MULTIPLICITY MATRIX TO SURVIVING RESAMPLES
+  # =======================================================================
+  # bootstrap_results() drops any iteration that raised an unhandled error
+  # (.collect_bootstrap_results()), so `results` can have fewer than nb_boots
+  # rows while Ystar_mat still has all nb_boots.  The infinitesimal jackknife
+  # (get_targetEst) pairs each Ystar row with the matching H_biasadj_* value,
+  # so the two must correspond row-for-row; `boot_id` records which original
+  # iteration each surviving row came from.  Without this re-alignment the
+  # weights would be recycled / misaligned and the bias-corrected variance
+  # silently wrong.  The accompanying warning is emitted here (warnings have
+  # been restored above) because the equivalent notice inside
+  # .collect_bootstrap_results() is raised under options(warn = -1) and so is
+  # suppressed.  In a normal run no iteration is dropped and this is a no-op.
+  if (!is.null(results$boot_id) && nrow(results) < nb_boots) {
+    n_dropped <- nb_boots - nrow(results)
+    warning(sprintf(
+      paste0("%d of %d bootstrap iterations did not return a result and were ",
+             "dropped; bias-corrected estimates and their infinitesimal-",
+             "jackknife variance are computed from the remaining %d. Re-run ",
+             "with details = TRUE to inspect."),
+      n_dropped, nb_boots, nrow(results)), call. = FALSE)
+    Ystar_mat <- Ystar_mat[results$boot_id, , drop = FALSE]
+  }
+
+  # =======================================================================
   # SECTION 9: POST-PROCESSING AND CONFIDENCE INTERVALS
   # =======================================================================
 
