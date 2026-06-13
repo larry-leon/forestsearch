@@ -131,7 +131,7 @@ d0_min             <- 12L
 d1_min             <- 0L
 use_lasso          <- FALSE
 use_dina           <- FALSE
-use_grf            <- TRUE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
+use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
 use_twostage       <- TRUE
 
 fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
@@ -360,11 +360,19 @@ record_replicate <- function(sim_id) {
     rec$t1_err  <- t1_err
     if (!is.null(boot) && !is.null(boot$H_estimates)) {
       he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
-      rec$t1_H_est <- he$H2; rec$t1_H_lo <- he$H2_lower; rec$t1_H_hi <- he$H2_upper
+      # %||% guards a missing H2 column (get_dfRes omits H2 when the 2nd-order
+      # bias adjustment is unavailable): a bare NULL assignment would DELETE the
+      # column from rec, and the short record is then silently dropped by the
+      # run-loop's rbind/.errorhandling = "remove" -> a hidden, non-random loss.
+      rec$t1_H_est <- he$H2 %||% NA_real_
+      rec$t1_H_lo  <- he$H2_lower %||% NA_real_
+      rec$t1_H_hi  <- he$H2_upper %||% NA_real_
     }
     if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
       hce <- boot$Hc_estimates
-      rec$t1_Hc_est <- hce$H2; rec$t1_Hc_lo <- hce$H2_lower; rec$t1_Hc_hi <- hce$H2_upper
+      rec$t1_Hc_est <- hce$H2 %||% NA_real_
+      rec$t1_Hc_lo  <- hce$H2_lower %||% NA_real_
+      rec$t1_Hc_hi  <- hce$H2_upper %||% NA_real_
     }
   }
 
