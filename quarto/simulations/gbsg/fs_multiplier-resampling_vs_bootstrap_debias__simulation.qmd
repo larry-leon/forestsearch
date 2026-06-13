@@ -45,8 +45,11 @@ Each is compared to three truth targets: the per-replicate **oracle** estimate,
 the controlled direct effect $\theta^{\ddagger}$ (CDE), and the marginal subgroup
 hazard ratio $\theta^{\dagger}$. The two outputs are (1) the León Table-2-layout
 estimation/coverage table with a Tier-2 block, and (2) the paired
-Tier-1$\leftrightarrow$Tier-2 agreement panel — the most direct empirical check
-of the leading-order correspondence.
+Tier-1$\leftrightarrow$Tier-2 agreement panel.  For `consistency` (a fixed
+candidate family) that panel is the most direct empirical check of the
+leading-order correspondence; for `dina`/`grf` the bootstrap regenerates the
+family per resample, so the panel instead measures the family-regeneration gap
+between the unconditional (Tier-1) and conditional-on-family (Tier-2) estimands.
 
 The search runs under `consistency_method = "resample"` and `sg_focus = "eff"`;
 the gate re-selects with `reselection = "maxcons"`, which reproduces the
@@ -73,7 +76,7 @@ n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 20L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -81,7 +84,7 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
   c(n_sims = 100L,  nb_boots = 50L),
-  c(n_sims = 1000L,  nb_boots = 300L),
+  c(n_sims = 500L,  nb_boots = 300L),
   c(n_sims = 1000L, nb_boots = 500L)
 )
 
@@ -94,12 +97,15 @@ cens_adjust     <- log(1.5)
 n_super         <- 5000L
 
 # ── Subgroup-identification method ─────────────────────────────────────────
-# The Tier-1 bootstrap (H2, León Eq.7) is defined for the consistency search,
-# so the Tier-1-vs-Tier-2 comparison is produced only when subgroup_method ==
-# "consistency".  DINA/GRF run the SAME identification + Tier-2 gate machinery
-# (each de-biased against its own candidate family) but skip Tier-1: the doc
-# degrades cleanly to a Tier-2-only characterization for those engines.
-subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
+# The Tier-1 bootstrap (H2, León Eq.7) re-runs whichever engine fs.est used,
+# regenerating the candidate family on each resample, so the Tier-1-vs-Tier-2
+# comparison is produced for every engine.  Interpretation differs by engine:
+# for "consistency" the family is fixed, so Tier-1 and the gate target the same
+# estimand and should agree (the dfbeta-linearisation check); for "dina"/"grf"
+# the family regenerates per resample, so Tier-1 is the *unconditional*
+# comparator against the gate's *conditional-on-family* estimate, and a
+# Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
+subgroup_method <- "grf"  # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
@@ -115,7 +121,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.25
+hr_threshold       <- 1.0
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
@@ -229,7 +235,7 @@ outer loop already parallelises across trials.
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
   n_harm = NA_integer_,
-  label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_,
+  label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
   nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA,
@@ -334,18 +340,24 @@ record_replicate <- function(sim_id) {
   rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
   rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
 
-  # ---- Tier-1 bootstrap (consistency only; H2 = León Eq.7) -----------------
-  # H2 is defined for the consistency search, so the Tier-1-vs-Tier-2 comparison
-  # is produced only for that engine; DINA/GRF leave t1_* as NA (Tier-2-only).
-  # Inherits resample identification via fs.est$args_call_all.
-  if (identical(subgroup_method, "consistency")) {
-    t1_t0 <- proc.time()[3]
+  # ---- Tier-1 bootstrap (H2 = León Eq.7) -----------------------------------
+  # forestsearch_bootstrap_dofuture re-runs whichever engine fs.est used (via
+  # fs.est$args_call_all), regenerating the candidate family on each resample.
+  # For "consistency" the family is fixed, so Tier-1 and the Tier-2 gate target
+  # the same estimand; for "dina"/"grf" the family regenerates per resample, so
+  # Tier-1 is the *unconditional* comparator against the gate's
+  # *conditional-on-family* estimate -- a Tier-1<->Tier-2 gap there is the
+  # family-regeneration signal, not an error.  If an engine cannot return H2 the
+  # call falls back to NULL (t1_* stay NA) and the message is captured in t1_err.
+  if (subgroup_method %in% c("consistency", "dina", "grf")) {
+    t1_t0 <- proc.time()[3]; t1_err <- NA_character_
     boot <- tryCatch(
       forestsearch_bootstrap_dofuture(
         fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
         parallel_args = list(plan = "sequential")),
-      error = function(e) NULL)
+      error = function(e) { t1_err <<- conditionMessage(e); NULL })
     rec$t1_secs <- proc.time()[3] - t1_t0
+    rec$t1_err  <- t1_err
     if (!is.null(boot) && !is.null(boot$H_estimates)) {
       he <- boot$H_estimates                     # H2 = León Eq.7 (both bias sources)
       rec$t1_H_est <- he$H2; rec$t1_H_lo <- he$H2_lower; rec$t1_H_hi <- he$H2_upper
@@ -393,6 +405,17 @@ if (run_smoke) {
   cat(sprintf("Mean wall-clock: Tier-2 gate %.3f s vs Tier-1 bootstrap %.2f s (B=%d).\n",
               mean(results$t2_secs, na.rm = TRUE),
               mean(results$t1_secs, na.rm = TRUE), nb_boots))
+
+  # Surface any (otherwise-swallowed) Tier-1 bootstrap error(s) on detected reps.
+  t1_tried <- sum(results$detected == 1L, na.rm = TRUE)
+  t1_fail  <- sum(results$detected == 1L & is.na(results$t1_H_est), na.rm = TRUE)
+  if (t1_fail > 0L) {
+    cat(sprintf("Tier-1 bootstrap returned no estimate on %d of %d detected replicate(s).\n",
+                t1_fail, t1_tried))
+    errs <- unique(stats::na.omit(results$t1_err))
+    if (length(errs))
+      cat("Distinct Tier-1 error(s):\n", paste0("  - ", errs, collapse = "\n"), "\n", sep = "")
+  }
 }
 ```
 
@@ -557,9 +580,13 @@ if (run_smoke && !is.null(results)) {
 
 # Paired Tier-1 ↔ Tier-2 agreement panel {#sec-paired}
 
-The cleanest test of the leading-order correspondence: both tiers correct the
-*same* selected $\hat H$ on the *same* data, so per-replicate differences isolate
-the `dfbeta` linearisation. Reported on the log-effect scale.
+For a fixed candidate family (`consistency`) both tiers correct the *same*
+selected $\hat H$ on the *same* data, so per-replicate differences isolate the
+`dfbeta` linearisation -- the cleanest test of the leading-order correspondence.
+For `dina`/`grf` the Tier-1 bootstrap regenerates the family (and re-selects) on
+each resample while the gate holds the observed family fixed, so the differences
+additionally carry the family-regeneration gap (unconditional vs
+conditional-on-family). Reported on the log-effect scale.
 
 ```{r paired-panel, results='asis'}
 if (run_smoke && !is.null(results)) {

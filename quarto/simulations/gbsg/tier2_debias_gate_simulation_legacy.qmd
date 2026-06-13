@@ -73,7 +73,7 @@ n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 20L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -99,7 +99,7 @@ n_super         <- 5000L
 # "consistency".  DINA/GRF run the SAME identification + Tier-2 gate machinery
 # (each de-biased against its own candidate family) but skip Tier-1: the doc
 # degrades cleanly to a Tier-2-only characterization for those engines.
-subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+subgroup_method <- "grf"  # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions

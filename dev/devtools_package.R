@@ -200,6 +200,7 @@ devtools::install(dependencies = FALSE, upgrade = "never")
 
 # Or
 remove.packages("forestsearch")
+
 devtools::install()
 
 
