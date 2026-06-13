@@ -1,0 +1,328 @@
+---
+title: "ForestSearch Bootstrap De-biasing: A Code-to-Theory Map"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: false
+    theme: cosmo
+vignette: >
+  %\VignetteIndexEntry{ForestSearch Bootstrap De-biasing: A Code-to-Theory Map}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r}
+#| label: setup
+#| include: false
+# This is an exposition article: every code block is an illustrative excerpt
+# of package internals shown verbatim, not executed.  Internal (unexported)
+# helpers are referenced with the package::: convention.
+knitr::opts_chunk$set(eval = FALSE, comment = "#>")
+```
+
+This article maps the bootstrap selection-bias correction implemented in
+`forestsearch_bootstrap_dofuture()` onto the two papers that define it, so that
+each line of the de-biasing code can be read next to the equation it computes.
+
+Two papers are involved, and they describe **the same estimator** by two routes:
+
+- **León et al. (2024), *Statistics in Medicine*** (the "SIM" paper) defines the
+  bootstrap bias-corrected Cox estimator with an infinitesimal-jackknife (IJ)
+  interval — the *full bootstrap* that re-runs the entire enumerate--screen--select
+  search on every resample. `forestsearch_bootstrap_dofuture()` is the literal
+  implementation of its Eqs. (7)--(9). In the package vignettes this is **Tier-1**.
+
+- **León & Anderson (2026)** (the "JASA" paper) shows that on a *fixed* candidate
+  family the identical correction is obtained refit-free, by a multiplier
+  resampling of the subgroup estimating function, reproducing the full bootstrap's
+  point estimate **and** interval to first order. That is `fs_debias_gate()` — the
+  **Tier-2** de-biased gate.
+
+The point of this note is the correspondence: which code symbol is which paper
+symbol, and which line computes which equation.
+
+# The target of inference and the winner's curse
+
+The reportable quantity is the **standard within-subgroup analysis**: the
+treatment-only Cox log-hazard ratio (or, on the GLM path, the log odds ratio /
+log incidence-rate ratio / mean difference) fit *inside* the identified subgroup
+$\hat H$ — the effect the trial would report had $\hat H$ been prespecified
+(JASA §1.2). Writing $\hat\beta(\hat H)$ for that estimate, selection by
+maximizing over the candidate family makes it optimistic: $\hat H$ was chosen for
+the extremity of the very quantity reported (the winner's curse, SIM §3.2,
+JASA §1.1). The correction removes that optimism on the reporting scale and
+attaches an interval that carries the variability of the selection itself.
+
+All arithmetic is performed on the model's natural-parameter scale — the log
+scale for ratio measures (HR, OR, RR, IRR), the identity scale for differences
+(RD, IRD, MD) — and exponentiated at the end for ratio measures. In the code this
+is the `est.loghr` flag threaded into `ci_est()`.
+
+# The two-term correction
+
+## The two discrepancies
+
+For resample $b$, let $\hat\beta^{*}_{b}(g)$ be the within-subgroup estimate of a
+*fixed* definition $g$ refit on the resample, and define the bootstrap-minus-observed
+discrepancy
+
+$$
+\eta^{*}_{b}(g) \;=\; \hat\beta^{*}_{b}(g) - \hat\beta(g).
+$$
+
+The SIM correction (Eq. 7) subtracts the average of **two** such discrepancies,
+evaluated at two different subgroups:
+
+$$
+\hat\beta^{*}(\hat H)
+\;=\;
+\hat\beta(\hat H)
+\;-\;
+\frac{1}{B}\sum_{b=1}^{B}\Bigl(\underbrace{\eta^{*}_{b}(\hat H^{*}_{b})}_{\text{selection optimism}}
+\;+\;
+\underbrace{\eta^{*}_{b}(\hat H)}_{\text{fixed-subgroup discrepancy}}\Bigr).
+$$
+
+- $\eta^{*}_{b}(\hat H^{*}_{b})$ is taken at the **re-selected** subgroup of each
+  resample. Because the rule rewards extreme perturbed effects, this is positive
+  on average — the selection optimism, the term in the lineage of Harrell et al.
+  (1996). The JASA paper calls its average $\widehat{\text{bias}}_{\mathrm{sel}}$ (Eq. 9).
+- $\eta^{*}_{b}(\hat H)$ is taken at the **observed** selected subgroup. It is
+  mean-zero under centered resampling weights, but it is retained: it is the
+  estimator's own finite-sample discrepancy at $\hat H$, the term Harrell drops,
+  and — crucially — it supplies the per-draw residual the IJ variance is built
+  from (JASA §3.1). Its average is $\widehat{\text{bias}}_{\mathrm{fix}}$.
+
+In JASA notation the de-biased estimate is
+
+$$
+\tilde\beta(\hat H) \;=\; \hat\beta(\hat H) - \widehat{\text{bias}}_{\mathrm{sel}} - \widehat{\text{bias}}_{\mathrm{fix}}
+\qquad\text{(JASA Eq. 10)},
+$$
+
+and substituting the dfbeta linearization (next section) turns SIM Eq. (7) into
+this identically.
+
+## The four per-resample fits in code
+
+Each bootstrap iteration computes four within-subgroup effects. The mapping to
+the paper symbols is exact (`bootstrap_analysis_dofuture.R`):
+
+| Code symbol | Subgroup | Data | Paper symbol |
+|---|---|---|---|
+| `H_obs`     | observed $\hat H$        | original  | $\hat\beta(\hat H)$ |
+| `H_star`    | observed $\hat H$        | bootstrap | $\hat\beta^{*}_{b}(\hat H)$ |
+| `Hstar_obs` | re-selected $\hat H^{*}_{b}$ | original  | $\hat\beta(\hat H^{*}_{b})$ |
+| `Hstar_star`| re-selected $\hat H^{*}_{b}$ | bootstrap | $\hat\beta^{*}_{b}(\hat H^{*}_{b})$ |
+
+`H_obs` is computed once on the original data (it is the naive estimate); the
+other three are computed inside the worker for each resample. The membership-based
+evaluation — subsetting on `treat.recommend` carried from the *original* fit
+(`H_star`) versus the *bootstrap* fit (`Hstar_*`) — is what cleanly separates the
+fixed-subgroup term from the selection term:
+
+```{r}
+#| label: four-fits
+# bootstrap_analysis_dofuture.R (worker body)
+
+# observed subgroup H on the bootstrap data  ->  beta*_b(H)
+df_H   <- subset(df_boot, treat.recommend == 0)
+H_star <- fit_subgroup_effect(df_H, estimator_fn)$est_obs        # (GLM)  / get_Cox_sg(...) (survival)
+
+# re-selected subgroup H*_b on the ORIGINAL data  ->  beta(H*_b)
+df_Hstar  <- subset(run_bootstrap$df.predict, treat.recommend == 0)
+Hstar_obs <- fit_subgroup_effect(df_Hstar, estimator_fn)$est_obs
+
+# re-selected subgroup H*_b on the BOOTSTRAP data  ->  beta*_b(H*_b)
+Hstar_star <- fit_subgroup_effect(
+  subset(run_bootstrap$df.est, treat.recommend == 0), estimator_fn)$est_obs
+```
+
+Hence, term by term,
+$\eta^{*}_{b}(\hat H^{*}_{b}) = \texttt{Hstar\_star} - \texttt{Hstar\_obs}$ and
+$\eta^{*}_{b}(\hat H) = \texttt{H\_star} - \texttt{H\_obs}$.
+
+## Harrell (H1) versus the two-term León estimate (H2)
+
+The code stores two per-draw corrections:
+
+```{r}
+#| label: bias-formulas
+# bootstrap_analysis_dofuture.R
+
+# Method 1 (Harrell): selection optimism only
+H_biasadj_1 <- H_obs - (Hstar_star - Hstar_obs)
+
+# Method 2 (Leon, two-term): selection optimism + fixed-subgroup discrepancy
+H_biasadj_2 <- 2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+```
+
+These are per-draw *summands*; the estimate is their mean, taken later in
+`get_targetEst()`. Expanding `H_biasadj_2` shows it is exactly SIM Eq. (7):
+
+$$
+\overline{\texttt{H\_biasadj\_2}}
+= \hat\beta(\hat H)
+- \tfrac1B\!\sum_b \eta^{*}_{b}(\hat H)
+- \tfrac1B\!\sum_b \eta^{*}_{b}(\hat H^{*}_{b})
+= \hat\beta(\hat H) - \widehat{\text{bias}}_{\mathrm{fix}} - \widehat{\text{bias}}_{\mathrm{sel}}
+= \tilde\beta(\hat H).
+$$
+
+`H_biasadj_1` drops the $\eta^{*}_{b}(\hat H)$ term, giving the Harrell point
+estimate. **H2 is the headline bias-corrected effect** — the `H2` / `OR*` / `HR*`
+column in every table and the quantity the Tier-2 gate reproduces; H1 is a Harrell
+comparator only. The complement $\hat H^{c}$ is corrected identically from
+`Hc_obs`, `Hc_star`, `Hcstar_obs`, `Hcstar_star`.
+
+# The infinitesimal-jackknife interval
+
+The de-biased estimate is a smooth average over draws, so its variance is the IJ
+of a bagged estimator (Efron 2014; Wager, Hastie & Efron 2014). Write the
+per-draw residual as the centered total bias removed,
+
+$$
+r_{b} \;=\; \bigl(\widehat{\text{bias}}_{\mathrm{sel}} + \widehat{\text{bias}}_{\mathrm{fix}}\bigr)
+- D_{\hat H^{*}_{b}}(b) - D_{\hat H}(b)
+\qquad\text{(JASA Eq. 12)},
+$$
+
+which equals the centered H2 summand $\texttt{H\_biasadj\_2}_b - \tilde\beta(\hat H)$.
+The IJ variance and its finite-$B$ correction are
+
+$$
+\tilde V = \sum_{i=1}^{N} \widetilde{\mathrm{cov}}_{i}^{\,2},
+\qquad
+\widetilde{\mathrm{cov}}_{i} = \frac{1}{B}\sum_{b=1}^{B}\bigl(K^{*}_{bi} - \bar K^{*}_{i}\bigr) r_{b},
+\qquad
+\hat V = \tilde V - \frac{N}{B}\,\tilde\sigma_{B}^{2}
+$$
+
+(SIM Eq. 9; JASA Eqs. 13--14), where $K^{*}_{bi}$ is the multiplicity of subject
+$i$ in resample $b$ and $\tilde\sigma_{B}^{2} = B^{-1}\sum_b r_b^{2}$. The
+multiplicity matrix $\{K^{*}_{bi}\}$ is exactly `Ystar_mat`, generated once on the
+main process from the same indices that drive the resamples — so the IJ is read
+from the very draws that produced the point estimate.
+
+`get_targetEst()` (`bootstrap_calculations_helpers.R`) is this verbatim:
+
+```{r}
+#| label: ij-variance
+# bootstrap_calculations_helpers.R
+
+calc_cov <- function(x, Est) mean((x - mean(x, na.rm = TRUE)) * Est, na.rm = TRUE)
+
+get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
+  mx <- mean(x, na.rm = TRUE)      #  = tilde beta(H)   (the bias-corrected estimate)
+  xc <- c(x - mx)                  #  = r_b             (per-draw residual, JASA Eq. 12)
+  N  <- ncol(ystar)
+
+  cov_i  <- apply(ystar, 2, calc_cov, Est = xc)   #  = cov_tilde_i   (per-subject IJ influence)
+  varhat <- N * mean(cov_i^2, na.rm = TRUE, trim = cov_trim)   #  = V_tilde = sum_i cov_i^2
+
+  B.eval <- sum(!is.na(xc))
+  termc  <- (N / B.eval^2) * B.eval * mean(xc^2, na.rm = TRUE, trim = cov_trim)  # = (N/B) sigma_B^2
+
+  # V_hat = V_tilde - finite-B correction, with a degenerate-variance fallback
+  if (is.na(varhat) || is.na(termc) || varhat <= termc) {
+    varhat_new <- varhat; seH_new <- sqrt(varhat)
+  } else {
+    varhat_new <- varhat - termc; seH_new <- sqrt(varhat_new)
+  }
+  list(target_est = mx, sehat_new = seH_new, varhat = varhat_new)
+}
+```
+
+Line by line: `mx` is $\tilde\beta(\hat H)$; `xc` is $r_b$; `calc_cov(ystar[, i], xc)`
+is $\widetilde{\mathrm{cov}}_i$; `varhat` is $\tilde V$ (since
+`N * mean(cov_i^2) = sum_i cov_i^2`); `termc` is the $(N/B)\tilde\sigma_B^2$
+correction, using the *effective* successful-draw count `B.eval` in place of
+nominal $B$; and `varhat_new` is $\hat V$, with the
+`varhat <= termc` branch the JASA fallback to $\sqrt{\tilde V}$ (and, failing that,
+the fixed-subgroup robust SE $\sigma_{D,\hat H}$) at small $B$.
+
+`get_dfRes()` then forms the interval via `ci_est()`:
+
+$$
+\tilde\beta(\hat H) \pm z_{1-\alpha/2}\sqrt{\hat V},
+$$
+
+exponentiated for ratio measures (JASA Eq. 15). Because $r_b$ moves with the
+*re-selected* winner $\hat H^{*}_{b}$, $\hat V$ carries the variability of which
+subgroup was selected and is wider than the bare robust-SE interval that treats
+$\hat H$ as prespecified — in the GBSG analysis, IJ SE $\approx 0.48$ against a
+robust SE $\approx 0.36$ on the log-hazard scale (JASA §3.2).
+
+# Tier-1 and Tier-2 are the same estimator
+
+The bridge that makes `fs_debias_gate()` reproduce all of the above without
+re-running the search is JASA §2.5. On a *fixed* family, refitting candidate $g$
+on resample $b$ is, to first order, a dot product of the centered resampling
+weights with the candidate's per-subject influence values (dfbeta):
+
+$$
+\hat\beta^{*}_{b}(g) - \hat\beta(g)
+= \sum_{i}\bigl(K^{*}_{bi} - 1\bigr)\,\mathrm{db}_{g,i} + o_{p}(n_g^{-1/2})
+\;=:\; D_{g}(b)
+\qquad\text{(JASA Eq. 6).}
+$$
+
+So every $\eta^{*}_{b}(g)$ the full bootstrap computes by *literal refitting*
+equals $D_g(b)$, re-selection becomes the deterministic rule applied to the
+perturbed effects $\{\hat\beta(g) + D_g(b)\}$, and the whole competition is one
+matrix product $P = B_{\mathrm{eff}}^{\top}\Xi$ over the influence columns and the
+multiplier draws. `fs_debias_gate()` assembles the same
+$\widehat{\text{bias}}_{\mathrm{sel}}$, $\widehat{\text{bias}}_{\mathrm{fix}}$, and
+IJ residual $r$ from $P$ — which is why its de-biased estimate and interval match
+`forestsearch_bootstrap_dofuture()`'s `H2` row to first order on a fixed
+(consistency) family.
+
+The two routes diverge only by what the family is allowed to do under resampling:
+
+- **Consistency search (fixed enumerated family).** A genuine bootstrap re-selects
+  over the same family on every resample, so the gate is *first-order exact*
+  against it (JASA §5). The two columns should track on point, length, and
+  coverage.
+- **DINA / GRF selection (data-driven family).** The full bootstrap regenerates
+  the candidate family on each resample (it re-fits the forest/DINA surface); the
+  gate holds that fit fixed and so omits the family-regeneration component of the
+  bias and variance. The gate is then *conditional on the proposed family* — a
+  fast, conservative check, with the full bootstrap as the unconditional reference.
+
+This is exactly the Tier-1 / Tier-2 distinction the multimethod vignettes report
+per engine.
+
+# Where each piece lives in the code
+
+| Quantity / equation | Function | File (lines) |
+|---|---|---|
+| Orchestration, naive fit, scale, CIs | `forestsearch_bootstrap_dofuture()` | `bootstrap_dofuture_main.R` (≈144–658) |
+| Per-resample four fits + H1/H2 (SIM Eq. 7) | `bootstrap_results()` worker body | `bootstrap_analysis_dofuture.R` (≈445–704) |
+| Result collection (drop failures, rbind) | `.collect_bootstrap_results()` | `bootstrap_analysis_dofuture.R` (≈28–55) |
+| Mean + IJ variance + finite-B (SIM Eq. 9) | `get_targetEst()` | `bootstrap_calculations_helpers.R` (≈331–373) |
+| Per-subject IJ influence $\widetilde{\mathrm{cov}}_i$ | `calc_cov()` | `bootstrap_calculations_helpers.R` (≈134–136) |
+| Assemble H0/H1/H2 + CIs | `get_dfRes()`, `ci_est()` | `bootstrap_calculations_helpers.R` (≈151–318) |
+| Tier-2 refit-free reconstruction (JASA Eqs. 6, 10, 12–14) | `fs_debias_gate()` | `fs_debias_gate.R` |
+
+# References
+
+León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024). Exploratory
+subgroup identification in the heterogeneous Cox model: a relatively simple
+procedure. *Statistics in Medicine* 43(20):3921–3942. DOI:
+[10.1002/sim.10163](https://doi.org/10.1002/sim.10163).
+
+León LF, Anderson KM (2026). Post-selection inference for the standard trial
+analysis of data-driven subgroups. Manuscript.
+
+Harrell FE, Lee KL, Mark DB (1996). Multivariable prognostic models. *Statistics
+in Medicine* 15(4):361–387.
+
+Efron B (2014). Estimation and accuracy after model selection. *JASA*
+109(507):991–1007.
+
+Wager S, Hastie T, Efron B (2014). Confidence intervals for random forests: the
+jackknife and the infinitesimal jackknife. *JMLR* 15:1625–1651.
