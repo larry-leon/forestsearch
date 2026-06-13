@@ -328,7 +328,20 @@ get_dfRes <- function(Hobs, seHobs, H1_adj, H2_adj = NULL, ystar, cov_method = "
 #' @return List with target estimate, standard errors, and correction term.
 #' @keywords internal
 
-get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
+get_targetEst <- function(x, ystar, cov_method = c("standard", "nocorrect"), cov_trim = 0.0) {
+  cov_method <- match.arg(cov_method)
+  # The infinitesimal-jackknife weights are the per-subject resampling
+  # multiplicities in `ystar` (B x N); they must align row-for-row with the
+  # per-resample bias-adjusted estimates in `x`.  If they do not (e.g. some
+  # bootstrap iterations were dropped upstream while `ystar` retained all B
+  # rows), calc_cov() would recycle `x` silently and return a corrupted
+  # variance, so fail loudly here instead.  forestsearch_bootstrap_dofuture()
+  # aligns the two before calling, so this guard should never fire in normal use.
+  if (length(x) != nrow(ystar)) {
+    stop("get_targetEst(): length(x) (", length(x), ") != nrow(ystar) (",
+         nrow(ystar), "); the IJ multiplicity matrix is misaligned with the ",
+         "per-resample estimates.", call. = FALSE)
+  }
   mx <- mean(x, na.rm = TRUE)
   xc <- c(x - mx)
   N <- ncol(ystar)
@@ -362,7 +375,7 @@ get_targetEst <- function(x, ystar, cov_method = "standard", cov_trim = 0.0) {
     }
   }
   if (cov_method == "nocorrect") {
-    varhat <- N * mean(cov_i^2, trim = cov_trim)
+    varhat <- N * mean(cov_i^2, na.rm = TRUE, trim = cov_trim)
     seH <- sqrt(varhat)
     termc <- 0.0
     varhat_new <- varhat

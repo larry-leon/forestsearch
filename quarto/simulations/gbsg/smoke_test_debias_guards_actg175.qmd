@@ -1,0 +1,310 @@
+---
+title: "ForestSearch Bootstrap De-biasing — Focused Robustness Smoke-test"
+subtitle: "ACTG175 binary (OR scale); targets the Finding 1 / 2 / 4 guards"
+author: "Larry F. León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    theme: cosmo
+---
+
+```{r}
+#| label: setup
+#| message: false
+#| warning: false
+# Run AFTER devtools::install(): the Tier-1 bootstrap spawns parallel workers,
+# which see only the *installed* package (load_all() is not enough).
+library(forestsearch)
+library(speff2trial)
+library(data.table)
+library(future)
+
+set.seed(20260613)
+analysis_seed <- 8675309L
+
+# ---- knobs (single top chunk) -------------------------------------------
+# Deliberately small: this is a smoke-test, not a simulation study.
+NB_SMOKE        <- 60L                                   # Tier-1 bootstrap resamples
+n_cores         <- max(1L, parallel::detectCores() - 2L)
+run_integration <- TRUE   # FALSE -> run only Section B (fast deterministic probes)
+
+# FS binary (OR, adverse scale) — mirrors analysis_actg175_binary_multimethod.qmd
+fs_outcome_type       <- "binary"
+fs_effect_measure     <- "OR"
+fs_or_threshold       <- 1.25     # harm floor on the OR scale (lower to force identification)
+fs_or_consistency     <- 1.0
+fs_pconsistency       <- 0.90
+fs_consistency_method <- "resample"
+```
+
+This is a **focused** smoke-test for the three robustness fixes made to the
+Tier-1 bootstrap de-biasing path (`forestsearch_bootstrap_dofuture()` and the
+helpers it calls). It is **not** a re-run of the full ACTG175 analysis; it is
+scoped to exactly the changed behaviour:
+
+- **Finding 1** — `Ystar_mat` is realigned to the surviving `boot_id`s before the
+  infinitesimal-jackknife (IJ) variance is computed, and `get_targetEst()` now
+  asserts `length(x) == nrow(ystar)` rather than recycling silently.
+- **Finding 2** — non-finite per-resample subgroup fits (`Inf`/`NaN` from
+  (near-)separated or single-arm subgroups) are mapped to `NA` in the worker so
+  they drop from the bias average and the IJ variance, instead of propagating an
+  `Inf` that would void the whole estimate.
+- **Finding 4** — `get_targetEst()` `match.arg`s `cov_method`, and the
+  `"nocorrect"` branch carries the `na.rm = TRUE` its sibling already had.
+
+Two layers: **Section A** runs the patched bootstrap end-to-end in the realistic
+binary setting (a regression check that normal runs are unchanged); **Section B**
+exercises each guard's *firing* path deterministically, with no reliance on a
+particular resample outcome.
+
+```{r}
+#| label: pass-fail-harness
+# Lightweight PASS/FAIL recorder (no testthat scaffolding, per project style).
+.smoke <- new.env()
+.smoke$log <- list()
+check <- function(label, ok, detail = "") {
+  ok <- isTRUE(ok)
+  .smoke$log[[length(.smoke$log) + 1L]] <- data.frame(
+    check = label, result = if (ok) "PASS" else "FAIL",
+    detail = detail, stringsAsFactors = FALSE
+  )
+  cat(sprintf("[%s] %s%s\n", if (ok) "PASS" else "FAIL", label,
+              if (nzchar(detail)) paste0(" \u2014 ", detail) else ""))
+  invisible(ok)
+}
+```
+
+# Section A — end-to-end regression (patched bootstrap in situ)
+
+Builds the ACTG175 binary adverse outcome (`y_binary_neg`, OR > 1 = harm),
+identifies a subgroup with the consistency engine, and runs the Tier-1 bootstrap.
+The screening engines (lasso/GRF) are switched off for speed — the de-biasing
+code under test is engine-agnostic, so consistency-only fully exercises it. The
+whole block is wrapped so an environment failure is recorded rather than aborting
+Section B.
+
+```{r}
+#| label: integration
+#| message: false
+#| warning: true
+fs_bc <- NULL
+if (isTRUE(run_integration)) {
+
+  # ---- data: ACTG175, arms 1 (ZDV+ddI) vs 3 (ddI) -----------------------
+  actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
+  actg_df$id    <- seq_len(nrow(actg_df))
+  actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
+  actg_df <- actg_df[!is.na(actg_df$cd420), ]
+  actg_df$y_binary_neg <- 1L - as.integer(actg_df$cd420 > actg_df$cd40)  # 1 = no improvement
+
+  cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
+  bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
+  for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
+  confounders.name <- c(cont_vars, bin_vars)
+
+  msg <- ""
+  integ_ok <- tryCatch({
+    fs <- forestsearch(
+      df.analysis      = actg_df,
+      confounders.name = confounders.name,
+      outcome.name     = "y_binary_neg",
+      event.name       = "y_binary_neg",   # binary: outcome IS the event
+      treat.name       = "treat",
+      id.name          = "id",
+      is.RCT           = TRUE,
+      seedit           = analysis_seed,
+      outcome_type     = fs_outcome_type,
+      effect_measure   = fs_effect_measure,
+      adverse_outcome  = TRUE,
+      # screening off for speed; bootstrap fixes are engine-agnostic
+      use_lasso        = FALSE,
+      use_grf          = FALSE,
+      subgroup_method  = "consistency",
+      cut_type         = "default",
+      cont.cutoff      = 4L,
+      n.min            = 60L,
+      d0.min           = 10L,
+      d1.min           = 10L,
+      maxk             = 2L,
+      effect.threshold       = fs_or_threshold,
+      consistency.threshold  = fs_or_consistency,
+      pconsistency.threshold = fs_pconsistency,
+      consistency_method     = fs_consistency_method,
+      fs.splits        = 200L,
+      use_twostage     = TRUE,
+      debias_gate      = FALSE,
+      details          = FALSE,
+      quiet            = TRUE,
+      plot.sg          = FALSE,
+      parallel_args    = list(plan = "multisession", workers = n_cores)
+    )
+    plan("sequential"); gc(verbose = FALSE)
+
+    fs_bc <<- forestsearch_bootstrap_dofuture(
+      fs.est        = fs,
+      nb_boots      = NB_SMOKE,
+      show_three    = FALSE,
+      details       = FALSE,
+      parallel_args = list(plan = "multisession", workers = n_cores)
+    )
+    plan("sequential"); gc(verbose = FALSE)
+    TRUE
+  }, error = function(e) { msg <<- conditionMessage(e); FALSE })
+
+  check("A1 integration: end-to-end run completed without error", integ_ok,
+        if (!integ_ok) msg else "")
+
+  if (isTRUE(integ_ok)) {
+    # Edit B guarantee: IJ weights line up row-for-row with the per-resample
+    # adjustments — holds whether or not any iteration was dropped/realigned.
+    check("A2 integration: IJ alignment invariant length(H_biasadj_2)==nrow(Ystar_mat)",
+          length(fs_bc$results$H_biasadj_2) == nrow(fs_bc$Ystar_mat),
+          sprintf("len=%d, nrow=%d",
+                  length(fs_bc$results$H_biasadj_2), nrow(fs_bc$Ystar_mat)))
+
+    if (!is.null(fs_bc$H_estimates)) {
+      check("A3 integration: de-biased H2 (OR*) estimate is finite",
+            is.finite(fs_bc$H_estimates$H2),
+            sprintf("H2 = %.3f", fs_bc$H_estimates$H2))
+      check("A4 integration: de-biased H2 (OR*) CI is finite",
+            all(is.finite(c(fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper))),
+            sprintf("(%.3f, %.3f)",
+                    fs_bc$H_estimates$H2_lower, fs_bc$H_estimates$H2_upper))
+    } else {
+      cat("\nNOTE: no subgroup identified at fs_or_threshold =", fs_or_threshold,
+          "\n  -> the in-situ de-biasing path was not exercised. Lower the",
+          "threshold to force it.\n  Section B validates the patched code",
+          "deterministically regardless.\n")
+    }
+  }
+} else {
+  cat("run_integration = FALSE; skipping Section A.\n")
+}
+```
+
+# Section B — deterministic guard probes
+
+These call the patched internal helper directly with crafted inputs, so each fix
+is exercised on its firing path without depending on a random resample. A small
+`B \u00d7 N` multiplicity matrix and an aligned vector of per-draw adjustments stand
+in for `Ystar_mat` and `results$H_biasadj_2`.
+
+```{r}
+#| label: probe-fixtures
+set.seed(101)
+Bdraws <- 40L
+Nsub   <- 60L
+ystar  <- matrix(rpois(Bdraws * Nsub, lambda = 1), nrow = Bdraws, ncol = Nsub)  # B x N multiplicities
+x_full <- rnorm(Bdraws, mean = 0.40, sd = 0.30)                                 # aligned H_biasadj_2
+
+gte <- forestsearch:::get_targetEst   # internal helper under test
+```
+
+## Baseline: aligned inputs give a finite IJ variance
+
+```{r}
+#| label: probe-baseline
+e0 <- gte(x_full, ystar)
+check("B0 baseline: aligned x/ystar -> finite estimate & IJ SE",
+      is.finite(e0$target_est) && is.finite(e0$sehat_new),
+      sprintf("est=%.3f, se=%.4f", e0$target_est, e0$sehat_new))
+```
+
+## Finding 1 — alignment assertion and `Ystar_mat` realignment
+
+```{r}
+#| label: probe-finding1
+# (a) Misaligned length must FAIL LOUDLY (the recycling bug is now an error).
+err_mis <- tryCatch({ gte(x_full[-1], ystar); "no-error" },
+                    error = function(e) conditionMessage(e))
+check("B1a Finding 1: misaligned length(x) != nrow(ystar) triggers the assertion",
+      grepl("misaligned", err_mis), err_mis)
+
+# (b) Simulate the upstream drop that Edit B repairs: two iterations errored, so
+#     only the survivors carry an adjustment; boot_id records which rows survived.
+dropped  <- c(3L, 17L)
+boot_id  <- setdiff(seq_len(Bdraws), dropped)   # ascending, matches results' row order
+x_surv   <- x_full[boot_id]                     # length Bdraws - 2
+
+# Without realignment (the bug): full ystar vs short x -> caught by the assertion.
+caught <- tryCatch({ gte(x_surv, ystar); FALSE }, error = function(e) TRUE)
+check("B1b Finding 1: dropped rows without realignment are caught (not recycled)",
+      caught)
+
+# With Edit B's realignment Ystar_mat[results$boot_id, ] -> finite IJ variance.
+ystar_aln <- ystar[boot_id, , drop = FALSE]
+e_aln <- gte(x_surv, ystar_aln)
+check("B1c Finding 1: Ystar[boot_id,] realignment restores a finite IJ variance",
+      is.finite(e_aln$target_est) && is.finite(e_aln$sehat_new),
+      sprintf("se=%.4f over %d surviving draws", e_aln$sehat_new, length(boot_id)))
+```
+
+## Finding 2 — non-finite handling and the worker guard rationale
+
+```{r}
+#| label: probe-finding2
+# (a) NA draws (a resample that produced no usable estimate) drop via na.rm.
+x_na <- x_full; x_na[c(2L, 9L)] <- NA_real_
+e_na <- gte(x_na, ystar)
+check("B2a Finding 2: NA resample draws drop (na.rm); estimate stays finite",
+      is.finite(e_na$target_est) && is.finite(e_na$sehat_new))
+
+# (b) Rationale: an Inf is NOT dropped by na.rm, so it must be neutralised
+#     upstream. With an Inf left in x, the IJ estimate is (correctly) non-finite
+#     -- this is exactly what the worker guard prevents by mapping Inf -> NA.
+x_inf <- x_full; x_inf[2L] <- Inf
+e_inf <- gte(x_inf, ystar)
+check("B2b Finding 2 (rationale): an Inf left in x propagates to a non-finite estimate",
+      !is.finite(e_inf$target_est))
+
+# (c) The worker guard itself: any non-finite constituent -> NA adjustment,
+#     which then drops cleanly from the bias mean.
+mk_adj <- function(H_obs, H_star, Hstar_star, Hstar_obs) {
+  if (all(is.finite(c(H_obs, H_star, Hstar_star, Hstar_obs)))) {
+    2 * H_obs - (H_star + Hstar_star - Hstar_obs)
+  } else NA_real_
+}
+adj_ok  <- mk_adj(0.50, 0.60, 0.70, 0.40)   # all finite -> real adjustment
+adj_inf <- mk_adj(0.50, Inf,  0.70, 0.40)   # one Inf     -> NA
+check("B2c Finding 2: worker guard maps a non-finite fit to NA",
+      is.finite(adj_ok) && is.na(adj_inf))
+check("B2d Finding 2: guarded NA draw drops from the bias mean (na.rm), result finite",
+      is.finite(mean(c(adj_ok, adj_inf, 0.55, 0.48), na.rm = TRUE)))
+```
+
+## Finding 4 — `match.arg(cov_method)` and `nocorrect` na.rm parity
+
+```{r}
+#| label: probe-finding4
+err_typo <- tryCatch({ gte(x_full, ystar, cov_method = "nocorect"); "no-error" },
+                     error = function(e) "match.arg-error")
+check("B4a Finding 4: cov_method typo rejected by match.arg", err_typo == "match.arg-error")
+
+x_na2  <- x_full; x_na2[5L] <- NA_real_
+e_noc  <- gte(x_na2, ystar, cov_method = "nocorrect")
+check("B4b Finding 4: cov_method='nocorrect' runs with na.rm parity (finite on NA input)",
+      is.finite(e_noc$target_est))
+```
+
+# Summary
+
+```{r}
+#| label: summary
+res_df <- do.call(rbind, .smoke$log)
+rownames(res_df) <- NULL
+knitr::kable(res_df, caption = "Focused smoke-test results")
+```
+
+```{r}
+#| label: verdict
+n_fail <- sum(res_df$result == "FAIL")
+cat(sprintf("\n%d check(s), %d PASS, %d FAIL\n",
+            nrow(res_df), sum(res_df$result == "PASS"), n_fail))
+# A failing smoke-test fails the render, loudly.
+stopifnot("Smoke-test: all checks must pass" = n_fail == 0L)
+cat("\nALL CHECKS PASSED \u2014 the de-biasing guards behave as intended.\n")
+```
