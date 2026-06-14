@@ -466,7 +466,9 @@ if (run_smoke && !is.null(results)) {
     if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
   }
   # Per-rep totals and wall-clock under the same n_workers used here.
-  proj_row <- function(ns, B) {
+  # actual_sec is the MEASURED wall-clock (only the current run has one;
+  # projections pass NA, which formats as an em-dash).
+  proj_row <- function(ns, B, actual_sec = NA_real_) {
     t1_rep   <- per_boot * B
     t1_term  <- if (is.finite(t1_rep)) det_rate * t1_rep else 0  # no Tier-1 timing (e.g. 0 detections) -> Tier-2 only
     cpu_sec  <- ns * (t2_mean + t1_term)                       # Tier-2 all reps; Tier-1 detected only
@@ -474,11 +476,12 @@ if (run_smoke && !is.null(results)) {
     data.frame(n_sims = ns, B = B,
                t2_rep_s = round(t2_mean, 1), t1_rep_s = round(t1_rep, 0),
                cpu_hours = round(cpu_sec / 3600, 1),
+               wall_actual = fmt_hm(actual_sec),
                wall_ideal = fmt_hm(wall_id),
                wall_real_1.3x = fmt_hm(1.3 * wall_id),
                stringsAsFactors = FALSE)
   }
-  cur <- proj_row(n_sims, nb_boots)
+  cur <- proj_row(n_sims, nb_boots, actual_sec = elapsed)
   scn <- do.call(rbind, lapply(proj_scenarios,
                                function(s) proj_row(s[["n_sims"]], s[["nb_boots"]])))
   tab <- rbind(cbind(Scenario = "current run", cur),
@@ -494,12 +497,17 @@ if (run_smoke && !is.null(results)) {
                                   n_workers, 100 * det_rate)) |>
     cols_label(n_sims = "sims", B = "boots", t2_rep_s = "Tier-2/rep (s)",
                t1_rep_s = "Tier-1/rep (s)", cpu_hours = "CPU-hours",
+               wall_actual = "wall (actual)",
                wall_ideal = "wall (ideal)", wall_real_1.3x = "wall (~1.3\u00d7)") |>
     tab_footnote(footnote = md(paste(
-      "Tier-2/rep is fixed; Tier-1/rep = (per-bootstrap cost) \u00d7 boots.",
-      "CPU-hours = sims \u00d7 (Tier-2/rep + detection \u00d7 Tier-1/rep).",
-      "`wall (ideal)` divides by workers assuming perfect parallelism;",
-      "`~1.3\u00d7` adds a rule-of-thumb overhead (pool spin-up, memory contention at high worker counts).")))
+      "`wall (actual)` is the **measured** wall-clock for the current run",
+      "(\u2014 for projections, which have not been run).",
+      "The remaining wall columns are **modelled**:",
+      "Tier-2/rep is fixed; Tier-1/rep = (per-bootstrap cost) \u00d7 boots;",
+      "CPU-hours = sims \u00d7 (Tier-2/rep + detection \u00d7 Tier-1/rep);",
+      "`wall (ideal)` divides CPU-hours by workers assuming perfect parallelism;",
+      "`~1.3\u00d7` adds a rule-of-thumb overhead (pool spin-up, memory contention).",
+      "For the current run, `wall (actual)` should sit between `ideal` and `~1.3\u00d7`.")))
 }
 ```
 
