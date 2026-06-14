@@ -76,7 +76,7 @@ n_sims       <- 500L       # simulated trials                (prod: 1000 -> 2000
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 400L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -84,7 +84,7 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
 # regenerate Tables 1-5 (or add more) without re-running the simulation. ─────
-save_rds   <- FALSE                                # TRUE -> write results bundle to disk
+save_rds   <- TRUE                                # TRUE -> write results bundle to disk
 rds_path   <- "grf1_tier1_tier2_results.rds"       # destination when save_rds = TRUE
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
@@ -111,7 +111,7 @@ n_super         <- 5000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "grf"  # "consistency" | "dina" | "grf"
+subgroup_method <- "grf"          # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
@@ -132,7 +132,7 @@ hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
 maxk               <- 2L
-n_min              <- 60L
+n_min              <- NULL
 d0_min             <- 12L
 d1_min             <- 0L
 use_lasso          <- FALSE
