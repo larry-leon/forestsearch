@@ -351,6 +351,17 @@ cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
 # continuous covariates; ForestSearch handles those internally).
 for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
 
+# Numeric-covariate copy for the paths that require it.  forestsearch() in
+# consistency mode (including use_dina / use_grf SCREENING) binarizes factor
+# covariates internally, but the SELECTION engines -- subgroup_method = "dina"
+# (.forestsearch_dina_select -> dina()) and subgroup_method = "grf" -- and the
+# standalone dina()/dina_frontier()/dina_subgroup() calls require numeric
+# covariate columns (.dina_extract_from_df() rejects factors).  The binary
+# candidates are 0/1, so recover their numeric coding with
+# as.numeric(as.character(.)) -- NOT as.numeric(.), which maps factor levels to 1/2.
+actg_df_dina <- actg_df
+for (v in bin_vars) actg_df_dina[[v]] <- as.numeric(as.character(actg_df_dina[[v]]))
+
 cat("Continuous candidates:", paste(cont_vars, collapse = ", "), "\n")
 cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
 ```
@@ -1076,8 +1087,11 @@ Parameters are analogous to (A): same confounders, harm floor
 ```{r dina-standalone-fit}
 t0 <- proc.time()
 
+# Standalone DINA -- dina(), dina_frontier(), dina_subgroup() -- requires numeric
+# covariate columns; uses the numeric copy built in `data-covariates`
+# (actg_df_dina).
 dina_fit <- dina(
-  df         = actg_df,
+  df         = actg_df_dina,
   outcome    = outcome.name,
   treatment  = treat.name,
   covariates = confounders.name,
@@ -1098,7 +1112,7 @@ cat("Standalone DINA fit complete (family = binomial).\n")
 ```{r dina-standalone-frontier}
 dina_fr <- dina_frontier(
   fit               = dina_fit,
-  df                = actg_df,
+  df                = actg_df_dina,
   covariates        = confounders.name,
   scope             = "wide",     # default "wide"; or "harm" (requires m_diff)
   m_diff            = NULL,        # default NULL (no effect floor under scope = "wide")
@@ -1129,7 +1143,7 @@ gt(dina_fr[, c("covariate", "direction", "threshold",
 ```{r dina-standalone-select}
 dina_sel <- dina_subgroup(
   fit                 = dina_fit,
-  df                  = actg_df,
+  df                  = actg_df_dina,
   covariates          = confounders.name,
   m_diff              = m_diff_dina,
   n_min               = 60L,            # default 60L
@@ -1165,7 +1179,7 @@ t0 <- proc.time()
 
 fs_dina <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis         = actg_df,
+  df.analysis         = actg_df_dina,   # subgroup_method = "dina" needs numeric covariates
   confounders.name    = confounders.name,
   outcome.name        = outcome.name,
   event.name          = outcome.name,
