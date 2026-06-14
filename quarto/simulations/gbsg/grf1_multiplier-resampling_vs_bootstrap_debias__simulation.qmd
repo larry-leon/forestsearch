@@ -81,6 +81,12 @@ gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 
+# ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
+# engine) is the wall-clock bottleneck; saving the results bundle lets you
+# regenerate Tables 1-5 (or add more) without re-running the simulation. ─────
+save_rds   <- FALSE                                # TRUE -> write results bundle to disk
+rds_path   <- "grf1_tier1_tier2_results.rds"       # destination when save_rds = TRUE
+
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
   c(n_sims = 100L,  nb_boots = 50L),
@@ -424,6 +430,18 @@ if (run_smoke) {
     if (length(errs))
       cat("Distinct Tier-1 error(s):\n", paste0("  - ", errs, collapse = "\n"), "\n", sep = "")
   }
+
+  # Persist the results bundle (knob in @sec-setup).  Saved as a list so the
+  # truth targets and key counts travel with the per-replicate records, and the
+  # tables can be regenerated downstream without re-running the simulation.
+  if (isTRUE(save_rds) && !is.null(results)) {
+    saveRDS(list(results = results, truth = truth,
+                 meta = list(n_sample = n_sample, n_sims = n_sims,
+                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             subgroup_method = subgroup_method)),
+            rds_path)
+    cat(sprintf("Saved results bundle (%d rows) to %s\n", nrow(results), rds_path))
+  }
 }
 ```
 
@@ -583,6 +601,113 @@ if (run_smoke && !is.null(results)) {
       "$b^{\\dagger}$ vs marginal subgroup HR $\\theta^{\\dagger}$.",
       "`Len(med)` = median CI length (robust to blow-ups); `Length` = mean.",
       "Tier-1 = `H2` (León Eq.7, both bias sources); Tier-2 = de-biased gate, IJ interval.")))
+}
+```
+
+# Robust-location summaries — Tables 2–5 {#sec-robust-tables}
+
+Table 1 is the mean with no trimming and is left exactly as computed. Because the
+Tier-1 bootstrap can throw the occasional extreme replicate (visible as `Length`
+far exceeding `Len(med)`), the tables below re-summarise the **same** detected
+replicates with progressively more tail-resistant location estimators. Only the
+location columns change — **Avg**, $\widehat{\text{SD}}$, and **Length** use the
+median (Table 2, via `median()`) or a trimmed mean (Tables 3–5, `mean(., trim =
+p)`) — while the spread (**SD**), the already-robust **Len(med)**, the
+contributing count (**n**), and all **coverage** rates are computed exactly as in
+Table 1, so every table stays directly comparable.
+
+```{r estimation-tables-robust, results='asis'}
+# Robust-location companions to Table 1.  Reuses .cover() and .sdfin() defined
+# in the estimation-table chunk above.  Each location column is summarised by a
+# passed-in location function `loc`: stats::median() for the median table, and
+# mean(., trim = p) for the trimmed-mean tables.  Only location columns change.
+if (run_smoke && !is.null(results)) {
+
+  .mfin_t  <- function(x, loc) { x <- x[is.finite(x)]; if (length(x)) loc(x) else NA_real_ }
+  .pbias_t <- function(est, target, loc) {
+    d <- (est - target) / target; d <- d[is.finite(d)]
+    if (!length(d)) return(NA_real_)
+    100 * loc(d)
+  }
+  .sd_hat_t <- function(est, lo, hi, loc) {
+    se_log <- (log(hi) - log(lo)) / (2 * z975)
+    v <- est * se_log; v <- v[is.finite(v)]
+    if (!length(v)) return(NA_real_)
+    loc(v)
+  }
+  .len_t <- function(lo, hi, loc) {
+    len <- hi - lo; len <- len[is.finite(len)]
+    if (length(len)) loc(len) else NA_real_
+  }
+
+  build_block_t <- function(r, suffix, tgt_cde, tgt_marg, loc) {
+    est_keys <- c(oracle = "or", naive = "nv", `Tier-1` = "t1", `Tier-2` = "t2")
+    or_est <- r[[paste0("or_", suffix, "_est")]]
+    rows <- lapply(names(est_keys), function(lab) {
+      k  <- est_keys[[lab]]
+      e  <- r[[paste0(k, "_", suffix, "_est")]]
+      lo <- r[[paste0(k, "_", suffix, "_lo")]]
+      hi <- r[[paste0(k, "_", suffix, "_hi")]]
+      len <- hi - lo; len <- len[is.finite(len)]
+      data.frame(
+        Estimator = lab,
+        n       = sum(is.finite(e)),                 # contributing reps (pre-trim), as Table 1
+        Avg     = .mfin_t(e, loc),
+        SD      = .sdfin(e),                          # spread: full SD, as Table 1
+        SD_hat  = .sd_hat_t(e, lo, hi, loc),
+        Len_med = if (length(len)) stats::median(len) else NA_real_,
+        Length  = .len_t(lo, hi, loc),
+        b_oracle = .pbias_t(e, or_est,   loc),
+        b_cde    = .pbias_t(e, tgt_cde,  loc),
+        b_marg   = .pbias_t(e, tgt_marg, loc),
+        Cov_oracle = .cover(or_est, lo, hi),          # rate: unaffected by trim, as Table 1
+        Cov_cde    = .cover(tgt_cde,  lo, hi),
+        Cov_marg   = .cover(tgt_marg, lo, hi),
+        stringsAsFactors = FALSE)
+    })
+    do.call(rbind, rows)
+  }
+
+  render_est_table <- function(loc, table_no, agg_label) {
+    bH  <- build_block_t(rH, "H",  truth$cde_H,  truth$marg_H,  loc)
+    bHc <- build_block_t(rH, "Hc", truth$cde_Hc, truth$marg_Hc, loc)
+    tab <- rbind(cbind(Block = "Harm  \u0124", bH),
+                 cbind(Block = "Complement  \u0124\u1d9c", bHc))
+    gt(tab, groupname_col = "Block") |>
+      tab_header(
+        title = sprintf("Table %d \u2014 %s", table_no, agg_label),
+        subtitle = sprintf("Same detected reps as Table 1 \u00b7 n=%d, %d sims, B=%d, draws=%d",
+                           n_sample, n_sims, nb_boots, gate_draws)) |>
+      fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
+      fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
+      fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
+      cols_label(
+        n = "n", Len_med = "Len(med)",
+        SD_hat = md("$\\widehat{\\text{SD}}$"),
+        b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
+        b_marg = md("$b^{\\dagger}$"),
+        Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"),
+        Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
+      tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
+      tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
+      tab_footnote(footnote = md(paste0(
+        "**Location columns** (Avg, $\\widehat{\\text{SD}}$, Length) use ", agg_label,
+        "; **SD**, **Len(med)**, **n**, and all **coverage** rates are computed exactly as in ",
+        "Table 1 (unaffected by the location choice) so the tables stay comparable. ",
+        "Finite-only over the same detected reps; Tier-1 = `H2` (Le\u00f3n Eq.7), ",
+        "Tier-2 = de-biased gate (IJ).")))
+  }
+
+  specs <- list(
+    list(loc = function(x) stats::median(x), no = 2L, lab = "medians"),
+    list(loc = function(x) mean(x, trim = 0.01), no = 3L, lab = "1%-trimmed means"),
+    list(loc = function(x) mean(x, trim = 0.05), no = 4L, lab = "5%-trimmed means"),
+    list(loc = function(x) mean(x, trim = 0.10), no = 5L, lab = "10%-trimmed means")
+  )
+  for (s in specs) {
+    cat(sprintf("\n\n#### Table %d \u2014 %s\n\n", s$no, s$lab))
+    cat(as_raw_html(render_est_table(s$loc, s$no, s$lab)))
+  }
 }
 ```
 

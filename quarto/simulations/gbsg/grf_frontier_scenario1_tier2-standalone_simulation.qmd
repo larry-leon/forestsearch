@@ -76,7 +76,7 @@ library(doFuture)
 library(future)
 
 # ── Counts (the only knobs to change for production) ───────────────────────
-n_sims       <- 100L     # simulated trials        (Tier-2 scales cheaply: try 20000)
+n_sims       <- 1000L     # simulated trials        (Tier-2 scales cheaply: try 20000)
 diag_mode    <- FALSE    # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                          # worker's forestsearch() error (otherwise swallowed by the inner
                          # tryCatch), so parallel-only failures become visible.  Set FALSE
@@ -117,7 +117,7 @@ n_super         <- 5000L
 
 # ── Search configuration (León tuning; resample identification) ────────────
 consistency_method <- "resample"   # decided: resample identification (the new default)
-sg_focus           <- "effMinSG"        # -> "hr": highest consistency rate, ties by effect
+sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by effect
 # Inclusion-band rule for the effMaxSG/effMinSG foci (inert for eff/maxSG/minSG):
 #   "neighborhood" = effect within (1-eps) of the max (multiplicative, natural scale);
 #   "pareto"       = 2-D non-dominated set in (effect, size);
@@ -134,9 +134,9 @@ hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
 maxk               <- 2L
-n_min              <- 60L
+n_min              <- NULL
 d0_min             <- 10L
-d1_min             <- 10L
+d1_min             <- 0L
 use_lasso          <- FALSE
 use_dina           <- FALSE
 use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"

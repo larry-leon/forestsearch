@@ -2445,7 +2445,7 @@ window.Quarto = {
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(future)</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Counts (the only knobs to change for production) ───────────────────────</span></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>n_sims       <span class="ot">&lt;-</span> <span class="dv">100</span>L     <span class="co"># simulated trials        (Tier-2 scales cheaply: try 20000)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>n_sims       <span class="ot">&lt;-</span> <span class="dv">1000</span>L     <span class="co"># simulated trials        (Tier-2 scales cheaply: try 20000)</span></span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>diag_mode    <span class="ot">&lt;-</span> <span class="cn">FALSE</span>    <span class="co"># DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each</span></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>                         <span class="co"># worker&#39;s forestsearch() error (otherwise swallowed by the inner</span></span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                         <span class="co"># tryCatch), so parallel-only failures become visible.  Set FALSE</span></span>
@@ -2486,7 +2486,7 @@ window.Quarto = {
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Search configuration (León tuning; resample identification) ────────────</span></span>
 <span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>consistency_method <span class="ot">&lt;-</span> <span class="st">&quot;resample&quot;</span>   <span class="co"># decided: resample identification (the new default)</span></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>sg_focus           <span class="ot">&lt;-</span> <span class="st">&quot;effMinSG&quot;</span>        <span class="co"># -&gt; &quot;hr&quot;: highest consistency rate, ties by effect</span></span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>sg_focus           <span class="ot">&lt;-</span> <span class="st">&quot;eff&quot;</span>        <span class="co"># -&gt; &quot;hr&quot;: highest consistency rate, ties by effect</span></span>
 <span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a><span class="co"># Inclusion-band rule for the effMaxSG/effMinSG foci (inert for eff/maxSG/minSG):</span></span>
 <span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="co">#   &quot;neighborhood&quot; = effect within (1-eps) of the max (multiplicative, natural scale);</span></span>
 <span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="co">#   &quot;pareto&quot;       = 2-D non-dominated set in (effect, size);</span></span>
@@ -2503,9 +2503,9 @@ window.Quarto = {
 <span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>pconsistency       <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
 <span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">400</span>L         <span class="co"># moot under &quot;resample&quot; (closed-form, not literal split)</span></span>
 <span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>maxk               <span class="ot">&lt;-</span> <span class="dv">2</span>L</span>
-<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>n_min              <span class="ot">&lt;-</span> <span class="dv">60</span>L</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>n_min              <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
 <span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>d0_min             <span class="ot">&lt;-</span> <span class="dv">10</span>L</span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>d1_min             <span class="ot">&lt;-</span> <span class="dv">10</span>L</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>d1_min             <span class="ot">&lt;-</span> <span class="dv">0</span>L</span>
 <span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>use_lasso          <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
 <span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>use_dina           <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
 <span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>use_grf            <span class="ot">&lt;-</span> <span class="cn">FALSE</span>         <span class="co"># FALSE = LASSO-only (fast, &quot;FSl&quot;); set TRUE for &quot;FSlg&quot;</span></span>
@@ -2541,7 +2541,7 @@ window.Quarto = {
 <span id="cb1-107"><a href="#cb1-107" aria-hidden="true" tabindex="-1"></a>            n_sims, gate_draws, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Tier-2 standalone: method=grf/frontier, n_sims=100, gate_draws=2000, workers=13</code></pre>
+<pre><code>Tier-2 standalone: method=grf/frontier, n_sims=1000, gate_draws=2000, workers=13</code></pre>
 </div>
 </div>
 </section>
@@ -2807,8 +2807,8 @@ Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
 <span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Completed 100/100 replicates in 27.8 s (0.3 s/replicate).
-Mean Tier-2 gate wall-clock: 3.289 s/replicate.</code></pre>
+<pre><code>Completed 1000/1000 replicates in 249.5 s (0.2 s/replicate).
+Mean Tier-2 gate wall-clock: 3.191 s/replicate.</code></pre>
 </div>
 </div>
 </section>
@@ -2855,7 +2855,7 @@ Mean Tier-2 gate wall-clock: 3.289 s/replicate.</code></pre>
 <span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Current run: 100 reps in 28 s on 13 workers. Tier-2 gate 3.3 s/rep. Detection 100%.</code></pre>
+<pre><code>Current run: 1000 reps in 249 s on 13 workers. Tier-2 gate 3.2 s/rep. Detection 100%.</code></pre>
 </div>
 <div class="cell-output-display">
 <div id="wyiljwybcc" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -3275,35 +3275,35 @@ height: 0px !important;
 <tbody class="gt_table_body">
 <tr class="odd">
 <td class="gt_row gt_left" headers="Scenario">current run</td>
-<td class="gt_row gt_right" headers="n_sims">100</td>
-<td class="gt_row gt_right" headers="t2_rep_s">3.3</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.09</td>
-<td class="gt_row gt_left" headers="wall_ideal">0 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">1 m</td>
+<td class="gt_row gt_right" headers="n_sims">1000</td>
+<td class="gt_row gt_right" headers="t2_rep_s">3.2</td>
+<td class="gt_row gt_right" headers="cpu_hours">0.89</td>
+<td class="gt_row gt_left" headers="wall_ideal">4 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">5 m</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">1000</td>
-<td class="gt_row gt_right" headers="t2_rep_s">3.3</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.91</td>
+<td class="gt_row gt_right" headers="t2_rep_s">3.2</td>
+<td class="gt_row gt_right" headers="cpu_hours">0.89</td>
 <td class="gt_row gt_left" headers="wall_ideal">4 m</td>
 <td class="gt_row gt_left" headers="wall_real_1.3x">5 m</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">5000</td>
-<td class="gt_row gt_right" headers="t2_rep_s">3.3</td>
-<td class="gt_row gt_right" headers="cpu_hours">4.57</td>
-<td class="gt_row gt_left" headers="wall_ideal">21 m</td>
+<td class="gt_row gt_right" headers="t2_rep_s">3.2</td>
+<td class="gt_row gt_right" headers="cpu_hours">4.43</td>
+<td class="gt_row gt_left" headers="wall_ideal">20 m</td>
 <td class="gt_row gt_left" headers="wall_real_1.3x">27 m</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">20000</td>
-<td class="gt_row gt_right" headers="t2_rep_s">3.3</td>
-<td class="gt_row gt_right" headers="cpu_hours">18.27</td>
-<td class="gt_row gt_left" headers="wall_ideal">1 h 24 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">1 h 50 m</td>
+<td class="gt_row gt_right" headers="t2_rep_s">3.2</td>
+<td class="gt_row gt_right" headers="cpu_hours">17.73</td>
+<td class="gt_row gt_left" headers="wall_ideal">1 h 22 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">1 h 46 m</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -3854,7 +3854,7 @@ height: 0px !important;
 <td colspan="12" class="gt_heading gt_title gt_font_normal">Tier-2 de-biased gate: estimation &amp; coverage</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">M1 · n=700, 100 sims, draws=2000 · grf/frontier identification</td>
+<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">M1 · n=700, 1000 sims, draws=2000 · grf/frontier identification</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Estimator</th>
@@ -3885,45 +3885,45 @@ Relative bias (%)
 </tr>
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="Harm  Ĥ  Estimator">oracle</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">2.14</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.59</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">2.16</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.60</td>
 <td class="gt_row gt_right" headers="Harm  Ĥ  SD_hat">0.56</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">2.11</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Length">2.29</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">2.17</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Length">2.31</td>
 <td class="gt_row gt_right" headers="Harm  Ĥ  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−11.0</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">6.8</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−10.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">8.0</td>
 <td class="gt_row gt_right" headers="Harm  Ĥ  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.91</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_marg">0.98</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.90</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_marg">0.95</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Harm  Ĥ  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">2.30</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.70</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  SD_hat">0.76</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">2.86</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Length">3.22</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_oracle">8.7</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−4.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">15.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.96</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">2.17</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.61</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  SD_hat">0.66</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">2.48</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Length">2.75</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_oracle">2.4</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−9.8</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">8.3</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_oracle">0.99</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.95</td>
 <td class="gt_row gt_right" headers="Harm  Ĥ  Cov_marg">0.97</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Harm  Ĥ  Estimator">Tier-2</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">2.01</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.80</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  SD_hat">0.92</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">3.51</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Length">4.25</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_oracle">−7.2</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−16.4</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">0.3</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_oracle">0.96</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.85</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_marg">0.90</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Avg">1.86</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  SD">0.69</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  SD_hat">0.77</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Len_med">2.83</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Length">3.44</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_oracle">−13.5</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_cde">−22.3</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  b_marg">−6.8</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_oracle">0.93</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_cde">0.78</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ  Cov_marg">0.88</td>
 </tr>
 <tr class="gt_group_heading_row odd">
 <th colspan="12" id="Complement  Ĥᶜ" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Complement Ĥᶜ</th>
@@ -3931,30 +3931,30 @@ Relative bias (%)
 <tr class="gt_row_group_first even">
 <td class="gt_row gt_left" headers="Complement  Ĥᶜ  Estimator">oracle</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Avg">0.63</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD">0.08</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD_hat">0.07</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Len_med">0.30</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Len_med">0.29</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Length">0.29</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">7.8</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">−4.7</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">8.1</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">−4.4</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">0.94</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_marg">0.88</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">0.90</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_marg">0.92</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Complement  Ĥᶜ  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Avg">0.66</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Avg">0.65</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD">0.08</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD_hat">0.07</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Len_med">0.30</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Len_med">0.29</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Length">0.30</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_oracle">4.7</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">12.7</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">−0.3</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_oracle">3.3</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">11.5</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">−1.3</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">0.80</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_marg">0.91</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">0.84</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_marg">0.95</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Complement  Ĥᶜ  Estimator">Tier-2</td>
@@ -3963,16 +3963,16 @@ Relative bias (%)
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  SD_hat">0.15</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Len_med">0.60</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Length">0.60</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_oracle">5.3</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">13.4</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">0.3</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_oracle">4.1</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_cde">12.5</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  b_marg">−0.5</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">0.99</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_cde">1.00</td>
 <td class="gt_row gt_right" headers="Complement  Ĥᶜ  Cov_marg">1.00</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
-<td colspan="12" class="gt_footnote">Detection rate <strong>100%</strong> of 100 sims (the search identified a subgroup Ĥ). Among those detected reps: the gate produced a CI in <strong>100%</strong>, and the Tier-2 de-biased estimate still cleared the harm gate in <strong>94%</strong> (i.e. apparent harm survived bias correction); IJ variance held (not fallback) in <strong>97%</strong>. Classification of Ĥ vs true subgroup: sens 0.58 · spec 0.97 · PPV 0.73 · NPV 0.94; avg(Ĥ) size <strong>69</strong> (10% of n=700). Estimable realizations: 100 per cell.</td>
+<td colspan="12" class="gt_footnote">Detection rate <strong>100%</strong> of 1000 sims (the search identified a subgroup Ĥ). Among those detected reps: the gate produced a CI in <strong>100%</strong>, and the Tier-2 de-biased estimate still cleared the harm gate in <strong>94%</strong> (i.e. apparent harm survived bias correction); IJ variance held (not fallback) in <strong>96%</strong>. Classification of Ĥ vs true subgroup: sens 0.62 · spec 0.96 · PPV 0.70 · NPV 0.95; avg(Ĥ) size <strong>81</strong> (12% of n=700). Estimable realizations: 1000 per cell.</td>
 </tr>
 <tr class="gt_footnotes even">
 <td colspan="12" class="gt_footnote">Targets: <span class="math inline">\(b^{\text{oracle}}\)</span> vs per-replicate oracle <span class="math inline">\(\hat\theta(H)\)</span>; <span class="math inline">\(b^{\ddagger}\)</span> vs CDE <span class="math inline">\(\theta^{\ddagger}\)</span>; <span class="math inline">\(b^{\dagger}\)</span> vs marginal subgroup HR <span class="math inline">\(\theta^{\dagger}\)</span>. <code>Len(med)</code> = median CI length (robust to blow-ups); <code>Length</code> = mean. Tier-2 = de-biased gate, IJ interval.</td>
@@ -4583,7 +4583,7 @@ loaded via a namespace (and not attached):
 <span id="cb21-76"><a href="#cb21-76" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(future)</span>
 <span id="cb21-77"><a href="#cb21-77" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb21-78"><a href="#cb21-78" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Counts (the only knobs to change for production) ───────────────────────</span></span>
-<span id="cb21-79"><a href="#cb21-79" aria-hidden="true" tabindex="-1"></a>n_sims       <span class="ot">&lt;-</span> <span class="dv">100</span>L     <span class="co"># simulated trials        (Tier-2 scales cheaply: try 20000)</span></span>
+<span id="cb21-79"><a href="#cb21-79" aria-hidden="true" tabindex="-1"></a>n_sims       <span class="ot">&lt;-</span> <span class="dv">1000</span>L     <span class="co"># simulated trials        (Tier-2 scales cheaply: try 20000)</span></span>
 <span id="cb21-80"><a href="#cb21-80" aria-hidden="true" tabindex="-1"></a>diag_mode    <span class="ot">&lt;-</span> <span class="cn">FALSE</span>    <span class="co"># DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each</span></span>
 <span id="cb21-81"><a href="#cb21-81" aria-hidden="true" tabindex="-1"></a>                         <span class="co"># worker&#39;s forestsearch() error (otherwise swallowed by the inner</span></span>
 <span id="cb21-82"><a href="#cb21-82" aria-hidden="true" tabindex="-1"></a>                         <span class="co"># tryCatch), so parallel-only failures become visible.  Set FALSE</span></span>
@@ -4624,7 +4624,7 @@ loaded via a namespace (and not attached):
 <span id="cb21-117"><a href="#cb21-117" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb21-118"><a href="#cb21-118" aria-hidden="true" tabindex="-1"></a><span class="co"># ── Search configuration (León tuning; resample identification) ────────────</span></span>
 <span id="cb21-119"><a href="#cb21-119" aria-hidden="true" tabindex="-1"></a>consistency_method <span class="ot">&lt;-</span> <span class="st">&quot;resample&quot;</span>   <span class="co"># decided: resample identification (the new default)</span></span>
-<span id="cb21-120"><a href="#cb21-120" aria-hidden="true" tabindex="-1"></a>sg_focus           <span class="ot">&lt;-</span> <span class="st">&quot;effMinSG&quot;</span>        <span class="co"># -&gt; &quot;hr&quot;: highest consistency rate, ties by effect</span></span>
+<span id="cb21-120"><a href="#cb21-120" aria-hidden="true" tabindex="-1"></a>sg_focus           <span class="ot">&lt;-</span> <span class="st">&quot;eff&quot;</span>        <span class="co"># -&gt; &quot;hr&quot;: highest consistency rate, ties by effect</span></span>
 <span id="cb21-121"><a href="#cb21-121" aria-hidden="true" tabindex="-1"></a><span class="co"># Inclusion-band rule for the effMaxSG/effMinSG foci (inert for eff/maxSG/minSG):</span></span>
 <span id="cb21-122"><a href="#cb21-122" aria-hidden="true" tabindex="-1"></a><span class="co">#   &quot;neighborhood&quot; = effect within (1-eps) of the max (multiplicative, natural scale);</span></span>
 <span id="cb21-123"><a href="#cb21-123" aria-hidden="true" tabindex="-1"></a><span class="co">#   &quot;pareto&quot;       = 2-D non-dominated set in (effect, size);</span></span>
@@ -4641,9 +4641,9 @@ loaded via a namespace (and not attached):
 <span id="cb21-134"><a href="#cb21-134" aria-hidden="true" tabindex="-1"></a>pconsistency       <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
 <span id="cb21-135"><a href="#cb21-135" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">400</span>L         <span class="co"># moot under &quot;resample&quot; (closed-form, not literal split)</span></span>
 <span id="cb21-136"><a href="#cb21-136" aria-hidden="true" tabindex="-1"></a>maxk               <span class="ot">&lt;-</span> <span class="dv">2</span>L</span>
-<span id="cb21-137"><a href="#cb21-137" aria-hidden="true" tabindex="-1"></a>n_min              <span class="ot">&lt;-</span> <span class="dv">60</span>L</span>
+<span id="cb21-137"><a href="#cb21-137" aria-hidden="true" tabindex="-1"></a>n_min              <span class="ot">&lt;-</span> <span class="cn">NULL</span></span>
 <span id="cb21-138"><a href="#cb21-138" aria-hidden="true" tabindex="-1"></a>d0_min             <span class="ot">&lt;-</span> <span class="dv">10</span>L</span>
-<span id="cb21-139"><a href="#cb21-139" aria-hidden="true" tabindex="-1"></a>d1_min             <span class="ot">&lt;-</span> <span class="dv">10</span>L</span>
+<span id="cb21-139"><a href="#cb21-139" aria-hidden="true" tabindex="-1"></a>d1_min             <span class="ot">&lt;-</span> <span class="dv">0</span>L</span>
 <span id="cb21-140"><a href="#cb21-140" aria-hidden="true" tabindex="-1"></a>use_lasso          <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
 <span id="cb21-141"><a href="#cb21-141" aria-hidden="true" tabindex="-1"></a>use_dina           <span class="ot">&lt;-</span> <span class="cn">FALSE</span></span>
 <span id="cb21-142"><a href="#cb21-142" aria-hidden="true" tabindex="-1"></a>use_grf            <span class="ot">&lt;-</span> <span class="cn">FALSE</span>         <span class="co"># FALSE = LASSO-only (fast, &quot;FSl&quot;); set TRUE for &quot;FSlg&quot;</span></span>
