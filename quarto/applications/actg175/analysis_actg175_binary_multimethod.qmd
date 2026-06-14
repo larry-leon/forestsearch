@@ -181,6 +181,16 @@ fs_grf_family_native_nbhd <- NULL
 construction_digits <- 2L
 display_digits      <- 2L
 
+# Display-only tidy of a subgroup label for printing: rounds the post-operator
+# thresholds to `d` decimals via the package's tidy_cut_display().  The
+# membership-exact sg.harm (re-parsed by get_dfpred and carried through the
+# bootstrap) is never altered -- this only affects what is printed.  Used at
+# every site in this document that renders sg.harm.
+fmt_sg <- function(x, d = display_digits) {
+  if (is.null(x) || length(x) == 0L) return(x)
+  paste(forestsearch:::tidy_cut_display(x, digits = as.integer(d)), collapse = " & ")
+}
+
 # ---------------------------------------------------------------------------
 # Pareto-frontier diagnostic parameters (drives compute_frontier_cis(),
 # plot_pareto_frontier(), pareto_frontier_table(), explain_pareto_selection()).
@@ -347,20 +357,16 @@ cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
 ## Covariates
 
 ```{r data-covariates}
-# Coerce binary indicators to factors (analyst does not know true cuts for
-# continuous covariates; ForestSearch handles those internally).
-for (v in bin_vars) actg_df[[v]] <- as.factor(actg_df[[v]])
-
-# Numeric-covariate copy for the paths that require it.  forestsearch() in
-# consistency mode (including use_dina / use_grf SCREENING) binarizes factor
-# covariates internally, but the SELECTION engines -- subgroup_method = "dina"
-# (.forestsearch_dina_select -> dina()) and subgroup_method = "grf" -- and the
-# standalone dina()/dina_frontier()/dina_subgroup() calls require numeric
-# covariate columns (.dina_extract_from_df() rejects factors).  The binary
-# candidates are 0/1, so recover their numeric coding with
-# as.numeric(as.character(.)) -- NOT as.numeric(.), which maps factor levels to 1/2.
-actg_df_dina <- actg_df
-for (v in bin_vars) actg_df_dina[[v]] <- as.numeric(as.character(actg_df_dina[[v]]))
+# Keep ALL candidate covariates numeric.  forestsearch() builds and evaluates
+# "var <= value" candidate cuts, and its DINA paths require numeric columns, so
+# binary indicators left as factors trigger hundreds of "'<=' not meaningful for
+# factors" warnings during the consistency search and "covariate must be numeric"
+# failures in DINA (both subgroup_method = "dina" selection and use_dina
+# screening).  With 0/1 numeric coding, forestsearch's cont.cutoff (= 4 unique
+# values) treats the binary candidates as categorical automatically -- no factor
+# conversion is needed, and every engine (consistency, DINA, GRF, standalone
+# DINA) receives numeric covariates.
+for (v in bin_vars) actg_df[[v]] <- as.numeric(actg_df[[v]])
 
 cat("Continuous candidates:", paste(cont_vars, collapse = ", "), "\n")
 cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
@@ -609,7 +615,7 @@ res_tabs$tab_estimates
 
 ```{r fs-subgroup}
 if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
-  cat("Identified subgroup (H):", paste(fs$sg.harm, collapse = " & "), "\n")
+  cat("Identified subgroup (H):", fmt_sg(fs$sg.harm), "\n")
   cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
       sprintf("(%.1f%% of ITT)\n",
               100 * mean(fs$df.est$treat.recommend == 0)))
@@ -813,7 +819,7 @@ if (is.null(g)) {
   comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
-        caption = sprintf("Selected subgroup: %s%s", paste(fs$sg.harm, collapse = " & "),
+        caption = sprintf("Selected subgroup: %s%s", fmt_sg(fs$sg.harm),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
@@ -1044,7 +1050,7 @@ timings$fs_dina_screen <- (proc.time() - t0)["elapsed"]
 
 if (!is.null(fs_dina_screen$sg.harm) && length(fs_dina_screen$sg.harm) > 0) {
   cat("Identified subgroup (H):",
-      paste(fs_dina_screen$sg.harm, collapse = " & "), "\n")
+      fmt_sg(fs_dina_screen$sg.harm), "\n")
   cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
       sprintf("(%.1f%% of ITT)\n",
               100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
@@ -1087,11 +1093,10 @@ Parameters are analogous to (A): same confounders, harm floor
 ```{r dina-standalone-fit}
 t0 <- proc.time()
 
-# Standalone DINA -- dina(), dina_frontier(), dina_subgroup() -- requires numeric
-# covariate columns; uses the numeric copy built in `data-covariates`
-# (actg_df_dina).
+# Standalone DINA -- dina(), dina_frontier(), dina_subgroup() -- on the numeric
+# covariate frame (all candidates are numeric per `data-covariates`).
 dina_fit <- dina(
-  df         = actg_df_dina,
+  df         = actg_df,
   outcome    = outcome.name,
   treatment  = treat.name,
   covariates = confounders.name,
@@ -1112,7 +1117,7 @@ cat("Standalone DINA fit complete (family = binomial).\n")
 ```{r dina-standalone-frontier}
 dina_fr <- dina_frontier(
   fit               = dina_fit,
-  df                = actg_df_dina,
+  df                = actg_df,
   covariates        = confounders.name,
   scope             = "wide",     # default "wide"; or "harm" (requires m_diff)
   m_diff            = NULL,        # default NULL (no effect floor under scope = "wide")
@@ -1143,7 +1148,7 @@ gt(dina_fr[, c("covariate", "direction", "threshold",
 ```{r dina-standalone-select}
 dina_sel <- dina_subgroup(
   fit                 = dina_fit,
-  df                  = actg_df_dina,
+  df                  = actg_df,
   covariates          = confounders.name,
   m_diff              = m_diff_dina,
   n_min               = 60L,            # default 60L
@@ -1179,7 +1184,7 @@ t0 <- proc.time()
 
 fs_dina <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis         = actg_df_dina,   # subgroup_method = "dina" needs numeric covariates
+  df.analysis         = actg_df,
   confounders.name    = confounders.name,
   outcome.name        = outcome.name,
   event.name          = outcome.name,
@@ -1216,7 +1221,7 @@ timings$fs_dina_select <- (proc.time() - t0)["elapsed"]
 
 if (!is.null(fs_dina$sg.harm) && length(fs_dina$sg.harm) > 0) {
   cat("DINA-selected subgroup (H):",
-      paste(fs_dina$sg.harm, collapse = " & "), "\n")
+      fmt_sg(fs_dina$sg.harm), "\n")
   cat("Subgroup size:", sum(fs_dina$df.est$treat.recommend == 0),
       sprintf("(%.1f%% of ITT)\n",
               100 * mean(fs_dina$df.est$treat.recommend == 0)))
@@ -1333,7 +1338,7 @@ if (is.null(g)) {
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
         caption = sprintf("DINA-selected subgroup: %s%s",
-                          paste(fs_dina$sg.harm, collapse = " & "),
+                          fmt_sg(fs_dina$sg.harm),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
@@ -1440,7 +1445,7 @@ timings$fs_grf_select <- (proc.time() - t0)["elapsed"]
 
 if (!is.null(fs_grf$sg.harm) && length(fs_grf$sg.harm) > 0) {
   cat("GRF-selected subgroup (H):",
-      paste(fs_grf$sg.harm, collapse = " & "), "\n")
+      fmt_sg(fs_grf$sg.harm), "\n")
   cat("Subgroup size:", sum(fs_grf$df.est$treat.recommend == 0),
       sprintf("(%.1f%% of ITT)\n",
               100 * mean(fs_grf$df.est$treat.recommend == 0)))
@@ -1557,7 +1562,7 @@ if (is.null(g)) {
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
         caption = sprintf("GRF-selected subgroup: %s%s",
-                          paste(fs_grf$sg.harm, collapse = " & "),
+                          fmt_sg(fs_grf$sg.harm),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
@@ -1791,7 +1796,7 @@ cat(sprintf("  OR (95%% CI): %.2f (%.2f, %.2f)\n\n", itt_or, itt_ci_lo, itt_ci_h
 
 if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
   cat("Identified Subgroup (H):\n")
-  cat("  Definition:", paste(fs$sg.harm, collapse = " & "), "\n")
+  cat("  Definition:", fmt_sg(fs$sg.harm), "\n")
   cat("  Size:", sum(fs$df.est$treat.recommend == 0),
       sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 0)))
 

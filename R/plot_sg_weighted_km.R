@@ -247,6 +247,14 @@ plot_sg_weighted_km <- function(
     }
   }
 
+  # Display-only: round the thresholds shown in the title/console label.  The
+  # membership-defining sg.harm is unaffected -- tidy_cut_display() rounds only
+  # numbers that follow a comparison operator, leaving variable names, braces,
+  # and any non-cut label (e.g. "Questionable (H)") unchanged.
+  if (!is.null(sg0_name) && length(sg0_name) > 0L) {
+    sg0_name <- tidy_cut_display(sg0_name, digits = 3L)
+  }
+
   if (is.null(sg1_name)) {
     if (!is.null(sg_definition_label)) {
       sg1_name <- paste0("NOT ", sg_definition_label)

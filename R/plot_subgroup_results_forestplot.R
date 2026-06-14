@@ -702,7 +702,10 @@ plot_subgroup_results_forestplot <- function(
     # IMPORTANT: sg.harm defines the HARM subgroup (H), NOT benefit
     sg_harm <- fs.est$sg.harm
     if (!is.null(sg_harm)) {
-      harm_label <- paste(sg_harm, collapse = " & ")
+      # Display-only: round post-operator thresholds for the row label.  The
+      # membership-defining sg.harm is unaffected (tidy_cut_display() touches
+      # only numbers following a comparison operator).
+      harm_label <- paste(tidy_cut_display(sg_harm, digits = 3L), collapse = " & ")
     } else {
       harm_label <- "Identified Subgroup"
     }
