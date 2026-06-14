@@ -52,18 +52,18 @@ selection_rule        <- "neighborhood"
 hr_threshold          <- 1.0
 hr_consistency        <- 1.0
 pconsistency          <- 0.90
-n_min                 <- 60L
+n_min                 <- NULL
 consistency_method    <- "resample"
 
 # ---- diagnostic knobs ---------------------------------------------------
-DIAG_NB    <- 300L                                   # Tier-1 resamples (match the sim)
+DIAG_NB    <- 400L                                   # Tier-1 resamples (match the sim)
 GATE_DRAWS <- 2000L
 n_workers  <- max(1L, parallel::detectCores(logical = FALSE) - 1L)
 max_seed_tries <- 25L                                # find a replicate where DINA detects + Tier-1 returns H2
 
 # ---- comprehensive (cross-replicate) diagnostic knobs -------------------
 RUN_CROSS_REP <- TRUE     # SD-calibration / coverage / decomposition across replicates
-n_diag_reps   <- 100L     # replicates for the cross-replicate section (prod: 500 -> 1000)
+n_diag_reps   <- 500L     # replicates for the cross-replicate section (prod: 500 -> 1000)
 
 outcome_name <- "y_sim"; event_name <- "event_sim"
 treat_name   <- "treat_sim"; id_name <- "id"; harm_col <- "flag_harm"

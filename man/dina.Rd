@@ -58,7 +58,7 @@ See \code{\link[=dina_fit]{dina_fit()}} for their full documentation.
 Covariate columns must be numeric (or integer).  Convert factors to
 dummy variables (e.g., with \code{\link[stats:model.matrix]{stats::model.matrix()}}) before calling
 if needed.  Rows with any \code{NA} value in the referenced columns are
-rejected with an error; use \code{\link[stats:na.fail]{stats::na.omit()}} or impute beforehand.
+rejected with an error; use \code{\link[stats:na.omit]{stats::na.omit()}} or impute beforehand.
 }
 \examples{
 set.seed(1)
