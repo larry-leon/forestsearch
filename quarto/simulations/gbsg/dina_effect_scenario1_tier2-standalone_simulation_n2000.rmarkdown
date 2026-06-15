@@ -1,0 +1,580 @@
+---
+title: "Operating Characteristics of the Tier-2 De-biased Gate (Standalone)"
+subtitle: "Tier-2-only estimation/coverage at scale, on the León (2024) Table 2 design"
+author: "Larry León"
+date: today
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+    fig-cap-location: bottom
+    code-fold: true
+---
+
+> **Status — Tier-2 standalone.** This is the **fast** configuration: it runs the
+> de-biased gate only and omits the Tier-1 nonparametric bootstrap entirely. The
+> Tier-1$\leftrightarrow$Tier-2 head-to-head (the correspondence check and the
+> paired agreement panel) lives in the sibling document
+> `tier2_debias_gate_simulation.qmd`; once that validation is in hand, this
+> document characterizes the gate's operating characteristics at large `n_sims`
+> without the bootstrap bottleneck. Every tunable lives in the setup chunk
+> (@sec-setup); `n_sims` and `gate_draws` are the only counts. Results run live —
+> no `saveRDS`/`readRDS` caching.
+
+# What this evaluates {#sec-intro}
+
+The **Tier-2 de-biased gate** (`fs_debias_gate()`, surfaced through
+`forestsearch(debias_gate = TRUE)`) is a refit-free multiplier-bootstrap
+approximation of León's post-selection bias correction, with an
+infinitesimal-jackknife (IJ) confidence interval. To first order its point
+estimate equals León's Eq. 7 correction and its interval equals León's IJ
+variance, the only approximation being the per-subgroup `dfbeta` linearization.
+
+Because the gate costs essentially the same per replicate regardless of design
+size (one fit plus the multiplier draws, no re-search), it scales to large
+`n_sims` cheaply. This document records, per replicate:
+
+* **oracle** $\hat\theta(H)$ — refit on the *true* harm subgroup;
+* **naive** $\hat\theta(\hat H)$ — plugin on the identified subgroup;
+* **Tier-2** $\tilde\theta(\hat H)$ — the de-biased gate with its IJ interval.
+
+Each is compared to three truth targets: the per-replicate **oracle** estimate,
+the controlled direct effect $\theta^{\ddagger}$ (CDE), and the marginal subgroup
+hazard ratio $\theta^{\dagger}$. The output is the León Table-2-layout
+estimation/coverage table with a Tier-2 block (no Tier-1 row).
+
+The **subgroup-identification engine is selectable** via `subgroup_method`
+(`"consistency"`, `"dina"`, or `"grf"`, with `grf_selection` for the GRF mode):
+the oracle, the truth targets, and the classification metric are all
+method-agnostic, so the same harness characterizes any engine. The gate
+de-biases each method against **its own** candidate family, and the re-selection
+rule is derived automatically from `sg_focus` so it always matches the rule the
+engine actually used: the consistency search ranks by consistency rate
+(`eff` $\to$ `maxcons`), DINA/GRF rank by effect (`eff` $\to$ `maxeff`), and
+`maxSG`/`minSG`/`effMaxSG`/`effMinSG` map through identically. No separate
+re-selection knob is needed. **Detection** is judged on the identified subgroup itself
+(`fs.est$sg.harm`), independent of whether the gate produced a CI; gate
+availability is reported separately.
+
+# Setup — all knobs {#sec-setup}
+
+```{r setup, message=FALSE, warning=FALSE}
+# NOTE: forestsearch must be INSTALLED (devtools::install()), not load_all():
+# the doFuture multisession workers spawn separate R processes that only see the
+# installed package.
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(ggplot2)
+library(foreach)
+library(doFuture)
+library(future)
+
+# ── Counts (the only knobs to change for production) ───────────────────────
+n_sims       <- 1000L     # simulated trials        (Tier-2 scales cheaply: try 20000)
+diag_mode    <- FALSE    # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
+                         # worker's forestsearch() error (otherwise swallowed by the inner
+                         # tryCatch), so parallel-only failures become visible.  Set FALSE
+                         # for a real run.
+gate_draws   <- 2000L     # Tier-2 multiplier draws (keep ~2000)
+
+run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
+
+# Scale-up scenarios for the timing projection (Tier-2 cost is ~linear in n_sims). Edit freely.
+proj_scenarios <- c(1000L, 5000L, 20000L)
+
+# ── Subgroup-identification method ─────────────────────────────────────────
+# The estimation/coverage targets, oracle, and classification are all
+# method-agnostic, so this document characterizes ANY selection engine:
+#   "consistency" - the consistency search (resample identification);
+#   "dina"        - DINA selection (de-biased over DINA's qualifying family);
+#   "grf"         - GRF selection (DR-candidate frontier family; tree or frontier).
+# The Tier-2 gate now runs for all three (each de-biased against its OWN
+# candidate family, with re-selection matching the method's selection rule).
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect"
+                               #   "effect" re-ranks the DR frontier on the inferential effect the gate
+                               #   de-biases; no-op for the policy tree.
+grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
+dmin.grf        <- 0.0             # GRF DR-score screening floor
+dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
+dina_select_statistic <- "effect"    # only if subgroup_method=="dina": "dina" (native tau-hat) | "effect"
+                                   #   "effect" re-ranks the DINA family on the inferential effect the gate de-biases.
+
+# ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
+dgm_model       <- "alt"
+target_hr_harm  <- 0.70    # calibrate k_inter to this Cox HR in the harm subgroup
+n_sample        <- 1000L   # M1 sample size
+analysis_time   <- 84     # administrative censoring (months)
+cens_adjust     <- log(1.5)
+n_super         <- 5000L
+
+# ── Search configuration (León tuning; resample identification) ────────────
+consistency_method <- "resample"   # decided: resample identification (the new default)
+sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by effect
+# Inclusion-band rule for the effMaxSG/effMinSG foci (inert for eff/maxSG/minSG):
+#   "neighborhood" = effect within (1-eps) of the max (multiplicative, natural scale);
+#   "pareto"       = 2-D non-dominated set in (effect, size);
+#   "both"         = neighborhood AND pareto.  The gate de-biases under the SAME rule.
+selection_rule     <- "neighborhood"   # "neighborhood" | "pareto" | "both"
+# Gate re-selection rule is NO LONGER specified here.  forestsearch() derives it
+# from sg_focus, faithfully per engine: the consistency search ranks by
+# consistency rate (eff/hr -> "maxcons"), DINA/GRF rank by effect (eff/hr ->
+# "maxeff"), and maxSG/minSG/effMaxSG/effMinSG map through identically.  So
+# sg_focus is the single source of truth; to override, pass `reselection =`
+# inside debias_gate_args below (advanced use only).
+hr_threshold       <- 1.25         # different target under DINA (not Cox based)
+hr_consistency     <- 1.0
+pconsistency       <- 0.90
+fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
+maxk               <- 2L
+n_min              <- NULL
+d0_min             <- 10L
+d1_min             <- 10L
+use_lasso          <- FALSE
+use_dina           <- FALSE
+use_grf            <- FALSE         # FALSE = LASSO-only (fast, "FSl"); set TRUE for "FSlg"
+use_twostage       <- TRUE
+
+fs_conf_force      <- c("meno == 0")   # premenopausal (raw analog of z3 == 1)
+fs_conf.cont_jcuts <- list(er = 20)     # J-quantile grid on raw ER (analog of z1; now meaningful, ER is continuous
+
+# fs_conf_force <- NULL
+# fs_conf.cont_jcuts <- NULL
+
+
+# ── Column names emitted by simulate_from_dgm() ────────────────────────────
+outcome_name   <- "y_sim"
+event_name     <- "event_sim"
+treat_name     <- "treat_sim"
+id_name        <- "id"
+harm_col       <- "flag_harm"
+# Raw GBSG covariate candidates (as in a real analysis): forestsearch discovers
+# its own cuts. Continuous -> er, age, pgr, nodes, size; categorical -> meno (0/1),
+# grade (1/2/3). The pre-dichotomized z1..z5 are NOT used. The true harm subgroup
+# (er <= 25th pct & meno == 0) must be re-discovered from these raw variables.
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
+
+# ── Reproducibility / parallelism ──────────────────────────────────────────
+seed_base  <- 8316951L
+n_workers  <- ceiling(0.95*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
+z975       <- qnorm(0.975)
+
+cat(sprintf("Tier-2 standalone: method=%s%s, n_sims=%d, gate_draws=%d, workers=%d\n",
+            subgroup_method,
+            if (identical(subgroup_method, "grf")) paste0("/", grf_selection) else "",
+            n_sims, gate_draws, n_workers))
+```
+
+# Build the DGM and read off the truth targets
+
+```{r build-dgm}
+k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                             model = dgm_model, use_ahr = FALSE)
+
+dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                      n_super = n_super, seed = seed_base)
+dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
+
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+# Fixed (population) truth targets, read defensively from the DGM object.
+truth <- list(
+  hr_causal   = dgm$hr_causal   %||% NA_real_,                 # overall causal HR
+  marg_H      = dgm$hr_H_true   %||% NA_real_,                 # theta-dagger (H)
+  marg_Hc     = dgm$hr_Hc_true  %||% NA_real_,                 # theta-dagger (Hc)
+  cde_H       = dgm$cde_H       %||% (dgm$hazard_ratios$CDE_harm    %||% NA_real_),  # theta-ddagger (H)
+  cde_Hc      = dgm$cde_Hc      %||% (dgm$hazard_ratios$CDE_no_harm %||% NA_real_)   # theta-ddagger (Hc)
+)
+
+cat("DGM truth targets (population):\n")
+cat(sprintf("  overall causal HR      : %.3f\n", truth$hr_causal))
+cat(sprintf("  theta-dagger  H / Hc   : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
+cat(sprintf("  theta-ddagger H / Hc   : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+```
+
+# Per-replicate recorder
+
+For each simulated trial: identify $\hat H$ and obtain the naive + Tier-2 gate in
+one `forestsearch()` call, then refit the oracle on the true subgroup. Inner
+`forestsearch()` parallelism is forced sequential because the outer loop already
+parallelises across trials.
+
+```{r recorder}
+# Cox HR + delta-method 95% CI on a subset (for the per-replicate oracle).
+# Guards against separation: non-finite coef/SE (the "coefficient may be
+# infinite" case) returns a clean NA triple rather than Inf/NaN bounds.
+.cox_hr_ci <- function(df) {
+  if (sum(df[[event_name]]) < 5L || length(unique(df[[treat_name]])) < 2L)
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  fml <- stats::as.formula(
+    sprintf("survival::Surv(%s, %s) ~ %s", outcome_name, event_name, treat_name))
+  fit <- tryCatch(survival::coxph(fml, data = df), error = function(e) NULL)
+  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  b  <- unname(stats::coef(fit)[1])
+  v  <- unname(suppressWarnings(diag(stats::vcov(fit))[1]))  # unname: else lo/hi inherit coef name -> oH["lo"] = NA
+  se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
+  if (!is.finite(b) || !is.finite(se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se))
+}
+
+# Classification of the identified subgroup against the true harm flag.
+# sg_hat is grp.consistency$sg.harm.id: a per-subject 0/1 vector, length
+# nrow(df), aligned to the input rows (clean on the consistency result; the
+# GRF-object naming collision does not apply here).
+.classify <- function(sg_hat, truth) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(truth)) return(out)
+  sg_hat <- as.integer(sg_hat); truth <- as.integer(truth)
+  tp <- sum(sg_hat == 1 & truth == 1); fp <- sum(sg_hat == 1 & truth == 0)
+  fn <- sum(sg_hat == 0 & truth == 1); tn <- sum(sg_hat == 0 & truth == 0)
+  out["sens"] <- if (tp + fn > 0) tp / (tp + fn) else NA_real_
+  out["spec"] <- if (tn + fp > 0) tn / (tn + fp) else NA_real_
+  out["ppv"]  <- if (tp + fp > 0) tp / (tp + fp) else NA_real_
+  out["npv"]  <- if (tn + fn > 0) tn / (tn + fn) else NA_real_
+  out
+}
+
+# One all-NA record (returned on failure so the loop never aborts a cell).
+.na_record <- function(sim_id) data.frame(
+  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  n_harm = NA_integer_,
+  label = NA_character_, t2_secs = NA_real_,
+  or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
+  or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
+  nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA,
+  nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA,
+  t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
+  t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
+  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  stringsAsFactors = FALSE)
+
+record_replicate <- function(sim_id) {
+  rec <- .na_record(sim_id)
+
+  df <- tryCatch(
+    simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
+                      cens_adjust = cens_adjust, seed = seed_base + sim_id),
+    error = function(e) NULL)
+  if (is.null(df)) return(rec)
+  df[[id_name]] <- seq_len(nrow(df))
+  confs <- intersect(confounders_base, names(df))
+
+  # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
+  # Args common to every method, plus a method-specific block.  Consistency-only
+  # tuning (LASSO/two-stage/forced cuts/maxk) is NOT forwarded to DINA/GRF, which
+  # have their own candidate enumeration; all methods search the same confs.
+  base_args <- list(
+    df.analysis     = df,
+    outcome.name    = outcome_name, event.name = event_name,
+    treat.name      = treat_name,   id.name    = id_name,
+    flag_harm.name  = harm_col,     confounders.name = confs,
+    is.RCT          = TRUE,         seedit = seed_base + sim_id,
+    quiet           = TRUE,         # suppress the "De-biased gate: ..." cat()
+    sg_focus        = sg_focus,
+    subgroup_method = subgroup_method,
+    hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
+    pconsistency.threshold = pconsistency, n.min = n_min,
+    selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
+    parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
+    debias_gate     = TRUE,
+    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+                            include_complement = TRUE)  # reselection derived from sg_focus
+  )
+  method_args <- switch(
+    subgroup_method,
+    consistency = list(
+      consistency_method = consistency_method,
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina,
+      conf_force = fs_conf_force, conf.cont_jcuts = fs_conf.cont_jcuts,
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = list(dina_select_statistic = dina_select_statistic,
+                dina_args             = dina_args),
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
+    stop("unknown subgroup_method: ", subgroup_method)
+  )
+
+  t2_t0 <- proc.time()[3]
+  fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
+                     error = function(e) {
+                       if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
+                         warning(sprintf("FS-ERR sim %d: %s", sim_id,
+                                         conditionMessage(e)), call. = FALSE)
+                       NULL
+                     })
+  rec$t2_secs <- proc.time()[3] - t2_t0
+  if (is.null(fs.est)) return(rec)
+
+  # Detection is METHOD-AGNOSTIC (a subgroup was identified), independent of
+  # whether the Tier-2 gate produced a CI; gate availability is tracked
+  # separately in gate_ok so a gate failure never masks a true detection.
+  g     <- fs.est$debias_gate
+  found <- !is.null(fs.est$sg.harm)
+  rec$detected <- as.integer(found)
+  if (!found) return(rec)
+  rec$gate_ok <- as.integer(!is.null(g))
+
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected      %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source    <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$nv_Hc_lo  <- g$complement$naive$lower
+      rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
+  }
+
+  # ---- Classification of Ĥ against the true harm flag ----------------------
+  # grp.consistency$sg.harm.id is a per-subject 0/1 vector (length nrow(df),
+  # aligned to input rows) populated by ALL selectors -- consistency, DINA, and
+  # GRF -- so the classification metric is identical across methods.
+  cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
+  rec$sens <- cl["sens"]; rec$spec <- cl["spec"]
+  rec$ppv  <- cl["ppv"];  rec$npv <- cl["npv"]
+  # Identified-subgroup size |Ĥ| from the per-subject flag (all detected reps,
+  # independent of whether the gate produced a CI) -- feeds avg(Ĥ).
+  rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
+
+  # ---- Oracle: refit on the TRUE harm subgroup of this trial ---------------
+  oH  <- .cox_hr_ci(df[df[[harm_col]] == 1, , drop = FALSE])
+  oHc <- .cox_hr_ci(df[df[[harm_col]] == 0, , drop = FALSE])
+  rec$or_H_est <- oH["est"];   rec$or_H_lo <- oH["lo"];   rec$or_H_hi <- oH["hi"]
+  rec$or_Hc_est <- oHc["est"]; rec$or_Hc_lo <- oHc["lo"]; rec$or_Hc_hi <- oHc["hi"]
+
+  rec
+}
+```
+
+# Run the simulation
+
+```{r run-loop, message=FALSE, warning=FALSE}
+results <- NULL
+if (run_smoke) {
+  plan("sequential"); gc()
+  plan("multisession", workers = n_workers)
+
+  t_all <- proc.time()[3]
+  results <- foreach(
+    s = seq_len(if (isTRUE(diag_mode)) min(n_sims, 5L) else n_sims),
+    .combine = rbind, .errorhandling = "remove",
+    .options.future = list(packages = c("forestsearch", "survival", "data.table"),
+                           seed = TRUE)
+  ) %dofuture% {
+    record_replicate(s)
+  }
+  elapsed <- proc.time()[3] - t_all
+
+  plan("sequential"); gc()   # release workers between phases
+
+  cat(sprintf("Completed %d/%d replicates in %.1f s (%.1f s/replicate).\n",
+              sum(results$detected, na.rm = TRUE), n_sims, elapsed,
+              elapsed / max(1L, n_sims)))
+  cat(sprintf("Mean Tier-2 gate wall-clock: %.3f s/replicate.\n",
+              mean(results$t2_secs, na.rm = TRUE)))
+}
+```
+
+# Timing and scale-up projection
+
+Tier-2 cost per replicate is essentially fixed — one fit plus the multiplier
+draws, with **no** per-replicate bootstrap re-search — so total cost scales
+~linearly with `n_sims`. The projection uses this run's measured per-replicate
+gate time and divides by the worker count for an idealized wall-clock.
+
+```{r timing-projection}
+if (run_smoke && !is.null(results)) {
+  t2_mean  <- mean(results$t2_secs, na.rm = TRUE)   # forestsearch + gate, per rep (fixed)
+  det_rate <- mean(results$detected, na.rm = TRUE)
+
+  fmt_hm <- function(sec) {
+    h <- floor(sec / 3600); m <- round((sec - 3600 * h) / 60)
+    if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
+  }
+  proj_row <- function(ns) {
+    cpu_sec <- ns * t2_mean
+    wall_id <- cpu_sec / n_workers                   # idealized (perfect parallelism)
+    data.frame(n_sims = ns, t2_rep_s = round(t2_mean, 1),
+               cpu_hours = round(cpu_sec / 3600, 2),
+               wall_ideal = fmt_hm(wall_id),
+               wall_real_1.3x = fmt_hm(1.3 * wall_id),
+               stringsAsFactors = FALSE)
+  }
+  tab <- rbind(cbind(Scenario = "current run", proj_row(n_sims)),
+               cbind(Scenario = "projection",
+                     do.call(rbind, lapply(proj_scenarios, proj_row))))
+
+  cat(sprintf(
+    "Current run: %d reps in %.0f s on %d workers. Tier-2 gate %.1f s/rep. Detection %.0f%%.\n",
+    n_sims, elapsed, n_workers, t2_mean, 100 * det_rate))
+
+  gt(tab) |>
+    tab_header(title = "Wall-clock projection (Tier-2 standalone)",
+               subtitle = sprintf("Measured on this run \u00b7 %d workers", n_workers)) |>
+    cols_label(n_sims = "sims", t2_rep_s = "Tier-2/rep (s)", cpu_hours = "CPU-hours",
+               wall_ideal = "wall (ideal)", wall_real_1.3x = "wall (~1.3\u00d7)") |>
+    tab_footnote(footnote = md(paste(
+      "Tier-2/rep is fixed (no bootstrap). CPU-hours = sims \u00d7 Tier-2/rep.",
+      "`wall (ideal)` divides by workers assuming perfect parallelism;",
+      "`~1.3\u00d7` adds a rule-of-thumb overhead (pool spin-up, memory contention at high worker counts).")))
+}
+```
+
+# Estimation / coverage table (León Table 2 layout + Tier-2)
+
+```{r estimation-table}
+# All summaries are finite-only: non-finite estimates/bounds (e.g. from Cox
+# separation or an unstable small-B IJ) are dropped so a single blow-up cannot
+# dominate a mean.
+.cover <- function(target, lo, hi) {
+  target <- rep_len(target, length(lo))   # recycle scalar targets (CDE/marginal) to n reps
+  ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
+  if (!any(ok)) return(NA_real_)
+  mean(target[ok] >= lo[ok] & target[ok] <= hi[ok])
+}
+.pbias <- function(est, target) {
+  d <- (est - target) / target; d <- d[is.finite(d)]
+  if (!length(d)) return(NA_real_)
+  100 * mean(d)
+}
+# HR-scale SD implied by log-scale CI bounds (uniform across estimators).
+.sd_hat <- function(est, lo, hi) {
+  se_log <- (log(hi) - log(lo)) / (2 * z975)
+  v <- est * se_log; v <- v[is.finite(v)]
+  if (!length(v)) return(NA_real_)
+  mean(v)
+}
+.mfin <- function(x) { x <- x[is.finite(x)]; if (length(x)) mean(x) else NA_real_ }
+.sdfin <- function(x) { x <- x[is.finite(x)]; if (length(x) > 1L) sd(x) else NA_real_ }
+
+# Build one block (H or Hc): three estimator rows against three targets.
+build_block <- function(r, suffix, tgt_cde, tgt_marg) {
+  est_keys <- c(oracle = "or", naive = "nv", `Tier-2` = "t2")
+  or_est <- r[[paste0("or_", suffix, "_est")]]   # per-replicate oracle target
+  rows <- lapply(names(est_keys), function(lab) {
+    k  <- est_keys[[lab]]
+    e  <- r[[paste0(k, "_", suffix, "_est")]]
+    lo <- r[[paste0(k, "_", suffix, "_lo")]]
+    hi <- r[[paste0(k, "_", suffix, "_hi")]]
+    len <- hi - lo; len <- len[is.finite(len)]
+    data.frame(
+      Estimator = lab,
+      n       = sum(is.finite(e)),
+      Avg     = .mfin(e),
+      SD      = .sdfin(e),
+      SD_hat  = .sd_hat(e, lo, hi),
+      Len_med = if (length(len)) stats::median(len) else NA_real_,
+      Length  = if (length(len)) mean(len) else NA_real_,
+      b_oracle = .pbias(e, or_est),
+      b_cde    = .pbias(e, tgt_cde),
+      b_marg   = .pbias(e, tgt_marg),
+      Cov_oracle = .cover(or_est, lo, hi),
+      Cov_cde    = .cover(tgt_cde,  lo, hi),
+      Cov_marg   = .cover(tgt_marg, lo, hi),
+      stringsAsFactors = FALSE)
+  })
+  do.call(rbind, rows)
+}
+
+if (run_smoke && !is.null(results)) {
+  rH  <- results[results$detected == 1, , drop = FALSE]
+  blockH  <- build_block(rH, "H",  truth$cde_H,  truth$marg_H)
+  blockHc <- build_block(rH, "Hc", truth$cde_Hc, truth$marg_Hc)
+  est_tab <- rbind(
+    cbind(Block = "Harm  \u0124", blockH),
+    cbind(Block = "Complement  \u0124\u1d9c", blockHc)
+  )
+
+  det_rate <- mean(results$detected, na.rm = TRUE)
+  # Classification + decision + IJ-stability diagnostics (over detected reps).
+  cls <- sprintf("sens %.2f \u00b7 spec %.2f \u00b7 PPV %.2f \u00b7 NPV %.2f",
+                 .mfin(rH$sens), .mfin(rH$spec), .mfin(rH$ppv), .mfin(rH$npv))
+  harm_rate <- mean(rH$t2_harm_flag, na.rm = TRUE)
+  ij_ok     <- mean(rH$ij_source == "ij", na.rm = TRUE)
+  gate_rate <- mean(rH$gate_ok, na.rm = TRUE)      # gate produced a CI | detected
+  avg_size  <- .mfin(rH$n_harm)                    # average |Ĥ| over detected reps
+  # Estimable-realization note: the n column is near-constant, so summarize it
+  # as the common per-cell count plus any exceptions, and drop the column.
+  n_common <- as.integer(names(sort(table(est_tab$n), decreasing = TRUE))[1])
+  exc <- est_tab[est_tab$n != n_common, , drop = FALSE]
+  n_note <- if (!nrow(exc))
+    sprintf("Estimable realizations: %d per cell.", n_common)
+  else sprintf("Estimable realizations: %d per cell (except %s).", n_common,
+               paste(sprintf("%s in %s: %d", exc$Estimator,
+                             sub("^.*\\s", "", exc$Block), exc$n),
+                     collapse = "; "))
+  est_tab$n <- NULL
+  method_lab <- sprintf("%s%s identification", subgroup_method,
+                        if (identical(subgroup_method, "grf"))
+                          paste0("/", grf_selection) else "")
+
+  gt(est_tab, groupname_col = "Block") |>
+    tab_header(
+      title = "Tier-2 de-biased gate: estimation & coverage",
+      subtitle = sprintf("M1 \u00b7 n=%d, %d sims, draws=%d \u00b7 %s",
+                         n_sample, n_sims, gate_draws, method_lab)) |>
+    fmt_number(columns = c(Avg, SD, SD_hat, Len_med, Length), decimals = 2) |>
+    fmt_number(columns = c(b_oracle, b_cde, b_marg), decimals = 1) |>
+    fmt_number(columns = c(Cov_oracle, Cov_cde, Cov_marg), decimals = 2) |>
+    cols_label(
+      Len_med = "Len(med)",
+      SD_hat = md("$\\widehat{\\text{SD}}$"),
+      b_oracle = md("$b^{\\text{oracle}}$"), b_cde = md("$b^{\\ddagger}$"),
+      b_marg = md("$b^{\\dagger}$"),
+      Cov_oracle = md("$\\hat{C}^{\\text{oracle}}$"),
+      Cov_cde = md("$\\hat{C}^{\\ddagger}$"), Cov_marg = md("$C^{\\dagger}$")) |>
+    tab_spanner(label = "Relative bias (%)", columns = c(b_oracle, b_cde, b_marg)) |>
+    tab_spanner(label = "95% coverage", columns = c(Cov_oracle, Cov_cde, Cov_marg)) |>
+    tab_footnote(footnote = md(sprintf(
+      "Detection rate **%.0f%%** of %d sims (the search identified a subgroup \u0124). Among those detected reps: the gate produced a CI in **%.0f%%**, and the Tier-2 de-biased estimate still cleared the harm gate in **%.0f%%** (i.e. apparent harm survived bias correction); IJ variance held (not fallback) in **%.0f%%**. Classification of \u0124 vs true subgroup: %s; avg(\u0124) size **%.0f** (%.0f%% of n=%d). %s",
+      100 * det_rate, n_sims, 100 * gate_rate, 100 * harm_rate, 100 * ij_ok, cls,
+      avg_size, 100 * avg_size / n_sample, n_sample, n_note))) |>
+    tab_footnote(footnote = md(paste(
+      "Targets: $b^{\\text{oracle}}$ vs per-replicate oracle $\\hat\\theta(H)$;",
+      "$b^{\\ddagger}$ vs CDE $\\theta^{\\ddagger}$;",
+      "$b^{\\dagger}$ vs marginal subgroup HR $\\theta^{\\dagger}$.",
+      "`Len(med)` = median CI length (robust to blow-ups); `Length` = mean.",
+      "Tier-2 = de-biased gate, IJ interval.")))
+}
+```
+
+# Notes for scale-up
+
+* **Counts.** Move `n_sims` $\to$ 5000 $\to$ 20000 in @sec-setup; nothing else
+  changes. With no bootstrap, cost is ~linear in `n_sims` and modest (see the
+  projection above), so large runs are cheap.
+* **Validation.** This document drops the Tier-1 head-to-head; run the sibling
+  `tier2_debias_gate_simulation.qmd` at small `n_sims` first to confirm the
+  Tier-1$\leftrightarrow$Tier-2 correspondence before trusting Tier-2 alone here.
+* **M2 / M3 and the regime sweep.** Add the smaller-$N$ / noise-factor cells
+  (`n_add_noise`, $N \in \{500, 300\}$) and the true-HR $\times$ $n_S$ sweep once
+  the M1 cell looks sane; the small-$n_S$ M3 cell is the linearisation's stress
+  test (where Tier-2 is loosest, so worth the large-`n_sims` precision this
+  standalone run affords).
+* **Target semantics to confirm.** The three targets here are (per-replicate
+  oracle, DGM `cde_H`/`cde_Hc`, DGM `hr_H_true`/`hr_Hc_true`). Before publishing
+  numbers, confirm these match the $\theta^{\ddagger}$/$\theta^{\dagger}$
+  definitions used by `build_estimation_table()` / León Table 5.
+
+```{r session-info}
+sessionInfo()
+```
+
