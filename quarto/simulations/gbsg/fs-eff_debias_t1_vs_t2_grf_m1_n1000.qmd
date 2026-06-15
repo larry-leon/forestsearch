@@ -74,11 +74,11 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 500L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
@@ -87,7 +87,7 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
 # regenerate the summary tables without re-running the simulation. ─────
 save_rds   <- TRUE                                # TRUE -> write results bundle to disk
-rds_path   <- "grf-tree_tier1_tier2_results_m1_n1000.rds"       # destination when save_rds = TRUE
+rds_path   <- "fs-eff_tier1_tier2_results_m1_n1000.rds"       # destination when save_rds = TRUE
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
@@ -113,7 +113,7 @@ n_super         <- 5000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "grf"  # "consistency" | "dina" | "grf"
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "dr"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
@@ -129,7 +129,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.0
+hr_threshold       <- 1.25
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
@@ -800,4 +800,3 @@ cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d wor
 
 sessionInfo()
 ```
-
