@@ -74,18 +74,16 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 500L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-<<<<<<< HEAD
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
-=======
-nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+
+nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
                           # the Tier-2 gate -- see run_tier1 below.
->>>>>>> aebddbc23927a4192a82c070790e3f0c300bbd7c
-gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
+
+gate_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
 
 # Tier-1 is the wall-clock bottleneck.  forestsearch_bootstrap_dofuture() itself
 # requires nb_boots >= 1 (it errors otherwise), so a skip is enforced HERE -- the
@@ -141,7 +139,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.25
+hr_threshold       <- 1.0
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
