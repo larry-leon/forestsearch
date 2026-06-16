@@ -2471,7 +2471,7 @@ window.Quarto = {
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="co"># engine) is the wall-clock bottleneck; saving the results bundle lets you</span></span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="co"># regenerate the summary tables without re-running the simulation. ─────</span></span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>save_rds   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                                <span class="co"># TRUE -&gt; write results bundle to disk</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>rds_path   <span class="ot">&lt;-</span> <span class="st">&quot;dina-eff_tier2_results_m1_h0.75_n2000.rds&quot;</span>       <span class="co"># destination when save_rds = TRUE</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>rds_path   <span class="ot">&lt;-</span> <span class="st">&quot;fs-eff_tier2_results_m1_h0.75_n1000.rds&quot;</span>       <span class="co"># destination when save_rds = TRUE</span></span>
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="co"># Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.</span></span>
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>proj_scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
@@ -2483,7 +2483,7 @@ window.Quarto = {
 <span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a><span class="co"># ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────</span></span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>dgm_model       <span class="ot">&lt;-</span> <span class="st">&quot;alt&quot;</span></span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>target_hr_harm  <span class="ot">&lt;-</span> <span class="fl">0.75</span>    <span class="co"># calibrate k_inter to this Cox HR in the harm subgroup</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">2000</span>L   <span class="co"># M1 sample size</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">1000</span>L   <span class="co"># M1 sample size</span></span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>analysis_time   <span class="ot">&lt;-</span> <span class="dv">84</span>     <span class="co"># administrative censoring (months)</span></span>
 <span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>cens_adjust     <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fl">1.5</span>)</span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>n_super         <span class="ot">&lt;-</span> <span class="dv">50000</span>L</span>
@@ -2497,7 +2497,7 @@ window.Quarto = {
 <span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a><span class="co"># the family regenerates per resample, so Tier-1 is the *unconditional*</span></span>
 <span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="co"># comparator against the gate&#39;s *conditional-on-family* estimate, and a</span></span>
 <span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a><span class="co"># Tier-1&lt;-&gt;Tier-2 gap is the family-regeneration signal, not an error.</span></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>subgroup_method <span class="ot">&lt;-</span> <span class="st">&quot;dina&quot;</span>  <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>subgroup_method <span class="ot">&lt;-</span> <span class="st">&quot;consistency&quot;</span>  <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
 <span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a>grf_selection   <span class="ot">&lt;-</span> <span class="st">&quot;tree&quot;</span>      <span class="co"># only if subgroup_method == &quot;grf&quot;: &quot;tree&quot; | &quot;frontier&quot;</span></span>
 <span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>grf_select_statistic <span class="ot">&lt;-</span> <span class="st">&quot;dr&quot;</span>   <span class="co"># only if grf frontier: &quot;dr&quot; | &quot;effect&quot; (no-op for tree)</span></span>
 <span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>grf_depth       <span class="ot">&lt;-</span> <span class="dv">2</span>L              <span class="co"># GRF policy-tree depth / max frontier conjunctions</span></span>
@@ -2513,7 +2513,7 @@ window.Quarto = {
 <span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a><span class="co"># value while staying faithful per engine.  Override via `reselection =` in</span></span>
 <span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="co"># debias_gate_args (advanced use only).</span></span>
 <span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a>selection_rule     <span class="ot">&lt;-</span> <span class="st">&quot;neighborhood&quot;</span>  <span class="co"># *MaxSG/*MinSG band rule (inert for sg_focus = &quot;eff&quot;)</span></span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>hr_threshold       <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>hr_threshold       <span class="ot">&lt;-</span> <span class="fl">1.25</span></span>
 <span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a>hr_consistency     <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
 <span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>pconsistency       <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
 <span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">400</span>L         <span class="co"># moot under &quot;resample&quot; (closed-form, not literal split)</span></span>
@@ -2553,7 +2553,7 @@ window.Quarto = {
 <span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a>            gate_draws, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Smoke test: method=dina, n_sims=20000, nb_boots=0 (skip), gate_draws=5000, workers=13</code></pre>
+<pre><code>Smoke test: method=consistency, n_sims=20000, nb_boots=0 (skip), gate_draws=5000, workers=13</code></pre>
 </div>
 </div>
 </section>
@@ -2879,9 +2879,9 @@ Loglik converged before variable 1 ; coefficient may be infinite.</code></pre>
 <span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Completed 1058/20000 replicates in 247.4 s (0.0 s/replicate).
-Mean wall-clock: Tier-2 gate 0.150 s  (Tier-1 skipped: nb_boots = NULL).
-Saved results bundle (20000 rows) to dina-eff_tier2_results_m1_h0.75_n2000.rds</code></pre>
+<pre><code>Completed 413/20000 replicates in 10705.5 s (0.5 s/replicate).
+Mean wall-clock: Tier-2 gate 6.921 s  (Tier-1 skipped: nb_boots = NULL).
+Saved results bundle (20000 rows) to fs-eff_tier2_results_m1_h0.75_n1000.rds</code></pre>
 </div>
 </div>
 </section>
@@ -2959,7 +2959,7 @@ Saved results bundle (20000 rows) to dina-eff_tier2_results_m1_h0.75_n2000.rds</
 <span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>Current run: 20000 reps in 247 s on 13 workers. Per rep: Tier-2 0.2 s (Tier-1 skipped). Detection 5%.</code></pre>
+<pre><code>Current run: 20000 reps in 10705 s on 13 workers. Per rep: Tier-2 6.9 s (Tier-1 skipped). Detection 2%.</code></pre>
 </div>
 <div class="cell-output-display">
 <div id="fbivhizpdd" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
@@ -3365,7 +3365,7 @@ height: 0px !important;
 <td colspan="9" class="gt_heading gt_title gt_font_normal">Wall-clock projection</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="9" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Measured on this run · 13 workers · detection 5%</td>
+<td colspan="9" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Measured on this run · 13 workers · detection 2%</td>
 </tr>
 <tr class="gt_col_headings header">
 <th id="Scenario" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Scenario</th>
@@ -3384,45 +3384,45 @@ height: 0px !important;
 <td class="gt_row gt_left" headers="Scenario">current run</td>
 <td class="gt_row gt_right" headers="n_sims">20000</td>
 <td class="gt_row gt_right" headers="B">0</td>
-<td class="gt_row gt_right" headers="t2_rep_s">0.2</td>
+<td class="gt_row gt_right" headers="t2_rep_s">6.9</td>
 <td class="gt_row gt_right" headers="t1_rep_s">NA</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.8</td>
-<td class="gt_row gt_left" headers="wall_actual">4 m</td>
-<td class="gt_row gt_left" headers="wall_ideal">4 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">5 m</td>
+<td class="gt_row gt_right" headers="cpu_hours">38.5</td>
+<td class="gt_row gt_left" headers="wall_actual">2 h 58 m</td>
+<td class="gt_row gt_left" headers="wall_ideal">2 h 57 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">3 h 51 m</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">100</td>
 <td class="gt_row gt_right" headers="B">50</td>
-<td class="gt_row gt_right" headers="t2_rep_s">0.2</td>
+<td class="gt_row gt_right" headers="t2_rep_s">6.9</td>
 <td class="gt_row gt_right" headers="t1_rep_s">NA</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.0</td>
+<td class="gt_row gt_right" headers="cpu_hours">0.2</td>
 <td class="gt_row gt_left" headers="wall_actual">—</td>
-<td class="gt_row gt_left" headers="wall_ideal">0 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">0 m</td>
+<td class="gt_row gt_left" headers="wall_ideal">1 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">1 m</td>
 </tr>
 <tr class="odd">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">500</td>
 <td class="gt_row gt_right" headers="B">300</td>
-<td class="gt_row gt_right" headers="t2_rep_s">0.2</td>
+<td class="gt_row gt_right" headers="t2_rep_s">6.9</td>
 <td class="gt_row gt_right" headers="t1_rep_s">NA</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.0</td>
+<td class="gt_row gt_right" headers="cpu_hours">1.0</td>
 <td class="gt_row gt_left" headers="wall_actual">—</td>
-<td class="gt_row gt_left" headers="wall_ideal">0 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">0 m</td>
+<td class="gt_row gt_left" headers="wall_ideal">4 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">6 m</td>
 </tr>
 <tr class="even">
 <td class="gt_row gt_left" headers="Scenario">projection</td>
 <td class="gt_row gt_right" headers="n_sims">1000</td>
 <td class="gt_row gt_right" headers="B">500</td>
-<td class="gt_row gt_right" headers="t2_rep_s">0.2</td>
+<td class="gt_row gt_right" headers="t2_rep_s">6.9</td>
 <td class="gt_row gt_right" headers="t1_rep_s">NA</td>
-<td class="gt_row gt_right" headers="cpu_hours">0.0</td>
+<td class="gt_row gt_right" headers="cpu_hours">1.9</td>
 <td class="gt_row gt_left" headers="wall_actual">—</td>
-<td class="gt_row gt_left" headers="wall_ideal">0 m</td>
-<td class="gt_row gt_left" headers="wall_real_1.3x">0 m</td>
+<td class="gt_row gt_left" headers="wall_ideal">9 m</td>
+<td class="gt_row gt_left" headers="wall_real_1.3x">12 m</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -3473,22 +3473,22 @@ height: 0px !important;
 <span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
-<div class="callout callout-style-default callout-note callout-titled" title="Identified subgroup sizes (1058 of 20000 replicates detected, N = 2000 each)">
+<div class="callout callout-style-default callout-note callout-titled" title="Identified subgroup sizes (413 of 20000 replicates detected, N = 1000 each)">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Identified subgroup sizes (1058 of 20000 replicates detected, N = 2000 each)
+<span class="screen-reader-only">Note</span>Identified subgroup sizes (413 of 20000 replicates detected, N = 1000 each)
 </div>
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>Harm <span class="math inline">\(\widehat H\)</span></strong>: mean 224 (SD 29), range [200, 382], 11.2% of ITT</li>
-<li><strong>Complement <span class="math inline">\(\widehat H^{c}\)</span></strong>: mean 1776 (SD 29), range [1618, 1800], 88.8% of ITT</li>
-<li><strong>True harm <span class="math inline">\(Q\)</span></strong>: mean 248 (SD 15), range [206, 297], 12.4% of ITT</li>
+<li><strong>Harm <span class="math inline">\(\widehat H\)</span></strong>: mean 129 (SD 28), range [101, 281], 12.9% of ITT</li>
+<li><strong>Complement <span class="math inline">\(\widehat H^{c}\)</span></strong>: mean 871 (SD 28), range [719, 899], 87.1% of ITT</li>
+<li><strong>True harm <span class="math inline">\(Q\)</span></strong>: mean 125 (SD 10), range [90, 153], 12.5% of ITT</li>
 </ul>
-<p>The identified <span class="math inline">\(\widehat H\)</span> averages <strong>11.2%</strong> of ITT against a true harm prevalence of <strong>12.4%</strong>; this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.</p>
+<p>The identified <span class="math inline">\(\widehat H\)</span> averages <strong>12.9%</strong> of ITT against a true harm prevalence of <strong>12.5%</strong>; this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.</p>
 </div>
 </div>
 </section>
@@ -4031,7 +4031,7 @@ height: 0px !important;
 <td colspan="13" class="gt_heading gt_title gt_font_normal">Tier-2 de-biased gate: estimation &amp; coverage</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="13" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">M1 smoke test · n=2000, 20000 sims, draws=5000 · resample identification (Tier-2 only)</td>
+<td colspan="13" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">M1 smoke test · n=1000, 20000 sims, draws=5000 · resample identification (Tier-2 only)</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Estimator</th>
@@ -4059,104 +4059,104 @@ Relative bias (%)
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row odd">
-<th colspan="13" id="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Harm Ĥ (mean |Ĥ| = 224, 11.2% ITT)</th>
+<th colspan="13" id="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Harm Ĥ (mean |Ĥ| = 129, 12.9% ITT)</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">oracle</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Avg">0.75</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.13</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.13</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">0.49</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Length">0.50</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">7.6</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">0.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.93</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">oracle</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Avg">0.93</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.30</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.22</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">0.82</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Length">0.88</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">0.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">32.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">22.8</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.75</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.81</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Avg">0.96</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.19</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.20</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">0.80</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Length">0.82</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">30.9</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">37.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">27.5</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">0.76</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.72</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.82</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">naive</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Avg">1.82</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.25</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.51</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">1.94</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Length">2.10</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">117.7</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">158.9</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">140.9</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">0.30</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.00</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.00</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">Tier-2</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1032</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Avg">0.61</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.21</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.35</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">1.41</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Length">37.77</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">−17.3</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">−12.9</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">−19.0</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">0.95</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.94</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">Tier-2</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Avg">1.30</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.20</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.37</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">1.40</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Length">1.54</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">55.3</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">85.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">72.1</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">0.69</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.28</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.54</td>
 </tr>
 <tr class="gt_group_heading_row odd">
-<th colspan="13" id="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Complement Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)</th>
+<th colspan="13" id="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Complement Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">oracle</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Avg">0.66</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.05</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.18</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Length">0.18</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">13.5</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">1.3</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.57</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">oracle</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Avg">0.69</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.27</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Length">0.27</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">0.0</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">18.7</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">5.9</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.60</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">0.93</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Avg">0.65</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.17</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Length">0.17</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">−2.2</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">10.9</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">−1.1</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.68</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">naive</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Avg">0.64</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.06</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.06</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.24</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Length">0.24</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">−8.2</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">8.8</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">−2.9</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">0.98</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.86</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">0.94</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">Tier-2</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Avg">0.65</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.24</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.36</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Length">30.79</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">−2.0</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">11.2</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">−0.8</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.95</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.99</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">Tier-2</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Avg">0.66</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.12</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.47</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Length">0.47</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">−4.8</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">12.9</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">0.7</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.99</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">1.00</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
-<td colspan="13" class="gt_footnote">Detection rate <strong>5%</strong> of 20000 sims; gate flags harm in <strong>5%</strong> of detected reps; IJ variance held (not fallback) in <strong>5%</strong>. Classification of Ĥ vs true subgroup: sens 0.05 · spec 0.88 · PPV 0.05 · NPV 0.87. Summaries finite-only over detected reps; <code>n</code> = finite reps contributing.</td>
+<td colspan="13" class="gt_footnote">Detection rate <strong>2%</strong> of 20000 sims; gate flags harm in <strong>98%</strong> of detected reps; IJ variance held (not fallback) in <strong>100%</strong>. Classification of Ĥ vs true subgroup: sens 0.23 · spec 0.89 · PPV 0.23 · NPV 0.89. Summaries finite-only over detected reps; <code>n</code> = finite reps contributing.</td>
 </tr>
 <tr class="gt_footnotes even">
 <td colspan="13" class="gt_footnote">Targets: <span class="math inline">\(b^{\text{oracle}}\)</span> vs per-replicate oracle <span class="math inline">\(\hat\theta(H)\)</span>; <span class="math inline">\(b^{\ddagger}\)</span> vs CDE <span class="math inline">\(\theta^{\ddagger}\)</span>; <span class="math inline">\(b^{\dagger}\)</span> vs marginal subgroup HR <span class="math inline">\(\theta^{\dagger}\)</span>. <code>Len(med)</code> = median CI length (robust to blow-ups); <code>Length</code> = mean. Tier-2 = de-biased gate, IJ interval (Tier-1 skipped).</td>
@@ -4677,7 +4677,7 @@ height: 0px !important;
 <td colspan="12" class="gt_heading gt_title gt_font_normal">Median summary (companion to the table above)</td>
 </tr>
 <tr class="gt_heading even">
-<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Same detected reps · n=2000, 20000 sims, draws=5000 · location columns are medians</td>
+<td colspan="12" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border">Same detected reps · n=1000, 20000 sims, draws=5000 · location columns are medians</td>
 </tr>
 <tr class="gt_col_headings gt_spanner_row header">
 <th rowspan="2" id="Estimator" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" scope="col">Estimator</th>
@@ -4704,94 +4704,94 @@ Relative bias (%)
 </thead>
 <tbody class="gt_table_body">
 <tr class="gt_group_heading_row odd">
-<th colspan="12" id="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Harm Ĥ (mean |Ĥ| = 224, 11.2% ITT)</th>
+<th colspan="12" id="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Harm Ĥ (mean |Ĥ| = 129, 12.9% ITT)</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">oracle</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Med">0.74</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.13</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.12</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">0.49</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">5.7</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">−1.6</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.93</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">oracle</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Med">0.87</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.30</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.20</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">0.82</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">0.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">24.3</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">15.6</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.75</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.81</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Med">0.94</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.19</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.20</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">0.80</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">27.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">33.4</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">24.1</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">0.76</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.72</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.82</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">naive</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Med">1.76</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.25</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.47</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">1.94</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">104.9</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">151.6</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">134.1</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">0.30</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.00</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.00</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Estimator">Tier-2</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  n">1032</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Med">0.57</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD">0.21</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  SD_hat">0.31</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Len_med">1.41</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_oracle">−22.6</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_cde">−18.9</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  b_marg">−24.5</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_oracle">0.95</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_cde">0.94</td>
-<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 224, 11.2% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Estimator">Tier-2</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Med">1.26</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD">0.20</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  SD_hat">0.34</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Len_med">1.40</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_oracle">44.6</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_cde">79.5</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  b_marg">67.0</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_oracle">0.69</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_cde">0.28</td>
+<td class="gt_row gt_right" headers="Harm  Ĥ (mean |Ĥ| = 129, 12.9% ITT)  Cov_marg">0.54</td>
 </tr>
 <tr class="gt_group_heading_row odd">
-<th colspan="12" id="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Complement Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)</th>
+<th colspan="12" id="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)" class="gt_group_heading" data-quarto-table-cell-role="th" scope="colgroup">Complement Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)</th>
 </tr>
 <tr class="gt_row_group_first even">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">oracle</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Med">0.66</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.05</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.18</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">0.0</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">13.3</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">1.1</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.57</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">oracle</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Med">0.69</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.27</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">0.0</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">18.4</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">5.6</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.60</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">0.93</td>
 </tr>
 <tr class="odd">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">naive</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Med">0.65</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.17</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">−2.1</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">10.5</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">−1.5</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.68</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.95</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">naive</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Med">0.63</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.06</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.06</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.24</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">−8.3</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">8.2</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">−3.5</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">0.98</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.86</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">0.94</td>
 </tr>
 <tr class="even">
-<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Estimator">Tier-2</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  n">1058</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Med">0.65</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD">0.04</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  SD_hat">0.09</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Len_med">0.36</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_oracle">−2.1</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_cde">10.8</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  b_marg">−1.2</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_oracle">1.00</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_cde">0.95</td>
-<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 1776, 88.8% ITT)  Cov_marg">0.99</td>
+<td class="gt_row gt_left" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Estimator">Tier-2</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  n">413</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Med">0.66</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD">0.07</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  SD_hat">0.12</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Len_med">0.47</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_oracle">−5.1</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_cde">12.2</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  b_marg">0.1</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_oracle">1.00</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_cde">0.99</td>
+<td class="gt_row gt_right" headers="Complement  Ĥᶜ (mean |Ĥᶜ| = 871, 87.1% ITT)  Cov_marg">1.00</td>
 </tr>
 </tbody><tfoot>
 <tr class="gt_footnotes odd">
@@ -4893,7 +4893,7 @@ Relative bias (%)
 <span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>            <span class="fu">.fmt_dur</span>(.secs_total), .secs_total, n_sims, n_workers))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-output cell-output-stdout">
-<pre><code>TOTAL wall-clock, start to finish: 4 m 11 s  (= 251 s; 20000 reps on 13 workers)</code></pre>
+<pre><code>TOTAL wall-clock, start to finish: 2 h 58 m 29 s  (= 10709 s; 20000 reps on 13 workers)</code></pre>
 </div>
 <details class="code-fold">
 <summary>Code</summary>
@@ -5504,7 +5504,7 @@ loaded via a namespace (and not attached):
 <span id="cb26-95"><a href="#cb26-95" aria-hidden="true" tabindex="-1"></a><span class="co"># engine) is the wall-clock bottleneck; saving the results bundle lets you</span></span>
 <span id="cb26-96"><a href="#cb26-96" aria-hidden="true" tabindex="-1"></a><span class="co"># regenerate the summary tables without re-running the simulation. ─────</span></span>
 <span id="cb26-97"><a href="#cb26-97" aria-hidden="true" tabindex="-1"></a>save_rds   <span class="ot">&lt;-</span> <span class="cn">TRUE</span>                                <span class="co"># TRUE -&gt; write results bundle to disk</span></span>
-<span id="cb26-98"><a href="#cb26-98" aria-hidden="true" tabindex="-1"></a>rds_path   <span class="ot">&lt;-</span> <span class="st">&quot;dina-eff_tier2_results_m1_h0.75_n2000.rds&quot;</span>       <span class="co"># destination when save_rds = TRUE</span></span>
+<span id="cb26-98"><a href="#cb26-98" aria-hidden="true" tabindex="-1"></a>rds_path   <span class="ot">&lt;-</span> <span class="st">&quot;fs-eff_tier2_results_m1_h0.75_n1000.rds&quot;</span>       <span class="co"># destination when save_rds = TRUE</span></span>
 <span id="cb26-99"><a href="#cb26-99" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb26-100"><a href="#cb26-100" aria-hidden="true" tabindex="-1"></a><span class="co"># Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.</span></span>
 <span id="cb26-101"><a href="#cb26-101" aria-hidden="true" tabindex="-1"></a>proj_scenarios <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
@@ -5516,7 +5516,7 @@ loaded via a namespace (and not attached):
 <span id="cb26-107"><a href="#cb26-107" aria-hidden="true" tabindex="-1"></a><span class="co"># ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────</span></span>
 <span id="cb26-108"><a href="#cb26-108" aria-hidden="true" tabindex="-1"></a>dgm_model       <span class="ot">&lt;-</span> <span class="st">&quot;alt&quot;</span></span>
 <span id="cb26-109"><a href="#cb26-109" aria-hidden="true" tabindex="-1"></a>target_hr_harm  <span class="ot">&lt;-</span> <span class="fl">0.75</span>    <span class="co"># calibrate k_inter to this Cox HR in the harm subgroup</span></span>
-<span id="cb26-110"><a href="#cb26-110" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">2000</span>L   <span class="co"># M1 sample size</span></span>
+<span id="cb26-110"><a href="#cb26-110" aria-hidden="true" tabindex="-1"></a>n_sample        <span class="ot">&lt;-</span> <span class="dv">1000</span>L   <span class="co"># M1 sample size</span></span>
 <span id="cb26-111"><a href="#cb26-111" aria-hidden="true" tabindex="-1"></a>analysis_time   <span class="ot">&lt;-</span> <span class="dv">84</span>     <span class="co"># administrative censoring (months)</span></span>
 <span id="cb26-112"><a href="#cb26-112" aria-hidden="true" tabindex="-1"></a>cens_adjust     <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="fl">1.5</span>)</span>
 <span id="cb26-113"><a href="#cb26-113" aria-hidden="true" tabindex="-1"></a>n_super         <span class="ot">&lt;-</span> <span class="dv">50000</span>L</span>
@@ -5530,7 +5530,7 @@ loaded via a namespace (and not attached):
 <span id="cb26-121"><a href="#cb26-121" aria-hidden="true" tabindex="-1"></a><span class="co"># the family regenerates per resample, so Tier-1 is the *unconditional*</span></span>
 <span id="cb26-122"><a href="#cb26-122" aria-hidden="true" tabindex="-1"></a><span class="co"># comparator against the gate&#39;s *conditional-on-family* estimate, and a</span></span>
 <span id="cb26-123"><a href="#cb26-123" aria-hidden="true" tabindex="-1"></a><span class="co"># Tier-1&lt;-&gt;Tier-2 gap is the family-regeneration signal, not an error.</span></span>
-<span id="cb26-124"><a href="#cb26-124" aria-hidden="true" tabindex="-1"></a>subgroup_method <span class="ot">&lt;-</span> <span class="st">&quot;dina&quot;</span>  <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
+<span id="cb26-124"><a href="#cb26-124" aria-hidden="true" tabindex="-1"></a>subgroup_method <span class="ot">&lt;-</span> <span class="st">&quot;consistency&quot;</span>  <span class="co"># &quot;consistency&quot; | &quot;dina&quot; | &quot;grf&quot;</span></span>
 <span id="cb26-125"><a href="#cb26-125" aria-hidden="true" tabindex="-1"></a>grf_selection   <span class="ot">&lt;-</span> <span class="st">&quot;tree&quot;</span>      <span class="co"># only if subgroup_method == &quot;grf&quot;: &quot;tree&quot; | &quot;frontier&quot;</span></span>
 <span id="cb26-126"><a href="#cb26-126" aria-hidden="true" tabindex="-1"></a>grf_select_statistic <span class="ot">&lt;-</span> <span class="st">&quot;dr&quot;</span>   <span class="co"># only if grf frontier: &quot;dr&quot; | &quot;effect&quot; (no-op for tree)</span></span>
 <span id="cb26-127"><a href="#cb26-127" aria-hidden="true" tabindex="-1"></a>grf_depth       <span class="ot">&lt;-</span> <span class="dv">2</span>L              <span class="co"># GRF policy-tree depth / max frontier conjunctions</span></span>
@@ -5546,7 +5546,7 @@ loaded via a namespace (and not attached):
 <span id="cb26-137"><a href="#cb26-137" aria-hidden="true" tabindex="-1"></a><span class="co"># value while staying faithful per engine.  Override via `reselection =` in</span></span>
 <span id="cb26-138"><a href="#cb26-138" aria-hidden="true" tabindex="-1"></a><span class="co"># debias_gate_args (advanced use only).</span></span>
 <span id="cb26-139"><a href="#cb26-139" aria-hidden="true" tabindex="-1"></a>selection_rule     <span class="ot">&lt;-</span> <span class="st">&quot;neighborhood&quot;</span>  <span class="co"># *MaxSG/*MinSG band rule (inert for sg_focus = &quot;eff&quot;)</span></span>
-<span id="cb26-140"><a href="#cb26-140" aria-hidden="true" tabindex="-1"></a>hr_threshold       <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
+<span id="cb26-140"><a href="#cb26-140" aria-hidden="true" tabindex="-1"></a>hr_threshold       <span class="ot">&lt;-</span> <span class="fl">1.25</span></span>
 <span id="cb26-141"><a href="#cb26-141" aria-hidden="true" tabindex="-1"></a>hr_consistency     <span class="ot">&lt;-</span> <span class="fl">1.0</span></span>
 <span id="cb26-142"><a href="#cb26-142" aria-hidden="true" tabindex="-1"></a>pconsistency       <span class="ot">&lt;-</span> <span class="fl">0.90</span></span>
 <span id="cb26-143"><a href="#cb26-143" aria-hidden="true" tabindex="-1"></a>fs_splits          <span class="ot">&lt;-</span> <span class="dv">400</span>L         <span class="co"># moot under &quot;resample&quot; (closed-form, not literal split)</span></span>

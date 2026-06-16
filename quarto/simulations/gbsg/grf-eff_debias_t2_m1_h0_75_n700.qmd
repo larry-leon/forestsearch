@@ -74,7 +74,11 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 5000L       # simulated trials                (prod: 1000 -> 20000)
+<<<<<<< HEAD
+n_sims       <- 20000L       # simulated trials                (prod: 1000 -> 20000)
+=======
+n_sims       <- 1000L       # simulated trials                (prod: 1000 -> 20000)
+>>>>>>> d5a97d968dd6ecee13df87c3fc71cb51a5d44e64
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -125,7 +129,7 @@ subgroup_method <- "grf"  # "consistency" | "dina" | "grf"
 grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
-dmin.grf        <- 0.0             # GRF DR-score screening floor
+dmin.grf        <- 12             # GRF DR-score screening floor
 dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
 dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
 

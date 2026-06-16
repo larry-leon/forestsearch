@@ -95,7 +95,7 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
 # regenerate the summary tables without re-running the simulation. ─────
 save_rds   <- TRUE                                # TRUE -> write results bundle to disk
-rds_path   <- "dina-eff_tier2_results_m1_h0.75_n2000.rds"       # destination when save_rds = TRUE
+rds_path   <- "fs-eff_tier2_results_m1_h0.75_n1000.rds"       # destination when save_rds = TRUE
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
@@ -107,7 +107,7 @@ proj_scenarios <- list(
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
 target_hr_harm  <- 0.75    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 2000L   # M1 sample size
+n_sample        <- 1000L   # M1 sample size
 analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
 n_super         <- 50000L
@@ -121,7 +121,7 @@ n_super         <- 50000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "dr"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
@@ -137,7 +137,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.0
+hr_threshold       <- 1.25
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
