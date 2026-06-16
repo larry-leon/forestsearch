@@ -74,17 +74,13 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 500L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 1000L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-<<<<<<< HEAD
-nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
-=======
-nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+nb_boots     <- NULL       # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
                           # the Tier-2 gate -- see run_tier1 below.
->>>>>>> aebddbc23927a4192a82c070790e3f0c300bbd7c
 gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
 # Tier-1 is the wall-clock bottleneck.  forestsearch_bootstrap_dofuture() itself
@@ -99,7 +95,7 @@ run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
 # regenerate the summary tables without re-running the simulation. ─────
 save_rds   <- TRUE                                # TRUE -> write results bundle to disk
-rds_path   <- "fs-eff_tier1_tier2_results_m1_n1000.rds"       # destination when save_rds = TRUE
+rds_path   <- "dina-eff_tier2_results_m1_h2.0_n2000.rds"       # destination when save_rds = TRUE
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
@@ -111,7 +107,7 @@ proj_scenarios <- list(
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
 target_hr_harm  <- 2.0    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 1000L   # M1 sample size
+n_sample        <- 2000L   # M1 sample size
 analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
 n_super         <- 5000L
@@ -125,13 +121,13 @@ n_super         <- 5000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
 grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
 grf_select_statistic <- "dr"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
 dmin.grf        <- 0.0             # GRF DR-score screening floor
 dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
-dina_select_statistic <- "dina"  # only if subgroup_method == "dina": "dina" | "effect"
+dina_select_statistic <- "effect"  # only if subgroup_method == "dina": "dina" | "effect"
 
 # ── Search configuration (León tuning; resample identification) ────────────
 consistency_method <- "resample"   # decided: resample identification (the new default)
@@ -141,7 +137,7 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.25
+hr_threshold       <- 1.0
 hr_consistency     <- 1.0
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
@@ -255,7 +251,7 @@ outer loop already parallelises across trials.
 # One all-NA record (returned on failure so the loop never aborts a cell).
 .na_record <- function(sim_id) data.frame(
   sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
-  n_harm = NA_integer_,
+  n_harm = NA_integer_, n_true = NA_integer_,
   label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
   or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
   or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
@@ -279,6 +275,7 @@ record_replicate <- function(sim_id) {
   if (is.null(df)) return(rec)
   df[[id_name]] <- seq_len(nrow(df))
   confs <- intersect(confounders_base, names(df))
+  rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)   # true |Q| this trial (all reps)
 
   # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
   # Args common to every method, plus a method-specific block.  Consistency-only
@@ -543,6 +540,44 @@ if (run_smoke && !is.null(results)) {
 }
 ```
 
+# Subgroup sizes
+
+```{r subgroup-size-callout, results='asis'}
+#| code-fold: true
+if (run_smoke && !is.null(results)) {
+  rH <- results[results$detected == 1, , drop = FALSE]
+  nH <- rH$n_harm[is.finite(rH$n_harm)]
+  if (length(nH)) {
+    nHc <- n_sample - nH
+    .fmt <- function(v) sprintf(
+      "mean %.0f (SD %.0f), range [%d, %d], %.1f%% of ITT",
+      mean(v), stats::sd(v), as.integer(min(v)), as.integer(max(v)),
+      100 * mean(v) / n_sample)
+    has_true <- "n_true" %in% names(rH) && any(is.finite(rH$n_true))
+
+    cat(sprintf(
+      "\n::: {.callout-note title=\"Identified subgroup sizes (%d of %d replicates detected, N = %d each)\"}\n\n",
+      nrow(rH), nrow(results), n_sample))
+    cat(sprintf("- **Harm $\\widehat H$**: %s\n", .fmt(nH)))
+    cat(sprintf("- **Complement $\\widehat H^{c}$**: %s\n", .fmt(nHc)))
+    if (has_true) {
+      nT <- rH$n_true[is.finite(rH$n_true)]
+      cat(sprintf("- **True harm $Q$**: %s\n", .fmt(nT)))
+      cat(sprintf(
+        "\nThe identified $\\widehat H$ averages **%.1f%%** of ITT against a true harm prevalence of **%.1f%%**; this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.\n",
+        100 * mean(nH) / n_sample, 100 * mean(nT) / n_sample))
+    } else {
+      cat(sprintf(
+        "\nThe identified $\\widehat H$ averages **%.1f%%** of ITT (the true harm subgroup is ~11%% of ITT by design); this small-subgroup regime is what stresses the large-sample behaviour of the Tier-2 gate.\n",
+        100 * mean(nH) / n_sample))
+    }
+    cat("\n:::\n\n")
+  } else {
+    cat("\n::: {.callout-note title=\"Identified subgroup sizes\"}\nNo subgroup was identified on any replicate, so no $\\widehat H$ sizes are available.\n:::\n\n")
+  }
+}
+```
+
 # Estimation / coverage table (León Table 2 layout + Tier-2)
 
 ```{r estimation-table}
@@ -604,9 +639,17 @@ if (run_smoke && !is.null(results)) {
   rH  <- results[results$detected == 1, , drop = FALSE]
   blockH  <- build_block(rH, "H",  truth$cde_H,  truth$marg_H)
   blockHc <- build_block(rH, "Hc", truth$cde_Hc, truth$marg_Hc)
+  # Fold the mean identified subgroup size into the block label, so |H-hat|
+  # travels with the table (as in build_estimation_table()'s row-group labels).
+  .blk_lab <- function(label, sym, v) {
+    if (!any(is.finite(v))) return(label)
+    sprintf("%s (mean |%s| = %.0f, %.1f%% ITT)", label, sym,
+            mean(v, na.rm = TRUE), 100 * mean(v, na.rm = TRUE) / n_sample)
+  }
   est_tab <- rbind(
-    cbind(Block = "Harm  \u0124", blockH),
-    cbind(Block = "Complement  \u0124\u1d9c", blockHc)
+    cbind(Block = .blk_lab("Harm  \u0124", "\u0124", rH$n_harm), blockH),
+    cbind(Block = .blk_lab("Complement  \u0124\u1d9c", "\u0124\u1d9c",
+                           n_sample - rH$n_harm), blockHc)
   )
 
   det_rate <- mean(results$detected, na.rm = TRUE)
@@ -709,9 +752,10 @@ if (run_smoke && !is.null(results)) {
 
   rHm <- results[results$detected == 1, , drop = FALSE]
   est_tab_med <- rbind(
-    cbind(Block = "Harm  \u0124",
+    cbind(Block = .blk_lab("Harm  \u0124", "\u0124", rHm$n_harm),
           build_block_med(rHm, "H",  truth$cde_H,  truth$marg_H)),
-    cbind(Block = "Complement  \u0124\u1d9c",
+    cbind(Block = .blk_lab("Complement  \u0124\u1d9c", "\u0124\u1d9c",
+                           n_sample - rHm$n_harm),
           build_block_med(rHm, "Hc", truth$cde_Hc, truth$marg_Hc))
   )
 
