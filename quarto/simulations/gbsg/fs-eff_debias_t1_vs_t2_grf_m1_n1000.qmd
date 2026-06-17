@@ -74,12 +74,12 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 20L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 500L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
 
-nb_boots     <- 50L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
+nb_boots     <- 300L       # Tier-1 nonparametric bootstraps (prod: 200 -> 500)
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
                           # the Tier-2 gate -- see run_tier1 below.
 
@@ -112,7 +112,7 @@ target_hr_harm  <- 2.0    # calibrate k_inter to this Cox HR in the harm subgrou
 n_sample        <- 1000L   # M1 sample size
 analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
-n_super         <- 5000L
+n_super         <- 50000L
 
 # ── Subgroup-identification method ─────────────────────────────────────────
 # The Tier-1 bootstrap (H2, León Eq.7) re-runs whichever engine fs.est used,
