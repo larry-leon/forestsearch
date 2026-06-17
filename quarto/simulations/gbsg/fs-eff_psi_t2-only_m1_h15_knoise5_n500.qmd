@@ -74,7 +74,7 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 20000L       # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 200L       # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -91,26 +91,33 @@ run_tier1 <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
 
 run_smoke    <- TRUE      # master flag; FALSE short-circuits the run loop
 
+k_random_noise <- 5      # Add k_random_noise confounders
+
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+
+target_hr_harm  <- 1.5    # calibrate k_inter to this Cox HR in the harm subgroup
+n_sample        <- 500L   # M1 sample size
+
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
 # regenerate the summary tables without re-running the simulation. ─────
 save_rds   <- TRUE                                # TRUE -> write results bundle to disk
-rds_path   <- "dina-eff_tier2_results_m1_h0.75_n2000.rds"       # destination when save_rds = TRUE
+rds_path   <- "fs-eff_psi_tier2-only_results_m1_h15_n500.rds"       # destination when save_rds = TRUE
+
+#rds_path   <- "test1.rds"       
 
 # Scale-up scenarios for the timing projection (n_sims, nb_boots). Edit freely.
 proj_scenarios <- list(
-  c(n_sims = 100L,  nb_boots = 50L),
+  c(n_sims = 100L,  nb_boots = 300L),
   c(n_sims = 500L,  nb_boots = 300L),
-  c(n_sims = 1000L, nb_boots = 500L)
+  c(n_sims = 10000L, nb_boots = 500L)
 )
 
 # ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ───────────
 dgm_model       <- "alt"
-target_hr_harm  <- 0.75    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 2000L   # M1 sample size
 analysis_time   <- 84     # administrative censoring (months)
 cens_adjust     <- log(1.5)
-n_super         <- 50000L
+n_super         <- 25000L
 
 # ── Subgroup-identification method ─────────────────────────────────────────
 # The Tier-1 bootstrap (H2, León Eq.7) re-runs whichever engine fs.est used,
@@ -121,9 +128,9 @@ n_super         <- 50000L
 # the family regenerates per resample, so Tier-1 is the *unconditional*
 # comparator against the gate's *conditional-on-family* estimate, and a
 # Tier-1<->Tier-2 gap is the family-regeneration signal, not an error.
-subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
-grf_selection   <- "tree"      # only if subgroup_method == "grf": "tree" | "frontier"
-grf_select_statistic <- "dr"   # only if grf frontier: "dr" | "effect" (no-op for tree)
+
+grf_selection   <- "frontier"      # only if subgroup_method == "grf": "tree" | "frontier"
+grf_select_statistic <- "effect"   # only if grf frontier: "dr" | "effect" (no-op for tree)
 grf_depth       <- 2L              # GRF policy-tree depth / max frontier conjunctions
 dmin.grf        <- 0.0             # GRF DR-score screening floor
 dina_args       <- list()          # extra args forwarded to the DINA selector (dina_args =)
@@ -137,8 +144,8 @@ sg_focus           <- "eff"        # -> "hr": highest consistency rate, ties by 
 # value while staying faithful per engine.  Override via `reselection =` in
 # debias_gate_args (advanced use only).
 selection_rule     <- "neighborhood"  # *MaxSG/*MinSG band rule (inert for sg_focus = "eff")
-hr_threshold       <- 1.0
-hr_consistency     <- 1.0
+hr_threshold       <- 0.90
+hr_consistency     <- 0.80
 pconsistency       <- 0.90
 fs_splits          <- 400L         # moot under "resample" (closed-form, not literal split)
 maxk               <- 2L
@@ -163,11 +170,12 @@ harm_col       <- "flag_harm"
 # its own cuts. Continuous -> er, age, pgr, nodes, size; categorical -> meno (0/1),
 # grade (1/2/3). The pre-dichotomized z1..z5 are NOT used. The true harm subgroup
 # (er <= 25th pct & meno == 0) must be re-discovered from these raw variables.
+
 confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 
 # ── Reproducibility / parallelism ──────────────────────────────────────────
 seed_base  <- 8316951L
-n_workers  <- ceiling(0.95*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
+n_workers  <- ceiling(0.90*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
 z975       <- qnorm(0.975)
 
 cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, gate_draws=%d, workers=%d\n",
@@ -274,9 +282,23 @@ record_replicate <- function(sim_id) {
     error = function(e) NULL)
   if (is.null(df)) return(rec)
   df[[id_name]] <- seq_len(nrow(df))
+  
   confs <- intersect(confounders_base, names(df))
+
+# Add k_random_noise standard-normal noise covariates
+# (k_random_noise is set upstream, e.g. in the setup chunk; 0 = no noise)
+if (k_random_noise > 0) {
+  noise_names <- paste0("noise", seq_len(k_random_noise))
+  for (nm in noise_names) {
+    df[[nm]] <- rnorm(n = nrow(df))
+  }
+  confs <- c(confs, noise_names)
+}
+  
+  
   rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)   # true |Q| this trial (all reps)
 
+  
   # ---- Identification + naive + Tier-2 gate (single forestsearch call) -----
   # Args common to every method, plus a method-specific block.  Consistency-only
   # tuning (LASSO/two-stage/forced cuts/maxk) is NOT forwarded to DINA/GRF, which
