@@ -1,0 +1,278 @@
+---
+title: "Classification Accuracy Metrics for Subgroup Identification"
+subtitle: "Capture, reliability, set overlap, and single-number summaries"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    embed-resources: true
+    code-fold: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Purpose
+
+This guide summarizes the metrics used to assess how well an *identified*
+subgroup $\hat{H}$ recovers a *true* target subgroup $H$ (the harm subgroup),
+and, symmetrically, how well its complement $\hat{H}^c$ recovers $H^c$. All
+quantities are functions of a single $2 \times 2$ confusion table, so the
+discussion below is organized around that table: first the four primary rates,
+then the relationships between them, the set-overlap indices, and finally the
+single-number omnibus summaries. A base-R reference implementation and a worked
+example close the document.
+
+# The confusion table
+
+Take the harm subgroup $H$ as the positive class. Comparing the identified set
+$\hat{H}$ against the truth $H$ partitions the sample into four cells:
+
+| | Truly in $H$ | Truly in $H^c$ |
+|:--|:--:|:--:|
+| **Identified in $\hat{H}$** | $TP$ | $FP$ |
+| **Identified in $\hat{H}^c$** | $FN$ | $TN$ |
+
+with $N = TP + FP + FN + TN$. In set terms, $TP = |\hat{H} \cap H|$,
+$FP = |\hat{H} \cap H^c|$, $FN = |\hat{H}^c \cap H|$, and
+$TN = |\hat{H}^c \cap H^c|$.
+
+# The four primary rates
+
+The four standard rates each condition on a different margin of the table.
+
+$$
+\text{Sensitivity} = \frac{TP}{TP + FN}, \qquad
+\text{Specificity} = \frac{TN}{TN + FP},
+$$
+
+$$
+\text{PPV} = \frac{TP}{TP + FP}, \qquad
+\text{NPV} = \frac{TN}{TN + FN}.
+$$
+
+They answer two distinct questions, and the distinction is what determines which
+metric belongs to which target.
+
+| Question | Denominator | Target $H$ | Target $H^c$ |
+|:--|:--|:--:|:--:|
+| **Capture** (recall-type): of those *truly* in the set, what fraction did we identify? | truth | Sensitivity | Specificity |
+| **Reliability** (precision-type): of those we *placed* in the set, what fraction belong? | prediction | PPV | NPV |
+
+Reading down the columns:
+
+- **Capture of the true harm subgroup $H$** is *sensitivity* — truth in the
+  denominator. This is the quantity meant by "how accurately are the true $H$
+  members captured."
+- **Capture of the complement $H^c$** is *specificity*: of the true non-members,
+  the fraction correctly kept out of $\hat{H}$.
+- **Reliability of the identified set $\hat{H}$** is *PPV*: of those we flag as
+  harm, the fraction truly harmed.
+- **Reliability of the identified complement $\hat{H}^c$** is *NPV*.
+
+The common pitfall is to pair one capture-type rate with one reliability-type
+rate across the two targets (for example, specificity for $H$ and NPV for
+$H^c$). That combination describes only the complement and mixes the two
+framings; it does not report the capture of true $H$ at all.
+
+# Symmetry between $H$ and $H^c$
+
+Relabeling $H^c$ as the positive class swaps the cells
+$TP \leftrightarrow TN$ and $FP \leftrightarrow FN$, which gives the identities
+
+$$
+\text{sens}_{H^c} = \text{spec}_{H}, \qquad
+\text{spec}_{H^c} = \text{sens}_{H},
+$$
+
+$$
+\text{PPV}_{H^c} = \text{NPV}_{H}, \qquad
+\text{NPV}_{H^c} = \text{PPV}_{H}.
+$$
+
+Consequently, reporting sensitivity *and* specificity already reports the
+capture rate for *each* target, and reporting PPV *and* NPV already reports the
+reliability of *each* identified label. A four-metric panel
+(sensitivity, specificity, PPV, NPV) is therefore complete for both targets
+under both framings; only the labeling needs to make the question explicit.
+
+# Set-overlap indices: Jaccard and $F_1$
+
+The Jaccard index measures overlap of the *positive* sets,
+
+$$
+J = \frac{|\hat{H} \cap H|}{|\hat{H} \cup H|}
+  = \frac{TP}{TP + FP + FN},
+$$
+
+equivalent to the "intersection over union." It is a function of sensitivity and
+PPV only and is monotonically related to the $F_1$ score,
+
+$$
+F_1 = \frac{2\,TP}{2\,TP + FP + FN}, \qquad
+J = \frac{F_1}{2 - F_1}, \qquad
+F_1 = \frac{2J}{1 + J}.
+$$
+
+The defining feature is that **$TN$ never appears**: Jaccard (and $F_1$) ignore
+agreement on the negatives by construction. This is precisely why an overlap
+index is attractive when the complement is large and $TN$ dominates the table —
+but it is also why neither index can summarize specificity or NPV. Jaccard is a
+recognized and useful *positive-set overlap* statistic; it is **not** an
+omnibus across sensitivity, specificity, PPV, and NPV, and should be labeled as
+the former.
+
+# Single-number summaries that use all four cells
+
+When a single figure is wanted, the following draw on the full table.
+
+**Balanced accuracy** averages the two capture rates:
+
+$$
+\text{Balanced accuracy} = \tfrac{1}{2}\left(\text{sens} + \text{spec}\right).
+$$
+
+**Youden's $J$ (informedness)** and **markedness** collapse the capture pair and
+the reliability pair, respectively:
+
+$$
+\text{Informedness} = \text{sens} + \text{spec} - 1, \qquad
+\text{Markedness} = \text{PPV} + \text{NPV} - 1.
+$$
+
+**Matthews correlation coefficient (MCC)**, the $\phi$ coefficient for the
+$2 \times 2$ table, is the omnibus summary; it ranges in $[-1, 1]$ and is well
+behaved under class imbalance:
+
+$$
+\text{MCC} =
+\frac{TP \cdot TN - FP \cdot FN}
+     {\sqrt{(TP+FP)(TP+FN)(TN+FP)(TN+FN)}}.
+$$
+
+MCC is the (signed) geometric mean of informedness and markedness,
+
+$$
+\text{MCC}^2 = \text{Informedness} \times \text{Markedness},
+$$
+
+so it is the single figure that draws on all four of the primary rates at once.
+
+**Cohen's $\kappa$** is chance-corrected agreement,
+
+$$
+\kappa = \frac{p_o - p_e}{1 - p_e}, \quad
+p_o = \frac{TP + TN}{N}, \quad
+p_e = \frac{(TP+FP)(TP+FN) + (FN+TN)(FP+TN)}{N^2}.
+$$
+
+# Reference implementation
+
+The function below computes every metric above from the four cell counts, with
+$H$ taken as the positive class. Zero denominators return `NA_real_` rather than
+`NaN`.
+
+```{r}
+#| label: classification-metrics
+classification_metrics <- function(tp, fp, fn, tn) {
+  safe_ratio <- function(num, den) if (den > 0) num / den else NA_real_
+
+  sens <- safe_ratio(tp, tp + fn)        # capture of true H
+  spec <- safe_ratio(tn, tn + fp)        # capture of true H^c
+  ppv  <- safe_ratio(tp, tp + fp)        # reliability of identified H
+  npv  <- safe_ratio(tn, tn + fn)        # reliability of identified H^c
+
+  jaccard <- safe_ratio(tp, tp + fp + fn)
+  f1      <- safe_ratio(2 * tp, 2 * tp + fp + fn)
+
+  informedness <- sens + spec - 1
+  markedness   <- ppv + npv - 1
+  bal_accuracy <- (sens + spec) / 2
+
+  mcc_den <- sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+  mcc     <- if (mcc_den > 0) (tp * tn - fp * fn) / mcc_den else NA_real_
+
+  n     <- tp + fp + fn + tn
+  p_o   <- (tp + tn) / n
+  p_e   <- ((tp + fp) * (tp + fn) + (fn + tn) * (fp + tn)) / n^2
+  kappa <- safe_ratio(p_o - p_e, 1 - p_e)
+
+  list(
+    sensitivity  = sens,
+    specificity  = spec,
+    ppv          = ppv,
+    npv          = npv,
+    jaccard      = jaccard,
+    f1           = f1,
+    informedness = informedness,
+    markedness   = markedness,
+    bal_accuracy = bal_accuracy,
+    mcc          = mcc,
+    kappa        = kappa
+  )
+}
+```
+
+# Worked example
+
+Consider a sample of $N = 1000$ with $200$ true harm-subgroup members. Suppose
+$\hat{H}$ captures $150$ of them ($TP = 150$, $FN = 50$) and additionally flags
+$80$ non-members ($FP = 80$, $TN = 720$).
+
+```{r}
+#| label: worked-example
+m <- classification_metrics(tp = 150, fp = 80, fn = 50, tn = 720)
+
+results <- data.frame(
+  metric = names(m),
+  value  = round(unlist(m), 4),
+  row.names = NULL
+)
+knitr::kable(results, caption = "Metrics for the worked example.")
+```
+
+The two algebraic identities hold numerically:
+
+```{r}
+#| label: identity-checks
+c(
+  jaccard_from_f1 = m$f1 / (2 - m$f1),       # should equal m$jaccard
+  jaccard_direct  = m$jaccard,
+  mcc_squared     = m$mcc^2,                  # should equal informedness * markedness
+  inf_times_mark  = m$informedness * m$markedness
+)
+```
+
+# Recommended reporting
+
+For comparing an identified subgroup against a known truth:
+
+- Report the **four primary rates**, each labeled by the question it answers:
+  sensitivity (capture of true $H$), specificity (capture of true $H^c$),
+  PPV (reliability of $\hat{H}$), and NPV (reliability of $\hat{H}^c$). By the
+  symmetry above, this panel covers both targets under both framings.
+- If a **single summary** is wanted, prefer **MCC**, since it uses all four
+  cells and behaves well under the class imbalance typical of subgroup
+  identification (a large complement). Balanced accuracy, informedness, and
+  markedness are interpretable partial summaries.
+- Treat **Jaccard** ($F_1$) as a positive-set overlap statistic and label it as
+  such; it deliberately ignores $TN$ and is not a substitute for specificity or
+  NPV.
+
+# References (canonical sources)
+
+- Matthews, B. W. (1975). Comparison of the predicted and observed secondary
+  structure of T4 phage lysozyme. *Biochimica et Biophysica Acta*.
+- Youden, W. J. (1950). Index for rating diagnostic tests. *Cancer*.
+- Cohen, J. (1960). A coefficient of agreement for nominal scales.
+  *Educational and Psychological Measurement*.
+- Powers, D. M. W. (2011). Evaluation: from precision, recall and F-measure to
+  ROC, informedness, markedness and correlation. *Journal of Machine Learning
+  Technologies*.
+- Jaccard, P. (1912). The distribution of the flora in the alpine zone.
+  *New Phytologist*.
