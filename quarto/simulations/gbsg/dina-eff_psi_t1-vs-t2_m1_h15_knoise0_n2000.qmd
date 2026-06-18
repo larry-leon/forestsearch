@@ -74,20 +74,20 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 25L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 500L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
 nb_boots     <- 300L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
-k_random_noise <- 5       # Add k_random_noise confounders
+k_random_noise <- 0       # Add k_random_noise confounders
 
 subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
 
 target_hr_harm  <- 1.5    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 1000L   # M1 sample size
+n_sample        <- 2000L   # M1 sample size
 
-rds_path   <- "dina-eff_psi_tier1_vs_tier2_results_m1_knoise5_h15_n1000.rds"       # destination when save_rds = TRUE
+rds_path   <- "dina-eff_psi_tier1_vs_tier2_results_m1_h15_knoise0_n2000.rds"       # destination when save_rds = TRUE
 
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
@@ -914,4 +914,3 @@ cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d wor
 
 sessionInfo()
 ```
-
