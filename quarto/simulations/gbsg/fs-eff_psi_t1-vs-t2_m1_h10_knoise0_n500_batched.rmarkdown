@@ -17,9 +17,11 @@ format:
 > **Status — smoke test.** This is the development configuration of the
 > simulation: tiny counts to wire the pipeline end-to-end on a single M1 cell
 > before scaling up. Every tunable lives in the setup chunk (@sec-setup); the
-> counts (`n_sims`, `nb_boots`, `gate_draws`) are the only things to change to
-> move from smoke test to production. Results run live — no `saveRDS`/`readRDS`
-> caching.
+> counts (`n_sims`, `nb_boots`, `gate_draws`) are the main knobs for moving from
+> smoke test to production; `run_mode` and `sim_id_start` (@sec-setup) split a
+> long run into seed-disjoint batches that combine later. Each batch render
+> persists its results to an `.rds`; `run_mode = "combine"` reads them back and
+> renders every table on the pooled set.
 
 # What this evaluates {#sec-intro}
 
@@ -74,20 +76,40 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 500L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 100L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 300L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+nb_boots     <- NULL      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
-k_random_noise <- 5       # Add k_random_noise confounders
+k_random_noise <- 0       # Add k_random_noise confounders
 
-subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
+# ── Batching across renders (split one long run into seed-disjoint pieces) ──
+# Each render is ONE batch of `n_sims` replicates starting at `sim_id_start`.
+# Every per-replicate seed is `seed_base + sim_id` (DGM, search, bootstrap, AND
+# the noise covariates), so disjoint sim_id ranges across renders are independent
+# and pool to exactly what one big run would have produced:
+#
+#   Batch 1 : run_mode "batch", sim_id_start = 1     -> ..._res_1_100.rds
+#   Batch 2 : run_mode "batch", sim_id_start = 101   -> ..._res_101_200.rds   (re-render)
+#   ...      (re-render per batch, advancing sim_id_start by n_sims each time)
+#   Combine : run_mode "combine"                     -> reads ..._res_*.rds, rbinds,
+#                                                       renders every table on the union
+#
+# DEFAULT is a single batch starting at 1: render once and you have the whole run.
+run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
+sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
+
+subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 
 target_hr_harm  <- 1.5    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 2000L   # M1 sample size
+n_sample        <- 500L   # M1 sample size
 
-rds_path   <- "dina-eff_psi_tier1_vs_tier2_results_m1_h15_knoise5_n2000.rds"       # destination when save_rds = TRUE
+rds_stem     <- "fs-eff_psi_tier1_vs_tier2_m1_h15_n500"   # file stem; batch range appended below
+sim_id_end   <- sim_id_start + n_sims - 1L
+rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
+combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
+combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
 
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
@@ -100,9 +122,9 @@ proj_scenarios <- list(
   c(n_sims = 10000L, nb_boots = 500L)
 )
                           # the Tier-2 gate -- see run_tier1 below.
-gate_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
+gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
 
-save_rds <- !is.null(rds_path)  # TRUE -> write results bundle to disk
+save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
 
 # Tier-1 is the wall-clock bottleneck.  forestsearch_bootstrap_dofuture() itself
 # requires nb_boots >= 1 (it errors otherwise), so a skip is enforced HERE -- the
@@ -187,28 +209,35 @@ cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, gate_draws=%d, wor
 # Build the DGM and read off the truth targets
 
 ```{r build-dgm}
-k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
-                             model = dgm_model, use_ahr = FALSE)
-
-dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
-                      n_super = n_super, seed = seed_base)
-dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
-
 `%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
 
-# Fixed (population) truth targets, read defensively from the DGM object.
-truth <- list(
-  hr_causal   = dgm$hr_causal   %||% NA_real_,                 # overall causal HR
-  marg_H      = dgm$hr_H_true   %||% NA_real_,                 # theta-dagger (H)
-  marg_Hc     = dgm$hr_Hc_true  %||% NA_real_,                 # theta-dagger (Hc)
-  cde_H       = dgm$cde_H       %||% (dgm$hazard_ratios$CDE_harm    %||% NA_real_),  # theta-ddagger (H)
-  cde_Hc      = dgm$cde_Hc      %||% (dgm$hazard_ratios$CDE_no_harm %||% NA_real_)   # theta-ddagger (Hc)
-)
+if (identical(run_mode, "batch")) {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
 
-cat("DGM truth targets (population):\n")
-cat(sprintf("  overall causal HR      : %.3f\n", truth$hr_causal))
-cat(sprintf("  theta-dagger  H / Hc   : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
-cat(sprintf("  theta-ddagger H / Hc   : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        n_super = n_super, seed = seed_base)
+  dgm <- compute_dgm_cde(dgm)   # attaches CDE (theta-ddagger) targets
+
+  # Fixed (population) truth targets, read defensively from the DGM object.
+  truth <- list(
+    hr_causal   = dgm$hr_causal   %||% NA_real_,                 # overall causal HR
+    marg_H      = dgm$hr_H_true   %||% NA_real_,                 # theta-dagger (H)
+    marg_Hc     = dgm$hr_Hc_true  %||% NA_real_,                 # theta-dagger (Hc)
+    cde_H       = dgm$cde_H       %||% (dgm$hazard_ratios$CDE_harm    %||% NA_real_),  # theta-ddagger (H)
+    cde_Hc      = dgm$cde_Hc      %||% (dgm$hazard_ratios$CDE_no_harm %||% NA_real_)   # theta-ddagger (Hc)
+  )
+
+  cat("DGM truth targets (population):\n")
+  cat(sprintf("  overall causal HR      : %.3f\n", truth$hr_causal))
+  cat(sprintf("  theta-dagger  H / Hc   : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
+  cat(sprintf("  theta-ddagger H / Hc   : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+} else {
+  # combine mode: the DGM is not needed here; truth is read from the batch
+  # bundles in the combine step below.
+  truth <- NULL
+  cat("Combine mode: DGM build skipped (truth read from batch files).\n")
+}
 ```
 
 # Per-replicate paired recorder
@@ -288,6 +317,12 @@ record_replicate <- function(sim_id) {
 # (k_random_noise is set upstream, e.g. in the setup chunk; 0 = no noise)
 if (k_random_noise > 0) {
   noise_names <- paste0("noise", seq_len(k_random_noise))
+  # Seed the noise draws by sim_id (offset to stay disjoint from the DGM seed
+  # seed_base + sim_id) so the FULL replicate -- survival data AND noise -- is a
+  # deterministic function of sim_id, independent of batch and loop position.
+  # Without this the noise would draw from future's per-iteration RNG stream,
+  # which is keyed to loop position, not sim_id, and could collide across batches.
+  set.seed(seed_base + sim_id + 1000000L)
   for (nm in noise_names) {
     df[[nm]] <- rnorm(n = nrow(df))
   }
@@ -429,13 +464,18 @@ if (k_random_noise > 0) {
 
 ```{r run-loop, message=FALSE, warning=FALSE}
 results <- NULL
-if (run_smoke) {
+elapsed <- NA_real_   # combine mode has no wall-clock; NA -> em-dash in the timing table
+
+if (run_smoke && identical(run_mode, "batch")) {
+  sim_ids <- sim_id_start:(sim_id_start + n_sims - 1L)
+  if (isTRUE(diag_mode)) sim_ids <- utils::head(sim_ids, 5L)  # diag cap (not a combinable batch)
+
   plan("sequential"); gc()
   plan("multisession", workers = n_workers)
 
   t_all <- proc.time()[3]
   results <- foreach(
-    s = seq_len(if (isTRUE(diag_mode)) min(n_sims, 5L) else n_sims),
+    s = sim_ids,
     .combine = rbind, .errorhandling = "remove",
     .options.future = list(packages = c("forestsearch", "survival", "data.table"),
                            seed = TRUE)
@@ -446,9 +486,10 @@ if (run_smoke) {
 
   plan("sequential"); gc()   # release workers between phases
 
-  cat(sprintf("Completed %d/%d replicates in %.1f s (%.1f s/replicate).\n",
-              sum(results$detected, na.rm = TRUE), n_sims, elapsed,
-              elapsed / max(1L, n_sims)))
+  cat(sprintf("Batch sim_id %d-%d: %d/%d detections in %.1f s (%.1f s/replicate).\n",
+              min(sim_ids), max(sim_ids),
+              sum(results$detected, na.rm = TRUE), length(sim_ids), elapsed,
+              elapsed / max(1L, length(sim_ids))))
   if (run_tier1) {
     cat(sprintf("Mean wall-clock: Tier-2 gate %.3f s vs Tier-1 bootstrap %.2f s (B=%d).\n",
                 mean(results$t2_secs, na.rm = TRUE),
@@ -477,10 +518,67 @@ if (run_smoke) {
     saveRDS(list(results = results, truth = truth,
                  meta = list(n_sample = n_sample, n_sims = n_sims,
                              nb_boots = nb_boots, gate_draws = gate_draws,
-                             subgroup_method = subgroup_method)),
+                             subgroup_method = subgroup_method,
+                             sim_id_start = sim_id_start, sim_id_end = sim_id_end,
+                             seed_base = seed_base)),
             rds_path)
-    cat(sprintf("Saved results bundle (%d rows) to %s\n", nrow(results), rds_path))
+    cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
+                nrow(results), sim_id_start, sim_id_end, rds_path))
   }
+
+} else if (run_smoke && identical(run_mode, "combine")) {
+  # ---- Combine seed-disjoint batches into one pooled results set -----------
+  # Reads every ..._res_*.rds (or the explicit `combine_files`), validates that
+  # the batches are poolable, refuses on overlapping sim_id, and populates the
+  # same globals (`results`, `truth`, `n_sims`, ...) the report chunks consume --
+  # so every downstream table renders on the union with no other change.
+  files <- if (!is.null(combine_files)) combine_files else Sys.glob(combine_glob)
+  files <- files[file.exists(files)]
+  if (!length(files))
+    stop("combine mode: no batch files found (combine_glob = '", combine_glob, "').")
+
+  bundles <- lapply(files, readRDS)
+
+  # Count-invariant meta MUST agree across batches to pool them.
+  .meta_get <- function(b, k) b$meta[[k]] %||% NA
+  for (k in c("n_sample", "nb_boots", "gate_draws", "subgroup_method", "seed_base")) {
+    vals <- unique(lapply(bundles, .meta_get, k = k))
+    if (length(vals) > 1L)
+      stop(sprintf("combine mode: batches disagree on meta$%s (%s).",
+                   k, paste(unlist(vals), collapse = ", ")))
+  }
+
+  # truth must match across batches (same DGM + seed_base); use the first.
+  truths <- lapply(bundles, `[[`, "truth")
+  if (length(truths) > 1L &&
+      !all(vapply(truths[-1], identical, logical(1), truths[[1]])))
+    warning("combine mode: truth targets differ across batches; using the first.")
+  truth <- truths[[1]]
+
+  # Pool the per-replicate records.
+  results <- do.call(rbind, lapply(bundles, `[[`, "results"))
+
+  # Disjointness: a repeated sim_id means the seed ranges overlapped, so the
+  # pooled set is NOT independent -- refuse rather than silently double-count.
+  dup <- unique(results$sim_id[duplicated(results$sim_id)])
+  if (length(dup))
+    stop(sprintf("combine mode: %d duplicated sim_id across batches (e.g. %s); seed ranges overlap.",
+                 length(dup), paste(utils::head(sort(dup), 5L), collapse = ", ")))
+
+  # Make the report self-describing from the files (not the setup chunk's knobs).
+  n_sample        <- bundles[[1]]$meta$n_sample        %||% n_sample
+  nb_boots        <- bundles[[1]]$meta$nb_boots        %||% nb_boots
+  gate_draws      <- bundles[[1]]$meta$gate_draws      %||% gate_draws
+  subgroup_method <- bundles[[1]]$meta$subgroup_method %||% subgroup_method
+  run_tier1       <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+  n_sims          <- sum(vapply(bundles,
+                                function(b) as.integer(b$meta$n_sims %||% NA_integer_),
+                                integer(1)))
+
+  rng <- range(results$sim_id)
+  cat(sprintf("Combined %d batch file(s) -> %d rows, sim_id %d-%d (n_sims = %d).\n",
+              length(files), nrow(results), rng[1], rng[2], n_sims))
+  cat("  files: ", paste(basename(files), collapse = ", "), "\n", sep = "")
 }
 ```
 
@@ -489,8 +587,11 @@ if (run_smoke) {
 Tier-2 cost per replicate is essentially fixed (one fit + the multiplier draws,
 independent of `nb_boots`); Tier-1 cost scales **linearly** with `nb_boots`
 (it re-runs the whole search once per bootstrap). The projection below uses the
-measured per-replicate times, assumes Tier-1 runs only on detected replicates,
-and divides by the worker count for an idealized wall-clock.
+measured per-replicate times and assumes Tier-1 runs only on detected
+replicates. The modelled wall-clock spreads the reps over the workers respecting
+the integer reps-per-worker ceiling, then a single calibration factor (measured
+wall / modelled wall on this run) carries this run's realized overhead into the
+projections.
 
 ```{r timing-projection}
 if (run_smoke && !is.null(results)) {
@@ -506,21 +607,42 @@ if (run_smoke && !is.null(results)) {
     h <- floor(sec / 3600); m <- round((sec - 3600 * h) / 60)
     if (h >= 1) sprintf("%d h %02d m", h, m) else sprintf("%d m", round(sec / 60))
   }
-  # Per-rep totals and wall-clock under the same n_workers used here.
-  # actual_sec is the MEASURED wall-clock (only the current run has one;
-  # projections pass NA, which formats as an em-dash).
+
+  # Per-rep total cost (Tier-2 every rep; Tier-1 on the det_rate fraction only).
+  per_rep_total <- function(B) {
+    t1_rep <- if (run_tier1 && is.finite(per_boot)) per_boot * B else 0
+    t2_mean + det_rate * t1_rep
+  }
+  # Modelled wall-clock respects the INTEGER reps-per-worker ceiling: the busiest
+  # worker handles ceil(ns / n_workers) reps and sets the wall.  The smooth
+  # cpu_sec / n_workers underestimates this whenever ns is not a multiple of
+  # n_workers -- acute at smoke-test scale, where ns can be < n_workers.
+  wall_model <- function(ns, B) ceiling(ns / n_workers) * per_rep_total(B)
+
+  # Calibration: the busiest-worker model still omits load imbalance, per-rep
+  # variance, and fixed overhead (pool spin-up, gc, dispatch, DGM build, table
+  # render).  In BATCH mode we have a measured wall clock, so calibrate ONE
+  # multiplier k = elapsed / wall_model(current run) and apply it to every
+  # projection: by construction the current-run calibrated wall equals the
+  # measured wall, and projections inherit this run's realized overhead.  In
+  # COMBINE mode there is no single wall clock, so k is undefined and the
+  # calibrated column is left blank.
+  wall_model_cur <- wall_model(n_sims, boots_disp)
+  k_cal <- if (is.finite(elapsed) && is.finite(wall_model_cur) && wall_model_cur > 0)
+             elapsed / wall_model_cur else NA_real_
+
   proj_row <- function(ns, B, actual_sec = NA_real_) {
-    t1_rep   <- if (run_tier1 && is.finite(per_boot)) per_boot * B else NA_real_
-    t1_term  <- if (is.finite(t1_rep)) det_rate * t1_rep else 0  # no Tier-1 timing -> Tier-2 only
-    cpu_sec  <- ns * (t2_mean + t1_term)                       # Tier-2 all reps; Tier-1 detected only
-    wall_id  <- cpu_sec / n_workers                            # idealized (perfect parallelism)
+    t1_rep  <- if (run_tier1 && is.finite(per_boot)) per_boot * B else NA_real_
+    cpu_sec <- ns * per_rep_total(B)                           # total serial CPU-seconds
+    w_model <- wall_model(ns, B)                               # busiest-worker idealization
+    w_cal   <- if (is.finite(k_cal)) k_cal * w_model else NA_real_
     data.frame(n_sims = ns, B = as.integer(B),
                t2_rep_s = round(t2_mean, 1),
                t1_rep_s = if (is.finite(t1_rep)) round(t1_rep, 0) else NA_real_,
                cpu_hours = round(cpu_sec / 3600, 1),
                wall_actual = fmt_hm(actual_sec),
-               wall_ideal = fmt_hm(wall_id),
-               wall_real_1.3x = fmt_hm(1.3 * wall_id),
+               wall_model  = fmt_hm(w_model),
+               wall_cal    = fmt_hm(w_cal),
                stringsAsFactors = FALSE)
   }
   cur <- proj_row(n_sims, boots_disp, actual_sec = elapsed)
@@ -529,35 +651,43 @@ if (run_smoke && !is.null(results)) {
   tab <- rbind(cbind(Scenario = "current run", cur),
                cbind(Scenario = "projection",  scn))
 
+  run_label <- if (is.finite(elapsed))
+    sprintf("%d reps in %.0f s on %d workers", n_sims, elapsed, n_workers)
+  else
+    sprintf("%d reps pooled from batch files (no single wall-clock)", n_sims)
   if (run_tier1) {
     cat(sprintf(
-      "Current run: %d reps in %.0f s on %d workers. Per rep: Tier-2 %.1f s, Tier-1 %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
-      n_sims, elapsed, n_workers, t2_mean, t1_mean, boots_disp, per_boot, 100 * det_rate))
+      "Current run: %s. Per rep: Tier-2 %.1f s, Tier-1 %.0f s (B=%d, ~%.1f s/bootstrap). Detection %.0f%%.\n",
+      run_label, t2_mean, t1_mean, boots_disp, per_boot, 100 * det_rate))
   } else {
     cat(sprintf(
-      "Current run: %d reps in %.0f s on %d workers. Per rep: Tier-2 %.1f s (Tier-1 skipped). Detection %.0f%%.\n",
-      n_sims, elapsed, n_workers, t2_mean, 100 * det_rate))
+      "Current run: %s. Per rep: Tier-2 %.1f s (Tier-1 skipped). Detection %.0f%%.\n",
+      run_label, t2_mean, 100 * det_rate))
   }
+  if (is.finite(k_cal))
+    cat(sprintf("Realized overhead factor k = %.2f (measured wall / busiest-worker model).\n", k_cal))
 
   gt(tab) |>
     tab_header(title = "Wall-clock projection",
-               subtitle = sprintf("Measured on this run \u00b7 %d workers \u00b7 detection %.0f%%",
-                                  n_workers, 100 * det_rate)) |>
+               subtitle = sprintf("Measured on this run \u00b7 %d workers \u00b7 detection %.0f%%%s",
+                                  n_workers, 100 * det_rate,
+                                  if (is.finite(k_cal)) sprintf(" \u00b7 k = %.2f", k_cal) else "")) |>
     cols_label(n_sims = "sims", B = "boots", t2_rep_s = "Tier-2/rep (s)",
                t1_rep_s = "Tier-1/rep (s)", cpu_hours = "CPU-hours",
                wall_actual = "wall (actual)",
-               wall_ideal = "wall (ideal)", wall_real_1.3x = "wall (~1.3\u00d7)") |>
+               wall_model = "wall (modeled)", wall_cal = "wall (calibrated)") |>
     tab_footnote(footnote = md(paste(
       "`wall (actual)` is the **measured** wall-clock for the current run",
-      "(\u2014 for projections, which have not been run).",
-      "The remaining wall columns are **modelled**:",
+      "(\u2014 for projections, and in combine mode, which have no single wall-clock).",
+      "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost, where per-rep cost =",
       if (run_tier1)
-        "Tier-2/rep is fixed; Tier-1/rep = (per-bootstrap cost) \u00d7 boots; CPU-hours = sims \u00d7 (Tier-2/rep + detection \u00d7 Tier-1/rep);"
+        "Tier-2/rep + detection \u00d7 Tier-1/rep (Tier-1/rep = per-bootstrap cost \u00d7 boots);"
       else
-        "Tier-2/rep is fixed; Tier-1 skipped; CPU-hours = sims \u00d7 Tier-2/rep;",
-      "`wall (ideal)` divides CPU-hours by workers assuming perfect parallelism;",
-      "`~1.3\u00d7` adds a rule-of-thumb overhead (pool spin-up, memory contention).",
-      "For the current run, `wall (actual)` should sit between `ideal` and `~1.3\u00d7`.")))
+        "Tier-2/rep (Tier-1 skipped);",
+      "it respects the integer reps-per-worker ceiling but omits load imbalance and fixed overhead.",
+      "`wall (calibrated)` = k \u00d7 modeled, with k = measured wall / modeled wall on THIS run,",
+      "so the current row reproduces the measured wall and projections carry this run's realized overhead.",
+      "`CPU-hours` = sims \u00d7 per-rep cost (total serial work).")))
 }
 ```
 
