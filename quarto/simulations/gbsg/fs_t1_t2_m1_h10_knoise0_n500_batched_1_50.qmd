@@ -76,11 +76,11 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 20L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 50L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- 0L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+nb_boots     <- 300L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
 k_random_noise <- 0       # Add k_random_noise confounders
 
