@@ -58,7 +58,7 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for demo / pressure test
-NB <- 1000L
+NB <- 10L
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -98,7 +98,7 @@ fs_consistency_method    <- "resample"
 # names, de-biasing against that engine's own candidate family (it re-derives
 # the per-candidate GLM dfbeta itself).
 run_debias_gate <- TRUE     # add debias_gate = TRUE to the forestsearch call
-gate_draws      <- 2000L    # multiplier-bootstrap draws for the gate
+gate_draws      <- 5000L    # multiplier-bootstrap draws for the gate
 
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
