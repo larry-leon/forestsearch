@@ -51,7 +51,7 @@ cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing"
 
 # Number of bootstrap iterations
 # Use 500-2000 for production; reduced here for vignette
-NB <- 500
+NB <- 10
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -63,7 +63,6 @@ run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
 # 10-fold CV with multiple iterations
 # Use Ksims >= 50 for production
 Ksims <- 50
-
 
 # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
 # whether or not these run (skipped analyses report NA).
@@ -80,7 +79,10 @@ timings$oob   <- NA_real_
 fs_sg_focus              <- "effMaxSG"
 fs_hr_threshold          <- 1.0
 fs_hr_consistency        <- 1.0
-fs_max_subgroups_search  <- 20
+fs_max_subgroups_search  <- 50
+
+fs_conf_force <- c("er <= 0", "pgr <= 0")
+
 fs_consistency_method    <- "resample"
 # Tier-2 de-biased gate: a fast multiplier-bootstrap approximation of the
 # bootstrap bias-correction, computed inside the fit and compared to the full
@@ -427,7 +429,7 @@ fs <- forestsearch(
   est.scale                 = "hr",           # default "hr"
   # --- Screening engines (candidate generation) ---------------------------
   use_lasso                 = FALSE,           # default TRUE
-  use_grf                   = TRUE,           # default TRUE
+  use_grf                   = FALSE,           # default TRUE
   grf_res                   = NULL,           # default NULL
   grf_cuts                  = NULL,           # default NULL
   grf_depth                 = fs_grf_depth,   # set in setup chunk (default 2)
@@ -442,7 +444,7 @@ fs <- forestsearch(
   dina_args                 = fs_dina_args,   # extra DINA tuning (setup chunk)
   # --- Candidate-cut construction -----------------------------------------
   max_n_confounders         = 1000,           # default 1000
-  conf_force                = NULL,           # default NULL
+  conf_force                = fs_conf_force,           # default NULL
   defaultcut_names          = NULL,           # default NULL
   cut_type                  = "default",      # default "default"
   exclude_cuts              = NULL,           # default NULL
@@ -450,7 +452,8 @@ fs <- forestsearch(
   cont.cutoff               = 4,              # default 4
   conf.cont_medians         = NULL,           # default NULL
   conf.cont_medians_force   = NULL,           # default NULL
-  conf.cont_jcuts           = list(er = 10),           # default NULL
+  conf.cont_jcuts           = list(er = 10, pgr = 10),           # default NULL
+  collapse_cuts = TRUE,
   # --- Selection engine ---------------------------------------------------
   subgroup_method           = fs_subgroup_method,  # set in setup chunk: consistency | dina | grf
   grf_selection             = fs_grf_selection,    # set in setup chunk (used when subgroup_method = "grf")
@@ -464,11 +467,11 @@ fs <- forestsearch(
   debias_gate_args          = list(draws = gate_draws,
                                    family_native_neighborhood = fs_family_native_nbhd),
   # --- Subgroup constraints -----------------------------------------------
-  n.min                     = 60,             # default 60
-  d0.min                    = 10,             # default 10
-  d1.min                    = 10,             # default 10
-  maxk                      = 2,              # default 2
-  max_subgroups_search      = 50,  # set in setup chunk
+  n.min                     = 60,                       # default 60
+  d0.min                    = 10,                       # default 10
+  d1.min                    = 10,                       # default 10
+  maxk                      = 2,                        # default 2
+  max_subgroups_search      = fs_max_subgroups_search,  # set in setup chunk
   # --- Thresholds (survival / HR scale) -----------------------------------
   hr.threshold              = fs_hr_threshold,    # set in setup chunk
   hr.consistency            = fs_hr_consistency,  # set in setup chunk
