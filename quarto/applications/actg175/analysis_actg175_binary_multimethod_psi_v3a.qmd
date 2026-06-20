@@ -84,10 +84,10 @@ timings$oob   <- NA_real_
 # Main ForestSearch (consistency search)
 fs_sg_focus              <- "effMaxSG"   # GLM-natural alias of "hrMaxSG"
 fs_selection_rule        <- "both"       # neighborhood ∩ Pareto (effMaxSG/effMinSG)
-fs_or_threshold          <- 1.25
+fs_or_threshold          <- 1.0
 fs_or_consistency        <- 1.0
 fs_pconsistency          <- 0.90
-fs_max_subgroups_search  <- 20L
+fs_max_subgroups_search  <- 50L
 # IMPORTANT: the Tier-2 de-biased gate on the GLM path runs ONLY under the
 # resample-consistency engine (consistency_method = "resample").  Under the
 # default "split" engine the gate is silently skipped for GLM outcomes.
@@ -155,7 +155,7 @@ dina_screen_selected_only        <- TRUE
 #     consistency search is bypassed, so or_consistency does not apply here).
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
-fs_dina_or_threshold <- 1.05
+fs_dina_or_threshold <- 1.0
 # Tier-2 gate: the DINA re-selection family is restricted to candidates competitive
 # on DINA's native tau-hat.  NULL = recommended default (matches effect_neighborhood
 # automatically); set a number in (0, 1) for an explicit band, or >= 1 for the full
@@ -538,8 +538,8 @@ fs <- forestsearch(
   effect_measure            = fs_effect_measure,
   adverse_outcome           = TRUE,
   # --- Screening engines (candidate generation) ---------------------------
-  use_lasso                 = TRUE,
-  use_grf                   = TRUE,
+  use_lasso                 = FALSE,
+  use_grf                   = FALSE,
   grf_depth                 = fs_grf_depth,
   dmin.grf                  = fs_dmin_grf,
   frac.tau                  = 0.80,
