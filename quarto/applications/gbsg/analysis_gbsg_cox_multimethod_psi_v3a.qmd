@@ -1,6 +1,6 @@
 ---
 title: "Exploratory Subgroup Identification with ForestSearch"
-subtitle: "ACTG175 Binary Harm Search (GLM Odds-Ratio Outcome)"
+subtitle: "German Breast Cancer Study Group (GBSG) Analysis"
 author: "Larry F. León"
 date: today
 format:
@@ -23,18 +23,11 @@ execute:
 > once via `fs_subgroup_method` in the setup chunk — `"consistency"` (default),
 > `"dina"`, or `"grf"` (with `fs_grf_selection` = `"tree"`/`"frontier"`). The
 > headline fit and every downstream step — full bootstrap, Tier-2 de-biased gate,
-> cross-validation, leave-one-out, and the subgroup outcome plot — inherit that
-> engine from the single fitted object, so the whole analysis re-renders under a
+> cross-validation, leave-one-out, and the Kaplan–Meier band — inherit that engine
+> from the single fitted object, so the whole analysis re-renders under a
 > different method by changing one knob. The comparative DINA-screening,
 > standalone-DINA, and GRF sections that follow are fixed illustrations of the
 > individual engines and are unaffected by `fs_subgroup_method`.
->
-> This is the **binary-outcome (odds-ratio) counterpart** to the GBSG Cox
-> multimethod vignette. Everything operates on a single **adverse scale**
-> (`y_binary_neg`, the indicator of *no* CD4 improvement), so an OR above the
-> screening threshold indicates harm — the direct analogue of an HR above the
-> threshold on the survival path. The Tier-1 (full bootstrap) vs Tier-2 (fast
-> multiplier-bootstrap de-biased gate) comparison is reported for each engine.
 
 ```{r setup}
 #| include: false
@@ -51,14 +44,14 @@ ForestSearch supports parallel processing for computationally intensive
 operations (bootstrap, cross-validation).
 
 ```{r parallel-setup}
-# Detect available cores
+# Detect available cores (limited to 2 cores for CRAN checks)
 n_cores_total <- parallel::detectCores()
 n_cores <- max(1L, floor(0.80 * parallel::detectCores(logical = FALSE)))
 cat("Using", n_cores, "of", n_cores_total, "total cores for parallel processing")
 
 # Number of bootstrap iterations
-# Use 500-2000 for production; reduced here for demo / pressure test
-NB <- 10L
+# Use 500-2000 for production; reduced here for vignette
+NB <- 500
 
 # ---------------------------------------------------------------------------
 # Validation toggles (the slowest parts of the document).  Independent:
@@ -67,8 +60,10 @@ NB <- 10L
 # ---------------------------------------------------------------------------
 run_cv  <- FALSE    # K-Fold cross-validation (kfold-cv + diagnostics)
 run_loo <- FALSE    # Leave-one-out / N-fold OOB (oob-cv)
-# 10-fold CV with multiple iterations.  Use Ksims >= 50 for production.
-Ksims <- 50L
+# 10-fold CV with multiple iterations
+# Use Ksims >= 50 for production
+Ksims <- 50
+
 
 # Pre-seed CV/LOO timings so the Computational Timing table is well-formed
 # whether or not these run (skipped analyses report NA).
@@ -77,28 +72,23 @@ timings$oob   <- NA_real_
 
 # ---------------------------------------------------------------------------
 # Per-analysis identification parameters (tune each analysis independently).
-#   sg_focus       : which candidate subgroup the selection step chooses
-#   or_threshold   : harm floor on the OR scale (adverse scale: OR > c1 = harm)
-#   or_consistency : minimum per-split consistency OR (consistency search only)
+#   sg_focus      : which candidate subgroup the selection step chooses
+#   hr_threshold  : harm/benefit floor on the HR scale
+#   hr_consistency: minimum consistency rate (consistency search only)
 # ---------------------------------------------------------------------------
 # Main ForestSearch (consistency search)
-fs_sg_focus              <- "effMaxSG"   # GLM-natural alias of "hrMaxSG"
-fs_selection_rule        <- "both"       # neighborhood ∩ Pareto (effMaxSG/effMinSG)
-fs_or_threshold          <- 1.25
-fs_or_consistency        <- 1.0
-fs_pconsistency          <- 0.90
-fs_max_subgroups_search  <- 20L
-# IMPORTANT: the Tier-2 de-biased gate on the GLM path runs ONLY under the
-# resample-consistency engine (consistency_method = "resample").  Under the
-# default "split" engine the gate is silently skipped for GLM outcomes.
+fs_sg_focus              <- "effMaxSG"
+fs_hr_threshold          <- 1.0
+fs_hr_consistency        <- 1.0
+fs_max_subgroups_search  <- 20
 fs_consistency_method    <- "resample"
 # Tier-2 de-biased gate: a fast multiplier-bootstrap approximation of the
 # bootstrap bias-correction, computed inside the fit and compared to the full
 # bootstrap below.  It runs for whichever selection engine fs_subgroup_method
 # names, de-biasing against that engine's own candidate family (it re-derives
-# the per-candidate GLM dfbeta itself).
+# the per-candidate Cox dfbeta itself).
 run_debias_gate <- TRUE     # add debias_gate = TRUE to the forestsearch call
-gate_draws      <- 5000L    # multiplier-bootstrap draws for the gate
+gate_draws      <- 2000L    # multiplier-bootstrap draws for the gate
 
 # ---------------------------------------------------------------------------
 # Output directory for the Section 6.2 reproducibility payload written at the
@@ -109,10 +99,9 @@ results_dir <- NULL
 
 # ---------------------------------------------------------------------------
 # Selection engine for the MAIN analysis.  The headline fit, its bootstrap,
-# the de-biased gate, CV/LOO, and the subgroup outcome plot all flow from this
-# single fit, so flipping subgroup_method re-runs the entire main analysis
-# under that engine (each downstream step inherits the method from the fitted
-# object):
+# the de-biased gate, CV/LOO, and the KM plot all flow from this single fit,
+# so flipping subgroup_method re-runs the entire main analysis under that
+# engine (each downstream step inherits the method from the fitted object):
 #   "consistency" - the splitting-consistency search (default);
 #   "dina"        - DINA performs selection (consistency search bypassed);
 #   "grf"         - GRF performs selection (policy tree or DR-frontier).
@@ -120,18 +109,18 @@ results_dir <- NULL
 # with re-selection matching that engine's selection rule.
 # ---------------------------------------------------------------------------
 fs_subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
-fs_grf_selection   <- "frontier"     # only if subgroup_method == "grf": "tree" | "frontier"
-fs_grf_select_statistic <- "effect"  # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect".
-                                     #   "dr"     = native DR-score frontier winner;
-                                     #   "effect" = re-rank the DR frontier on the inferential GLM OR (the
-                                     #              statistic the Tier-2 gate de-biases).  No-op for the policy tree.
-fs_grf_depth       <- 2L             # GRF depth (screening + GRF selection)
-fs_dmin_grf        <- 0              # GRF DR-score screening floor (RD scale for binary; 0 = permissive)
-fs_dina_args       <- list()         # extra args forwarded to DINA selection
-fs_dina_select_statistic <- "effect" # only if subgroup_method=="dina": "dina" | "effect".
-                                     #   "dina"   = native DINA tau-hat winner;
-                                     #   "effect" = re-rank the DINA family on the inferential GLM OR (the
-                                     #              statistic the Tier-2 gate de-biases).
+fs_grf_selection   <- "frontier"      # only if fs_subgroup_method == "grf": "tree" | "frontier"
+fs_grf_select_statistic <- "effect"       # only if subgroup_method=="grf" & grf_selection=="frontier": "dr" | "effect".
+                                      #   "dr"     = native DR-score frontier winner;
+                                      #   "effect" = re-rank the DR frontier on the inferential Cox HR (the
+                                      #              statistic the Tier-2 gate de-biases).  No-op for the policy tree.
+fs_grf_depth       <- 2L              # GRF depth (screening + GRF selection)
+fs_dmin_grf        <- 4               # GRF DR-score screening floor
+fs_dina_args       <- list()          # extra args forwarded to DINA selection
+fs_dina_select_statistic <- "effect"    # only if subgroup_method=="dina": "dina" | "effect".
+                                      #   "dina"   = native DINA tau-hat winner;
+                                      #   "effect" = re-rank the DINA family on the inferential Cox HR (the
+                                      #              statistic the Tier-2 gate de-biases).
 # Tier-2 gate (main analysis): the gate's re-selection family for "dina"/"grf" is
 # restricted to candidates competitive on the method's NATIVE statistic (DINA
 # tau-hat / GRF DR-score).  NULL = use the recommended default, which matches the
@@ -144,18 +133,18 @@ fs_family_native_nbhd <- NULL
 # (A) ForestSearch + DINA screening (consistency search selects; DINA only
 #     contributes candidate cuts)
 dina_screen_sg_focus             <- "effMaxSG"
-dina_screen_or_threshold         <- 1.0
-dina_screen_or_consistency       <- 0.9
-dina_screen_max_subgroups_search <- 30L
+dina_screen_hr_threshold         <- 0.9
+dina_screen_hr_consistency       <- 0.8
+dina_screen_max_subgroups_search <- 30
 # Screening cut set: FALSE => full DINA frontier; TRUE => only the single
 # dina_subgroup()-selected cut (uses dina_screen_sg_focus / selection_rule).
 dina_screen_selected_only        <- TRUE
 
 # (C) ForestSearch subgroup_method = "dina" (DINA performs selection; the
-#     consistency search is bypassed, so or_consistency does not apply here).
+#     consistency search is bypassed, so hr_consistency does not apply here).
 #     The standalone DINA analysis (B) reuses these so (B) and (C) match.
 fs_dina_sg_focus     <- "effMaxSG"
-fs_dina_or_threshold <- 1.05
+fs_dina_hr_threshold <- 0.90
 # Tier-2 gate: the DINA re-selection family is restricted to candidates competitive
 # on DINA's native tau-hat.  NULL = recommended default (matches effect_neighborhood
 # automatically); set a number in (0, 1) for an explicit band, or >= 1 for the full
@@ -169,46 +158,15 @@ fs_dina_family_native_nbhd <- NULL
 #     fs_subgroup_method, mirroring the standalone DINA selection (C).
 fs_grf_demo_selection     <- "frontier"  # "frontier" | "tree"
 fs_grf_demo_depth         <- 2L          # GRF tree / DR-pair depth
-fs_grf_demo_dmin          <- 0.0         # DR-score harm floor (RD scale; 0 = permissive default)
+fs_grf_demo_dmin          <- 0.0         # DR-score harm floor (0 = permissive default)
 fs_grf_sg_focus           <- "effMaxSG"  # -> GRF frontier/tree selection rule
 # Tier-2 gate: the GRF re-selection family is restricted to candidates competitive
-# on GRF's native (RD-based) DR-score.  NULL = recommended default (matches
+# on GRF's native (RMST-based) DR-score.  NULL = recommended default (matches
 # effect_neighborhood automatically); set a number in (0, 1) for an explicit band,
 # or >= 1 for the full family.  Note: this only tunes candidate competition -- the
 # gate holds the forest fixed, so the full bootstrap stays the reference for GRF
 # regardless (a dominant DR-score winner can collapse the family to 1).
 fs_grf_family_native_nbhd <- NULL
-
-# ---------------------------------------------------------------------------
-# Numeric precision (two-stage control).
-#   construction_digits : upstream sprintf precision in the bootstrap / CV
-#     table builders.  Acts as a CEILING for downstream display.
-#   display_digits      : precision rendered in user-facing tables.
-# ---------------------------------------------------------------------------
-construction_digits <- 2L
-display_digits      <- 2L
-
-# Display-only tidy of a subgroup label for printing: rounds the post-operator
-# thresholds to `d` decimals via the package's tidy_cut_display().  The
-# membership-exact sg.harm (re-parsed by get_dfpred and carried through the
-# bootstrap) is never altered -- this only affects what is printed.  Used at
-# every site in this document that renders sg.harm.
-fmt_sg <- function(x, d = display_digits) {
-  if (is.null(x) || length(x) == 0L) return(x)
-  paste(forestsearch:::tidy_cut_display(x, digits = as.integer(d)), collapse = " & ")
-}
-
-# ---------------------------------------------------------------------------
-# Pareto-frontier diagnostic parameters (drives compute_frontier_cis(),
-# plot_pareto_frontier(), pareto_frontier_table(), explain_pareto_selection()).
-# For OR (ratio-scale), the effect axis is auto-rendered on log scale.
-# ---------------------------------------------------------------------------
-frontier_params <- list(
-  n_splits      = 1000L,
-  seed          = 1L,
-  xlim          = c(0.35, 10),   # OR auto-detected as ratio scale
-  digits        = 2L
-)
 ```
 
 
@@ -216,15 +174,12 @@ frontier_params <- list(
 # Introduction
 
 This vignette demonstrates the **ForestSearch** methodology for exploratory
-subgroup identification with a **binary outcome on the odds-ratio (OR) scale**,
-applied to the ACTG175 trial. It uses the GLM extension of ForestSearch
-(León et al. 2024 *Statistics in Medicine*) and is the binary-outcome
-counterpart to the GBSG Cox multimethod analysis.
+subgroup identification in survival analysis, as described in
+León et al. (2024) *Statistics in Medicine*.
 
 ## Motivation
 
-In clinical trials, particularly oncology and infectious-disease studies,
-subgroup analyses are essential for:
+In clinical trials, particularly oncology, subgroup analyses are essential for:
 
 - Evaluating treatment effect consistency across patient populations
 - Identifying subgroups where treatment may be detrimental (harm)
@@ -248,35 +203,8 @@ ForestSearch identifies subgroups through:
 
 The key innovation is the **splitting consistency criterion**: a subgroup is
 considered "consistent with harm" if, when randomly split 50/50 many times,
-both halves consistently show odds ratios at or above the harm threshold (for
-example, 1.0 representing a nominal "harm" boundary on the adverse scale).
-
-## Single-Scale (Adverse) Framing
-
-::: {.callout-note}
-**ForestSearch and threshold direction.** ForestSearch was developed for
-survival data where the outcome is typically the timing of an adverse event and
-thresholds (e.g., indicative of harm) are defined on the hazard-ratio scale.
-For a binary endpoint, the same harm logic applies on the **adverse scale**: the
-outcome `y_binary_neg = 1 - y_binary_pos` is the indicator of *no* CD4
-improvement (1 = worse), and with `adverse_outcome = TRUE` an OR above the
-screening threshold means the treatment **increases the odds of no improvement**
-(harm). This is the direct binary analogue of an HR above the threshold on the
-survival path, so the entire multimethod workflow — consistency, DINA, and GRF —
-runs on this one scale.
-:::
-
-## Trial Background
-
-ACTG175 (Hammer et al. 1996) randomized HIV-positive patients with CD4
-counts of 200–500 per mm³ to four treatment arms. This analysis uses the
-two pure-monotherapy/combination arms:
-
-- **Arm 1**: ZDV + ddI combination therapy (treatment, T = 1)
-- **Arm 3**: ddI monotherapy (control, T = 0)
-
-The outcome is the change in CD4 count from baseline to week 20 (`cd40` →
-`cd420`), dichotomized into the improvement indicator.
+both halves consistently show hazard ratios ≥ 1.0 (for example if 1.0
+represents a meaningful "harm threshold").
 
 
 # Setup
@@ -286,7 +214,6 @@ The outcome is the change in CD4 count from baseline to week 20 (`cd40` →
 ```{r load-packages}
 #| code-fold: false
 library(forestsearch)
-library(speff2trial)
 library(survival)
 library(data.table)
 library(ggplot2)
@@ -294,153 +221,120 @@ library(gt)
 library(grf)
 library(policytree)
 library(doFuture)
-library(future)
 
 # Optional packages for enhanced output
 library(patchwork)
-library(forestploter)
+library(weightedsurv)
 
 # Set ggplot theme
 theme_set(theme_minimal(base_size = 12))
 ```
 
-## Confounders and Variable Roles
 
-```{r analysis-roles}
-#| code-fold: false
+# Data: German Breast Cancer Study Group Trial
 
-# ─── Reproducibility ────────────────────────────────────────────────────
-analysis_seed <- 8316951L
-set.seed(analysis_seed)
+## Study Background
 
-# ─── Confounders ──────────────────────────────────────────────────────
-cont_vars <- c("age", "preanti", "wtkg", "karnof", "cd40", "cd80")
-bin_vars  <- c("hemo", "homo", "drugs", "race", "gender", "symptom")
-confounders.name <- c(cont_vars, bin_vars)
-id.name   <- "id"
+The GBSG trial evaluated hormonal treatment (tamoxifen) versus chemotherapy
+in node-positive breast cancer patients. Key characteristics:
 
-# ─── Variables (single adverse scale) ──────────────────────────────────
-treat.name   <- "treat"
-outcome.name <- "y_binary_neg"   # FS adverse-scale outcome (1 = no improvement)
+- **Sample size**: N = 686
+- **Outcome**: Recurrence-free survival time
+- **Censoring rate**: ~56%
+- **Treatment**: Hormonal therapy (tamoxifen) vs. chemotherapy
 
-# ─── ForestSearch GLM parameters (binary, OR scale) ────────────────────
-fs_outcome_type   <- "binary"
-fs_effect_measure <- "OR"
-```
+## Data Preparation
 
+```{r data-setup}
+# Load GBSG data (included in forestsearch package)
+df.analysis <- gbsg
 
-# Data: ACTG175 Trial
+# Prepare analysis variables
+df.analysis <- within(df.analysis, {
+  id <- seq_len(nrow(df.analysis))
+  time_months <- rfstime / 30.4375
+  grade3 <- ifelse(grade == "3", 1, 0)
+  treat <- hormon
+})
 
-## Treatment Assignment
+# Define variable roles
+confounders.name <- c("age", "meno", "size", "grade3", "nodes", "pgr", "er")
+outcome.name <- "time_months"
+event.name <- "status"
+id.name <- "id"
+treat.name <- "hormon"
 
-```{r data-treat}
-# ACTG175: arm 1 = ZDV+ddI (experimental), arm 3 = ddI (control)
-actg_df <- subset(speff2trial::ACTG175, arms %in% c(1L, 3L))
-actg_df$id <- seq_len(nrow(actg_df))
-
-# Treatment: ZDV+ddI = 1, ddI = 0 (no switching)
-actg_df$treat <- ifelse(actg_df$arms == 1L, 1L, 0L)
-```
-
-## Outcome Construction
-
-```{r data-outcomes}
-# Drop subjects missing the week-20 CD4 measurement
-actg_df <- actg_df[!is.na(actg_df$cd420), ]
-
-# Beneficial scale: CD4 improvement indicator (1 = improved, higher = better)
-actg_df$y_binary_pos <- as.integer(actg_df$cd420 > actg_df$cd40)
-
-# Adverse scale: NO improvement indicator (1 = did not improve, higher = worse).
-# This is the single analysis scale for the entire multimethod workflow.
-actg_df$y_binary_neg <- 1L - actg_df$y_binary_pos
-
-cat("Sample size:", nrow(actg_df), "\n")
-cat("Adverse events (no improvement):", sum(actg_df$y_binary_neg),
-    sprintf("(%.1f%%)\n", 100 * mean(actg_df$y_binary_neg)))
+# Display data structure
+cat("Sample size:", nrow(df.analysis), "\n")
+cat("Events:", sum(df.analysis[[event.name]]),
+    sprintf("(%.1f%%)\n", 100 * mean(df.analysis[[event.name]])))
 cat("Baseline factors:", paste(confounders.name, collapse = ", "), "\n")
-```
-
-## Covariates
-
-```{r data-covariates}
-# Keep ALL candidate covariates numeric.  forestsearch() builds and evaluates
-# "var <= value" candidate cuts, and its DINA paths require numeric columns, so
-# binary indicators left as factors trigger hundreds of "'<=' not meaningful for
-# factors" warnings during the consistency search and "covariate must be numeric"
-# failures in DINA (both subgroup_method = "dina" selection and use_dina
-# screening).  With 0/1 numeric coding, forestsearch's cont.cutoff (= 4 unique
-# values) treats the binary candidates as categorical automatically -- no factor
-# conversion is needed, and every engine (consistency, DINA, GRF, standalone
-# DINA) receives numeric covariates.
-for (v in bin_vars) actg_df[[v]] <- as.numeric(actg_df[[v]])
-
-cat("Continuous candidates:", paste(cont_vars, collapse = ", "), "\n")
-cat("Binary candidates:    ", paste(bin_vars, collapse = ", "), "\n")
 ```
 
 ## Baseline Characteristics
 
 ```{r baseline-table}
 create_summary_table(
-  data = actg_df,
+  data = df.analysis,
   treat_var = treat.name,
-  table_title = "ACTG175 Baseline Characteristics and Outcome by Treatment Arm",
-  vars_continuous = c("y_binary_neg", cont_vars),
-  vars_categorical = bin_vars,
+  table_title = "GBSG Baseline Characteristics by Treatment Arm",
+  vars_continuous = c("age", "nodes", "size", "er", "pgr"),
+  vars_categorical = c("grade", "meno"),
   font_size = 12
 )
 ```
 
-## ITT Analysis (Adverse Scale)
+## Kaplan-Meier Analysis (ITT Population)
 
-```{r itt-analysis}
-# Adverse-scale ITT OR (y_binary_neg = no improvement; OR > 1 = treatment
-# increases the odds of no improvement = harm).
-itt_neg <- glm(y_binary_neg ~ treat, data = actg_df, family = binomial)
+```{r km-itt}
+#| fig-width: 8
+#| fig-height: 5
 
-beta  <- coef(itt_neg)["treat"]
-se    <- summary(itt_neg)$coefficients["treat", "Std. Error"]
-z     <- beta / se
-p     <- 2 * pnorm(-abs(z))
-itt_or    <- exp(beta)
-itt_ci_lo <- exp(beta - qnorm(0.975) * se)
-itt_ci_hi <- exp(beta + qnorm(0.975) * se)
+# Prepare counting process data for KM plot
+dfcount <- df_counting(
+  df = df.analysis,
+  by.risk = 6,
+  tte.name = outcome.name,
+  event.name = event.name,
+  treat.name = treat.name
+)
 
-cat("=== ITT Odds Ratio, adverse scale (y_binary_neg) ===\n")
-cat(sprintf("  log-OR (treat): %7.4f  (SE %.4f)\n", beta, se))
-cat(sprintf("  OR:             %6.3f  (95%% CI: %.3f, %.3f)\n",
-            itt_or, itt_ci_lo, itt_ci_hi))
-cat(sprintf("  p-value:        %.4f\n", p))
-cat("\nOn the adverse scale, OR > 1 indicates the treatment raises the odds of\n")
-cat("no improvement (harm); OR < 1 indicates fewer non-improvers (benefit).\n")
+# Plot with confidence intervals and log-rank test
+plot_weighted_km(
+  dfcount,
+  conf.int = TRUE,
+  show.logrank = TRUE,
+  ymax = 1.05,
+  xmed.fraction = 0.775,
+  ymed.offset = 0.125
+)
 ```
+
+The ITT Cox hazard ratio estimate is approximately 0.69 (95% CI: 0.54, 0.89),
+suggesting an overall benefit for hormonal therapy.
 
 
 # Preliminary Analysis: Generalized Random Forests
 
 Before running ForestSearch, we can use GRF to explore potential treatment
-effect heterogeneity and identify candidate factors. GRF runs here on the same
-adverse scale (`y_binary_neg`) with `adverse_outcome = TRUE`, so its
-risk-difference (RD) CATE is aligned with the harm direction used throughout.
+effect heterogeneity and identify candidate factors.
 
 ```{r grf-analysis}
 t0 <- proc.time()
 
-grf_est <- grf.subg.harm.glm(
-  data             = actg_df,
+grf_est <- grf.subg.harm.survival(
+  data = df.analysis,
   confounders.name = confounders.name,
-  outcome.name     = outcome.name,
-  treat.name       = treat.name,
-  id.name          = id.name,
-  outcome_type     = fs_outcome_type,
-  effect_measure   = fs_effect_measure,
-  adverse_outcome  = TRUE,
-  dmin.grf         = 0.05,     # RD-scale exploration floor (5 percentage points)
-  maxdepth         = 2L,
-  RCT              = TRUE,
-  sg.criterion     = "mDiff",
-  details          = TRUE
+  outcome.name = outcome.name,
+  event.name = event.name,
+  id.name = id.name,
+  treat.name = treat.name,
+  maxdepth = 2,
+  n.min = 60,
+  dmin.grf = 12,
+  frac.tau = 0.60,
+  details = TRUE,
+  return_selected_cuts_only = FALSE
 )
 
 timings$grf <- (proc.time() - t0)["elapsed"]
@@ -449,72 +343,65 @@ timings$grf <- (proc.time() - t0)["elapsed"]
 ```{r grf-trees}
 #| fig-width: 10
 #| fig-height: 4
-#| fig-cap: "Policy trees from GRF (depth 1 and 2), adverse scale"
 
+# Display policy trees
 # leaf1 = recommend control, leaf2 = recommend treatment
-if (!is.null(grf_est$trees)) {
-  oldpar <- par(mfrow = c(1, 2))
-  if (length(grf_est$trees) >= 1 && !is.null(grf_est$trees[[1]])) {
-    plot(grf_est$trees[[1]], leaf.labels = c("Control", "Treat"), main = "Depth 1")
-  }
-  if (length(grf_est$trees) >= 2 && !is.null(grf_est$trees[[2]])) {
-    plot(grf_est$trees[[2]], leaf.labels = c("Control", "Treat"), main = "Depth 2")
-  }
-  par(oldpar)
-} else {
-  cat("GRF: no policy trees available.\n")
-}
+oldpar <- par(mfrow = c(1, 2))
+plot(grf_est$tree1, leaf.labels = c("Control", "Treat"), main = "Depth 1")
+plot(grf_est$tree2, leaf.labels = c("Control", "Treat"), main = "Depth 2")
+par(oldpar)
 ```
 
-GRF surfaces candidate factors driving treatment-effect heterogeneity on the
-adverse scale; ForestSearch then evaluates subgroup candidates with consistency
-filtering.
+GRF identifies estrogen receptor status (ER) as a key factor, with ER ≤ 0
+suggesting potential harm from hormonal therapy.
 
 
 # ForestSearch Analysis
+
+
+
 
 ## Running ForestSearch
 
 The selection engine for this main analysis is set by `fs_subgroup_method` in
 the setup chunk (`"consistency"`, `"dina"`, or `"grf"` with `fs_grf_selection`).
 Everything downstream — the full bootstrap, the Tier-2 de-biased gate, the
-cross-validation/leave-one-out diagnostics, and the subgroup outcome plot — runs
-off the single fitted object and therefore inherits that engine automatically,
-so the entire analysis re-renders under a different method by changing one knob.
+cross-validation/leave-one-out diagnostics, and the Kaplan–Meier band — runs off
+the single fitted object and therefore inherits that engine automatically, so
+the entire analysis re-renders under a different method by changing one knob.
 The consistency search (the default below) performs an exhaustive search over
 candidate subgroup combinations with up to `maxk` factors; the parameters in the
-table apply to that engine.
+table apply to that engine. Key parameters:
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
-| `effect_measure` | `OR` | Odds ratio (binary) |
-| `effect.threshold` | 1.25 | Screening OR threshold (adverse scale) |
-| `consistency.threshold` | 1.0 | Per-split consistency OR threshold |
-| `pconsistency.threshold` | 0.90 | Required consistency rate across splits |
-| `maxk` | 2 | Maximum factors per subgroup |
-| `n.min` | 60 | Minimum subgroup size |
-| `d0.min`, `d1.min` | 10 | Minimum sample size per arm |
-| `consistency_method` | `resample` | Required for the Tier-2 gate (GLM path) |
-
-::: {.callout-note collapse="true"}
-**API note: GLM-natural vocabulary.** This template uses the GLM-natural
-parameter names: `sg_focus = "effMaxSG"` (alias for the legacy `"hrMaxSG"`),
-`effect.threshold` (alias for `hr.threshold`), and `consistency.threshold`
-(alias for `hr.consistency`). The `"eff*"` and `effect.*` forms read more
-naturally for GLM outcomes (continuous MD, binary OR/RR/RD, count IRR) where
-there is no hazard ratio. The legacy `"hr*"` and `hr.*` forms continue to work
-and produce identical results. See `NEWS.md` for the full list of aliases.
-:::
+| `hr.threshold` | 1.25 | Minimum HR for consistency evaluation |
+| `hr.consistency` | 1.0 | Minimum consistency rate for candidates |
+| `pconsistency.threshold` | 0.90 | Required consistency for selection |
+| `maxk` | 2 | Maximum factors in subgroup definition |
+| `n.min` | 60 | Minimum subgroup sample size |
+| `d0.min`, `d1.min` | 12 | Minimum events per treatment arm |
 
 ::: {.callout-note}
 ## Selection criteria (`sg_focus`)
 
-`sg_focus` controls which candidate subgroup is chosen once consistency has been
-evaluated. The example below uses `"effMaxSG"` with `selection_rule = "both"`:
-the rule selects from the **intersection** of the effect-size neighborhood
-(candidates within `effect_neighborhood` of the maximum effect) and the Pareto
-non-dominated set on (effect, N), then picks the largest-N candidate. For OR
-(ratio measure), the neighborhood test is applied on the natural OR scale.
+`sg_focus` controls which candidate subgroup is chosen once consistency
+has been evaluated. The example below uses `"maxSG"` (largest passing
+subgroup). Other options:
+
+* `"hr"` -- highest consistency, then largest effect.
+* `"minSG"` -- smallest passing subgroup, ties broken by consistency.
+* `"hrMaxSG"` -- among candidates whose effect is within
+  `effect_neighborhood` (default 10%) of the maximum, pick the
+  *largest* sample size.
+* `"hrMinSG"` -- among candidates within `effect_neighborhood` of the
+  maximum effect, pick the *smallest* sample size.
+
+`"hrMaxSG"` and `"hrMinSG"` use a *lexicographic-with-tolerance* rule:
+effect size is primary, but a small relative loss in effect is accepted
+to optimize sample size. Setting `effect_neighborhood = 0` reduces these
+to a strict max-effect filter. For GLM ratio measures (OR, IRR), the
+neighborhood test is applied on the natural scale.
 :::
 
 ```{r forestsearch-main}
@@ -525,64 +412,85 @@ t0 <- proc.time()
 
 fs <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis               = actg_df,
-  confounders.name          = confounders.name,
+  df.analysis,
   outcome.name              = outcome.name,
-  event.name                = outcome.name,    # binary: outcome IS the event
+  event.name                = event.name,
   treat.name                = treat.name,
   id.name                   = id.name,
-  is.RCT                    = TRUE,
-  seedit                    = analysis_seed,
-  # --- GLM parameters -----------------------------------------------------
-  outcome_type              = fs_outcome_type,
-  effect_measure            = fs_effect_measure,
-  adverse_outcome           = TRUE,
+  confounders.name          = confounders.name,
+  potentialOutcome.name     = NULL,           # default NULL
+  flag_harm.name            = NULL,           # default NULL
+  df.predict                = NULL,           # default NULL
+  df.test                   = NULL,           # default NULL
+  is.RCT                    = TRUE,           # default TRUE
+  seedit                    = 8316951,        # default 8316951
+  est.scale                 = "hr",           # default "hr"
   # --- Screening engines (candidate generation) ---------------------------
-  use_lasso                 = TRUE,
-  use_grf                   = TRUE,
-  grf_depth                 = fs_grf_depth,
-  dmin.grf                  = fs_dmin_grf,
-  frac.tau                  = 0.80,
-  vi.grf.min                = -0.2,
-  return_selected_cuts_only = TRUE,
-  tune_grf                  = FALSE,
-  use_dina                  = FALSE,
-  dina_args                 = fs_dina_args,
+  use_lasso                 = FALSE,           # default TRUE
+  use_grf                   = TRUE,           # default TRUE
+  grf_res                   = NULL,           # default NULL
+  grf_cuts                  = NULL,           # default NULL
+  grf_depth                 = fs_grf_depth,   # set in setup chunk (default 2)
+  dmin.grf                  = fs_dmin_grf,     # set in setup chunk (default 0.0)
+  frac.tau                  = 0.80,           # default 0.8
+  vi.grf.min                = -0.2,           # default -0.2
+  return_selected_cuts_only = TRUE,           # default TRUE
+  tune_grf                  = FALSE,          # default FALSE
+  use_dina                  = FALSE,          # default FALSE
+  dina_res                  = NULL,           # default NULL
+  dina_cuts                 = NULL,           # default NULL
+  dina_args                 = fs_dina_args,   # extra DINA tuning (setup chunk)
   # --- Candidate-cut construction -----------------------------------------
-  cut_type                  = "default",
-  cont.cutoff               = 4L,
-  conf.cont_jcuts           = list(cd40 = 10, wtkg = 10),
+  max_n_confounders         = 1000,           # default 1000
+  conf_force                = NULL,           # default NULL
+  defaultcut_names          = NULL,           # default NULL
+  cut_type                  = "default",      # default "default"
+  exclude_cuts              = NULL,           # default NULL
+  replace_med_grf           = FALSE,          # default FALSE
+  cont.cutoff               = 4,              # default 4
+  conf.cont_medians         = NULL,           # default NULL
+  conf.cont_medians_force   = NULL,           # default NULL
+  conf.cont_jcuts           = list(er = 10),           # default NULL
   # --- Selection engine ---------------------------------------------------
-  subgroup_method           = fs_subgroup_method,        # consistency | dina | grf
-  grf_selection             = fs_grf_selection,          # used when subgroup_method = "grf"
-  grf_select_statistic      = fs_grf_select_statistic,   # frontier only
-  dina_select_statistic     = fs_dina_select_statistic,  # used when subgroup_method = "dina"
-  sg_focus                  = fs_sg_focus,
-  selection_rule            = fs_selection_rule,
-  effect_neighborhood       = 0.10,
+  subgroup_method           = fs_subgroup_method,  # set in setup chunk: consistency | dina | grf
+  grf_selection             = fs_grf_selection,    # set in setup chunk (used when subgroup_method = "grf")
+  grf_select_statistic      = fs_grf_select_statistic,  # set in setup chunk (frontier only)
+  dina_select_statistic     = fs_dina_select_statistic,  # set in setup chunk (used when subgroup_method = "dina")
+  sg_focus                  = fs_sg_focus,         # set in setup chunk
+  selection_rule            = "neighborhood",  # default "neighborhood"
+  effect_neighborhood       = 0.10,            # default 0.10
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate               = run_debias_gate,
+  debias_gate               = run_debias_gate,           # set in setup chunk
   debias_gate_args          = list(draws = gate_draws,
                                    family_native_neighborhood = fs_family_native_nbhd),
   # --- Subgroup constraints -----------------------------------------------
-  n.min                     = 60L,
-  d0.min                    = 10L,
-  d1.min                    = 10L,
-  maxk                      = 2L,
-  max_subgroups_search      = fs_max_subgroups_search,
-  # --- Thresholds (OR scale) ----------------------------------------------
-  effect.threshold          = fs_or_threshold,
-  consistency.threshold     = fs_or_consistency,
-  pconsistency.threshold    = fs_pconsistency,
-  consistency_method        = fs_consistency_method,   # "resample" (gate requires it)
+  n.min                     = 60,             # default 60
+  d0.min                    = 10,             # default 10
+  d1.min                    = 10,             # default 10
+  maxk                      = 2,              # default 2
+  max_subgroups_search      = 50,  # set in setup chunk
+  # --- Thresholds (survival / HR scale) -----------------------------------
+  hr.threshold              = fs_hr_threshold,    # set in setup chunk
+  hr.consistency            = fs_hr_consistency,  # set in setup chunk
+  effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
+  consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
+  pconsistency.threshold    = 0.90,           # default 0.90
+  consistency_method        = fs_consistency_method,
+  m1.threshold              = Inf,            # default Inf
+  minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
-  fs.splits                 = 500L,
-  use_twostage              = TRUE,
+  fs.splits                 = 1000,           # default 1000
+  stop_threshold            = 0.95,           # default 0.95
+  use_twostage              = TRUE,           # default TRUE
+  twostage_args             = list(),         # default list()
+  max.minutes               = 3,              # default 3
   # --- Output / diagnostics -----------------------------------------------
-  show_candidate_summary    = TRUE,
-  details                   = TRUE,
-  quiet                     = FALSE,
-  plot.sg                   = FALSE,   # KM not applicable; use plot_sg_glm_outcomes()
+  show_candidate_summary    = TRUE,           # default FALSE
+  details                   = TRUE,           # default FALSE
+  quiet                     = FALSE,          # default FALSE
+  by.risk                   = 12,             # default 12
+  plot.sg                   = TRUE,           # default FALSE
+  plot.grf                  = FALSE,          # default FALSE
   # --- Parallel -----------------------------------------------------------
   parallel_args = list(
     plan = "multisession",
@@ -591,12 +499,14 @@ fs <- forestsearch(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$forestsearch <- (proc.time() - t0)["elapsed"]
 
 cat("\nForestSearch completed in",
     round(timings$forestsearch, 1), "seconds\n")
 ```
+
+
 
 
 ## ForestSearch Results
@@ -605,7 +515,7 @@ cat("\nForestSearch completed in",
 
 ```{r fs-results}
 # Generate results tables
-res_tabs <- sg_tables(fs, ndecimals = display_digits, which_df = "est")
+res_tabs <- sg_tables(fs, ndecimals = 3, which_df = "est")
 
 # Display top subgroups meeting criteria
 res_tabs$sg10_out
@@ -621,77 +531,52 @@ res_tabs$tab_estimates
 ### Identified Subgroup Definition
 
 ```{r fs-subgroup}
-if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
-  cat("Identified subgroup (H):", fmt_sg(fs$sg.harm), "\n")
-  cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
-      sprintf("(%.1f%% of ITT)\n",
-              100 * mean(fs$df.est$treat.recommend == 0)))
-} else {
-  cat("ForestSearch: no subgroup identified at the configured thresholds.\n")
-}
+cat("Identified subgroup (H):", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs$df.est$treat.recommend == 0)))
 ```
+
+ForestSearch identifies **Estrogen ≤ 0** (ER-negative) as the subgroup with
+potential harm. This is biologically plausible: tamoxifen is a selective
+estrogen receptor modulator with limited efficacy in ER-negative tumors.
 
 ### Selection Diagnostic: Pareto Frontier
 
 Beyond the single subgroup chosen by `sg_focus`, it is often informative to
-inspect the *Pareto frontier* on (effect, N) — the set of candidate subgroups
-that are not dominated on both axes simultaneously. A candidate is dominated
-when another candidate has at least as large an effect *and* at least as large a
-sample size, with at least one strict inequality. Under `effMaxSG` with
-`selection_rule = "both"` the selected subgroup is typically a frontier member
-that also sits in the effect-size band; the frontier serves both as the
-selection geometry and as a diagnostic of the trade-off space.
+inspect the *Pareto frontier* on (effect, N) -- the set of candidate subgroups
+that are not dominated on both axes simultaneously. A candidate is
+dominated when another candidate has at least as large an effect *and*
+at least as large a sample size, with at least one strict inequality.
+The frontier is a post-hoc diagnostic that lists genuine trade-off
+alternatives to the selected subgroup; it does **not** affect selection.
 
-For OR outcomes the effect axis is auto-rendered on log scale by
-`plot_pareto_frontier()` and `pareto_frontier_table()` (auto-detected from
-`fs$effect_measure`); the rendered values are on the natural OR scale.
+For `"hrMinSG"` the selected subgroup may not appear on the frontier --
+that focus deliberately prefers small subgroups, which can be N-dominated
+by their larger neighbors.
 
 ```{r fs-pareto}
-#| fig-width: 9
-#| fig-height: 6
-
-# 1. Compute the split-derived CIs once (the expensive step).
-ci_tab <- compute_frontier_cis(
-  fs,
-  n_splits = frontier_params$n_splits,
-  seed     = frontier_params$seed
-)
-
-# 2. Plot, with split-derived CI bars overlaid; same intervals as the table.
-p_pareto <- plot_pareto_frontier(
-  fs,
-  ci_table  = ci_tab,
-  show_band = TRUE,
-  xlim      = frontier_params$xlim
-)
-print(p_pareto)
-
-# 3. Render the table.  Selected subgroup is highlighted and marked with ★.
-pareto_frontier_table(
-  fs,
-  ci_table = ci_tab,
-  digits   = frontier_params$digits
-)
+# Formatted gt table; selected subgroup is highlighted and marked with ★.
+# Works uniformly for survival (HR) and GLM (OR, RR, IRR, RD, IRD, MD)
+# outcomes -- effect column label and scale derived from fs$effect_measure.
+pareto_frontier_table(fs)
 ```
 
-### Selection Narrative
-
-`explain_pareto_selection()` describes the chosen subgroup relative to the
-non-dominated alternatives on the frontier.
-
-```{r fs-pareto-explain, results = "asis"}
-cat(explain_pareto_selection(fs, ci_table = ci_tab))
+```{r fs-pareto-data, eval = FALSE}
+# Programmatic access (effect on natural scale, plus is_selected flag):
+pareto_frontier_table(fs, format = "data.table")
 ```
 
 ### Agreement with GRF
 
-ForestSearch and GRF identify subgroups by different mechanisms — FS via
-exhaustive search with consistency filtering, GRF via causal forests plus policy
-trees — so agreement on subject-level membership provides an informal robustness
-check. `compare_fs_subgroups()` produces a publication-ready cross-tabulation
-plus Cohen's kappa; it accepts forestsearch and GRF result objects directly, and
-handles non-detection (method identifies no subgroup) by assigning all subjects
-to the complement.
+ForestSearch and GRF identify subgroups by different mechanisms --
+FS via exhaustive search with consistency filtering, GRF via causal
+survival forests plus policy trees -- so agreement on subject-level
+membership provides an informal robustness check.  `compare_fs_subgroups()`
+produces a publication-ready cross-tabulation plus Cohen's kappa; it
+accepts forestsearch and GRF result objects directly, and handles
+non-detection (method identifies no subgroup) by assigning all
+subjects to the complement.
 
 ```{r fs-grf-concordance}
 sg_compare <- compare_fs_subgroups(
@@ -702,7 +587,7 @@ sg_compare <- compare_fs_subgroups(
   id.name           = id.name,
   subgroup_notation = "harm",
   title             = "FS vs GRF: Subgroup Membership Concordance",
-  subtitle          = "ACTG175 observed data (binary OR, adverse scale)",
+  subtitle          = "GBSG observed data (Cox, harm search)",
   font_size         = 13
 )
 sg_compare$table
@@ -712,9 +597,8 @@ sg_compare$table
 cat("Concordance statistics:\n")
 cat(sprintf("  Agreement:       %.1f%%\n",
     100 * sg_compare$concordance$agreement))
-if (!is.null(sg_compare$concordance$kappa)) {
-  cat(sprintf("  Cohen's kappa:   %.3f\n", sg_compare$concordance$kappa))
-}
+cat(sprintf("  Cohen's kappa:   %.3f\n",
+    sg_compare$concordance$kappa))
 cat(sprintf("  Concordant:      %d / Discordant: %d / Total: %d\n",
     sg_compare$concordance$n_agree,
     sg_compare$concordance$n_disagree,
@@ -726,8 +610,8 @@ cat(sprintf("  Concordant:      %d / Discordant: %d / Total: %d\n",
 
 ## Rationale
 
-GLM estimates from identified subgroups are **upwardly biased** due to the
-selection process (subgroups are selected *because* they show extreme effects).
+Cox model estimates from identified subgroups are **upwardly biased** due to
+the selection process (subgroups are selected *because* they show extreme effects).
 Bootstrap bias correction addresses this by:
 
 1. Resampling with replacement
@@ -738,6 +622,7 @@ Bootstrap bias correction addresses this by:
 ## Running Bootstrap Analysis
 
 ```{r bootstrap}
+
 t0 <- proc.time()
 
 fs_bc <- forestsearch_bootstrap_dofuture(
@@ -745,7 +630,6 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   nb_boots = NB,
   show_three = FALSE,
   details = FALSE,
-  digits = construction_digits,
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
@@ -753,7 +637,7 @@ fs_bc <- forestsearch_bootstrap_dofuture(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$bootstrap <- (proc.time() - t0)["elapsed"]
 
 cat("\nBootstrap completed in",
@@ -763,43 +647,40 @@ cat("\nBootstrap completed in",
 ## Bootstrap Summary and Diagnostics
 
 ```{r bootstrap-summary}
-# The OR column (with bias-corrected OR*) is auto-detected from FSsg_tab; the
-# est.scale argument only affects the legacy HR-flavored caption helper.
+# Comprehensive summary with diagnostics
 summaries <- summarize_bootstrap_results(
   sgharm = fs$sg.harm,
   boot_results = fs_bc,
   create_plots = TRUE,
-  est.scale = "hr",
-  digits = display_digits
+  est.scale = "hr"
 )
 
+# Display bias-corrected estimates table
 summaries$table
 ```
 
 ## Fast de-biased gate vs. full bootstrap
 
 The Tier-2 de-biased gate is a fast multiplier-bootstrap approximation of the
-bootstrap bias-correction. It reuses per-candidate GLM influence (`dfbeta`) over
+bootstrap bias-correction. It reuses per-candidate Cox influence (`dfbeta`) over
 the selection engine's **own** candidate family — the enumerated consistency
 candidates, DINA's qualifying cuts, or GRF's DR-score frontier, depending on
 `fs_subgroup_method` — and re-selects under multiplier draws, so its
 selection-bias term mirrors the same search optimism the full bootstrap
 corrects — without re-running the search per resample. The table below compares
 the gate (computed inside the fit) against the full bootstrap from the previous
-section. The naive-OR row is a scale sanity check; agreement on the de-biased
+section. The naive-HR row is a scale sanity check; agreement on the de-biased
 row is the Tier-2-vs-Tier-1 validation. By default the de-biased CI uses the same
-infinitesimal-jackknife variance as the full bootstrap (the `ci_method = 'ij'`
-default), so the de-biased row compares both point estimate and interval
-like-for-like. The gate de-biases both the selected subgroup and its complement,
-so both appear in the comparison and the table below.
+infinitesimal-jackknife variance as the full bootstrap (the `ci_method = 'ij'` default),
+so the de-biased row compares both point estimate and interval like-for-like. The gate de-biases both the selected
+subgroup and its complement, so both appear in the comparison and the table below.
 
 ```{r debias-gate-comparison, eval = !is.null(fs$sg.harm)}
 #| echo: false
 #| results: asis
 g <- fs$debias_gate
 if (is.null(g)) {
-  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`, and note",
-      "the GLM path requires `consistency_method = \"resample\"`)._\n")
+  cat("_The de-biased gate did not run (set `run_debias_gate <- TRUE`)._\n")
 } else {
   fmt_ci <- function(e, l, u) sprintf("%.3f (%.3f, %.3f)", e, l, u)
   fl <- function(o, n) tryCatch(as.numeric(o[[n]]), error = function(e) NA_real_)
@@ -813,12 +694,12 @@ if (is.null(g)) {
   Hc0 <- fl(fs_bc$Hc_estimates, "H0"); Hc0l <- fl(fs_bc$Hc_estimates, "H0_lower"); Hc0u <- fl(fs_bc$Hc_estimates, "H0_upper")
   Hc2 <- fl(fs_bc$Hc_estimates, "H2"); Hc2l <- fl(fs_bc$Hc_estimates, "H2_lower"); Hc2u <- fl(fs_bc$Hc_estimates, "H2_upper")
 
-  q  <- c("naive OR (95% CI)", "de-biased OR (95% CI)")
+  q  <- c("naive HR (95% CI)", "de-biased HR (95% CI)")
   t2 <- c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
           fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
   t1 <- c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u))
   if (has_cc) {
-    q  <- c(q, "complement naive OR (95% CI)", "complement de-biased OR (95% CI)")
+    q  <- c(q, "complement naive HR (95% CI)", "complement de-biased HR (95% CI)")
     t2 <- c(t2, fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
                 fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
     t1 <- c(t1, fmt_ci(Hc0, Hc0l, Hc0u), fmt_ci(Hc2, Hc2l, Hc2u))
@@ -826,12 +707,12 @@ if (is.null(g)) {
   comp <- data.frame(quantity = q, `Tier 2 (gate)` = t2,
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
-        caption = sprintf("Selected subgroup: %s%s", fmt_sg(fs$sg.harm),
+        caption = sprintf("Selected subgroup: %s%s", paste(fs$sg.harm, collapse = " & "),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
-  # Scale cross-check: the gate's naive OR and the bootstrap's naive H0 are the
-  # same quantity (raw subgroup OR) computed two ways; they should agree.
+  # Scale cross-check: the gate's naive HR and the bootstrap's naive H0 are the
+  # same quantity (raw subgroup HR) computed two ways; they should agree.
   if (is.finite(H0) && is.finite(g$naive$est)) {
     scale_ok <- abs(log(g$naive$est) - log(H0)) < 1e-2
     cat(sprintf("Scale cross-check (naive gate vs bootstrap H0): **%s** (%.3f vs %.3f).\n\n",
@@ -845,7 +726,13 @@ if (is.null(g)) {
 
   cat(sprintf("Re-selection rule = `%s`%s.\n\n",
               if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
-              " (matches the consistency search statistic)"))
+              if (fs_subgroup_method %in% c("dina", "grf"))
+                sprintf(" (a Cox-effect proxy for the %s; native-family band = %s)",
+                        if (identical(fs_subgroup_method, "dina")) "DINA tau-hat" else "GRF DR-score",
+                        if (is.null(fs_family_native_nbhd)) "default (matched to effect_neighborhood)"
+                        else if (fs_family_native_nbhd >= 1) "off (full family)"
+                        else sprintf("%.2f", fs_family_native_nbhd))
+              else " (matches the consistency search statistic)"))
 
   boot_s <- as.numeric(timings$bootstrap)
   cat(sprintf("Timing: Tier 1 bootstrap (%d boots) %.1f s (%.1f min); Tier 2 gate %.2f s",
@@ -854,16 +741,16 @@ if (is.null(g)) {
     cat(sprintf(" -> **%.0fx** faster (multiplier loop only; the full bootstrap scales with `NB`, the gate does not)", boot_s / g$timing_seconds))
   cat(".\n\n")
 
-  cat(sprintf("Gate `harm_flag_debiased` = **%s** (de-biased OR %.3f %s gate %.2f); selection bias %.4f (log-OR).\n",
+  cat(sprintf("Gate `harm_flag_debiased` = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR).\n",
               fs$harm_flag_debiased, g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
-    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-OR).\n",
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
                 g$debiased$se_ij, g$debiased$se_wald))
   if (has_cc)
-    cat(sprintf("Complement (n = %d): naive OR %.3f -> de-biased %.3f (selection bias %.4f, log-OR).\n",
+    cat(sprintf("Complement (n = %d): naive HR %.3f -> de-biased %.3f (selection bias %.4f, log-HR).\n",
                 cc$n, cc$naive$est, cc$debiased$est, cc$selection_bias))
 }
 ```
@@ -883,30 +770,45 @@ de-biased estimate for **both** the selected subgroup and its complement.
 gate_estimates_table(fs, boot_results = fs_bc, est.scale = "hr", digits = 2)
 ```
 
-## Subgroup Outcome Visualization
+## Kaplan-Meier by Identified Subgroups
 
-```{r fs-glm-plot}
+```{r fs-results-figure}
 #| fig-width: 10
 #| fig-height: 7
-#| fig-cap: "Rate of no improvement by treatment arm and identified subgroup (FS, adverse scale)"
+#| fig-cap: "Kaplan-Meier survival curves by identified subgroup"
 
-fs_plot <- plot_sg_glm_outcomes(
-  fs.est         = fs,
-  outcome.name   = outcome.name,
-  treat.name     = treat.name,
-  effect_measure = fs_effect_measure,
-  outcome_type   = fs_outcome_type,
-  E.name         = "ZDV+ddI",
-  C.name         = "ddI",
-  show_itt       = TRUE,
-  show_effect    = TRUE,
-  verbose        = TRUE
+km_result <- plot_sg_weighted_km(
+  fs.est = fs,
+  outcome.name = "time_months",
+  event.name = "status",
+  treat.name = "hormon",
+  show.logrank = FALSE,
+  conf.int = TRUE,
+  by.risk = 12,
+  show.cox = FALSE, show.cox.bc = TRUE,
+  fs_bc = fs_bc,
+  hr_bc_position = "topright"
 )
+```
+
+::: {.callout-note}
+`r figure_note(km_result, prefix = "**Note:** ", custom_text = "Medians [95% CI] for arms are un-adjusted.")`
+:::
+
+
+### Event Count Summary
+
+Low event counts can lead to unstable HR estimates. This summary helps
+identify potential issues:
+
+```{r event-summary}
+event_summary <- summarize_bootstrap_events(fs_bc, threshold = 10)
 ```
 
 ### Bootstrap Diagnostics
 
 ```{r bootstrap-diagnostics}
+# Quality metrics
 summaries$diagnostics_table_gt
 ```
 
@@ -915,12 +817,48 @@ summaries$diagnostics_table_gt
 How consistently does bootstrap identify the same subgroup?
 
 ```{r subgroup-agreement}
+# Agreement with original analysis
 if (!is.null(summaries$subgroup_summary$original_agreement)) {
   summaries$subgroup_summary$original_agreement
 }
 
+# Factor presence across bootstrap iterations
 if (!is.null(summaries$subgroup_summary$factor_presence)) {
   summaries$subgroup_summary$factor_presence
+}
+```
+
+### GRF-Cut Stability Across Bootstraps
+
+Separately from whether bootstrap identifies the *same subgroup*, we can
+ask what raw cut GRF itself surfaced on each resample, independent of
+whether the downstream consistency stage accepted it.  A dominant row
+here paired with a low `(no GRF cut)` rate indicates that GRF's
+upstream discovery is stable across resamples; a frequent
+`(no GRF cut)` row indicates GRF itself is the source of
+variability.  This distinction matters because the two failure modes
+call for different tuning responses — relaxing `dmin.grf` /
+`frac.tau` (for "GRF produced no cut") vs. relaxing
+`pconsistency.threshold` (for "GRF produced a cut that consistency
+rejected").
+
+```{r bootstrap-grf-cuts}
+if (!is.null(summaries$subgroup_summary$grf_cut_freq)) {
+  summaries$subgroup_summary$grf_cut_freq |>
+    utils::head(10) |>
+    gt::gt() |>
+    gt::tab_header(
+      title = gt::md("**GRF cuts across bootstrap iterations**"),
+      subtitle = "Top 10 by frequency; spans all bootstraps (not just successful ones)"
+    ) |>
+    gt::cols_label(
+      Rank    = "Rank",
+      grf_cut = "GRF cuts",
+      N       = "N",
+      Percent = "% of bootstraps"
+    ) |>
+    gt::fmt_number(columns = "Percent", decimals = 2) |>
+    gt::tab_options(table.font.size = gt::px(13))
 }
 ```
 
@@ -929,7 +867,6 @@ if (!is.null(summaries$subgroup_summary$factor_presence)) {
 ```{r bootstrap-plots}
 #| fig-width: 10
 #| fig-height: 4
-#| fig-cap: "Bootstrap distributions of OR for H (questionable) and Hc (recommend)"
 
 if (!is.null(summaries$plots)) {
   summaries$plots$H_distribution + summaries$plots$Hc_distribution
@@ -939,111 +876,130 @@ if (!is.null(summaries$plots)) {
 
 # DINA-Based Subgroup Identification
 
-DINA (Doubly-robust Identification of Non-Additive effects) screens and selects
-subgroups from an influence-function representation of the covariate-specific
-treatment effect, fit with cross-fitting. For a binary endpoint the DINA family
-is `"binomial"` and the effect is reported on the OR scale. It plugs into the
-ForestSearch workflow in three complementary ways, all configured to mirror the
-main analysis above (same confounders, harm threshold, minimum size `n.min = 60`,
-and `sg_focus`):
+DINA (Doubly-robust Identification of Non-Additive effects) screens and
+selects subgroups from an influence-function representation of the
+covariate-specific treatment effect, fit with cross-fitting. It plugs into
+the ForestSearch workflow in three complementary ways, all configured to
+mirror the main Cox analysis above (same confounders, harm threshold
+`hr.threshold = 1.25`, minimum size `n.min = 60`, and `sg_focus`):
 
-* **(A)** ForestSearch *using DINA for screening* — DINA's per-covariate frontier
-  contributes candidate cuts to the screening pool; the consistency search still
-  performs selection.
-* **(B)** *Standalone DINA* with parameters analogous to (A) — the same fit's
-  frontier (the candidates (A) screens) and its single selected subgroup via
-  `dina_subgroup()`.
-* **(C)** ForestSearch with `subgroup_method = "dina"` — subgroup *selection* is
-  delegated to `dina_subgroup()`, then the standard ForestSearch bootstrap
-  provides the selection bias-corrected OR estimate.
+* **(A)** ForestSearch *using DINA for screening* -- DINA's per-covariate
+  frontier contributes candidate cuts to the screening pool; the consistency
+  search still performs selection.
+* **(B)** *Standalone DINA* with parameters analogous to (A) -- the same
+  fit's frontier (the candidates (A) screens) and its single selected
+  subgroup via `dina_subgroup()`.
+* **(C)** ForestSearch with `subgroup_method = "dina"` -- subgroup
+  *selection* is delegated to `dina_subgroup()`, then the standard
+  ForestSearch bootstrap provides the selection bias-corrected Cox estimate.
 
 ```{r dina-config}
 #| code-fold: false
 
-# Shared DINA *fit* settings (binary outcome => family mapped to "binomial").
-# Selection parameters (sg_focus, or_threshold) live in the setup chunk under
+# Shared DINA *fit* settings (Cox / survival outcome => family mapped to "cox").
+# Selection parameters (sg_focus, hr_threshold) live in the setup chunk under
 # the fs_dina_* knobs so they can be tuned independently; (B) and (C) read them.
-dina_seed   <- 8316951L
-dina_nfolds <- 2L
-# Harm/benefit floor on the natural-parameter (log-OR) link scale for the
-# binomial family.
-m_diff_dina <- log(fs_dina_or_threshold)
+dina_seed   <- 8316951
+dina_nfolds <- 2
+# Harm/benefit floor on the natural-parameter (log-HR) scale for ratio measures
+m_diff_dina <- log(fs_dina_hr_threshold)
 ```
 
 ## (A) ForestSearch Using DINA for Screening
 
-Here ForestSearch is run as in the main analysis, but with `use_dina = TRUE`:
-DINA's frontier cuts are merged into the candidate pool alongside the GRF and
-LASSO cuts. `dina_args` is a flat, fully-named list; in the screening role it
-supplies the DINA *fit* tuning (`seed`, `n_folds`) and the *frontier* controls
-(`scope`, `max_per_covariate`, `max_subgroups`). `scope = "wide"` casts a
-deliberately wide net — the consistency stage remains the gatekeeper. By default
-`dina_args$selected_only = TRUE`, so screening contributes the single cut
-`dina_subgroup()` would select — using this call's `sg_focus` / `selection_rule`
-/ `effect_neighborhood` / `effect.threshold`, i.e. the same cut
-`subgroup_method = "dina"` (C) chooses. Set `dina_args$selected_only = FALSE` to
-contribute the full frontier instead.
+Here ForestSearch is run exactly as in the main analysis above, but with
+`use_dina = TRUE`: DINA's frontier cuts are merged into the candidate pool
+alongside the GRF and LASSO cuts. `dina_args` is a flat, fully-named list;
+in the screening role it supplies the DINA *fit* tuning (`seed`, `n_folds`)
+and the *frontier* controls (`scope`, `max_per_covariate`, `max_subgroups`).
+`scope = "wide"` casts a deliberately wide net -- the consistency stage
+remains the gatekeeper. By default `dina_args$selected_only = TRUE` (matching
+GRF's `return_selected_cuts_only`), so screening contributes the single cut
+`dina_subgroup()` would select -- using this call's `sg_focus` /
+`selection_rule` / `effect_neighborhood` / `hr.threshold`, i.e. the same cut
+`subgroup_method = "dina"` (C) chooses. Set `dina_args$selected_only = FALSE`
+to contribute the full frontier instead (more candidates).
 
 ```{r fs-dina-screen}
 t0 <- proc.time()
 
 fs_dina_screen <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis               = actg_df,
-  confounders.name          = confounders.name,
+  df.analysis,
   outcome.name              = outcome.name,
-  event.name                = outcome.name,
+  event.name                = event.name,
   treat.name                = treat.name,
   id.name                   = id.name,
-  is.RCT                    = TRUE,
-  seedit                    = analysis_seed,
-  # --- GLM parameters -----------------------------------------------------
-  outcome_type              = fs_outcome_type,
-  effect_measure            = fs_effect_measure,
-  adverse_outcome           = TRUE,
+  confounders.name          = confounders.name,
+  potentialOutcome.name     = NULL,           # default NULL
+  flag_harm.name            = NULL,           # default NULL
+  df.predict                = NULL,           # default NULL
+  df.test                   = NULL,           # default NULL
+  is.RCT                    = TRUE,           # default TRUE
+  seedit                    = 8316951,        # default 8316951
+  est.scale                 = "hr",           # default "hr"
   # --- Screening engines: GRF + LASSO + DINA ------------------------------
-  use_lasso                 = TRUE,
-  use_grf                   = TRUE,
-  grf_depth                 = 2L,
-  dmin.grf                  = 0,
-  frac.tau                  = 0.80,
-  vi.grf.min                = -0.2,
-  return_selected_cuts_only = TRUE,
-  tune_grf                  = FALSE,
-  use_dina                  = TRUE,
-  dina_args = list(
+  use_lasso                 = TRUE,           # default TRUE
+  use_grf                   = TRUE,           # default TRUE
+  grf_res                   = NULL,           # default NULL
+  grf_cuts                  = NULL,           # default NULL
+  grf_depth                 = 2,              # default 2
+  dmin.grf                  = 4,              # default 0.0
+  frac.tau                  = 0.80,           # default 0.8
+  vi.grf.min                = -0.2,           # default -0.2
+  return_selected_cuts_only = TRUE,           # default TRUE
+  tune_grf                  = FALSE,          # default FALSE
+  use_dina                  = TRUE,           # default FALSE
+  dina_res                  = NULL,           # default NULL
+  dina_cuts                 = NULL,           # default NULL
+  dina_args = list(                           # default list()
     seed = dina_seed, n_folds = dina_nfolds,
-    scope = "wide", max_per_covariate = 3L, max_subgroups = 10L,
-    selected_only = dina_screen_selected_only
+    scope = "wide", max_per_covariate = 3, max_subgroups = 10,
+    selected_only = dina_screen_selected_only # set in setup chunk
   ),
   # --- Candidate-cut construction -----------------------------------------
-  cut_type                  = "default",
-  cont.cutoff               = 4L,
-  conf.cont_jcuts           = list(cd40 = 10, wtkg = 10),
+  max_n_confounders         = 1000,           # default 1000
+  conf_force                = NULL,           # default NULL
+  defaultcut_names          = NULL,           # default NULL
+  cut_type                  = "default",      # default "default"
+  exclude_cuts              = NULL,           # default NULL
+  replace_med_grf           = FALSE,          # default FALSE
+  cont.cutoff               = 4,              # default 4
+  conf.cont_medians         = NULL,           # default NULL
+  conf.cont_medians_force   = NULL,           # default NULL
+  conf.cont_jcuts           = NULL,           # default NULL
   # --- Selection engine ---------------------------------------------------
-  subgroup_method           = "consistency",
-  sg_focus                  = dina_screen_sg_focus,
-  selection_rule            = "neighborhood",
-  effect_neighborhood       = 0.10,
+  subgroup_method           = "consistency",  # default "consistency"; or "dina"
+  sg_focus                  = dina_screen_sg_focus,    # set in setup chunk
+  selection_rule            = "neighborhood",  # default "neighborhood"
+  effect_neighborhood       = 0.10,            # default 0.10
   # --- Subgroup constraints -----------------------------------------------
-  n.min                     = 60L,
-  d0.min                    = 10L,
-  d1.min                    = 10L,
-  maxk                      = 2L,
-  max_subgroups_search      = dina_screen_max_subgroups_search,
-  # --- Thresholds (OR scale) ----------------------------------------------
-  effect.threshold          = dina_screen_or_threshold,
-  consistency.threshold     = dina_screen_or_consistency,
-  pconsistency.threshold    = fs_pconsistency,
-  consistency_method        = fs_consistency_method,
+  n.min                     = 60,             # default 60
+  d0.min                    = 10,             # default 10
+  d1.min                    = 10,             # default 10
+  maxk                      = 2,              # default 2
+  max_subgroups_search      = dina_screen_max_subgroups_search,  # set in setup chunk
+  # --- Thresholds (survival / HR scale) -----------------------------------
+  hr.threshold              = dina_screen_hr_threshold,    # set in setup chunk
+  hr.consistency            = dina_screen_hr_consistency,  # set in setup chunk
+  effect.threshold          = NULL,           # default NULL (alias of hr.threshold)
+  consistency.threshold     = NULL,           # default NULL (alias of hr.consistency)
+  pconsistency.threshold    = 0.90,           # default 0.90
+  m1.threshold              = Inf,            # default Inf
+  minp                      = 0.025,          # default 0.025
   # --- Consistency search -------------------------------------------------
-  fs.splits                 = 500L,
-  use_twostage              = TRUE,
+  fs.splits                 = 1000,           # default 1000
+  stop_threshold            = 0.95,           # default 0.95
+  use_twostage              = TRUE,           # default TRUE
+  twostage_args             = list(),         # default list()
+  max.minutes               = 3,              # default 3
   # --- Output / diagnostics -----------------------------------------------
-  show_candidate_summary    = TRUE,
-  details                   = TRUE,
-  quiet                     = FALSE,
-  plot.sg                   = FALSE,
+  show_candidate_summary    = TRUE,           # default FALSE
+  details                   = TRUE,           # default FALSE
+  quiet                     = FALSE,          # default FALSE
+  by.risk                   = 12,             # default 12
+  plot.sg                   = FALSE,          # default FALSE
+  plot.grf                  = FALSE,          # default FALSE
   # --- Parallel -----------------------------------------------------------
   parallel_args = list(
     plan = "multisession",
@@ -1052,22 +1008,19 @@ fs_dina_screen <- forestsearch(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$fs_dina_screen <- (proc.time() - t0)["elapsed"]
 
-if (!is.null(fs_dina_screen$sg.harm) && length(fs_dina_screen$sg.harm) > 0) {
-  cat("Identified subgroup (H):",
-      fmt_sg(fs_dina_screen$sg.harm), "\n")
-  cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
-      sprintf("(%.1f%% of ITT)\n",
-              100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
-} else {
-  cat("DINA-screened ForestSearch: no subgroup identified.\n")
-}
+cat("Identified subgroup (H):",
+    paste(fs_dina_screen$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_dina_screen$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_dina_screen$df.est$treat.recommend == 0)))
 ```
 
 The cuts DINA contributed to the candidate pool are recorded on the result
-object. These are exactly the frontier candidates reproduced standalone in (B).
+object. These are exactly the frontier candidates reproduced standalone in
+(B).
 
 ```{r fs-dina-screen-cuts}
 dina_screen_cuts <- fs_dina_screen$dina_cuts
@@ -1084,39 +1037,43 @@ if (length(dina_screen_cuts) > 0) {
 }
 ```
 
-```{r fs-dina-screen-pareto, eval = !is.null(fs_dina_screen$sg.harm)}
+```{r fs-dina-screen-pareto}
 # Selection diagnostic for the DINA-screened run (selected subgroup marked).
 pareto_frontier_table(fs_dina_screen)
 ```
 
 ## (B) Standalone DINA
 
-The same DINA fit, run outside ForestSearch. Its `dina_frontier()` output is the
-candidate set fed into screening in (A); its `dina_subgroup()` output is the
-single subgroup selected by DINA itself — the mechanism (C) uses internally.
-Parameters are analogous to (A): same confounders, harm floor
-`m_diff = log(fs_dina_or_threshold)`, `n_min = 60`, and `sg_focus`.
+The same DINA fit, run outside ForestSearch. Its `dina_frontier()` output is
+the candidate set fed into screening in (A); its `dina_subgroup()` output is
+the single subgroup selected by DINA itself -- the mechanism (C) uses
+internally. Parameters are analogous to (A): same confounders, harm floor
+`m_diff = log(1.25)`, `n_min = 60`, and `sg_focus`.
 
 ```{r dina-standalone-fit}
 t0 <- proc.time()
 
-# Standalone DINA -- dina(), dina_frontier(), dina_subgroup() -- on the numeric
-# covariate frame (all candidates are numeric per `data-covariates`).
 dina_fit <- dina(
-  df         = actg_df,
+  df         = df.analysis,
   outcome    = outcome.name,
   treatment  = treat.name,
   covariates = confounders.name,
-  family     = "binomial",     # binary outcome (no status column required)
+  family     = "cox",          # default "gaussian"; gaussian/binomial/poisson/cox
+  status     = event.name,     # default NULL (required for family = "cox")
   # ... forwarded to dina_fit():
   seed              = dina_seed,   # default NULL
   n_folds           = dina_nfolds, # default 2L
   propensity_method = "logistic",  # default "logistic"
-  cross_fitting     = TRUE         # default TRUE
+  baseline_method   = NULL,        # default NULL
+  cross_fitting     = TRUE,        # default TRUE
+  cens_type         = NULL,        # default NULL (no censoring model)
+  cens_params       = list(),      # default list()
+  n_grid            = 500L,        # default 500L
+  eps               = 1e-6         # default 1e-6
 )
 
 timings$dina_standalone <- (proc.time() - t0)["elapsed"]
-cat("Standalone DINA fit complete (family = binomial).\n")
+cat("Standalone DINA fit complete (family = cox).\n")
 ```
 
 ### DINA Frontier (Screening Candidates)
@@ -1124,27 +1081,27 @@ cat("Standalone DINA fit complete (family = binomial).\n")
 ```{r dina-standalone-frontier}
 dina_fr <- dina_frontier(
   fit               = dina_fit,
-  df                = actg_df,
+  df                = df.analysis,
   covariates        = confounders.name,
   scope             = "wide",     # default "wide"; or "harm" (requires m_diff)
   m_diff            = NULL,        # default NULL (no effect floor under scope = "wide")
-  n_min             = 60L,        # default 60L
+  n_min             = 60,         # default 60L
   direction         = "both",     # default "both"; or "left" / "right"
-  max_per_covariate = 3L,         # default 3L
-  max_subgroups     = 10L,        # default 10L
-  digits            = 3L          # default 3L
+  max_per_covariate = 3,          # default 3L
+  max_subgroups     = 10,         # default 10L
+  digits            = 3           # default 3L
 )
 
 gt(dina_fr[, c("covariate", "direction", "threshold",
                "n_subgroup", "effect", "cut_expr")]) |>
   tab_header(
     title = "Standalone DINA Frontier",
-    subtitle = "Per-covariate non-dominated (effect, N) candidates; effect on OR scale"
+    subtitle = "Per-covariate non-dominated (effect, N) candidates; effect on HR scale"
   ) |>
   fmt_number(columns = c(threshold, effect), decimals = 3) |>
   cols_label(
     covariate = "Covariate", direction = "Direction",
-    threshold = "Threshold", n_subgroup = "N", effect = "OR",
+    threshold = "Threshold", n_subgroup = "N", effect = "HR",
     cut_expr = "Cut"
   ) |>
   cols_align(align = "left", columns = c(covariate, direction, cut_expr))
@@ -1155,15 +1112,15 @@ gt(dina_fr[, c("covariate", "direction", "threshold",
 ```{r dina-standalone-select}
 dina_sel <- dina_subgroup(
   fit                 = dina_fit,
-  df                  = actg_df,
+  df                  = df.analysis,
   covariates          = confounders.name,
   m_diff              = m_diff_dina,
-  n_min               = 60L,            # default 60L
+  n_min               = 60,             # default 60L
   direction           = "both",         # default "both"; or "left" / "right"
-  sg_focus            = fs_dina_sg_focus,
-  selection_rule      = "neighborhood", # default "neighborhood"; pareto/both
-  effect_neighborhood = 0.10,           # default 0.10
-  alpha               = 0.05            # default 0.05
+  sg_focus            = fs_dina_sg_focus,  # set in setup chunk
+  selection_rule      = "neighborhood",  # default "neighborhood"; pareto/both (hrMaxSG/hrMinSG)
+  effect_neighborhood = 0.10,            # default 0.10
+  alpha               = 0.05             # default 0.05
 )
 
 if (isTRUE(dina_sel$found)) {
@@ -1179,83 +1136,81 @@ if (isTRUE(dina_sel$found)) {
 
 ## (C) ForestSearch with `subgroup_method = "dina"`
 
-In this mode ForestSearch delegates subgroup *selection* to `dina_subgroup()`,
-bypassing GRF, LASSO and the consistency search. The selection criteria are
-inherited from this call's `sg_focus`, `n.min` and `effect.threshold` (mapped to
-the log-OR harm floor); `dina_args` supplies only the fit tuning. The returned
-object is a standard `forestsearch` result, so the existing bootstrap machinery
-applies unchanged.
+In this mode ForestSearch delegates subgroup *selection* to
+`dina_subgroup()`, bypassing GRF, LASSO and the consistency search. The
+selection criteria are inherited from this call's `sg_focus`, `n.min` and
+`hr.threshold` (mapped to the log-HR harm floor); `dina_args` supplies only
+the fit tuning. The returned object is a standard `forestsearch` result, so
+the existing bootstrap machinery applies unchanged.
 
 ```{r fs-dina-select}
 t0 <- proc.time()
 
 fs_dina <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis         = actg_df,
-  confounders.name    = confounders.name,
+  df.analysis,
   outcome.name        = outcome.name,
-  event.name          = outcome.name,
+  event.name          = event.name,
   treat.name          = treat.name,
   id.name             = id.name,
-  is.RCT              = TRUE,
-  seedit              = analysis_seed,
-  # --- GLM parameters -----------------------------------------------------
-  outcome_type        = fs_outcome_type,
-  effect_measure      = fs_effect_measure,
-  adverse_outcome     = TRUE,
+  confounders.name    = confounders.name,
+  df.predict          = NULL,            # default NULL
+  df.test             = NULL,            # default NULL
+  is.RCT              = TRUE,            # default TRUE
+  seedit              = 8316951,         # default 8316951
   # --- DINA-selection mode ------------------------------------------------
-  subgroup_method     = "dina",
+  subgroup_method     = "dina",          # default "consistency"
   dina_args           = list(seed = dina_seed, n_folds = dina_nfolds),  # fit tuning only
-  dina_select_statistic = fs_dina_select_statistic,
+  dina_select_statistic = fs_dina_select_statistic,  # setup-chunk selector (top-level)
+  dina_res            = NULL,            # default NULL (reuse a fitted dina object)
   # --- Selection criteria (passed through to dina_subgroup) ---------------
-  sg_focus            = fs_dina_sg_focus,
-  selection_rule      = "neighborhood",
-  effect_neighborhood = 0.10,
-  n.min               = 60L,
-  effect.threshold    = fs_dina_or_threshold,  # -> log-OR harm floor
+  sg_focus            = fs_dina_sg_focus,  # set in setup chunk
+  selection_rule      = "neighborhood",  # default "neighborhood"
+  effect_neighborhood = 0.10,            # default 0.10
+  n.min               = 60,              # default 60
+  hr.threshold        = fs_dina_hr_threshold,  # set in setup chunk (-> log-HR floor)
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate         = run_debias_gate,
+  debias_gate         = run_debias_gate,           # set in setup chunk
   debias_gate_args    = list(draws = gate_draws,
                              family_native_neighborhood = fs_dina_family_native_nbhd),
   # --- Output -------------------------------------------------------------
-  details             = TRUE
+  details             = TRUE             # default FALSE
   # NOTE: subgroup_method = "dina" bypasses GRF, LASSO and the consistency
-  # search; use_grf / use_lasso / use_twostage / fs.splits / maxk and related
-  # parameters do not apply in this mode.
+  # search; use_grf / use_lasso / use_twostage / fs.splits / maxk /
+  # stop_threshold and related parameters do not apply in this mode.
 )
 
 timings$fs_dina_select <- (proc.time() - t0)["elapsed"]
 
-if (!is.null(fs_dina$sg.harm) && length(fs_dina$sg.harm) > 0) {
-  cat("DINA-selected subgroup (H):",
-      fmt_sg(fs_dina$sg.harm), "\n")
-  cat("Subgroup size:", sum(fs_dina$df.est$treat.recommend == 0),
-      sprintf("(%.1f%% of ITT)\n",
-              100 * mean(fs_dina$df.est$treat.recommend == 0)))
-} else {
-  cat("DINA selection: no subgroup met the criteria.\n")
-}
+cat("DINA-selected subgroup (H):",
+    paste(fs_dina$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_dina$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_dina$df.est$treat.recommend == 0)))
 ```
 
-### Bootstrap Bias-Corrected OR Estimates
+### Bootstrap Bias-Corrected Cox Estimates
 
-The within-subgroup OR is upwardly biased by selection. The ForestSearch
-bootstrap corrects this by re-running the full pipeline on each resample;
-because the result above was produced in DINA-selection mode, each replicate
-re-fits DINA and re-runs `dina_subgroup()` from scratch — so the correction
-reflects the DINA selection process itself.
+The within-subgroup Cox hazard ratio is upwardly biased by selection. The
+ForestSearch bootstrap corrects this by re-running the full pipeline on each
+resample; because the result above was produced in DINA-selection mode, each
+replicate re-fits DINA and re-runs `dina_subgroup()` from scratch -- so the
+correction reflects the DINA selection process itself.
 
 ```{r fs-dina-bootstrap, eval = !is.null(fs_dina$sg.harm)}
 # Runs only when DINA identified a subgroup.  The bootstrap bias-corrects an
 # identified subgroup's effect, so there is nothing to do otherwise.
 t0 <- proc.time()
 
+# Diagnostic run: sequential plan + details = TRUE so per-iteration output is
+# visible and errors surface in order (helpful while validating DINA-mode
+# bootstrap). Switch plan back to "multisession" for production speed.
+
 fs_dina_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs_dina,
   nb_boots = NB,
   show_three = FALSE,
-  details = FALSE,
-  digits = construction_digits,
+  details = TRUE,
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
@@ -1263,7 +1218,7 @@ fs_dina_bc <- forestsearch_bootstrap_dofuture(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$fs_dina_bootstrap <- (proc.time() - t0)["elapsed"]
 
 cat("\nDINA-mode bootstrap completed in",
@@ -1274,8 +1229,8 @@ cat("\nDINA-mode bootstrap completed in",
 # Shown only when DINA selected no subgroup at the configured harm floor.
 timings$fs_dina_bootstrap <- 0
 cat("DINA (subgroup_method = \"dina\") identified no subgroup at",
-    "effect.threshold =", fs_dina_or_threshold, "-- bootstrap skipped.\n",
-    "DINA's model-based effect is attenuated relative to the raw OR,",
+    "hr.threshold =", fs_dina_hr_threshold, "-- bootstrap skipped.\n",
+    "DINA's model-based effect is attenuated relative to the raw Cox HR,",
     "so this floor may not be reached; see the standalone DINA frontier (B)",
     "for the achievable effect range, and lower the DINA harm floor if a",
     "bootstrap demonstration is desired.\n")
@@ -1286,8 +1241,7 @@ dina_summaries <- summarize_bootstrap_results(
   sgharm = fs_dina$sg.harm,
   boot_results = fs_dina_bc,
   create_plots = FALSE,
-  est.scale = "hr",
-  digits = display_digits
+  est.scale = "hr"
 )
 
 dina_summaries$table
@@ -1301,9 +1255,9 @@ candidate family (re-running nothing), while the bootstrap above re-runs DINA on
 every resample.
 
 For DINA the two tiers are **not** expected to agree as tightly as for the
-consistency method. DINA selects on its model-based **tau-hat**, but the gate can
-only re-select on the perturbed **GLM** OR; over a large depth-2 candidate family
-the gate's winner's-curse term can therefore exceed the bootstrap's and
+consistency method. DINA selects on its survival-forest **tau-hat**, but the gate
+can only re-select on the perturbed **Cox** effect; over a large depth-2 candidate
+family the gate's winner's-curse term can therefore exceed the bootstrap's and
 over-correct the selected subgroup. To keep the gate's re-selection neighbourhood
 close to DINA's own selection band, the gate by default restricts that family to
 candidates competitive on DINA's native tau-hat, matching the band to
@@ -1312,9 +1266,9 @@ candidates competitive on DINA's native tau-hat, matching the band to
 or `>= 1` to de-bias against the full unrestricted family). The complement is the
 induced residual rather than a max-over-family selection, so it agrees across
 tiers regardless. This band tunes only the *candidate-competition* part of the
-bias — the gate holds the DINA fit fixed, so the refit optimism is invisible to
-it; treat the full bootstrap as the reference for DINA and the gate as a fast,
-conservative check.
+bias -- the gate holds the survival forest fixed, so the forest-refit optimism is
+invisible to it; treat the full bootstrap as the reference for DINA and the gate
+as a fast, conservative check.
 
 ```{r fs-dina-debias-gate-comparison, eval = !is.null(fs_dina$sg.harm)}
 #| echo: false
@@ -1329,14 +1283,14 @@ if (is.null(g)) {
   H2 <- fl(fs_dina_bc$H_estimates, "H2"); H2l <- fl(fs_dina_bc$H_estimates, "H2_lower"); H2u <- fl(fs_dina_bc$H_estimates, "H2_upper")
   cc <- g$complement
   has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
-  q  <- c("naive OR (95% CI)", "de-biased OR (95% CI)")
+  q  <- c("naive HR (95% CI)", "de-biased HR (95% CI)")
   t2 <- c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
           fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
   t1 <- c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u))
   if (has_cc) {
     Hc0 <- fl(fs_dina_bc$Hc_estimates, "H0"); Hc0l <- fl(fs_dina_bc$Hc_estimates, "H0_lower"); Hc0u <- fl(fs_dina_bc$Hc_estimates, "H0_upper")
     Hc2 <- fl(fs_dina_bc$Hc_estimates, "H2"); Hc2l <- fl(fs_dina_bc$Hc_estimates, "H2_lower"); Hc2u <- fl(fs_dina_bc$Hc_estimates, "H2_upper")
-    q  <- c(q, "complement naive OR (95% CI)", "complement de-biased OR (95% CI)")
+    q  <- c(q, "complement naive HR (95% CI)", "complement de-biased HR (95% CI)")
     t2 <- c(t2, fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
                 fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
     t1 <- c(t1, fmt_ci(Hc0, Hc0l, Hc0u), fmt_ci(Hc2, Hc2l, Hc2u))
@@ -1345,7 +1299,7 @@ if (is.null(g)) {
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
         caption = sprintf("DINA-selected subgroup: %s%s",
-                          fmt_sg(fs_dina$sg.harm),
+                          paste(fs_dina$sg.harm, collapse = " & "),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
@@ -1356,18 +1310,18 @@ if (is.null(g)) {
     cat(sprintf(" -> **%.0fx** faster (the bootstrap scales with `NB`, the gate does not)",
                 boot_s / g$timing_seconds))
   cat(".\n\n")
-  cat(sprintf("Gate harm flag = **%s** (de-biased OR %.3f %s gate %.2f); selection bias %.4f (log-OR); candidate family = %d.\n",
+  cat(sprintf("Gate harm flag = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR); candidate family = %d.\n",
               isTRUE(g$harm_flag), g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias, g$n_family))
-  cat(sprintf("Re-selection rule = `%s` (a GLM-OR proxy for DINA's tau-hat); native-family band = %s.\n",
+  cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for DINA's tau-hat); native-family band = %s.\n",
               if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
               if (is.null(fs_dina_family_native_nbhd)) "default (matched to effect_neighborhood)"
               else if (fs_dina_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to tau-hat-competitive candidates)",
                            fs_dina_family_native_nbhd)))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
-    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-OR).\n",
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
                 g$debiased$se_ij, g$debiased$se_wald))
 }
@@ -1385,100 +1339,98 @@ gate_estimates_table(fs_dina, boot_results = fs_dina_bc, est.scale = "hr", digit
 ## Screening vs. selection roles for DINA
 
 `dina_args` behaves differently by role. In the **screening** path (A,
-`use_dina = TRUE`) it defaults to `selected_only = TRUE`: the screening path
-calls `dina_subgroup()` and contributes only its selected cut, so it *does*
-consult this call's `sg_focus` / `selection_rule` / `effect_neighborhood` —
-yielding the same cut the selection path (C) would choose. Setting
-`selected_only = FALSE` instead drives `dina_frontier()`, which is
-selection-agnostic and contributes the full candidate set. In the **selection**
-path (C, `subgroup_method = "dina"`) the selection is always driven by this
-call's `sg_focus` / `selection_rule` / `effect_neighborhood` via
-`dina_subgroup()`, and `dina_args` supplies only the fit. This mode is currently
-depth-1 (a single covariate threshold).
+`use_dina = TRUE`) it defaults to `selected_only = TRUE` (matching GRF's
+`return_selected_cuts_only`): the screening path calls `dina_subgroup()` and
+contributes only its selected cut, so it *does* consult this call's
+`sg_focus` / `selection_rule` / `effect_neighborhood` -- yielding the same
+cut the selection path (C) would choose. Setting `selected_only = FALSE`
+instead drives `dina_frontier()`, which is selection-agnostic (`sg_focus` /
+`selection_rule` are *not* consulted) and contributes the full candidate set.
+In the **selection** path (C, `subgroup_method = "dina"`) the selection is
+always driven by this call's `sg_focus` / `selection_rule` /
+`effect_neighborhood` via `dina_subgroup()`, and `dina_args` supplies only
+the fit. This mode is currently depth-1 (a
+single covariate threshold).
 :::
+
 
 
 ## (D) ForestSearch with `subgroup_method = "grf"`
 
-In this mode ForestSearch delegates subgroup *selection* to GRF — a causal-forest
+In this mode ForestSearch delegates subgroup *selection* to GRF -- a causal-forest
 policy tree (`grf_selection = "tree"`) or the doubly-robust-score frontier
-(`"frontier"`) — bypassing LASSO, DINA and the consistency search. The selection
-criteria are inherited from this call's `sg_focus` (mapped to the GRF
-frontier/tree rule), `n.min`, `grf_depth`, `grf_selection` and the DR-score harm
-floor `dmin.grf` (on the RD scale for binary). The returned object is a standard
-`forestsearch` result, so the existing bootstrap machinery applies unchanged.
+(`"frontier"`) -- bypassing LASSO, DINA and the consistency search. The selection
+criteria are inherited from this call's `sg_focus` (mapped to the GRF frontier/tree
+rule), `n.min`, `grf_depth`, `grf_selection` and the DR-score harm floor
+`dmin.grf`. The returned object is a standard `forestsearch` result, so the
+existing bootstrap machinery applies unchanged.
 
 ```{r fs-grf-select}
 t0 <- proc.time()
 
 fs_grf <- forestsearch(
   # --- Required data + roles ----------------------------------------------
-  df.analysis         = actg_df,
-  confounders.name    = confounders.name,
+  df.analysis,
   outcome.name        = outcome.name,
-  event.name          = outcome.name,
+  event.name          = event.name,
   treat.name          = treat.name,
   id.name             = id.name,
-  is.RCT              = TRUE,
-  seedit              = analysis_seed,   # also seeds the forest
-  # --- GLM parameters -----------------------------------------------------
-  outcome_type        = fs_outcome_type,
-  effect_measure      = fs_effect_measure,
-  adverse_outcome     = TRUE,
+  confounders.name    = confounders.name,
+  df.predict          = NULL,            # default NULL
+  df.test             = NULL,            # default NULL
+  is.RCT              = TRUE,            # default TRUE
+  seedit              = 8316951,         # default 8316951 (also seeds the forest)
   # --- GRF-selection mode -------------------------------------------------
-  subgroup_method     = "grf",
-  grf_selection       = fs_grf_demo_selection,   # "tree" | "frontier"
-  grf_select_statistic = fs_grf_select_statistic, # frontier only
-  grf_depth           = fs_grf_demo_depth,
-  dmin.grf            = fs_grf_demo_dmin,          # DR-score harm floor (RD scale)
-  frac.tau            = 0.8,
+  subgroup_method     = "grf",           # default "consistency"
+  grf_selection       = fs_grf_demo_selection,  # set in setup chunk ("tree" | "frontier")
+  grf_select_statistic = fs_grf_select_statistic,  # set in setup chunk (frontier only)
+  grf_depth           = fs_grf_demo_depth,      # set in setup chunk (tree / DR-pair depth)
+  dmin.grf            = fs_grf_demo_dmin,        # set in setup chunk (DR-score harm floor)
+  frac.tau            = 0.8,             # default 0.8 (RMST truncation fraction)
+  grf_res             = NULL,            # default NULL (reuse a fitted forest)
   # --- Selection criteria -------------------------------------------------
-  sg_focus            = fs_grf_sg_focus,          # -> GRF frontier/tree rule
-  selection_rule      = "neighborhood",
-  effect_neighborhood = 0.10,
-  n.min               = 60L,
+  sg_focus            = fs_grf_sg_focus,  # set in setup chunk (-> GRF frontier/tree rule)
+  selection_rule      = "neighborhood",  # default "neighborhood"
+  effect_neighborhood = 0.10,            # default 0.10
+  n.min               = 60,              # default 60
   # --- Tier-2 de-biased gate ----------------------------------------------
-  debias_gate         = run_debias_gate,
+  debias_gate         = run_debias_gate,           # set in setup chunk
   debias_gate_args    = list(draws = gate_draws,
                              family_native_neighborhood = fs_grf_family_native_nbhd),
   # --- Output -------------------------------------------------------------
-  details             = TRUE
+  details             = TRUE             # default FALSE
   # NOTE: subgroup_method = "grf" bypasses LASSO, DINA and the consistency
-  # search; use_lasso / use_dina / use_twostage / fs.splits / maxk and related
-  # parameters do not apply in this mode.
+  # search; use_lasso / use_dina / use_twostage / fs.splits / maxk /
+  # hr.threshold / pconsistency.threshold do not apply in this mode.
 )
 
 timings$fs_grf_select <- (proc.time() - t0)["elapsed"]
 
-if (!is.null(fs_grf$sg.harm) && length(fs_grf$sg.harm) > 0) {
-  cat("GRF-selected subgroup (H):",
-      fmt_sg(fs_grf$sg.harm), "\n")
-  cat("Subgroup size:", sum(fs_grf$df.est$treat.recommend == 0),
-      sprintf("(%.1f%% of ITT)\n",
-              100 * mean(fs_grf$df.est$treat.recommend == 0)))
-} else {
-  cat("GRF selection: no subgroup met the criteria.\n")
-}
+cat("GRF-selected subgroup (H):",
+    paste(fs_grf$sg.harm, collapse = " & "), "\n")
+cat("Subgroup size:", sum(fs_grf$df.est$treat.recommend == 0),
+    sprintf("(%.1f%% of ITT)\n",
+            100 * mean(fs_grf$df.est$treat.recommend == 0)))
 ```
 
-### Bootstrap Bias-Corrected OR Estimates
+### Bootstrap Bias-Corrected Cox Estimates
 
-The within-subgroup OR is upwardly biased by selection. The ForestSearch
-bootstrap corrects this by re-running the full pipeline on each resample;
-because the result above was produced in GRF-selection mode, each replicate
-re-fits the causal forest and re-runs GRF selection from scratch — so the
-correction reflects the GRF selection process itself.
+The within-subgroup Cox hazard ratio is upwardly biased by selection. The
+ForestSearch bootstrap corrects this by re-running the full pipeline on each
+resample; because the result above was produced in GRF-selection mode, each
+replicate re-fits the causal forest and re-runs GRF selection from scratch -- so
+the correction reflects the GRF selection process itself.
 
 ```{r fs-grf-bootstrap, eval = !is.null(fs_grf$sg.harm)}
-# Runs only when GRF identified a subgroup.
+# Runs only when GRF identified a subgroup.  The bootstrap bias-corrects an
+# identified subgroup's effect, so there is nothing to do otherwise.
 t0 <- proc.time()
 
 fs_grf_bc <- forestsearch_bootstrap_dofuture(
   fs.est = fs_grf,
   nb_boots = NB,
   show_three = FALSE,
-  details = FALSE,
-  digits = construction_digits,
+  details = TRUE,
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
@@ -1486,7 +1438,7 @@ fs_grf_bc <- forestsearch_bootstrap_dofuture(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$fs_grf_bootstrap <- (proc.time() - t0)["elapsed"]
 
 cat("\nGRF-mode bootstrap completed in",
@@ -1507,8 +1459,7 @@ grf_summaries <- summarize_bootstrap_results(
   sgharm = fs_grf$sg.harm,
   boot_results = fs_grf_bc,
   create_plots = FALSE,
-  est.scale = "hr",
-  digits = display_digits
+  est.scale = "hr"
 )
 
 grf_summaries$table
@@ -1516,28 +1467,29 @@ grf_summaries$table
 
 #### Tier-2 de-biased gate (counterpart to the Tier-1 bootstrap)
 
-The same Tier-2-vs-Tier-1 comparison as the main analysis, for the GRF-selection
-fit. The gate de-biases against GRF's **own** DR-score candidate family
-(re-running nothing), while the bootstrap above re-runs GRF on every resample.
+The same Tier-2-vs-Tier-1 comparison as the main analysis, for the
+GRF-selection fit. The gate de-biases against GRF's **own** DR-score candidate
+family (re-running nothing), while the bootstrap above re-runs GRF on every
+resample.
 
 As with DINA, the two tiers are **not** expected to agree as tightly as for the
-consistency method. GRF selects on its **doubly-robust (RD-based) score**, but
-the gate can only re-select on the perturbed **GLM** OR; the additive RD scale
-and the multiplicative odds scale need not rank candidates the same way, so over
-a large candidate family the gate's winner's-curse term can exceed the
+consistency method. GRF selects on its **doubly-robust (RMST-based) score**, but
+the gate can only re-select on the perturbed **Cox** effect; the additive RMST
+scale and the multiplicative hazard scale need not rank candidates the same way,
+so over a large candidate family the gate's winner's-curse term can exceed the
 bootstrap's and over-correct the selected subgroup. To keep the gate's
 re-selection neighbourhood close to GRF's own selection band, the gate by default
-restricts that family to candidates competitive on GRF's native DR-score,
-matching the band to `effect_neighborhood` (the recommended default, used here
-via `fs_grf_family_native_nbhd <- NULL`; set an explicit number for a different
-band, or `>= 1` to de-bias against the full family). The complement is the
-induced residual rather than a max-over-family selection, so it agrees across
-tiers regardless. Two caveats specific to GRF: a *dominant* DR-score winner can
-collapse the restricted family to a single candidate (`candidate family = 1` in
-the note below), in which case the gate removes only the gate-threshold optimism;
-and, more fundamentally, the band tunes only the *candidate-competition* part of
-the bias — the gate holds the causal forest fixed, so the forest-refit optimism
-that the bootstrap captures is invisible to it. Treat the full bootstrap as the
+restricts that family to candidates competitive on GRF's native DR-score, matching
+the band to `effect_neighborhood` (the recommended default, used here via
+`fs_grf_family_native_nbhd <- NULL`; set an explicit number for a different band,
+or `>= 1` to de-bias against the full family). The complement is the induced
+residual rather than a max-over-family selection, so it agrees across tiers
+regardless. Two caveats specific to GRF: a *dominant* DR-score winner can collapse
+the restricted family to a single candidate (`candidate family = 1` in the note
+below), in which case the gate removes only the gate-threshold optimism; and,
+more fundamentally, the band tunes only the *candidate-competition* part of the
+bias -- the gate holds the causal forest fixed, so the forest-refit optimism that
+the bootstrap captures is invisible to it. Treat the full bootstrap as the
 reference for GRF and the gate as a fast, conservative check.
 
 ```{r fs-grf-debias-gate-comparison, eval = !is.null(fs_grf$sg.harm)}
@@ -1553,14 +1505,14 @@ if (is.null(g)) {
   H2 <- fl(fs_grf_bc$H_estimates, "H2"); H2l <- fl(fs_grf_bc$H_estimates, "H2_lower"); H2u <- fl(fs_grf_bc$H_estimates, "H2_upper")
   cc <- g$complement
   has_cc <- !is.null(cc) && !is.null(cc$debiased) && is.finite(cc$debiased$est)
-  q  <- c("naive OR (95% CI)", "de-biased OR (95% CI)")
+  q  <- c("naive HR (95% CI)", "de-biased HR (95% CI)")
   t2 <- c(fmt_ci(g$naive$est, g$naive$lower, g$naive$upper),
           fmt_ci(g$debiased$est, g$debiased$lower, g$debiased$upper))
   t1 <- c(fmt_ci(H0, H0l, H0u), fmt_ci(H2, H2l, H2u))
   if (has_cc) {
     Hc0 <- fl(fs_grf_bc$Hc_estimates, "H0"); Hc0l <- fl(fs_grf_bc$Hc_estimates, "H0_lower"); Hc0u <- fl(fs_grf_bc$Hc_estimates, "H0_upper")
     Hc2 <- fl(fs_grf_bc$Hc_estimates, "H2"); Hc2l <- fl(fs_grf_bc$Hc_estimates, "H2_lower"); Hc2u <- fl(fs_grf_bc$Hc_estimates, "H2_upper")
-    q  <- c(q, "complement naive OR (95% CI)", "complement de-biased OR (95% CI)")
+    q  <- c(q, "complement naive HR (95% CI)", "complement de-biased HR (95% CI)")
     t2 <- c(t2, fmt_ci(cc$naive$est, cc$naive$lower, cc$naive$upper),
                 fmt_ci(cc$debiased$est, cc$debiased$lower, cc$debiased$upper))
     t1 <- c(t1, fmt_ci(Hc0, Hc0l, Hc0u), fmt_ci(Hc2, Hc2l, Hc2u))
@@ -1569,7 +1521,7 @@ if (is.null(g)) {
                      `Tier 1 (bootstrap)` = t1, check.names = FALSE)
   cat(knitr::kable(comp, row.names = FALSE,
         caption = sprintf("GRF-selected subgroup: %s%s",
-                          fmt_sg(fs_grf$sg.harm),
+                          paste(fs_grf$sg.harm, collapse = " & "),
                           if (has_cc) " (complement = remaining subjects)" else "")),
       sep = "\n"); cat("\n\n")
 
@@ -1580,24 +1532,26 @@ if (is.null(g)) {
     cat(sprintf(" -> **%.0fx** faster (the bootstrap scales with `NB`, the gate does not)",
                 boot_s / g$timing_seconds))
   cat(".\n\n")
-  cat(sprintf("Gate harm flag = **%s** (de-biased OR %.3f %s gate %.2f); selection bias %.4f (log-OR); candidate family = %d.\n",
+  cat(sprintf("Gate harm flag = **%s** (de-biased HR %.3f %s gate %.2f); selection bias %.4f (log-HR); candidate family = %d.\n",
               isTRUE(g$harm_flag), g$debiased$est,
               if (g$gate$type == "point") "vs" else "lower-bound vs",
               g$gate$t_gate, g$selection_bias, g$n_family))
-  cat(sprintf("Re-selection rule = `%s` (a GLM-OR proxy for GRF's DR-score); native-family band = %s.\n",
+  cat(sprintf("Re-selection rule = `%s` (a Cox-effect proxy for GRF's DR-score); native-family band = %s.\n",
               if (!is.null(g$gate$reselection)) g$gate$reselection else "?",
               if (is.null(fs_grf_family_native_nbhd)) "default (matched to effect_neighborhood)"
               else if (fs_grf_family_native_nbhd >= 1) "off (full family)"
               else sprintf("%.2f (restricted to DR-score-competitive candidates)",
                            fs_grf_family_native_nbhd)))
   if (!is.null(g$ci_method) && !is.null(g$debiased$se_ij))
-    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-OR).\n",
+    cat(sprintf("De-biased CI: %s (IJ SE %.3f vs robust SE %.3f, log-HR).\n",
                 if (identical(g$ci_method, "ij")) "infinitesimal jackknife (Tier-1 analogue)" else "robust SE",
                 g$debiased$se_ij, g$debiased$se_wald))
 }
 ```
 
-The Tier-1 bias-corrected table above, rebuilt from the Tier-2 gate object.
+The Tier-1 bias-corrected table above, rebuilt from the Tier-2 gate object (the
+descriptive columns and naive effect are tier-independent; the bias-corrected
+column carries the gate's de-biased estimate for the subgroup and its complement).
 
 ```{r fs-grf-debias-gate-table, eval = !is.null(fs_grf$sg.harm) && !is.null(fs_grf$debias_gate)}
 gate_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits = 2)
@@ -1606,10 +1560,10 @@ gate_estimates_table(fs_grf, boot_results = fs_grf_bc, est.scale = "hr", digits 
 ::: {.callout-note}
 ## Selection statistic vs. the gate's re-selection (GRF)
 
-GRF ranks candidates by the **doubly-robust score** (RD-based for binary), while
-the Tier-2 gate re-selects on the perturbed **GLM** OR. The two scales (additive
-RD vs. multiplicative odds) need not agree, so the gate is a *proxy* for GRF's
-selection — the same approximation noted for DINA's tau-hat.
+GRF ranks candidates by the **doubly-robust score** (RMST-based for survival),
+while the Tier-2 gate re-selects on the perturbed **Cox** effect. The two scales
+(additive RMST vs. multiplicative hazard) need not agree, so the gate is a
+*proxy* for GRF's selection -- the same approximation noted for DINA's tau-hat.
 `family_native_neighborhood` restricts the gate family to DR-score-competitive
 candidates to keep that proxy close to GRF's actual selection neighbourhood; the
 full bootstrap remains the reference because it re-runs the DR-score selection
@@ -1621,7 +1575,7 @@ itself.
 # Cross-Validation
 
 Cross-validation assesses the **stability** of the ForestSearch algorithm.
-Two approaches are available.
+Two approaches are available:
 
 ## K-Fold Cross-Validation
 
@@ -1631,12 +1585,13 @@ cat("K-Fold cross-validation skipped (run_cv = FALSE). Set run_cv <- TRUE",
 ```
 
 ```{r kfold-cv, eval = run_cv}
+
 t0 <- proc.time()
 
 fs_kfold <- forestsearch_tenfold(
   fs.est = fs,
   sims = Ksims,
-  Kfolds = 10L,
+  Kfolds = 10,
   details = FALSE,
   parallel_args = list(
     plan = "multisession",
@@ -1645,7 +1600,7 @@ fs_kfold <- forestsearch_tenfold(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$kfold <- (proc.time() - t0)["elapsed"]
 metrics_tables <- cv_metrics_tables(fs_kfold)
 metrics_tables
@@ -1653,11 +1608,12 @@ metrics_tables
 
 ### Diagnostic Tabulations
 
-`summarize_cv_results()` consolidates the per-fold record into a panel of
-diagnostic tables: which subgroups the pipeline identified across resamples,
-which GRF cuts drove those identifications, when identification failed what the
-proximate cause was, and how confidently the successful identifications were
-made.
+`summarize_cv_results()` consolidates the per-fold record into a panel
+of diagnostic tables that together answer the core questions an
+analyst asks of a repeated K-fold run: which subgroups did the
+pipeline identify across resamples, which GRF cuts drove those
+identifications, when identification failed what was the proximate
+cause, and how confidently were the successful identifications made.
 
 ```{r cv-diagnostics-run, eval = run_cv}
 cv_diag <- summarize_cv_results(
@@ -1668,25 +1624,67 @@ cv_diag <- summarize_cv_results(
 )
 ```
 
+**Which subgroups emerged across resamples?**  The identification
+summary shows the distribution of selected subgroups across all
+`r paste0(Ksims, " × 10 = ", Ksims * 10)` sim × fold pairs.  A
+single dominant subgroup with high share indicates the pipeline
+converges on a stable selection; a long tail suggests selection is
+sensitive to the particular training split.
+
 ```{r cv-identification, eval = run_cv}
 cv_diag$identification_summary
 ```
+
+**Which GRF cuts drove those selections?**  The GRF cut summary
+tabulates the raw policy-tree output on each training fold,
+independent of whether the downstream consistency stage accepted
+it.  Comparison against the identification summary reveals whether
+GRF's upstream discovery is stable (a dominant cut shared across
+folds) or noisy (a long tail of one-off cuts).
 
 ```{r cv-grf-cut, eval = run_cv}
 cv_diag$grf_cut_summary
 ```
 
+**When a fold failed to identify a subgroup, why?**  The no-subgroup
+decomposition splits the non-identifying folds into two actionable
+buckets: *GRF returned no cut* (nothing for consistency to evaluate,
+typically pointing at `dmin.grf` or `frac.tau` thresholds) versus
+*GRF returned a cut but consistency rejected it* (candidates existed
+but none met `pconsistency.threshold`).  The former argues for
+relaxing the GRF upstream; the latter for relaxing the consistency
+threshold or reviewing candidate quality.
+
 ```{r cv-no-subgroup, eval = run_cv}
 cv_diag$no_subgroup_decomposition
 ```
+
+**How confidently were the successful identifications made?**  Among
+folds that *did* identify a subgroup, the `pconsistency_distribution`
+shows where the selected candidate's consistency probability
+(`Pcons`) landed relative to the 0.90 threshold.  Identifications in
+the `[0.85, 0.95)` bin are marginal; those concentrated at or near
+1.0 are robust.
 
 ```{r cv-pcons, eval = run_cv}
 cv_diag$pconsistency_distribution
 ```
 
+**How do all the numeric fold-level diagnostics summarize together?**
+The `fold_numeric_summary` tabulates median / IQR / range for each
+numeric column in the per-fold record: fold size (`n_test`),
+consistency probability (`pconsistency`), training-fold HR of the
+selected subgroup (`training_fs_hr`, optimistically biased — for
+diagnostic comparison only), and candidate count
+(`n_candidates_evaluated`).
+
 ```{r cv-fold-numeric, eval = run_cv}
 cv_diag$fold_numeric_summary
 ```
+
+**Agreement with the full-data analysis.**  How often does a training
+fold reproduce the original full-data subgroup exactly, share a
+factor with it, or match its GRF cut?
 
 ```{r cv-original-agreement, eval = run_cv}
 cv_diag$original_agreement
@@ -1703,12 +1701,13 @@ cat("Leave-one-out (N-fold / OOB) skipped (run_loo = FALSE). Set run_loo <- TRUE
 ```
 
 ```{r oob-cv, eval = run_loo}
+
 t0 <- proc.time()
 
 fs_OOB <- forestsearch_Kfold(
   fs.est = fs,
   details = FALSE,
-  Kfolds = nrow(fs$df.est),  # N-fold = leave-one-out
+  Kfolds = nrow(df.analysis),  # N-fold = leave-one-out
   parallel_args = list(
     plan = "multisession",
     workers = n_cores,
@@ -1716,7 +1715,7 @@ fs_OOB <- forestsearch_Kfold(
   )
 )
 
-plan("sequential"); gc(verbose = FALSE)
+plan("sequential")
 timings$oob <- (proc.time() - t0)["elapsed"]
 
 # Summarize OOB results
@@ -1738,51 +1737,95 @@ tables$metrics_table
 
 ## Forest Plot
 
-The forest plot summarizes treatment effects across the ITT population and the
-identified subgroup with bootstrap-bias-corrected OR (and cross-validation
-metrics when CV was run). OR is a ratio measure, so the axis is on the log scale.
+The forest plot summarizes treatment effects across the ITT population,
+reference subgroups, and identified subgroups with cross-validation metrics.
 
 ```{r forest-plot}
-#| fig-width: 14
-#| fig-height: 6
-#| fig-cap: "Subgroup forest plot; OR on the adverse scale (no improvement)"
+#| fig-width: 18
+#| fig-height: 12
+#| fig-cap: "Subgroup forest plot including identified subgroups"
 
-# Build the fs_results list dynamically based on what's been computed.
-fs_results_list <- list(fs.est = fs)
-if (exists("fs_bc")) fs_results_list$fs_bc <- fs_bc
-
-cv_label_for_plot <- NULL
-if (exists("fs_kfold")) {
-  fs_results_list$fs_kfold <- fs_kfold
-  cv_label_for_plot <- "10-fold CV"
-} else if (exists("fs_OOB")) {
-  fs_results_list$fs_kfold <- fs_OOB
-  cv_label_for_plot <- "LOO CV"
-}
-
-forest_obj <- plot_subgroup_results_forestplot(
-  fs_results     = fs_results_list,
-  df_analysis    = actg_df,
-  outcome.name   = outcome.name,
-  event.name     = outcome.name,
-  treat.name     = treat.name,
-  E.name         = "ZDV+ddI",
-  C.name         = "ddI",
-  outcome_type   = fs_outcome_type,
-  effect_measure = fs_effect_measure,
-  xlog           = TRUE,                 # OR is ratio scale -> log axis
-  arrow_text     = c("Favors ZDV+ddI", "Favors ddI"),
-  title_text     = "ACTG175 Subgroup Results — Binary (OR, adverse scale)",
-  show_cv_metrics = !is.null(cv_label_for_plot),
-  cv_source      = "kfold",
-  xlim_method    = "data"
+# Define reference subgroups for comparison
+subgroups <- list(
+  age_gt65 = list(
+    subset_expr = "age > 65",
+    name = "Age > 65",
+    type = "reference"
+  ),
+  age_le65 = list(
+    subset_expr = "age <= 65",
+    name = "Age <= 65",
+    type = "reference"
+  ),
+  pgr_positive = list(
+    subset_expr = "pgr > 0",
+    name = "PgR > 0",
+    type = "reference"
+  ),
+  pgr_negative = list(
+    subset_expr = "pgr <= 0",
+    name = "PgR <= 0",
+    type = "reference"
+  )
 )
 
-render_forestplot(forest_obj)
 
-if (!is.null(cv_label_for_plot)) {
-  cat(sprintf("\nCV annotations source: %s.\n", cv_label_for_plot))
-}
+my_theme <- create_forest_theme(base_size = 24,
+  footnote_fontsize = 17, cv_fontsize = 22)
+
+
+# Create forest plot
+# Include fs_kfold and fs_OOB if available for CV metrics
+result <- plot_subgroup_results_forestplot(
+  fs_results = list(
+    fs.est = fs,
+    fs_bc = fs_bc,
+    fs_OOB   = if (exists("fs_OOB"))   fs_OOB   else NULL,
+    fs_kfold = if (exists("fs_kfold")) fs_kfold else NULL
+  ),
+  df_analysis = df.analysis,
+  subgroup_list = subgroups,
+  outcome.name = outcome.name,
+  event.name = event.name,
+  treat.name = treat.name,
+  E.name = "Hormonal",
+  C.name = "Chemo",
+  ci_column_spaces = 25,
+  xlog = TRUE,
+  theme = my_theme
+)
+
+
+# Render forest plot
+render_forestplot(result)
+```
+
+
+### KM Difference Plots: ITT and Subgroups
+
+The solid black line denotes the ITT Kaplan-Meier treatment difference
+estimates along with 95% CIs (the grey shaded region). K-M differences
+corresponding to subgroups are displayed.
+
+```{r KMdiffs}
+#| fig-width: 8
+#| fig-height: 6
+
+# Add additional subgroups along with ITT and identified subgroups
+ref_sgs <- list(
+  age_young = list(subset_expr = "age < 65", color = "brown"),
+  age_old = list(subset_expr = "age >= 65", color = "orange")
+)
+
+plot_km_band_forestsearch(
+  df = df.analysis,
+  fs.est = fs,
+  ref_subgroups = ref_sgs,
+  outcome.name = outcome.name,
+  event.name = event.name,
+  treat.name = treat.name,
+  draws_band = 20
+)
 ```
 
 
@@ -1795,41 +1838,42 @@ cat(strrep("=", 60), "\n")
 cat("FORESTSEARCH ANALYSIS SUMMARY\n")
 cat(strrep("=", 60), "\n\n")
 
-cat("Dataset: ACTG175 (N =", nrow(actg_df), ")\n")
-cat("Outcome: binary, no CD4 improvement (adverse scale), OR measure\n\n")
+cat("Dataset: GBSG (N =", nrow(df.analysis), ")\n")
+cat("Outcome: Recurrence-free survival\n\n")
 
-cat("ITT Analysis (adverse scale):\n")
-cat(sprintf("  OR (95%% CI): %.2f (%.2f, %.2f)\n\n", itt_or, itt_ci_lo, itt_ci_hi))
+cat("ITT Analysis:\n")
+cat("  HR (95% CI): 0.69 (0.54, 0.89)\n\n")
 
-if (!is.null(fs$sg.harm) && length(fs$sg.harm) > 0) {
-  cat("Identified Subgroup (H):\n")
-  cat("  Definition:", fmt_sg(fs$sg.harm), "\n")
-  cat("  Size:", sum(fs$df.est$treat.recommend == 0),
-      sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 0)))
+cat("Identified Subgroup (H):\n")
+cat("  Definition:", paste(fs$sg.harm, collapse = " & "), "\n")
+cat("  Size:", sum(fs$df.est$treat.recommend == 0),
+    sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 0)))
+cat("  Unadjusted HR:",
+    sprintf("%.2f", exp(fs$grp.consistency$out_sg$result$hr[1])), "\n")
 
-  cat("\nComplement Subgroup (Hc):\n")
-  cat("  Size:", sum(fs$df.est$treat.recommend == 1),
-      sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 1)))
-} else {
-  cat("No harm subgroup was identified at the configured thresholds.\n")
-}
+cat("\nComplement Subgroup (Hc):\n")
+cat("  Size:", sum(fs$df.est$treat.recommend == 1),
+    sprintf("(%.1f%%)\n", 100 * mean(fs$df.est$treat.recommend == 1)))
 ```
 
-## Interpretation Notes
+## Clinical Interpretation
 
-The ForestSearch analysis identifies a subgroup where the treatment is
-associated with elevated odds of no CD4 improvement (harm on the adverse scale).
-As an exploratory result it requires the usual caveats:
+The ForestSearch analysis identifies **estrogen receptor-negative (ER ≤ 0)**
+patients as a subgroup with potential lack of benefit from hormonal therapy.
 
-1. This is an **exploratory** analysis requiring independent validation.
-2. The bias-corrected (Tier-1 bootstrap and Tier-2 gate) estimates have wider
-   confidence intervals than the naive subgroup OR.
-3. Cross-validation metrics should be evaluated for algorithm stability.
+**Biological plausibility**: Tamoxifen is a selective estrogen receptor
+modulator. Its efficacy depends on ER expression. The finding that ER-negative
+patients may not benefit is consistent with:
 
-The Tier-1/Tier-2 comparison is the methodological focus: for the consistency
-engine the gate is expected to track the full bootstrap closely on both point
-estimate and IJ interval; for DINA and GRF the gate is a fast, conservative proxy
-(it holds the engine's fit fixed), so the full bootstrap remains the reference.
+- Mechanistic understanding of tamoxifen action
+- Meta-analyses showing no tamoxifen benefit in ER-negative breast cancer
+- Clinical guidelines recommending tamoxifen primarily for ER-positive tumors
+
+**Caveats**:
+
+1. This is an **exploratory** analysis requiring independent validation
+2. The bias-corrected estimates have wider confidence intervals
+3. Cross-validation metrics should be evaluated for algorithm stability
 
 ## Computational Timing
 
@@ -1837,10 +1881,9 @@ estimate and IJ interval; for DINA and GRF the gate is a fast, conservative prox
 timings$total <- (proc.time() - t_vignette_start)["elapsed"]
 
 timing_df <- data.frame(
-  Analysis = c("GRF (preliminary)", "ForestSearch", "Bootstrap",
+  Analysis = c("GRF", "ForestSearch", "Bootstrap",
                "FS (DINA screening)", "DINA (standalone)",
                "FS (subgroup_method=dina)", "FS DINA bootstrap",
-               "FS (subgroup_method=grf)", "FS GRF bootstrap",
                "kfold", "oob", "Total"),
   Seconds = c(
     timings$grf,
@@ -1849,9 +1892,7 @@ timing_df <- data.frame(
     timings$fs_dina_screen,
     timings$dina_standalone,
     timings$fs_dina_select,
-    if (!is.null(timings$fs_dina_bootstrap)) timings$fs_dina_bootstrap else NA_real_,
-    timings$fs_grf_select,
-    if (!is.null(timings$fs_grf_bootstrap)) timings$fs_grf_bootstrap else NA_real_,
+    timings$fs_dina_bootstrap,
     timings$kfold,
     timings$oob,
     timings$total
@@ -1877,11 +1918,6 @@ León LF, Jemielita T, Guo Z, Marceau West R, Anderson KM (2024).
 A relatively simple procedure." *Statistics in Medicine*.
 DOI: [10.1002/sim.10163](https://doi.org/10.1002/sim.10163)
 
-Hammer SM, Katzenstein DA, Hughes MD, et al. (1996). A trial comparing
-nucleoside monotherapy with combination therapy in HIV-infected adults with CD4
-cell counts from 200 to 500 per cubic millimeter. AIDS Clinical Trials Group
-Study 175 Study Team. *N Engl J Med*. 335(15):1081-90.
-
 
 # Session Information
 
@@ -1890,7 +1926,7 @@ sessionInfo()
 ```
 
 
-# Reproducibility payload (Section 6.2) {#sec-export-payload-actg}
+# Reproducibility payload (Section 6.2) {#sec-export-payload-gbsg}
 
 The chunk below harvests the already-computed objects from the three engine runs
 into one small list and writes it as an `.rds` for the manuscript Section 6.2
@@ -1971,16 +2007,23 @@ dir.create(.out_dir, recursive = TRUE, showWarnings = FALSE)
        kappa = if (pe < 1) (po - pe) / (1 - pe) else NA_real_)
 }
 
-# Adverse-outcome rate by arm inside an engine's harm region (treat.recommend == 0).
-.harm_rates <- function(fit, oname, tname) {
-  if (is.null(fit) || is.na(oname) || is.na(tname)) return(NULL)
+# Observed event rate by arm inside an engine's harm region (treat.recommend == 0).
+# Cox analog of the binary version: the "rate" is the proportion experiencing the
+# event (status == 1), reported alongside n and event counts so a reader can
+# recompute incidence later if person-time is added.
+.harm_rates <- function(fit, ename, tname) {
+  if (is.null(fit) || is.na(ename) || is.na(tname)) return(NULL)
   d <- fit$df.est
-  if (is.null(d) || !all(c(oname, tname, "treat.recommend") %in% names(d))) return(NULL)
+  if (is.null(d) || !all(c(ename, tname, "treat.recommend") %in% names(d))) return(NULL)
   h <- d[d$treat.recommend == 0, , drop = FALSE]
   if (nrow(h) == 0L) return(NULL)
-  yt <- h[[oname]][h[[tname]] == 1]; yc <- h[[oname]][h[[tname]] == 0]
-  list(treated_pct = if (length(yt)) 100 * mean(yt) else NA_real_,
-       control_pct = if (length(yc)) 100 * mean(yc) else NA_real_)
+  et <- h[[ename]][h[[tname]] == 1]; ec <- h[[ename]][h[[tname]] == 0]
+  list(treated_n      = length(et),
+       control_n      = length(ec),
+       treated_events = if (length(et)) sum(et == 1, na.rm = TRUE) else NA_integer_,
+       control_events = if (length(ec)) sum(ec == 1, na.rm = TRUE) else NA_integer_,
+       treated_pct    = if (length(et)) 100 * mean(et == 1, na.rm = TRUE) else NA_real_,
+       control_pct    = if (length(ec)) 100 * mean(ec == 1, na.rm = TRUE) else NA_real_)
 }
 
 # Machine / hardware fingerprint of whatever computer ran this render, so that
@@ -2066,6 +2109,7 @@ dina_standalone <- if (!is.null(.dsel) && isTRUE(.dsel$found)) {
 
 .idname <- if (exists("id.name")) id.name else "id"
 .oname  <- if (exists("outcome.name")) outcome.name else NA_character_
+.ename  <- if (exists("event.name")) event.name else NA_character_
 .tname  <- if (exists("treat.name")) treat.name else NA_character_
 
 payload <- list(
@@ -2078,16 +2122,20 @@ payload <- list(
     n_total    = if (!is.null(.fs)) nrow(.fs$df.est) else NA_integer_,
     cores      = tryCatch(unname(future::availableCores()), error = function(e) NA_integer_),
     machine    = .machine_info(n_workers = if (exists("n_cores")) n_cores else NULL),
+    outcome    = .oname,
+    event      = .ename,
     covariates = if (exists("confounders.name")) confounders.name else NA_character_,
     timings    = list(fs = .meta_fs, dina = .meta_dina, grf = .meta_grf)),
   extras = list(
     concordance = .concordance(.fs, .fs_grf, .idname),
-    harm_rates  = .harm_rates(.fs, .oname, .tname)),
-  est_scale = "or",
+    harm_rates  = .harm_rates(.fs, .ename, .tname)),
+  est_scale = "hr",
   built_at  = Sys.time(),
   forestsearch_version = tryCatch(as.character(utils::packageVersion("forestsearch")), error = function(e) NA_character_))
 
-.payload_file <- file.path(.out_dir, "actg175_table_payload.rds")
+# Payload filename -- analog of actg175's "actg175_table_payload.rds".
+# (If your gbsg reader/manuscript doc expects "gbsg_table1_payload.rds", change it here.)
+.payload_file <- file.path(.out_dir, "gbsg_table_payload.rds")
 saveRDS(payload, .payload_file)
 cat("Wrote Section 6.2 payload to:", .payload_file, "\n")
 ```
