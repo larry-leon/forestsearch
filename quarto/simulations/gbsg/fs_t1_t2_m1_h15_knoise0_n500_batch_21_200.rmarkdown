@@ -76,7 +76,7 @@ library(doFuture)
 library(future)
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 200L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 180L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -98,14 +98,14 @@ k_random_noise <- 0       # Add k_random_noise confounders
 #
 # DEFAULT is a single batch starting at 1: render once and you have the whole run.
 run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
-sim_id_start <- 301L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
+sim_id_start <- 21L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
 
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 
-target_hr_harm  <- 1.0    # calibrate k_inter to this Cox HR in the harm subgroup
+target_hr_harm  <- 1.5    # calibrate k_inter to this Cox HR in the harm subgroup
 n_sample        <- 500L   # M1 sample size
 
-rds_stem     <- "fs_t1_t2_m1_h10_knoise0_n500"   # file stem; batch range appended below
+rds_stem     <- "fs_t1_t2_m1_h15_knoise0_n500"   # file stem; batch range appended below
 sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
 combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
