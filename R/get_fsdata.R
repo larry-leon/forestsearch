@@ -106,6 +106,13 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   }
   df.FS <- df.analysis
 
+  # Preserve the user's explicitly-supplied conf_force cuts BEFORE the
+  # `conf_force` variable is reused below to accumulate auto-generated
+  # default / J-quantile / lasso cuts.  These user-forced cuts must be exempt
+  # from collapse_redundant_cuts() so a deliberately chosen threshold such as
+  # "er <= 0" is never merged into a coarsened centroid and dropped.
+  conf_force_user <- conf_force
+
   # Resolve outcome_type if it's the raw default vector, then validate
   # explicitly.  Downstream code branches on this value via switch();
   # rejecting unknown values at entry gives a clearer error than a
@@ -543,6 +550,14 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
   if (isTRUE(collapse_cuts) && length(confs) > 0L) {
     .cca <- utils::modifyList(
       list(c = 1.0, tol = 0.05, digits = 0L), collapse_cuts_args)
+    # User-supplied conf_force cuts must survive coarsening verbatim.  Canonicalize
+    # them exactly as they were added to `confs` (process_conf_force_expr) so the
+    # strings match, then exempt them via `protect`.  Auto-generated default / jq /
+    # lasso cuts are NOT protected and remain subject to collapse.
+    .force_protect <- if (length(conf_force_user)) {
+      vapply(conf_force_user, process_conf_force_expr,
+             FUN.VALUE = character(1), df = df.FS)
+    } else character(0)
     confs <- collapse_redundant_cuts(
       cuts             = confs,
       df               = df.FS,
@@ -552,7 +567,7 @@ get_FSdata <- function(df.analysis, use_lasso = FALSE, use_grf = FALSE, grf_cuts
       digits           = .cca$digits,
       cont.cutoff      = cont.cutoff,
       details          = details,
-      protect          = unique(c(grf_cuts_keep, dina_cuts_keep))
+      protect          = unique(c(grf_cuts_keep, dina_cuts_keep, .force_protect))
     )
   }
   n_confs<-length(confs)
