@@ -1,0 +1,198 @@
+<!--
+  Coverage-vs-sample-size figure (manuscript fragment).  Plots empirical 95% CI
+  coverage of the marginal subgroup hazard ratio (C-dagger) for the MR
+  (multiplier-resampling) de-biased gate as a function of per-trial sample size n,
+  one line per detector method, in the manuscript reader style of
+  _sim_estimation_fs_h15.qmd.
+
+  Reads the pooled coverage grid written by save_coverage_grid()
+  (mr_coverage_grid.rds: a list with `coverage`, `manifest`, `truth`, `built`).
+  Needs ONLY that .rds and ggplot2 -- no forestsearch, no DGM, no simulation -- so
+  it renders inside the manuscript in seconds.  Defines @fig-mr-coverage and the
+  companion @fig-mr-detection.
+
+  All coverage rates are conditional on identifying a subgroup; the companion
+  panel reports the detection rate so the curve is read in that light.  Keep the
+  .rds beside this fragment or set `payload_dir` to the sweep's results_dir; when
+  absent, a placeholder figure renders so the cross-references still resolve.
+-->
+
+```{r mr-coverage-fig-setup}
+#| echo: false
+#| message: false
+#| warning: false
+library(ggplot2)
+
+run_tag     <- "m1_h10_knoise0_s20" # ← MUST match the sweep doc's run_tag (selects the run)
+rds_file    <- sprintf("mr_coverage_grid_%s.rds", run_tag)   # carries run_tag, so runs never collide
+# Where that grid file lives:
+#   NULL                                     -> beside this fragment (copy the one .rds here)
+#   file.path("mr_sweep", run_tag)           -> the sweep's run folder (same base as the sweep)
+#   file.path("/abs/path/mr_sweep", run_tag) -> the run folder by absolute path
+payload_dir <- NULL
+
+#payload_dir <- "mr_sweep_results"          # == results_dir in the sweep doc
+
+# Which slice is the manuscript figure (defaults = the C-dagger / MR / harm view).
+target_pick    <- "C_dagger"   # "C_dagger" (theta-dagger, marginal HR) | "C_ddagger" (CDE) | "C_oracle"
+estimator_pick <- "MR"         # "MR" | "naive" | "oracle"
+block_pick     <- "H"          # "H" (harm) | "Hc" (complement)
+band           <- "wilson"     # "wilson" | "mc_se" | "none"
+
+.pdir <- if (is.null(payload_dir))
+  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd()) else payload_dir
+.rds_path <- file.path(.pdir, rds_file)
+have_grid <- file.exists(.rds_path)
+
+.lab_tgt <- c(C_dagger  = "marginal subgroup hazard ratio (C\u2020)",
+              C_ddagger = "controlled direct effect (C\u2021)",
+              C_oracle  = "per-replicate oracle")[[target_pick]]
+.lab_blk <- if (block_pick == "H") "harm subgroup \u0124" else "complement \u0124\u1d9c"
+
+if (have_grid) {
+  G   <- readRDS(.rds_path)
+  cov <- G$coverage; man <- G$manifest
+  sl  <- cov[cov$target == target_pick & cov$estimator == estimator_pick &
+             cov$block == block_pick, , drop = FALSE]
+  sl  <- sl[order(sl$subgroup_method, sl$n_sample), ]
+
+  .rng <- function(x) { u <- sort(unique(x[is.finite(x)]))
+    if (length(u) <= 1L) format(u, big.mark = ",") else
+      sprintf("%s-%s", format(min(u), big.mark = ","), format(max(u), big.mark = ",")) }
+  ns_txt   <- .rng(sl$n_sims); gd_txt <- .rng(sl$gate_draws)
+  meth_txt <- paste(sort(unique(sl$subgroup_method)), collapse = ", ")
+
+  cap_fig <- sprintf(paste0(
+    "Empirical 95%% CI coverage of the %s for the MR de-biased gate, on the %s, ",
+    "as a function of per-trial sample size n (Le\u00f3n M1 design; %s simulations per ",
+    "cell, %s MR draws; detectors: %s). The dashed line marks 0.95 nominal coverage; ",
+    "shaded bands are Wilson 95%% intervals on each rate. All rates are conditional on ",
+    "identifying a subgroup (companion @fig-mr-detection)."),
+    .lab_tgt, .lab_blk, ns_txt, gd_txt, meth_txt)
+
+  cap_det <- sprintf(paste0(
+    "Subgroup-detection rate vs per-trial sample size n by detector (Le\u00f3n M1 design; ",
+    "%s simulations per cell). Coverage in @fig-mr-coverage is computed over detected ",
+    "replicates only, so it is read alongside this panel: at small n fewer and more ",
+    "strongly selected replicates contribute."), ns_txt)
+
+  len <- G$length
+  if (!is.null(len)) {
+    sl_len <- len[len$estimator == estimator_pick & len$block == block_pick, , drop = FALSE]
+    sl_len <- sl_len[order(sl_len$subgroup_method, sl_len$n_sample), ]
+    cap_len <- sprintf(paste0(
+      "Median width of the 95%% CI for the MR de-biased gate on the %s, as a function of ",
+      "per-trial sample size n (Le\u00f3n M1 design; %s simulations per cell; detectors: %s). ",
+      "Lines are median CI length on the hazard-ratio scale; shaded bands span the ",
+      "interquartile range (Q1-Q3) across replicates."), .lab_blk, ns_txt, meth_txt)
+  } else {
+    sl_len <- NULL
+    cap_len <- paste0("Median 95% CI length for the MR de-biased gate vs sample size, by ",
+      "detector. **Placeholder \u2014 the loaded grid predates CI-length storage; rebuild ",
+      "it by re-rendering the sweep with run_sweep <- FALSE.**")
+  }
+} else {
+  sl <- NULL; man <- NULL; sl_len <- NULL
+  cap_fig <- sprintf(paste0(
+    "Coverage of the %s for the MR de-biased gate vs sample size, by detector. ",
+    "**Placeholder \u2014 to be populated from the coverage grid (`%s`).**"),
+    .lab_tgt, rds_file)
+  cap_det <- "Detection rate vs sample size. **Placeholder \u2014 pending the coverage grid.**"
+  cap_len <- sprintf(paste0("Median 95%% CI length for the MR de-biased gate vs sample size, ",
+    "by detector. **Placeholder \u2014 to be populated from the coverage grid (`%s`).**"), rds_file)
+}
+```
+
+## Coverage of the marginal subgroup HR vs sample size {#sec-mr-coverage-fig}
+
+For the MR de-biased gate, @fig-mr-coverage tracks 95% CI coverage of the marginal
+subgroup hazard ratio across sample sizes for each detector. Coverage is taken
+over the detected replicates; @fig-mr-detection gives the corresponding detection
+rate.
+
+```{r}
+#| label: fig-mr-coverage
+#| fig-cap: !expr cap_fig
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 7
+#| fig-height: 4.5
+if (have_grid && !is.null(sl) && nrow(sl)) {
+  p <- ggplot(sl, aes(n_sample, coverage, colour = subgroup_method,
+                      fill = subgroup_method, group = subgroup_method))
+  if (band == "wilson")
+    p <- p + geom_ribbon(aes(ymin = wilson_lo, ymax = wilson_hi), alpha = 0.15, colour = NA)
+  if (band == "mc_se")
+    p <- p + geom_ribbon(aes(ymin = coverage - mc_se, ymax = coverage + mc_se),
+                         alpha = 0.15, colour = NA)
+  y_lo <- min(0.85, min(sl$wilson_lo, sl$coverage, na.rm = TRUE))
+  p + geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
+    geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+    scale_x_continuous(breaks = sort(unique(sl$n_sample))) +
+    coord_cartesian(ylim = c(y_lo, 1.0)) +
+    labs(x = "Sample size  n", y = "95% CI coverage",
+         colour = "Method", fill = "Method") +
+    theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+} else {
+  ggplot() +
+    annotate("text", x = 0, y = 0, size = 4, colour = "grey50",
+             label = "Pending coverage grid\n(mr_coverage_grid.rds)") +
+    theme_void()
+}
+```
+
+```{r}
+#| label: fig-mr-detection
+#| fig-cap: !expr cap_det
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 7
+#| fig-height: 3.6
+if (have_grid && !is.null(man) && nrow(man)) {
+  ggplot(man, aes(n_sample, det_rate, colour = subgroup_method, group = subgroup_method)) +
+    geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+    scale_x_continuous(breaks = sort(unique(man$n_sample))) +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Sample size  n", y = "Detection rate", colour = "Method") +
+    theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+} else {
+  ggplot() +
+    annotate("text", x = 0, y = 0, size = 4, colour = "grey50",
+             label = "Pending coverage grid") +
+    theme_void()
+}
+```
+
+## Width of the 95% CIs vs sample size {#sec-mr-cilength}
+
+@fig-mr-cilength reports the median width of the MR 95% CI across sample sizes for
+each detector — the precision companion to the coverage curve. Width is a property
+of the interval alone, so unlike coverage it has no target (C† / C‡) distinction.
+
+```{r}
+#| label: fig-mr-cilength
+#| fig-cap: !expr cap_len
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 7
+#| fig-height: 4
+if (have_grid && !is.null(sl_len) && nrow(sl_len)) {
+  ggplot(sl_len, aes(n_sample, len_med, colour = subgroup_method,
+                     fill = subgroup_method, group = subgroup_method)) +
+    geom_ribbon(aes(ymin = len_q25, ymax = len_q75), alpha = 0.15, colour = NA) +
+    geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+    scale_x_continuous(breaks = sort(unique(sl_len$n_sample))) +
+    expand_limits(y = 0) +
+    labs(x = "Sample size  n", y = "95% CI length (HR scale)",
+         colour = "Method", fill = "Method") +
+    theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+} else {
+  ggplot() +
+    annotate("text", x = 0, y = 0, size = 4, colour = "grey50",
+             label = "Pending CI-length data\n(rebuild grid: run_sweep <- FALSE)") +
+    theme_void()
+}
+```

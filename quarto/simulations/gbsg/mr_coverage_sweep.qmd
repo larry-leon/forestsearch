@@ -1,0 +1,755 @@
+---
+title: "Multiplier-Resampling Coverage Sweep"
+subtitle: "95% coverage of the marginal subgroup hazard ratio (C†) vs sample size, for the consistency / dina / grf detectors — León (2024) M1 design"
+author: "Larry León"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    html-math-method: mathjax
+    theme: cosmo
+    fig-cap-location: bottom
+    code-fold: true
+---
+
+> **One document, one sweep.** This renders the entire
+> `subgroup_method × n_sample` grid (3 methods × 7 sizes = 21 cells), writes one
+> small results bundle per cell to `results_dir/`, accumulates them into a single
+> coverage grid (`mr_coverage_grid.rds`), and plots C† coverage vs *n*. It is
+> **resumable**: each cell is skipped if its bundle already exists, so you can run
+> a subset today and the rest later and the grid fills in. Set `nb_boots <- NULL`
+> (the default) for the MR-only run; the full-bootstrap (FB) path stays wired but
+> dormant.
+>
+> **How to drive it.**
+> 1. *Preliminary:* keep `n_sims` small and subset the sweep (`methods_run`,
+>    `n_grid_run`) to a cell or two; render; eyeball.
+> 2. *Production:* bump `n_sims`, restore the full `methods_run` / `n_grid_run`,
+>    render. Finished cells are skipped; only new ones compute.
+> 3. *Re-plot only:* set `run_sweep <- FALSE` to rebuild the grid and figures
+>    from existing bundles without running anything.
+>
+> To force a cell to recompute (e.g. after raising `n_sims`), delete its
+> `*_res.rds` in `results_dir/`.
+
+# What this evaluates {#sec-intro}
+
+For each cell — one `(subgroup_method, n_sample)` pair — the document runs
+`n_sims` simulated trials on the León (2024) GBSG-AFT M1 super-population, and on
+each detected replicate records the **MR** de-biased gate
+(`forestsearch(debias_gate = TRUE)`, infinitesimal-jackknife interval) together
+with the oracle and naive estimators. Coverage is the proportion of detected
+replicates whose 95% CI contains the target, computed against the **marginal
+subgroup hazard ratio** θ† (population, *n*-invariant). Because θ† and the other
+truth targets are properties of the fixed DGM, the DGM is built **once** and
+reused across every cell, so the coverage-vs-*n* curve compares like with like.
+
+All coverage rates here are **conditional on detecting a subgroup**; the
+companion detection-rate panel is reported alongside so the curve is read in that
+light.
+
+# Setup — all knobs {#sec-setup}
+
+```{r setup, message=FALSE, warning=FALSE}
+.t0_doc <- Sys.time()
+
+# forestsearch must be INSTALLED (devtools::install()), not load_all(): the
+# doFuture multisession workers spawn separate R processes that only see the
+# installed package.
+library(forestsearch)
+library(survival)
+library(data.table)
+library(ggplot2)
+library(foreach)
+library(doFuture)
+library(future)
+
+# ── The sweep ────────────────────────────────────────────────────────────────
+methods  <- c("consistency", "dina", "grf")     # detector axis
+n_grid   <- seq(500L, 2000L, by = 250L)         # sample-size axis: 500..2000 by 250 (7)
+
+# Subset these for a preliminary pass; restore to `methods` / `n_grid` for the
+# full grid.  (Resumable either way — see the run-sweep chunk.)
+methods_run <- methods                           # e.g. "consistency"
+n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
+
+# ── Counts (the main knobs for smoke → production) ───────────────────────────
+n_sims    <- 20L        # simulated trials per cell        (prod: 1000 → 20000)
+nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
+gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
+diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
+
+# ── Run controls ─────────────────────────────────────────────────────────────
+run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re)build grid + plots
+# run_tag identifies THIS run (DGM cell · sim count · draws · whatever distinguishes it).
+# results_dir AND the grid filename both derive from it, so changing run_tag writes to a new
+# folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
+# The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
+# so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
+
+run_tag     <- "m1_h10_knoise0_s20" # ← bump this for a fresh, isolated run
+results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
+rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
+grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
+
+# ── Parallelization ──────────────────────────────────────────────────────────
+# "sims"  -> replicates fan out across workers (each rep's search runs sequentially).
+#            BEST for this MR-only sweep: no inner bootstrap, so filling cores with
+#            replicates is the throughput win.
+# "boots" -> replicates sequential; the search (and, if nb_boots>0, the bootstrap)
+#            parallelize WITHIN each replicate.  Prefer only if a cell sets nb_boots>0
+#            with small n_sims.
+# All draws are explicitly seeded (seed_base + sim_id), so results are
+# plan-invariant: the modes differ in wall-clock only.
+parallel_mode <- "sims"
+seed_base <- 8316951L
+n_workers <- max(1L, ceiling(0.90 * (parallel::detectCores(logical = FALSE) - 1L)))
+inner_parallel <- if (identical(parallel_mode, "boots"))
+  list(plan = "multisession", workers = n_workers) else list(plan = "sequential")
+z975 <- qnorm(0.975)
+
+# ── DGM: León M1 cell (GBSG AFT super-population, alt hypothesis) ─────────────
+dgm_model      <- "alt"
+analysis_time  <- 84            # administrative censoring (months)
+cens_adjust    <- log(1.5)
+n_super        <- 25000L
+target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
+k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
+
+# ── Search configuration (León tuning; resample identification) ──────────────
+consistency_method <- "resample"
+sg_focus           <- "eff"     # consistency + "eff" ⇒ gate re-selection "maxcons"
+selection_rule     <- "neighborhood"
+hr_threshold   <- 0.90
+hr_consistency <- 0.80
+pconsistency   <- 0.90
+fs_splits <- 400L; maxk <- 2L; n_min <- NULL; d0_min <- 10L; d1_min <- 0L
+use_lasso <- FALSE; use_dina <- FALSE; use_grf <- FALSE; use_twostage <- TRUE
+fs_conf_force      <- c("meno == 0", "er <= 0", "pgr <= 0")   # premenopausal (raw analog of z3 == 1)
+fs_conf.cont_jcuts <- list(er = 10)                          # J-quantile grid on raw ER
+
+# Method-specific selectors (only the matching block is used per cell).
+grf_selection <- "frontier"; grf_select_statistic <- "effect"
+grf_depth <- 2L; dmin.grf <- 0.0
+dina_args <- list(); dina_select_statistic <- "effect"
+
+# ── Column names emitted by simulate_from_dgm() ──────────────────────────────
+outcome_name <- "y_sim"; event_name <- "event_sim"; treat_name <- "treat_sim"
+id_name <- "id"; harm_col <- "flag_harm"
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
+
+`%||%` <- function(a, b) if (is.null(a) || length(a) == 0 || all(is.na(a))) b else a
+
+cat(sprintf("Sweep: %d method(s) × %d size(s) = %d cell(s) to consider.\n",
+            length(methods_run), length(n_grid_run),
+            length(methods_run) * length(n_grid_run)))
+cat(sprintf("Counts: n_sims=%d, nb_boots=%s (MR-only=%s), gate_draws=%d.\n",
+            n_sims, if (is.null(nb_boots)) "NULL" else as.character(nb_boots),
+            if (is.null(nb_boots) || identical(nb_boots, 0L)) "yes" else "no", gate_draws))
+cat(sprintf("Parallel: %s · %d workers · seed_base=%d.\n",
+            parallel_mode, n_workers, seed_base))
+```
+
+# Build the DGM once (n-invariant truth) {#sec-dgm}
+
+```{r build-dgm}
+dgm <- NULL; truth <- NULL
+if (run_sweep) {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        n_super = n_super, seed = seed_base)
+  dgm <- compute_dgm_cde(dgm)   # attaches CDE (θ‡) targets
+
+  truth <- list(
+    hr_causal = dgm$hr_causal  %||% NA_real_,                 # overall causal HR
+    marg_H    = dgm$hr_H_true  %||% NA_real_,                 # θ†  (H)
+    marg_Hc   = dgm$hr_Hc_true %||% NA_real_,                 # θ†  (Hc)
+    cde_H     = dgm$cde_H  %||% (dgm$hazard_ratios$CDE_harm    %||% NA_real_),  # θ‡ (H)
+    cde_Hc    = dgm$cde_Hc %||% (dgm$hazard_ratios$CDE_no_harm %||% NA_real_)   # θ‡ (Hc)
+  )
+  cat("DGM truth targets (population, shared by every cell):\n")
+  cat(sprintf("  overall causal HR    : %.3f\n", truth$hr_causal))
+  cat(sprintf("  θ†  (marginal)  H/Hc : %.3f / %.3f\n", truth$marg_H, truth$marg_Hc))
+  cat(sprintf("  θ‡  (CDE)       H/Hc : %.3f / %.3f\n", truth$cde_H,  truth$cde_Hc))
+} else {
+  cat("run_sweep = FALSE: DGM build skipped (grid rebuilt from existing bundles).\n")
+}
+```
+
+# Per-replicate recorder {#sec-recorder}
+
+`record_replicate()` takes the cell axes (`method`, `n_sample`) explicitly and
+reads the fixed configuration from the setup chunk. Everything else mirrors the
+single-cell recorder: identify Ĥ + naive + MR gate in one `forestsearch()` call,
+optionally run the FB bootstrap (skipped when `nb_boots` is NULL/0), and refit
+the oracle on the true harm subgroup. A failure returns an all-NA record so the
+loop never aborts a cell.
+
+```{r recorder}
+# Cox HR + delta-method 95% CI on a subset (the per-replicate oracle target).
+# Guards separation: non-finite coef/SE returns a clean NA triple, not Inf bounds.
+.cox_hr_ci <- function(df) {
+  if (sum(df[[event_name]]) < 5L || length(unique(df[[treat_name]])) < 2L)
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  fml <- stats::as.formula(sprintf("survival::Surv(%s, %s) ~ %s",
+                                   outcome_name, event_name, treat_name))
+  fit <- tryCatch(survival::coxph(fml, data = df), error = function(e) NULL)
+  if (is.null(fit)) return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  b <- unname(stats::coef(fit)[1])
+  v <- unname(suppressWarnings(diag(stats::vcov(fit))[1]))
+  se <- if (is.finite(v) && v > 0) sqrt(v) else NA_real_
+  if (!is.finite(b) || !is.finite(se))
+    return(c(est = NA_real_, lo = NA_real_, hi = NA_real_))
+  c(est = exp(b), lo = exp(b - z975 * se), hi = exp(b + z975 * se))
+}
+
+# Classification of Ĥ vs the true harm flag.
+.classify <- function(sg_hat, truth_flag) {
+  out <- c(sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_)
+  if (is.null(sg_hat) || length(sg_hat) != length(truth_flag)) return(out)
+  sg_hat <- as.integer(sg_hat); truth_flag <- as.integer(truth_flag)
+  tp <- sum(sg_hat == 1 & truth_flag == 1); fp <- sum(sg_hat == 1 & truth_flag == 0)
+  fn <- sum(sg_hat == 0 & truth_flag == 1); tn <- sum(sg_hat == 0 & truth_flag == 0)
+  out["sens"] <- if (tp + fn > 0) tp / (tp + fn) else NA_real_
+  out["spec"] <- if (tn + fp > 0) tn / (tn + fp) else NA_real_
+  out["ppv"]  <- if (tp + fp > 0) tp / (tp + fp) else NA_real_
+  out["npv"]  <- if (tn + fn > 0) tn / (tn + fn) else NA_real_
+  out
+}
+
+# One all-NA record (returned on failure so the loop never aborts a cell).
+.na_record <- function(sim_id) data.frame(
+  sim_id = sim_id, detected = 0L, gate_ok = 0L, n_sel = NA_integer_,
+  n_harm = NA_integer_, n_true = NA_integer_,
+  label = NA_character_, t1_secs = NA_real_, t2_secs = NA_real_, t1_err = NA_character_,
+  or_H_est = NA, or_H_lo = NA, or_H_hi = NA,
+  or_Hc_est = NA, or_Hc_lo = NA, or_Hc_hi = NA,
+  nv_H_est = NA, nv_H_lo = NA, nv_H_hi = NA,
+  nv_Hc_est = NA, nv_Hc_lo = NA, nv_Hc_hi = NA,
+  t1_H_est = NA, t1_H_lo = NA, t1_H_hi = NA,
+  t1_Hc_est = NA, t1_Hc_lo = NA, t1_Hc_hi = NA,
+  t2_H_est = NA, t2_H_lo = NA, t2_H_hi = NA, t2_H_se_ij = NA,
+  t2_Hc_est = NA, t2_Hc_lo = NA, t2_Hc_hi = NA, t2_Hc_se_ij = NA,
+  t2_harm_flag = NA_integer_, ij_source = NA_character_,
+  sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+  stringsAsFactors = FALSE)
+
+record_replicate <- function(sim_id, method, n_sample, nb_boots) {
+  run_tier1 <- is.numeric(nb_boots) && length(nb_boots) == 1L && nb_boots >= 1L
+  rec <- .na_record(sim_id)
+
+  df <- tryCatch(
+    simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
+                      cens_adjust = cens_adjust, seed = seed_base + sim_id),
+    error = function(e) NULL)
+  if (is.null(df)) return(rec)
+  df[[id_name]] <- seq_len(nrow(df))
+  confs <- intersect(confounders_base, names(df))
+
+  # Optional standard-normal noise confounders, seeded by sim_id (offset to stay
+  # disjoint from the DGM seed) so the full replicate is a deterministic function
+  # of sim_id, independent of batch/loop position.
+  if (k_random_noise > 0) {
+    noise_names <- paste0("noise", seq_len(k_random_noise))
+    set.seed(seed_base + sim_id + 1000000L)
+    for (nm in noise_names) df[[nm]] <- rnorm(nrow(df))
+    confs <- c(confs, noise_names)
+  }
+
+  rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)
+
+  # ---- Identification + naive + MR gate (single forestsearch call) ----------
+  base_args <- list(
+    df.analysis     = df,
+    outcome.name    = outcome_name, event.name = event_name,
+    treat.name      = treat_name,   id.name    = id_name,
+    flag_harm.name  = harm_col,     confounders.name = confs,
+    is.RCT          = TRUE,         seedit = seed_base + sim_id,
+    quiet           = TRUE,
+    sg_focus        = sg_focus,
+    subgroup_method = method,
+    hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
+    pconsistency.threshold = pconsistency, n.min = n_min,
+    selection_rule  = selection_rule,
+    parallel_args   = inner_parallel,
+    debias_gate     = TRUE,
+    debias_gate_args = list(ci_method = "ij", draws = gate_draws,
+                            include_complement = TRUE))
+  method_args <- switch(
+    method,
+    consistency = list(
+      consistency_method = consistency_method,
+      use_lasso = use_lasso, use_grf = use_grf, use_twostage = use_twostage,
+      use_dina = use_dina, conf_force = fs_conf_force,
+      conf.cont_jcuts = fs_conf.cont_jcuts,
+      fs.splits = fs_splits, maxk = maxk, d0.min = d0_min, d1.min = d1_min),
+    dina = list(dina_select_statistic = dina_select_statistic, dina_args = dina_args),
+    grf  = list(grf_selection = grf_selection, grf_depth = grf_depth,
+                dmin.grf = dmin.grf, grf_select_statistic = grf_select_statistic),
+    stop("unknown subgroup_method: ", method))
+
+  t2_t0 <- proc.time()[3]
+  fs.est <- tryCatch(do.call(forestsearch, c(base_args, method_args)),
+                     error = function(e) {
+                       if (isTRUE(get0("diag_mode", ifnotfound = FALSE)))
+                         warning(sprintf("FS-ERR sim %d (%s, n=%d): %s", sim_id,
+                                         method, n_sample, conditionMessage(e)),
+                                 call. = FALSE)
+                       NULL })
+  rec$t2_secs <- proc.time()[3] - t2_t0
+  if (is.null(fs.est)) return(rec)
+
+  g     <- fs.est$debias_gate
+  found <- !is.null(fs.est$sg.harm)
+  rec$detected <- as.integer(found)
+  if (!found) return(rec)
+  rec$gate_ok <- as.integer(!is.null(g))
+
+  if (!is.null(g)) {
+    rec$label <- g$selected_label %||% NA_character_
+    rec$n_sel <- g$n_selected      %||% NA_integer_
+    rec$t2_harm_flag <- as.integer(isTRUE(g$harm_flag))
+    rec$ij_source    <- g$debiased$ij_source %||% NA_character_
+    rec$nv_H_est <- g$naive$est;    rec$nv_H_lo <- g$naive$lower;    rec$nv_H_hi <- g$naive$upper
+    rec$t2_H_est <- g$debiased$est; rec$t2_H_lo <- g$debiased$lower; rec$t2_H_hi <- g$debiased$upper
+    rec$t2_H_se_ij <- g$debiased$se_ij %||% NA_real_
+    if (is.list(g$complement) && !is.null(g$complement$debiased)) {
+      rec$nv_Hc_est <- g$complement$naive$est
+      rec$nv_Hc_lo  <- g$complement$naive$lower
+      rec$nv_Hc_hi  <- g$complement$naive$upper
+      rec$t2_Hc_est <- g$complement$debiased$est
+      rec$t2_Hc_lo  <- g$complement$debiased$lower
+      rec$t2_Hc_hi  <- g$complement$debiased$upper
+      rec$t2_Hc_se_ij <- g$complement$debiased$se_ij %||% NA_real_
+    }
+  }
+
+  cl <- .classify(fs.est$grp.consistency$sg.harm.id, df[[harm_col]])
+  rec$sens <- cl["sens"]; rec$spec <- cl["spec"]; rec$ppv <- cl["ppv"]; rec$npv <- cl["npv"]
+  rec$n_harm <- sum(fs.est$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
+
+  # ---- FB bootstrap (H2 = León Eq.7) — dormant when nb_boots NULL/0 ----------
+  if (run_tier1 && method %in% c("consistency", "dina", "grf")) {
+    t1_t0 <- proc.time()[3]; t1_err <- NA_character_
+    boot <- tryCatch(
+      forestsearch_bootstrap_dofuture(fs.est, nb_boots = nb_boots,
+                                      seed = seed_base + sim_id,
+                                      parallel_args = inner_parallel),
+      error = function(e) { t1_err <<- conditionMessage(e); NULL })
+    rec$t1_secs <- proc.time()[3] - t1_t0
+    rec$t1_err  <- t1_err
+    if (!is.null(boot) && !is.null(boot$H_estimates)) {
+      he <- boot$H_estimates
+      rec$t1_H_est <- he$H2 %||% NA_real_
+      rec$t1_H_lo  <- he$H2_lower %||% NA_real_
+      rec$t1_H_hi  <- he$H2_upper %||% NA_real_
+    }
+    if (!is.null(boot) && !is.null(boot$Hc_estimates)) {
+      hce <- boot$Hc_estimates
+      rec$t1_Hc_est <- hce$H2 %||% NA_real_
+      rec$t1_Hc_lo  <- hce$H2_lower %||% NA_real_
+      rec$t1_Hc_hi  <- hce$H2_upper %||% NA_real_
+    }
+  }
+
+  # ---- Oracle: refit on the TRUE harm subgroup of this trial ----------------
+  oH  <- .cox_hr_ci(df[df[[harm_col]] == 1, , drop = FALSE])
+  oHc <- .cox_hr_ci(df[df[[harm_col]] == 0, , drop = FALSE])
+  rec$or_H_est  <- oH["est"];  rec$or_H_lo  <- oH["lo"];  rec$or_H_hi  <- oH["hi"]
+  rec$or_Hc_est <- oHc["est"]; rec$or_Hc_lo <- oHc["lo"]; rec$or_Hc_hi <- oHc["hi"]
+
+  rec
+}
+```
+
+# `run_cell()` — one (method, n) → one bundle {#sec-runcell}
+
+```{r run-cell}
+# Runs `n_sims` replicates for one cell and returns (and optionally writes) the
+# bundle list(results, truth, meta) — exactly the structure the original
+# single-cell doc saved, so downstream readers (and the per-cell León-Table view
+# in _sim_estimation_fs_*.qmd) consume it unchanged.
+run_cell <- function(method, n_sample, nb_boots = NULL, out = NULL,
+                     sim_id_start = 1L) {
+  sim_ids <- sim_id_start:(sim_id_start + n_sims - 1L)
+  if (isTRUE(diag_mode)) sim_ids <- utils::head(sim_ids, 5L)
+
+  t0 <- proc.time()[3]
+  if (identical(parallel_mode, "sims")) {
+    plan("sequential"); gc(); plan("multisession", workers = n_workers)
+    results <- foreach(
+      s = sim_ids, .combine = rbind, .errorhandling = "remove",
+      .options.future = list(packages = c("forestsearch", "survival", "data.table"),
+                             seed = TRUE)
+    ) %dofuture% record_replicate(s, method, n_sample, nb_boots)
+    plan("sequential"); gc()
+  } else {
+    plan("sequential"); gc()
+    results <- do.call(rbind, lapply(sim_ids, function(s)
+      tryCatch(record_replicate(s, method, n_sample, nb_boots), error = function(e) NULL)))
+    plan("sequential"); gc()
+  }
+  elapsed <- proc.time()[3] - t0
+  if (is.null(results) || !nrow(results)) results <- .na_record(0L)[0, , drop = FALSE]
+
+  bundle <- list(
+    results = results, truth = truth,
+    meta = list(n_sample = n_sample, n_sims = n_sims, nb_boots = nb_boots,
+                gate_draws = gate_draws, subgroup_method = method,
+                sim_id_start = sim_id_start, sim_id_end = max(sim_ids),
+                seed_base = seed_base, parallel_mode = parallel_mode,
+                elapsed_sec = elapsed))
+  if (!is.null(out)) saveRDS(bundle, out)
+  bundle
+}
+```
+
+# Coverage post-processing helpers (inlined) {#sec-helpers}
+
+```{r coverage-helpers}
+.EST_KEYS   <- c(oracle = "or", naive = "nv", FB = "t1", MR = "t2")
+.TARGET_COL <- c(oracle = "C_oracle", cde = "C_ddagger", marg = "C_dagger")
+
+# Coverage + uncertainty for one (target, lo, hi) triple.  The finite-only mask
+# reproduces the original .cover() exactly; n_eff / mc_se / Wilson are additions.
+.coverage_meta <- function(target, lo, hi, conf = 0.95) {
+  n <- length(lo); target <- rep_len(target, n)
+  ok <- is.finite(target) & is.finite(lo) & is.finite(hi)
+  n_eff <- sum(ok)
+  if (n_eff == 0L)
+    return(data.frame(coverage = NA_real_, n_eff = 0L, n_cov = NA_integer_,
+                      mc_se = NA_real_, wilson_lo = NA_real_, wilson_hi = NA_real_))
+  hit <- target[ok] >= lo[ok] & target[ok] <= hi[ok]
+  k <- sum(hit); p <- k / n_eff
+  mc_se <- sqrt(p * (1 - p) / n_eff)
+  z <- stats::qnorm(1 - (1 - conf) / 2)
+  den <- 1 + z^2 / n_eff
+  ctr <- (p + z^2 / (2 * n_eff)) / den
+  hw  <- (z / den) * sqrt(p * (1 - p) / n_eff + z^2 / (4 * n_eff^2))
+  data.frame(coverage = p, n_eff = n_eff, n_cov = k, mc_se = mc_se,
+             wilson_lo = max(0, ctr - hw), wilson_hi = min(1, ctr + hw))
+}
+
+# CI length (HR scale, hi - lo) for one (estimator, block); target-independent, so
+# summarised once per (method, n, block, estimator) rather than per coverage target.
+# Median is the headline (robust to the occasional IJ blow-up); IQR carries spread.
+.length_meta <- function(lo, hi) {
+  len <- hi - lo; len <- len[is.finite(len)]
+  if (!length(len))
+    return(data.frame(len_med = NA_real_, len_mean = NA_real_,
+                      len_q25 = NA_real_, len_q75 = NA_real_, n_len = 0L))
+  q <- stats::quantile(len, c(0.25, 0.75), names = FALSE, type = 7)
+  data.frame(len_med = stats::median(len), len_mean = mean(len),
+             len_q25 = q[1], len_q75 = q[2], n_len = length(len))
+}
+
+# One bundle (path or list) → tidy one-row-per (method, n, block, estimator, target).
+coverage_from_bundle <- function(bundle,
+                                 estimators = c("oracle", "naive", "MR"),
+                                 blocks = c("H", "Hc"),
+                                 targets = c("marg", "cde"),
+                                 drop_all_na = TRUE, src = NULL) {
+  if (is.character(bundle)) {
+    stopifnot(file.exists(bundle)); if (is.null(src)) src <- basename(bundle)
+    bundle <- readRDS(bundle)
+  }
+  if (is.null(src)) src <- NA_character_
+  res <- bundle$results; tr <- bundle$truth; meta <- bundle$meta
+  stopifnot(is.data.frame(res), is.list(tr), is.list(meta))
+  rH <- res[res$detected == 1L, , drop = FALSE]
+
+  rows <- list()
+  for (blk in blocks) {
+    tgt_val <- list(oracle = rH[[paste0("or_", blk, "_est")]],
+                    cde    = tr[[paste0("cde_",  blk)]],
+                    marg   = tr[[paste0("marg_", blk)]])
+    for (est in estimators) {
+      k  <- .EST_KEYS[[est]]
+      lo <- rH[[paste0(k, "_", blk, "_lo")]]; hi <- rH[[paste0(k, "_", blk, "_hi")]]
+      for (tg in targets) {
+        cm <- .coverage_meta(tgt_val[[tg]], lo, hi)
+        rows[[length(rows) + 1L]] <- cbind(
+          data.frame(subgroup_method = meta$subgroup_method %||% NA_character_,
+                     n_sample = meta$n_sample %||% NA_integer_,
+                     block = blk, estimator = est,
+                     target = unname(.TARGET_COL[[tg]]), stringsAsFactors = FALSE),
+          cm,
+          data.frame(n_sims = meta$n_sims %||% NA_integer_, n_detected = nrow(rH),
+                     det_rate = if (nrow(res)) mean(res$detected, na.rm = TRUE) else NA_real_,
+                     gate_draws = meta$gate_draws %||% NA_integer_,
+                     nb_boots = meta$nb_boots %||% NA_integer_,
+                     seed_base = meta$seed_base %||% NA_integer_, src = src,
+                     stringsAsFactors = FALSE))
+      }
+    }
+  }
+  df <- do.call(rbind, rows)
+  if (isTRUE(drop_all_na)) df <- df[!is.na(df$coverage), , drop = FALSE]
+  rownames(df) <- NULL; df
+}
+
+# One bundle -> tidy one-row-per (method, n, block, estimator) CI-length summary.
+length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
+                               blocks = c("H", "Hc"), src = NULL) {
+  if (is.character(bundle)) {
+    stopifnot(file.exists(bundle)); if (is.null(src)) src <- basename(bundle)
+    bundle <- readRDS(bundle)
+  }
+  if (is.null(src)) src <- NA_character_
+  res <- bundle$results; meta <- bundle$meta
+  stopifnot(is.data.frame(res), is.list(meta))
+  rH <- res[res$detected == 1L, , drop = FALSE]
+  rows <- list()
+  for (blk in blocks) for (est in estimators) {
+    k  <- .EST_KEYS[[est]]
+    lm <- .length_meta(rH[[paste0(k, "_", blk, "_lo")]], rH[[paste0(k, "_", blk, "_hi")]])
+    rows[[length(rows) + 1L]] <- cbind(
+      data.frame(subgroup_method = meta$subgroup_method %||% NA_character_,
+                 n_sample = meta$n_sample %||% NA_integer_,
+                 block = blk, estimator = est, stringsAsFactors = FALSE),
+      lm,
+      data.frame(n_sims = meta$n_sims %||% NA_integer_,
+                 gate_draws = meta$gate_draws %||% NA_integer_,
+                 nb_boots = meta$nb_boots %||% NA_integer_, src = src,
+                 stringsAsFactors = FALSE))
+  }
+  df <- do.call(rbind, rows); rownames(df) <- NULL; df
+}
+
+# Pool many cells into one tidy grid; assert a shared DGM (truth + seed_base).
+accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
+                                blocks = c("H", "Hc"), targets = c("marg", "cde"),
+                                require_same_truth = TRUE, truth_tol = 1e-8) {
+  paths <- paths[file.exists(paths)]
+  if (!length(paths)) stop("accumulate_coverage: no files found.")
+  bundles <- lapply(paths, readRDS)
+
+  if (require_same_truth && length(bundles) > 1L) {
+    t1 <- bundles[[1]]$truth
+    for (i in seq_along(bundles)[-1]) {
+      cmp <- all.equal(t1, bundles[[i]]$truth, tolerance = truth_tol)
+      if (!isTRUE(cmp))
+        stop(sprintf("truth differs (%s vs %s): %s", basename(paths[1]),
+                     basename(paths[i]), paste(cmp, collapse = "; ")))
+    }
+    sb <- vapply(bundles, function(b) as.integer(b$meta$seed_base %||% NA_integer_), integer(1))
+    if (length(unique(stats::na.omit(sb))) > 1L)
+      stop("cells disagree on seed_base (different DGM).")
+  }
+
+  cov_df <- do.call(rbind, lapply(seq_along(bundles), function(i)
+    coverage_from_bundle(bundles[[i]], estimators = estimators, blocks = blocks,
+                         targets = targets, src = basename(paths[i]))))
+  len_df <- do.call(rbind, lapply(seq_along(bundles), function(i)
+    length_from_bundle(bundles[[i]], estimators = estimators, blocks = blocks,
+                       src = basename(paths[i]))))
+  rownames(cov_df) <- NULL; rownames(len_df) <- NULL
+
+  manifest <- do.call(rbind, lapply(seq_along(bundles), function(i) {
+    m <- bundles[[i]]$meta; r <- bundles[[i]]$results
+    data.frame(file = basename(paths[i]),
+               subgroup_method = m$subgroup_method %||% NA_character_,
+               n_sample = m$n_sample %||% NA_integer_, n_sims = m$n_sims %||% NA_integer_,
+               n_detected = sum(r$detected == 1L, na.rm = TRUE),
+               det_rate = mean(r$detected, na.rm = TRUE),
+               gate_draws = m$gate_draws %||% NA_integer_,
+               nb_boots = m$nb_boots %||% NA_integer_,
+               seed_base = m$seed_base %||% NA_integer_, stringsAsFactors = FALSE)
+  }))
+  manifest <- manifest[order(manifest$subgroup_method, manifest$n_sample), ]
+  rownames(manifest) <- NULL
+  list(coverage = cov_df, length = len_df, manifest = manifest,
+       truth = bundles[[1]]$truth, built = Sys.time())
+}
+
+save_coverage_grid <- function(grid, path) { saveRDS(grid, path); invisible(path) }
+```
+
+# Run the sweep {#sec-run}
+
+```{r run-sweep, message=FALSE, warning=FALSE}
+dir.create(results_dir, showWarnings = FALSE, recursive = TRUE)
+cell_path <- function(method, n)
+  file.path(results_dir, sprintf("%s_%s_n%d_res.rds", rds_tag, method, n))
+
+sweep_log <- NULL
+if (run_sweep) {
+  sweep <- expand.grid(subgroup_method = methods_run, n_sample = n_grid_run,
+                       stringsAsFactors = FALSE)
+  sweep <- sweep[order(sweep$subgroup_method, sweep$n_sample), ]
+
+  for (i in seq_len(nrow(sweep))) {
+    m <- sweep$subgroup_method[i]; n <- sweep$n_sample[i]
+    out <- cell_path(m, n)
+    if (file.exists(out)) {
+      status <- "skip"; el <- NA_real_; ndet <- NA_integer_
+    } else {
+      b <- tryCatch(run_cell(m, n, nb_boots = nb_boots, out = out),
+                    error = function(e) { message(sprintf("cell %s n=%d FAILED: %s",
+                                                          m, n, conditionMessage(e))); NULL })
+      if (is.null(b)) { status <- "FAIL"; el <- NA_real_; ndet <- NA_integer_ }
+      else { status <- "ran"; el <- b$meta$elapsed_sec
+             ndet <- sum(b$results$detected == 1L, na.rm = TRUE) }
+    }
+    sweep_log <- rbind(sweep_log, data.frame(
+      subgroup_method = m, n_sample = n, status = status,
+      elapsed_sec = round(el, 1), n_detected = ndet,
+      file = basename(out), stringsAsFactors = FALSE))
+    cat(sprintf("[%2d/%2d] %-12s n=%-4d : %-4s%s\n", i, nrow(sweep), m, n, status,
+                if (!is.na(el)) sprintf("  %5.0fs, %d det", el, ndet) else ""))
+  }
+} else {
+  cat("run_sweep = FALSE — no cells computed; grid rebuilt from existing bundles.\n")
+}
+```
+
+# Build and save the coverage grid {#sec-grid}
+
+```{r build-grid}
+# Glob EVERY cell present in results_dir (not just this run's subset) so the grid
+# reflects all accumulated cells — the heart of the resumable workflow.
+all_bundles <- Sys.glob(file.path(results_dir, sprintf("%s_*_n*_res.rds", rds_tag)))
+have_grid <- length(all_bundles) > 0L
+
+if (have_grid) {
+  grid <- accumulate_coverage(all_bundles, estimators = c("oracle", "naive", "MR"),
+                              blocks = c("H", "Hc"), targets = c("marg", "cde"))
+  save_coverage_grid(grid, grid_path)
+  cat(sprintf("Grid: %d cell(s) → %d coverage rows. Saved to %s\n",
+              nrow(grid$manifest), nrow(grid$coverage), grid_path))
+} else {
+  grid <- NULL
+  cat("No cell bundles found yet — run the sweep (run_sweep = TRUE) to populate.\n")
+}
+```
+
+# Coverage vs sample size {#sec-plot}
+
+C† (marginal subgroup HR) coverage of the **MR** gate on the **harm** block Ĥ,
+one line per detector, with the 0.95 nominal line and Wilson 95% bands on each
+rate. Switch `target_pick` to `"C_ddagger"` for the CDE, `block_pick` to `"Hc"`,
+or `estimator_pick` to `"naive"`/`"oracle"` to re-slice the same grid.
+
+```{r coverage-plot, fig.width=8, fig.height=5}
+target_pick    <- "C_dagger"   # "C_dagger" (θ†, marginal HR) | "C_ddagger" (θ‡, CDE) | "C_oracle"
+estimator_pick <- "MR"         # "MR" | "naive" | "oracle"
+block_pick     <- "H"          # "H" | "Hc"
+band           <- "wilson"     # "wilson" | "mc_se" | "none"
+
+if (have_grid) {
+  pretty_tgt <- c(C_dagger = "Marginal subgroup HR (C\u2020)",
+                  C_ddagger = "CDE (C\u2021)",
+                  C_oracle = "Per-replicate oracle")[[target_pick]]
+  sl <- subset(grid$coverage, target == target_pick &
+                              estimator == estimator_pick & block == block_pick)
+  sl <- sl[order(sl$n_sample), ]
+
+  if (nrow(sl)) {
+    p <- ggplot(sl, aes(n_sample, coverage, colour = subgroup_method,
+                        fill = subgroup_method, group = subgroup_method))
+    if (band == "wilson")
+      p <- p + geom_ribbon(aes(ymin = wilson_lo, ymax = wilson_hi), alpha = 0.15, colour = NA)
+    if (band == "mc_se")
+      p <- p + geom_ribbon(aes(ymin = coverage - mc_se, ymax = coverage + mc_se),
+                           alpha = 0.15, colour = NA)
+    y_lo <- min(0.85, min(sl$wilson_lo, sl$coverage, na.rm = TRUE))
+    print(
+      p + geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.4) +
+        scale_x_continuous(breaks = sort(unique(sl$n_sample))) +
+        coord_cartesian(ylim = c(y_lo, 1.0)) +
+        labs(x = "Sample size  n", y = "95% CI coverage",
+             colour = "Method", fill = "Method",
+             title = sprintf("%s coverage — %s, %s block", pretty_tgt, estimator_pick,
+                             if (block_pick == "H") "harm \u0124" else "complement \u0124\u1d9c"),
+             subtitle = "Dashed line = 0.95 nominal · band = Wilson 95% interval on the rate") +
+        theme_minimal(base_size = 12) + theme(legend.position = "bottom"))
+  } else {
+    cat("No rows for the chosen slice yet.\n")
+  }
+}
+```
+
+```{r coverage-table}
+if (have_grid && exists("sl") && nrow(sl)) {
+  disp <- sl[, c("subgroup_method", "n_sample", "coverage", "mc_se",
+                 "wilson_lo", "wilson_hi", "n_eff", "n_detected", "det_rate")]
+  for (cc in c("coverage", "mc_se", "wilson_lo", "wilson_hi", "det_rate"))
+    disp[[cc]] <- round(disp[[cc]], 3)
+  knitr::kable(disp, row.names = FALSE,
+               caption = sprintf("%s · %s estimator · %s block.",
+                                 target_pick, estimator_pick, block_pick))
+}
+```
+
+## 95% CI length vs sample size {#sec-cilength}
+
+Median width of the 95% CI for the chosen estimator/block as a function of *n*
+(median is robust to the occasional IJ blow-up; the band is the interquartile
+range across replicates). Same `estimator_pick` / `block_pick` as above; length is
+target-independent, so it has no C†/C‡ axis.
+
+```{r cilength-plot, fig.width=8, fig.height=5}
+if (have_grid && !is.null(grid$length)) {
+  sl_len <- subset(grid$length, estimator == estimator_pick & block == block_pick)
+  sl_len <- sl_len[order(sl_len$subgroup_method, sl_len$n_sample), ]
+  if (nrow(sl_len)) {
+    print(
+      ggplot(sl_len, aes(n_sample, len_med, colour = subgroup_method,
+                         fill = subgroup_method, group = subgroup_method)) +
+        geom_ribbon(aes(ymin = len_q25, ymax = len_q75), alpha = 0.15, colour = NA) +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.4) +
+        scale_x_continuous(breaks = sort(unique(sl_len$n_sample))) +
+        expand_limits(y = 0) +
+        labs(x = "Sample size  n", y = "95% CI length (HR scale)",
+             colour = "Method", fill = "Method",
+             title = sprintf("Median 95%% CI length — %s, %s block", estimator_pick,
+                             if (block_pick == "H") "harm \u0124" else "complement \u0124\u1d9c"),
+             subtitle = "Line = median length · band = IQR (Q1-Q3)") +
+        theme_minimal(base_size = 12) + theme(legend.position = "bottom"))
+  } else cat("No rows for the chosen length slice yet.\n")
+}
+```
+
+## Detection rate (companion) {#sec-detection}
+
+```{r detection-plot, fig.width=8, fig.height=4}
+if (have_grid) {
+  print(
+    ggplot(grid$manifest, aes(n_sample, det_rate, colour = subgroup_method,
+                              group = subgroup_method)) +
+      geom_line(linewidth = 0.7) + geom_point(size = 2.4) +
+      scale_x_continuous(breaks = sort(unique(grid$manifest$n_sample))) +
+      coord_cartesian(ylim = c(0, 1)) +
+      labs(x = "Sample size  n", y = "Detection rate", colour = "Method",
+           title = "Detection rate vs n (coverage above is conditional on detection)") +
+      theme_minimal(base_size = 12) + theme(legend.position = "bottom"))
+}
+```
+
+```{r provenance}
+if (have_grid) {
+  cat(sprintf("Grid built %s from %d cell(s).\n", format(grid$built), nrow(grid$manifest)))
+  knitr::kable(grid$manifest, row.names = FALSE, caption = "Cells ingested.")
+}
+if (!is.null(sweep_log)) {
+  cat("\nThis render's sweep activity:\n")
+  knitr::kable(sweep_log, row.names = FALSE, caption = "Per-cell run status this render.")
+}
+```
+
+# Session info
+
+```{r session-info}
+.fmt_dur <- function(s) {
+  h <- s %/% 3600; m <- (s %% 3600) %/% 60; sec <- round(s %% 60)
+  if (h >= 1) sprintf("%d h %02d m %02d s", h, m, sec)
+  else if (m >= 1) sprintf("%d m %02d s", m, sec) else sprintf("%.1f s", s)
+}
+cat(sprintf("TOTAL wall-clock, start to finish: %s\n",
+            .fmt_dur(as.numeric(difftime(Sys.time(), .t0_doc, units = "secs")))))
+sessionInfo()
+```
