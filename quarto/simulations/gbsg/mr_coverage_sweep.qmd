@@ -88,8 +88,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-
-run_tag     <- "m1_h10_knoise0_s20" # ← bump this for a fresh, isolated run
+run_tag     <- "m1_h10_knoise0_s20_d5000" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
@@ -519,6 +518,66 @@ length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
   df <- do.call(rbind, rows); rownames(df) <- NULL; df
 }
 
+# Bias of an estimate vs a target, on the log-HR scale (mean log(est/target)) and the
+# HR scale (mean(est - target)), each with its Monte-Carlo SE.  HRs are positive, so the
+# log is well-defined; any non-positive/non-finite pair is dropped.
+.bias_meta <- function(est, target) {
+  n <- length(est); target <- rep_len(target, n)
+  ok <- is.finite(est) & is.finite(target) & est > 0 & target > 0
+  m  <- sum(ok)
+  if (m == 0L)
+    return(data.frame(bias_log = NA_real_, se_log = NA_real_, bias_hr = NA_real_,
+                      se_hr = NA_real_, bias_rel = NA_real_, se_rel = NA_real_, n_bias = 0L))
+  d_log <- log(est[ok]) - log(target[ok])
+  d_hr  <- est[ok] - target[ok]
+  d_rel <- 100 * (est[ok] - target[ok]) / target[ok]   # per-replicate % bias over the target
+  .se <- function(x) if (length(x) > 1L) stats::sd(x) / sqrt(length(x)) else NA_real_
+  data.frame(bias_log = mean(d_log), se_log = .se(d_log),
+             bias_hr  = mean(d_hr),  se_hr  = .se(d_hr),
+             bias_rel = mean(d_rel), se_rel = .se(d_rel), n_bias = m)
+}
+
+# One bundle -> tidy one-row-per (method, n, block, estimator, target) bias summary.
+# Bias depends on the target (unlike CI length), so it carries the target column.
+bias_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
+                             blocks = c("H", "Hc"), targets = c("marg", "cde"),
+                             drop_all_na = TRUE, src = NULL) {
+  if (is.character(bundle)) {
+    stopifnot(file.exists(bundle)); if (is.null(src)) src <- basename(bundle)
+    bundle <- readRDS(bundle)
+  }
+  if (is.null(src)) src <- NA_character_
+  res <- bundle$results; tr <- bundle$truth; meta <- bundle$meta
+  stopifnot(is.data.frame(res), is.list(tr), is.list(meta))
+  rH <- res[res$detected == 1L, , drop = FALSE]
+  rows <- list()
+  for (blk in blocks) {
+    tgt_val <- list(oracle = rH[[paste0("or_", blk, "_est")]],
+                    cde    = tr[[paste0("cde_",  blk)]],
+                    marg   = tr[[paste0("marg_", blk)]])
+    for (est in estimators) {
+      k  <- .EST_KEYS[[est]]
+      ev <- rH[[paste0(k, "_", blk, "_est")]]
+      for (tg in targets) {
+        bm <- .bias_meta(ev, tgt_val[[tg]])
+        rows[[length(rows) + 1L]] <- cbind(
+          data.frame(subgroup_method = meta$subgroup_method %||% NA_character_,
+                     n_sample = meta$n_sample %||% NA_integer_, block = blk,
+                     estimator = est, target = unname(.TARGET_COL[[tg]]),
+                     stringsAsFactors = FALSE),
+          bm,
+          data.frame(n_sims = meta$n_sims %||% NA_integer_,
+                     gate_draws = meta$gate_draws %||% NA_integer_,
+                     nb_boots = meta$nb_boots %||% NA_integer_, src = src,
+                     stringsAsFactors = FALSE))
+      }
+    }
+  }
+  df <- do.call(rbind, rows)
+  if (isTRUE(drop_all_na)) df <- df[!is.na(df$bias_log), , drop = FALSE]
+  rownames(df) <- NULL; df
+}
+
 # Pool many cells into one tidy grid; assert a shared DGM (truth + seed_base).
 accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
                                 blocks = c("H", "Hc"), targets = c("marg", "cde"),
@@ -546,7 +605,10 @@ accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
   len_df <- do.call(rbind, lapply(seq_along(bundles), function(i)
     length_from_bundle(bundles[[i]], estimators = estimators, blocks = blocks,
                        src = basename(paths[i]))))
-  rownames(cov_df) <- NULL; rownames(len_df) <- NULL
+  bias_df <- do.call(rbind, lapply(seq_along(bundles), function(i)
+    bias_from_bundle(bundles[[i]], estimators = estimators, blocks = blocks,
+                     targets = targets, src = basename(paths[i]))))
+  rownames(cov_df) <- NULL; rownames(len_df) <- NULL; rownames(bias_df) <- NULL
 
   manifest <- do.call(rbind, lapply(seq_along(bundles), function(i) {
     m <- bundles[[i]]$meta; r <- bundles[[i]]$results
@@ -561,7 +623,7 @@ accumulate_coverage <- function(paths, estimators = c("oracle", "naive", "MR"),
   }))
   manifest <- manifest[order(manifest$subgroup_method, manifest$n_sample), ]
   rownames(manifest) <- NULL
-  list(coverage = cov_df, length = len_df, manifest = manifest,
+  list(coverage = cov_df, length = len_df, bias = bias_df, manifest = manifest,
        truth = bundles[[1]]$truth, built = Sys.time())
 }
 

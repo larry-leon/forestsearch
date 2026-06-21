@@ -51,41 +51,49 @@ ul.task-list li input[type="checkbox"] {
 
 
 <!--
-  Coverage / detection / CI-length figures vs sample size (manuscript fragment).
-  Plots, for the MR (multiplier-resampling) de-biased gate AND the naive estimator,
-  one line per detector method, in the reader style of _sim_estimation_fs_h15.qmd.
+  Coverage-vs-sample-size figure (manuscript fragment).  Plots empirical 95% CI
+  coverage of the marginal subgroup hazard ratio (C-dagger) for the MR
+  (multiplier-resampling) de-biased gate as a function of per-trial sample size n,
+  one line per detector method, in the manuscript reader style of
+  _sim_estimation_fs_h15.qmd.
 
-  Reads ONLY the pooled grid written by save_coverage_grid()
-  (mr_coverage_grid_<run_tag>.rds: a list with `coverage`, `length`, `manifest`,
-  `truth`, `built`) plus ggplot2 (and patchwork if combining panels) -- no
-  forestsearch, no DGM, no simulation -- so it renders in seconds.
+  Reads the pooled coverage grid written by save_coverage_grid()
+  (mr_coverage_grid.rds: a list with `coverage`, `manifest`, `truth`, `built`).
+  Needs ONLY that .rds and ggplot2 -- no forestsearch, no DGM, no simulation -- so
+  it renders inside the manuscript in seconds.  Defines @fig-mr-coverage and the
+  companion @fig-mr-detection.
 
-  Knobs (top of the setup chunk):
-    estimator_pick  : one or more of "MR","naive","oracle".  >1 overlays them
-                      (linetype = estimator) and omits the uncertainty bands;
-                      a single estimator restores the Wilson/MC-SE band.
-    combine_cov_det : TRUE -> @fig-mr-coverage becomes coverage | detection side by
-                      side (needs patchwork, panels tagged A/B); the standalone
-                      @fig-mr-detection is then skipped.  FALSE -> separate figures.
-    target_pick / block_pick / band : as before.
-
-  Detection is a property of the replicate, not the estimator, so its panel is the
-  same for "naive" and "MR".  When the grid is absent a placeholder renders so the
-  cross-references still resolve.  Defines @fig-mr-coverage, @fig-mr-detection,
-  @fig-mr-cilength.
+  All coverage rates are conditional on identifying a subgroup; the companion
+  panel reports the detection rate so the curve is read in that light.  Keep the
+  .rds beside this fragment or set `payload_dir` to the sweep's results_dir; when
+  absent, a placeholder figure renders so the cross-references still resolve.
 -->
 <section id="sec-mr-coverage-fig" class="level2">
 <h2 class="anchored" data-anchor-id="sec-mr-coverage-fig">Coverage of the marginal subgroup HR vs sample size</h2>
-<p>For the MR de-biased gate and the naive estimator, <a href="#fig-mr-coverage" class="quarto-xref">Figure&nbsp;1</a> tracks 95% CI coverage of the marginal subgroup hazard ratio across sample sizes for each detector, over the detected replicates. The corresponding detection rate appears in <strong>?@fig-mr-detection</strong> (or the right-hand panel when coverage and detection are combined).</p>
+<p>For the MR de-biased gate, <a href="#fig-mr-coverage" class="quarto-xref">Figure&nbsp;1</a> tracks 95% CI coverage of the marginal subgroup hazard ratio across sample sizes for each detector. Coverage is taken over the detected replicates; <a href="#fig-mr-detection" class="quarto-xref">Figure&nbsp;2</a> gives the corresponding detection rate.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-mr-coverage" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-mr-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="_sim_mr_coverage_files/figure-html/fig-mr-coverage-1.png" class="img-fluid figure-img" width="960">
+<img src="_sim_mr_coverage_files/figure-html/fig-mr-coverage-1.png" class="img-fluid figure-img" width="672">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1: (A) Empirical 95% CI coverage of the marginal subgroup hazard ratio (C†) for the MR &amp; naive estimator (distinguished by line type), on the harm subgroup Ĥ, as a function of per-trial sample size n (León M1 design; 1,000 simulations per cell, 5,000 MR draws; detectors: consistency, dina, grf). The dashed line marks 0.95 nominal coverage. Uncertainty bands omitted for legibility (select a single estimator to show them). All rates are conditional on identifying a subgroup. (B) Subgroup-detection rate vs per-trial sample size n by detector (the same for all estimators; León M1 design; 1,000 simulations per cell).
+Figure&nbsp;1: Coverage of the marginal subgroup hazard ratio (C†) for the MR de-biased gate vs sample size, by detector. <strong>Placeholder — to be populated from the coverage grid (<code>mr_coverage_grid_m1_h15_knoise0_s1000.rds</code>).</strong>
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div id="fig-mr-detection" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mr-detection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="_sim_mr_coverage_files/figure-html/fig-mr-detection-1.png" class="img-fluid figure-img" width="672">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-detection-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Detection rate vs sample size. <strong>Placeholder — pending the coverage grid.</strong>
 </figcaption>
 </figure>
 </div>
@@ -94,7 +102,7 @@ Figure&nbsp;1: (A) Empirical 95% CI coverage of the marginal subgroup hazard rat
 </section>
 <section id="sec-mr-cilength" class="level2">
 <h2 class="anchored" data-anchor-id="sec-mr-cilength">Width of the 95% CIs vs sample size</h2>
-<p><a href="#fig-mr-cilength" class="quarto-xref">Figure&nbsp;2</a> reports the median width of the 95% CI across sample sizes for each detector and estimator — the precision companion to the coverage curve. Width is a property of the interval alone, so unlike coverage it has no target (C† / C‡) distinction.</p>
+<p><a href="#fig-mr-cilength" class="quarto-xref">Figure&nbsp;3</a> reports the median width of the MR 95% CI across sample sizes for each detector — the precision companion to the coverage curve. Width is a property of the interval alone, so unlike coverage it has no target (C† / C‡) distinction.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-mr-cilength" class="quarto-float quarto-figure quarto-figure-center anchored">
@@ -103,7 +111,7 @@ Figure&nbsp;1: (A) Empirical 95% CI coverage of the marginal subgroup hazard rat
 <img src="_sim_mr_coverage_files/figure-html/fig-mr-cilength-1.png" class="img-fluid figure-img" width="672">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-cilength-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2: Median width of the 95% CI for the MR &amp; naive estimator (line type) on the harm subgroup Ĥ, as a function of per-trial sample size n (León M1 design; 1,000 simulations per cell; detectors: consistency, dina, grf). Lines are median CI length on the hazard-ratio scale.
+Figure&nbsp;3: Median 95% CI length for the MR de-biased gate vs sample size, by detector. <strong>Placeholder — to be populated from the coverage grid (<code>mr_coverage_grid_m1_h15_knoise0_s1000.rds</code>).</strong>
 </figcaption>
 </figure>
 </div>

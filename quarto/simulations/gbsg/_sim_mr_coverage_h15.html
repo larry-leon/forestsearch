@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>sim_mr_coverage</title>
+<title>sim_mr_coverage_h15</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -26,17 +26,17 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="_sim_mr_coverage_files/libs/clipboard/clipboard.min.js"></script>
-<script src="_sim_mr_coverage_files/libs/quarto-html/quarto.js" type="module"></script>
-<script src="_sim_mr_coverage_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="_sim_mr_coverage_files/libs/quarto-html/popper.min.js"></script>
-<script src="_sim_mr_coverage_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="_sim_mr_coverage_files/libs/quarto-html/anchor.min.js"></script>
-<link href="_sim_mr_coverage_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="_sim_mr_coverage_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="_sim_mr_coverage_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="_sim_mr_coverage_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="_sim_mr_coverage_files/libs/bootstrap/bootstrap-495e6bcb9a188ae19484469917226738.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="_sim_mr_coverage_h15_files/libs/clipboard/clipboard.min.js"></script>
+<script src="_sim_mr_coverage_h15_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="_sim_mr_coverage_h15_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="_sim_mr_coverage_h15_files/libs/quarto-html/popper.min.js"></script>
+<script src="_sim_mr_coverage_h15_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="_sim_mr_coverage_h15_files/libs/quarto-html/anchor.min.js"></script>
+<link href="_sim_mr_coverage_h15_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="_sim_mr_coverage_h15_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="_sim_mr_coverage_h15_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="_sim_mr_coverage_h15_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="_sim_mr_coverage_h15_files/libs/bootstrap/bootstrap-495e6bcb9a188ae19484469917226738.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 
 
 </head>
@@ -51,64 +51,58 @@ ul.task-list li input[type="checkbox"] {
 
 
 <!--
-  Coverage / detection / CI-length figures vs sample size (manuscript fragment).
+  Detection / bias / coverage / CI-length figures vs sample size (manuscript fragment).
   Plots, for the MR (multiplier-resampling) de-biased gate AND the naive estimator,
   one line per detector method, in the reader style of _sim_estimation_fs_h15.qmd.
 
   Reads ONLY the pooled grid written by save_coverage_grid()
-  (mr_coverage_grid_<run_tag>.rds: a list with `coverage`, `length`, `manifest`,
-  `truth`, `built`) plus ggplot2 (and patchwork if combining panels) -- no
-  forestsearch, no DGM, no simulation -- so it renders in seconds.
+  (mr_coverage_grid_<run_tag>.rds: a list with `coverage`, `length`, `bias`,
+  `manifest`, `truth`, `built`) plus ggplot2 (and patchwork for the combined
+  layouts) -- no forestsearch, no DGM, no simulation -- so it renders in seconds.
 
   Knobs (top of the setup chunk):
-    estimator_pick  : one or more of "MR","naive","oracle".  >1 overlays them
-                      (linetype = estimator) and omits the uncertainty bands;
-                      a single estimator restores the Wilson/MC-SE band.
-    combine_cov_det : TRUE -> @fig-mr-coverage becomes coverage | detection side by
-                      side (needs patchwork, panels tagged A/B); the standalone
-                      @fig-mr-detection is then skipped.  FALSE -> separate figures.
+    layout         : "separate" -> each panel is its own figure
+                     "cov_det"  -> @fig-mr-coverage = coverage | detection (A|B)
+                     "grid2x2"  -> @fig-mr-coverage = 2x2:
+                                     (A) detection (B) bias (C) coverage (D) length
+                     The combined layouts need patchwork; standalone chunks that
+                     are folded into the combined figure are skipped.
+    estimator_pick : one or more of "MR","naive","oracle".  >1 overlays them
+                     (linetype = estimator) and omits the uncertainty bands.
+    bias_scale     : "log" (mean log(theta_hat/target); principled for HRs) or "hr".
     target_pick / block_pick / band : as before.
 
-  Detection is a property of the replicate, not the estimator, so its panel is the
-  same for "naive" and "MR".  When the grid is absent a placeholder renders so the
-  cross-references still resolve.  Defines @fig-mr-coverage, @fig-mr-detection,
-  @fig-mr-cilength.
+  Bias (B) is the estimator's bias relative to `target_pick` (the same target the
+  coverage panel uses).  Detection is a property of the replicate, not the
+  estimator.  When a sub-table is absent (e.g. an older grid without `bias`) a
+  placeholder panel renders so cross-references still resolve.  Defines
+  @fig-mr-coverage, @fig-mr-detection, @fig-mr-bias, @fig-mr-cilength.
 -->
 <section id="sec-mr-coverage-fig" class="level2">
-<h2 class="anchored" data-anchor-id="sec-mr-coverage-fig">Coverage of the marginal subgroup HR vs sample size</h2>
-<p>For the MR de-biased gate and the naive estimator, <a href="#fig-mr-coverage" class="quarto-xref">Figure&nbsp;1</a> tracks 95% CI coverage of the marginal subgroup hazard ratio across sample sizes for each detector, over the detected replicates. The corresponding detection rate appears in <strong>?@fig-mr-detection</strong> (or the right-hand panel when coverage and detection are combined).</p>
+<h2 class="anchored" data-anchor-id="sec-mr-coverage-fig">Detection, bias, coverage, and CI width vs sample size</h2>
+<p><a href="#fig-mr-coverage" class="quarto-xref">Figure&nbsp;1</a> shows, for the MR de-biased gate and the naive estimator across sample sizes and detectors: subgroup detection, estimator bias relative to the target, 95% CI coverage, and median CI width. In the 2×2 layout the panels are (A) detection, (B) bias, (C) coverage, (D) width; the standalone figures below render only when the layout leaves them separate.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-mr-coverage" class="quarto-float quarto-figure quarto-figure-center anchored">
 <figure class="quarto-float quarto-float-fig figure">
 <div aria-describedby="fig-mr-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="_sim_mr_coverage_files/figure-html/fig-mr-coverage-1.png" class="img-fluid figure-img" width="960">
+<img src="_sim_mr_coverage_h15_files/figure-html/fig-mr-coverage-1.png" class="img-fluid figure-img" width="960">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1: (A) Empirical 95% CI coverage of the marginal subgroup hazard ratio (C†) for the MR &amp; naive estimator (distinguished by line type), on the harm subgroup Ĥ, as a function of per-trial sample size n (León M1 design; 1,000 simulations per cell, 5,000 MR draws; detectors: consistency, dina, grf). The dashed line marks 0.95 nominal coverage. Uncertainty bands omitted for legibility (select a single estimator to show them). All rates are conditional on identifying a subgroup. (B) Subgroup-detection rate vs per-trial sample size n by detector (the same for all estimators; León M1 design; 1,000 simulations per cell).
+Figure&nbsp;1: (A) Subgroup-detection rate vs n by detector (the same for all estimators; León M1 design; 1,000 simulations per cell). (B) Bias of the MR &amp; naive estimator (line type) relative to the marginal subgroup hazard ratio (C†), as a percentage of the target, on the harm subgroup Ĥ, vs n; the dashed line at 0 marks no bias. (C) Empirical 95% CI coverage of the marginal subgroup hazard ratio (C†) for the MR &amp; naive estimator (line type), on the harm subgroup Ĥ, vs per-trial sample size n (León M1 design; 1,000 simulations per cell, 5,000 MR draws; detectors: consistency, dina, grf). Dashed line = 0.95 nominal. Uncertainty bands omitted for legibility (select a single estimator to show them). All rates conditional on identifying a subgroup. (D) Median 95% CI width for the MR &amp; naive estimator (line type) on the harm subgroup Ĥ, vs n (HR scale).
 </figcaption>
 </figure>
 </div>
 </div>
 </div>
 </section>
+<section id="sec-mr-bias" class="level2">
+<h2 class="anchored" data-anchor-id="sec-mr-bias">Estimator bias vs sample size</h2>
+<p><strong>?@fig-mr-bias</strong> compares the bias of each estimator relative to the target (<code>target_pick</code>) on the chosen scale; a value at 0 means unbiased. The oracle line is the sanity reference (near 0); the naive line carries the selection bias the MR gate is meant to remove.</p>
+</section>
 <section id="sec-mr-cilength" class="level2">
 <h2 class="anchored" data-anchor-id="sec-mr-cilength">Width of the 95% CIs vs sample size</h2>
-<p><a href="#fig-mr-cilength" class="quarto-xref">Figure&nbsp;2</a> reports the median width of the 95% CI across sample sizes for each detector and estimator — the precision companion to the coverage curve. Width is a property of the interval alone, so unlike coverage it has no target (C† / C‡) distinction.</p>
-<div class="cell">
-<div class="cell-output-display">
-<div id="fig-mr-cilength" class="quarto-float quarto-figure quarto-figure-center anchored">
-<figure class="quarto-float quarto-float-fig figure">
-<div aria-describedby="fig-mr-cilength-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-<img src="_sim_mr_coverage_files/figure-html/fig-mr-cilength-1.png" class="img-fluid figure-img" width="672">
-</div>
-<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-cilength-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;2: Median width of the 95% CI for the MR &amp; naive estimator (line type) on the harm subgroup Ĥ, as a function of per-trial sample size n (León M1 design; 1,000 simulations per cell; detectors: consistency, dina, grf). Lines are median CI length on the hazard-ratio scale.
-</figcaption>
-</figure>
-</div>
-</div>
-</div>
+<p><strong>?@fig-mr-cilength</strong> reports the median 95% CI width across sample sizes for each detector and estimator — the precision companion to the coverage curve.</p>
 </section>
 
 </main>
