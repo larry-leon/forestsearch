@@ -83,11 +83,10 @@ library(future)
 #              n_sims is small (single-/few-trial deep dives) and "sims" would idle cores.
 # Bootstrap resample indices are seeded on the main process, so results are
 # plan-invariant: the two modes differ in WALL-CLOCK only, not in detection/estimates.
-parallel_mode <- "sims"
-
+parallel_mode <- "boots"
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 10L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 20L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -114,11 +113,9 @@ sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for late
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 
 target_hr_harm  <- 1.0    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 500L   # M1 sample size
+n_sample        <- 1000L   # M1 sample size
 
-
-rds_stem <- "testing"
-#rds_stem     <- "fs_t1_t2_m1_h10_knoise0_n500"   # file stem; batch range appended below
+rds_stem     <- "fs_t1_t2_m1_h10_knoise0_n1000"   # file stem; batch range appended below
 
 sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
