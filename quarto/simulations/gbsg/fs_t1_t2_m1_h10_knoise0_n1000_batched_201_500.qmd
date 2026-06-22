@@ -86,7 +86,7 @@ library(future)
 parallel_mode <- "boots"
 
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 20L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 300L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
@@ -108,7 +108,7 @@ k_random_noise <- 0       # Add k_random_noise confounders
 #
 # DEFAULT is a single batch starting at 1: render once and you have the whole run.
 run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
-sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
+sim_id_start <- 201L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
 
 subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
 
@@ -1108,4 +1108,3 @@ cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d wor
 
 sessionInfo()
 ```
-
