@@ -1,0 +1,335 @@
+<!--
+  Detection / bias / coverage / CI-length figures vs sample size (manuscript fragment).
+  Plots, for the MR (multiplier-resampling) de-biased gate AND the naive estimator,
+  one line per detector method, in the reader style of _sim_estimation_fs_h15.qmd.
+
+  Reads ONLY the pooled grid written by save_coverage_grid()
+  (mr_coverage_grid_<run_tag>.rds: a list with `coverage`, `length`, `bias`,
+  `manifest`, `truth`, `built`) plus ggplot2 (and patchwork for the combined
+  layouts) -- no forestsearch, no DGM, no simulation -- so it renders in seconds.
+
+  Knobs (top of the setup chunk):
+    layout         : "separate" -> each panel is its own figure
+                     "cov_det"  -> @fig-mr-coverage = coverage | detection (A|B)
+                     "grid2x2"  -> @fig-mr-coverage = 2x2:
+                                     (A) detection (B) bias (C) coverage (D) length
+                     The combined layouts need patchwork; standalone chunks that
+                     are folded into the combined figure are skipped.
+    estimator_pick : one or more of "MR","naive","oracle".  >1 overlays them
+                     (linetype = estimator) and omits the uncertainty bands.
+    bias_scale     : "log" (mean log(theta_hat/target); principled for HRs) or "hr".
+    target_pick / block_pick / band : as before.
+
+  Bias (B) is the estimator's bias relative to `target_pick` (the same target the
+  coverage panel uses).  Detection is a property of the replicate, not the
+  estimator.  When a sub-table is absent (e.g. an older grid without `bias`) a
+  placeholder panel renders so cross-references still resolve.  Defines
+  @fig-mr-coverage, @fig-mr-detection, @fig-mr-bias, @fig-mr-cilength.
+-->
+
+```{r mr-coverage-fig-setup}
+#| echo: false
+#| message: false
+#| warning: false
+library(ggplot2)
+
+run_tag     <- "m1_h10_knoise0_s500" # ← MUST match the sweep doc's run_tag (selects the run)
+rds_file    <- sprintf("mr_coverage_grid_%s.rds", run_tag)   # carries run_tag, so runs never collide
+# payload_dir = the folder that HOLDS the grid file = the sweep's results_dir, which is
+#   file.path("mr_sweep", run_tag)  -- it INCLUDES the run_tag subfolder, not just "mr_sweep".
+payload_dir <- file.path("mr_sweep", run_tag)
+
+# ── What to plot ─────────────────────────────────────────────────────────────
+target_pick    <- "C_dagger"             # "C_dagger" (θ†, marginal HR) | "C_ddagger" (θ‡, CDE) | "C_oracle"
+estimator_pick <- c("MR", "naive")       # one or more of "MR","naive","oracle" (>1 ⇒ linetype, no bands)
+block_pick     <- "H"                    # "H" (harm) | "Hc" (complement)
+band           <- "wilson"               # "wilson" | "mc_se" | "none"  (single estimator only)
+bias_scale     <- "rel"                   # "hr" (HR-scale) | "rel" (% over target) | "log" (log-HR)
+layout         <- "grid2x2"              # "separate" | "cov_det" | "grid2x2"
+
+# Combined layouts need patchwork; fall back to "separate" if it isn't installed.
+needs_pw <- layout %in% c("cov_det", "grid2x2")
+if (needs_pw && !requireNamespace("patchwork", quietly = TRUE)) {
+  warning("patchwork not installed; falling back to layout = 'separate'.")
+  layout <- "separate"; needs_pw <- FALSE
+}
+if (needs_pw) library(patchwork)
+
+is_2x2          <- identical(layout, "grid2x2")
+combine_cov_det <- identical(layout, "cov_det")
+det_standalone  <- identical(layout, "separate")  # detection is its own figure only here
+bias_standalone <- !is_2x2                         # bias / length fold into the 2x2 only
+len_standalone  <- !is_2x2
+multi_est       <- length(estimator_pick) > 1L
+cov_fig_w       <- if (is_2x2) 10 else if (combine_cov_det) 10 else 7
+cov_fig_h       <- if (is_2x2) 8  else 4.5
+
+.pdir <- if (is.null(payload_dir))
+  tryCatch(dirname(knitr::current_input(dir = TRUE)), error = function(e) getwd()) else payload_dir
+.rds_path <- file.path(.pdir, rds_file)
+have_grid <- file.exists(.rds_path)
+
+.lab_tgt <- c(C_dagger  = "marginal subgroup hazard ratio (C\u2020)",
+              C_ddagger = "controlled direct effect (C\u2021)",
+              C_oracle  = "per-replicate oracle")[[target_pick]]
+.lab_blk   <- if (block_pick == "H") "harm subgroup \u0124" else "complement \u0124\u1d9c"
+.scale_phrase <- switch(bias_scale, log = "on the log-HR scale",
+                         rel = "as a percentage of the target", hr = "on the HR scale")
+.bias_ylab <- switch(bias_scale, log = "Bias (log HR)",
+                      rel = "Relative bias (%)", hr = "Bias (HR)")
+est_txt    <- paste(estimator_pick, collapse = " & ")
+band_txt   <- (if (multi_est) "Uncertainty bands omitted for legibility (select a single estimator to show them)."
+               else if (band == "wilson") "Shaded bands are Wilson 95% intervals on each rate."
+               else if (band == "mc_se")  "Shaded bands span \u00b11 Monte-Carlo SE."
+               else "")
+
+# Blank placeholder panel (keeps a 2x2 intact when a sub-table is missing).
+.ph <- function(lab) ggplot() +
+  annotate("text", x = 0, y = 0, label = lab, size = 4, colour = "grey50") + theme_void()
+
+if (have_grid) {
+  G   <- readRDS(.rds_path)
+  cov <- G$coverage; man <- G$manifest
+  sl  <- cov[cov$target == target_pick & cov$estimator %in% estimator_pick &
+             cov$block == block_pick, , drop = FALSE]
+  sl  <- sl[order(sl$subgroup_method, sl$estimator, sl$n_sample), ]
+
+  .rng <- function(x) { u <- sort(unique(x[is.finite(x)]))
+    if (length(u) <= 1L) format(u, big.mark = ",") else
+      sprintf("%s-%s", format(min(u), big.mark = ","), format(max(u), big.mark = ",")) }
+  ns_txt   <- .rng(sl$n_sims); gd_txt <- .rng(sl$gate_draws)
+  meth_txt <- paste(sort(unique(sl$subgroup_method)), collapse = ", ")
+  .est_lt  <- if (multi_est) " (line type)" else ""
+
+  cov_sentence <- sprintf(paste0(
+    "Empirical 95%% CI coverage of the %s for the %s estimator%s, on the %s, vs per-trial ",
+    "sample size n (Le\u00f3n M1 design; %s simulations per cell, %s MR draws; detectors: %s). ",
+    "Dashed line = 0.95 nominal. %s All rates conditional on identifying a subgroup."),
+    .lab_tgt, est_txt, .est_lt, .lab_blk, ns_txt, gd_txt, meth_txt, band_txt)
+  det_sentence <- sprintf(paste0(
+    "Subgroup-detection rate vs n by detector (the same for all estimators; Le\u00f3n M1 ",
+    "design; %s simulations per cell)."), ns_txt)
+  len_sentence <- sprintf(paste0(
+    "Median 95%% CI width for the %s estimator%s on the %s, vs n (HR scale)%s."),
+    est_txt, .est_lt, .lab_blk,
+    if (multi_est) "" else "; band = interquartile range (Q1-Q3)")
+
+  len <- G$length
+  sl_len <- if (!is.null(len)) {
+    z <- len[len$estimator %in% estimator_pick & len$block == block_pick, , drop = FALSE]
+    z[order(z$subgroup_method, z$estimator, z$n_sample), ]
+  } else NULL
+
+  bias <- G$bias
+  if (!is.null(bias)) {
+    sl_bias <- bias[bias$target == target_pick & bias$estimator %in% estimator_pick &
+                    bias$block == block_pick, , drop = FALSE]
+    sl_bias <- sl_bias[order(sl_bias$subgroup_method, sl_bias$estimator, sl_bias$n_sample), ]
+    bias_sentence <- sprintf(paste0(
+      "Bias of the %s estimator%s relative to the %s, %s, on the %s, vs n; the dashed line at ",
+      "0 marks no bias%s."),
+      est_txt, .est_lt, .lab_tgt, .scale_phrase, .lab_blk,
+      if (multi_est) "" else " (band: 95% Monte-Carlo interval for the mean bias)")
+  } else {
+    sl_bias <- NULL
+    bias_sentence <- paste0("Bias panel pending: the loaded grid predates bias storage; rebuild it ",
+                            "by re-rendering the sweep with run_sweep <- FALSE.")
+  }
+
+  cap_fig <- if (is_2x2) {
+    sprintf("(A) %s (B) %s (C) %s (D) %s", det_sentence, bias_sentence, cov_sentence, len_sentence)
+  } else if (combine_cov_det) {
+    sprintf("(A) %s (B) %s", cov_sentence, det_sentence)
+  } else {
+    sprintf("%s Detection in @fig-mr-detection, bias in @fig-mr-bias, width in @fig-mr-cilength.",
+            cov_sentence)
+  }
+  cap_det  <- sprintf("%s Coverage in @fig-mr-coverage uses detected replicates only.", det_sentence)
+  cap_bias <- bias_sentence
+  cap_len  <- len_sentence
+
+  # ── Plot builders ──────────────────────────────────────────────────────────
+  .p_cov <- function() {
+    if (multi_est) {
+      p <- ggplot(sl, aes(n_sample, coverage, colour = subgroup_method, linetype = estimator,
+                          group = interaction(subgroup_method, estimator))) +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.0)
+    } else {
+      p <- ggplot(sl, aes(n_sample, coverage, colour = subgroup_method,
+                          fill = subgroup_method, group = subgroup_method))
+      if (band == "wilson") {
+        p <- p + geom_ribbon(aes(ymin = wilson_lo, ymax = wilson_hi), alpha = 0.15, colour = NA)
+      } else if (band == "mc_se") {
+        p <- p + geom_ribbon(aes(ymin = coverage - mc_se, ymax = coverage + mc_se),
+                             alpha = 0.15, colour = NA)
+      }
+      p <- p + geom_line(linewidth = 0.7) + geom_point(size = 2.3)
+    }
+    y_lo <- min(0.85, min(sl$wilson_lo, sl$coverage, na.rm = TRUE))
+    p + geom_hline(yintercept = 0.95, linetype = 2, colour = "grey40") +
+      scale_x_continuous(breaks = sort(unique(sl$n_sample))) +
+      coord_cartesian(ylim = c(y_lo, 1.0)) +
+      labs(x = "Sample size  n", y = "95% CI coverage",
+           colour = "Method", fill = "Method", linetype = "Estimator") +
+      theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+  }
+  .p_det <- function() {
+    ggplot(man, aes(n_sample, det_rate, colour = subgroup_method, group = subgroup_method)) +
+      geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+      scale_x_continuous(breaks = sort(unique(man$n_sample))) +
+      coord_cartesian(ylim = c(0, 1)) +
+      labs(x = "Sample size  n", y = "Detection rate", colour = "Method") +
+      theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+  }
+  .p_len <- function() {
+    if (multi_est) {
+      ggplot(sl_len, aes(n_sample, len_med, colour = subgroup_method, linetype = estimator,
+                         group = interaction(subgroup_method, estimator))) +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.0) +
+        scale_x_continuous(breaks = sort(unique(sl_len$n_sample))) + expand_limits(y = 0) +
+        labs(x = "Sample size  n", y = "95% CI length (HR scale)",
+             colour = "Method", linetype = "Estimator") +
+        theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+    } else {
+      ggplot(sl_len, aes(n_sample, len_med, colour = subgroup_method,
+                         fill = subgroup_method, group = subgroup_method)) +
+        geom_ribbon(aes(ymin = len_q25, ymax = len_q75), alpha = 0.15, colour = NA) +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+        scale_x_continuous(breaks = sort(unique(sl_len$n_sample))) + expand_limits(y = 0) +
+        labs(x = "Sample size  n", y = "95% CI length (HR scale)",
+             colour = "Method", fill = "Method") +
+        theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+    }
+  }
+  .p_bias <- function() {
+    yv <- switch(bias_scale, log = "bias_log", rel = "bias_rel", hr = "bias_hr")
+    se <- switch(bias_scale, log = "se_log",  rel = "se_rel",  hr = "se_hr")
+    if (multi_est) {
+      ggplot(sl_bias, aes(n_sample, .data[[yv]], colour = subgroup_method, linetype = estimator,
+                          group = interaction(subgroup_method, estimator))) +
+        geom_hline(yintercept = 0, linetype = 2, colour = "grey40") +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.0) +
+        scale_x_continuous(breaks = sort(unique(sl_bias$n_sample))) +
+        labs(x = "Sample size  n", y = .bias_ylab, colour = "Method", linetype = "Estimator") +
+        theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+    } else {
+      ggplot(sl_bias, aes(n_sample, .data[[yv]], colour = subgroup_method,
+                          fill = subgroup_method, group = subgroup_method)) +
+        geom_hline(yintercept = 0, linetype = 2, colour = "grey40") +
+        geom_ribbon(aes(ymin = .data[[yv]] - 1.96 * .data[[se]],
+                        ymax = .data[[yv]] + 1.96 * .data[[se]]), alpha = 0.15, colour = NA) +
+        geom_line(linewidth = 0.7) + geom_point(size = 2.3) +
+        scale_x_continuous(breaks = sort(unique(sl_bias$n_sample))) +
+        labs(x = "Sample size  n", y = .bias_ylab, colour = "Method", fill = "Method") +
+        theme_minimal(base_size = 11) + theme(legend.position = "bottom")
+    }
+  }
+} else {
+  sl <- NULL; man <- NULL; sl_len <- NULL; sl_bias <- NULL
+  cap_fig <- sprintf(paste0(
+    "Coverage of the %s vs sample size, by detector. ",
+    "**Placeholder \u2014 to be populated from the coverage grid (`%s`).**"), .lab_tgt, rds_file)
+  cap_det  <- "Detection rate vs sample size. **Placeholder \u2014 pending the coverage grid.**"
+  cap_bias <- "Bias vs sample size. **Placeholder \u2014 pending the coverage grid.**"
+  cap_len  <- "Median 95% CI length vs sample size. **Placeholder \u2014 pending the coverage grid.**"
+}
+```
+
+## Detection, bias, coverage, and CI width vs sample size {#sec-mr-coverage-fig}
+
+@fig-mr-coverage shows, for the MR de-biased gate and the naive estimator across
+sample sizes and detectors: subgroup detection, estimator bias relative to the
+target, 95% CI coverage, and median CI width. In the 2×2 layout the panels are
+(A) detection, (B) bias, (C) coverage, (D) width; the standalone figures below
+render only when the layout leaves them separate.
+
+```{r}
+#| label: fig-mr-coverage
+#| fig-cap: !expr cap_fig
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: !expr cov_fig_w
+#| fig-height: !expr cov_fig_h
+if (!have_grid) {
+  .ph("Pending coverage grid")
+} else if (is_2x2) {
+  pA <- if (!is.null(man)     && nrow(man))     .p_det()  else .ph("(A) detection \u2014 no data")
+  pB <- if (!is.null(sl_bias) && nrow(sl_bias)) .p_bias() else .ph("(B) bias \u2014 rebuild grid")
+  pC <- if (!is.null(sl)      && nrow(sl))      .p_cov()  else .ph("(C) coverage \u2014 no data")
+  pD <- if (!is.null(sl_len)  && nrow(sl_len))  .p_len()  else .ph("(D) width \u2014 rebuild grid")
+  (pA + pB) / (pC + pD) +
+    patchwork::plot_layout(guides = "collect") +
+    patchwork::plot_annotation(tag_levels = "A") &
+    ggplot2::theme(legend.position = "bottom") &
+    # guides="collect" merges only *identical* legends; pin the Method (colour) and
+    # Estimator (linetype) keys to one canonical look so each collapses to a single legend.
+    ggplot2::guides(
+      fill     = "none",
+      colour   = ggplot2::guide_legend(order = 1, override.aes = list(linetype = 1, size = 2.2)),
+      linetype = ggplot2::guide_legend(order = 2))
+} else if (combine_cov_det) {
+  if (!is.null(sl) && nrow(sl)) {
+    (.p_cov() + .p_det()) +
+      patchwork::plot_layout(ncol = 2, guides = "collect") +
+      patchwork::plot_annotation(tag_levels = "A") &
+      ggplot2::theme(legend.position = "bottom") &
+      ggplot2::guides(
+        fill     = "none",
+        colour   = ggplot2::guide_legend(order = 1, override.aes = list(linetype = 1, size = 2.2)),
+        linetype = ggplot2::guide_legend(order = 2))
+  } else .ph("Pending coverage grid")
+} else {
+  if (!is.null(sl) && nrow(sl)) .p_cov() else .ph("Pending coverage grid")
+}
+```
+
+```{r}
+#| label: fig-mr-detection
+#| fig-cap: !expr cap_det
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: !expr det_standalone
+#| fig-width: 7
+#| fig-height: 3.6
+if (have_grid && !is.null(man) && nrow(man)) .p_det() else .ph("Pending coverage grid")
+```
+
+## Estimator bias vs sample size {#sec-mr-bias}
+
+@fig-mr-bias compares the bias of each estimator relative to the target
+(`target_pick`) on the chosen scale; a value at 0 means unbiased. The oracle line
+is the sanity reference (near 0); the naive line carries the selection bias the MR
+gate is meant to remove.
+
+```{r}
+#| label: fig-mr-bias
+#| fig-cap: !expr cap_bias
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: !expr bias_standalone
+#| fig-width: 7
+#| fig-height: 4
+if (have_grid && !is.null(sl_bias) && nrow(sl_bias)) .p_bias() else
+  .ph("Pending bias data\n(rebuild grid: run_sweep <- FALSE)")
+```
+
+## Width of the 95% CIs vs sample size {#sec-mr-cilength}
+
+@fig-mr-cilength reports the median 95% CI width across sample sizes for each
+detector and estimator — the precision companion to the coverage curve.
+
+```{r}
+#| label: fig-mr-cilength
+#| fig-cap: !expr cap_len
+#| echo: false
+#| message: false
+#| warning: false
+#| eval: !expr len_standalone
+#| fig-width: 7
+#| fig-height: 4
+if (have_grid && !is.null(sl_len) && nrow(sl_len)) .p_len() else
+  .ph("Pending CI-length data\n(rebuild grid: run_sweep <- FALSE)")
+```

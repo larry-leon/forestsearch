@@ -75,12 +75,22 @@ library(foreach)
 library(doFuture)
 library(future)
 
+# Parallelization topology (works with run_mode / batching above):
+#   "sims"  -> replicates fan out across workers; each replicate's forestsearch +
+#              bootstrap run sequentially.  Best when n_sims >= n_workers (fills cores).
+#   "boots" -> replicates run sequentially; the forestsearch search AND the nb_boots
+#              bootstrap fan out across workers WITHIN each replicate.  Best when
+#              n_sims is small (single-/few-trial deep dives) and "sims" would idle cores.
+# Bootstrap resample indices are seeded on the main process, so results are
+# plan-invariant: the two modes differ in WALL-CLOCK only, not in detection/estimates.
+parallel_mode <- "boots"
+
 # ── Smoke-test counts (the only knobs to change for production) ────────────
-n_sims       <- 100L      # simulated trials                (prod: 1000 -> 20000)
+n_sims       <- 300L      # simulated trials                (prod: 1000 -> 20000)
 diag_mode    <- FALSE     # DIAGNOSTIC: TRUE caps the run to 5 replicates and relays each
                           # worker's forestsearch() error (otherwise swallowed by the inner
                           # tryCatch).  Set FALSE for a real run.
-nb_boots     <- NULL      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
+nb_boots     <- 300L      # Tier-1 nonparametric bootstraps (prod: 200 -> 500).
                           # Set 0L (or NULL) to SKIP Tier-1 entirely and run only
 k_random_noise <- 0       # Add k_random_noise confounders
 
@@ -98,18 +108,22 @@ k_random_noise <- 0       # Add k_random_noise confounders
 #
 # DEFAULT is a single batch starting at 1: render once and you have the whole run.
 run_mode     <- "batch"   # "batch" (run + save one piece) | "combine" (merge + report)
-sim_id_start <- 1L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
+sim_id_start <- 201L        # first sim_id of THIS batch (101L, 201L, ... for later pieces)
 
-subgroup_method <- "consistency"  # "consistency" | "dina" | "grf"
+subgroup_method <- "dina"  # "consistency" | "dina" | "grf"
 
-target_hr_harm  <- 1.5    # calibrate k_inter to this Cox HR in the harm subgroup
-n_sample        <- 500L   # M1 sample size
+target_hr_harm  <- 1.0    # calibrate k_inter to this Cox HR in the harm subgroup
+n_sample        <- 1000L   # M1 sample size
 
-rds_stem     <- "fs-eff_psi_tier1_vs_tier2_m1_h15_n500"   # file stem; batch range appended below
+rds_stem     <- "dina_t1_t2_m1_h10_knoise0_n1000"   # file stem; batch range appended below
+
 sim_id_end   <- sim_id_start + n_sims - 1L
 rds_path     <- sprintf("%s_res_%d_%d.rds", rds_stem, sim_id_start, sim_id_end)  # THIS batch's file
 combine_glob <- sprintf("%s_res_*.rds", rds_stem)   # combine mode: which batch files to merge
 combine_files <- NULL   # optional explicit character vector; NULL -> use combine_glob
+save_combined <- TRUE   # combine mode: ALSO write the pooled bundle to disk
+combined_path <- NULL   # NULL -> auto "<rds_stem>_combined_<min>_<max>.rds" (deliberately
+                        # outside combine_glob, so a re-combine never re-ingests the pool)
 
 # ── Persist results? The Tier-1 bootstrap (B x n_sims, each re-running the
 # engine) is the wall-clock bottleneck; saving the results bundle lets you
@@ -122,7 +136,7 @@ proj_scenarios <- list(
   c(n_sims = 10000L, nb_boots = 500L)
 )
                           # the Tier-2 gate -- see run_tier1 below.
-gate_draws   <- 2000L     # Tier-2 multiplier draws         (keep ~2000)
+gate_draws   <- 5000L     # Tier-2 multiplier draws         (keep ~2000)
 
 save_rds <- identical(run_mode, "batch") && !is.null(rds_path)  # write only when running a batch
 
@@ -197,6 +211,13 @@ confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
 # ── Reproducibility / parallelism ──────────────────────────────────────────
 seed_base  <- 8316951L
 n_workers  <- ceiling(0.90*max(1L, min(parallel::detectCores(logical = FALSE) - 1L)))
+
+stopifnot(parallel_mode %in% c("sims", "boots"))
+inner_parallel <- if (identical(parallel_mode, "boots"))
+  list(plan = "multisession", workers = n_workers) else list(plan = "sequential")
+cat(sprintf("Parallel mode: %s (%s)\n", parallel_mode,
+            if (identical(parallel_mode, "boots")) "replicates sequential, bootstrap parallel"
+            else "replicates parallel, bootstrap sequential"))
 z975       <- qnorm(0.975)
 
 cat(sprintf("Smoke test: method=%s%s, n_sims=%d, nb_boots=%s, gate_draws=%d, workers=%d\n",
@@ -245,8 +266,10 @@ if (identical(run_mode, "batch")) {
 For each simulated trial: identify $\hat H$ and obtain the naive + Tier-2 gate in
 one `forestsearch()` call, run the Tier-1 bootstrap on the *same* fit (inheriting
 `consistency_method = "resample"`), and refit the oracle on the true subgroup.
-Inner `forestsearch()`/bootstrap parallelism is forced sequential because the
-outer loop already parallelises across trials.
+Inner `forestsearch()`/bootstrap parallelism follows `parallel_mode` (@sec-setup):
+in `"sims"` mode it is sequential because the outer loop parallelises across trials;
+in `"boots"` mode the outer loop is sequential and the search + bootstrap parallelise
+across workers within each trial.  Results are identical either way.
 
 ```{r recorder}
 # Cox HR + delta-method 95% CI on a subset (for the per-replicate oracle).
@@ -349,7 +372,7 @@ if (k_random_noise > 0) {
     hr.threshold    = hr_threshold, hr.consistency = hr_consistency,
     pconsistency.threshold = pconsistency, n.min = n_min,
     selection_rule  = selection_rule,   # governs *MaxSG/*MinSG band (search + gate)
-    parallel_args   = list(plan = "sequential"),   # outer loop owns parallelism
+    parallel_args   = inner_parallel,              # parallel_mode: sims->sequential, boots->multisession
     debias_gate     = TRUE,
     debias_gate_args = list(ci_method = "ij", draws = gate_draws,
                             include_complement = TRUE)  # reselection derived from sg_focus
@@ -428,7 +451,7 @@ if (k_random_noise > 0) {
     boot <- tryCatch(
       forestsearch_bootstrap_dofuture(
         fs.est, nb_boots = nb_boots, seed = seed_base + sim_id,
-        parallel_args = list(plan = "sequential")),
+        parallel_args = inner_parallel),
       error = function(e) { t1_err <<- conditionMessage(e); NULL })
     rec$t1_secs <- proc.time()[3] - t1_t0
     rec$t1_err  <- t1_err
@@ -470,21 +493,34 @@ if (run_smoke && identical(run_mode, "batch")) {
   sim_ids <- sim_id_start:(sim_id_start + n_sims - 1L)
   if (isTRUE(diag_mode)) sim_ids <- utils::head(sim_ids, 5L)  # diag cap (not a combinable batch)
 
-  plan("sequential"); gc()
-  plan("multisession", workers = n_workers)
+  if (identical(parallel_mode, "sims")) {
+    # replicates fan out across workers; each replicate's search + bootstrap are sequential
+    plan("sequential"); gc()
+    plan("multisession", workers = n_workers)
 
-  t_all <- proc.time()[3]
-  results <- foreach(
-    s = sim_ids,
-    .combine = rbind, .errorhandling = "remove",
-    .options.future = list(packages = c("forestsearch", "survival", "data.table"),
-                           seed = TRUE)
-  ) %dofuture% {
-    record_replicate(s)
+    t_all <- proc.time()[3]
+    results <- foreach(
+      s = sim_ids,
+      .combine = rbind, .errorhandling = "remove",
+      .options.future = list(packages = c("forestsearch", "survival", "data.table"),
+                             seed = TRUE)
+    ) %dofuture% {
+      record_replicate(s)
+    }
+    elapsed <- proc.time()[3] - t_all
+
+    plan("sequential"); gc()   # release workers between phases
+  } else {
+    # "boots": replicates run sequentially in the main process; the forestsearch
+    # search and the nb_boots bootstrap fan out over n_workers WITHIN each replicate
+    # (via inner_parallel).  No outer pool -> no nested parallelism.
+    plan("sequential"); gc()
+    t_all <- proc.time()[3]
+    results <- do.call(rbind, lapply(sim_ids, function(s)
+      tryCatch(record_replicate(s), error = function(e) NULL)))   # match "remove" semantics
+    elapsed <- proc.time()[3] - t_all
+    plan("sequential"); gc()
   }
-  elapsed <- proc.time()[3] - t_all
-
-  plan("sequential"); gc()   # release workers between phases
 
   cat(sprintf("Batch sim_id %d-%d: %d/%d detections in %.1f s (%.1f s/replicate).\n",
               min(sim_ids), max(sim_ids),
@@ -520,7 +556,7 @@ if (run_smoke && identical(run_mode, "batch")) {
                              nb_boots = nb_boots, gate_draws = gate_draws,
                              subgroup_method = subgroup_method,
                              sim_id_start = sim_id_start, sim_id_end = sim_id_end,
-                             seed_base = seed_base)),
+                             seed_base = seed_base, parallel_mode = parallel_mode)),
             rds_path)
     cat(sprintf("Saved batch bundle (%d rows, sim_id %d-%d) to %s\n",
                 nrow(results), sim_id_start, sim_id_end, rds_path))
@@ -579,6 +615,25 @@ if (run_smoke && identical(run_mode, "batch")) {
   cat(sprintf("Combined %d batch file(s) -> %d rows, sim_id %d-%d (n_sims = %d).\n",
               length(files), nrow(results), rng[1], rng[2], n_sims))
   cat("  files: ", paste(basename(files), collapse = ", "), "\n", sep = "")
+
+  # Persist the pooled bundle so downstream docs load ONE file.  The name is
+  # chosen to fall OUTSIDE combine_glob ("..._res_*"), so a later re-combine never
+  # re-ingests this pooled file alongside the batch pieces.
+  if (isTRUE(save_combined)) {
+    cpath <- combined_path %||%
+      sprintf("%s_combined_%d_%d.rds", rds_stem, rng[1], rng[2])
+    saveRDS(list(results = results, truth = truth,
+                 meta = list(n_sample = n_sample, n_sims = n_sims,
+                             nb_boots = nb_boots, gate_draws = gate_draws,
+                             subgroup_method = subgroup_method,
+                             sim_id_start = rng[1], sim_id_end = rng[2],
+                             seed_base = bundles[[1]]$meta$seed_base %||% NA_integer_,
+                             n_batches = length(files),
+                             source_files = basename(files))),
+            cpath)
+    cat(sprintf("Saved pooled bundle (%d rows, sim_id %d-%d, %d batches) to %s\n",
+                nrow(results), rng[1], rng[2], length(files), cpath))
+  }
 }
 ```
 
@@ -613,11 +668,17 @@ if (run_smoke && !is.null(results)) {
     t1_rep <- if (run_tier1 && is.finite(per_boot)) per_boot * B else 0
     t2_mean + det_rate * t1_rep
   }
-  # Modelled wall-clock respects the INTEGER reps-per-worker ceiling: the busiest
-  # worker handles ceil(ns / n_workers) reps and sets the wall.  The smooth
-  # cpu_sec / n_workers underestimates this whenever ns is not a multiple of
-  # n_workers -- acute at smoke-test scale, where ns can be < n_workers.
-  wall_model <- function(ns, B) ceiling(ns / n_workers) * per_rep_total(B)
+  # Modelled wall-clock, by parallel_mode:
+  #  "sims"  -> replicates fan out, so the busiest worker handles ceil(ns/n_workers)
+  #             reps and sets the wall (the integer ceiling matters at smoke-test
+  #             scale, where ns can be < n_workers).
+  #  "boots" -> replicates run sequentially, so the wall is their sum (ns * per-rep);
+  #             the parallelism is already inside per_rep_total via the measured
+  #             (parallel) bootstrap time.
+  wall_model <- function(ns, B) {
+    if (identical(parallel_mode, "boots")) ns * per_rep_total(B)
+    else ceiling(ns / n_workers) * per_rep_total(B)
+  }
 
   # Calibration: the busiest-worker model still omits load imbalance, per-rep
   # variance, and fixed overhead (pool spin-up, gc, dispatch, DGM build, table
@@ -669,8 +730,8 @@ if (run_smoke && !is.null(results)) {
 
   gt(tab) |>
     tab_header(title = "Wall-clock projection",
-               subtitle = sprintf("Measured on this run \u00b7 %d workers \u00b7 detection %.0f%%%s",
-                                  n_workers, 100 * det_rate,
+               subtitle = sprintf("%s mode \u00b7 %d workers \u00b7 detection %.0f%%%s",
+                                  parallel_mode, n_workers, 100 * det_rate,
                                   if (is.finite(k_cal)) sprintf(" \u00b7 k = %.2f", k_cal) else "")) |>
     cols_label(n_sims = "sims", B = "boots", t2_rep_s = "Tier-2/rep (s)",
                t1_rep_s = "Tier-1/rep (s)", cpu_hours = "CPU-hours",
@@ -679,12 +740,15 @@ if (run_smoke && !is.null(results)) {
     tab_footnote(footnote = md(paste(
       "`wall (actual)` is the **measured** wall-clock for the current run",
       "(\u2014 for projections, and in combine mode, which have no single wall-clock).",
-      "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost, where per-rep cost =",
+      if (identical(parallel_mode, "boots"))
+        "`wall (modeled)` = sims \u00d7 per-rep cost (replicates sequential; the bootstrap parallelizes inside each), where per-rep cost ="
+      else
+        "`wall (modeled)` = ceil(sims / workers) \u00d7 per-rep cost (replicates parallel, bootstrap sequential), where per-rep cost =",
       if (run_tier1)
         "Tier-2/rep + detection \u00d7 Tier-1/rep (Tier-1/rep = per-bootstrap cost \u00d7 boots);"
       else
         "Tier-2/rep (Tier-1 skipped);",
-      "it respects the integer reps-per-worker ceiling but omits load imbalance and fixed overhead.",
+      "It omits load imbalance and fixed overhead.",
       "`wall (calibrated)` = k \u00d7 modeled, with k = measured wall / modeled wall on THIS run,",
       "so the current row reproduces the measured wall and projections carry this run's realized overhead.",
       "`CPU-hours` = sims \u00d7 per-rep cost (total serial work).")))
@@ -1044,4 +1108,3 @@ cat(sprintf("TOTAL wall-clock, start to finish: %s  (= %.0f s; %d reps on %d wor
 
 sessionInfo()
 ```
-
