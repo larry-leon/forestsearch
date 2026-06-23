@@ -88,7 +88,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag     <- "m1_h10_knoise0_s1000" # ← bump this for a fresh, isolated run
+run_tag     <- "m1_h10_knoise5_s1000" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
@@ -115,7 +115,7 @@ analysis_time  <- 84            # administrative censoring (months)
 cens_adjust    <- log(1.5)
 n_super        <- 25000L
 target_hr_harm <- 1.0           # calibrate k_inter to this Cox HR in the harm subgroup
-k_random_noise <- 0             # add k_random_noise standard-normal noise confounders
+k_random_noise <- 5             # add k_random_noise standard-normal noise confounders
 
 # ── Search configuration (León tuning; resample identification) ──────────────
 consistency_method <- "resample"

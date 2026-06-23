@@ -76,19 +76,19 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 500L        # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 1000L        # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
 
 # ── Run controls ─────────────────────────────────────────────────────────────
-run_sweep   <- FALSE                       # FALSE ⇒ skip computation, just (re)build grid + plots
+run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re)build grid + plots
 # run_tag identifies THIS run (DGM cell · sim count · draws · whatever distinguishes it).
 # results_dir AND the grid filename both derive from it, so changing run_tag writes to a new
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag     <- "m1_h20_knoise0_s500" # ← bump this for a fresh, isolated run
+run_tag     <- "m1_h20_knoise0_s1000" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
