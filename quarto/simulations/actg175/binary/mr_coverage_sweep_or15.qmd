@@ -76,7 +76,7 @@ methods_run <- methods                           # e.g. "consistency"
 n_grid_run  <- n_grid                            # e.g. c(500L, 1000L)
 
 # ── Counts (the main knobs for smoke → production) ───────────────────────────
-n_sims    <- 100L      # simulated trials per cell        (prod: 1000 → 20000)
+n_sims    <- 500L      # simulated trials per cell        (prod: 1000 → 20000)
 nb_boots  <- NULL       # FB nonparametric bootstraps; NULL/0 ⇒ MR-only (FB dormant)
 gate_draws <- 5000L     # MR multiplier draws              (keep ~2000–5000)
 diag_mode <- FALSE      # TRUE caps each cell to 5 reps and surfaces forestsearch errors
@@ -88,7 +88,7 @@ run_sweep   <- TRUE                       # FALSE ⇒ skip computation, just (re
 # folder and a new grid with NO pooling of prior runs — the clean way to get a fresh set.
 # The figure fragment (_sim_mr_coverage_or15.qmd) reads the grid by matching this SAME run_tag,
 # so keep the two strings identical. Convention: <dgm>_s<n_sims>_d<gate_draws>.
-run_tag     <- "actg175_or15_s100" # ← bump this for a fresh, isolated run
+run_tag     <- "actg175_or15_s500" # ← bump this for a fresh, isolated run
 results_dir <- file.path("mr_sweep", run_tag)   # per-run folder: bundles + grid live here
 rds_tag     <- "fs_mr"                     # per-cell bundle stem (method + n appended)
 grid_path   <- file.path(results_dir, sprintf("mr_coverage_grid_%s.rds", run_tag))
@@ -648,25 +648,39 @@ length_from_bundle <- function(bundle, estimators = c("oracle", "naive", "MR"),
   df <- do.call(rbind, rows); rownames(df) <- NULL; df
 }
 
-# Bias of an estimate vs a target, on the log-OR scale (mean log(est/target)) and the
-# OR scale (mean(est - target)), each with its Monte-Carlo SE.  ORs are positive, so the
-# log is well-defined; any non-positive/non-finite pair is dropped.  (Column suffix
-# "_or" is the binary analogue of the survival "_hr"; the math is the generic
-# log-ratio bias.)
+# Bias of an estimate vs a target, on the log-OR scale (log(est/target)), the OR
+# scale (est - target), and the relative scale (% over target).  Each scale is
+# summarised TWO ways: the mean (with its Monte-Carlo SE) and the median (with a
+# robust MAD-based SE), so a single extreme replicate -- e.g. an IJ gate blow-up
+# -- distorts neither the median central estimate nor its band.  The figure
+# fragment's bias_agg knob selects which to plot; mean is the default.  ORs are
+# positive, so the log is well-defined; any non-positive/non-finite pair is
+# dropped.  (Column suffix "_or" is the binary analogue of the survival "_hr".)
 .bias_meta <- function(est, target) {
   n <- length(est); target <- rep_len(target, n)
   ok <- is.finite(est) & is.finite(target) & est > 0 & target > 0
   m  <- sum(ok)
   if (m == 0L)
     return(data.frame(bias_log = NA_real_, se_log = NA_real_, bias_or = NA_real_,
-                      se_or = NA_real_, bias_rel = NA_real_, se_rel = NA_real_, n_bias = 0L))
+                      se_or = NA_real_, bias_rel = NA_real_, se_rel = NA_real_,
+                      bias_log_med = NA_real_, se_log_med = NA_real_,
+                      bias_or_med  = NA_real_, se_or_med  = NA_real_,
+                      bias_rel_med = NA_real_, se_rel_med = NA_real_, n_bias = 0L))
   d_log <- log(est[ok]) - log(target[ok])
   d_or  <- est[ok] - target[ok]
   d_rel <- 100 * (est[ok] - target[ok]) / target[ok]   # per-replicate % bias over the target
-  .se <- function(x) if (length(x) > 1L) stats::sd(x) / sqrt(length(x)) else NA_real_
-  data.frame(bias_log = mean(d_log), se_log = .se(d_log),
-             bias_or  = mean(d_or),  se_or  = .se(d_or),
-             bias_rel = mean(d_rel), se_rel = .se(d_rel), n_bias = m)
+  # Mean central + Monte-Carlo SE of the mean.
+  .se     <- function(x) if (length(x) > 1L) stats::sd(x) / sqrt(length(x)) else NA_real_
+  # Median central + robust SE of the median: SE(median) ~ 1.2533 * sigma/sqrt(n),
+  # with mad() supplying an outlier-resistant sigma (already normalised in R).
+  .se_med <- function(x) if (length(x) > 1L) 1.2533 * stats::mad(x) / sqrt(length(x)) else NA_real_
+  data.frame(bias_log = mean(d_log),               se_log = .se(d_log),
+             bias_or  = mean(d_or),                se_or  = .se(d_or),
+             bias_rel = mean(d_rel),               se_rel = .se(d_rel),
+             bias_log_med = stats::median(d_log),  se_log_med = .se_med(d_log),
+             bias_or_med  = stats::median(d_or),   se_or_med  = .se_med(d_or),
+             bias_rel_med = stats::median(d_rel),  se_rel_med = .se_med(d_rel),
+             n_bias = m)
 }
 
 # One bundle -> tidy one-row-per (method, n, block, estimator, target) bias summary.

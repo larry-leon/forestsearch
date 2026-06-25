@@ -18,6 +18,11 @@
     estimator_pick : one or more of "MR","naive","oracle".  >1 overlays them
                      (linetype = estimator) and omits the uncertainty bands.
     bias_scale     : "log" (mean log(theta_hat/target); principled for ORs) or "or".
+    bias_agg       : "mean" (default) or "median".  Median is robust to a single
+                     extreme replicate (e.g. an IJ gate blow-up) that would
+                     otherwise distort the bias panel's central line and band.
+                     Needs a grid built by the updated parent (.bias_meta stores
+                     both); rebuild with run_sweep <- FALSE if switching.
     target_pick / block_pick / band : as before.
 
   Bias (B) is the estimator's bias relative to `target_pick` (the same target the
@@ -33,7 +38,7 @@
 #| warning: false
 library(ggplot2)
 
-run_tag     <- "actg175_or15_s1000" # ← MUST match the sweep doc's run_tag (selects the run)
+run_tag     <- "actg175_or15_s100" # ← MUST match the sweep doc's run_tag (selects the run)
 rds_file    <- sprintf("mr_coverage_grid_%s.rds", run_tag)   # carries run_tag, so runs never collide
 # payload_dir = the folder that HOLDS the grid file = the sweep's results_dir, which is
 #   file.path("mr_sweep", run_tag)  -- it INCLUDES the run_tag subfolder, not just "mr_sweep".
@@ -45,6 +50,7 @@ estimator_pick <- c("MR", "naive")       # one or more of "MR","naive","oracle" 
 block_pick     <- "H"                    # "H" (harm) | "Hc" (complement)
 band           <- "wilson"               # "wilson" | "mc_se" | "none"  (single estimator only)
 bias_scale     <- "rel"                   # "or" (OR-scale) | "rel" (% over target) | "log" (log-OR)
+bias_agg       <- "mean"                  # "mean" (default) | "median" (robust to outlier replicates)
 layout         <- "grid2x2"              # "separate" | "cov_det" | "grid2x2"
 
 # Combined layouts need patchwork; fall back to "separate" if it isn't installed.
@@ -75,8 +81,9 @@ have_grid <- file.exists(.rds_path)
 .lab_blk   <- if (block_pick == "H") "harm subgroup \u0124" else "complement \u0124\u1d9c"
 .scale_phrase <- switch(bias_scale, log = "on the log-OR scale",
                          rel = "as a percentage of the target", or = "on the OR scale")
-.bias_ylab <- switch(bias_scale, log = "Bias (log OR)",
-                      rel = "Relative bias (%)", or = "Bias (OR)")
+.agg_cap   <- if (identical(bias_agg, "median")) "Median" else "Mean"
+.bias_ylab <- switch(bias_scale, log = paste(.agg_cap, "bias (log OR)"),
+                      rel = paste(.agg_cap, "relative bias (%)"), or = paste(.agg_cap, "bias (OR)"))
 est_txt    <- paste(estimator_pick, collapse = " & ")
 band_txt   <- (if (multi_est) "Uncertainty bands omitted for legibility (select a single estimator to show them)."
                else if (band == "wilson") "Shaded bands are Wilson 95% intervals on each rate."
@@ -121,15 +128,31 @@ if (have_grid) {
   } else NULL
 
   bias <- G$bias
+  # Median aggregation needs the *_med columns, which only exist in grids built
+  # by a parent with the updated .bias_meta().  If they're absent (an older
+  # grid), fall back to mean rather than erroring.
+  if (identical(bias_agg, "median") && !is.null(bias) &&
+      !("bias_rel_med" %in% names(bias))) {
+    warning("bias_agg = 'median' but the grid lacks median bias columns; ",
+            "rebuild the sweep grid (run_sweep <- FALSE) with the updated parent. ",
+            "Falling back to mean.")
+    bias_agg <- "mean"
+    .agg_cap <- "Mean"
+    .bias_ylab <- switch(bias_scale, log = "Mean bias (log OR)",
+                         rel = "Mean relative bias (%)", or = "Mean bias (OR)")
+  }
   if (!is.null(bias)) {
     sl_bias <- bias[bias$target == target_pick & bias$estimator %in% estimator_pick &
                     bias$block == block_pick, , drop = FALSE]
     sl_bias <- sl_bias[order(sl_bias$subgroup_method, sl_bias$estimator, sl_bias$n_sample), ]
+    .band_note <- if (multi_est) "" else if (identical(bias_agg, "median"))
+      " (band: robust MAD-based interval for the median bias)" else
+      " (band: 95% Monte-Carlo interval for the mean bias)"
     bias_sentence <- sprintf(paste0(
-      "Bias of the %s estimator%s relative to the %s, %s, on the %s, vs n; the dashed line at ",
+      "%s bias of the %s estimator%s relative to the %s, %s, on the %s, vs n; the dashed line at ",
       "0 marks no bias%s."),
-      est_txt, .est_lt, .lab_tgt, .scale_phrase, .lab_blk,
-      if (multi_est) "" else " (band: 95% Monte-Carlo interval for the mean bias)")
+      tolower(.agg_cap), est_txt, .est_lt, .lab_tgt, .scale_phrase, .lab_blk, .band_note)
+    substr(bias_sentence, 1, 1) <- toupper(substr(bias_sentence, 1, 1))
   } else {
     sl_bias <- NULL
     bias_sentence <- paste0("Bias panel pending: the loaded grid predates bias storage; rebuild it ",
@@ -202,8 +225,11 @@ if (have_grid) {
     }
   }
   .p_bias <- function() {
-    yv <- switch(bias_scale, log = "bias_log", rel = "bias_rel", or = "bias_or")
-    se <- switch(bias_scale, log = "se_log",  rel = "se_rel",  or = "se_or")
+    suff <- if (identical(bias_agg, "median")) "_med" else ""
+    yv <- switch(bias_scale, log = paste0("bias_log", suff),
+                 rel = paste0("bias_rel", suff), or = paste0("bias_or", suff))
+    se <- switch(bias_scale, log = paste0("se_log", suff),
+                 rel = paste0("se_rel", suff),  or = paste0("se_or", suff))
     if (multi_est) {
       ggplot(sl_bias, aes(n_sample, .data[[yv]], colour = subgroup_method, linetype = estimator,
                           group = interaction(subgroup_method, estimator))) +
