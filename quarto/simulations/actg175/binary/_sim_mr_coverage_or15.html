@@ -70,6 +70,11 @@ ul.task-list li input[type="checkbox"] {
     estimator_pick : one or more of "MR","naive","oracle".  >1 overlays them
                      (linetype = estimator) and omits the uncertainty bands.
     bias_scale     : "log" (mean log(theta_hat/target); principled for ORs) or "or".
+    bias_agg       : "mean" (default) or "median".  Median is robust to a single
+                     extreme replicate (e.g. an IJ gate blow-up) that would
+                     otherwise distort the bias panel's central line and band.
+                     Needs a grid built by the updated parent (.bias_meta stores
+                     both); rebuild with run_sweep <- FALSE if switching.
     target_pick / block_pick / band : as before.
 
   Bias (B) is the estimator's bias relative to `target_pick` (the same target the
@@ -89,7 +94,7 @@ ul.task-list li input[type="checkbox"] {
 <img src="_sim_mr_coverage_or15_files/figure-html/fig-mr-coverage-1.png" class="img-fluid figure-img" width="960">
 </div>
 <figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mr-coverage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Figure&nbsp;1: (A) Subgroup-detection rate vs n by detector (the same for all estimators; ACTG175 binary design; 100 simulations per cell). (B) Bias of the MR &amp; naive estimator (line type) relative to the marginal subgroup odds ratio (C†), as a percentage of the target, on the harm subgroup Ĥ, vs n; the dashed line at 0 marks no bias. (C) Empirical 95% CI coverage of the marginal subgroup odds ratio (C†) for the MR &amp; naive estimator (line type), on the harm subgroup Ĥ, vs per-trial sample size n (ACTG175 binary design; 100 simulations per cell, 5,000 MR draws; detectors: consistency, dina, grf). Dashed line = 0.95 nominal. Uncertainty bands omitted for legibility (select a single estimator to show them). All rates conditional on identifying a subgroup. (D) Median 95% CI width for the MR &amp; naive estimator (line type) on the harm subgroup Ĥ, vs n (OR scale).
+Figure&nbsp;1: (A) Subgroup-detection rate vs n by detector (the same for all estimators; ACTG175 binary design; 500 simulations per cell). (B) Median bias of the MR &amp; naive estimator (line type) relative to the marginal subgroup odds ratio (C†), as a percentage of the target, on the harm subgroup Ĥ, vs n; the dashed line at 0 marks no bias. (C) Empirical 95% CI coverage of the marginal subgroup odds ratio (C†) for the MR &amp; naive estimator (line type), on the harm subgroup Ĥ, vs per-trial sample size n (ACTG175 binary design; 500 simulations per cell, 5,000 MR draws; detectors: consistency, dina, grf). Dashed line = 0.95 nominal. Uncertainty bands omitted for legibility (select a single estimator to show them). All rates conditional on identifying a subgroup. (D) Median 95% CI width for the MR &amp; naive estimator (line type) on the harm subgroup Ĥ, vs n (OR scale).
 </figcaption>
 </figure>
 </div>

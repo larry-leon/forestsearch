@@ -38,7 +38,7 @@
 #| warning: false
 library(ggplot2)
 
-run_tag     <- "actg175_or15_s100" # ← MUST match the sweep doc's run_tag (selects the run)
+run_tag     <- "actg175_or15_s500" # ← MUST match the sweep doc's run_tag (selects the run)
 rds_file    <- sprintf("mr_coverage_grid_%s.rds", run_tag)   # carries run_tag, so runs never collide
 # payload_dir = the folder that HOLDS the grid file = the sweep's results_dir, which is
 #   file.path("mr_sweep", run_tag)  -- it INCLUDES the run_tag subfolder, not just "mr_sweep".
@@ -50,7 +50,7 @@ estimator_pick <- c("MR", "naive")       # one or more of "MR","naive","oracle" 
 block_pick     <- "H"                    # "H" (harm) | "Hc" (complement)
 band           <- "wilson"               # "wilson" | "mc_se" | "none"  (single estimator only)
 bias_scale     <- "rel"                   # "or" (OR-scale) | "rel" (% over target) | "log" (log-OR)
-bias_agg       <- "mean"                  # "mean" (default) | "median" (robust to outlier replicates)
+bias_agg       <- "median"                  # "mean" (default) | "median" (robust to outlier replicates)
 layout         <- "grid2x2"              # "separate" | "cov_det" | "grid2x2"
 
 # Combined layouts need patchwork; fall back to "separate" if it isn't installed.
