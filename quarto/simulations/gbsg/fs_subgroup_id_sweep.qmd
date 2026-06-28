@@ -1,0 +1,389 @@
+---
+title: "ForestSearch Subgroup-Identification Sweep"
+subtitle: "Refit-free named-subgroup recovery across simulation replicates (no bootstrap)"
+author: "León & Anderson"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: show
+    code-tools: true
+    df-print: paged
+    embed-resources: true
+execute:
+  warning: false
+  message: false
+---
+
+## What this template does
+
+For each simulation replicate it (1) re-creates the *exact* simulated dataset
+from the deterministic seed `seed_base + sim_id`, (2) runs `forestsearch()` once
+to **identify** the harm subgroup, and (3) reads the **named** subgroup directly
+from `fs$sg.harm` (a character vector of cut expressions such as
+`{er <= 10}` / `!{meno}`).
+
+It deliberately **does not** run the Tier-1 nonparametric bootstrap
+(`fs_bootstrap()`) and turns the Tier-2 de-biased gate **off**
+(`debias_gate = FALSE`). The gate does not change `sg.harm` (verified), and the
+identification question here is independent of the bootstrap — so this is the
+fast path. The expensive bootstrap can be re-enabled in a separate analysis when
+post-selection inference is needed.
+
+Because `sg.harm` is already named, there is **no q-label decoding** anywhere in
+this template, which removes the per-replicate candidate-grid jitter that makes
+decoding aggregated q-labels unreliable.
+
+The aggregation reports, across all detections: per-covariate involvement, the
+top named subgroups, a structure breakdown (true partner vs. proxy substitution
+vs. other), and classification accuracy (sensitivity / specificity / PPV / NPV)
+against the planted `flag_harm`.
+
+------------------------------------------------------------------------
+
+## Configuration (knobs) {#sec-config}
+
+Everything tunable lives here. To reuse this template for another simulation,
+edit this block only.
+
+```{r config}
+# ── DGM (German Breast Cancer Study Group AFT generator) ────────────────────
+dgm_model       <- "alt"        # DGM variant passed to setup_gbsg_dgm()
+target_hr_harm  <- 1.5          # Cox HR calibrated inside the harm subgroup
+n_super         <- 25000L       # super-population size for the DGM
+seed_base       <- 8316951L     # master seed: replicate i uses seed_base + i
+analysis_time   <- 84           # administrative censoring (months)
+cens_adjust     <- log(1.5)     # censoring-rate adjustment
+n_sample        <- 1000L        # per-replicate trial size (set 500L for the n=500 sweep)
+
+# ── Sweep ───────────────────────────────────────────────────────────────────
+sim_ids   <- 1:500              # replicates to run. Use e.g. 1:20 for a smoke test.
+n_workers <- round(0.8*max(1L, parallel::detectCores(logical = FALSE) - 1L))  # set 1L for sequential
+
+# ── Column names emitted by simulate_from_dgm() ─────────────────────────────
+outcome_name <- "y_sim"
+event_name   <- "event_sim"
+treat_name   <- "treat_sim"
+id_name      <- "id"
+harm_col     <- "flag_harm"     # planted true-membership indicator (0/1)
+
+# Raw covariate candidates forestsearch is allowed to cut on (forestsearch
+# discovers its own cuts). Continuous -> er, age, pgr, nodes, size;
+# categorical -> meno (0/1), grade (1/2/3).
+confounders_base <- c("er", "age", "meno", "pgr", "nodes", "size", "grade")
+
+# ── forestsearch identification spec (the reusable engine knobs) ────────────
+# Only TUNABLE forestsearch args go here; data/name/run-flag args are bound
+# per replicate in record_replicate().  do.call() merges the two.
+fs_params <- list(
+  subgroup_method        = "consistency",   # "consistency" | "dina" | "grf"
+  consistency_method     = "resample",      # closed-form resample identification
+  sg_focus               = "eff",           # selection focus once consistency passes
+  selection_rule         = "neighborhood",  # *MaxSG/*MinSG band rule (inert for "eff")
+  hr.threshold           = 0.90,
+  hr.consistency         = 0.80,
+  pconsistency.threshold = 0.90,
+  n.min                  = NULL,            # minimum subgroup size (NULL = engine default)
+  maxk                   = 2L,              # max factors in a subgroup definition
+  d0.min                 = 10L,
+  d1.min                 = 0L,
+  use_lasso              = FALSE,
+  use_grf                = FALSE,
+  use_twostage           = TRUE,
+  use_dina               = FALSE,
+  # Forced candidate cuts: always available regardless of screening.
+  conf_force             = c("meno == 0", "er <= 0", "pgr <= 0"),
+  # Per-variable J-quantile grids (er only; everything else gets default cuts).
+  conf.cont_jcuts        = list(er = 10),
+  fs.splits              = 400L             # moot under "resample"
+)
+
+# ── Truth structure (for the recovery / substitution breakdown) ─────────────
+# Edit these three to match the planted subgroup of whatever DGM you run.
+truth_anchor  <- "er"     # factor FS should reliably recover (here z1 analog)
+truth_partner <- "meno"   # true second factor in H               (here z3 analog)
+truth_proxy   <- "age"    # known correlate of the partner FS may substitute
+
+# ── Output / caching ────────────────────────────────────────────────────────
+top_n_subgroups <- 15L                              # rows in the top-subgroups table
+cache_dir       <- "."                              # where to cache the DGM + results
+use_dgm_cache   <- TRUE                             # reuse a built DGM across runs
+results_rds     <- sprintf("fs_idsweep_%s_n%d_%s.rds",
+                           dgm_model, n_sample,
+                           format(Sys.Date(), "%Y%m%d"))
+```
+
+------------------------------------------------------------------------
+
+## Setup {#sec-setup}
+
+```{r setup}
+# forestsearch must be INSTALLED (devtools::install()), NOT load_all(): parallel
+# workers need the installed package on the library path.
+library(forestsearch)
+library(survival)
+library(data.table)
+library(gt)
+library(foreach)
+library(doFuture)
+library(future)
+
+# Parallel plan: replicates fan out here; forestsearch runs sequentially inside
+# each worker (parallel_args = list(plan = "sequential") in record_replicate),
+# so there is no nested parallelism.
+if (n_workers > 1L) plan(multisession, workers = n_workers) else plan(sequential)
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+# Covariate name from a named cut expression: "{er <= 10}" -> "er", "!{meno}" -> "meno".
+parse_covs <- function(sg) {
+  if (is.null(sg) || !length(sg)) return(character(0))
+  x <- gsub("^!?\\{|\\}$", "", trimws(sg))            # strip leading !{ or { and trailing }
+  x <- sub("\\s*(<=|>=|==|!=|<|>).*$", "", x)          # drop operator + threshold
+  sort(unique(trimws(x)))
+}
+
+# Classification accuracy of identified membership vs. the planted truth.
+classify_acc <- function(pred, truth) {
+  pred <- as.integer(pred); truth <- as.integer(truth)
+  ok <- !is.na(pred) & !is.na(truth); pred <- pred[ok]; truth <- truth[ok]
+  tp <- sum(pred == 1 & truth == 1); fp <- sum(pred == 1 & truth == 0)
+  fn <- sum(pred == 0 & truth == 1); tn <- sum(pred == 0 & truth == 0)
+  c(sens = if ((tp + fn) > 0) tp / (tp + fn) else NA_real_,
+    spec = if ((tn + fp) > 0) tn / (tn + fp) else NA_real_,
+    ppv  = if ((tp + fp) > 0) tp / (tp + fp) else NA_real_,
+    npv  = if ((tn + fn) > 0) tn / (tn + fn) else NA_real_)
+}
+
+# Structure label for a detected subgroup, relative to the planted truth.
+classify_structure <- function(covs, anchor, partner, proxy) {
+  if (!(anchor %in% covs)) return(sprintf("anchor missed (no %s)", anchor))
+  if (length(setdiff(covs, anchor)) == 0L) return(sprintf("%s only", anchor))
+  if (partner %in% covs) return(sprintf("%s + %s (true partner)", anchor, partner))
+  if (proxy   %in% covs) return(sprintf("%s + %s (proxy partner)", anchor, proxy))
+  sprintf("%s + other", anchor)
+}
+
+# One replicate: re-simulate -> identify -> read named subgroup -> classify.
+record_replicate <- function(sim_id) {
+  na_rec <- data.frame(
+    sim_id = sim_id, detected = 0L, k = NA_integer_, sg = NA_character_, covs = NA_character_,
+    sens = NA_real_, spec = NA_real_, ppv = NA_real_, npv = NA_real_,
+    n_harm = NA_integer_, n_true = NA_integer_, stringsAsFactors = FALSE)
+
+  df <- tryCatch(
+    simulate_from_dgm(dgm, n = n_sample, analysis_time = analysis_time,
+                      cens_adjust = cens_adjust, seed = seed_base + sim_id),
+    error = function(e) NULL)
+  if (is.null(df)) return(na_rec)
+  df[[id_name]] <- seq_len(nrow(df))
+  na_rec$n_true <- sum(df[[harm_col]] == 1L, na.rm = TRUE)
+  confs <- intersect(confounders_base, names(df))
+
+  fixed_args <- list(
+    df.analysis = df, outcome.name = outcome_name, event.name = event_name,
+    treat.name = treat_name, id.name = id_name, flag_harm.name = harm_col,
+    confounders.name = confs, is.RCT = TRUE, seedit = seed_base + sim_id, quiet = TRUE,
+    parallel_args = list(plan = "sequential"),   # no nesting; replicates parallel outside
+    debias_gate   = FALSE)                        # gate does not change sg.harm; off = faster
+
+  fs <- tryCatch(do.call(forestsearch, c(fixed_args, fs_params)),
+                 error = function(e) NULL)
+  if (is.null(fs) || is.null(fs$sg.harm)) return(na_rec)   # no detection
+
+  covs <- parse_covs(fs$sg.harm)
+  cl   <- classify_acc(fs$grp.consistency$sg.harm.id, df[[harm_col]])
+  na_rec$detected <- 1L
+  na_rec$k        <- length(fs$sg.harm)
+  na_rec$sg       <- paste(fs$sg.harm, collapse = " & ")
+  na_rec$covs     <- paste(covs, collapse = "+")
+  na_rec$sens <- cl["sens"]; na_rec$spec <- cl["spec"]
+  na_rec$ppv  <- cl["ppv"];  na_rec$npv  <- cl["npv"]
+  na_rec$n_harm <- sum(fs$grp.consistency$sg.harm.id == 1L, na.rm = TRUE)
+  na_rec
+}
+```
+
+------------------------------------------------------------------------
+
+## Build the data-generating mechanism {#sec-dgm}
+
+Built once and cached. The candidate grid depends only on the covariate
+distributions, but the *outcome* depends on `k_inter`, so the same calibration
+is used to reproduce the exact simulated data.
+
+```{r build-dgm}
+dgm_cache <- file.path(
+  cache_dir, sprintf("dgm_%s_hr%.2f_nsuper%d_seed%d.rds",
+                     dgm_model, target_hr_harm, n_super, seed_base))
+
+if (use_dgm_cache && file.exists(dgm_cache)) {
+  dgm <- readRDS(dgm_cache)
+  message("Loaded cached DGM: ", dgm_cache)
+} else {
+  k_inter <- calibrate_k_inter(target_hr_harm = target_hr_harm,
+                               model = dgm_model, use_ahr = FALSE)
+  dgm <- setup_gbsg_dgm(model = dgm_model, k_inter = k_inter,
+                        n_super = n_super, seed = seed_base)
+  if (use_dgm_cache) saveRDS(dgm, dgm_cache)
+  message(sprintf("Built DGM (k_inter = %.4f); cached to %s", k_inter, dgm_cache))
+}
+```
+
+------------------------------------------------------------------------
+
+## Run the sweep {#sec-sweep}
+
+```{r sweep}
+t0 <- proc.time()[["elapsed"]]
+
+records <- foreach(sim_id = sim_ids,
+                   .options.future = list(seed = TRUE)) %dofuture% {
+  record_replicate(sim_id)
+}
+results <- do.call(rbind, records)
+
+elapsed <- proc.time()[["elapsed"]] - t0
+saveRDS(results, file.path(cache_dir, results_rds))
+
+cat(sprintf("Ran %d replicates in %.1f s (%.2f s/replicate, %d workers).\n",
+            nrow(results), elapsed, elapsed / nrow(results), n_workers))
+cat(sprintf("Detections: %d / %d (%.1f%%). Saved per-replicate records to %s\n",
+            sum(results$detected), nrow(results),
+            100 * mean(results$detected), file.path(cache_dir, results_rds)))
+```
+
+------------------------------------------------------------------------
+
+## Results {#sec-results}
+
+```{r results-prep}
+det   <- results[results$detected == 1L, , drop = FALSE]
+n_det <- nrow(det)
+stopifnot(n_det > 0L)
+covs_list      <- strsplit(det$covs, "+", fixed = TRUE)
+det$structure  <- vapply(covs_list, classify_structure, character(1),
+                         anchor = truth_anchor, partner = truth_partner, proxy = truth_proxy)
+```
+
+### Headline
+
+```{r results-headline}
+true_recovery  <- mean(vapply(covs_list, function(z)
+                  all(c(truth_anchor, truth_partner) %in% z), logical(1)))
+proxy_sub      <- mean(vapply(covs_list, function(z)
+                  truth_anchor %in% z && truth_proxy %in% z && !(truth_partner %in% z), logical(1)))
+anchor_recall  <- mean(vapply(covs_list, function(z) truth_anchor %in% z, logical(1)))
+
+data.frame(
+  quantity = c("Detection rate (all replicates)",
+               sprintf("Anchor recall: %s present | detected", truth_anchor),
+               sprintf("True-subgroup recovery: %s & %s | detected", truth_anchor, truth_partner),
+               sprintf("Proxy substitution: %s & %s (no %s) | detected",
+                       truth_anchor, truth_proxy, truth_partner)),
+  value = sprintf("%.1f%%", 100 * c(mean(results$detected), anchor_recall,
+                                    true_recovery, proxy_sub))
+) |>
+  gt() |>
+  tab_header(title = "Identification headline") |>
+  cols_label(quantity = "", value = "")
+```
+
+### Per-covariate involvement
+
+```{r results-involvement}
+inv <- data.frame(
+  covariate   = confounders_base,
+  involvement = vapply(confounders_base,
+                       function(cv) mean(vapply(covs_list, function(z) cv %in% z, logical(1))),
+                       numeric(1)),
+  row.names = NULL)
+inv <- inv[order(-inv$involvement), ]
+
+gt(inv) |>
+  fmt_percent(columns = involvement, decimals = 1) |>
+  cols_label(covariate = "Covariate", involvement = "% of detections") |>
+  tab_header(title = "Per-covariate involvement in identified subgroups",
+             subtitle = sprintf("Among %d detections", n_det))
+```
+
+### Structure breakdown
+
+How often the true partner is recovered vs. a proxy is substituted vs. some
+other factor is chosen.
+
+```{r results-structure}
+sf <- as.data.frame(table(det$structure), stringsAsFactors = FALSE)
+names(sf) <- c("structure", "n")
+sf <- sf[order(-sf$n), ]
+sf$pct <- sf$n / n_det
+
+gt(sf) |>
+  fmt_percent(columns = pct, decimals = 1) |>
+  cols_label(structure = "Subgroup structure", n = "N", pct = "%") |>
+  tab_header(title = "Identified-subgroup structure",
+             subtitle = sprintf("Anchor = %s, true partner = %s, proxy = %s",
+                                truth_anchor, truth_partner, truth_proxy))
+```
+
+### Most frequent named subgroups
+
+```{r results-topsg}
+sg <- as.data.frame(table(det$sg), stringsAsFactors = FALSE)
+names(sg) <- c("subgroup", "n")
+sg <- sg[order(-sg$n), ]
+sg$pct <- sg$n / n_det
+
+gt(utils::head(sg, top_n_subgroups)) |>
+  fmt_percent(columns = pct, decimals = 1) |>
+  cols_label(subgroup = "Identified subgroup (named)", n = "N", pct = "%") |>
+  tab_header(title = sprintf("Top %d identified subgroups", top_n_subgroups))
+```
+
+### Classification accuracy
+
+Membership of the identified subgroup vs. the planted `flag_harm`. NPV is
+reported alongside sensitivity, specificity, and PPV.
+
+```{r results-classification}
+data.frame(
+  metric = c("Sensitivity", "Specificity", "PPV", "NPV"),
+  mean   = c(mean(det$sens, na.rm = TRUE), mean(det$spec, na.rm = TRUE),
+             mean(det$ppv,  na.rm = TRUE), mean(det$npv,  na.rm = TRUE)),
+  median = c(median(det$sens, na.rm = TRUE), median(det$spec, na.rm = TRUE),
+             median(det$ppv,  na.rm = TRUE), median(det$npv,  na.rm = TRUE))
+) |>
+  gt() |>
+  fmt_number(columns = c(mean, median), decimals = 3) |>
+  cols_label(metric = "Metric", mean = "Mean", median = "Median") |>
+  tab_header(title = "Classification accuracy of identified subgroups",
+             subtitle = sprintf("Among %d detections", n_det))
+```
+
+### Sample of identified subgroups
+
+```{r results-sample}
+utils::head(det[, c("sim_id", "k", "sg", "structure",
+                    "sens", "spec", "ppv", "npv", "n_harm", "n_true")], 12)
+```
+
+------------------------------------------------------------------------
+
+## Notes for reuse
+
+- **Other sample sizes** — set `n_sample <- 500L` and re-run; the DGM cache is
+  shared (the super-population is independent of `n_sample`).
+- **Other DGMs / planted subgroups** — edit `dgm_model`, `target_hr_harm`,
+  `confounders_base`, `conf_force`, `conf.cont_jcuts`, and the
+  `truth_anchor / truth_partner / truth_proxy` triple so the structure breakdown
+  matches the new planted subgroup.
+- **Other identifiers** — switch `fs_params$subgroup_method` to `"dina"` or
+  `"grf"` and supply that engine's method-specific args; everything downstream
+  reads `fs$sg.harm`, which is populated for all three engines.
+- **Smoke test** — set `sim_ids <- 1:20` and `n_workers <- 1L` to validate end
+  to end in well under a minute before launching the full sweep.
+- **Post-selection inference** — intentionally out of scope here. Re-enable
+  `debias_gate = TRUE` and call `fs_bootstrap()` in a separate analysis when CIs
+  are needed; this template is identification-only.
